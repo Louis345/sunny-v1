@@ -238,6 +238,68 @@ describe("canonical learning cycle repository", () => {
     expect(first.adventureBoard.nodes.find((node) => node.id === "boss")?.label).toBe("Boss");
   });
 
+  it("preserves the AI-authored board presentation while canonical state unlocks Quest", () => {
+    const rootDir = root();
+    const created = createLearningCycle(input(), { rootDir });
+    const questGenerating = transitionLearningCycle("reina", "hw-math-cycle", created.revision, {
+      type: "baseline_completed",
+      nodeId: "baseline-facts",
+      academicEvidence: [{ evidenceId: "attempt:1", summary: "Practice complete", accuracy: 0.8 }],
+      engagementEvidence: [],
+      companionObservations: [],
+      decision: { status: "supported", reason: "Test transfer.", nextAction: "Generate Quest." },
+    }, { rootDir });
+    const questReady = transitionLearningCycle("reina", "hw-math-cycle", questGenerating.revision, {
+      type: "artifact_bound",
+      nodeId: "quest",
+      artifact: {
+        contentId: "content:quest:1",
+        artifactId: "artifact:quest:1",
+        localArtifactPath: "/games/quest.html",
+        localArtworkPath: "/generated/quest-ready.png",
+        contractFingerprint: "quest-contract-1",
+        validationStatus: "passed",
+      },
+    }, { rootDir });
+    const canonical = projectLearningCycle(questReady);
+    const authoredPlan = {
+      ...canonical.activeSessionPlan,
+      planId: "ai-authored-board",
+      adventureBoard: {
+        ...canonical.adventureBoard,
+        title: "The Clockwork Sky Harbor",
+        theme: {
+          ...canonical.adventureBoard.theme,
+          background: { type: "image" as const, value: "/generated/sky-harbor.jpeg" },
+        },
+        nodes: canonical.adventureBoard.nodes.map((node) =>
+          node.id === "quest"
+            ? { ...node, position: { x: 0.82, y: 0.48 }, state: "locked" as const, action: { type: "show-locked-reason" as const, payloadId: "quest" } }
+            : node,
+        ),
+        edges: canonical.adventureBoard.edges.map((edge) => ({
+          ...edge,
+          id: `authored-${edge.id}`,
+        })),
+      },
+    };
+
+    const projected = projectLearningCycle(questReady, { presentationPlan: authoredPlan });
+
+    expect(projected.activeSessionPlan.planId).toBe("ai-authored-board:cycle-r3");
+    expect(projected.adventureBoard.title).toBe("The Clockwork Sky Harbor");
+    expect(projected.adventureBoard.theme.background).toEqual({ type: "image", value: "/generated/sky-harbor.jpeg" });
+    expect(projected.adventureBoard.nodes.find((node) => node.id === "quest")).toMatchObject({
+      state: "available",
+      position: { x: 0.82, y: 0.48 },
+      thumbnailUrl: "/generated/quest-ready.png",
+      action: { type: "launch-activity", payloadId: "quest" },
+    });
+    expect(projected.adventureBoard.edges).toHaveLength(authoredPlan.adventureBoard.edges.length);
+    expect(projected.adventureBoard.edges.map((edge) => edge.id))
+      .toEqual(authoredPlan.adventureBoard.edges.map((edge) => edge.id));
+  });
+
   it("projects completed canonical nodes as replayable completed board nodes", () => {
     const rootDir = root();
     const cycle = createLearningCycle(input(), { rootDir });
@@ -472,6 +534,44 @@ describe("canonical learning cycle repository", () => {
     ]);
   });
 
+  it("keeps the canonical cycle visible when an AI-authored direct presentation exists", () => {
+    const rootDir = root();
+    writeJson(path.join(rootDir, "children.config.json"), {
+      defaultCompanionId: "elli",
+      childCompanionIds: { reina: "elli" },
+      childProfiles: {},
+      companions: {
+        elli: {
+          name: "Elli",
+          vrmUrl: "/companions/sample.vrm",
+          expressions: {},
+          faceCamera: { position: [0, 1.4, 0.8], target: [0, 1.4, 0] },
+          dopamineGames: [],
+        },
+      },
+    });
+    writeJson(path.join(rootDir, "src/context/reina/learning_profile.json"), minimalProfile());
+    const cycle = createLearningCycle(input(), { rootDir });
+    const canonicalPlan = projectLearningCycle(cycle).activeSessionPlan;
+    writeJson(path.join(rootDir, "src/context/reina/homework/direct_experience_plan.json"), {
+      homeworkId: "hw-math-cycle",
+      activeSessionPlan: {
+        ...canonicalPlan,
+        planId: "ai-authored-board",
+        adventureBoard: {
+          ...canonicalPlan.adventureBoard,
+          title: "The Clockwork Sky Harbor",
+        },
+      },
+    });
+
+    const chart = getChildChart("reina", { rootDir });
+
+    expect(chart.learningCycle?.homeworkId).toBe("hw-math-cycle");
+    expect(chart.activeSessionPlan?.planId).toBe("ai-authored-board:cycle-r1");
+    expect(chart.activeSessionPlan?.adventureBoard?.title).toBe("The Clockwork Sky Harbor");
+  });
+
   it("reconciles re-ingestion without erasing accumulated evidence", () => {
     const rootDir = root();
     const created = createLearningCycle(input(), { rootDir });
@@ -503,7 +603,7 @@ describe("canonical learning cycle repository", () => {
     expect(reconciled.nodes.find((node) => node.role === "boss")?.state).toBe("locked");
   });
 
-  it("rejects changing a preregistered prediction after real observations exist", () => {
+  it("preserves a preregistered prediction during re-ingestion after real observations exist", () => {
     const rootDir = root();
     const initial = input();
     const prediction = {
@@ -532,7 +632,7 @@ describe("canonical learning cycle repository", () => {
     const file = path.join(rootDir, "src/context/reina/homework/cycles/hw-math-cycle.json");
     fs.writeFileSync(file, JSON.stringify(withObservation, null, 2), "utf8");
 
-    expect(() => transitionLearningCycle("reina", "hw-math-cycle", cycle.revision, {
+    const reconciled = transitionLearningCycle("reina", "hw-math-cycle", cycle.revision, {
       type: "plan_reconciled",
       assignment: initial.assignment,
       academicTheory: initial.academicTheory,
@@ -540,6 +640,8 @@ describe("canonical learning cycle repository", () => {
       nodes: initial.nodes,
       academicPredictions: [{ ...prediction, expectedMetric: { ...prediction.expectedMetric, min: 0.9 } }],
       reason: "Attempted retrospective rewrite.",
-    }, { rootDir })).toThrow("learning_cycle_prediction_immutable:prediction:equal-groups");
+    }, { rootDir });
+
+    expect(reconciled.academicPredictions).toEqual([prediction]);
   });
 });

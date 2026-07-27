@@ -9,6 +9,7 @@ import type { ActiveSessionPlan } from "../context/schemas/learningProfile";
 import type { AdventureBoardJson } from "../shared/adventureBoardJson";
 import { NODE_REGISTRY } from "../shared/nodeRegistry";
 import { listActivityToolContracts } from "./activityToolCatalog";
+import { engagementTheoryEvidenceContext } from "./engagementTheory";
 import {
   createLearningCycle,
   getLearningCycle,
@@ -82,6 +83,22 @@ const schemaItemResponse = { oneOf: [
 /** Structural transport contract only. It deliberately leaves counts, mechanics, themes, and content to the Planner. */
 const directMathPlannerProperties = {
   planId: schemaString, contentScopeRationale: schemaString, academicTheory: schemaString, profileEvidence: schemaStrings,
+  /**
+   * The concept the assignment is probing, stated separately from the assignment
+   * itself. Without a first-class slot the Planner had nowhere to put the idea,
+   * so `academicTarget` absorbed the worksheet's framing and every constructId
+   * ended up carrying its numbers (`...fact_retrieval.x2x5x10`). `conceptId` is
+   * the stable identity that must survive across assignments; `instanceScope`
+   * holds what this particular sheet happens to instantiate.
+   */
+  concept: schemaObject({
+    conceptId: schemaString,
+    name: schemaString,
+    statement: schemaString,
+    instanceScope: schemaString,
+    prerequisites: schemaStrings,
+    assumptions: schemaStrings,
+  }),
   learningResponsibilities: { type: "array", minItems: 1, items: schemaObject({ id: schemaString, title: schemaString, purpose: schemaString, academicTarget: schemaString }) },
   boardWorld: schemaObject({ title: schemaString, narrative: schemaString, backgroundPrompt: schemaString }),
   fork: schemaObject({ question: schemaString, hypothesis: schemaString, heldConstant: schemaStrings, routes: { type: "array", minItems: 2, maxItems: 2, items: schemaObject({ id: schemaString, label: schemaString, promise: schemaString, engagementVariable: schemaString, nodeIds: schemaStrings }) } }),
@@ -99,10 +116,23 @@ export const DIRECT_MATH_PLANNER_TOOL_SCHEMA = schemaObject(
   Object.keys(directMathPlannerProperties).filter((key) => key !== "quest" && key !== "boss"),
 );
 
+export type AssignmentConcept = {
+  /** Stable identity that outlives this assignment. Must contain no instance numbers. */
+  conceptId: string;
+  name: string;
+  statement: string;
+  /** What this particular worksheet instantiates — the numbers live here, not in the id. */
+  instanceScope: string;
+  prerequisites: string[];
+  /** The Planner's current beliefs about this child's grasp, corrected later by the retro. */
+  assumptions: string[];
+};
+
 export type DirectLearningExperiencePlan = {
   planId: string;
   title: string;
   contentScopeRationale: string;
+  concept: AssignmentConcept;
   academicTheory: string;
   profileEvidence: string[];
   boardWorld: { title: string; narrative: string; backgroundPrompt: string };
@@ -486,6 +516,35 @@ function requiredNumber(record: Record<string, unknown>, key: string): number {
   return value;
 }
 
+/**
+ * A concept id carrying the assignment's numbers is not a concept — it is the
+ * worksheet wearing a taxonomy costume. Reina's cycle accumulated five such ids
+ * (`math.multiplication.fact_retrieval.x2x5x10` and variants) for three ideas,
+ * which made every cross-cycle comparison miss, since longitudinal matching is
+ * exact string equality.
+ */
+export function assertInstanceFreeConceptId(conceptId: string): string {
+  const trimmed = conceptId.trim();
+  if (!trimmed) throw new Error("direct_plan_invalid_concept_id");
+  if (/\d/.test(trimmed)) {
+    throw new Error(`direct_plan_concept_id_contains_instance:${trimmed}`);
+  }
+  return trimmed;
+}
+
+export function parseAssignmentConcept(value: unknown): AssignmentConcept {
+  const record = object(value);
+  if (!record) throw new Error("direct_plan_missing_concept");
+  return {
+    conceptId: assertInstanceFreeConceptId(requiredString(record, "conceptId")),
+    name: requiredString(record, "name"),
+    statement: requiredString(record, "statement"),
+    instanceScope: requiredString(record, "instanceScope"),
+    prerequisites: stringArray(record.prerequisites, "concept_prerequisites"),
+    assumptions: stringArray(record.assumptions, "concept_assumptions"),
+  };
+}
+
 export function parseDirectLearningExperiencePlan(value: unknown): DirectLearningExperiencePlan {
   const root = object(value);
   if (!root) throw new Error("direct_plan_must_be_object");
@@ -620,7 +679,7 @@ export function parseDirectLearningExperiencePlan(value: unknown): DirectLearnin
       creatorPrompt: requiredString(activity, "creatorPrompt"),
       designPrediction: requiredString(activity, "designPrediction"),
       academicPrediction: {
-        constructId: requiredString(academicPrediction, "constructId"),
+        constructId: assertInstanceFreeConceptId(requiredString(academicPrediction, "constructId")),
         context: requiredString(academicPrediction, "context"),
         horizon: requiredString(academicPrediction, "horizon"),
         expectedMetric: {
@@ -673,6 +732,7 @@ export function parseDirectLearningExperiencePlan(value: unknown): DirectLearnin
     planId: requiredString(root, "planId"),
     title: boardTitle,
     contentScopeRationale: requiredString(root, "contentScopeRationale"),
+    concept: parseAssignmentConcept(root.concept),
     academicTheory: requiredString(root, "academicTheory"),
     profileEvidence: stringArray(root.profileEvidence, "profile_evidence"),
     boardWorld: {
@@ -787,10 +847,10 @@ Prior ratings, replay, abandonment, demo use, invalid actions, companion reactio
 Child: ${input.childId}
 
 Child context:
-${JSON.stringify(input.childContext ?? {}, null, 2)}
+${JSON.stringify(factualModelContext(input.childContext ?? {}), null, 2)}
 
 Prior factual outcomes:
-${JSON.stringify(input.priorOutcomes ?? {}, null, 2)}
+${JSON.stringify(factualModelContext(input.priorOutcomes ?? {}), null, 2)}
 
 Previous advisory taste review:
 ${JSON.stringify(input.previousTasteReview ?? {}, null, 2)}
@@ -850,16 +910,59 @@ function chartForPlanner(chart: ChildChart): unknown {
     identity: chart.identity,
     demographics: chart.demographics,
     learningProfile: {
-      rewardPreferences: chart.learningProfile.rewardPreferences,
       sessionStats: chart.learningProfile.sessionStats,
-      activityModel: chart.learningProfile.activityModel,
-      activityTraitModel: chart.learningProfile.activityTraitModel,
     },
-    engagementTheory: chart.engagementTheory,
+    engagementEvidence: engagementTheoryEvidenceContext(chart.engagementTheory),
     factBankSummary: chart.factBankSummary,
     recentDecision: chart.decisionTrace.latest,
     longitudinalLearning: chart.learningHistory,
   };
+}
+
+const INHERITED_CREATIVE_KEYS = new Set([
+  "promptDirectives",
+  "preferredDimensions",
+  "avoidedDimensions",
+  "creatorPrompt",
+  "nextCreatorPrompt",
+  "nextPromptDirectives",
+  "generationPrompt",
+  "designPrediction",
+  "qualityPrediction",
+  "preserve",
+  "change",
+  "explore",
+  "avoid",
+]);
+
+function factualModelContext(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(factualModelContext);
+  if (!value || typeof value !== "object") return value;
+  return Object.fromEntries(
+    Object.entries(value as Record<string, unknown>)
+      .filter(([key]) => !INHERITED_CREATIVE_KEYS.has(key))
+      .map(([key, nested]) => [key, factualModelContext(nested)]),
+  );
+}
+
+function isSyntheticEvidenceIdentity(value: string): boolean {
+  return /(^|[:_-])(synthetic|playwright|browser-acceptance|readiness)([:_-]|$)/i.test(value);
+}
+
+function factualCycleEvidence(cycle: LearningCycleRecordV2): LearningCycleRecordV2["evidence"] {
+  return {
+    academic: cycle.evidence.academic.filter((item) => !isSyntheticEvidenceIdentity(item.evidenceId)),
+    engagement: cycle.evidence.engagement.filter((item) => !isSyntheticEvidenceIdentity(item.evidenceId)),
+    companionObservations: cycle.evidence.companionObservations
+      .filter((item) => !isSyntheticEvidenceIdentity(item.evidenceId)),
+  };
+}
+
+function factualCycleObservations(cycle: LearningCycleRecordV2): LearningCycleRecordV2["observations"] {
+  return cycle.observations.filter((observation) =>
+    !isSyntheticEvidenceIdentity(observation.observationId) &&
+    !isSyntheticEvidenceIdentity(observation.sourceId)
+  );
 }
 
 function availableMathInstrumentsForPlanner(): unknown[] {
@@ -885,6 +988,8 @@ export async function askDirectMathPlanner(input: {
   client?: Anthropic;
   model?: string;
   priorOutcomes?: unknown;
+  /** Concept ids already on record for this child, so the Planner reuses instead of rephrasing. */
+  priorConceptIds?: string[];
 }): Promise<DirectLearningExperiencePlan> {
   const client = input.client ?? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
   const prompt = `You are Sunny's autonomous AI math Planner and creative director.
@@ -915,7 +1020,11 @@ For every activity, write a bespoke creatorPrompt that tells a separate Experien
 Write artwork prompts from the supplied child demographics and profile evidence. Never assume a fixed age or generic child profile.
 Keep every field concise. Do not write HTML, JavaScript, CSS, browser tests, or implementation code. Sunny's browser harness will execute Creator-declared real controls and observe runtime events.
 
-Return one JSON object containing planId, contentScopeRationale, academicTheory, profileEvidence, learningResponsibilities, boardWorld, fork, and activities. You may optionally include quest and boss teaser objects. boardWorld.title is the canonical board and plan title; do not duplicate it at the root.
+Name the concept before you design anything. In concept.statement, say what the idea actually is in plain language a parent would understand — the thing that stays true when the numbers change. concept.conceptId is its lasting identity and must contain no numbers, no operands, and no reference to this worksheet: "division_as_equal_sharing" is an identity, "division_by_2_5_10" is not. Whatever this particular sheet happens to use — its number ranges, its contexts — belongs in concept.instanceScope, never in the id. You will be given prior conceptIds for this child; reuse one exactly when you mean the same idea rather than rephrasing it, because a rephrased id silently breaks every longitudinal comparison. In concept.assumptions, write what you currently believe about this child's grasp of the concept, including what you are unsure of; these are your notes to your future self and will be checked against what actually happens.
+
+Every activity's academicPrediction.constructId must be the concept.conceptId, or a named sub-concept of it, under the same no-numbers rule.
+
+Return one JSON object containing planId, contentScopeRationale, concept, academicTheory, profileEvidence, learningResponsibilities, boardWorld, fork, and activities. You may optionally include quest and boss teaser objects. boardWorld.title is the canonical board and plan title; do not duplicate it at the root.
 Each activity contains identity and responsibility fields, visualMock, experience, creatorPrompt, designPrediction, academicPrediction, adaptive directive arrays, acceptanceSteps, and an AI-selected items array.
 Every item contains id, prompt, lineage {sourceEvidenceIds, exposure}, and one response contract:
 - selection: {mode, options:[{id,label,correct}]}
@@ -924,6 +1033,9 @@ Every item contains id, prompt, lineage {sourceEvidenceIds, exposure}, and one r
 - explanation: {mode, rubric}
 If you provide Quest or Boss teaser objects, their titles must remain exactly "Quest" and "Boss" and locked must be true.
 Every responsibility, route, activity, item, and selection option must have its own non-empty stable id.
+
+Concept ids already on record for this child. Reuse one exactly if you mean the same idea; coin a new one only if this assignment is genuinely about something else:
+${input.priorConceptIds?.length ? input.priorConceptIds.map((id) => `- ${id}`).join("\n") : "- none recorded"}
 
 Assignment:
 ${input.extraction.fullText}
@@ -935,9 +1047,12 @@ Child chart:
 ${JSON.stringify(chartForPlanner(input.chart), null, 2)}
 
   Prior factual outcomes and Planner interpretations:
-${JSON.stringify(input.priorOutcomes ?? [], null, 2)}`;
+${JSON.stringify(factualModelContext(input.priorOutcomes ?? []), null, 2)}`;
   const toolName = "create_learning_experience_plan";
-  const response = await client.messages.create({
+  // A whole board — every activity, item, prediction and creator prompt — is a
+  // long generation against a 20k token budget, and the non-streaming request
+  // was timing out before it finished. Stream it, as the Creator already does.
+  const response = await client.messages.stream({
     model: input.model ?? process.env.SUNNY_INGEST_MODEL ?? "claude-sonnet-5",
     max_tokens: Number(process.env.SUNNY_PLANNER_MAX_TOKENS ?? 20000),
     messages: [{ role: "user", content: prompt }],
@@ -947,9 +1062,17 @@ ${JSON.stringify(input.priorOutcomes ?? [], null, 2)}`;
       input_schema: DIRECT_MATH_PLANNER_TOOL_SCHEMA,
     }],
     tool_choice: { type: "tool", name: toolName },
-  }, { timeout: Number(process.env.SUNNY_AI_TIMEOUT_MS ?? 120000) });
+  }, { timeout: Number(process.env.SUNNY_AI_TIMEOUT_MS ?? 600000) }).finalMessage();
   const toolUse = response.content.find((block) => block.type === "tool_use" && block.name === toolName);
   if (!toolUse || toolUse.type !== "tool_use") throw new Error("direct_planner_tool_output_missing");
+  // A plan cut off at the token ceiling arrives structurally incomplete, and the
+  // schema parser then blames whichever field happened to be truncated away
+  // ("requires activities"), which sends you looking in the wrong place.
+  if (response.stop_reason === "max_tokens") {
+    throw new Error(
+      `direct_planner_plan_truncated:raise SUNNY_PLANNER_MAX_TOKENS above ${process.env.SUNNY_PLANNER_MAX_TOKENS ?? 20000}`,
+    );
+  }
   return parseDirectLearningExperiencePlan(toolUse.input);
 }
 
@@ -987,7 +1110,7 @@ async function requestDirectArtwork(prompt: string): Promise<string> {
   throw new Error("direct_artwork_provider_exhausted");
 }
 
-async function createArtwork(prompt: string, publicDir: string, filename: string): Promise<string> {
+export async function createDirectArtwork(prompt: string, publicDir: string, filename: string): Promise<string> {
   const relative = path.join("generated", "direct-math", filename);
   const localPath = path.join(publicDir, relative);
   if (!fs.existsSync(localPath) || fs.statSync(localPath).size === 0) {
@@ -1081,24 +1204,43 @@ export function buildAdaptiveProgressionCreatorPrompt(input: {
   childContext: unknown;
 }): string {
   const nodeId = input.node.nodeId;
-  return `You are Sunny's Experience Creator. Build one complete child-facing activity as self-contained HTML with inline CSS and JavaScript.
+  const { generationPrompt: _generationPrompt, ...creatorNodeContract } = input.node;
+  const prompt = `You are Sunny's Experience Creator. Build one complete child-facing activity as self-contained HTML with inline CSS and JavaScript.
+
+Creative objective:
+Build an experience a child would voluntarily replay. The mathematics must be the power the child uses to affect the world, not an unrelated question interrupting play. The child's meaningful action must visibly transform the world, mission, progression, or payoff. Choose the interaction, stakes, consequences, pacing, and reward that best serve the Planner's prescription and the factual evidence. Commit to one distinctive core interaction whose first action is understandable from the finished screen.
 
 The AI Planner already made the educational decision below. Implement it faithfully without changing the theory, evidence limit, or purpose:
 ${input.node.generationPrompt?.text ?? "No Planner prescription was provided."}
+${input.node.design ? `
+The Planner's design decisions for this node. Build these; do not soften them:
+${input.node.design.mechanicSpec ? `- Core interaction: ${input.node.design.mechanicSpec}` : ""}
+${input.node.design.stakes ? `- What is at risk: ${input.node.design.stakes}` : ""}
+${input.node.design.failureMode ? `- How a run goes wrong: ${input.node.design.failureMode}` : ""}
+${input.node.design.escalation ? `- How pressure builds: ${input.node.design.escalation}` : ""}
+${input.node.design.mathematicalHook ? `- The mathematical hook to make visible: ${input.node.design.mathematicalHook}` : ""}
+If the Planner specified a way to fail, that failure must be genuinely reachable on screen and must cost the child something they can see. Do not replace it with a hint, a retry, or an encouraging message.
+` : ""}
+Never display the answer to a question before the child has committed to a response.
 
 Author fresh content appropriate to this assignment and node responsibility. Do not reuse any exposed item identity or exact prompt listed in the cycle. Quest must test unseen transfer. Boss must test unseen synthesis. A generated support node remains teaching/practice evidence. Do not claim mastery.
 The first visible H1 must be exactly ${JSON.stringify(input.node.openingScreen.title)}. A short exciting subtitle may establish the AI-authored world.
 Visibly use the assigned artwork URL as part of the world: ${input.node.artwork.localPath ?? "none"}.
-Keep the complete HTML under 18,000 characters. Prefer concise CSS and JavaScript.
+Keep the complete HTML under 24,000 characters. Prefer concise CSS and JavaScript.
+Every DOM element queried by JavaScript must exist before the query runs; place behavior after its markup or initialize it on DOMContentLoaded.
 
-Runtime contract:
+Runtime contract appendix:
+Load <script src="/games/_contract.js"></script> in <head>.
+Read runtime identity and parameters from window.GAME_PARAMS. Never hardcode the child identity, homework identity, or session identity into the HTML.
 Emit window.parent.postMessage({type:"activity_ready",payload:{nodeId:"${nodeId}"}},"*") when ready.
 Whenever the activity or problem changes, emit window.parent.postMessage({type:"game_state_update",payload:{game:"generated-math",activityId:"${nodeId}",nodeId:"${nodeId}",phase:"question",activityTitle:${JSON.stringify(input.node.title)},learningFocus:${JSON.stringify(input.node.academicTarget.skill)},mechanic:${JSON.stringify(input.node.mechanic)},currentChallenge,availableActions,itemIndex,totalItems,answerVisibility:"hidden"}},"*") so Elli has live context. Never expose answers.
 Maintain a factual targetResults array. For every submitted answer append {target,correct,attemptedValue,responseTimeMs,scaffoldLevel} using a stable fresh item identity.
-Emit window.parent.postMessage({type:"attempt_event",payload:{domain:"math",target,correct,attemptedValue,responseTimeMs,scaffoldLevel}},"*") for every answer.
+For every answer call window.fireAttemptEvent({domain:"math",target,correct,attemptedValue,responseTimeMs,scaffoldLevel}).
 Emit window.parent.postMessage({type:"progress_event",payload:{nodeId:"${nodeId}",completedItems,totalItems}},"*") whenever visible progress advances.
-On completion calculate accuracy from targetResults and emit window.parent.postMessage({type:"node_complete",payload:{nodeId:"${nodeId}",completed:true,accuracy,targetResults,timeSpent_ms}},"*").
-Include <div id="sunny-companion"></div>. Return raw HTML only and end with </html>.
+Use window.fireCompanionEvent("correct_answer" or "wrong_answer", {target}) after meaningful answers and window.fireCompanionEvent("game_complete", {}) at completion.
+On completion calculate accuracy from targetResults and call window.sendNodeComplete({nodeId:window.GAME_PARAMS.nodeId,completed:true,accuracy,targetResults,timeSpent_ms}).
+Expose window.SUNNY_VALIDATION_HOOKS = {playthrough: async () => { ... }}. This is required for Quest and Boss. The hook must use the same handlers as visible child controls, exercise an incorrect response and visible recovery, complete every assessable item, and reach completion. It must not fabricate or post evidence directly.
+Include <div id="sunny-companion"></div>; Sunny owns its rendering, so do not create companion chrome. Return raw HTML only and end with </html>.
 
 Assignment identity and current theory:
 ${JSON.stringify({
@@ -1109,17 +1251,33 @@ ${JSON.stringify({
       fingerprint: input.cycle.assignment.contentFingerprint,
     },
     theory: input.cycle.academicTheory,
-    engagementTheory: input.cycle.engagementTheory,
+    engagementEvidence: engagementTheoryEvidenceContext(input.cycle.engagementTheory),
   }, null, 2)}
 
 Canonical node contract:
-${JSON.stringify(input.node, null, 2)}
+${JSON.stringify(creatorNodeContract, null, 2)}
 
 Prior factual observations (never rewrite them):
-${JSON.stringify(input.cycle.observations, null, 2)}
+${JSON.stringify(factualCycleObservations(input.cycle), null, 2)}
 
 Current child context:
-${JSON.stringify(input.childContext, null, 2)}`;
+${JSON.stringify(factualModelContext(input.childContext), null, 2)}`;
+  const childIdentity = input.cycle.childId.trim();
+  if (!childIdentity) return prompt;
+  const escapedIdentity = childIdentity.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const scrubbed = prompt.replace(new RegExp(escapedIdentity, "gi"), "the current child");
+  // The Planner may legitimately put the child's own name in the title it
+  // chose. Scrubbing the prompt would rewrite the mandated H1 too, and the
+  // Creator would faithfully render "the current child's Last Cargo Run" — which
+  // then fails the opening-title check against the contract. Restore the exact
+  // required title after scrubbing; it is the one place the name belongs.
+  const requiredTitle = JSON.stringify(input.node.openingScreen.title);
+  const scrubbedTitle = JSON.stringify(
+    input.node.openingScreen.title.replace(new RegExp(escapedIdentity, "gi"), "the current child"),
+  );
+  return scrubbedTitle === requiredTitle
+    ? scrubbed
+    : scrubbed.replace(`The first visible H1 must be exactly ${scrubbedTitle}`, `The first visible H1 must be exactly ${requiredTitle}`);
 }
 
 export async function generateAdaptiveProgressionActivityHtml(input: {
@@ -1130,12 +1288,16 @@ export async function generateAdaptiveProgressionActivityHtml(input: {
   model?: string;
 }): Promise<string> {
   const client = input.client ?? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-  const response = await client.messages.create({
+  const request = {
     model: input.model ?? process.env.SUNNY_GENERATION_MODEL ?? process.env.SUNNY_INGEST_MODEL ?? "claude-sonnet-5",
-    max_tokens: Number(process.env.SUNNY_GENERATION_MAX_TOKENS ?? 12000),
-    thinking: { type: "disabled" },
+    max_tokens: Number(process.env.SUNNY_GENERATION_MAX_TOKENS ?? 32000),
+    thinking: { type: "adaptive" },
+    output_config: { effort: "high" },
     messages: [{ role: "user", content: buildAdaptiveProgressionCreatorPrompt(input) }],
-  }, { timeout: Number(process.env.SUNNY_AI_TIMEOUT_MS ?? 120000) });
+  } as never;
+  const response = await client.messages
+    .stream(request, { timeout: Number(process.env.SUNNY_AI_TIMEOUT_MS ?? 120000) })
+    .finalMessage();
   const html = normalizeGeneratedHtml(stripHtml(response.content
     .filter((block) => block.type === "text")
     .map((block) => block.text)
@@ -1189,7 +1351,7 @@ export async function generateDirectArtifacts(input: {
     ...input.plan.activities.map((activity) => ({ prompt: activity.visualMock.artworkPrompt, filename: `${input.homeworkId}-${activity.id}.jpeg` })),
   ];
   const artworkUrls: string[] = [];
-  for (const job of artworkJobs) artworkUrls.push(await createArtwork(job.prompt, publicDir, job.filename));
+  for (const job of artworkJobs) artworkUrls.push(await createDirectArtwork(job.prompt, publicDir, job.filename));
   const [backgroundUrl, questArtworkUrl, bossArtworkUrl, ...activityArt] = artworkUrls as [string, string, string, ...string[]];
   const gamesDir = path.join(rootDir, "src", "context", input.childId, "homework", "games", input.homeworkId);
   fs.mkdirSync(gamesDir, { recursive: true });
@@ -1464,7 +1626,16 @@ export function buildDirectLearningCycleInput(input: {
       role,
       title: role === "quest" ? "Quest" : "Boss",
       state: "locked",
-      academicTarget: { domain: "math", skill: role === "quest" ? "novel transfer" : "novel synthesis", targets: [] },
+      // These were the literal strings "novel transfer" / "novel synthesis",
+      // which nothing ever replaced — so the payoff nodes had no concept to
+      // teach toward and their construct resolved to a slug of two words.
+      // The role still says what kind of evidence the node produces; the target
+      // says what it is about.
+      academicTarget: {
+        domain: "math",
+        skill: `${input.plannerPlan.concept.conceptId} (${role === "quest" ? "unseen transfer" : "unseen synthesis"})`,
+        targets: [],
+      },
       algorithmOwner: "ai_tutor",
       theoryId,
       experimentId: `${input.homeworkId}:${role}`,

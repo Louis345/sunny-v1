@@ -4,6 +4,7 @@ import path from "path";
 import { describe, expect, it } from "vitest";
 import {
   buildInitialEngagementTheory,
+  engagementTheoryPromptContext,
   updateEngagementTheoryFromChoiceEvents,
   updateEngagementTheoryFromActivityEvidence,
   writeEngagementTheory,
@@ -25,7 +26,7 @@ describe("engagement theory", () => {
     expect(theory.nextExperiment?.holdConstant).toContain("academic targets");
   });
 
-  it("uses completion and abandonment to update preference evidence instead of treating selection alone as mastery", () => {
+  it("uses explicit outcomes without treating skipped choices as preference conclusions", () => {
     const theory = buildInitialEngagementTheory({ childId: "demo-pashley", domain: "math" });
     const next = updateEngagementTheoryFromChoiceEvents(theory, [
       {
@@ -48,12 +49,13 @@ describe("engagement theory", () => {
         completed: true,
         accuracy: 0.8,
         frustrationScore: 0.1,
+        explicitSentiment: "like",
         createdAt: "2026-07-11T12:00:00.000Z",
       },
     ]);
 
     expect(next.dimensions.puzzle.positiveWeight).toBeGreaterThan(0);
-    expect(next.dimensions.speed.negativeWeight).toBeGreaterThan(0);
+    expect(next.dimensions.speed.negativeWeight).toBe(0);
     expect(next.evidence[0]?.kind).toBe("choice");
     expect(next.nextExperiment?.holdConstant).toContain("academic targets");
   });
@@ -98,5 +100,51 @@ describe("engagement theory", () => {
     });
 
     expect(next).toEqual(theory);
+  });
+
+  it("withholds a barely-evidenced dimension instead of letting it read as a prohibition", () => {
+    const theory = buildInitialEngagementTheory({ childId: "reina", domain: "math" });
+    theory.dimensions.competition.negativeWeight = 0.25;
+    theory.dimensions.competition.evidenceCount = 1;
+    theory.dimensions.competition.confidence = 0.25;
+    theory.avoidedDimensions = ["competition"];
+    theory.promptDirectives.avoid = [
+      "Avoid high-pressure competition presentation unless explicitly tested.",
+    ];
+    theory.evidence = [{
+      id: "choice-one",
+      kind: "choice",
+      summary: "One competitive route was skipped.",
+      createdAt: "2026-07-12T18:48:55.239Z",
+    }];
+
+    const context = engagementTheoryPromptContext(theory);
+
+    // A single skipped competitive route is noise. Shown to a model it became
+    // "(avoid competition/control pressure per her chart)" in the prescription,
+    // which stripped the stakes out of every generated Quest.
+    expect(context).not.toContain('"dimension": "competition"');
+    expect(context).not.toContain('"negativeWeight": 0.25');
+    expect(context).toContain('"unmeasuredDimensions"');
+    expect(context).toContain('"competition"');
+    expect(context).toContain('"id": "choice-one"');
+    expect(context).toContain("not a prohibition");
+    expect(context).not.toContain("promptDirectives");
+    expect(context).not.toContain("preferredDimensions");
+    expect(context).not.toContain("avoidedDimensions");
+    expect(context).not.toContain("Avoid high-pressure");
+  });
+
+  it("passes through a dimension once it is actually supported", () => {
+    const theory = buildInitialEngagementTheory({ childId: "reina", domain: "math" });
+    theory.dimensions.puzzle.positiveWeight = 6;
+    theory.dimensions.puzzle.evidenceCount = 8;
+    theory.dimensions.puzzle.confidence = 0.84;
+
+    const context = engagementTheoryPromptContext(theory);
+
+    expect(context).toContain('"dimension": "puzzle"');
+    expect(context).toContain('"evidenceCount": 8');
+    expect(context).toContain('"confidence": 0.84');
   });
 });

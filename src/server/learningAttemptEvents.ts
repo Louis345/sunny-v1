@@ -22,6 +22,7 @@ export type RawLearningAttemptEvent = {
   childId?: unknown;
   domain?: unknown;
   target?: unknown;
+  targetId?: unknown;
   word?: unknown;
   attemptedValue?: unknown;
   correct?: unknown;
@@ -79,7 +80,7 @@ export function normalizeLearningAttemptEvent(
   const childId = String(raw.childId ?? fallbackChildId ?? "").trim().toLowerCase();
   if (!childId) throw new Error("Missing attempt childId");
 
-  const word = String(raw.target ?? raw.word ?? "").trim().toLowerCase();
+  const word = String(raw.target ?? raw.targetId ?? raw.word ?? "").trim().toLowerCase();
   if (!word) throw new Error("Missing attempt target");
 
   if (typeof raw.correct !== "boolean") {

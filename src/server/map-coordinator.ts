@@ -1007,17 +1007,23 @@ function deriveEngagementScores(
         (node.type === "mystery" && result.completed ? 0.05 : 0),
     ),
   );
+  // Frustration used to collapse to four constants, and because `!completed`
+  // dominated the first branch every abandonment scored exactly 0.75 and every
+  // completion exactly 0.1. That made the field a restatement of "did she
+  // finish", so downstream inference learned nothing from it. Grade it from the
+  // signals that are actually observed instead, and let abandonment stay its own
+  // separate fact rather than being laundered into a frustration reading.
+  const secondsPerTarget = targetCount > 0 ? result.timeSpent_ms / targetCount / 1000 : 0;
   const frustrationScore = Math.max(
     0,
     Math.min(
       1,
-      highFrustration
-        ? 0.75
-        : accuracy < 0.7
-          ? 0.45
-          : rating === "dislike"
-            ? 0.55
-            : 0.1,
+      // Each term is an observation, weighted by how much it actually tells us.
+      Math.min(frustrationSignals, 4) * 0.15 +
+        (accuracy < 0.5 ? 0.3 : accuracy < 0.7 ? 0.15 : 0) +
+        (!result.completed ? 0.2 : 0) +
+        (secondsPerTarget > 30 ? 0.15 : 0) +
+        (rating === "dislike" ? 0.2 : 0),
     ),
   );
   return { engagementScore, frustrationScore };

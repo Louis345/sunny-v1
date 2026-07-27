@@ -412,8 +412,10 @@ export function getChildChart(childIdRaw: string, opts: ChildChartOptions = {}):
     ? getLearningCycle(childId, selectedHomeworkId, { rootDir })
     : null;
   const learningHistory = buildLongitudinalLearningHistory(childId, { rootDir });
-  const cycleProjection = learningCycle ? projectLearningCycle(learningCycle) : null;
-  const selectedActiveSessionPlan = directActiveSessionPlan ?? cycleProjection?.activeSessionPlan ?? legacySelectedActiveSessionPlan;
+  const cycleProjection = learningCycle
+    ? projectLearningCycle(learningCycle, { presentationPlan: directActiveSessionPlan ?? legacySelectedActiveSessionPlan })
+    : null;
+  const selectedActiveSessionPlan = cycleProjection?.activeSessionPlan ?? directActiveSessionPlan ?? legacySelectedActiveSessionPlan;
   const catalogItems = contentCatalogWaterfall.items;
   const chartBase = {
     childId,
@@ -447,7 +449,7 @@ export function getChildChart(childIdRaw: string, opts: ChildChartOptions = {}):
       currentFile: links.currentHomework,
       waterfall: homeworkWaterfall,
     },
-    learningCycle: directActiveSessionPlan ? null : learningCycle,
+    learningCycle,
     learningHistory,
     plannerTrust: learningProfile.plannerTrust ?? null,
     activeSessionPlan: selectedActiveSessionPlan,

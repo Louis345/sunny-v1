@@ -2,6 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
+
 import {
   DIRECT_MATH_PLANNER_TOOL_SCHEMA,
   askDirectCreativeDirector,
@@ -12,6 +13,7 @@ import {
   buildAdaptiveProgressionCreatorPrompt,
   buildDirectLearningCycleInput,
   creatorPromptHash,
+  generateAdaptiveProgressionActivityHtml,
   hasReadyDirectMathExperience,
   isCompleteGeneratedHtml,
   parseDirectLearningExperiencePlan,
@@ -20,6 +22,14 @@ import {
   shouldReuseDirectArtifact,
   normalizeGeneratedHtml,
 } from "./directMathExperience";
+
+/**
+ * The Planner streams (a whole board exceeds the non-streaming timeout) while
+ * the Creative Director still uses create. One mock serves both.
+ */
+function streamOf(create: (...args: never[]) => unknown) {
+  return (...args: never[]) => ({ finalMessage: async () => create(...args) });
+}
 
 function plan(activityCount = 3): any {
   const activities = Array.from({ length: activityCount }, (_, index) => ({
@@ -70,6 +80,14 @@ function plan(activityCount = 3): any {
     planId: "direct-plan-1",
     title: "Multiplication Adventure",
     contentScopeRationale: "Three focused instruments are sufficient to teach and observe this assignment without duplicating work.",
+    concept: {
+      conceptId: "multiplication_as_equal_groups",
+      name: "Multiplication as equal groups",
+      statement: "A multiplication tells you how many you get when the same amount is repeated a set number of times.",
+      instanceScope: "factors of two, five and ten within fifty",
+      prerequisites: ["skip counting", "repeated addition"],
+      assumptions: ["The child can skip-count aloud but may not connect it to notation."],
+    },
     academicTheory: "Measure multiplication understanding through meaningful play.",
     profileEvidence: ["chart:reina"],
     learningResponsibilities: [{
@@ -124,6 +142,31 @@ function creativeRevision(sourcePlan: any): any {
   };
 }
 
+describe("assignment concept", () => {
+  it("rejects a concept id that carries the assignment's numbers", () => {
+    // Reina's cycle accumulated five ids like math.multiplication.fact_retrieval.x2x5x10
+    // for three ideas, so nothing matched across cycles.
+    const withInstance = plan();
+    withInstance.concept.conceptId = "multiplication_x2x5x10";
+    expect(() => parseDirectLearningExperiencePlan(withInstance))
+      .toThrow(/concept_id_contains_instance/);
+  });
+
+  it("keeps the worksheet's numbers in instanceScope, not the identity", () => {
+    const parsed = parseDirectLearningExperiencePlan(plan());
+    expect(parsed.concept.conceptId).toBe("multiplication_as_equal_groups");
+    expect(parsed.concept.conceptId).not.toMatch(/\d/);
+    expect(parsed.concept.instanceScope).toContain("two, five and ten");
+  });
+
+  it("requires a concept before a board can be planned", () => {
+    const withoutConcept = plan();
+    delete withoutConcept.concept;
+    expect(() => parseDirectLearningExperiencePlan(withoutConcept))
+      .toThrow("direct_plan_missing_concept");
+  });
+});
+
 describe("direct math experience", () => {
   it("runs one bounded Creative Director rewrite without changing the academic prescription", async () => {
     const original = parseDirectLearningExperiencePlan(plan(4));
@@ -136,7 +179,7 @@ describe("direct math experience", () => {
       plan: original,
       priorOutcomes: { ratings: [{ nodeId: "activity-1", funRating: 5 }] },
       previousTasteReview: { concerns: ["Sparse first viewport"] },
-      client: { messages: { create } } as never,
+      client: { messages: { create, stream: streamOf(create) } } as never,
     });
 
     expect(create).toHaveBeenCalledTimes(1);
@@ -183,7 +226,7 @@ describe("direct math experience", () => {
     await expect(askDirectCreativeDirector({
       childId: "reina",
       plan: original,
-      client: { messages: { create } } as never,
+      client: { messages: { create, stream: streamOf(create) } } as never,
     })).rejects.toThrow("direct_creative_revision_missing_activity");
     expect(create).toHaveBeenCalledTimes(1);
   });
@@ -267,10 +310,63 @@ describe("direct math experience", () => {
     expect(prompt).toContain("practice-3x4");
     expect(prompt).not.toContain("Solve equal-groups stories.");
     expect(prompt).not.toContain("Experience Design Constitution");
-    expect(prompt).toContain('type:"attempt_event"');
-    expect(prompt).toContain("accuracy,targetResults,timeSpent_ms");
-    expect(prompt).toContain("under 18,000 characters");
+    expect(prompt).toContain('<script src="/games/_contract.js"></script>');
+    expect(prompt).toContain("window.GAME_PARAMS");
+    expect(prompt).toContain("window.fireAttemptEvent");
+    expect(prompt).toContain("window.sendNodeComplete");
+    expect(prompt).toContain("window.fireCompanionEvent");
+    expect(prompt).toContain("window.SUNNY_VALIDATION_HOOKS");
+    expect(prompt).toContain("Never hardcode the child identity");
+    expect(prompt).toContain("Every DOM element queried by JavaScript must exist");
+    expect(prompt).not.toContain("Reina");
+    expect(prompt).toContain("voluntarily replay");
+    expect(prompt).toContain("mathematics must be the power");
+    expect(prompt.indexOf("voluntarily replay")).toBeLessThan(prompt.indexOf("Runtime contract appendix"));
+    expect(prompt).toContain("under 24,000 characters");
+    for (const reference of ["Skyglider", "Crane", "Vault", "Moonlit Cargo", "Tidepool", "Rope-and-Peg"]) {
+      expect(prompt).not.toContain(reference);
+    }
   });
+
+  it("uses adaptive thinking supported by the configured frontier Creator model", async () => {
+    const finalMessage = vi.fn().mockResolvedValue({
+      content: [{ type: "text", text: "<!doctype html><html><body>Quest</body></html>" }],
+      stop_reason: "end_turn",
+    });
+    const stream = vi.fn().mockReturnValue({ finalMessage });
+    const create = vi.fn();
+
+    await generateAdaptiveProgressionActivityHtml({
+      cycle: {
+        childId: "reina",
+        homeworkId: "hw-math",
+        assignment: { title: "Multiplication", contentFingerprint: "fp", targets: ["equal groups"] },
+        academicTheory: { hypothesis: "Connect equal groups to notation." },
+        observations: [],
+      } as never,
+      node: {
+        nodeId: "quest",
+        title: "Quest",
+        role: "quest",
+        academicTarget: { skill: "novel transfer", targets: ["equal groups"] },
+        openingScreen: { title: "Quest", purpose: "Test unseen transfer." },
+        mechanic: "AI selected",
+        generationPrompt: { text: "Create unseen transfer." },
+        artwork: { localPath: "/generated/quest.jpeg" },
+      } as never,
+      childContext: {},
+      client: { messages: { create, stream } } as never,
+    });
+
+    expect(create).not.toHaveBeenCalled();
+    expect(stream.mock.calls[0]?.[0]).toMatchObject({
+      max_tokens: 32000,
+      thinking: { type: "adaptive" },
+      output_config: { effort: "high" },
+    });
+    expect(finalMessage).toHaveBeenCalledOnce();
+  });
+
   it("requires generated activities to return a complete factual scorecard", () => {
     const prompt = buildDirectActivityCreatorPrompt({
       activity: plan(2).activities[0],
@@ -296,7 +392,7 @@ describe("direct math experience", () => {
         decisionTrace: { latest: null },
       } as never,
       extraction: { fullText: "Multiplication assignment" } as never,
-      client: { messages: { create } } as never,
+      client: { messages: { create, stream: streamOf(create) } } as never,
     })).rejects.toThrow("direct_plan_requires_activities");
     expect(create).toHaveBeenCalledTimes(1);
   });
@@ -325,7 +421,7 @@ describe("direct math experience", () => {
         },
       } as never,
       extraction: { fullText: "New multiplication assignment" } as never,
-      client: { messages: { create } } as never,
+      client: { messages: { create, stream: streamOf(create) } } as never,
     });
     const prompt = String(create.mock.calls[0]?.[0]?.messages?.[0]?.content);
     expect(prompt).toContain("prediction:prior");
@@ -622,6 +718,85 @@ describe("direct math experience", () => {
     expect(prompt).toContain('type:"progress_event"');
   });
 
+  it("gives the math Planner factual engagement evidence without inherited creative directives", async () => {
+    const create = vi.fn().mockResolvedValue({
+      content: [{ type: "tool_use", name: "create_learning_experience_plan", input: plan(3) }],
+    });
+    await askDirectMathPlanner({
+      childId: "reina",
+      chart: {
+        identity: {}, demographics: {}, factBankSummary: {},
+        engagementTheory: {
+          theoryId: "engagement-1",
+          hypothesis: "Generated interpretation that must not become policy.",
+          preferredDimensions: ["story"],
+          avoidedDimensions: ["competition"],
+          promptDirectives: {
+            prefer: ["Prefer story mechanics or presentation."],
+            avoid: ["Avoid high-pressure competition presentation unless explicitly tested."],
+            vary: ["mechanic"],
+            holdConstant: ["academic target"],
+          },
+          dimensions: {
+            competition: {
+              dimension: "competition",
+              positiveWeight: 0,
+              negativeWeight: 0.25,
+              mixedWeight: 0,
+              evidenceCount: 1,
+              confidence: 0.25,
+              lastUpdated: "2026-07-12T18:48:55.239Z",
+            },
+          },
+          evidence: [{
+            id: "choice-one",
+            kind: "choice",
+            summary: "One competitive route was skipped.",
+            createdAt: "2026-07-12T18:48:55.239Z",
+          }],
+        },
+        learningProfile: {
+          rewardPreferences: [],
+          sessionStats: {},
+          activityModel: {},
+          activityTraitModel: {},
+        },
+        decisionTrace: { latest: null },
+      } as never,
+      extraction: { fullText: "Multiplication assignment" } as never,
+      priorOutcomes: {
+        directExperience: {
+          observations: [{ choiceEventId: "event-one", engagement: { funRating: 2 } }],
+          decisions: [{
+            creatorPrompt: "Keep it low-pressure and use no score comparison.",
+            nextPromptDirectives: ["no penalty"],
+          }],
+        },
+      },
+      client: { messages: { create, stream: streamOf(create) } } as never,
+    });
+
+    const prompt = String(create.mock.calls[0]?.[0]?.messages?.[0]?.content);
+    // competition here is one observation at confidence 0.25 — below the bar to
+    // reach a prompt at all, because a model reads a weak negative as a ban.
+    expect(prompt).not.toContain('"dimension": "competition"');
+    expect(prompt).not.toContain('"negativeWeight": 0.25');
+    expect(prompt).toContain('"unmeasuredDimensions"');
+    expect(prompt).toContain("not a prohibition");
+    expect(prompt).toContain('"id": "choice-one"');
+    expect(prompt).toContain('"funRating": 2');
+    expect(prompt).not.toContain("promptDirectives");
+    expect(prompt).not.toContain("preferredDimensions");
+    expect(prompt).not.toContain("avoidedDimensions");
+    expect(prompt).not.toContain("Avoid high-pressure");
+    expect(prompt).not.toContain("Keep it low-pressure");
+    expect(prompt).not.toContain("no score comparison");
+    expect(prompt).not.toContain("no penalty");
+    expect(prompt).not.toContain("nextPromptDirectives");
+    expect(prompt).not.toContain("activityTraitModel");
+    expect(prompt).not.toContain("activityModel");
+  });
+
   it("gives the Planner concept-not-content authority and optional existing instruments", async () => {
     const create = vi.fn().mockResolvedValue({
       content: [{ type: "tool_use", name: "create_learning_experience_plan", input: plan(3) }],
@@ -634,7 +809,7 @@ describe("direct math experience", () => {
         decisionTrace: { latest: null },
       } as never,
       extraction: { fullText: "Mrs. K puts 5 pencils in each of 4 boxes." } as never,
-      client: { messages: { create } } as never,
+      client: { messages: { create, stream: streamOf(create) } } as never,
     });
 
     const prompt = String(create.mock.calls[0]?.[0]?.messages?.[0]?.content);
@@ -718,7 +893,7 @@ describe("direct math experience", () => {
         decisionTrace: { latest: null },
       } as never,
       extraction: { fullText: "Multiplication assignment" } as never,
-      client: { messages: { create } } as never,
+      client: { messages: { create, stream: streamOf(create) } } as never,
     });
     const prompt = String(create.mock.calls[0]?.[0]?.messages?.[0]?.content);
     expect(prompt).not.toContain("acceptanceScript");

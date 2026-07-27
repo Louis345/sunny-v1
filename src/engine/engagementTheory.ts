@@ -49,7 +49,7 @@ function experimentFor(theoryId: string, domain: string): EngagementExperiment {
     theoryId,
     variable: "mechanic",
     arms: [],
-    holdConstant: ["academic targets", "question count", "difficulty", "evidence contract"],
+    holdConstant: ["academic targets", "question count", "evidence contract"],
     successSignals: ["started", "completed", "replayed", "low frustration", "accuracy preserved"],
     status: "planned",
   };
@@ -81,7 +81,7 @@ export function buildInitialEngagementTheory(input: {
       prefer: [],
       avoid: [],
       vary: ["mechanic", "theme"],
-      holdConstant: ["academic targets", "question count", "difficulty", "evidence contract"],
+      holdConstant: ["academic targets", "question count", "evidence contract"],
     },
     evidence: [],
     nextExperiment: experimentFor(theoryId, input.domain),
@@ -125,13 +125,6 @@ function dimensionsForEvent(event: ChoiceEvent): EngagementDimension[] {
     .filter((value): value is EngagementDimension => ENGAGEMENT_DIMENSIONS.includes(value as EngagementDimension));
 }
 
-function dimensionsForOption(event: ChoiceEvent, optionId: string): EngagementDimension[] {
-  const option = event.shownOptions.find((candidate) => candidate.optionId === optionId);
-  return (option?.preferenceTraits ?? [])
-    .map((value) => value.trim().toLowerCase())
-    .filter((value): value is EngagementDimension => ENGAGEMENT_DIMENSIONS.includes(value as EngagementDimension));
-}
-
 function adjust(
   state: EngagementDimensionState,
   input: { positive?: number; negative?: number; mixed?: number; now: string },
@@ -156,21 +149,29 @@ export function updateEngagementTheoryFromChoiceEvents(
     const dimensions = dimensionsForEvent(event);
     if (dimensions.length === 0) continue;
     const abandoned = event.completed === false || event.postActivityAction === "abandon";
-    const positive = event.completed === true && !abandoned && (event.replayRequested === true || (event.frustrationScore ?? 0) < 0.5);
-    for (const dimension of dimensions) {
-      adjust(next.dimensions[dimension], {
-        positive: positive ? 1 : undefined,
-        negative: abandoned ? 1 : undefined,
-        mixed: positive || abandoned ? undefined : 0.5,
-        now: event.createdAt,
-      });
-    }
-    // Skipping is deliberately weak avoidance evidence: it informs the next
-    // experiment, but cannot outweigh actually starting and finishing work.
-    for (const skippedOptionId of event.skippedOptionIds ?? []) {
-      for (const dimension of dimensionsForOption(event, skippedOptionId)) {
+    const explicitlyLiked = event.explicitSentiment === "like" ||
+      (typeof event.funRating === "number" && event.funRating >= 4);
+    const explicitlyDisliked = event.explicitSentiment === "dislike" ||
+      (typeof event.funRating === "number" && event.funRating <= 2);
+    const hasPreferenceOutcome =
+      explicitlyLiked ||
+      explicitlyDisliked ||
+      abandoned ||
+      event.replayRequested === true ||
+      event.postActivityAction === "replay_same" ||
+      event.postActivityAction === "replay_harder";
+    const positive = !abandoned && (
+      explicitlyLiked ||
+      event.replayRequested === true ||
+      event.postActivityAction === "replay_same" ||
+      event.postActivityAction === "replay_harder"
+    );
+    if (hasPreferenceOutcome) {
+      for (const dimension of dimensions) {
         adjust(next.dimensions[dimension], {
-          negative: 0.25,
+          positive: positive ? 1 : undefined,
+          negative: abandoned || explicitlyDisliked ? 1 : undefined,
+          mixed: positive || abandoned || explicitlyDisliked ? undefined : 0.5,
           now: event.createdAt,
         });
       }
@@ -193,13 +194,13 @@ export function updateEngagementTheoryFromChoiceEvents(
     .sort((a, b) => next.dimensions[b].negativeWeight - next.dimensions[a].negativeWeight)
     .slice(0, 4);
   next.promptDirectives = {
-    prefer: next.preferredDimensions.map((dimension) => `Prefer ${dimension} mechanics or presentation.`),
-    avoid: next.avoidedDimensions.map((dimension) => `Avoid high-pressure ${dimension} presentation unless explicitly tested.`),
+    prefer: [],
+    avoid: [],
     vary: ["mechanic", "theme"],
-    holdConstant: ["academic targets", "question count", "difficulty", "evidence contract"],
+    holdConstant: ["academic targets", "question count", "evidence contract"],
   };
   next.hypothesis = next.preferredDimensions.length > 0
-    ? `The child currently shows stronger engagement with ${next.preferredDimensions.join(", ")} than with ${next.avoidedDimensions.join(", ") || "unmeasured alternatives"}.`
+    ? `Observed so far: stronger engagement with ${next.preferredDimensions.join(", ")}. Every other presentation is untested, not ruled out.`
     : theory.hypothesis;
   next.updatedAt = events.at(-1)?.createdAt ?? new Date().toISOString();
   return next;
@@ -228,7 +229,8 @@ export function updateEngagementTheoryFromActivityEvidence(
     .filter((value): value is EngagementDimension => ENGAGEMENT_DIMENSIONS.includes(value as EngagementDimension));
   if (dimensions.length === 0) return next;
   const frustrated = (input.frustrationScore ?? 0) >= 0.5 || !input.completed;
-  const positive = input.completed && !frustrated && (input.liked === true || input.replayRequested === true || (input.frustrationScore ?? 0) < 0.25);
+  const positive = input.completed && !frustrated &&
+    (input.liked === true || input.replayRequested === true);
   for (const dimension of dimensions) {
     adjust(next.dimensions[dimension], {
       positive: positive ? 1 : undefined,
@@ -254,26 +256,71 @@ export function updateEngagementTheoryFromActivityEvidence(
     .sort((a, b) => next.dimensions[b].negativeWeight - next.dimensions[a].negativeWeight)
     .slice(0, 4);
   next.promptDirectives = {
-    prefer: next.preferredDimensions.map((dimension) => `Prefer ${dimension} mechanics or presentation.`),
-    avoid: next.avoidedDimensions.map((dimension) => `Avoid high-pressure ${dimension} presentation unless explicitly tested.`),
+    prefer: [],
+    avoid: [],
     vary: ["mechanic", "theme"],
-    holdConstant: ["academic targets", "question count", "difficulty", "evidence contract"],
+    holdConstant: ["academic targets", "question count", "evidence contract"],
   };
   next.hypothesis = next.preferredDimensions.length > 0
-    ? `The child currently shows stronger engagement with ${next.preferredDimensions.join(", ")} than with ${next.avoidedDimensions.join(", ") || "unmeasured alternatives"}.`
+    ? `Observed so far: stronger engagement with ${next.preferredDimensions.join(", ")}. Every other presentation is untested, not ruled out.`
     : next.hypothesis;
   next.updatedAt = now;
   return next;
 }
 
-export function engagementTheoryPromptContext(theory: EngagementTheory | null): string {
-  if (!theory) return "No prior engagement theory exists. Create a controlled first experiment.";
-  return JSON.stringify({
+/**
+ * A dimension only reaches a prompt once it is actually supported. Below these
+ * thresholds the reading is noise, and a model shown a weak negative weight
+ * reliably converts it into a design prohibition — which is how a single
+ * `competition` observation at confidence 0.25 came to strip the stakes out of
+ * every generated Quest.
+ */
+export const ENGAGEMENT_PROMPT_MIN_CONFIDENCE = 0.6;
+export const ENGAGEMENT_PROMPT_MIN_EVIDENCE = 5;
+
+export function engagementTheoryEvidenceContext(theory: EngagementTheory | null | undefined): unknown {
+  if (!theory) return null;
+  const all = Object.values(theory.dimensions ?? {})
+    .sort((a, b) => a.dimension.localeCompare(b.dimension));
+  const supported = all.filter((dimension) =>
+    dimension.confidence >= ENGAGEMENT_PROMPT_MIN_CONFIDENCE &&
+    dimension.evidenceCount >= ENGAGEMENT_PROMPT_MIN_EVIDENCE);
+  return {
     theoryId: theory.theoryId,
-    hypothesis: theory.hypothesis,
-    preferredDimensions: theory.preferredDimensions,
-    avoidedDimensions: theory.avoidedDimensions,
-    promptDirectives: theory.promptDirectives,
-    nextExperiment: theory.nextExperiment,
-  }, null, 2);
+    domain: theory.domain,
+    homeworkId: theory.homeworkId,
+    howToRead: [
+      "These are observations with sample sizes, not instructions.",
+      "A low or negative weight means this presentation has not been seen to work yet — it is not a prohibition, and it is often just untested.",
+      "Nothing here constrains stakes, failure, difficulty, or consequence. Those are yours to choose.",
+      `Dimensions below confidence ${ENGAGEMENT_PROMPT_MIN_CONFIDENCE} or ${ENGAGEMENT_PROMPT_MIN_EVIDENCE} observations are withheld as too weak to act on.`,
+    ],
+    dimensions: supported.map((dimension) => ({
+      dimension: dimension.dimension,
+      positiveWeight: dimension.positiveWeight,
+      negativeWeight: dimension.negativeWeight,
+      mixedWeight: dimension.mixedWeight,
+      evidenceCount: dimension.evidenceCount,
+      confidence: dimension.confidence,
+      lastUpdated: dimension.lastUpdated,
+    })),
+    unmeasuredDimensions: all
+      .filter((dimension) => !supported.includes(dimension))
+      .map((dimension) => dimension.dimension),
+    evidence: (theory.evidence ?? []).map((item) => ({
+      id: item.id,
+      kind: item.kind,
+      summary: item.summary,
+      sourcePath: item.sourcePath,
+      createdAt: item.createdAt,
+    })),
+    updatedAt: theory.updatedAt,
+  };
+}
+
+export function engagementTheoryPromptContext(theory: EngagementTheory | null | undefined): string {
+  const context = engagementTheoryEvidenceContext(theory);
+  return context
+    ? JSON.stringify(context, null, 2)
+    : "No prior engagement observations exist. Treat all presentation hypotheses as uncertain.";
 }

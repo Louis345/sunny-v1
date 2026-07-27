@@ -181,6 +181,11 @@ export interface AdaptiveArtifactRuntimeValidationReport {
   completed: boolean;
   completionPayloads: unknown[];
   usedValidationHook: boolean;
+  eventTimeline?: Array<{
+    type: string;
+    timestampMs: number;
+    payload: unknown;
+  }>;
 }
 
 export interface AdaptiveArtifactValidationReport {

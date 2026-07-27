@@ -43,6 +43,7 @@ import { recordAttempt } from "../engine/learningEngine";
 import { computeProgression } from "../engine/progression";
 import { WILSON_STEPS } from "../modes/wilson/wilsonSteps";
 import { getSunnyMode, isSunnyDiagMode } from "../utils/runtimeMode";
+import { resolveChildContextDir } from "../utils/contextRoot";
 import {
   applyPassiveDepletion,
   applyTamagotchiFill,
@@ -126,15 +127,9 @@ import {
 import type { SunnyRuntimeOverrides } from "../shared/runtimeConfig";
 import { resolveSunnyRuntimeConfig } from "../shared/runtimeConfig";
 import { companionPickerIdentity } from "./companionPickerRows";
-import { recordCanonicalNodeCompletion } from "../engine/learningCycleRuntime";
+import { advanceCanonicalCycleFromEvidence, recordCanonicalNodeCompletion } from "../engine/learningCycleRuntime";
 import { generateCanonicalProgressionArtifact } from "../engine/canonicalProgressionGenerator";
-import {
-  buildInitialEngagementTheory,
-  updateEngagementTheoryFromActivityEvidence,
-  writeEngagementTheory,
-} from "../engine/engagementTheory";
 import { getLearningCycle } from "../engine/learningCycleRepository";
-import { engagementDimensionsForCanonicalNode } from "./canonicalNodeEngagement";
 import {
   confirmReturnedWorkDraft,
   createReturnedWorkDraft,
@@ -702,7 +697,7 @@ export function setupRoutes(app: Express): void {
           accuracy: Number.isFinite(accuracy) ? accuracy : 0,
           timeSpent_ms: Math.max(0, Number(body.result.timeSpent_ms ?? 0) || 0),
           targetResults: Array.isArray(body.result.targetResults)
-            ? body.result.targetResults as Array<{ target: string; correct: boolean; responseTime_ms?: number; scaffoldLevel?: number }>
+            ? body.result.targetResults as Array<{ target: string; correct: boolean; attemptedValue?: string; responseTime_ms?: number; scaffoldLevel?: number }>
             : undefined,
           frustrationSignals: Array.isArray(body.result.frustrationSignals)
             ? body.result.frustrationSignals.map(String)
@@ -714,33 +709,21 @@ export function setupRoutes(app: Express): void {
         },
       });
       if (!updated) return res.status(404).json({ error: "learning_cycle_not_found" });
-      const completedNode = updated.nodes.find((node) => node.nodeId === nodeId);
-      if (completedNode && body.result.completed === true) {
-        const theory = updated.engagementTheory ?? buildInitialEngagementTheory({
-          childId,
-          domain: updated.domain,
-          homeworkId,
-        });
-        const enrichedTheory = updateEngagementTheoryFromActivityEvidence(theory, {
-          activityId: completedNode.nodeId,
-          contentId: completedNode.artifactBinding?.contentId,
-          experimentId: completedNode.experimentId,
-          dimensions: engagementDimensionsForCanonicalNode(completedNode),
-          completed: true,
-          frustrationScore: Array.isArray(body.result.frustrationSignals) && body.result.frustrationSignals.length > 0 ? 0.75 : 0,
-          replayRequested: body.result.replay === true,
-        });
-        writeEngagementTheory(childId, enrichedTheory);
-      }
       const finalCycle = getLearningCycle(childId, homeworkId) ?? updated;
       console.log(` 🎮 [learning-cycle-route] [completion] [saved] child=${childId} node=${nodeId} lifecycle=${updated.lifecycle} revision=${updated.revision}`);
-      if (updated.lifecycle === "quest_generating" || updated.lifecycle === "boss_generating") {
-        void generateCanonicalProgressionArtifact({ childId, homeworkId })
-          .then((generated) => {
-            console.log(` 🎮 [learning-cycle-route] [progression] [bound] lifecycle=${generated.lifecycle} revision=${generated.revision}`);
+      if (["baseline_evaluating", "quest_evaluating", "boss_evaluating"].includes(finalCycle.lifecycle)) {
+        void advanceCanonicalCycleFromEvidence({ childId, homeworkId })
+          .then((decided) => {
+            console.log(` 🎮 [learning-cycle-route] [planner-decision] [saved] lifecycle=${decided.lifecycle} revision=${decided.revision}`);
+            return ["baseline_generating", "quest_generating", "boss_generating"].includes(decided.lifecycle)
+              ? generateCanonicalProgressionArtifact({ childId, homeworkId })
+              : decided;
+          })
+          .then((advanced) => {
+            console.log(` 🎮 [learning-cycle-route] [next-session] [ready] lifecycle=${advanced.lifecycle} revision=${advanced.revision}`);
           })
           .catch((error: unknown) => {
-            console.error(` 🎮 [learning-cycle-route] [progression] [failed] ${error instanceof Error ? error.message : String(error)}`);
+            console.error(` 🎮 [learning-cycle-route] [next-session] [deferred] ${error instanceof Error ? error.message : String(error)}`);
           });
       }
       return res.json({ lifecycle: finalCycle.lifecycle, revision: finalCycle.revision });
@@ -1857,7 +1840,7 @@ export function setupRoutes(app: Express): void {
       profile?.games?.quest?.generatedGamePath,
       profile?.games?.boss?.generatedGamePath,
     ].filter((p): p is string => typeof p === "string" && p.trim().length > 0);
-    const contextGamesDir = path.join(process.cwd(), "src", "context", childId, "homework", "games");
+    const contextGamesDir = path.join(resolveChildContextDir(childId), "homework", "games");
     const contextCandidate = path.join(contextGamesDir, filename);
     const resolved = configuredPaths
       .map((p) => path.resolve(p))
@@ -1867,7 +1850,7 @@ export function setupRoutes(app: Express): void {
       return res.status(404).json({ error: "File not found" });
     }
     res.type("html");
-    return res.sendFile(resolved);
+    return res.sendFile(resolved, { dotfiles: "allow" });
   });
 
   app.get("/api/homework/game/:childId/:homeworkId/:filename", (req: Request, res: Response) => {
@@ -1877,14 +1860,14 @@ export function setupRoutes(app: Express): void {
     if (!childId || !/^[\w.-]+$/.test(homeworkId) || !/^[\w.\- ]+$/.test(filename)) {
       return res.status(404).json({ error: "File not found" });
     }
-    const gamesRoot = path.resolve(process.cwd(), "src", "context", childId, "homework", "games");
+    const gamesRoot = path.resolve(resolveChildContextDir(childId), "homework", "games");
     const cycleRoot = path.resolve(gamesRoot, homeworkId);
     const resolved = path.resolve(cycleRoot, filename);
     if (!cycleRoot.startsWith(`${gamesRoot}${path.sep}`) || !resolved.startsWith(`${cycleRoot}${path.sep}`) || !fs.existsSync(resolved)) {
       return res.status(404).json({ error: "File not found" });
     }
     res.type("html");
-    return res.sendFile(resolved);
+    return res.sendFile(resolved, { dotfiles: "allow" });
   });
 
   app.post("/api/homework/clarification", (req: Request, res: Response) => {

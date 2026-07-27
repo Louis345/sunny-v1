@@ -1,6 +1,6 @@
 # Sunny Learning Feedback Loop
 
-Contract version: 1
+Contract version: 4
 
 This document is the **sole normative** authority for how Sunny forms, tests, and revises learning claims. Product changes that alter this loop must update this contract version before implementation. Other documents may describe infrastructure or history, but they must link here instead of creating another learning doctrine.
 
@@ -19,6 +19,37 @@ child chart + prior cycles + returned graded work
 → next intervention or stop
 → delayed or graded calibration
 ```
+
+## Evidence-gated board progression
+
+For homework boards, the inner learning loop is:
+
+```text
+school assignment
+→ preregistered prediction
+→ personalized baseline intervention
+→ factual baseline scorecard
+→ exactly one Planner decision
+→ targeted support or Quest
+→ factual Quest transfer scorecard
+→ exactly one Planner decision
+→ targeted support, defer, or Boss
+→ factual Boss synthesis scorecard
+→ awaiting calibration
+→ returned graded or delayed work
+→ prediction evaluation and exactly one theory decision
+→ improved next intervention
+```
+
+The child completes the selected route frontier, not every cosmetic route merely to satisfy a gate. A route selection is engagement evidence only. When the selected frontier is complete, code records observations and enters an evaluating lifecycle; it never chooses the educational next step. The Planner then makes exactly one evidence-citing choice: prescribe support, generate Quest, generate Boss when Quest evidence exists, collect more evidence, or await calibration.
+
+Every session is an honest chapter with a visible endpoint. Finishing the selected route does not reveal surprise required work in that same session. The child receives completion feedback and may replay completed nodes, while Sunny reduces the session into factual scorecards and asks the Planner for exactly one next-step decision in the background.
+
+The next intervention is generated and validated as the **next session chapter**. A later session load presents that ready chapter; the open session packet never polls for or swaps in newly generated required nodes. When a route frontier is complete, its unselected route is no longer required. This preserves meaningful agency without making the child finish both versions of the same curriculum.
+
+Quest and Boss never launch automatically. Once their evidence-authorized artifacts are generated and validated, the next session presents the node as unlocked. Quest uses unseen transfer material. Boss uses unseen synthesis material and always ends in `awaiting_calibration`; in-app performance alone cannot close the cycle.
+
+The AI-authored board presentation is preserved as a projection template, while node state, artifact binding, evidence, and lifecycle always come from the canonical cycle. A static compatibility file may not hide or override a newer canonical revision.
 
 ## Authority and storage
 
@@ -106,6 +137,8 @@ The child chart supplies the Planner a compact, relevant cross-cycle history:
 - engagement history in a separate presentation section.
 
 Every new prediction explains which historical evidence informed it. Re-ingestion starts from this history rather than from zero.
+
+Adaptive memory carries factual observations, provenance, confidence, and uncertainty—not reusable behavioral commands. Derived labels such as preferred, avoided, low-pressure, competitive, or consequence-free cannot become authoritative Planner instructions. Generated mission, recovery, stakes, reward, and Creator prose are outputs of a prior intervention, not observations, and may not be fed forward as child evidence. The Planner receives the underlying facts and independently decides what to preserve, vary, or test next.
 
 ## Forbidden patterns
 

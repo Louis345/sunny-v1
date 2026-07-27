@@ -345,6 +345,11 @@ export function readChoiceEvents(childId: string, opts: RootOptions = {}): Choic
 function preferenceLiked(event: ChoiceEvent): boolean | null {
   if (event.explicitSentiment === "like") return true;
   if (event.explicitSentiment === "dislike") return false;
+  if (typeof event.funRating === "number") {
+    if (event.funRating >= 4) return true;
+    if (event.funRating <= 2) return false;
+    return null;
+  }
   if (event.postActivityAction === "abandon") return false;
   if (event.postActivityAction === "back_to_map") return null;
   if (
@@ -365,9 +370,6 @@ function preferenceLiked(event: ChoiceEvent): boolean | null {
       ? true
       : null;
   }
-  if (event.eventName === "option_selected" && event.source === "child_choice") return true;
-  if (event.eventName === "surprise_revealed" && event.started !== false) return true;
-  if (event.completed === true && clamp01(event.frustrationScore, 0) < 0.5) return true;
   if (event.completed === false) return false;
   return null;
 }
@@ -538,6 +540,25 @@ export async function applyChoiceEventPreference(
     completed || isChoiceIntent ? 0.1 : 0.65,
   );
   const engagementScore = engagementFromChoice(event, weight);
+  const hasOutcomeEvidence =
+    liked !== null ||
+    event.eventName === "activity_completed" ||
+    event.eventName === "replay_requested" ||
+    event.postActivityAction === "abandon";
+  if (!hasOutcomeEvidence && isChoiceIntent) {
+    const currentTheory = readEngagementTheory(event.childId, { rootDir: rootDir(opts) }) ??
+      buildInitialEngagementTheory({ childId: event.childId, domain: event.domain });
+    writeEngagementTheory(
+      event.childId,
+      updateEngagementTheoryFromChoiceEvents(currentTheory, [event]),
+      { rootDir: rootDir(opts) },
+    );
+    return {
+      applied: false,
+      reason: "selection_recorded_without_preference_conclusion",
+      activityId: option.activityId,
+    };
+  }
   const next: LearningProfile = {
     ...profile,
     activityModel: mergePreferenceIntoActivityModel(profile.activityModel, {
@@ -578,7 +599,7 @@ export async function applyChoiceEventPreference(
     { rootDir: rootDir(opts) },
   );
   const nodeType = option.nodeType ?? asNodeType(option.activityId);
-  if (event.source === "child_choice" && nodeType) {
+  if (event.source === "child_choice" && nodeType && hasOutcomeEvidence) {
     const reward = opts.recordBanditReward ?? recordReward;
     await reward(event.childId, nodeType, liked === true, completed, accuracy);
   }

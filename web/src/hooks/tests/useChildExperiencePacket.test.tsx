@@ -113,4 +113,48 @@ describe("useChildExperiencePacket", () => {
       expect(result.current.packet?.activeSessionPlan?.adventureBoard?.boardId).toBe("board-reina-2");
     });
   });
+
+  it("keeps the open session board stable while the next chapter is generated", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    let packetVersion = 0;
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url === "/api/child-experience/reina") {
+        packetVersion += 1;
+        return Response.json({
+          childChart: {
+            childId: "reina",
+            learningCycle: {
+              homeworkId: "hw-math",
+              lifecycle: packetVersion === 1 ? "baseline_ready" : packetVersion === 2 ? "quest_generating" : "quest_ready",
+              revision: packetVersion,
+            },
+          },
+          activeSessionPlan: {
+            adventureBoard: { boardId: `board-reina-${packetVersion}` },
+          },
+        });
+      }
+      if (url === "/api/homework/quest-boss/prepare") {
+        return Response.json({ ok: true, childId: "reina", jobs: [], running: [], briefs: [] }, { status: 202 });
+      }
+      throw new Error(`unexpected fetch ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { result } = renderHook(() => useChildExperiencePacket("reina", true));
+    await waitFor(() => {
+      expect(result.current.packet?.activeSessionPlan?.adventureBoard?.boardId).toBe("board-reina-1");
+    });
+
+    act(() => {
+      window.dispatchEvent(new CustomEvent("sunny_learning_cycle_progression"));
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(4000);
+    });
+
+    expect(result.current.packet?.activeSessionPlan?.adventureBoard?.boardId).toBe("board-reina-1");
+    expect(fetchMock.mock.calls.filter(([input]) => String(input) === "/api/child-experience/reina")).toHaveLength(1);
+  });
 });

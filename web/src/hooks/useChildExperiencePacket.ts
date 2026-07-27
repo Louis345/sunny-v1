@@ -99,7 +99,7 @@ export function useChildExperiencePacket(
     }
 
     let cancelled = false;
-    let timer: ReturnType<typeof setTimeout> | null = null;
+    let prepTimer: ReturnType<typeof setTimeout> | null = null;
     let pollCount = 0;
     setState({ packet: null, loading: true, error: null, questBossPreparation: null });
 
@@ -109,12 +109,14 @@ export function useChildExperiencePacket(
         if (!cancelled) {
           setState((prev) => ({ ...prev, packet, loading: false, error: null }));
         }
+        return packet;
       })
       .catch((err: unknown) => {
         if (!cancelled) {
           const message = err instanceof Error ? err.message : String(err);
           setState((prev) => ({ ...prev, packet: null, loading: false, error: message }));
         }
+        return null;
       });
 
     const pollPreparation = () => {
@@ -132,7 +134,7 @@ export function useChildExperiencePacket(
             void loadPacket();
           }
           if (shouldPoll(status)) {
-            timer = setTimeout(pollPreparation, 5000);
+            prepTimer = setTimeout(pollPreparation, 5000);
           }
         })
         .catch((err: unknown) => {
@@ -149,7 +151,7 @@ export function useChildExperiencePacket(
         if (cancelled) return;
         setState((prev) => ({ ...prev, questBossPreparation: status }));
         if (shouldPoll(status)) {
-          timer = setTimeout(pollPreparation, 5000);
+          prepTimer = setTimeout(pollPreparation, 5000);
         }
       })
       .catch((err: unknown) => {
@@ -161,7 +163,7 @@ export function useChildExperiencePacket(
 
     return () => {
       cancelled = true;
-      if (timer) clearTimeout(timer);
+      if (prepTimer) clearTimeout(prepTimer);
     };
   }, [childId, enabled]);
 

@@ -25,5 +25,7 @@ export async function postCanonicalNodeCompletion(input: CanonicalNodeCompletion
     body: JSON.stringify(input),
   });
   if (!response.ok) throw new Error(`canonical_node_completion_${response.status}`);
-  return response.json() as Promise<{ lifecycle: string; revision: number }>;
+  const result = await response.json() as { lifecycle: string; revision: number };
+  window.dispatchEvent(new CustomEvent("sunny_learning_cycle_progression", { detail: result }));
+  return result;
 }

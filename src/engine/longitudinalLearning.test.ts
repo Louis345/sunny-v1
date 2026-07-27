@@ -235,9 +235,11 @@ describe("longitudinal learning evidence", () => {
     expect(getLearningCycle("reina", "hw-math-one", { rootDir })?.lifecycle).toBe("baseline_ready");
   });
 
-  it("records a supported theory decision without silently completing or changing the board", async () => {
+  it("closes an awaiting-calibration cycle after returned work receives one theory decision", async () => {
     const rootDir = root();
-    createLearningCycle(cycleInput("hw-math-one"), { rootDir });
+    const created = createLearningCycle(cycleInput("hw-math-one"), { rootDir });
+    const cycleFile = path.join(rootDir, "src/context/reina/homework/cycles/hw-math-one.json");
+    fs.writeFileSync(cycleFile, JSON.stringify({ ...created, lifecycle: "awaiting_calibration" }), "utf8");
     const factual = recordConfirmedReturnedWork(returnedWork("hw-math-one"), { rootDir });
     const interpreted = await interpretReturnedWorkBatch({
       childId: "reina", homeworkId: "hw-math-one", sourceId: "source:return:1", rootDir,
@@ -248,7 +250,7 @@ describe("longitudinal learning evidence", () => {
         preserve: ["equal groups"], change: [], testNext: ["delayed transfer"], nextEvidenceRequired: ["delayed work"],
       }),
     });
-    expect(interpreted.cycle.lifecycle).toBe("baseline_ready");
+    expect(interpreted.cycle.lifecycle).toBe("complete");
     expect(interpreted.cycle.nodes).toEqual(factual.nodes);
   });
 

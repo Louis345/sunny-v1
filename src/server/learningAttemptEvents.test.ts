@@ -2,7 +2,7 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import { afterEach, describe, expect, it } from "vitest";
-import { recordLearningAttempt } from "./learningAttemptEvents";
+import { normalizeLearningAttemptEvent, recordLearningAttempt } from "./learningAttemptEvents";
 
 const tempDirs: string[] = [];
 
@@ -38,6 +38,19 @@ function seedChild(rootDir: string, childId: string): void {
 }
 
 describe("recordLearningAttempt math branch", () => {
+  it("accepts the generated-math targetId alias without losing target identity", () => {
+    const recorded = normalizeLearningAttemptEvent({
+      childId: "reina",
+      domain: "math",
+      targetId: "item-5x4",
+      attemptedValue: "20",
+      correct: true,
+    });
+
+    expect(recorded.attempt.word).toBe("item-5x4");
+    expect(recorded.attempt.attemptedValue).toBe("20");
+  });
+
   it("routes math domain attempts to fact bank instead of word bank", () => {
     const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-attempt-math-"));
     tempDirs.push(rootDir);

@@ -15,6 +15,7 @@ import {
   type DirectCreativeRevision,
 } from "../engine/directMathExperience";
 import { readDirectFeedbackContext } from "../engine/directExperienceFeedback";
+import { readPriorConceptIds, writeAssignmentLedgerEntry } from "../engine/assignmentLedger";
 import { getChildChart } from "../profiles/childChart";
 
 function arg(name: string): string {
@@ -44,11 +45,27 @@ async function main(): Promise<void> {
     canonicalCycle: readDirectCanonicalLearningContext(childId, homeworkId),
   };
   console.log("[2/5] AI planning board and experiences");
+  const priorConceptIds = readPriorConceptIds(childId);
   const plannerPlan = flag("resume") && fs.existsSync(draftFile)
     ? parseDirectLearningExperiencePlan(JSON.parse(fs.readFileSync(draftFile, "utf8")))
-    : await askDirectMathPlanner({ childId, chart, extraction, priorOutcomes });
+    : await askDirectMathPlanner({ childId, chart, extraction, priorOutcomes, priorConceptIds });
   fs.mkdirSync(draftDir, { recursive: true });
   fs.writeFileSync(draftFile, `${JSON.stringify(plannerPlan, null, 2)}\n`, "utf8");
+
+  // Record what we believed before any of it was built, so the retro has
+  // something to check itself against. This path previously wrote no ledger.
+  const ledgerPath = writeAssignmentLedgerEntry({
+    childId,
+    homeworkId,
+    sourceFilename: path.basename(pdf),
+    concept: plannerPlan.concept,
+    boardSummary: {
+      title: plannerPlan.boardWorld.title,
+      routeLabels: plannerPlan.fork.routes.map((route) => route.label),
+      activityCount: plannerPlan.activities.length,
+    },
+  });
+  console.log(`  📋 Concept "${plannerPlan.concept.conceptId}" → ${path.relative(process.cwd(), ledgerPath)}`);
   let previousTasteReview: unknown = {};
   try {
     previousTasteReview = JSON.parse(fs.readFileSync(previousTasteFile, "utf8"));

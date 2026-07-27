@@ -23,8 +23,43 @@ vi.mock("../engine/directExperienceFeedback", () => ({
   interpretDirectExperienceOutcome: vi.fn(() => new Promise(() => {})),
 }));
 
+vi.mock("../engine/learningCycleRuntime", () => ({
+  recordCanonicalNodeCompletion: vi.fn(() => ({
+    childId: "demo-pashley",
+    homeworkId: "hw-math",
+    lifecycle: "baseline_evaluating",
+    revision: 2,
+  })),
+  advanceCanonicalCycleFromEvidence: vi.fn(async () => ({
+    childId: "demo-pashley",
+    homeworkId: "hw-math",
+    lifecycle: "quest_generating",
+    revision: 3,
+  })),
+}));
+
+vi.mock("../engine/canonicalProgressionGenerator", () => ({
+  generateCanonicalProgressionArtifact: vi.fn(async () => ({
+    childId: "demo-pashley",
+    homeworkId: "hw-math",
+    lifecycle: "quest_ready",
+    revision: 4,
+  })),
+}));
+
+vi.mock("../engine/learningCycleRepository", () => ({
+  getLearningCycle: vi.fn(() => ({
+    childId: "demo-pashley",
+    homeworkId: "hw-math",
+    lifecycle: "baseline_evaluating",
+    revision: 2,
+  })),
+}));
+
 import { appendContentFeedbackLesson } from "../engine/contentFeedbackMemory";
 import { interpretDirectExperienceOutcome } from "../engine/directExperienceFeedback";
+import { advanceCanonicalCycleFromEvidence } from "../engine/learningCycleRuntime";
+import { generateCanonicalProgressionArtifact } from "../engine/canonicalProgressionGenerator";
 import { setupRoutes } from "./routes";
 
 const mockedAppendLesson = vi.mocked(appendContentFeedbackLesson);
@@ -49,6 +84,26 @@ describe("choice-event route feedback lessons", () => {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ payload }),
+    });
+    return { status: res.status, body: await res.json() as Record<string, unknown> };
+  }
+
+  async function postNodeCompletion() {
+    const app = express();
+    app.use(express.json());
+    setupRoutes(app);
+    const server = app.listen(0);
+    servers.push(server);
+    const port = (server.address() as AddressInfo).port;
+    const res = await fetch(`http://127.0.0.1:${port}/api/learning-cycle/node-complete`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        childId: "demo-pashley",
+        homeworkId: "hw-math",
+        nodeId: "array-forge",
+        result: { completed: true, accuracy: 0.8, sessionId: "session-1" },
+      }),
     });
     return { status: res.status, body: await res.json() as Record<string, unknown> };
   }
@@ -123,5 +178,16 @@ describe("choice-event route feedback lessons", () => {
     expect(out.status).toBe(200);
     expect(out.body.ok).toBe(true);
     expect(mockedInterpretOutcome).toHaveBeenCalledTimes(1);
+  });
+
+  it("starts exactly one next-chapter decision from the canonical completion endpoint", async () => {
+    const out = await postNodeCompletion();
+
+    expect(out.status).toBe(200);
+    expect(out.body).toMatchObject({ lifecycle: "baseline_evaluating", revision: 2 });
+    await vi.waitFor(() => {
+      expect(advanceCanonicalCycleFromEvidence).toHaveBeenCalledTimes(1);
+      expect(generateCanonicalProgressionArtifact).toHaveBeenCalledTimes(1);
+    });
   });
 });

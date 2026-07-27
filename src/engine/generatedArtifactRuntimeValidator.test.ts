@@ -36,7 +36,12 @@ describe("generated artifact runtime validator", () => {
       outputDir: dir,
       now: new Date("2026-05-14T12:00:00.000Z"),
       runBrowser: async (): Promise<GeneratedArtifactBrowserSnapshot> => ({
-        screenshotPaths: [path.join(dir, "quest.png")],
+        screenshotPaths: [
+          path.join(dir, "quest-load.png"),
+          path.join(dir, "quest-recovery.png"),
+          path.join(dir, "quest-midplay.png"),
+          path.join(dir, "quest-completion.png"),
+        ],
         bodyText: "Finish",
         consoleErrors: [],
         pageErrors: [],
@@ -101,7 +106,12 @@ describe("generated artifact runtime validator", () => {
       outputDir: dir,
       now: new Date("2026-05-14T12:00:00.000Z"),
       runBrowser: async (): Promise<GeneratedArtifactBrowserSnapshot> => ({
-        screenshotPaths: [path.join(dir, "quest.png")],
+        screenshotPaths: [
+          path.join(dir, "quest-load.png"),
+          path.join(dir, "quest-recovery.png"),
+          path.join(dir, "quest-midplay.png"),
+          path.join(dir, "quest-completion.png"),
+        ],
         bodyText: "Quest ready",
         consoleErrors: [],
         pageErrors: [],
@@ -119,8 +129,111 @@ describe("generated artifact runtime validator", () => {
       passed: true,
       attemptedTargets: WORDS.length,
       completed: true,
-      screenshotPaths: [path.join(dir, "quest.png")],
+      screenshotPaths: [
+        path.join(dir, "quest-load.png"),
+        path.join(dir, "quest-recovery.png"),
+        path.join(dir, "quest-midplay.png"),
+        path.join(dir, "quest-completion.png"),
+      ],
     });
+  });
+
+  it("captures opening, mid-play, and completion screenshots for Quest human review", async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-runtime-quest-frames-"));
+    const report = await validateGeneratedArtifactRuntime({
+      html: "<!doctype html><html><body><h1>Quest</h1></body></html>",
+      childId: "reina",
+      stage: "quest",
+      homeworkType: "math",
+      words: ["transfer"],
+      outputDir: dir,
+      runBrowser: async () => ({
+        screenshotPaths: [
+          path.join(dir, "quest-load.png"),
+          path.join(dir, "quest-recovery.png"),
+          path.join(dir, "quest-midplay.png"),
+          path.join(dir, "quest-completion.png"),
+        ],
+        bodyText: "Quest",
+        consoleErrors: [],
+        pageErrors: [],
+        attemptEvents: [{ domain: "math", target: "transfer", correct: true }],
+        companionEvents: [],
+        completionEvents: [{ nodeId: "quest", completed: true, accuracy: 1 }],
+        validationHookResult: { used: true },
+      }),
+    });
+
+    expect(report.passed).toBe(true);
+    expect(report.runtimeValidation?.screenshotPaths).toHaveLength(4);
+    const source = fs.readFileSync(path.join(process.cwd(), "src/engine/generatedArtifactRuntimeValidator.ts"), "utf8");
+    expect(source).not.toContain('input.stage === "baseline" ? 3 : 1');
+  });
+
+  it("requires a real validation hook and four review states for Quest and Boss", async () => {
+    const dir = makeDir();
+    dirs.push(dir);
+    const report = await validateGeneratedArtifactRuntime({
+      html: "<html><body>Quest ready</body></html>",
+      childId: "reina",
+      stage: "quest",
+      homeworkType: "math",
+      words: ["transfer"],
+      outputDir: dir,
+      runBrowser: async () => ({
+        screenshotPaths: [
+          path.join(dir, "quest-load.png"),
+          path.join(dir, "quest-midplay.png"),
+          path.join(dir, "quest-completion.png"),
+        ],
+        bodyText: "Quest ready",
+        consoleErrors: [],
+        pageErrors: [],
+        attemptEvents: [{ target: "transfer", correct: true }],
+        companionEvents: [],
+        completionEvents: [{ completed: true }],
+        validationHookResult: { used: false },
+      }),
+    });
+    expect(report.passed).toBe(false);
+    expect(report.failures.join(" ")).toMatch(/SUNNY_VALIDATION_HOOKS/i);
+    expect(report.failures.join(" ")).toMatch(/4 gameplay screenshots/i);
+  });
+
+  it("preserves the ordered runtime event timeline for the evaluator", async () => {
+    const dir = makeDir();
+    dirs.push(dir);
+    const eventTimeline = [
+      { type: "attempt_event", timestampMs: 100, payload: { target: "transfer", correct: false } },
+      { type: "progress_event", timestampMs: 250, payload: { completedItems: 1 } },
+      { type: "node_complete", timestampMs: 500, payload: { completed: true } },
+    ];
+    const report = await validateGeneratedArtifactRuntime({
+      html: "<html><body>Quest ready</body></html>",
+      childId: "reina",
+      stage: "quest",
+      homeworkType: "math",
+      words: ["transfer"],
+      outputDir: dir,
+      runBrowser: async () => ({
+        screenshotPaths: [
+          path.join(dir, "quest-load.png"),
+          path.join(dir, "quest-recovery.png"),
+          path.join(dir, "quest-midplay.png"),
+          path.join(dir, "quest-completion.png"),
+        ],
+        bodyText: "Quest ready",
+        consoleErrors: [],
+        pageErrors: [],
+        attemptEvents: [{ target: "transfer", correct: true }],
+        companionEvents: [],
+        completionEvents: [{ completed: true }],
+        validationHookResult: { used: true },
+        eventTimeline,
+      }),
+    });
+    expect(report.passed).toBe(true);
+    expect((report.runtimeValidation as any)?.eventTimeline).toEqual(eventTimeline);
   });
 
   it("passes baseline stage when three screenshots and evidence are captured", async () => {
@@ -278,5 +391,48 @@ describe("generated artifact runtime validator", () => {
       completed: true,
       usedValidationHook: true,
     });
+  });
+
+  it("serves assigned generated artwork during the real browser validation", async () => {
+    const availability = await resolveSyntheticChildBrowserAvailability();
+    if (!availability.available) {
+      expect(availability.reason).toContain("chromium");
+      return;
+    }
+    const dir = makeDir();
+    dirs.push(dir);
+
+    const report = await validateGeneratedArtifactRuntime({
+      html: `
+        <html>
+          <body>
+            <main>Quest with generated artwork</main>
+            <img src="/generated/adventure-board-demo/quest.jpeg" alt="Quest world">
+            <script>
+              fetch("/generated/adventure-board-demo/quest.jpeg").then((response) => {
+                if (!response.ok) throw new Error("generated artwork unavailable:" + response.status);
+              });
+              window.SUNNY_VALIDATION_HOOKS = {
+                playthrough: async ({ words }) => {
+                  for (const target of words) {
+                    window.postMessage({ type: "attempt_event", payload: { target, correct: true } }, "*");
+                  }
+                  window.postMessage({ type: "node_complete", payload: { completed: true } }, "*");
+                }
+              };
+            </script>
+          </body>
+        </html>
+      `,
+      childId: "reina",
+      stage: "quest",
+      homeworkType: "math",
+      words: ["transfer"],
+      outputDir: dir,
+      now: new Date("2026-05-14T12:00:00.000Z"),
+    });
+
+    expect(report.passed).toBe(true);
+    expect(report.runtimeValidation?.pageErrors).toEqual([]);
   });
 });
