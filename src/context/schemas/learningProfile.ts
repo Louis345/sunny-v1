@@ -567,6 +567,17 @@ export interface AIContentCatalogItem {
   theme?: string;
   sfxProfile?: string;
   companionPolicy?: string;
+  designMemory?: {
+    artifactId: string;
+    artifactHash: string;
+    academicResponsibility: string;
+    interactionHistory: string[];
+    themeHistory: string[];
+    humanReview: "positive" | "mixed" | "negative" | "not_reviewed";
+    childEvidenceIds: string[];
+    predictionIds: string[];
+    theoryDecisionIds: string[];
+  };
   artworkStatus?: "generated" | "fallback" | "missing";
   performanceSummary?: {
     plays: number;

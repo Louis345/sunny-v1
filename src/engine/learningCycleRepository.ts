@@ -234,6 +234,23 @@ export type PredictionEvaluation = {
   evaluatedAt: string;
 };
 
+export type LearningAssumption = {
+  assumptionId: string;
+  claim: string;
+  evidenceIds: string[];
+  confidence: number;
+  uncertainty: string;
+  createdAt: string;
+  lockedAt: string;
+};
+
+export type AssumptionAssessment = {
+  assumptionId: string;
+  outcome: "supported" | "rejected" | "uncertain";
+  reason: string;
+  observationIds: string[];
+};
+
 export type LearningCycleDecision = {
   decisionId: string;
   eventType: LearningCycleEvent["type"];
@@ -249,6 +266,7 @@ export type LearningCycleDecision = {
   testNext?: string[];
   nextEvidenceRequired?: string[];
   predictionEvaluationIds?: string[];
+  assumptionAssessments?: AssumptionAssessment[];
 };
 
 export type LearningCycleRecordV2 = {
@@ -279,6 +297,7 @@ export type LearningCycleRecordV2 = {
   calibrations?: LearningCycleCalibration[];
   evidenceSources: LearningEvidenceSourceRef[];
   academicPredictions: AcademicPrediction[];
+  assumptions: LearningAssumption[];
   observations: LearningObservation[];
   predictionEvaluations: PredictionEvaluation[];
   createdAt: string;
@@ -294,11 +313,12 @@ export type CreateLearningCycleInput = Omit<
   | "decisionHistory"
   | "evidenceSources"
   | "academicPredictions"
+  | "assumptions"
   | "observations"
   | "predictionEvaluations"
   | "createdAt"
   | "updatedAt"
-> & { academicPredictions?: AcademicPrediction[] };
+> & { academicPredictions?: AcademicPrediction[]; assumptions?: LearningAssumption[] };
 
 type OutcomeDecision = {
   status: LearningTheoryDecisionStatus;
@@ -349,6 +369,7 @@ export type LearningCycleEvent =
       engagementTheory: EngagementTheory | null;
       nodes: LearningCycleNodeContract[];
       academicPredictions?: AcademicPrediction[];
+      assumptions?: LearningAssumption[];
       reason: string;
     }
   | ({ type: "baseline_completed"; decision: OutcomeDecision } & OutcomeEvidence)
@@ -378,6 +399,7 @@ export type LearningCycleEvent =
         change: string[];
         testNext: string[];
         nextEvidenceRequired: string[];
+        assumptionAssessments?: AssumptionAssessment[];
         revisedHypothesis?: string;
         progressionAction?: LearningProgressionAction;
         nextInstrument?: NextInstrumentPrescription;
@@ -455,6 +477,7 @@ function assertCycle(value: LearningCycleRecordV2): void {
     throw new Error("learning_cycle_identity_invalid");
   }
   if (!Array.isArray(value.evidenceSources) || !Array.isArray(value.academicPredictions) ||
+      !Array.isArray(value.assumptions) ||
       !Array.isArray(value.observations) || !Array.isArray(value.predictionEvaluations)) {
     throw new Error("learning_cycle_longitudinal_evidence_invalid");
   }
@@ -492,6 +515,7 @@ function hydrateLongitudinalFields(value: LearningCycleRecordV2): LearningCycleR
     ...value,
     evidenceSources: value.evidenceSources ?? [],
     academicPredictions: value.academicPredictions ?? [],
+    assumptions: value.assumptions ?? [],
     observations: value.observations ?? [],
     predictionEvaluations: value.predictionEvaluations ?? [],
   };
@@ -545,6 +569,7 @@ export function createLearningCycle(
     decisionHistory: [],
     evidenceSources: [],
     academicPredictions: structuredClone(input.academicPredictions ?? []),
+    assumptions: structuredClone(input.assumptions ?? []),
     observations: [],
     predictionEvaluations: [],
     createdAt: at,
@@ -808,6 +833,11 @@ export function transitionLearningCycle(
       const priorById = new Map(next.academicPredictions.map((prediction) => [prediction.predictionId, prediction]));
       next.academicPredictions = event.academicPredictions.map((prediction) =>
         structuredClone(priorById.get(prediction.predictionId) ?? prediction));
+    }
+    if (event.assumptions) {
+      const priorById = new Map(next.assumptions.map((assumption) => [assumption.assumptionId, assumption]));
+      next.assumptions = event.assumptions.map((assumption) =>
+        structuredClone(priorById.get(assumption.assumptionId) ?? assumption));
     }
     next.assignment = structuredClone(event.assignment);
     next.academicTheory = structuredClone(event.academicTheory);
@@ -1137,6 +1167,7 @@ export function transitionLearningCycle(
       testNext: event.decision.testNext,
       nextEvidenceRequired: event.decision.nextEvidenceRequired,
       predictionEvaluationIds: event.decision.predictionEvaluationIds,
+      assumptionAssessments: event.decision.assumptionAssessments,
     } : {}),
   };
   next.decisionHistory.push(decision);

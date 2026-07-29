@@ -7,6 +7,7 @@ import {
   getLearningCycle,
   transitionLearningCycle,
   type AcademicPrediction,
+  type AssumptionAssessment,
   type LearningConstructLink,
   type LearningCycleDecision,
   type LearningCycleRecordV2,
@@ -60,6 +61,7 @@ export type TheoryDecisionContent = {
   testNext: string[];
   nextEvidenceRequired: string[];
   revisedHypothesis?: string;
+  assumptionAssessments?: AssumptionAssessment[];
 };
 
 type RootOptions = { rootDir?: string; now?: Date };
@@ -243,12 +245,32 @@ function stringArray(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string" && item.trim().length > 0) : [];
 }
 
-function parseTheoryDecision(value: unknown): TheoryDecisionContent {
+function parseTheoryDecision(value: unknown, cycle: LearningCycleRecordV2): TheoryDecisionContent {
   const row = value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
   const statuses = new Set(["supported", "revised", "falsified", "inconclusive", "awaiting_calibration"]);
   if (typeof row.status !== "string" || !statuses.has(row.status)) throw new Error("longitudinal_theory_decision_status_invalid");
   if (typeof row.reason !== "string" || !row.reason.trim() || typeof row.nextAction !== "string" || !row.nextAction.trim()) {
     throw new Error("longitudinal_theory_decision_reason_invalid");
+  }
+  const rawAssessments = Array.isArray(row.assumptionAssessments) ? row.assumptionAssessments : [];
+  const assessments = rawAssessments.map((raw): AssumptionAssessment => {
+    const assessment = raw && typeof raw === "object" && !Array.isArray(raw) ? raw as Record<string, unknown> : {};
+    if (typeof assessment.assumptionId !== "string" || !cycle.assumptions.some((item) => item.assumptionId === assessment.assumptionId)) {
+      throw new Error("longitudinal_assumption_assessment_unknown");
+    }
+    if (!["supported", "rejected", "uncertain"].includes(String(assessment.outcome)) ||
+        typeof assessment.reason !== "string" || !assessment.reason.trim()) {
+      throw new Error("longitudinal_assumption_assessment_invalid");
+    }
+    return {
+      assumptionId: assessment.assumptionId,
+      outcome: assessment.outcome as AssumptionAssessment["outcome"],
+      reason: assessment.reason,
+      observationIds: stringArray(assessment.observationIds),
+    };
+  });
+  if (cycle.assumptions.some((assumption) => !assessments.some((assessment) => assessment.assumptionId === assumption.assumptionId))) {
+    throw new Error("longitudinal_assumption_assessment_missing");
   }
   return {
     status: row.status as TheoryDecisionContent["status"],
@@ -260,6 +282,7 @@ function parseTheoryDecision(value: unknown): TheoryDecisionContent {
     change: stringArray(row.change),
     testNext: stringArray(row.testNext),
     nextEvidenceRequired: stringArray(row.nextEvidenceRequired),
+    assumptionAssessments: assessments,
     ...(typeof row.revisedHypothesis === "string" && row.revisedHypothesis.trim() ? { revisedHypothesis: row.revisedHypothesis } : {}),
   };
 }
@@ -277,13 +300,13 @@ async function askPlannerForTheoryDecision(input: {
   const response = await client.messages.create({
     model: input.model ?? process.env.SUNNY_INGEST_MODEL ?? "claude-sonnet-5",
     max_tokens: 1800,
-    messages: [{ role: "user", content: `You are Sunny's AI learning Planner. Interpret one confirmed external-evidence batch. Observations are immutable facts. Compare only preregistered predictions with their evaluations and return exactly one theory decision. A supported prediction does not automatically prove mastery. Cite only supplied observation and evaluation IDs.\n\nTheory:\n${JSON.stringify(input.cycle.academicTheory, null, 2)}\n\nPredictions:\n${JSON.stringify(input.cycle.academicPredictions, null, 2)}\n\nObservations:\n${JSON.stringify(observations, null, 2)}\n\nEvaluations:\n${JSON.stringify(evaluations, null, 2)}` }],
+    messages: [{ role: "user", content: `You are Sunny's AI learning Planner. Interpret one confirmed external-evidence batch. Observations are immutable facts. Compare only preregistered predictions with their evaluations and return exactly one theory decision. A supported prediction does not automatically prove mastery. Cite only supplied observation and evaluation IDs. Assess every preregistered assumption as supported, rejected, or uncertain; do not rewrite it.\n\nTheory:\n${JSON.stringify(input.cycle.academicTheory, null, 2)}\n\nAssumptions:\n${JSON.stringify(input.cycle.assumptions, null, 2)}\n\nPredictions:\n${JSON.stringify(input.cycle.academicPredictions, null, 2)}\n\nObservations:\n${JSON.stringify(observations, null, 2)}\n\nEvaluations:\n${JSON.stringify(evaluations, null, 2)}` }],
     tools: [{ name: toolName, description: "Return one evidence-citing theory decision.", input_schema: { type: "object", additionalProperties: true } }],
     tool_choice: { type: "tool", name: toolName },
   }, { timeout: Number(process.env.SUNNY_AI_TIMEOUT_MS ?? 120000) });
   const tool = response.content.find((block) => block.type === "tool_use" && block.name === toolName);
   if (!tool || tool.type !== "tool_use") throw new Error("longitudinal_theory_decision_missing");
-  return parseTheoryDecision(tool.input);
+  return parseTheoryDecision(tool.input, input.cycle);
 }
 
 export async function interpretReturnedWorkBatch(input: {
