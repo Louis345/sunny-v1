@@ -1666,7 +1666,7 @@ export function ensureUniqueMathNodeTitles(
   }));
 }
 
-function finalizeAssignmentActiveSessionPlan(args: {
+export function finalizeAssignmentActiveSessionPlan(args: {
   plan: ActiveSessionPlan;
   childId: string;
   homeworkId: string;
@@ -1691,17 +1691,26 @@ function finalizeAssignmentActiveSessionPlan(args: {
   const nodePlan = args.plan.nodePlan.map((node) => {
     const routeId = routeForNode.get(node.id);
     const route = args.plan.learningRoutes?.find((candidate) => candidate.id === routeId);
+    const sharedIdentity = {
+      theoryId: node.theoryId ?? theory.theoryId,
+      experimentId: node.experimentId ?? `experiment:${args.homeworkId}:${routeId ?? node.id}`,
+      contentId: node.contentId ?? `${args.homeworkId}:content:${node.id}`,
+      engagementHypothesis: node.engagementHypothesis
+        ?? route?.rationale
+        ?? "Measure engagement with this academic intervention while holding targets constant.",
+      sfxProfile: node.sfxProfile ?? "tap-correct-wrong-progress-complete",
+      companionPolicy: node.companionPolicy ?? "talk-to-sunny",
+    };
+    if (args.domain !== "math") {
+      return {
+        ...node,
+        ...sharedIdentity,
+      };
+    }
     const routeText = `${route?.label ?? "baseline"} ${route?.rationale ?? ""}`.toLowerCase();
     const treatment = classifyMathRouteTreatment(routeId, routeText, node.targets);
     const wordProblem = treatment === "story";
-    const factNode = treatment !== "story";
-    const title = args.domain === "math"
-      ? uniqueMathTitles.get(node.id) ?? childFacingMathNodeTitle(node)
-      : wordProblem
-        ? "Story Solver"
-        : factNode
-          ? (/timed|speed/i.test(`${node.id} ${routeText}`) ? "Speed Facts Sprint" : "Fact Blaster")
-          : "Math Practice Lab";
+    const title = uniqueMathTitles.get(node.id) ?? childFacingMathNodeTitle(node);
     const engagementDimensions: EngagementDimension[] = treatment === "story"
       ? ["story", "visual", "calm"]
       : treatment === "speed"
@@ -1709,18 +1718,13 @@ function finalizeAssignmentActiveSessionPlan(args: {
         : ["puzzle", "control", "visual"];
     return {
       ...node,
-      theoryId: theory.theoryId,
-      experimentId: `experiment:${args.homeworkId}:${routeId ?? node.id}`,
-      contentId: `${args.homeworkId}:content:${node.id}`,
+      ...sharedIdentity,
       title,
       engagementDimensions,
-      engagementHypothesis: route?.rationale ?? "Measure engagement with this academic intervention while holding targets constant.",
       mechanic: wordProblem ? "equal-groups-story" : treatment === "speed" ? "fact-retrieval-speed" : "fact-retrieval-puzzle",
       theme: wordProblem ? "story-solver" : treatment === "speed" ? "speed-facts" : "fact-blaster",
       thumbnailUrl: wordProblem ? "/thumbnails/activities/math-generic.svg" : "/thumbnails/activities/math-multiplication.svg",
       thumbnailPrompt: `${title} artwork for ${args.domain} homework; show the exact mechanic and child-safe visual identity.`,
-      sfxProfile: "tap-correct-wrong-progress-complete",
-      companionPolicy: "talk-to-sunny",
     };
   });
   const nextPlan: ActiveSessionPlan = {

@@ -1,6 +1,14 @@
+import fs from "fs";
+import os from "os";
+import path from "path";
 import { describe, expect, it } from "vitest";
 import { createIngestProgress } from "../utils/ingestOutput";
-import { childFacingMathNodeTitle, classifyMathRouteTreatment, ensureUniqueMathNodeTitles } from "./ingestHomework";
+import {
+  childFacingMathNodeTitle,
+  classifyMathRouteTreatment,
+  ensureUniqueMathNodeTitles,
+  finalizeAssignmentActiveSessionPlan,
+} from "./ingestHomework";
 
 describe("ingest progress", () => {
   it("uses the route experiment when comparable arms share every academic target", () => {
@@ -50,6 +58,80 @@ describe("ingest progress", () => {
     ]).values()];
     expect(nodes.length).toBe(5);
     expect(new Set(titles).size).toBe(titles.length);
+  });
+
+  it("preserves planner-authored spelling identity and Grok artwork during finalization", () => {
+    const originalCwd = process.cwd();
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-spelling-finalize-"));
+    process.chdir(rootDir);
+    try {
+      const plan = {
+        planId: "plan-spelling",
+        childId: "demo-pashley",
+        createdAt: "2026-07-29T00:00:00.000Z",
+        source: "ingest_human_loop",
+        activeHomeworkId: "hw-spelling",
+        domain: "spelling",
+        testDate: "2026-08-01",
+        nodePlan: [{
+          id: "silent-letter-sort",
+          type: "word-radar",
+          activityId: "word-radar",
+          targets: ["sign", "know", "write"],
+          difficulty: 1,
+          source: "chart_planner",
+          title: "Silent Letter Search",
+          mechanic: "word-pattern-sort",
+          theme: "detective-library",
+          thumbnailUrl: "/generated/adventure-board/demo-pashley/silent-letter-search.jpeg",
+          thumbnailPrompt: "Detective search for silent-letter spelling patterns.",
+        }],
+        learningRoutes: [{
+          id: "spelling-route",
+          label: "Silent Letter Detectives",
+          rationale: "Notice and retrieve silent-letter patterns.",
+          nodeIds: ["silent-letter-sort"],
+        }],
+        variationPolicy: {
+          avoidExactPreviousNodeOrder: true,
+          avoidExactPreviousWordOrder: true,
+          seed: "spelling",
+          previousCompletedNodeCount: 0,
+        },
+        companionPolicy: {
+          companionId: "elli",
+          displayName: "Elli",
+          openingLinePolicy: "context_start_short",
+          verbosity: "low",
+          maxMicroProbes: 1,
+        },
+        evidenceUsed: [],
+        openQuestions: [],
+      };
+
+      const finalized = finalizeAssignmentActiveSessionPlan({
+        plan: plan as never,
+        childId: "demo-pashley",
+        homeworkId: "hw-spelling",
+        domain: "spelling",
+        testDate: "2026-08-01",
+        output: {
+          planTheory: undefined,
+          plannedMeasurements: [],
+        } as never,
+      });
+
+      expect(finalized.nodePlan[0]).toMatchObject({
+        title: "Silent Letter Search",
+        mechanic: "word-pattern-sort",
+        theme: "detective-library",
+        thumbnailUrl: "/generated/adventure-board/demo-pashley/silent-letter-search.jpeg",
+        thumbnailPrompt: "Detective search for silent-letter spelling patterns.",
+      });
+    } finally {
+      process.chdir(originalCwd);
+      fs.rmSync(rootDir, { recursive: true, force: true });
+    }
   });
 
   it("renders the five stages as readable lines in non-interactive mode", () => {
