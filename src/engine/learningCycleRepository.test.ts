@@ -191,6 +191,28 @@ describe("canonical learning cycle repository", () => {
     expect(getLearningCycle("reina", "hw-math-cycle", { rootDir })).toEqual(cycle);
   });
 
+  it("attaches generated board artwork without changing learning state", () => {
+    const rootDir = root();
+    const created = createLearningCycle(input(), { rootDir });
+
+    const updated = transitionLearningCycle("reina", "hw-math-cycle", created.revision, {
+      type: "artwork_attached",
+      nodeId: "baseline-facts",
+      localPath: "/generated/adventure-board/reina/hw-math-cycle-baseline-facts.jpeg",
+      prompt: "Friendly multiplication landmark.",
+    } as never, { rootDir });
+
+    expect(updated.lifecycle).toBe(created.lifecycle);
+    expect(updated.nodes.find((node) => node.nodeId === "baseline-facts")?.artwork).toEqual({
+      status: "ready",
+      localPath: "/generated/adventure-board/reina/hw-math-cycle-baseline-facts.jpeg",
+      prompt: "Friendly multiplication landmark.",
+    });
+    expect(projectLearningCycle(updated).activeSessionPlan.nodePlan[0]?.thumbnailUrl).toBe(
+      "/generated/adventure-board/reina/hw-math-cycle-baseline-facts.jpeg",
+    );
+  });
+
   it("rejects a cycle whose Boss has progressed before Quest evidence exists", () => {
     const rootDir = root();
     const invalid = input();

@@ -4,6 +4,11 @@ import { getChildChart } from "../profiles/childChart";
 import { writeActiveSessionPlan } from "./sessionPlanFromChart";
 import { generateStoryImage } from "../utils/generateStoryImage";
 import type { AdventureBoardNode } from "../shared/adventureBoardJson";
+import {
+  getLearningCycle,
+  projectLearningCycle,
+  transitionLearningCycle,
+} from "./learningCycleRepository";
 
 const BOARD_IMAGE_KINDS = new Set(["activity", "mystery", "quest", "boss"]);
 const MAX_NODE_IMAGES_PER_INGEST = 8;
@@ -65,6 +70,7 @@ export async function generateBoardNodeImages(input: {
   const relDir = path.join("generated", "adventure-board", childId);
 
   let generated = 0;
+  const artworkByNodeId = new Map<string, { localPath: string; prompt: string | null }>();
   const nextNodes: AdventureBoardNode[] = [];
   for (const node of board.nodes) {
     if (!BOARD_IMAGE_KINDS.has(node.kind) || generated >= MAX_NODE_IMAGES_PER_INGEST) {
@@ -76,6 +82,10 @@ export async function generateBoardNodeImages(input: {
     const servedUrl = `/${relPath.split(path.sep).join("/")}`;
     if (fs.existsSync(destPath)) {
       nextNodes.push({ ...node, thumbnailUrl: servedUrl });
+      artworkByNodeId.set(node.id, {
+        localPath: servedUrl,
+        prompt: node.thumbnailPrompt ?? nodeImagePrompt(node, domain, title),
+      });
       continue;
     }
     const prompt = node.thumbnailPrompt ?? nodeImagePrompt(node, domain, title);
@@ -86,6 +96,7 @@ export async function generateBoardNodeImages(input: {
     });
     if (remoteUrl && await downloadImage(remoteUrl, destPath)) {
       nextNodes.push({ ...node, thumbnailUrl: servedUrl });
+      artworkByNodeId.set(node.id, { localPath: servedUrl, prompt });
       generated += 1;
       console.log(`  🎮 [board-image] [node] ${node.id} → ${servedUrl}`);
     } else {
@@ -94,10 +105,25 @@ export async function generateBoardNodeImages(input: {
   }
 
   if (generated > 0 || nextNodes.some((node, index) => node !== board.nodes[index])) {
-    writeActiveSessionPlan(childId, {
-      ...plan,
-      adventureBoard: { ...board, nodes: nextNodes },
-    }, { rootDir });
+    let cycle = getLearningCycle(childId, input.homeworkId, { rootDir });
+    if (cycle) {
+      for (const [nodeId, artwork] of artworkByNodeId) {
+        const canonicalNode = cycle.nodes.find((node) => node.nodeId === nodeId);
+        if (!canonicalNode || canonicalNode.artwork.localPath === artwork.localPath) continue;
+        cycle = transitionLearningCycle(childId, input.homeworkId, cycle.revision, {
+          type: "artwork_attached",
+          nodeId,
+          ...artwork,
+        }, { rootDir });
+        console.log(`  🎮 [board-image] [canonical-attached] ${nodeId} → ${artwork.localPath}`);
+      }
+      writeActiveSessionPlan(childId, projectLearningCycle(cycle).activeSessionPlan, { rootDir });
+    } else {
+      writeActiveSessionPlan(childId, {
+        ...plan,
+        adventureBoard: { ...board, nodes: nextNodes },
+      }, { rootDir });
+    }
   }
   return { generated, skipped: null };
 }

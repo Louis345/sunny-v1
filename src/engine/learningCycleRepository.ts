@@ -288,6 +288,7 @@ export type LearningCycleEvent =
   | ({ type: "baseline_completed"; decision: OutcomeDecision } & OutcomeEvidence)
   | ({ type: "quest_completed"; decision: OutcomeDecision & { bossRequired: boolean } } & OutcomeEvidence)
   | ({ type: "boss_completed"; decision: OutcomeDecision } & OutcomeEvidence)
+  | { type: "artwork_attached"; nodeId: string; localPath: string; prompt: string | null }
   | { type: "artifact_bound"; nodeId: string; artifact: LearningCycleArtifactBinding }
   | { type: "artifact_rejected"; nodeId: string; reason: string }
   | { type: "engagement_theory_updated"; theory: EngagementTheory; reason: string }
@@ -777,6 +778,15 @@ export function transitionLearningCycle(
     ]).map((item) => item.evidenceId);
     next.lifecycle = "awaiting_calibration";
     ({ reason, nextAction, status } = event.decision);
+  } else if (event.type === "artwork_attached") {
+    const node = nodeOrThrow(next, event.nodeId);
+    assertLocalPath(event.localPath, "artwork_path");
+    node.artwork = {
+      status: "ready",
+      localPath: event.localPath,
+      prompt: event.prompt,
+    };
+    reason = `Generated board artwork attached to canonical node ${event.nodeId}.`;
   } else if (event.type === "artifact_bound") {
     const node = nodeOrThrow(next, event.nodeId);
     if (event.artifact.validationStatus !== "passed") throw new Error("learning_cycle_artifact_validation_failed");
