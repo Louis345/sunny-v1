@@ -1,0 +1,28 @@
+{
+  "status": "human_approved_reference",
+  "approvedAt": "2026-07-29",
+  "academicScope": "Grade 3 multiplication through equal groups, arrays, equations, and increasing independence",
+  "designer": {
+    "provider": "anthropic",
+    "model": "claude-fable-5",
+    "elapsedMs": 93133,
+    "inputTokens": 14398,
+    "outputTokens": 5485,
+    "estimatedCostUsd": 0.41823
+  },
+  "builder": {
+    "provider": "anthropic",
+    "model": "claude-opus-5",
+    "elapsedMs": 142712,
+    "inputTokens": 4744,
+    "outputTokens": 13731,
+    "estimatedCostUsd": 0.366995
+  },
+  "incrementalCostUsd": 0.785225,
+  "hashes": {
+    "profileEvidenceSha256": "a6b5e95dc9e8cec2301587f70573ea0e27a74161d7598ef4846c5f2642b19461",
+    "fableDesignDecisionSha256": "242275dee623285621106a106946da0503d891972ac013e7f7c03f02c616cccd",
+    "opusImplementationPromptSha256": "ce73d3cdcf51d45d517bc5e3ec1b6040a9c2ec902525bee22b1958a3b702daf5",
+    "experienceHtmlSha256": "d98a70dfbbdeaa696adf9201ea57df9536dbc4e3abdacaab578ee1ad1d1e4f07"
+  }
+}
