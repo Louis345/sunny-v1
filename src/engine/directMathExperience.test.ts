@@ -958,4 +958,48 @@ describe("direct math experience", () => {
     expect(routeNodePosition(0, 4, 0).x).toBeLessThan(routeNodePosition(3, 4, 0).x);
     expect(routeNodePosition(3, 4, 0).x).toBeLessThan(0.82);
   });
+
+  it("keeps the shared learning path and choice gate visually separated", () => {
+    const rawPlan = plan(4);
+    rawPlan.activities[0].title = "The Tide Pool Test";
+    rawPlan.activities[1].title = "The Lighthouse Lens: Secret of the Shifting Slice";
+    const parsed = parseDirectLearningExperiencePlan(rawPlan);
+    parsed.activities[0]!.routeId = "route-shared-entry";
+    parsed.activities[1]!.routeId = "route-shared-entry";
+    parsed.fork.routes[0]!.nodeIds = [parsed.activities[2]!.id];
+    parsed.fork.routes[1]!.nodeIds = [parsed.activities[3]!.id];
+    const artifacts = parsed.activities.map((activity) => ({
+      childId: "reina",
+      homeworkId: "hw-math-layout",
+      nodeId: activity.id,
+      title: activity.title,
+      htmlPath: `/tmp/${activity.id}.html`,
+      artworkUrl: `/generated/${activity.id}.jpeg`,
+      creatorPrompt: activity.creatorPrompt,
+      promptHash: `hash-${activity.id}`,
+      plannerModel: "claude-opus-5",
+      creatorModel: "claude-fable-5",
+    }));
+    const board = buildDirectActiveSessionPlan({
+      childId: "reina",
+      homeworkId: "hw-math-layout",
+      plan: parsed,
+      artifacts,
+      backgroundUrl: "/generated/background.jpeg",
+      questArtworkUrl: "/generated/quest.jpeg",
+      bossArtworkUrl: "/generated/boss.jpeg",
+      report: { passed: true, failures: [], screenshots: [] },
+    }).adventureBoard!;
+    const sharedPath = ["activity-1", "activity-2", "choose-path"]
+      .map((id) => board.nodes.find((node) => node.id === id)!);
+
+    for (let index = 1; index < sharedPath.length; index += 1) {
+      const previous = sharedPath[index - 1]!.position!;
+      const current = sharedPath[index]!.position!;
+      expect(Math.hypot(current.x - previous.x, current.y - previous.y)).toBeGreaterThanOrEqual(0.15);
+    }
+    expect(sharedPath[0]!.shortLabel).toBe("The Tide Pool Test");
+    expect(sharedPath[1]!.shortLabel).toBe("The Lighthouse Lens");
+    expect(sharedPath[2]!.shortLabel).toBe("Choose Path");
+  });
 });

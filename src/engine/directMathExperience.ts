@@ -482,6 +482,26 @@ export function routeNodePosition(index: number, count: number, routeIndex: numb
   return { x, y: routeIndex === 0 ? 0.32 : 0.72 };
 }
 
+export function sharedNodePosition(index: number, count: number): { x: number; y: number } {
+  if (count <= 1) return { x: 0.22, y: 0.64 };
+  const progress = index / (count - 1);
+  return { x: 0.15 + progress * 0.15, y: 0.72 - progress * 0.14 };
+}
+
+export function boardShortLabel(label: string, maxLength = 24): string {
+  const normalized = label.replace(/\s+/g, " ").trim();
+  const lead = normalized.split(/\s*(?::|—|–)\s*/u, 1)[0] ?? normalized;
+  if (lead.length <= maxLength) return lead;
+  const words = lead.split(" ");
+  let result = "";
+  for (const word of words) {
+    const candidate = result ? `${result} ${word}` : word;
+    if (candidate.length > maxLength) break;
+    result = candidate;
+  }
+  return result || lead.slice(0, maxLength).trimEnd();
+}
+
 function object(value: unknown): Record<string, unknown> | null {
   return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : null;
 }
@@ -2125,18 +2145,17 @@ export function buildDirectActiveSessionPlan(input: {
     { id: "boss", type: "boss", activityId: "boss", targets: [], difficulty: 3, source: "chart_planner", locked: true, masteryUnlockState: "preparing", title: "Boss", thumbnailUrl: input.bossArtworkUrl },
   );
   const nodes: AdventureBoardJson["nodes"] = [
-    { id: "start", kind: "start", label: "Start", state: "completed", position: boardPosition(8, 78) },
+    { id: "start", kind: "start", label: "Start", shortLabel: "Start", state: "completed", position: boardPosition(8, 78) },
   ];
   sharedActivities.forEach((activity, index) => {
     const artifact = artifactById.get(activity.id)!;
-    const x = 0.10 + ((index + 1) * 0.12) / (sharedActivities.length + 1);
-    nodes.push({ id: activity.id, kind: "activity", activityId: "generated-baseline", label: activity.title, state: index === 0 ? "current" : "available", position: { x, y: 0.58 }, action: { type: "launch-activity", payloadId: activity.id }, thumbnailUrl: previewUrl(activity.id, artifact.artworkUrl), mechanic: activity.mechanic, engagementDimensions: [activity.engagementVariable], engagementHypothesis: input.plan.fork.hypothesis, contentId: `${input.homeworkId}:${activity.id}` });
+    nodes.push({ id: activity.id, kind: "activity", activityId: "generated-baseline", label: activity.title, shortLabel: boardShortLabel(activity.title), state: index === 0 ? "current" : "available", position: sharedNodePosition(index, sharedActivities.length), action: { type: "launch-activity", payloadId: activity.id }, thumbnailUrl: previewUrl(activity.id, artifact.artworkUrl), mechanic: activity.mechanic, engagementDimensions: [activity.engagementVariable], engagementHypothesis: input.plan.fork.hypothesis, contentId: `${input.homeworkId}:${activity.id}` });
   });
-  nodes.push({ id: "choose-path", kind: "choice-gate", label: input.plan.fork.question, state: sharedActivities.length === 0 ? "current" : "available", position: boardPosition(24, 58), action: { type: "open-choice-set", payloadId: "direct-route-choice" }, choiceSetId: "direct-route-choice" });
+  nodes.push({ id: "choose-path", kind: "choice-gate", label: input.plan.fork.question, shortLabel: "Choose Path", state: sharedActivities.length === 0 ? "current" : "available", position: sharedActivities.length === 0 ? boardPosition(24, 58) : boardPosition(44, 48), action: { type: "open-choice-set", payloadId: "direct-route-choice" }, choiceSetId: "direct-route-choice" });
   input.plan.fork.routes.forEach((route, routeIndex) => route.nodeIds.forEach((nodeId, index) => {
     const activity = input.plan.activities.find((item) => item.id === nodeId)!;
     const artifact = artifactById.get(nodeId)!;
-    nodes.push({ id: nodeId, kind: "activity", activityId: "generated-baseline", label: activity.title, state: "available", position: routeNodePosition(index, route.nodeIds.length, routeIndex), action: { type: "launch-activity", payloadId: nodeId }, thumbnailUrl: previewUrl(nodeId, artifact.artworkUrl), mechanic: activity.mechanic, engagementDimensions: [activity.engagementVariable], engagementHypothesis: engagementHypothesisForRoute(route.id), contentId: `${input.homeworkId}:${nodeId}` });
+    nodes.push({ id: nodeId, kind: "activity", activityId: "generated-baseline", label: activity.title, shortLabel: boardShortLabel(activity.title), state: "available", position: routeNodePosition(index, route.nodeIds.length, routeIndex), action: { type: "launch-activity", payloadId: nodeId }, thumbnailUrl: previewUrl(nodeId, artifact.artworkUrl), mechanic: activity.mechanic, engagementDimensions: [activity.engagementVariable], engagementHypothesis: engagementHypothesisForRoute(route.id), contentId: `${input.homeworkId}:${nodeId}` });
   }));
   nodes.push(
     { id: "quest", kind: "quest", label: "Quest", state: "locked", position: boardPosition(82, 48), thumbnailUrl: input.questArtworkUrl, lock: { reason: "Complete your adventure routes to reveal the Quest.", label: "Locked" }, action: { type: "show-locked-reason", payloadId: "quest" } },
