@@ -172,6 +172,28 @@ export type MathDesignPacket = {
   revision: number;
 };
 
+export type BaselineBuilderAssignment = {
+  nodeId: string;
+  provider: "anthropic" | "openai";
+  model: "claude-opus-5" | "gpt-5.5";
+};
+
+export function assignBaselineBuilderModels(
+  assignmentFingerprint: string,
+  activities: Array<Pick<MathPlannedActivity, "id">>,
+): BaselineBuilderAssignment[] {
+  const finalNibble = Number.parseInt(assignmentFingerprint.slice(-1), 16);
+  const startsWithGpt = Number.isFinite(finalNibble) && finalNibble % 2 === 1;
+  return activities.map((activity, index) => {
+    const useGpt = index % 2 === (startsWithGpt ? 0 : 1);
+    return {
+      nodeId: activity.id,
+      provider: useGpt ? "openai" : "anthropic",
+      model: useGpt ? "gpt-5.5" : "claude-opus-5",
+    };
+  });
+}
+
 const schemaString = { type: "string", minLength: 1 } as const;
 const schemaStrings = { type: "array", items: schemaString } as const;
 const schemaObject = (properties: Record<string, unknown>, required = Object.keys(properties)) => ({ type: "object" as const, properties, required, additionalProperties: true });
@@ -216,7 +238,7 @@ export const DIRECT_MATH_PLANNER_TOOL_SCHEMA = schemaObject(
   Object.keys(directMathPlannerProperties).filter((key) => key !== "quest" && key !== "boss"),
 );
 
-const MATH_LEARNING_PROGRAM_TOOL_SCHEMA = schemaObject({
+export const MATH_LEARNING_PROGRAM_TOOL_SCHEMA = schemaObject({
   planId: schemaString,
   contentScopeRationale: schemaString,
   concept: schemaObject({
@@ -341,25 +363,6 @@ export type DirectLearningExperiencePlan = {
   boss: { title: "Boss"; locked: true; teaser: string; artworkPrompt: string };
 };
 
-export type DirectCreativeRevision = {
-  planId: string;
-  rationale: string;
-  qualityPrediction: string;
-  model: string;
-  createdAt: string;
-  activities: Array<{
-    id: string;
-    visualMock: DirectActivity["visualMock"];
-    experience: DirectActivity["experience"];
-    creatorPrompt: string;
-    designPrediction: string;
-    preserve: string[];
-    change: string[];
-    explore: string[];
-    avoid: string[];
-  }>;
-};
-
 export type DirectArtifact = {
   childId: string;
   homeworkId: string;
@@ -371,6 +374,16 @@ export type DirectArtifact = {
   promptHash: string;
   plannerModel: string;
   creatorModel: string;
+  architectModel?: string;
+  builderProvider?: "anthropic" | "openai";
+  builderModel?: string;
+  academicContractHash?: string;
+  designArtifactHash?: string;
+  htmlHash?: string;
+  externalLibraryUrls?: string[];
+  generationElapsedMs?: number;
+  inputTokens?: number;
+  outputTokens?: number;
 };
 
 export type DirectPlaywrightReport = {
@@ -378,276 +391,6 @@ export type DirectPlaywrightReport = {
   failures: string[];
   screenshots: string[];
 };
-
-export type DirectTasteReview = {
-  status: "reviewed" | "unavailable";
-  childId: string;
-  homeworkId: string;
-  model: string;
-  reviewedAt: string;
-  summary: string;
-  strengths: string[];
-  concerns: string[];
-  nodeReviews: Array<{
-    nodeId: string;
-    clarity: number;
-    craft: number;
-    responsiveness: number;
-    missionPayoff: number;
-    originality: number;
-    strengths: string[];
-    concerns: string[];
-  }>;
-  childPreferenceClaim: "not_evaluated";
-  learningClaim: "not_evaluated";
-  error?: string;
-};
-
-const DIRECT_CREATIVE_REVISION_TOOL_SCHEMA = {
-  type: "object",
-  additionalProperties: false,
-  required: ["planId", "rationale", "qualityPrediction", "activities"],
-  properties: {
-    planId: schemaString,
-    rationale: schemaString,
-    qualityPrediction: schemaString,
-    activities: {
-      type: "array",
-      minItems: 1,
-      items: {
-        type: "object",
-        additionalProperties: false,
-        required: [
-          "id",
-          "visualMock",
-          "experience",
-          "creatorPrompt",
-          "designPrediction",
-          "preserve",
-          "change",
-          "explore",
-          "avoid",
-        ],
-        properties: {
-          id: schemaString,
-          visualMock: {
-            type: "object",
-            additionalProperties: false,
-            required: ["scene", "layout", "artworkPrompt"],
-            properties: {
-              scene: schemaString,
-              layout: schemaString,
-              artworkPrompt: schemaString,
-            },
-          },
-          experience: {
-            type: "object",
-            additionalProperties: false,
-            required: ["objective", "childAction", "worldReaction", "anticipation", "progress", "recovery", "reward"],
-            properties: {
-              objective: schemaString,
-              childAction: schemaString,
-              worldReaction: schemaString,
-              anticipation: schemaString,
-              progress: schemaString,
-              recovery: schemaString,
-              reward: schemaString,
-            },
-          },
-          creatorPrompt: schemaString,
-          designPrediction: schemaString,
-          preserve: schemaStrings,
-          change: schemaStrings,
-          explore: schemaStrings,
-          avoid: schemaStrings,
-        },
-      },
-    },
-  },
-} as const;
-
-function tasteStrings(value: unknown, label: string): string[] {
-  if (!Array.isArray(value) || value.some((item) => typeof item !== "string")) {
-    throw new Error(`direct_taste_invalid_${label}`);
-  }
-  return value.map((item) => item.trim()).filter(Boolean);
-}
-
-function tasteScore(value: unknown, label: string): number {
-  if (!Number.isInteger(value) || Number(value) < 1 || Number(value) > 5) {
-    throw new Error(`direct_taste_invalid_${label}`);
-  }
-  return Number(value);
-}
-
-function parseDirectTasteReview(value: unknown, plan: DirectLearningExperiencePlan): Pick<
-  DirectTasteReview,
-  "summary" | "strengths" | "concerns" | "nodeReviews"
-> {
-  const record = object(value);
-  if (!record) throw new Error("direct_taste_invalid_output");
-  const rawNodes = record.nodeReviews;
-  if (!Array.isArray(rawNodes)) throw new Error("direct_taste_invalid_node_reviews");
-  const expectedIds = new Set(plan.activities.map((activity) => activity.id));
-  const seen = new Set<string>();
-  const nodeReviews = rawNodes.map((rawNode) => {
-    const node = object(rawNode);
-    if (!node) throw new Error("direct_taste_invalid_node");
-    const nodeId = requiredString(node, "nodeId", "taste_node_id");
-    if (!expectedIds.has(nodeId) || seen.has(nodeId)) throw new Error(`direct_taste_unexpected_node:${nodeId}`);
-    seen.add(nodeId);
-    return {
-      nodeId,
-      clarity: tasteScore(node.clarity, `${nodeId}_clarity`),
-      craft: tasteScore(node.craft, `${nodeId}_craft`),
-      responsiveness: tasteScore(node.responsiveness, `${nodeId}_responsiveness`),
-      missionPayoff: tasteScore(node.missionPayoff, `${nodeId}_mission_payoff`),
-      originality: tasteScore(node.originality, `${nodeId}_originality`),
-      strengths: tasteStrings(node.strengths, `${nodeId}_strengths`),
-      concerns: tasteStrings(node.concerns, `${nodeId}_concerns`),
-    };
-  });
-  if (seen.size !== expectedIds.size) throw new Error("direct_taste_missing_node_review");
-  return {
-    summary: requiredString(record, "summary", "taste_summary"),
-    strengths: tasteStrings(record.strengths, "strengths"),
-    concerns: tasteStrings(record.concerns, "concerns"),
-    nodeReviews,
-  };
-}
-
-export async function safeRunDirectTasteReview(input: {
-  childId: string;
-  homeworkId: string;
-  plan: DirectLearningExperiencePlan;
-  screenshots: string[];
-  model?: string;
-  client?: Anthropic;
-  review?: (input: {
-    plan: DirectLearningExperiencePlan;
-    screenshots: string[];
-  }) => Promise<unknown>;
-  now?: Date;
-}): Promise<DirectTasteReview> {
-  const model = input.model ?? process.env.SUNNY_TASTE_MODEL ?? process.env.SUNNY_INGEST_MODEL ?? "claude-sonnet-5";
-  const reviewedAt = (input.now ?? new Date()).toISOString();
-  try {
-    let rawReview: unknown;
-    if (input.review) {
-      rawReview = await input.review({ plan: input.plan, screenshots: input.screenshots });
-    } else {
-      const screenshots = input.screenshots.filter((screenshot) => fs.existsSync(screenshot));
-      if (screenshots.length !== input.plan.activities.length) throw new Error("direct_taste_screenshots_incomplete");
-      const client = input.client ?? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-      const toolName = "review_direct_math_taste";
-      const content: any[] = [{
-        type: "text",
-        text: `You are Sunny's advisory child-experience quality critic.
-Review the complete generated math board from its saved Planner promises and one opening screenshot per activity.
-Score only the adult-observable quality floor: visual craft, clarity of the first action, apparent responsiveness, mission/payoff, and originality.
-Do not claim that this child likes the experience. Do not infer learning, mastery, attention, or preference. Real child behavior and ratings decide those questions.
-Be candid and specific. This report advises the human and never blocks publication or rewrites content.
-
-Planner-authored board:
-${JSON.stringify({
-  boardWorld: input.plan.boardWorld,
-  fork: input.plan.fork,
-  activities: input.plan.activities.map((activity) => ({
-    id: activity.id,
-    title: activity.title,
-    academicTarget: activity.academicTarget,
-    mechanic: activity.mechanic,
-    objective: activity.experience.objective,
-    childAction: activity.experience.childAction,
-    worldReaction: activity.experience.worldReaction,
-    progress: activity.experience.progress,
-    reward: activity.experience.reward,
-  })),
-}, null, 2)}
-
-The screenshots follow in the same activity order.`,
-      }];
-      screenshots.forEach((screenshot, index) => {
-        content.push({ type: "text", text: `Opening screenshot for ${input.plan.activities[index]!.id}:` });
-        content.push({
-          type: "image",
-          source: {
-            type: "base64",
-            media_type: /\.jpe?g$/i.test(screenshot) ? "image/jpeg" : "image/png",
-            data: fs.readFileSync(screenshot).toString("base64"),
-          },
-        });
-      });
-      const response = await client.messages.create({
-        model,
-        max_tokens: 3000,
-        messages: [{ role: "user", content }],
-        tools: [{
-          name: toolName,
-          description: "Return one advisory quality scorecard for the generated board.",
-          input_schema: {
-            type: "object",
-            additionalProperties: false,
-            required: ["summary", "strengths", "concerns", "nodeReviews"],
-            properties: {
-              summary: { type: "string" },
-              strengths: { type: "array", items: { type: "string" } },
-              concerns: { type: "array", items: { type: "string" } },
-              nodeReviews: {
-                type: "array",
-                items: {
-                  type: "object",
-                  additionalProperties: false,
-                  required: ["nodeId", "clarity", "craft", "responsiveness", "missionPayoff", "originality", "strengths", "concerns"],
-                  properties: {
-                    nodeId: { type: "string" },
-                    clarity: { type: "integer", minimum: 1, maximum: 5 },
-                    craft: { type: "integer", minimum: 1, maximum: 5 },
-                    responsiveness: { type: "integer", minimum: 1, maximum: 5 },
-                    missionPayoff: { type: "integer", minimum: 1, maximum: 5 },
-                    originality: { type: "integer", minimum: 1, maximum: 5 },
-                    strengths: { type: "array", items: { type: "string" } },
-                    concerns: { type: "array", items: { type: "string" } },
-                  },
-                },
-              },
-            },
-          },
-        }],
-        tool_choice: { type: "tool", name: toolName },
-      } as any, { timeout: Number(process.env.SUNNY_AI_TIMEOUT_MS ?? 120000) });
-      const toolUse = response.content.find((block) => block.type === "tool_use" && block.name === toolName);
-      if (!toolUse || toolUse.type !== "tool_use") throw new Error("direct_taste_tool_output_missing");
-      rawReview = toolUse.input;
-    }
-    const review = parseDirectTasteReview(rawReview, input.plan);
-    return {
-      status: "reviewed",
-      childId: input.childId,
-      homeworkId: input.homeworkId,
-      model,
-      reviewedAt,
-      ...review,
-      childPreferenceClaim: "not_evaluated",
-      learningClaim: "not_evaluated",
-    };
-  } catch (error) {
-    return {
-      status: "unavailable",
-      childId: input.childId,
-      homeworkId: input.homeworkId,
-      model,
-      reviewedAt,
-      summary: "",
-      strengths: [],
-      concerns: [],
-      nodeReviews: [],
-      childPreferenceClaim: "not_evaluated",
-      learningClaim: "not_evaluated",
-      error: error instanceof Error ? error.message : String(error),
-    };
-  }
-}
 
 export function hasReadyDirectMathExperience(childId: string, rootDir = process.cwd()): boolean {
   const directPath = path.join(rootDir, "src", "context", childId.trim().toLowerCase(), "homework", "direct_experience_plan.json");
@@ -706,6 +449,7 @@ function requiredNumber(record: Record<string, unknown>, key: string): number {
 export function assertInstanceFreeConceptId(conceptId: string): string {
   const trimmed = conceptId.trim();
   if (!trimmed) throw new Error("direct_plan_invalid_concept_id");
+  if (/\d/.test(trimmed)) throw new Error(`concept_id_contains_instance:${trimmed}`);
   return trimmed;
 }
 
@@ -1098,159 +842,7 @@ export function parseDirectLearningExperiencePlan(value: unknown): DirectLearnin
   };
 }
 
-function parseDirectCreativeRevision(
-  value: unknown,
-  plan: DirectLearningExperiencePlan,
-  model: string,
-  createdAt: string,
-): DirectCreativeRevision {
-  const root = object(value);
-  if (!root) throw new Error("direct_creative_revision_invalid_output");
-  const planId = requiredString(root, "planId", "creative_revision_plan_id");
-  if (planId !== plan.planId) throw new Error("direct_creative_revision_plan_mismatch");
-  const rawActivities = Array.isArray(root.activities) ? root.activities : [];
-  const expectedIds = new Set(plan.activities.map((activity) => activity.id));
-  const seen = new Set<string>();
-  const activities = rawActivities.map((raw) => {
-    const activity = object(raw);
-    const visualMock = object(activity?.visualMock);
-    const experience = object(activity?.experience);
-    if (!activity || !visualMock || !experience) throw new Error("direct_creative_revision_invalid_activity");
-    const id = requiredString(activity, "id", "creative_revision_activity_id");
-    if (!expectedIds.has(id)) throw new Error(`direct_creative_revision_unexpected_activity:${id}`);
-    if (seen.has(id)) throw new Error(`direct_creative_revision_duplicate_activity:${id}`);
-    seen.add(id);
-    const artworkPrompt = requiredString(visualMock, "artworkPrompt");
-    const noInstructionalText = "without words, letters, numbers, equations, labels";
-    return {
-      id,
-      visualMock: {
-        scene: requiredString(visualMock, "scene"),
-        layout: requiredString(visualMock, "layout"),
-        artworkPrompt: artworkPrompt.toLowerCase().includes(noInstructionalText)
-          ? artworkPrompt
-          : `${artworkPrompt}. ${noInstructionalText}.`,
-      },
-      experience: {
-        objective: requiredString(experience, "objective"),
-        childAction: requiredString(experience, "childAction"),
-        worldReaction: requiredString(experience, "worldReaction"),
-        anticipation: requiredString(experience, "anticipation"),
-        progress: requiredString(experience, "progress"),
-        recovery: requiredString(experience, "recovery"),
-        reward: requiredString(experience, "reward"),
-      },
-      creatorPrompt: requiredString(activity, "creatorPrompt"),
-      designPrediction: requiredString(activity, "designPrediction"),
-      preserve: stringArray(activity.preserve, "creative_revision_preserve"),
-      change: stringArray(activity.change, "creative_revision_change"),
-      explore: stringArray(activity.explore, "creative_revision_explore"),
-      avoid: stringArray(activity.avoid, "creative_revision_avoid"),
-    };
-  });
-  if (seen.size !== expectedIds.size) throw new Error("direct_creative_revision_missing_activity");
-  return {
-    planId,
-    rationale: requiredString(root, "rationale", "creative_revision_rationale"),
-    qualityPrediction: requiredString(root, "qualityPrediction", "creative_revision_quality_prediction"),
-    model,
-    createdAt,
-    activities,
-  };
-}
-
-export async function askDirectCreativeDirector(input: {
-  childId: string;
-  plan: DirectLearningExperiencePlan;
-  childContext?: unknown;
-  priorOutcomes?: unknown;
-  previousTasteReview?: unknown;
-  client?: Anthropic;
-  model?: string;
-  now?: Date;
-}): Promise<{ plan: DirectLearningExperiencePlan; revision: DirectCreativeRevision }> {
-  const client = input.client ?? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-  const model = input.model ?? process.env.SUNNY_TASTE_MODEL ?? process.env.SUNNY_INGEST_MODEL ?? "claude-sonnet-5";
-  const prompt = `You are Sunny's Creative Director. Strengthen the complete board before artwork or HTML is built.
-
-The Planner is the tutor and its academic prescription is immutable. You may revise only each activity's visualMock, experience presentation, creatorPrompt, designPrediction, preserve, change, explore, and avoid fields. You may not change activity count or IDs, routes, responsibilities, academic targets, item content, response contracts, correct answers, academic predictions, evidence limits, Quest/Boss state, or the board lifecycle. Return one revision for every activity ID, exactly once. Do not write HTML, CSS, JavaScript, tests, or replacement curriculum.
-
-Judge the board as one coherent child experience. Strengthen mission, stakes, visible progression, action-to-world reaction, recovery, anticipation, and payoff. Make the two routes mechanically legible and meaningfully distinct rather than cosmetically different answer-selection screens. The opening view should communicate the current objective, visible progress, and anticipated payoff without adult explanation.
-
-Use these human-labeled references as design evidence, not templates:
-- Skyglider: positive for an immediate objective, clear action, visible journey, and satisfying world movement.
-- Crane: positive when the mathematical representation and mission action are integrated.
-- Vault: positive for strong identity, anticipation, and a challenge that visibly builds toward a payoff.
-- Moonlit Cargo: negative when the viewport is sparse and answer selection feels cosmetic.
-- Tidepool: negative when decorative controls and empty space do not explain the mission.
-- Rope-and-Peg: negative because image-generated instructional text and quantities became corrupted and the promised puzzle was unclear.
-
-All mathematical truth, quantities, equations, labels, and instructions must be rendered in HTML. Every artworkPrompt must describe atmospheric art without instructional content and include this exact direction: "without words, letters, numbers, equations, labels". Generated imagery supplies the world, never the mathematics.
-
-Prior ratings, replay, abandonment, demo use, invalid actions, companion reactions, and taste reports are evidence to consider. They do not prove learning or child preference by themselves. Predict the observable quality improvement your revision is intended to produce; real child behavior remains authoritative.
-
-Child: ${input.childId}
-
-Child context:
-${JSON.stringify(factualModelContext(input.childContext ?? {}), null, 2)}
-
-Prior factual outcomes:
-${JSON.stringify(factualModelContext(input.priorOutcomes ?? {}), null, 2)}
-
-Previous advisory taste review:
-${JSON.stringify(input.previousTasteReview ?? {}, null, 2)}
-
-Planner-authored board:
-${JSON.stringify({
-  planId: input.plan.planId,
-  boardWorld: input.plan.boardWorld,
-  fork: input.plan.fork,
-  activities: input.plan.activities,
-}, null, 2)}`;
-  const toolName = "direct_creative_revision";
-  const response = await client.messages.create({
-    model,
-    max_tokens: Number(process.env.SUNNY_DIRECTOR_MAX_TOKENS ?? 12000),
-    messages: [{ role: "user", content: prompt }],
-    tools: [{
-      name: toolName,
-      description: "Return one bounded creative revision for every existing activity.",
-      input_schema: DIRECT_CREATIVE_REVISION_TOOL_SCHEMA,
-    }],
-    tool_choice: { type: "tool", name: toolName },
-  } as any, { timeout: Number(process.env.SUNNY_AI_TIMEOUT_MS ?? 120000) });
-  const toolUse = response.content.find((block) => block.type === "tool_use" && block.name === toolName);
-  if (!toolUse || toolUse.type !== "tool_use") throw new Error("direct_creative_revision_tool_output_missing");
-  const revision = parseDirectCreativeRevision(
-    toolUse.input,
-    input.plan,
-    model,
-    (input.now ?? new Date()).toISOString(),
-  );
-  const revisionsById = new Map(revision.activities.map((activity) => [activity.id, activity]));
-  return {
-    revision,
-    plan: {
-      ...input.plan,
-      activities: input.plan.activities.map((activity) => {
-        const creative = revisionsById.get(activity.id)!;
-        return {
-          ...activity,
-          visualMock: creative.visualMock,
-          experience: creative.experience,
-          creatorPrompt: creative.creatorPrompt,
-          designPrediction: creative.designPrediction,
-          preserve: creative.preserve,
-          change: creative.change,
-          explore: creative.explore,
-          avoid: creative.avoid,
-        };
-      }),
-    },
-  };
-}
-
-function academicContractHash(activity: MathPlannedActivity): string {
+export function mathAcademicContractHash(activity: MathPlannedActivity): string {
   return crypto.createHash("sha256").update(JSON.stringify({
     id: activity.id,
     routeId: activity.routeId,
@@ -1262,15 +854,24 @@ function academicContractHash(activity: MathPlannedActivity): string {
   })).digest("hex");
 }
 
+export function assertDesignArtifactAcademicContract(
+  activity: MathPlannedActivity,
+  artifact: Pick<ExperienceDesignArtifactV1, "academicContractHash">,
+): void {
+  if (artifact.academicContractHash !== mathAcademicContractHash(activity)) {
+    throw new Error(`math_design_artifact_academic_contract_changed:${activity.id}`);
+  }
+}
+
 function parseExperienceDesignArtifact(value: unknown, activity: MathPlannedActivity): ExperienceDesignArtifactV1 {
   const record = object(value);
   if (!record) throw new Error(`math_design_artifact_invalid:${activity.id}`);
   const nodeId = requiredString(record, "nodeId");
   if (nodeId !== activity.id) throw new Error(`math_design_artifact_node_mismatch:${activity.id}:${nodeId}`);
-  const expectedHash = academicContractHash(activity);
-  if (requiredString(record, "academicContractHash") !== expectedHash) {
-    throw new Error(`math_design_artifact_academic_contract_changed:${activity.id}`);
-  }
+  const expectedHash = mathAcademicContractHash(activity);
+  assertDesignArtifactAcademicContract(activity, {
+    academicContractHash: requiredString(record, "academicContractHash"),
+  });
   return {
     artifactId: requiredString(record, "artifactId"),
     nodeId,
@@ -1312,10 +913,10 @@ export async function askMathExperienceDesigner(input: {
   now?: Date;
 }): Promise<{ packet: MathDesignPacket; plan: DirectLearningExperiencePlan }> {
   const client = input.client ?? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-  const model = input.model ?? process.env.SUNNY_GENERATION_MODEL ?? process.env.SUNNY_INGEST_MODEL ?? "claude-sonnet-5";
+  const model = input.model ?? process.env.SUNNY_ARCHITECT_MODEL ?? "claude-fable-5";
   const contracts = input.program.activities.map((activity) => ({
     ...activity,
-    academicContractHash: academicContractHash(activity),
+    academicContractHash: mathAcademicContractHash(activity),
   }));
   const prompt = `You are Sunny's Experience Creator. Design one coherent child-facing math chapter and one rich design artifact for every prescribed node.
 
@@ -1391,7 +992,6 @@ ${JSON.stringify({ ...input.program, activities: contracts }, null, 2)}`;
   const response = await client.messages.create({
     model,
     max_tokens: Number(process.env.SUNNY_DIRECTOR_MAX_TOKENS ?? 16000),
-    thinking: { type: "disabled" },
     output_config: { effort: "high" },
     messages: [{ role: "user", content: prompt }],
     tools: [{
@@ -1664,7 +1264,7 @@ ${JSON.stringify(factualModelContext(input.priorOutcomes ?? []), null, 2)}`;
   // long generation against a 20k token budget, and the non-streaming request
   // was timing out before it finished. Stream it, as the Creator already does.
   const response = await client.messages.stream({
-    model: input.model ?? process.env.SUNNY_INGEST_MODEL ?? "claude-sonnet-5",
+    model: input.model ?? process.env.SUNNY_PLANNER_MODEL ?? "claude-opus-5",
     max_tokens: Number(process.env.SUNNY_PLANNER_MAX_TOKENS ?? 20000),
     messages: [{ role: "user", content: prompt }],
     tools: [{
@@ -1781,7 +1381,7 @@ export function buildDirectActivityCreatorPrompt(input: {
 
 The Planner's academic contract is immutable. The approved design artifact is the creative authority. Implement both faithfully without turning the experience into a generic quiz.
 
-Use this assigned local artwork asset in the experience: ${input.artworkUrl}.
+This optional board-world asset is available: ${input.artworkUrl}. Use it only if it serves the approved artifact; the experience may instead render its world entirely with HTML, CSS, SVG, Canvas, or WebGL.
 You may use the HTTPS libraries named by the design artifact, or no library. Keep the complete HTML under 45,000 characters.
 
 Runtime contract:
@@ -1926,25 +1526,89 @@ export async function generateAdaptiveProgressionActivityHtml(input: {
   return html;
 }
 
+type GeneratedActivityHtml = {
+  html: string;
+  elapsedMs: number;
+  inputTokens: number;
+  outputTokens: number;
+};
+
+function openAiResponseText(payload: Record<string, unknown>): string {
+  if (typeof payload.output_text === "string") return payload.output_text;
+  const output = Array.isArray(payload.output) ? payload.output : [];
+  return output.flatMap((item) => {
+    const record = object(item);
+    const content = Array.isArray(record?.content) ? record.content : [];
+    return content.flatMap((part) => {
+      const block = object(part);
+      return typeof block?.text === "string" ? [block.text] : [];
+    });
+  }).join("\n");
+}
+
+function externalLibraryUrls(html: string): string[] {
+  return [...new Set(
+    [...html.matchAll(/(?:src|href)=["'](https:\/\/[^"']+)["']/gi)].map((match) => match[1]!),
+  )].sort();
+}
+
 async function generateActivityHtml(input: {
   activity: DirectActivity;
   artworkUrl: string;
   childId: string;
   client: Anthropic;
+  provider: "anthropic" | "openai";
   model: string;
-}): Promise<string> {
+}): Promise<GeneratedActivityHtml> {
   const prompt = buildDirectActivityCreatorPrompt(input);
-  const response = await input.client.messages.create({
-    model: input.model,
-    max_tokens: Number(process.env.SUNNY_GENERATION_MAX_TOKENS ?? 32000),
-    thinking: { type: "enabled", budget_tokens: Number(process.env.SUNNY_GENERATION_THINKING_TOKENS ?? 8000) },
-    messages: [{ role: "user", content: prompt }],
-  }, { timeout: Number(process.env.SUNNY_AI_TIMEOUT_MS ?? 120000) });
-  const html = normalizeGeneratedHtml(stripHtml(response.content.filter((block) => block.type === "text").map((block) => block.text).join("\n")));
-  if (!isCompleteGeneratedHtml(html)) {
-    throw new Error(`direct_activity_html_truncated:${input.activity.id}:stop=${response.stop_reason ?? "unknown"}:chars=${html.length}`);
+  const startedAt = Date.now();
+  let raw = "";
+  let inputTokens = 0;
+  let outputTokens = 0;
+  let stopReason = "unknown";
+  if (input.provider === "openai") {
+    const response = await fetch("https://api.openai.com/v1/responses", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${process.env.OPENAI_API_KEY ?? ""}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: input.model,
+        input: prompt,
+        max_output_tokens: Number(process.env.SUNNY_GENERATION_MAX_TOKENS ?? 32000),
+        reasoning: { effort: "high" },
+      }),
+      signal: AbortSignal.timeout(Number(process.env.SUNNY_AI_TIMEOUT_MS ?? 240000)),
+    });
+    const payload = await response.json() as Record<string, unknown>;
+    if (!response.ok) {
+      const error = object(payload.error);
+      throw new Error(`direct_activity_provider_failed:${input.activity.id}:openai:${response.status}:${String(error?.message ?? "request_failed")}`);
+    }
+    raw = openAiResponseText(payload);
+    const usage = object(payload.usage);
+    inputTokens = Number(usage?.input_tokens ?? 0);
+    outputTokens = Number(usage?.output_tokens ?? 0);
+    stopReason = String(payload.status ?? "completed");
+  } else {
+    const response = await input.client.messages.stream({
+      model: input.model,
+      max_tokens: Number(process.env.SUNNY_GENERATION_MAX_TOKENS ?? 32000),
+      thinking: { type: "adaptive" },
+      output_config: { effort: "high" },
+      messages: [{ role: "user", content: prompt }],
+    } as never, { timeout: Number(process.env.SUNNY_AI_TIMEOUT_MS ?? 240000) }).finalMessage();
+    raw = response.content.filter((block) => block.type === "text").map((block) => block.text).join("\n");
+    inputTokens = response.usage.input_tokens;
+    outputTokens = response.usage.output_tokens;
+    stopReason = response.stop_reason ?? "unknown";
   }
-  return html;
+  const html = normalizeGeneratedHtml(stripHtml(raw));
+  if (!isCompleteGeneratedHtml(html)) {
+    throw new Error(`direct_activity_html_truncated:${input.activity.id}:stop=${stopReason}:chars=${html.length}`);
+  }
+  return { html, elapsedMs: Date.now() - startedAt, inputTokens, outputTokens };
 }
 
 async function mapConcurrent<T, R>(
@@ -1964,88 +1628,41 @@ async function mapConcurrent<T, R>(
   return results;
 }
 
-export async function generateDirectDesignMocks(input: {
-  plan: DirectLearningExperiencePlan;
-  packet: MathDesignPacket;
-  outputDir: string;
-  client?: Anthropic;
-  model?: string;
-}): Promise<{ comparisonPath: string; mockPaths: string[] }> {
-  const client = input.client ?? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-  const model = input.model ?? process.env.SUNNY_GENERATION_MODEL ?? "claude-sonnet-5";
-  fs.mkdirSync(input.outputDir, { recursive: true });
-  const mockPaths = await mapConcurrent(input.plan.activities, 3, async (activity) => {
-    const design = activity.designArtifact;
-    if (!design) throw new Error(`math_design_artifact_missing:${activity.id}`);
-    const prompt = `Create a lightweight interactive mock of this approved design artifact.
-
-Show only the opening state and first meaningful interaction. The purpose is fast human design review, not a complete curriculum. Make the first action visually obvious and make that action visibly affect the world. Use the supplied item only as enough sample content to demonstrate the interaction.
-
-You may use external HTTPS libraries and assets. Return one self-contained HTML document with inline CSS and JavaScript, under 14,000 characters. It must work with touch or mouse at 1365×768. Do not add Sunny telemetry, tests, validation hooks, or parent-app controls. Return raw HTML only.
-
-Immutable academic boundary:
-${JSON.stringify({
-  academicTarget: activity.academicTarget,
-  difficultyBoundary: activity.difficultyBoundary,
-  sampleItem: activity.items[0],
-}, null, 2)}
-
-Approved design artifact:
-${JSON.stringify(design, null, 2)}`;
-    const response = await client.messages.create({
-      model,
-      max_tokens: Number(process.env.SUNNY_MOCK_MAX_TOKENS ?? 9000),
-      thinking: { type: "disabled" },
-      messages: [{ role: "user", content: prompt }],
-    }, { timeout: Number(process.env.SUNNY_AI_TIMEOUT_MS ?? 240000) });
-    const html = normalizeGeneratedHtml(stripHtml(response.content.filter((block) => block.type === "text").map((block) => block.text).join("\n")));
-    if (!isCompleteGeneratedHtml(html)) throw new Error(`math_design_mock_incomplete:${activity.id}`);
-    const mockPath = path.join(input.outputDir, `${activity.id}.html`);
-    fs.writeFileSync(mockPath, html, "utf8");
-    return mockPath;
-  });
-  const cards = input.plan.activities.map((activity, index) => `
-    <section>
-      <header><strong>${activity.title}</strong><span>${activity.academicTarget}</span></header>
-      <iframe src="./${path.basename(mockPaths[index]!)}" title="${activity.title}"></iframe>
-    </section>`).join("\n");
-  const comparisonPath = path.join(input.outputDir, "comparison.html");
-  fs.writeFileSync(comparisonPath, `<!doctype html><html><head><meta charset="utf-8"><title>${input.plan.title} — Design Review</title><style>
-    body{margin:0;background:#101426;color:#f8fafc;font:16px system-ui;padding:24px}h1{margin:0 0 8px}.note{color:#b8c2dc;margin-bottom:24px}
-    section{background:#1b2138;border:1px solid #34405f;border-radius:18px;padding:14px;margin:0 0 24px}header{display:flex;justify-content:space-between;gap:18px;margin-bottom:10px}header span{color:#aeb9d6}
-    iframe{display:block;width:100%;height:768px;border:0;border-radius:12px;background:white}
-  </style></head><body><h1>${input.plan.title}</h1><div class="note">${input.packet.rationale}</div>${cards}</body></html>`, "utf8");
-  return { comparisonPath, mockPaths };
-}
-
 export async function generateDirectArtifacts(input: {
   plan: DirectLearningExperiencePlan;
   childId: string;
   homeworkId: string;
   rootDir?: string;
   client?: Anthropic;
-  model?: string;
   plannerModel?: string;
+  architectModel?: string;
+  assignmentFingerprint: string;
 }): Promise<{ artifacts: DirectArtifact[]; backgroundUrl: string; questArtworkUrl: string; bossArtworkUrl: string }> {
   const rootDir = input.rootDir ?? process.cwd();
   const publicDir = path.join(rootDir, "web", "public");
   const client = input.client ?? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-  const model = input.model ?? process.env.SUNNY_GENERATION_MODEL ?? "claude-sonnet-5";
-  const plannerModel = input.plannerModel ?? process.env.SUNNY_INGEST_MODEL ?? "claude-sonnet-5";
-  process.env.SUNNY_IMAGE_GENERATION_MAX_PER_RUN = String(input.plan.activities.length + 3);
+  const plannerModel = input.plannerModel ?? process.env.SUNNY_PLANNER_MODEL ?? "claude-opus-5";
+  const architectModel = input.architectModel ?? process.env.SUNNY_ARCHITECT_MODEL ?? "claude-fable-5";
+  const builderAssignments = new Map(
+    assignBaselineBuilderModels(input.assignmentFingerprint, input.plan.activities)
+      .map((assignment) => [assignment.nodeId, assignment]),
+  );
+  process.env.SUNNY_IMAGE_GENERATION_MAX_PER_RUN = "3";
   const artworkJobs = [
     { prompt: input.plan.boardWorld.backgroundPrompt, filename: `${input.homeworkId}-background.jpeg` },
     { prompt: input.plan.quest.artworkPrompt, filename: `${input.homeworkId}-quest.jpeg` },
     { prompt: input.plan.boss.artworkPrompt, filename: `${input.homeworkId}-boss.jpeg` },
-    ...input.plan.activities.map((activity) => ({ prompt: activity.visualMock.artworkPrompt, filename: `${input.homeworkId}-${activity.id}.jpeg` })),
   ];
   const artworkUrls = await mapConcurrent(artworkJobs, 2, (job) =>
     createDirectArtwork(job.prompt, publicDir, job.filename));
-  const [backgroundUrl, questArtworkUrl, bossArtworkUrl, ...activityArt] = artworkUrls as [string, string, string, ...string[]];
+  const [backgroundUrl, questArtworkUrl, bossArtworkUrl] = artworkUrls as [string, string, string];
   const gamesDir = path.join(rootDir, "src", "context", input.childId, "homework", "games", input.homeworkId);
   fs.mkdirSync(gamesDir, { recursive: true });
   const artifacts = await mapConcurrent(input.plan.activities, 2, async (activity, index): Promise<DirectArtifact> => {
-    const artworkUrl = activityArt[index]!;
+    const artworkUrl = backgroundUrl;
+    const builder = builderAssignments.get(activity.id);
+    if (!builder) throw new Error(`direct_builder_assignment_missing:${activity.id}`);
+    const model = builder.model;
     const htmlPath = path.join(gamesDir, `${activity.id}.html`);
     const metadataPath = path.join(gamesDir, `${activity.id}.artifact.json`);
     const existingHtml = fs.existsSync(htmlPath) ? fs.readFileSync(htmlPath, "utf8") : "";
@@ -2056,19 +1673,38 @@ export async function generateDirectArtifacts(input: {
     } catch {
       savedPromptHash = undefined;
     }
+    let generated: GeneratedActivityHtml | undefined;
     if (!shouldReuseDirectArtifact({ htmlComplete: isCompleteGeneratedHtml(existingHtml), savedPromptHash, expectedPromptHash })) {
-      const html = await generateActivityHtml({ activity, artworkUrl, childId: input.childId, client, model });
-      fs.writeFileSync(htmlPath, html, "utf8");
+      generated = await generateActivityHtml({
+        activity,
+        artworkUrl,
+        childId: input.childId,
+        client,
+        provider: builder.provider,
+        model,
+      });
+      fs.writeFileSync(htmlPath, generated.html, "utf8");
     }
+    const html = generated?.html ?? existingHtml;
+    const designArtifactHash = crypto.createHash("sha256").update(JSON.stringify(activity.designArtifact)).digest("hex");
+    const htmlHash = crypto.createHash("sha256").update(html).digest("hex");
     fs.writeFileSync(metadataPath, `${JSON.stringify({
-      version: 2,
+      version: 3,
       nodeId: activity.id,
       designArtifact: activity.designArtifact,
-      designArtifactHash: crypto.createHash("sha256").update(JSON.stringify(activity.designArtifact)).digest("hex"),
+      academicContractHash: activity.designArtifact?.academicContractHash,
+      designArtifactHash,
       creatorPrompt: activity.creatorPrompt,
       promptHash: expectedPromptHash,
       plannerModel,
-      creatorModel: model,
+      architectModel,
+      builderProvider: builder.provider,
+      builderModel: model,
+      htmlHash,
+      externalLibraryUrls: externalLibraryUrls(html),
+      generationElapsedMs: generated?.elapsedMs ?? 0,
+      inputTokens: generated?.inputTokens ?? 0,
+      outputTokens: generated?.outputTokens ?? 0,
     }, null, 2)}\n`, "utf8");
     return {
       childId: input.childId,
@@ -2081,6 +1717,16 @@ export async function generateDirectArtifacts(input: {
       promptHash: expectedPromptHash,
       plannerModel,
       creatorModel: model,
+      architectModel,
+      builderProvider: builder.provider,
+      builderModel: model,
+      academicContractHash: activity.designArtifact?.academicContractHash,
+      designArtifactHash,
+      htmlHash,
+      externalLibraryUrls: externalLibraryUrls(html),
+      generationElapsedMs: generated?.elapsedMs ?? 0,
+      inputTokens: generated?.inputTokens ?? 0,
+      outputTokens: generated?.outputTokens ?? 0,
     };
   });
   return { artifacts, backgroundUrl, questArtworkUrl, bossArtworkUrl };
@@ -2159,7 +1805,7 @@ export async function runDirectPlaywrightAcceptance(input: {
   const failures: string[] = [];
   const screenshots: string[] = [];
   const screenshotDir = input.artifacts[0]
-    ? path.join(rootDir, "src", "context", input.artifacts[0].childId, "homework", "direct-playwright", input.artifacts[0].homeworkId)
+    ? path.join(rootDir, "web", "public", "generated", "direct-math", `${input.artifacts[0].homeworkId}-previews`)
     : "";
   if (screenshotDir) fs.mkdirSync(screenshotDir, { recursive: true });
   try {
@@ -2190,6 +1836,34 @@ export async function runDirectPlaywrightAcceptance(input: {
         undefined,
         { timeout: 5_000 },
       ).catch(() => undefined);
+      const visibleTitle = page.locator("h1").first();
+      if (await visibleTitle.count() !== 1 || !await visibleTitle.isVisible()) {
+        failures.push(`${artifact.nodeId}:title_not_visible`);
+      }
+      const viewportCheck = await page.evaluate<{
+        interactiveCount: number;
+        clipped: boolean;
+        horizontalOverflow: boolean;
+      }>(`(() => {
+        const interactive = [...document.querySelectorAll(
+          "button:not([disabled]),input:not([disabled]),select:not([disabled]),[role=button]:not([aria-disabled=true])"
+        )].filter((element) => {
+          const style = getComputedStyle(element);
+          const rect = element.getBoundingClientRect();
+          return style.visibility !== "hidden" && style.display !== "none" && rect.width > 0 && rect.height > 0;
+        });
+        return {
+          interactiveCount: interactive.length,
+          clipped: interactive.some((element) => {
+            const rect = element.getBoundingClientRect();
+            return rect.left < 0 || rect.top < 0 || rect.right > innerWidth || rect.bottom > innerHeight;
+          }),
+          horizontalOverflow: document.documentElement.scrollWidth > innerWidth + 2,
+        };
+      })()`);
+      if (viewportCheck.interactiveCount === 0) failures.push(`${artifact.nodeId}:first_action_not_visible`);
+      if (viewportCheck.clipped) failures.push(`${artifact.nodeId}:primary_control_clipped`);
+      if (viewportCheck.horizontalOverflow) failures.push(`${artifact.nodeId}:viewport_horizontal_overflow`);
       if (screenshotDir) {
         const screenshotPath = path.join(screenshotDir, `${artifact.nodeId.replace(/[^a-z0-9_-]/gi, "_")}-opening.png`);
         await page.screenshot({ path: screenshotPath, fullPage: false })
@@ -2255,6 +1929,16 @@ export function buildDirectActiveSessionPlan(input: {
 }): ActiveSessionPlan {
   const createdAt = input.createdAt ?? new Date().toISOString();
   const artifactById = new Map(input.artifacts.map((artifact) => [artifact.nodeId, artifact]));
+  const previewUrl = (nodeId: string, fallback: string): string => {
+    const screenshot = input.report.screenshots.find((file) =>
+      path.basename(file).startsWith(`${nodeId}-opening`));
+    if (!screenshot) return fallback;
+    const marker = `${path.sep}web${path.sep}public${path.sep}`;
+    const markerIndex = screenshot.indexOf(marker);
+    return markerIndex >= 0
+      ? `/${screenshot.slice(markerIndex + marker.length).split(path.sep).join("/")}`
+      : fallback;
+  };
   const nodePlan: ActiveSessionPlan["nodePlan"] = input.plan.activities.map((activity) => {
     const artifact = artifactById.get(activity.id)!;
     const rounds = activity.items.flatMap((item) => item.response.mode === "selection" ? [{
@@ -2266,7 +1950,7 @@ export function buildDirectActiveSessionPlan(input: {
       id: activity.id, type: "generated-baseline", activityId: "generated-baseline", targets: activity.items.map((item) => item.id), difficulty: 2,
       source: "chart_planner", targetLane: activity.academicTarget, locked: false, masteryUnlockState: "unlocked", title: activity.title,
       ...(rounds.length > 0 ? { rounds } : {}),
-      gameHtmlPath: artifact.htmlPath, date: input.homeworkId, thumbnailUrl: artifact.artworkUrl, contentId: `${input.homeworkId}:${activity.id}`, mechanic: activity.mechanic,
+      gameHtmlPath: artifact.htmlPath, date: input.homeworkId, thumbnailUrl: previewUrl(activity.id, artifact.artworkUrl), contentId: `${input.homeworkId}:${activity.id}`, mechanic: activity.mechanic,
       engagementDimensions: [activity.engagementVariable as never], engagementHypothesis: input.plan.fork.hypothesis,
     };
   });
@@ -2281,7 +1965,7 @@ export function buildDirectActiveSessionPlan(input: {
   input.plan.fork.routes.forEach((route, routeIndex) => route.nodeIds.forEach((nodeId, index) => {
     const activity = input.plan.activities.find((item) => item.id === nodeId)!;
     const artifact = artifactById.get(nodeId)!;
-    nodes.push({ id: nodeId, kind: "activity", activityId: "generated-baseline", label: activity.title, state: "available", position: routeNodePosition(index, route.nodeIds.length, routeIndex), action: { type: "launch-activity", payloadId: nodeId }, thumbnailUrl: artifact.artworkUrl, mechanic: activity.mechanic, engagementDimensions: [activity.engagementVariable], engagementHypothesis: input.plan.fork.hypothesis, contentId: `${input.homeworkId}:${nodeId}` });
+    nodes.push({ id: nodeId, kind: "activity", activityId: "generated-baseline", label: activity.title, state: "available", position: routeNodePosition(index, route.nodeIds.length, routeIndex), action: { type: "launch-activity", payloadId: nodeId }, thumbnailUrl: previewUrl(nodeId, artifact.artworkUrl), mechanic: activity.mechanic, engagementDimensions: [activity.engagementVariable], engagementHypothesis: input.plan.fork.hypothesis, contentId: `${input.homeworkId}:${nodeId}` });
   }));
   nodes.push(
     { id: "quest", kind: "quest", label: "Quest", state: "locked", position: boardPosition(82, 48), thumbnailUrl: input.questArtworkUrl, lock: { reason: "Complete your adventure routes to reveal the Quest.", label: "Locked" }, action: { type: "show-locked-reason", payloadId: "quest" } },
@@ -2371,6 +2055,23 @@ export function buildDirectLearningCycleInput(input: {
         localArtworkPath: artifact.artworkUrl,
         contractFingerprint: artifact.promptHash,
         validationStatus: "passed",
+        creativeProvenance: {
+          rationale: activity.designArtifact?.audienceRationale ?? activity.designPrediction,
+          qualityPrediction: activity.designArtifact?.engagementPrediction ?? activity.designPrediction,
+          creatorPromptHash: artifact.promptHash,
+          artworkPromptHash: crypto.createHash("sha256").update(activity.visualMock.artworkPrompt).digest("hex"),
+          plannerModel: artifact.plannerModel,
+          architectModel: artifact.architectModel,
+          builderProvider: artifact.builderProvider,
+          builderModel: artifact.builderModel,
+          academicContractHash: artifact.academicContractHash,
+          designArtifactHash: artifact.designArtifactHash,
+          generatedHtmlHash: artifact.htmlHash,
+          externalLibraryUrls: artifact.externalLibraryUrls,
+          generationElapsedMs: artifact.generationElapsedMs,
+          inputTokens: artifact.inputTokens,
+          outputTokens: artifact.outputTokens,
+        },
         validationProof: sessionNode?.validationProof,
       },
       artwork: { status: "ready", localPath: artifact.artworkUrl, prompt: activity.visualMock.artworkPrompt },
@@ -2466,8 +2167,6 @@ export function persistDirectExperience(input: {
   activeSessionPlan: ActiveSessionPlan;
   artifacts: DirectArtifact[];
   report: DirectPlaywrightReport;
-  creativeRevision?: DirectCreativeRevision;
-  tasteReview?: DirectTasteReview;
   assumptions?: MathLearningProgram["assumptions"];
 }): string {
   const rootDir = input.rootDir ?? process.cwd();
@@ -2491,11 +2190,19 @@ export function persistDirectExperience(input: {
     artifacts: input.artifacts,
     assumptions: input.assumptions,
     playwrightReport: input.report,
-    creativeRevision: input.creativeRevision,
-    tasteReview: input.tasteReview,
     feedbackObservations: priorFeedback.feedbackObservations ?? [],
     feedbackDecisions: priorFeedback.feedbackDecisions ?? [],
   };
+  const planPath = path.join(contextDir, "plans", "active_session_plan.json");
+  const homeworkPath = path.join(contextDir, "homework", "current.json");
+  const profilePath = path.join(contextDir, "learning_profile.json");
+  const cyclePath = path.join(contextDir, "homework", "cycles", `${input.homeworkId}.json`);
+  const publicationPaths = [directPath, planPath, homeworkPath, profilePath, cyclePath];
+  const beforePublication = new Map(publicationPaths.map((file) => [
+    file,
+    fs.existsSync(file) ? fs.readFileSync(file) : null,
+  ]));
+  try {
   const canonicalInput = buildDirectLearningCycleInput({
     childId: input.childId,
     homeworkId: input.homeworkId,
@@ -2503,6 +2210,7 @@ export function persistDirectExperience(input: {
     plannerPlan: input.plannerPlan,
     activeSessionPlan: input.activeSessionPlan,
     artifacts: input.artifacts,
+    assumptions: input.assumptions,
     createdAt: now,
   });
   const existingCycle = getLearningCycle(input.childId, input.homeworkId, { rootDir });
@@ -2524,11 +2232,10 @@ export function persistDirectExperience(input: {
   fs.writeFileSync(directPath, `${JSON.stringify(record, null, 2)}\n`, "utf8");
   const planFile = { version: 1, childId: input.childId, selectedDomain: "math", current: input.activeSessionPlan, activeByDomain: { math: input.activeSessionPlan }, updatedAt: now };
   fs.mkdirSync(path.join(contextDir, "plans"), { recursive: true });
-  fs.writeFileSync(path.join(contextDir, "plans", "active_session_plan.json"), `${JSON.stringify(planFile, null, 2)}\n`, "utf8");
+  fs.writeFileSync(planPath, `${JSON.stringify(planFile, null, 2)}\n`, "utf8");
   const pending = { weekOf: now.slice(0, 10), testDate: null, returnTag: `#sunny_${input.childId}_${input.homeworkId}`, wordList: [], contentProfile: { practiceDomain: "math", topic: input.plannerPlan.title }, capturedContent: { title: input.plannerPlan.title, rawText: input.extraction.fullText }, homeworkId: input.homeworkId, generatedAt: now, nodes: input.activeSessionPlan.nodePlan };
   const homeworkFile = { version: 1, childId: input.childId, selectedDomain: "math", current: pending, activeByDomain: { math: pending }, updatedAt: now };
-  fs.writeFileSync(path.join(contextDir, "homework", "current.json"), `${JSON.stringify(homeworkFile, null, 2)}\n`, "utf8");
-  const profilePath = path.join(contextDir, "learning_profile.json");
+  fs.writeFileSync(homeworkPath, `${JSON.stringify(homeworkFile, null, 2)}\n`, "utf8");
   const profile = JSON.parse(fs.readFileSync(profilePath, "utf8"));
   profile.pendingHomework = pending;
   profile.activeSessionPlan = input.activeSessionPlan;
@@ -2555,12 +2262,10 @@ export function persistDirectExperience(input: {
       engagementHooks: [activity.engagementVariable],
       inputEvidence: { contentFingerprint: input.extraction.fileHash },
       reuseStatus: activity.catalogDecision?.action === "retire" ? "retire" : "candidate",
-      reuseReason: activity.catalogDecision?.reason ?? "Human-approved design artifact; awaiting real child evidence.",
+      reuseReason: activity.catalogDecision?.reason ?? "Artifact-designed candidate awaiting real child evidence.",
       reviewStatus: "approved_ready",
-      reviewDecision: "approve",
-      reviewReason: "Published only after explicit human design and activity approval.",
-      reviewedBy: "human",
-      reviewedAt: now,
+      reviewReason: "Published after Playwright runtime verification; human taste remains unreviewed.",
+      validationStatus: "passed",
       mechanic: activity.mechanic,
       theme: activity.visualMock.scene,
       ...(design ? {
@@ -2570,10 +2275,17 @@ export function persistDirectExperience(input: {
           academicResponsibility: activity.responsibilityId,
           interactionHistory: [design.coreInteraction],
           themeHistory: [design.visualDirection],
-          humanReview: "positive",
+          humanReview: "not_reviewed",
           childEvidenceIds: [],
           predictionIds: [`${input.homeworkId}:prediction:${activity.id}`],
           theoryDecisionIds: [],
+          plannerModel: artifact.plannerModel,
+          architectModel: artifact.architectModel,
+          builderProvider: artifact.builderProvider,
+          builderModel: artifact.builderModel,
+          academicContractHash: artifact.academicContractHash,
+          implementationPromptHash: artifact.promptHash,
+          generatedHtmlHash: artifact.htmlHash,
         },
       } : {}),
     };
@@ -2585,4 +2297,14 @@ export function persistDirectExperience(input: {
   ];
   fs.writeFileSync(profilePath, `${JSON.stringify(profile, null, 2)}\n`, "utf8");
   return directPath;
+  } catch (error) {
+    for (const [file, previous] of beforePublication) {
+      if (previous === null) fs.rmSync(file, { force: true });
+      else {
+        fs.mkdirSync(path.dirname(file), { recursive: true });
+        fs.writeFileSync(file, previous);
+      }
+    }
+    throw error;
+  }
 }

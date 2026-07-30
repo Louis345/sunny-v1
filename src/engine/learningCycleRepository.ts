@@ -57,6 +57,17 @@ export type LearningCycleArtifactBinding = {
     qualityPrediction: string;
     creatorPromptHash: string;
     artworkPromptHash: string;
+    plannerModel?: string;
+    architectModel?: string;
+    builderProvider?: "anthropic" | "openai";
+    builderModel?: string;
+    academicContractHash?: string;
+    designArtifactHash?: string;
+    generatedHtmlHash?: string;
+    externalLibraryUrls?: string[];
+    generationElapsedMs?: number;
+    inputTokens?: number;
+    outputTokens?: number;
     postBuildReview?: {
       verdict: "approve" | "revise" | "pivot";
       designQuality: number;

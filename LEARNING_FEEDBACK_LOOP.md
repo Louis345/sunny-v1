@@ -1,6 +1,6 @@
 # Sunny Learning Feedback Loop
 
-Contract version: 4
+Contract version: 5
 
 This document is the **sole normative** authority for how Sunny forms, tests, and revises learning claims. Product changes that alter this loop must update this contract version before implementation. Other documents may describe infrastructure or history, but they must link here instead of creating another learning doctrine.
 
@@ -61,6 +61,8 @@ The AI-authored board presentation is preserved as a projection template, while 
 - Board, homework, session, and care-plan files are compatibility projections, never competing decision state.
 
 Code owns identity, provenance, immutability, mathematical/source truth, exposure tracking, and safe lifecycle transitions. The AI Planner owns educational hypotheses, predictions, interpretation, and the next intervention. Neither Playwright nor generated content may write child-learning conclusions.
+
+For generated math interventions, the Planner's academic contract is locked before creative design. A design artifact may choose presentation, interaction, stakes, recovery, and payoff, but it cannot alter the academic contract. Builder-model identity, artifact hashes, prompt hashes, and child-response measurements are recorded before launch so later model comparisons remain factual and observational. Builder ratings from unlike activities are not causal evidence and never select a model automatically.
 
 ## The many-to-many evidence model
 

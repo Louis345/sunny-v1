@@ -8,7 +8,6 @@ import {
   askMathExperienceDesigner,
   buildDirectActiveSessionPlan,
   generateDirectArtifacts,
-  generateDirectDesignMocks,
   parseMathLearningProgram,
   persistDirectExperience,
   readDirectCanonicalLearningContext,
@@ -51,9 +50,7 @@ async function main(): Promise<void> {
   const programFile = path.join(draftDir, "math-learning-program.json");
   const designFile = path.join(draftDir, "design-packet.json");
   const finalPlanFile = path.join(draftDir, "designed-plan.json");
-  const buildFile = path.join(draftDir, "candidate-build.json");
-  const revisionMarker = path.join(draftDir, "design-revision-used.json");
-  const mockDir = path.join(process.cwd(), "outputs", "math-artifact-assembly-line", homeworkId, "mocks");
+  const buildFile = path.join(draftDir, "candidate-build-v3.json");
   const chart = getChildChart(childId);
   const priorOutcomes = {
     directExperience: readDirectFeedbackContext(childId),
@@ -80,11 +77,7 @@ async function main(): Promise<void> {
   });
   console.log(`  📋 ${program.assumptions.length} assumptions locked for launch → ${path.relative(process.cwd(), ledgerPath)}`);
 
-  const revising = flag("revise-designs");
-  if (revising && fs.existsSync(revisionMarker)) throw new Error("math_design_revision_budget_exhausted");
-  const notesFile = arg("design-notes", false);
-  if (revising && !notesFile) throw new Error("missing_argument:design-notes");
-  const shouldDesign = revising || !flag("resume") || !fs.existsSync(designFile) || !fs.existsSync(finalPlanFile);
+  const shouldDesign = !flag("resume") || !fs.existsSync(designFile) || !fs.existsSync(finalPlanFile);
   console.log("[3/5] Creator designing coherent board and node artifacts");
   const designed = shouldDesign
     ? await askMathExperienceDesigner({
@@ -98,7 +91,6 @@ async function main(): Promise<void> {
           rewardPreferences: chart.learningProfile.rewardPreferences,
         },
         priorOutcomes,
-        ...(revising ? { designNotes: fs.readFileSync(path.resolve(notesFile), "utf8"), revision: 1 } : {}),
       })
     : {
         packet: readJson<MathDesignPacket>(designFile),
@@ -106,29 +98,17 @@ async function main(): Promise<void> {
       };
   writeJson(designFile, designed.packet);
   writeJson(finalPlanFile, designed.plan);
-  if (revising) writeJson(revisionMarker, { usedAt: new Date().toISOString(), notesFile: path.resolve(notesFile) });
 
-  if (!flag("approve-designs")) {
-    console.log(`[4/5] Building ${designed.plan.activities.length} lightweight design mocks`);
-    fs.rmSync(mockDir, { recursive: true, force: true });
-    const mocks = await generateDirectDesignMocks({ plan: designed.plan, packet: designed.packet, outputDir: mockDir });
-    console.log("DESIGN_REVIEW_REQUIRED");
-    console.log(`Comparison: file://${mocks.comparisonPath}`);
-    console.log("Existing board unchanged.");
-    console.log(`Approve: rerun with --resume --approve-designs`);
-    console.log(`Revise once: rerun with --resume --revise-designs --design-notes=/absolute/path.txt`);
-    return;
-  }
-
-  console.log(`[4/5] Building ${designed.plan.activities.length} approved activities with bounded concurrency`);
+  console.log(`[4/5] Building ${designed.plan.activities.length} artifact-designed activities with bounded concurrency`);
   const generated = flag("resume") && fs.existsSync(buildFile)
     ? readJson<{ artifacts: DirectArtifact[]; backgroundUrl: string; questArtworkUrl: string; bossArtworkUrl: string }>(buildFile)
     : await generateDirectArtifacts({
         plan: designed.plan,
         childId,
         homeworkId,
-        plannerModel: process.env.SUNNY_INGEST_MODEL,
-        model: process.env.SUNNY_GENERATION_MODEL,
+        plannerModel: process.env.SUNNY_PLANNER_MODEL ?? "claude-opus-5",
+        architectModel: process.env.SUNNY_ARCHITECT_MODEL ?? "claude-fable-5",
+        assignmentFingerprint: extraction.fileHash,
       });
   writeJson(buildFile, generated);
 
@@ -172,6 +152,7 @@ async function main(): Promise<void> {
 }
 
 main().catch((error) => {
+  console.error("Done — GENERATION_INCOMPLETE");
   console.error("Existing board was not changed.");
   console.error(error instanceof Error ? error.message : String(error));
   process.exitCode = 1;

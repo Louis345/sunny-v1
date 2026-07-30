@@ -577,6 +577,13 @@ export interface AIContentCatalogItem {
     childEvidenceIds: string[];
     predictionIds: string[];
     theoryDecisionIds: string[];
+    plannerModel?: string;
+    architectModel?: string;
+    builderProvider?: "anthropic" | "openai";
+    builderModel?: string;
+    academicContractHash?: string;
+    implementationPromptHash?: string;
+    generatedHtmlHash?: string;
   };
   artworkStatus?: "generated" | "fallback" | "missing";
   performanceSummary?: {
