@@ -6,7 +6,11 @@ import {
   assertDesignArtifactAcademicContract,
   buildDirectActivityCreatorPrompt,
   buildDirectLearningCycleInput,
+  createMathDesignCheckpoint,
   mathAcademicContractHash,
+  mergeMathDesignCheckpoint,
+  parseExperienceDesignArtifact,
+  parseMathLearningProgram,
   type ExperienceDesignArtifactV1,
   type MathPlannedActivity,
 } from "./directMathExperience";
@@ -81,6 +85,216 @@ function artifact(node: MathPlannedActivity): ExperienceDesignArtifactV1 {
 }
 
 describe("math artifact production boundary", () => {
+  it("preserves the Planner's contextual agency experiment without fabricating hypotheses", () => {
+    const raw = {
+      planId: "plan-agency",
+      contentScopeRationale: "Two comparable routes test different engagement hypotheses.",
+      concept: {
+        conceptId: "math.multiplication.equal_groups",
+        name: "Equal groups",
+        statement: "Equal groups can be represented with multiplication.",
+        instanceScope: "Grade-level factors",
+        prerequisites: ["counting"],
+      },
+      assumptions: [{
+        assumptionId: "assumption-1",
+        claim: "The child can count equal groups.",
+        evidenceIds: ["chart:reina"],
+        confidence: 0.6,
+        uncertainty: "No delayed evidence is available.",
+      }],
+      academicTheory: "Comparable routes will reveal useful engagement evidence.",
+      profileEvidence: ["chart:reina"],
+      learningResponsibilities: [
+        { id: "responsibility-node-1", title: "Build", purpose: "Build equal groups.", academicTarget: "Represent multiplication as equal groups" },
+        { id: "responsibility-node-2", title: "Reason", purpose: "Reason about equal groups.", academicTarget: "Represent multiplication as equal groups" },
+      ],
+      fork: {
+        hypothesis: "The routes test different engagement hypotheses.",
+        heldConstant: ["academic target", "difficulty"],
+        routes: [
+          { id: "route-a", academicRationale: "Construction route", nodeIds: ["node-1"] },
+          { id: "route-b", academicRationale: "Reasoning route", nodeIds: ["node-2"] },
+        ],
+      },
+      agencyExperiment: {
+        experimentId: "agency-1",
+        contextEvidenceIds: ["chart:reina"],
+        academicHeldConstants: ["academic target", "difficulty"],
+        routes: [
+          {
+            routeId: "route-a",
+            nodeIds: ["node-1"],
+            engagementHypothesis: "Visible construction may support persistence.",
+            predictedOutcome: "The child will complete with fewer invalid actions.",
+            supportingEvidenceIds: ["chart:reina"],
+            uncertainty: "Prior evidence is sparse.",
+            falsifyingEvidence: ["abandonment", "high invalid-action count"],
+            measurementKeys: ["engagement.completion", "interaction.invalidActionCount"],
+          },
+          {
+            routeId: "route-b",
+            nodeIds: ["node-2"],
+            engagementHypothesis: "Reasoning choices may support accuracy.",
+            predictedOutcome: "The child will maintain accuracy without added support.",
+            supportingEvidenceIds: ["chart:reina"],
+            uncertainty: "No comparable math route has been observed.",
+            falsifyingEvidence: ["low independent accuracy", "high assistance"],
+            measurementKeys: ["academic.accuracy", "support.assistance"],
+          },
+        ],
+      },
+      activities: [
+        activity("node-1"),
+        { ...activity("node-2"), routeId: "route-b", responsibilityId: "responsibility-node-2" },
+      ],
+    };
+
+    const parsed = parseMathLearningProgram(raw);
+
+    expect(parsed.agencyExperiment).toEqual(raw.agencyExperiment);
+    expect(parsed.fork.routes.map((route) => route.nodeIds)).toEqual([["node-1"], ["node-2"]]);
+  });
+
+  it("uses Planner-authored route membership when a redundant activity route id differs", () => {
+    const raw = {
+      planId: "plan-route-normalization",
+      contentScopeRationale: "Two comparable routes.",
+      concept: {
+        conceptId: "math.multiplication.equal_groups",
+        name: "Equal groups",
+        statement: "Equal groups can be represented with multiplication.",
+        instanceScope: "Grade-level factors",
+        prerequisites: ["counting"],
+      },
+      assumptions: [{
+        assumptionId: "assumption-1",
+        claim: "The child can count equal groups.",
+        evidenceIds: ["chart:reina"],
+        confidence: 0.6,
+        uncertainty: "No delayed evidence.",
+      }],
+      academicTheory: "Compare two routes.",
+      profileEvidence: ["chart:reina"],
+      learningResponsibilities: [
+        { id: "responsibility-node-1", title: "Build", purpose: "Build.", academicTarget: "Represent multiplication as equal groups" },
+        { id: "responsibility-node-2", title: "Reason", purpose: "Reason.", academicTarget: "Represent multiplication as equal groups" },
+      ],
+      fork: {
+        hypothesis: "Compare routes.",
+        heldConstant: ["target"],
+        routes: [
+          { id: "route-a", academicRationale: "Build", nodeIds: ["node-1"] },
+          { id: "route-b", academicRationale: "Reason", nodeIds: ["node-2"] },
+        ],
+      },
+      activities: [
+        { ...activity("node-1"), routeId: "planner-alias-a" },
+        { ...activity("node-2"), routeId: "route-b", responsibilityId: "responsibility-node-2" },
+      ],
+    };
+
+    const parsed = parseMathLearningProgram(raw);
+
+    expect(parsed.activities[0]?.routeId).toBe("route-a");
+    expect(parsed.fork.routes[0]?.nodeIds).toEqual(["node-1"]);
+  });
+
+  it("preserves Planner-authored shared teaching nodes before the agency fork", () => {
+    const raw = {
+      planId: "plan-shared-entry",
+      contentScopeRationale: "Teach once, then offer two comparable routes.",
+      concept: {
+        conceptId: "math.multiplication.equal_groups",
+        name: "Equal groups",
+        statement: "Equal groups can be represented with multiplication.",
+        instanceScope: "Grade-level factors",
+        prerequisites: ["counting"],
+      },
+      assumptions: [{
+        assumptionId: "assumption-1",
+        claim: "The child can count equal groups.",
+        evidenceIds: ["chart:reina"],
+        confidence: 0.6,
+        uncertainty: "No delayed evidence.",
+      }],
+      academicTheory: "Teach once, then compare routes.",
+      profileEvidence: ["chart:reina"],
+      learningResponsibilities: [
+        { id: "responsibility-shared", title: "Teach", purpose: "Teach.", academicTarget: "Represent multiplication as equal groups" },
+        { id: "responsibility-node-1", title: "Build", purpose: "Build.", academicTarget: "Represent multiplication as equal groups" },
+        { id: "responsibility-node-2", title: "Reason", purpose: "Reason.", academicTarget: "Represent multiplication as equal groups" },
+      ],
+      fork: {
+        hypothesis: "Compare routes after shared instruction.",
+        heldConstant: ["target"],
+        routes: [
+          { id: "route-a", academicRationale: "Build", nodeIds: ["node-1"] },
+          { id: "route-b", academicRationale: "Reason", nodeIds: ["node-2"] },
+        ],
+      },
+      activities: [
+        { ...activity("shared-teach"), routeId: "route-shared-entry", responsibilityId: "responsibility-shared" },
+        activity("node-1"),
+        { ...activity("node-2"), routeId: "route-b", responsibilityId: "responsibility-node-2" },
+      ],
+    };
+
+    const parsed = parseMathLearningProgram(raw);
+
+    expect(parsed.activities[0]?.routeId).toBe("route-shared-entry");
+    expect(parsed.fork.routes.map((route) => route.nodeIds)).toEqual([["node-1"], ["node-2"]]);
+  });
+
+  it("keeps valid sibling designs and reports only missing Planner node ids", () => {
+    const nodes = [
+      activity("node-1"),
+      { ...activity("node-2"), routeId: "route-b" },
+      activity("node-3"),
+    ];
+    const checkpoint = createMathDesignCheckpoint({
+      planId: "plan-1",
+      expectedNodeIds: nodes.map((node) => node.id),
+      model: "claude-fable-5",
+    });
+
+    const first = mergeMathDesignCheckpoint(checkpoint, {
+      artifacts: [artifact(nodes[0]!), artifact(nodes[2]!)],
+      programActivities: nodes,
+    });
+
+    expect(first.completedNodeIds).toEqual(["node-1", "node-3"]);
+    expect(first.missingNodeIds).toEqual(["node-2"]);
+    expect(first.artifacts.map((item) => item.nodeId)).toEqual(["node-1", "node-3"]);
+
+    const complete = mergeMathDesignCheckpoint(first, {
+      artifacts: [artifact(nodes[1]!)],
+      programActivities: nodes,
+    });
+
+    expect(complete.completedNodeIds).toEqual(["node-1", "node-2", "node-3"]);
+    expect(complete.missingNodeIds).toEqual([]);
+    expect(complete.artifacts.map((item) => item.nodeId)).toEqual(["node-1", "node-2", "node-3"]);
+  });
+
+  it("ignores extra fields and does not reject missing optional creative prose", () => {
+    const node = activity("node-flexible");
+    const flexible = {
+      ...artifact(node),
+      unexpectedCreativeField: { any: "shape" },
+    } as Record<string, unknown>;
+    delete flexible.soundDirection;
+    delete flexible.replayVariation;
+    delete flexible.engagementPrediction;
+
+    const parsed = parseExperienceDesignArtifact(flexible, node);
+
+    expect(parsed.nodeId).toBe(node.id);
+    expect(parsed.soundDirection).toBe("");
+    expect(parsed.replayVariation).toBe("");
+    expect(parsed.engagementPrediction).toBe("");
+  });
+
   it("lets Fable use its supported default adaptive reasoning mode", () => {
     const source = fs.readFileSync(path.join(process.cwd(), "src/engine/directMathExperience.ts"), "utf8");
     const designer = source.slice(

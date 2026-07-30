@@ -14,6 +14,7 @@ import {
   runDirectPlaywrightAcceptance,
   type DirectArtifact,
   type DirectLearningExperiencePlan,
+  type MathDesignCheckpoint,
   type MathDesignPacket,
 } from "../engine/directMathExperience";
 import { readDirectFeedbackContext } from "../engine/directExperienceFeedback";
@@ -39,7 +40,17 @@ function writeJson(file: string, value: unknown): void {
   fs.writeFileSync(file, `${JSON.stringify(value, null, 2)}\n`, "utf8");
 }
 
+function plannerProgramFromDiagnostic(file: string): unknown {
+  const diagnostic = readJson<{ content?: Array<{ type?: string; name?: string; input?: unknown }> }>(file);
+  return diagnostic.content?.find((block) =>
+    block.type === "tool_use" && block.name === "create_math_learning_program")?.input;
+}
+
+let currentPhase = "reading-assignment";
+let currentCheckpoint = "";
+
 async function main(): Promise<void> {
+  const startedAt = Date.now();
   const childId = arg("child").trim().toLowerCase();
   const pdf = path.resolve(arg("pdf"));
   console.log("[1/5] Reading assignment and evidence");
@@ -48,6 +59,8 @@ async function main(): Promise<void> {
   const draftDir = path.join(process.cwd(), "src", "context", childId, "homework", "direct-drafts", homeworkId);
   if (flag("fresh")) fs.rmSync(draftDir, { recursive: true, force: true });
   const programFile = path.join(draftDir, "math-learning-program.json");
+  const plannerDiagnosticFile = path.join(draftDir, "provider-diagnostics", "planner-response.json");
+  const designCheckpointFile = path.join(draftDir, "design-checkpoint.json");
   const designFile = path.join(draftDir, "design-packet.json");
   const finalPlanFile = path.join(draftDir, "designed-plan.json");
   const buildFile = path.join(draftDir, "candidate-build-v3.json");
@@ -57,15 +70,20 @@ async function main(): Promise<void> {
     canonicalCycle: readDirectCanonicalLearningContext(childId, homeworkId),
   };
 
+  currentCheckpoint = draftDir;
+  currentPhase = "academic-planning";
   console.log("[2/5] Planner writing academic prescription");
-  const program = flag("resume") && fs.existsSync(programFile)
+  const program = fs.existsSync(programFile)
     ? parseMathLearningProgram(readJson(programFile))
-    : await askDirectMathPlanner({
+    : fs.existsSync(plannerDiagnosticFile)
+      ? parseMathLearningProgram(plannerProgramFromDiagnostic(plannerDiagnosticFile))
+      : await askDirectMathPlanner({
         childId,
         chart,
         extraction,
         priorOutcomes,
         priorConceptIds: readPriorConceptIds(childId),
+        rawResponseFile: plannerDiagnosticFile,
       });
   writeJson(programFile, program);
   const ledgerPath = writeAssignmentLedgerEntry({
@@ -77,7 +95,8 @@ async function main(): Promise<void> {
   });
   console.log(`  📋 ${program.assumptions.length} assumptions locked for launch → ${path.relative(process.cwd(), ledgerPath)}`);
 
-  const shouldDesign = !flag("resume") || !fs.existsSync(designFile) || !fs.existsSync(finalPlanFile);
+  currentPhase = "experience-design";
+  const shouldDesign = !fs.existsSync(designFile) || !fs.existsSync(finalPlanFile);
   console.log("[3/5] Creator designing coherent board and node artifacts");
   const designed = shouldDesign
     ? await askMathExperienceDesigner({
@@ -91,6 +110,11 @@ async function main(): Promise<void> {
           rewardPreferences: chart.learningProfile.rewardPreferences,
         },
         priorOutcomes,
+        checkpoint: fs.existsSync(designCheckpointFile)
+          ? readJson<MathDesignCheckpoint>(designCheckpointFile)
+          : undefined,
+        checkpointFile: designCheckpointFile,
+        rawResponseDir: path.join(draftDir, "provider-diagnostics"),
       })
     : {
         packet: readJson<MathDesignPacket>(designFile),
@@ -99,8 +123,9 @@ async function main(): Promise<void> {
   writeJson(designFile, designed.packet);
   writeJson(finalPlanFile, designed.plan);
 
+  currentPhase = "activity-building";
   console.log(`[4/5] Building ${designed.plan.activities.length} artifact-designed activities with bounded concurrency`);
-  const generated = flag("resume") && fs.existsSync(buildFile)
+  let generated = fs.existsSync(buildFile)
     ? readJson<{ artifacts: DirectArtifact[]; backgroundUrl: string; questArtworkUrl: string; bossArtworkUrl: string }>(buildFile)
     : await generateDirectArtifacts({
         plan: designed.plan,
@@ -112,16 +137,44 @@ async function main(): Promise<void> {
       });
   writeJson(buildFile, generated);
 
+  currentPhase = "runtime-verification";
   console.log("[5/5] Running the real-control Playwright journey");
-  const report = await runDirectPlaywrightAcceptance({ artifacts: generated.artifacts });
+  let report = await runDirectPlaywrightAcceptance({ artifacts: generated.artifacts });
   if (!report.passed) {
-    console.log("Done — NEEDS_REVIEW");
-    console.log(report.failures.join("\n"));
-    console.log("Existing board unchanged.");
-    process.exitCode = 1;
-    return;
+    const knownNodeIds = new Set(generated.artifacts.map((artifact) => artifact.nodeId));
+    const failedNodeIds = [...new Set(report.failures
+      .map((failure) => failure.split(":")[0] ?? "")
+      .filter((nodeId) => knownNodeIds.has(nodeId)))];
+    if (failedNodeIds.length === 0) {
+      throw new Error(`runtime_provider_contract_failed:${report.failures.join("|")}`);
+    }
+    console.log(`  🎮 [direct-ingest] [node-only-regeneration] nodes=${failedNodeIds.join(",")}`);
+    generated = await generateDirectArtifacts({
+      plan: designed.plan,
+      childId,
+      homeworkId,
+      plannerModel: process.env.SUNNY_PLANNER_MODEL ?? "claude-opus-5",
+      architectModel: process.env.SUNNY_ARCHITECT_MODEL ?? "claude-fable-5",
+      assignmentFingerprint: extraction.fileHash,
+      forceNodeIds: failedNodeIds,
+    });
+    writeJson(buildFile, generated);
+    const regenerated = generated.artifacts.filter((artifact) => failedNodeIds.includes(artifact.nodeId));
+    const retryReport = await runDirectPlaywrightAcceptance({ artifacts: regenerated });
+    if (!retryReport.passed) {
+      throw new Error(`runtime_provider_contract_failed:nodes=${failedNodeIds.join(",")}:${retryReport.failures.join("|")}`);
+    }
+    report = {
+      passed: true,
+      failures: [],
+      screenshots: [
+        ...report.screenshots.filter((file) => !failedNodeIds.some((nodeId) => path.basename(file).startsWith(`${nodeId}-`))),
+        ...retryReport.screenshots,
+      ],
+    };
   }
 
+  currentPhase = "atomic-publication";
   const activeSessionPlan = buildDirectActiveSessionPlan({
     childId,
     homeworkId,
@@ -148,12 +201,20 @@ async function main(): Promise<void> {
   console.log("Playwright: passed");
   console.log("Quest: locked");
   console.log("Boss: locked");
+  const designCheckpoint = fs.existsSync(designCheckpointFile)
+    ? readJson<MathDesignCheckpoint>(designCheckpointFile)
+    : undefined;
+  const designTokens = designCheckpoint?.attempts.reduce((sum, attempt) => sum + attempt.inputTokens + attempt.outputTokens, 0) ?? 0;
+  const buildTokens = generated.artifacts.reduce((sum, artifact) => sum + (artifact.inputTokens ?? 0) + (artifact.outputTokens ?? 0), 0);
+  console.log(`Generation: ${Math.round((Date.now() - startedAt) / 1000)}s, ${designTokens + buildTokens} recorded tokens`);
   console.log(`Plan: ${record}`);
 }
 
 main().catch((error) => {
-  console.error("Done — GENERATION_INCOMPLETE");
+  console.error("Provider unavailable — saved progress, automatic resume available");
   console.error("Existing board was not changed.");
-  console.error(error instanceof Error ? error.message : String(error));
+  console.error(`Phase: ${currentPhase}`);
+  if (currentCheckpoint) console.error(`Checkpoint: ${currentCheckpoint}`);
+  console.error(`Reason: ${error instanceof Error ? error.message : String(error)}`);
   process.exitCode = 1;
 });

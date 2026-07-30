@@ -196,6 +196,14 @@ describe("direct math experience", () => {
     expect(source).not.toContain("DESIGN_REVIEW_REQUIRED");
   });
 
+  it("does not expose legacy board-rejection outcomes in math ingestion", () => {
+    const source = fs.readFileSync(path.join(process.cwd(), "src/scripts/ingestMathDirect.ts"), "utf8");
+    expect(source).not.toContain("Done — BLOCKED");
+    expect(source).not.toContain("Done — GENERATION_INCOMPLETE");
+    expect(source).not.toContain("Done — NEEDS_REVIEW");
+    expect(source).toContain("Provider unavailable");
+  });
+
   it("keeps adaptive Creator calls subordinate to the Planner without leaking source questions", () => {
     const prompt = buildAdaptiveProgressionCreatorPrompt({
       cycle: {
@@ -864,7 +872,7 @@ describe("direct math experience", () => {
     expect(source).toContain("priorOutcomes");
   });
 
-  it("keeps the browser journey bounded and free of repair loops", () => {
+  it("keeps the browser journey bounded to one failed-node-only regeneration", () => {
     const source = fs.readFileSync(path.join(process.cwd(), "src/engine/directMathExperience.ts"), "utf8");
     expect(source).toContain("parseDirectQaJourney");
     expect(source).toContain("action.testId");
@@ -875,7 +883,9 @@ describe("direct math experience", () => {
     const entrypoint = fs.readFileSync(path.join(process.cwd(), "src/scripts/ingestMathDirect.ts"), "utf8");
     expect(entrypoint).not.toContain("repairDirectArtifactsOnce");
     expect(entrypoint).not.toContain("runDirectAcceptanceRepairLoop");
-    expect(entrypoint.match(/runDirectPlaywrightAcceptance\(/g)).toHaveLength(1);
+    expect(entrypoint.match(/runDirectPlaywrightAcceptance\(/g)).toHaveLength(2);
+    expect(entrypoint).toContain("forceNodeIds: failedNodeIds");
+    expect(entrypoint).toContain("filter((artifact) => failedNodeIds.includes(artifact.nodeId))");
   });
 
   it("validates the registered homework launch URL instead of a private artifact shortcut", () => {

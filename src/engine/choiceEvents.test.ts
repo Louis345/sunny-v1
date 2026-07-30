@@ -188,7 +188,7 @@ describe("choice events", () => {
     expect(rewardCalls).toEqual([["reina", "pronunciation", true, true, 0.95]]);
   });
 
-  it("records baseline route choices as selected and skipped preference evidence", async () => {
+  it("records baseline route selection without concluding a preference", async () => {
     writeProfile("reina");
     const rewardCalls: unknown[][] = [];
 
@@ -235,16 +235,20 @@ describe("choice events", () => {
     const profile = JSON.parse(
       fs.readFileSync(path.join(root, "src", "context", "reina", "learning_profile.json"), "utf8"),
     ) as LearningProfile;
-    expect(result.applied).toBe(true);
+    expect(result).toMatchObject({
+      applied: false,
+      reason: "selection_recorded_without_preference_conclusion",
+      activityId: "pronunciation",
+    });
     expect(loaded[0]).toMatchObject({
       context: "baseline_route",
       selectedOptionId: "choice-baseline-hf-fluency",
       skippedOptionIds: ["choice-baseline-hf-recognition"],
     });
-    expect(profile.activityModel?.pronunciation?.plays).toBe(1);
-    expect(profile.activityTraitModel?.voice?.positiveWeight).toBeGreaterThan(0);
-    expect(profile.activityTraitModel?.control?.positiveWeight).toBeGreaterThan(0);
-    expect(rewardCalls).toEqual([["reina", "pronunciation", true, false, 0.5]]);
+    expect(profile.activityModel?.pronunciation).toBeUndefined();
+    expect(profile.activityTraitModel?.voice).toBeUndefined();
+    expect(profile.activityTraitModel?.control).toBeUndefined();
+    expect(rewardCalls).toEqual([]);
   });
 
   it("does not treat system-required activity completion as strong preference", async () => {
