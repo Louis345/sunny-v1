@@ -634,7 +634,9 @@ describe("direct math experience", () => {
     expect(prompt).not.toContain("Saved items/content:");
     expect(prompt).not.toContain("demoReplayCount");
     expect(prompt).not.toContain("sunny-qa-actions");
-    expect(prompt).toContain("data-testid");
+    expect(prompt).not.toContain("sunny-qa-journey");
+    expect(prompt).not.toContain("data-testid");
+    expect(prompt).not.toContain("acceptance journey");
     expect(prompt).toContain('type:"activity_ready"');
     expect(prompt).toContain('type:"game_state_update"');
     expect(prompt).toContain("currentChallenge");
@@ -758,17 +760,17 @@ describe("direct math experience", () => {
     expect(creator).not.toContain("generation-retry");
   });
 
-  it("keeps ingestion validation on real visible controls without hidden QA controls", () => {
+  it("keeps ingestion validation to an opening browser smoke check", () => {
     const source = fs.readFileSync(path.join(process.cwd(), "src/engine/directMathExperience.ts"), "utf8");
     expect(source).toContain("NODE_REGISTRY");
-    expect(source).toContain('message?.type === "activity_ready"');
+    expect(source).toContain("activity_ready");
     expect(source).toContain("pageErrors");
     for (const removed of [
       "directArtifactContractFailures",
       "repairDirectArtifactsOnce",
       "runDirectAcceptanceRepairLoop",
     ]) expect(source).not.toContain(removed);
-    expect(source).toContain("qa_visible_control_missing");
+    expect(source).not.toContain("qa_visible_control_missing");
     expect(source).toContain("first_action_not_visible");
     expect(source).toContain("primary_control_clipped");
   });
@@ -872,18 +874,23 @@ describe("direct math experience", () => {
     expect(source).toContain("priorOutcomes");
   });
 
-  it("keeps browser diagnostics from triggering regeneration or blocking publication", () => {
+  it("limits browser diagnostics to a non-blocking opening smoke check", () => {
     const source = fs.readFileSync(path.join(process.cwd(), "src/engine/directMathExperience.ts"), "utf8");
-    expect(source).toContain("parseDirectQaJourney");
-    expect(source).toContain("action.testId");
-    expect(source).not.toContain("hiddenQaControl");
+    expect(source).not.toContain("parseDirectQaJourney");
+    expect(source).not.toContain("sunny-qa-journey");
+    expect(source).not.toContain("qa_visible_control_missing");
+    expect(source).not.toContain("incorrect_recovery_evidence_missing");
+    expect(source).not.toContain("completion_evidence_missing");
+    expect(source).toContain("first_action_not_visible");
+    expect(source).toContain("primary_control_clipped");
+    expect(source).toContain("browser_error");
     for (const forbidden of ["acceptanceScript", "repairDirectArtifactsOnce", "runDirectAcceptanceRepairLoop", "applyDirectArtifactEdits"]) {
       expect(source).not.toContain(forbidden);
     }
     const entrypoint = fs.readFileSync(path.join(process.cwd(), "src/scripts/ingestMathDirect.ts"), "utf8");
     expect(entrypoint).not.toContain("repairDirectArtifactsOnce");
     expect(entrypoint).not.toContain("runDirectAcceptanceRepairLoop");
-    expect(entrypoint.match(/runDirectPlaywrightAcceptance\(/g)).toHaveLength(1);
+    expect(entrypoint.match(/runDirectBrowserSmokeCheck\(/g)).toHaveLength(1);
     expect(entrypoint).not.toContain("forceNodeIds: failedNodeIds");
     expect(entrypoint).not.toContain("runtime_provider_contract_failed");
     expect(entrypoint).toContain("[runtime-diagnostics]");

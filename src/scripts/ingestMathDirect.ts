@@ -11,7 +11,7 @@ import {
   parseMathLearningProgram,
   persistDirectExperience,
   readDirectCanonicalLearningContext,
-  runDirectPlaywrightAcceptance,
+  runDirectBrowserSmokeCheck,
   type DirectArtifact,
   type DirectLearningExperiencePlan,
   type MathDesignCheckpoint,
@@ -138,8 +138,8 @@ async function main(): Promise<void> {
   writeJson(buildFile, generated);
 
   currentPhase = "runtime-verification";
-  console.log("[5/5] Running the real-control Playwright journey");
-  const report = await runDirectPlaywrightAcceptance({ artifacts: generated.artifacts });
+  console.log("[5/5] Running the opening browser smoke check");
+  const report = await runDirectBrowserSmokeCheck({ artifacts: generated.artifacts });
   if (!report.passed) {
     console.warn(`  🎮 [direct-ingest] [runtime-diagnostics] warnings=${report.failures.length}`);
     report.failures.forEach((failure) => console.warn(`    ${failure}`));
@@ -169,7 +169,7 @@ async function main(): Promise<void> {
   console.log("Done — FULL");
   console.log(`Activities: ${generated.artifacts.length}`);
   console.log(`Design artifacts: ${designed.packet.artifacts.length} bound`);
-  console.log(`Playwright: ${report.passed ? "passed" : "diagnostic warnings recorded"}`);
+  console.log(`Browser smoke check: ${report.passed ? "passed" : "diagnostic warnings recorded"}`);
   console.log("Quest: locked");
   console.log("Boss: locked");
   const designCheckpoint = fs.existsSync(designCheckpointFile)

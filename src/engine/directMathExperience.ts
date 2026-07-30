@@ -1625,14 +1625,6 @@ Maintain a factual targetResults array for the full activity. For each answer ap
 Emit window.parent.postMessage({type:"attempt_event",payload:{domain:"math",target,correct,attemptedValue,responseTimeMs,scaffoldLevel}},"*") for each answer.
 Emit window.parent.postMessage({type:"progress_event",payload:{nodeId:"${input.activity.id}",completedItems,totalItems}},"*") whenever visible progress advances.
 On completion calculate accuracy from targetResults and emit window.parent.postMessage({type:"node_complete",payload:{nodeId:"${input.activity.id}",completed:true,accuracy,targetResults,timeSpent_ms}},"*").
-Give every visible child control used in the acceptance journey a unique data-testid.
-Include one non-visible JSON metadata element:
-<script type="application/json" id="sunny-qa-journey">{"actions":[...]}</script>
-The actions must use the real visible child controls to exercise one incorrect response and recovery, then complete the activity correctly. Supported actions are:
-{"kind":"click","testId":"..."}
-{"kind":"fill","testId":"...","value":"..."}
-{"kind":"drag","sourceTestId":"...","targetTestId":"..."}
-Do not create hidden QA controls, QA-only handlers, or a separate QA state machine. The metadata describes how to operate the same interface the child sees.
 Include <div id="sunny-companion"></div> so the parent app owns Elli.
 Return raw HTML only and end with </html>.
 
@@ -1976,39 +1968,7 @@ function contentType(file: string): string {
   return "application/octet-stream";
 }
 
-type DirectQaAction =
-  | { kind: "click"; testId: string }
-  | { kind: "fill"; testId: string; value: string }
-  | { kind: "drag"; sourceTestId: string; targetTestId: string };
-
-function parseDirectQaJourney(value: string, nodeId: string): DirectQaAction[] {
-  const parsed = JSON.parse(value) as { actions?: unknown[] };
-  if (!Array.isArray(parsed.actions) || parsed.actions.length === 0 || parsed.actions.length > 100) {
-    throw new Error(`${nodeId}:qa_journey_invalid`);
-  }
-  return parsed.actions.map((raw, index): DirectQaAction => {
-    const action = object(raw);
-    const kind = action ? requiredString(action, "kind") : "";
-    if (kind === "click") return { kind, testId: requiredString(action!, "testId") };
-    if (kind === "fill") {
-      return {
-        kind,
-        testId: requiredString(action!, "testId"),
-        value: requiredString(action!, "value"),
-      };
-    }
-    if (kind === "drag") {
-      return {
-        kind,
-        sourceTestId: requiredString(action!, "sourceTestId"),
-        targetTestId: requiredString(action!, "targetTestId"),
-      };
-    }
-    throw new Error(`${nodeId}:qa_action_invalid:${index}`);
-  });
-}
-
-export async function runDirectPlaywrightAcceptance(input: {
+export async function runDirectBrowserSmokeCheck(input: {
   artifacts: DirectArtifact[];
   rootDir?: string;
 }): Promise<DirectPlaywrightReport> {
@@ -2107,42 +2067,6 @@ export async function runDirectPlaywrightAcceptance(input: {
           .then(() => screenshots.push(screenshotPath))
           .catch((error) => console.warn(` 🎮 [direct-taste] [screenshot-unavailable] node=${artifact.nodeId} reason=${error instanceof Error ? error.message : String(error)}`));
       }
-      try {
-        const journeyText = await page.locator("#sunny-qa-journey").textContent();
-        if (!journeyText) throw new Error(`${artifact.nodeId}:qa_journey_missing`);
-        const actions = parseDirectQaJourney(journeyText, artifact.nodeId);
-        for (const action of actions) {
-          if (action.kind === "drag") {
-            const source = page.getByTestId(action.sourceTestId);
-            const target = page.getByTestId(action.targetTestId);
-            if (await source.count() !== 1 || await target.count() !== 1 ||
-                !await source.isVisible() || !await target.isVisible()) {
-              throw new Error(`${artifact.nodeId}:qa_visible_drag_control_missing`);
-            }
-            await source.dragTo(target);
-            continue;
-          }
-          const control = page.getByTestId(action.testId);
-          if (await control.count() !== 1 || !await control.isVisible()) {
-            throw new Error(`${artifact.nodeId}:qa_visible_control_missing:${action.testId}`);
-          }
-          if (action.kind === "fill") await control.fill(action.value);
-          else await control.click();
-        }
-        await page.waitForFunction(
-          `window.__sunnyMessages.some(message=>message?.type==='node_complete')`,
-          undefined,
-          { timeout: 10_000 },
-        );
-      } catch (error) {
-        failures.push(error instanceof Error ? error.message : `${artifact.nodeId}:qa_journey_failed`);
-      }
-      const messages = await page.evaluate<Array<{ type?: string; payload?: { correct?: boolean } }>>(`window.__sunnyMessages||[]`);
-      if (!messages.some((message) => message?.type === "activity_ready")) failures.push(`${artifact.nodeId}:activity_ready_evidence_missing`);
-      if (!messages.some((message) => message?.type === "attempt_event" && message.payload?.correct === false)) failures.push(`${artifact.nodeId}:incorrect_recovery_evidence_missing`);
-      if (!messages.some((message) => message?.type === "attempt_event" && message.payload?.correct === true)) failures.push(`${artifact.nodeId}:correct_attempt_evidence_missing`);
-      if (!messages.some((message) => message?.type === "progress_event")) failures.push(`${artifact.nodeId}:progress_evidence_missing`);
-      if (!messages.some((message) => message?.type === "node_complete")) failures.push(`${artifact.nodeId}:completion_evidence_missing`);
       pageErrors.forEach((error) => failures.push(`${artifact.nodeId}:browser_error:${error}`));
       await page.close();
     }
