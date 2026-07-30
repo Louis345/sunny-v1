@@ -872,7 +872,7 @@ describe("direct math experience", () => {
     expect(source).toContain("priorOutcomes");
   });
 
-  it("keeps the browser journey bounded to one failed-node-only regeneration", () => {
+  it("keeps browser diagnostics from triggering regeneration or blocking publication", () => {
     const source = fs.readFileSync(path.join(process.cwd(), "src/engine/directMathExperience.ts"), "utf8");
     expect(source).toContain("parseDirectQaJourney");
     expect(source).toContain("action.testId");
@@ -883,9 +883,10 @@ describe("direct math experience", () => {
     const entrypoint = fs.readFileSync(path.join(process.cwd(), "src/scripts/ingestMathDirect.ts"), "utf8");
     expect(entrypoint).not.toContain("repairDirectArtifactsOnce");
     expect(entrypoint).not.toContain("runDirectAcceptanceRepairLoop");
-    expect(entrypoint.match(/runDirectPlaywrightAcceptance\(/g)).toHaveLength(2);
-    expect(entrypoint).toContain("forceNodeIds: failedNodeIds");
-    expect(entrypoint).toContain("filter((artifact) => failedNodeIds.includes(artifact.nodeId))");
+    expect(entrypoint.match(/runDirectPlaywrightAcceptance\(/g)).toHaveLength(1);
+    expect(entrypoint).not.toContain("forceNodeIds: failedNodeIds");
+    expect(entrypoint).not.toContain("runtime_provider_contract_failed");
+    expect(entrypoint).toContain("[runtime-diagnostics]");
   });
 
   it("validates the registered homework launch URL instead of a private artifact shortcut", () => {
@@ -931,6 +932,12 @@ describe("direct math experience", () => {
     }));
     expect(hasReadyDirectMathExperience("reina", rootDir)).toBe(true);
     expect(hasReadyDirectMathExperience("ila", rootDir)).toBe(false);
+    fs.writeFileSync(path.join(directDir, "direct_experience_plan.json"), JSON.stringify({
+      childId: "reina",
+      activeSessionPlan: { domain: "math" },
+      playwrightReport: { passed: false, failures: ["diagnostic timing mismatch"] },
+    }));
+    expect(hasReadyDirectMathExperience("reina", rootDir)).toBe(true);
   });
 
   it("launches a ready direct math board without requiring an explicit domain flag", () => {

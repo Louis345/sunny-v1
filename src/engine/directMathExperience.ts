@@ -460,11 +460,9 @@ export function hasReadyDirectMathExperience(childId: string, rootDir = process.
     const record = JSON.parse(fs.readFileSync(directPath, "utf8")) as {
       childId?: string;
       activeSessionPlan?: { domain?: string };
-      playwrightReport?: { passed?: boolean };
     };
     return record.childId === childId.trim().toLowerCase()
-      && record.activeSessionPlan?.domain === "math"
-      && record.playwrightReport?.passed === true;
+      && record.activeSessionPlan?.domain === "math";
   } catch {
     return false;
   }
