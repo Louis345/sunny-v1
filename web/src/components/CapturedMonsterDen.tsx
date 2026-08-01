@@ -11,6 +11,9 @@ import type {
 } from "./capturedMonsterCatalog";
 
 export type CapturedMonsterEventType =
+  | "farm_arrival_viewed"
+  | "active_creature_selected"
+  | "active_creature_returned"
   | "monster_named"
   | "monster_selected_sidekick"
   | "monster_pet"
@@ -49,6 +52,12 @@ export interface MonsterLifeLayerProps {
 export interface MonsterDenPreviewProps {
   creature: CapturedMonsterConfig;
   initialNickname?: string;
+  initialBond?: number;
+  initialMood?: CapturedMonsterLifeState;
+  active?: boolean;
+  presentationStatus?: "idle" | "starting" | "active" | "resting";
+  onSelectActive?: () => void | Promise<void>;
+  onReturnActive?: () => void | Promise<void>;
   onEvent?: (event: CapturedMonsterEvent) => void;
 }
 
@@ -114,8 +123,8 @@ export function CapturedMonsterCard({
         <span className="captured-monster-card__eyebrow">Added to collection</span>
         <h2>{creature.collectionTitle}</h2>
         <p>
-          {creature.speciesName} is now living in Sunny. Name it, visit the den,
-          or bring it along as a tiny sidekick.
+          {creature.speciesName} now lives in Sunny Farm. Name it, visit its
+          habitat, or bring it with you as a tiny buddy.
         </p>
         <div className="captured-monster-card__chips" aria-label="Captured monster details">
           <span>{rarityLabel(creature.rarity)}</span>
@@ -141,10 +150,10 @@ export function CapturedMonsterCard({
               emit("monster_selected_sidekick");
             }}
           >
-            Bring Along
+            Bring With Me
           </button>
           <button type="button" onClick={() => onVisitDen?.(normalizedName)}>
-            Visit Den
+            Visit Farm
           </button>
         </div>
       </div>
@@ -182,12 +191,17 @@ export function MonsterLifeLayer({
 export function MonsterDenPreview({
   creature,
   initialNickname,
+  initialBond = 18,
+  initialMood = "idle",
+  active = false,
+  presentationStatus = "idle",
+  onSelectActive,
+  onReturnActive,
   onEvent,
 }: MonsterDenPreviewProps): ReactElement {
   const [nickname, setNickname] = useState(initialNickname ?? creature.defaultNickname);
-  const [lifeState, setLifeState] = useState<CapturedMonsterLifeState>("idle");
-  const [bond, setBond] = useState(18);
-  const [sidekickSelected, setSidekickSelected] = useState(false);
+  const [lifeState, setLifeState] = useState<CapturedMonsterLifeState>(initialMood);
+  const [bond, setBond] = useState(initialBond);
   const activitySeqRef = useRef(0);
 
   const moodLabel = useMemo(() => {
@@ -252,8 +266,8 @@ export function MonsterDenPreview({
   return (
     <section
       className="monster-den-preview"
-      data-testid="monster-den-preview"
-      aria-label={`${nickname}'s den`}
+      data-testid="monster-farm-preview"
+      aria-label={`${nickname}'s Farm habitat`}
     >
       <div className="monster-den-preview__room">
         <div className="monster-den-preview__sky" aria-hidden="true" />
@@ -266,11 +280,11 @@ export function MonsterDenPreview({
         />
       </div>
       <aside className="monster-den-preview__panel">
-        <span className="monster-den-preview__eyebrow">Sunny den</span>
-        <h2>{nickname}'s den</h2>
+        <span className="monster-den-preview__eyebrow">Sunny Farm</span>
+        <h2>{nickname}'s habitat</h2>
         <p>
           A captured reward creature can live here, react to care, and later come
-          along during Sunny sessions.
+          with you across Sunny when you choose.
         </p>
         <label className="monster-den-preview__name">
           <span>Nickname</span>
@@ -287,7 +301,7 @@ export function MonsterDenPreview({
           <span>{rarityLabel(creature.rarity)}</span>
           <span>Mood {moodLabel}</span>
           <span>Bond {bond}</span>
-          <span>{sidekickSelected ? "Sidekick selected" : "In den"}</span>
+          <span>{active ? "Active buddy" : "In Farm"}</span>
         </div>
         <div className="monster-den-preview__actions">
           <button type="button" onClick={petMonster}>
@@ -302,13 +316,23 @@ export function MonsterDenPreview({
           <button
             type="button"
             onClick={() => {
-              setSidekickSelected(true);
-              emit("monster_selected_sidekick");
+              if (active) {
+                emit("active_creature_returned");
+                void onReturnActive?.();
+              } else {
+                emit("active_creature_selected");
+                void onSelectActive?.();
+              }
             }}
           >
-            Bring Along
+            {active ? "Return to Farm" : "Bring With Me"}
           </button>
         </div>
+        {presentationStatus === "starting" ? <p role="status">Calling {nickname}…</p> : null}
+        {presentationStatus === "active" ? <p role="status">{nickname} is with you.</p> : null}
+        {presentationStatus === "resting" ? (
+          <p role="status">{nickname} is resting in the Farm. Try again when ready.</p>
+        ) : null}
       </aside>
       <MonsterDenStyles />
     </section>

@@ -26,8 +26,8 @@ describe("Captured monster den stories", () => {
       );
     });
     expect(screen.getByRole("dialog", { name: "Lumipuff captured" })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Visit Den" }));
-    expect(screen.getByTestId("monster-den-preview")).toBeInTheDocument();
-    expect(screen.getByText("Lumi's den")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Visit Farm" }));
+    expect(screen.getByTestId("monster-farm-preview")).toBeInTheDocument();
+    expect(screen.getByText("Lumi's habitat")).toBeInTheDocument();
   });
 });

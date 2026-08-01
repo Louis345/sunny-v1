@@ -4,6 +4,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import meta, {
   AimAndLaunchSkill,
   CollectedAnimation,
+  CreatureHandoffDemo,
+  MossyCreatureHandoffDemo,
   type SparkOrbLearningShellStoryArgs,
 } from "../stories/SparkOrbLearningShell.stories";
 import { playSparkOrbSfx } from "../utils/sparkOrbSfx";
@@ -101,6 +103,115 @@ describe("SparkOrbLearningShell stories", () => {
         creatureId: "lumipuff",
       }),
     );
+  });
+
+  it("sends Lumi to the Farm and publishes only after Bring With Me", () => {
+    vi.useFakeTimers();
+    vi.spyOn(console, "info").mockImplementation(() => {});
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(new Response('{"accepted":true}', { status: 202 }));
+    const storyArgs: SparkOrbLearningShellStoryArgs = {
+      phase: "ready",
+      domain: "spelling",
+      currentTarget: "word:because",
+      lastMoment: "orb_ready",
+      capturePersonality: "playful",
+    };
+
+    render(CreatureHandoffDemo.render?.(storyArgs, {} as never) as ReactElement);
+
+    expect(screen.getByTestId("mock-companion-layer")).toBeVisible();
+
+    const launchControl = screen.getByTestId("spark-orb-launch-control");
+    fireEvent.pointerDown(launchControl, { clientX: 320, clientY: 620 });
+    fireEvent.pointerMove(launchControl, { clientX: 338, clientY: 450 });
+    fireEvent.pointerUp(launchControl, { clientX: 338, clientY: 450 });
+
+    act(() => vi.advanceTimersByTime(2_150));
+    expect(
+      screen.getByRole("dialog", { name: "Lumi arrived at Sunny Farm" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Lumi now lives in your Farm.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Visit Farm" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Continue" })).toBeInTheDocument();
+    expect(fetchSpy).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Visit Farm" }));
+    expect(screen.getByTestId("monster-farm-preview")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Bring With Me" }));
+    expect(fetchSpy).toHaveBeenCalledWith(
+      "http://127.0.0.1:47831/events",
+      expect.objectContaining({
+        method: "POST",
+        body: expect.stringContaining('"type":"active-creature-selected"'),
+      }),
+    );
+    expect(
+      screen.getByRole("complementary", { name: "Active buddy behavior lab" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Return Lumi to Farm from Sunny" }),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Correct answer" }));
+    expect(fetchSpy).toHaveBeenLastCalledWith(
+      "http://127.0.0.1:47831/events",
+      expect.objectContaining({
+        body: expect.stringContaining('"type":"active-creature-moment"'),
+      }),
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Return to Farm" }));
+    expect(fetchSpy).toHaveBeenLastCalledWith(
+      "http://127.0.0.1:47831/events",
+      expect.objectContaining({
+        method: "POST",
+        body: expect.stringContaining('"type":"active-creature-returned"'),
+      }),
+    );
+  });
+
+  it("earns Mossy and publishes mossback as the selected native renderer", () => {
+    vi.useFakeTimers();
+    vi.spyOn(console, "info").mockImplementation(() => {});
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(new Response('{"accepted":true}', { status: 202 }));
+    const storyArgs: SparkOrbLearningShellStoryArgs = {
+      phase: "ready",
+      domain: "spelling",
+      currentTarget: "word:because",
+      lastMoment: "orb_ready",
+      capturePersonality: "shy",
+      creatureId: "mossback",
+    };
+
+    render(
+      MossyCreatureHandoffDemo.render?.(storyArgs, {} as never) as ReactElement,
+    );
+    const launchControl = screen.getByTestId("spark-orb-launch-control");
+    fireEvent.pointerDown(launchControl, { clientX: 320, clientY: 620 });
+    fireEvent.pointerMove(launchControl, { clientX: 338, clientY: 450 });
+    fireEvent.pointerUp(launchControl, { clientX: 338, clientY: 450 });
+    act(() => vi.advanceTimersByTime(2_150));
+
+    expect(
+      screen.getByRole("dialog", { name: "Mossy arrived at Sunny Farm" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Mossy now lives in your Farm.")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Visit Farm" }));
+    fireEvent.click(screen.getByRole("button", { name: "Bring With Me" }));
+
+    expect(fetchSpy).toHaveBeenCalledWith(
+      "http://127.0.0.1:47831/events",
+      expect.objectContaining({
+        method: "POST",
+        body: expect.stringContaining('"creature_id":"mossback"'),
+      }),
+    );
+    expect(
+      screen.getByRole("button", { name: "Return Mossy to Farm from Sunny" }),
+    ).toBeInTheDocument();
   });
 
   it("applies selected monster personality inside the full aim-and-launch story", () => {

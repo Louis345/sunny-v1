@@ -3,7 +3,10 @@ import type {
   CapturedMonsterLifeState,
 } from "./capturedMonsterCatalog";
 
-export type CapturedCreatureRewardSource = "spark_orb_learning_shell";
+export type CapturedCreatureRewardSource =
+  | "spark_orb_learning_shell"
+  | "hatch_hunt"
+  | "hatch_hunt_orb_capture";
 export type CapturedCreatureChartWriteMode = "storybook_only";
 export type CapturedCreatureHitQuality = "direct" | "near" | "wide";
 
@@ -11,6 +14,7 @@ export interface CapturedCreatureOrigin {
   source: CapturedCreatureRewardSource;
   domain: string;
   currentTarget: string;
+  encounterId?: string;
 }
 
 export interface CapturedCreatureInventoryRecord {
@@ -26,6 +30,11 @@ export interface CapturedCreatureInventoryRecord {
   collectionTitle: string;
   mood: CapturedMonsterLifeState;
   bond: number;
+  captureCount: number;
+  captureHistory: Array<{
+    capturedAt: string;
+    origin: CapturedCreatureOrigin;
+  }>;
   sidekickSelected: boolean;
   capturedAt: string;
   chartWriteMode: CapturedCreatureChartWriteMode;
@@ -51,11 +60,13 @@ export interface BuildCapturedCreatureRewardInput {
   mood?: CapturedMonsterLifeState;
   bond?: number;
   source: CapturedCreatureRewardSource;
+  encounterId?: string;
 }
 
 export interface OrbCaptureCompletedEvent {
   type: "orb_capture_completed";
   source: CapturedCreatureRewardSource;
+  encounterId?: string;
   chargeGoal: number;
   orbCount: number;
   hitDistance?: number;
@@ -65,13 +76,27 @@ export interface OrbCaptureCompletedEvent {
 
 export interface StorybookMonsterInventoryState {
   childId: string;
+  activeCreatureId: string | null;
   capturedCreatures: CapturedCreatureInventoryRecord[];
 }
 
 export interface StorybookMonsterInventory {
   recordCapture: (reward: CapturedCreatureReward) => StorybookMonsterInventoryState;
+  updateCreature: (
+    creatureId: string,
+    patch: Partial<
+      Pick<CapturedCreatureInventoryRecord, "nickname" | "mood" | "bond">
+    >,
+  ) => StorybookMonsterInventoryState;
+  selectActiveCreature: (creatureId: string) => StorybookMonsterInventoryState;
+  returnActiveCreature: () => StorybookMonsterInventoryState;
   list: () => CapturedCreatureInventoryRecord[];
   state: () => StorybookMonsterInventoryState;
+}
+
+export interface MonsterInventoryStorage {
+  getItem: (key: string) => string | null;
+  setItem: (key: string, value: string) => unknown;
 }
 
 export type CapturedCreatureRewardGatewayMode = "storybook_only" | "child_chart";
@@ -99,6 +124,7 @@ export interface CapturedCreatureRewardGatewayReceipt {
   recordId: string;
   domain: string;
   currentTarget: string;
+  encounterId?: string;
   chargeGoal: number;
   orbCount: number;
   hitDistance?: number;
@@ -118,6 +144,7 @@ export function buildCapturedCreatureReward({
   mood = "curious",
   bond = 18,
   source,
+  encounterId,
 }: BuildCapturedCreatureRewardInput): CapturedCreatureReward {
   const inventoryRecord: CapturedCreatureInventoryRecord = {
     id: `${childId}:${creature.id}:${capturedAt}`,
@@ -132,6 +159,18 @@ export function buildCapturedCreatureReward({
     collectionTitle: creature.collectionTitle,
     mood,
     bond,
+    captureCount: 1,
+    captureHistory: [
+      {
+        capturedAt,
+        origin: {
+          source,
+          domain,
+          currentTarget,
+          ...(encounterId ? { encounterId } : {}),
+        },
+      },
+    ],
     sidekickSelected: false,
     capturedAt,
     chartWriteMode: "storybook_only",
@@ -139,6 +178,7 @@ export function buildCapturedCreatureReward({
       source,
       domain,
       currentTarget,
+      ...(encounterId ? { encounterId } : {}),
     },
   };
 
@@ -154,12 +194,14 @@ export function buildCapturedCreatureReward({
 
 export function buildOrbCaptureCompletedEvent({
   reward,
+  encounterId,
   chargeGoal,
   orbCount,
   hitDistance,
   hitQuality,
 }: {
   reward: CapturedCreatureReward;
+  encounterId?: string;
   chargeGoal: number;
   orbCount: number;
   hitDistance?: number;
@@ -168,6 +210,7 @@ export function buildOrbCaptureCompletedEvent({
   return {
     type: "orb_capture_completed",
     source: reward.source,
+    ...(encounterId ? { encounterId } : {}),
     chargeGoal,
     orbCount,
     hitDistance,
@@ -176,47 +219,197 @@ export function buildOrbCaptureCompletedEvent({
   };
 }
 
+export function storybookReceiptForInventoryRecord(
+  inventoryRecord: CapturedCreatureInventoryRecord,
+): CapturedCreatureRewardGatewayReceipt {
+  const reward: CapturedCreatureReward = {
+    contractVersion: "spark-orb-reward-v1",
+    source: inventoryRecord.origin.source,
+    creatureId: inventoryRecord.creatureId,
+    speciesName: inventoryRecord.speciesName,
+    collectionTitle: inventoryRecord.collectionTitle,
+    inventoryRecord,
+  };
+  return {
+    mode: "storybook_only",
+    status: "recorded",
+    childId: inventoryRecord.childId,
+    creatureId: inventoryRecord.creatureId,
+    recordId: inventoryRecord.id,
+    domain: inventoryRecord.origin.domain,
+    currentTarget: inventoryRecord.origin.currentTarget,
+    encounterId: inventoryRecord.origin.encounterId,
+    chargeGoal: 0,
+    orbCount: 0,
+    capturedAt: inventoryRecord.capturedAt,
+    chartWriteAttempted: false,
+    reward,
+  };
+}
+
 export function createStorybookMonsterInventory({
   childId,
+  initialState,
+  onStateChange,
 }: {
   childId: string;
+  initialState?: StorybookMonsterInventoryState;
+  onStateChange?: (state: StorybookMonsterInventoryState) => void;
 }): StorybookMonsterInventory {
-  let currentState: StorybookMonsterInventoryState = {
-    childId,
-    capturedCreatures: [],
-  };
+  let currentState: StorybookMonsterInventoryState =
+    initialState?.childId === childId
+      ? {
+          childId,
+          activeCreatureId: initialState.activeCreatureId ?? null,
+          capturedCreatures: [...initialState.capturedCreatures],
+        }
+      : {
+          childId,
+          activeCreatureId: null,
+          capturedCreatures: [],
+        };
+
+  function publicState(): StorybookMonsterInventoryState {
+    return {
+      childId,
+      activeCreatureId: currentState.activeCreatureId,
+      capturedCreatures: currentState.capturedCreatures.map((record) => ({
+        ...record,
+        sidekickSelected: record.creatureId === currentState.activeCreatureId,
+      })),
+    };
+  }
+
+  function update(nextState: StorybookMonsterInventoryState): StorybookMonsterInventoryState {
+    currentState = nextState;
+    const snapshot = publicState();
+    onStateChange?.(snapshot);
+    return snapshot;
+  }
 
   return {
     recordCapture(reward) {
-      const capturedCreatures = currentState.capturedCreatures.filter(
-        (record) => record.id !== reward.inventoryRecord.id,
+      const existing = currentState.capturedCreatures.find(
+        (record) => record.creatureId === reward.creatureId,
       );
-      currentState = {
+      const nextRecord = existing
+        ? {
+            ...existing,
+            bond: Math.min(100, existing.bond + 2),
+            captureCount: (existing.captureCount ?? 1) + 1,
+            captureHistory: [
+              ...(existing.captureHistory ?? []),
+              {
+                capturedAt: reward.inventoryRecord.capturedAt,
+                origin: reward.inventoryRecord.origin,
+              },
+            ],
+          }
+        : reward.inventoryRecord;
+      const capturedCreatures = currentState.capturedCreatures.filter(
+        (record) => record.creatureId !== reward.creatureId,
+      );
+      const snapshot = update({
         childId,
-        capturedCreatures: [...capturedCreatures, reward.inventoryRecord],
-      };
+        activeCreatureId: currentState.activeCreatureId,
+        capturedCreatures: [...capturedCreatures, nextRecord],
+      });
       console.info(
         " 🎮 [captured-monster-inventory] [record_capture] [storybook_only]",
         {
           type: "monster_inventory_recorded",
           childId,
           creatureId: reward.creatureId,
-          recordId: reward.inventoryRecord.id,
-          count: currentState.capturedCreatures.length,
+          recordId: nextRecord.id,
+          count: snapshot.capturedCreatures.length,
         },
       );
-      return currentState;
+      return snapshot;
+    },
+    updateCreature(creatureId, patch) {
+      if (!currentState.capturedCreatures.some((record) => record.creatureId === creatureId)) {
+        throw new Error("captured_creature_not_in_farm");
+      }
+      const snapshot = update({
+        ...currentState,
+        capturedCreatures: currentState.capturedCreatures.map((record) =>
+          record.creatureId === creatureId ? { ...record, ...patch } : record,
+        ),
+      });
+      console.info(" 🎮 [sunny-farm] [creature_state_updated] [recorded]", {
+        childId,
+        creatureId,
+        fields: Object.keys(patch),
+      });
+      return snapshot;
+    },
+    selectActiveCreature(creatureId) {
+      if (!currentState.capturedCreatures.some((record) => record.creatureId === creatureId)) {
+        throw new Error("captured_creature_not_in_farm");
+      }
+      const snapshot = update({
+        ...currentState,
+        activeCreatureId: creatureId,
+      });
+      console.info(" 🎮 [sunny-farm] [active_creature_selected] [recorded]", {
+        childId,
+        creatureId,
+      });
+      return snapshot;
+    },
+    returnActiveCreature() {
+      const returnedCreatureId = currentState.activeCreatureId;
+      const snapshot = update({
+        ...currentState,
+        activeCreatureId: null,
+      });
+      console.info(" 🎮 [sunny-farm] [active_creature_returned] [recorded]", {
+        childId,
+        creatureId: returnedCreatureId,
+      });
+      return snapshot;
     },
     list() {
-      return [...currentState.capturedCreatures];
+      return publicState().capturedCreatures;
     },
     state() {
-      return {
-        childId: currentState.childId,
-        capturedCreatures: [...currentState.capturedCreatures],
-      };
+      return publicState();
     },
   };
+}
+
+export function createPersistentStorybookMonsterInventory({
+  childId,
+  storage = globalThis.localStorage,
+}: {
+  childId: string;
+  storage?: MonsterInventoryStorage;
+}): StorybookMonsterInventory {
+  const key = `sunny:farm:v1:${childId}`;
+  let initialState: StorybookMonsterInventoryState | undefined;
+  try {
+    const serialized = storage.getItem(key);
+    if (serialized) {
+      const parsed = JSON.parse(serialized) as StorybookMonsterInventoryState;
+      if (parsed.childId === childId && Array.isArray(parsed.capturedCreatures)) {
+        initialState = parsed;
+      }
+    }
+  } catch (error) {
+    console.error(" 🎮 [sunny-farm] [restore] [failed]", error);
+  }
+
+  return createStorybookMonsterInventory({
+    childId,
+    initialState,
+    onStateChange(state) {
+      try {
+        storage.setItem(key, JSON.stringify(state));
+      } catch (error) {
+        console.error(" 🎮 [sunny-farm] [persist] [failed]", error);
+      }
+    },
+  });
 }
 
 function receiptFor(
@@ -233,6 +426,7 @@ function receiptFor(
     recordId: record.id,
     domain: record.origin.domain,
     currentTarget: record.origin.currentTarget,
+    encounterId: event.encounterId ?? record.origin.encounterId,
     chargeGoal: event.chargeGoal,
     orbCount: event.orbCount,
     hitDistance: event.hitDistance,
