@@ -7,6 +7,7 @@ import {
 } from "../components/CapturedMonsterDen";
 import {
   LUMIPUFF_MONSTER,
+  MOSSBACK_MONSTER,
   capturedMonsterCatalog,
 } from "../components/capturedMonsterCatalog";
 
@@ -37,6 +38,39 @@ describe("Captured monster den", () => {
       futureAtlasReady: true,
     });
     expect(LUMIPUFF_MONSTER).toHaveProperty("capturePersonality", "playful");
+    expect(LUMIPUFF_MONSTER.learningCatalog).toEqual({
+      algorithmTargets: ["variable_reward", "activity_affinity"],
+      evidenceClass: "engagement_only",
+      masteryClaimAllowed: false,
+      reuseDecision: "candidate",
+      reuseReason: "Measure whether a captured buddy increases voluntary return to learning.",
+    });
+  });
+
+  it("catalogs Mossback as an engagement-only Whispering Grove creature", () => {
+    expect(capturedMonsterCatalog).toContainEqual(MOSSBACK_MONSTER);
+    expect(MOSSBACK_MONSTER).toMatchObject({
+      id: "mossback",
+      speciesName: "Mossback",
+      defaultNickname: "Mossy",
+      habitatName: "Whispering Grove",
+      rarity: "common",
+      statLabel: "GROVE",
+      statValue: 168,
+      imageSrc: "/encounters/spark-orb/mossback.png",
+      capturePersonality: "shy",
+      presentation: { rendererKey: "mossback" },
+      captureOrb: {
+        primary: "#8fd8a4",
+        energy: "#ffb84d",
+        band: "#345f35",
+        emblem: "spiral-leaf",
+      },
+      learningCatalog: {
+        evidenceClass: "engagement_only",
+        masteryClaimAllowed: false,
+      },
+    });
   });
 
   it("renders the captured monster card and emits name and sidekick events", () => {
@@ -61,8 +95,8 @@ describe("Captured monster den", () => {
       target: { value: "Sparkle" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Save name" }));
-    fireEvent.click(screen.getByRole("button", { name: "Bring Along" }));
-    fireEvent.click(screen.getByRole("button", { name: "Visit Den" }));
+    fireEvent.click(screen.getByRole("button", { name: "Bring With Me" }));
+    fireEvent.click(screen.getByRole("button", { name: "Visit Farm" }));
 
     expect(onEvent).toHaveBeenCalledWith(
       expect.objectContaining({

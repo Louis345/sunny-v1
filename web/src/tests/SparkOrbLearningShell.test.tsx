@@ -110,6 +110,24 @@ describe("SparkOrbLearningShell", () => {
     expect(wideArc.hitQuality).toBe("wide");
   });
 
+  it("scores against the creature position at release", () => {
+    const ignoredMovement = computeSparkOrbLaunchPhysics({
+      pullX: 0,
+      pullY: 178,
+      targetOffsetX: 120,
+    });
+    const trackedMovement = computeSparkOrbLaunchPhysics({
+      pullX: 146,
+      pullY: 178,
+      targetOffsetX: 120,
+    });
+
+    expect(ignoredMovement.result).toBe("miss-late");
+    expect(trackedMovement.result).toBe("success");
+    expect(trackedMovement.hitQuality).toBe("direct");
+    expect(trackedMovement.targetOffsetX).toBe(120);
+  });
+
   it("renders learning children beside the orb with the companion portrait anchored near the orb", () => {
     render(
       <SparkOrbLearningShell
@@ -335,6 +353,108 @@ describe("SparkOrbLearningShell", () => {
     );
   });
 
+  it("accepts a rapid child flick before React commits the holding render", () => {
+    vi.useFakeTimers();
+    const onEncounterEvent = vi.fn();
+
+    render(
+      <SparkOrbLearningShell
+        childId="ila"
+        childName="Ila"
+        companion={elliCompanion}
+        phase="ready"
+        chargeGoal={3}
+        domain="spelling"
+        currentTarget="because"
+        lastMoment="orb_ready"
+        onEncounterEvent={onEncounterEvent}
+      >
+        <div>Spell the word you hear</div>
+      </SparkOrbLearningShell>,
+    );
+
+    const launchControl = screen.getByTestId("spark-orb-launch-control");
+    act(() => {
+      fireEvent.pointerDown(launchControl, { clientX: 320, clientY: 620 });
+      fireEvent.pointerMove(launchControl, { clientX: 338, clientY: 450 });
+      fireEvent.pointerUp(launchControl, { clientX: 338, clientY: 450 });
+    });
+
+    expect(screen.getByTestId("spark-orb-encounter")).toHaveAttribute(
+      "data-launch-skill",
+      "success",
+    );
+    expect(onEncounterEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "release_success", result: "success" }),
+    );
+  });
+
+  it("finishes the flick when the child releases outside the orb control", () => {
+    vi.useFakeTimers();
+
+    render(
+      <SparkOrbLearningShell
+        childId="ila"
+        childName="Ila"
+        companion={elliCompanion}
+        phase="ready"
+        chargeGoal={3}
+        domain="spelling"
+        currentTarget="because"
+        lastMoment="orb_ready"
+      >
+        <div>Spell the word you hear</div>
+      </SparkOrbLearningShell>,
+    );
+
+    const launchControl = screen.getByTestId("spark-orb-launch-control");
+    act(() => {
+      fireEvent.pointerDown(launchControl, { clientX: 320, clientY: 620 });
+      fireEvent.pointerMove(window, { clientX: 338, clientY: 450 });
+      fireEvent.pointerUp(window, { clientX: 338, clientY: 450 });
+    });
+
+    expect(screen.getByTestId("spark-orb-encounter")).toHaveAttribute(
+      "data-launch-skill",
+      "success",
+    );
+  });
+
+  it("lets keyboard and switch users launch the ready orb with Enter", () => {
+    vi.useFakeTimers();
+    const onEncounterEvent = vi.fn();
+
+    render(
+      <SparkOrbLearningShell
+        childId="ila"
+        childName="Ila"
+        companion={elliCompanion}
+        phase="ready"
+        chargeGoal={3}
+        domain="spelling"
+        currentTarget="because"
+        lastMoment="orb_ready"
+        onEncounterEvent={onEncounterEvent}
+      >
+        <div>Spell the word you hear</div>
+      </SparkOrbLearningShell>,
+    );
+
+    fireEvent.keyDown(screen.getByTestId("spark-orb-launch-control"), { key: "Enter" });
+
+    expect(screen.getByTestId("spark-orb-encounter")).toHaveAttribute(
+      "data-launch-skill",
+      "success",
+    );
+    expect(onEncounterEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "release_success",
+        result: "success",
+        hitQuality: "direct",
+      }),
+    );
+  });
+
   it("includes capture personality in successful launch and capture events", () => {
     vi.useFakeTimers();
     const onEncounterEvent = vi.fn();
@@ -460,6 +580,53 @@ describe("SparkOrbLearningShell", () => {
     );
   });
 
+  it("keeps finite chase orbs charged between misses and retreats after the third throw", () => {
+    vi.useFakeTimers();
+    const onCreatureRetreated = vi.fn();
+    const onCaptureCompleted = vi.fn();
+
+    render(
+      <SparkOrbLearningShell
+        childId="ila"
+        childName="Ila"
+        companion={elliCompanion}
+        phase="ready"
+        chargeGoal={3}
+        domain="math"
+        currentTarget="multiplication.equal_groups"
+        lastMoment="orb_ready"
+        orbCount={3}
+        missPolicy="consume-orb"
+        encounterId="mossy-demo-1"
+        onCreatureRetreated={onCreatureRetreated}
+        onCaptureCompleted={onCaptureCompleted}
+      >
+        <div>Catch Mossy</div>
+      </SparkOrbLearningShell>,
+    );
+
+    flickWeakLaunch();
+    expect(screen.getByLabelText("2 Sunny orbs left")).toBeInTheDocument();
+    expect(screen.getByText("Charge 3 / 3")).toBeInTheDocument();
+    act(() => vi.advanceTimersByTime(650));
+
+    flickWeakLaunch();
+    expect(screen.getByLabelText("1 Sunny orbs left")).toBeInTheDocument();
+    act(() => vi.advanceTimersByTime(650));
+
+    flickWeakLaunch();
+    expect(screen.getByLabelText("0 Sunny orbs left")).toBeInTheDocument();
+    expect(onCreatureRetreated).toHaveBeenCalledTimes(1);
+    expect(onCreatureRetreated).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "creature_retreated",
+        encounterId: "mossy-demo-1",
+        orbCount: 0,
+      }),
+    );
+    expect(onCaptureCompleted).not.toHaveBeenCalled();
+  });
+
   it("plays a success flight, capture effect, and delayed collectible payoff", () => {
     vi.useFakeTimers();
     const onEncounterEvent = vi.fn();
@@ -499,7 +666,7 @@ describe("SparkOrbLearningShell", () => {
     act(() => {
       vi.advanceTimersByTime(1500);
     });
-    expect(encounter).toHaveAttribute("data-flight", "reward");
+    expect(encounter).toHaveAttribute("data-flight", "handoff");
     expect(screen.getByRole("dialog", { name: "Lumipuff added to collection" })).toBeInTheDocument();
     expect(onEncounterEvent).toHaveBeenCalledWith(
       expect.objectContaining({ type: "collectible_revealed", result: "success" }),

@@ -10,13 +10,30 @@ import {
   type SparkOrbLearningEncounterEvent,
 } from "../components/SparkOrbLearningShell";
 import {
+  MonsterDenPreview,
+} from "../components/CapturedMonsterDen";
+import {
+  createPersistentStorybookMonsterInventory,
   createStorybookMonsterInventory,
   recordCapturedCreatureReward,
+  storybookReceiptForInventoryRecord,
+  type CapturedCreatureRewardGatewayReceipt,
   type OrbCaptureCompletedEvent,
 } from "../components/capturedMonsterReward";
 import {
+  publishNativeActiveCreature,
+  publishNativeCreatureMoment,
+  readNativeActiveCreatureSelection,
+  returnNativeCreatureToFarmSafely,
+  selectionIdForReceipt,
+} from "../components/nativeCreatureBridge";
+import {
   LUMIPUFF_MONSTER,
+  MOSSBACK_MONSTER,
+  capturedMonsterById,
+  capturedMonsterCatalog,
   type CapturedMonsterCapturePersonality,
+  type CapturedMonsterConfig,
 } from "../components/capturedMonsterCatalog";
 import type { SparkOrbEncounterPhase } from "../components/SparkOrbEncounterPost";
 import { playSparkOrbSfx } from "../utils/sparkOrbSfx";
@@ -27,6 +44,7 @@ export type SparkOrbLearningShellStoryArgs = {
   currentTarget: string;
   lastMoment: OrbLearningLastMoment;
   capturePersonality: CapturedMonsterCapturePersonality;
+  creatureId?: string;
 };
 
 const phases: SparkOrbEncounterPhase[] = [
@@ -55,6 +73,8 @@ const capturePersonalities: CapturedMonsterCapturePersonality[] = [
   "sleepy",
 ];
 
+const creatureIds = capturedMonsterCatalog.map((creature) => creature.id);
+
 const meta: Meta<SparkOrbLearningShellStoryArgs> = {
   title: "Reward Encounters/Spark Orb Learning Shell",
   parameters: {
@@ -72,6 +92,7 @@ const meta: Meta<SparkOrbLearningShellStoryArgs> = {
     currentTarget: { control: "text" },
     lastMoment: { control: "select", options: moments },
     capturePersonality: { control: "select", options: capturePersonalities },
+    creatureId: { control: "select", options: creatureIds },
   },
   args: {
     phase: "idle",
@@ -79,6 +100,7 @@ const meta: Meta<SparkOrbLearningShellStoryArgs> = {
     currentTarget: "word:because",
     lastMoment: "watching",
     capturePersonality: "playful",
+    creatureId: LUMIPUFF_MONSTER.id,
   },
 };
 
@@ -109,15 +131,21 @@ function logEncounterEvent(event: SparkOrbLearningEncounterEvent): void {
   console.info(" 🎮 [storybook:spark-orb-learning] [encounter-event] [reported]", event);
 }
 
-const storybookSparkOrbInventory = createStorybookMonsterInventory({ childId: "ila" });
+const storybookSparkOrbInventory =
+  typeof window === "undefined"
+    ? createStorybookMonsterInventory({ childId: "ila" })
+    : createPersistentStorybookMonsterInventory({ childId: "ila" });
 
-function logCaptureCompleted(event: OrbCaptureCompletedEvent): void {
+function logCaptureCompleted(
+  event: OrbCaptureCompletedEvent,
+): CapturedCreatureRewardGatewayReceipt {
   const receipt = recordCapturedCreatureReward({
     mode: "storybook_only",
     event,
     inventory: storybookSparkOrbInventory,
   });
   console.info(" 🎮 [storybook:spark-orb-learning] [capture-reward] [reported]", receipt);
+  return receipt;
 }
 
 function ProblemCard({
@@ -326,7 +354,16 @@ function SpellingProblem({ questionIndex = 3 }: { questionIndex?: number }): Rea
   );
 }
 
-function AimAndLaunchLearningStory(args: SparkOrbLearningShellStoryArgs): ReactElement {
+type AimAndLaunchLearningStoryProps = SparkOrbLearningShellStoryArgs & {
+  onRecordedCapture?: (receipt: CapturedCreatureRewardGatewayReceipt) => void;
+  creature?: CapturedMonsterConfig;
+};
+
+function AimAndLaunchLearningStory({
+  onRecordedCapture,
+  creature,
+  ...args
+}: AimAndLaunchLearningStoryProps): ReactElement {
   const [chargeCount, setChargeCount] = useState(() => chargeCountForStoryPhase(args.phase));
   const [feedback, setFeedback] = useState("Each correct answer lights one spark.");
   const { companion, companionName } = companionForChild("ila");
@@ -372,6 +409,11 @@ function AimAndLaunchLearningStory(args: SparkOrbLearningShellStoryArgs): ReactE
     });
   }
 
+  function handleCaptureCompleted(event: OrbCaptureCompletedEvent): void {
+    const receipt = logCaptureCompleted(event);
+    onRecordedCapture?.(receipt);
+  }
+
   return (
     <SparkOrbLearningShell
       childId="ila"
@@ -383,12 +425,12 @@ function AimAndLaunchLearningStory(args: SparkOrbLearningShellStoryArgs): ReactE
       currentTarget={activeQuestion?.target ?? args.currentTarget}
       lastMoment={lastMoment}
       capturedCreature={{
-        ...LUMIPUFF_MONSTER,
+        ...(creature ?? capturedMonsterById(args.creatureId ?? "") ?? LUMIPUFF_MONSTER),
         capturePersonality: args.capturePersonality,
       }}
       onCompanionAnchor={logCompanionAnchor}
       onEncounterEvent={logEncounterEvent}
-      onCaptureCompleted={logCaptureCompleted}
+      onCaptureCompleted={handleCaptureCompleted}
     >
       <ProblemCard
         label={`Spelling · Question ${activeQuestionIndex + 1} of 3`}
@@ -418,6 +460,403 @@ function AimAndLaunchLearningStory(args: SparkOrbLearningShellStoryArgs): ReactE
         </div>
       </ProblemCard>
     </SparkOrbLearningShell>
+  );
+}
+
+function CreatureHandoffDemoStory(
+  args: SparkOrbLearningShellStoryArgs,
+): ReactElement {
+  const initialCreature =
+    capturedMonsterById(args.creatureId ?? "") ?? LUMIPUFF_MONSTER;
+  const [encounterCreatureId, setEncounterCreatureId] = useState(
+    initialCreature.id,
+  );
+  const [receipt, setReceipt] =
+    useState<CapturedCreatureRewardGatewayReceipt | null>(null);
+  const [surface, setSurface] = useState<"learning" | "arrival" | "farm" | "continued">(
+    "learning",
+  );
+  const [farmCreatureId, setFarmCreatureId] = useState(initialCreature.id);
+  const [activeCreatureId, setActiveCreatureId] = useState<string | null>(
+    storybookSparkOrbInventory.state().activeCreatureId,
+  );
+  const [, setInventoryRevision] = useState(0);
+  const [presentationStatus, setPresentationStatus] =
+    useState<"idle" | "starting" | "active" | "resting">(
+      activeCreatureId ? "active" : "idle",
+    );
+  const [returnError, setReturnError] = useState<string | null>(null);
+  const encounterCreature =
+    capturedMonsterById(encounterCreatureId) ?? LUMIPUFF_MONSTER;
+  const farmRecords = storybookSparkOrbInventory.list();
+  const selectedRecord =
+    farmRecords.find((record) => record.creatureId === farmCreatureId) ??
+    receipt?.reward.inventoryRecord ??
+    null;
+  const selectedFarmCreature = selectedRecord
+    ? capturedMonsterById(selectedRecord.creatureId)
+    : null;
+  const activeRecord =
+    farmRecords.find((record) => record.creatureId === activeCreatureId) ?? null;
+  const activeReceipt = activeRecord
+    ? storybookReceiptForInventoryRecord(activeRecord)
+    : null;
+
+  useEffect(() => {
+    if (surface !== "farm" || !activeReceipt) return;
+    const selectedReceipt = activeReceipt;
+    async function reconcileNativeReturn(): Promise<void> {
+      try {
+        const nativeSelectionId = await readNativeActiveCreatureSelection();
+        if (nativeSelectionId === selectionIdForReceipt(selectedReceipt)) return;
+        storybookSparkOrbInventory.returnActiveCreature();
+        setActiveCreatureId(null);
+        setPresentationStatus("idle");
+        console.info(
+          " 🎮 [sunny-farm] [native-return-reconciled] [idle]",
+          { previousSelectionId: selectionIdForReceipt(selectedReceipt) },
+        );
+      } catch (error) {
+        console.error(
+          " 🎮 [sunny-farm] [native-return-reconciled] [failed]",
+          error,
+        );
+      }
+    }
+    function handleVisibility(): void {
+      if (document.visibilityState === "visible") {
+        void reconcileNativeReturn();
+      }
+    }
+    function handleFocus(): void {
+      void reconcileNativeReturn();
+    }
+    window.addEventListener("focus", handleFocus);
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => {
+      window.removeEventListener("focus", handleFocus);
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
+  }, [activeReceipt, surface]);
+
+  async function bringWithMe(): Promise<void> {
+    if (!selectedRecord) return;
+    const selectedReceipt = storybookReceiptForInventoryRecord(selectedRecord);
+    storybookSparkOrbInventory.selectActiveCreature(selectedRecord.creatureId);
+    setActiveCreatureId(selectedRecord.creatureId);
+    setPresentationStatus("starting");
+    try {
+      await publishNativeActiveCreature({
+        ...selectedReceipt,
+        reward: {
+          ...selectedReceipt.reward,
+          inventoryRecord: selectedRecord,
+        },
+      });
+      setPresentationStatus("active");
+    } catch (error) {
+      setPresentationStatus("resting");
+      console.error(" 🎮 [sunny-farm] [active-creature-selected] [failed]", error);
+    }
+  }
+
+  async function showBuddyMoment(
+    moment:
+      | "correct"
+      | "recovery"
+      | "streak"
+      | "idle"
+      | "session-complete",
+    streakCount?: number,
+  ): Promise<void> {
+    if (!activeReceipt) return;
+    try {
+      await publishNativeCreatureMoment({
+        selectionId: selectionIdForReceipt(activeReceipt),
+        moment,
+        streakCount,
+        protectedInteraction: false,
+      });
+    } catch (error) {
+      console.error(" 🎮 [sunny-buddy] [learning-moment] [failed]", error);
+    }
+  }
+
+  async function returnToFarm(): Promise<void> {
+    if (!activeReceipt) return;
+    const selectionId = selectionIdForReceipt(activeReceipt);
+    setReturnError(null);
+    try {
+      await returnNativeCreatureToFarmSafely(
+        { childId: activeReceipt.childId, selectionId },
+        {
+          onAccepted() {
+            storybookSparkOrbInventory.returnActiveCreature();
+            setActiveCreatureId(null);
+            setPresentationStatus("idle");
+          },
+        },
+      );
+    } catch (error) {
+      setReturnError(
+        `${activeReceipt.reward.inventoryRecord.nickname} couldn’t return yet—try again.`,
+      );
+      console.error(" 🎮 [sunny-farm] [active-creature-returned] [failed]", error);
+    }
+  }
+
+  function startEncounter(creature: CapturedMonsterConfig): void {
+    setEncounterCreatureId(creature.id);
+    setReceipt(null);
+    setReturnError(null);
+    setSurface("learning");
+  }
+
+  if (surface === "farm" && selectedRecord && selectedFarmCreature) {
+    const selectedIsActive = activeCreatureId === selectedRecord.creatureId;
+    return (
+      <div style={{ minHeight: "100vh", position: "relative" }}>
+        <nav
+          aria-label="Sunny Farm creatures"
+          style={{
+            background: "rgba(16,35,62,.94)",
+            display: "flex",
+            flexWrap: "wrap",
+            gap: 10,
+            padding: "12px 18px",
+          }}
+        >
+          {farmRecords.map((record) => {
+            const creature = capturedMonsterById(record.creatureId);
+            if (!creature) return null;
+            return (
+              <button
+                key={record.creatureId}
+                aria-pressed={record.creatureId === selectedRecord.creatureId}
+                onClick={() => setFarmCreatureId(record.creatureId)}
+                style={{
+                  alignItems: "center",
+                  borderRadius: 999,
+                  display: "flex",
+                  fontWeight: 900,
+                  gap: 8,
+                  padding: "7px 12px",
+                }}
+                type="button"
+              >
+                <img alt="" aria-hidden="true" src={creature.imageSrc} style={{ height: 38 }} />
+                {record.nickname}
+                {record.creatureId === activeCreatureId ? " · With you" : ""}
+              </button>
+            );
+          })}
+          {capturedMonsterCatalog
+            .filter(
+              (creature) =>
+                !farmRecords.some((record) => record.creatureId === creature.id),
+            )
+            .map((creature) => (
+              <button
+                key={creature.id}
+                onClick={() => startEncounter(creature)}
+                style={{ borderRadius: 999, fontWeight: 900, padding: "9px 14px" }}
+                type="button"
+              >
+                Explore {creature.habitatName}
+              </button>
+            ))}
+        </nav>
+        <MonsterDenPreview
+          key={selectedRecord.id}
+          creature={selectedFarmCreature}
+          initialNickname={selectedRecord.nickname}
+          initialBond={selectedRecord.bond}
+          initialMood={selectedRecord.mood}
+          active={selectedIsActive}
+          presentationStatus={selectedIsActive ? presentationStatus : "idle"}
+          onEvent={(event) => {
+            storybookSparkOrbInventory.updateCreature(event.creatureId, {
+              nickname: event.nickname,
+              ...(event.lifeState ? { mood: event.lifeState } : {}),
+              ...(event.bond != null ? { bond: event.bond } : {}),
+            });
+            setInventoryRevision((revision) => revision + 1);
+          }}
+          onSelectActive={bringWithMe}
+          onReturnActive={returnToFarm}
+        />
+        {activeRecord ? (
+          <aside
+            aria-label="Active Sunny buddy"
+            style={{
+              alignItems: "center",
+              background: "rgba(16,35,62,.94)",
+              border: "2px solid rgba(255,255,255,.85)",
+              borderRadius: 999,
+              boxShadow: "0 12px 32px rgba(15,23,42,.24)",
+              color: "white",
+              display: "flex",
+              gap: 10,
+              padding: "9px 11px 9px 16px",
+              position: "fixed",
+              right: 18,
+              top: 18,
+              zIndex: 25,
+            }}
+          >
+            <strong>{activeRecord.nickname} is with you</strong>
+            <button
+              aria-label={`Return ${activeRecord.nickname} to Farm from Sunny`}
+              onClick={() => void returnToFarm()}
+              style={{
+                border: 0,
+                borderRadius: 999,
+                fontWeight: 900,
+                padding: "8px 12px",
+              }}
+              type="button"
+            >
+              🏡 Farm
+            </button>
+          </aside>
+        ) : null}
+        {returnError ? (
+          <p
+            role="alert"
+            style={{
+              background: "#fff4e5",
+              borderRadius: 14,
+              color: "#7c2d12",
+              fontWeight: 850,
+              padding: 12,
+              position: "fixed",
+              right: 18,
+              top: 72,
+              zIndex: 26,
+            }}
+          >
+            {returnError}
+          </p>
+        ) : null}
+        {activeRecord ? (
+          <aside
+            aria-label="Active buddy behavior lab"
+            style={{
+              background: "rgba(255,255,255,.94)",
+              borderRadius: 20,
+              bottom: 18,
+              boxShadow: "0 14px 36px rgba(15,23,42,.2)",
+              display: "flex",
+              flexWrap: "wrap",
+              gap: 8,
+              left: 18,
+              maxWidth: 500,
+              padding: 14,
+              position: "fixed",
+              zIndex: 20,
+            }}
+          >
+            <strong style={{ flexBasis: "100%" }}>
+              See {activeRecord.nickname} react across Sunny
+            </strong>
+            <button type="button" onClick={() => void showBuddyMoment("correct")}>
+              Correct answer
+            </button>
+            <button type="button" onClick={() => void showBuddyMoment("recovery")}>
+              Recovered
+            </button>
+            <button type="button" onClick={() => void showBuddyMoment("streak", 3)}>
+              3 answer streak
+            </button>
+            <button type="button" onClick={() => void showBuddyMoment("idle")}>
+              Quiet moment
+            </button>
+            <button
+              type="button"
+              onClick={() => void showBuddyMoment("session-complete")}
+            >
+              Session complete
+            </button>
+          </aside>
+        ) : null}
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ minHeight: "100vh", position: "relative" }}>
+      <AimAndLaunchLearningStory
+        key={encounterCreature.id}
+        {...args}
+        capturePersonality={encounterCreature.capturePersonality}
+        creature={encounterCreature}
+        onRecordedCapture={(recordedReceipt) => {
+          setReceipt(recordedReceipt);
+          setFarmCreatureId(recordedReceipt.creatureId);
+          setSurface("arrival");
+          console.info(" 🎮 [sunny-farm] [farm_arrival_viewed] [recorded]", {
+            childId: recordedReceipt.childId,
+            creatureId: recordedReceipt.creatureId,
+          });
+        }}
+      />
+      {surface === "arrival" && receipt ? (
+        <div
+          role="dialog"
+          aria-label={`${receipt.reward.inventoryRecord.nickname} arrived at Sunny Farm`}
+          style={{
+            alignItems: "center",
+            background:
+              "radial-gradient(circle at 50% 20%, rgba(255,245,170,.98), rgba(92,193,151,.97))",
+            border: "4px solid rgba(255,255,255,.9)",
+            borderRadius: 30,
+            boxShadow: "0 28px 80px rgba(12,42,34,.35)",
+            display: "grid",
+            gap: 14,
+            left: "50%",
+            maxWidth: 520,
+            padding: "26px 30px",
+            position: "fixed",
+            textAlign: "center",
+            top: "50%",
+            transform: "translate(-50%, -50%)",
+            width: "calc(100vw - 36px)",
+            zIndex: 40,
+          }}
+        >
+          <span style={{ fontSize: 14, fontWeight: 950, letterSpacing: ".1em" }}>
+            NEW FARM FRIEND
+          </span>
+          <img
+            src={receipt.reward.inventoryRecord.imageSrc}
+            alt={receipt.reward.inventoryRecord.nickname}
+            style={{ height: 180, justifySelf: "center", objectFit: "contain" }}
+          />
+          <h2 style={{ fontSize: 34, margin: 0 }}>
+            {receipt.reward.inventoryRecord.nickname} landed safely!
+          </h2>
+          <p style={{ fontSize: 20, fontWeight: 800, margin: 0 }}>
+            {receipt.reward.inventoryRecord.nickname} now lives in your Farm.
+          </p>
+          <div style={{ display: "flex", gap: 12, justifyContent: "center" }}>
+            <button
+              type="button"
+              onClick={() => setSurface("farm")}
+              style={{ borderRadius: 999, fontSize: 18, fontWeight: 900, padding: "12px 20px" }}
+            >
+              Visit Farm
+            </button>
+            <button
+              type="button"
+              onClick={() => setSurface("continued")}
+              style={{ borderRadius: 999, fontSize: 18, fontWeight: 900, padding: "12px 20px" }}
+            >
+              Continue
+            </button>
+          </div>
+        </div>
+      ) : null}
+    </div>
   );
 }
 
@@ -510,4 +949,43 @@ export const CollectedAnimation: Story = {
     lastMoment: "orb_ready",
   },
   render: (args) => <CollectedAnimationStory {...args} />,
+};
+
+export const CreatureHandoffDemo: Story = {
+  args: {
+    phase: "idle",
+    domain: "spelling",
+    currentTarget: "word:because",
+    lastMoment: "watching",
+    capturePersonality: "playful",
+  },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          "Complete three factual practice answers and capture Lumipuff. Lumi lands in Sunny Farm without waking Electron. Choose Bring With Me in the Farm to activate the persistent native 3D buddy.",
+      },
+    },
+  },
+  render: (args) => <CreatureHandoffDemoStory {...args} />,
+};
+
+export const MossyCreatureHandoffDemo: Story = {
+  args: {
+    phase: "idle",
+    domain: "spelling",
+    currentTarget: "word:because",
+    lastMoment: "watching",
+    capturePersonality: MOSSBACK_MONSTER.capturePersonality,
+    creatureId: MOSSBACK_MONSTER.id,
+  },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          "Earn Mossy through factual practice, welcome her to Whispering Grove, then select her as the one persistent native buddy. Previously captured creatures remain available for swapping in Sunny Farm.",
+      },
+    },
+  },
+  render: (args) => <CreatureHandoffDemoStory {...args} />,
 };
