@@ -5,11 +5,13 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   MATH_LEARNING_PROGRAM_TOOL_SCHEMA,
+  askMathExperienceDesigner,
   askDirectMathPlanner,
   boardPosition,
   buildDirectActiveSessionPlan,
   buildDirectActivityCreatorPrompt,
   buildAdaptiveProgressionCreatorPrompt,
+  buildMathCreativeChildContext,
   buildDirectLearningCycleInput,
   creatorPromptHash,
   generateAdaptiveProgressionActivityHtml,
@@ -20,6 +22,8 @@ import {
   routeNodePosition,
   shouldReuseDirectArtifact,
   normalizeGeneratedHtml,
+  mathAcademicContractHash,
+  readOpenAiResponseStream,
 } from "./directMathExperience";
 
 /** The Planner streams because a complete academic program can be large. */
@@ -185,6 +189,149 @@ describe("assignment concept", () => {
 });
 
 describe("direct math experience", () => {
+  it("gives Fable a compact factual child packet without inherited creative policy", async () => {
+    const program = parseMathLearningProgram(learningProgram(2));
+    const artifacts = program.activities.map((activity) => ({
+      artifactId: `artifact-${activity.id}`,
+      nodeId: activity.id,
+      academicContractHash: mathAcademicContractHash(activity),
+      title: `Experience ${activity.id}`,
+      audienceRationale: "Uses the resolved age and grade without assuming a preference.",
+      openingPromise: "Make the signal move with mathematics.",
+      firstThreeSeconds: "One goal and one obvious control are visible.",
+      firstAction: "Tap the glowing object.",
+      interactionDemonstration: "The object previews one movement.",
+      coreInteraction: "Use equal groups to move the world.",
+      mathAsPower: "Correct groups power visible movement.",
+      stakes: "The rival advances when the child makes an incorrect claim.",
+      consequences: "The world changes and the same mathematics remains available for recovery.",
+      recovery: "The groups remain visible for recounting.",
+      progression: ["guided", "independent"],
+      interactionContinuity: "The same action deepens across the experience.",
+      worldReaction: "The signal visibly advances.",
+      payoff: "The restored world celebrates.",
+      replayVariation: "Fresh equivalent groups appear.",
+      visualDirection: "Readable, energetic child-facing world.",
+      motionDirection: "Movement communicates progress.",
+      soundDirection: "Actions and completion have distinct sounds.",
+      usefulLibraries: [],
+      engagementPrediction: "The child will continue after the first action.",
+      falsifyingEvidence: "The child abandons before the second item.",
+    }));
+    const successfulResponse = {
+      stop_reason: "tool_use",
+      usage: { input_tokens: 100, output_tokens: 200 },
+      content: [{
+        type: "tool_use",
+        name: "create_math_design_packet",
+        input: {
+          boardCreativeSpine: {
+            title: "Signal World",
+            narrative: "Restore the world.",
+            openingChoice: "Which route?",
+            backgroundDirection: "Readable adventure map.",
+            routeDirections: program.fork.routes.map((route) => ({
+              routeId: route.id,
+              label: route.id,
+              promise: "A distinct experience.",
+              engagementVariable: "AI selected",
+            })),
+          },
+          artifacts,
+          rationale: "The chapter is coherent and audience-aware.",
+        },
+      }],
+    };
+    const finalMessage = vi.fn()
+      .mockRejectedValueOnce(Object.assign(new Error("Connection error."), {
+        name: "APIConnectionError",
+        cause: { code: "ECONNRESET" },
+      }))
+      .mockResolvedValueOnce(successfulResponse);
+    const stream = vi.fn((..._args: any[]) => ({ finalMessage }));
+    const childContext = buildMathCreativeChildContext({
+      identity: { displayName: "Reina", ttsName: "Ray-nah" },
+      demographics: { age: 8, grade: 2, learningStyle: "mixed", attentionSpan: "moderate" },
+      engagementTheory: {
+        theoryId: "engagement-1",
+        domain: "math",
+        dimensions: {
+          puzzle: {
+            dimension: "puzzle",
+            positiveWeight: 5,
+            negativeWeight: 0,
+            mixedWeight: 0.5,
+            evidenceCount: 6,
+            confidence: 0.91,
+            lastUpdated: "2026-07-12T18:48:55.239Z",
+          },
+        },
+        preferredDimensions: ["puzzle"],
+        avoidedDimensions: ["competition"],
+        promptDirectives: { prefer: ["Use puzzles"], avoid: ["Avoid pressure"] },
+        evidence: [{
+          id: "choice-real",
+          kind: "choice",
+          summary: "The child selected a puzzle route; completion unknown.",
+          sourcePath: "choice_events/2026-07-12.ndjson",
+          createdAt: "2026-07-12T18:48:55.239Z",
+        }, {
+          id: "activity:generated-baseline:synthetic",
+          kind: "activity",
+          summary: "generated-baseline completed=true",
+          sourcePath: "activity-evidence.ndjson",
+          createdAt: "2026-07-12T18:49:55.239Z",
+        }],
+      },
+      learningProfile: {
+        rewardPreferences: { favoriteGames: [], celebrationStyle: "mixed" },
+        activityTraitModel: {
+          "puzzle — deliberate untimed construction generated prose": {
+            positiveWeight: 0,
+            negativeWeight: 20.3,
+          },
+        },
+      },
+    } as never);
+
+    await askMathExperienceDesigner({
+      childId: "reina",
+      program,
+      childContext,
+      priorOutcomes: {
+        observations: [{ id: "real-rating", funRating: 4 }],
+        promptDirectives: ["Keep it low-pressure"],
+        avoid: ["no penalty"],
+      },
+      client: { messages: { stream } } as never,
+    });
+
+    expect(stream).toHaveBeenCalledTimes(2);
+    expect(finalMessage).toHaveBeenCalledTimes(2);
+    const prompt = String(stream.mock.calls[0]?.[0]?.messages?.[0]?.content);
+    expect(prompt).toContain('"age": 8');
+    expect(prompt).toContain('"grade": 2');
+    expect(prompt).toContain('"dimension": "puzzle"');
+    expect(prompt).toContain('"evidenceCount": 6');
+    expect(prompt).toContain('"confidence": 0.91');
+    expect(prompt).toContain('"id": "choice-real"');
+    expect(prompt).toContain('"funRating": 4');
+    expect(prompt).toContain("specific child can understand immediately");
+    expect(prompt).toContain("Mathematics must visibly change");
+    expect(prompt).toContain("Do not default to consequence-free play");
+    expect(prompt).toContain("You independently choose mechanics, stakes, consequences, recovery, pacing, and payoff");
+    expect(prompt).not.toContain("activityTraitModel");
+    expect(prompt).not.toContain("generated-baseline completed");
+    expect(prompt).not.toContain("preferredDimensions");
+    expect(prompt).not.toContain("avoidedDimensions");
+    expect(prompt).not.toContain("promptDirectives");
+    expect(prompt).not.toContain("Avoid pressure");
+    expect(prompt).not.toContain("Keep it low-pressure");
+    expect(prompt).not.toContain("no penalty");
+    expect(prompt).not.toContain("wrestling");
+    expect(prompt).not.toContain("Caravan Rush");
+  });
+
   it("places artifact design before generation without a review pause or quality harness", () => {
     const source = fs.readFileSync(path.join(process.cwd(), "src/scripts/ingestMathDirect.ts"), "utf8");
     const designer = source.indexOf("await askMathExperienceDesigner");
@@ -760,6 +907,32 @@ describe("direct math experience", () => {
     expect(creator).not.toContain("generation-retry");
   });
 
+  it("streams long OpenAI builder output and preserves final usage", async () => {
+    const encoder = new TextEncoder();
+    const chunks = [
+      'data: {"type":"response.output_text.delta","delta":"<!doctype html><html>"}\n\n',
+      'data: {"type":"response.output_text.delta","delta":"<body>ready</body></html>"}\n\n',
+      'data: {"type":"response.completed","response":{"status":"completed","usage":{"input_tokens":321,"output_tokens":654}}}\n\n',
+      "data: [DONE]\n\n",
+    ];
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        for (const chunk of chunks) controller.enqueue(encoder.encode(chunk));
+        controller.close();
+      },
+    });
+
+    await expect(readOpenAiResponseStream(new Response(body))).resolves.toEqual({
+      raw: "<!doctype html><html><body>ready</body></html>",
+      inputTokens: 321,
+      outputTokens: 654,
+      stopReason: "completed",
+    });
+    const source = fs.readFileSync(path.join(process.cwd(), "src/engine/directMathExperience.ts"), "utf8");
+    const creator = source.slice(source.indexOf("async function generateActivityHtml"), source.indexOf("async function mapConcurrent"));
+    expect(creator).toContain("stream: true");
+  });
+
   it("keeps ingestion validation to an opening browser smoke check", () => {
     const source = fs.readFileSync(path.join(process.cwd(), "src/engine/directMathExperience.ts"), "utf8");
     expect(source).toContain("NODE_REGISTRY");
@@ -790,6 +963,19 @@ describe("direct math experience", () => {
     const generation = source.slice(source.indexOf("export async function generateDirectArtifacts"), source.indexOf("export function persistDirectExperience"));
     expect(generation).toContain("fs.writeFileSync(metadataPath");
     expect(generation.indexOf("fs.writeFileSync(htmlPath")).toBeLessThan(generation.indexOf("fs.writeFileSync(metadataPath"));
+    expect(source).toContain("const isContinuation = Boolean(checkpoint.boardCreativeSpine)");
+  });
+
+  it("rechecks implementation prompt hashes while reusing frozen board artwork", () => {
+    const ingestion = fs.readFileSync(path.join(process.cwd(), "src/scripts/ingestMathDirect.ts"), "utf8");
+    expect(ingestion).toContain("existingBuild");
+    expect(ingestion).toContain("existingArtworkUrls");
+    expect(ingestion).toContain("await generateDirectArtifacts");
+    expect(ingestion).not.toContain("let generated = fs.existsSync(buildFile)");
+
+    const source = fs.readFileSync(path.join(process.cwd(), "src/engine/directMathExperience.ts"), "utf8");
+    expect(source).toContain("existingArtworkUrls?:");
+    expect(source).toContain("input.existingArtworkUrls ?? await mapConcurrent");
   });
 
   it("requires a genuine mandatory fork and enforces locked static Quest/Boss product roles", () => {
@@ -858,6 +1044,30 @@ describe("direct math experience", () => {
     expect(sessionManager).toContain("childName");
     expect(responseRunner).toContain("takePendingGameContextMessages");
     expect(responseRunner).toContain("injecting game context into Claude call");
+  });
+
+  it("keeps generated math audio semantic and Elli help child-invoked", () => {
+    const prompt = buildDirectActivityCreatorPrompt({
+      activity: parseDirectLearningExperiencePlan(plan(2)).activities[0]!,
+      artworkUrl: "/generated/math-world.jpeg",
+      childId: "reina",
+    });
+    expect(prompt).toContain('type:"sunny_sfx"');
+    for (const cue of ["interaction", "recovery", "progress", "completion"]) {
+      expect(prompt).toContain(`"${cue}"`);
+    }
+    expect(prompt).toContain('type:"sunny_sound_toggle"');
+    expect(prompt).toContain("Do not use speechSynthesis");
+    expect(prompt).toContain("Do not create AudioContext oscillators");
+    expect(prompt).toContain("1365×768");
+    expect(prompt).toContain("title and first required action");
+    expect(prompt).toContain("primary controls");
+
+    const elli = fs.readFileSync(path.join(process.cwd(), "src/companions/elli.md"), "utf8");
+    expect(elli).toContain("only after the child asks");
+    expect(elli).toContain("Never reveal the active answer");
+    expect(elli).toContain("recordChildSignal");
+    expect(elli).toContain("help_needed");
   });
 
   it("documents the single math prompt chain without authorizing another system", () => {

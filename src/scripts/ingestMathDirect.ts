@@ -7,6 +7,7 @@ import {
   askDirectMathPlanner,
   askMathExperienceDesigner,
   buildDirectActiveSessionPlan,
+  buildMathCreativeChildContext,
   generateDirectArtifacts,
   parseMathLearningProgram,
   persistDirectExperience,
@@ -99,16 +100,10 @@ async function main(): Promise<void> {
   const shouldDesign = !fs.existsSync(designFile) || !fs.existsSync(finalPlanFile);
   console.log("[3/5] Creator designing coherent board and node artifacts");
   const designed = shouldDesign
-    ? await askMathExperienceDesigner({
+      ? await askMathExperienceDesigner({
         childId,
         program,
-        childContext: {
-          identity: chart.identity,
-          demographics: chart.demographics,
-          engagementTheory: chart.engagementTheory,
-          activityTraitModel: chart.learningProfile.activityTraitModel,
-          rewardPreferences: chart.learningProfile.rewardPreferences,
-        },
+        childContext: buildMathCreativeChildContext(chart),
         priorOutcomes,
         checkpoint: fs.existsSync(designCheckpointFile)
           ? readJson<MathDesignCheckpoint>(designCheckpointFile)
@@ -125,16 +120,25 @@ async function main(): Promise<void> {
 
   currentPhase = "activity-building";
   console.log(`[4/5] Building ${designed.plan.activities.length} artifact-designed activities with bounded concurrency`);
-  let generated = fs.existsSync(buildFile)
+  const existingBuild = fs.existsSync(buildFile)
     ? readJson<{ artifacts: DirectArtifact[]; backgroundUrl: string; questArtworkUrl: string; bossArtworkUrl: string }>(buildFile)
-    : await generateDirectArtifacts({
-        plan: designed.plan,
-        childId,
-        homeworkId,
-        plannerModel: process.env.SUNNY_PLANNER_MODEL ?? "claude-opus-5",
-        architectModel: process.env.SUNNY_ARCHITECT_MODEL ?? "claude-fable-5",
-        assignmentFingerprint: extraction.fileHash,
-      });
+    : undefined;
+  const existingArtworkUrls = existingBuild
+    ? {
+        backgroundUrl: existingBuild.backgroundUrl,
+        questArtworkUrl: existingBuild.questArtworkUrl,
+        bossArtworkUrl: existingBuild.bossArtworkUrl,
+      }
+    : undefined;
+  const generated = await generateDirectArtifacts({
+    plan: designed.plan,
+    childId,
+    homeworkId,
+    plannerModel: process.env.SUNNY_PLANNER_MODEL ?? "claude-opus-5",
+    architectModel: process.env.SUNNY_ARCHITECT_MODEL ?? "claude-fable-5",
+    assignmentFingerprint: extraction.fileHash,
+    existingArtworkUrls,
+  });
   writeJson(buildFile, generated);
 
   currentPhase = "runtime-verification";

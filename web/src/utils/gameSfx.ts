@@ -1,4 +1,10 @@
 export const GAME_SFX = {
+  generatedMath: {
+    interaction: "/sfx/pronunciation/replay_start.wav",
+    recovery: "/sfx/pronunciation/miss_thunk.wav",
+    progress: "/sfx/pronunciation/hit_pop.wav",
+    completion: "/sfx/pronunciation/complete_fanfare.wav",
+  },
   pronunciation: {
     comboBreaker: "/sfx/pronunciation/combo_breaker.mp3",
     combo: "/sfx/pronunciation/combo.wav",
@@ -12,6 +18,8 @@ export const GAME_SFX = {
     heatUp: "/sfx/pronunciation/hes-heating-up.mp3",
   },
 } as const;
+
+export type GeneratedMathSfxCue = keyof typeof GAME_SFX.generatedMath;
 
 export const GAME_SFX_CONFIG = {
   pronunciation: {
@@ -225,6 +233,10 @@ export function playGameSfx<G extends GameSfxGame>(
   const src = GAME_SFX[game][id] as string | undefined;
   if (!src) return false;
   return playSfxSource(src, { game, id: String(id) });
+}
+
+export function playGeneratedMathSfx(cue: GeneratedMathSfxCue): boolean {
+  return playGameSfx("generatedMath", cue);
 }
 
 export function pronunciationHitSfxEffectForStreak(

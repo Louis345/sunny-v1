@@ -79,6 +79,10 @@ import {
 } from "./context/CompanionCareContext";
 import { resolveSunnyRuntimeConfig } from "../../src/shared/runtimeConfig";
 import type { PostActivityAction } from "../../src/engine/choiceEvents";
+import {
+  playGeneratedMathSfx,
+  type GeneratedMathSfxCue,
+} from "./utils/gameSfx";
 
 const DIAG_READING_TEST_EXCERPT =
   "Chimpanzees are apes. They inhabit steamy rainforests and other parts of Africa. Chimps gather in bands that number from 15 to 150 chimps.";
@@ -516,6 +520,7 @@ function App() {
     canTryHarder: boolean;
   } | null>(null);
   const [locallyCompletedPlannerNodeIds, setLocallyCompletedPlannerNodeIds] = useState<string[]>([]);
+  const [generatedMathSoundMuted, setGeneratedMathSoundMuted] = useState(false);
   const plannerBoardIframeCompletionKeyRef = useRef<string | null>(null);
   const [sessionReady, setSessionReady] = useState(false);
   const [selectedChildName, setSelectedChildName] = useState<string | null>(null);
@@ -1158,6 +1163,28 @@ function App() {
       if (iframeWindow && event.source !== iframeWindow) return;
       const data = event.data as { type?: string; payload?: unknown } | undefined;
       if (!data || typeof data !== "object") return;
+      if (data.type === "sunny_sound_toggle") {
+        const payload =
+          data.payload && typeof data.payload === "object" && !Array.isArray(data.payload)
+            ? data.payload as Record<string, unknown>
+            : {};
+        setGeneratedMathSoundMuted(payload.muted === true);
+        return;
+      }
+      if (data.type === "sunny_sfx") {
+        const payload =
+          data.payload && typeof data.payload === "object" && !Array.isArray(data.payload)
+            ? data.payload as Record<string, unknown>
+            : {};
+        const cue = payload.cue;
+        if (
+          !generatedMathSoundMuted &&
+          (cue === "interaction" || cue === "recovery" || cue === "progress" || cue === "completion")
+        ) {
+          playGeneratedMathSfx(cue as GeneratedMathSfxCue);
+        }
+        return;
+      }
       if (data.type !== "node_complete" && data.type !== "game_complete") return;
       const key = `${launch.node.id}:${launch.replayNonce}`;
       if (plannerBoardIframeCompletionKeyRef.current === key) return;
@@ -1212,6 +1239,7 @@ function App() {
     return () => window.removeEventListener("message", handleMessage);
   }, [
     adventureChildId,
+    generatedMathSoundMuted,
     plannerBoardLaunch,
     plannerBoardPacket,
     showPlannerBoardEngagementOverlay,

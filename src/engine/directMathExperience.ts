@@ -1177,12 +1177,14 @@ export async function askMathExperienceDesigner(input: {
   });
   for (let attemptIndex = 0; attemptIndex < 2 && checkpoint.missingNodeIds.length > 0; attemptIndex += 1) {
     const requestedNodeIds = [...checkpoint.missingNodeIds];
-    const isContinuation = checkpoint.completedNodeIds.length > 0;
+    const isContinuation = Boolean(checkpoint.boardCreativeSpine);
     const prompt = `You are Sunny's Experience Creator. Design one coherent child-facing math chapter and rich design artifacts for the requested prescribed nodes.
 
 The Math Planner's educational program is immutable. You cannot change activity count or IDs, routes, responsibilities, academic targets, difficulty boundaries, item content, response contracts, predictions, measurement keys, or catalog decisions.
 
 You own the complete creative design: board world, route identities, titles, experience form, interaction, mission, stakes, consequences, recovery, progression, payoff, replay variation, visual craft, motion, sound, and useful third-party libraries. Games are optional. Make the board one coherent chapter without forcing identical mechanics or themes.
+
+Creative objective: design something this specific child can understand immediately and may choose to continue playing. Mathematics must visibly change the world, mission, progress, or payoff. You independently choose mechanics, stakes, consequences, recovery, pacing, and payoff. Do not default to consequence-free play merely because evidence is uncertain; choose what best fits the academic responsibility and factual child evidence. Treat profile observations as hypotheses, and do not repeatedly literalize one interest.
 
 Return design artifacts only for these node IDs: ${requestedNodeIds.join(", ")}. Copy each supplied academicContractHash exactly. Do not write HTML.
 ${isContinuation ? `This is a missing-content continuation, not a redesign. Preserve the frozen board spine and completed sibling designs. Return only the missing artifacts.\nFrozen board spine:\n${JSON.stringify(checkpoint.boardCreativeSpine, null, 2)}\nCompleted sibling summaries:\n${JSON.stringify(checkpoint.artifacts.map((artifact) => ({ nodeId: artifact.nodeId, title: artifact.title, coreInteraction: artifact.coreInteraction, visualDirection: artifact.visualDirection })), null, 2)}` : "Also return one boardCreativeSpine for the complete chapter."}
@@ -1198,7 +1200,7 @@ ${JSON.stringify(factualModelContext(input.priorOutcomes), null, 2)}
 Immutable MathLearningProgram:
 ${JSON.stringify({ ...input.program, activities: contracts }, null, 2)}`;
     const startedAt = Date.now();
-    const response = await client.messages.create({
+    const request = {
       model,
       max_tokens: Number(process.env.SUNNY_DIRECTOR_MAX_TOKENS ?? 16000),
       output_config: { effort: "high" },
@@ -1223,7 +1225,41 @@ ${JSON.stringify({ ...input.program, activities: contracts }, null, 2)}`;
         },
       }],
       tool_choice: { type: "tool", name: toolName },
-    } as any, { timeout: Number(process.env.SUNNY_AI_TIMEOUT_MS ?? 240000) });
+    } as never;
+    let response: Awaited<ReturnType<ReturnType<typeof client.messages.stream>["finalMessage"]>> | undefined;
+    for (let transportAttempt = 1; transportAttempt <= 2; transportAttempt += 1) {
+      try {
+        response = await client.messages
+          .stream(request, { timeout: Number(process.env.SUNNY_AI_TIMEOUT_MS ?? 600000) })
+          .finalMessage();
+        break;
+      } catch (error) {
+        const details = providerTransportErrorDetails(error);
+        if (input.rawResponseDir) {
+          fs.mkdirSync(input.rawResponseDir, { recursive: true });
+          fs.writeFileSync(
+            path.join(
+              input.rawResponseDir,
+              `design-transport-error-${checkpoint.attempts.length + 1}-${transportAttempt}.json`,
+            ),
+            `${JSON.stringify({
+              model,
+              requestedNodeIds,
+              transportAttempt,
+              elapsedMs: Date.now() - startedAt,
+              ...details,
+            }, null, 2)}\n`,
+            "utf8",
+          );
+        }
+        if (!isRetryableProviderTransportError(error) || transportAttempt === 2) throw error;
+        console.warn(
+          ` 🎮 [math-design] [transport-retry] attempt=${transportAttempt} ` +
+          `nodes=${requestedNodeIds.join(",")} reason=${details.name}:${details.message}`,
+        );
+      }
+    }
+    if (!response) throw new Error(`math_design_transport_exhausted:nodes=${requestedNodeIds.join(",")}`);
     const toolUse = response.content.find((block) => block.type === "tool_use" && block.name === toolName);
     const rawResponsePath = input.rawResponseDir
       ? path.join(input.rawResponseDir, `design-response-${checkpoint.attempts.length + 1}.json`)
@@ -1413,6 +1449,78 @@ function factualModelContext(value: unknown): unknown {
 
 function isSyntheticEvidenceIdentity(value: string): boolean {
   return /(^|[:_-])(synthetic|playwright|browser-acceptance|readiness)([:_-]|$)/i.test(value);
+}
+
+function providerTransportErrorDetails(error: unknown): {
+  name: string;
+  message: string;
+  code?: string;
+  causeName?: string;
+  causeCode?: string;
+} {
+  const value = error instanceof Error ? error : new Error(String(error));
+  const cause = object((value as Error & { cause?: unknown }).cause);
+  const code = (value as Error & { code?: unknown }).code;
+  return {
+    name: value.name,
+    message: value.message,
+    ...(typeof code === "string" ? { code } : {}),
+    ...(typeof cause?.name === "string" ? { causeName: cause.name } : {}),
+    ...(typeof cause?.code === "string" ? { causeCode: cause.code } : {}),
+  };
+}
+
+function isRetryableProviderTransportError(error: unknown): boolean {
+  const details = providerTransportErrorDetails(error);
+  return /APIConnection|Timeout/i.test(details.name) ||
+    /connection error|request timed out|socket|network/i.test(details.message) ||
+    ["ECONNRESET", "ECONNREFUSED", "ETIMEDOUT", "EPIPE", "ENETUNREACH"]
+      .includes(details.code ?? details.causeCode ?? "");
+}
+
+export function buildMathCreativeChildContext(chart: ChildChart): unknown {
+  const rawEngagement = object(engagementTheoryEvidenceContext(chart.engagementTheory));
+  const dimensions = Array.isArray(rawEngagement?.dimensions)
+    ? rawEngagement.dimensions.filter((entry) => {
+        const dimension = object(entry);
+        const name = typeof dimension?.dimension === "string" ? dimension.dimension : "";
+        return /^[a-z][a-z0-9_-]*$/i.test(name);
+      })
+    : [];
+  const observations = Array.isArray(rawEngagement?.evidence)
+    ? rawEngagement.evidence.filter((entry) => {
+        const evidence = object(entry);
+        const id = typeof evidence?.id === "string" ? evidence.id : "";
+        const summary = typeof evidence?.summary === "string" ? evidence.summary : "";
+        return Boolean(id) &&
+          !isSyntheticEvidenceIdentity(id) &&
+          !/generated-baseline/i.test(`${id} ${summary}`);
+      })
+    : [];
+  const favoriteGames = Array.isArray(chart.learningProfile.rewardPreferences?.favoriteGames)
+    ? chart.learningProfile.rewardPreferences.favoriteGames.filter(
+        (value) => typeof value === "string" && value.trim(),
+      )
+    : [];
+
+  return {
+    audience: {
+      displayName: chart.identity.displayName,
+      age: chart.demographics.age,
+      grade: chart.demographics.grade,
+      learningStyle: chart.demographics.learningStyle,
+      attentionSpan: chart.demographics.attentionSpan,
+    },
+    explicitPreferences: favoriteGames.length > 0 ? { favoriteGames } : null,
+    engagementObservations: {
+      howToRead: [
+        "These are factual observations with uncertainty, not design instructions or durable preference conclusions.",
+        "An unmeasured or negative dimension is not a prohibition.",
+      ],
+      dimensions,
+      observations,
+    },
+  };
 }
 
 function factualCycleEvidence(cycle: LearningCycleRecordV2): LearningCycleRecordV2["evidence"] {
@@ -1611,7 +1719,7 @@ export function creatorPromptHash(
   creatorModel: string,
 ): string {
   return crypto.createHash("sha256").update(JSON.stringify({
-    creatorContractVersion: 12,
+    creatorContractVersion: 13,
     plannerModel,
     creatorModel,
     activity,
@@ -1641,11 +1749,14 @@ You may use the HTTPS libraries named by the design artifact, or no library. Kee
 Runtime contract:
 Emit window.parent.postMessage({type:"activity_ready",payload:{nodeId:"${input.activity.id}"}},"*") when the experience is ready.
 Whenever the activity or active problem changes, emit window.parent.postMessage({type:"game_state_update",payload:{game:"generated-math",activityId:"${input.activity.id}",nodeId:"${input.activity.id}",phase:"question",activityTitle:${JSON.stringify(input.activity.title)},learningFocus:${JSON.stringify(input.activity.academicTarget)},mechanic:${JSON.stringify(input.activity.mechanic)},currentChallenge,availableActions,itemIndex,totalItems,answerVisibility:"hidden"}},"*") so Elli has live context. Never expose answers.
+For sound, post semantic cues to Sunny with window.parent.postMessage({type:"sunny_sfx",payload:{cue}},"*"). The allowed cue values are "interaction", "recovery", "progress", and "completion". Emit them when the approved design calls for those moments; Sunny owns the actual recorded sound quality.
+Include one visible sound toggle. It must post window.parent.postMessage({type:"sunny_sound_toggle",payload:{muted}},"*") whenever its state changes. Do not use speechSynthesis, spoken browser narration, HTML audio elements, or external audio assets. Do not create AudioContext oscillators or synthesized tones. Spoken explanations belong only to Elli after the child asks.
 Maintain a factual targetResults array for the full activity. For each answer append {target,correct,attemptedValue,responseTimeMs,scaffoldLevel}, where target is the stable item id, attemptedValue is what the child submitted, and scaffoldLevel reflects demos, hints, or companion help.
 Emit window.parent.postMessage({type:"attempt_event",payload:{domain:"math",target,correct,attemptedValue,responseTimeMs,scaffoldLevel}},"*") for each answer.
 Emit window.parent.postMessage({type:"progress_event",payload:{nodeId:"${input.activity.id}",completedItems,totalItems}},"*") whenever visible progress advances.
 On completion calculate accuracy from targetResults and emit window.parent.postMessage({type:"node_complete",payload:{nodeId:"${input.activity.id}",completed:true,accuracy,targetResults,timeSpent_ms}},"*").
 Include <div id="sunny-companion"></div> so the parent app owns Elli.
+At a 1365×768 viewport, the title and first required action must be visible immediately. Keep all primary controls inside the viewport without page scrolling or clipping.
 Return raw HTML only and end with </html>.
 
 Child: ${input.childId}
@@ -1792,6 +1903,62 @@ function openAiResponseText(payload: Record<string, unknown>): string {
   }).join("\n");
 }
 
+export async function readOpenAiResponseStream(response: Response): Promise<{
+  raw: string;
+  inputTokens: number;
+  outputTokens: number;
+  stopReason: string;
+}> {
+  if (!response.body) throw new Error("direct_activity_openai_stream_missing_body");
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let raw = "";
+  let inputTokens = 0;
+  let outputTokens = 0;
+  let stopReason = "unknown";
+
+  const consumeEvent = (record: string): void => {
+    const data = record.split("\n")
+      .filter((line) => line.startsWith("data:"))
+      .map((line) => line.slice(5).trimStart())
+      .join("\n")
+      .trim();
+    if (!data || data === "[DONE]") return;
+    const event = JSON.parse(data) as Record<string, unknown>;
+    if (event.type === "response.output_text.delta" && typeof event.delta === "string") {
+      raw += event.delta;
+      return;
+    }
+    if (event.type === "error" || event.type === "response.failed") {
+      const failure = object(event.error) ?? object(event.response);
+      throw new Error(`direct_activity_openai_stream_failed:${String(failure?.message ?? event.type)}`);
+    }
+    if (event.type === "response.completed") {
+      const completed = object(event.response);
+      const usage = object(completed?.usage);
+      inputTokens = Number(usage?.input_tokens ?? 0);
+      outputTokens = Number(usage?.output_tokens ?? 0);
+      stopReason = String(completed?.status ?? "completed");
+      if (!raw && completed) raw = openAiResponseText(completed);
+    }
+  };
+
+  while (true) {
+    const { done, value } = await reader.read();
+    buffer += decoder.decode(value, { stream: !done }).replace(/\r\n/g, "\n");
+    let boundary = buffer.indexOf("\n\n");
+    while (boundary >= 0) {
+      consumeEvent(buffer.slice(0, boundary));
+      buffer = buffer.slice(boundary + 2);
+      boundary = buffer.indexOf("\n\n");
+    }
+    if (done) break;
+  }
+  if (buffer.trim()) consumeEvent(buffer);
+  return { raw, inputTokens, outputTokens, stopReason };
+}
+
 function externalLibraryUrls(html: string): string[] {
   return [...new Set(
     [...html.matchAll(/(?:src|href)=["'](https:\/\/[^"']+)["']/gi)].map((match) => match[1]!),
@@ -1824,19 +1991,16 @@ async function generateActivityHtml(input: {
         input: prompt,
         max_output_tokens: Number(process.env.SUNNY_GENERATION_MAX_TOKENS ?? 32000),
         reasoning: { effort: "high" },
+        stream: true,
       }),
       signal: AbortSignal.timeout(Number(process.env.SUNNY_AI_TIMEOUT_MS ?? 240000)),
     });
-    const payload = await response.json() as Record<string, unknown>;
     if (!response.ok) {
+      const payload = await response.json() as Record<string, unknown>;
       const error = object(payload.error);
       throw new Error(`direct_activity_provider_failed:${input.activity.id}:openai:${response.status}:${String(error?.message ?? "request_failed")}`);
     }
-    raw = openAiResponseText(payload);
-    const usage = object(payload.usage);
-    inputTokens = Number(usage?.input_tokens ?? 0);
-    outputTokens = Number(usage?.output_tokens ?? 0);
-    stopReason = String(payload.status ?? "completed");
+    ({ raw, inputTokens, outputTokens, stopReason } = await readOpenAiResponseStream(response));
   } else {
     const response = await input.client.messages.stream({
       model: input.model,
@@ -1884,6 +2048,11 @@ export async function generateDirectArtifacts(input: {
   architectModel?: string;
   assignmentFingerprint: string;
   forceNodeIds?: string[];
+  existingArtworkUrls?: {
+    backgroundUrl: string;
+    questArtworkUrl: string;
+    bossArtworkUrl: string;
+  };
 }): Promise<{ artifacts: DirectArtifact[]; backgroundUrl: string; questArtworkUrl: string; bossArtworkUrl: string }> {
   const rootDir = input.rootDir ?? process.cwd();
   const publicDir = path.join(rootDir, "web", "public");
@@ -1901,9 +2070,11 @@ export async function generateDirectArtifacts(input: {
     { prompt: input.plan.quest.artworkPrompt, filename: `${input.homeworkId}-quest.jpeg` },
     { prompt: input.plan.boss.artworkPrompt, filename: `${input.homeworkId}-boss.jpeg` },
   ];
-  const artworkUrls = await mapConcurrent(artworkJobs, 2, (job) =>
+  const artworkUrls = input.existingArtworkUrls ?? await mapConcurrent(artworkJobs, 2, (job) =>
     createDirectArtwork(job.prompt, publicDir, job.filename));
-  const [backgroundUrl, questArtworkUrl, bossArtworkUrl] = artworkUrls as [string, string, string];
+  const [backgroundUrl, questArtworkUrl, bossArtworkUrl] = Array.isArray(artworkUrls)
+    ? artworkUrls as [string, string, string]
+    : [artworkUrls.backgroundUrl, artworkUrls.questArtworkUrl, artworkUrls.bossArtworkUrl];
   const gamesDir = path.join(rootDir, "src", "context", input.childId, "homework", "games", input.homeworkId);
   fs.mkdirSync(gamesDir, { recursive: true });
   const artifacts = await mapConcurrent(input.plan.activities, 2, async (activity, index): Promise<DirectArtifact> => {

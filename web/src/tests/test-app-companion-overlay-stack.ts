@@ -34,6 +34,13 @@ describe("App companion overlay stack", () => {
     expect(src).toMatch(/type:\s*"game_state_update"[\s\S]{0,300}companionContext/);
   });
 
+  it("routes generated-math semantic sound through the host without forwarding it as learning evidence", () => {
+    expect(src).toContain('data.type === "sunny_sfx"');
+    expect(src).toContain('data.type === "sunny_sound_toggle"');
+    expect(src).toContain("playGeneratedMathSfx");
+    expect(src).not.toMatch(/sendMessage\([\s\S]{0,120}sunny_sfx/);
+  });
+
   it("karaokeReadingActive triggers portrait mode (story/karaoke canvas)", () => {
     expect(src).toMatch(/companionPortraitMode[\s\S]{0,200}karaokeReadingActive/);
   });

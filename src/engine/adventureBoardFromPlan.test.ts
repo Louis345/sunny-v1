@@ -96,6 +96,24 @@ const reinaMay24Plan: ActiveSessionPlanBoardSnapshot = {
 };
 
 describe("buildAdventureBoardFromActiveSessionPlan", () => {
+  it("keeps generated activity labels on whole-word boundaries", () => {
+    const board = buildAdventureBoardFromActiveSessionPlan({
+      plan: {
+        ...reinaMay24Plan,
+        nodePlan: [{
+          ...reinaMay24Plan.nodePlan[0]!,
+          title: "The Lighthouse Lens: Secret of the Shrinking Slice",
+        }],
+      },
+      boardId: "generated-math-label",
+      title: "Generated Math",
+      theme,
+    });
+
+    expect(board.nodes.find((node) => node.id === "baseline_silent_letters_spelling")?.shortLabel)
+      .toBe("The Lighthouse Lens");
+  });
+
   it("ignores stale adventureBoard blobs and materializes from nodePlan", () => {
     const plannerBoard: AdventureBoardJson = {
       schemaVersion: 1,

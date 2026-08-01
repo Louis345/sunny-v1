@@ -304,6 +304,14 @@ export function resolveAdventureBoardForActiveSessionPlan(
   return buildAdventureBoardFromActiveSessionPlan(options);
 }
 
+function boardShortLabel(label: string, maxLength = 28): string {
+  const normalized = label.replace(/\s+/g, " ").trim();
+  const lead = normalized.split(/\s*(?::|—|–)\s*/u, 1)[0] ?? normalized;
+  if (lead.length <= maxLength) return lead;
+  const wholeWords = lead.slice(0, maxLength + 1).replace(/\s+\S*$/u, "").trim();
+  return wholeWords || lead;
+}
+
 function buildBoardNode(input: {
   planNode: ActiveSessionPlanBoardNodeSnapshot;
   index: number;
@@ -333,7 +341,7 @@ function buildBoardNode(input: {
     kind,
     activityId: input.planNode.activityId ?? input.planNode.type,
     label: input.label,
-    shortLabel: input.label.length > 18 ? input.label.slice(0, 18) : input.label,
+    shortLabel: boardShortLabel(input.label),
     icon: iconForPlanNode(input.planNode, kind),
     thumbnailUrl: input.thumbnailUrl,
     slot: input.slot,
