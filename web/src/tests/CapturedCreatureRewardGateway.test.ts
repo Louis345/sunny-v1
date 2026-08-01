@@ -1,9 +1,13 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { LUMIPUFF_MONSTER } from "../components/capturedMonsterCatalog";
+import {
+  LUMIPUFF_MONSTER,
+  MOSSBACK_MONSTER,
+} from "../components/capturedMonsterCatalog";
 import {
   buildCapturedCreatureReward,
   buildOrbCaptureCompletedEvent,
   createStorybookMonsterInventory,
+  createPersistentStorybookMonsterInventory,
   recordCapturedCreatureReward,
 } from "../components/capturedMonsterReward";
 
@@ -97,6 +101,101 @@ describe("captured creature reward gateway", () => {
       orbCount: 7,
       hitDistance: 15,
       hitQuality: "direct",
+    });
+  });
+
+  it("keeps one creature per species and derives one active buddy", () => {
+    const inventory = createStorybookMonsterInventory({ childId: "ila" });
+    inventory.recordCapture(captureEvent().reward);
+    inventory.recordCapture(
+      buildCapturedCreatureReward({
+        creature: LUMIPUFF_MONSTER,
+        childId: "ila",
+        domain: "spelling",
+        currentTarget: "word:garden",
+        capturedAt: "2026-06-01T17:00:00.000Z",
+        source: "spark_orb_learning_shell",
+      }),
+    );
+
+    expect(inventory.list()).toHaveLength(1);
+    expect(inventory.list()[0]).toMatchObject({
+      creatureId: "lumipuff",
+      captureCount: 2,
+      bond: 20,
+      sidekickSelected: false,
+    });
+
+    inventory.selectActiveCreature("lumipuff");
+    expect(inventory.state().activeCreatureId).toBe("lumipuff");
+    expect(inventory.list()[0]?.sidekickSelected).toBe(true);
+
+    inventory.returnActiveCreature();
+    expect(inventory.state().activeCreatureId).toBeNull();
+    expect(inventory.list()[0]?.sidekickSelected).toBe(false);
+  });
+
+  it("records Mossy separately and swaps the one active buddy", () => {
+    const inventory = createStorybookMonsterInventory({ childId: "ila" });
+    inventory.recordCapture(captureEvent().reward);
+    inventory.recordCapture(
+      buildCapturedCreatureReward({
+        creature: MOSSBACK_MONSTER,
+        childId: "ila",
+        domain: "spelling",
+        currentTarget: "word:garden",
+        capturedAt: "2026-06-02T17:00:00.000Z",
+        source: "spark_orb_learning_shell",
+      }),
+    );
+
+    expect(inventory.list().map((record) => record.creatureId).sort()).toEqual([
+      "lumipuff",
+      "mossback",
+    ]);
+    inventory.selectActiveCreature("lumipuff");
+    inventory.selectActiveCreature("mossback");
+    expect(inventory.state().activeCreatureId).toBe("mossback");
+    expect(inventory.list()).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ creatureId: "lumipuff", sidekickSelected: false }),
+        expect.objectContaining({ creatureId: "mossback", sidekickSelected: true }),
+      ]),
+    );
+  });
+
+  it("restores Farm inventory and active buddy from persistent storage", () => {
+    const values = new Map<string, string>();
+    const storage = {
+      getItem: (key: string) => values.get(key) ?? null,
+      setItem: (key: string, value: string) => values.set(key, value),
+    };
+    const first = createPersistentStorybookMonsterInventory({
+      childId: "ila",
+      storage,
+    });
+    first.recordCapture(captureEvent().reward);
+    first.updateCreature("lumipuff", {
+      nickname: "Sparkle",
+      mood: "happy",
+      bond: 31,
+    });
+    first.selectActiveCreature("lumipuff");
+
+    const restored = createPersistentStorybookMonsterInventory({
+      childId: "ila",
+      storage,
+    });
+    expect(restored.state()).toMatchObject({
+      childId: "ila",
+      activeCreatureId: "lumipuff",
+    });
+    expect(restored.list()[0]).toMatchObject({
+      creatureId: "lumipuff",
+      nickname: "Sparkle",
+      mood: "happy",
+      bond: 31,
+      sidekickSelected: true,
     });
   });
 
