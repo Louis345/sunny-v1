@@ -1565,6 +1565,7 @@ export async function askDirectMathPlanner(input: {
   /** Concept ids already on record for this child, so the Planner reuses instead of rephrasing. */
   priorConceptIds?: string[];
   rawResponseFile?: string;
+  maxTokens?: number;
 }): Promise<MathLearningProgram> {
   const client = input.client ?? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
   const prompt = `You are Sunny's AI Math Planner, acting like the educational lead in an IEP team.
@@ -1618,7 +1619,7 @@ ${JSON.stringify(factualModelContext(input.priorOutcomes ?? []), null, 2)}`;
   // was timing out before it finished. Stream it, as the Creator already does.
   const response = await client.messages.stream({
     model: input.model ?? process.env.SUNNY_PLANNER_MODEL ?? "claude-opus-5",
-    max_tokens: Number(process.env.SUNNY_PLANNER_MAX_TOKENS ?? 20000),
+    max_tokens: input.maxTokens ?? Number(process.env.SUNNY_PLANNER_MAX_TOKENS ?? 20000),
     messages: [{ role: "user", content: prompt }],
     tools: [{
       name: toolName,
@@ -1643,7 +1644,7 @@ ${JSON.stringify(factualModelContext(input.priorOutcomes ?? []), null, 2)}`;
   // ("requires activities"), which sends you looking in the wrong place.
   if (response.stop_reason === "max_tokens") {
     throw new Error(
-      `direct_planner_plan_truncated:raise SUNNY_PLANNER_MAX_TOKENS above ${process.env.SUNNY_PLANNER_MAX_TOKENS ?? 20000}`,
+      `direct_planner_plan_truncated:raise planner max tokens above ${input.maxTokens ?? process.env.SUNNY_PLANNER_MAX_TOKENS ?? 20000}`,
     );
   }
   return parseMathLearningProgram(toolUse.input);

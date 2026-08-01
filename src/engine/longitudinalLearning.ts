@@ -299,9 +299,43 @@ async function askPlannerForTheoryDecision(input: {
   const toolName = "record_longitudinal_theory_decision";
   const response = await client.messages.create({
     model: input.model ?? process.env.SUNNY_INGEST_MODEL ?? "claude-sonnet-5",
-    max_tokens: 1800,
+    max_tokens: 5000,
     messages: [{ role: "user", content: `You are Sunny's AI learning Planner. Interpret one confirmed external-evidence batch. Observations are immutable facts. Compare only preregistered predictions with their evaluations and return exactly one theory decision. A supported prediction does not automatically prove mastery. Cite only supplied observation and evaluation IDs. Assess every preregistered assumption as supported, rejected, or uncertain; do not rewrite it.\n\nTheory:\n${JSON.stringify(input.cycle.academicTheory, null, 2)}\n\nAssumptions:\n${JSON.stringify(input.cycle.assumptions, null, 2)}\n\nPredictions:\n${JSON.stringify(input.cycle.academicPredictions, null, 2)}\n\nObservations:\n${JSON.stringify(observations, null, 2)}\n\nEvaluations:\n${JSON.stringify(evaluations, null, 2)}` }],
-    tools: [{ name: toolName, description: "Return one evidence-citing theory decision.", input_schema: { type: "object", additionalProperties: true } }],
+    tools: [{
+      name: toolName,
+      description: "Return one evidence-citing theory decision and assess every locked assumption.",
+      input_schema: {
+        type: "object",
+        additionalProperties: false,
+        required: ["status", "reason", "nextAction", "evidenceIds", "predictionEvaluationIds", "preserve", "change", "testNext", "nextEvidenceRequired", "assumptionAssessments"],
+        properties: {
+          status: { type: "string", enum: ["supported", "revised", "falsified", "inconclusive", "awaiting_calibration"] },
+          reason: { type: "string" },
+          nextAction: { type: "string" },
+          evidenceIds: { type: "array", items: { type: "string" } },
+          predictionEvaluationIds: { type: "array", items: { type: "string" } },
+          preserve: { type: "array", items: { type: "string" } },
+          change: { type: "array", items: { type: "string" } },
+          testNext: { type: "array", items: { type: "string" } },
+          nextEvidenceRequired: { type: "array", items: { type: "string" } },
+          revisedHypothesis: { type: "string" },
+          assumptionAssessments: {
+            type: "array",
+            items: {
+              type: "object",
+              additionalProperties: false,
+              required: ["assumptionId", "outcome", "reason", "observationIds"],
+              properties: {
+                assumptionId: { type: "string" },
+                outcome: { type: "string", enum: ["supported", "rejected", "uncertain"] },
+                reason: { type: "string" },
+                observationIds: { type: "array", items: { type: "string" } },
+              },
+            },
+          },
+        },
+      },
+    }],
     tool_choice: { type: "tool", name: toolName },
   }, { timeout: Number(process.env.SUNNY_AI_TIMEOUT_MS ?? 120000) });
   const tool = response.content.find((block) => block.type === "tool_use" && block.name === toolName);

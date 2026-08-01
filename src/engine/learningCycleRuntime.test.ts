@@ -3,7 +3,7 @@ import os from "os";
 import path from "path";
 import { describe, expect, it } from "vitest";
 import { createLearningCycle, transitionLearningCycle, type CreateLearningCycleInput } from "./learningCycleRepository";
-import { advanceCanonicalCycleFromEvidence, recordCanonicalNodeCompletion } from "./learningCycleRuntime";
+import { advanceCanonicalCycleFromEvidence, parseCanonicalProgressionDecision, recordCanonicalNodeCompletion } from "./learningCycleRuntime";
 
 function root(): string {
   return fs.mkdtempSync(path.join(os.tmpdir(), "sunny-cycle-runtime-"));
@@ -53,6 +53,27 @@ function input(): CreateLearningCycleInput {
 }
 
 describe("canonical learning cycle runtime", () => {
+  it("normalizes a missing technical node id without changing the Planner's support prescription", () => {
+    const decision = parseCanonicalProgressionDecision({
+      status: "revised",
+      reason: "Equal partitioning remains unclear.",
+      progressionAction: "generate_support",
+      preserve: [], change: ["partition support"], testNext: ["equal parts"], nextEvidenceRequired: ["unassisted partition"],
+      nextNodeId: null,
+      nextTitle: "The Cove Wreck",
+      nextAcademicTarget: "Build equal parts",
+      nextMechanic: "drag cut lines",
+      nextTheme: "shipwreck",
+      nextOpeningPurpose: "Judge a lopsided partition.",
+      nextCreatorPrompt: "Build the prescribed support instrument.",
+    });
+    expect(decision.nextInstrument).toMatchObject({
+      nodeId: "generated-support-the-cove-wreck",
+      title: "The Cove Wreck",
+      academicTarget: "Build equal parts",
+    });
+  });
+
   it("evaluates the completed legacy route without requiring the child to finish both routes", () => {
     const rootDir = root();
     const routedNode = (id: string, experimentId: string) => ({
@@ -393,6 +414,37 @@ describe("canonical learning cycle runtime", () => {
     recordCanonicalNodeCompletion({ childId: "reina", homeworkId: "hw-runtime", sessionId: "s3", nodeId: "boss", result: { completed: true, accuracy: 1, timeSpent_ms: 1000, targetResults: [{ target: "synthesis-1", correct: true }] } }, { rootDir });
     const awaiting = await advanceCanonicalCycleFromEvidence({ childId: "reina", homeworkId: "hw-runtime", decide: async () => ({ status: "awaiting_calibration", reason: "In-app synthesis is provisional.", progressionAction: "await_calibration", preserve: [], change: [], testNext: [], nextEvidenceRequired: ["returned graded work"] }) }, { rootDir });
     expect(awaiting.lifecycle).toBe("awaiting_calibration");
+  });
+
+  it("lets the Boss lifecycle resolve a contradictory second-Boss action when the Planner already chose awaiting calibration", async () => {
+    const rootDir = root();
+    createLearningCycle({ ...input(), nodes: [node("facts", "baseline"), node("quest", "quest", "locked"), node("boss", "boss", "locked")] }, { rootDir });
+    recordCanonicalNodeCompletion({ childId: "reina", homeworkId: "hw-runtime", sessionId: "s1", nodeId: "facts", result: { completed: true, accuracy: 1, timeSpent_ms: 1000, targetResults: [{ target: "2x5", correct: true }] } }, { rootDir });
+    const questGenerating = await advanceCanonicalCycleFromEvidence({ childId: "reina", homeworkId: "hw-runtime", decide: async () => ({ status: "supported", reason: "Test transfer.", progressionAction: "generate_quest", preserve: [], change: [], testNext: ["transfer"], nextEvidenceRequired: ["Quest"] }) }, { rootDir });
+    transitionLearningCycle("reina", "hw-runtime", questGenerating.revision, { type: "artifact_bound", nodeId: "quest", artifact: { contentId: "quest", artifactId: "quest", localArtifactPath: "/games/quest.html", localArtworkPath: "/generated/quest.png", contractFingerprint: "quest", validationStatus: "passed" } }, { rootDir });
+    recordCanonicalNodeCompletion({ childId: "reina", homeworkId: "hw-runtime", sessionId: "s2", nodeId: "quest", result: { completed: true, accuracy: 1, timeSpent_ms: 1000, targetResults: [{ target: "unseen-transfer", correct: true }] } }, { rootDir });
+    const bossGenerating = await advanceCanonicalCycleFromEvidence({ childId: "reina", homeworkId: "hw-runtime", decide: async () => ({ status: "supported", reason: "Transfer held.", progressionAction: "generate_boss", preserve: [], change: [], testNext: ["synthesis"], nextEvidenceRequired: ["Boss"] }) }, { rootDir });
+    transitionLearningCycle("reina", "hw-runtime", bossGenerating.revision, { type: "artifact_bound", nodeId: "boss", artifact: { contentId: "boss", artifactId: "boss", localArtifactPath: "/games/boss.html", localArtworkPath: "/generated/boss.png", contractFingerprint: "boss", validationStatus: "passed" } }, { rootDir });
+    recordCanonicalNodeCompletion({ childId: "reina", homeworkId: "hw-runtime", sessionId: "s3", nodeId: "boss", result: { completed: true, accuracy: 1, timeSpent_ms: 1000, targetResults: [{ target: "unseen-synthesis", correct: true }] } }, { rootDir });
+
+    const awaiting = await advanceCanonicalCycleFromEvidence({
+      childId: "reina",
+      homeworkId: "hw-runtime",
+      decide: async () => ({
+        status: "awaiting_calibration",
+        reason: "Boss evidence is strong but external calibration is still required.",
+        progressionAction: "generate_boss",
+        preserve: [],
+        change: [],
+        testNext: [],
+        nextEvidenceRequired: ["returned graded work"],
+        nextNodeId: "boss-2",
+      }),
+    }, { rootDir });
+
+    expect(awaiting.lifecycle).toBe("awaiting_calibration");
+    expect(awaiting.nodes.filter((item) => item.role === "boss")).toHaveLength(1);
+    expect(awaiting.decisionHistory.at(-1)?.nextAction).toBe("await_calibration");
   });
 
   it("downgrades a repeated Quest item to practice and refuses to use it to authorize Boss", async () => {

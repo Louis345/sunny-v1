@@ -235,6 +235,56 @@ describe("longitudinal learning evidence", () => {
     expect(getLearningCycle("reina", "hw-math-one", { rootDir })?.lifecycle).toBe("baseline_ready");
   });
 
+  it("requires the Planner tool to assess every locked assumption", async () => {
+    const rootDir = root();
+    createLearningCycle({
+      ...cycleInput("hw-math-one"),
+      assumptions: [{
+        assumptionId: "assumption:equal-groups",
+        claim: "Equal-groups transfer is secure.",
+        evidenceIds: ["assignment:hw-math-one"],
+        confidence: 0.6,
+        uncertainty: "No returned work yet.",
+        createdAt: "2026-07-18T12:00:00.000Z",
+        lockedAt: "2026-07-18T12:00:00.000Z",
+      }],
+    }, { rootDir });
+    const factual = recordConfirmedReturnedWork(returnedWork("hw-math-one"), { rootDir });
+    const create = vi.fn(async () => ({
+      content: [{
+        type: "tool_use",
+        name: "record_longitudinal_theory_decision",
+        input: {
+          status: "revised",
+          reason: "Returned work contradicted secure transfer.",
+          nextAction: "Provide support and retest.",
+          evidenceIds: factual.observations.map((item) => item.observationId),
+          predictionEvaluationIds: factual.predictionEvaluations.map((item) => item.evaluationId),
+          preserve: [], change: ["transfer support"], testNext: ["unseen transfer"],
+          nextEvidenceRequired: ["delayed work"],
+          assumptionAssessments: [{
+            assumptionId: "assumption:equal-groups",
+            outcome: "rejected",
+            reason: "The returned item showed an operation-selection error.",
+            observationIds: factual.observations.map((item) => item.observationId),
+          }],
+        },
+      }],
+    }));
+
+    await interpretReturnedWorkBatch({
+      childId: "reina", homeworkId: "hw-math-one", sourceId: "source:return:1", rootDir,
+      client: { messages: { create } } as never,
+    });
+
+    const request = (create.mock.calls as unknown as Array<[any]>)[0]?.[0];
+    expect(request.max_tokens).toBeGreaterThanOrEqual(4000);
+    expect(request.tools[0].input_schema.required).toContain("assumptionAssessments");
+    expect(request.tools[0].input_schema.properties.assumptionAssessments.items.required).toEqual([
+      "assumptionId", "outcome", "reason", "observationIds",
+    ]);
+  });
+
   it("closes an awaiting-calibration cycle after returned work receives one theory decision", async () => {
     const rootDir = root();
     const created = createLearningCycle(cycleInput("hw-math-one"), { rootDir });

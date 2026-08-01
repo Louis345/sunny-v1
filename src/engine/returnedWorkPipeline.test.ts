@@ -141,4 +141,43 @@ describe("returned work pipeline", () => {
     });
     expect(resumed.source.status).toBe("pending_confirmation");
   });
+
+  it("normalizes a provider's markedItems wrapper into canonical returned-work items", async () => {
+    const rootDir = root();
+    seed(rootDir);
+    const client = {
+      messages: {
+        create: async () => ({
+          content: [{
+            type: "tool_use",
+            name: "extract_returned_graded_work",
+            input: {
+              score: { earned: 1, possible: 1 },
+              markedItems: [{
+                itemNumber: 1,
+                prompt: "Partition one whole into thirds",
+                studentResponse: "three equal parts",
+                mark: "CORRECT",
+                primaryConstructId: "math.multiplication.equal_groups",
+                extractionConfidence: "high",
+              }],
+            },
+          }],
+        }),
+      },
+    };
+
+    const draft = await createReturnedWorkDraft({
+      childId: "reina", homeworkId: "hw-original", filename: "marked-copy.pdf",
+      mimeType: "application/pdf", dataBase64: Buffer.from("marked wrapper variant").toString("base64"),
+    }, { rootDir, client: client as never });
+
+    expect(draft.items).toEqual([expect.objectContaining({
+      itemId: "item-1",
+      childResponse: "three equal parts",
+      correct: true,
+      extractionConfidence: 0.9,
+      constructLinks: [expect.objectContaining({ constructId: "math.multiplication.equal_groups", role: "primary" })],
+    })]);
+  });
 });

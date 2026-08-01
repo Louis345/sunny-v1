@@ -40,6 +40,21 @@ export type CanonicalProgressionDecision = {
   nextInstrument?: NextInstrumentPrescription;
 };
 
+export function resolveCanonicalProgressionDecisionForLifecycle(
+  lifecycle: LearningCycleRecordV2["lifecycle"],
+  decision: CanonicalProgressionDecision,
+): CanonicalProgressionDecision {
+  if (lifecycle !== "boss_evaluating" || decision.status !== "awaiting_calibration" || decision.progressionAction === "await_calibration") {
+    return decision;
+  }
+  console.log(` 🎮 [canonical-progression] [boss-action-normalized] from=${decision.progressionAction} to=await_calibration`);
+  return {
+    ...decision,
+    progressionAction: "await_calibration",
+    nextInstrument: undefined,
+  };
+}
+
 function slug(value: string): string {
   return value.trim().toLowerCase().replace(/[^a-z0-9]+/g, ".").replace(/^\.+|\.+$/g, "") || "unknown";
 }
@@ -149,7 +164,7 @@ function parseNextInstrument(value: unknown): NextInstrumentPrescription | undef
   } as NextInstrumentPrescription;
 }
 
-function parseProgressionDecision(value: unknown): CanonicalProgressionDecision {
+export function parseCanonicalProgressionDecision(value: unknown): CanonicalProgressionDecision {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("canonical_progression_decision_invalid");
   const row = value as Record<string, unknown>;
   const statuses = new Set(["supported", "revised", "falsified", "inconclusive", "awaiting_calibration"]);
@@ -158,8 +173,11 @@ function parseProgressionDecision(value: unknown): CanonicalProgressionDecision 
     throw new Error("canonical_progression_decision_invalid");
   }
   if (typeof row.reason !== "string" || !row.reason.trim()) throw new Error("canonical_progression_reason_missing");
+  const generatedNodeId = typeof row.nextTitle === "string" && row.nextTitle.trim()
+    ? `generated-${String(row.progressionAction).replace("generate_", "")}-${row.nextTitle.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "")}`
+    : undefined;
   const nextInstrument = parseNextInstrument(row.nextInstrument) ?? parseNextInstrument({
-    nodeId: row.nextNodeId,
+    nodeId: row.nextNodeId ?? generatedNodeId,
     title: row.nextTitle,
     academicTarget: row.nextAcademicTarget,
     mechanic: row.nextMechanic,
@@ -325,7 +343,7 @@ ${JSON.stringify({ lifecycle: cycle.lifecycle, assignment: cycle.assignment, the
   }, { timeout: Number(process.env.SUNNY_AI_TIMEOUT_MS ?? 120000) });
   const tool = response.content.find((block) => block.type === "tool_use" && block.name === toolName);
   if (!tool || tool.type !== "tool_use") throw new Error("canonical_progression_tool_output_missing");
-  return parseProgressionDecision(tool.input);
+  return parseCanonicalProgressionDecision(tool.input);
 }
 
 export async function advanceCanonicalCycleFromEvidence(
@@ -341,7 +359,8 @@ export async function advanceCanonicalCycleFromEvidence(
   const cycle = getLearningCycle(input.childId, input.homeworkId, opts);
   if (!cycle) throw new Error(`learning_cycle_missing:${input.homeworkId}`);
   if (!["baseline_evaluating", "quest_evaluating", "boss_evaluating"].includes(cycle.lifecycle)) return cycle;
-  const decision = input.decide ? await input.decide(cycle) : await askPlanner(cycle, input.client, input.model, opts);
+  const plannerDecision = input.decide ? await input.decide(cycle) : await askPlanner(cycle, input.client, input.model, opts);
+  const decision = resolveCanonicalProgressionDecisionForLifecycle(cycle.lifecycle, plannerDecision);
   if (cycle.lifecycle === "quest_evaluating" && !["generate_boss", "generate_support", "await_calibration"].includes(decision.progressionAction)) {
     throw new Error("canonical_progression_quest_action_invalid");
   }

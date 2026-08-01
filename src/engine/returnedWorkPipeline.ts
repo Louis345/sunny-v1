@@ -132,21 +132,54 @@ function parseConstructLinks(value: unknown): LearningConstructLink[] {
   });
 }
 
-function parseExtraction(value: unknown): ReturnedWorkExtraction {
+function normalizedConfidence(value: unknown): number {
+  if (typeof value === "number") return value;
+  if (typeof value !== "string") return 0;
+  if (value.toLowerCase() === "high") return 0.9;
+  if (value.toLowerCase() === "medium") return 0.65;
+  if (value.toLowerCase() === "low") return 0.35;
+  return 0;
+}
+
+function normalizeProviderItem(entry: unknown, index: number): Record<string, unknown> {
+  const item = entry && typeof entry === "object" && !Array.isArray(entry)
+    ? entry as Record<string, unknown>
+    : {};
+  if (Array.isArray(item.constructLinks)) return item;
+  const confidence = normalizedConfidence(item.extractionConfidence);
+  const constructLinks = [
+    typeof item.primaryConstructId === "string"
+      ? { constructId: item.primaryConstructId, role: "primary", confidence }
+      : null,
+    typeof item.secondaryConstructId === "string"
+      ? { constructId: item.secondaryConstructId, role: "secondary", confidence }
+      : null,
+  ].filter(Boolean);
+  const mark = typeof item.mark === "string" ? item.mark.trim().toLowerCase() : "";
+  return {
+    ...item,
+    itemId: typeof item.itemId === "string" ? item.itemId : `item-${String(item.itemNumber ?? index + 1)}`,
+    childResponse: item.childResponse ?? item.studentResponse,
+    correct: typeof item.correct === "boolean" ? item.correct : mark === "correct" ? true : mark === "incorrect" ? false : undefined,
+    extractionConfidence: confidence,
+    constructLinks,
+  };
+}
+
+export function parseReturnedWorkExtraction(value: unknown): ReturnedWorkExtraction {
   const row = value && typeof value === "object" && !Array.isArray(value)
     ? value as Record<string, unknown>
     : {};
-  if (!Array.isArray(row.items) || row.items.length === 0) throw new Error("returned_work_items_missing");
-  const items = row.items.map((entry, index): ConfirmedReturnedWorkItem => {
-    const item = entry && typeof entry === "object" && !Array.isArray(entry)
-      ? entry as Record<string, unknown>
-      : {};
+  const providerItems = Array.isArray(row.items) ? row.items : row.markedItems;
+  if (!Array.isArray(providerItems) || providerItems.length === 0) throw new Error("returned_work_items_missing");
+  const items = providerItems.map((entry, index): ConfirmedReturnedWorkItem => {
+    const item = normalizeProviderItem(entry, index);
     const constructLinks = parseConstructLinks(item.constructLinks);
     if (!constructLinks.some((link) => link.role === "primary")) {
       throw new Error(`returned_work_primary_construct_missing:${index}`);
     }
     if (typeof item.prompt !== "string" || !item.prompt.trim()) throw new Error(`returned_work_prompt_missing:${index}`);
-    const extractionConfidence = typeof item.extractionConfidence === "number" ? item.extractionConfidence : 0;
+    const extractionConfidence = normalizedConfidence(item.extractionConfidence);
     if (extractionConfidence < 0 || extractionConfidence > 1) throw new Error(`returned_work_confidence_invalid:${index}`);
     return {
       itemId: typeof item.itemId === "string" && item.itemId.trim() ? item.itemId : `item-${index + 1}`,
@@ -194,12 +227,60 @@ async function extractWithPlanner(input: {
         { type: "text", text: `Extract factual grading from this returned assignment. Do not infer mastery. Preserve uncertainty in extractionConfidence. Map each item to one primary and optional secondary stable constructs. Prefer these existing IDs: ${JSON.stringify(input.knownConstructIds)}. Original assignment: ${JSON.stringify(input.assignment)}. File: ${input.filename}` },
       ],
     }],
-    tools: [{ name: toolName, description: "Extract score, marked items, and construct links for caregiver review.", input_schema: { type: "object", additionalProperties: true } }],
+    tools: [{
+      name: toolName,
+      description: "Extract score, marked items, and construct links for caregiver review.",
+      input_schema: {
+        type: "object",
+        additionalProperties: false,
+        required: ["items"],
+        properties: {
+          score: {
+            type: "object",
+            additionalProperties: false,
+            required: ["earned", "possible"],
+            properties: { earned: { type: "number" }, possible: { type: "number" } },
+          },
+          items: {
+            type: "array",
+            minItems: 1,
+            items: {
+              type: "object",
+              additionalProperties: false,
+              required: ["itemId", "prompt", "extractionConfidence", "constructLinks"],
+              properties: {
+                itemId: { type: "string" },
+                prompt: { type: "string" },
+                childResponse: { type: "string" },
+                correct: { type: "boolean" },
+                teacherNote: { type: "string" },
+                observedErrorType: { type: "string" },
+                extractionConfidence: { type: "number", minimum: 0, maximum: 1 },
+                constructLinks: {
+                  type: "array",
+                  minItems: 1,
+                  items: {
+                    type: "object",
+                    additionalProperties: false,
+                    required: ["constructId", "role", "confidence"],
+                    properties: {
+                      constructId: { type: "string" },
+                      role: { type: "string", enum: ["primary", "secondary"] },
+                      confidence: { type: "number", minimum: 0, maximum: 1 },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    }],
     tool_choice: { type: "tool", name: toolName },
   }, { timeout: Number(process.env.SUNNY_AI_TIMEOUT_MS ?? 120000) });
   const tool = response.content.find((block) => block.type === "tool_use" && block.name === toolName);
   if (!tool || tool.type !== "tool_use") throw new Error("returned_work_extraction_missing");
-  return parseExtraction(tool.input);
+  return parseReturnedWorkExtraction(tool.input);
 }
 
 export async function createReturnedWorkDraft(input: {
@@ -228,7 +309,7 @@ export async function createReturnedWorkDraft(input: {
   const extraction = opts.extract
     ? await opts.extract({ assignment: cycle.assignment, knownConstructIds: Object.keys(history.constructs), filename: input.filename, mimeType: input.mimeType, dataBase64: input.dataBase64 })
     : await extractWithPlanner({ assignment: cycle.assignment, knownConstructIds: Object.keys(history.constructs), filename: input.filename, mimeType: input.mimeType, dataBase64: input.dataBase64, client: opts.client, model: opts.model });
-  const parsed = parseExtraction(extraction);
+  const parsed = parseReturnedWorkExtraction(extraction);
   const source: LearningEvidenceSourceRef = {
     sourceId,
     type: "graded_work",
@@ -270,7 +351,7 @@ export async function confirmReturnedWorkDraft(input: {
     status: "confirmed",
     assignmentLink: { ...draft.source.assignmentLink, confirmedBy: "caregiver" },
   };
-  const confirmed = parseExtraction({ score: input.score ?? draft.score, items: input.items ?? draft.items });
+  const confirmed = parseReturnedWorkExtraction({ score: input.score ?? draft.score, items: input.items ?? draft.items });
   const confirmedItems = confirmed.items;
   let cycle = recordConfirmedReturnedWork({
     childId,
