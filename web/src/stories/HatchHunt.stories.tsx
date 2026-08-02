@@ -920,6 +920,7 @@ export function MossyHatchHuntDemoStory(): ReactElement {
     } catch (error) {
       console.error(" 🎮 [hatch-chase] [active-creature-selected] [failed]", error);
       setPresentationStatus("resting");
+      throw error;
     }
   }
 
@@ -940,6 +941,7 @@ export function MossyHatchHuntDemoStory(): ReactElement {
     } catch (error) {
       console.error(" 🎮 [hatch-chase] [active-creature-returned] [failed]", error);
       setPresentationStatus("resting");
+      throw error;
     }
   }
 

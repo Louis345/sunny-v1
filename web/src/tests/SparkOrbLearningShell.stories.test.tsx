@@ -171,6 +171,39 @@ describe("SparkOrbLearningShell stories", () => {
     );
   });
 
+  it("does not report a Farm selection when the real story bridge rejects it", async () => {
+    vi.useFakeTimers();
+    const infoSpy = vi.spyOn(console, "info").mockImplementation(() => {});
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("native selection unavailable"));
+    const storyArgs: SparkOrbLearningShellStoryArgs = {
+      phase: "ready",
+      domain: "spelling",
+      currentTarget: "word:because",
+      lastMoment: "orb_ready",
+      capturePersonality: "playful",
+    };
+
+    render(CreatureHandoffDemo.render?.(storyArgs, {} as never) as ReactElement);
+    const launchControl = screen.getByTestId("spark-orb-launch-control");
+    fireEvent.pointerDown(launchControl, { clientX: 320, clientY: 620 });
+    fireEvent.pointerMove(launchControl, { clientX: 338, clientY: 450 });
+    fireEvent.pointerUp(launchControl, { clientX: 338, clientY: 450 });
+    act(() => vi.advanceTimersByTime(2_150));
+    fireEvent.click(screen.getByRole("button", { name: "Visit Farm" }));
+
+    infoSpy.mockClear();
+    fireEvent.click(screen.getByRole("button", { name: "Bring With Me" }));
+    await act(async () => Promise.resolve());
+
+    expect(screen.getByText("Lumi is resting in the Farm. Try again when ready."))
+      .toBeInTheDocument();
+    expect(infoSpy).not.toHaveBeenCalledWith(
+      " 🎮 [captured-monster-den] [event] [reported]",
+      expect.objectContaining({ type: "active_creature_selected" }),
+    );
+  });
+
   it("earns Mossy and publishes mossback as the selected native renderer", () => {
     vi.useFakeTimers();
     vi.spyOn(console, "info").mockImplementation(() => {});
