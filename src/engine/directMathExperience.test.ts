@@ -946,6 +946,8 @@ describe("direct math experience", () => {
     expect(source).not.toContain("qa_visible_control_missing");
     expect(source).toContain("first_action_not_visible");
     expect(source).toContain("primary_control_clipped");
+    expect(source).not.toContain("Published after Playwright runtime verification");
+    expect(source).toContain("Published after a non-blocking opening browser smoke check");
   });
 
   it("regenerates HTML when adaptive Planner directives change", () => {

@@ -2665,7 +2665,7 @@ export function persistDirectExperience(input: {
       reuseStatus: activity.catalogDecision?.action === "retire" ? "retire" : "candidate",
       reuseReason: activity.catalogDecision?.reason ?? "Artifact-designed candidate awaiting real child evidence.",
       reviewStatus: "approved_ready",
-      reviewReason: "Published after Playwright runtime verification; human taste remains unreviewed.",
+      reviewReason: "Published after a non-blocking opening browser smoke check; human child-experience review remains authoritative.",
       validationStatus: "passed",
       mechanic: activity.mechanic,
       theme: activity.visualMock.scene,
