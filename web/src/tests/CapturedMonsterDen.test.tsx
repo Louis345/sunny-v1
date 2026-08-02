@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   CapturedMonsterCard,
@@ -155,6 +155,42 @@ describe("Captured monster den", () => {
     expect(screen.getByTestId("monster-life-layer")).toHaveAttribute("data-life-state", "curious");
     expect(onEvent).toHaveBeenCalledWith(
       expect.objectContaining({ type: "monster_wake", creatureId: "lumipuff" }),
+    );
+  });
+
+  it.each([
+    { active: false, buttonName: "Bring With Me", eventType: "active_creature_selected" },
+    { active: true, buttonName: "Return to Farm", eventType: "active_creature_returned" },
+  ])("reports a rejected $buttonName action without emitting success", async ({
+    active,
+    buttonName,
+    eventType,
+  }) => {
+    const error = new Error("native bridge unavailable");
+    const onAction = vi.fn().mockRejectedValue(error);
+    const onEvent = vi.fn();
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    render(
+      <MonsterDenPreview
+        creature={MOSSBACK_MONSTER}
+        active={active}
+        onSelectActive={active ? undefined : onAction}
+        onReturnActive={active ? onAction : undefined}
+        onEvent={onEvent}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: buttonName }));
+
+    await waitFor(() => {
+      expect(consoleError).toHaveBeenCalledWith(
+        ` 🎮 [captured-monster-den] [${eventType}] [failed]`,
+        error,
+      );
+    });
+    expect(onEvent).not.toHaveBeenCalledWith(
+      expect.objectContaining({ type: eventType }),
     );
   });
 
