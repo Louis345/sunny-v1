@@ -263,6 +263,22 @@ export function MonsterDenPreview({
     setStateWithEvent("curious", "monster_wake", bond);
   }
 
+  async function handleActiveChange(): Promise<void> {
+    const eventType = active
+      ? "active_creature_returned"
+      : "active_creature_selected";
+    const action = active ? onReturnActive : onSelectActive;
+    try {
+      await action?.();
+      emit(eventType);
+    } catch (error) {
+      console.error(
+        ` 🎮 [captured-monster-den] [${eventType}] [failed]`,
+        error,
+      );
+    }
+  }
+
   return (
     <section
       className="monster-den-preview"
@@ -315,15 +331,7 @@ export function MonsterDenPreview({
           </button>
           <button
             type="button"
-            onClick={() => {
-              if (active) {
-                emit("active_creature_returned");
-                void onReturnActive?.();
-              } else {
-                emit("active_creature_selected");
-                void onSelectActive?.();
-              }
-            }}
+            onClick={handleActiveChange}
           >
             {active ? "Return to Farm" : "Bring With Me"}
           </button>
