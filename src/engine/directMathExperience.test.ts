@@ -1218,6 +1218,8 @@ describe("direct math experience", () => {
   it("publishes a gated exclusive route choice with opening previews", () => {
     const rawPlan = plan(4);
     rawPlan.fork.question = "A long AI-authored explanation that should not become the child-facing heading";
+    rawPlan.fork.routes[0]!.promise = "Build fair shares with your own hands — no clock, only sharp eyes, and a wax seal when the cut is true.";
+    rawPlan.fork.routes[1]!.promise = "Spot the bigger fair slice before the gull swoops — fast eyes win the crowd, but the bird never steals your turn.";
     const parsed = parseDirectLearningExperiencePlan(rawPlan);
     parsed.activities[0]!.routeId = "route-shared-entry";
     parsed.activities[1]!.routeId = "route-shared-entry";
@@ -1260,6 +1262,10 @@ describe("direct math experience", () => {
     expect(board.choiceSets?.[0]?.options.map((option) => option.thumbnailUrl)).toEqual([
       "/generated/direct-math/hw-math-choice-previews/activity-3-opening.png",
       "/generated/direct-math/hw-math-choice-previews/activity-4-opening.png",
+    ]);
+    expect(board.choiceSets?.[0]?.options.map((option) => option.description)).toEqual([
+      "Build fair shares with your own hands",
+      "Spot the bigger fair slice before the gull swoops",
     ]);
     expect(board.nodes.find((node) => node.id === "activity-1")?.state).toBe("current");
     expect(board.nodes.find((node) => node.id === "activity-2")?.state).toBe("locked");

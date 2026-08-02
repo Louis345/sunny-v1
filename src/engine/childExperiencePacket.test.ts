@@ -159,8 +159,8 @@ describe("buildChildExperiencePacket", () => {
         kind: "baseline-route",
         title: "A generated paragraph that should never become the heading",
         options: [
-          { id: "route-a", label: "Map Maker", description: "Build fair shares", state: "available", nodeId: "N3A" },
-          { id: "route-b", label: "Slice Sprint", description: "Compare fair shares", state: "available", nodeId: "N3B" },
+          { id: "route-a", label: "Map Maker", description: "Build fair shares with your own hands — no clock, only sharp eyes, and a wax seal when the cut is true.", state: "available", nodeId: "N3A" },
+          { id: "route-b", label: "Slice Sprint", description: "Spot the bigger fair slice before the gull swoops — fast eyes win the crowd, but the bird never steals your turn.", state: "available", nodeId: "N3B" },
         ],
       }],
       companion: { id: "elli", name: "Elli" },
@@ -226,6 +226,10 @@ describe("buildChildExperiencePacket", () => {
     expect(projected.choiceSets?.[0]?.options.map((option) => option.thumbnailUrl)).toEqual([
       "/generated/direct-math/hw-fractions-previews/N3A-opening.png",
       "/generated/direct-math/hw-fractions-previews/N3B-opening.png",
+    ]);
+    expect(projected.choiceSets?.[0]?.options.map((option) => option.description)).toEqual([
+      "Build fair shares with your own hands",
+      "Spot the bigger fair slice before the gull swoops",
     ]);
   });
 });

@@ -2290,6 +2290,8 @@ export function buildDirectActiveSessionPlan(input: {
   const firstSharedNodeId = sharedActivities[0]?.id;
   const conciseRouteDescription = (description: string): string => {
     const normalized = description.replace(/\s+/g, " ").trim();
+    const authoredLead = normalized.split(/\s+[—–]\s+/, 1)[0]?.trim();
+    if (authoredLead && authoredLead.length >= 32) return authoredLead;
     if (normalized.length <= 120) return normalized;
     const sentence = normalized.match(/^.{1,117}?[.!?](?:\s|$)/)?.[0]?.trim();
     return sentence && sentence.length >= 36 ? sentence : `${normalized.slice(0, 117).trimEnd()}…`;

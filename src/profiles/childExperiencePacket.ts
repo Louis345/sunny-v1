@@ -81,6 +81,8 @@ function projectRecordedCompletions(
 
 function conciseRouteDescription(value: string | undefined): string | undefined {
   const normalized = String(value ?? "").replace(/\s+/g, " ").trim();
+  const authoredLead = normalized.split(/\s+[—–]\s+/, 1)[0]?.trim();
+  if (authoredLead && authoredLead.length >= 32) return authoredLead;
   if (!normalized || normalized.length <= 120) return normalized || undefined;
   const sentence = normalized.match(/^.{1,117}(?:[.!?](?:\s|$)|\s)/)?.[0]?.trim();
   return `${(sentence ?? normalized.slice(0, 117)).replace(/[\s,;:.-]+$/, "")}...`;
