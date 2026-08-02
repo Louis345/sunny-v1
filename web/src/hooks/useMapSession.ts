@@ -227,8 +227,8 @@ async function getJson<T>(url: string): Promise<T> {
 
 function shouldPollQuestBossPreparation(status: QuestBossPreparationStatus | null): boolean {
   if (!status) return false;
-  if (status.running.length > 0 || status.jobs.length > 0) return true;
-  return status.briefs.some((brief) =>
+  if ((status.running?.length ?? 0) > 0 || (status.jobs?.length ?? 0) > 0) return true;
+  return (status.briefs ?? []).some((brief) =>
     brief.status === "brief_only" ||
     brief.status === "generating" ||
     brief.status === "validating" ||

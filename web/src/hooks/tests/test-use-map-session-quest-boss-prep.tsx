@@ -97,6 +97,34 @@ describe("useMapSession Quest/Boss preparation", () => {
     });
   });
 
+  it("stops polling safely when preparation returns a partial idle status", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url === "/api/map/start") {
+        return Response.json({ sessionId: "session-1", mapState: baseMapState });
+      }
+      if (url === "/api/homework/quest-boss/prepare") {
+        return Response.json({
+          ok: true,
+          childId: "reina",
+          briefs: [],
+        });
+      }
+      throw new Error(`unexpected fetch ${url}`);
+    });
+    globalThis.fetch = fetchMock as typeof fetch;
+    installWebSocketMock();
+
+    const { result } = renderHook(() => useMapSession("reina"));
+
+    await waitFor(() => {
+      expect(result.current.questBossPreparation?.briefs).toEqual([]);
+    });
+    expect(fetchMock).not.toHaveBeenCalledWith(
+      "/api/homework/quest-boss/status?childId=reina",
+    );
+  });
+
   it("polls preparation status while a Quest/Boss job is running", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
