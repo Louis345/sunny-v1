@@ -53,6 +53,83 @@ function input(): CreateLearningCycleInput {
 }
 
 describe("canonical learning cycle runtime", () => {
+  it("keeps shared teaching active until the child selects and completes one agency route", () => {
+    const rootDir = root();
+    const routedNode = (id: string, state: "ready" | "locked", routeId: string) => ({
+      ...node(id, "baseline", state),
+      title: id,
+      openingScreen: { title: id, purpose: `Practice ${id}` },
+      routeId,
+      experimentId: "agency-1",
+    });
+    const sharedOne = routedNode("N1", "ready", "route-shared-entry");
+    const sharedTwo = routedNode("N2", "locked", "route-shared-entry");
+    const routeA = routedNode("N3A", "locked", "route-a");
+    const routeB = routedNode("N3B", "locked", "route-b");
+    createLearningCycle({
+      ...input(),
+      agencyExperiment: {
+        experimentId: "agency-1",
+        sharedNodeIds: ["N1", "N2"],
+        routes: [
+          { routeId: "route-a", nodeIds: ["N3A"] },
+          { routeId: "route-b", nodeIds: ["N3B"] },
+        ],
+      },
+      nodes: [sharedOne, sharedTwo, routeA, routeB, node("quest", "quest", "locked"), node("boss", "boss", "locked")],
+    }, { rootDir });
+
+    const afterN1 = recordCanonicalNodeCompletion({
+      childId: "reina", homeworkId: "hw-runtime", sessionId: "s1", nodeId: "N1",
+      result: { completed: true, accuracy: 1, timeSpent_ms: 1000 },
+    }, { rootDir });
+    expect(afterN1?.lifecycle).toBe("baseline_active");
+    expect(afterN1?.nodes.find((item) => item.nodeId === "N2")?.state).toBe("ready");
+
+    const afterN2 = recordCanonicalNodeCompletion({
+      childId: "reina", homeworkId: "hw-runtime", sessionId: "s1", nodeId: "N2",
+      result: { completed: true, accuracy: 1, timeSpent_ms: 1000 },
+    }, { rootDir });
+    expect(afterN2?.lifecycle).toBe("baseline_active");
+    expect(afterN2?.nodes.find((item) => item.nodeId === "N3A")?.state).toBe("locked");
+    expect(afterN2?.nodes.find((item) => item.nodeId === "N3B")?.state).toBe("locked");
+
+    const selectedA = transitionLearningCycle("reina", "hw-runtime", afterN2!.revision, {
+      type: "route_selected",
+      experimentId: "agency-1",
+      routeId: "route-a",
+      choiceEventId: "choice-a",
+    }, { rootDir });
+    expect(selectedA.routeSelection?.selectedRouteId).toBe("route-a");
+    expect(selectedA.nodes.find((item) => item.nodeId === "N3A")?.state).toBe("ready");
+    expect(selectedA.nodes.find((item) => item.nodeId === "N3B")?.state).toBe("locked");
+
+    expect(() => recordCanonicalNodeCompletion({
+      childId: "reina", homeworkId: "hw-runtime", sessionId: "s1", nodeId: "N3B",
+      result: { completed: true, accuracy: 1, timeSpent_ms: 1000 },
+    }, { rootDir })).toThrow("learning_cycle_node_not_launchable:N3B");
+
+    const selectedB = transitionLearningCycle("reina", "hw-runtime", selectedA.revision, {
+      type: "route_selected",
+      experimentId: "agency-1",
+      routeId: "route-b",
+      choiceEventId: "choice-b",
+    }, { rootDir });
+    expect(selectedB.routeSelection?.selectedRouteId).toBe("route-b");
+    expect(selectedB.routeSelection?.history).toHaveLength(2);
+    expect(selectedB.nodes.find((item) => item.nodeId === "N3A")?.state).toBe("locked");
+    expect(selectedB.nodes.find((item) => item.nodeId === "N3B")?.state).toBe("ready");
+
+    const routeComplete = recordCanonicalNodeCompletion({
+      childId: "reina", homeworkId: "hw-runtime", sessionId: "s1", nodeId: "N3B",
+      result: { completed: true, accuracy: 1, timeSpent_ms: 1000 },
+    }, { rootDir });
+    expect(routeComplete?.lifecycle).toBe("baseline_evaluating");
+    expect(routeComplete?.nodes.find((item) => item.nodeId === "N3A")?.state).toBe("locked");
+    expect(routeComplete?.nodes.find((item) => item.nodeId === "quest")?.state).toBe("locked");
+    expect(routeComplete?.nodes.find((item) => item.nodeId === "boss")?.state).toBe("locked");
+  });
+
   it("normalizes a missing technical node id without changing the Planner's support prescription", () => {
     const decision = parseCanonicalProgressionDecision({
       status: "revised",

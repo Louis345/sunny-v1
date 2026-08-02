@@ -2508,6 +2508,18 @@ export function buildDirectLearningCycleInput(input: {
       falsifyCriteria: ["Returned work contradicts the prediction."],
     },
     engagementTheory: null,
+    ...(input.plannerPlan.agencyExperiment ? {
+      agencyExperiment: {
+        experimentId: input.plannerPlan.agencyExperiment.experimentId,
+        sharedNodeIds: input.plannerPlan.activities
+          .filter((activity) => !input.plannerPlan.agencyExperiment!.routes.some((route) => route.nodeIds.includes(activity.id)))
+          .map((activity) => activity.id),
+        routes: input.plannerPlan.agencyExperiment.routes.map((route) => ({
+          routeId: route.routeId,
+          nodeIds: [...route.nodeIds],
+        })),
+      },
+    } : {}),
     nodes: [...baselineNodes, lockedNode("quest"), lockedNode("boss")],
     academicPredictions: input.plannerPlan.activities.map((activity) => ({
       predictionId: `${input.homeworkId}:prediction:${activity.id}`,
@@ -2595,6 +2607,7 @@ export function persistDirectExperience(input: {
       nodes: canonicalInput.nodes,
       academicPredictions: canonicalInput.academicPredictions,
       assumptions: canonicalInput.assumptions,
+      agencyExperiment: canonicalInput.agencyExperiment,
       reason: "Re-ingestion reconciled the AI-authored board with the existing assignment cycle.",
     }, { rootDir, now: new Date(now) });
   } else {

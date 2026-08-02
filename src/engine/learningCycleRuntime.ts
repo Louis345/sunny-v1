@@ -119,6 +119,9 @@ export function recordCanonicalNodeCompletion(
   if (alreadyRecorded) return cycle;
   const node = cycle.nodes.find((candidate) => candidate.nodeId === input.nodeId);
   if (!node) throw new Error(`learning_cycle_node_missing:${input.nodeId}`);
+  if (node.state !== "ready" && node.state !== "active") {
+    throw new Error(`learning_cycle_node_not_launchable:${input.nodeId}`);
+  }
   const accuracy = Math.max(0, Math.min(1, Number(input.result.accuracy) || 0));
   const observedAt = (opts.now ?? new Date()).toISOString();
   const academicEvidence: LearningCycleEvidenceSummary[] = [{

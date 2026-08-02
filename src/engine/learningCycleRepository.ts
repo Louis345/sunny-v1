@@ -280,6 +280,25 @@ export type LearningCycleDecision = {
   assumptionAssessments?: AssumptionAssessment[];
 };
 
+export type LearningCycleAgencyExperiment = {
+  experimentId: string;
+  sharedNodeIds: string[];
+  routes: Array<{ routeId: string; nodeIds: string[] }>;
+};
+
+export type LearningCycleRouteSelection = {
+  experimentId: string;
+  selectedRouteId: string;
+  selectedAt: string;
+  choiceEventId: string;
+  history: Array<{
+    routeId: string;
+    selectedAt: string;
+    choiceEventId: string;
+    switchedFromRouteId?: string;
+  }>;
+};
+
 export type LearningCycleRecordV2 = {
   schemaVersion: 2;
   revision: number;
@@ -311,6 +330,8 @@ export type LearningCycleRecordV2 = {
   assumptions: LearningAssumption[];
   observations: LearningObservation[];
   predictionEvaluations: PredictionEvaluation[];
+  agencyExperiment?: LearningCycleAgencyExperiment;
+  routeSelection?: LearningCycleRouteSelection;
   createdAt: string;
   updatedAt: string;
 };
@@ -381,7 +402,14 @@ export type LearningCycleEvent =
       nodes: LearningCycleNodeContract[];
       academicPredictions?: AcademicPrediction[];
       assumptions?: LearningAssumption[];
+      agencyExperiment?: LearningCycleAgencyExperiment;
       reason: string;
+    }
+  | {
+      type: "route_selected";
+      experimentId: string;
+      routeId: string;
+      choiceEventId: string;
     }
   | ({ type: "baseline_completed"; decision: OutcomeDecision } & OutcomeEvidence)
   | ({ type: "quest_completed"; decision: OutcomeDecision & { bossRequired: boolean } } & OutcomeEvidence)
@@ -532,6 +560,33 @@ function hydrateLongitudinalFields(value: LearningCycleRecordV2): LearningCycleR
   };
 }
 
+function agencyNodeIds(experiment: LearningCycleAgencyExperiment): Set<string> {
+  return new Set([
+    ...experiment.sharedNodeIds,
+    ...experiment.routes.flatMap((route) => route.nodeIds),
+  ]);
+}
+
+function normalizeAgencyNodeStates(cycle: LearningCycleRecordV2): void {
+  const experiment = cycle.agencyExperiment;
+  if (!experiment) return;
+  const knownIds = agencyNodeIds(experiment);
+  const firstIncompleteShared = experiment.sharedNodeIds.find((nodeId) =>
+    cycle.nodes.find((node) => node.nodeId === nodeId)?.state !== "completed");
+  const selectedRoute = experiment.routes.find((route) => route.routeId === cycle.routeSelection?.selectedRouteId);
+  const firstIncompleteSelected = selectedRoute?.nodeIds.find((nodeId) =>
+    cycle.nodes.find((node) => node.nodeId === nodeId)?.state !== "completed");
+
+  for (const node of cycle.nodes) {
+    if (!knownIds.has(node.nodeId) || node.state === "completed") continue;
+    if (firstIncompleteShared) {
+      node.state = node.nodeId === firstIncompleteShared ? "ready" : "locked";
+      continue;
+    }
+    node.state = node.nodeId === firstIncompleteSelected ? "ready" : "locked";
+  }
+}
+
 function atomicWrite(file: string, cycle: LearningCycleRecordV2): void {
   fs.mkdirSync(path.dirname(file), { recursive: true });
   const temp = `${file}.${process.pid}.${Date.now()}.tmp`;
@@ -586,6 +641,7 @@ export function createLearningCycle(
     createdAt: at,
     updatedAt: at,
   };
+  normalizeAgencyNodeStates(cycle);
   assertCycle(cycle);
   atomicWrite(file, cycle);
   return cycle;
@@ -763,6 +819,15 @@ function appendObservations(cycle: LearningCycleRecordV2, observations: Learning
 }
 
 function baselineFrontierComplete(cycle: LearningCycleRecordV2, completed: LearningCycleNodeContract): boolean {
+  if (cycle.agencyExperiment) {
+    const selectedRoute = cycle.agencyExperiment.routes.find(
+      (route) => route.routeId === cycle.routeSelection?.selectedRouteId,
+    );
+    if (!selectedRoute) return false;
+    const requiredIds = [...cycle.agencyExperiment.sharedNodeIds, ...selectedRoute.nodeIds];
+    return requiredIds.length > 0 && requiredIds.every((nodeId) =>
+      cycle.nodes.find((node) => node.nodeId === nodeId)?.state === "completed");
+  }
   const baselines = cycle.nodes.filter((node) => node.role === "baseline");
   const sameLegacyExperiment = baselines.filter((node) => node.experimentId === completed.experimentId);
   const frontier = completed.routeId
@@ -853,6 +918,9 @@ export function transitionLearningCycle(
     next.assignment = structuredClone(event.assignment);
     next.academicTheory = structuredClone(event.academicTheory);
     next.engagementTheory = structuredClone(event.engagementTheory);
+    next.agencyExperiment = event.agencyExperiment
+      ? structuredClone(event.agencyExperiment)
+      : next.agencyExperiment;
     next.nodes = event.nodes.map((planned) => {
       const previous = previousById.get(planned.nodeId);
       if (!previous) return structuredClone(planned);
@@ -862,7 +930,45 @@ export function transitionLearningCycle(
       };
     });
     next.lifecycle = "baseline_ready";
+    normalizeAgencyNodeStates(next);
     reason = event.reason;
+  } else if (event.type === "route_selected") {
+    const experiment = next.agencyExperiment;
+    if (!experiment || experiment.experimentId !== event.experimentId) {
+      throw new Error(`learning_cycle_agency_experiment_missing:${event.experimentId}`);
+    }
+    const route = experiment.routes.find((candidate) => candidate.routeId === event.routeId);
+    if (!route) throw new Error(`learning_cycle_agency_route_missing:${event.routeId}`);
+    const sharedComplete = experiment.sharedNodeIds.every((nodeId) =>
+      next.nodes.find((node) => node.nodeId === nodeId)?.state === "completed");
+    if (!sharedComplete) throw new Error("learning_cycle_route_choice_not_ready");
+    const previousRouteId = next.routeSelection?.selectedRouteId;
+    const previousRouteCompleted = previousRouteId
+      ? experiment.routes.find((candidate) => candidate.routeId === previousRouteId)?.nodeIds.every((nodeId) =>
+          next.nodes.find((node) => node.nodeId === nodeId)?.state === "completed") === true
+      : false;
+    if (previousRouteCompleted) throw new Error("learning_cycle_route_choice_finalized");
+    const historyEntry = {
+      routeId: route.routeId,
+      selectedAt: at,
+      choiceEventId: event.choiceEventId,
+      ...(previousRouteId && previousRouteId !== route.routeId
+        ? { switchedFromRouteId: previousRouteId }
+        : {}),
+    };
+    next.routeSelection = {
+      experimentId: experiment.experimentId,
+      selectedRouteId: route.routeId,
+      selectedAt: at,
+      choiceEventId: event.choiceEventId,
+      history: [...(next.routeSelection?.history ?? []), historyEntry],
+    };
+    normalizeAgencyNodeStates(next);
+    next.lifecycle = "baseline_active";
+    reason = previousRouteId && previousRouteId !== route.routeId
+      ? `Child switched the active agency route from ${previousRouteId} to ${route.routeId}.`
+      : `Child selected agency route ${route.routeId}.`;
+    evidenceIds = [event.choiceEventId];
   } else if (event.type === "instrument_observed") {
     const node = nodeOrThrow(next, event.nodeId);
     if (node.role === "quest" || node.role === "boss") {
@@ -896,6 +1002,7 @@ export function transitionLearningCycle(
           }
         }
       }
+      normalizeAgencyNodeStates(next);
       next.lifecycle = frontierComplete ? "baseline_evaluating" : "baseline_active";
     } else if (node.role === "quest") {
       next.lifecycle = "quest_evaluating";
