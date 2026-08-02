@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   farmPresentationStateFromNativeSelection,
@@ -207,14 +207,20 @@ describe("Mossy Hatch Hunt story", () => {
   }, 19_000);
 
   it("supports an assisted chase, captures Mossy once, and keeps native presentation explicit", async () => {
+    let resolveNativeSelection!: (response: {
+      ok: boolean;
+      status: number;
+      json: () => Promise<{ active_selection_id: null }>;
+    }) => void;
+    const nativeSelection = new Promise<{
+      ok: boolean;
+      status: number;
+      json: () => Promise<{ active_selection_id: null }>;
+    }>((resolve) => {
+      resolveNativeSelection = resolve;
+    });
     const fetchMock = vi.fn().mockImplementation(async (_input: string, init: RequestInit) =>
-      init.method === "GET"
-        ? {
-            ok: true,
-            status: 200,
-            json: async () => ({ active_selection_id: null }),
-          }
-        : { ok: true, status: 202 },
+      init.method === "GET" ? nativeSelection : { ok: true, status: 202 },
     );
     vi.stubGlobal("fetch", fetchMock);
     const { container } = render(<MossyHatchHuntDemoStory />);
@@ -268,11 +274,27 @@ describe("Mossy Hatch Hunt story", () => {
     expect(fetchMock).not.toHaveBeenCalled();
 
     fireEvent.click(screen.getByRole("button", { name: "Visit Farm" }));
+    await waitFor(() => {
+      expect(fetchMock.mock.calls.some(([, init]) => init.method === "GET")).toBe(true);
+    });
     fireEvent.click(screen.getByRole("button", { name: "Bring With Me" }));
     await waitFor(() => {
       expect(fetchMock.mock.calls.some(([, init]) =>
         init.method === "POST" && String(init.body).includes('"creature_id":"mossback"'),
       )).toBe(true);
     });
+    expect(await screen.findByText("Mossy is with you.")).toBeInTheDocument();
+
+    await act(async () => {
+      resolveNativeSelection({
+        ok: true,
+        status: 200,
+        json: async () => ({ active_selection_id: null }),
+      });
+      await nativeSelection;
+    });
+
+    expect(screen.getByText("Mossy is with you.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Return to Farm" })).toBeInTheDocument();
   }, 16_000);
 });
