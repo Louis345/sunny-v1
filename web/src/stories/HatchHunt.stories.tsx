@@ -445,6 +445,7 @@ export function MossyHatchHuntDemoStory(): ReactElement {
   const [presentationStatus, setPresentationStatus] = useState<FarmPresentationStatus>(
     initialPresentation.presentationStatus,
   );
+  const nativeSyncGeneration = useRef(0);
   const questionStartedAt = useRef(Date.now());
   const captureRecorded = useRef(false);
   const [tour, setTour] = useState<HatchHuntFullTourState | null>(null);
@@ -461,9 +462,19 @@ export function MossyHatchHuntDemoStory(): ReactElement {
   useEffect(() => {
     if (surface !== "farm") return;
     let cancelled = false;
+    const generation = nativeSyncGeneration.current;
     void readNativeActiveCreatureSelection()
       .then((nativeSelectionId) => {
         if (cancelled) return;
+        if (generation !== nativeSyncGeneration.current) {
+          console.info(" 🎮 [sunny-buddy] [screen-sync] [ignored_stale]", {
+            childId: "ila",
+            creatureId: MOSSBACK_MONSTER.id,
+            generation,
+            currentGeneration: nativeSyncGeneration.current,
+          });
+          return;
+        }
         const next = farmPresentationStateFromNativeSelection({
           childId: "ila",
           creatureId: MOSSBACK_MONSTER.id,
@@ -898,6 +909,7 @@ export function MossyHatchHuntDemoStory(): ReactElement {
   async function bringMossy(): Promise<void> {
     const record = inventory.list().find((candidate) => candidate.creatureId === MOSSBACK_MONSTER.id);
     if (!record) throw new Error("mossy_missing_from_farm");
+    nativeSyncGeneration.current += 1;
     setPresentationStatus("starting");
     inventory.selectActiveCreature(record.creatureId);
     const selectedReceipt = storybookReceiptForInventoryRecord(record);
@@ -913,6 +925,7 @@ export function MossyHatchHuntDemoStory(): ReactElement {
 
   async function returnMossy(): Promise<void> {
     if (!receipt) return;
+    nativeSyncGeneration.current += 1;
     try {
       await returnNativeCreatureToFarmSafely(
         { childId: receipt.childId, selectionId: selectionIdForReceipt(receipt) },
