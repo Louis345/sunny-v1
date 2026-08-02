@@ -1212,4 +1212,57 @@ describe("direct math experience", () => {
     expect(sharedPath[1]!.shortLabel).toBe("The Lighthouse Lens");
     expect(sharedPath[2]!.shortLabel).toBe("Choose Path");
   });
+
+  it("publishes a gated exclusive route choice with opening previews", () => {
+    const rawPlan = plan(4);
+    rawPlan.fork.question = "A long AI-authored explanation that should not become the child-facing heading";
+    const parsed = parseDirectLearningExperiencePlan(rawPlan);
+    parsed.activities[0]!.routeId = "route-shared-entry";
+    parsed.activities[1]!.routeId = "route-shared-entry";
+    parsed.fork.routes[0]!.nodeIds = [parsed.activities[2]!.id];
+    parsed.fork.routes[1]!.nodeIds = [parsed.activities[3]!.id];
+    const artifacts = parsed.activities.map((activity) => ({
+      childId: "reina",
+      homeworkId: "hw-math-choice",
+      nodeId: activity.id,
+      title: activity.title,
+      htmlPath: `/tmp/${activity.id}.html`,
+      artworkUrl: `/generated/${activity.id}.jpeg`,
+      creatorPrompt: activity.creatorPrompt,
+      promptHash: `hash-${activity.id}`,
+      plannerModel: "claude-opus-5",
+      creatorModel: "claude-fable-5",
+    }));
+    const report = {
+      passed: true,
+      failures: [],
+      screenshots: parsed.activities.slice(2).map((activity) =>
+        `/app/web/public/generated/direct-math/hw-math-choice-previews/${activity.id}-opening.png`),
+    };
+
+    const session = buildDirectActiveSessionPlan({
+      childId: "reina",
+      homeworkId: "hw-math-choice",
+      plan: parsed,
+      artifacts,
+      backgroundUrl: "/generated/background.jpeg",
+      questArtworkUrl: "/generated/quest.jpeg",
+      bossArtworkUrl: "/generated/boss.jpeg",
+      report,
+    });
+    const board = session.adventureBoard!;
+
+    expect(board.layout?.routeChoiceBehavior).toBe("exclusive");
+    expect(board.choiceSets?.[0]?.title).toBe("Choose your path");
+    expect(board.choiceSets?.[0]?.options.every((option) => option.state === "locked")).toBe(true);
+    expect(board.choiceSets?.[0]?.options.map((option) => option.thumbnailUrl)).toEqual([
+      "/generated/direct-math/hw-math-choice-previews/activity-3-opening.png",
+      "/generated/direct-math/hw-math-choice-previews/activity-4-opening.png",
+    ]);
+    expect(board.nodes.find((node) => node.id === "activity-1")?.state).toBe("current");
+    expect(board.nodes.find((node) => node.id === "activity-2")?.state).toBe("locked");
+    expect(board.nodes.find((node) => node.id === "choose-path")?.state).toBe("locked");
+    expect(board.nodes.find((node) => node.id === "activity-3")?.state).toBe("locked");
+    expect(session.nodePlan.find((node) => node.id === "activity-3")?.locked).toBe(true);
+  });
 });

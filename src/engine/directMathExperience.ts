@@ -2287,6 +2287,13 @@ export function buildDirectActiveSessionPlan(input: {
     ?? input.plan.fork.hypothesis;
   const choiceRouteIds = new Set(input.plan.fork.routes.map((route) => route.id));
   const sharedActivities = input.plan.activities.filter((activity) => !choiceRouteIds.has(activity.routeId));
+  const firstSharedNodeId = sharedActivities[0]?.id;
+  const conciseRouteDescription = (description: string): string => {
+    const normalized = description.replace(/\s+/g, " ").trim();
+    if (normalized.length <= 120) return normalized;
+    const sentence = normalized.match(/^.{1,117}?[.!?](?:\s|$)/)?.[0]?.trim();
+    return sentence && sentence.length >= 36 ? sentence : `${normalized.slice(0, 117).trimEnd()}…`;
+  };
   const previewUrl = (nodeId: string, fallback: string): string => {
     const screenshot = input.report.screenshots.find((file) =>
       path.basename(file).startsWith(`${nodeId}-opening`));
@@ -2306,7 +2313,7 @@ export function buildDirectActiveSessionPlan(input: {
     }] : []);
     return {
       id: activity.id, type: "generated-baseline", activityId: "generated-baseline", targets: activity.items.map((item) => item.id), difficulty: 2,
-      source: "chart_planner", targetLane: activity.academicTarget, locked: false, masteryUnlockState: "unlocked", title: activity.title,
+      source: "chart_planner", targetLane: activity.academicTarget, locked: activity.id !== firstSharedNodeId, title: activity.title,
       ...(rounds.length > 0 ? { rounds } : {}),
       gameHtmlPath: artifact.htmlPath, date: input.homeworkId, thumbnailUrl: previewUrl(activity.id, artifact.artworkUrl), contentId: `${input.homeworkId}:${activity.id}`, mechanic: activity.mechanic,
       engagementDimensions: [activity.engagementVariable as never], engagementHypothesis: engagementHypothesisForRoute(activity.routeId),
@@ -2321,13 +2328,13 @@ export function buildDirectActiveSessionPlan(input: {
   ];
   sharedActivities.forEach((activity, index) => {
     const artifact = artifactById.get(activity.id)!;
-    nodes.push({ id: activity.id, kind: "activity", activityId: "generated-baseline", label: activity.title, shortLabel: boardShortLabel(activity.title), state: index === 0 ? "current" : "available", position: sharedNodePosition(index, sharedActivities.length), action: { type: "launch-activity", payloadId: activity.id }, thumbnailUrl: previewUrl(activity.id, artifact.artworkUrl), mechanic: activity.mechanic, engagementDimensions: [activity.engagementVariable], engagementHypothesis: input.plan.fork.hypothesis, contentId: `${input.homeworkId}:${activity.id}` });
+    nodes.push({ id: activity.id, kind: "activity", activityId: "generated-baseline", label: activity.title, shortLabel: boardShortLabel(activity.title), state: index === 0 ? "current" : "locked", position: sharedNodePosition(index, sharedActivities.length), action: { type: "launch-activity", payloadId: activity.id }, thumbnailUrl: previewUrl(activity.id, artifact.artworkUrl), mechanic: activity.mechanic, engagementDimensions: [activity.engagementVariable], engagementHypothesis: input.plan.fork.hypothesis, contentId: `${input.homeworkId}:${activity.id}` });
   });
-  nodes.push({ id: "choose-path", kind: "choice-gate", label: input.plan.fork.question, shortLabel: "Choose Path", state: sharedActivities.length === 0 ? "current" : "available", position: sharedActivities.length === 0 ? boardPosition(24, 58) : boardPosition(44, 48), action: { type: "open-choice-set", payloadId: "direct-route-choice" }, choiceSetId: "direct-route-choice" });
+  nodes.push({ id: "choose-path", kind: "choice-gate", label: "Choose your path", shortLabel: "Choose Path", state: sharedActivities.length === 0 ? "current" : "locked", position: sharedActivities.length === 0 ? boardPosition(24, 58) : boardPosition(44, 48), action: { type: "open-choice-set", payloadId: "direct-route-choice" }, choiceSetId: "direct-route-choice" });
   input.plan.fork.routes.forEach((route, routeIndex) => route.nodeIds.forEach((nodeId, index) => {
     const activity = input.plan.activities.find((item) => item.id === nodeId)!;
     const artifact = artifactById.get(nodeId)!;
-    nodes.push({ id: nodeId, kind: "activity", activityId: "generated-baseline", label: activity.title, shortLabel: boardShortLabel(activity.title), state: "available", position: routeNodePosition(index, route.nodeIds.length, routeIndex), action: { type: "launch-activity", payloadId: nodeId }, thumbnailUrl: previewUrl(nodeId, artifact.artworkUrl), mechanic: activity.mechanic, engagementDimensions: [activity.engagementVariable], engagementHypothesis: engagementHypothesisForRoute(route.id), contentId: `${input.homeworkId}:${nodeId}` });
+    nodes.push({ id: nodeId, kind: "activity", activityId: "generated-baseline", label: activity.title, shortLabel: boardShortLabel(activity.title), state: "locked", position: routeNodePosition(index, route.nodeIds.length, routeIndex), action: { type: "launch-activity", payloadId: nodeId }, thumbnailUrl: previewUrl(nodeId, artifact.artworkUrl), mechanic: activity.mechanic, engagementDimensions: [activity.engagementVariable], engagementHypothesis: engagementHypothesisForRoute(route.id), contentId: `${input.homeworkId}:${nodeId}` });
   }));
   nodes.push(
     { id: "quest", kind: "quest", label: "Quest", state: "locked", position: boardPosition(82, 48), thumbnailUrl: input.questArtworkUrl, lock: { reason: "Complete your adventure routes to reveal the Quest.", label: "Locked" }, action: { type: "show-locked-reason", payloadId: "quest" } },
@@ -2349,10 +2356,19 @@ export function buildDirectActiveSessionPlan(input: {
   const adventureBoard: AdventureBoardJson = {
     schemaVersion: 1, boardId: `direct:${input.homeworkId}`, planId: input.plan.planId, childId: input.childId, domain: "math", title: input.plan.boardWorld.title,
     theme: { background: { type: "image", value: input.backgroundUrl }, palette: { path: "#fff4c2", completed: "#34d399", available: "#7c3aed", locked: "#64748b", current: "#f59e0b", preview: "#94a3b8", text: "#ffffff", panel: "rgba(15,23,42,.82)" } },
-    layout: { preset: "horizontal-adventure-spine", companionSlot: "right", routeChoiceBehavior: "parallel" },
+    layout: { preset: "horizontal-adventure-spine", companionSlot: "right", routeChoiceBehavior: "exclusive" },
     plannerRationale: { agencyDesign: input.plan.fork.hypothesis, evidenceDesign: input.plan.fork.heldConstant.join("; "), layoutChoice: "Two visible choose-your-adventure routes converge on a locked Quest." },
     nodes, edges,
-    choiceSets: [{ id: "direct-route-choice", kind: "baseline-route", title: input.plan.fork.question, options: input.plan.fork.routes.map((route) => ({ id: route.id, label: route.label, description: route.promise, state: "available", nodeId: route.nodeIds[0], engagementDimensions: [route.engagementVariable], choiceSignal: { algorithmFeed: "choicePolicy", traits: [route.engagementVariable], expectedEvidence: "selection, start, completion, abandonment, replay", preferenceNotMastery: true } })) }],
+    choiceSets: [{ id: "direct-route-choice", kind: "baseline-route", title: "Choose your path", options: input.plan.fork.routes.map((route) => ({
+      id: route.id,
+      label: route.label,
+      description: conciseRouteDescription(route.promise),
+      state: sharedActivities.length === 0 ? "available" : "locked",
+      nodeId: route.nodeIds[0],
+      thumbnailUrl: route.nodeIds[0] ? previewUrl(route.nodeIds[0], artifactById.get(route.nodeIds[0])?.artworkUrl ?? "") : undefined,
+      engagementDimensions: [route.engagementVariable],
+      choiceSignal: { algorithmFeed: "choicePolicy", traits: [route.engagementVariable], expectedEvidence: "selection, start, completion, abandonment, replay", preferenceNotMastery: true },
+    })) }],
     companion: { id: "elli", name: "Elli" }, progress: {
       currentNodeId: sharedActivities[0]?.id ?? "choose-path",
       completedNodeIds: ["start"],

@@ -550,6 +550,22 @@ function assertCycle(value: LearningCycleRecordV2): void {
 }
 
 function hydrateLongitudinalFields(value: LearningCycleRecordV2): LearningCycleRecordV2 {
+  const baselineNodes = value.nodes.filter((node) => node.role === "baseline" && node.routeId);
+  const sharedNodeIds = baselineNodes
+    .filter((node) => node.routeId === "route-shared-entry")
+    .map((node) => node.nodeId);
+  const routeGroups = new Map<string, string[]>();
+  for (const node of baselineNodes) {
+    if (!node.routeId || node.routeId === "route-shared-entry") continue;
+    routeGroups.set(node.routeId, [...(routeGroups.get(node.routeId) ?? []), node.nodeId]);
+  }
+  const inferredAgencyExperiment = sharedNodeIds.length > 0 && routeGroups.size >= 2
+    ? {
+        experimentId: `${value.homeworkId}:agency:legacy-route-projection`,
+        sharedNodeIds,
+        routes: [...routeGroups].map(([routeId, nodeIds]) => ({ routeId, nodeIds })),
+      }
+    : undefined;
   return {
     ...value,
     evidenceSources: value.evidenceSources ?? [],
@@ -557,6 +573,7 @@ function hydrateLongitudinalFields(value: LearningCycleRecordV2): LearningCycleR
     assumptions: value.assumptions ?? [],
     observations: value.observations ?? [],
     predictionEvaluations: value.predictionEvaluations ?? [],
+    agencyExperiment: value.agencyExperiment ?? inferredAgencyExperiment,
   };
 }
 

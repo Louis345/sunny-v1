@@ -2,7 +2,7 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import { describe, expect, it } from "vitest";
-import { createLearningCycle, transitionLearningCycle, type CreateLearningCycleInput } from "./learningCycleRepository";
+import { createLearningCycle, getLearningCycle, transitionLearningCycle, type CreateLearningCycleInput } from "./learningCycleRepository";
 import { advanceCanonicalCycleFromEvidence, parseCanonicalProgressionDecision, recordCanonicalNodeCompletion } from "./learningCycleRuntime";
 
 function root(): string {
@@ -53,6 +53,36 @@ function input(): CreateLearningCycleInput {
 }
 
 describe("canonical learning cycle runtime", () => {
+  it("hydrates the existing shared-entry math cycle into an agency experiment", () => {
+    const rootDir = root();
+    const routedNode = (id: string, routeId: string) => ({
+      ...node(id, "baseline"),
+      title: id,
+      openingScreen: { title: id, purpose: `Practice ${id}` },
+      routeId,
+    });
+    createLearningCycle({
+      ...input(),
+      nodes: [
+        routedNode("N1", "route-shared-entry"),
+        routedNode("N2", "route-shared-entry"),
+        routedNode("N3A", "route-a"),
+        routedNode("N3B", "route-b"),
+        node("quest", "quest", "locked"),
+        node("boss", "boss", "locked"),
+      ],
+    }, { rootDir });
+
+    expect(getLearningCycle("reina", "hw-runtime", { rootDir })?.agencyExperiment).toEqual({
+      experimentId: "hw-runtime:agency:legacy-route-projection",
+      sharedNodeIds: ["N1", "N2"],
+      routes: [
+        { routeId: "route-a", nodeIds: ["N3A"] },
+        { routeId: "route-b", nodeIds: ["N3B"] },
+      ],
+    });
+  });
+
   it("keeps shared teaching active until the child selects and completes one agency route", () => {
     const rootDir = root();
     const routedNode = (id: string, state: "ready" | "locked", routeId: string) => ({

@@ -78,6 +78,106 @@ function projectRecordedCompletions(
   };
 }
 
+function conciseRouteDescription(value: string | undefined): string | undefined {
+  const normalized = String(value ?? "").replace(/\s+/g, " ").trim();
+  if (!normalized || normalized.length <= 120) return normalized || undefined;
+  const sentence = normalized.match(/^.{1,117}(?:[.!?](?:\s|$)|\s)/)?.[0]?.trim();
+  return `${(sentence ?? normalized.slice(0, 117)).replace(/[\s,;:.-]+$/, "")}...`;
+}
+
+function projectCanonicalAgencyChoice(
+  chart: ChildChart,
+  plan: ChildChart["activeSessionPlan"],
+): ChildChart["activeSessionPlan"] {
+  const cycle = chart.learningCycle;
+  const experiment = cycle?.agencyExperiment;
+  const board = plan?.adventureBoard;
+  if (!plan?.activeHomeworkId || !board || !experiment || experiment.routes.length < 2) return plan;
+
+  const cycleNodeState = new Map(cycle.nodes.map((node) => [node.nodeId, node.state]));
+  const completedNodeIds = new Set(
+    cycle.nodes.filter((node) => node.state === "completed").map((node) => node.nodeId),
+  );
+  const firstIncompleteShared = experiment.sharedNodeIds.find((nodeId) => !completedNodeIds.has(nodeId));
+  const sharedComplete = firstIncompleteShared === undefined;
+  const selectedRoute = experiment.routes.find((route) => route.routeId === cycle.routeSelection?.selectedRouteId);
+  const firstIncompleteSelected = selectedRoute?.nodeIds.find((nodeId) => !completedNodeIds.has(nodeId));
+  const selectedRouteComplete = Boolean(selectedRoute) && firstIncompleteSelected === undefined;
+  const routeByNodeId = new Map(experiment.routes.flatMap((route) =>
+    route.nodeIds.map((nodeId) => [nodeId, route.routeId] as const)));
+  const agencyNodeIds = new Set([...experiment.sharedNodeIds, ...routeByNodeId.keys()]);
+  const launchableNodeId = firstIncompleteShared ?? firstIncompleteSelected;
+  const previewUrl = (nodeId: string) =>
+    `/generated/direct-math/${plan.activeHomeworkId}-previews/${nodeId}-opening.png`;
+
+  const nodes = board.nodes.map((node) => {
+    if (experiment.sharedNodeIds.includes(node.id)) {
+      const state = completedNodeIds.has(node.id)
+        ? "completed"
+        : node.id === firstIncompleteShared
+          ? "current"
+          : "locked";
+      return { ...node, state };
+    }
+    if (node.kind === "choice-gate") {
+      return {
+        ...node,
+        label: cycle.routeSelection ? "Change Path" : "Choose Path",
+        shortLabel: cycle.routeSelection ? "Change Path" : "Choose Path",
+        state: selectedRouteComplete ? "hidden" : sharedComplete ? "current" : "locked",
+      };
+    }
+    const routeId = routeByNodeId.get(node.id);
+    if (routeId) {
+      const state = completedNodeIds.has(node.id)
+        ? "completed"
+        : routeId === selectedRoute?.routeId && node.id === firstIncompleteSelected
+          ? "current"
+          : "locked";
+      return { ...node, state, thumbnailUrl: previewUrl(node.id) };
+    }
+    const canonicalState = cycleNodeState.get(node.id);
+    if (canonicalState === "completed") return { ...node, state: "completed" as const };
+    if (canonicalState === "locked" || canonicalState === "generating" || canonicalState === "blocked") {
+      return { ...node, state: "locked" as const };
+    }
+    return node;
+  });
+
+  const choiceSets = board.choiceSets?.map((choiceSet) => {
+    if (choiceSet.kind !== "baseline-route") return choiceSet;
+    return {
+      ...choiceSet,
+      title: "Choose your path",
+      options: choiceSet.options.map((option) => ({
+        ...option,
+        description: conciseRouteDescription(option.description),
+        thumbnailUrl: option.nodeId ? previewUrl(option.nodeId) : option.thumbnailUrl,
+        state: sharedComplete && !selectedRouteComplete ? "available" as const : "locked" as const,
+      })),
+    };
+  });
+
+  return {
+    ...plan,
+    nodePlan: plan.nodePlan.map((node) => agencyNodeIds.has(node.id)
+      ? { ...node, locked: !completedNodeIds.has(node.id) && node.id !== launchableNodeId }
+      : node),
+    adventureBoard: {
+      ...board,
+      layout: { ...board.layout, routeChoiceBehavior: "exclusive" },
+      nodes,
+      choiceSets,
+      progress: {
+        ...board.progress,
+        completedNodeIds: [...new Set([...(board.progress?.completedNodeIds ?? []), ...completedNodeIds])],
+        currentNodeId: firstIncompleteShared ?? firstIncompleteSelected,
+        ...(!selectedRouteComplete && sharedComplete ? { activeChoiceSetId: choiceSets?.find((set) => set.kind === "baseline-route")?.id } : {}),
+      },
+    },
+  };
+}
+
 export function buildChildExperiencePacket(chart: ChildChart): ChildExperiencePacket {
   const selectedDomain = chart.homework.selectedDomain ?? undefined;
   const legacySelectedDomainPlan = selectedDomain
@@ -108,9 +208,12 @@ export function buildChildExperiencePacket(chart: ChildChart): ChildExperiencePa
           }
         : undefined,
     },
-    activeSessionPlan: projectRecordedCompletions(
+    activeSessionPlan: projectCanonicalAgencyChoice(
       chart,
-      projectPlayableHomeworkIdentity(selectedPlan),
+      projectRecordedCompletions(
+        chart,
+        projectPlayableHomeworkIdentity(selectedPlan),
+      ),
     ),
   };
 }

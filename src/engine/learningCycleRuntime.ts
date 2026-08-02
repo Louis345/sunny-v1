@@ -119,7 +119,21 @@ export function recordCanonicalNodeCompletion(
   if (alreadyRecorded) return cycle;
   const node = cycle.nodes.find((candidate) => candidate.nodeId === input.nodeId);
   if (!node) throw new Error(`learning_cycle_node_missing:${input.nodeId}`);
-  if (node.state !== "ready" && node.state !== "active") {
+  const experiment = cycle.agencyExperiment;
+  const firstIncompleteShared = experiment?.sharedNodeIds.find((nodeId) =>
+    cycle.nodes.find((candidate) => candidate.nodeId === nodeId)?.state !== "completed");
+  const selectedRoute = experiment?.routes.find((route) => route.routeId === cycle.routeSelection?.selectedRouteId);
+  const firstIncompleteSelected = selectedRoute?.nodeIds.find((nodeId) =>
+    cycle.nodes.find((candidate) => candidate.nodeId === nodeId)?.state !== "completed");
+  const isAgencyNode = experiment
+    ? experiment.sharedNodeIds.includes(node.nodeId) || experiment.routes.some((route) => route.nodeIds.includes(node.nodeId))
+    : false;
+  const agencyNodeLaunchable = !experiment || !isAgencyNode
+    ? undefined
+    : firstIncompleteShared
+      ? node.nodeId === firstIncompleteShared
+      : node.nodeId === firstIncompleteSelected;
+  if (agencyNodeLaunchable === false || (agencyNodeLaunchable === undefined && node.state !== "ready" && node.state !== "active")) {
     throw new Error(`learning_cycle_node_not_launchable:${input.nodeId}`);
   }
   const accuracy = Math.max(0, Math.min(1, Number(input.result.accuracy) || 0));

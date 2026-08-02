@@ -131,4 +131,101 @@ describe("buildChildExperiencePacket", () => {
     expect(packet.activeSessionPlan?.adventureBoard?.nodes[0]?.action?.type).toBe("launch-activity");
     expect(packet.activeSessionPlan?.adventureBoard?.progress?.completedNodeIds).toContain("gearlock");
   });
+
+  it("projects a concise gated agency choice with real route previews", () => {
+    const board = {
+      schemaVersion: 1,
+      boardId: "direct:hw-fractions",
+      planId: "fractions-plan",
+      childId: "reina",
+      domain: "math",
+      title: "Fractions",
+      theme: { background: { type: "color", value: "#000" }, palette: { path: "#fff", completed: "#0f0", available: "#00f", locked: "#777", current: "#f90", preview: "#aaa", text: "#fff", panel: "#000" } },
+      layout: { preset: "horizontal-adventure-spine", routeChoiceBehavior: "parallel" },
+      plannerRationale: { agencyDesign: "compare routes", evidenceDesign: "held constant", layoutChoice: "fork" },
+      nodes: [
+        { id: "start", kind: "start", label: "Start", state: "completed" },
+        { id: "N1", kind: "activity", label: "Teach", state: "available" },
+        { id: "N2", kind: "activity", label: "Guided", state: "available" },
+        { id: "choose-path", kind: "choice-gate", label: "Long generated question", state: "available", choiceSetId: "direct-route-choice" },
+        { id: "N3A", kind: "activity", label: "Map Maker", state: "available" },
+        { id: "N3B", kind: "activity", label: "Slice Sprint", state: "available" },
+        { id: "quest", kind: "quest", label: "Quest", state: "locked" },
+        { id: "boss", kind: "boss", label: "Boss", state: "locked" },
+      ],
+      edges: [],
+      choiceSets: [{
+        id: "direct-route-choice",
+        kind: "baseline-route",
+        title: "A generated paragraph that should never become the heading",
+        options: [
+          { id: "route-a", label: "Map Maker", description: "Build fair shares", state: "available", nodeId: "N3A" },
+          { id: "route-b", label: "Slice Sprint", description: "Compare fair shares", state: "available", nodeId: "N3B" },
+        ],
+      }],
+      companion: { id: "elli", name: "Elli" },
+      progress: { completedNodeIds: ["start"] },
+    };
+    const packet = buildChildExperiencePacket({
+      childId: "reina",
+      identity: { displayName: "Reina" },
+      companion: { presetId: "elli", displayName: "Elli", config: {} },
+      companionCare: {}, economy: {}, adventureMapProfile: {},
+      homework: { selectedDomain: "math" },
+      activeSessionPlan: {
+        planId: "fractions-plan",
+        activeHomeworkId: "hw-fractions",
+        nodePlan: [
+          { id: "N1", locked: true },
+          { id: "N2", locked: true },
+          { id: "N3A", locked: true },
+          { id: "N3B", locked: true },
+          { id: "quest", locked: true },
+          { id: "boss", locked: true },
+        ],
+        adventureBoard: board,
+      },
+      learningCycle: {
+        homeworkId: "hw-fractions",
+        lifecycle: "baseline_active",
+        revision: 4,
+        agencyExperiment: {
+          experimentId: "agency-1",
+          sharedNodeIds: ["N1", "N2"],
+          routes: [
+            { routeId: "route-a", nodeIds: ["N3A"] },
+            { routeId: "route-b", nodeIds: ["N3B"] },
+          ],
+        },
+        routeSelection: {
+          experimentId: "agency-1",
+          selectedRouteId: "route-a",
+          selectedAt: "2026-08-02T12:00:00.000Z",
+          choiceEventId: "choice-a",
+          history: [{ routeId: "route-a", selectedAt: "2026-08-02T12:00:00.000Z", choiceEventId: "choice-a" }],
+        },
+        nodes: [
+          { nodeId: "N1", state: "completed" },
+          { nodeId: "N2", state: "completed" },
+          { nodeId: "N3A", state: "ready" },
+          { nodeId: "N3B", state: "locked" },
+          { nodeId: "quest", state: "locked" },
+          { nodeId: "boss", state: "locked" },
+        ],
+      },
+    } as never);
+
+    const projected = packet.activeSessionPlan!.adventureBoard!;
+    expect(projected.layout?.routeChoiceBehavior).toBe("exclusive");
+    expect(projected.choiceSets?.[0]?.title).toBe("Choose your path");
+    expect(projected.nodes.find((node) => node.id === "choose-path")?.label).toBe("Change Path");
+    expect(projected.nodes.find((node) => node.id === "N3A")?.state).toBe("current");
+    expect(projected.nodes.find((node) => node.id === "N3B")?.state).toBe("locked");
+    expect(packet.activeSessionPlan?.nodePlan.find((node) => node.id === "N3A")?.locked).toBe(false);
+    expect(packet.activeSessionPlan?.nodePlan.find((node) => node.id === "N3B")?.locked).toBe(true);
+    expect(projected.choiceSets?.[0]?.options.map((option) => option.thumbnailUrl)).toEqual([
+      "/generated/direct-math/hw-fractions-previews/N3A-opening.png",
+      "/generated/direct-math/hw-fractions-previews/N3B-opening.png",
+    ]);
+  });
 });
