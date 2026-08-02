@@ -129,7 +129,11 @@ import { resolveSunnyRuntimeConfig } from "../shared/runtimeConfig";
 import { companionPickerIdentity } from "./companionPickerRows";
 import { advanceCanonicalCycleFromEvidence, recordCanonicalNodeCompletion } from "../engine/learningCycleRuntime";
 import { generateCanonicalProgressionArtifact } from "../engine/canonicalProgressionGenerator";
-import { getLearningCycle } from "../engine/learningCycleRepository";
+import {
+  getLearningCycle,
+  getLatestLearningCycle,
+  transitionLearningCycle,
+} from "../engine/learningCycleRepository";
 import {
   confirmReturnedWorkDraft,
   createReturnedWorkDraft,
@@ -1033,30 +1037,33 @@ export function setupRoutes(app: Express): void {
           );
         });
       }
-      if (
-        event.context === "baseline_route" &&
-        event.source === "child_choice" &&
-        event.selectedOptionId
-      ) {
+      let selectedRouteId: string | undefined;
+      if (event.context === "baseline_route" && event.source === "child_choice" && event.selectedOptionId) {
         const selected = event.shownOptions.find(
           (option) => option.optionId === event.selectedOptionId,
         );
         if (selected) {
-          const skippedLabels = event.shownOptions
-            .filter((option) => option.optionId !== event.selectedOptionId)
-            .map((option) => option.label);
-          appendContentFeedbackLesson(process.cwd(), childId, {
-            contentId: selected.contentId,
-            theoryId: selected.theoryId,
-            experimentId: selected.experimentId,
-            engagementDimensions: selected.engagementDimensions,
-            mechanic: selected.label,
-            theme: selected.preferenceTraits?.join(", ") || undefined,
-            domain: event.domain,
-            decision: "approve",
-            reason: `Child chose route "${selected.label}"${skippedLabels.length ? ` over ${skippedLabels.join(", ")}` : ""} at the board fork.`,
-            source: "child_choice",
-          });
+          const cycle = getLatestLearningCycle(childId);
+          const experiment = cycle?.agencyExperiment;
+          const route = experiment?.routes.find((candidate) =>
+            candidate.routeId === selected.experimentId || candidate.routeId === event.selectedOptionId);
+          if (cycle && experiment && route) {
+            const alreadyRecorded = cycle.routeSelection?.history.some(
+              (entry) => entry.choiceEventId === event.choiceEventId,
+            ) === true;
+            const updated = alreadyRecorded
+              ? cycle
+              : transitionLearningCycle(childId, cycle.homeworkId, cycle.revision, {
+                  type: "route_selected",
+                  experimentId: experiment.experimentId,
+                  routeId: route.routeId,
+                  choiceEventId: event.choiceEventId,
+                });
+            selectedRouteId = updated.routeSelection?.selectedRouteId;
+            console.log(
+              ` 🎮 [agency-route] [selected] child=${childId} route=${selectedRouteId ?? route.routeId} event=${event.choiceEventId}`,
+            );
+          }
         }
       }
       return res.json({
@@ -1064,6 +1071,7 @@ export function setupRoutes(app: Express): void {
         applied: applied.applied,
         skippedPersistence: false,
         choiceEventId: event.choiceEventId,
+        ...(selectedRouteId ? { selectedRouteId } : {}),
       });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);

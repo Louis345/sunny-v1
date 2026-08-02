@@ -54,15 +54,38 @@ vi.mock("../engine/learningCycleRepository", () => ({
     lifecycle: "baseline_evaluating",
     revision: 2,
   })),
+  getLatestLearningCycle: vi.fn(() => ({
+    childId: "demo-pashley",
+    homeworkId: "hw-math",
+    lifecycle: "baseline_active",
+    revision: 2,
+    agencyExperiment: {
+      experimentId: "agency-1",
+      sharedNodeIds: ["teach"],
+      routes: [
+        { routeId: "choice-route-a", nodeIds: ["route-a"] },
+        { routeId: "choice-route-b", nodeIds: ["route-b"] },
+      ],
+    },
+  })),
+  transitionLearningCycle: vi.fn(() => ({
+    childId: "demo-pashley",
+    homeworkId: "hw-math",
+    lifecycle: "baseline_active",
+    revision: 3,
+    routeSelection: { selectedRouteId: "choice-route-a" },
+  })),
 }));
 
 import { appendContentFeedbackLesson } from "../engine/contentFeedbackMemory";
+import { transitionLearningCycle } from "../engine/learningCycleRepository";
 import { interpretDirectExperienceOutcome } from "../engine/directExperienceFeedback";
 import { advanceCanonicalCycleFromEvidence } from "../engine/learningCycleRuntime";
 import { generateCanonicalProgressionArtifact } from "../engine/canonicalProgressionGenerator";
 import { setupRoutes } from "./routes";
 
 const mockedAppendLesson = vi.mocked(appendContentFeedbackLesson);
+const mockedTransitionLearningCycle = vi.mocked(transitionLearningCycle);
 const mockedInterpretOutcome = vi.mocked(interpretDirectExperienceOutcome);
 
 describe("choice-event route feedback lessons", () => {
@@ -136,20 +159,22 @@ describe("choice-event route feedback lessons", () => {
     ],
   };
 
-  it("appends a child_choice feedback lesson when a baseline route is picked", async () => {
+  it("records a canonical route selection without approving the chosen mechanic", async () => {
     const out = await postChoiceEvent(routeChoicePayload);
 
     expect(out.status).toBe(200);
     expect(out.body.ok).toBe(true);
-    expect(mockedAppendLesson).toHaveBeenCalledTimes(1);
-    const [, childId, lesson] = mockedAppendLesson.mock.calls[0]!;
-    expect(childId).toBe("demo-pashley");
-    expect(lesson).toMatchObject({
-      mechanic: "Fraction Forge",
-      decision: "approve",
-      source: "child_choice",
-    });
-    expect(String(lesson.reason)).toContain("Puzzle Path");
+    expect(mockedAppendLesson).not.toHaveBeenCalled();
+    expect(mockedTransitionLearningCycle).toHaveBeenCalledWith(
+      "demo-pashley",
+      "hw-math",
+      2,
+      expect.objectContaining({
+        type: "route_selected",
+        experimentId: "agency-1",
+        routeId: "choice-route-a",
+      }),
+    );
   });
 
   it("does not append a lesson for mystery choices", async () => {
