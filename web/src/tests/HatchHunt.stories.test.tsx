@@ -207,6 +207,9 @@ describe("Mossy Hatch Hunt story", () => {
   }, 19_000);
 
   it("supports an assisted chase, captures Mossy once, and keeps native presentation explicit", async () => {
+    const infoSpy = vi.spyOn(console, "info").mockImplementation(() => {});
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    let rejectNativeReturn = false;
     let resolveNativeSelection!: (response: {
       ok: boolean;
       status: number;
@@ -219,9 +222,13 @@ describe("Mossy Hatch Hunt story", () => {
     }>((resolve) => {
       resolveNativeSelection = resolve;
     });
-    const fetchMock = vi.fn().mockImplementation(async (_input: string, init: RequestInit) =>
-      init.method === "GET" ? nativeSelection : { ok: true, status: 202 },
-    );
+    const fetchMock = vi.fn().mockImplementation(async (_input: string, init: RequestInit) => {
+      if (init.method === "GET") return nativeSelection;
+      if (rejectNativeReturn && String(init.body).includes('"type":"active-creature-returned"')) {
+        throw new Error("native return unavailable");
+      }
+      return { ok: true, status: 202 };
+    });
     vi.stubGlobal("fetch", fetchMock);
     const { container } = render(<MossyHatchHuntDemoStory />);
 
@@ -296,5 +303,15 @@ describe("Mossy Hatch Hunt story", () => {
 
     expect(screen.getByText("Mossy is with you.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Return to Farm" })).toBeInTheDocument();
+
+    infoSpy.mockClear();
+    rejectNativeReturn = true;
+    fireEvent.click(screen.getByRole("button", { name: "Return to Farm" }));
+
+    await screen.findByText("Mossy is resting in the Farm. Try again when ready.");
+    expect(infoSpy).not.toHaveBeenCalledWith(
+      " 🎮 [captured-monster-den] [event] [reported]",
+      expect.objectContaining({ type: "active_creature_returned" }),
+    );
   }, 16_000);
 });

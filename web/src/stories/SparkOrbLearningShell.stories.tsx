@@ -557,6 +557,7 @@ function CreatureHandoffDemoStory(
     } catch (error) {
       setPresentationStatus("resting");
       console.error(" 🎮 [sunny-farm] [active-creature-selected] [failed]", error);
+      throw error;
     }
   }
 
@@ -602,6 +603,7 @@ function CreatureHandoffDemoStory(
         `${activeReceipt.reward.inventoryRecord.nickname} couldn’t return yet—try again.`,
       );
       console.error(" 🎮 [sunny-farm] [active-creature-returned] [failed]", error);
+      throw error;
     }
   }
 
@@ -707,7 +709,14 @@ function CreatureHandoffDemoStory(
             <strong>{activeRecord.nickname} is with you</strong>
             <button
               aria-label={`Return ${activeRecord.nickname} to Farm from Sunny`}
-              onClick={() => void returnToFarm()}
+              onClick={() => {
+                void returnToFarm().catch((error) => {
+                  console.error(
+                    " 🎮 [sunny-farm] [return-button] [failed]",
+                    error,
+                  );
+                });
+              }}
               style={{
                 border: 0,
                 borderRadius: 999,
