@@ -1,6 +1,7 @@
 import type { AdventureMapProfile } from "../context/schemas/learningProfile";
 import type { ChildChart } from "./childChart";
 import type { CompanionConfig } from "../shared/companionTypes";
+import type { AdventureBoardJson } from "../shared/adventureBoardJson";
 import { readChoiceEvents } from "../engine/choiceEvents";
 
 export type ChildExperiencePacket = {
@@ -110,9 +111,9 @@ function projectCanonicalAgencyChoice(
   const previewUrl = (nodeId: string) =>
     `/generated/direct-math/${plan.activeHomeworkId}-previews/${nodeId}-opening.png`;
 
-  const nodes = board.nodes.map((node) => {
+  const nodes: AdventureBoardJson["nodes"] = board.nodes.map((node) => {
     if (experiment.sharedNodeIds.includes(node.id)) {
-      const state = completedNodeIds.has(node.id)
+      const state: AdventureBoardJson["nodes"][number]["state"] = completedNodeIds.has(node.id)
         ? "completed"
         : node.id === firstIncompleteShared
           ? "current"
@@ -124,12 +125,12 @@ function projectCanonicalAgencyChoice(
         ...node,
         label: cycle.routeSelection ? "Change Path" : "Choose Path",
         shortLabel: cycle.routeSelection ? "Change Path" : "Choose Path",
-        state: selectedRouteComplete ? "hidden" : sharedComplete ? "current" : "locked",
+        state: (selectedRouteComplete ? "hidden" : sharedComplete ? "current" : "locked") as AdventureBoardJson["nodes"][number]["state"],
       };
     }
     const routeId = routeByNodeId.get(node.id);
     if (routeId) {
-      const state = completedNodeIds.has(node.id)
+      const state: AdventureBoardJson["nodes"][number]["state"] = completedNodeIds.has(node.id)
         ? "completed"
         : routeId === selectedRoute?.routeId && node.id === firstIncompleteSelected
           ? "current"
@@ -165,7 +166,11 @@ function projectCanonicalAgencyChoice(
       : node),
     adventureBoard: {
       ...board,
-      layout: { ...board.layout, routeChoiceBehavior: "exclusive" },
+      layout: {
+        ...board.layout,
+        preset: board.layout?.preset ?? "horizontal-adventure-spine",
+        routeChoiceBehavior: "exclusive",
+      },
       nodes,
       choiceSets,
       progress: {
