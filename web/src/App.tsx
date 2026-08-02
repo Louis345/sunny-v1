@@ -595,6 +595,7 @@ function App() {
     adventureChildId,
     plannerBoardRuntimeRequested,
   );
+  const refreshPlannerBoardPacket = plannerBoardPacketState.refreshPacket;
   const plannerBoardPacket =
     plannerBoardPacketState.packet?.activeSessionPlan?.adventureBoard
       ? plannerBoardPacketState.packet
@@ -968,6 +969,7 @@ function App() {
             applied: out.applied,
             skippedPersistence: out.skippedPersistence,
           });
+          if (out.applied && !out.skippedPersistence) void refreshPlannerBoardPacket();
         })
         .catch((err: unknown) => {
           console.warn(" 🎮 [AdventureBoard] choice_event_failed", {
@@ -1031,7 +1033,7 @@ function App() {
       }
       launchPlannerBoardNode(launchNode);
     },
-    [adventureChildId, launchPlannerBoardNode, mapPreviewMode, plannerBoardPacket],
+    [adventureChildId, launchPlannerBoardNode, mapPreviewMode, plannerBoardPacket, refreshPlannerBoardPacket],
   );
 
   const recordPlannerBoardPostActivityAction = useCallback(
@@ -1219,7 +1221,8 @@ function App() {
             result: payload,
           })
         : Promise.resolve(null);
-      void completionWrite.then(() => {
+      void completionWrite.then(async () => {
+        await refreshPlannerBoardPacket();
         setLocallyCompletedPlannerNodeIds((current) =>
           current.includes(launch.node.id) ? current : [...current, launch.node.id],
         );
@@ -1242,6 +1245,7 @@ function App() {
     generatedMathSoundMuted,
     plannerBoardLaunch,
     plannerBoardPacket,
+    refreshPlannerBoardPacket,
     showPlannerBoardEngagementOverlay,
   ]);
 

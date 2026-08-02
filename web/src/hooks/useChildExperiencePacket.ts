@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { ChildExperiencePacket } from "../../../src/profiles/childExperiencePacket";
 
 export type ChildExperiencePacketState = {
@@ -6,7 +6,10 @@ export type ChildExperiencePacketState = {
   loading: boolean;
   error: string | null;
   questBossPreparation: QuestBossPreparationStatus | null;
+  refreshPacket: () => Promise<ChildExperiencePacket | null>;
 };
+
+type ChildExperiencePacketSnapshot = Omit<ChildExperiencePacketState, "refreshPacket">;
 
 export type QuestBossArtifactLifecycleStatus =
   | "brief_only"
@@ -84,12 +87,17 @@ export function useChildExperiencePacket(
   childId: string | null,
   enabled: boolean,
 ): ChildExperiencePacketState {
-  const [state, setState] = useState<ChildExperiencePacketState>({
+  const [state, setState] = useState<ChildExperiencePacketSnapshot>({
     packet: null,
     loading: false,
     error: null,
     questBossPreparation: null,
   });
+  const reloadRef = useRef<(() => Promise<ChildExperiencePacket | null>) | null>(null);
+  const refreshPacket = useCallback(
+    () => reloadRef.current?.() ?? Promise.resolve(null),
+    [],
+  );
 
   useEffect(() => {
     const resolvedChildId = childId?.trim().toLowerCase() ?? "";
@@ -118,6 +126,7 @@ export function useChildExperiencePacket(
         }
         return null;
       });
+    reloadRef.current = loadPacket;
 
     const pollPreparation = () => {
       if (cancelled) return;
@@ -163,9 +172,10 @@ export function useChildExperiencePacket(
 
     return () => {
       cancelled = true;
+      if (reloadRef.current === loadPacket) reloadRef.current = null;
       if (prepTimer) clearTimeout(prepTimer);
     };
   }, [childId, enabled]);
 
-  return state;
+  return { ...state, refreshPacket };
 }

@@ -61,6 +61,37 @@ describe("useChildExperiencePacket", () => {
     expect(result.current.loading).toBe(false);
   });
 
+  it("refreshes canonical route state on demand without restarting Quest/Boss preparation", async () => {
+    let packetVersion = 0;
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url === "/api/child-experience/reina") {
+        packetVersion += 1;
+        return Response.json({
+          childChart: { childId: "reina" },
+          activeSessionPlan: { adventureBoard: { boardId: `board-reina-${packetVersion}` } },
+        });
+      }
+      if (url === "/api/homework/quest-boss/prepare") {
+        return Response.json({ ok: true, childId: "reina", jobs: [], running: [], briefs: [] }, { status: 202 });
+      }
+      throw new Error(`unexpected fetch ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { result } = renderHook(() => useChildExperiencePacket("reina", true));
+    await waitFor(() => {
+      expect(result.current.packet?.activeSessionPlan?.adventureBoard?.boardId).toBe("board-reina-1");
+    });
+
+    await act(async () => {
+      await result.current.refreshPacket();
+    });
+
+    expect(result.current.packet?.activeSessionPlan?.adventureBoard?.boardId).toBe("board-reina-2");
+    expect(fetchMock.mock.calls.filter(([input]) => String(input) === "/api/homework/quest-boss/prepare")).toHaveLength(1);
+  });
+
   it("polls Quest/Boss prep status and reloads the packet when content becomes reviewable", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     let packetVersion = 0;
