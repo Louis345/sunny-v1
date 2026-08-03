@@ -840,8 +840,35 @@ export function buildShowroomTalkMemoryPrompt(
     memory.emotionalTone && `Emotional tone: ${memory.emotionalTone}`,
     formatMemoryList("Relationship facts", memory.relationshipFacts),
     formatMemoryList("Favorite moments", memory.favoriteMoments),
+    formatMemoryList("Things you have shown about yourself", memory.companionSelfNotes),
+    formatCompanionGameRecord(memory.gameRecord),
+    memory.rivalryNote && `Rivalry note: ${memory.rivalryNote}`,
   ].filter((line): line is string => Boolean(line));
   return lines.length > 1 ? lines.join("\n") : undefined;
+}
+
+/**
+ * The win/loss history is counted by the app, so the companion can refer to it
+ * as fact. Claude must not invent a different tally.
+ */
+function formatCompanionGameRecord(
+  record: CompanionCareMemory["gameRecord"],
+): string | null {
+  const entries = Object.entries(record ?? {}).filter(([, value]) => value?.played > 0);
+  if (entries.length === 0) return null;
+  const summaries = entries.map(([activityId, value]) => {
+    const name = isCompanionActivityId(activityId)
+      ? getCompanionActivityDescriptor(activityId).displayName
+      : activityId;
+    const streak =
+      value.currentStreak > 1
+        ? `; the child has won ${value.currentStreak} in a row`
+        : value.currentStreak < -1
+          ? `; you have won ${Math.abs(value.currentStreak)} in a row`
+          : "";
+    return `${name}: ${value.played} played, child won ${value.childWins}, you won ${value.companionWins}, ${value.draws} drawn${streak}`;
+  });
+  return `Game record (exact, do not contradict or invent numbers): ${summaries.join(" | ")}`;
 }
 
 export function resolveShowroomSpokenText(input: {

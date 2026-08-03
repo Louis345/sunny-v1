@@ -120,6 +120,7 @@ import {
   maybeCompactCompanionInteractionMemory,
   readCompanionCareMemoryForPrompt,
   recordCompanionInteractionEvent,
+  recordCompanionGameResult,
 } from "./companionInteractionMemory";
 import {
   readCompanionVideoCallTracePacket,
@@ -1478,14 +1479,38 @@ export function setupRoutes(app: Express): void {
           companionId: talk.companionId,
           callSource: talk.callSource,
           relationshipState: talk.relationshipState,
-        eventType: "companion_talk_completed",
-        questionText: talk.question,
-        companionText: spokenText,
-        commandCount: companionCommands.length,
+          eventType: talk.activityReaction
+            ? "companion_activity_completed"
+            : "companion_talk_completed",
+          questionText: talk.question,
+          companionText: spokenText,
+          commandCount: companionCommands.length,
           visionUsed: Boolean(talk.visualSnapshot),
           visualSnapshot: talk.visualSnapshot,
           rewardContext: talk.rewardContext,
+          ...(talk.activityReaction && {
+            activityContext: {
+              activityId: talk.activityReaction.activityId,
+              eventType: talk.activityReaction.eventType,
+              ...(talk.activityReaction.result && {
+                result: talk.activityReaction.result,
+              }),
+              machinePrompt: talk.question,
+            },
+          }),
         });
+        // Deterministic win/loss history: counted here, never by a model.
+        if (talk.activityReaction?.result) {
+          const recorded = recordCompanionGameResult({
+            childId: talk.childId,
+            companionId: talk.companionId,
+            activityId: talk.activityReaction.activityId,
+            result: talk.activityReaction.result,
+          });
+          console.log(
+            ` 🎮 [companion-memory] [game_result] [${recorded.recorded ? "ok" : recorded.reason}] child=${talk.childId} companion=${talk.companionId} activity=${talk.activityReaction.activityId} result=${talk.activityReaction.result}`,
+          );
+        }
         void maybeCompactCompanionInteractionMemory({
           childId: talk.childId,
           companionId: talk.companionId,
@@ -1907,14 +1932,38 @@ export function setupRoutes(app: Express): void {
             companionId: talk.companionId,
             callSource: talk.callSource,
             relationshipState: talk.relationshipState,
-            eventType: "companion_talk_completed",
+            eventType: talk.activityReaction
+              ? "companion_activity_completed"
+              : "companion_talk_completed",
             questionText: talk.question,
             companionText: spokenText,
             commandCount: companionCommands.length,
             visionUsed: Boolean(talk.visualSnapshot),
             visualSnapshot: talk.visualSnapshot,
             rewardContext: talk.rewardContext,
+            ...(talk.activityReaction && {
+              activityContext: {
+                activityId: talk.activityReaction.activityId,
+                eventType: talk.activityReaction.eventType,
+                ...(talk.activityReaction.result && {
+                  result: talk.activityReaction.result,
+                }),
+                machinePrompt: talk.question,
+              },
+            }),
           });
+          // Deterministic win/loss history: counted here, never by a model.
+          if (talk.activityReaction?.result) {
+            const recorded = recordCompanionGameResult({
+              childId: talk.childId,
+              companionId: talk.companionId,
+              activityId: talk.activityReaction.activityId,
+              result: talk.activityReaction.result,
+            });
+            console.log(
+              ` 🎮 [companion-memory] [game_result] [${recorded.recorded ? "ok" : recorded.reason}] child=${talk.childId} companion=${talk.companionId} activity=${talk.activityReaction.activityId} result=${talk.activityReaction.result}`,
+            );
+          }
           void maybeCompactCompanionInteractionMemory({
             childId: talk.childId,
             companionId: talk.companionId,
