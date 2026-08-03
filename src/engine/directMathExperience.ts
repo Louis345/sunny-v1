@@ -91,6 +91,7 @@ export type MathCatalogDecision = {
 };
 
 export type MathPlannedActivity = {
+  purpose?: "baseline" | "bonus";
   id: string;
   routeId: string;
   responsibilityId: string;
@@ -134,6 +135,7 @@ export type MathLearningProgram = {
   /** Present on every newly planned program; optional only while reading pre-v6 checkpoints. */
   agencyExperiment?: AgencyExperiment;
   activities: MathPlannedActivity[];
+  bonusActivity?: MathPlannedActivity;
 };
 
 export type ExperienceDesignArtifactV1 = {
@@ -176,6 +178,8 @@ export type MathDesignPacket = {
       routeId: string;
       label: string;
       promise: string;
+      childFacingActionCue: string;
+      previewNodeId: string;
       engagementVariable: string;
     }>;
     questTeaser: string;
@@ -341,6 +345,7 @@ export const MATH_LEARNING_PROGRAM_TOOL_SCHEMA = schemaObject({
     minItems: 1,
     items: schemaObject({
       id: schemaString,
+      purpose: { enum: ["baseline", "bonus"] },
       routeId: schemaString,
       responsibilityId: schemaString,
       academicTarget: schemaString,
@@ -414,12 +419,15 @@ export type DirectLearningExperiencePlan = {
       id: string;
       label: string;
       promise: string;
+      childFacingActionCue?: string;
+      previewNodeId?: string;
       engagementVariable: string;
       nodeIds: string[];
     }>;
   };
   agencyExperiment?: AgencyExperiment;
   activities: DirectActivity[];
+  bonusActivity?: DirectActivity;
   quest: { title: "Quest"; locked: true; teaser: string; artworkPrompt: string };
   boss: { title: "Boss"; locked: true; teaser: string; artworkPrompt: string };
 };
@@ -636,7 +644,7 @@ export function parseMathLearningProgram(value: unknown): MathLearningProgram {
     };
   });
   if (routes.length !== 2) throw new Error("math_learning_program_requires_two_routes");
-  const activities = (Array.isArray(root.activities) ? root.activities : []).map((raw): MathPlannedActivity => {
+  const parsedActivities = (Array.isArray(root.activities) ? root.activities : []).map((raw): MathPlannedActivity => {
     const activity = object(raw);
     const boundary = object(activity?.difficultyBoundary);
     const prediction = object(activity?.academicPrediction);
@@ -646,6 +654,7 @@ export function parseMathLearningProgram(value: unknown): MathLearningProgram {
     const action = requiredString(catalogDecision, "action");
     if (!["reuse", "revise", "generate_new", "retire"].includes(action)) throw new Error("math_learning_program_invalid_catalog_action");
     return {
+      purpose: activity.purpose === "bonus" ? "bonus" : "baseline",
       id: requiredString(activity, "id"),
       routeId: requiredString(activity, "routeId"),
       responsibilityId: requiredString(activity, "responsibilityId"),
@@ -677,6 +686,9 @@ export function parseMathLearningProgram(value: unknown): MathLearningProgram {
       },
     };
   });
+  const bonusActivities = parsedActivities.filter((activity) => activity.purpose === "bonus");
+  if (bonusActivities.length > 1) throw new Error("math_learning_program_requires_at_most_one_bonus");
+  const activities = parsedActivities.filter((activity) => activity.purpose !== "bonus");
   if (activities.length === 0) throw new Error("math_learning_program_requires_activities");
   const normalizedResponsibilities = [...learningResponsibilities];
   const knownResponsibilityIds = new Set(normalizedResponsibilities.map((item) => item.id));
@@ -740,6 +752,7 @@ export function parseMathLearningProgram(value: unknown): MathLearningProgram {
     },
     ...(agencyExperiment ? { agencyExperiment } : {}),
     activities,
+    ...(bonusActivities[0] ? { bonusActivity: bonusActivities[0] } : {}),
   };
 }
 
@@ -771,6 +784,12 @@ export function parseDirectLearningExperiencePlan(value: unknown): DirectLearnin
       id: requiredString(route, "id", "route_id"),
       label: requiredString(route, "label"),
       promise: requiredString(route, "promise"),
+      ...(typeof route.childFacingActionCue === "string" && route.childFacingActionCue.trim()
+        ? { childFacingActionCue: route.childFacingActionCue.trim() }
+        : {}),
+      ...(typeof route.previewNodeId === "string" && route.previewNodeId.trim()
+        ? { previewNodeId: route.previewNodeId.trim() }
+        : {}),
       engagementVariable: requiredString(route, "engagementVariable"),
       nodeIds: stringArray(route.nodeIds, "route_node_ids"),
     };
@@ -1083,6 +1102,8 @@ function parseBoardCreativeSpine(value: unknown): MathDesignPacket["boardCreativ
         routeId: requiredString(route, "routeId"),
         label: requiredString(route, "label"),
         promise: requiredString(route, "promise"),
+        childFacingActionCue: requiredString(route, "childFacingActionCue"),
+        previewNodeId: requiredString(route, "previewNodeId"),
         engagementVariable: requiredString(route, "engagementVariable"),
       };
     }),
@@ -1101,6 +1122,15 @@ function parseBoardCreativeSpine(value: unknown): MathDesignPacket["boardCreativ
   };
 }
 
+export function mathDesignHasRoutePresentationBindings(
+  value: Pick<MathDesignPacket, "boardCreativeSpine"> | MathDesignCheckpoint,
+): boolean {
+  const directions = value.boardCreativeSpine?.routeDirections;
+  return Array.isArray(directions) && directions.length > 0 && directions.every((route) =>
+    typeof route.childFacingActionCue === "string" && route.childFacingActionCue.trim().length > 0
+    && typeof route.previewNodeId === "string" && route.previewNodeId.trim().length > 0);
+}
+
 export async function askMathExperienceDesigner(input: {
   childId: string;
   program: MathLearningProgram;
@@ -1117,7 +1147,12 @@ export async function askMathExperienceDesigner(input: {
 }): Promise<{ packet: MathDesignPacket; plan: DirectLearningExperiencePlan }> {
   const client = input.client ?? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
   const model = input.model ?? process.env.SUNNY_ARCHITECT_MODEL ?? "claude-fable-5";
-  const contracts = input.program.activities.map((activity) => ({
+  const programActivities = [
+    ...input.program.activities,
+    ...(input.program.bonusActivity ? [input.program.bonusActivity] : []),
+  ];
+  const { bonusActivity: _bonusActivity, ...programWithoutBonusDuplicate } = input.program;
+  const contracts = programActivities.map((activity) => ({
     ...activity,
     academicContractHash: mathAcademicContractHash(activity),
   }));
@@ -1162,8 +1197,10 @@ export async function askMathExperienceDesigner(input: {
         routeId: schemaString,
         label: schemaString,
         promise: schemaString,
+        childFacingActionCue: schemaString,
+        previewNodeId: schemaString,
         engagementVariable: schemaString,
-      }),
+      }, ["routeId", "label", "promise", "childFacingActionCue", "previewNodeId", "engagementVariable"]),
     },
     questTeaser: schemaString,
     questArtworkDirection: schemaString,
@@ -1172,12 +1209,15 @@ export async function askMathExperienceDesigner(input: {
   }, ["title", "narrative", "openingChoice", "backgroundDirection", "routeDirections"]);
   let checkpoint = input.checkpoint ?? createMathDesignCheckpoint({
     planId: input.program.planId,
-    expectedNodeIds: input.program.activities.map((activity) => activity.id),
+    expectedNodeIds: programActivities.map((activity) => activity.id),
     model,
   });
-  for (let attemptIndex = 0; attemptIndex < 2 && checkpoint.missingNodeIds.length > 0; attemptIndex += 1) {
+  for (let attemptIndex = 0;
+    attemptIndex < 2 && (checkpoint.missingNodeIds.length > 0 || !mathDesignHasRoutePresentationBindings(checkpoint));
+    attemptIndex += 1) {
     const requestedNodeIds = [...checkpoint.missingNodeIds];
     const isContinuation = Boolean(checkpoint.boardCreativeSpine);
+    const presentationOnly = requestedNodeIds.length === 0 && isContinuation;
     const prompt = `You are Sunny's Experience Creator. Design one coherent child-facing math chapter and rich design artifacts for the requested prescribed nodes.
 
 The Math Planner's educational program is immutable. You cannot change activity count or IDs, routes, responsibilities, academic targets, difficulty boundaries, item content, response contracts, predictions, measurement keys, or catalog decisions.
@@ -1186,8 +1226,11 @@ You own the complete creative design: board world, route identities, titles, exp
 
 Creative objective: design something this specific child can understand immediately and may choose to continue playing. Mathematics must visibly change the world, mission, progress, or payoff. You independently choose mechanics, stakes, consequences, recovery, pacing, and payoff. Do not default to consequence-free play merely because evidence is uncertain; choose what best fits the academic responsibility and factual child evidence. Treat profile observations as hypotheses, and do not repeatedly literalize one interest.
 
-Return design artifacts only for these node IDs: ${requestedNodeIds.join(", ")}. Copy each supplied academicContractHash exactly. Do not write HTML.
-${isContinuation ? `This is a missing-content continuation, not a redesign. Preserve the frozen board spine and completed sibling designs. Return only the missing artifacts.\nFrozen board spine:\n${JSON.stringify(checkpoint.boardCreativeSpine, null, 2)}\nCompleted sibling summaries:\n${JSON.stringify(checkpoint.artifacts.map((artifact) => ({ nodeId: artifact.nodeId, title: artifact.title, coreInteraction: artifact.coreInteraction, visualDirection: artifact.visualDirection })), null, 2)}` : "Also return one boardCreativeSpine for the complete chapter."}
+For every route, author a short childFacingActionCue that names what the child will actually do, and previewNodeId naming the route node whose opening view demonstrates that action. The cue is not an explanation paragraph. The preview node must belong to that route.
+
+${presentationOnly
+    ? `This is one presentation-only revision. Return zero artifacts. Copy every frozen board-spine field and route field exactly, adding only childFacingActionCue and previewNodeId to each route direction.\nFrozen board spine:\n${JSON.stringify(checkpoint.boardCreativeSpine, null, 2)}\nFrozen route membership:\n${JSON.stringify(input.program.fork.routes, null, 2)}\nCompleted artifact summaries:\n${JSON.stringify(checkpoint.artifacts.map((artifact) => ({ nodeId: artifact.nodeId, title: artifact.title, firstAction: artifact.firstAction, coreInteraction: artifact.coreInteraction })), null, 2)}`
+    : `Return design artifacts only for these node IDs: ${requestedNodeIds.join(", ")}. Copy each supplied academicContractHash exactly. Do not write HTML.\n${isContinuation ? `This is a missing-content continuation, not a redesign. Preserve the frozen board spine and completed sibling designs. Return only the missing artifacts.\nFrozen board spine:\n${JSON.stringify(checkpoint.boardCreativeSpine, null, 2)}\nCompleted sibling summaries:\n${JSON.stringify(checkpoint.artifacts.map((artifact) => ({ nodeId: artifact.nodeId, title: artifact.title, coreInteraction: artifact.coreInteraction, visualDirection: artifact.visualDirection })), null, 2)}` : "Also return one boardCreativeSpine for the complete chapter."}`}
 
 Child: ${input.childId}
 
@@ -1198,7 +1241,7 @@ Factual prior outcomes and catalog history:
 ${JSON.stringify(factualModelContext(input.priorOutcomes), null, 2)}
 
 Immutable MathLearningProgram:
-${JSON.stringify({ ...input.program, activities: contracts }, null, 2)}`;
+${JSON.stringify({ ...programWithoutBonusDuplicate, activities: contracts }, null, 2)}`;
     const startedAt = Date.now();
     const request = {
       model,
@@ -1211,7 +1254,7 @@ ${JSON.stringify({ ...input.program, activities: contracts }, null, 2)}`;
         input_schema: {
           type: "object",
           additionalProperties: true,
-          required: isContinuation ? ["artifacts", "rationale"] : ["boardCreativeSpine", "artifacts", "rationale"],
+          required: presentationOnly || !isContinuation ? ["boardCreativeSpine", "artifacts", "rationale"] : ["artifacts", "rationale"],
           properties: {
             boardCreativeSpine: boardCreativeSpineSchema,
             artifacts: {
@@ -1280,7 +1323,22 @@ ${JSON.stringify({ ...input.program, activities: contracts }, null, 2)}`;
     const root = object(toolUse.input);
     if (!root) throw new Error(`math_design_provider_contract_failed:invalid_tool_output:nodes=${requestedNodeIds.join(",")}`);
     let boardCreativeSpine = checkpoint.boardCreativeSpine;
-    if (!boardCreativeSpine && root.boardCreativeSpine) {
+    if (presentationOnly && boardCreativeSpine && root.boardCreativeSpine) {
+      const revision = parseBoardCreativeSpine(root.boardCreativeSpine);
+      const revisedByRoute = new Map(revision.routeDirections.map((route) => [route.routeId, route]));
+      boardCreativeSpine = {
+        ...boardCreativeSpine,
+        routeDirections: boardCreativeSpine.routeDirections.map((route) => {
+          const revised = revisedByRoute.get(route.routeId);
+          if (!revised) throw new Error(`math_design_route_missing:${route.routeId}`);
+          return {
+            ...route,
+            childFacingActionCue: revised.childFacingActionCue,
+            previewNodeId: revised.previewNodeId,
+          };
+        }),
+      };
+    } else if (!boardCreativeSpine && root.boardCreativeSpine) {
       boardCreativeSpine = parseBoardCreativeSpine(root.boardCreativeSpine);
     }
     const received: ExperienceDesignArtifactV1[] = [];
@@ -1289,7 +1347,7 @@ ${JSON.stringify({ ...input.program, activities: contracts }, null, 2)}`;
         const rawRecord = object(raw);
         const nodeId = rawRecord ? requiredString(rawRecord, "nodeId") : "";
         if (!requestedNodeIds.includes(nodeId)) continue;
-        const activity = input.program.activities.find((candidate) => candidate.id === nodeId);
+        const activity = programActivities.find((candidate) => candidate.id === nodeId);
         if (!activity || received.some((artifact) => artifact.nodeId === nodeId)) continue;
         received.push(parseExperienceDesignArtifact(raw, activity));
       } catch {
@@ -1298,7 +1356,7 @@ ${JSON.stringify({ ...input.program, activities: contracts }, null, 2)}`;
     }
     checkpoint = mergeMathDesignCheckpoint(checkpoint, {
       artifacts: received,
-      programActivities: input.program.activities,
+      programActivities,
       ...(boardCreativeSpine ? { boardCreativeSpine } : {}),
       ...(typeof root.rationale === "string" && root.rationale.trim() ? { rationale: root.rationale.trim() } : {}),
       attempt: {
@@ -1317,7 +1375,7 @@ ${JSON.stringify({ ...input.program, activities: contracts }, null, 2)}`;
       fs.writeFileSync(input.checkpointFile, `${JSON.stringify(checkpoint, null, 2)}\n`, "utf8");
     }
   }
-  if (!checkpoint.boardCreativeSpine || checkpoint.missingNodeIds.length > 0) {
+  if (!checkpoint.boardCreativeSpine || checkpoint.missingNodeIds.length > 0 || !mathDesignHasRoutePresentationBindings(checkpoint)) {
     throw new Error(`math_design_provider_contract_failed:missing_nodes=${checkpoint.missingNodeIds.join(",") || "board-spine"}:checkpoint=${input.checkpointFile ?? "memory"}`);
   }
   const artifactByNode = new Map(checkpoint.artifacts.map((artifact) => [artifact.nodeId, artifact]));
@@ -1326,11 +1384,17 @@ ${JSON.stringify({ ...input.program, activities: contracts }, null, 2)}`;
   if (input.program.fork.routes.some((route) => !designedRouteIds.has(route.id))) {
     throw new Error(`math_design_provider_contract_failed:missing_route_direction:checkpoint=${input.checkpointFile ?? "memory"}`);
   }
+  for (const route of input.program.fork.routes) {
+    const direction = routeDirections.find((candidate) => candidate.routeId === route.id)!;
+    if (!route.nodeIds.includes(direction.previewNodeId)) {
+      throw new Error(`math_design_route_preview_node_mismatch:${route.id}:${direction.previewNodeId}`);
+    }
+  }
   const packet: MathDesignPacket = {
     version: 1,
     planId: input.program.planId,
     boardCreativeSpine: checkpoint.boardCreativeSpine,
-    artifacts: input.program.activities.map((activity) => artifactByNode.get(activity.id)!),
+    artifacts: programActivities.map((activity) => artifactByNode.get(activity.id)!),
     rationale: checkpoint.rationale ?? "Completed coherent design packet.",
     model,
     createdAt: (input.now ?? new Date()).toISOString(),
@@ -1360,7 +1424,15 @@ ${JSON.stringify({ ...input.program, activities: contracts }, null, 2)}`;
       routes: input.program.fork.routes.map((route) => {
         const design = routeById.get(route.id);
         if (!design) throw new Error(`math_design_route_missing:${route.id}`);
-        return { id: route.id, label: design.label, promise: design.promise, engagementVariable: design.engagementVariable, nodeIds: route.nodeIds };
+        return {
+          id: route.id,
+          label: design.label,
+          promise: design.promise,
+          childFacingActionCue: design.childFacingActionCue,
+          previewNodeId: design.previewNodeId,
+          engagementVariable: design.engagementVariable,
+          nodeIds: route.nodeIds,
+        };
       }),
     },
     ...(input.program.agencyExperiment ? { agencyExperiment: input.program.agencyExperiment } : {}),
@@ -1404,10 +1476,52 @@ ${JSON.stringify({ ...input.program, activities: contracts }, null, 2)}`;
     quest: { title: "Quest", locked: true, teaser: packet.boardCreativeSpine.questTeaser, artworkPrompt: packet.boardCreativeSpine.questArtworkDirection },
     boss: { title: "Boss", locked: true, teaser: packet.boardCreativeSpine.bossTeaser, artworkPrompt: packet.boardCreativeSpine.bossArtworkDirection },
   };
+  if (input.program.bonusActivity) {
+    const activity = input.program.bonusActivity;
+    const design = artifactByNode.get(activity.id)!;
+    plan.bonusActivity = {
+      id: activity.id,
+      title: design.title,
+      routeId: "bonus",
+      responsibilityId: activity.responsibilityId,
+      learningPurpose: "Optional assignment-aligned reward practice",
+      academicTarget: activity.academicTarget,
+      mechanic: design.coreInteraction,
+      engagementVariable: "earned-companion-play",
+      visualMock: {
+        scene: design.visualDirection,
+        layout: design.firstThreeSeconds,
+        artworkPrompt: design.visualDirection,
+      },
+      experience: {
+        objective: design.openingPromise,
+        childAction: design.firstAction,
+        worldReaction: design.worldReaction,
+        anticipation: design.stakes,
+        progress: design.progression.join(" → "),
+        recovery: design.recovery,
+        reward: design.payoff,
+      },
+      items: activity.items,
+      acceptanceSteps: [design.firstAction, design.consequences, design.recovery, design.payoff],
+      creatorPrompt: JSON.stringify(design),
+      designPrediction: design.engagementPrediction,
+      academicPrediction: { ...activity.academicPrediction, evidenceLimit: "practice_only" },
+      preserve: [],
+      change: [],
+      explore: [],
+      avoid: [],
+      measurementKeys: activity.measurementKeys,
+      difficultyBoundary: activity.difficultyBoundary,
+      catalogDecision: activity.catalogDecision,
+      designArtifact: design,
+    };
+  }
   return { packet, plan };
 }
 
 function chartForPlanner(chart: ChildChart): unknown {
+  const economy = chart.companionCare?.plan.economy;
   return {
     identity: chart.identity,
     demographics: chart.demographics,
@@ -1418,6 +1532,13 @@ function chartForPlanner(chart: ChildChart): unknown {
     factBankSummary: chart.factBankSummary,
     recentDecision: chart.decisionTrace.latest,
     longitudinalLearning: chart.learningHistory,
+    rewardEvidence: {
+      videoCallTickets: economy?.videoCallTickets ?? [],
+      bonusRewardReceipts: economy?.bonusRewardReceipts ?? [],
+      purchaseCount: (economy?.purchaseReceipts ?? []).length,
+      currentCoinBalance: economy?.coins ?? chart.economy?.coinBalance ?? 0,
+      interpretation: "Factual reward activity only. It is not mastery or a durable preference conclusion.",
+    },
   };
 }
 
@@ -1502,6 +1623,7 @@ export function buildMathCreativeChildContext(chart: ChildChart): unknown {
         (value) => typeof value === "string" && value.trim(),
       )
     : [];
+  const rewardEconomy = chart.companionCare?.plan.economy;
 
   return {
     audience: {
@@ -1519,6 +1641,12 @@ export function buildMathCreativeChildContext(chart: ChildChart): unknown {
       ],
       dimensions,
       observations,
+    },
+    rewardObservations: {
+      videoCallTickets: rewardEconomy?.videoCallTickets ?? [],
+      bonusRewardReceipts: rewardEconomy?.bonusRewardReceipts ?? [],
+      purchaseCount: (rewardEconomy?.purchaseReceipts ?? []).length,
+      howToRead: "Factual actions with sparse evidence; do not infer a durable preference from one event.",
     },
   };
 }
@@ -1582,7 +1710,7 @@ You own only the educational prescription:
 
 You do not choose titles, worlds, visuals, mechanics, stakes, consequences, rewards, motion, sound, artwork, libraries, HTML, or Creator prompts. A separate Experience Creator owns those choices after your program is locked.
 
-Choose any educationally sufficient activity and item counts. Use exactly two academically valid routes with at least one node each. Distribute responsibilities across the whole board; do not duplicate the complete curriculum merely for symmetry. Keep initial nodes practice_only. Quest and Boss are not part of this baseline program and remain locked until real evidence supports a later decision.
+Choose any educationally sufficient activity and item counts for the baseline program. Mark baseline activities purpose=baseline. Use exactly two academically valid routes with at least one baseline node each. Distribute responsibilities across the whole board; do not duplicate the complete curriculum merely for symmetry. Also author exactly one optional purpose=bonus activity with fresh assignment-aligned practice_only material. It is not a route requirement, cannot support mastery, and failure to build it must not block the board. Keep initial nodes practice_only. Quest and Boss are not part of this baseline program and remain locked until real evidence supports a later decision.
 
 Create one agencyExperiment for the two routes. Use factual child-chart and historical evidence to state a separate engagement hypothesis, predicted outcome, uncertainty, falsifying evidence, and measurement keys for each route. Keep the academic purpose and difficulty comparable at the choice point. A route choice is weak engagement evidence only and never proves a preference. The later decision must consider starts, completion, abandonment, switching, replay, assistance, interaction difficulty, rating, and academic outcomes.
 
@@ -1750,6 +1878,9 @@ You may use the HTTPS libraries named by the design artifact, or no library. Kee
 Runtime contract:
 Emit window.parent.postMessage({type:"activity_ready",payload:{nodeId:"${input.activity.id}"}},"*") when the experience is ready.
 Whenever the activity or active problem changes, emit window.parent.postMessage({type:"game_state_update",payload:{game:"generated-math",activityId:"${input.activity.id}",nodeId:"${input.activity.id}",phase:"question",activityTitle:${JSON.stringify(input.activity.title)},learningFocus:${JSON.stringify(input.activity.academicTarget)},mechanic:${JSON.stringify(input.activity.mechanic)},currentChallenge,availableActions,itemIndex,totalItems,answerVisibility:"hidden"}},"*") so Elli has live context. Never expose answers.
+Represent currentChallenge as {id,prompt,mode,readAloudRequested:false,readAloudCount}. When the child activates a visible Read it to me control, increment readAloudCount and resend that same answer-hidden state with readAloudRequested:true. Do not narrate it inside the activity.
+Listen for parent messages with type:"sunny_companion_presence". Pause activity timers and input while summoned, and resume the same state when collapsed. Do not restart or change progress.
+Sunny may reserve a 220px right-side companion safe area while the child asks for help. Keep essential instructions, mathematical representations, and primary controls outside it at the 1365×768 target; decorative scenery may extend behind it.
 For sound, post semantic cues to Sunny with window.parent.postMessage({type:"sunny_sfx",payload:{cue}},"*"). The allowed cue values are "interaction", "recovery", "progress", and "completion". Emit them when the approved design calls for those moments; Sunny owns the actual recorded sound quality.
 Include one visible sound toggle. It must post window.parent.postMessage({type:"sunny_sound_toggle",payload:{muted}},"*") whenever its state changes. Do not use speechSynthesis, spoken browser narration, HTML audio elements, or external audio assets. Do not create AudioContext oscillators or synthesized tones. Spoken explanations belong only to Elli after the child asks.
 Maintain a factual targetResults array for the full activity. For each answer append {target,correct,attemptedValue,responseTimeMs,scaffoldLevel}, where target is the stable item id, attemptedValue is what the child submitted, and scaffoldLevel reflects demos, hints, or companion help.
@@ -1810,6 +1941,8 @@ Load <script src="/games/_contract.js"></script> in <head>.
 Read runtime identity and parameters from window.GAME_PARAMS. Never hardcode the child identity, homework identity, or session identity into the HTML.
 Emit window.parent.postMessage({type:"activity_ready",payload:{nodeId:"${nodeId}"}},"*") when ready.
 Whenever the activity or problem changes, emit window.parent.postMessage({type:"game_state_update",payload:{game:"generated-math",activityId:"${nodeId}",nodeId:"${nodeId}",phase:"question",activityTitle:${JSON.stringify(input.node.title)},learningFocus:${JSON.stringify(input.node.academicTarget.skill)},mechanic:${JSON.stringify(input.node.mechanic)},currentChallenge,availableActions,itemIndex,totalItems,answerVisibility:"hidden"}},"*") so Elli has live context. Never expose answers.
+Represent currentChallenge as {id,prompt,mode,readAloudRequested:false,readAloudCount}. When the child activates a visible Read it to me control, increment readAloudCount and resend that same answer-hidden state with readAloudRequested:true. Do not narrate it inside the activity.
+Listen for parent messages with type:"sunny_companion_presence". Pause activity timers and input while summoned, and resume the same state when collapsed. Do not restart or change progress.
 Maintain a factual targetResults array. For every submitted answer append {target,correct,attemptedValue,responseTimeMs,scaffoldLevel} using a stable fresh item identity.
 For every answer call window.fireAttemptEvent({domain:"math",target,correct,attemptedValue,responseTimeMs,scaffoldLevel}).
 Emit window.parent.postMessage({type:"progress_event",payload:{nodeId:"${nodeId}",completedItems,totalItems}},"*") whenever visible progress advances.
@@ -2150,6 +2283,72 @@ export async function generateDirectArtifacts(input: {
       outputTokens: generated?.outputTokens ?? 0,
     };
   });
+  if (input.plan.bonusActivity) {
+    const activity = input.plan.bonusActivity;
+    try {
+      const model = "claude-opus-5";
+      const htmlPath = path.join(gamesDir, `${activity.id}.html`);
+      const metadataPath = path.join(gamesDir, `${activity.id}.artifact.json`);
+      const generated = await generateActivityHtml({
+        activity,
+        artworkUrl: backgroundUrl,
+        childId: input.childId,
+        client,
+        provider: "anthropic",
+        model,
+      });
+      fs.writeFileSync(htmlPath, generated.html, "utf8");
+      const designArtifactHash = crypto.createHash("sha256").update(JSON.stringify(activity.designArtifact)).digest("hex");
+      const htmlHash = crypto.createHash("sha256").update(generated.html).digest("hex");
+      const promptHash = creatorPromptHash(activity, plannerModel, model);
+      fs.writeFileSync(metadataPath, `${JSON.stringify({
+        version: 3,
+        nodeId: activity.id,
+        purpose: "practice_only_bonus",
+        designArtifact: activity.designArtifact,
+        academicContractHash: activity.designArtifact?.academicContractHash,
+        designArtifactHash,
+        creatorPrompt: activity.creatorPrompt,
+        promptHash,
+        plannerModel,
+        architectModel,
+        builderProvider: "anthropic",
+        builderModel: model,
+        htmlHash,
+        externalLibraryUrls: externalLibraryUrls(generated.html),
+        generationElapsedMs: generated.elapsedMs,
+        inputTokens: generated.inputTokens,
+        outputTokens: generated.outputTokens,
+      }, null, 2)}\n`, "utf8");
+      artifacts.push({
+        childId: input.childId,
+        homeworkId: input.homeworkId,
+        nodeId: activity.id,
+        title: activity.title,
+        htmlPath,
+        artworkUrl: backgroundUrl,
+        creatorPrompt: activity.creatorPrompt,
+        promptHash,
+        plannerModel,
+        creatorModel: model,
+        architectModel,
+        builderProvider: "anthropic",
+        builderModel: model,
+        academicContractHash: activity.designArtifact?.academicContractHash,
+        designArtifactHash,
+        htmlHash,
+        externalLibraryUrls: externalLibraryUrls(generated.html),
+        generationElapsedMs: generated.elapsedMs,
+        inputTokens: generated.inputTokens,
+        outputTokens: generated.outputTokens,
+      });
+      console.log(` 🎮 [direct-ingest] [bonus-built] node=${activity.id}`);
+    } catch (error: unknown) {
+      console.warn(
+        ` 🎮 [direct-ingest] [bonus-skipped] reason=${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
   return { artifacts, backgroundUrl, questArtworkUrl, bossArtworkUrl };
 }
 
@@ -2278,6 +2477,7 @@ export function buildDirectActiveSessionPlan(input: {
   questArtworkUrl: string;
   bossArtworkUrl: string;
   report: DirectPlaywrightReport;
+  companion?: { id: string; name: string };
   createdAt?: string;
 }): ActiveSessionPlan {
   const createdAt = input.createdAt ?? new Date().toISOString();
@@ -2288,14 +2488,6 @@ export function buildDirectActiveSessionPlan(input: {
   const choiceRouteIds = new Set(input.plan.fork.routes.map((route) => route.id));
   const sharedActivities = input.plan.activities.filter((activity) => !choiceRouteIds.has(activity.routeId));
   const firstSharedNodeId = sharedActivities[0]?.id;
-  const conciseRouteDescription = (description: string): string => {
-    const normalized = description.replace(/\s+/g, " ").trim();
-    const authoredLead = normalized.split(/\s+[—–]\s+/, 1)[0]?.trim();
-    if (authoredLead && authoredLead.length >= 32) return authoredLead;
-    if (normalized.length <= 120) return normalized;
-    const sentence = normalized.match(/^.{1,117}?[.!?](?:\s|$)/)?.[0]?.trim();
-    return sentence && sentence.length >= 36 ? sentence : `${normalized.slice(0, 117).trimEnd()}…`;
-  };
   const previewUrl = (nodeId: string, fallback: string): string => {
     const screenshot = input.report.screenshots.find((file) =>
       path.basename(file).startsWith(`${nodeId}-opening`));
@@ -2326,7 +2518,7 @@ export function buildDirectActiveSessionPlan(input: {
     { id: "boss", type: "boss", activityId: "boss", targets: [], difficulty: 3, source: "chart_planner", locked: true, masteryUnlockState: "preparing", title: "Boss", thumbnailUrl: input.bossArtworkUrl },
   );
   const nodes: AdventureBoardJson["nodes"] = [
-    { id: "start", kind: "start", label: "Start", shortLabel: "Start", state: "completed", position: boardPosition(8, 78) },
+    { id: "start", kind: "start", label: "Start", shortLabel: "Start", state: "completed", position: boardPosition(7, 88) },
   ];
   sharedActivities.forEach((activity, index) => {
     const artifact = artifactById.get(activity.id)!;
@@ -2361,17 +2553,25 @@ export function buildDirectActiveSessionPlan(input: {
     layout: { preset: "horizontal-adventure-spine", companionSlot: "right", routeChoiceBehavior: "exclusive" },
     plannerRationale: { agencyDesign: input.plan.fork.hypothesis, evidenceDesign: input.plan.fork.heldConstant.join("; "), layoutChoice: "Two visible choose-your-adventure routes converge on a locked Quest." },
     nodes, edges,
-    choiceSets: [{ id: "direct-route-choice", kind: "baseline-route", title: "Choose your path", options: input.plan.fork.routes.map((route) => ({
-      id: route.id,
-      label: route.label,
-      description: conciseRouteDescription(route.promise),
-      state: sharedActivities.length === 0 ? "available" : "locked",
-      nodeId: route.nodeIds[0],
-      thumbnailUrl: route.nodeIds[0] ? previewUrl(route.nodeIds[0], artifactById.get(route.nodeIds[0])?.artworkUrl ?? "") : undefined,
-      engagementDimensions: [route.engagementVariable],
-      choiceSignal: { algorithmFeed: "choicePolicy", traits: [route.engagementVariable], expectedEvidence: "selection, start, completion, abandonment, replay", preferenceNotMastery: true },
-    })) }],
-    companion: { id: "elli", name: "Elli" }, progress: {
+    choiceSets: [{ id: "direct-route-choice", kind: "baseline-route", title: "Choose your path", options: input.plan.fork.routes.map((route) => {
+      if (!route.childFacingActionCue || !route.previewNodeId || !route.nodeIds.includes(route.previewNodeId)) {
+        throw new Error(`direct_route_presentation_binding_missing:${route.id}`);
+      }
+      const artifact = artifactById.get(route.previewNodeId);
+      if (!artifact) throw new Error(`direct_route_preview_artifact_missing:${route.id}:${route.previewNodeId}`);
+      return {
+        id: route.id,
+        label: route.label,
+        description: route.childFacingActionCue,
+        state: sharedActivities.length === 0 ? "available" as const : "locked" as const,
+        nodeId: route.previewNodeId,
+        thumbnailUrl: previewUrl(route.previewNodeId, artifact.artworkUrl),
+        artifactHash: artifact.designArtifactHash,
+        engagementDimensions: [route.engagementVariable],
+        choiceSignal: { algorithmFeed: "choicePolicy" as const, traits: [route.engagementVariable], expectedEvidence: "selection, start, completion, abandonment, replay", preferenceNotMastery: true as const },
+      };
+    }) }],
+    companion: input.companion ?? { id: "elli", name: "Elli" }, progress: {
       currentNodeId: sharedActivities[0]?.id ?? "choose-path",
       completedNodeIds: ["start"],
       ...(sharedActivities.length === 0 ? { activeChoiceSetId: "direct-route-choice" } : {}),
@@ -2381,7 +2581,7 @@ export function buildDirectActiveSessionPlan(input: {
     planId: input.plan.planId, childId: input.childId, createdAt, source: "ingest_human_loop", activeHomeworkId: input.homeworkId, domain: "math", testDate: null,
     nodePlan, learningRoutes: input.plan.fork.routes.map((route) => ({ id: route.id, label: route.label, rationale: route.promise, nodeIds: [...sharedActivities.map((activity) => activity.id), ...route.nodeIds, "quest", "boss"] })), adventureBoard,
     variationPolicy: { avoidExactPreviousNodeOrder: true, avoidExactPreviousWordOrder: true, seed: input.homeworkId, previousCompletedNodeCount: 0 },
-    companionPolicy: { companionId: "elli", displayName: "Elli", openingLinePolicy: "context_start_short", verbosity: "low", maxMicroProbes: 1 },
+    companionPolicy: { companionId: input.companion?.id ?? "elli", displayName: input.companion?.name ?? "Elli", openingLinePolicy: "context_start_short", verbosity: "low", maxMicroProbes: 1 },
     evidenceUsed: input.plan.profileEvidence.map((summary, index) => ({ id: `planner-evidence-${index + 1}`, type: "child_chart", summary })), openQuestions: [], approvalStatus: "approved",
     planTheory: { hypothesis: input.plan.academicTheory, evidenceSummary: input.plan.profileEvidence, intervention: input.plan.boardWorld.narrative, supportCriteria: ["Real child evidence supports transfer."], reviseCriteria: ["Real child evidence is mixed."], falsifyCriteria: ["Real child evidence contradicts the theory."] },
   };
@@ -2693,6 +2893,59 @@ export function persistDirectExperience(input: {
       } : {}),
     };
   });
+  const bonusActivity = input.plannerPlan.bonusActivity;
+  const bonusArtifact = bonusActivity
+    ? input.artifacts.find((candidate) => candidate.nodeId === bonusActivity.id)
+    : undefined;
+  if (bonusActivity && bonusArtifact) {
+    const design = bonusActivity.designArtifact;
+    publishedEntries.push({
+      contentId: `${input.homeworkId}:${bonusActivity.id}`,
+      homeworkId: input.homeworkId,
+      childId: input.childId,
+      type: "game",
+      source: "generated",
+      purpose: "dopamine_reward",
+      title: bonusActivity.title,
+      activityId: bonusActivity.id,
+      gameHtmlPath: bonusArtifact.htmlPath,
+      domain: "math",
+      skillTarget: bonusActivity.academicTarget,
+      algorithmTargets: ["retrieval-practice", "variable-reward", "activity-affinity"],
+      targetSkills: [bonusActivity.academicTarget],
+      targetConcepts: [input.plannerPlan.concept.conceptId],
+      targetWords: [],
+      engagementHooks: [bonusActivity.engagementVariable],
+      inputEvidence: { contentFingerprint: input.extraction.fileHash },
+      reuseStatus: "candidate",
+      reuseReason: "Optional practice-only earned reward awaiting factual child engagement evidence.",
+      reviewStatus: "approved_ready",
+      reviewReason: "Optional reward artifact; it is excluded from mastery and cannot block the learning board.",
+      validationStatus: "passed",
+      mechanic: bonusActivity.mechanic,
+      theme: bonusActivity.visualMock.scene,
+      ...(design ? {
+        designMemory: {
+          artifactId: design.artifactId,
+          artifactHash: crypto.createHash("sha256").update(JSON.stringify(design)).digest("hex"),
+          academicResponsibility: bonusActivity.responsibilityId,
+          interactionHistory: [design.coreInteraction],
+          themeHistory: [design.visualDirection],
+          humanReview: "not_reviewed",
+          childEvidenceIds: [],
+          predictionIds: [],
+          theoryDecisionIds: [],
+          plannerModel: bonusArtifact.plannerModel,
+          architectModel: bonusArtifact.architectModel,
+          builderProvider: bonusArtifact.builderProvider,
+          builderModel: bonusArtifact.builderModel,
+          academicContractHash: bonusArtifact.academicContractHash,
+          implementationPromptHash: bonusArtifact.promptHash,
+          generatedHtmlHash: bonusArtifact.htmlHash,
+        },
+      } : {}),
+    });
+  }
   const publishedIds = new Set(publishedEntries.map((entry) => entry.contentId));
   profile.aiContentCatalog = [
     ...existingCatalog.filter((entry) => !publishedIds.has(entry.contentId)),

@@ -79,6 +79,34 @@ describe("CurrentBoardSnapshot", () => {
     expect(context).not.toContain("Correct answer");
   });
 
+  it("extracts the exact visible prompt from an object-shaped generated challenge", () => {
+    const snapshot = buildCurrentBoardSnapshot({
+      childId: "reina",
+      sessionId: "voice-1",
+      state: {
+        game: "generated-math",
+        activityId: "N1",
+        nodeId: "N1",
+        phase: "question",
+        currentChallenge: {
+          id: "N1-I1",
+          prompt: "Which rectangle is cut into 3 equal parts?",
+          mode: "selection",
+          readAloudRequested: true,
+        },
+        availableActions: ["tap_rectangle_A", "tap_rectangle_B"],
+        answerVisibility: "hidden",
+      },
+    });
+
+    expect(snapshot.currentChallenge).toBe(
+      "Which rectangle is cut into 3 equal parts?",
+    );
+    expect(buildCurrentBoardSnapshotContext(snapshot)).toContain(
+      "Current challenge: Which rectangle is cut into 3 equal parts?",
+    );
+  });
+
   it("does not expose hidden Wheel answers to Elli", () => {
     const snapshot = buildCurrentBoardSnapshot({
       childId: "ila",

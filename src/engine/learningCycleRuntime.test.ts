@@ -277,6 +277,34 @@ describe("canonical learning cycle runtime", () => {
     expect(decided.decisionHistory.filter((item) => item.eventType === "theory_decided")).toHaveLength(1);
   });
 
+  it("does not turn an uncaptured spoken explanation into correct academic evidence", () => {
+    const rootDir = root();
+    createLearningCycle(input(), { rootDir });
+
+    const cycle = recordCanonicalNodeCompletion({
+      childId: "reina",
+      homeworkId: "hw-runtime",
+      sessionId: "spoken-explanation",
+      nodeId: "facts",
+      result: {
+        completed: true,
+        accuracy: 1,
+        timeSpent_ms: 1000,
+        targetResults: [{
+          target: "explain-equal-parts",
+          correct: true,
+          attemptedValue: "no_—_(spoken_aloud,_not_transcribed)",
+        }],
+      },
+    }, { rootDir });
+
+    expect(cycle?.observations[0]?.result).toEqual({
+      observedErrorType: "response_not_captured",
+    });
+    expect(cycle?.observations[0]?.confounds).toContain("response_not_captured");
+    expect(cycle?.evidence.academic[0]?.accuracy).toBeUndefined();
+  });
+
   it("lets the Planner prescribe one harder support instrument instead of Quest", async () => {
     const rootDir = root();
     createLearningCycle({ ...input(), nodes: [node("facts", "baseline"), node("quest", "quest", "locked"), node("boss", "boss", "locked")] }, { rootDir });
@@ -311,6 +339,64 @@ describe("canonical learning cycle runtime", () => {
       state: "generating",
       title: "Array Bridge",
     });
+  });
+
+  it.each([
+    {
+      label: "all answers are incorrect",
+      result: {
+        completed: true,
+        accuracy: 0,
+        timeSpent_ms: 1000,
+        targetResults: [{ target: "2x5", correct: false }],
+      },
+    },
+    {
+      label: "correct work is entirely assisted",
+      result: {
+        completed: true,
+        accuracy: 1,
+        timeSpent_ms: 1000,
+        targetResults: [{ target: "2x5", correct: true, scaffoldLevel: 2 }],
+        companionInteractions: ["Elli demonstrated an analogous example."],
+      },
+    },
+  ])("does not allow Quest when $label", async ({ result }) => {
+    const rootDir = root();
+    createLearningCycle({
+      ...input(),
+      nodes: [node("facts", "baseline"), node("quest", "quest", "locked"), node("boss", "boss", "locked")],
+    }, { rootDir });
+    recordCanonicalNodeCompletion({
+      childId: "reina",
+      homeworkId: "hw-runtime",
+      sessionId: "weak-baseline",
+      nodeId: "facts",
+      result,
+    }, { rootDir });
+
+    await expect(advanceCanonicalCycleFromEvidence({
+      childId: "reina",
+      homeworkId: "hw-runtime",
+      decide: async () => ({
+        status: "supported",
+        reason: "Generate transfer from completion alone.",
+        progressionAction: "generate_quest",
+        preserve: [],
+        change: [],
+        testNext: ["transfer"],
+        nextEvidenceRequired: ["Quest"],
+        nextInstrument: {
+          nodeId: "quest",
+          title: "Quest",
+          academicTarget: "unseen transfer",
+          mechanic: "AI selected",
+          theme: "AI selected",
+          openingPurpose: "Apply the concept.",
+          creatorPrompt: "Create unseen transfer.",
+        },
+      }),
+    }, { rootDir })).rejects.toThrow("canonical_progression_quest_requires_eligible_baseline_evidence");
   });
 
   it("gives the Planner a concrete decision envelope instead of an unconstrained empty object", async () => {

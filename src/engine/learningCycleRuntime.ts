@@ -40,6 +40,42 @@ export type CanonicalProgressionDecision = {
   nextInstrument?: NextInstrumentPrescription;
 };
 
+export type BaselineQuestEvidenceEligibility = {
+  eligible: boolean;
+  targetAlignedObservationCount: number;
+  independentCorrectObservationCount: number;
+  reason: "eligible_independent_correct_evidence" | "no_target_aligned_baseline_evidence" | "no_independent_correct_baseline_evidence";
+};
+
+export function baselineQuestEvidenceEligibility(
+  cycle: LearningCycleRecordV2,
+): BaselineQuestEvidenceEligibility {
+  const baselineNodeIds = new Set(cycle.nodes.filter((node) => node.role === "baseline").map((node) => node.nodeId));
+  const isSynthetic = (value: string): boolean =>
+    /(^|[:_-])(synthetic|playwright|browser-acceptance|readiness)([:_-]|$)/i.test(value);
+  const targetAligned = cycle.observations.filter((observation) => {
+    if (isSynthetic(observation.observationId) || isSynthetic(observation.sourceId)) return false;
+    const sourceNodeId = observation.sourceId.split(":").at(-1) ?? "";
+    return baselineNodeIds.has(sourceNodeId)
+      && observation.constructLinks.some((link) => link.role === "primary" && link.confidence > 0)
+      && !observation.confounds.includes("response_not_captured");
+  });
+  const independentCorrect = targetAligned.filter((observation) =>
+    observation.result.correct === true
+    && observation.assistance.status === "unassisted"
+    && !observation.confounds.includes("assistance_present"));
+  return {
+    eligible: independentCorrect.length > 0,
+    targetAlignedObservationCount: targetAligned.length,
+    independentCorrectObservationCount: independentCorrect.length,
+    reason: independentCorrect.length > 0
+      ? "eligible_independent_correct_evidence"
+      : targetAligned.length > 0
+        ? "no_independent_correct_baseline_evidence"
+        : "no_target_aligned_baseline_evidence",
+  };
+}
+
 export function resolveCanonicalProgressionDecisionForLifecycle(
   lifecycle: LearningCycleRecordV2["lifecycle"],
   decision: CanonicalProgressionDecision,
@@ -57,6 +93,12 @@ export function resolveCanonicalProgressionDecisionForLifecycle(
 
 function slug(value: string): string {
   return value.trim().toLowerCase().replace(/[^a-z0-9]+/g, ".").replace(/^\.+|\.+$/g, "") || "unknown";
+}
+
+function isUncapturedResponse(value: string | undefined): boolean {
+  return /spoken[_\s-]*aloud.*not[_\s-]*transcribed|response[_\s-]*not[_\s-]*captured/i.test(
+    value ?? "",
+  );
 }
 
 function observationsForCompletion(input: {
@@ -77,13 +119,16 @@ function observationsForCompletion(input: {
   return rows.map((row, index) => {
     const scaffolded = Number(row.scaffoldLevel ?? 0) > 0 || companionHelp;
     const repeatedAssessmentItem = node.role !== "baseline" && previouslyExposedItemIds.has(row.target);
+    const responseNotCaptured = isUncapturedResponse(row.attemptedValue);
     return {
       observationId: `${input.sessionId}:${input.nodeId}:observation:${index + 1}`,
       sourceId: `activity:${input.sessionId}:${input.nodeId}`,
       itemId: row.target || `${input.nodeId}:item:${index + 1}`,
       ...(row.attemptedValue ? { childResponse: row.attemptedValue } : {}),
       constructLinks: [{ constructId, role: "primary", confidence: 1 }],
-      result: { correct: row.correct, score: row.correct ? 1 : 0 },
+      result: responseNotCaptured
+        ? { observedErrorType: "response_not_captured" }
+        : { correct: row.correct, score: row.correct ? 1 : 0 },
       assistance: {
         status: scaffolded ? "assisted" : "unassisted",
         scaffolds: [
@@ -97,6 +142,7 @@ function observationsForCompletion(input: {
       confounds: [
         ...(scaffolded ? ["assistance_present"] : []),
         ...(repeatedAssessmentItem ? ["item_previously_exposed"] : []),
+        ...(responseNotCaptured ? ["response_not_captured"] : []),
       ],
     };
   });
@@ -136,12 +182,27 @@ export function recordCanonicalNodeCompletion(
   if (agencyNodeLaunchable === false || (agencyNodeLaunchable === undefined && node.state !== "ready" && node.state !== "active")) {
     throw new Error(`learning_cycle_node_not_launchable:${input.nodeId}`);
   }
-  const accuracy = Math.max(0, Math.min(1, Number(input.result.accuracy) || 0));
   const observedAt = (opts.now ?? new Date()).toISOString();
+  const observations = observationsForCompletion({
+    cycle,
+    sessionId: input.sessionId,
+    nodeId: node.nodeId,
+    result: input.result,
+    observedAt,
+  });
+  const scoredObservations = observations.filter(
+    (observation) => typeof observation.result.correct === "boolean",
+  );
+  const accuracy = scoredObservations.length
+    ? scoredObservations.filter((observation) => observation.result.correct === true).length /
+      scoredObservations.length
+    : undefined;
   const academicEvidence: LearningCycleEvidenceSummary[] = [{
     evidenceId,
-    accuracy,
-    summary: `${node.title} completed at ${Math.round(accuracy * 100)}% across ${input.result.targetResults?.length ?? 0} target readings.`,
+    ...(typeof accuracy === "number" ? { accuracy } : {}),
+    summary: typeof accuracy === "number"
+      ? `${node.title} completed at ${Math.round(accuracy * 100)}% across ${scoredObservations.length} scored target readings.`
+      : `${node.title} completed with no independently scorable target response.`,
   }];
   const engagementEvidence: LearningCycleEvidenceSummary[] = [{
     evidenceId: `${evidenceId}:engagement`,
@@ -157,7 +218,7 @@ export function recordCanonicalNodeCompletion(
     academicEvidence,
     engagementEvidence,
     companionObservations,
-    observations: observationsForCompletion({ cycle, sessionId: input.sessionId, nodeId: node.nodeId, result: input.result, observedAt }),
+    observations,
   }, opts);
 }
 
@@ -258,6 +319,10 @@ async function askPlanner(
   const factualObservations = cycle.observations.filter((observation) =>
     !isSynthetic(observation.observationId) && !isSynthetic(observation.sourceId)
   );
+  const baselineEligibility = baselineQuestEvidenceEligibility(cycle);
+  const allowedProgressionActions: LearningProgressionAction[] = cycle.lifecycle === "baseline_evaluating" && !baselineEligibility.eligible
+    ? ["generate_support", "collect_more_evidence"]
+    : ["generate_support", "generate_quest", "generate_boss", "collect_more_evidence", "await_calibration"];
   const response = await anthropic.messages.create({
     model: model ?? process.env.SUNNY_INGEST_MODEL ?? "claude-sonnet-5",
     // The prescription now carries five additional design fields; 2600 truncated them.
@@ -277,6 +342,10 @@ Do not copy assignment items or name a prototype to imitate. If evidence is insu
 Child chart context:
 ${JSON.stringify(childContext, null, 2)}
 
+Baseline Quest eligibility (runtime truth boundary, not a mastery judgment):
+${JSON.stringify(baselineEligibility, null, 2)}
+Allowed progression actions for this lifecycle: ${allowedProgressionActions.join(", ")}
+
 Cycle:
 ${JSON.stringify({ lifecycle: cycle.lifecycle, assignment: cycle.assignment, theory: cycle.academicTheory, predictions: cycle.academicPredictions, evidence: factualEvidence, observations: factualObservations, nodes: cycle.nodes.map((node) => ({ nodeId: node.nodeId, role: node.role, title: node.title, state: node.state, routeId: node.routeId, evidenceIds: node.evidenceIds.filter((id) => !isSynthetic(id)) })) }, null, 2)}` }],
     tools: [{
@@ -293,7 +362,7 @@ ${JSON.stringify({ lifecycle: cycle.lifecycle, assignment: cycle.assignment, the
           reason: { type: "string" },
           progressionAction: {
             type: "string",
-            enum: ["generate_support", "generate_quest", "generate_boss", "collect_more_evidence", "await_calibration"],
+            enum: allowedProgressionActions,
           },
           preserve: { type: "array", items: { type: "string" } },
           change: { type: "array", items: { type: "string" } },
@@ -378,6 +447,11 @@ export async function advanceCanonicalCycleFromEvidence(
   if (!["baseline_evaluating", "quest_evaluating", "boss_evaluating"].includes(cycle.lifecycle)) return cycle;
   const plannerDecision = input.decide ? await input.decide(cycle) : await askPlanner(cycle, input.client, input.model, opts);
   const decision = resolveCanonicalProgressionDecisionForLifecycle(cycle.lifecycle, plannerDecision);
+  if (cycle.lifecycle === "baseline_evaluating"
+    && decision.progressionAction === "generate_quest"
+    && !baselineQuestEvidenceEligibility(cycle).eligible) {
+    throw new Error("canonical_progression_quest_requires_eligible_baseline_evidence");
+  }
   if (cycle.lifecycle === "quest_evaluating" && !["generate_boss", "generate_support", "await_calibration"].includes(decision.progressionAction)) {
     throw new Error("canonical_progression_quest_action_invalid");
   }

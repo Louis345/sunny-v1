@@ -29,6 +29,31 @@ export type ReturnedWorkAssignment = {
   assignmentFingerprint: string;
 };
 
+export type AssignmentLearningReport = {
+  childId: string;
+  homeworkId: string;
+  status: "awaiting_returned_work" | "awaiting_interpretation" | "interpreted";
+  lifecycle: LearningCycleRecordV2["lifecycle"];
+  assignment: { title: string; domain: string };
+  source: LearningEvidenceSourceRef | null;
+  assumptions: Array<LearningCycleRecordV2["assumptions"][number] & {
+    assessment: NonNullable<LearningCycleRecordV2["decisionHistory"][number]["assumptionAssessments"]>[number] | null;
+  }>;
+  predictions: Array<LearningCycleRecordV2["academicPredictions"][number] & {
+    evaluation: LearningCycleRecordV2["predictionEvaluations"][number] | null;
+  }>;
+  observations: LearningCycleRecordV2["observations"];
+  latestDecision: null | {
+    decisionId: string;
+    status: LearningCycleRecordV2["decisionHistory"][number]["status"];
+    reason: string;
+    preserve: string[];
+    change: string[];
+    testNext: string[];
+    nextEvidenceRequired: string[];
+  };
+};
+
 export type ReturnedWorkDraft = ReturnedWorkExtraction & {
   childId: string;
   homeworkId: string;
@@ -116,6 +141,49 @@ export function listReturnedWorkAssignments(
       assignmentFingerprint: cycle.assignment.contentFingerprint,
     }))
     .sort((a, b) => b.homeworkId.localeCompare(a.homeworkId));
+}
+
+export function getAssignmentLearningReport(
+  childIdRaw: string,
+  homeworkId: string,
+  opts: { rootDir?: string } = {},
+): AssignmentLearningReport {
+  const childId = childIdRaw.trim().toLowerCase();
+  const cycle = getLearningCycle(childId, homeworkId, opts);
+  if (!cycle) throw new Error(`learning_report_assignment_missing:${homeworkId}`);
+  const source = cycle.evidenceSources
+    .filter((item) => item.type === "graded_work" && item.status === "confirmed")
+    .sort((a, b) => a.capturedAt.localeCompare(b.capturedAt))
+    .at(-1) ?? null;
+  const evaluations = source ? cycle.predictionEvaluations.filter((item) => item.sourceId === source.sourceId) : [];
+  const evaluationIds = new Set(evaluations.map((item) => item.evaluationId));
+  const decision = source
+    ? [...cycle.decisionHistory].reverse().find((item) =>
+        item.eventType === "theory_decided" &&
+        (item.predictionEvaluationIds ?? []).some((id) => evaluationIds.has(id))) ?? null
+    : null;
+  const assessments = new Map((decision?.assumptionAssessments ?? []).map((item) => [item.assumptionId, item]));
+  const evaluationByPrediction = new Map(evaluations.map((item) => [item.predictionId, item]));
+  return {
+    childId,
+    homeworkId,
+    status: !source ? "awaiting_returned_work" : decision ? "interpreted" : "awaiting_interpretation",
+    lifecycle: cycle.lifecycle,
+    assignment: { title: cycle.assignment.title, domain: cycle.domain },
+    source,
+    assumptions: cycle.assumptions.map((item) => ({ ...item, assessment: assessments.get(item.assumptionId) ?? null })),
+    predictions: cycle.academicPredictions.map((item) => ({ ...item, evaluation: evaluationByPrediction.get(item.predictionId) ?? null })),
+    observations: source ? cycle.observations.filter((item) => item.sourceId === source.sourceId) : [],
+    latestDecision: decision ? {
+      decisionId: decision.decisionId,
+      status: decision.status,
+      reason: decision.reason,
+      preserve: decision.preserve ?? [],
+      change: decision.change ?? [],
+      testNext: decision.testNext ?? [],
+      nextEvidenceRequired: decision.nextEvidenceRequired ?? [],
+    } : null,
+  };
 }
 
 function parseConstructLinks(value: unknown): LearningConstructLink[] {

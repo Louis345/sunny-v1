@@ -23,16 +23,20 @@ describe("TamagotchiStrip care bars", () => {
       <TamagotchiStrip
         tamagotchi={DEFAULT_TAMAGOTCHI}
         companionCare={care}
+        balance={8300}
         onOpenSheet={onOpenBookbag}
       />,
     );
 
+    expect(screen.getByRole("button", { name: "Open bookbag with 8300 Sunny Coins" }).textContent).toContain("8300");
     expect(screen.getByLabelText("Open bookbag: Hunger 20%")).toBeTruthy();
     expect(screen.getByLabelText("Open bookbag: Mood 30%")).toBeTruthy();
     expect(screen.getByLabelText("Open bookbag: Bond 40%")).toBeTruthy();
     expect(screen.getByLabelText("Open bookbag: Energy 50%")).toBeTruthy();
     expect(screen.queryByLabelText(/Thoughts/)).toBeNull();
     expect(screen.getByTestId("map-care-strip")).toHaveStyle({
+      left: "50%",
+      transform: "translateX(-50%)",
       width: "360px",
       maxWidth: "calc(100vw - 32px)",
     });

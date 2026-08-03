@@ -53,6 +53,7 @@ vi.mock("../engine/learningCycleRepository", () => ({
     homeworkId: "hw-math",
     lifecycle: "baseline_evaluating",
     revision: 2,
+    nodes: [{ nodeId: "array-forge", state: "active" }],
   })),
   getLatestLearningCycle: vi.fn(() => ({
     childId: "demo-pashley",
@@ -80,7 +81,7 @@ vi.mock("../engine/learningCycleRepository", () => ({
 import { appendContentFeedbackLesson } from "../engine/contentFeedbackMemory";
 import { transitionLearningCycle } from "../engine/learningCycleRepository";
 import { interpretDirectExperienceOutcome } from "../engine/directExperienceFeedback";
-import { advanceCanonicalCycleFromEvidence } from "../engine/learningCycleRuntime";
+import { advanceCanonicalCycleFromEvidence, recordCanonicalNodeCompletion } from "../engine/learningCycleRuntime";
 import { generateCanonicalProgressionArtifact } from "../engine/canonicalProgressionGenerator";
 import { setupRoutes } from "./routes";
 
@@ -94,6 +95,7 @@ describe("choice-event route feedback lessons", () => {
   afterEach(() => {
     for (const server of servers.splice(0)) server.close();
     vi.clearAllMocks();
+    delete process.env.SUNNY_MODE;
   });
 
   async function postChoiceEvent(payload: Record<string, unknown>) {
@@ -214,5 +216,20 @@ describe("choice-event route feedback lessons", () => {
       expect(advanceCanonicalCycleFromEvidence).toHaveBeenCalledTimes(1);
       expect(generateCanonicalProgressionArtifact).toHaveBeenCalledTimes(1);
     });
+  });
+
+  it("blocks every canonical learning write when the server runtime is as-child", async () => {
+    process.env.SUNNY_MODE = "as-child";
+
+    const choice = await postChoiceEvent(routeChoicePayload);
+    const completion = await postNodeCompletion();
+
+    expect(choice.status).toBe(200);
+    expect(choice.body).toMatchObject({ ok: true, skippedPersistence: true });
+    expect(completion.status).toBe(200);
+    expect(completion.body).toMatchObject({ skippedPersistence: true });
+    expect(mockedTransitionLearningCycle).not.toHaveBeenCalled();
+    expect(recordCanonicalNodeCompletion).not.toHaveBeenCalled();
+    expect(mockedInterpretOutcome).not.toHaveBeenCalled();
   });
 });

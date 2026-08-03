@@ -51,6 +51,18 @@ export interface CompanionCarePlan {
   economy: {
     coins: number;
     storeUnlocks: string[];
+    purchaseReceipts?: string[];
+    videoCallTickets?: Array<{
+      homeworkId: string;
+      earnedAt: string;
+      openedAt?: string;
+      bonusUrl?: string;
+    }>;
+    bonusRewardReceipts?: Array<{
+      homeworkId: string;
+      amount: number;
+      awardedAt: string;
+    }>;
   };
   updatedAt: string;
 }
@@ -93,5 +105,26 @@ export type CompanionFeedResult =
   | {
       ok: false;
       reason: "missing" | "depleted";
+      plan: CompanionCarePlan;
+    };
+
+export interface CompanionStoreItem {
+  id: "apple_bite" | "star_candy" | "mystery_snack";
+  label: string;
+  cost: number;
+  rarity: CompanionCareRarity;
+}
+
+export type CompanionPurchaseResult =
+  | {
+      ok: true;
+      plan: CompanionCarePlan;
+      item: CompanionStoreItem;
+      balance: number;
+      duplicate: boolean;
+    }
+  | {
+      ok: false;
+      reason: "unknown_item" | "insufficient_funds" | "invalid_request";
       plan: CompanionCarePlan;
     };

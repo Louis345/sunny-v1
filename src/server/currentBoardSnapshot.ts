@@ -19,6 +19,7 @@ export type CurrentBoardSnapshot = {
   phase?: string;
   currentTarget?: string;
   targetIsSpeakable: boolean;
+  speechCaptureArmed?: boolean;
   answerVisibility: "hidden" | "visible" | "revealed" | "unknown";
   itemIndex?: number;
   totalItems?: number;
@@ -97,6 +98,14 @@ export function buildCurrentBoardSnapshot(
   input: BuildSnapshotInput,
 ): CurrentBoardSnapshot {
   const state = input.state;
+  const objectChallenge =
+    state.currentChallenge &&
+    typeof state.currentChallenge === "object" &&
+    !Array.isArray(state.currentChallenge)
+      ? (state.currentChallenge as Record<string, unknown>)
+      : null;
+  const currentChallenge =
+    asString(state.currentChallenge) ?? asString(objectChallenge?.prompt);
   const answerVisibility = normalizeAnswerVisibility(state);
   const rawTarget =
     asString(state.currentTarget) ??
@@ -125,7 +134,7 @@ export function buildCurrentBoardSnapshot(
     ["activityTitle", state.activityTitle],
     ["learningFocus", state.learningFocus],
     ["mechanic", state.mechanic],
-    ["currentChallenge", state.currentChallenge],
+    ["currentChallenge", currentChallenge],
     ["activityIntentId", state.activityIntentId],
     ["targetSelectorId", state.targetSelectorId],
     ["intentPurpose", state.intentPurpose ?? state.activityIntentPurpose],
@@ -156,7 +165,7 @@ export function buildCurrentBoardSnapshot(
     const n = asNumber(state[key]);
     if (typeof n === "number") snapshot[key] = n;
   }
-  for (const key of ["completed", "masteryEligible"] as const) {
+  for (const key of ["completed", "masteryEligible", "speechCaptureArmed"] as const) {
     const b = asBoolean(state[key]);
     if (typeof b === "boolean") snapshot[key] = b;
   }

@@ -22,7 +22,9 @@ export interface TamagotchiSheetProps {
   companionCurrency?: number;
   inventory?: { id: string; label: string }[];
   onFeed?: (foodId: string) => void;
+  onPurchase?: (itemId: string) => void;
   isFeeding?: boolean;
+  isPurchasing?: boolean;
   onClose: () => void;
 }
 
@@ -105,7 +107,9 @@ export function TamagotchiSheet({
   companionCurrency,
   inventory = [],
   onFeed,
+  onPurchase,
   isFeeding = false,
+  isPurchasing = false,
   onClose,
 }: TamagotchiSheetProps) {
   const [rendered, setRendered] = useState(open);
@@ -431,6 +435,36 @@ export function TamagotchiSheet({
             {careInventory.length === 0 && (
               <span style={{ fontSize: 12, opacity: 0.6 }}>No snacks yet.</span>
             )}
+          </div>
+          <div style={{ marginTop: 18, fontSize: 14, fontWeight: 900 }}>Shop</div>
+          <div style={{ marginTop: 8, display: "grid", gap: 8 }}>
+            {[
+              { id: "apple_bite", label: "Apple Bite", cost: 25 },
+              { id: "star_candy", label: "Star Candy", cost: 50 },
+              { id: "mystery_snack", label: "Mystery Snack", cost: 100 },
+            ].map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                aria-label={`Buy ${item.label} for ${item.cost} coins`}
+                disabled={isPurchasing || coins == null || coins < item.cost}
+                onClick={() => onPurchase?.(item.id)}
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  padding: "10px 12px",
+                  borderRadius: 8,
+                  border: "1px solid #334155",
+                  background: "#172033",
+                  color: "#f8fafc",
+                  opacity: isPurchasing || coins == null || coins < item.cost ? 0.5 : 1,
+                  cursor: "pointer",
+                }}
+              >
+                <span style={{ fontWeight: 800 }}>{item.label}</span>
+                <span style={{ color: "#fde68a", fontWeight: 900 }}>{item.cost} coins</span>
+              </button>
+            ))}
           </div>
           <button
             type="button"

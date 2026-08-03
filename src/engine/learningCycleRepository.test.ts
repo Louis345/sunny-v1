@@ -8,6 +8,7 @@ import {
   createLearningCycle,
   getLearningCycle,
   repairHistoricalLearningCycleBeforePlanning,
+  resetLearningCycleRuntimeEvidence,
   projectLearningCycle,
   recordLearningCycleCalibration,
   transitionLearningCycle,
@@ -643,5 +644,31 @@ describe("canonical learning cycle repository", () => {
     }, { rootDir });
 
     expect(reconciled.academicPredictions).toEqual([prediction]);
+  });
+
+  it("archives adult preview evidence and restores the frozen program to its pre-play frontier", () => {
+    const rootDir = root();
+    const created = createLearningCycle(input(), { rootDir });
+    const measured = transitionLearningCycle("reina", "hw-math-cycle", created.revision, {
+      type: "baseline_completed",
+      nodeId: "baseline-facts",
+      academicEvidence: [{ evidenceId: "adult-preview", summary: "Parent test", accuracy: 1 }],
+      engagementEvidence: [{ evidenceId: "adult-rating", summary: "Parent rating" }],
+      companionObservations: [],
+      decision: { status: "supported", reason: "preview", nextAction: "evaluate" },
+    }, { rootDir });
+
+    const reset = resetLearningCycleRuntimeEvidence("reina", "hw-math-cycle", { rootDir });
+
+    expect(fs.existsSync(reset.auditPath)).toBe(true);
+    expect(reset.previousRevision).toBe(measured.revision);
+    expect(reset.cycle.assignment).toEqual(measured.assignment);
+    expect(reset.cycle.academicTheory).toEqual(measured.academicTheory);
+    expect(reset.cycle.lifecycle).toBe("baseline_ready");
+    expect(reset.cycle.evidence).toEqual({ academic: [], engagement: [], companionObservations: [] });
+    expect(reset.cycle.observations).toEqual([]);
+    expect(reset.cycle.decisionHistory).toEqual([]);
+    expect(reset.cycle.nodes.find((node) => node.role === "baseline")?.state).toBe("ready");
+    expect(reset.cycle.nodes.filter((node) => node.role === "quest" || node.role === "boss").every((node) => node.state === "locked")).toBe(true);
   });
 });

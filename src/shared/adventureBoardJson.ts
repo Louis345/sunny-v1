@@ -230,6 +230,8 @@ export interface AdventureChoiceOption {
   theoryId?: string;
   experimentId?: string;
   contentId?: string;
+  /** Immutable design binding for child-facing generated previews. */
+  artifactHash?: string;
   engagementDimensions?: string[];
   engagementHypothesis?: string;
   mechanic?: string;

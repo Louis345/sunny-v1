@@ -69,6 +69,12 @@ import {
 } from "./worksheet-tools";
 import { createLaunchGameTool } from "../agents/elli/tools/worksheetTools";
 import { createCompanionActTool } from "../agents/tools/companionAct";
+import { buildShowroomTalkMemoryPrompt } from "./companionShowroomTalk";
+import {
+  maybeCompactCompanionInteractionMemory,
+  readCompanionCareMemoryForPrompt,
+  recordCompanionInteractionEvent,
+} from "./companionInteractionMemory";
 import { createSixTools } from "../agents/tools/six-tools";
 import {
   buildLaunchGameTool,
@@ -147,6 +153,7 @@ import {
   rewriteChildNameForTts,
   stripSvgFences,
 } from "./sessionTextHelpers";
+import { routeCompanionPresenceTranscript } from "./urgentLearningSupport";
 
 export {
   tryPushCreatorDiagPronunciation,
@@ -209,11 +216,18 @@ function normalizeSessionChartChildId(
 export class SessionManager {
   /** When true, child speech is not sent to the companion (silent reward games). */
   public suppressTranscripts: boolean = false;
+  public companionWakeGateEnabled: boolean = false;
 
   public readonly chartChildId: string;
   private currentActivityState: Record<string, unknown> | null = null;
   private currentBoardSnapshot: CurrentBoardSnapshot | null = null;
   private pronunciationStruggleSignals = new Set<string>();
+  private lastInstructionReadRequestKey: string | null = null;
+  private companionPresence: "collapsed" | "summoned" = "collapsed";
+  private companionDispositionAfterSpeech:
+    | "standby_after_speech"
+    | "await_child_response" = "standby_after_speech";
+  private companionInteractionMode: "activity_help" | "conversation" = "activity_help";
 
   private ws: WebSocket;
   private childName: ChildName;
@@ -923,6 +937,74 @@ export class SessionManager {
     };
   }
 
+  public setCompanionPresence(
+    state: "collapsed" | "summoned",
+    reason: "client" | "voice" | "read_instruction" = "client",
+  ): void {
+    this.companionPresence = state;
+    if (state === "summoned") {
+      this.companionInteractionMode = reason === "read_instruction" ? "activity_help" : "conversation";
+    } else {
+      this.companionInteractionMode = "activity_help";
+    }
+    this.send("companion_presence", { state, reason });
+    console.log(`  🎮 [companion-presence] [${state}] reason=${reason}`);
+  }
+
+  public resetCompanionDispositionAfterSpeech(): void {
+    this.companionDispositionAfterSpeech = this.companionInteractionMode === "conversation"
+      ? "await_child_response"
+      : "standby_after_speech";
+  }
+
+  public applyCompanionDispositionAfterSpeech(): void {
+    if (this.companionPresence !== "summoned") return;
+    if (this.companionInteractionMode === "conversation") {
+      console.log("  🎮 [companion-presence] [conversation-open] reason=child_started");
+      return;
+    }
+    if (this.companionDispositionAfterSpeech === "await_child_response") {
+      console.log("  🎮 [companion-presence] [await_child_response] reason=model_disposition");
+      return;
+    }
+    this.setCompanionPresence("collapsed", "voice");
+  }
+
+  public async requestInstructionReadAloud(input: {
+    nodeId: string;
+    activityId: string;
+    itemId: string;
+    prompt: string;
+    requestCount: number;
+    answerVisibility: string;
+  }): Promise<void> {
+    const prompt = input.prompt.trim();
+    if (!prompt || input.answerVisibility !== "hidden") return;
+    const requestKey = [
+      input.nodeId,
+      input.itemId,
+      input.requestCount,
+    ].join(":");
+    if (this.lastInstructionReadRequestKey === requestKey) return;
+    this.lastInstructionReadRequestKey = requestKey;
+    this.setCompanionPresence("summoned", "read_instruction");
+    this.recordGameTrace({
+      type: "instructional_read_aloud",
+      source: "companion",
+      activityId: input.activityId,
+      nodeId: input.nodeId,
+      itemId: input.itemId,
+      evidenceRole: "support",
+      masteryEligible: false,
+    });
+    console.log(
+      `  🎮 [companion-help] [read-instruction] node=${input.nodeId} item=${input.itemId}`,
+    );
+    if (this.turnSM.getState() !== "IDLE") this.bargeIn();
+    await this.handleCompanionTurn(prompt);
+    this.applyCompanionDispositionAfterSpeech();
+  }
+
   /**
    * Queue a one-shot map node completion summary for the next companion turn.
    * Survives subsequent `injectGameContext` calls until consumed (merged first in take).
@@ -932,8 +1014,43 @@ export class SessionManager {
   }
 
   public buildCurrentBoardContextForTurn(childSpeech?: string): string {
-    return buildCurrentBoardSnapshotContext(this.currentBoardSnapshot, {
+    const board = buildCurrentBoardSnapshotContext(this.currentBoardSnapshot, {
       childSpeech,
+    });
+    const memory = buildShowroomTalkMemoryPrompt(
+      readCompanionCareMemoryForPrompt(this.chartChildId, this.companion.name),
+    );
+    const helpObjective = this.companionPresence === "summoned" && this.currentBoardSnapshot
+      ? [
+          "Activity-help objective:",
+          "Resolve the child's request briefly from the answer-hidden activity context.",
+          "Ask one short understanding question only when it adds value; if you do, set companionAct presenceAfterSpeech=await_child_response.",
+          "Otherwise return control to the activity and allow the companion to return to standby.",
+        ].join("\n")
+      : "";
+    return [board, memory, helpObjective].filter(Boolean).join("\n\n");
+  }
+
+  public recordCompanionHelpTurn(userMessage: string, companionText: string): void {
+    if (!shouldPersistSessionData() || !this.currentBoardSnapshot || this.companionPresence !== "summoned") {
+      return;
+    }
+    recordCompanionInteractionEvent({
+      childId: this.chartChildId,
+      companionId: this.companion.name,
+      callSource: "activity_help",
+      relationshipState: "selected",
+      eventType: "companion_talk_completed",
+      questionText: userMessage,
+      companionText,
+      commandCount: 0,
+      visionUsed: false,
+    });
+    void maybeCompactCompanionInteractionMemory({
+      childId: this.chartChildId,
+      companionId: this.companion.name,
+    }).catch((error: unknown) => {
+      console.error(" 🔴 [companion-memory] [activity-help-compact] [failed]", error);
     });
   }
 
@@ -1404,6 +1521,10 @@ export class SessionManager {
     if (!normalized) return;
 
     if (source === "eager") {
+      if (this.companionPresence === "summoned") {
+        console.log("  🎮 [transcript] [eager-held] reason=companion_conversation");
+        return;
+      }
       if (this.turnSM.getState() === "IDLE") {
         // Letter-by-letter spelling (spaces between single letters). Not the
         // naive /^([a-zA-Z]\s?)+$/ — that matches normal words like "I want".
@@ -1516,6 +1637,60 @@ export class SessionManager {
       this.debugRecorder.recordTranscript("user", transcript);
       this.send("final", { text: transcript });
       return;
+    }
+
+    const activeGame = String(this.currentBoardSnapshot?.game ?? "").toLowerCase();
+    const generatedMathActivity =
+      activeGame === "generated-baseline" || activeGame === "generated-math";
+    if (
+      !isReplay &&
+      !opts?.fromReadingComplete &&
+      (generatedMathActivity || this.companionWakeGateEnabled)
+    ) {
+      const presenceRoute = routeCompanionPresenceTranscript({
+        transcript,
+        presence: this.companionPresence,
+        companionName: this.companion.name,
+        speechCaptureArmed: this.currentBoardSnapshot?.speechCaptureArmed === true,
+      });
+      if (presenceRoute.action === "route_to_game") {
+        this.send("final", { text: transcript });
+        this.debugRecorder.recordEvent("transcript", "routed_to_game", {
+          transcriptLength: transcript.length,
+          nodeId: this.currentBoardSnapshot?.nodeId,
+        });
+        return;
+      }
+      if (presenceRoute.action === "dismiss") {
+        this.setCompanionPresence("collapsed", "voice");
+        this.debugRecorder.recordEvent("companion_presence", "dismissed", {
+          nodeId: this.currentBoardSnapshot?.nodeId,
+        });
+        return;
+      }
+      if (presenceRoute.action === "ignore_ambient") {
+        console.log("  🎮 [companion-presence] [ambient-ignored]");
+        this.debugRecorder.recordEvent("transcript", "ambient_ignored", {
+          transcriptLength: transcript.length,
+          nodeId: this.currentBoardSnapshot?.nodeId,
+        });
+        return;
+      }
+      if (presenceRoute.action === "summon_and_respond") {
+        this.setCompanionPresence("summoned", "voice");
+        const wakeOnlyText = transcript
+          .toLowerCase()
+          .replace(/[^a-z0-9\s]+/g, " ")
+          .trim()
+          .replace(/^(?:hey|hi|okay|ok)\s+/, "");
+        const companionWakeNames = new Set([
+          "sunny",
+          "elli",
+          "ellie",
+          this.companion.name.toLowerCase().replace(/[^a-z0-9\s]+/g, " ").trim(),
+        ]);
+        if (companionWakeNames.has(wakeOnlyText)) return;
+      }
     }
 
     let state = this.turnSM.getState();
@@ -1799,7 +1974,13 @@ export class SessionManager {
       expressCompanion: (a) => this.companionBridge.expressCompanion(a),
     });
     const companionActTool = createCompanionActTool({
-      companionAct: (a) => this.companionBridge.companionAct(a),
+      companionAct: (a) => {
+        if (a.presenceAfterSpeech === "await_child_response") {
+          this.companionDispositionAfterSpeech = "await_child_response";
+        }
+        const { presenceAfterSpeech: _presenceAfterSpeech, ...command } = a;
+        return this.companionBridge.companionAct(command);
+      },
     });
     const slimVoice = shouldUseAdventureMapVoiceSlimToolkit({
       worksheetMode: this.worksheetMode,

@@ -445,6 +445,7 @@ describe("AdventureBoard", () => {
         timeToFirstValidActionMs: 12_000,
         invalidActionCount: 1,
         soundMuted: false,
+        timeToChoose_ms: 2_400,
       },
       { createdAt: "2026-05-27T12:06:00.000Z" },
     );
@@ -469,6 +470,7 @@ describe("AdventureBoard", () => {
       timeToFirstValidActionMs: 12_000,
       invalidActionCount: 1,
       soundMuted: false,
+      timeToChoose_ms: 2_400,
     });
   });
 
@@ -583,12 +585,52 @@ describe("AdventureBoardExperience", () => {
     expect(screen.getByRole("button", { name: "Mystery" })).toBeVisible();
   });
 
+  it("labels parent preview clearly and exposes baseline nodes without unlocking Quest or Boss", () => {
+    const board: AdventureBoardJson = {
+      ...grokFullExperienceBoard,
+      nodes: grokFullExperienceBoard.nodes.map((node) => ({
+        ...node,
+        state: node.kind === "start" ? "current" : "locked",
+      })),
+    };
+
+    render(
+      <AdventureBoardExperience
+        packet={packetForBoard(board)}
+        parentPreview
+      />,
+    );
+
+    expect(screen.getByText("Parent preview — progress will not save")).toBeVisible();
+    const baseline = board.nodes.find((node) => node.kind === "activity");
+    const quest = board.nodes.find((node) => node.kind === "quest");
+    expect(screen.getByRole("button", { name: baseline!.label })).toHaveClass(
+      "adventure-board__node--available",
+    );
+    expect(screen.getByRole("button", { name: new RegExp(`^${quest!.label},`) })).toHaveClass(
+      "adventure-board__node--locked",
+    );
+  });
+
   it("renders the companion from the child chart packet", () => {
     render(<AdventureBoardExperience packet={packetForBoard(grokFullExperienceBoard)} />);
 
     expect(screen.getByTestId("companion-layer")).toHaveAttribute("data-child-id", "reina");
     expect(screen.getByTestId("companion-layer")).toHaveAttribute("data-companion-id", "matilda");
     expect(screen.getByTestId("companion-layer")).toHaveAttribute("data-vrm-url", "/companions/matilda.vrm");
+  });
+
+  it("keeps a full-body board companion inside the reserved right flank", () => {
+    render(
+      <AdventureBoardExperience
+        packet={packetForBoard(grokFullExperienceBoard)}
+        idlePose="flank"
+      />,
+    );
+
+    expect(screen.getByTestId("companion-layer")).toHaveAttribute("data-idle-pose", "flank");
+    const source = readFileSync(resolve(__dirname, "../components/CompanionLayer.tsx"), "utf8");
+    expect(source).toContain('idlePose === "flank" ? "-8vw" : "2vw"');
   });
 
   it("hides the companion when the story visibility toggle is off", () => {
@@ -998,6 +1040,7 @@ describe("AdventureBoardExperience", () => {
     const source = readFileSync(resolve(__dirname, "../App.tsx"), "utf8");
 
     expect(source).toContain("showCompanion={false}");
+    expect(source).toContain('idlePose={homeworkBoardMode ? "flank" : "center"}');
     expect(source).not.toContain("showCompanion\n            idlePose");
   });
 

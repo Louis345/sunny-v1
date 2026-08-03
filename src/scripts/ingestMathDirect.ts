@@ -16,6 +16,7 @@ import {
   type DirectArtifact,
   type DirectLearningExperiencePlan,
   type MathDesignCheckpoint,
+  mathDesignHasRoutePresentationBindings,
   type MathDesignPacket,
 } from "../engine/directMathExperience";
 import { readDirectFeedbackContext } from "../engine/directExperienceFeedback";
@@ -54,6 +55,7 @@ async function main(): Promise<void> {
   const startedAt = Date.now();
   const childId = arg("child").trim().toLowerCase();
   const pdf = path.resolve(arg("pdf"));
+  const rebuildNodeIds = arg("rebuild-node", false).split(",").map((value) => value.trim()).filter(Boolean);
   console.log("[1/5] Reading assignment and evidence");
   const extraction = await extractAssignmentSource(pdf);
   const homeworkId = `hw-math-${crypto.createHash("sha256").update(extraction.fileHash).digest("hex").slice(0, 8)}`;
@@ -97,7 +99,9 @@ async function main(): Promise<void> {
   console.log(`  📋 ${program.assumptions.length} assumptions locked for launch → ${path.relative(process.cwd(), ledgerPath)}`);
 
   currentPhase = "experience-design";
-  const shouldDesign = !fs.existsSync(designFile) || !fs.existsSync(finalPlanFile);
+  const existingDesignPacket = fs.existsSync(designFile) ? readJson<MathDesignPacket>(designFile) : undefined;
+  const shouldDesign = !existingDesignPacket || !fs.existsSync(finalPlanFile)
+    || !mathDesignHasRoutePresentationBindings(existingDesignPacket);
   console.log("[3/5] Creator designing coherent board and node artifacts");
   const designed = shouldDesign
       ? await askMathExperienceDesigner({
@@ -138,6 +142,7 @@ async function main(): Promise<void> {
     architectModel: process.env.SUNNY_ARCHITECT_MODEL ?? "claude-fable-5",
     assignmentFingerprint: extraction.fileHash,
     existingArtworkUrls,
+    ...(rebuildNodeIds.length > 0 ? { forceNodeIds: rebuildNodeIds } : {}),
   });
   writeJson(buildFile, generated);
 
@@ -159,6 +164,10 @@ async function main(): Promise<void> {
     questArtworkUrl: generated.questArtworkUrl,
     bossArtworkUrl: generated.bossArtworkUrl,
     report,
+    companion: {
+      id: chart.companion.presetId,
+      name: chart.companion.displayName,
+    },
   });
   const record = persistDirectExperience({
     childId,

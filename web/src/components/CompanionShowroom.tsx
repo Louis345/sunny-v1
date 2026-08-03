@@ -3345,6 +3345,10 @@ export function CompanionShowroom({
   onThemeChange,
   videoCallContext,
 }: CompanionShowroomProps) {
+  const generatedBonusUrl = typeof window === "undefined"
+    ? null
+    : new URLSearchParams(window.location.search).get("bonusUrl");
+  const generatedBonusFrameRef = useRef<HTMLIFrameElement | null>(null);
   const initialAvailableThemes = resolveAvailableShowroomThemes(availableThemes);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [activeThemeId, setActiveThemeId] = useState<ShowroomTheme>(() =>
@@ -3420,6 +3424,40 @@ export function CompanionShowroom({
       ),
     [childName],
   );
+  useEffect(() => {
+    if (!generatedBonusUrl || typeof window === "undefined") return;
+    const homeworkId = new URLSearchParams(window.location.search).get("homeworkId")?.trim();
+    if (!homeworkId) return;
+    let completed = false;
+    const onMessage = (event: MessageEvent) => {
+      if (event.source !== generatedBonusFrameRef.current?.contentWindow || completed) return;
+      const data = event.data as { type?: string; payload?: unknown } | undefined;
+      if (data?.type !== "node_complete" && data?.type !== "game_complete") return;
+      completed = true;
+      const payload = data.payload && typeof data.payload === "object"
+        ? data.payload as Record<string, unknown>
+        : {};
+      void fetch("/api/learning-cycle/reward/bonus-complete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          childId: talkChildId,
+          homeworkId,
+          completed: true,
+          targetResults: Array.isArray(payload.targetResults) ? payload.targetResults : [],
+        }),
+      }).then(async (response) => {
+        const result = await response.json().catch(() => ({})) as { amount?: number; awarded?: boolean };
+        console.log(
+          ` 🎮 [reward-loop] [bonus-result] awarded=${result.awarded === true} amount=${result.amount ?? 0}`,
+        );
+      }).catch((error: unknown) => {
+        console.error(" 🔴 [reward-loop] bonus result failed", error);
+      });
+    };
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  }, [generatedBonusUrl, talkChildId]);
   const motorsRef = useRef<Partial<Record<SlotName, CompanionMotor>>>({});
   const cardMotorRef = useRef<CompanionMotor | null>(null);
   /** Spotlight card mounts a second WebGL viewer; wait for VRM before driving clips (else emote fallback looks identical per character). */
@@ -5399,7 +5437,7 @@ export function CompanionShowroom({
     showroomVideoActiveActivityRef.current = null;
     setActiveVideoCallActivity(null);
     setShowroomVideoActiveActivity(null);
-    setVideoCallLayout("call");
+    setVideoCallLayout(generatedBonusUrl ? "play" : "call");
     setVideoCallCompanionView("full_body");
     videoChatContinuousListenRef.current = true;
     videoChatNoSpeechRetryCountRef.current = 0;
@@ -6812,7 +6850,14 @@ export function CompanionShowroom({
 	          />
 	        }
 	        activitySlot={
-	          activeVideoCallActivity === "tic_tac_toe" ? (
+	          generatedBonusUrl ? (
+	            <iframe
+	              ref={generatedBonusFrameRef}
+	              title="Earned assignment challenge"
+	              src={generatedBonusUrl}
+	              style={{ width: "100%", height: "100%", border: 0, borderRadius: 12 }}
+	            />
+	          ) : activeVideoCallActivity === "tic_tac_toe" ? (
 	            <CompanionTicTacToe
 	              companionId={current.id}
 	              companionName={current.name}

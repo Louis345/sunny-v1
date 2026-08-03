@@ -210,6 +210,8 @@ interface SessionState {
   sessionBootReady: boolean;
   /** First ElevenLabs PCM chunk after this session — used with map loading curtain. */
   firstAudioChunkReceived: boolean;
+  /** Host-controlled activity companion presentation. */
+  companionPresence: "collapsed" | "summoned";
 }
 
 function isMathCanvas(content: string | undefined): boolean {
@@ -358,6 +360,7 @@ export function useSession(options?: UseSessionOptions) {
     diagGameSessionReady: false,
     sessionBootReady: false,
     firstAudioChunkReceived: false,
+    companionPresence: "collapsed",
   });
 
   const sessionStateRef = useRef(state);
@@ -551,6 +554,7 @@ export function useSession(options?: UseSessionOptions) {
           diagGameSessionReady: false,
           sessionBootReady: false,
           firstAudioChunkReceived: false,
+          companionPresence: "collapsed",
           companion: {
             childName: m.childName ?? m.child ?? "",
             companionName: m.companionName ?? m.companion ?? "",
@@ -586,6 +590,13 @@ export function useSession(options?: UseSessionOptions) {
           ...s,
           companionEvents: [...s.companionEvents, ev],
         }));
+        break;
+      }
+
+      case "companion_presence": {
+        const presence = (msg as Record<string, unknown>).state;
+        if (presence !== "collapsed" && presence !== "summoned") break;
+        setStateRef.current((s) => ({ ...s, companionPresence: presence }));
         break;
       }
 
@@ -1131,6 +1142,7 @@ export function useSession(options?: UseSessionOptions) {
           diagGameSessionReady: false,
           sessionBootReady: false,
           firstAudioChunkReceived: false,
+          companionPresence: "collapsed",
           };
         });
         stopMicRef.current();
@@ -1564,6 +1576,7 @@ export function useSession(options?: UseSessionOptions) {
       diagGameSessionReady: false,
       sessionBootReady: false,
       firstAudioChunkReceived: false,
+      companionPresence: "collapsed",
     });
     wsRef.current?.close();
     wsRef.current = null;
@@ -1631,6 +1644,14 @@ export function useSession(options?: UseSessionOptions) {
     [sendMessage],
   );
 
+  const setCompanionPresence = useCallback(
+    (presence: "collapsed" | "summoned") => {
+      setState((current) => ({ ...current, companionPresence: presence }));
+      sendMessage("companion_presence", { state: presence });
+    },
+    [sendMessage],
+  );
+
   const handleOverlayFieldChange = useCallback(
     (payload: {
       problemId: string;
@@ -1664,6 +1685,7 @@ export function useSession(options?: UseSessionOptions) {
     sendMessage,
     micMuted,
     toggleMicMute,
+    setCompanionPresence,
     registerMapNodeType,
     companionEvents: state.companionEvents,
     companionCommands: state.companionCommands,

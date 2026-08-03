@@ -67,8 +67,8 @@ describe("TamagotchiSheet companion care", () => {
 
     expect(screen.getByText("Energy")).toBeTruthy();
     expect(screen.getByText("Thoughts")).toBeTruthy();
-    expect(screen.getByText("Apple Bite")).toBeTruthy();
-    expect(screen.getByText("Mystery Snack")).toBeTruthy();
+    expect(screen.getAllByText("Apple Bite").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Mystery Snack").length).toBeGreaterThan(0);
     expect(screen.getByText(/low-energy/i)).toBeTruthy();
 
     fireEvent.click(screen.getByRole("button", { name: /feed apple bite/i }));
@@ -181,5 +181,23 @@ describe("TamagotchiSheet companion care", () => {
     );
 
     expect(screen.queryByTestId("bookbag-floating-close")).toBeNull();
+  });
+
+  it("offers the persistent companion shop at canonical prices", () => {
+    const onPurchase = vi.fn();
+    render(
+      <TamagotchiSheet
+        open
+        companionName="Matilda"
+        companionCare={careView}
+        onPurchase={onPurchase}
+        onClose={() => {}}
+      />,
+    );
+
+    expect(screen.getByText("Shop")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Buy Apple Bite for 25 coins" }));
+    expect(onPurchase).toHaveBeenCalledWith("apple_bite");
+    expect(screen.getByRole("button", { name: "Buy Mystery Snack for 100 coins" })).toBeTruthy();
   });
 });

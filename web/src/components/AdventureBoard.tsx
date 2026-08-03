@@ -30,6 +30,7 @@ import "./AdventureBoard.css";
 type AdventureBoardProps = {
   board: AdventureBoardJson;
   completedNodeIds?: readonly string[];
+  inspectBaselineNodes?: boolean;
   onNodeClick?: (node: AdventureBoardNode) => void;
   onChoiceClick?: (option: AdventureChoiceOption, choiceSet: AdventureChoiceSet) => void;
 };
@@ -106,6 +107,7 @@ function resolveNodePosition(node: AdventureBoardNode): PositionedAdventureBoard
 export function AdventureBoard({
   board,
   completedNodeIds = [],
+  inspectBaselineNodes = false,
   onNodeClick,
   onChoiceClick,
 }: AdventureBoardProps): React.ReactElement {
@@ -113,6 +115,16 @@ export function AdventureBoard({
   const resolvedNodes = board.nodes.flatMap((node) => {
     const positionedNode = resolveNodePosition(node);
     if (!positionedNode) return [];
+    if (
+      inspectBaselineNodes &&
+      positionedNode.state === "locked" &&
+      positionedNode.kind !== "quest" &&
+      positionedNode.kind !== "boss" &&
+      positionedNode.kind !== "mystery" &&
+      positionedNode.kind !== "reward"
+    ) {
+      return [{ ...positionedNode, state: "available" as const, lock: undefined }];
+    }
     if (
       completedNodeIdSet.has(positionedNode.id) &&
       positionedNode.state !== "locked" &&
@@ -122,12 +134,24 @@ export function AdventureBoard({
     }
     return [positionedNode];
   });
-  const choiceSetsById = new Map((board.choiceSets ?? []).map((set) => [set.id, set]));
+  const projectedChoiceSets = (board.choiceSets ?? []).map((choiceSet) =>
+    inspectBaselineNodes && choiceSet.kind === "baseline-route"
+      ? {
+          ...choiceSet,
+          options: choiceSet.options.map((option) => ({
+            ...option,
+            state: "available" as const,
+            lock: undefined,
+          })),
+        }
+      : choiceSet,
+  );
+  const choiceSetsById = new Map(projectedChoiceSets.map((set) => [set.id, set]));
   const [openChoiceSetId, setOpenChoiceSetId] = useState<string | null>(null);
   const [selectedOptionByChoiceSet, setSelectedOptionByChoiceSet] = useState<Record<string, string>>({});
   const openChoiceSet = openChoiceSetId ? choiceSetsById.get(openChoiceSetId) ?? null : null;
   const skippedRouteNodeIds = new Set<string>();
-  for (const choiceSet of board.choiceSets ?? []) {
+  for (const choiceSet of projectedChoiceSets) {
     if (choiceSet.kind !== "baseline-route" || board.layout?.routeChoiceBehavior !== "exclusive") continue;
     const selectedOptionId = selectedOptionByChoiceSet[choiceSet.id];
     if (!selectedOptionId) continue;

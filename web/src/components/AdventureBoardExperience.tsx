@@ -15,6 +15,7 @@ export type AdventureBoardExperienceProps = {
   idlePose?: "flank" | "center";
   companionBehavior?: CompanionBehavior | null;
   completedNodeIds?: readonly string[];
+  parentPreview?: boolean;
   onNodeClick?: (node: AdventureBoardNode) => void;
   onChoiceClick?: (option: AdventureChoiceOption, choiceSet: AdventureChoiceSet) => void;
 };
@@ -25,6 +26,7 @@ export function AdventureBoardExperience({
   idlePose = "center",
   companionBehavior = null,
   completedNodeIds,
+  parentPreview = false,
   onNodeClick,
   onChoiceClick,
 }: AdventureBoardExperienceProps): React.ReactElement | null {
@@ -37,9 +39,15 @@ export function AdventureBoardExperience({
 
   return (
     <>
+      {parentPreview ? (
+        <div className="fixed left-1/2 top-3 z-[110] -translate-x-1/2 rounded-full bg-slate-950/90 px-5 py-2 text-sm font-black text-amber-200 shadow-xl">
+          Parent preview — progress will not save
+        </div>
+      ) : null}
       <AdventureBoard
         board={board}
         completedNodeIds={completedNodeIds}
+        inspectBaselineNodes={parentPreview}
         onNodeClick={onNodeClick}
         onChoiceClick={onChoiceClick}
       />

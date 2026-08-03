@@ -1,4 +1,5 @@
 import { useEffect, useState, type CSSProperties } from "react";
+import { LearningReportCard, type AssignmentLearningReport } from "./LearningReportPage";
 
 type Assignment = { homeworkId: string; title: string; domain: string };
 type ConstructLink = { constructId: string; role: "primary" | "secondary"; confidence: number };
@@ -56,6 +57,7 @@ export function ReturnedWorkPage({ childId }: { childId: string }) {
   const [selected, setSelected] = useState<Assignment | null>(null);
   const [file, setFile] = useState<File | null>(null);
   const [draft, setDraft] = useState<Draft | null>(null);
+  const [report, setReport] = useState<AssignmentLearningReport | null>(null);
   const [status, setStatus] = useState("Loading assignments…");
   const [busy, setBusy] = useState(false);
 
@@ -105,8 +107,11 @@ export function ReturnedWorkPage({ childId }: { childId: string }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ score: draft.score, items: draft.items }),
       });
-      await jsonResponse<{ interpretationStatus: string }>(response);
-      setStatus("Evidence saved");
+      const result = await jsonResponse<{ interpretationStatus: string }>(response);
+      const reportResponse = await fetch(`/api/learning/${encodeURIComponent(childId)}/assignments/${encodeURIComponent(draft.homeworkId)}/report`);
+      const reportBody = await jsonResponse<{ report: AssignmentLearningReport }>(reportResponse);
+      setReport(reportBody.report);
+      setStatus(result.interpretationStatus === "pending" ? "Evidence saved; interpretation is pending" : "Learning report ready");
     } catch (error) {
       setStatus(error instanceof Error ? error.message : String(error));
     } finally {
@@ -168,6 +173,7 @@ export function ReturnedWorkPage({ childId }: { childId: string }) {
               </article>
             ))}
             <button type="button" disabled={busy} onClick={() => void confirm()} style={{ ...cardStyle, textAlign: "center", background: "#2d6a4f", color: "white" }}>Confirm results</button>
+            {report && <LearningReportCard report={report} />}
           </div>
         )}
       </section>

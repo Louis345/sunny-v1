@@ -107,8 +107,8 @@
   gap: clamp(18px, 4vw, 40px);
   align-items: stretch;
   justify-content: center;
-  width: min(100%, 980px);
-  margin-top: clamp(30px, 7vh, 86px);
+  width: min(100%, 1120px);
+  margin-top: clamp(22px, 4vh, 44px);
 }
 
 .adventure-choice-modal__card {
@@ -116,8 +116,8 @@
   --choice-delay: 0ms;
   position: relative;
   display: flex;
-  width: clamp(260px, 28vw, 360px);
-  min-height: clamp(420px, 48vw, 520px);
+  width: clamp(320px, 38vw, 500px);
+  min-height: 0;
   flex-direction: column;
   padding: 0;
   border: 3px solid #1f0f2d;
@@ -142,7 +142,8 @@
 .adventure-choice-modal__art {
   position: relative;
   display: block;
-  flex: 0 0 38%;
+  aspect-ratio: 16 / 9;
+  flex: 0 0 auto;
   overflow: hidden;
   border-top-left-radius: 5px;
   border-top-right-radius: 5px;
@@ -174,11 +175,11 @@
 .adventure-choice-modal__copy {
   display: flex;
   min-width: 0;
-  flex: 1;
+  flex: 0 0 auto;
   flex-direction: column;
   gap: clamp(7px, 1.4vw, 11px);
   justify-content: flex-start;
-  padding: clamp(16px, 2.7vw, 28px) clamp(10px, 1.7vw, 16px);
+  padding: clamp(14px, 2vw, 22px) clamp(14px, 2vw, 22px) clamp(18px, 2.3vw, 24px);
 }
 
 .adventure-choice-modal__purpose {
@@ -209,7 +210,7 @@
   font-size: clamp(9px, 1.3vw, 12px);
   font-weight: 800;
   -webkit-box-orient: vertical;
-  -webkit-line-clamp: 9;
+  -webkit-line-clamp: 2;
   line-height: 1.2;
   overflow-wrap: anywhere;
 }

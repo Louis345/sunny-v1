@@ -6,6 +6,7 @@ import { createLearningCycle, getLearningCycle } from "./learningCycleRepository
 import {
   confirmReturnedWorkDraft,
   createReturnedWorkDraft,
+  getAssignmentLearningReport,
   listReturnedWorkAssignments,
 } from "./returnedWorkPipeline";
 
@@ -38,6 +39,12 @@ function seed(rootDir: string): void {
       predictedErrorPatterns: ["operation_selection"], confidence: 0.6,
       evidenceIds: ["assignment:original"], intervention: "equal-groups instruction",
       evidenceLimit: "calibrated_mastery", createdAt: "2026-07-18T12:00:00.000Z", lockedAt: "2026-07-18T12:00:00.000Z",
+    }],
+    assumptions: [{
+      assumptionId: "assumption:equal-groups",
+      claim: "Equal-groups representation will transfer to returned work.",
+      evidenceIds: ["assignment:original"], confidence: 0.6, uncertainty: "No returned work yet.",
+      createdAt: "2026-07-18T12:00:00.000Z", lockedAt: "2026-07-18T12:00:00.000Z",
     }],
   }, { rootDir });
 }
@@ -179,5 +186,65 @@ describe("returned work pipeline", () => {
       extractionConfidence: 0.9,
       constructLinks: [expect.objectContaining({ constructId: "math.multiplication.equal_groups", role: "primary" })],
     })]);
+  });
+
+  it("derives a read-only assignment report from the confirmed canonical cycle", async () => {
+    const rootDir = root();
+    seed(rootDir);
+    const draft = await createReturnedWorkDraft({
+      childId: "reina", homeworkId: "hw-original", filename: "marked.pdf",
+      mimeType: "application/pdf", dataBase64: Buffer.from("marked report").toString("base64"),
+    }, {
+      rootDir,
+      extract: async () => ({ items: [{
+        itemId: "item-1", prompt: "4 groups of 5", childResponse: "20", correct: true, extractionConfidence: 1,
+        constructLinks: [{ constructId: "math.multiplication.equal_groups", role: "primary", confidence: 1 }],
+      }] }),
+    });
+    await confirmReturnedWorkDraft({ childId: "reina", homeworkId: "hw-original", sourceId: draft.source.sourceId }, {
+      rootDir,
+      interpret: async (cycle) => ({
+        status: "revised", reason: "Returned work changed the original belief.", nextAction: "Test delayed transfer.",
+        evidenceIds: cycle.observations.map((item) => item.observationId),
+        predictionEvaluationIds: cycle.predictionEvaluations.map((item) => item.evaluationId),
+        preserve: ["equal groups"], change: ["add delayed transfer"], testNext: ["unseen array"], nextEvidenceRequired: ["delayed work"],
+        assumptionAssessments: [{
+          assumptionId: "assumption:equal-groups", outcome: "rejected", reason: "The prediction did not match.",
+          observationIds: cycle.observations.map((item) => item.observationId),
+        }],
+      }),
+    });
+    const before = JSON.stringify(getLearningCycle("reina", "hw-original", { rootDir }));
+
+    const report = getAssignmentLearningReport("reina", "hw-original", { rootDir });
+
+    expect(report.status).toBe("interpreted");
+    expect(report.latestDecision).toMatchObject({ status: "revised", preserve: ["equal groups"], change: ["add delayed transfer"] });
+    expect(report.assumptions[0]).toMatchObject({ assessment: { outcome: "rejected" } });
+    expect(report.predictions[0].evaluation?.sourceId).toBe(draft.source.sourceId);
+    expect(JSON.stringify(getLearningCycle("reina", "hw-original", { rootDir }))).toBe(before);
+  });
+
+  it("reports pending interpretation honestly without inventing a decision", async () => {
+    const rootDir = root();
+    seed(rootDir);
+    const draft = await createReturnedWorkDraft({
+      childId: "reina", homeworkId: "hw-original", filename: "marked.pdf",
+      mimeType: "application/pdf", dataBase64: Buffer.from("pending report").toString("base64"),
+    }, {
+      rootDir,
+      extract: async () => ({ items: [{
+        itemId: "item-1", prompt: "4 groups of 5", correct: true, extractionConfidence: 1,
+        constructLinks: [{ constructId: "math.multiplication.equal_groups", role: "primary", confidence: 1 }],
+      }] }),
+    });
+    await confirmReturnedWorkDraft({ childId: "reina", homeworkId: "hw-original", sourceId: draft.source.sourceId }, {
+      rootDir,
+      interpret: async () => { throw new Error("provider_unavailable"); },
+    });
+
+    const report = getAssignmentLearningReport("reina", "hw-original", { rootDir });
+    expect(report.status).toBe("awaiting_interpretation");
+    expect(report.latestDecision).toBeNull();
   });
 });

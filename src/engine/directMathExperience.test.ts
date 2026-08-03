@@ -102,8 +102,8 @@ function plan(activityCount = 3): any {
       hypothesis: "Compare strategy with visual construction.",
       heldConstant: ["multiplication targets"],
       routes: [
-        { id: "route-a", label: "Strategy Trail", promise: "Outthink the challenge", engagementVariable: "strategy", nodeIds: activities.filter((a) => a.routeId === "route-a").map((a) => a.id) },
-        { id: "route-b", label: "Builder Trail", promise: "Build the solution", engagementVariable: "visual", nodeIds: activities.filter((a) => a.routeId === "route-b").map((a) => a.id) },
+        { id: "route-a", label: "Strategy Trail", promise: "Outthink the challenge", childFacingActionCue: "Choose moves that restore the signal.", previewNodeId: activities.find((a) => a.routeId === "route-a")?.id, engagementVariable: "strategy", nodeIds: activities.filter((a) => a.routeId === "route-a").map((a) => a.id) },
+        { id: "route-b", label: "Builder Trail", promise: "Build the solution", childFacingActionCue: "Arrange pieces to power the trail.", previewNodeId: activities.find((a) => a.routeId === "route-b")?.id, engagementVariable: "visual", nodeIds: activities.filter((a) => a.routeId === "route-b").map((a) => a.id) },
       ],
     },
     activities,
@@ -144,6 +144,7 @@ function learningProgram(activityCount = 3): any {
       })),
     },
     activities: legacy.activities.map((activity: any) => ({
+      purpose: "baseline",
       id: activity.id,
       routeId: activity.routeId,
       responsibilityId: activity.responsibilityId,
@@ -185,6 +186,38 @@ describe("assignment concept", () => {
     delete withoutConcept.concept;
     expect(() => parseMathLearningProgram(withoutConcept))
       .toThrow("math_learning_program_missing_concept");
+  });
+});
+
+describe("optional reward contract", () => {
+  it("keeps one practice-only bonus outside the baseline route frontier", () => {
+    const raw = learningProgram(2);
+    raw.activities.push({
+      ...raw.activities[0],
+      id: "bonus-fractions-play",
+      purpose: "bonus",
+      routeId: "bonus",
+      items: raw.activities[0].items.map((item: any, index: number) => ({
+        ...item,
+        id: `bonus-item-${index + 1}`,
+        lineage: { ...item.lineage, exposure: "unseen" },
+      })),
+      academicPrediction: {
+        ...raw.activities[0].academicPrediction,
+        evidenceLimit: "practice_only",
+      },
+    });
+
+    const parsed = parseMathLearningProgram(raw);
+
+    expect(parsed.activities.map((activity) => activity.id)).not.toContain("bonus-fractions-play");
+    expect(parsed.fork.routes.flatMap((route) => route.nodeIds)).not.toContain("bonus-fractions-play");
+    expect(parsed.bonusActivity).toMatchObject({
+      id: "bonus-fractions-play",
+      purpose: "bonus",
+      routeId: "bonus",
+      academicPrediction: { evidenceLimit: "practice_only" },
+    });
   });
 });
 
@@ -234,6 +267,8 @@ describe("direct math experience", () => {
               routeId: route.id,
               label: route.id,
               promise: "A distinct experience.",
+              childFacingActionCue: `Try ${route.id} with one clear action.`,
+              previewNodeId: route.nodeIds[0],
               engagementVariable: "AI selected",
             })),
           },
@@ -294,7 +329,7 @@ describe("direct math experience", () => {
       },
     } as never);
 
-    await askMathExperienceDesigner({
+    const designed = await askMathExperienceDesigner({
       childId: "reina",
       program,
       childContext,
@@ -330,6 +365,13 @@ describe("direct math experience", () => {
     expect(prompt).not.toContain("no penalty");
     expect(prompt).not.toContain("wrestling");
     expect(prompt).not.toContain("Caravan Rush");
+    expect(designed.packet.boardCreativeSpine.routeDirections).toEqual(
+      program.fork.routes.map((route) => expect.objectContaining({
+        routeId: route.id,
+        childFacingActionCue: `Try ${route.id} with one clear action.`,
+        previewNodeId: route.nodeIds[0],
+      })),
+    );
   });
 
   it("places artifact design before generation without a review pause or quality harness", () => {
@@ -1064,12 +1106,40 @@ describe("direct math experience", () => {
     expect(prompt).toContain("1365×768");
     expect(prompt).toContain("title and first required action");
     expect(prompt).toContain("primary controls");
+    expect(prompt).toContain("readAloudRequested");
+    expect(prompt).toContain('type:"sunny_companion_presence"');
+    expect(prompt).toContain("Pause activity timers and input while summoned");
+    expect(prompt).toContain("right-side companion safe area");
+    expect(prompt).toContain("essential instructions, mathematical representations, and primary controls outside it");
 
     const elli = fs.readFileSync(path.join(process.cwd(), "src/companions/elli.md"), "utf8");
     expect(elli).toContain("only after the child asks");
     expect(elli).toContain("Never reveal the active answer");
     expect(elli).toContain("recordChildSignal");
     expect(elli).toContain("help_needed");
+  });
+
+  it("projects the active child's companion instead of stamping Elli into every math board", () => {
+    const parsed = parseDirectLearningExperiencePlan(plan(2));
+    const artifacts = parsed.activities.map((activity) => ({
+      childId: "reina", homeworkId: "hw-math-companion", nodeId: activity.id, title: activity.title,
+      htmlPath: `/games/${activity.id}.html`, artworkUrl: `/art/${activity.id}.png`,
+      creatorPrompt: activity.creatorPrompt, promptHash: activity.id,
+      plannerModel: "planner", creatorModel: "creator",
+    }));
+    const session = buildDirectActiveSessionPlan({
+      childId: "reina",
+      homeworkId: "hw-math-companion",
+      plan: parsed,
+      artifacts,
+      backgroundUrl: "/background.png",
+      questArtworkUrl: "/quest.png",
+      bossArtworkUrl: "/boss.png",
+      report: { passed: true, failures: [], screenshots: [] },
+      companion: { id: "matilda", name: "Matilda" },
+    });
+    expect(session.companionPolicy).toMatchObject({ companionId: "matilda", displayName: "Matilda" });
+    expect(session.adventureBoard?.companion).toEqual({ id: "matilda", name: "Matilda" });
   });
 
   it("documents the single math prompt chain without authorizing another system", () => {
@@ -1180,6 +1250,8 @@ describe("direct math experience", () => {
     parsed.activities[1]!.routeId = "route-shared-entry";
     parsed.fork.routes[0]!.nodeIds = [parsed.activities[2]!.id];
     parsed.fork.routes[1]!.nodeIds = [parsed.activities[3]!.id];
+    parsed.fork.routes[0]!.previewNodeId = parsed.activities[2]!.id;
+    parsed.fork.routes[1]!.previewNodeId = parsed.activities[3]!.id;
     const artifacts = parsed.activities.map((activity) => ({
       childId: "reina",
       homeworkId: "hw-math-layout",
@@ -1202,7 +1274,7 @@ describe("direct math experience", () => {
       bossArtworkUrl: "/generated/boss.jpeg",
       report: { passed: true, failures: [], screenshots: [] },
     }).adventureBoard!;
-    const sharedPath = ["activity-1", "activity-2", "choose-path"]
+    const sharedPath = ["start", "activity-1", "activity-2", "choose-path"]
       .map((id) => board.nodes.find((node) => node.id === id)!);
 
     for (let index = 1; index < sharedPath.length; index += 1) {
@@ -1210,9 +1282,9 @@ describe("direct math experience", () => {
       const current = sharedPath[index]!.position!;
       expect(Math.hypot(current.x - previous.x, current.y - previous.y)).toBeGreaterThanOrEqual(0.15);
     }
-    expect(sharedPath[0]!.shortLabel).toBe("The Tide Pool Test");
-    expect(sharedPath[1]!.shortLabel).toBe("The Lighthouse Lens");
-    expect(sharedPath[2]!.shortLabel).toBe("Choose Path");
+    expect(sharedPath[1]!.shortLabel).toBe("The Tide Pool Test");
+    expect(sharedPath[2]!.shortLabel).toBe("The Lighthouse Lens");
+    expect(sharedPath[3]!.shortLabel).toBe("Choose Path");
   });
 
   it("publishes a gated exclusive route choice with opening previews", () => {
@@ -1220,6 +1292,10 @@ describe("direct math experience", () => {
     rawPlan.fork.question = "A long AI-authored explanation that should not become the child-facing heading";
     rawPlan.fork.routes[0]!.promise = "Build fair shares with your own hands — no clock, only sharp eyes, and a wax seal when the cut is true.";
     rawPlan.fork.routes[1]!.promise = "Spot the bigger fair slice before the gull swoops — fast eyes win the crowd, but the bird never steals your turn.";
+    rawPlan.fork.routes[0]!.childFacingActionCue = "Cut the chart into fair shares.";
+    rawPlan.fork.routes[0]!.previewNodeId = "activity-3";
+    rawPlan.fork.routes[1]!.childFacingActionCue = "Spot the bigger fair slice.";
+    rawPlan.fork.routes[1]!.previewNodeId = "activity-4";
     const parsed = parseDirectLearningExperiencePlan(rawPlan);
     parsed.activities[0]!.routeId = "route-shared-entry";
     parsed.activities[1]!.routeId = "route-shared-entry";
@@ -1264,8 +1340,8 @@ describe("direct math experience", () => {
       "/generated/direct-math/hw-math-choice-previews/activity-4-opening.png",
     ]);
     expect(board.choiceSets?.[0]?.options.map((option) => option.description)).toEqual([
-      "Build fair shares with your own hands",
-      "Spot the bigger fair slice before the gull swoops",
+      "Cut the chart into fair shares.",
+      "Spot the bigger fair slice.",
     ]);
     expect(board.nodes.find((node) => node.id === "activity-1")?.state).toBe("current");
     expect(board.nodes.find((node) => node.id === "activity-2")?.state).toBe("locked");

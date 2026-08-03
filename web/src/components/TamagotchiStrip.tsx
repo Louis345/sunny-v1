@@ -4,6 +4,7 @@ import type { CompanionCareView } from "../../../src/shared/companionCareTypes";
 export interface TamagotchiStripProps {
   tamagotchi: TamagotchiState;
   companionCare?: CompanionCareView | null;
+  balance?: number;
   hidden?: boolean;
   onOpenSheet?: () => void;
 }
@@ -12,6 +13,7 @@ export interface TamagotchiStripProps {
 export function TamagotchiStrip({
   tamagotchi,
   companionCare,
+  balance = 0,
   hidden,
   onOpenSheet,
 }: TamagotchiStripProps) {
@@ -95,7 +97,8 @@ export function TamagotchiStrip({
       data-testid="map-care-strip"
       style={{
         position: "absolute",
-        left: 16,
+        left: "50%",
+        transform: "translateX(-50%)",
         bottom: 14,
         width: 360,
         maxWidth: "calc(100vw - 32px)",
@@ -112,6 +115,24 @@ export function TamagotchiStrip({
         pointerEvents: "auto",
       }}
     >
+      <button
+        type="button"
+        aria-label={`Open bookbag with ${Math.max(0, Math.floor(balance))} Sunny Coins`}
+        onClick={() => onOpenSheet?.()}
+        style={{
+          minWidth: 76,
+          border: "none",
+          borderRadius: 8,
+          background: "rgba(124,58,237,0.78)",
+          color: "#fff",
+          fontWeight: 900,
+          cursor: onOpenSheet ? "pointer" : "default",
+        }}
+      >
+        <span aria-hidden="true">🎒</span>
+        <br />
+        <span>🪙 {Math.max(0, Math.floor(balance))}</span>
+      </button>
       {bars.map(([icon, label, value, pulse]) => cell(icon, label, value, pulse))}
     </div>
   );

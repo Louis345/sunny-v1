@@ -105,6 +105,27 @@ export function resolveSpellingWordListForHomework(opts: {
   return extractWordsFromHomework(opts.rawContent);
 }
 
+export function shouldActivateSpellingSession(opts: {
+  subject: string;
+  wordList: string[];
+  explicitDomain?: string | null;
+}): boolean {
+  if (opts.subject === "spelling") return opts.wordList.length > 0;
+  if (opts.subject !== "homework" || opts.wordList.length === 0) return false;
+  const domain = String(opts.explicitDomain ?? "").trim().toLowerCase();
+  return !domain || domain === "spelling";
+}
+
+export function shouldEnableCompanionWakeGate(opts: {
+  subject: string;
+  homeworkId?: string | null;
+  explicitDomain?: string | null;
+}): boolean {
+  if (opts.subject !== "homework") return false;
+  const domain = String(opts.explicitDomain ?? "").trim().toLowerCase();
+  return domain === "math" || /^hw-math(?:-|$)/i.test(String(opts.homeworkId ?? ""));
+}
+
 export function buildContextStartGreeting(pendingHomework: any): string {
   const firstNode = (pendingHomework?.nodes ?? []).find((node: any) => !node.locked) ?? pendingHomework?.nodes?.[0];
   const lane = String(firstNode?.targetLane ?? "").replace(/[_-]+/g, " ").trim();
@@ -116,6 +137,14 @@ export function buildContextStartGreeting(pendingHomework: any): string {
   return greeting.split(/\s+/).length <= 12
     ? greeting
     : "Your first challenge is ready. Want to try it?";
+}
+
+export async function deliverInteractiveCompanionOpening(
+  session: Pick<any, "setCompanionPresence" | "handleCompanionTurn">,
+  opening: string,
+): Promise<void> {
+  session.setCompanionPresence("summoned", "voice");
+  await session.handleCompanionTurn(opening);
 }
 
 export function shouldLoadLegacyHomeworkFolder(opts: {
@@ -698,7 +727,13 @@ export async function runSessionStart(
         message: "Preparing homework adventure...",
       });
       const homeworkForPrompt = buildPendingHomeworkPromptContent(pendingHomework);
-      const extractSpellingWords = subject === "spelling" || subject === "homework";
+      const explicitHomeworkDomain =
+        pendingHomework.contentProfile?.practiceDomain ??
+        pendingHomework.capturedContent?.contentProfile?.practiceDomain;
+      const extractSpellingWords =
+        subject === "spelling" ||
+        (subject === "homework" &&
+          (!explicitHomeworkDomain || explicitHomeworkDomain === "spelling"));
       const wordList = resolveSpellingWordListForHomework({
         worksheetMode: false,
         extractSpellingWords,
@@ -741,7 +776,16 @@ export async function runSessionStart(
         ...session.companion,
         systemPrompt: homeworkCompanionSystemPrompt,
       };
-      session.isSpellingSession = extractSpellingWords;
+      session.isSpellingSession = shouldActivateSpellingSession({
+        subject,
+        wordList,
+        explicitDomain: explicitHomeworkDomain,
+      });
+      session.companionWakeGateEnabled = shouldEnableCompanionWakeGate({
+        subject,
+        homeworkId: pendingHomework.homeworkId,
+        explicitDomain: explicitHomeworkDomain,
+      });
       console.log(
         `  🎮 [homework-pending] child prompt active homework=${pendingHomework.homeworkId ?? "unknown"} words=${wordList.length}`,
       );
@@ -1218,7 +1262,20 @@ export async function runSessionStart(
       console.log(`  ✅ Session prompt ready (${sessionPrompt.length} chars)`);
       session.isSpellingSession =
         !session.worksheetMode &&
-        (subject === "spelling" || subject === "homework");
+        shouldActivateSpellingSession({
+          subject,
+          wordList: session.spellingHomeworkWordsByNorm,
+          explicitDomain:
+            sessionLearningProfile?.pendingHomework?.contentProfile?.practiceDomain ??
+            sessionLearningProfile?.pendingHomework?.capturedContent?.contentProfile?.practiceDomain,
+        });
+      session.companionWakeGateEnabled = shouldEnableCompanionWakeGate({
+        subject,
+        homeworkId: sessionLearningProfile?.pendingHomework?.homeworkId,
+        explicitDomain:
+          sessionLearningProfile?.pendingHomework?.contentProfile?.practiceDomain ??
+          sessionLearningProfile?.pendingHomework?.capturedContent?.contentProfile?.practiceDomain,
+      });
       if (session.isSpellingSession) {
         console.log("  📝 Spelling session mode active");
       }
@@ -1495,7 +1552,7 @@ This is a safe space to test everything.
     } else {
       const openingLine = session.companion.openingLine.trim();
       if (openingLine) {
-        await session.handleCompanionTurn(openingLine);
+        await deliverInteractiveCompanionOpening(session, openingLine);
       } else if (
         (subject === "homework" || subject === "spelling") &&
         sessionLearningProfile?.pendingHomework
@@ -1506,7 +1563,8 @@ This is a safe space to test everything.
           sessionLearningProfile.activeSessionPlan?.companionPolicy?.openingLinePolicy ??
           "context_start_short";
         if (openingPolicy === "context_start_short" && !session.options?.sttOnly) {
-          await session.handleCompanionTurn(
+          await deliverInteractiveCompanionOpening(
+            session,
             "[Adventure board just appeared] Greet the child by name in ONE short warm sentence and invite them to pick the first spot on today's adventure map. Do not list the nodes or explain rules.",
           );
         } else {

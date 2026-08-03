@@ -50,7 +50,7 @@
     "sunny:lab:math-feedback": "npx tsx src/scripts/runMathFeedbackLoopLab.ts",
     "sunny:lab:miss-review": "npx tsx src/scripts/runHumanMissReview.ts",
     "sunny:pronunciation:science:audit": "npx tsx src/scripts/pronunciationScienceAudit.ts",
-    "sunny": "npm run sunny:run -- --subject review",
+    "sunny": "npx tsx src/scripts/sunnyMenu.ts",
     "sunny:homework": "npm run sunny:run -- --subject homework",
     "sunny:homework:preflight": "npx tsx src/scripts/preflightHomeworkSession.ts",
     "sunny:route-launch:verify": "npx tsx src/scripts/verifyPublishedRouteLaunch.ts",

@@ -512,13 +512,13 @@ describe("CompanionLayer portrait mode", () => {
     );
   });
 
-  it("renders 120×120 circle container when mode='portrait'", () => {
+  it("expands the portrait while summoned and keeps it circular", () => {
     const { getByTestId } = render(
       <CompanionLayer childId="fixture" companion={companion} toggledOff={false} mode="portrait" />,
     );
     const el = getByTestId("companion-portrait") as HTMLElement;
-    expect(el.style.width).toBe("120px");
-    expect(el.style.height).toBe("120px");
+    expect(el.style.width).toBe("188px");
+    expect(el.style.height).toBe("188px");
     expect(el.style.borderRadius).toBe("50%");
   });
 
@@ -547,7 +547,7 @@ describe("CompanionLayer portrait mode", () => {
     const bubble = getByTestId("companion-speech-bubble");
     const portrait = getByTestId("companion-portrait");
     expect(stack.firstChild).toBe(bubble);
-    expect(stack.lastChild).toBe(portrait);
+    expect(portrait.parentElement).toBe(stack);
     expect(bubble.textContent).toBe("Hello there");
   });
 
@@ -559,7 +559,7 @@ describe("CompanionLayer portrait mode", () => {
     expect(container.querySelector("div.fixed.inset-0")).toBeTruthy();
   });
 
-  it("CompanionLayer calls onToggleMute when portrait tapped", () => {
+  it("CompanionLayer exposes a separate mute control while summoned", () => {
     const onToggleMute = vi.fn();
     const { getByTestId } = render(
       <CompanionLayer
@@ -571,7 +571,7 @@ describe("CompanionLayer portrait mode", () => {
         onToggleMute={onToggleMute}
       />,
     );
-    fireEvent.click(getByTestId("companion-portrait"));
+    fireEvent.click(getByTestId("companion-mute-control"));
     expect(onToggleMute).toHaveBeenCalledOnce();
   });
 

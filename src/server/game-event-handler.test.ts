@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("./learningAttemptEvents", () => ({
   recordLearningAttempt: vi.fn(() => ({
@@ -13,8 +13,48 @@ vi.mock("./companionVideoCallTrace", () => ({
 
 import { handleGameEventForSession } from "./game-event-handler";
 import { recordCompanionVideoCallTraceEvent } from "./companionVideoCallTrace";
+import { recordLearningAttempt } from "./learningAttemptEvents";
+
+afterEach(() => {
+  delete process.env.SUNNY_MODE;
+});
 
 describe("game event handler companion events", () => {
+  it("routes an explicit generated-math read request to exact narration", () => {
+    const fakeSession = {
+      childName: "Reina",
+      chartChildId: "reina",
+      recordDebugEvent: vi.fn(),
+      recordGameTrace: vi.fn(),
+      updateCurrentBoardSnapshot: vi.fn(),
+      requestInstructionReadAloud: vi.fn(),
+    };
+
+    handleGameEventForSession(fakeSession, {
+      type: "game_state_update",
+      game: "generated-math",
+      nodeId: "N1",
+      activityId: "N1",
+      currentChallenge: {
+        id: "N1-I1",
+        prompt: "Which rectangle is cut into 3 equal parts?",
+        mode: "selection",
+        readAloudRequested: true,
+        readAloudCount: 1,
+      },
+      answerVisibility: "hidden",
+    });
+
+    expect(fakeSession.requestInstructionReadAloud).toHaveBeenCalledWith({
+      nodeId: "N1",
+      activityId: "N1",
+      itemId: "N1-I1",
+      prompt: "Which rectangle is cut into 3 equal parts?",
+      requestCount: 1,
+      answerVisibility: "hidden",
+    });
+  });
+
   it("keeps correct/wrong companion events visual-only while recording context", () => {
     const fakeSession = {
       send: vi.fn(),
@@ -45,6 +85,8 @@ describe("game event handler companion events", () => {
 
   it("appends attempt_event to the session game trace stream", () => {
     const fakeSession = {
+      childName: "Reina",
+      chartChildId: "reina",
       recordDebugEvent: vi.fn(),
       recordGameTrace: vi.fn(),
       noteExternalEvent: vi.fn(),
@@ -71,6 +113,34 @@ describe("game event handler companion events", () => {
         correct: true,
         attempts: 1,
       }),
+    );
+  });
+
+  it("keeps preview attempt events diagnostic-only and out of the child fact bank", () => {
+    process.env.SUNNY_MODE = "as-child";
+    vi.mocked(recordLearningAttempt).mockClear();
+    const fakeSession = {
+      childName: "Reina",
+      chartChildId: "reina",
+      recordDebugEvent: vi.fn(),
+      recordGameTrace: vi.fn(),
+      noteExternalEvent: vi.fn(),
+    };
+
+    handleGameEventForSession(fakeSession, {
+      type: "attempt_event",
+      game: "generated-math",
+      activityId: "N1",
+      domain: "math",
+      childId: "reina",
+      target: "N1-I2",
+      attemptedValue: "1",
+      correct: false,
+    });
+
+    expect(recordLearningAttempt).not.toHaveBeenCalled();
+    expect(fakeSession.recordGameTrace).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "attempt_event", target: "N1-I2" }),
     );
   });
 

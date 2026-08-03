@@ -52,6 +52,10 @@ import { DEFAULT_TAMAGOTCHI } from "../shared/vrrTypes";
 import {
   applyCompanionFeedItem,
   companionCareToView,
+  purchaseCompanionStoreItem,
+  awardHomeworkBonusCoins,
+  grantVideoCallTicket,
+  markVideoCallTicketOpened,
 } from "../engine/companionCareEngine";
 import {
   applyChoiceEventPreference,
@@ -126,6 +130,7 @@ import {
 } from "./companionVideoCallTrace";
 import type { SunnyRuntimeOverrides } from "../shared/runtimeConfig";
 import { resolveSunnyRuntimeConfig } from "../shared/runtimeConfig";
+import { reconcileCompanionCareCurrencyAward } from "./currencyAward";
 import { companionPickerIdentity } from "./companionPickerRows";
 import { advanceCanonicalCycleFromEvidence, recordCanonicalNodeCompletion } from "../engine/learningCycleRuntime";
 import { generateCanonicalProgressionArtifact } from "../engine/canonicalProgressionGenerator";
@@ -137,6 +142,7 @@ import {
 import {
   confirmReturnedWorkDraft,
   createReturnedWorkDraft,
+  getAssignmentLearningReport,
   listReturnedWorkAssignments,
 } from "../engine/returnedWorkPipeline";
 import type { ConfirmedReturnedWorkItem } from "../engine/longitudinalLearning";
@@ -147,6 +153,12 @@ const companions = {
 } as const;
 
 type ChildName = keyof typeof companions;
+
+export function learningRouteShouldPersist(
+  runtime = resolveSunnyRuntimeConfig(process.env),
+): boolean {
+  return runtime.persistenceMode === "live";
+}
 
 const GAME_GRADE_HAIKU_MODEL = "claude-haiku-4-5-20251001";
 const HOMEWORK_SONNET_MODEL = process.env.SUNNY_HOMEWORK_MODEL ?? "claude-sonnet-5";
@@ -628,6 +640,20 @@ export function setupRoutes(app: Express): void {
     }
   });
 
+  app.get("/api/learning/:childId/assignments/:homeworkId/report", (req: Request, res: Response) => {
+    const childId = String(req.params.childId ?? "").trim().toLowerCase();
+    const homeworkId = String(req.params.homeworkId ?? "").trim();
+    if (!isValidRegistryChildId(childId)) return res.status(404).json({ error: "child_not_found" });
+    if (!homeworkId) return res.status(400).json({ error: "homeworkId is required" });
+    try {
+      return res.json({ report: getAssignmentLearningReport(childId, homeworkId) });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error(" 🎮 [learning-report] [read] [failed]", error);
+      return res.status(message.startsWith("learning_report_assignment_missing:") ? 404 : 500).json({ error: message });
+    }
+  });
+
   app.post("/api/learning/:childId/assignments/:homeworkId/returned-work/extract", async (req: Request, res: Response) => {
     const childId = String(req.params.childId ?? "").trim().toLowerCase();
     const homeworkId = String(req.params.homeworkId ?? "").trim();
@@ -689,7 +715,15 @@ export function setupRoutes(app: Express): void {
     if (!childId || !homeworkId || !nodeId || !body.result) {
       return res.status(400).json({ error: "childId, homeworkId, nodeId, and result are required" });
     }
+    if (!learningRouteShouldPersist()) {
+      console.log(` 🎮 [learning-cycle-route] [completion] [preview-skipped] child=${childId} node=${nodeId}`);
+      return res.json({ ok: true, skippedPersistence: true });
+    }
     try {
+      const beforeCycle = getLearningCycle(childId, homeworkId);
+      const wasCompleted = beforeCycle?.nodes.some(
+        (node) => node.nodeId === nodeId && node.state === "completed",
+      ) === true;
       const accuracy = Number(body.result.accuracy ?? 0);
       const updated = recordCanonicalNodeCompletion({
         childId,
@@ -714,6 +748,44 @@ export function setupRoutes(app: Express): void {
       });
       if (!updated) return res.status(404).json({ error: "learning_cycle_not_found" });
       const finalCycle = getLearningCycle(childId, homeworkId) ?? updated;
+      let videoCallTicket: { homeworkId: string; earnedAt: string; bonusUrl?: string } | undefined;
+      if (finalCycle.lifecycle === "baseline_evaluating") {
+        try {
+          const chart = getChildChart(childId);
+          const earnedAt = new Date().toISOString();
+          let bonusUrl: string | undefined;
+          const planPath = path.join(resolveChildContextDir(childId), "homework", "direct_experience_plan.json");
+          try {
+            const directPlan = JSON.parse(fs.readFileSync(planPath, "utf8")) as { bonusActivity?: { id?: string } };
+            const bonusId = directPlan.bonusActivity?.id?.trim();
+            const bonusFile = bonusId
+              ? path.join(resolveChildContextDir(childId), "homework", "games", homeworkId, `${bonusId}.html`)
+              : "";
+            if (bonusId && fs.existsSync(bonusFile)) {
+              bonusUrl = `/api/homework/game/${encodeURIComponent(childId)}/${encodeURIComponent(homeworkId)}/${encodeURIComponent(`${bonusId}.html`)}`;
+            }
+          } catch {
+            bonusUrl = undefined;
+          }
+          const ticket = grantVideoCallTicket(chart.companionCare.plan, homeworkId, earnedAt, bonusUrl);
+          if (ticket.granted) {
+            saveCompanionCarePlan(chart, ticket.plan);
+            mirrorCompanionCareToLearningProfile(chart, ticket.plan);
+          }
+          const savedTicket = ticket.plan.economy.videoCallTickets?.find(
+            (entry) => entry.homeworkId === homeworkId,
+          );
+          if (savedTicket) {
+            videoCallTicket = {
+              homeworkId,
+              earnedAt: savedTicket.earnedAt,
+              ...(savedTicket.bonusUrl ? { bonusUrl: savedTicket.bonusUrl } : {}),
+            };
+          }
+        } catch (error) {
+          console.error(` 🎮 [learning-cycle-route] [video-call-ticket] [deferred] ${error instanceof Error ? error.message : String(error)}`);
+        }
+      }
       console.log(` 🎮 [learning-cycle-route] [completion] [saved] child=${childId} node=${nodeId} lifecycle=${updated.lifecycle} revision=${updated.revision}`);
       if (["baseline_evaluating", "quest_evaluating", "boss_evaluating"].includes(finalCycle.lifecycle)) {
         void advanceCanonicalCycleFromEvidence({ childId, homeworkId })
@@ -730,10 +802,100 @@ export function setupRoutes(app: Express): void {
             console.error(` 🎮 [learning-cycle-route] [next-session] [deferred] ${error instanceof Error ? error.message : String(error)}`);
           });
       }
-      return res.json({ lifecycle: finalCycle.lifecycle, revision: finalCycle.revision });
+      const award = body.result.completed === true && !wasCompleted
+        ? reconcileCompanionCareCurrencyAward({
+            childId,
+            amount: 25,
+            dryRun: false,
+            reason: `canonical_node_complete:${homeworkId}:${nodeId}`,
+          })
+        : null;
+      return res.json({
+        lifecycle: finalCycle.lifecycle,
+        revision: finalCycle.revision,
+        ...(award?.ok ? { coinAward: { amount: 25, balance: award.balance } } : {}),
+        ...(videoCallTicket ? { videoCallTicket } : {}),
+      });
     } catch (error) {
       console.error(" 🎮 [learning-cycle-route] [completion] [failed]", error);
       return res.status(409).json({ error: error instanceof Error ? error.message : String(error) });
+    }
+  });
+
+  app.post("/api/learning-cycle/reward/open", (req: Request, res: Response) => {
+    const childId = String(req.body?.childId ?? "").trim().toLowerCase();
+    const homeworkId = String(req.body?.homeworkId ?? "").trim();
+    if (!childId || !homeworkId) return res.status(400).json({ error: "childId and homeworkId required" });
+    if (!learningRouteShouldPersist()) return res.status(403).json({ error: "preview_read_only" });
+    try {
+      const chart = getChildChart(childId);
+      const openedAt = new Date().toISOString();
+      const result = markVideoCallTicketOpened(chart.companionCare.plan, homeworkId, openedAt);
+      if (!result.ok) return res.status(404).json({ error: "video_call_ticket_missing" });
+      if (!result.alreadyOpened) {
+        saveCompanionCarePlan(chart, result.plan);
+        mirrorCompanionCareToLearningProfile(chart, result.plan);
+      }
+      console.log(` 🎮 [reward-loop] [ticket-opened] child=${childId} homework=${homeworkId}`);
+      return res.json({ ok: true, alreadyOpened: result.alreadyOpened });
+    } catch (error: unknown) {
+      return res.status(500).json({ error: error instanceof Error ? error.message : String(error) });
+    }
+  });
+
+  app.post("/api/learning-cycle/reward/bonus-complete", (req: Request, res: Response) => {
+    const childId = String(req.body?.childId ?? "").trim().toLowerCase();
+    const homeworkId = String(req.body?.homeworkId ?? "").trim();
+    const targetResults = Array.isArray(req.body?.targetResults) ? req.body.targetResults : [];
+    if (!childId || !homeworkId) return res.status(400).json({ error: "childId and homeworkId required" });
+    if (!learningRouteShouldPersist()) return res.status(403).json({ error: "preview_read_only" });
+    try {
+      const chart = getChildChart(childId);
+      const planPath = path.join(resolveChildContextDir(childId), "homework", "direct_experience_plan.json");
+      const directPlan = JSON.parse(fs.readFileSync(planPath, "utf8")) as {
+        planId?: string;
+        bonusActivity?: { items?: Array<{ id?: string; lineage?: { exposure?: string } }> };
+      };
+      if (directPlan.planId !== homeworkId) {
+        return res.status(409).json({ error: "bonus_homework_contract_mismatch" });
+      }
+      const freshIds = new Set(
+        (directPlan.bonusActivity?.items ?? [])
+          .filter((item) => item.lineage?.exposure === "unseen" && typeof item.id === "string")
+          .map((item) => item.id!.trim())
+          .filter(Boolean),
+      );
+      if (freshIds.size === 0) return res.status(409).json({ error: "bonus_fresh_contract_missing" });
+      const submittedById = new Map<string, Record<string, unknown>>();
+      for (const row of targetResults) {
+        const item = row && typeof row === "object" ? row as Record<string, unknown> : {};
+        const target = typeof item.target === "string" ? item.target.trim() : "";
+        if (freshIds.has(target) && !submittedById.has(target)) submittedById.set(target, item);
+      }
+      const independentCorrect = [...submittedById.values()].filter((item) => {
+        const scaffoldLevel = Math.max(0, Number(item.scaffoldLevel ?? 0) || 0);
+        return item.correct === true && item.assisted !== true && scaffoldLevel === 0;
+      });
+      const result = awardHomeworkBonusCoins(chart.companionCare.plan, {
+        homeworkId,
+        completed: req.body?.completed === true,
+        independentlyCorrectFreshItems: independentCorrect.length,
+        freshItemCount: freshIds.size,
+        nowIso: new Date().toISOString(),
+      });
+      if (result.awarded) {
+        saveCompanionCarePlan(chart, result.plan);
+        mirrorCompanionCareToLearningProfile(chart, result.plan);
+      }
+      console.log(` 🎮 [reward-loop] [bonus-complete] child=${childId} homework=${homeworkId} awarded=${result.awarded} amount=${result.amount}`);
+      return res.json({
+        ok: true,
+        awarded: result.awarded,
+        amount: result.amount,
+        balance: result.plan.economy.coins,
+      });
+    } catch (error: unknown) {
+      return res.status(500).json({ error: error instanceof Error ? error.message : String(error) });
     }
   });
 
@@ -1002,7 +1164,7 @@ export function setupRoutes(app: Express): void {
     if (!childId) {
       return res.status(400).json({ ok: false, error: "Missing childId" });
     }
-    const body = req.body as { payload?: Partial<ChoiceEventInput>; preview?: unknown } | undefined;
+    const body = req.body as { payload?: Partial<ChoiceEventInput> } | undefined;
     const payload = body?.payload;
     if (!payload || typeof payload !== "object") {
       return res.status(400).json({ ok: false, error: "choice event payload required" });
@@ -1013,17 +1175,15 @@ export function setupRoutes(app: Express): void {
     if (typeof payload.choiceSetId !== "string" || !payload.choiceSetId.trim()) {
       return res.status(400).json({ ok: false, error: "choice event choiceSetId required" });
     }
-    const preview = body?.preview;
-    const skipPersistence = preview === "free" || preview === "go-live" || preview === true;
     const eventInput = {
       ...payload,
       childId,
       source: payload.source ?? "child_choice",
       createdAt: payload.createdAt ?? new Date().toISOString(),
     } as ChoiceEventInput;
-    if (skipPersistence) {
+    if (!learningRouteShouldPersist()) {
       console.log(
-        `  🎮 [choice-event] [planner-board-preview] child=${childId} context=${eventInput.context} source=${eventInput.source}`,
+        `  🎮 [choice-event] [server-preview-skipped] child=${childId} context=${eventInput.context} source=${eventInput.source}`,
       );
       return res.json({ ok: true, applied: false, skippedPersistence: true });
     }
@@ -1127,6 +1287,65 @@ export function setupRoutes(app: Express): void {
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : String(err);
         res.status(500).json({ error: message });
+      }
+    },
+  );
+
+  app.post(
+    "/api/profile/:childId/companion-care/purchase",
+    (req: Request, res: Response) => {
+      const childId = String(req.params.childId ?? "").trim();
+      const body = (req.body ?? {}) as { itemId?: unknown; requestId?: unknown };
+      const itemId = String(body.itemId ?? "").trim();
+      const requestId = String(body.requestId ?? "").trim();
+      if (!childId || !itemId || !requestId) {
+        return res.status(400).json({ error: "childId, itemId, and requestId required" });
+      }
+      const runtime = resolveSunnyRuntimeConfig(process.env);
+      if (!companionCareFeedShouldPersist(runtime)) {
+        return res.status(403).json({ error: "preview_read_only" });
+      }
+      try {
+        const chart = getChildChart(childId);
+        const startingPlan = chart.companionCare.plan;
+        const result = purchaseCompanionStoreItem(
+          startingPlan,
+          itemId,
+          requestId,
+          new Date().toISOString(),
+        );
+        if (!result.ok) {
+          return res.status(result.reason === "insufficient_funds" ? 409 : 400).json({
+            error: result.reason,
+          });
+        }
+        if (!result.duplicate) {
+          saveCompanionCarePlan(chart, result.plan);
+          try {
+            mirrorCompanionCareToLearningProfile(chart, result.plan);
+          } catch (error) {
+            saveCompanionCarePlan(chart, startingPlan);
+            throw error;
+          }
+        }
+        const companionCare = companionCareToView(
+          result.plan,
+          chart.companion.displayName,
+        );
+        console.log(
+          ` 🎮 [companion-store] [purchase] [${result.duplicate ? "duplicate" : "ok"}] child=${childId} item=${itemId} balance=${result.balance}`,
+        );
+        return res.json({
+          ok: true,
+          duplicate: result.duplicate,
+          item: result.item,
+          companionCare,
+          companionCurrency: result.balance,
+        });
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : String(error);
+        console.error(` 🔴 [companion-store] [purchase] [failed] ${message}`);
+        return res.status(500).json({ error: message });
       }
     },
   );

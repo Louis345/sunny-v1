@@ -4,9 +4,63 @@ import {
   buildLiveLearningContext,
   chartEvidenceForUrgentIntent,
   detectUrgentChildIntent,
+  routeCompanionPresenceTranscript,
 } from "./urgentLearningSupport";
 
 describe("urgent learning support", () => {
+  it("routes activity speech through an explicit wake and dismiss presence contract", () => {
+    expect(
+      routeCompanionPresenceTranscript({
+        transcript: "The rectangles look equal",
+        presence: "collapsed",
+        companionName: "Elli",
+      }),
+    ).toEqual({ action: "ignore_ambient" });
+    expect(
+      routeCompanionPresenceTranscript({
+        transcript: "Hey Sunny, I don't understand",
+        presence: "collapsed",
+        companionName: "Elli",
+      }),
+    ).toEqual({ action: "summon_and_respond" });
+    expect(
+      routeCompanionPresenceTranscript({
+        transcript: "Bye Elli",
+        presence: "summoned",
+        companionName: "Elli",
+      }),
+    ).toEqual({ action: "dismiss" });
+    expect(
+      routeCompanionPresenceTranscript({
+        transcript: "Bye Elli, bye Sunny.",
+        presence: "summoned",
+        companionName: "Elli",
+      }),
+    ).toEqual({ action: "dismiss" });
+    expect(
+      routeCompanionPresenceTranscript({
+        transcript: "Alright, bye Sony.",
+        presence: "summoned",
+        companionName: "Elli",
+      }),
+    ).toEqual({ action: "dismiss" });
+    expect(
+      routeCompanionPresenceTranscript({
+        transcript: "Can you explain this another way?",
+        presence: "summoned",
+        companionName: "Elli",
+      }),
+    ).toEqual({ action: "respond" });
+    expect(
+      routeCompanionPresenceTranscript({
+        transcript: "three equal parts",
+        presence: "collapsed",
+        companionName: "Elli",
+        speechCaptureArmed: true,
+      }),
+    ).toEqual({ action: "route_to_game" });
+  });
+
   it("detects active-game help and scaffolds from the current word", () => {
     const context = buildLiveLearningContext({
       childId: "ila",

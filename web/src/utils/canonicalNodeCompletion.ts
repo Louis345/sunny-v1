@@ -18,6 +18,8 @@ export function hasCanonicalLearningCycle(packet: {
 export async function postCanonicalNodeCompletion(input: CanonicalNodeCompletionInput): Promise<{
   lifecycle: string;
   revision: number;
+  coinAward?: { amount: number; balance: number };
+  videoCallTicket?: { homeworkId: string; earnedAt: string; bonusUrl?: string };
 }> {
   const response = await fetch("/api/learning-cycle/node-complete", {
     method: "POST",
@@ -25,7 +27,12 @@ export async function postCanonicalNodeCompletion(input: CanonicalNodeCompletion
     body: JSON.stringify(input),
   });
   if (!response.ok) throw new Error(`canonical_node_completion_${response.status}`);
-  const result = await response.json() as { lifecycle: string; revision: number };
+  const result = await response.json() as {
+    lifecycle: string;
+    revision: number;
+    coinAward?: { amount: number; balance: number };
+    videoCallTicket?: { homeworkId: string; earnedAt: string; bonusUrl?: string };
+  };
   window.dispatchEvent(new CustomEvent("sunny_learning_cycle_progression", { detail: result }));
   return result;
 }

@@ -115,6 +115,49 @@ function normalizeSpeechText(value: string): string {
     .trim();
 }
 
+export type CompanionPresenceTranscriptRoute =
+  | { action: "route_to_game" }
+  | { action: "dismiss" }
+  | { action: "summon_and_respond" }
+  | { action: "respond" }
+  | { action: "ignore_ambient" };
+
+export function routeCompanionPresenceTranscript(input: {
+  transcript: string;
+  presence: "collapsed" | "summoned";
+  companionName: string;
+  speechCaptureArmed?: boolean;
+}): CompanionPresenceTranscriptRoute {
+  if (input.speechCaptureArmed) return { action: "route_to_game" };
+  const text = normalizeSpeechText(input.transcript);
+  if (!text) return { action: "ignore_ambient" };
+  const aliases = [...new Set(["sunny", "elli", "ellie", input.companionName]
+    .map(normalizeSpeechText)
+    .filter(Boolean))];
+  const aliasPattern = aliases.map(escapeRegExp).join("|");
+  const aliasToken = `(?:${aliasPattern})`;
+  const repeatedFarewell = `(?:bye|goodbye)(?:\\s+${aliasToken})?(?:\\s+(?:bye|goodbye)(?:\\s+${aliasToken})?)*`;
+  const shortRecognizedFarewell = /^(?:(?:alright|okay|ok)\s+)?(?:bye|goodbye)(?:\s+\S+)?$/i;
+  const dismissal = new RegExp(
+    `^(?:${repeatedFarewell}|(?:dismiss|go away|im good|i am good)(?:\\s+${aliasToken})?)$`,
+    "i",
+  );
+  if (
+    input.presence === "summoned" &&
+    (dismissal.test(text) || shortRecognizedFarewell.test(text))
+  ) {
+    return { action: "dismiss" };
+  }
+  const wake = new RegExp(
+    `^(?:(?:hey|hi|okay|ok)\\s+)?(?:${aliasPattern})(?:\\b|$)`,
+    "i",
+  );
+  if (wake.test(text)) return { action: "summon_and_respond" };
+  return input.presence === "summoned"
+    ? { action: "respond" }
+    : { action: "ignore_ambient" };
+}
+
 type ProductComplaintKind = "companion_lag" | "flow_complaint" | "bug_report";
 
 function classifyProductComplaintText(

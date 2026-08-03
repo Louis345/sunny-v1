@@ -1,8 +1,10 @@
-import type { ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { PostActivityAction } from "../../../src/engine/choiceEvents";
 
 export type PostActivityOutcome = {
   completed: boolean;
+  /** Internal timestamp used to measure an explicit post-activity decision; never updated by hover. */
+  decisionStartedAtMs?: number;
   accuracy?: number;
   activePlayTimeMs?: number;
   frustrationScore?: number;
@@ -27,6 +29,8 @@ export type PostActivityEngagementOverlayProps = {
   children?: ReactNode;
   onAction: (action: PostActivityAction) => void;
   onFunRating?: (rating: 1 | 2 | 3 | 4 | 5 | null) => void;
+  coinAward?: { amount: number; balance: number } | null;
+  onOpenVideoCall?: (() => void) | null;
 };
 
 function accuracyLabel(value: number | undefined): string | null {
@@ -49,7 +53,15 @@ export function PostActivityEngagementOverlay({
   children,
   onAction,
   onFunRating,
+  coinAward,
+  onOpenVideoCall,
 }: PostActivityEngagementOverlayProps) {
+  const [hoveredRating, setHoveredRating] = useState<1 | 2 | 3 | 4 | 5 | null>(null);
+  const [selectedRating, setSelectedRating] = useState<1 | 2 | 3 | 4 | 5 | null>(null);
+  const ratingTimerRef = useRef<number | null>(null);
+  useEffect(() => () => {
+    if (ratingTimerRef.current != null) window.clearTimeout(ratingTimerRef.current);
+  }, []);
   const fallbackStats: PostActivityStat[] = [
     ...(accuracyLabel(outcome.accuracy)
       ? [{ label: "accuracy", value: accuracyLabel(outcome.accuracy)! }]
@@ -99,6 +111,17 @@ export function PostActivityEngagementOverlay({
 
         {children ? <div className="mt-5">{children}</div> : null}
 
+        {coinAward ? (
+          <div className="mt-5" aria-label="Confirmed Sunny Coin award">
+            <div className="text-2xl font-black text-amber-300">
+              +{coinAward.amount} Sunny Coins
+            </div>
+            <div className="mt-1 text-sm font-bold text-white/70">
+              Balance: {coinAward.balance}
+            </div>
+          </div>
+        ) : null}
+
         {outcome.completed && onFunRating ? (
           <div className="mt-6" aria-label="Activity fun rating">
             <p className="text-lg font-black">How fun was this activity?</p>
@@ -108,10 +131,19 @@ export function PostActivityEngagementOverlay({
                   key={rating}
                   type="button"
                   aria-label={`${rating} ${rating === 1 ? "star" : "stars"}`}
-                  className="h-12 w-12 text-4xl leading-none text-amber-300 transition-transform hover:scale-110"
-                  onClick={() => onFunRating(rating)}
+                  aria-pressed={selectedRating === rating}
+                  className="h-12 w-12 text-4xl leading-none text-amber-300 transition-colors hover:text-yellow-200 hover:drop-shadow-[0_0_10px_rgba(251,191,36,0.9)]"
+                  onMouseEnter={() => setHoveredRating(rating)}
+                  onMouseLeave={() => setHoveredRating(null)}
+                  onFocus={() => setHoveredRating(rating)}
+                  onBlur={() => setHoveredRating(null)}
+                  onClick={() => {
+                    if (selectedRating != null) return;
+                    setSelectedRating(rating);
+                    ratingTimerRef.current = window.setTimeout(() => onFunRating(rating), 300);
+                  }}
                 >
-                  ★
+                  {rating <= (selectedRating ?? hoveredRating ?? 0) ? "★" : "☆"}
                 </button>
               ))}
               <button
@@ -127,6 +159,16 @@ export function PostActivityEngagementOverlay({
         ) : null}
 
         <div className="mt-7 flex flex-wrap justify-center gap-3">
+          {onOpenVideoCall ? (
+            <button
+              type="button"
+              className="bg-cyan-400 px-5 py-3 text-lg font-black text-slate-950 shadow-lg"
+              style={{ borderRadius: 8 }}
+              onClick={onOpenVideoCall}
+            >
+              Call Elli
+            </button>
+          ) : null}
           {canReplay ? (
             <button
               type="button"

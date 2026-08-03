@@ -45,6 +45,7 @@ export async function runCompanionResponseForSession(
   session: any,
   userMessage: string,
 ): Promise<void> {
+    session.resetCompanionDispositionAfterSpeech?.();
     const st = session.turnSM.getState();
     if (st === "WORD_BUILDER") {
       session.turnSM.onCompanionRunFromWordBuilder();
@@ -591,6 +592,7 @@ export async function runCompanionResponseForSession(
         { role: "assistant", content: fullResponse },
       );
       session.recordDebugTranscript?.("assistant", fullResponse);
+      session.recordCompanionHelpTurn?.(userMessage, fullResponse);
 
       if (await finalizePendingSessionEnd(session)) {
         return;
@@ -613,6 +615,7 @@ export async function runCompanionResponseForSession(
         }
         session.send("audio_done");
         console.log("  🎮 [companion] audio_completed");
+        session.applyCompanionDispositionAfterSpeech?.();
       }
     } catch (err: unknown) {
       if (err instanceof Error && err.name === "AbortError") {

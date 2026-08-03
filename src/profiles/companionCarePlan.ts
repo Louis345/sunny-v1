@@ -64,6 +64,15 @@ function normalizeLoadedPlan(
       storeUnlocks: Array.isArray(plan.economy?.storeUnlocks)
         ? [...plan.economy.storeUnlocks]
         : [],
+      purchaseReceipts: Array.isArray(plan.economy?.purchaseReceipts)
+        ? [...plan.economy.purchaseReceipts]
+        : [],
+      videoCallTickets: Array.isArray(plan.economy?.videoCallTickets)
+        ? plan.economy.videoCallTickets.map((ticket) => ({ ...ticket }))
+        : [],
+      bonusRewardReceipts: Array.isArray(plan.economy?.bonusRewardReceipts)
+        ? plan.economy.bonusRewardReceipts.map((receipt) => ({ ...receipt }))
+        : [],
     },
     inventory: {
       food: Array.isArray(plan.inventory?.food) ? plan.inventory.food : [],

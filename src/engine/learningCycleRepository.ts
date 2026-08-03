@@ -1,5 +1,6 @@
 import fs from "fs";
 import path from "path";
+import { createHash } from "crypto";
 import type {
   ActiveSessionPlan,
   EngagementTheory,
@@ -676,6 +677,51 @@ export function getLearningCycle(
   const cycle = hydrateLongitudinalFields(parsed as LearningCycleRecordV2);
   assertCycle(cycle);
   return cycle;
+}
+
+export function resetLearningCycleRuntimeEvidence(
+  childId: string,
+  homeworkId: string,
+  opts: LearningCycleRepositoryOptions = {},
+): { cycle: LearningCycleRecordV2; auditPath: string; previousHash: string; previousRevision: number } {
+  const file = cyclePath(childId, homeworkId, opts);
+  if (!fs.existsSync(file)) throw new Error(`learning_cycle_missing:${homeworkId}`);
+  const raw = fs.readFileSync(file, "utf8");
+  const previousHash = createHash("sha256").update(raw).digest("hex");
+  const previous = getLearningCycle(childId, homeworkId, opts);
+  if (!previous) throw new Error(`learning_cycle_missing:${homeworkId}`);
+  const auditDir = path.join(path.dirname(file), "audit");
+  const auditPath = path.join(
+    auditDir,
+    `${homeworkId}.runtime-r${previous.revision}.${previousHash.slice(0, 12)}.json`,
+  );
+  fs.mkdirSync(auditDir, { recursive: true });
+  if (!fs.existsSync(auditPath)) fs.writeFileSync(auditPath, raw, { encoding: "utf8", flag: "wx" });
+
+  const reset = structuredClone(previous);
+  reset.revision = 1;
+  reset.lifecycle = "baseline_ready";
+  reset.evidence = { academic: [], engagement: [], companionObservations: [] };
+  reset.decisionHistory = [];
+  reset.observations = [];
+  reset.predictionEvaluations = [];
+  reset.routeSelection = undefined;
+  for (const node of reset.nodes) {
+    node.evidenceIds = [];
+    node.state = "locked";
+  }
+  normalizeAgencyNodeStates(reset);
+  if (!reset.agencyExperiment) {
+    const firstBaseline = reset.nodes.find((node) => node.role === "baseline");
+    if (firstBaseline) firstBaseline.state = "ready";
+  }
+  reset.updatedAt = nowIso(opts);
+  assertCycle(reset);
+  atomicWrite(file, reset);
+  console.log(
+    ` 🎮 [learning-cycle] [runtime-reset] [saved] child=${reset.childId} homework=${reset.homeworkId} priorRevision=${previous.revision} audit=${auditPath}`,
+  );
+  return { cycle: reset, auditPath, previousHash, previousRevision: previous.revision };
 }
 
 export function getLatestLearningCycle(

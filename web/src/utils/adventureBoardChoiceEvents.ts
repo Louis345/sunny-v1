@@ -25,6 +25,7 @@ type BuildChoiceEventOptions = {
 
 export type PostActivityChoiceOutcome = {
   completed: boolean;
+  timeToChoose_ms?: number;
   accuracy?: number;
   activePlayTime_ms?: number;
   frustrationScore?: number;
@@ -178,6 +179,9 @@ export function buildAdventureBoardPostActivityChoiceEventInput(
     skippedOptionIds: [],
     source: options.source ?? "child_choice",
     completed: action === "abandon" ? false : outcome.completed,
+    ...(typeof outcome.timeToChoose_ms === "number"
+      ? { timeToChoose_ms: Math.max(0, Math.round(outcome.timeToChoose_ms)) }
+      : {}),
     ...(accuracy != null ? { accuracy } : {}),
     ...(typeof outcome.activePlayTime_ms === "number"
       ? { activePlayTime_ms: outcome.activePlayTime_ms }

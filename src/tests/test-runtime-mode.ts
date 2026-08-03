@@ -116,8 +116,8 @@ describe("package.json runtime launcher scripts", () => {
     expect(pkg.scripts["sunny:homework"]).toBeDefined();
   });
 
-  it("plain sunny runs review mode, while sunny:homework focuses the latest homework", () => {
-    expect(pkg.scripts.sunny).toContain("--subject review");
+  it("plain sunny opens the parent menu while sunny:homework remains directly available", () => {
+    expect(pkg.scripts.sunny).toContain("src/scripts/sunnyMenu.ts");
     expect(pkg.scripts["sunny:homework"]).toContain("--subject homework");
   });
 

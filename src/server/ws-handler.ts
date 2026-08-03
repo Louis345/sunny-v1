@@ -164,6 +164,15 @@ export function handleWsConnection(
         break;
       }
 
+      case "companion_presence": {
+        if (!session) return;
+        const state = (msg as Record<string, unknown>).state;
+        if (state === "collapsed" || state === "summoned") {
+          session.setCompanionPresence(state, "client");
+        }
+        break;
+      }
+
       case "audio": {
         if (!session || !audioGate) return;
         const pcm = Buffer.from(msg.data ?? "", "base64");

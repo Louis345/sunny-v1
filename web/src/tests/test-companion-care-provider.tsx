@@ -227,4 +227,34 @@ describe("CompanionCareProvider", () => {
       expect(latest?.behavior.feedAnimation?.itemId).toBe("apple_bite");
     });
   });
+
+  it("purchases through the server-authoritative store and updates the shared balance", async () => {
+    const purchasedCare = {
+      ...chartCare,
+      economy: { ...chartCare.economy, coins: 0 },
+    } as CompanionCareView;
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: true,
+      json: async () => ({ companionCare: purchasedCare, companionCurrency: 0 }),
+    } as Response);
+    const onCurrencyChange = vi.fn();
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <CompanionCareProvider
+        childId="child_fixture_001"
+        profile={{ care_plan: { companion_care: chartCare } }}
+        onCurrencyChange={onCurrencyChange}
+      >
+        {children}
+      </CompanionCareProvider>
+    );
+    const { result } = renderHook(() => useCompanionCare(), { wrapper });
+
+    await result.current.purchase("apple_bite");
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/profile/child_fixture_001/companion-care/purchase",
+      expect.objectContaining({ method: "POST" }),
+    );
+    expect(onCurrencyChange).toHaveBeenCalledWith(0);
+  });
 });

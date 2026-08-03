@@ -2,6 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
   applyCompanionAbsenceDecay,
   applyCompanionFeedItem,
+  purchaseCompanionStoreItem,
+  awardHomeworkBonusCoins,
+  grantVideoCallTicket,
+  markVideoCallTicketOpened,
   createStarterCompanionCarePlan,
   getCompanionReadiness,
 } from "./companionCareEngine";
@@ -143,5 +147,80 @@ describe("companionCareEngine", () => {
     expect(readiness.lowThoughtClarity).toBe(true);
     expect(readiness.highEnergyReluctance).toBe(true);
     expect(readiness.canContinueTired).toBe(true);
+  });
+
+  it("purchases a persistent companion item once and deducts canonical coins", () => {
+    const first = purchaseCompanionStoreItem(
+      plan(),
+      "star_candy",
+      "purchase-1",
+      "2026-05-03T12:00:00.000Z",
+    );
+    expect(first.ok).toBe(true);
+    if (!first.ok) return;
+    expect(first.plan.economy.coins).toBe(50);
+    expect(first.plan.inventory.food.find((item) => item.id === "star_candy")?.quantity).toBe(2);
+
+    const duplicate = purchaseCompanionStoreItem(
+      first.plan,
+      "star_candy",
+      "purchase-1",
+      "2026-05-03T12:01:00.000Z",
+    );
+    expect(duplicate.ok).toBe(true);
+    if (!duplicate.ok) return;
+    expect(duplicate.duplicate).toBe(true);
+    expect(duplicate.plan.economy.coins).toBe(50);
+    expect(duplicate.plan.inventory.food.find((item) => item.id === "star_candy")?.quantity).toBe(2);
+  });
+
+  it("rejects store purchases with insufficient funds without mutation", () => {
+    const before = { ...plan(), economy: { ...plan().economy, coins: 20 } };
+    const result = purchaseCompanionStoreItem(
+      before,
+      "apple_bite",
+      "purchase-2",
+      "2026-05-03T12:00:00.000Z",
+    );
+    expect(result).toEqual({ ok: false, reason: "insufficient_funds", plan: before });
+  });
+
+  it("grants and opens one video-call ticket per homework without duplication", () => {
+    const granted = grantVideoCallTicket(
+      plan(),
+      "hw-fractions",
+      "2026-05-03T12:00:00.000Z",
+      "/api/homework/game/reina/hw-fractions/bonus.html",
+    );
+    expect(granted.granted).toBe(true);
+    expect(granted.plan.economy.videoCallTickets?.[0]?.bonusUrl).toContain("bonus.html");
+    const duplicate = grantVideoCallTicket(granted.plan, "hw-fractions", "2026-05-03T12:01:00.000Z");
+    expect(duplicate.granted).toBe(false);
+    const opened = markVideoCallTicketOpened(duplicate.plan, "hw-fractions", "2026-05-03T12:02:00.000Z");
+    expect(opened.ok).toBe(true);
+    expect(opened.plan.economy.videoCallTickets?.[0]?.openedAt).toBe("2026-05-03T12:02:00.000Z");
+  });
+
+  it("computes bounded bonus coins from server facts and cannot award twice", () => {
+    const first = awardHomeworkBonusCoins(plan(), {
+      homeworkId: "hw-fractions",
+      independentlyCorrectFreshItems: 3,
+      freshItemCount: 4,
+      completed: true,
+      nowIso: "2026-05-03T12:00:00.000Z",
+    });
+    expect(first.awarded).toBe(true);
+    expect(first.amount).toBe(21);
+    expect(first.plan.economy.coins).toBe(121);
+    const replay = awardHomeworkBonusCoins(first.plan, {
+      homeworkId: "hw-fractions",
+      independentlyCorrectFreshItems: 4,
+      freshItemCount: 4,
+      completed: true,
+      nowIso: "2026-05-03T12:05:00.000Z",
+    });
+    expect(replay.awarded).toBe(false);
+    expect(replay.amount).toBe(21);
+    expect(replay.plan.economy.coins).toBe(121);
   });
 });

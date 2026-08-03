@@ -17,12 +17,18 @@ vi.mock("../engine/returnedWorkPipeline", () => ({
     requiresConfirmation: true,
   })),
   confirmReturnedWorkDraft: vi.fn(async () => ({ interpretationStatus: "pending", reason: "provider_overloaded" })),
+  getAssignmentLearningReport: vi.fn(() => ({
+    childId: "reina", homeworkId: "hw-original", status: "interpreted",
+    assignment: { title: "Pashley multiplication", domain: "math" },
+    assumptions: [], predictions: [], latestDecision: { reason: "Use delayed transfer." }, lifecycle: "awaiting_calibration",
+  })),
 }));
 
 import { setupRoutes } from "./routes";
 import {
   confirmReturnedWorkDraft,
   createReturnedWorkDraft,
+  getAssignmentLearningReport,
   listReturnedWorkAssignments,
 } from "../engine/returnedWorkPipeline";
 
@@ -76,5 +82,12 @@ describe("parent returned-work routes", () => {
     });
     expect(result.status).toBe(404);
     expect(createReturnedWorkDraft).not.toHaveBeenCalled();
+  });
+
+  it("returns the read-only report for one selected assignment", async () => {
+    const result = await request("/api/learning/reina/assignments/hw-original/report");
+    expect(result.status).toBe(200);
+    expect(result.body.report).toMatchObject({ homeworkId: "hw-original", status: "interpreted" });
+    expect(getAssignmentLearningReport).toHaveBeenCalledWith("reina", "hw-original");
   });
 });

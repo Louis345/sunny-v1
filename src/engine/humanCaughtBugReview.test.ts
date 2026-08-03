@@ -148,5 +148,15 @@ describe("human-caught bug review", () => {
     expect(codes).toContain("single_audio_owner_per_activity");
     expect(codes).toContain("companion_unlock_claim_requires_board_truth");
     expect(codes).toContain("post_session_adaptation_diff_required");
+    expect(codes).toContain("route_preview_must_match_authored_action");
+    expect(codes).toContain("preview_runtime_blocks_learning_writes");
+    expect(codes).toContain("companion_transcript_is_one_child_turn");
+    expect(codes).toContain("companion_conversation_persists_until_dismissed");
+    expect(codes).toContain("parent_preview_is_visible_and_inspectable");
+    expect(codes).toContain("fun_rating_selection_is_cumulative_and_stable");
+    expect(codes).toContain("companion_does_not_obscure_currency");
+    expect(codes).toContain("companion_help_reserves_activity_safe_area");
+    expect(codes).toContain("active_companion_identity_is_canonical");
+    expect(codes).toContain("quest_requires_independent_correct_baseline_evidence");
   });
 });

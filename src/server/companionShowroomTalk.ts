@@ -16,6 +16,7 @@ const SHOWROOM_TALK_CALL_SOURCES = new Set([
   "mystery_box",
   "game_reward",
   "dev_preview",
+  "activity_help",
 ]);
 const SHOWROOM_TALK_RELATIONSHIP_STATES = new Set([
   "previewing",
@@ -59,7 +60,8 @@ export type CompanionCallSource =
   | "showroom"
   | "mystery_box"
   | "game_reward"
-  | "dev_preview";
+  | "dev_preview"
+  | "activity_help";
 export type CompanionRelationshipState = "previewing" | "selected" | "earned_reward";
 export type CompanionRewardContext = {
   nodeId?: string;

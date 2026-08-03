@@ -175,6 +175,27 @@ describe("six tools (harness)", () => {
     });
   });
 
+  it("lets Elli explicitly keep one help follow-up open while defaulting other turns to standby", async () => {
+    const calls: Record<string, unknown>[] = [];
+    const tool = createCompanionActTool({
+      companionAct: async (args) => {
+        calls.push(args);
+        return { ok: true };
+      },
+    });
+    await tool.execute?.(
+      {
+        type: "emote",
+        payload: { emotion: "thinking" },
+        presenceAfterSpeech: "await_child_response",
+      },
+      {} as never,
+    );
+    expect(calls[0]).toMatchObject({
+      presenceAfterSpeech: "await_child_response",
+    });
+  });
+
   it("spinWheel tool executes against host", async () => {
     const h = new SixToolsMemoryHarness();
     const tools = createSixTools(h);
