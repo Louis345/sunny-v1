@@ -1,5 +1,6 @@
 import type { ComponentType } from "react";
 import type { CompanionActivityId } from "../../../../src/shared/companionActivities/types";
+import { CompanionConnectFour } from "../CompanionConnectFour";
 import { CompanionTicTacToe } from "../CompanionTicTacToe";
 import type { CompanionActivityComponentProps } from "./types";
 
@@ -12,5 +13,5 @@ export const COMPANION_ACTIVITY_COMPONENTS: Record<
   ComponentType<CompanionActivityComponentProps>
 > = {
   tic_tac_toe: CompanionTicTacToe,
-  connect_four: CompanionTicTacToe, // replaced in Phase 2
+  connect_four: CompanionConnectFour,
 };
