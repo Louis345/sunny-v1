@@ -1,6 +1,11 @@
 import crypto from "crypto";
 import fs from "fs";
 import path from "path";
+import {
+  getCompanionActivityAliases,
+  getCompanionActivityIntentWords,
+  isCompanionActivityId,
+} from "../shared/companionActivities/registry";
 
 export type CompanionVideoCallTraceEventName =
   | "call_started"
@@ -106,7 +111,7 @@ export type CompanionVideoCallTracePacket = {
   eventCount: number;
   loopSuspected: boolean;
   likelyCause: CompanionVideoCallLikelyCause;
-  activeTicTacToeState?: unknown;
+  activeActivityState?: unknown;
   activityReactions?: {
     aiAuthoredCount: number;
     fallbackCount: number;
@@ -281,9 +286,27 @@ function responseOverridesConversationIntent(
   if (intent !== "social" && intent !== "repeat_after") return false;
   const response = (record.responsePreview ?? "").toLowerCase();
   if (!response) return false;
-  return /\b(tic[- ]?tac[- ]?toe|square|board|your turn|place an x|place a mark|game going)\b/.test(
-    response,
-  );
+  return activityIntentLeakPattern().test(response);
+}
+
+/**
+ * Words that mean a "social" turn actually leaked into game talk. Built from
+ * the activity registry so a new game contributes its own vocabulary.
+ */
+let cachedIntentLeakPattern: RegExp | undefined;
+function activityIntentLeakPattern(): RegExp {
+  if (!cachedIntentLeakPattern) {
+    const words = [
+      ...getCompanionActivityAliases(),
+      ...getCompanionActivityIntentWords(),
+      "your turn",
+      "game going",
+    ]
+      .map((word) => word.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/[\s-]+/g, "[\\s-]?"))
+      .sort((a, b) => b.length - a.length);
+    cachedIntentLeakPattern = new RegExp(`\\b(${words.join("|")})\\b`);
+  }
+  return cachedIntentLeakPattern;
 }
 
 function sanitizePayloadValue(value: unknown, key = ""): unknown {
@@ -435,8 +458,9 @@ function likelyCauseForRecords(records: CompanionVideoCallTraceRecord[]): Compan
         String(record.payload?.reason ?? "")
           .toLowerCase()
           .includes("interrupted by a call to pause") &&
-        (record.payload?.activeActivity as { activityId?: unknown } | undefined)?.activityId ===
-          "tic_tac_toe",
+        isCompanionActivityId(
+          (record.payload?.activeActivity as { activityId?: unknown } | undefined)?.activityId,
+        ),
     )
   ) {
     return "activity_open_interrupted_audio";
@@ -561,7 +585,7 @@ export function buildCompanionVideoCallTracePacket(
     loopSuspected:
       loopCause || ordered.some((record) => record.eventName === "loop_suspected"),
     likelyCause,
-    ...(lastActivity !== undefined ? { activeTicTacToeState: lastActivity } : {}),
+    ...(lastActivity !== undefined ? { activeActivityState: lastActivity } : {}),
     ...(activityReactions && { activityReactions }),
     eventOrder: ordered.map((record) => ({
       eventName: record.eventName,

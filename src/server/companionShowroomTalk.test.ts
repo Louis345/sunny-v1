@@ -107,14 +107,13 @@ describe("companion showroom talk contract", () => {
           activityId: "tic_tac_toe",
           surface: "video_call_overlay",
           status: "active",
-          board: ["X", null, null, null, "O", null, null, null, null],
-          childMark: "X",
-          companionMark: "O",
+          board: { text: "1=X, 2=empty, 3=empty, 4=empty, 5=O, 6=empty, 7=empty, 8=empty, 9=empty", signature: "X---O----" },
+          childLabel: "X",
+          companionLabel: "O",
           turn: "child",
           lastMove: {
             by: "companion",
-            square: 5,
-            mark: "O",
+            description: "placed O on square 5",
             timestamp: 1000,
           },
         },
@@ -133,14 +132,13 @@ describe("companion showroom talk contract", () => {
           activityId: "tic_tac_toe",
           surface: "video_call_overlay",
           status: "active",
-          board: ["X", null, null, null, "O", null, null, null, null],
-          childMark: "X",
-          companionMark: "O",
+          board: { text: "1=X, 2=empty, 3=empty, 4=empty, 5=O, 6=empty, 7=empty, 8=empty, 9=empty", signature: "X---O----" },
+          childLabel: "X",
+          companionLabel: "O",
           turn: "child",
           lastMove: {
             by: "companion",
-            square: 5,
-            mark: "O",
+            description: "placed O on square 5",
             timestamp: 1000,
           },
         },
@@ -162,9 +160,9 @@ describe("companion showroom talk contract", () => {
           activityId: "tic_tac_toe",
           surface: "video_call_overlay",
           status: "active",
-          board: ["X", null, "O", "O", "O", "X", "X", null, null],
-          childMark: "X",
-          companionMark: "O",
+          board: { text: "1=X, 2=empty, 3=O, 4=O, 5=O, 6=X, 7=X, 8=empty, 9=empty", signature: "X-OOOXX--" },
+          childLabel: "X",
+          companionLabel: "O",
           turn: "child",
         },
       },
@@ -198,14 +196,13 @@ describe("companion showroom talk contract", () => {
         activityReaction: {
           activityId: "tic_tac_toe",
           eventType: "companion_move",
-          board: ["X", null, null, null, "O", null, null, null, null],
-          childMark: "X",
-          companionMark: "O",
+          board: { text: "1=X, 2=empty, 3=empty, 4=empty, 5=O, 6=empty, 7=empty, 8=empty, 9=empty", signature: "X---O----" },
+          childLabel: "X",
+          companionLabel: "O",
           turn: "child",
           lastMove: {
             by: "companion",
-            square: 5,
-            mark: "O",
+            description: "placed O on square 5",
             timestamp: 1000,
           },
           desiredTone: "warm_playful",
@@ -224,14 +221,13 @@ describe("companion showroom talk contract", () => {
         activityReaction: {
           activityId: "tic_tac_toe",
           eventType: "companion_move",
-          board: ["X", null, null, null, "O", null, null, null, null],
-          childMark: "X",
-          companionMark: "O",
+          board: { text: "1=X, 2=empty, 3=empty, 4=empty, 5=O, 6=empty, 7=empty, 8=empty, 9=empty", signature: "X---O----" },
+          childLabel: "X",
+          companionLabel: "O",
           turn: "child",
           lastMove: {
             by: "companion",
-            square: 5,
-            mark: "O",
+            description: "placed O on square 5",
             timestamp: 1000,
           },
           desiredTone: "warm_playful",
@@ -240,7 +236,7 @@ describe("companion showroom talk contract", () => {
     });
   });
 
-  it("accepts a planned move on companion_move reactions and drops invalid squares", () => {
+  it("sanitizes the game-authored planned move phrase", () => {
     const buildBody = (plannedMove: unknown) => ({
       childId: "ila",
       companionId: "elli",
@@ -251,9 +247,9 @@ describe("companion showroom talk contract", () => {
       activityReaction: {
         activityId: "tic_tac_toe",
         eventType: "companion_move",
-        board: ["X", null, null, null, null, null, null, null, null],
-        childMark: "X",
-        companionMark: "O",
+        board: { text: "1=X, 2=empty, 3=empty, 4=empty, 5=empty, 6=empty, 7=empty, 8=empty, 9=empty", signature: "X--------" },
+        childLabel: "X",
+        companionLabel: "O",
         turn: "companion",
         plannedMove,
       },
@@ -264,27 +260,43 @@ describe("companion showroom talk contract", () => {
       fallbackVoiceId: "voice_a",
     };
 
-    const accepted = resolveShowroomTalkRequest(buildBody(5), opts);
+    // Games author the move phrase; the server sanitizes but cannot judge
+    // legality (it could never validate chess). Per-game engine tests own that.
+    const accepted = resolveShowroomTalkRequest(
+      buildBody("place your O on square 5"),
+      opts,
+    );
     expect(accepted).toEqual({
       ok: true,
       request: expect.objectContaining({
         activityReaction: expect.objectContaining({
           eventType: "companion_move",
-          plannedMove: 5,
+          plannedMove: "place your O on square 5",
         }),
       }),
     });
 
-    const occupied = resolveShowroomTalkRequest(buildBody(1), opts);
-    expect(occupied.ok).toBe(true);
-    if (occupied.ok) {
-      expect(occupied.request.activityReaction?.plannedMove).toBeUndefined();
+    const controlChars = resolveShowroomTalkRequest(
+      buildBody("drop your  yellow disc\n into column 4"),
+      opts,
+    );
+    expect(controlChars.ok).toBe(true);
+    if (controlChars.ok) {
+      expect(controlChars.request.activityReaction?.plannedMove).toBe(
+        "drop your yellow disc into column 4",
+      );
     }
 
-    const outOfRange = resolveShowroomTalkRequest(buildBody(12), opts);
-    expect(outOfRange.ok).toBe(true);
-    if (outOfRange.ok) {
-      expect(outOfRange.request.activityReaction?.plannedMove).toBeUndefined();
+    const tooLong = resolveShowroomTalkRequest(buildBody("x".repeat(500)), opts);
+    expect(tooLong.ok).toBe(true);
+    if (tooLong.ok) {
+      expect(tooLong.request.activityReaction?.plannedMove).toHaveLength(120);
+    }
+
+    const notAString = resolveShowroomTalkRequest(buildBody(5), opts);
+    expect(notAString.ok).toBe(true);
+    if (notAString.ok) {
+      expect(notAString.request.activityReaction?.plannedMove).toBeUndefined();
     }
   });
 
@@ -391,9 +403,9 @@ describe("companion showroom talk contract", () => {
         activityId: "tic_tac_toe",
         surface: "video_call_overlay",
         status: "active",
-        board: ["X", null, "O", "O", "O", "X", "X", null, null],
-        childMark: "X",
-        companionMark: "O",
+        board: { text: "1=X, 2=empty, 3=O, 4=O, 5=O, 6=X, 7=X, 8=empty, 9=empty", signature: "X-OOOXX--" },
+        childLabel: "X",
+        companionLabel: "O",
         turn: "child",
       },
     });
@@ -416,16 +428,16 @@ describe("companion showroom talk contract", () => {
         activityId: "tic_tac_toe",
         surface: "video_call_overlay",
         status: "active",
-        board: ["X", null, "O", "O", "O", "X", "X", null, null],
-        childMark: "X",
-        companionMark: "O",
+        board: { text: "1=X, 2=empty, 3=O, 4=O, 5=O, 6=X, 7=X, 8=empty, 9=empty", signature: "X-OOOXX--" },
+        childLabel: "X",
+        companionLabel: "O",
         turn: "child",
       },
     });
 
     expect(prompt).toContain("Conversation intent: repeat_after.");
     expect(prompt).toContain("repeat the child's newest words");
-    expect(prompt).toContain("Do not treat numbers as tic-tac-toe squares");
+    expect(prompt).toContain("Do not treat numbers as game moves");
   });
 
   it("guards against repeated greetings and repeated game confusion", () => {
@@ -439,9 +451,9 @@ describe("companion showroom talk contract", () => {
         activityId: "tic_tac_toe",
         surface: "video_call_overlay",
         status: "active",
-        board: ["X", null, null, null, "O", null, null, null, null],
-        childMark: "X",
-        companionMark: "O",
+        board: { text: "1=X, 2=empty, 3=empty, 4=empty, 5=O, 6=empty, 7=empty, 8=empty, 9=empty", signature: "X---O----" },
+        childLabel: "X",
+        companionLabel: "O",
         turn: "child",
       },
     });
@@ -460,9 +472,9 @@ describe("companion showroom talk contract", () => {
       activityReaction: {
         activityId: "tic_tac_toe",
         eventType: "round_complete",
-        board: ["X", "X", "O", "O", "O", "X", "X", "X", "O"],
-        childMark: "X",
-        companionMark: "O",
+        board: { text: "1=X, 2=X, 3=O, 4=O, 5=O, 6=X, 7=X, 8=X, 9=O", signature: "XXOOOXXXO" },
+        childLabel: "X",
+        companionLabel: "O",
         turn: "none",
         result: "draw",
         desiredTone: "warm_playful",
@@ -493,14 +505,13 @@ describe("companion showroom talk contract", () => {
         activityId: "tic_tac_toe",
         surface: "video_call_overlay",
         status: "active",
-        board: ["X", null, null, null, "O", null, null, null, null],
-        childMark: "X",
-        companionMark: "O",
+        board: { text: "1=X, 2=empty, 3=empty, 4=empty, 5=O, 6=empty, 7=empty, 8=empty, 9=empty", signature: "X---O----" },
+        childLabel: "X",
+        companionLabel: "O",
         turn: "child",
         lastMove: {
           by: "companion",
-          square: 5,
-          mark: "O",
+          description: "placed O on square 5",
           timestamp: 1000,
         },
       },
@@ -883,11 +894,11 @@ describe("companion showroom talk contract", () => {
       activityReaction: {
         activityId: "tic_tac_toe",
         eventType: "companion_move",
-        board: ["X", null, null, null, null, null, null, null, null],
-        childMark: "X",
-        companionMark: "O",
+        board: { text: "1=X, 2=empty, 3=empty, 4=empty, 5=empty, 6=empty, 7=empty, 8=empty, 9=empty", signature: "X--------" },
+        childLabel: "X",
+        companionLabel: "O",
         turn: "companion",
-        plannedMove: 5,
+        plannedMove: "place your O on square 5",
       },
     });
 

@@ -9,6 +9,21 @@ import {
   type ShowroomVoiceOption,
 } from "./companionShowroomVoice";
 import type { CompanionCareMemory } from "../shared/companionCareTypes";
+import {
+  COMPANION_ACTIVITY_IDS,
+  describeCompanionActivityChoices,
+  getCompanionActivityDescriptor,
+  isCompanionActivityId,
+} from "../shared/companionActivities/registry";
+import {
+  MAX_ACTIVITY_BOARD_SIGNATURE_LENGTH,
+  MAX_ACTIVITY_BOARD_TEXT_LENGTH,
+  MAX_ACTIVITY_LABEL_LENGTH,
+  MAX_ACTIVITY_MOVE_DESCRIPTION_LENGTH,
+  type CompanionActivityBoardView,
+  type CompanionActivityId,
+  type CompanionActivityMove,
+} from "../shared/companionActivities/types";
 
 const SHOWROOM_TALK_THEMES = new Set(["aurora", "storybook", "crystal"]);
 const SHOWROOM_TALK_CALL_SOURCES = new Set([
@@ -38,7 +53,6 @@ const SHOWROOM_ACTIVITY_STATUSES = new Set(["active", "completed"]);
 const SHOWROOM_ACTIVITY_TURNS = new Set(["child", "companion", "none"]);
 const SHOWROOM_ACTIVITY_RESULTS = new Set(["child_win", "companion_win", "draw"]);
 const SHOWROOM_ACTIVITY_MOVE_BY = new Set(["child", "companion"]);
-const SHOWROOM_ACTIVITY_MARKS = new Set(["X", "O"]);
 const SHOWROOM_ACTIVITY_REACTION_EVENTS = new Set([
   "game_started",
   "child_move",
@@ -49,7 +63,6 @@ const SHOWROOM_TALK_FALLBACK_TEXT = "I'm here with you. Let's keep going.";
 const SHOWROOM_COMPANION_ACT_CAPABILITIES = [
   ...COMPANION_CAPABILITIES.keys(),
 ] as string[];
-const SHOWROOM_COMPANION_ACTIVITY_IDS = new Set(["tic_tac_toe"]);
 const SHOWROOM_COMPANION_ACTIVITY_SURFACES = new Set(["video_call_overlay"]);
 
 export type ShowroomTalkPhase = "thinking" | "speaking" | "idle";
@@ -67,7 +80,7 @@ export type CompanionRewardContext = {
   rewardId?: string;
   earnedBy?: string;
 };
-export type ShowroomCompanionActivityId = "tic_tac_toe";
+export type ShowroomCompanionActivityId = CompanionActivityId;
 export type ShowroomCompanionActivitySurface = "video_call_overlay";
 export type ShowroomCompanionActivityRequest = {
   source: "claude";
@@ -82,16 +95,11 @@ export type ShowroomActiveActivityContext = {
   activityId: ShowroomCompanionActivityId;
   surface: ShowroomCompanionActivitySurface;
   status: "active" | "completed";
-  board: Array<"X" | "O" | null>;
-  childMark: "X";
-  companionMark: "O";
+  board: CompanionActivityBoardView;
+  childLabel: string;
+  companionLabel: string;
   turn: "child" | "companion" | "none";
-  lastMove?: {
-    by: "child" | "companion";
-    square: number;
-    mark: "X" | "O";
-    timestamp?: number;
-  };
+  lastMove?: CompanionActivityMove;
   result?: "child_win" | "companion_win" | "draw";
   summary?: string;
   updatedAt?: number;
@@ -104,17 +112,20 @@ export type ShowroomActivityReactionEventType =
 export type ShowroomActivityReactionContext = {
   activityId: ShowroomCompanionActivityId;
   eventType: ShowroomActivityReactionEventType;
-  board: Array<"X" | "O" | null>;
-  childMark: "X";
-  companionMark: "O";
+  board: CompanionActivityBoardView;
+  childLabel: string;
+  companionLabel: string;
   turn: "child" | "companion" | "none";
-  lastMove?: ShowroomActiveActivityContext["lastMove"];
+  lastMove?: CompanionActivityMove;
   result?: ShowroomActiveActivityContext["result"];
   summary?: string;
   desiredTone?: string;
   updatedAt?: number;
-  /** Square (1-9) the companion is about to play; the board is from before that move. */
-  plannedMove?: number;
+  /**
+   * Verb phrase for the move the companion is about to make, e.g.
+   * "place your O on square 5". The board shown is from before that move.
+   */
+  plannedMove?: string;
 };
 export type ShowroomVisualSnapshot = {
   base64: string;
@@ -219,9 +230,8 @@ export function getShowroomCompanionActivityTools() {
         properties: {
           activityId: {
             type: "string",
-            enum: ["tic_tac_toe"],
-            description:
-              "The companion activity to open. V1 supports only tic_tac_toe.",
+            enum: [...COMPANION_ACTIVITY_IDS],
+            description: `The companion activity to open. Available: ${COMPANION_ACTIVITY_IDS.join(", ")}.`,
           },
           surface: {
             type: "string",
@@ -266,10 +276,7 @@ export function createShowroomCompanionActivityRequest(input: {
   const raw = input.rawInput as Record<string, unknown>;
   const activityId = typeof raw.activityId === "string" ? raw.activityId.trim() : "";
   const surface = typeof raw.surface === "string" ? raw.surface.trim() : "";
-  if (
-    !SHOWROOM_COMPANION_ACTIVITY_IDS.has(activityId) ||
-    !SHOWROOM_COMPANION_ACTIVITY_SURFACES.has(surface)
-  ) {
+  if (!isCompanionActivityId(activityId) || !SHOWROOM_COMPANION_ACTIVITY_SURFACES.has(surface)) {
     return null;
   }
   const reason =
@@ -345,39 +352,45 @@ function resolveVisualSummary(value: unknown): string | undefined {
   return trimmed ? trimmed.slice(0, MAX_VISUAL_SUMMARY_LENGTH) : undefined;
 }
 
-function resolveActivityBoard(value: unknown): Array<"X" | "O" | null> | null {
-  if (!Array.isArray(value) || value.length !== 9) return null;
-  const board = value.map((mark) => {
-    if (mark === "X" || mark === "O") return mark;
-    if (mark == null) return null;
-    return "invalid";
-  });
-  return board.includes("invalid") ? null : (board as Array<"X" | "O" | null>);
+/**
+ * Games author their own board rendering, so the server sanitizes rather than
+ * interprets: strip control characters, collapse whitespace, apply a cap.
+ */
+function sanitizeActivityText(value: unknown, maxLength: number): string | undefined {
+  if (typeof value !== "string") return undefined;
+  // eslint-disable-next-line no-control-regex
+  const cleaned = value.replace(/[\u0000-\u001f\u007f]+/g, " ").replace(/\s+/g, " ").trim();
+  return cleaned ? cleaned.slice(0, maxLength) : undefined;
 }
 
-function resolveActiveActivityMove(value: unknown): ShowroomActiveActivityContext["lastMove"] {
+function resolveActivityBoardView(value: unknown): CompanionActivityBoardView | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const raw = value as Record<string, unknown>;
+  const text = sanitizeActivityText(raw.text, MAX_ACTIVITY_BOARD_TEXT_LENGTH);
+  const signature = sanitizeActivityText(raw.signature, MAX_ACTIVITY_BOARD_SIGNATURE_LENGTH);
+  if (!text || !signature) return null;
+  return { text, signature };
+}
+
+function resolveActiveActivityMove(value: unknown): CompanionActivityMove | undefined {
   if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
   const raw = value as Record<string, unknown>;
   const by =
     typeof raw.by === "string" && SHOWROOM_ACTIVITY_MOVE_BY.has(raw.by)
       ? (raw.by as "child" | "companion")
       : null;
-  const square = typeof raw.square === "number" ? raw.square : Number(raw.square);
-  const mark =
-    typeof raw.mark === "string" && SHOWROOM_ACTIVITY_MARKS.has(raw.mark)
-      ? (raw.mark as "X" | "O")
-      : null;
-  if (!by || !mark || !Number.isInteger(square) || square < 1 || square > 9) {
-    return undefined;
-  }
+  const description = sanitizeActivityText(
+    raw.description,
+    MAX_ACTIVITY_MOVE_DESCRIPTION_LENGTH,
+  );
+  if (!by || !description) return undefined;
   const timestamp =
     typeof raw.timestamp === "number" && Number.isFinite(raw.timestamp)
       ? raw.timestamp
       : undefined;
   return {
     by,
-    square,
-    mark,
+    description,
     ...(timestamp !== undefined && { timestamp }),
   };
 }
@@ -387,11 +400,14 @@ function resolveShowroomActiveActivity(
 ): ShowroomActiveActivityContext | undefined {
   if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
   const raw = value as Record<string, unknown>;
-  if (raw.activityId !== "tic_tac_toe" || raw.surface !== "video_call_overlay") {
+  if (!isCompanionActivityId(raw.activityId) || raw.surface !== "video_call_overlay") {
     return undefined;
   }
-  const board = resolveActivityBoard(raw.board);
+  const board = resolveActivityBoardView(raw.board);
   if (!board) return undefined;
+  const childLabel = sanitizeActivityText(raw.childLabel, MAX_ACTIVITY_LABEL_LENGTH);
+  const companionLabel = sanitizeActivityText(raw.companionLabel, MAX_ACTIVITY_LABEL_LENGTH);
+  if (!childLabel || !companionLabel) return undefined;
   const status =
     typeof raw.status === "string" && SHOWROOM_ACTIVITY_STATUSES.has(raw.status)
       ? (raw.status as "active" | "completed")
@@ -411,12 +427,12 @@ function resolveShowroomActiveActivity(
       : undefined;
   const lastMove = resolveActiveActivityMove(raw.lastMove);
   return {
-    activityId: "tic_tac_toe",
+    activityId: raw.activityId,
     surface: "video_call_overlay",
     status,
     board,
-    childMark: "X",
-    companionMark: "O",
+    childLabel,
+    companionLabel,
     turn,
     ...(lastMove && { lastMove }),
     ...(result && { result }),
@@ -431,17 +447,19 @@ function resolveShowroomActivityReaction(
   if (value == null) return undefined;
   if (typeof value !== "object" || Array.isArray(value)) return null;
   const raw = value as Record<string, unknown>;
-  if (raw.activityId !== "tic_tac_toe") return null;
+  if (!isCompanionActivityId(raw.activityId)) return null;
   const eventType =
     typeof raw.eventType === "string" && SHOWROOM_ACTIVITY_REACTION_EVENTS.has(raw.eventType)
       ? (raw.eventType as ShowroomActivityReactionEventType)
       : null;
-  const board = resolveActivityBoard(raw.board);
+  const board = resolveActivityBoardView(raw.board);
   const turn =
     typeof raw.turn === "string" && SHOWROOM_ACTIVITY_TURNS.has(raw.turn)
       ? (raw.turn as "child" | "companion" | "none")
       : null;
-  if (!eventType || !board || !turn) return null;
+  const childLabel = sanitizeActivityText(raw.childLabel, MAX_ACTIVITY_LABEL_LENGTH);
+  const companionLabel = sanitizeActivityText(raw.companionLabel, MAX_ACTIVITY_LABEL_LENGTH);
+  if (!eventType || !board || !turn || !childLabel || !companionLabel) return null;
   const lastMove = resolveActiveActivityMove(raw.lastMove);
   const result =
     typeof raw.result === "string" && SHOWROOM_ACTIVITY_RESULTS.has(raw.result)
@@ -456,21 +474,19 @@ function resolveShowroomActivityReaction(
     typeof raw.updatedAt === "number" && Number.isFinite(raw.updatedAt)
       ? raw.updatedAt
       : undefined;
-  const rawPlannedMove =
-    typeof raw.plannedMove === "number" ? raw.plannedMove : Number(raw.plannedMove);
-  const plannedMove =
-    Number.isInteger(rawPlannedMove) &&
-    rawPlannedMove >= 1 &&
-    rawPlannedMove <= 9 &&
-    board[rawPlannedMove - 1] == null
-      ? rawPlannedMove
-      : undefined;
+  // Games author this verb phrase; the server can only sanitize it. Move
+  // legality is enforced client-side by each game's engine (see its tests) —
+  // the server cannot validate chess legality by design.
+  const plannedMove = sanitizeActivityText(
+    raw.plannedMove,
+    MAX_ACTIVITY_MOVE_DESCRIPTION_LENGTH,
+  );
   return {
-    activityId: "tic_tac_toe",
+    activityId: raw.activityId,
     eventType,
     board,
-    childMark: "X",
-    companionMark: "O",
+    childLabel,
+    companionLabel,
     turn,
     ...(lastMove && { lastMove }),
     ...(result && { result }),
@@ -649,7 +665,7 @@ export function buildShowroomTalkSystemPrompt(input: {
     "The child may be playing, chatting, joking, testing the call, or asking for help; be fun and relationship-first.",
     "Do not repeat your previous greeting, opener, or last sentence; continue from the child's newest turn.",
     "If you want emotion, show emotion through movement with companionAct rather than describing stage directions in words.",
-    "If the child asks to play tic-tac-toe, use openCompanionActivity with activityId=tic_tac_toe and surface=video_call_overlay.",
+    `If the child asks to play ${describeCompanionActivityChoices()}, use openCompanionActivity with the matching activityId (${COMPANION_ACTIVITY_IDS.join(", ")}) and surface=video_call_overlay.`,
     "Do not say stage directions. Do not say things like 'I wave', '*waves*', or 'I smile'; call companionAct for that motion and keep spoken text natural.",
     "Speech is optional; visual action is preferred when the child is working, feeding, earning a reward, or just hanging out.",
     "When no spoken answer adds value, use companionAct and leave the spoken text empty.",
@@ -665,7 +681,7 @@ export function buildShowroomTalkSystemPrompt(input: {
   if (input.conversationIntent === "repeat_after") {
     lines.push(
       "For repeat_after turns, repeat the child's newest words or invite them to say the phrase if they just asked to start.",
-      "Do not treat numbers as tic-tac-toe squares during repeat_after turns.",
+      "Do not treat numbers as game moves during repeat_after turns.",
     );
   }
   if (callSource === "showroom" || relationshipState === "previewing") {
@@ -702,33 +718,32 @@ export function buildShowroomTalkSystemPrompt(input: {
     lines.push(input.companionMemory);
   }
   if (input.activeActivity) {
-    const board = input.activeActivity.board
-      .map((mark, index) => `${index + 1}=${mark ?? "empty"}`)
-      .join(", ");
+    const activeDescriptor = getCompanionActivityDescriptor(input.activeActivity.activityId);
     const gameIsForeground =
       input.conversationIntent == null ||
       input.conversationIntent === "game" ||
       Boolean(input.activityReaction);
     lines.push(
-      "Active video-call activity: tic-tac-toe.",
-      `Board: ${board}.`,
-      `Child mark: ${input.activeActivity.childMark}; companion mark: ${input.activeActivity.companionMark}.`,
+      `Active video-call activity: ${activeDescriptor.displayName}.`,
+      `Board: ${input.activeActivity.board.text}.`,
+      `Child plays: ${input.activeActivity.childLabel}; companion plays: ${input.activeActivity.companionLabel}.`,
       `Current turn: ${input.activeActivity.turn}.`,
       `Activity status: ${input.activeActivity.status}.`,
+      ...activeDescriptor.promptHints,
     );
     if (gameIsForeground) {
       lines.push(
-        "Stay aware of this activity when answering. If the child asks what to do, talks about a square, asks why you moved, or continues the game, answer in tic-tac-toe context instead of acting like no game is open.",
-        "If tic-tac-toe is already active, do not ask to start tic-tac-toe again; respond as if the board is shared between you and the child.",
+        `Stay aware of this activity when answering. If the child asks what to do, talks about a ${activeDescriptor.moveNoun}, asks why you moved, or continues the game, answer in ${activeDescriptor.displayName} context instead of acting like no game is open.`,
+        `If ${activeDescriptor.displayName} is already active, do not ask to start ${activeDescriptor.displayName} again; respond as if the board is shared between you and the child.`,
       );
     } else {
       lines.push(
-        "The game is background context for this turn; answer the child's newest request and do not redirect back to tic-tac-toe unless they ask about the game.",
+        `The game is background context for this turn; answer the child's newest request and do not redirect back to ${activeDescriptor.displayName} unless they ask about the game.`,
       );
     }
     if (input.activeActivity.lastMove) {
       lines.push(
-        `Last move: ${input.activeActivity.lastMove.by} placed ${input.activeActivity.lastMove.mark} on square ${input.activeActivity.lastMove.square}.`,
+        `Last move: ${input.activeActivity.lastMove.by} ${input.activeActivity.lastMove.description}.`,
       );
     }
     if (input.activeActivity.result) {
@@ -739,16 +754,17 @@ export function buildShowroomTalkSystemPrompt(input: {
     }
   }
   if (input.activityReaction) {
-    const board = input.activityReaction.board
-      .map((mark, index) => `${index + 1}=${mark ?? "empty"}`)
-      .join(", ");
+    const reactionDescriptor = getCompanionActivityDescriptor(
+      input.activityReaction.activityId,
+    );
+    const board = input.activityReaction.board.text;
     const requiresSpeech = shouldRequireShowroomActivityReactionSpeech(
       input.activityReaction.eventType,
     );
     lines.push(
-      "This request is an activity reaction for tic-tac-toe, not a normal child question.",
+      `This request is an activity reaction for ${reactionDescriptor.displayName}, not a normal child question.`,
       "Use companionAct for a gesture that matches the words. Every AI-authored activity reaction should include one gesture when possible.",
-      "Do not use local canned tic-tac-toe banter. Author the reaction from the board, last move, result, and companion persona.",
+      `Do not use local canned ${reactionDescriptor.displayName} banter. Author the reaction from the board, last move, result, and companion persona.`,
       requiresSpeech
         ? "This activity reaction requires one short spoken line plus companionAct when possible. Say the line in this same response - write the spoken words as message text first, then call companionAct; do not send a tool-only response and do not wait for tool results."
         : "For child_move reactions, prefer a quick gesture and keep spoken words optional so stale speech does not trail the board.",
@@ -758,15 +774,15 @@ export function buildShowroomTalkSystemPrompt(input: {
       ...(input.activityReaction.eventType === "companion_move" &&
       input.activityReaction.plannedMove
         ? [
-            `You are about to place your O on square ${input.activityReaction.plannedMove}; the board shown is from before that move.`,
-            "Speak as you make this move - present tense, one short playful line that fits why this square is a good pick.",
+            `You are about to ${input.activityReaction.plannedMove}; the board shown is from before that move.`,
+            `Speak as you make this move - present tense, one short playful line that fits why this ${reactionDescriptor.moveNoun} is a good pick.`,
           ]
         : []),
       "Gesture map: companion move = thinking, pointing, or confident gesture; child strong move = surprised, curious, or respectful gesture; child win = happy, wave, or surprise; companion win = playful confidence; Round draw: shrug or thoughtful gesture.",
     );
     if (input.activityReaction.lastMove) {
       lines.push(
-        `Reaction last move: ${input.activityReaction.lastMove.by} placed ${input.activityReaction.lastMove.mark} on square ${input.activityReaction.lastMove.square}.`,
+        `Reaction last move: ${input.activityReaction.lastMove.by} ${input.activityReaction.lastMove.description}.`,
       );
     }
     if (input.activityReaction.result) {

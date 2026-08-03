@@ -61,13 +61,27 @@ import {
   CrystalSignatureButton,
   CrystalSpotlight,
 } from "./CrystalAtelierChrome";
+import { COMPANION_ACTIVITY_COMPONENTS } from "./companionActivities/registry";
+import type {
+  CompanionActivityBanter,
+  CompanionActivityGameEvent,
+  CompanionActivityTurnPlan,
+} from "./companionActivities/types";
 import {
-  CompanionTicTacToe,
-  type CompanionTicTacToeBanter,
-  type CompanionTicTacToeGameEvent,
-  type CompanionTicTacToeMark,
-  type CompanionTicTacToeTurnPlan,
-} from "./CompanionTicTacToe";
+  getCompanionActivityDescriptor,
+  isCompanionActivityId,
+} from "../../../src/shared/companionActivities/registry";
+import type {
+  CompanionActivityBoardView,
+  CompanionActivityId,
+  CompanionActivityMomentSalience,
+  CompanionActivityMomentType,
+  CompanionActivityMove,
+  CompanionActivityReactionEventType,
+  CompanionActivityResult,
+  CompanionActivityStatus,
+  CompanionActivityTurn,
+} from "../../../src/shared/companionActivities/types";
 import {
   createCompanionActivityThinkingCue,
   resolveCompanionActivityPhase,
@@ -449,7 +463,7 @@ export type VideoCallPickupGreeting = {
   text: string;
   usedMemorySeed: boolean;
 };
-type ShowroomCompanionActivityId = "tic_tac_toe";
+type ShowroomCompanionActivityId = CompanionActivityId;
 type ShowroomCompanionActivityRequest = {
   source: "claude";
   childId: string;
@@ -459,56 +473,41 @@ type ShowroomCompanionActivityRequest = {
   reason: string;
   timestamp: number;
 };
-type ShowroomVideoActivityStatus = "active" | "completed";
-type ShowroomVideoActivityTurn = "child" | "companion" | "none";
-type ShowroomVideoActivityMove = {
-  by: "child" | "companion";
-  square: number;
-  mark: CompanionTicTacToeMark;
-  timestamp: number;
-};
+type ShowroomVideoActivityStatus = CompanionActivityStatus;
+type ShowroomVideoActivityTurn = CompanionActivityTurn;
+type ShowroomVideoActivityMove = CompanionActivityMove;
 export type ShowroomVideoActivityContext = {
   activityId: ShowroomCompanionActivityId;
   surface: "video_call_overlay";
   status: ShowroomVideoActivityStatus;
-  board: Array<CompanionTicTacToeMark | null>;
-  childMark: "X";
-  companionMark: "O";
+  board: CompanionActivityBoardView;
+  childLabel: string;
+  companionLabel: string;
   turn: ShowroomVideoActivityTurn;
   lastMove?: ShowroomVideoActivityMove;
-  result?: "child_win" | "companion_win" | "draw";
+  result?: CompanionActivityResult;
   summary: string;
   updatedAt: number;
 };
-export type ShowroomActivityReactionEventType =
-  | "game_started"
-  | "child_move"
-  | "companion_move"
-  | "round_complete";
-type ShowroomActivityMomentType =
-  | "game_started"
-  | "companion_blocked_child"
-  | "child_blocked_companion"
-  | "child_created_threat"
-  | "round_complete";
-type ShowroomActivityMomentSalience = "low" | "medium" | "high";
+export type ShowroomActivityReactionEventType = CompanionActivityReactionEventType;
 export type ShowroomActivityReactionContext = {
-  activityId: "tic_tac_toe";
+  activityId: ShowroomCompanionActivityId;
   eventType: ShowroomActivityReactionEventType;
-  momentType?: ShowroomActivityMomentType;
-  salience?: ShowroomActivityMomentSalience;
+  momentType?: CompanionActivityMomentType;
+  salience?: CompanionActivityMomentSalience;
   suggestedGesture?: AnimationName;
-  board: Array<CompanionTicTacToeMark | null>;
+  board: CompanionActivityBoardView;
   boardSignature?: string;
-  childMark: "X";
-  companionMark: "O";
+  childLabel: string;
+  companionLabel: string;
   turn: ShowroomVideoActivityTurn;
   lastMove?: ShowroomVideoActivityMove;
-  result?: ShowroomVideoActivityContext["result"];
+  result?: CompanionActivityResult;
   summary?: string;
   desiredTone?: string;
   updatedAt?: number;
-  plannedMove?: number;
+  /** Present-tense verb phrase, e.g. "place your O on square 5". */
+  plannedMove?: string;
 };
 type ShowroomActivityMovePacketOptions = {
   onReveal: () => void;
@@ -517,13 +516,13 @@ type ShowroomActivityMovePacketOptions = {
 type ShowroomActivityReactionRequestOptions = {
   movePacket?: ShowroomActivityMovePacketOptions;
 };
-const SHOWROOM_TIC_TAC_TOE_MOVE_PACKET_TIMEOUT_MS = 4000;
+const SHOWROOM_ACTIVITY_MOVE_PACKET_TIMEOUT_MS = 4000;
 const SHOWROOM_VIDEO_CALL_ACTIVITY_LOG_TYPES = new Set([
-  "companion_tic_tac_toe_started",
-  "companion_tic_tac_toe_child_move",
-  "companion_tic_tac_toe_companion_move",
-  "companion_tic_tac_toe_round_complete",
-  "companion_tic_tac_toe_reset",
+  "companion_activity_started",
+  "companion_activity_child_move",
+  "companion_activity_companion_move",
+  "companion_activity_round_complete",
+  "companion_activity_reset",
 ]);
 type ShowroomVideoSnapshotPayload = {
   base64: string;
@@ -1400,211 +1399,85 @@ export function createShowroomTalkPayload(args: {
 }
 
 export function shouldRequestShowroomActivityReaction(
-  event: CompanionTicTacToeGameEvent,
+  event: CompanionActivityGameEvent,
 ): boolean {
   return shouldRequestCompanionActivityAiReaction(event);
 }
 
-type ShowroomTicTacToeLine = readonly [number, number, number];
-
-const SHOWROOM_TIC_TAC_TOE_LINES: readonly ShowroomTicTacToeLine[] = [
-  [0, 1, 2],
-  [3, 4, 5],
-  [6, 7, 8],
-  [0, 3, 6],
-  [1, 4, 7],
-  [2, 5, 8],
-  [0, 4, 8],
-  [2, 4, 6],
-];
-
-function getShowroomBoardBeforeMove(
-  event: CompanionTicTacToeGameEvent,
-): Array<CompanionTicTacToeMark | null> {
-  const board = event.board.map((mark) => (mark === "X" || mark === "O" ? mark : null));
-  if (event.square && event.square >= 1 && event.square <= 9) {
-    board[event.square - 1] = null;
-  }
-  return board;
-}
-
-function didShowroomTicTacToeMoveBlock(
-  event: CompanionTicTacToeGameEvent,
-  blockedMark: CompanionTicTacToeMark,
-): boolean {
-  if (!event.square || !event.mark) return false;
-  const index = event.square - 1;
-  const before = getShowroomBoardBeforeMove(event);
-  return SHOWROOM_TIC_TAC_TOE_LINES.some((line) => {
-    if (!line.some((lineIndex) => lineIndex === index)) return false;
-    return (
-      line.filter((lineIndex) => before[lineIndex] === blockedMark).length === 2 &&
-      before[index] == null
-    );
-  });
-}
-
-function didShowroomTicTacToeMoveCreateThreat(
-  event: CompanionTicTacToeGameEvent,
-): boolean {
-  if (!event.square || !event.mark) return false;
-  const index = event.square - 1;
-  return SHOWROOM_TIC_TAC_TOE_LINES.some((line) => {
-    if (!line.some((lineIndex) => lineIndex === index)) return false;
-    return (
-      line.filter((lineIndex) => event.board[lineIndex] === event.mark).length === 2 &&
-      line.some((lineIndex) => event.board[lineIndex] == null)
-    );
-  });
-}
-
-function getShowroomTicTacToeReactionMoment(
-  event: CompanionTicTacToeGameEvent,
-): {
-  momentType: ShowroomActivityMomentType;
-  salience: ShowroomActivityMomentSalience;
-  desiredTone: string;
-  suggestedGesture: AnimationName;
-} | null {
-  if (event.type === "companion_tic_tac_toe_started" || event.type === "companion_tic_tac_toe_reset") {
-    return {
-      momentType: "game_started",
-      salience: "medium",
-      desiredTone: "warm_playful",
-      suggestedGesture: "wave",
-    };
-  }
-  if (event.type === "companion_tic_tac_toe_round_complete") {
-    return {
-      momentType: "round_complete",
-      salience: "high",
-      desiredTone:
-        event.result === "child_win"
-          ? "celebrate_child"
-          : event.result === "companion_win"
-            ? "playful_confidence"
-            : "friendly_draw",
-      suggestedGesture:
-        event.result === "child_win"
-          ? "wave"
-          : event.result === "companion_win"
-            ? "silly_laugh"
-            : "shrug",
-    };
-  }
-  if (
-    event.type === "companion_tic_tac_toe_companion_move" &&
-    didShowroomTicTacToeMoveBlock(event, "X")
-  ) {
-    return {
-      momentType: "companion_blocked_child",
-      salience: "medium",
-      desiredTone: "playful_strategic",
-      suggestedGesture: "think",
-    };
-  }
-  if (
-    event.type === "companion_tic_tac_toe_child_move" &&
-    didShowroomTicTacToeMoveBlock(event, "O")
-  ) {
-    return {
-      momentType: "child_blocked_companion",
-      salience: "medium",
-      desiredTone: "impressed_playful",
-      suggestedGesture: "surprise_jump",
-    };
-  }
-  if (
-    event.type === "companion_tic_tac_toe_child_move" &&
-    didShowroomTicTacToeMoveCreateThreat(event)
-  ) {
-    return {
-      momentType: "child_created_threat",
-      salience: "low",
-      desiredTone: "curious",
-      suggestedGesture: "think",
-    };
-  }
-  return null;
-}
-
 function createShowroomActivityReactionFromEvent(
-  event: CompanionTicTacToeGameEvent,
+  event: CompanionActivityGameEvent,
   activeActivity: ShowroomVideoActivityContext,
 ): ShowroomActivityReactionContext | null {
   const eventType: ShowroomActivityReactionEventType | null =
-    event.type === "companion_tic_tac_toe_started" ||
-    event.type === "companion_tic_tac_toe_reset"
+    event.type === "companion_activity_started" || event.type === "companion_activity_reset"
       ? "game_started"
-      : event.type === "companion_tic_tac_toe_child_move"
+      : event.type === "companion_activity_child_move"
         ? "child_move"
-        : event.type === "companion_tic_tac_toe_companion_move"
+        : event.type === "companion_activity_companion_move"
           ? "companion_move"
-          : event.type === "companion_tic_tac_toe_round_complete"
+          : event.type === "companion_activity_round_complete"
             ? "round_complete"
             : null;
   if (!eventType) return null;
-  const boardSignature = getShowroomActivityBoardSignature(activeActivity.board);
-  const moment = getShowroomTicTacToeReactionMoment(event);
   return {
-    activityId: "tic_tac_toe",
+    activityId: event.activityId,
     eventType,
-    ...(moment && {
-      momentType: moment.momentType,
-      salience: moment.salience,
-      suggestedGesture: moment.suggestedGesture,
+    ...(event.moment && {
+      momentType: event.moment.momentType,
+      salience: event.moment.salience,
+      suggestedGesture: event.moment.suggestedGesture,
     }),
     board: activeActivity.board,
-    boardSignature,
-    childMark: activeActivity.childMark,
-    companionMark: activeActivity.companionMark,
+    boardSignature: activeActivity.board.signature,
+    childLabel: activeActivity.childLabel,
+    companionLabel: activeActivity.companionLabel,
     turn: activeActivity.turn,
     ...(activeActivity.lastMove && { lastMove: activeActivity.lastMove }),
     ...(activeActivity.result && { result: activeActivity.result }),
     summary: activeActivity.summary,
     updatedAt: activeActivity.updatedAt,
-    desiredTone: moment?.desiredTone ?? "warm_playful",
+    desiredTone: event.moment?.desiredTone ?? "warm_playful",
   };
 }
 
 function createShowroomActivityReactionQuestion(
   reaction: ShowroomActivityReactionContext,
+  companionName: string,
 ): string {
+  const { displayName } = getCompanionActivityDescriptor(reaction.activityId);
   if (reaction.eventType === "game_started") {
-    return "React to starting tic-tac-toe in the video call.";
+    return `React to starting ${displayName} in the video call.`;
   }
   if (reaction.eventType === "companion_move" && reaction.plannedMove) {
-    return `You are about to place your O on square ${reaction.plannedMove}. Say one short playful line as you make the move.`;
+    return `You are about to ${reaction.plannedMove}. Say one short playful line as you make the move.`;
   }
   if (reaction.momentType === "companion_blocked_child") {
-    return "You blocked the child from getting three in a row. Respond as Elli with one short playful sentence, then let the child move.";
+    return `You blocked the child from winning. Respond as ${companionName} with one short playful sentence, then let the child move.`;
   }
   if (reaction.momentType === "child_blocked_companion") {
-    return "The child blocked your tic-tac-toe line. Respond as Elli with one short impressed sentence, then take your turn.";
+    return `The child blocked your ${displayName} line. Respond as ${companionName} with one short impressed sentence, then take your turn.`;
   }
   if (reaction.momentType === "child_created_threat") {
-    return "The child created a tic-tac-toe threat. Respond only if it feels worth a quick playful comment.";
+    return `The child created a ${displayName} threat. Respond only if it feels worth a quick playful comment.`;
   }
   if (reaction.eventType === "child_move") {
-    return `React to the child placing X on square ${reaction.lastMove?.square ?? "unknown"}.`;
+    return `React to the child who just ${reaction.lastMove?.description ?? "moved"}.`;
   }
   if (reaction.eventType === "companion_move") {
-    return `React to your tic-tac-toe move on square ${reaction.lastMove?.square ?? "unknown"}.`;
+    return `React to your ${displayName} move: you ${reaction.lastMove?.description ?? "moved"}.`;
   }
-  if (reaction.result === "child_win") return "React to the child winning tic-tac-toe.";
+  if (reaction.result === "child_win") return `React to the child winning ${displayName}.`;
   if (reaction.result === "companion_win") {
-    return "React to winning tic-tac-toe without bragging.";
+    return `React to winning ${displayName} without bragging.`;
   }
-  return "React to the tic-tac-toe round ending in a draw.";
+  return `React to the ${displayName} round ending in a draw.`;
 }
 
+/** Games author their own signature; the showroom only compares them. */
 export function getShowroomActivityBoardSignature(
-  board: readonly (CompanionTicTacToeMark | null)[],
+  board: CompanionActivityBoardView,
 ): string {
-  return Array.from({ length: 9 }, (_, index) => {
-    const mark = board[index];
-    return mark === "X" || mark === "O" ? mark : "-";
-  }).join("");
+  return board.signature;
 }
 
 export function isShowroomActivityReactionCurrent(input: {
@@ -1613,11 +1486,8 @@ export function isShowroomActivityReactionCurrent(input: {
 }): boolean {
   const current = input.currentActivity;
   if (!current || current.activityId !== input.reaction.activityId) return false;
-  const boardSignature =
-    input.reaction.boardSignature ??
-    getShowroomActivityBoardSignature(input.reaction.board);
-  const currentBoardSignature = getShowroomActivityBoardSignature(current.board);
-  if (boardSignature !== currentBoardSignature) return false;
+  const boardSignature = input.reaction.boardSignature ?? input.reaction.board.signature;
+  if (boardSignature !== current.board.signature) return false;
   if (
     typeof input.reaction.updatedAt === "number" &&
     typeof current.updatedAt === "number" &&
@@ -1646,84 +1516,27 @@ function getShowroomActivityReactionFallbackAnimation(
   return "shrug";
 }
 
-function createShowroomVideoActivitySummary(input: {
-  event: CompanionTicTacToeGameEvent;
-  turn: ShowroomVideoActivityTurn;
-  result?: ShowroomVideoActivityContext["result"];
-}): string {
-  if (input.event.type === "companion_tic_tac_toe_started") {
-    return "Tic-tac-toe is open. The child moves first as X.";
-  }
-  if (input.event.type === "companion_tic_tac_toe_reset") {
-    return "A new tic-tac-toe round started. The child moves first as X.";
-  }
-  if (input.event.type === "companion_tic_tac_toe_child_move") {
-    return `The child placed X on square ${input.event.square}. It is the companion's turn.`;
-  }
-  if (input.event.type === "companion_tic_tac_toe_companion_move") {
-    return `The companion placed O on square ${input.event.square}. It is the child's turn.`;
-  }
-  if (input.event.type === "companion_tic_tac_toe_round_complete") {
-    return input.result === "child_win"
-      ? "The child won the tic-tac-toe round."
-      : input.result === "companion_win"
-        ? "The companion won the tic-tac-toe round."
-        : "The tic-tac-toe round ended in a draw.";
-  }
-  return `Tic-tac-toe is open. Current turn: ${input.turn}.`;
-}
-
 export function createShowroomVideoActivityContextFromEvent(
-  event: CompanionTicTacToeGameEvent,
+  event: CompanionActivityGameEvent,
   previous?: ShowroomVideoActivityContext | null,
 ): ShowroomVideoActivityContext {
-  const board =
-    Array.isArray(event.board) && event.board.length === 9
-      ? event.board.map((mark) => (mark === "X" || mark === "O" ? mark : null))
-      : previous?.board ?? Array.from({ length: 9 }, () => null);
-  const lastMove =
-    event.type === "companion_tic_tac_toe_child_move" && event.square && event.mark === "X"
-      ? {
-          by: "child" as const,
-          square: event.square,
-          mark: "X" as const,
-          timestamp: event.timestamp,
-        }
-      : event.type === "companion_tic_tac_toe_companion_move" &&
-          event.square &&
-          event.mark === "O"
-        ? {
-            by: "companion" as const,
-            square: event.square,
-            mark: "O" as const,
-            timestamp: event.timestamp,
-          }
-        : event.type === "companion_tic_tac_toe_started" ||
-            event.type === "companion_tic_tac_toe_reset"
-          ? undefined
-          : previous?.lastMove;
-  const result = event.result;
-  const status: ShowroomVideoActivityStatus =
-    event.type === "companion_tic_tac_toe_round_complete" ? "completed" : "active";
-  const turn: ShowroomVideoActivityTurn =
-    event.type === "companion_tic_tac_toe_child_move"
-      ? "companion"
-      : event.type === "companion_tic_tac_toe_companion_move" ||
-          event.type === "companion_tic_tac_toe_started" ||
-          event.type === "companion_tic_tac_toe_reset"
-        ? "child"
-        : "none";
+  const lastMove: CompanionActivityMove | undefined =
+    event.moveDescription && event.moveBy
+      ? { by: event.moveBy, description: event.moveDescription, timestamp: event.timestamp }
+      : event.type === "companion_activity_started" || event.type === "companion_activity_reset"
+        ? undefined
+        : previous?.lastMove;
   return {
-    activityId: "tic_tac_toe",
+    activityId: event.activityId,
     surface: "video_call_overlay",
-    status,
-    board,
-    childMark: "X",
-    companionMark: "O",
-    turn,
+    status: event.status,
+    board: event.boardView,
+    childLabel: event.labels.child,
+    companionLabel: event.labels.companion,
+    turn: event.turn,
     ...(lastMove && { lastMove }),
-    ...(result && { result }),
-    summary: createShowroomVideoActivitySummary({ event, turn, result }),
+    ...(event.result && { result: event.result }),
+    summary: event.summary,
     updatedAt: event.timestamp,
   };
 }
@@ -3908,7 +3721,7 @@ export function CompanionShowroom({
 	  );
 
   const postShowroomVideoCallActivityEvent = useCallback(
-    (event: CompanionTicTacToeGameEvent) => {
+    (event: CompanionActivityGameEvent) => {
       if (!current || !SHOWROOM_VIDEO_CALL_ACTIVITY_LOG_TYPES.has(event.type)) return;
       const nextActivityContext = createShowroomVideoActivityContextFromEvent(
         event,
@@ -3932,9 +3745,9 @@ export function CompanionShowroom({
         videoCallLayout,
         phase: "video_call_activity",
         progress:
-          event.type === "companion_tic_tac_toe_round_complete"
-            ? `${current.name} completed a tic-tac-toe round.`
-            : `${current.name} tic-tac-toe activity updated.`,
+          event.type === "companion_activity_round_complete"
+            ? `${current.name} completed a ${getCompanionActivityDescriptor(event.activityId).displayName} round.`
+            : `${current.name} ${getCompanionActivityDescriptor(event.activityId).displayName} activity updated.`,
       };
       console.log(
         ` 🎮 [showroom-video-chat] activity_event type=${event.type} activity=${event.activityId} companion=${current.id} layout=${videoCallLayout}`,
@@ -4112,7 +3925,7 @@ export function CompanionShowroom({
           companionId: current.id,
           voiceId: selectedVoiceId,
           showroomTheme: activeThemeId,
-          question: createShowroomActivityReactionQuestion(reaction),
+          question: createShowroomActivityReactionQuestion(reaction, current.name),
           mode: "video_call",
           conversationIntent: "game",
           callSource: activeVideoCallContext.callSource,
@@ -4372,19 +4185,24 @@ export function CompanionShowroom({
 
   activityReactionRequesterRef.current = requestShowroomVideoActivityReaction;
 
-  const resolveShowroomTicTacToeCompanionTurn = useCallback(
-    (plan: CompanionTicTacToeTurnPlan): Promise<void> => {
+  // Registry lookup keeps this file free of per-game knowledge.
+  const ActiveCompanionActivity = activeVideoCallActivity
+    ? COMPANION_ACTIVITY_COMPONENTS[activeVideoCallActivity]
+    : null;
+
+  const resolveShowroomCompanionActivityTurn = useCallback(
+    (plan: CompanionActivityTurnPlan): Promise<void> => {
       const activeActivity = showroomVideoActiveActivityRef.current;
-      if (!current || !activeActivity || activeActivity.activityId !== "tic_tac_toe") {
+      if (!current || !activeActivity) {
         return Promise.resolve();
       }
       const reaction: ShowroomActivityReactionContext = {
-        activityId: "tic_tac_toe",
+        activityId: activeActivity.activityId,
         eventType: "companion_move",
-        board: plan.board,
-        boardSignature: getShowroomActivityBoardSignature(plan.board),
-        childMark: "X",
-        companionMark: "O",
+        board: plan.boardView,
+        boardSignature: plan.boardView.signature,
+        childLabel: activeActivity.childLabel,
+        companionLabel: activeActivity.companionLabel,
         turn: "companion",
         ...(activeActivity.lastMove && { lastMove: activeActivity.lastMove }),
         summary: activeActivity.summary,
@@ -4406,19 +4224,19 @@ export function CompanionShowroom({
           if (settled) return;
           timedOut = true;
           console.warn(
-            ` 🎮 [showroom-activity-reaction] move_packet_timeout companion=${current.id} square=${plan.plannedMove}`,
+            ` 🎮 [showroom-activity-reaction] move_packet_timeout companion=${current.id} move=${plan.plannedMove}`,
           );
           emitShowroomVideoCallTrace({
             eventName: "activity_move_packet_timeout",
             payload: {
               plannedMove: plan.plannedMove,
-              timeoutMs: SHOWROOM_TIC_TAC_TOE_MOVE_PACKET_TIMEOUT_MS,
+              timeoutMs: SHOWROOM_ACTIVITY_MOVE_PACKET_TIMEOUT_MS,
               activityReaction: reaction,
             },
           });
           setShowroomTalkPhase("idle");
           settle();
-        }, SHOWROOM_TIC_TAC_TOE_MOVE_PACKET_TIMEOUT_MS);
+        }, SHOWROOM_ACTIVITY_MOVE_PACKET_TIMEOUT_MS);
         activityReactionRequesterRef.current?.(reaction, activeActivity, {
           movePacket: {
             onReveal: settle,
@@ -4467,27 +4285,27 @@ export function CompanionShowroom({
     [openVideoCallActivityRequest],
   );
 
-  const handleShowroomTicTacToeBanter = useCallback(
-    (banter: CompanionTicTacToeBanter) => {
+  const handleShowroomActivityBanter = useCallback(
+    (banter: CompanionActivityBanter) => {
       if (!current) return;
       setShowroomTalkOpen(false);
       setShowroomTalkError(null);
       const phase = resolveCompanionActivityPhase(banter);
       console.log(
-        ` 🎮 [showroom-activity-runtime] [phase] [changed] activity=tic_tac_toe phase=${phase}`,
+        ` 🎮 [showroom-activity-runtime] [phase] [changed] activity=${banter.activityId} phase=${phase}`,
       );
       emitShowroomVideoCallTrace({
         eventName: "activity_phase_changed",
         payload: {
           phase,
-          activityId: "tic_tac_toe",
+          activityId: banter.activityId,
           banter,
           conversationMode: videoCallConversationModeRef.current,
         },
       });
       if (banter.phase === "companion_thinking") {
         applyShowroomThinkingBodyLanguage({
-          reason: "tic_tac_toe_companion_turn",
+          reason: `${banter.activityId}_companion_turn`,
           intensity: 0.5,
           durationMs: 900,
         });
@@ -4726,7 +4544,7 @@ export function CompanionShowroom({
             const nextActivityRequest = activityRequests.find(
               (request) =>
                 request.companionId === current.id &&
-                request.activityId === "tic_tac_toe" &&
+                isCompanionActivityId(request.activityId) &&
                 request.surface === "video_call_overlay",
             );
             if (nextActivityRequest) {
@@ -4904,7 +4722,7 @@ export function CompanionShowroom({
         const nextActivityRequest = data.activityRequests?.find(
           (request) =>
             request.companionId === current.id &&
-            request.activityId === "tic_tac_toe" &&
+            isCompanionActivityId(request.activityId) &&
             request.surface === "video_call_overlay",
         );
         if (nextActivityRequest) {
@@ -7137,30 +6955,30 @@ export function CompanionShowroom({
 	          />
 	        }
 	        activitySlot={
-	          activeVideoCallActivity === "tic_tac_toe" ? (
-	            <CompanionTicTacToe
-	              companionId={current.id}
-	              companionName={current.name}
-	              onClose={() => {
-	                showroomVideoActiveActivityRef.current = null;
-	                setActiveVideoCallActivity(null);
-	                setShowroomVideoActiveActivity(null);
-	                setVideoCallLayout("call");
-	                setVideoCallCompanionView("full_body");
-	              }}
-	              onGameEvent={postShowroomVideoCallActivityEvent}
-	              onBanter={handleShowroomTicTacToeBanter}
-	              resolveCompanionTurn={resolveShowroomTicTacToeCompanionTurn}
-	              onCompanionTurn={() => {
-	                setShowroomTalkOpen(false);
-	              }}
-	              onRoundComplete={(result) => {
-	                console.log(
-	                  ` 🎮 [showroom-video-chat] activity_complete activity=tic_tac_toe result=${result}`,
-	                );
-	              }}
-	            />
-	          ) : null
+          ActiveCompanionActivity ? (
+            <ActiveCompanionActivity
+              companionId={current.id}
+              companionName={current.name}
+              onClose={() => {
+                showroomVideoActiveActivityRef.current = null;
+                setActiveVideoCallActivity(null);
+                setShowroomVideoActiveActivity(null);
+                setVideoCallLayout("call");
+                setVideoCallCompanionView("full_body");
+              }}
+              onGameEvent={postShowroomVideoCallActivityEvent}
+              onBanter={handleShowroomActivityBanter}
+              resolveCompanionTurn={resolveShowroomCompanionActivityTurn}
+              onCompanionTurn={() => {
+                setShowroomTalkOpen(false);
+              }}
+              onRoundComplete={(result) => {
+                console.log(
+                  ` 🎮 [showroom-video-chat] activity_complete activity=${activeVideoCallActivity} result=${result}`,
+                );
+              }}
+            />
+          ) : null
 	        }
 	        onLayoutChange={setVideoCallLayout}
 	        onCompanionViewChange={setVideoCallCompanionView}

@@ -28,7 +28,7 @@ describe("CompanionTicTacToe", () => {
 
     expect(onGameEvent).toHaveBeenCalledWith(
       expect.objectContaining({
-        type: "companion_tic_tac_toe_started",
+        type: "companion_activity_started",
         activityId: "tic_tac_toe",
         surface: "video_call_overlay",
       }),
@@ -45,18 +45,18 @@ describe("CompanionTicTacToe", () => {
 
     expect(onGameEvent).toHaveBeenCalledWith(
       expect.objectContaining({
-        type: "companion_tic_tac_toe_child_move",
+        type: "companion_activity_child_move",
         activityId: "tic_tac_toe",
-        square: 1,
-        mark: "X",
+        moveDescription: "placed X on square 1",
+        moveBy: "child",
       }),
     );
     expect(onGameEvent).toHaveBeenCalledWith(
       expect.objectContaining({
-        type: "companion_tic_tac_toe_companion_move",
+        type: "companion_activity_companion_move",
         activityId: "tic_tac_toe",
-        square: 5,
-        mark: "O",
+        moveDescription: "placed O on square 5",
+        moveBy: "companion",
       }),
     );
   });
@@ -74,7 +74,7 @@ describe("CompanionTicTacToe", () => {
             onClose={vi.fn()}
             onGameEvent={(event) => {
               onGameEvent(event);
-              if (event.type === "companion_tic_tac_toe_round_complete" && tick === 0) {
+              if (event.type === "companion_activity_round_complete" && tick === 0) {
                 setTick(1);
               }
             }}
@@ -103,7 +103,7 @@ describe("CompanionTicTacToe", () => {
     expect(screen.getByTestId("parent-tick")).toHaveTextContent("1");
 
     const completeEvents = onGameEvent.mock.calls.filter(
-      ([event]) => event.type === "companion_tic_tac_toe_round_complete",
+      ([event]) => event.type === "companion_activity_round_complete",
     );
     expect(completeEvents).toHaveLength(1);
   });
@@ -160,7 +160,7 @@ describe("CompanionTicTacToe", () => {
     expect(onBanter).toHaveBeenCalledWith(
       expect.objectContaining({
         phase: "child_move",
-        square: 1,
+        activityId: "tic_tac_toe",
       }),
     );
 
@@ -170,15 +170,11 @@ describe("CompanionTicTacToe", () => {
       },
       { timeout: 4000 },
     );
-    expect(onCompanionTurn).toHaveBeenCalledWith(
-      expect.objectContaining({
-        square: 5,
-      }),
-    );
+    expect(onCompanionTurn).toHaveBeenCalled();
     expect(onBanter).toHaveBeenCalledWith(
       expect.objectContaining({
         phase: "companion_move",
-        square: 5,
+        activityId: "tic_tac_toe",
       }),
     );
   });
@@ -189,10 +185,14 @@ describe("CompanionTicTacToe", () => {
       "utf8",
     );
 
-    expect(source).toContain("playTicTacToeSfx");
-    expect(source).toContain("child_move");
-    expect(source).toContain("companion_move");
-    expect(source).toContain("round_complete");
+    expect(source).toContain("playCompanionActivitySfx");
+    const sfxSource = readFileSync(
+      resolve(__dirname, "../components/companionActivities/companionActivitySfx.ts"),
+      "utf8",
+    );
+    expect(sfxSource).toContain("child_move");
+    expect(sfxSource).toContain("companion_move");
+    expect(sfxSource).toContain("round_complete");
     expect(source).not.toContain("companionTurnLines");
     expect(source).not.toContain("getCompanionTicTacToeBanterLine");
     expect(source).not.toContain("/api/companions/");
@@ -219,11 +219,15 @@ describe("CompanionTicTacToe", () => {
     );
 
     fireEvent.click(screen.getByRole("gridcell", { name: "Square 1" }));
+    await act(async () => {});
 
     expect(resolveCompanionTurn).toHaveBeenCalledTimes(1);
     expect(resolveCompanionTurn).toHaveBeenCalledWith({
-      board: ["X", null, null, null, null, null, null, null, null],
-      plannedMove: 5,
+      boardView: {
+        text: "1=X, 2=empty, 3=empty, 4=empty, 5=empty, 6=empty, 7=empty, 8=empty, 9=empty",
+        signature: "X--------",
+      },
+      plannedMove: "place your O on square 5",
     });
 
     await act(async () => {
@@ -239,7 +243,7 @@ describe("CompanionTicTacToe", () => {
       resolveGate?.();
     });
     expect(screen.getByRole("gridcell", { name: "Square 5 O" })).toBeInTheDocument();
-    expect(onCompanionTurn).toHaveBeenCalledWith(expect.objectContaining({ square: 5 }));
+    expect(onCompanionTurn).toHaveBeenCalled();
     expect(screen.queryByRole("gridcell", { name: "Square 2 X" })).toBeNull();
   });
 

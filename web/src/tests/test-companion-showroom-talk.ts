@@ -265,9 +265,16 @@ describe("CompanionShowroom talk mode", () => {
     expect(source).toContain("activeVideoCallActivity");
     expect(source).toContain("activityRequests");
     expect(source).toContain("openCompanionActivity");
-    expect(source).toContain("tic_tac_toe");
-    expect(source).toContain("CompanionTicTacToe");
     expect(source).toContain("activitySlot");
+    // The showroom must stay game-agnostic: games arrive via the registry.
+    expect(source).toContain("COMPANION_ACTIVITY_COMPONENTS");
+    expect(readShowroomSource()).not.toContain("tic_tac_toe");
+    const registrySource = readFileSync(
+      resolve(__dirname, "../components/companionActivities/registry.tsx"),
+      "utf8",
+    );
+    expect(registrySource).toContain("tic_tac_toe");
+    expect(registrySource).toContain("CompanionTicTacToe");
   });
 
   it("bridges video-call play activity events into the existing live session log stream", () => {
@@ -275,9 +282,9 @@ describe("CompanionShowroom talk mode", () => {
 
     expect(source).toContain("postShowroomVideoCallActivityEvent");
     expect(source).toContain("game_state_update");
-    expect(source).toContain("companion_tic_tac_toe_child_move");
-    expect(source).toContain("companion_tic_tac_toe_companion_move");
-    expect(source).toContain("companion_tic_tac_toe_round_complete");
+    expect(source).toContain("companion_activity_child_move");
+    expect(source).toContain("companion_activity_companion_move");
+    expect(source).toContain("companion_activity_round_complete");
     expect(source).toContain("callSource");
     expect(source).toContain("relationshipState");
   });
@@ -300,14 +307,18 @@ describe("CompanionShowroom talk mode", () => {
   it("does not request AI speech for ordinary child moves that will immediately become stale", () => {
     expect(
       shouldRequestShowroomActivityReaction({
-        type: "companion_tic_tac_toe_child_move",
+        type: "companion_activity_child_move",
         activityId: "tic_tac_toe",
         surface: "video_call_overlay",
         companionName: "Elli",
         timestamp: 1000,
-        board: ["X", null, null, null, null, null, null, null, null],
-        square: 1,
-        mark: "X",
+        boardView: { text: "1=X, 2=empty, 3=empty, 4=empty, 5=empty, 6=empty, 7=empty, 8=empty, 9=empty", signature: "X--------" },
+        labels: { child: "X", companion: "O" },
+        status: "active",
+        turn: "child",
+        summary: "A tic-tac-toe round is in progress.",
+        moveDescription: "placed X on square 1",
+        moveBy: "child",
       }),
     ).toBe(false);
   });
@@ -315,38 +326,50 @@ describe("CompanionShowroom talk mode", () => {
   it("keeps meaningful tic-tac-toe move beats nonverbal so live speech cannot go stale", () => {
     expect(
       shouldRequestShowroomActivityReaction({
-        type: "companion_tic_tac_toe_companion_move",
+        type: "companion_activity_companion_move",
         activityId: "tic_tac_toe",
         surface: "video_call_overlay",
         companionName: "Elli",
         timestamp: 1000,
-        board: ["X", "X", "O", null, null, null, null, null, null],
-        square: 3,
-        mark: "O",
+        boardView: { text: "1=X, 2=X, 3=O, 4=empty, 5=empty, 6=empty, 7=empty, 8=empty, 9=empty", signature: "XXO------" },
+        labels: { child: "X", companion: "O" },
+        status: "active",
+        turn: "child",
+        summary: "A tic-tac-toe round is in progress.",
+        moveDescription: "placed O on square 3",
+        moveBy: "companion",
       }),
     ).toBe(false);
     expect(
       shouldRequestShowroomActivityReaction({
-        type: "companion_tic_tac_toe_child_move",
+        type: "companion_activity_child_move",
         activityId: "tic_tac_toe",
         surface: "video_call_overlay",
         companionName: "Elli",
         timestamp: 2000,
-        board: ["O", "O", "X", null, "X", null, null, null, null],
-        square: 3,
-        mark: "X",
+        boardView: { text: "1=O, 2=O, 3=X, 4=empty, 5=X, 6=empty, 7=empty, 8=empty, 9=empty", signature: "OOX-X----" },
+        labels: { child: "X", companion: "O" },
+        status: "active",
+        turn: "child",
+        summary: "A tic-tac-toe round is in progress.",
+        moveDescription: "placed X on square 3",
+        moveBy: "child",
       }),
     ).toBe(false);
     expect(
       shouldRequestShowroomActivityReaction({
-        type: "companion_tic_tac_toe_companion_move",
+        type: "companion_activity_companion_move",
         activityId: "tic_tac_toe",
         surface: "video_call_overlay",
         companionName: "Elli",
         timestamp: 3000,
-        board: ["X", null, null, null, "O", null, null, null, null],
-        square: 5,
-        mark: "O",
+        boardView: { text: "1=X, 2=empty, 3=empty, 4=empty, 5=O, 6=empty, 7=empty, 8=empty, 9=empty", signature: "X---O----" },
+        labels: { child: "X", companion: "O" },
+        status: "active",
+        turn: "child",
+        summary: "A tic-tac-toe round is in progress.",
+        moveDescription: "placed O on square 5",
+        moveBy: "companion",
       }),
     ).toBe(false);
   });
@@ -367,24 +390,32 @@ describe("CompanionShowroom talk mode", () => {
 
   it("marks activity reactions stale when the board advances before speech is ready", () => {
     const requestedActivity = createShowroomVideoActivityContextFromEvent({
-      type: "companion_tic_tac_toe_companion_move",
+      type: "companion_activity_companion_move",
       activityId: "tic_tac_toe",
       surface: "video_call_overlay",
       companionName: "Elli",
       timestamp: 1000,
-      board: ["X", null, null, "O", "O", null, "X", null, null],
-      square: 4,
-      mark: "O",
+      boardView: { text: "1=X, 2=empty, 3=empty, 4=O, 5=O, 6=empty, 7=X, 8=empty, 9=empty", signature: "X--OO-X--" },
+      labels: { child: "X", companion: "O" },
+      status: "active",
+      turn: "child",
+      summary: "A tic-tac-toe round is in progress.",
+      moveDescription: "placed O on square 4",
+      moveBy: "companion",
     });
     const completedActivity = createShowroomVideoActivityContextFromEvent(
       {
-        type: "companion_tic_tac_toe_round_complete",
+        type: "companion_activity_round_complete",
         activityId: "tic_tac_toe",
         surface: "video_call_overlay",
         companionName: "Elli",
         timestamp: 2000,
-        board: ["X", "X", "O", "O", "O", "X", "X", "X", "O"],
-        result: "draw",
+        boardView: { text: "1=X, 2=X, 3=O, 4=O, 5=O, 6=X, 7=X, 8=X, 9=O", signature: "XXOOOXXXO" },
+        labels: { child: "X", companion: "O" },
+        status: "active",
+        turn: "child",
+        summary: "A tic-tac-toe round is in progress.",
+result: "draw",
       },
       requestedActivity,
     );
@@ -392,8 +423,8 @@ describe("CompanionShowroom talk mode", () => {
       activityId: "tic_tac_toe" as const,
       eventType: "companion_move" as const,
       board: requestedActivity.board,
-      childMark: "X" as const,
-      companionMark: "O" as const,
+      childLabel: "X",
+      companionLabel: "O",
       turn: requestedActivity.turn,
       lastMove: requestedActivity.lastMove,
     };
@@ -427,22 +458,26 @@ describe("CompanionShowroom talk mode", () => {
 
   it("marks same-board activity reactions stale when a newer board event has already landed", () => {
     const requestedActivity = createShowroomVideoActivityContextFromEvent({
-      type: "companion_tic_tac_toe_companion_move",
+      type: "companion_activity_companion_move",
       activityId: "tic_tac_toe",
       surface: "video_call_overlay",
       companionName: "Elli",
       timestamp: 1000,
-      board: ["X", null, null, null, "O", null, null, null, null],
-      square: 5,
-      mark: "O",
+      boardView: { text: "1=X, 2=empty, 3=empty, 4=empty, 5=O, 6=empty, 7=empty, 8=empty, 9=empty", signature: "X---O----" },
+      labels: { child: "X", companion: "O" },
+      status: "active",
+      turn: "child",
+      summary: "A tic-tac-toe round is in progress.",
+      moveDescription: "placed O on square 5",
+      moveBy: "companion",
     });
     const reaction = {
       activityId: "tic_tac_toe" as const,
       eventType: "companion_move" as const,
       board: requestedActivity.board,
       boardSignature: getShowroomActivityBoardSignature(requestedActivity.board),
-      childMark: "X" as const,
-      companionMark: "O" as const,
+      childLabel: "X",
+      companionLabel: "O",
       turn: requestedActivity.turn,
       lastMove: requestedActivity.lastMove,
       updatedAt: requestedActivity.updatedAt,
@@ -462,50 +497,70 @@ describe("CompanionShowroom talk mode", () => {
   it("throttles AI-authored tic-tac-toe reactions to key moments", () => {
     expect(
       shouldRequestShowroomActivityReaction({
-        type: "companion_tic_tac_toe_started",
+        type: "companion_activity_started",
         activityId: "tic_tac_toe",
         surface: "video_call_overlay",
         companionName: "Elli",
         timestamp: 1000,
-        board: [null, null, null, null, null, null, null, null, null],
-      }),
+        boardView: { text: "1=empty, 2=empty, 3=empty, 4=empty, 5=empty, 6=empty, 7=empty, 8=empty, 9=empty", signature: "---------" },
+      labels: { child: "X", companion: "O" },
+      status: "active",
+      turn: "child",
+      summary: "A tic-tac-toe round is in progress.",
+}),
     ).toBe(true);
     expect(
       shouldRequestShowroomActivityReaction({
-        type: "companion_tic_tac_toe_companion_move",
+        type: "companion_activity_companion_move",
         activityId: "tic_tac_toe",
         surface: "video_call_overlay",
         companionName: "Elli",
         timestamp: 1000,
-        board: ["X", null, null, null, "O", null, null, null, null],
-        square: 5,
-        mark: "O",
+        boardView: { text: "1=X, 2=empty, 3=empty, 4=empty, 5=O, 6=empty, 7=empty, 8=empty, 9=empty", signature: "X---O----" },
+        labels: { child: "X", companion: "O" },
+        status: "active",
+        turn: "child",
+        summary: "A tic-tac-toe round is in progress.",
+        moveDescription: "placed O on square 5",
+        moveBy: "companion",
       }),
     ).toBe(false);
     expect(
       shouldRequestShowroomActivityReaction({
-        type: "companion_tic_tac_toe_child_move",
+        type: "companion_activity_child_move",
         activityId: "tic_tac_toe",
         surface: "video_call_overlay",
         companionName: "Elli",
         timestamp: 1000,
-        board: ["X", "X", null, null, "O", null, null, null, null],
-        square: 2,
-        mark: "X",
+        boardView: { text: "1=X, 2=X, 3=empty, 4=empty, 5=O, 6=empty, 7=empty, 8=empty, 9=empty", signature: "XX--O----" },
+        labels: { child: "X", companion: "O" },
+        status: "active",
+        turn: "child",
+        summary: "A tic-tac-toe round is in progress.",
+        moveDescription: "placed X on square 2",
+        moveBy: "child",
       }),
     ).toBe(false);
   });
 
   it("carries active tic-tac-toe context into video-call talk payloads", () => {
+    const boardView = {
+      text: "1=X, 2=empty, 3=empty, 4=empty, 5=empty, 6=empty, 7=empty, 8=empty, 9=empty",
+      signature: "X--------",
+    };
     const activeActivity = createShowroomVideoActivityContextFromEvent({
-      type: "companion_tic_tac_toe_child_move",
+      type: "companion_activity_child_move",
       activityId: "tic_tac_toe",
       surface: "video_call_overlay",
       companionName: "Elli",
       timestamp: 1000,
-      board: ["X", null, null, null, null, null, null, null, null],
-      square: 1,
-      mark: "X",
+      boardView,
+      labels: { child: "X", companion: "O" },
+      status: "active",
+      turn: "companion",
+      summary: "The child placed X on square 1. It is now the companion's turn.",
+      moveDescription: "placed X on square 1",
+      moveBy: "child",
     });
 
     expect(
@@ -524,15 +579,16 @@ describe("CompanionShowroom talk mode", () => {
         activityId: "tic_tac_toe",
         surface: "video_call_overlay",
         status: "active",
-        board: ["X", null, null, null, null, null, null, null, null],
-        childMark: "X",
-        companionMark: "O",
+        board: boardView,
+        childLabel: "X",
+        companionLabel: "O",
         turn: "companion",
         lastMove: {
           by: "child",
-          square: 1,
-          mark: "X",
+          description: "placed X on square 1",
+          timestamp: 1000,
         },
+        updatedAt: 1000,
       },
     });
   });
@@ -603,14 +659,16 @@ describe("CompanionShowroom talk mode", () => {
         activityReaction: {
           activityId: "tic_tac_toe",
           eventType: "companion_move",
-          board: ["X", null, null, null, "O", null, null, null, null],
-          childMark: "X",
-          companionMark: "O",
+          board: {
+            text: "1=X, 2=empty, 3=empty, 4=empty, 5=O, 6=empty, 7=empty, 8=empty, 9=empty",
+            signature: "X---O----",
+          },
+          childLabel: "X",
+          companionLabel: "O",
           turn: "child",
           lastMove: {
             by: "companion",
-            square: 5,
-            mark: "O",
+            description: "placed O on square 5",
             timestamp: 1000,
           },
           desiredTone: "warm_playful",
@@ -621,7 +679,12 @@ describe("CompanionShowroom talk mode", () => {
       activityReaction: {
         activityId: "tic_tac_toe",
         eventType: "companion_move",
-        board: ["X", null, null, null, "O", null, null, null, null],
+        board: {
+          text: "1=X, 2=empty, 3=empty, 4=empty, 5=O, 6=empty, 7=empty, 8=empty, 9=empty",
+          signature: "X---O----",
+        },
+        childLabel: "X",
+        companionLabel: "O",
         turn: "child",
       },
     });

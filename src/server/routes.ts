@@ -115,6 +115,7 @@ import {
   writeCompanionTalkSseEvent,
   COMPANION_TALK_STREAM_PCM_SAMPLE_RATE,
 } from "./companionTalkStream";
+import { getCompanionActivityDescriptor } from "../shared/companionActivities/registry";
 import {
   maybeCompactCompanionInteractionMemory,
   readCompanionCareMemoryForPrompt,
@@ -1382,7 +1383,7 @@ export function setupRoutes(app: Express): void {
                 commandType: command?.type ?? null,
                 instruction:
                   talk.activityReaction
-                    ? "Activity reactions need audible companionship. Answer with one short in-character line the companion should say aloud about this tic-tac-toe moment. Do not include stage directions."
+                    ? `Activity reactions need audible companionship. Answer with one short in-character line the companion should say aloud about this ${getCompanionActivityDescriptor(talk.activityReaction.activityId).displayName} moment. Do not include stage directions.`
                     : "If spoken words add value, answer with the exact short words the companion should say aloud. If the visual action is enough, return an empty string. Do not include stage directions.",
               }),
             };

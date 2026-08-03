@@ -46,11 +46,14 @@ function companionMoveReaction(overrides: Record<string, unknown> = {}) {
   return {
     activityId: "tic_tac_toe",
     eventType: "companion_move",
-    board: ["X", null, null, null, null, null, null, null, null],
-    childMark: "X",
-    companionMark: "O",
+    board: {
+      text: "1=X, 2=empty, 3=empty, 4=empty, 5=empty, 6=empty, 7=empty, 8=empty, 9=empty",
+      signature: "X--------",
+    },
+    childLabel: "X",
+    companionLabel: "O",
     turn: "companion",
-    plannedMove: 5,
+    plannedMove: "place your O on square 5",
     ...overrides,
   };
 }
