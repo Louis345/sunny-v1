@@ -14,7 +14,7 @@ export type AssignmentSourceKind =
   | "image_assignment"
   | "text_assignment";
 
-export type AssignmentExtractionMethod = "unpdf" | "tesseract" | "text";
+export type AssignmentExtractionMethod = "unpdf" | "tesseract" | "native_pdf" | "text";
 
 export type AssignmentPageText = {
   pageNumber: number;
@@ -38,6 +38,27 @@ export type AssignmentSourceExtractionOptions = {
   /** Directory for generated OCR page images. Defaults to a temp folder. */
   pageImageDir?: string;
 };
+
+export const ASSIGNMENT_SOURCE_CONTRACT_VERSION = 3;
+
+export type AssignmentSourceCheckpoint = {
+  version: number;
+  fileHash: string;
+  pageCount: number;
+  extractionMethod: AssignmentExtractionMethod;
+};
+
+export function isCurrentAssignmentSourceCheckpoint(
+  saved: AssignmentSourceCheckpoint | undefined,
+  current: AssignmentSourceCheckpoint,
+): boolean {
+  return Boolean(saved
+    && saved.version >= 2
+    && saved.version <= current.version
+    && saved.fileHash === current.fileHash
+    && saved.pageCount === current.pageCount
+    && saved.extractionMethod === current.extractionMethod);
+}
 
 const IMAGE_EXTENSIONS = new Set([".png", ".jpg", ".jpeg", ".webp"]);
 export const PDF_PREVIEW_IMAGE_MAX_EDGE_PX = 1000;
@@ -69,17 +90,76 @@ function mediaTypeFor(filePath: string): string {
   return "application/octet-stream";
 }
 
-function sha256File(filePath: string): string {
+export function assignmentSourceFileHash(filePath: string): string {
   const hash = crypto.createHash("sha256");
   hash.update(fs.readFileSync(filePath));
   return hash.digest("hex");
 }
 
-async function extractEmbeddedPdfText(filePath: string): Promise<string> {
+type AssignmentExtractionCache = {
+  version: number;
+  fileHash: string;
+  extraction: AssignmentSourceExtraction;
+};
+
+export async function loadOrExtractAssignmentSource(
+  filePath: string,
+  cacheFile: string,
+  extract: (source: string) => Promise<AssignmentSourceExtraction> = extractAssignmentSource,
+): Promise<{ extraction: AssignmentSourceExtraction; reused: boolean }> {
+  const fileHash = assignmentSourceFileHash(filePath);
+  try {
+    const cached = JSON.parse(fs.readFileSync(cacheFile, "utf8")) as AssignmentExtractionCache;
+    if (cached.version === ASSIGNMENT_SOURCE_CONTRACT_VERSION
+      && cached.fileHash === fileHash
+      && cached.extraction?.fileHash === fileHash) {
+      return { extraction: cached.extraction, reused: true };
+    }
+  } catch {
+    // A missing or malformed operational cache is safe to replace.
+  }
+  const extraction = { ...await extract(filePath), fileHash };
+  fs.mkdirSync(path.dirname(cacheFile), { recursive: true });
+  fs.writeFileSync(cacheFile, `${JSON.stringify({
+    version: ASSIGNMENT_SOURCE_CONTRACT_VERSION,
+    fileHash,
+    extraction,
+  }, null, 2)}\n`, "utf8");
+  return { extraction, reused: false };
+}
+
+async function extractEmbeddedPdfText(filePath: string): Promise<{ text: string; pageCount: number }> {
   const buffer = fs.readFileSync(filePath);
   const pdf = await getDocumentProxy(new Uint8Array(buffer));
   const { text } = await extractText(pdf, { mergePages: true });
-  return text ?? "";
+  return {
+    text: text ?? "",
+    pageCount: pdf.numPages,
+  };
+}
+
+export function assertCompletePdfPageCoverage(
+  expectedPageCount: number,
+  renderedPagePaths: string[],
+): void {
+  if (renderedPagePaths.length !== expectedPageCount) {
+    throw new Error(
+      `assignment_pdf_page_coverage_incomplete:expected=${expectedPageCount}:rendered=${renderedPagePaths.length}`,
+    );
+  }
+}
+
+export function nativePdfPagePlaceholders(pageCount: number): AssignmentPageText[] {
+  return Array.from({ length: pageCount }, (_, index) => ({
+    pageNumber: index + 1,
+    text: "",
+  }));
+}
+
+export function pdfExtractionMethodForWarnings(warnings: string[]): AssignmentExtractionMethod {
+  return warnings.some((warning) => warning.includes("native_document_used"))
+    ? "native_pdf"
+    : "tesseract";
 }
 
 function ocrFailureWarning(error: unknown): string {
@@ -109,32 +189,56 @@ async function renderPdfPreviewImages(
   outputDir: string,
 ): Promise<string[]> {
   fs.mkdirSync(outputDir, { recursive: true });
-  await execFile("qlmanage", [
-    "-t",
-    "-s",
+  const outputPrefix = path.join(outputDir, "page");
+  await execFile("pdftoppm", [
+    "-png",
+    "-scale-to",
     String(PDF_PREVIEW_IMAGE_MAX_EDGE_PX),
-    "-o",
-    outputDir,
     filePath,
+    outputPrefix,
   ], { maxBuffer: 1024 * 1024 * 5 });
   return fs.readdirSync(outputDir)
-    .filter((file) => /\.(png|jpe?g|webp)$/i.test(file))
+    .filter((file) => /^page-\d+\.png$/i.test(file))
     .map((file) => path.join(outputDir, file))
-    .sort();
+    .sort((left, right) => {
+      const leftPage = Number(path.basename(left).match(/page-(\d+)\.png/i)?.[1] ?? 0);
+      const rightPage = Number(path.basename(right).match(/page-(\d+)\.png/i)?.[1] ?? 0);
+      return leftPage - rightPage;
+    });
 }
 
 async function ocrPdfWithLocalPreview(
   filePath: string,
+  expectedPageCount: number,
   opts: AssignmentSourceExtractionOptions,
 ): Promise<{ pages: AssignmentPageText[]; warnings: string[] }> {
   const warnings = ["pdf_embedded_text_empty_used_ocr"];
   const outputDir = opts.pageImageDir ?? fs.mkdtempSync(path.join(os.tmpdir(), "sunny-assignment-pages-"));
-  const imagePaths = await renderPdfPreviewImages(filePath, outputDir);
-  if (imagePaths.length === 0) {
-    throw new Error(`assignment_pdf_ocr_render_failed:${filePath}`);
+  let imagePaths: string[];
+  try {
+    imagePaths = await renderPdfPreviewImages(filePath, outputDir);
+  } catch {
+    return {
+      pages: nativePdfPagePlaceholders(expectedPageCount),
+      warnings: [
+        ...warnings,
+        "pdf_local_renderer_unavailable_native_document_used",
+      ],
+    };
   }
-  if (imagePaths.length === 1) {
-    warnings.push("pdf_ocr_quicklook_preview_one_image");
+  // A one-page Quick Look thumbnail previously passed as a complete seven-page
+  // assignment. The original PDF is now sent to the Planner, so incomplete
+  // optional previews fall back to native document evidence instead.
+  try {
+    assertCompletePdfPageCoverage(expectedPageCount, imagePaths);
+  } catch {
+    return {
+      pages: nativePdfPagePlaceholders(expectedPageCount),
+      warnings: [
+        ...warnings,
+        `pdf_local_renderer_incomplete_native_document_used:expected=${expectedPageCount}:rendered=${imagePaths.length}`,
+      ],
+    };
   }
   const pages: AssignmentPageText[] = [];
   for (const [index, imagePath] of imagePaths.entries()) {
@@ -157,7 +261,7 @@ export async function extractAssignmentSource(
     throw new Error(`assignment_source_missing:${filePath}`);
   }
   const ext = path.extname(filePath).toLowerCase();
-  const fileHash = sha256File(filePath);
+  const fileHash = assignmentSourceFileHash(filePath);
   const filename = path.basename(filePath);
   const sourcePath = path.resolve(filePath);
   const mediaType = mediaTypeFor(filePath);
@@ -193,8 +297,8 @@ export async function extractAssignmentSource(
   }
 
   if (ext === ".pdf") {
-    const embeddedText = await extractEmbeddedPdfText(filePath);
-    if (!isWeakExtractedText(embeddedText)) {
+    const embeddedPdf = await extractEmbeddedPdfText(filePath);
+    if (!isWeakExtractedText(embeddedPdf.text)) {
       return {
         sourceKind: "embedded_text_pdf",
         sourcePath,
@@ -202,20 +306,20 @@ export async function extractAssignmentSource(
         mediaType,
         fileHash,
         extractionMethod: "unpdf",
-        pages: [{ pageNumber: 1, text: embeddedText }],
-        fullText: embeddedText,
+        pages: [{ pageNumber: 1, text: embeddedPdf.text }],
+        fullText: embeddedPdf.text,
         warnings: [],
       };
     }
 
-    const { pages, warnings } = await ocrPdfWithLocalPreview(filePath, opts);
+    const { pages, warnings } = await ocrPdfWithLocalPreview(filePath, embeddedPdf.pageCount, opts);
     return {
       sourceKind: "scanned_assignment_image",
       sourcePath,
       filename,
       mediaType,
       fileHash,
-      extractionMethod: "tesseract",
+      extractionMethod: pdfExtractionMethodForWarnings(warnings),
       pages,
       fullText: pages.map((page) => page.text).join("\n\n").trim(),
       warnings,

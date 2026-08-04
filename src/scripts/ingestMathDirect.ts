@@ -2,7 +2,13 @@ import "dotenv/config";
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import { extractAssignmentSource } from "../engine/assignmentSourceExtraction";
+import {
+  ASSIGNMENT_SOURCE_CONTRACT_VERSION,
+  assignmentSourceFileHash,
+  isCurrentAssignmentSourceCheckpoint,
+  loadOrExtractAssignmentSource,
+  type AssignmentSourceCheckpoint,
+} from "../engine/assignmentSourceExtraction";
 import {
   askDirectMathPlanner,
   askMathExperienceDesigner,
@@ -20,7 +26,7 @@ import {
   type MathDesignPacket,
 } from "../engine/directMathExperience";
 import { readDirectFeedbackContext } from "../engine/directExperienceFeedback";
-import { readPriorConceptIds, writeAssignmentLedgerEntry } from "../engine/assignmentLedger";
+import { readPriorConceptIds } from "../engine/assignmentLedger";
 import { getChildChart } from "../profiles/childChart";
 
 function arg(name: string, required = true): string {
@@ -48,8 +54,96 @@ function plannerProgramFromDiagnostic(file: string): unknown {
     block.type === "tool_use" && block.name === "create_math_learning_program")?.input;
 }
 
+function archiveInvalidCheckpoint(file: string, archiveDir: string): void {
+  if (!fs.existsSync(file)) return;
+  fs.mkdirSync(archiveDir, { recursive: true });
+  fs.renameSync(file, path.join(archiveDir, `${path.basename(file)}.invalid-${Date.now()}`));
+}
+
+export function readReusablePlannerProgram(input: {
+  programFile: string;
+  diagnosticFile: string;
+  archiveDir: string;
+}): ReturnType<typeof parseMathLearningProgram> | undefined {
+  if (fs.existsSync(input.programFile)) {
+    try {
+      return parseMathLearningProgram(readJson(input.programFile));
+    } catch {
+      archiveInvalidCheckpoint(input.programFile, input.archiveDir);
+    }
+  }
+  if (fs.existsSync(input.diagnosticFile)) {
+    try {
+      return parseMathLearningProgram(plannerProgramFromDiagnostic(input.diagnosticFile));
+    } catch {
+      archiveInvalidCheckpoint(input.diagnosticFile, input.archiveDir);
+    }
+  }
+  return undefined;
+}
+
 let currentPhase = "reading-assignment";
 let currentCheckpoint = "";
+
+export type IngestionFailureKind = "INPUT_ERROR" | "PROVIDER_PAUSED" | "PUBLICATION_FAILED";
+
+export function classifyIngestionFailure(error: unknown, phase: string): IngestionFailureKind {
+  const message = error instanceof Error ? error.message : String(error);
+  if (phase === "atomic-publication") return "PUBLICATION_FAILED";
+  if (phase === "reading-assignment"
+    && /assignment_source_missing|unsupported_assignment_source|EISDIR|ENOENT/i.test(message)) {
+    return "INPUT_ERROR";
+  }
+  return "PROVIDER_PAUSED";
+}
+
+export function formatIngestionSummary(input: {
+  planner: "generated" | "reused";
+  design: "generated" | "reused";
+  generatedNodeIds: string[];
+  reusedNodeIds: string[];
+  generatedImages: number;
+  reusedImages: number;
+  calls: number;
+  tokens: number;
+  elapsedMs: number;
+  checkpoint: string;
+  bonusDeferred: boolean;
+}): string {
+  return [
+    "Board: published",
+    `Planner: ${input.planner}`,
+    `Design: ${input.design}`,
+    `Baseline nodes: ${input.generatedNodeIds.length} generated, ${input.reusedNodeIds.length} reused`,
+    `Bonus: ${input.bonusDeferred ? "deferred until earned" : "not planned"}`,
+    `Images: ${input.generatedImages} generated, ${input.reusedImages} reused`,
+    `Recorded calls: ${input.calls}`,
+    `Recorded tokens: ${input.tokens}`,
+    `Elapsed time: ${Math.round(input.elapsedMs / 1000)}s`,
+    `Checkpoint: ${input.checkpoint}`,
+    "Start session: npm run sunny → Start child session",
+  ].join("\n");
+}
+
+export async function withIngestionHeartbeat<T>(
+  label: string,
+  run: () => Promise<T>,
+  log: (message: string) => void = console.log,
+  intervalMs = 30_000,
+): Promise<T> {
+  const startedAt = Date.now();
+  let count = 0;
+  const timer = setInterval(() => {
+    count += 1;
+    log(`  … ${label}: running — ${Math.floor((Date.now() - startedAt) / 60_000)}:${String(Math.floor((Date.now() - startedAt) / 1000) % 60).padStart(2, "0")}`);
+    if (count >= 20) clearInterval(timer);
+  }, intervalMs);
+  try {
+    return await run();
+  } finally {
+    clearInterval(timer);
+  }
+}
 
 async function main(): Promise<void> {
   const startedAt = Date.now();
@@ -57,10 +151,37 @@ async function main(): Promise<void> {
   const pdf = path.resolve(arg("pdf"));
   const rebuildNodeIds = arg("rebuild-node", false).split(",").map((value) => value.trim()).filter(Boolean);
   console.log("[1/5] Reading assignment and evidence");
-  const extraction = await extractAssignmentSource(pdf);
-  const homeworkId = `hw-math-${crypto.createHash("sha256").update(extraction.fileHash).digest("hex").slice(0, 8)}`;
+  const sourceHash = assignmentSourceFileHash(pdf);
+  const homeworkId = `hw-math-${crypto.createHash("sha256").update(sourceHash).digest("hex").slice(0, 8)}`;
   const draftDir = path.join(process.cwd(), "src", "context", childId, "homework", "direct-drafts", homeworkId);
-  if (flag("fresh")) fs.rmSync(draftDir, { recursive: true, force: true });
+  const freshRequested = flag("fresh");
+  if (freshRequested) fs.rmSync(draftDir, { recursive: true, force: true });
+  const extractionCacheFile = path.join(draftDir, "assignment-extraction.json");
+  const loadedExtraction = await loadOrExtractAssignmentSource(pdf, extractionCacheFile);
+  const extraction = loadedExtraction.extraction;
+  console.log(`  📄 Source: ${extraction.sourceKind}, ${extraction.pages.length} page${extraction.pages.length === 1 ? "" : "s"} captured, ${extraction.extractionMethod}${loadedExtraction.reused ? " (reused)" : ""}`);
+  extraction.warnings.forEach((warning) => console.warn(`  LOCAL_TOOL_WARNING: ${warning}`));
+  const sourceCheckpointFile = path.join(draftDir, "assignment-source.json");
+  const sourceCheckpoint: AssignmentSourceCheckpoint = {
+    version: ASSIGNMENT_SOURCE_CONTRACT_VERSION,
+    fileHash: extraction.fileHash,
+    pageCount: extraction.pages.length,
+    extractionMethod: extraction.extractionMethod,
+  };
+  let savedSourceCheckpoint: AssignmentSourceCheckpoint | undefined;
+  try {
+    savedSourceCheckpoint = readJson<AssignmentSourceCheckpoint>(sourceCheckpointFile);
+  } catch {
+    savedSourceCheckpoint = undefined;
+  }
+  if (!freshRequested && fs.existsSync(draftDir)
+    && !isCurrentAssignmentSourceCheckpoint(savedSourceCheckpoint, sourceCheckpoint)) {
+    const auditDir = path.join(path.dirname(draftDir), "audit", `${homeworkId}-${Date.now()}`);
+    fs.mkdirSync(path.dirname(auditDir), { recursive: true });
+    fs.renameSync(draftDir, auditDir);
+    console.log(`  ♻️ Previous partial-source draft archived; planning will restart from all ${extraction.pages.length} pages`);
+  }
+  writeJson(sourceCheckpointFile, sourceCheckpoint);
   const programFile = path.join(draftDir, "math-learning-program.json");
   const plannerDiagnosticFile = path.join(draftDir, "provider-diagnostics", "planner-response.json");
   const designCheckpointFile = path.join(draftDir, "design-checkpoint.json");
@@ -76,35 +197,37 @@ async function main(): Promise<void> {
   currentCheckpoint = draftDir;
   currentPhase = "academic-planning";
   console.log("[2/5] Planner writing academic prescription");
-  const program = fs.existsSync(programFile)
-    ? parseMathLearningProgram(readJson(programFile))
-    : fs.existsSync(plannerDiagnosticFile)
-      ? parseMathLearningProgram(plannerProgramFromDiagnostic(plannerDiagnosticFile))
-      : await askDirectMathPlanner({
+  const reusableProgram = readReusablePlannerProgram({
+    programFile,
+    diagnosticFile: plannerDiagnosticFile,
+    archiveDir: path.join(draftDir, "audit"),
+  });
+  const plannerStatus = reusableProgram ? "reused" as const : "generated" as const;
+  const program = reusableProgram ?? await withIngestionHeartbeat("Planner", () => askDirectMathPlanner({
         childId,
         chart,
         extraction,
         priorOutcomes,
         priorConceptIds: readPriorConceptIds(childId),
         rawResponseFile: plannerDiagnosticFile,
-      });
+      }));
   writeJson(programFile, program);
-  const ledgerPath = writeAssignmentLedgerEntry({
-    childId,
-    homeworkId,
-    sourceFilename: path.basename(pdf),
-    concept: { ...program.concept, assumptions: program.assumptions.map((item) => item.claim) },
-    boardSummary: { title: program.concept.name, routeLabels: program.fork.routes.map((route) => route.academicRationale), activityCount: program.activities.length },
-  });
-  console.log(`  📋 ${program.assumptions.length} assumptions locked for launch → ${path.relative(process.cwd(), ledgerPath)}`);
+  console.log(`  📋 ${program.assumptions.length} assumptions preregistered; publication remains pending`);
+  const routeIds = new Set(program.fork.routes.map((route) => route.id));
+  const sharedNodes = program.activities.filter((activity) => !routeIds.has(activity.routeId)).map((activity) => activity.id);
+  console.log(`  🧭 Program: shared=${sharedNodes.join(",") || "none"}; ${program.fork.routes.map((route) => `${route.id}=${route.nodeIds.join(",")}`).join("; ")}`);
 
   currentPhase = "experience-design";
   const existingDesignPacket = fs.existsSync(designFile) ? readJson<MathDesignPacket>(designFile) : undefined;
   const shouldDesign = !existingDesignPacket || !fs.existsSync(finalPlanFile)
     || !mathDesignHasRoutePresentationBindings(existingDesignPacket);
   console.log("[3/5] Creator designing coherent board and node artifacts");
+  const designStatus = shouldDesign ? "generated" as const : "reused" as const;
+  const designAttemptsBefore = fs.existsSync(designCheckpointFile)
+    ? readJson<MathDesignCheckpoint>(designCheckpointFile).attempts.length
+    : 0;
   const designed = shouldDesign
-      ? await askMathExperienceDesigner({
+      ? await withIngestionHeartbeat("Designer", () => askMathExperienceDesigner({
         childId,
         program,
         childContext: buildMathCreativeChildContext(chart),
@@ -114,7 +237,7 @@ async function main(): Promise<void> {
           : undefined,
         checkpointFile: designCheckpointFile,
         rawResponseDir: path.join(draftDir, "provider-diagnostics"),
-      })
+      }))
     : {
         packet: readJson<MathDesignPacket>(designFile),
         plan: readJson<DirectLearningExperiencePlan>(finalPlanFile),
@@ -134,7 +257,7 @@ async function main(): Promise<void> {
         bossArtworkUrl: existingBuild.bossArtworkUrl,
       }
     : undefined;
-  const generated = await generateDirectArtifacts({
+  const generated = await withIngestionHeartbeat("Baseline builders", () => generateDirectArtifacts({
     plan: designed.plan,
     childId,
     homeworkId,
@@ -143,7 +266,7 @@ async function main(): Promise<void> {
     assignmentFingerprint: extraction.fileHash,
     existingArtworkUrls,
     ...(rebuildNodeIds.length > 0 ? { forceNodeIds: rebuildNodeIds } : {}),
-  });
+  }));
   writeJson(buildFile, generated);
 
   currentPhase = "runtime-verification";
@@ -180,25 +303,55 @@ async function main(): Promise<void> {
     assumptions: program.assumptions,
   });
   console.log("Done — FULL");
-  console.log(`Activities: ${generated.artifacts.length}`);
-  console.log(`Design artifacts: ${designed.packet.artifacts.length} bound`);
   console.log(`Browser smoke check: ${report.passed ? "passed" : "diagnostic warnings recorded"}`);
   console.log("Quest: locked");
   console.log("Boss: locked");
   const designCheckpoint = fs.existsSync(designCheckpointFile)
     ? readJson<MathDesignCheckpoint>(designCheckpointFile)
     : undefined;
-  const designTokens = designCheckpoint?.attempts.reduce((sum, attempt) => sum + attempt.inputTokens + attempt.outputTokens, 0) ?? 0;
+  const designTokens = designStatus === "generated"
+    ? designCheckpoint?.attempts.slice(designAttemptsBefore)
+      .reduce((sum, attempt) => sum + attempt.inputTokens + attempt.outputTokens, 0) ?? 0
+    : 0;
   const buildTokens = generated.artifacts.reduce((sum, artifact) => sum + (artifact.inputTokens ?? 0) + (artifact.outputTokens ?? 0), 0);
-  console.log(`Generation: ${Math.round((Date.now() - startedAt) / 1000)}s, ${designTokens + buildTokens} recorded tokens`);
+  const plannerDiagnostic = fs.existsSync(plannerDiagnosticFile)
+    ? readJson<{ usage?: { input_tokens?: number; output_tokens?: number } }>(plannerDiagnosticFile)
+    : {};
+  const plannerTokens = plannerStatus === "generated"
+    ? Number(plannerDiagnostic.usage?.input_tokens ?? 0) + Number(plannerDiagnostic.usage?.output_tokens ?? 0)
+    : 0;
+  const designAttemptsAfter = designCheckpoint?.attempts.length ?? designAttemptsBefore;
+  const calls = (plannerStatus === "generated" ? 1 : 0)
+    + Math.max(0, designAttemptsAfter - designAttemptsBefore)
+    + generated.stats.generatedNodeIds.length
+    + generated.stats.generatedImages;
+  console.log(formatIngestionSummary({
+    planner: plannerStatus,
+    design: designStatus,
+    generatedNodeIds: generated.stats.generatedNodeIds,
+    reusedNodeIds: generated.stats.reusedNodeIds,
+    generatedImages: generated.stats.generatedImages,
+    reusedImages: generated.stats.reusedImages,
+    calls,
+    tokens: plannerTokens + designTokens + buildTokens,
+    elapsedMs: Date.now() - startedAt,
+    checkpoint: draftDir,
+    bonusDeferred: generated.stats.bonusDeferred,
+  }));
   console.log(`Plan: ${record}`);
 }
 
-main().catch((error) => {
-  console.error("Provider unavailable — saved progress, automatic resume available");
-  console.error("Existing board was not changed.");
-  console.error(`Phase: ${currentPhase}`);
-  if (currentCheckpoint) console.error(`Checkpoint: ${currentCheckpoint}`);
-  console.error(`Reason: ${error instanceof Error ? error.message : String(error)}`);
-  process.exitCode = 1;
-});
+if (require.main === module) {
+  void main().catch((error) => {
+    const failureKind = classifyIngestionFailure(error, currentPhase);
+    console.error(`${failureKind} — ${failureKind === "INPUT_ERROR" ? "correct the assignment input" : "saved progress is available"}`);
+    console.error("Existing board was not changed.");
+    console.error(`Phase: ${currentPhase}`);
+    if (currentCheckpoint) console.error(`Checkpoint: ${currentCheckpoint}`);
+    console.error(`Reason: ${error instanceof Error ? error.message : String(error)}`);
+    if (failureKind === "PROVIDER_PAUSED") {
+      console.error("Run ingestion again; saved work will resume automatically.");
+    }
+    process.exitCode = 1;
+  });
+}

@@ -10,6 +10,7 @@ import type { AdventureBoardJson } from "../shared/adventureBoardJson";
 import { NODE_REGISTRY } from "../shared/nodeRegistry";
 import { listActivityToolContracts } from "./activityToolCatalog";
 import { engagementTheoryEvidenceContext } from "./engagementTheory";
+import { assignmentLedgerPath, writeAssignmentLedgerEntry } from "./assignmentLedger";
 import {
   createLearningCycle,
   getLearningCycle,
@@ -450,6 +451,8 @@ export type DirectArtifact = {
   title: string;
   htmlPath: string;
   artworkUrl: string;
+  /** Dedicated circular-safe board art. Never a shrunken activity screenshot. */
+  thumbnailUrl?: string;
   creatorPrompt: string;
   promptHash: string;
   plannerModel: string;
@@ -464,6 +467,14 @@ export type DirectArtifact = {
   generationElapsedMs?: number;
   inputTokens?: number;
   outputTokens?: number;
+};
+
+export type DirectGenerationStats = {
+  generatedNodeIds: string[];
+  reusedNodeIds: string[];
+  generatedImages: number;
+  reusedImages: number;
+  bonusDeferred: boolean;
 };
 
 export type DirectPlaywrightReport = {
@@ -715,9 +726,8 @@ export function parseMathLearningProgram(value: unknown): MathLearningProgram {
   }
   const routeIds = new Set(routes.map((route) => route.id));
   for (const activity of activities) {
-    if (routeIds.has(activity.routeId)) continue;
-    const membershipMatches = routes.filter((route) => route.nodeIds.includes(activity.id));
-    if (membershipMatches.length === 1) activity.routeId = membershipMatches[0]!.id;
+    if (routeIds.has(activity.routeId) || activity.routeId === "shared") continue;
+    throw new Error(`math_learning_program_unknown_activity_route:${activity.id}:${activity.routeId}`);
   }
   for (const route of routes) route.nodeIds = activities.filter((activity) => activity.routeId === route.id).map((activity) => activity.id);
   if (routes.some((route) => route.nodeIds.length === 0)) throw new Error("math_learning_program_empty_route");
@@ -1723,6 +1733,8 @@ You do not choose titles, worlds, visuals, mechanics, stakes, consequences, rewa
 
 Choose any educationally sufficient activity and item counts for the baseline program. Mark baseline activities purpose=baseline. Use exactly two academically valid routes with at least one baseline node each. Distribute responsibilities across the whole board; do not duplicate the complete curriculum merely for symmetry. Also author exactly one optional purpose=bonus activity with fresh assignment-aligned practice_only material. It is not a route requirement, cannot support mastery, and failure to build it must not block the board. Keep initial nodes practice_only. Quest and Boss are not part of this baseline program and remain locked until real evidence supports a later decision.
 
+For activities completed before the child chooses a route, set routeId to exactly "shared" and do not include those node IDs in either fork route. For activities after the choice, set routeId to the exact owning fork route ID. The activity routeId is authoritative; fork.routes[].nodeIds is only a projection of route-owned activities.
+
 Create one agencyExperiment for the two routes. Use factual child-chart and historical evidence to state a separate engagement hypothesis, predicted outcome, uncertainty, falsifying evidence, and measurement keys for each route. Keep the academic purpose and difficulty comparable at the choice point. A route choice is weak engagement evidence only and never proves a preference. The later decision must consider starts, completion, abandonment, switching, replay, assistance, interaction difficulty, rating, and academic outcomes.
 
 For every node define a difficultyBoundary with allowed concepts and representations, excluded extensions, starting support, and expected independence. Keep all item content within that boundary. Response modes may be selection, numeric, construction, or explanation.
@@ -1753,13 +1765,30 @@ ${JSON.stringify(chartForPlanner(input.chart), null, 2)}
   Prior factual outcomes and Planner interpretations:
 ${JSON.stringify(factualModelContext(input.priorOutcomes ?? []), null, 2)}`;
   const toolName = "create_math_learning_program";
+  const plannerContent = input.extraction.mediaType === "application/pdf"
+    && input.extraction.sourcePath
+    && fs.existsSync(input.extraction.sourcePath)
+    ? [
+        {
+          type: "document" as const,
+          source: {
+            type: "base64" as const,
+            media_type: "application/pdf" as const,
+            data: fs.readFileSync(input.extraction.sourcePath).toString("base64"),
+          },
+          title: input.extraction.filename || "Math assignment",
+          context: "This is the complete original assignment. Inspect every page before prescribing the learning program.",
+        },
+        { type: "text" as const, text: prompt },
+      ]
+    : prompt;
   // A whole board — every activity, item, prediction and creator prompt — is a
   // long generation against a 20k token budget, and the non-streaming request
   // was timing out before it finished. Stream it, as the Creator already does.
   const response = await client.messages.stream({
     model: input.model ?? process.env.SUNNY_PLANNER_MODEL ?? "claude-opus-5",
     max_tokens: input.maxTokens ?? Number(process.env.SUNNY_PLANNER_MAX_TOKENS ?? 20000),
-    messages: [{ role: "user", content: prompt }],
+    messages: [{ role: "user", content: plannerContent }],
     tools: [{
       name: toolName,
       description: "Return the academic-only math learning program.",
@@ -1825,6 +1854,21 @@ export async function createDirectArtwork(prompt: string, publicDir: string, fil
   return `/${relative.replaceAll(path.sep, "/")}`;
 }
 
+export function createDirectBoardThumbnailPrompt(activity: DirectActivity): string {
+  const design = activity.designArtifact;
+  return `Create one dedicated board-node thumbnail for this child learning experience.
+
+Experience title: ${activity.title}
+Opening promise: ${design?.openingPromise ?? activity.experience.objective}
+Core interaction: ${design?.coreInteraction ?? activity.experience.childAction}
+World reaction: ${design?.worldReaction ?? activity.experience.worldReaction}
+Approved visual direction: ${design?.visualDirection ?? activity.visualMock.scene}
+
+Composition requirements: one instantly recognizable central subject or action symbol; bold silhouette; strong foreground/background contrast; readable when cropped into a small circle; important content inside the central 70 percent; no thin detail at the edge. Match the approved world while making sibling nodes visually distinct.
+
+Do not include words, letters, numbers, equations, answer choices, interface panels, buttons, screenshots, borders, or badges. This is destination artwork, not an activity screenshot.`;
+}
+
 function stripHtml(text: string): string {
   return text.trim().replace(/^```(?:html)?\s*/i, "").replace(/\s*```$/, "");
 }
@@ -1857,9 +1901,10 @@ export function creatorPromptHash(
   activity: DirectActivity,
   plannerModel: string,
   creatorModel: string,
+  creatorContractVersion = 14,
 ): string {
   return crypto.createHash("sha256").update(JSON.stringify({
-    creatorContractVersion: 13,
+    creatorContractVersion,
     plannerModel,
     creatorModel,
     activity,
@@ -1870,8 +1915,12 @@ export function shouldReuseDirectArtifact(input: {
   htmlComplete: boolean;
   savedPromptHash?: string;
   expectedPromptHash: string;
+  compatiblePromptHashes?: string[];
 }): boolean {
-  return input.htmlComplete && input.savedPromptHash === input.expectedPromptHash;
+  return input.htmlComplete && Boolean(input.savedPromptHash) && (
+    input.savedPromptHash === input.expectedPromptHash
+    || input.compatiblePromptHashes?.includes(input.savedPromptHash!) === true
+  );
 }
 
 export function buildDirectActivityCreatorPrompt(input: {
@@ -1887,7 +1936,7 @@ This optional board-world asset is available: ${input.artworkUrl}. Use it only i
 You may use the HTTPS libraries named by the design artifact, or no library. Keep the complete HTML under 45,000 characters.
 
 Runtime contract:
-Emit window.parent.postMessage({type:"activity_ready",payload:{nodeId:"${input.activity.id}"}},"*") when the experience is ready.
+Emit window.parent.postMessage({type:"activity_ready",payload:{nodeId:"${input.activity.id}"}},"*") only when the opening is genuinely ready. Do not emit activity_ready while the opening is empty, loading, charging, or waiting through a decorative animation. The title, mathematical representation, and first meaningful action must already be rendered, enabled, and visually obvious.
 Whenever the activity or active problem changes, emit window.parent.postMessage({type:"game_state_update",payload:{game:"generated-math",activityId:"${input.activity.id}",nodeId:"${input.activity.id}",phase:"question",activityTitle:${JSON.stringify(input.activity.title)},learningFocus:${JSON.stringify(input.activity.academicTarget)},mechanic:${JSON.stringify(input.activity.mechanic)},currentChallenge,availableActions,itemIndex,totalItems,answerVisibility:"hidden"}},"*") so Elli has live context. Never expose answers.
 Represent currentChallenge as {id,prompt,mode,readAloudRequested:false,readAloudCount}. When the child activates a visible Read it to me control, increment readAloudCount and resend that same answer-hidden state with readAloudRequested:true. Do not narrate it inside the activity.
 Listen for parent messages with type:"sunny_companion_presence". Pause activity timers and input while summoned, and resume the same state when collapsed. Do not restart or change progress.
@@ -1899,7 +1948,7 @@ Emit window.parent.postMessage({type:"attempt_event",payload:{domain:"math",targ
 Emit window.parent.postMessage({type:"progress_event",payload:{nodeId:"${input.activity.id}",completedItems,totalItems}},"*") whenever visible progress advances.
 On completion calculate accuracy from targetResults and emit window.parent.postMessage({type:"node_complete",payload:{nodeId:"${input.activity.id}",completed:true,accuracy,targetResults,timeSpent_ms}},"*").
 Include <div id="sunny-companion"></div> so the parent app owns Elli.
-At a 1365×768 viewport, the title and first required action must be visible immediately. Keep all primary controls inside the viewport without page scrolling or clipping.
+At a 1365×768 viewport, the title and first required action must be visible immediately. Use high-contrast text and controls against every panel behind them. Keep all primary controls inside the viewport without page scrolling or clipping.
 Return raw HTML only and end with </html>.
 
 Child: ${input.childId}
@@ -2138,7 +2187,7 @@ async function generateActivityHtml(input: {
         reasoning: { effort: "high" },
         stream: true,
       }),
-      signal: AbortSignal.timeout(Number(process.env.SUNNY_AI_TIMEOUT_MS ?? 240000)),
+      signal: AbortSignal.timeout(Number(process.env.SUNNY_AI_TIMEOUT_MS ?? 600000)),
     });
     if (!response.ok) {
       const payload = await response.json() as Record<string, unknown>;
@@ -2153,7 +2202,7 @@ async function generateActivityHtml(input: {
       thinking: { type: "adaptive" },
       output_config: { effort: "high" },
       messages: [{ role: "user", content: prompt }],
-    } as never, { timeout: Number(process.env.SUNNY_AI_TIMEOUT_MS ?? 240000) }).finalMessage();
+    } as never, { timeout: Number(process.env.SUNNY_AI_TIMEOUT_MS ?? 600000) }).finalMessage();
     raw = response.content.filter((block) => block.type === "text").map((block) => block.text).join("\n");
     inputTokens = response.usage.input_tokens;
     outputTokens = response.usage.output_tokens;
@@ -2183,6 +2232,29 @@ async function mapConcurrent<T, R>(
   return results;
 }
 
+export async function mapConcurrentSettled<T, R>(
+  values: T[],
+  limit: number,
+  run: (value: T, index: number) => Promise<R>,
+): Promise<{ results: Array<R | undefined>; failures: Array<{ index: number; error: unknown }> }> {
+  const results = new Array<R | undefined>(values.length);
+  const failures: Array<{ index: number; error: unknown }> = [];
+  let cursor = 0;
+  const workers = Array.from({ length: Math.min(limit, values.length) }, async () => {
+    while (cursor < values.length) {
+      const index = cursor++;
+      try {
+        results[index] = await run(values[index]!, index);
+      } catch (error) {
+        failures.push({ index, error });
+      }
+    }
+  });
+  await Promise.all(workers);
+  failures.sort((left, right) => left.index - right.index);
+  return { results, failures };
+}
+
 export async function generateDirectArtifacts(input: {
   plan: DirectLearningExperiencePlan;
   childId: string;
@@ -2198,7 +2270,13 @@ export async function generateDirectArtifacts(input: {
     questArtworkUrl: string;
     bossArtworkUrl: string;
   };
-}): Promise<{ artifacts: DirectArtifact[]; backgroundUrl: string; questArtworkUrl: string; bossArtworkUrl: string }> {
+}): Promise<{
+  artifacts: DirectArtifact[];
+  backgroundUrl: string;
+  questArtworkUrl: string;
+  bossArtworkUrl: string;
+  stats: DirectGenerationStats;
+}> {
   const rootDir = input.rootDir ?? process.cwd();
   const publicDir = path.join(rootDir, "web", "public");
   const client = input.client ?? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
@@ -2215,14 +2293,35 @@ export async function generateDirectArtifacts(input: {
     { prompt: input.plan.quest.artworkPrompt, filename: `${input.homeworkId}-quest.jpeg` },
     { prompt: input.plan.boss.artworkPrompt, filename: `${input.homeworkId}-boss.jpeg` },
   ];
+  const cachedArtworkCount = input.existingArtworkUrls
+    ? artworkJobs.length
+    : artworkJobs.filter((job) => {
+        const file = path.join(publicDir, "generated", "direct-math", job.filename);
+        return fs.existsSync(file) && fs.statSync(file).size > 0;
+      }).length;
   const artworkUrls = input.existingArtworkUrls ?? await mapConcurrent(artworkJobs, 2, (job) =>
     createDirectArtwork(job.prompt, publicDir, job.filename));
   const [backgroundUrl, questArtworkUrl, bossArtworkUrl] = Array.isArray(artworkUrls)
     ? artworkUrls as [string, string, string]
     : [artworkUrls.backgroundUrl, artworkUrls.questArtworkUrl, artworkUrls.bossArtworkUrl];
+  const thumbnailEntries = await mapConcurrent(input.plan.activities, 2, async (activity) => {
+    const safeNodeId = activity.id.replace(/[^a-z0-9_-]/gi, "_");
+    const filename = `${input.homeworkId}-${safeNodeId}-thumbnail.jpeg`;
+    const localFile = path.join(publicDir, "generated", "direct-math", filename);
+    const reused = fs.existsSync(localFile) && fs.statSync(localFile).size > 0;
+    const thumbnailUrl = await createDirectArtwork(
+      createDirectBoardThumbnailPrompt(activity),
+      publicDir,
+      filename,
+    );
+    return { nodeId: activity.id, thumbnailUrl, reused };
+  });
+  const thumbnailByNodeId = new Map(thumbnailEntries.map((entry) => [entry.nodeId, entry.thumbnailUrl]));
+  const generatedNodeIds: string[] = [];
+  const reusedNodeIds: string[] = [];
   const gamesDir = path.join(rootDir, "src", "context", input.childId, "homework", "games", input.homeworkId);
   fs.mkdirSync(gamesDir, { recursive: true });
-  const artifacts = await mapConcurrent(input.plan.activities, 2, async (activity, index): Promise<DirectArtifact> => {
+  const activityBuild = await mapConcurrentSettled(input.plan.activities, 2, async (activity): Promise<DirectArtifact> => {
     const artworkUrl = backgroundUrl;
     const builder = builderAssignments.get(activity.id);
     if (!builder) throw new Error(`direct_builder_assignment_missing:${activity.id}`);
@@ -2231,6 +2330,7 @@ export async function generateDirectArtifacts(input: {
     const metadataPath = path.join(gamesDir, `${activity.id}.artifact.json`);
     const existingHtml = fs.existsSync(htmlPath) ? fs.readFileSync(htmlPath, "utf8") : "";
     const expectedPromptHash = creatorPromptHash(activity, plannerModel, model);
+    const priorContractPromptHash = creatorPromptHash(activity, plannerModel, model, 13);
     let savedPromptHash: string | undefined;
     try {
       savedPromptHash = (JSON.parse(fs.readFileSync(metadataPath, "utf8")) as { promptHash?: string }).promptHash;
@@ -2238,8 +2338,16 @@ export async function generateDirectArtifacts(input: {
       savedPromptHash = undefined;
     }
     let generated: GeneratedActivityHtml | undefined;
-    if (forceNodeIds.has(activity.id)
-      || !shouldReuseDirectArtifact({ htmlComplete: isCompleteGeneratedHtml(existingHtml), savedPromptHash, expectedPromptHash })) {
+    const reusable = !forceNodeIds.has(activity.id)
+      && shouldReuseDirectArtifact({
+        htmlComplete: isCompleteGeneratedHtml(existingHtml),
+        savedPromptHash,
+        expectedPromptHash,
+        compatiblePromptHashes: [priorContractPromptHash],
+      });
+    if (!reusable) {
+      generatedNodeIds.push(activity.id);
+      console.log(`  ↻ ${activity.id} [${builder.provider}/${model}] building`);
       generated = await generateActivityHtml({
         activity,
         artworkUrl,
@@ -2249,7 +2357,12 @@ export async function generateDirectArtifacts(input: {
         model,
       });
       fs.writeFileSync(htmlPath, generated.html, "utf8");
+    } else {
+      reusedNodeIds.push(activity.id);
+      console.log(`  ✓ ${activity.id} [${builder.provider}/${model}] reused`);
     }
+    const resolvedPromptHash = generated ? expectedPromptHash : savedPromptHash ?? expectedPromptHash;
+    const resolvedCreatorContractVersion = resolvedPromptHash === priorContractPromptHash ? 13 : 14;
     const html = generated?.html ?? existingHtml;
     const designArtifactHash = crypto.createHash("sha256").update(JSON.stringify(activity.designArtifact)).digest("hex");
     const htmlHash = crypto.createHash("sha256").update(html).digest("hex");
@@ -2260,17 +2373,20 @@ export async function generateDirectArtifacts(input: {
       academicContractHash: activity.designArtifact?.academicContractHash,
       designArtifactHash,
       creatorPrompt: activity.creatorPrompt,
-      promptHash: expectedPromptHash,
+      promptHash: resolvedPromptHash,
+      creatorContractVersion: resolvedCreatorContractVersion,
       plannerModel,
       architectModel,
       builderProvider: builder.provider,
       builderModel: model,
+      thumbnailUrl: thumbnailByNodeId.get(activity.id),
       htmlHash,
       externalLibraryUrls: externalLibraryUrls(html),
       generationElapsedMs: generated?.elapsedMs ?? 0,
       inputTokens: generated?.inputTokens ?? 0,
       outputTokens: generated?.outputTokens ?? 0,
     }, null, 2)}\n`, "utf8");
+    if (generated) console.log(`  ✓ ${activity.id} [${builder.provider}/${model}] saved ${Math.round(generated.elapsedMs / 1000)}s`);
     return {
       childId: input.childId,
       homeworkId: input.homeworkId,
@@ -2278,8 +2394,9 @@ export async function generateDirectArtifacts(input: {
       title: activity.title,
       htmlPath,
       artworkUrl,
+      thumbnailUrl: thumbnailByNodeId.get(activity.id),
       creatorPrompt: activity.creatorPrompt,
-      promptHash: expectedPromptHash,
+      promptHash: resolvedPromptHash,
       plannerModel,
       creatorModel: model,
       architectModel,
@@ -2294,73 +2411,41 @@ export async function generateDirectArtifacts(input: {
       outputTokens: generated?.outputTokens ?? 0,
     };
   });
-  if (input.plan.bonusActivity) {
-    const activity = input.plan.bonusActivity;
-    try {
-      const model = "claude-opus-5";
-      const htmlPath = path.join(gamesDir, `${activity.id}.html`);
-      const metadataPath = path.join(gamesDir, `${activity.id}.artifact.json`);
-      const generated = await generateActivityHtml({
-        activity,
-        artworkUrl: backgroundUrl,
-        childId: input.childId,
-        client,
-        provider: "anthropic",
-        model,
-      });
-      fs.writeFileSync(htmlPath, generated.html, "utf8");
-      const designArtifactHash = crypto.createHash("sha256").update(JSON.stringify(activity.designArtifact)).digest("hex");
-      const htmlHash = crypto.createHash("sha256").update(generated.html).digest("hex");
-      const promptHash = creatorPromptHash(activity, plannerModel, model);
-      fs.writeFileSync(metadataPath, `${JSON.stringify({
-        version: 3,
-        nodeId: activity.id,
-        purpose: "practice_only_bonus",
-        designArtifact: activity.designArtifact,
-        academicContractHash: activity.designArtifact?.academicContractHash,
-        designArtifactHash,
-        creatorPrompt: activity.creatorPrompt,
-        promptHash,
-        plannerModel,
-        architectModel,
-        builderProvider: "anthropic",
-        builderModel: model,
-        htmlHash,
-        externalLibraryUrls: externalLibraryUrls(generated.html),
-        generationElapsedMs: generated.elapsedMs,
-        inputTokens: generated.inputTokens,
-        outputTokens: generated.outputTokens,
-      }, null, 2)}\n`, "utf8");
-      artifacts.push({
-        childId: input.childId,
-        homeworkId: input.homeworkId,
-        nodeId: activity.id,
-        title: activity.title,
-        htmlPath,
-        artworkUrl: backgroundUrl,
-        creatorPrompt: activity.creatorPrompt,
-        promptHash,
-        plannerModel,
-        creatorModel: model,
-        architectModel,
-        builderProvider: "anthropic",
-        builderModel: model,
-        academicContractHash: activity.designArtifact?.academicContractHash,
-        designArtifactHash,
-        htmlHash,
-        externalLibraryUrls: externalLibraryUrls(generated.html),
-        generationElapsedMs: generated.elapsedMs,
-        inputTokens: generated.inputTokens,
-        outputTokens: generated.outputTokens,
-      });
-      console.log(` 🎮 [direct-ingest] [bonus-built] node=${activity.id}`);
-    } catch (error: unknown) {
-      console.warn(
-        ` 🎮 [direct-ingest] [bonus-skipped] reason=${error instanceof Error ? error.message : String(error)}`,
-      );
-    }
+  const artifacts = activityBuild.results.filter((artifact): artifact is DirectArtifact => Boolean(artifact));
+  if (activityBuild.failures.length > 0) {
+    const failures = activityBuild.failures.map(({ index, error }) => {
+      const activity = input.plan.activities[index]!;
+      const builder = builderAssignments.get(activity.id);
+      const reason = error instanceof Error ? error.message : String(error);
+      console.error(`  ✗ ${activity.id} [${builder?.provider ?? "unknown"}/${builder?.model ?? "unknown"}] ${reason}`);
+      return `${activity.id}:${builder?.provider ?? "unknown"}:${builder?.model ?? "unknown"}:${reason}`;
+    });
+    const completedIds = artifacts.map((artifact) => artifact.nodeId);
+    const missingIds = input.plan.activities
+      .map((activity) => activity.id)
+      .filter((nodeId) => !completedIds.includes(nodeId));
+    throw new Error(
+      `direct_activity_build_incomplete:completed=${completedIds.join(",") || "none"}:missing=${missingIds.join(",")}:failures=${failures.join("|")}`,
+    );
   }
-  return { artifacts, backgroundUrl, questArtworkUrl, bossArtworkUrl };
+  if (input.plan.bonusActivity) {
+    console.log(`  ○ ${input.plan.bonusActivity.id} bonus deferred until earned`);
+  }
+  const reusedImages = cachedArtworkCount + thumbnailEntries.filter((entry) => entry.reused).length;
+  const totalImages = artworkJobs.length + thumbnailEntries.length;
+  return {
+    artifacts,
+    backgroundUrl,
+    questArtworkUrl,
+    bossArtworkUrl,
+    stats: {
+      generatedNodeIds: generatedNodeIds.sort(),
+      reusedNodeIds: reusedNodeIds.sort(),
+      generatedImages: totalImages - reusedImages,
+      reusedImages,
+      bonusDeferred: Boolean(input.plan.bonusActivity),
+    },
+  };
 }
 
 function contentType(file: string): string {
@@ -2520,7 +2605,7 @@ export function buildDirectActiveSessionPlan(input: {
       id: activity.id, type: "generated-baseline", activityId: "generated-baseline", targets: activity.items.map((item) => item.id), difficulty: 2,
       source: "chart_planner", targetLane: activity.academicTarget, locked: activity.id !== firstSharedNodeId, title: activity.title,
       ...(rounds.length > 0 ? { rounds } : {}),
-      gameHtmlPath: artifact.htmlPath, date: input.homeworkId, thumbnailUrl: previewUrl(activity.id, artifact.artworkUrl), contentId: `${input.homeworkId}:${activity.id}`, mechanic: activity.mechanic,
+      gameHtmlPath: artifact.htmlPath, date: input.homeworkId, thumbnailUrl: artifact.thumbnailUrl ?? previewUrl(activity.id, artifact.artworkUrl), contentId: `${input.homeworkId}:${activity.id}`, mechanic: activity.mechanic,
       engagementDimensions: [activity.engagementVariable as never], engagementHypothesis: engagementHypothesisForRoute(activity.routeId),
     };
   });
@@ -2533,13 +2618,13 @@ export function buildDirectActiveSessionPlan(input: {
   ];
   sharedActivities.forEach((activity, index) => {
     const artifact = artifactById.get(activity.id)!;
-    nodes.push({ id: activity.id, kind: "activity", activityId: "generated-baseline", label: activity.title, shortLabel: boardShortLabel(activity.title), state: index === 0 ? "current" : "locked", position: sharedNodePosition(index, sharedActivities.length), action: { type: "launch-activity", payloadId: activity.id }, thumbnailUrl: previewUrl(activity.id, artifact.artworkUrl), mechanic: activity.mechanic, engagementDimensions: [activity.engagementVariable], engagementHypothesis: input.plan.fork.hypothesis, contentId: `${input.homeworkId}:${activity.id}` });
+    nodes.push({ id: activity.id, kind: "activity", activityId: "generated-baseline", label: activity.title, shortLabel: boardShortLabel(activity.title), state: index === 0 ? "current" : "locked", position: sharedNodePosition(index, sharedActivities.length), action: { type: "launch-activity", payloadId: activity.id }, thumbnailUrl: artifact.thumbnailUrl ?? previewUrl(activity.id, artifact.artworkUrl), mechanic: activity.mechanic, engagementDimensions: [activity.engagementVariable], engagementHypothesis: input.plan.fork.hypothesis, contentId: `${input.homeworkId}:${activity.id}` });
   });
   nodes.push({ id: "choose-path", kind: "choice-gate", label: "Choose your path", shortLabel: "Choose Path", state: sharedActivities.length === 0 ? "current" : "locked", position: sharedActivities.length === 0 ? boardPosition(24, 58) : boardPosition(44, 48), action: { type: "open-choice-set", payloadId: "direct-route-choice" }, choiceSetId: "direct-route-choice" });
   input.plan.fork.routes.forEach((route, routeIndex) => route.nodeIds.forEach((nodeId, index) => {
     const activity = input.plan.activities.find((item) => item.id === nodeId)!;
     const artifact = artifactById.get(nodeId)!;
-    nodes.push({ id: nodeId, kind: "activity", activityId: "generated-baseline", label: activity.title, shortLabel: boardShortLabel(activity.title), state: "locked", position: routeNodePosition(index, route.nodeIds.length, routeIndex), action: { type: "launch-activity", payloadId: nodeId }, thumbnailUrl: previewUrl(nodeId, artifact.artworkUrl), mechanic: activity.mechanic, engagementDimensions: [activity.engagementVariable], engagementHypothesis: engagementHypothesisForRoute(route.id), contentId: `${input.homeworkId}:${nodeId}` });
+    nodes.push({ id: nodeId, kind: "activity", activityId: "generated-baseline", label: activity.title, shortLabel: boardShortLabel(activity.title), state: "locked", position: routeNodePosition(index, route.nodeIds.length, routeIndex), action: { type: "launch-activity", payloadId: nodeId }, thumbnailUrl: artifact.thumbnailUrl ?? previewUrl(nodeId, artifact.artworkUrl), mechanic: activity.mechanic, engagementDimensions: [activity.engagementVariable], engagementHypothesis: engagementHypothesisForRoute(route.id), contentId: `${input.homeworkId}:${nodeId}` });
   }));
   nodes.push(
     { id: "quest", kind: "quest", label: "Quest", state: "locked", position: boardPosition(82, 48), thumbnailUrl: input.questArtworkUrl, lock: { reason: "Complete your adventure routes to reveal the Quest.", label: "Locked" }, action: { type: "show-locked-reason", payloadId: "quest" } },
@@ -2576,7 +2661,7 @@ export function buildDirectActiveSessionPlan(input: {
         description: route.childFacingActionCue,
         state: sharedActivities.length === 0 ? "available" as const : "locked" as const,
         nodeId: route.previewNodeId,
-        thumbnailUrl: previewUrl(route.previewNodeId, artifact.artworkUrl),
+        thumbnailUrl: artifact.thumbnailUrl ?? previewUrl(route.previewNodeId, artifact.artworkUrl),
         artifactHash: artifact.designArtifactHash,
         engagementDimensions: [route.engagementVariable],
         choiceSignal: { algorithmFeed: "choicePolicy" as const, traits: [route.engagementVariable], expectedEvidence: "selection, start, completion, abandonment, replay", preferenceNotMastery: true as const },
@@ -2810,7 +2895,23 @@ export function persistDirectExperience(input: {
   const homeworkPath = path.join(contextDir, "homework", "current.json");
   const profilePath = path.join(contextDir, "learning_profile.json");
   const cyclePath = path.join(contextDir, "homework", "cycles", `${input.homeworkId}.json`);
-  const publicationPaths = [directPath, planPath, homeworkPath, profilePath, cyclePath];
+  const ledgerEntry = {
+    childId: input.childId,
+    homeworkId: input.homeworkId,
+    sourceFilename: input.extraction.filename,
+    concept: {
+      ...input.plannerPlan.concept,
+      assumptions: (input.assumptions ?? []).map((assumption) => assumption.claim),
+    },
+    boardSummary: {
+      title: input.plannerPlan.title,
+      routeLabels: input.plannerPlan.fork.routes.map((route) => route.label),
+      activityCount: input.plannerPlan.activities.length,
+    },
+    ingestedAt: now,
+  };
+  const ledgerPath = assignmentLedgerPath(ledgerEntry, { rootDir });
+  const publicationPaths = [directPath, planPath, homeworkPath, profilePath, cyclePath, ledgerPath];
   const beforePublication = new Map(publicationPaths.map((file) => [
     file,
     fs.existsSync(file) ? fs.readFileSync(file) : null,
@@ -2842,6 +2943,7 @@ export function persistDirectExperience(input: {
   } else {
     createLearningCycle(canonicalInput, { rootDir, now: new Date(now) });
   }
+  writeAssignmentLedgerEntry(ledgerEntry, { rootDir });
   fs.mkdirSync(path.dirname(directPath), { recursive: true });
   fs.writeFileSync(directPath, `${JSON.stringify(record, null, 2)}\n`, "utf8");
   let previousPlan: { activeByDomain?: unknown } = {};

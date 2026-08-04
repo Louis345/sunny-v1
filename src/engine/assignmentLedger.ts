@@ -80,15 +80,24 @@ function ledgerSafeId(value: string): string {
   return value.trim().replace(/[^a-zA-Z0-9_-]+/g, "-");
 }
 
+export function assignmentLedgerPath(
+  entry: Pick<AssignmentLedgerEntry, "childId" | "homeworkId" | "ingestedAt">,
+  opts: ContextRootOptions = {},
+): string {
+  const day = (entry.ingestedAt ?? new Date().toISOString()).slice(0, 10);
+  return path.join(
+    assumptionsDir(entry.childId, opts),
+    `${day}-${ledgerSafeId(entry.homeworkId)}-pre.md`,
+  );
+}
+
 /** Writes `<date>-<homeworkId>-pre.md` and returns the path written. */
 export function writeAssignmentLedgerEntry(
   entry: AssignmentLedgerEntry,
   opts: ContextRootOptions = {},
 ): string {
-  const dir = assumptionsDir(entry.childId, opts);
-  fs.mkdirSync(dir, { recursive: true });
-  const day = (entry.ingestedAt ?? new Date().toISOString()).slice(0, 10);
-  const file = path.join(dir, `${day}-${ledgerSafeId(entry.homeworkId)}-pre.md`);
+  const file = assignmentLedgerPath(entry, opts);
+  fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.writeFileSync(file, renderAssignmentLedgerEntry(entry), "utf8");
   return file;
 }
