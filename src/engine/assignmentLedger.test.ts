@@ -51,7 +51,7 @@ describe("assignment ledger", () => {
     expect(markdown).toContain("Still to be checked");
   });
 
-  it("writes a dated pre entry and reads its concept id back", () => {
+  it("writes an assignment-specific pre entry and reads its concept id back", () => {
     const rootDir = root();
     const file = writeAssignmentLedgerEntry({
       childId: "reina",
@@ -61,8 +61,30 @@ describe("assignment ledger", () => {
       ingestedAt: "2026-07-26T12:00:00.000Z",
     }, { rootDir });
 
-    expect(path.basename(file)).toBe("2026-07-26-pre.md");
+    expect(path.basename(file)).toBe("2026-07-26-hw-math-division01-pre.md");
     expect(readPriorConceptIds("reina", { rootDir })).toEqual(["division_as_equal_sharing"]);
+  });
+
+  it("preserves two assignments ingested on the same day", () => {
+    const rootDir = root();
+    const first = writeAssignmentLedgerEntry({
+      childId: "reina",
+      homeworkId: "hw-math-first",
+      sourceFilename: "first.pdf",
+      concept,
+      ingestedAt: "2026-07-26T09:00:00.000Z",
+    }, { rootDir });
+    const second = writeAssignmentLedgerEntry({
+      childId: "reina",
+      homeworkId: "hw-math-second",
+      sourceFilename: "second.pdf",
+      concept: { ...concept, conceptId: "math.fractions.unit_fraction" },
+      ingestedAt: "2026-07-26T15:00:00.000Z",
+    }, { rootDir });
+
+    expect(first).not.toBe(second);
+    expect(fs.existsSync(first)).toBe(true);
+    expect(fs.existsSync(second)).toBe(true);
   });
 
   it("returns prior ids newest first and without duplicates", () => {
