@@ -23,8 +23,27 @@ import {
   shouldReuseDirectArtifact,
   normalizeGeneratedHtml,
   mathAcademicContractHash,
+  mergeActiveDomainProjection,
   readOpenAiResponseStream,
 } from "./directMathExperience";
+
+describe("math publication domain preservation", () => {
+  it("replaces only math while preserving spelling, reading, and science", () => {
+    const existing = {
+      spelling: { planId: "spelling-plan" },
+      reading: { planId: "reading-plan" },
+      science: { planId: "science-plan" },
+      math: { planId: "old-math-plan" },
+    };
+
+    expect(mergeActiveDomainProjection(existing, "math", { planId: "new-math-plan" })).toEqual({
+      spelling: { planId: "spelling-plan" },
+      reading: { planId: "reading-plan" },
+      science: { planId: "science-plan" },
+      math: { planId: "new-math-plan" },
+    });
+  });
+});
 
 /** The Planner streams because a complete academic program can be large. */
 function streamOf(create: (...args: never[]) => unknown) {

@@ -69,6 +69,17 @@ export type DirectItem = {
     | { mode: "explanation"; rubric: string[] };
 };
 
+export function mergeActiveDomainProjection(
+  existing: unknown,
+  domain: string,
+  value: unknown,
+): Record<string, unknown> {
+  const current = existing && typeof existing === "object" && !Array.isArray(existing)
+    ? existing as Record<string, unknown>
+    : {};
+  return { ...current, [domain]: value };
+}
+
 export type DirectLearningResponsibility = {
   id: string;
   title: string;
@@ -2833,11 +2844,29 @@ export function persistDirectExperience(input: {
   }
   fs.mkdirSync(path.dirname(directPath), { recursive: true });
   fs.writeFileSync(directPath, `${JSON.stringify(record, null, 2)}\n`, "utf8");
-  const planFile = { version: 1, childId: input.childId, selectedDomain: "math", current: input.activeSessionPlan, activeByDomain: { math: input.activeSessionPlan }, updatedAt: now };
+  let previousPlan: { activeByDomain?: unknown } = {};
+  let previousHomework: { activeByDomain?: unknown } = {};
+  try { previousPlan = JSON.parse(fs.readFileSync(planPath, "utf8")) as typeof previousPlan; } catch { previousPlan = {}; }
+  try { previousHomework = JSON.parse(fs.readFileSync(homeworkPath, "utf8")) as typeof previousHomework; } catch { previousHomework = {}; }
+  const planFile = {
+    version: 1,
+    childId: input.childId,
+    selectedDomain: "math",
+    current: input.activeSessionPlan,
+    activeByDomain: mergeActiveDomainProjection(previousPlan.activeByDomain, "math", input.activeSessionPlan),
+    updatedAt: now,
+  };
   fs.mkdirSync(path.join(contextDir, "plans"), { recursive: true });
   fs.writeFileSync(planPath, `${JSON.stringify(planFile, null, 2)}\n`, "utf8");
   const pending = { weekOf: now.slice(0, 10), testDate: null, returnTag: `#sunny_${input.childId}_${input.homeworkId}`, wordList: [], contentProfile: { practiceDomain: "math", topic: input.plannerPlan.title }, capturedContent: { title: input.plannerPlan.title, rawText: input.extraction.fullText }, homeworkId: input.homeworkId, generatedAt: now, nodes: input.activeSessionPlan.nodePlan };
-  const homeworkFile = { version: 1, childId: input.childId, selectedDomain: "math", current: pending, activeByDomain: { math: pending }, updatedAt: now };
+  const homeworkFile = {
+    version: 1,
+    childId: input.childId,
+    selectedDomain: "math",
+    current: pending,
+    activeByDomain: mergeActiveDomainProjection(previousHomework.activeByDomain, "math", pending),
+    updatedAt: now,
+  };
   fs.writeFileSync(homeworkPath, `${JSON.stringify(homeworkFile, null, 2)}\n`, "utf8");
   const profile = JSON.parse(fs.readFileSync(profilePath, "utf8"));
   profile.pendingHomework = pending;
