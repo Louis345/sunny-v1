@@ -188,6 +188,46 @@ describe("companion video call trace score report", () => {
     expect(markdown).toContain("Social first-audio average: 1100ms");
   });
 
+  it("scores a timed-out move packet as a deliberate fallback, not missing audio", () => {
+    // Regression for a real session: the packet timed out, the move revealed
+    // silently (correct), then the late line was discarded. Without a fallback
+    // event on the same turn the report called that missing audio and failed
+    // the run for behaviour that was working as designed.
+    const records: CompanionVideoCallTraceRecord[] = [
+      record("call_started", 0),
+      record("activity_move_packet_requested", 1000, {
+        turnId: "turn_19",
+        payload: { plannedMove: "drop your yellow disc into column 4" },
+      }),
+      record("activity_move_packet_timeout", 5000, {
+        payload: { plannedMove: "drop your yellow disc into column 4" },
+      }),
+      record("activity_reaction_response_received", 6200, {
+        turnId: "turn_19",
+        payload: {
+          aiAuthored: true,
+          requestToResponseMs: 5200,
+          latencySpans: { requestToResponseMs: 5200 },
+        },
+      }),
+      record("activity_reaction_fallback", 6210, {
+        turnId: "turn_19",
+        payload: { reason: "move_packet_timeout", fallback: "gesture_only" },
+      }),
+      record("call_ended", 7000),
+    ];
+
+    const report = buildCompanionVideoCallTraceScoreReport(records);
+
+    expect(report.metrics.activityMissingAudioCount).toBe(0);
+    expect(report.metrics.activityFallbackCount).toBe(1);
+    expect(report.metrics.movePacketTimeoutCount).toBe(1);
+    expect(report.likelyCause).not.toBe("activity_reaction_missing_audio");
+    expect(report.blockers).not.toContain(
+      "Some AI-authored activity reactions produced no playable audio.",
+    );
+  });
+
   it("reports move packet metrics without changing pass thresholds", () => {
     const records: CompanionVideoCallTraceRecord[] = [
       record("call_started", 0),

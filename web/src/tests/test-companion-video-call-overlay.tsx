@@ -243,7 +243,9 @@ describe("CompanionVideoCallOverlay", () => {
     expect(source).toContain('left: "clamp(16px, 3vw, 34px)"');
     expect(source).toContain("right: \"auto\"");
     expect(source).toContain('bottom: "clamp(92px, 12vh, 118px)"');
-    expect(source).toContain('width: "min(28vw, 300px)"');
+    // Width is game-declared now: wide boards (Connect Four, later chess) ask
+    // for more room, and anything that does not ask gets the compact default.
+    expect(source).toContain("activityTrayWidthPx ?? 300");
   });
 
   it("uses a compact caption instead of a large transcript panel during activity play", () => {

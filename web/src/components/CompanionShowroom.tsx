@@ -3975,8 +3975,22 @@ export function CompanionShowroom({
         if (movePacket) {
           if (movePacket.isCancelled()) {
             console.log(
-              ` 🎮 [showroom-activity-reaction] move_packet_late companion=${current.id} square=${reaction.plannedMove ?? "unknown"}`,
+              ` 🎮 [showroom-activity-reaction] move_packet_late companion=${current.id} move=${reaction.plannedMove ?? "unknown"}`,
             );
+            // The move already revealed nonverbally at the timeout, so this
+            // late line is dropped on purpose. Record it as a deliberate
+            // fallback on the same turn as the response, otherwise the lab
+            // scores a correct fallback as missing audio.
+            emitShowroomVideoCallTrace({
+              eventName: "activity_reaction_fallback",
+              turnId: traceTurnId,
+              payload: {
+                reason: "move_packet_timeout",
+                fallback: "gesture_only",
+                activityReaction: reaction,
+                activeActivity,
+              },
+            });
             setShowroomTalkPhase("idle");
             finishReaction("move_packet_late");
             return;
@@ -4235,6 +4249,15 @@ export function CompanionShowroom({
             },
           });
           setShowroomTalkPhase("idle");
+          // Stay expressive rather than going blank: the move is about to
+          // reveal silently, so give it a gesture that fits the moment.
+          playCurrentCompanionAnimation(
+            getShowroomActivityReactionFallbackAnimation(reaction),
+            { loop: false },
+          );
+          schedule(() => {
+            playCurrentCompanionAnimation("idle", { loop: true });
+          }, 1400);
           settle();
         }, SHOWROOM_ACTIVITY_MOVE_PACKET_TIMEOUT_MS);
         activityReactionRequesterRef.current?.(reaction, activeActivity, {
@@ -4245,7 +4268,7 @@ export function CompanionShowroom({
         });
       });
     },
-    [current, emitShowroomVideoCallTrace],
+    [current, emitShowroomVideoCallTrace, playCurrentCompanionAnimation, schedule],
   );
 
   const openVideoCallActivityRequest = useCallback(
@@ -6954,7 +6977,12 @@ export function CompanionShowroom({
 	            onLoadSettled={noopShowroomSlotSettled}
 	          />
 	        }
-	        activitySlot={
+	        activityTrayWidthPx={
+          activeVideoCallActivity
+            ? getCompanionActivityDescriptor(activeVideoCallActivity).trayWidthPx
+            : undefined
+        }
+        activitySlot={
           ActiveCompanionActivity ? (
             <ActiveCompanionActivity
               companionId={current.id}

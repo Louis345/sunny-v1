@@ -188,6 +188,7 @@ export function CompanionConnectFour({
   const [board, setBoard] = useState<ConnectFourCell[]>(CONNECT_FOUR_EMPTY_BOARD);
   const [companionThinking, setCompanionThinking] = useState(false);
   const [lastLanding, setLastLanding] = useState<number | null>(null);
+  const [hoveredColumn, setHoveredColumn] = useState<number | null>(null);
   const didEmitStartedRef = useRef(false);
   const emittedRoundCompleteRef = useRef<string | null>(null);
   const decisionStartedAtRef = useRef<number | null>(null);
@@ -447,15 +448,25 @@ export function CompanionConnectFour({
         style={{
           display: "grid",
           gridTemplateColumns: `repeat(${CONNECT_FOUR_COLUMNS}, minmax(0, 1fr))`,
-          gap: 4,
-          background: "rgba(79, 70, 229, 0.28)",
-          borderRadius: 10,
-          padding: 6,
+          gap: 5,
+          width: "100%",
+          // Square cells mean height tracks width, so cap width from the
+          // height budget to keep the whole board inside the tray.
+          maxWidth: `calc(min(42vh, 330px) * ${CONNECT_FOUR_COLUMNS} / ${CONNECT_FOUR_ROWS})`,
+          margin: "0 auto",
+          // Reads as a physical board rather than a flat panel.
+          background: "linear-gradient(160deg, #4f46e5, #3730a3 60%, #312e81)",
+          borderRadius: 12,
+          padding: 7,
+          boxShadow:
+            "inset 0 2px 6px rgba(255,255,255,0.22), inset 0 -3px 8px rgba(0,0,0,0.45), 0 10px 24px rgba(0,0,0,0.38)",
         }}
       >
         {Array.from({ length: CONNECT_FOUR_COLUMNS }, (_, column) => {
-          const columnFull = landingIndex(board, column) == null;
+          const landing = landingIndex(board, column);
+          const columnFull = landing == null;
           const disabled = columnFull || Boolean(result) || companionThinking;
+          const previewing = hoveredColumn === column && !disabled;
           return (
             <button
               key={column}
@@ -463,45 +474,115 @@ export function CompanionConnectFour({
               role="gridcell"
               aria-label={columnFull ? `Column ${column + 1} full` : `Column ${column + 1}`}
               onClick={() => playColumn(column)}
+              onMouseEnter={() => setHoveredColumn(column)}
+              onMouseLeave={() =>
+                setHoveredColumn((current) => (current === column ? null : current))
+              }
+              onFocus={() => setHoveredColumn(column)}
+              onBlur={() =>
+                setHoveredColumn((current) => (current === column ? null : current))
+              }
               disabled={disabled}
               style={{
                 display: "grid",
-                gap: 4,
+                gap: 5,
                 padding: 0,
                 border: 0,
-                background: "transparent",
+                borderRadius: 8,
+                background: previewing ? "rgba(255,255,255,0.10)" : "transparent",
                 cursor: disabled ? "default" : "pointer",
-                opacity: disabled && !result ? 0.85 : 1,
+                transition: "background 120ms ease",
+                minHeight: 0,
               }}
             >
               {Array.from({ length: CONNECT_FOUR_ROWS }, (_, row) => {
                 const index = cellIndex(row, column);
                 const cell = board[index];
                 const isWinning = winningWindow.includes(index);
+                // Ghost disc showing exactly where this drop would land.
+                const isPreviewSlot = previewing && index === landing;
                 return (
-                  <motion.span
+                  <span
                     key={row}
                     aria-hidden
-                    initial={false}
-                    animate={
-                      lastLanding === index
-                        ? { y: [-18 * (row + 1), 0], scale: [0.9, 1] }
-                        : { y: 0, scale: 1 }
-                    }
-                    transition={{ duration: DROP_ANIMATION_MS / 1000, ease: "easeIn" }}
                     style={{
                       display: "block",
                       aspectRatio: "1",
                       borderRadius: "50%",
-                      background:
-                        cell === CONNECT_FOUR_CHILD_DISC
-                          ? "radial-gradient(circle at 35% 30%, #fb7185, #e11d48)"
-                          : cell === CONNECT_FOUR_COMPANION_DISC
-                            ? "radial-gradient(circle at 35% 30%, #fde047, #f59e0b)"
-                            : "rgba(7, 10, 22, 0.72)",
-                      boxShadow: isWinning ? "0 0 0 2px #f8fafc inset" : "none",
+                      // Empty holes look punched out of the board.
+                      background: cell ? "transparent" : "rgba(6, 8, 20, 0.82)",
+                      boxShadow: cell
+                        ? "none"
+                        : "inset 0 2px 4px rgba(0,0,0,0.75), inset 0 -1px 2px rgba(255,255,255,0.10)",
+                      position: "relative",
                     }}
-                  />
+                  >
+                    {isPreviewSlot && (
+                      <motion.span
+                        aria-hidden
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: [0.25, 0.55, 0.25] }}
+                        transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut" }}
+                        style={{
+                          position: "absolute",
+                          inset: 0,
+                          borderRadius: "50%",
+                          border: "2px dashed rgba(251, 113, 133, 0.95)",
+                          background: "rgba(251, 113, 133, 0.18)",
+                        }}
+                      />
+                    )}
+                    {cell && (
+                      <motion.span
+                        aria-hidden
+                        // Falls from above the board and settles with a small
+                        // squash, so a move reads as landing rather than fading.
+                        initial={
+                          lastLanding === index
+                            ? { y: -(row + 1) * 46, scaleY: 1.18, scaleX: 0.9 }
+                            : false
+                        }
+                        animate={{ y: 0, scaleY: 1, scaleX: 1 }}
+                        transition={
+                          lastLanding === index
+                            ? {
+                                type: "spring",
+                                stiffness: 900,
+                                damping: 22,
+                                mass: 0.9,
+                                duration: DROP_ANIMATION_MS / 1000,
+                              }
+                            : { duration: 0 }
+                        }
+                        style={{
+                          position: "absolute",
+                          inset: 0,
+                          borderRadius: "50%",
+                          background:
+                            cell === CONNECT_FOUR_CHILD_DISC
+                              ? "radial-gradient(circle at 34% 28%, #fda4af, #e11d48 62%, #9f1239)"
+                              : "radial-gradient(circle at 34% 28%, #fef08a, #f59e0b 62%, #b45309)",
+                          boxShadow: isWinning
+                            ? "0 0 0 3px #f8fafc, 0 0 16px 4px rgba(248,250,252,0.85)"
+                            : "inset 0 -2px 5px rgba(0,0,0,0.45), 0 2px 3px rgba(0,0,0,0.35)",
+                        }}
+                      />
+                    )}
+                    {isWinning && (
+                      <motion.span
+                        aria-hidden
+                        animate={{ scale: [1, 1.16, 1], opacity: [0.9, 0.35, 0.9] }}
+                        transition={{ duration: 1.1, repeat: Infinity, ease: "easeInOut" }}
+                        style={{
+                          position: "absolute",
+                          inset: -3,
+                          borderRadius: "50%",
+                          border: "2px solid rgba(248,250,252,0.9)",
+                          pointerEvents: "none",
+                        }}
+                      />
+                    )}
+                  </span>
                 );
               })}
             </button>

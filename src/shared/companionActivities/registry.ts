@@ -16,6 +16,11 @@ export type CompanionActivityDescriptor = {
   aliases: string[];
   /** Game-specific nouns that signal the child is talking about this game. */
   vocabulary: string[];
+  /**
+   * Width the activity tray should aim for. Wide boards (Connect Four's 7
+   * columns, chess's 8 files) are unreadable at the 3x3 default.
+   */
+  trayWidthPx?: number;
 };
 
 export const COMPANION_ACTIVITY_DESCRIPTORS: Record<
@@ -39,6 +44,7 @@ export const COMPANION_ACTIVITY_DESCRIPTORS: Record<
     ],
     aliases: ["connect four", "connect 4", "connect-four", "four in a row"],
     vocabulary: ["column", "disc", "drop", "four in a row", "stack"],
+    trayWidthPx: 420,
   },
 };
 
