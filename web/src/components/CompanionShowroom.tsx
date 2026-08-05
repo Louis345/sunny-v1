@@ -5642,6 +5642,166 @@ export function CompanionShowroom({
     videoCallStt,
   ]);
 
+  // Recognition on arrival: the picker should know the child has been here
+  // before. Reads the deterministic game record only, so the line is never a
+  // guess.
+  const [companionRecognition, setCompanionRecognition] = useState<{
+    played: number;
+    childWins: number;
+    companionWins: number;
+  } | null>(null);
+  useEffect(() => {
+    if (!current) return;
+    let cancelled = false;
+    setCompanionRecognition(null);
+    void fetch(
+      `/api/companions/${encodeURIComponent(current.id)}/recognition?childId=${encodeURIComponent(talkChildId)}`,
+    )
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data: { ok?: boolean; totals?: { played: number; childWins: number; companionWins: number } } | null) => {
+        if (cancelled || !data?.ok || !data.totals) return;
+        setCompanionRecognition(data.totals);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [current, talkChildId]);
+
+  const companionRecognitionLine = useMemo(() => {
+    const totals = companionRecognition;
+    if (!totals || totals.played < 1) return null;
+    const games = totals.played === 1 ? "1 game" : `${totals.played} games`;
+    if (totals.childWins > 0 && totals.childWins >= totals.companionWins) {
+      return `${games} together · you're ahead ${totals.childWins}-${totals.companionWins}`;
+    }
+    if (totals.companionWins > totals.childWins) {
+      return `${games} together · she leads ${totals.companionWins}-${totals.childWins}`;
+    }
+    return `${games} together`;
+  }, [companionRecognition]);
+
+  /**
+   * Idle life: the companion you land on notices you. Without this the picker
+   * reads as a menu of statues; one wave makes it a room with people in it.
+   * Skipped on first paint so arriving at the showroom is not a wave from
+   * someone you have not looked at yet.
+   */
+  const landedCompanionIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    const companionId = current?.id ?? null;
+    if (!companionId) return;
+    const previous = landedCompanionIdRef.current;
+    landedCompanionIdRef.current = companionId;
+    if (previous === null || previous === companionId) return;
+    if (spotlightOpen || picking || showroomVideoChatOpen || initialStageLoading) return;
+    playCurrentCompanionAnimation("wave", { loop: false });
+    const settle = window.setTimeout(() => {
+      playCurrentCompanionAnimation("idle", { loop: true });
+    }, 1600);
+    return () => window.clearTimeout(settle);
+  }, [
+    current,
+    initialStageLoading,
+    picking,
+    playCurrentCompanionAnimation,
+    showroomVideoChatOpen,
+    spotlightOpen,
+  ]);
+
+  /**
+   * A goodbye instead of a hard cut. Ending a call used to tear everything
+   * down mid-air; now she waves and says one short line first. The line is
+   * drawn from the deterministic game record, so it is always true.
+   */
+  const farewellInFlightRef = useRef(false);
+  const buildShowroomFarewellLine = useCallback((): string => {
+    const totals = companionRecognition;
+    const name = current?.name ?? "your friend";
+    if (totals && totals.played > 0) {
+      if (totals.childWins > totals.companionWins) {
+        return "Okay, you're beating me. I'm practising before next time!";
+      }
+      if (totals.companionWins > totals.childWins) {
+        return "Rematch soon? I'll go easy. Maybe.";
+      }
+      return "Dead even. We're settling this next time!";
+    }
+    return `Bye! Come find ${name === "your friend" ? "me" : "me"} again soon.`;
+  }, [companionRecognition, current]);
+
+  const endShowroomVideoChatWithFarewell = useCallback(() => {
+    if (farewellInFlightRef.current) {
+      closeShowroomVideoChat();
+      return;
+    }
+    const companion = current;
+    const currentDefaultVoice =
+      companion?.voices.find((voice) => voice.default)?.id ??
+      companion?.voices[0]?.id ??
+      "";
+    const selectedVoiceId = companion
+      ? (voiceSelections[companion.id] ?? currentDefaultVoice)
+      : "";
+    if (!companion || !selectedVoiceId) {
+      closeShowroomVideoChat();
+      return;
+    }
+    farewellInFlightRef.current = true;
+    const line = buildShowroomFarewellLine();
+    setShowroomTalkResponse(`${companion.name}: ${line}`);
+    setShowroomTalkPhase("speaking");
+    playCurrentCompanionAnimation("wave", { loop: false });
+    videoCallStt.stop();
+
+    // Never let a goodbye hold the call open: hard cap the beat.
+    let closed = false;
+    const finish = () => {
+      if (closed) return;
+      closed = true;
+      farewellInFlightRef.current = false;
+      closeShowroomVideoChat();
+    };
+    const cap = window.setTimeout(finish, 3200);
+
+    void fetch(`/api/companions/${encodeURIComponent(companion.id)}/speak`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        line: "intro",
+        language: "en",
+        voiceId: selectedVoiceId,
+        source: "video_call_farewell",
+        text: line,
+      }),
+    })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data: { audioBase64?: string; audioContentType?: string } | null) => {
+        if (closed || !data?.audioBase64) return;
+        const url = URL.createObjectURL(
+          audioBase64ToBlob(data.audioBase64, data.audioContentType ?? "audio/mpeg"),
+        );
+        const audio = new Audio(url);
+        audio.addEventListener("ended", () => {
+          URL.revokeObjectURL(url);
+          window.clearTimeout(cap);
+          finish();
+        });
+        audio.addEventListener("error", () => {
+          URL.revokeObjectURL(url);
+        });
+        void audio.play().catch(() => undefined);
+      })
+      .catch(() => undefined);
+  }, [
+    buildShowroomFarewellLine,
+    closeShowroomVideoChat,
+    current,
+    playCurrentCompanionAnimation,
+    videoCallStt,
+    voiceSelections,
+  ]);
+
   const cycle = useCallback(
     (direction: -1 | 1) => {
       if (entries.length <= 1 || spotlightOpen || picking) return;
@@ -6055,45 +6215,6 @@ export function CompanionShowroom({
    * entrances to the same room; the companion herself is a better menu than
    * a button row, so she offers chat-vs-play on pickup.
    */
-  // Recognition on arrival: the picker should know the child has been here
-  // before. Reads the deterministic game record only, so the line is never a
-  // guess.
-  const [companionRecognition, setCompanionRecognition] = useState<{
-    played: number;
-    childWins: number;
-    companionWins: number;
-  } | null>(null);
-  useEffect(() => {
-    if (!current) return;
-    let cancelled = false;
-    setCompanionRecognition(null);
-    void fetch(
-      `/api/companions/${encodeURIComponent(current.id)}/recognition?childId=${encodeURIComponent(talkChildId)}`,
-    )
-      .then((response) => (response.ok ? response.json() : null))
-      .then((data: { ok?: boolean; totals?: { played: number; childWins: number; companionWins: number } } | null) => {
-        if (cancelled || !data?.ok || !data.totals) return;
-        setCompanionRecognition(data.totals);
-      })
-      .catch(() => undefined);
-    return () => {
-      cancelled = true;
-    };
-  }, [current, talkChildId]);
-
-  const companionRecognitionLine = useMemo(() => {
-    const totals = companionRecognition;
-    if (!totals || totals.played < 1) return null;
-    const games = totals.played === 1 ? "1 game" : `${totals.played} games`;
-    if (totals.childWins > 0 && totals.childWins >= totals.companionWins) {
-      return `${games} together · you're ahead ${totals.childWins}-${totals.companionWins}`;
-    }
-    if (totals.companionWins > totals.childWins) {
-      return `${games} together · she leads ${totals.companionWins}-${totals.childWins}`;
-    }
-    return `${games} together`;
-  }, [companionRecognition]);
-
   const renderCallAction = () => (
     <button
       type="button"
@@ -6968,7 +7089,7 @@ export function CompanionShowroom({
 	          void startShowroomVideoChatCamera();
 	        }}
 	        onStopCamera={stopShowroomVideoChatCamera}
-	        onEnd={closeShowroomVideoChat}
+	        onEnd={endShowroomVideoChatWithFarewell}
 	      />
 
 	      <AnimatePresence>
