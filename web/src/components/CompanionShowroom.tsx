@@ -49,16 +49,11 @@ import {
 import { loadCompanionVrm } from "../utils/loadCompanionVrm";
 import {
   StorybookFootlights,
-  StorybookPrimaryButton,
-  StorybookSignatureButton,
   StorybookSparkles,
 } from "./StorybookShowroomChrome";
 import {
-  CrystalDotNav,
   CrystalIdentityBlock,
   CrystalPedestal,
-  CrystalPrimaryButton,
-  CrystalSignatureButton,
   CrystalSpotlight,
 } from "./CrystalAtelierChrome";
 import { COMPANION_ACTIVITY_COMPONENTS } from "./companionActivities/registry";
@@ -6025,11 +6020,6 @@ export function CompanionShowroom({
     useGeneratedBackground &&
     !activeGeneratedBackground &&
     generatedBackgroundLoading;
-  const talkButtonDisabled =
-    initialStageLoading || shouldGateShowroomTalkMic(showroomTalkPhase);
-  const videoChatEntryCopy = createShowroomVideoChatEntryCopy({
-    companionName: current.name,
-  });
   const videoCallStatusCopy = createShowroomVideoCallStatusCopy({
     companionName: current.name,
     phase: showroomVideoCallPhase,
@@ -6060,42 +6050,90 @@ export function CompanionShowroom({
     cursor: videoChatButtonDisabled ? "wait" : "pointer",
     opacity: videoChatButtonDisabled ? 0.62 : 1,
   };
-  const renderVideoChatButton = () => (
+  /**
+   * The single door into a companion. Meet / Talk / Video Chat were three
+   * entrances to the same room; the companion herself is a better menu than
+   * a button row, so she offers chat-vs-play on pickup.
+   */
+  // Recognition on arrival: the picker should know the child has been here
+  // before. Reads the deterministic game record only, so the line is never a
+  // guess.
+  const [companionRecognition, setCompanionRecognition] = useState<{
+    played: number;
+    childWins: number;
+    companionWins: number;
+  } | null>(null);
+  useEffect(() => {
+    if (!current) return;
+    let cancelled = false;
+    setCompanionRecognition(null);
+    void fetch(
+      `/api/companions/${encodeURIComponent(current.id)}/recognition?childId=${encodeURIComponent(talkChildId)}`,
+    )
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data: { ok?: boolean; totals?: { played: number; childWins: number; companionWins: number } } | null) => {
+        if (cancelled || !data?.ok || !data.totals) return;
+        setCompanionRecognition(data.totals);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [current, talkChildId]);
+
+  const companionRecognitionLine = useMemo(() => {
+    const totals = companionRecognition;
+    if (!totals || totals.played < 1) return null;
+    const games = totals.played === 1 ? "1 game" : `${totals.played} games`;
+    if (totals.childWins > 0 && totals.childWins >= totals.companionWins) {
+      return `${games} together · you're ahead ${totals.childWins}-${totals.companionWins}`;
+    }
+    if (totals.companionWins > totals.childWins) {
+      return `${games} together · she leads ${totals.companionWins}-${totals.childWins}`;
+    }
+    return `${games} together`;
+  }, [companionRecognition]);
+
+  const renderCallAction = () => (
     <button
       type="button"
-      aria-label={videoChatEntryCopy.actionLabel}
+      aria-label={`Call ${current.name}`}
       onClick={openShowroomVideoChat}
       disabled={videoChatButtonDisabled}
-      style={videoChatButtonStyle}
+      style={{
+        ...videoChatButtonStyle,
+        minWidth: 260,
+        padding: "16px 30px",
+      }}
     >
       <span
         style={{
           display: "inline-flex",
           alignItems: "center",
-          gap: 7,
-          fontSize: 16,
-          fontWeight: 900,
+          gap: 9,
+          fontSize: 19,
+          fontWeight: 950,
           lineHeight: 1,
         }}
       >
-        <Video size={17} aria-hidden />
-        {videoChatEntryCopy.actionLabel}
+        <Video size={20} aria-hidden />
+        Call {current.name}
       </span>
       <span
         style={{
           display: "inline-flex",
           alignItems: "center",
           gap: 5,
-          fontSize: 12,
+          fontSize: 12.5,
           fontWeight: 800,
-          lineHeight: 1,
-          color: activeTheme.mutedForeground,
+          opacity: 0.78,
         }}
       >
-        {videoChatEntryCopy.status}
+        {companionRecognitionLine ?? "say hi, or ask to play"}
       </span>
     </button>
   );
+
 
   return (
     <div
@@ -6565,181 +6603,78 @@ export function CompanionShowroom({
         }}
       >
         {!spotlightOpen && (
-          <>
-            {activeTheme.chrome === "storybook" ? (
-              <>
-                {current.showroom?.signatureMove && (
-                  <StorybookSignatureButton
-                    name={current.showroom.signatureMove.name}
-                    voiceLine={current.showroom.signatureMove.voiceLine}
-                    onClick={playSignatureMove}
-                    disabled={initialStageLoading}
-                  />
-                )}
-	                <StorybookPrimaryButton
-	                  companionName={current.name}
-	                  onClick={openSpotlight}
-	                  disabled={initialStageLoading}
-	                />
-	                <button
-	                  type="button"
-	                  onClick={() => setShowroomTalkOpen(true)}
-	                  disabled={talkButtonDisabled}
-	                  style={{
-	                    border: `1px solid ${activeTheme.controlBorder}`,
-	                    borderRadius: 999,
-	                    background: activeTheme.controlBackground,
-	                    color: activeTheme.controlForeground,
-	                    fontSize: 17,
-	                    fontWeight: 900,
-	                    fontFamily: "Lexend, system-ui, sans-serif",
-	                    padding: "14px 22px",
-	                    cursor: talkButtonDisabled ? "wait" : "pointer",
-	                    opacity: talkButtonDisabled ? 0.62 : 1,
-	                  }}
-	                >
-	                  Talk with {current.name}
-	                </button>
-	                {renderVideoChatButton()}
-	              </>
-	            ) : activeTheme.chrome === "crystal" ? (
-              <div
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: 12,
+              maxWidth: "min(94vw, 760px)",
+            }}
+          >
+            {activeTheme.chrome === "crystal" && (
+              <CrystalIdentityBlock companion={current} roleNumber={currentIndex + 1} />
+            )}
+            {/* One door, not three. Elli offers chat-vs-play herself on pickup,
+                which uses the companion layer instead of more buttons. The
+                fixed height stops the row reflowing between short and long
+                companion names. */}
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 12,
+                minHeight: 76,
+              }}
+            >
+              {renderCallAction()}
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 14, minHeight: 26 }}>
+              <button
+                type="button"
+                onClick={openSpotlight}
+                disabled={initialStageLoading}
                 style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  gap: 12,
-                  maxWidth: "min(94vw, 760px)",
+                  border: 0,
+                  background: "transparent",
+                  color: activeTheme.chrome === "crystal" ? "#5b4aa8" : "#e9e6ff",
+                  fontFamily: "Lexend, system-ui, sans-serif",
+                  fontSize: 13,
+                  fontWeight: 800,
+                  opacity: 0.72,
+                  textDecoration: "underline",
+                  textUnderlineOffset: 3,
+                  cursor: initialStageLoading ? "wait" : "pointer",
                 }}
               >
-                <CrystalIdentityBlock companion={current} roleNumber={currentIndex + 1} />
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    flexWrap: "wrap",
-                    gap: 12,
-                  }}
-                >
-                  <CrystalDotNav
-                    total={entries.length}
-                    activeIndex={currentIndex}
-                    onPick={(index) => {
-                      if (picking) return;
-                      setCurrentIndex(index);
-                    }}
-                    disabled={picking}
-                  />
-                  {current.showroom?.signatureMove && (
-                    <CrystalSignatureButton
-                      name={current.showroom.signatureMove.name}
-                      voiceLine={current.showroom.signatureMove.voiceLine}
-                      onClick={playSignatureMove}
-                      disabled={initialStageLoading}
-                    />
-                  )}
-	                  <CrystalPrimaryButton
-	                    companionName={current.name}
-	                    onClick={openSpotlight}
-	                    disabled={initialStageLoading}
-	                  />
-	                  <button
-	                    type="button"
-	                    onClick={() => setShowroomTalkOpen(true)}
-	                    disabled={talkButtonDisabled}
-	                    style={{
-	                      border: "1px solid rgba(124,92,255,0.26)",
-	                      borderRadius: 999,
-	                      background: "rgba(255,255,255,0.74)",
-	                      color: "#3b2f7a",
-	                      fontSize: 16,
-	                      fontWeight: 900,
-	                      fontFamily: "Lexend, system-ui, sans-serif",
-	                      padding: "13px 20px",
-	                      boxShadow: "0 14px 34px rgba(124,92,255,0.14)",
-	                      cursor: talkButtonDisabled ? "wait" : "pointer",
-	                      opacity: talkButtonDisabled ? 0.62 : 1,
-	                    }}
-	                  >
-	                    Talk with {current.name}
-	                  </button>
-	                  {renderVideoChatButton()}
-	                </div>
-	              </div>
-	            ) : (
-              <>
-                {current.showroom?.signatureMove && (
-                  <button
-                    type="button"
-                    aria-label={`Play ${current.showroom.signatureMove.name}`}
-                    title={current.showroom.signatureMove.voiceLine}
-                    onClick={playSignatureMove}
-                    disabled={initialStageLoading}
-                    style={{
-                      border: "1px solid rgba(254,240,138,0.46)",
-                      borderRadius: 999,
-                      background:
-                        "linear-gradient(135deg, rgba(250,204,21,0.95), rgba(202,138,4,0.88))",
-                      color: "#1f1300",
-                      fontSize: 17,
-                      fontWeight: 900,
-                      fontFamily: "Lexend, system-ui, sans-serif",
-                      padding: "15px 24px",
-                      boxShadow: "0 18px 44px rgba(250,204,21,0.24)",
-                      cursor: initialStageLoading ? "wait" : "pointer",
-                      opacity: initialStageLoading ? 0.68 : 1,
-                      maxWidth: "min(88vw, 300px)",
-                      overflowWrap: "anywhere",
-                    }}
-                  >
-                    {current.showroom.signatureMove.name}
-                  </button>
-                )}
-	                <button
-	                  type="button"
-	                  onClick={openSpotlight}
+                About {current.name}
+              </button>
+              {current.showroom?.signatureMove && (
+                <button
+                  type="button"
+                  aria-label={`Play ${current.showroom.signatureMove.name}`}
+                  title={current.showroom.signatureMove.voiceLine}
+                  onClick={playSignatureMove}
                   disabled={initialStageLoading}
                   style={{
                     border: 0,
-                    borderRadius: 999,
-                    background: activeTheme.primaryBackground,
-                    color: activeTheme.primaryForeground,
-                    fontSize: 20,
-                    fontWeight: 800,
+                    background: "transparent",
+                    color: activeTheme.chrome === "crystal" ? "#5b4aa8" : "#e9e6ff",
                     fontFamily: "Lexend, system-ui, sans-serif",
-                    padding: "16px 34px",
-                    boxShadow: "0 18px 44px rgba(109,94,245,0.42)",
+                    fontSize: 13,
+                    fontWeight: 800,
+                    opacity: 0.72,
+                    textDecoration: "underline",
+                    textUnderlineOffset: 3,
                     cursor: initialStageLoading ? "wait" : "pointer",
-                    opacity: initialStageLoading ? 0.68 : 1,
                   }}
-	                >
-	                  Meet {current.name}
-	                </button>
-	                <button
-	                  type="button"
-	                  onClick={() => setShowroomTalkOpen(true)}
-	                  disabled={talkButtonDisabled}
-	                  style={{
-	                    border: "1px solid rgba(255,255,255,0.2)",
-	                    borderRadius: 999,
-	                    background: "rgba(15,23,42,0.78)",
-	                    color: "#f8fafc",
-	                    fontSize: 18,
-	                    fontWeight: 900,
-	                    fontFamily: "Lexend, system-ui, sans-serif",
-	                    padding: "15px 24px",
-	                    boxShadow: "0 18px 44px rgba(15,23,42,0.24)",
-	                    cursor: talkButtonDisabled ? "wait" : "pointer",
-	                    opacity: talkButtonDisabled ? 0.62 : 1,
-	                  }}
-	                >
-	                  Talk with {current.name}
-	                </button>
-	                {renderVideoChatButton()}
-	              </>
-	            )}
-          </>
+                >
+                  {current.showroom.signatureMove.name}
+                </button>
+              )}
+            </div>
+          </div>
         )}
 	      </div>
 

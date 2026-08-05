@@ -1608,6 +1608,47 @@ export function setupRoutes(app: Express): void {
     }
   });
 
+  /**
+   * Small read-only view of what a companion remembers, so the picker can show
+   * "you've played 4 games together" instead of treating every visit as a
+   * first meeting. Deliberately exposes only the deterministic record.
+   */
+  app.get("/api/companions/:companionId/recognition", (req: Request, res: Response) => {
+    const companionId =
+      typeof req.params.companionId === "string" ? req.params.companionId.trim() : "";
+    const childId =
+      typeof req.query.childId === "string" && req.query.childId.trim()
+        ? req.query.childId.trim().toLowerCase()
+        : "showroom";
+    if (!companionId) {
+      return res.status(400).json({ ok: false, error: "companionId_required" });
+    }
+    try {
+      const memory = readCompanionCareMemoryForPrompt(childId, companionId);
+      const gameRecord = memory?.gameRecord ?? {};
+      const totals = Object.values(gameRecord).reduce(
+        (acc, entry) => ({
+          played: acc.played + (entry?.played ?? 0),
+          childWins: acc.childWins + (entry?.childWins ?? 0),
+          companionWins: acc.companionWins + (entry?.companionWins ?? 0),
+        }),
+        { played: 0, childWins: 0, companionWins: 0 },
+      );
+      res.json({
+        ok: true,
+        companionId,
+        firstMetAt: memory?.firstMetAt ?? null,
+        totals,
+        gameRecord,
+      });
+    } catch (err: unknown) {
+      res.status(500).json({
+        ok: false,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  });
+
   app.post(
     "/api/companions/:companionId/talk/stream",
     async (req: Request, res: Response) => {
