@@ -210,22 +210,76 @@ function negamax(
  *
  * Invariant (asserted in tests): never returns a full or out-of-range column.
  */
+export type ConnectFourDifficulty = {
+  /** Lookahead for positional play. */
+  depth: number;
+  /**
+   * Chance of noticing an immediate child win and blocking it. This is the
+   * real difficulty dial: perfect blocking makes the game unwinnable for a
+   * beginner, because building three in a row is the only plan they have.
+   */
+  blockChance: number;
+  /** Chance of playing a plain random legal column instead of a good one. */
+  blunderChance: number;
+};
+
+/**
+ * Tuned by simulation against a beginner-style opponent (see
+ * test-connect-four-difficulty). Child win rates are approximate:
+ *   gentle ~49% | playful ~40% | sharp ~1%
+ * Blunder rate turned out to matter far more than search depth: with perfect
+ * blocking a beginner effectively cannot win at any depth.
+ */
+export const CONNECT_FOUR_DIFFICULTIES = {
+  gentle: { depth: 1, blockChance: 0.15, blunderChance: 0.75 },
+  playful: { depth: 2, blockChance: 0.4, blunderChance: 0.6 },
+  sharp: { depth: 3, blockChance: 0.9, blunderChance: 0.25 },
+} as const satisfies Record<string, ConnectFourDifficulty>;
+
+export type ConnectFourDifficultyName = keyof typeof CONNECT_FOUR_DIFFICULTIES;
+export const CONNECT_FOUR_DEFAULT_DIFFICULTY: ConnectFourDifficultyName = "playful";
+
+/**
+ * Eases off after back-to-back losses and sharpens up when the child is on a
+ * roll, so a bad run does not turn into a losing streak they give up on.
+ * Streak is positive for child wins, negative for companion wins.
+ */
+export function selectConnectFourDifficulty(streak: number): ConnectFourDifficultyName {
+  if (streak <= -2) return "gentle";
+  if (streak >= 2) return "sharp";
+  return CONNECT_FOUR_DEFAULT_DIFFICULTY;
+}
+
 export function getConnectFourMove(
   board: readonly ConnectFourCell[],
-  options: { depth?: number; random?: () => number } = {},
+  options: {
+    depth?: number;
+    random?: () => number;
+    difficulty?: ConnectFourDifficulty;
+  } = {},
 ): number | null {
-  const depth = options.depth ?? CONNECT_FOUR_DEFAULT_DEPTH;
+  const difficulty = options.difficulty;
+  const depth = options.depth ?? difficulty?.depth ?? CONNECT_FOUR_DEFAULT_DEPTH;
+  const blockChance = difficulty?.blockChance ?? 1;
+  const blunderChance = difficulty?.blunderChance ?? 0;
   const random = options.random ?? Math.random;
   const columns = availableColumns(board);
   if (columns.length === 0) return null;
 
+  // Always take a win that is on offer: playing on when you could have won
+  // reads as broken rather than kind.
   for (const column of columns) {
     const dropped = dropDisc(board, column, CONNECT_FOUR_COMPANION_DISC);
     if (dropped && findConnectFourWinner(dropped.board)) return column;
   }
-  for (const column of columns) {
-    const dropped = dropDisc(board, column, CONNECT_FOUR_CHILD_DISC);
-    if (dropped && findConnectFourWinner(dropped.board)) return column;
+  if (random() < blunderChance) {
+    return columns[Math.floor(random() * columns.length) % columns.length];
+  }
+  if (random() < blockChance) {
+    for (const column of columns) {
+      const dropped = dropDisc(board, column, CONNECT_FOUR_CHILD_DISC);
+      if (dropped && findConnectFourWinner(dropped.board)) return column;
+    }
   }
 
   let bestScore = -Infinity;

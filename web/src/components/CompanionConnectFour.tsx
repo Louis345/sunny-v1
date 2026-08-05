@@ -18,8 +18,10 @@ import {
   connectFourResult,
   dropDisc,
   findConnectFourWinner,
+  CONNECT_FOUR_DIFFICULTIES,
   getConnectFourMove,
   landingIndex,
+  selectConnectFourDifficulty,
   renderConnectFourBoardText,
   type ConnectFourCell,
   type ConnectFourDisc,
@@ -189,6 +191,9 @@ export function CompanionConnectFour({
   const [companionThinking, setCompanionThinking] = useState(false);
   const [lastLanding, setLastLanding] = useState<number | null>(null);
   const [hoveredColumn, setHoveredColumn] = useState<number | null>(null);
+  // Positive = child win streak, negative = companion's. Drives how hard Elli
+  // plays, so a rough patch does not become a losing streak she gives up on.
+  const streakRef = useRef(0);
   const didEmitStartedRef = useRef(false);
   const emittedRoundCompleteRef = useRef<string | null>(null);
   const decisionStartedAtRef = useRef<number | null>(null);
@@ -275,6 +280,12 @@ export function CompanionConnectFour({
       result,
       moment: getConnectFourMoment({ type: "companion_activity_round_complete", result }),
     });
+    streakRef.current =
+      result === "child_win"
+        ? Math.max(0, streakRef.current) + 1
+        : result === "companion_win"
+          ? Math.min(0, streakRef.current) - 1
+          : 0;
     onBanter?.({ phase: "round_complete", activityId: "connect_four", result });
     onRoundComplete?.(result);
   }, [board, emitGameEvent, onBanter, onRoundComplete, result]);
@@ -369,7 +380,10 @@ export function CompanionConnectFour({
     onBanter?.({ phase: "child_move", activityId: "connect_four" });
     if (childMoveEndsRound) return;
 
-    const plannedColumn = getConnectFourMove(dropped.board);
+    const difficultyName = selectConnectFourDifficulty(streakRef.current);
+    const plannedColumn = getConnectFourMove(dropped.board, {
+      difficulty: CONNECT_FOUR_DIFFICULTIES[difficultyName],
+    });
     if (plannedColumn == null) return;
     decisionStartedAtRef.current = Date.now();
     onBanter?.({ phase: "companion_thinking", activityId: "connect_four" });
