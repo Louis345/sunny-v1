@@ -264,6 +264,52 @@ describe("AdventureBoard", () => {
     vi.useRealTimers();
   });
 
+  it("presents a ready Quest ceremony once when the child opens the next session", () => {
+    vi.useFakeTimers();
+    window.localStorage.clear();
+    const readyBoard: AdventureBoardJson = {
+      schemaVersion: 1,
+      boardId: "next-session-quest-board",
+      planId: "next-session-quest-plan",
+      childId: "reina",
+      domain: "math",
+      theme: {
+        background: { type: "solid", value: "#10203d" },
+        palette: {
+          path: "#fff",
+          completed: "#2f9f6f",
+          available: "#6d5dfc",
+          locked: "#9aa3ad",
+          current: "#f59e0b",
+          preview: "#c6ced6",
+          text: "#fff",
+          panel: "#111827",
+        },
+      },
+      nodes: [
+        { id: "baseline", kind: "activity", label: "Practice", state: "completed", position: { x: 0.3, y: 0.6 } },
+        {
+          id: "quest",
+          kind: "quest",
+          label: "The Kraken's Toll",
+          state: "available",
+          position: { x: 0.7, y: 0.4 },
+          thumbnailUrl: "/quest.jpeg",
+        },
+      ],
+      edges: [{ id: "to-quest", from: "baseline", to: "quest", state: "available" }],
+    };
+
+    const first = render(<AdventureBoard board={readyBoard} />);
+    expect(screen.getByRole("status", { name: "Quest unlocked" })).toHaveTextContent("The Kraken's Toll");
+    act(() => vi.advanceTimersByTime(2600));
+    first.unmount();
+
+    render(<AdventureBoard board={readyBoard} />);
+    expect(screen.queryByRole("status", { name: "Quest unlocked" })).not.toBeInTheDocument();
+    vi.useRealTimers();
+  });
+
   it("shows a just-completed node as completed and keeps it replayable", () => {
     const onNodeClick = vi.fn();
     render(

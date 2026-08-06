@@ -62,6 +62,35 @@ function stablePresentationHash(value: string): number {
   return hash;
 }
 
+function unlockCeremonySeenKey(
+  board: AdventureBoardJson,
+  nodeId: string,
+): string {
+  return `sunny:unlock-ceremony:${board.childId}:${board.boardId}:${nodeId}`;
+}
+
+function unlockCeremonyWasSeen(
+  board: AdventureBoardJson,
+  nodeId: string,
+): boolean {
+  try {
+    return window.localStorage.getItem(unlockCeremonySeenKey(board, nodeId)) === "seen";
+  } catch {
+    return false;
+  }
+}
+
+function rememberUnlockCeremony(
+  board: AdventureBoardJson,
+  nodeId: string,
+): void {
+  try {
+    window.localStorage.setItem(unlockCeremonySeenKey(board, nodeId), "seen");
+  } catch {
+    // Presentation memory is best-effort and never learning evidence.
+  }
+}
+
 export function unlockCeremonyVariantFor(
   boardId: string,
   kind: "quest" | "boss",
@@ -152,7 +181,7 @@ export function AdventureBoard({
   const [unlockCeremony, setUnlockCeremony] = useState<UnlockCeremonyEvent | null>(null);
 
   useEffect(() => {
-    const newlyUnlocked = board.nodes.find((node) => {
+    const transitionedNode = board.nodes.find((node) => {
       if (node.kind !== "quest" && node.kind !== "boss") return false;
       const previousState = previousNodeStates.current.get(node.id);
       return (
@@ -160,10 +189,16 @@ export function AdventureBoard({
         (node.state === "available" || node.state === "current")
       );
     });
+    const readyOnSessionOpen = board.nodes.find((node) =>
+      (node.kind === "quest" || node.kind === "boss") &&
+      (node.state === "available" || node.state === "current") &&
+      !unlockCeremonyWasSeen(board, node.id));
+    const newlyUnlocked = transitionedNode ?? readyOnSessionOpen;
     previousNodeStates.current = new Map(board.nodes.map((node) => [node.id, node.state]));
     if (!newlyUnlocked) return;
 
     if (unlockCeremonyTimer.current) clearTimeout(unlockCeremonyTimer.current);
+    rememberUnlockCeremony(board, newlyUnlocked.id);
     const event: UnlockCeremonyEvent = {
       nodeId: newlyUnlocked.id,
       kind: newlyUnlocked.kind === "boss" ? "boss" : "quest",
