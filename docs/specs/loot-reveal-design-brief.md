@@ -1,100 +1,138 @@
-# Design Brief: Prize Preview + Loot Reveal
+# Design Brief: Prize Vault, Chest Odds, and Loot Reveal
 
-**For:** mock generation. This is a design brief, not an implementation spec.
-**Status:** v1 scope. Deliberately smaller than the full concept — see Non-goals.
-
----
-
-## Purpose, in one line
-
-A child sees what she could win *before* she does the work, and opens a box to find out which one she got *after*.
-
-## Why it is built this way (do not design around these)
-
-- **Prizes are shown in advance.** Concealed contents are what make loot boxes predatory; disclosing them converts a gamble into a goal. This is a hard requirement, not a preference.
-- **Every completion opens a box.** Rarity lives *inside* the drop (usually common, occasionally epic), never in whether she gets anything. A child who finishes her work and receives nothing experiences it as punishment.
-- **The randomness is the replay engine.** Knowing the pool but not the pull is what makes her want to run a node again — and re-running practice content is spaced retrieval, which is what actually builds durable memory.
-
-## The loop — three beats
-
-1. **Preview.** Before or at the moment she engages a node: "here's what's in this box."
-2. **Work.** She does the actual learning activity. (Existing surface, not part of this brief.)
-3. **Reveal.** Box animation → the item she got → where it went.
+Self-contained brief for mock generation. Everything a designer needs is below.
 
 ---
 
-## Screens to mock
+## The product
 
-### 1. Prize Preview modal
+**Sunny** is a personal learning app built for one family's two kids. A 3D anime-style AI companion ("Elli") lives in a soft, luminous "crystal atelier" showroom. The child can call her — a FaceTime-style video call where they talk, and play small games together (tic-tac-toe, Connect Four). The companion has persistent memory: she remembers past sessions, recalls games they played, and greets the child with real history.
 
-Triggered from a node. Shows the pool for *this* node's tier.
+Learning happens on a map of **nodes** at three tiers, gated on demonstrated mastery rather than time spent:
 
-States to cover:
-- **Standard** — pool of 4–6 items, rarity visually distinct
-- **Contains an item she already owns** — owned items marked, clearly not a "waste"
-- **Higher tier teased** — one tier above shown as silhouettes, locked and clearly aspirational rather than taunting
-- **Pity progress** — if she is close to a guaranteed rare/epic, show it ("2 more opens")
+- **Baseline** — core practice
+- **Quest** — applying a skill to unseen problems
+- **Boss** — synthesis; requires evidence of transfer
 
-### 2. Loot Reveal
+## Who this is for
 
-Plays on completion.
+**An 8-year-old girl with ADHD, dyslexia, and a language disorder.** This is the design brief, not an accessibility footnote:
 
-States to cover:
-- **Common drop** — pleasant, quick, not oversold
-- **Epic drop** — the big moment; this is the screen that has to earn the word "epic"
-- **Duplicate** — must not feel like a loss; converts to coins
+- **Do not rely on reading.** Rarity, odds and item identity must be legible as image, colour, shape and count — never as text alone. Assume she may not read a single label.
+- **Numbers as countable pictures**, never as percentages. "3 out of 10 chests" drawn as ten chests with three glowing. Never "30%."
+- **Attention is the scarce resource.** Reveal animation lands in 2–3 seconds. Skippable on repeat.
+- **Large touch targets**, well above adult minimums. Assume imprecise tapping by an excited child.
+- **Reduced-motion variant required** that still feels like an event.
+- The companion speaks; treat **her voice as the primary narration channel**, text as secondary.
+
+## What we're building and why
+
+The child does real schoolwork. Completing a node opens a **chest**. What's inside is random from a **disclosed** pool — she can always see what she might get, and the odds, *before* she plays.
+
+Three principles drive every decision:
+
+1. **Odds are always visible.** Concealed contents are what make loot boxes predatory. Showing them converts a gamble into a goal.
+2. **Every completion opens a chest.** Rarity lives *inside* the drop, never in whether she gets anything. A child who finishes her work and receives nothing experiences it as punishment.
+3. **Nothing is ever devalued.** No seasons, no resets, no expiring currency, no "this is outdated now." Everything earned is permanent.
+
+The randomness exists for **replayability** — re-running practice is exactly what builds durable memory, so wanting to run a node again is the mechanic doing pedagogical work.
+
+There is a second, quieter goal: **the odds teach probability.** She has real motivation to understand them, which is the rarest thing in math education. A pity timer (guaranteed drop after N chests) is what keeps the lesson honest — randomness doesn't owe you anything, but effort always converts.
+
+---
+
+## Screens to design
+
+### 1. The Prize Vault (the long arc)
+
+A browsable room showing everything she can earn, across all three tiers. This is the aspirational surface — the reason to keep going.
+
+**Two ladders, both visible:**
+
+| Ladder | Shows |
+|---|---|
+| **Collection** | items owned vs. locked, grouped by tier — "4 of 18" |
+| **Capability** | what she can now *do* — "you can do 7×8. Three months ago you couldn't." |
+
+The capability ladder is as important as the loot. It's the proof that the time spent produced something real.
+
+**States:**
+- Default — mix of owned, locked, and one tier teased
+- Owned item selected — larger view, where it appears on the companion
+- Locked item — silhouette; readable as "not yet," never as taunting
+- Tier not yet reached — whole tier softly obscured, one tier ahead visible, further tiers vague
+- Empty/new user — almost nothing owned; must feel like a beginning, not a barren room
+
+### 2. Chest Preview (odds shown here)
+
+Appears when she engages a node, before the work. "Here's what's in this chest."
+
+Must show:
+- The **pool** for this chest — 4–6 items with rarity clearly distinct
+- The **odds**, as countable pictures. Illustrative placeholders (tune later):
+
+| Tier | Common | Rare | Epic |
+|---|---|---|---|
+| Baseline | 8 in 10 | 2 in 10 | 1 in 20 |
+| Quest | 6 in 10 | 3 in 10 | 1 in 10 |
+| Boss | 3 in 10 | 4 in 10 | 3 in 10 |
+
+- **Tier comparison** — she should be able to see at a glance that a boss chest gives a better chance. This is the whole "harder work, better odds" lesson in one visual.
+- **Pity progress** — "2 more chests until a guaranteed rare." Shown as a filling track, not a number.
+- Items she **already owns**, marked so a duplicate isn't a surprise disappointment.
+
+**States:** standard; contains owned items; pity nearly full; baseline vs. boss shown side by side.
+
+### 3. Loot Reveal
+
+Plays on completion. This is the payoff moment.
+
+**States, all of which need to feel good:**
+- **Common** — pleasant, quick, not oversold. This is the most frequent state; design it first, not last.
+- **Rare** — a genuine lift
+- **Epic** — the moment that earns the word. Rare enough to matter.
+- **Duplicate** — converts to currency; must read as "still good," never as a loss
 - **Pity triggered** — the guaranteed drop should feel *earned*, not like a consolation prize
 
-### 3. Prize landing
-
-Where the item goes and why it matters.
-
-- Cosmetic items land on the companion — she should visibly *wear* it
-- A short "see it on her" beat closes the loop
+Close the loop: the item lands somewhere she can see it — cosmetics visibly worn by the companion.
 
 ---
 
-## Child-specific constraints (the important section)
+## Currency
 
-**The primary user is 8 years old, with ADHD, dyslexia, and a language disorder.** These are not general accessibility notes; they are the design brief.
+A soft currency exists alongside loot. It buys cosmetic accessories for the companion and is the **agency backstop**: if luck never gives her the thing she wants, saving up can. Duplicates convert into it.
 
-- **Do not rely on reading.** Item names and rarity must be legible as *images and colour*, not text. Any necessary words should be short, high-contrast, and generously spaced. Assume the child may not read a label at all.
-- **The companion reads it aloud.** Elli already speaks and reacts; treat her voice as the primary narration channel and text as secondary. Design should leave room for her to be present in these moments.
-- **Attention is the scarce resource.** The reveal animation should land in roughly 2–3 seconds. Anticipation is good; a long unskippable ceremony is not. Make it skippable on second viewing.
-- **Large touch targets.** Well above adult minimums. Assume imprecise tapping and an excited child.
-- **Motion sensitivity.** Provide a reduced-motion variant; the reveal must still feel like an event without heavy particle effects.
+Currency never buys progress, access, or learning content. Cosmetics only.
 
-## Tone and visual direction
+---
 
-- Fits the existing companion showroom: soft, luminous, "crystal atelier" — not arcade-grimy.
-- Prizes themselves lean **8-bit / pixel** as a deliberate contrast against the soft 3D world. The pixel style is the "game" register.
-- Rarity should be readable at a glance by a child who cannot read the word "epic": colour, frame weight, motion, and sound all carry it.
-- Warmth over spectacle. This is a friend giving you something, not a casino paying out.
+## Hard rules — do not design around these
 
-## Rules that must not be broken
+- **No countdown timers, no "expires soon," no artificial urgency.**
+- **No real money, no purchase prompts, anywhere.**
+- **No concealed odds.** Any chance shown must be the true one.
+- **No near-miss framing.** Never show "you almost got the epic." Near-miss is a gambling mechanic and is off-limits.
+- **Never end a completed session with nothing.**
+- **Nothing expires or resets.**
 
-- No countdown timers, no "expires soon", no artificial urgency.
-- No purchase prompts, no real currency, anywhere.
-- No concealed odds. If a rarity chance is shown, it must be the true one.
-- Never show a "you almost got the epic" near-miss. Near-miss framing is a gambling mechanic and is off-limits.
-- The child must never end a completed session with nothing.
+## Tone
 
-## Non-goals for v1
+- Fits the existing world: soft, luminous, warm — "crystal atelier," not arcade-grimy.
+- Prizes themselves lean **8-bit / pixel art**, a deliberate contrast against the soft 3D world. Pixel is the "game reward" register.
+- Rarity must be readable by a child who cannot read the word "epic" — carried redundantly by colour, frame weight, motion, and sound.
+- **Warmth over spectacle.** This is a friend handing you something, not a casino paying out.
 
-- The browsable **loot room** across all tiers (this brief covers a per-node modal only)
-- The **demo room** and preference sensing
+## Non-goals for this round
+
 - AI-generated prize content
+- Automatic preference learning
 - Trading, gifting, or any social economy
+- The learning activity itself (existing surface)
 
-## Open questions for design
+## Questions worth answering in the mocks
 
-1. How does rarity read to a non-reader? Colour alone is risky — what carries it redundantly?
-2. Should the preview modal be *required* before a node, or optional? Required builds anticipation; optional respects autonomy and avoids friction on repeat runs.
-3. How much of the companion is present in the reveal — voice only, or is she on screen reacting?
-4. What does a duplicate look like such that it reads as "still good" rather than "unlucky"?
-
-## Context the designer may want
-
-- Existing surfaces: companion showroom (soft 3D, crystal theme), video-call overlay, activity tray with tic-tac-toe and Connect Four.
-- The companion has persistent memory and reacts in character; she can refer to a prize in a later session.
-- Node tiers already exist in the learning system: baseline → quest → boss, gated on demonstrated mastery rather than repetition.
+1. What carries rarity redundantly for a non-reader, beyond colour?
+2. How do ten chests render as a countable odds picture without becoming visual clutter?
+3. How is a locked tier made aspirational rather than discouraging?
+4. Where does the companion appear during the reveal — voice only, or on screen reacting?
+5. How does the capability ladder show growth over months without becoming a chart?
