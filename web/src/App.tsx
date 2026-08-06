@@ -82,6 +82,8 @@ import {
 import { resolveSunnyRuntimeConfig } from "../../src/shared/runtimeConfig";
 import type { PostActivityAction } from "../../src/engine/choiceEvents";
 import {
+  playAdventureBoardSfx,
+  playAdventureBoardUnlockSfx,
   playGeneratedMathSfx,
   type GeneratedMathSfxCue,
 } from "./utils/gameSfx";
@@ -1014,6 +1016,7 @@ function App() {
         allowLocked: inspectableBaselineNode,
       });
       if (!launchNode) {
+        if (!generatedMathSoundMuted) playAdventureBoardSfx("locked");
         console.log(" 🎮 [AdventureBoard] node_not_launchable", {
           childId: adventureChildId,
           nodeId: boardNode.id,
@@ -1022,9 +1025,17 @@ function App() {
         });
         return;
       }
+      if (!generatedMathSoundMuted) {
+        playAdventureBoardSfx(boardNode.state === "completed" ? "replay" : "launch");
+      }
       launchPlannerBoardNode(launchNode);
     },
-    [adventureChildId, launchPlannerBoardNode, plannerBoardPacket],
+    [
+      adventureChildId,
+      generatedMathSoundMuted,
+      launchPlannerBoardNode,
+      plannerBoardPacket,
+    ],
   );
 
   const handlePlannerBoardChoiceClick = useCallback(
@@ -1577,6 +1588,12 @@ function App() {
             idlePose="center"
             onNodeClick={handlePlannerBoardNodeClick}
             onChoiceClick={handlePlannerBoardChoiceClick}
+            onUnlockCeremony={(event) => {
+              console.log(" 🎮 [AdventureBoard] unlock_ceremony", event);
+              if (!generatedMathSoundMuted) {
+                playAdventureBoardUnlockSfx(event.variant, event.kind);
+              }
+            }}
           />
         </div>
       );

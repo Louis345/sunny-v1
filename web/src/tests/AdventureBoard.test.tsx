@@ -1,8 +1,12 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it, vi } from "vitest";
-import { AdventureBoard, HORIZONTAL_ADVENTURE_SLOTS } from "../components/AdventureBoard";
+import {
+  AdventureBoard,
+  HORIZONTAL_ADVENTURE_SLOTS,
+  unlockCeremonyVariantFor,
+} from "../components/AdventureBoard";
 import { AdventureBoardExperience } from "../components/AdventureBoardExperience";
 import {
   buildGrokFullExperienceBoard,
@@ -166,6 +170,100 @@ function boardWithSpecialChoice(
 }
 
 describe("AdventureBoard", () => {
+  it("rotates stable Quest and Boss ceremonies without repeating within one assignment", () => {
+    const boardIds = Array.from({ length: 18 }, (_, index) => `homework-board-${index}`);
+    const observed = new Set<string>();
+
+    for (const boardId of boardIds) {
+      const quest = unlockCeremonyVariantFor(boardId, "quest");
+      const boss = unlockCeremonyVariantFor(boardId, "boss");
+      expect(unlockCeremonyVariantFor(boardId, "quest")).toBe(quest);
+      expect(boss).not.toBe(quest);
+      observed.add(quest);
+      observed.add(boss);
+    }
+
+    expect(observed).toEqual(new Set(["power", "gate", "warp", "thunder"]));
+  });
+
+  it.each([
+    { kind: "quest" as const, label: "The Kraken's Toll", status: "Quest unlocked" },
+    { kind: "boss" as const, label: "The Iron Leviathan", status: "Boss unlocked" },
+  ])("presents the existing $kind unlock transition without launching or unlocking the node itself", ({
+    kind,
+    label,
+    status,
+  }) => {
+    vi.useFakeTimers();
+    const onNodeClick = vi.fn();
+    const onUnlockCeremony = vi.fn();
+    const lockedBoard: AdventureBoardJson = {
+      schemaVersion: 1,
+      boardId: "unlock-ceremony-board",
+      planId: "unlock-ceremony-plan",
+      childId: "reina",
+      domain: "math",
+      theme: {
+        background: { type: "solid", value: "#10203d" },
+        palette: {
+          path: "#fff",
+          completed: "#2f9f6f",
+          available: "#6d5dfc",
+          locked: "#9aa3ad",
+          current: "#f59e0b",
+          preview: "#c6ced6",
+          text: "#fff",
+          panel: "#111827",
+        },
+      },
+      nodes: [
+        { id: "baseline", kind: "activity", label: "Practice", state: "completed", position: { x: 0.3, y: 0.6 } },
+        {
+          id: kind,
+          kind,
+          label,
+          state: "locked",
+          position: { x: 0.7, y: 0.4 },
+          thumbnailUrl: `/${kind}.jpeg`,
+          lock: { reason: "evidence-gated", label: "Preparing" },
+        },
+      ],
+      edges: [{ id: `to-${kind}`, from: "baseline", to: kind, state: "locked" }],
+    };
+    const { rerender } = render(
+      <AdventureBoard
+        board={lockedBoard}
+        onNodeClick={onNodeClick}
+        onUnlockCeremony={onUnlockCeremony}
+      />,
+    );
+
+    expect(screen.queryByRole("status", { name: status })).not.toBeInTheDocument();
+    rerender(
+      <AdventureBoard
+        board={{
+          ...lockedBoard,
+          nodes: lockedBoard.nodes.map((node) =>
+            node.id === kind ? { ...node, state: "available" as const, lock: undefined } : node),
+          edges: [{ id: `to-${kind}`, from: "baseline", to: kind, state: "available" }],
+        }}
+        onNodeClick={onNodeClick}
+        onUnlockCeremony={onUnlockCeremony}
+      />,
+    );
+
+    expect(screen.getByRole("status", { name: status })).toHaveTextContent(label);
+    expect(onUnlockCeremony).toHaveBeenCalledWith(expect.objectContaining({ kind, label }));
+    expect(onNodeClick).not.toHaveBeenCalled();
+    expect(document.querySelector(".adventure-board__edge--unlocking")).not.toBeNull();
+
+    act(() => vi.advanceTimersByTime(2600));
+    expect(screen.queryByRole("status", { name: status })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: label })).toHaveClass("adventure-board__node--available");
+    expect(onNodeClick).not.toHaveBeenCalled();
+    vi.useRealTimers();
+  });
+
   it("shows a just-completed node as completed and keeps it replayable", () => {
     const onNodeClick = vi.fn();
     render(
@@ -1015,6 +1113,19 @@ describe("AdventureBoardExperience", () => {
 
   it("exports a Reina chart packet Storybook story", () => {
     expect(ReinaChartPacket.render).toBeTypeOf("function");
+  });
+
+  it("exports a resettable Quest and Boss unlock ceremony preview", () => {
+    const source = readFileSync(
+      resolve(__dirname, "../stories/AdventureBoard.stories.tsx"),
+      "utf8",
+    );
+
+    expect(source).toContain("export const UnlockCeremonyPreview");
+    expect(source).toContain("Unlock Quest");
+    expect(source).toContain("Unlock Boss");
+    expect(source).toContain("Reset ceremony");
+    expect(source).toContain("playAdventureBoardUnlockSfx(event.variant, event.kind)");
   });
 
   it("keeps Storybook from bypassing the child experience packet for companion identity", () => {

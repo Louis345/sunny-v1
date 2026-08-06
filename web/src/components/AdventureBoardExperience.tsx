@@ -6,7 +6,7 @@ import type {
   AdventureChoiceSet,
 } from "../../../src/shared/adventureBoardJson";
 import type { CompanionBehavior } from "../context/companionCareBehavior";
-import { AdventureBoard } from "./AdventureBoard";
+import { AdventureBoard, type UnlockCeremonyEvent } from "./AdventureBoard";
 import { CompanionLayer } from "./CompanionLayer";
 
 export type AdventureBoardExperienceProps = {
@@ -18,6 +18,7 @@ export type AdventureBoardExperienceProps = {
   parentPreview?: boolean;
   onNodeClick?: (node: AdventureBoardNode) => void;
   onChoiceClick?: (option: AdventureChoiceOption, choiceSet: AdventureChoiceSet) => void;
+  onUnlockCeremony?: (event: UnlockCeremonyEvent) => void;
 };
 
 export function AdventureBoardExperience({
@@ -29,6 +30,7 @@ export function AdventureBoardExperience({
   parentPreview = false,
   onNodeClick,
   onChoiceClick,
+  onUnlockCeremony,
 }: AdventureBoardExperienceProps): React.ReactElement | null {
   const board = packet.activeSessionPlan?.adventureBoard;
   if (!board) return null;
@@ -50,6 +52,7 @@ export function AdventureBoardExperience({
         inspectBaselineNodes={parentPreview}
         onNodeClick={onNodeClick}
         onChoiceClick={onChoiceClick}
+        onUnlockCeremony={onUnlockCeremony}
       />
       {shouldRenderCompanion ? (
         <CompanionLayer

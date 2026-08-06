@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { cloneCompanionDefaults } from "../../../src/shared/companionTypes";
 import { DEFAULT_ADVENTURE_MAP_PROFILE } from "../../../src/context/schemas/learningProfile";
 import { AdventureBoardExperience } from "../components/AdventureBoardExperience";
@@ -35,6 +35,7 @@ import type {
 } from "../../../src/shared/adventureBoardJson";
 import type { ChildExperiencePacket } from "../../../src/profiles/childExperiencePacket";
 import type { CompanionBehavior } from "../context/companionCareBehavior";
+import { playAdventureBoardUnlockSfx } from "../utils/gameSfx";
 
 type AdventureBoardStoryArgs = {
   scenario:
@@ -319,7 +320,13 @@ export const ReinaCurrentHomework: Story = {
   render: (args) => <BoardFixture {...args} />,
 };
 
-function BoardOnlyFixture({ board }: { board: AdventureBoardJson }) {
+function BoardOnlyFixture({
+  board,
+  playUnlockSound = false,
+}: {
+  board: AdventureBoardJson;
+  playUnlockSound?: boolean;
+}) {
   return (
     <div style={{ width: "100vw", height: "100vh" }}>
       <AdventureBoard
@@ -331,6 +338,9 @@ function BoardOnlyFixture({ board }: { board: AdventureBoardJson }) {
           })
         }
         onChoiceClick={(option, choiceSet) => console.info("[storybook:adventure-board:choice]", { option, choiceSet })}
+        onUnlockCeremony={playUnlockSound
+          ? (event) => playAdventureBoardUnlockSfx(event.variant, event.kind)
+          : undefined}
       />
     </div>
   );
@@ -354,6 +364,96 @@ export const BossChoiceLocked: Story = {
 export const BossChoiceUnlocked: Story = {
   args: { scenario: "grokFull" },
   render: () => <BoardOnlyFixture board={bossChoiceUnlockedBoard} />,
+};
+
+function UnlockCeremonyFixture() {
+  const [ceremonyKind, setCeremonyKind] = useState<"quest" | "boss">("quest");
+  const [board, setBoard] = useState<AdventureBoardJson>(questChoiceLockedBoard);
+  const transitionTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => () => {
+    if (transitionTimer.current) clearTimeout(transitionTimer.current);
+  }, []);
+
+  const lockedBoard = (kind: "quest" | "boss") =>
+    kind === "quest" ? questChoiceLockedBoard : bossChoiceLockedBoard;
+  const unlockedBoard = (kind: "quest" | "boss") =>
+    kind === "quest" ? questChoiceUnlockedBoard : bossChoiceUnlockedBoard;
+
+  const playCeremony = (kind: "quest" | "boss") => {
+    if (transitionTimer.current) clearTimeout(transitionTimer.current);
+    setCeremonyKind(kind);
+    setBoard(lockedBoard(kind));
+    transitionTimer.current = setTimeout(() => {
+      setBoard(unlockedBoard(kind));
+      transitionTimer.current = null;
+    }, 120);
+  };
+
+  const resetCeremony = () => {
+    if (transitionTimer.current) clearTimeout(transitionTimer.current);
+    transitionTimer.current = null;
+    setBoard(lockedBoard(ceremonyKind));
+  };
+
+  return (
+    <div style={{ width: "100vw", height: "100vh" }}>
+      <div
+        style={{
+          position: "fixed",
+          top: 16,
+          left: 16,
+          zIndex: 140,
+          display: "flex",
+          gap: 10,
+          padding: 10,
+          borderRadius: 14,
+          background: "rgba(15, 23, 42, 0.94)",
+          boxShadow: "0 12px 32px rgba(0, 0, 0, 0.32)",
+        }}
+      >
+        {(["quest", "boss"] as const).map((kind) => (
+          <button
+            key={kind}
+            type="button"
+            onClick={() => playCeremony(kind)}
+            style={{
+              border: "2px solid #fde68a",
+              borderRadius: 10,
+              background: "#facc15",
+              color: "#172033",
+              padding: "10px 14px",
+              fontWeight: 900,
+              cursor: "pointer",
+            }}
+          >
+            {kind === "quest" ? "Unlock Quest" : "Unlock Boss"}
+          </button>
+        ))}
+        <button
+          type="button"
+          onClick={resetCeremony}
+          style={{
+            border: "2px solid rgba(255,255,255,0.72)",
+            borderRadius: 10,
+            background: "transparent",
+            color: "white",
+            padding: "10px 14px",
+            fontWeight: 800,
+            cursor: "pointer",
+          }}
+        >
+          Reset ceremony
+        </button>
+      </div>
+      <BoardOnlyFixture board={board} playUnlockSound />
+    </div>
+  );
+}
+
+export const UnlockCeremonyPreview: Story = {
+  args: { scenario: "grokFull" },
+  render: () => <UnlockCeremonyFixture />,
 };
 
 function ChoicePatternComparisonFixture() {
