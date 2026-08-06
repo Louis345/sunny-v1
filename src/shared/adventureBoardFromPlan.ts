@@ -478,7 +478,7 @@ function buildPresentationEdges(args: {
   for (let index = 0; index < args.destinationNodes.length - 1; index += 1) {
     edges.push(edgeBetween(args.destinationNodes[index]!, args.destinationNodes[index + 1]!));
   }
-  return edges;
+  return [...new Map(edges.map((edge) => [edge.id, edge])).values()];
 }
 
 function routeLaneGroups(routeNodes: AdventureBoardNode[]): AdventureBoardNode[][] {

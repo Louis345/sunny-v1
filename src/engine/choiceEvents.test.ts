@@ -92,6 +92,45 @@ describe("choice events", () => {
     expect(loaded[0].skippedOptionIds).toEqual(["monster"]);
   });
 
+  it("keeps modal evidence assignment-bound and idempotent across delivery retries", () => {
+    const input = {
+      choiceEventId: "choice_event_modal_retry_1",
+      eventName: "activity_completed" as const,
+      choiceSetId: "post_activity:plan-1:N1",
+      childId: "reina",
+      homeworkId: "hw-math-fractions",
+      cycleRevision: 7,
+      sessionId: "plan-1",
+      nodeId: "N1",
+      context: "homework_required" as const,
+      domain: "math",
+      source: "child_choice" as const,
+      shownOptions: [{
+        optionId: "N1:generated-baseline",
+        activityId: "generated-baseline",
+        label: "N1",
+        purposeLabel: "back_to_map",
+      }],
+      selectedOptionId: "N1:generated-baseline",
+      skippedOptionIds: [],
+      completed: true,
+      funRating: 5,
+      createdAt: "2026-08-05T14:00:00.000Z",
+    };
+
+    recordChoiceEvent(input, { rootDir: root });
+    recordChoiceEvent(input, { rootDir: root });
+
+    const loaded = readChoiceEvents("reina", { rootDir: root });
+    expect(loaded).toHaveLength(1);
+    expect(loaded[0]).toMatchObject({
+      choiceEventId: "choice_event_modal_retry_1",
+      homeworkId: "hw-math-fractions",
+      cycleRevision: 7,
+      funRating: 5,
+    });
+  });
+
   it("builds a mystery choice set with generic static thumbnails", () => {
     const set = buildMysteryChoiceSet({
       childId: "reina",
@@ -186,6 +225,39 @@ describe("choice events", () => {
     expect(profile.activityTraitModel?.["low-writing-load"]?.positiveWeight).toBeGreaterThan(0);
     expect(profile.adaptiveLoadState).toBeUndefined();
     expect(rewardCalls).toEqual([["reina", "pronunciation", true, true, 0.95]]);
+  });
+
+  it("does not infer academic accuracy from completion without an explicit accuracy observation", async () => {
+    writeProfile("reina");
+    const reward = vi.fn();
+
+    await applyChoiceEventPreference({
+      eventName: "activity_completed",
+      childId: "reina",
+      choiceSetId: "post-generated",
+      sessionId: "session-no-accuracy",
+      nodeId: "N1",
+      context: "homework_required",
+      domain: "math",
+      source: "child_choice",
+      shownOptions: [{
+        optionId: "generated",
+        activityId: "generated-baseline",
+        label: "Generated activity",
+        purposeLabel: "Back to map",
+      }],
+      selectedOptionId: "generated",
+      skippedOptionIds: [],
+      completed: true,
+      explicitSentiment: "like",
+      createdAt: "2026-08-06T12:00:00.000Z",
+    }, { rootDir: root, recordBanditReward: reward });
+
+    const profile = JSON.parse(
+      fs.readFileSync(path.join(root, "src", "context", "reina", "learning_profile.json"), "utf8"),
+    ) as LearningProfile;
+    expect(profile.activityModel?.["generated-baseline"]).toBeUndefined();
+    expect(reward).not.toHaveBeenCalled();
   });
 
   it("records baseline route selection without concluding a preference", async () => {

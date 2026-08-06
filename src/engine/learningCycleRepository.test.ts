@@ -10,6 +10,7 @@ import {
   repairHistoricalLearningCycleBeforePlanning,
   resetLearningCycleRuntimeEvidence,
   projectLearningCycle,
+  projectLearningCyclePlanForWrite,
   recordLearningCycleCalibration,
   transitionLearningCycle,
   assertLearningCycleProjectionWrite,
@@ -266,6 +267,11 @@ describe("canonical learning cycle repository", () => {
     const authoredPlan = {
       ...canonical.activeSessionPlan,
       planId: "ai-authored-board",
+      nodePlan: canonical.activeSessionPlan.nodePlan.map((node) =>
+        node.id === "baseline-facts"
+          ? { ...node, thumbnailUrl: "/generated/baseline-dedicated-thumbnail.png" }
+          : node,
+      ),
       adventureBoard: {
         ...canonical.adventureBoard,
         title: "The Clockwork Sky Harbor",
@@ -273,11 +279,14 @@ describe("canonical learning cycle repository", () => {
           ...canonical.adventureBoard.theme,
           background: { type: "image" as const, value: "/generated/sky-harbor.jpeg" },
         },
-        nodes: canonical.adventureBoard.nodes.map((node) =>
-          node.id === "quest"
-            ? { ...node, position: { x: 0.82, y: 0.48 }, state: "locked" as const, action: { type: "show-locked-reason" as const, payloadId: "quest" } }
-            : node,
-        ),
+        nodes: canonical.adventureBoard.nodes.map((node) => {
+          if (node.id === "quest") {
+            return { ...node, position: { x: 0.82, y: 0.48 }, state: "locked" as const, action: { type: "show-locked-reason" as const, payloadId: "quest" } };
+          }
+          return node.id === "baseline-facts"
+            ? { ...node, thumbnailUrl: "/generated/baseline-dedicated-thumbnail.png" }
+            : node;
+        }),
         edges: canonical.adventureBoard.edges.map((edge) => ({
           ...edge,
           id: `authored-${edge.id}`,
@@ -286,8 +295,10 @@ describe("canonical learning cycle repository", () => {
     };
 
     const projected = projectLearningCycle(questReady, { presentationPlan: authoredPlan });
+    const writeProjection = projectLearningCyclePlanForWrite("reina", authoredPlan, { rootDir });
 
     expect(projected.activeSessionPlan.planId).toBe("ai-authored-board:cycle-r3");
+    expect(writeProjection).toEqual(projected.activeSessionPlan);
     expect(projected.adventureBoard.title).toBe("The Clockwork Sky Harbor");
     expect(projected.adventureBoard.theme.background).toEqual({ type: "image", value: "/generated/sky-harbor.jpeg" });
     expect(projected.adventureBoard.nodes.find((node) => node.id === "quest")).toMatchObject({
@@ -296,9 +307,14 @@ describe("canonical learning cycle repository", () => {
       thumbnailUrl: "/generated/quest-ready.png",
       action: { type: "launch-activity", payloadId: "quest" },
     });
+    expect(projected.activeSessionPlan.nodePlan.find((node) => node.id === "baseline-facts")?.thumbnailUrl)
+      .toBe("/generated/baseline-dedicated-thumbnail.png");
+    expect(projected.adventureBoard.nodes.find((node) => node.id === "baseline-facts")?.thumbnailUrl)
+      .toBe("/generated/baseline-dedicated-thumbnail.png");
     expect(projected.adventureBoard.edges).toHaveLength(authoredPlan.adventureBoard.edges.length);
     expect(projected.adventureBoard.edges.map((edge) => edge.id))
       .toEqual(authoredPlan.adventureBoard.edges.map((edge) => edge.id));
+    expect(() => assertLearningCycleProjectionWrite("reina", projected.activeSessionPlan, { rootDir })).not.toThrow();
   });
 
   it("projects completed canonical nodes as replayable completed board nodes", () => {

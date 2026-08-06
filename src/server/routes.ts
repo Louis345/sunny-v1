@@ -59,6 +59,7 @@ import {
 } from "../engine/companionCareEngine";
 import {
   applyChoiceEventPreference,
+  findChoiceEventById,
   recordChoiceEvent,
   type ChoiceEventInput,
 } from "../engine/choiceEvents";
@@ -1188,6 +1189,50 @@ export function setupRoutes(app: Express): void {
       return res.json({ ok: true, applied: false, skippedPersistence: true });
     }
     try {
+      const isCanonicalMathEvidence = eventInput.domain === "math" && (
+        eventInput.context === "homework_required" ||
+        eventInput.context === "baseline_route" ||
+        eventInput.context === "quest" ||
+        eventInput.context === "boss"
+      );
+      if (isCanonicalMathEvidence && !eventInput.homeworkId) {
+        return res.status(409).json({ ok: false, error: "choice_event_homework_identity_required" });
+      }
+      const existingEvent = eventInput.choiceEventId
+        ? findChoiceEventById(childId, eventInput.choiceEventId)
+        : undefined;
+      if (existingEvent) {
+        console.log(
+          `  🎮 [choice-event] [duplicate-acknowledged] child=${childId} event=${existingEvent.choiceEventId}`,
+        );
+        return res.json({
+          ok: true,
+          applied: false,
+          duplicate: true,
+          skippedPersistence: false,
+          choiceEventId: existingEvent.choiceEventId,
+        });
+      }
+      if (isCanonicalMathEvidence) {
+        const cycle = getLearningCycle(childId, eventInput.homeworkId!);
+        if (!cycle) {
+          return res.status(409).json({ ok: false, error: "choice_event_homework_not_found" });
+        }
+        if (
+          eventInput.nodeId &&
+          eventInput.context !== "baseline_route" &&
+          !cycle.nodes.some((node) => node.nodeId === eventInput.nodeId)
+        ) {
+          return res.status(409).json({ ok: false, error: "choice_event_node_not_in_homework" });
+        }
+        if (
+          typeof eventInput.cycleRevision === "number" &&
+          eventInput.cycleRevision !== cycle.revision
+        ) {
+          return res.status(409).json({ ok: false, error: "choice_event_cycle_revision_stale" });
+        }
+        eventInput.cycleRevision ??= cycle.revision;
+      }
       const event = recordChoiceEvent(eventInput);
       const applied = await applyChoiceEventPreference(event);
       if (event.context === "homework_required" && event.eventName === "activity_completed") {

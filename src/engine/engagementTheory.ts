@@ -179,7 +179,16 @@ export function updateEngagementTheoryFromChoiceEvents(
     next.evidence.unshift({
       id: event.choiceEventId,
       kind: "choice",
-      summary: `${event.eventName ?? "choice"}: ${event.selectedOptionId ?? "none"}; completed=${event.completed ?? "unknown"}; frustration=${event.frustrationScore ?? "unknown"}`,
+      summary: [
+        `${event.eventName ?? "choice"}: ${event.selectedOptionId ?? "none"}`,
+        `homework=${event.homeworkId ?? "unknown"}`,
+        `node=${event.nodeId ?? "unknown"}`,
+        `completed=${event.completed ?? "unknown"}`,
+        `funRating=${event.funRating != null ? `${event.funRating}/5` : "unknown"}`,
+        `replay=${event.replayRequested ?? false}`,
+        `action=${event.postActivityAction ?? "unknown"}`,
+        `frustration=${event.frustrationScore ?? "unknown"}`,
+      ].join("; "),
       sourcePath: `choice_events/${event.createdAt.slice(0, 10)}.ndjson`,
       createdAt: event.createdAt,
     });

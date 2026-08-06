@@ -62,6 +62,8 @@ export type ChoiceEvent = {
   choiceEventId: string;
   choiceSetId: string;
   childId: string;
+  homeworkId?: string;
+  cycleRevision?: number;
   sessionId?: string;
   nodeId?: string;
   context: ChoiceEventContext;
@@ -311,6 +313,13 @@ export function normalizeChoiceEvent(input: ChoiceEventInput): ChoiceEvent {
 
 export function recordChoiceEvent(input: ChoiceEventInput, opts: RootOptions = {}): ChoiceEvent {
   const event = normalizeChoiceEvent(input);
+  const existing = findChoiceEventById(event.childId, event.choiceEventId, opts);
+  if (existing) {
+    console.log(
+      `  🎮 [choice-event] [duplicate-reused] child=${event.childId} event=${event.choiceEventId}`,
+    );
+    return existing;
+  }
   const dir = choiceEventsDir(event.childId, opts);
   fs.mkdirSync(dir, { recursive: true });
   fs.appendFileSync(
@@ -322,6 +331,15 @@ export function recordChoiceEvent(input: ChoiceEventInput, opts: RootOptions = {
     `  🎮 [choice-event] [recorded] child=${event.childId} context=${event.context} source=${event.source} selected=${event.selectedOptionId ?? "none"}`,
   );
   return event;
+}
+
+export function findChoiceEventById(
+  childId: string,
+  choiceEventId: string,
+  opts: RootOptions = {},
+): ChoiceEvent | undefined {
+  if (!choiceEventId.trim()) return undefined;
+  return readChoiceEvents(childId, opts).find((event) => event.choiceEventId === choiceEventId);
 }
 
 export function readChoiceEvents(childId: string, opts: RootOptions = {}): ChoiceEvent[] {
@@ -534,7 +552,9 @@ export async function applyChoiceEventPreference(
   const isChoiceIntent =
     event.eventName === "option_selected" ||
     event.eventName === "surprise_revealed";
-  const accuracy = clamp01(event.accuracy, completed ? 1 : 0.5);
+  const accuracy = typeof event.accuracy === "number" && Number.isFinite(event.accuracy)
+    ? clamp01(event.accuracy, 0)
+    : undefined;
   const frustrationScore = clamp01(
     event.frustrationScore,
     completed || isChoiceIntent ? 0.1 : 0.65,
@@ -561,16 +581,18 @@ export async function applyChoiceEventPreference(
   }
   const next: LearningProfile = {
     ...profile,
-    activityModel: mergePreferenceIntoActivityModel(profile.activityModel, {
-      activityId: option.activityId,
-      domain: event.domain,
-      completed,
-      accuracy,
-      engagementScore,
-      frustrationScore,
-      liked,
-      occurredAt: event.createdAt,
-    }),
+    activityModel: accuracy == null
+      ? profile.activityModel
+      : mergePreferenceIntoActivityModel(profile.activityModel, {
+          activityId: option.activityId,
+          domain: event.domain,
+          completed,
+          accuracy,
+          engagementScore,
+          frustrationScore,
+          liked,
+          occurredAt: event.createdAt,
+        }),
     activityTraitModel: mergeChoiceIntoActivityTraitModel(profile.activityTraitModel, {
       activityId: option.activityId,
       dimensions: traitDimensionsForOption(option),
@@ -599,7 +621,7 @@ export async function applyChoiceEventPreference(
     { rootDir: rootDir(opts) },
   );
   const nodeType = option.nodeType ?? asNodeType(option.activityId);
-  if (event.source === "child_choice" && nodeType && hasOutcomeEvidence) {
+  if (event.source === "child_choice" && nodeType && hasOutcomeEvidence && accuracy != null) {
     const reward = opts.recordBanditReward ?? recordReward;
     await reward(event.childId, nodeType, liked === true, completed, accuracy);
   }

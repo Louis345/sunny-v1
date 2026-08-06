@@ -222,31 +222,8 @@ export function AdventureBoard({
   );
   const choiceSetsById = new Map(projectedChoiceSets.map((set) => [set.id, set]));
   const [openChoiceSetId, setOpenChoiceSetId] = useState<string | null>(null);
-  const [selectedOptionByChoiceSet, setSelectedOptionByChoiceSet] = useState<Record<string, string>>({});
   const openChoiceSet = openChoiceSetId ? choiceSetsById.get(openChoiceSetId) ?? null : null;
-  const skippedRouteNodeIds = new Set<string>();
-  for (const choiceSet of projectedChoiceSets) {
-    if (choiceSet.kind !== "baseline-route" || board.layout?.routeChoiceBehavior !== "exclusive") continue;
-    const selectedOptionId = selectedOptionByChoiceSet[choiceSet.id];
-    if (!selectedOptionId) continue;
-    for (const option of choiceSet.options) {
-      if (option.id !== selectedOptionId && option.nodeId) {
-        skippedRouteNodeIds.add(option.nodeId);
-      }
-    }
-  }
-  const effectiveNodes = resolvedNodes.map((node) => {
-    if (!skippedRouteNodeIds.has(node.id)) return node;
-    return {
-      ...node,
-      state: "locked" as const,
-      lock: {
-        reason: "route_not_picked",
-        label: "Route not picked",
-      },
-    };
-  });
-  const nodes = new Map(effectiveNodes.map((node) => [node.id, node]));
+  const nodes = new Map(resolvedNodes.map((node) => [node.id, node]));
 
   return (
     <section
@@ -291,7 +268,7 @@ export function AdventureBoard({
       </svg>
 
       <div className="adventure-board__nodes">
-        {effectiveNodes.filter((node) => node.state !== "hidden").map((node) => {
+        {resolvedNodes.filter((node) => node.state !== "hidden").map((node) => {
           const Icon = iconFor(node.icon, nodeFallbackIcon(node));
           const isLocked = node.state === "locked";
           const isPreparing = node.state === "preview";
@@ -395,12 +372,6 @@ export function AdventureBoard({
         open={Boolean(openChoiceSet)}
         onDismiss={() => setOpenChoiceSetId(null)}
         onSelect={(option) => {
-          if (openChoiceSet?.kind === "baseline-route" && board.layout?.routeChoiceBehavior === "exclusive") {
-            setSelectedOptionByChoiceSet((prev) => ({
-              ...prev,
-              [openChoiceSet.id]: option.id,
-            }));
-          }
           if (openChoiceSet) {
             onChoiceClick?.(option, openChoiceSet);
           }

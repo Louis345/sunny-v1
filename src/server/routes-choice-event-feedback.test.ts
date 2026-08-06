@@ -7,6 +7,7 @@ vi.mock("../engine/choiceEvents", async (importOriginal) => {
   return {
     ...actual,
     recordChoiceEvent: vi.fn((input: unknown) => actual.normalizeChoiceEvent(input as never)),
+    findChoiceEventById: vi.fn(),
     applyChoiceEventPreference: vi.fn(async () => ({ applied: true, reason: "preference_applied" })),
   };
 });
@@ -79,7 +80,8 @@ vi.mock("../engine/learningCycleRepository", () => ({
 }));
 
 import { appendContentFeedbackLesson } from "../engine/contentFeedbackMemory";
-import { transitionLearningCycle } from "../engine/learningCycleRepository";
+import { applyChoiceEventPreference, findChoiceEventById } from "../engine/choiceEvents";
+import { getLearningCycle, transitionLearningCycle } from "../engine/learningCycleRepository";
 import { interpretDirectExperienceOutcome } from "../engine/directExperienceFeedback";
 import { advanceCanonicalCycleFromEvidence, recordCanonicalNodeCompletion } from "../engine/learningCycleRuntime";
 import { generateCanonicalProgressionArtifact } from "../engine/canonicalProgressionGenerator";
@@ -87,7 +89,10 @@ import { setupRoutes } from "./routes";
 
 const mockedAppendLesson = vi.mocked(appendContentFeedbackLesson);
 const mockedTransitionLearningCycle = vi.mocked(transitionLearningCycle);
+const mockedGetLearningCycle = vi.mocked(getLearningCycle);
 const mockedInterpretOutcome = vi.mocked(interpretDirectExperienceOutcome);
+const mockedApplyChoiceEventPreference = vi.mocked(applyChoiceEventPreference);
+const mockedFindChoiceEventById = vi.mocked(findChoiceEventById);
 
 describe("choice-event route feedback lessons", () => {
   const servers: Array<{ close: () => void }> = [];
@@ -138,6 +143,8 @@ describe("choice-event route feedback lessons", () => {
     choiceSetId: "baseline-route-options",
     context: "baseline_route",
     domain: "math",
+    homeworkId: "hw-math",
+    cycleRevision: 2,
     source: "child_choice",
     selectedOptionId: "choice-route-a",
     skippedOptionIds: ["choice-route-b"],
@@ -177,6 +184,74 @@ describe("choice-event route feedback lessons", () => {
         routeId: "choice-route-a",
       }),
     );
+  });
+
+  it("requires math modal evidence to name its homework and preserves its displayed cycle revision", async () => {
+    const missing = await postChoiceEvent({
+      ...routeChoicePayload,
+      homeworkId: undefined,
+      context: "homework_required",
+      eventName: "activity_completed",
+      nodeId: "array-forge",
+      completed: true,
+      funRating: 5,
+    });
+    expect(missing.status).toBe(409);
+    expect(missing.body.error).toBe("choice_event_homework_identity_required");
+
+    const bound = await postChoiceEvent({
+      ...routeChoicePayload,
+      homeworkId: "hw-math",
+      cycleRevision: 1,
+      context: "homework_required",
+      eventName: "activity_completed",
+      nodeId: "array-forge",
+      completed: true,
+      funRating: 5,
+    });
+    expect(mockedGetLearningCycle).toHaveBeenCalledWith("demo-pashley", "hw-math");
+    const { recordChoiceEvent } = await import("../engine/choiceEvents");
+    expect(bound.status).toBe(409);
+    expect(bound.body.error).toBe("choice_event_cycle_revision_stale");
+    expect(vi.mocked(recordChoiceEvent)).not.toHaveBeenCalled();
+
+    const current = await postChoiceEvent({
+      ...routeChoicePayload,
+      homeworkId: "hw-math",
+      cycleRevision: 2,
+      context: "homework_required",
+      eventName: "activity_completed",
+      nodeId: "array-forge",
+      completed: true,
+      funRating: 5,
+    });
+    expect(current.status).toBe(200);
+    expect(vi.mocked(recordChoiceEvent)).toHaveBeenLastCalledWith(
+      expect.objectContaining({ homeworkId: "hw-math", cycleRevision: 2 }),
+    );
+  });
+
+  it("acknowledges a retried modal event without applying its preference twice", async () => {
+    const payload = {
+      ...routeChoicePayload,
+      choiceEventId: "choice_event_retry_same",
+      context: "homework_required",
+      eventName: "activity_completed",
+      nodeId: "array-forge",
+      completed: true,
+      funRating: 5,
+    };
+
+    mockedFindChoiceEventById
+      .mockReturnValueOnce(undefined)
+      .mockReturnValueOnce({ choiceEventId: "choice_event_retry_same" } as never);
+    const first = await postChoiceEvent(payload);
+    const second = await postChoiceEvent(payload);
+
+    expect(first.status).toBe(200);
+    expect(second.status).toBe(200);
+    expect(second.body).toMatchObject({ ok: true, duplicate: true });
+    expect(mockedApplyChoiceEventPreference).toHaveBeenCalledTimes(1);
   });
 
   it("does not append a lesson for mystery choices", async () => {

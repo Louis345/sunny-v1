@@ -49,6 +49,7 @@ describe("engagement theory", () => {
         completed: true,
         accuracy: 0.8,
         frustrationScore: 0.1,
+        funRating: 5,
         explicitSentiment: "like",
         createdAt: "2026-07-11T12:00:00.000Z",
       },
@@ -57,6 +58,7 @@ describe("engagement theory", () => {
     expect(next.dimensions.puzzle.positiveWeight).toBeGreaterThan(0);
     expect(next.dimensions.speed.negativeWeight).toBe(0);
     expect(next.evidence[0]?.kind).toBe("choice");
+    expect(next.evidence[0]?.summary).toContain("funRating=5/5");
     expect(next.nextExperiment?.holdConstant).toContain("academic targets");
   });
 

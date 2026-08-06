@@ -1382,6 +1382,11 @@ function nodeActivityType(node: LearningCycleNodeContract): ActiveSessionPlan["n
   return "generated-baseline";
 }
 
+function presentationProjectionPlanId(planId: string, revision: number): string {
+  const suffix = `:cycle-r${revision}`;
+  return planId.endsWith(suffix) ? planId : `${planId}${suffix}`;
+}
+
 export function projectLearningCycle(
   cycle: LearningCycleRecordV2,
   options: ProjectLearningCycleOptions = {},
@@ -1507,11 +1512,14 @@ export function projectLearningCycle(
     const canonical = canonicalPlanNodeById.get(presented.id);
     if (!canonical) return presented;
     canonicalPlanNodeById.delete(presented.id);
+    const canonicalOwnsArtwork = canonical.type === "quest" || canonical.type === "boss";
     return {
       ...presented,
       ...canonical,
       title: canonical.title,
-      thumbnailUrl: canonical.thumbnailUrl ?? presented.thumbnailUrl,
+      thumbnailUrl: canonicalOwnsArtwork
+        ? canonical.thumbnailUrl ?? presented.thumbnailUrl
+        : presented.thumbnailUrl ?? canonical.thumbnailUrl,
       thumbnailPrompt: canonical.thumbnailPrompt ?? presented.thumbnailPrompt,
     };
   });
@@ -1521,7 +1529,7 @@ export function projectLearningCycle(
   if (!presentedBoard) {
     const mergedPlan = {
       ...presentationPlan,
-      planId: `${presentationPlan.planId}:cycle-r${cycle.revision}`,
+      planId: presentationProjectionPlanId(presentationPlan.planId, cycle.revision),
       nodePlan: mergedNodePlan,
       activeHomeworkId: cycle.homeworkId,
       adventureBoard: canonicalProjection.adventureBoard,
@@ -1540,6 +1548,7 @@ export function projectLearningCycle(
     const canonical = canonicalBoardNodeById.get(presented.id);
     if (!canonical) return presented;
     canonicalBoardNodeById.delete(presented.id);
+    const canonicalOwnsArtwork = canonical.kind === "quest" || canonical.kind === "boss";
     return {
       ...presented,
       label: canonical.label,
@@ -1547,7 +1556,9 @@ export function projectLearningCycle(
       state: canonical.state,
       action: canonical.action,
       lock: canonical.lock,
-      thumbnailUrl: canonical.thumbnailUrl ?? presented.thumbnailUrl,
+      thumbnailUrl: canonicalOwnsArtwork
+        ? canonical.thumbnailUrl ?? presented.thumbnailUrl
+        : presented.thumbnailUrl ?? canonical.thumbnailUrl,
       thumbnailPrompt: canonical.thumbnailPrompt ?? presented.thumbnailPrompt,
       theoryId: canonical.theoryId,
       experimentId: canonical.experimentId,
@@ -1604,7 +1615,7 @@ export function projectLearningCycle(
   }));
   const mergedBoard: AdventureBoardJson = {
     ...presentedBoard,
-    planId: `${presentationPlan.planId}:cycle-r${cycle.revision}`,
+    planId: presentationProjectionPlanId(presentationPlan.planId, cycle.revision),
     nodes: mergedBoardNodes,
     edges: mergedEdges,
     ...(mergedChoiceSets ? { choiceSets: mergedChoiceSets } : {}),
@@ -1616,7 +1627,7 @@ export function projectLearningCycle(
   };
   const mergedPlan: ActiveSessionPlan = {
     ...presentationPlan,
-    planId: `${presentationPlan.planId}:cycle-r${cycle.revision}`,
+    planId: presentationProjectionPlanId(presentationPlan.planId, cycle.revision),
     activeHomeworkId: cycle.homeworkId,
     nodePlan: mergedNodePlan,
     adventureBoard: mergedBoard,
@@ -1637,8 +1648,22 @@ export function assertLearningCycleProjectionWrite(
   if (!homeworkId) return;
   const cycle = getLearningCycle(childId, homeworkId, opts);
   if (!cycle) return;
-  const expected = projectLearningCycle(cycle).activeSessionPlan;
+  const canonical = projectLearningCycle(cycle).activeSessionPlan;
+  if (JSON.stringify(plan) === JSON.stringify(canonical)) return;
+  const expected = projectLearningCycle(cycle, { presentationPlan: plan }).activeSessionPlan;
   if (JSON.stringify(plan) !== JSON.stringify(expected)) {
     throw new Error(`learning_cycle_compatibility_projection_drift:${homeworkId}:r${cycle.revision}`);
   }
+}
+
+export function projectLearningCyclePlanForWrite(
+  childId: string,
+  plan: ActiveSessionPlan,
+  opts: LearningCycleRepositoryOptions = {},
+): ActiveSessionPlan {
+  const homeworkId = plan.activeHomeworkId;
+  if (!homeworkId) return plan;
+  const cycle = getLearningCycle(childId, homeworkId, opts);
+  if (!cycle) return plan;
+  return projectLearningCycle(cycle, { presentationPlan: plan }).activeSessionPlan;
 }
