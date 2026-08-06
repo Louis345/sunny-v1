@@ -1,0 +1,34 @@
+{
+  "version": 1,
+  "childId": "qa_pipeline",
+  "current": {
+    "weekOf": "2026-05-11",
+    "testDate": "2026-05-15",
+    "homeworkId": "hw-spelling-test",
+    "wordList": [
+      "above",
+      "about",
+      "ahead",
+      "away",
+      "ago"
+    ],
+    "contentProfile": {
+      "practiceDomain": "spelling",
+      "contentDomain": "spelling",
+      "topic": "a words",
+      "primarySkill": "spell_from_memory",
+      "assignmentFormat": "spelling_test",
+      "concepts": [
+        "a words"
+      ],
+      "sourceEvidence": [
+        "test fixture"
+      ]
+    },
+    "capturedContent": null,
+    "generatedAt": "2026-05-11T12:00:00.000Z",
+    "nodes": []
+  },
+  "activeByDomain": {},
+  "updatedAt": "2026-07-15T07:39:57.290Z"
+}

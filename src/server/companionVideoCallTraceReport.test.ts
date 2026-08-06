@@ -156,4 +156,127 @@ describe("companion video call trace score report", () => {
     expect(report.readyForHumanReview).toBe(true);
     expect(report.blockers).toEqual([]);
   });
+
+  it("reports social first-audio metrics when streamed turns include firstAudioMs", () => {
+    const records: CompanionVideoCallTraceRecord[] = [
+      record("call_started", 0),
+      record("talk_response_received", 2400, {
+        turnId: "turn_stream_1",
+        payload: {
+          conversationIntent: "social",
+          requestToResponseMs: 2300,
+          latencySpans: { firstAudioMs: 900, requestToResponseMs: 2300 },
+        },
+      }),
+      record("talk_response_received", 5400, {
+        turnId: "turn_stream_2",
+        payload: {
+          conversationIntent: "social",
+          requestToResponseMs: 2500,
+          latencySpans: { firstAudioMs: 1300, requestToResponseMs: 2500 },
+        },
+      }),
+      record("call_ended", 6000),
+    ];
+
+    const report = buildCompanionVideoCallTraceScoreReport(records);
+    expect(report.metrics.socialFirstAudioP95Ms).toBe(1300);
+    expect(report.metrics.socialFirstAudioAverageMs).toBe(1100);
+
+    const markdown = renderCompanionVideoCallTraceScoreMarkdown(report);
+    expect(markdown).toContain("Social first-audio p95: 1300ms");
+    expect(markdown).toContain("Social first-audio average: 1100ms");
+  });
+
+  it("scores a timed-out move packet as a deliberate fallback, not missing audio", () => {
+    // Regression for a real session: the packet timed out, the move revealed
+    // silently (correct), then the late line was discarded. Without a fallback
+    // event on the same turn the report called that missing audio and failed
+    // the run for behaviour that was working as designed.
+    const records: CompanionVideoCallTraceRecord[] = [
+      record("call_started", 0),
+      record("activity_move_packet_requested", 1000, {
+        turnId: "turn_19",
+        payload: { plannedMove: "drop your yellow disc into column 4" },
+      }),
+      record("activity_move_packet_timeout", 5000, {
+        payload: { plannedMove: "drop your yellow disc into column 4" },
+      }),
+      record("activity_reaction_response_received", 6200, {
+        turnId: "turn_19",
+        payload: {
+          aiAuthored: true,
+          requestToResponseMs: 5200,
+          latencySpans: { requestToResponseMs: 5200 },
+        },
+      }),
+      record("activity_reaction_fallback", 6210, {
+        turnId: "turn_19",
+        payload: { reason: "move_packet_timeout", fallback: "gesture_only" },
+      }),
+      record("call_ended", 7000),
+    ];
+
+    const report = buildCompanionVideoCallTraceScoreReport(records);
+
+    expect(report.metrics.activityMissingAudioCount).toBe(0);
+    expect(report.metrics.activityFallbackCount).toBe(1);
+    expect(report.metrics.movePacketTimeoutCount).toBe(1);
+    expect(report.likelyCause).not.toBe("activity_reaction_missing_audio");
+    expect(report.blockers).not.toContain(
+      "Some AI-authored activity reactions produced no playable audio.",
+    );
+  });
+
+  it("reports move packet metrics without changing pass thresholds", () => {
+    const records: CompanionVideoCallTraceRecord[] = [
+      record("call_started", 0),
+      record("activity_move_packet_requested", 1000, {
+        turnId: "packet_1",
+        payload: { plannedMove: 5 },
+      }),
+      record("activity_move_packet_arrived", 2600, {
+        turnId: "packet_1",
+        payload: { latencyMs: 1600, plannedMove: 5 },
+      }),
+      record("activity_reaction_response_received", 2600, {
+        turnId: "packet_1",
+        responsePreview: "Center square, mine!",
+        payload: {
+          aiAuthored: true,
+          requestToResponseMs: 1600,
+          latencySpans: { requestToResponseMs: 1600 },
+        },
+      }),
+      record("activity_reaction_audio_start", 2650, { turnId: "packet_1" }),
+      record("activity_reaction_audio_ended", 4200, { turnId: "packet_1" }),
+      record("activity_move_packet_requested", 6000, {
+        turnId: "packet_2",
+        payload: { plannedMove: 3 },
+      }),
+      record("activity_move_packet_timeout", 10000, {
+        payload: { plannedMove: 3, timeoutMs: 4000 },
+      }),
+      record("activity_reaction_fallback", 10010, {
+        turnId: "packet_2",
+        payload: { reason: "move_packet_timeout", fallback: "gesture_only" },
+      }),
+      record("call_ended", 11000),
+    ];
+
+    const report = buildCompanionVideoCallTraceScoreReport(records);
+
+    expect(report.metrics.movePacketRequestedCount).toBe(2);
+    expect(report.metrics.movePacketArrivedCount).toBe(1);
+    expect(report.metrics.movePacketTimeoutCount).toBe(1);
+    expect(report.metrics.movePacketP95Ms).toBe(1600);
+    expect(report.metrics.activityStaleDroppedCount).toBe(0);
+    expect(report.readyForHumanReview).toBe(true);
+
+    const markdown = renderCompanionVideoCallTraceScoreMarkdown(report);
+    expect(markdown).toContain("Move packets requested: 2");
+    expect(markdown).toContain("Move packets arrived: 1");
+    expect(markdown).toContain("Move packet timeouts: 1");
+    expect(markdown).toContain("Move packet p95: 1600ms");
+  });
 });

@@ -5,6 +5,8 @@ import react from "@vitejs/plugin-react";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
+const apiPort = process.env.SUNNY_API_PORT || "3001";
+
 export default defineConfig({
   plugins: [react()],
   server: {
@@ -13,9 +15,9 @@ export default defineConfig({
       allow: [path.resolve(__dirname, ".."), path.resolve(__dirname, "../src")],
     },
     proxy: {
-      "/api": "http://localhost:3001",
+      "/api": `http://localhost:${apiPort}`,
       "/ws": {
-        target: "ws://localhost:3001",
+        target: `ws://localhost:${apiPort}`,
         ws: true,
       },
     },

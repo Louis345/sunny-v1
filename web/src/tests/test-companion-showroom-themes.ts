@@ -15,7 +15,6 @@ import {
   StorybookSparkles,
 } from "../components/StorybookShowroomChrome";
 import {
-  CrystalDotNav,
   CrystalIdentityBlock,
   CrystalPedestal,
   CrystalPrimaryButton,
@@ -105,7 +104,6 @@ describe("CompanionShowroom themes", () => {
     expect(typeof CrystalSpotlight).toBe("function");
     expect(typeof CrystalPedestal).toBe("function");
     expect(typeof CrystalIdentityBlock).toBe("function");
-    expect(typeof CrystalDotNav).toBe("function");
     expect(typeof CrystalPrimaryButton).toBe("function");
     expect(typeof CrystalSignatureButton).toBe("function");
   });
@@ -131,9 +129,29 @@ describe("CompanionShowroom themes", () => {
     expect(source).toContain("<CrystalSpotlight");
     expect(source).toContain("<CrystalPedestal");
     expect(source).toContain("<CrystalIdentityBlock");
-    expect(source).toContain("<CrystalDotNav");
-    expect(source).toContain("<CrystalPrimaryButton");
-    expect(source).toContain("<CrystalSignatureButton");
+    // The picker is deliberately down to one primary action: Meet / Talk /
+    // Video Chat were three doors to the same room, and the dot pager
+    // duplicated the arrows plus the "NO. 2 of 8" label.
+    expect(source).toContain("renderCallAction");
+    expect(source).not.toContain("<CrystalDotNav");
+    expect(source).not.toContain("<CrystalPrimaryButton");
+  });
+
+  it("keeps the picker to a single primary call action", () => {
+    const source = readFileSync(
+      resolve(__dirname, "../components/CompanionShowroom.tsx"),
+      "utf8",
+    );
+
+    expect(source).toContain("Call {current.name}");
+    // A stable row height stops the layout reflowing between short and long
+    // companion names.
+    expect(source).toContain("minHeight: 76");
+    // Secondary affordances stay quiet rather than becoming buttons.
+    expect(source).toContain("About {current.name}");
+    // The Talk button is gone from the picker; the panel survives only as an
+    // error surface, so assert the button's own handler is no longer wired.
+    expect(source).not.toContain("onClick={() => setShowroomTalkOpen(true)}");
   });
 
   it("adds a subtle dark Crystal overlay without changing room artwork", () => {

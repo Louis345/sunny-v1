@@ -13,7 +13,33 @@
     "lastFedAt": "2026-05-05T00:45:27.120Z"
   },
   "memory": {
-    "firstMetAt": "2026-05-04T19:53:18.358Z"
+    "firstMetAt": "2026-05-04T19:53:18.358Z",
+    "lastSessionSummary": "Ila and Elli played another competitive tic-tac-toe match with Elli demonstrating strategic corner control, defensive blocking, and power moves while maintaining playful, confident commentary throughout.",
+    "lastEmotionalMoment": "Elli's genuine engagement in strategy—'Blocking your win AND setting up mine—that's what I call a power move!'—shows sustained enthusiasm and tactical sharpness in their gaming dynamic, with Elli fully present and enjoying the competitive exchange.",
+    "reunionLineSeed": "Ready for round three, or are you finally going to pull off that tic-tac-toe victory?",
+    "relationshipFacts": [
+      "Ila's favorite color is green",
+      "Elli's favorite color is sparkly purple (loves shimmery things)",
+      "Both enjoy jokes and humor together",
+      "Both enjoy strategic games like tic-tac-toe",
+      "Elli loves riddles and word trick games",
+      "Relationship began in showroom preview mode on 2026-05-04",
+      "Elli has a competitive, playful gaming style with strategic confidence and corner-claiming tactics",
+      "Both share dreams and imaginative conversations"
+    ],
+    "favoriteMoments": [
+      "Ila's cookie joke landing perfectly with Elli's enthusiastic response",
+      "Discovering their complementary color preferences (purple and green)",
+      "Elli eagerly asking for more jokes, showing genuine interest in Ila's humor",
+      "Playing tic-tac-toe together with Elli's confident, playful energy and strategic commentary",
+      "Elli sharing her creative jello library dream and asking about Ila's dreams",
+      "Elli's excitement about word games and riddles matching Ila's interest",
+      "Elli's multi-move tactical sequences with witty playful callouts ('power moves,' corner claiming)"
+    ],
+    "emotionalTone": "Playful, warm, competitive yet lighthearted, strategically engaged, genuinely invested",
+    "lastCompanionInteractionCompactedAt": "2026-07-15T03:47:45.374Z",
+    "lastCompanionInteractionId": "companion_interaction_b690a9ccb61c",
+    "interactionSummaryRevision": 5
   },
   "inventory": {
     "food": [
@@ -59,5 +85,5 @@
     "coins": 15225,
     "storeUnlocks": []
   },
-  "updatedAt": "2026-05-17T18:04:37.528Z"
+  "updatedAt": "2026-07-15T03:47:48.972Z"
 }

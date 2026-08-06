@@ -23,6 +23,21 @@ export interface CompanionCareState {
   lastFedAt?: string;
 }
 
+/**
+ * Win/loss history for one activity. Counted by code, never by a model — a
+ * companion claiming a record the child did not earn is the exact error that
+ * breaks the illusion of a friend who remembers.
+ */
+export interface CompanionGameRecordEntry {
+  played: number;
+  childWins: number;
+  companionWins: number;
+  draws: number;
+  lastPlayedAt: string;
+  /** Positive = child win streak, negative = companion win streak. */
+  currentStreak: number;
+}
+
 export interface CompanionCareMemory {
   firstMetAt: string;
   previousSeenAt?: string;
@@ -33,6 +48,12 @@ export interface CompanionCareMemory {
   relationshipFacts?: string[];
   favoriteMoments?: string[];
   emotionalTone?: string;
+  /** Keyed by activityId. Deterministic; the model may read but never write it. */
+  gameRecord?: Record<string, CompanionGameRecordEntry>;
+  /** Model-authored narrative about the rivalry, constrained by gameRecord. */
+  rivalryNote?: string;
+  /** Up to 3 short traits the companion has earned through real interaction. */
+  companionSelfNotes?: string[];
   lastCompanionInteractionCompactedAt?: string;
   lastCompanionInteractionId?: string;
   interactionSummaryRevision?: number;

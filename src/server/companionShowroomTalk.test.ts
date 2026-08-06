@@ -107,14 +107,13 @@ describe("companion showroom talk contract", () => {
           activityId: "tic_tac_toe",
           surface: "video_call_overlay",
           status: "active",
-          board: ["X", null, null, null, "O", null, null, null, null],
-          childMark: "X",
-          companionMark: "O",
+          board: { text: "1=X, 2=empty, 3=empty, 4=empty, 5=O, 6=empty, 7=empty, 8=empty, 9=empty", signature: "X---O----" },
+          childLabel: "X",
+          companionLabel: "O",
           turn: "child",
           lastMove: {
             by: "companion",
-            square: 5,
-            mark: "O",
+            description: "placed O on square 5",
             timestamp: 1000,
           },
         },
@@ -133,14 +132,13 @@ describe("companion showroom talk contract", () => {
           activityId: "tic_tac_toe",
           surface: "video_call_overlay",
           status: "active",
-          board: ["X", null, null, null, "O", null, null, null, null],
-          childMark: "X",
-          companionMark: "O",
+          board: { text: "1=X, 2=empty, 3=empty, 4=empty, 5=O, 6=empty, 7=empty, 8=empty, 9=empty", signature: "X---O----" },
+          childLabel: "X",
+          companionLabel: "O",
           turn: "child",
           lastMove: {
             by: "companion",
-            square: 5,
-            mark: "O",
+            description: "placed O on square 5",
             timestamp: 1000,
           },
         },
@@ -162,9 +160,9 @@ describe("companion showroom talk contract", () => {
           activityId: "tic_tac_toe",
           surface: "video_call_overlay",
           status: "active",
-          board: ["X", null, "O", "O", "O", "X", "X", null, null],
-          childMark: "X",
-          companionMark: "O",
+          board: { text: "1=X, 2=empty, 3=O, 4=O, 5=O, 6=X, 7=X, 8=empty, 9=empty", signature: "X-OOOXX--" },
+          childLabel: "X",
+          companionLabel: "O",
           turn: "child",
         },
       },
@@ -198,14 +196,13 @@ describe("companion showroom talk contract", () => {
         activityReaction: {
           activityId: "tic_tac_toe",
           eventType: "companion_move",
-          board: ["X", null, null, null, "O", null, null, null, null],
-          childMark: "X",
-          companionMark: "O",
+          board: { text: "1=X, 2=empty, 3=empty, 4=empty, 5=O, 6=empty, 7=empty, 8=empty, 9=empty", signature: "X---O----" },
+          childLabel: "X",
+          companionLabel: "O",
           turn: "child",
           lastMove: {
             by: "companion",
-            square: 5,
-            mark: "O",
+            description: "placed O on square 5",
             timestamp: 1000,
           },
           desiredTone: "warm_playful",
@@ -224,20 +221,83 @@ describe("companion showroom talk contract", () => {
         activityReaction: {
           activityId: "tic_tac_toe",
           eventType: "companion_move",
-          board: ["X", null, null, null, "O", null, null, null, null],
-          childMark: "X",
-          companionMark: "O",
+          board: { text: "1=X, 2=empty, 3=empty, 4=empty, 5=O, 6=empty, 7=empty, 8=empty, 9=empty", signature: "X---O----" },
+          childLabel: "X",
+          companionLabel: "O",
           turn: "child",
           lastMove: {
             by: "companion",
-            square: 5,
-            mark: "O",
+            description: "placed O on square 5",
             timestamp: 1000,
           },
           desiredTone: "warm_playful",
         },
       }),
     });
+  });
+
+  it("sanitizes the game-authored planned move phrase", () => {
+    const buildBody = (plannedMove: unknown) => ({
+      childId: "ila",
+      companionId: "elli",
+      voiceId: "voice_a",
+      showroomTheme: "crystal",
+      mode: "video_call",
+      question: "You are about to place your O on square 5.",
+      activityReaction: {
+        activityId: "tic_tac_toe",
+        eventType: "companion_move",
+        board: { text: "1=X, 2=empty, 3=empty, 4=empty, 5=empty, 6=empty, 7=empty, 8=empty, 9=empty", signature: "X--------" },
+        childLabel: "X",
+        companionLabel: "O",
+        turn: "companion",
+        plannedMove,
+      },
+    });
+    const opts = {
+      routeCompanionId: "elli",
+      voiceOptions,
+      fallbackVoiceId: "voice_a",
+    };
+
+    // Games author the move phrase; the server sanitizes but cannot judge
+    // legality (it could never validate chess). Per-game engine tests own that.
+    const accepted = resolveShowroomTalkRequest(
+      buildBody("place your O on square 5"),
+      opts,
+    );
+    expect(accepted).toEqual({
+      ok: true,
+      request: expect.objectContaining({
+        activityReaction: expect.objectContaining({
+          eventType: "companion_move",
+          plannedMove: "place your O on square 5",
+        }),
+      }),
+    });
+
+    const controlChars = resolveShowroomTalkRequest(
+      buildBody("drop your  yellow disc\n into column 4"),
+      opts,
+    );
+    expect(controlChars.ok).toBe(true);
+    if (controlChars.ok) {
+      expect(controlChars.request.activityReaction?.plannedMove).toBe(
+        "drop your yellow disc into column 4",
+      );
+    }
+
+    const tooLong = resolveShowroomTalkRequest(buildBody("x".repeat(500)), opts);
+    expect(tooLong.ok).toBe(true);
+    if (tooLong.ok) {
+      expect(tooLong.request.activityReaction?.plannedMove).toHaveLength(120);
+    }
+
+    const notAString = resolveShowroomTalkRequest(buildBody(5), opts);
+    expect(notAString.ok).toBe(true);
+    if (notAString.ok) {
+      expect(notAString.request.activityReaction?.plannedMove).toBeUndefined();
+    }
   });
 
   it("accepts video-call trace and turn ids without treating them as provider content", () => {
@@ -305,6 +365,9 @@ describe("companion showroom talk contract", () => {
     expect(prompt).toContain("1-3 short sentences");
     expect(prompt).toContain("companionAct");
     expect(prompt).toContain("show emotion through movement");
+    expect(prompt).toContain("first write the words you say aloud as plain message text");
+    expect(prompt).toContain("Never wait for tool results before speaking");
+    expect(prompt).toContain("Never send a tool-only response when the child asked you something");
     expect(prompt).not.toContain("award coins");
     expect(prompt).not.toContain("award XP");
   });
@@ -340,9 +403,9 @@ describe("companion showroom talk contract", () => {
         activityId: "tic_tac_toe",
         surface: "video_call_overlay",
         status: "active",
-        board: ["X", null, "O", "O", "O", "X", "X", null, null],
-        childMark: "X",
-        companionMark: "O",
+        board: { text: "1=X, 2=empty, 3=O, 4=O, 5=O, 6=X, 7=X, 8=empty, 9=empty", signature: "X-OOOXX--" },
+        childLabel: "X",
+        companionLabel: "O",
         turn: "child",
       },
     });
@@ -365,16 +428,16 @@ describe("companion showroom talk contract", () => {
         activityId: "tic_tac_toe",
         surface: "video_call_overlay",
         status: "active",
-        board: ["X", null, "O", "O", "O", "X", "X", null, null],
-        childMark: "X",
-        companionMark: "O",
+        board: { text: "1=X, 2=empty, 3=O, 4=O, 5=O, 6=X, 7=X, 8=empty, 9=empty", signature: "X-OOOXX--" },
+        childLabel: "X",
+        companionLabel: "O",
         turn: "child",
       },
     });
 
     expect(prompt).toContain("Conversation intent: repeat_after.");
     expect(prompt).toContain("repeat the child's newest words");
-    expect(prompt).toContain("Do not treat numbers as tic-tac-toe squares");
+    expect(prompt).toContain("Do not treat numbers as game moves");
   });
 
   it("guards against repeated greetings and repeated game confusion", () => {
@@ -388,9 +451,9 @@ describe("companion showroom talk contract", () => {
         activityId: "tic_tac_toe",
         surface: "video_call_overlay",
         status: "active",
-        board: ["X", null, null, null, "O", null, null, null, null],
-        childMark: "X",
-        companionMark: "O",
+        board: { text: "1=X, 2=empty, 3=empty, 4=empty, 5=O, 6=empty, 7=empty, 8=empty, 9=empty", signature: "X---O----" },
+        childLabel: "X",
+        companionLabel: "O",
         turn: "child",
       },
     });
@@ -409,9 +472,9 @@ describe("companion showroom talk contract", () => {
       activityReaction: {
         activityId: "tic_tac_toe",
         eventType: "round_complete",
-        board: ["X", "X", "O", "O", "O", "X", "X", "X", "O"],
-        childMark: "X",
-        companionMark: "O",
+        board: { text: "1=X, 2=X, 3=O, 4=O, 5=O, 6=X, 7=X, 8=X, 9=O", signature: "XXOOOXXXO" },
+        childLabel: "X",
+        companionLabel: "O",
         turn: "none",
         result: "draw",
         desiredTone: "warm_playful",
@@ -442,14 +505,13 @@ describe("companion showroom talk contract", () => {
         activityId: "tic_tac_toe",
         surface: "video_call_overlay",
         status: "active",
-        board: ["X", null, null, null, "O", null, null, null, null],
-        childMark: "X",
-        companionMark: "O",
+        board: { text: "1=X, 2=empty, 3=empty, 4=empty, 5=O, 6=empty, 7=empty, 8=empty, 9=empty", signature: "X---O----" },
+        childLabel: "X",
+        companionLabel: "O",
         turn: "child",
         lastMove: {
           by: "companion",
-          square: 5,
-          mark: "O",
+          description: "placed O on square 5",
           timestamp: 1000,
         },
       },
@@ -822,6 +884,31 @@ describe("companion showroom talk contract", () => {
     expect(prompt).not.toContain("even when you call companionAct");
   });
 
+  it("prompts a present-tense line around the planned move for gated companion turns", () => {
+    const prompt = buildShowroomTalkSystemPrompt({
+      companionId: "elli",
+      companionName: "Elli",
+      showroomTheme: "crystal",
+      personality: "Warm, playful, brave.",
+      mode: "video_call",
+      activityReaction: {
+        activityId: "tic_tac_toe",
+        eventType: "companion_move",
+        board: { text: "1=X, 2=empty, 3=empty, 4=empty, 5=empty, 6=empty, 7=empty, 8=empty, 9=empty", signature: "X--------" },
+        childLabel: "X",
+        companionLabel: "O",
+        turn: "companion",
+        plannedMove: "place your O on square 5",
+      },
+    });
+
+    expect(prompt).toContain(
+      "You are about to place your O on square 5; the board shown is from before that move.",
+    );
+    expect(prompt).toContain("Speak as you make this move");
+    expect(prompt).toContain("Say the line in this same response");
+  });
+
   it("does not synthesize fallback speech for companionAct-only turns", () => {
     expect(
       resolveShowroomSpokenText({
@@ -859,7 +946,7 @@ describe("companion showroom talk contract", () => {
     );
   });
 
-  it("runs a Claude followup when an activity reaction returns tool-only content", () => {
+  it("runs a Claude followup only when tool-only content still needs speech", () => {
     expect(
       shouldRunShowroomToolFollowup({
         isActivityReaction: true,
@@ -868,6 +955,26 @@ describe("companion showroom talk contract", () => {
         activityToolUseCount: 0,
       }),
     ).toBe(true);
+
+    expect(
+      shouldRunShowroomToolFollowup({
+        isActivityReaction: true,
+        rawText: "",
+        companionActToolUseCount: 1,
+        activityToolUseCount: 0,
+        activityReactionEventType: "companion_move",
+      }),
+    ).toBe(true);
+
+    expect(
+      shouldRunShowroomToolFollowup({
+        isActivityReaction: true,
+        rawText: "",
+        companionActToolUseCount: 1,
+        activityToolUseCount: 0,
+        activityReactionEventType: "child_move",
+      }),
+    ).toBe(false);
 
     expect(
       shouldRunShowroomToolFollowup({
@@ -885,7 +992,25 @@ describe("companion showroom talk contract", () => {
         companionActToolUseCount: 0,
         activityToolUseCount: 1,
       }),
+    ).toBe(false);
+
+    expect(
+      shouldRunShowroomToolFollowup({
+        isActivityReaction: false,
+        rawText: "",
+        companionActToolUseCount: 1,
+        activityToolUseCount: 0,
+      }),
     ).toBe(true);
+
+    expect(
+      shouldRunShowroomToolFollowup({
+        isActivityReaction: false,
+        rawText: "",
+        companionActToolUseCount: 0,
+        activityToolUseCount: 0,
+      }),
+    ).toBe(false);
   });
 
   it("keeps tic-tac-toe activity reactions to one Claude round trip when speech is already present and records latency spans", () => {
