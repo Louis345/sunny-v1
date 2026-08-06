@@ -27,6 +27,8 @@ export type CompanionVideoCallOverlayProps = {
   primaryBackground: string;
   portrait: ReactNode;
   activitySlot?: ReactNode;
+  /** Width the mounted activity asks for; falls back to the compact default. */
+  activityTrayWidthPx?: number;
   layout?: CompanionVideoCallLayout;
   companionView?: CompanionVideoCompanionView;
   handsFree?: boolean;
@@ -65,6 +67,7 @@ export function CompanionVideoCallOverlay({
   primaryBackground,
   portrait,
   activitySlot,
+  activityTrayWidthPx,
   layout,
   companionView,
   handsFree = false,
@@ -537,9 +540,9 @@ export function CompanionVideoCallOverlay({
                   transform: "none",
                   transformOrigin: "center center",
                   zIndex: 4,
-                  width: "min(28vw, 300px)",
+                  width: `min(46vw, ${activityTrayWidthPx ?? 300}px)`,
                   minWidth: 250,
-                  maxWidth: 300,
+                  maxWidth: activityTrayWidthPx ?? 300,
                   maxHeight: "calc(100vh - 190px)",
                   display: "grid",
                   placeItems: "center",

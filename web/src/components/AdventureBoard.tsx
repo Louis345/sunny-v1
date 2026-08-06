@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   BookOpen,
   Check,
@@ -29,9 +29,46 @@ import "./AdventureBoard.css";
 
 type AdventureBoardProps = {
   board: AdventureBoardJson;
+  completedNodeIds?: readonly string[];
+  inspectBaselineNodes?: boolean;
   onNodeClick?: (node: AdventureBoardNode) => void;
   onChoiceClick?: (option: AdventureChoiceOption, choiceSet: AdventureChoiceSet) => void;
+  onUnlockCeremony?: (event: UnlockCeremonyEvent) => void;
 };
+
+export type UnlockCeremonyVariant = "power" | "gate" | "warp" | "thunder";
+
+export type UnlockCeremonyEvent = {
+  nodeId: string;
+  kind: "quest" | "boss";
+  label: string;
+  variant: UnlockCeremonyVariant;
+};
+
+const UNLOCK_CEREMONY_PAIRS: ReadonlyArray<{
+  quest: UnlockCeremonyVariant;
+  boss: UnlockCeremonyVariant;
+}> = [
+  { quest: "power", boss: "thunder" },
+  { quest: "gate", boss: "power" },
+  { quest: "warp", boss: "gate" },
+];
+
+function stablePresentationHash(value: string): number {
+  let hash = 0;
+  for (let index = 0; index < value.length; index += 1) {
+    hash = (hash * 31 + value.charCodeAt(index)) >>> 0;
+  }
+  return hash;
+}
+
+export function unlockCeremonyVariantFor(
+  boardId: string,
+  kind: "quest" | "boss",
+): UnlockCeremonyVariant {
+  const pair = UNLOCK_CEREMONY_PAIRS[stablePresentationHash(boardId) % UNLOCK_CEREMONY_PAIRS.length]!;
+  return pair[kind];
+}
 
 type PositionedAdventureBoardNode = AdventureBoardNode & {
   position: { x: number; y: number };
@@ -104,44 +141,96 @@ function resolveNodePosition(node: AdventureBoardNode): PositionedAdventureBoard
 
 export function AdventureBoard({
   board,
+  completedNodeIds = [],
+  inspectBaselineNodes = false,
   onNodeClick,
   onChoiceClick,
+  onUnlockCeremony,
 }: AdventureBoardProps): React.ReactElement {
+  const previousNodeStates = useRef(new Map(board.nodes.map((node) => [node.id, node.state])));
+  const unlockCeremonyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [unlockCeremony, setUnlockCeremony] = useState<UnlockCeremonyEvent | null>(null);
+
+  useEffect(() => {
+    const newlyUnlocked = board.nodes.find((node) => {
+      if (node.kind !== "quest" && node.kind !== "boss") return false;
+      const previousState = previousNodeStates.current.get(node.id);
+      return (
+        (previousState === "locked" || previousState === "preview") &&
+        (node.state === "available" || node.state === "current")
+      );
+    });
+    previousNodeStates.current = new Map(board.nodes.map((node) => [node.id, node.state]));
+    if (!newlyUnlocked) return;
+
+    if (unlockCeremonyTimer.current) clearTimeout(unlockCeremonyTimer.current);
+    const event: UnlockCeremonyEvent = {
+      nodeId: newlyUnlocked.id,
+      kind: newlyUnlocked.kind === "boss" ? "boss" : "quest",
+      label: newlyUnlocked.shortLabel ?? newlyUnlocked.label,
+      variant: unlockCeremonyVariantFor(
+        board.boardId,
+        newlyUnlocked.kind === "boss" ? "boss" : "quest",
+      ),
+    };
+    setUnlockCeremony(event);
+    onUnlockCeremony?.(event);
+    unlockCeremonyTimer.current = setTimeout(() => {
+      setUnlockCeremony(null);
+      unlockCeremonyTimer.current = null;
+    }, 2400);
+  }, [board.boardId, board.nodes, onUnlockCeremony]);
+
+  useEffect(() => () => {
+    if (unlockCeremonyTimer.current) clearTimeout(unlockCeremonyTimer.current);
+  }, []);
+
+  const completedNodeIdSet = new Set(completedNodeIds);
   const resolvedNodes = board.nodes.flatMap((node) => {
     const positionedNode = resolveNodePosition(node);
-    return positionedNode ? [positionedNode] : [];
-  });
-  const choiceSetsById = new Map((board.choiceSets ?? []).map((set) => [set.id, set]));
-  const [openChoiceSetId, setOpenChoiceSetId] = useState<string | null>(null);
-  const [selectedOptionByChoiceSet, setSelectedOptionByChoiceSet] = useState<Record<string, string>>({});
-  const openChoiceSet = openChoiceSetId ? choiceSetsById.get(openChoiceSetId) ?? null : null;
-  const skippedRouteNodeIds = new Set<string>();
-  for (const choiceSet of board.choiceSets ?? []) {
-    if (choiceSet.kind !== "baseline-route" || board.layout?.routeChoiceBehavior !== "exclusive") continue;
-    const selectedOptionId = selectedOptionByChoiceSet[choiceSet.id];
-    if (!selectedOptionId) continue;
-    for (const option of choiceSet.options) {
-      if (option.id !== selectedOptionId && option.nodeId) {
-        skippedRouteNodeIds.add(option.nodeId);
-      }
+    if (!positionedNode) return [];
+    if (
+      inspectBaselineNodes &&
+      positionedNode.state === "locked" &&
+      positionedNode.kind !== "quest" &&
+      positionedNode.kind !== "boss" &&
+      positionedNode.kind !== "mystery" &&
+      positionedNode.kind !== "reward"
+    ) {
+      return [{ ...positionedNode, state: "available" as const, lock: undefined }];
     }
-  }
-  const effectiveNodes = resolvedNodes.map((node) => {
-    if (!skippedRouteNodeIds.has(node.id)) return node;
-    return {
-      ...node,
-      state: "locked" as const,
-      lock: {
-        reason: "route_not_picked",
-        label: "Route not picked",
-      },
-    };
+    if (
+      completedNodeIdSet.has(positionedNode.id) &&
+      positionedNode.state !== "locked" &&
+      positionedNode.state !== "hidden"
+    ) {
+      return [{ ...positionedNode, state: "completed" as const }];
+    }
+    return [positionedNode];
   });
-  const nodes = new Map(effectiveNodes.map((node) => [node.id, node]));
+  const projectedChoiceSets = (board.choiceSets ?? []).map((choiceSet) =>
+    inspectBaselineNodes && choiceSet.kind === "baseline-route"
+      ? {
+          ...choiceSet,
+          options: choiceSet.options.map((option) => ({
+            ...option,
+            state: "available" as const,
+            lock: undefined,
+          })),
+        }
+      : choiceSet,
+  );
+  const choiceSetsById = new Map(projectedChoiceSets.map((set) => [set.id, set]));
+  const [openChoiceSetId, setOpenChoiceSetId] = useState<string | null>(null);
+  const openChoiceSet = openChoiceSetId ? choiceSetsById.get(openChoiceSetId) ?? null : null;
+  const nodes = new Map(resolvedNodes.map((node) => [node.id, node]));
 
   return (
     <section
-      className="adventure-board"
+      className={[
+        "adventure-board",
+        unlockCeremony ? `adventure-board--unlocking-${unlockCeremony.variant}` : "",
+      ].join(" ")}
       style={{
         ...boardBackground(board),
         "--board-path": board.theme.palette.path,
@@ -167,6 +256,7 @@ export function AdventureBoard({
                 "adventure-board__edge",
                 `adventure-board__edge--${edge.state}`,
                 edge.style ? `adventure-board__edge--${edge.style}` : "",
+                unlockCeremony?.nodeId === edge.to ? "adventure-board__edge--unlocking" : "",
               ].join(" ")}
               x1={from.position.x * 100}
               y1={from.position.y * 100}
@@ -178,7 +268,7 @@ export function AdventureBoard({
       </svg>
 
       <div className="adventure-board__nodes">
-        {effectiveNodes.filter((node) => node.state !== "hidden").map((node) => {
+        {resolvedNodes.filter((node) => node.state !== "hidden").map((node) => {
           const Icon = iconFor(node.icon, nodeFallbackIcon(node));
           const isLocked = node.state === "locked";
           const isPreparing = node.state === "preview";
@@ -191,6 +281,10 @@ export function AdventureBoard({
                 "adventure-board__node",
                 `adventure-board__node--${node.kind}`,
                 `adventure-board__node--${node.state}`,
+                unlockCeremony?.nodeId === node.id ? "adventure-board__node--unlocking" : "",
+                unlockCeremony?.nodeId === node.id
+                  ? `adventure-board__node--unlocking-${unlockCeremony.variant}`
+                  : "",
               ].join(" ")}
               style={{
                 left: `${node.position.x * 100}%`,
@@ -239,17 +333,45 @@ export function AdventureBoard({
         })}
       </div>
 
+      {unlockCeremony ? (
+        <>
+          <div className="adventure-board__unlock-effects" aria-hidden="true">
+            {Array.from({ length: 18 }, (_, index) => (
+              <i
+                key={index}
+                style={{
+                  left: `${6 + ((index * 17) % 88)}%`,
+                  "--unlock-delay": `${0.08 + (index % 7) * 0.08}s`,
+                  "--unlock-drift": `${-70 + ((index * 31) % 140)}px`,
+                } as React.CSSProperties}
+              />
+            ))}
+          </div>
+          <div
+            className={[
+              "adventure-board__unlock-ceremony",
+              `adventure-board__unlock-ceremony--${unlockCeremony.variant}`,
+            ].join(" ")}
+            role="status"
+            aria-live="polite"
+            aria-label={`${unlockCeremony.kind === "quest" ? "Quest" : "Boss"} unlocked`}
+            data-unlock-ceremony-node={unlockCeremony.nodeId}
+            data-unlock-ceremony-variant={unlockCeremony.variant}
+          >
+            <Sparkles aria-hidden="true" size={28} strokeWidth={2.4} />
+            <span>
+              {unlockCeremony.kind === "quest" ? "Quest unlocked" : "Boss unlocked"}
+              <strong>{unlockCeremony.label}</strong>
+            </span>
+          </div>
+        </>
+      ) : null}
+
       <AdventureChoiceModal
         choiceSet={openChoiceSet}
         open={Boolean(openChoiceSet)}
         onDismiss={() => setOpenChoiceSetId(null)}
         onSelect={(option) => {
-          if (openChoiceSet?.kind === "baseline-route" && board.layout?.routeChoiceBehavior === "exclusive") {
-            setSelectedOptionByChoiceSet((prev) => ({
-              ...prev,
-              [openChoiceSet.id]: option.id,
-            }));
-          }
           if (openChoiceSet) {
             onChoiceClick?.(option, openChoiceSet);
           }

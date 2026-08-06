@@ -26,7 +26,48 @@ describe("App companion overlay stack", () => {
   });
 
   it("planner board launch triggers portrait mode (activity overlay)", () => {
-    expect(src).toMatch(/companionPortraitMode[\s\S]{0,200}plannerBoardLaunch != null/);
+    expect(src).toContain("state.companionPresence");
+    expect(src).toContain('"collapsed"');
+    expect(src).toContain('"portrait"');
+    expect(src).toContain("setCompanionPresence");
+  });
+
+  it("reserves a host-owned safe area while the companion is summoned over a generated activity", () => {
+    expect(src).toContain('data-testid="generated-activity-safe-area"');
+    expect(src).toContain('data-testid="generated-activity-frame"');
+    expect(src).toMatch(/data-testid="generated-activity-safe-area"[\s\S]{0,220}inset:\s*0/);
+    expect(src).toContain('state.companionPresence === "summoned" ? 220 : 0');
+  });
+
+  it("lets parent preview launch locked baseline nodes without opening Quest or Boss", () => {
+    expect(src).toContain("parentPreviewActive");
+    expect(src).toContain("inspectableBaselineNode");
+    expect(src).toContain("allowLocked: inspectableBaselineNode");
+    expect(src).toMatch(/boardNode\.kind !== "quest"[\s\S]{0,160}boardNode\.kind !== "boss"/);
+  });
+
+  it("keeps the shared balance in the companion bag instead of beneath the companion", () => {
+    expect(src).not.toContain("<CompanionCurrencyHud");
+    expect(src).toContain("companionCurrency={props.balance}");
+  });
+
+  it("shares the launched AI-authored activity context with Elli", () => {
+    expect(src).toContain("buildPlannerBoardCompanionContext(node)");
+    expect(src).toMatch(/type:\s*"game_state_update"[\s\S]{0,300}companionContext/);
+  });
+
+  it("routes generated-math semantic sound through the host without forwarding it as learning evidence", () => {
+    expect(src).toContain('data.type === "sunny_sfx"');
+    expect(src).toContain('data.type === "sunny_sound_toggle"');
+    expect(src).toContain("playGeneratedMathSfx");
+    expect(src).not.toMatch(/sendMessage\([\s\S]{0,120}sunny_sfx/);
+  });
+
+  it("plays a board-owned motif for node launch without creating learning evidence", () => {
+    expect(src).toContain("playAdventureBoardSfx");
+    expect(src).toContain('playAdventureBoardSfx("locked")');
+    expect(src).toContain('playAdventureBoardSfx(boardNode.state === "completed" ? "replay" : "launch")');
+    expect(src).not.toMatch(/sendMessage\([\s\S]{0,120}adventureBoardSfx/);
   });
 
   it("karaokeReadingActive triggers portrait mode (story/karaoke canvas)", () => {
@@ -56,9 +97,14 @@ describe("App companion overlay stack", () => {
     expect(src).toContain("micMuted={micMuted || voiceGameCompanionMicMuted}");
   });
 
-  it("preselected homework board child starts companion voice once only outside planner-board runtime", () => {
+  it("preselected homework board child starts companion voice exactly once", () => {
     expect(src).toContain("autoStartedAdventureVoiceRef");
-    expect(src).toContain("if (plannerBoardRuntimeRequested)");
+    expect(src).not.toMatch(
+      /if \(plannerBoardRuntimeRequested\)\s*\{[\s\S]{0,220}return;/,
+    );
+    expect(src).toMatch(
+      /autoStartedAdventureVoiceRef\.current = adventureChildId;[\s\S]{0,220}startSession\(childNameFromId\(adventureChildId\)/,
+    );
     expect(src).toMatch(/startSession\(childNameFromId\(adventureChildId\)/);
   });
 });

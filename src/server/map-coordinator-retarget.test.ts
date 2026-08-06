@@ -2,9 +2,19 @@ import { describe, expect, it } from "vitest";
 import fs from "fs";
 import path from "path";
 import type { NodeConfig, NodeResult } from "../shared/adventureTypes";
-import { retargetFuturePracticeNodes } from "./map-coordinator";
+import { formatPreviewGameDiagnostic, retargetFuturePracticeNodes } from "./map-coordinator";
 
 describe("map coordinator target retargeting", () => {
+  it("formats answer-hidden preview diagnostics without creating evidence", () => {
+    expect(formatPreviewGameDiagnostic("N3A", {
+      phase: "question",
+      itemIndex: 2,
+      totalItems: 6,
+      availableActions: ["drag_coin", "submit"],
+      currentChallenge: { id: "N3A-I2", prompt: "hidden from diagnostic", answer: 41 },
+    })).toBe("node=N3A phase=question item=2/6 actions=drag_coin,submit");
+  });
+
   it("records evidence without rewriting future session-plan targets", () => {
     const completedNode: NodeConfig = {
       id: "n-mystery",

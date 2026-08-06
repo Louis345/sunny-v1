@@ -2,6 +2,8 @@
 
 Every contributor (human or AI) must read this before touching any file.
 
+Learning adaptation, prediction, evidence, returned-work calibration, and theory decisions are governed solely by [`LEARNING_FEEDBACK_LOOP.md`](./LEARNING_FEEDBACK_LOOP.md).
+
 ## The Prime Directive
 
 Build systems, not features.  

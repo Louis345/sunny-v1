@@ -128,6 +128,94 @@ export const SEEDED_HUMAN_BUG_INVARIANTS: LabInvariant[] = [
     suggestedFailingTest:
       "A session with Word Radar or Monster target evidence cannot write next_plan_unchanged because the node was treated as non-word-driven.",
   },
+  {
+    code: "route_preview_must_match_authored_action",
+    source: "human_caught_bug",
+    invariant:
+      "A route choice must show the opening view of its declared artifact and the Creator-authored action cue, without substituting generic route prose.",
+    suggestedFailingTest:
+      "Each route card binds previewNodeId and artifact hash and renders its childFacingActionCue in at most two lines.",
+  },
+  {
+    code: "preview_runtime_blocks_learning_writes",
+    source: "human_caught_bug",
+    invariant:
+      "Server-owned preview runtime blocks route, completion, rating, help, engagement, attempt-log, and fact-bank writes regardless of client payload fields.",
+    suggestedFailingTest:
+      "An as-child journey leaves canonical cycle, profile, fact-bank, and attempt-log hashes unchanged while retaining diagnostic traces.",
+  },
+  {
+    code: "companion_transcript_is_one_child_turn",
+    source: "human_caught_bug",
+    invariant:
+      "Overlapping speech-recognition fragments form one child turn, and short natural farewell language dismisses locally without a model call even when speech recognition corrupts the companion name.",
+    suggestedFailingTest:
+      "Overlapping help fragments produce one response and both 'Bye Elli, bye Sunny' and 'Alright, bye Sony' produce immediate local dismissal.",
+  },
+  {
+    code: "companion_conversation_persists_until_dismissed",
+    source: "human_caught_bug",
+    invariant:
+      "A voice-summoned conversation remains open across complete turns until the child dismisses Elli, while explicit read-instruction help returns to standby unless a follow-up is requested.",
+    suggestedFailingTest:
+      "Voice summon plus two responses never emits collapsed; read_instruction emits collapsed after speech unless disposition awaits a child response.",
+  },
+  {
+    code: "companion_opening_accepts_immediate_reply",
+    source: "human_caught_bug",
+    invariant:
+      "A companion-initiated opening enters conversational presence before speech so the child's immediate reply is accepted instead of discarded as ambient audio.",
+    suggestedFailingTest:
+      "Session greeting sets summoned voice presence before delivering the opening line.",
+  },
+  {
+    code: "parent_preview_is_visible_and_inspectable",
+    source: "human_caught_bug",
+    invariant:
+      "Parent preview visibly states that progress will not save and permits inspection of baseline activities without unlocking evidence-gated Quest or Boss nodes.",
+    suggestedFailingTest:
+      "An as-child board shows the preview banner, exposes locked baseline nodes locally, and leaves Quest and Boss locked.",
+  },
+  {
+    code: "fun_rating_selection_is_cumulative_and_stable",
+    source: "human_caught_bug",
+    invariant:
+      "Fun-rating stars start outlined, fill cumulatively through hover and selection, preserve fixed geometry, and persist only an explicit click.",
+    suggestedFailingTest:
+      "Hovering star three fills one through three without writing evidence; clicking it confirms three before invoking the rating callback.",
+  },
+  {
+    code: "companion_does_not_obscure_currency",
+    source: "human_caught_bug",
+    invariant:
+      "The persistent board companion and currency affordance do not occupy the same viewport region; the canonical balance remains available in the companion inventory bag.",
+    suggestedFailingTest:
+      "Homework App renders no standalone currency HUD while TamagotchiSheet receives the canonical balance.",
+  },
+  {
+    code: "companion_help_reserves_activity_safe_area",
+    source: "human_caught_bug",
+    invariant:
+      "Summoning the companion must not place essential instructions, mathematical representations, or primary controls beneath the portrait, and must not install a backdrop that blocks activity interaction.",
+    suggestedFailingTest:
+      "A generated activity yields a host-owned right safe area while summoned and restores the full viewport when dismissed.",
+  },
+  {
+    code: "active_companion_identity_is_canonical",
+    source: "human_caught_bug",
+    invariant:
+      "The math board, voice session, portrait, memory, and child-facing companion name must derive from the active child chart rather than a generator-stamped companion identity.",
+    suggestedFailingTest:
+      "A Reina plan built from a Matilda chart projects Matilda in both companionPolicy and adventureBoard companion metadata.",
+  },
+  {
+    code: "quest_requires_independent_correct_baseline_evidence",
+    source: "human_caught_bug",
+    invariant:
+      "All-wrong and assisted-only baseline completion cannot make Quest an available Planner action.",
+    suggestedFailingTest:
+      "Quest generation is rejected without at least one target-aligned correct unassisted baseline observation.",
+  },
 ];
 
 function ensureDir(dir: string): void {

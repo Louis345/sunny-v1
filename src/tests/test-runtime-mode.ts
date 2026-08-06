@@ -116,8 +116,8 @@ describe("package.json runtime launcher scripts", () => {
     expect(pkg.scripts["sunny:homework"]).toBeDefined();
   });
 
-  it("plain sunny runs review mode, while sunny:homework focuses the latest homework", () => {
-    expect(pkg.scripts.sunny).toContain("--subject review");
+  it("plain sunny opens the parent menu while sunny:homework remains directly available", () => {
+    expect(pkg.scripts.sunny).toContain("src/scripts/sunnyMenu.ts");
     expect(pkg.scripts["sunny:homework"]).toContain("--subject homework");
   });
 
@@ -128,12 +128,17 @@ describe("package.json runtime launcher scripts", () => {
     expect(pkg.scripts["sunny:spelling"]).toContain("sunny:homework:spelling");
   });
 
-  it("has parent-facing ingest domain scripts that start intake without child flags", () => {
+  it("routes parent-facing ingest scripts through their canonical domain pipeline", () => {
     expect(pkg.scripts["sunny:ingest:spelling"]).toContain("sunny:ingest:homework");
     expect(pkg.scripts["sunny:ingest:spelling"]).toContain("--domain spelling");
     expect(pkg.scripts["sunny:ingest:spelling"]).not.toContain("--child");
     expect(pkg.scripts["sunny:ingest:reading"]).toContain("--domain reading");
-    expect(pkg.scripts["sunny:ingest:math"]).toContain("--domain math");
+    expect(pkg.scripts["sunny:ingest:math"]).toBe(
+      "npx tsx src/scripts/ingestMathDirect.ts",
+    );
+    expect(pkg.scripts["sunny:ingest:math"]).not.toContain(
+      "sunny:ingest:homework",
+    );
   });
 
   it('contains script "sunny:diag"', () => {

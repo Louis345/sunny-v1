@@ -1,7 +1,11 @@
+import {
+  getCompanionActivityAliases,
+  getCompanionActivityIntentWords,
+} from "../../../src/shared/companionActivities/registry";
 import type {
-  CompanionTicTacToeBanter,
-  CompanionTicTacToeGameEvent,
-} from "./CompanionTicTacToe";
+  CompanionActivityBanter,
+  CompanionActivityGameEvent,
+} from "./companionActivities/types";
 
 export type CompanionActivityPhase =
   | "idle"
@@ -34,10 +38,41 @@ function isRepeatAfterExit(question: string): boolean {
   );
 }
 
+function escapeForPattern(word: string): string {
+  return word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/[\s-]+/g, "[\\s-]?");
+}
+
+function buildWordPattern(words: string[]): RegExp {
+  const sorted = [...new Set(words.map(escapeForPattern))].sort((a, b) => b.length - a.length);
+  return new RegExp(`\\b(${sorted.join("|")})\\b`, "i");
+}
+
+// Built from the activity registry so each new game contributes its own words.
+let cachedGameReturnPattern: RegExp | undefined;
+function gameReturnPattern(): RegExp {
+  if (!cachedGameReturnPattern) {
+    cachedGameReturnPattern = buildWordPattern([
+      "back to the game",
+      "back to game",
+      ...getCompanionActivityAliases(),
+    ]);
+  }
+  return cachedGameReturnPattern;
+}
+
+let cachedGameIntentPattern: RegExp | undefined;
+function gameIntentPattern(): RegExp {
+  if (!cachedGameIntentPattern) {
+    cachedGameIntentPattern = buildWordPattern([
+      ...getCompanionActivityIntentWords(),
+      "centre",
+    ]);
+  }
+  return cachedGameIntentPattern;
+}
+
 function isGameReturn(question: string): boolean {
-  return /\b(back to (the )?game|let'?s play tic[- ]?tac[- ]?toe|tic[- ]?tac[- ]?toe)\b/i.test(
-    question,
-  );
+  return gameReturnPattern().test(question);
 }
 
 function hasGameIntent(question: string, activeActivity?: CompanionActivityContextLike | null): boolean {
@@ -45,9 +80,7 @@ function hasGameIntent(question: string, activeActivity?: CompanionActivityConte
   const active = activeActivity.status !== "complete" && activeActivity.status !== "completed";
   if (isGameReturn(question)) return true;
   if (!active) return false;
-  return /\b(square|move|turn|board|three in a row|win|block|corner|center|centre)\b/i.test(
-    question,
-  );
+  return gameIntentPattern().test(question);
 }
 
 export function resolveCompanionConversationMode(input: {
@@ -77,18 +110,22 @@ export function selectCompanionActivityContextForTalk<T extends CompanionActivit
   return input.conversationMode === "game" ? input.activeActivity : undefined;
 }
 
+/**
+ * Post-move events stay nonverbal: companion-move speech arrives through the
+ * gated move packet instead, so it can never trail the board.
+ */
 export function shouldRequestCompanionActivityAiReaction(
-  event: CompanionTicTacToeGameEvent,
+  event: Pick<CompanionActivityGameEvent, "type">,
 ): boolean {
   return (
-    event.type === "companion_tic_tac_toe_started" ||
-    event.type === "companion_tic_tac_toe_reset" ||
-    event.type === "companion_tic_tac_toe_round_complete"
+    event.type === "companion_activity_started" ||
+    event.type === "companion_activity_reset" ||
+    event.type === "companion_activity_round_complete"
   );
 }
 
 export function resolveCompanionActivityPhase(
-  banter: Pick<CompanionTicTacToeBanter, "phase">,
+  banter: Pick<CompanionActivityBanter, "phase">,
 ): CompanionActivityPhase {
   if (banter.phase === "child_move") return "child_turn";
   if (banter.phase === "companion_thinking") return "companion_thinking";

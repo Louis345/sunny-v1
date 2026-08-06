@@ -13,7 +13,7 @@ export function setSystemPrompt(prompt: string): void {
 
 export async function ask(userMessage: string): Promise<string> {
   const response = await client.messages.create({
-    model: "claude-sonnet-4-20250514",
+    model: process.env.SUNNY_VOICE_MODEL ?? "claude-sonnet-5",
     max_tokens: 300,
     system: activeSystemPrompt,
     messages: [{ role: "user", content: userMessage }],
@@ -31,7 +31,7 @@ export async function askStream(
 ): Promise<string> {
   const stream = client.messages.stream(
     {
-      model: "claude-sonnet-4-20250514",
+      model: process.env.SUNNY_VOICE_MODEL ?? "claude-sonnet-5",
       max_tokens: 500,
       system: activeSystemPrompt,
       messages,

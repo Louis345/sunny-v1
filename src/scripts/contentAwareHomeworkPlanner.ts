@@ -802,6 +802,40 @@ export function interpretHomeworkAssignment(
     });
   }
 
+  if (
+    wordGroups.length === 0 &&
+    practiceDomainFor(String(extraction.type)) === "math"
+  ) {
+    const questions = Array.isArray(extraction.questions) ? extraction.questions : [];
+    const conceptLabels = questions
+      .map((question, index) => {
+        if (!question || typeof question !== "object") return "";
+        const record = question as Record<string, unknown>;
+        return String(record.question ?? record.prompt ?? `Problem ${index + 1}`).trim();
+      })
+      .filter(Boolean);
+    if (conceptLabels.length > 0) {
+      const groupId = safeGroupId(extraction.title, "math-concepts");
+      wordGroups.push({
+        id: groupId,
+        wordGroupId: groupId,
+        label: extraction.title || "Math Concepts",
+        purpose: "unknown",
+        words: conceptLabels,
+        confidence: 0.7,
+        evidence: sourceEvidence.length > 0
+          ? sourceEvidence
+          : ["Synthesized math concept group from captured homework problems."],
+      });
+      assertions.push({
+        id: "math-concept-group",
+        claim: "Math homework problems were grouped for baseline planning and measurement.",
+        confidence: 0.7,
+        evidence: ["Captured homework problems preserved as a math concept group."],
+      });
+    }
+  }
+
   return buildAssignmentInterpretation({
     wordGroups,
     assertions,

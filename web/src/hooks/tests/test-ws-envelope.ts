@@ -141,4 +141,47 @@ describe("WS envelope vs canvas payload type", () => {
       words: ["Hello"],
     });
   });
+
+  it("surfaces server-owned companion summon and dismiss state", async () => {
+    const { result } = renderHook(() => useSession());
+
+    act(() => result.current.startSession("reina"));
+    const ws = wsInstances[0]!;
+    await act(async () => Promise.resolve());
+
+    act(() => {
+      ws.onmessage?.({
+        data: JSON.stringify({
+          type: "companion_presence",
+          state: "summoned",
+          reason: "read_instruction",
+        }),
+      } as MessageEvent);
+    });
+    expect(result.current.state.companionPresence).toBe("summoned");
+
+    act(() => {
+      ws.onmessage?.({
+        data: JSON.stringify({ type: "companion_presence", state: "collapsed" }),
+      } as MessageEvent);
+    });
+    expect(result.current.state.companionPresence).toBe("collapsed");
+  });
+
+  it("lets the child summon and dismiss the companion through the existing socket", async () => {
+    const { result } = renderHook(() => useSession());
+    act(() => result.current.startSession("reina"));
+    const ws = wsInstances[0]!;
+    await act(async () => Promise.resolve());
+
+    act(() => result.current.setCompanionPresence("summoned"));
+    expect(result.current.state.companionPresence).toBe("summoned");
+    expect(JSON.parse(String(ws.send.mock.calls.at(-1)?.[0]))).toEqual({
+      type: "companion_presence",
+      state: "summoned",
+    });
+
+    act(() => result.current.setCompanionPresence("collapsed"));
+    expect(result.current.state.companionPresence).toBe("collapsed");
+  });
 });

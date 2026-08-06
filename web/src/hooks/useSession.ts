@@ -210,6 +210,8 @@ interface SessionState {
   sessionBootReady: boolean;
   /** First ElevenLabs PCM chunk after this session — used with map loading curtain. */
   firstAudioChunkReceived: boolean;
+  /** Host-controlled activity companion presentation. */
+  companionPresence: "collapsed" | "summoned";
 }
 
 function isMathCanvas(content: string | undefined): boolean {
@@ -327,6 +329,8 @@ export function useSession(options?: UseSessionOptions) {
   const browserTtsAccumRef = useRef("");
   const browserTtsDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const storyImageWatchdogRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const sessionStartPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const sessionStartTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [state, setState] = useState<SessionState>({
     phase: "picker",
@@ -358,6 +362,7 @@ export function useSession(options?: UseSessionOptions) {
     diagGameSessionReady: false,
     sessionBootReady: false,
     firstAudioChunkReceived: false,
+    companionPresence: "collapsed",
   });
 
   const sessionStateRef = useRef(state);
@@ -551,6 +556,7 @@ export function useSession(options?: UseSessionOptions) {
           diagGameSessionReady: false,
           sessionBootReady: false,
           firstAudioChunkReceived: false,
+          companionPresence: "collapsed",
           companion: {
             childName: m.childName ?? m.child ?? "",
             companionName: m.companionName ?? m.companion ?? "",
@@ -586,6 +592,13 @@ export function useSession(options?: UseSessionOptions) {
           ...s,
           companionEvents: [...s.companionEvents, ev],
         }));
+        break;
+      }
+
+      case "companion_presence": {
+        const presence = (msg as Record<string, unknown>).state;
+        if (presence !== "collapsed" && presence !== "summoned") break;
+        setStateRef.current((s) => ({ ...s, companionPresence: presence }));
         break;
       }
 
@@ -1131,6 +1144,7 @@ export function useSession(options?: UseSessionOptions) {
           diagGameSessionReady: false,
           sessionBootReady: false,
           firstAudioChunkReceived: false,
+          companionPresence: "collapsed",
           };
         });
         stopMicRef.current();
@@ -1436,11 +1450,22 @@ export function useSession(options?: UseSessionOptions) {
       const sttOnly = options?.sttOnly === true;
       const wsChild = diagKiosk ? "creator" : childName;
 
-      let timeoutId: ReturnType<typeof setTimeout>;
-      const check = setInterval(() => {
+      if (sessionStartPollRef.current) {
+        clearInterval(sessionStartPollRef.current);
+      }
+      if (sessionStartTimeoutRef.current) {
+        clearTimeout(sessionStartTimeoutRef.current);
+      }
+      sessionStartPollRef.current = setInterval(() => {
         if (wsRef.current?.readyState === WebSocket.OPEN) {
-          clearInterval(check);
-          clearTimeout(timeoutId);
+          if (sessionStartPollRef.current) {
+            clearInterval(sessionStartPollRef.current);
+            sessionStartPollRef.current = null;
+          }
+          if (sessionStartTimeoutRef.current) {
+            clearTimeout(sessionStartTimeoutRef.current);
+            sessionStartTimeoutRef.current = null;
+          }
           sendMessage("start_session", {
             child: wsChild,
             ...(diagKiosk ? { diagKiosk: true } : {}),
@@ -1451,8 +1476,12 @@ export function useSession(options?: UseSessionOptions) {
         }
       }, 100);
 
-      timeoutId = setTimeout(() => {
-        clearInterval(check);
+      sessionStartTimeoutRef.current = setTimeout(() => {
+        if (sessionStartPollRef.current) {
+          clearInterval(sessionStartPollRef.current);
+          sessionStartPollRef.current = null;
+        }
+        sessionStartTimeoutRef.current = null;
         setStateRef.current((s) => ({
           ...s,
           error: "Connection timeout",
@@ -1564,6 +1593,7 @@ export function useSession(options?: UseSessionOptions) {
       diagGameSessionReady: false,
       sessionBootReady: false,
       firstAudioChunkReceived: false,
+      companionPresence: "collapsed",
     });
     wsRef.current?.close();
     wsRef.current = null;
@@ -1602,6 +1632,14 @@ export function useSession(options?: UseSessionOptions) {
         clearTimeout(storyImageWatchdogRef.current);
         storyImageWatchdogRef.current = null;
       }
+      if (sessionStartPollRef.current) {
+        clearInterval(sessionStartPollRef.current);
+        sessionStartPollRef.current = null;
+      }
+      if (sessionStartTimeoutRef.current) {
+        clearTimeout(sessionStartTimeoutRef.current);
+        sessionStartTimeoutRef.current = null;
+      }
       stopMic();
       if (playContextRef.current) {
         playContextRef.current.close();
@@ -1627,6 +1665,14 @@ export function useSession(options?: UseSessionOptions) {
   const submitWorksheetAnswer = useCallback(
     (payload: { problemId: string; fieldId: string; value: string }) => {
       sendMessage("worksheet_answer", payload);
+    },
+    [sendMessage],
+  );
+
+  const setCompanionPresence = useCallback(
+    (presence: "collapsed" | "summoned") => {
+      setState((current) => ({ ...current, companionPresence: presence }));
+      sendMessage("companion_presence", { state: presence });
     },
     [sendMessage],
   );
@@ -1664,6 +1710,7 @@ export function useSession(options?: UseSessionOptions) {
     sendMessage,
     micMuted,
     toggleMicMute,
+    setCompanionPresence,
     registerMapNodeType,
     companionEvents: state.companionEvents,
     companionCommands: state.companionCommands,

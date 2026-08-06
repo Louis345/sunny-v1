@@ -5,7 +5,7 @@ import path from "path";
 import readline from "readline/promises";
 import { stdin as input, stdout as output } from "process";
 import { readLearningProfile, writeLearningProfile } from "../utils/learningProfileIO";
-import type { ActiveSessionPlan, HomeworkDomain, LearningProfile } from "../context/schemas/learningProfile";
+import type { ActiveSessionPlan, EngagementDimension, HomeworkDomain, LearningProfile } from "../context/schemas/learningProfile";
 import { readWordBank, writeWordBank } from "../utils/wordBankIO";
 import { createFreshSM2Track } from "../context/schemas/wordBank";
 import { generateContentFingerprint, generateHomeworkId } from "../context/schemas/homeworkCycle";
@@ -67,6 +67,18 @@ import {
   buildPlannerDecisionAudit,
   type PlannerDecisionAudit,
 } from "../engine/plannerDecisionAudit";
+import {
+  buildInitialEngagementTheory,
+  readEngagementTheory,
+  writeEngagementTheory,
+} from "../engine/engagementTheory";
+import { validateFullExperienceReadiness } from "../engine/fullExperienceReadiness";
+import { enrichMathNodeArtwork, localizeMathNodeArtwork } from "../engine/mathNodeArtwork";
+import { persistIngestedLearningCycle } from "../engine/learningCycleIngest";
+import { repairLatestHistoricalLearningCycleBeforePlanning } from "../engine/learningCycleRepository";
+import { createIngestProgress, type IngestProgress } from "../utils/ingestOutput";
+import { generateStoryImage } from "../utils/generateStoryImage";
+import { buildAdventureBoardFromActiveSessionPlan } from "../shared/adventureBoardFromPlan";
 
 type ExtractionShape = {
   title: string;
@@ -247,6 +259,10 @@ function normalizeIngestDomain(raw: string | null): IngestHomeworkDomain | undef
     throw new Error(`Invalid homework domain: ${raw}`);
   }
   return undefined;
+}
+
+export function assertLegacyMathIngestAllowed(domain: HomeworkDomain | undefined): void {
+  if (domain === "math") throw new Error("legacy_math_ingest_quarantined:use_npm_run_sunny_ingest_math");
 }
 
 export function inferIngestDomainFromExtraction(extracted: Pick<ExtractionShape, "type" | "contentProfile">): IngestHomeworkDomain {
@@ -1005,6 +1021,133 @@ export function parseCliArgs(argv: string[]): {
   };
 }
 
+type IngestSummary = {
+  childId: string;
+  domain: string;
+  title: string;
+  homeworkId: string;
+  status: "FULL" | "READY_WITH_FALLBACK" | "BLOCKED";
+  plannedActivities: number;
+  launchableActivities: number;
+  uniqueShells: number;
+  fallbackActivities: number;
+  lockedNodes: number;
+  readinessFailures: string[];
+  reportPath: string;
+  pendingDir: string;
+};
+
+function readJsonIfPresent<T>(filePath: string): T | null {
+  if (!fs.existsSync(filePath)) return null;
+  try {
+    return JSON.parse(fs.readFileSync(filePath, "utf8")) as T;
+  } catch {
+    return null;
+  }
+}
+
+function buildIngestSummary(childId: string, today: string): IngestSummary | null {
+  const contextDir = path.join(process.cwd(), "src", "context", childId);
+  const pendingDir = path.join(contextDir, "homework", "pending", today);
+  const homework = readJsonIfPresent<{
+    selectedDomain?: string;
+    current?: { homeworkId?: string; capturedContent?: { title?: string }; contentProfile?: { topic?: string } };
+  }>(path.join(contextDir, "homework", "current.json"));
+  const plan = readJsonIfPresent<{
+    current?: {
+      nodePlan?: Array<{
+        id: string;
+        type?: string;
+        locked?: boolean;
+        gameHtmlPath?: string | null;
+        activityConfigPath?: string | null;
+        title?: string;
+        contentId?: string;
+        mechanic?: string;
+        targets?: string[];
+        difficulty?: number;
+        engagementDimensions?: string[];
+        engagementVariable?: string;
+        validationProof?: {
+          engine: "playwright";
+          passed: boolean;
+          worldStateChanged: boolean;
+          screenshotPaths: string[];
+        };
+      }>;
+      adventureBoard?: {
+        nodes?: Array<{ id: string; kind?: string; thumbnailUrl?: string }>;
+      };
+    };
+  }>(path.join(contextDir, "plans", "active_session_plan.json"));
+  const nodes = plan?.current?.nodePlan ?? [];
+  const baselineNodes = nodes
+    .filter((node) => node.type === "generated-baseline")
+    .map((node) => ({
+      ...node,
+      engagementVariable: node.engagementVariable ?? node.engagementDimensions?.[0],
+    }));
+  const launchable = baselineNodes.filter((node) => Boolean(node.gameHtmlPath));
+  const uniqueShells = new Set(
+    launchable.map((node) => node.gameHtmlPath).filter((value): value is string => Boolean(value)),
+  ).size;
+  const lockedNodes = nodes.filter((node) => node.locked).length;
+  const fallbackActivities = Math.max(0, launchable.length - uniqueShells);
+  const readiness = validateFullExperienceReadiness({
+    baselineNodes,
+    boardNodes: plan?.current?.adventureBoard?.nodes ?? [],
+    publicRoot: path.join(process.cwd(), "web", "public"),
+  });
+  const readinessFailures = readiness.failures;
+  const status: IngestSummary["status"] = readinessFailures.length === 0 && baselineNodes.length > 0
+    ? "FULL"
+    : "BLOCKED";
+  const homeworkId = homework?.current?.homeworkId ?? "unknown";
+  return {
+    childId,
+    domain: homework?.selectedDomain ?? "unknown",
+    title: homework?.current?.capturedContent?.title ?? homework?.current?.contentProfile?.topic ?? "homework",
+    homeworkId,
+    status,
+    plannedActivities: baselineNodes.length,
+    launchableActivities: launchable.length,
+    uniqueShells,
+    fallbackActivities,
+    lockedNodes,
+    readinessFailures: [...new Set(readinessFailures)],
+    pendingDir,
+    reportPath: path.join(pendingDir, "ingest-report.md"),
+  };
+}
+
+function writeIngestReport(summary: IngestSummary, diagnostics: string[]): void {
+  fs.mkdirSync(summary.pendingDir, { recursive: true });
+  const report = [
+    "# Sunny ingestion report",
+    "",
+    `- Status: **${summary.status}**`,
+    `- Child: ${summary.childId}`,
+    `- Domain: ${summary.domain}`,
+    `- Assignment: ${summary.title}`,
+    `- Homework ID: ${summary.homeworkId}`,
+    `- Baseline activities: ${summary.launchableActivities}/${summary.plannedActivities} launchable`,
+    `- Distinct shells: ${summary.uniqueShells}`,
+    `- Shared fallback assignments: ${summary.fallbackActivities}`,
+    `- Locked nodes: ${summary.lockedNodes}`,
+    `- Readiness failures: ${summary.readinessFailures.length ? summary.readinessFailures.join(", ") : "none"}`,
+    "",
+    "## Diagnostic output",
+    "",
+    "The detailed internal output is preserved below for debugging. The normal CLI intentionally hides it.",
+    "",
+    "```text",
+    ...diagnostics.map((line) => line.replace(/\u001b\[[0-9;]*m/g, "")),
+    "```",
+    "",
+  ].join("\n");
+  fs.writeFileSync(summary.reportPath, report, "utf8");
+}
+
 function listIncomingFiles(dir: string): string[] {
   if (!fs.existsSync(dir)) return [];
   return fs.readdirSync(dir).map((name) => path.join(dir, name));
@@ -1297,6 +1440,7 @@ async function extractHomework(args: {
   masteryContext: AssignmentMasteryContext;
   plannerModel?: string;
 }): Promise<ExtractionShape> {
+  repairLatestHistoricalLearningCycleBeforePlanning(args.childId);
   const assignmentSource = await extractAssignmentSource(args.filePath, {
     pageImageDir: args.pageImageDir,
   });
@@ -1460,6 +1604,68 @@ export function buildCycleStub(args: {
   };
 }
 
+export function childFacingMathNodeTitle(node: Pick<ActiveSessionPlan["nodePlan"][number], "id" | "type" | "activityId" | "targets">): string {
+  const id = node.id.toLowerCase();
+  const activityId = (node.activityId ?? node.type).toLowerCase();
+  if (activityId === "mystery" || node.type === "mystery") return "Mystery Challenge";
+  if (activityId === "quest" || node.type === "quest") return "Multiplication Quest";
+  if (activityId === "boss" || node.type === "boss") return "Multiplication Boss";
+  if (/vault/.test(id)) return "Vault Cracker";
+  if (/clock/.test(id)) return "Array Transfer";
+  if (/baseline.*(word|problem)|word-problem/.test(id)) return "Story Solver";
+  if (/route-a/.test(id)) return "Speed Facts Sprint";
+  if (/route-b/.test(id)) return "Story Transfer";
+  if (/route-story/.test(id)) return "Story Transfer";
+  if (/baseline/.test(id)) return "Fact Blaster";
+  if (/word|problem|story|transfer/.test(id) || node.targets.some((target) => /word|pencil|star|row|box|group/i.test(target))) {
+    return "Story Solver";
+  }
+  if (/speed|timed/.test(id)) return "Speed Facts Sprint";
+  if (/fact|fluency|baseline/.test(id)) return "Fact Blaster";
+  return "Math Practice Lab";
+}
+
+function mathNodeTitleSuffix(node: Pick<ActiveSessionPlan["nodePlan"][number], "id" | "targets">): string {
+  const id = node.id.toLowerCase();
+  if (/facts-x2/.test(id)) return "2s";
+  if (/facts-x5-x10/.test(id)) return "5s & 10s";
+  if (/word-problems/.test(id)) return "Word Problems";
+  if (/arcade-facts-x2/.test(id)) return "2s Sprint";
+  if (/story-word-problems/.test(id)) return "Transfer";
+  if (/route-a/.test(id)) return "Speed Arm";
+  if (/route-b|route-story/.test(id)) return "Story Arm";
+  const target = node.targets.find((value) => value.trim().length > 0);
+  if (target) return target.replace(/[^a-z0-9]+/gi, " ").trim().split(/\s+/).slice(0, 2).join(" ");
+  return id.replace(/^node[-_]?/, "").replace(/[-_]+/g, " ").trim() || "Variant";
+}
+
+/**
+ * Apply child-facing disambiguators after the planner has named all arms.
+ * Internal node ids remain stable; only duplicate labels receive a short
+ * experiment-arm suffix so the board cannot present two indistinguishable
+ * choices to a child.
+ */
+export function ensureUniqueMathNodeTitles(
+  nodes: Array<Pick<ActiveSessionPlan["nodePlan"][number], "id" | "type" | "activityId" | "targets">>,
+): Map<string, string> {
+  const baseById = new Map(nodes.map((node) => [node.id, childFacingMathNodeTitle(node)]));
+  const counts = new Map<string, number>();
+  for (const title of baseById.values()) counts.set(title, (counts.get(title) ?? 0) + 1);
+  const used = new Set<string>();
+  return new Map(nodes.map((node) => {
+    const base = baseById.get(node.id) ?? "Math Practice Lab";
+    if ((counts.get(base) ?? 0) === 1) {
+      used.add(base);
+      return [node.id, base] as const;
+    }
+    const suffix = mathNodeTitleSuffix(node);
+    let title = `${base} · ${suffix}`;
+    if (used.has(title)) title = `${title} · ${node.id.replace(/[-_]+/g, " ")}`;
+    used.add(title);
+    return [node.id, title] as const;
+  }));
+}
+
 function finalizeAssignmentActiveSessionPlan(args: {
   plan: ActiveSessionPlan;
   childId: string;
@@ -1469,13 +1675,62 @@ function finalizeAssignmentActiveSessionPlan(args: {
   parentNote?: string;
   output: AssignmentPlannerOutput;
 }): ActiveSessionPlan {
-  return {
+  const theory = readEngagementTheory(args.childId) ?? buildInitialEngagementTheory({
+    childId: args.childId,
+    domain: args.domain,
+    homeworkId: args.homeworkId,
+  });
+  writeEngagementTheory(args.childId, theory);
+  const routeForNode = new Map<string, string>();
+  for (const route of args.plan.learningRoutes ?? []) {
+    for (const nodeId of route.nodeIds) {
+      if (!routeForNode.has(nodeId)) routeForNode.set(nodeId, route.id);
+    }
+  }
+  const uniqueMathTitles = ensureUniqueMathNodeTitles(args.plan.nodePlan);
+  const nodePlan = args.plan.nodePlan.map((node) => {
+    const routeId = routeForNode.get(node.id);
+    const route = args.plan.learningRoutes?.find((candidate) => candidate.id === routeId);
+    const routeText = `${route?.label ?? "baseline"} ${route?.rationale ?? ""}`.toLowerCase();
+    const treatment = classifyMathRouteTreatment(routeId, routeText, node.targets);
+    const wordProblem = treatment === "story";
+    const factNode = treatment !== "story";
+    const title = args.domain === "math"
+      ? uniqueMathTitles.get(node.id) ?? childFacingMathNodeTitle(node)
+      : wordProblem
+        ? "Story Solver"
+        : factNode
+          ? (/timed|speed/i.test(`${node.id} ${routeText}`) ? "Speed Facts Sprint" : "Fact Blaster")
+          : "Math Practice Lab";
+    const engagementDimensions: EngagementDimension[] = treatment === "story"
+      ? ["story", "visual", "calm"]
+      : treatment === "speed"
+        ? ["speed", "competition", "control"]
+        : ["puzzle", "control", "visual"];
+    return {
+      ...node,
+      theoryId: theory.theoryId,
+      experimentId: `experiment:${args.homeworkId}:${routeId ?? node.id}`,
+      contentId: `${args.homeworkId}:content:${node.id}`,
+      title,
+      engagementDimensions,
+      engagementHypothesis: route?.rationale ?? "Measure engagement with this academic intervention while holding targets constant.",
+      mechanic: wordProblem ? "equal-groups-story" : treatment === "speed" ? "fact-retrieval-speed" : "fact-retrieval-puzzle",
+      theme: wordProblem ? "story-solver" : treatment === "speed" ? "speed-facts" : "fact-blaster",
+      thumbnailUrl: wordProblem ? "/thumbnails/activities/math-generic.svg" : "/thumbnails/activities/math-multiplication.svg",
+      thumbnailPrompt: `${title} artwork for ${args.domain} homework; show the exact mechanic and child-safe visual identity.`,
+      sfxProfile: "tap-correct-wrong-progress-complete",
+      companionPolicy: "talk-to-sunny",
+    };
+  });
+  const nextPlan: ActiveSessionPlan = {
     ...args.plan,
     childId: args.childId,
     source: "ingest_human_loop",
     activeHomeworkId: args.homeworkId,
     domain: args.domain,
     testDate: args.testDate,
+    nodePlan,
     ...(args.parentNote ? { parentNote: args.parentNote } : {}),
     approvalStatus: "pending",
     planTheory: args.output.planTheory,
@@ -1490,6 +1745,60 @@ function finalizeAssignmentActiveSessionPlan(args: {
       },
     ],
   };
+  if (args.plan.adventureBoard) {
+    nextPlan.adventureBoard = buildAdventureBoardFromActiveSessionPlan({
+      plan: {
+        planId: nextPlan.planId,
+        childId: nextPlan.childId,
+        domain: nextPlan.domain,
+        nodePlan: nextPlan.nodePlan as unknown as Array<{
+          id: string;
+          type: string;
+          activityId?: string;
+          targets?: string[];
+          targetLane?: string;
+          title?: string;
+          thumbnailUrl?: string;
+          theoryId?: string;
+          experimentId?: string;
+          contentId?: string;
+          engagementDimensions?: string[];
+          engagementHypothesis?: string;
+          mechanic?: string;
+          theme?: string;
+          sfxProfile?: string;
+          companionPolicy?: string;
+          gameHtmlPath?: string;
+          activityConfigPath?: string;
+          locked?: boolean;
+          masteryUnlockState?: string;
+          difficulty?: number;
+        }>,
+        learningRoutes: nextPlan.learningRoutes,
+      },
+      boardId: args.plan.adventureBoard.boardId,
+      title: args.plan.adventureBoard.title,
+      theme: args.plan.adventureBoard.theme,
+      layout: args.plan.adventureBoard.layout,
+      plannerRationale: args.plan.adventureBoard.plannerRationale,
+      companion: args.plan.adventureBoard.companion,
+      labelForNode: (node) => node.title,
+      thumbnailForNode: (node) => node.thumbnailUrl,
+    });
+  }
+  return nextPlan;
+}
+
+export function classifyMathRouteTreatment(
+  routeId: string | undefined,
+  routeDescription: string,
+  targets: string[],
+): "speed" | "story" | "puzzle" {
+  const route = `${routeId ?? ""} ${routeDescription}`.toLowerCase();
+  if (/story|word.?problem|narrative|equal.?group/.test(route)) return "story";
+  if (/speed|timed|sprint|fluency|competitive/.test(route)) return "speed";
+  if (targets.some((target) => /word|pencil|star|row|box|group/i.test(target))) return "story";
+  return "puzzle";
 }
 
 function homeworkNodesFromAssignmentPlan(plan: ActiveSessionPlan, weekOf: string): PlannedNode[] {
@@ -1521,13 +1830,6 @@ function homeworkNodesFromAssignmentPlan(plan: ActiveSessionPlan, weekOf: string
 
 export async function applyPlannedHomeworkIngest(args: PlannedHomeworkIngestArgs): Promise<void> {
   const today = (args.approvedAt ?? new Date().toISOString()).slice(0, 10);
-  const contextBase = path.join(process.cwd(), "src", "context", args.childId, "homework");
-  const pendingDir = path.join(contextBase, "pending", today);
-  fs.mkdirSync(pendingDir, { recursive: true });
-  if (fs.existsSync(args.sourceFile)) {
-    storeOriginalAssignmentSource(args.sourceFile, pendingDir);
-  }
-
   const extracted = buildHomeworkExtractionFromAssignmentPlan({
     childId: args.childId,
     assignmentSource: args.assignmentSource,
@@ -1536,6 +1838,13 @@ export async function applyPlannedHomeworkIngest(args: PlannedHomeworkIngestArgs
   });
   const classifierHomeworkDomain = inferIngestDomainFromExtraction(extracted);
   const selectedHomeworkDomain = args.homeworkDomain ?? classifierHomeworkDomain;
+  assertLegacyMathIngestAllowed(selectedHomeworkDomain);
+  const contextBase = path.join(process.cwd(), "src", "context", args.childId, "homework");
+  const pendingDir = path.join(contextBase, "pending", today);
+  fs.mkdirSync(pendingDir, { recursive: true });
+  if (fs.existsSync(args.sourceFile)) {
+    storeOriginalAssignmentSource(args.sourceFile, pendingDir);
+  }
   const testDate = validIsoDate(args.testDate)
     ? args.testDate
     : validIsoDate(extracted.assignmentPlannerOutput.activeSessionPlan.testDate)
@@ -1696,6 +2005,8 @@ export async function applyPlannedHomeworkIngest(args: PlannedHomeworkIngestArgs
     homeworkId,
     nodes: homeworkNodes,
   });
+  cycleStub.nodes = pendingHomework.nodes;
+  fs.writeFileSync(path.join(cyclesDir, `${homeworkId}.json`), JSON.stringify(cycleStub, null, 2), "utf8");
   const profileWithHomeworkLane = withActiveHomeworkLane(
     appendHomeworkIntakeHistory({
       profile: profileDoc,
@@ -1740,7 +2051,10 @@ export async function applyPlannedHomeworkIngest(args: PlannedHomeworkIngestArgs
   }
 }
 
-export async function runIngestHomework(argv: string[]): Promise<void> {
+async function runIngestHomeworkInternal(
+  argv: string[],
+  onStage?: (stage: number, label: string) => void,
+): Promise<void> {
   const {
     childId: cliChildId,
     testDate: cliTestDate,
@@ -1755,6 +2069,7 @@ export async function runIngestHomework(argv: string[]): Promise<void> {
     homeworkDomain: cliHomeworkDomain,
     interactive,
   });
+  assertLegacyMathIngestAllowed(homeworkDomain);
   const childId = await resolveIngestChildId({
     childId: cliChildId,
     childIds: listIngestChildIds(),
@@ -1766,6 +2081,7 @@ export async function runIngestHomework(argv: string[]): Promise<void> {
   const pendingDir = path.join(contextBase, "pending", today);
   fs.mkdirSync(pendingDir, { recursive: true });
 
+  onStage?.(1, "Reading homework");
   console.log(
     `🏥 Sunny intake — ${homeworkDomain ? `${homeworkDomain} ` : ""}homework for ${childId}`,
   );
@@ -1806,11 +2122,13 @@ export async function runIngestHomework(argv: string[]): Promise<void> {
     masteryContext,
     plannerModel,
   });
+  onStage?.(2, "Planning learning path");
   const resolvedPlannerModel = resolveAssignmentPlannerModel(
     plannerModel ? { model: plannerModel } : {},
   );
   const classifierHomeworkDomain = inferIngestDomainFromExtraction(extracted);
   const selectedHomeworkDomain = homeworkDomain ?? classifierHomeworkDomain;
+  assertLegacyMathIngestAllowed(selectedHomeworkDomain);
   const intakeDecisionSource: "human_menu" | "cli" | "classifier" = cliHomeworkDomain
     ? "cli"
     : homeworkDomain
@@ -1986,12 +2304,7 @@ export async function runIngestHomework(argv: string[]): Promise<void> {
   });
   cycleStub.assumptions = theory.markdown;
   cycleStub.theory = theory;
-  fs.writeFileSync(
-    path.join(cyclesDir, `${homeworkId}.json`),
-    JSON.stringify(cycleStub, null, 2),
-    "utf8",
-  );
-  console.log(`🔁 Cycle record created → cycles/${homeworkId}.json`);
+  console.log(`🔁 Cycle evidence captured → canonical cycle pending planner decision`);
 
   const assumptionsDir = path.join(process.cwd(), "src", "context", childId, "assumptions");
   fs.mkdirSync(assumptionsDir, { recursive: true });
@@ -2005,6 +2318,7 @@ export async function runIngestHomework(argv: string[]): Promise<void> {
 
   console.log("");
   console.log("💾 Step 3/4: Saving...");
+  onStage?.(3, "Saving child evidence");
 
   const profileDoc = readLearningProfile(childId);
   if (!profileDoc) {
@@ -2040,6 +2354,7 @@ export async function runIngestHomework(argv: string[]): Promise<void> {
     homeworkId,
     nodes: homeworkNodes,
   });
+  cycleStub.nodes = pendingHomework.nodes;
   const profileWithHomeworkLane = withActiveHomeworkLane(
     appendHomeworkIntakeHistory({
       profile: profileDoc,
@@ -2062,7 +2377,10 @@ export async function runIngestHomework(argv: string[]): Promise<void> {
     baselineActivities: recommendBaselineActivities(extracted.capturedContent),
   });
   const profileWithCatalog = upsertProfileContentCatalog(profileWithHomeworkLane, catalogItems);
-  writeLearningProfile(childId, profileWithCatalog);
+  // The canonical cycle still owns the prior plan at this point. Persist the
+  // new homework/catalog facts without asking a stale compatibility plan to
+  // overwrite that projection; the reconciled plan is written below.
+  writeLearningProfile(childId, profileWithCatalog, { skipSessionPlanProjection: true });
   const parentPlanNote = await promptForSessionPlanNote(interactive);
   const activeSessionPlan = finalizeAssignmentActiveSessionPlan({
     plan: extracted.assignmentPlannerOutput.activeSessionPlan,
@@ -2079,7 +2397,99 @@ export async function runIngestHomework(argv: string[]): Promise<void> {
   if (reviewedPlan.approvalStatus === "rejected") {
     console.log("  🎮 [experience-planner] [pending-review] homework saved; session plan not activated");
   } else {
-    writeActiveSessionPlan(childId, reviewedPlan);
+    const practiceDomain = extracted.contentProfile.practiceDomain;
+    const planWithArtwork = practiceDomain === "math"
+      ? {
+          ...reviewedPlan,
+          nodePlan: await localizeMathNodeArtwork(
+            await enrichMathNodeArtwork(reviewedPlan.nodePlan, (prompt) =>
+              generateStoryImage(prompt, {
+                useDirectScene: true,
+                purpose: "math-node-thumbnail",
+                cacheKeyParts: [childId, homeworkId, prompt],
+              }),
+            ),
+            { childId, homeworkId },
+          ),
+        }
+      : reviewedPlan;
+    onStage?.(4, "Building learning activities");
+    const canonicalCycle = persistIngestedLearningCycle({
+      childId,
+      homeworkId,
+      domain: practiceDomain,
+      title: extracted.title,
+      contentFingerprint,
+      capturedEvidenceIds: [`assignment:${contentFingerprint}`],
+      targets: [...new Set(planWithArtwork.nodePlan.flatMap((node) => node.targets))],
+      plan: planWithArtwork,
+      engagementTheory: readEngagementTheory(childId),
+    });
+    writeActiveSessionPlan(childId, canonicalCycle
+      ? (await import("../engine/learningCycleRepository")).projectLearningCycle(canonicalCycle).activeSessionPlan
+      : planWithArtwork);
+    // Dynamic imports: baselineGameFactory imports from this module, so a
+    // static import here would create a require cycle.
+    const { autoAttachBaselineShellForHomework, resolveBaselineRoundsForNodes } =
+      await import("../engine/baselineShellAutoAttach");
+    const roundsByNodeId = await resolveBaselineRoundsForNodes({
+      nodes: planWithArtwork.nodePlan.map((node) => ({
+        id: node.id,
+        type: node.type,
+        words: node.targets,
+        rounds: node.rounds,
+      })),
+      worksheetText: extracted.capturedContent.rawText,
+      domain: practiceDomain,
+    });
+    let generationHandledNodeIds: string[] = [];
+    const generationRequests = extracted.assignmentPlannerOutput.generationRequests ?? [];
+    // Phase-1 gate: fully automatic generation is math-only; internals are
+    // domain-parameterized so lifting this is a one-line change.
+    if (practiceDomain === "math" && generationRequests.length > 0 && process.env.ANTHROPIC_API_KEY) {
+      const { generateAndAttachBaselineShells } = await import("../engine/baselineShellIngestPipeline");
+      const pipeline = await generateAndAttachBaselineShells({
+        childId,
+        homeworkId,
+        domain: practiceDomain,
+        title: extracted.title,
+        conceptText: extracted.capturedContent.rawText,
+        generationRequests,
+        roundsByNodeId,
+        waitForCompletion: true,
+      });
+      generationHandledNodeIds = [
+        ...new Set([...pipeline.attachedNodeIds, ...pipeline.failedNodeIds, ...pipeline.pendingNodeIds]),
+      ];
+      if (pipeline.failedNodeIds.length > 0) {
+        onStage?.(4, "Building learning activities — generation blocked");
+      }
+      console.log(
+        `  🎮 [baseline-pipeline] attached=${pipeline.attachedNodeIds.length} failed=${pipeline.failedNodeIds.length} pending=${pipeline.pendingNodeIds.length}`,
+      );
+    }
+    autoAttachBaselineShellForHomework({
+      childId,
+      homeworkId,
+      domain: practiceDomain,
+      title: extracted.title,
+      conceptText: extracted.capturedContent.rawText,
+      roundsByNodeId,
+      ...(generationHandledNodeIds.length > 0 ? { skipNodeIds: generationHandledNodeIds } : {}),
+    });
+    // Best-effort per-node board illustrations; a full board needs more than
+    // the 1-image default budget, so raise it for this CLI run only.
+    process.env.SUNNY_IMAGE_GENERATION_MAX_PER_RUN ||= "8";
+    const { generateBoardNodeImages } = await import("../engine/boardNodeImageGenerator");
+    const boardImages = await generateBoardNodeImages({ childId, homeworkId }).catch((err: unknown) => {
+      console.log(
+        `  🎮 [board-image] [skipped] ${err instanceof Error ? err.message : String(err)}`,
+      );
+      return { generated: 0, skipped: "error" };
+    });
+    if (boardImages.generated > 0) {
+      console.log(`  🎮 [board-image] generated ${boardImages.generated} node illustrations`);
+    }
   }
   fs.writeFileSync(
     path.join(pendingDir, "learning-plan.json"),
@@ -2101,6 +2511,7 @@ export async function runIngestHomework(argv: string[]): Promise<void> {
 
   console.log("");
   console.log("🧠 Step 4/4: Psychologist + today's plan (shared with sunny:sync)…");
+  onStage?.(5, "Finishing and syncing");
   await runPsychologistSync(childId, { planningMode: "homework" });
 
   await maybeLaunchPreviewBoard({
@@ -2116,6 +2527,59 @@ export async function runIngestHomework(argv: string[]): Promise<void> {
       homeworkDomain === "spelling" ? "npm run sunny:homework:spelling" : "npm run sunny:homework"
     }`,
   );
+}
+
+/** Keep the terminal focused on the five ingestion stages. */
+export async function runIngestHomework(argv: string[]): Promise<void> {
+  const { childId: cliChildId } = parseCliArgs(argv);
+  const diagnostics: string[] = [];
+  const originalLog = console.log;
+  const originalError = console.error;
+  const progress: IngestProgress = createIngestProgress({
+    interactive: Boolean(input.isTTY && output.isTTY),
+    write: (text) => output.write(text),
+  });
+  console.log = (...args: unknown[]) => {
+    diagnostics.push(args.map(String).join(" "));
+  };
+  console.error = (...args: unknown[]) => {
+    diagnostics.push(`[stderr] ${args.map(String).join(" ")}`);
+  };
+  try {
+    await runIngestHomeworkInternal(argv, (stage, label) => progress.update(stage, label));
+  } catch (error) {
+    progress.finish();
+    originalLog("Done — BLOCKED");
+    originalLog(`Reason: ${error instanceof Error ? error.message : String(error)}`);
+    throw error;
+  } finally {
+    console.log = originalLog;
+    console.error = originalError;
+  }
+
+  const childId = cliChildId ?? listIngestChildIds()[0];
+  if (!childId) {
+    progress.finish();
+    originalLog("Done — BLOCKED");
+    return;
+  }
+  const today = new Date().toISOString().slice(0, 10);
+  const summary = buildIngestSummary(childId, today);
+  if (!summary) {
+    progress.finish();
+    originalLog("Done — BLOCKED");
+    return;
+  }
+  writeIngestReport(summary, diagnostics);
+  progress.finish();
+  originalLog(`Done — ${summary.status}`);
+  originalLog(`Activities: ${summary.launchableActivities} launchable`);
+  if (summary.readinessFailures.length > 0) {
+    originalLog(`Reason: ${summary.readinessFailures.slice(0, 8).join(", ")}`);
+  }
+  originalLog(`Next: ${summary.domain === "spelling" ? "npm run sunny:homework:spelling" : "npm run sunny:homework"}`);
+  /* Keep the report discoverable without reprinting its contents. */
+  originalLog(`Details: ${summary.reportPath}`);
 }
 
 if (typeof require !== "undefined" && require.main === module) {

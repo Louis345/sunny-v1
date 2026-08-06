@@ -19,6 +19,12 @@ import {
   hydrateLearningProfileFromWaterfall,
   slimLearningProfileForDoorway,
 } from "../profiles/chartWaterfall";
+import {
+  buildInitialEngagementTheory,
+  readEngagementTheory,
+  updateEngagementTheoryFromChoiceEvents,
+  writeEngagementTheory,
+} from "./engagementTheory";
 
 export type ChoiceEventContext =
   | "mystery"
@@ -56,6 +62,8 @@ export type ChoiceEvent = {
   choiceEventId: string;
   choiceSetId: string;
   childId: string;
+  homeworkId?: string;
+  cycleRevision?: number;
   sessionId?: string;
   nodeId?: string;
   context: ChoiceEventContext;
@@ -73,6 +81,17 @@ export type ChoiceEvent = {
   postActivityAction?: PostActivityAction;
   explicitSentiment?: ChoiceSentiment;
   frustrationScore?: number;
+  funRating?: number;
+  demoRequested?: boolean;
+  demoReplayCount?: number;
+  timeToFirstValidActionMs?: number;
+  invalidActionCount?: number;
+  soundMuted?: boolean;
+  theoryId?: string;
+  experimentId?: string;
+  contentId?: string;
+  engagementDimensions?: string[];
+  engagementHypothesis?: string;
   createdAt: string;
 };
 
@@ -294,6 +313,13 @@ export function normalizeChoiceEvent(input: ChoiceEventInput): ChoiceEvent {
 
 export function recordChoiceEvent(input: ChoiceEventInput, opts: RootOptions = {}): ChoiceEvent {
   const event = normalizeChoiceEvent(input);
+  const existing = findChoiceEventById(event.childId, event.choiceEventId, opts);
+  if (existing) {
+    console.log(
+      `  🎮 [choice-event] [duplicate-reused] child=${event.childId} event=${event.choiceEventId}`,
+    );
+    return existing;
+  }
   const dir = choiceEventsDir(event.childId, opts);
   fs.mkdirSync(dir, { recursive: true });
   fs.appendFileSync(
@@ -305,6 +331,15 @@ export function recordChoiceEvent(input: ChoiceEventInput, opts: RootOptions = {
     `  🎮 [choice-event] [recorded] child=${event.childId} context=${event.context} source=${event.source} selected=${event.selectedOptionId ?? "none"}`,
   );
   return event;
+}
+
+export function findChoiceEventById(
+  childId: string,
+  choiceEventId: string,
+  opts: RootOptions = {},
+): ChoiceEvent | undefined {
+  if (!choiceEventId.trim()) return undefined;
+  return readChoiceEvents(childId, opts).find((event) => event.choiceEventId === choiceEventId);
 }
 
 export function readChoiceEvents(childId: string, opts: RootOptions = {}): ChoiceEvent[] {
@@ -328,6 +363,11 @@ export function readChoiceEvents(childId: string, opts: RootOptions = {}): Choic
 function preferenceLiked(event: ChoiceEvent): boolean | null {
   if (event.explicitSentiment === "like") return true;
   if (event.explicitSentiment === "dislike") return false;
+  if (typeof event.funRating === "number") {
+    if (event.funRating >= 4) return true;
+    if (event.funRating <= 2) return false;
+    return null;
+  }
   if (event.postActivityAction === "abandon") return false;
   if (event.postActivityAction === "back_to_map") return null;
   if (
@@ -348,9 +388,6 @@ function preferenceLiked(event: ChoiceEvent): boolean | null {
       ? true
       : null;
   }
-  if (event.eventName === "option_selected" && event.source === "child_choice") return true;
-  if (event.eventName === "surprise_revealed" && event.started !== false) return true;
-  if (event.completed === true && clamp01(event.frustrationScore, 0) < 0.5) return true;
   if (event.completed === false) return false;
   return null;
 }
@@ -515,24 +552,47 @@ export async function applyChoiceEventPreference(
   const isChoiceIntent =
     event.eventName === "option_selected" ||
     event.eventName === "surprise_revealed";
-  const accuracy = clamp01(event.accuracy, completed ? 1 : 0.5);
+  const accuracy = typeof event.accuracy === "number" && Number.isFinite(event.accuracy)
+    ? clamp01(event.accuracy, 0)
+    : undefined;
   const frustrationScore = clamp01(
     event.frustrationScore,
     completed || isChoiceIntent ? 0.1 : 0.65,
   );
   const engagementScore = engagementFromChoice(event, weight);
+  const hasOutcomeEvidence =
+    liked !== null ||
+    event.eventName === "activity_completed" ||
+    event.eventName === "replay_requested" ||
+    event.postActivityAction === "abandon";
+  if (!hasOutcomeEvidence && isChoiceIntent) {
+    const currentTheory = readEngagementTheory(event.childId, { rootDir: rootDir(opts) }) ??
+      buildInitialEngagementTheory({ childId: event.childId, domain: event.domain });
+    writeEngagementTheory(
+      event.childId,
+      updateEngagementTheoryFromChoiceEvents(currentTheory, [event]),
+      { rootDir: rootDir(opts) },
+    );
+    return {
+      applied: false,
+      reason: "selection_recorded_without_preference_conclusion",
+      activityId: option.activityId,
+    };
+  }
   const next: LearningProfile = {
     ...profile,
-    activityModel: mergePreferenceIntoActivityModel(profile.activityModel, {
-      activityId: option.activityId,
-      domain: event.domain,
-      completed,
-      accuracy,
-      engagementScore,
-      frustrationScore,
-      liked,
-      occurredAt: event.createdAt,
-    }),
+    activityModel: accuracy == null
+      ? profile.activityModel
+      : mergePreferenceIntoActivityModel(profile.activityModel, {
+          activityId: option.activityId,
+          domain: event.domain,
+          completed,
+          accuracy,
+          engagementScore,
+          frustrationScore,
+          liked,
+          occurredAt: event.createdAt,
+        }),
     activityTraitModel: mergeChoiceIntoActivityTraitModel(profile.activityTraitModel, {
       activityId: option.activityId,
       dimensions: traitDimensionsForOption(option),
@@ -553,8 +613,15 @@ export async function applyChoiceEventPreference(
     }),
   };
   writeProfile(event.childId, next, opts);
+  const currentTheory = readEngagementTheory(event.childId, { rootDir: rootDir(opts) }) ??
+    buildInitialEngagementTheory({ childId: event.childId, domain: event.domain });
+  writeEngagementTheory(
+    event.childId,
+    updateEngagementTheoryFromChoiceEvents(currentTheory, [event]),
+    { rootDir: rootDir(opts) },
+  );
   const nodeType = option.nodeType ?? asNodeType(option.activityId);
-  if (event.source === "child_choice" && nodeType) {
+  if (event.source === "child_choice" && nodeType && hasOutcomeEvidence && accuracy != null) {
     const reward = opts.recordBanditReward ?? recordReward;
     await reward(event.childId, nodeType, liked === true, completed, accuracy);
   }

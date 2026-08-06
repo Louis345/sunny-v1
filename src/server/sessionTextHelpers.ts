@@ -62,3 +62,41 @@ export function isSpellingAttempt(text: string, word: string): boolean {
   const escaped = targetWord.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   return new RegExp(`(^|[^a-z])${escaped}([^a-z]|$)`, "i").test(normalized);
 }
+
+export function mathContentToSpoken(content: string): string {
+  return content
+    .replace(/\s*\+\s*/g, " plus ")
+    .replace(/\s*-\s*/g, " minus ")
+    .replace(/\s*×\s*/g, " times ")
+    .replace(/\s*÷\s*/g, " divided by ")
+    .replace(/\s*=\s*$/, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+
+export function shouldAcceptInterruptedTranscript(transcript: string): boolean {
+  const trimmed = transcript.trim();
+  if (trimmed.length === 1 && !/^[a-zA-Z]$/.test(trimmed)) {
+    console.log(`  🗑️  Transcript fragment discarded: "${transcript}"`);
+    return false;
+  }
+  if (/^(um+|uh+|hmm+|uhm+)$/i.test(trimmed)) {
+    console.log(`  🗑️  Transcript fragment discarded: "${transcript}"`);
+    return false;
+  }
+  return true;
+}
+
+export function pronunciationCueFor(word: string | undefined): string | null {
+  const clean = String(word ?? "").trim().toLowerCase();
+  if (!clean) return null;
+  if (clean === "able") return "a-ble";
+  if (clean.length <= 3) return clean.split("").join("-");
+  const midpoint = Math.max(1, Math.floor(clean.length / 2));
+  return `${clean.slice(0, midpoint)}-${clean.slice(midpoint)}`;
+}
+
+export function normalizeSessionChartChildId(chartChildId: string | undefined, fallback: string): string {
+  const normalized = chartChildId?.trim().toLowerCase();
+  return normalized && /^[a-z0-9_-]+$/.test(normalized) ? normalized : fallback;
+}

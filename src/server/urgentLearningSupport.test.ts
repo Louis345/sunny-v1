@@ -1,12 +1,220 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  maybeCompactCompanionInteractionMemory,
+  recordCompanionInteractionEvent,
+} from "./companionInteractionMemory";
+import { shouldPersistSessionData } from "../utils/runtimeMode";
+
+vi.mock("./companionInteractionMemory", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./companionInteractionMemory")>();
+  return {
+    ...actual,
+    recordCompanionInteractionEvent: vi.fn(),
+    maybeCompactCompanionInteractionMemory: vi.fn(async () => null),
+  };
+});
+
+vi.mock("../utils/runtimeMode", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../utils/runtimeMode")>();
+  return { ...actual, shouldPersistSessionData: vi.fn(() => true) };
+});
 import {
   auditConversationForLearningSignals,
   buildLiveLearningContext,
   chartEvidenceForUrgentIntent,
   detectUrgentChildIntent,
+  routeCompanionPresenceTranscript,
+  companionPresenceAfterSpeech,
+  dispositionAfterReset,
+  handleCompanionPresenceTranscript,
+  prepareInstructionReadRequest,
+  recordActivityCompanionHelp,
+  transitionCompanionPresence,
 } from "./urgentLearningSupport";
 
 describe("urgent learning support", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(shouldPersistSessionData).mockReturnValue(true);
+  });
+
+  it("separates one-shot activity help from an open child conversation", () => {
+    expect(transitionCompanionPresence({ state: "summoned", reason: "read_instruction" })).toEqual({
+      presence: "summoned",
+      mode: "activity_help",
+    });
+    expect(dispositionAfterReset("activity_help")).toBe("standby_after_speech");
+    expect(companionPresenceAfterSpeech({
+      presence: "summoned",
+      mode: "activity_help",
+      disposition: "standby_after_speech",
+    })).toBe("collapse");
+
+    expect(transitionCompanionPresence({ state: "summoned", reason: "voice" })).toEqual({
+      presence: "summoned",
+      mode: "conversation",
+    });
+    expect(dispositionAfterReset("conversation")).toBe("await_child_response");
+    expect(companionPresenceAfterSpeech({
+      presence: "summoned",
+      mode: "conversation",
+      disposition: "standby_after_speech",
+    })).toBe("conversation_open");
+  });
+  it("routes activity speech through an explicit wake and dismiss presence contract", () => {
+    expect(
+      routeCompanionPresenceTranscript({
+        transcript: "The rectangles look equal",
+        presence: "collapsed",
+        companionName: "Elli",
+      }),
+    ).toEqual({ action: "ignore_ambient" });
+    expect(
+      routeCompanionPresenceTranscript({
+        transcript: "Hey Sunny, I don't understand",
+        presence: "collapsed",
+        companionName: "Elli",
+      }),
+    ).toEqual({ action: "summon_and_respond" });
+    expect(
+      routeCompanionPresenceTranscript({
+        transcript: "Bye Elli",
+        presence: "summoned",
+        companionName: "Elli",
+      }),
+    ).toEqual({ action: "dismiss" });
+    expect(
+      routeCompanionPresenceTranscript({
+        transcript: "Bye Elli, bye Sunny.",
+        presence: "summoned",
+        companionName: "Elli",
+      }),
+    ).toEqual({ action: "dismiss" });
+    expect(
+      routeCompanionPresenceTranscript({
+        transcript: "Alright, bye Sony.",
+        presence: "summoned",
+        companionName: "Elli",
+      }),
+    ).toEqual({ action: "dismiss" });
+    expect(
+      routeCompanionPresenceTranscript({
+        transcript: "Can you explain this another way?",
+        presence: "summoned",
+        companionName: "Elli",
+      }),
+    ).toEqual({ action: "respond" });
+    expect(
+      routeCompanionPresenceTranscript({
+        transcript: "three equal parts",
+        presence: "collapsed",
+        companionName: "Elli",
+        speechCaptureArmed: true,
+      }),
+    ).toEqual({ action: "route_to_game" });
+  });
+
+  it("deduplicates read requests and refuses answer-visible activity state", () => {
+    const first = prepareInstructionReadRequest({
+      nodeId: "N1",
+      activityId: "generated-baseline",
+      itemId: "item-1",
+      prompt: "Which rectangle has three equal parts?",
+      requestCount: 1,
+      answerVisibility: "hidden",
+      previousRequestKey: null,
+    });
+    expect(first).toMatchObject({
+      requestKey: "N1:item-1:1",
+      trace: { evidenceRole: "support", masteryEligible: false },
+    });
+    expect(prepareInstructionReadRequest({
+      nodeId: "N1",
+      activityId: "generated-baseline",
+      itemId: "item-1",
+      prompt: "Which rectangle has three equal parts?",
+      requestCount: 1,
+      answerVisibility: "hidden",
+      previousRequestKey: first!.requestKey,
+    })).toBeNull();
+    expect(prepareInstructionReadRequest({
+      nodeId: "N1",
+      activityId: "generated-baseline",
+      itemId: "item-1",
+      prompt: "The answer is B.",
+      requestCount: 2,
+      answerVisibility: "shown",
+      previousRequestKey: null,
+    })).toBeNull();
+  });
+
+  it("persists meaningful help only in a real summoned activity session", () => {
+    const input = {
+      childId: "reina",
+      companionId: "elli",
+      userMessage: "Can you explain this?",
+      companionText: "Try comparing the size of one equal part.",
+      snapshot: { nodeId: "N1" } as never,
+      presence: "summoned" as const,
+    };
+    vi.mocked(shouldPersistSessionData).mockReturnValue(false);
+    recordActivityCompanionHelp(input);
+    expect(recordCompanionInteractionEvent).not.toHaveBeenCalled();
+
+    vi.mocked(shouldPersistSessionData).mockReturnValue(true);
+    recordActivityCompanionHelp(input);
+    expect(recordCompanionInteractionEvent).toHaveBeenCalledWith(expect.objectContaining({
+      childId: "reina",
+      companionId: "elli",
+      callSource: "activity_help",
+    }));
+    expect(maybeCompactCompanionInteractionMemory).toHaveBeenCalledTimes(1);
+  });
+
+  it("applies wake, dismiss, ambient, and game-routing side effects without a model call", () => {
+    const sendFinal = vi.fn();
+    const setPresence = vi.fn();
+    const recordEvent = vi.fn();
+    const base = {
+      enabled: true,
+      companionName: "Elli",
+      speechCaptureArmed: false,
+      sendFinal,
+      setPresence,
+      recordEvent,
+    };
+
+    expect(handleCompanionPresenceTranscript({
+      ...base,
+      transcript: "Hey Sunny",
+      presence: "collapsed",
+    })).toBe(true);
+    expect(setPresence).toHaveBeenCalledWith("summoned", "voice");
+    expect(sendFinal).not.toHaveBeenCalled();
+
+    expect(handleCompanionPresenceTranscript({
+      ...base,
+      transcript: "Bye Elli, bye Sunny",
+      presence: "summoned",
+    })).toBe(true);
+    expect(setPresence).toHaveBeenCalledWith("collapsed", "voice");
+
+    expect(handleCompanionPresenceTranscript({
+      ...base,
+      transcript: "three equal parts",
+      presence: "collapsed",
+    })).toBe(true);
+    expect(recordEvent).toHaveBeenCalledWith("transcript", "ambient_ignored", expect.any(Object));
+
+    expect(handleCompanionPresenceTranscript({
+      ...base,
+      transcript: "three equal parts",
+      presence: "collapsed",
+      speechCaptureArmed: true,
+    })).toBe(true);
+    expect(sendFinal).toHaveBeenCalledWith("three equal parts");
+  });
+
   it("detects active-game help and scaffolds from the current word", () => {
     const context = buildLiveLearningContext({
       childId: "ila",

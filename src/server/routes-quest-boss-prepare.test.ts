@@ -108,6 +108,23 @@ describe("Quest/Boss preparation routes", () => {
     });
   });
 
+  it("accepts demo-pashley on quest-boss prepare", async () => {
+    mockedStartPreparation.mockReturnValue({
+      ok: true,
+      childId: "demo-pashley",
+      jobs: [],
+      running: [],
+      briefs: [],
+    });
+
+    const out = await request("POST", "/api/homework/quest-boss/prepare", { childId: "demo-pashley" });
+
+    expect(out.status).toBe(202);
+    expect(mockedStartPreparation).toHaveBeenCalledWith(expect.objectContaining({
+      childId: "demo-pashley",
+    }));
+  });
+
   it("records a human Quest/Boss artifact review decision", async () => {
     mockedRecordReview.mockReturnValue({
       schemaVersion: 1,

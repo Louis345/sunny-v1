@@ -3,7 +3,7 @@ import os from "os";
 import path from "path";
 import { afterEach, describe, expect, it } from "vitest";
 import { createFreshSM2Track } from "../context/schemas/wordBank";
-import type { AIContentCatalogItem } from "../context/schemas/learningProfile";
+import type { AIContentCatalogItem, LearningProfile } from "../context/schemas/learningProfile";
 import type { HomeworkCycle } from "../context/schemas/homeworkCycle";
 import {
   appendChildActivityEvidence,
@@ -20,6 +20,7 @@ import {
   rankHomeworkCycleCandidates,
   runUploadGradedHomework,
 } from "../scripts/uploadGradedHomework";
+import { createLearningCycle, getLearningCycle } from "./learningCycleRepository";
 
 function makeRoot(): string {
   return fs.mkdtempSync(path.join(os.tmpdir(), "sunny-decision-context-"));
@@ -35,7 +36,7 @@ function readJson<T>(root: string, rel: string): T {
   return JSON.parse(fs.readFileSync(path.join(root, rel), "utf8")) as T;
 }
 
-function baseProfile(childId: string) {
+function baseProfile(childId: string): LearningProfile {
   const profile = initializeLearningProfile({
     childId,
     age: 8,
@@ -86,6 +87,7 @@ function catalogItem(
 ): AIContentCatalogItem {
   return {
     contentId: "story-erosion-1",
+    theoryDecisionId: "theory:homework:hw-reading-erosion:ingest",
     homeworkId: "hw-reading-erosion",
     childId: "reina",
     type: "story",
@@ -244,6 +246,30 @@ describe("LearningDecisionContext", () => {
     ]);
   });
 
+  it("tolerates learning profiles missing sessionStats (demo child ingest path)", () => {
+    const root = makeRoot();
+    roots.push(root);
+    const childId = "demo-pashley";
+    const profile = baseProfile(childId);
+    delete (profile as { sessionStats?: unknown }).sessionStats;
+    writeJson(root, `src/context/${childId}/learning_profile.json`, profile);
+    writeJson(root, `src/context/${childId}/word_bank.json`, {
+      childId,
+      version: 1,
+      lastUpdated: "2026-07-10T00:00:00.000Z",
+      words: [],
+    });
+
+    const context = buildLearningDecisionContext(childId, {
+      rootDir: root,
+      now: new Date("2026-07-10T12:00:00.000Z"),
+    });
+
+    expect(context.diagnostics.questThreshold.totalSessions).toBe(0);
+    expect(context.diagnostics.questThreshold.unlocked).toBe(false);
+    expect(context.diagnostics.questThreshold.reason).toBe("needs_more_sessions");
+  });
+
   it("uses measured attention model instead of treating demographics.attentionSpan as static truth", () => {
     const root = makeRoot();
     roots.push(root);
@@ -346,7 +372,28 @@ describe("LearningDecisionContext", () => {
     const root = makeRoot();
     roots.push(root);
     const childId = "reina";
-    writeJson(root, `src/context/${childId}/learning_profile.json`, baseProfile(childId));
+    const seededProfile = baseProfile(childId);
+    seededProfile.aiContentCatalog = [catalogItem()];
+    seededProfile.learningTheoryDecisions = [{
+      theoryDecisionId: "theory:plan-math-1",
+      theoryId: "theory:plan-math-1",
+      theoryVersion: 1,
+      childId,
+      planId: "plan-math-1",
+      domain: "math",
+      sessionDir: "/tmp/session-math-1",
+      hypothesis: "Practice may improve transfer.",
+      intervention: "Targeted retrieval practice.",
+      evidenceIds: ["session:session-math-1"],
+      contentIds: ["story-erosion-1"],
+      academicEvidenceSummary: ["practice improved"],
+      companionObservations: [],
+      status: "awaiting_calibration",
+      reason: "Math transfer needs graded evidence.",
+      nextAction: "Upload graded work.",
+      createdAt: "2026-05-06T15:00:00.000Z",
+    }];
+    writeJson(root, `src/context/${childId}/learning_profile.json`, seededProfile);
     writeJson(root, `src/context/${childId}/homework/cycles/hw-reading-erosion.json`, {
       homeworkId: "hw-reading-erosion",
       subject: "reading",
@@ -392,11 +439,18 @@ describe("LearningDecisionContext", () => {
     expect(entry.predictedPattern).toBe("spelling:vowel_omission");
     expect(entry.observedMisses[0]?.target).toBe("blister");
 
-    const profile = readJson<{ learningCalibrationJournal?: Array<{ status: string }> }>(
+    const profile = readJson<{
+      learningCalibrationJournal?: Array<{ status: string }>;
+      learningTheoryDecisions?: Array<{ status: string; calibrationId?: string }>;
+    }>(
       root,
       `src/context/${childId}/learning_profile.json`,
     );
     expect(profile.learningCalibrationJournal?.[0]?.status).toBe("supported");
+    expect(profile.learningTheoryDecisions?.[0]).toMatchObject({
+      status: "supported",
+      calibrationId: entry.calibrationId,
+    });
 
     const cycle = readJson<{ calibrationJournal?: Array<{ status: string }> }>(
       root,
@@ -410,6 +464,14 @@ describe("LearningDecisionContext", () => {
     expect(validateContentCatalogItem(invalid)).toEqual({
       ok: false,
       error: "content_missing_algorithm_targets",
+    });
+  });
+
+  it("rejects generated content that is not linked to an originating theory decision", () => {
+    const invalid = catalogItem({ theoryDecisionId: undefined });
+    expect(validateContentCatalogItem(invalid)).toEqual({
+      ok: false,
+      error: "generated_content_missing_theory_decision",
     });
   });
 
@@ -693,5 +755,89 @@ describe("LearningDecisionContext", () => {
 
     const unmatchedDir = path.join(root, `src/context/${childId}/homework/unmatched`);
     expect(fs.readdirSync(unmatchedDir).some((file) => file.endsWith(".json"))).toBe(true);
+  });
+
+  it("matches a returned assignment id and calibrates the canonical V2 math cycle", async () => {
+    const root = makeRoot();
+    roots.push(root);
+    const childId = "reina";
+    const homeworkId = "hw-math-a179d2a0";
+    writeJson(root, `src/context/${childId}/learning_profile.json`, baseProfile(childId));
+    createLearningCycle({
+      childId,
+      homeworkId,
+      domain: "math",
+      assignment: {
+        title: "Pashley multiplication",
+        contentFingerprint: "assignment-fingerprint",
+        capturedEvidenceIds: ["assignment:pdf:1"],
+        targets: ["5 x 2", "equal groups word problems"],
+        returnTag: "#sunny_reina_hw_math_a179d2a0",
+        rawText: "Mrs K puts 5 pencils in each of 4 boxes",
+        sourceFilename: "pashley-math-2-multiplication.pdf",
+      },
+      academicTheory: {
+        theoryId: "theory-math-1",
+        revision: 1,
+        hypothesis: "Fact recall will be stronger than word-problem translation.",
+        supportCriteria: ["returned work supports the predicted pattern"],
+        reviseCriteria: ["returned work is mixed"],
+        falsifyCriteria: ["returned work contradicts the predicted pattern"],
+      },
+      engagementTheory: null,
+      nodes: [],
+      academicPredictions: [{
+        predictionId: "prediction-math-1",
+        theoryId: "theory-math-1",
+        constructId: "math.multiplication.equal_groups",
+        context: "returned schoolwork",
+        horizon: "within_7_days",
+        expectedMetric: { key: "academic.accuracy", min: 0.7, max: 0.9 },
+        predictedErrorPatterns: ["operation_selection"],
+        confidence: 0.6,
+        evidenceIds: ["assignment:pdf:1"],
+        intervention: "equal-groups teaching",
+        evidenceLimit: "calibrated_mastery",
+        createdAt: "2026-07-17T12:00:00.000Z",
+      }],
+    }, { rootDir: root, now: new Date("2026-07-17T12:00:00.000Z") });
+    const returnedFile = path.join(root, "returned-pashley.json");
+    writeJson(root, "returned-pashley.json", {
+      title: "Returned Pashley multiplication",
+      returnTag: "#sunny_reina_hw_math_a179d2a0",
+      score: 0.8,
+      gradedItems: [
+        { target: "math.multiplication.equal_groups", correct: true },
+        { target: "math.multiplication.equal_groups", correct: false, observedErrorType: "operation_selection", note: "added the factors" },
+      ],
+    });
+
+    await runUploadGradedHomework([
+      `--child=${childId}`,
+      `--pdf=${returnedFile}`,
+      "--yes",
+    ], {
+      rootDir: root,
+      logger: { log: () => undefined },
+      now: new Date("2026-07-24T12:00:00.000Z"),
+      interpret: async (cycle) => ({
+        status: "revised",
+        reason: "Returned work was mixed.",
+        nextAction: "Preserve equal groups and test operation selection.",
+        evidenceIds: cycle.observations.map((observation) => observation.observationId),
+        predictionEvaluationIds: cycle.predictionEvaluations.map((evaluation) => evaluation.evaluationId),
+        preserve: ["equal groups"],
+        change: ["operation selection support"],
+        testNext: ["unseen word problem"],
+        nextEvidenceRequired: ["delayed unassisted item"],
+      }),
+    });
+
+    const cycle = getLearningCycle(childId, homeworkId, { rootDir: root });
+    expect(cycle?.calibrations).toHaveLength(1);
+    expect(cycle?.calibrations?.[0]?.score).toBe(0.8);
+    expect(cycle?.calibrations?.[0]?.sourceFile).toMatch(/returned-pashley\.json$/);
+    expect(cycle?.evidenceSources).toHaveLength(1);
+    expect(cycle?.decisionHistory.at(-1)?.eventType).toBe("theory_decided");
   });
 });

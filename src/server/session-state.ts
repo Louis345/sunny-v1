@@ -209,10 +209,34 @@ export class TurnStateMachine {
     this.canonicalProblemText = text;
   }
 
-  /** Last write wins — newer child utterance replaces an older queued one mid-turn. */
+  /** Coalesce overlapping STT finals; a distinct newer utterance supersedes stale queued speech. */
   setPendingTranscript(t: string): void {
-    this.pendingTranscript = t;
-    this.onLog(`  📥 Pending transcript saved: "${t}"`);
+    const incoming = t.replace(/\s+/g, " ").trim();
+    if (!incoming) return;
+    const existing = this.pendingTranscript?.replace(/\s+/g, " ").trim() ?? "";
+    if (!existing) {
+      this.pendingTranscript = incoming;
+    } else if (incoming.toLowerCase().includes(existing.toLowerCase())) {
+      this.pendingTranscript = incoming;
+    } else if (existing.toLowerCase().includes(incoming.toLowerCase())) {
+      this.pendingTranscript = existing;
+    } else {
+      const left = existing.split(" ");
+      const right = incoming.split(" ");
+      const guard = Math.min(10, left.length, right.length);
+      let overlap = 0;
+      for (let count = 1; count <= guard; count += 1) {
+        const suffix = left.slice(-count).join(" ").toLowerCase();
+        const prefix = right.slice(0, count).join(" ").toLowerCase();
+        if (suffix === prefix) overlap = count;
+      }
+      this.pendingTranscript = overlap > 0
+        ? [...left, ...right.slice(overlap)].join(" ")
+        : incoming;
+    }
+    const words = this.pendingTranscript.split(" ");
+    if (words.length > 80) this.pendingTranscript = words.slice(-80).join(" ");
+    this.onLog(`  📥 Pending transcript saved: "${this.pendingTranscript}"`);
   }
 
   /** Returns and clears pending transcript if one was queued mid-turn */

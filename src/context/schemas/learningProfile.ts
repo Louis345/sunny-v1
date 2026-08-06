@@ -56,6 +56,36 @@ export interface PlanTheory {
   falsifyCriteria: string[];
 }
 
+export type LearningTheoryDecisionStatus =
+  | "supported"
+  | "revised"
+  | "falsified"
+  | "inconclusive"
+  | "awaiting_calibration";
+
+/** Durable, inspectable outcome of testing one care-plan theory. */
+export interface LearningTheoryDecision {
+  theoryDecisionId: string;
+  theoryId: string;
+  theoryVersion: number;
+  childId: string;
+  planId: string;
+  domain: string;
+  sessionDir: string;
+  hypothesis: string;
+  intervention: string;
+  evidenceIds: string[];
+  contentIds: string[];
+  academicEvidenceSummary: string[];
+  /** Child/companion conversation signals are kept separate from academic proof. */
+  companionObservations: string[];
+  status: LearningTheoryDecisionStatus;
+  reason: string;
+  nextAction: string;
+  createdAt: string;
+  calibrationId?: string;
+}
+
 export interface PlannedMeasurement {
   id: string;
   activityId: string;
@@ -159,9 +189,41 @@ export interface ActiveSessionPlan {
     choiceSource?: ChoiceEventSource;
     masteryUnlockState?: MasteryUnlockState;
     locked?: boolean;
+    /** Child-facing title; never expose the internal generated-baseline label. */
+    title?: string;
     pronunciationConfig?: PronunciationNodeConfig;
     wordRadarConfig?: WordRadarNodeConfig;
     rewardWrapper?: RewardWrapperConfig;
+    /** Approved generated shell HTML; required for generated-baseline nodes to launch from the board. */
+    gameHtmlPath?: string;
+    /** Canonical homework identity used to route the generated artifact. */
+    date?: string;
+    /** Planner/designer-selected artwork for this exact node. */
+    thumbnailUrl?: string;
+    thumbnailPrompt?: string;
+    theoryId?: string;
+    experimentId?: string;
+    contentId?: string;
+    engagementDimensions?: EngagementDimension[];
+    engagementHypothesis?: string;
+    mechanic?: string;
+    theme?: string;
+    sfxProfile?: string;
+    companionPolicy?: string;
+    /** Per-node refillable config endpoint consumed by the generated shell. */
+    activityConfigPath?: string;
+    validationProof?: {
+      engine: "playwright";
+      passed: boolean;
+      worldStateChanged: boolean;
+      screenshotPaths: string[];
+    };
+    /** Planner-authored practice rounds from the captured worksheet (generated-baseline nodes). */
+    rounds?: Array<{
+      id: string;
+      prompt: string;
+      options: Array<{ id: string; label: string; correct: boolean }>;
+    }>;
   }>;
   learningRoutes?: LearningRoutePrescription[];
   adventureBoard?: AdventureBoardJson;
@@ -298,6 +360,78 @@ export interface ActivityTraitModelEntry {
   activityCounts: Record<string, number>;
 }
 
+export type EngagementDimension =
+  | "visual"
+  | "puzzle"
+  | "story"
+  | "speed"
+  | "competition"
+  | "control"
+  | "novelty"
+  | "voice"
+  | "calm";
+
+export type EngagementEvidenceKind =
+  | "choice"
+  | "activity"
+  | "companion"
+  | "sound"
+  | "parent_note";
+
+export interface EngagementTheoryEvidence {
+  id: string;
+  kind: EngagementEvidenceKind;
+  summary: string;
+  sourcePath?: string;
+  createdAt: string;
+}
+
+export interface EngagementDimensionState {
+  dimension: EngagementDimension;
+  positiveWeight: number;
+  negativeWeight: number;
+  mixedWeight: number;
+  evidenceCount: number;
+  confidence: number;
+  lastUpdated: string;
+}
+
+export interface EngagementExperiment {
+  experimentId: string;
+  theoryId: string;
+  variable: EngagementDimension | "mechanic" | "theme";
+  arms: Array<{
+    armId: string;
+    label: string;
+    contentId: string;
+    dimensions: EngagementDimension[];
+  }>;
+  holdConstant: string[];
+  successSignals: string[];
+  status: "planned" | "active" | "complete";
+}
+
+export interface EngagementTheory {
+  version: 1;
+  theoryId: string;
+  childId: string;
+  domain: string;
+  homeworkId?: string;
+  hypothesis: string;
+  dimensions: Record<EngagementDimension, EngagementDimensionState>;
+  preferredDimensions: EngagementDimension[];
+  avoidedDimensions: EngagementDimension[];
+  promptDirectives: {
+    prefer: string[];
+    avoid: string[];
+    vary: string[];
+    holdConstant: string[];
+  };
+  evidence: EngagementTheoryEvidence[];
+  nextExperiment?: EngagementExperiment;
+  updatedAt: string;
+}
+
 export interface AdaptiveLoadDomainState {
   domain: string;
   currentCohortSize: number;
@@ -370,12 +504,18 @@ export type ActivityPurpose =
 
 export interface AIContentCatalogItem {
   contentId: string;
+  /** Decision/theory record that authorized generation of this artifact. */
+  theoryDecisionId?: string;
   homeworkId?: string;
   childId: string;
   type: "story" | "image" | "video" | "game" | "quiz" | "countdown" | "reading-mode";
-  source: "generated" | "baseline" | "prototype" | "human";
+  source: "generated" | "baseline" | "prototype" | "human" | "generated_shell";
   purpose?: ActivityPurpose;
   title: string;
+  activityId?: string;
+  gameHtmlPath?: string;
+  domain?: string;
+  skillTarget?: string;
   algorithmTargets: LearningAlgorithmTarget[];
   targetSkills: string[];
   targetConcepts: string[];
@@ -422,6 +562,30 @@ export interface AIContentCatalogItem {
     };
   };
   experimentId?: string;
+  engagementTheoryId?: string;
+  mechanic?: string;
+  theme?: string;
+  sfxProfile?: string;
+  companionPolicy?: string;
+  designMemory?: {
+    artifactId: string;
+    artifactHash: string;
+    academicResponsibility: string;
+    interactionHistory: string[];
+    themeHistory: string[];
+    humanReview: "positive" | "mixed" | "negative" | "not_reviewed";
+    childEvidenceIds: string[];
+    predictionIds: string[];
+    theoryDecisionIds: string[];
+    plannerModel?: string;
+    architectModel?: string;
+    builderProvider?: "anthropic" | "openai";
+    builderModel?: string;
+    academicContractHash?: string;
+    implementationPromptHash?: string;
+    generatedHtmlHash?: string;
+  };
+  artworkStatus?: "generated" | "fallback" | "missing";
   performanceSummary?: {
     plays: number;
     completionRate: number;
@@ -550,6 +714,12 @@ export interface LearningProfile {
   /** Scientific-method records for AI psychologist interventions. */
   learningExperiments?: LearningExperiment[];
 
+  /** Completed theory-test decisions, newest first. */
+  learningTheoryDecisions?: LearningTheoryDecision[];
+
+  /** Human-readable, chart-backed preference theory used to design the next experience. */
+  engagementTheory?: EngagementTheory;
+
   /** Selected homework lane mirrored into legacy `pendingHomework` for old callers. */
   selectedHomeworkDomain?: HomeworkDomain;
 
@@ -655,6 +825,11 @@ export interface LearningProfile {
       storyImagePrompt?: string;
       /** Validated JSON config endpoint for reusable activity engines. */
       activityConfigPath?: string;
+      /** Approved generated baseline shell HTML path. */
+      gameHtmlPath?: string;
+      /** Planner/designer-selected artwork for this exact node. */
+      thumbnailUrl?: string;
+      thumbnailPrompt?: string;
       /** Word Radar drills when `type === "word-radar"` (ingest / map). */
       wordRadarItems?: Array<{
         display: string;

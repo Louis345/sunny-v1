@@ -15,7 +15,10 @@ describe("FlowGameOverlay", () => {
       </FlowGameOverlay>,
     );
 
-    fireEvent.click(screen.getByTestId("flow-game-back"));
+    const backButton = screen.getByTestId("flow-game-back");
+    expect(backButton).toHaveClass("top-16");
+    expect(backButton).not.toHaveClass("top-3");
+    fireEvent.click(backButton);
 
     expect(onBack).toHaveBeenCalledTimes(1);
   });

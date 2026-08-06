@@ -52,6 +52,42 @@ describe("homework cycle loop", () => {
     expect(theory.markdown).toContain("ending_confusion");
   });
 
+  it("never diagnoses a math assignment with a spelling pattern", () => {
+    // Reina's real ledger recorded "The child is most likely struggling with
+    // spelling:ending_confusion" against a multiplication worksheet, because the
+    // only registered classifier is spelling's and nothing filtered by domain.
+    const theory = buildPreQuestTheory({
+      cycle: cycle({
+        homeworkId: "hw-math-a179d2a0",
+        subject: "math",
+        wordList: ["5 x 2", "5 x 5", "10 x 4"],
+      }),
+      patterns: [endingConfusion],
+      nowIso: "2026-05-01T12:00:00.000Z",
+    });
+
+    expect(theory.predictedPattern).toBe("content_fit_gap");
+    expect(theory.hypothesis).not.toContain("ending_confusion");
+    expect(theory.markdown).not.toContain("ending_confusion");
+    expect(theory.evidence).toEqual(["No confirmed diagnostic pattern yet."]);
+  });
+
+  it("still uses an in-domain pattern when one exists", () => {
+    const mathPattern: ErrorSignal = {
+      ...endingConfusion,
+      errorType: "equal_groups_miscount",
+      domain: "math",
+      exampleTargets: ["5 x 2"],
+    };
+    const theory = buildPreQuestTheory({
+      cycle: cycle({ subject: "math", wordList: ["5 x 2", "5 x 5"] }),
+      patterns: [endingConfusion, mathPattern],
+      nowIso: "2026-05-01T12:00:00.000Z",
+    });
+
+    expect(theory.predictedPattern).toBe("equal_groups_miscount");
+  });
+
   it("uses a content-fit theory when no confirmed pattern exists yet", () => {
     const theory = buildPreQuestTheory({
       cycle: cycle({ subject: "math", wordList: ["place value"] }),
@@ -137,6 +173,7 @@ describe("homework cycle loop", () => {
       previousTheory: pre,
       measurement,
       patterns: [endingConfusion],
+      subject: "spelling_test",
       nowIso: "2026-05-01T13:01:00.000Z",
     });
 

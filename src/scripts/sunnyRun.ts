@@ -16,6 +16,7 @@ import {
   ensureFreshPendingHomework,
   type HomeworkDomainFilter,
 } from "./homeworkSelector";
+import { hasReadyDirectMathExperience } from "../engine/directMathExperience";
 
 type ParsedArgs = {
   subject?: SunnySubject;
@@ -123,7 +124,9 @@ function buildRuntimeEnv(args: ParsedArgs): RuntimeEnv {
 
 function main(): void {
   const args = parseArgs(process.argv.slice(2));
-  if (args.subject === "homework" && args.childId) {
+  const directMathReady = Boolean(args.childId)
+    && hasReadyDirectMathExperience(args.childId!);
+  if (args.subject === "homework" && args.childId && !directMathReady) {
     ensureFreshPendingHomework(args.childId, { domain: args.homeworkDomain });
   }
   const env = buildRuntimeEnv(args);

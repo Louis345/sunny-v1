@@ -27,6 +27,7 @@ export type NodeType =
   | "asteroid"
   | "space-frogger"
   | "boss"
+  | "generated-baseline"
   | "wheel-of-fortune";
 
 export type AdaptiveArtifactLifecycleStatus =
@@ -180,6 +181,11 @@ export interface AdaptiveArtifactRuntimeValidationReport {
   completed: boolean;
   completionPayloads: unknown[];
   usedValidationHook: boolean;
+  eventTimeline?: Array<{
+    type: string;
+    timestampMs: number;
+    payload: unknown;
+  }>;
 }
 
 export interface AdaptiveArtifactValidationReport {
@@ -212,10 +218,20 @@ export interface MysteryChoiceOption {
   contentId?: string;
   locked?: boolean;
   lockedReason?: MysteryLockedReason;
+  theoryId?: string;
+  experimentId?: string;
+  engagementDimensions?: string[];
+  engagementHypothesis?: string;
+  mechanic?: string;
+  theme?: string;
+  sfxProfile?: string;
+  companionPolicy?: string;
 }
 
 export interface NodeConfig {
   id: string;
+  /** AI-authored child-facing identity; never substitute the internal node type. */
+  title?: string;
   /** Active session plan that authored this node; used for audit traces. */
   planId?: string;
   type: NodeType;
@@ -260,6 +276,22 @@ export interface NodeConfig {
   theme?: string;
   /** Learning content catalog id when this node is generated/reused learning content. */
   contentId?: string;
+  theoryId?: string;
+  experimentId?: string;
+  engagementDimensions?: string[];
+  engagementHypothesis?: string;
+  mechanic?: string;
+  sfxProfile?: string;
+  companionPolicy?: string;
+  /** Factual activity context supplied to Elli; contains no answer key. */
+  companionContext?: {
+    activityTitle?: string;
+    learningFocus?: string;
+    mechanic?: string;
+    currentChallenge?: string;
+    availableActions?: string[];
+    totalItems?: number;
+  };
   /** Quest/boss artifact contract carried from homework generation into map evidence. */
   adaptiveArtifact?: {
     artifactId: string;
@@ -435,5 +467,6 @@ export const ALL_NODE_TYPES: readonly NodeType[] = [
   "space-frogger",
   "quest",
   "boss",
+  "generated-baseline",
   "wheel-of-fortune",
 ] as const;

@@ -235,8 +235,12 @@ export class CompanionMotor {
     const camera = this.camera;
     if (!vrm || vrm !== this.vrm || !camera) return;
 
+    // Scale BEFORE measuring. Fitting the camera to the unscaled model and
+    // scaling afterwards framed a displayScale=2 companion at half the size
+    // the camera accounted for, cropping her head and pushing her mount out
+    // of view entirely.
     const displayScale = this.getDisplayScale();
-    vrm.scene.scale.setScalar(1);
+    vrm.scene.scale.setScalar(displayScale);
     vrm.scene.updateMatrixWorld(true);
     const aspect = Math.max(1e-6, mountW) / Math.max(1e-6, mountH);
     camera.aspect = aspect;

@@ -26,7 +26,9 @@ export interface CompanionCareContextValue {
   care: CompanionCareView | null;
   behavior: CompanionBehavior;
   feed: (itemId: string) => Promise<void>;
+  purchase: (itemId: string) => Promise<void>;
   isFeeding: boolean;
+  isPurchasing: boolean;
   lastFeedAnimation: CompanionCareAnimationIntent | null;
   lastFeedEventId: string | null;
   error: string | null;
@@ -66,6 +68,7 @@ export function CompanionCareProvider({
   const profileCare = getCompanionCareFromProfile(profile);
   const [care, setCare] = useState<CompanionCareView | null>(profileCare);
   const [isFeeding, setIsFeeding] = useState(false);
+  const [isPurchasing, setIsPurchasing] = useState(false);
   const [lastFeedAnimation, setLastFeedAnimation] =
     useState<CompanionCareAnimationIntent | null>(null);
   const [lastFeedEventId, setLastFeedEventId] = useState<string | null>(null);
@@ -159,17 +162,57 @@ export function CompanionCareProvider({
     [care, lastFeedAnimation, lastFeedEventId],
   );
 
+  const purchase = useCallback(
+    async (itemId: string) => {
+      const resolvedChildId = childId?.trim();
+      if (!resolvedChildId) return;
+      setIsPurchasing(true);
+      setError(null);
+      try {
+        const response = await fetch(
+          `/api/profile/${encodeURIComponent(resolvedChildId)}/companion-care/purchase`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ itemId, requestId: crypto.randomUUID() }),
+          },
+        );
+        if (!response.ok) throw new Error(`purchase ${response.status}`);
+        const data = (await response.json()) as {
+          companionCare?: CompanionCareView;
+          companionCurrency?: number;
+        };
+        if (data.companionCare) {
+          setCare(data.companionCare);
+          onCareChange?.(data.companionCare);
+        }
+        if (typeof data.companionCurrency === "number") {
+          onCurrencyChange?.(Math.max(0, Math.floor(data.companionCurrency)));
+        }
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err);
+        setError(message);
+        console.error("  🔴 [companion-store] purchase failed:", err);
+      } finally {
+        setIsPurchasing(false);
+      }
+    },
+    [childId, onCareChange, onCurrencyChange],
+  );
+
   const value = useMemo<CompanionCareContextValue>(
     () => ({
       care,
       behavior,
       feed,
+      purchase,
       isFeeding,
+      isPurchasing,
       lastFeedAnimation,
       lastFeedEventId,
       error,
     }),
-    [behavior, care, error, feed, isFeeding, lastFeedAnimation, lastFeedEventId],
+    [behavior, care, error, feed, isFeeding, isPurchasing, lastFeedAnimation, lastFeedEventId, purchase],
   );
 
   return (

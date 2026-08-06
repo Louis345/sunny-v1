@@ -21,8 +21,261 @@ import {
   appendDecisionTrace,
   hydrateLearningProfileFromWaterfall,
   slimLearningProfileForDoorway,
+  writeWaterfallContentCatalog,
+  writeWaterfallSessionPlan,
 } from "../profiles/chartWaterfall";
 import { resolveChildContextDir } from "../utils/contextRoot";
+import { appendContentFeedbackLesson } from "./contentFeedbackMemory";
+import {
+  recordLearningCycleCalibration,
+  type LearningCycleRecordV2,
+} from "./learningCycleRepository";
+import { listActivityToolContracts, type LearningDomain } from "./activityToolCatalog";
+
+export type PlannerContentCandidateCard = {
+  contentId: string;
+  source: "instrument" | AIContentCatalogItem["source"];
+  title: string;
+  domain: string;
+  academicResponsibility: string;
+  domainCapabilities: {
+    math?: {
+      constructs: string[];
+      representations: string[];
+      responseModes: string[];
+      supportsTransfer: boolean;
+      supportsSynthesis: boolean;
+    };
+    spelling?: {
+      recognition: boolean;
+      production: boolean;
+      phonology: boolean;
+      pronunciation: boolean;
+      recall: boolean;
+      wordPatterns: boolean;
+    };
+  };
+  runtime: {
+    status: "verified" | "registered_unverified" | "unavailable" | "failed";
+    launchPath?: string;
+    reason: string;
+  };
+  childEvidence: {
+    plays?: number;
+    completions?: number;
+    completionRate?: number;
+    averageAccuracy?: number;
+    assistanceCount?: number;
+    replayCount?: number;
+    frustrationScore?: number;
+    engagementScore?: number;
+    likedCount?: number;
+    dislikedCount?: number;
+    lastRating?: "like" | "dislike" | "implicit";
+    evidenceIds: string[];
+    evidenceCount: number;
+  };
+  hashes: {
+    academicContractHash?: string;
+    designArtifactHash?: string;
+    implementationPromptHash?: string;
+    htmlHash?: string;
+  };
+  catalogStatus?: AIContentCatalogItem["reuseStatus"];
+  decisionCosts: {
+    reuse: { eligible: boolean; estimatedModelCalls: number; estimatedLatencyMs: number | null };
+    revise: { eligible: boolean; estimatedModelCalls: number; estimatedLatencyMs: number | null };
+    generateNew: { eligible: true; estimatedModelCalls: number; estimatedLatencyMs: number | null };
+  };
+  uncertainty: { evidenceCount: number; confidence: number; note: string };
+};
+
+function spellingCapabilities(skillTargets: string[], measures: string[]): NonNullable<PlannerContentCandidateCard["domainCapabilities"]["spelling"]> {
+  const text = [...skillTargets, ...measures].join(" ").toLowerCase();
+  return {
+    recognition: /recognition|recognize|read/.test(text),
+    production: /spell_from_memory|spelling construction|produce|typing/.test(text),
+    phonology: /phonolog|sound|auditory/.test(text),
+    pronunciation: /pronounc|speech/.test(text),
+    recall: /recall|retrieval|hidden|produce/.test(text),
+    wordPatterns: /pattern|letter-order|silent/.test(text),
+  };
+}
+
+function mathCapabilities(skillTargets: string[], measures: string[], inputModes: string[]): NonNullable<PlannerContentCandidateCard["domainCapabilities"]["math"]> {
+  const text = [...skillTargets, ...measures].join(" ");
+  return {
+    constructs: [...new Set([...skillTargets, ...measures])],
+    representations: [...new Set(inputModes)],
+    responseModes: [...new Set(inputModes)],
+    supportsTransfer: /transfer|varied|fresh|word problem/i.test(text),
+    supportsSynthesis: /synthesis|explain|construct|compose/i.test(text),
+  };
+}
+
+function confidenceFromEvidenceCount(count: number): number {
+  if (count <= 0) return 0;
+  return Math.min(0.9, Number((count / (count + 4)).toFixed(2)));
+}
+
+/**
+ * One factual candidate-card protocol for every Planner. Domain capabilities
+ * differ; the decision vocabulary and evidence boundaries do not.
+ */
+export function buildPlannerContentCandidateCards(input: {
+  chart: ChildChart;
+  domain: LearningDomain;
+}): PlannerContentCandidateCard[] {
+  const activityModel = input.chart.learningProfile?.activityModel ?? {};
+  const instrumentCards = listActivityToolContracts()
+    .filter((contract) => contract.domains.includes(input.domain))
+    .map((contract): PlannerContentCandidateCard => {
+      const evidence = activityModel[contract.id];
+      const evidenceCount = evidence?.plays ?? 0;
+      const registered = Boolean(contract.nodeType);
+      const spelling = contract.domains.includes("spelling")
+        ? spellingCapabilities(contract.traits.skillTargets, contract.measures)
+        : undefined;
+      const math = contract.domains.includes("math")
+        ? mathCapabilities(contract.traits.skillTargets, contract.measures, contract.traits.inputModes)
+        : undefined;
+      return {
+        contentId: `instrument:${contract.id}`,
+        source: "instrument",
+        title: contract.label,
+        domain: input.domain,
+        academicResponsibility: contract.measures.join(" "),
+        domainCapabilities: { ...(math ? { math } : {}), ...(spelling ? { spelling } : {}) },
+        runtime: registered
+          ? {
+              status: "registered_unverified",
+              reason: "Registered in Sunny, but this candidate has no assignment-specific frozen contract and verified artifact hash.",
+            }
+          : { status: "unavailable", reason: "No launchable runtime is registered." },
+        childEvidence: {
+          ...(evidence ? {
+            plays: evidence.plays,
+            completions: evidence.completions,
+            completionRate: evidence.completionRate,
+            frustrationScore: evidence.frustrationScore,
+            engagementScore: evidence.engagementScore,
+            likedCount: evidence.likedCount,
+            dislikedCount: evidence.dislikedCount,
+            lastRating: evidence.lastRating,
+          } : {}),
+          evidenceIds: [],
+          evidenceCount,
+        },
+        hashes: {},
+        decisionCosts: {
+          reuse: { eligible: false, estimatedModelCalls: 0, estimatedLatencyMs: 0 },
+          revise: { eligible: registered, estimatedModelCalls: 1, estimatedLatencyMs: null },
+          generateNew: { eligible: true, estimatedModelCalls: 2, estimatedLatencyMs: null },
+        },
+        uncertainty: {
+          evidenceCount,
+          confidence: confidenceFromEvidenceCount(evidenceCount),
+          note: evidenceCount ? "Sparse factual child history; interpret with uncertainty." : "No real child evidence for this instrument.",
+        },
+      };
+    });
+
+  const historicalCards = (input.chart.contentCatalog?.items ?? [])
+    .filter((item) => item.domain === input.domain)
+    .map((item): PlannerContentCandidateCard => {
+      const modelEvidence = item.activityId ? activityModel[item.activityId] : undefined;
+      const evidenceIds = item.designMemory?.childEvidenceIds ?? item.inputEvidence.activityEvidenceIds ?? [];
+      const plays = item.performanceSummary?.plays ?? modelEvidence?.plays ?? 0;
+      const completions = modelEvidence?.completions ?? Math.round((item.performanceSummary?.completionRate ?? 0) * plays);
+      const htmlExists = Boolean(item.gameHtmlPath && fs.existsSync(item.gameHtmlPath));
+      const verified = htmlExists && item.reuseStatus !== "retire" && item.validationStatus !== "failed";
+      const evidenceCount = Math.max(plays, evidenceIds.length);
+      const skills = [...item.targetSkills, ...(item.skillTarget ? [item.skillTarget] : [])];
+      return {
+        contentId: item.contentId,
+        source: item.source,
+        title: item.title,
+        domain: item.domain ?? input.domain,
+        academicResponsibility: item.designMemory?.academicResponsibility ?? item.skillTarget ?? skills.join(" "),
+        domainCapabilities: {
+          ...(input.domain === "math" ? { math: mathCapabilities(skills, item.targetConcepts, []) } : {}),
+          ...(input.domain === "spelling" ? { spelling: spellingCapabilities(skills, item.targetConcepts) } : {}),
+        },
+        runtime: verified
+          ? { status: "verified", launchPath: item.gameHtmlPath, reason: "Saved artifact exists and is not failed or retired." }
+          : item.validationStatus === "failed"
+            ? { status: "failed", ...(item.gameHtmlPath ? { launchPath: item.gameHtmlPath } : {}), reason: "Recorded validation failed." }
+            : { status: "unavailable", ...(item.gameHtmlPath ? { launchPath: item.gameHtmlPath } : {}), reason: "No complete saved launch artifact is available." },
+        childEvidence: {
+          plays,
+          completions,
+          completionRate: item.performanceSummary?.completionRate ?? modelEvidence?.completionRate,
+          ...(evidenceIds.length > 0
+            ? { averageAccuracy: item.performanceSummary?.averageAccuracy }
+            : {}),
+          frustrationScore: item.performanceSummary?.frustrationScore ?? modelEvidence?.frustrationScore,
+          engagementScore: item.performanceSummary?.engagementScore ?? modelEvidence?.engagementScore,
+          likedCount: modelEvidence?.likedCount,
+          dislikedCount: modelEvidence?.dislikedCount,
+          lastRating: modelEvidence?.lastRating,
+          evidenceIds,
+          evidenceCount,
+        },
+        hashes: {
+          academicContractHash: item.designMemory?.academicContractHash,
+          designArtifactHash: item.designMemory?.artifactHash,
+          implementationPromptHash: item.designMemory?.implementationPromptHash,
+          htmlHash: item.designMemory?.generatedHtmlHash,
+        },
+        catalogStatus: item.reuseStatus,
+        decisionCosts: {
+          reuse: { eligible: verified && Boolean(item.designMemory?.academicContractHash), estimatedModelCalls: 0, estimatedLatencyMs: 0 },
+          revise: { eligible: verified && Boolean(item.designMemory?.artifactHash), estimatedModelCalls: 1, estimatedLatencyMs: null },
+          generateNew: { eligible: true, estimatedModelCalls: 2, estimatedLatencyMs: null },
+        },
+        uncertainty: {
+          evidenceCount,
+          confidence: confidenceFromEvidenceCount(evidenceCount),
+          note: evidenceCount ? "Factual outcomes are limited to the listed evidence." : "No real child outcome evidence; treat reuse value as uncertain.",
+        },
+      };
+    });
+
+  return [...historicalCards, ...instrumentCards];
+}
+
+export function resolveExactMathCatalogReuse(input: {
+  decision: { action: string; contentId?: string; reason?: string };
+  targetNodeId: string;
+  academicContractHash: string;
+  cards: PlannerContentCandidateCard[];
+}): PlannerContentCandidateCard | null {
+  if (input.decision.action !== "reuse" || !input.decision.contentId) return null;
+  const card = input.cards.find((candidate) => candidate.contentId === input.decision.contentId);
+  if (!card || card.runtime.status !== "verified" || !card.runtime.launchPath || !card.decisionCosts.reuse.eligible) return null;
+  if (card.hashes.academicContractHash !== input.academicContractHash) return null;
+  if (!fs.existsSync(card.runtime.launchPath)) return null;
+  const html = fs.readFileSync(card.runtime.launchPath, "utf8");
+  if (!/<html[\s>]/i.test(html) || !/node_complete|sendNodeComplete/i.test(html)) return null;
+  const metadataPath = card.runtime.launchPath.replace(/\.html$/i, ".artifact.json");
+  if (!fs.existsSync(metadataPath)) return null;
+  try {
+    const metadata = JSON.parse(fs.readFileSync(metadataPath, "utf8")) as {
+      nodeId?: string;
+      academicContractHash?: string;
+      htmlHash?: string;
+    };
+    if (metadata.nodeId !== input.targetNodeId) return null;
+    if (metadata.academicContractHash !== input.academicContractHash) return null;
+    if (metadata.htmlHash) {
+      const actualHash = crypto.createHash("sha256").update(html).digest("hex");
+      if (metadata.htmlHash !== actualHash) return null;
+    }
+  } catch {
+    return null;
+  }
+  return card;
+}
 
 type RootOptions = {
   rootDir?: string;
@@ -56,6 +309,7 @@ export type GradedHomeworkCalibrationInput = {
     note?: string;
   }>;
   teacherNotes?: string;
+  sourceFile?: string;
 };
 
 export type HomeworkCatalogNode = {
@@ -332,6 +586,13 @@ export function buildHomeworkContentCatalogItems(args: {
     const isGenerated = Boolean(node.gameFile) || node.type === "karaoke" || node.type === "quest" || node.type === "boss";
     const item: AIContentCatalogItem = {
       contentId: `${args.homeworkId}:${node.id}`,
+      ...(isGenerated
+        ? {
+            theoryDecisionId:
+              node.adaptiveArtifact?.theoryId ??
+              `theory:homework:${args.homeworkId}:ingest`,
+          }
+        : {}),
       homeworkId: args.homeworkId,
       childId: args.childId,
       type,
@@ -360,6 +621,9 @@ export function buildHomeworkContentCatalogItems(args: {
     if (node.type === "karaoke" && node.storyImagePrompt) {
       items.push({
         contentId: `${args.homeworkId}:${node.id}:image`,
+        theoryDecisionId:
+          node.adaptiveArtifact?.theoryId ??
+          `theory:homework:${args.homeworkId}:ingest`,
         homeworkId: args.homeworkId,
         childId: args.childId,
         type: "image",
@@ -431,7 +695,7 @@ export function buildLearningDecisionContext(
   const pending = chart.homework.pending;
   const patternResult = scanChildErrorPatterns(childId, { rootDir, now });
   const questThreshold = evaluateQuestThreshold({
-    totalSessions: profile.sessionStats.totalSessions,
+    totalSessions: profile.sessionStats?.totalSessions ?? 0,
     patterns: patternResult.patterns,
   });
   const due = daysUntil(pending?.testDate, now);
@@ -681,8 +945,10 @@ export function recordGradedHomeworkCalibration(
   const rootDir = opts.rootDir ?? process.cwd();
   const profile = readProfile(rootDir, childId);
   const file = cyclePath(rootDir, childId, input.homeworkId);
-  const cycle = readJson<HomeworkCycle>(file);
+  const cycle = readJson<HomeworkCycle | LearningCycleRecordV2>(file);
   if (!cycle) throw new Error(`Homework cycle not found: ${input.homeworkId}`);
+  const canonicalCycle = "schemaVersion" in cycle && cycle.schemaVersion === 2 ? cycle : null;
+  const legacyCycle = canonicalCycle ? null : cycle as HomeworkCycle;
   const observedMisses = input.gradedItems
     .filter((item) => !item.correct)
     .map((item) => ({
@@ -691,30 +957,47 @@ export function recordGradedHomeworkCalibration(
       ...(item.note ? { note: item.note } : {}),
     }));
   const gradedAt = input.gradedAt ?? isoNow(opts);
-  const status = calibrationStatus({
-    predictedPattern: cycle.theory?.predictedPattern,
-    observedMisses,
-    score: input.score ?? null,
-  });
+  const status = canonicalCycle
+    ? "inconclusive"
+    : calibrationStatus({
+      predictedPattern: legacyCycle?.theory?.predictedPattern,
+      observedMisses,
+      score: input.score ?? null,
+    });
   const entry: HomeworkCalibrationEntry = {
     calibrationId: calibrationId(input.homeworkId, gradedAt),
     homeworkId: input.homeworkId,
     gradedAt,
-    ...(cycle.theory?.theoryId ? { theoryId: cycle.theory.theoryId } : {}),
-    ...(cycle.theory?.predictedPattern ? { predictedPattern: cycle.theory.predictedPattern } : {}),
-    predictedRiskWords: cycle.theory?.predictedRiskWords ?? [],
+    ...((canonicalCycle?.academicTheory.theoryId ?? legacyCycle?.theory?.theoryId)
+      ? { theoryId: canonicalCycle?.academicTheory.theoryId ?? legacyCycle?.theory?.theoryId }
+      : {}),
+    ...(legacyCycle?.theory?.predictedPattern ? { predictedPattern: legacyCycle.theory.predictedPattern } : {}),
+    predictedRiskWords: legacyCycle?.theory?.predictedRiskWords ?? [],
     observedMisses,
     score: input.score ?? null,
     status,
     ...(input.teacherNotes ? { teacherNotes: input.teacherNotes } : {}),
     nextAdjustment: nextAdjustment(status),
   };
-  const nextCycle: HomeworkCycle = {
-    ...cycle,
-    calibrationStatus: status,
-    calibrationJournal: [entry, ...(cycle.calibrationJournal ?? [])].slice(0, 50),
-  };
-  writeJson(file, nextCycle);
+  if (canonicalCycle) {
+    recordLearningCycleCalibration(childId, input.homeworkId, {
+      calibrationId: entry.calibrationId,
+      gradedAt,
+      score: input.score ?? null,
+      status,
+      gradedItems: input.gradedItems,
+      sourceFile: input.sourceFile ?? "returned-homework",
+      reason: "Returned graded work was recorded as reality evidence; the AI Planner must interpret what it means for the theory.",
+      nextAction: entry.nextAdjustment,
+    }, opts);
+  } else {
+    const nextCycle: HomeworkCycle = {
+      ...legacyCycle!,
+      calibrationStatus: status,
+      calibrationJournal: [entry, ...(legacyCycle?.calibrationJournal ?? [])].slice(0, 50),
+    };
+    writeJson(file, nextCycle);
+  }
   const nextProfile: LearningProfile = {
     ...profile,
     learningCalibrationJournal: [
@@ -722,9 +1005,23 @@ export function recordGradedHomeworkCalibration(
       ...(profile.learningCalibrationJournal ?? []),
     ].slice(0, 100),
     aiContentCatalog: applyCalibrationToCatalog(profile.aiContentCatalog, input.homeworkId, entry),
+    learningTheoryDecisions: (profile.learningTheoryDecisions ?? []).map((decision) => {
+      const linkedContent = (profile.aiContentCatalog ?? []).some((item) =>
+        item.homeworkId === input.homeworkId && decision.contentIds.includes(item.contentId));
+      if (!linkedContent || decision.status !== "awaiting_calibration") return decision;
+      return {
+        ...decision,
+        status: entry.status,
+        reason: `Graded calibration ${entry.status}: ${entry.nextAdjustment}`,
+        nextAction: entry.nextAdjustment,
+        calibrationId: entry.calibrationId,
+      };
+    }),
     lastUpdated: isoNow(opts),
   };
   writeJson(profilePath(rootDir, childId), nextProfile);
+  writeWaterfallSessionPlan(childId, nextProfile, opts);
+  writeWaterfallContentCatalog(childId, nextProfile, opts);
   return entry;
 }
 
@@ -733,6 +1030,12 @@ export function validateContentCatalogItem(
 ): { ok: true } | { ok: false; error: string } {
   if (!item.algorithmTargets.length) {
     return { ok: false, error: "content_missing_algorithm_targets" };
+  }
+  if (
+    (item.source === "generated" || item.source === "generated_shell") &&
+    !item.theoryDecisionId?.trim()
+  ) {
+    return { ok: false, error: "generated_content_missing_theory_decision" };
   }
   return { ok: true };
 }
@@ -792,9 +1095,28 @@ export function updateContentCatalogFromActivityEvidence(
       reuseStatus = "reuse";
       reuseReason = "Reuse: completion, accuracy, and frustration evidence are healthy.";
     }
+    if (reuseStatus !== item.reuseStatus) {
+      console.log(
+        `  🎮 [content-catalog] [reuse-transition] ${item.contentId}: ${item.reuseStatus} → ${reuseStatus} (${reuseReason})`,
+      );
+      // Play evidence is a vitality verdict: record it as a feedback lesson so
+      // the next generation's briefs learn from what children actually did.
+      appendContentFeedbackLesson(rootDir, childId, {
+        contentId: item.contentId,
+        decision: reuseStatus === "reuse" ? "approve" : reuseStatus === "revise" ? "revise" : "reject",
+        verdict: reuseStatus === "reuse" ? "strong" : reuseStatus === "revise" ? "revise" : "retire",
+        reason: reuseReason ?? "",
+        source: "vitality",
+        plays: performanceSummary.plays,
+        completionRate: performanceSummary.completionRate,
+      });
+    }
     return { ...item, performanceSummary, reuseStatus, reuseReason };
   });
   const nextProfile = { ...profile, aiContentCatalog: nextCatalog, lastUpdated: isoNow(opts) };
   writeJson(profilePath(rootDir, childId), nextProfile);
+  // The catalog's durable home is the waterfall file; without this the next
+  // ingest's shell-gap detection never sees retire/revise transitions.
+  writeWaterfallContentCatalog(childId, nextProfile, opts);
   return nextProfile;
 }

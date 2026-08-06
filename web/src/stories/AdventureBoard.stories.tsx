@@ -1,9 +1,13 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { cloneCompanionDefaults } from "../../../src/shared/companionTypes";
 import { DEFAULT_ADVENTURE_MAP_PROFILE } from "../../../src/context/schemas/learningProfile";
 import { AdventureBoardExperience } from "../components/AdventureBoardExperience";
-import { AdventureBoard } from "../components/AdventureBoard";
+import {
+  AdventureBoard,
+  unlockCeremonyVariantFor,
+  type UnlockCeremonyVariant,
+} from "../components/AdventureBoard";
 import { AdventureChoiceModal } from "../components/AdventureChoiceModal";
 import {
   bossChoiceLockedBoard,
@@ -35,6 +39,7 @@ import type {
 } from "../../../src/shared/adventureBoardJson";
 import type { ChildExperiencePacket } from "../../../src/profiles/childExperiencePacket";
 import type { CompanionBehavior } from "../context/companionCareBehavior";
+import { playAdventureBoardUnlockSfx } from "../utils/gameSfx";
 
 type AdventureBoardStoryArgs = {
   scenario:
@@ -319,7 +324,13 @@ export const ReinaCurrentHomework: Story = {
   render: (args) => <BoardFixture {...args} />,
 };
 
-function BoardOnlyFixture({ board }: { board: AdventureBoardJson }) {
+function BoardOnlyFixture({
+  board,
+  playUnlockSound = false,
+}: {
+  board: AdventureBoardJson;
+  playUnlockSound?: boolean;
+}) {
   return (
     <div style={{ width: "100vw", height: "100vh" }}>
       <AdventureBoard
@@ -331,6 +342,9 @@ function BoardOnlyFixture({ board }: { board: AdventureBoardJson }) {
           })
         }
         onChoiceClick={(option, choiceSet) => console.info("[storybook:adventure-board:choice]", { option, choiceSet })}
+        onUnlockCeremony={playUnlockSound
+          ? (event) => playAdventureBoardUnlockSfx(event.variant, event.kind)
+          : undefined}
       />
     </div>
   );
@@ -354,6 +368,182 @@ export const BossChoiceLocked: Story = {
 export const BossChoiceUnlocked: Story = {
   args: { scenario: "grokFull" },
   render: () => <BoardOnlyFixture board={bossChoiceUnlockedBoard} />,
+};
+
+function boardIdForCeremonyVariant(
+  baseBoardId: string,
+  kind: "quest" | "boss",
+  variant: UnlockCeremonyVariant,
+): string {
+  for (let index = 0; index < 200; index += 1) {
+    const candidateBoardId = `${baseBoardId}:ceremony-preview:${index}`;
+    if (unlockCeremonyVariantFor(candidateBoardId, kind) === variant) return candidateBoardId;
+  }
+  throw new Error(`Unable to preview ${kind} ceremony variant ${variant}`);
+}
+
+function childCeremonyBoard(
+  baseBoard: AdventureBoardJson,
+  kind: "quest" | "boss",
+  variant: UnlockCeremonyVariant,
+  unlocked: boolean,
+): AdventureBoardJson {
+  const targetNode = baseBoard.nodes.find((node) => node.kind === kind);
+  if (!targetNode) throw new Error(`Current board is missing its ${kind} node`);
+  const questNode = baseBoard.nodes.find((node) => node.kind === "quest");
+
+  return {
+    ...baseBoard,
+    boardId: boardIdForCeremonyVariant(baseBoard.boardId, kind, variant),
+    nodes: baseBoard.nodes.map((node) => {
+      if (node.id === targetNode.id) {
+        return unlocked
+          ? { ...node, state: "available" as const, lock: undefined }
+          : { ...node, state: "locked" as const, lock: node.lock ?? { reason: "evidence-gated", label: "Preparing" } };
+      }
+      if (kind === "boss" && node.id === questNode?.id) {
+        return { ...node, state: "completed" as const, lock: undefined };
+      }
+      return node;
+    }),
+    edges: baseBoard.edges.map((edge) => {
+      if (edge.to === targetNode.id) {
+        return { ...edge, state: unlocked ? "available" as const : "locked" as const };
+      }
+      if (kind === "boss" && edge.to === questNode?.id) {
+        return { ...edge, state: "completed" as const };
+      }
+      return edge;
+    }),
+  };
+}
+
+function UnlockCeremonyFixture({ baseBoard }: { baseBoard: AdventureBoardJson }) {
+  const [ceremonyKind, setCeremonyKind] = useState<"quest" | "boss">("quest");
+  const [ceremonyVariant, setCeremonyVariant] = useState<UnlockCeremonyVariant>("power");
+  const [ceremonyPlaying, setCeremonyPlaying] = useState(false);
+  const [board, setBoard] = useState<AdventureBoardJson>(() =>
+    childCeremonyBoard(baseBoard, "quest", "power", false),
+  );
+  const transitionTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const controlsTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => () => {
+    if (transitionTimer.current) clearTimeout(transitionTimer.current);
+    if (controlsTimer.current) clearTimeout(controlsTimer.current);
+  }, []);
+
+  const playCeremony = (kind: "quest" | "boss") => {
+    if (transitionTimer.current) clearTimeout(transitionTimer.current);
+    if (controlsTimer.current) clearTimeout(controlsTimer.current);
+    setCeremonyKind(kind);
+    setCeremonyPlaying(true);
+    setBoard(childCeremonyBoard(baseBoard, kind, ceremonyVariant, false));
+    transitionTimer.current = setTimeout(() => {
+      setBoard(childCeremonyBoard(baseBoard, kind, ceremonyVariant, true));
+      transitionTimer.current = null;
+    }, 120);
+    controlsTimer.current = setTimeout(() => {
+      setCeremonyPlaying(false);
+      controlsTimer.current = null;
+    }, 2600);
+  };
+
+  const resetCeremony = () => {
+    if (transitionTimer.current) clearTimeout(transitionTimer.current);
+    if (controlsTimer.current) clearTimeout(controlsTimer.current);
+    transitionTimer.current = null;
+    controlsTimer.current = null;
+    setCeremonyPlaying(false);
+    setBoard(childCeremonyBoard(baseBoard, ceremonyKind, ceremonyVariant, false));
+  };
+
+  return (
+    <div style={{ width: "100vw", height: "100vh" }}>
+      <div
+        aria-label="Storybook ceremony controls"
+        style={{
+          position: "fixed",
+          bottom: 16,
+          left: 16,
+          zIndex: 140,
+          display: "flex",
+          flexWrap: "wrap",
+          gap: 10,
+          padding: 10,
+          borderRadius: 14,
+          background: "rgba(15, 23, 42, 0.94)",
+          boxShadow: "0 12px 32px rgba(0, 0, 0, 0.32)",
+          opacity: ceremonyPlaying ? 0 : 1,
+          pointerEvents: ceremonyPlaying ? "none" : "auto",
+          transition: "opacity 160ms ease",
+        }}
+      >
+        {(["power", "gate", "warp", "thunder"] as const).map((variant) => (
+          <button
+            key={variant}
+            type="button"
+            aria-pressed={ceremonyVariant === variant}
+            onClick={() => {
+              setCeremonyVariant(variant);
+              setBoard(childCeremonyBoard(baseBoard, ceremonyKind, variant, false));
+            }}
+            style={{
+              border: "2px solid rgba(255,255,255,0.72)",
+              borderRadius: 10,
+              background: ceremonyVariant === variant ? "#7c3aed" : "transparent",
+              color: "white",
+              padding: "10px 12px",
+              fontWeight: 800,
+              cursor: "pointer",
+              textTransform: "capitalize",
+            }}
+          >
+            {variant}
+          </button>
+        ))}
+        {(["quest", "boss"] as const).map((kind) => (
+          <button
+            key={kind}
+            type="button"
+            onClick={() => playCeremony(kind)}
+            style={{
+              border: "2px solid #fde68a",
+              borderRadius: 10,
+              background: "#facc15",
+              color: "#172033",
+              padding: "10px 14px",
+              fontWeight: 900,
+              cursor: "pointer",
+            }}
+          >
+            {kind === "quest" ? "Play child Quest unlock" : "Play child Boss unlock"}
+          </button>
+        ))}
+        <button
+          type="button"
+          onClick={resetCeremony}
+          style={{
+            border: "2px solid rgba(255,255,255,0.72)",
+            borderRadius: 10,
+            background: "transparent",
+            color: "white",
+            padding: "10px 14px",
+            fontWeight: 800,
+            cursor: "pointer",
+          }}
+        >
+          Reset ceremony
+        </button>
+      </div>
+      <BoardOnlyFixture board={board} playUnlockSound />
+    </div>
+  );
+}
+
+export const UnlockCeremonyPreview: Story = {
+  args: { scenario: "reinaCurrent" },
+  render: () => <UnlockCeremonyFixture baseBoard={reinaCurrentHomeworkBoard} />,
 };
 
 function ChoicePatternComparisonFixture() {

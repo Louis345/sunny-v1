@@ -56,13 +56,47 @@ async function isPortInUse(): Promise<boolean> {
   }
 }
 
+async function waitForPortFree(timeoutMs = 15000): Promise<boolean> {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    if (!(await isPortInUse())) return true;
+    await new Promise((r) => setTimeout(r, 250));
+  }
+  return !(await isPortInUse());
+}
+
+function killProcessOnPort(port: number): void {
+  try {
+    const out = execSync(`lsof -tiTCP:${port} -sTCP:LISTEN`, { encoding: "utf8" }).trim();
+    if (!out) return;
+    const pids = out.split("\n").map((line) => line.trim()).filter(Boolean);
+    for (const pid of pids) {
+      try {
+        process.kill(Number(pid), "SIGTERM");
+        console.log(`  🔄 Stopped stale process on port ${port} (pid ${pid})`);
+      } catch {
+        // process may already be gone
+      }
+    }
+    execSync("sleep 0.5");
+  } catch {
+    // port not in use or lsof unavailable
+  }
+}
+
 async function main() {
   console.log("\n  🌟 Project Sunny — Starting up...\n");
 
-  // Avoid EADDRINUSE: if server is already running, just point user to it
   if (await isPortInUse()) {
-    console.log(`  🌐 Server already running → http://localhost:${PORT}\n`);
-    process.exit(0);
+    console.log(`  🔄 Port ${PORT} busy — restarting Sunny server for fresh bundle...`);
+    killProcessOnPort(PORT);
+    const released = await waitForPortFree(15000);
+    if (!released) {
+      console.error(
+        `  ⚠️  Port ${PORT} is still in use. Stop the other Sunny process (lsof -ti tcp:${PORT} | xargs kill) and retry.`,
+      );
+      process.exit(1);
+    }
   }
 
   // Check web/ exists

@@ -6,6 +6,30 @@ import {
 } from "./map-coordinator";
 import { createAudioGate } from "./audioGate";
 import { SessionManager } from "./session-manager";
+import { isValidWsSessionChild } from "../shared/childRegistry";
+import type { ChildName } from "./session-triggers";
+
+function formatSessionStartError(message: string): { code: string; message: string } {
+  if (message.includes("DEEPGRAM_API_KEY")) {
+    return {
+      code: "voice_connection_unavailable",
+      message: "Voice connection is having trouble. You can still type.",
+    };
+  }
+  if (/homework cycle found/i.test(message)) {
+    const hint = message.toLowerCase().includes("math")
+      ? " Ingest math homework first (npm run sunny:ingest:homework -- --child=<childId> --domain=math)."
+      : " Ingest homework for this child first.";
+    return {
+      code: "homework_precondition_missing",
+      message: `${message}.${hint}`,
+    };
+  }
+  return {
+    code: "session_start_failed",
+    message: message || "Voice session could not start. Please try again.",
+  };
+}
 
 export function handleWsConnection(
   ws: WebSocket,
@@ -73,10 +97,7 @@ export function handleWsConnection(
         const diagKiosk = raw.diagKiosk === true;
         const silentTts = raw.silentTts === true;
         const sttOnly = raw.sttOnly === true;
-        const validChild =
-          child === "Ila" ||
-          child === "Reina" ||
-          (child === "creator" && diagKiosk);
+        const validChild = typeof child === "string" && isValidWsSessionChild(child, diagKiosk);
         if (!validChild) {
           ws.send(
             JSON.stringify({ type: "error", message: "Invalid child name" })
@@ -108,24 +129,20 @@ export function handleWsConnection(
                 ...(sttOnly ? { sttOnly: true as const } : {}),
               }
             : undefined;
-        session = new SessionManager(ws, child, diagKiosk, sessionOptions);
+        session = new SessionManager(ws, child as ChildName, diagKiosk, sessionOptions);
         try {
           await session.start();
         } catch (err) {
           const message = err instanceof Error ? err.message : String(err);
-          const voiceUnavailable = message.includes("DEEPGRAM_API_KEY");
+          const formatted = formatSessionStartError(message);
           console.error(
             ` 🎮 [ws-handler] [start_session] [error] child=${child} reason=${message}`,
           );
           ws.send(
             JSON.stringify({
               type: "error",
-              code: voiceUnavailable
-                ? "voice_connection_unavailable"
-                : "session_start_failed",
-              message: voiceUnavailable
-                ? "Voice connection is having trouble. You can still type."
-                : "Voice session could not start. Please try again.",
+              code: formatted.code,
+              message: formatted.message,
             }),
           );
           session = null;
@@ -144,6 +161,15 @@ export function handleWsConnection(
         if (!audioGate) return;
         const m = msg as { muted?: boolean };
         audioGate.setMute(m.muted === true);
+        break;
+      }
+
+      case "companion_presence": {
+        if (!session) return;
+        const state = (msg as Record<string, unknown>).state;
+        if (state === "collapsed" || state === "summoned") {
+          session.setCompanionPresence(state, "client");
+        }
         break;
       }
 

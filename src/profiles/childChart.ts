@@ -4,6 +4,9 @@ import type { AdventureMapProfile, LearningProfile } from "../context/schemas/le
 import { resolveAdventureMapProfile } from "../context/schemas/learningProfile";
 import type { WordBankFile } from "../context/schemas/wordBank";
 import { createEmptyWordBank } from "../context/schemas/wordBank";
+import type { FactBankFile } from "../context/schemas/factBank";
+import { createEmptyFactBank } from "../context/schemas/factBank";
+import { sm2Facts } from "../algorithms/sm2Facts";
 import type { ChildProfileEntry, ChildrenConfigFile } from "./childrenConfig";
 import { companionConfigFromPreset } from "./childrenConfig";
 import type { CompanionConfig } from "../shared/companionTypes";
@@ -20,6 +23,7 @@ import type {
   CompanionCareView,
 } from "../shared/companionCareTypes";
 import { loadCompanionCarePlanForChart } from "./companionCarePlan";
+import { readEngagementTheory } from "../engine/engagementTheory";
 import { resolveChildContextDir } from "../utils/contextRoot";
 import {
   defaultWaterfallLinks,
@@ -36,6 +40,12 @@ import {
   type WaterfallHomeworkFile,
   type WaterfallSessionPlanFile,
 } from "./chartWaterfall";
+import {
+  getLearningCycle,
+  projectLearningCycle,
+  type LearningCycleRecordV2,
+} from "../engine/learningCycleRepository";
+import { buildLongitudinalLearningHistory, type LongitudinalLearningHistory } from "../engine/longitudinalLearning";
 
 export type ChildProfileManifest = {
   childId: string;
@@ -57,6 +67,7 @@ export type ChildProfileManifest = {
 export type ChildChartLinks = {
   learningProfile: string;
   wordBank: string;
+  factBank: string;
   todayPlan: string;
   currentCarePlan: string;
   currentHomework: string;
@@ -93,6 +104,11 @@ export type ChildChart = {
     totalWords: number;
     dueWords: number;
   };
+  factBank: FactBankFile;
+  factBankSummary: {
+    totalFacts: number;
+    dueFacts: number;
+  };
   homework: {
     pending: LearningProfile["pendingHomework"] | null;
     activeByDomain: NonNullable<LearningProfile["activeHomeworkByDomain"]>;
@@ -101,6 +117,10 @@ export type ChildChart = {
     currentFile: string;
     waterfall: WaterfallHomeworkFile;
   };
+  /** Canonical decision record for the selected homework cycle, when migrated to V2. */
+  learningCycle: LearningCycleRecordV2 | null;
+  /** Read-only cross-cycle projection; canonical cycles remain authoritative. */
+  learningHistory: LongitudinalLearningHistory;
   plannerTrust: LearningProfile["plannerTrust"] | null;
   activeSessionPlan: LearningProfile["activeSessionPlan"] | null;
   sessionPlan: {
@@ -119,6 +139,7 @@ export type ChildChart = {
     current: WaterfallCarePlanFile | null;
   };
   learningExperiments: LearningProfile["learningExperiments"];
+  engagementTheory: LearningProfile["engagementTheory"] | null;
   contentCatalog: {
     filePath: string;
     items: WaterfallContentCatalogFile["items"];
@@ -200,6 +221,7 @@ function readChildrenConfigFromRoot(rootDir: string): ChildrenConfigFile | null 
 function defaultLinks(): ChildChartLinks {
   return {
     ...defaultWaterfallLinks(),
+    factBank: "fact_bank.json",
     carePlans: "care_plans/",
   };
 }
@@ -214,6 +236,10 @@ function readLearningProfileFromLink(childId: string, links: ChildChartLinks): L
 
 function readWordBankFromLink(childId: string, links: ChildChartLinks): WordBankFile {
   return readJson<WordBankFile>(links.wordBank) ?? createEmptyWordBank(childId);
+}
+
+function readFactBankFromLink(childId: string, links: ChildChartLinks): FactBankFile {
+  return readJson<FactBankFile>(links.factBank) ?? createEmptyFactBank(childId);
 }
 
 function countDueWords(wordBank: WordBankFile, today: string): number {
@@ -308,6 +334,8 @@ export function getChildChart(childIdRaw: string, opts: ChildChartOptions = {}):
   } as ChildChartLinks;
   const learningProfile = hydrateLearningProfileFromWaterfall(childId, rawLearningProfile, { rootDir });
   const wordBank = readWordBankFromLink(childId, links);
+  const factBank = readFactBankFromLink(childId, links);
+  const dueFactSummary = sm2Facts(factBank);
   const demographics: LearningProfile["demographics"] = {
     ...learningProfile.demographics,
     ...(manifest.demographics ?? {}),
@@ -319,7 +347,9 @@ export function getChildChart(childIdRaw: string, opts: ChildChartOptions = {}):
     0,
     Math.floor(Number(manifest.economy?.coinBalance ?? learningProfile.companionCurrency ?? 0)),
   );
+  const requestedCompanion = process.env.SUNNY_COMPANION_ID?.trim().toLowerCase();
   const presetId =
+    (requestedCompanion === "elli" ? "elli" : undefined) ??
     manifest.companion?.companionId ??
     learningProfile.companion?.companionId ??
     cfg?.childCompanionIds?.[childId] ??
@@ -348,6 +378,7 @@ export function getChildChart(childIdRaw: string, opts: ChildChartOptions = {}):
   const sessionPlanWaterfall = readWaterfallSessionPlan(childId, learningProfile, { rootDir });
   const carePlanWaterfall = readWaterfallCarePlan(childId, learningProfile, { rootDir });
   const contentCatalogWaterfall = readWaterfallContentCatalog(childId, { rootDir });
+  const engagementTheory = readEngagementTheory(childId, { rootDir });
   const todayPlan = readJson<unknown>(links.todayPlan);
   const latestDecisionTrace = readLatestDecisionTrace(childId, learningProfile, { rootDir });
   const homeworkSelectedDomain = homeworkWaterfall.selectedDomain ?? selectedHomeworkDomain(learningProfile);
@@ -364,11 +395,27 @@ export function getChildChart(childIdRaw: string, opts: ChildChartOptions = {}):
     Object.keys(sessionPlanWaterfall.activeByDomain).length > 0
       ? sessionPlanWaterfall.activeByDomain
       : activeSessionPlanByDomainView(learningProfile);
-  const selectedActiveSessionPlan =
+  const legacySelectedActiveSessionPlan =
     sessionPlanWaterfall.current ??
     (homeworkSelectedDomain ? activeSessionPlanByDomain[homeworkSelectedDomain] : undefined) ??
     learningProfile.activeSessionPlan ??
     null;
+  const selectedHomeworkId = selectedPendingHomework?.homeworkId ?? selectedPendingHomework?.weekOf;
+  const directExperience = readJson<{
+    homeworkId?: string;
+    activeSessionPlan?: LearningProfile["activeSessionPlan"];
+  }>(path.join(links.homework, "direct_experience_plan.json"));
+  const directActiveSessionPlan = directExperience?.homeworkId === selectedHomeworkId
+    ? directExperience?.activeSessionPlan ?? null
+    : null;
+  const learningCycle = selectedHomeworkId
+    ? getLearningCycle(childId, selectedHomeworkId, { rootDir })
+    : null;
+  const learningHistory = buildLongitudinalLearningHistory(childId, { rootDir });
+  const cycleProjection = learningCycle
+    ? projectLearningCycle(learningCycle, { presentationPlan: directActiveSessionPlan ?? legacySelectedActiveSessionPlan })
+    : null;
+  const selectedActiveSessionPlan = cycleProjection?.activeSessionPlan ?? directActiveSessionPlan ?? legacySelectedActiveSessionPlan;
   const catalogItems = contentCatalogWaterfall.items;
   const chartBase = {
     childId,
@@ -389,6 +436,11 @@ export function getChildChart(childIdRaw: string, opts: ChildChartOptions = {}):
       totalWords: wordBank.words.length,
       dueWords: countDueWords(wordBank, today),
     },
+    factBank,
+    factBankSummary: {
+      totalFacts: factBank.facts.length,
+      dueFacts: dueFactSummary.dueFacts.length,
+    },
     homework: {
       pending: selectedPendingHomework,
       activeByDomain: homeworkActiveByDomain,
@@ -397,6 +449,8 @@ export function getChildChart(childIdRaw: string, opts: ChildChartOptions = {}):
       currentFile: links.currentHomework,
       waterfall: homeworkWaterfall,
     },
+    learningCycle,
+    learningHistory,
     plannerTrust: learningProfile.plannerTrust ?? null,
     activeSessionPlan: selectedActiveSessionPlan,
     sessionPlan: {
@@ -417,6 +471,7 @@ export function getChildChart(childIdRaw: string, opts: ChildChartOptions = {}):
     learningExperiments: carePlanWaterfall.learningExperiments.length
       ? carePlanWaterfall.learningExperiments
       : learningProfile.learningExperiments ?? selectedActiveSessionPlan?.learningExperiments ?? [],
+    engagementTheory: learningProfile.engagementTheory ?? engagementTheory,
     contentCatalog: {
       filePath: links.contentCatalog,
       items: catalogItems,

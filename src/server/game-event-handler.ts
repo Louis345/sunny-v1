@@ -8,6 +8,7 @@ import { childIdFromName, recordAttempt } from "../engine/learningEngine";
 import { recordLearningAttempt } from "./learningAttemptEvents";
 import { buildFlowGameEventFields } from "./flow-game-debug";
 import { buildGameContextSummary } from "./gameContextSummary";
+import { shouldPersistSessionData } from "../utils/runtimeMode";
 import {
   recordCompanionVideoCallTraceEvent,
   type CompanionVideoCallTraceEventName,
@@ -141,6 +142,10 @@ export function finalizeWordBuilderSessionFromIframe(
     source: "word_builder_session_complete",
     summary: `Word Builder completed ${completedWord}.`,
   });
+  if (!shouldPersistSessionData()) {
+    console.log("  🎮 [word-builder] [preview-skipped] learning attempt not persisted");
+    return;
+  }
   void recordAttempt(chartChildIdForSession(s), {
     word: s.wbWord.toLowerCase().trim(),
     domain: "spelling",
@@ -311,6 +316,39 @@ export function handleGameEventForSession(
   }
 
   if (type === "game_state_update") {
+    const challenge =
+      event.currentChallenge &&
+      typeof event.currentChallenge === "object" &&
+      !Array.isArray(event.currentChallenge)
+        ? (event.currentChallenge as Record<string, unknown>)
+        : null;
+    const prompt =
+      challenge && typeof challenge.prompt === "string"
+        ? challenge.prompt.trim()
+        : "";
+    if (challenge?.readAloudRequested === true && prompt) {
+      const request = {
+        nodeId: String(event.nodeId ?? ""),
+        activityId: String(event.activityId ?? ""),
+        itemId: String(challenge.id ?? ""),
+        prompt,
+        requestCount:
+          typeof challenge.readAloudCount === "number"
+            ? challenge.readAloudCount
+            : 1,
+        answerVisibility: String(event.answerVisibility ?? "hidden"),
+      };
+      try {
+        const pending = s.requestInstructionReadAloud?.(request);
+        if (pending && typeof pending.catch === "function") {
+          void pending.catch((err: unknown) => {
+            console.error("  🔴 [companion-help] read aloud failed:", err);
+          });
+        }
+      } catch (err: unknown) {
+        console.error("  🔴 [companion-help] read aloud failed:", err);
+      }
+    }
     const ctx: Record<string, unknown> = { ...event };
     delete ctx.type;
     delete ctx.version;
@@ -398,6 +436,10 @@ export function handleGameEventForSession(
   }
 
   if (type === "attempt_event") {
+    if (!shouldPersistSessionData()) {
+      console.log(`  🎮 [attempt_event] [preview-skipped] target=${String(event.target ?? "unknown")}`);
+      return;
+    }
     try {
       const recorded = recordLearningAttempt(event, chartChildIdForSession(s));
       s.noteExternalEvent?.({
@@ -413,6 +455,10 @@ export function handleGameEventForSession(
   }
 
   if (type === "clock_answer") {
+    if (!shouldPersistSessionData()) {
+      console.log("  🎮 [clock_answer] [preview-skipped]");
+      return;
+    }
     recordClockAttempt(
       chartChildIdForSession(s),
       event.correct === true,

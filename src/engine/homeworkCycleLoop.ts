@@ -40,10 +40,22 @@ function round(value: number): number {
   return Math.round(value * 1000) / 1000;
 }
 
-function strongestPattern(patterns: ErrorSignal[]): ErrorSignal | null {
-  return [...patterns].sort(
-    (a, b) => b.confidence - a.confidence || b.frequency - a.frequency,
-  )[0] ?? null;
+/**
+ * Only patterns from this assignment's own domain may diagnose it. The only
+ * registered classifier is spelling's, so an unfiltered sort handed a
+ * multiplication worksheet a `spelling:ending_confusion` diagnosis and wrote it
+ * into the assumptions ledger as fact. With no in-domain pattern we return null,
+ * which produces the honest "no confirmed diagnostic pattern yet" theory instead
+ * of a confident wrong one.
+ */
+function strongestPattern(patterns: ErrorSignal[], subject: string): ErrorSignal | null {
+  const assignmentDomain = subject.trim().toLowerCase();
+  return [...patterns]
+    .filter((pattern) => {
+      const domain = pattern.domain?.trim().toLowerCase();
+      return Boolean(domain) && (assignmentDomain === domain || assignmentDomain.startsWith(`${domain}_`));
+    })
+    .sort((a, b) => b.confidence - a.confidence || b.frequency - a.frequency)[0] ?? null;
 }
 
 function riskWordsForPattern(
@@ -103,7 +115,7 @@ ${theory.evidence.map((line) => `- ${line}`).join("\n") || "- No prior evidence.
 
 export function buildPreQuestTheory(input: BuildTheoryInput): LearningTheory {
   const nowIso = input.nowIso ?? new Date().toISOString();
-  const pattern = strongestPattern(input.patterns);
+  const pattern = strongestPattern(input.patterns, input.cycle.subject);
   const predictedPattern = pattern?.errorType ?? "content_fit_gap";
   const predictedRiskWords = riskWordsForPattern(input.cycle, pattern);
   const intervention = interventionForPattern(predictedPattern, input.cycle.subject);
@@ -168,10 +180,11 @@ export function buildBossTheory(input: {
   previousTheory: LearningTheory;
   measurement: InterventionMeasurement;
   patterns: ErrorSignal[];
+  subject: string;
   nowIso?: string;
 }): LearningTheory {
   const nowIso = input.nowIso ?? new Date().toISOString();
-  const pattern = strongestPattern(input.patterns);
+  const pattern = strongestPattern(input.patterns, input.subject);
   const predictedPattern = pattern?.errorType ?? input.previousTheory.predictedPattern;
   const base: Omit<LearningTheory, "markdown"> = {
     theoryId: `${input.previousTheory.theoryId}:boss:${nowIso}`,
@@ -181,7 +194,7 @@ export function buildBossTheory(input: {
       `Second-chance theory: the first quest did not produce enough transfer, so the boss should test ${predictedPattern} with slower, higher-commitment production.`,
     predictedPattern,
     predictedRiskWords: input.previousTheory.predictedRiskWords,
-    intervention: `boss retry: ${interventionForPattern(predictedPattern, "spelling_test")} plus mixed review`,
+    intervention: `boss retry: ${interventionForPattern(predictedPattern, input.subject)} plus mixed review`,
     successCriteria: {
       minAccuracy: 0.85,
       minImprovement: 0.1,
@@ -229,6 +242,7 @@ export function recordNodeMeasurement(input: RecordMeasurementInput): HomeworkCy
         previousTheory: input.cycle.theory,
         measurement,
         patterns: [],
+        subject: input.cycle.subject,
         nowIso: input.completedAt,
       });
     }

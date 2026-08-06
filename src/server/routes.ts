@@ -16,6 +16,7 @@ import {
   saveCompanionCarePlan,
 } from "../profiles/companionCarePlan";
 import type { NodeResult } from "../shared/adventureTypes";
+import { listChildProfileIds } from "../shared/childRegistry";
 import {
   applyNodeResult,
   broadcastTestMapCompanionAct,
@@ -42,6 +43,7 @@ import { recordAttempt } from "../engine/learningEngine";
 import { computeProgression } from "../engine/progression";
 import { WILSON_STEPS } from "../modes/wilson/wilsonSteps";
 import { getSunnyMode, isSunnyDiagMode } from "../utils/runtimeMode";
+import { resolveChildContextDir } from "../utils/contextRoot";
 import {
   applyPassiveDepletion,
   applyTamagotchiFill,
@@ -50,12 +52,18 @@ import { DEFAULT_TAMAGOTCHI } from "../shared/vrrTypes";
 import {
   applyCompanionFeedItem,
   companionCareToView,
+  purchaseCompanionStoreItem,
+  awardHomeworkBonusCoins,
+  grantVideoCallTicket,
+  markVideoCallTicketOpened,
 } from "../engine/companionCareEngine";
 import {
   applyChoiceEventPreference,
+  findChoiceEventById,
   recordChoiceEvent,
   type ChoiceEventInput,
 } from "../engine/choiceEvents";
+import { interpretDirectExperienceOutcome } from "../engine/directExperienceFeedback";
 import {
   companionCareFeedShouldPersist,
   previewCompanionCareMirror,
@@ -72,6 +80,7 @@ import {
   generateExperienceHtmlWithSonnet,
 } from "../engine/generatedExperienceArtifact";
 import { recordQuestBossArtifactReview } from "../engine/generatedArtifactReview";
+import { appendContentFeedbackLesson } from "../engine/contentFeedbackMemory";
 import {
   readQuestBossArtifactPreparationStatus,
   startQuestBossArtifactPreparation,
@@ -111,9 +120,16 @@ import {
   shouldRunShowroomToolFollowup,
 } from "./companionShowroomTalk";
 import {
+  createElevenLabsPcmSpeaker,
+  writeCompanionTalkSseEvent,
+  COMPANION_TALK_STREAM_PCM_SAMPLE_RATE,
+} from "./companionTalkStream";
+import { getCompanionActivityDescriptor } from "../shared/companionActivities/registry";
+import {
   maybeCompactCompanionInteractionMemory,
   readCompanionCareMemoryForPrompt,
   recordCompanionInteractionEvent,
+  recordCompanionGameResult,
 } from "./companionInteractionMemory";
 import {
   readCompanionVideoCallTracePacket,
@@ -122,6 +138,22 @@ import {
 } from "./companionVideoCallTrace";
 import type { SunnyRuntimeOverrides } from "../shared/runtimeConfig";
 import { resolveSunnyRuntimeConfig } from "../shared/runtimeConfig";
+import { reconcileCompanionCareCurrencyAward } from "./currencyAward";
+import { companionPickerIdentity } from "./companionPickerRows";
+import { advanceCanonicalCycleFromEvidence, recordCanonicalNodeCompletion } from "../engine/learningCycleRuntime";
+import { generateCanonicalProgressionArtifact } from "../engine/canonicalProgressionGenerator";
+import {
+  getLearningCycle,
+  getLatestLearningCycle,
+  transitionLearningCycle,
+} from "../engine/learningCycleRepository";
+import {
+  confirmReturnedWorkDraft,
+  createReturnedWorkDraft,
+  getAssignmentLearningReport,
+  listReturnedWorkAssignments,
+} from "../engine/returnedWorkPipeline";
+import type { ConfirmedReturnedWorkItem } from "../engine/longitudinalLearning";
 
 const companions = {
   Ila: ELLI,
@@ -130,9 +162,18 @@ const companions = {
 
 type ChildName = keyof typeof companions;
 
+export function learningRouteShouldPersist(
+  runtime = resolveSunnyRuntimeConfig(process.env),
+): boolean {
+  return runtime.persistenceMode === "live";
+}
+
 const GAME_GRADE_HAIKU_MODEL = "claude-haiku-4-5-20251001";
-const HOMEWORK_SONNET_MODEL = "claude-sonnet-4-20250514";
+const HOMEWORK_SONNET_MODEL = process.env.SUNNY_HOMEWORK_MODEL ?? "claude-sonnet-5";
+const COMPANION_TALK_SONNET_MODEL =
+  process.env.SUNNY_COMPANION_TALK_MODEL ?? "claude-sonnet-4-5";
 const DEFAULT_ELEVENLABS_MODEL = "eleven_multilingual_v2";
+const VIDEO_CALL_FLASH_TTS_MODEL = "eleven_flash_v2_5";
 const COMPANION_VIDEO_CALL_TRACE_EVENTS = new Set<CompanionVideoCallTraceEventName>([
   "call_started",
   "call_ended",
@@ -147,6 +188,9 @@ const COMPANION_VIDEO_CALL_TRACE_EVENTS = new Set<CompanionVideoCallTraceEventNa
   "loop_suspected",
   "talk_request_start",
   "talk_response_received",
+  "talk_stream_first_token",
+  "talk_stream_first_audio",
+  "talk_stream_fallback",
   "audio_play_start",
   "audio_ended",
   "audio_error",
@@ -156,6 +200,9 @@ const COMPANION_VIDEO_CALL_TRACE_EVENTS = new Set<CompanionVideoCallTraceEventNa
   "activity_reaction_audio_start",
   "activity_reaction_audio_ended",
   "activity_reaction_fallback",
+  "activity_move_packet_requested",
+  "activity_move_packet_arrived",
+  "activity_move_packet_timeout",
   "handsfree_rearm_scheduled",
   "handsfree_rearm_starting",
   "handsfree_rearm_skipped",
@@ -166,6 +213,11 @@ const COMPANION_VIDEO_CALL_TRACE_EVENTS = new Set<CompanionVideoCallTraceEventNa
 
 function isValidChild(name: string): name is ChildName {
   return name === "Ila" || name === "Reina";
+}
+
+function isValidRegistryChildId(childId: string): boolean {
+  const normalized = childId.trim().toLowerCase();
+  return normalized.length > 0 && listChildProfileIds().includes(normalized);
 }
 
 function stripJsonFences(raw: string): string {
@@ -592,6 +644,278 @@ export function setupRoutes(app: Express): void {
     res.json({ status: "ok", timestamp: new Date().toISOString() });
   });
 
+  app.get("/api/learning/:childId/assignments", (req: Request, res: Response) => {
+    const childId = String(req.params.childId ?? "").trim().toLowerCase();
+    if (!isValidRegistryChildId(childId)) {
+      return res.status(404).json({ error: "child_not_found" });
+    }
+    try {
+      return res.json({ assignments: listReturnedWorkAssignments(childId) });
+    } catch (error) {
+      console.error(" 🎮 [returned-work] [assignments] [failed]", error);
+      return res.status(500).json({ error: error instanceof Error ? error.message : String(error) });
+    }
+  });
+
+  app.get("/api/learning/:childId/assignments/:homeworkId/report", (req: Request, res: Response) => {
+    const childId = String(req.params.childId ?? "").trim().toLowerCase();
+    const homeworkId = String(req.params.homeworkId ?? "").trim();
+    if (!isValidRegistryChildId(childId)) return res.status(404).json({ error: "child_not_found" });
+    if (!homeworkId) return res.status(400).json({ error: "homeworkId is required" });
+    try {
+      return res.json({ report: getAssignmentLearningReport(childId, homeworkId) });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error(" 🎮 [learning-report] [read] [failed]", error);
+      return res.status(message.startsWith("learning_report_assignment_missing:") ? 404 : 500).json({ error: message });
+    }
+  });
+
+  app.post("/api/learning/:childId/assignments/:homeworkId/returned-work/extract", async (req: Request, res: Response) => {
+    const childId = String(req.params.childId ?? "").trim().toLowerCase();
+    const homeworkId = String(req.params.homeworkId ?? "").trim();
+    const filename = typeof req.body?.filename === "string" ? req.body.filename.trim() : "";
+    const mimeType = typeof req.body?.mimeType === "string" ? req.body.mimeType.trim() : "";
+    const dataBase64 = typeof req.body?.dataBase64 === "string" ? req.body.dataBase64.trim() : "";
+    if (!isValidRegistryChildId(childId)) return res.status(404).json({ error: "child_not_found" });
+    if (!childId || !homeworkId || !filename || !mimeType || !dataBase64) {
+      return res.status(400).json({ error: "childId, homeworkId, filename, mimeType, and dataBase64 are required" });
+    }
+    try {
+      const draft = await createReturnedWorkDraft({ childId, homeworkId, filename, mimeType, dataBase64 });
+      console.log(` 🎮 [returned-work] [extract] [pending-confirmation] child=${childId} homework=${homeworkId} source=${draft.source.sourceId}`);
+      return res.json({ draft });
+    } catch (error) {
+      console.error(" 🎮 [returned-work] [extract] [failed]", error);
+      return res.status(422).json({ error: error instanceof Error ? error.message : String(error) });
+    }
+  });
+
+  app.post("/api/learning/:childId/assignments/:homeworkId/returned-work/:sourceId/confirm", async (req: Request, res: Response) => {
+    const childId = String(req.params.childId ?? "").trim().toLowerCase();
+    const homeworkId = String(req.params.homeworkId ?? "").trim();
+    const sourceId = String(req.params.sourceId ?? "").trim();
+    if (!isValidRegistryChildId(childId)) return res.status(404).json({ error: "child_not_found" });
+    if (!childId || !homeworkId || !sourceId) {
+      return res.status(400).json({ error: "childId, homeworkId, and sourceId are required" });
+    }
+    try {
+      const score = req.body?.score && typeof req.body.score.earned === "number" && typeof req.body.score.possible === "number"
+        ? { earned: req.body.score.earned, possible: req.body.score.possible }
+        : undefined;
+      const items = Array.isArray(req.body?.items) ? req.body.items as ConfirmedReturnedWorkItem[] : undefined;
+      const result = await confirmReturnedWorkDraft({
+        childId,
+        homeworkId,
+        sourceId,
+        ...(score ? { score } : {}),
+        ...(items ? { items } : {}),
+      });
+      console.log(` 🎮 [returned-work] [confirm] [${result.interpretationStatus}] child=${childId} homework=${homeworkId} source=${sourceId}`);
+      return res.json(result);
+    } catch (error) {
+      console.error(" 🎮 [returned-work] [confirm] [failed]", error);
+      return res.status(422).json({ error: error instanceof Error ? error.message : String(error) });
+    }
+  });
+
+  app.post("/api/learning-cycle/node-complete", (req: Request, res: Response) => {
+    const body = req.body as {
+      childId?: unknown;
+      homeworkId?: unknown;
+      nodeId?: unknown;
+      result?: Record<string, unknown>;
+    };
+    const childId = String(body.childId ?? "").trim().toLowerCase();
+    const homeworkId = String(body.homeworkId ?? "").trim();
+    const nodeId = String(body.nodeId ?? "").trim();
+    if (!childId || !homeworkId || !nodeId || !body.result) {
+      return res.status(400).json({ error: "childId, homeworkId, nodeId, and result are required" });
+    }
+    if (!learningRouteShouldPersist()) {
+      console.log(` 🎮 [learning-cycle-route] [completion] [preview-skipped] child=${childId} node=${nodeId}`);
+      return res.json({ ok: true, skippedPersistence: true });
+    }
+    try {
+      const beforeCycle = getLearningCycle(childId, homeworkId);
+      const wasCompleted = beforeCycle?.nodes.some(
+        (node) => node.nodeId === nodeId && node.state === "completed",
+      ) === true;
+      const accuracy = Number(body.result.accuracy ?? 0);
+      const updated = recordCanonicalNodeCompletion({
+        childId,
+        homeworkId,
+        nodeId,
+        sessionId: String(body.result.sessionId ?? randomUUID()),
+        result: {
+          completed: body.result.completed === true,
+          accuracy: Number.isFinite(accuracy) ? accuracy : 0,
+          timeSpent_ms: Math.max(0, Number(body.result.timeSpent_ms ?? 0) || 0),
+          targetResults: Array.isArray(body.result.targetResults)
+            ? body.result.targetResults as Array<{ target: string; correct: boolean; attemptedValue?: string; responseTime_ms?: number; scaffoldLevel?: number }>
+            : undefined,
+          frustrationSignals: Array.isArray(body.result.frustrationSignals)
+            ? body.result.frustrationSignals.map(String)
+            : undefined,
+          replay: body.result.replay === true,
+          companionInteractions: Array.isArray(body.result.companionInteractions)
+            ? body.result.companionInteractions.map(String)
+            : undefined,
+        },
+      });
+      if (!updated) return res.status(404).json({ error: "learning_cycle_not_found" });
+      const finalCycle = getLearningCycle(childId, homeworkId) ?? updated;
+      let videoCallTicket: { homeworkId: string; earnedAt: string; bonusUrl?: string } | undefined;
+      if (finalCycle.lifecycle === "baseline_evaluating") {
+        try {
+          const chart = getChildChart(childId);
+          const earnedAt = new Date().toISOString();
+          let bonusUrl: string | undefined;
+          const planPath = path.join(resolveChildContextDir(childId), "homework", "direct_experience_plan.json");
+          try {
+            const directPlan = JSON.parse(fs.readFileSync(planPath, "utf8")) as { bonusActivity?: { id?: string } };
+            const bonusId = directPlan.bonusActivity?.id?.trim();
+            const bonusFile = bonusId
+              ? path.join(resolveChildContextDir(childId), "homework", "games", homeworkId, `${bonusId}.html`)
+              : "";
+            if (bonusId && fs.existsSync(bonusFile)) {
+              bonusUrl = `/api/homework/game/${encodeURIComponent(childId)}/${encodeURIComponent(homeworkId)}/${encodeURIComponent(`${bonusId}.html`)}`;
+            }
+          } catch {
+            bonusUrl = undefined;
+          }
+          const ticket = grantVideoCallTicket(chart.companionCare.plan, homeworkId, earnedAt, bonusUrl);
+          if (ticket.granted) {
+            saveCompanionCarePlan(chart, ticket.plan);
+            mirrorCompanionCareToLearningProfile(chart, ticket.plan);
+          }
+          const savedTicket = ticket.plan.economy.videoCallTickets?.find(
+            (entry) => entry.homeworkId === homeworkId,
+          );
+          if (savedTicket) {
+            videoCallTicket = {
+              homeworkId,
+              earnedAt: savedTicket.earnedAt,
+              ...(savedTicket.bonusUrl ? { bonusUrl: savedTicket.bonusUrl } : {}),
+            };
+          }
+        } catch (error) {
+          console.error(` 🎮 [learning-cycle-route] [video-call-ticket] [deferred] ${error instanceof Error ? error.message : String(error)}`);
+        }
+      }
+      console.log(` 🎮 [learning-cycle-route] [completion] [saved] child=${childId} node=${nodeId} lifecycle=${updated.lifecycle} revision=${updated.revision}`);
+      if (["baseline_evaluating", "quest_evaluating", "boss_evaluating"].includes(finalCycle.lifecycle)) {
+        void advanceCanonicalCycleFromEvidence({ childId, homeworkId })
+          .then((decided) => {
+            console.log(` 🎮 [learning-cycle-route] [planner-decision] [saved] lifecycle=${decided.lifecycle} revision=${decided.revision}`);
+            return ["baseline_generating", "quest_generating", "boss_generating"].includes(decided.lifecycle)
+              ? generateCanonicalProgressionArtifact({ childId, homeworkId })
+              : decided;
+          })
+          .then((advanced) => {
+            console.log(` 🎮 [learning-cycle-route] [next-session] [ready] lifecycle=${advanced.lifecycle} revision=${advanced.revision}`);
+          })
+          .catch((error: unknown) => {
+            console.error(` 🎮 [learning-cycle-route] [next-session] [deferred] ${error instanceof Error ? error.message : String(error)}`);
+          });
+      }
+      const award = body.result.completed === true && !wasCompleted
+        ? reconcileCompanionCareCurrencyAward({
+            childId,
+            amount: 25,
+            dryRun: false,
+            reason: `canonical_node_complete:${homeworkId}:${nodeId}`,
+          })
+        : null;
+      return res.json({
+        lifecycle: finalCycle.lifecycle,
+        revision: finalCycle.revision,
+        ...(award?.ok ? { coinAward: { amount: 25, balance: award.balance } } : {}),
+        ...(videoCallTicket ? { videoCallTicket } : {}),
+      });
+    } catch (error) {
+      console.error(" 🎮 [learning-cycle-route] [completion] [failed]", error);
+      return res.status(409).json({ error: error instanceof Error ? error.message : String(error) });
+    }
+  });
+
+  app.post("/api/learning-cycle/reward/open", (req: Request, res: Response) => {
+    const childId = String(req.body?.childId ?? "").trim().toLowerCase();
+    const homeworkId = String(req.body?.homeworkId ?? "").trim();
+    if (!childId || !homeworkId) return res.status(400).json({ error: "childId and homeworkId required" });
+    if (!learningRouteShouldPersist()) return res.status(403).json({ error: "preview_read_only" });
+    try {
+      const chart = getChildChart(childId);
+      const openedAt = new Date().toISOString();
+      const result = markVideoCallTicketOpened(chart.companionCare.plan, homeworkId, openedAt);
+      if (!result.ok) return res.status(404).json({ error: "video_call_ticket_missing" });
+      if (!result.alreadyOpened) {
+        saveCompanionCarePlan(chart, result.plan);
+        mirrorCompanionCareToLearningProfile(chart, result.plan);
+      }
+      console.log(` 🎮 [reward-loop] [ticket-opened] child=${childId} homework=${homeworkId}`);
+      return res.json({ ok: true, alreadyOpened: result.alreadyOpened });
+    } catch (error: unknown) {
+      return res.status(500).json({ error: error instanceof Error ? error.message : String(error) });
+    }
+  });
+
+  app.post("/api/learning-cycle/reward/bonus-complete", (req: Request, res: Response) => {
+    const childId = String(req.body?.childId ?? "").trim().toLowerCase();
+    const homeworkId = String(req.body?.homeworkId ?? "").trim();
+    const targetResults = Array.isArray(req.body?.targetResults) ? req.body.targetResults : [];
+    if (!childId || !homeworkId) return res.status(400).json({ error: "childId and homeworkId required" });
+    if (!learningRouteShouldPersist()) return res.status(403).json({ error: "preview_read_only" });
+    try {
+      const chart = getChildChart(childId);
+      const planPath = path.join(resolveChildContextDir(childId), "homework", "direct_experience_plan.json");
+      const directPlan = JSON.parse(fs.readFileSync(planPath, "utf8")) as {
+        planId?: string;
+        bonusActivity?: { items?: Array<{ id?: string; lineage?: { exposure?: string } }> };
+      };
+      if (directPlan.planId !== homeworkId) {
+        return res.status(409).json({ error: "bonus_homework_contract_mismatch" });
+      }
+      const freshIds = new Set(
+        (directPlan.bonusActivity?.items ?? [])
+          .filter((item) => item.lineage?.exposure === "unseen" && typeof item.id === "string")
+          .map((item) => item.id!.trim())
+          .filter(Boolean),
+      );
+      if (freshIds.size === 0) return res.status(409).json({ error: "bonus_fresh_contract_missing" });
+      const submittedById = new Map<string, Record<string, unknown>>();
+      for (const row of targetResults) {
+        const item = row && typeof row === "object" ? row as Record<string, unknown> : {};
+        const target = typeof item.target === "string" ? item.target.trim() : "";
+        if (freshIds.has(target) && !submittedById.has(target)) submittedById.set(target, item);
+      }
+      const independentCorrect = [...submittedById.values()].filter((item) => {
+        const scaffoldLevel = Math.max(0, Number(item.scaffoldLevel ?? 0) || 0);
+        return item.correct === true && item.assisted !== true && scaffoldLevel === 0;
+      });
+      const result = awardHomeworkBonusCoins(chart.companionCare.plan, {
+        homeworkId,
+        completed: req.body?.completed === true,
+        independentlyCorrectFreshItems: independentCorrect.length,
+        freshItemCount: freshIds.size,
+        nowIso: new Date().toISOString(),
+      });
+      if (result.awarded) {
+        saveCompanionCarePlan(chart, result.plan);
+        mirrorCompanionCareToLearningProfile(chart, result.plan);
+      }
+      console.log(` 🎮 [reward-loop] [bonus-complete] child=${childId} homework=${homeworkId} awarded=${result.awarded} amount=${result.amount}`);
+      return res.json({
+        ok: true,
+        awarded: result.awarded,
+        amount: result.amount,
+        balance: result.plan.economy.coins,
+      });
+    } catch (error: unknown) {
+      return res.status(500).json({ error: error instanceof Error ? error.message : String(error) });
+    }
+  });
+
   app.post("/api/diag/trigger-reward", (req: Request, res: Response) => {
     const out = handleDiagTriggerReward(req.body ?? {}, process.env);
     res.status(out.status).json(out.body);
@@ -767,8 +1091,7 @@ export function setupRoutes(app: Express): void {
     try {
       const rawChildId = typeof req.body?.childId === "string" ? req.body.childId.trim() : "";
       const childId = rawChildId.toLowerCase();
-      const childName = rawChildId.slice(0, 1).toUpperCase() + rawChildId.slice(1).toLowerCase();
-      if (!childId || !isValidChild(childName)) {
+      if (!childId || !isValidRegistryChildId(childId)) {
         return res.status(400).json({ ok: false, error: "invalid_child_id" });
       }
       const status = startQuestBossArtifactPreparation({ childId });
@@ -786,8 +1109,7 @@ export function setupRoutes(app: Express): void {
     try {
       const rawChildId = typeof req.query.childId === "string" ? req.query.childId.trim() : "";
       const childId = rawChildId.toLowerCase();
-      const childName = rawChildId.slice(0, 1).toUpperCase() + rawChildId.slice(1).toLowerCase();
-      if (!childId || !isValidChild(childName)) {
+      if (!childId || !isValidRegistryChildId(childId)) {
         return res.status(400).json({ ok: false, error: "invalid_child_id" });
       }
       const status = readQuestBossArtifactPreparationStatus({ childId });
@@ -805,9 +1127,8 @@ export function setupRoutes(app: Express): void {
     try {
       const rawChildId = typeof req.body?.childId === "string" ? req.body.childId.trim() : "";
       const childId = rawChildId.toLowerCase();
-      const childName = rawChildId.slice(0, 1).toUpperCase() + rawChildId.slice(1).toLowerCase();
       const decision = req.body?.decision;
-      if (!childId || !isValidChild(childName)) {
+      if (!childId || !isValidRegistryChildId(childId)) {
         return res.status(400).json({ ok: false, error: "invalid_child_id" });
       }
       if (decision !== "approve" && decision !== "revise" && decision !== "reject" && decision !== "regenerate") {
@@ -860,7 +1181,7 @@ export function setupRoutes(app: Express): void {
     if (!childId) {
       return res.status(400).json({ ok: false, error: "Missing childId" });
     }
-    const body = req.body as { payload?: Partial<ChoiceEventInput>; preview?: unknown } | undefined;
+    const body = req.body as { payload?: Partial<ChoiceEventInput> } | undefined;
     const payload = body?.payload;
     if (!payload || typeof payload !== "object") {
       return res.status(400).json({ ok: false, error: "choice event payload required" });
@@ -871,28 +1192,107 @@ export function setupRoutes(app: Express): void {
     if (typeof payload.choiceSetId !== "string" || !payload.choiceSetId.trim()) {
       return res.status(400).json({ ok: false, error: "choice event choiceSetId required" });
     }
-    const preview = body?.preview;
-    const skipPersistence = preview === "free" || preview === "go-live" || preview === true;
     const eventInput = {
       ...payload,
       childId,
       source: payload.source ?? "child_choice",
       createdAt: payload.createdAt ?? new Date().toISOString(),
     } as ChoiceEventInput;
-    if (skipPersistence) {
+    if (!learningRouteShouldPersist()) {
       console.log(
-        `  🎮 [choice-event] [planner-board-preview] child=${childId} context=${eventInput.context} source=${eventInput.source}`,
+        `  🎮 [choice-event] [server-preview-skipped] child=${childId} context=${eventInput.context} source=${eventInput.source}`,
       );
       return res.json({ ok: true, applied: false, skippedPersistence: true });
     }
     try {
+      const isCanonicalMathEvidence = eventInput.domain === "math" && (
+        eventInput.context === "homework_required" ||
+        eventInput.context === "baseline_route" ||
+        eventInput.context === "quest" ||
+        eventInput.context === "boss"
+      );
+      if (isCanonicalMathEvidence && !eventInput.homeworkId) {
+        return res.status(409).json({ ok: false, error: "choice_event_homework_identity_required" });
+      }
+      const existingEvent = eventInput.choiceEventId
+        ? findChoiceEventById(childId, eventInput.choiceEventId)
+        : undefined;
+      if (existingEvent) {
+        console.log(
+          `  🎮 [choice-event] [duplicate-acknowledged] child=${childId} event=${existingEvent.choiceEventId}`,
+        );
+        return res.json({
+          ok: true,
+          applied: false,
+          duplicate: true,
+          skippedPersistence: false,
+          choiceEventId: existingEvent.choiceEventId,
+        });
+      }
+      if (isCanonicalMathEvidence) {
+        const cycle = getLearningCycle(childId, eventInput.homeworkId!);
+        if (!cycle) {
+          return res.status(409).json({ ok: false, error: "choice_event_homework_not_found" });
+        }
+        if (
+          eventInput.nodeId &&
+          eventInput.context !== "baseline_route" &&
+          !cycle.nodes.some((node) => node.nodeId === eventInput.nodeId)
+        ) {
+          return res.status(409).json({ ok: false, error: "choice_event_node_not_in_homework" });
+        }
+        if (
+          typeof eventInput.cycleRevision === "number" &&
+          eventInput.cycleRevision !== cycle.revision
+        ) {
+          return res.status(409).json({ ok: false, error: "choice_event_cycle_revision_stale" });
+        }
+        eventInput.cycleRevision ??= cycle.revision;
+      }
       const event = recordChoiceEvent(eventInput);
       const applied = await applyChoiceEventPreference(event);
+      if (event.context === "homework_required" && event.eventName === "activity_completed") {
+        void interpretDirectExperienceOutcome(event).catch((error: unknown) => {
+          console.warn(
+            ` 🎮 [direct-feedback] [deferred] child=${event.childId} node=${event.nodeId ?? "unknown"} reason=${error instanceof Error ? error.message : String(error)}`,
+          );
+        });
+      }
+      let selectedRouteId: string | undefined;
+      if (event.context === "baseline_route" && event.source === "child_choice" && event.selectedOptionId) {
+        const selected = event.shownOptions.find(
+          (option) => option.optionId === event.selectedOptionId,
+        );
+        if (selected) {
+          const cycle = getLatestLearningCycle(childId);
+          const experiment = cycle?.agencyExperiment;
+          const route = experiment?.routes.find((candidate) =>
+            candidate.routeId === selected.experimentId || candidate.routeId === event.selectedOptionId);
+          if (cycle && experiment && route) {
+            const alreadyRecorded = cycle.routeSelection?.history.some(
+              (entry) => entry.choiceEventId === event.choiceEventId,
+            ) === true;
+            const updated = alreadyRecorded
+              ? cycle
+              : transitionLearningCycle(childId, cycle.homeworkId, cycle.revision, {
+                  type: "route_selected",
+                  experimentId: experiment.experimentId,
+                  routeId: route.routeId,
+                  choiceEventId: event.choiceEventId,
+                });
+            selectedRouteId = updated.routeSelection?.selectedRouteId;
+            console.log(
+              ` 🎮 [agency-route] [selected] child=${childId} route=${selectedRouteId ?? route.routeId} event=${event.choiceEventId}`,
+            );
+          }
+        }
+      }
       return res.json({
         ok: true,
         applied: applied.applied,
         skippedPersistence: false,
         choiceEventId: event.choiceEventId,
+        ...(selectedRouteId ? { selectedRouteId } : {}),
       });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
@@ -952,6 +1352,65 @@ export function setupRoutes(app: Express): void {
     },
   );
 
+  app.post(
+    "/api/profile/:childId/companion-care/purchase",
+    (req: Request, res: Response) => {
+      const childId = String(req.params.childId ?? "").trim();
+      const body = (req.body ?? {}) as { itemId?: unknown; requestId?: unknown };
+      const itemId = String(body.itemId ?? "").trim();
+      const requestId = String(body.requestId ?? "").trim();
+      if (!childId || !itemId || !requestId) {
+        return res.status(400).json({ error: "childId, itemId, and requestId required" });
+      }
+      const runtime = resolveSunnyRuntimeConfig(process.env);
+      if (!companionCareFeedShouldPersist(runtime)) {
+        return res.status(403).json({ error: "preview_read_only" });
+      }
+      try {
+        const chart = getChildChart(childId);
+        const startingPlan = chart.companionCare.plan;
+        const result = purchaseCompanionStoreItem(
+          startingPlan,
+          itemId,
+          requestId,
+          new Date().toISOString(),
+        );
+        if (!result.ok) {
+          return res.status(result.reason === "insufficient_funds" ? 409 : 400).json({
+            error: result.reason,
+          });
+        }
+        if (!result.duplicate) {
+          saveCompanionCarePlan(chart, result.plan);
+          try {
+            mirrorCompanionCareToLearningProfile(chart, result.plan);
+          } catch (error) {
+            saveCompanionCarePlan(chart, startingPlan);
+            throw error;
+          }
+        }
+        const companionCare = companionCareToView(
+          result.plan,
+          chart.companion.displayName,
+        );
+        console.log(
+          ` 🎮 [companion-store] [purchase] [${result.duplicate ? "duplicate" : "ok"}] child=${childId} item=${itemId} balance=${result.balance}`,
+        );
+        return res.json({
+          ok: true,
+          duplicate: result.duplicate,
+          item: result.item,
+          companionCare,
+          companionCurrency: result.balance,
+        });
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : String(error);
+        console.error(` 🔴 [companion-store] [purchase] [failed] ${message}`);
+        return res.status(500).json({ error: message });
+      }
+    },
+  );
+
   app.post("/api/profile/:childId/vrr-claim", (req: Request, res: Response) => {
     const childId =
       typeof req.params.childId === "string" ? req.params.childId.trim() : "";
@@ -984,13 +1443,34 @@ export function setupRoutes(app: Express): void {
       Object.entries(companions).map(async ([childName, config]) => {
         const profile = await buildProfile(childName.toLowerCase());
         const ui = profile?.ui as { accentColor?: string; accentBg?: string } | undefined;
+        let chartCompanionId: string | undefined;
+        let chartDisplayName: string | undefined;
+        try {
+          const chart = getChildChart(childName.toLowerCase());
+          chartCompanionId = chart.companion.config.companionId;
+          chartDisplayName = chart.companion.displayName;
+        } catch (error) {
+          console.warn(
+            ` 🎮 [companion-picker] [chart_identity] [fallback] child=${childName.toLowerCase()} reason=${error instanceof Error ? error.message : String(error)}`,
+          );
+        }
+        const identity = companionPickerIdentity({
+          legacyName: config.name,
+          chartCompanionId,
+          chartDisplayName,
+        });
+        const companionMetadata = identity.companionId === "elli"
+          ? ELLI
+          : identity.companionId === "matilda"
+            ? MATILDA
+            : config;
         return {
           childName,
-          companionName: config.name,
-          emoji: config.emoji,
-          voiceId: config.voiceId,
-          openingLine: config.openingLine,
-          goodbye: config.goodbye,
+          companionName: identity.companionName,
+          emoji: companionMetadata.emoji,
+          voiceId: companionMetadata.voiceId,
+          openingLine: companionMetadata.openingLine,
+          goodbye: companionMetadata.goodbye,
           accentColor: ui?.accentColor ?? "#7C3AED",
           accentBg: ui?.accentBg ?? "#F3E8FF",
           avatarImagePath: profile?.avatarImagePath ?? null,
@@ -1284,11 +1764,24 @@ export function setupRoutes(app: Express): void {
         ...getShowroomCompanionActTools(),
         ...getShowroomCompanionActivityTools(),
       ];
+      // The system prompt is static across a call (persona + room + memory);
+      // caching it cuts Claude's time-to-first-token on every later turn.
+      const cachedSystem: Anthropic.TextBlockParam[] = [
+        { type: "text", text: system, cache_control: { type: "ephemeral" } },
+      ];
+      // Game beats (activity reactions, move packets) ride the fast model;
+      // social turns keep Sonnet for persona and memory nuance.
+      const talkModel = talk.activityReaction
+        ? process.env.SUNNY_COMPANION_GAME_MODEL || GAME_GRADE_HAIKU_MODEL
+        : COMPANION_TALK_SONNET_MODEL;
+      // Game beats need one short line + one gesture call; a tight cap bounds
+      // tail latency on fast-model turns.
+      const talkMaxTokens = talk.activityReaction ? 120 : 180;
       const claudeStartedAt = Date.now();
       const msg = await client.messages.create({
-        model: HOMEWORK_SONNET_MODEL,
-        max_tokens: 180,
-        system,
+        model: talkModel,
+        max_tokens: talkMaxTokens,
+        system: cachedSystem,
         messages: messages as Anthropic.MessageParam[],
         tools: showroomTools,
       });
@@ -1341,6 +1834,7 @@ export function setupRoutes(app: Express): void {
         rawText: text,
         companionActToolUseCount: companionActToolUseBlocks.length,
         activityToolUseCount: activityToolUseBlocks.length,
+        activityReactionEventType: talk.activityReaction?.eventType,
       });
       if (shouldRunToolFollowup) {
         const companionToolResults: Anthropic.ToolResultBlockParam[] =
@@ -1356,7 +1850,7 @@ export function setupRoutes(app: Express): void {
                 commandType: command?.type ?? null,
                 instruction:
                   talk.activityReaction
-                    ? "Activity reactions need audible companionship. Answer with one short in-character line the companion should say aloud about this tic-tac-toe moment. Do not include stage directions."
+                    ? `Activity reactions need audible companionship. Answer with one short in-character line the companion should say aloud about this ${getCompanionActivityDescriptor(talk.activityReaction.activityId).displayName} moment. Do not include stage directions.`
                     : "If spoken words add value, answer with the exact short words the companion should say aloud. If the visual action is enough, return an empty string. Do not include stage directions.",
               }),
             };
@@ -1381,9 +1875,9 @@ export function setupRoutes(app: Express): void {
         const toolResults = [...companionToolResults, ...activityToolResults];
         const toolFollowupStartedAt = Date.now();
         const afterTool = await client.messages.create({
-          model: HOMEWORK_SONNET_MODEL,
+          model: talkModel,
           max_tokens: 160,
-          system,
+          system: cachedSystem,
           messages: [
             ...(messages as Anthropic.MessageParam[]),
             {
@@ -1409,14 +1903,20 @@ export function setupRoutes(app: Express): void {
       });
       let audioBase64: string | undefined;
       let audioContentType: string | undefined;
+      // Video-call turns use the low-latency flash model; it does not support
+      // pronunciation dictionaries, which companion banter does not need.
+      const isVideoCallTts = talk.mode === "video_call";
+      const ttsModelId = isVideoCallTts
+        ? process.env.SUNNY_VIDEO_CALL_TTS_MODEL || VIDEO_CALL_FLASH_TTS_MODEL
+        : (companion.voiceModelId ?? DEFAULT_ELEVENLABS_MODEL);
       if (spokenText) {
         const elevenlabs = new ElevenLabsClient({ apiKey });
         const locators = getPronunciationLocators();
         const ttsStartedAt = Date.now();
         const audio = await elevenlabs.textToSpeech.convert(talk.voiceId, {
           text: spokenText,
-          modelId: companion.voiceModelId ?? DEFAULT_ELEVENLABS_MODEL,
-          ...(locators && { pronunciationDictionaryLocators: locators }),
+          modelId: ttsModelId,
+          ...(!isVideoCallTts && locators && { pronunciationDictionaryLocators: locators }),
         });
         const buffer = await audioLikeToBuffer(audio);
         latencySpans.ttsMs = Date.now() - ttsStartedAt;
@@ -1445,14 +1945,38 @@ export function setupRoutes(app: Express): void {
           companionId: talk.companionId,
           callSource: talk.callSource,
           relationshipState: talk.relationshipState,
-        eventType: "companion_talk_completed",
-        questionText: talk.question,
-        companionText: spokenText,
-        commandCount: companionCommands.length,
+          eventType: talk.activityReaction
+            ? "companion_activity_completed"
+            : "companion_talk_completed",
+          questionText: talk.question,
+          companionText: spokenText,
+          commandCount: companionCommands.length,
           visionUsed: Boolean(talk.visualSnapshot),
           visualSnapshot: talk.visualSnapshot,
           rewardContext: talk.rewardContext,
+          ...(talk.activityReaction && {
+            activityContext: {
+              activityId: talk.activityReaction.activityId,
+              eventType: talk.activityReaction.eventType,
+              ...(talk.activityReaction.result && {
+                result: talk.activityReaction.result,
+              }),
+              machinePrompt: talk.question,
+            },
+          }),
         });
+        // Deterministic win/loss history: counted here, never by a model.
+        if (talk.activityReaction?.result) {
+          const recorded = recordCompanionGameResult({
+            childId: talk.childId,
+            companionId: talk.companionId,
+            activityId: talk.activityReaction.activityId,
+            result: talk.activityReaction.result,
+          });
+          console.log(
+            ` 🎮 [companion-memory] [game_result] [${recorded.recorded ? "ok" : recorded.reason}] child=${talk.childId} companion=${talk.companionId} activity=${talk.activityReaction.activityId} result=${talk.activityReaction.result}`,
+          );
+        }
         void maybeCompactCompanionInteractionMemory({
           childId: talk.childId,
           companionId: talk.companionId,
@@ -1493,6 +2017,8 @@ export function setupRoutes(app: Express): void {
           visionUsed: Boolean(talk.visualSnapshot),
           requestToResponseMs: latencySpans.requestToResponseMs,
           latencySpans,
+          model: talkModel,
+          ttsModelId,
           activeActivity: talk.activeActivity,
           activityReaction: talk.activityReaction,
         },
@@ -1547,6 +2073,479 @@ export function setupRoutes(app: Express): void {
       res.status(500).json({ ok: false, error: message });
     }
   });
+
+  /**
+   * Small read-only view of what a companion remembers, so the picker can show
+   * "you've played 4 games together" instead of treating every visit as a
+   * first meeting. Deliberately exposes only the deterministic record.
+   */
+  app.get("/api/companions/:companionId/recognition", (req: Request, res: Response) => {
+    const companionId =
+      typeof req.params.companionId === "string" ? req.params.companionId.trim() : "";
+    const childId =
+      typeof req.query.childId === "string" && req.query.childId.trim()
+        ? req.query.childId.trim().toLowerCase()
+        : "showroom";
+    if (!companionId) {
+      return res.status(400).json({ ok: false, error: "companionId_required" });
+    }
+    try {
+      const memory = readCompanionCareMemoryForPrompt(childId, companionId);
+      const gameRecord = memory?.gameRecord ?? {};
+      const totals = Object.values(gameRecord).reduce(
+        (acc, entry) => ({
+          played: acc.played + (entry?.played ?? 0),
+          childWins: acc.childWins + (entry?.childWins ?? 0),
+          companionWins: acc.companionWins + (entry?.companionWins ?? 0),
+        }),
+        { played: 0, childWins: 0, companionWins: 0 },
+      );
+      res.json({
+        ok: true,
+        companionId,
+        firstMetAt: memory?.firstMetAt ?? null,
+        totals,
+        gameRecord,
+      });
+    } catch (err: unknown) {
+      res.status(500).json({
+        ok: false,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  });
+
+  app.post(
+    "/api/companions/:companionId/talk/stream",
+    async (req: Request, res: Response) => {
+      const companionId =
+        typeof req.params.companionId === "string"
+          ? req.params.companionId.trim()
+          : "";
+      if (!companionId) {
+        return res.status(400).json({ ok: false, error: "companionId_required" });
+      }
+      let companion: {
+        id: string;
+        name: string;
+        voiceId: string;
+        voiceModelId?: string;
+        personalityMarkdown?: string;
+      };
+      try {
+        companion = CompanionRegistry.getById(companionId);
+      } catch {
+        const introOnly = tryLoadIntroOnlyShowroomCompanion(companionId);
+        if (!introOnly) {
+          return res.status(404).json({ ok: false, error: "unknown_companion" });
+        }
+        companion = introOnly;
+      }
+      const voiceOptions = readShowroomVoiceOptions(
+        companion.id,
+        companion.name,
+        companion.voiceId,
+      );
+      const resolved = resolveShowroomTalkRequest(req.body, {
+        routeCompanionId: companion.id,
+        voiceOptions,
+        fallbackVoiceId: companion.voiceId,
+      });
+      if (!resolved.ok) {
+        return res.status(resolved.status).json({ ok: false, error: resolved.error });
+      }
+      const apiKey = process.env.ELEVENLABS_API_KEY;
+      if (!apiKey) {
+        return res.status(500).json({ ok: false, error: "elevenlabs_api_key_missing" });
+      }
+
+      const talk = resolved.request;
+      const ttsEnabled = process.env.TTS_ENABLED !== "false";
+      const talkTraceStartedAt = Date.now();
+      res.writeHead(200, {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache, no-transform",
+        Connection: "keep-alive",
+        "X-Accel-Buffering": "no",
+      });
+      res.flushHeaders?.();
+
+      let aborted = false;
+      const sse = (event: string, data: unknown) => {
+        if (aborted) return;
+        writeCompanionTalkSseEvent(res, event, data);
+      };
+
+      const latencySpans: {
+        claudeMs?: number;
+        toolFollowupMs?: number;
+        ttsMs?: number;
+        firstTokenMs?: number;
+        firstAudioMs?: number;
+        requestToResponseMs?: number;
+      } = {};
+
+      safeRecordCompanionVideoCallTrace({
+        callTraceId: talk.callTraceId,
+        turnId: talk.turnId,
+        eventName: "talk_request_start",
+        childId: talk.childId,
+        companionId: talk.companionId,
+        callSource: talk.callSource,
+        relationshipState: talk.relationshipState,
+        timestamp: talkTraceStartedAt,
+        payload: {
+          questionText: talk.question,
+          showroomTheme: talk.showroomTheme,
+          mode: talk.mode ?? "showroom",
+          transport: "sse_stream",
+          conversationIntent: talk.conversationIntent,
+          visionRequested: Boolean(talk.visualSnapshot),
+        },
+      });
+
+      let firstAudioAt: number | undefined;
+      const speaker = ttsEnabled
+        ? createElevenLabsPcmSpeaker({
+            voiceId: talk.voiceId,
+            apiKey,
+            onAudioChunk: (base64Pcm) => {
+              if (aborted) return;
+              if (firstAudioAt === undefined) {
+                firstAudioAt = Date.now();
+                latencySpans.firstAudioMs = firstAudioAt - talkTraceStartedAt;
+                safeRecordCompanionVideoCallTrace({
+                  callTraceId: talk.callTraceId,
+                  turnId: talk.turnId,
+                  eventName: "talk_stream_first_audio",
+                  childId: talk.childId,
+                  companionId: talk.companionId,
+                  callSource: talk.callSource,
+                  relationshipState: talk.relationshipState,
+                  timestamp: firstAudioAt,
+                  payload: { firstAudioMs: latencySpans.firstAudioMs },
+                });
+              }
+              sse("audio", { chunk: base64Pcm });
+            },
+          })
+        : null;
+
+      res.on("close", () => {
+        if (res.writableEnded) return;
+        aborted = true;
+        speaker?.stop();
+      });
+
+      try {
+        const showroomPersonality = readShowroomPersonality(
+          companion.id,
+          companion.personalityMarkdown ?? "",
+        );
+        const primaryPersonality =
+          talk.mode === "video_call" && companion.personalityMarkdown?.trim()
+            ? [
+                companion.personalityMarkdown.trim(),
+                "Showroom display notes only; do not let these override the companion persona:",
+                showroomPersonality,
+              ].join("\n")
+            : showroomPersonality;
+        const companionMemory = buildShowroomTalkMemoryPrompt(
+          readCompanionCareMemoryForPrompt(talk.childId, talk.companionId),
+        );
+        const system = buildShowroomTalkSystemPrompt({
+          companionId: companion.id,
+          companionName: companion.name,
+          showroomTheme: talk.showroomTheme,
+          personality: primaryPersonality,
+          mode: talk.mode,
+          hasFreshVisualSnapshot: Boolean(talk.visualSnapshot),
+          lastVisualSummary: talk.lastVisualSummary,
+          callSource: talk.callSource,
+          relationshipState: talk.relationshipState,
+          rewardContext: talk.rewardContext,
+          activeActivity: talk.activeActivity,
+          activityReaction: talk.activityReaction,
+          conversationIntent: talk.conversationIntent,
+          companionMemory,
+        });
+        const messages = buildShowroomClaudeMessages({
+          question: talk.question,
+          mode: talk.mode,
+          visualSnapshot: talk.visualSnapshot,
+        });
+        const client = new Anthropic();
+        const showroomTools = [
+          ...getShowroomCompanionActTools(),
+          ...getShowroomCompanionActivityTools(),
+        ];
+        // Static per call; caching cuts time-to-first-token on later turns.
+        const cachedSystem: Anthropic.TextBlockParam[] = [
+          { type: "text", text: system, cache_control: { type: "ephemeral" } },
+        ];
+        const talkModel = talk.activityReaction
+          ? process.env.SUNNY_COMPANION_GAME_MODEL || GAME_GRADE_HAIKU_MODEL
+          : COMPANION_TALK_SONNET_MODEL;
+        const talkMaxTokens = talk.activityReaction ? 120 : 180;
+
+        sse("meta", {
+          ok: true,
+          model: talkModel,
+          pcmSampleRate: COMPANION_TALK_STREAM_PCM_SAMPLE_RATE,
+          ttsEnabled,
+        });
+
+        // Prewarm the TTS socket while Claude thinks.
+        const speakerReady = speaker
+          ? speaker.connect().catch((err: unknown) => {
+              console.warn(" 🔴 [companion-talk-stream] tts_prewarm_failed", err);
+            })
+          : Promise.resolve();
+
+        const claudeStartedAt = Date.now();
+        let firstTokenAt: number | undefined;
+        let streamedText = "";
+        const messageStream = client.messages.stream({
+          model: talkModel,
+          max_tokens: talkMaxTokens,
+          system: cachedSystem,
+          messages: messages as Anthropic.MessageParam[],
+          tools: showroomTools,
+        });
+        messageStream.on("text", (delta: string) => {
+          if (aborted || !delta) return;
+          if (firstTokenAt === undefined) {
+            firstTokenAt = Date.now();
+            latencySpans.firstTokenMs = firstTokenAt - talkTraceStartedAt;
+            safeRecordCompanionVideoCallTrace({
+              callTraceId: talk.callTraceId,
+              turnId: talk.turnId,
+              eventName: "talk_stream_first_token",
+              childId: talk.childId,
+              companionId: talk.companionId,
+              callSource: talk.callSource,
+              relationshipState: talk.relationshipState,
+              timestamp: firstTokenAt,
+              payload: { firstTokenMs: latencySpans.firstTokenMs },
+            });
+          }
+          streamedText += delta;
+          sse("text_delta", { delta });
+          speaker?.sendText(delta);
+        });
+
+        const msg = await messageStream.finalMessage();
+        latencySpans.claudeMs = Date.now() - claudeStartedAt;
+        await speakerReady;
+
+        const companionActToolUseBlocks = msg.content
+          .filter(
+            (block): block is Anthropic.ToolUseBlock =>
+              block.type === "tool_use" && block.name === "companionAct",
+          )
+          .slice(0, 4);
+        const activityToolUseBlocks = msg.content
+          .filter(
+            (block): block is Anthropic.ToolUseBlock =>
+              block.type === "tool_use" && block.name === "openCompanionActivity",
+          )
+          .slice(0, 2);
+        const companionCommands = companionActToolUseBlocks
+          .map((block) =>
+            createShowroomCompanionActCommand({
+              childId: talk.childId,
+              rawInput: block.input,
+            }),
+          )
+          .filter((command): command is NonNullable<typeof command> => Boolean(command));
+        const activityRequests = activityToolUseBlocks
+          .map((block) =>
+            createShowroomCompanionActivityRequest({
+              childId: talk.childId,
+              companionId: talk.companionId,
+              rawInput: block.input,
+            }),
+          )
+          .filter((request): request is NonNullable<typeof request> => Boolean(request));
+
+        let text = extractAnthropicText(msg) || streamedText.trim();
+        const shouldRunToolFollowup = shouldRunShowroomToolFollowup({
+          isActivityReaction: Boolean(talk.activityReaction),
+          rawText: text,
+          companionActToolUseCount: companionActToolUseBlocks.length,
+          activityToolUseCount: activityToolUseBlocks.length,
+          activityReactionEventType: talk.activityReaction?.eventType,
+        });
+        if (shouldRunToolFollowup && !aborted) {
+          const toolResults: Anthropic.ToolResultBlockParam[] = [
+            ...companionActToolUseBlocks,
+            ...activityToolUseBlocks,
+          ].map((block) => ({
+            type: "tool_result" as const,
+            tool_use_id: block.id,
+            content: JSON.stringify({
+              type: "showroom_companion_tool_result",
+              accepted: true,
+              instruction:
+                "Answer with the exact short words the companion should say aloud. Do not include stage directions.",
+            }),
+          }));
+          const toolFollowupStartedAt = Date.now();
+          const afterTool = await client.messages.create({
+            model: talkModel,
+            max_tokens: 160,
+            system: cachedSystem,
+            messages: [
+              ...(messages as Anthropic.MessageParam[]),
+              { role: "assistant", content: msg.content as Anthropic.ContentBlockParam[] },
+              { role: "user", content: toolResults },
+            ],
+            tools: showroomTools,
+            tool_choice: { type: "none" },
+          });
+          latencySpans.toolFollowupMs = Date.now() - toolFollowupStartedAt;
+          const followupText = extractAnthropicText(afterTool);
+          if (followupText) {
+            text = followupText;
+            sse("text_delta", { delta: followupText });
+            speaker?.sendText(followupText);
+          }
+        } else {
+          latencySpans.toolFollowupMs = 0;
+        }
+
+        const spokenText = resolveShowroomSpokenText({
+          rawText: text,
+          companionCommandCount: companionCommands.length + activityRequests.length,
+        });
+        if (spokenText && spokenText !== text.trim()) {
+          // Fallback line was synthesized (no text, no commands); speak it too.
+          speaker?.sendText(spokenText);
+        }
+
+        const ttsFinishStartedAt = Date.now();
+        if (spokenText && speaker) {
+          await speaker.finish();
+        } else {
+          speaker?.stop();
+        }
+        latencySpans.ttsMs = Date.now() - ttsFinishStartedAt;
+        sse("audio_done", { hadAudio: firstAudioAt !== undefined });
+
+        latencySpans.requestToResponseMs = Date.now() - talkTraceStartedAt;
+        try {
+          recordCompanionInteractionEvent({
+            childId: talk.childId,
+            companionId: talk.companionId,
+            callSource: talk.callSource,
+            relationshipState: talk.relationshipState,
+            eventType: talk.activityReaction
+              ? "companion_activity_completed"
+              : "companion_talk_completed",
+            questionText: talk.question,
+            companionText: spokenText,
+            commandCount: companionCommands.length,
+            visionUsed: Boolean(talk.visualSnapshot),
+            visualSnapshot: talk.visualSnapshot,
+            rewardContext: talk.rewardContext,
+            ...(talk.activityReaction && {
+              activityContext: {
+                activityId: talk.activityReaction.activityId,
+                eventType: talk.activityReaction.eventType,
+                ...(talk.activityReaction.result && {
+                  result: talk.activityReaction.result,
+                }),
+                machinePrompt: talk.question,
+              },
+            }),
+          });
+          // Deterministic win/loss history: counted here, never by a model.
+          if (talk.activityReaction?.result) {
+            const recorded = recordCompanionGameResult({
+              childId: talk.childId,
+              companionId: talk.companionId,
+              activityId: talk.activityReaction.activityId,
+              result: talk.activityReaction.result,
+            });
+            console.log(
+              ` 🎮 [companion-memory] [game_result] [${recorded.recorded ? "ok" : recorded.reason}] child=${talk.childId} companion=${talk.companionId} activity=${talk.activityReaction.activityId} result=${talk.activityReaction.result}`,
+            );
+          }
+          void maybeCompactCompanionInteractionMemory({
+            childId: talk.childId,
+            companionId: talk.companionId,
+          }).catch((err: unknown) => {
+            console.error(
+              " 🔴 [companion-memory] [compact_async] [error]",
+              err instanceof Error ? err.message : String(err),
+            );
+          });
+        } catch (err: unknown) {
+          console.error(
+            " 🔴 [companion-memory] [ledger_append] [error]",
+            err instanceof Error ? err.message : String(err),
+          );
+        }
+        const visualSummary =
+          talk.mode === "video_call" && talk.visualSnapshot
+            ? spokenText.slice(0, 220)
+            : undefined;
+        safeRecordCompanionVideoCallTrace({
+          callTraceId: talk.callTraceId,
+          turnId: talk.turnId,
+          eventName: "talk_response_received",
+          childId: talk.childId,
+          companionId: talk.companionId,
+          callSource: talk.callSource,
+          relationshipState: talk.relationshipState,
+          timestamp: Date.now(),
+          payload: {
+            responseText: spokenText,
+            commandCount: companionCommands.length,
+            activityRequestCount: activityRequests.length,
+            conversationIntent: talk.conversationIntent,
+            visionUsed: Boolean(talk.visualSnapshot),
+            requestToResponseMs: latencySpans.requestToResponseMs,
+            latencySpans,
+            model: talkModel,
+            transport: "sse_stream",
+            activeActivity: talk.activeActivity,
+            activityReaction: talk.activityReaction,
+          },
+        });
+        console.log(
+          ` 🎮 [companion-talk-stream] completed child=${talk.childId} companion=${talk.companionId} firstToken=${latencySpans.firstTokenMs ?? "n/a"}ms firstAudio=${latencySpans.firstAudioMs ?? "n/a"}ms total=${latencySpans.requestToResponseMs}ms`,
+        );
+        sse("done", {
+          ok: true,
+          text: spokenText,
+          companionCommands,
+          activityRequests,
+          latencySpans,
+          ...(visualSummary && { visualSummary }),
+          phaseCommands: {
+            speaking: createShowroomTalkPhaseCommand({
+              childId: talk.childId,
+              companionId: companion.id,
+              phase: "speaking",
+            }),
+            idle: createShowroomTalkPhaseCommand({
+              childId: talk.childId,
+              companionId: companion.id,
+              phase: "idle",
+            }),
+          },
+        });
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err);
+        console.error(" 🔴 [companion-talk-stream] failed", message);
+        speaker?.stop();
+        sse("error", { ok: false, error: message });
+      } finally {
+        if (!aborted) res.end();
+      }
+    },
+  );
 
   app.get("/api/child/:name/context", (req: Request, res: Response) => {
     const name = typeof req.params.name === "string" ? req.params.name : "";
@@ -1648,14 +2647,34 @@ export function setupRoutes(app: Express): void {
       profile?.games?.quest?.generatedGamePath,
       profile?.games?.boss?.generatedGamePath,
     ].filter((p): p is string => typeof p === "string" && p.trim().length > 0);
+    const contextGamesDir = path.join(resolveChildContextDir(childId), "homework", "games");
+    const contextCandidate = path.join(contextGamesDir, filename);
     const resolved = configuredPaths
       .map((p) => path.resolve(p))
-      .find((p) => path.basename(p) === filename && fs.existsSync(p));
+      .find((p) => path.basename(p) === filename && fs.existsSync(p))
+      ?? (fs.existsSync(contextCandidate) ? path.resolve(contextCandidate) : undefined);
     if (!resolved) {
       return res.status(404).json({ error: "File not found" });
     }
     res.type("html");
-    return res.sendFile(resolved);
+    return res.sendFile(resolved, { dotfiles: "allow" });
+  });
+
+  app.get("/api/homework/game/:childId/:homeworkId/:filename", (req: Request, res: Response) => {
+    const childId = typeof req.params.childId === "string" ? req.params.childId.trim().toLowerCase() : "";
+    const homeworkId = typeof req.params.homeworkId === "string" ? req.params.homeworkId.trim() : "";
+    const filename = typeof req.params.filename === "string" ? req.params.filename.trim() : "";
+    if (!childId || !/^[\w.-]+$/.test(homeworkId) || !/^[\w.\- ]+$/.test(filename)) {
+      return res.status(404).json({ error: "File not found" });
+    }
+    const gamesRoot = path.resolve(resolveChildContextDir(childId), "homework", "games");
+    const cycleRoot = path.resolve(gamesRoot, homeworkId);
+    const resolved = path.resolve(cycleRoot, filename);
+    if (!cycleRoot.startsWith(`${gamesRoot}${path.sep}`) || !resolved.startsWith(`${cycleRoot}${path.sep}`) || !fs.existsSync(resolved)) {
+      return res.status(404).json({ error: "File not found" });
+    }
+    res.type("html");
+    return res.sendFile(resolved, { dotfiles: "allow" });
   });
 
   app.post("/api/homework/clarification", (req: Request, res: Response) => {
@@ -2011,6 +3030,20 @@ Return plain text only.`,
       return res.status(422).json({ error: "invalid_activity_config", findings: ["invalid_json"] });
     }
     const activityId = activityIdFromConfig(parsed);
+    if (activityId === "generated-baseline") {
+      if (
+        !parsed ||
+        typeof parsed !== "object" ||
+        Array.isArray(parsed) ||
+        !Array.isArray((parsed as { rounds?: unknown }).rounds)
+      ) {
+        return res.status(422).json({
+          error: "invalid_activity_config",
+          findings: ["generated_baseline_requires_rounds"],
+        });
+      }
+      return res.json(parsed);
+    }
     if (activityId !== "concept-check" && activityId !== "letter-rush") {
       return res.status(422).json({
         error: "unsupported_activity_engine",

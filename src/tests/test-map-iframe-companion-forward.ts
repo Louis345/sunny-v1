@@ -26,9 +26,10 @@ describe("map iframe → sessionEventBus (COMPANION-MAP-WS-001)", () => {
     __resetAdventureMapSessionsForTests();
   });
 
-  it("maps idle_too_long to idle_10s and drops session_start", () => {
+  it("maps idle_too_long to idle_10s and session_start to game_started", () => {
     expect(companionTriggerToSessionEventType("idle_too_long")).toBe("idle_10s");
-    expect(companionTriggerToSessionEventType("session_start")).toBeNull();
+    expect(companionTriggerToSessionEventType("session_start")).toBe("game_started");
+    expect(companionTriggerToSessionEventType("mastery_unlock")).toBeNull();
     expect(companionTriggerToSessionEventType("wrong_answer")).toBe("wrong_answer");
     expect(companionTriggerToSessionEventType("session_complete")).toBe(
       "session_complete",

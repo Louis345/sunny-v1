@@ -9,11 +9,17 @@ import { VisualExplainerMapDemo } from "./components/VisualExplainer/VisualExpla
 import { VisualExplainerRenderRoute } from "./components/VisualExplainer/VisualExplainerRenderRoute";
 import { TransitionProvider } from "./context/TransitionContext";
 import { resolveSunnyRuntimeConfig } from "../../src/shared/runtimeConfig";
+import { ReturnedWorkPage } from "./components/ReturnedWorkPage";
+import { LearningReportPage } from "./components/LearningReportPage";
 
 const runtimeConfig = resolveSunnyRuntimeConfig(import.meta.env);
 const diagReadingEnabled = import.meta.env.VITE_DIAG_READING === "true";
 const companionDiagEnabled = import.meta.env.VITE_COMPANION_DIAG === "true";
 const visualExplainerRenderEnabled = window.location.pathname === "/__render";
+const returnedWorkEnabled = window.location.pathname === "/parent/returned-work";
+const learningReportEnabled = window.location.pathname === "/parent/learning-report";
+const returnedWorkChildId = new URLSearchParams(window.location.search).get("child")?.trim().toLowerCase() || "reina";
+const learningReportHomeworkId = new URLSearchParams(window.location.search).get("homework")?.trim() || undefined;
 const visualExplainerDemoEnabled =
   runtimeConfig.demoRoute === "visual-explainer" ||
   window.location.pathname === "/visual-explainer" ||
@@ -26,7 +32,11 @@ const visualExplainerMapDemoEnabled =
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <TransitionProvider>
-      {visualExplainerRenderEnabled ? (
+      {learningReportEnabled ? (
+        <LearningReportPage childId={returnedWorkChildId} initialHomeworkId={learningReportHomeworkId} />
+      ) : returnedWorkEnabled ? (
+        <ReturnedWorkPage childId={returnedWorkChildId} />
+      ) : visualExplainerRenderEnabled ? (
         <VisualExplainerRenderRoute />
       ) : visualExplainerMapDemoEnabled ? (
         <VisualExplainerMapDemo />

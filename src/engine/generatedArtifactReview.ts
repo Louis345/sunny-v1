@@ -1,6 +1,8 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import type { AIContentCatalogItem, GeneratedArtifactLifecycleStatus, LearningProfile } from "../context/schemas/learningProfile";
+import { readWaterfallContentCatalog, writeWaterfallContentCatalog } from "../profiles/chartWaterfall";
+import { appendContentFeedbackLesson } from "./contentFeedbackMemory";
 
 export type GeneratedArtifactReviewDecision = "preserve" | "discard" | "revise";
 export type QuestBossArtifactReviewDecision = "approve" | "revise" | "reject" | "regenerate";
@@ -164,7 +166,12 @@ export function recordQuestBossArtifactReview(input: QuestBossArtifactReviewInpu
           }),
         }
       : profile.pendingHomework;
-    const aiContentCatalog = (profile.aiContentCatalog ?? []).map((item) =>
+    // Slimmed profiles keep the catalog only in the waterfall file; writing a
+    // bare `[]` here would shadow that fallback and hide every approved shell,
+    // so hydrate the effective catalog before mapping and sync both stores.
+    const effectiveCatalog = profile.aiContentCatalog ??
+      readWaterfallContentCatalog(childId, { rootDir }).items;
+    const aiContentCatalog = effectiveCatalog.map((item) =>
       item.contentId === input.contentId
         ? {
             ...item,
@@ -179,14 +186,24 @@ export function recordQuestBossArtifactReview(input: QuestBossArtifactReviewInpu
           }
         : item,
     );
-    fs.writeFileSync(
-      profilePath,
-      `${JSON.stringify({ ...profile, activeSessionPlan, pendingHomework, aiContentCatalog, lastUpdated: reviewedAt }, null, 2)}\n`,
-      "utf-8",
-    );
+    const nextProfile: LearningProfile = {
+      ...profile,
+      activeSessionPlan,
+      pendingHomework,
+      aiContentCatalog,
+      lastUpdated: reviewedAt,
+    };
+    fs.writeFileSync(profilePath, `${JSON.stringify(nextProfile, null, 2)}\n`, "utf-8");
+    writeWaterfallContentCatalog(childId, nextProfile, { rootDir });
   }
 
   fs.writeFileSync(reviewPath, `${JSON.stringify(record, null, 2)}\n`, "utf-8");
+  appendContentFeedbackLesson(rootDir, childId, {
+    contentId: input.contentId,
+    decision: input.decision,
+    reason: input.reason.trim(),
+    source: "human_review",
+  });
   console.log(
     `🎮 [experience-artifact-review] [quest-boss-decision] ${record.decision} status=${status} artifact=${artifactPath}`,
   );

@@ -6,6 +6,11 @@ export type CurrentBoardSnapshot = {
   sessionId: string;
   nodeId?: string;
   activityId?: string;
+  activityTitle?: string;
+  learningFocus?: string;
+  mechanic?: string;
+  currentChallenge?: string;
+  availableActions?: string[];
   activityIntentId?: string;
   targetSelectorId?: string;
   intentPurpose?: string;
@@ -14,6 +19,7 @@ export type CurrentBoardSnapshot = {
   phase?: string;
   currentTarget?: string;
   targetIsSpeakable: boolean;
+  speechCaptureArmed?: boolean;
   answerVisibility: "hidden" | "visible" | "revealed" | "unknown";
   itemIndex?: number;
   totalItems?: number;
@@ -92,6 +98,14 @@ export function buildCurrentBoardSnapshot(
   input: BuildSnapshotInput,
 ): CurrentBoardSnapshot {
   const state = input.state;
+  const objectChallenge =
+    state.currentChallenge &&
+    typeof state.currentChallenge === "object" &&
+    !Array.isArray(state.currentChallenge)
+      ? (state.currentChallenge as Record<string, unknown>)
+      : null;
+  const currentChallenge =
+    asString(state.currentChallenge) ?? asString(objectChallenge?.prompt);
   const answerVisibility = normalizeAnswerVisibility(state);
   const rawTarget =
     asString(state.currentTarget) ??
@@ -117,6 +131,10 @@ export function buildCurrentBoardSnapshot(
   const stringFields: Array<[keyof CurrentBoardSnapshot, unknown]> = [
     ["nodeId", state.nodeId],
     ["activityId", state.activityId],
+    ["activityTitle", state.activityTitle],
+    ["learningFocus", state.learningFocus],
+    ["mechanic", state.mechanic],
+    ["currentChallenge", currentChallenge],
     ["activityIntentId", state.activityIntentId],
     ["targetSelectorId", state.targetSelectorId],
     ["intentPurpose", state.intentPurpose ?? state.activityIntentPurpose],
@@ -147,7 +165,7 @@ export function buildCurrentBoardSnapshot(
     const n = asNumber(state[key]);
     if (typeof n === "number") snapshot[key] = n;
   }
-  for (const key of ["completed", "masteryEligible"] as const) {
+  for (const key of ["completed", "masteryEligible", "speechCaptureArmed"] as const) {
     const b = asBoolean(state[key]);
     if (typeof b === "boolean") snapshot[key] = b;
   }
@@ -157,6 +175,8 @@ export function buildCurrentBoardSnapshot(
   if (missedWords.length) snapshot.missedWords = missedWords;
   const correctWords = asStringArray(state.correctWords);
   if (correctWords.length) snapshot.correctWords = correctWords;
+  const availableActions = asStringArray(state.availableActions);
+  if (availableActions.length) snapshot.availableActions = availableActions;
 
   return snapshot;
 }
@@ -174,6 +194,13 @@ export function buildCurrentBoardSnapshotContext(
   if (speech) lines.push(`Child speech: "${speech}"`);
   if (snapshot.game) lines.push(`Current game: ${snapshot.game}`);
   if (snapshot.activityId) lines.push(`Current activity: ${snapshot.activityId}`);
+  if (snapshot.activityTitle) lines.push(`Activity title: ${snapshot.activityTitle}`);
+  if (snapshot.learningFocus) lines.push(`Learning focus: ${snapshot.learningFocus}`);
+  if (snapshot.mechanic) lines.push(`Child interaction: ${snapshot.mechanic}`);
+  if (snapshot.currentChallenge) lines.push(`Current challenge: ${snapshot.currentChallenge}`);
+  if (snapshot.availableActions?.length) {
+    lines.push(`Available child actions: ${snapshot.availableActions.join(" | ")}`);
+  }
   if (snapshot.intentPurpose) lines.push(`Activity intent: ${snapshot.intentPurpose}`);
   if (snapshot.diagnosticQuestion) lines.push(`Diagnostic question: ${snapshot.diagnosticQuestion}`);
   if (snapshot.nodeId) lines.push(`Current node: ${snapshot.nodeId}`);

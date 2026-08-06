@@ -1,8 +1,12 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it, vi } from "vitest";
-import { AdventureBoard, HORIZONTAL_ADVENTURE_SLOTS } from "../components/AdventureBoard";
+import {
+  AdventureBoard,
+  HORIZONTAL_ADVENTURE_SLOTS,
+  unlockCeremonyVariantFor,
+} from "../components/AdventureBoard";
 import { AdventureBoardExperience } from "../components/AdventureBoardExperience";
 import {
   buildGrokFullExperienceBoard,
@@ -24,6 +28,7 @@ import { cloneCompanionDefaults } from "../../../src/shared/companionTypes";
 import { buildNodeLaunchAction } from "../../../src/shared/homeworkNodeRouting";
 import type { NodeConfig } from "../../../src/shared/adventureTypes";
 import {
+  buildPlannerBoardCompanionContext,
   resolvePlannerBoardChoiceLaunchNode,
   resolvePlannerBoardLaunchNode,
 } from "../utils/adventureBoardLaunch";
@@ -165,6 +170,118 @@ function boardWithSpecialChoice(
 }
 
 describe("AdventureBoard", () => {
+  it("rotates stable Quest and Boss ceremonies without repeating within one assignment", () => {
+    const boardIds = Array.from({ length: 18 }, (_, index) => `homework-board-${index}`);
+    const observed = new Set<string>();
+
+    for (const boardId of boardIds) {
+      const quest = unlockCeremonyVariantFor(boardId, "quest");
+      const boss = unlockCeremonyVariantFor(boardId, "boss");
+      expect(unlockCeremonyVariantFor(boardId, "quest")).toBe(quest);
+      expect(boss).not.toBe(quest);
+      observed.add(quest);
+      observed.add(boss);
+    }
+
+    expect(observed).toEqual(new Set(["power", "gate", "warp", "thunder"]));
+  });
+
+  it.each([
+    { kind: "quest" as const, label: "The Kraken's Toll", status: "Quest unlocked" },
+    { kind: "boss" as const, label: "The Iron Leviathan", status: "Boss unlocked" },
+  ])("presents the existing $kind unlock transition without launching or unlocking the node itself", ({
+    kind,
+    label,
+    status,
+  }) => {
+    vi.useFakeTimers();
+    const onNodeClick = vi.fn();
+    const onUnlockCeremony = vi.fn();
+    const lockedBoard: AdventureBoardJson = {
+      schemaVersion: 1,
+      boardId: "unlock-ceremony-board",
+      planId: "unlock-ceremony-plan",
+      childId: "reina",
+      domain: "math",
+      theme: {
+        background: { type: "solid", value: "#10203d" },
+        palette: {
+          path: "#fff",
+          completed: "#2f9f6f",
+          available: "#6d5dfc",
+          locked: "#9aa3ad",
+          current: "#f59e0b",
+          preview: "#c6ced6",
+          text: "#fff",
+          panel: "#111827",
+        },
+      },
+      nodes: [
+        { id: "baseline", kind: "activity", label: "Practice", state: "completed", position: { x: 0.3, y: 0.6 } },
+        {
+          id: kind,
+          kind,
+          label,
+          state: "locked",
+          position: { x: 0.7, y: 0.4 },
+          thumbnailUrl: `/${kind}.jpeg`,
+          lock: { reason: "evidence-gated", label: "Preparing" },
+        },
+      ],
+      edges: [{ id: `to-${kind}`, from: "baseline", to: kind, state: "locked" }],
+    };
+    const { rerender } = render(
+      <AdventureBoard
+        board={lockedBoard}
+        onNodeClick={onNodeClick}
+        onUnlockCeremony={onUnlockCeremony}
+      />,
+    );
+
+    expect(screen.queryByRole("status", { name: status })).not.toBeInTheDocument();
+    rerender(
+      <AdventureBoard
+        board={{
+          ...lockedBoard,
+          nodes: lockedBoard.nodes.map((node) =>
+            node.id === kind ? { ...node, state: "available" as const, lock: undefined } : node),
+          edges: [{ id: `to-${kind}`, from: "baseline", to: kind, state: "available" }],
+        }}
+        onNodeClick={onNodeClick}
+        onUnlockCeremony={onUnlockCeremony}
+      />,
+    );
+
+    expect(screen.getByRole("status", { name: status })).toHaveTextContent(label);
+    expect(onUnlockCeremony).toHaveBeenCalledWith(expect.objectContaining({ kind, label }));
+    expect(onNodeClick).not.toHaveBeenCalled();
+    expect(document.querySelector(".adventure-board__edge--unlocking")).not.toBeNull();
+
+    act(() => vi.advanceTimersByTime(2600));
+    expect(screen.queryByRole("status", { name: status })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: label })).toHaveClass("adventure-board__node--available");
+    expect(onNodeClick).not.toHaveBeenCalled();
+    vi.useRealTimers();
+  });
+
+  it("shows a just-completed node as completed and keeps it replayable", () => {
+    const onNodeClick = vi.fn();
+    render(
+      <AdventureBoard
+        board={rawHorizontalBoard}
+        completedNodeIds={["verify"]}
+        onNodeClick={onNodeClick}
+      />,
+    );
+
+    const node = screen.getByRole("button", { name: "Verify" });
+    expect(node).toHaveClass("adventure-board__node--completed");
+    fireEvent.click(node);
+    expect(onNodeClick).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "verify", state: "completed" }),
+    );
+  });
+
   it("renders JSON-provided background and node thumbnails", () => {
     const { container } = render(<AdventureBoard board={grokFullExperienceBoard} />);
 
@@ -313,15 +430,39 @@ describe("AdventureBoard", () => {
     );
   });
 
-  it("locks skipped sibling routes after an exclusive board choice", () => {
+  it("keeps route destinations locked until canonical board refresh confirms the choice", () => {
     const onChoiceClick = vi.fn();
-    const choiceSet = reinaCurrentHomeworkBoard.choiceSets?.find(
+    const routeNodeIds = new Set(
+      reinaCurrentHomeworkBoard.choiceSets
+        ?.find((set) => set.id === "baseline-route-options")
+        ?.options.map((option) => option.nodeId)
+        .filter((nodeId): nodeId is string => Boolean(nodeId)) ?? [],
+    );
+    const selectableBoard: AdventureBoardJson = {
+      ...reinaCurrentHomeworkBoard,
+      nodes: reinaCurrentHomeworkBoard.nodes.map((node) =>
+        node.kind === "choice-gate"
+          ? { ...node, state: "current" as const }
+          : routeNodeIds.has(node.id)
+            ? { ...node, state: "locked" as const, lock: { reason: "route_selection_required", label: "Locked" } }
+            : node,
+      ),
+      choiceSets: reinaCurrentHomeworkBoard.choiceSets?.map((set) =>
+        set.id === "baseline-route-options"
+          ? {
+              ...set,
+              options: set.options.map((option) => ({ ...option, state: "available" as const, lock: undefined })),
+            }
+          : set,
+      ),
+    };
+    const choiceSet = selectableBoard.choiceSets?.find(
       (set) => set.id === "baseline-route-options",
     );
     const selectedOption = choiceSet?.options[0];
     const skippedOption = choiceSet?.options.find((option) => option.id !== selectedOption?.id);
-    const selectedNode = reinaCurrentHomeworkBoard.nodes.find((node) => node.id === selectedOption?.nodeId);
-    const skippedNode = reinaCurrentHomeworkBoard.nodes.find((node) => node.id === skippedOption?.nodeId);
+    const selectedNode = selectableBoard.nodes.find((node) => node.id === selectedOption?.nodeId);
+    const skippedNode = selectableBoard.nodes.find((node) => node.id === skippedOption?.nodeId);
 
     expect(choiceSet).toBeDefined();
     expect(selectedOption).toBeDefined();
@@ -331,7 +472,7 @@ describe("AdventureBoard", () => {
 
     render(
       <AdventureBoard
-        board={reinaCurrentHomeworkBoard}
+        board={selectableBoard}
         onChoiceClick={onChoiceClick}
       />,
     );
@@ -344,12 +485,12 @@ describe("AdventureBoard", () => {
       expect.objectContaining({ label: selectedOption!.label }),
       expect.objectContaining({ id: "baseline-route-options" }),
     );
-    expect(screen.getByRole("button", { name: `${skippedNode!.label}, Route not picked` })).toHaveClass(
+    expect(screen.getByRole("button", { name: `${skippedNode!.label}, Locked` })).toHaveClass(
       "adventure-board__node--locked",
     );
-    expect(screen.getAllByRole("button", { name: selectedNode!.label }).some(
-      (button) => !button.classList.contains("adventure-board__node--locked"),
-    )).toBe(true);
+    expect(screen.getByRole("button", { name: `${selectedNode!.label}, Locked` })).toHaveClass(
+      "adventure-board__node--locked",
+    );
   });
 
   it("builds preference-only choice evidence from planner board route options", () => {
@@ -390,6 +531,11 @@ describe("AdventureBoard", () => {
 
   it("builds post-activity engagement evidence from planner board launches", () => {
     const packet = packetForBoard(reinaCurrentHomeworkBoard);
+    packet.childChart.learningCycle = {
+      homeworkId: "hw-math-fractions",
+      lifecycle: "baseline_active",
+      revision: 7,
+    };
     const node: NodeConfig = {
       id: "word-radar-baseline",
       type: "word-radar",
@@ -420,11 +566,21 @@ describe("AdventureBoard", () => {
         accuracy: 0.88,
         activePlayTime_ms: 31_000,
         frustrationScore: 0.1,
+        funRating: 4,
+        demoRequested: true,
+        demoReplayCount: 2,
+        timeToFirstValidActionMs: 12_000,
+        invalidActionCount: 1,
+        soundMuted: false,
+        timeToChoose_ms: 2_400,
       },
       { createdAt: "2026-05-27T12:06:00.000Z" },
     );
 
     expect(replayEvent).toMatchObject({
+      choiceEventId: expect.stringMatching(/^choice_event_/),
+      homeworkId: "hw-math-fractions",
+      cycleRevision: 7,
       eventName: "replay_requested",
       postActivityAction: "replay_same",
       context: "homework_required",
@@ -434,10 +590,19 @@ describe("AdventureBoard", () => {
       accuracy: 0.88,
     });
     expect(backEvent).toMatchObject({
+      homeworkId: "hw-math-fractions",
+      cycleRevision: 7,
       eventName: "activity_completed",
       postActivityAction: "back_to_map",
       completed: true,
       replayRequested: false,
+      funRating: 4,
+      demoRequested: true,
+      demoReplayCount: 2,
+      timeToFirstValidActionMs: 12_000,
+      invalidActionCount: 1,
+      soundMuted: false,
+      timeToChoose_ms: 2_400,
     });
   });
 
@@ -542,6 +707,12 @@ describe("AdventureBoard", () => {
     expect(firstActivity).toBeDefined();
     expect(screen.getAllByRole("button", { name: firstActivity!.label })[0]).toBeVisible();
   });
+
+  it("projects unique edge identities for the current planner board", () => {
+    const edgeIds = reinaCurrentHomeworkBoard.edges.map((edge) => edge.id);
+
+    expect(new Set(edgeIds).size).toBe(edgeIds.length);
+  });
 });
 
 describe("AdventureBoardExperience", () => {
@@ -552,12 +723,76 @@ describe("AdventureBoardExperience", () => {
     expect(screen.getByRole("button", { name: "Mystery" })).toBeVisible();
   });
 
+  it("labels parent preview clearly and exposes baseline nodes without unlocking Quest or Boss", () => {
+    const board: AdventureBoardJson = {
+      ...grokFullExperienceBoard,
+      nodes: grokFullExperienceBoard.nodes.map((node) => ({
+        ...node,
+        state: node.kind === "start" ? "current" : "locked",
+      })),
+    };
+
+    render(
+      <AdventureBoardExperience
+        packet={packetForBoard(board)}
+        parentPreview
+      />,
+    );
+
+    expect(screen.getByText("Parent preview — progress will not save")).toBeVisible();
+    const baseline = board.nodes.find((node) => node.kind === "activity");
+    const quest = board.nodes.find((node) => node.kind === "quest");
+    expect(screen.getByRole("button", { name: baseline!.label })).toHaveClass(
+      "adventure-board__node--available",
+    );
+    expect(screen.getByRole("button", { name: new RegExp(`^${quest!.label},`) })).toHaveClass(
+      "adventure-board__node--locked",
+    );
+  });
+
+  it("keeps parent-preview inspection active when the map badge is hidden for an open activity", () => {
+    const board: AdventureBoardJson = {
+      ...grokFullExperienceBoard,
+      nodes: grokFullExperienceBoard.nodes.map((node) => ({
+        ...node,
+        state: node.kind === "start" ? "current" : "locked",
+      })),
+    };
+
+    render(
+      <AdventureBoardExperience
+        packet={packetForBoard(board)}
+        parentPreview
+        showParentPreviewBanner={false}
+      />,
+    );
+
+    expect(screen.queryByText("Parent preview — progress will not save")).not.toBeInTheDocument();
+    const baseline = board.nodes.find((node) => node.kind === "activity");
+    expect(screen.getByRole("button", { name: baseline!.label })).toHaveClass(
+      "adventure-board__node--available",
+    );
+  });
+
   it("renders the companion from the child chart packet", () => {
     render(<AdventureBoardExperience packet={packetForBoard(grokFullExperienceBoard)} />);
 
     expect(screen.getByTestId("companion-layer")).toHaveAttribute("data-child-id", "reina");
     expect(screen.getByTestId("companion-layer")).toHaveAttribute("data-companion-id", "matilda");
     expect(screen.getByTestId("companion-layer")).toHaveAttribute("data-vrm-url", "/companions/matilda.vrm");
+  });
+
+  it("keeps a full-body board companion inside the reserved right flank", () => {
+    render(
+      <AdventureBoardExperience
+        packet={packetForBoard(grokFullExperienceBoard)}
+        idlePose="flank"
+      />,
+    );
+
+    expect(screen.getByTestId("companion-layer")).toHaveAttribute("data-idle-pose", "flank");
+    const source = readFileSync(resolve(__dirname, "../components/CompanionLayer.tsx"), "utf8");
+    expect(source).toContain('idlePose === "flank" ? "-8vw" : "2vw"');
   });
 
   it("hides the companion when the story visibility toggle is off", () => {
@@ -644,6 +879,18 @@ describe("AdventureBoardExperience", () => {
             difficulty: 2,
             source: "chart_planner",
             targetLane: "silent_letters",
+            title: "Silent Letter Signal Hunt",
+            mechanic: "tap the word matching the spoken clue",
+            rounds: [
+              {
+                id: "round-1",
+                prompt: "Which word begins with a silent letter?",
+                options: [
+                  { id: "sign", label: "sign", correct: true },
+                  { id: "song", label: "song", correct: false },
+                ],
+              },
+            ],
             wordRadarConfig: board.nodes[0].wordRadarConfig as NonNullable<
               ChildExperiencePacket["activeSessionPlan"]
             >["nodePlan"][number]["wordRadarConfig"],
@@ -658,11 +905,27 @@ describe("AdventureBoardExperience", () => {
       type: "word-radar",
       words: ["sign", "know"],
       targetLane: "silent_letters",
+      title: "Silent Letter Signal Hunt",
       difficulty: 2,
       wordRadarItems: [
         { display: "sign", acceptedResponses: ["sign"], label: "Spelling" },
         { display: "know", acceptedResponses: ["know"], label: "Spelling" },
       ],
+    });
+    expect(buildPlannerBoardCompanionContext(node!)).toEqual({
+      game: "word-radar",
+      activityId: "wr-node",
+      nodeId: "wr-node",
+      phase: "launched",
+      activityTitle: "Silent Letter Signal Hunt",
+      learningFocus: "silent_letters",
+      mechanic: "tap the word matching the spoken clue",
+      currentChallenge: "Which word begins with a silent letter?",
+      availableActions: ["sign", "song"],
+      itemIndex: 0,
+      totalItems: 1,
+      answerVisibility: "hidden",
+      progress: "Silent Letter Signal Hunt started.",
     });
 
     const action = buildNodeLaunchAction(node!, {
@@ -744,6 +1007,55 @@ describe("AdventureBoardExperience", () => {
       id: "mystery-node",
       type: "mystery",
       words: ["sign", "know"],
+    });
+  });
+
+  it("launches a generated route destination using only fields in the published packet", () => {
+    const board: AdventureBoardJson = {
+      ...grokFullExperienceBoard,
+      nodes: [{
+        id: "generated-route-node",
+        kind: "activity",
+        activityId: "generated-baseline",
+        label: "Comet Check",
+        state: "available",
+        action: { type: "launch-activity", payloadId: "generated-route-node" },
+      }],
+      edges: [],
+      choiceSets: [{
+        id: "generated-routes",
+        kind: "baseline-route",
+        title: "Choose a route",
+        options: [{ id: "route-a", label: "Comet Route", state: "available", nodeId: "generated-route-node" }],
+      }],
+    };
+    const packet: ChildExperiencePacket = {
+      ...packetForBoard(board),
+      activeSessionPlan: {
+        ...packetForBoard(board).activeSessionPlan!,
+        activeHomeworkId: "hw-math-cycle",
+        adventureBoard: board,
+        nodePlan: [{
+          id: "generated-route-node",
+          type: "generated-baseline",
+          activityId: "generated-baseline",
+          targets: [],
+          difficulty: 1,
+          source: "chart_planner",
+          gameHtmlPath: "/games/comet-check.html",
+          date: "hw-math-cycle",
+        }],
+      },
+    };
+
+    const launchNode = resolvePlannerBoardChoiceLaunchNode(packet, board.choiceSets![0]!.options[0]!);
+    expect(buildNodeLaunchAction(launchNode!, {
+      childId: "reina",
+      companion: "elli",
+      isDiagMode: false,
+    })).toMatchObject({
+      kind: "iframe",
+      url: expect.stringContaining("/api/homework/game/reina/hw-math-cycle/comet-check.html"),
     });
   });
 
@@ -867,6 +1179,32 @@ describe("AdventureBoardExperience", () => {
     expect(ReinaChartPacket.render).toBeTypeOf("function");
   });
 
+  it("exports a resettable Quest and Boss unlock ceremony preview", () => {
+    const source = readFileSync(
+      resolve(__dirname, "../stories/AdventureBoard.stories.tsx"),
+      "utf8",
+    );
+
+    expect(source).toContain("export const UnlockCeremonyPreview");
+    expect(source).toContain("Play child Quest unlock");
+    expect(source).toContain("Play child Boss unlock");
+    expect(source).toContain("Reset ceremony");
+    expect(source).toContain("playAdventureBoardUnlockSfx(event.variant, event.kind)");
+  });
+
+  it("previews the child ceremony against Reina's current board with every production variant", () => {
+    const source = readFileSync(
+      resolve(__dirname, "../stories/AdventureBoard.stories.tsx"),
+      "utf8",
+    );
+
+    expect(source).toContain("baseBoard={reinaCurrentHomeworkBoard}");
+    expect(source).toContain("unlockCeremonyVariantFor(candidateBoardId, kind)");
+    expect(source).toContain("Play child Quest unlock");
+    expect(source).toContain("Play child Boss unlock");
+    expect(source).toContain('aria-label="Storybook ceremony controls"');
+  });
+
   it("keeps Storybook from bypassing the child experience packet for companion identity", () => {
     const source = readFileSync(
       resolve(__dirname, "../stories/AdventureBoard.stories.tsx"),
@@ -886,24 +1224,37 @@ describe("AdventureBoardExperience", () => {
     expect(source).not.toContain('console.log(" 🎮 [AdventureBoard] node_click"');
   });
 
+  it("uses the AI-authored child-facing node title in the completion overlay", () => {
+    const source = readFileSync(resolve(__dirname, "../App.tsx"), "utf8");
+    const titleResolver = source.slice(
+      source.indexOf("function plannerActivityTitle"),
+      source.indexOf("function normalizeAccuracy"),
+    );
+
+    expect(titleResolver).toContain("node.title?.trim()");
+    expect(titleResolver).not.toContain("return node.type");
+  });
+
   it("uses the app companion layer instead of rendering a second board companion", () => {
     const source = readFileSync(resolve(__dirname, "../App.tsx"), "utf8");
 
     expect(source).toContain("showCompanion={false}");
+    expect(source).toContain('idlePose={homeworkBoardMode ? "flank" : "center"}');
     expect(source).not.toContain("showCompanion\n            idlePose");
   });
 
   it("keeps live homework from falling through to the legacy AdventureMap", () => {
     const source = readFileSync(resolve(__dirname, "../App.tsx"), "utf8");
     const runtimeBranch = source.slice(
-      source.indexOf("if (plannerBoardRuntimeRequested && adventureChildId)"),
+      source.indexOf("if (homeworkBoardMode)"),
       source.indexOf("} else if (state.phase === \"picker\")"),
     );
 
     expect(source).toContain("homeworkBoardUnavailable");
-    expect(runtimeBranch).toContain("plannerBoardRuntimeRequested");
+    expect(runtimeBranch).toContain("homeworkBoardMode");
     expect(runtimeBranch).toContain("AdventureBoardExperience");
     expect(runtimeBranch).toContain("homeworkBoardUnavailable");
+    expect(source).toContain("never let homework silently fall through to it");
     expect(runtimeBranch).not.toContain("<AdventureMap");
     expect(source).toContain(
       "Human-caught invariant: Storybook proves the JSON board can render, but only the live App branch can prove old-board fallback is gone.",

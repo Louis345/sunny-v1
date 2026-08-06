@@ -15,6 +15,7 @@ const WORD_DRIVEN_MAP_TYPES = new Set<string>([
   "wordle",
   "quest",
   "boss",
+  "generated-baseline",
 ]);
 
 /** Node types the bandit may place between riddle and dopamine. */
@@ -27,6 +28,7 @@ export const BANDIT_POOL: NodeType[] = [
   "coin-counter",
   "spell-check",
   "wordle",
+  "generated-baseline",
 ];
 
 function sessionTotalNodes(attentionWindow_ms: number): 3 | 4 | 5 {
@@ -67,6 +69,8 @@ export async function buildNodeList(
     plan.dueWords?.length && plan.dueWords.length > 0
       ? plan.dueWords
       : [...plan.newWords, ...plan.reviewWords];
+  const dueFactPrompts =
+    profile.dueFacts?.map((fact) => `${fact.prompt}=${fact.answer}`) ?? [];
 
   const out: NodeConfig[] = [];
 
@@ -74,7 +78,11 @@ export async function buildNodeList(
 
   for (let i = 0; i < middleSlots; i++) {
     const t = await selectNodeType(childId, [...BANDIT_POOL]);
-    const words = WORD_DRIVEN_MAP_TYPES.has(t) ? [...dueWords] : [];
+    const words = WORD_DRIVEN_MAP_TYPES.has(t)
+      ? t === "generated-baseline" && dueFactPrompts.length
+        ? [...dueFactPrompts]
+        : [...dueWords]
+      : [];
     out.push(baseNode(`n-m-${i}-${t}`, t, { difficulty: 2, words }));
   }
 

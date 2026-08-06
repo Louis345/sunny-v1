@@ -11,6 +11,7 @@ import {
 import { useSession } from "./hooks/useSession";
 import { useAdventureState } from "./hooks/useAdventureState";
 import { ChildPicker } from "./components/ChildPicker";
+import { hasCanonicalLearningCycle, postCanonicalNodeCompletion } from "./utils/canonicalNodeCompletion";
 import { SessionScreen } from "./components/SessionScreen";
 import { SessionEnd } from "./components/SessionEnd";
 import { SessionLoadingOverlay } from "./components/SessionLoadingOverlay";
@@ -24,6 +25,8 @@ import type {
 import type { NodeConfig } from "../../src/shared/adventureTypes";
 import { buildNodeLaunchAction } from "../../src/shared/homeworkNodeRouting";
 import { CompanionLayer, type CompanionLayerProps } from "./components/CompanionLayer";
+import { TamagotchiSheet } from "./components/TamagotchiSheet";
+import { TamagotchiStrip } from "./components/TamagotchiStrip";
 import { DiagPanel } from "./components/DiagPanel";
 import { KaraokeReadingCanvas } from "./components/KaraokeReadingCanvas";
 import { PronunciationGameCanvas } from "./components/PronunciationGameCanvas";
@@ -56,12 +59,14 @@ import { FlowGameOverlay } from "./components/FlowGameOverlay";
 import { DIAG_WORD_RADAR_ITEMS } from "./fixtures/wordRadarDiagItems";
 import { getCompanionCareFromProfile } from "./utils/companionCareProfile";
 import {
+  buildPlannerBoardCompanionContext,
   resolvePlannerBoardChoiceLaunchNode,
   resolvePlannerBoardLaunchNode,
 } from "./utils/adventureBoardLaunch";
 import {
   buildAdventureBoardChoiceEventInput,
   buildAdventureBoardPostActivityChoiceEventInput,
+  flushAdventureBoardChoiceEventOutbox,
   postAdventureBoardChoiceEvent,
   type PostActivityChoiceOutcome,
 } from "./utils/adventureBoardChoiceEvents";
@@ -77,6 +82,12 @@ import {
 } from "./context/CompanionCareContext";
 import { resolveSunnyRuntimeConfig } from "../../src/shared/runtimeConfig";
 import type { PostActivityAction } from "../../src/engine/choiceEvents";
+import {
+  playAdventureBoardSfx,
+  playAdventureBoardUnlockSfx,
+  playGeneratedMathSfx,
+  type GeneratedMathSfxCue,
+} from "./utils/gameSfx";
 
 const DIAG_READING_TEST_EXCERPT =
   "Chimpanzees are apes. They inhabit steamy rainforests and other parts of Africa. Chimps gather in bands that number from 15 to 150 chimps.";
@@ -131,6 +142,9 @@ function resolveMapPreviewMode(): false | "free" | "go-live" {
 
 const mapPreviewMode = resolveMapPreviewMode();
 const runtimeConfig = resolveSunnyRuntimeConfig(import.meta.env as Record<string, string>);
+const parentPreviewActive =
+  runtimeConfig.sessionMode === "as-child" &&
+  runtimeConfig.persistenceMode === "blocked";
 
 function childNameFromId(childId: string | null): string {
   if (!childId) return "Sunny";
@@ -145,6 +159,53 @@ function CompanionLayerWithCare(props: CompanionLayerProps) {
       companionCare={companionCare.care}
       companionBehavior={companionCare.behavior}
     />
+  );
+}
+
+function CompanionEconomyControls(props: {
+  visible: boolean;
+  companionName: string;
+  tamagotchi: TamagotchiState;
+  balance: number;
+  homeworkId?: string;
+  onOpenVideoCall: (ticket: { homeworkId: string; earnedAt: string; bonusUrl?: string }) => void;
+}) {
+  const companionCare = useCompanionCare();
+  const [shopOpen, setShopOpen] = useState(false);
+  const earnedTicket = companionCare.care?.economy.videoCallTickets?.find(
+    (ticket) => ticket.homeworkId === props.homeworkId && !ticket.openedAt,
+  );
+  if (!props.visible) return null;
+  return (
+    <>
+      {earnedTicket ? (
+        <button
+          type="button"
+          className="fixed right-5 top-20 z-[90] rounded-lg bg-cyan-400 px-4 py-3 text-sm font-black text-slate-950 shadow-xl"
+          onClick={() => props.onOpenVideoCall(earnedTicket)}
+        >
+          Call {props.companionName}
+        </button>
+      ) : null}
+      <TamagotchiStrip
+        tamagotchi={props.tamagotchi}
+        companionCare={companionCare.care}
+        balance={props.balance}
+        onOpenSheet={() => setShopOpen(true)}
+      />
+      <TamagotchiSheet
+        open={shopOpen}
+        tamagotchi={props.tamagotchi}
+        companionCare={companionCare.care ?? undefined}
+        companionName={props.companionName}
+        companionCurrency={props.balance}
+        onFeed={companionCare.feed}
+        onPurchase={companionCare.purchase}
+        isFeeding={companionCare.isFeeding}
+        isPurchasing={companionCare.isPurchasing}
+        onClose={() => setShopOpen(false)}
+      />
+    </>
   );
 }
 
@@ -364,7 +425,7 @@ function mergeCompanionCommands(
 }
 
 function plannerActivityTitle(node: NodeConfig): string {
-  return node.type
+  return node.title?.trim() || node.type
     .split("-")
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(" ");
@@ -391,6 +452,11 @@ function plannerOutcomeFromResult(result: Record<string, unknown>): PostActivity
         : result.completed === false
           ? 0.7
           : 0.1,
+    demoRequested: typeof result.demoRequested === "boolean" ? result.demoRequested : undefined,
+    demoReplayCount: typeof result.demoReplayCount === "number" ? result.demoReplayCount : undefined,
+    timeToFirstValidActionMs: typeof result.timeToFirstValidActionMs === "number" ? result.timeToFirstValidActionMs : undefined,
+    invalidActionCount: typeof result.invalidActionCount === "number" ? result.invalidActionCount : undefined,
+    soundMuted: typeof result.soundMuted === "boolean" ? result.soundMuted : undefined,
   };
 }
 
@@ -418,6 +484,9 @@ function plannerStatsFromResult(result: Record<string, unknown>): Array<{ label:
 function choiceOutcomeFromOverlay(outcome: PostActivityOutcome): PostActivityChoiceOutcome {
   return {
     completed: outcome.completed,
+    ...(typeof outcome.decisionStartedAtMs === "number"
+      ? { timeToChoose_ms: Math.max(0, Date.now() - outcome.decisionStartedAtMs) }
+      : {}),
     ...(typeof outcome.accuracy === "number" ? { accuracy: outcome.accuracy } : {}),
     ...(typeof outcome.activePlayTimeMs === "number"
       ? { activePlayTime_ms: outcome.activePlayTimeMs }
@@ -425,6 +494,11 @@ function choiceOutcomeFromOverlay(outcome: PostActivityOutcome): PostActivityCho
     ...(typeof outcome.frustrationScore === "number"
       ? { frustrationScore: outcome.frustrationScore }
       : {}),
+    ...(typeof outcome.demoRequested === "boolean" ? { demoRequested: outcome.demoRequested } : {}),
+    ...(typeof outcome.demoReplayCount === "number" ? { demoReplayCount: outcome.demoReplayCount } : {}),
+    ...(typeof outcome.timeToFirstValidActionMs === "number" ? { timeToFirstValidActionMs: outcome.timeToFirstValidActionMs } : {}),
+    ...(typeof outcome.invalidActionCount === "number" ? { invalidActionCount: outcome.invalidActionCount } : {}),
+    ...(typeof outcome.soundMuted === "boolean" ? { soundMuted: outcome.soundMuted } : {}),
   };
 }
 
@@ -449,6 +523,7 @@ function App() {
     companionCommands: voiceCompanionCommands,
     analyserNodeRef,
     releaseCompanionAudioPlayback,
+    setCompanionPresence,
   } = useSession({
     adventureGameIframeRef,
     gateCompanionAudioUntilCurtainRef,
@@ -502,12 +577,36 @@ function App() {
     title: string;
     stats: Array<{ label: string; value: string | number }>;
     canTryHarder: boolean;
+    coinAward?: { amount: number; balance: number };
+    videoCallTicket?: { homeworkId: string; earnedAt: string; bonusUrl?: string };
   } | null>(null);
+  const [locallyCompletedPlannerNodeIds, setLocallyCompletedPlannerNodeIds] = useState<string[]>([]);
+  const [generatedMathSoundMuted, setGeneratedMathSoundMuted] = useState(false);
   const plannerBoardIframeCompletionKeyRef = useRef<string | null>(null);
   const [sessionReady, setSessionReady] = useState(false);
   const [selectedChildName, setSelectedChildName] = useState<string | null>(null);
   const [loadingSafetyReleased, setLoadingSafetyReleased] = useState(false);
   const autoStartedAdventureVoiceRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (mapPreviewMode || parentPreviewActive) return;
+    const flushSavedChoiceEvents = () => {
+      void flushAdventureBoardChoiceEventOutbox().then((result) => {
+        if (result.delivered > 0 || result.remaining > 0) {
+          console.log(
+            ` 🎮 [choice-event] [outbox-flush] delivered=${result.delivered} remaining=${result.remaining}`,
+          );
+        }
+      }).catch((error: unknown) => {
+        console.warn(" 🎮 [choice-event] [outbox-flush-failed]", {
+          error: error instanceof Error ? error.message : String(error),
+        });
+      });
+    };
+    flushSavedChoiceEvents();
+    window.addEventListener("online", flushSavedChoiceEvents);
+    return () => window.removeEventListener("online", flushSavedChoiceEvents);
+  }, []);
 
   const {
     adventureChildId,
@@ -532,6 +631,10 @@ function App() {
     adventureMapEnabled &&
     runtimeConfig.subject === "homework" &&
     Boolean(adventureChildId);
+  // Homework is a board product surface. Keep the legacy voice canvas for
+  // other subjects, but never let homework silently fall through to it.
+  const homeworkBoardMode =
+    runtimeConfig.subject === "homework" && Boolean(adventureChildId);
 
   useEffect(() => {
     if (!adventureMapEnabled || !adventureChildId) {
@@ -539,10 +642,6 @@ function App() {
       return;
     }
     if (state.phase !== "picker") return;
-    if (plannerBoardRuntimeRequested) {
-      setSelectedChildName(childNameFromId(adventureChildId));
-      return;
-    }
     if (autoStartedAdventureVoiceRef.current === adventureChildId) return;
     autoStartedAdventureVoiceRef.current = adventureChildId;
     setSelectedChildName(childNameFromId(adventureChildId));
@@ -573,6 +672,7 @@ function App() {
     adventureChildId,
     plannerBoardRuntimeRequested,
   );
+  const refreshPlannerBoardPacket = plannerBoardPacketState.refreshPacket;
   const plannerBoardPacket =
     plannerBoardPacketState.packet?.activeSessionPlan?.adventureBoard
       ? plannerBoardPacketState.packet
@@ -596,10 +696,9 @@ function App() {
 
   const lastSessionCompleteTsRef = useRef<number | null>(null);
 
-  const mapReady =
-    !adventureChildId ||
-    !plannerBoardRuntimeRequested ||
-    plannerBoardRuntimeActive;
+  const mapReady = homeworkBoardMode
+    ? Boolean(plannerBoardPacket)
+    : !adventureChildId || !plannerBoardRuntimeRequested || plannerBoardRuntimeActive;
   const voiceReady =
     !adventureChildId ||
     !theaterLoadingEnabled ||
@@ -829,10 +928,12 @@ function App() {
     setPlannerBoardLaunch(null);
     setPostActivityEngagement(null);
     plannerBoardIframeCompletionKeyRef.current = null;
-  }, []);
+    setCompanionPresence("collapsed");
+  }, [setCompanionPresence]);
 
   useEffect(() => {
     setPlannerBoardLaunch(null);
+    setLocallyCompletedPlannerNodeIds([]);
   }, [adventureChildId, plannerBoardPacket?.activeSessionPlan?.planId]);
 
   const launchPlannerBoardNode = useCallback(
@@ -883,8 +984,17 @@ function App() {
         });
         return;
       }
+      const companionContext = buildPlannerBoardCompanionContext(node);
+      sendMessage("game_event", {
+        event: {
+          type: "game_state_update",
+          version: "1.0",
+          payload: companionContext,
+        },
+      });
       setPostActivityEngagement(null);
       plannerBoardIframeCompletionKeyRef.current = null;
+      setCompanionPresence("collapsed");
       setPlannerBoardLaunch({
         node,
         iframeUrl: action.kind === "iframe" ? action.url : null,
@@ -898,14 +1008,36 @@ function App() {
       plannerBoardPacket,
       profileCompanionCurrency,
       profileDyslexiaMode,
+      sendMessage,
+      setCompanionPresence,
     ],
   );
+
+  useEffect(() => {
+    if (!plannerBoardLaunch?.iframeUrl) return;
+    adventureGameIframeRef.current?.contentWindow?.postMessage(
+      {
+        type: "sunny_companion_presence",
+        payload: { state: state.companionPresence },
+      },
+      "*",
+    );
+  }, [plannerBoardLaunch?.iframeUrl, state.companionPresence]);
 
   const handlePlannerBoardNodeClick = useCallback(
     (boardNode: AdventureBoardNode) => {
       if (!plannerBoardPacket) return;
-      const launchNode = resolvePlannerBoardLaunchNode(plannerBoardPacket, boardNode);
+      const inspectableBaselineNode =
+        parentPreviewActive &&
+        boardNode.kind !== "quest" &&
+        boardNode.kind !== "boss" &&
+        boardNode.kind !== "mystery" &&
+        boardNode.kind !== "reward";
+      const launchNode = resolvePlannerBoardLaunchNode(plannerBoardPacket, boardNode, {
+        allowLocked: inspectableBaselineNode,
+      });
       if (!launchNode) {
+        if (!generatedMathSoundMuted) playAdventureBoardSfx("locked");
         console.log(" 🎮 [AdventureBoard] node_not_launchable", {
           childId: adventureChildId,
           nodeId: boardNode.id,
@@ -914,9 +1046,17 @@ function App() {
         });
         return;
       }
+      if (!generatedMathSoundMuted) {
+        playAdventureBoardSfx(boardNode.state === "completed" ? "replay" : "launch");
+      }
       launchPlannerBoardNode(launchNode);
     },
-    [adventureChildId, launchPlannerBoardNode, plannerBoardPacket],
+    [
+      adventureChildId,
+      generatedMathSoundMuted,
+      launchPlannerBoardNode,
+      plannerBoardPacket,
+    ],
   );
 
   const handlePlannerBoardChoiceClick = useCallback(
@@ -937,6 +1077,7 @@ function App() {
             applied: out.applied,
             skippedPersistence: out.skippedPersistence,
           });
+          if (out.applied && !out.skippedPersistence) void refreshPlannerBoardPacket();
         })
         .catch((err: unknown) => {
           console.warn(" 🎮 [AdventureBoard] choice_event_failed", {
@@ -1000,7 +1141,7 @@ function App() {
       }
       launchPlannerBoardNode(launchNode);
     },
-    [adventureChildId, launchPlannerBoardNode, mapPreviewMode, plannerBoardPacket],
+    [adventureChildId, launchPlannerBoardNode, mapPreviewMode, plannerBoardPacket, refreshPlannerBoardPacket],
   );
 
   const recordPlannerBoardPostActivityAction = useCallback(
@@ -1008,13 +1149,17 @@ function App() {
       action: PostActivityAction,
       node: NodeConfig,
       outcome: PostActivityOutcome,
+      funRating?: 1 | 2 | 3 | 4 | 5,
     ) => {
       if (!plannerBoardPacket) return;
       const event = buildAdventureBoardPostActivityChoiceEventInput(
         plannerBoardPacket,
         node,
         action,
-        choiceOutcomeFromOverlay(outcome),
+        {
+          ...choiceOutcomeFromOverlay(outcome),
+          ...(funRating != null ? { funRating } : {}),
+        },
       );
       void postAdventureBoardChoiceEvent(event, { preview: mapPreviewMode })
         .then((out) => {
@@ -1023,6 +1168,7 @@ function App() {
             nodeId: node.id,
             nodeType: node.type,
             action,
+            funRating: funRating ?? null,
             applied: out.applied,
             skippedPersistence: out.skippedPersistence,
           });
@@ -1040,19 +1186,71 @@ function App() {
     [adventureChildId, mapPreviewMode, plannerBoardPacket],
   );
 
+  const handlePlannerBoardFunRating = useCallback(
+    (rating: 1 | 2 | 3 | 4 | 5 | null) => {
+      const current = postActivityEngagement;
+      if (!current) return;
+      recordPlannerBoardPostActivityAction(
+        "back_to_map",
+        current.node,
+        current.outcome,
+        rating ?? undefined,
+      );
+      closePlannerBoardLaunch();
+    },
+    [closePlannerBoardLaunch, postActivityEngagement, recordPlannerBoardPostActivityAction],
+  );
+
   const showPlannerBoardEngagementOverlay = useCallback(
-    (node: NodeConfig, result: Record<string, unknown>) => {
+    (
+      node: NodeConfig,
+      result: Record<string, unknown>,
+      coinAward?: { amount: number; balance: number },
+      videoCallTicket?: { homeworkId: string; earnedAt: string; bonusUrl?: string },
+    ) => {
       const outcome = plannerOutcomeFromResult(result);
       setPostActivityEngagement({
         node,
-        outcome,
+        outcome: { ...outcome, decisionStartedAtMs: Date.now() },
         title: plannerActivityTitle(node),
         stats: plannerStatsFromResult(result),
         canTryHarder: false,
+        ...(coinAward ? { coinAward } : {}),
+        ...(videoCallTicket ? { videoCallTicket } : {}),
       });
     },
     [],
   );
+
+  const openVideoCallTicket = useCallback(async (
+    ticket: { homeworkId: string; earnedAt: string; bonusUrl?: string },
+  ) => {
+    if (!ticket || !adventureChildId) return;
+    const response = await fetch("/api/learning-cycle/reward/open", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ childId: adventureChildId, homeworkId: ticket.homeworkId }),
+    });
+    if (!response.ok) {
+      console.error(` 🔴 [reward-loop] ticket open failed status=${response.status}`);
+      return;
+    }
+    const query = new URLSearchParams({
+      child: adventureChildId,
+      callSource: "game_reward",
+      relationshipState: "earned_reward",
+      rewardId: "video_call_ticket",
+      earnedBy: ticket.homeworkId,
+      homeworkId: ticket.homeworkId,
+      ...(ticket.bonusUrl ? { bonusUrl: ticket.bonusUrl } : {}),
+    });
+    window.location.assign(`/companions?${query.toString()}`);
+  }, [adventureChildId]);
+
+  const openEarnedVideoCall = useCallback(() => {
+    const ticket = postActivityEngagement?.videoCallTicket;
+    if (ticket) void openVideoCallTicket(ticket);
+  }, [openVideoCallTicket, postActivityEngagement?.videoCallTicket]);
 
   const replayPlannerBoardLaunch = useCallback(() => {
     plannerBoardIframeCompletionKeyRef.current = null;
@@ -1112,6 +1310,28 @@ function App() {
       if (iframeWindow && event.source !== iframeWindow) return;
       const data = event.data as { type?: string; payload?: unknown } | undefined;
       if (!data || typeof data !== "object") return;
+      if (data.type === "sunny_sound_toggle") {
+        const payload =
+          data.payload && typeof data.payload === "object" && !Array.isArray(data.payload)
+            ? data.payload as Record<string, unknown>
+            : {};
+        setGeneratedMathSoundMuted(payload.muted === true);
+        return;
+      }
+      if (data.type === "sunny_sfx") {
+        const payload =
+          data.payload && typeof data.payload === "object" && !Array.isArray(data.payload)
+            ? data.payload as Record<string, unknown>
+            : {};
+        const cue = payload.cue;
+        if (
+          !generatedMathSoundMuted &&
+          (cue === "interaction" || cue === "recovery" || cue === "progress" || cue === "completion")
+        ) {
+          playGeneratedMathSfx(cue as GeneratedMathSfxCue);
+        }
+        return;
+      }
       if (data.type !== "node_complete" && data.type !== "game_complete") return;
       const key = `${launch.node.id}:${launch.replayNonce}`;
       if (plannerBoardIframeCompletionKeyRef.current === key) return;
@@ -1126,13 +1346,59 @@ function App() {
         nodeType: launch.node.type,
         eventType: data.type,
       });
-      showPlannerBoardEngagementOverlay(launch.node, payload);
+      if (!adventureChildId) {
+        console.error(" 🎮 [AdventureBoard] completion_failed missing child identity");
+        setPostActivityEngagement({
+          node: launch.node,
+          outcome: { completed: false },
+          title: "Progress could not be saved",
+          stats: [],
+          canTryHarder: false,
+        });
+        return;
+      }
+      const homeworkId = plannerBoardPacket?.childChart.learningCycle?.homeworkId;
+      const completionWrite = hasCanonicalLearningCycle(plannerBoardPacket) && homeworkId
+        ? postCanonicalNodeCompletion({
+            childId: adventureChildId,
+            homeworkId,
+            nodeId: launch.node.id,
+            result: payload,
+          })
+        : Promise.resolve(null);
+      void completionWrite.then(async (completion) => {
+        await refreshPlannerBoardPacket();
+        setLocallyCompletedPlannerNodeIds((current) =>
+          current.includes(launch.node.id) ? current : [...current, launch.node.id],
+        );
+        if (completion?.coinAward) {
+          setProfileCompanionCurrency(completion.coinAward.balance);
+        }
+        showPlannerBoardEngagementOverlay(
+          launch.node,
+          payload,
+          completion?.coinAward,
+          completion?.videoCallTicket,
+        );
+      }).catch((error: unknown) => {
+        console.error(" 🎮 [AdventureBoard] canonical_completion_failed", error);
+        setPostActivityEngagement({
+          node: launch.node,
+          outcome: { completed: false },
+          title: "Progress could not be saved",
+          stats: [],
+          canTryHarder: false,
+        });
+      });
     }
     window.addEventListener("message", handleMessage);
     return () => window.removeEventListener("message", handleMessage);
   }, [
     adventureChildId,
+    generatedMathSoundMuted,
     plannerBoardLaunch,
+    plannerBoardPacket,
+    refreshPlannerBoardPacket,
     showPlannerBoardEngagementOverlay,
   ]);
 
@@ -1279,7 +1545,7 @@ function App() {
     };
   }, [profileApiChildId, profileReloadNonce]);
 
-  if (import.meta.env.VITE_MODE === "intro") {
+  if (import.meta.env.VITE_MODE === "intro" || window.location.pathname === "/companions") {
     return <CompanionShowroomPage />;
   }
 
@@ -1331,16 +1597,25 @@ function App() {
 
   let main: ReactNode = null;
 
-  if (plannerBoardRuntimeRequested && adventureChildId) {
+  if (homeworkBoardMode) {
     if (plannerBoardPacket) {
       main = (
         <div className="w-screen h-screen overflow-hidden relative bg-zinc-950">
           <AdventureBoardExperience
             packet={plannerBoardPacket}
+            completedNodeIds={locallyCompletedPlannerNodeIds}
+            parentPreview={parentPreviewActive}
+            showParentPreviewBanner={plannerBoardLaunch == null}
             showCompanion={false}
             idlePose="center"
             onNodeClick={handlePlannerBoardNodeClick}
             onChoiceClick={handlePlannerBoardChoiceClick}
+            onUnlockCeremony={(event) => {
+              console.log(" 🎮 [AdventureBoard] unlock_ceremony", event);
+              if (!generatedMathSoundMuted) {
+                playAdventureBoardUnlockSfx(event.variant, event.kind);
+              }
+            }}
           />
         </div>
       );
@@ -1532,6 +1807,21 @@ function App() {
         }}
       >
       {main}
+      <CompanionEconomyControls
+        visible={homeworkBoardMode && plannerBoardLaunch == null}
+        companionName={
+          plannerBoardPacket?.childChart.companion.displayName ??
+          (effectiveCompanion?.companionId
+            ? effectiveCompanion.companionId.charAt(0).toUpperCase() +
+              effectiveCompanion.companionId.slice(1)
+            : undefined) ??
+          "Elli"
+        }
+        tamagotchi={profileTamagotchi ?? DEFAULT_TAMAGOTCHI}
+        balance={profileCompanionCurrency}
+        homeworkId={plannerBoardPacket?.childChart.learningCycle?.homeworkId}
+        onOpenVideoCall={(ticket) => void openVideoCallTicket(ticket)}
+      />
       {adventureMapEnabled &&
       diagMapPanelEnabled &&
       (adventureChildId !== null ||
@@ -1560,6 +1850,7 @@ function App() {
         companion={effectiveCompanion}
         toggledOff={false}
         mode={companionPortraitMode ? "portrait" : "full"}
+        idlePose={homeworkBoardMode ? "flank" : "center"}
         karaokeActive={
           state.phase === "active" &&
           state.canvas.mode === "karaoke" &&
@@ -1573,6 +1864,19 @@ function App() {
         speechBubbleText={companionBubbleText}
         micMuted={micMuted || voiceGameCompanionMicMuted}
         onToggleMute={toggleMicMute}
+        summoned={
+          plannerBoardLaunch == null || state.companionPresence === "summoned"
+        }
+        onSummon={
+          plannerBoardLaunch
+            ? () => setCompanionPresence("summoned")
+            : undefined
+        }
+        onDismiss={
+          plannerBoardLaunch
+            ? () => setCompanionPresence("collapsed")
+            : undefined
+        }
       />
       </CompanionCareProvider>
       {isRewardDiagEnabled() ? (
@@ -1698,6 +2002,11 @@ function App() {
               canReplay
               canTryHarder={postActivityEngagement.canTryHarder}
               onAction={handlePlannerBoardPostActivityAction}
+              onFunRating={handlePlannerBoardFunRating}
+              coinAward={postActivityEngagement.coinAward}
+              onOpenVideoCall={
+                postActivityEngagement.videoCallTicket ? openEarnedVideoCall : null
+              }
             />
           ) : null}
         </FlowGameOverlay>
@@ -1742,13 +2051,32 @@ function App() {
       ) : null}
       {plannerBoardLaunch?.iframeUrl ? (
         <FlowGameOverlay onBack={handlePlannerBoardOverlayBack} backLabel="Back to map">
-          <iframe
-            key={`${plannerBoardLaunch.node.id}:${plannerBoardLaunch.replayNonce}`}
-            ref={adventureGameIframeRef}
-            title={plannerBoardLaunch.node.type}
-            src={plannerBoardLaunch.iframeUrl}
-            style={{ width: "100%", height: "100%", border: "none", background: "transparent" }}
-          />
+          <div
+            data-testid="generated-activity-safe-area"
+            style={{
+              position: "absolute",
+              inset: 0,
+              background: "#020617",
+            }}
+          >
+            <div
+              data-testid="generated-activity-frame"
+              style={{
+                position: "absolute",
+                inset: 0,
+                right: state.companionPresence === "summoned" ? 220 : 0,
+                transition: "right 180ms ease",
+              }}
+            >
+              <iframe
+                key={`${plannerBoardLaunch.node.id}:${plannerBoardLaunch.replayNonce}`}
+                ref={adventureGameIframeRef}
+                title={plannerBoardLaunch.node.type}
+                src={plannerBoardLaunch.iframeUrl}
+                style={{ width: "100%", height: "100%", border: "none", background: "transparent" }}
+              />
+            </div>
+          </div>
           {postActivityEngagement ? (
             <PostActivityEngagementOverlay
               title={postActivityEngagement.title}
@@ -1757,6 +2085,11 @@ function App() {
               canReplay
               canTryHarder={postActivityEngagement.canTryHarder}
               onAction={handlePlannerBoardPostActivityAction}
+              onFunRating={handlePlannerBoardFunRating}
+              coinAward={postActivityEngagement.coinAward}
+              onOpenVideoCall={
+                postActivityEngagement.videoCallTicket ? openEarnedVideoCall : null
+              }
             />
           ) : null}
         </FlowGameOverlay>

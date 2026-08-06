@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 160" role="img" aria-label="Shade Thirds thumbnail">
+  <defs>
+    <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#7c3aed"/>
+      <stop offset="1" stop-color="#2563eb"/>
+    </linearGradient>
+  </defs>
+  <rect width="240" height="160" rx="8" fill="url(#bg)"/>
+  <rect x="40" y="46" width="160" height="68" rx="8" fill="#eff6ff" stroke="#1e3a8a" stroke-width="4"/>
+  <rect x="42" y="48" width="52" height="64" rx="6" fill="#f59e0b"/>
+  <path d="M94 48v64M147 48v64" stroke="#1e3a8a" stroke-width="4"/>
+  <text x="120" y="140" text-anchor="middle" font-family="Arial, sans-serif" font-size="24" font-weight="bold" fill="#fef08a">1/3</text>
+</svg>

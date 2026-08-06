@@ -61,11 +61,9 @@ describe("CompanionRegistry", () => {
     }
   });
 
-  it("each personality names only its paired learner", () => {
-    expect(CompanionRegistry.getById("elli").personalityMarkdown).toMatch(/\bIla\b/);
-    expect(CompanionRegistry.getById("elli").personalityMarkdown).not.toMatch(
-      /\bReina\b/,
-    );
+  it("keeps Elli child-neutral while preserving explicitly paired companions", () => {
+    expect(CompanionRegistry.getById("elli").personalityMarkdown).not.toMatch(/\bIla\b|\bReina\b/);
+    expect(CompanionRegistry.getById("elli").personalityMarkdown).toContain("active child");
     expect(CompanionRegistry.getById("matilda").personalityMarkdown).toMatch(
       /\bReina\b/,
     );

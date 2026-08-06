@@ -15,7 +15,7 @@ const serveStatic = process.argv.includes("--serve-static");
 
 const app = express();
 app.use(cors());
-app.use(express.json({ limit: "6mb" }));
+app.use(express.json({ limit: "18mb" }));
 
 setupRoutes(app);
 

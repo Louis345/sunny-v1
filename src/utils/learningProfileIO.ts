@@ -41,12 +41,16 @@ export function getReadingCanvasPreferencesForChild(
   return mergeReadingCanvasPreferences(profile?.readingProfile);
 }
 
-export function writeLearningProfile(childId: string, profile: LearningProfile): void {
+export function writeLearningProfile(
+  childId: string,
+  profile: LearningProfile,
+  opts: { skipSessionPlanProjection?: boolean } = {},
+): void {
   const filePath = resolveProfilePath(childId);
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
   profile.lastUpdated = new Date().toISOString();
   writeWaterfallHomework(childId, profile);
-  writeWaterfallSessionPlan(childId, profile);
+  if (!opts.skipSessionPlanProjection) writeWaterfallSessionPlan(childId, profile);
   writeWaterfallContentCatalog(childId, profile);
   fs.writeFileSync(filePath, JSON.stringify(slimLearningProfileForDoorway(profile), null, 2), "utf-8");
 }

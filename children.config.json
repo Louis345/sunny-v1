@@ -6,6 +6,12 @@
     "creator": "creator"
   },
   "childProfiles": {
+    "demo-pashley": {
+      "ttsName": "Demo",
+      "avatarImagePath": null,
+      "showTimer": true,
+      "showKeyboard": false
+    },
     "ila": {
       "ttsName": "Ayla",
       "avatarImagePath": "/characters/ila.png",

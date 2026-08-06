@@ -28,6 +28,7 @@ import { readNextSessionWordsFromCurriculumFile } from "../utils/curriculumNextS
 import { readLearningProfile, initializeLearningProfile, writeLearningProfile } from "../utils/learningProfileIO";
 import { writeSessionNote, updateLearningProfileFromSession } from "./psychologistBridge";
 import type { SessionData } from "./psychologistBridge";
+import { childIdFromSessionName } from "../shared/childRegistry";
 import { readPersistedTodaysPlan } from "../agents/psychologist/today-plan";
 import type { ChildName } from "../utils/childContextPaths";
 import { getBondContextInjection } from "./bondProtocol";
@@ -162,10 +163,8 @@ function consumePendingMysteryGameSlug(childId: string): string | undefined {
   return s;
 }
 
-function childIdFromName(childName: ChildName): string {
-  if (childName === "Ila") return "ila";
-  if (childName === "Reina") return "reina";
-  return "creator";
+function childIdFromName(childName: string): string {
+  return childIdFromSessionName(childName) ?? "creator";
 }
 
 function resolveTodaysPlanPathForChildId(childId: string): string {

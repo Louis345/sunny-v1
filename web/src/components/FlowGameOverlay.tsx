@@ -22,7 +22,7 @@ export function FlowGameOverlay({
       <button
         type="button"
         data-testid="flow-game-back"
-        className="absolute top-3 right-3 z-[110] rounded-full bg-black/70 px-4 py-2 text-sm text-white"
+        className="absolute top-16 right-3 z-[110] rounded-full bg-black/70 px-4 py-2 text-sm text-white"
         onClick={onBack}
       >
         {backLabel}

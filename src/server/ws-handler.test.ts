@@ -5,6 +5,7 @@ const startMock = vi.fn();
 const endMock = vi.fn();
 const receiveAudioMock = vi.fn();
 const handleGameEventMock = vi.fn();
+const setCompanionPresenceMock = vi.fn();
 
 vi.mock("./audioGate", () => ({
   createAudioGate: vi.fn(() => ({
@@ -19,6 +20,7 @@ vi.mock("./session-manager", () => ({
     end: endMock,
     receiveAudio: receiveAudioMock,
     handleGameEvent: handleGameEventMock,
+    setCompanionPresence: setCompanionPresenceMock,
   })),
 }));
 
@@ -99,6 +101,16 @@ describe("ws handler", () => {
     expect(ws.sent).not.toContainEqual(
       expect.objectContaining({ message: "Unknown type: locked_node_tap" }),
     );
+  });
+
+  it("routes companion presence controls to the active voice session", async () => {
+    const ws = new FakeWs();
+    handleWsConnection(ws as never, req() as never);
+
+    await sendJson(ws, { type: "start_session", child: "Reina" });
+    await sendJson(ws, { type: "companion_presence", state: "summoned" });
+
+    expect(setCompanionPresenceMock).toHaveBeenCalledWith("summoned", "client");
   });
 
   it("reports session start failures without crashing the websocket handler", async () => {

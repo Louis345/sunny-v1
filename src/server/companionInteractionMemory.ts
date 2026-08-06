@@ -18,18 +18,35 @@ const MAX_LEDGER_TEXT_LENGTH = 1_500;
 const MAX_MEMORY_FIELD_LENGTH = 360;
 const MAX_MEMORY_LIST_ITEMS = 8;
 
+export type CompanionInteractionEventType =
+  | "companion_talk_completed"
+  | "companion_activity_completed";
+
+/**
+ * Game beats are driven by machine-authored prompts ("You are about to place
+ * your O on square 5"), which must never be filed as something the child said.
+ * They ride here instead, so memory is built from real conversation.
+ */
+export type CompanionInteractionActivityContext = {
+  activityId: string;
+  eventType: string;
+  result?: "child_win" | "companion_win" | "draw";
+  machinePrompt?: string;
+};
+
 export type CompanionInteractionEventInput = {
   childId: string;
   companionId: string;
   callSource: CompanionCallSource;
   relationshipState: CompanionRelationshipState;
-  eventType: "companion_talk_completed";
+  eventType: CompanionInteractionEventType;
   questionText: string;
   companionText: string;
   commandCount: number;
   visionUsed: boolean;
   visualSnapshot?: ShowroomVisualSnapshot;
   rewardContext?: CompanionRewardContext;
+  activityContext?: CompanionInteractionActivityContext;
   createdAt?: string;
 };
 
@@ -41,13 +58,14 @@ export type CompanionInteractionEventRecord = {
   companionId: string;
   callSource: CompanionCallSource;
   relationshipState: CompanionRelationshipState;
-  eventType: "companion_talk_completed";
+  eventType: CompanionInteractionEventType;
   questionText: string;
   companionText: string;
   commandCount: number;
   visionUsed: boolean;
   visual?: Omit<ShowroomVisualSnapshot, "base64">;
   rewardContext?: CompanionRewardContext;
+  activityContext?: CompanionInteractionActivityContext;
   createdAt: string;
 };
 
@@ -59,6 +77,8 @@ export type CompanionMemorySummaryPatch = Pick<
   | "relationshipFacts"
   | "favoriteMoments"
   | "emotionalTone"
+  | "rivalryNote"
+  | "companionSelfNotes"
 >;
 
 export type CompanionInteractionSummarizer = (input: {
@@ -147,6 +167,69 @@ function sanitizeMemoryField(value: unknown): string | undefined {
   return trimmed || undefined;
 }
 
+export function applyCompanionGameResult(
+  record: CompanionCareMemory["gameRecord"],
+  input: { activityId: string; result: "child_win" | "companion_win" | "draw"; at?: string },
+): NonNullable<CompanionCareMemory["gameRecord"]> {
+  const activityId = normalizeText(input.activityId, 60) || "unknown";
+  const next = { ...(record ?? {}) };
+  const previous = next[activityId] ?? {
+    played: 0,
+    childWins: 0,
+    companionWins: 0,
+    draws: 0,
+    lastPlayedAt: "",
+    currentStreak: 0,
+  };
+  // Positive streak = consecutive child wins, negative = companion wins.
+  const currentStreak =
+    input.result === "child_win"
+      ? Math.max(0, previous.currentStreak) + 1
+      : input.result === "companion_win"
+        ? Math.min(0, previous.currentStreak) - 1
+        : 0;
+  next[activityId] = {
+    played: previous.played + 1,
+    childWins: previous.childWins + (input.result === "child_win" ? 1 : 0),
+    companionWins: previous.companionWins + (input.result === "companion_win" ? 1 : 0),
+    draws: previous.draws + (input.result === "draw" ? 1 : 0),
+    lastPlayedAt: normalizeIso(input.at),
+    currentStreak,
+  };
+  return next;
+}
+
+/**
+ * Records a finished round straight into companion memory. Deliberately plain
+ * arithmetic: a model must never be the thing that counts a child's wins.
+ */
+export function recordCompanionGameResult(
+  input: {
+    childId: string;
+    companionId: string;
+    activityId: string;
+    result: "child_win" | "companion_win" | "draw";
+    at?: string;
+  },
+  opts: CompanionInteractionMemoryOptions = {},
+): { recorded: boolean; reason?: string } {
+  const childId = normalizeId(input.childId, "showroom");
+  const companionId = normalizeId(input.companionId, "companion");
+  const care = readCarePlan(childId, companionId, opts);
+  if (!care) return { recorded: false, reason: "missing_care_plan" };
+  const gameRecord = applyCompanionGameResult(care.plan.memory.gameRecord, {
+    activityId: input.activityId,
+    result: input.result,
+    at: input.at,
+  });
+  writeCarePlan(care.filePath, {
+    ...care.plan,
+    memory: { ...care.plan.memory, gameRecord },
+    updatedAt: new Date().toISOString(),
+  });
+  return { recorded: true };
+}
+
 function sanitizeMemoryList(value: unknown): string[] | undefined {
   if (!Array.isArray(value)) return undefined;
   const items = value
@@ -176,6 +259,14 @@ function sanitizeMemoryPatch(patch: CompanionMemorySummaryPatch): CompanionMemor
     ...(sanitizeMemoryField(patch.emotionalTone) && {
       emotionalTone: sanitizeMemoryField(patch.emotionalTone),
     }),
+    ...(sanitizeMemoryField(patch.rivalryNote) && {
+      rivalryNote: sanitizeMemoryField(patch.rivalryNote),
+    }),
+    ...(sanitizeMemoryList(patch.companionSelfNotes) && {
+      companionSelfNotes: sanitizeMemoryList(patch.companionSelfNotes)?.slice(0, 3),
+    }),
+    // gameRecord is deliberately absent: the model may read it but never write
+    // it, so a summarizer can never rewrite a child's win/loss history.
   };
 }
 
@@ -197,8 +288,19 @@ export function recordCompanionInteractionEvent(
     callSource: input.callSource,
     relationshipState: input.relationshipState,
     eventType: input.eventType,
-    questionText: normalizeText(input.questionText),
+    // A machine-authored game prompt is never "what the child said".
+    questionText: input.activityContext ? "" : normalizeText(input.questionText),
     companionText: normalizeText(input.companionText),
+    ...(input.activityContext && {
+      activityContext: {
+        activityId: normalizeText(input.activityContext.activityId, 60),
+        eventType: normalizeText(input.activityContext.eventType, 60),
+        ...(input.activityContext.result && { result: input.activityContext.result }),
+        ...(input.activityContext.machinePrompt && {
+          machinePrompt: normalizeText(input.activityContext.machinePrompt, 200),
+        }),
+      },
+    }),
     commandCount: Math.max(0, Math.floor(Number(input.commandCount) || 0)),
     visionUsed: Boolean(input.visionUsed),
     ...(input.visualSnapshot && {
@@ -294,6 +396,7 @@ function compactEventsForPrompt(events: CompanionInteractionEventRecord[]): unkn
     commandCount: event.commandCount,
     visionUsed: event.visionUsed,
     rewardContext: event.rewardContext,
+    activityContext: event.activityContext,
     visual: event.visual
       ? {
           reason: event.visual.reason,
@@ -315,7 +418,10 @@ async function summarizeCompanionInteractionsWithHaiku(input: {
     model: COMPANION_MEMORY_HAIKU_MODEL,
     max_tokens: 520,
     system:
-      "You compact child-companion interaction logs into stable companion relationship memory. Do not invent facts. Do not include raw screenshots, base64, or private implementation details. Return JSON only.",
+      "You compact child-companion interaction logs into stable companion relationship memory. Do not invent facts. Do not include raw screenshots, base64, or private implementation details. " +
+      "Events with an activityContext are game beats: the child did not speak those words, so never attribute them to the child. " +
+      "gameRecord is the authoritative win/loss history, counted by the app: never state, imply, or recompute a tally that disagrees with it, and never guess a record when it is absent. " +
+      "Return JSON only.",
     messages: [
       {
         role: "user",
@@ -323,11 +429,17 @@ async function summarizeCompanionInteractionsWithHaiku(input: {
           childId: input.childId,
           companionId: input.companionId,
           existingMemory: input.existingMemory,
+          gameRecord: input.existingMemory.gameRecord ?? {},
           events: compactEventsForPrompt(input.events),
           outputShape: {
             lastSessionSummary: "one concise summary",
             lastEmotionalMoment: "one concise emotional moment",
             reunionLineSeed: "one short line seed for next call",
+            rivalryNote:
+              "one short line about the games they play, consistent with gameRecord; omit if no games played",
+            companionSelfNotes: [
+              "up to 3 short traits the companion has shown through real interaction",
+            ],
             relationshipFacts: ["stable facts to remember"],
             favoriteMoments: ["warm moments worth recalling"],
             emotionalTone: "few words",

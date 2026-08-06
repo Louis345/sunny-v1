@@ -96,6 +96,24 @@ const reinaMay24Plan: ActiveSessionPlanBoardSnapshot = {
 };
 
 describe("buildAdventureBoardFromActiveSessionPlan", () => {
+  it("keeps generated activity labels on whole-word boundaries", () => {
+    const board = buildAdventureBoardFromActiveSessionPlan({
+      plan: {
+        ...reinaMay24Plan,
+        nodePlan: [{
+          ...reinaMay24Plan.nodePlan[0]!,
+          title: "The Lighthouse Lens: Secret of the Shrinking Slice",
+        }],
+      },
+      boardId: "generated-math-label",
+      title: "Generated Math",
+      theme,
+    });
+
+    expect(board.nodes.find((node) => node.id === "baseline_silent_letters_spelling")?.shortLabel)
+      .toBe("The Lighthouse Lens");
+  });
+
   it("ignores stale adventureBoard blobs and materializes from nodePlan", () => {
     const plannerBoard: AdventureBoardJson = {
       schemaVersion: 1,
@@ -150,7 +168,7 @@ describe("buildAdventureBoardFromActiveSessionPlan", () => {
 
     expect(board).not.toEqual(plannerBoard);
     expect(board.boardId).toBe("fallback-board");
-    expect(board.nodes.map((node) => node.id)).not.toContain("start");
+    expect(board.nodes.filter((node) => node.kind === "start")).toHaveLength(1);
     expect(board.nodes.map((node) => node.id)).not.toContain("choice_after_verify");
     expect(board.nodes.map((node) => node.id)).toContain("baseline_silent_letters_spelling");
   });
@@ -164,6 +182,7 @@ describe("buildAdventureBoardFromActiveSessionPlan", () => {
     });
 
     expect(board.nodes.map((node) => node.id)).toEqual([
+      "start",
       "baseline_silent_letters_spelling",
       "choose-path",
       "baseline_high_frequency_recognition",
@@ -172,14 +191,15 @@ describe("buildAdventureBoardFromActiveSessionPlan", () => {
       "quest_transfer",
       "boss_mastery",
     ]);
-    expect(board.nodes[0].activityId).toBe("word-radar");
-    expect(board.nodes[0].target?.laneId).toBe("silent_letters");
-    expect(board.nodes[0].target?.words).toEqual(reinaMay24Plan.nodePlan[0].targets);
-    expect(board.nodes[0].wordRadarConfig).toEqual(reinaMay24Plan.nodePlan[0].wordRadarConfig);
-    expect(board.nodes[2].target?.laneId).toBe("high_frequency_words");
-    expect(board.nodes[2].wordRadarConfig).toEqual(reinaMay24Plan.nodePlan[1].wordRadarConfig);
-    expect(board.nodes[5].state).toBe("locked");
+    expect(board.nodes[0].kind).toBe("start");
+    expect(board.nodes[1].activityId).toBe("word-radar");
+    expect(board.nodes[1].target?.laneId).toBe("silent_letters");
+    expect(board.nodes[1].target?.words).toEqual(reinaMay24Plan.nodePlan[0].targets);
+    expect(board.nodes[1].wordRadarConfig).toEqual(reinaMay24Plan.nodePlan[0].wordRadarConfig);
+    expect(board.nodes[3].target?.laneId).toBe("high_frequency_words");
+    expect(board.nodes[3].wordRadarConfig).toEqual(reinaMay24Plan.nodePlan[1].wordRadarConfig);
     expect(board.nodes[6].state).toBe("locked");
+    expect(board.nodes[7].state).toBe("locked");
   });
 
   it("does not invent missing Mystery, Quest, Boss, or modal choices", () => {
@@ -211,10 +231,11 @@ describe("buildAdventureBoardFromActiveSessionPlan", () => {
       theme,
     });
 
-    expect(board.nodes.map((node) => node.id)).toEqual(["planner_word_radar", "planner_spell_check"]);
+    expect(board.nodes.map((node) => node.id)).toEqual(["start", "planner_word_radar", "planner_spell_check"]);
     expect(board.nodes.some((node) => ["mystery", "quest", "boss"].includes(node.kind))).toBe(false);
     expect(board.choiceSets ?? []).toHaveLength(0);
     expect(board.edges.map((edge) => [edge.from, edge.to])).toEqual([
+      ["start", "planner_word_radar"],
       ["planner_word_radar", "planner_spell_check"],
     ]);
   });
@@ -507,6 +528,7 @@ describe("buildAdventureBoardFromActiveSessionPlan", () => {
     const choiceSet = board.choiceSets?.find((set) => set.id === "baseline-route-options");
 
     expect(board.nodes.map((node) => node.id)).toEqual([
+      "start",
       "node-baseline-sl",
       "node-baseline-hfw",
       "choose-path",
@@ -526,6 +548,30 @@ describe("buildAdventureBoardFromActiveSessionPlan", () => {
     expect(board.nodes.find((node) => node.id === "node-route-b-pronunciation")?.slot).toBe("5b.1");
     expect(board.nodes.find((node) => node.id === "node-mystery")?.slot).toBe("6");
     expect(board.nodes.some((node) => node.slot === "5c.1" || node.slot === "5c.2")).toBe(false);
+  });
+
+
+  it("prefers the locked mastery-gated node when two quest-typed nodes exist", () => {
+    const board = buildAdventureBoardFromActiveSessionPlan({
+      plan: {
+        planId: "plan-dual-quest",
+        childId: "demo-pashley",
+        domain: "math",
+        nodePlan: [
+          { id: "baseline", type: "generated-baseline", activityId: "generated-baseline", targets: ["5x2"], targetLane: "multiplication" },
+          { id: "route-quest-prep", type: "quest", activityId: "quest", targets: ["5x5"], targetLane: "multiplication", locked: false },
+          { id: "mystery", type: "mystery", activityId: "mystery", targets: ["5x2"] },
+          { id: "real-quest", type: "quest", activityId: "quest", targets: [], locked: true, masteryUnlockState: "preparing" },
+          { id: "boss", type: "boss", activityId: "boss", targets: [], locked: true },
+        ],
+      },
+      boardId: "board-dual-quest",
+      theme,
+    });
+
+    const questNodes = board.nodes.filter((node) => node.kind === "quest");
+    expect(questNodes.map((node) => node.id)).toEqual(["real-quest"]);
+    expect(questNodes[0]?.state).toBe("locked");
   });
 
   it("keeps excess unique route nodes out of the cramped middle route lane", () => {
@@ -562,5 +608,59 @@ describe("buildAdventureBoardFromActiveSessionPlan", () => {
     expect(board.nodes.find((node) => node.id === "route-a-extra")?.slot).toBe("5a.2");
     expect(board.nodes.find((node) => node.id === "route-b-extra")?.slot).toBe("5b.2");
     expect(board.nodes.find((node) => node.id === "route-c-extra")).toBeUndefined();
+  });
+
+  it("names generated-baseline and concept-check nodes after the concept, not the engine", () => {
+    const board = buildAdventureBoardFromActiveSessionPlan({
+      plan: {
+        planId: "plan-math-labels",
+        childId: "demo-pashley",
+        domain: "math",
+        nodePlan: [
+          { id: "n-thirds", type: "generated-baseline", activityId: "generated-baseline", targets: ["shade_one_third_rectangle"], targetLane: "fraction_shade_thirds" },
+          { id: "n-fourths", type: "generated-baseline", activityId: "generated-baseline", targets: ["shade_one_fourth_circle"], targetLane: "fraction_shade_fourths" },
+          { id: "n-compare", type: "concept-check", activityId: "concept-check", targets: ["compare_one_third_vs_one_fourth"], targetLane: "fraction_compare" },
+          { id: "n-target-only", type: "generated-baseline", activityId: "generated-baseline", targets: ["shade_one_third_rectangle"] },
+          { id: "n-bare", type: "generated-baseline", activityId: "generated-baseline", targets: [] },
+          { id: "mystery", type: "mystery", activityId: "mystery", targets: ["1/3"] },
+          { id: "quest", type: "quest", activityId: "quest", targets: ["1/3"], locked: true },
+          { id: "boss", type: "boss", activityId: "boss", targets: [], locked: true },
+        ],
+      },
+      boardId: "board-math-labels",
+      theme,
+    });
+
+    const labelById = new Map(board.nodes.map((node) => [node.id, node.label]));
+    expect(labelById.get("n-thirds")).toBe("Shade Thirds");
+    expect(labelById.get("n-fourths")).toBe("Shade Fourths");
+    expect(labelById.get("n-compare")).toBe("Fraction Face-Off");
+    expect(labelById.get("n-target-only")).toBe("Shade Thirds");
+    expect(labelById.get("n-bare")).toBe("Skill Builder");
+    expect(board.nodes.some((node) => node.label.toLowerCase().includes("generated baseline"))).toBe(false);
+
+    const thumbById = new Map(board.nodes.map((node) => [node.id, node.thumbnailUrl]));
+    expect(thumbById.get("n-thirds")).toBe("/thumbnails/activities/math-shade-thirds.svg");
+    expect(thumbById.get("n-fourths")).toBe("/thumbnails/activities/math-shade-fourths.svg");
+    expect(thumbById.get("n-compare")).toBe("/thumbnails/activities/math-fraction-compare.svg");
+    expect(thumbById.get("n-bare")).toBe("/thumbnails/activities/math-generic.svg");
+  });
+
+  it("preserves planner-provided experiment titles on the child-facing board", () => {
+    const board = buildAdventureBoardFromActiveSessionPlan({
+      plan: {
+        planId: "plan-math-experiment-titles",
+        childId: "reina",
+        domain: "math",
+        nodePlan: [
+          { id: "facts", type: "generated-baseline", activityId: "generated-baseline", targets: ["5x2"], title: "Fact Blaster" },
+          { id: "story", type: "generated-baseline", activityId: "generated-baseline", targets: ["5 pencils in 4 boxes"], title: "Story Solver" },
+        ],
+      },
+      boardId: "board-math-experiment-titles",
+      theme,
+    });
+    expect(board.nodes.find((node) => node.id === "facts")?.label).toBe("Fact Blaster");
+    expect(board.nodes.find((node) => node.id === "story")?.label).toBe("Story Solver");
   });
 });

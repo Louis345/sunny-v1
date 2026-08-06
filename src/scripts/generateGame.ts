@@ -9,6 +9,7 @@ import { scanChildErrorPatterns } from "../engine/error-signals/patternDetector"
 
 export const HAIKU_MODEL = "claude-haiku-4-5-20251001";
 export const SONNET_MODEL = "claude-sonnet-4-5";
+export const OPUS_MODEL = "claude-opus-4-6";
 
 const GAME_GOAL_BY_TYPE: Record<string, string> = {
   spelling_test: `This game prepares a child for a spelling test.
@@ -47,6 +48,18 @@ Wrong mechanics: spelling, math equations, sorting.`,
 in the homework content provided. Analyze the content
 and build the most appropriate interactive mechanic.
 Match the game mechanic to the skill being practiced.`,
+
+  baseline: `This is a reusable baseline learning game shell for Sunny.
+The game MUST load all homework content (rounds, targets, prompts, options)
+from a config JSON URL passed as the "config" query parameter.
+NEVER hardcode word lists, math facts, question text, or answer choices in the HTML.
+Correct mechanics: fluency arcade energy, visible dopamine feedback per round
+(confetti, XP chips, streak rewards), per-target window.fireAttemptEvent() with
+responseTimeMs when possible, GameBridge.reportState during play.
+The shell will be refilled with new homework each week — design the mechanic
+and theme, not the specific problems.
+Wrong mechanics: hardcoded homework content, showing answers during assessment,
+in-game companion avatar, one-click finish shortcuts.`,
 };
 
 const REFERENCE_HTML_PATH = path.join(
@@ -54,7 +67,7 @@ const REFERENCE_HTML_PATH = path.join(
   "web",
   "public",
   "games",
-  "chimp-quest.html",
+  "chimp-quest-generated.html",
 );
 
 const TEXT_FROM_PDF_PROMPT = `Extract ALL readable text from this document 
@@ -235,6 +248,7 @@ function resolveGameGoalHomeworkType(
   if (t === "math") return "math";
   if (t === "coins") return "coins";
   if (t === "clocks") return "clocks";
+  if (t === "baseline") return "baseline";
   if (t in GAME_GOAL_BY_TYPE) return t as keyof typeof GAME_GOAL_BY_TYPE;
   return "generic";
 }
@@ -265,10 +279,26 @@ Fix these issues in this generation.
   const goalKey = resolveGameGoalHomeworkType(homeworkType);
   const gameGoal = GAME_GOAL_BY_TYPE[goalKey] ?? GAME_GOAL_BY_TYPE.generic;
   const testDateLine = testDate ? `Test/due date: ${testDate}\n` : "";
+  const baselineBlock =
+    goalKey === "baseline"
+      ? `BASELINE SHELL CONTRACT:
+- Parse window.location.search for the "config" query param.
+- Read child identity from window.GAME_PARAMS at runtime. Never write a literal child id or child name into HTML or JavaScript.
+- fetch(configUrl) must load rounds[], targets[], topic, and domain at runtime.
+- Render one round at a time from config.rounds; never embed homework JSON in HTML.
+- Each graded interaction calls window.fireAttemptEvent() with target, correct, responseTimeMs, and the literal property domain: "math" (write exactly domain: "math", not a variable).
+- Call window.GameBridge.reportState() when phase/round changes.
+- Include a visible sound toggle and WebAudio cues for tap, correct, incorrect, progress, and completion.
+- On finish call window.sendNodeComplete() with accuracy and completion summary.
+- Expose window.SUNNY_VALIDATION_HOOKS.playthrough({ words }) that completes every target.
+
+`
+      : "";
+
   const purposeBlock = `GAME PURPOSE AND MECHANICS:
 ${gameGoal}
 
-${testDateLine}
+${testDateLine}${baselineBlock}
 UNIVERSAL ASSESSMENT LAW:
 If the game tests whether a child knows something,
 never show them the answer while they answer.
@@ -362,6 +392,13 @@ Match this EXACT visual style:
 - Progress: thin bar top with XP chip
 - Confetti: particle explosion on correct answer (multiple choice full credit, or written score === 1)
 - Tab navigation: Q1 Q2 Q3... pill buttons
+
+SOUND — mandatory, fully synthetic Web Audio (no audio files, works offline):
+- Create one lazy AudioContext on the FIRST user interaction (autoplay policy), reuse it for every sound.
+- Build short oscillator/noise SFX helpers and play them at: correct answer (bright rising two-note chirp), wrong answer (soft low buzz, never harsh), button/option tap (tiny click), streak or milestone (quick arpeggio), game complete (short victory riff).
+- Keep every effect under 400ms, gain <= 0.2, with an exponential fade-out — pleasant, not startling; this is used in quiet rooms.
+- Provide a visible mute toggle (🔊/🔇) that persists in a variable and silences all SFX; default unmuted.
+- No background music, no external audio URLs, no <audio> tags.
 
 REQUIRED: Add immediately after <body> tag:
 <div id='sunny-companion' style='position:fixed;
@@ -493,7 +530,11 @@ function buildOpusPrompt(
     11. Does not render companion avatars, speech bubbles, Elli/Matilda corners,
         or companion helper cards. Sunny owns companion chrome through
         #sunny-companion and the contract events.
-    
+    12. Synthetic Web Audio SFX (lazy AudioContext on first interaction,
+        oscillator effects under 400ms, gain <= 0.2, visible mute toggle,
+        no audio files or <audio> tags): correct chirp, gentle wrong buzz,
+        tap click, dramatic-but-short boss victory riff.
+
     Return raw HTML only. No markdown.`;
 }
 
@@ -507,6 +548,7 @@ export async function generateQuestGameHtml(args: {
   validationFeedback?: string;
   learningTheory?: string;
   errorSignals?: ErrorSignal[];
+  model?: string;
 }): Promise<string> {
   const referenceHtml = loadOptionalReferenceHtml();
   const genPrompt = buildSonnetPrompt(
@@ -520,7 +562,7 @@ export async function generateQuestGameHtml(args: {
     args.errorSignals,
   );
   const genResp = await args.client.messages.create({
-    model: SONNET_MODEL,
+    model: args.model ?? SONNET_MODEL,
     max_tokens: args.maxTokens ?? 16384,
     messages: [{ role: "user", content: genPrompt }],
   });
@@ -711,7 +753,7 @@ async function main(): Promise<void> {
   if (args.opus) {
     console.log("🏆 Step 3/4: Generating boss node...");
     const bossResp = await client.messages.create({
-      model: "claude-opus-4-6",
+      model: OPUS_MODEL,
       max_tokens: 16384,
       messages: [
         {

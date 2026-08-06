@@ -37,11 +37,13 @@ describe("TurnStateMachine queue", () => {
     expect(sm.consumePendingTranscript()).toBeNull();
   });
 
-  it("second setPendingTranscript overwrites first", () => {
+  it("coalesces overlapping transcript fragments into one coherent child turn", () => {
     const sm = new TurnStateMachine(() => {}, () => {});
-    sm.setPendingTranscript("first");
-    sm.setPendingTranscript("second");
-    expect(sm.consumePendingTranscript()).toBe("second");
+    sm.setPendingTranscript("What am I supposed to do here");
+    sm.setPendingTranscript("do here with the lighthouse lens");
+    expect(sm.consumePendingTranscript()).toBe(
+      "What am I supposed to do here with the lighthouse lens",
+    );
   });
 
   it("consumePendingTranscript returns null when empty", () => {
@@ -59,6 +61,26 @@ describe("TurnStateMachine queue", () => {
 });
 
 describe("Correct consumption point", () => {
+  it("waits for the final transcript while the companion conversation is open", async () => {
+    const session = new SessionManager(mockBrowserWs(), "Reina");
+    const harness = session as unknown as {
+      companionPresence: "collapsed" | "summoned";
+      handleFluxEndOfTurn: (text: string, source: "eager" | "final") => void;
+      handleEndOfTurn: (text: string) => Promise<void>;
+    };
+    harness.companionPresence = "summoned";
+    const spy = vi.spyOn(harness, "handleEndOfTurn").mockResolvedValue();
+
+    harness.handleFluxEndOfTurn("Matilda, how's your", "eager");
+    expect(spy).not.toHaveBeenCalled();
+
+    harness.handleFluxEndOfTurn("Matilda, how's your day going?", "final");
+    await vi.waitFor(() => {
+      expect(spy).toHaveBeenCalledOnce();
+    });
+    expect(spy).toHaveBeenCalledWith("Matilda, how's your day going?");
+  });
+
   it("transcript queued during PROCESSING; not consumed by onAgentComplete; consumed after playbackDone; handleEndOfTurn replay", async () => {
     const ws = mockBrowserWs();
     const session = new SessionManager(ws, "Ila");

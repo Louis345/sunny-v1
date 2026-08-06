@@ -1,5 +1,6 @@
 import fs from "fs";
 import path from "path";
+import Anthropic from "@anthropic-ai/sdk";
 import type { MysteryChoiceOption } from "../shared/adventureTypes";
 import type { LearningProfile } from "../context/schemas/learningProfile";
 import {
@@ -15,7 +16,9 @@ import {
 import { readLearningProfile, writeLearningProfile } from "../utils/learningProfileIO";
 import { resolveChildContextDir } from "../utils/contextRoot";
 import { updateChildProfileGenerationModel } from "../profile/updateProfile";
-import { renderPlayableVisualQuestShell } from "./playableVisualQuestShell";
+import { buildProfile } from "../profiles/buildProfile";
+import { generateQuestGameHtml } from "../scripts/generateGame";
+import { ensureQuestHtmlContract } from "../scripts/ingestHomework";
 import { validateGeneratedGame } from "../scripts/validateGeneratedGame";
 import { validateGeneratedArtifactRuntime } from "./generatedArtifactRuntimeValidator";
 import type { ExperienceArtifactValidationReport } from "./generatedExperienceArtifact";
@@ -533,19 +536,50 @@ export async function selectQuestVisualCandidate(
     ? bossTargetsFromQuestEvidence(questEvidence)
     : targetWordsForNode(profile, input.nodeId);
   const imageUrl = imageDataUrlFor(selectedCandidate.imagePath);
-  const html = renderPlayableVisualQuestShell({
-    kind: input.kind,
-    childId,
-    candidateId: selectedCandidate.id,
-    title: selectedCandidate.title,
-    imagePath: imageUrl,
-    targetWords,
-    assignment: {
-      domain: manifest.fixture.assignment.domain,
-      title: manifest.fixture.assignment.masteryTopic,
-      concepts: manifest.fixture.assignment.skills,
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) return { ok: false, error: "ai_authored_artifact_model_required" };
+  const childProfile = await buildProfile(childId);
+  if (!childProfile) return { ok: false, error: "child_profile_missing" };
+  const selectedDirection = directions.find((direction) => direction.id === selectedCandidate.id);
+  const experiencePayload = JSON.stringify({
+    artifactKind: `${input.kind}_ai_authored_experience`,
+    candidate: {
+      id: selectedCandidate.id,
+      title: selectedCandidate.title,
+      family: selectedCandidate.family,
+      description: selectedCandidate.description,
+      wrapperTraits: selectedCandidate.wrapperTraits,
+      visualDirection: selectedDirection?.prompt ?? "",
+      worldImageDataUrl: imageUrl,
     },
-  });
+    assignment: manifest.fixture.assignment,
+    targetWords,
+    evidenceSource: input.kind === "boss" ? questEvidence : manifest.homeworkId,
+    requirements: {
+      uniqueExperience: true,
+      genericRendererForbidden: true,
+      childActionMustChangeWorldState: true,
+      correctAndIncorrectRecoveryRequired: true,
+      sfx: ["tap", "correct", "incorrect", "progress", "complete"],
+      evidence: ["game_state_update", "attempt_event", "targetResults", "completionSummary"],
+    },
+  }, null, 2);
+  let html: string;
+  try {
+    html = ensureQuestHtmlContract(await generateQuestGameHtml({
+      client: new Anthropic({ apiKey }),
+      extractedJsonPretty: experiencePayload,
+      homeworkType: input.kind,
+      childProfile,
+      maxTokens: Number(process.env.SUNNY_GENERATION_MAX_TOKENS ?? 16384),
+      model: process.env.SUNNY_GENERATION_MODEL ?? "claude-sonnet-5",
+    }));
+  } catch (error) {
+    return {
+      ok: false,
+      error: `ai_authored_artifact_generation_failed:${error instanceof Error ? error.message : String(error)}`,
+    };
+  }
   const staticValidation = validateGeneratedGame(html, {
     words: targetWords,
     homeworkType: manifest.fixture.assignment.domain === "spelling" ? "spelling_test" : manifest.fixture.assignment.domain,

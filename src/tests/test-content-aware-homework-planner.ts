@@ -650,6 +650,20 @@ describe("content-aware homework planner", () => {
     expect(clarified.clarificationQuestions).toEqual([]);
   });
 
+  it("synthesizes a math concept group from captured problems when no words are present", () => {
+    const interpretation = interpretHomeworkAssignment({
+      title: "Pashley Grade 3 - Multiplication Facts",
+      type: "math",
+      words: [],
+      questions: [
+        { question: "5 x 2 = ?", type: "multiple_choice" },
+        { question: "5 x 5 = ?", type: "multiple_choice" },
+      ],
+    });
+    expect(interpretation.wordGroups).toHaveLength(1);
+    expect(interpretation.wordGroups[0]?.words).toEqual(["5 x 2 = ?", "5 x 5 = ?"]);
+  });
+
   it("records memory matches so confirmed worksheet patterns ask for less help later", () => {
     const interpretation = interpretHomeworkAssignment({
       title: "Benchmark Advance Spelling Unit 9 Week 1",

@@ -5,6 +5,8 @@ import type {
   CompanionCareState,
   CompanionCareView,
   CompanionFeedResult,
+  CompanionPurchaseResult,
+  CompanionStoreItem,
   CompanionReadiness,
 } from "../shared/companionCareTypes";
 import type { TamagotchiState } from "../shared/vrrTypes";
@@ -66,6 +68,12 @@ const STARTER_FOOD: StarterFood[] = [
       thoughtClarity: 0.15,
     },
   },
+];
+
+export const COMPANION_STORE_ITEMS: readonly CompanionStoreItem[] = [
+  { id: "apple_bite", label: "Apple Bite", cost: 25, rarity: "common" },
+  { id: "star_candy", label: "Star Candy", cost: 50, rarity: "uncommon" },
+  { id: "mystery_snack", label: "Mystery Snack", cost: 100, rarity: "rare" },
 ];
 
 function clamp01(value: number): number {
@@ -134,8 +142,160 @@ export function createStarterCompanionCarePlan(opts: {
     economy: {
       coins: Math.max(0, Math.floor(Number(opts.coinBalance ?? 0) || 0)),
       storeUnlocks: [],
+      purchaseReceipts: [],
+      videoCallTickets: [],
+      bonusRewardReceipts: [],
     },
     updatedAt: nowIso,
+  };
+}
+
+export function purchaseCompanionStoreItem(
+  plan: CompanionCarePlan,
+  itemIdRaw: string,
+  requestIdRaw: string,
+  nowIso: string,
+): CompanionPurchaseResult {
+  const itemId = normalizeId(itemIdRaw);
+  const requestId = requestIdRaw.trim().slice(0, 160);
+  if (!requestId) return { ok: false, reason: "invalid_request", plan };
+  const item = COMPANION_STORE_ITEMS.find((entry) => entry.id === itemId);
+  if (!item) return { ok: false, reason: "unknown_item", plan };
+  const receipts = plan.economy.purchaseReceipts ?? [];
+  if (receipts.includes(requestId)) {
+    return {
+      ok: true,
+      plan,
+      item,
+      balance: Math.max(0, Math.floor(plan.economy.coins)),
+      duplicate: true,
+    };
+  }
+  const balance = Math.max(0, Math.floor(Number(plan.economy.coins) || 0));
+  if (balance < item.cost) {
+    return { ok: false, reason: "insufficient_funds", plan };
+  }
+  const existing = plan.inventory.food.find((entry) => entry.id === item.id);
+  const catalogItem = STARTER_FOOD.find((entry) => entry.id === item.id);
+  if (!catalogItem) return { ok: false, reason: "unknown_item", plan };
+  const nextFood = existing
+    ? plan.inventory.food.map((entry) =>
+        entry.id === item.id
+          ? { ...entry, quantity: sanitizeQuantity(entry.quantity) + 1 }
+          : entry,
+      )
+    : [...plan.inventory.food, { ...publicFood(catalogItem), quantity: 1 }];
+  const nextPlan: CompanionCarePlan = {
+    ...plan,
+    inventory: { ...plan.inventory, food: nextFood },
+    economy: {
+      ...plan.economy,
+      coins: balance - item.cost,
+      purchaseReceipts: [...receipts, requestId].slice(-200),
+    },
+    updatedAt: nowIso,
+  };
+  return {
+    ok: true,
+    plan: nextPlan,
+    item,
+    balance: nextPlan.economy.coins,
+    duplicate: false,
+  };
+}
+
+export function grantVideoCallTicket(
+  plan: CompanionCarePlan,
+  homeworkIdRaw: string,
+  nowIso: string,
+  bonusUrl?: string,
+): { plan: CompanionCarePlan; granted: boolean } {
+  const homeworkId = homeworkIdRaw.trim();
+  if (!homeworkId) return { plan, granted: false };
+  const tickets = plan.economy.videoCallTickets ?? [];
+  if (tickets.some((ticket) => ticket.homeworkId === homeworkId)) {
+    return { plan, granted: false };
+  }
+  return {
+    granted: true,
+    plan: {
+      ...plan,
+      economy: {
+        ...plan.economy,
+        videoCallTickets: [...tickets, {
+          homeworkId,
+          earnedAt: nowIso,
+          ...(bonusUrl ? { bonusUrl } : {}),
+        }],
+      },
+      updatedAt: nowIso,
+    },
+  };
+}
+
+export function markVideoCallTicketOpened(
+  plan: CompanionCarePlan,
+  homeworkIdRaw: string,
+  nowIso: string,
+): { plan: CompanionCarePlan; ok: boolean; alreadyOpened: boolean } {
+  const homeworkId = homeworkIdRaw.trim();
+  const tickets = plan.economy.videoCallTickets ?? [];
+  const ticket = tickets.find((entry) => entry.homeworkId === homeworkId);
+  if (!ticket) return { plan, ok: false, alreadyOpened: false };
+  if (ticket.openedAt) return { plan, ok: true, alreadyOpened: true };
+  return {
+    ok: true,
+    alreadyOpened: false,
+    plan: {
+      ...plan,
+      economy: {
+        ...plan.economy,
+        videoCallTickets: tickets.map((entry) =>
+          entry.homeworkId === homeworkId ? { ...entry, openedAt: nowIso } : entry,
+        ),
+      },
+      updatedAt: nowIso,
+    },
+  };
+}
+
+export function awardHomeworkBonusCoins(
+  plan: CompanionCarePlan,
+  input: {
+    homeworkId: string;
+    completed: boolean;
+    independentlyCorrectFreshItems: number;
+    freshItemCount: number;
+    nowIso: string;
+  },
+): { plan: CompanionCarePlan; awarded: boolean; amount: number } {
+  const homeworkId = input.homeworkId.trim();
+  const receipts = plan.economy.bonusRewardReceipts ?? [];
+  const prior = receipts.find((entry) => entry.homeworkId === homeworkId);
+  if (prior) return { plan, awarded: false, amount: prior.amount };
+  if (!homeworkId || !input.completed) return { plan, awarded: false, amount: 0 };
+  const total = Math.max(0, Math.floor(Number(input.freshItemCount) || 0));
+  const independentlyCorrect = Math.min(
+    total,
+    Math.max(0, Math.floor(Number(input.independentlyCorrectFreshItems) || 0)),
+  );
+  const performance = total > 0 ? Math.floor(15 * (independentlyCorrect / total)) : 0;
+  const amount = Math.min(25, 10 + performance);
+  return {
+    awarded: true,
+    amount,
+    plan: {
+      ...plan,
+      economy: {
+        ...plan.economy,
+        coins: Math.max(0, Math.floor(plan.economy.coins)) + amount,
+        bonusRewardReceipts: [
+          ...receipts,
+          { homeworkId, amount, awardedAt: input.nowIso },
+        ],
+      },
+      updatedAt: input.nowIso,
+    },
   };
 }
 
@@ -292,6 +452,9 @@ export function companionCareToView(
     economy: {
       coins: plan.economy.coins,
       storeUnlocks: [...plan.economy.storeUnlocks],
+      purchaseReceipts: [...(plan.economy.purchaseReceipts ?? [])],
+      videoCallTickets: (plan.economy.videoCallTickets ?? []).map((ticket) => ({ ...ticket })),
+      bonusRewardReceipts: (plan.economy.bonusRewardReceipts ?? []).map((receipt) => ({ ...receipt })),
     },
     inventory: {
       food: plan.inventory.food.map((item) => ({ ...item })),

@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 160" role="img" aria-label="Clock Time thumbnail">
+  <defs>
+    <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#0ea5e9"/>
+      <stop offset="1" stop-color="#6366f1"/>
+    </linearGradient>
+  </defs>
+  <rect width="240" height="160" rx="8" fill="url(#bg)"/>
+  <circle cx="120" cy="80" r="52" fill="#eff6ff" stroke="#1e3a8a" stroke-width="6"/>
+  <path d="M120 80V44M120 80l24 16" stroke="#1e3a8a" stroke-width="7" stroke-linecap="round"/>
+  <circle cx="120" cy="80" r="6" fill="#f59e0b"/>
+  <path d="M120 34v6M120 120v6M74 80h6M160 80h6" stroke="#1e3a8a" stroke-width="5" stroke-linecap="round"/>
+</svg>

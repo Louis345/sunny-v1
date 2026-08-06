@@ -37,7 +37,7 @@ export interface CompanionLayerProps {
   toggledOff: boolean;
   /** "portrait": 120×120 fixed bottom-right circle (canvas/game overlay). "full": full-screen overlay (default). */
   mode?: "full" | "portrait";
-  /** Full-body idle posture; defaults to the safer flank pose used by the runtime. */
+  /** Full-body idle posture; "flank" reserves the board's right edge for the companion. */
   idlePose?: "flank" | "center";
   /** When true, shrink companion to bottom-right for karaoke reading space. Ignored in portrait mode. */
   karaokeActive?: boolean;
@@ -60,6 +60,10 @@ export interface CompanionLayerProps {
   micMuted?: boolean;
   /** Called when portrait is tapped. Should call useSession's toggleMicMute. */
   onToggleMute?: () => void;
+  /** Activity-only presentation state; visual design remains the existing portrait. */
+  summoned?: boolean;
+  onSummon?: () => void;
+  onDismiss?: () => void;
 }
 
 type CompanionRenderer = THREE.WebGLRenderer;
@@ -165,6 +169,7 @@ export function CompanionLayer({
   companion,
   toggledOff,
   mode = "full",
+  idlePose = "center",
   karaokeActive = false,
   companionEvents = [],
   correctStreak = 0,
@@ -176,6 +181,9 @@ export function CompanionLayer({
   speechBubbleText,
   micMuted = false,
   onToggleMute,
+  summoned = true,
+  onSummon,
+  onDismiss,
 }: CompanionLayerProps) {
   const fallbackAnalyserRef = useRef<AnalyserNode | null>(null);
   const analyserNodeRef = analyserNodeRefProp ?? fallbackAnalyserRef;
@@ -705,141 +713,126 @@ export function CompanionLayer({
   }
 
   if (mode === "portrait") {
+    const portraitSize = summoned ? 188 : 68;
+    const activatePortrait = () => (summoned ? onDismiss : onSummon)?.();
     return (
-      <div
-        ref={wrapRef}
-        data-testid="companion-portrait-stack"
-        data-companion-care-mood={behavior.mood}
-        data-companion-care-state={behavior.presentationState}
-        data-companion-care-low={behavior.low ? "true" : "false"}
-        style={{
-          position: "fixed",
-          bottom: 16,
-          right: 16,
-          zIndex: 9999,
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "flex-end",
-          gap: 8,
-          pointerEvents: "none",
-        }}
-      >
-        {speechBubbleText ? (
-          <div
-            data-testid="companion-speech-bubble"
-            style={{
-              position: "relative",
-              maxWidth: 220,
-              padding: "10px 14px",
-              borderRadius: 14,
-              background: "rgba(15,23,42,0.88)",
-              color: "#f8fafc",
-              fontSize: 14,
-              lineHeight: 1.35,
-              pointerEvents: "none",
-              boxShadow: "0 8px 24px rgba(0,0,0,0.35)",
-            }}
-          >
-            {speechBubbleText}
-          </div>
-        ) : null}
+      <>
         <div
-          data-testid="companion-portrait"
-          onClick={() => onToggleMute?.()}
+          ref={wrapRef}
+          data-testid="companion-portrait-stack"
+          data-companion-presence={summoned ? "summoned" : "collapsed"}
+          data-companion-care-mood={behavior.mood}
+          data-companion-care-state={behavior.presentationState}
+          data-companion-care-low={behavior.low ? "true" : "false"}
           style={{
-            position: "relative",
-            width: 120,
-            height: 120,
-            borderRadius: "50%",
-            overflow: "hidden",
-            cursor: "pointer",
-            pointerEvents: "auto",
-            filter: behavior.visualTreatment.filter,
-            opacity: behavior.visualTreatment.opacity,
-            transition: "filter 220ms ease, opacity 220ms ease",
+            position: "fixed",
+            bottom: 16,
+            right: 16,
+            zIndex: 9999,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "flex-end",
+            gap: 8,
+            pointerEvents: "none",
           }}
         >
+          {summoned && speechBubbleText ? (
+            <div
+              data-testid="companion-speech-bubble"
+              style={{
+                maxWidth: 260,
+                padding: "10px 14px",
+                borderRadius: 14,
+                background: "rgba(15,23,42,0.92)",
+                color: "#f8fafc",
+                fontSize: 14,
+                lineHeight: 1.35,
+                boxShadow: "0 8px 24px rgba(0,0,0,0.35)",
+              }}
+            >
+              {speechBubbleText}
+            </div>
+          ) : null}
           <div
-            ref={mountRef}
-            style={{ width: "100%", height: "100%", pointerEvents: "none" }}
-          />
-          {feedEffect && feedEmoji ? (
-            <div
-              key={behavior.animationEventId ?? `${feedEffect.reference}:${feedEffect.itemId}`}
-              data-testid="companion-feed-effect"
-              data-feed-animation={feedEffect.reference}
+            data-testid="companion-portrait"
+            onClick={activatePortrait}
+            role="button"
+            tabIndex={0}
+            aria-label={summoned ? "Dismiss companion" : "Ask companion for help"}
+            onKeyDown={(event) => {
+              if (event.key !== "Enter" && event.key !== " ") return;
+              event.preventDefault();
+              activatePortrait();
+            }}
+            style={{
+              position: "relative",
+              width: portraitSize,
+              height: portraitSize,
+              borderRadius: "50%",
+              overflow: "hidden",
+              cursor: "pointer",
+              pointerEvents: "auto",
+              filter: behavior.visualTreatment.filter,
+              opacity: behavior.visualTreatment.opacity,
+              transition: "width 180ms ease, height 180ms ease, filter 220ms ease, opacity 220ms ease",
+              boxShadow: summoned
+                ? "0 18px 50px rgba(0,0,0,0.5), 0 0 0 4px rgba(255,255,255,0.9)"
+                : "0 6px 18px rgba(0,0,0,0.38), 0 0 0 3px rgba(255,255,255,0.86)",
+            }}
+          >
+            <div ref={mountRef} style={{ width: "100%", height: "100%", pointerEvents: "none" }} />
+            {micMuted ? (
+              <div
+                data-testid="companion-muted-overlay"
+                style={{
+                  position: "absolute",
+                  inset: 0,
+                  background: "rgba(0,0,0,0.45)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: summoned ? 32 : 20,
+                  pointerEvents: "none",
+                }}
+              >
+                🔇
+              </div>
+            ) : null}
+          </div>
+          {summoned && onToggleMute ? (
+            <button
+              type="button"
+              data-testid="companion-mute-control"
+              onClick={onToggleMute}
               style={{
-                position: "absolute",
-                left: feedEffect.reference === "animation-b" ? "50%" : "18%",
-                top: feedEffect.reference === "animation-b" ? "22%" : "72%",
-                fontSize: feedEffect.reference === "animation-b" ? 32 : 24,
-                transform: "translate(-50%, -50%)",
-                animation:
-                  feedEffect.reference === "animation-b"
-                    ? "companion-loot-pop 2300ms ease both"
-                    : "companion-food-arc 900ms ease both",
-                filter: "drop-shadow(0 4px 10px rgba(0,0,0,0.45))",
-                zIndex: 4,
-              }}
-            >
-              {feedEmoji}
-            </div>
-          ) : null}
-          {feedEffect?.reference === "animation-b" ? (
-            <div
-              key={`${behavior.animationEventId ?? feedEffect.itemId}:banner`}
-              data-testid="companion-loot-banner"
-              style={{
-                position: "absolute",
-                left: "50%",
-                top: "8%",
-                transform: "translateX(-50%)",
-                padding: "4px 8px",
+                pointerEvents: "auto",
+                border: "1px solid rgba(255,255,255,0.75)",
                 borderRadius: 999,
-                border: "1px solid #fde68a",
-                background: "rgba(88,28,135,0.9)",
-                color: "#fde68a",
-                fontSize: 10,
-                fontWeight: 900,
-                whiteSpace: "nowrap",
-                animation: "companion-loot-pop 2300ms ease both",
-                zIndex: 5,
+                padding: "7px 11px",
+                background: "rgba(15,23,42,0.9)",
+                color: "white",
+                cursor: "pointer",
               }}
             >
-              RARE BOOST
+              {micMuted ? "Unmute" : "Mute"}
+            </button>
+          ) : null}
+          {summoned ? (
+            <div
+              data-testid="companion-dismiss-hint"
+              style={{
+                padding: "5px 9px",
+                borderRadius: 999,
+                background: "rgba(15,23,42,0.78)",
+                color: "white",
+                fontSize: 12,
+              }}
+            >
+              Say “Bye Sunny” or tap the companion
             </div>
           ) : null}
-          <style>{`
-            @keyframes companion-food-arc {
-              0% { opacity: 0; transform: translate(-110px, 46px) scale(.7) rotate(-10deg); }
-              55% { opacity: 1; transform: translate(-40px, -40px) scale(1.18) rotate(8deg); }
-              100% { opacity: 0; transform: translate(-50%, -50%) scale(.55) rotate(0deg); }
-            }
-            @keyframes companion-loot-pop {
-              0% { opacity: 0; transform: translate(-50%, -50%) scale(.25); }
-              25% { opacity: 1; transform: translate(-50%, -50%) scale(1.18); }
-              75% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
-              100% { opacity: 0; transform: translate(-50%, -50%) scale(.82); }
-            }
-          `}</style>
-          {micMuted && (
-            <div
-              data-testid="companion-muted-overlay"
-              style={{
-                position: "absolute",
-                inset: 0,
-                background: "rgba(0,0,0,0.45)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontSize: 24,
-              }}
-            >
-              🔇
-            </div>
-          )}
         </div>
-      </div>
+      </>
     );
   }
 
@@ -995,13 +988,15 @@ export function CompanionLayer({
       ) : null}
       <div
         ref={mountRef}
+        data-testid="companion-full-stage"
+        data-idle-pose={idlePose}
         className="pointer-events-none overflow-hidden"
         style={{
           position: "fixed",
           width: "min(31vw, 44%)",
           height: "min(78vh, 100%)",
           bottom: karaokeActive ? 12 : "-5vh",
-          right: karaokeActive ? 12 : "2vw",
+          right: karaokeActive ? 12 : idlePose === "flank" ? "-8vw" : "2vw",
           zIndex: 15,
           filter: behavior.visualTreatment.filter,
           opacity: behavior.visualTreatment.opacity,

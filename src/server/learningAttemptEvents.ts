@@ -5,6 +5,7 @@ import type {
   ScaffoldLevel,
 } from "../algorithms/types";
 import { recordAttempt } from "../engine/learningEngine";
+import { recordFactAttempt } from "../engine/factBankRecorder";
 import { appendAttemptLine } from "../utils/attempts";
 
 const DOMAINS: ReadonlySet<string> = new Set([
@@ -21,6 +22,7 @@ export type RawLearningAttemptEvent = {
   childId?: unknown;
   domain?: unknown;
   target?: unknown;
+  targetId?: unknown;
   word?: unknown;
   attemptedValue?: unknown;
   correct?: unknown;
@@ -78,7 +80,7 @@ export function normalizeLearningAttemptEvent(
   const childId = String(raw.childId ?? fallbackChildId ?? "").trim().toLowerCase();
   if (!childId) throw new Error("Missing attempt childId");
 
-  const word = String(raw.target ?? raw.word ?? "").trim().toLowerCase();
+  const word = String(raw.target ?? raw.targetId ?? raw.word ?? "").trim().toLowerCase();
   if (!word) throw new Error("Missing attempt target");
 
   if (typeof raw.correct !== "boolean") {
@@ -117,6 +119,7 @@ export function normalizeLearningAttemptEvent(
 export function recordLearningAttempt(
   raw: RawLearningAttemptEvent,
   fallbackChildId?: string,
+  opts?: { rootDir?: string },
 ): RecordedLearningAttempt {
   const recorded = normalizeLearningAttemptEvent(raw, fallbackChildId);
   if (recorded.attemptId && !rememberAttemptId(recorded.attemptId)) {
@@ -125,7 +128,21 @@ export function recordLearningAttempt(
     );
     return { ...recorded, skipped: true };
   }
-  recordAttempt(recorded.childId, recorded.attempt);
+  if (recorded.attempt.domain === "math" || recorded.attempt.domain === "clocks") {
+    recordFactAttempt(
+      {
+        childId: recorded.childId,
+        prompt: recorded.attempt.word,
+        answer: recorded.attempt.attemptedValue ?? recorded.attempt.word,
+        correct: recorded.attempt.correct,
+        quality: recorded.attempt.quality,
+        domain: "math",
+      },
+      { rootDir: opts?.rootDir },
+    );
+  } else {
+    recordAttempt(recorded.childId, recorded.attempt);
+  }
   appendAttemptLine(recorded.childId, {
     word: recorded.attempt.word,
     domain: recorded.attempt.domain,

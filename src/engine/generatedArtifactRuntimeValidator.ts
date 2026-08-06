@@ -19,20 +19,41 @@ export type GeneratedArtifactBrowserSnapshot = {
   companionEvents: unknown[];
   completionEvents: unknown[];
   validationHookResult: { used: boolean; error?: string };
+  eventTimeline?: Array<{ type: string; timestampMs: number; payload: unknown }>;
+};
+
+export type GeneratedArtifactActivityConfigRoute = {
+  urlPath: string;
+  filePath: string;
 };
 
 export type GeneratedArtifactRuntimeValidationInput = {
   html: string;
   childId: string;
-  stage: "quest" | "boss";
+  stage: "quest" | "boss" | "baseline";
   homeworkType: string;
   words: string[];
   outputDir: string;
   now?: Date;
+  activityConfig?: GeneratedArtifactActivityConfigRoute;
   runBrowser?: (input: GeneratedArtifactRuntimeValidationInput) => Promise<GeneratedArtifactBrowserSnapshot>;
 };
 
-async function serveArtifact(html: string): Promise<{ baseUrl: string; close: () => Promise<void> }> {
+function contentTypeForPublicAsset(filePath: string): string {
+  if (filePath.endsWith(".js")) return "text/javascript; charset=utf-8";
+  if (filePath.endsWith(".css")) return "text/css; charset=utf-8";
+  if (filePath.endsWith(".html")) return "text/html; charset=utf-8";
+  if (filePath.endsWith(".json")) return "application/json; charset=utf-8";
+  if (/\.(?:jpe?g)$/i.test(filePath)) return "image/jpeg";
+  if (/\.png$/i.test(filePath)) return "image/png";
+  if (/\.webp$/i.test(filePath)) return "image/webp";
+  return "application/octet-stream";
+}
+
+async function serveArtifact(
+  html: string,
+  activityConfig?: GeneratedArtifactActivityConfigRoute,
+): Promise<{ baseUrl: string; close: () => Promise<void> }> {
   const publicDir = path.join(process.cwd(), "web", "public");
   const server = http.createServer((req, res) => {
     const url = new URL(req.url ?? "/", "http://127.0.0.1");
@@ -41,10 +62,27 @@ async function serveArtifact(html: string): Promise<{ baseUrl: string; close: ()
       res.end(html);
       return;
     }
-    if (url.pathname.startsWith("/games/")) {
-      const file = path.join(publicDir, url.pathname.replace(/^\//, ""));
-      if (fs.existsSync(file)) {
-        res.writeHead(200, { "content-type": "text/javascript; charset=utf-8" });
+    if (
+      activityConfig &&
+      url.pathname === activityConfig.urlPath &&
+      fs.existsSync(activityConfig.filePath)
+    ) {
+      res.writeHead(200, { "content-type": "application/json; charset=utf-8" });
+      res.end(fs.readFileSync(activityConfig.filePath));
+      return;
+    }
+    if (url.pathname.startsWith("/api/activity-config/") && activityConfig?.filePath) {
+      if (url.pathname === activityConfig.urlPath && fs.existsSync(activityConfig.filePath)) {
+        res.writeHead(200, { "content-type": "application/json; charset=utf-8" });
+        res.end(fs.readFileSync(activityConfig.filePath));
+        return;
+      }
+    }
+    if (url.pathname.startsWith("/games/") || url.pathname.startsWith("/generated/")) {
+      const file = path.resolve(publicDir, url.pathname.replace(/^\//, ""));
+      const withinPublicDir = file.startsWith(`${path.resolve(publicDir)}${path.sep}`);
+      if (withinPublicDir && fs.existsSync(file)) {
+        res.writeHead(200, { "content-type": contentTypeForPublicAsset(file) });
         res.end(fs.readFileSync(file));
         return;
       }
@@ -69,12 +107,20 @@ function instrumentationScript(): string {
 (() => {
   const store = {
     messages: [],
+    timeline: [],
     consoleErrors: [],
     pageErrors: []
   };
   window.__sunnyValidation = store;
   window.addEventListener("message", (event) => {
     store.messages.push(event.data);
+    if (event.data && typeof event.data.type === "string") {
+      store.timeline.push({
+        type: event.data.type,
+        timestampMs: Math.round(performance.now()),
+        payload: event.data.payload ?? event.data
+      });
+    }
   });
   const originalError = console.error;
   console.error = (...args) => {
@@ -137,6 +183,19 @@ function completionObservedScript(): string {
 `;
 }
 
+function incorrectAttemptObservedScript(): string {
+  return `
+(() => {
+  const messages = window.__sunnyValidation?.messages || [];
+  return messages.some((message) =>
+    message &&
+    message.type === "attempt_event" &&
+    (message.payload?.correct === false || message.correct === false)
+  );
+})()
+`;
+}
+
 function normalizeMessagePayload(message: unknown): unknown {
   if (!message || typeof message !== "object") return message;
   const record = message as Record<string, unknown>;
@@ -148,7 +207,7 @@ async function runPlaywrightBrowser(input: GeneratedArtifactRuntimeValidationInp
   if (!availability.available) {
     throw new Error(`Playwright unavailable: ${availability.reason ?? "unknown reason"}`);
   }
-  const server = await serveArtifact(input.html);
+  const server = await serveArtifact(input.html, input.activityConfig);
   const { chromium } = await import("playwright");
   const browser = await chromium.launch({
     headless: true,
@@ -161,6 +220,8 @@ async function runPlaywrightBrowser(input: GeneratedArtifactRuntimeValidationInp
   const page = await context.newPage();
   const browserConsoleErrors: string[] = [];
   const browserPageErrors: string[] = [];
+  const screenshotPaths: string[] = [];
+  const captureRecoveryFrame = input.stage === "quest" || input.stage === "boss";
   try {
     page.on("console", (message) => {
       if (message.type() === "error") browserConsoleErrors.push(message.text());
@@ -177,18 +238,44 @@ async function runPlaywrightBrowser(input: GeneratedArtifactRuntimeValidationInp
       words: input.words.join(","),
       isQuest: input.stage === "quest" ? "true" : "false",
     });
+    if (input.activityConfig) {
+      params.set("config", input.activityConfig.urlPath);
+    }
     await page.goto(`${server.baseUrl}/artifact.html?${params}`, { waitUntil: "load" });
     await page.waitForTimeout(300);
-    const hook = await page.evaluate<{ used: boolean; error?: string }>(
+    await mkdir(input.outputDir, { recursive: true });
+
+    const loadPath = path.join(input.outputDir, `${input.stage}-load.png`);
+    await page.screenshot({ path: loadPath, fullPage: true });
+    screenshotPaths.push(loadPath);
+
+    const playPromise = page.evaluate<{ used: boolean; error?: string }>(
       `${playthroughScript(input.words)}.catch((err) => ({ used: false, error: String(err && err.message ? err.message : err) }))`,
     );
+
+    if (captureRecoveryFrame) {
+      await page.waitForFunction(incorrectAttemptObservedScript(), null, { timeout: 900 }).catch(() => undefined);
+      const recoveryPath = path.join(input.outputDir, `${input.stage}-recovery.png`);
+      await page.screenshot({ path: recoveryPath, fullPage: true });
+      screenshotPaths.push(recoveryPath);
+    }
+
+    await page.waitForTimeout(450);
+    const midPath = path.join(input.outputDir, `${input.stage}-midplay.png`);
+    await page.screenshot({ path: midPath, fullPage: true });
+    screenshotPaths.push(midPath);
+
+    const hook = await playPromise;
     await page.waitForFunction(completionObservedScript(), null, { timeout: 2500 }).catch(() => undefined);
-    await mkdir(input.outputDir, { recursive: true });
-    const screenshotPath = path.join(input.outputDir, `${input.stage}-runtime.png`);
-    await page.screenshot({ path: screenshotPath, fullPage: true });
+
+    const completePath = path.join(input.outputDir, `${input.stage}-completion.png`);
+    await page.screenshot({ path: completePath, fullPage: true });
+    screenshotPaths.push(completePath);
+
     const value = await page.evaluate<{
       bodyText?: string;
       messages?: unknown[];
+      eventTimeline?: Array<{ type: string; timestampMs: number; payload: unknown }>;
       consoleErrors?: string[];
       pageErrors?: string[];
     }>(`(() => {
@@ -196,13 +283,14 @@ async function runPlaywrightBrowser(input: GeneratedArtifactRuntimeValidationInp
       return {
         bodyText: document.body ? document.body.innerText : "",
         messages: validation.messages || [],
+        eventTimeline: validation.timeline || [],
         consoleErrors: validation.consoleErrors || [],
         pageErrors: validation.pageErrors || []
       };
     })()`);
     const messages = Array.isArray(value.messages) ? value.messages : [];
     return {
-      screenshotPaths: [screenshotPath],
+      screenshotPaths,
       bodyText: String(value.bodyText ?? ""),
       consoleErrors: [...browserConsoleErrors, ...(value.consoleErrors ?? [])],
       pageErrors: [...browserPageErrors, ...(value.pageErrors ?? [])],
@@ -219,6 +307,7 @@ async function runPlaywrightBrowser(input: GeneratedArtifactRuntimeValidationInp
         })
         .map(normalizeMessagePayload),
       validationHookResult: hook ?? { used: false },
+      eventTimeline: Array.isArray(value.eventTimeline) ? value.eventTimeline : [],
     };
   } finally {
     await context.close();
@@ -253,6 +342,7 @@ export async function validateGeneratedArtifactRuntime(
       completed: false,
       completionPayloads: [],
       usedValidationHook: false,
+      eventTimeline: [],
     };
     return {
       passed: false,
@@ -284,6 +374,14 @@ export async function validateGeneratedArtifactRuntime(
     failures.push("Runtime validation did not capture a screenshot.");
     score -= 20;
   }
+  if (input.stage === "baseline" && snapshot.screenshotPaths.length < 3) {
+    failures.push(`Baseline runtime validation expected 3 gameplay screenshots, got ${snapshot.screenshotPaths.length}.`);
+    score -= 15;
+  }
+  if ((input.stage === "quest" || input.stage === "boss") && snapshot.screenshotPaths.length < 4) {
+    failures.push(`${input.stage === "quest" ? "Quest" : "Boss"} runtime validation expected 4 gameplay screenshots, got ${snapshot.screenshotPaths.length}.`);
+    score -= 15;
+  }
 
   const attemptedTargets = new Set(snapshot.attemptEvents.map(targetFromAttempt).filter(Boolean)).size;
   const expectedAttempts = input.words.length > 0 ? input.words.length : 1;
@@ -305,9 +403,13 @@ export async function validateGeneratedArtifactRuntime(
       score -= 30;
     }
   }
-  if (!snapshot.validationHookResult.used) {
+  if (!snapshot.validationHookResult.used && input.stage === "baseline") {
     warnings.push("Runtime validation used generic click/type playthrough; add SUNNY_VALIDATION_HOOKS.playthrough for reliable QA.");
     score -= 5;
+  }
+  if (!snapshot.validationHookResult.used && (input.stage === "quest" || input.stage === "boss")) {
+    failures.push(`${input.stage === "quest" ? "Quest" : "Boss"} runtime validation requires SUNNY_VALIDATION_HOOKS.playthrough.`);
+    score -= 40;
   }
   if (snapshot.validationHookResult.error) {
     failures.push(`Runtime validation hook failed: ${snapshot.validationHookResult.error}`);
@@ -324,6 +426,7 @@ export async function validateGeneratedArtifactRuntime(
     completed,
     completionPayloads: [...snapshot.completionEvents],
     usedValidationHook: snapshot.validationHookResult.used,
+    eventTimeline: [...(snapshot.eventTimeline ?? [])],
   };
 
   return {

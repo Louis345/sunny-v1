@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import type { CompanionTicTacToeGameEvent } from "../components/CompanionTicTacToe";
 import {
   createCompanionActivityThinkingCue,
   resolveCompanionActivityPhase,
@@ -87,27 +86,16 @@ describe("CompanionActivityRuntime", () => {
     ).toBe(completedTicTacToe);
   });
 
-  it("keeps ordinary companion moves local and reserves AI speech for authored beats", () => {
-    const companionMove: CompanionTicTacToeGameEvent = {
-      type: "companion_tic_tac_toe_companion_move",
-      activityId: "tic_tac_toe",
-      surface: "video_call_overlay",
-      companionName: "Elli",
-      timestamp: 1000,
-      board: ["X", null, null, null, "O", null, null, null, null],
-      square: 5,
-      mark: "O",
-    };
-    const roundComplete: CompanionTicTacToeGameEvent = {
-      type: "companion_tic_tac_toe_round_complete",
-      activityId: "tic_tac_toe",
-      surface: "video_call_overlay",
-      companionName: "Elli",
-      timestamp: 2000,
-      board: ["X", "O", "X", "X", "O", "O", "O", "X", "X"],
-      result: "draw",
-    };
+  it("keeps post-move events nonverbal; companion-move speech arrives via the gated move packet instead", () => {
+    // The predicate only needs the event type; the full envelope is the
+    // game's business.
+    const companionMove = { type: "companion_activity_companion_move" } as const;
+    const roundComplete = { type: "companion_activity_round_complete" } as const;
+    const childMove = { type: "companion_activity_child_move" } as const;
+    const started = { type: "companion_activity_started" } as const;
 
+    expect(shouldRequestCompanionActivityAiReaction(childMove)).toBe(false);
+    expect(shouldRequestCompanionActivityAiReaction(started)).toBe(true);
     expect(shouldRequestCompanionActivityAiReaction(companionMove)).toBe(false);
     expect(shouldRequestCompanionActivityAiReaction(roundComplete)).toBe(true);
   });

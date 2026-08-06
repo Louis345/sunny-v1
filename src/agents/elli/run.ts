@@ -65,7 +65,7 @@ export async function runAgent(opts: RunAgentOptions): Promise<string> {
     : profile.systemPrompt;
 
   const result = streamText({
-    model: anthropic("claude-sonnet-4-20250514"),
+    model: anthropic(process.env.SUNNY_VOICE_MODEL ?? "claude-sonnet-5"),
     system: systemPrompt,
     messages: [
       ...history.filter(m => typeof m.content !== "string" || m.content.trim().length > 0),

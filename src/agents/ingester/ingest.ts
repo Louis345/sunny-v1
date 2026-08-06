@@ -99,7 +99,7 @@ async function classifyAndExtract(
   );
 
   const { text } = await generateText({
-    model: anthropic("claude-sonnet-4-20250514"),
+    model: anthropic(process.env.SUNNY_INGEST_MODEL ?? "claude-sonnet-5"),
     system: INTAKE_PROMPT(child, currentSoul),
     prompt: `Document filename: ${filename}
 

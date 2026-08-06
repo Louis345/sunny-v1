@@ -6,7 +6,7 @@ import type {
   AdventureChoiceSet,
 } from "../../../src/shared/adventureBoardJson";
 import type { CompanionBehavior } from "../context/companionCareBehavior";
-import { AdventureBoard } from "./AdventureBoard";
+import { AdventureBoard, type UnlockCeremonyEvent } from "./AdventureBoard";
 import { CompanionLayer } from "./CompanionLayer";
 
 export type AdventureBoardExperienceProps = {
@@ -14,8 +14,12 @@ export type AdventureBoardExperienceProps = {
   showCompanion?: boolean;
   idlePose?: "flank" | "center";
   companionBehavior?: CompanionBehavior | null;
+  completedNodeIds?: readonly string[];
+  parentPreview?: boolean;
+  showParentPreviewBanner?: boolean;
   onNodeClick?: (node: AdventureBoardNode) => void;
   onChoiceClick?: (option: AdventureChoiceOption, choiceSet: AdventureChoiceSet) => void;
+  onUnlockCeremony?: (event: UnlockCeremonyEvent) => void;
 };
 
 export function AdventureBoardExperience({
@@ -23,8 +27,12 @@ export function AdventureBoardExperience({
   showCompanion = true,
   idlePose = "center",
   companionBehavior = null,
+  completedNodeIds,
+  parentPreview = false,
+  showParentPreviewBanner = true,
   onNodeClick,
   onChoiceClick,
+  onUnlockCeremony,
 }: AdventureBoardExperienceProps): React.ReactElement | null {
   const board = packet.activeSessionPlan?.adventureBoard;
   if (!board) return null;
@@ -35,10 +43,18 @@ export function AdventureBoardExperience({
 
   return (
     <>
+      {parentPreview && showParentPreviewBanner ? (
+        <div className="fixed left-1/2 top-3 z-[110] -translate-x-1/2 rounded-full bg-slate-950/90 px-5 py-2 text-sm font-black text-amber-200 shadow-xl">
+          Parent preview — progress will not save
+        </div>
+      ) : null}
       <AdventureBoard
         board={board}
+        completedNodeIds={completedNodeIds}
+        inspectBaselineNodes={parentPreview}
         onNodeClick={onNodeClick}
         onChoiceClick={onChoiceClick}
+        onUnlockCeremony={onUnlockCeremony}
       />
       {shouldRenderCompanion ? (
         <CompanionLayer

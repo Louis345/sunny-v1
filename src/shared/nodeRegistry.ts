@@ -20,6 +20,9 @@ export const NODE_DISPLAY_LABELS: Record<string, string> = {
   "word-builder": "Word Builder",
   quest: "⚔️ Quest",
   boss: "👹 Boss",
+  "generated-baseline": "Generated Baseline",
+  "clock-game": "Clock Game",
+  "coin-counter": "Coin Counter",
   dopamine: "Game",
 };
 
@@ -296,6 +299,28 @@ export const NODE_REGISTRY: Record<string, NodeHandler> = {
       if (!node.date || !node.gameFile) return "";
       return `/homework/${ctx.childId}/${node.date}/${node.gameFile}?${buildParams(node, ctx)}`;
     },
+  },
+  "generated-baseline": {
+    getUrl: (node, ctx) => {
+      if (node.gameHtmlPath) {
+        const filename = node.gameHtmlPath.split("/").pop();
+        if (filename && node.date) {
+          const params = buildNodeUrlSearchParams(node, ctx);
+          const config =
+            node.activityConfigPath ||
+            `/api/activity-config/${ctx.childId}/${node.date ?? "sample"}/generated-baseline.json`;
+          params.set("config", config);
+          return `/api/homework/game/${ctx.childId}/${encodeURIComponent(node.date)}/${encodeURIComponent(filename)}?${params.toString()}`;
+        }
+      }
+      return "";
+    },
+  },
+  "clock-game": {
+    getUrl: (node, ctx) => `/games/clock-game.html?${buildParams(node, ctx)}`,
+  },
+  "coin-counter": {
+    getUrl: (node, ctx) => `/games/coin-counter.html?${buildParams(node, ctx)}`,
   },
   dopamine: {
     getUrl: (node, ctx) =>

@@ -39,6 +39,9 @@ const SAVED_CYCLE_NODE_TYPES = new Set([
   "concept-check",
   "letter-rush",
   "monster-stampede",
+  "mystery",
+  "speed-catcher",
+  "wordle",
   "quest",
   "boss",
   "wheel-of-fortune",
@@ -72,7 +75,8 @@ function savedCycleNodes(cycle: HomeworkCycle): PlannedHomeworkNode[] | null {
     if (!isRecord(raw)) return null;
     const id = String(raw.id ?? "").trim();
     const type = String(raw.type ?? "").trim();
-    const words = stringArray(raw.words);
+    // Quest/boss destinations legitimately have no targets until quest evidence exists.
+    const words = Array.isArray(raw.words) ? stringArray(raw.words) ?? [] : null;
     if (!id || !isSavedCycleNodeType(type) || !words) return null;
     const difficulty = raw.difficulty === 2 || raw.difficulty === 3 ? raw.difficulty : 1;
     const rationale = String(raw.rationale ?? "").trim() || "Recovered from saved homework cycle.";
@@ -111,7 +115,12 @@ export function readHomeworkCycles(childId: string): HomeworkCycle[] {
 }
 
 function cyclePracticeDomain(cycle: HomeworkCycle): string {
-  return String(cycle.contentProfile?.practiceDomain ?? cycle.subject ?? "").toLowerCase();
+  return String(
+    cycle.contentProfile?.practiceDomain ??
+    (cycle as unknown as { domain?: string }).domain ??
+    cycle.subject ??
+    "",
+  ).toLowerCase();
 }
 
 function cycleContentDomain(cycle: HomeworkCycle): string {
@@ -207,7 +216,8 @@ function pendingNodeSignature(
 }
 
 function ingestedTime(cycle: HomeworkCycle): number {
-  const time = new Date(cycle.ingestedAt).getTime();
+  const cycleTimes = cycle as unknown as { ingestedAt?: string; updatedAt?: string; createdAt?: string };
+  const time = new Date(cycleTimes.updatedAt ?? cycleTimes.ingestedAt ?? cycleTimes.createdAt ?? 0).getTime();
   return Number.isFinite(time) ? time : 0;
 }
 
