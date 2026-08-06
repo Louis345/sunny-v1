@@ -16,10 +16,10 @@ Learning happens on a map of **nodes** at three tiers, gated on demonstrated mas
 
 ## Who this is for
 
-**An 8-year-old girl with ADHD, dyslexia, and a language disorder.** This is the design brief, not an accessibility footnote:
+**Children roughly 6–10, across a wide range of reading ability.** These are design constraints, not accessibility footnotes:
 
-- **Do not rely on reading.** Rarity, odds and item identity must be legible as image, colour, shape and count — never as text alone. Assume she may not read a single label.
-- **Numbers as countable pictures**, never as percentages. "3 out of 10 chests" drawn as ten chests with three glowing. Never "30%."
+- **Do not rely on reading.** Rarity, odds and item identity must be legible as image, colour, shape and count — never text alone. Many children this age are still building fluency; some read well below grade level. Assume a label may go unread.
+- **Numbers as countable pictures, never percentages.** Percentage isn't taught until around grade 6 — "30%" is meaningless here. Draw ten chests with three glowing.
 - **Attention is the scarce resource.** Reveal animation lands in 2–3 seconds. Skippable on repeat.
 - **Large touch targets**, well above adult minimums. Assume imprecise tapping by an excited child.
 - **Reduced-motion variant required** that still feels like an event.
