@@ -329,6 +329,8 @@ export function useSession(options?: UseSessionOptions) {
   const browserTtsAccumRef = useRef("");
   const browserTtsDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const storyImageWatchdogRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const sessionStartPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const sessionStartTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [state, setState] = useState<SessionState>({
     phase: "picker",
@@ -1448,11 +1450,22 @@ export function useSession(options?: UseSessionOptions) {
       const sttOnly = options?.sttOnly === true;
       const wsChild = diagKiosk ? "creator" : childName;
 
-      let timeoutId: ReturnType<typeof setTimeout>;
-      const check = setInterval(() => {
+      if (sessionStartPollRef.current) {
+        clearInterval(sessionStartPollRef.current);
+      }
+      if (sessionStartTimeoutRef.current) {
+        clearTimeout(sessionStartTimeoutRef.current);
+      }
+      sessionStartPollRef.current = setInterval(() => {
         if (wsRef.current?.readyState === WebSocket.OPEN) {
-          clearInterval(check);
-          clearTimeout(timeoutId);
+          if (sessionStartPollRef.current) {
+            clearInterval(sessionStartPollRef.current);
+            sessionStartPollRef.current = null;
+          }
+          if (sessionStartTimeoutRef.current) {
+            clearTimeout(sessionStartTimeoutRef.current);
+            sessionStartTimeoutRef.current = null;
+          }
           sendMessage("start_session", {
             child: wsChild,
             ...(diagKiosk ? { diagKiosk: true } : {}),
@@ -1463,8 +1476,12 @@ export function useSession(options?: UseSessionOptions) {
         }
       }, 100);
 
-      timeoutId = setTimeout(() => {
-        clearInterval(check);
+      sessionStartTimeoutRef.current = setTimeout(() => {
+        if (sessionStartPollRef.current) {
+          clearInterval(sessionStartPollRef.current);
+          sessionStartPollRef.current = null;
+        }
+        sessionStartTimeoutRef.current = null;
         setStateRef.current((s) => ({
           ...s,
           error: "Connection timeout",
@@ -1614,6 +1631,14 @@ export function useSession(options?: UseSessionOptions) {
       if (storyImageWatchdogRef.current) {
         clearTimeout(storyImageWatchdogRef.current);
         storyImageWatchdogRef.current = null;
+      }
+      if (sessionStartPollRef.current) {
+        clearInterval(sessionStartPollRef.current);
+        sessionStartPollRef.current = null;
+      }
+      if (sessionStartTimeoutRef.current) {
+        clearTimeout(sessionStartTimeoutRef.current);
+        sessionStartTimeoutRef.current = null;
       }
       stopMic();
       if (playContextRef.current) {

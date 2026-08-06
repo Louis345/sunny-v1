@@ -4,6 +4,17 @@ import type {
   ChildSignalDimension,
 } from "../engine/childSignals";
 import type { ProductIssueInput } from "../engine/productIssues";
+import { buildShowroomTalkMemoryPrompt } from "./companionShowroomTalk";
+import {
+  maybeCompactCompanionInteractionMemory,
+  readCompanionCareMemoryForPrompt,
+  recordCompanionInteractionEvent,
+} from "./companionInteractionMemory";
+import {
+  buildCurrentBoardSnapshotContext,
+  type CurrentBoardSnapshot,
+} from "./currentBoardSnapshot";
+import { shouldPersistSessionData } from "../utils/runtimeMode";
 
 export type UrgentIntentType =
   | "help_request"
@@ -121,6 +132,162 @@ export type CompanionPresenceTranscriptRoute =
   | { action: "summon_and_respond" }
   | { action: "respond" }
   | { action: "ignore_ambient" };
+
+export type CompanionPresence = "collapsed" | "summoned";
+export type CompanionPresenceReason = "client" | "voice" | "read_instruction";
+export type CompanionDisposition = "standby_after_speech" | "await_child_response";
+export type CompanionInteractionMode = "activity_help" | "conversation";
+
+export function transitionCompanionPresence(input: {
+  state: CompanionPresence;
+  reason: CompanionPresenceReason;
+}): { presence: CompanionPresence; mode: CompanionInteractionMode } {
+  return {
+    presence: input.state,
+    mode: input.state === "summoned" && input.reason !== "read_instruction"
+      ? "conversation"
+      : "activity_help",
+  };
+}
+
+export function dispositionAfterReset(mode: CompanionInteractionMode): CompanionDisposition {
+  return mode === "conversation" ? "await_child_response" : "standby_after_speech";
+}
+
+export function companionPresenceAfterSpeech(input: {
+  presence: CompanionPresence;
+  mode: CompanionInteractionMode;
+  disposition: CompanionDisposition;
+}): "none" | "conversation_open" | "await_child_response" | "collapse" {
+  if (input.presence !== "summoned") return "none";
+  if (input.mode === "conversation") return "conversation_open";
+  if (input.disposition === "await_child_response") return "await_child_response";
+  return "collapse";
+}
+
+export function prepareInstructionReadRequest(input: {
+  nodeId: string;
+  activityId: string;
+  itemId: string;
+  prompt: string;
+  requestCount: number;
+  answerVisibility: string;
+  previousRequestKey: string | null;
+}): { requestKey: string; prompt: string; trace: Record<string, unknown> } | null {
+  const prompt = input.prompt.trim();
+  if (!prompt || input.answerVisibility !== "hidden") return null;
+  const requestKey = `${input.nodeId}:${input.itemId}:${input.requestCount}`;
+  if (requestKey === input.previousRequestKey) return null;
+  return {
+    requestKey,
+    prompt,
+    trace: {
+      type: "instructional_read_aloud",
+      source: "companion",
+      activityId: input.activityId,
+      nodeId: input.nodeId,
+      itemId: input.itemId,
+      evidenceRole: "support",
+      masteryEligible: false,
+    },
+  };
+}
+
+export function buildActivityCompanionContext(input: {
+  snapshot: CurrentBoardSnapshot | null;
+  childSpeech?: string;
+  childId: string;
+  companionId: string;
+  presence: CompanionPresence;
+}): string {
+  const board = buildCurrentBoardSnapshotContext(input.snapshot, { childSpeech: input.childSpeech });
+  const memory = buildShowroomTalkMemoryPrompt(
+    readCompanionCareMemoryForPrompt(input.childId, input.companionId),
+  );
+  const helpObjective = input.presence === "summoned" && input.snapshot
+    ? [
+        "Activity-help objective:",
+        "Resolve the child's request briefly from the answer-hidden activity context.",
+        "Ask one short understanding question only when it adds value; if you do, set companionAct presenceAfterSpeech=await_child_response.",
+        "Otherwise return control to the activity and allow the companion to return to standby.",
+      ].join("\n")
+    : "";
+  return [board, memory, helpObjective].filter(Boolean).join("\n\n");
+}
+
+export function recordActivityCompanionHelp(input: {
+  childId: string;
+  companionId: string;
+  userMessage: string;
+  companionText: string;
+  snapshot: CurrentBoardSnapshot | null;
+  presence: CompanionPresence;
+}): void {
+  if (!shouldPersistSessionData() || !input.snapshot || input.presence !== "summoned") return;
+  recordCompanionInteractionEvent({
+    childId: input.childId,
+    companionId: input.companionId,
+    callSource: "activity_help",
+    relationshipState: "selected",
+    eventType: "companion_talk_completed",
+    questionText: input.userMessage,
+    companionText: input.companionText,
+    commandCount: 0,
+    visionUsed: false,
+  });
+  void maybeCompactCompanionInteractionMemory({
+    childId: input.childId,
+    companionId: input.companionId,
+  }).catch((error: unknown) => {
+    console.error(" 🔴 [companion-memory] [activity-help-compact] [failed]", error);
+  });
+}
+
+export function isCompanionWakeOnlyTranscript(transcript: string, companionName: string): boolean {
+  const text = normalizeSpeechText(transcript).replace(/^(?:hey|hi|okay|ok)\s+/, "");
+  return new Set(["sunny", "elli", "ellie", normalizeSpeechText(companionName)]).has(text);
+}
+
+export function handleCompanionPresenceTranscript(input: {
+  enabled: boolean;
+  transcript: string;
+  presence: CompanionPresence;
+  companionName: string;
+  speechCaptureArmed: boolean;
+  nodeId?: string;
+  sendFinal: (text: string) => void;
+  setPresence: (state: CompanionPresence, reason: CompanionPresenceReason) => void;
+  recordEvent: (component: string, action: string, fields: Record<string, unknown>) => void;
+}): boolean {
+  if (!input.enabled) return false;
+  const route = routeCompanionPresenceTranscript(input);
+  if (route.action === "route_to_game") {
+    input.sendFinal(input.transcript);
+    input.recordEvent("transcript", "routed_to_game", {
+      transcriptLength: input.transcript.length,
+      nodeId: input.nodeId,
+    });
+    return true;
+  }
+  if (route.action === "dismiss") {
+    input.setPresence("collapsed", "voice");
+    input.recordEvent("companion_presence", "dismissed", { nodeId: input.nodeId });
+    return true;
+  }
+  if (route.action === "ignore_ambient") {
+    console.log("  🎮 [companion-presence] [ambient-ignored]");
+    input.recordEvent("transcript", "ambient_ignored", {
+      transcriptLength: input.transcript.length,
+      nodeId: input.nodeId,
+    });
+    return true;
+  }
+  if (route.action === "summon_and_respond") {
+    input.setPresence("summoned", "voice");
+    return isCompanionWakeOnlyTranscript(input.transcript, input.companionName);
+  }
+  return false;
+}
 
 export function routeCompanionPresenceTranscript(input: {
   transcript: string;

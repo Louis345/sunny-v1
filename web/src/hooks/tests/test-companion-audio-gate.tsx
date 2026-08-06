@@ -291,4 +291,22 @@ describe("useSession companion audio gate", () => {
     expect(result.current.state.warning).toBe("Unknown type: karaoke");
   });
 
+  it("cancels pending session-start timers when the hook unmounts", () => {
+    vi.useFakeTimers();
+    try {
+      const { result, unmount } = renderHook(() => useSession());
+
+      act(() => {
+        result.current.startSession("ila");
+      });
+      expect(vi.getTimerCount()).toBeGreaterThan(0);
+
+      unmount();
+
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
 });

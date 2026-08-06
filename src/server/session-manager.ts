@@ -8,14 +8,9 @@ import {
   type ChildName,
   type CompanionConfig,
 } from "../companions/loader";
-import {
-  getTtsNameForSessionChild,
-} from "../profiles/childrenConfig";
+import { getTtsNameForSessionChild } from "../profiles/childrenConfig";
 import { generateStoryImage } from "../utils/generateStoryImage";
-import {
-  TEST_MODE_PROMPT,
-  normalizeSessionSubject,
-} from "../agents/prompts";
+import { TEST_MODE_PROMPT, normalizeSessionSubject } from "../agents/prompts";
 import { getReadingCanvasPreferencesForChild } from "../utils/learningProfileIO";
 import { recordSession } from "../agents/slp-recorder/recorder";
 import { connectFlux, type FluxHandle } from "../deepgram-turn";
@@ -69,12 +64,6 @@ import {
 } from "./worksheet-tools";
 import { createLaunchGameTool } from "../agents/elli/tools/worksheetTools";
 import { createCompanionActTool } from "../agents/tools/companionAct";
-import { buildShowroomTalkMemoryPrompt } from "./companionShowroomTalk";
-import {
-  maybeCompactCompanionInteractionMemory,
-  readCompanionCareMemoryForPrompt,
-  recordCompanionInteractionEvent,
-} from "./companionInteractionMemory";
 import { createSixTools } from "../agents/tools/six-tools";
 import {
   buildLaunchGameTool,
@@ -89,7 +78,6 @@ import {
 import { shouldUseAdventureMapVoiceSlimToolkit } from "../utils/adventureMapAgentPolicy";
 import {
   buildCurrentBoardSnapshot,
-  buildCurrentBoardSnapshotContext,
   findCompanionTruthContradictions,
   type CurrentBoardSnapshot,
 } from "./currentBoardSnapshot";
@@ -150,24 +138,28 @@ import {
 } from "./urgentLearningRuntime";
 import {
   isSpellingAttempt,
+  mathContentToSpoken,
+  normalizeSessionChartChildId,
+  pronunciationCueFor,
   rewriteChildNameForTts,
+  shouldAcceptInterruptedTranscript,
   stripSvgFences,
 } from "./sessionTextHelpers";
-import { routeCompanionPresenceTranscript } from "./urgentLearningSupport";
+import {
+  buildActivityCompanionContext,
+  companionPresenceAfterSpeech,
+  dispositionAfterReset,
+  handleCompanionPresenceTranscript,
+  prepareInstructionReadRequest,
+  recordActivityCompanionHelp,
+  transitionCompanionPresence,
+} from "./urgentLearningSupport";
 
 export {
   tryPushCreatorDiagPronunciation,
   tryPushCreatorDiagReadingKaraoke,
 } from "./creatorDiagControls";
 
-function pronunciationCueFor(word: string | undefined): string | null {
-  const clean = String(word ?? "").trim().toLowerCase();
-  if (!clean) return null;
-  if (clean === "able") return "a-ble";
-  if (clean.length <= 3) return clean.split("").join("-");
-  const midpoint = Math.max(1, Math.floor(clean.length / 2));
-  return `${clean.slice(0, midpoint)}-${clean.slice(midpoint)}`;
-}
 export { isSpellingAttempt, stripSvgFences } from "./sessionTextHelpers";
 
 type CanvasActivitySnapshot = {
@@ -203,15 +195,6 @@ export type SessionManagerOptions = {
   /** Chart/storage child id. Lets sandbox runs use a real companion voice without touching real charts. */
   chartChildId?: string;
 };
-
-function normalizeSessionChartChildId(
-  childName: ChildName,
-  chartChildId?: string,
-): string {
-  const normalized = chartChildId?.trim().toLowerCase();
-  if (normalized && /^[a-z0-9_-]+$/.test(normalized)) return normalized;
-  return childIdFromName(childName);
-}
 
 export class SessionManager {
   /** When true, child speech is not sent to the companion (silent reward games). */
@@ -756,14 +739,7 @@ export class SessionManager {
    * The server speaks the problem — Claude only speaks feedback ("Nice!").
    */
   private mathContentToSpoken(content: string): string {
-    return content
-      .replace(/\s*\+\s*/g, " plus ")
-      .replace(/\s*-\s*/g, " minus ")
-      .replace(/\s*×\s*/g, " times ")
-      .replace(/\s*÷\s*/g, " divided by ")
-      .replace(/\s*=\s*$/, "")
-      .replace(/\s{2,}/g, " ")
-      .trim();
+    return mathContentToSpoken(content);
   }
 
   /**
@@ -779,7 +755,7 @@ export class SessionManager {
     this.childName = childName;
     this.sessionTtsLabel = getTtsNameForSessionChild(childName);
     this.options = options;
-    this.chartChildId = normalizeSessionChartChildId(childName, options?.chartChildId);
+    this.chartChildId = normalizeSessionChartChildId(options?.chartChildId, childIdFromName(childName));
     const requestedCompanion = process.env.SUNNY_COMPANION_ID?.trim().toLowerCase();
     this.companion = requestedCompanion === "elli"
       ? { ...ELLI, childName }
@@ -941,33 +917,32 @@ export class SessionManager {
     state: "collapsed" | "summoned",
     reason: "client" | "voice" | "read_instruction" = "client",
   ): void {
-    this.companionPresence = state;
-    if (state === "summoned") {
-      this.companionInteractionMode = reason === "read_instruction" ? "activity_help" : "conversation";
-    } else {
-      this.companionInteractionMode = "activity_help";
-    }
+    const next = transitionCompanionPresence({ state, reason });
+    this.companionPresence = next.presence;
+    this.companionInteractionMode = next.mode;
     this.send("companion_presence", { state, reason });
     console.log(`  🎮 [companion-presence] [${state}] reason=${reason}`);
   }
 
   public resetCompanionDispositionAfterSpeech(): void {
-    this.companionDispositionAfterSpeech = this.companionInteractionMode === "conversation"
-      ? "await_child_response"
-      : "standby_after_speech";
+    this.companionDispositionAfterSpeech = dispositionAfterReset(this.companionInteractionMode);
   }
 
   public applyCompanionDispositionAfterSpeech(): void {
-    if (this.companionPresence !== "summoned") return;
-    if (this.companionInteractionMode === "conversation") {
+    const action = companionPresenceAfterSpeech({
+      presence: this.companionPresence,
+      mode: this.companionInteractionMode,
+      disposition: this.companionDispositionAfterSpeech,
+    });
+    if (action === "conversation_open") {
       console.log("  🎮 [companion-presence] [conversation-open] reason=child_started");
       return;
     }
-    if (this.companionDispositionAfterSpeech === "await_child_response") {
+    if (action === "await_child_response") {
       console.log("  🎮 [companion-presence] [await_child_response] reason=model_disposition");
       return;
     }
-    this.setCompanionPresence("collapsed", "voice");
+    if (action === "collapse") this.setCompanionPresence("collapsed", "voice");
   }
 
   public async requestInstructionReadAloud(input: {
@@ -978,30 +953,17 @@ export class SessionManager {
     requestCount: number;
     answerVisibility: string;
   }): Promise<void> {
-    const prompt = input.prompt.trim();
-    if (!prompt || input.answerVisibility !== "hidden") return;
-    const requestKey = [
-      input.nodeId,
-      input.itemId,
-      input.requestCount,
-    ].join(":");
-    if (this.lastInstructionReadRequestKey === requestKey) return;
-    this.lastInstructionReadRequestKey = requestKey;
-    this.setCompanionPresence("summoned", "read_instruction");
-    this.recordGameTrace({
-      type: "instructional_read_aloud",
-      source: "companion",
-      activityId: input.activityId,
-      nodeId: input.nodeId,
-      itemId: input.itemId,
-      evidenceRole: "support",
-      masteryEligible: false,
+    const request = prepareInstructionReadRequest({
+      ...input,
+      previousRequestKey: this.lastInstructionReadRequestKey,
     });
-    console.log(
-      `  🎮 [companion-help] [read-instruction] node=${input.nodeId} item=${input.itemId}`,
-    );
+    if (!request) return;
+    this.lastInstructionReadRequestKey = request.requestKey;
+    this.setCompanionPresence("summoned", "read_instruction");
+    this.recordGameTrace(request.trace);
+    console.log(`  🎮 [companion-help] [read-instruction] node=${input.nodeId} item=${input.itemId}`);
     if (this.turnSM.getState() !== "IDLE") this.bargeIn();
-    await this.handleCompanionTurn(prompt);
+    await this.handleCompanionTurn(request.prompt);
     this.applyCompanionDispositionAfterSpeech();
   }
 
@@ -1014,43 +976,23 @@ export class SessionManager {
   }
 
   public buildCurrentBoardContextForTurn(childSpeech?: string): string {
-    const board = buildCurrentBoardSnapshotContext(this.currentBoardSnapshot, {
+    return buildActivityCompanionContext({
+      snapshot: this.currentBoardSnapshot,
       childSpeech,
+      childId: this.chartChildId,
+      companionId: this.companion.name,
+      presence: this.companionPresence,
     });
-    const memory = buildShowroomTalkMemoryPrompt(
-      readCompanionCareMemoryForPrompt(this.chartChildId, this.companion.name),
-    );
-    const helpObjective = this.companionPresence === "summoned" && this.currentBoardSnapshot
-      ? [
-          "Activity-help objective:",
-          "Resolve the child's request briefly from the answer-hidden activity context.",
-          "Ask one short understanding question only when it adds value; if you do, set companionAct presenceAfterSpeech=await_child_response.",
-          "Otherwise return control to the activity and allow the companion to return to standby.",
-        ].join("\n")
-      : "";
-    return [board, memory, helpObjective].filter(Boolean).join("\n\n");
   }
 
   public recordCompanionHelpTurn(userMessage: string, companionText: string): void {
-    if (!shouldPersistSessionData() || !this.currentBoardSnapshot || this.companionPresence !== "summoned") {
-      return;
-    }
-    recordCompanionInteractionEvent({
+    recordActivityCompanionHelp({
       childId: this.chartChildId,
       companionId: this.companion.name,
-      callSource: "activity_help",
-      relationshipState: "selected",
-      eventType: "companion_talk_completed",
-      questionText: userMessage,
+      userMessage,
       companionText,
-      commandCount: 0,
-      visionUsed: false,
-    });
-    void maybeCompactCompanionInteractionMemory({
-      childId: this.chartChildId,
-      companionId: this.companion.name,
-    }).catch((error: unknown) => {
-      console.error(" 🔴 [companion-memory] [activity-help-compact] [failed]", error);
+      snapshot: this.currentBoardSnapshot,
+      presence: this.companionPresence,
     });
   }
 
@@ -1553,21 +1495,7 @@ export class SessionManager {
   }
 
   private shouldAcceptInterruptedTranscript(transcript: string): boolean {
-    const trimmed = transcript.trim();
-
-    // Only discard single non-alphabetic character (e.g. "?", ".", "-")
-    if (trimmed.length === 1 && !/^[a-zA-Z]$/.test(trimmed)) {
-      console.log(`  🗑️  Transcript fragment discarded: "${transcript}"`);
-      return false;
-    }
-
-    // Only discard pure filler
-    if (/^(um+|uh+|hmm+|uhm+)$/i.test(trimmed)) {
-      console.log(`  🗑️  Transcript fragment discarded: "${transcript}"`);
-      return false;
-    }
-
-    return true;
+    return shouldAcceptInterruptedTranscript(transcript);
   }
 
   private async handleEndOfTurn(
@@ -1642,56 +1570,19 @@ export class SessionManager {
     const activeGame = String(this.currentBoardSnapshot?.game ?? "").toLowerCase();
     const generatedMathActivity =
       activeGame === "generated-baseline" || activeGame === "generated-math";
-    if (
-      !isReplay &&
-      !opts?.fromReadingComplete &&
-      (generatedMathActivity || this.companionWakeGateEnabled)
-    ) {
-      const presenceRoute = routeCompanionPresenceTranscript({
-        transcript,
-        presence: this.companionPresence,
-        companionName: this.companion.name,
-        speechCaptureArmed: this.currentBoardSnapshot?.speechCaptureArmed === true,
-      });
-      if (presenceRoute.action === "route_to_game") {
-        this.send("final", { text: transcript });
-        this.debugRecorder.recordEvent("transcript", "routed_to_game", {
-          transcriptLength: transcript.length,
-          nodeId: this.currentBoardSnapshot?.nodeId,
-        });
-        return;
-      }
-      if (presenceRoute.action === "dismiss") {
-        this.setCompanionPresence("collapsed", "voice");
-        this.debugRecorder.recordEvent("companion_presence", "dismissed", {
-          nodeId: this.currentBoardSnapshot?.nodeId,
-        });
-        return;
-      }
-      if (presenceRoute.action === "ignore_ambient") {
-        console.log("  🎮 [companion-presence] [ambient-ignored]");
-        this.debugRecorder.recordEvent("transcript", "ambient_ignored", {
-          transcriptLength: transcript.length,
-          nodeId: this.currentBoardSnapshot?.nodeId,
-        });
-        return;
-      }
-      if (presenceRoute.action === "summon_and_respond") {
-        this.setCompanionPresence("summoned", "voice");
-        const wakeOnlyText = transcript
-          .toLowerCase()
-          .replace(/[^a-z0-9\s]+/g, " ")
-          .trim()
-          .replace(/^(?:hey|hi|okay|ok)\s+/, "");
-        const companionWakeNames = new Set([
-          "sunny",
-          "elli",
-          "ellie",
-          this.companion.name.toLowerCase().replace(/[^a-z0-9\s]+/g, " ").trim(),
-        ]);
-        if (companionWakeNames.has(wakeOnlyText)) return;
-      }
-    }
+    if (handleCompanionPresenceTranscript({
+      enabled: !isReplay && !opts?.fromReadingComplete &&
+        (generatedMathActivity || this.companionWakeGateEnabled),
+      transcript,
+      presence: this.companionPresence,
+      companionName: this.companion.name,
+      speechCaptureArmed: this.currentBoardSnapshot?.speechCaptureArmed === true,
+      nodeId: this.currentBoardSnapshot?.nodeId,
+      sendFinal: (text) => this.send("final", { text }),
+      setPresence: (state, reason) => this.setCompanionPresence(state, reason),
+      recordEvent: (component, action, fields) =>
+        this.debugRecorder.recordEvent(component, action, fields),
+    })) return;
 
     let state = this.turnSM.getState();
     const urgentRoute =

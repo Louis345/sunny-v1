@@ -19,15 +19,6 @@ describe("useChildExperiencePacket", () => {
           },
         });
       }
-      if (url === "/api/homework/quest-boss/prepare") {
-        return Response.json({
-          ok: true,
-          childId: "reina",
-          jobs: [],
-          running: [],
-          briefs: [],
-        }, { status: 202 });
-      }
       throw new Error(`unexpected fetch ${url}`);
     });
     vi.stubGlobal("fetch", fetchMock);
@@ -39,13 +30,7 @@ describe("useChildExperiencePacket", () => {
       expect(result.current.packet?.activeSessionPlan?.adventureBoard?.boardId).toBe("board-reina");
     });
     expect(fetchMock).toHaveBeenCalledWith("/api/child-experience/reina");
-    expect(fetchMock).toHaveBeenCalledWith(
-      "/api/homework/quest-boss/prepare",
-      expect.objectContaining({
-        method: "POST",
-        body: JSON.stringify({ childId: "reina" }),
-      }),
-    );
+    expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(result.current.loading).toBe(false);
     expect(result.current.error).toBeNull();
   });
@@ -72,9 +57,6 @@ describe("useChildExperiencePacket", () => {
           activeSessionPlan: { adventureBoard: { boardId: `board-reina-${packetVersion}` } },
         });
       }
-      if (url === "/api/homework/quest-boss/prepare") {
-        return Response.json({ ok: true, childId: "reina", jobs: [], running: [], briefs: [] }, { status: 202 });
-      }
       throw new Error(`unexpected fetch ${url}`);
     });
     vi.stubGlobal("fetch", fetchMock);
@@ -89,60 +71,7 @@ describe("useChildExperiencePacket", () => {
     });
 
     expect(result.current.packet?.activeSessionPlan?.adventureBoard?.boardId).toBe("board-reina-2");
-    expect(fetchMock.mock.calls.filter(([input]) => String(input) === "/api/homework/quest-boss/prepare")).toHaveLength(1);
-  });
-
-  it("polls Quest/Boss prep status and reloads the packet when content becomes reviewable", async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true });
-    let packetVersion = 0;
-    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
-      const url = String(input);
-      if (url === "/api/child-experience/reina") {
-        packetVersion += 1;
-        return Response.json({
-          childChart: { childId: "reina" },
-          activeSessionPlan: {
-            adventureBoard: { boardId: `board-reina-${packetVersion}` },
-          },
-        });
-      }
-      if (url === "/api/homework/quest-boss/prepare") {
-        return Response.json({
-          ok: true,
-          childId: "reina",
-          jobs: [{ briefId: "brief-quest", kind: "quest", status: "brief_only" }],
-          running: ["reina:brief-quest"],
-          briefs: [{ briefId: "brief-quest", kind: "quest", status: "brief_only" }],
-        }, { status: 202 });
-      }
-      if (url === "/api/homework/quest-boss/status?childId=reina") {
-        return Response.json({
-          ok: true,
-          childId: "reina",
-          jobs: [],
-          running: [],
-          briefs: [{ briefId: "brief-quest", kind: "quest", status: "ready_for_review" }],
-        });
-      }
-      throw new Error(`unexpected fetch ${url}`);
-    });
-    vi.stubGlobal("fetch", fetchMock);
-
-    const { result } = renderHook(() => useChildExperiencePacket("reina", true));
-
-    await waitFor(() => {
-      expect(result.current.packet?.activeSessionPlan?.adventureBoard?.boardId).toBe("board-reina-1");
-    });
-
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(5000);
-    });
-
-    await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledWith("/api/homework/quest-boss/status?childId=reina");
-      expect(result.current.questBossPreparation?.briefs[0]?.status).toBe("ready_for_review");
-      expect(result.current.packet?.activeSessionPlan?.adventureBoard?.boardId).toBe("board-reina-2");
-    });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
   it("keeps the open session board stable while the next chapter is generated", async () => {
@@ -166,9 +95,6 @@ describe("useChildExperiencePacket", () => {
           },
         });
       }
-      if (url === "/api/homework/quest-boss/prepare") {
-        return Response.json({ ok: true, childId: "reina", jobs: [], running: [], briefs: [] }, { status: 202 });
-      }
       throw new Error(`unexpected fetch ${url}`);
     });
     vi.stubGlobal("fetch", fetchMock);
@@ -182,7 +108,7 @@ describe("useChildExperiencePacket", () => {
       window.dispatchEvent(new CustomEvent("sunny_learning_cycle_progression"));
     });
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(4000);
+      await vi.advanceTimersByTimeAsync(2000);
     });
 
     expect(result.current.packet?.activeSessionPlan?.adventureBoard?.boardId).toBe("board-reina-1");

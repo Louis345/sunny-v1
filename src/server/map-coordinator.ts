@@ -1786,6 +1786,20 @@ function currentNode(state: MapState): NodeConfig | undefined {
   return state.nodes[state.currentNodeIndex];
 }
 
+export function formatPreviewGameDiagnostic(
+  fallbackNodeId: string,
+  payload: Record<string, unknown>,
+): string {
+  const nodeId = String(payload.nodeId ?? payload.activityId ?? fallbackNodeId ?? "unknown");
+  const phase = String(payload.phase ?? "update");
+  const itemIndex = Number.isFinite(Number(payload.itemIndex)) ? Number(payload.itemIndex) : 0;
+  const totalItems = Number.isFinite(Number(payload.totalItems)) ? Number(payload.totalItems) : 0;
+  const actions = Array.isArray(payload.availableActions)
+    ? payload.availableActions.filter((value): value is string => typeof value === "string").slice(0, 8)
+    : [];
+  return `node=${nodeId} phase=${phase} item=${itemIndex}/${totalItems} actions=${actions.join(",") || "none"}`;
+}
+
 function isAttentionScreeningNodeType(type: string): boolean {
   return type === "bubble-pop" ||
     type === "cpt-low-reward" ||
@@ -1898,6 +1912,11 @@ export function handleMapClientMessage(
 
   if (msg.type === "game_state_update") {
     const childId = rec.mapState.childId;
+    if (rec.runtime.persistenceMode === "blocked") {
+      console.log(
+        ` 🎮 [preview-diagnostic] [game-state] ${formatPreviewGameDiagnostic(currentNode(rec.mapState)?.id ?? "unknown", msg.payload ?? {})}`,
+      );
+    }
     const sm = getActiveVoiceSessionManagerForChild(childId);
     if (sm) {
       const payload =
