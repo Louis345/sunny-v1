@@ -63,6 +63,13 @@ describe("App companion overlay stack", () => {
     expect(src).not.toMatch(/sendMessage\([\s\S]{0,120}sunny_sfx/);
   });
 
+  it("plays a board-owned motif for node launch without creating learning evidence", () => {
+    expect(src).toContain("playAdventureBoardSfx");
+    expect(src).toContain('playAdventureBoardSfx("locked")');
+    expect(src).toContain('playAdventureBoardSfx(boardNode.state === "completed" ? "replay" : "launch")');
+    expect(src).not.toMatch(/sendMessage\([\s\S]{0,120}adventureBoardSfx/);
+  });
+
   it("karaokeReadingActive triggers portrait mode (story/karaoke canvas)", () => {
     expect(src).toMatch(/companionPortraitMode[\s\S]{0,200}karaokeReadingActive/);
   });

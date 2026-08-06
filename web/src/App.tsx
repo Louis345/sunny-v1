@@ -66,6 +66,7 @@ import {
 import {
   buildAdventureBoardChoiceEventInput,
   buildAdventureBoardPostActivityChoiceEventInput,
+  flushAdventureBoardChoiceEventOutbox,
   postAdventureBoardChoiceEvent,
   type PostActivityChoiceOutcome,
 } from "./utils/adventureBoardChoiceEvents";
@@ -424,7 +425,7 @@ function mergeCompanionCommands(
 }
 
 function plannerActivityTitle(node: NodeConfig): string {
-  return node.type
+  return node.title?.trim() || node.type
     .split("-")
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(" ");
@@ -586,6 +587,26 @@ function App() {
   const [selectedChildName, setSelectedChildName] = useState<string | null>(null);
   const [loadingSafetyReleased, setLoadingSafetyReleased] = useState(false);
   const autoStartedAdventureVoiceRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (mapPreviewMode || parentPreviewActive) return;
+    const flushSavedChoiceEvents = () => {
+      void flushAdventureBoardChoiceEventOutbox().then((result) => {
+        if (result.delivered > 0 || result.remaining > 0) {
+          console.log(
+            ` 🎮 [choice-event] [outbox-flush] delivered=${result.delivered} remaining=${result.remaining}`,
+          );
+        }
+      }).catch((error: unknown) => {
+        console.warn(" 🎮 [choice-event] [outbox-flush-failed]", {
+          error: error instanceof Error ? error.message : String(error),
+        });
+      });
+    };
+    flushSavedChoiceEvents();
+    window.addEventListener("online", flushSavedChoiceEvents);
+    return () => window.removeEventListener("online", flushSavedChoiceEvents);
+  }, []);
 
   const {
     adventureChildId,
@@ -1584,6 +1605,7 @@ function App() {
             packet={plannerBoardPacket}
             completedNodeIds={locallyCompletedPlannerNodeIds}
             parentPreview={parentPreviewActive}
+            showParentPreviewBanner={plannerBoardLaunch == null}
             showCompanion={false}
             idlePose="center"
             onNodeClick={handlePlannerBoardNodeClick}

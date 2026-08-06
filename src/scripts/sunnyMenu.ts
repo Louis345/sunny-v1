@@ -77,6 +77,15 @@ async function chooseDomain(deps: SunnyMenuDependencies): Promise<SunnyMenuDomai
   return DOMAINS[index] ?? null;
 }
 
+function normalizeAssignmentPath(value: string): string {
+  const trimmed = value.trim();
+  const unquoted = trimmed.length >= 2
+    && ((trimmed.startsWith('"') && trimmed.endsWith('"')) || (trimmed.startsWith("'") && trimmed.endsWith("'")))
+    ? trimmed.slice(1, -1)
+    : trimmed;
+  return unquoted.replace(/\\([\\\s"'(){}\[\]&;!#$`])/g, "$1");
+}
+
 export async function runSunnyMenu(deps: SunnyMenuDependencies): Promise<"exit"> {
   try {
     while (true) {
@@ -93,9 +102,19 @@ export async function runSunnyMenu(deps: SunnyMenuDependencies): Promise<"exit">
         if (action === "1") {
           const domain = await chooseDomain(deps);
           if (!domain) continue;
-          const source = (await deps.ask("Assignment file path (or 0 to cancel): ")).trim().replace(/^['"]|['"]$/g, "");
-          if (!source || source === "0") continue;
-          const sourceFile = path.resolve(source);
+          let sourceFile = "";
+          while (!sourceFile) {
+            const source = normalizeAssignmentPath(await deps.ask("Drag assignment here, paste its path, or enter 0 to cancel: "));
+            if (!source || source === "0") break;
+            const candidate = path.resolve(source);
+            try {
+              if (!fs.statSync(candidate).isFile()) throw new Error("not_a_file");
+              sourceFile = candidate;
+            } catch {
+              deps.log(`Assignment file not found: ${candidate}`);
+            }
+          }
+          if (!sourceFile) continue;
           const code = await deps.execute(buildIngestInvocation(childId, domain, sourceFile));
           deps.log(code === 0 ? "Homework ingestion finished." : `Homework ingestion failed with exit code ${code}. Saved checkpoints remain available.`);
           continue;

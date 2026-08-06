@@ -67,7 +67,7 @@ async function waitForPortFree(timeoutMs = 15000): Promise<boolean> {
 
 function killProcessOnPort(port: number): void {
   try {
-    const out = execSync(`lsof -ti tcp:${port}`, { encoding: "utf8" }).trim();
+    const out = execSync(`lsof -tiTCP:${port} -sTCP:LISTEN`, { encoding: "utf8" }).trim();
     if (!out) return;
     const pids = out.split("\n").map((line) => line.trim()).filter(Boolean);
     for (const pid of pids) {

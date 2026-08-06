@@ -57,7 +57,10 @@ describe("Sunny parent menu", () => {
   });
 
   it("returns to the menu after a failed action and closes menu-owned resources on exit", async () => {
-    const answers = ["1", "1", "1", "/tmp/fractions.pdf", "5"];
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-failed-ingest-"));
+    const assignment = path.join(root, "fractions.pdf");
+    fs.writeFileSync(assignment, "fixture");
+    const answers = ["1", "1", "1", assignment, "5"];
     const close = vi.fn(async () => undefined);
     const log = vi.fn();
     const result = await runSunnyMenu({
@@ -72,5 +75,32 @@ describe("Sunny parent menu", () => {
     expect(result).toBe("exit");
     expect(log).toHaveBeenCalledWith(expect.stringContaining("failed"));
     expect(close).toHaveBeenCalledOnce();
+    fs.rmSync(root, { recursive: true, force: true });
+  });
+
+  it("accepts a Finder drag-and-drop path and reprompts locally without losing child or domain", async () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-drag-drop-"));
+    const assignment = path.join(root, "3_24 math coin.pdf");
+    fs.writeFileSync(assignment, "fixture");
+    const draggedPath = assignment.replaceAll(" ", "\\ ");
+    const answers = ["1", "1", "1", path.join(root, "missing.pdf"), draggedPath, "5"];
+    const invocations: Array<ReturnType<typeof buildIngestInvocation>> = [];
+    const log = vi.fn();
+
+    await runSunnyMenu({
+      children: ["reina"],
+      ask: async () => answers.shift() ?? "5",
+      execute: async (invocation) => {
+        invocations.push(invocation);
+        return 0;
+      },
+      openParentPage: async () => undefined,
+      close: async () => undefined,
+      log,
+    });
+
+    expect(invocations).toEqual([buildIngestInvocation("reina", "math", assignment)]);
+    expect(log).toHaveBeenCalledWith(expect.stringContaining("Assignment file not found"));
+    fs.rmSync(root, { recursive: true, force: true });
   });
 });

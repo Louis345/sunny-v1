@@ -16,6 +16,7 @@ export type AdventureBoardExperienceProps = {
   companionBehavior?: CompanionBehavior | null;
   completedNodeIds?: readonly string[];
   parentPreview?: boolean;
+  showParentPreviewBanner?: boolean;
   onNodeClick?: (node: AdventureBoardNode) => void;
   onChoiceClick?: (option: AdventureChoiceOption, choiceSet: AdventureChoiceSet) => void;
   onUnlockCeremony?: (event: UnlockCeremonyEvent) => void;
@@ -28,6 +29,7 @@ export function AdventureBoardExperience({
   companionBehavior = null,
   completedNodeIds,
   parentPreview = false,
+  showParentPreviewBanner = true,
   onNodeClick,
   onChoiceClick,
   onUnlockCeremony,
@@ -41,7 +43,7 @@ export function AdventureBoardExperience({
 
   return (
     <>
-      {parentPreview ? (
+      {parentPreview && showParentPreviewBanner ? (
         <div className="fixed left-1/2 top-3 z-[110] -translate-x-1/2 rounded-full bg-slate-950/90 px-5 py-2 text-sm font-black text-amber-200 shadow-xl">
           Parent preview — progress will not save
         </div>
