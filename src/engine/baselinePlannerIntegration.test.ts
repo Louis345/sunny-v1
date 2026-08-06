@@ -4,7 +4,7 @@ import { planBaselineShellsForHomework, shouldTriggerBaselineGeneration } from "
 
 describe("baselinePlannerIntegration", () => {
   it("prefers existing shells for time/money homework", () => {
-    const chart = getChildChart("demo-pashley");
+    const chart = getChildChart("qa_map");
     const decision = planBaselineShellsForHomework({
       chart,
       homeworkId: "hw-math-1",

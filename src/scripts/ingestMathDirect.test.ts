@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   classifyIngestionFailure,
+  currentRunBuildTokens,
   formatIngestionSummary,
   readReusablePlannerProgram,
 } from "./ingestMathDirect";
@@ -52,5 +53,12 @@ describe("direct math ingestion checkpoints", () => {
     expect(summary).toContain(`Baseline nodes: ${generated.length} generated, ${reused.length} reused`);
     expect(summary).toContain("Bonus: deferred until earned");
     expect(summary).toContain("Recorded calls: ");
+  });
+
+  it("charges the current run only for generated nodes while retained reuse metadata stays historical", () => {
+    expect(currentRunBuildTokens([
+      { nodeId: "N1", inputTokens: 100, outputTokens: 200 },
+      { nodeId: "N2", inputTokens: 8_000, outputTokens: 20_000 },
+    ], ["N1"])).toBe(300);
   });
 });

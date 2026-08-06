@@ -5,7 +5,6 @@ import type { LanguageModelUsage } from "ai";
 import { z } from "zod";
 import type {
   ActiveSessionPlan,
-  EngagementTheory,
   GeneratedExperienceBrief,
   LearningRoutePrescription,
   PlanTheory,
@@ -41,6 +40,9 @@ import {
   type AssignmentSourceExtraction,
 } from "./assignmentSourceExtraction";
 import { certifySpellingAdaptation } from "./spellingCertification";
+import {
+  buildPlannerContentCandidateCards,
+} from "./learningDecisionContext";
 
 export type { AssignmentSourceExtraction } from "./assignmentSourceExtraction";
 
@@ -67,6 +69,18 @@ export type AssignmentActivityCard = {
   capabilityModes: PlannerActivityCapabilityMode[];
   plannerVisibility: ActivityPlannerVisibility;
   status: "ok" | "unavailable" | "missing_config_metadata";
+  candidateCard?: {
+    contentId: string;
+    runtimeStatus: "verified" | "registered_unverified" | "unavailable" | "failed";
+    evidenceCount: number;
+    averageAccuracy?: number;
+    completionRate?: number;
+    frustrationScore?: number;
+    lastRating?: "like" | "dislike" | "implicit";
+    reuseEligible: boolean;
+    estimatedCalls: { reuse: number; revise: number; generateNew: number };
+    uncertainty: string;
+  };
 };
 
 export type PlannerActivityCapabilityMode = Pick<
@@ -101,7 +115,6 @@ export type AssignmentPlanningChildChartSummary = {
   carePlanSummary?: string | null;
   recentEvidence: string[];
   learningSignals?: AssignmentPlanningChildLearningSignals;
-  engagementTheory?: Pick<EngagementTheory, "theoryId" | "hypothesis" | "preferredDimensions" | "avoidedDimensions" | "promptDirectives" | "nextExperiment"> | null;
 };
 
 export type AssignmentPlanningChildLearningSignals = {
@@ -869,16 +882,6 @@ function childChartSummaryForPacket(
     carePlanSummary: summarizeCarePlan(chart),
     recentEvidence,
     learningSignals: childLearningSignalsForPacket(chart),
-    engagementTheory: chart.engagementTheory
-      ? {
-          theoryId: chart.engagementTheory.theoryId,
-          hypothesis: chart.engagementTheory.hypothesis,
-          preferredDimensions: chart.engagementTheory.preferredDimensions,
-          avoidedDimensions: chart.engagementTheory.avoidedDimensions,
-          promptDirectives: chart.engagementTheory.promptDirectives,
-          nextExperiment: chart.engagementTheory.nextExperiment,
-        }
-      : null,
   };
 }
 
@@ -1188,7 +1191,34 @@ export function buildAssignmentPlanningPacket(args: {
 }): AssignmentPlanningPacket {
   const recentEvidence = args.currentEvidenceSummary ?? [];
   const childChart = childChartSummaryForPacket(args.childChart, recentEvidence);
-  const catalog = activityCatalog(args.childId, args.extraction);
+  const baseCatalog = activityCatalog(args.childId, args.extraction);
+  const domain = inferPlannerCatalogDomain(args.extraction);
+  const candidateByActivityId = new Map(
+    buildPlannerContentCandidateCards({ chart: args.childChart, domain })
+      .filter((card) => card.contentId.startsWith("instrument:"))
+      .map((card) => [card.contentId.slice("instrument:".length), {
+        contentId: card.contentId,
+        runtimeStatus: card.runtime.status,
+        evidenceCount: card.childEvidence.evidenceCount,
+        ...(typeof card.childEvidence.averageAccuracy === "number" ? { averageAccuracy: card.childEvidence.averageAccuracy } : {}),
+        ...(typeof card.childEvidence.completionRate === "number" ? { completionRate: card.childEvidence.completionRate } : {}),
+        ...(typeof card.childEvidence.frustrationScore === "number" ? { frustrationScore: card.childEvidence.frustrationScore } : {}),
+        ...(card.childEvidence.lastRating ? { lastRating: card.childEvidence.lastRating } : {}),
+        reuseEligible: card.decisionCosts.reuse.eligible,
+        estimatedCalls: {
+          reuse: card.decisionCosts.reuse.estimatedModelCalls,
+          revise: card.decisionCosts.revise.estimatedModelCalls,
+          generateNew: card.decisionCosts.generateNew.estimatedModelCalls,
+        },
+        uncertainty: card.uncertainty.note,
+      }]),
+  );
+  const catalog = baseCatalog.map((card) => ({
+    ...card,
+    ...(card.launchable && (candidateByActivityId.get(card.activityId)?.evidenceCount ?? 0) > 0
+      ? { candidateCard: candidateByActivityId.get(card.activityId) }
+      : {}),
+  }));
   const capturedHomework = capturedHomeworkFromSource(args.extraction);
   const baseMasteryContext = args.masteryContext ?? buildAssignmentMasteryContext();
   const readinessProof = readinessProofForExtraction(
@@ -1428,7 +1458,7 @@ Output contract:
 - In planTheory or reviewQuestions, explain why the journey you chose fits this child today.
 - Use the packet as the only source of assignment truth.${revisionInstruction}
 - Return one valid tool-call JSON object directly; the tool schema enforces activeSessionPlan.nodePlan, activeSessionPlan.learningRoutes, plannedMeasurements, planTheory, and reviewQuestions.
-- If childChart.engagementTheory exists, preserve its theoryId and use its preferred/avoided dimensions to design the next controlled experiment. Hold academic targets constant while varying only the declared engagement variable.
+- Treat candidateCard child outcomes as factual, uncertain evidence. Academic compatibility is a hard gate; predicted learning value is primary; engagement is secondary; runtime clarity and reliability support the decision; uncertainty may justify bounded exploration; model-call cost and latency are penalties. A rating never overrides learning evidence, and one choice never proves preference.
 - Every route and Mystery option must declare a different experiment arm when it claims to test a preference. Do not use cosmetic labels for identical content.
 
 Packet:

@@ -137,7 +137,7 @@ function projectCanonicalAgencyChoice(
         : routeId === selectedRoute?.routeId && node.id === firstIncompleteSelected
           ? "current"
           : "locked";
-      return { ...node, state, thumbnailUrl: previewUrl(node.id) };
+      return { ...node, state, thumbnailUrl: node.thumbnailUrl ?? previewUrl(node.id) };
     }
     const canonicalState = cycleNodeState.get(node.id);
     if (canonicalState === "completed") return { ...node, state: "completed" as const };
@@ -155,7 +155,7 @@ function projectCanonicalAgencyChoice(
       options: choiceSet.options.map((option) => ({
         ...option,
         description: conciseRouteDescription(option.description),
-        thumbnailUrl: option.nodeId ? previewUrl(option.nodeId) : option.thumbnailUrl,
+        thumbnailUrl: option.thumbnailUrl ?? (option.nodeId ? previewUrl(option.nodeId) : undefined),
         state: sharedComplete && !selectedRouteComplete ? "available" as const : "locked" as const,
       })),
     };

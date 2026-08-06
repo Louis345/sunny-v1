@@ -40,6 +40,30 @@ describe("baselineShellGap", () => {
 
   it("recognizes approved generated math shells by their cataloged skill target", () => {
     const chart = getChildChart("reina");
+    chart.learningProfile.aiContentCatalog = [
+      {
+        contentId: "hw-math-fixture:generated-baseline:multiplication",
+        homeworkId: "hw-math-fixture",
+        childId: "reina",
+        type: "game",
+        source: "generated_shell",
+        title: "Multiplication Array Lab",
+        activityId: "generated-baseline",
+        gameHtmlPath: "/tmp/multiplication-array-lab.html",
+        domain: "math",
+        skillTarget: "multiplication_fluency",
+        algorithmTargets: ["retrieval-practice"],
+        targetSkills: ["multiplication fluency"],
+        targetConcepts: ["equal groups"],
+        targetWords: [],
+        engagementHooks: [],
+        inputEvidence: { contentFingerprint: "fixture" },
+        reuseStatus: "reuse",
+        reuseReason: "Approved fixture for catalog matching.",
+        reviewStatus: "approved_ready",
+        validationStatus: "passed",
+      },
+    ];
     const gap = detectBaselineShellGap({
       chart,
       homeworkId: "hw-math-6b68e575",

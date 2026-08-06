@@ -148,8 +148,8 @@ describe("buildChildExperiencePacket", () => {
         { id: "N1", kind: "activity", label: "Teach", state: "available" },
         { id: "N2", kind: "activity", label: "Guided", state: "available" },
         { id: "choose-path", kind: "choice-gate", label: "Long generated question", state: "available", choiceSetId: "direct-route-choice" },
-        { id: "N3A", kind: "activity", label: "Map Maker", state: "available" },
-        { id: "N3B", kind: "activity", label: "Slice Sprint", state: "available" },
+        { id: "N3A", kind: "activity", label: "Map Maker", state: "available", thumbnailUrl: "/generated/direct-math/N3A-dedicated.jpeg" },
+        { id: "N3B", kind: "activity", label: "Slice Sprint", state: "available", thumbnailUrl: "/generated/direct-math/N3B-dedicated.jpeg" },
         { id: "quest", kind: "quest", label: "Quest", state: "locked" },
         { id: "boss", kind: "boss", label: "Boss", state: "locked" },
       ],
@@ -159,8 +159,8 @@ describe("buildChildExperiencePacket", () => {
         kind: "baseline-route",
         title: "A generated paragraph that should never become the heading",
         options: [
-          { id: "route-a", label: "Map Maker", description: "Build fair shares with your own hands — no clock, only sharp eyes, and a wax seal when the cut is true.", state: "available", nodeId: "N3A" },
-          { id: "route-b", label: "Slice Sprint", description: "Spot the bigger fair slice before the gull swoops — fast eyes win the crowd, but the bird never steals your turn.", state: "available", nodeId: "N3B" },
+          { id: "route-a", label: "Map Maker", description: "Build fair shares with your own hands — no clock, only sharp eyes, and a wax seal when the cut is true.", state: "available", nodeId: "N3A", thumbnailUrl: "/generated/direct-math/N3A-dedicated.jpeg" },
+          { id: "route-b", label: "Slice Sprint", description: "Spot the bigger fair slice before the gull swoops — fast eyes win the crowd, but the bird never steals your turn.", state: "available", nodeId: "N3B", thumbnailUrl: "/generated/direct-math/N3B-dedicated.jpeg" },
         ],
       }],
       companion: { id: "elli", name: "Elli" },
@@ -224,9 +224,11 @@ describe("buildChildExperiencePacket", () => {
     expect(packet.activeSessionPlan?.nodePlan.find((node) => node.id === "N3A")?.locked).toBe(false);
     expect(packet.activeSessionPlan?.nodePlan.find((node) => node.id === "N3B")?.locked).toBe(true);
     expect(projected.choiceSets?.[0]?.options.map((option) => option.thumbnailUrl)).toEqual([
-      "/generated/direct-math/hw-fractions-previews/N3A-opening.png",
-      "/generated/direct-math/hw-fractions-previews/N3B-opening.png",
+      "/generated/direct-math/N3A-dedicated.jpeg",
+      "/generated/direct-math/N3B-dedicated.jpeg",
     ]);
+    expect(projected.nodes.find((node) => node.id === "N3A")?.thumbnailUrl).toBe("/generated/direct-math/N3A-dedicated.jpeg");
+    expect(projected.nodes.find((node) => node.id === "N3B")?.thumbnailUrl).toBe("/generated/direct-math/N3B-dedicated.jpeg");
     expect(projected.choiceSets?.[0]?.options.map((option) => option.description)).toEqual([
       "Build fair shares with your own hands",
       "Spot the bigger fair slice before the gull swoops",

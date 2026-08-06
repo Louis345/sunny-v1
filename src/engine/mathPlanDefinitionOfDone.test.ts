@@ -173,9 +173,9 @@ describe("math plan definition of done", () => {
       childChart: getChildChart("reina"),
     });
     const mathPacket = buildAssignmentPlanningPacket({
-      childId: "demo-pashley",
+      childId: "reina",
       extraction: mathExtraction,
-      childChart: getChildChart("demo-pashley"),
+      childChart: getChildChart("reina"),
     });
     const spellingLaunchable = spellingPacket.activityCatalog.filter((card) => card.launchable);
     const mathLaunchable = mathPacket.activityCatalog.filter((card) => card.launchable);

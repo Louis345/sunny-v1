@@ -8,9 +8,14 @@ import type { AssignmentSourceExtraction } from "./assignmentSourceExtraction";
 import type { ActiveSessionPlan, AIContentCatalogItem } from "../context/schemas/learningProfile";
 import type { AdventureBoardJson } from "../shared/adventureBoardJson";
 import { NODE_REGISTRY } from "../shared/nodeRegistry";
-import { listActivityToolContracts } from "./activityToolCatalog";
 import { engagementTheoryEvidenceContext } from "./engagementTheory";
 import { assignmentLedgerPath, writeAssignmentLedgerEntry } from "./assignmentLedger";
+import { writeWaterfallContentCatalog } from "../profiles/chartWaterfall";
+import {
+  buildPlannerContentCandidateCards,
+  resolveExactMathCatalogReuse,
+  type PlannerContentCandidateCard,
+} from "./learningDecisionContext";
 import {
   createLearningCycle,
   getLearningCycle,
@@ -100,6 +105,13 @@ export type MathCatalogDecision = {
   action: "reuse" | "revise" | "generate_new" | "retire";
   contentId?: string;
   reason: string;
+  academicCompatibility?: string;
+  predictedLearningValue?: string;
+  engagementHypothesis?: string;
+  reliabilityEvidence?: string;
+  explorationRationale?: string;
+  costRationale?: string;
+  evidenceIds?: string[];
 };
 
 export type MathPlannedActivity = {
@@ -397,6 +409,13 @@ export const MATH_LEARNING_PROGRAM_TOOL_SCHEMA = schemaObject({
         action: { enum: ["reuse", "revise", "generate_new", "retire"] },
         contentId: schemaString,
         reason: schemaString,
+        academicCompatibility: schemaString,
+        predictedLearningValue: schemaString,
+        engagementHypothesis: schemaString,
+        reliabilityEvidence: schemaString,
+        explorationRationale: schemaString,
+        costRationale: schemaString,
+        evidenceIds: schemaStrings,
       }, ["action", "reason"]),
     }),
   },
@@ -468,6 +487,23 @@ export type DirectArtifact = {
   inputTokens?: number;
   outputTokens?: number;
 };
+
+export function preserveDirectArtifactGenerationMetrics(
+  generated: GeneratedActivityHtml | undefined,
+  existing: Pick<DirectArtifact, "generationElapsedMs" | "inputTokens" | "outputTokens">,
+): Required<Pick<DirectArtifact, "generationElapsedMs" | "inputTokens" | "outputTokens">> {
+  return generated
+    ? {
+        generationElapsedMs: generated.elapsedMs,
+        inputTokens: generated.inputTokens,
+        outputTokens: generated.outputTokens,
+      }
+    : {
+        generationElapsedMs: existing.generationElapsedMs ?? 0,
+        inputTokens: existing.inputTokens ?? 0,
+        outputTokens: existing.outputTokens ?? 0,
+      };
+}
 
 export type DirectGenerationStats = {
   generatedNodeIds: string[];
@@ -705,6 +741,13 @@ export function parseMathLearningProgram(value: unknown): MathLearningProgram {
         action: action as MathCatalogDecision["action"],
         ...(typeof catalogDecision.contentId === "string" ? { contentId: catalogDecision.contentId } : {}),
         reason: requiredString(catalogDecision, "reason"),
+        ...(typeof catalogDecision.academicCompatibility === "string" ? { academicCompatibility: catalogDecision.academicCompatibility } : {}),
+        ...(typeof catalogDecision.predictedLearningValue === "string" ? { predictedLearningValue: catalogDecision.predictedLearningValue } : {}),
+        ...(typeof catalogDecision.engagementHypothesis === "string" ? { engagementHypothesis: catalogDecision.engagementHypothesis } : {}),
+        ...(typeof catalogDecision.reliabilityEvidence === "string" ? { reliabilityEvidence: catalogDecision.reliabilityEvidence } : {}),
+        ...(typeof catalogDecision.explorationRationale === "string" ? { explorationRationale: catalogDecision.explorationRationale } : {}),
+        ...(typeof catalogDecision.costRationale === "string" ? { costRationale: catalogDecision.costRationale } : {}),
+        ...(Array.isArray(catalogDecision.evidenceIds) ? { evidenceIds: stringArray(catalogDecision.evidenceIds, "catalog_evidence_ids") } : {}),
       },
     };
   });
@@ -725,9 +768,19 @@ export function parseMathLearningProgram(value: unknown): MathLearningProgram {
     knownResponsibilityIds.add(activity.responsibilityId);
   }
   const routeIds = new Set(routes.map((route) => route.id));
+  const declaredRouteByNodeId = new Map<string, string>();
+  for (const route of routes) {
+    for (const nodeId of route.nodeIds) {
+      if (!declaredRouteByNodeId.has(nodeId)) declaredRouteByNodeId.set(nodeId, route.id);
+    }
+  }
   for (const activity of activities) {
     if (routeIds.has(activity.routeId) || activity.routeId === "shared") continue;
-    throw new Error(`math_learning_program_unknown_activity_route:${activity.id}:${activity.routeId}`);
+    const declaredRouteId = declaredRouteByNodeId.get(activity.id);
+    if (declaredRouteId) activity.routeId = declaredRouteId;
+    // An activity outside both Planner-authored arms is a shared foundation.
+    // Preserve its Planner-authored identity instead of inventing a route or
+    // rejecting the complete academic program.
   }
   for (const route of routes) route.nodeIds = activities.filter((activity) => activity.routeId === route.id).map((activity) => activity.id);
   if (routes.some((route) => route.nodeIds.length === 0)) throw new Error("math_learning_program_empty_route");
@@ -1541,7 +1594,7 @@ ${JSON.stringify({ ...programWithoutBonusDuplicate, activities: contracts }, nul
   return { packet, plan };
 }
 
-function chartForPlanner(chart: ChildChart): unknown {
+export function mathPlannerChartContext(chart: ChildChart): unknown {
   const economy = chart.companionCare?.plan.economy;
   return {
     identity: chart.identity,
@@ -1688,20 +1741,8 @@ function factualCycleObservations(cycle: LearningCycleRecordV2): LearningCycleRe
   );
 }
 
-function availableMathInstrumentsForPlanner(): unknown[] {
-  return listActivityToolContracts()
-    .filter((contract) => contract.domains.includes("math") || contract.domains.includes("reward"))
-    .map((contract) => ({
-      id: contract.id,
-      label: contract.label,
-      purposes: contract.purposes,
-      strengths: contract.strengths,
-      weakFor: contract.weakFor,
-      plannerVisibility: contract.plannerVisibility,
-      runtimeAvailable: Boolean(contract.nodeType && NODE_REGISTRY[contract.nodeType]),
-      configuration: contract.configKnobs,
-      measurements: contract.measures,
-    }));
+export function mathPlannerCandidateCards(chart: ChildChart): PlannerContentCandidateCard[] {
+  return buildPlannerContentCandidateCards({ chart, domain: "math" });
 }
 
 export async function askDirectMathPlanner(input: {
@@ -1756,11 +1797,20 @@ ${input.priorConceptIds?.length ? input.priorConceptIds.map((id) => `- ${id}`).j
 Assignment:
 ${input.extraction.fullText}
 
-Available reusable instruments:
-${JSON.stringify(availableMathInstrumentsForPlanner(), null, 2)}
+Available reusable instruments and generated candidates, expressed as factual candidate cards (capabilities, outcomes, runtime status, uncertainty, hashes, and estimated decision costs):
+${JSON.stringify(mathPlannerCandidateCards(input.chart), null, 2)}
+
+Decision policy:
+- Academic compatibility is a hard gate.
+- Predicted learning value is primary; engagement evidence is secondary.
+- Runtime clarity and reliability are supporting evidence.
+- Uncertainty may justify bounded exploration.
+- Model-call cost and latency are penalties, never reasons to use academically incompatible content.
+- Ratings never override learning evidence, and one selection never becomes a preference.
+- Choose reuse only when the card says reuse is eligible and its frozen academic contract is exact. Choose revise when the interaction/design is useful but the academic contract or implementation must change. Choose generate_new when no candidate is sufficient. Retire only a named candidate that should no longer be offered; still prescribe a replacement node for the responsibility.
 
 Child chart:
-${JSON.stringify(chartForPlanner(input.chart), null, 2)}
+${JSON.stringify(mathPlannerChartContext(input.chart), null, 2)}
 
   Prior factual outcomes and Planner interpretations:
 ${JSON.stringify(factualModelContext(input.priorOutcomes ?? []), null, 2)}`;
@@ -1787,7 +1837,7 @@ ${JSON.stringify(factualModelContext(input.priorOutcomes ?? []), null, 2)}`;
   // was timing out before it finished. Stream it, as the Creator already does.
   const response = await client.messages.stream({
     model: input.model ?? process.env.SUNNY_PLANNER_MODEL ?? "claude-opus-5",
-    max_tokens: input.maxTokens ?? Number(process.env.SUNNY_PLANNER_MAX_TOKENS ?? 20000),
+    max_tokens: input.maxTokens ?? Number(process.env.SUNNY_PLANNER_MAX_TOKENS ?? 32000),
     messages: [{ role: "user", content: plannerContent }],
     tools: [{
       name: toolName,
@@ -1812,7 +1862,7 @@ ${JSON.stringify(factualModelContext(input.priorOutcomes ?? []), null, 2)}`;
   // ("requires activities"), which sends you looking in the wrong place.
   if (response.stop_reason === "max_tokens") {
     throw new Error(
-      `direct_planner_plan_truncated:raise planner max tokens above ${input.maxTokens ?? process.env.SUNNY_PLANNER_MAX_TOKENS ?? 20000}`,
+      `direct_planner_plan_truncated:raise planner max tokens above ${input.maxTokens ?? process.env.SUNNY_PLANNER_MAX_TOKENS ?? 32000}`,
     );
   }
   return parseMathLearningProgram(toolUse.input);
@@ -1869,6 +1919,26 @@ Composition requirements: one instantly recognizable central subject or action s
 Do not include words, letters, numbers, equations, answer choices, interface panels, buttons, screenshots, borders, or badges. This is destination artwork, not an activity screenshot.`;
 }
 
+export function createDirectBoardBackgroundPrompt(backgroundDirection: string): string {
+  return `Create one full-screen board background from this approved creative direction:
+
+${backgroundDirection}
+
+Render scenery only. Preserve the world, palette, atmosphere, landmarks, and composition, but leave all interface labels and instructional affordances to Sunny's HTML layer.
+
+Do not include words, letters, numbers, equations, captions, signs, labels, speaker icons, buttons, interface panels, or watermarks.`;
+}
+
+export function createDirectBoardThumbnailFilename(homeworkId: string, activity: DirectActivity): string {
+  const safeNodeId = activity.id.replace(/[^a-z0-9_-]/gi, "_");
+  const promptVersion = crypto
+    .createHash("sha256")
+    .update(createDirectBoardThumbnailPrompt(activity))
+    .digest("hex")
+    .slice(0, 12);
+  return `${homeworkId}-${safeNodeId}-thumbnail-${promptVersion}.jpeg`;
+}
+
 function stripHtml(text: string): string {
   return text.trim().replace(/^```(?:html)?\s*/i, "").replace(/\s*```$/, "");
 }
@@ -1901,7 +1971,7 @@ export function creatorPromptHash(
   activity: DirectActivity,
   plannerModel: string,
   creatorModel: string,
-  creatorContractVersion = 14,
+  creatorContractVersion = 18,
 ): string {
   return crypto.createHash("sha256").update(JSON.stringify({
     creatorContractVersion,
@@ -1940,15 +2010,18 @@ Emit window.parent.postMessage({type:"activity_ready",payload:{nodeId:"${input.a
 Whenever the activity or active problem changes, emit window.parent.postMessage({type:"game_state_update",payload:{game:"generated-math",activityId:"${input.activity.id}",nodeId:"${input.activity.id}",phase:"question",activityTitle:${JSON.stringify(input.activity.title)},learningFocus:${JSON.stringify(input.activity.academicTarget)},mechanic:${JSON.stringify(input.activity.mechanic)},currentChallenge,availableActions,itemIndex,totalItems,answerVisibility:"hidden"}},"*") so Elli has live context. Never expose answers.
 Represent currentChallenge as {id,prompt,mode,readAloudRequested:false,readAloudCount}. When the child activates a visible Read it to me control, increment readAloudCount and resend that same answer-hidden state with readAloudRequested:true. Do not narrate it inside the activity.
 Listen for parent messages with type:"sunny_companion_presence". Pause activity timers and input while summoned, and resume the same state when collapsed. Do not restart or change progress.
-Sunny may reserve a 220px right-side companion safe area while the child asks for help. Keep essential instructions, mathematical representations, and primary controls outside it at the 1365×768 target; decorative scenery may extend behind it.
+Sunny may reserve a 220px right-side companion safe area while the child asks for help. Keep essential instructions, mathematical representations, and primary controls outside it at the 1365×768 target and the 1280×720 embedded frame; decorative scenery may extend behind it.
 For sound, post semantic cues to Sunny with window.parent.postMessage({type:"sunny_sfx",payload:{cue}},"*"). The allowed cue values are "interaction", "recovery", "progress", and "completion". Emit them when the approved design calls for those moments; Sunny owns the actual recorded sound quality.
 Include one visible sound toggle. It must post window.parent.postMessage({type:"sunny_sound_toggle",payload:{muted}},"*") whenever its state changes. Do not use speechSynthesis, spoken browser narration, HTML audio elements, or external audio assets. Do not create AudioContext oscillators or synthesized tones. Spoken explanations belong only to Elli after the child asks.
 Maintain a factual targetResults array for the full activity. For each answer append {target,correct,attemptedValue,responseTimeMs,scaffoldLevel}, where target is the stable item id, attemptedValue is what the child submitted, and scaffoldLevel reflects demos, hints, or companion help.
+Every Planner-authored item must render controls that match its response mode. When the response mode changes, replace the previous item's controls before accepting input; never leave numeric or selection controls under an explanation prompt. Exercise every item in order, including the final item, and prove that it can submit through the same handlers as the visible child controls.
+After the final submission, completion state must not read the next item or call question-state helpers that require a current item. Capture the final item before advancing, then render and emit completion from terminal-safe state.
 Emit window.parent.postMessage({type:"attempt_event",payload:{domain:"math",target,correct,attemptedValue,responseTimeMs,scaffoldLevel}},"*") for each answer.
 Emit window.parent.postMessage({type:"progress_event",payload:{nodeId:"${input.activity.id}",completedItems,totalItems}},"*") whenever visible progress advances.
 On completion calculate accuracy from targetResults and emit window.parent.postMessage({type:"node_complete",payload:{nodeId:"${input.activity.id}",completed:true,accuracy,targetResults,timeSpent_ms}},"*").
+Expose window.SUNNY_VALIDATION_HOOKS = {playthrough: async () => { ... }}. Its playthrough must use the same handlers as the visible child controls, submit every Planner-authored item including the final item, and reach the real node_complete path. It must not fabricate or post evidence directly.
 Include <div id="sunny-companion"></div> so the parent app owns Elli.
-At a 1365×768 viewport, the title and first required action must be visible immediately. Use high-contrast text and controls against every panel behind them. Keep all primary controls inside the viewport without page scrolling or clipping.
+At a 1365×768 viewport and a 1280×720 embedded frame, the title and first required action must be visible immediately. Use high-contrast text and controls against every panel behind them. Keep all primary controls inside the viewport without page scrolling or clipping. Before returning, measure the bounding rectangle of every enabled child control at both sizes. If any edge lies outside the viewport, compact spacing or resize the layout until all controls fit without scrolling.
 Return raw HTML only and end with </html>.
 
 Child: ${input.childId}
@@ -2059,7 +2132,7 @@ export async function generateAdaptiveProgressionActivityHtml(input: {
   const client = input.client ?? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
   const request = {
     model: input.model ?? process.env.SUNNY_GENERATION_MODEL ?? process.env.SUNNY_INGEST_MODEL ?? "claude-sonnet-5",
-    max_tokens: Number(process.env.SUNNY_GENERATION_MAX_TOKENS ?? 32000),
+    max_tokens: Number(process.env.SUNNY_GENERATION_MAX_TOKENS ?? 48000),
     thinking: { type: "adaptive" },
     output_config: { effort: "high" },
     messages: [{ role: "user", content: buildAdaptiveProgressionCreatorPrompt(input) }],
@@ -2128,12 +2201,13 @@ export async function readOpenAiResponseStream(response: Response): Promise<{
       const failure = object(event.error) ?? object(event.response);
       throw new Error(`direct_activity_openai_stream_failed:${String(failure?.message ?? event.type)}`);
     }
-    if (event.type === "response.completed") {
+    if (event.type === "response.completed" || event.type === "response.incomplete") {
       const completed = object(event.response);
       const usage = object(completed?.usage);
+      const incompleteDetails = object(completed?.incomplete_details);
       inputTokens = Number(usage?.input_tokens ?? 0);
       outputTokens = Number(usage?.output_tokens ?? 0);
-      stopReason = String(completed?.status ?? "completed");
+      stopReason = String(incompleteDetails?.reason ?? completed?.status ?? "completed");
       if (!raw && completed) raw = openAiResponseText(completed);
     }
   };
@@ -2183,7 +2257,7 @@ async function generateActivityHtml(input: {
       body: JSON.stringify({
         model: input.model,
         input: prompt,
-        max_output_tokens: Number(process.env.SUNNY_GENERATION_MAX_TOKENS ?? 32000),
+        max_output_tokens: Number(process.env.SUNNY_GENERATION_MAX_TOKENS ?? 48000),
         reasoning: { effort: "high" },
         stream: true,
       }),
@@ -2198,7 +2272,7 @@ async function generateActivityHtml(input: {
   } else {
     const response = await input.client.messages.stream({
       model: input.model,
-      max_tokens: Number(process.env.SUNNY_GENERATION_MAX_TOKENS ?? 32000),
+      max_tokens: Number(process.env.SUNNY_GENERATION_MAX_TOKENS ?? 48000),
       thinking: { type: "adaptive" },
       output_config: { effort: "high" },
       messages: [{ role: "user", content: prompt }],
@@ -2265,6 +2339,7 @@ export async function generateDirectArtifacts(input: {
   architectModel?: string;
   assignmentFingerprint: string;
   forceNodeIds?: string[];
+  candidateCards?: PlannerContentCandidateCard[];
   existingArtworkUrls?: {
     backgroundUrl: string;
     questArtworkUrl: string;
@@ -2289,7 +2364,7 @@ export async function generateDirectArtifacts(input: {
   const forceNodeIds = new Set(input.forceNodeIds ?? []);
   process.env.SUNNY_IMAGE_GENERATION_MAX_PER_RUN = "3";
   const artworkJobs = [
-    { prompt: input.plan.boardWorld.backgroundPrompt, filename: `${input.homeworkId}-background.jpeg` },
+    { prompt: createDirectBoardBackgroundPrompt(input.plan.boardWorld.backgroundPrompt), filename: `${input.homeworkId}-background.jpeg` },
     { prompt: input.plan.quest.artworkPrompt, filename: `${input.homeworkId}-quest.jpeg` },
     { prompt: input.plan.boss.artworkPrompt, filename: `${input.homeworkId}-boss.jpeg` },
   ];
@@ -2305,8 +2380,7 @@ export async function generateDirectArtifacts(input: {
     ? artworkUrls as [string, string, string]
     : [artworkUrls.backgroundUrl, artworkUrls.questArtworkUrl, artworkUrls.bossArtworkUrl];
   const thumbnailEntries = await mapConcurrent(input.plan.activities, 2, async (activity) => {
-    const safeNodeId = activity.id.replace(/[^a-z0-9_-]/gi, "_");
-    const filename = `${input.homeworkId}-${safeNodeId}-thumbnail.jpeg`;
+    const filename = createDirectBoardThumbnailFilename(input.homeworkId, activity);
     const localFile = path.join(publicDir, "generated", "direct-math", filename);
     const reused = fs.existsSync(localFile) && fs.statSync(localFile).size > 0;
     const thumbnailUrl = await createDirectArtwork(
@@ -2328,23 +2402,67 @@ export async function generateDirectArtifacts(input: {
     const model = builder.model;
     const htmlPath = path.join(gamesDir, `${activity.id}.html`);
     const metadataPath = path.join(gamesDir, `${activity.id}.artifact.json`);
-    const existingHtml = fs.existsSync(htmlPath) ? fs.readFileSync(htmlPath, "utf8") : "";
+    let existingHtml = fs.existsSync(htmlPath) ? fs.readFileSync(htmlPath, "utf8") : "";
     const expectedPromptHash = creatorPromptHash(activity, plannerModel, model);
-    const priorContractPromptHash = creatorPromptHash(activity, plannerModel, model, 13);
+    const previousContractPromptHash = creatorPromptHash(activity, plannerModel, model, 17);
+    const priorContractPromptHash = creatorPromptHash(activity, plannerModel, model, 16);
+    const olderContractPromptHash = creatorPromptHash(activity, plannerModel, model, 15);
+    const oldestContractPromptHash = creatorPromptHash(activity, plannerModel, model, 14);
+    let existingMetadata: Partial<DirectArtifact> & {
+      creatorContractVersion?: number;
+      designArtifact?: ExperienceDesignArtifactV1;
+    } = {};
     let savedPromptHash: string | undefined;
     try {
-      savedPromptHash = (JSON.parse(fs.readFileSync(metadataPath, "utf8")) as { promptHash?: string }).promptHash;
+      existingMetadata = JSON.parse(fs.readFileSync(metadataPath, "utf8")) as typeof existingMetadata;
+      savedPromptHash = existingMetadata.promptHash;
     } catch {
       savedPromptHash = undefined;
     }
+    const frozenAcademicContractHash = activity.designArtifact?.academicContractHash ?? "";
+    const exactCatalogReuse = frozenAcademicContractHash && !forceNodeIds.has(activity.id)
+      ? resolveExactMathCatalogReuse({
+          decision: activity.catalogDecision ?? { action: "generate_new" },
+          targetNodeId: activity.id,
+          academicContractHash: frozenAcademicContractHash,
+          cards: input.candidateCards ?? [],
+        })
+      : null;
+    if (exactCatalogReuse?.runtime.launchPath) {
+      const sourceHtml = fs.readFileSync(exactCatalogReuse.runtime.launchPath, "utf8");
+      fs.writeFileSync(htmlPath, sourceHtml, "utf8");
+      existingHtml = sourceHtml;
+      const sourceMetadataPath = exactCatalogReuse.runtime.launchPath.replace(/\.html$/i, ".artifact.json");
+      if (fs.existsSync(sourceMetadataPath)) {
+        try {
+          const sourceMetadata = JSON.parse(fs.readFileSync(sourceMetadataPath, "utf8")) as typeof existingMetadata;
+          existingMetadata = sourceMetadata;
+          if (sourceMetadata.designArtifact?.academicContractHash === frozenAcademicContractHash) {
+            activity.designArtifact = sourceMetadata.designArtifact;
+            activity.title = sourceMetadata.designArtifact.title;
+            activity.creatorPrompt = JSON.stringify(sourceMetadata.designArtifact);
+          }
+        } catch (error) {
+          console.warn(` 🎮 [math-catalog] [reuse-metadata-warning] node=${activity.id} reason=${error instanceof Error ? error.message : String(error)}`);
+        }
+      }
+      savedPromptHash = exactCatalogReuse.hashes.implementationPromptHash ?? savedPromptHash;
+      reusedNodeIds.push(activity.id);
+      console.log(`  ✓ ${activity.id} [catalog/${exactCatalogReuse.contentId}] exact reuse`);
+    }
     let generated: GeneratedActivityHtml | undefined;
-    const reusable = !forceNodeIds.has(activity.id)
+    const reusable = Boolean(exactCatalogReuse) || (!forceNodeIds.has(activity.id)
       && shouldReuseDirectArtifact({
         htmlComplete: isCompleteGeneratedHtml(existingHtml),
         savedPromptHash,
         expectedPromptHash,
-        compatiblePromptHashes: [priorContractPromptHash],
-      });
+        compatiblePromptHashes: [
+          previousContractPromptHash,
+          priorContractPromptHash,
+          olderContractPromptHash,
+          oldestContractPromptHash,
+        ],
+      }));
     if (!reusable) {
       generatedNodeIds.push(activity.id);
       console.log(`  ↻ ${activity.id} [${builder.provider}/${model}] building`);
@@ -2357,13 +2475,26 @@ export async function generateDirectArtifacts(input: {
         model,
       });
       fs.writeFileSync(htmlPath, generated.html, "utf8");
-    } else {
+    } else if (!exactCatalogReuse) {
       reusedNodeIds.push(activity.id);
       console.log(`  ✓ ${activity.id} [${builder.provider}/${model}] reused`);
     }
     const resolvedPromptHash = generated ? expectedPromptHash : savedPromptHash ?? expectedPromptHash;
-    const resolvedCreatorContractVersion = resolvedPromptHash === priorContractPromptHash ? 13 : 14;
+    const resolvedCreatorContractVersion = generated
+      ? 18
+      : resolvedPromptHash === oldestContractPromptHash
+        ? 14
+        : resolvedPromptHash === olderContractPromptHash
+          ? 15
+          : resolvedPromptHash === priorContractPromptHash
+            ? 16
+            : resolvedPromptHash === previousContractPromptHash
+              ? 17
+              : 18;
     const html = generated?.html ?? existingHtml;
+    const generationMetrics = preserveDirectArtifactGenerationMetrics(generated, existingMetadata);
+    const resolvedBuilderProvider = generated ? builder.provider : existingMetadata.builderProvider ?? builder.provider;
+    const resolvedBuilderModel = generated ? model : existingMetadata.builderModel ?? model;
     const designArtifactHash = crypto.createHash("sha256").update(JSON.stringify(activity.designArtifact)).digest("hex");
     const htmlHash = crypto.createHash("sha256").update(html).digest("hex");
     fs.writeFileSync(metadataPath, `${JSON.stringify({
@@ -2377,14 +2508,12 @@ export async function generateDirectArtifacts(input: {
       creatorContractVersion: resolvedCreatorContractVersion,
       plannerModel,
       architectModel,
-      builderProvider: builder.provider,
-      builderModel: model,
+      builderProvider: resolvedBuilderProvider,
+      builderModel: resolvedBuilderModel,
       thumbnailUrl: thumbnailByNodeId.get(activity.id),
       htmlHash,
       externalLibraryUrls: externalLibraryUrls(html),
-      generationElapsedMs: generated?.elapsedMs ?? 0,
-      inputTokens: generated?.inputTokens ?? 0,
-      outputTokens: generated?.outputTokens ?? 0,
+      ...generationMetrics,
     }, null, 2)}\n`, "utf8");
     if (generated) console.log(`  ✓ ${activity.id} [${builder.provider}/${model}] saved ${Math.round(generated.elapsedMs / 1000)}s`);
     return {
@@ -2400,15 +2529,13 @@ export async function generateDirectArtifacts(input: {
       plannerModel,
       creatorModel: model,
       architectModel,
-      builderProvider: builder.provider,
-      builderModel: model,
+      builderProvider: resolvedBuilderProvider,
+      builderModel: resolvedBuilderModel,
       academicContractHash: activity.designArtifact?.academicContractHash,
       designArtifactHash,
       htmlHash,
       externalLibraryUrls: externalLibraryUrls(html),
-      generationElapsedMs: generated?.elapsedMs ?? 0,
-      inputTokens: generated?.inputTokens ?? 0,
-      outputTokens: generated?.outputTokens ?? 0,
+      ...generationMetrics,
     };
   });
   const artifacts = activityBuild.results.filter((artifact): artifact is DirectArtifact => Boolean(artifact));
@@ -2494,7 +2621,7 @@ export async function runDirectBrowserSmokeCheck(input: {
   if (screenshotDir) fs.mkdirSync(screenshotDir, { recursive: true });
   try {
     for (const artifact of input.artifacts) {
-      const page = await browser.newPage({ viewport: { width: 1365, height: 768 } });
+      const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
       const pageErrors: string[] = [];
       page.on("pageerror", (error) => pageErrors.push(error.message));
       await page.addInitScript(`window.__sunnyMessages=[];window.addEventListener("message",event=>window.__sunnyMessages.push(event.data));`);
@@ -2529,6 +2656,8 @@ export async function runDirectBrowserSmokeCheck(input: {
         clipped: boolean;
         horizontalOverflow: boolean;
       }>(`(() => {
+        const htmlStyle = getComputedStyle(document.documentElement);
+        const bodyStyle = getComputedStyle(document.body);
         const interactive = [...document.querySelectorAll(
           "button:not([disabled]),input:not([disabled]),select:not([disabled]),[role=button]:not([aria-disabled=true])"
         )].filter((element) => {
@@ -2542,7 +2671,8 @@ export async function runDirectBrowserSmokeCheck(input: {
             const rect = element.getBoundingClientRect();
             return rect.left < 0 || rect.top < 0 || rect.right > innerWidth || rect.bottom > innerHeight;
           }),
-          horizontalOverflow: document.documentElement.scrollWidth > innerWidth + 2,
+          horizontalOverflow: document.documentElement.scrollWidth > innerWidth + 2
+            && htmlStyle.overflowX !== "hidden" && bodyStyle.overflowX !== "hidden",
         };
       })()`);
       if (viewportCheck.interactiveCount === 0) failures.push(`${artifact.nodeId}:first_action_not_visible`);
@@ -2553,6 +2683,24 @@ export async function runDirectBrowserSmokeCheck(input: {
         await page.screenshot({ path: screenshotPath, fullPage: false })
           .then(() => screenshots.push(screenshotPath))
           .catch((error) => console.warn(` 🎮 [direct-taste] [screenshot-unavailable] node=${artifact.nodeId} reason=${error instanceof Error ? error.message : String(error)}`));
+      }
+      const playthrough = await page.evaluate<{ used: boolean; error?: string }>(`(async () => {
+        const hook = window.SUNNY_VALIDATION_HOOKS && window.SUNNY_VALIDATION_HOOKS.playthrough;
+        if (typeof hook !== "function") return { used: false };
+        try {
+          await Promise.race([
+            hook({ words: [] }),
+            new Promise((_, reject) => setTimeout(() => reject(new Error("playthrough_timeout")), 10000)),
+          ]);
+          return { used: true };
+        } catch (error) {
+          return { used: true, error: String(error && error.message ? error.message : error) };
+        }
+      })()`);
+      if (playthrough.error) failures.push(`${artifact.nodeId}:playthrough_error:${playthrough.error}`);
+      if (playthrough.used) {
+        const completed = await page.evaluate<boolean>(`window.__sunnyMessages.some(message=>message?.type==='node_complete')`);
+        if (!completed) failures.push(`${artifact.nodeId}:playthrough_completion_missing`);
       }
       pageErrors.forEach((error) => failures.push(`${artifact.nodeId}:browser_error:${error}`));
       await page.close();
@@ -2895,6 +3043,7 @@ export function persistDirectExperience(input: {
   const homeworkPath = path.join(contextDir, "homework", "current.json");
   const profilePath = path.join(contextDir, "learning_profile.json");
   const cyclePath = path.join(contextDir, "homework", "cycles", `${input.homeworkId}.json`);
+  const contentCatalogPath = path.join(contextDir, "content_catalog.json");
   const ledgerEntry = {
     childId: input.childId,
     homeworkId: input.homeworkId,
@@ -2911,7 +3060,7 @@ export function persistDirectExperience(input: {
     ingestedAt: now,
   };
   const ledgerPath = assignmentLedgerPath(ledgerEntry, { rootDir });
-  const publicationPaths = [directPath, planPath, homeworkPath, profilePath, cyclePath, ledgerPath];
+  const publicationPaths = [directPath, planPath, homeworkPath, profilePath, contentCatalogPath, cyclePath, ledgerPath];
   const beforePublication = new Map(publicationPaths.map((file) => [
     file,
     fs.existsSync(file) ? fs.readFileSync(file) : null,
@@ -2973,7 +3122,16 @@ export function persistDirectExperience(input: {
   const profile = JSON.parse(fs.readFileSync(profilePath, "utf8"));
   profile.pendingHomework = pending;
   profile.activeSessionPlan = input.activeSessionPlan;
-  const existingCatalog = Array.isArray(profile.aiContentCatalog) ? profile.aiContentCatalog as AIContentCatalogItem[] : [];
+  let sharedCatalog: AIContentCatalogItem[] = [];
+  try {
+    const shared = JSON.parse(fs.readFileSync(contentCatalogPath, "utf8")) as { items?: AIContentCatalogItem[] };
+    sharedCatalog = Array.isArray(shared.items) ? shared.items : [];
+  } catch {
+    sharedCatalog = [];
+  }
+  const profileCatalog = Array.isArray(profile.aiContentCatalog) ? profile.aiContentCatalog as AIContentCatalogItem[] : [];
+  const existingById = new Map([...sharedCatalog, ...profileCatalog].map((entry) => [entry.contentId, entry]));
+  const existingCatalog = [...existingById.values()];
   const publishedEntries: AIContentCatalogItem[] = input.plannerPlan.activities.map((activity) => {
     const artifact = input.artifacts.find((candidate) => candidate.nodeId === activity.id)!;
     const design = activity.designArtifact;
@@ -3083,6 +3241,7 @@ export function persistDirectExperience(input: {
     ...publishedEntries,
   ];
   fs.writeFileSync(profilePath, `${JSON.stringify(profile, null, 2)}\n`, "utf8");
+  writeWaterfallContentCatalog(input.childId, profile, { rootDir });
   return directPath;
   } catch (error) {
     for (const [file, previous] of beforePublication) {

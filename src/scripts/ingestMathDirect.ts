@@ -23,6 +23,7 @@ import {
   type DirectLearningExperiencePlan,
   type MathDesignCheckpoint,
   mathDesignHasRoutePresentationBindings,
+  mathPlannerCandidateCards,
   type MathDesignPacket,
 } from "../engine/directMathExperience";
 import { readDirectFeedbackContext } from "../engine/directExperienceFeedback";
@@ -123,6 +124,16 @@ export function formatIngestionSummary(input: {
     `Checkpoint: ${input.checkpoint}`,
     "Start session: npm run sunny → Start child session",
   ].join("\n");
+}
+
+export function currentRunBuildTokens(
+  artifacts: Array<Pick<DirectArtifact, "nodeId" | "inputTokens" | "outputTokens">>,
+  generatedNodeIds: string[],
+): number {
+  const generated = new Set(generatedNodeIds);
+  return artifacts
+    .filter((artifact) => generated.has(artifact.nodeId))
+    .reduce((sum, artifact) => sum + (artifact.inputTokens ?? 0) + (artifact.outputTokens ?? 0), 0);
 }
 
 export async function withIngestionHeartbeat<T>(
@@ -264,6 +275,7 @@ async function main(): Promise<void> {
     plannerModel: process.env.SUNNY_PLANNER_MODEL ?? "claude-opus-5",
     architectModel: process.env.SUNNY_ARCHITECT_MODEL ?? "claude-fable-5",
     assignmentFingerprint: extraction.fileHash,
+    candidateCards: mathPlannerCandidateCards(chart),
     existingArtworkUrls,
     ...(rebuildNodeIds.length > 0 ? { forceNodeIds: rebuildNodeIds } : {}),
   }));
@@ -313,7 +325,7 @@ async function main(): Promise<void> {
     ? designCheckpoint?.attempts.slice(designAttemptsBefore)
       .reduce((sum, attempt) => sum + attempt.inputTokens + attempt.outputTokens, 0) ?? 0
     : 0;
-  const buildTokens = generated.artifacts.reduce((sum, artifact) => sum + (artifact.inputTokens ?? 0) + (artifact.outputTokens ?? 0), 0);
+  const buildTokens = currentRunBuildTokens(generated.artifacts, generated.stats.generatedNodeIds);
   const plannerDiagnostic = fs.existsSync(plannerDiagnosticFile)
     ? readJson<{ usage?: { input_tokens?: number; output_tokens?: number } }>(plannerDiagnosticFile)
     : {};

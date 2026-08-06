@@ -10,6 +10,8 @@ import {
   boardPosition,
   buildDirectActiveSessionPlan,
   buildDirectActivityCreatorPrompt,
+  createDirectBoardThumbnailFilename,
+  createDirectBoardBackgroundPrompt,
   createDirectBoardThumbnailPrompt,
   buildAdaptiveProgressionCreatorPrompt,
   buildMathCreativeChildContext,
@@ -25,10 +27,41 @@ import {
   shouldReuseDirectArtifact,
   normalizeGeneratedHtml,
   mathAcademicContractHash,
+  mathPlannerChartContext,
   mapConcurrentSettled,
   mergeActiveDomainProjection,
+  preserveDirectArtifactGenerationMetrics,
   readOpenAiResponseStream,
 } from "./directMathExperience";
+
+describe("math Planner evidence doorway", () => {
+  it("projects factual engagement evidence into the exact Planner-facing chart context", () => {
+    const context = mathPlannerChartContext({
+      identity: { displayName: "Reina", ttsName: "Ray-na" },
+      demographics: { age: 9, grade: 3 },
+      learningProfile: { sessionStats: {} },
+      engagementTheory: {
+        evidence: [{
+          id: "choice_event_modal_1",
+          source: "choice_event",
+          summary: "Rated the visual puzzle 5/5 after completion.",
+          weight: 1,
+          createdAt: "2026-08-05T14:00:00.000Z",
+        }],
+        dimensions: {},
+      },
+      factBankSummary: { totalFacts: 0, dueFacts: 0 },
+      decisionTrace: { latest: null },
+      learningHistory: {},
+      companionCare: { plan: { economy: { coins: 0 } } },
+      economy: { coinBalance: 0 },
+    } as never) as { engagementEvidence?: { evidence?: Array<{ id?: string }> } };
+
+    expect(context.engagementEvidence?.evidence).toEqual(
+      expect.arrayContaining([expect.objectContaining({ id: "choice_event_modal_1" })]),
+    );
+  });
+});
 
 describe("math publication domain preservation", () => {
   it("replaces only math while preserving spelling, reading, and science", () => {
@@ -106,6 +139,36 @@ describe("math publication assumption ledger", () => {
     const ledgers = fs.readdirSync(path.join(contextDir, "assumptions"));
     expect(ledgers).toHaveLength(1);
     expect(ledgers[0]).toMatch(/hw-math-ledger-pre\.md$/);
+  });
+
+  it("publishes Math candidates into the shared catalog without removing Spelling", () => {
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-publish-catalog-"));
+    const contextDir = path.join(rootDir, "src/context/reina");
+    fs.mkdirSync(contextDir, { recursive: true });
+    const spelling = {
+      contentId: "hw-spelling:spell-check",
+      childId: "reina",
+      type: "quiz",
+      source: "baseline",
+      title: "Spell Check",
+      domain: "spelling",
+      algorithmTargets: ["retrieval-practice"],
+      targetSkills: ["spell_from_memory"],
+      targetConcepts: [],
+      targetWords: ["knock"],
+      engagementHooks: [],
+      inputEvidence: {},
+      reuseStatus: "candidate",
+      reuseReason: "Awaiting evidence.",
+    };
+    fs.writeFileSync(path.join(contextDir, "learning_profile.json"), `${JSON.stringify({ aiContentCatalog: [spelling] })}\n`);
+    fs.writeFileSync(path.join(contextDir, "content_catalog.json"), `${JSON.stringify({ version: 1, childId: "reina", items: [spelling] })}\n`);
+
+    persistDirectExperience(publicationInput(rootDir));
+
+    const shared = JSON.parse(fs.readFileSync(path.join(contextDir, "content_catalog.json"), "utf8")) as { items: Array<{ contentId: string; domain?: string }> };
+    expect(shared.items.some((item) => item.contentId === spelling.contentId)).toBe(true);
+    expect(shared.items.filter((item) => item.domain === "math")).toHaveLength(2);
   });
 
   it("rolls back the ledger when publication fails", () => {
@@ -581,7 +644,7 @@ describe("direct math experience", () => {
 
     expect(create).not.toHaveBeenCalled();
     expect(stream.mock.calls[0]?.[0]).toMatchObject({
-      max_tokens: 32000,
+      max_tokens: 48000,
       thinking: { type: "adaptive" },
       output_config: { effort: "high" },
     });
@@ -610,6 +673,21 @@ describe("direct math experience", () => {
     expect(prompt).toContain("Do not emit activity_ready while the opening is empty");
     expect(prompt).toContain("first meaningful action must already be rendered, enabled, and visually obvious");
     expect(prompt).toContain("high-contrast text and controls");
+  });
+
+  it("requires a child-visible playthrough of every response mode through the final item", () => {
+    const prompt = buildDirectActivityCreatorPrompt({
+      activity: plan(2).activities[0],
+      artworkUrl: "/generated/math.png",
+      childId: "reina",
+    });
+
+    expect(prompt).toContain("replace the previous item's controls");
+    expect(prompt).toContain("including the final item");
+    expect(prompt).toContain("window.SUNNY_VALIDATION_HOOKS");
+    expect(prompt).toContain("same handlers as the visible child controls");
+    expect(prompt).toContain("measure the bounding rectangle of every enabled child control");
+    expect(prompt).toContain("1280×720 embedded frame");
   });
 
   it("blocks an invalid Planner response without starting an AI repair loop", async () => {
@@ -767,8 +845,8 @@ describe("direct math experience", () => {
     expect(source).toContain("Every responsibility, route, activity, item, assumption, and selection option has a non-empty stable ID");
     expect(source).not.toContain("math.multiplication.equal_groups");
     expect(source).not.toContain("calibrated_mastery\"}");
-    expect(source).toContain("SUNNY_PLANNER_MAX_TOKENS ?? 20000");
-    expect(source).toContain("SUNNY_GENERATION_MAX_TOKENS ?? 32000");
+    expect(source).toContain("SUNNY_PLANNER_MAX_TOKENS ?? 32000");
+    expect(source).toContain("SUNNY_GENERATION_MAX_TOKENS ?? 48000");
   });
 
   it("covers each responsibility across the board without duplicating it on every route", () => {
@@ -989,6 +1067,7 @@ describe("direct math experience", () => {
     expect(prompt).toContain("currentChallenge");
     expect(prompt).toContain("Never expose answers");
     expect(prompt).toContain('type:"progress_event"');
+    expect(prompt).toContain("After the final submission, completion state must not read the next item");
   });
 
   it("gives the math Planner factual engagement evidence without inherited creative directives", async () => {
@@ -1107,6 +1186,17 @@ describe("direct math experience", () => {
     expect(creator).not.toContain("generation-retry");
   });
 
+  it("hashes the exact catalog HTML that was copied into the target node", () => {
+    const source = fs.readFileSync(path.join(process.cwd(), "src/engine/directMathExperience.ts"), "utf8");
+    const generation = source.slice(
+      source.indexOf("export async function generateDirectArtifacts"),
+      source.indexOf("export function persistDirectExperience"),
+    );
+    expect(generation).toContain("existingHtml = sourceHtml");
+    expect(generation).toContain("const html = generated?.html ?? existingHtml");
+    expect(generation).toContain('update(html).digest("hex")');
+  });
+
   it("gives full activity builders the same ten-minute provider window as planning and design", () => {
     const source = fs.readFileSync(path.join(process.cwd(), "src/engine/directMathExperience.ts"), "utf8");
     const builder = source.slice(source.indexOf("async function generateActivityHtml"), source.indexOf("async function mapConcurrent"));
@@ -1140,11 +1230,34 @@ describe("direct math experience", () => {
     expect(creator).toContain("stream: true");
   });
 
-  it("keeps ingestion validation to an opening browser smoke check", () => {
+  it("reports an incomplete OpenAI stream with its provider stop reason", async () => {
+    const encoder = new TextEncoder();
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(encoder.encode(
+          'data: {"type":"response.output_text.delta","delta":"<!doctype html><html>"}\n\n',
+        ));
+        controller.enqueue(encoder.encode(
+          'data: {"type":"response.incomplete","response":{"status":"incomplete","incomplete_details":{"reason":"max_output_tokens"},"usage":{"input_tokens":100,"output_tokens":32000}}}\n\n',
+        ));
+        controller.close();
+      },
+    });
+
+    await expect(readOpenAiResponseStream(new Response(body))).resolves.toMatchObject({
+      stopReason: "max_output_tokens",
+      inputTokens: 100,
+      outputTokens: 32000,
+    });
+  });
+
+  it("keeps ingestion validation bounded while exercising an available child-visible playthrough", () => {
     const source = fs.readFileSync(path.join(process.cwd(), "src/engine/directMathExperience.ts"), "utf8");
     expect(source).toContain("NODE_REGISTRY");
     expect(source).toContain("activity_ready");
     expect(source).toContain("pageErrors");
+    expect(source).toContain("SUNNY_VALIDATION_HOOKS");
+    expect(source).toContain("playthrough_completion_missing");
     for (const removed of [
       "directArtifactContractFailures",
       "repairDirectArtifactsOnce",
@@ -1153,6 +1266,8 @@ describe("direct math experience", () => {
     expect(source).not.toContain("qa_visible_control_missing");
     expect(source).toContain("first_action_not_visible");
     expect(source).toContain("primary_control_clipped");
+    expect(source).toContain("{ width: 1280, height: 720 }");
+    expect(source).toContain('htmlStyle.overflowX !== "hidden" && bodyStyle.overflowX !== "hidden"');
     expect(source).not.toContain("Published after Playwright runtime verification");
     expect(source).toContain("Published after a non-blocking opening browser smoke check");
   });
@@ -1182,6 +1297,33 @@ describe("direct math experience", () => {
     expect(generation).toContain("fs.writeFileSync(metadataPath");
     expect(generation.indexOf("fs.writeFileSync(htmlPath")).toBeLessThan(generation.indexOf("fs.writeFileSync(metadataPath"));
     expect(source).toContain("const isContinuation = Boolean(checkpoint.boardCreativeSpine)");
+  });
+
+  it("preserves original paid generation metrics when an artifact is reused", () => {
+    expect(preserveDirectArtifactGenerationMetrics(undefined, {
+      generationElapsedMs: 321_000,
+      inputTokens: 6_000,
+      outputTokens: 18_000,
+    })).toEqual({
+      generationElapsedMs: 321_000,
+      inputTokens: 6_000,
+      outputTokens: 18_000,
+    });
+
+    expect(preserveDirectArtifactGenerationMetrics({
+      html: "<!doctype html><html></html>",
+      elapsedMs: 10_000,
+      inputTokens: 100,
+      outputTokens: 200,
+    }, {
+      generationElapsedMs: 321_000,
+      inputTokens: 6_000,
+      outputTokens: 18_000,
+    })).toEqual({
+      generationElapsedMs: 10_000,
+      inputTokens: 100,
+      outputTokens: 200,
+    });
   });
 
   it("defers the optional bonus instead of building it during baseline ingestion", () => {
@@ -1589,5 +1731,29 @@ describe("direct math experience", () => {
     expect(prompt).toContain("cropped into a small circle");
     expect(prompt).toContain("Do not include words, letters, numbers, equations");
     expect(prompt).toContain("not an activity screenshot");
+  });
+
+  it("turns creative board direction into scenery-only artwork", () => {
+    const prompt = createDirectBoardBackgroundPrompt(
+      "A warm clocktower map. All text uses a rounded face and every prompt has a speaker icon that reads it aloud.",
+    );
+
+    expect(prompt).toContain("A warm clocktower map");
+    expect(prompt).toContain("scenery only");
+    expect(prompt).toContain("Do not include words, letters, numbers");
+  });
+
+  it("content-versions thumbnail filenames so replacement art cannot stay browser-cached", () => {
+    const activity = plan(2).activities[0];
+    const first = createDirectBoardThumbnailFilename("hw-math-cache", activity);
+    const repeated = createDirectBoardThumbnailFilename("hw-math-cache", activity);
+    const revised = createDirectBoardThumbnailFilename("hw-math-cache", {
+      ...activity,
+      title: `${activity.title} revised`,
+    });
+
+    expect(first).toBe(repeated);
+    expect(first).toMatch(/^hw-math-cache-activity-1-thumbnail-[a-f0-9]{12}\.jpeg$/);
+    expect(revised).not.toBe(first);
   });
 });

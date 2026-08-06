@@ -30,6 +30,252 @@ import {
   recordLearningCycleCalibration,
   type LearningCycleRecordV2,
 } from "./learningCycleRepository";
+import { listActivityToolContracts, type LearningDomain } from "./activityToolCatalog";
+
+export type PlannerContentCandidateCard = {
+  contentId: string;
+  source: "instrument" | AIContentCatalogItem["source"];
+  title: string;
+  domain: string;
+  academicResponsibility: string;
+  domainCapabilities: {
+    math?: {
+      constructs: string[];
+      representations: string[];
+      responseModes: string[];
+      supportsTransfer: boolean;
+      supportsSynthesis: boolean;
+    };
+    spelling?: {
+      recognition: boolean;
+      production: boolean;
+      phonology: boolean;
+      pronunciation: boolean;
+      recall: boolean;
+      wordPatterns: boolean;
+    };
+  };
+  runtime: {
+    status: "verified" | "registered_unverified" | "unavailable" | "failed";
+    launchPath?: string;
+    reason: string;
+  };
+  childEvidence: {
+    plays?: number;
+    completions?: number;
+    completionRate?: number;
+    averageAccuracy?: number;
+    assistanceCount?: number;
+    replayCount?: number;
+    frustrationScore?: number;
+    engagementScore?: number;
+    likedCount?: number;
+    dislikedCount?: number;
+    lastRating?: "like" | "dislike" | "implicit";
+    evidenceIds: string[];
+    evidenceCount: number;
+  };
+  hashes: {
+    academicContractHash?: string;
+    designArtifactHash?: string;
+    implementationPromptHash?: string;
+    htmlHash?: string;
+  };
+  catalogStatus?: AIContentCatalogItem["reuseStatus"];
+  decisionCosts: {
+    reuse: { eligible: boolean; estimatedModelCalls: number; estimatedLatencyMs: number | null };
+    revise: { eligible: boolean; estimatedModelCalls: number; estimatedLatencyMs: number | null };
+    generateNew: { eligible: true; estimatedModelCalls: number; estimatedLatencyMs: number | null };
+  };
+  uncertainty: { evidenceCount: number; confidence: number; note: string };
+};
+
+function spellingCapabilities(skillTargets: string[], measures: string[]): NonNullable<PlannerContentCandidateCard["domainCapabilities"]["spelling"]> {
+  const text = [...skillTargets, ...measures].join(" ").toLowerCase();
+  return {
+    recognition: /recognition|recognize|read/.test(text),
+    production: /spell_from_memory|spelling construction|produce|typing/.test(text),
+    phonology: /phonolog|sound|auditory/.test(text),
+    pronunciation: /pronounc|speech/.test(text),
+    recall: /recall|retrieval|hidden|produce/.test(text),
+    wordPatterns: /pattern|letter-order|silent/.test(text),
+  };
+}
+
+function mathCapabilities(skillTargets: string[], measures: string[], inputModes: string[]): NonNullable<PlannerContentCandidateCard["domainCapabilities"]["math"]> {
+  const text = [...skillTargets, ...measures].join(" ");
+  return {
+    constructs: [...new Set([...skillTargets, ...measures])],
+    representations: [...new Set(inputModes)],
+    responseModes: [...new Set(inputModes)],
+    supportsTransfer: /transfer|varied|fresh|word problem/i.test(text),
+    supportsSynthesis: /synthesis|explain|construct|compose/i.test(text),
+  };
+}
+
+function confidenceFromEvidenceCount(count: number): number {
+  if (count <= 0) return 0;
+  return Math.min(0.9, Number((count / (count + 4)).toFixed(2)));
+}
+
+/**
+ * One factual candidate-card protocol for every Planner. Domain capabilities
+ * differ; the decision vocabulary and evidence boundaries do not.
+ */
+export function buildPlannerContentCandidateCards(input: {
+  chart: ChildChart;
+  domain: LearningDomain;
+}): PlannerContentCandidateCard[] {
+  const activityModel = input.chart.learningProfile?.activityModel ?? {};
+  const instrumentCards = listActivityToolContracts()
+    .filter((contract) => contract.domains.includes(input.domain))
+    .map((contract): PlannerContentCandidateCard => {
+      const evidence = activityModel[contract.id];
+      const evidenceCount = evidence?.plays ?? 0;
+      const registered = Boolean(contract.nodeType);
+      const spelling = contract.domains.includes("spelling")
+        ? spellingCapabilities(contract.traits.skillTargets, contract.measures)
+        : undefined;
+      const math = contract.domains.includes("math")
+        ? mathCapabilities(contract.traits.skillTargets, contract.measures, contract.traits.inputModes)
+        : undefined;
+      return {
+        contentId: `instrument:${contract.id}`,
+        source: "instrument",
+        title: contract.label,
+        domain: input.domain,
+        academicResponsibility: contract.measures.join(" "),
+        domainCapabilities: { ...(math ? { math } : {}), ...(spelling ? { spelling } : {}) },
+        runtime: registered
+          ? {
+              status: "registered_unverified",
+              reason: "Registered in Sunny, but this candidate has no assignment-specific frozen contract and verified artifact hash.",
+            }
+          : { status: "unavailable", reason: "No launchable runtime is registered." },
+        childEvidence: {
+          ...(evidence ? {
+            plays: evidence.plays,
+            completions: evidence.completions,
+            completionRate: evidence.completionRate,
+            frustrationScore: evidence.frustrationScore,
+            engagementScore: evidence.engagementScore,
+            likedCount: evidence.likedCount,
+            dislikedCount: evidence.dislikedCount,
+            lastRating: evidence.lastRating,
+          } : {}),
+          evidenceIds: [],
+          evidenceCount,
+        },
+        hashes: {},
+        decisionCosts: {
+          reuse: { eligible: false, estimatedModelCalls: 0, estimatedLatencyMs: 0 },
+          revise: { eligible: registered, estimatedModelCalls: 1, estimatedLatencyMs: null },
+          generateNew: { eligible: true, estimatedModelCalls: 2, estimatedLatencyMs: null },
+        },
+        uncertainty: {
+          evidenceCount,
+          confidence: confidenceFromEvidenceCount(evidenceCount),
+          note: evidenceCount ? "Sparse factual child history; interpret with uncertainty." : "No real child evidence for this instrument.",
+        },
+      };
+    });
+
+  const historicalCards = (input.chart.contentCatalog?.items ?? [])
+    .filter((item) => item.domain === input.domain)
+    .map((item): PlannerContentCandidateCard => {
+      const modelEvidence = item.activityId ? activityModel[item.activityId] : undefined;
+      const evidenceIds = item.designMemory?.childEvidenceIds ?? item.inputEvidence.activityEvidenceIds ?? [];
+      const plays = item.performanceSummary?.plays ?? modelEvidence?.plays ?? 0;
+      const completions = modelEvidence?.completions ?? Math.round((item.performanceSummary?.completionRate ?? 0) * plays);
+      const htmlExists = Boolean(item.gameHtmlPath && fs.existsSync(item.gameHtmlPath));
+      const verified = htmlExists && item.reuseStatus !== "retire" && item.validationStatus !== "failed";
+      const evidenceCount = Math.max(plays, evidenceIds.length);
+      const skills = [...item.targetSkills, ...(item.skillTarget ? [item.skillTarget] : [])];
+      return {
+        contentId: item.contentId,
+        source: item.source,
+        title: item.title,
+        domain: item.domain ?? input.domain,
+        academicResponsibility: item.designMemory?.academicResponsibility ?? item.skillTarget ?? skills.join(" "),
+        domainCapabilities: {
+          ...(input.domain === "math" ? { math: mathCapabilities(skills, item.targetConcepts, []) } : {}),
+          ...(input.domain === "spelling" ? { spelling: spellingCapabilities(skills, item.targetConcepts) } : {}),
+        },
+        runtime: verified
+          ? { status: "verified", launchPath: item.gameHtmlPath, reason: "Saved artifact exists and is not failed or retired." }
+          : item.validationStatus === "failed"
+            ? { status: "failed", ...(item.gameHtmlPath ? { launchPath: item.gameHtmlPath } : {}), reason: "Recorded validation failed." }
+            : { status: "unavailable", ...(item.gameHtmlPath ? { launchPath: item.gameHtmlPath } : {}), reason: "No complete saved launch artifact is available." },
+        childEvidence: {
+          plays,
+          completions,
+          completionRate: item.performanceSummary?.completionRate ?? modelEvidence?.completionRate,
+          ...(evidenceIds.length > 0
+            ? { averageAccuracy: item.performanceSummary?.averageAccuracy }
+            : {}),
+          frustrationScore: item.performanceSummary?.frustrationScore ?? modelEvidence?.frustrationScore,
+          engagementScore: item.performanceSummary?.engagementScore ?? modelEvidence?.engagementScore,
+          likedCount: modelEvidence?.likedCount,
+          dislikedCount: modelEvidence?.dislikedCount,
+          lastRating: modelEvidence?.lastRating,
+          evidenceIds,
+          evidenceCount,
+        },
+        hashes: {
+          academicContractHash: item.designMemory?.academicContractHash,
+          designArtifactHash: item.designMemory?.artifactHash,
+          implementationPromptHash: item.designMemory?.implementationPromptHash,
+          htmlHash: item.designMemory?.generatedHtmlHash,
+        },
+        catalogStatus: item.reuseStatus,
+        decisionCosts: {
+          reuse: { eligible: verified && Boolean(item.designMemory?.academicContractHash), estimatedModelCalls: 0, estimatedLatencyMs: 0 },
+          revise: { eligible: verified && Boolean(item.designMemory?.artifactHash), estimatedModelCalls: 1, estimatedLatencyMs: null },
+          generateNew: { eligible: true, estimatedModelCalls: 2, estimatedLatencyMs: null },
+        },
+        uncertainty: {
+          evidenceCount,
+          confidence: confidenceFromEvidenceCount(evidenceCount),
+          note: evidenceCount ? "Factual outcomes are limited to the listed evidence." : "No real child outcome evidence; treat reuse value as uncertain.",
+        },
+      };
+    });
+
+  return [...historicalCards, ...instrumentCards];
+}
+
+export function resolveExactMathCatalogReuse(input: {
+  decision: { action: string; contentId?: string; reason?: string };
+  targetNodeId: string;
+  academicContractHash: string;
+  cards: PlannerContentCandidateCard[];
+}): PlannerContentCandidateCard | null {
+  if (input.decision.action !== "reuse" || !input.decision.contentId) return null;
+  const card = input.cards.find((candidate) => candidate.contentId === input.decision.contentId);
+  if (!card || card.runtime.status !== "verified" || !card.runtime.launchPath || !card.decisionCosts.reuse.eligible) return null;
+  if (card.hashes.academicContractHash !== input.academicContractHash) return null;
+  if (!fs.existsSync(card.runtime.launchPath)) return null;
+  const html = fs.readFileSync(card.runtime.launchPath, "utf8");
+  if (!/<html[\s>]/i.test(html) || !/node_complete|sendNodeComplete/i.test(html)) return null;
+  const metadataPath = card.runtime.launchPath.replace(/\.html$/i, ".artifact.json");
+  if (!fs.existsSync(metadataPath)) return null;
+  try {
+    const metadata = JSON.parse(fs.readFileSync(metadataPath, "utf8")) as {
+      nodeId?: string;
+      academicContractHash?: string;
+      htmlHash?: string;
+    };
+    if (metadata.nodeId !== input.targetNodeId) return null;
+    if (metadata.academicContractHash !== input.academicContractHash) return null;
+    if (metadata.htmlHash) {
+      const actualHash = crypto.createHash("sha256").update(html).digest("hex");
+      if (metadata.htmlHash !== actualHash) return null;
+    }
+  } catch {
+    return null;
+  }
+  return card;
+}
 
 type RootOptions = {
   rootDir?: string;
