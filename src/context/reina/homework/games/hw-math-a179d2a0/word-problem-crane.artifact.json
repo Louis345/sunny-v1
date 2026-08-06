@@ -1,8 +1,0 @@
-{
-  "version": 1,
-  "nodeId": "word-problem-crane",
-  "creatorPrompt": "Build 'Crane Crate Puzzle' using the two exact word problems from the assignment (5 pencils x 4 boxes; 3 rows of 10 stars), one at a time. Show grouped cargo visually matching the problem structure (4 groups of 5 pencil-boxes; 3 rows of 10 stars) fixed near top/center, with a friendly crane holding an empty crate fixed center screen. Present exactly 3 stationary total-answer blocks (data-testid='answer-option') below that the child taps (tap only, no drag) to load the crate. Include 'Show me' demo using a different simple example, and 'Let me try' toggle. Sound toggle visible, audio initializes after first gesture. Wrong tap: buzz, block returns to row, crate stays empty, no penalty. Correct tap: block flies into crate with clunk+glow, crane lifts crate happily, one loaded-crate icon added to a fixed progress shelf. After both problems solved, crane victory dance + music + 'Crane Master' badge. Practice/teaching evidence only, no mastery/unlock claims. Title 'Crane Crate Puzzle' visible in opening viewport with background artwork loaded.",
-  "promptHash": "07e540cfe5d1a2db669156487462480adc392a5379260ee0f6bf89c7a9c76e63",
-  "plannerModel": "claude-sonnet-5",
-  "creatorModel": "claude-sonnet-5"
-}

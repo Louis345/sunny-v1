@@ -1,492 +1,968 @@
 {
   "version": 1,
   "childId": "reina",
-  "selectedDomain": "math",
+  "selectedDomain": "spelling",
   "current": {
-    "weekOf": "2026-07-17",
-    "testDate": null,
-    "returnTag": "#sunny_reina_hw-math-a179d2a0",
-    "wordList": [],
+    "weekOf": "2026-05-27",
+    "testDate": "2026-05-29",
+    "testDateSource": "cli",
+    "testDateConfirmed": true,
+    "returnTag": "#sunny_reina_hw_spelling_test_6727f1c8",
+    "wordList": [
+      "sign",
+      "know",
+      "write",
+      "among",
+      "building",
+      "circle"
+    ],
     "contentProfile": {
-      "practiceDomain": "math",
-      "topic": "Reina's Multiplication Facts Adventure: x2, x5, x10"
+      "practiceDomain": "spelling",
+      "contentDomain": "language_arts",
+      "topic": "Silent Letters and High-Frequency Word Recognition",
+      "primarySkill": "Orthographic pattern spelling and automatic word recognition",
+      "assignmentFormat": "Two-group spelling list with pattern focus and high-frequency recognition",
+      "concepts": [
+        "Silent letter patterns (kn-, -gn, wr-)",
+        "High-frequency word automaticity",
+        "Visual orthographic memory"
+      ],
+      "sourceEvidence": [
+        "No explicit cross-domain topic detected.",
+        "Benchmark Advance Unit 9 Week 3",
+        "Teacher-labeled Silent Letters group",
+        "Teacher-labeled High-Frequency Words group"
+      ]
     },
     "capturedContent": {
-      "title": "Reina's Multiplication Facts Adventure: x2, x5, x10",
-      "rawText": "Pashley Grade 3 - Multiplication Facts x2, x5, x10 Name: ____________________ Date: ____________________ Unit 3: Multiplication Facts x2, x5, x10 Fluency: 5 x 2 = __ 5 x 5 = __ 5 x 10 = __ 2 x 7 = __ 10 x 4 = __ Word Problems: Mrs. K puts 5 pencils in each of 4 boxes. How many pencils are there in all? There are 3 rows of 10 stars. How many stars are there?"
+      "title": "Benchmark Advance Spelling Unit 9 Week 3",
+      "type": "spelling_test",
+      "rawText": "Benchmark Advance Spelling\nUnit 9 Week 3\nSilent Letters\nsign\nknow\nwrite\nHigh-Frequency Words\namong\nbuilding\ncircle",
+      "words": [
+        "sign",
+        "know",
+        "write",
+        "among",
+        "building",
+        "circle"
+      ],
+      "homeworkWords": [
+        {
+          "homeworkWordId": "benchmark-advance-spelling-unit-9-week-3:silent_letters:sign:0",
+          "text": "sign",
+          "normalizedText": "sign",
+          "wordGroupId": "silent_letters",
+          "purpose": "spell_from_memory",
+          "positionIndex": 0
+        },
+        {
+          "homeworkWordId": "benchmark-advance-spelling-unit-9-week-3:silent_letters:know:1",
+          "text": "know",
+          "normalizedText": "know",
+          "wordGroupId": "silent_letters",
+          "purpose": "spell_from_memory",
+          "positionIndex": 1
+        },
+        {
+          "homeworkWordId": "benchmark-advance-spelling-unit-9-week-3:silent_letters:write:2",
+          "text": "write",
+          "normalizedText": "write",
+          "wordGroupId": "silent_letters",
+          "purpose": "spell_from_memory",
+          "positionIndex": 2
+        },
+        {
+          "homeworkWordId": "benchmark-advance-spelling-unit-9-week-3:high_frequency:among:3",
+          "text": "among",
+          "normalizedText": "among",
+          "wordGroupId": "high_frequency",
+          "purpose": "recognize",
+          "positionIndex": 3
+        },
+        {
+          "homeworkWordId": "benchmark-advance-spelling-unit-9-week-3:high_frequency:building:4",
+          "text": "building",
+          "normalizedText": "building",
+          "wordGroupId": "high_frequency",
+          "purpose": "recognize",
+          "positionIndex": 4
+        },
+        {
+          "homeworkWordId": "benchmark-advance-spelling-unit-9-week-3:high_frequency:circle:5",
+          "text": "circle",
+          "normalizedText": "circle",
+          "wordGroupId": "high_frequency",
+          "purpose": "recognize",
+          "positionIndex": 5
+        }
+      ],
+      "questions": [],
+      "wordGroups": [
+        {
+          "id": "silent_letters",
+          "label": "Silent Letters",
+          "purpose": "spell_from_memory",
+          "words": [
+            "sign",
+            "know",
+            "write"
+          ],
+          "confidence": 0.95,
+          "evidence": [
+            "Teacher heading 'Silent Letters' indicates orthographic pattern focus",
+            "Benchmark Advance curriculum treats pattern lists as spelling production targets",
+            "Unit 9 Week 3 scope suggests grade-level spelling construction expectation"
+          ],
+          "wordGroupId": "silent_letters",
+          "homeworkWordIds": [
+            "benchmark-advance-spelling-unit-9-week-3:silent_letters:sign:0",
+            "benchmark-advance-spelling-unit-9-week-3:silent_letters:know:1",
+            "benchmark-advance-spelling-unit-9-week-3:silent_letters:write:2"
+          ]
+        },
+        {
+          "id": "high_frequency",
+          "label": "High-Frequency Words",
+          "purpose": "recognize",
+          "words": [
+            "among",
+            "building",
+            "circle"
+          ],
+          "confidence": 0.9,
+          "evidence": [
+            "Teacher heading 'High-Frequency Words' distinguishes this group from spelling pattern work",
+            "High-frequency lists in grade 2 typically target automatic recognition and reading fluency",
+            "No orthographic pattern label implies recognition and fluency rather than pattern analysis"
+          ],
+          "wordGroupId": "high_frequency",
+          "homeworkWordIds": [
+            "benchmark-advance-spelling-unit-9-week-3:high_frequency:among:3",
+            "benchmark-advance-spelling-unit-9-week-3:high_frequency:building:4",
+            "benchmark-advance-spelling-unit-9-week-3:high_frequency:circle:5"
+          ]
+        }
+      ],
+      "assignmentInterpretation": {
+        "schemaVersion": 1,
+        "status": "ready",
+        "wordGroups": [
+          {
+            "id": "silent_letters",
+            "label": "Silent Letters",
+            "purpose": "spell_from_memory",
+            "words": [
+              "sign",
+              "know",
+              "write"
+            ],
+            "confidence": 0.95,
+            "evidence": [
+              "Teacher heading 'Silent Letters' indicates orthographic pattern focus",
+              "Benchmark Advance curriculum treats pattern lists as spelling production targets",
+              "Unit 9 Week 3 scope suggests grade-level spelling construction expectation"
+            ],
+            "wordGroupId": "silent_letters",
+            "homeworkWordIds": [
+              "benchmark-advance-spelling-unit-9-week-3:silent_letters:sign:0",
+              "benchmark-advance-spelling-unit-9-week-3:silent_letters:know:1",
+              "benchmark-advance-spelling-unit-9-week-3:silent_letters:write:2"
+            ]
+          },
+          {
+            "id": "high_frequency",
+            "label": "High-Frequency Words",
+            "purpose": "recognize",
+            "words": [
+              "among",
+              "building",
+              "circle"
+            ],
+            "confidence": 0.9,
+            "evidence": [
+              "Teacher heading 'High-Frequency Words' distinguishes this group from spelling pattern work",
+              "High-frequency lists in grade 2 typically target automatic recognition and reading fluency",
+              "No orthographic pattern label implies recognition and fluency rather than pattern analysis"
+            ],
+            "wordGroupId": "high_frequency",
+            "homeworkWordIds": [
+              "benchmark-advance-spelling-unit-9-week-3:high_frequency:among:3",
+              "benchmark-advance-spelling-unit-9-week-3:high_frequency:building:4",
+              "benchmark-advance-spelling-unit-9-week-3:high_frequency:circle:5"
+            ]
+          }
+        ],
+        "assertions": [
+          {
+            "id": "silent_letters-planner-source",
+            "claim": "Silent Letters was preserved from the assignment planner source truth.",
+            "confidence": 0.95,
+            "evidence": [
+              "Teacher heading 'Silent Letters' indicates orthographic pattern focus",
+              "Benchmark Advance curriculum treats pattern lists as spelling production targets",
+              "Unit 9 Week 3 scope suggests grade-level spelling construction expectation"
+            ]
+          },
+          {
+            "id": "high_frequency-planner-source",
+            "claim": "High-Frequency Words was preserved from the assignment planner source truth.",
+            "confidence": 0.9,
+            "evidence": [
+              "Teacher heading 'High-Frequency Words' distinguishes this group from spelling pattern work",
+              "High-frequency lists in grade 2 typically target automatic recognition and reading fluency",
+              "No orthographic pattern label implies recognition and fluency rather than pattern analysis"
+            ]
+          }
+        ],
+        "selectedTargets": [
+          {
+            "id": "silent_letters",
+            "label": "Silent Letters",
+            "purpose": "spell_from_memory",
+            "words": [
+              "sign",
+              "know",
+              "write"
+            ],
+            "confidence": 0.95,
+            "evidence": [
+              "Teacher heading 'Silent Letters' indicates orthographic pattern focus",
+              "Benchmark Advance curriculum treats pattern lists as spelling production targets",
+              "Unit 9 Week 3 scope suggests grade-level spelling construction expectation"
+            ],
+            "wordGroupId": "silent_letters",
+            "homeworkWordIds": [
+              "benchmark-advance-spelling-unit-9-week-3:silent_letters:sign:0",
+              "benchmark-advance-spelling-unit-9-week-3:silent_letters:know:1",
+              "benchmark-advance-spelling-unit-9-week-3:silent_letters:write:2"
+            ]
+          }
+        ],
+        "heldTargets": [
+          {
+            "id": "high_frequency",
+            "label": "High-Frequency Words",
+            "purpose": "recognize",
+            "words": [
+              "among",
+              "building",
+              "circle"
+            ],
+            "confidence": 0.9,
+            "evidence": [
+              "Teacher heading 'High-Frequency Words' distinguishes this group from spelling pattern work",
+              "High-frequency lists in grade 2 typically target automatic recognition and reading fluency",
+              "No orthographic pattern label implies recognition and fluency rather than pattern analysis"
+            ],
+            "wordGroupId": "high_frequency",
+            "homeworkWordIds": [
+              "benchmark-advance-spelling-unit-9-week-3:high_frequency:among:3",
+              "benchmark-advance-spelling-unit-9-week-3:high_frequency:building:4",
+              "benchmark-advance-spelling-unit-9-week-3:high_frequency:circle:5"
+            ]
+          }
+        ],
+        "clarificationQuestions": [],
+        "reviewRecommendations": [
+          {
+            "id": "confirm-mixed-target-purposes",
+            "severity": "confirm",
+            "reason": "The worksheet has multiple target groups with different purposes; parent review should confirm Sunny's routing before the lesson plan is approved.",
+            "targetGroupIds": [
+              "silent_letters",
+              "high_frequency"
+            ]
+          }
+        ],
+        "humanAnswers": [],
+        "memoryMatches": []
+      },
+      "sourceDocuments": [
+        {
+          "filename": "sunny-reina-spelling-persona-proof.txt",
+          "mediaType": "text/plain"
+        }
+      ],
+      "contentProfile": {
+        "practiceDomain": "spelling",
+        "contentDomain": "language_arts",
+        "topic": "Silent Letters and High-Frequency Word Recognition",
+        "primarySkill": "Orthographic pattern spelling and automatic word recognition",
+        "assignmentFormat": "Two-group spelling list with pattern focus and high-frequency recognition",
+        "concepts": [
+          "Silent letter patterns (kn-, -gn, wr-)",
+          "High-frequency word automaticity",
+          "Visual orthographic memory"
+        ],
+        "sourceEvidence": [
+          "No explicit cross-domain topic detected.",
+          "Benchmark Advance Unit 9 Week 3",
+          "Teacher-labeled Silent Letters group",
+          "Teacher-labeled High-Frequency Words group"
+        ]
+      }
     },
-    "homeworkId": "hw-math-a179d2a0",
-    "generatedAt": "2026-07-17T20:17:02.992Z",
+    "homeworkId": "hw-spelling_test-6727f1c8",
+    "generatedAt": "2026-05-27T19:28:05.817Z",
     "nodes": [
       {
-        "id": "skip-count-glider",
-        "type": "generated-baseline",
-        "activityId": "generated-baseline",
-        "targets": [
-          "q1",
-          "q2",
-          "q3"
+        "id": "baseline-silent-letters-wr",
+        "type": "word-radar",
+        "words": [
+          "sign",
+          "know",
+          "write"
         ],
         "difficulty": 2,
-        "source": "chart_planner",
-        "targetLane": "skip-counting and array grouping for x2, x5, x10 facts",
+        "gameFile": null,
+        "storyFile": null,
         "locked": false,
-        "masteryUnlockState": "unlocked",
-        "title": "Skyglider Skip-Count Run",
-        "gameHtmlPath": "/Users/jamaltaylor/Development/sunny/src/context/reina/homework/games/hw-math-a179d2a0/skip-count-glider.html",
-        "date": "hw-math-a179d2a0",
-        "thumbnailUrl": "/generated/direct-math/hw-math-a179d2a0-skip-count-glider.jpeg",
-        "contentId": "hw-math-a179d2a0:skip-count-glider",
-        "mechanic": "tap-to-advance skip counting along a floating number path",
-        "engagementDimensions": [
-          "speed"
+        "date": "2026-05-27",
+        "approved": false,
+        "wordRadarItems": [
+          {
+            "display": "sign",
+            "acceptedResponses": [
+              "sign"
+            ],
+            "label": "Spelling",
+            "subject": "spelling"
+          },
+          {
+            "display": "know",
+            "acceptedResponses": [
+              "know"
+            ],
+            "label": "Spelling",
+            "subject": "spelling"
+          },
+          {
+            "display": "write",
+            "acceptedResponses": [
+              "write"
+            ],
+            "label": "Spelling",
+            "subject": "spelling"
+          }
         ],
-        "engagementHypothesis": "Reina's engagement theory shows strong positive weight for speed (5.0, confidence .875) and puzzle (5.0, confidence .92) dimensions, while her prior gearworks-crate-builder (a drag/construction mechanic) was abandoned with high frustration (0.75) whereas the fast tap-based skybird-delivery-run was completed with low frustration (0.1). This fork tests whether a low-friction rapid-tap engagement variable outperforms a slightly slower deliberate block-building/placement engagement variable, while holding academic targets, question count, and difficulty constant across both routes.",
-        "validationProof": {
-          "engine": "playwright",
-          "passed": true,
-          "worldStateChanged": true,
-          "screenshotPaths": [
-            "/Users/jamaltaylor/Development/sunny/src/context/reina/homework/direct-playwright/hw-math-a179d2a0/skip-count-glider-complete.png"
-          ]
+        "wordRadarConfig": {
+          "recallMode": "partial_visual_recall",
+          "inputMode": "letter-by-letter",
+          "speakStyle": "option-a",
+          "showTimer": false,
+          "hideWordDuringResponse": true,
+          "requiresCapturedResponse": true
         }
       },
       {
-        "id": "fact-dash-harbor",
-        "type": "generated-baseline",
-        "activityId": "generated-baseline",
-        "targets": [
-          "q1",
-          "q2",
-          "q3",
-          "q4",
-          "q5"
+        "id": "baseline-silent-letters-spell",
+        "type": "spell-check",
+        "words": [
+          "sign",
+          "know",
+          "write"
         ],
         "difficulty": 2,
-        "source": "chart_planner",
-        "targetLane": "multiplication facts x2, x5, x10",
+        "gameFile": null,
+        "storyFile": null,
         "locked": false,
-        "masteryUnlockState": "unlocked",
-        "title": "Harbor Fact Dash",
-        "gameHtmlPath": "/Users/jamaltaylor/Development/sunny/src/context/reina/homework/games/hw-math-a179d2a0/fact-dash-harbor.html",
-        "date": "hw-math-a179d2a0",
-        "thumbnailUrl": "/generated/direct-math/hw-math-a179d2a0-fact-dash-harbor.jpeg",
-        "contentId": "hw-math-a179d2a0:fact-dash-harbor",
-        "mechanic": "rapid tap-select of correct product from stationary answer tiles",
-        "engagementDimensions": [
-          "speed"
+        "date": "2026-05-27",
+        "approved": false
+      },
+      {
+        "id": "baseline-hf-recognition",
+        "type": "word-radar",
+        "words": [
+          "among",
+          "building",
+          "circle"
         ],
-        "engagementHypothesis": "Reina's engagement theory shows strong positive weight for speed (5.0, confidence .875) and puzzle (5.0, confidence .92) dimensions, while her prior gearworks-crate-builder (a drag/construction mechanic) was abandoned with high frustration (0.75) whereas the fast tap-based skybird-delivery-run was completed with low frustration (0.1). This fork tests whether a low-friction rapid-tap engagement variable outperforms a slightly slower deliberate block-building/placement engagement variable, while holding academic targets, question count, and difficulty constant across both routes.",
-        "validationProof": {
-          "engine": "playwright",
-          "passed": true,
-          "worldStateChanged": true,
-          "screenshotPaths": [
-            "/Users/jamaltaylor/Development/sunny/src/context/reina/homework/direct-playwright/hw-math-a179d2a0/fact-dash-harbor-complete.png"
-          ]
+        "difficulty": 1,
+        "gameFile": null,
+        "storyFile": null,
+        "locked": false,
+        "date": "2026-05-27",
+        "approved": false,
+        "wordRadarItems": [
+          {
+            "display": "among",
+            "acceptedResponses": [
+              "among"
+            ],
+            "label": "Spelling",
+            "subject": "spelling"
+          },
+          {
+            "display": "building",
+            "acceptedResponses": [
+              "building"
+            ],
+            "label": "Spelling",
+            "subject": "spelling"
+          },
+          {
+            "display": "circle",
+            "acceptedResponses": [
+              "circle"
+            ],
+            "label": "Spelling",
+            "subject": "spelling"
+          }
+        ],
+        "wordRadarConfig": {
+          "recallMode": "visible_read",
+          "inputMode": "whole-word",
+          "speakStyle": "option-a",
+          "showTimer": false,
+          "hideWordDuringResponse": false,
+          "requiresCapturedResponse": true
         }
       },
       {
-        "id": "word-problem-delivery",
-        "type": "generated-baseline",
-        "activityId": "generated-baseline",
-        "targets": [
-          "q1",
-          "q2"
+        "id": "baseline-hf-fluency",
+        "type": "pronunciation",
+        "words": [
+          "among",
+          "building",
+          "circle"
         ],
-        "difficulty": 2,
-        "source": "chart_planner",
-        "targetLane": "multiplicative word problem solving using x2, x5, x10 facts",
+        "difficulty": 1,
+        "gameFile": null,
+        "storyFile": null,
         "locked": false,
-        "masteryUnlockState": "unlocked",
-        "title": "Skyharbor Delivery Dash",
-        "gameHtmlPath": "/Users/jamaltaylor/Development/sunny/src/context/reina/homework/games/hw-math-a179d2a0/word-problem-delivery.html",
-        "date": "hw-math-a179d2a0",
-        "thumbnailUrl": "/generated/direct-math/hw-math-a179d2a0-word-problem-delivery.jpeg",
-        "contentId": "hw-math-a179d2a0:word-problem-delivery",
-        "mechanic": "tap the stationary total that matches the delivered word problem scene",
-        "engagementDimensions": [
-          "speed"
-        ],
-        "engagementHypothesis": "Reina's engagement theory shows strong positive weight for speed (5.0, confidence .875) and puzzle (5.0, confidence .92) dimensions, while her prior gearworks-crate-builder (a drag/construction mechanic) was abandoned with high frustration (0.75) whereas the fast tap-based skybird-delivery-run was completed with low frustration (0.1). This fork tests whether a low-friction rapid-tap engagement variable outperforms a slightly slower deliberate block-building/placement engagement variable, while holding academic targets, question count, and difficulty constant across both routes.",
-        "validationProof": {
-          "engine": "playwright",
-          "passed": true,
-          "worldStateChanged": true,
-          "screenshotPaths": [
-            "/Users/jamaltaylor/Development/sunny/src/context/reina/homework/direct-playwright/hw-math-a179d2a0/word-problem-delivery-complete.png"
-          ]
-        }
+        "date": "2026-05-27",
+        "approved": false
       },
       {
-        "id": "skip-count-blocks",
-        "type": "generated-baseline",
-        "activityId": "generated-baseline",
-        "targets": [
-          "q1",
-          "q2",
-          "q3"
+        "id": "mystery-choice",
+        "type": "mystery",
+        "words": [
+          "sign",
+          "know",
+          "write",
+          "among",
+          "building",
+          "circle"
         ],
         "difficulty": 2,
-        "source": "chart_planner",
-        "targetLane": "skip-counting and array grouping for x2, x5, x10 facts",
+        "gameFile": null,
+        "storyFile": null,
+        "choiceMode": "choice_lab",
         "locked": false,
-        "masteryUnlockState": "unlocked",
-        "title": "Harbor Block Builder: Skip Count",
-        "gameHtmlPath": "/Users/jamaltaylor/Development/sunny/src/context/reina/homework/games/hw-math-a179d2a0/skip-count-blocks.html",
-        "date": "hw-math-a179d2a0",
-        "thumbnailUrl": "/generated/direct-math/hw-math-a179d2a0-skip-count-blocks.jpeg",
-        "contentId": "hw-math-a179d2a0:skip-count-blocks",
-        "mechanic": "tap glowing blocks to snap them into a stationary grouping frame, building the count",
-        "engagementDimensions": [
-          "puzzle"
-        ],
-        "engagementHypothesis": "Reina's engagement theory shows strong positive weight for speed (5.0, confidence .875) and puzzle (5.0, confidence .92) dimensions, while her prior gearworks-crate-builder (a drag/construction mechanic) was abandoned with high frustration (0.75) whereas the fast tap-based skybird-delivery-run was completed with low frustration (0.1). This fork tests whether a low-friction rapid-tap engagement variable outperforms a slightly slower deliberate block-building/placement engagement variable, while holding academic targets, question count, and difficulty constant across both routes.",
-        "validationProof": {
-          "engine": "playwright",
-          "passed": true,
-          "worldStateChanged": true,
-          "screenshotPaths": [
-            "/Users/jamaltaylor/Development/sunny/src/context/reina/homework/direct-playwright/hw-math-a179d2a0/skip-count-blocks-complete.png"
-          ]
-        }
+        "date": "2026-05-27",
+        "approved": false
       },
       {
-        "id": "fact-vault-blocks",
-        "type": "generated-baseline",
-        "activityId": "generated-baseline",
-        "targets": [
-          "q1",
-          "q2",
-          "q3",
-          "q4",
-          "q5"
-        ],
-        "difficulty": 2,
-        "source": "chart_planner",
-        "targetLane": "multiplication facts x2, x5, x10",
-        "locked": false,
-        "masteryUnlockState": "unlocked",
-        "title": "Fact Vault Builder",
-        "gameHtmlPath": "/Users/jamaltaylor/Development/sunny/src/context/reina/homework/games/hw-math-a179d2a0/fact-vault-blocks.html",
-        "date": "hw-math-a179d2a0",
-        "thumbnailUrl": "/generated/direct-math/hw-math-a179d2a0-fact-vault-blocks.jpeg",
-        "contentId": "hw-math-a179d2a0:fact-vault-blocks",
-        "mechanic": "tap the correct product block to build a vault door combination",
-        "engagementDimensions": [
-          "puzzle"
-        ],
-        "engagementHypothesis": "Reina's engagement theory shows strong positive weight for speed (5.0, confidence .875) and puzzle (5.0, confidence .92) dimensions, while her prior gearworks-crate-builder (a drag/construction mechanic) was abandoned with high frustration (0.75) whereas the fast tap-based skybird-delivery-run was completed with low frustration (0.1). This fork tests whether a low-friction rapid-tap engagement variable outperforms a slightly slower deliberate block-building/placement engagement variable, while holding academic targets, question count, and difficulty constant across both routes.",
-        "validationProof": {
-          "engine": "playwright",
-          "passed": true,
-          "worldStateChanged": true,
-          "screenshotPaths": [
-            "/Users/jamaltaylor/Development/sunny/src/context/reina/homework/direct-playwright/hw-math-a179d2a0/fact-vault-blocks-complete.png"
-          ]
-        }
-      },
-      {
-        "id": "word-problem-crane",
-        "type": "generated-baseline",
-        "activityId": "generated-baseline",
-        "targets": [
-          "q1",
-          "q2"
-        ],
-        "difficulty": 2,
-        "source": "chart_planner",
-        "targetLane": "multiplicative word problem solving using x2, x5, x10 facts",
-        "locked": false,
-        "masteryUnlockState": "unlocked",
-        "title": "Crane Crate Puzzle",
-        "gameHtmlPath": "/Users/jamaltaylor/Development/sunny/src/context/reina/homework/games/hw-math-a179d2a0/word-problem-crane.html",
-        "date": "hw-math-a179d2a0",
-        "thumbnailUrl": "/generated/direct-math/hw-math-a179d2a0-word-problem-crane.jpeg",
-        "contentId": "hw-math-a179d2a0:word-problem-crane",
-        "mechanic": "tap the correct total block to load a crane's crate matching the word problem",
-        "engagementDimensions": [
-          "puzzle"
-        ],
-        "engagementHypothesis": "Reina's engagement theory shows strong positive weight for speed (5.0, confidence .875) and puzzle (5.0, confidence .92) dimensions, while her prior gearworks-crate-builder (a drag/construction mechanic) was abandoned with high frustration (0.75) whereas the fast tap-based skybird-delivery-run was completed with low frustration (0.1). This fork tests whether a low-friction rapid-tap engagement variable outperforms a slightly slower deliberate block-building/placement engagement variable, while holding academic targets, question count, and difficulty constant across both routes.",
-        "validationProof": {
-          "engine": "playwright",
-          "passed": true,
-          "worldStateChanged": true,
-          "screenshotPaths": [
-            "/Users/jamaltaylor/Development/sunny/src/context/reina/homework/direct-playwright/hw-math-a179d2a0/word-problem-crane-complete.png"
-          ]
-        }
-      },
-      {
-        "id": "quest",
+        "id": "quest-destination",
         "type": "quest",
-        "activityId": "quest",
-        "targets": [],
+        "words": [
+          "sign",
+          "know",
+          "write"
+        ],
         "difficulty": 2,
-        "source": "chart_planner",
-        "locked": true,
+        "gameFile": null,
+        "storyFile": null,
         "masteryUnlockState": "preparing",
-        "title": "Quest",
-        "thumbnailUrl": "/generated/direct-math/hw-math-a179d2a0-quest.jpeg"
+        "locked": true,
+        "date": "2026-05-27",
+        "approved": false
       },
       {
-        "id": "boss",
+        "id": "boss-destination",
         "type": "boss",
-        "activityId": "boss",
-        "targets": [],
+        "words": [],
         "difficulty": 3,
-        "source": "chart_planner",
-        "locked": true,
+        "gameFile": null,
+        "storyFile": null,
         "masteryUnlockState": "preparing",
-        "title": "Boss",
-        "thumbnailUrl": "/generated/direct-math/hw-math-a179d2a0-boss.jpeg"
+        "locked": true,
+        "date": "2026-05-27",
+        "approved": false
       }
     ]
   },
   "activeByDomain": {
-    "math": {
-      "weekOf": "2026-07-17",
-      "testDate": null,
-      "returnTag": "#sunny_reina_hw-math-a179d2a0",
-      "wordList": [],
+    "spelling": {
+      "weekOf": "2026-05-27",
+      "testDate": "2026-05-29",
+      "testDateSource": "cli",
+      "testDateConfirmed": true,
+      "returnTag": "#sunny_reina_hw_spelling_test_6727f1c8",
+      "wordList": [
+        "sign",
+        "know",
+        "write",
+        "among",
+        "building",
+        "circle"
+      ],
       "contentProfile": {
-        "practiceDomain": "math",
-        "topic": "Reina's Multiplication Facts Adventure: x2, x5, x10"
+        "practiceDomain": "spelling",
+        "contentDomain": "language_arts",
+        "topic": "Silent Letters and High-Frequency Word Recognition",
+        "primarySkill": "Orthographic pattern spelling and automatic word recognition",
+        "assignmentFormat": "Two-group spelling list with pattern focus and high-frequency recognition",
+        "concepts": [
+          "Silent letter patterns (kn-, -gn, wr-)",
+          "High-frequency word automaticity",
+          "Visual orthographic memory"
+        ],
+        "sourceEvidence": [
+          "No explicit cross-domain topic detected.",
+          "Benchmark Advance Unit 9 Week 3",
+          "Teacher-labeled Silent Letters group",
+          "Teacher-labeled High-Frequency Words group"
+        ]
       },
       "capturedContent": {
-        "title": "Reina's Multiplication Facts Adventure: x2, x5, x10",
-        "rawText": "Pashley Grade 3 - Multiplication Facts x2, x5, x10 Name: ____________________ Date: ____________________ Unit 3: Multiplication Facts x2, x5, x10 Fluency: 5 x 2 = __ 5 x 5 = __ 5 x 10 = __ 2 x 7 = __ 10 x 4 = __ Word Problems: Mrs. K puts 5 pencils in each of 4 boxes. How many pencils are there in all? There are 3 rows of 10 stars. How many stars are there?"
+        "title": "Benchmark Advance Spelling Unit 9 Week 3",
+        "type": "spelling_test",
+        "rawText": "Benchmark Advance Spelling\nUnit 9 Week 3\nSilent Letters\nsign\nknow\nwrite\nHigh-Frequency Words\namong\nbuilding\ncircle",
+        "words": [
+          "sign",
+          "know",
+          "write",
+          "among",
+          "building",
+          "circle"
+        ],
+        "homeworkWords": [
+          {
+            "homeworkWordId": "benchmark-advance-spelling-unit-9-week-3:silent_letters:sign:0",
+            "text": "sign",
+            "normalizedText": "sign",
+            "wordGroupId": "silent_letters",
+            "purpose": "spell_from_memory",
+            "positionIndex": 0
+          },
+          {
+            "homeworkWordId": "benchmark-advance-spelling-unit-9-week-3:silent_letters:know:1",
+            "text": "know",
+            "normalizedText": "know",
+            "wordGroupId": "silent_letters",
+            "purpose": "spell_from_memory",
+            "positionIndex": 1
+          },
+          {
+            "homeworkWordId": "benchmark-advance-spelling-unit-9-week-3:silent_letters:write:2",
+            "text": "write",
+            "normalizedText": "write",
+            "wordGroupId": "silent_letters",
+            "purpose": "spell_from_memory",
+            "positionIndex": 2
+          },
+          {
+            "homeworkWordId": "benchmark-advance-spelling-unit-9-week-3:high_frequency:among:3",
+            "text": "among",
+            "normalizedText": "among",
+            "wordGroupId": "high_frequency",
+            "purpose": "recognize",
+            "positionIndex": 3
+          },
+          {
+            "homeworkWordId": "benchmark-advance-spelling-unit-9-week-3:high_frequency:building:4",
+            "text": "building",
+            "normalizedText": "building",
+            "wordGroupId": "high_frequency",
+            "purpose": "recognize",
+            "positionIndex": 4
+          },
+          {
+            "homeworkWordId": "benchmark-advance-spelling-unit-9-week-3:high_frequency:circle:5",
+            "text": "circle",
+            "normalizedText": "circle",
+            "wordGroupId": "high_frequency",
+            "purpose": "recognize",
+            "positionIndex": 5
+          }
+        ],
+        "questions": [],
+        "wordGroups": [
+          {
+            "id": "silent_letters",
+            "label": "Silent Letters",
+            "purpose": "spell_from_memory",
+            "words": [
+              "sign",
+              "know",
+              "write"
+            ],
+            "confidence": 0.95,
+            "evidence": [
+              "Teacher heading 'Silent Letters' indicates orthographic pattern focus",
+              "Benchmark Advance curriculum treats pattern lists as spelling production targets",
+              "Unit 9 Week 3 scope suggests grade-level spelling construction expectation"
+            ],
+            "wordGroupId": "silent_letters",
+            "homeworkWordIds": [
+              "benchmark-advance-spelling-unit-9-week-3:silent_letters:sign:0",
+              "benchmark-advance-spelling-unit-9-week-3:silent_letters:know:1",
+              "benchmark-advance-spelling-unit-9-week-3:silent_letters:write:2"
+            ]
+          },
+          {
+            "id": "high_frequency",
+            "label": "High-Frequency Words",
+            "purpose": "recognize",
+            "words": [
+              "among",
+              "building",
+              "circle"
+            ],
+            "confidence": 0.9,
+            "evidence": [
+              "Teacher heading 'High-Frequency Words' distinguishes this group from spelling pattern work",
+              "High-frequency lists in grade 2 typically target automatic recognition and reading fluency",
+              "No orthographic pattern label implies recognition and fluency rather than pattern analysis"
+            ],
+            "wordGroupId": "high_frequency",
+            "homeworkWordIds": [
+              "benchmark-advance-spelling-unit-9-week-3:high_frequency:among:3",
+              "benchmark-advance-spelling-unit-9-week-3:high_frequency:building:4",
+              "benchmark-advance-spelling-unit-9-week-3:high_frequency:circle:5"
+            ]
+          }
+        ],
+        "assignmentInterpretation": {
+          "schemaVersion": 1,
+          "status": "ready",
+          "wordGroups": [
+            {
+              "id": "silent_letters",
+              "label": "Silent Letters",
+              "purpose": "spell_from_memory",
+              "words": [
+                "sign",
+                "know",
+                "write"
+              ],
+              "confidence": 0.95,
+              "evidence": [
+                "Teacher heading 'Silent Letters' indicates orthographic pattern focus",
+                "Benchmark Advance curriculum treats pattern lists as spelling production targets",
+                "Unit 9 Week 3 scope suggests grade-level spelling construction expectation"
+              ],
+              "wordGroupId": "silent_letters",
+              "homeworkWordIds": [
+                "benchmark-advance-spelling-unit-9-week-3:silent_letters:sign:0",
+                "benchmark-advance-spelling-unit-9-week-3:silent_letters:know:1",
+                "benchmark-advance-spelling-unit-9-week-3:silent_letters:write:2"
+              ]
+            },
+            {
+              "id": "high_frequency",
+              "label": "High-Frequency Words",
+              "purpose": "recognize",
+              "words": [
+                "among",
+                "building",
+                "circle"
+              ],
+              "confidence": 0.9,
+              "evidence": [
+                "Teacher heading 'High-Frequency Words' distinguishes this group from spelling pattern work",
+                "High-frequency lists in grade 2 typically target automatic recognition and reading fluency",
+                "No orthographic pattern label implies recognition and fluency rather than pattern analysis"
+              ],
+              "wordGroupId": "high_frequency",
+              "homeworkWordIds": [
+                "benchmark-advance-spelling-unit-9-week-3:high_frequency:among:3",
+                "benchmark-advance-spelling-unit-9-week-3:high_frequency:building:4",
+                "benchmark-advance-spelling-unit-9-week-3:high_frequency:circle:5"
+              ]
+            }
+          ],
+          "assertions": [
+            {
+              "id": "silent_letters-planner-source",
+              "claim": "Silent Letters was preserved from the assignment planner source truth.",
+              "confidence": 0.95,
+              "evidence": [
+                "Teacher heading 'Silent Letters' indicates orthographic pattern focus",
+                "Benchmark Advance curriculum treats pattern lists as spelling production targets",
+                "Unit 9 Week 3 scope suggests grade-level spelling construction expectation"
+              ]
+            },
+            {
+              "id": "high_frequency-planner-source",
+              "claim": "High-Frequency Words was preserved from the assignment planner source truth.",
+              "confidence": 0.9,
+              "evidence": [
+                "Teacher heading 'High-Frequency Words' distinguishes this group from spelling pattern work",
+                "High-frequency lists in grade 2 typically target automatic recognition and reading fluency",
+                "No orthographic pattern label implies recognition and fluency rather than pattern analysis"
+              ]
+            }
+          ],
+          "selectedTargets": [
+            {
+              "id": "silent_letters",
+              "label": "Silent Letters",
+              "purpose": "spell_from_memory",
+              "words": [
+                "sign",
+                "know",
+                "write"
+              ],
+              "confidence": 0.95,
+              "evidence": [
+                "Teacher heading 'Silent Letters' indicates orthographic pattern focus",
+                "Benchmark Advance curriculum treats pattern lists as spelling production targets",
+                "Unit 9 Week 3 scope suggests grade-level spelling construction expectation"
+              ],
+              "wordGroupId": "silent_letters",
+              "homeworkWordIds": [
+                "benchmark-advance-spelling-unit-9-week-3:silent_letters:sign:0",
+                "benchmark-advance-spelling-unit-9-week-3:silent_letters:know:1",
+                "benchmark-advance-spelling-unit-9-week-3:silent_letters:write:2"
+              ]
+            }
+          ],
+          "heldTargets": [
+            {
+              "id": "high_frequency",
+              "label": "High-Frequency Words",
+              "purpose": "recognize",
+              "words": [
+                "among",
+                "building",
+                "circle"
+              ],
+              "confidence": 0.9,
+              "evidence": [
+                "Teacher heading 'High-Frequency Words' distinguishes this group from spelling pattern work",
+                "High-frequency lists in grade 2 typically target automatic recognition and reading fluency",
+                "No orthographic pattern label implies recognition and fluency rather than pattern analysis"
+              ],
+              "wordGroupId": "high_frequency",
+              "homeworkWordIds": [
+                "benchmark-advance-spelling-unit-9-week-3:high_frequency:among:3",
+                "benchmark-advance-spelling-unit-9-week-3:high_frequency:building:4",
+                "benchmark-advance-spelling-unit-9-week-3:high_frequency:circle:5"
+              ]
+            }
+          ],
+          "clarificationQuestions": [],
+          "reviewRecommendations": [
+            {
+              "id": "confirm-mixed-target-purposes",
+              "severity": "confirm",
+              "reason": "The worksheet has multiple target groups with different purposes; parent review should confirm Sunny's routing before the lesson plan is approved.",
+              "targetGroupIds": [
+                "silent_letters",
+                "high_frequency"
+              ]
+            }
+          ],
+          "humanAnswers": [],
+          "memoryMatches": []
+        },
+        "sourceDocuments": [
+          {
+            "filename": "sunny-reina-spelling-persona-proof.txt",
+            "mediaType": "text/plain"
+          }
+        ],
+        "contentProfile": {
+          "practiceDomain": "spelling",
+          "contentDomain": "language_arts",
+          "topic": "Silent Letters and High-Frequency Word Recognition",
+          "primarySkill": "Orthographic pattern spelling and automatic word recognition",
+          "assignmentFormat": "Two-group spelling list with pattern focus and high-frequency recognition",
+          "concepts": [
+            "Silent letter patterns (kn-, -gn, wr-)",
+            "High-frequency word automaticity",
+            "Visual orthographic memory"
+          ],
+          "sourceEvidence": [
+            "No explicit cross-domain topic detected.",
+            "Benchmark Advance Unit 9 Week 3",
+            "Teacher-labeled Silent Letters group",
+            "Teacher-labeled High-Frequency Words group"
+          ]
+        }
       },
-      "homeworkId": "hw-math-a179d2a0",
-      "generatedAt": "2026-07-17T20:17:02.992Z",
+      "homeworkId": "hw-spelling_test-6727f1c8",
+      "generatedAt": "2026-05-27T19:28:05.817Z",
       "nodes": [
         {
-          "id": "skip-count-glider",
-          "type": "generated-baseline",
-          "activityId": "generated-baseline",
-          "targets": [
-            "q1",
-            "q2",
-            "q3"
+          "id": "baseline-silent-letters-wr",
+          "type": "word-radar",
+          "words": [
+            "sign",
+            "know",
+            "write"
           ],
           "difficulty": 2,
-          "source": "chart_planner",
-          "targetLane": "skip-counting and array grouping for x2, x5, x10 facts",
+          "gameFile": null,
+          "storyFile": null,
           "locked": false,
-          "masteryUnlockState": "unlocked",
-          "title": "Skyglider Skip-Count Run",
-          "gameHtmlPath": "/Users/jamaltaylor/Development/sunny/src/context/reina/homework/games/hw-math-a179d2a0/skip-count-glider.html",
-          "date": "hw-math-a179d2a0",
-          "thumbnailUrl": "/generated/direct-math/hw-math-a179d2a0-skip-count-glider.jpeg",
-          "contentId": "hw-math-a179d2a0:skip-count-glider",
-          "mechanic": "tap-to-advance skip counting along a floating number path",
-          "engagementDimensions": [
-            "speed"
+          "date": "2026-05-27",
+          "approved": false,
+          "wordRadarItems": [
+            {
+              "display": "sign",
+              "acceptedResponses": [
+                "sign"
+              ],
+              "label": "Spelling",
+              "subject": "spelling"
+            },
+            {
+              "display": "know",
+              "acceptedResponses": [
+                "know"
+              ],
+              "label": "Spelling",
+              "subject": "spelling"
+            },
+            {
+              "display": "write",
+              "acceptedResponses": [
+                "write"
+              ],
+              "label": "Spelling",
+              "subject": "spelling"
+            }
           ],
-          "engagementHypothesis": "Reina's engagement theory shows strong positive weight for speed (5.0, confidence .875) and puzzle (5.0, confidence .92) dimensions, while her prior gearworks-crate-builder (a drag/construction mechanic) was abandoned with high frustration (0.75) whereas the fast tap-based skybird-delivery-run was completed with low frustration (0.1). This fork tests whether a low-friction rapid-tap engagement variable outperforms a slightly slower deliberate block-building/placement engagement variable, while holding academic targets, question count, and difficulty constant across both routes.",
-          "validationProof": {
-            "engine": "playwright",
-            "passed": true,
-            "worldStateChanged": true,
-            "screenshotPaths": [
-              "/Users/jamaltaylor/Development/sunny/src/context/reina/homework/direct-playwright/hw-math-a179d2a0/skip-count-glider-complete.png"
-            ]
+          "wordRadarConfig": {
+            "recallMode": "partial_visual_recall",
+            "inputMode": "letter-by-letter",
+            "speakStyle": "option-a",
+            "showTimer": false,
+            "hideWordDuringResponse": true,
+            "requiresCapturedResponse": true
           }
         },
         {
-          "id": "fact-dash-harbor",
-          "type": "generated-baseline",
-          "activityId": "generated-baseline",
-          "targets": [
-            "q1",
-            "q2",
-            "q3",
-            "q4",
-            "q5"
+          "id": "baseline-silent-letters-spell",
+          "type": "spell-check",
+          "words": [
+            "sign",
+            "know",
+            "write"
           ],
           "difficulty": 2,
-          "source": "chart_planner",
-          "targetLane": "multiplication facts x2, x5, x10",
+          "gameFile": null,
+          "storyFile": null,
           "locked": false,
-          "masteryUnlockState": "unlocked",
-          "title": "Harbor Fact Dash",
-          "gameHtmlPath": "/Users/jamaltaylor/Development/sunny/src/context/reina/homework/games/hw-math-a179d2a0/fact-dash-harbor.html",
-          "date": "hw-math-a179d2a0",
-          "thumbnailUrl": "/generated/direct-math/hw-math-a179d2a0-fact-dash-harbor.jpeg",
-          "contentId": "hw-math-a179d2a0:fact-dash-harbor",
-          "mechanic": "rapid tap-select of correct product from stationary answer tiles",
-          "engagementDimensions": [
-            "speed"
+          "date": "2026-05-27",
+          "approved": false
+        },
+        {
+          "id": "baseline-hf-recognition",
+          "type": "word-radar",
+          "words": [
+            "among",
+            "building",
+            "circle"
           ],
-          "engagementHypothesis": "Reina's engagement theory shows strong positive weight for speed (5.0, confidence .875) and puzzle (5.0, confidence .92) dimensions, while her prior gearworks-crate-builder (a drag/construction mechanic) was abandoned with high frustration (0.75) whereas the fast tap-based skybird-delivery-run was completed with low frustration (0.1). This fork tests whether a low-friction rapid-tap engagement variable outperforms a slightly slower deliberate block-building/placement engagement variable, while holding academic targets, question count, and difficulty constant across both routes.",
-          "validationProof": {
-            "engine": "playwright",
-            "passed": true,
-            "worldStateChanged": true,
-            "screenshotPaths": [
-              "/Users/jamaltaylor/Development/sunny/src/context/reina/homework/direct-playwright/hw-math-a179d2a0/fact-dash-harbor-complete.png"
-            ]
+          "difficulty": 1,
+          "gameFile": null,
+          "storyFile": null,
+          "locked": false,
+          "date": "2026-05-27",
+          "approved": false,
+          "wordRadarItems": [
+            {
+              "display": "among",
+              "acceptedResponses": [
+                "among"
+              ],
+              "label": "Spelling",
+              "subject": "spelling"
+            },
+            {
+              "display": "building",
+              "acceptedResponses": [
+                "building"
+              ],
+              "label": "Spelling",
+              "subject": "spelling"
+            },
+            {
+              "display": "circle",
+              "acceptedResponses": [
+                "circle"
+              ],
+              "label": "Spelling",
+              "subject": "spelling"
+            }
+          ],
+          "wordRadarConfig": {
+            "recallMode": "visible_read",
+            "inputMode": "whole-word",
+            "speakStyle": "option-a",
+            "showTimer": false,
+            "hideWordDuringResponse": false,
+            "requiresCapturedResponse": true
           }
         },
         {
-          "id": "word-problem-delivery",
-          "type": "generated-baseline",
-          "activityId": "generated-baseline",
-          "targets": [
-            "q1",
-            "q2"
+          "id": "baseline-hf-fluency",
+          "type": "pronunciation",
+          "words": [
+            "among",
+            "building",
+            "circle"
           ],
-          "difficulty": 2,
-          "source": "chart_planner",
-          "targetLane": "multiplicative word problem solving using x2, x5, x10 facts",
+          "difficulty": 1,
+          "gameFile": null,
+          "storyFile": null,
           "locked": false,
-          "masteryUnlockState": "unlocked",
-          "title": "Skyharbor Delivery Dash",
-          "gameHtmlPath": "/Users/jamaltaylor/Development/sunny/src/context/reina/homework/games/hw-math-a179d2a0/word-problem-delivery.html",
-          "date": "hw-math-a179d2a0",
-          "thumbnailUrl": "/generated/direct-math/hw-math-a179d2a0-word-problem-delivery.jpeg",
-          "contentId": "hw-math-a179d2a0:word-problem-delivery",
-          "mechanic": "tap the stationary total that matches the delivered word problem scene",
-          "engagementDimensions": [
-            "speed"
-          ],
-          "engagementHypothesis": "Reina's engagement theory shows strong positive weight for speed (5.0, confidence .875) and puzzle (5.0, confidence .92) dimensions, while her prior gearworks-crate-builder (a drag/construction mechanic) was abandoned with high frustration (0.75) whereas the fast tap-based skybird-delivery-run was completed with low frustration (0.1). This fork tests whether a low-friction rapid-tap engagement variable outperforms a slightly slower deliberate block-building/placement engagement variable, while holding academic targets, question count, and difficulty constant across both routes.",
-          "validationProof": {
-            "engine": "playwright",
-            "passed": true,
-            "worldStateChanged": true,
-            "screenshotPaths": [
-              "/Users/jamaltaylor/Development/sunny/src/context/reina/homework/direct-playwright/hw-math-a179d2a0/word-problem-delivery-complete.png"
-            ]
-          }
+          "date": "2026-05-27",
+          "approved": false
         },
         {
-          "id": "skip-count-blocks",
-          "type": "generated-baseline",
-          "activityId": "generated-baseline",
-          "targets": [
-            "q1",
-            "q2",
-            "q3"
+          "id": "mystery-choice",
+          "type": "mystery",
+          "words": [
+            "sign",
+            "know",
+            "write",
+            "among",
+            "building",
+            "circle"
           ],
           "difficulty": 2,
-          "source": "chart_planner",
-          "targetLane": "skip-counting and array grouping for x2, x5, x10 facts",
+          "gameFile": null,
+          "storyFile": null,
+          "choiceMode": "choice_lab",
           "locked": false,
-          "masteryUnlockState": "unlocked",
-          "title": "Harbor Block Builder: Skip Count",
-          "gameHtmlPath": "/Users/jamaltaylor/Development/sunny/src/context/reina/homework/games/hw-math-a179d2a0/skip-count-blocks.html",
-          "date": "hw-math-a179d2a0",
-          "thumbnailUrl": "/generated/direct-math/hw-math-a179d2a0-skip-count-blocks.jpeg",
-          "contentId": "hw-math-a179d2a0:skip-count-blocks",
-          "mechanic": "tap glowing blocks to snap them into a stationary grouping frame, building the count",
-          "engagementDimensions": [
-            "puzzle"
-          ],
-          "engagementHypothesis": "Reina's engagement theory shows strong positive weight for speed (5.0, confidence .875) and puzzle (5.0, confidence .92) dimensions, while her prior gearworks-crate-builder (a drag/construction mechanic) was abandoned with high frustration (0.75) whereas the fast tap-based skybird-delivery-run was completed with low frustration (0.1). This fork tests whether a low-friction rapid-tap engagement variable outperforms a slightly slower deliberate block-building/placement engagement variable, while holding academic targets, question count, and difficulty constant across both routes.",
-          "validationProof": {
-            "engine": "playwright",
-            "passed": true,
-            "worldStateChanged": true,
-            "screenshotPaths": [
-              "/Users/jamaltaylor/Development/sunny/src/context/reina/homework/direct-playwright/hw-math-a179d2a0/skip-count-blocks-complete.png"
-            ]
-          }
+          "date": "2026-05-27",
+          "approved": false
         },
         {
-          "id": "fact-vault-blocks",
-          "type": "generated-baseline",
-          "activityId": "generated-baseline",
-          "targets": [
-            "q1",
-            "q2",
-            "q3",
-            "q4",
-            "q5"
-          ],
-          "difficulty": 2,
-          "source": "chart_planner",
-          "targetLane": "multiplication facts x2, x5, x10",
-          "locked": false,
-          "masteryUnlockState": "unlocked",
-          "title": "Fact Vault Builder",
-          "gameHtmlPath": "/Users/jamaltaylor/Development/sunny/src/context/reina/homework/games/hw-math-a179d2a0/fact-vault-blocks.html",
-          "date": "hw-math-a179d2a0",
-          "thumbnailUrl": "/generated/direct-math/hw-math-a179d2a0-fact-vault-blocks.jpeg",
-          "contentId": "hw-math-a179d2a0:fact-vault-blocks",
-          "mechanic": "tap the correct product block to build a vault door combination",
-          "engagementDimensions": [
-            "puzzle"
-          ],
-          "engagementHypothesis": "Reina's engagement theory shows strong positive weight for speed (5.0, confidence .875) and puzzle (5.0, confidence .92) dimensions, while her prior gearworks-crate-builder (a drag/construction mechanic) was abandoned with high frustration (0.75) whereas the fast tap-based skybird-delivery-run was completed with low frustration (0.1). This fork tests whether a low-friction rapid-tap engagement variable outperforms a slightly slower deliberate block-building/placement engagement variable, while holding academic targets, question count, and difficulty constant across both routes.",
-          "validationProof": {
-            "engine": "playwright",
-            "passed": true,
-            "worldStateChanged": true,
-            "screenshotPaths": [
-              "/Users/jamaltaylor/Development/sunny/src/context/reina/homework/direct-playwright/hw-math-a179d2a0/fact-vault-blocks-complete.png"
-            ]
-          }
-        },
-        {
-          "id": "word-problem-crane",
-          "type": "generated-baseline",
-          "activityId": "generated-baseline",
-          "targets": [
-            "q1",
-            "q2"
-          ],
-          "difficulty": 2,
-          "source": "chart_planner",
-          "targetLane": "multiplicative word problem solving using x2, x5, x10 facts",
-          "locked": false,
-          "masteryUnlockState": "unlocked",
-          "title": "Crane Crate Puzzle",
-          "gameHtmlPath": "/Users/jamaltaylor/Development/sunny/src/context/reina/homework/games/hw-math-a179d2a0/word-problem-crane.html",
-          "date": "hw-math-a179d2a0",
-          "thumbnailUrl": "/generated/direct-math/hw-math-a179d2a0-word-problem-crane.jpeg",
-          "contentId": "hw-math-a179d2a0:word-problem-crane",
-          "mechanic": "tap the correct total block to load a crane's crate matching the word problem",
-          "engagementDimensions": [
-            "puzzle"
-          ],
-          "engagementHypothesis": "Reina's engagement theory shows strong positive weight for speed (5.0, confidence .875) and puzzle (5.0, confidence .92) dimensions, while her prior gearworks-crate-builder (a drag/construction mechanic) was abandoned with high frustration (0.75) whereas the fast tap-based skybird-delivery-run was completed with low frustration (0.1). This fork tests whether a low-friction rapid-tap engagement variable outperforms a slightly slower deliberate block-building/placement engagement variable, while holding academic targets, question count, and difficulty constant across both routes.",
-          "validationProof": {
-            "engine": "playwright",
-            "passed": true,
-            "worldStateChanged": true,
-            "screenshotPaths": [
-              "/Users/jamaltaylor/Development/sunny/src/context/reina/homework/direct-playwright/hw-math-a179d2a0/word-problem-crane-complete.png"
-            ]
-          }
-        },
-        {
-          "id": "quest",
+          "id": "quest-destination",
           "type": "quest",
-          "activityId": "quest",
-          "targets": [],
+          "words": [
+            "sign",
+            "know",
+            "write"
+          ],
           "difficulty": 2,
-          "source": "chart_planner",
-          "locked": true,
+          "gameFile": null,
+          "storyFile": null,
           "masteryUnlockState": "preparing",
-          "title": "Quest",
-          "thumbnailUrl": "/generated/direct-math/hw-math-a179d2a0-quest.jpeg"
+          "locked": true,
+          "date": "2026-05-27",
+          "approved": false
         },
         {
-          "id": "boss",
+          "id": "boss-destination",
           "type": "boss",
-          "activityId": "boss",
-          "targets": [],
+          "words": [],
           "difficulty": 3,
-          "source": "chart_planner",
-          "locked": true,
+          "gameFile": null,
+          "storyFile": null,
           "masteryUnlockState": "preparing",
-          "title": "Boss",
-          "thumbnailUrl": "/generated/direct-math/hw-math-a179d2a0-boss.jpeg"
+          "locked": true,
+          "date": "2026-05-27",
+          "approved": false
         }
       ]
     }
   },
-  "updatedAt": "2026-07-17T21:08:42.656Z"
+  "updatedAt": "2026-05-27T19:28:05.818Z"
 }

@@ -1,8 +1,0 @@
-{
-  "version": 1,
-  "nodeId": "fact-vault-blocks",
-  "creatorPrompt": "Build 'Fact Vault Builder' using the 5 exact fluency facts from the assignment (5x2, 5x5, 5x10, 2x7, 10x4), one at a time (single active problem). Show a stationary vault door with one empty slot lit at a time, fixed center screen. Below it present exactly 3 stationary product-block options (data-testid='answer-option') the child taps (tap-to-fill, not drag, consistent with avoiding drag mechanics given this child's prior frustration with gearworks-crate-builder). Correct tap: block snaps into vault slot with clunk+glow sound, vault brightens incrementally. Wrong tap: gentle buzz, block stays in row, slot remains empty, no penalty. Include 'Show me' demo with a DIFFERENT example fact, and 'Let me try' toggle. Sound toggle visible, audio initializes after first gesture. After all 5 facts placed, vault fully glows and opens with treasure sparkle + triumphant chime + 'Vault Keeper' badge. Practice/teaching evidence only, no mastery/unlock claims. Title 'Fact Vault Builder' visible in opening viewport with background artwork loaded.",
-  "promptHash": "47e3d335e0ca285d508b9d495551f5b26d08c9df5a749aec504b74b6ed577542",
-  "plannerModel": "claude-sonnet-5",
-  "creatorModel": "claude-sonnet-5"
-}

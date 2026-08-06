@@ -1,8 +1,0 @@
-{
-  "version": 1,
-  "nodeId": "skip-count-blocks",
-  "creatorPrompt": "Build 'Harbor Block Builder: Skip Count'. Show a stationary wooden frame with one empty slot at a time, fixed center screen. Below it, present exactly 3 stationary candidate number blocks (data-testid='answer-option') the child taps (NOT drags -- since gearworks-crate-builder drag mechanic caused frustration/abandonment for this child, use tap-to-snap instead of drag-and-drop, even though this is presented as the 'puzzle/building' route). Tapping the correct block animates it sliding into the frame slot; blocks and frame do not change screen position on wrong taps. Include toggleable 'Show me' demo using a DIFFERENT example sequence, and 'Let me try' toggle. Sound toggle visible, init audio after first gesture. Wrong tap: block bounces back in place, soft chime, no penalty. Correct tap: satisfying click/slide sound, frame slot fills, a bridge-track progress model (fixed position) lights up one more segment. After 3 rounds, marquee light animation + fanfare + 'Builder Badge'. Practice/teaching evidence only, no mastery/unlock claims. Title 'Harbor Block Builder: Skip Count' visible in opening viewport with loaded background artwork.",
-  "promptHash": "a601f349119c351a3f4d58ccdcf74b6ab8a9fdd02f44601d01cbc45c59e6c3b4",
-  "plannerModel": "claude-sonnet-5",
-  "creatorModel": "claude-sonnet-5"
-}
