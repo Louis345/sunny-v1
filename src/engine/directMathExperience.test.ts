@@ -14,6 +14,8 @@ import {
   createDirectBoardBackgroundPrompt,
   createDirectBoardThumbnailPrompt,
   buildAdaptiveProgressionCreatorPrompt,
+  designAdaptiveProgressionExperience,
+  adaptiveProgressionAcademicContractHash,
   buildMathCreativeChildContext,
   buildDirectLearningCycleInput,
   creatorPromptHash,
@@ -567,6 +569,44 @@ describe("direct math experience", () => {
   });
 
   it("keeps adaptive Creator calls subordinate to the Planner without leaking source questions", () => {
+    const node = {
+      nodeId: "quest",
+      title: "Quest",
+      role: "quest",
+      academicTarget: { skill: "novel transfer" },
+      openingScreen: { title: "Quest", purpose: "Test transfer in a new context." },
+      mechanic: "AI selected",
+      theme: "AI selected",
+      generationPrompt: { text: "Create unseen transfer and do not reuse practice-3x4." },
+      artwork: { localPath: "/generated/quest.jpeg" },
+    } as never;
+    const designArtifact = {
+      artifactId: "quest-design-v1",
+      nodeId: "quest",
+      academicContractHash: "frozen-contract",
+      title: "Quest",
+      audienceRationale: "Clear for the current child.",
+      openingPromise: "Restore the arena before the rival reaches the core.",
+      firstThreeSeconds: "The damaged arena, rival, and first movable cells are visible.",
+      firstAction: "Arrange energy cells into equal formations.",
+      interactionDemonstration: "A cell pulses toward an open formation.",
+      coreInteraction: "Construct equal groups directly inside the arena.",
+      mathAsPower: "Valid arrays charge shields and push the rival back.",
+      stakes: "Incorrect formations advance the rival.",
+      consequences: "A shield cracks and the rival visibly moves.",
+      recovery: "The crack reveals the rows/groups mismatch.",
+      progression: ["build groups", "recognize arrays", "complete the finale"],
+      interactionContinuity: "The same construction action deepens.",
+      worldReaction: "Shields illuminate and the rival changes position.",
+      payoff: "The whole arena activates.",
+      replayVariation: "Layouts vary.",
+      visualDirection: "Vivid reactive arena.",
+      motionDirection: "Cells snap and shields surge.",
+      soundDirection: "Semantic Sunny cues.",
+      usefulLibraries: [],
+      engagementPrediction: "Visible stakes sustain attention.",
+      falsifyingEvidence: "Early abandonment.",
+    };
     const prompt = buildAdaptiveProgressionCreatorPrompt({
       cycle: {
         childId: "reina",
@@ -576,18 +616,9 @@ describe("direct math experience", () => {
         engagementTheory: { hypothesis: "Reina may prefer visible strategy choices." },
         observations: [{ itemId: "practice-3x4" }],
       } as never,
-      node: {
-        nodeId: "quest",
-        title: "Quest",
-        role: "quest",
-        academicTarget: { skill: "novel transfer" },
-        openingScreen: { title: "Quest", purpose: "Test transfer in a new context." },
-        mechanic: "AI selected",
-        theme: "AI selected",
-        generationPrompt: { text: "Create unseen transfer and do not reuse practice-3x4." },
-        artwork: { localPath: "/generated/quest.jpeg" },
-      } as never,
+      node,
       childContext: { identity: { displayName: "Reina" }, motivators: ["strategy"] },
+      designArtifact,
     });
 
     expect(prompt).toContain("Create unseen transfer and do not reuse practice-3x4");
@@ -605,11 +636,104 @@ describe("direct math experience", () => {
     expect(prompt).not.toContain("Reina");
     expect(prompt).toContain("voluntarily replay");
     expect(prompt).toContain("mathematics must be the power");
+    expect(prompt).toContain("Approved design artifact is the creative authority");
+    expect(prompt).toContain("Construct equal groups directly inside the arena");
+    expect(prompt).toContain("Valid arrays charge shields and push the rival back");
+    expect(prompt).toContain("The whole arena activates");
+    expect(prompt).toContain("Do not collapse the artifact into answer buttons");
     expect(prompt.indexOf("voluntarily replay")).toBeLessThan(prompt.indexOf("Runtime contract appendix"));
     expect(prompt).toContain("under 24,000 characters");
     for (const reference of ["Skyglider", "Crane", "Vault", "Moonlit Cargo", "Tidepool", "Rope-and-Peg"]) {
       expect(prompt).not.toContain(reference);
     }
+  });
+
+  it("has Fable freeze one design artifact against the canonical progression contract", async () => {
+    const cycle = {
+      childId: "reina",
+      homeworkId: "hw-math",
+      assignment: { title: "Multiplication", contentFingerprint: "fp", targets: ["equal groups"] },
+      academicTheory: { hypothesis: "Connect equal groups to notation." },
+      observations: [],
+    } as never;
+    const node = {
+      nodeId: "quest",
+      title: "Quest",
+      role: "quest",
+      academicTarget: { skill: "novel transfer", targets: ["equal groups"] },
+      openingScreen: { title: "Quest", purpose: "Test unseen transfer." },
+      mechanic: "AI selected",
+      generationPrompt: { text: "Create unseen transfer." },
+      artwork: { localPath: "/generated/quest.jpeg" },
+      evidenceContract: { academic: true },
+      experimentId: "experiment-quest",
+    } as never;
+    const academicContractHash = adaptiveProgressionAcademicContractHash(cycle, node);
+    const artifact = {
+      artifactId: "quest-design-v1",
+      nodeId: "quest",
+      academicContractHash,
+      title: "Quest",
+      audienceRationale: "Clear for a nine-year-old.",
+      openingPromise: "Restore the arena.",
+      firstThreeSeconds: "A damaged shield and movable cells are visible.",
+      firstAction: "Drag cells into equal groups.",
+      interactionDemonstration: "One cell pulses.",
+      coreInteraction: "Build equal groups in the arena.",
+      mathAsPower: "Arrays charge shields.",
+      stakes: "The rival advances.",
+      consequences: "A shield cracks.",
+      recovery: "The mismatch becomes visible.",
+      progression: ["one shield", "several shields", "finale"],
+      interactionContinuity: "Construction deepens.",
+      worldReaction: "The arena reacts.",
+      payoff: "The arena activates.",
+      replayVariation: "Layouts vary.",
+      visualDirection: "Bright reactive arena.",
+      motionDirection: "Cells snap.",
+      soundDirection: "Semantic cues.",
+      usefulLibraries: [],
+      engagementPrediction: "Visible progress sustains attention.",
+      falsifyingEvidence: "Early abandonment.",
+    };
+    const finalMessage = vi.fn().mockResolvedValue({
+      content: [{ type: "tool_use", name: "create_progression_design_artifact", input: artifact }],
+      usage: { input_tokens: 100, output_tokens: 200 },
+      stop_reason: "tool_use",
+    });
+    const stream = vi.fn().mockReturnValue({ finalMessage });
+
+    const result = await designAdaptiveProgressionExperience({
+      cycle,
+      node,
+      childContext: { demographics: { age: 9, grade: 3 } },
+      client: { messages: { stream } } as never,
+    });
+
+    expect(stream.mock.calls[0]?.[0]).toMatchObject({
+      model: "claude-fable-5",
+      tool_choice: { type: "tool", name: "create_progression_design_artifact" },
+    });
+    expect(result).toEqual(artifact);
+  });
+
+  it("includes the preregistered prediction and evidence limit in the frozen academic hash", () => {
+    const cycle = {
+      homeworkId: "hw-math",
+      assignment: { contentFingerprint: "fp", targets: ["equal groups"] },
+    };
+    const node = {
+      nodeId: "quest", role: "quest", academicTarget: { skill: "transfer" },
+      generationPrompt: { promptId: "quest-prompt", text: "Test transfer." },
+      evidenceContract: { academic: true }, theoryId: "theory", experimentId: "experiment",
+      prediction: { claim: "Transfer will hold.", createdAt: "2026-08-06T00:00:00.000Z", evidenceLimit: "provisional_transfer" },
+    };
+    const original = adaptiveProgressionAcademicContractHash(cycle as never, node as never);
+    const changed = adaptiveProgressionAcademicContractHash(cycle as never, {
+      ...node,
+      prediction: { ...node.prediction, evidenceLimit: "calibrated_mastery" },
+    } as never);
+    expect(changed).not.toBe(original);
   });
 
   it("uses adaptive thinking supported by the configured frontier Creator model", async () => {
@@ -639,6 +763,16 @@ describe("direct math experience", () => {
         artwork: { localPath: "/generated/quest.jpeg" },
       } as never,
       childContext: {},
+      designArtifact: {
+        artifactId: "quest-design-v1", nodeId: "quest", academicContractHash: "hash", title: "Quest",
+        audienceRationale: "Clear.", openingPromise: "Begin.", firstThreeSeconds: "Action visible.",
+        firstAction: "Move an object.", interactionDemonstration: "Object pulses.", coreInteraction: "Build groups.",
+        mathAsPower: "Math moves the world.", stakes: "Visible stakes.", consequences: "Visible consequence.",
+        recovery: "Visible recovery.", progression: ["start", "finish"], interactionContinuity: "Continuous.",
+        worldReaction: "World reacts.", payoff: "Finale.", replayVariation: "Variation.", visualDirection: "Vivid.",
+        motionDirection: "Motion.", soundDirection: "Semantic cues.", usefulLibraries: [],
+        engagementPrediction: "Continue.", falsifyingEvidence: "Abandon.",
+      },
       client: { messages: { create, stream } } as never,
     });
 
@@ -649,6 +783,21 @@ describe("direct math experience", () => {
       output_config: { effort: "high" },
     });
     expect(finalMessage).toHaveBeenCalledOnce();
+  });
+
+  it("reserves the Opus builder policy for Quest and Boss while support keeps the existing model route", async () => {
+    const finalMessage = vi.fn().mockResolvedValue({
+      content: [{ type: "text", text: "<!doctype html><html><body>Support</body></html>" }],
+      stop_reason: "end_turn",
+    });
+    const stream = vi.fn().mockReturnValue({ finalMessage });
+    await generateAdaptiveProgressionActivityHtml({
+      cycle: { childId: "reina", homeworkId: "hw", assignment: { contentFingerprint: "fp", targets: [] }, observations: [] } as never,
+      node: { nodeId: "support", role: "support", title: "Support", academicTarget: { skill: "support" }, openingScreen: { title: "Support" }, generationPrompt: { text: "Teach." }, artwork: {} } as never,
+      childContext: {},
+      client: { messages: { stream } } as never,
+    });
+    expect(stream.mock.calls[0]?.[0]).toMatchObject({ model: "claude-sonnet-5" });
   });
 
   it("requires generated activities to return a complete factual scorecard", () => {

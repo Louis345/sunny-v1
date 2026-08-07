@@ -1,11 +1,47 @@
 import fs from "fs";
 import os from "os";
 import path from "path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { createLearningCycle, transitionLearningCycle } from "./learningCycleRepository";
 import { generateCanonicalProgressionArtifact } from "./canonicalProgressionGenerator";
+import type { ExperienceDesignArtifactV1 } from "./directMathExperience";
 
 function root(): string { return fs.mkdtempSync(path.join(os.tmpdir(), "sunny-progression-")); }
+
+function progressionDesign(nodeId: string, academicContractHash: string): ExperienceDesignArtifactV1 {
+  return {
+    artifactId: `${nodeId}-design-v1`,
+    nodeId,
+    academicContractHash,
+    title: nodeId === "boss" ? "Boss" : "Quest",
+    audienceRationale: "A clear challenge for the current child.",
+    openingPromise: "Restore the world by using multiplication.",
+    firstThreeSeconds: "The threatened world and first movable object are visible.",
+    firstAction: "Drag equal groups into the damaged structure.",
+    interactionDemonstration: "One group pulses toward an open slot.",
+    coreInteraction: "Construct and test equal groups inside the world.",
+    mathAsPower: "Correct multiplication repairs the structure.",
+    stakes: "A rival advances when a structure is incorrect.",
+    consequences: "Incorrect structures visibly crack and move the rival.",
+    recovery: "The crack exposes the mismatched rows and groups.",
+    progression: ["repair one structure", "coordinate several structures", "complete the finale"],
+    interactionContinuity: "The same construction action deepens across the experience.",
+    worldReaction: "Structures illuminate and the rival changes position.",
+    payoff: "The completed world activates in a full-screen finale.",
+    replayVariation: "New layouts require different equal groups.",
+    visualDirection: "A vivid reactive world with large manipulable objects.",
+    motionDirection: "Objects snap, crack, illuminate, and travel.",
+    soundDirection: "Use Sunny semantic cues for action, recovery, progress, and completion.",
+    usefulLibraries: [],
+    engagementPrediction: "Visible consequences may sustain attention.",
+    falsifyingEvidence: "The child abandons before the second structure.",
+  };
+}
+
+function designExperience() {
+  return async ({ node, academicContractHash }: { node: { nodeId: string }; academicContractHash: string }) =>
+    progressionDesign(node.nodeId, academicContractHash);
+}
 
 function baseInput() {
   const contract = (id: string, role: "baseline" | "quest" | "boss", state: "ready" | "locked") => ({
@@ -31,18 +67,20 @@ describe("canonical progression generation", () => {
     expect(source).not.toContain("while (");
     expect(source).not.toContain("Repair these rejected artifact failures");
   });
-  it("generates and binds Quest only from the canonical Quest prompt", async () => {
+  it("generates and binds Quest from its canonical prompt plus a frozen design artifact", async () => {
     const rootDir = root();
     const created = createLearningCycle(baseInput(), { rootDir });
     const generating = transitionLearningCycle("reina", "hw-progression", created.revision, { type: "baseline_completed", nodeId: "facts", academicEvidence: [{ evidenceId: "attempt:1", summary: "correct", accuracy: 1 }], engagementEvidence: [], companionObservations: [], decision: { status: "supported", reason: "Ready for transfer", nextAction: "Generate Quest" } }, { rootDir });
     let receivedPrompt = "";
-    const result = await generateCanonicalProgressionArtifact({ childId: "reina", homeworkId: "hw-progression", generateHtml: async ({ prompt }) => { receivedPrompt = prompt; return "<html><body><h1>Quest</h1></body></html>"; }, validate: async () => ({ passed: true, failures: [], screenshotPaths: ["/tmp/open.png", "/tmp/recovery.png", "/tmp/mid.png", "/tmp/complete.png"] }) }, { rootDir });
+    let receivedDesign: ExperienceDesignArtifactV1 | undefined;
+    const result = await generateCanonicalProgressionArtifact({ childId: "reina", homeworkId: "hw-progression", designExperience: designExperience(), generateHtml: async ({ prompt, designArtifact }) => { receivedPrompt = prompt; receivedDesign = designArtifact; return "<html><body><h1>Quest</h1></body></html>"; }, validate: async () => ({ passed: true, failures: [], screenshotPaths: ["/tmp/open.png", "/tmp/recovery.png", "/tmp/mid.png", "/tmp/complete.png"] }) }, { rootDir });
     expect(receivedPrompt).toContain(generating.nodes.find((node) => node.role === "quest")?.generationPrompt?.text);
+    expect(receivedDesign?.coreInteraction).toContain("Construct and test equal groups");
     expect(result.lifecycle).toBe("quest_ready");
     expect(result.nodes.find((node) => node.role === "quest")?.artifactBinding?.localArtifactPath).toContain("/api/homework/game/reina/");
   });
 
-  it("sends the canonical Quest directly to the Creator without a pre-build Creative Director call", async () => {
+  it("adds one Creator design phase without changing the canonical academic contract", async () => {
     const rootDir = root();
     const created = createLearningCycle(baseInput(), { rootDir });
     const generating = transitionLearningCycle("reina", "hw-progression", created.revision, {
@@ -57,18 +95,25 @@ describe("canonical progression generation", () => {
     let creatorPrompt = "";
     let creatorArtwork = "";
     let artworkCalls = 0;
+    let designCalls = 0;
+    let receivedDesign: ExperienceDesignArtifactV1 | undefined;
 
     const result = await generateCanonicalProgressionArtifact({
       childId: "reina",
       homeworkId: "hw-progression",
+      designExperience: async ({ node, academicContractHash }) => {
+        designCalls += 1;
+        return progressionDesign(node.nodeId, academicContractHash);
+      },
       generateArtwork: async ({ prompt }) => {
         artworkCalls += 1;
         expect(prompt).toContain("without words");
         return "/generated/direct-math/hw-progression-quest-fresh.jpeg";
       },
-      generateHtml: async ({ prompt, node }) => {
+      generateHtml: async ({ prompt, node, designArtifact }) => {
         creatorPrompt = prompt;
         creatorArtwork = node.artwork.localPath ?? "";
+        receivedDesign = designArtifact;
         return "<html><body><h1>Quest</h1></body></html>";
       },
       validate: async () => ({
@@ -79,7 +124,9 @@ describe("canonical progression generation", () => {
     }, { rootDir });
 
     expect(artworkCalls).toBe(0);
+    expect(designCalls).toBe(1);
     expect(creatorPrompt).toBe(questBefore.generationPrompt?.text);
+    expect(receivedDesign?.academicContractHash).toBeTruthy();
     expect(creatorArtwork).toBe("/generated/adventure-board-demo/quest.jpeg");
     const questAfter = result.nodes.find((node) => node.role === "quest")!;
     expect(questAfter.generationPrompt).toEqual(questBefore.generationPrompt);
@@ -87,6 +134,12 @@ describe("canonical progression generation", () => {
     expect(questAfter.evidenceContract).toEqual(questBefore.evidenceContract);
     expect(questAfter.artifactBinding?.localArtworkPath)
       .toBe("/generated/adventure-board-demo/quest.jpeg");
+    expect(questAfter.artifactBinding?.creativeProvenance).toMatchObject({
+      architectModel: "claude-fable-5",
+      builderModel: "claude-opus-5",
+      academicContractHash: receivedDesign?.academicContractHash,
+    });
+    expect(questAfter.artifactBinding?.creativeProvenance?.designArtifactHash).toBeTruthy();
   });
 
   it("retries a Quest once when runtime validation fails and binds the corrected implementation", async () => {
@@ -101,12 +154,19 @@ describe("canonical progression generation", () => {
       decision: { status: "supported", reason: "Ready for transfer", nextAction: "Generate Quest" },
     }, { rootDir });
     const generatedPrompts: string[] = [];
+    const generatedDesigns: ExperienceDesignArtifactV1[] = [];
+    let designCalls = 0;
 
     const result = await generateCanonicalProgressionArtifact({
       childId: "reina",
       homeworkId: "hw-progression",
-      generateHtml: async ({ prompt }) => {
+      designExperience: async ({ node, academicContractHash }) => {
+        designCalls += 1;
+        return progressionDesign(node.nodeId, academicContractHash);
+      },
+      generateHtml: async ({ prompt, designArtifact }) => {
         generatedPrompts.push(prompt);
+        generatedDesigns.push(designArtifact!);
         return generatedPrompts.length === 1
           ? "<html><body><h1>Quest</h1><button>Answer</button></body></html>"
           : "<html><body><h1>Quest</h1><main>Reactive world and visible journey</main></body></html>";
@@ -125,6 +185,8 @@ describe("canonical progression generation", () => {
     }, { rootDir });
 
     expect(generatedPrompts).toHaveLength(2);
+    expect(designCalls).toBe(1);
+    expect(generatedDesigns[1]).toEqual(generatedDesigns[0]);
     expect(generatedPrompts[1]).toContain("Runtime attempt event count 0/5 is too low.");
     expect(generatedPrompts[1]).toContain("<button>Answer</button>");
     const quest = result.nodes.find((node) => node.role === "quest")!;
@@ -134,6 +196,93 @@ describe("canonical progression generation", () => {
       path.basename(quest.artifactBinding?.localArtifactPath ?? ""),
     );
     expect(fs.readFileSync(artifactFile, "utf8")).toContain("Reactive world");
+  });
+
+  it("persists the frozen design before building and reuses it after builder or validator interruption", async () => {
+    const rootDir = root();
+    const created = createLearningCycle(baseInput(), { rootDir });
+    transitionLearningCycle("reina", "hw-progression", created.revision, {
+      type: "baseline_completed",
+      nodeId: "facts",
+      academicEvidence: [{ evidenceId: "attempt:1", summary: "correct", accuracy: 1 }],
+      engagementEvidence: [], companionObservations: [],
+      decision: { status: "supported", reason: "Ready", nextAction: "Generate Quest" },
+    }, { rootDir });
+    let designCalls = 0;
+    const design = async ({ node, academicContractHash }: { node: { nodeId: string }; academicContractHash: string }) => {
+      designCalls += 1;
+      return progressionDesign(node.nodeId, academicContractHash);
+    };
+
+    await expect(generateCanonicalProgressionArtifact({
+      childId: "reina",
+      homeworkId: "hw-progression",
+      designExperience: design,
+      generateHtml: async () => "<html><body><h1>Quest</h1></body></html>",
+      validate: async () => { throw new Error("browser_interrupted"); },
+    }, { rootDir })).resolves.toMatchObject({ lifecycle: "quest_generating" });
+
+    const frozenFile = path.join(
+      rootDir,
+      "src/context/reina/homework/games/.validation/quest/quality/design-artifact.json",
+    );
+    expect(fs.existsSync(frozenFile)).toBe(true);
+    const frozen = JSON.parse(fs.readFileSync(frozenFile, "utf8")) as ExperienceDesignArtifactV1;
+
+    const completed = await generateCanonicalProgressionArtifact({
+      childId: "reina",
+      homeworkId: "hw-progression",
+      designExperience: async () => { throw new Error("design_should_have_been_reused"); },
+      generateHtml: async ({ designArtifact }) => {
+        expect(designArtifact).toEqual(frozen);
+        return "<html><body><h1>Quest</h1></body></html>";
+      },
+      validate: async () => ({ passed: true, failures: [] }),
+    }, { rootDir });
+
+    expect(designCalls).toBe(1);
+    expect(completed.lifecycle).toBe("quest_ready");
+  });
+
+  it("keeps the frozen design checkpoint exclusively atomic after the builder starts", async () => {
+    const rootDir = root();
+    const created = createLearningCycle(baseInput(), { rootDir });
+    transitionLearningCycle("reina", "hw-progression", created.revision, {
+      type: "baseline_completed",
+      nodeId: "facts",
+      academicEvidence: [{ evidenceId: "attempt:1", summary: "correct", accuracy: 1 }],
+      engagementEvidence: [], companionObservations: [],
+      decision: { status: "supported", reason: "Ready", nextAction: "Generate Quest" },
+    }, { rootDir });
+    const frozenFile = path.join(
+      rootDir,
+      "src/context/reina/homework/games/.validation/quest/quality/design-artifact.json",
+    );
+    const writeFileSync = fs.writeFileSync.bind(fs);
+    let buildStarted = false;
+    const writeSpy = vi.spyOn(fs, "writeFileSync").mockImplementation(((file, data, options) => {
+      if (buildStarted && String(file) === frozenFile) {
+        throw new Error("frozen_design_rewritten_non_atomically");
+      }
+      return writeFileSync(file, data, options);
+    }) as typeof fs.writeFileSync);
+
+    try {
+      const result = await generateCanonicalProgressionArtifact({
+        childId: "reina",
+        homeworkId: "hw-progression",
+        designExperience: designExperience(),
+        generateHtml: async () => {
+          expect(fs.existsSync(frozenFile)).toBe(true);
+          buildStarted = true;
+          return "<html><body><h1>Quest</h1></body></html>";
+        },
+        validate: async () => ({ passed: true, failures: [] }),
+      }, { rootDir });
+      expect(result.lifecycle).toBe("quest_ready");
+    } finally {
+      writeSpy.mockRestore();
+    }
   });
 
   it("stops after two Creator attempts and leaves a rejected Quest unbound for human review", async () => {
@@ -151,6 +300,7 @@ describe("canonical progression generation", () => {
     const result = await generateCanonicalProgressionArtifact({
       childId: "reina",
       homeworkId: "hw-progression",
+      designExperience: designExperience(),
       generateHtml: async () => {
         generateCalls += 1;
         return `<html><body><h1>Quest</h1><button>Attempt ${generateCalls}</button></body></html>`;
@@ -214,6 +364,7 @@ describe("canonical progression generation", () => {
     const generated = await generateCanonicalProgressionArtifact({
       childId: "reina",
       homeworkId: "hw-progression",
+      designExperience: designExperience(),
       generateHtml: async () => "<html><body><h1>Array Bridge</h1></body></html>",
       validate: async () => ({ passed: true, failures: [] }),
     }, { rootDir });
@@ -244,6 +395,7 @@ describe("canonical progression generation", () => {
     const result = await generateCanonicalProgressionArtifact({
       childId: "reina",
       homeworkId: "hw-progression",
+      designExperience: designExperience(),
       generateHtml: async () => {
         generateCalls += 1;
         return "<html><body><h1>Vault Cracker</h1><p>Multiplication Quest</p></body></html>";

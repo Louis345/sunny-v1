@@ -3,6 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { generateCanonicalProgressionArtifact } from "./canonicalProgressionGenerator";
+import type { ExperienceDesignArtifactV1 } from "./directMathExperience";
 import {
   createLearningCycle,
   getLearningCycle,
@@ -18,6 +19,39 @@ import {
 
 function root(): string {
   return fs.mkdtempSync(path.join(os.tmpdir(), "sunny-closed-loop-"));
+}
+
+function designExperience() {
+  return async ({ node: generatedNode, academicContractHash }: {
+    node: LearningCycleNodeContract;
+    academicContractHash: string;
+  }): Promise<ExperienceDesignArtifactV1> => ({
+    artifactId: `${generatedNode.nodeId}-design-v1`,
+    nodeId: generatedNode.nodeId,
+    academicContractHash,
+    title: generatedNode.openingScreen.title,
+    audienceRationale: "Acceptance fixture for the current child.",
+    openingPromise: "Use multiplication to restore the world.",
+    firstThreeSeconds: "The first movable group is visible.",
+    firstAction: "Move an equal group into place.",
+    interactionDemonstration: "One group pulses toward its destination.",
+    coreInteraction: "Construct equal groups in the world.",
+    mathAsPower: "Correct groups visibly restore the world.",
+    stakes: "The world remains incomplete after an incorrect construction.",
+    consequences: "The mismatch becomes visible.",
+    recovery: "The child can inspect and revise the grouping.",
+    progression: ["construct", "transfer", "complete"],
+    interactionContinuity: "The same grouping action deepens.",
+    worldReaction: "The world changes after each construction.",
+    payoff: "The restored world celebrates.",
+    replayVariation: "Fresh structures vary.",
+    visualDirection: "Clear reactive world.",
+    motionDirection: "Groups snap into place.",
+    soundDirection: "Semantic Sunny cues.",
+    usefulLibraries: [],
+    engagementPrediction: "Visible change supports persistence.",
+    falsifyingEvidence: "The child abandons before transfer.",
+  });
 }
 
 function node(
@@ -142,6 +176,7 @@ describe("math closed learning loop acceptance", () => {
     const questReady = await generateCanonicalProgressionArtifact({
       childId: "reina",
       homeworkId: "hw-school-equal-groups",
+      designExperience: designExperience(),
       generateHtml: async ({ node: generatedNode }) => `<!doctype html><html><body><h1>${generatedNode.title}</h1></body></html>`,
       validate: async () => ({
         passed: true,
@@ -174,6 +209,7 @@ describe("math closed learning loop acceptance", () => {
     const bossReady = await generateCanonicalProgressionArtifact({
       childId: "reina",
       homeworkId: "hw-school-equal-groups",
+      designExperience: designExperience(),
       generateHtml: async ({ node: generatedNode }) => `<!doctype html><html><body><h1>${generatedNode.title}</h1></body></html>`,
       validate: async () => ({
         passed: true,
