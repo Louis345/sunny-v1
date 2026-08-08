@@ -12,10 +12,8 @@ import { useSession } from "./hooks/useSession";
 import { useAdventureState } from "./hooks/useAdventureState";
 import { ChildPicker } from "./components/ChildPicker";
 import { hasCanonicalLearningCycle, postCanonicalNodeCompletion } from "./utils/canonicalNodeCompletion";
-import { SessionScreen } from "./components/SessionScreen";
 import { SessionEnd } from "./components/SessionEnd";
 import { SessionLoadingOverlay } from "./components/SessionLoadingOverlay";
-import { CanvasTestOverlay } from "./components/CanvasTestPanel";
 import { AdventureBoardExperience } from "./components/AdventureBoardExperience";
 import type {
   AdventureBoardNode,
@@ -109,11 +107,6 @@ const DIAG_PRONUNCIATION_WORDS = [
   "band",
 ];
 
-const isCanvasTestMode =
-  import.meta.env.VITE_TEST_MODE === "true" ||
-  (typeof window !== "undefined" &&
-    window.location.search.includes("testmode"));
-
 const adventureMapEnabled = true;
 
 function resolveMapPreviewMode(): false | "free" | "go-live" {
@@ -161,28 +154,38 @@ function shouldUseSessionLoadingOverlay(): boolean {
   return true;
 }
 
-function HomeworkBoardUnavailable(props: {
+function ActiveSessionBoardRequired(props: {
   childName: string;
   error: string | null;
+  onEndSession?: () => void;
 }): ReactNode {
   return (
     <div className="w-screen h-screen overflow-hidden relative bg-zinc-950 text-white">
       <div className="absolute inset-0 flex items-center justify-center p-6">
         <div className="max-w-md rounded-lg border border-white/15 bg-white/10 p-6 text-center shadow-2xl">
           <p className="text-sm font-semibold uppercase tracking-wide text-amber-200">
-            Adventure board unavailable
+            Adventure board required
           </p>
           <h1 className="mt-2 text-2xl font-black">
-            {props.childName}'s new board is not ready yet.
+            {props.childName}'s session needs a board.
           </h1>
           <p className="mt-3 text-sm leading-6 text-white/75">
-            Run homework ingestion again so Sunny can load a validated JSON
-            adventure board instead of falling back to the legacy map.
+            Sunny stopped before opening the retired session canvas. Build and
+            validate the Adventure Board, then start the session again.
           </p>
           {props.error ? (
             <p className="mt-4 rounded-md bg-black/30 px-3 py-2 text-xs text-white/65">
               {props.error}
             </p>
+          ) : null}
+          {props.onEndSession ? (
+            <button
+              type="button"
+              className="mt-5 rounded-md bg-amber-300 px-4 py-2 text-sm font-bold text-zinc-950 hover:bg-amber-200"
+              onClick={props.onEndSession}
+            >
+              End this session
+            </button>
           ) : null}
         </div>
       </div>
@@ -447,12 +450,8 @@ function App() {
   const {
     state,
     startSession,
-    bargeIn,
     endSession,
     resetToPicker,
-    sendCanvasDone,
-    submitWorksheetAnswer,
-    handleOverlayFieldChange,
     sendMessage,
     micMuted,
     toggleMicMute,
@@ -545,8 +544,8 @@ function App() {
     adventureMapEnabled &&
     runtimeConfig.subject === "homework" &&
     Boolean(adventureChildId);
-  // Homework is a board product surface. Keep the legacy voice canvas for
-  // other subjects, but never let homework silently fall through to it.
+  // Every active learning session needs an intentional product surface.
+  // Never let a valid server session silently revive the retired canvas UI.
   const homeworkBoardMode =
     runtimeConfig.subject === "homework" && Boolean(adventureChildId);
 
@@ -1431,7 +1430,7 @@ function App() {
     } else {
       // Human-caught invariant: Storybook proves the JSON board can render, but only the live App branch can prove old-board fallback is gone.
       main = (
-        <HomeworkBoardUnavailable
+        <ActiveSessionBoardRequired
           childName={
             state.childName ??
             selectedChildName ??
@@ -1497,42 +1496,14 @@ function App() {
       </div>
     );
   } else if (state.phase === "active") {
+    // Human-caught invariant: a restored or wrong-mode active session must
+    // stop here instead of exposing the retired sidebar/canvas workflow.
     main = (
-      <div className="w-screen h-screen overflow-hidden relative">
-        {(isCanvasTestMode || state.debugMode) && (
-          <CanvasTestOverlay
-            sendMessage={sendMessage}
-            forceVisible={state.debugMode}
-          />
-        )}
-        <SessionScreen
-          childName={state.childName ?? ""}
-          companion={state.companion}
-          companionText={state.companionText}
-          interimTranscript={state.interimTranscript}
-          correctStreak={state.correctStreak}
-          canvas={state.canvas}
-          blackboard={state.blackboard}
-          reward={state.reward}
-          sessionPhase={state.sessionPhase}
-          sessionState={state.sessionState}
-          micMuted={micMuted}
-          onToggleMicMute={toggleMicMute}
-          onBargeIn={bargeIn}
-          onEndSession={endSession}
-          onCanvasDone={sendCanvasDone}
-          onWorksheetAnswer={submitWorksheetAnswer}
-          onOverlayFieldChange={handleOverlayFieldChange}
-          sendMessage={sendMessage}
-          readingCanvas={state.readingCanvas}
-          storyImageLoading={state.storyImageLoading}
-          storyImageUrl={state.storyImageUrl}
-          storyImageFailed={state.storyImageFailed}
-          accentColor={state.companion?.accentColor ?? "#7C3AED"}
-          accentBg={state.companion?.accentBg ?? "#F3E8FF"}
-          sessionTheme={null}
-        />
-      </div>
+      <ActiveSessionBoardRequired
+        childName={state.childName ?? selectedChildName ?? "Sunny"}
+        error="active_session_board_required"
+        onEndSession={endSession}
+      />
     );
 } else if (state.phase === "ended") {
     main = (

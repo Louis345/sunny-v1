@@ -1012,11 +1012,34 @@ describe("AdventureBoardExperience", () => {
     expect(runtimeBranch).toContain("homeworkBoardMode");
     expect(runtimeBranch).toContain("AdventureBoardExperience");
     expect(runtimeBranch).toContain("homeworkBoardUnavailable");
-    expect(source).toContain("never let homework silently fall through to it");
+    expect(source).toContain(
+      "Never let a valid server session silently revive the retired canvas UI.",
+    );
     expect(runtimeBranch).not.toContain("<AdventureMap");
     expect(source).toContain(
       "Human-caught invariant: Storybook proves the JSON board can render, but only the live App branch can prove old-board fallback is gone.",
     );
+  });
+
+  it("never lets an active session fall through to the retired sidebar canvas", () => {
+    const source = readFileSync(resolve(__dirname, "../App.tsx"), "utf8");
+    const activeSessionBranch = source.slice(
+      source.indexOf('} else if (state.phase === "active")'),
+      source.indexOf("const pronunciationMode"),
+    );
+
+    expect(source).not.toContain('import { SessionScreen }');
+    expect(activeSessionBranch).not.toContain("<SessionScreen");
+    expect(activeSessionBranch).toContain("<ActiveSessionBoardRequired");
+    expect(activeSessionBranch).toContain(
+      "a restored or wrong-mode active session must",
+    );
+    expect(
+      existsSync(resolve(__dirname, "../components/SessionScreen.tsx")),
+    ).toBe(false);
+    expect(
+      existsSync(resolve(__dirname, "../components/CompanionStrip.tsx")),
+    ).toBe(false);
   });
 
   it("removes the legacy AdventureMap frontend while keeping SlotMachine logged for rehome", () => {
