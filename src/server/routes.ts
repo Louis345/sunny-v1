@@ -112,6 +112,7 @@ import {
   getShowroomCompanionActTools,
   resolveShowroomSpokenText,
   resolveShowroomTalkRequest,
+  shouldSynthesizeShowroomSpeech,
   shouldRunShowroomToolFollowup,
 } from "./companionShowroomTalk";
 import {
@@ -1386,9 +1387,6 @@ export function setupRoutes(app: Express): void {
     }
 
     const apiKey = process.env.ELEVENLABS_API_KEY;
-    if (!apiKey) {
-      return res.status(500).json({ ok: false, error: "elevenlabs_api_key_missing" });
-    }
 
     try {
       const talk = resolved.request;
@@ -1415,6 +1413,8 @@ export function setupRoutes(app: Express): void {
           activeActivity: talk.activeActivity,
           activityReaction: talk.activityReaction,
           conversationIntent: talk.conversationIntent,
+          shoppingContext: talk.shoppingContext,
+          shoppingEvent: talk.shoppingEvent,
           visualSnapshot: talk.visualSnapshot,
           visionRequested: Boolean(talk.visualSnapshot),
         },
@@ -1464,6 +1464,8 @@ export function setupRoutes(app: Express): void {
         activeActivity: talk.activeActivity,
         activityReaction: talk.activityReaction,
         conversationIntent: talk.conversationIntent,
+        shoppingContext: talk.shoppingContext,
+        shoppingEvent: talk.shoppingEvent,
         companionMemory,
       });
       const messages = buildShowroomClaudeMessages({
@@ -1601,7 +1603,7 @@ export function setupRoutes(app: Express): void {
       });
       let audioBase64: string | undefined;
       let audioContentType: string | undefined;
-      if (spokenText) {
+      if (shouldSynthesizeShowroomSpeech(spokenText, apiKey)) {
         const elevenlabs = new ElevenLabsClient({ apiKey });
         const locators = getPronunciationLocators();
         const ttsStartedAt = Date.now();
@@ -1616,6 +1618,11 @@ export function setupRoutes(app: Express): void {
         audioContentType = "audio/mpeg";
       } else {
         latencySpans.ttsMs = 0;
+        if (spokenText && !apiKey) {
+          console.warn(
+            " 🎮 [showroom-talk] tts_skipped reason=elevenlabs_api_key_missing text_response=available",
+          );
+        }
       }
       latencySpans.requestToResponseMs = Date.now() - talkTraceStartedAt;
       const event = createShowroomTalkCompletedEvent({

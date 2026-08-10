@@ -12,6 +12,7 @@ import {
   shouldRequireShowroomActivityReactionSpeech,
   resolveShowroomSpokenText,
   resolveShowroomTalkRequest,
+  shouldSynthesizeShowroomSpeech,
   shouldRunShowroomToolFollowup,
 } from "./companionShowroomTalk";
 
@@ -91,6 +92,184 @@ describe("companion showroom talk contract", () => {
           earnedBy: "finished word radar",
         },
       }),
+    });
+  });
+
+  it("accepts bounded shopping truth for a companion call", () => {
+    const result = resolveShowroomTalkRequest(
+      {
+        childId: "ila",
+        companionId: "elli",
+        voiceId: "voice_a",
+        showroomTheme: "crystal",
+        mode: "video_call",
+        question: "Do you like this one?",
+        shoppingContext: {
+          mode: "try_on",
+          visitId: "visit-elli-1",
+          walletBalance: 80,
+          companionWish: "a celestial headpiece",
+          companionMood: { id: "dreamy", label: "dreamy and cosmic" },
+          selectedItem: {
+            id: "royal-crown",
+            name: "Royal Crown",
+            price: 20,
+            category: "accessory",
+            styleTags: ["gold", "royal", "sparkly"],
+            owned: true,
+            saved: false,
+            preferenceMatch: true,
+            opinionVerdict: "reject",
+            opinionReasons: ["too royal for this mood"],
+            companionConsentsToWear: false,
+          },
+          ownedItemIds: ["royal-crown"],
+          savedItemIds: [],
+        },
+      },
+      {
+        routeCompanionId: "elli",
+        voiceOptions,
+        fallbackVoiceId: "voice_a",
+      },
+    );
+
+    expect(result).toEqual({
+      ok: true,
+      request: expect.objectContaining({
+        shoppingContext: {
+          mode: "try_on",
+          visitId: "visit-elli-1",
+          walletBalance: 80,
+          companionWish: "a celestial headpiece",
+          companionMood: { id: "dreamy", label: "dreamy and cosmic" },
+          selectedItem: {
+            id: "royal-crown",
+            name: "Royal Crown",
+            price: 20,
+            category: "accessory",
+            styleTags: ["gold", "royal", "sparkly"],
+            owned: true,
+            saved: false,
+            preferenceMatch: true,
+            opinionVerdict: "reject",
+            opinionReasons: ["too royal for this mood"],
+            companionConsentsToWear: false,
+          },
+          ownedItemIds: ["royal-crown"],
+          savedItemIds: [],
+        },
+      }),
+    });
+  });
+
+  it("accepts a bounded try-on event and grounds a generated reaction in it", () => {
+    const result = resolveShowroomTalkRequest(
+      {
+        companionId: "elli",
+        voiceId: "voice_a",
+        showroomTheme: "crystal",
+        mode: "video_call",
+        question: "React naturally to the item that was just tried on.",
+        shoppingEvent: {
+          type: "try_on_started",
+          itemId: "royal-crown",
+        },
+      },
+      {
+        routeCompanionId: "elli",
+        voiceOptions,
+        fallbackVoiceId: "voice_a",
+      },
+    );
+
+    expect(result).toEqual({
+      ok: true,
+      request: expect.objectContaining({
+        shoppingEvent: {
+          type: "try_on_started",
+          itemId: "royal-crown",
+        },
+      }),
+    });
+  });
+
+  it("accepts item-review events without pretending they are child speech", () => {
+    const result = resolveShowroomTalkRequest(
+      {
+        companionId: "elli",
+        voiceId: "voice_a",
+        showroomTheme: "crystal",
+        mode: "video_call",
+        question: "Give a brief first impression of the selected item.",
+        shoppingEvent: {
+          type: "item_reviewed",
+          itemId: "star-halo",
+        },
+      },
+      {
+        routeCompanionId: "elli",
+        voiceOptions,
+        fallbackVoiceId: "voice_a",
+      },
+    );
+
+    expect(result).toEqual({
+      ok: true,
+      request: expect.objectContaining({
+        shoppingEvent: { type: "item_reviewed", itemId: "star-halo" },
+      }),
+    });
+  });
+
+  it("keeps generated text and gestures available when TTS is not configured", () => {
+    expect(shouldSynthesizeShowroomSpeech("I love the sparkle!", undefined)).toBe(false);
+    expect(shouldSynthesizeShowroomSpeech("I love the sparkle!", "tts-key")).toBe(true);
+    expect(shouldSynthesizeShowroomSpeech("", "tts-key")).toBe(false);
+
+    const routeSource = readFileSync(resolve(__dirname, "routes.ts"), "utf8");
+    const talkRouteStart = routeSource.indexOf(
+      'app.post("/api/companions/:companionId/talk"',
+    );
+    const talkRoute = routeSource.slice(talkRouteStart);
+    expect(talkRoute).not.toContain(
+      'return res.status(500).json({ ok: false, error: "elevenlabs_api_key_missing" })',
+    );
+    expect(talkRoute).toContain(
+      "shouldSynthesizeShowroomSpeech(spokenText, apiKey)",
+    );
+  });
+
+  it("rejects shopping context with invented negative currency", () => {
+    const result = resolveShowroomTalkRequest(
+      {
+        companionId: "elli",
+        voiceId: "voice_a",
+        showroomTheme: "crystal",
+        mode: "video_call",
+        question: "What can we buy?",
+        shoppingContext: {
+          mode: "entrance",
+          visitId: "visit-invalid",
+          walletBalance: -20,
+          companionWish: "something fun",
+          companionMood: { id: "bold", label: "bold and adventurous" },
+          selectedItem: null,
+          ownedItemIds: [],
+          savedItemIds: [],
+        },
+      },
+      {
+        routeCompanionId: "elli",
+        voiceOptions,
+        fallbackVoiceId: "voice_a",
+      },
+    );
+
+    expect(result).toEqual({
+      ok: false,
+      status: 400,
+      error: "invalid_shopping_context",
     });
   });
 
@@ -325,6 +504,47 @@ describe("companion showroom talk contract", () => {
     expect(prompt).toContain("Never tutor unless the child explicitly asks");
     expect(prompt).toContain("follow the child's conversational lead");
     expect(prompt).not.toContain("interactive Sunny learning companion");
+  });
+
+  it("grounds shopping dialogue in exact store state without giving spending authority", () => {
+    const prompt = buildShowroomTalkSystemPrompt({
+      companionId: "elli",
+      companionName: "Elli",
+      showroomTheme: "crystal",
+      personality: "Warm, expressive, and honest about her preferences.",
+      mode: "video_call",
+      shoppingContext: {
+        mode: "try_on",
+        visitId: "visit-elli-prompt",
+        walletBalance: 80,
+        companionWish: "a celestial headpiece",
+        companionMood: { id: "dreamy", label: "dreamy and cosmic" },
+        selectedItem: {
+          id: "royal-crown",
+          name: "Royal Crown",
+          price: 20,
+          category: "accessory",
+          styleTags: ["gold", "sparkly"],
+          owned: false,
+          saved: false,
+          preferenceMatch: true,
+          opinionVerdict: "reject",
+          opinionReasons: ["royal is not her mood today"],
+          companionConsentsToWear: false,
+        },
+        ownedItemIds: [],
+        savedItemIds: [],
+      },
+    });
+
+    expect(prompt).toContain("Active shared shopping context");
+    expect(prompt).toContain("Selected item: Royal Crown");
+    expect(prompt).toContain("Wallet balance: 80 demo coins");
+    expect(prompt).toContain("Companion wish: a celestial headpiece");
+    expect(prompt).toContain("The child controls spending");
+    expect(prompt).toContain("wearing the selected item in the try-on view");
+    expect(prompt).toContain("Code-owned companion verdict: reject");
+    expect(prompt).toContain("cannot be bought-and-worn or equipped");
   });
 
   it("keeps an active game as background when the child is just socializing", () => {

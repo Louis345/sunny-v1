@@ -1,6 +1,16 @@
 import { type ReactNode, type RefObject } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Eye, Gamepad2, Mic, PhoneOff, Send, Video, VideoOff, X } from "lucide-react";
+import {
+  Eye,
+  Gamepad2,
+  Mic,
+  PhoneOff,
+  Send,
+  ShoppingBag,
+  Video,
+  VideoOff,
+  X,
+} from "lucide-react";
 
 export type CompanionVideoCallPhase = "idle" | "calling" | "answered" | "live";
 export type CompanionVideoCallCameraState = "off" | "requesting" | "live" | "blocked";
@@ -36,6 +46,7 @@ export type CompanionVideoCallOverlayProps = {
   onLayoutChange?: (layout: CompanionVideoCallLayout) => void;
   onCompanionViewChange?: (view: CompanionVideoCompanionView) => void;
   onCopyTraceLink?: () => void;
+  onGoShopping?: () => void;
   onAskVoice: () => void;
   onQuestionChange: (value: string) => void;
   onSubmitQuestion: () => void;
@@ -74,6 +85,7 @@ export function CompanionVideoCallOverlay({
   onLayoutChange,
   onCompanionViewChange,
   onCopyTraceLink,
+  onGoShopping,
   onAskVoice,
   onQuestionChange,
   onSubmitQuestion,
@@ -378,6 +390,33 @@ export function CompanionVideoCallOverlay({
                 Full body
               </button>
             </div>
+            {onGoShopping && (
+              <button
+                type="button"
+                aria-label="Go Shopping"
+                onClick={onGoShopping}
+                style={{
+                  minHeight: 44,
+                  borderRadius: 8,
+                  border: "1px solid rgba(255,255,255,0.18)",
+                  background: "rgba(255,236,159,0.94)",
+                  color: "#392f18",
+                  padding: "0 14px",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 7,
+                  fontFamily: "Lexend, system-ui, sans-serif",
+                  fontSize: 12,
+                  fontWeight: 900,
+                  whiteSpace: "nowrap",
+                  cursor: "pointer",
+                  boxShadow: "0 12px 30px rgba(0,0,0,0.18)",
+                }}
+              >
+                <ShoppingBag size={16} aria-hidden />
+                Go Shopping
+              </button>
+            )}
             <button
               type="button"
               aria-label="Close video chat"
