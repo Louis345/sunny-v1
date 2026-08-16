@@ -7,6 +7,7 @@ import type { ExperienceDesignArtifactV1 } from "./directMathExperience";
 import {
   createLearningCycle,
   getLearningCycle,
+  transitionLearningCycle,
   type CreateLearningCycleInput,
   type LearningCycleNodeContract,
 } from "./learningCycleRepository";
@@ -19,6 +20,17 @@ import {
 
 function root(): string {
   return fs.mkdtempSync(path.join(os.tmpdir(), "sunny-closed-loop-"));
+}
+
+function finalizeSession(rootDir: string, nodeId: string, choiceEventId: string, at: string): void {
+  const cycle = getLearningCycle("reina", "hw-school-equal-groups", { rootDir });
+  if (!cycle) throw new Error("test_cycle_missing");
+  transitionLearningCycle("reina", "hw-school-equal-groups", cycle.revision, {
+    type: "session_finalized",
+    nodeId,
+    choiceEventId,
+    engagement: { postActivityAction: "back_to_map" },
+  }, { rootDir, now: new Date(at) });
 }
 
 function designExperience() {
@@ -156,6 +168,7 @@ describe("math closed learning loop acceptance", () => {
       },
     }, { rootDir, now: new Date("2026-07-21T12:10:00.000Z") });
     expect(baselineObserved?.lifecycle).toBe("baseline_evaluating");
+    finalizeSession(rootDir, "array-harbor", "modal:baseline", "2026-07-21T12:10:30.000Z");
 
     const questGenerating = await advanceCanonicalCycleFromEvidence({
       childId: "reina",
@@ -193,6 +206,7 @@ describe("math closed learning loop acceptance", () => {
       nodeId: "quest",
       result: { completed: true, accuracy: 1, timeSpent_ms: 70_000, targetResults: [{ target: "unseen-transfer-garden", correct: true, attemptedValue: "18" }] },
     }, { rootDir, now: new Date("2026-07-21T12:20:00.000Z") });
+    finalizeSession(rootDir, "quest", "modal:quest", "2026-07-21T12:20:30.000Z");
     await advanceCanonicalCycleFromEvidence({
       childId: "reina",
       homeworkId: "hw-school-equal-groups",
@@ -226,6 +240,7 @@ describe("math closed learning loop acceptance", () => {
       nodeId: "boss",
       result: { completed: true, accuracy: 1, timeSpent_ms: 80_000, targetResults: [{ target: "unseen-synthesis-market", correct: true, attemptedValue: "24" }] },
     }, { rootDir, now: new Date("2026-07-21T12:30:00.000Z") });
+    finalizeSession(rootDir, "boss", "modal:boss", "2026-07-21T12:30:30.000Z");
     const awaiting = await advanceCanonicalCycleFromEvidence({
       childId: "reina",
       homeworkId: "hw-school-equal-groups",
@@ -260,6 +275,7 @@ describe("math closed learning loop acceptance", () => {
         prompt: "There are 4 bags with 3 apples each. How many apples?",
         childResponse: "12",
         correct: true,
+        assistanceStatus: "unassisted",
         extractionConfidence: 1,
         constructLinks: [{ constructId: "math.multiplication.equal_groups", role: "primary", confidence: 1 }],
       }],
@@ -289,6 +305,20 @@ describe("math closed learning loop acceptance", () => {
         change: ["reduce scaffolding sooner"],
         testNext: ["generalization to a new multiplication context"],
         nextEvidenceRequired: ["next independent assignment"],
+        readinessAssessment: {
+          status: "ready_independent",
+          scope: {
+            homeworkId: "hw-school-equal-groups",
+            assignmentTitle: "School multiplication assignment",
+            constructIds: ["math.multiplication.equal_groups"],
+          },
+          reason: "Confirmed independent returned work matched the preregistered range.",
+          evidenceIds: returnedObservationIds,
+          predictionEvaluationIds: evaluationIds,
+          uncertainty: "This conclusion is limited to equal-groups transfer on this assignment.",
+          nextAction: "Complete the assignment independently.",
+        },
+        continuationAction: "complete",
       }),
     });
     expect(interpreted.cycle.lifecycle).toBe("complete");

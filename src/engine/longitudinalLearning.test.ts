@@ -2,7 +2,12 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
-import { createLearningCycle, getLearningCycle } from "./learningCycleRepository";
+import {
+  createLearningCycle,
+  getLearningCycle,
+  markCanonicalCompanionSupportResumed,
+  recordCanonicalCompanionSupport,
+} from "./learningCycleRepository";
 import {
   buildLongitudinalLearningHistory,
   evaluateAcademicPredictions,
@@ -99,6 +104,7 @@ function returnedWork(homeworkId: string): ConfirmedReturnedWork {
         prompt: "4 boxes with 5 pencils each",
         childResponse: "20",
         correct: true,
+        assistanceStatus: "unassisted",
         extractionConfidence: 0.99,
         constructLinks: [
           { constructId: "math.multiplication.equal_groups", role: "primary", confidence: 0.98 },
@@ -112,6 +118,7 @@ function returnedWork(homeworkId: string): ConfirmedReturnedWork {
         correct: false,
         teacherNote: "Added instead of multiplied",
         observedErrorType: "operation_selection",
+        assistanceStatus: "unassisted",
         extractionConfidence: 0.97,
         constructLinks: [
           { constructId: "math.multiplication.equal_groups", role: "primary", confidence: 0.97 },
@@ -122,6 +129,196 @@ function returnedWork(homeworkId: string): ConfirmedReturnedWork {
 }
 
 describe("longitudinal learning evidence", () => {
+  it.each([
+    { readiness: "ready_independent", action: "complete", expectedLifecycle: "complete", expectedRole: undefined },
+    { readiness: "not_yet_ready", action: "generate_support", expectedLifecycle: "baseline_generating", expectedRole: "support" },
+    { readiness: "insufficient_evidence", action: "collect_more_evidence", expectedLifecycle: "baseline_generating", expectedRole: "reassessment" },
+  ] as const)("continues one assignment with $action when readiness is $readiness", async ({ readiness, action, expectedLifecycle, expectedRole }) => {
+    const rootDir = root();
+    const created = createLearningCycle(cycleInput("hw-math-one"), { rootDir });
+    const file = path.join(rootDir, "src/context/reina/homework/cycles/hw-math-one.json");
+    fs.writeFileSync(file, JSON.stringify({ ...created, lifecycle: "awaiting_calibration" }), "utf8");
+    const factual = recordConfirmedReturnedWork(returnedWork("hw-math-one"), { rootDir });
+    const evidenceIds = factual.observations.map((item) => item.observationId);
+    const predictionEvaluationIds = factual.predictionEvaluations.map((item) => item.evaluationId);
+    const interpreted = await interpretReturnedWorkBatch({
+      childId: "reina", homeworkId: "hw-math-one", sourceId: "source:return:1", rootDir,
+      interpret: async () => ({
+        status: readiness === "ready_independent" ? "supported" : readiness === "not_yet_ready" ? "revised" : "inconclusive",
+        reason: `Planner selected ${action} from returned work.`, nextAction: action,
+        evidenceIds, predictionEvaluationIds, preserve: [], change: [], testNext: [], nextEvidenceRequired: [],
+        continuationAction: action,
+        readinessAssessment: {
+          status: readiness,
+          scope: { homeworkId: "hw-math-one", assignmentTitle: "Equal groups", constructIds: ["math.multiplication.equal_groups"] },
+          reason: `Evidence supports ${readiness}.`, evidenceIds, predictionEvaluationIds,
+          uncertainty: "Bounded to this assignment.", nextAction: action,
+        },
+        ...(action !== "complete" ? {
+          nextInstrument: {
+            nodeId: action === "generate_support" ? "support-equal-groups" : "reassess-equal-groups",
+            title: action === "generate_support" ? "Equal Groups Workshop" : "Fresh Equal Groups Check",
+            academicTarget: "math.multiplication.equal_groups",
+            mechanic: "AI-selected interaction", theme: "AI-selected world",
+            openingPurpose: "Address the cited returned-work evidence.", creatorPrompt: "Create the prescribed next chapter.",
+          },
+          nextPrediction: {
+            claim: "The child will demonstrate stronger independent equal-groups reasoning on fresh material.",
+            constructId: "math.multiplication.equal_groups", context: "next independent chapter", horizon: "next_session",
+            expectedMetric: { key: "academic.accuracy", min: 0.7, max: 0.9 }, predictedErrorPatterns: ["operation_selection"],
+            confidence: 0.55, evidenceLimit: "independent_performance",
+          },
+        } : {}),
+      }),
+    });
+
+    expect(interpreted.cycle.homeworkId).toBe("hw-math-one");
+    expect(interpreted.cycle.lifecycle).toBe(expectedLifecycle);
+    if (expectedRole) {
+      const chapter = interpreted.cycle.nodes.at(-1)!;
+      expect(chapter.routeId).toBe(`adaptive-${expectedRole}`);
+      expect(chapter.generationPrompt?.createdFromEvidenceIds).toEqual(evidenceIds);
+      expect(chapter.predictionId).toBe(interpreted.cycle.academicPredictions.at(-1)?.predictionId);
+      expect(interpreted.cycle.academicPredictions.at(-1)).toMatchObject({
+        constructId: "math.multiplication.equal_groups",
+        evidenceIds,
+        lockedAt: expect.any(String),
+      });
+    }
+  });
+
+  it("interprets a second returned-work batch in the same cycle without duplicating the first decision", async () => {
+    const rootDir = root();
+    createLearningCycle(cycleInput("hw-math-one"), { rootDir });
+    const first = recordConfirmedReturnedWork(returnedWork("hw-math-one"), { rootDir });
+    const decide = (cycle: typeof first, sourceId: string) => {
+      const evidenceIds = cycle.observations.filter((item) => item.sourceId === sourceId).map((item) => item.observationId);
+      const predictionEvaluationIds = cycle.predictionEvaluations.filter((item) => item.sourceId === sourceId).map((item) => item.evaluationId);
+      return Promise.resolve({
+        status: "inconclusive" as const, reason: "Collect another batch.", nextAction: "collect_more_evidence",
+        evidenceIds, predictionEvaluationIds, preserve: [], change: [], testNext: [], nextEvidenceRequired: ["another batch"],
+        continuationAction: "collect_more_evidence" as const,
+        readinessAssessment: {
+          status: "insufficient_evidence" as const,
+          scope: { homeworkId: "hw-math-one", assignmentTitle: "Equal groups", constructIds: ["math.multiplication.equal_groups"] },
+          reason: "One more batch is needed.", evidenceIds, predictionEvaluationIds,
+          uncertainty: "The available batch is inconclusive.", nextAction: "Collect another batch.",
+        },
+        nextInstrument: { nodeId: `reassess-${sourceId.replace(/[^a-z0-9]/gi, "-")}`, title: `Fresh Check ${sourceId.at(-1)}`, academicTarget: "math.multiplication.equal_groups", mechanic: "AI-selected interaction", theme: "AI-selected world", openingPurpose: "Collect fresh evidence.", creatorPrompt: "Create a fresh reassessment." },
+        nextPrediction: { claim: "Fresh evidence will resolve uncertainty.", constructId: "math.multiplication.equal_groups", context: "delayed independent reassessment", horizon: "next_session", expectedMetric: { key: "academic.accuracy", min: 0.7, max: 0.9 }, predictedErrorPatterns: [], confidence: 0.5, evidenceLimit: "independent_performance" as const },
+      });
+    };
+    await interpretReturnedWorkBatch({ childId: "reina", homeworkId: "hw-math-one", sourceId: "source:return:1", rootDir, interpret: decide });
+    const secondWork = returnedWork("hw-math-one");
+    secondWork.source = { ...secondWork.source, sourceId: "source:return:2", fileFingerprint: "returned-file-fingerprint-2", capturedAt: "2026-07-31T12:00:00.000Z" };
+    recordConfirmedReturnedWork(secondWork, { rootDir });
+    const interpreted = await interpretReturnedWorkBatch({ childId: "reina", homeworkId: "hw-math-one", sourceId: "source:return:2", rootDir, interpret: decide });
+
+    const decisions = interpreted.cycle.decisionHistory.filter((item) => item.eventType === "theory_decided");
+    expect(decisions).toHaveLength(2);
+    expect(new Set(decisions.flatMap((item) => item.evidenceIds)).size).toBe(4);
+    expect(interpreted.cycle.evidenceSources).toHaveLength(2);
+  });
+
+  it("persists an evidence-citing independent-readiness conclusion from strong confirmed work", async () => {
+    const rootDir = root();
+    createLearningCycle(cycleInput("hw-math-one"), { rootDir });
+    const strong = returnedWork("hw-math-one");
+    strong.items = strong.items.map((item) => ({ ...item, correct: true, observedErrorType: undefined }));
+    strong.score = { earned: 2, possible: 2 };
+    const factual = recordConfirmedReturnedWork(strong, { rootDir });
+    const evidenceIds = factual.observations.map((item) => item.observationId);
+    const predictionEvaluationIds = factual.predictionEvaluations.map((item) => item.evaluationId);
+
+    const interpreted = await interpretReturnedWorkBatch({
+      childId: "reina", homeworkId: "hw-math-one", sourceId: "source:return:1", rootDir,
+      interpret: async () => ({
+        status: "supported", reason: "Confirmed returned work independently demonstrated the assigned constructs.",
+        nextAction: "Close this assignment and preserve the successful representation.",
+        evidenceIds, predictionEvaluationIds, preserve: ["equal groups"], change: [], testNext: [], nextEvidenceRequired: [],
+        readinessAssessment: {
+          status: "ready_independent",
+          scope: { homeworkId: "hw-math-one", assignmentTitle: "Equal groups", constructIds: ["math.multiplication.equal_groups"] },
+          reason: "The confirmed work was correct on the assigned construct.",
+          evidenceIds,
+          predictionEvaluationIds,
+          uncertainty: "This conclusion is limited to the returned assignment and cited constructs.",
+          nextAction: "Complete the assignment independently.",
+        },
+      }),
+    });
+
+    expect(interpreted.cycle.decisionHistory.at(-1)?.readinessAssessment).toMatchObject({
+      status: "ready_independent",
+      scope: { homeworkId: "hw-math-one", constructIds: ["math.multiplication.equal_groups"] },
+      evidenceIds,
+      predictionEvaluationIds,
+    });
+  });
+
+  it.each(["unknown", "assisted"] as const)("rejects ready_independent when returned-work assistance is %s", async (assistanceStatus) => {
+    const rootDir = root();
+    createLearningCycle(cycleInput("hw-math-one"), { rootDir });
+    const work = returnedWork("hw-math-one");
+    work.items = work.items.map((item) => ({ ...item, correct: true, assistanceStatus }));
+    const factual = recordConfirmedReturnedWork(work, { rootDir });
+    const evidenceIds = factual.observations.map((item) => item.observationId);
+    const predictionEvaluationIds = factual.predictionEvaluations.map((item) => item.evaluationId);
+    await expect(interpretReturnedWorkBatch({
+      childId: "reina", homeworkId: "hw-math-one", sourceId: "source:return:1", rootDir,
+      interpret: async () => ({
+        status: "supported", reason: "Attempted independent-readiness claim.", nextAction: "complete",
+        evidenceIds, predictionEvaluationIds, preserve: [], change: [], testNext: [], nextEvidenceRequired: [],
+        readinessAssessment: {
+          status: "ready_independent",
+          scope: { homeworkId: "hw-math-one", assignmentTitle: "Equal groups", constructIds: ["math.multiplication.equal_groups"] },
+          reason: "Claimed readiness.", evidenceIds, predictionEvaluationIds,
+          uncertainty: "Assistance is not independently confirmed.", nextAction: "complete",
+        },
+        continuationAction: "complete",
+      }),
+    })).rejects.toThrow("assignment_readiness_independent_evidence_ineligible");
+  });
+
+  it.each([
+    {
+      label: "material assistance",
+      status: "ready_with_support",
+      mutate: (work: ConfirmedReturnedWork) => ({ ...work, items: work.items.map((item) => ({ ...item, teacherNote: "Completed with material adult assistance." })) }),
+    },
+    {
+      label: "weak returned work",
+      status: "not_yet_ready",
+      mutate: (work: ConfirmedReturnedWork) => ({ ...work, items: work.items.map((item) => ({ ...item, correct: false })) }),
+    },
+    {
+      label: "low-confidence extraction",
+      status: "insufficient_evidence",
+      mutate: (work: ConfirmedReturnedWork) => ({ ...work, items: work.items.map((item) => ({ ...item, extractionConfidence: 0.4 })) }),
+    },
+  ] as const)("preserves the Planner's $status conclusion for $label without inventing mastery", async ({ status, mutate }) => {
+    const rootDir = root();
+    createLearningCycle(cycleInput("hw-math-one"), { rootDir });
+    const factual = recordConfirmedReturnedWork(mutate(returnedWork("hw-math-one")), { rootDir });
+    const evidenceIds = factual.observations.map((item) => item.observationId);
+    const predictionEvaluationIds = factual.predictionEvaluations.map((item) => item.evaluationId);
+    const interpreted = await interpretReturnedWorkBatch({
+      childId: "reina", homeworkId: "hw-math-one", sourceId: "source:return:1", rootDir,
+      interpret: async () => ({
+        status: "inconclusive", reason: "The returned evidence does not support an independent-readiness claim.",
+        nextAction: "Follow the readiness assessment.", evidenceIds, predictionEvaluationIds,
+        preserve: [], change: [], testNext: ["fresh independent work"], nextEvidenceRequired: ["fresh independent work"],
+        readinessAssessment: {
+          status,
+          scope: { homeworkId: "hw-math-one", assignmentTitle: "Equal groups", constructIds: ["math.multiplication.equal_groups"] },
+          reason: "The cited evidence determines the bounded conclusion.", evidenceIds, predictionEvaluationIds,
+          uncertainty: "No claim extends beyond the cited assignment evidence.", nextAction: "Collect the next prescribed evidence.",
+        },
+      }),
+    });
+    expect(interpreted.cycle.decisionHistory.at(-1)?.readinessAssessment?.status).toBe(status);
+  });
+
   it("maps one returned item to multiple constructs and several items to one prediction", () => {
     const rootDir = root();
     createLearningCycle(cycleInput("hw-math-one"), { rootDir });
@@ -173,6 +370,42 @@ describe("longitudinal learning evidence", () => {
     expect(after).toEqual(before);
     expect(fs.existsSync(path.join(rootDir, "src/context/reina/learning_history.json"))).toBe(false);
     expect(getLearningCycle("reina", "hw-math-one", { rootDir })?.homeworkId).toBe("hw-math-one");
+  });
+
+  it("projects recent companion support as factual longitudinal context without promoting it to academic mastery", () => {
+    const rootDir = root();
+    createLearningCycle(cycleInput("hw-math-one"), { rootDir });
+    const supported = recordCanonicalCompanionSupport({
+      childId: "reina",
+      homeworkId: "hw-math-one",
+      sessionId: "session-1",
+      nodeId: "hw-math-one:practice",
+      itemId: "item-1",
+      supportType: "explain",
+      requestSummary: "Child asked for a different explanation of equal groups.",
+    }, { rootDir });
+    const evidenceId = supported.evidence.companionObservations[0]!.evidenceId;
+    markCanonicalCompanionSupportResumed({
+      childId: "reina",
+      homeworkId: "hw-math-one",
+      evidenceId,
+      resumedIndependently: true,
+    }, { rootDir });
+
+    const history = buildLongitudinalLearningHistory("reina", { rootDir });
+
+    expect(history.recentSupportObservations).toEqual([
+      expect.objectContaining({
+        evidenceId,
+        homeworkId: "hw-math-one",
+        nodeId: "hw-math-one:practice",
+        itemId: "item-1",
+        supportType: "explain",
+        masteryEligible: false,
+        resumedIndependently: true,
+      }),
+    ]);
+    expect(history.constructs["math.multiplication.equal_groups"]?.observations).toEqual([]);
   });
 
   it("records duplicate returned files once and writes exactly one separate theory decision", async () => {
@@ -268,6 +501,28 @@ describe("longitudinal learning evidence", () => {
             reason: "The returned item showed an operation-selection error.",
             observationIds: factual.observations.map((item) => item.observationId),
           }],
+          readinessAssessment: {
+            status: "not_yet_ready",
+            // Provider tool output occasionally serializes a nested object as a
+            // JSON string. The boundary should normalize that losslessly rather
+            // than discard an otherwise valid, evidence-citing decision.
+            scope: JSON.stringify({ homeworkId: "hw-math-one", assignmentTitle: "Equal groups", constructIds: ["math.multiplication.equal_groups"] }),
+            reason: "Confirmed work contains an unresolved operation-selection error.",
+            evidenceIds: factual.observations.map((item) => item.observationId),
+            predictionEvaluationIds: factual.predictionEvaluations.map((item) => item.evaluationId),
+            uncertainty: "Limited to the returned assignment.",
+            nextAction: "Provide support and collect fresh independent evidence.",
+          },
+          continuationAction: "generate_support",
+          nextInstrument: {
+            nodeId: "support-equal-groups", title: "Equal Groups Support", academicTarget: "math.multiplication.equal_groups",
+            mechanic: "AI-selected interaction", theme: "AI-selected world", openingPurpose: "Address the returned-work error.", creatorPrompt: "Create support.",
+          },
+          nextPrediction: {
+            claim: "Fresh support will improve independent operation selection.", constructId: "math.multiplication.equal_groups",
+            context: "next support session", horizon: "next_session", expectedMetric: { key: "academic.accuracy", min: 0.7, max: 0.9 },
+            predictedErrorPatterns: ["operation_selection"], confidence: 0.55, evidenceLimit: "independent_performance",
+          },
         },
       }],
     }));
@@ -280,12 +535,14 @@ describe("longitudinal learning evidence", () => {
     const request = (create.mock.calls as unknown as Array<[any]>)[0]?.[0];
     expect(request.max_tokens).toBeGreaterThanOrEqual(4000);
     expect(request.tools[0].input_schema.required).toContain("assumptionAssessments");
+    expect(request.tools[0].input_schema.required).toContain("readinessAssessment");
+    expect(request.tools[0].input_schema.required).toContain("continuationAction");
     expect(request.tools[0].input_schema.properties.assumptionAssessments.items.required).toEqual([
       "assumptionId", "outcome", "reason", "observationIds",
     ]);
   });
 
-  it("closes an awaiting-calibration cycle after returned work receives one theory decision", async () => {
+  it("does not auto-complete awaiting calibration when a legacy decision omits readiness and continuation", async () => {
     const rootDir = root();
     const created = createLearningCycle(cycleInput("hw-math-one"), { rootDir });
     const cycleFile = path.join(rootDir, "src/context/reina/homework/cycles/hw-math-one.json");
@@ -300,7 +557,7 @@ describe("longitudinal learning evidence", () => {
         preserve: ["equal groups"], change: [], testNext: ["delayed transfer"], nextEvidenceRequired: ["delayed work"],
       }),
     });
-    expect(interpreted.cycle.lifecycle).toBe("complete");
+    expect(interpreted.cycle.lifecycle).toBe("awaiting_calibration");
     expect(interpreted.cycle.nodes).toEqual(factual.nodes);
   });
 

@@ -43,6 +43,31 @@ export type AssignmentLearningReport = {
     evaluation: LearningCycleRecordV2["predictionEvaluations"][number] | null;
   }>;
   observations: LearningCycleRecordV2["observations"];
+  readiness: null | {
+    status: NonNullable<LearningCycleRecordV2["decisionHistory"][number]["readinessAssessment"]>["status"];
+    headline: string;
+    reason: string;
+    uncertainty: string;
+    nextAction: string;
+    constructIds: string[];
+    evidenceIds: string[];
+    predictionEvaluationIds: string[];
+  };
+  predictionAccuracy: Array<{
+    assignment: string;
+    construct: string;
+    prediction: string;
+    actual: string;
+    error: string;
+    evidenceType: LearningEvidenceSourceRef["type"];
+    assistance: "unassisted" | "assisted" | "mixed" | "unknown";
+    adjustment: string;
+  }>;
+  calibrationSummary: {
+    externallyCalibratedPredictions: number;
+    generalAccuracyClaimPermitted: boolean;
+    message: string;
+  };
   latestDecision: null | {
     decisionId: string;
     status: LearningCycleRecordV2["decisionHistory"][number]["status"];
@@ -61,6 +86,38 @@ export type ReturnedWorkDraft = ReturnedWorkExtraction & {
   requiresConfirmation: true;
   createdAt: string;
 };
+
+export function summarizePredictionCalibration(
+  rows: Array<{ construct: string; error: string }>,
+): AssignmentLearningReport["calibrationSummary"] {
+  const byConstruct = new Map<string, number[]>();
+  for (const row of rows) {
+    const error = Number.parseInt(row.error, 10);
+    if (!Number.isFinite(error)) continue;
+    byConstruct.set(row.construct, [...(byConstruct.get(row.construct) ?? []), error]);
+  }
+  const comparable = [...byConstruct.entries()].filter(([, errors]) => errors.length >= 2);
+  const claimable = [...byConstruct.values()].some((errors) => errors.length >= 3);
+  if (comparable.length === 0) {
+    return {
+      externallyCalibratedPredictions: rows.length,
+      generalAccuracyClaimPermitted: false,
+      message: "No construct has enough calibrated predictions to show a comparable trend.",
+    };
+  }
+  const improved = comparable.filter(([, errors]) => errors.at(-1)! < errors[0]!).map(([construct]) => construct);
+  const worsened = comparable.filter(([, errors]) => errors.at(-1)! > errors[0]!).map(([construct]) => construct);
+  const message = improved.length > 0 && worsened.length === 0
+    ? `Prediction error improved for ${improved.join(", ")}.`
+    : worsened.length > 0 && improved.length === 0
+      ? `Prediction error increased for ${worsened.join(", ")}.`
+      : "Comparable constructs show mixed or unchanged prediction error.";
+  return {
+    externallyCalibratedPredictions: rows.length,
+    generalAccuracyClaimPermitted: claimable,
+    message,
+  };
+}
 
 type RootOptions = { rootDir?: string; now?: Date };
 
@@ -152,18 +209,68 @@ export function getAssignmentLearningReport(
   const cycle = getLearningCycle(childId, homeworkId, opts);
   if (!cycle) throw new Error(`learning_report_assignment_missing:${homeworkId}`);
   const source = cycle.evidenceSources
-    .filter((item) => item.type === "graded_work" && item.status === "confirmed")
+    .filter((item) => (item.type === "graded_work" || item.type === "delayed_reassessment") && item.status === "confirmed")
     .sort((a, b) => a.capturedAt.localeCompare(b.capturedAt))
     .at(-1) ?? null;
   const evaluations = source ? cycle.predictionEvaluations.filter((item) => item.sourceId === source.sourceId) : [];
   const evaluationIds = new Set(evaluations.map((item) => item.evaluationId));
+  const sourceObservationIds = new Set(source
+    ? cycle.observations.filter((item) => item.sourceId === source.sourceId).map((item) => item.observationId)
+    : []);
   const decision = source
     ? [...cycle.decisionHistory].reverse().find((item) =>
         item.eventType === "theory_decided" &&
-        (item.predictionEvaluationIds ?? []).some((id) => evaluationIds.has(id))) ?? null
+        ((item.predictionEvaluationIds ?? []).some((id) => evaluationIds.has(id))
+          || (item.evidenceIds ?? []).some((id) => sourceObservationIds.has(id)))) ?? null
     : null;
   const assessments = new Map((decision?.assumptionAssessments ?? []).map((item) => [item.assumptionId, item]));
   const evaluationByPrediction = new Map(evaluations.map((item) => [item.predictionId, item]));
+  const readiness = decision?.readinessAssessment ?? null;
+  const childName = childId.charAt(0).toUpperCase() + childId.slice(1);
+  const headline = readiness?.status === "predicted_ready"
+    ? `Sunny predicts ${childName} is ready for ${cycle.assignment.title}, but returned work is still needed to confirm it.`
+    : readiness?.status === "ready_independent"
+      ? `Sunny believes ${childName} can complete ${cycle.assignment.title} independently.`
+      : readiness?.status === "ready_with_support"
+        ? `Sunny believes ${childName} can complete ${cycle.assignment.title} with support.`
+        : readiness?.status === "not_yet_ready"
+          ? `Sunny believes ${childName} needs more support before completing ${cycle.assignment.title} independently.`
+          : readiness
+            ? `Sunny does not yet have enough evidence to judge ${childName}’s readiness for ${cycle.assignment.title}.`
+            : null;
+  const percent = (value: number | null): string => value == null ? "—" : `${Math.round(value * 100)}%`;
+  const predictionAccuracy = canonicalCycles(childId, opts.rootDir).flatMap((candidate) =>
+    candidate.predictionEvaluations.flatMap((evaluation) => {
+      const prediction = candidate.academicPredictions.find((item) => item.predictionId === evaluation.predictionId);
+      const evidenceSource = candidate.evidenceSources.find((item) => item.sourceId === evaluation.sourceId);
+      if (!prediction || !evidenceSource || !["graded_work", "delayed_reassessment"].includes(evidenceSource.type)) return [];
+      const observations = evaluation.observationIds.flatMap((id) => {
+        const observation = candidate.observations.find((item) => item.observationId === id);
+        return observation ? [observation] : [];
+      });
+      const assistanceStates = new Set(observations.map((item) => item.assistance.status));
+      const assistance = assistanceStates.size > 1
+        ? "mixed" as const
+        : assistanceStates.has("assisted")
+          ? "assisted" as const
+          : assistanceStates.has("unassisted")
+            ? "unassisted" as const
+            : "unknown" as const;
+      const interpretation = candidate.decisionHistory.find((item) =>
+        item.eventType === "theory_decided" && item.predictionEvaluationIds?.includes(evaluation.evaluationId));
+      return [{
+        assignment: candidate.assignment.title,
+        construct: prediction.constructId,
+        prediction: `${percent(prediction.expectedMetric.min).replace("%", "")}–${percent(prediction.expectedMetric.max)}`,
+        actual: percent(evaluation.observedMetric),
+        error: percent(evaluation.predictionError),
+        evidenceType: evidenceSource.type,
+        assistance,
+        adjustment: interpretation?.change?.[0] ?? interpretation?.preserve?.[0] ?? interpretation?.nextAction ?? "Pending interpretation",
+        evaluatedAt: evaluation.evaluatedAt,
+      }];
+    })).sort((a, b) => a.evaluatedAt.localeCompare(b.evaluatedAt));
+  const calibrationSummary = summarizePredictionCalibration(predictionAccuracy);
   return {
     childId,
     homeworkId,
@@ -174,6 +281,18 @@ export function getAssignmentLearningReport(
     assumptions: cycle.assumptions.map((item) => ({ ...item, assessment: assessments.get(item.assumptionId) ?? null })),
     predictions: cycle.academicPredictions.map((item) => ({ ...item, evaluation: evaluationByPrediction.get(item.predictionId) ?? null })),
     observations: source ? cycle.observations.filter((item) => item.sourceId === source.sourceId) : [],
+    readiness: readiness && headline ? {
+      status: readiness.status,
+      headline,
+      reason: readiness.reason,
+      uncertainty: readiness.uncertainty,
+      nextAction: readiness.nextAction,
+      constructIds: readiness.scope.constructIds,
+      evidenceIds: readiness.evidenceIds,
+      predictionEvaluationIds: readiness.predictionEvaluationIds,
+    } : null,
+    predictionAccuracy: predictionAccuracy.map(({ evaluatedAt: _evaluatedAt, ...item }) => item),
+    calibrationSummary,
     latestDecision: decision ? {
       decisionId: decision.decisionId,
       status: decision.status,
@@ -258,6 +377,9 @@ export function parseReturnedWorkExtraction(value: unknown): ReturnedWorkExtract
       ...(typeof item.observedErrorType === "string" && item.observedErrorType.trim()
         ? { observedErrorType: item.observedErrorType }
         : {}),
+      assistanceStatus: item.assistanceStatus === "unassisted" || item.assistanceStatus === "assisted"
+        ? item.assistanceStatus
+        : "unknown",
       extractionConfidence,
       constructLinks,
     };

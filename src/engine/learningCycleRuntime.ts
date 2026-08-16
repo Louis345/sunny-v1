@@ -1,5 +1,9 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { randomUUID } from "crypto";
+import fs from "fs";
+import path from "path";
 import { getChildChart } from "../profiles/childChart";
+import { resolveChildContextDir } from "../utils/contextRoot";
 import { engagementTheoryEvidenceContext } from "./engagementTheory";
 import {
   getLearningCycle,
@@ -18,10 +22,16 @@ export type CanonicalCompletionResult = {
   timeSpent_ms: number;
   targetResults?: Array<{
     target: string;
-    correct: boolean;
+    correct?: boolean;
     attemptedValue?: string;
     responseTime_ms?: number;
     scaffoldLevel?: number;
+    observedErrorType?: string;
+    assistanceStatus?: "unassisted" | "assisted" | "unknown";
+    confounds?: string[];
+    resolutionId?: string;
+    attemptId?: string;
+    supersedesAttemptId?: string;
   }>;
   frustrationSignals?: string[];
   replay?: boolean;
@@ -47,6 +57,27 @@ export type BaselineQuestEvidenceEligibility = {
   reason: "eligible_independent_correct_evidence" | "no_target_aligned_baseline_evidence" | "no_independent_correct_baseline_evidence";
 };
 
+export type QuestBossEvidenceEligibility = {
+  eligible: boolean;
+  targetAlignedObservationCount: number;
+  correctObservationCount: number;
+  qualifyingObservationCount: number;
+  reason:
+    | "eligible_fresh_correct_unassisted_quest_evidence"
+    | "no_target_aligned_quest_evidence"
+    | "no_correct_quest_evidence"
+    | "no_fresh_unassisted_quest_evidence";
+};
+
+function observationBelongsToNode(cycle: LearningCycleRecordV2, observation: LearningObservation, nodeIds: Set<string>): boolean {
+  if (observation.nodeId) return nodeIds.has(observation.nodeId);
+  const matchedNodeId = cycle.nodes
+    .map((node) => node.nodeId)
+    .filter((nodeId) => observation.sourceId.endsWith(`:${nodeId}`))
+    .sort((left, right) => right.length - left.length)[0];
+  return matchedNodeId != null && nodeIds.has(matchedNodeId);
+}
+
 export function baselineQuestEvidenceEligibility(
   cycle: LearningCycleRecordV2,
 ): BaselineQuestEvidenceEligibility {
@@ -55,8 +86,7 @@ export function baselineQuestEvidenceEligibility(
     /(^|[:_-])(synthetic|playwright|browser-acceptance|readiness)([:_-]|$)/i.test(value);
   const targetAligned = cycle.observations.filter((observation) => {
     if (isSynthetic(observation.observationId) || isSynthetic(observation.sourceId)) return false;
-    const sourceNodeId = observation.sourceId.split(":").at(-1) ?? "";
-    return baselineNodeIds.has(sourceNodeId)
+    return observationBelongsToNode(cycle, observation, baselineNodeIds)
       && observation.constructLinks.some((link) => link.role === "primary" && link.confidence > 0)
       && !observation.confounds.includes("response_not_captured");
   });
@@ -73,6 +103,40 @@ export function baselineQuestEvidenceEligibility(
       : targetAligned.length > 0
         ? "no_independent_correct_baseline_evidence"
         : "no_target_aligned_baseline_evidence",
+  };
+}
+
+export function questBossEvidenceEligibility(
+  cycle: LearningCycleRecordV2,
+): QuestBossEvidenceEligibility {
+  const questNodeIds = new Set(cycle.nodes.filter((node) => node.role === "quest").map((node) => node.nodeId));
+  const isSynthetic = (value: string): boolean =>
+    /(^|[:_-])(synthetic|playwright|browser-acceptance|readiness)([:_-]|$)/i.test(value);
+  const targetAligned = cycle.observations.filter((observation) => {
+    if (isSynthetic(observation.observationId) || isSynthetic(observation.sourceId)) return false;
+    return observationBelongsToNode(cycle, observation, questNodeIds)
+      && observation.constructLinks.some((link) => link.role === "primary" && link.confidence > 0)
+      && !observation.confounds.includes("response_not_captured");
+  });
+  const correct = targetAligned.filter((observation) => observation.result.correct === true);
+  const qualifying = correct.filter((observation) =>
+    observation.provenance === "independent_probe"
+    && observation.exposure === "unseen"
+    && observation.assistance.status === "unassisted"
+    && !observation.confounds.includes("assistance_present")
+    && !observation.confounds.includes("item_previously_exposed"));
+  return {
+    eligible: qualifying.length > 0,
+    targetAlignedObservationCount: targetAligned.length,
+    correctObservationCount: correct.length,
+    qualifyingObservationCount: qualifying.length,
+    reason: qualifying.length > 0
+      ? "eligible_fresh_correct_unassisted_quest_evidence"
+      : targetAligned.length === 0
+        ? "no_target_aligned_quest_evidence"
+        : correct.length === 0
+          ? "no_correct_quest_evidence"
+          : "no_fresh_unassisted_quest_evidence",
   };
 }
 
@@ -110,27 +174,37 @@ function observationsForCompletion(input: {
 }): LearningObservation[] {
   const node = input.cycle.nodes.find((candidate) => candidate.nodeId === input.nodeId)!;
   const prediction = input.cycle.academicPredictions.find((candidate) => candidate.predictionId === node.predictionId);
-  const constructId = prediction?.constructId ?? `${input.cycle.domain}.${slug(node.academicTarget.skill)}`;
-  const rows = input.result.targetResults?.length
+  const constructId = prediction?.constructId
+    ?? node.academicTarget.targets[0]
+    ?? `${input.cycle.domain}.${slug(node.academicTarget.skill)}`;
+  const rawRows = input.result.targetResults?.length
     ? input.result.targetResults
     : [{ target: node.nodeId, correct: input.result.accuracy >= 0.5 }];
+  const supersededAttemptIds = new Set(rawRows
+    .map((row) => row.supersedesAttemptId?.trim())
+    .filter((value): value is string => Boolean(value)));
+  const rows = rawRows.filter((row) => !row.attemptId?.trim() || !supersededAttemptIds.has(row.attemptId.trim()));
   const companionHelp = (input.result.companionInteractions?.length ?? 0) > 0;
   const previouslyExposedItemIds = new Set(input.cycle.observations.map((observation) => observation.itemId));
   return rows.map((row, index) => {
-    const scaffolded = Number(row.scaffoldLevel ?? 0) > 0 || companionHelp;
+    const unresolved = typeof row.observedErrorType === "string" && row.observedErrorType.trim().length > 0;
+    const scaffolded = Number(row.scaffoldLevel ?? 0) > 0 || companionHelp || row.assistanceStatus === "assisted";
     const repeatedAssessmentItem = node.role !== "baseline" && previouslyExposedItemIds.has(row.target);
     const responseNotCaptured = isUncapturedResponse(row.attemptedValue);
     return {
-      observationId: `${input.sessionId}:${input.nodeId}:observation:${index + 1}`,
+      observationId: row.resolutionId?.trim() || `${input.sessionId}:${input.nodeId}:observation:${index + 1}`,
       sourceId: `activity:${input.sessionId}:${input.nodeId}`,
+      nodeId: input.nodeId,
       itemId: row.target || `${input.nodeId}:item:${index + 1}`,
       ...(row.attemptedValue ? { childResponse: row.attemptedValue } : {}),
       constructLinks: [{ constructId, role: "primary", confidence: 1 }],
       result: responseNotCaptured
         ? { observedErrorType: "response_not_captured" }
-        : { correct: row.correct, score: row.correct ? 1 : 0 },
+        : unresolved
+          ? { observedErrorType: row.observedErrorType!.trim() }
+          : { correct: row.correct, score: row.correct === true ? 1 : 0 },
       assistance: {
-        status: scaffolded ? "assisted" : "unassisted",
+        status: row.assistanceStatus ?? (scaffolded ? "assisted" : "unassisted"),
         scaffolds: [
           ...(Number(row.scaffoldLevel ?? 0) > 0 ? [`scaffold_level_${row.scaffoldLevel}`] : []),
           ...(companionHelp ? ["companion_help"] : []),
@@ -143,6 +217,8 @@ function observationsForCompletion(input: {
         ...(scaffolded ? ["assistance_present"] : []),
         ...(repeatedAssessmentItem ? ["item_previously_exposed"] : []),
         ...(responseNotCaptured ? ["response_not_captured"] : []),
+        ...(unresolved ? [row.observedErrorType!.trim()] : []),
+        ...(row.confounds ?? []).filter((value) => typeof value === "string" && value.trim().length > 0),
       ],
     };
   });
@@ -319,10 +395,18 @@ async function askPlanner(
   const factualObservations = cycle.observations.filter((observation) =>
     !isSynthetic(observation.observationId) && !isSynthetic(observation.sourceId)
   );
+  const factualSessionFinalizations = cycle.sessionFinalizations.filter((item) =>
+    !isSynthetic(item.choiceEventId)
+  );
   const baselineEligibility = baselineQuestEvidenceEligibility(cycle);
+  const bossEligibility = questBossEvidenceEligibility(cycle);
   const allowedProgressionActions: LearningProgressionAction[] = cycle.lifecycle === "baseline_evaluating" && !baselineEligibility.eligible
     ? ["generate_support", "collect_more_evidence"]
-    : ["generate_support", "generate_quest", "generate_boss", "collect_more_evidence", "await_calibration"];
+    : cycle.lifecycle === "quest_evaluating"
+      ? bossEligibility.eligible
+        ? ["generate_support", "generate_boss", "await_calibration"]
+        : ["generate_support", "await_calibration"]
+      : ["generate_support", "generate_quest", "generate_boss", "collect_more_evidence", "await_calibration"];
   const response = await anthropic.messages.create({
     model: model ?? process.env.SUNNY_INGEST_MODEL ?? "claude-sonnet-5",
     // The prescription now carries five additional design fields; 2600 truncated them.
@@ -344,10 +428,13 @@ ${JSON.stringify(childContext, null, 2)}
 
 Baseline Quest eligibility (runtime truth boundary, not a mastery judgment):
 ${JSON.stringify(baselineEligibility, null, 2)}
+
+Quest Boss eligibility (runtime truth boundary, not a mastery judgment):
+${JSON.stringify(bossEligibility, null, 2)}
 Allowed progression actions for this lifecycle: ${allowedProgressionActions.join(", ")}
 
 Cycle:
-${JSON.stringify({ lifecycle: cycle.lifecycle, assignment: cycle.assignment, theory: cycle.academicTheory, predictions: cycle.academicPredictions, evidence: factualEvidence, observations: factualObservations, nodes: cycle.nodes.map((node) => ({ nodeId: node.nodeId, role: node.role, title: node.title, state: node.state, routeId: node.routeId, evidenceIds: node.evidenceIds.filter((id) => !isSynthetic(id)) })) }, null, 2)}` }],
+${JSON.stringify({ lifecycle: cycle.lifecycle, assignment: cycle.assignment, theory: cycle.academicTheory, predictions: cycle.academicPredictions, evidence: factualEvidence, observations: factualObservations, sessionFinalizations: factualSessionFinalizations, nodes: cycle.nodes.map((node) => ({ nodeId: node.nodeId, role: node.role, title: node.title, state: node.state, routeId: node.routeId, evidenceIds: node.evidenceIds.filter((id) => !isSynthetic(id)) })) }, null, 2)}` }],
     tools: [{
       name: toolName,
       description: "Return one evidence-grounded progression decision.",
@@ -432,54 +519,207 @@ ${JSON.stringify({ lifecycle: cycle.lifecycle, assignment: cycle.assignment, the
   return parseCanonicalProgressionDecision(tool.input);
 }
 
-export async function advanceCanonicalCycleFromEvidence(
-  input: {
-    childId: string;
-    homeworkId: string;
-    client?: Anthropic;
-    model?: string;
-    decide?: (cycle: LearningCycleRecordV2) => Promise<CanonicalProgressionDecision>;
-  },
-  opts: LearningCycleRepositoryOptions = {},
-): Promise<LearningCycleRecordV2> {
-  const cycle = getLearningCycle(input.childId, input.homeworkId, opts);
-  if (!cycle) throw new Error(`learning_cycle_missing:${input.homeworkId}`);
-  if (!["baseline_evaluating", "quest_evaluating", "boss_evaluating"].includes(cycle.lifecycle)) return cycle;
-  const plannerDecision = input.decide ? await input.decide(cycle) : await askPlanner(cycle, input.client, input.model, opts);
-  const decision = resolveCanonicalProgressionDecisionForLifecycle(cycle.lifecycle, plannerDecision);
-  if (cycle.lifecycle === "baseline_evaluating"
-    && decision.progressionAction === "generate_quest"
-    && !baselineQuestEvidenceEligibility(cycle).eligible) {
-    throw new Error("canonical_progression_quest_requires_eligible_baseline_evidence");
-  }
-  if (cycle.lifecycle === "quest_evaluating" && !["generate_boss", "generate_support", "await_calibration"].includes(decision.progressionAction)) {
-    throw new Error("canonical_progression_quest_action_invalid");
-  }
-  if (cycle.lifecycle === "quest_evaluating" && decision.progressionAction === "generate_boss") {
-    const quest = cycle.nodes.find((node) => node.role === "quest");
-    const hasUnassistedUnseenQuestEvidence = quest && cycle.observations.some((observation) =>
-      observation.sourceId.endsWith(`:${quest.nodeId}`) &&
-      observation.provenance === "independent_probe" &&
-      observation.exposure === "unseen" &&
-      observation.assistance.status === "unassisted");
-    if (!hasUnassistedUnseenQuestEvidence) {
-      throw new Error("canonical_progression_boss_requires_unseen_quest_evidence");
+type AdvanceCanonicalCycleInput = {
+  childId: string;
+  homeworkId: string;
+  client?: Anthropic;
+  model?: string;
+  decide?: (cycle: LearningCycleRecordV2) => Promise<CanonicalProgressionDecision>;
+};
+
+type PlannerDecisionLease = {
+  ownerId: string;
+  lockDir: string;
+  heartbeat: ReturnType<typeof setInterval>;
+};
+
+const PLANNER_DECISION_LEASE_MS = 10 * 60 * 1000;
+
+function acquirePlannerDecisionLease(
+  input: Pick<AdvanceCanonicalCycleInput, "childId" | "homeworkId">,
+  opts: LearningCycleRepositoryOptions,
+): PlannerDecisionLease {
+  const ownerId = randomUUID();
+  const safeHomeworkId = input.homeworkId.replace(/[^a-zA-Z0-9._-]/g, "_");
+  const lockDir = path.join(
+    resolveChildContextDir(input.childId.trim().toLowerCase(), { rootDir: opts.rootDir }),
+    "homework",
+    "cycles",
+    ".locks",
+    `${safeHomeworkId}.planner`,
+  );
+  fs.mkdirSync(path.dirname(lockDir), { recursive: true });
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    try {
+      fs.mkdirSync(lockDir);
+      fs.writeFileSync(path.join(lockDir, "owner"), ownerId, "utf8");
+      const heartbeat = setInterval(() => {
+        try {
+          if (fs.readFileSync(path.join(lockDir, "owner"), "utf8") !== ownerId) return;
+          const now = new Date();
+          fs.utimesSync(lockDir, now, now);
+        } catch (error) {
+          console.error(` 🎮 [canonical-progression] [lease-heartbeat] [failed] ${error instanceof Error ? error.message : String(error)}`);
+        }
+      }, 30_000);
+      heartbeat.unref();
+      return { ownerId, lockDir, heartbeat };
+    } catch (error) {
+      const code = error && typeof error === "object" && "code" in error ? String(error.code) : "";
+      if (code !== "EEXIST") throw error;
+      const ageMs = Date.now() - fs.statSync(lockDir).mtimeMs;
+      if (ageMs < PLANNER_DECISION_LEASE_MS) {
+        throw new Error(`canonical_progression_decision_in_flight:${input.homeworkId}`);
+      }
+      fs.rmSync(lockDir, { recursive: true, force: true });
     }
   }
-  if (cycle.lifecycle === "boss_evaluating" && decision.progressionAction !== "await_calibration") {
-    throw new Error("canonical_progression_boss_requires_calibration");
+  throw new Error(`canonical_progression_lease_acquisition_exhausted:${input.homeworkId}`);
+}
+
+function releasePlannerDecisionLease(lease: PlannerDecisionLease): void {
+  clearInterval(lease.heartbeat);
+  try {
+    if (fs.readFileSync(path.join(lease.lockDir, "owner"), "utf8") === lease.ownerId) {
+      fs.rmSync(lease.lockDir, { recursive: true, force: true });
+    }
+  } catch (error) {
+    const code = error && typeof error === "object" && "code" in error ? String(error.code) : "";
+    if (code !== "ENOENT") {
+      console.error(` 🎮 [canonical-progression] [lease-release] [failed] ${error instanceof Error ? error.message : String(error)}`);
+    }
   }
-  const evidenceIds = [...new Set([
-    ...cycle.evidence.academic.map((item) => item.evidenceId),
-    ...cycle.evidence.engagement.map((item) => item.evidenceId),
-  ].filter((id) => !/(^|[:_-])(synthetic|playwright|browser-acceptance|readiness)([:_-]|$)/i.test(id)))];
-  return transitionLearningCycle(cycle.childId, cycle.homeworkId, cycle.revision, {
-    type: "theory_decided",
-    decision: {
-      ...decision,
-      nextAction: decision.progressionAction,
-      evidenceIds,
-      predictionEvaluationIds: [],
-    },
+}
+
+async function advanceCanonicalCycleFromEvidenceUnlocked(
+  input: AdvanceCanonicalCycleInput,
+  opts: LearningCycleRepositoryOptions = {},
+): Promise<LearningCycleRecordV2> {
+  let cycle = getLearningCycle(input.childId, input.homeworkId, opts);
+  if (!cycle) throw new Error(`learning_cycle_missing:${input.homeworkId}`);
+  if (!["baseline_evaluating", "quest_evaluating", "boss_evaluating"].includes(cycle.lifecycle)) return cycle;
+  const evaluatingRole = cycle.lifecycle === "baseline_evaluating"
+    ? "baseline"
+    : cycle.lifecycle === "quest_evaluating"
+      ? "quest"
+      : "boss";
+  const evaluationSessionFinalizationId = cycle.evaluationSessionFinalizationId;
+  const evaluationNodeId = cycle.evaluationNodeId;
+  const currentFinalization = cycle.sessionFinalizations.find((item) =>
+    item.choiceEventId === evaluationSessionFinalizationId);
+  const hasFinalizedScorecard = cycle.nodes.some((node) =>
+    node.role === evaluatingRole && node.state === "completed" &&
+    node.nodeId === evaluationNodeId && node.nodeId === currentFinalization?.nodeId);
+  if (!hasFinalizedScorecard) {
+    throw new Error(`canonical_progression_session_not_finalized:${cycle.lifecycle}`);
+  }
+  if (cycle.progressionDecisionClaim?.status === "running") {
+    const claimAgeMs = Date.now() - Date.parse(cycle.progressionDecisionClaim.claimedAt);
+    if (!Number.isFinite(claimAgeMs) || claimAgeMs < 10 * 60 * 1000) {
+      throw new Error(`canonical_progression_decision_in_flight:${cycle.progressionDecisionClaim.finalizationId}`);
+    }
+    cycle = transitionLearningCycle(cycle.childId, cycle.homeworkId, cycle.revision, {
+      type: "progression_decision_failed",
+      finalizationId: cycle.progressionDecisionClaim.finalizationId,
+      claimId: cycle.progressionDecisionClaim.claimId,
+      reason: "stale_planner_claim_recovered_after_restart",
+    }, opts);
+    console.log(` 🎮 [canonical-progression] [stale-claim] [recovered] finalization=${cycle.evaluationSessionFinalizationId}`);
+  }
+  const claimId = randomUUID();
+  const claimed = transitionLearningCycle(cycle.childId, cycle.homeworkId, cycle.revision, {
+    type: "progression_decision_claimed",
+    finalizationId: cycle.evaluationSessionFinalizationId!,
+    claimId,
   }, opts);
+  const preserveFailedClaim = (error: unknown): void => {
+    const latest = getLearningCycle(input.childId, input.homeworkId, opts);
+    if (latest?.progressionDecisionClaim?.status !== "running" ||
+      latest.progressionDecisionClaim.finalizationId !== claimed.evaluationSessionFinalizationId ||
+      latest.progressionDecisionClaim.claimId !== claimId) return;
+    try {
+      transitionLearningCycle(latest.childId, latest.homeworkId, latest.revision, {
+        type: "progression_decision_failed",
+        finalizationId: latest.progressionDecisionClaim.finalizationId,
+        claimId,
+        reason: error instanceof Error ? error.message : String(error),
+      }, opts);
+    } catch (claimError) {
+      console.error(` 🎮 [canonical-progression] [failure-checkpoint] [failed] ${claimError instanceof Error ? claimError.message : String(claimError)}`);
+    }
+  };
+  try {
+    const plannerDecision = input.decide
+      ? await input.decide(claimed)
+      : await askPlanner(claimed, input.client, input.model, opts);
+    const decision = resolveCanonicalProgressionDecisionForLifecycle(claimed.lifecycle, plannerDecision);
+    if (claimed.lifecycle === "baseline_evaluating"
+      && decision.progressionAction === "generate_quest"
+      && !baselineQuestEvidenceEligibility(claimed).eligible) {
+      throw new Error("canonical_progression_quest_requires_eligible_baseline_evidence");
+    }
+    if (claimed.lifecycle === "quest_evaluating" && !["generate_boss", "generate_support", "await_calibration"].includes(decision.progressionAction)) {
+      throw new Error("canonical_progression_quest_action_invalid");
+    }
+    if (claimed.lifecycle === "quest_evaluating" && decision.progressionAction === "generate_boss") {
+      if (!questBossEvidenceEligibility(claimed).eligible) {
+        throw new Error("canonical_progression_boss_requires_eligible_quest_evidence");
+      }
+    }
+    if (claimed.lifecycle === "boss_evaluating" && decision.progressionAction !== "await_calibration") {
+      throw new Error("canonical_progression_boss_requires_calibration");
+    }
+    const evidenceIds = [...new Set([
+      ...claimed.evidence.academic.map((item) => item.evidenceId),
+      ...claimed.evidence.engagement.map((item) => item.evidenceId),
+    ].filter((id) => !/(^|[:_-])(synthetic|playwright|browser-acceptance|readiness)([:_-]|$)/i.test(id)))];
+    const theoryEvent = {
+      type: "theory_decided" as const,
+      claimId,
+      decision: {
+        ...decision,
+        nextAction: decision.progressionAction,
+        evidenceIds,
+        predictionEvaluationIds: [],
+      },
+    };
+    for (let attempt = 1; attempt <= 10; attempt += 1) {
+      const latest = getLearningCycle(claimed.childId, claimed.homeworkId, opts);
+      if (!latest) throw new Error(`learning_cycle_missing:${claimed.homeworkId}`);
+      if (latest.progressionDecisionClaim?.status !== "running" ||
+        latest.progressionDecisionClaim.finalizationId !== claimed.evaluationSessionFinalizationId ||
+        latest.progressionDecisionClaim.claimId !== claimId) {
+        throw new Error(`canonical_progression_claim_lost:${claimed.evaluationSessionFinalizationId}`);
+      }
+      try {
+        return transitionLearningCycle(latest.childId, latest.homeworkId, latest.revision, theoryEvent, opts);
+      } catch (error) {
+        const retryable = error instanceof Error && (
+          error.message.startsWith("learning_cycle_revision_conflict:") ||
+          error.message.startsWith("learning_cycle_transition_in_flight:")
+        );
+        if (!retryable || attempt === 10) {
+          throw error;
+        }
+        console.log(` 🎮 [canonical-progression] [decision-commit] [contention-retry] attempt=${attempt}`);
+        await new Promise<void>((resolve) => setTimeout(resolve, 50));
+      }
+    }
+    throw new Error("canonical_progression_decision_commit_exhausted");
+  } catch (error) {
+    preserveFailedClaim(error);
+    throw error;
+  }
+}
+
+export async function advanceCanonicalCycleFromEvidence(
+  input: AdvanceCanonicalCycleInput,
+  opts: LearningCycleRepositoryOptions = {},
+): Promise<LearningCycleRecordV2> {
+  const lease = acquirePlannerDecisionLease(input, opts);
+  try {
+    return await advanceCanonicalCycleFromEvidenceUnlocked(input, opts);
+  } finally {
+    releasePlannerDecisionLease(lease);
+  }
 }

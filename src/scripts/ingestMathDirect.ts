@@ -30,6 +30,102 @@ import { readDirectFeedbackContext } from "../engine/directExperienceFeedback";
 import { readPriorConceptIds } from "../engine/assignmentLedger";
 import { getChildChart } from "../profiles/childChart";
 
+type ExistingAssignmentCycle = {
+  homeworkId: string;
+  lifecycle: string;
+  assignment: { contentFingerprint: string };
+};
+
+export type ExistingAssignmentIngestionOutcome = {
+  kind: "READY_TO_START" | "CONTINUE_EXISTING" | "AWAITING_CALIBRATION" | "ALREADY_COMPLETE";
+  shouldGenerate: false;
+  message: string;
+};
+
+export function mathHomeworkIdFromSourceHash(sourceHash: string): string {
+  return `hw-math-${crypto.createHash("sha256").update(sourceHash).digest("hex").slice(0, 24)}`;
+}
+
+export function findExistingMathHomeworkIdBySourceHash(
+  childId: string,
+  sourceHash: string,
+  rootDir = process.cwd(),
+  warn: (message: string) => void = console.warn,
+): string | undefined {
+  const cyclesDir = path.join(rootDir, "src", "context", childId, "homework", "cycles");
+  const matches = new Set<string>();
+  if (fs.existsSync(cyclesDir)) {
+    for (const filename of fs.readdirSync(cyclesDir).filter((name) => name.endsWith(".json"))) {
+      const file = path.join(cyclesDir, filename);
+      try {
+        const cycle = readJson<Partial<ExistingAssignmentCycle> & { domain?: string }>(file);
+        if (cycle.domain === "math" && cycle.assignment?.contentFingerprint === sourceHash && cycle.homeworkId) {
+          matches.add(cycle.homeworkId);
+        }
+      } catch (error) {
+        warn(` 🎮 [math-ingestion] [cycle-scan] [invalid] file=${file} reason=${error instanceof Error ? error.message : String(error)}`);
+      }
+    }
+  }
+  const draftsDir = path.join(rootDir, "src", "context", childId, "homework", "direct-drafts");
+  if (fs.existsSync(draftsDir)) {
+    for (const homeworkId of fs.readdirSync(draftsDir)) {
+      const checkpointFile = path.join(draftsDir, homeworkId, "assignment-source.json");
+      if (!fs.existsSync(checkpointFile)) continue;
+      try {
+        const checkpoint = readJson<Partial<AssignmentSourceCheckpoint>>(checkpointFile);
+        if (checkpoint.fileHash === sourceHash) matches.add(homeworkId);
+      } catch (error) {
+        warn(` 🎮 [math-ingestion] [draft-scan] [invalid] file=${checkpointFile} reason=${error instanceof Error ? error.message : String(error)}`);
+      }
+    }
+  }
+  if (matches.size > 1) {
+    throw new Error(`duplicate_math_assignment_fingerprint:${sourceHash}:${[...matches].join(",")}`);
+  }
+  return [...matches][0];
+}
+
+export function existingAssignmentIngestionOutcome(
+  cycle: ExistingAssignmentCycle,
+  sourceHash: string,
+  options: { rebuildNodeIds?: string[] } = {},
+): ExistingAssignmentIngestionOutcome {
+  if (cycle.assignment.contentFingerprint !== sourceHash) {
+    throw new Error(`learning_cycle_assignment_identity_mismatch:${cycle.homeworkId}`);
+  }
+  const rebuildNodeIds = options.rebuildNodeIds?.filter(Boolean) ?? [];
+  if (rebuildNodeIds.length > 0) {
+    throw new Error(
+      `published_assignment_rebuild_requires_separate_workflow:${cycle.homeworkId}:${rebuildNodeIds.join(",")}`,
+    );
+  }
+  if (cycle.lifecycle === "baseline_ready") {
+    return { kind: "READY_TO_START", shouldGenerate: false, message: "Assignment already published and ready to start." };
+  }
+  if (cycle.lifecycle === "awaiting_calibration") {
+    return { kind: "AWAITING_CALIBRATION", shouldGenerate: false, message: "Assignment is awaiting returned work or calibration." };
+  }
+  if (cycle.lifecycle === "complete") {
+    return { kind: "ALREADY_COMPLETE", shouldGenerate: false, message: "Assignment is already complete." };
+  }
+  return { kind: "CONTINUE_EXISTING", shouldGenerate: false, message: "Assignment progress is already active and will be preserved." };
+}
+
+export async function runMathIngestionCommand<T>(input: {
+  sourceHash: string;
+  rebuildNodeIds: string[];
+  existingCycle: ExistingAssignmentCycle | null;
+  continueUnpublished: () => Promise<T>;
+}): Promise<ExistingAssignmentIngestionOutcome | T> {
+  if (input.existingCycle) {
+    return existingAssignmentIngestionOutcome(input.existingCycle, input.sourceHash, {
+      rebuildNodeIds: input.rebuildNodeIds,
+    });
+  }
+  return input.continueUnpublished();
+}
+
 function arg(name: string, required = true): string {
   const value = process.argv.slice(2).find((item) => item.startsWith(`--${name}=`))?.slice(name.length + 3);
   if (!value && required) throw new Error(`missing_argument:${name}`);
@@ -92,7 +188,7 @@ export function classifyIngestionFailure(error: unknown, phase: string): Ingesti
   const message = error instanceof Error ? error.message : String(error);
   if (phase === "atomic-publication") return "PUBLICATION_FAILED";
   if (phase === "reading-assignment"
-    && /assignment_source_missing|unsupported_assignment_source|EISDIR|ENOENT/i.test(message)) {
+    && /assignment_source_missing|unsupported_assignment_source|published_assignment_rebuild_requires_separate_workflow|EISDIR|ENOENT/i.test(message)) {
     return "INPUT_ERROR";
   }
   return "PROVIDER_PAUSED";
@@ -156,14 +252,15 @@ export async function withIngestionHeartbeat<T>(
   }
 }
 
-async function main(): Promise<void> {
-  const startedAt = Date.now();
-  const childId = arg("child").trim().toLowerCase();
-  const pdf = path.resolve(arg("pdf"));
-  const rebuildNodeIds = arg("rebuild-node", false).split(",").map((value) => value.trim()).filter(Boolean);
-  console.log("[1/5] Reading assignment and evidence");
-  const sourceHash = assignmentSourceFileHash(pdf);
-  const homeworkId = `hw-math-${crypto.createHash("sha256").update(sourceHash).digest("hex").slice(0, 8)}`;
+async function continueUnpublishedMathIngestion(input: {
+  startedAt: number;
+  childId: string;
+  pdf: string;
+  rebuildNodeIds: string[];
+  sourceHash: string;
+  homeworkId: string;
+}): Promise<{ kind: "UNPUBLISHED_COMPLETE" }> {
+  const { startedAt, childId, pdf, rebuildNodeIds, homeworkId } = input;
   const draftDir = path.join(process.cwd(), "src", "context", childId, "homework", "direct-drafts", homeworkId);
   const freshRequested = flag("fresh");
   if (freshRequested) fs.rmSync(draftDir, { recursive: true, force: true });
@@ -195,6 +292,7 @@ async function main(): Promise<void> {
   writeJson(sourceCheckpointFile, sourceCheckpoint);
   const programFile = path.join(draftDir, "math-learning-program.json");
   const plannerDiagnosticFile = path.join(draftDir, "provider-diagnostics", "planner-response.json");
+  const plannerCheckpointFile = path.join(draftDir, "planner-checkpoint.json");
   const designCheckpointFile = path.join(draftDir, "design-checkpoint.json");
   const designFile = path.join(draftDir, "design-packet.json");
   const finalPlanFile = path.join(draftDir, "designed-plan.json");
@@ -214,6 +312,9 @@ async function main(): Promise<void> {
     archiveDir: path.join(draftDir, "audit"),
   });
   const plannerStatus = reusableProgram ? "reused" as const : "generated" as const;
+  const plannerAttemptsBefore = fs.existsSync(plannerCheckpointFile)
+    ? readJson<{ attempts?: unknown[] }>(plannerCheckpointFile).attempts?.length ?? 0
+    : 0;
   const program = reusableProgram ?? await withIngestionHeartbeat("Planner", () => askDirectMathPlanner({
         childId,
         chart,
@@ -221,6 +322,7 @@ async function main(): Promise<void> {
         priorOutcomes,
         priorConceptIds: readPriorConceptIds(childId),
         rawResponseFile: plannerDiagnosticFile,
+        plannerCheckpointDir: draftDir,
       }));
   writeJson(programFile, program);
   console.log(`  📋 ${program.assumptions.length} assumptions preregistered; publication remains pending`);
@@ -258,6 +360,7 @@ async function main(): Promise<void> {
 
   currentPhase = "activity-building";
   console.log(`[4/5] Building ${designed.plan.activities.length} artifact-designed activities with bounded concurrency`);
+  if (program.bonusActivity) console.log(`  ○ ${program.bonusActivity.id} bonus deferred until earned`);
   const existingBuild = fs.existsSync(buildFile)
     ? readJson<{ artifacts: DirectArtifact[]; backgroundUrl: string; questArtworkUrl: string; bossArtworkUrl: string }>(buildFile)
     : undefined;
@@ -326,14 +429,18 @@ async function main(): Promise<void> {
       .reduce((sum, attempt) => sum + attempt.inputTokens + attempt.outputTokens, 0) ?? 0
     : 0;
   const buildTokens = currentRunBuildTokens(generated.artifacts, generated.stats.generatedNodeIds);
-  const plannerDiagnostic = fs.existsSync(plannerDiagnosticFile)
-    ? readJson<{ usage?: { input_tokens?: number; output_tokens?: number } }>(plannerDiagnosticFile)
+  const plannerCheckpoint = fs.existsSync(plannerCheckpointFile)
+    ? readJson<{ attempts?: Array<{ inputTokens?: number; outputTokens?: number }> }>(plannerCheckpointFile)
     : {};
-  const plannerTokens = plannerStatus === "generated"
-    ? Number(plannerDiagnostic.usage?.input_tokens ?? 0) + Number(plannerDiagnostic.usage?.output_tokens ?? 0)
-    : 0;
+  const plannerRunAttempts = plannerStatus === "generated"
+    ? (plannerCheckpoint.attempts ?? []).slice(plannerAttemptsBefore)
+    : [];
+  const plannerTokens = plannerRunAttempts.reduce(
+    (sum, attempt) => sum + Number(attempt.inputTokens ?? 0) + Number(attempt.outputTokens ?? 0),
+    0,
+  );
   const designAttemptsAfter = designCheckpoint?.attempts.length ?? designAttemptsBefore;
-  const calls = (plannerStatus === "generated" ? 1 : 0)
+  const calls = plannerRunAttempts.length
     + Math.max(0, designAttemptsAfter - designAttemptsBefore)
     + generated.stats.generatedNodeIds.length
     + generated.stats.generatedImages;
@@ -348,9 +455,43 @@ async function main(): Promise<void> {
     tokens: plannerTokens + designTokens + buildTokens,
     elapsedMs: Date.now() - startedAt,
     checkpoint: draftDir,
-    bonusDeferred: generated.stats.bonusDeferred,
+    bonusDeferred: Boolean(program.bonusActivity),
   }));
   console.log(`Plan: ${record}`);
+  return { kind: "UNPUBLISHED_COMPLETE" };
+}
+
+async function main(): Promise<void> {
+  const startedAt = Date.now();
+  const childId = arg("child").trim().toLowerCase();
+  const pdf = path.resolve(arg("pdf"));
+  const rebuildNodeIds = arg("rebuild-node", false).split(",").map((value) => value.trim()).filter(Boolean);
+  console.log("[1/5] Reading assignment and evidence");
+  const sourceHash = assignmentSourceFileHash(pdf);
+  const homeworkId = findExistingMathHomeworkIdBySourceHash(childId, sourceHash)
+    ?? mathHomeworkIdFromSourceHash(sourceHash);
+  const existingCycle = readDirectCanonicalLearningContext(childId, homeworkId) as ExistingAssignmentCycle | null;
+  const outcome = await runMathIngestionCommand({
+    sourceHash,
+    rebuildNodeIds,
+    existingCycle,
+    continueUnpublished: () => continueUnpublishedMathIngestion({
+      startedAt,
+      childId,
+      pdf,
+      rebuildNodeIds,
+      sourceHash,
+      homeworkId,
+    }),
+  });
+  if (outcome.kind === "UNPUBLISHED_COMPLETE") return;
+  console.log("Done — EXISTING");
+  console.log(`Homework: ${homeworkId}`);
+  console.log(`Lifecycle: ${existingCycle!.lifecycle}`);
+  console.log(outcome.message);
+  console.log("Provider calls: 0");
+  console.log("Existing progress and evidence were not changed.");
+  console.log("Start session: npm run sunny → Start child session");
 }
 
 if (require.main === module) {

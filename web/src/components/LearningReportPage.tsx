@@ -11,6 +11,9 @@ export type AssignmentLearningReport = {
   assumptions: Array<{ assumptionId: string; claim: string; confidence: number; uncertainty: string; assessment: Assessment | null }>;
   predictions: Array<{ predictionId: string; context: string; expectedMetric: { key: string; min: number; max: number }; evaluation: null | { observedMetric: number | null; predictionError: number | null; sufficiency: string } }>;
   observations?: Array<{ observationId: string; prompt?: string; childResponse?: string; result: { correct?: boolean; score?: number; teacherNote?: string } }>;
+  readiness: null | { status: string; headline: string; reason: string; uncertainty: string; nextAction: string; constructIds: string[]; evidenceIds: string[]; predictionEvaluationIds: string[] };
+  predictionAccuracy: Array<{ assignment: string; construct: string; prediction: string; actual: string; error: string; evidenceType: string; assistance: string; adjustment: string }>;
+  calibrationSummary: { externallyCalibratedPredictions: number; generalAccuracyClaimPermitted: boolean; message: string };
   latestDecision: null | { status?: string; reason: string; preserve: string[]; change: string[]; testNext: string[]; nextEvidenceRequired: string[] };
 };
 
@@ -34,14 +37,23 @@ function list(values: string[], empty: string) {
 }
 
 export function LearningReportCard({ report }: { report: AssignmentLearningReport }) {
+  const readinessCard = report.readiness ? <section style={{ ...cardStyle, borderLeft: `8px solid ${report.readiness.status === "ready_independent" ? "#2a9d6f" : report.readiness.status === "predicted_ready" ? "#d39b20" : "#6c4ccf"}` }}>
+    <p style={{ color: "#6d597a", fontWeight: 800, margin: 0 }}>ASSIGNMENT READINESS</p>
+    <h2>{report.readiness.headline}</h2>
+    <p>{report.readiness.reason}</p>
+    <p><b>Covered constructs:</b> {report.readiness.constructIds.join(", ")}</p>
+    <p><b>Uncertainty:</b> {report.readiness.uncertainty}</p>
+    <p><b>Next:</b> {report.readiness.nextAction}</p>
+  </section> : null;
   if (report.status === "awaiting_returned_work") {
-    return <section style={cardStyle}><h2>Waiting for returned work</h2><p>Sunny has recorded its predictions. Upload the marked assignment when it comes home.</p></section>;
+    return <>{readinessCard}<section style={cardStyle}><h2>Waiting for returned work</h2><p>Sunny has recorded its predictions. Upload the marked assignment when it comes home.</p></section></>;
   }
   if (report.status === "awaiting_interpretation") {
-    return <section style={cardStyle}><h2>Evidence saved</h2><p>The factual results are safe. Sunny is still waiting to interpret what they mean.</p></section>;
+    return <>{readinessCard}<section style={cardStyle}><h2>Evidence saved</h2><p>The factual results are safe. Sunny is still waiting to interpret what they mean.</p></section></>;
   }
   const decision = report.latestDecision;
   return <div>
+    {readinessCard}
     <section style={cardStyle}>
       <p style={{ color: "#6d597a", fontWeight: 800, margin: 0 }}>WHAT SUNNY BELIEVED</p>
       <h2>What Sunny believed</h2>
@@ -68,6 +80,19 @@ export function LearningReportCard({ report }: { report: AssignmentLearningRepor
         <div><h3>Test next</h3>{list(decision?.testNext ?? [], "No next test specified")}</div>
         <div><h3>Evidence still needed</h3>{list(decision?.nextEvidenceRequired ?? [], "None specified")}</div>
       </div>
+    </section>
+    <section style={cardStyle}>
+      <p style={{ color: "#6d597a", fontWeight: 800, margin: 0 }}>PREDICTION ACCOUNTABILITY</p>
+      <h2>How accurate were Sunny’s predictions?</h2>
+      <div style={{ overflowX: "auto" }}>
+        <table aria-label="Prediction accuracy" style={{ width: "100%", borderCollapse: "collapse", textAlign: "left" }}>
+          <thead><tr>{["Assignment", "Construct", "Prediction", "Actual", "Error", "Evidence type", "Assistance", "Adjustment"].map((label) => <th key={label} style={{ padding: 8, borderBottom: "2px solid #ded8ea" }}>{label}</th>)}</tr></thead>
+          <tbody>{report.predictionAccuracy.map((row, index) => <tr key={`${row.assignment}:${row.construct}:${index}`}>
+            {[row.assignment, row.construct, row.prediction, row.actual, row.error, row.evidenceType, row.assistance, row.adjustment].map((value, cell) => <td key={cell} style={{ padding: 8, borderBottom: "1px solid #eee8f4" }}>{value}</td>)}
+          </tr>)}</tbody>
+        </table>
+      </div>
+      <p>{report.calibrationSummary.message}</p>
     </section>
   </div>;
 }

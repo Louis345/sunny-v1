@@ -61,6 +61,7 @@ import {
   applyChoiceEventPreference,
   findChoiceEventById,
   recordChoiceEvent,
+  type ChoiceEvent,
   type ChoiceEventInput,
 } from "../engine/choiceEvents";
 import { interpretDirectExperienceOutcome } from "../engine/directExperienceFeedback";
@@ -166,6 +167,94 @@ export function learningRouteShouldPersist(
   runtime = resolveSunnyRuntimeConfig(process.env),
 ): boolean {
   return runtime.persistenceMode === "live";
+}
+
+function isFinalizedMathSessionEvent(event: ChoiceEvent): boolean {
+  return event.domain === "math" &&
+    ["homework_required", "quest", "boss"].includes(event.context) &&
+    ["activity_completed", "replay_requested"].includes(event.eventName ?? "") &&
+    (event.completed === true || event.postActivityAction === "abandon") &&
+    Boolean(event.homeworkId && event.nodeId && event.postActivityAction);
+}
+
+const progressionDecisionsInFlight = new Set<string>();
+
+async function launchFinalizedProgressionDecision(event: ChoiceEvent, generationOnly = false): Promise<boolean> {
+  const key = `${event.childId}:${event.homeworkId}`;
+  if (progressionDecisionsInFlight.has(key)) {
+    console.log(` 🎮 [learning-cycle-route] [planner-decision] [already-running] homework=${event.homeworkId}`);
+    return false;
+  }
+  progressionDecisionsInFlight.add(key);
+  try {
+    const decided = generationOnly
+      ? getLearningCycle(event.childId, event.homeworkId!)
+      : await advanceCanonicalCycleFromEvidence({ childId: event.childId, homeworkId: event.homeworkId! });
+    if (!decided) throw new Error("choice_event_homework_not_found");
+    console.log(` 🎮 [learning-cycle-route] [planner-decision] [${generationOnly ? "reused" : "saved"}] lifecycle=${decided.lifecycle} revision=${decided.revision}`);
+    const advanced = ["baseline_generating", "quest_generating", "boss_generating"].includes(decided.lifecycle)
+      ? await generateCanonicalProgressionArtifact({ childId: event.childId, homeworkId: event.homeworkId! })
+      : decided;
+    console.log(` 🎮 [learning-cycle-route] [next-session] [ready] lifecycle=${advanced.lifecycle} revision=${advanced.revision}`);
+    return true;
+  } catch (error) {
+    console.error(` 🎮 [learning-cycle-route] [next-session] [deferred] ${error instanceof Error ? error.message : String(error)}`);
+    throw error;
+  } finally {
+    progressionDecisionsInFlight.delete(key);
+  }
+}
+
+async function finalizeMathSessionAndAdvance(event: ChoiceEvent): Promise<boolean> {
+  if (!isFinalizedMathSessionEvent(event)) return false;
+  const cycle = getLearningCycle(event.childId, event.homeworkId!);
+  if (!cycle) throw new Error("choice_event_homework_not_found");
+  if (cycle.sessionFinalizations?.some((item) => item.choiceEventId === event.choiceEventId)) {
+    if (["baseline_evaluating", "quest_evaluating", "boss_evaluating"].includes(cycle.lifecycle) &&
+      cycle.evaluationSessionFinalizationId === event.choiceEventId) {
+      console.log(` 🎮 [learning-cycle-route] [session-finalized] [resume-decision] event=${event.choiceEventId}`);
+      return await launchFinalizedProgressionDecision(event);
+    }
+    if (["baseline_generating", "quest_generating", "boss_generating"].includes(cycle.lifecycle)) {
+      console.log(` 🎮 [learning-cycle-route] [session-finalized] [resume-generation] event=${event.choiceEventId}`);
+      return await launchFinalizedProgressionDecision(event, true);
+    }
+    console.log(` 🎮 [learning-cycle-route] [session-finalized] [already-decided] event=${event.choiceEventId}`);
+    return false;
+  }
+  const abandoned = event.postActivityAction === "abandon";
+  const eventNode = cycle.nodes.find((node) => node.nodeId === event.nodeId);
+  if (abandoned && (!eventNode || !["ready", "active"].includes(eventNode.state))) {
+    console.log(` 🎮 [learning-cycle-route] [session-finalized] [node-not-launchable] node=${event.nodeId} event=${event.choiceEventId}`);
+    return false;
+  }
+  if ((!abandoned && !cycle.pendingSessionNodeIds?.includes(event.nodeId!)) ||
+    !["baseline_ready", "baseline_active", "baseline_evaluating", "quest_ready", "quest_active", "quest_evaluating", "boss_ready", "boss_evaluating"].includes(cycle.lifecycle)) {
+    console.log(` 🎮 [learning-cycle-route] [session-finalized] [not-pending] lifecycle=${cycle.lifecycle} node=${event.nodeId} event=${event.choiceEventId}`);
+    return false;
+  }
+  const engagement = {
+    ...(typeof event.funRating === "number" ? { funRating: event.funRating } : {}),
+    ...(typeof event.replayRequested === "boolean" ? { replayRequested: event.replayRequested } : {}),
+    completed: event.completed === true,
+    ...(typeof event.frustrationScore === "number" ? { frustrationScore: event.frustrationScore } : {}),
+    ...(typeof event.demoRequested === "boolean" ? { demoRequested: event.demoRequested } : {}),
+    ...(typeof event.demoReplayCount === "number" ? { demoReplayCount: event.demoReplayCount } : {}),
+    ...(typeof event.timeToFirstValidActionMs === "number" ? { timeToFirstValidActionMs: event.timeToFirstValidActionMs } : {}),
+    ...(typeof event.invalidActionCount === "number" ? { invalidActionCount: event.invalidActionCount } : {}),
+    ...(typeof event.soundMuted === "boolean" ? { soundMuted: event.soundMuted } : {}),
+    postActivityAction: event.postActivityAction!,
+  };
+  const finalized = transitionLearningCycle(event.childId, event.homeworkId!, cycle.revision, {
+    type: "session_finalized",
+    nodeId: event.nodeId!,
+    choiceEventId: event.choiceEventId,
+    engagement,
+  });
+  console.log(` 🎮 [learning-cycle-route] [session-finalized] [saved] event=${event.choiceEventId} revision=${finalized.revision}`);
+  return ["baseline_evaluating", "quest_evaluating", "boss_evaluating"].includes(finalized.lifecycle)
+    ? await launchFinalizedProgressionDecision(event)
+    : true;
 }
 
 const GAME_GRADE_HAIKU_MODEL = "claude-haiku-4-5-20251001";
@@ -752,7 +841,7 @@ export function setupRoutes(app: Express): void {
           accuracy: Number.isFinite(accuracy) ? accuracy : 0,
           timeSpent_ms: Math.max(0, Number(body.result.timeSpent_ms ?? 0) || 0),
           targetResults: Array.isArray(body.result.targetResults)
-            ? body.result.targetResults as Array<{ target: string; correct: boolean; attemptedValue?: string; responseTime_ms?: number; scaffoldLevel?: number }>
+            ? body.result.targetResults as Array<{ target: string; correct?: boolean; attemptedValue?: string; responseTime_ms?: number; scaffoldLevel?: number; observedErrorType?: string; assistanceStatus?: "unassisted" | "assisted" | "unknown"; confounds?: string[]; resolutionId?: string }>
             : undefined,
           frustrationSignals: Array.isArray(body.result.frustrationSignals)
             ? body.result.frustrationSignals.map(String)
@@ -804,21 +893,6 @@ export function setupRoutes(app: Express): void {
         }
       }
       console.log(` 🎮 [learning-cycle-route] [completion] [saved] child=${childId} node=${nodeId} lifecycle=${updated.lifecycle} revision=${updated.revision}`);
-      if (["baseline_evaluating", "quest_evaluating", "boss_evaluating"].includes(finalCycle.lifecycle)) {
-        void advanceCanonicalCycleFromEvidence({ childId, homeworkId })
-          .then((decided) => {
-            console.log(` 🎮 [learning-cycle-route] [planner-decision] [saved] lifecycle=${decided.lifecycle} revision=${decided.revision}`);
-            return ["baseline_generating", "quest_generating", "boss_generating"].includes(decided.lifecycle)
-              ? generateCanonicalProgressionArtifact({ childId, homeworkId })
-              : decided;
-          })
-          .then((advanced) => {
-            console.log(` 🎮 [learning-cycle-route] [next-session] [ready] lifecycle=${advanced.lifecycle} revision=${advanced.revision}`);
-          })
-          .catch((error: unknown) => {
-            console.error(` 🎮 [learning-cycle-route] [next-session] [deferred] ${error instanceof Error ? error.message : String(error)}`);
-          });
-      }
       const award = body.result.completed === true && !wasCompleted
         ? reconcileCompanionCareCurrencyAward({
             childId,
@@ -1218,6 +1292,7 @@ export function setupRoutes(app: Express): void {
         ? findChoiceEventById(childId, eventInput.choiceEventId)
         : undefined;
       if (existingEvent) {
+        await finalizeMathSessionAndAdvance(existingEvent);
         console.log(
           `  🎮 [choice-event] [duplicate-acknowledged] child=${childId} event=${existingEvent.choiceEventId}`,
         );
@@ -1251,6 +1326,7 @@ export function setupRoutes(app: Express): void {
       }
       const event = recordChoiceEvent(eventInput);
       const applied = await applyChoiceEventPreference(event);
+      await finalizeMathSessionAndAdvance(event);
       if (event.context === "homework_required" && event.eventName === "activity_completed") {
         void interpretDirectExperienceOutcome(event).catch((error: unknown) => {
           console.warn(

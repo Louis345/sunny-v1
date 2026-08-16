@@ -4,7 +4,10 @@ import type { ChildName } from "../companions/loader";
 export type CurrentBoardSnapshot = {
   childId: string;
   sessionId: string;
+  homeworkId?: string;
   nodeId?: string;
+  itemId?: string;
+  artifactHash?: string;
   activityId?: string;
   activityTitle?: string;
   learningFocus?: string;
@@ -20,6 +23,7 @@ export type CurrentBoardSnapshot = {
   currentTarget?: string;
   targetIsSpeakable: boolean;
   speechCaptureArmed?: boolean;
+  readAloudRequested?: boolean;
   answerVisibility: "hidden" | "visible" | "revealed" | "unknown";
   itemIndex?: number;
   totalItems?: number;
@@ -41,6 +45,11 @@ export type CurrentBoardSnapshot = {
   boardState?: string;
   progress?: string;
   wheelValue?: string;
+  device?: string;
+  latestAttemptId?: string;
+  latestAttemptedValue?: string;
+  frictionSignal?: string;
+  rejectedAttemptCount?: number;
   updatedAt: string;
 };
 
@@ -53,6 +62,25 @@ type BuildSnapshotInput = {
   allowedActivities?: string[];
   now?: Date;
 };
+
+export function mergeCurrentBoardState(
+  previous: Partial<CurrentBoardSnapshot> | null,
+  incoming: Record<string, unknown>,
+): Record<string, unknown> {
+  if (!previous) return { ...incoming };
+  const incomingNodeId = asString(incoming.nodeId);
+  const sameNode = !incomingNodeId || incomingNodeId === previous.nodeId;
+  return {
+    ...(previous.homeworkId && { homeworkId: previous.homeworkId }),
+    ...(sameNode && previous.nodeId && { nodeId: previous.nodeId }),
+    ...(sameNode && previous.activityId && { activityId: previous.activityId }),
+    ...(sameNode && previous.artifactHash && { artifactHash: previous.artifactHash }),
+    ...(sameNode && previous.itemId && incoming.currentChallenge == null && incoming.itemId == null
+      ? { itemId: previous.itemId }
+      : {}),
+    ...incoming,
+  };
+}
 
 function asString(value: unknown): string | undefined {
   const text = typeof value === "string" ? value.trim() : "";
@@ -129,7 +157,10 @@ export function buildCurrentBoardSnapshot(
   };
 
   const stringFields: Array<[keyof CurrentBoardSnapshot, unknown]> = [
+    ["homeworkId", state.homeworkId],
     ["nodeId", state.nodeId],
+    ["itemId", state.itemId ?? objectChallenge?.id],
+    ["artifactHash", state.artifactHash ?? state.designArtifactHash],
     ["activityId", state.activityId],
     ["activityTitle", state.activityTitle],
     ["learningFocus", state.learningFocus],
@@ -149,6 +180,10 @@ export function buildCurrentBoardSnapshot(
     ["boardState", state.boardState],
     ["progress", state.progress],
     ["wheelValue", state.wheelValue],
+    ["device", state.device],
+    ["latestAttemptId", state.latestAttemptId],
+    ["latestAttemptedValue", state.latestAttemptedValue],
+    ["frictionSignal", state.frictionSignal],
   ];
   for (const [key, value] of stringFields) {
     const text = asString(value);
@@ -161,12 +196,12 @@ export function buildCurrentBoardSnapshot(
     snapshot.currentTarget = rawTarget;
   }
 
-  for (const key of ["itemIndex", "totalItems", "score", "coins", "coinsEarned", "accuracy"] as const) {
+  for (const key of ["itemIndex", "totalItems", "score", "coins", "coinsEarned", "accuracy", "rejectedAttemptCount"] as const) {
     const n = asNumber(state[key]);
     if (typeof n === "number") snapshot[key] = n;
   }
-  for (const key of ["completed", "masteryEligible", "speechCaptureArmed"] as const) {
-    const b = asBoolean(state[key]);
+  for (const key of ["completed", "masteryEligible", "speechCaptureArmed", "readAloudRequested"] as const) {
+    const b = asBoolean(key === "readAloudRequested" ? objectChallenge?.readAloudRequested : state[key]);
     if (typeof b === "boolean") snapshot[key] = b;
   }
   const contaminatedTargets = asStringArray(state.contaminatedTargets);
@@ -201,6 +236,11 @@ export function buildCurrentBoardSnapshotContext(
   if (snapshot.availableActions?.length) {
     lines.push(`Available child actions: ${snapshot.availableActions.join(" | ")}`);
   }
+  if (snapshot.frictionSignal) lines.push(`Factual friction signal: ${snapshot.frictionSignal}`);
+  if (snapshot.rejectedAttemptCount != null) lines.push(`Rejected attempts on this item: ${snapshot.rejectedAttemptCount}`);
+  if (snapshot.latestAttemptId) lines.push(`Latest attempt evidence id: ${snapshot.latestAttemptId}`);
+  if (snapshot.latestAttemptedValue) lines.push(`Latest rejected child response: ${snapshot.latestAttemptedValue}`);
+  if (snapshot.device) lines.push(`Current response device: ${snapshot.device}`);
   if (snapshot.intentPurpose) lines.push(`Activity intent: ${snapshot.intentPurpose}`);
   if (snapshot.diagnosticQuestion) lines.push(`Diagnostic question: ${snapshot.diagnosticQuestion}`);
   if (snapshot.nodeId) lines.push(`Current node: ${snapshot.nodeId}`);

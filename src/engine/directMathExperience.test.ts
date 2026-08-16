@@ -7,6 +7,9 @@ import {
   MATH_LEARNING_PROGRAM_TOOL_SCHEMA,
   askMathExperienceDesigner,
   askDirectMathPlanner,
+  mathAcademicCharterFromProgram,
+  mathAcademicCharterHash,
+  mathProgramBodyFromProgram,
   boardPosition,
   buildDirectActiveSessionPlan,
   buildDirectActivityCreatorPrompt,
@@ -183,6 +186,78 @@ describe("math publication assumption ledger", () => {
     const assumptionsDir = path.join(contextDir, "assumptions");
     expect(fs.existsSync(assumptionsDir) ? fs.readdirSync(assumptionsDir) : []).toEqual([]);
   });
+
+  it.each([
+    "baseline_ready",
+    "baseline_active",
+    "baseline_evaluating",
+    "quest_ready",
+    "quest_active",
+    "boss_ready",
+    "awaiting_calibration",
+    "complete",
+  ] as const)("does not rewrite a published same-assignment cycle in %s", (lifecycle) => {
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-same-assignment-"));
+    const contextDir = path.join(rootDir, "src/context/reina");
+    fs.mkdirSync(contextDir, { recursive: true });
+    fs.writeFileSync(path.join(contextDir, "learning_profile.json"), '{"aiContentCatalog":[]}\n');
+    const publication = publicationInput(rootDir);
+    persistDirectExperience(publication);
+
+    const cycleFile = path.join(contextDir, "homework", "cycles", `${publication.homeworkId}.json`);
+    const cycle = JSON.parse(fs.readFileSync(cycleFile, "utf8")) as Record<string, any>;
+    cycle.lifecycle = lifecycle;
+    cycle.nodes[0].state = lifecycle === "baseline_ready" ? "ready" : "completed";
+    cycle.nodes[0].evidenceIds = ["evidence:must-survive"];
+    cycle.evidence.academic = [{
+      evidenceId: "evidence:must-survive",
+      summary: "Real child evidence must survive re-ingestion.",
+      accuracy: 0.75,
+    }];
+    cycle.observations = [{
+      observationId: "observation:must-survive",
+      sourceId: "activity:real-session:activity-1",
+      itemId: "fresh-item",
+      constructLinks: [{ constructId: "math.multiplication", role: "primary", confidence: 1 }],
+      result: { correct: true, score: 1 },
+      assistance: { status: "unassisted", scaffolds: [] },
+      exposure: "unseen",
+      provenance: "independent_probe",
+      observedAt: "2026-08-07T12:00:00.000Z",
+      confounds: [],
+    }];
+    cycle.decisionHistory.push({
+      decisionId: "decision:must-survive",
+      eventType: "theory_decided",
+      status: "supported",
+      reason: "Preserve this decision.",
+      nextAction: "collect_more_evidence",
+      evidenceIds: ["evidence:must-survive"],
+      fromLifecycle: lifecycle,
+      toLifecycle: lifecycle,
+      createdAt: "2026-08-07T12:01:00.000Z",
+    });
+    if (cycle.agencyExperiment?.routes?.[0]) {
+      const route = cycle.agencyExperiment.routes[0];
+      cycle.routeSelection = {
+        experimentId: cycle.agencyExperiment.experimentId,
+        selectedRouteId: route.routeId,
+        selectedAt: "2026-08-07T12:00:30.000Z",
+        choiceEventId: "choice:must-survive",
+        history: [{
+          routeId: route.routeId,
+          selectedAt: "2026-08-07T12:00:30.000Z",
+          choiceEventId: "choice:must-survive",
+        }],
+      };
+    }
+    fs.writeFileSync(cycleFile, `${JSON.stringify(cycle, null, 2)}\n`, "utf8");
+    const before = fs.readFileSync(cycleFile);
+
+    persistDirectExperience(publication);
+
+    expect(fs.readFileSync(cycleFile)).toEqual(before);
+  });
 });
 
 /** The Planner streams because a complete academic program can be large. */
@@ -323,6 +398,22 @@ function learningProgram(activityCount = 3): any {
   };
 }
 
+function stagedPlannerCreate(program = learningProgram(3)) {
+  const charter = mathAcademicCharterFromProgram(program);
+  const body = mathProgramBodyFromProgram(program, mathAcademicCharterHash(charter));
+  return vi.fn()
+    .mockResolvedValueOnce({
+      content: [{ type: "tool_use", name: "create_math_academic_charter", input: charter }],
+      stop_reason: "tool_use",
+      usage: { input_tokens: 100, output_tokens: 200 },
+    })
+    .mockResolvedValueOnce({
+      content: [{ type: "tool_use", name: "create_math_program_body", input: body }],
+      stop_reason: "tool_use",
+      usage: { input_tokens: 300, output_tokens: 400 },
+    });
+}
+
 describe("assignment concept", () => {
   it("rejects a concept id that carries the assignment's numbers", () => {
     // Reina's cycle accumulated five ids like math.multiplication.fact_retrieval.x2x5x10
@@ -349,6 +440,21 @@ describe("assignment concept", () => {
 });
 
 describe("optional reward contract", () => {
+  it("normalizes a valid JSON-encoded activities field from the Planner tool response", () => {
+    const raw = learningProgram(4);
+    raw.activities = JSON.stringify(raw.activities);
+
+    const parsed = parseMathLearningProgram(raw);
+
+    expect(parsed.activities).toHaveLength(4);
+    expect(parsed.activities.map((activity) => activity.id)).toEqual([
+      "activity-1",
+      "activity-2",
+      "activity-3",
+      "activity-4",
+    ]);
+  });
+
   it("keeps one practice-only bonus outside the baseline route frontier", () => {
     const raw = learningProgram(2);
     raw.activities.push({
@@ -377,6 +483,22 @@ describe("optional reward contract", () => {
       routeId: "bonus",
       academicPrediction: { evidenceLimit: "practice_only" },
     });
+  });
+
+  it("preserves the deferred bonus when a saved learning program is parsed again", () => {
+    const raw = learningProgram(2);
+    raw.activities.push({
+      ...structuredClone(raw.activities[0]),
+      id: "bonus-round-trip",
+      purpose: "bonus",
+      routeId: "bonus",
+    });
+    const saved = parseMathLearningProgram(raw);
+
+    const resumed = parseMathLearningProgram(structuredClone(saved));
+
+    expect(resumed.bonusActivity?.id).toBe("bonus-round-trip");
+    expect(resumed.activities.map((activity) => activity.id)).not.toContain("bonus-round-trip");
   });
 });
 
@@ -501,6 +623,20 @@ describe("direct math experience", () => {
           },
         },
       },
+      learningHistory: {
+        recentSupportObservations: [{
+          evidenceId: "support:session-1:N1:item-1:1",
+          summary: "Child asked for a different explanation of equal partitions.",
+          kind: "companion_support",
+          homeworkId: "hw-math-prior",
+          sessionId: "session-1",
+          nodeId: "N1",
+          itemId: "item-1",
+          supportType: "explain",
+          masteryEligible: false,
+          resumedIndependently: true,
+        }],
+      },
     } as never);
 
     const designed = await askMathExperienceDesigner({
@@ -525,7 +661,14 @@ describe("direct math experience", () => {
     expect(prompt).toContain('"confidence": 0.91');
     expect(prompt).toContain('"id": "choice-real"');
     expect(prompt).toContain('"funRating": 4');
+    expect(prompt).toContain('"evidenceId": "support:session-1:N1:item-1:1"');
+    expect(prompt).toContain('"supportType": "explain"');
+    expect(prompt).toContain('"resumedIndependently": true');
+    expect(prompt).toContain('"masteryEligible": false');
     expect(prompt).toContain("specific child can understand immediately");
+    expect(prompt).toContain("visually demonstrate the first required action");
+    expect(prompt).toContain("Keep required reading before the first action brief");
+    expect(prompt).toContain("Make optional help discoverable");
     expect(prompt).toContain("Mathematics must visibly change");
     expect(prompt).toContain("Do not default to consequence-free play");
     expect(prompt).toContain("You independently choose mechanics, stakes, consequences, recovery, pacing, and payoff");
@@ -546,6 +689,98 @@ describe("direct math experience", () => {
         previewNodeId: route.nodeIds[0],
       })),
     );
+  });
+
+  it("gives a multi-node Fable packet enough output room to return every artifact", () => {
+    const source = fs.readFileSync(path.join(process.cwd(), "src/engine/directMathExperience.ts"), "utf8");
+    const designStage = source.slice(
+      source.indexOf("export async function askMathExperienceDesigner"),
+      source.indexOf("export function mathPlannerChartContext"),
+    );
+    expect(designStage).toContain("SUNNY_DIRECTOR_MAX_TOKENS ?? 48000");
+    expect(designStage).not.toContain("SUNNY_DIRECTOR_MAX_TOKENS ?? 16000");
+  });
+
+  it("keeps an optional bonus contract in planning without making its design block the baseline", async () => {
+    const program = parseMathLearningProgram(learningProgram(2));
+    program.bonusActivity = {
+      ...structuredClone(program.activities[0]!),
+      purpose: "bonus",
+      id: "bonus-deferred",
+      routeId: "bonus",
+    };
+    const artifacts = program.activities.map((activity) => ({
+      artifactId: `artifact-${activity.id}`,
+      nodeId: activity.id,
+      academicContractHash: mathAcademicContractHash(activity),
+      title: `Experience ${activity.id}`,
+      audienceRationale: "Age-aware without inventing preferences.",
+      openingPromise: "Restore the signal.",
+      firstThreeSeconds: "One goal and control are visible.",
+      firstAction: "Tap the signal.",
+      interactionDemonstration: "The signal previews movement.",
+      coreInteraction: "Use equal groups to move the world.",
+      mathAsPower: "Groups power movement.",
+      stakes: "The signal can stall.",
+      consequences: "The world responds.",
+      recovery: "The groups remain visible.",
+      progression: ["guided", "independent"],
+      interactionContinuity: "The same action deepens.",
+      worldReaction: "The signal advances.",
+      payoff: "The world celebrates.",
+      replayVariation: "Fresh groups appear.",
+      visualDirection: "Readable child-facing world.",
+      motionDirection: "Motion shows progress.",
+      soundDirection: "Semantic cues only.",
+      usefulLibraries: [],
+      engagementPrediction: "The first action is clear.",
+      falsifyingEvidence: "The child cannot start.",
+    }));
+    const response = {
+      stop_reason: "tool_use",
+      usage: { input_tokens: 100, output_tokens: 200 },
+      content: [{
+        type: "tool_use",
+        name: "create_math_design_packet",
+        input: {
+          boardCreativeSpine: {
+            title: "Signal World",
+            narrative: "Restore the world.",
+            openingChoice: "Which route?",
+            backgroundDirection: "Readable map.",
+            routeDirections: program.fork.routes.map((route) => ({
+              routeId: route.id,
+              label: route.id,
+              promise: "A distinct experience.",
+              childFacingActionCue: `Try ${route.id}.`,
+              previewNodeId: route.nodeIds[0],
+              engagementVariable: "AI selected",
+            })),
+          },
+          artifacts,
+          rationale: "A coherent baseline.",
+        },
+      }],
+    };
+    const stream = vi.fn((_request: unknown) => ({
+      finalMessage: vi.fn().mockResolvedValue(response),
+    }));
+
+    const designed = await askMathExperienceDesigner({
+      childId: "reina",
+      program,
+      childContext: {},
+      priorOutcomes: {},
+      client: { messages: { stream } } as never,
+    });
+
+    expect(designed.packet.artifacts.map((artifact) => artifact.nodeId))
+      .toEqual(program.activities.map((activity) => activity.id));
+    expect(designed.plan.bonusActivity).toBeUndefined();
+    const request = stream.mock.calls[0]?.[0] as {
+      messages?: Array<{ content?: unknown }>;
+    } | undefined;
+    expect(String(request?.messages?.[0]?.content)).not.toContain("bonus-deferred");
   });
 
   it("places artifact design before generation without a review pause or quality harness", () => {
@@ -785,6 +1020,33 @@ describe("direct math experience", () => {
     expect(finalMessage).toHaveBeenCalledOnce();
   });
 
+  it("recovers a complete checkpointed activity when the provider disconnects after delivering HTML", async () => {
+    const checkpoint = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "sunny-progression-stream-")), "boss.partial.html");
+    const completeHtml = "<!doctype html><html><body><button>Play</button><script>document.querySelector('button')</script></body></html>";
+    let textListener: ((delta: string, snapshot: string) => void) | undefined;
+    const messageStream = {
+      on: vi.fn((event: string, listener: (delta: string, snapshot: string) => void) => {
+        if (event === "text") textListener = listener;
+        return messageStream;
+      }),
+      finalMessage: vi.fn(async () => {
+        textListener?.(completeHtml, completeHtml);
+        throw new Error("read ECONNRESET");
+      }),
+    };
+
+    const html = await generateAdaptiveProgressionActivityHtml({
+      cycle: { childId: "lab", homeworkId: "hw", assignment: { title: "Math", contentFingerprint: "fp", targets: [] }, academicTheory: { hypothesis: "Transfer." }, observations: [] } as never,
+      node: { nodeId: "boss", role: "boss", title: "Boss", academicTarget: { skill: "synthesis", targets: [] }, openingScreen: { title: "Boss", purpose: "Synthesize." }, mechanic: "AI selected", generationPrompt: { text: "Build Boss." }, artwork: {} } as never,
+      childContext: {},
+      client: { messages: { stream: vi.fn(() => messageStream) } } as never,
+      partialHtmlFile: checkpoint,
+    });
+
+    expect(html).toBe(completeHtml);
+    expect(fs.readFileSync(checkpoint, "utf8")).toBe(completeHtml);
+  });
+
   it("reserves the Opus builder policy for Quest and Boss while support keeps the existing model route", async () => {
     const finalMessage = vi.fn().mockResolvedValue({
       content: [{ type: "text", text: "<!doctype html><html><body>Support</body></html>" }],
@@ -841,9 +1103,18 @@ describe("direct math experience", () => {
 
   it("blocks an invalid Planner response without starting an AI repair loop", async () => {
     const validPlan = learningProgram(4);
-    const create = vi.fn().mockResolvedValue({
-      content: [{ type: "tool_use", name: "create_math_learning_program", input: { ...validPlan, activities: [] } }],
-    });
+    const charter = mathAcademicCharterFromProgram(validPlan);
+    const create = vi.fn()
+      .mockResolvedValueOnce({
+        content: [{ type: "tool_use", name: "create_math_academic_charter", input: charter }],
+      })
+      .mockResolvedValueOnce({
+        content: [{
+          type: "tool_use",
+          name: "create_math_program_body",
+          input: { ...mathProgramBodyFromProgram(validPlan, mathAcademicCharterHash(charter)), activities: [] },
+        }],
+      });
     await expect(askDirectMathPlanner({
       childId: "reina",
       chart: {
@@ -854,11 +1125,61 @@ describe("direct math experience", () => {
       extraction: { fullText: "Multiplication assignment" } as never,
       client: { messages: { create, stream: streamOf(create) } } as never,
     })).rejects.toThrow("math_learning_program_requires_activities");
-    expect(create).toHaveBeenCalledTimes(1);
+    expect(create).toHaveBeenCalledTimes(2);
+  });
+
+  it("checkpoints a compact academic charter and resumes only the missing program body", async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-staged-planner-"));
+    const validPlan = learningProgram(4);
+    const charter = mathAcademicCharterFromProgram(validPlan);
+    const body = mathProgramBodyFromProgram(validPlan, mathAcademicCharterHash(charter));
+    const firstCreate = vi.fn()
+      .mockResolvedValueOnce({
+        content: [{ type: "tool_use", name: "create_math_academic_charter", input: charter }],
+        stop_reason: "tool_use",
+        usage: { input_tokens: 100, output_tokens: 200 },
+      })
+      .mockResolvedValueOnce({
+        content: [{ type: "tool_use", name: "create_math_program_body", input: { ...body, activities: [] } }],
+        stop_reason: "tool_use",
+        usage: { input_tokens: 300, output_tokens: 400 },
+      });
+    const plannerInput = {
+      childId: "reina",
+      chart: {
+        identity: {}, demographics: {}, engagementTheory: null, factBankSummary: {},
+        learningProfile: { rewardPreferences: [], sessionStats: {}, activityModel: {}, activityTraitModel: {} },
+        decisionTrace: { latest: null },
+      } as never,
+      extraction: { fullText: "Multiplication assignment" } as never,
+      plannerCheckpointDir: dir,
+    };
+
+    await expect(askDirectMathPlanner({
+      ...plannerInput,
+      client: { messages: { create: firstCreate, stream: streamOf(firstCreate) } } as never,
+    })).rejects.toThrow("math_learning_program_requires_activities");
+    expect(firstCreate).toHaveBeenCalledTimes(2);
+    expect(JSON.parse(fs.readFileSync(path.join(dir, "academic-charter.json"), "utf8")))
+      .toEqual(charter);
+
+    const resumeCreate = vi.fn().mockResolvedValue({
+      content: [{ type: "tool_use", name: "create_math_program_body", input: body }],
+      stop_reason: "tool_use",
+      usage: { input_tokens: 300, output_tokens: 400 },
+    });
+    const resumed = await askDirectMathPlanner({
+      ...plannerInput,
+      client: { messages: { create: resumeCreate, stream: streamOf(resumeCreate) } } as never,
+    });
+
+    expect(resumed.activities).toHaveLength(4);
+    expect(resumeCreate).toHaveBeenCalledTimes(1);
+    expect(resumeCreate.mock.calls[0]?.[0]?.tools?.[0]?.name).toBe("create_math_program_body");
   });
 
   it("includes prior prediction errors and theory decisions in the next Planner prompt", async () => {
-    const create = vi.fn().mockResolvedValue({ content: [{ type: "tool_use", name: "create_math_learning_program", input: learningProgram(3) }] });
+    const create = stagedPlannerCreate();
     await askDirectMathPlanner({
       childId: "reina",
       chart: {
@@ -893,9 +1214,7 @@ describe("direct math experience", () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-planner-pdf-"));
     const sourcePath = path.join(dir, "coins.pdf");
     fs.writeFileSync(sourcePath, Buffer.from("original scanned assignment"));
-    const create = vi.fn().mockResolvedValue({
-      content: [{ type: "tool_use", name: "create_math_learning_program", input: learningProgram(3) }],
-    });
+    const create = stagedPlannerCreate();
     try {
       await askDirectMathPlanner({
         childId: "reina",
@@ -951,6 +1270,10 @@ describe("direct math experience", () => {
     expect(schema.properties.activities.items.properties).not.toHaveProperty("mechanic");
     expect(schema.properties.activities.items.properties).not.toHaveProperty("visualMock");
     expect(schema.properties.activities.items.properties).not.toHaveProperty("creatorPrompt");
+  });
+
+  it("tells the Planner to return structured tool fields directly instead of JSON-encoding them", () => {
+    expect(askDirectMathPlanner.toString()).toContain("Do not JSON-encode arrays or objects into strings");
   });
 
   it("preregisters academic predictions separately from UX design predictions", () => {
@@ -1052,6 +1375,12 @@ describe("direct math experience", () => {
     ];
     expect(parseDirectLearningExperiencePlan(variable).activities[0]?.items.map((item) => item.response.mode))
       .toEqual(["selection", "numeric", "construction", "explanation"]);
+  });
+
+  it("keeps metacognitive surveys out of academic selection contracts", () => {
+    const source = fs.readFileSync(path.join(process.cwd(), "src/engine/directMathExperience.ts"), "utf8");
+    expect(source).toContain("Every selection item has exactly one academically correct option");
+    expect(source).toContain("Do not encode a survey, strategy reflection, preference, or confidence check as a selection item");
   });
 
   it("rejects initial activities that claim more than practice evidence", () => {
@@ -1220,9 +1549,7 @@ describe("direct math experience", () => {
   });
 
   it("gives the math Planner factual engagement evidence without inherited creative directives", async () => {
-    const create = vi.fn().mockResolvedValue({
-      content: [{ type: "tool_use", name: "create_math_learning_program", input: learningProgram(3) }],
-    });
+    const create = stagedPlannerCreate();
     await askDirectMathPlanner({
       childId: "reina",
       chart: {
@@ -1277,7 +1604,9 @@ describe("direct math experience", () => {
       client: { messages: { create, stream: streamOf(create) } } as never,
     });
 
-    const prompt = String(create.mock.calls[0]?.[0]?.messages?.[0]?.content);
+    const prompt = create.mock.calls
+      .map((call) => String(call[0]?.messages?.[0]?.content))
+      .join("\n");
     // competition here is one observation at confidence 0.25 — below the bar to
     // reach a prompt at all, because a model reads a weak negative as a ban.
     expect(prompt).not.toContain('"dimension": "competition"');
@@ -1299,9 +1628,7 @@ describe("direct math experience", () => {
   });
 
   it("gives the Planner concept-not-content authority and optional existing instruments", async () => {
-    const create = vi.fn().mockResolvedValue({
-      content: [{ type: "tool_use", name: "create_math_learning_program", input: learningProgram(3) }],
-    });
+    const create = stagedPlannerCreate();
     await askDirectMathPlanner({
       childId: "reina",
       chart: {
@@ -1313,7 +1640,9 @@ describe("direct math experience", () => {
       client: { messages: { create, stream: streamOf(create) } } as never,
     });
 
-    const prompt = String(create.mock.calls[0]?.[0]?.messages?.[0]?.content);
+    const prompt = create.mock.calls
+      .map((call) => String(call[0]?.messages?.[0]?.content))
+      .join("\n");
     expect(prompt).toContain("Teach the concept the teacher is targeting rather than copying");
     expect(prompt).toContain("Available reusable instruments");
     expect(prompt).toContain("spark-orb-charge");
@@ -1508,9 +1837,7 @@ describe("direct math experience", () => {
   });
 
   it("keeps executable browser code out of the Planner contract", async () => {
-    const create = vi.fn().mockResolvedValue({
-      content: [{ type: "tool_use", name: "create_math_learning_program", input: learningProgram(3) }],
-    });
+    const create = stagedPlannerCreate();
     await askDirectMathPlanner({
       childId: "reina",
       chart: {

@@ -1,6 +1,6 @@
 # Sunny Learning Feedback Loop
 
-Contract version: 6
+Contract version: 12
 
 This document is the **sole normative** authority for how Sunny forms, tests, and revises learning claims. Product changes that alter this loop must update this contract version before implementation. Other documents may describe infrastructure or history, but they must link here instead of creating another learning doctrine.
 
@@ -45,7 +45,9 @@ The child completes the selected route frontier, not every cosmetic route merely
 
 Before Quest is available as a Planner action, runtime must have target-aligned baseline observations with at least one fresh, correct, unassisted response. All-wrong or assisted-only completion is ineligible for Quest. This is an evidence-availability boundary, not a mastery percentage: when it is unmet, the Planner still owns the choice between targeted Support and collecting more evidence; when it is met, the Planner still decides whether Quest is justified.
 
-Every session is an honest chapter with a visible endpoint. Finishing the selected route does not reveal surprise required work in that same session. The child receives completion feedback and may replay completed nodes, while Sunny reduces the session into factual scorecards and asks the Planner for exactly one next-step decision in the background.
+Before Boss is available as a Planner action, runtime must have target-aligned Quest observations with at least one correct, unseen, unassisted response recorded as an independent probe. Incorrect, assisted, previously exposed, uncaptured, or synthetic Quest work is ineligible for Boss. This is also an evidence-availability boundary rather than a mastery threshold: qualifying evidence permits the Planner to choose Boss, Support, or calibration, but code never unlocks Boss automatically.
+
+Every session is an honest chapter with a visible endpoint. Finishing the selected route does not reveal surprise required work in that same session. Node completion records academic observations and enters an evaluating lifecycle, but it does not start the Planner. Rating, Skip, Replay, Return, or explicit abandonment then finalizes one canonical session packet. Only after that durable finalization may Sunny ask the Planner for exactly one next-step decision. A rating remains optional; Skip means rating unavailable, not neutral sentiment. Engagement can influence presentation and intervention choice but cannot change mastery.
 
 When multiple academically valid interventions exist, the Planner may preregister a contextual agency experiment. It states the factual context, what academics remain comparable, one uncertain engagement hypothesis per route, predicted outcomes, falsifying evidence, and measurement keys. The board only projects the Planner's routes and records what was shown, selected, started, abandoned, completed, replayed, or switched. Selection alone never establishes preference; later interpretation must consider behavior, support, interaction, academic outcomes, and calibration together.
 
@@ -69,6 +71,8 @@ Code owns identity, provenance, immutability, mathematical/source truth, exposur
 For generated math interventions, the Planner's academic contract is locked before creative design. A design artifact may choose presentation, interaction, stakes, recovery, and payoff, but it cannot alter the academic contract. Builder-model identity, artifact hashes, prompt hashes, and child-response measurements are recorded before launch so later model comparisons remain factual and observational. Builder ratings from unlike activities are not causal evidence and never select a model automatically.
 
 Generation checkpoints are operational state, not learning authority. Valid Planner-authored nodes and Creator artifacts are preserved independently, and missing siblings may be requested without regenerating completed work. The board does not judge or rewrite activity count, route length, pedagogy, mechanics, themes, or presentation. It publishes only after every displayed node has a launchable artifact, while the previously published board remains active.
+
+Assignment identity is stable across ingestion. The assignment source fingerprint determines its `homeworkId`; encountering an existing canonical cycle for that identity means the assignment has already launched. Normal reingestion must return to that cycle without invoking generation or rewriting canonical or compatibility state, regardless of whether it is ready, active, evaluating, awaiting calibration, or complete. Interrupted pre-publication drafts may resume missing operational work because no canonical cycle exists yet. Changed source content receives a distinct fingerprint and assignment identity; it may never silently replace the launched cycle.
 
 ## The many-to-many evidence model
 
@@ -111,6 +115,8 @@ Evidence streams remain separate:
 
 Practice and assisted success can guide the next teaching choice but cannot establish mastery. Engagement and companion evidence cannot become academic mastery. Teacher notes are qualitative unless they include explicit scored results. Interface hesitation cannot become academic failure.
 
+Item progression and academic demonstration are separate. When a response instrument cannot reliably distinguish misunderstanding from prompt ambiguity, response-mode friction, scoring disagreement, or speech failure, the child may continue with the item recorded as assisted, unresolved, or `instrument_ambiguous`. Continuing never converts the response into correct work, independent evidence, mastery, Quest eligibility, or Boss eligibility. The companion may interpret and resolve this friction only after the child invokes help, using server-resolved answer-hidden context and provenance. One incident remains a cautious hypothesis with explicit uncertainty and next evidence needed; it cannot become a durable preference conclusion.
+
 ## Returned graded work
 
 The caregiver selects the original assignment before uploading returned graded work. That explicit selection supplies the original `homeworkId`; the marked file's new fingerprint identifies a source, not a new assignment.
@@ -127,7 +133,14 @@ For one confirmed evidence batch:
 2. The Planner receives the current theory, matched observations, evaluations, contradictions, and prior history.
 3. The Planner writes exactly one decision: `supported`, `revised`, `falsified`, `inconclusive`, or `awaiting_calibration`.
 4. The decision cites observation and prediction-evaluation IDs and records what to preserve, change, test next, and what evidence is still required.
-5. Only that decision may revise the theory or prescribe the next intervention.
+5. The same decision records one assignment-scoped readiness assessment: `ready_independent`, `ready_with_support`, `not_yet_ready`, or `insufficient_evidence`. It names the covered constructs, reason, uncertainty, cited evidence, and one next action.
+6. Only that decision may revise the theory or prescribe the next intervention.
+
+Boss synthesis can create only `predicted_ready` and leaves the cycle `awaiting_calibration`. It is a prediction, not an independent-readiness conclusion. Only confirmed graded work or a delayed independent reassessment with at least one correct response explicitly confirmed as unassisted may support `ready_independent`; unknown or reported assistance remains a confound. Practice, completion, engagement, assistance, or in-app Boss performance cannot establish independent readiness. Parent-facing language must distinguish “Sunny predicts” from “Sunny believes based on returned evidence.”
+
+The same returned-work decision also chooses exactly one continuation action. `ready_independent` completes the existing cycle. `not_yet_ready` or `ready_with_support` creates one targeted Support chapter for a later session under the same `homeworkId`. `insufficient_evidence` creates one bounded independent reassessment chapter. A continuation chapter has a new immutable academic prediction linked to the decision's evidence IDs; it cannot erase earlier predictions, observations, evaluations, or decisions, and it is never inserted as surprise work into the session that just ended.
+
+Prediction accountability is factual and precedes interpretation. For every externally calibrated prediction, Sunny preserves the assignment, construct, expected range, observed result, assistance condition, provenance, numerical error, and resulting Planner adjustment. Parent reports separate practice predictions from confirmed graded work and delayed reassessment. One successful prediction is not evidence that Sunny is generally accurate; trend language compares multiple externally calibrated predictions for the same construct, and broad calibration claims require at least three for that construct.
 
 Provider failure leaves the factual batch pending for later interpretation. It never discards evidence or blocks an already published child board.
 

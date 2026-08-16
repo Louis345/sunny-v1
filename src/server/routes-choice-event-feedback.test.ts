@@ -55,6 +55,7 @@ vi.mock("../engine/learningCycleRepository", () => ({
     lifecycle: "baseline_evaluating",
     revision: 2,
     nodes: [{ nodeId: "array-forge", state: "active" }],
+    pendingSessionNodeIds: ["array-forge"],
   })),
   getLatestLearningCycle: vi.fn(() => ({
     childId: "demo-pashley",
@@ -70,12 +71,13 @@ vi.mock("../engine/learningCycleRepository", () => ({
       ],
     },
   })),
-  transitionLearningCycle: vi.fn(() => ({
+  transitionLearningCycle: vi.fn((_childId: string, _homeworkId: string, _revision: number, event: { type?: string }) => ({
     childId: "demo-pashley",
     homeworkId: "hw-math",
-    lifecycle: "baseline_active",
+    lifecycle: event.type === "session_finalized" ? "baseline_evaluating" : "baseline_active",
     revision: 3,
     routeSelection: { selectedRouteId: "choice-route-a" },
+    ...(event.type === "session_finalized" ? { evaluationSessionFinalizationId: "finalized" } : {}),
   })),
 }));
 
@@ -100,6 +102,40 @@ describe("choice-event route feedback lessons", () => {
   afterEach(() => {
     for (const server of servers.splice(0)) server.close();
     vi.clearAllMocks();
+    mockedFindChoiceEventById.mockReset();
+    mockedFindChoiceEventById.mockReturnValue(undefined);
+    mockedGetLearningCycle.mockReset();
+    mockedGetLearningCycle.mockReturnValue({
+      childId: "demo-pashley",
+      homeworkId: "hw-math",
+      lifecycle: "baseline_evaluating",
+      revision: 2,
+      nodes: [{ nodeId: "array-forge", state: "active" }],
+      pendingSessionNodeIds: ["array-forge"],
+    } as never);
+    mockedTransitionLearningCycle.mockReset();
+    mockedTransitionLearningCycle.mockImplementation((_childId, _homeworkId, _revision, event) => ({
+      childId: "demo-pashley",
+      homeworkId: "hw-math",
+      lifecycle: event.type === "session_finalized" ? "baseline_evaluating" : "baseline_active",
+      revision: 3,
+      routeSelection: { selectedRouteId: "choice-route-a" },
+      ...(event.type === "session_finalized" ? { evaluationSessionFinalizationId: "finalized" } : {}),
+    } as never));
+    vi.mocked(advanceCanonicalCycleFromEvidence).mockReset();
+    vi.mocked(advanceCanonicalCycleFromEvidence).mockResolvedValue({
+      childId: "demo-pashley",
+      homeworkId: "hw-math",
+      lifecycle: "quest_generating",
+      revision: 3,
+    } as never);
+    vi.mocked(generateCanonicalProgressionArtifact).mockReset();
+    vi.mocked(generateCanonicalProgressionArtifact).mockResolvedValue({
+      childId: "demo-pashley",
+      homeworkId: "hw-math",
+      lifecycle: "quest_ready",
+      revision: 4,
+    } as never);
     delete process.env.SUNNY_MODE;
   });
 
@@ -282,15 +318,330 @@ describe("choice-event route feedback lessons", () => {
     expect(mockedInterpretOutcome).toHaveBeenCalledTimes(1);
   });
 
-  it("starts exactly one next-chapter decision from the canonical completion endpoint", async () => {
+  it("waits for the completion modal before starting the next-chapter decision", async () => {
     const out = await postNodeCompletion();
 
     expect(out.status).toBe(200);
     expect(out.body).toMatchObject({ lifecycle: "baseline_evaluating", revision: 2 });
+    expect(advanceCanonicalCycleFromEvidence).not.toHaveBeenCalled();
+    expect(generateCanonicalProgressionArtifact).not.toHaveBeenCalled();
+  });
+
+  it("records an intermediate node modal without starting a progression decision", async () => {
+    const activeCycle = {
+      childId: "demo-pashley",
+      homeworkId: "hw-math",
+      lifecycle: "baseline_active",
+      revision: 2,
+      nodes: [{ nodeId: "array-forge", state: "completed" }],
+      pendingSessionNodeIds: ["array-forge"],
+      sessionFinalizations: [],
+    };
+    mockedGetLearningCycle.mockReturnValueOnce(activeCycle as never).mockReturnValueOnce(activeCycle as never);
+    mockedTransitionLearningCycle.mockReturnValueOnce({
+      childId: "demo-pashley",
+      homeworkId: "hw-math",
+      lifecycle: "baseline_active",
+      revision: 3,
+    } as never);
+
+    const out = await postChoiceEvent({
+      ...routeChoicePayload,
+      choiceEventId: "modal-intermediate",
+      eventName: "activity_completed",
+      choiceSetId: "post_activity:plan:array-forge",
+      context: "homework_required",
+      nodeId: "array-forge",
+      completed: true,
+      funRating: 5,
+      postActivityAction: "back_to_map",
+    });
+
+    expect(out.status).toBe(200);
+    expect(mockedTransitionLearningCycle).toHaveBeenCalledWith(
+      "demo-pashley",
+      "hw-math",
+      2,
+      expect.objectContaining({ type: "session_finalized", choiceEventId: "modal-intermediate" }),
+    );
+    expect(advanceCanonicalCycleFromEvidence).not.toHaveBeenCalled();
+  });
+
+  it("finalizes rating evidence canonically before starting exactly one next-chapter decision", async () => {
+    const out = await postChoiceEvent({
+      ...routeChoicePayload,
+      choiceEventId: "modal-finalized-rating",
+      eventName: "activity_completed",
+      choiceSetId: "post_activity:plan:array-forge",
+      context: "homework_required",
+      nodeId: "array-forge",
+      completed: true,
+      accuracy: 0.8,
+      funRating: 2,
+      replayRequested: false,
+      frustrationScore: 0.4,
+      demoRequested: true,
+      invalidActionCount: 3,
+      postActivityAction: "back_to_map",
+    });
+
+    expect(out.status).toBe(200);
+    expect(mockedTransitionLearningCycle).toHaveBeenCalledWith(
+      "demo-pashley",
+      "hw-math",
+      2,
+      expect.objectContaining({
+        type: "session_finalized",
+        nodeId: "array-forge",
+        choiceEventId: "modal-finalized-rating",
+        engagement: expect.objectContaining({
+          funRating: 2,
+          replayRequested: false,
+          frustrationScore: 0.4,
+          demoRequested: true,
+          invalidActionCount: 3,
+          postActivityAction: "back_to_map",
+        }),
+      }),
+    );
     await vi.waitFor(() => {
       expect(advanceCanonicalCycleFromEvidence).toHaveBeenCalledTimes(1);
       expect(generateCanonicalProgressionArtifact).toHaveBeenCalledTimes(1);
     });
+  });
+
+  it("treats Skip as finalized evidence without inventing a neutral rating", async () => {
+    const out = await postChoiceEvent({
+      ...routeChoicePayload,
+      choiceEventId: "modal-finalized-skip",
+      eventName: "activity_completed",
+      choiceSetId: "post_activity:plan:array-forge",
+      context: "homework_required",
+      nodeId: "array-forge",
+      completed: true,
+      accuracy: 0.8,
+      postActivityAction: "back_to_map",
+    });
+
+    expect(out.status).toBe(200);
+    expect(mockedTransitionLearningCycle).toHaveBeenCalledWith(
+      "demo-pashley",
+      "hw-math",
+      2,
+      expect.objectContaining({
+        type: "session_finalized",
+        engagement: expect.not.objectContaining({ funRating: expect.anything() }),
+      }),
+    );
+    await vi.waitFor(() => expect(advanceCanonicalCycleFromEvidence).toHaveBeenCalledTimes(1));
+  });
+
+  it("finalizes Replay before starting the next-chapter decision", async () => {
+    const out = await postChoiceEvent({
+      ...routeChoicePayload,
+      choiceEventId: "modal-finalized-replay",
+      eventName: "replay_requested",
+      choiceSetId: "post_activity:plan:array-forge",
+      context: "homework_required",
+      nodeId: "array-forge",
+      completed: true,
+      replayRequested: true,
+      postActivityAction: "replay_same",
+    });
+
+    expect(out.status).toBe(200);
+    expect(mockedTransitionLearningCycle).toHaveBeenCalledWith(
+      "demo-pashley",
+      "hw-math",
+      2,
+      expect.objectContaining({
+        type: "session_finalized",
+        engagement: expect.objectContaining({ replayRequested: true, postActivityAction: "replay_same" }),
+      }),
+    );
+    await vi.waitFor(() => expect(advanceCanonicalCycleFromEvidence).toHaveBeenCalledTimes(1));
+  });
+
+  it("records explicit abandonment without pretending the node completed or starting progression", async () => {
+    const activeCycle = {
+      childId: "demo-pashley",
+      homeworkId: "hw-math",
+      lifecycle: "baseline_active",
+      revision: 2,
+      nodes: [{ nodeId: "array-forge", state: "active" }],
+      pendingSessionNodeIds: [],
+      sessionFinalizations: [],
+    };
+    mockedGetLearningCycle.mockReturnValueOnce(activeCycle as never).mockReturnValueOnce(activeCycle as never);
+    mockedTransitionLearningCycle.mockReturnValueOnce({ ...activeCycle, revision: 3 } as never);
+
+    const out = await postChoiceEvent({
+      ...routeChoicePayload,
+      choiceEventId: "modal-finalized-abandon",
+      eventName: "activity_completed",
+      choiceSetId: "post_activity:plan:array-forge",
+      context: "homework_required",
+      nodeId: "array-forge",
+      completed: false,
+      postActivityAction: "abandon",
+    });
+
+    expect(out.status).toBe(200);
+    expect(mockedTransitionLearningCycle).toHaveBeenCalledWith(
+      "demo-pashley",
+      "hw-math",
+      2,
+      expect.objectContaining({
+        type: "session_finalized",
+        engagement: expect.objectContaining({ completed: false, postActivityAction: "abandon" }),
+      }),
+    );
+    expect(advanceCanonicalCycleFromEvidence).not.toHaveBeenCalled();
+  });
+
+  it("ignores abandonment for a locked node that was never launchable", async () => {
+    const lockedCycle = {
+      childId: "demo-pashley",
+      homeworkId: "hw-math",
+      lifecycle: "baseline_active",
+      revision: 2,
+      nodes: [{ nodeId: "quest", role: "quest", state: "locked" }],
+      pendingSessionNodeIds: [],
+      sessionFinalizations: [],
+    };
+    mockedGetLearningCycle.mockReturnValueOnce(lockedCycle as never);
+
+    const out = await postChoiceEvent({
+      ...routeChoicePayload,
+      choiceEventId: "modal-locked-abandon",
+      eventName: "activity_completed",
+      choiceSetId: "post_activity:plan:quest",
+      context: "quest",
+      nodeId: "quest",
+      completed: false,
+      postActivityAction: "abandon",
+    });
+
+    expect(out.status).toBe(200);
+    expect(mockedTransitionLearningCycle).not.toHaveBeenCalled();
+    expect(advanceCanonicalCycleFromEvidence).not.toHaveBeenCalled();
+  });
+
+  it("does not start a second decision when the finalized modal event is retried", async () => {
+    const payload = {
+      ...routeChoicePayload,
+      choiceEventId: "modal-finalized-once",
+      eventName: "activity_completed",
+      choiceSetId: "post_activity:plan:array-forge",
+      context: "homework_required",
+      nodeId: "array-forge",
+      completed: true,
+      accuracy: 0.8,
+      funRating: 4,
+      postActivityAction: "back_to_map",
+    };
+    mockedFindChoiceEventById
+      .mockReturnValueOnce(undefined)
+      .mockReturnValueOnce({ choiceEventId: "modal-finalized-once" } as never);
+
+    await postChoiceEvent(payload);
+    await vi.waitFor(() => expect(advanceCanonicalCycleFromEvidence).toHaveBeenCalledTimes(1));
+    const duplicate = await postChoiceEvent(payload);
+
+    expect(duplicate.body).toMatchObject({ ok: true, duplicate: true });
+    expect(advanceCanonicalCycleFromEvidence).toHaveBeenCalledTimes(1);
+  });
+
+  it("retries one preserved finalized packet after a provider decision failure", async () => {
+    const storedEvent = {
+      type: "choice_event",
+      version: 1,
+      choiceEventId: "modal-provider-retry",
+      choiceSetId: "post_activity:plan:array-forge",
+      childId: "demo-pashley",
+      homeworkId: "hw-math",
+      nodeId: "array-forge",
+      context: "homework_required",
+      domain: "math",
+      shownOptions: routeChoicePayload.shownOptions,
+      skippedOptionIds: [],
+      source: "child_choice",
+      eventName: "activity_completed",
+      completed: true,
+      postActivityAction: "back_to_map",
+      createdAt: "2026-08-07T12:00:00.000Z",
+    } as const;
+    mockedFindChoiceEventById.mockReturnValue(storedEvent as never);
+    mockedGetLearningCycle.mockReturnValue({
+      childId: "demo-pashley",
+      homeworkId: "hw-math",
+      lifecycle: "baseline_evaluating",
+      revision: 3,
+      nodes: [{ nodeId: "array-forge", state: "completed" }],
+      sessionFinalizations: [{ choiceEventId: "modal-provider-retry", nodeId: "array-forge" }],
+      evaluationSessionFinalizationId: "modal-provider-retry",
+    } as never);
+    vi.mocked(advanceCanonicalCycleFromEvidence)
+      .mockRejectedValueOnce(new Error("provider unavailable"))
+      .mockResolvedValueOnce({
+        childId: "demo-pashley",
+        homeworkId: "hw-math",
+        lifecycle: "quest_generating",
+        revision: 4,
+      } as never);
+
+    await postChoiceEvent(storedEvent);
+    await vi.waitFor(() => expect(advanceCanonicalCycleFromEvidence).toHaveBeenCalledTimes(1));
+    await new Promise<void>((resolve) => setImmediate(resolve));
+
+    await postChoiceEvent(storedEvent);
+    await vi.waitFor(() => expect(advanceCanonicalCycleFromEvidence).toHaveBeenCalledTimes(2));
+  });
+
+  it("returns a retryable failure and resumes only generation after the Planner decision was saved", async () => {
+    const storedEvent = {
+      type: "choice_event",
+      version: 1,
+      choiceEventId: "modal-generation-retry",
+      choiceSetId: "post_activity:plan:array-forge",
+      childId: "demo-pashley",
+      homeworkId: "hw-math",
+      nodeId: "array-forge",
+      context: "homework_required",
+      domain: "math",
+      shownOptions: routeChoicePayload.shownOptions,
+      skippedOptionIds: [],
+      source: "child_choice",
+      eventName: "activity_completed",
+      completed: true,
+      postActivityAction: "back_to_map",
+      createdAt: "2026-08-07T12:00:00.000Z",
+    } as const;
+    mockedFindChoiceEventById.mockReturnValue(storedEvent as never);
+    mockedGetLearningCycle.mockReturnValue({
+      childId: "demo-pashley",
+      homeworkId: "hw-math",
+      lifecycle: "quest_generating",
+      revision: 4,
+      nodes: [{ nodeId: "array-forge", state: "completed" }],
+      sessionFinalizations: [{ choiceEventId: "modal-generation-retry", nodeId: "array-forge" }],
+      pendingSessionNodeIds: [],
+    } as never);
+    vi.mocked(advanceCanonicalCycleFromEvidence).mockResolvedValue({
+      childId: "demo-pashley", homeworkId: "hw-math", lifecycle: "quest_generating", revision: 4,
+    } as never);
+    vi.mocked(generateCanonicalProgressionArtifact)
+      .mockRejectedValueOnce(new Error("builder provider unavailable"))
+      .mockResolvedValueOnce({
+        childId: "demo-pashley", homeworkId: "hw-math", lifecycle: "quest_ready", revision: 5,
+      } as never);
+
+    const first = await postChoiceEvent(storedEvent);
+    expect(first.status).toBe(500);
+    const second = await postChoiceEvent(storedEvent);
+    expect(second.status).toBe(200);
+    expect(advanceCanonicalCycleFromEvidence).not.toHaveBeenCalled();
+    expect(generateCanonicalProgressionArtifact).toHaveBeenCalledTimes(2);
   });
 
   it("blocks every canonical learning write when the server runtime is as-child", async () => {

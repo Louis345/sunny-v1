@@ -3,6 +3,7 @@ import {
   buildCurrentBoardSnapshot,
   buildCurrentBoardSnapshotContext,
   findCompanionTruthContradictions,
+  mergeCurrentBoardState,
 } from "./currentBoardSnapshot";
 
 describe("CurrentBoardSnapshot", () => {
@@ -105,6 +106,87 @@ describe("CurrentBoardSnapshot", () => {
     expect(buildCurrentBoardSnapshotContext(snapshot)).toContain(
       "Current challenge: Which rectangle is cut into 3 equal parts?",
     );
+  });
+
+  it("retains assignment, artifact, and item provenance for companion support", () => {
+    const snapshot = buildCurrentBoardSnapshot({
+      childId: "reina",
+      sessionId: "voice-1",
+      state: {
+        homeworkId: "hw-math-1",
+        artifactHash: "artifact-hash-1",
+        game: "generated-math",
+        activityId: "N2",
+        nodeId: "N2",
+        currentChallenge: {
+          id: "item-3",
+          prompt: "Build four equal groups of six.",
+        },
+        answerVisibility: "hidden",
+      },
+    });
+
+    expect(snapshot).toMatchObject({
+      homeworkId: "hw-math-1",
+      artifactHash: "artifact-hash-1",
+      nodeId: "N2",
+      itemId: "item-3",
+      currentChallenge: "Build four equal groups of six.",
+    });
+  });
+
+  it("gives Elli factual friction and device context without exposing an answer", () => {
+    const snapshot = buildCurrentBoardSnapshot({
+      childId: "reina",
+      sessionId: "voice-1",
+      state: {
+        homeworkId: "hw-math-1",
+        artifactHash: "artifact-hash-1",
+        activityId: "ACT-SHARED-01",
+        nodeId: "ACT-SHARED-01",
+        itemId: "ITM-S01-2",
+        currentChallenge: "Explain what each factor counts.",
+        answerVisibility: "hidden",
+        device: "desktop-keyboard",
+        latestAttemptId: "attempt-27",
+        latestAttemptedValue: "8 wagons and 5 lanterns equal 40",
+        frictionSignal: "response_rejected_by_activity_instrument",
+        rejectedAttemptCount: 3,
+      },
+    });
+
+    const context = buildCurrentBoardSnapshotContext(snapshot);
+    expect(context).toContain("Factual friction signal: response_rejected_by_activity_instrument");
+    expect(context).toContain("Latest attempt evidence id: attempt-27");
+    expect(context).toContain("Latest rejected child response: 8 wagons and 5 lanterns equal 40");
+    expect(context).toContain("Current response device: desktop-keyboard");
+    expect(context).toContain("Answer visibility: hidden");
+  });
+
+  it("carries stable provenance through same-node game updates without leaking it to another node", () => {
+    const previous = {
+      homeworkId: "hw-math-1",
+      nodeId: "N2",
+      activityId: "generated-math",
+      itemId: "item-2",
+      artifactHash: "artifact-hash-2",
+    };
+    expect(mergeCurrentBoardState(previous, {
+      nodeId: "N2",
+      phase: "progress",
+      currentChallenge: { id: "item-3", prompt: "Next" },
+    })).toMatchObject({
+      homeworkId: "hw-math-1",
+      nodeId: "N2",
+      activityId: "generated-math",
+      artifactHash: "artifact-hash-2",
+      currentChallenge: { id: "item-3", prompt: "Next" },
+    });
+    expect(mergeCurrentBoardState(previous, { nodeId: "N3", phase: "question" })).toEqual({
+      homeworkId: "hw-math-1",
+      nodeId: "N3",
+      phase: "question",
+    });
   });
 
   it("does not expose hidden Wheel answers to Elli", () => {

@@ -8,11 +8,16 @@ import {
   transitionLearningCycle,
   type AcademicPrediction,
   type AssumptionAssessment,
+  type AssignmentReadinessAssessment,
   type LearningConstructLink,
   type LearningCycleDecision,
   type LearningCycleRecordV2,
   type LearningEvidenceSourceRef,
   type LearningObservation,
+  type LearningContinuationAction,
+  type LearningCycleCompanionObservation,
+  type NextAcademicPredictionPrescription,
+  type NextInstrumentPrescription,
   type PredictionEvaluation,
 } from "./learningCycleRepository";
 
@@ -23,6 +28,7 @@ export type ConfirmedReturnedWorkItem = {
   correct?: boolean;
   teacherNote?: string;
   observedErrorType?: string;
+  assistanceStatus?: "unassisted" | "assisted" | "unknown";
   extractionConfidence: number;
   constructLinks: LearningConstructLink[];
 };
@@ -47,6 +53,7 @@ export type LongitudinalLearningHistory = {
   childId: string;
   constructs: Record<string, LongitudinalConstructHistory>;
   recentDecisions: LearningCycleDecision[];
+  recentSupportObservations: LearningCycleCompanionObservation[];
   pendingInterpretation: Array<{ homeworkId: string; sourceId: string; evaluationIds: string[] }>;
 };
 
@@ -62,6 +69,11 @@ export type TheoryDecisionContent = {
   nextEvidenceRequired: string[];
   revisedHypothesis?: string;
   assumptionAssessments?: AssumptionAssessment[];
+  /** Required from the production Planner tool; optional only for injected legacy/test interpreters. */
+  readinessAssessment?: AssignmentReadinessAssessment;
+  continuationAction?: LearningContinuationAction;
+  nextInstrument?: NextInstrumentPrescription;
+  nextPrediction?: NextAcademicPredictionPrescription;
 };
 
 type RootOptions = { rootDir?: string; now?: Date };
@@ -121,7 +133,9 @@ export function evaluateAcademicPredictions(
 }
 
 function observationsFromReturnedWork(input: ConfirmedReturnedWork): LearningObservation[] {
-  return input.items.map((item) => ({
+  return input.items.map((item) => {
+    const assistanceStatus = item.assistanceStatus ?? "unknown";
+    return ({
     observationId: `observation:${stableId({ sourceId: input.source.sourceId, itemId: item.itemId })}`,
     sourceId: input.source.sourceId,
     itemId: item.itemId,
@@ -133,12 +147,17 @@ function observationsFromReturnedWork(input: ConfirmedReturnedWork): LearningObs
       ...(item.observedErrorType ? { observedErrorType: item.observedErrorType } : {}),
       ...(item.teacherNote ? { teacherNote: item.teacherNote } : {}),
     },
-    assistance: { status: "unknown", scaffolds: [] },
+    assistance: { status: assistanceStatus, scaffolds: assistanceStatus === "assisted" ? ["caregiver_confirmed_help"] : [] },
     exposure: "unknown",
     provenance: input.source.type === "delayed_reassessment" ? "delayed_reassessment" : "graded_work",
     observedAt: input.source.capturedAt,
-    confounds: item.extractionConfidence < 0.8 ? ["low_extraction_confidence"] : [],
-  }));
+    confounds: [
+      ...(item.extractionConfidence < 0.8 ? ["low_extraction_confidence"] : []),
+      ...(assistanceStatus === "assisted" ? ["assistance_present"] : []),
+      ...(assistanceStatus === "unknown" ? ["assistance_unknown"] : []),
+    ],
+  });
+  });
 }
 
 export function recordConfirmedReturnedWork(
@@ -229,6 +248,12 @@ export function buildLongitudinalLearningHistory(
     .filter((decision) => decision.eventType === "theory_decided")
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
     .slice(0, 20);
+  const recentSupportObservations = cycles
+    .flatMap((cycle) => cycle.evidence.companionObservations)
+    .filter((observation) =>
+      observation.kind === "companion_support" && observation.masteryEligible === false)
+    .sort((a, b) => (b.resumedAt ?? "").localeCompare(a.resumedAt ?? ""))
+    .slice(0, 20);
   const pendingInterpretation = cycles.flatMap((cycle) => cycle.evidenceSources
     .filter((source) => source.status === "confirmed" && !cycle.decisionHistory.some((decision) =>
       decision.eventType === "theory_decided" && decision.evidenceIds.some((id) =>
@@ -238,11 +263,30 @@ export function buildLongitudinalLearningHistory(
       sourceId: source.sourceId,
       evaluationIds: cycle.predictionEvaluations.filter((evaluation) => evaluation.sourceId === source.sourceId).map((evaluation) => evaluation.evaluationId),
     })));
-  return { childId, constructs, recentDecisions, pendingInterpretation };
+  return {
+    childId,
+    constructs,
+    recentDecisions,
+    recentSupportObservations,
+    pendingInterpretation,
+  };
 }
 
 function stringArray(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string" && item.trim().length > 0) : [];
+}
+
+function objectOrJsonObject(value: unknown): Record<string, unknown> | null {
+  if (value && typeof value === "object" && !Array.isArray(value)) return value as Record<string, unknown>;
+  if (typeof value !== "string") return null;
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+      ? parsed as Record<string, unknown>
+      : null;
+  } catch {
+    return null;
+  }
 }
 
 function parseTheoryDecision(value: unknown, cycle: LearningCycleRecordV2): TheoryDecisionContent {
@@ -272,6 +316,75 @@ function parseTheoryDecision(value: unknown, cycle: LearningCycleRecordV2): Theo
   if (cycle.assumptions.some((assumption) => !assessments.some((assessment) => assessment.assumptionId === assumption.assumptionId))) {
     throw new Error("longitudinal_assumption_assessment_missing");
   }
+  const rawReadiness = row.readinessAssessment && typeof row.readinessAssessment === "object" && !Array.isArray(row.readinessAssessment)
+    ? row.readinessAssessment as Record<string, unknown>
+    : null;
+  const rawScope = objectOrJsonObject(rawReadiness?.scope);
+  const readinessStatuses = new Set(["predicted_ready", "ready_independent", "ready_with_support", "not_yet_ready", "insufficient_evidence"]);
+  if (!rawReadiness || !rawScope || typeof rawReadiness.status !== "string" || !readinessStatuses.has(rawReadiness.status) ||
+      typeof rawScope.homeworkId !== "string" || typeof rawScope.assignmentTitle !== "string" ||
+      typeof rawReadiness.reason !== "string" || !rawReadiness.reason.trim() ||
+      typeof rawReadiness.uncertainty !== "string" || !rawReadiness.uncertainty.trim() ||
+      typeof rawReadiness.nextAction !== "string" || !rawReadiness.nextAction.trim()) {
+    throw new Error("longitudinal_readiness_assessment_invalid");
+  }
+  const readinessAssessment: AssignmentReadinessAssessment = {
+    status: rawReadiness.status as AssignmentReadinessAssessment["status"],
+    scope: {
+      homeworkId: rawScope.homeworkId,
+      assignmentTitle: rawScope.assignmentTitle,
+      constructIds: stringArray(rawScope.constructIds),
+    },
+    reason: rawReadiness.reason,
+    evidenceIds: stringArray(rawReadiness.evidenceIds),
+    predictionEvaluationIds: stringArray(rawReadiness.predictionEvaluationIds),
+    uncertainty: rawReadiness.uncertainty,
+    nextAction: rawReadiness.nextAction,
+  };
+  const continuationActions = new Set(["complete", "generate_support", "collect_more_evidence"]);
+  if (typeof row.continuationAction !== "string" || !continuationActions.has(row.continuationAction)) {
+    throw new Error("longitudinal_continuation_action_invalid");
+  }
+  const continuationAction = row.continuationAction as LearningContinuationAction;
+  const expectedAction = readinessAssessment.status === "ready_independent"
+    ? "complete"
+    : readinessAssessment.status === "not_yet_ready" || readinessAssessment.status === "ready_with_support"
+      ? "generate_support"
+      : "collect_more_evidence";
+  if (continuationAction !== expectedAction) throw new Error("longitudinal_continuation_readiness_mismatch");
+  const object = (value: unknown): Record<string, unknown> | null =>
+    value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : null;
+  const instrumentRow = object(row.nextInstrument);
+  const predictionRow = object(row.nextPrediction);
+  const metricRow = object(predictionRow?.expectedMetric);
+  let nextInstrument: NextInstrumentPrescription | undefined;
+  let nextPrediction: NextAcademicPredictionPrescription | undefined;
+  if (continuationAction !== "complete") {
+    const instrumentKeys = ["nodeId", "title", "academicTarget", "mechanic", "theme", "openingPurpose", "creatorPrompt"] as const;
+    if (!instrumentRow || instrumentKeys.some((key) => typeof instrumentRow[key] !== "string" || !String(instrumentRow[key]).trim())) {
+      throw new Error("longitudinal_continuation_instrument_invalid");
+    }
+    const limits = new Set(["practice_only", "independent_performance", "provisional_transfer", "calibrated_mastery"]);
+    if (!predictionRow || !metricRow || typeof predictionRow.claim !== "string" || !predictionRow.claim.trim() ||
+        typeof predictionRow.constructId !== "string" || !readinessAssessment.scope.constructIds.includes(predictionRow.constructId) ||
+        typeof predictionRow.context !== "string" || typeof predictionRow.horizon !== "string" ||
+        typeof metricRow.key !== "string" || typeof metricRow.min !== "number" || typeof metricRow.max !== "number" ||
+        typeof predictionRow.confidence !== "number" || predictionRow.confidence < 0 || predictionRow.confidence > 1 ||
+        typeof predictionRow.evidenceLimit !== "string" || !limits.has(predictionRow.evidenceLimit)) {
+      throw new Error("longitudinal_continuation_prediction_invalid");
+    }
+    nextInstrument = Object.fromEntries(instrumentKeys.map((key) => [key, String(instrumentRow[key]).trim()])) as unknown as NextInstrumentPrescription;
+    nextPrediction = {
+      claim: predictionRow.claim,
+      constructId: predictionRow.constructId,
+      context: predictionRow.context,
+      horizon: predictionRow.horizon,
+      expectedMetric: { key: metricRow.key, min: metricRow.min, max: metricRow.max },
+      predictedErrorPatterns: stringArray(predictionRow.predictedErrorPatterns),
+      confidence: predictionRow.confidence,
+      evidenceLimit: predictionRow.evidenceLimit as NextAcademicPredictionPrescription["evidenceLimit"],
+    };
+  }
   return {
     status: row.status as TheoryDecisionContent["status"],
     reason: row.reason,
@@ -283,6 +396,10 @@ function parseTheoryDecision(value: unknown, cycle: LearningCycleRecordV2): Theo
     testNext: stringArray(row.testNext),
     nextEvidenceRequired: stringArray(row.nextEvidenceRequired),
     assumptionAssessments: assessments,
+    readinessAssessment,
+    continuationAction,
+    ...(nextInstrument ? { nextInstrument } : {}),
+    ...(nextPrediction ? { nextPrediction } : {}),
     ...(typeof row.revisedHypothesis === "string" && row.revisedHypothesis.trim() ? { revisedHypothesis: row.revisedHypothesis } : {}),
   };
 }
@@ -300,14 +417,14 @@ async function askPlannerForTheoryDecision(input: {
   const response = await client.messages.create({
     model: input.model ?? process.env.SUNNY_INGEST_MODEL ?? "claude-sonnet-5",
     max_tokens: 5000,
-    messages: [{ role: "user", content: `You are Sunny's AI learning Planner. Interpret one confirmed external-evidence batch. Observations are immutable facts. Compare only preregistered predictions with their evaluations and return exactly one theory decision. A supported prediction does not automatically prove mastery. Cite only supplied observation and evaluation IDs. Assess every preregistered assumption as supported, rejected, or uncertain; do not rewrite it.\n\nTheory:\n${JSON.stringify(input.cycle.academicTheory, null, 2)}\n\nAssumptions:\n${JSON.stringify(input.cycle.assumptions, null, 2)}\n\nPredictions:\n${JSON.stringify(input.cycle.academicPredictions, null, 2)}\n\nObservations:\n${JSON.stringify(observations, null, 2)}\n\nEvaluations:\n${JSON.stringify(evaluations, null, 2)}` }],
+    messages: [{ role: "user", content: `You are Sunny's AI learning Planner. Interpret one confirmed external-evidence batch. Observations are immutable facts. Compare only preregistered predictions with their evaluations and return exactly one theory decision. A supported prediction does not automatically prove mastery. Cite only supplied observation and evaluation IDs. Assess every preregistered assumption as supported, rejected, or uncertain; do not rewrite it. In the same decision, state readiness only for this assignment and its cited constructs. Use ready_independent only when confirmed graded work or delayed independent reassessment supports it; use ready_with_support, not_yet_ready, or insufficient_evidence otherwise. Choose complete only for ready_independent, generate_support for not_yet_ready or ready_with_support, and collect_more_evidence for insufficient_evidence. For either non-complete action, prescribe exactly one next-session instrument and one immutable academic prediction.\n\nAssignment:\n${JSON.stringify(input.cycle.assignment, null, 2)}\n\nTheory:\n${JSON.stringify(input.cycle.academicTheory, null, 2)}\n\nAssumptions:\n${JSON.stringify(input.cycle.assumptions, null, 2)}\n\nPredictions:\n${JSON.stringify(input.cycle.academicPredictions, null, 2)}\n\nObservations:\n${JSON.stringify(observations, null, 2)}\n\nEvaluations:\n${JSON.stringify(evaluations, null, 2)}` }],
     tools: [{
       name: toolName,
       description: "Return one evidence-citing theory decision and assess every locked assumption.",
       input_schema: {
         type: "object",
         additionalProperties: false,
-        required: ["status", "reason", "nextAction", "evidenceIds", "predictionEvaluationIds", "preserve", "change", "testNext", "nextEvidenceRequired", "assumptionAssessments"],
+        required: ["status", "reason", "nextAction", "evidenceIds", "predictionEvaluationIds", "preserve", "change", "testNext", "nextEvidenceRequired", "assumptionAssessments", "readinessAssessment", "continuationAction"],
         properties: {
           status: { type: "string", enum: ["supported", "revised", "falsified", "inconclusive", "awaiting_calibration"] },
           reason: { type: "string" },
@@ -331,6 +448,48 @@ async function askPlannerForTheoryDecision(input: {
                 reason: { type: "string" },
                 observationIds: { type: "array", items: { type: "string" } },
               },
+            },
+          },
+          readinessAssessment: {
+            type: "object",
+            additionalProperties: false,
+            required: ["status", "scope", "reason", "evidenceIds", "predictionEvaluationIds", "uncertainty", "nextAction"],
+            properties: {
+              status: { type: "string", enum: ["ready_independent", "ready_with_support", "not_yet_ready", "insufficient_evidence"] },
+              scope: {
+                type: "object",
+                additionalProperties: false,
+                required: ["homeworkId", "assignmentTitle", "constructIds"],
+                properties: {
+                  homeworkId: { type: "string" },
+                  assignmentTitle: { type: "string" },
+                  constructIds: { type: "array", items: { type: "string" } },
+                },
+              },
+              reason: { type: "string" },
+              evidenceIds: { type: "array", items: { type: "string" } },
+              predictionEvaluationIds: { type: "array", items: { type: "string" } },
+              uncertainty: { type: "string" },
+              nextAction: { type: "string" },
+            },
+          },
+          continuationAction: { type: "string", enum: ["complete", "generate_support", "collect_more_evidence"] },
+          nextInstrument: {
+            type: "object", additionalProperties: false,
+            required: ["nodeId", "title", "academicTarget", "mechanic", "theme", "openingPurpose", "creatorPrompt"],
+            properties: {
+              nodeId: { type: "string" }, title: { type: "string" }, academicTarget: { type: "string" },
+              mechanic: { type: "string" }, theme: { type: "string" }, openingPurpose: { type: "string" }, creatorPrompt: { type: "string" },
+            },
+          },
+          nextPrediction: {
+            type: "object", additionalProperties: false,
+            required: ["claim", "constructId", "context", "horizon", "expectedMetric", "predictedErrorPatterns", "confidence", "evidenceLimit"],
+            properties: {
+              claim: { type: "string" }, constructId: { type: "string" }, context: { type: "string" }, horizon: { type: "string" },
+              expectedMetric: { type: "object", additionalProperties: false, required: ["key", "min", "max"], properties: { key: { type: "string" }, min: { type: "number" }, max: { type: "number" } } },
+              predictedErrorPatterns: { type: "array", items: { type: "string" } }, confidence: { type: "number", minimum: 0, maximum: 1 },
+              evidenceLimit: { type: "string", enum: ["practice_only", "independent_performance", "provisional_transfer", "calibrated_mastery"] },
             },
           },
         },
@@ -369,6 +528,18 @@ export async function interpretReturnedWorkBatch(input: {
   if (content.evidenceIds.some((id) => !allowedObservationIds.has(id)) ||
       content.predictionEvaluationIds.some((id) => !allowedEvaluationIds.has(id))) {
     throw new Error("longitudinal_theory_decision_unknown_evidence");
+  }
+  if (content.readinessAssessment?.status === "ready_independent") {
+    const cited = sourceObservations.filter((observation) => content.evidenceIds.includes(observation.observationId));
+    const independentlyCorrect = cited.some((observation) =>
+      observation.result.correct === true
+      && observation.assistance.status === "unassisted"
+      && !observation.confounds.includes("assistance_present")
+      && !observation.confounds.includes("assistance_unknown")
+      && !observation.confounds.includes("low_extraction_confidence"));
+    if (!independentlyCorrect || content.predictionEvaluationIds.length === 0) {
+      throw new Error("assignment_readiness_independent_evidence_ineligible");
+    }
   }
   const updated = transitionLearningCycle(input.childId, input.homeworkId, cycle.revision, {
     type: "theory_decided",

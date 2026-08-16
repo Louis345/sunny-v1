@@ -11,6 +11,9 @@ import {
   resetLearningCycleRuntimeEvidence,
   projectLearningCycle,
   projectLearningCyclePlanForWrite,
+  markCanonicalCompanionSupportResumed,
+  recordCanonicalActivityFriction,
+  recordCanonicalCompanionSupport,
   recordLearningCycleCalibration,
   transitionLearningCycle,
   assertLearningCycleProjectionWrite,
@@ -424,6 +427,209 @@ describe("canonical learning cycle repository", () => {
     expect(quest?.generationPrompt?.text).not.toContain("asked for one hint");
   });
 
+  it("records modal finalization separately before a Planner can interpret the scorecard", () => {
+    const rootDir = root();
+    const created = createLearningCycle(input(), { rootDir, now: new Date("2026-08-07T12:00:00.000Z") });
+    const evaluating = transitionLearningCycle("reina", "hw-math-cycle", created.revision, {
+      type: "instrument_observed",
+      nodeId: "baseline-facts",
+      academicEvidence: [{ evidenceId: "attempt:baseline:1", summary: "4/5 correct", accuracy: 0.8 }],
+      engagementEvidence: [],
+      companionObservations: [],
+      observations: [],
+    }, { rootDir, now: new Date("2026-08-07T12:01:00.000Z") });
+
+    expect(evaluating.lifecycle).toBe("baseline_evaluating");
+    expect(evaluating.sessionFinalizations).toEqual([]);
+
+    const finalized = transitionLearningCycle("reina", "hw-math-cycle", evaluating.revision, {
+      type: "session_finalized",
+      nodeId: "baseline-facts",
+      choiceEventId: "modal:baseline:1",
+      engagement: {
+        funRating: 2,
+        postActivityAction: "back_to_map",
+        replayRequested: false,
+      },
+    }, { rootDir, now: new Date("2026-08-07T12:02:00.000Z") });
+
+    expect(finalized.lifecycle).toBe("baseline_evaluating");
+    expect(finalized.sessionFinalizations).toEqual([{
+      choiceEventId: "modal:baseline:1",
+      nodeId: "baseline-facts",
+      finalizedAt: "2026-08-07T12:02:00.000Z",
+      funRating: 2,
+      postActivityAction: "back_to_map",
+      replayRequested: false,
+    }]);
+    expect(finalized.evidence.engagement).toEqual([
+      expect.objectContaining({ evidenceId: "modal:baseline:1", summary: expect.stringContaining("fun rating 2/5") }),
+    ]);
+    expect(() => transitionLearningCycle("reina", "hw-math-cycle", finalized.revision, {
+      type: "session_finalized",
+      nodeId: "baseline-facts",
+      choiceEventId: "modal:baseline:1",
+      engagement: { postActivityAction: "back_to_map" },
+    }, { rootDir })).toThrow("learning_cycle_session_finalization_duplicate");
+  });
+
+  it("rejects abandonment evidence for a locked node that was never launched", () => {
+    const rootDir = root();
+    const created = createLearningCycle(input(), { rootDir });
+
+    expect(() => transitionLearningCycle("reina", "hw-math-cycle", created.revision, {
+      type: "session_finalized",
+      nodeId: "quest",
+      choiceEventId: "modal:locked-quest:abandon",
+      engagement: { completed: false, postActivityAction: "abandon" },
+    }, { rootDir })).toThrow("learning_cycle_session_finalization_node_not_launchable");
+  });
+
+  it("prevents a stale Planner owner from failing or committing a replacement claim", () => {
+    const rootDir = root();
+    const created = createLearningCycle(input(), { rootDir });
+    const evaluating = transitionLearningCycle("reina", "hw-math-cycle", created.revision, {
+      type: "instrument_observed",
+      nodeId: "baseline-facts",
+      academicEvidence: [{ evidenceId: "attempt:owner", summary: "4/5 correct", accuracy: 0.8 }],
+      engagementEvidence: [], companionObservations: [], observations: [],
+    }, { rootDir });
+    const finalized = transitionLearningCycle("reina", "hw-math-cycle", evaluating.revision, {
+      type: "session_finalized",
+      nodeId: "baseline-facts",
+      choiceEventId: "modal:owner",
+      engagement: { postActivityAction: "back_to_map" },
+    }, { rootDir });
+    const firstClaim = transitionLearningCycle("reina", "hw-math-cycle", finalized.revision, {
+      type: "progression_decision_claimed",
+      finalizationId: "modal:owner",
+      claimId: "claim-old",
+    }, { rootDir });
+    const failed = transitionLearningCycle("reina", "hw-math-cycle", firstClaim.revision, {
+      type: "progression_decision_failed",
+      finalizationId: "modal:owner",
+      claimId: "claim-old",
+      reason: "stale",
+    }, { rootDir });
+    const replacement = transitionLearningCycle("reina", "hw-math-cycle", failed.revision, {
+      type: "progression_decision_claimed",
+      finalizationId: "modal:owner",
+      claimId: "claim-new",
+    }, { rootDir });
+
+    expect(() => transitionLearningCycle("reina", "hw-math-cycle", replacement.revision, {
+      type: "progression_decision_failed",
+      finalizationId: "modal:owner",
+      claimId: "claim-old",
+      reason: "late old worker",
+    }, { rootDir })).toThrow("learning_cycle_progression_claim_owner_mismatch");
+    expect(() => transitionLearningCycle("reina", "hw-math-cycle", replacement.revision, {
+      type: "theory_decided",
+      claimId: "claim-old",
+      decision: {
+        status: "inconclusive",
+        reason: "late old worker",
+        nextAction: "collect_more_evidence",
+        progressionAction: "collect_more_evidence",
+        evidenceIds: [], predictionEvaluationIds: [], preserve: [], change: [], testNext: [], nextEvidenceRequired: [],
+      },
+    }, { rootDir })).toThrow("learning_cycle_progression_claim_owner_mismatch");
+  });
+
+  it("rejects direct independent-readiness claims without correct unassisted returned work", () => {
+    const rootDir = root();
+    const created = createLearningCycle({
+      ...input(),
+      academicPredictions: [{
+        predictionId: "prediction:returned", theoryId: "academic-theory-1", constructId: "5x5",
+        context: "returned schoolwork", horizon: "within_7_days",
+        expectedMetric: { key: "academic.accuracy", min: 0.7, max: 0.9 }, predictedErrorPatterns: [],
+        confidence: 0.7, evidenceIds: ["assignment:pdf:1"], intervention: "equal-groups practice",
+        evidenceLimit: "calibrated_mastery", createdAt: "2026-08-08T12:00:00.000Z", lockedAt: "2026-08-08T12:00:00.000Z",
+      }],
+    }, { rootDir });
+    const file = path.join(rootDir, "src/context/reina/homework/cycles/hw-math-cycle.json");
+    const awaiting = structuredClone(created);
+    awaiting.lifecycle = "awaiting_calibration";
+    awaiting.evidenceSources.push({
+      sourceId: "returned:assisted", type: "graded_work", status: "confirmed",
+      capturedAt: "2026-08-08T13:00:00.000Z", provenance: "parent_upload",
+    } as never);
+    awaiting.observations.push({
+      observationId: "observation:assisted-correct", sourceId: "returned:assisted", itemId: "item-1",
+      constructLinks: [{ constructId: "5x5", role: "primary", confidence: 1 }],
+      result: { correct: true, score: 1 }, assistance: { status: "assisted", scaffolds: ["parent_help"] },
+      exposure: "unseen", provenance: "graded_work", observedAt: "2026-08-08T13:00:00.000Z",
+      confounds: ["assistance_present"],
+    });
+    awaiting.predictionEvaluations.push({
+      evaluationId: "evaluation:assisted", predictionId: "prediction:returned", sourceId: "returned:assisted",
+      observationIds: ["observation:assisted-correct"], predictedMetric: { min: 0.7, max: 0.9 },
+      observedMetric: 1, predictionError: 0.1, observedErrorPatterns: [], sufficiency: "sufficient",
+      evaluatedAt: "2026-08-08T13:01:00.000Z",
+    });
+    fs.writeFileSync(file, JSON.stringify(awaiting, null, 2), "utf8");
+
+    expect(() => transitionLearningCycle("reina", "hw-math-cycle", awaiting.revision, {
+      type: "theory_decided",
+      decision: {
+        status: "supported", reason: "Claim readiness directly.", nextAction: "await_calibration", progressionAction: "await_calibration",
+        evidenceIds: ["observation:assisted-correct"], predictionEvaluationIds: ["evaluation:assisted"],
+        preserve: [], change: [], testNext: [], nextEvidenceRequired: [],
+        readinessAssessment: {
+          status: "ready_independent",
+          scope: { homeworkId: "hw-math-cycle", assignmentTitle: "Multiplication facts and equal groups", constructIds: ["5x5"] },
+          reason: "The returned item was correct.", evidenceIds: ["observation:assisted-correct"],
+          predictionEvaluationIds: ["evaluation:assisted"], uncertainty: "Help may have affected the result.",
+          nextAction: "Complete independently.",
+        },
+      },
+    }, { rootDir })).toThrow("assignment_readiness_independent_evidence_ineligible");
+  });
+
+  it("rejects independent readiness when its prediction evaluation id is not canonical", () => {
+    const rootDir = root();
+    const created = createLearningCycle({
+      ...input(),
+      academicPredictions: [{
+        predictionId: "prediction:returned", theoryId: "academic-theory-1", constructId: "5x5",
+        context: "returned schoolwork", horizon: "within_7_days",
+        expectedMetric: { key: "academic.accuracy", min: 0.7, max: 0.9 }, predictedErrorPatterns: [],
+        confidence: 0.7, evidenceIds: ["assignment:pdf:1"], intervention: "equal-groups practice",
+        evidenceLimit: "calibrated_mastery", createdAt: "2026-08-08T12:00:00.000Z", lockedAt: "2026-08-08T12:00:00.000Z",
+      }],
+    }, { rootDir });
+    const file = path.join(rootDir, "src/context/reina/homework/cycles/hw-math-cycle.json");
+    const awaiting = structuredClone(created);
+    awaiting.lifecycle = "awaiting_calibration";
+    awaiting.evidenceSources.push({
+      sourceId: "returned:independent", type: "graded_work", status: "confirmed",
+      capturedAt: "2026-08-08T13:00:00.000Z", provenance: "parent_upload",
+    } as never);
+    awaiting.observations.push({
+      observationId: "observation:independent-correct", sourceId: "returned:independent", itemId: "item-1",
+      constructLinks: [{ constructId: "5x5", role: "primary", confidence: 1 }], result: { correct: true, score: 1 },
+      assistance: { status: "unassisted", scaffolds: [] }, exposure: "unseen", provenance: "graded_work",
+      observedAt: "2026-08-08T13:00:00.000Z", confounds: [],
+    });
+    fs.writeFileSync(file, JSON.stringify(awaiting, null, 2), "utf8");
+
+    expect(() => transitionLearningCycle("reina", "hw-math-cycle", awaiting.revision, {
+      type: "theory_decided",
+      decision: {
+        status: "supported", reason: "Use a fabricated evaluation.", nextAction: "await_calibration", progressionAction: "await_calibration",
+        evidenceIds: ["observation:independent-correct"], predictionEvaluationIds: ["evaluation:not-canonical"],
+        preserve: [], change: [], testNext: [], nextEvidenceRequired: [],
+        readinessAssessment: {
+          status: "ready_independent",
+          scope: { homeworkId: "hw-math-cycle", assignmentTitle: "Multiplication facts and equal groups", constructIds: ["5x5"] },
+          reason: "The returned item was correct.", evidenceIds: ["observation:independent-correct"],
+          predictionEvaluationIds: ["evaluation:not-canonical"], uncertainty: "One item.", nextAction: "Complete independently.",
+        },
+      },
+    }, { rootDir })).toThrow("assignment_readiness_prediction_evaluation_invalid");
+  });
+
   it("requires Quest evidence before creating a Boss prompt and awaits calibration after Boss", () => {
     const rootDir = root();
     const cycleInput = input();
@@ -512,6 +718,39 @@ describe("canonical learning cycle repository", () => {
       reason: "stale writer test",
     }, { rootDir })).toThrow("learning_cycle_revision_conflict");
     expect(getLearningCycle("reina", "hw-math-cycle", { rootDir })?.revision).toBe(cycle.revision);
+  });
+
+  it("serializes canonical transitions across processes and recovers a stale transition lock", () => {
+    const rootDir = root();
+    const created = createLearningCycle(input(), { rootDir });
+    const lockDir = path.join(
+      rootDir,
+      "src/context/reina/homework/cycles/hw-math-cycle.json.transition-lock",
+    );
+    fs.mkdirSync(lockDir);
+
+    expect(() => transitionLearningCycle("reina", "hw-math-cycle", created.revision, {
+      type: "block",
+      reason: "active transition lock",
+    }, { rootDir })).toThrow("learning_cycle_transition_in_flight");
+
+    const stale = new Date(Date.now() - 31_000);
+    fs.utimesSync(lockDir, stale, stale);
+    const recoveryDir = `${lockDir}.recovery`;
+    fs.mkdirSync(recoveryDir);
+    expect(() => transitionLearningCycle("reina", "hw-math-cycle", created.revision, {
+      type: "block",
+      reason: "competing stale recovery",
+    }, { rootDir })).toThrow("learning_cycle_transition_in_flight");
+    fs.writeFileSync(path.join(recoveryDir, "owner.json"), JSON.stringify({ ownerId: "dead", pid: 999_999 }), "utf8");
+    fs.utimesSync(recoveryDir, stale, stale);
+    const updated = transitionLearningCycle("reina", "hw-math-cycle", created.revision, {
+      type: "block",
+      reason: "stale lock recovered",
+    }, { rootDir });
+
+    expect(updated.revision).toBe(created.revision + 1);
+    expect(fs.existsSync(lockDir)).toBe(false);
   });
 
   it("makes the child chart expose and project the canonical cycle over stale legacy plans", () => {
@@ -686,5 +925,98 @@ describe("canonical learning cycle repository", () => {
     expect(reset.cycle.decisionHistory).toEqual([]);
     expect(reset.cycle.nodes.find((node) => node.role === "baseline")?.state).toBe("ready");
     expect(reset.cycle.nodes.filter((node) => node.role === "quest" || node.role === "boss").every((node) => node.state === "locked")).toBe(true);
+  });
+
+  it("records provenance-linked companion support without changing mastery or lifecycle", () => {
+    const rootDir = root();
+    const created = createLearningCycle(input(), { rootDir });
+    const bound = transitionLearningCycle("reina", "hw-math-cycle", created.revision, {
+      type: "artifact_bound",
+      nodeId: "baseline-facts",
+      artifact: {
+        contentId: "content:fact:1",
+        artifactId: "artifact:fact:1",
+        localArtifactPath: "/games/fact.html",
+        localArtworkPath: "/generated/fact.png",
+        contractFingerprint: "artifact-hash-1",
+        validationStatus: "passed",
+      },
+    }, { rootDir });
+
+    const supported = recordCanonicalCompanionSupport({
+      childId: "reina",
+      homeworkId: "hw-math-cycle",
+      sessionId: "session-1",
+      nodeId: "baseline-facts",
+      itemId: "item-2",
+      supportType: "example",
+      requestSummary: "Child asked to see an example.",
+    }, { rootDir, now: new Date("2026-08-09T18:00:00.000Z") });
+
+    expect(supported.lifecycle).toBe(bound.lifecycle);
+    expect(supported.observations).toEqual([]);
+    expect(supported.evidence.academic).toEqual([]);
+    expect(supported.evidence.companionObservations).toEqual([
+      expect.objectContaining({
+        evidenceId: "support:session-1:baseline-facts:item-2:1",
+        homeworkId: "hw-math-cycle",
+        sessionId: "session-1",
+        nodeId: "baseline-facts",
+        itemId: "item-2",
+        artifactHash: "artifact-hash-1",
+        supportType: "example",
+        resumedIndependently: null,
+        masteryEligible: false,
+      }),
+    ]);
+
+    const resumed = markCanonicalCompanionSupportResumed({
+      childId: "reina",
+      homeworkId: "hw-math-cycle",
+      evidenceId: "support:session-1:baseline-facts:item-2:1",
+      resumedIndependently: true,
+    }, { rootDir, now: new Date("2026-08-09T18:01:00.000Z") });
+
+    expect(resumed.lifecycle).toBe(bound.lifecycle);
+    expect(resumed.observations).toEqual([]);
+    expect(resumed.evidence.companionObservations[0]).toMatchObject({
+      resumedIndependently: true,
+      resumedAt: "2026-08-09T18:01:00.000Z",
+      masteryEligible: false,
+    });
+  });
+
+  it("records instrument ambiguity without completing the node or claiming correctness", () => {
+    const rootDir = root();
+    const created = createLearningCycle(input(), { rootDir });
+    const observed = recordCanonicalActivityFriction({
+      childId: "reina",
+      homeworkId: "hw-math-cycle",
+      sessionId: "session-1",
+      nodeId: "baseline-facts",
+      itemId: "item-2",
+      resolutionId: "friction:session-1:baseline-facts:item-2",
+      attemptedValue: "8 wagons and 5 lanterns equal 40",
+      likelyCause: "scoring_disagreement",
+      confidence: 0.86,
+      action: "advance_current_item",
+      observedErrorType: "instrument_ambiguous",
+      supportSummary: "Elli found a scoring disagreement and advanced without credit.",
+    }, { rootDir, now: new Date("2026-08-10T22:00:00.000Z") });
+
+    expect(observed.lifecycle).toBe(created.lifecycle);
+    expect(observed.nodes.find((node) => node.nodeId === "baseline-facts")?.state).toBe("ready");
+    expect(observed.observations.at(-1)).toMatchObject({
+      observationId: "friction:session-1:baseline-facts:item-2",
+      result: { observedErrorType: "instrument_ambiguous" },
+      assistance: { status: "assisted" },
+      confounds: expect.arrayContaining(["instrument_ambiguous", "assistance_present"]),
+    });
+    expect(observed.observations.at(-1)?.result.correct).toBeUndefined();
+    expect(observed.evidence.companionObservations.at(-1)).toMatchObject({
+      evidenceId: "friction:session-1:baseline-facts:item-2:support",
+      supportType: "friction_resolution",
+      masteryEligible: false,
+    });
   });
 });

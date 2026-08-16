@@ -19,7 +19,6 @@ import {
 import {
   createLearningCycle,
   getLearningCycle,
-  transitionLearningCycle,
   type CreateLearningCycleInput,
   type AcademicPrediction,
   type LearningAssumption,
@@ -160,6 +159,42 @@ export type MathLearningProgram = {
   agencyExperiment?: AgencyExperiment;
   activities: MathPlannedActivity[];
   bonusActivity?: MathPlannedActivity;
+};
+
+export type MathAcademicCharter = Pick<
+  MathLearningProgram,
+  | "planId"
+  | "contentScopeRationale"
+  | "concept"
+  | "assumptions"
+  | "academicTheory"
+  | "profileEvidence"
+  | "learningResponsibilities"
+>;
+
+export type MathProgramBody = Pick<
+  MathLearningProgram,
+  "planId" | "fork" | "agencyExperiment" | "activities"
+> & {
+  charterHash: string;
+  bonusActivity?: MathPlannedActivity;
+};
+
+type MathPlannerStage = "academic-charter" | "program-body";
+
+type MathPlannerCheckpoint = {
+  version: 1;
+  charter?: MathAcademicCharter;
+  charterHash?: string;
+  attempts: Array<{
+    stage: MathPlannerStage;
+    model: string;
+    inputTokens: number;
+    outputTokens: number;
+    elapsedMs: number;
+    stopReason: string;
+    rawResponsePath?: string;
+  }>;
 };
 
 export type ExperienceDesignArtifactV1 = {
@@ -421,6 +456,26 @@ export const MATH_LEARNING_PROGRAM_TOOL_SCHEMA = schemaObject({
   },
 });
 
+const mathLearningProgramSchemaProperties = MATH_LEARNING_PROGRAM_TOOL_SCHEMA.properties;
+
+export const MATH_ACADEMIC_CHARTER_TOOL_SCHEMA = schemaObject({
+  planId: mathLearningProgramSchemaProperties.planId,
+  contentScopeRationale: mathLearningProgramSchemaProperties.contentScopeRationale,
+  concept: mathLearningProgramSchemaProperties.concept,
+  assumptions: mathLearningProgramSchemaProperties.assumptions,
+  academicTheory: mathLearningProgramSchemaProperties.academicTheory,
+  profileEvidence: mathLearningProgramSchemaProperties.profileEvidence,
+  learningResponsibilities: mathLearningProgramSchemaProperties.learningResponsibilities,
+});
+
+export const MATH_PROGRAM_BODY_TOOL_SCHEMA = schemaObject({
+  planId: mathLearningProgramSchemaProperties.planId,
+  charterHash: schemaString,
+  fork: mathLearningProgramSchemaProperties.fork,
+  agencyExperiment: mathLearningProgramSchemaProperties.agencyExperiment,
+  activities: mathLearningProgramSchemaProperties.activities,
+});
+
 export type AssignmentConcept = {
   /** Stable identity that outlives this assignment. Must contain no instance numbers. */
   conceptId: string;
@@ -655,9 +710,9 @@ function parseDirectItem(rawItem: unknown): DirectItem {
   };
 }
 
-export function parseMathLearningProgram(value: unknown): MathLearningProgram {
+export function parseMathAcademicCharter(value: unknown): MathAcademicCharter {
   const root = object(value);
-  if (!root) throw new Error("math_learning_program_must_be_object");
+  if (!root) throw new Error("math_academic_charter_must_be_object");
   const conceptRecord = object(root.concept);
   if (!conceptRecord) throw new Error("math_learning_program_missing_concept");
   const concept = {
@@ -691,6 +746,83 @@ export function parseMathLearningProgram(value: unknown): MathLearningProgram {
       academicTarget: requiredString(responsibility, "academicTarget"),
     };
   });
+  if (learningResponsibilities.length === 0) {
+    throw new Error("math_learning_program_requires_responsibilities");
+  }
+  return {
+    planId: requiredString(root, "planId"),
+    contentScopeRationale: requiredString(root, "contentScopeRationale"),
+    concept,
+    assumptions,
+    academicTheory: requiredString(root, "academicTheory"),
+    profileEvidence: stringArray(root.profileEvidence, "profile_evidence"),
+    learningResponsibilities,
+  };
+}
+
+export function mathAcademicCharterFromProgram(
+  program: MathLearningProgram,
+): MathAcademicCharter {
+  return {
+    planId: program.planId,
+    contentScopeRationale: program.contentScopeRationale,
+    concept: program.concept,
+    assumptions: program.assumptions,
+    academicTheory: program.academicTheory,
+    profileEvidence: program.profileEvidence,
+    learningResponsibilities: program.learningResponsibilities,
+  };
+}
+
+export function mathAcademicCharterHash(charter: MathAcademicCharter): string {
+  return crypto.createHash("sha256").update(JSON.stringify(charter)).digest("hex");
+}
+
+export function mathProgramBodyFromProgram(
+  program: MathLearningProgram,
+  charterHash: string,
+): MathProgramBody {
+  return {
+    planId: program.planId,
+    charterHash,
+    fork: program.fork,
+    ...(program.agencyExperiment ? { agencyExperiment: program.agencyExperiment } : {}),
+    activities: [
+      ...program.activities,
+      ...(program.bonusActivity ? [program.bonusActivity] : []),
+    ],
+  };
+}
+
+export function assembleMathLearningProgram(
+  charter: MathAcademicCharter,
+  bodyValue: unknown,
+): MathLearningProgram {
+  const body = object(bodyValue);
+  if (!body) throw new Error("math_program_body_must_be_object");
+  const bodyPlanId = requiredString(body, "planId");
+  if (bodyPlanId !== charter.planId) throw new Error("math_program_body_plan_id_mismatch");
+  const expectedHash = mathAcademicCharterHash(charter);
+  if (requiredString(body, "charterHash") !== expectedHash) {
+    throw new Error("math_program_body_charter_hash_mismatch");
+  }
+  return parseMathLearningProgram({
+    ...charter,
+    fork: body.fork,
+    agencyExperiment: body.agencyExperiment,
+    activities: body.activities,
+  });
+}
+
+export function parseMathLearningProgram(value: unknown): MathLearningProgram {
+  const root = object(value);
+  if (!root) throw new Error("math_learning_program_must_be_object");
+  const charter = parseMathAcademicCharter(root);
+  const {
+    concept,
+    assumptions,
+    learningResponsibilities,
+  } = charter;
   const fork = object(root.fork);
   const routes = (Array.isArray(fork?.routes) ? fork.routes : []).map((raw) => {
     const route = object(raw);
@@ -702,7 +834,23 @@ export function parseMathLearningProgram(value: unknown): MathLearningProgram {
     };
   });
   if (routes.length !== 2) throw new Error("math_learning_program_requires_two_routes");
-  const parsedActivities = (Array.isArray(root.activities) ? root.activities : []).map((raw): MathPlannedActivity => {
+  let rawActivities: unknown = root.activities;
+  if (typeof rawActivities === "string") {
+    try {
+      rawActivities = JSON.parse(rawActivities);
+    } catch {
+      // Preserve the existing missing-activities contract for malformed provider content.
+      rawActivities = [];
+    }
+  }
+  const rawActivityList = Array.isArray(rawActivities) ? [...rawActivities] : [];
+  const savedBonus = object(root.bonusActivity);
+  if (savedBonus) {
+    const savedBonusId = typeof savedBonus.id === "string" ? savedBonus.id : "";
+    const alreadyIncluded = rawActivityList.some((raw) => object(raw)?.id === savedBonusId);
+    if (!alreadyIncluded) rawActivityList.push({ ...savedBonus, purpose: "bonus" });
+  }
+  const parsedActivities = rawActivityList.map((raw): MathPlannedActivity => {
     const activity = object(raw);
     const boundary = object(activity?.difficultyBoundary);
     const prediction = object(activity?.academicPrediction);
@@ -812,12 +960,12 @@ export function parseMathLearningProgram(value: unknown): MathLearningProgram {
     for (const route of routes) experimentByRoute.get(route.id)!.nodeIds = [...route.nodeIds];
   }
   return {
-    planId: requiredString(root, "planId"),
-    contentScopeRationale: requiredString(root, "contentScopeRationale"),
+    planId: charter.planId,
+    contentScopeRationale: charter.contentScopeRationale,
     concept,
     assumptions,
-    academicTheory: requiredString(root, "academicTheory"),
-    profileEvidence: stringArray(root.profileEvidence, "profile_evidence"),
+    academicTheory: charter.academicTheory,
+    profileEvidence: charter.profileEvidence,
     learningResponsibilities: normalizedResponsibilities,
     fork: {
       hypothesis: requiredString(fork ?? {}, "hypothesis"),
@@ -1221,10 +1369,9 @@ export async function askMathExperienceDesigner(input: {
 }): Promise<{ packet: MathDesignPacket; plan: DirectLearningExperiencePlan }> {
   const client = input.client ?? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
   const model = input.model ?? process.env.SUNNY_ARCHITECT_MODEL ?? "claude-fable-5";
-  const programActivities = [
-    ...input.program.activities,
-    ...(input.program.bonusActivity ? [input.program.bonusActivity] : []),
-  ];
+  // Optional reward practice stays in the academic draft until it is earned.
+  // Baseline publication cannot wait for its design or implementation.
+  const programActivities = input.program.activities;
   const { bonusActivity: _bonusActivity, ...programWithoutBonusDuplicate } = input.program;
   const contracts = programActivities.map((activity) => ({
     ...activity,
@@ -1286,6 +1433,20 @@ export async function askMathExperienceDesigner(input: {
     expectedNodeIds: programActivities.map((activity) => activity.id),
     model,
   });
+  const baselineNodeIds = programActivities.map((activity) => activity.id);
+  if (JSON.stringify(checkpoint.expectedNodeIds) !== JSON.stringify(baselineNodeIds)) {
+    const baselineSet = new Set(baselineNodeIds);
+    checkpoint = mergeMathDesignCheckpoint({
+      ...checkpoint,
+      expectedNodeIds: baselineNodeIds,
+      completedNodeIds: checkpoint.completedNodeIds.filter((nodeId) => baselineSet.has(nodeId)),
+      missingNodeIds: baselineNodeIds,
+      artifacts: checkpoint.artifacts.filter((artifact) => baselineSet.has(artifact.nodeId)),
+    }, {
+      artifacts: checkpoint.artifacts.filter((artifact) => baselineSet.has(artifact.nodeId)),
+      programActivities,
+    });
+  }
   for (let attemptIndex = 0;
     attemptIndex < 2 && (checkpoint.missingNodeIds.length > 0 || !mathDesignHasRoutePresentationBindings(checkpoint));
     attemptIndex += 1) {
@@ -1298,7 +1459,7 @@ The Math Planner's educational program is immutable. You cannot change activity 
 
 You own the complete creative design: board world, route identities, titles, experience form, interaction, mission, stakes, consequences, recovery, progression, payoff, replay variation, visual craft, motion, sound, and useful third-party libraries. Games are optional. Make the board one coherent chapter without forcing identical mechanics or themes.
 
-Creative objective: design something this specific child can understand immediately and may choose to continue playing. Mathematics must visibly change the world, mission, progress, or payoff. You independently choose mechanics, stakes, consequences, recovery, pacing, and payoff. Do not default to consequence-free play merely because evidence is uncertain; choose what best fits the academic responsibility and factual child evidence. Treat profile observations as hypotheses, and do not repeatedly literalize one interest.
+Creative objective: design something this specific child can understand immediately and may choose to continue playing. Use interactionDemonstration and firstThreeSeconds to visually demonstrate the first required action before expecting independent work. Keep required reading before the first action brief. Make optional help discoverable without making it mandatory. Mathematics must visibly change the world, mission, progress, or payoff. You independently choose mechanics, stakes, consequences, recovery, pacing, and payoff. Do not default to consequence-free play merely because evidence is uncertain; choose what best fits the academic responsibility and factual child evidence. Treat profile observations as hypotheses, and do not repeatedly literalize one interest. Use engagementPrediction and falsifyingEvidence to state how later time-to-first-action, help, abandonment, completion, replay, and rating evidence could contradict the clarity hypothesis.
 
 For every route, author a short childFacingActionCue that names what the child will actually do, and previewNodeId naming the route node whose opening view demonstrates that action. The cue is not an explanation paragraph. The preview node must belong to that route.
 
@@ -1319,7 +1480,7 @@ ${JSON.stringify({ ...programWithoutBonusDuplicate, activities: contracts }, nul
     const startedAt = Date.now();
     const request = {
       model,
-      max_tokens: Number(process.env.SUNNY_DIRECTOR_MAX_TOKENS ?? 16000),
+      max_tokens: Number(process.env.SUNNY_DIRECTOR_MAX_TOKENS ?? 48000),
       output_config: { effort: "high" },
       messages: [{ role: "user", content: prompt }],
       tools: [{
@@ -1550,47 +1711,6 @@ ${JSON.stringify({ ...programWithoutBonusDuplicate, activities: contracts }, nul
     quest: { title: "Quest", locked: true, teaser: packet.boardCreativeSpine.questTeaser, artworkPrompt: packet.boardCreativeSpine.questArtworkDirection },
     boss: { title: "Boss", locked: true, teaser: packet.boardCreativeSpine.bossTeaser, artworkPrompt: packet.boardCreativeSpine.bossArtworkDirection },
   };
-  if (input.program.bonusActivity) {
-    const activity = input.program.bonusActivity;
-    const design = artifactByNode.get(activity.id)!;
-    plan.bonusActivity = {
-      id: activity.id,
-      title: design.title,
-      routeId: "bonus",
-      responsibilityId: activity.responsibilityId,
-      learningPurpose: "Optional assignment-aligned reward practice",
-      academicTarget: activity.academicTarget,
-      mechanic: design.coreInteraction,
-      engagementVariable: "earned-companion-play",
-      visualMock: {
-        scene: design.visualDirection,
-        layout: design.firstThreeSeconds,
-        artworkPrompt: design.visualDirection,
-      },
-      experience: {
-        objective: design.openingPromise,
-        childAction: design.firstAction,
-        worldReaction: design.worldReaction,
-        anticipation: design.stakes,
-        progress: design.progression.join(" → "),
-        recovery: design.recovery,
-        reward: design.payoff,
-      },
-      items: activity.items,
-      acceptanceSteps: [design.firstAction, design.consequences, design.recovery, design.payoff],
-      creatorPrompt: JSON.stringify(design),
-      designPrediction: design.engagementPrediction,
-      academicPrediction: { ...activity.academicPrediction, evidenceLimit: "practice_only" },
-      preserve: [],
-      change: [],
-      explore: [],
-      avoid: [],
-      measurementKeys: activity.measurementKeys,
-      difficultyBoundary: activity.difficultyBoundary,
-      catalogDecision: activity.catalogDecision,
-      designArtifact: design,
-    };
-  }
   return { packet, plan };
 }
 
@@ -1698,6 +1818,13 @@ export function buildMathCreativeChildContext(chart: ChildChart): unknown {
       )
     : [];
   const rewardEconomy = chart.companionCare?.plan.economy;
+  const supportObservations = Array.isArray(chart.learningHistory?.recentSupportObservations)
+    ? chart.learningHistory.recentSupportObservations
+        .filter((observation) =>
+          observation.masteryEligible === false &&
+          !isSyntheticEvidenceIdentity(observation.evidenceId))
+        .map((observation) => factualModelContext(observation))
+    : [];
 
   return {
     audience: {
@@ -1721,6 +1848,10 @@ export function buildMathCreativeChildContext(chart: ChildChart): unknown {
       bonusRewardReceipts: rewardEconomy?.bonusRewardReceipts ?? [],
       purchaseCount: (rewardEconomy?.purchaseReceipts ?? []).length,
       howToRead: "Factual actions with sparse evidence; do not infer a durable preference from one event.",
+    },
+    supportObservations: {
+      observations: supportObservations,
+      howToRead: "Child-invoked assistance and subsequent return-to-work facts. Use them to improve clarity and optional support; they are never mastery evidence.",
     },
   };
 }
@@ -1755,67 +1886,62 @@ export async function askDirectMathPlanner(input: {
   /** Concept ids already on record for this child, so the Planner reuses instead of rephrasing. */
   priorConceptIds?: string[];
   rawResponseFile?: string;
+  /** Durable stage checkpoint. A normal rerun reuses the validated charter. */
+  plannerCheckpointDir?: string;
   maxTokens?: number;
 }): Promise<MathLearningProgram> {
   const client = input.client ?? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-  const prompt = `You are Sunny's AI Math Planner, acting like the educational lead in an IEP team.
+  const model = input.model ?? process.env.SUNNY_PLANNER_MODEL ?? "claude-opus-5";
+  const checkpointFile = input.plannerCheckpointDir
+    ? path.join(input.plannerCheckpointDir, "planner-checkpoint.json")
+    : undefined;
+  const charterFile = input.plannerCheckpointDir
+    ? path.join(input.plannerCheckpointDir, "academic-charter.json")
+    : undefined;
+  let checkpoint: MathPlannerCheckpoint = { version: 1, attempts: [] };
 
-Read the assignment, child chart, prior evidence, and prior calibration. Prescribe the smallest coherent learning program that can test your theory. Teach the concept the teacher is targeting rather than copying or lightly rewriting worksheet questions.
+  const archiveInvalidCheckpoint = (file: string): void => {
+    if (!fs.existsSync(file)) return;
+    const archived = `${file}.invalid-${Date.now()}`;
+    fs.renameSync(file, archived);
+    console.warn(` 🎮 [math-planner] [checkpoint-archived] ${path.basename(archived)}`);
+  };
+  if (checkpointFile && fs.existsSync(checkpointFile)) {
+    try {
+      const parsed = JSON.parse(fs.readFileSync(checkpointFile, "utf8")) as MathPlannerCheckpoint;
+      if (parsed.version !== 1 || !Array.isArray(parsed.attempts)) throw new Error("invalid_checkpoint");
+      checkpoint = parsed;
+      if (checkpoint.charter) {
+        checkpoint.charter = parseMathAcademicCharter(checkpoint.charter);
+        checkpoint.charterHash = mathAcademicCharterHash(checkpoint.charter);
+      }
+    } catch {
+      archiveInvalidCheckpoint(checkpointFile);
+      checkpoint = { version: 1, attempts: [] };
+    }
+  }
+  if (!checkpoint.charter && charterFile && fs.existsSync(charterFile)) {
+    try {
+      checkpoint.charter = parseMathAcademicCharter(JSON.parse(fs.readFileSync(charterFile, "utf8")));
+      checkpoint.charterHash = mathAcademicCharterHash(checkpoint.charter);
+    } catch {
+      archiveInvalidCheckpoint(charterFile);
+    }
+  }
 
-You own only the educational prescription:
-- stable concept identity and assignment scope;
-- explicit assumptions, evidence, confidence, and uncertainty;
-- academic theory and preregistered predictions;
-- activity count, sequence, node responsibilities, route structure, and academic comparability;
-- difficulty boundaries, teaching/practice items, response contracts, and evidence requirements;
-- a catalog decision for each node: reuse, revise, generate_new, or retire.
-
-You do not choose titles, worlds, visuals, mechanics, stakes, consequences, rewards, motion, sound, artwork, libraries, HTML, or Creator prompts. A separate Experience Creator owns those choices after your program is locked.
-
-Choose any educationally sufficient activity and item counts for the baseline program. Mark baseline activities purpose=baseline. Use exactly two academically valid routes with at least one baseline node each. Distribute responsibilities across the whole board; do not duplicate the complete curriculum merely for symmetry. Also author exactly one optional purpose=bonus activity with fresh assignment-aligned practice_only material. It is not a route requirement, cannot support mastery, and failure to build it must not block the board. Keep initial nodes practice_only. Quest and Boss are not part of this baseline program and remain locked until real evidence supports a later decision.
-
-For activities completed before the child chooses a route, set routeId to exactly "shared" and do not include those node IDs in either fork route. For activities after the choice, set routeId to the exact owning fork route ID. The activity routeId is authoritative; fork.routes[].nodeIds is only a projection of route-owned activities.
-
-Create one agencyExperiment for the two routes. Use factual child-chart and historical evidence to state a separate engagement hypothesis, predicted outcome, uncertainty, falsifying evidence, and measurement keys for each route. Keep the academic purpose and difficulty comparable at the choice point. A route choice is weak engagement evidence only and never proves a preference. The later decision must consider starts, completion, abandonment, switching, replay, assistance, interaction difficulty, rating, and academic outcomes.
-
-For every node define a difficultyBoundary with allowed concepts and representations, excluded extensions, starting support, and expected independence. Keep all item content within that boundary. Response modes may be selection, numeric, construction, or explanation.
-
-Every assumption must have a stable assumptionId, factual evidence IDs, confidence from 0 to 1, and explicit uncertainty. Predictions concern later independent, delayed, or graded performance; engagement facts never prove academic ability.
-
-concept.conceptId is a stable namespaced identity chosen from the assignment and prior concept history. Put assignment-specific context in instanceScope. Reuse a prior concept ID exactly when it is the same idea.
-
-Each item contains id, prompt, lineage {sourceEvidenceIds, exposure}, and one response contract:
-- selection: {mode, options:[{id,label,correct}]}
-- numeric: {mode, expected, optional unit}
-- construction: {mode, expectedState, successDescription}
-- explanation: {mode, rubric}
-Every responsibility, route, activity, item, assumption, and selection option has a non-empty stable ID.
-
-Concept ids already on record for this child. Reuse one exactly if you mean the same idea; coin a new one only if this assignment is genuinely about something else:
-${input.priorConceptIds?.length ? input.priorConceptIds.map((id) => `- ${id}`).join("\n") : "- none recorded"}
-
-Assignment:
-${input.extraction.fullText}
-
-Available reusable instruments and generated candidates, expressed as factual candidate cards (capabilities, outcomes, runtime status, uncertainty, hashes, and estimated decision costs):
-${JSON.stringify(mathPlannerCandidateCards(input.chart), null, 2)}
-
-Decision policy:
-- Academic compatibility is a hard gate.
-- Predicted learning value is primary; engagement evidence is secondary.
-- Runtime clarity and reliability are supporting evidence.
-- Uncertainty may justify bounded exploration.
-- Model-call cost and latency are penalties, never reasons to use academically incompatible content.
-- Ratings never override learning evidence, and one selection never becomes a preference.
-- Choose reuse only when the card says reuse is eligible and its frozen academic contract is exact. Choose revise when the interaction/design is useful but the academic contract or implementation must change. Choose generate_new when no candidate is sufficient. Retire only a named candidate that should no longer be offered; still prescribe a replacement node for the responsibility.
-
-Child chart:
-${JSON.stringify(mathPlannerChartContext(input.chart), null, 2)}
-
-  Prior factual outcomes and Planner interpretations:
-${JSON.stringify(factualModelContext(input.priorOutcomes ?? []), null, 2)}`;
-  const toolName = "create_math_learning_program";
-  const plannerContent = input.extraction.mediaType === "application/pdf"
+  const persistCheckpoint = (): void => {
+    if (!checkpointFile) return;
+    fs.mkdirSync(path.dirname(checkpointFile), { recursive: true });
+    fs.writeFileSync(checkpointFile, `${JSON.stringify(checkpoint, null, 2)}\n`, "utf8");
+  };
+  const rawPathFor = (stage: MathPlannerStage): string | undefined => {
+    if (input.plannerCheckpointDir) return path.join(input.plannerCheckpointDir, `${stage}-response.json`);
+    if (!input.rawResponseFile) return undefined;
+    return stage === "program-body"
+      ? input.rawResponseFile
+      : input.rawResponseFile.replace(/(\.json)?$/, ".academic-charter.json");
+  };
+  const assignmentContent = (prompt: string) => input.extraction.mediaType === "application/pdf"
     && input.extraction.sourcePath
     && fs.existsSync(input.extraction.sourcePath)
     ? [
@@ -1827,45 +1953,141 @@ ${JSON.stringify(factualModelContext(input.priorOutcomes ?? []), null, 2)}`;
             data: fs.readFileSync(input.extraction.sourcePath).toString("base64"),
           },
           title: input.extraction.filename || "Math assignment",
-          context: "This is the complete original assignment. Inspect every page before prescribing the learning program.",
+          context: "This is the complete original assignment. Inspect every page.",
         },
         { type: "text" as const, text: prompt },
       ]
     : prompt;
-  // A whole board — every activity, item, prediction and creator prompt — is a
-  // long generation against a 20k token budget, and the non-streaming request
-  // was timing out before it finished. Stream it, as the Creator already does.
-  const response = await client.messages.stream({
-    model: input.model ?? process.env.SUNNY_PLANNER_MODEL ?? "claude-opus-5",
-    max_tokens: input.maxTokens ?? Number(process.env.SUNNY_PLANNER_MAX_TOKENS ?? 32000),
-    messages: [{ role: "user", content: plannerContent }],
-    tools: [{
-      name: toolName,
-      description: "Return the academic-only math learning program.",
-      input_schema: MATH_LEARNING_PROGRAM_TOOL_SCHEMA,
-    }],
-    tool_choice: { type: "tool", name: toolName },
-  }, { timeout: Number(process.env.SUNNY_AI_TIMEOUT_MS ?? 600000) }).finalMessage();
-  const toolUse = response.content.find((block) => block.type === "tool_use" && block.name === toolName);
-  if (input.rawResponseFile) {
-    fs.mkdirSync(path.dirname(input.rawResponseFile), { recursive: true });
-    fs.writeFileSync(input.rawResponseFile, `${JSON.stringify({
-      model: input.model ?? process.env.SUNNY_PLANNER_MODEL ?? "claude-opus-5",
-      stopReason: response.stop_reason,
-      usage: response.usage,
-      content: response.content,
-    }, null, 2)}\n`, "utf8");
+  const callStage = async (stage: MathPlannerStage, inputValue: {
+    prompt: string;
+    toolName: string;
+    description: string;
+    schema: typeof MATH_ACADEMIC_CHARTER_TOOL_SCHEMA | typeof MATH_PROGRAM_BODY_TOOL_SCHEMA;
+    maxTokens: number;
+  }): Promise<unknown> => {
+    const startedAt = Date.now();
+    const response = await client.messages.stream({
+      model,
+      max_tokens: inputValue.maxTokens,
+      messages: [{ role: "user", content: assignmentContent(inputValue.prompt) }],
+      tools: [{
+        name: inputValue.toolName,
+        description: inputValue.description,
+        input_schema: inputValue.schema,
+      }],
+      tool_choice: { type: "tool", name: inputValue.toolName },
+    }, { timeout: Number(process.env.SUNNY_AI_TIMEOUT_MS ?? 600000) }).finalMessage();
+    const rawResponsePath = rawPathFor(stage);
+    if (rawResponsePath) {
+      fs.mkdirSync(path.dirname(rawResponsePath), { recursive: true });
+      fs.writeFileSync(rawResponsePath, `${JSON.stringify({
+        stage,
+        model,
+        stopReason: response.stop_reason,
+        usage: response.usage,
+        content: response.content,
+      }, null, 2)}\n`, "utf8");
+    }
+    checkpoint.attempts.push({
+      stage,
+      model,
+      inputTokens: Number(response.usage?.input_tokens ?? 0),
+      outputTokens: Number(response.usage?.output_tokens ?? 0),
+      elapsedMs: Date.now() - startedAt,
+      stopReason: String(response.stop_reason ?? "unknown"),
+      ...(rawResponsePath ? { rawResponsePath } : {}),
+    });
+    persistCheckpoint();
+    if (response.stop_reason === "max_tokens") {
+      throw new Error(`direct_planner_${stage}_truncated:max_tokens=${inputValue.maxTokens}`);
+    }
+    const toolUse = response.content.find((block) =>
+      block.type === "tool_use" && block.name === inputValue.toolName);
+    if (!toolUse || toolUse.type !== "tool_use") {
+      throw new Error(`direct_planner_${stage}_tool_output_missing`);
+    }
+    return toolUse.input;
+  };
+
+  if (!checkpoint.charter) {
+    const charterPrompt = `You are Sunny's AI Math Planner. Complete the academic-charter transaction only.
+
+Read the complete assignment, factual child chart, and prior calibration. Define the stable concept, assignment scope, evidence-grounded assumptions, academic theory, and learning responsibilities. Prescribe the smallest coherent learning program that can test your theory; this transaction freezes its academic charter before sequencing.
+
+You own academic judgment only. Do not choose activity count, routes, questions, mechanics, titles, worlds, visuals, stakes, rewards, sound, artwork, libraries, HTML, or Creator prompts. Do not copy worksheet questions. Every assumption needs a stable ID, factual evidence IDs, confidence from 0 to 1, and explicit uncertainty. Preserve uncertainty without writing hesitant child-facing language.
+
+concept.conceptId is a stable namespaced identity. Put assignment-specific numbers and context in instanceScope. Reuse an existing concept ID exactly when it is the same idea. Use the tool schema directly. Do not JSON-encode arrays or objects into strings.
+
+Concept IDs already on record:
+${input.priorConceptIds?.length ? input.priorConceptIds.map((id) => `- ${id}`).join("\n") : "- none recorded"}
+
+Extracted assignment text:
+${input.extraction.fullText}
+
+Factual child chart:
+${JSON.stringify(mathPlannerChartContext(input.chart), null, 2)}
+
+Prior factual outcomes and Planner interpretations:
+${JSON.stringify(factualModelContext(input.priorOutcomes ?? []), null, 2)}`;
+    checkpoint.charter = parseMathAcademicCharter(await callStage("academic-charter", {
+      prompt: charterPrompt,
+      toolName: "create_math_academic_charter",
+      description: "Return the compact immutable academic charter only.",
+      schema: MATH_ACADEMIC_CHARTER_TOOL_SCHEMA,
+      maxTokens: Math.min(input.maxTokens ?? Number(process.env.SUNNY_PLANNER_MAX_TOKENS ?? 32000), 16000),
+    }));
+    checkpoint.charterHash = mathAcademicCharterHash(checkpoint.charter);
+    if (charterFile) {
+      fs.mkdirSync(path.dirname(charterFile), { recursive: true });
+      fs.writeFileSync(charterFile, `${JSON.stringify(checkpoint.charter, null, 2)}\n`, "utf8");
+    }
+    persistCheckpoint();
+  } else {
+    console.log(` 🎮 [math-planner] [academic-charter] reused hash=${checkpoint.charterHash?.slice(0, 12)}`);
   }
-  if (!toolUse || toolUse.type !== "tool_use") throw new Error("direct_planner_tool_output_missing");
-  // A plan cut off at the token ceiling arrives structurally incomplete, and the
-  // schema parser then blames whichever field happened to be truncated away
-  // ("requires activities"), which sends you looking in the wrong place.
-  if (response.stop_reason === "max_tokens") {
-    throw new Error(
-      `direct_planner_plan_truncated:raise planner max tokens above ${input.maxTokens ?? process.env.SUNNY_PLANNER_MAX_TOKENS ?? 32000}`,
-    );
-  }
-  return parseMathLearningProgram(toolUse.input);
+
+  const charter = checkpoint.charter;
+  const charterHash = checkpoint.charterHash ?? mathAcademicCharterHash(charter);
+  const bodyPrompt = `You are Sunny's AI Math Planner. Complete the curriculum/program-body transaction from the frozen academic charter.
+
+The charter and hash are immutable. You cannot change its concept, scope, assumptions, theory, or responsibilities. You own only the educational prescription. You now own the educational sequence: AI-selected activity and item counts, exactly two academically valid routes, one contextual agency experiment, fresh teaching/practice items, response contracts, difficulty boundaries, predictions, measurement keys, and catalog decisions. Teach the concept the teacher is targeting rather than copying or lightly rewriting worksheet questions.
+
+Frozen academic charter hash: ${charterHash}
+Frozen academic charter:
+${JSON.stringify(charter, null, 2)}
+
+Choose any educationally sufficient activity and item counts for the baseline program. Distribute responsibilities across the whole board; do not duplicate the complete curriculum merely for symmetry. Keep initial nodes practice_only. Use shared for pre-choice nodes and route-owned IDs after the fork. Each route needs at least one launchable baseline node, comparable academic purpose and difficulty at the choice point, and a distinct evidence-grounded engagement hypothesis with uncertainty and falsifying evidence. Author exactly one optional purpose=bonus activity with fresh practice_only material; it is not required for publication or mastery. Quest and Boss are excluded and remain evidence-gated.
+
+Every responsibility, route, activity, item, assumption, and selection option has a non-empty stable ID. Every activity must bind one frozen responsibility and remain within an explicit difficultyBoundary. Every item has lineage and one response contract: selection, numeric, construction, or explanation. Every selection item has exactly one academically correct option. Do not encode a survey, strategy reflection, preference, or confidence check as a selection item; those are non-academic observations and do not belong in the graded item bank. Every prediction concerns later independent, delayed, or graded performance and has evidenceLimit=practice_only. Engagement, ratings, completion, and help never prove mastery.
+
+You do not choose titles, worlds, visuals, mechanics, stakes, rewards, sound, artwork, libraries, HTML, or Creator prompts. A separate Experience Creator owns those choices. Use the tool schema directly. Do not JSON-encode arrays or objects into strings. Copy planId and charterHash exactly.
+
+Extracted assignment text:
+${input.extraction.fullText}
+
+Available reusable instruments and generated candidates, expressed as factual content candidate cards:
+${JSON.stringify(mathPlannerCandidateCards(input.chart), null, 2)}
+
+Decision policy:
+- Academic compatibility is a hard gate.
+- Predicted learning value is primary; engagement evidence is secondary.
+- Runtime clarity and reliability support but do not replace learning evidence.
+- Ratings never override learning evidence, and one selection never becomes a preference.
+- For every node choose reuse, revise, generate_new, or retire with a reason. Choose reuse only for an exact eligible contract.
+
+Factual child context:
+${JSON.stringify(mathPlannerChartContext(input.chart), null, 2)}
+
+Prior factual outcomes and Planner interpretations:
+${JSON.stringify(factualModelContext(input.priorOutcomes ?? []), null, 2)}`;
+  const body = await callStage("program-body", {
+    prompt: bodyPrompt,
+    toolName: "create_math_program_body",
+    description: "Return routes, agency experiment, and academic activity contracts bound to the frozen charter.",
+    schema: MATH_PROGRAM_BODY_TOOL_SCHEMA,
+    maxTokens: input.maxTokens ?? Number(process.env.SUNNY_PLANNER_MAX_TOKENS ?? 32000),
+  });
+  return assembleMathLearningProgram(charter, body);
 }
 
 async function download(url: string, destination: string): Promise<void> {
@@ -2252,6 +2474,8 @@ export async function generateAdaptiveProgressionActivityHtml(input: {
   designArtifact?: ExperienceDesignArtifactV1;
   client?: Anthropic;
   model?: string;
+  /** Saves streamed text so a disconnect after </html> does not discard a complete activity. */
+  partialHtmlFile?: string;
 }): Promise<string> {
   const client = input.client ?? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
   const isQuestOrBoss = input.node.role === "quest" || input.node.role === "boss";
@@ -2264,9 +2488,26 @@ export async function generateAdaptiveProgressionActivityHtml(input: {
     output_config: { effort: "high" },
     messages: [{ role: "user", content: buildAdaptiveProgressionCreatorPrompt(input) }],
   } as never;
-  const response = await client.messages
-    .stream(request, { timeout: Number(process.env.SUNNY_AI_TIMEOUT_MS ?? 120000) })
-    .finalMessage();
+  const stream = client.messages.stream(request, { timeout: Number(process.env.SUNNY_AI_TIMEOUT_MS ?? 120000) });
+  let streamedText = "";
+  if (input.partialHtmlFile) {
+    fs.mkdirSync(path.dirname(input.partialHtmlFile), { recursive: true });
+    stream.on("text", (_delta, snapshot) => {
+      streamedText = snapshot;
+      fs.writeFileSync(input.partialHtmlFile!, snapshot, "utf8");
+    });
+  }
+  let response;
+  try {
+    response = await stream.finalMessage();
+  } catch (error) {
+    const recovered = normalizeGeneratedHtml(stripHtml(streamedText));
+    if (isCompleteGeneratedHtml(recovered)) {
+      console.log(` 🎮 [progression-builder] [stream-checkpoint] [recovered] node=${input.node.nodeId} chars=${recovered.length}`);
+      return recovered;
+    }
+    throw error;
+  }
   const html = normalizeGeneratedHtml(stripHtml(response.content
     .filter((block) => block.type === "text")
     .map((block) => block.text)
@@ -3145,6 +3386,13 @@ export function persistDirectExperience(input: {
   const rootDir = input.rootDir ?? process.cwd();
   const contextDir = path.join(rootDir, "src", "context", input.childId);
   const directPath = path.join(contextDir, "homework", "direct_experience_plan.json");
+  const existingCycle = getLearningCycle(input.childId, input.homeworkId, { rootDir });
+  if (existingCycle) {
+    if (existingCycle.assignment.contentFingerprint !== input.extraction.fileHash) {
+      throw new Error(`learning_cycle_assignment_identity_mismatch:${input.homeworkId}`);
+    }
+    return directPath;
+  }
   const now = new Date().toISOString();
   let priorFeedback: { feedbackObservations?: unknown[]; feedbackDecisions?: unknown[] } = {};
   try {
@@ -3203,22 +3451,7 @@ export function persistDirectExperience(input: {
     assumptions: input.assumptions,
     createdAt: now,
   });
-  const existingCycle = getLearningCycle(input.childId, input.homeworkId, { rootDir });
-  if (existingCycle) {
-    transitionLearningCycle(input.childId, input.homeworkId, existingCycle.revision, {
-      type: "plan_reconciled",
-      assignment: canonicalInput.assignment,
-      academicTheory: canonicalInput.academicTheory,
-      engagementTheory: canonicalInput.engagementTheory,
-      nodes: canonicalInput.nodes,
-      academicPredictions: canonicalInput.academicPredictions,
-      assumptions: canonicalInput.assumptions,
-      agencyExperiment: canonicalInput.agencyExperiment,
-      reason: "Re-ingestion reconciled the AI-authored board with the existing assignment cycle.",
-    }, { rootDir, now: new Date(now) });
-  } else {
-    createLearningCycle(canonicalInput, { rootDir, now: new Date(now) });
-  }
+  createLearningCycle(canonicalInput, { rootDir, now: new Date(now) });
   writeAssignmentLedgerEntry(ledgerEntry, { rootDir });
   fs.mkdirSync(path.dirname(directPath), { recursive: true });
   fs.writeFileSync(directPath, `${JSON.stringify(record, null, 2)}\n`, "utf8");

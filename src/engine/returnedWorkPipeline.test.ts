@@ -8,6 +8,7 @@ import {
   createReturnedWorkDraft,
   getAssignmentLearningReport,
   listReturnedWorkAssignments,
+  summarizePredictionCalibration,
 } from "./returnedWorkPipeline";
 
 function root(): string {
@@ -50,6 +51,15 @@ function seed(rootDir: string): void {
 }
 
 describe("returned work pipeline", () => {
+  it("does not call cross-construct prediction errors an improvement trend", () => {
+    expect(summarizePredictionCalibration([
+      { construct: "math.fractions.partitioning", error: "60%" },
+      { construct: "math.multiplication.equal_groups", error: "10%" },
+    ])).toMatchObject({
+      generalAccuracyClaimPermitted: false,
+      message: "No construct has enough calibrated predictions to show a comparable trend.",
+    });
+  });
   it("lists assignment cards from canonical cycles", () => {
     const rootDir = root();
     seed(rootDir);
@@ -198,6 +208,7 @@ describe("returned work pipeline", () => {
       rootDir,
       extract: async () => ({ items: [{
         itemId: "item-1", prompt: "4 groups of 5", childResponse: "20", correct: true, extractionConfidence: 1,
+        assistanceStatus: "unassisted",
         constructLinks: [{ constructId: "math.multiplication.equal_groups", role: "primary", confidence: 1 }],
       }] }),
     });
@@ -208,6 +219,13 @@ describe("returned work pipeline", () => {
         evidenceIds: cycle.observations.map((item) => item.observationId),
         predictionEvaluationIds: cycle.predictionEvaluations.map((item) => item.evaluationId),
         preserve: ["equal groups"], change: ["add delayed transfer"], testNext: ["unseen array"], nextEvidenceRequired: ["delayed work"],
+        readinessAssessment: {
+          status: "ready_independent", scope: { homeworkId: "hw-original", assignmentTitle: "Pashley multiplication", constructIds: ["math.multiplication.equal_groups"] },
+          reason: "Confirmed returned work supports independent readiness for equal groups.",
+          evidenceIds: cycle.observations.map((item) => item.observationId),
+          predictionEvaluationIds: cycle.predictionEvaluations.map((item) => item.evaluationId),
+          uncertainty: "Limited to the returned assignment.", nextAction: "Complete this assignment independently.",
+        },
         assumptionAssessments: [{
           assumptionId: "assumption:equal-groups", outcome: "rejected", reason: "The prediction did not match.",
           observationIds: cycle.observations.map((item) => item.observationId),
@@ -220,8 +238,27 @@ describe("returned work pipeline", () => {
 
     expect(report.status).toBe("interpreted");
     expect(report.latestDecision).toMatchObject({ status: "revised", preserve: ["equal groups"], change: ["add delayed transfer"] });
+    expect(report.readiness).toMatchObject({
+      status: "ready_independent",
+      headline: "Sunny believes Reina can complete Pashley multiplication independently.",
+      constructIds: ["math.multiplication.equal_groups"],
+    });
     expect(report.assumptions[0]).toMatchObject({ assessment: { outcome: "rejected" } });
     expect(report.predictions[0].evaluation?.sourceId).toBe(draft.source.sourceId);
+    expect(report.predictionAccuracy).toEqual([expect.objectContaining({
+      assignment: "Pashley multiplication",
+      construct: "math.multiplication.equal_groups",
+      prediction: "70–90%",
+      actual: "100%",
+      error: "10%",
+      evidenceType: "graded_work",
+      assistance: "unassisted",
+      adjustment: "add delayed transfer",
+    })]);
+    expect(report.calibrationSummary).toMatchObject({
+      externallyCalibratedPredictions: 1,
+      generalAccuracyClaimPermitted: false,
+    });
     expect(JSON.stringify(getLearningCycle("reina", "hw-original", { rootDir }))).toBe(before);
   });
 
@@ -246,5 +283,49 @@ describe("returned work pipeline", () => {
     const report = getAssignmentLearningReport("reina", "hw-original", { rootDir });
     expect(report.status).toBe("awaiting_interpretation");
     expect(report.latestDecision).toBeNull();
+  });
+
+  it("does not combine a newer returned-work source with an older readiness decision", async () => {
+    const rootDir = root();
+    seed(rootDir);
+    const first = await createReturnedWorkDraft({
+      childId: "reina", homeworkId: "hw-original", filename: "first.pdf",
+      mimeType: "application/pdf", dataBase64: Buffer.from("first marked work").toString("base64"),
+    }, { rootDir, now: new Date("2026-08-08T10:00:00.000Z"), extract: async () => ({ items: [{
+      itemId: "first", prompt: "4 groups of 5", correct: true, extractionConfidence: 1, assistanceStatus: "unassisted",
+      constructLinks: [{ constructId: "math.multiplication.equal_groups", role: "primary", confidence: 1 }],
+    }] }) });
+    await confirmReturnedWorkDraft({ childId: "reina", homeworkId: "hw-original", sourceId: first.source.sourceId }, {
+      rootDir,
+      interpret: async (cycle) => ({
+        status: "supported", reason: "First work supports readiness.", nextAction: "complete", progressionAction: "complete",
+        evidenceIds: cycle.observations.filter((item) => item.sourceId === first.source.sourceId).map((item) => item.observationId),
+        predictionEvaluationIds: cycle.predictionEvaluations.filter((item) => item.sourceId === first.source.sourceId).map((item) => item.evaluationId),
+        preserve: [], change: [], testNext: [], nextEvidenceRequired: [],
+        readinessAssessment: {
+          status: "ready_independent", scope: { homeworkId: "hw-original", assignmentTitle: "Pashley multiplication", constructIds: ["math.multiplication.equal_groups"] },
+          reason: "First work was independently correct.",
+          evidenceIds: cycle.observations.filter((item) => item.sourceId === first.source.sourceId).map((item) => item.observationId),
+          predictionEvaluationIds: cycle.predictionEvaluations.filter((item) => item.sourceId === first.source.sourceId).map((item) => item.evaluationId),
+          uncertainty: "Only the first return is interpreted.", nextAction: "Complete independently.",
+        },
+      }),
+    });
+    const second = await createReturnedWorkDraft({
+      childId: "reina", homeworkId: "hw-original", filename: "second.pdf",
+      mimeType: "application/pdf", dataBase64: Buffer.from("second marked work").toString("base64"),
+    }, { rootDir, now: new Date("2026-08-08T11:00:00.000Z"), extract: async () => ({ items: [{
+      itemId: "second", prompt: "5 groups of 5", correct: false, extractionConfidence: 1, assistanceStatus: "unassisted",
+      constructLinks: [{ constructId: "math.multiplication.equal_groups", role: "primary", confidence: 1 }],
+    }] }) });
+    await confirmReturnedWorkDraft({ childId: "reina", homeworkId: "hw-original", sourceId: second.source.sourceId }, {
+      rootDir,
+      interpret: async () => { throw new Error("provider_unavailable"); },
+    });
+
+    const report = getAssignmentLearningReport("reina", "hw-original", { rootDir });
+    expect(report.status).toBe("awaiting_interpretation");
+    expect(report.latestDecision).toBeNull();
+    expect(report.readiness).toBeNull();
   });
 });

@@ -20,6 +20,8 @@ describe("ReturnedWorkPage", () => {
       .mockResolvedValueOnce(new Response(JSON.stringify({ report: {
         childId: "reina", homeworkId: "hw-original", status: "interpreted", lifecycle: "awaiting_calibration",
         assignment: { title: "Pashley multiplication", domain: "math" }, assumptions: [], predictions: [],
+        source: null, observations: [], readiness: null, predictionAccuracy: [],
+        calibrationSummary: { externallyCalibratedPredictions: 0, generalAccuracyClaimPermitted: false, message: "No comparable trend yet." },
         latestDecision: { status: "revised", reason: "Returned work changed the plan.", preserve: ["equal groups"], change: ["add transfer"], testNext: [], nextEvidenceRequired: ["delayed work"] },
       } }), { status: 200, headers: { "Content-Type": "application/json" } }));
 
@@ -35,11 +37,13 @@ describe("ReturnedWorkPage", () => {
     expect(fetchMock.mock.calls[1]?.[0]).toBe("/api/learning/reina/assignments/hw-original/returned-work/extract");
 
     fireEvent.change(screen.getByLabelText("Result for 4 groups of 5"), { target: { value: "incorrect" } });
+    fireEvent.change(screen.getByLabelText("Help used for 4 groups of 5"), { target: { value: "unassisted" } });
     fireEvent.click(screen.getByRole("button", { name: "Confirm results" }));
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(4));
     expect(fetchMock.mock.calls[2]?.[0]).toBe("/api/learning/reina/assignments/hw-original/returned-work/returned-work%3Aone/confirm");
     const request = fetchMock.mock.calls[2]?.[1] as RequestInit;
     expect(JSON.parse(String(request.body)).items[0].correct).toBe(false);
+    expect(JSON.parse(String(request.body)).items[0].assistanceStatus).toBe("unassisted");
     expect(await screen.findByText("Returned work changed the plan.")).toBeTruthy();
   });
 });

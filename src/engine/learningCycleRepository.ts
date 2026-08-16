@@ -1,6 +1,6 @@
 import fs from "fs";
 import path from "path";
-import { createHash } from "crypto";
+import { createHash, randomUUID } from "crypto";
 import type {
   ActiveSessionPlan,
   EngagementTheory,
@@ -37,6 +37,27 @@ export type LearningCycleEvidenceSummary = {
   evidenceId: string;
   summary: string;
   accuracy?: number;
+};
+
+export type CompanionSupportType =
+  | "read"
+  | "rephrase"
+  | "explain"
+  | "example"
+  | "continued_confusion"
+  | "friction_resolution";
+
+export type LearningCycleCompanionObservation = LearningCycleEvidenceSummary & {
+  kind?: "companion_support";
+  homeworkId?: string;
+  sessionId?: string;
+  nodeId?: string;
+  itemId?: string;
+  artifactHash?: string;
+  supportType?: CompanionSupportType;
+  masteryEligible?: false;
+  resumedIndependently?: boolean | null;
+  resumedAt?: string;
 };
 
 export type LearningCyclePrompt = {
@@ -205,6 +226,8 @@ export type LearningConstructLink = {
 export type LearningObservation = {
   observationId: string;
   sourceId: string;
+  /** Canonical instrument identity. Optional only for historical records written before v2 attribution. */
+  nodeId?: string;
   itemId: string;
   prompt?: string;
   childResponse?: string;
@@ -263,6 +286,40 @@ export type AssumptionAssessment = {
   observationIds: string[];
 };
 
+export type AssignmentReadinessStatus =
+  | "predicted_ready"
+  | "ready_independent"
+  | "ready_with_support"
+  | "not_yet_ready"
+  | "insufficient_evidence";
+
+export type AssignmentReadinessAssessment = {
+  status: AssignmentReadinessStatus;
+  scope: {
+    homeworkId: string;
+    assignmentTitle: string;
+    constructIds: string[];
+  };
+  reason: string;
+  evidenceIds: string[];
+  predictionEvaluationIds: string[];
+  uncertainty: string;
+  nextAction: string;
+};
+
+export type LearningContinuationAction = "complete" | "generate_support" | "collect_more_evidence";
+
+export type NextAcademicPredictionPrescription = {
+  claim: string;
+  constructId: string;
+  context: string;
+  horizon: string;
+  expectedMetric: { key: string; min: number; max: number };
+  predictedErrorPatterns: string[];
+  confidence: number;
+  evidenceLimit: AcademicPrediction["evidenceLimit"];
+};
+
 export type LearningCycleDecision = {
   decisionId: string;
   eventType: LearningCycleEvent["type"];
@@ -279,6 +336,7 @@ export type LearningCycleDecision = {
   nextEvidenceRequired?: string[];
   predictionEvaluationIds?: string[];
   assumptionAssessments?: AssumptionAssessment[];
+  readinessAssessment?: AssignmentReadinessAssessment;
 };
 
 export type LearningCycleAgencyExperiment = {
@@ -298,6 +356,30 @@ export type LearningCycleRouteSelection = {
     choiceEventId: string;
     switchedFromRouteId?: string;
   }>;
+};
+
+export type LearningCycleSessionFinalization = {
+  choiceEventId: string;
+  nodeId: string;
+  finalizedAt: string;
+  postActivityAction?: "replay_same" | "replay_harder" | "back_to_map" | "abandon";
+  funRating?: number;
+  replayRequested?: boolean;
+  completed?: boolean;
+  frustrationScore?: number;
+  demoRequested?: boolean;
+  demoReplayCount?: number;
+  timeToFirstValidActionMs?: number;
+  invalidActionCount?: number;
+  soundMuted?: boolean;
+};
+
+export type LearningCycleProgressionDecisionClaim = {
+  finalizationId: string;
+  claimId: string;
+  status: "running" | "failed";
+  claimedAt: string;
+  lastError?: string;
 };
 
 export type LearningCycleRecordV2 = {
@@ -322,7 +404,7 @@ export type LearningCycleRecordV2 = {
   evidence: {
     academic: LearningCycleEvidenceSummary[];
     engagement: LearningCycleEvidenceSummary[];
-    companionObservations: LearningCycleEvidenceSummary[];
+    companionObservations: LearningCycleCompanionObservation[];
   };
   decisionHistory: LearningCycleDecision[];
   calibrations?: LearningCycleCalibration[];
@@ -333,6 +415,11 @@ export type LearningCycleRecordV2 = {
   predictionEvaluations: PredictionEvaluation[];
   agencyExperiment?: LearningCycleAgencyExperiment;
   routeSelection?: LearningCycleRouteSelection;
+  sessionFinalizations: LearningCycleSessionFinalization[];
+  pendingSessionNodeIds: string[];
+  evaluationNodeId?: string;
+  evaluationSessionFinalizationId?: string;
+  progressionDecisionClaim?: LearningCycleProgressionDecisionClaim;
   createdAt: string;
   updatedAt: string;
 };
@@ -349,6 +436,11 @@ export type CreateLearningCycleInput = Omit<
   | "assumptions"
   | "observations"
   | "predictionEvaluations"
+  | "sessionFinalizations"
+  | "pendingSessionNodeIds"
+  | "evaluationNodeId"
+  | "evaluationSessionFinalizationId"
+  | "progressionDecisionClaim"
   | "createdAt"
   | "updatedAt"
 > & { academicPredictions?: AcademicPrediction[]; assumptions?: LearningAssumption[] };
@@ -416,6 +508,22 @@ export type LearningCycleEvent =
   | ({ type: "quest_completed"; decision: OutcomeDecision & { bossRequired: boolean } } & OutcomeEvidence)
   | ({ type: "boss_completed"; decision: OutcomeDecision } & OutcomeEvidence)
   | ({ type: "instrument_observed"; observations: LearningObservation[] } & OutcomeEvidence)
+  | {
+      type: "activity_friction_observed";
+      nodeId: string;
+      observation: LearningObservation;
+      companionObservation: LearningCycleCompanionObservation;
+    }
+  | { type: "companion_support_observed"; nodeId: string; observation: LearningCycleCompanionObservation }
+  | { type: "companion_support_resumed"; evidenceId: string; resumedIndependently: boolean }
+  | {
+      type: "session_finalized";
+      nodeId: string;
+      choiceEventId: string;
+      engagement: Omit<LearningCycleSessionFinalization, "choiceEventId" | "nodeId" | "finalizedAt">;
+    }
+  | { type: "progression_decision_claimed"; finalizationId: string; claimId: string }
+  | { type: "progression_decision_failed"; finalizationId: string; claimId: string; reason: string }
   | { type: "artifact_bound"; nodeId: string; artifact: LearningCycleArtifactBinding }
   | { type: "artifact_rejected"; nodeId: string; reason: string }
   | { type: "engagement_theory_updated"; theory: EngagementTheory; reason: string }
@@ -429,6 +537,7 @@ export type LearningCycleEvent =
     }
   | {
       type: "theory_decided";
+      claimId?: string;
       decision: {
         status: LearningTheoryDecisionStatus;
         reason: string;
@@ -443,6 +552,9 @@ export type LearningCycleEvent =
         revisedHypothesis?: string;
         progressionAction?: LearningProgressionAction;
         nextInstrument?: NextInstrumentPrescription;
+        readinessAssessment?: AssignmentReadinessAssessment;
+        continuationAction?: LearningContinuationAction;
+        nextPrediction?: NextAcademicPredictionPrescription;
       };
     }
   | { type: "block"; reason: string };
@@ -518,7 +630,8 @@ function assertCycle(value: LearningCycleRecordV2): void {
   }
   if (!Array.isArray(value.evidenceSources) || !Array.isArray(value.academicPredictions) ||
       !Array.isArray(value.assumptions) ||
-      !Array.isArray(value.observations) || !Array.isArray(value.predictionEvaluations)) {
+      !Array.isArray(value.observations) || !Array.isArray(value.predictionEvaluations) ||
+      !Array.isArray(value.sessionFinalizations) || !Array.isArray(value.pendingSessionNodeIds)) {
     throw new Error("learning_cycle_longitudinal_evidence_invalid");
   }
   for (const prediction of value.academicPredictions) {
@@ -574,6 +687,8 @@ function hydrateLongitudinalFields(value: LearningCycleRecordV2): LearningCycleR
     assumptions: value.assumptions ?? [],
     observations: value.observations ?? [],
     predictionEvaluations: value.predictionEvaluations ?? [],
+    sessionFinalizations: value.sessionFinalizations ?? [],
+    pendingSessionNodeIds: value.pendingSessionNodeIds ?? [],
     agencyExperiment: value.agencyExperiment ?? inferredAgencyExperiment,
   };
 }
@@ -656,6 +771,8 @@ export function createLearningCycle(
     assumptions: structuredClone(input.assumptions ?? []),
     observations: [],
     predictionEvaluations: [],
+    sessionFinalizations: [],
+    pendingSessionNodeIds: [],
     createdAt: at,
     updatedAt: at,
   };
@@ -705,6 +822,11 @@ export function resetLearningCycleRuntimeEvidence(
   reset.decisionHistory = [];
   reset.observations = [];
   reset.predictionEvaluations = [];
+  reset.sessionFinalizations = [];
+  reset.pendingSessionNodeIds = [];
+  reset.evaluationNodeId = undefined;
+  reset.evaluationSessionFinalizationId = undefined;
+  reset.progressionDecisionClaim = undefined;
   reset.routeSelection = undefined;
   for (const node of reset.nodes) {
     node.evidenceIds = [];
@@ -914,6 +1036,14 @@ function prescriptionDesign(
   return Object.keys(design).length > 0 ? design : undefined;
 }
 
+function baselineAcademicConstructIds(cycle: LearningCycleRecordV2): string[] {
+  return [...new Set(cycle.nodes
+    .filter((node) => node.role === "baseline")
+    .flatMap((node) => node.academicTarget.targets)
+    .map((target) => target.trim())
+    .filter(Boolean))];
+}
+
 /**
  * The constraint footer appended after the Planner's own creator prompt. It
  * carries academic truth and evidence limits only — the things Sunny owns.
@@ -946,7 +1076,261 @@ function generationPrompt(
   };
 }
 
-export function transitionLearningCycle(
+const CYCLE_TRANSITION_LOCK_STALE_MS = 30_000;
+
+type CycleTransitionLock = { lockDir: string; ownerId: string };
+
+function lockOwnerIsAlive(lockDir: string): boolean {
+  try {
+    const owner = JSON.parse(fs.readFileSync(path.join(lockDir, "owner.json"), "utf8")) as { pid?: unknown };
+    if (!Number.isInteger(owner.pid)) return false;
+    process.kill(Number(owner.pid), 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function lockOwnerId(lockDir: string): string | undefined {
+  try {
+    const owner = JSON.parse(fs.readFileSync(path.join(lockDir, "owner.json"), "utf8")) as { ownerId?: unknown };
+    return typeof owner.ownerId === "string" ? owner.ownerId : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function staleLockCanBeRemoved(lockDir: string, staleAfterMs: number): boolean {
+  try {
+    return Date.now() - fs.statSync(lockDir).mtimeMs >= staleAfterMs && !lockOwnerIsAlive(lockDir);
+  } catch (error) {
+    const code = error && typeof error === "object" && "code" in error ? String(error.code) : "";
+    if (code === "ENOENT") return true;
+    throw error;
+  }
+}
+
+function quarantineAndRemoveStaleLock(lockDir: string, staleAfterMs: number, removerId: string): boolean {
+  if (!staleLockCanBeRemoved(lockDir, staleAfterMs)) return false;
+  const expectedOwnerId = lockOwnerId(lockDir);
+  const quarantineDir = `${lockDir}.stale-${removerId}`;
+  try {
+    fs.renameSync(lockDir, quarantineDir);
+  } catch (error) {
+    const code = error && typeof error === "object" && "code" in error ? String(error.code) : "";
+    if (code === "ENOENT") return true;
+    throw error;
+  }
+  const movedOwnerId = lockOwnerId(quarantineDir);
+  if (movedOwnerId !== expectedOwnerId) {
+    try {
+      fs.renameSync(quarantineDir, lockDir);
+    } catch (error) {
+      const code = error && typeof error === "object" && "code" in error ? String(error.code) : "";
+      if (code !== "EEXIST") throw error;
+      // Preserve the moved live guard under its quarantine name. Its owner
+      // remains protected by the canonical transition lock it is acquiring.
+    }
+    return false;
+  }
+  fs.rmSync(quarantineDir, { recursive: true, force: true });
+  return true;
+}
+
+function acquireCycleTransitionLock(file: string): CycleTransitionLock {
+  const lockDir = `${file}.transition-lock`;
+  const recoveryDir = `${lockDir}.recovery`;
+  const ownerId = randomUUID();
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    try {
+      if (fs.existsSync(recoveryDir)) {
+        if (!quarantineAndRemoveStaleLock(recoveryDir, CYCLE_TRANSITION_LOCK_STALE_MS, ownerId)) {
+          throw new Error(`learning_cycle_transition_in_flight:${path.basename(file, ".json")}`);
+        }
+      }
+      fs.mkdirSync(lockDir);
+      fs.writeFileSync(path.join(lockDir, "owner"), ownerId, "utf8");
+      fs.writeFileSync(path.join(lockDir, "owner.json"), JSON.stringify({ ownerId, pid: process.pid }), "utf8");
+      return { lockDir, ownerId };
+    } catch (error) {
+      const code = error && typeof error === "object" && "code" in error ? String(error.code) : "";
+      if (error instanceof Error && error.message.startsWith("learning_cycle_transition_in_flight:")) throw error;
+      if (code !== "EEXIST") throw error;
+      const ageMs = Date.now() - fs.statSync(lockDir).mtimeMs;
+      if (ageMs < CYCLE_TRANSITION_LOCK_STALE_MS || lockOwnerIsAlive(lockDir)) {
+        throw new Error(`learning_cycle_transition_in_flight:${path.basename(file, ".json")}`);
+      }
+      try {
+        fs.mkdirSync(recoveryDir);
+        fs.writeFileSync(
+          path.join(recoveryDir, "owner.json"),
+          JSON.stringify({ ownerId, pid: process.pid }),
+          "utf8",
+        );
+      } catch (recoveryError) {
+        const recoveryCode = recoveryError && typeof recoveryError === "object" && "code" in recoveryError
+          ? String(recoveryError.code)
+          : "";
+        if (recoveryCode === "EEXIST") {
+          throw new Error(`learning_cycle_transition_in_flight:${path.basename(file, ".json")}`);
+        }
+        throw recoveryError;
+      }
+      try {
+        const refreshedAgeMs = Date.now() - fs.statSync(lockDir).mtimeMs;
+        if (refreshedAgeMs < CYCLE_TRANSITION_LOCK_STALE_MS || lockOwnerIsAlive(lockDir)) {
+          throw new Error(`learning_cycle_transition_in_flight:${path.basename(file, ".json")}`);
+        }
+        fs.rmSync(lockDir, { recursive: true, force: true });
+        fs.mkdirSync(lockDir);
+        fs.writeFileSync(path.join(lockDir, "owner"), ownerId, "utf8");
+        fs.writeFileSync(path.join(lockDir, "owner.json"), JSON.stringify({ ownerId, pid: process.pid }), "utf8");
+        return { lockDir, ownerId };
+      } finally {
+        if (lockOwnerId(recoveryDir) === ownerId) {
+          fs.rmSync(recoveryDir, { recursive: true, force: true });
+        }
+      }
+    }
+  }
+  throw new Error(`learning_cycle_transition_lock_exhausted:${path.basename(file, ".json")}`);
+}
+
+function validateReadinessAssessment(
+  cycle: LearningCycleRecordV2,
+  assessment: AssignmentReadinessAssessment,
+  decisionEvidenceIds: string[],
+  decisionEvaluationIds: string[],
+): AssignmentReadinessAssessment {
+  if (assessment.scope.homeworkId !== cycle.homeworkId || assessment.scope.assignmentTitle !== cycle.assignment.title) {
+    throw new Error("assignment_readiness_scope_mismatch");
+  }
+  const knownConstructIds = new Set([
+    ...cycle.assignment.targets,
+    ...cycle.academicPredictions.map((prediction) => prediction.constructId),
+  ]);
+  if (assessment.scope.constructIds.length === 0 || assessment.scope.constructIds.some((id) => !knownConstructIds.has(id))) {
+    throw new Error("assignment_readiness_construct_scope_invalid");
+  }
+  if (!assessment.reason.trim() || !assessment.uncertainty.trim() || !assessment.nextAction.trim()) {
+    throw new Error("assignment_readiness_explanation_missing");
+  }
+  const decisionEvidence = new Set(decisionEvidenceIds);
+  const decisionEvaluations = new Set(decisionEvaluationIds);
+  if (assessment.evidenceIds.length === 0 || assessment.evidenceIds.some((id) => !decisionEvidence.has(id))) {
+    throw new Error("assignment_readiness_evidence_invalid");
+  }
+  if (assessment.predictionEvaluationIds.some((id) => !decisionEvaluations.has(id))) {
+    throw new Error("assignment_readiness_prediction_evaluation_invalid");
+  }
+  const assessmentEvidence = new Set(assessment.evidenceIds);
+  const citedEvaluations = assessment.predictionEvaluationIds.map((id) =>
+    cycle.predictionEvaluations.find((evaluation) => evaluation.evaluationId === id));
+  if (citedEvaluations.some((evaluation) => !evaluation)
+      || citedEvaluations.some((evaluation) => !evaluation!.observationIds.some((id) => assessmentEvidence.has(id)))) {
+    throw new Error("assignment_readiness_prediction_evaluation_invalid");
+  }
+  if (assessment.status !== "predicted_ready") {
+    const cited = assessment.evidenceIds.map((id) => cycle.observations.find((observation) => observation.observationId === id));
+    const confirmedExternal = cited.every((observation) => {
+      if (!observation) return false;
+      const source = cycle.evidenceSources.find((candidate) => candidate.sourceId === observation.sourceId);
+      return source?.status === "confirmed" && (source.type === "graded_work" || source.type === "delayed_reassessment");
+    });
+    if (!confirmedExternal) throw new Error("assignment_readiness_external_evidence_required");
+  }
+  if (assessment.status === "ready_independent") {
+    const cited = assessment.evidenceIds.map((id) => cycle.observations.find((observation) => observation.observationId === id)!);
+    const hasCorrectUnassistedEvidence = cited.some((observation) =>
+      observation.result.correct === true
+      && observation.assistance.status === "unassisted"
+      && !observation.confounds.includes("assistance_present")
+      && !observation.confounds.includes("assistance_unknown")
+      && !observation.confounds.includes("low_extraction_confidence"));
+    if (!hasCorrectUnassistedEvidence ||
+        cited.some((observation) => observation.confounds.includes("low_extraction_confidence")) ||
+        assessment.predictionEvaluationIds.length === 0) {
+      throw new Error("assignment_readiness_independent_evidence_ineligible");
+    }
+  }
+  return structuredClone(assessment);
+}
+
+function appendContinuationChapter(
+  cycle: LearningCycleRecordV2,
+  kind: "support" | "reassessment",
+  instrument: NextInstrumentPrescription,
+  prediction: NextAcademicPredictionPrescription,
+  evidenceIds: string[],
+  reason: string,
+  at: string,
+): void {
+  if (cycle.nodes.some((node) => node.nodeId === instrument.nodeId)) {
+    throw new Error(`learning_cycle_duplicate_node_id:${instrument.nodeId}`);
+  }
+  const predictionId = `${cycle.homeworkId}:prediction:r${cycle.revision + 1}:${kind}`;
+  cycle.academicPredictions.push({
+    predictionId,
+    theoryId: cycle.academicTheory.theoryId,
+    constructId: prediction.constructId,
+    context: prediction.context,
+    horizon: prediction.horizon,
+    expectedMetric: structuredClone(prediction.expectedMetric),
+    predictedErrorPatterns: [...prediction.predictedErrorPatterns],
+    confidence: prediction.confidence,
+    evidenceIds: [...evidenceIds],
+    intervention: instrument.title,
+    evidenceLimit: prediction.evidenceLimit,
+    createdAt: at,
+    lockedAt: at,
+  });
+  const reference = [...cycle.nodes].reverse().find((node) => node.state === "completed");
+  cycle.nodes.push({
+    nodeId: instrument.nodeId,
+    routeId: `adaptive-${kind}`,
+    predictionId,
+    role: "baseline",
+    title: instrument.title,
+    state: "generating",
+    academicTarget: { domain: cycle.domain, skill: instrument.academicTarget, targets: [] },
+    algorithmOwner: "ai_tutor",
+    theoryId: cycle.academicTheory.theoryId,
+    experimentId: `${cycle.homeworkId}:${kind}:r${cycle.revision + 1}`,
+    mechanic: instrument.mechanic,
+    theme: instrument.theme,
+    ...(prescriptionDesign(instrument) ? { design: prescriptionDesign(instrument) } : {}),
+    openingScreen: { title: instrument.title, purpose: instrument.openingPurpose },
+    generationPrompt: {
+      promptId: `${cycle.homeworkId}:${kind}:prompt:r${cycle.revision + 1}`,
+      createdFromEvidenceIds: [...evidenceIds],
+      text: [
+        instrument.creatorPrompt,
+        `Decision: ${reason}`,
+        `Evidence references: ${evidenceIds.join(", ")}.`,
+        `Do not reuse exposed item identities or exact prompts: ${[...new Set(cycle.observations.map((observation) => observation.itemId))].join(", ") || "none recorded"}.`,
+      ].join(" "),
+    },
+    prediction: { claim: prediction.claim, createdAt: at, evidenceLimit: prediction.evidenceLimit },
+    artifactBinding: null,
+    artwork: {
+      status: reference?.artwork.localPath ? "ready" : "placeholder",
+      localPath: reference?.artwork.localPath ?? "/generated/adventure-board-demo/quest.jpeg",
+      prompt: null,
+    },
+    sfxContract: ["interaction", "recovery", "progress", "completion"],
+    companionContract: { events: ["completion", "frustration"] },
+    evidenceContract: { academic: true, engagement: true, companionObservations: true },
+    evidenceIds: [],
+  });
+  const quest = cycle.nodes.find((node) => node.role === "quest");
+  const boss = cycle.nodes.find((node) => node.role === "boss");
+  if (quest) { quest.state = "locked"; quest.generationPrompt = null; quest.artifactBinding = null; }
+  if (boss) { boss.state = "locked"; boss.generationPrompt = null; boss.artifactBinding = null; }
+  cycle.lifecycle = "baseline_generating";
+}
+
+function transitionLearningCycleUnlocked(
   childId: string,
   homeworkId: string,
   expectedVersion: number,
@@ -965,6 +1349,7 @@ export function transitionLearningCycle(
   let nextAction: string | undefined;
   let status: LearningTheoryDecisionStatus | undefined;
   let evidenceIds: string[] = [];
+  let readinessAssessment: AssignmentReadinessAssessment | undefined;
 
   if (event.type === "plan_reconciled") {
     const previousById = new Map(next.nodes.map((node) => [node.nodeId, node]));
@@ -1032,6 +1417,38 @@ export function transitionLearningCycle(
       ? `Child switched the active agency route from ${previousRouteId} to ${route.routeId}.`
       : `Child selected agency route ${route.routeId}.`;
     evidenceIds = [event.choiceEventId];
+  } else if (event.type === "companion_support_observed") {
+    const node = nodeOrThrow(next, event.nodeId);
+    next.evidence.companionObservations = uniqueEvidence([
+      ...next.evidence.companionObservations,
+      event.observation,
+    ]) as LearningCycleCompanionObservation[];
+    node.evidenceIds = [...new Set([...node.evidenceIds, event.observation.evidenceId])];
+    evidenceIds = [event.observation.evidenceId];
+    reason = `Recorded companion support for ${event.nodeId} without changing academic evidence.`;
+  } else if (event.type === "companion_support_resumed") {
+    const observation = next.evidence.companionObservations.find(
+      (candidate) => candidate.evidenceId === event.evidenceId,
+    );
+    if (!observation || observation.kind !== "companion_support") {
+      throw new Error(`learning_cycle_companion_support_missing:${event.evidenceId}`);
+    }
+    observation.resumedIndependently = event.resumedIndependently;
+    observation.resumedAt = at;
+    evidenceIds = [event.evidenceId];
+    reason = event.resumedIndependently
+      ? "Recorded that the child resumed the activity after companion support."
+      : "Recorded that the child did not resume independently after companion support.";
+  } else if (event.type === "activity_friction_observed") {
+    const node = nodeOrThrow(next, event.nodeId);
+    appendObservations(next, [event.observation]);
+    next.evidence.companionObservations = uniqueEvidence([
+      ...next.evidence.companionObservations,
+      event.companionObservation,
+    ]);
+    node.evidenceIds = [...new Set([...node.evidenceIds, event.observation.observationId])];
+    evidenceIds = [event.observation.observationId, event.companionObservation.evidenceId];
+    reason = `Recorded unresolved activity friction for ${event.nodeId} without completing the node or claiming correctness.`;
   } else if (event.type === "instrument_observed") {
     const node = nodeOrThrow(next, event.nodeId);
     if (node.role === "quest" || node.role === "boss") {
@@ -1072,8 +1489,81 @@ export function transitionLearningCycle(
     } else if (node.role === "boss") {
       next.lifecycle = "boss_evaluating";
     }
+    next.pendingSessionNodeIds = [...new Set([...next.pendingSessionNodeIds, node.nodeId])];
+    next.evaluationNodeId = ["baseline_evaluating", "quest_evaluating", "boss_evaluating"].includes(next.lifecycle)
+      ? node.nodeId
+      : undefined;
+    next.evaluationSessionFinalizationId = undefined;
     reason = `${node.title} factual scorecard recorded; one Planner decision is required.`;
     nextAction = "Evaluate the preregistered prediction against this evidence.";
+  } else if (event.type === "session_finalized") {
+    const node = nodeOrThrow(next, event.nodeId);
+    const abandoned = event.engagement.postActivityAction === "abandon";
+    if (abandoned && !["ready", "active"].includes(node.state)) {
+      throw new Error(`learning_cycle_session_finalization_node_not_launchable:${event.nodeId}`);
+    }
+    if (!abandoned && node.state !== "completed") {
+      throw new Error(`learning_cycle_session_finalization_requires_completion:${event.nodeId}`);
+    }
+    if (!["baseline_ready", "baseline_active", "baseline_evaluating", "quest_ready", "quest_active", "quest_evaluating", "boss_ready", "boss_evaluating"].includes(next.lifecycle)) {
+      throw new Error(`learning_cycle_session_finalization_not_evaluating:${next.lifecycle}`);
+    }
+    if (next.sessionFinalizations.some((item) => item.choiceEventId === event.choiceEventId)) {
+      throw new Error(`learning_cycle_session_finalization_duplicate:${event.choiceEventId}`);
+    }
+    if (!abandoned && !next.pendingSessionNodeIds.includes(event.nodeId)) {
+      throw new Error(`learning_cycle_session_finalization_node_not_pending:${event.nodeId}`);
+    }
+    const finalization: LearningCycleSessionFinalization = {
+      choiceEventId: event.choiceEventId,
+      nodeId: event.nodeId,
+      finalizedAt: at,
+      ...structuredClone(event.engagement),
+    };
+    next.sessionFinalizations.push(finalization);
+    next.pendingSessionNodeIds = next.pendingSessionNodeIds.filter((nodeId) => nodeId !== event.nodeId);
+    next.evaluationSessionFinalizationId = next.evaluationNodeId === event.nodeId
+      ? event.choiceEventId
+      : next.evaluationSessionFinalizationId;
+    const ratingSummary = typeof finalization.funRating === "number"
+      ? `fun rating ${finalization.funRating}/5`
+      : "fun rating skipped";
+    next.evidence.engagement = uniqueEvidence([...next.evidence.engagement, {
+      evidenceId: event.choiceEventId,
+      summary: `Session finalized after ${node.title}: ${ratingSummary}; action ${finalization.postActivityAction ?? "unspecified"}.`,
+    }]);
+    evidenceIds = [event.choiceEventId];
+    reason = `${node.title} session evidence was finalized before the next Planner decision.`;
+    nextAction = "Evaluate the complete academic and engagement scorecard once.";
+  } else if (event.type === "progression_decision_claimed") {
+    if (next.evaluationSessionFinalizationId !== event.finalizationId) {
+      throw new Error(`learning_cycle_progression_claim_finalization_mismatch:${event.finalizationId}`);
+    }
+    if (next.progressionDecisionClaim?.status === "running") {
+      throw new Error(`learning_cycle_progression_decision_already_claimed:${event.finalizationId}`);
+    }
+    next.progressionDecisionClaim = {
+      finalizationId: event.finalizationId,
+      claimId: event.claimId,
+      status: "running",
+      claimedAt: at,
+    };
+    evidenceIds = [event.finalizationId];
+    reason = "The finalized session packet was claimed for one Planner decision.";
+  } else if (event.type === "progression_decision_failed") {
+    if (next.progressionDecisionClaim?.finalizationId !== event.finalizationId) {
+      throw new Error(`learning_cycle_progression_failure_claim_missing:${event.finalizationId}`);
+    }
+    if (next.progressionDecisionClaim.claimId !== event.claimId) {
+      throw new Error(`learning_cycle_progression_claim_owner_mismatch:${event.claimId}`);
+    }
+    next.progressionDecisionClaim = {
+      ...next.progressionDecisionClaim,
+      status: "failed",
+      lastError: event.reason,
+    };
+    evidenceIds = [event.finalizationId];
+    reason = `Planner decision paused: ${event.reason}`;
   } else if (event.type === "baseline_completed") {
     const node = nodeOrThrow(next, event.nodeId, "baseline");
     evidenceIds = appendOutcomeEvidence(next, event);
@@ -1179,8 +1669,31 @@ export function transitionLearningCycle(
     reason = event.calibration.reason;
     nextAction = event.calibration.nextAction;
   } else if (event.type === "theory_decided") {
+    if (next.progressionDecisionClaim?.status === "running" &&
+      next.progressionDecisionClaim.claimId !== event.claimId) {
+      throw new Error(`learning_cycle_progression_claim_owner_mismatch:${event.claimId ?? "missing"}`);
+    }
+    next.evaluationSessionFinalizationId = undefined;
+    next.progressionDecisionClaim = undefined;
     ({ status, reason, nextAction } = event.decision);
     evidenceIds = [...event.decision.evidenceIds];
+    readinessAssessment = event.decision.readinessAssessment
+      ? validateReadinessAssessment(next, event.decision.readinessAssessment, event.decision.evidenceIds, event.decision.predictionEvaluationIds)
+      : fromLifecycle === "boss_evaluating" && event.decision.progressionAction === "await_calibration"
+        ? {
+            status: "predicted_ready",
+            scope: {
+              homeworkId: next.homeworkId,
+              assignmentTitle: next.assignment.title,
+              constructIds: [...new Set(next.academicPredictions.map((prediction) => prediction.constructId))],
+            },
+            reason: event.decision.reason,
+            evidenceIds: [...event.decision.evidenceIds],
+            predictionEvaluationIds: [],
+            uncertainty: "In-app Boss evidence predicts readiness, but confirmed returned work or delayed independent reassessment is still required.",
+            nextAction: "Return confirmed graded work or complete a delayed independent reassessment.",
+          }
+        : undefined;
     if (event.decision.revisedHypothesis && event.decision.revisedHypothesis !== next.academicTheory.hypothesis) {
       next.academicTheory = {
         ...next.academicTheory,
@@ -1191,6 +1704,7 @@ export function transitionLearningCycle(
     if (event.decision.progressionAction === "generate_quest") {
       const quest = next.nodes.find((node) => node.role === "quest");
       if (!quest) throw new Error("learning_cycle_quest_node_missing");
+      quest.academicTarget.targets = baselineAcademicConstructIds(next);
       const prescription = event.decision.nextInstrument;
       if (prescription) {
         quest.academicTarget.skill = prescription.academicTarget;
@@ -1299,13 +1813,32 @@ export function transitionLearningCycle(
       next.lifecycle = "awaiting_calibration";
     } else if (event.decision.progressionAction === "collect_more_evidence") {
       next.lifecycle = fromLifecycle === "quest_evaluating" ? "quest_active" : "baseline_active";
-    } else if (fromLifecycle === "awaiting_calibration") {
-      const calibratedObservationIds = new Set(next.observations
-        .filter((observation) => observation.provenance === "graded_work" || observation.provenance === "delayed_reassessment")
-        .map((observation) => observation.observationId));
-      if (event.decision.evidenceIds.some((id) => calibratedObservationIds.has(id))) {
-        next.lifecycle = "complete";
+    } else if (event.decision.continuationAction === "complete") {
+      if (readinessAssessment?.status !== "ready_independent") {
+        throw new Error("learning_cycle_completion_requires_independent_readiness");
       }
+      next.lifecycle = "complete";
+    } else if (event.decision.continuationAction === "generate_support" || event.decision.continuationAction === "collect_more_evidence") {
+      if (!event.decision.nextInstrument || !event.decision.nextPrediction || !readinessAssessment) {
+        throw new Error("learning_cycle_continuation_prescription_missing");
+      }
+      const expectedAction = readinessAssessment.status === "not_yet_ready" || readinessAssessment.status === "ready_with_support"
+        ? "generate_support"
+        : readinessAssessment.status === "insufficient_evidence"
+          ? "collect_more_evidence"
+          : null;
+      if (event.decision.continuationAction !== expectedAction) {
+        throw new Error("learning_cycle_continuation_readiness_mismatch");
+      }
+      appendContinuationChapter(
+        next,
+        event.decision.continuationAction === "generate_support" ? "support" : "reassessment",
+        event.decision.nextInstrument,
+        event.decision.nextPrediction,
+        evidenceIds,
+        event.decision.reason,
+        at,
+      );
     }
   } else if (event.type === "engagement_theory_updated") {
     next.engagementTheory = structuredClone(event.theory);
@@ -1349,6 +1882,7 @@ export function transitionLearningCycle(
       nextEvidenceRequired: event.decision.nextEvidenceRequired,
       predictionEvaluationIds: event.decision.predictionEvaluationIds,
       assumptionAssessments: event.decision.assumptionAssessments,
+      ...(readinessAssessment ? { readinessAssessment } : {}),
     } : {}),
   };
   next.decisionHistory.push(decision);
@@ -1356,6 +1890,165 @@ export function transitionLearningCycle(
   atomicWrite(cyclePath(next.childId, next.homeworkId, opts), next);
   appendDecisionTrace(next, decision, opts);
   return next;
+}
+
+export function transitionLearningCycle(
+  childId: string,
+  homeworkId: string,
+  expectedVersion: number,
+  event: LearningCycleEvent,
+  opts: LearningCycleRepositoryOptions = {},
+): LearningCycleRecordV2 {
+  const lock = acquireCycleTransitionLock(cyclePath(childId, homeworkId, opts));
+  try {
+    return transitionLearningCycleUnlocked(childId, homeworkId, expectedVersion, event, opts);
+  } finally {
+    try {
+      if (fs.readFileSync(path.join(lock.lockDir, "owner"), "utf8") === lock.ownerId) {
+        fs.rmSync(lock.lockDir, { recursive: true, force: true });
+      }
+    } catch (error) {
+      const code = error && typeof error === "object" && "code" in error ? String(error.code) : "";
+      if (code !== "ENOENT") {
+        console.error(` 🎮 [learning-cycle] [transition-lock-release] [failed] ${error instanceof Error ? error.message : String(error)}`);
+      }
+    }
+  }
+}
+
+export function recordCanonicalCompanionSupport(
+  input: {
+    childId: string;
+    homeworkId: string;
+    sessionId: string;
+    nodeId: string;
+    itemId: string;
+    supportType: CompanionSupportType;
+    requestSummary: string;
+  },
+  opts: LearningCycleRepositoryOptions = {},
+): LearningCycleRecordV2 {
+  const cycle = getLearningCycle(input.childId, input.homeworkId, opts);
+  if (!cycle) throw new Error(`learning_cycle_missing:${input.homeworkId}`);
+  const node = nodeOrThrow(cycle, input.nodeId);
+  const matchingCount = cycle.evidence.companionObservations.filter((observation) =>
+    observation.kind === "companion_support" &&
+    observation.sessionId === input.sessionId &&
+    observation.nodeId === input.nodeId &&
+    observation.itemId === input.itemId
+  ).length;
+  const evidenceId = `support:${input.sessionId}:${input.nodeId}:${input.itemId}:${matchingCount + 1}`;
+  const artifactHash = node.artifactBinding?.creativeProvenance?.designArtifactHash
+    ?? node.artifactBinding?.contractFingerprint;
+  const observation: LearningCycleCompanionObservation = {
+    evidenceId,
+    summary: input.requestSummary.trim().slice(0, 240) || `Child requested ${input.supportType} support.`,
+    kind: "companion_support",
+    homeworkId: input.homeworkId,
+    sessionId: input.sessionId,
+    nodeId: input.nodeId,
+    itemId: input.itemId,
+    ...(artifactHash ? { artifactHash } : {}),
+    supportType: input.supportType,
+    masteryEligible: false,
+    resumedIndependently: null,
+  };
+  return transitionLearningCycle(input.childId, input.homeworkId, cycle.revision, {
+    type: "companion_support_observed",
+    nodeId: input.nodeId,
+    observation,
+  }, opts);
+}
+
+export function recordCanonicalActivityFriction(
+  input: {
+    childId: string;
+    homeworkId: string;
+    sessionId: string;
+    nodeId: string;
+    itemId: string;
+    resolutionId: string;
+    attemptedValue?: string;
+    likelyCause: string;
+    confidence: number;
+    action: string;
+    observedErrorType: "instrument_ambiguous" | "conceptual_uncertainty" | "unresolved";
+    supportSummary: string;
+  },
+  opts: LearningCycleRepositoryOptions = {},
+): LearningCycleRecordV2 {
+  const cycle = getLearningCycle(input.childId, input.homeworkId, opts);
+  if (!cycle) throw new Error(`learning_cycle_missing:${input.homeworkId}`);
+  const node = nodeOrThrow(cycle, input.nodeId);
+  const prediction = cycle.academicPredictions.find((candidate) => candidate.predictionId === node.predictionId);
+  const constructId = prediction?.constructId ?? node.academicTarget.targets[0] ?? `${cycle.domain}.${node.academicTarget.skill}`;
+  const observation: LearningObservation = {
+    observationId: input.resolutionId,
+    sourceId: `companion:${input.sessionId}:${input.nodeId}`,
+    nodeId: input.nodeId,
+    itemId: input.itemId,
+    ...(input.attemptedValue?.trim() ? { childResponse: input.attemptedValue.trim().slice(0, 500) } : {}),
+    constructLinks: [{ constructId, role: "primary", confidence: 1 }],
+    result: { observedErrorType: input.observedErrorType },
+    assistance: { status: "assisted", scaffolds: ["companion_friction_resolution"] },
+    exposure: "previously_practiced",
+    provenance: "practice",
+    observedAt: (opts.now ?? new Date()).toISOString(),
+    confounds: [
+      input.observedErrorType,
+      "assistance_present",
+      `likely_cause:${input.likelyCause}`,
+      `resolution_action:${input.action}`,
+      `confidence:${Math.max(0, Math.min(1, input.confidence)).toFixed(2)}`,
+    ],
+  };
+  return transitionLearningCycle(input.childId, input.homeworkId, cycle.revision, {
+    type: "activity_friction_observed",
+    nodeId: input.nodeId,
+    observation,
+    companionObservation: {
+      evidenceId: `${input.resolutionId}:support`,
+      summary: input.supportSummary.trim().slice(0, 240),
+      kind: "companion_support",
+      homeworkId: input.homeworkId,
+      sessionId: input.sessionId,
+      nodeId: input.nodeId,
+      itemId: input.itemId,
+      ...(node.artifactBinding?.creativeProvenance?.designArtifactHash
+        ? { artifactHash: node.artifactBinding.creativeProvenance.designArtifactHash }
+        : node.artifactBinding?.contractFingerprint
+          ? { artifactHash: node.artifactBinding.contractFingerprint }
+          : {}),
+      supportType: "friction_resolution",
+      masteryEligible: false,
+      resumedIndependently: null,
+    },
+  }, opts);
+}
+
+export function markCanonicalCompanionSupportResumed(
+  input: {
+    childId: string;
+    homeworkId: string;
+    evidenceId: string;
+    resumedIndependently: boolean;
+  },
+  opts: LearningCycleRepositoryOptions = {},
+): LearningCycleRecordV2 {
+  const cycle = getLearningCycle(input.childId, input.homeworkId, opts);
+  if (!cycle) throw new Error(`learning_cycle_missing:${input.homeworkId}`);
+  const existing = cycle.evidence.companionObservations.find(
+    (observation) => observation.evidenceId === input.evidenceId,
+  );
+  if (!existing || existing.kind !== "companion_support") {
+    throw new Error(`learning_cycle_companion_support_missing:${input.evidenceId}`);
+  }
+  if (existing.resumedIndependently === input.resumedIndependently) return cycle;
+  return transitionLearningCycle(input.childId, input.homeworkId, cycle.revision, {
+    type: "companion_support_resumed",
+    evidenceId: input.evidenceId,
+    resumedIndependently: input.resumedIndependently,
+  }, opts);
 }
 
 export function recordLearningCycleCalibration(

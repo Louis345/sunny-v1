@@ -10,6 +10,7 @@ type DraftItem = {
   correct?: boolean;
   teacherNote?: string;
   observedErrorType?: string;
+  assistanceStatus?: "unassisted" | "assisted" | "unknown";
   extractionConfidence: number;
   constructLinks: ConstructLink[];
 };
@@ -163,6 +164,17 @@ export function ReturnedWorkPage({ childId }: { childId: string }) {
                     <option value="correct">Correct</option>
                     <option value="incorrect">Incorrect</option>
                     <option value="unclear">Unclear</option>
+                  </select>
+                </label>
+                <label style={{ display: "block", marginTop: 12 }}>
+                  Help used for {item.prompt}
+                  <select value={item.assistanceStatus ?? "unknown"} onChange={(event) => updateItem(item.itemId, (current) => ({
+                    ...current,
+                    assistanceStatus: event.target.value as DraftItem["assistanceStatus"],
+                  }))} style={{ display: "block", width: "100%", padding: 8 }}>
+                    <option value="unknown">Not sure</option>
+                    <option value="unassisted">No help used</option>
+                    <option value="assisted">Help was used</option>
                   </select>
                 </label>
                 <label style={{ display: "block", marginTop: 12 }}>
