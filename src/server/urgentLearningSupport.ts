@@ -15,6 +15,11 @@ import {
   type CurrentBoardSnapshot,
 } from "./currentBoardSnapshot";
 import { shouldPersistSessionData } from "../utils/runtimeMode";
+import {
+  markCanonicalCompanionSupportResumed,
+  recordCanonicalCompanionSupport,
+  type CompanionSupportType,
+} from "../engine/learningCycleRepository";
 
 export type UrgentIntentType =
   | "help_request"
@@ -209,6 +214,8 @@ export function buildActivityCompanionContext(input: {
         "Activity-help objective:",
         "Resolve the child's request briefly from the answer-hidden activity context.",
         "Ask one short understanding question only when it adds value; if you do, set companionAct presenceAfterSpeech=await_child_response.",
+        "If the live state reports a rejected attempt and the child remains blocked, you may use resolveActivityFriction. Decide from the evidence; do not use an attempt-count threshold.",
+        "Advancing is assisted and unresolved, never correct or mastery. Do not reveal the active answer.",
         "Otherwise return control to the activity and allow the companion to return to standby.",
       ].join("\n")
     : "";
@@ -222,8 +229,19 @@ export function recordActivityCompanionHelp(input: {
   companionText: string;
   snapshot: CurrentBoardSnapshot | null;
   presence: CompanionPresence;
-}): void {
-  if (!shouldPersistSessionData() || !input.snapshot || input.presence !== "summoned") return;
+}): string | null {
+  if (!shouldPersistSessionData() || !input.snapshot || input.presence !== "summoned") return null;
+  const message = normalizeSpeechText(input.userMessage);
+  const supportType: CompanionSupportType = input.snapshot.readAloudRequested
+    ? "read"
+    : /\b(example|show me|demonstrate)\b/.test(message)
+      ? "example"
+      : /\b(another way|rephrase|what does .* mean)\b/.test(message)
+        ? "rephrase"
+        : /\b(still|again|still dont|still do not)\b/.test(message)
+          ? "continued_confusion"
+          : "explain";
+  const activityId = input.snapshot.activityId ?? input.snapshot.game ?? "unknown_activity";
   recordCompanionInteractionEvent({
     childId: input.childId,
     companionId: input.companionId,
@@ -234,6 +252,16 @@ export function recordActivityCompanionHelp(input: {
     companionText: input.companionText,
     commandCount: 0,
     visionUsed: false,
+    activityContext: {
+      activityId,
+      eventType: "child_invoked_support",
+      homeworkId: input.snapshot.homeworkId,
+      sessionId: input.snapshot.sessionId,
+      nodeId: input.snapshot.nodeId,
+      itemId: input.snapshot.itemId,
+      artifactHash: input.snapshot.artifactHash,
+      supportType,
+    },
   });
   void maybeCompactCompanionInteractionMemory({
     childId: input.childId,
@@ -241,6 +269,57 @@ export function recordActivityCompanionHelp(input: {
   }).catch((error: unknown) => {
     console.error(" 🔴 [companion-memory] [activity-help-compact] [failed]", error);
   });
+  const { homeworkId, sessionId, nodeId, itemId } = input.snapshot;
+  if (!homeworkId || !sessionId || !nodeId || !itemId) {
+    console.warn(
+      ` 🎮 [companion-support] [canonical-skip] missing_provenance homework=${homeworkId ?? "none"} node=${nodeId ?? "none"} item=${itemId ?? "none"}`,
+    );
+    return null;
+  }
+  try {
+    const cycle = recordCanonicalCompanionSupport({
+      childId: input.childId,
+      homeworkId,
+      sessionId,
+      nodeId,
+      itemId,
+      supportType,
+      requestSummary: `Child requested ${supportType} support in ${activityId}.`,
+    });
+    const evidenceId = cycle.evidence.companionObservations.at(-1)?.evidenceId ?? null;
+    console.log(
+      ` 🎮 [companion-support] [canonical-record] ${evidenceId ? "ok" : "missing"} homework=${homeworkId} node=${nodeId} item=${itemId} type=${supportType}`,
+    );
+    return evidenceId;
+  } catch (error) {
+    console.error(
+      " 🔴 [companion-support] [canonical-record] [failed]",
+      error instanceof Error ? error.message : String(error),
+    );
+    return null;
+  }
+}
+
+export function markActivityCompanionHelpResumed(input: {
+  childId: string;
+  homeworkId: string;
+  evidenceId: string;
+  resumedIndependently: boolean;
+}): boolean {
+  if (!shouldPersistSessionData()) return false;
+  try {
+    markCanonicalCompanionSupportResumed(input);
+    console.log(
+      ` 🎮 [companion-support] [resumption] [ok] homework=${input.homeworkId} evidence=${input.evidenceId} independent=${input.resumedIndependently}`,
+    );
+    return true;
+  } catch (error) {
+    console.error(
+      " 🔴 [companion-support] [resumption] [failed]",
+      error instanceof Error ? error.message : String(error),
+    );
+    return false;
+  }
 }
 
 export function isCompanionWakeOnlyTranscript(transcript: string, companionName: string): boolean {

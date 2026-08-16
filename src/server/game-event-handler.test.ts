@@ -20,6 +20,50 @@ afterEach(() => {
 });
 
 describe("game event handler companion events", () => {
+  it("does not let a friction event replace active homework, node, item, or artifact provenance", () => {
+    const fakeSession = {
+      currentBoardSnapshot: {
+        homeworkId: "hw-real",
+        nodeId: "N1",
+        itemId: "N1-I2",
+        artifactHash: "artifact-real",
+      },
+      updateCurrentBoardSnapshot: vi.fn(),
+    };
+
+    handleGameEventForSession(fakeSession, {
+      type: "activity_friction_signal",
+      homeworkId: "hw-spoofed",
+      nodeId: "N9",
+      itemId: "N9-I9",
+      artifactHash: "artifact-spoofed",
+      attemptId: "attempt-27",
+      attemptedValue: "ambiguous answer",
+      signal: "response_rejected_by_activity_instrument",
+    });
+
+    expect(fakeSession.updateCurrentBoardSnapshot).not.toHaveBeenCalled();
+  });
+
+  it("routes a correlated iframe resolution acknowledgment to the session", () => {
+    const fakeSession = {
+      acknowledgeActivityFrictionResolution: vi.fn(),
+    };
+
+    handleGameEventForSession(fakeSession, {
+      type: "activity_friction_resolution_applied",
+      resolutionId: "friction:session-1:N1:N1-I2",
+      nodeId: "N1",
+      itemId: "N1-I2",
+    });
+
+    expect(fakeSession.acknowledgeActivityFrictionResolution).toHaveBeenCalledWith({
+      resolutionId: "friction:session-1:N1:N1-I2",
+      nodeId: "N1",
+      itemId: "N1-I2",
+    });
+  });
+
   it("routes an explicit generated-math read request to exact narration", () => {
     const fakeSession = {
       childName: "Reina",
@@ -90,6 +134,7 @@ describe("game event handler companion events", () => {
       recordDebugEvent: vi.fn(),
       recordGameTrace: vi.fn(),
       noteExternalEvent: vi.fn(),
+      markPendingCompanionSupportResumed: vi.fn(),
     };
 
     handleGameEventForSession(fakeSession, {
@@ -114,6 +159,11 @@ describe("game event handler companion events", () => {
         attempts: 1,
       }),
     );
+    expect(fakeSession.markPendingCompanionSupportResumed).toHaveBeenCalledWith({
+      nodeId: undefined,
+      itemId: "sun",
+      resumedIndependently: true,
+    });
   });
 
   it("keeps preview attempt events diagnostic-only and out of the child fact bank", () => {
@@ -125,6 +175,7 @@ describe("game event handler companion events", () => {
       recordDebugEvent: vi.fn(),
       recordGameTrace: vi.fn(),
       noteExternalEvent: vi.fn(),
+      markPendingCompanionSupportResumed: vi.fn(),
     };
 
     handleGameEventForSession(fakeSession, {
@@ -139,6 +190,7 @@ describe("game event handler companion events", () => {
     });
 
     expect(recordLearningAttempt).not.toHaveBeenCalled();
+    expect(fakeSession.markPendingCompanionSupportResumed).not.toHaveBeenCalled();
     expect(fakeSession.recordGameTrace).toHaveBeenCalledWith(
       expect.objectContaining({ type: "attempt_event", target: "N1-I2" }),
     );

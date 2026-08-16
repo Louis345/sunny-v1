@@ -216,6 +216,22 @@ export const SEEDED_HUMAN_BUG_INVARIANTS: LabInvariant[] = [
     suggestedFailingTest:
       "Quest generation is rejected without at least one target-aligned correct unassisted baseline observation.",
   },
+  {
+    code: "generated_experience_must_demonstrate_first_action",
+    source: "human_caught_bug",
+    invariant:
+      "A technically valid generated experience must visually demonstrate its first required action, keep pre-action reading brief, expose optional help, and make the first response visibly consequential. A child needing adult orientation is a clarity failure even when controls and event contracts work.",
+    suggestedFailingTest:
+      "The Experience Creator prompt requires a visible first-action demonstration, bounded pre-action reading, discoverable optional help, and a falsifiable clarity prediction before implementation.",
+  },
+  {
+    code: "instrument_friction_must_not_trap_or_become_mastery",
+    source: "human_caught_bug",
+    invariant:
+      "A semantically meaningful response rejected by a brittle instrument may continue as assisted or instrument-ambiguous, but it must never become correct, mastery, Quest evidence, or a permanent preference conclusion.",
+    suggestedFailingTest:
+      "The lantern factor explanation can advance after child-invoked Elli resolution while preserving instrument_ambiguous evidence and zero independent-correct evidence.",
+  },
 ];
 
 function ensureDir(dir: string): void {

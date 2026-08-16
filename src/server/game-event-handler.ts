@@ -25,6 +25,8 @@ const TRACEABLE_GAME_EVENT_TYPES = new Set([
   "narration_request",
   "game_state_update",
   "attempt_event",
+  "activity_friction_signal",
+  "activity_friction_resolution_applied",
   "activity_evidence",
   "game_complete",
   "node_complete",
@@ -251,6 +253,45 @@ export function handleGameEventForSession(
     return;
   }
 
+  if (type === "activity_friction_signal") {
+    const active = s.currentBoardSnapshot && typeof s.currentBoardSnapshot === "object"
+      ? s.currentBoardSnapshot as Record<string, unknown>
+      : null;
+    const matchesActive = Boolean(
+      active
+      && String(active.homeworkId ?? "") === String(event.homeworkId ?? "")
+      && String(active.nodeId ?? "") === String(event.nodeId ?? "")
+      && String(active.itemId ?? "") === String(event.itemId ?? "")
+      && String(active.artifactHash ?? "") === String(event.artifactHash ?? ""),
+    );
+    if (!matchesActive) {
+      console.warn("  🎮 [activity-friction] [signal-rejected] provenance_mismatch");
+      return;
+    }
+    const ctx: Record<string, unknown> = {
+      currentChallenge: event.currentChallenge,
+      device: event.device,
+      latestAttemptId: event.attemptId,
+      latestAttemptedValue: event.attemptedValue,
+      frictionSignal: event.signal ?? "rejected_attempt",
+      rejectedAttemptCount: event.rejectedAttemptCount,
+    };
+    s.updateCurrentBoardSnapshot?.(ctx);
+    console.log(
+      `  🎮 [activity-friction] [signal] node=${String(event.nodeId ?? "unknown")} item=${String(event.itemId ?? "unknown")} attempt=${String(event.attemptId ?? "unknown")}`,
+    );
+    return;
+  }
+
+  if (type === "activity_friction_resolution_applied") {
+    s.acknowledgeActivityFrictionResolution?.({
+      resolutionId: String(event.resolutionId ?? ""),
+      nodeId: String(event.nodeId ?? ""),
+      itemId: String(event.itemId ?? ""),
+    });
+    return;
+  }
+
   if (type === "narration_request") {
     const text = String(event.text ?? event.word ?? "").trim();
     const game = String(event.game ?? event.activityId ?? "").trim();
@@ -440,6 +481,15 @@ export function handleGameEventForSession(
       console.log(`  🎮 [attempt_event] [preview-skipped] target=${String(event.target ?? "unknown")}`);
       return;
     }
+    const scaffoldLevel = Number(event.scaffoldLevel ?? 0);
+    s.markPendingCompanionSupportResumed?.({
+      nodeId: typeof event.nodeId === "string" ? event.nodeId : undefined,
+      itemId: String(event.itemId ?? event.target ?? "").trim() || undefined,
+      resumedIndependently:
+        (!Number.isFinite(scaffoldLevel) || scaffoldLevel <= 0) &&
+        event.assisted !== true &&
+        event.helpUsed !== true,
+    });
     try {
       const recorded = recordLearningAttempt(event, chartChildIdForSession(s));
       s.noteExternalEvent?.({

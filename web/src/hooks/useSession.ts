@@ -1616,6 +1616,7 @@ export function useSession(options?: UseSessionOptions) {
           "game_state_update",
           "companion_event",
           "attempt_event",
+          "activity_friction_signal",
         ].includes(t)
       ) {
         console.log(`  🎮 forwarded to server: ${t}`);

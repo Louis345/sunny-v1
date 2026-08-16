@@ -174,4 +174,60 @@ describe("companion interaction memory", () => {
     expect(source).toContain("readCompanionCareMemoryForPrompt");
     expect(source).toContain("--child=ila --companion=elli");
   });
+
+  it("compacts repeated attempts into one cautious evidence-linked friction incident", async () => {
+    writeCarePlan("lab-reina", "elli");
+    recordCompanionInteractionEvent({
+      childId: "lab-reina",
+      companionId: "elli",
+      callSource: "activity_help",
+      relationshipState: "selected",
+      eventType: "activity_friction_resolved",
+      questionText: "",
+      companionText: "",
+      commandCount: 1,
+      visionUsed: false,
+      activityContext: {
+        activityId: "ACT-SHARED-01",
+        eventType: "activity_friction_resolved",
+        homeworkId: "hw-lantern",
+        sessionId: "session-1",
+        nodeId: "ACT-SHARED-01",
+        itemId: "lantern-factors-2",
+        artifactHash: "artifact-hash",
+        likelyCause: "response_mode",
+        confidence: 0.82,
+        resolutionAction: "advance_current_item",
+        evidenceIds: ["attempt-25", "attempt-26", "attempt-27"],
+        uncertainty: "The scorer may be stricter than the academic intent.",
+        nextEvidenceNeeded: "Test the same concept with a lower-burden response mode.",
+      },
+      createdAt: "2026-08-10T22:00:00.000Z",
+    }, { rootDir: root });
+
+    const result = await maybeCompactCompanionInteractionMemory(
+      { childId: "lab-reina", companionId: "elli" },
+      {
+        rootDir: root,
+        minEvents: 1,
+        summarize: async ({ events }) => {
+          expect(events).toHaveLength(1);
+          expect(events[0]?.activityContext).toMatchObject({
+            evidenceIds: ["attempt-25", "attempt-26", "attempt-27"],
+            confidence: 0.82,
+          });
+          return {
+            lastSessionSummary: "Evidence attempt-25 through attempt-27 suggests response-mode friction; confidence 0.82, not a preference conclusion.",
+            relationshipFacts: ["Next evidence needed: test the same concept with a lower-burden response mode."],
+          };
+        },
+      },
+    );
+
+    expect(result).toMatchObject({ compacted: true, eventCount: 1 });
+    if (result.compacted) {
+      expect(result.memory.lastSessionSummary).toContain("response-mode friction");
+      expect(result.memory.lastSessionSummary).not.toContain("dislikes typing");
+    }
+  });
 });

@@ -9,6 +9,7 @@ import {
   type CompanionConfig,
 } from "../companions/loader";
 import { getTtsNameForSessionChild } from "../profiles/childrenConfig";
+import { getChildChart } from "../profiles/childChart";
 import { generateStoryImage } from "../utils/generateStoryImage";
 import { TEST_MODE_PROMPT, normalizeSessionSubject } from "../agents/prompts";
 import { getReadingCanvasPreferencesForChild } from "../utils/learningProfileIO";
@@ -64,6 +65,7 @@ import {
 } from "./worksheet-tools";
 import { createLaunchGameTool } from "../agents/elli/tools/worksheetTools";
 import { createCompanionActTool } from "../agents/tools/companionAct";
+import { createResolveActivityFrictionTool } from "../agents/tools/resolveActivityFriction";
 import { createSixTools } from "../agents/tools/six-tools";
 import {
   buildLaunchGameTool,
@@ -79,6 +81,7 @@ import { shouldUseAdventureMapVoiceSlimToolkit } from "../utils/adventureMapAgen
 import {
   buildCurrentBoardSnapshot,
   findCompanionTruthContradictions,
+  mergeCurrentBoardState,
   type CurrentBoardSnapshot,
 } from "./currentBoardSnapshot";
 import { compressGameScreenshotBase64 } from "./compressGameScreenshot";
@@ -103,6 +106,12 @@ import * as gev from "./game-event-handler";
 import { runHandleToolCall } from "./tool-call-router";
 import { runSessionStart } from "./session-bootstrap";
 import { runCompanionResponseForSession } from "./companion-response-runner";
+import {
+  persistActivityFrictionEvidence,
+  resolveActivityFriction,
+  type ActivityFrictionDecision,
+  verifyActivityFrictionProvenance,
+} from "./activityFrictionResolution";
 import {
   hostCanvasClear,
   hostCanvasShow,
@@ -150,6 +159,7 @@ import {
   companionPresenceAfterSpeech,
   dispositionAfterReset,
   handleCompanionPresenceTranscript,
+  markActivityCompanionHelpResumed,
   prepareInstructionReadRequest,
   recordActivityCompanionHelp,
   transitionCompanionPresence,
@@ -204,6 +214,7 @@ export class SessionManager {
   public readonly chartChildId: string;
   private currentActivityState: Record<string, unknown> | null = null;
   private currentBoardSnapshot: CurrentBoardSnapshot | null = null;
+  private pendingCompanionSupportEvidenceId: string | null = null;
   private pronunciationStruggleSignals = new Set<string>();
   private lastInstructionReadRequestKey: string | null = null;
   private companionPresence: "collapsed" | "summoned" = "collapsed";
@@ -211,6 +222,14 @@ export class SessionManager {
     | "standby_after_speech"
     | "await_child_response" = "standby_after_speech";
   private companionInteractionMode: "activity_help" | "conversation" = "activity_help";
+  private resolvedActivityFrictionItems = new Set<string>();
+  private pendingActivityResolutionAcks = new Map<string, {
+    nodeId: string;
+    itemId: string;
+    resolve: () => void;
+    reject: (error: Error) => void;
+    timer: ReturnType<typeof setTimeout>;
+  }>();
 
   private ws: WebSocket;
   private childName: ChildName;
@@ -903,7 +922,7 @@ export class SessionManager {
     const snapshot = buildCurrentBoardSnapshot({
       childId: this.chartChildId,
       sessionId: this.sessionId,
-      state,
+      state: mergeCurrentBoardState(this.currentBoardSnapshot, state),
     });
     this.currentBoardSnapshot = snapshot;
     this.currentActivityState = {
@@ -986,7 +1005,7 @@ export class SessionManager {
   }
 
   public recordCompanionHelpTurn(userMessage: string, companionText: string): void {
-    recordActivityCompanionHelp({
+    const evidenceId = recordActivityCompanionHelp({
       childId: this.chartChildId,
       companionId: this.companion.name,
       userMessage,
@@ -994,6 +1013,30 @@ export class SessionManager {
       snapshot: this.currentBoardSnapshot,
       presence: this.companionPresence,
     });
+    if (evidenceId) this.pendingCompanionSupportEvidenceId = evidenceId;
+  }
+
+  public markPendingCompanionSupportResumed(input: {
+    nodeId?: string;
+    itemId?: string;
+    resumedIndependently: boolean;
+  }): void {
+    const evidenceId = this.pendingCompanionSupportEvidenceId;
+    const snapshot = this.currentBoardSnapshot;
+    if (!evidenceId || !snapshot?.homeworkId) return;
+    if (input.nodeId && snapshot.nodeId && input.nodeId !== snapshot.nodeId) {
+      console.log(
+        `  🎮 [companion-help] [resume-deferred] expected=${snapshot.nodeId} received=${input.nodeId}`,
+      );
+      return;
+    }
+    const recorded = markActivityCompanionHelpResumed({
+      childId: this.chartChildId,
+      homeworkId: snapshot.homeworkId,
+      evidenceId,
+      resumedIndependently: input.resumedIndependently,
+    });
+    if (recorded) this.pendingCompanionSupportEvidenceId = null;
   }
 
   public recordCompanionTruthContradictions(response: string): string[] {
@@ -1015,6 +1058,88 @@ export class SessionManager {
       });
     }
     return contradictions;
+  }
+
+  public async resolveCurrentActivityFriction(
+    decision: ActivityFrictionDecision,
+  ): Promise<Record<string, unknown>> {
+    const snapshot = this.currentBoardSnapshot;
+    const verified = verifyActivityFrictionProvenance({
+      childId: this.chartChildId,
+      sessionId: this.sessionId,
+      snapshot: {
+        homeworkId: snapshot?.homeworkId,
+        nodeId: snapshot?.nodeId,
+        itemId: snapshot?.itemId,
+        artifactHash: snapshot?.artifactHash,
+        latestAttemptId: snapshot?.latestAttemptId,
+        device: snapshot?.device,
+        answerVisibility: snapshot?.answerVisibility,
+        frictionSignal: snapshot?.frictionSignal,
+      },
+      cycle: getChildChart(this.chartChildId).learningCycle,
+    });
+    const key = `${verified.homeworkId}:${verified.nodeId}:${verified.itemId}`;
+    const result = await resolveActivityFriction({
+      context: {
+        ...verified,
+        companionId: this.companion.name,
+        companionPresence: this.companionPresence,
+        runtimeMode: shouldPersistSessionData() ? "real" : "preview",
+      },
+      decision,
+      alreadyAdvanced: this.resolvedActivityFrictionItems.has(key),
+    }, {
+      sendAndConfirm: (message) => this.sendActivityResolutionAndWait(message),
+      persist: (evidence) => persistActivityFrictionEvidence({
+        evidence,
+        attemptedValue: snapshot?.latestAttemptedValue,
+        activityId: snapshot?.activityId,
+      }),
+    });
+    if (result.advanced) {
+      if (this.resolvedActivityFrictionItems.size >= 1000) {
+        throw new Error("activity_friction_resolution_guard_exceeded");
+      }
+      this.resolvedActivityFrictionItems.add(key);
+    }
+    console.log(
+      `  🎮 [activity-friction] [resolved] action=${decision.action} cause=${decision.likelyCause} persisted=${result.persisted}`,
+    );
+    return result;
+  }
+
+  public acknowledgeActivityFrictionResolution(input: {
+    resolutionId: string;
+    nodeId: string;
+    itemId: string;
+  }): void {
+    const pending = this.pendingActivityResolutionAcks.get(input.resolutionId);
+    if (!pending || pending.nodeId !== input.nodeId || pending.itemId !== input.itemId) {
+      console.warn(`  🎮 [activity-friction] [ack-rejected] resolution=${input.resolutionId || "missing"}`);
+      return;
+    }
+    clearTimeout(pending.timer);
+    this.pendingActivityResolutionAcks.delete(input.resolutionId);
+    pending.resolve();
+    console.log(`  🎮 [activity-friction] [acknowledged] resolution=${input.resolutionId}`);
+  }
+
+  private sendActivityResolutionAndWait(message: Record<string, unknown>): Promise<void> {
+    const resolutionId = String(message.resolutionId ?? "");
+    const nodeId = String(message.nodeId ?? "");
+    const itemId = String(message.itemId ?? "");
+    if (!resolutionId || !nodeId || !itemId) throw new Error("activity_friction_delivery_provenance_missing");
+    if (this.ws.readyState !== this.ws.OPEN) throw new Error("activity_friction_delivery_socket_closed");
+    return new Promise<void>((resolve, reject) => {
+      const timer = setTimeout(() => {
+        this.pendingActivityResolutionAcks.delete(resolutionId);
+        reject(new Error(`activity_friction_delivery_unacknowledged:${resolutionId}`));
+      }, 3_000);
+      this.pendingActivityResolutionAcks.set(resolutionId, { nodeId, itemId, resolve, reject, timer });
+      this.send("game_message", { forward: message });
+      console.log(`  🎮 [activity-friction] [sent] resolution=${resolutionId}`);
+    });
   }
 
   getFreshActivityStateForScreenshot(): Record<string, unknown> | null {
@@ -1873,6 +1998,9 @@ export class SessionManager {
         return this.companionBridge.companionAct(command);
       },
     });
+    const resolveActivityFrictionTool = createResolveActivityFrictionTool({
+      resolveActivityFriction: (args) => this.resolveCurrentActivityFriction(args),
+    });
     const slimVoice = shouldUseAdventureMapVoiceSlimToolkit({
       worksheetMode: this.worksheetMode,
       sessionType: this.ctx?.sessionType,
@@ -1887,8 +2015,9 @@ export class SessionManager {
           recordProductIssue: six.recordProductIssue,
           expressCompanion: six.expressCompanion,
           companionAct: companionActTool,
+          resolveActivityFriction: resolveActivityFrictionTool,
         }
-      : { ...six, companionAct: companionActTool };
+      : { ...six, companionAct: companionActTool, resolveActivityFriction: resolveActivityFrictionTool };
     const screenshotTools = {
       takeGameScreenshot: createTakeGameScreenshotTool(this),
     };

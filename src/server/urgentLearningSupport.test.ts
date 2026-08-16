@@ -4,6 +4,10 @@ import {
   recordCompanionInteractionEvent,
 } from "./companionInteractionMemory";
 import { shouldPersistSessionData } from "../utils/runtimeMode";
+import {
+  markCanonicalCompanionSupportResumed,
+  recordCanonicalCompanionSupport,
+} from "../engine/learningCycleRepository";
 
 vi.mock("./companionInteractionMemory", async (importOriginal) => {
   const actual = await importOriginal<typeof import("./companionInteractionMemory")>();
@@ -18,6 +22,16 @@ vi.mock("../utils/runtimeMode", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../utils/runtimeMode")>();
   return { ...actual, shouldPersistSessionData: vi.fn(() => true) };
 });
+vi.mock("../engine/learningCycleRepository", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../engine/learningCycleRepository")>();
+  return {
+    ...actual,
+    recordCanonicalCompanionSupport: vi.fn(() => ({
+      evidence: { companionObservations: [{ evidenceId: "support:session-1:N1:item-1:1" }] },
+    })),
+    markCanonicalCompanionSupportResumed: vi.fn(),
+  };
+});
 import {
   auditConversationForLearningSignals,
   buildLiveLearningContext,
@@ -28,6 +42,7 @@ import {
   dispositionAfterReset,
   handleCompanionPresenceTranscript,
   prepareInstructionReadRequest,
+  markActivityCompanionHelpResumed,
   recordActivityCompanionHelp,
   transitionCompanionPresence,
 } from "./urgentLearningSupport";
@@ -154,21 +169,71 @@ describe("urgent learning support", () => {
       companionId: "elli",
       userMessage: "Can you explain this?",
       companionText: "Try comparing the size of one equal part.",
-      snapshot: { nodeId: "N1" } as never,
+      snapshot: {
+        homeworkId: "hw-math-1",
+        sessionId: "session-1",
+        nodeId: "N1",
+        itemId: "item-1",
+        activityId: "generated-math",
+        artifactHash: "artifact-hash-1",
+      } as never,
       presence: "summoned" as const,
     };
     vi.mocked(shouldPersistSessionData).mockReturnValue(false);
     recordActivityCompanionHelp(input);
     expect(recordCompanionInteractionEvent).not.toHaveBeenCalled();
+    expect(recordCanonicalCompanionSupport).not.toHaveBeenCalled();
 
     vi.mocked(shouldPersistSessionData).mockReturnValue(true);
-    recordActivityCompanionHelp(input);
+    const evidenceId = recordActivityCompanionHelp(input);
     expect(recordCompanionInteractionEvent).toHaveBeenCalledWith(expect.objectContaining({
       childId: "reina",
       companionId: "elli",
       callSource: "activity_help",
+      activityContext: expect.objectContaining({
+        activityId: "generated-math",
+        nodeId: "N1",
+        itemId: "item-1",
+        homeworkId: "hw-math-1",
+        artifactHash: "artifact-hash-1",
+        supportType: "explain",
+      }),
     }));
+    expect(recordCanonicalCompanionSupport).toHaveBeenCalledWith(expect.objectContaining({
+      childId: "reina",
+      homeworkId: "hw-math-1",
+      sessionId: "session-1",
+      nodeId: "N1",
+      itemId: "item-1",
+      supportType: "explain",
+    }));
+    expect(evidenceId).toBe("support:session-1:N1:item-1:1");
     expect(maybeCompactCompanionInteractionMemory).toHaveBeenCalledTimes(1);
+  });
+
+  it("marks post-help activity resumption only in a real session and never changes mastery", () => {
+    vi.mocked(shouldPersistSessionData).mockReturnValue(false);
+    expect(markActivityCompanionHelpResumed({
+      childId: "reina",
+      homeworkId: "hw-math-1",
+      evidenceId: "support:session-1:N1:item-1:1",
+      resumedIndependently: true,
+    })).toBe(false);
+    expect(markCanonicalCompanionSupportResumed).not.toHaveBeenCalled();
+
+    vi.mocked(shouldPersistSessionData).mockReturnValue(true);
+    expect(markActivityCompanionHelpResumed({
+      childId: "reina",
+      homeworkId: "hw-math-1",
+      evidenceId: "support:session-1:N1:item-1:1",
+      resumedIndependently: true,
+    })).toBe(true);
+    expect(markCanonicalCompanionSupportResumed).toHaveBeenCalledWith({
+      childId: "reina",
+      homeworkId: "hw-math-1",
+      evidenceId: "support:session-1:N1:item-1:1",
+      resumedIndependently: true,
+    });
   });
 
   it("applies wake, dismiss, ambient, and game-routing side effects without a model call", () => {

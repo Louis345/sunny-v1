@@ -20,7 +20,8 @@ const MAX_MEMORY_LIST_ITEMS = 8;
 
 export type CompanionInteractionEventType =
   | "companion_talk_completed"
-  | "companion_activity_completed";
+  | "companion_activity_completed"
+  | "activity_friction_resolved";
 
 /**
  * Game beats are driven by machine-authored prompts ("You are about to place
@@ -32,6 +33,18 @@ export type CompanionInteractionActivityContext = {
   eventType: string;
   result?: "child_win" | "companion_win" | "draw";
   machinePrompt?: string;
+  homeworkId?: string;
+  sessionId?: string;
+  nodeId?: string;
+  itemId?: string;
+  artifactHash?: string;
+  supportType?: "read" | "rephrase" | "explain" | "example" | "continued_confusion" | "friction_resolution";
+  likelyCause?: "conceptual" | "prompt_ambiguity" | "response_mode" | "scoring_disagreement" | "speech_failure" | "unknown";
+  confidence?: number;
+  resolutionAction?: "clarify" | "offer_alternative" | "advance_current_item";
+  evidenceIds?: string[];
+  uncertainty?: string;
+  nextEvidenceNeeded?: string;
 };
 
 export type CompanionInteractionEventInput = {
@@ -48,6 +61,7 @@ export type CompanionInteractionEventInput = {
   rewardContext?: CompanionRewardContext;
   activityContext?: CompanionInteractionActivityContext;
   createdAt?: string;
+  idempotencyKey?: string;
 };
 
 export type CompanionInteractionEventRecord = {
@@ -281,7 +295,9 @@ export function recordCompanionInteractionEvent(
     type: "companion_interaction_event",
     version: 1,
     id: `companion_interaction_${hashRecordSeed(
-      `${childId}:${companionId}:${createdAt}:${input.questionText}:${input.commandCount}`,
+      input.idempotencyKey
+        ? `${childId}:${companionId}:${input.idempotencyKey}`
+        : `${childId}:${companionId}:${createdAt}:${input.questionText}:${input.commandCount}`,
     )}`,
     childId,
     companionId,
@@ -299,6 +315,34 @@ export function recordCompanionInteractionEvent(
         ...(input.activityContext.machinePrompt && {
           machinePrompt: normalizeText(input.activityContext.machinePrompt, 200),
         }),
+        ...(input.activityContext.homeworkId && {
+          homeworkId: normalizeText(input.activityContext.homeworkId, 100),
+        }),
+        ...(input.activityContext.sessionId && {
+          sessionId: normalizeText(input.activityContext.sessionId, 100),
+        }),
+        ...(input.activityContext.nodeId && {
+          nodeId: normalizeText(input.activityContext.nodeId, 100),
+        }),
+        ...(input.activityContext.itemId && {
+          itemId: normalizeText(input.activityContext.itemId, 100),
+        }),
+        ...(input.activityContext.artifactHash && {
+          artifactHash: normalizeText(input.activityContext.artifactHash, 128),
+        }),
+        ...(input.activityContext.supportType && {
+          supportType: input.activityContext.supportType,
+        }),
+        ...(input.activityContext.likelyCause && { likelyCause: input.activityContext.likelyCause }),
+        ...(typeof input.activityContext.confidence === "number" && Number.isFinite(input.activityContext.confidence) && {
+          confidence: Math.max(0, Math.min(1, input.activityContext.confidence)),
+        }),
+        ...(input.activityContext.resolutionAction && { resolutionAction: input.activityContext.resolutionAction }),
+        ...(input.activityContext.evidenceIds?.length && {
+          evidenceIds: input.activityContext.evidenceIds.map((value) => normalizeText(value, 120)).filter(Boolean).slice(0, 12),
+        }),
+        ...(input.activityContext.uncertainty && { uncertainty: normalizeText(input.activityContext.uncertainty, 240) }),
+        ...(input.activityContext.nextEvidenceNeeded && { nextEvidenceNeeded: normalizeText(input.activityContext.nextEvidenceNeeded, 240) }),
       },
     }),
     commandCount: Math.max(0, Math.floor(Number(input.commandCount) || 0)),
@@ -318,6 +362,12 @@ export function recordCompanionInteractionEvent(
   const dir = interactionDir(childId, opts);
   fs.mkdirSync(dir, { recursive: true });
   const filePath = path.join(dir, `${dayFromIso(createdAt)}.ndjson`);
+  if (input.idempotencyKey && readCompanionInteractionEvents(childId, companionId, opts).some((event) => event.id === record.id)) {
+    console.log(
+      ` 🎮 [companion-memory] [ledger_append] [reused] child=${childId} companion=${companionId} id=${record.id}`,
+    );
+    return { persisted: true, filePath, record };
+  }
   fs.appendFileSync(filePath, `${JSON.stringify(record)}\n`, "utf8");
   console.log(
     ` 🎮 [companion-memory] [ledger_append] [ok] child=${childId} companion=${companionId} source=${record.callSource} relation=${record.relationshipState}`,
@@ -420,6 +470,7 @@ async function summarizeCompanionInteractionsWithHaiku(input: {
     system:
       "You compact child-companion interaction logs into stable companion relationship memory. Do not invent facts. Do not include raw screenshots, base64, or private implementation details. " +
       "Events with an activityContext are game beats: the child did not speak those words, so never attribute them to the child. " +
+      "For activity_friction_resolved, preserve evidence ids, confidence, uncertainty, and next evidence needed in one cautious summary. Never turn one incident into a durable preference such as 'dislikes typing', and never treat assisted advancement as mastery. " +
       "gameRecord is the authoritative win/loss history, counted by the app: never state, imply, or recompute a tally that disagrees with it, and never guess a record when it is absent. " +
       "Return JSON only.",
     messages: [
