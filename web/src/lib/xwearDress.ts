@@ -11,22 +11,46 @@ export type XwearOutfitDefinition = {
   itemPath: string;
   archiveUrl?: string;
   surfaceOffset?: number;
-  approvedAvatarUrls?: readonly string[];
-  unsupportedAnimations?: readonly string[];
+  slots: {
+    occupies: readonly XwearClothingSlot[];
+    replaces: readonly XwearBaseClothingCategory[];
+  };
+  qa: XwearOutfitQa;
 };
+
+export type XwearBaseClothingCategory = "top" | "bottom" | "onepiece";
+export type XwearClothingSlot =
+  | XwearBaseClothingCategory
+  | "outerwear"
+  | "shoes";
+
+export type XwearOutfitQa =
+  | { status: "candidate" }
+  | { status: "rejected"; reason: string }
+  | {
+      status: "approved";
+      approvedAvatarUrls: readonly string[];
+      unsupportedAnimations?: readonly string[];
+    };
 
 export function isXwearOutfitApprovedForAvatar(
   outfit: XwearOutfitDefinition,
   avatarUrl: string,
 ) {
-  return outfit.approvedAvatarUrls?.includes(avatarUrl) ?? false;
+  return (
+    outfit.qa.status === "approved" &&
+    outfit.qa.approvedAvatarUrls.includes(avatarUrl)
+  );
 }
 
 export function isXwearOutfitAnimationSupported(
   outfit: XwearOutfitDefinition,
   animation: string,
 ) {
-  return !outfit.unsupportedAnimations?.includes(animation);
+  return !(
+    outfit.qa.status === "approved" &&
+    outfit.qa.unsupportedAnimations?.includes(animation)
+  );
 }
 
 export function isXwearCanonicalSkeletonBone(name: string) {
@@ -53,9 +77,51 @@ export const SLEEVELESS_DRESS_OUTFIT: XwearOutfitDefinition = {
   archiveUrl:
     "/@fs/Users/jamaltaylor/Development/sunny-companion-wardrobe-sandbox/.sunny-sandbox/wardrobe/sleeveless-dress/sleeveless_dress_Free.xwear",
   surfaceOffset: 0.025,
-  approvedAvatarUrls: ["/companions/sample.vrm"],
-  unsupportedAnimations: ["sitting"],
+  slots: {
+    occupies: ["onepiece"],
+    replaces: ["top", "bottom", "onepiece"],
+  },
+  qa: {
+    status: "approved",
+    approvedAvatarUrls: ["/companions/sample.vrm"],
+    unsupportedAnimations: ["sitting"],
+  },
 };
+
+export const CELTIC_SWEATER_OUTFIT: XwearOutfitDefinition = {
+  id: "celtic-sweater",
+  assetRoot:
+    "/@fs/Users/jamaltaylor/Development/sunny-companion-wardrobe-sandbox/.sunny-sandbox/wardrobe/celtic-sweater",
+  meshPath: "Mesh/dde76183-4b1c-4298-b115-5a82364cbaa6",
+  resourcePath: "Body/XResources/0e82dcce-9eba-4418-872d-9d3c312511f0",
+  itemPath: "Body/XItem.json/XItem.json",
+  archiveUrl:
+    "/@fs/Users/jamaltaylor/Development/sunny-companion-wardrobe-sandbox/.sunny-sandbox/wardrobe/celtic-sweater/Celtic_Holiday_V1_Blue.xwear",
+  surfaceOffset: 0.02,
+  slots: {
+    occupies: ["top"],
+    replaces: ["top"],
+  },
+  qa: {
+    status: "rejected",
+    reason: "The source silhouette is incompatible with Elli's torso proportions.",
+  },
+};
+
+const XWEAR_OUTFITS_BY_ID: Readonly<Record<string, XwearOutfitDefinition>> = {
+  [SLEEVELESS_DRESS_OUTFIT.id]: SLEEVELESS_DRESS_OUTFIT,
+  [CELTIC_SWEATER_OUTFIT.id]: CELTIC_SWEATER_OUTFIT,
+};
+
+export function getXwearOutfitDefinition(outfitId: string) {
+  return XWEAR_OUTFITS_BY_ID[outfitId] ?? null;
+}
+
+export function getApprovedXwearOutfitDefinitions() {
+  return Object.values(XWEAR_OUTFITS_BY_ID).filter(
+    (outfit) => outfit.qa.status === "approved",
+  );
+}
 
 type XwearGameObject = {
   Guid: string;
@@ -194,16 +260,25 @@ export function resolveXwearMainTextureGuids(
   });
 }
 
-export function setVrmBaseClothingVisible(scene: THREE.Object3D, visible: boolean) {
+export function setVrmBaseClothingVisible(
+  scene: THREE.Object3D,
+  visible: boolean,
+  categories: readonly XwearBaseClothingCategory[] = [
+    "top",
+    "bottom",
+    "onepiece",
+  ],
+) {
+  const selectedCategories = new Set(categories);
   let changed = 0;
   scene.traverse((object) => {
     if (!(object instanceof THREE.Mesh)) return;
     const materials = Array.isArray(object.material) ? object.material : [object.material];
     for (const material of materials) {
       const isReplaceableClothing =
-        material.name.includes("Tops_") ||
-        material.name.includes("Bottoms_") ||
-        material.name.includes("Onepiece_");
+        (selectedCategories.has("top") && material.name.includes("Tops_")) ||
+        (selectedCategories.has("bottom") && material.name.includes("Bottoms_")) ||
+        (selectedCategories.has("onepiece") && material.name.includes("Onepiece_"));
       if (isReplaceableClothing) {
         material.visible = visible;
         changed += 1;
@@ -295,6 +370,70 @@ export function fitGarmentToAvatarProportions(
       .toArray(fittedPositions, index);
   }
   return { positions: fittedPositions, scale };
+}
+
+export function retargetGarmentVerticesToAvatarBindPose(args: {
+  positions: Float32Array;
+  normals: Float32Array;
+  boneIndices: ArrayLike<number>;
+  boneWeights: ArrayLike<number>;
+  sourceBindWorldMatrices: readonly THREE.Matrix4[];
+  targetBindWorldMatrices: readonly THREE.Matrix4[];
+}) {
+  if (args.positions.length !== args.normals.length) {
+    throw new Error("Garment positions and normals must have matching lengths");
+  }
+  if (args.boneIndices.length !== args.boneWeights.length) {
+    throw new Error("Garment bone indices and weights must have matching lengths");
+  }
+  const boneDeltas = args.sourceBindWorldMatrices.map((sourceBind, index) =>
+    (args.targetBindWorldMatrices[index] ?? new THREE.Matrix4())
+      .clone()
+      .multiply(sourceBind.clone().invert()),
+  );
+  const normalDeltas = boneDeltas.map((delta) =>
+    new THREE.Matrix3().getNormalMatrix(delta),
+  );
+  const positions = new Float32Array(args.positions.length);
+  const normals = new Float32Array(args.normals.length);
+  const sourcePosition = new THREE.Vector3();
+  const sourceNormal = new THREE.Vector3();
+  const transformed = new THREE.Vector3();
+  const accumulatedPosition = new THREE.Vector3();
+  const accumulatedNormal = new THREE.Vector3();
+  for (let vertexIndex = 0; vertexIndex < args.positions.length / 3; vertexIndex += 1) {
+    sourcePosition.fromArray(args.positions, vertexIndex * 3);
+    sourceNormal.fromArray(args.normals, vertexIndex * 3);
+    accumulatedPosition.set(0, 0, 0);
+    accumulatedNormal.set(0, 0, 0);
+    let totalWeight = 0;
+    for (let influence = 0; influence < 4; influence += 1) {
+      const weightIndex = vertexIndex * 4 + influence;
+      const weight = args.boneWeights[weightIndex] ?? 0;
+      if (weight <= 0) continue;
+      const boneIndex = args.boneIndices[weightIndex] ?? 0;
+      const positionDelta = boneDeltas[boneIndex];
+      const normalDelta = normalDeltas[boneIndex];
+      if (!positionDelta || !normalDelta) continue;
+      accumulatedPosition.add(
+        transformed.copy(sourcePosition).applyMatrix4(positionDelta).multiplyScalar(weight),
+      );
+      accumulatedNormal.add(
+        transformed.copy(sourceNormal).applyMatrix3(normalDelta).multiplyScalar(weight),
+      );
+      totalWeight += weight;
+    }
+    if (totalWeight <= Number.EPSILON) {
+      accumulatedPosition.copy(sourcePosition);
+      accumulatedNormal.copy(sourceNormal);
+    } else if (Math.abs(totalWeight - 1) > 0.000001) {
+      accumulatedPosition.divideScalar(totalWeight);
+      accumulatedNormal.divideScalar(totalWeight);
+    }
+    accumulatedPosition.toArray(positions, vertexIndex * 3);
+    accumulatedNormal.normalize().toArray(normals, vertexIndex * 3);
+  }
+  return { positions, normals };
 }
 
 export function resolveGarmentBoneLocalMatrix(
@@ -524,28 +663,37 @@ export async function attachXwearOutfit(
   });
   const hipsBindMatrix = garmentBindPoseByName.get(hips.name);
   if (!hipsBindMatrix) throw new Error("Avatar bind pose has no hips matrix");
-  const boneBindWorldMatrices = Array.from(
+  const boneBindLocalMatrices = Array.from(
     { length: meshData.bindPoses.length },
     (_, index) => {
       const name = garmentBoneNames.get(index) ?? "";
-      const localBindMatrix =
-        garmentBindPoseByName.get(name) ?? hipsBindMatrix;
-      return avatarScene.matrixWorld.clone().multiply(localBindMatrix);
+      return (garmentBindPoseByName.get(name) ?? hipsBindMatrix).clone();
     },
   );
+  const boneBindWorldMatrices = boneBindLocalMatrices.map((localBindMatrix) =>
+    avatarScene.matrixWorld.clone().multiply(localBindMatrix),
+  );
+  const retargeted = retargetGarmentVerticesToAvatarBindPose({
+    positions: meshData.positions,
+    normals: meshData.normals,
+    boneIndices: meshData.boneIndices,
+    boneWeights: meshData.boneWeights,
+    sourceBindWorldMatrices: sourceBoneMatrices,
+    targetBindWorldMatrices: boneBindLocalMatrices,
+  });
   const geometry = new THREE.BufferGeometry();
   geometry.setAttribute(
     "position",
     new THREE.BufferAttribute(
       applyGarmentSurfaceOffset(
-        fitted.positions,
-        meshData.normals,
+        retargeted.positions,
+        retargeted.normals,
         outfit.surfaceOffset ?? 0,
       ),
       3,
     ),
   );
-  geometry.setAttribute("normal", new THREE.BufferAttribute(meshData.normals, 3));
+  geometry.setAttribute("normal", new THREE.BufferAttribute(retargeted.normals, 3));
   geometry.setAttribute("uv", new THREE.BufferAttribute(meshData.uv0, 2));
   geometry.setAttribute(
     "skinIndex",
@@ -583,13 +731,13 @@ export async function attachXwearOutfit(
     dress,
     createBindPoseSkeleton(bones, boneBindWorldMatrices),
   );
-  setVrmBaseClothingVisible(avatarScene, false);
+  setVrmBaseClothingVisible(
+    avatarScene,
+    false,
+    outfit.slots.replaces,
+  );
   console.log(
     ` 🎮 [companion-wardrobe-lab] downloaded_outfit applied outfit=${outfit.id} vertices=${meshData.vertexCount} fit_scale=${fitted.scale.toFixed(4)} surface_offset=${outfit.surfaceOffset ?? 0}`,
   );
   return dress;
-}
-
-export function attachSleevelessDress(avatarScene: THREE.Object3D) {
-  return attachXwearOutfit(avatarScene, SLEEVELESS_DRESS_OUTFIT);
 }

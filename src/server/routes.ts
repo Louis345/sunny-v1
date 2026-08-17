@@ -1529,6 +1529,8 @@ export function setupRoutes(app: Express): void {
       const activityRequests = [...activityByToolUseId.values()].filter(
         (request): request is NonNullable<typeof request> => Boolean(request),
       );
+      const requireGeneratedSpeech =
+        talk.shoppingEvent?.type === "try_on_started";
       let text = extractAnthropicText(msg);
       const shouldRunToolFollowup = shouldRunShowroomToolFollowup({
         isActivityReaction: Boolean(talk.activityReaction),
@@ -1549,7 +1551,9 @@ export function setupRoutes(app: Express): void {
                 accepted: Boolean(command),
                 commandType: command?.type ?? null,
                 instruction:
-                  talk.activityReaction
+                  requireGeneratedSpeech
+                    ? "Try-on reactions require one short in-character spoken opinion grounded in the code-owned shopping verdict. Do not include stage directions."
+                    : talk.activityReaction
                     ? "Activity reactions need audible companionship. Answer with one short in-character line the companion should say aloud about this tic-tac-toe moment. Do not include stage directions."
                     : "If spoken words add value, answer with the exact short words the companion should say aloud. If the visual action is enough, return an empty string. Do not include stage directions.",
               }),
@@ -1600,7 +1604,14 @@ export function setupRoutes(app: Express): void {
       const spokenText = resolveShowroomSpokenText({
         rawText: text,
         companionCommandCount: companionCommands.length + activityRequests.length,
+        requireGeneratedSpeech,
       });
+      if (requireGeneratedSpeech && !spokenText) {
+        console.error(
+          ` 🎮 [showroom-talk] generated_try_on_reaction_missing child=${talk.childId} companion=${talk.companionId} item=${talk.shoppingEvent?.itemId ?? "unknown"}`,
+        );
+        return res.status(502).json({ error: "generated_try_on_reaction_missing" });
+      }
       let audioBase64: string | undefined;
       let audioContentType: string | undefined;
       if (shouldSynthesizeShowroomSpeech(spokenText, apiKey)) {

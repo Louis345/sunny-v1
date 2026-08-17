@@ -78,7 +78,6 @@ describe("wardrobe store domain", () => {
       "royal-crown",
       "cat-ears",
       "star-halo",
-      "galaxy-hero",
       "sleeveless-dress",
     ]);
     expect(keflaItems.map((item) => item.id)).toEqual([
@@ -86,6 +85,22 @@ describe("wardrobe store domain", () => {
       "cat-ears",
       "star-halo",
     ]);
+  });
+
+  it("admits only skinned XWear assets as sellable clothing", () => {
+    const outfits = WARDROBE_STORE_CATALOG.filter(
+      (item) => item.asset.kind === "outfit",
+    );
+
+    expect(outfits.map((item) => item.name)).toEqual(["Navy Ribbon Dress"]);
+    expect(
+      outfits.every(
+        (item) => item.asset.kind === "outfit" && item.asset.fit === "skinned_xwear",
+      ),
+    ).toBe(true);
+    expect(WARDROBE_STORE_CATALOG.some((item) => item.id === "galaxy-hero")).toBe(false);
+    expect(WARDROBE_STORE_CATALOG.some((item) => item.id === "comet-hoodie")).toBe(false);
+    expect(WARDROBE_STORE_CATALOG.some((item) => item.id === "celtic-sweater")).toBe(false);
   });
 
   it("records one immutable debit and grants ownership exactly once", () => {

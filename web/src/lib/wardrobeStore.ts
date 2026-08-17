@@ -1,5 +1,7 @@
 export type WardrobeAccessoryId = "none" | "crown" | "cat-ears" | "halo";
-export type WardrobeOutfitId = "none" | "galaxy-hero" | "sleeveless-dress";
+export type WardrobeOutfitId =
+  | "none"
+  | "sleeveless-dress";
 
 export type WardrobeSelection = {
   accessoryId: WardrobeAccessoryId;
@@ -14,6 +16,7 @@ type WardrobeAsset =
   | {
       kind: "outfit";
       outfitId: Exclude<WardrobeOutfitId, "none">;
+      fit: "skinned_xwear";
     };
 
 type WardrobeCompatibility =
@@ -59,24 +62,16 @@ export const WARDROBE_STORE_CATALOG: readonly WardrobeStoreItem[] = [
     compatibility: { kind: "universal" },
   },
   {
-    id: "galaxy-hero",
-    name: "Galaxy Hero Outfit",
-    icon: "🌌",
-    price: 40,
-    styleTags: ["celestial", "bold", "purple", "heroic"],
-    asset: { kind: "outfit", outfitId: "galaxy-hero" },
-    compatibility: {
-      kind: "approved_models",
-      modelUrls: ["/companions/sample.vrm"],
-    },
-  },
-  {
     id: "sleeveless-dress",
-    name: "Downloaded Dress",
+    name: "Navy Ribbon Dress",
     icon: "👗",
     price: 60,
-    styleTags: ["elegant", "blue", "classic", "dress"],
-    asset: { kind: "outfit", outfitId: "sleeveless-dress" },
+    styleTags: ["elegant", "navy", "classic", "ribbon"],
+    asset: {
+      kind: "outfit",
+      outfitId: "sleeveless-dress",
+      fit: "skinned_xwear",
+    },
     compatibility: {
       kind: "approved_models",
       modelUrls: ["/companions/sample.vrm"],

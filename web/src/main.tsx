@@ -10,10 +10,12 @@ import { VisualExplainerRenderRoute } from "./components/VisualExplainer/VisualE
 import { TransitionProvider } from "./context/TransitionContext";
 import { resolveSunnyRuntimeConfig } from "../../src/shared/runtimeConfig";
 import { ReturnedWorkPage } from "./components/ReturnedWorkPage";
+import { CompanionShowroomPage } from "./CompanionShowroomPage";
 
 const runtimeConfig = resolveSunnyRuntimeConfig(import.meta.env);
 const diagReadingEnabled = import.meta.env.VITE_DIAG_READING === "true";
 const companionDiagEnabled = import.meta.env.VITE_COMPANION_DIAG === "true";
+const companionShowroomEnabled = import.meta.env.VITE_MODE === "intro";
 const visualExplainerRenderEnabled = window.location.pathname === "/__render";
 const returnedWorkEnabled = window.location.pathname === "/parent/returned-work";
 const returnedWorkChildId = new URLSearchParams(window.location.search).get("child")?.trim().toLowerCase() || "reina";
@@ -29,7 +31,9 @@ const visualExplainerMapDemoEnabled =
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <TransitionProvider>
-      {returnedWorkEnabled ? (
+      {companionShowroomEnabled ? (
+        <CompanionShowroomPage />
+      ) : returnedWorkEnabled ? (
         <ReturnedWorkPage childId={returnedWorkChildId} />
       ) : visualExplainerRenderEnabled ? (
         <VisualExplainerRenderRoute />

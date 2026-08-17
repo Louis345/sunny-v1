@@ -513,6 +513,7 @@ describe("companion showroom talk contract", () => {
       showroomTheme: "crystal",
       personality: "Warm, expressive, and honest about her preferences.",
       mode: "video_call",
+      shoppingEvent: { type: "try_on_started", itemId: "royal-crown" },
       shoppingContext: {
         mode: "try_on",
         visitId: "visit-elli-prompt",
@@ -545,6 +546,8 @@ describe("companion showroom talk contract", () => {
     expect(prompt).toContain("wearing the selected item in the try-on view");
     expect(prompt).toContain("Code-owned companion verdict: reject");
     expect(prompt).toContain("cannot be bought-and-worn or equipped");
+    expect(prompt).toContain("Always include one short spoken reaction");
+    expect(prompt).not.toContain("silence or a gesture feels more natural");
   });
 
   it("keeps an active game as background when the child is just socializing", () => {
@@ -1059,6 +1062,13 @@ describe("companion showroom talk contract", () => {
       resolveShowroomSpokenText({
         rawText: "",
         companionCommandCount: 0,
+        requireGeneratedSpeech: true,
+      }),
+    ).toBe("");
+    expect(
+      resolveShowroomSpokenText({
+        rawText: "",
+        companionCommandCount: 0,
       }),
     ).toBe("I'm here with you. Let's keep going.");
   });
@@ -1118,6 +1128,19 @@ describe("companion showroom talk contract", () => {
     expect(routeSource).toContain("toolFollowupMs");
     expect(routeSource).toContain("ttsMs");
     expect(routeSource).toContain("latencySpans");
+  });
+
+  it("requires provider-authored try-on speech after a tool-only response and never substitutes generic fallback copy", () => {
+    const routeSource = readFileSync(resolve(__dirname, "routes.ts"), "utf8");
+
+    expect(routeSource).toContain(
+      'talk.shoppingEvent?.type === "try_on_started"',
+    );
+    expect(routeSource).toContain(
+      "Try-on reactions require one short in-character spoken opinion",
+    );
+    expect(routeSource).toContain("requireGeneratedSpeech");
+    expect(routeSource).toContain("generated_try_on_reaction_missing");
   });
 
 });

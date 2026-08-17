@@ -49,7 +49,10 @@ describe("WardrobeStoreLab shopping call", () => {
     expect(screen.queryByLabelText("Talk with Elli")).toBeNull();
     expect(screen.getByRole("complementary", { name: "Shop items" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "View Royal Crown, 20 coins" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "View Downloaded Dress, 60 coins" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "View Navy Ribbon Dress, 60 coins" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /Blue Celtic Sweater/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Galaxy Hero Outfit/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Comet Hoodie/ })).toBeNull();
     expect(screen.queryByRole("heading", { name: "The Lantern Room" })).toBeNull();
   });
 
@@ -60,7 +63,7 @@ describe("WardrobeStoreLab shopping call", () => {
     const renderCompanion = vi.fn((view: "full_body" | "portrait") => (
       <div data-testid="companion-vrm">{view} VRM</div>
     ));
-    render(
+    const { rerender } = render(
       <WardrobeStoreLab
         companion={companion}
         companionPreview={renderCompanion}
@@ -75,21 +78,47 @@ describe("WardrobeStoreLab shopping call", () => {
     expect(renderCompanion).toHaveBeenLastCalledWith("full_body");
 
     fireEvent.click(
-      screen.getByRole("button", { name: "View Downloaded Dress, 60 coins" }),
+      screen.getByRole("button", { name: "View Navy Ribbon Dress, 60 coins" }),
     );
     expect(renderCompanion).toHaveBeenLastCalledWith("portrait");
     expect(screen.getByLabelText("Elli live")).toContainElement(
       screen.getByTestId("companion-vrm"),
     );
-    expect(screen.getByText("That one definitely caught my eye.")).toBeTruthy();
+    expect(screen.queryByLabelText("Elli is thinking")).toBeNull();
+    expect(screen.queryByText("That one definitely caught my eye.")).toBeNull();
+    expect(onCompanionReaction).not.toHaveBeenCalled();
+
+    rerender(
+      <WardrobeStoreLab
+        companion={companion}
+        companionPreview={renderCompanion}
+        call={{ ...call, talkPhase: "thinking" }}
+        onWardrobeChange={onWardrobeChange}
+        onCompanionReaction={onCompanionReaction}
+        onExit={vi.fn()}
+        visitSeed="ui-flow"
+      />,
+    );
+    expect(screen.getByLabelText("Elli is thinking")).toBeTruthy();
+    expect(screen.queryByText("That one definitely caught my eye.")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Talk to Elli by voice" }));
+    expect(call.onAskVoice).toHaveBeenCalledTimes(0);
+    expect(onCompanionReaction).not.toHaveBeenCalled();
+
+    rerender(
+      <WardrobeStoreLab
+        companion={companion}
+        companionPreview={renderCompanion}
+        call={call}
+        onWardrobeChange={onWardrobeChange}
+        onCompanionReaction={onCompanionReaction}
+        onExit={vi.fn()}
+        visitSeed="ui-flow"
+      />,
+    );
     fireEvent.click(screen.getByRole("button", { name: "Talk to Elli by voice" }));
     expect(call.onAskVoice).toHaveBeenCalledTimes(1);
-    expect(onCompanionReaction).toHaveBeenLastCalledWith(
-      { type: "item_reviewed", itemId: "sleeveless-dress" },
-      expect.objectContaining({ mode: "review" }),
-    );
-
-    fireEvent.click(screen.getByRole("button", { name: "Try on Downloaded Dress" }));
+    fireEvent.click(screen.getByRole("button", { name: "Try on Navy Ribbon Dress" }));
 
     expect(renderCompanion).toHaveBeenLastCalledWith("full_body");
     expect(screen.getByLabelText("Elli try-on stage")).toContainElement(
@@ -103,7 +132,7 @@ describe("WardrobeStoreLab shopping call", () => {
         mode: "try_on",
         selectedItem: expect.objectContaining({
           id: "sleeveless-dress",
-          name: "Downloaded Dress",
+          name: "Navy Ribbon Dress",
         }),
       }),
     );
@@ -111,6 +140,49 @@ describe("WardrobeStoreLab shopping call", () => {
       accessoryId: "none",
       outfitId: "sleeveless-dress",
     });
+
+    rerender(
+      <WardrobeStoreLab
+        companion={companion}
+        companionPreview={renderCompanion}
+        call={{
+          ...call,
+          talkPhase: "speaking",
+          responseText: "The navy ribbon is lovely, but it is not my mood today.",
+        }}
+        onWardrobeChange={onWardrobeChange}
+        onCompanionReaction={onCompanionReaction}
+        onExit={vi.fn()}
+        visitSeed="ui-flow"
+      />,
+    );
+    expect(screen.getByLabelText("Elli’s generated opinion")).toHaveTextContent(
+      "The navy ribbon is lovely, but it is not my mood today.",
+    );
+  });
+
+  it("shows an explicit provider failure on the try-on stage instead of looking canned", () => {
+    render(
+      <WardrobeStoreLab
+        companion={companion}
+        companionPreview={<div data-testid="companion-vrm">full body VRM</div>}
+        call={{
+          ...createCallProps(),
+          error: "Live companion voice is unavailable.",
+        }}
+        onWardrobeChange={vi.fn()}
+        onExit={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "View Navy Ribbon Dress, 60 coins" }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Try on Navy Ribbon Dress" }));
+
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Live companion voice is unavailable.",
+    );
   });
 
   it("keeps purchase arithmetic and confirmation inside the same shopping screen", () => {
@@ -182,7 +254,7 @@ describe("WardrobeStoreLab shopping call", () => {
       />,
     );
 
-    expect(screen.queryByRole("button", { name: /Downloaded Dress/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Navy Ribbon Dress/ })).toBeNull();
     expect(screen.getByRole("button", { name: "View Royal Crown, 20 coins" })).toBeTruthy();
   });
 
@@ -232,7 +304,7 @@ describe("WardrobeStoreLab shopping call", () => {
     );
   });
 
-  it("keeps provider failures concise without hiding the code-owned opinion", () => {
+  it("does not turn provider failures into portrait dialogue", () => {
     render(
       <WardrobeStoreLab
         companion={companion}
@@ -249,9 +321,8 @@ describe("WardrobeStoreLab shopping call", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "View Royal Crown, 20 coins" }));
 
-    expect(screen.getByRole("alert")).toHaveTextContent(
-      "Elli could not answer out loud, but her opinion is still active.",
-    );
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(screen.queryByLabelText("Elli is thinking")).toBeNull();
     expect(screen.queryByText(/provider billing response/)).toBeNull();
   });
 

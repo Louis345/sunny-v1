@@ -377,10 +377,6 @@ export function WardrobeStoreLab({
     setConfirmation(null);
     setStatusMessage(null);
     const context = contextFor(item, "review", nextState);
-    onCompanionReaction?.(
-      { type: "item_reviewed", itemId: item.id },
-      context,
-    );
     console.log(
       ` 🎮 [wardrobe-store-lab] item_reviewed companion=${companion.id} item=${item.id} mood=${shoppingVisit.mood.id} verdict=${context.selectedItem?.opinionVerdict ?? "none"}`,
     );
@@ -623,7 +619,7 @@ export function WardrobeStoreLab({
                 <h2>What should we look at?</h2>
                 <p>
                   {companion.name} feels {shoppingVisit.mood.label} today. Pick an
-                  item from the shop to hear a first impression.
+                  item from the shop, then try it on to hear an honest opinion.
                 </p>
               </div>
             </div>
@@ -672,17 +668,22 @@ export function WardrobeStoreLab({
                   {renderCompanionPreview(companionPreview, "portrait") ?? (
                     <div className="wardrobe-store-lab__preview-missing">VRM portrait</div>
                   )}
+                  {call?.talkPhase === "thinking" ? (
+                    <div
+                      aria-label={`${companion.name} is thinking`}
+                      className="wardrobe-store-lab__thinking-bubble"
+                      role="status"
+                    >
+                      <span aria-hidden />
+                      <span aria-hidden />
+                      <span aria-hidden />
+                    </div>
+                  ) : null}
                 </div>
                 <div className="wardrobe-store-lab__companion-portrait-status">
                   <strong><i aria-hidden /> {companion.name} Live</strong>
                   <span>{callStatus}</span>
                 </div>
-                {call?.responseText ? <p aria-live="polite">{call.responseText}</p> : null}
-                {call?.error ? (
-                  <p role="alert">
-                    {companion.name} could not answer out loud, but her opinion is still active.
-                  </p>
-                ) : null}
                 {call ? (
                   <button
                     type="button"
@@ -706,6 +707,28 @@ export function WardrobeStoreLab({
                 {renderCompanionPreview(companionPreview, "full_body") ?? (
                   <div className="wardrobe-store-lab__preview-missing">Full-body VRM preview</div>
                 )}
+                {call?.talkPhase === "thinking" ? (
+                  <div
+                    aria-label={`${companion.name} is thinking`}
+                    className="wardrobe-store-lab__thinking-bubble"
+                    role="status"
+                  >
+                    <span aria-hidden />
+                    <span aria-hidden />
+                    <span aria-hidden />
+                  </div>
+                ) : call?.error ? (
+                  <div className="wardrobe-store-lab__reaction-error" role="alert">
+                    {call.error}
+                  </div>
+                ) : call?.responseText ? (
+                  <div
+                    aria-label={`${companion.name}’s generated opinion`}
+                    className="wardrobe-store-lab__reaction-bubble"
+                  >
+                    {call.responseText}
+                  </div>
+                ) : null}
               </div>
               <div className="wardrobe-store-lab__try-on-copy">
                 <div>

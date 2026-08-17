@@ -905,16 +905,15 @@ export function buildShowroomTalkSystemPrompt(input: {
   if (input.shoppingEvent?.type === "item_reviewed") {
     lines.push(
       `Live store event: the child selected item id=${input.shoppingEvent.itemId} for review.`,
-      "Give a brief first impression grounded in the code-owned mood and verdict. Prefer one expressive companionAct gesture and at most one short sentence.",
+      "Always include one short spoken reaction grounded in the selected item, code-owned mood, and verdict. You may also use one expressive companionAct gesture.",
       "This event came from the store UI, not from words spoken by the child. Do not pretend the child asked a question.",
     );
   }
   if (input.shoppingEvent?.type === "try_on_started") {
     lines.push(
       `Live store event: the child just tried on item id=${input.shoppingEvent.itemId}.`,
-      "React naturally to the selected item as the companion. Prefer one expressive companionAct gesture and at most one short sentence.",
+      "Always include one short spoken reaction grounded in the selected item and code-owned verdict. You may also use one expressive companionAct gesture.",
       "This event came from the store UI, not from words spoken by the child. Do not pretend the child asked a question.",
-      "Do not repeat a reaction if silence or a gesture feels more natural.",
     );
   }
   if (input.activeActivity) {
@@ -1040,10 +1039,12 @@ export function buildShowroomTalkMemoryPrompt(
 export function resolveShowroomSpokenText(input: {
   rawText: string;
   companionCommandCount: number;
+  requireGeneratedSpeech?: boolean;
 }): string {
   const trimmed = input.rawText.trim();
   if (trimmed) return trimmed;
   if (input.companionCommandCount > 0) return "";
+  if (input.requireGeneratedSpeech) return "";
   return SHOWROOM_TALK_FALLBACK_TEXT;
 }
 

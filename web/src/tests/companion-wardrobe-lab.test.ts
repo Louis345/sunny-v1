@@ -23,7 +23,27 @@ function readStoreStyles(): string {
   );
 }
 
+function readViteConfig(): string {
+  return readFileSync(resolve(__dirname, "../../vite.config.ts"), "utf8");
+}
+
+function readMainSource(): string {
+  return readFileSync(resolve(__dirname, "../main.tsx"), "utf8");
+}
+
+function readRootPackage(): string {
+  return readFileSync(resolve(__dirname, "../../../package.json"), "utf8");
+}
+
 describe("companion wardrobe feasibility lab", () => {
+  it("can pin the wardrobe sandbox to its matching backend instead of another worktree on port 3001", () => {
+    const config = readViteConfig();
+
+    expect(config).toContain("VITE_API_PROXY_TARGET");
+    expect(config).toContain('const apiProxyTarget =');
+    expect(config).toContain('target: apiProxyTarget');
+  });
+
   it("keeps the store sandbox behind the explicit wardrobe lab opt-in", () => {
     const source = readShowroomSource();
 
@@ -74,20 +94,55 @@ describe("companion wardrobe feasibility lab", () => {
     expect(source).not.toContain("receipt-backdrop");
   });
 
-  it("keeps generated review and try-on reactions without rendering a shopping chat bar", () => {
+  it("requests a generated opinion only after try-on without rendering a shopping chat bar", () => {
     const source = readShowroomSource();
     const storeSource = readStoreSource();
 
-    expect(source).toContain("openShowroomVideoChat();");
+    expect(source).toContain("openShowroomVideoChat({ handsFree: false });");
     expect(source).toContain("onMotorReady={handleVideoChatMotorReady}");
     expect(source).toContain("onShoppingContextChange=");
     expect(source).toContain("onCompanionReaction=");
     expect(source).toContain("shoppingContextOverride ?? wardrobeShoppingContext");
+    expect(storeSource).not.toContain('{ type: "item_reviewed", itemId: item.id }');
+    expect(storeSource).toContain('{ type: "try_on_started", itemId: item.id }');
     expect(storeSource).not.toContain('aria-label={`Talk to ${companion.name}`}');
     expect(storeSource).not.toContain("wardrobe-store-lab__conversation-dock");
     expect(storeSource).toContain('aria-label={`${companion.name} live`}');
     expect(storeSource).toContain('aria-label={`Talk to ${companion.name} by voice`}');
     expect(storeSource).toContain('aria-label={`${companion.name} try-on stage`}');
+    expect(storeSource).toContain('aria-label={`${companion.name}’s generated opinion`}');
+    expect(storeSource).toContain('role="alert"');
+  });
+
+  it("routes intro mode directly to the showroom before normal session hooks mount", () => {
+    const mainSource = readMainSource();
+
+    expect(mainSource).toContain(
+      'const companionShowroomEnabled = import.meta.env.VITE_MODE === "intro"',
+    );
+    expect(mainSource).toContain(
+      "companionShowroomEnabled ? (\n        <CompanionShowroomPage />",
+    );
+  });
+
+  it("provides one verified wardrobe launcher with intro mode and an explicit env source", () => {
+    const packageSource = readRootPackage();
+
+    expect(packageSource).toContain('"wardrobe:lab"');
+    expect(packageSource).toContain("VITE_MODE=intro");
+    expect(packageSource).toContain("DOTENV_CONFIG_PATH");
+    expect(packageSource).toContain("SUNNY_ENV_PATH");
+  });
+
+  it("uses explicit store microphone turns instead of hands-free audio that can overwrite item reactions", () => {
+    const source = readShowroomSource();
+
+    expect(source).toContain("openShowroomVideoChat({ handsFree: false });");
+    expect(source).toContain("disableWardrobeHandsFreeListening");
+    expect(source).toContain(
+      "(!videoChatContinuousListenRef.current && !wardrobeStoreOpen)",
+    );
+    expect(source).toContain("[wardrobe-store-lab] hands_free disabled");
   });
 
   it("removes showroom background music and its controls", () => {
@@ -100,6 +155,7 @@ describe("companion wardrobe feasibility lab", () => {
 
   it("uses responsive grid areas instead of reserving fixed portrait space", () => {
     const styles = readStoreStyles();
+    const storeSource = readStoreSource();
 
     expect(styles).toContain("grid-template-areas:");
     expect(styles).toContain("place-items: center");
@@ -115,8 +171,15 @@ describe("companion wardrobe feasibility lab", () => {
       /wardrobe-store-lab__try-on-preview[^{]*\{[^}]*position:\s*relative/s,
     );
     expect(styles).toContain("transform: scale(1.18) !important;");
-    expect(styles).toContain("transform: scale(1.45) !important;");
-    expect(styles).toContain("transform: scale(1.55) !important;");
+    expect(styles).toContain("transform: translate(7%, 18%) scale(1.28) !important;");
+    expect(styles).toContain("transform: scale(1.28) !important;");
+    expect(styles).toContain("wardrobe-store-lab__thinking-bubble");
+    expect(storeSource).toContain('aria-label={`${companion.name} is thinking`}');
+    expect(storeSource).toContain('call?.talkPhase === "thinking"');
+    expect(storeSource).toContain("{call.responseText}");
+    expect(styles).not.toContain("overflow-y: auto;\n  padding: 12px 14px;");
+    expect(styles).not.toContain("transform: scale(1.45) !important;");
+    expect(styles).not.toContain("transform: scale(1.55) !important;");
   });
 
   it("fills the dynamic viewport in the original showroom without stretching companions", () => {
@@ -175,17 +238,14 @@ describe("companion wardrobe feasibility lab", () => {
     );
   });
 
-  it("offers one segmented outfit that follows torso, hip, arm, and leg bones", () => {
+  it("does not sell rigid bone-attached primitives as clothing", () => {
     const source = readShowroomSource();
 
-    expect(source).toContain("createGalaxyHeroOutfit");
-    expect(source).toContain('getRawBoneNode("upperChest")');
-    expect(source).toContain('getRawBoneNode("hips")');
-    expect(source).toContain('getRawBoneNode("leftUpperArm")');
-    expect(source).toContain('getRawBoneNode("rightUpperArm")');
-    expect(source).toContain('getRawBoneNode("leftLowerLeg")');
-    expect(source).toContain('getRawBoneNode("rightLowerLeg")');
     expect(source).toContain("removeWardrobeOutfit");
+    expect(source).not.toContain("createGalaxyHeroOutfit");
+    expect(source).not.toContain("createCometHoodieOutfit");
+    expect(source).not.toContain('wardrobeOutfitId === "galaxy-hero"');
+    expect(source).not.toContain('wardrobeOutfitId === "comet-hoodie"');
   });
 
   it("keeps unverified downloaded outfits off incompatible character designs", () => {

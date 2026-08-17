@@ -1,12 +1,15 @@
 import { describe, expect, it } from "vitest";
 import * as THREE from "three";
 import {
+  CELTIC_SWEATER_OUTFIT,
   SLEEVELESS_DRESS_OUTFIT,
   applyGarmentSurfaceOffset,
   bindSkinnedMeshInAvatarSpace,
   createBindPoseSkeleton,
   createCurrentPoseSkeleton,
   fitGarmentToAvatarProportions,
+  getApprovedXwearOutfitDefinitions,
+  getXwearOutfitDefinition,
   isXwearCanonicalSkeletonBone,
   isXwearOutfitApprovedForAvatar,
   isXwearOutfitAnimationSupported,
@@ -14,9 +17,65 @@ import {
   resolveXwearOutfitAssetUrls,
   resolveXwearMainTextureGuids,
   resolveXwearArchiveFiles,
+  retargetGarmentVerticesToAvatarBindPose,
+  setVrmBaseClothingVisible,
 } from "../lib/xwearDress";
 
 describe("XWear avatar-space binding", () => {
+  it("resolves every sellable outfit through the skinned XWear catalog", () => {
+    expect(getXwearOutfitDefinition("sleeveless-dress")).toBe(
+      SLEEVELESS_DRESS_OUTFIT,
+    );
+    expect(getXwearOutfitDefinition("celtic-sweater")).toBe(
+      CELTIC_SWEATER_OUTFIT,
+    );
+    expect(getXwearOutfitDefinition("none")).toBeNull();
+  });
+
+  it("keeps visually rejected garments available for QA but out of the approved registry", () => {
+    expect(SLEEVELESS_DRESS_OUTFIT.slots).toEqual({
+      occupies: ["onepiece"],
+      replaces: ["top", "bottom", "onepiece"],
+    });
+    expect(SLEEVELESS_DRESS_OUTFIT.qa).toMatchObject({ status: "approved" });
+    expect(CELTIC_SWEATER_OUTFIT.slots).toEqual({
+      occupies: ["top"],
+      replaces: ["top"],
+    });
+    expect(CELTIC_SWEATER_OUTFIT.qa).toMatchObject({
+      status: "rejected",
+      reason: expect.stringContaining("silhouette"),
+    });
+    expect(getApprovedXwearOutfitDefinitions()).toEqual([
+      SLEEVELESS_DRESS_OUTFIT,
+    ]);
+    expect(
+      isXwearOutfitApprovedForAvatar(
+        CELTIC_SWEATER_OUTFIT,
+        "/companions/sample.vrm",
+      ),
+    ).toBe(false);
+  });
+
+  it("lets partial outfits replace tops without hiding the avatar's bottoms", () => {
+    const scene = new THREE.Group();
+    const top = new THREE.Mesh(
+      new THREE.BoxGeometry(),
+      new THREE.MeshBasicMaterial({ name: "Tops_sample" }),
+    );
+    const bottom = new THREE.Mesh(
+      new THREE.BoxGeometry(),
+      new THREE.MeshBasicMaterial({ name: "Bottoms_sample" }),
+    );
+    scene.add(top, bottom);
+
+    setVrmBaseClothingVisible(scene, false, ["top"]);
+
+    expect((top.material as THREE.Material).visible).toBe(false);
+    expect((bottom.material as THREE.Material).visible).toBe(true);
+    expect(CELTIC_SWEATER_OUTFIT.slots.replaces).toEqual(["top"]);
+  });
+
   it("only applies an outfit to avatar designs that passed visual fit QA", () => {
     expect(
       isXwearOutfitApprovedForAvatar(
@@ -61,6 +120,26 @@ describe("XWear avatar-space binding", () => {
     expect(fitted.positions[0]).toBeCloseTo(0.12);
     expect(fitted.positions[1]).toBeCloseTo(1.15);
     expect(fitted.positions[2]).toBeCloseTo(0.014);
+  });
+
+  it("retargets each garment vertex from its source bone into the avatar bind pose", () => {
+    const retargeted = retargetGarmentVerticesToAvatarBindPose({
+      positions: new Float32Array([1, 0, 0, 0, 1, 0]),
+      normals: new Float32Array([1, 0, 0, 0, 1, 0]),
+      boneIndices: new Uint16Array([0, 0, 0, 0, 1, 0, 0, 0]),
+      boneWeights: new Float32Array([1, 0, 0, 0, 1, 0, 0, 0]),
+      sourceBindWorldMatrices: [
+        new THREE.Matrix4(),
+        new THREE.Matrix4().makeTranslation(0, 1, 0),
+      ],
+      targetBindWorldMatrices: [
+        new THREE.Matrix4().makeTranslation(2, 0, 0),
+        new THREE.Matrix4().makeTranslation(0, 3, 0),
+      ],
+    });
+
+    expect(Array.from(retargeted.positions)).toEqual([3, 0, 0, 0, 3, 0]);
+    expect(Array.from(retargeted.normals)).toEqual([1, 0, 0, 0, 1, 0]);
   });
 
   it("derives outfit-owned helper bones from mesh bind poses", () => {
@@ -120,7 +199,12 @@ describe("XWear avatar-space binding", () => {
       meshPath: "Mesh/outfit.mesh.bin",
       resourcePath: "Body/XResources/outfit.json",
       itemPath: "Body/XItem.json/item.json",
-      unsupportedAnimations: ["sitting"],
+      slots: { occupies: ["onepiece"] as const, replaces: ["onepiece"] as const },
+      qa: {
+        status: "approved" as const,
+        approvedAvatarUrls: ["/companions/sample.vrm"],
+        unsupportedAnimations: ["sitting"],
+      },
     };
 
     expect(isXwearOutfitAnimationSupported(outfit, "wave")).toBe(true);
@@ -136,6 +220,8 @@ describe("XWear avatar-space binding", () => {
         resourcePath: "Body/XResources/outfit.json",
         itemPath: "Body/XItem.json/item.json",
         surfaceOffset: 0.003,
+        slots: { occupies: ["onepiece"], replaces: ["onepiece"] },
+        qa: { status: "candidate" },
       }),
     ).toEqual({
       meshUrl: "/wardrobe/party-dress/Mesh/outfit.mesh.bin",

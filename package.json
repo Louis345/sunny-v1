@@ -5,7 +5,9 @@
   "main": "dist/index.js",
   "scripts": {
     "build": "npx tsx scripts/generate-game-registry.ts && tsc && npm run web:build",
+    "wardrobe:lab": "concurrently --names server,web --prefix-colors green,magenta \"DOTENV_CONFIG_PATH=${SUNNY_ENV_PATH:-../sunny/.env} npx tsx src/server.ts\" \"VITE_MODE=intro npm --prefix web run dev -- --host 127.0.0.1 --port 5187\"",
     "ingest:animations": "npx tsx src/scripts/ingestAnimations.ts",
+    "ingest:wardrobe-candidate": "npx tsx src/scripts/ingestXwearCandidate.ts",
     "start": "npx tsx src/scripts/launch-kiosk.ts --no-browser",
     "dev": "npx tsx src/index.ts",
     "ila": "npx tsx src/sessions/ila.ts",
