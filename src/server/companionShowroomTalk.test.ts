@@ -15,12 +15,51 @@ import {
   shouldSynthesizeShowroomSpeech,
   shouldRunShowroomToolFollowup,
 } from "./companionShowroomTalk";
+import { resolveShowroomTalkRouteFailure } from "./routes";
 
 describe("companion showroom talk contract", () => {
   const voiceOptions = [
     { id: "voice_a", label: "Voice A", language: "en", default: true },
     { id: "voice_b", label: "Voice B", language: "en" },
   ];
+
+  it("redacts Anthropic billing failures and returns a child-safe retryable response", () => {
+    const failure = resolveShowroomTalkRouteFailure({
+      status: 400,
+      error: {
+        type: "invalid_request_error",
+        message:
+          "Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to purchase credits.",
+      },
+      request_id: "req_private_provider_id",
+    });
+
+    expect(failure).toEqual({
+      status: 503,
+      body: {
+        ok: false,
+        code: "companion_voice_temporarily_unavailable",
+        error:
+          "Your companion’s voice is taking a short break. Their choice still counts—please try again soon.",
+        retryable: true,
+      },
+    });
+    expect(JSON.stringify(failure)).not.toMatch(
+      /anthropic|credit balance|plans & billing|req_private_provider_id/i,
+    );
+
+    const routeSource = readFileSync(resolve(__dirname, "routes.ts"), "utf8");
+    const talkRouteStart = routeSource.indexOf(
+      'app.post("/api/companions/:companionId/talk"',
+    );
+    const talkRouteEnd = routeSource.indexOf(
+      'app.get("/api/child/:name/context"',
+      talkRouteStart,
+    );
+    const talkRoute = routeSource.slice(talkRouteStart, talkRouteEnd);
+    expect(talkRoute).toContain("resolveShowroomTalkRouteFailure(err)");
+    expect(talkRoute).not.toContain("error: message");
+  });
 
   it("preserves the selected companion, selected voice, room, child, and question", () => {
     const result = resolveShowroomTalkRequest(

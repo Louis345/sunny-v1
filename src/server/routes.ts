@@ -115,6 +115,31 @@ import {
   shouldSynthesizeShowroomSpeech,
   shouldRunShowroomToolFollowup,
 } from "./companionShowroomTalk";
+
+export type ShowroomTalkRouteFailure = {
+  status: 503;
+  body: {
+    ok: false;
+    code: "companion_voice_temporarily_unavailable";
+    error: string;
+    retryable: true;
+  };
+};
+
+export function resolveShowroomTalkRouteFailure(
+  _error: unknown,
+): ShowroomTalkRouteFailure {
+  return {
+    status: 503,
+    body: {
+      ok: false,
+      code: "companion_voice_temporarily_unavailable",
+      error:
+        "Your companion’s voice is taking a short break. Their choice still counts—please try again soon.",
+      retryable: true,
+    },
+  };
+}
 import {
   maybeCompactCompanionInteractionMemory,
   readCompanionCareMemoryForPrompt,
@@ -1753,8 +1778,11 @@ export function setupRoutes(app: Express): void {
         },
       });
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : String(err);
-      res.status(500).json({ ok: false, error: message });
+      const failure = resolveShowroomTalkRouteFailure(err);
+      console.error(
+        ` 🔴 [showroom-talk] [degraded] code=${failure.body.code} status=${failure.status}`,
+      );
+      res.status(failure.status).json(failure.body);
     }
   });
 
