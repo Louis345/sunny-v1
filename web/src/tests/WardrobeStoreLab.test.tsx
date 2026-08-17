@@ -156,9 +156,11 @@ describe("WardrobeStoreLab shopping call", () => {
         visitSeed="ui-flow"
       />,
     );
-    expect(screen.getByLabelText("Elli’s generated opinion")).toHaveTextContent(
-      "The navy ribbon is lovely, but it is not my mood today.",
-    );
+    expect(screen.getByLabelText("Elli is speaking")).toHaveTextContent("Speaking");
+    expect(screen.queryByLabelText("Elli’s generated opinion")).toBeNull();
+    expect(
+      screen.queryByText("The navy ribbon is lovely, but it is not my mood today."),
+    ).toBeNull();
   });
 
   it("shows an explicit provider failure on the try-on stage instead of looking canned", () => {
@@ -180,9 +182,9 @@ describe("WardrobeStoreLab shopping call", () => {
     );
     fireEvent.click(screen.getByRole("button", { name: "Try on Navy Ribbon Dress" }));
 
-    expect(screen.getByRole("alert")).toHaveTextContent(
-      "Live companion voice is unavailable.",
-    );
+    expect(screen.getByRole("alert")).toHaveAccessibleName("Elli is unavailable");
+    expect(screen.getByRole("alert")).toHaveTextContent("Unavailable");
+    expect(screen.queryByText("Live companion voice is unavailable.")).toBeNull();
   });
 
   it("keeps purchase arithmetic and confirmation inside the same shopping screen", () => {
@@ -304,7 +306,7 @@ describe("WardrobeStoreLab shopping call", () => {
     );
   });
 
-  it("does not turn provider failures into portrait dialogue", () => {
+  it("turns provider failures into a safe portrait state instead of dialogue", () => {
     render(
       <WardrobeStoreLab
         companion={companion}
@@ -321,7 +323,9 @@ describe("WardrobeStoreLab shopping call", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "View Royal Crown, 20 coins" }));
 
-    expect(screen.queryByRole("alert")).toBeNull();
+    expect(
+      screen.getByRole("alert", { name: "Elli is unavailable" }),
+    ).toHaveTextContent("Unavailable");
     expect(screen.queryByLabelText("Elli is thinking")).toBeNull();
     expect(screen.queryByText(/provider billing response/)).toBeNull();
   });
@@ -365,6 +369,8 @@ describe("WardrobeStoreLab shopping call", () => {
     );
 
     expect(screen.getByText("Not for me today")).toBeTruthy();
+    expect(screen.queryByText("Elli would rather keep looking.")).toBeNull();
+    expect(screen.queryByText("Saving it does not spend any coins.")).toBeNull();
     expect(screen.queryByRole("button", { name: /Buy and wear/ })).toBeNull();
     expect(screen.getByText("100 demo coins")).toBeTruthy();
     expect(screen.getByRole("button", { name: /Save .* for later/ })).toBeTruthy();

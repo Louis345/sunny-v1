@@ -110,8 +110,10 @@ describe("companion wardrobe feasibility lab", () => {
     expect(storeSource).toContain('aria-label={`${companion.name} live`}');
     expect(storeSource).toContain('aria-label={`Talk to ${companion.name} by voice`}');
     expect(storeSource).toContain('aria-label={`${companion.name} try-on stage`}');
-    expect(storeSource).toContain('aria-label={`${companion.name}’s generated opinion`}');
-    expect(storeSource).toContain('role="alert"');
+    expect(storeSource).toContain('aria-label={`${companionName} is ${state}`}');
+    expect(storeSource).not.toContain('aria-label={`${companion.name}’s generated opinion`}');
+    expect(storeSource).not.toContain("{call.responseText}");
+    expect(storeSource).toContain('role={state === "unavailable" ? "alert" : "status"}');
   });
 
   it("routes intro mode directly to the showroom before normal session hooks mount", () => {
@@ -173,10 +175,13 @@ describe("companion wardrobe feasibility lab", () => {
     expect(styles).toContain("transform: scale(1.18) !important;");
     expect(styles).toContain("transform: translate(7%, 18%) scale(1.28) !important;");
     expect(styles).toContain("transform: scale(1.28) !important;");
-    expect(styles).toContain("wardrobe-store-lab__thinking-bubble");
-    expect(storeSource).toContain('aria-label={`${companion.name} is thinking`}');
-    expect(storeSource).toContain('call?.talkPhase === "thinking"');
-    expect(storeSource).toContain("{call.responseText}");
+    expect(styles).toContain("wardrobe-store-lab__companion-state");
+    expect(storeSource).toContain('type WardrobeCompanionState =');
+    expect(storeSource).toContain('| "thinking"');
+    expect(storeSource).toContain('| "speaking"');
+    expect(storeSource).toContain('| "unavailable"');
+    expect(storeSource).toContain("<CompanionStateBubble");
+    expect(storeSource).not.toContain("{call.responseText}");
     expect(styles).not.toContain("overflow-y: auto;\n  padding: 12px 14px;");
     expect(styles).not.toContain("transform: scale(1.45) !important;");
     expect(styles).not.toContain("transform: scale(1.55) !important;");

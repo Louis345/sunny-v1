@@ -71,6 +71,36 @@ export type WardrobeStoreCall = {
   onAskVoice: () => void;
 };
 
+type WardrobeCompanionState =
+  | "ready"
+  | "listening"
+  | "thinking"
+  | "speaking"
+  | "unavailable";
+
+function CompanionStateBubble({
+  companionName,
+  state,
+  view,
+}: {
+  companionName: string;
+  state: WardrobeCompanionState;
+  view: "portrait" | "full-body";
+}) {
+  if (state === "ready") return null;
+  const label = state[0]?.toUpperCase() + state.slice(1);
+  return (
+    <div
+      aria-label={`${companionName} is ${state}`}
+      className={`wardrobe-store-lab__companion-state is-${view} is-${state}`}
+      role={state === "unavailable" ? "alert" : "status"}
+    >
+      <span aria-hidden>{state === "thinking" ? "•••" : state === "speaking" ? "◖))" : "●"}</span>
+      <strong>{label}</strong>
+    </div>
+  );
+}
+
 export type WardrobeStoreLabProps = {
   companion: WardrobeStoreCompanion;
   companionPreview?:
@@ -570,6 +600,9 @@ export function WardrobeStoreLab({
         : call?.talkPhase === "speaking"
           ? "speaking"
           : "ready";
+  const companionState: WardrobeCompanionState = call?.error
+    ? "unavailable"
+    : callStatus;
   const opinionLabel =
     selectedOpinion?.verdict === "love"
       ? "I love this"
@@ -668,17 +701,11 @@ export function WardrobeStoreLab({
                   {renderCompanionPreview(companionPreview, "portrait") ?? (
                     <div className="wardrobe-store-lab__preview-missing">VRM portrait</div>
                   )}
-                  {call?.talkPhase === "thinking" ? (
-                    <div
-                      aria-label={`${companion.name} is thinking`}
-                      className="wardrobe-store-lab__thinking-bubble"
-                      role="status"
-                    >
-                      <span aria-hidden />
-                      <span aria-hidden />
-                      <span aria-hidden />
-                    </div>
-                  ) : null}
+                  <CompanionStateBubble
+                    companionName={companion.name}
+                    state={companionState}
+                    view="portrait"
+                  />
                 </div>
                 <div className="wardrobe-store-lab__companion-portrait-status">
                   <strong><i aria-hidden /> {companion.name} Live</strong>
@@ -707,28 +734,11 @@ export function WardrobeStoreLab({
                 {renderCompanionPreview(companionPreview, "full_body") ?? (
                   <div className="wardrobe-store-lab__preview-missing">Full-body VRM preview</div>
                 )}
-                {call?.talkPhase === "thinking" ? (
-                  <div
-                    aria-label={`${companion.name} is thinking`}
-                    className="wardrobe-store-lab__thinking-bubble"
-                    role="status"
-                  >
-                    <span aria-hidden />
-                    <span aria-hidden />
-                    <span aria-hidden />
-                  </div>
-                ) : call?.error ? (
-                  <div className="wardrobe-store-lab__reaction-error" role="alert">
-                    {call.error}
-                  </div>
-                ) : call?.responseText ? (
-                  <div
-                    aria-label={`${companion.name}’s generated opinion`}
-                    className="wardrobe-store-lab__reaction-bubble"
-                  >
-                    {call.responseText}
-                  </div>
-                ) : null}
+                <CompanionStateBubble
+                  companionName={companion.name}
+                  state={companionState}
+                  view="full-body"
+                />
               </div>
               <div className="wardrobe-store-lab__try-on-copy">
                 <div>
@@ -748,12 +758,8 @@ export function WardrobeStoreLab({
                   </p>
                 </div>
                 <div className="wardrobe-store-lab__try-on-actions">
-                  {!selectedOpinion?.companionConsentsToWear ? (
-                    <div className="wardrobe-store-lab__refusal" role="status">
-                      <strong>{companion.name} would rather keep looking.</strong>
-                      <span>Saving it does not spend any coins.</span>
-                    </div>
-                  ) : storeState.ownedItemIds.includes(selectedItem.id) ? (
+                  {selectedOpinion?.companionConsentsToWear &&
+                  storeState.ownedItemIds.includes(selectedItem.id) ? (
                     <button
                       type="button"
                       className="is-primary"
@@ -761,7 +767,7 @@ export function WardrobeStoreLab({
                     >
                       Wear from closet
                     </button>
-                  ) : (
+                  ) : selectedOpinion?.companionConsentsToWear ? (
                     <button
                       type="button"
                       className="is-primary"
@@ -771,7 +777,7 @@ export function WardrobeStoreLab({
                     >
                       Buy &amp; wear · {selectedItem.price}
                     </button>
-                  )}
+                  ) : null}
                   <button
                     type="button"
                     aria-label={`Save ${selectedItem.name} for later`}

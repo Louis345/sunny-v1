@@ -350,82 +350,66 @@
   transform-origin: 50% 50% !important;
 }
 
-.wardrobe-store-lab__thinking-bubble {
+.wardrobe-store-lab__companion-state {
   position: absolute;
-  top: 20px;
-  left: 50%;
-  z-index: 2;
-  width: 64px;
-  height: 42px;
-  display: flex;
+  top: clamp(30px, 12%, 76px);
+  left: calc(50% + clamp(42px, 5vw, 78px));
+  z-index: 4;
+  min-height: 36px;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 5px;
+  gap: 8px;
+  padding: 7px 12px;
   border: 1px solid rgba(75, 59, 83, 0.13);
-  border-radius: 999px;
+  border-radius: 16px 16px 16px 5px;
   background: rgba(255, 253, 249, 0.96);
+  color: #4b3b53;
   box-shadow: 0 12px 30px rgba(58, 41, 61, 0.14);
-  transform: translateX(-50%);
+  font-size: 11px;
+  white-space: nowrap;
 }
 
-.wardrobe-store-lab__thinking-bubble::before,
-.wardrobe-store-lab__thinking-bubble::after {
+.wardrobe-store-lab__companion-state.is-portrait {
+  top: 14px;
+  right: 12px;
+  left: auto;
+}
+
+.wardrobe-store-lab__companion-state::after {
   position: absolute;
   content: "";
-  border-radius: 50%;
-  background: rgba(255, 253, 249, 0.96);
-  box-shadow: 0 5px 12px rgba(58, 41, 61, 0.1);
+  left: -7px;
+  bottom: -5px;
+  width: 12px;
+  height: 12px;
+  border: inherit;
+  border-top: 0;
+  border-right: 0;
+  background: inherit;
+  transform: rotate(-18deg) skew(-12deg);
 }
 
-.wardrobe-store-lab__thinking-bubble::before {
-  right: 8px;
-  bottom: -10px;
-  width: 10px;
-  height: 10px;
+.wardrobe-store-lab__companion-state > span {
+  min-width: 22px;
+  color: #6c5a79;
+  font-size: 11px;
+  font-weight: 950;
+  letter-spacing: 1px;
+  text-align: center;
 }
 
-.wardrobe-store-lab__thinking-bubble::after {
-  right: 2px;
-  bottom: -18px;
-  width: 6px;
-  height: 6px;
+.wardrobe-store-lab__companion-state > strong {
+  font-size: 11px;
+  font-weight: 900;
 }
 
-.wardrobe-store-lab__thinking-bubble > span {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #6c5a79;
+.wardrobe-store-lab__companion-state.is-thinking > span,
+.wardrobe-store-lab__companion-state.is-speaking > span {
   animation: wardrobe-store-thinking-dot 1s ease-in-out infinite;
 }
 
-.wardrobe-store-lab__thinking-bubble > span:nth-child(2) {
-  animation-delay: 0.14s;
-}
-
-.wardrobe-store-lab__thinking-bubble > span:nth-child(3) {
-  animation-delay: 0.28s;
-}
-
-.wardrobe-store-lab__reaction-bubble,
-.wardrobe-store-lab__reaction-error {
-  position: absolute;
-  top: clamp(20px, 5vh, 54px);
-  right: clamp(18px, 4vw, 52px);
-  z-index: 3;
-  width: min(42%, 340px);
-  padding: 14px 16px;
-  border: 1px solid rgba(75, 59, 83, 0.14);
-  border-radius: 20px 20px 5px 20px;
-  background: rgba(255, 253, 249, 0.96);
-  color: #3f3548;
-  box-shadow: 0 16px 36px rgba(58, 41, 61, 0.16);
-  font-size: clamp(12px, 1.3vw, 16px);
-  font-weight: 750;
-  line-height: 1.4;
-}
-
-.wardrobe-store-lab__reaction-error {
+.wardrobe-store-lab__companion-state.is-unavailable {
   border-color: rgba(153, 70, 57, 0.24);
   background: rgba(255, 242, 238, 0.97);
   color: #823f35;
@@ -566,25 +550,6 @@
 .wardrobe-store-lab__opinion.is-love {
   background: #e6f3df;
   color: #456d38;
-}
-
-.wardrobe-store-lab__refusal {
-  min-height: 48px;
-  display: grid;
-  align-content: center;
-  gap: 2px;
-  padding: 7px 12px;
-  border-radius: 14px;
-  background: #f7e8e5;
-  color: #7f3e36;
-}
-
-.wardrobe-store-lab__refusal strong {
-  font-size: 12px;
-}
-
-.wardrobe-store-lab__refusal span {
-  font-size: 10px;
 }
 
 .wardrobe-store-lab__try-on-actions {
