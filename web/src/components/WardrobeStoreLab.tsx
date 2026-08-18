@@ -109,14 +109,31 @@ export type WardrobeStoreLabProps = {
   call?: WardrobeStoreCall;
   onWardrobeChange: (selection: WardrobeSelection) => void;
   onShoppingContextChange?: (context: WardrobeShoppingContext) => void;
-  onCompanionReaction?: (
-    event: WardrobeShoppingEvent,
-    context: WardrobeShoppingContext,
-  ) => void;
   onExit: () => void;
   exitLabel?: string;
   visitSeed?: string;
 };
+
+function CompanionVoiceButton({
+  call,
+  companionName,
+}: {
+  call: WardrobeStoreCall | undefined;
+  companionName: string;
+}) {
+  if (!call) return null;
+  return (
+    <button
+      type="button"
+      className="wardrobe-store-lab__voice-button"
+      aria-label={`Talk to ${companionName} by voice`}
+      disabled={call.talkPhase === "thinking" || call.talkPhase === "speaking"}
+      onClick={call.onAskVoice}
+    >
+      <span aria-hidden>🎙</span> Talk
+    </button>
+  );
+}
 
 type ShopMode = "entrance" | "review" | "try-on";
 type ShopFilter = "all" | "accessories" | "outfits";
@@ -240,7 +257,6 @@ export function WardrobeStoreLab({
   call,
   onWardrobeChange,
   onShoppingContextChange,
-  onCompanionReaction,
   onExit,
   exitLabel = "Back to the call",
   visitSeed,
@@ -426,12 +442,8 @@ export function WardrobeStoreLab({
     setStatusMessage(null);
     onWardrobeChange(previewSelection(nextState, companion, item));
     const context = contextFor(item, "try_on", nextState);
-    onCompanionReaction?.(
-      { type: "try_on_started", itemId: item.id },
-      context,
-    );
     console.log(
-      ` 🎮 [wardrobe-store-lab] try_on opened companion=${companion.id} item=${item.id} mood=${shoppingVisit.mood.id} verdict=${context.selectedItem?.opinionVerdict ?? "none"}`,
+      ` 🎮 [wardrobe-store-lab] try_on opened companion=${companion.id} item=${item.id} mood=${shoppingVisit.mood.id} verdict=${context.selectedItem?.opinionVerdict ?? "none"} conversation=waiting_for_child`,
     );
   };
 
@@ -711,16 +723,7 @@ export function WardrobeStoreLab({
                   <strong><i aria-hidden /> {companion.name} Live</strong>
                   <span>{callStatus}</span>
                 </div>
-                {call ? (
-                  <button
-                    type="button"
-                    aria-label={`Talk to ${companion.name} by voice`}
-                    disabled={call.talkPhase === "thinking" || call.talkPhase === "speaking"}
-                    onClick={call.onAskVoice}
-                  >
-                    <span aria-hidden>🎙</span> Talk
-                  </button>
-                ) : null}
+                <CompanionVoiceButton call={call} companionName={companion.name} />
               </aside>
             </div>
           )}
@@ -758,6 +761,7 @@ export function WardrobeStoreLab({
                   </p>
                 </div>
                 <div className="wardrobe-store-lab__try-on-actions">
+                  <CompanionVoiceButton call={call} companionName={companion.name} />
                   {selectedOpinion?.companionConsentsToWear &&
                   storeState.ownedItemIds.includes(selectedItem.id) ? (
                     <button

@@ -3684,10 +3684,6 @@ export function CompanionShowroom({
   const videoChatMotorRef = useRef<CompanionMotor | null>(null);
   const videoChatContinuousListenRef = useRef(false);
   const wardrobeShoppingContextRef = useRef<WardrobeShoppingContext | null>(null);
-  const pendingWardrobeReactionRef = useRef<{
-    event: ShowroomShoppingEvent;
-    context: WardrobeShoppingContext;
-  } | null>(null);
   const videoChatNoSpeechRetryCountRef = useRef(0);
   const videoChatHandsFreeRearmRef = useRef<((reason: string, delayMs?: number) => void) | null>(
     null,
@@ -4665,9 +4661,6 @@ export function CompanionShowroom({
         visualReason?: string;
         turnId?: string;
         shoppingContextOverride?: WardrobeShoppingContext;
-        shoppingEvent?: ShowroomShoppingEvent;
-        shoppingReactionKey?: string;
-        systemInitiated?: boolean;
       },
     ) => {
       if (!current || picking || shouldGateShowroomTalkMic(showroomTalkPhaseRef.current)) {
@@ -4771,9 +4764,7 @@ export function CompanionShowroom({
       setShowroomTalkOpen(talkMode !== "video_call");
       setShowroomTalkError(null);
       setShowroomTalkResponse("");
-      if (!options?.systemInitiated) {
-        setShowroomTalkQuestion(question);
-      }
+      setShowroomTalkQuestion(question);
       setShowroomTalkPhase("thinking");
       setCurrentCompanionCamera("mid-shot", 420);
       applyShowroomThinkingBodyLanguage({
@@ -4808,10 +4799,6 @@ export function CompanionShowroom({
             (options?.shoppingContextOverride ?? wardrobeShoppingContext) && {
               shoppingContext:
                 options?.shoppingContextOverride ?? wardrobeShoppingContext ?? undefined,
-            }),
-          ...(talkMode === "video_call" &&
-            options?.shoppingEvent && {
-              shoppingEvent: options.shoppingEvent,
             }),
           ...(talkMode === "video_call" &&
             Object.keys(activeVideoCallContext.rewardContext).length > 0 && {
@@ -4854,20 +4841,6 @@ export function CompanionShowroom({
         if (!response.ok || !data?.ok) {
           throw new Error(data?.error ?? `talk_${response.status}`);
         }
-        if (
-          options?.shoppingReactionKey &&
-          !isWardrobeShoppingReactionCurrent(
-            options.shoppingReactionKey,
-            wardrobeShoppingContextRef.current,
-            options.shoppingEvent,
-          )
-        ) {
-          console.log(
-            ` 🎮 [wardrobe-store-lab] reaction stale_dropped key=${options.shoppingReactionKey}`,
-          );
-          setShowroomTalkPhase("idle");
-          return;
-        }
         console.log(
           ` 🎮 [showroom-talk] response_received companion=${current.id} mode=${talkMode} latencyMs=${Math.round(performance.now() - talkStartMs)}`,
         );
@@ -4888,11 +4861,6 @@ export function CompanionShowroom({
           });
         }
         setShowroomTalkResponse(responseText);
-        if (options?.shoppingEvent && responseText && !data.audioBase64) {
-          setShowroomTalkError(
-            `${current.name} formed an opinion, but live voice is unavailable.`,
-          );
-        }
         if (talkMode === "video_call" && data.visualSummary?.trim()) {
           setShowroomVideoLastVisualSummary(data.visualSummary.trim());
         }
@@ -5793,7 +5761,6 @@ export function CompanionShowroom({
     setWardrobeStoreReturnTarget(null);
     setWardrobeShoppingContext(null);
     wardrobeShoppingContextRef.current = null;
-    pendingWardrobeReactionRef.current = null;
     setShowroomVideoCallPhase("idle");
     setShowroomVideoChatError(null);
     setShowroomVideoLastVisualSummary("");
@@ -5854,7 +5821,6 @@ export function CompanionShowroom({
     setWardrobeStoreReturnTarget(null);
     setWardrobeShoppingContext(null);
     wardrobeShoppingContextRef.current = null;
-    pendingWardrobeReactionRef.current = null;
     if (shouldEndShoppingCall) {
       closeShowroomVideoChat();
     } else {
@@ -5877,56 +5843,6 @@ export function CompanionShowroom({
     },
     [],
   );
-
-  const submitWardrobeReaction = useCallback(
-    (event: ShowroomShoppingEvent, context: WardrobeShoppingContext) => {
-      const item = context.selectedItem;
-      if (!item) return;
-      const question =
-        event.type === "try_on_started"
-          ? "React naturally to the item that was just tried on."
-          : "Give a brief first impression of the selected item.";
-      void submitShowroomTalkQuestion(
-        question,
-        {
-          source: "video_call",
-          shoppingContextOverride: context,
-          shoppingEvent: event,
-          shoppingReactionKey: getWardrobeShoppingReactionKey(context, event),
-          systemInitiated: true,
-        },
-      );
-    },
-    [submitShowroomTalkQuestion],
-  );
-
-  const handleWardrobeCompanionReaction = useCallback(
-    (event: ShowroomShoppingEvent, context: WardrobeShoppingContext) => {
-      wardrobeShoppingContextRef.current = context;
-      setWardrobeShoppingContext(context);
-      if (shouldGateShowroomTalkMic(showroomTalkPhaseRef.current)) {
-        pendingWardrobeReactionRef.current = { event, context };
-        console.log(
-          ` 🎮 [wardrobe-store-lab] reaction_queued item=${context.selectedItem?.id ?? "none"} event=${event.type} phase=${showroomTalkPhaseRef.current}`,
-        );
-        return;
-      }
-      pendingWardrobeReactionRef.current = null;
-      submitWardrobeReaction(event, context);
-    },
-    [submitWardrobeReaction],
-  );
-
-  useEffect(() => {
-    if (showroomTalkPhase !== "idle") return;
-    const pending = pendingWardrobeReactionRef.current;
-    if (!pending) return;
-    pendingWardrobeReactionRef.current = null;
-    console.log(
-      ` 🎮 [wardrobe-store-lab] reaction_dequeued item=${pending.context.selectedItem?.id ?? "none"} event=${pending.event.type}`,
-    );
-    submitWardrobeReaction(pending.event, pending.context);
-  }, [showroomTalkPhase, submitWardrobeReaction]);
 
   const cycle = useCallback(
     (direction: -1 | 1) => {
@@ -6811,7 +6727,6 @@ export function CompanionShowroom({
             }}
             onWardrobeChange={handleWardrobeStoreChange}
             onShoppingContextChange={handleWardrobeShoppingContextChange}
-            onCompanionReaction={handleWardrobeCompanionReaction}
             onExit={closeWardrobeStore}
             exitLabel={
               wardrobeStoreReturnTarget === "call"

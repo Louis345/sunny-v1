@@ -94,21 +94,25 @@ describe("companion wardrobe feasibility lab", () => {
     expect(source).not.toContain("receipt-backdrop");
   });
 
-  it("requests a generated opinion only after try-on without rendering a shopping chat bar", () => {
+  it("waits for the child to request an organic opinion after try-on", () => {
     const source = readShowroomSource();
     const storeSource = readStoreSource();
 
     expect(source).toContain("openShowroomVideoChat({ handsFree: false });");
     expect(source).toContain("onMotorReady={handleVideoChatMotorReady}");
     expect(source).toContain("onShoppingContextChange=");
-    expect(source).toContain("onCompanionReaction=");
     expect(source).toContain("shoppingContextOverride ?? wardrobeShoppingContext");
+    expect(source).not.toContain("onCompanionReaction=");
+    expect(source).not.toContain("React naturally to the item that was just tried on.");
+    expect(source).not.toContain("systemInitiated");
     expect(storeSource).not.toContain('{ type: "item_reviewed", itemId: item.id }');
-    expect(storeSource).toContain('{ type: "try_on_started", itemId: item.id }');
+    expect(storeSource).not.toContain('{ type: "try_on_started", itemId: item.id }');
+    expect(storeSource).toContain("conversation=waiting_for_child");
     expect(storeSource).not.toContain('aria-label={`Talk to ${companion.name}`}');
     expect(storeSource).not.toContain("wardrobe-store-lab__conversation-dock");
     expect(storeSource).toContain('aria-label={`${companion.name} live`}');
-    expect(storeSource).toContain('aria-label={`Talk to ${companion.name} by voice`}');
+    expect(storeSource).toContain('aria-label={`Talk to ${companionName} by voice`}');
+    expect(storeSource.match(/<CompanionVoiceButton/g)).toHaveLength(2);
     expect(storeSource).toContain('aria-label={`${companion.name} try-on stage`}');
     expect(storeSource).toContain('aria-label={`${companionName} is ${state}`}');
     expect(storeSource).not.toContain('aria-label={`${companion.name}’s generated opinion`}');

@@ -56,9 +56,8 @@ describe("WardrobeStoreLab shopping call", () => {
     expect(screen.queryByRole("heading", { name: "The Lantern Room" })).toBeNull();
   });
 
-  it("moves one live companion renderer from review portrait to try-on and requests grounded reactions", () => {
+  it("moves one live companion renderer to try-on and waits for the child to start the conversation", () => {
     const onWardrobeChange = vi.fn();
-    const onCompanionReaction = vi.fn();
     const call = createCallProps();
     const renderCompanion = vi.fn((view: "full_body" | "portrait") => (
       <div data-testid="companion-vrm">{view} VRM</div>
@@ -69,7 +68,6 @@ describe("WardrobeStoreLab shopping call", () => {
         companionPreview={renderCompanion}
         call={call}
         onWardrobeChange={onWardrobeChange}
-        onCompanionReaction={onCompanionReaction}
         onExit={vi.fn()}
         visitSeed="ui-flow"
       />,
@@ -86,7 +84,6 @@ describe("WardrobeStoreLab shopping call", () => {
     );
     expect(screen.queryByLabelText("Elli is thinking")).toBeNull();
     expect(screen.queryByText("That one definitely caught my eye.")).toBeNull();
-    expect(onCompanionReaction).not.toHaveBeenCalled();
 
     rerender(
       <WardrobeStoreLab
@@ -94,7 +91,6 @@ describe("WardrobeStoreLab shopping call", () => {
         companionPreview={renderCompanion}
         call={{ ...call, talkPhase: "thinking" }}
         onWardrobeChange={onWardrobeChange}
-        onCompanionReaction={onCompanionReaction}
         onExit={vi.fn()}
         visitSeed="ui-flow"
       />,
@@ -103,7 +99,6 @@ describe("WardrobeStoreLab shopping call", () => {
     expect(screen.queryByText("That one definitely caught my eye.")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Talk to Elli by voice" }));
     expect(call.onAskVoice).toHaveBeenCalledTimes(0);
-    expect(onCompanionReaction).not.toHaveBeenCalled();
 
     rerender(
       <WardrobeStoreLab
@@ -111,7 +106,6 @@ describe("WardrobeStoreLab shopping call", () => {
         companionPreview={renderCompanion}
         call={call}
         onWardrobeChange={onWardrobeChange}
-        onCompanionReaction={onCompanionReaction}
         onExit={vi.fn()}
         visitSeed="ui-flow"
       />,
@@ -126,20 +120,16 @@ describe("WardrobeStoreLab shopping call", () => {
     );
     expect(screen.queryByLabelText("Elli live")).toBeNull();
     expect(screen.getAllByTestId("companion-vrm")).toHaveLength(1);
-    expect(onCompanionReaction).toHaveBeenLastCalledWith(
-      { type: "try_on_started", itemId: "sleeveless-dress" },
-      expect.objectContaining({
-        mode: "try_on",
-        selectedItem: expect.objectContaining({
-          id: "sleeveless-dress",
-          name: "Navy Ribbon Dress",
-        }),
-      }),
-    );
+    expect(call.onAskVoice).toHaveBeenCalledTimes(1);
     expect(onWardrobeChange).toHaveBeenLastCalledWith({
       accessoryId: "none",
       outfitId: "sleeveless-dress",
     });
+    const tryOnTalkButton = screen.getByRole("button", {
+      name: "Talk to Elli by voice",
+    });
+    fireEvent.click(tryOnTalkButton);
+    expect(call.onAskVoice).toHaveBeenCalledTimes(2);
 
     rerender(
       <WardrobeStoreLab
@@ -151,7 +141,6 @@ describe("WardrobeStoreLab shopping call", () => {
           responseText: "The navy ribbon is lovely, but it is not my mood today.",
         }}
         onWardrobeChange={onWardrobeChange}
-        onCompanionReaction={onCompanionReaction}
         onExit={vi.fn()}
         visitSeed="ui-flow"
       />,
@@ -185,6 +174,28 @@ describe("WardrobeStoreLab shopping call", () => {
     expect(screen.getByRole("alert")).toHaveAccessibleName("Elli is unavailable");
     expect(screen.getByRole("alert")).toHaveTextContent("Unavailable");
     expect(screen.queryByText("Live companion voice is unavailable.")).toBeNull();
+  });
+
+  it("keeps a real voice control available after the companion puts an item on", () => {
+    const call = createCallProps();
+    render(
+      <WardrobeStoreLab
+        companion={companion}
+        companionPreview={<div data-testid="companion-vrm">full body VRM</div>}
+        call={call}
+        onWardrobeChange={vi.fn()}
+        onExit={vi.fn()}
+        visitSeed="try-on-voice"
+      />,
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "View Navy Ribbon Dress, 60 coins" }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Try on Navy Ribbon Dress" }));
+    fireEvent.click(screen.getByRole("button", { name: "Talk to Elli by voice" }));
+
+    expect(call.onAskVoice).toHaveBeenCalledTimes(1);
   });
 
   it("keeps purchase arithmetic and confirmation inside the same shopping screen", () => {
