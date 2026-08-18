@@ -202,6 +202,11 @@ const COMPANION_VIDEO_CALL_TRACE_EVENTS = new Set<CompanionVideoCallTraceEventNa
   "activity_context_changed",
   "conversation_mode_changed",
   "activity_phase_changed",
+  "wardrobe_store_mounted",
+  "wardrobe_item_reviewed",
+  "wardrobe_try_on_started",
+  "wardrobe_voice_requested",
+  "wardrobe_store_exited",
 ]);
 
 function isValidChild(name: string): name is ChildName {

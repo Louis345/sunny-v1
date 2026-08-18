@@ -56,6 +56,25 @@ describe("companion wardrobe feasibility lab", () => {
     expect(source).toContain("onExit={closeWardrobeStore}");
   });
 
+  it("keeps wardrobe diagnostics opt-in and routes them through the existing sanitized call trace", () => {
+    const source = readShowroomSource();
+    const storeSource = readStoreSource();
+
+    expect(source).toContain('get("wardrobeDebug") === "true"');
+    expect(source).toContain("wardrobeDebugEnabled");
+    expect(source).toContain("onDebugEvent=");
+    expect(source).toContain("debugTraceLink=");
+    expect(source).toContain("debugTraceCopyStatus=");
+    expect(source).toContain("onCopyDebugTraceLink=");
+    expect(source).toContain("emitShowroomVideoCallTrace");
+    expect(storeSource).toContain('type: "wardrobe_store_mounted"');
+    expect(storeSource).toContain('type: "wardrobe_item_reviewed"');
+    expect(storeSource).toContain('type: "wardrobe_try_on_started"');
+    expect(storeSource).toContain('type: "wardrobe_voice_requested"');
+    expect(storeSource).toContain('type: "wardrobe_store_exited"');
+    expect(storeSource).toContain('aria-label="Copy debug log"');
+  });
+
   it("shows Go Shopping on the original showroom instead of hiding it inside FaceTime", () => {
     const source = readShowroomSource();
 

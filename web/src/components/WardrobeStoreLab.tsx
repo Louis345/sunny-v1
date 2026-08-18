@@ -2,6 +2,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -64,6 +65,16 @@ export type WardrobeShoppingEvent = {
   itemId: string;
 };
 
+export type WardrobeStoreDebugEvent = {
+  type:
+    | "wardrobe_store_mounted"
+    | "wardrobe_item_reviewed"
+    | "wardrobe_try_on_started"
+    | "wardrobe_voice_requested"
+    | "wardrobe_store_exited";
+  context: WardrobeShoppingContext;
+};
+
 export type WardrobeStoreCall = {
   talkPhase: "idle" | "listening" | "thinking" | "speaking";
   responseText: string;
@@ -109,6 +120,10 @@ export type WardrobeStoreLabProps = {
   call?: WardrobeStoreCall;
   onWardrobeChange: (selection: WardrobeSelection) => void;
   onShoppingContextChange?: (context: WardrobeShoppingContext) => void;
+  onDebugEvent?: (event: WardrobeStoreDebugEvent) => void;
+  debugTraceLink?: string | null;
+  debugTraceCopyStatus?: string | null;
+  onCopyDebugTraceLink?: () => void;
   onExit: () => void;
   exitLabel?: string;
   visitSeed?: string;
@@ -117,9 +132,11 @@ export type WardrobeStoreLabProps = {
 function CompanionVoiceButton({
   call,
   companionName,
+  onVoiceRequested,
 }: {
   call: WardrobeStoreCall | undefined;
   companionName: string;
+  onVoiceRequested?: () => void;
 }) {
   if (!call) return null;
   return (
@@ -128,7 +145,10 @@ function CompanionVoiceButton({
       className="wardrobe-store-lab__voice-button"
       aria-label={`Talk to ${companionName} by voice`}
       disabled={call.talkPhase === "thinking" || call.talkPhase === "speaking"}
-      onClick={call.onAskVoice}
+      onClick={() => {
+        onVoiceRequested?.();
+        call.onAskVoice();
+      }}
     >
       <span aria-hidden>🎙</span> Talk
     </button>
@@ -257,6 +277,10 @@ export function WardrobeStoreLab({
   call,
   onWardrobeChange,
   onShoppingContextChange,
+  onDebugEvent,
+  debugTraceLink,
+  debugTraceCopyStatus,
+  onCopyDebugTraceLink,
   onExit,
   exitLabel = "Back to the call",
   visitSeed,
@@ -269,6 +293,7 @@ export function WardrobeStoreLab({
     useState<PurchaseConfirmation | null>(null);
   const [closetOpen, setClosetOpen] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const debugMountVisitIdRef = useRef<string | null>(null);
 
   const compatibleItems = useMemo(
     () => getCompatibleWardrobeItems(WARDROBE_STORE_CATALOG, companion.modelUrl),
@@ -388,6 +413,12 @@ export function WardrobeStoreLab({
     onShoppingContextChange?.(shoppingContext);
   }, [onShoppingContextChange, shoppingContext]);
 
+  useEffect(() => {
+    if (!onDebugEvent || debugMountVisitIdRef.current === shoppingVisit.id) return;
+    debugMountVisitIdRef.current = shoppingVisit.id;
+    onDebugEvent({ type: "wardrobe_store_mounted", context: shoppingContext });
+  }, [onDebugEvent, shoppingContext, shoppingVisit.id]);
+
   const recordInteraction = useCallback(
     (
       state: WardrobeStoreState,
@@ -426,6 +457,7 @@ export function WardrobeStoreLab({
     console.log(
       ` 🎮 [wardrobe-store-lab] item_reviewed companion=${companion.id} item=${item.id} mood=${shoppingVisit.mood.id} verdict=${context.selectedItem?.opinionVerdict ?? "none"}`,
     );
+    onDebugEvent?.({ type: "wardrobe_item_reviewed", context });
   };
 
   const enterTryOn = (item: WardrobeStoreItem) => {
@@ -444,6 +476,14 @@ export function WardrobeStoreLab({
     const context = contextFor(item, "try_on", nextState);
     console.log(
       ` 🎮 [wardrobe-store-lab] try_on opened companion=${companion.id} item=${item.id} mood=${shoppingVisit.mood.id} verdict=${context.selectedItem?.opinionVerdict ?? "none"} conversation=waiting_for_child`,
+    );
+    onDebugEvent?.({ type: "wardrobe_try_on_started", context });
+  };
+
+  const requestCompanionVoice = () => {
+    onDebugEvent?.({ type: "wardrobe_voice_requested", context: shoppingContext });
+    console.log(
+      ` 🎮 [wardrobe-store-lab] voice_requested companion=${companion.id} mode=${shoppingContext.mode} item=${shoppingContext.selectedItem?.id ?? "none"}`,
     );
   };
 
@@ -598,6 +638,7 @@ export function WardrobeStoreLab({
 
   const exitStore = () => {
     restoreEquippedLook(storeState);
+    onDebugEvent?.({ type: "wardrobe_store_exited", context: shoppingContext });
     console.log(
       ` 🎮 [wardrobe-store-lab] store_exited companion=${companion.id} mode=${mode}`,
     );
@@ -639,6 +680,20 @@ export function WardrobeStoreLab({
           <i><b aria-hidden /> Connected</i>
         </div>
         <div className="wardrobe-store-lab__header-actions">
+          {debugTraceLink && onCopyDebugTraceLink && (
+            <div className="wardrobe-store-lab__debug-trace">
+              <button
+                type="button"
+                aria-label="Copy debug log"
+                onClick={onCopyDebugTraceLink}
+              >
+                Copy debug log
+              </button>
+              {debugTraceCopyStatus && (
+                <span role="status">{debugTraceCopyStatus}</span>
+              )}
+            </div>
+          )}
           <Wallet balance={balance} />
           <button type="button" onClick={() => setClosetOpen(true)}>
             {companion.name}’s closet
@@ -723,7 +778,11 @@ export function WardrobeStoreLab({
                   <strong><i aria-hidden /> {companion.name} Live</strong>
                   <span>{callStatus}</span>
                 </div>
-                <CompanionVoiceButton call={call} companionName={companion.name} />
+                <CompanionVoiceButton
+                  call={call}
+                  companionName={companion.name}
+                  onVoiceRequested={requestCompanionVoice}
+                />
               </aside>
             </div>
           )}
@@ -761,7 +820,11 @@ export function WardrobeStoreLab({
                   </p>
                 </div>
                 <div className="wardrobe-store-lab__try-on-actions">
-                  <CompanionVoiceButton call={call} companionName={companion.name} />
+                  <CompanionVoiceButton
+                    call={call}
+                    companionName={companion.name}
+                    onVoiceRequested={requestCompanionVoice}
+                  />
                   {selectedOpinion?.companionConsentsToWear &&
                   storeState.ownedItemIds.includes(selectedItem.id) ? (
                     <button

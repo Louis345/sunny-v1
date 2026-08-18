@@ -82,6 +82,45 @@ describe("companion video call trace adapter", () => {
     });
   });
 
+  it("sends sanitized wardrobe lifecycle truth through the existing trace endpoint", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("{}"));
+
+    await emitCompanionVideoCallTrace({
+      traceId: "trace123",
+      eventName: "wardrobe_try_on_started",
+      childId: "ila",
+      companionId: "elli",
+      timestamp: 1000,
+      payload: {
+        shoppingContext: {
+          mode: "try_on",
+          selectedItem: { id: "navy-ribbon-dress", name: "Navy Ribbon Dress" },
+          verdict: "reject",
+          reasons: ["not feeling elegant today"],
+          companionConsentsToWear: false,
+        },
+        audioBase64: "never-store-audio",
+        providerPayload: { apiKey: "never-store-provider-data" },
+      },
+    });
+
+    const body = JSON.parse(String((fetchSpy.mock.calls[0]?.[1] as RequestInit).body));
+    expect(body).toMatchObject({
+      traceId: "trace123",
+      eventName: "wardrobe_try_on_started",
+      payload: {
+        shoppingContext: {
+          mode: "try_on",
+          selectedItem: { id: "navy-ribbon-dress", name: "Navy Ribbon Dress" },
+          verdict: "reject",
+          companionConsentsToWear: false,
+        },
+      },
+    });
+    expect(JSON.stringify(body)).not.toContain("never-store-audio");
+    expect(JSON.stringify(body)).not.toContain("never-store-provider-data");
+  });
+
   it("removes raw screenshots, audio, and provider payloads from client trace events", () => {
     const payload = sanitizeCompanionVideoCallTracePayload({
       transcript: "This is my full transcript.",

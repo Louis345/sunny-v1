@@ -317,6 +317,87 @@ describe("WardrobeStoreLab shopping call", () => {
     );
   });
 
+  it("exposes an opt-in copyable debug trace and records the store-to-conversation lifecycle", async () => {
+    const call = createCallProps();
+    const onDebugEvent = vi.fn();
+    const onCopyDebugTraceLink = vi.fn();
+    const onExit = vi.fn();
+
+    render(
+      <WardrobeStoreLab
+        companion={companion}
+        companionPreview={<div data-testid="companion-vrm">full body VRM</div>}
+        call={call}
+        onWardrobeChange={vi.fn()}
+        onExit={onExit}
+        exitLabel="Back to the showroom"
+        visitSeed="debug-lifecycle"
+        debugTraceLink="http://127.0.0.1:5187/api/companions/video-call-traces/trace123"
+        debugTraceCopyStatus="Debug log copied"
+        onCopyDebugTraceLink={onCopyDebugTraceLink}
+        onDebugEvent={onDebugEvent}
+      />,
+    );
+
+    expect(screen.getByText("Debug log copied")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Copy debug log" }));
+    expect(onCopyDebugTraceLink).toHaveBeenCalledTimes(1);
+    await waitFor(() =>
+      expect(onDebugEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: "wardrobe_store_mounted",
+          context: expect.objectContaining({ mode: "entrance", selectedItem: null }),
+        }),
+      ),
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "View Navy Ribbon Dress, 60 coins" }),
+    );
+    await waitFor(() =>
+      expect(onDebugEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: "wardrobe_item_reviewed",
+          context: expect.objectContaining({
+            mode: "review",
+            selectedItem: expect.objectContaining({ id: "sleeveless-dress" }),
+          }),
+        }),
+      ),
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Try on Navy Ribbon Dress" }));
+    await waitFor(() =>
+      expect(onDebugEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: "wardrobe_try_on_started",
+          context: expect.objectContaining({
+            mode: "try_on",
+            selectedItem: expect.objectContaining({ id: "sleeveless-dress" }),
+          }),
+        }),
+      ),
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Talk to Elli by voice" }));
+    expect(onDebugEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "wardrobe_voice_requested",
+        context: expect.objectContaining({ mode: "try_on" }),
+      }),
+    );
+    expect(call.onAskVoice).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(screen.getByRole("button", { name: "Back to the showroom" }));
+    expect(onDebugEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "wardrobe_store_exited",
+        context: expect.objectContaining({ mode: "try_on" }),
+      }),
+    );
+    expect(onExit).toHaveBeenCalledTimes(1);
+  });
+
   it("turns provider failures into a safe portrait state instead of dialogue", () => {
     render(
       <WardrobeStoreLab

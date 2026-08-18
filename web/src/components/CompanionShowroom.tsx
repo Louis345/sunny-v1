@@ -58,6 +58,7 @@ import {
   WardrobeStoreLab,
   type WardrobeShoppingContext,
   type WardrobeShoppingEvent,
+  type WardrobeStoreDebugEvent,
 } from "./WardrobeStoreLab";
 import {
   StorybookFootlights,
@@ -3559,6 +3560,9 @@ export function CompanionShowroom({
   const wardrobeLabEnabled =
     typeof window !== "undefined" &&
     new URLSearchParams(window.location.search).get("wardrobeLab") === "true";
+  const wardrobeDebugEnabled =
+    typeof window !== "undefined" &&
+    new URLSearchParams(window.location.search).get("wardrobeDebug") === "true";
   const [currentIndex, setCurrentIndex] = useState(0);
   const [wardrobeAccessoryId, setWardrobeAccessoryId] =
     useState<WardrobeAccessoryId>("none");
@@ -3850,6 +3854,18 @@ export function CompanionShowroom({
         fallbackCopy();
       });
   }, [showroomVideoTraceLink]);
+  const handleWardrobeDebugEvent = useCallback(
+    (event: WardrobeStoreDebugEvent) => {
+      emitShowroomVideoCallTrace({
+        eventName: event.type,
+        payload: { shoppingContext: event.context },
+      });
+      console.log(
+        ` 🎮 [wardrobe-store-debug] ${event.type} recorded mode=${event.context.mode} item=${event.context.selectedItem?.id ?? "none"}`,
+      );
+    },
+    [emitShowroomVideoCallTrace],
+  );
   const slots = useMemo(
     () => createPersistentSlotEntries(entries, currentIndex),
     [entries, currentIndex],
@@ -6727,6 +6743,18 @@ export function CompanionShowroom({
             }}
             onWardrobeChange={handleWardrobeStoreChange}
             onShoppingContextChange={handleWardrobeShoppingContextChange}
+            onDebugEvent={
+              wardrobeDebugEnabled ? handleWardrobeDebugEvent : undefined
+            }
+            debugTraceLink={
+              wardrobeDebugEnabled ? showroomVideoTraceLink : null
+            }
+            debugTraceCopyStatus={
+              wardrobeDebugEnabled ? showroomVideoTraceCopyStatus : null
+            }
+            onCopyDebugTraceLink={
+              wardrobeDebugEnabled ? copyShowroomVideoTraceLink : undefined
+            }
             onExit={closeWardrobeStore}
             exitLabel={
               wardrobeStoreReturnTarget === "call"

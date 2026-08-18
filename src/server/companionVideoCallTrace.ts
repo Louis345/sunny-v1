@@ -30,7 +30,12 @@ export type CompanionVideoCallTraceEventName =
   | "handsfree_rearm_skipped"
   | "activity_context_changed"
   | "conversation_mode_changed"
-  | "activity_phase_changed";
+  | "activity_phase_changed"
+  | "wardrobe_store_mounted"
+  | "wardrobe_item_reviewed"
+  | "wardrobe_try_on_started"
+  | "wardrobe_voice_requested"
+  | "wardrobe_store_exited";
 
 export type CompanionVideoCallLikelyCause =
   | "none"

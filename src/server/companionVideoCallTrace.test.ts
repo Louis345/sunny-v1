@@ -31,6 +31,11 @@ describe("companion video call traces", () => {
     expect(routesSource).toContain('"activity_reaction_stale_dropped"');
     expect(routesSource).toContain('"conversation_mode_changed"');
     expect(routesSource).toContain('"activity_phase_changed"');
+    expect(routesSource).toContain('"wardrobe_store_mounted"');
+    expect(routesSource).toContain('"wardrobe_item_reviewed"');
+    expect(routesSource).toContain('"wardrobe_try_on_started"');
+    expect(routesSource).toContain('"wardrobe_voice_requested"');
+    expect(routesSource).toContain('"wardrobe_store_exited"');
   });
 
   it("appends sanitized trace rows under logs/sessions YYYY/MM folders", () => {
@@ -54,6 +59,24 @@ describe("companion video call traces", () => {
           },
           audioBase64: "raw-audio",
           providerPayload: { secret: "nope" },
+        },
+      },
+      { rootDir: root },
+    );
+    recordCompanionVideoCallTraceEvent(
+      {
+        traceId: "trace_test",
+        eventName: "wardrobe_try_on_started",
+        childId: "ila",
+        companionId: "elli",
+        timestamp: Date.parse("2026-05-28T16:00:03.000Z"),
+        payload: {
+          shoppingContext: {
+            mode: "try_on",
+            selectedItem: { id: "sleeveless-dress", name: "Navy Ribbon Dress" },
+            verdict: "reject",
+            companionConsentsToWear: false,
+          },
         },
       },
       { rootDir: root },
@@ -103,12 +126,14 @@ describe("companion video call traces", () => {
       fs.readFileSync(path.join(traceFolder, "trace-summary.json"), "utf8"),
     ) as Record<string, unknown>;
 
-    expect(traceText.trim().split("\n")).toHaveLength(3);
+    expect(traceText.trim().split("\n")).toHaveLength(4);
     expect(traceText).toContain("transcriptPreview");
     expect(traceText).toContain("transcriptHash");
     expect(traceText).toContain("responsePreview");
     expect(traceText).toContain("responseHash");
     expect(traceText).toContain("tic_tac_toe");
+    expect(traceText).toContain("wardrobe_try_on_started");
+    expect(traceText).toContain("sleeveless-dress");
     expect(traceText).not.toContain("raw-camera-frame");
     expect(traceText).not.toContain("raw-audio");
     expect(traceText).not.toContain("providerPayload");
@@ -117,7 +142,7 @@ describe("companion video call traces", () => {
       traceId: "trace_test",
       childId: "ila",
       companionId: "elli",
-      eventCount: 3,
+      eventCount: 4,
       likelyCause: "none",
     });
   });
