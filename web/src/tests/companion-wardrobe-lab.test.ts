@@ -210,6 +210,21 @@ describe("companion wardrobe feasibility lab", () => {
     expect(styles).not.toContain("transform: scale(1.55) !important;");
   });
 
+  it("projects the loaded VRM head into the preview so every character drives bubble placement", () => {
+    const showroomSource = readShowroomSource();
+    const storeSource = readStoreSource();
+    const styles = readStoreStyles();
+
+    expect(showroomSource).toContain("onHeadScreenAnchorChange");
+    expect(showroomSource).toContain('getRawBoneNode("head")');
+    expect(showroomSource).toContain("project(camera)");
+    expect(showroomSource).toContain("companionHeadAnchor=");
+    expect(storeSource).toContain("companionHeadAnchor");
+    expect(styles).toContain("--companion-head-x");
+    expect(styles).toContain("--companion-head-y");
+    expect(styles).not.toContain("left: calc(50% + clamp(42px, 5vw, 78px));");
+  });
+
   it("fills the dynamic viewport in the original showroom without stretching companions", () => {
     const source = readShowroomSource();
 

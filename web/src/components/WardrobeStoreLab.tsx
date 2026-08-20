@@ -4,6 +4,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type CSSProperties,
   type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
@@ -91,20 +92,31 @@ type WardrobeCompanionState =
 
 function CompanionStateBubble({
   companionName,
+  headAnchor,
   state,
   view,
 }: {
   companionName: string;
+  headAnchor?: { x: number; y: number } | null;
   state: WardrobeCompanionState;
   view: "portrait" | "full-body";
 }) {
   if (state === "ready") return null;
   const label = state[0]?.toUpperCase() + state.slice(1);
+  const hasHeadAnchor = Boolean(headAnchor);
+  const anchorSide = (headAnchor?.x ?? 0.5) > 0.72 ? "left" : "right";
+  const anchorStyle = headAnchor
+    ? ({
+        "--companion-head-x": `${Math.round(headAnchor.x * 100)}%`,
+        "--companion-head-y": `${Math.round(headAnchor.y * 100)}%`,
+      } as CSSProperties)
+    : undefined;
   return (
     <div
       aria-label={`${companionName} is ${state}`}
-      className={`wardrobe-store-lab__companion-state is-${view} is-${state}`}
+      className={`wardrobe-store-lab__companion-state is-${view} is-${state}${hasHeadAnchor ? ` is-head-anchored is-anchor-${anchorSide}` : ""}`}
       role={state === "unavailable" ? "alert" : "status"}
+      style={anchorStyle}
     >
       <span aria-hidden>{state === "thinking" ? "•••" : state === "speaking" ? "◖))" : "●"}</span>
       <strong>{label}</strong>
@@ -117,6 +129,7 @@ export type WardrobeStoreLabProps = {
   companionPreview?:
     | ReactNode
     | ((view: "full_body" | "portrait") => ReactNode);
+  companionHeadAnchor?: { x: number; y: number } | null;
   call?: WardrobeStoreCall;
   onWardrobeChange: (selection: WardrobeSelection) => void;
   onShoppingContextChange?: (context: WardrobeShoppingContext) => void;
@@ -274,6 +287,7 @@ function createShoppingContext(input: {
 export function WardrobeStoreLab({
   companion,
   companionPreview,
+  companionHeadAnchor,
   call,
   onWardrobeChange,
   onShoppingContextChange,
@@ -764,12 +778,16 @@ export function WardrobeStoreLab({
                 aria-label={`${companion.name} live`}
                 className="wardrobe-store-lab__companion-portrait"
               >
-                <div className="wardrobe-store-lab__companion-portrait-preview">
+                <div
+                  className="wardrobe-store-lab__companion-portrait-preview"
+                  data-wardrobe-preview="true"
+                >
                   {renderCompanionPreview(companionPreview, "portrait") ?? (
                     <div className="wardrobe-store-lab__preview-missing">VRM portrait</div>
                   )}
                   <CompanionStateBubble
                     companionName={companion.name}
+                    headAnchor={companionHeadAnchor}
                     state={companionState}
                     view="portrait"
                   />
@@ -792,12 +810,14 @@ export function WardrobeStoreLab({
               <div
                 aria-label={`${companion.name} try-on stage`}
                 className="wardrobe-store-lab__try-on-preview"
+                data-wardrobe-preview="true"
               >
                 {renderCompanionPreview(companionPreview, "full_body") ?? (
                   <div className="wardrobe-store-lab__preview-missing">Full-body VRM preview</div>
                 )}
                 <CompanionStateBubble
                   companionName={companion.name}
+                  headAnchor={companionHeadAnchor}
                   state={companionState}
                   view="full-body"
                 />

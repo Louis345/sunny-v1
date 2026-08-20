@@ -2589,6 +2589,7 @@ function CompanionSlot({
   onMotorReady,
   onLoadSettled,
   onVrmAttached,
+  onHeadScreenAnchorChange,
 }: {
   entry: CompanionManifestEntry;
   slot: SlotName;
@@ -2610,6 +2611,7 @@ function CompanionSlot({
   onLoadSettled: (slotKey: string) => void;
   /** Fires once after `attachVrm` succeeds (not called on load failure). */
   onVrmAttached?: () => void;
+  onHeadScreenAnchorChange?: (anchor: { x: number; y: number } | null) => void;
 }) {
   const slotKey = entry.id;
   const mountRef = useRef<HTMLDivElement>(null);
@@ -2621,6 +2623,8 @@ function CompanionSlot({
   const sceneRef = useRef<THREE.Scene | null>(null);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const wardrobeHeadRef = useRef<THREE.Object3D | null>(null);
+  const headProjectionRef = useRef(new THREE.Vector3());
+  const lastHeadAnchorRef = useRef<{ x: number; y: number; at: number } | null>(null);
   const wardrobeAccessoryRef = useRef<THREE.Group | null>(null);
   const wardrobeAccessoryIdRef = useRef<WardrobeAccessoryId>(wardrobeAccessoryId);
   const wardrobeVrmSceneRef = useRef<THREE.Object3D | null>(null);
@@ -2788,6 +2792,47 @@ function CompanionSlot({
       });
       vfxLayerRef.current?.tick(dt, camera);
       renderer.render(scene, camera);
+      const head = wardrobeHeadRef.current;
+      const mount = mountRef.current;
+      if (head && mount && onHeadScreenAnchorChange) {
+        head.updateWorldMatrix(true, false);
+        const projectedHead = headProjectionRef.current;
+        head.getWorldPosition(projectedHead);
+        projectedHead.project(camera);
+        const mountRect = mount.getBoundingClientRect();
+        const preview = mount.closest<HTMLElement>('[data-wardrobe-preview="true"]');
+        const previewRect = preview?.getBoundingClientRect();
+        if (
+          previewRect &&
+          previewRect.width > 0 &&
+          previewRect.height > 0 &&
+          Number.isFinite(projectedHead.x) &&
+          Number.isFinite(projectedHead.y)
+        ) {
+          const canvasX = (projectedHead.x + 1) / 2;
+          const canvasY = (1 - projectedHead.y) / 2;
+          const nextAnchor = {
+            x: Math.min(
+              0.96,
+              Math.max(0.04, (mountRect.left + canvasX * mountRect.width - previewRect.left) / previewRect.width),
+            ),
+            y: Math.min(
+              0.96,
+              Math.max(0.04, (mountRect.top + canvasY * mountRect.height - previewRect.top) / previewRect.height),
+            ),
+          };
+          const lastAnchor = lastHeadAnchorRef.current;
+          if (
+            !lastAnchor ||
+            time - lastAnchor.at >= 100 ||
+            Math.abs(nextAnchor.x - lastAnchor.x) >= 0.015 ||
+            Math.abs(nextAnchor.y - lastAnchor.y) >= 0.015
+          ) {
+            lastHeadAnchorRef.current = { ...nextAnchor, at: time };
+            onHeadScreenAnchorChange(nextAnchor);
+          }
+        }
+      }
       rafRef.current = requestAnimationFrame(tick);
     };
     rafRef.current = requestAnimationFrame(tick);
@@ -3000,6 +3045,8 @@ function CompanionSlot({
       removeWardrobeAccessory(wardrobeAccessoryRef.current);
       wardrobeAccessoryRef.current = null;
       wardrobeHeadRef.current = null;
+      lastHeadAnchorRef.current = null;
+      onHeadScreenAnchorChange?.(null);
       removeWardrobeOutfit(wardrobeOutfitPartsRef.current);
       wardrobeOutfitPartsRef.current = [];
       wardrobeVrmSceneRef.current = null;
@@ -3023,6 +3070,7 @@ function CompanionSlot({
     onLoadSettled,
     onMotorReady,
     onVrmAttached,
+    onHeadScreenAnchorChange,
     showroomCompanionConfig,
     slotKey,
     startLoop,
@@ -3601,6 +3649,8 @@ export function CompanionShowroom({
     useState<"showroom" | "call" | null>(null);
   const [wardrobeShoppingContext, setWardrobeShoppingContext] =
     useState<WardrobeShoppingContext | null>(null);
+  const [companionHeadAnchor, setCompanionHeadAnchor] =
+    useState<{ x: number; y: number } | null>(null);
   const wardrobeStoreOpen = wardrobeStoreReturnTarget !== null;
   const [showroomVideoChatCameraState, setShowroomVideoChatCameraState] =
     useState<ShowroomVideoChatCameraState>("off");
@@ -6733,8 +6783,10 @@ export function CompanionShowroom({
                 wardrobeOutfitId={effectiveWardrobeOutfitId}
                 onMotorReady={handleVideoChatMotorReady}
                 onLoadSettled={handleWardrobePreviewLoadSettled}
+                onHeadScreenAnchorChange={setCompanionHeadAnchor}
               />
             )}
+            companionHeadAnchor={companionHeadAnchor}
             call={{
               talkPhase: showroomTalkPhase,
               responseText: showroomTalkResponse,

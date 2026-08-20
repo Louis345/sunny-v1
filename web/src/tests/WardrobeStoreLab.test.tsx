@@ -198,6 +198,55 @@ describe("WardrobeStoreLab shopping call", () => {
     expect(call.onAskVoice).toHaveBeenCalledTimes(1);
   });
 
+  it("anchors the state bubble to the live VRM head instead of a fixed stage percentage", () => {
+    const call = { ...createCallProps(), talkPhase: "listening" as const };
+    const { rerender } = render(
+      <WardrobeStoreLab
+        companion={companion}
+        companionPreview={<div data-testid="companion-vrm">full body VRM</div>}
+        companionHeadAnchor={{ x: 0.28, y: 0.2 }}
+        call={call}
+        onWardrobeChange={vi.fn()}
+        onExit={vi.fn()}
+        visitSeed="head-anchor"
+      />,
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "View Navy Ribbon Dress, 60 coins" }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Try on Navy Ribbon Dress" }));
+
+    const rightBubble = screen.getByLabelText("Elli is listening");
+    expect(rightBubble).toHaveClass("is-head-anchored", "is-anchor-right");
+    expect(rightBubble).toHaveStyle({
+      "--companion-head-x": "28%",
+      "--companion-head-y": "20%",
+    });
+
+    rerender(
+      <WardrobeStoreLab
+        companion={companion}
+        companionPreview={<div data-testid="companion-vrm">full body VRM</div>}
+        companionHeadAnchor={{ x: 0.86, y: 0.18 }}
+        call={call}
+        onWardrobeChange={vi.fn()}
+        onExit={vi.fn()}
+        visitSeed="head-anchor"
+      />,
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "View Navy Ribbon Dress, 60 coins" }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Try on Navy Ribbon Dress" }));
+
+    expect(screen.getByLabelText("Elli is listening")).toHaveClass(
+      "is-head-anchored",
+      "is-anchor-left",
+    );
+  });
+
   it("keeps purchase arithmetic and confirmation inside the same shopping screen", () => {
     const visitSeed = "purchase-flow";
     const state = createInitialWardrobeStoreState();
