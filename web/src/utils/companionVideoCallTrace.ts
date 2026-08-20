@@ -31,7 +31,10 @@ export type CompanionVideoCallTraceEventName =
   | "wardrobe_item_reviewed"
   | "wardrobe_try_on_started"
   | "wardrobe_voice_requested"
-  | "wardrobe_store_exited";
+  | "wardrobe_store_exited"
+  | "companion_tool_rejected"
+  | "shopping_speech_retry"
+  | "shopping_speech_guard_failed";
 
 export type CompanionVideoCallTraceInput = {
   traceId: string;

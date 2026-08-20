@@ -108,6 +108,7 @@ import {
   createShowroomCompanionActCommand,
   createShowroomTalkCompletedEvent,
   createShowroomTalkPhaseCommand,
+  evaluateShoppingSpeech,
   getShowroomCompanionActivityTools,
   getShowroomCompanionActTools,
   resolveShowroomSpokenText,
@@ -173,6 +174,7 @@ type ChildName = keyof typeof companions;
 const GAME_GRADE_HAIKU_MODEL = "claude-haiku-4-5-20251001";
 const HOMEWORK_SONNET_MODEL = process.env.SUNNY_HOMEWORK_MODEL ?? "claude-sonnet-5";
 const DEFAULT_ELEVENLABS_MODEL = "eleven_multilingual_v2";
+const MAX_SHOWROOM_SPEECH_RETRIES = 1;
 const COMPANION_VIDEO_CALL_TRACE_EVENTS = new Set<CompanionVideoCallTraceEventName>([
   "call_started",
   "call_ended",
@@ -207,6 +209,9 @@ const COMPANION_VIDEO_CALL_TRACE_EVENTS = new Set<CompanionVideoCallTraceEventNa
   "wardrobe_try_on_started",
   "wardrobe_voice_requested",
   "wardrobe_store_exited",
+  "companion_tool_rejected",
+  "shopping_speech_retry",
+  "shopping_speech_guard_failed",
 ]);
 
 function isValidChild(name: string): name is ChildName {
@@ -1424,6 +1429,7 @@ export function setupRoutes(app: Express): void {
       const latencySpans: {
         claudeMs?: number;
         toolFollowupMs?: number;
+        speechRetryMs?: number;
         ttsMs?: number;
         requestToResponseMs?: number;
       } = {};
@@ -1531,27 +1537,53 @@ export function setupRoutes(app: Express): void {
         .slice(0, 2);
       const commandByToolUseId = new Map<string, ReturnType<typeof createShowroomCompanionActCommand>>();
       for (const block of companionActToolUseBlocks) {
-        commandByToolUseId.set(
-          block.id,
-          createShowroomCompanionActCommand({
+        const command = createShowroomCompanionActCommand({
+          childId: talk.childId,
+          rawInput: block.input,
+        });
+        commandByToolUseId.set(block.id, command);
+        if (!command) {
+          console.warn(
+            ` 🎮 [showroom-talk] companion_tool_rejected tool=companionAct companion=${talk.companionId}`,
+          );
+          safeRecordCompanionVideoCallTrace({
+            callTraceId: talk.callTraceId,
+            turnId: talk.turnId,
+            eventName: "companion_tool_rejected",
             childId: talk.childId,
-            rawInput: block.input,
-          }),
-        );
+            companionId: talk.companionId,
+            callSource: talk.callSource,
+            relationshipState: talk.relationshipState,
+            payload: { toolName: block.name, reason: "invalid_payload" },
+          });
+        }
       }
       const activityByToolUseId = new Map<
         string,
         ReturnType<typeof createShowroomCompanionActivityRequest>
       >();
       for (const block of activityToolUseBlocks) {
-        activityByToolUseId.set(
-          block.id,
-          createShowroomCompanionActivityRequest({
+        const activity = createShowroomCompanionActivityRequest({
+          childId: talk.childId,
+          companionId: talk.companionId,
+          rawInput: block.input,
+        });
+        activityByToolUseId.set(block.id, activity);
+        if (!activity) {
+          console.warn(
+            ` 🎮 [showroom-talk] companion_tool_rejected tool=openCompanionActivity companion=${talk.companionId}`,
+          );
+          safeRecordCompanionVideoCallTrace({
+            callTraceId: talk.callTraceId,
+            turnId: talk.turnId,
+            eventName: "companion_tool_rejected",
             childId: talk.childId,
             companionId: talk.companionId,
-            rawInput: block.input,
-          }),
-        );
+            callSource: talk.callSource,
+            relationshipState: talk.relationshipState,
+            payload: { toolName: block.name, reason: "invalid_payload" },
+          });
+        }
       }
       const companionCommands = [...commandByToolUseId.values()].filter(
         (command): command is NonNullable<typeof command> => Boolean(command),
@@ -1631,10 +1663,87 @@ export function setupRoutes(app: Express): void {
       } else {
         latencySpans.toolFollowupMs = 0;
       }
+      const shoppingVerdict =
+        talk.shoppingContext?.selectedItem?.opinionVerdict;
+      if (shoppingVerdict) {
+        let speechGuard = evaluateShoppingSpeech({
+          text,
+          verdict: shoppingVerdict,
+        });
+        for (
+          let retryCount = 0;
+          !speechGuard.accepted && retryCount < MAX_SHOWROOM_SPEECH_RETRIES;
+          retryCount += 1
+        ) {
+          console.warn(
+            ` 🎮 [showroom-talk] shopping_speech_retry companion=${talk.companionId} reason=${speechGuard.reason ?? "unknown"}`,
+          );
+          safeRecordCompanionVideoCallTrace({
+            callTraceId: talk.callTraceId,
+            turnId: talk.turnId,
+            eventName: "shopping_speech_retry",
+            childId: talk.childId,
+            companionId: talk.companionId,
+            callSource: talk.callSource,
+            relationshipState: talk.relationshipState,
+            payload: {
+              reason: speechGuard.reason,
+              retryCount: retryCount + 1,
+              verdict: shoppingVerdict,
+              itemId: talk.shoppingContext?.selectedItem?.id,
+            },
+          });
+          const retryStartedAt = Date.now();
+          const retriedMessage = await client.messages.create({
+            model: HOMEWORK_SONNET_MODEL,
+            max_tokens: 140,
+            system: [
+              system,
+              `The previous draft was rejected by the shopping speech guard for ${speechGuard.reason ?? "invalid speech"}. Answer the child's newest words again with one complete, natural sentence grounded in the selected item and exact code-owned verdict. The item is for you, the companion. Do not call tools.`,
+            ].join("\n"),
+            messages: messages as Anthropic.MessageParam[],
+            tools: showroomTools,
+            tool_choice: { type: "none" },
+          });
+          latencySpans.speechRetryMs =
+            (latencySpans.speechRetryMs ?? 0) + (Date.now() - retryStartedAt);
+          text = extractAnthropicText(retriedMessage);
+          speechGuard = evaluateShoppingSpeech({
+            text,
+            verdict: shoppingVerdict,
+          });
+        }
+        if (!speechGuard.accepted) {
+          console.error(
+            ` 🎮 [showroom-talk] shopping_speech_guard_failed companion=${talk.companionId} reason=${speechGuard.reason ?? "unknown"}`,
+          );
+          safeRecordCompanionVideoCallTrace({
+            callTraceId: talk.callTraceId,
+            turnId: talk.turnId,
+            eventName: "shopping_speech_guard_failed",
+            childId: talk.childId,
+            companionId: talk.companionId,
+            callSource: talk.callSource,
+            relationshipState: talk.relationshipState,
+            payload: {
+              reason: speechGuard.reason,
+              verdict: shoppingVerdict,
+              itemId: talk.shoppingContext?.selectedItem?.id,
+            },
+          });
+          return res.status(502).json({
+            ok: false,
+            code: "companion_shopping_response_unavailable",
+            error: `${companion.name} needs a moment to think about that. Please ask again.`,
+            retryable: true,
+          });
+        }
+      }
       const spokenText = resolveShowroomSpokenText({
         rawText: text,
         companionCommandCount: companionCommands.length + activityRequests.length,
         requireGeneratedSpeech,
+        shoppingContextPresent: Boolean(talk.shoppingContext),
       });
       if (requireGeneratedSpeech && !spokenText) {
         console.error(

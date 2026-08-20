@@ -36,6 +36,9 @@ describe("companion video call traces", () => {
     expect(routesSource).toContain('"wardrobe_try_on_started"');
     expect(routesSource).toContain('"wardrobe_voice_requested"');
     expect(routesSource).toContain('"wardrobe_store_exited"');
+    expect(routesSource).toContain('"companion_tool_rejected"');
+    expect(routesSource).toContain('"shopping_speech_retry"');
+    expect(routesSource).toContain('"shopping_speech_guard_failed"');
   });
 
   it("appends sanitized trace rows under logs/sessions YYYY/MM folders", () => {

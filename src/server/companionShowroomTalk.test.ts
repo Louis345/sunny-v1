@@ -16,6 +16,7 @@ import {
   shouldRunShowroomToolFollowup,
 } from "./companionShowroomTalk";
 import { resolveShowroomTalkRouteFailure } from "./routes";
+import * as showroomTalkContract from "./companionShowroomTalk";
 
 describe("companion showroom talk contract", () => {
   const voiceOptions = [
@@ -584,6 +585,8 @@ describe("companion showroom talk contract", () => {
     expect(prompt).toContain("The child controls spending");
     expect(prompt).toContain("wearing the selected item in the try-on view");
     expect(prompt).toContain("Code-owned companion verdict: reject");
+    expect(prompt).toContain("A like verdict is not love or obsession");
+    expect(prompt).toContain("The selected item is for you, the companion");
     expect(prompt).toContain("cannot be bought-and-worn or equipped");
     expect(prompt).toContain("Always include one short spoken reaction");
     expect(prompt).not.toContain("silence or a gesture feels more natural");
@@ -1108,8 +1111,48 @@ describe("companion showroom talk contract", () => {
       resolveShowroomSpokenText({
         rawText: "",
         companionCommandCount: 0,
+        shoppingContextPresent: true,
       }),
-    ).toBe("I'm here with you. Let's keep going.");
+    ).toBe("");
+  });
+
+  it("rejects generic, incomplete, verdict-changing, and item-role-confused shopping speech", () => {
+    const evaluateShoppingSpeech = (
+      showroomTalkContract as typeof showroomTalkContract & {
+        evaluateShoppingSpeech?: (input: {
+          text: string;
+          verdict: "love" | "like" | "unsure" | "reject";
+        }) => { accepted: boolean; reason: string | null };
+      }
+    ).evaluateShoppingSpeech;
+
+    expect(
+      evaluateShoppingSpeech?.({
+        text: "I'm here with you. Let's keep going.",
+        verdict: "like",
+      }),
+    ).toEqual({ accepted: false, reason: "generic_fallback" });
+    expect(
+      evaluateShoppingSpeech?.({ text: "I can feel this navy", verdict: "like" }),
+    ).toEqual({ accepted: false, reason: "incomplete_response" });
+    expect(
+      evaluateShoppingSpeech?.({
+        text: "I am obsessed with this dress!",
+        verdict: "like",
+      }),
+    ).toEqual({ accepted: false, reason: "verdict_mismatch" });
+    expect(
+      evaluateShoppingSpeech?.({
+        text: "Are you going to get one too?",
+        verdict: "like",
+      }),
+    ).toEqual({ accepted: false, reason: "item_role_confusion" });
+    expect(
+      evaluateShoppingSpeech?.({
+        text: "I like this navy dress; it feels polished today.",
+        verdict: "like",
+      }),
+    ).toEqual({ accepted: true, reason: null });
   });
 
   it("does not let companionAct-only turns fall through to the thinking fallback", () => {
@@ -1154,7 +1197,17 @@ describe("companion showroom talk contract", () => {
         companionActToolUseCount: 0,
         activityToolUseCount: 1,
       }),
-    ).toBe(true);
+    ).toBe(false);
+  });
+
+  it("bounds shopping speech repair to one text-only retry and traces why it happened", () => {
+    const routeSource = readFileSync(resolve(__dirname, "routes.ts"), "utf8");
+
+    expect(routeSource).toContain("MAX_SHOWROOM_SPEECH_RETRIES = 1");
+    expect(routeSource).toContain("shopping_speech_retry");
+    expect(routeSource).toContain("shopping_speech_guard_failed");
+    expect(routeSource).toContain("companion_tool_rejected");
+    expect(routeSource).toContain('tool_choice: { type: "none" }');
   });
 
   it("keeps tic-tac-toe activity reactions to one Claude round trip when speech is already present and records latency spans", () => {

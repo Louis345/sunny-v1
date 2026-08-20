@@ -153,6 +153,16 @@ export type ShowroomShoppingEvent = {
   itemId: string;
 };
 
+export type ShoppingSpeechGuardResult = {
+  accepted: boolean;
+  reason:
+    | "generic_fallback"
+    | "incomplete_response"
+    | "verdict_mismatch"
+    | "item_role_confusion"
+    | null;
+};
+
 export type ResolvedShowroomTalkRequest = {
   childId: string;
   companionId: string;
@@ -883,6 +893,8 @@ export function buildShowroomTalkSystemPrompt(input: {
         `Code-owned opinion reasons: ${item.opinionReasons.join(", ") || "none"}.`,
         `Companion consents to wear: ${item.companionConsentsToWear}.`,
         "Treat the code-owned verdict as truth. Express it naturally in your persona; do not reverse it, soften a rejection into approval, or invent a different verdict.",
+        "A like verdict is not love or obsession; keep the strength of the spoken opinion equal to the code-owned verdict.",
+        "The selected item is for you, the companion, to try on. Do not imply that the child is wearing it or that you and the child need matching copies.",
       );
       if (!item.companionConsentsToWear) {
         lines.push(
@@ -1040,12 +1052,47 @@ export function resolveShowroomSpokenText(input: {
   rawText: string;
   companionCommandCount: number;
   requireGeneratedSpeech?: boolean;
+  shoppingContextPresent?: boolean;
 }): string {
   const trimmed = input.rawText.trim();
   if (trimmed) return trimmed;
   if (input.companionCommandCount > 0) return "";
   if (input.requireGeneratedSpeech) return "";
+  if (input.shoppingContextPresent) return "";
   return SHOWROOM_TALK_FALLBACK_TEXT;
+}
+
+export function evaluateShoppingSpeech(input: {
+  text: string;
+  verdict: NonNullable<ShowroomShoppingContext["selectedItem"]>["opinionVerdict"];
+}): ShoppingSpeechGuardResult {
+  const text = input.text.replace(/\s+/g, " ").trim();
+  const normalized = text.toLowerCase();
+  if (!text) return { accepted: false, reason: "incomplete_response" };
+  if (normalized === SHOWROOM_TALK_FALLBACK_TEXT.toLowerCase()) {
+    return { accepted: false, reason: "generic_fallback" };
+  }
+  if (/\b(?:get|buy|wear)\s+(?:one|it|this)\s+too\b/i.test(text)) {
+    return { accepted: false, reason: "item_role_confusion" };
+  }
+  if (
+    /\bi can feel (?:this|the)\s+[a-z-]+$/i.test(text) ||
+    /(?:\b(?:and|but|because|so|though)|[—-])\s*$/i.test(text)
+  ) {
+    return { accepted: false, reason: "incomplete_response" };
+  }
+  const strongApproval =
+    /\b(?:i(?:'m| am) obsessed|i (?:really |absolutely )?love|my favorite|it(?:'s| is) perfect)\b/i;
+  const anyApproval =
+    /\b(?:i (?:really )?(?:like|love)|i(?:'m| am) obsessed|my favorite|it(?:'s| is) perfect)\b/i;
+  if (
+    (input.verdict === "like" && strongApproval.test(text)) ||
+    (input.verdict === "unsure" && strongApproval.test(text)) ||
+    (input.verdict === "reject" && anyApproval.test(text))
+  ) {
+    return { accepted: false, reason: "verdict_mismatch" };
+  }
+  return { accepted: true, reason: null };
 }
 
 export function shouldSynthesizeShowroomSpeech(
@@ -1063,7 +1110,6 @@ export function shouldRunShowroomToolFollowup(input: {
 }): boolean {
   const toolUseCount = input.companionActToolUseCount + input.activityToolUseCount;
   if (toolUseCount === 0) return false;
-  if (!input.isActivityReaction) return true;
   return input.rawText.trim().length === 0;
 }
 
