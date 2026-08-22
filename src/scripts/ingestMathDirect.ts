@@ -29,11 +29,11 @@ import {
 import { readDirectFeedbackContext } from "../engine/directExperienceFeedback";
 import { readPriorConceptIds } from "../engine/assignmentLedger";
 import { getChildChart } from "../profiles/childChart";
-import { getLearningCycle } from "../engine/learningCycleRepository";
 import {
   buildDiscoveryActiveSessionPlan,
   generateMathDiscoveryExperience,
   publishDiscoveryExperience,
+  getMathDiscoveryLifecycle,
   type MathDiscoveryEvaluationContract,
 } from "../engine/adaptiveMathDiscovery";
 
@@ -212,8 +212,8 @@ async function main(): Promise<void> {
   const buildFile = path.join(draftDir, "candidate-build-v3.json");
   const chart = getChildChart(childId);
   const discoveryFile = path.join(draftDir, "discovery-contract.json");
-  const existingCycle = getLearningCycle(childId, homeworkId);
-  if (shouldPublishDiscoveryFirst(existingCycle?.lifecycle)) {
+  const existingLifecycle = getMathDiscoveryLifecycle(childId, homeworkId);
+  if (shouldPublishDiscoveryFirst(existingLifecycle)) {
     currentPhase = "discovery-generation";
     console.log("[2/2] Preparing independent Discovery evaluation");
     const existingDiscovery = fs.existsSync(discoveryFile) ? readJson<MathDiscoveryEvaluationContract>(discoveryFile) : undefined;

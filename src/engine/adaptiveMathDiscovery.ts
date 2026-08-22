@@ -615,6 +615,10 @@ export function getMathGenerationStatus(
   return parsed;
 }
 
+export function getMathDiscoveryLifecycle(childId: string, homeworkId: string, opts: RootOptions = {}): string | undefined {
+  return getLearningCycle(childId, homeworkId, { rootDir: opts.rootDir })?.lifecycle;
+}
+
 export function queueTargetedMathGeneration(input: {
   rootDir?: string;
   childId: string;
