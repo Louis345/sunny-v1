@@ -1,6 +1,6 @@
 # Sunny Learning Feedback Loop
 
-Contract version: 6
+Contract version: 7
 
 This document is the **sole normative** authority for how Sunny forms, tests, and revises learning claims. Product changes that alter this loop must update this contract version before implementation. Other documents may describe infrastructure or history, but they must link here instead of creating another learning doctrine.
 
@@ -26,7 +26,10 @@ For homework boards, the inner learning loop is:
 
 ```text
 school assignment
-→ preregistered prediction
+→ AI-authored independent Discovery evaluation
+→ factual evidence with instrument confounds separated
+→ targeted Planner program and preregistered predictions
+→ Fable board design
 → personalized baseline intervention
 → factual baseline scorecard
 → exactly one Planner decision
@@ -49,7 +52,9 @@ Every session is an honest chapter with a visible endpoint. Finishing the select
 
 When multiple academically valid interventions exist, the Planner may preregister a contextual agency experiment. It states the factual context, what academics remain comparable, one uncertain engagement hypothesis per route, predicted outcomes, falsifying evidence, and measurement keys. The board only projects the Planner's routes and records what was shown, selected, started, abandoned, completed, replayed, or switched. Selection alone never establishes preference; later interpretation must consider behavior, support, interaction, academic outcomes, and calibration together.
 
-The next intervention is generated and validated as the **next session chapter**. A later session load presents that ready chapter; the open session packet never polls for or swaps in newly generated required nodes. When a route frontier is complete, its unselected route is no longer required. This preserves meaningful agency without making the child finish both versions of the same curriculum.
+Discovery establishes the child's independent starting point before targeted instruction. Its items are fresh and may not teach the answer before recording the observation. Correctness, assistance, exposure, prompt ambiguity, reading friction, interface friction, and response-mode friction remain separate facts. Completion commits one evidence packet before targeted planning begins; ratings may inform later design hypotheses but cannot alter academic conclusions.
+
+The targeted program and complete board design are frozen before the targeted map appears. Nodes whose artifacts are still being implemented may appear as `preparing`; optional status polling may replace that presentation with `ready` without opening the node, interrupting the current activity, or creating evidence. `Preparing` is operational generation state, while `evidence_locked` is an academic lifecycle state. The child may exit and return without losing either state. When a route frontier is complete, its unselected route is no longer required.
 
 Quest and Boss never launch automatically. Once their evidence-authorized artifacts are generated and validated, the next session presents the node as unlocked. Quest uses unseen transfer material. Boss uses unseen synthesis material and always ends in `awaiting_calibration`; in-app performance alone cannot close the cycle.
 
@@ -68,7 +73,7 @@ Code owns identity, provenance, immutability, mathematical/source truth, exposur
 
 For generated math interventions, the Planner's academic contract is locked before creative design. A design artifact may choose presentation, interaction, stakes, recovery, and payoff, but it cannot alter the academic contract. Builder-model identity, artifact hashes, prompt hashes, and child-response measurements are recorded before launch so later model comparisons remain factual and observational. Builder ratings from unlike activities are not causal evidence and never select a model automatically.
 
-Generation checkpoints are operational state, not learning authority. Valid Planner-authored nodes and Creator artifacts are preserved independently, and missing siblings may be requested without regenerating completed work. The board does not judge or rewrite activity count, route length, pedagogy, mechanics, themes, or presentation. It publishes only after every displayed node has a launchable artifact, while the previously published board remains active.
+Generation checkpoints are operational state, not learning authority. Valid Planner-authored nodes and Creator artifacts are preserved independently, and missing siblings may be requested without regenerating completed work. The board does not judge or rewrite activity count, route length, pedagogy, mechanics, themes, or presentation. Discovery publishes atomically before child use; after Discovery, the complete frozen topology may publish with truthful `preparing` nodes while each ready artifact is bound independently. A failed candidate never removes the previously safe published experience.
 
 ## The many-to-many evidence model
 
