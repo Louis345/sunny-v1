@@ -3,6 +3,7 @@ import * as THREE from "three";
 import {
   CELTIC_SWEATER_OUTFIT,
   SLEEVELESS_DRESS_OUTFIT,
+  applyXwearMaterialVariant,
   applyGarmentSurfaceOffset,
   bindSkinnedMeshInAvatarSpace,
   createBindPoseSkeleton,
@@ -22,6 +23,19 @@ import {
 } from "../lib/xwearDress";
 
 describe("XWear avatar-space binding", () => {
+  it("creates an isolated material palette for each wardrobe variant", () => {
+    const shared = new THREE.MeshBasicMaterial({ color: "#ffffff" });
+
+    const [berry] = applyXwearMaterialVariant([shared], {
+      id: "ribbon-dress-berry",
+      tint: "#8e3f70",
+    });
+
+    expect(berry).not.toBe(shared);
+    expect(berry?.color.getHexString()).toBe("8e3f70");
+    expect(shared.color.getHexString()).toBe("ffffff");
+  });
+
   it("resolves every sellable outfit through the skinned XWear catalog", () => {
     expect(getXwearOutfitDefinition("sleeveless-dress")).toBe(
       SLEEVELESS_DRESS_OUTFIT,

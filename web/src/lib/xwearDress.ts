@@ -33,6 +33,25 @@ export type XwearOutfitQa =
       unsupportedAnimations?: readonly string[];
     };
 
+export type XwearMaterialVariant = {
+  id: string;
+  tint: string;
+};
+
+export function applyXwearMaterialVariant(
+  materials: readonly THREE.MeshBasicMaterial[],
+  variant: XwearMaterialVariant,
+) {
+  const tint = new THREE.Color(variant.tint);
+  return materials.map((material) => {
+    const variedMaterial = material.clone();
+    variedMaterial.color.multiply(tint);
+    variedMaterial.name = `${material.name || "xwear-material"}:${variant.id}`;
+    variedMaterial.needsUpdate = true;
+    return variedMaterial;
+  });
+}
+
 export function isXwearOutfitApprovedForAvatar(
   outfit: XwearOutfitDefinition,
   avatarUrl: string,
