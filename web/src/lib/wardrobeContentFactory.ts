@@ -9,12 +9,12 @@ export type WardrobeSilhouetteTemplate<TOutfitId extends string = string> = {
   icon: string;
   compatibility:
     | { kind: "universal" }
-    | { kind: "approved_models"; modelUrls: readonly string[] };
+    | { kind: "approved_body_profiles"; bodyProfileIds: readonly string[] };
   qa:
     | Exclude<WardrobeContentQa, { status: "approved" }>
     | {
         status: "approved";
-        approvedAvatarUrls: readonly string[];
+        approvedBodyProfileIds: readonly string[];
       };
 };
 

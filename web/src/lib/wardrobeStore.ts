@@ -1,4 +1,5 @@
 import { createWardrobeVariantCatalog } from "./wardrobeContentFactory";
+import { resolveWardrobeBodyProfileId } from "./wardrobeBodyProfiles";
 
 export type WardrobeAccessoryId = "none" | "crown" | "cat-ears" | "halo";
 export type WardrobeOutfitId =
@@ -33,7 +34,7 @@ type WardrobeAsset =
 
 type WardrobeCompatibility =
   | { kind: "universal" }
-  | { kind: "approved_models"; modelUrls: readonly string[] };
+  | { kind: "approved_body_profiles"; bodyProfileIds: readonly string[] };
 
 export type WardrobeStoreItem = {
   id: string;
@@ -52,12 +53,12 @@ const RIBBON_DRESS_VARIANTS = createWardrobeVariantCatalog({
       outfitId: "sleeveless-dress",
       icon: "👗",
       compatibility: {
-        kind: "approved_models",
-        modelUrls: ["/companions/sample.vrm"],
+        kind: "approved_body_profiles",
+        bodyProfileIds: ["sunny-standard-v1"],
       },
       qa: {
         status: "approved",
-        approvedAvatarUrls: ["/companions/sample.vrm"],
+        approvedBodyProfileIds: ["sunny-standard-v1"],
       },
     },
   ],
@@ -101,62 +102,6 @@ const RIBBON_DRESS_VARIANTS = createWardrobeVariantCatalog({
   ],
 });
 
-const CONSTELLATION_BLAZER_VARIANTS = createWardrobeVariantCatalog({
-  templates: [
-    {
-      id: "constellation-blazer",
-      outfitId: "constellation-blazer",
-      icon: "🎓",
-      compatibility: {
-        kind: "approved_models",
-        modelUrls: ["/companions/sample.vrm"],
-      },
-      qa: {
-        status: "approved",
-        approvedAvatarUrls: ["/companions/sample.vrm"],
-      },
-    },
-  ],
-  variants: [
-    {
-      id: "midnight-constellation-blazer",
-      templateId: "constellation-blazer",
-      name: "Midnight Constellation Blazer",
-      price: 70,
-      styleTags: ["classic", "midnight", "polished", "academic"],
-      material: { tint: "#ffffff" },
-      qa: { status: "approved" },
-    },
-    {
-      id: "berry-constellation-blazer",
-      templateId: "constellation-blazer",
-      name: "Berry Constellation Blazer",
-      price: 75,
-      styleTags: ["berry", "magical", "polished", "bold"],
-      material: { tint: "#ff78be" },
-      qa: { status: "approved" },
-    },
-    {
-      id: "emerald-constellation-blazer",
-      templateId: "constellation-blazer",
-      name: "Emerald Constellation Blazer",
-      price: 75,
-      styleTags: ["emerald", "clever", "polished", "adventurous"],
-      material: { tint: "#60db9b" },
-      qa: { status: "approved" },
-    },
-    {
-      id: "starlight-constellation-blazer",
-      templateId: "constellation-blazer",
-      name: "Starlight Constellation Blazer",
-      price: 80,
-      styleTags: ["starlight", "celestial", "polished", "elegant"],
-      material: { tint: "#c2c8ff" },
-      qa: { status: "approved" },
-    },
-  ],
-});
-
 export const WARDROBE_STORE_CATALOG: readonly WardrobeStoreItem[] = [
   {
     id: "royal-crown",
@@ -186,7 +131,6 @@ export const WARDROBE_STORE_CATALOG: readonly WardrobeStoreItem[] = [
     compatibility: { kind: "universal" },
   },
   ...RIBBON_DRESS_VARIANTS,
-  ...CONSTELLATION_BLAZER_VARIANTS,
 ] as const;
 
 export type CompanionStoreDesire = {
@@ -531,9 +475,11 @@ export function isWardrobeStoreItemCompatible(
   item: WardrobeStoreItem,
   companionModelUrl: string,
 ) {
+  const bodyProfileId = resolveWardrobeBodyProfileId(companionModelUrl);
   return (
     item.compatibility.kind === "universal" ||
-    item.compatibility.modelUrls.includes(companionModelUrl)
+    (bodyProfileId !== null &&
+      item.compatibility.bodyProfileIds.includes(bodyProfileId))
   );
 }
 

@@ -330,7 +330,7 @@ describe("companion wardrobe feasibility lab", () => {
       "attachXwearOutfit(vrmScene, outfitDefinition, wardrobeOutfitMaterialVariant)",
     );
     expect(source).toContain(
-      "[wardrobeOutfitId, wardrobeOutfitMaterialVariant]",
+      "showroomCompanionConfig.vrmUrl,\n    wardrobeOutfitId,\n    wardrobeOutfitMaterialVariant,\n    wardrobeQaMode,",
     );
     expect(xwearSource).toContain(
       "applyXwearMaterialVariant(materials, materialVariant)",

@@ -53,6 +53,7 @@ describe("WardrobeStoreLab shopping call", () => {
     expect(screen.queryByRole("button", { name: /Blue Celtic Sweater/ })).toBeNull();
     expect(screen.queryByRole("button", { name: /Galaxy Hero Outfit/ })).toBeNull();
     expect(screen.queryByRole("button", { name: /Comet Hoodie/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Constellation Blazer/ })).toBeNull();
     expect(screen.queryByRole("heading", { name: "The Lantern Room" })).toBeNull();
   });
 
@@ -72,13 +73,13 @@ describe("WardrobeStoreLab shopping call", () => {
       "data-thumbnail-color",
       "#ff8fb2",
     );
-    expect(screen.getByTestId("wardrobe-thumbnail-emerald-constellation-blazer")).toHaveAttribute(
+    expect(screen.getByTestId("wardrobe-thumbnail-plum-ribbon-dress")).toHaveAttribute(
       "data-thumbnail-color",
-      "#60db9b",
+      "#c878ff",
     );
-    expect(screen.getByTestId("wardrobe-thumbnail-midnight-constellation-blazer")).toHaveAttribute(
+    expect(screen.getByTestId("wardrobe-thumbnail-teal-ribbon-dress")).toHaveAttribute(
       "data-thumbnail-silhouette",
-      "blazer",
+      "dress",
     );
   });
 

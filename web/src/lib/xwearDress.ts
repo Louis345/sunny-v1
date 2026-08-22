@@ -2,6 +2,7 @@ import * as THREE from "three";
 // Reuse the ZIP reader Three bundles for its own loaders.
 import { unzipSync } from "three/examples/jsm/libs/fflate.module.js";
 import { parseXwearMesh } from "./xwearMesh";
+import { resolveWardrobeBodyProfileId } from "./wardrobeBodyProfiles";
 
 export type XwearOutfitDefinition = {
   id: string;
@@ -11,7 +12,6 @@ export type XwearOutfitDefinition = {
   itemPath: string;
   archiveUrl?: string;
   surfaceOffset?: number;
-  volumeScale?: { x: number; y: number; z: number };
   slots: {
     occupies: readonly XwearClothingSlot[];
     replaces: readonly XwearBaseClothingCategory[];
@@ -30,7 +30,7 @@ export type XwearOutfitQa =
   | { status: "rejected"; reason: string }
   | {
       status: "approved";
-      approvedAvatarUrls: readonly string[];
+      approvedBodyProfileIds: readonly string[];
       unsupportedAnimations?: readonly string[];
     };
 
@@ -57,9 +57,11 @@ export function isXwearOutfitApprovedForAvatar(
   outfit: XwearOutfitDefinition,
   avatarUrl: string,
 ) {
+  const bodyProfileId = resolveWardrobeBodyProfileId(avatarUrl);
   return (
     outfit.qa.status === "approved" &&
-    outfit.qa.approvedAvatarUrls.includes(avatarUrl)
+    bodyProfileId !== null &&
+    outfit.qa.approvedBodyProfileIds.includes(bodyProfileId)
   );
 }
 
@@ -103,7 +105,7 @@ export const SLEEVELESS_DRESS_OUTFIT: XwearOutfitDefinition = {
   },
   qa: {
     status: "approved",
-    approvedAvatarUrls: ["/companions/sample.vrm"],
+    approvedBodyProfileIds: ["sunny-standard-v1"],
     unsupportedAnimations: ["sitting"],
   },
 };
@@ -139,15 +141,14 @@ export const CONSTELLATION_BLAZER_OUTFIT: XwearOutfitDefinition = {
   archiveUrl:
     "/@fs/Users/jamaltaylor/Development/sunny-companion-wardrobe-sandbox/.sunny-sandbox/wardrobe/vroid-blazer/sunny-blazer.xwear",
   surfaceOffset: 0.02,
-  volumeScale: { x: 0.84, y: 0.9, z: 0.82 },
   slots: {
     occupies: ["top"],
     replaces: ["top"],
   },
   qa: {
-    status: "approved",
-    approvedAvatarUrls: ["/companions/sample.vrm"],
-    unsupportedAnimations: ["sitting"],
+    status: "rejected",
+    reason:
+      "Rejected after full-size visual QA found oversized shoulders, sleeves, and torso volume on Elli.",
   },
 };
 
@@ -435,48 +436,6 @@ export function fitGarmentToAvatarProportions(
       .toArray(fittedPositions, index);
   }
   return { positions: fittedPositions, scale };
-}
-
-export function adjustGarmentVolumeAroundBones(args: {
-  positions: Float32Array;
-  boneIndices: ArrayLike<number>;
-  boneWeights: ArrayLike<number>;
-  boneBindMatrices: readonly THREE.Matrix4[];
-  scale: { x: number; y: number; z: number };
-}) {
-  const vertexCount = args.positions.length / 3;
-  if (
-    args.boneIndices.length !== vertexCount * 4 ||
-    args.boneWeights.length !== vertexCount * 4
-  ) {
-    throw new Error("Garment volume adjustment requires four bone weights per vertex");
-  }
-
-  const adjusted = args.positions.slice();
-  const position = new THREE.Vector3();
-  const anchor = new THREE.Vector3();
-  for (let vertexIndex = 0; vertexIndex < vertexCount; vertexIndex += 1) {
-    const weightOffset = vertexIndex * 4;
-    let dominantBoneIndex = args.boneIndices[weightOffset] ?? 0;
-    let dominantWeight = args.boneWeights[weightOffset] ?? 0;
-    for (let influence = 1; influence < 4; influence += 1) {
-      const weight = args.boneWeights[weightOffset + influence] ?? 0;
-      if (weight > dominantWeight) {
-        dominantWeight = weight;
-        dominantBoneIndex = args.boneIndices[weightOffset + influence] ?? 0;
-      }
-    }
-    const bindMatrix = args.boneBindMatrices[dominantBoneIndex];
-    if (!bindMatrix) continue;
-    anchor.setFromMatrixPosition(bindMatrix);
-    position
-      .fromArray(adjusted, vertexIndex * 3)
-      .sub(anchor)
-      .multiply(args.scale)
-      .add(anchor)
-      .toArray(adjusted, vertexIndex * 3);
-  }
-  return adjusted;
 }
 
 export function retargetGarmentVerticesToAvatarBindPose(args: {
@@ -789,21 +748,12 @@ export async function attachXwearOutfit(
     sourceBindWorldMatrices: sourceBoneMatrices,
     targetBindWorldMatrices: boneBindLocalMatrices,
   });
-  const volumeAdjustedPositions = outfit.volumeScale
-    ? adjustGarmentVolumeAroundBones({
-        positions: retargeted.positions,
-        boneIndices: meshData.boneIndices,
-        boneWeights: meshData.boneWeights,
-        boneBindMatrices: boneBindLocalMatrices,
-        scale: outfit.volumeScale,
-      })
-    : retargeted.positions;
   const geometry = new THREE.BufferGeometry();
   geometry.setAttribute(
     "position",
     new THREE.BufferAttribute(
       applyGarmentSurfaceOffset(
-        volumeAdjustedPositions,
+        retargeted.positions,
         retargeted.normals,
         outfit.surfaceOffset ?? 0,
       ),
@@ -860,7 +810,7 @@ export async function attachXwearOutfit(
     outfit.slots.replaces,
   );
   console.log(
-    ` 🎮 [companion-wardrobe-lab] downloaded_outfit applied outfit=${outfit.id} variant=${materialVariant?.id ?? "base"} vertices=${meshData.vertexCount} fit_scale=${fitted.scale.toFixed(4)} volume_scale=${outfit.volumeScale ? `${outfit.volumeScale.x},${outfit.volumeScale.y},${outfit.volumeScale.z}` : "1,1,1"} surface_offset=${outfit.surfaceOffset ?? 0}`,
+    ` 🎮 [companion-wardrobe-lab] downloaded_outfit applied outfit=${outfit.id} variant=${materialVariant?.id ?? "base"} vertices=${meshData.vertexCount} fit_scale=${fitted.scale.toFixed(4)} surface_offset=${outfit.surfaceOffset ?? 0}`,
   );
   return dress;
 }

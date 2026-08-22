@@ -61,6 +61,8 @@ import {
   type WardrobeShoppingEvent,
   type WardrobeStoreDebugEvent,
 } from "./WardrobeStoreLab";
+import { WardrobeCompatibilityLab } from "./WardrobeCompatibilityLab";
+import { WARDROBE_COMPATIBILITY_CASES } from "../lib/wardrobeBodyProfiles";
 import {
   StorybookFootlights,
   StorybookPrimaryButton,
@@ -2588,6 +2590,7 @@ function CompanionSlot({
   wardrobeAccessoryId = "none",
   wardrobeOutfitId = "none",
   wardrobeOutfitMaterialVariant = null,
+  wardrobeQaMode = "enforced",
   onMotorReady,
   onLoadSettled,
   onVrmAttached,
@@ -2610,6 +2613,7 @@ function CompanionSlot({
   wardrobeAccessoryId?: WardrobeAccessoryId;
   wardrobeOutfitId?: WardrobeOutfitId;
   wardrobeOutfitMaterialVariant?: XwearMaterialVariant | null;
+  wardrobeQaMode?: "enforced" | "candidate_preview";
   onMotorReady?: (slot: SlotName, motor: CompanionMotor | null) => void;
   onLoadSettled: (slotKey: string) => void;
   /** Fires once after `attachVrm` succeeds (not called on load failure). */
@@ -2707,11 +2711,17 @@ function CompanionSlot({
     if (
       vrmScene &&
       outfitDefinition &&
-      isXwearOutfitApprovedForAvatar(
-        outfitDefinition,
-        showroomCompanionConfig.vrmUrl,
-      )
+      (wardrobeQaMode === "candidate_preview" ||
+        isXwearOutfitApprovedForAvatar(
+          outfitDefinition,
+          showroomCompanionConfig.vrmUrl,
+        ))
     ) {
+      if (wardrobeQaMode === "candidate_preview") {
+        console.log(
+          ` 🎮 [wardrobe-compatibility-lab] candidate_preview allowed outfit=${outfitDefinition.id} model=${showroomCompanionConfig.vrmUrl}`,
+        );
+      }
       void attachXwearOutfit(vrmScene, outfitDefinition, wardrobeOutfitMaterialVariant)
         .then((outfit) => {
           if (wardrobeOutfitRequestKeyRef.current !== requestKey) {
@@ -2729,7 +2739,12 @@ function CompanionSlot({
           console.error(" 🎮 [companion-wardrobe-lab] downloaded_outfit failed", error);
         });
     }
-  }, [wardrobeOutfitId, wardrobeOutfitMaterialVariant]);
+  }, [
+    showroomCompanionConfig.vrmUrl,
+    wardrobeOutfitId,
+    wardrobeOutfitMaterialVariant,
+    wardrobeQaMode,
+  ]);
 
   useEffect(() => {
     const previousSlot = slotRef.current;
@@ -2951,14 +2966,20 @@ function CompanionSlot({
           }
           if (
             getXwearOutfitDefinition(wardrobeOutfitIdRef.current) &&
-            isXwearOutfitApprovedForAvatar(
-              getXwearOutfitDefinition(wardrobeOutfitIdRef.current)!,
-              showroomCompanionConfig.vrmUrl,
-            )
+            (wardrobeQaMode === "candidate_preview" ||
+              isXwearOutfitApprovedForAvatar(
+                getXwearOutfitDefinition(wardrobeOutfitIdRef.current)!,
+                showroomCompanionConfig.vrmUrl,
+              ))
           ) {
             const outfitDefinition = getXwearOutfitDefinition(
               wardrobeOutfitIdRef.current,
             )!;
+            if (wardrobeQaMode === "candidate_preview") {
+              console.log(
+                ` 🎮 [wardrobe-compatibility-lab] candidate_preview allowed outfit=${outfitDefinition.id} model=${showroomCompanionConfig.vrmUrl}`,
+              );
+            }
             const selectedMaterialVariant = wardrobeOutfitMaterialVariantRef.current;
             const requestKey = `${outfitDefinition.id}:${selectedMaterialVariant?.id ?? "base"}:${selectedMaterialVariant?.tint ?? "none"}`;
             wardrobeOutfitRequestKeyRef.current = requestKey;
@@ -3089,6 +3110,7 @@ function CompanionSlot({
     startLoop,
     stopLoop,
     vfxPreset,
+    wardrobeQaMode,
   ]);
 
   return (
@@ -3624,6 +3646,9 @@ export function CompanionShowroom({
   const wardrobeDebugEnabled =
     typeof window !== "undefined" &&
     new URLSearchParams(window.location.search).get("wardrobeDebug") === "true";
+  const wardrobeCompatibilityLabEnabled =
+    typeof window !== "undefined" &&
+    new URLSearchParams(window.location.search).get("wardrobeCompatibilityLab") === "true";
   const [currentIndex, setCurrentIndex] = useState(0);
   const [wardrobeAccessoryId, setWardrobeAccessoryId] =
     useState<WardrobeAccessoryId>("none");
@@ -6393,6 +6418,55 @@ export function CompanionShowroom({
         </span>
       </button>
     ) : null;
+
+  if (wardrobeCompatibilityLabEnabled) {
+    return (
+      <WardrobeCompatibilityLab
+        cases={WARDROBE_COMPATIBILITY_CASES}
+        onExit={() => {
+          const params = new URLSearchParams(window.location.search);
+          params.delete("wardrobeCompatibilityLab");
+          window.location.search = params.toString();
+        }}
+        renderCompanion={(testCase) => {
+          const sourceEntry = entries.find(
+            (entry) => entry.id === testCase.companionId,
+          );
+          if (!sourceEntry) return null;
+          const compatibilityEntry: CompanionManifestEntry = {
+            ...sourceEntry,
+            companionConfig: {
+              ...sourceEntry.companionConfig,
+              companionId: sourceEntry.id,
+              vrmUrl: testCase.modelUrl,
+            },
+          };
+          return (
+            <CompanionSlot
+              key={testCase.id}
+              entry={compatibilityEntry}
+              slot="current"
+              active
+              contained
+              displayScaleOverride={4}
+              cameraAngleOverride="full-body"
+              wardrobeOutfitId="sleeveless-dress"
+              wardrobeOutfitMaterialVariant={{
+                id: "plum-ribbon-dress",
+                tint: "#c878ff",
+              }}
+              wardrobeQaMode="candidate_preview"
+              onLoadSettled={(slotKey) => {
+                console.log(
+                  ` 🎮 [wardrobe-compatibility-lab] model_loaded result=ready case=${testCase.id} slot=${slotKey}`,
+                );
+              }}
+            />
+          );
+        }}
+      />
+    );
+  }
 
   return (
     <div

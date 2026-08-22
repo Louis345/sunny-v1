@@ -6,12 +6,12 @@ const approvedTemplate = (id: string, outfitId: string) => ({
   outfitId,
   icon: "👗",
   compatibility: {
-    kind: "approved_models" as const,
-    modelUrls: ["/companions/sample.vrm"],
+    kind: "approved_body_profiles" as const,
+    bodyProfileIds: ["sunny-standard-v1"],
   },
   qa: {
     status: "approved" as const,
-    approvedAvatarUrls: ["/companions/sample.vrm"],
+    approvedBodyProfileIds: ["sunny-standard-v1"],
   },
 });
 

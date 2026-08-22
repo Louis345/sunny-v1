@@ -87,10 +87,6 @@ describe("wardrobe store domain", () => {
       "plum-ribbon-dress",
       "teal-ribbon-dress",
       "rose-ribbon-dress",
-      "midnight-constellation-blazer",
-      "berry-constellation-blazer",
-      "emerald-constellation-blazer",
-      "starlight-constellation-blazer",
     ]);
     expect(keflaItems.map((item) => item.id)).toEqual([
       "royal-crown",
@@ -109,14 +105,17 @@ describe("wardrobe store domain", () => {
       "Plum Ribbon Dress",
       "Teal Ribbon Dress",
       "Rose Ribbon Dress",
-      "Midnight Constellation Blazer",
-      "Berry Constellation Blazer",
-      "Emerald Constellation Blazer",
-      "Starlight Constellation Blazer",
     ]);
     expect(
       outfits.every(
         (item) => item.asset.kind === "outfit" && item.asset.fit === "skinned_xwear",
+      ),
+    ).toBe(true);
+    expect(
+      outfits.every(
+        (item) =>
+          item.compatibility.kind === "approved_body_profiles" &&
+          item.compatibility.bodyProfileIds.includes("sunny-standard-v1"),
       ),
     ).toBe(true);
     expect(WARDROBE_STORE_CATALOG.some((item) => item.id === "galaxy-hero")).toBe(false);

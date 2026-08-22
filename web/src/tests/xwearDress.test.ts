@@ -6,7 +6,6 @@ import {
   CONSTELLATION_BLAZER_OUTFIT,
   SLEEVELESS_DRESS_OUTFIT,
   applyXwearMaterialVariant,
-  adjustGarmentVolumeAroundBones,
   applyGarmentSurfaceOffset,
   bindSkinnedMeshInAvatarSpace,
   createBindPoseSkeleton,
@@ -37,21 +36,6 @@ describe("XWear avatar-space binding", () => {
     expect(berry).not.toBe(shared);
     expect(berry?.color.getHexString()).toBe("8e3f70");
     expect(shared.color.getHexString()).toBe("ffffff");
-  });
-
-  it("shrinks oversized garments around their weighted bones without moving the bones", () => {
-    const adjusted = adjustGarmentVolumeAroundBones({
-      positions: new Float32Array([3, 4, 5, 8, 10, 12]),
-      boneIndices: new Uint16Array([0, 0, 0, 0, 1, 0, 0, 0]),
-      boneWeights: new Float32Array([1, 0, 0, 0, 1, 0, 0, 0]),
-      boneBindMatrices: [
-        new THREE.Matrix4().makeTranslation(1, 2, 3),
-        new THREE.Matrix4().makeTranslation(4, 6, 8),
-      ],
-      scale: { x: 0.5, y: 0.5, z: 0.5 },
-    });
-
-    expect(Array.from(adjusted)).toEqual([2, 3, 4, 6, 8, 10]);
   });
 
   it("resolves every sellable outfit through the skinned XWear catalog", () => {
@@ -88,10 +72,11 @@ describe("XWear avatar-space binding", () => {
       status: "rejected",
       reason: expect.stringContaining("full-size visual QA"),
     });
-    expect(getApprovedXwearOutfitDefinitions()).toEqual([
-      SLEEVELESS_DRESS_OUTFIT,
-      CONSTELLATION_BLAZER_OUTFIT,
-    ]);
+    expect(CONSTELLATION_BLAZER_OUTFIT.qa).toMatchObject({
+      status: "rejected",
+      reason: expect.stringContaining("full-size visual QA"),
+    });
+    expect(getApprovedXwearOutfitDefinitions()).toEqual([SLEEVELESS_DRESS_OUTFIT]);
     expect(
       isXwearOutfitApprovedForAvatar(
         CELTIC_SWEATER_OUTFIT,
@@ -125,10 +110,13 @@ describe("XWear avatar-space binding", () => {
       occupies: ["top"],
       replaces: ["top"],
     });
-    expect(CONSTELLATION_BLAZER_OUTFIT.volumeScale?.x).toBeLessThan(0.9);
   });
 
   it("only applies an outfit to avatar designs that passed visual fit QA", () => {
+    expect(SLEEVELESS_DRESS_OUTFIT.qa).toMatchObject({
+      status: "approved",
+      approvedBodyProfileIds: ["sunny-standard-v1"],
+    });
     expect(
       isXwearOutfitApprovedForAvatar(
         SLEEVELESS_DRESS_OUTFIT,
@@ -254,7 +242,7 @@ describe("XWear avatar-space binding", () => {
       slots: { occupies: ["onepiece"] as const, replaces: ["onepiece"] as const },
       qa: {
         status: "approved" as const,
-        approvedAvatarUrls: ["/companions/sample.vrm"],
+        approvedBodyProfileIds: ["sunny-standard-v1"],
         unsupportedAnimations: ["sitting"],
       },
     };
