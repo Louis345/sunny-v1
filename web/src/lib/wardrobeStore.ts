@@ -101,62 +101,6 @@ const RIBBON_DRESS_VARIANTS = createWardrobeVariantCatalog({
   ],
 });
 
-const COMET_HOODIE_VARIANTS = createWardrobeVariantCatalog({
-  templates: [
-    {
-      id: "comet-hoodie",
-      outfitId: "comet-hoodie",
-      icon: "🧥",
-      compatibility: {
-        kind: "approved_models",
-        modelUrls: ["/companions/sample.vrm"],
-      },
-      qa: {
-        status: "approved",
-        approvedAvatarUrls: ["/companions/sample.vrm"],
-      },
-    },
-  ],
-  variants: [
-    {
-      id: "ruby-comet-hoodie",
-      templateId: "comet-hoodie",
-      name: "Ruby Comet Hoodie",
-      price: 45,
-      styleTags: ["playful", "red", "casual", "cozy"],
-      material: { tint: "#ff6f7d" },
-      qa: { status: "approved" },
-    },
-    {
-      id: "indigo-comet-hoodie",
-      templateId: "comet-hoodie",
-      name: "Indigo Comet Hoodie",
-      price: 50,
-      styleTags: ["celestial", "indigo", "casual", "bold"],
-      material: { tint: "#788cff" },
-      qa: { status: "approved" },
-    },
-    {
-      id: "mint-comet-hoodie",
-      templateId: "comet-hoodie",
-      name: "Mint Comet Hoodie",
-      price: 45,
-      styleTags: ["bright", "mint", "casual", "playful"],
-      material: { tint: "#72e6c1" },
-      qa: { status: "approved" },
-    },
-    {
-      id: "sunrise-comet-hoodie",
-      templateId: "comet-hoodie",
-      name: "Sunrise Comet Hoodie",
-      price: 50,
-      styleTags: ["warm", "gold", "casual", "cheerful"],
-      material: { tint: "#ffc16e" },
-      qa: { status: "approved" },
-    },
-  ],
-});
-
 const CONSTELLATION_BLAZER_VARIANTS = createWardrobeVariantCatalog({
   templates: [
     {
@@ -242,7 +186,6 @@ export const WARDROBE_STORE_CATALOG: readonly WardrobeStoreItem[] = [
     compatibility: { kind: "universal" },
   },
   ...RIBBON_DRESS_VARIANTS,
-  ...COMET_HOODIE_VARIANTS,
   ...CONSTELLATION_BLAZER_VARIANTS,
 ] as const;
 

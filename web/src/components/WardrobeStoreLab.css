@@ -302,6 +302,37 @@
   font-size: clamp(92px, 12vw, 170px);
 }
 
+.wardrobe-item-thumbnail svg {
+  width: 78%;
+  height: 78%;
+  overflow: visible;
+  fill: var(--wardrobe-thumbnail-color, #756882);
+  filter: drop-shadow(0 5px 5px rgba(57, 43, 66, 0.18));
+}
+
+.wardrobe-item-thumbnail__detail {
+  fill: none;
+  stroke: rgba(39, 31, 52, 0.62);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2;
+}
+
+.wardrobe-item-thumbnail.is-accessory {
+  font-size: inherit;
+}
+
+.wardrobe-store-lab__closet-grid .wardrobe-item-thumbnail {
+  width: 32px;
+  height: 32px;
+  display: inline-grid;
+  place-items: center;
+  margin-right: 6px;
+  border-radius: 8px;
+  background: #f1e8ef;
+  vertical-align: middle;
+}
+
 .wardrobe-store-lab__product-copy {
   grid-area: copy;
   display: flex;

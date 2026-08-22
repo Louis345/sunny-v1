@@ -87,10 +87,6 @@ describe("wardrobe store domain", () => {
       "plum-ribbon-dress",
       "teal-ribbon-dress",
       "rose-ribbon-dress",
-      "ruby-comet-hoodie",
-      "indigo-comet-hoodie",
-      "mint-comet-hoodie",
-      "sunrise-comet-hoodie",
       "midnight-constellation-blazer",
       "berry-constellation-blazer",
       "emerald-constellation-blazer",
@@ -113,10 +109,6 @@ describe("wardrobe store domain", () => {
       "Plum Ribbon Dress",
       "Teal Ribbon Dress",
       "Rose Ribbon Dress",
-      "Ruby Comet Hoodie",
-      "Indigo Comet Hoodie",
-      "Mint Comet Hoodie",
-      "Sunrise Comet Hoodie",
       "Midnight Constellation Blazer",
       "Berry Constellation Blazer",
       "Emerald Constellation Blazer",
@@ -128,7 +120,7 @@ describe("wardrobe store domain", () => {
       ),
     ).toBe(true);
     expect(WARDROBE_STORE_CATALOG.some((item) => item.id === "galaxy-hero")).toBe(false);
-    expect(WARDROBE_STORE_CATALOG.some((item) => item.id === "ruby-comet-hoodie")).toBe(true);
+    expect(WARDROBE_STORE_CATALOG.some((item) => item.id === "ruby-comet-hoodie")).toBe(false);
     expect(WARDROBE_STORE_CATALOG.some((item) => item.id === "celtic-sweater")).toBe(false);
   });
 

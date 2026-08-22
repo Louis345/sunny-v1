@@ -243,6 +243,47 @@ function Wallet({ balance }: { balance: number }) {
   );
 }
 
+function WardrobeItemThumbnail({ item }: { item: WardrobeStoreItem }) {
+  if (item.asset.kind === "accessory") {
+    return <span className="wardrobe-item-thumbnail is-accessory">{item.icon}</span>;
+  }
+
+  const silhouette =
+    item.asset.outfitId === "sleeveless-dress"
+      ? "dress"
+      : "blazer";
+  const color = item.asset.materialVariant.tint;
+  const style = { "--wardrobe-thumbnail-color": color } as CSSProperties;
+
+  return (
+    <span
+      aria-hidden
+      className={`wardrobe-item-thumbnail is-${silhouette}`}
+      data-testid={`wardrobe-thumbnail-${item.id}`}
+      data-thumbnail-color={color}
+      data-thumbnail-silhouette={silhouette}
+      style={style}
+    >
+      <svg viewBox="0 0 64 64" focusable="false">
+        {silhouette === "dress" && (
+          <>
+            <path d="M24 9h6v9h4V9h6l3 15-5 5 11 25H15l11-25-5-5 3-15Z" />
+            <path className="wardrobe-item-thumbnail__detail" d="M26 18h12M20 47h24" />
+          </>
+        )}
+        {silhouette === "blazer" && (
+          <>
+            <path d="M22 11 32 17 42 11l5 10 8 25-10 4-4-11v17H23V39l-4 11-10-4 8-25 5-10Z" />
+            <path className="wardrobe-item-thumbnail__detail" d="m22 11 10 18 10-18M32 17v39M27 37h3m7 0h3" />
+            <circle cx="35" cy="34" r="1.4" />
+            <circle cx="35" cy="42" r="1.4" />
+          </>
+        )}
+      </svg>
+    </span>
+  );
+}
+
 function priceLabel(item: WardrobeStoreItem, state: WardrobeStoreState): string {
   if (state.ownedItemIds.includes(item.id)) return "Owned";
   if (state.savedItemIds.includes(item.id)) return "Saved";
@@ -764,7 +805,7 @@ export function WardrobeStoreLab({
                 )}
               </div>
               <div className="wardrobe-store-lab__product-art" aria-hidden>
-                <span>{selectedItem.icon}</span>
+                <WardrobeItemThumbnail item={selectedItem} />
               </div>
               <div className="wardrobe-store-lab__product-copy">
                 <div>
@@ -949,7 +990,7 @@ export function WardrobeStoreLab({
                   aria-label={`View ${item.name}, ${itemPriceLabel}`}
                   onClick={() => selectItem(item)}
                 >
-                  <span aria-hidden>{item.icon}</span>
+                  <WardrobeItemThumbnail item={item} />
                   <div><strong>{item.name}</strong><small>{item.styleTags.slice(0, 2).join(" · ")}</small></div>
                   <b>{itemPriceLabel}</b>
                 </button>
@@ -982,7 +1023,7 @@ export function WardrobeStoreLab({
               ) : (
                 ownedItems.map((item) => (
                   <button type="button" key={item.id} onClick={() => equipOwnedItem(item)}>
-                    <span aria-hidden>{item.icon}</span>{item.name}
+                    <WardrobeItemThumbnail item={item} />{item.name}
                   </button>
                 ))
               )}
@@ -992,7 +1033,7 @@ export function WardrobeStoreLab({
               {savedItems.length === 0 ? (
                 <p>Nothing saved yet.</p>
               ) : (
-                savedItems.map((item) => <span key={item.id}>{item.icon} {item.name}</span>)
+                savedItems.map((item) => <span key={item.id}><WardrobeItemThumbnail item={item} /> {item.name}</span>)
               )}
             </div>
             <button type="button" className="wardrobe-store-lab__original" onClick={wearOriginalLook}>

@@ -52,8 +52,34 @@ describe("WardrobeStoreLab shopping call", () => {
     expect(screen.getByRole("button", { name: "View Navy Ribbon Dress, 60 coins" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: /Blue Celtic Sweater/ })).toBeNull();
     expect(screen.queryByRole("button", { name: /Galaxy Hero Outfit/ })).toBeNull();
-    expect(screen.getAllByRole("button", { name: /Comet Hoodie/ })).toHaveLength(4);
+    expect(screen.queryByRole("button", { name: /Comet Hoodie/ })).toBeNull();
     expect(screen.queryByRole("heading", { name: "The Lantern Room" })).toBeNull();
+  });
+
+  it("renders variant-specific garment thumbnails instead of duplicate emoji", () => {
+    render(
+      <WardrobeStoreLab
+        companion={companion}
+        companionPreview={<div data-testid="companion-vrm">full body VRM</div>}
+        call={createCallProps()}
+        onWardrobeChange={vi.fn()}
+        onExit={vi.fn()}
+        visitSeed="thumbnail-variants"
+      />,
+    );
+
+    expect(screen.getByTestId("wardrobe-thumbnail-rose-ribbon-dress")).toHaveAttribute(
+      "data-thumbnail-color",
+      "#ff8fb2",
+    );
+    expect(screen.getByTestId("wardrobe-thumbnail-emerald-constellation-blazer")).toHaveAttribute(
+      "data-thumbnail-color",
+      "#60db9b",
+    );
+    expect(screen.getByTestId("wardrobe-thumbnail-midnight-constellation-blazer")).toHaveAttribute(
+      "data-thumbnail-silhouette",
+      "blazer",
+    );
   });
 
   it("moves one live companion renderer to try-on and waits for the child to start the conversation", () => {
