@@ -198,6 +198,45 @@ describe("WardrobeStoreLab shopping call", () => {
     expect(call.onAskVoice).toHaveBeenCalledTimes(1);
   });
 
+  it("keeps the fitting room open while the child cycles directly through items", () => {
+    const onWardrobeChange = vi.fn();
+    const onDebugEvent = vi.fn();
+    render(
+      <WardrobeStoreLab
+        companion={companion}
+        companionPreview={<div data-testid="companion-vrm">full body VRM</div>}
+        call={createCallProps()}
+        onWardrobeChange={onWardrobeChange}
+        onDebugEvent={onDebugEvent}
+        onExit={vi.fn()}
+        visitSeed="sticky-fitting-room"
+      />,
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "View Navy Ribbon Dress, 60 coins" }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Try on Navy Ribbon Dress" }));
+    expect(screen.getByLabelText("Elli try-on stage")).toBeTruthy();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "View Royal Crown, 20 coins" }),
+    );
+
+    expect(screen.getByLabelText("Elli try-on stage")).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Royal Crown" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Try on Royal Crown" })).toBeNull();
+    expect(onWardrobeChange).toHaveBeenLastCalledWith({
+      accessoryId: "crown",
+      outfitId: "none",
+    });
+    expect(
+      onDebugEvent.mock.calls.filter(
+        ([event]) => event.type === "wardrobe_try_on_started",
+      ),
+    ).toHaveLength(2);
+  });
+
   it("anchors the state bubble to the live VRM head instead of a fixed stage percentage", () => {
     const call = { ...createCallProps(), talkPhase: "listening" as const };
     const { rerender } = render(

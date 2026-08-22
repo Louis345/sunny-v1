@@ -451,32 +451,12 @@ export function WardrobeStoreLab({
     [companion.id],
   );
 
-  const selectItem = (item: WardrobeStoreItem) => {
-    let nextState = storeState;
-    if (mode === "try-on" && selectedItem) {
-      nextState = recordInteraction(
-        storeState,
-        selectedItem.id,
-        "left_try_on",
-        "engagement",
-      );
-      persist(nextState);
-      restoreEquippedLook(nextState);
-    }
-    setSelectedItemId(item.id);
-    setMode("review");
-    setConfirmation(null);
-    setStatusMessage(null);
-    const context = contextFor(item, "review", nextState);
-    console.log(
-      ` 🎮 [wardrobe-store-lab] item_reviewed companion=${companion.id} item=${item.id} mood=${shoppingVisit.mood.id} verdict=${context.selectedItem?.opinionVerdict ?? "none"}`,
-    );
-    onDebugEvent?.({ type: "wardrobe_item_reviewed", context });
-  };
-
-  const enterTryOn = (item: WardrobeStoreItem) => {
+  const previewItemInTryOn = (
+    item: WardrobeStoreItem,
+    baseState: WardrobeStoreState,
+  ) => {
     const nextState = recordInteraction(
-      storeState,
+      baseState,
       item.id,
       "previewed",
       "engagement",
@@ -492,6 +472,38 @@ export function WardrobeStoreLab({
       ` 🎮 [wardrobe-store-lab] try_on opened companion=${companion.id} item=${item.id} mood=${shoppingVisit.mood.id} verdict=${context.selectedItem?.opinionVerdict ?? "none"} conversation=waiting_for_child`,
     );
     onDebugEvent?.({ type: "wardrobe_try_on_started", context });
+  };
+
+  const selectItem = (item: WardrobeStoreItem) => {
+    if (mode === "try-on") {
+      if (selectedItem?.id === item.id) return;
+      const nextState = selectedItem
+        ? recordInteraction(
+            storeState,
+            selectedItem.id,
+            "left_try_on",
+            "engagement",
+          )
+        : storeState;
+      console.log(
+        ` 🎮 [wardrobe-store-lab] try_on switched companion=${companion.id} from=${selectedItem?.id ?? "none"} to=${item.id}`,
+      );
+      previewItemInTryOn(item, nextState);
+      return;
+    }
+    setSelectedItemId(item.id);
+    setMode("review");
+    setConfirmation(null);
+    setStatusMessage(null);
+    const context = contextFor(item, "review", storeState);
+    console.log(
+      ` 🎮 [wardrobe-store-lab] item_reviewed companion=${companion.id} item=${item.id} mood=${shoppingVisit.mood.id} verdict=${context.selectedItem?.opinionVerdict ?? "none"}`,
+    );
+    onDebugEvent?.({ type: "wardrobe_item_reviewed", context });
+  };
+
+  const enterTryOn = (item: WardrobeStoreItem) => {
+    previewItemInTryOn(item, storeState);
   };
 
   const requestCompanionVoice = () => {
