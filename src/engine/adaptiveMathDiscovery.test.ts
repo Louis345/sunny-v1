@@ -4,6 +4,8 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   buildTargetedNodesResumably,
+  buildDiscoveryActiveSessionPlan,
+  runAdaptiveTargetedGeneration,
   completeDiscoveryEvaluation,
   createDiscoveryLearningCycle,
   getMathGenerationStatus,
@@ -64,6 +66,15 @@ describe("adaptive math discovery", () => {
     expect(cycle.nodes).toHaveLength(1);
     expect(cycle.nodes[0]).toMatchObject({ role: "evaluation", state: "ready" });
     expect(cycle.nodes.some((node) => node.role === "quest" || node.role === "boss")).toBe(false);
+  });
+
+  it("projects Discovery without inventing targeted nodes, routes, Quest, or Boss", () => {
+    const plan = buildDiscoveryActiveSessionPlan({ childId: "lab-child", homeworkId: "hw-equal-groups", evaluation: contract, companion: { id: "elli", name: "Elli" } });
+    expect(plan.nodePlan).toHaveLength(1);
+    expect(plan.adventureBoard?.nodes.map((node) => node.id)).toEqual(["start", contract.evaluationId]);
+    expect(plan.adventureBoard?.choiceSets).toBeUndefined();
+    expect(plan.learningRoutes).toEqual([]);
+    expect(plan.adventureBoard?.nodes.some((node) => node.kind === "quest" || node.kind === "boss" || node.kind === "choice-gate")).toBe(false);
   });
 
   it("keeps conceptual, assisted, ambiguity, and interface evidence distinct", () => {
@@ -167,5 +178,29 @@ describe("adaptive math discovery", () => {
       expect.objectContaining({ nodeId: "N2", status: "ready", artifactHash: "saved-N2" }),
       expect.objectContaining({ nodeId: "N3", status: "failed_resumable", error: "provider_timeout" }),
     ]));
+  });
+
+  it("hands committed Discovery evidence to planning before design and map publication", async () => {
+    const rootDir = root();
+    createDiscoveryLearningCycle({ rootDir, childId: "lab-child", homeworkId: "hw-equal-groups", assignment: { title: "Equal groups", contentFingerprint: "fingerprint", capturedEvidenceIds: ["assignment:equal-groups"], targets: ["math.multiplication.equal_groups"] }, evaluation: contract });
+    recordDiscoveryAttempt({ rootDir, childId: "lab-child", homeworkId: "hw-equal-groups", attempt: { attemptId: "gap", itemId: "probe-1", constructId: "math.multiplication.equal_groups", result: "incorrect", assistance: "unassisted", exposure: "unseen", responseMode: "tap", possibleConfounds: [], observedAt: "2026-08-22T12:00:00.000Z" } });
+    completeDiscoveryEvaluation({ rootDir, childId: "lab-child", homeworkId: "hw-equal-groups", completedAt: "2026-08-22T12:01:00.000Z" });
+    const order: string[] = [];
+
+    const result = await runAdaptiveTargetedGeneration({
+      rootDir, childId: "lab-child", homeworkId: "hw-equal-groups", concurrency: 2,
+      plan: async (cycle) => {
+        order.push("plan");
+        expect(cycle.observations).toEqual([expect.objectContaining({ observationId: "gap" })]);
+        return { programHash: "program", nodes: [{ nodeId: "support", title: "Build Equal Groups", academicTarget: "equal_groups", algorithmOwner: "planner", theoryId: "t", experimentId: "e", mechanic: "model", theme: "world" }] };
+      },
+      design: async (program) => { order.push("design"); expect(program.programHash).toBe("program"); return { designHash: "design" }; },
+      publishPreparingBoard: async () => { order.push("publish"); },
+      buildNode: async (nodeId) => { order.push(`build:${nodeId}`); return { artifactHash: `hash:${nodeId}` }; },
+      publishReadyNode: async (nodeId) => { order.push(`ready:${nodeId}`); },
+    });
+
+    expect(order).toEqual(["plan", "design", "publish", "build:support", "ready:support"]);
+    expect(result.phase).toBe("board_ready");
   });
 });

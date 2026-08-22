@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { createHash } from "node:crypto";
 import { resolveChildContextDir } from "../utils/contextRoot";
+import type { ActiveSessionPlan } from "../context/schemas/learningProfile";
 import {
   createLearningCycle,
   getLearningCycle,
@@ -149,6 +150,68 @@ function evaluationNode(contract: MathDiscoveryEvaluationContract): LearningCycl
     companionContract: { events: ["help_requested", "evaluation_complete"] },
     evidenceContract: { academic: true, engagement: true, companionObservations: true },
     evidenceIds: [],
+  };
+}
+
+export function buildDiscoveryActiveSessionPlan(input: {
+  childId: string;
+  homeworkId: string;
+  evaluation: MathDiscoveryEvaluationContract;
+  companion: { id: string; name: string };
+  createdAt?: string;
+}): ActiveSessionPlan {
+  const createdAt = input.createdAt ?? new Date().toISOString();
+  const evaluationId = input.evaluation.evaluationId;
+  return {
+    planId: `discovery:${input.homeworkId}`,
+    childId: input.childId,
+    createdAt,
+    source: "ingest_human_loop",
+    activeHomeworkId: input.homeworkId,
+    domain: "math",
+    testDate: null,
+    nodePlan: [{
+      id: evaluationId,
+      type: "generated-baseline",
+      activityId: "generated-baseline",
+      targets: input.evaluation.constructs.map((construct) => construct.constructId),
+      difficulty: 1,
+      source: "chart_planner",
+      locked: false,
+      title: input.evaluation.title,
+      gameHtmlPath: input.evaluation.artifact.htmlPath,
+      date: input.homeworkId,
+      thumbnailUrl: input.evaluation.artifact.artworkPath,
+      contentId: `${input.homeworkId}:${evaluationId}`,
+      targetLane: "independent_discovery",
+    }],
+    learningRoutes: [],
+    adventureBoard: {
+      schemaVersion: 1,
+      boardId: `discovery:${input.homeworkId}`,
+      planId: `discovery:${input.homeworkId}`,
+      childId: input.childId,
+      domain: "math",
+      title: input.evaluation.title,
+      theme: {
+        background: { type: "image", value: input.evaluation.artifact.artworkPath },
+        palette: { path: "#fff4c2", completed: "#34d399", available: "#7c3aed", locked: "#64748b", current: "#f59e0b", preview: "#94a3b8", text: "#ffffff", panel: "rgba(15,23,42,.82)" },
+      },
+      layout: { preset: "horizontal-adventure-spine", companionSlot: "right" },
+      nodes: [
+        { id: "start", kind: "start", label: "Start", state: "completed", slot: "1" },
+        { id: evaluationId, kind: "activity", activityId: "generated-baseline", label: input.evaluation.title, shortLabel: "Discovery", state: "current", slot: "2", evidenceRole: "baseline", action: { type: "launch-activity", payloadId: evaluationId }, thumbnailUrl: input.evaluation.artifact.artworkPath },
+      ],
+      edges: [{ id: `start-${evaluationId}`, from: "start", to: evaluationId, state: "available" }],
+      companion: input.companion,
+      progress: { currentNodeId: evaluationId, completedNodeIds: ["start"] },
+    },
+    variationPolicy: { avoidExactPreviousNodeOrder: true, avoidExactPreviousWordOrder: true, seed: input.homeworkId, previousCompletedNodeCount: 0 },
+    companionPolicy: { companionId: input.companion.id, displayName: input.companion.name, openingLinePolicy: "context_start_short", verbosity: "low", maxMicroProbes: 1 },
+    evidenceUsed: input.evaluation.assignmentEvidenceIds.map((id) => ({ id, type: "assignment", summary: "Captured assignment evidence for Discovery." })),
+    openQuestions: [],
+    approvalStatus: "approved",
+    planTheory: { hypothesis: "Discovery will establish the independent starting point.", evidenceSummary: input.evaluation.assignmentEvidenceIds, intervention: "independent Discovery evaluation", supportCriteria: ["Fresh unassisted evidence is observed."], reviseCriteria: ["Instrument confounds limit interpretation."], falsifyCriteria: ["The evaluation cannot distinguish learning from instrument friction."] },
   };
 }
 
@@ -386,7 +449,8 @@ export function writeMathGenerationJob(input: {
 }): MathGenerationJob {
   const now = new Date().toISOString();
   const existing = getMathGenerationStatus(input.childId, input.homeworkId, { rootDir: input.rootDir });
-  if (existing && (existing.programHash !== input.programHash || existing.designHash !== input.designHash)) {
+  if (existing && existing.programHash && existing.designHash
+    && (existing.programHash !== input.programHash || existing.designHash !== input.designHash)) {
     throw new Error("math_generation_job_frozen_contract_changed");
   }
   const previous = new Map(existing?.nodes.map((node) => [node.nodeId, node]) ?? []);
@@ -408,6 +472,55 @@ export function writeMathGenerationJob(input: {
   atomicJson(generationJobPath(input.childId, input.homeworkId, input), job);
   console.log(` 🎮 [adaptive-math] [generation-job] [saved] child=${input.childId} homework=${input.homeworkId} nodes=${job.nodes.length}`);
   return job;
+}
+
+export async function runAdaptiveTargetedGeneration(input: {
+  rootDir?: string;
+  childId: string;
+  homeworkId: string;
+  concurrency: number;
+  plan: (cycle: LearningCycleRecordV2) => Promise<{ programHash: string; nodes: TargetedMathNode[] }>;
+  design: (program: { programHash: string; nodes: TargetedMathNode[] }) => Promise<{ designHash: string }>;
+  publishPreparingBoard: (input: { programHash: string; designHash: string; nodes: TargetedMathNode[] }) => Promise<void> | void;
+  buildNode: (nodeId: string) => Promise<{ artifactHash: string }>;
+  publishReadyNode: (nodeId: string, artifactHash: string) => Promise<void> | void;
+}): Promise<MathGenerationJob> {
+  const cycle = getLearningCycle(input.childId, input.homeworkId, { rootDir: input.rootDir });
+  if (!cycle) throw new Error(`learning_cycle_missing:${input.homeworkId}`);
+  if (cycle.lifecycle !== "evidence_ready" && cycle.lifecycle !== "targeted_planning") {
+    throw new Error(`adaptive_targeted_generation_not_ready:${cycle.lifecycle}`);
+  }
+  console.log(` 🎮 [adaptive-math] [targeted-planner] [running] child=${input.childId} homework=${input.homeworkId}`);
+  const program = await input.plan(cycle);
+  console.log(` 🎮 [adaptive-math] [targeted-planner] [saved] hash=${program.programHash.slice(0, 12)}`);
+  const design = await input.design(program);
+  console.log(` 🎮 [adaptive-math] [board-design] [saved] hash=${design.designHash.slice(0, 12)}`);
+  revealTargetedBoard({
+    rootDir: input.rootDir,
+    childId: input.childId,
+    homeworkId: input.homeworkId,
+    programHash: program.programHash,
+    designHash: design.designHash,
+    nodes: program.nodes,
+  });
+  writeMathGenerationJob({
+    rootDir: input.rootDir,
+    childId: input.childId,
+    homeworkId: input.homeworkId,
+    programHash: program.programHash,
+    designHash: design.designHash,
+    nodeIds: program.nodes.map((node) => node.nodeId),
+  });
+  await input.publishPreparingBoard({ ...program, designHash: design.designHash });
+  return buildTargetedNodesResumably({
+    rootDir: input.rootDir,
+    childId: input.childId,
+    homeworkId: input.homeworkId,
+    firstNodeId: program.nodes[0]?.nodeId ?? "",
+    concurrency: input.concurrency,
+    buildNode: input.buildNode,
+    onNodeReady: input.publishReadyNode,
+  });
 }
 
 export function updateMathGenerationNode(input: {
