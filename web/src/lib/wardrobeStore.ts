@@ -3,7 +3,9 @@ import { createWardrobeVariantCatalog } from "./wardrobeContentFactory";
 export type WardrobeAccessoryId = "none" | "crown" | "cat-ears" | "halo";
 export type WardrobeOutfitId =
   | "none"
-  | "sleeveless-dress";
+  | "sleeveless-dress"
+  | "comet-hoodie"
+  | "constellation-blazer";
 
 export type WardrobeSelection = {
   accessoryId: WardrobeAccessoryId;
@@ -99,6 +101,118 @@ const RIBBON_DRESS_VARIANTS = createWardrobeVariantCatalog({
   ],
 });
 
+const COMET_HOODIE_VARIANTS = createWardrobeVariantCatalog({
+  templates: [
+    {
+      id: "comet-hoodie",
+      outfitId: "comet-hoodie",
+      icon: "🧥",
+      compatibility: {
+        kind: "approved_models",
+        modelUrls: ["/companions/sample.vrm"],
+      },
+      qa: {
+        status: "approved",
+        approvedAvatarUrls: ["/companions/sample.vrm"],
+      },
+    },
+  ],
+  variants: [
+    {
+      id: "ruby-comet-hoodie",
+      templateId: "comet-hoodie",
+      name: "Ruby Comet Hoodie",
+      price: 45,
+      styleTags: ["playful", "red", "casual", "cozy"],
+      material: { tint: "#ff6f7d" },
+      qa: { status: "approved" },
+    },
+    {
+      id: "indigo-comet-hoodie",
+      templateId: "comet-hoodie",
+      name: "Indigo Comet Hoodie",
+      price: 50,
+      styleTags: ["celestial", "indigo", "casual", "bold"],
+      material: { tint: "#788cff" },
+      qa: { status: "approved" },
+    },
+    {
+      id: "mint-comet-hoodie",
+      templateId: "comet-hoodie",
+      name: "Mint Comet Hoodie",
+      price: 45,
+      styleTags: ["bright", "mint", "casual", "playful"],
+      material: { tint: "#72e6c1" },
+      qa: { status: "approved" },
+    },
+    {
+      id: "sunrise-comet-hoodie",
+      templateId: "comet-hoodie",
+      name: "Sunrise Comet Hoodie",
+      price: 50,
+      styleTags: ["warm", "gold", "casual", "cheerful"],
+      material: { tint: "#ffc16e" },
+      qa: { status: "approved" },
+    },
+  ],
+});
+
+const CONSTELLATION_BLAZER_VARIANTS = createWardrobeVariantCatalog({
+  templates: [
+    {
+      id: "constellation-blazer",
+      outfitId: "constellation-blazer",
+      icon: "🎓",
+      compatibility: {
+        kind: "approved_models",
+        modelUrls: ["/companions/sample.vrm"],
+      },
+      qa: {
+        status: "approved",
+        approvedAvatarUrls: ["/companions/sample.vrm"],
+      },
+    },
+  ],
+  variants: [
+    {
+      id: "midnight-constellation-blazer",
+      templateId: "constellation-blazer",
+      name: "Midnight Constellation Blazer",
+      price: 70,
+      styleTags: ["classic", "midnight", "polished", "academic"],
+      material: { tint: "#ffffff" },
+      qa: { status: "approved" },
+    },
+    {
+      id: "berry-constellation-blazer",
+      templateId: "constellation-blazer",
+      name: "Berry Constellation Blazer",
+      price: 75,
+      styleTags: ["berry", "magical", "polished", "bold"],
+      material: { tint: "#ff78be" },
+      qa: { status: "approved" },
+    },
+    {
+      id: "emerald-constellation-blazer",
+      templateId: "constellation-blazer",
+      name: "Emerald Constellation Blazer",
+      price: 75,
+      styleTags: ["emerald", "clever", "polished", "adventurous"],
+      material: { tint: "#60db9b" },
+      qa: { status: "approved" },
+    },
+    {
+      id: "starlight-constellation-blazer",
+      templateId: "constellation-blazer",
+      name: "Starlight Constellation Blazer",
+      price: 80,
+      styleTags: ["starlight", "celestial", "polished", "elegant"],
+      material: { tint: "#c2c8ff" },
+      qa: { status: "approved" },
+    },
+  ],
+});
+
 export const WARDROBE_STORE_CATALOG: readonly WardrobeStoreItem[] = [
   {
     id: "royal-crown",
@@ -128,6 +242,8 @@ export const WARDROBE_STORE_CATALOG: readonly WardrobeStoreItem[] = [
     compatibility: { kind: "universal" },
   },
   ...RIBBON_DRESS_VARIANTS,
+  ...COMET_HOODIE_VARIANTS,
+  ...CONSTELLATION_BLAZER_VARIANTS,
 ] as const;
 
 export type CompanionStoreDesire = {

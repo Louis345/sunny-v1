@@ -52,7 +52,7 @@ describe("WardrobeStoreLab shopping call", () => {
     expect(screen.getByRole("button", { name: "View Navy Ribbon Dress, 60 coins" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: /Blue Celtic Sweater/ })).toBeNull();
     expect(screen.queryByRole("button", { name: /Galaxy Hero Outfit/ })).toBeNull();
-    expect(screen.queryByRole("button", { name: /Comet Hoodie/ })).toBeNull();
+    expect(screen.getAllByRole("button", { name: /Comet Hoodie/ })).toHaveLength(4);
     expect(screen.queryByRole("heading", { name: "The Lantern Room" })).toBeNull();
   });
 

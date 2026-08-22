@@ -107,6 +107,48 @@ export const SLEEVELESS_DRESS_OUTFIT: XwearOutfitDefinition = {
   },
 };
 
+export const COMET_HOODIE_OUTFIT: XwearOutfitDefinition = {
+  id: "comet-hoodie",
+  assetRoot:
+    "/@fs/Users/jamaltaylor/Development/sunny-companion-wardrobe-sandbox/.sunny-sandbox/wardrobe/vroid-hoodie",
+  meshPath: "Mesh/b437b86c-152c-49ab-8342-1e72aee49d87",
+  resourcePath: "Body/XResources/9f9bd7fa-42bb-4ff2-88af-e80d3570e171",
+  itemPath: "Body/XItem.json/XItem.json",
+  archiveUrl:
+    "/@fs/Users/jamaltaylor/Development/sunny-companion-wardrobe-sandbox/.sunny-sandbox/wardrobe/vroid-hoodie/sunny-hoodie-neutral.xwear",
+  surfaceOffset: 0.02,
+  slots: {
+    occupies: ["top"],
+    replaces: ["top"],
+  },
+  qa: {
+    status: "approved",
+    approvedAvatarUrls: ["/companions/sample.vrm"],
+    unsupportedAnimations: ["sitting"],
+  },
+};
+
+export const CONSTELLATION_BLAZER_OUTFIT: XwearOutfitDefinition = {
+  id: "constellation-blazer",
+  assetRoot:
+    "/@fs/Users/jamaltaylor/Development/sunny-companion-wardrobe-sandbox/.sunny-sandbox/wardrobe/vroid-blazer",
+  meshPath: "Mesh/06cf93df-cfaf-469c-a65d-ad55d477984d",
+  resourcePath: "Body/XResources/be8c7960-f0a3-4493-8d2b-f0eb6c2a6c07",
+  itemPath: "Body/XItem.json/XItem.json",
+  archiveUrl:
+    "/@fs/Users/jamaltaylor/Development/sunny-companion-wardrobe-sandbox/.sunny-sandbox/wardrobe/vroid-blazer/sunny-blazer.xwear",
+  surfaceOffset: 0.02,
+  slots: {
+    occupies: ["top"],
+    replaces: ["top"],
+  },
+  qa: {
+    status: "approved",
+    approvedAvatarUrls: ["/companions/sample.vrm"],
+    unsupportedAnimations: ["sitting"],
+  },
+};
+
 export const CELTIC_SWEATER_OUTFIT: XwearOutfitDefinition = {
   id: "celtic-sweater",
   assetRoot:
@@ -129,6 +171,8 @@ export const CELTIC_SWEATER_OUTFIT: XwearOutfitDefinition = {
 
 const XWEAR_OUTFITS_BY_ID: Readonly<Record<string, XwearOutfitDefinition>> = {
   [SLEEVELESS_DRESS_OUTFIT.id]: SLEEVELESS_DRESS_OUTFIT,
+  [COMET_HOODIE_OUTFIT.id]: COMET_HOODIE_OUTFIT,
+  [CONSTELLATION_BLAZER_OUTFIT.id]: CONSTELLATION_BLAZER_OUTFIT,
   [CELTIC_SWEATER_OUTFIT.id]: CELTIC_SWEATER_OUTFIT,
 };
 

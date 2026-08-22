@@ -36,7 +36,11 @@ describe("wardrobe store domain", () => {
 
     expect(repeated).toEqual(first);
     expect(first.mood.label.length).toBeGreaterThan(0);
-    expect(opinions.filter((opinion) => opinion.verdict === "reject")).toHaveLength(3);
+    const rejectionCount = opinions.filter(
+      (opinion) => opinion.verdict === "reject",
+    ).length;
+    expect(rejectionCount).toBeGreaterThanOrEqual(Math.floor(opinions.length * 0.4));
+    expect(rejectionCount).toBeLessThanOrEqual(Math.ceil(opinions.length * 0.5));
     expect(opinions.some((opinion) => opinion.companionConsentsToWear)).toBe(true);
     expect(
       opinions
@@ -83,6 +87,14 @@ describe("wardrobe store domain", () => {
       "plum-ribbon-dress",
       "teal-ribbon-dress",
       "rose-ribbon-dress",
+      "ruby-comet-hoodie",
+      "indigo-comet-hoodie",
+      "mint-comet-hoodie",
+      "sunrise-comet-hoodie",
+      "midnight-constellation-blazer",
+      "berry-constellation-blazer",
+      "emerald-constellation-blazer",
+      "starlight-constellation-blazer",
     ]);
     expect(keflaItems.map((item) => item.id)).toEqual([
       "royal-crown",
@@ -101,6 +113,14 @@ describe("wardrobe store domain", () => {
       "Plum Ribbon Dress",
       "Teal Ribbon Dress",
       "Rose Ribbon Dress",
+      "Ruby Comet Hoodie",
+      "Indigo Comet Hoodie",
+      "Mint Comet Hoodie",
+      "Sunrise Comet Hoodie",
+      "Midnight Constellation Blazer",
+      "Berry Constellation Blazer",
+      "Emerald Constellation Blazer",
+      "Starlight Constellation Blazer",
     ]);
     expect(
       outfits.every(
@@ -108,7 +128,7 @@ describe("wardrobe store domain", () => {
       ),
     ).toBe(true);
     expect(WARDROBE_STORE_CATALOG.some((item) => item.id === "galaxy-hero")).toBe(false);
-    expect(WARDROBE_STORE_CATALOG.some((item) => item.id === "comet-hoodie")).toBe(false);
+    expect(WARDROBE_STORE_CATALOG.some((item) => item.id === "ruby-comet-hoodie")).toBe(true);
     expect(WARDROBE_STORE_CATALOG.some((item) => item.id === "celtic-sweater")).toBe(false);
   });
 

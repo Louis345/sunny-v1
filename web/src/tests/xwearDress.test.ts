@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import * as THREE from "three";
 import {
   CELTIC_SWEATER_OUTFIT,
+  COMET_HOODIE_OUTFIT,
+  CONSTELLATION_BLAZER_OUTFIT,
   SLEEVELESS_DRESS_OUTFIT,
   applyXwearMaterialVariant,
   applyGarmentSurfaceOffset,
@@ -43,6 +45,12 @@ describe("XWear avatar-space binding", () => {
     expect(getXwearOutfitDefinition("celtic-sweater")).toBe(
       CELTIC_SWEATER_OUTFIT,
     );
+    expect(getXwearOutfitDefinition("comet-hoodie")).toBe(
+      COMET_HOODIE_OUTFIT,
+    );
+    expect(getXwearOutfitDefinition("constellation-blazer")).toBe(
+      CONSTELLATION_BLAZER_OUTFIT,
+    );
     expect(getXwearOutfitDefinition("none")).toBeNull();
   });
 
@@ -62,6 +70,8 @@ describe("XWear avatar-space binding", () => {
     });
     expect(getApprovedXwearOutfitDefinitions()).toEqual([
       SLEEVELESS_DRESS_OUTFIT,
+      COMET_HOODIE_OUTFIT,
+      CONSTELLATION_BLAZER_OUTFIT,
     ]);
     expect(
       isXwearOutfitApprovedForAvatar(
@@ -88,6 +98,14 @@ describe("XWear avatar-space binding", () => {
     expect((top.material as THREE.Material).visible).toBe(false);
     expect((bottom.material as THREE.Material).visible).toBe(true);
     expect(CELTIC_SWEATER_OUTFIT.slots.replaces).toEqual(["top"]);
+    expect(COMET_HOODIE_OUTFIT.slots).toEqual({
+      occupies: ["top"],
+      replaces: ["top"],
+    });
+    expect(CONSTELLATION_BLAZER_OUTFIT.slots).toEqual({
+      occupies: ["top"],
+      replaces: ["top"],
+    });
   });
 
   it("only applies an outfit to avatar designs that passed visual fit QA", () => {
