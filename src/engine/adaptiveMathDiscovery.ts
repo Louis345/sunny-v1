@@ -416,6 +416,62 @@ export function updateMathGenerationNode(input: {
   return job;
 }
 
+export async function buildTargetedNodesResumably(input: {
+  rootDir?: string;
+  childId: string;
+  homeworkId: string;
+  firstNodeId: string;
+  concurrency: number;
+  buildNode: (nodeId: string) => Promise<{ artifactHash: string }>;
+  onNodeReady?: (nodeId: string, artifactHash: string) => Promise<void> | void;
+}): Promise<MathGenerationJob> {
+  const initial = getMathGenerationStatus(input.childId, input.homeworkId, { rootDir: input.rootDir });
+  if (!initial) throw new Error("math_generation_job_missing");
+  const missing = initial.nodes
+    .filter((node) => node.status === "preparing" || node.status === "failed_resumable")
+    .map((node) => node.nodeId);
+  const first = missing.includes(input.firstNodeId) ? input.firstNodeId : undefined;
+  const remaining = missing.filter((nodeId) => nodeId !== first);
+
+  const buildOne = async (nodeId: string): Promise<void> => {
+    try {
+      const built = await input.buildNode(nodeId);
+      updateMathGenerationNode({
+        rootDir: input.rootDir,
+        childId: input.childId,
+        homeworkId: input.homeworkId,
+        nodeId,
+        status: "ready",
+        artifactHash: built.artifactHash,
+      });
+      await input.onNodeReady?.(nodeId, built.artifactHash);
+    } catch (error: unknown) {
+      updateMathGenerationNode({
+        rootDir: input.rootDir,
+        childId: input.childId,
+        homeworkId: input.homeworkId,
+        nodeId,
+        status: "failed_resumable",
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  };
+
+  if (first) await buildOne(first);
+  let cursor = 0;
+  const workerCount = Math.max(1, Math.min(Math.floor(input.concurrency), remaining.length || 1));
+  await Promise.all(Array.from({ length: workerCount }, async () => {
+    while (cursor < remaining.length) {
+      const nodeId = remaining[cursor];
+      cursor += 1;
+      if (nodeId) await buildOne(nodeId);
+    }
+  }));
+  const final = getMathGenerationStatus(input.childId, input.homeworkId, { rootDir: input.rootDir });
+  if (!final) throw new Error("math_generation_job_missing_after_build");
+  return final;
+}
+
 export function hashDiscoveryContract(value: unknown): string {
   return createHash("sha256").update(JSON.stringify(value)).digest("hex");
 }

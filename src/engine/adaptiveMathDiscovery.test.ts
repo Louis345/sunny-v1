@@ -3,6 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import {
+  buildTargetedNodesResumably,
   completeDiscoveryEvaluation,
   createDiscoveryLearningCycle,
   getMathGenerationStatus,
@@ -139,5 +140,32 @@ describe("adaptive math discovery", () => {
     ]));
     expect(resumed.nodes.find((node) => node.nodeId === "N1")?.artifactHash).toBe("html-hash-1");
     expect(resumed.nodes.find((node) => node.nodeId === "N2")?.status).toBe("preparing");
+  });
+
+  it("builds the first intervention first and preserves ready siblings when another fails", async () => {
+    const rootDir = root();
+    writeMathGenerationJob({ rootDir, childId: "lab-child", homeworkId: "hw-equal-groups", programHash: "program", designHash: "design", nodeIds: ["N1", "N2", "N3"] });
+    updateMathGenerationNode({ rootDir, childId: "lab-child", homeworkId: "hw-equal-groups", nodeId: "N2", status: "ready", artifactHash: "saved-N2" });
+    const calls: string[] = [];
+
+    await buildTargetedNodesResumably({
+      rootDir,
+      childId: "lab-child",
+      homeworkId: "hw-equal-groups",
+      firstNodeId: "N1",
+      concurrency: 2,
+      buildNode: async (nodeId) => {
+        calls.push(nodeId);
+        if (nodeId === "N3") throw new Error("provider_timeout");
+        return { artifactHash: `built-${nodeId}` };
+      },
+    });
+
+    expect(calls).toEqual(["N1", "N3"]);
+    expect(getMathGenerationStatus("lab-child", "hw-equal-groups", { rootDir })?.nodes).toEqual(expect.arrayContaining([
+      expect.objectContaining({ nodeId: "N1", status: "ready", artifactHash: "built-N1" }),
+      expect.objectContaining({ nodeId: "N2", status: "ready", artifactHash: "saved-N2" }),
+      expect.objectContaining({ nodeId: "N3", status: "failed_resumable", error: "provider_timeout" }),
+    ]));
   });
 });
