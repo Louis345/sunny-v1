@@ -11,7 +11,7 @@ import {
 import { useSession } from "./hooks/useSession";
 import { useAdventureState } from "./hooks/useAdventureState";
 import { ChildPicker } from "./components/ChildPicker";
-import { hasCanonicalLearningCycle, postCanonicalNodeCompletion } from "./utils/canonicalNodeCompletion";
+import { hasCanonicalLearningCycle, postCanonicalNodeCompletion, postDiscoveryAttempt, postDiscoveryComplete } from "./utils/canonicalNodeCompletion";
 import { SessionScreen } from "./components/SessionScreen";
 import { SessionEnd } from "./components/SessionEnd";
 import { SessionLoadingOverlay } from "./components/SessionLoadingOverlay";
@@ -1343,6 +1343,29 @@ function App() {
         }
         return;
       }
+      const homeworkId = plannerBoardPacket?.childChart.learningCycle?.homeworkId;
+      if (data.type === "evaluation_attempt") {
+        const attempt = data.payload && typeof data.payload === "object" && !Array.isArray(data.payload)
+          ? data.payload as Record<string, unknown>
+          : data as Record<string, unknown>;
+        if (!adventureChildId || !homeworkId) return;
+        void postDiscoveryAttempt({ childId: adventureChildId, homeworkId, attempt }).catch((error: unknown) => {
+          console.error(" 🎮 [AdventureBoard] discovery_attempt_failed", error);
+        });
+        return;
+      }
+      if (data.type === "evaluation_complete") {
+        const key = `discovery:${launch.node.id}:${launch.replayNonce}`;
+        if (plannerBoardIframeCompletionKeyRef.current === key) return;
+        plannerBoardIframeCompletionKeyRef.current = key;
+        if (!adventureChildId || !homeworkId) return;
+        void postDiscoveryComplete({ childId: adventureChildId, homeworkId }).then(async () => {
+          console.log(" 🎮 [AdventureBoard] discovery_complete_targeted_generation_queued", { childId: adventureChildId, homeworkId });
+          await refreshPlannerBoardPacket();
+          closePlannerBoardLaunch();
+        }).catch((error: unknown) => console.error(" 🎮 [AdventureBoard] discovery_complete_failed", error));
+        return;
+      }
       if (data.type !== "node_complete" && data.type !== "game_complete") return;
       const key = `${launch.node.id}:${launch.replayNonce}`;
       if (plannerBoardIframeCompletionKeyRef.current === key) return;
@@ -1368,7 +1391,6 @@ function App() {
         });
         return;
       }
-      const homeworkId = plannerBoardPacket?.childChart.learningCycle?.homeworkId;
       const completionWrite = hasCanonicalLearningCycle(plannerBoardPacket) && homeworkId
         ? postCanonicalNodeCompletion({
             childId: adventureChildId,
