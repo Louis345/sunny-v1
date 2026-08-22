@@ -352,6 +352,30 @@ export function getMathGenerationStatus(
   return parsed;
 }
 
+export function queueTargetedMathGeneration(input: {
+  rootDir?: string;
+  childId: string;
+  homeworkId: string;
+}): MathGenerationJob {
+  const existing = getMathGenerationStatus(input.childId, input.homeworkId, { rootDir: input.rootDir });
+  if (existing) return existing;
+  const now = new Date().toISOString();
+  const job: MathGenerationJob = {
+    version: 1,
+    childId: input.childId,
+    homeworkId: input.homeworkId,
+    phase: "targeted_planning",
+    programHash: "",
+    designHash: "",
+    startedAt: now,
+    updatedAt: now,
+    nodes: [],
+  };
+  atomicJson(generationJobPath(input.childId, input.homeworkId, input), job);
+  console.log(` 🎮 [adaptive-math] [targeted-generation] [queued] child=${input.childId} homework=${input.homeworkId}`);
+  return job;
+}
+
 export function writeMathGenerationJob(input: {
   rootDir?: string;
   childId: string;

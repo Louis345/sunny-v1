@@ -64,7 +64,13 @@ import {
   type ChoiceEventInput,
 } from "../engine/choiceEvents";
 import { interpretDirectExperienceOutcome } from "../engine/directExperienceFeedback";
-import { getMathGenerationStatus } from "../engine/adaptiveMathDiscovery";
+import {
+  completeDiscoveryEvaluation,
+  getMathGenerationStatus,
+  queueTargetedMathGeneration,
+  recordDiscoveryAttempt,
+  type MathDiscoveryAttempt,
+} from "../engine/adaptiveMathDiscovery";
 import {
   companionCareFeedShouldPersist,
   previewCompanionCareMirror,
@@ -685,6 +691,46 @@ export function setupRoutes(app: Express): void {
     } catch (error) {
       console.error(` 🎮 [adaptive-math-status] [read] [failed] child=${childId} homework=${homeworkId}`, error);
       return res.status(500).json({ error: error instanceof Error ? error.message : String(error) });
+    }
+  });
+
+  app.post("/api/learning/:childId/assignments/:homeworkId/discovery/attempt", (req: Request, res: Response) => {
+    const childId = String(req.params.childId ?? "").trim().toLowerCase();
+    const homeworkId = String(req.params.homeworkId ?? "").trim();
+    if (!isValidRegistryChildId(childId)) return res.status(404).json({ error: "child_not_found" });
+    const attempt = req.body as Partial<MathDiscoveryAttempt>;
+    if (!homeworkId || !attempt.attemptId || !attempt.itemId || !attempt.constructId || !attempt.result || !attempt.assistance || !attempt.exposure || !attempt.responseMode || !attempt.observedAt || !Array.isArray(attempt.possibleConfounds)) {
+      return res.status(400).json({ error: "complete Discovery attempt provenance is required" });
+    }
+    if (!learningRouteShouldPersist()) {
+      console.log(` 🎮 [adaptive-math] [discovery-attempt] [preview-skipped] child=${childId} homework=${homeworkId}`);
+      return res.json({ ok: true, skippedPersistence: true });
+    }
+    try {
+      const cycle = recordDiscoveryAttempt({ childId, homeworkId, attempt: attempt as MathDiscoveryAttempt });
+      console.log(` 🎮 [adaptive-math] [discovery-attempt] [committed] child=${childId} homework=${homeworkId} attempt=${attempt.attemptId}`);
+      return res.json({ ok: true, lifecycle: cycle.lifecycle, revision: cycle.revision });
+    } catch (error: unknown) {
+      return res.status(409).json({ error: error instanceof Error ? error.message : String(error) });
+    }
+  });
+
+  app.post("/api/learning/:childId/assignments/:homeworkId/discovery/complete", (req: Request, res: Response) => {
+    const childId = String(req.params.childId ?? "").trim().toLowerCase();
+    const homeworkId = String(req.params.homeworkId ?? "").trim();
+    if (!isValidRegistryChildId(childId)) return res.status(404).json({ error: "child_not_found" });
+    if (!homeworkId) return res.status(400).json({ error: "homeworkId is required" });
+    if (!learningRouteShouldPersist()) {
+      console.log(` 🎮 [adaptive-math] [discovery-complete] [preview-skipped] child=${childId} homework=${homeworkId}`);
+      return res.json({ ok: true, skippedPersistence: true });
+    }
+    try {
+      const cycle = completeDiscoveryEvaluation({ childId, homeworkId, completedAt: new Date().toISOString() });
+      queueTargetedMathGeneration({ childId, homeworkId });
+      console.log(` 🎮 [adaptive-math] [discovery-complete] [targeted-generation-queued] child=${childId} homework=${homeworkId}`);
+      return res.status(202).json({ ok: true, lifecycle: cycle.lifecycle, revision: cycle.revision, targetedGenerationQueued: true });
+    } catch (error: unknown) {
+      return res.status(409).json({ error: error instanceof Error ? error.message : String(error) });
     }
   });
 
