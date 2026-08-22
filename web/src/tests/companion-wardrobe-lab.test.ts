@@ -225,6 +225,22 @@ describe("companion wardrobe feasibility lab", () => {
     expect(styles).not.toContain("left: calc(50% + clamp(42px, 5vw, 78px));");
   });
 
+  it("freezes the status bubble anchor between resize events instead of chasing head animation", () => {
+    const showroomSource = readShowroomSource();
+    const styles = readStoreStyles();
+
+    expect(showroomSource).toContain("if (!lastHeadAnchorRef.current)");
+    expect(showroomSource).toContain("lastHeadAnchorRef.current = null");
+    expect(showroomSource).not.toContain("time - lastAnchor.at >= 100");
+    expect(showroomSource).not.toContain(
+      "Math.abs(nextAnchor.x - lastAnchor.x) >= 0.015",
+    );
+    expect(styles).toMatch(
+      /wardrobe-store-lab__companion-state\s*\{[^}]*width:\s*124px/s,
+    );
+    expect(styles).toContain("animation: wardrobe-store-state-enter");
+  });
+
   it("fills the dynamic viewport in the original showroom without stretching companions", () => {
     const source = readShowroomSource();
 

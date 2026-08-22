@@ -2624,7 +2624,7 @@ function CompanionSlot({
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const wardrobeHeadRef = useRef<THREE.Object3D | null>(null);
   const headProjectionRef = useRef(new THREE.Vector3());
-  const lastHeadAnchorRef = useRef<{ x: number; y: number; at: number } | null>(null);
+  const lastHeadAnchorRef = useRef<{ x: number; y: number } | null>(null);
   const wardrobeAccessoryRef = useRef<THREE.Group | null>(null);
   const wardrobeAccessoryIdRef = useRef<WardrobeAccessoryId>(wardrobeAccessoryId);
   const wardrobeVrmSceneRef = useRef<THREE.Object3D | null>(null);
@@ -2821,14 +2821,8 @@ function CompanionSlot({
               Math.max(0.04, (mountRect.top + canvasY * mountRect.height - previewRect.top) / previewRect.height),
             ),
           };
-          const lastAnchor = lastHeadAnchorRef.current;
-          if (
-            !lastAnchor ||
-            time - lastAnchor.at >= 100 ||
-            Math.abs(nextAnchor.x - lastAnchor.x) >= 0.015 ||
-            Math.abs(nextAnchor.y - lastAnchor.y) >= 0.015
-          ) {
-            lastHeadAnchorRef.current = { ...nextAnchor, at: time };
+          if (!lastHeadAnchorRef.current) {
+            lastHeadAnchorRef.current = nextAnchor;
             onHeadScreenAnchorChange(nextAnchor);
           }
         }
@@ -2893,6 +2887,7 @@ function CompanionSlot({
       if (currentMotor?.hasVrm()) {
         currentMotor.syncCameraToMount(size.w, size.h);
       }
+      lastHeadAnchorRef.current = null;
     };
 
     const finishSetup = (renderer: CompanionRenderer, webgpuMaterials: boolean) => {

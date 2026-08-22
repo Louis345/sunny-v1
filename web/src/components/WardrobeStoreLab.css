@@ -379,7 +379,9 @@
   top: clamp(30px, 12%, 76px);
   left: 58%;
   z-index: 4;
+  width: 124px;
   min-height: 36px;
+  box-sizing: border-box;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -392,6 +394,7 @@
   box-shadow: 0 12px 30px rgba(58, 41, 61, 0.14);
   font-size: 11px;
   white-space: nowrap;
+  animation: wardrobe-store-state-enter 160ms ease-out both;
 }
 
 .wardrobe-store-lab__companion-state.is-portrait {
@@ -467,6 +470,18 @@
   30% {
     opacity: 1;
     transform: translateY(-3px);
+  }
+}
+
+@keyframes wardrobe-store-state-enter {
+  from {
+    opacity: 0;
+    transform: translateY(4px) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
   }
 }
 
