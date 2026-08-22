@@ -9,6 +9,7 @@ import {
   purchaseWardrobeItem,
   recordWardrobeInteraction,
   resolveCompanionStoreDesire,
+  resolveWardrobeItemSelection,
   saveWardrobeItemForLater,
 } from "../lib/wardrobeStore";
 
@@ -35,7 +36,7 @@ describe("wardrobe store domain", () => {
 
     expect(repeated).toEqual(first);
     expect(first.mood.label.length).toBeGreaterThan(0);
-    expect(opinions.filter((opinion) => opinion.verdict === "reject")).toHaveLength(2);
+    expect(opinions.filter((opinion) => opinion.verdict === "reject")).toHaveLength(3);
     expect(opinions.some((opinion) => opinion.companionConsentsToWear)).toBe(true);
     expect(
       opinions
@@ -79,6 +80,9 @@ describe("wardrobe store domain", () => {
       "cat-ears",
       "star-halo",
       "sleeveless-dress",
+      "plum-ribbon-dress",
+      "teal-ribbon-dress",
+      "rose-ribbon-dress",
     ]);
     expect(keflaItems.map((item) => item.id)).toEqual([
       "royal-crown",
@@ -92,7 +96,12 @@ describe("wardrobe store domain", () => {
       (item) => item.asset.kind === "outfit",
     );
 
-    expect(outfits.map((item) => item.name)).toEqual(["Navy Ribbon Dress"]);
+    expect(outfits.map((item) => item.name)).toEqual([
+      "Navy Ribbon Dress",
+      "Plum Ribbon Dress",
+      "Teal Ribbon Dress",
+      "Rose Ribbon Dress",
+    ]);
     expect(
       outfits.every(
         (item) => item.asset.kind === "outfit" && item.asset.fit === "skinned_xwear",
@@ -101,6 +110,22 @@ describe("wardrobe store domain", () => {
     expect(WARDROBE_STORE_CATALOG.some((item) => item.id === "galaxy-hero")).toBe(false);
     expect(WARDROBE_STORE_CATALOG.some((item) => item.id === "comet-hoodie")).toBe(false);
     expect(WARDROBE_STORE_CATALOG.some((item) => item.id === "celtic-sweater")).toBe(false);
+  });
+
+  it("carries the selected product palette separately from its shared fitted silhouette", () => {
+    const roseDress = WARDROBE_STORE_CATALOG.find(
+      (item) => item.id === "rose-ribbon-dress",
+    );
+
+    expect(roseDress).toBeDefined();
+    expect(resolveWardrobeItemSelection(roseDress!)).toEqual({
+      accessoryId: "none",
+      outfitId: "sleeveless-dress",
+      outfitMaterialVariant: {
+        id: "rose-ribbon-dress",
+        tint: "#ff8fb2",
+      },
+    });
   });
 
   it("records one immutable debit and grants ownership exactly once", () => {

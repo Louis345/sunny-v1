@@ -3,9 +3,9 @@ export type WardrobeContentQa =
   | { status: "rejected"; reason: string }
   | { status: "approved" };
 
-export type WardrobeSilhouetteTemplate = {
+export type WardrobeSilhouetteTemplate<TOutfitId extends string = string> = {
   id: string;
-  outfitId: string;
+  outfitId: TOutfitId;
   icon: string;
   compatibility:
     | { kind: "universal" }
@@ -32,7 +32,7 @@ export type WardrobeGarmentVariant = {
   qa: WardrobeContentQa;
 };
 
-export type WardrobeVariantCatalogItem = {
+export type WardrobeVariantCatalogItem<TOutfitId extends string = string> = {
   id: string;
   templateId: string;
   name: string;
@@ -41,17 +41,17 @@ export type WardrobeVariantCatalogItem = {
   styleTags: readonly string[];
   asset: {
     kind: "outfit";
-    outfitId: string;
+    outfitId: TOutfitId;
     fit: "skinned_xwear";
     materialVariant: WardrobeMaterialVariant & { id: string };
   };
   compatibility: WardrobeSilhouetteTemplate["compatibility"];
 };
 
-export function createWardrobeVariantCatalog(input: {
-  templates: readonly WardrobeSilhouetteTemplate[];
+export function createWardrobeVariantCatalog<const TOutfitId extends string>(input: {
+  templates: readonly WardrobeSilhouetteTemplate<TOutfitId>[];
   variants: readonly WardrobeGarmentVariant[];
-}): WardrobeVariantCatalogItem[] {
+}): WardrobeVariantCatalogItem<TOutfitId>[] {
   const approvedTemplates = new Map(
     input.templates
       .filter((template) => template.qa.status === "approved")

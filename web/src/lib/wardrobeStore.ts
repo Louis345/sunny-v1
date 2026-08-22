@@ -1,3 +1,5 @@
+import { createWardrobeVariantCatalog } from "./wardrobeContentFactory";
+
 export type WardrobeAccessoryId = "none" | "crown" | "cat-ears" | "halo";
 export type WardrobeOutfitId =
   | "none"
@@ -6,6 +8,10 @@ export type WardrobeOutfitId =
 export type WardrobeSelection = {
   accessoryId: WardrobeAccessoryId;
   outfitId: WardrobeOutfitId;
+  outfitMaterialVariant?: {
+    id: string;
+    tint: string;
+  };
 };
 
 type WardrobeAsset =
@@ -17,6 +23,10 @@ type WardrobeAsset =
       kind: "outfit";
       outfitId: Exclude<WardrobeOutfitId, "none">;
       fit: "skinned_xwear";
+      materialVariant: {
+        id: string;
+        tint: string;
+      };
     };
 
 type WardrobeCompatibility =
@@ -32,6 +42,62 @@ export type WardrobeStoreItem = {
   asset: WardrobeAsset;
   compatibility: WardrobeCompatibility;
 };
+
+const RIBBON_DRESS_VARIANTS = createWardrobeVariantCatalog({
+  templates: [
+    {
+      id: "ribbon-dress",
+      outfitId: "sleeveless-dress",
+      icon: "👗",
+      compatibility: {
+        kind: "approved_models",
+        modelUrls: ["/companions/sample.vrm"],
+      },
+      qa: {
+        status: "approved",
+        approvedAvatarUrls: ["/companions/sample.vrm"],
+      },
+    },
+  ],
+  variants: [
+    {
+      id: "sleeveless-dress",
+      templateId: "ribbon-dress",
+      name: "Navy Ribbon Dress",
+      price: 60,
+      styleTags: ["elegant", "navy", "classic", "ribbon"],
+      material: { tint: "#ffffff" },
+      qa: { status: "approved" },
+    },
+    {
+      id: "plum-ribbon-dress",
+      templateId: "ribbon-dress",
+      name: "Plum Ribbon Dress",
+      price: 65,
+      styleTags: ["elegant", "purple", "magical", "ribbon"],
+      material: { tint: "#c878ff" },
+      qa: { status: "approved" },
+    },
+    {
+      id: "teal-ribbon-dress",
+      templateId: "ribbon-dress",
+      name: "Teal Ribbon Dress",
+      price: 60,
+      styleTags: ["playful", "teal", "bright", "ribbon"],
+      material: { tint: "#64ffd2" },
+      qa: { status: "approved" },
+    },
+    {
+      id: "rose-ribbon-dress",
+      templateId: "ribbon-dress",
+      name: "Rose Ribbon Dress",
+      price: 65,
+      styleTags: ["cute", "rose", "sparkly", "ribbon"],
+      material: { tint: "#ff8fb2" },
+      qa: { status: "approved" },
+    },
+  ],
+});
 
 export const WARDROBE_STORE_CATALOG: readonly WardrobeStoreItem[] = [
   {
@@ -61,22 +127,7 @@ export const WARDROBE_STORE_CATALOG: readonly WardrobeStoreItem[] = [
     asset: { kind: "accessory", accessoryId: "halo" },
     compatibility: { kind: "universal" },
   },
-  {
-    id: "sleeveless-dress",
-    name: "Navy Ribbon Dress",
-    icon: "👗",
-    price: 60,
-    styleTags: ["elegant", "navy", "classic", "ribbon"],
-    asset: {
-      kind: "outfit",
-      outfitId: "sleeveless-dress",
-      fit: "skinned_xwear",
-    },
-    compatibility: {
-      kind: "approved_models",
-      modelUrls: ["/companions/sample.vrm"],
-    },
-  },
+  ...RIBBON_DRESS_VARIANTS,
 ] as const;
 
 export type CompanionStoreDesire = {
@@ -580,7 +631,11 @@ function selectionFromItem(
   if (!item) return selection;
   return item.asset.kind === "accessory"
     ? { ...selection, accessoryId: item.asset.accessoryId }
-    : { ...selection, outfitId: item.asset.outfitId };
+    : {
+        ...selection,
+        outfitId: item.asset.outfitId,
+        outfitMaterialVariant: item.asset.materialVariant,
+      };
 }
 
 export function resolveWardrobeItemSelection(
