@@ -12,6 +12,7 @@ import {
   getMathGenerationStatus,
   recordDiscoveryAttempt,
   publishDiscoveryExperience,
+  generateMathDiscoveryExperience,
   revealTargetedBoard,
   updateMathGenerationNode,
   writeMathGenerationJob,
@@ -68,6 +69,31 @@ describe("adaptive math discovery", () => {
     expect(savedHomework.activeByDomain.spelling.homeworkId).toBe("spell-hw");
     expect(savedHomework.activeByDomain.math.homeworkId).toBe("hw-equal-groups");
     expect(getLearningCycle("lab-child", "hw-equal-groups", { rootDir })?.lifecycle).toBe("evaluation_ready");
+  });
+
+  it("generates one frozen Discovery through Planner and Creator phases", async () => {
+    const rootDir = root();
+    const calls: Array<{ model: string; prompt: string }> = [];
+    const responses = [
+      { content: [{ type: "tool_use", name: "create_math_discovery_contract", input: { evaluationId: "eval-1", title: "Show What You Know", assignmentEvidenceIds: ["assignment:1"], constructs: [{ constructId: "math.equal_groups", prerequisiteIds: [] }], items: [{ itemId: "i1", constructId: "math.equal_groups", prompt: "How many groups?", responseContract: "tap one number", correctAnswerContract: { acceptedValues: ["4"] }, difficultyBoundary: "grade 3", exposureId: "eval-1:i1", possibleConfounds: ["interface_friction"], falsifyingEvidence: ["response is not independent"], measurementKeys: ["independent_correct"] }] } }], usage: { input_tokens: 10, output_tokens: 20 } },
+      { content: [{ type: "text", text: "<!doctype html><html><body><button>Start</button><script>parent.postMessage({type:'evaluation_ready'},'*');parent.postMessage({type:'evaluation_attempt'},'*');parent.postMessage({type:'evaluation_complete'},'*');</script></body></html>" }], usage: { input_tokens: 10, output_tokens: 20 } },
+    ];
+    const client = { messages: { create: async (request: { model: string; messages: Array<{ content: string }> }) => {
+      calls.push({ model: request.model, prompt: request.messages[0]!.content });
+      if (calls.length === 2) {
+        const contractHash = request.messages[0]!.content.match(/CONTRACT HASH: ([a-f0-9]+)/)?.[1];
+        return { content: [{ type: "tool_use", name: "create_math_discovery_design", input: { contractHash, design: { firstAction: "Tap what you notice", interaction: "Touch groups", recovery: "Continue honestly" }, backgroundSvg: "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"1365\" height=\"768\"><rect width=\"100%\" height=\"100%\" fill=\"navy\"/></svg>" } }], usage: { input_tokens: 10, output_tokens: 20 } };
+      }
+      return responses.shift()!;
+    } } };
+
+    const generated = await generateMathDiscoveryExperience({ rootDir, childId: "lab-child", homeworkId: "hw-1", assignmentText: "Four equal groups.", assignmentEvidenceIds: ["assignment:1"], factualChildContext: { age: 9 }, client: client as never });
+
+    expect(calls).toHaveLength(3);
+    expect(calls[0]?.prompt).not.toContain("world");
+    expect(calls[1]?.prompt).toContain(generated.contract.artifact.contractHash);
+    expect(fs.existsSync(path.join(rootDir, "public", generated.contract.artifact.htmlPath.replace(/^\/games\//, "games/")))).toBe(true);
+    expect(generated.contract.items).toHaveLength(1);
   });
   it("publishes only one independent Discovery node before evidence exists", () => {
     const rootDir = root();

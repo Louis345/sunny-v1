@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { createHash } from "node:crypto";
+import Anthropic from "@anthropic-ai/sdk";
 import { resolveChildContextDir } from "../utils/contextRoot";
 import type { ActiveSessionPlan } from "../context/schemas/learningProfile";
 import {
@@ -42,6 +43,93 @@ export type MathDiscoveryEvaluationContract = {
     artifactHash: string;
   };
 };
+
+type DiscoveryAcademicContract = Omit<MathDiscoveryEvaluationContract, "artifact">;
+
+function toolInput(response: unknown, name: string): Record<string, unknown> {
+  const content = (response as { content?: Array<{ type?: string; name?: string; input?: unknown }> }).content ?? [];
+  const block = content.find((entry) => entry.type === "tool_use" && entry.name === name);
+  if (!block?.input || typeof block.input !== "object") throw new Error(`discovery_provider_contract_missing:${name}`);
+  return block.input as Record<string, unknown>;
+}
+
+function responseText(response: unknown): string {
+  return ((response as { content?: Array<{ type?: string; text?: string }> }).content ?? [])
+    .filter((entry) => entry.type === "text")
+    .map((entry) => entry.text ?? "")
+    .join("\n");
+}
+
+function standaloneHtml(value: string): string {
+  const fenced = value.match(/```(?:html)?\s*([\s\S]*?)```/i)?.[1] ?? value;
+  const html = fenced.match(/<!doctype html[\s\S]*<\/html>/i)?.[0] ?? fenced.match(/<html[\s\S]*<\/html>/i)?.[0];
+  if (!html) throw new Error("discovery_complete_html_missing");
+  for (const event of ["evaluation_ready", "evaluation_attempt", "evaluation_complete"]) {
+    if (!html.includes(event)) throw new Error(`discovery_runtime_event_missing:${event}`);
+  }
+  if (/localStorage|sessionStorage|indexedDB|speechSynthesis|OscillatorNode|createOscillator/i.test(html)) {
+    throw new Error("discovery_forbidden_runtime_capability");
+  }
+  return html;
+}
+
+export async function generateMathDiscoveryExperience(input: {
+  rootDir?: string;
+  childId: string;
+  homeworkId: string;
+  assignmentText: string;
+  assignmentEvidenceIds: string[];
+  factualChildContext: unknown;
+  client?: Anthropic;
+  plannerModel?: string;
+  architectModel?: string;
+  builderModel?: string;
+}): Promise<{ contract: MathDiscoveryEvaluationContract; design: Record<string, unknown> }> {
+  const rootDir = input.rootDir ?? process.cwd();
+  const client = input.client ?? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+  const create = async (model: string, prompt: string, tool?: { name: string; schema: Record<string, unknown> }): Promise<unknown> => client.messages.create({
+    model,
+    max_tokens: tool ? 12_000 : 48_000,
+    messages: [{ role: "user", content: prompt }],
+    ...(tool ? { tools: [{ name: tool.name, description: "Return the requested frozen artifact.", input_schema: tool.schema }], tool_choice: { type: "tool", name: tool.name } } : {}),
+  } as never);
+  const common = `ASSIGNMENT EVIDENCE IDS:\n${JSON.stringify(input.assignmentEvidenceIds)}\n\nASSIGNMENT:\n${input.assignmentText}\n\nFACTUAL CHILD CONTEXT:\n${JSON.stringify(input.factualChildContext, null, 2)}`;
+  console.log(` 🎮 [adaptive-math] [discovery-planner] [running] child=${input.childId} homework=${input.homeworkId}`);
+  const plannerResponse = await create(input.plannerModel ?? process.env.SUNNY_PLANNER_MODEL ?? "claude-opus-5", `You are Sunny's Academic Planner. Create one independent opening mathematics evaluation that determines what the child already knows and where evidence is missing. Author three to five fresh items without copying the assignment. Each item must identify its construct, response contract, accepted answers, difficulty boundary, exposure identity, possible confounds, falsifying evidence, and measurement keys. Collect independent evidence before teaching or answer exposure. Prefer the lowest-friction response mode that preserves the mathematics. Do not choose presentation, characters, mechanics, sound, rewards, or implementation. Do not declare mastery.\n\n${common}`, {
+    name: "create_math_discovery_contract",
+    schema: { type: "object", additionalProperties: false, required: ["evaluationId", "title", "assignmentEvidenceIds", "constructs", "items"], properties: {
+      evaluationId: { type: "string" }, title: { type: "string" }, assignmentEvidenceIds: { type: "array", items: { type: "string" } },
+      constructs: { type: "array", minItems: 1, items: { type: "object", additionalProperties: false, required: ["constructId", "prerequisiteIds"], properties: { constructId: { type: "string" }, prerequisiteIds: { type: "array", items: { type: "string" } } } } },
+      items: { type: "array", minItems: 1, items: { type: "object", additionalProperties: false, required: ["itemId", "constructId", "prompt", "responseContract", "correctAnswerContract", "difficultyBoundary", "exposureId", "possibleConfounds", "falsifyingEvidence", "measurementKeys"], properties: { itemId: { type: "string" }, constructId: { type: "string" }, prompt: { type: "string" }, responseContract: { type: "string" }, correctAnswerContract: { type: "object", additionalProperties: false, required: ["acceptedValues"], properties: { acceptedValues: { type: "array", minItems: 1, items: { type: "string" } } } }, difficultyBoundary: { type: "string" }, exposureId: { type: "string" }, possibleConfounds: { type: "array", items: { type: "string" } }, falsifyingEvidence: { type: "array", items: { type: "string" } }, measurementKeys: { type: "array", items: { type: "string" } } } } },
+    } },
+  });
+  const academic = toolInput(plannerResponse, "create_math_discovery_contract") as DiscoveryAcademicContract;
+  const contractHash = hashDiscoveryContract(academic);
+  console.log(` 🎮 [adaptive-math] [discovery-planner] [saved] hash=${contractHash.slice(0, 12)}`);
+  const architectResponse = await create(input.architectModel ?? process.env.SUNNY_ARCHITECT_MODEL ?? "claude-fable-5", `You are Sunny's Experience Creator. Design the frozen independent evaluation below for the child and device. Choose the presentation, interaction, pacing, stakes, recovery, visual language, motion, sound cues, and payoff. Make the first action immediately understandable and make mathematics visibly control the interaction. Do not teach or reveal an answer before the first committed response to an item. Never trap the child. Preserve the contract exactly.\n\nCONTRACT HASH: ${contractHash}\n${JSON.stringify(academic, null, 2)}\n\n${common}`, {
+    name: "create_math_discovery_design",
+    schema: { type: "object", additionalProperties: false, required: ["contractHash", "design", "backgroundSvg"], properties: { contractHash: { type: "string" }, design: { type: "object", additionalProperties: true }, backgroundSvg: { type: "string" } } },
+  });
+  const designed = toolInput(architectResponse, "create_math_discovery_design");
+  if (designed.contractHash !== contractHash) throw new Error("discovery_design_changed_contract_hash");
+  const designHash = hashDiscoveryContract(designed);
+  console.log(` 🎮 [adaptive-math] [discovery-design] [saved] hash=${designHash.slice(0, 12)}`);
+  const builderResponse = await create(input.builderModel ?? process.env.SUNNY_PLANNER_MODEL ?? "claude-opus-5", `You are Sunny's Experience Creator implementing a frozen academic contract and frozen design. Return one complete standalone HTML document for a 1365x768 iframe. It must work with touch or mouse without a keyboard, never trap the child, and post evaluation_ready, evaluation_attempt, evaluation_friction when relevant, and evaluation_complete to window.parent with the supplied stable identities and factual provenance. It may not access Sunny APIs, storage, currency, or child state. Do not use browser speech synthesis or oscillator audio. Do not change the contract or answers.\n\nACADEMIC CONTRACT HASH: ${contractHash}\n${JSON.stringify(academic, null, 2)}\n\nDESIGN HASH: ${designHash}\n${JSON.stringify(designed.design, null, 2)}`);
+  const html = standaloneHtml(responseText(builderResponse));
+  const publicGameDir = path.join(rootDir, "public", "games", input.homeworkId);
+  const publicArtDir = path.join(rootDir, "public", "generated", input.homeworkId);
+  fs.mkdirSync(publicGameDir, { recursive: true });
+  fs.mkdirSync(publicArtDir, { recursive: true });
+  const htmlFile = path.join(publicGameDir, "discovery.html");
+  const artworkFile = path.join(publicArtDir, "discovery-background.svg");
+  fs.writeFileSync(htmlFile, html, "utf8");
+  fs.writeFileSync(artworkFile, String(designed.backgroundSvg), "utf8");
+  const contract: MathDiscoveryEvaluationContract = { ...academic, artifact: { artifactId: `${input.homeworkId}:discovery`, htmlPath: `/games/${input.homeworkId}/discovery.html`, artworkPath: `/generated/${input.homeworkId}/discovery-background.svg`, contractHash, artifactHash: hashDiscoveryContract(html) } };
+  atomicJson(path.join(resolveChildContextDir(input.childId, { rootDir }), "homework", "direct-drafts", input.homeworkId, "discovery-contract.json"), contract);
+  atomicJson(path.join(resolveChildContextDir(input.childId, { rootDir }), "homework", "direct-drafts", input.homeworkId, "discovery-design.json"), { ...designed, designHash });
+  console.log(` 🎮 [adaptive-math] [discovery-builder] [saved] hash=${contract.artifact.artifactHash.slice(0, 12)}`);
+  return { contract, design: designed };
+}
 
 export type MathDiscoveryAttempt = {
   attemptId: string;
