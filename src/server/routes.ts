@@ -64,6 +64,7 @@ import {
   type ChoiceEventInput,
 } from "../engine/choiceEvents";
 import { interpretDirectExperienceOutcome } from "../engine/directExperienceFeedback";
+import { getMathGenerationStatus } from "../engine/adaptiveMathDiscovery";
 import {
   companionCareFeedShouldPersist,
   previewCompanionCareMirror,
@@ -668,6 +669,22 @@ export function setupRoutes(app: Express): void {
       const message = error instanceof Error ? error.message : String(error);
       console.error(" 🎮 [learning-report] [read] [failed]", error);
       return res.status(message.startsWith("learning_report_assignment_missing:") ? 404 : 500).json({ error: message });
+    }
+  });
+
+  app.get("/api/learning/:childId/assignments/:homeworkId/generation-status", (req: Request, res: Response) => {
+    const childId = String(req.params.childId ?? "").trim().toLowerCase();
+    const homeworkId = String(req.params.homeworkId ?? "").trim();
+    if (!isValidRegistryChildId(childId)) return res.status(404).json({ error: "child_not_found" });
+    if (!homeworkId) return res.status(400).json({ error: "homeworkId is required" });
+    try {
+      const status = getMathGenerationStatus(childId, homeworkId);
+      if (!status) return res.status(404).json({ error: "math_generation_job_not_found" });
+      console.log(` 🎮 [adaptive-math-status] [read] [ok] child=${childId} homework=${homeworkId} phase=${status.phase}`);
+      return res.json(status);
+    } catch (error) {
+      console.error(` 🎮 [adaptive-math-status] [read] [failed] child=${childId} homework=${homeworkId}`, error);
+      return res.status(500).json({ error: error instanceof Error ? error.message : String(error) });
     }
   });
 
