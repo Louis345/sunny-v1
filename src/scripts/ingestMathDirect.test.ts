@@ -8,9 +8,16 @@ import {
   currentRunBuildTokens,
   formatIngestionSummary,
   readReusablePlannerProgram,
+  shouldPublishDiscoveryFirst,
 } from "./ingestMathDirect";
 
 describe("direct math ingestion checkpoints", () => {
+  it("routes a fresh or active evaluation to Discovery before targeted planning", () => {
+    expect(shouldPublishDiscoveryFirst(undefined)).toBe(true);
+    expect(shouldPublishDiscoveryFirst("evaluation_ready")).toBe(true);
+    expect(shouldPublishDiscoveryFirst("evaluation_active")).toBe(true);
+    expect(shouldPublishDiscoveryFirst("evidence_ready")).toBe(false);
+  });
   it("archives a malformed Planner diagnostic instead of poisoning every resume", () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-planner-checkpoint-"));
     const programFile = path.join(root, "math-learning-program.json");

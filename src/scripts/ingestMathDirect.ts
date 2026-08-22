@@ -29,6 +29,13 @@ import {
 import { readDirectFeedbackContext } from "../engine/directExperienceFeedback";
 import { readPriorConceptIds } from "../engine/assignmentLedger";
 import { getChildChart } from "../profiles/childChart";
+import { getLearningCycle } from "../engine/learningCycleRepository";
+import {
+  buildDiscoveryActiveSessionPlan,
+  generateMathDiscoveryExperience,
+  publishDiscoveryExperience,
+  type MathDiscoveryEvaluationContract,
+} from "../engine/adaptiveMathDiscovery";
 
 function arg(name: string, required = true): string {
   const value = process.argv.slice(2).find((item) => item.startsWith(`--${name}=`))?.slice(name.length + 3);
@@ -136,6 +143,10 @@ export function currentRunBuildTokens(
     .reduce((sum, artifact) => sum + (artifact.inputTokens ?? 0) + (artifact.outputTokens ?? 0), 0);
 }
 
+export function shouldPublishDiscoveryFirst(lifecycle: string | undefined): boolean {
+  return lifecycle === undefined || lifecycle === "evaluation_ready" || lifecycle === "evaluation_active";
+}
+
 export async function withIngestionHeartbeat<T>(
   label: string,
   run: () => Promise<T>,
@@ -200,6 +211,45 @@ async function main(): Promise<void> {
   const finalPlanFile = path.join(draftDir, "designed-plan.json");
   const buildFile = path.join(draftDir, "candidate-build-v3.json");
   const chart = getChildChart(childId);
+  const discoveryFile = path.join(draftDir, "discovery-contract.json");
+  const existingCycle = getLearningCycle(childId, homeworkId);
+  if (shouldPublishDiscoveryFirst(existingCycle?.lifecycle)) {
+    currentPhase = "discovery-generation";
+    console.log("[2/2] Preparing independent Discovery evaluation");
+    const existingDiscovery = fs.existsSync(discoveryFile) ? readJson<MathDiscoveryEvaluationContract>(discoveryFile) : undefined;
+    const evaluation = existingDiscovery ?? (await withIngestionHeartbeat("Discovery", () => generateMathDiscoveryExperience({
+      childId,
+      homeworkId,
+      assignmentText: extraction.fullText,
+      assignmentEvidenceIds: [`assignment:${homeworkId}:source`],
+      factualChildContext: buildMathCreativeChildContext(chart),
+    }))).contract;
+    const activeSessionPlan = buildDiscoveryActiveSessionPlan({
+      childId,
+      homeworkId,
+      evaluation,
+      companion: { id: chart.companion.presetId, name: chart.companion.displayName },
+    });
+    currentPhase = "atomic-publication";
+    publishDiscoveryExperience({
+      childId,
+      homeworkId,
+      evaluation,
+      activeSessionPlan,
+      assignment: {
+        title: extraction.filename,
+        contentFingerprint: extraction.fileHash,
+        capturedEvidenceIds: evaluation.assignmentEvidenceIds,
+        targets: evaluation.constructs.map((construct) => construct.constructId),
+      },
+    });
+    console.log("Done — DISCOVERY READY");
+    console.log(`Discovery: ${existingDiscovery ? "reused" : "generated"}`);
+    console.log("Targeted board: waits for committed Discovery evidence");
+    console.log(`Checkpoint: ${draftDir}`);
+    console.log("Start session: npm run sunny → Start child session");
+    return;
+  }
   const priorOutcomes = {
     directExperience: readDirectFeedbackContext(childId),
     canonicalCycle: readDirectCanonicalLearningContext(childId, homeworkId),
