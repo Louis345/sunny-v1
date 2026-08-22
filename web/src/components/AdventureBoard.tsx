@@ -150,6 +150,7 @@ export function AdventureBoard({
   const previousNodeStates = useRef(new Map(board.nodes.map((node) => [node.id, node.state])));
   const unlockCeremonyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [unlockCeremony, setUnlockCeremony] = useState<UnlockCeremonyEvent | null>(null);
+  const [preparingMessage, setPreparingMessage] = useState<string | null>(null);
 
   useEffect(() => {
     const newlyUnlocked = board.nodes.find((node) => {
@@ -291,6 +292,11 @@ export function AdventureBoard({
                 top: `${node.position.y * 100}%`,
               }}
               onClick={() => {
+                if (isPreparing) {
+                  setPreparingMessage(`${node.shortLabel ?? node.label} is still being prepared. You can keep exploring or come back later.`);
+                  return;
+                }
+                setPreparingMessage(null);
                 if (node.choiceSetId && choiceSetsById.has(node.choiceSetId)) {
                   setOpenChoiceSetId(node.choiceSetId);
                 }
@@ -332,6 +338,12 @@ export function AdventureBoard({
           );
         })}
       </div>
+
+      {preparingMessage ? (
+        <div className="adventure-board__preparing-message" role="status" aria-live="polite">
+          {preparingMessage}
+        </div>
+      ) : null}
 
       {unlockCeremony ? (
         <>

@@ -716,6 +716,35 @@ describe("AdventureBoard", () => {
 });
 
 describe("AdventureBoardExperience", () => {
+  it("explains a preparing node without launching it or emitting a node callback", () => {
+    const onNodeClick = vi.fn();
+    const board: AdventureBoardJson = {
+      ...grokFullExperienceBoard,
+      nodes: grokFullExperienceBoard.nodes.map((node, index) =>
+        index === 1
+          ? {
+              ...node,
+              state: "preview" as const,
+              lock: { reason: "generation-pending", label: "Preparing" },
+            }
+          : node,
+      ),
+    };
+    const preparing = board.nodes[1]!;
+
+    render(
+      <AdventureBoardExperience
+        packet={packetForBoard(board)}
+        onNodeClick={onNodeClick}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: new RegExp(`^${preparing.label},`) }));
+
+    expect(screen.getByRole("status")).toHaveTextContent("still being prepared");
+    expect(onNodeClick).not.toHaveBeenCalled();
+  });
+
   it("renders the board from the child experience packet", () => {
     render(<AdventureBoardExperience packet={packetForBoard(grokFullExperienceBoard)} />);
 

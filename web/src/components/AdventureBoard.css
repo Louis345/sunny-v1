@@ -271,6 +271,24 @@
   animation: adventureBoardUnlockBanner 2.4s ease both;
 }
 
+.adventure-board__preparing-message {
+  position: absolute;
+  z-index: 28;
+  left: 50%;
+  bottom: 4.5rem;
+  width: min(34rem, calc(100% - 2rem));
+  transform: translateX(-50%);
+  border: 2px solid color-mix(in srgb, var(--board-preview) 70%, white);
+  border-radius: 1rem;
+  background: color-mix(in srgb, var(--board-panel) 94%, transparent);
+  color: var(--board-text);
+  padding: 0.8rem 1.1rem;
+  text-align: center;
+  font-size: clamp(0.95rem, 1.4vw, 1.2rem);
+  font-weight: 800;
+  box-shadow: 0 12px 30px rgb(0 0 0 / 35%);
+}
+
 .adventure-board__unlock-ceremony--gate {
   border-color: #ffe29a;
   background: linear-gradient(135deg, rgba(69, 34, 95, 0.98), rgba(39, 24, 70, 0.98));
