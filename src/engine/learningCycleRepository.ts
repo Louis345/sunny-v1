@@ -15,6 +15,13 @@ import { resolveChildContextDir } from "../utils/contextRoot";
 
 export type LearningCycleLifecycle =
   | "planning"
+  | "evaluation_ready"
+  | "evaluation_active"
+  | "evidence_ready"
+  | "targeted_planning"
+  | "board_designing"
+  | "board_generating"
+  | "board_ready"
   | "baseline_ready"
   | "baseline_active"
   | "baseline_evaluating"
@@ -30,7 +37,7 @@ export type LearningCycleLifecycle =
   | "complete"
   | "blocked";
 
-export type LearningCycleNodeRole = "baseline" | "mystery" | "quest" | "boss";
+export type LearningCycleNodeRole = "evaluation" | "baseline" | "mystery" | "quest" | "boss";
 export type LearningCycleNodeState = "locked" | "generating" | "ready" | "active" | "completed" | "blocked";
 
 export type LearningCycleEvidenceSummary = {
@@ -333,6 +340,12 @@ export type LearningCycleRecordV2 = {
   predictionEvaluations: PredictionEvaluation[];
   agencyExperiment?: LearningCycleAgencyExperiment;
   routeSelection?: LearningCycleRouteSelection;
+  adaptiveGeneration?: {
+    evaluationId: string;
+    evaluationCompletedAt?: string;
+    programHash?: string;
+    designHash?: string;
+  };
   createdAt: string;
   updatedAt: string;
 };
@@ -351,7 +364,11 @@ export type CreateLearningCycleInput = Omit<
   | "predictionEvaluations"
   | "createdAt"
   | "updatedAt"
-> & { academicPredictions?: AcademicPrediction[]; assumptions?: LearningAssumption[] };
+> & {
+  academicPredictions?: AcademicPrediction[];
+  assumptions?: LearningAssumption[];
+  initialLifecycle?: LearningCycleLifecycle;
+};
 
 type OutcomeDecision = {
   status: LearningTheoryDecisionStatus;
@@ -395,6 +412,38 @@ export type NextInstrumentPrescription = {
 };
 
 export type LearningCycleEvent =
+  | {
+      type: "evaluation_started";
+      evaluationId: string;
+    }
+  | ({
+      type: "evaluation_attempted";
+      evaluationId: string;
+      observations: LearningObservation[];
+    } & OutcomeEvidence)
+  | {
+      type: "evaluation_completed";
+      evaluationId: string;
+      completedAt: string;
+    }
+  | {
+      type: "targeted_planning_started";
+      evaluationId: string;
+    }
+  | {
+      type: "board_design_started";
+      programHash: string;
+    }
+  | {
+      type: "targeted_board_revealed";
+      programHash: string;
+      designHash: string;
+      nodes: LearningCycleNodeContract[];
+      academicTheory: LearningCycleAcademicTheory;
+      academicPredictions: AcademicPrediction[];
+      assumptions: LearningAssumption[];
+      agencyExperiment?: LearningCycleAgencyExperiment;
+    }
   | {
       type: "plan_reconciled";
       assignment: LearningCycleRecordV2["assignment"];
@@ -644,16 +693,17 @@ export function createLearningCycle(
     fs.renameSync(file, backup);
   }
   const at = nowIso(opts);
+  const { initialLifecycle, ...recordInput } = input;
   const cycle: LearningCycleRecordV2 = {
     schemaVersion: 2,
     revision: 1,
-    ...input,
-    lifecycle: "baseline_ready",
+    ...recordInput,
+    lifecycle: initialLifecycle ?? "baseline_ready",
     evidence: { academic: [], engagement: [], companionObservations: [] },
     decisionHistory: [],
     evidenceSources: [],
-    academicPredictions: structuredClone(input.academicPredictions ?? []),
-    assumptions: structuredClone(input.assumptions ?? []),
+    academicPredictions: structuredClone(recordInput.academicPredictions ?? []),
+    assumptions: structuredClone(recordInput.assumptions ?? []),
     observations: [],
     predictionEvaluations: [],
     createdAt: at,
@@ -966,7 +1016,74 @@ export function transitionLearningCycle(
   let status: LearningTheoryDecisionStatus | undefined;
   let evidenceIds: string[] = [];
 
-  if (event.type === "plan_reconciled") {
+  if (event.type === "evaluation_started") {
+    const evaluation = nodeOrThrow(next, event.evaluationId, "evaluation");
+    if (current.lifecycle !== "evaluation_ready") throw new Error("learning_cycle_evaluation_not_ready");
+    evaluation.state = "active";
+    next.lifecycle = "evaluation_active";
+    next.adaptiveGeneration = { evaluationId: event.evaluationId };
+    reason = "Independent Discovery evaluation started.";
+  } else if (event.type === "evaluation_attempted") {
+    nodeOrThrow(next, event.evaluationId, "evaluation");
+    if (current.lifecycle !== "evaluation_active" && current.lifecycle !== "evaluation_ready") {
+      throw new Error("learning_cycle_evaluation_not_active");
+    }
+    evidenceIds = appendOutcomeEvidence(next, event);
+    appendObservations(next, event.observations);
+    next.lifecycle = "evaluation_active";
+    reason = "Independent Discovery observation recorded without interpretation.";
+  } else if (event.type === "evaluation_completed") {
+    const evaluation = nodeOrThrow(next, event.evaluationId, "evaluation");
+    if (!next.observations.some((observation) => observation.sourceId === `evaluation:${event.evaluationId}`)) {
+      throw new Error("learning_cycle_evaluation_evidence_missing");
+    }
+    evaluation.state = "completed";
+    next.lifecycle = "evidence_ready";
+    next.adaptiveGeneration = {
+      ...(next.adaptiveGeneration ?? { evaluationId: event.evaluationId }),
+      evaluationId: event.evaluationId,
+      evaluationCompletedAt: event.completedAt,
+    };
+    reason = "Discovery evidence is ready for one targeted Planner program.";
+    evidenceIds = next.observations
+      .filter((observation) => observation.sourceId === `evaluation:${event.evaluationId}`)
+      .map((observation) => observation.observationId);
+  } else if (event.type === "targeted_planning_started") {
+    if (current.lifecycle !== "evidence_ready") throw new Error("learning_cycle_discovery_evidence_not_ready");
+    next.lifecycle = "targeted_planning";
+    reason = "Planner is authoring the targeted program from committed Discovery evidence.";
+    evidenceIds = next.observations.map((observation) => observation.observationId);
+  } else if (event.type === "board_design_started") {
+    if (current.lifecycle !== "targeted_planning") throw new Error("learning_cycle_targeted_program_not_ready");
+    next.lifecycle = "board_designing";
+    next.adaptiveGeneration = {
+      ...(next.adaptiveGeneration ?? { evaluationId: "unknown" }),
+      programHash: event.programHash,
+    };
+    reason = "Experience Creator is designing the coherent targeted board.";
+  } else if (event.type === "targeted_board_revealed") {
+    if (current.lifecycle !== "board_designing") throw new Error("learning_cycle_board_design_not_ready");
+    const completedEvaluation = next.nodes.find((node) => node.role === "evaluation");
+    if (!completedEvaluation || completedEvaluation.state !== "completed") {
+      throw new Error("learning_cycle_completed_evaluation_missing");
+    }
+    next.nodes = [
+      completedEvaluation,
+      ...event.nodes.map((node) => ({ ...structuredClone(node), state: "generating" as const, artifactBinding: null })),
+    ];
+    next.academicTheory = structuredClone(event.academicTheory);
+    next.academicPredictions = structuredClone(event.academicPredictions);
+    next.assumptions = structuredClone(event.assumptions);
+    next.agencyExperiment = event.agencyExperiment ? structuredClone(event.agencyExperiment) : undefined;
+    next.lifecycle = "board_generating";
+    next.adaptiveGeneration = {
+      ...(next.adaptiveGeneration ?? { evaluationId: completedEvaluation.nodeId }),
+      programHash: event.programHash,
+      designHash: event.designHash,
+    };
+    reason = "The coherent targeted map is visible while node artifacts build independently.";
+    evidenceIds = next.observations.map((observation) => observation.observationId);
+  } else if (event.type === "plan_reconciled") {
     const previousById = new Map(next.nodes.map((node) => [node.nodeId, node]));
     if (event.academicPredictions) {
       const priorById = new Map(next.academicPredictions.map((prediction) => [prediction.predictionId, prediction]));
@@ -1148,7 +1265,11 @@ export function transitionLearningCycle(
     node.state = "ready";
     if (node.role === "quest") next.lifecycle = "quest_ready";
     else if (node.role === "boss") next.lifecycle = "boss_ready";
-    else next.lifecycle = "baseline_ready";
+    else {
+      const pendingBaseline = next.nodes.some((candidate) =>
+        candidate.role === "baseline" && candidate.state === "generating");
+      next.lifecycle = pendingBaseline ? "board_generating" : "board_ready";
+    }
     reason = `Validated ${node.role} artifact bound to canonical node contract.`;
     evidenceIds = node.generationPrompt?.createdFromEvidenceIds ?? [];
   } else if (event.type === "returned_work_confirmed") {
