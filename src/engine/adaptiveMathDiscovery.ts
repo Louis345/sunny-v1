@@ -369,6 +369,52 @@ export function publishDiscoveryExperience(input: {
   }
 }
 
+export function publishTargetedBoardProjection(input: {
+  rootDir?: string;
+  childId: string;
+  activeSessionPlan: ActiveSessionPlan;
+  nodeStatuses: Record<string, MathGenerationNodeStatus>;
+}): void {
+  const rootDir = input.rootDir ?? process.cwd();
+  const contextDir = resolveChildContextDir(input.childId, { rootDir });
+  const planPath = path.join(contextDir, "plans", "active_session_plan.json");
+  const profilePath = path.join(contextDir, "learning_profile.json");
+  const readObject = (file: string): Record<string, unknown> => {
+    try { return JSON.parse(fs.readFileSync(file, "utf8")) as Record<string, unknown>; } catch { return {}; }
+  };
+  const plan = structuredClone(input.activeSessionPlan);
+  let currentAssigned = false;
+  plan.nodePlan = plan.nodePlan.map((node) => ({ ...node, locked: input.nodeStatuses[node.id] !== "ready" }));
+  if (plan.adventureBoard) {
+    plan.adventureBoard.nodes = plan.adventureBoard.nodes.map((node) => {
+      const status = input.nodeStatuses[node.id];
+      if (!status) return node;
+      if (status === "ready") {
+        const state = currentAssigned ? "available" as const : "current" as const;
+        currentAssigned = true;
+        return { ...node, state };
+      }
+      if (status === "preparing" || status === "failed_resumable") {
+        return { ...node, state: "preview" as const, action: { type: "show-preparing-status", payloadId: node.id } as never };
+      }
+      return { ...node, state: "locked" as const };
+    });
+    plan.adventureBoard.progress = {
+      ...(plan.adventureBoard.progress ?? {}),
+      completedNodeIds: plan.adventureBoard.progress?.completedNodeIds ?? ["start"],
+      currentNodeId: plan.adventureBoard.nodes.find((node) => node.state === "current")?.id,
+    };
+  }
+  const priorPlan = readObject(planPath);
+  const profile = readObject(profilePath);
+  const activeByDomain = { ...(priorPlan.activeByDomain && typeof priorPlan.activeByDomain === "object" ? priorPlan.activeByDomain as Record<string, unknown> : {}), math: plan };
+  atomicJson(planPath, { version: 1, childId: input.childId, selectedDomain: "math", current: plan, activeByDomain, updatedAt: new Date().toISOString() });
+  profile.activeSessionPlan = plan;
+  profile.activeSessionPlanByDomain = { ...(profile.activeSessionPlanByDomain && typeof profile.activeSessionPlanByDomain === "object" ? profile.activeSessionPlanByDomain as Record<string, unknown> : {}), math: plan };
+  atomicJson(profilePath, profile);
+  console.log(` 🎮 [adaptive-math] [targeted-board-projection] [published] child=${input.childId}`);
+}
+
 export function createDiscoveryLearningCycle(input: {
   rootDir?: string;
   childId: string;

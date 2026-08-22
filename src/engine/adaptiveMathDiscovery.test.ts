@@ -12,6 +12,7 @@ import {
   getMathGenerationStatus,
   recordDiscoveryAttempt,
   publishDiscoveryExperience,
+  publishTargetedBoardProjection,
   generateMathDiscoveryExperience,
   revealTargetedBoard,
   updateMathGenerationNode,
@@ -94,6 +95,26 @@ describe("adaptive math discovery", () => {
     expect(calls[1]?.prompt).toContain(generated.contract.artifact.contractHash);
     expect(fs.existsSync(path.join(rootDir, "public", generated.contract.artifact.htmlPath.replace(/^\/games\//, "games/")))).toBe(true);
     expect(generated.contract.items).toHaveLength(1);
+  });
+
+  it("projects preparing and ready nodes without erasing another domain", () => {
+    const rootDir = root();
+    const context = path.join(rootDir, "src/context/lab-child");
+    fs.mkdirSync(path.join(context, "plans"), { recursive: true });
+    fs.writeFileSync(path.join(context, "plans/active_session_plan.json"), JSON.stringify({ activeByDomain: { spelling: { planId: "spell" } } }));
+    fs.writeFileSync(path.join(context, "learning_profile.json"), JSON.stringify({ childId: "lab-child" }));
+    const plan = buildDiscoveryActiveSessionPlan({ childId: "lab-child", homeworkId: "hw-1", evaluation: contract, companion: { id: "elli", name: "Elli" } });
+    plan.nodePlan = [{ ...plan.nodePlan[0]!, id: "N1" }, { ...plan.nodePlan[0]!, id: "N2" }];
+    plan.adventureBoard!.nodes = [
+      { id: "start", kind: "start", label: "Start", state: "completed" },
+      { id: "N1", kind: "activity", label: "One", state: "locked", action: { type: "launch-activity", payloadId: "N1" } },
+      { id: "N2", kind: "activity", label: "Two", state: "locked", action: { type: "launch-activity", payloadId: "N2" } },
+    ];
+    publishTargetedBoardProjection({ rootDir, childId: "lab-child", activeSessionPlan: plan, nodeStatuses: { N1: "ready", N2: "preparing" } });
+    const saved = JSON.parse(fs.readFileSync(path.join(context, "plans/active_session_plan.json"), "utf8"));
+    expect(saved.activeByDomain.spelling.planId).toBe("spell");
+    expect(saved.activeByDomain.math.adventureBoard.nodes.find((node: { id: string }) => node.id === "N1").state).toBe("current");
+    expect(saved.activeByDomain.math.adventureBoard.nodes.find((node: { id: string }) => node.id === "N2")).toMatchObject({ state: "preview", action: { type: "show-preparing-status" } });
   });
   it("publishes only one independent Discovery node before evidence exists", () => {
     const rootDir = root();

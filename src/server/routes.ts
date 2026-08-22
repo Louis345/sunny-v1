@@ -71,6 +71,32 @@ import {
   recordDiscoveryAttempt,
   type MathDiscoveryAttempt,
 } from "../engine/adaptiveMathDiscovery";
+
+export function launchAdaptiveMathWorker(childId: string, homeworkId: string): void {
+  if (process.env.VITEST) return;
+  const worker = spawn("npx", ["tsx", "src/scripts/runAdaptiveMathGeneration.ts", `--child=${childId}`, `--homework=${homeworkId}`], {
+    cwd: process.cwd(), env: process.env, detached: true, stdio: "ignore",
+  });
+  worker.once("error", (error) => console.error(` 🎮 [adaptive-math] [worker-launch] [failed] child=${childId} homework=${homeworkId}`, error));
+  worker.unref();
+  console.log(` 🎮 [adaptive-math] [worker-launch] [started] child=${childId} homework=${homeworkId} pid=${worker.pid ?? "unknown"}`);
+}
+
+export function resumeAdaptiveMathWorkers(): void {
+  if (process.env.VITEST) return;
+  for (const childId of listChildProfileIds()) {
+    const drafts = path.join(resolveChildContextDir(childId), "homework", "direct-drafts");
+    if (!fs.existsSync(drafts)) continue;
+    for (const homeworkId of fs.readdirSync(drafts)) {
+      try {
+        const job = getMathGenerationStatus(childId, homeworkId);
+        if (job && job.phase !== "board_ready") launchAdaptiveMathWorker(childId, homeworkId);
+      } catch (error) {
+        console.error(` 🎮 [adaptive-math] [worker-resume] [skipped] child=${childId} homework=${homeworkId}`, error);
+      }
+    }
+  }
+}
 import {
   companionCareFeedShouldPersist,
   previewCompanionCareMirror,
@@ -642,6 +668,7 @@ export function handleDiagTriggerReward(
 }
 
 export function setupRoutes(app: Express): void {
+  setImmediate(() => resumeAdaptiveMathWorkers());
   const themesDir = path.resolve(process.cwd(), "src", "themes");
   if (fs.existsSync(themesDir)) {
     app.use("/themes", express.static(themesDir));
@@ -727,6 +754,7 @@ export function setupRoutes(app: Express): void {
     try {
       const cycle = completeDiscoveryEvaluation({ childId, homeworkId, completedAt: new Date().toISOString() });
       queueTargetedMathGeneration({ childId, homeworkId });
+      launchAdaptiveMathWorker(childId, homeworkId);
       console.log(` 🎮 [adaptive-math] [discovery-complete] [targeted-generation-queued] child=${childId} homework=${homeworkId}`);
       return res.status(202).json({ ok: true, lifecycle: cycle.lifecycle, revision: cycle.revision, targetedGenerationQueued: true });
     } catch (error: unknown) {
