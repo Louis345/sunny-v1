@@ -124,6 +124,10 @@ describe("WardrobeStoreLab shopping call", () => {
     expect(onWardrobeChange).toHaveBeenLastCalledWith({
       accessoryId: "none",
       outfitId: "sleeveless-dress",
+      outfitMaterialVariant: {
+        id: "sleeveless-dress",
+        tint: "#ffffff",
+      },
     });
     const tryOnTalkButton = screen.getByRole("button", {
       name: "Talk to Elli by voice",
@@ -235,6 +239,37 @@ describe("WardrobeStoreLab shopping call", () => {
         ([event]) => event.type === "wardrobe_try_on_started",
       ),
     ).toHaveLength(2);
+  });
+
+  it("preserves the product palette when cycling between variants of one silhouette", () => {
+    const onWardrobeChange = vi.fn();
+    render(
+      <WardrobeStoreLab
+        companion={companion}
+        companionPreview={<div data-testid="companion-vrm">full body VRM</div>}
+        call={createCallProps()}
+        onWardrobeChange={onWardrobeChange}
+        onExit={vi.fn()}
+        visitSeed="palette-cycle"
+      />,
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "View Navy Ribbon Dress, 60 coins" }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Try on Navy Ribbon Dress" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "View Rose Ribbon Dress, 65 coins" }),
+    );
+
+    expect(onWardrobeChange).toHaveBeenLastCalledWith({
+      accessoryId: "none",
+      outfitId: "sleeveless-dress",
+      outfitMaterialVariant: {
+        id: "rose-ribbon-dress",
+        tint: "#ff8fb2",
+      },
+    });
   });
 
   it("anchors the state bubble to the live VRM head instead of a fixed stage percentage", () => {

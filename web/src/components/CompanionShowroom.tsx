@@ -47,6 +47,7 @@ import {
   isXwearOutfitApprovedForAvatar,
   isXwearOutfitAnimationSupported,
   setVrmBaseClothingVisible,
+  type XwearMaterialVariant,
 } from "../lib/xwearDress";
 import {
   isWardrobeOutfitCompatible,
@@ -2586,6 +2587,7 @@ function CompanionSlot({
   getAnalyser,
   wardrobeAccessoryId = "none",
   wardrobeOutfitId = "none",
+  wardrobeOutfitMaterialVariant = null,
   onMotorReady,
   onLoadSettled,
   onVrmAttached,
@@ -2607,6 +2609,7 @@ function CompanionSlot({
   getAnalyser?: () => AnalyserNode | null;
   wardrobeAccessoryId?: WardrobeAccessoryId;
   wardrobeOutfitId?: WardrobeOutfitId;
+  wardrobeOutfitMaterialVariant?: XwearMaterialVariant | null;
   onMotorReady?: (slot: SlotName, motor: CompanionMotor | null) => void;
   onLoadSettled: (slotKey: string) => void;
   /** Fires once after `attachVrm` succeeds (not called on load failure). */
@@ -2630,6 +2633,12 @@ function CompanionSlot({
   const wardrobeVrmSceneRef = useRef<THREE.Object3D | null>(null);
   const wardrobeOutfitPartsRef = useRef<THREE.Object3D[]>([]);
   const wardrobeOutfitIdRef = useRef<WardrobeOutfitId>(wardrobeOutfitId);
+  const wardrobeOutfitMaterialVariantRef = useRef<XwearMaterialVariant | null>(
+    wardrobeOutfitMaterialVariant,
+  );
+  const wardrobeOutfitRequestKeyRef = useRef(
+    `${wardrobeOutfitId}:${wardrobeOutfitMaterialVariant?.id ?? "base"}:${wardrobeOutfitMaterialVariant?.tint ?? "none"}`,
+  );
   const slotRef = useRef(slot);
   const activeRef = useRef(active);
   const containedRef = useRef(contained);
@@ -2687,6 +2696,9 @@ function CompanionSlot({
 
   useEffect(() => {
     wardrobeOutfitIdRef.current = wardrobeOutfitId;
+    wardrobeOutfitMaterialVariantRef.current = wardrobeOutfitMaterialVariant;
+    const requestKey = `${wardrobeOutfitId}:${wardrobeOutfitMaterialVariant?.id ?? "base"}:${wardrobeOutfitMaterialVariant?.tint ?? "none"}`;
+    wardrobeOutfitRequestKeyRef.current = requestKey;
     removeWardrobeOutfit(wardrobeOutfitPartsRef.current);
     wardrobeOutfitPartsRef.current = [];
     const vrmScene = wardrobeVrmSceneRef.current;
@@ -2700,21 +2712,24 @@ function CompanionSlot({
         showroomCompanionConfig.vrmUrl,
       )
     ) {
-      void attachXwearOutfit(vrmScene, outfitDefinition)
+      void attachXwearOutfit(vrmScene, outfitDefinition, wardrobeOutfitMaterialVariant)
         .then((outfit) => {
-          if (wardrobeOutfitIdRef.current !== outfitDefinition.id) {
+          if (wardrobeOutfitRequestKeyRef.current !== requestKey) {
             removeWardrobeOutfit([outfit]);
             setVrmBaseClothingVisible(vrmScene, true);
             return;
           }
           wardrobeOutfitPartsRef.current = [outfit];
+          console.log(
+            ` 🎮 [companion-wardrobe-lab] outfit_variant ready outfit=${outfitDefinition.id} variant=${wardrobeOutfitMaterialVariant?.id ?? "base"}`,
+          );
         })
         .catch((error: unknown) => {
           setVrmBaseClothingVisible(vrmScene, true);
           console.error(" 🎮 [companion-wardrobe-lab] downloaded_outfit failed", error);
         });
     }
-  }, [wardrobeOutfitId]);
+  }, [wardrobeOutfitId, wardrobeOutfitMaterialVariant]);
 
   useEffect(() => {
     const previousSlot = slotRef.current;
@@ -2944,9 +2959,12 @@ function CompanionSlot({
             const outfitDefinition = getXwearOutfitDefinition(
               wardrobeOutfitIdRef.current,
             )!;
-            void attachXwearOutfit(vrm.scene, outfitDefinition)
+            const selectedMaterialVariant = wardrobeOutfitMaterialVariantRef.current;
+            const requestKey = `${outfitDefinition.id}:${selectedMaterialVariant?.id ?? "base"}:${selectedMaterialVariant?.tint ?? "none"}`;
+            wardrobeOutfitRequestKeyRef.current = requestKey;
+            void attachXwearOutfit(vrm.scene, outfitDefinition, selectedMaterialVariant)
               .then((outfit) => {
-                if (cancelled || wardrobeOutfitIdRef.current !== outfitDefinition.id) {
+                if (cancelled || wardrobeOutfitRequestKeyRef.current !== requestKey) {
                   removeWardrobeOutfit([outfit]);
                   setVrmBaseClothingVisible(vrm.scene, true);
                   return;
@@ -3611,10 +3629,13 @@ export function CompanionShowroom({
     useState<WardrobeAccessoryId>("none");
   const [wardrobeOutfitId, setWardrobeOutfitId] =
     useState<WardrobeOutfitId>("none");
+  const [wardrobeOutfitMaterialVariant, setWardrobeOutfitMaterialVariant] =
+    useState<XwearMaterialVariant | null>(null);
   const handleWardrobeStoreChange = useCallback(
     (selection: WardrobeSelection) => {
       setWardrobeAccessoryId(selection.accessoryId);
       setWardrobeOutfitId(selection.outfitId);
+      setWardrobeOutfitMaterialVariant(selection.outfitMaterialVariant ?? null);
     },
     [],
   );
@@ -3823,6 +3844,8 @@ export function CompanionShowroom({
     isWardrobeOutfitCompatible(wardrobeOutfitId, currentCompanionModelUrl)
       ? wardrobeOutfitId
       : "none";
+  const effectiveWardrobeOutfitMaterialVariant =
+    effectiveWardrobeOutfitId === "none" ? null : wardrobeOutfitMaterialVariant;
   const introText = current ? getText(current.id) : "";
   const showroomVideoTraceLink = useMemo(
     () =>
@@ -6752,6 +6775,11 @@ export function CompanionShowroom({
                   ? effectiveWardrobeOutfitId
                   : "none"
               }
+              wardrobeOutfitMaterialVariant={
+                wardrobeLabEnabled && slot.slot === "current"
+                  ? effectiveWardrobeOutfitMaterialVariant
+                  : null
+              }
               onMotorReady={setMotor}
               onLoadSettled={markSlotLoadSettled}
             />
@@ -6776,6 +6804,7 @@ export function CompanionShowroom({
                 getAnalyser={getSpeechAnalyser}
                 wardrobeAccessoryId={wardrobeAccessoryId}
                 wardrobeOutfitId={effectiveWardrobeOutfitId}
+                wardrobeOutfitMaterialVariant={effectiveWardrobeOutfitMaterialVariant}
                 onMotorReady={handleVideoChatMotorReady}
                 onLoadSettled={handleWardrobePreviewLoadSettled}
                 onHeadScreenAnchorChange={setCompanionHeadAnchor}

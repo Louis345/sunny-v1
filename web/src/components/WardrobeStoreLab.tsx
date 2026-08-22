@@ -228,7 +228,11 @@ function previewSelection(
   const preview = resolveWardrobeItemSelection(item);
   return item.asset.kind === "accessory"
     ? { ...equipped, accessoryId: preview.accessoryId }
-    : { ...equipped, outfitId: preview.outfitId };
+    : {
+        ...equipped,
+        outfitId: preview.outfitId,
+        outfitMaterialVariant: preview.outfitMaterialVariant,
+      };
 }
 
 function Wallet({ balance }: { balance: number }) {
@@ -469,7 +473,7 @@ export function WardrobeStoreLab({
     onWardrobeChange(previewSelection(nextState, companion, item));
     const context = contextFor(item, "try_on", nextState);
     console.log(
-      ` 🎮 [wardrobe-store-lab] try_on opened companion=${companion.id} item=${item.id} mood=${shoppingVisit.mood.id} verdict=${context.selectedItem?.opinionVerdict ?? "none"} conversation=waiting_for_child`,
+      ` 🎮 [wardrobe-store-lab] try_on opened companion=${companion.id} item=${item.id} variant=${item.asset.kind === "outfit" ? item.asset.materialVariant.id : "none"} mood=${shoppingVisit.mood.id} verdict=${context.selectedItem?.opinionVerdict ?? "none"} conversation=waiting_for_child`,
     );
     onDebugEvent?.({ type: "wardrobe_try_on_started", context });
   };

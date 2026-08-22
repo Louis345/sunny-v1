@@ -23,6 +23,10 @@ function readStoreStyles(): string {
   );
 }
 
+function readXwearSource(): string {
+  return readFileSync(resolve(__dirname, "../lib/xwearDress.ts"), "utf8");
+}
+
 function readViteConfig(): string {
   return readFileSync(resolve(__dirname, "../../vite.config.ts"), "utf8");
 }
@@ -315,5 +319,21 @@ describe("companion wardrobe feasibility lab", () => {
     expect(source).toContain("isWardrobeOutfitCompatible");
     expect(source).toContain("effectiveWardrobeOutfitId");
     expect(storeSource).toContain("getCompatibleWardrobeItems");
+  });
+
+  it("reloads a shared fitted outfit when its selected product palette changes", () => {
+    const source = readShowroomSource();
+    const xwearSource = readXwearSource();
+
+    expect(source).toContain("wardrobeOutfitMaterialVariant");
+    expect(source).toContain(
+      "attachXwearOutfit(vrmScene, outfitDefinition, wardrobeOutfitMaterialVariant)",
+    );
+    expect(source).toContain(
+      "[wardrobeOutfitId, wardrobeOutfitMaterialVariant]",
+    );
+    expect(xwearSource).toContain(
+      "applyXwearMaterialVariant(materials, materialVariant)",
+    );
   });
 });

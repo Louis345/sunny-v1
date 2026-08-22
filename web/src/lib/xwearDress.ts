@@ -474,6 +474,7 @@ export function resolveGarmentBoneLocalMatrix(
 export async function attachXwearOutfit(
   avatarScene: THREE.Object3D,
   outfit: XwearOutfitDefinition,
+  materialVariant?: XwearMaterialVariant | null,
 ) {
   const cachedAvatarBindPose =
     avatarBindPoseCache.get(avatarScene) ?? captureXwearAvatarBindPose(avatarScene);
@@ -742,7 +743,13 @@ export async function attachXwearOutfit(
         side: THREE.DoubleSide,
       }),
   );
-  const dress = new THREE.SkinnedMesh(geometry, materials);
+  const resolvedMaterials = materialVariant
+    ? applyXwearMaterialVariant(materials, materialVariant)
+    : materials;
+  if (materialVariant) {
+    materials.forEach((material) => material.dispose());
+  }
+  const dress = new THREE.SkinnedMesh(geometry, resolvedMaterials);
   dress.name = `sunny-wardrobe-downloaded-${outfit.id}`;
   dress.frustumCulled = false;
   bindSkinnedMeshInAvatarSpace(
@@ -756,7 +763,7 @@ export async function attachXwearOutfit(
     outfit.slots.replaces,
   );
   console.log(
-    ` 🎮 [companion-wardrobe-lab] downloaded_outfit applied outfit=${outfit.id} vertices=${meshData.vertexCount} fit_scale=${fitted.scale.toFixed(4)} surface_offset=${outfit.surfaceOffset ?? 0}`,
+    ` 🎮 [companion-wardrobe-lab] downloaded_outfit applied outfit=${outfit.id} variant=${materialVariant?.id ?? "base"} vertices=${meshData.vertexCount} fit_scale=${fitted.scale.toFixed(4)} surface_offset=${outfit.surfaceOffset ?? 0}`,
   );
   return dress;
 }
