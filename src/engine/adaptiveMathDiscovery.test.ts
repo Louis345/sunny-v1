@@ -2,6 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
+import { getLearningCycle } from "./learningCycleRepository";
 import {
   buildTargetedNodesResumably,
   buildDiscoveryActiveSessionPlan,
@@ -10,6 +11,7 @@ import {
   createDiscoveryLearningCycle,
   getMathGenerationStatus,
   recordDiscoveryAttempt,
+  publishDiscoveryExperience,
   revealTargetedBoard,
   updateMathGenerationNode,
   writeMathGenerationJob,
@@ -47,6 +49,26 @@ const contract: MathDiscoveryEvaluationContract = {
 };
 
 describe("adaptive math discovery", () => {
+  it("publishes Discovery atomically while preserving another domain", () => {
+    const rootDir = root();
+    const context = path.join(rootDir, "src/context/lab-child");
+    fs.mkdirSync(path.join(context, "plans"), { recursive: true });
+    fs.mkdirSync(path.join(context, "homework"), { recursive: true });
+    fs.writeFileSync(path.join(context, "plans/active_session_plan.json"), JSON.stringify({ version: 1, childId: "lab-child", selectedDomain: "spelling", current: { planId: "spell" }, activeByDomain: { spelling: { planId: "spell" } } }));
+    fs.writeFileSync(path.join(context, "homework/current.json"), JSON.stringify({ version: 1, childId: "lab-child", selectedDomain: "spelling", current: { homeworkId: "spell-hw" }, activeByDomain: { spelling: { homeworkId: "spell-hw" } } }));
+    fs.writeFileSync(path.join(context, "learning_profile.json"), JSON.stringify({ childId: "lab-child", activeSessionPlanByDomain: { spelling: { planId: "spell" } }, activeHomeworkByDomain: { spelling: { homeworkId: "spell-hw" } } }));
+    const plan = buildDiscoveryActiveSessionPlan({ childId: "lab-child", homeworkId: "hw-equal-groups", evaluation: contract, companion: { id: "elli", name: "Elli" } });
+
+    publishDiscoveryExperience({ rootDir, childId: "lab-child", homeworkId: "hw-equal-groups", evaluation: contract, activeSessionPlan: plan, assignment: { title: "Equal groups", contentFingerprint: "fingerprint", capturedEvidenceIds: ["assignment:equal-groups"], targets: ["math.multiplication.equal_groups"] } });
+
+    const savedPlan = JSON.parse(fs.readFileSync(path.join(context, "plans/active_session_plan.json"), "utf8"));
+    const savedHomework = JSON.parse(fs.readFileSync(path.join(context, "homework/current.json"), "utf8"));
+    expect(savedPlan.activeByDomain.spelling.planId).toBe("spell");
+    expect(savedPlan.activeByDomain.math.planId).toBe("discovery:hw-equal-groups");
+    expect(savedHomework.activeByDomain.spelling.homeworkId).toBe("spell-hw");
+    expect(savedHomework.activeByDomain.math.homeworkId).toBe("hw-equal-groups");
+    expect(getLearningCycle("lab-child", "hw-equal-groups", { rootDir })?.lifecycle).toBe("evaluation_ready");
+  });
   it("publishes only one independent Discovery node before evidence exists", () => {
     const rootDir = root();
     const cycle = createDiscoveryLearningCycle({

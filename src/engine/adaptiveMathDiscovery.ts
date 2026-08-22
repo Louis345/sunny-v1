@@ -215,6 +215,72 @@ export function buildDiscoveryActiveSessionPlan(input: {
   };
 }
 
+export function publishDiscoveryExperience(input: {
+  rootDir?: string;
+  childId: string;
+  homeworkId: string;
+  evaluation: MathDiscoveryEvaluationContract;
+  activeSessionPlan: ActiveSessionPlan;
+  assignment: LearningCycleRecordV2["assignment"];
+}): void {
+  const rootDir = input.rootDir ?? process.cwd();
+  const contextDir = resolveChildContextDir(input.childId, { rootDir });
+  const planPath = path.join(contextDir, "plans", "active_session_plan.json");
+  const homeworkPath = path.join(contextDir, "homework", "current.json");
+  const profilePath = path.join(contextDir, "learning_profile.json");
+  const cyclePath = path.join(contextDir, "homework", "cycles", `${input.homeworkId}.json`);
+  const files = [planPath, homeworkPath, profilePath, cyclePath];
+  const before = new Map(files.map((file) => [file, fs.existsSync(file) ? fs.readFileSync(file) : null]));
+  const readObject = (file: string): Record<string, unknown> => {
+    try { return JSON.parse(fs.readFileSync(file, "utf8")) as Record<string, unknown>; } catch { return {}; }
+  };
+  const mergeDomain = (value: unknown, next: unknown): Record<string, unknown> => ({
+    ...(value && typeof value === "object" ? value as Record<string, unknown> : {}),
+    math: next,
+  });
+  const now = new Date().toISOString();
+  const pending = {
+    homeworkId: input.homeworkId,
+    weekOf: now.slice(0, 10),
+    testDate: null,
+    returnTag: `#sunny_${input.childId}_${input.homeworkId}`,
+    wordList: [],
+    contentProfile: { practiceDomain: "math", topic: input.evaluation.title },
+    capturedContent: { title: input.assignment.title, rawText: "Discovery evidence pending." },
+    generatedAt: now,
+    nodes: input.activeSessionPlan.nodePlan,
+  };
+  try {
+    if (!getLearningCycle(input.childId, input.homeworkId, { rootDir })) {
+      createDiscoveryLearningCycle({ ...input, rootDir });
+    }
+    const previousPlan = readObject(planPath);
+    const previousHomework = readObject(homeworkPath);
+    const profile = readObject(profilePath);
+    atomicJson(planPath, {
+      version: 1, childId: input.childId, selectedDomain: "math", current: input.activeSessionPlan,
+      activeByDomain: mergeDomain(previousPlan.activeByDomain, input.activeSessionPlan), updatedAt: now,
+    });
+    atomicJson(homeworkPath, {
+      version: 1, childId: input.childId, selectedDomain: "math", current: pending,
+      activeByDomain: mergeDomain(previousHomework.activeByDomain, pending), updatedAt: now,
+    });
+    profile.pendingHomework = pending;
+    profile.activeSessionPlan = input.activeSessionPlan;
+    profile.activeHomeworkByDomain = mergeDomain(profile.activeHomeworkByDomain, pending);
+    profile.activeSessionPlanByDomain = mergeDomain(profile.activeSessionPlanByDomain, input.activeSessionPlan);
+    atomicJson(profilePath, profile);
+    console.log(` 🎮 [adaptive-math] [discovery-publication] [published] child=${input.childId} homework=${input.homeworkId}`);
+  } catch (error) {
+    for (const [file, prior] of before) {
+      if (prior === null) fs.rmSync(file, { force: true });
+      else { fs.mkdirSync(path.dirname(file), { recursive: true }); fs.writeFileSync(file, prior); }
+    }
+    console.error(` 🎮 [adaptive-math] [discovery-publication] [rolled-back] child=${input.childId} homework=${input.homeworkId}`);
+    throw error;
+  }
+}
+
 export function createDiscoveryLearningCycle(input: {
   rootDir?: string;
   childId: string;
