@@ -32,6 +32,7 @@ import {
   mergeActiveDomainProjection,
   preserveDirectArtifactGenerationMetrics,
   readOpenAiResponseStream,
+  selectDirectArtifactActivities,
 } from "./directMathExperience";
 
 describe("math Planner evidence doorway", () => {
@@ -379,6 +380,11 @@ describe("optional reward contract", () => {
 });
 
 describe("direct math experience", () => {
+  it("selects only requested node implementations while preserving Planner order", () => {
+    const activities = [{ id: "N1" }, { id: "N2" }, { id: "N3" }];
+    expect(selectDirectArtifactActivities(activities, ["N3", "N1"]).map((activity) => activity.id)).toEqual(["N1", "N3"]);
+    expect(() => selectDirectArtifactActivities(activities, ["missing"])).toThrow("direct_artifact_requested_node_missing:missing");
+  });
   it("lets every concurrent node finish and reports failures without discarding siblings", async () => {
     const attempted: string[] = [];
     const settled = await mapConcurrentSettled(["N1", "N2", "N3"], 2, async (nodeId) => {

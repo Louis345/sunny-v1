@@ -2329,6 +2329,17 @@ export async function mapConcurrentSettled<T, R>(
   return { results, failures };
 }
 
+export function selectDirectArtifactActivities<T extends { id: string }>(
+  activities: T[],
+  requestedNodeIds?: string[],
+): T[] {
+  if (!requestedNodeIds || requestedNodeIds.length === 0) return activities;
+  const requested = new Set(requestedNodeIds);
+  const missing = [...requested].filter((nodeId) => !activities.some((activity) => activity.id === nodeId));
+  if (missing.length > 0) throw new Error(`direct_artifact_requested_node_missing:${missing.join(",")}`);
+  return activities.filter((activity) => requested.has(activity.id));
+}
+
 export async function generateDirectArtifacts(input: {
   plan: DirectLearningExperiencePlan;
   childId: string;
@@ -2339,6 +2350,8 @@ export async function generateDirectArtifacts(input: {
   architectModel?: string;
   assignmentFingerprint: string;
   forceNodeIds?: string[];
+  nodeIds?: string[];
+  onArtifactSaved?: (artifact: DirectArtifact) => Promise<void> | void;
   candidateCards?: PlannerContentCandidateCard[];
   existingArtworkUrls?: {
     backgroundUrl: string;
@@ -2361,6 +2374,7 @@ export async function generateDirectArtifacts(input: {
     assignBaselineBuilderModels(input.assignmentFingerprint, input.plan.activities)
       .map((assignment) => [assignment.nodeId, assignment]),
   );
+  const selectedActivities = selectDirectArtifactActivities(input.plan.activities, input.nodeIds);
   const forceNodeIds = new Set(input.forceNodeIds ?? []);
   process.env.SUNNY_IMAGE_GENERATION_MAX_PER_RUN = "3";
   const artworkJobs = [
@@ -2379,7 +2393,7 @@ export async function generateDirectArtifacts(input: {
   const [backgroundUrl, questArtworkUrl, bossArtworkUrl] = Array.isArray(artworkUrls)
     ? artworkUrls as [string, string, string]
     : [artworkUrls.backgroundUrl, artworkUrls.questArtworkUrl, artworkUrls.bossArtworkUrl];
-  const thumbnailEntries = await mapConcurrent(input.plan.activities, 2, async (activity) => {
+  const thumbnailEntries = await mapConcurrent(selectedActivities, 2, async (activity) => {
     const filename = createDirectBoardThumbnailFilename(input.homeworkId, activity);
     const localFile = path.join(publicDir, "generated", "direct-math", filename);
     const reused = fs.existsSync(localFile) && fs.statSync(localFile).size > 0;
@@ -2395,7 +2409,7 @@ export async function generateDirectArtifacts(input: {
   const reusedNodeIds: string[] = [];
   const gamesDir = path.join(rootDir, "src", "context", input.childId, "homework", "games", input.homeworkId);
   fs.mkdirSync(gamesDir, { recursive: true });
-  const activityBuild = await mapConcurrentSettled(input.plan.activities, 2, async (activity): Promise<DirectArtifact> => {
+  const activityBuild = await mapConcurrentSettled(selectedActivities, 2, async (activity): Promise<DirectArtifact> => {
     const artworkUrl = backgroundUrl;
     const builder = builderAssignments.get(activity.id);
     if (!builder) throw new Error(`direct_builder_assignment_missing:${activity.id}`);
@@ -2516,7 +2530,7 @@ export async function generateDirectArtifacts(input: {
       ...generationMetrics,
     }, null, 2)}\n`, "utf8");
     if (generated) console.log(`  ✓ ${activity.id} [${builder.provider}/${model}] saved ${Math.round(generated.elapsedMs / 1000)}s`);
-    return {
+    const artifact: DirectArtifact = {
       childId: input.childId,
       homeworkId: input.homeworkId,
       nodeId: activity.id,
@@ -2537,18 +2551,20 @@ export async function generateDirectArtifacts(input: {
       externalLibraryUrls: externalLibraryUrls(html),
       ...generationMetrics,
     };
+    await input.onArtifactSaved?.(artifact);
+    return artifact;
   });
   const artifacts = activityBuild.results.filter((artifact): artifact is DirectArtifact => Boolean(artifact));
   if (activityBuild.failures.length > 0) {
     const failures = activityBuild.failures.map(({ index, error }) => {
-      const activity = input.plan.activities[index]!;
+      const activity = selectedActivities[index]!;
       const builder = builderAssignments.get(activity.id);
       const reason = error instanceof Error ? error.message : String(error);
       console.error(`  ✗ ${activity.id} [${builder?.provider ?? "unknown"}/${builder?.model ?? "unknown"}] ${reason}`);
       return `${activity.id}:${builder?.provider ?? "unknown"}:${builder?.model ?? "unknown"}:${reason}`;
     });
     const completedIds = artifacts.map((artifact) => artifact.nodeId);
-    const missingIds = input.plan.activities
+    const missingIds = selectedActivities
       .map((activity) => activity.id)
       .filter((nodeId) => !completedIds.includes(nodeId));
     throw new Error(
