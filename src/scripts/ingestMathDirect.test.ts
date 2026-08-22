@@ -9,6 +9,7 @@ import {
   formatIngestionSummary,
   readReusablePlannerProgram,
   shouldPublishDiscoveryFirst,
+  shouldDeferToAdaptiveWorker,
 } from "./ingestMathDirect";
 
 describe("direct math ingestion checkpoints", () => {
@@ -17,6 +18,12 @@ describe("direct math ingestion checkpoints", () => {
     expect(shouldPublishDiscoveryFirst("evaluation_ready")).toBe(true);
     expect(shouldPublishDiscoveryFirst("evaluation_active")).toBe(true);
     expect(shouldPublishDiscoveryFirst("evidence_ready")).toBe(false);
+  });
+
+  it("never starts the legacy synchronous build after Discovery", () => {
+    expect(shouldDeferToAdaptiveWorker("evidence_ready")).toBe(true);
+    expect(shouldDeferToAdaptiveWorker("board_generating")).toBe(true);
+    expect(shouldDeferToAdaptiveWorker(undefined)).toBe(false);
   });
   it("archives a malformed Planner diagnostic instead of poisoning every resume", () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-planner-checkpoint-"));

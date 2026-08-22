@@ -34,6 +34,7 @@ import {
   generateMathDiscoveryExperience,
   publishDiscoveryExperience,
   getMathDiscoveryLifecycle,
+  getMathGenerationStatus,
   type MathDiscoveryEvaluationContract,
 } from "../engine/adaptiveMathDiscovery";
 
@@ -147,6 +148,10 @@ export function shouldPublishDiscoveryFirst(lifecycle: string | undefined): bool
   return lifecycle === undefined || lifecycle === "evaluation_ready" || lifecycle === "evaluation_active";
 }
 
+export function shouldDeferToAdaptiveWorker(lifecycle: string | undefined): boolean {
+  return lifecycle !== undefined && !shouldPublishDiscoveryFirst(lifecycle);
+}
+
 export async function withIngestionHeartbeat<T>(
   label: string,
   run: () => Promise<T>,
@@ -248,6 +253,14 @@ async function main(): Promise<void> {
     console.log("Targeted board: waits for committed Discovery evidence");
     console.log(`Checkpoint: ${draftDir}`);
     console.log("Start session: npm run sunny → Start child session");
+    return;
+  }
+  if (shouldDeferToAdaptiveWorker(existingLifecycle)) {
+    const status = getMathGenerationStatus(childId, homeworkId);
+    console.log("Done — ADAPTIVE GENERATION IN PROGRESS");
+    console.log(`Lifecycle: ${existingLifecycle}`);
+    console.log(`Generation: ${status?.phase ?? "queued"}`);
+    console.log("Start or restart Sunny; saved work resumes automatically.");
     return;
   }
   const priorOutcomes = {
