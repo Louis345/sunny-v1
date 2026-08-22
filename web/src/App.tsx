@@ -76,6 +76,7 @@ import {
   type HomeworkRegenerateSuccess,
 } from "./utils/adventureBoardGeneratedChoices";
 import { useChildExperiencePacket } from "./hooks/useChildExperiencePacket";
+import { useAdaptiveMathGenerationRefresh } from "./hooks/useAdaptiveMathGenerationRefresh";
 import {
   CompanionCareProvider,
   useCompanionCare,
@@ -684,6 +685,16 @@ function App() {
   const plannerBoardRuntimeActive =
     plannerBoardRuntimeRequested &&
     (plannerBoardPacketState.loading || Boolean(plannerBoardPacket));
+  const targetedMathGenerationPending = Boolean(
+    plannerBoardPacket?.activeSessionPlan?.domain === "math" &&
+    plannerBoardPacket.activeSessionPlan.adventureBoard?.nodes.some((node) => node.state === "preview"),
+  );
+  useAdaptiveMathGenerationRefresh({
+    childId: adventureChildId,
+    homeworkId: plannerBoardPacket?.activeSessionPlan?.activeHomeworkId,
+    enabled: targetedMathGenerationPending,
+    onStatusChanged: refreshPlannerBoardPacket,
+  });
 
   const [vrrCelebrateEvent, setVrrCelebrateEvent] =
     useState<CompanionEventPayload | null>(null);
