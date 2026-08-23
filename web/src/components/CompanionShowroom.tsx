@@ -2582,6 +2582,22 @@ function removeWardrobeOutfit(parts: THREE.Object3D[]): void {
   }
 }
 
+function reconcileVrmBaseClothingVisibility(
+  vrmScene: THREE.Object3D,
+  outfitId: WardrobeOutfitId,
+  outfitParts: readonly THREE.Object3D[],
+): void {
+  setVrmBaseClothingVisible(vrmScene, true);
+  const outfitDefinition = getXwearOutfitDefinition(outfitId);
+  if (outfitDefinition && outfitParts.length > 0) {
+    setVrmBaseClothingVisible(
+      vrmScene,
+      false,
+      outfitDefinition.slots.replaces,
+    );
+  }
+}
+
 function CompanionSlot({
   entry,
   slot,
@@ -2657,6 +2673,7 @@ function CompanionSlot({
   const wardrobeOutfitRequestKeyRef = useRef(
     `${wardrobeOutfitId}:${wardrobeOutfitMaterialVariant?.id ?? "base"}:${wardrobeOutfitMaterialVariant?.tint ?? "none"}`,
   );
+  const wardrobeOutfitRequestGenerationRef = useRef(0);
   const slotRef = useRef(slot);
   const activeRef = useRef(active);
   const containedRef = useRef(contained);
@@ -2713,6 +2730,8 @@ function CompanionSlot({
   }, [wardrobeAccessoryId]);
 
   useEffect(() => {
+    const requestGeneration = wardrobeOutfitRequestGenerationRef.current + 1;
+    wardrobeOutfitRequestGenerationRef.current = requestGeneration;
     wardrobeOutfitIdRef.current = wardrobeOutfitId;
     wardrobeOutfitMaterialVariantRef.current = wardrobeOutfitMaterialVariant;
     const requestKey = `${wardrobeOutfitId}:${wardrobeOutfitMaterialVariant?.id ?? "base"}:${wardrobeOutfitMaterialVariant?.tint ?? "none"}`;
@@ -2738,18 +2757,44 @@ function CompanionSlot({
       }
       void attachXwearOutfit(vrmScene, outfitDefinition, wardrobeOutfitMaterialVariant)
         .then((outfit) => {
-          if (wardrobeOutfitRequestKeyRef.current !== requestKey) {
+          if (
+            wardrobeOutfitRequestGenerationRef.current !== requestGeneration ||
+            wardrobeOutfitRequestKeyRef.current !== requestKey
+          ) {
             removeWardrobeOutfit([outfit]);
-            setVrmBaseClothingVisible(vrmScene, true);
+            reconcileVrmBaseClothingVisibility(
+              vrmScene,
+              wardrobeOutfitIdRef.current,
+              wardrobeOutfitPartsRef.current,
+            );
+            console.log(
+              ` 🎮 [companion-wardrobe-lab] outfit_variant stale_result_discarded generation=${requestGeneration} current_generation=${wardrobeOutfitRequestGenerationRef.current}`,
+            );
             return;
           }
           wardrobeOutfitPartsRef.current = [outfit];
+          reconcileVrmBaseClothingVisibility(
+            vrmScene,
+            wardrobeOutfitIdRef.current,
+            wardrobeOutfitPartsRef.current,
+          );
           console.log(
             ` 🎮 [companion-wardrobe-lab] outfit_variant ready outfit=${outfitDefinition.id} variant=${wardrobeOutfitMaterialVariant?.id ?? "base"}`,
           );
         })
         .catch((error: unknown) => {
-          setVrmBaseClothingVisible(vrmScene, true);
+          if (wardrobeOutfitRequestGenerationRef.current !== requestGeneration) {
+            reconcileVrmBaseClothingVisibility(
+              vrmScene,
+              wardrobeOutfitIdRef.current,
+              wardrobeOutfitPartsRef.current,
+            );
+            console.log(
+              ` 🎮 [companion-wardrobe-lab] outfit_variant stale_failure_discarded generation=${requestGeneration} current_generation=${wardrobeOutfitRequestGenerationRef.current}`,
+            );
+            return;
+          }
+          reconcileVrmBaseClothingVisibility(vrmScene, "none", []);
           console.error(" 🎮 [companion-wardrobe-lab] downloaded_outfit failed", error);
         });
     }
@@ -3069,18 +3114,50 @@ function CompanionSlot({
             }
             const selectedMaterialVariant = wardrobeOutfitMaterialVariantRef.current;
             const requestKey = `${outfitDefinition.id}:${selectedMaterialVariant?.id ?? "base"}:${selectedMaterialVariant?.tint ?? "none"}`;
+            const requestGeneration = wardrobeOutfitRequestGenerationRef.current + 1;
+            wardrobeOutfitRequestGenerationRef.current = requestGeneration;
             wardrobeOutfitRequestKeyRef.current = requestKey;
             void attachXwearOutfit(vrm.scene, outfitDefinition, selectedMaterialVariant)
               .then((outfit) => {
-                if (cancelled || wardrobeOutfitRequestKeyRef.current !== requestKey) {
+                if (
+                  cancelled ||
+                  wardrobeOutfitRequestGenerationRef.current !== requestGeneration ||
+                  wardrobeOutfitRequestKeyRef.current !== requestKey
+                ) {
                   removeWardrobeOutfit([outfit]);
-                  setVrmBaseClothingVisible(vrm.scene, true);
+                  reconcileVrmBaseClothingVisibility(
+                    vrm.scene,
+                    wardrobeOutfitIdRef.current,
+                    wardrobeOutfitPartsRef.current,
+                  );
+                  console.log(
+                    ` 🎮 [companion-wardrobe-lab] outfit_variant stale_result_discarded generation=${requestGeneration} current_generation=${wardrobeOutfitRequestGenerationRef.current}`,
+                  );
                   return;
                 }
                 wardrobeOutfitPartsRef.current = [outfit];
+                reconcileVrmBaseClothingVisibility(
+                  vrm.scene,
+                  wardrobeOutfitIdRef.current,
+                  wardrobeOutfitPartsRef.current,
+                );
               })
               .catch((error: unknown) => {
-                setVrmBaseClothingVisible(vrm.scene, true);
+                if (
+                  cancelled ||
+                  wardrobeOutfitRequestGenerationRef.current !== requestGeneration
+                ) {
+                  reconcileVrmBaseClothingVisibility(
+                    vrm.scene,
+                    wardrobeOutfitIdRef.current,
+                    wardrobeOutfitPartsRef.current,
+                  );
+                  console.log(
+                    ` 🎮 [companion-wardrobe-lab] outfit_variant stale_failure_discarded generation=${requestGeneration} current_generation=${wardrobeOutfitRequestGenerationRef.current}`,
+                  );
+                  return;
+                }
+                reconcileVrmBaseClothingVisibility(vrm.scene, "none", []);
                 console.error(
                   " 🎮 [companion-wardrobe-lab] downloaded_outfit failed",
                   error,
@@ -3156,6 +3233,7 @@ function CompanionSlot({
 
     return () => {
       cancelled = true;
+      wardrobeOutfitRequestGenerationRef.current += 1;
       resizeObserver?.disconnect();
       stopLoop();
       if (slotRef.current !== "hidden") {

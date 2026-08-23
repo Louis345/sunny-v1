@@ -241,6 +241,21 @@ describe("companion wardrobe feasibility lab", () => {
     );
   });
 
+  it("prevents stale async outfit loads from restoring an older garment", () => {
+    const source = readShowroomSource();
+
+    expect(source).toContain("wardrobeOutfitRequestGenerationRef");
+    expect(source).toContain("reconcileVrmBaseClothingVisibility");
+    expect(
+      source.match(
+        /wardrobeOutfitRequestGenerationRef\.current !== requestGeneration/g,
+      )?.length,
+    ).toBeGreaterThanOrEqual(4);
+    expect(source).toContain(
+      "outfit_variant stale_result_discarded",
+    );
+  });
+
   it("freezes the status bubble anchor between resize events instead of chasing head animation", () => {
     const showroomSource = readShowroomSource();
     const styles = readStoreStyles();
