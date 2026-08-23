@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { getLearningCycle } from "./learningCycleRepository";
 import {
@@ -101,6 +102,7 @@ describe("adaptive math discovery", () => {
 
     expect(calls).toHaveLength(3);
     expect(nonStreamingCalls).toBe(0);
+    expect(calls[2]?.model).toBe(process.env.SUNNY_GENERATION_MODEL ?? process.env.SUNNY_INGEST_MODEL ?? "claude-sonnet-5");
     expect(calls[0]?.prompt).not.toContain("world");
     expect(calls[1]?.prompt).toContain(generated.contract.artifact.contractHash);
     expect(fs.existsSync(path.join(rootDir, "public", generated.contract.artifact.htmlPath.replace(/^\/games\//, "games/")))).toBe(true);
@@ -133,6 +135,21 @@ describe("adaptive math discovery", () => {
     } }) } };
     await generateMathDiscoveryExperience({ rootDir, childId: "lab-child", homeworkId: "hw-resume", assignmentText: "Four equal groups.", assignmentEvidenceIds: ["assignment:resume"], factualChildContext: { age: 9 }, client: resumedClient as never });
     expect(resumedCalls).toBe(1);
+  });
+
+  it("persists the raw builder outcome and reports truncation before parsing HTML", async () => {
+    const rootDir = root();
+    const homeworkId = "hw-builder-diagnostic";
+    const draftDir = path.join(rootDir, "src/context/lab-child/homework/direct-drafts", homeworkId);
+    fs.mkdirSync(draftDir, { recursive: true });
+    fs.writeFileSync(path.join(draftDir, "discovery-academic.json"), JSON.stringify({ evaluationId: "eval-diagnostic", title: "Show What You Know", assignmentEvidenceIds: ["assignment:diagnostic"], constructs: [{ constructId: "math.equal_groups", prerequisiteIds: [] }], items: [{ itemId: "i1", constructId: "math.equal_groups", prompt: "How many groups?", responseContract: "tap one number", correctAnswerContract: { acceptedValues: ["4"] }, difficultyBoundary: "grade 3", exposureId: "eval-diagnostic:i1", possibleConfounds: [], falsifyingEvidence: [], measurementKeys: ["independent_correct"] }] }));
+    const academic = JSON.parse(fs.readFileSync(path.join(draftDir, "discovery-academic.json"), "utf8"));
+    const contractHash = createHash("sha256").update(JSON.stringify(academic)).digest("hex");
+    fs.writeFileSync(path.join(draftDir, "discovery-design.json"), JSON.stringify({ contractHash, design: { firstAction: "Tap" }, backgroundSvg: "<svg xmlns=\"http://www.w3.org/2000/svg\"></svg>" }));
+    const client = { messages: { stream: () => ({ finalMessage: async () => ({ stop_reason: "max_tokens", usage: { input_tokens: 100, output_tokens: 48_000 }, content: [{ type: "thinking", thinking: "unfinished" }] }) }) } };
+
+    await expect(generateMathDiscoveryExperience({ rootDir, childId: "lab-child", homeworkId, assignmentText: "Four equal groups.", assignmentEvidenceIds: ["assignment:diagnostic"], factualChildContext: { age: 9 }, client: client as never })).rejects.toThrow("discovery_builder_truncated:stop=max_tokens");
+    expect(fs.existsSync(path.join(draftDir, "provider-diagnostics", "discovery-builder-response.json"))).toBe(true);
   });
 
   it("projects preparing and ready nodes without erasing another domain", () => {

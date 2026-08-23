@@ -147,8 +147,29 @@ export async function generateMathDiscoveryExperience(input: {
   if (designed.contractHash !== contractHash) throw new Error("discovery_design_changed_contract_hash");
   const designHash = hashDiscoveryContract(designed);
   console.log(` 🎮 [adaptive-math] [discovery-design] [saved] hash=${designHash.slice(0, 12)}`);
-  const builderResponse = await create(input.builderModel ?? process.env.SUNNY_PLANNER_MODEL ?? "claude-opus-5", `You are Sunny's Experience Creator implementing a frozen academic contract and frozen design. Return one complete standalone HTML document for a 1365x768 iframe. It must work with touch or mouse without a keyboard, never trap the child, and post evaluation_ready, evaluation_attempt, evaluation_friction when relevant, and evaluation_complete to window.parent with the supplied stable identities and factual provenance. It may not access Sunny APIs, storage, currency, or child state. Do not use browser speech synthesis or oscillator audio. Do not change the contract or answers.\n\nACADEMIC CONTRACT HASH: ${contractHash}\n${JSON.stringify(academic, null, 2)}\n\nDESIGN HASH: ${designHash}\n${JSON.stringify(designed.design, null, 2)}`);
-  const html = standaloneHtml(responseText(builderResponse));
+  const builderModel = input.builderModel ?? process.env.SUNNY_GENERATION_MODEL ?? process.env.SUNNY_INGEST_MODEL ?? "claude-sonnet-5";
+  const builderResponse = await create(builderModel, `You are Sunny's Experience Creator implementing a frozen academic contract and frozen design. Return one complete standalone HTML document for a 1365x768 iframe. It must work with touch or mouse without a keyboard, never trap the child, and post evaluation_ready, evaluation_attempt, evaluation_friction when relevant, and evaluation_complete to window.parent with the supplied stable identities and factual provenance. It may not access Sunny APIs, storage, currency, or child state. Do not use browser speech synthesis or oscillator audio. Do not change the contract or answers.\n\nACADEMIC CONTRACT HASH: ${contractHash}\n${JSON.stringify(academic, null, 2)}\n\nDESIGN HASH: ${designHash}\n${JSON.stringify(designed.design, null, 2)}`);
+  const builderResult = builderResponse as {
+    stop_reason?: string | null;
+    usage?: { input_tokens?: number; output_tokens?: number };
+    content?: unknown[];
+  };
+  const rawBuilderText = responseText(builderResponse);
+  const builderDiagnosticFile = path.join(draftDir, "provider-diagnostics", "discovery-builder-response.json");
+  atomicJson(builderDiagnosticFile, {
+    model: builderModel,
+    stopReason: builderResult.stop_reason ?? "unknown",
+    usage: builderResult.usage ?? {},
+    content: builderResult.content ?? [],
+    textCharacters: rawBuilderText.length,
+  });
+  if (builderResult.stop_reason === "max_tokens") {
+    throw new Error(`discovery_builder_truncated:stop=max_tokens:chars=${rawBuilderText.length}:diagnostic=${builderDiagnosticFile}`);
+  }
+  if (!rawBuilderText.trim()) {
+    throw new Error(`discovery_builder_contract_failed:stop=${builderResult.stop_reason ?? "unknown"}:chars=0:diagnostic=${builderDiagnosticFile}`);
+  }
+  const html = standaloneHtml(rawBuilderText);
   const publicGameDir = path.join(rootDir, "public", "games", input.homeworkId);
   const publicArtDir = path.join(rootDir, "public", "generated", input.homeworkId);
   fs.mkdirSync(publicGameDir, { recursive: true });
