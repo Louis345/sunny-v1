@@ -107,6 +107,34 @@ describe("adaptive math discovery", () => {
     expect(generated.contract.items).toHaveLength(1);
   });
 
+  it("checkpoints completed Discovery phases and resumes only the missing builder", async () => {
+    const rootDir = root();
+    const draftDir = path.join(rootDir, "src/context/lab-child/homework/direct-drafts/hw-resume");
+    let firstRunCalls = 0;
+    const academic = { evaluationId: "eval-resume", title: "Show What You Know", assignmentEvidenceIds: ["assignment:resume"], constructs: [{ constructId: "math.equal_groups", prerequisiteIds: [] }], items: [{ itemId: "i1", constructId: "math.equal_groups", prompt: "How many groups?", responseContract: "tap one number", correctAnswerContract: { acceptedValues: ["4"] }, difficultyBoundary: "grade 3", exposureId: "eval-resume:i1", possibleConfounds: ["interface_friction"], falsifyingEvidence: ["response is not independent"], measurementKeys: ["independent_correct"] }] };
+    const firstClient = { messages: { stream: (request: { messages: Array<{ content: string }> }) => ({ finalMessage: async () => {
+      firstRunCalls += 1;
+      if (firstRunCalls === 1) return { content: [{ type: "tool_use", name: "create_math_discovery_contract", input: academic }] };
+      if (firstRunCalls === 2) {
+        const contractHash = request.messages[0]!.content.match(/CONTRACT HASH: ([a-f0-9]+)/)?.[1];
+        return { content: [{ type: "tool_use", name: "create_math_discovery_design", input: { contractHash, design: { firstAction: "Tap a group" }, backgroundSvg: "<svg xmlns=\"http://www.w3.org/2000/svg\"></svg>" } }] };
+      }
+      throw new Error("builder connection lost");
+    } }) } };
+
+    await expect(generateMathDiscoveryExperience({ rootDir, childId: "lab-child", homeworkId: "hw-resume", assignmentText: "Four equal groups.", assignmentEvidenceIds: ["assignment:resume"], factualChildContext: { age: 9 }, client: firstClient as never })).rejects.toThrow("builder connection lost");
+    expect(fs.existsSync(path.join(draftDir, "discovery-academic.json"))).toBe(true);
+    expect(fs.existsSync(path.join(draftDir, "discovery-design.json"))).toBe(true);
+
+    let resumedCalls = 0;
+    const resumedClient = { messages: { stream: () => ({ finalMessage: async () => {
+      resumedCalls += 1;
+      return { content: [{ type: "text", text: "<!doctype html><html><body><button>Start</button><script>parent.postMessage({type:'evaluation_ready'},'*');parent.postMessage({type:'evaluation_attempt'},'*');parent.postMessage({type:'evaluation_complete'},'*');</script></body></html>" }] };
+    } }) } };
+    await generateMathDiscoveryExperience({ rootDir, childId: "lab-child", homeworkId: "hw-resume", assignmentText: "Four equal groups.", assignmentEvidenceIds: ["assignment:resume"], factualChildContext: { age: 9 }, client: resumedClient as never });
+    expect(resumedCalls).toBe(1);
+  });
+
   it("projects preparing and ready nodes without erasing another domain", () => {
     const rootDir = root();
     const context = path.join(rootDir, "src/context/lab-child");
