@@ -73,6 +73,55 @@ function standaloneHtml(value: string): string {
   return html;
 }
 
+function discoveryArtifactLocations(input: { rootDir: string; childId: string; homeworkId: string }) {
+  if (!/^[\w.-]+$/.test(input.homeworkId)) throw new Error("discovery_homework_id_invalid");
+  const storageDir = path.join(resolveChildContextDir(input.childId, { rootDir: input.rootDir }), "homework", "games", input.homeworkId);
+  const launchBase = `/api/homework/game/${encodeURIComponent(input.childId)}/${encodeURIComponent(input.homeworkId)}`;
+  return {
+    storageDir,
+    htmlFile: path.join(storageDir, "discovery.html"),
+    artworkFile: path.join(storageDir, "discovery-background.svg"),
+    htmlPath: `${launchBase}/discovery.html`,
+    artworkPath: `${launchBase}/discovery-background.svg`,
+  };
+}
+
+export function ensureDiscoveryArtifactsAreServed(input: {
+  rootDir?: string;
+  childId: string;
+  homeworkId: string;
+  contract: MathDiscoveryEvaluationContract;
+}): MathDiscoveryEvaluationContract {
+  const rootDir = input.rootDir ?? process.cwd();
+  const locations = discoveryArtifactLocations({ rootDir, childId: input.childId, homeworkId: input.homeworkId });
+  fs.mkdirSync(locations.storageDir, { recursive: true });
+  const legacyHtml = path.join(rootDir, "public", "games", input.homeworkId, "discovery.html");
+  const legacyArtwork = path.join(rootDir, "public", "generated", input.homeworkId, "discovery-background.svg");
+  let migrated = false;
+  if (!fs.existsSync(locations.htmlFile) && fs.existsSync(legacyHtml)) {
+    fs.copyFileSync(legacyHtml, locations.htmlFile);
+    migrated = true;
+  }
+  if (!fs.existsSync(locations.artworkFile) && fs.existsSync(legacyArtwork)) {
+    fs.copyFileSync(legacyArtwork, locations.artworkFile);
+    migrated = true;
+  }
+  if (!fs.existsSync(locations.htmlFile) || !fs.existsSync(locations.artworkFile)) {
+    throw new Error(`discovery_published_artifact_missing:html=${fs.existsSync(locations.htmlFile)}:artwork=${fs.existsSync(locations.artworkFile)}`);
+  }
+  const contract = {
+    ...input.contract,
+    artifact: {
+      ...input.contract.artifact,
+      htmlPath: locations.htmlPath,
+      artworkPath: locations.artworkPath,
+    },
+  };
+  atomicJson(path.join(resolveChildContextDir(input.childId, { rootDir }), "homework", "direct-drafts", input.homeworkId, "discovery-contract.json"), contract);
+  console.log(` 🎮 [adaptive-math] [discovery-artifacts] [${migrated ? "migrated" : "verified"}] child=${input.childId} homework=${input.homeworkId}`);
+  return contract;
+}
+
 export async function generateMathDiscoveryExperience(input: {
   rootDir?: string;
   childId: string;
@@ -170,15 +219,11 @@ export async function generateMathDiscoveryExperience(input: {
     throw new Error(`discovery_builder_contract_failed:stop=${builderResult.stop_reason ?? "unknown"}:chars=0:diagnostic=${builderDiagnosticFile}`);
   }
   const html = standaloneHtml(rawBuilderText);
-  const publicGameDir = path.join(rootDir, "public", "games", input.homeworkId);
-  const publicArtDir = path.join(rootDir, "public", "generated", input.homeworkId);
-  fs.mkdirSync(publicGameDir, { recursive: true });
-  fs.mkdirSync(publicArtDir, { recursive: true });
-  const htmlFile = path.join(publicGameDir, "discovery.html");
-  const artworkFile = path.join(publicArtDir, "discovery-background.svg");
-  fs.writeFileSync(htmlFile, html, "utf8");
-  fs.writeFileSync(artworkFile, String(designed.backgroundSvg), "utf8");
-  const contract: MathDiscoveryEvaluationContract = { ...academic, artifact: { artifactId: `${input.homeworkId}:discovery`, htmlPath: `/games/${input.homeworkId}/discovery.html`, artworkPath: `/generated/${input.homeworkId}/discovery-background.svg`, contractHash, artifactHash: hashDiscoveryContract(html) } };
+  const locations = discoveryArtifactLocations({ rootDir, childId: input.childId, homeworkId: input.homeworkId });
+  fs.mkdirSync(locations.storageDir, { recursive: true });
+  fs.writeFileSync(locations.htmlFile, html, "utf8");
+  fs.writeFileSync(locations.artworkFile, String(designed.backgroundSvg), "utf8");
+  const contract: MathDiscoveryEvaluationContract = { ...academic, artifact: { artifactId: `${input.homeworkId}:discovery`, htmlPath: locations.htmlPath, artworkPath: locations.artworkPath, contractHash, artifactHash: hashDiscoveryContract(html) } };
   atomicJson(path.join(draftDir, "discovery-contract.json"), contract);
   atomicJson(designCheckpointFile, { ...designed, designHash });
   console.log(` 🎮 [adaptive-math] [discovery-builder] [saved] hash=${contract.artifact.artifactHash.slice(0, 12)}`);

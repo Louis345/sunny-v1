@@ -10,6 +10,7 @@ import {
   runAdaptiveTargetedGeneration,
   completeDiscoveryEvaluation,
   createDiscoveryLearningCycle,
+  ensureDiscoveryArtifactsAreServed,
   getMathGenerationStatus,
   recordDiscoveryAttempt,
   publishDiscoveryExperience,
@@ -105,8 +106,28 @@ describe("adaptive math discovery", () => {
     expect(calls[2]?.model).toBe(process.env.SUNNY_GENERATION_MODEL ?? process.env.SUNNY_INGEST_MODEL ?? "claude-sonnet-5");
     expect(calls[0]?.prompt).not.toContain("world");
     expect(calls[1]?.prompt).toContain(generated.contract.artifact.contractHash);
-    expect(fs.existsSync(path.join(rootDir, "public", generated.contract.artifact.htmlPath.replace(/^\/games\//, "games/")))).toBe(true);
+    expect(generated.contract.artifact.htmlPath).toBe("/api/homework/game/lab-child/hw-1/discovery.html");
+    expect(generated.contract.artifact.artworkPath).toBe("/api/homework/game/lab-child/hw-1/discovery-background.svg");
+    expect(fs.existsSync(path.join(rootDir, "src/context/lab-child/homework/games/hw-1/discovery.html"))).toBe(true);
+    expect(fs.existsSync(path.join(rootDir, "src/context/lab-child/homework/games/hw-1/discovery-background.svg"))).toBe(true);
     expect(generated.contract.items).toHaveLength(1);
+  });
+
+  it("migrates legacy Discovery files into the server-backed cycle directory without generation", () => {
+    const rootDir = root();
+    const legacyHtml = path.join(rootDir, "public/games/hw-legacy/discovery.html");
+    const legacyArtwork = path.join(rootDir, "public/generated/hw-legacy/discovery-background.svg");
+    fs.mkdirSync(path.dirname(legacyHtml), { recursive: true });
+    fs.mkdirSync(path.dirname(legacyArtwork), { recursive: true });
+    fs.writeFileSync(legacyHtml, "<!doctype html><html></html>");
+    fs.writeFileSync(legacyArtwork, "<svg></svg>");
+
+    const migrated = ensureDiscoveryArtifactsAreServed({ rootDir, childId: "lab-child", homeworkId: "hw-legacy", contract: { ...contract, artifact: { ...contract.artifact, htmlPath: "/games/hw-legacy/discovery.html", artworkPath: "/generated/hw-legacy/discovery-background.svg" } } });
+
+    expect(migrated.artifact.htmlPath).toBe("/api/homework/game/lab-child/hw-legacy/discovery.html");
+    expect(migrated.artifact.artworkPath).toBe("/api/homework/game/lab-child/hw-legacy/discovery-background.svg");
+    expect(fs.existsSync(path.join(rootDir, "src/context/lab-child/homework/games/hw-legacy/discovery.html"))).toBe(true);
+    expect(fs.existsSync(path.join(rootDir, "src/context/lab-child/homework/games/hw-legacy/discovery-background.svg"))).toBe(true);
   });
 
   it("checkpoints completed Discovery phases and resumes only the missing builder", async () => {

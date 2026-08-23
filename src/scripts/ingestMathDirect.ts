@@ -31,6 +31,7 @@ import { readPriorConceptIds } from "../engine/assignmentLedger";
 import { getChildChart } from "../profiles/childChart";
 import {
   buildDiscoveryActiveSessionPlan,
+  ensureDiscoveryArtifactsAreServed,
   generateMathDiscoveryExperience,
   publishDiscoveryExperience,
   getMathDiscoveryLifecycle,
@@ -222,7 +223,7 @@ async function main(): Promise<void> {
     currentPhase = "discovery-generation";
     console.log("[2/2] Preparing independent Discovery evaluation");
     const existingDiscovery = fs.existsSync(discoveryFile) ? readJson<MathDiscoveryEvaluationContract>(discoveryFile) : undefined;
-    const evaluation = existingDiscovery ?? (await withIngestionHeartbeat("Discovery", () => generateMathDiscoveryExperience({
+    const evaluation = existingDiscovery ? ensureDiscoveryArtifactsAreServed({ childId, homeworkId, contract: existingDiscovery }) : (await withIngestionHeartbeat("Discovery", () => generateMathDiscoveryExperience({
       childId,
       homeworkId,
       assignmentText: extraction.fullText,

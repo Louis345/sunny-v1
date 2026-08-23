@@ -49,6 +49,27 @@ describe("homework game route", () => {
     expect(await response.text()).toContain("Gear Lock");
   });
 
+  it("serves generated Discovery artwork with its real image content type", async () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-homework-artwork-"));
+    roots.push(root);
+    process.chdir(root);
+    const artwork = path.join(root, "src/context/reina/homework/games/hw-math-test/discovery-background.svg");
+    fs.mkdirSync(path.dirname(artwork), { recursive: true });
+    fs.writeFileSync(artwork, "<svg xmlns=\"http://www.w3.org/2000/svg\"></svg>", "utf8");
+
+    const app = express();
+    app.use(express.json());
+    setupRoutes(app);
+    const server = app.listen(0);
+    servers.push(server);
+    const port = (server.address() as AddressInfo).port;
+    const response = await fetch(`http://127.0.0.1:${port}/api/homework/game/reina/hw-math-test/discovery-background.svg`);
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toContain("image/svg+xml");
+    expect(await response.text()).toContain("<svg");
+  });
+
   it("serves a generated activity from the configured isolated context root", async () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-homework-game-context-"));
     roots.push(root);

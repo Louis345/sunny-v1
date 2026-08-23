@@ -2747,7 +2747,7 @@ export function setupRoutes(app: Express): void {
     if (!resolved) {
       return res.status(404).json({ error: "File not found" });
     }
-    res.type("html");
+    res.type(path.extname(resolved) || "application/octet-stream");
     return res.sendFile(resolved, { dotfiles: "allow" });
   });
 
@@ -2764,7 +2764,7 @@ export function setupRoutes(app: Express): void {
     if (!cycleRoot.startsWith(`${gamesRoot}${path.sep}`) || !resolved.startsWith(`${cycleRoot}${path.sep}`) || !fs.existsSync(resolved)) {
       return res.status(404).json({ error: "File not found" });
     }
-    res.type("html");
+    res.type(path.extname(resolved) || "application/octet-stream");
     return res.sendFile(resolved, { dotfiles: "allow" });
   });
 
