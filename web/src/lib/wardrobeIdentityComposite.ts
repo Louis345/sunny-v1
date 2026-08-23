@@ -4,6 +4,12 @@ type IdentityCompositeVisibility = {
   hiddenStandardIdentityMaterials: number;
   hiddenSourceBodyMaterials: number;
   visibleSourceIdentityMaterials: number;
+  transferredStandardBodyMaterials: number;
+};
+
+type SkinMaterial = THREE.Material & {
+  color?: THREE.Color;
+  map?: THREE.Texture | null;
 };
 
 function materialsFor(object: THREE.Object3D): THREE.Material[] {
@@ -17,18 +23,35 @@ function isIdentityMaterial(material: THREE.Material): boolean {
   return name.includes("FACE") || name.includes("EYE") || name.includes("HAIR");
 }
 
+function isBodySkinMaterial(material: THREE.Material): boolean {
+  const name = material.name.toUpperCase();
+  return name.includes("BODY") && name.includes("SKIN");
+}
+
 export function configureIdentityCompositeVisibility(
   standardScene: THREE.Object3D,
   identityScene: THREE.Object3D,
+  options: {
+    bodySkinTint?: string;
+  } = {},
 ): IdentityCompositeVisibility {
   let hiddenStandardIdentityMaterials = 0;
   let hiddenSourceBodyMaterials = 0;
   let visibleSourceIdentityMaterials = 0;
+  let transferredStandardBodyMaterials = 0;
 
   standardScene.traverse((object) => {
     for (const material of materialsFor(object)) {
       const shouldHide = isIdentityMaterial(material);
       material.visible = !shouldHide;
+      if (options.bodySkinTint && isBodySkinMaterial(material)) {
+        const standardBodySkin = material as SkinMaterial;
+        if (standardBodySkin.color) {
+          standardBodySkin.color.set(options.bodySkinTint);
+        }
+        standardBodySkin.needsUpdate = true;
+        transferredStandardBodyMaterials += 1;
+      }
       if (shouldHide) hiddenStandardIdentityMaterials += 1;
     }
   });
@@ -46,6 +69,7 @@ export function configureIdentityCompositeVisibility(
     hiddenStandardIdentityMaterials,
     hiddenSourceBodyMaterials,
     visibleSourceIdentityMaterials,
+    transferredStandardBodyMaterials,
   };
 }
 

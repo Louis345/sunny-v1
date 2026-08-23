@@ -229,15 +229,30 @@ describe("companion wardrobe feasibility lab", () => {
     expect(styles).not.toContain("left: calc(50% + clamp(42px, 5vw, 78px));");
   });
 
-  it("keeps identity compositing isolated to an explicit compatibility-lab model", () => {
+  it("uses each companion identity on the standard fitted body inside the store", () => {
     const source = readShowroomSource();
 
     expect(source).toContain("identityOverlayModelUrl?: string");
+    expect(source).toContain("resolveStandardizedWardrobePresentation");
+    expect(source).toContain("wardrobeStoreEntry");
+    expect(source).toContain(
+      "identityOverlayModelUrl={wardrobePresentation.identityModelUrl}",
+    );
+    expect(source).toContain(
+      "identityBodySkinTint={wardrobePresentation.bodySkinTint}",
+    );
+    expect(source).toContain(
+      "identityHeadwearStyle={wardrobePresentation.identityHeadwearStyle}",
+    );
+    expect(source).toContain("createWardrobeIdentityHeadwear");
     expect(source).toContain(
       "identityOverlayModelUrl={testCase.identityModelUrl}",
     );
     expect(source).toContain(
       " 🎮 [wardrobe-identity-lab] composite_ready result=ready",
+    );
+    expect(source).toContain(
+      " 🎮 [wardrobe-identity-lab] clothing_reconciled result=ready",
     );
   });
 

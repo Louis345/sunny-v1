@@ -131,6 +131,28 @@ export type CompanionWardrobeBodyAssignment = {
   sourceBodyProfileId: WardrobeBodyProfileId;
 };
 
+export type StandardizedWardrobePresentation = {
+  companionId: string;
+  bodyModelUrl: string;
+  identityModelUrl?: string;
+  bodySkinTint?: string;
+  identityHeadwearStyle?: WardrobeIdentityHeadwearStyle;
+  bodyProfileId: "sunny-standard-v1";
+};
+
+export type WardrobeIdentityHeadwearStyle = "princess_bun";
+
+const STANDARD_WARDROBE_BODY_MODEL_URL = "/companions/sample.vrm";
+const STANDARDIZED_BODY_SKIN_TINTS: Readonly<Record<string, string>> = {
+  tene: "#6d5148",
+  towa: "#ffe1cc",
+};
+const STANDARDIZED_IDENTITY_HEADWEAR: Readonly<
+  Record<string, WardrobeIdentityHeadwearStyle>
+> = {
+  princess: "princess_bun",
+};
+
 export const WARDROBE_COMPANION_BODY_ASSIGNMENTS: Readonly<
   Record<string, CompanionWardrobeBodyAssignment>
 > = {
@@ -216,6 +238,33 @@ export function resolveWardrobeBodyProfileId(modelUrl: string) {
   return BODY_PROFILE_BY_MODEL_URL.get(modelUrl) ?? null;
 }
 
+const STANDARDIZED_WARDROBE_PRESENTATIONS = new Map<
+  string,
+  StandardizedWardrobePresentation
+>(
+  Object.values(WARDROBE_COMPANION_BODY_ASSIGNMENTS).map((assignment) => [
+    assignment.companionId,
+    {
+      companionId: assignment.companionId,
+      bodyModelUrl: STANDARD_WARDROBE_BODY_MODEL_URL,
+      identityModelUrl:
+        assignment.companionId === "elli"
+          ? undefined
+          : assignment.sourceModelUrl,
+      bodySkinTint: STANDARDIZED_BODY_SKIN_TINTS[assignment.companionId],
+      identityHeadwearStyle:
+        STANDARDIZED_IDENTITY_HEADWEAR[assignment.companionId],
+      bodyProfileId: "sunny-standard-v1" as const,
+    },
+  ]),
+);
+
+export function resolveStandardizedWardrobePresentation(
+  companionId: string,
+): StandardizedWardrobePresentation | null {
+  return STANDARDIZED_WARDROBE_PRESENTATIONS.get(companionId) ?? null;
+}
+
 export type WardrobeCompatibilityCase = {
   id: string;
   kind: "reference" | "standardized_identity" | "source";
@@ -224,6 +273,8 @@ export type WardrobeCompatibilityCase = {
   label: string;
   modelUrl: string;
   identityModelUrl?: string;
+  bodySkinTint?: string;
+  identityHeadwearStyle?: WardrobeIdentityHeadwearStyle;
   bodyProfileId: WardrobeBodyProfileId;
   dressQaStatus: "approved" | "candidate";
 };
@@ -239,17 +290,25 @@ export const WARDROBE_COMPATIBILITY_CASES: readonly WardrobeCompatibilityCase[] 
     bodyProfileId: "sunny-standard-v1",
     dressQaStatus: "approved",
   },
-  {
-    id: "matilda-standard-body-identity",
-    kind: "standardized_identity",
-    companionId: "matilda",
-    companionName: "Matilda",
-    label: "Matilda identity on standard body",
-    modelUrl: "/companions/sample.vrm",
-    identityModelUrl: "/companions/673852811403133503.vrm",
-    bodyProfileId: "sunny-standard-v1",
-    dressQaStatus: "candidate",
-  },
+  ...Object.values(WARDROBE_COMPANION_BODY_ASSIGNMENTS)
+    .filter((assignment) => assignment.companionId !== "elli")
+    .map((assignment) => ({
+      id: `${assignment.companionId}-standard-body-identity`,
+      kind: "standardized_identity" as const,
+      companionId: assignment.companionId,
+      companionName: assignment.companionName,
+      label: `${assignment.companionName} identity on standard body`,
+      modelUrl: STANDARD_WARDROBE_BODY_MODEL_URL,
+      identityModelUrl: assignment.sourceModelUrl,
+      bodySkinTint: STANDARDIZED_BODY_SKIN_TINTS[assignment.companionId],
+      identityHeadwearStyle:
+        STANDARDIZED_IDENTITY_HEADWEAR[assignment.companionId],
+      bodyProfileId: "sunny-standard-v1" as const,
+      dressQaStatus:
+        assignment.companionId === "matilda"
+          ? ("approved" as const)
+          : ("candidate" as const),
+    })),
   ...Object.values(WARDROBE_COMPANION_BODY_ASSIGNMENTS).map((assignment) => ({
     id: `${assignment.companionId}-source-model`,
     kind: "source" as const,

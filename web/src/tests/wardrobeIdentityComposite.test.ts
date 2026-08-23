@@ -35,13 +35,22 @@ describe("wardrobe identity composite", () => {
     const identityFace = mesh("Face", ["N00_Face_00_SKIN (Instance)"]);
     const identityHair = mesh("Hair", ["N00_Hair_00_HAIR (Instance)"]);
     identity.add(identityBody, identityFace, identityHair);
+    const standardBodySkin = (standardBody.material as THREE.MeshBasicMaterial[])[0]!;
+    const sourceBodySkin = (identityBody.material as THREE.MeshBasicMaterial[])[0]!;
+    const standardSkinTexture = new THREE.Texture();
+    const sourceSkinTexture = new THREE.Texture();
+    standardBodySkin.map = standardSkinTexture;
+    sourceBodySkin.map = sourceSkinTexture;
 
-    const result = configureIdentityCompositeVisibility(standard, identity);
+    const result = configureIdentityCompositeVisibility(standard, identity, {
+      bodySkinTint: "#7a4a32",
+    });
 
     expect(result).toEqual({
       hiddenStandardIdentityMaterials: 3,
       hiddenSourceBodyMaterials: 2,
       visibleSourceIdentityMaterials: 3,
+      transferredStandardBodyMaterials: 1,
     });
     expect((standardBody.material as THREE.Material[])[0]?.visible).toBe(true);
     expect((standardBody.material as THREE.Material[])[1]?.visible).toBe(false);
@@ -52,6 +61,11 @@ describe("wardrobe identity composite", () => {
     expect((identityBody.material as THREE.Material[])[2]?.visible).toBe(false);
     expect((identityFace.material as THREE.Material[])[0]?.visible).toBe(true);
     expect((identityHair.material as THREE.Material[])[0]?.visible).toBe(true);
+    expect(
+      standardBodySkin.color.getHexString(),
+    ).toBe("7a4a32");
+    expect(standardBodySkin.map).toBe(standardSkinTexture);
+    expect(standardBodySkin.map).not.toBe(sourceSkinTexture);
   });
 
   it("uniformly scales and translates the identity model onto the standard head", () => {
