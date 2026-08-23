@@ -32,9 +32,9 @@ describe("wardrobe body profiles", () => {
     expect(resolveWardrobeBodyProfileId("/companions/unknown.vrm")).toBeNull();
   });
 
-  it("builds one full-size review case per character plus the approved reference", () => {
+  it("builds one full-size review case per character plus the approved and standardized references", () => {
     expect(WARDROBE_COMPATIBILITY_CASES).toHaveLength(
-      COMPANION_MANIFEST.length + 1,
+      COMPANION_MANIFEST.length + 2,
     );
     expect(WARDROBE_COMPATIBILITY_CASES[0]).toMatchObject({
       id: "elli-store-reference",
@@ -51,5 +51,17 @@ describe("wardrobe body profiles", () => {
       WARDROBE_COMPATIBILITY_CASES.filter((testCase) => testCase.kind === "source")
         .every((testCase) => testCase.dressQaStatus === "candidate"),
     ).toBe(true);
+    expect(
+      WARDROBE_COMPATIBILITY_CASES.find(
+        (testCase) => testCase.id === "matilda-standard-body-identity",
+      ),
+    ).toMatchObject({
+      kind: "standardized_identity",
+      companionId: "matilda",
+      modelUrl: "/companions/sample.vrm",
+      identityModelUrl: "/companions/673852811403133503.vrm",
+      bodyProfileId: "sunny-standard-v1",
+      dressQaStatus: "candidate",
+    });
   });
 });

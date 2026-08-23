@@ -10,6 +10,7 @@ import {
 import { AnimatePresence, motion } from "framer-motion";
 import { Mic, Send, ShoppingBag, Video, X } from "lucide-react";
 import * as THREE from "three";
+import type { VRM } from "@pixiv/three-vrm";
 import { WebGPURenderer } from "three/webgpu";
 import { CompanionMotor } from "../companion/CompanionMotor";
 import {
@@ -63,6 +64,11 @@ import {
 } from "./WardrobeStoreLab";
 import { WardrobeCompatibilityLab } from "./WardrobeCompatibilityLab";
 import { WARDROBE_COMPATIBILITY_CASES } from "../lib/wardrobeBodyProfiles";
+import {
+  alignIdentityOverlayToStandardHead,
+  configureIdentityCompositeVisibility,
+  pinIdentityOverlayToStandardHead,
+} from "../lib/wardrobeIdentityComposite";
 import {
   StorybookFootlights,
   StorybookPrimaryButton,
@@ -2591,6 +2597,7 @@ function CompanionSlot({
   wardrobeOutfitId = "none",
   wardrobeOutfitMaterialVariant = null,
   wardrobeQaMode = "enforced",
+  identityOverlayModelUrl,
   onMotorReady,
   onLoadSettled,
   onVrmAttached,
@@ -2614,6 +2621,7 @@ function CompanionSlot({
   wardrobeOutfitId?: WardrobeOutfitId;
   wardrobeOutfitMaterialVariant?: XwearMaterialVariant | null;
   wardrobeQaMode?: "enforced" | "candidate_preview";
+  identityOverlayModelUrl?: string;
   onMotorReady?: (slot: SlotName, motor: CompanionMotor | null) => void;
   onLoadSettled: (slotKey: string) => void;
   /** Fires once after `attachVrm` succeeds (not called on load failure). */
@@ -2635,6 +2643,12 @@ function CompanionSlot({
   const wardrobeAccessoryRef = useRef<THREE.Group | null>(null);
   const wardrobeAccessoryIdRef = useRef<WardrobeAccessoryId>(wardrobeAccessoryId);
   const wardrobeVrmSceneRef = useRef<THREE.Object3D | null>(null);
+  const wardrobeVrmRef = useRef<VRM | null>(null);
+  const identityOverlayRef = useRef<{
+    vrm: VRM;
+    standardHead: THREE.Object3D;
+    identityHead: THREE.Object3D;
+  } | null>(null);
   const wardrobeOutfitPartsRef = useRef<THREE.Object3D[]>([]);
   const wardrobeOutfitIdRef = useRef<WardrobeOutfitId>(wardrobeOutfitId);
   const wardrobeOutfitMaterialVariantRef = useRef<XwearMaterialVariant | null>(
@@ -2820,6 +2834,19 @@ function CompanionSlot({
         activeNodeScreen: null,
         analyser: getAnalyser?.() ?? null,
       });
+      const standardVrm = wardrobeVrmRef.current;
+      const identityOverlay = identityOverlayRef.current;
+      if (standardVrm?.humanoid && identityOverlay?.vrm.humanoid) {
+        identityOverlay.vrm.humanoid.setNormalizedPose(
+          standardVrm.humanoid.getNormalizedPose(),
+        );
+        identityOverlay.vrm.update(dt);
+        pinIdentityOverlayToStandardHead({
+          standardHead: identityOverlay.standardHead,
+          identityScene: identityOverlay.vrm.scene,
+          identityHead: identityOverlay.identityHead,
+        });
+      }
       vfxLayerRef.current?.tick(dt, camera);
       renderer.render(scene, camera);
       const head = wardrobeHeadRef.current;
@@ -2954,9 +2981,69 @@ function CompanionSlot({
           captureXwearAvatarBindPose(vrm.scene);
           const size = readMountSize();
           motor.attachVrm(vrm, scene, size.w, size.h, showroomCompanionConfig);
+          wardrobeVrmRef.current = vrm;
           wardrobeVrmSceneRef.current = vrm.scene;
           const head = vrm.humanoid?.getRawBoneNode("head") ?? null;
           wardrobeHeadRef.current = head;
+          if (identityOverlayModelUrl && head) {
+            void loadCompanionVrm(resolveModelUrl(identityOverlayModelUrl), {
+              webgpu: webgpuMaterials,
+            })
+              .then((identityVrm) => {
+                if (cancelled) {
+                  identityVrm.scene.removeFromParent();
+                  return;
+                }
+                const identityHead = identityVrm.humanoid?.getRawBoneNode("head") ?? null;
+                if (!identityHead) {
+                  throw new Error("Identity VRM has no head bone");
+                }
+                const metaVersion = String(
+                  (identityVrm as { meta?: { metaVersion?: string } }).meta
+                    ?.metaVersion ?? "",
+                );
+                identityVrm.scene.rotation.y = metaVersion.startsWith("0")
+                  ? Math.PI
+                  : 0;
+                identityVrm.scene.position.set(0, 0, 0);
+                identityVrm.scene.scale.setScalar(1);
+                scene.add(identityVrm.scene);
+                const visibility = configureIdentityCompositeVisibility(
+                  vrm.scene,
+                  identityVrm.scene,
+                );
+                const alignment = alignIdentityOverlayToStandardHead({
+                  standardScene: vrm.scene,
+                  standardHead: head,
+                  identityScene: identityVrm.scene,
+                  identityHead,
+                });
+                identityOverlayRef.current = {
+                  vrm: identityVrm,
+                  standardHead: head,
+                  identityHead,
+                };
+                console.log(
+                  ` 🎮 [wardrobe-identity-lab] composite_ready result=ready identity=${identityOverlayModelUrl} scale=${alignment.scale.toFixed(4)} standard_hidden=${visibility.hiddenStandardIdentityMaterials} source_hidden=${visibility.hiddenSourceBodyMaterials} source_visible=${visibility.visibleSourceIdentityMaterials}`,
+                );
+              })
+              .catch((error: unknown) => {
+                console.error(
+                  " 🎮 [wardrobe-identity-lab] composite_failed result=base_identity_restored",
+                  error,
+                );
+                configureIdentityCompositeVisibility(vrm.scene, vrm.scene);
+                vrm.scene.traverse((object) => {
+                  const material = (object as THREE.Mesh).material;
+                  const materials = Array.isArray(material)
+                    ? material
+                    : material
+                      ? [material]
+                      : [];
+                  for (const item of materials) item.visible = true;
+                });
+              });
+          }
           const selectedAccessoryId = wardrobeAccessoryIdRef.current;
           if (head && selectedAccessoryId !== "none") {
             wardrobeAccessoryRef.current = attachWardrobeAccessory(
@@ -3084,6 +3171,9 @@ function CompanionSlot({
       removeWardrobeOutfit(wardrobeOutfitPartsRef.current);
       wardrobeOutfitPartsRef.current = [];
       wardrobeVrmSceneRef.current = null;
+      wardrobeVrmRef.current = null;
+      identityOverlayRef.current?.vrm.scene.removeFromParent();
+      identityOverlayRef.current = null;
       timerRef.current?.dispose();
       timerRef.current = null;
       const renderer = rendererRef.current;
@@ -3110,6 +3200,7 @@ function CompanionSlot({
     startLoop,
     stopLoop,
     vfxPreset,
+    identityOverlayModelUrl,
     wardrobeQaMode,
   ]);
 
@@ -6456,6 +6547,7 @@ export function CompanionShowroom({
                 tint: "#c878ff",
               }}
               wardrobeQaMode="candidate_preview"
+              identityOverlayModelUrl={testCase.identityModelUrl}
               onLoadSettled={(slotKey) => {
                 console.log(
                   ` 🎮 [wardrobe-compatibility-lab] model_loaded result=ready case=${testCase.id} slot=${slotKey}`,

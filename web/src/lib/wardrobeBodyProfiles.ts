@@ -218,11 +218,12 @@ export function resolveWardrobeBodyProfileId(modelUrl: string) {
 
 export type WardrobeCompatibilityCase = {
   id: string;
-  kind: "reference" | "source";
+  kind: "reference" | "standardized_identity" | "source";
   companionId: string;
   companionName: string;
   label: string;
   modelUrl: string;
+  identityModelUrl?: string;
   bodyProfileId: WardrobeBodyProfileId;
   dressQaStatus: "approved" | "candidate";
 };
@@ -237,6 +238,17 @@ export const WARDROBE_COMPATIBILITY_CASES: readonly WardrobeCompatibilityCase[] 
     modelUrl: "/companions/sample.vrm",
     bodyProfileId: "sunny-standard-v1",
     dressQaStatus: "approved",
+  },
+  {
+    id: "matilda-standard-body-identity",
+    kind: "standardized_identity",
+    companionId: "matilda",
+    companionName: "Matilda",
+    label: "Matilda identity on standard body",
+    modelUrl: "/companions/sample.vrm",
+    identityModelUrl: "/companions/673852811403133503.vrm",
+    bodyProfileId: "sunny-standard-v1",
+    dressQaStatus: "candidate",
   },
   ...Object.values(WARDROBE_COMPANION_BODY_ASSIGNMENTS).map((assignment) => ({
     id: `${assignment.companionId}-source-model`,

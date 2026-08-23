@@ -38,3 +38,27 @@ Review the contact sheet at full size. The conservative recommendation is to
 keep only the current Elli store reference approved and leave all source-model
 cases as candidates until a garment is authored specifically for their body
 profile.
+
+## Standard-body identity pilot
+
+Added 2026-08-23. The compatibility lab now contains one deliberately narrow
+pilot: `Matilda identity on standard body`.
+
+- The approved `sample.vrm` remains the only skeleton and body wearing the
+  garment.
+- Matilda's source VRM contributes identity materials only: face, eyes, front
+  hair, and back hair.
+- The identity overlay receives the standard body's normalized pose and is
+  pinned to the standard head every frame.
+- A failed identity load restores the complete standard avatar and logs the
+  failure; it never exposes a half-rendered composite to the store.
+- The pilot remains `candidate` until a full-size human review confirms the
+  face/hair identity, neck seam, idle alignment, and Ribbon Dress fit.
+- This pilot synchronizes body pose and hair physics only. Cross-VRM facial
+  expression mapping is a separate requirement before this technique can be
+  used in live companion conversation.
+
+This answers a different question than the source-model matrix. The matrix
+proved that one garment cannot be assumed to fit unrelated bodies. The pilot
+tests whether visual identity can be separated from a standardized clothing
+body without losing the companion's recognizable appearance.

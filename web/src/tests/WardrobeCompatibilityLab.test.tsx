@@ -48,5 +48,15 @@ describe("WardrobeCompatibilityLab", () => {
     );
     expect(screen.getByText("Candidate — human review required")).toBeTruthy();
     expect(screen.getAllByText("kefla-v1").length).toBeGreaterThanOrEqual(1);
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Review Matilda identity on standard body",
+      }),
+    );
+
+    expect(screen.getByText("Standard-body identity candidate")).toBeTruthy();
+    expect(screen.getByText("identity proof")).toBeTruthy();
+    expect(screen.getByText("Candidate — human review required")).toBeTruthy();
   });
 });

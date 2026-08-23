@@ -229,6 +229,18 @@ describe("companion wardrobe feasibility lab", () => {
     expect(styles).not.toContain("left: calc(50% + clamp(42px, 5vw, 78px));");
   });
 
+  it("keeps identity compositing isolated to an explicit compatibility-lab model", () => {
+    const source = readShowroomSource();
+
+    expect(source).toContain("identityOverlayModelUrl?: string");
+    expect(source).toContain(
+      "identityOverlayModelUrl={testCase.identityModelUrl}",
+    );
+    expect(source).toContain(
+      " 🎮 [wardrobe-identity-lab] composite_ready result=ready",
+    );
+  });
+
   it("freezes the status bubble anchor between resize events instead of chasing head animation", () => {
     const showroomSource = readShowroomSource();
     const styles = readStoreStyles();

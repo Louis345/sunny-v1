@@ -44,7 +44,13 @@ export function WardrobeCompatibilityLab({
         </div>
         <div className="wardrobe-compatibility-lab__caption">
           <div>
-            <span>{selected.kind === "reference" ? "Approved reference" : "Source-model candidate"}</span>
+            <span>
+              {selected.kind === "reference"
+                ? "Approved reference"
+                : selected.kind === "standardized_identity"
+                  ? "Standard-body identity candidate"
+                  : "Source-model candidate"}
+            </span>
             <h2>{selected.label}</h2>
             <p>{selected.modelUrl}</p>
           </div>
@@ -78,7 +84,13 @@ export function WardrobeCompatibilityLab({
               onClick={() => setSelectedId(testCase.id)}
             >
               <span>{testCase.companionName}</span>
-              <small>{testCase.kind === "reference" ? "store reference" : testCase.bodyProfileId}</small>
+              <small>
+                {testCase.kind === "reference"
+                  ? "store reference"
+                  : testCase.kind === "standardized_identity"
+                    ? "identity proof"
+                    : testCase.bodyProfileId}
+              </small>
               <b>{testCase.dressQaStatus === "approved" ? "Approved" : "Review"}</b>
             </button>
           ))}
