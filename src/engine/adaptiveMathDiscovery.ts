@@ -87,12 +87,17 @@ export async function generateMathDiscoveryExperience(input: {
 }): Promise<{ contract: MathDiscoveryEvaluationContract; design: Record<string, unknown> }> {
   const rootDir = input.rootDir ?? process.cwd();
   const client = input.client ?? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-  const create = async (model: string, prompt: string, tool?: { name: string; schema: Record<string, unknown> }): Promise<unknown> => client.messages.create({
-    model,
-    max_tokens: tool ? 12_000 : 48_000,
-    messages: [{ role: "user", content: prompt }],
-    ...(tool ? { tools: [{ name: tool.name, description: "Return the requested frozen artifact.", input_schema: tool.schema }], tool_choice: { type: "tool", name: tool.name } } : {}),
-  } as never);
+  const create = async (model: string, prompt: string, tool?: { name: string; schema: Record<string, unknown> }): Promise<unknown> => {
+    const request = {
+      model,
+      max_tokens: tool ? 12_000 : 48_000,
+      messages: [{ role: "user", content: prompt }],
+      ...(tool ? { tools: [{ name: tool.name, description: "Return the requested frozen artifact.", input_schema: tool.schema }], tool_choice: { type: "tool", name: tool.name } } : {}),
+    };
+    return client.messages
+      .stream(request as never, { timeout: Number(process.env.SUNNY_AI_TIMEOUT_MS ?? 600_000) })
+      .finalMessage();
+  };
   const common = `ASSIGNMENT EVIDENCE IDS:\n${JSON.stringify(input.assignmentEvidenceIds)}\n\nASSIGNMENT:\n${input.assignmentText}\n\nFACTUAL CHILD CONTEXT:\n${JSON.stringify(input.factualChildContext, null, 2)}`;
   console.log(` 🎮 [adaptive-math] [discovery-planner] [running] child=${input.childId} homework=${input.homeworkId}`);
   const plannerResponse = await create(input.plannerModel ?? process.env.SUNNY_PLANNER_MODEL ?? "claude-opus-5", `You are Sunny's Academic Planner. Create one independent opening mathematics evaluation that determines what the child already knows and where evidence is missing. Author three to five fresh items without copying the assignment. Each item must identify its construct, response contract, accepted answers, difficulty boundary, exposure identity, possible confounds, falsifying evidence, and measurement keys. Collect independent evidence before teaching or answer exposure. Prefer the lowest-friction response mode that preserves the mathematics. Do not choose presentation, characters, mechanics, sound, rewards, or implementation. Do not declare mastery.\n\n${common}`, {
