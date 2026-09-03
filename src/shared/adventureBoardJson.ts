@@ -32,6 +32,7 @@ export type AdventureBoardEvidenceRole =
 export type AdventureBoardActionType =
   | "launch-activity"
   | "open-choice-set"
+  | "show-preparing-status"
   | "show-locked-reason";
 
 export type AdventureBoardEdgeState =

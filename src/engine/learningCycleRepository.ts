@@ -150,6 +150,7 @@ export type LearningCycleNodeContract = {
     academic: boolean;
     engagement: boolean;
     companionObservations: boolean;
+    itemRoles?: Record<string, "instruction" | "practice" | "fresh_checkpoint">;
   };
   evidenceIds: string[];
 };
@@ -465,8 +466,10 @@ export type LearningCycleEvent =
   | ({ type: "quest_completed"; decision: OutcomeDecision & { bossRequired: boolean } } & OutcomeEvidence)
   | ({ type: "boss_completed"; decision: OutcomeDecision } & OutcomeEvidence)
   | ({ type: "instrument_observed"; observations: LearningObservation[] } & OutcomeEvidence)
+  | { type: "prediction_evaluations_recorded"; evaluations: PredictionEvaluation[] }
   | { type: "artifact_bound"; nodeId: string; artifact: LearningCycleArtifactBinding }
   | { type: "artifact_rejected"; nodeId: string; reason: string }
+  | { type: "artifact_generation_attention_required"; nodeId: string; reason: string }
   | { type: "engagement_theory_updated"; theory: EngagementTheory; reason: string }
   | { type: "graded_work_received"; calibration: LearningCycleCalibration }
   | {
@@ -1048,6 +1051,7 @@ export function transitionLearningCycle(
     evidenceIds = next.observations
       .filter((observation) => observation.sourceId === `evaluation:${event.evaluationId}`)
       .map((observation) => observation.observationId);
+    evaluation.evidenceIds = [...new Set([...evaluation.evidenceIds, ...evidenceIds])];
   } else if (event.type === "targeted_planning_started") {
     if (current.lifecycle !== "evidence_ready") throw new Error("learning_cycle_discovery_evidence_not_ready");
     next.lifecycle = "targeted_planning";
@@ -1084,6 +1088,8 @@ export function transitionLearningCycle(
     reason = "The coherent targeted map is visible while node artifacts build independently.";
     evidenceIds = next.observations.map((observation) => observation.observationId);
   } else if (event.type === "plan_reconciled") {
+    const adaptiveDiscoveryCycle = Boolean(next.adaptiveGeneration)
+      || next.nodes.some((node) => node.role === "evaluation");
     const previousById = new Map(next.nodes.map((node) => [node.nodeId, node]));
     if (event.academicPredictions) {
       const priorById = new Map(next.academicPredictions.map((prediction) => [prediction.predictionId, prediction]));
@@ -1096,21 +1102,36 @@ export function transitionLearningCycle(
         structuredClone(priorById.get(assumption.assumptionId) ?? assumption));
     }
     next.assignment = structuredClone(event.assignment);
-    next.academicTheory = structuredClone(event.academicTheory);
-    next.engagementTheory = structuredClone(event.engagementTheory);
+    if (!adaptiveDiscoveryCycle) {
+      next.academicTheory = structuredClone(event.academicTheory);
+      next.engagementTheory = structuredClone(event.engagementTheory);
+    }
     next.agencyExperiment = event.agencyExperiment
       ? structuredClone(event.agencyExperiment)
       : next.agencyExperiment;
-    next.nodes = event.nodes.map((planned) => {
+    const reconciledNodes = event.nodes.map((planned) => {
       const previous = previousById.get(planned.nodeId);
       if (!previous) return structuredClone(planned);
       return {
         ...structuredClone(planned),
+        ...(adaptiveDiscoveryCycle ? {
+          state: previous.state,
+          artifactBinding: previous.artifactBinding,
+          artwork: previous.artwork,
+        } : {}),
         evidenceIds: [...new Set([...planned.evidenceIds, ...previous.evidenceIds])],
       };
     });
-    next.lifecycle = "baseline_ready";
-    normalizeAgencyNodeStates(next);
+    next.nodes = adaptiveDiscoveryCycle
+      ? [
+          ...next.nodes.filter((node) => node.role === "evaluation" && !reconciledNodes.some((candidate) => candidate.nodeId === node.nodeId)),
+          ...reconciledNodes,
+        ]
+      : reconciledNodes;
+    if (!adaptiveDiscoveryCycle) {
+      next.lifecycle = "baseline_ready";
+      normalizeAgencyNodeStates(next);
+    }
     reason = event.reason;
   } else if (event.type === "route_selected") {
     const experiment = next.agencyExperiment;
@@ -1191,6 +1212,13 @@ export function transitionLearningCycle(
     }
     reason = `${node.title} factual scorecard recorded; one Planner decision is required.`;
     nextAction = "Evaluate the preregistered prediction against this evidence.";
+  } else if (event.type === "prediction_evaluations_recorded") {
+    const known = new Set(next.predictionEvaluations.map((evaluation) => evaluation.evaluationId));
+    const fresh = event.evaluations.filter((evaluation) => !known.has(evaluation.evaluationId));
+    next.predictionEvaluations.push(...fresh.map((evaluation) => structuredClone(evaluation)));
+    evidenceIds = fresh.flatMap((evaluation) => evaluation.observationIds);
+    reason = `Recorded ${fresh.length} idempotent prediction evaluation${fresh.length === 1 ? "" : "s"}.`;
+    nextAction = "Give the evaluations to the existing progression Planner.";
   } else if (event.type === "baseline_completed") {
     const node = nodeOrThrow(next, event.nodeId, "baseline");
     evidenceIds = appendOutcomeEvidence(next, event);
@@ -1268,7 +1296,14 @@ export function transitionLearningCycle(
     else {
       const pendingBaseline = next.nodes.some((candidate) =>
         candidate.role === "baseline" && candidate.state === "generating");
-      next.lifecycle = pendingBaseline ? "board_generating" : "board_ready";
+      const isAdaptiveTargetedBoard = Boolean(
+        next.adaptiveGeneration?.programHash && next.adaptiveGeneration?.designHash,
+      );
+      next.lifecycle = pendingBaseline
+        ? "board_generating"
+        : isAdaptiveTargetedBoard
+          ? "board_ready"
+          : "baseline_ready";
     }
     reason = `Validated ${node.role} artifact bound to canonical node contract.`;
     evidenceIds = node.generationPrompt?.createdFromEvidenceIds ?? [];
@@ -1446,6 +1481,12 @@ export function transitionLearningCycle(
         ? "boss_generating"
         : "baseline_ready";
     reason = event.reason;
+  } else if (event.type === "artifact_generation_attention_required") {
+    const node = nodeOrThrow(next, event.nodeId);
+    node.artifactBinding = null;
+    node.state = "blocked";
+    next.lifecycle = "board_ready";
+    reason = event.reason;
   } else {
     next.lifecycle = "blocked";
     reason = event.reason;
@@ -1562,7 +1603,10 @@ export function projectLearningCycle(
     companionPolicy: {
       companionId: "elli",
       displayName: "Elli",
-      openingLinePolicy: "context_start_short",
+      openingLinePolicy: cycle.nodes.some((node) => node.role === "evaluation")
+        && !cycle.nodes.some((node) => node.role === "baseline")
+        ? "silent"
+        : "context_start_short",
       verbosity: "low",
       maxMicroProbes: 1,
     },
@@ -1605,6 +1649,34 @@ export function projectLearningCycle(
     labelForNode: (node) => node.title,
     thumbnailForNode: (node) => node.thumbnailUrl,
   });
+  const cycleNodeById = new Map(cycle.nodes.map((node) => [node.nodeId, node]));
+  adventureBoard.nodes = adventureBoard.nodes.map((node) => {
+    const canonicalNode = cycleNodeById.get(node.id);
+    if (canonicalNode?.state === "generating") {
+      return {
+        ...node,
+        state: "preview" as const,
+        action: { type: "show-preparing-status" as const, payloadId: node.id },
+        lock: { reason: "artifact-generating", label: "Preparing" },
+      };
+    }
+    if (canonicalNode?.state === "blocked") {
+      return {
+        ...node,
+        state: "locked" as const,
+        action: { type: "show-locked-reason" as const, payloadId: node.id },
+        lock: { reason: "generation-needs-attention", label: "Parent help needed" },
+      };
+    }
+    return node;
+  });
+  const projectedBoardNodeById = new Map(adventureBoard.nodes.map((node) => [node.id, node]));
+  adventureBoard.edges = adventureBoard.edges.map((edge) => ({
+    ...edge,
+    state: projectedBoardNodeById.get(edge.to)?.state === "preview"
+      ? "preview" as const
+      : edge.state,
+  }));
   activeSessionPlan.adventureBoard = adventureBoard;
   const canonicalProjection: LearningCycleProjection = {
     activeSessionPlan,

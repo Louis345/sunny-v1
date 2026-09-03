@@ -90,6 +90,23 @@ describe("PostActivityEngagementOverlay", () => {
     vi.useRealTimers();
   });
 
+  it("can make rating or Skip the only Discovery exit", () => {
+    render(
+      <PostActivityEngagementOverlay
+        title="Discovery"
+        outcome={{ completed: true }}
+        canReplay={false}
+        showBackAction={false}
+        onAction={vi.fn()}
+        onFunRating={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("How fun was this activity?")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Play again" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Back to map" })).toBeNull();
+  });
+
   it("shows cumulative outlined, hovered, and selected star feedback", () => {
     vi.useFakeTimers();
     const onFunRating = vi.fn();

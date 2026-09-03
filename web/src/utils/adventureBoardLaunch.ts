@@ -13,6 +13,65 @@ import type {
 type ActiveSessionPlan = NonNullable<ChildExperiencePacket["activeSessionPlan"]>;
 type PlannerNode = ActiveSessionPlan["nodePlan"][number];
 
+/**
+ * Discovery keeps an adventureBoard-shaped packet for server and rollback
+ * compatibility, but it is a pre-board experience. The child must enter its
+ * one generated evaluation directly; the targeted map does not exist yet.
+ */
+export function isDirectDiscoveryPacket(packet: ChildExperiencePacket | null): boolean {
+  return Boolean(packet?.activeSessionPlan?.planId?.startsWith("discovery:"));
+}
+
+export function resolveDirectDiscoverySurface(
+  sessionReady: boolean,
+  launchAvailable: boolean,
+): "loading-curtain" | "direct-discovery" | "unavailable" {
+  if (!sessionReady) return "loading-curtain";
+  return launchAvailable ? "direct-discovery" : "unavailable";
+}
+
+export function resolveDiscoveryCompletionHandoff(
+  result: Record<string, unknown>,
+): "preview-complete" | "targeted-planning" {
+  return result.skippedPersistence === true
+    ? "preview-complete"
+    : "targeted-planning";
+}
+
+export function resolveDiscoveryEngagementDelivery(
+  result: Record<string, unknown>,
+): "committed" | "preview-skipped" | "queued" | "failed" {
+  if (result.skippedPersistence === true) return "preview-skipped";
+  if (result.ok === true && result.applied === true) return "committed";
+  if (result.queued === true) return "queued";
+  return "failed";
+}
+
+export async function runDiscoveryExitSequence(input: {
+  commitEngagement: () => Promise<Record<string, unknown>>;
+  completeAcademic: () => Promise<Record<string, unknown>>;
+}): Promise<Record<string, unknown>> {
+  const engagement = await input.commitEngagement();
+  const delivery = resolveDiscoveryEngagementDelivery(engagement);
+  if (delivery !== "committed" && delivery !== "preview-skipped") {
+    throw new Error(`discovery_engagement_not_committed:${delivery}`);
+  }
+  return input.completeAcademic();
+}
+
+export function resolveDirectDiscoveryLaunchNode(
+  packet: ChildExperiencePacket | null,
+): NodeConfig | null {
+  if (!packet || !isDirectDiscoveryPacket(packet)) return null;
+  const board = packet.activeSessionPlan?.adventureBoard;
+  const discoveryNode = board?.nodes.find(
+    (node) => node.kind !== "start" && node.action?.type === "launch-activity",
+  );
+  return discoveryNode
+    ? resolvePlannerBoardLaunchNode(packet, discoveryNode, { allowLocked: true })
+    : null;
+}
+
 function uniqueWords(words: Array<string | null | undefined>): string[] {
   const seen = new Set<string>();
   const out: string[] = [];

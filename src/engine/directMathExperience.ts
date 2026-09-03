@@ -67,6 +67,7 @@ export type DirectItem = {
   lineage: {
     sourceEvidenceIds: string[];
     exposure: "unseen" | "taught" | "practiced";
+    measurementRole: "instruction" | "practice" | "fresh_checkpoint";
   };
   response:
     | { mode: "selection"; options: Array<{ id: string; label: string; correct: boolean }> }
@@ -294,7 +295,7 @@ const directMathPlannerProperties = {
   fork: schemaObject({ question: schemaString, hypothesis: schemaString, heldConstant: schemaStrings, routes: { type: "array", minItems: 2, maxItems: 2, items: schemaObject({ id: schemaString, label: schemaString, promise: schemaString, engagementVariable: schemaString, nodeIds: schemaStrings }) } }),
   activities: { type: "array", minItems: 1, items: schemaObject({ id: schemaString, title: schemaString, routeId: schemaString, responsibilityId: schemaString, academicTarget: schemaString, mechanic: schemaString, engagementVariable: schemaString,
     visualMock: schemaObject({ scene: schemaString, layout: schemaString, artworkPrompt: schemaString }), experience: schemaObject({ objective: schemaString, childAction: schemaString, worldReaction: schemaString, anticipation: schemaString, progress: schemaString, recovery: schemaString, reward: schemaString }),
-    items: { type: "array", minItems: 1, items: schemaObject({ id: schemaString, prompt: schemaString, lineage: schemaObject({ sourceEvidenceIds: { type: "array", minItems: 1, items: schemaString }, exposure: { enum: ["unseen", "taught", "practiced"] } }), response: schemaItemResponse }) }, acceptanceSteps: schemaStrings, creatorPrompt: schemaString, designPrediction: schemaString,
+    items: { type: "array", minItems: 1, items: schemaObject({ id: schemaString, prompt: schemaString, lineage: schemaObject({ sourceEvidenceIds: { type: "array", minItems: 1, items: schemaString }, exposure: { enum: ["unseen", "taught", "practiced"] }, measurementRole: { enum: ["instruction", "practice", "fresh_checkpoint"] } }), response: schemaItemResponse }) }, acceptanceSteps: schemaStrings, creatorPrompt: schemaString, designPrediction: schemaString,
     academicPrediction: schemaObject({ constructId: schemaString, context: schemaString, horizon: schemaString, expectedMetric: schemaObject({ key: schemaString, min: { type: "number" }, max: { type: "number" } }), predictedErrorPatterns: schemaStrings, confidence: { type: "number" }, evidenceIds: schemaStrings, intervention: schemaString, evidenceLimit: { const: "practice_only" } }),
     preserve: schemaStrings, change: schemaStrings, explore: schemaStrings, avoid: schemaStrings, measurementKeys: schemaStrings }) },
   quest: schemaObject({ title: { const: "Quest" }, locked: { const: true }, teaser: schemaString, artworkPrompt: schemaString }),
@@ -389,6 +390,7 @@ export const MATH_LEARNING_PROGRAM_TOOL_SCHEMA = schemaObject({
           lineage: schemaObject({
             sourceEvidenceIds: { type: "array", minItems: 1, items: schemaString },
             exposure: { enum: ["unseen", "taught", "practiced"] },
+            measurementRole: { enum: ["instruction", "practice", "fresh_checkpoint"] },
           }),
           response: schemaItemResponse,
         }),
@@ -620,6 +622,10 @@ function parseDirectItem(rawItem: unknown): DirectItem {
   if (sourceEvidenceIds.length === 0) throw new Error("direct_plan_invalid_item_lineage");
   const exposure = requiredString(lineage, "exposure");
   if (!["unseen", "taught", "practiced"].includes(exposure)) throw new Error("direct_plan_invalid_item_exposure");
+  const measurementRole = typeof lineage.measurementRole === "string" && lineage.measurementRole.trim()
+    ? lineage.measurementRole.trim()
+    : "practice";
+  if (!["instruction", "practice", "fresh_checkpoint"].includes(measurementRole)) throw new Error("direct_plan_invalid_measurement_role");
   const mode = requiredString(response, "mode");
   let parsedResponse: DirectItem["response"];
   if (mode === "selection") {
@@ -650,7 +656,11 @@ function parseDirectItem(rawItem: unknown): DirectItem {
   return {
     id: requiredString(item, "id"),
     prompt: requiredString(item, "prompt"),
-    lineage: { sourceEvidenceIds, exposure: exposure as DirectItem["lineage"]["exposure"] },
+    lineage: {
+      sourceEvidenceIds,
+      exposure: exposure as DirectItem["lineage"]["exposure"],
+      measurementRole: measurementRole as DirectItem["lineage"]["measurementRole"],
+    },
     response: parsedResponse,
   };
 }
@@ -711,6 +721,18 @@ export function parseMathLearningProgram(value: unknown): MathLearningProgram {
     if (!activity || !boundary || !prediction || !metric || !catalogDecision) throw new Error("math_learning_program_invalid_activity");
     const action = requiredString(catalogDecision, "action");
     if (!["reuse", "revise", "generate_new", "retire"].includes(action)) throw new Error("math_learning_program_invalid_catalog_action");
+    const rawItems = Array.isArray(activity.items) ? activity.items : [];
+    const explicitRoleCount = rawItems.filter((rawItem) => {
+      const role = object(object(rawItem)?.lineage)?.measurementRole;
+      return typeof role === "string" && Boolean(role.trim());
+    }).length;
+    if (explicitRoleCount > 0 && explicitRoleCount !== rawItems.length) {
+      throw new Error(`math_learning_program_activity_mixed_measurement_roles:${requiredString(activity, "id")}`);
+    }
+    const items = rawItems.map(parseDirectItem);
+    if (explicitRoleCount > 0 && !items.some((item) => item.lineage.measurementRole === "fresh_checkpoint")) {
+      throw new Error(`math_learning_program_activity_requires_fresh_checkpoint:${requiredString(activity, "id")}`);
+    }
     return {
       purpose: activity.purpose === "bonus" ? "bonus" : "baseline",
       id: requiredString(activity, "id"),
@@ -724,7 +746,7 @@ export function parseMathLearningProgram(value: unknown): MathLearningProgram {
         startingSupport: requiredString(boundary, "startingSupport"),
         expectedIndependence: requiredString(boundary, "expectedIndependence"),
       },
-      items: (Array.isArray(activity.items) ? activity.items : []).map(parseDirectItem),
+      items,
       academicPrediction: {
         constructId: assertInstanceFreeConceptId(requiredString(prediction, "constructId")),
         context: requiredString(prediction, "context"),
@@ -887,7 +909,15 @@ export function parseDirectLearningExperiencePlan(value: unknown): DirectLearnin
     if (academicTarget !== responsibility.academicTarget) {
       throw new Error(`direct_plan_activity_target_mismatch:${requiredString(activity, "id")}:${responsibilityId}`);
     }
-    const items = (Array.isArray(activity.items) ? activity.items : []).map((rawItem): DirectItem => {
+    const rawItems = Array.isArray(activity.items) ? activity.items : [];
+    const explicitRoleCount = rawItems.filter((rawItem) => {
+      const role = object(object(rawItem)?.lineage)?.measurementRole;
+      return typeof role === "string" && Boolean(role.trim());
+    }).length;
+    if (explicitRoleCount > 0 && explicitRoleCount !== rawItems.length) {
+      throw new Error("direct_plan_activity_mixed_measurement_roles");
+    }
+    const items = rawItems.map((rawItem): DirectItem => {
       const item = object(rawItem);
       const lineage = object(item?.lineage);
       const response = object(item?.response);
@@ -897,6 +927,10 @@ export function parseDirectLearningExperiencePlan(value: unknown): DirectLearnin
       if (sourceEvidenceIds.length === 0) throw new Error("direct_plan_invalid_item_lineage");
       const exposure = requiredString(lineage, "exposure");
       if (!["unseen", "taught", "practiced"].includes(exposure)) throw new Error("direct_plan_invalid_item_exposure");
+      const measurementRole = typeof lineage.measurementRole === "string" && lineage.measurementRole.trim()
+        ? lineage.measurementRole.trim()
+        : "practice";
+      if (!["instruction", "practice", "fresh_checkpoint"].includes(measurementRole)) throw new Error("direct_plan_invalid_measurement_role");
       const mode = requiredString(response, "mode");
       let parsedResponse: DirectItem["response"];
       if (mode === "selection") {
@@ -936,11 +970,18 @@ export function parseDirectLearningExperiencePlan(value: unknown): DirectLearnin
       return {
         id: requiredString(item, "id", "item_id"),
         prompt: requiredString(item, "prompt"),
-        lineage: { sourceEvidenceIds, exposure: exposure as DirectItem["lineage"]["exposure"] },
+        lineage: {
+          sourceEvidenceIds,
+          exposure: exposure as DirectItem["lineage"]["exposure"],
+          measurementRole: measurementRole as DirectItem["lineage"]["measurementRole"],
+        },
         response: parsedResponse,
       };
     });
     if (items.length === 0) throw new Error("direct_plan_activity_requires_items");
+    if (explicitRoleCount > 0 && !items.some((item) => item.lineage.measurementRole === "fresh_checkpoint")) {
+      throw new Error(`direct_plan_activity_requires_fresh_checkpoint:${requiredString(activity, "id", "activity_id")}`);
+    }
     if (new Set(items.map((item) => item.id)).size !== items.length) throw new Error("direct_plan_duplicate_item_id");
     return {
       id: requiredString(activity, "id", "activity_id"),
@@ -1704,7 +1745,6 @@ export function buildMathCreativeChildContext(chart: ChildChart): unknown {
       displayName: chart.identity.displayName,
       age: chart.demographics.age,
       grade: chart.demographics.grade,
-      learningStyle: chart.demographics.learningStyle,
       attentionSpan: chart.demographics.attentionSpan,
     },
     explicitPreferences: favoriteGames.length > 0 ? { favoriteGames } : null,
@@ -1752,6 +1792,7 @@ export async function askDirectMathPlanner(input: {
   client?: Anthropic;
   model?: string;
   priorOutcomes?: unknown;
+  discoveryEvidenceSummary?: unknown;
   /** Concept ids already on record for this child, so the Planner reuses instead of rephrasing. */
   priorConceptIds?: string[];
   rawResponseFile?: string;
@@ -1784,7 +1825,7 @@ Every assumption must have a stable assumptionId, factual evidence IDs, confiden
 
 concept.conceptId is a stable namespaced identity chosen from the assignment and prior concept history. Put assignment-specific context in instanceScope. Reuse a prior concept ID exactly when it is the same idea.
 
-Each item contains id, prompt, lineage {sourceEvidenceIds, exposure}, and one response contract:
+Each item contains id, prompt, lineage {sourceEvidenceIds, exposure, measurementRole}, and one response contract. Use measurementRole instruction for teaching, practice for rehearsal, and fresh_checkpoint for an unseen measurement item. Every activity must include at least one fresh_checkpoint whose answer is not exposed before commitment:
 - selection: {mode, options:[{id,label,correct}]}
 - numeric: {mode, expected, optional unit}
 - construction: {mode, expectedState, successDescription}
@@ -1796,6 +1837,8 @@ ${input.priorConceptIds?.length ? input.priorConceptIds.map((id) => `- ${id}`).j
 
 Assignment:
 ${input.extraction.fullText}
+
+${input.discoveryEvidenceSummary ? `Factual Discovery construct summary (derived from canonical observations; use its observation IDs when citing evidence):\n${JSON.stringify(input.discoveryEvidenceSummary, null, 2)}\n` : ""}
 
 Available reusable instruments and generated candidates, expressed as factual candidate cards (capabilities, outcomes, runtime status, uncertainty, hashes, and estimated decision costs):
 ${JSON.stringify(mathPlannerCandidateCards(input.chart), null, 2)}
@@ -2927,7 +2970,12 @@ export function buildDirectLearningCycleInput(input: {
       artwork: { status: "ready", localPath: artifact.artworkUrl, prompt: activity.visualMock.artworkPrompt },
       sfxContract: ["interaction", "recovery", "progress", "completion"],
       companionContract: { events: ["completion", "frustration", "replay"] },
-      evidenceContract: { academic: true, engagement: true, companionObservations: true },
+      evidenceContract: {
+        academic: true,
+        engagement: true,
+        companionObservations: true,
+        itemRoles: Object.fromEntries(activity.items.map((item) => [item.id, item.lineage.measurementRole])),
+      },
       evidenceIds: [],
     };
   });

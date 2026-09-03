@@ -26,6 +26,7 @@ export type PostActivityEngagementOverlayProps = {
   stats?: PostActivityStat[];
   canReplay?: boolean;
   canTryHarder?: boolean;
+  showBackAction?: boolean;
   children?: ReactNode;
   onAction: (action: PostActivityAction) => void;
   onFunRating?: (rating: 1 | 2 | 3 | 4 | 5 | null) => void;
@@ -50,6 +51,7 @@ export function PostActivityEngagementOverlay({
   stats,
   canReplay = true,
   canTryHarder = false,
+  showBackAction = true,
   children,
   onAction,
   onFunRating,
@@ -190,14 +192,16 @@ export function PostActivityEngagementOverlay({
               Try harder
             </button>
           ) : null}
-          <button
-            type="button"
-            className="border border-white/25 bg-white/10 px-5 py-3 text-lg font-black text-white"
-            style={{ borderRadius: 8 }}
-            onClick={() => onAction("back_to_map")}
-          >
-            Back to map
-          </button>
+          {showBackAction ? (
+            <button
+              type="button"
+              className="border border-white/25 bg-white/10 px-5 py-3 text-lg font-black text-white"
+              style={{ borderRadius: 8 }}
+              onClick={() => onAction("back_to_map")}
+            >
+              Back to map
+            </button>
+          ) : null}
         </div>
       </div>
     </div>

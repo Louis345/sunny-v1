@@ -153,6 +153,12 @@ export function shouldDeferToAdaptiveWorker(lifecycle: string | undefined): bool
   return lifecycle !== undefined && !shouldPublishDiscoveryFirst(lifecycle);
 }
 
+export function assertFreshResetAllowed(freshRequested: boolean, lifecycle: string | undefined, homeworkId: string): void {
+  if (freshRequested && lifecycle) {
+    throw new Error(`fresh_reset_blocked_for_active_learning_cycle:${homeworkId}:${lifecycle}`);
+  }
+}
+
 export async function withIngestionHeartbeat<T>(
   label: string,
   run: () => Promise<T>,
@@ -183,6 +189,8 @@ async function main(): Promise<void> {
   const homeworkId = `hw-math-${crypto.createHash("sha256").update(sourceHash).digest("hex").slice(0, 8)}`;
   const draftDir = path.join(process.cwd(), "src", "context", childId, "homework", "direct-drafts", homeworkId);
   const freshRequested = flag("fresh");
+  const existingLifecycleBeforeReset = getMathDiscoveryLifecycle(childId, homeworkId);
+  assertFreshResetAllowed(freshRequested, existingLifecycleBeforeReset, homeworkId);
   if (freshRequested) fs.rmSync(draftDir, { recursive: true, force: true });
   const extractionCacheFile = path.join(draftDir, "assignment-extraction.json");
   const loadedExtraction = await loadOrExtractAssignmentSource(pdf, extractionCacheFile);

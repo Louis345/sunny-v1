@@ -296,6 +296,7 @@ export type ActivityEvidence = {
   evidenceTier?: "practice" | "clean_recall" | "mastery_candidate" | "calibration_required";
   occurredAt?: string;
   contentId?: string;
+  evidenceIds?: string[];
 };
 
 export type GradedHomeworkCalibrationInput = {
@@ -1083,7 +1084,9 @@ export function updateContentCatalogFromActivityEvidence(
     };
     let reuseStatus: AIContentCatalogItem["reuseStatus"] = item.reuseStatus;
     let reuseReason = item.reuseReason;
-    if (!item.algorithmTargets.length || performanceSummary.completionRate < 0.4 || performanceSummary.frustrationScore >= 0.75) {
+    if (evidence.domain === "math") {
+      reuseReason = `${item.reuseReason ?? "Candidate"} Math performance facts updated; reuse status awaits an evidence-cited Planner decision.`;
+    } else if (!item.algorithmTargets.length || performanceSummary.completionRate < 0.4 || performanceSummary.frustrationScore >= 0.75) {
       reuseStatus = "retire";
       reuseReason = !item.algorithmTargets.length
         ? "Retired because content has no learning algorithm target."
@@ -1111,12 +1114,74 @@ export function updateContentCatalogFromActivityEvidence(
         completionRate: performanceSummary.completionRate,
       });
     }
-    return { ...item, performanceSummary, reuseStatus, reuseReason };
+    return {
+      ...item,
+      performanceSummary,
+      reuseStatus,
+      reuseReason,
+      inputEvidence: {
+        ...item.inputEvidence,
+        activityEvidenceIds: [...new Set([...(item.inputEvidence.activityEvidenceIds ?? []), ...(evidence.evidenceIds ?? [])])],
+      },
+      ...(item.designMemory ? {
+        designMemory: {
+          ...item.designMemory,
+          childEvidenceIds: [...new Set([...item.designMemory.childEvidenceIds, ...(evidence.evidenceIds ?? [])])],
+        },
+      } : {}),
+    };
   });
   const nextProfile = { ...profile, aiContentCatalog: nextCatalog, lastUpdated: isoNow(opts) };
   writeJson(profilePath(rootDir, childId), nextProfile);
   // The catalog's durable home is the waterfall file; without this the next
   // ingest's shell-gap detection never sees retire/revise transitions.
+  writeWaterfallContentCatalog(childId, nextProfile, opts);
+  return nextProfile;
+}
+
+export type EvidenceBasedContentDecision = {
+  contentId: string;
+  action: "candidate" | "reuse" | "revise" | "retire";
+  reason: string;
+  evidenceIds: string[];
+};
+
+export function applyEvidenceBasedMathContentDecisions(
+  childId: string,
+  decisions: EvidenceBasedContentDecision[],
+  allowedEvidenceIds: ReadonlySet<string>,
+  opts: RootOptions = {},
+): LearningProfile {
+  const rootDir = opts.rootDir ?? process.cwd();
+  const profile = readProfile(rootDir, childId);
+  const catalogIds = new Set((profile.aiContentCatalog ?? []).map((item) => item.contentId));
+  for (const decision of decisions) {
+    if (!catalogIds.has(decision.contentId)) throw new Error(`math_catalog_decision_unknown_content:${decision.contentId}`);
+    if (!decision.reason.trim()) throw new Error(`math_catalog_decision_reason_missing:${decision.contentId}`);
+    if (decision.evidenceIds.length === 0 || decision.evidenceIds.some((id) => !allowedEvidenceIds.has(id))) {
+      throw new Error(`math_catalog_decision_invalid_evidence:${decision.contentId}`);
+    }
+  }
+  const byId = new Map(decisions.map((decision) => [decision.contentId, decision]));
+  const nextProfile: LearningProfile = {
+    ...profile,
+    aiContentCatalog: (profile.aiContentCatalog ?? []).map((item) => {
+      const decision = byId.get(item.contentId);
+      if (!decision) return item;
+      console.log(`  🎮 [content-catalog] [planner-decision] ${item.contentId}: ${item.reuseStatus} → ${decision.action}`);
+      return {
+        ...item,
+        reuseStatus: decision.action,
+        reuseReason: decision.reason,
+        inputEvidence: {
+          ...item.inputEvidence,
+          activityEvidenceIds: [...new Set([...(item.inputEvidence.activityEvidenceIds ?? []), ...decision.evidenceIds])],
+        },
+      };
+    }),
+    lastUpdated: isoNow(opts),
+  };
+  writeJson(profilePath(rootDir, childId), nextProfile);
   writeWaterfallContentCatalog(childId, nextProfile, opts);
   return nextProfile;
 }

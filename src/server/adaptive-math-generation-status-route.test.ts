@@ -1,4 +1,6 @@
 import express from "express";
+import fs from "node:fs";
+import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const { getMathGenerationStatus } = vi.hoisted(() => ({
@@ -64,5 +66,11 @@ describe("adaptive math generation status route", () => {
     getMathGenerationStatus.mockReturnValue(null);
     const response = await fetch(`${baseUrl}/api/learning/lab-child/assignments/missing/generation-status`);
     expect(response.status).toBe(404);
+  });
+
+  it("keeps detached worker output in the assignment checkpoint instead of discarding it", () => {
+    const source = fs.readFileSync(path.join(__dirname, "routes.ts"), "utf8");
+    expect(source).toContain("adaptive-generation-worker.log");
+    expect(source).not.toContain('detached: true, stdio: "ignore"');
   });
 });

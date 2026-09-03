@@ -577,6 +577,30 @@ describe("LearningDecisionContext", () => {
     expect(context.contentCatalog.retired.map((item) => item.contentId)).toContain("frustrating-story");
   });
 
+  it("records math performance without changing reuse status from fixed thresholds", () => {
+    const root = makeRoot();
+    roots.push(root);
+    const childId = "reina";
+    writeJson(root, `src/context/${childId}/learning_profile.json`, baseProfile(childId));
+    catalogContentItem(childId, catalogItem({ contentId: "math-game", domain: "math" }), { rootDir: root });
+
+    const profile = updateContentCatalogFromActivityEvidence(childId, {
+      activityId: "math-game",
+      domain: "math",
+      contentId: "math-game",
+      completed: false,
+      accuracy: 0.1,
+      engagementScore: 0.1,
+      frustrationScore: 0.95,
+      evidenceIds: ["observation:math-game:1"],
+    }, { rootDir: root });
+
+    expect(profile.aiContentCatalog?.[0]).toMatchObject({
+      reuseStatus: "candidate",
+      inputEvidence: { activityEvidenceIds: ["observation:math-game:1"] },
+    });
+  });
+
   it("lets graded calibration downgrade reused content when transfer evidence falsifies the theory", () => {
     const root = makeRoot();
     roots.push(root);

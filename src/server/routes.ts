@@ -74,12 +74,23 @@ import {
 
 export function launchAdaptiveMathWorker(childId: string, homeworkId: string): void {
   if (process.env.VITEST) return;
-  const worker = spawn("npx", ["tsx", "src/scripts/runAdaptiveMathGeneration.ts", `--child=${childId}`, `--homework=${homeworkId}`], {
-    cwd: process.cwd(), env: process.env, detached: true, stdio: "ignore",
-  });
-  worker.once("error", (error) => console.error(` 🎮 [adaptive-math] [worker-launch] [failed] child=${childId} homework=${homeworkId}`, error));
-  worker.unref();
-  console.log(` 🎮 [adaptive-math] [worker-launch] [started] child=${childId} homework=${homeworkId} pid=${worker.pid ?? "unknown"}`);
+  const logPath = path.join(resolveChildContextDir(childId), "homework", "direct-drafts", homeworkId, "adaptive-generation-worker.log");
+  fs.mkdirSync(path.dirname(logPath), { recursive: true });
+  const logDescriptor = fs.openSync(logPath, "a");
+  try {
+    const worker = spawn("npx", ["tsx", "src/scripts/runAdaptiveMathGeneration.ts", `--child=${childId}`, `--homework=${homeworkId}`], {
+      cwd: process.cwd(), env: process.env, detached: true, stdio: ["ignore", logDescriptor, logDescriptor],
+    });
+    worker.once("error", (error) => {
+      const message = error instanceof Error ? error.stack ?? error.message : String(error);
+      fs.appendFileSync(logPath, ` 🎮 [adaptive-math] [worker-launch] [failed] child=${childId} homework=${homeworkId} ${message}\n`, "utf8");
+      console.error(` 🎮 [adaptive-math] [worker-launch] [failed] child=${childId} homework=${homeworkId}`, error);
+    });
+    worker.unref();
+    console.log(` 🎮 [adaptive-math] [worker-launch] [started] child=${childId} homework=${homeworkId} pid=${worker.pid ?? "unknown"} log=${logPath}`);
+  } finally {
+    fs.closeSync(logDescriptor);
+  }
 }
 
 export function resumeAdaptiveMathWorkers(): void {
@@ -90,7 +101,7 @@ export function resumeAdaptiveMathWorkers(): void {
     for (const homeworkId of fs.readdirSync(drafts)) {
       try {
         const job = getMathGenerationStatus(childId, homeworkId);
-        if (job && job.phase !== "board_ready") launchAdaptiveMathWorker(childId, homeworkId);
+        if (job && job.phase !== "board_ready" && job.phase !== "needs_attention") launchAdaptiveMathWorker(childId, homeworkId);
       } catch (error) {
         console.error(` 🎮 [adaptive-math] [worker-resume] [skipped] child=${childId} homework=${homeworkId}`, error);
       }
@@ -725,16 +736,32 @@ export function setupRoutes(app: Express): void {
     const childId = String(req.params.childId ?? "").trim().toLowerCase();
     const homeworkId = String(req.params.homeworkId ?? "").trim();
     if (!isValidRegistryChildId(childId)) return res.status(404).json({ error: "child_not_found" });
-    const attempt = req.body as Partial<MathDiscoveryAttempt>;
-    if (!homeworkId || !attempt.attemptId || !attempt.itemId || !attempt.constructId || !attempt.result || !attempt.assistance || !attempt.exposure || !attempt.responseMode || !attempt.observedAt || !Array.isArray(attempt.possibleConfounds)) {
-      return res.status(400).json({ error: "complete Discovery attempt provenance is required" });
+    const body = req.body as Partial<MathDiscoveryAttempt>;
+    if (
+      !homeworkId
+      || typeof body.attemptId !== "string"
+      || typeof body.itemId !== "string"
+      || typeof body.attemptedValue !== "string"
+      || typeof body.observedAt !== "string"
+      || !Array.isArray(body.supportEventIds)
+      || !Array.isArray(body.instrumentSignals)
+    ) {
+      return res.status(400).json({ error: "factual Discovery attempt fields are required" });
     }
+    const attempt: MathDiscoveryAttempt = {
+      attemptId: body.attemptId,
+      itemId: body.itemId,
+      attemptedValue: body.attemptedValue,
+      supportEventIds: body.supportEventIds,
+      instrumentSignals: body.instrumentSignals,
+      observedAt: body.observedAt,
+    };
     if (!learningRouteShouldPersist()) {
       console.log(` 🎮 [adaptive-math] [discovery-attempt] [preview-skipped] child=${childId} homework=${homeworkId}`);
       return res.json({ ok: true, skippedPersistence: true });
     }
     try {
-      const cycle = recordDiscoveryAttempt({ childId, homeworkId, attempt: attempt as MathDiscoveryAttempt });
+      const cycle = recordDiscoveryAttempt({ childId, homeworkId, attempt });
       console.log(` 🎮 [adaptive-math] [discovery-attempt] [committed] child=${childId} homework=${homeworkId} attempt=${attempt.attemptId}`);
       return res.json({ ok: true, lifecycle: cycle.lifecycle, revision: cycle.revision });
     } catch (error: unknown) {

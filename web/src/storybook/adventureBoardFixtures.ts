@@ -8,7 +8,6 @@ import {
   type ActiveSessionPlanBoardNodeSnapshot,
   type ActiveSessionPlanBoardSnapshot,
 } from "../../../src/shared/adventureBoardFromPlan";
-import reinaActiveSessionPlanJson from "../../../src/context/reina/plans/active_session_plan.json";
 
 const theme = {
   background: {
@@ -1044,12 +1043,11 @@ export const reinaMay24PlannerAdventureBoard: AdventureBoardJson = {
 
 reinaMay24ActiveSessionPlanSnapshot.adventureBoard = reinaMay24PlannerAdventureBoard;
 
-const reinaActiveSessionPlanFromContext = (
-  reinaActiveSessionPlanJson as unknown as { current?: ActiveSessionPlanBoardSnapshot }
-).current;
-
 export const reinaCurrentHomeworkBoard = resolveAdventureBoardForActiveSessionPlan({
-  plan: reinaActiveSessionPlanFromContext ?? reinaMay24ActiveSessionPlanSnapshot,
+  // Storybook is a frozen visual fixture. It must never read a live child's
+  // active plan because runtime changes would make tests nondeterministic and
+  // could expose child data in build artifacts.
+  plan: reinaMay24ActiveSessionPlanSnapshot,
   boardId: "storybook-reina-current-homework-debug-fallback",
   title: "Reina Current Homework",
   theme: reinaMay24PlannerAdventureBoard.theme,

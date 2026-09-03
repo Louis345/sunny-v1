@@ -11,7 +11,7 @@ import {
 import { useSession } from "./hooks/useSession";
 import { useAdventureState } from "./hooks/useAdventureState";
 import { ChildPicker } from "./components/ChildPicker";
-import { hasCanonicalLearningCycle, postCanonicalNodeCompletion, postDiscoveryAttempt, postDiscoveryComplete } from "./utils/canonicalNodeCompletion";
+import { DiscoveryAcademicCompletionCoordinator, hasCanonicalLearningCycle, postCanonicalNodeCompletion, postDiscoveryAttempt, postDiscoveryComplete } from "./utils/canonicalNodeCompletion";
 import { SessionScreen } from "./components/SessionScreen";
 import { SessionEnd } from "./components/SessionEnd";
 import { SessionLoadingOverlay } from "./components/SessionLoadingOverlay";
@@ -60,6 +60,12 @@ import { DIAG_WORD_RADAR_ITEMS } from "./fixtures/wordRadarDiagItems";
 import { getCompanionCareFromProfile } from "./utils/companionCareProfile";
 import {
   buildPlannerBoardCompanionContext,
+  isDirectDiscoveryPacket,
+  resolveDiscoveryCompletionHandoff,
+  resolveDiscoveryEngagementDelivery,
+  runDiscoveryExitSequence,
+  resolveDirectDiscoverySurface,
+  resolveDirectDiscoveryLaunchNode,
   resolvePlannerBoardChoiceLaunchNode,
   resolvePlannerBoardLaunchNode,
 } from "./utils/adventureBoardLaunch";
@@ -244,6 +250,39 @@ function HomeworkBoardUnavailable(props: {
               {props.error}
             </p>
           ) : null}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DiscoveryCompletionHandoff(props: {
+  mode: "preview-complete" | "targeted-planning";
+  onFinish: () => void;
+}): ReactNode {
+  const preview = props.mode === "preview-complete";
+  return (
+    <div className="w-screen h-screen overflow-hidden relative bg-zinc-950 text-white">
+      <div className="absolute inset-0 flex items-center justify-center p-6">
+        <div className="max-w-lg rounded-3xl border border-white/15 bg-white/10 p-8 text-center shadow-2xl">
+          <p className="text-sm font-bold uppercase tracking-[0.22em] text-amber-200">
+            Discovery complete
+          </p>
+          <h1 className="mt-3 text-3xl font-black">
+            {preview ? "Preview finished" : "Sunny is preparing your learning path"}
+          </h1>
+          <p className="mt-4 text-base leading-7 text-white/75">
+            {preview
+              ? "This was a parent preview. No child learning or engagement evidence was saved."
+              : "Your answers and your experience were saved separately. You can finish for now while Sunny prepares what comes next."}
+          </p>
+          <button
+            type="button"
+            className="mt-7 rounded-full bg-amber-300 px-7 py-3 text-base font-black text-zinc-950"
+            onClick={props.onFinish}
+          >
+            Finish for now
+          </button>
         </div>
       </div>
     </div>
@@ -505,6 +544,7 @@ function choiceOutcomeFromOverlay(outcome: PostActivityOutcome): PostActivityCho
 
 function App() {
   const adventureGameIframeRef = useRef<HTMLIFrameElement | null>(null);
+  const discoveryCompletionCoordinatorRef = useRef(new DiscoveryAcademicCompletionCoordinator());
   const theaterLoadingEnabled = shouldUseSessionLoadingOverlay();
   const gateCompanionAudioUntilCurtainRef = useRef(false);
   const {
@@ -585,6 +625,9 @@ function App() {
   const [generatedMathSoundMuted, setGeneratedMathSoundMuted] = useState(false);
   const plannerBoardIframeCompletionKeyRef = useRef<string | null>(null);
   const [sessionReady, setSessionReady] = useState(false);
+  const [discoveryCompletionHandoff, setDiscoveryCompletionHandoff] = useState<
+    "preview-complete" | "targeted-planning" | null
+  >(null);
   const [selectedChildName, setSelectedChildName] = useState<string | null>(null);
   const [loadingSafetyReleased, setLoadingSafetyReleased] = useState(false);
   const autoStartedAdventureVoiceRef = useRef<string | null>(null);
@@ -678,6 +721,11 @@ function App() {
     plannerBoardPacketState.packet?.activeSessionPlan?.adventureBoard
       ? plannerBoardPacketState.packet
       : null;
+  const directDiscoveryMode = isDirectDiscoveryPacket(plannerBoardPacket);
+  const directDiscoveryLaunchNode = useMemo(
+    () => resolveDirectDiscoveryLaunchNode(plannerBoardPacket),
+    [plannerBoardPacket],
+  );
   const homeworkBoardUnavailable =
     plannerBoardRuntimeRequested &&
     !plannerBoardPacketState.loading &&
@@ -945,6 +993,8 @@ function App() {
   useEffect(() => {
     setPlannerBoardLaunch(null);
     setLocallyCompletedPlannerNodeIds([]);
+    setDiscoveryCompletionHandoff(null);
+    discoveryCompletionCoordinatorRef.current = new DiscoveryAcademicCompletionCoordinator();
   }, [adventureChildId, plannerBoardPacket?.activeSessionPlan?.planId]);
 
   const launchPlannerBoardNode = useCallback(
@@ -993,7 +1043,7 @@ function App() {
           nodeType: node.type,
           reason: action.reason,
         });
-        return;
+        return false;
       }
       const companionContext = buildPlannerBoardCompanionContext(node);
       sendMessage("game_event", {
@@ -1011,6 +1061,7 @@ function App() {
         iframeUrl: action.kind === "iframe" ? action.url : null,
         replayNonce: 0,
       });
+      return true;
     },
     [
       adventureChildId,
@@ -1023,6 +1074,31 @@ function App() {
       setCompanionPresence,
     ],
   );
+
+  const directDiscoveryAutoLaunchRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!directDiscoveryMode || !sessionReady || !directDiscoveryLaunchNode) {
+      if (!directDiscoveryMode) directDiscoveryAutoLaunchRef.current = null;
+      return;
+    }
+    const key = `${plannerBoardPacket?.activeSessionPlan?.planId}:${directDiscoveryLaunchNode.id}`;
+    if (directDiscoveryAutoLaunchRef.current === key || plannerBoardLaunch) return;
+    console.log(" 🎮 [adaptive-math] [discovery-entry] [direct-launch]", {
+      childId: adventureChildId,
+      nodeId: directDiscoveryLaunchNode.id,
+    });
+    if (launchPlannerBoardNode(directDiscoveryLaunchNode)) {
+      directDiscoveryAutoLaunchRef.current = key;
+    }
+  }, [
+    adventureChildId,
+    directDiscoveryLaunchNode,
+    directDiscoveryMode,
+    launchPlannerBoardNode,
+    plannerBoardLaunch,
+    plannerBoardPacket?.activeSessionPlan?.planId,
+    sessionReady,
+  ]);
 
   useEffect(() => {
     if (!plannerBoardLaunch?.iframeUrl) return;
@@ -1197,10 +1273,71 @@ function App() {
     [adventureChildId, mapPreviewMode, plannerBoardPacket],
   );
 
+  const startDiscoveryAcademicCompletion = useCallback((): Promise<Record<string, unknown>> => {
+    const homeworkId = plannerBoardPacket?.childChart.learningCycle?.homeworkId;
+    if (!adventureChildId || !homeworkId) {
+      console.error(" 🎮 [adaptive-math] [discovery-complete] [failed] missing provenance");
+      return Promise.reject(new Error("discovery_completion_missing_provenance"));
+    }
+    const completionPromise = discoveryCompletionCoordinatorRef.current.complete(
+      () => postDiscoveryComplete({
+        childId: adventureChildId,
+        homeworkId,
+      }),
+    );
+    void completionPromise.catch((error: unknown) => {
+      console.error(" 🎮 [adaptive-math] [discovery-complete] [failed]", error);
+    });
+    return completionPromise;
+  }, [adventureChildId, plannerBoardPacket?.childChart.learningCycle?.homeworkId]);
+
   const handlePlannerBoardFunRating = useCallback(
     (rating: 1 | 2 | 3 | 4 | 5 | null) => {
       const current = postActivityEngagement;
       if (!current) return;
+      if (directDiscoveryMode) {
+        const homeworkId = plannerBoardPacket?.childChart.learningCycle?.homeworkId;
+        if (!adventureChildId || !homeworkId) {
+          console.error(" 🎮 [adaptive-math] [discovery-exit] [failed] missing provenance");
+          return;
+        }
+        const event = buildAdventureBoardPostActivityChoiceEventInput(
+          plannerBoardPacket,
+          current.node,
+          "back_to_map",
+          {
+            ...choiceOutcomeFromOverlay(current.outcome),
+            ...(rating != null ? { funRating: rating } : {}),
+          },
+        );
+        void runDiscoveryExitSequence({
+          commitEngagement: () => postAdventureBoardChoiceEvent(event, { preview: mapPreviewMode })
+            .then((engagement) => {
+            const delivery = resolveDiscoveryEngagementDelivery(engagement);
+            console.log(` 🎮 [adaptive-math] [discovery-engagement] [${delivery}]`, {
+              childId: adventureChildId,
+              homeworkId,
+              rating,
+            });
+            return engagement;
+          }),
+          completeAcademic: startDiscoveryAcademicCompletion,
+        })
+          .then(async (completion) => {
+            const handoff = resolveDiscoveryCompletionHandoff(completion);
+            setDiscoveryCompletionHandoff(handoff);
+            console.log(` 🎮 [adaptive-math] [discovery-complete] [${handoff}]`, {
+              childId: adventureChildId,
+              homeworkId,
+            });
+            await refreshPlannerBoardPacket();
+            closePlannerBoardLaunch();
+          })
+          .catch((error: unknown) => {
+            console.error(" 🎮 [adaptive-math] [discovery-exit] [failed]", error);
+          });
+        return;
+      }
       recordPlannerBoardPostActivityAction(
         "back_to_map",
         current.node,
@@ -1209,7 +1346,16 @@ function App() {
       );
       closePlannerBoardLaunch();
     },
-    [closePlannerBoardLaunch, postActivityEngagement, recordPlannerBoardPostActivityAction],
+    [
+      adventureChildId,
+      closePlannerBoardLaunch,
+      directDiscoveryMode,
+      plannerBoardPacket,
+      postActivityEngagement,
+      recordPlannerBoardPostActivityAction,
+      refreshPlannerBoardPacket,
+      startDiscoveryAcademicCompletion,
+    ],
   );
 
   const showPlannerBoardEngagementOverlay = useCallback(
@@ -1306,8 +1452,11 @@ function App() {
       });
     }
     closePlannerBoardLaunch();
+    if (directDiscoveryMode) endSession();
   }, [
     closePlannerBoardLaunch,
+    directDiscoveryMode,
+    endSession,
     plannerBoardLaunch,
     postActivityEngagement,
     recordPlannerBoardPostActivityAction,
@@ -1348,22 +1497,35 @@ function App() {
         const attempt = data.payload && typeof data.payload === "object" && !Array.isArray(data.payload)
           ? data.payload as Record<string, unknown>
           : data as Record<string, unknown>;
-        if (!adventureChildId || !homeworkId) return;
-        void postDiscoveryAttempt({ childId: adventureChildId, homeworkId, attempt }).catch((error: unknown) => {
+        if (!adventureChildId || !homeworkId) {
+          console.error(
+            " 🎮 [adaptive-math] [discovery-attempt] [failed] discovery_attempt_missing_provenance",
+          );
+          return;
+        }
+        const attemptWrite = discoveryCompletionCoordinatorRef.current.recordAttempt(
+          () => postDiscoveryAttempt({ childId: adventureChildId, homeworkId, attempt }),
+        );
+        void attemptWrite.catch((error: unknown) => {
           console.error(" 🎮 [AdventureBoard] discovery_attempt_failed", error);
         });
         return;
       }
       if (data.type === "evaluation_complete") {
+        if (!adventureChildId || !homeworkId) {
+          console.error(
+            " 🎮 [adaptive-math] [discovery-complete] [failed] discovery_completion_missing_provenance",
+          );
+          return;
+        }
         const key = `discovery:${launch.node.id}:${launch.replayNonce}`;
         if (plannerBoardIframeCompletionKeyRef.current === key) return;
         plannerBoardIframeCompletionKeyRef.current = key;
-        if (!adventureChildId || !homeworkId) return;
-        void postDiscoveryComplete({ childId: adventureChildId, homeworkId }).then(async () => {
-          console.log(" 🎮 [AdventureBoard] discovery_complete_targeted_generation_queued", { childId: adventureChildId, homeworkId });
-          await refreshPlannerBoardPacket();
-          closePlannerBoardLaunch();
-        }).catch((error: unknown) => console.error(" 🎮 [AdventureBoard] discovery_complete_failed", error));
+        console.log(" 🎮 [adaptive-math] [discovery-complete] [academic-commit-started]", {
+          childId: adventureChildId,
+          homeworkId,
+        });
+        showPlannerBoardEngagementOverlay(launch.node, { completed: true });
         return;
       }
       if (data.type !== "node_complete" && data.type !== "game_complete") return;
@@ -1632,7 +1794,33 @@ function App() {
 
   if (homeworkBoardMode) {
     if (plannerBoardPacket) {
-      main = (
+      main = directDiscoveryMode ? (
+        discoveryCompletionHandoff ? (
+          <DiscoveryCompletionHandoff
+            mode={discoveryCompletionHandoff}
+            onFinish={endSession}
+          />
+        ) : resolveDirectDiscoverySurface(
+            sessionReady,
+            directDiscoveryLaunchNode != null,
+          ) === "loading-curtain" ? (
+          adventureLoadingMain
+        ) : resolveDirectDiscoverySurface(
+            sessionReady,
+            directDiscoveryLaunchNode != null,
+          ) === "unavailable" ? (
+          <HomeworkBoardUnavailable
+            childName={
+              state.childName ??
+              selectedChildName ??
+              childNameFromId(adventureChildId)
+            }
+            error="discovery_launch_artifact_unavailable"
+          />
+        ) : (
+          <div className="w-screen h-screen overflow-hidden relative bg-zinc-950" />
+        )
+      ) : (
         <div className="w-screen h-screen overflow-hidden relative bg-zinc-950">
           <AdventureBoardExperience
             packet={plannerBoardPacket}
@@ -2083,7 +2271,10 @@ function App() {
         </FlowGameOverlay>
       ) : null}
       {plannerBoardLaunch?.iframeUrl ? (
-        <FlowGameOverlay onBack={handlePlannerBoardOverlayBack} backLabel="Back to map">
+        <FlowGameOverlay
+          onBack={handlePlannerBoardOverlayBack}
+          backLabel={directDiscoveryMode ? "Leave Discovery" : "Back to map"}
+        >
           <div
             data-testid="generated-activity-safe-area"
             style={{
@@ -2115,7 +2306,8 @@ function App() {
               title={postActivityEngagement.title}
               outcome={postActivityEngagement.outcome}
               stats={postActivityEngagement.stats}
-              canReplay
+              canReplay={!directDiscoveryMode}
+              showBackAction={!directDiscoveryMode}
               canTryHarder={postActivityEngagement.canTryHarder}
               onAction={handlePlannerBoardPostActivityAction}
               onFunRating={handlePlannerBoardFunRating}

@@ -49,14 +49,26 @@ describe("adaptive math discovery routes", () => {
   it("commits factual attempts and finalizes evidence before targeted planning", async () => {
     const attempt = await fetch(`${baseUrl}/api/learning/lab-child/assignments/hw-1/discovery/attempt`, {
       method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({
-        attemptId: "a1", itemId: "i1", constructId: "groups", result: "incorrect",
-        assistance: "unassisted", exposure: "unseen", responseMode: "tap", possibleConfounds: [], observedAt: "2026-08-22T12:00:00.000Z",
+        attemptId: "a1", itemId: "i1", attemptedValue: "4",
+        supportEventIds: [], instrumentSignals: [], observedAt: "2026-08-22T12:00:00.000Z",
+        constructId: "client-invented", result: "correct", assistance: "unassisted", responseMode: "typed_text",
       }),
     });
     const complete = await fetch(`${baseUrl}/api/learning/lab-child/assignments/hw-1/discovery/complete`, { method: "POST" });
 
     expect(attempt.status).toBe(200);
-    expect(recordDiscoveryAttempt).toHaveBeenCalledWith(expect.objectContaining({ childId: "lab-child", homeworkId: "hw-1", attempt: expect.objectContaining({ result: "incorrect" }) }));
+    expect(recordDiscoveryAttempt).toHaveBeenCalledWith(expect.objectContaining({
+      childId: "lab-child",
+      homeworkId: "hw-1",
+      attempt: {
+        attemptId: "a1",
+        itemId: "i1",
+        attemptedValue: "4",
+        supportEventIds: [],
+        instrumentSignals: [],
+        observedAt: "2026-08-22T12:00:00.000Z",
+      },
+    }));
     expect(complete.status).toBe(202);
     expect(await complete.json()).toMatchObject({ lifecycle: "evidence_ready", targetedGenerationQueued: true });
   });

@@ -12,8 +12,9 @@ import {
 } from "../engine/directMathExperience";
 import { getLearningCycle } from "../engine/learningCycleRepository";
 import {
+  acquireMathGenerationLease,
   buildTargetedNodesResumably, getMathGenerationStatus, hashDiscoveryContract,
-  publishTargetedBoardProjection, revealTargetedBoard, writeMathGenerationJob,
+  publishTargetedBoardProjection, releaseMathGenerationLease, revealTargetedBoard, writeMathGenerationJob,
   type TargetedMathNode,
 } from "../engine/adaptiveMathDiscovery";
 import type { AssignmentSourceExtraction } from "../engine/assignmentSourceExtraction";
@@ -53,10 +54,19 @@ export async function runAdaptiveMathGeneration(childId: string, homeworkId: str
   const buildFile = path.join(draft, "candidate-build-v3.json");
   const cycle = getLearningCycle(childId, homeworkId, { rootDir });
   if (!cycle) throw new Error(`learning_cycle_missing:${homeworkId}`);
+  const initialJob = getMathGenerationStatus(childId, homeworkId, { rootDir });
+  if (initialJob?.phase === "board_ready" || initialJob?.phase === "needs_attention") {
+    console.log(` 🎮 [adaptive-math] [worker] [no-work] child=${childId} homework=${homeworkId} phase=${initialJob.phase}`);
+    return;
+  }
   const chart = getChildChart(childId, { rootDir });
+  const summaryFile = path.join(draft, "discovery-evidence-summary.json");
+  const discoveryEvidenceSummary = fs.existsSync(summaryFile)
+    ? read<{ summary: unknown }>(summaryFile).summary
+    : undefined;
   const program: MathLearningProgram = fs.existsSync(programFile)
     ? parseMathLearningProgram(read(programFile))
-    : await askDirectMathPlanner({ childId, chart, extraction, priorConceptIds: readPriorConceptIds(childId, { rootDir }), priorOutcomes: { discoveryCycle: cycle } });
+    : await askDirectMathPlanner({ childId, chart, extraction, priorConceptIds: readPriorConceptIds(childId, { rootDir }), priorOutcomes: { discoveryCycle: cycle }, discoveryEvidenceSummary });
   write(programFile, program);
   const designed = fs.existsSync(designFile) && fs.existsSync(planFile)
     ? { packet: read<MathDesignPacket>(designFile), plan: read<DirectLearningExperiencePlan>(planFile) }
@@ -93,4 +103,18 @@ export async function runAdaptiveMathGeneration(childId: string, homeworkId: str
   }
 }
 
-if (require.main === module) void runAdaptiveMathGeneration(arg("child"), arg("homework")).catch((error) => { console.error(` 🎮 [adaptive-math] [worker] [paused] ${error instanceof Error ? error.message : String(error)}`); process.exitCode = 1; });
+if (require.main === module) {
+  const childId = arg("child");
+  const homeworkId = arg("homework");
+  const lease = acquireMathGenerationLease({ childId, homeworkId });
+  if (!lease.acquired || !lease.token) {
+    console.log(` 🎮 [adaptive-math] [worker] [duplicate-skipped] child=${childId} homework=${homeworkId}`);
+  } else {
+    void runAdaptiveMathGeneration(childId, homeworkId)
+      .catch((error) => {
+        console.error(` 🎮 [adaptive-math] [worker] [paused] ${error instanceof Error ? error.message : String(error)}`);
+        process.exitCode = 1;
+      })
+      .finally(() => releaseMathGenerationLease({ childId, homeworkId, token: lease.token! }));
+  }
+}

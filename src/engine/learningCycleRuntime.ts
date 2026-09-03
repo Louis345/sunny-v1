@@ -1,6 +1,11 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { getChildChart } from "../profiles/childChart";
 import { engagementTheoryEvidenceContext } from "./engagementTheory";
+import { evaluateAcademicPredictions } from "./longitudinalLearning";
+import {
+  applyEvidenceBasedMathContentDecisions,
+  type EvidenceBasedContentDecision,
+} from "./learningDecisionContext";
 import {
   getLearningCycle,
   transitionLearningCycle,
@@ -36,6 +41,8 @@ export type CanonicalProgressionDecision = {
   change: string[];
   testNext: string[];
   nextEvidenceRequired: string[];
+  predictionEvaluationIds?: string[];
+  contentDecisions?: EvidenceBasedContentDecision[];
   revisedHypothesis?: string;
   nextInstrument?: NextInstrumentPrescription;
 };
@@ -109,6 +116,17 @@ function observationsForCompletion(input: {
   observedAt: string;
 }): LearningObservation[] {
   const node = input.cycle.nodes.find((candidate) => candidate.nodeId === input.nodeId)!;
+  const itemRoles = node.evidenceContract.itemRoles;
+  if (itemRoles && !input.result.targetResults?.length) {
+    throw new Error(`learning_cycle_instrument_target_results_missing:${node.nodeId}`);
+  }
+  if (itemRoles) {
+    for (const row of input.result.targetResults ?? []) {
+      if (!Object.hasOwn(itemRoles, row.target)) {
+        throw new Error(`learning_cycle_instrument_unknown_item:${row.target}`);
+      }
+    }
+  }
   const prediction = input.cycle.academicPredictions.find((candidate) => candidate.predictionId === node.predictionId);
   const constructId = prediction?.constructId ?? `${input.cycle.domain}.${slug(node.academicTarget.skill)}`;
   const rows = input.result.targetResults?.length
@@ -117,9 +135,16 @@ function observationsForCompletion(input: {
   const companionHelp = (input.result.companionInteractions?.length ?? 0) > 0;
   const previouslyExposedItemIds = new Set(input.cycle.observations.map((observation) => observation.itemId));
   return rows.map((row, index) => {
+    const measurementRole = itemRoles?.[row.target] ?? "practice";
     const scaffolded = Number(row.scaffoldLevel ?? 0) > 0 || companionHelp;
-    const repeatedAssessmentItem = node.role !== "baseline" && previouslyExposedItemIds.has(row.target);
+    const repeatedAssessmentItem = previouslyExposedItemIds.has(row.target);
     const responseNotCaptured = isUncapturedResponse(row.attemptedValue);
+    const eligibleFreshCheckpoint = (itemRoles
+      ? measurementRole === "fresh_checkpoint"
+      : node.role !== "baseline")
+      && !scaffolded
+      && !repeatedAssessmentItem
+      && !responseNotCaptured;
     return {
       observationId: `${input.sessionId}:${input.nodeId}:observation:${index + 1}`,
       sourceId: `activity:${input.sessionId}:${input.nodeId}`,
@@ -136,13 +161,14 @@ function observationsForCompletion(input: {
           ...(companionHelp ? ["companion_help"] : []),
         ],
       },
-      exposure: node.role === "baseline" || repeatedAssessmentItem ? "previously_practiced" : "unseen",
-      provenance: node.role === "baseline" || repeatedAssessmentItem ? "practice" : "independent_probe",
+      exposure: eligibleFreshCheckpoint ? "unseen" : "previously_practiced",
+      provenance: eligibleFreshCheckpoint ? "independent_probe" : "practice",
       observedAt: input.observedAt,
       confounds: [
         ...(scaffolded ? ["assistance_present"] : []),
         ...(repeatedAssessmentItem ? ["item_previously_exposed"] : []),
         ...(responseNotCaptured ? ["response_not_captured"] : []),
+        `measurement_role:${measurementRole}`,
       ],
     };
   });
@@ -268,6 +294,18 @@ export function parseCanonicalProgressionDecision(value: unknown): CanonicalProg
     mechanicSpec: row.nextMechanicSpec,
     mathematicalHook: row.nextMathematicalHook,
   });
+  const contentDecisions = (Array.isArray(row.contentDecisions) ? row.contentDecisions : []).map((value) => {
+    if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("canonical_progression_content_decision_invalid");
+    const decision = value as Record<string, unknown>;
+    const action = String(decision.action ?? "");
+    if (!new Set(["candidate", "reuse", "revise", "retire"]).has(action)) throw new Error("canonical_progression_content_decision_invalid");
+    return {
+      contentId: String(decision.contentId ?? "").trim(),
+      action: action as EvidenceBasedContentDecision["action"],
+      reason: String(decision.reason ?? "").trim(),
+      evidenceIds: strings(decision.evidenceIds),
+    };
+  });
   if (["generate_support", "generate_quest", "generate_boss"].includes(String(row.progressionAction)) && !nextInstrument) {
     console.log(` 🎮 [canonical-progression] [planner-prescription-invalid] action=${String(row.progressionAction)} value=${JSON.stringify({
       nextInstrument: row.nextInstrument ?? null,
@@ -289,6 +327,8 @@ export function parseCanonicalProgressionDecision(value: unknown): CanonicalProg
     change: strings(row.change),
     testNext: strings(row.testNext),
     nextEvidenceRequired: strings(row.nextEvidenceRequired),
+    predictionEvaluationIds: strings(row.predictionEvaluationIds),
+    ...(contentDecisions.length > 0 ? { contentDecisions } : {}),
     ...(typeof row.revisedHypothesis === "string" && row.revisedHypothesis.trim() ? { revisedHypothesis: row.revisedHypothesis.trim() } : {}),
     ...(nextInstrument ? { nextInstrument } : {}),
   };
@@ -347,7 +387,7 @@ ${JSON.stringify(baselineEligibility, null, 2)}
 Allowed progression actions for this lifecycle: ${allowedProgressionActions.join(", ")}
 
 Cycle:
-${JSON.stringify({ lifecycle: cycle.lifecycle, assignment: cycle.assignment, theory: cycle.academicTheory, predictions: cycle.academicPredictions, evidence: factualEvidence, observations: factualObservations, nodes: cycle.nodes.map((node) => ({ nodeId: node.nodeId, role: node.role, title: node.title, state: node.state, routeId: node.routeId, evidenceIds: node.evidenceIds.filter((id) => !isSynthetic(id)) })) }, null, 2)}` }],
+${JSON.stringify({ lifecycle: cycle.lifecycle, assignment: cycle.assignment, theory: cycle.academicTheory, predictions: cycle.academicPredictions, predictionEvaluations: cycle.predictionEvaluations, evidence: factualEvidence, observations: factualObservations, nodes: cycle.nodes.map((node) => ({ nodeId: node.nodeId, role: node.role, title: node.title, state: node.state, routeId: node.routeId, evidenceIds: node.evidenceIds.filter((id) => !isSynthetic(id)) })) }, null, 2)}` }],
     tools: [{
       name: toolName,
       description: "Return one evidence-grounded progression decision.",
@@ -368,6 +408,21 @@ ${JSON.stringify({ lifecycle: cycle.lifecycle, assignment: cycle.assignment, the
           change: { type: "array", items: { type: "string" } },
           testNext: { type: "array", items: { type: "string" } },
           nextEvidenceRequired: { type: "array", items: { type: "string" } },
+          predictionEvaluationIds: { type: "array", items: { type: "string" } },
+          contentDecisions: {
+            type: "array",
+            items: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                contentId: { type: "string" },
+                action: { type: "string", enum: ["candidate", "reuse", "revise", "retire"] },
+                reason: { type: "string" },
+                evidenceIds: { type: "array", items: { type: "string" } },
+              },
+              required: ["contentId", "action", "reason", "evidenceIds"],
+            },
+          },
           revisedHypothesis: { type: "string" },
           nextNodeId: { type: "string", minLength: 1 },
           nextTitle: { type: "string", minLength: 1 },
@@ -410,6 +465,7 @@ ${JSON.stringify({ lifecycle: cycle.lifecycle, assignment: cycle.assignment, the
           "change",
           "testNext",
           "nextEvidenceRequired",
+          "predictionEvaluationIds",
           "nextNodeId",
           "nextTitle",
           "nextAcademicTarget",
@@ -442,11 +498,23 @@ export async function advanceCanonicalCycleFromEvidence(
   },
   opts: LearningCycleRepositoryOptions = {},
 ): Promise<LearningCycleRecordV2> {
-  const cycle = getLearningCycle(input.childId, input.homeworkId, opts);
+  let cycle = getLearningCycle(input.childId, input.homeworkId, opts);
   if (!cycle) throw new Error(`learning_cycle_missing:${input.homeworkId}`);
   if (!["baseline_evaluating", "quest_evaluating", "boss_evaluating"].includes(cycle.lifecycle)) return cycle;
+  const calculated = evaluateAcademicPredictions(cycle.academicPredictions, cycle.observations, (opts.now ?? new Date()).toISOString());
+  const missing = calculated.filter((evaluation) => !cycle!.predictionEvaluations.some((saved) => saved.evaluationId === evaluation.evaluationId));
+  if (missing.length > 0) {
+    cycle = transitionLearningCycle(cycle.childId, cycle.homeworkId, cycle.revision, {
+      type: "prediction_evaluations_recorded",
+      evaluations: missing,
+    }, opts);
+  }
   const plannerDecision = input.decide ? await input.decide(cycle) : await askPlanner(cycle, input.client, input.model, opts);
   const decision = resolveCanonicalProgressionDecisionForLifecycle(cycle.lifecycle, plannerDecision);
+  const allowedEvaluationIds = new Set(cycle.predictionEvaluations.map((evaluation) => evaluation.evaluationId));
+  const citedEvaluationIds = decision.predictionEvaluationIds ?? [];
+  if (citedEvaluationIds.some((id) => !allowedEvaluationIds.has(id))) throw new Error("canonical_progression_unknown_prediction_evaluation");
+  if (allowedEvaluationIds.size > 0 && citedEvaluationIds.length === 0) throw new Error("canonical_progression_prediction_evaluation_citation_required");
   if (cycle.lifecycle === "baseline_evaluating"
     && decision.progressionAction === "generate_quest"
     && !baselineQuestEvidenceEligibility(cycle).eligible) {
@@ -473,13 +541,21 @@ export async function advanceCanonicalCycleFromEvidence(
     ...cycle.evidence.academic.map((item) => item.evidenceId),
     ...cycle.evidence.engagement.map((item) => item.evidenceId),
   ].filter((id) => !/(^|[:_-])(synthetic|playwright|browser-acceptance|readiness)([:_-]|$)/i.test(id)))];
+  const decisionEvidenceIds = new Set([
+    ...evidenceIds,
+    ...cycle.observations.map((observation) => observation.observationId),
+    ...cycle.predictionEvaluations.map((evaluation) => evaluation.evaluationId),
+  ]);
+  if (decision.contentDecisions?.length) {
+    applyEvidenceBasedMathContentDecisions(cycle.childId, decision.contentDecisions, decisionEvidenceIds, opts);
+  }
   return transitionLearningCycle(cycle.childId, cycle.homeworkId, cycle.revision, {
     type: "theory_decided",
     decision: {
       ...decision,
       nextAction: decision.progressionAction,
       evidenceIds,
-      predictionEvaluationIds: [],
+      predictionEvaluationIds: citedEvaluationIds,
     },
   }, opts);
 }

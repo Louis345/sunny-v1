@@ -31,7 +31,7 @@ function activity(id: string): MathPlannedActivity {
     items: [{
       id: `${id}-item`,
       prompt: "Build 3 equal groups of 4.",
-      lineage: { sourceEvidenceIds: ["assignment:test"], exposure: "unseen" },
+      lineage: { sourceEvidenceIds: ["assignment:test"], exposure: "unseen", measurementRole: "fresh_checkpoint" },
       response: {
         mode: "construction",
         expectedState: { groups: 3, perGroup: 4 },

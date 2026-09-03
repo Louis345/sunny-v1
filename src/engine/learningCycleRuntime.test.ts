@@ -53,6 +53,121 @@ function input(): CreateLearningCycleInput {
 }
 
 describe("canonical learning cycle runtime", () => {
+  it("accepts only frozen fresh checkpoints as independent baseline evidence", () => {
+    const rootDir = root();
+    const instrument = {
+      ...node("facts", "baseline"),
+      evidenceContract: {
+        academic: true,
+        engagement: true,
+        companionObservations: true,
+        itemRoles: {
+          "teach-1": "instruction",
+          "practice-1": "practice",
+          "checkpoint-1": "fresh_checkpoint",
+        },
+      },
+    };
+    createLearningCycle({ ...input(), nodes: [instrument] as never }, { rootDir });
+
+    const cycle = recordCanonicalNodeCompletion({
+      childId: "reina",
+      homeworkId: "hw-runtime",
+      sessionId: "checkpoint-session",
+      nodeId: "facts",
+      result: {
+        completed: true,
+        accuracy: 1,
+        timeSpent_ms: 1000,
+        targetResults: [
+          { target: "practice-1", correct: true },
+          { target: "checkpoint-1", correct: true },
+        ],
+      },
+    }, { rootDir });
+
+    expect(cycle?.observations).toEqual(expect.arrayContaining([
+      expect.objectContaining({ itemId: "practice-1", provenance: "practice", exposure: "previously_practiced" }),
+      expect.objectContaining({ itemId: "checkpoint-1", provenance: "independent_probe", exposure: "unseen" }),
+    ]));
+  });
+
+  it("rejects target results that are not in the frozen item contract", () => {
+    const rootDir = root();
+    createLearningCycle({
+      ...input(),
+      nodes: [{
+        ...node("facts", "baseline"),
+        evidenceContract: {
+          academic: true,
+          engagement: true,
+          companionObservations: true,
+          itemRoles: { "checkpoint-1": "fresh_checkpoint" },
+        },
+      }] as never,
+    }, { rootDir });
+
+    expect(() => recordCanonicalNodeCompletion({
+      childId: "reina",
+      homeworkId: "hw-runtime",
+      sessionId: "unknown-item-session",
+      nodeId: "facts",
+      result: { completed: true, accuracy: 1, timeSpent_ms: 1000, targetResults: [{ target: "invented-item", correct: true }] },
+    }, { rootDir })).toThrow("learning_cycle_instrument_unknown_item:invented-item");
+  });
+
+  it("persists checkpoint prediction evaluations once and requires the Planner to cite them", async () => {
+    const rootDir = root();
+    createLearningCycle({
+      ...input(),
+      nodes: [{
+        ...node("facts", "baseline"),
+        predictionId: "prediction-1",
+        evidenceContract: {
+          academic: true,
+          engagement: true,
+          companionObservations: true,
+          itemRoles: { "checkpoint-1": "fresh_checkpoint" },
+        },
+      }] as never,
+      academicPredictions: [{
+        predictionId: "prediction-1",
+        theoryId: "theory-1",
+        constructId: "math.multiplication",
+        context: "fresh checkpoint",
+        horizon: "current session",
+        expectedMetric: { key: "independent_accuracy", min: 0.7, max: 1 },
+        predictedErrorPatterns: [],
+        confidence: 0.7,
+        evidenceIds: ["pdf:1"],
+        intervention: "facts",
+        evidenceLimit: "independent_performance",
+        createdAt: "2026-09-02T12:00:00.000Z",
+      }],
+    }, { rootDir });
+    recordCanonicalNodeCompletion({
+      childId: "reina", homeworkId: "hw-runtime", sessionId: "s1", nodeId: "facts",
+      result: { completed: true, accuracy: 1, timeSpent_ms: 1000, targetResults: [{ target: "checkpoint-1", correct: true }] },
+    }, { rootDir });
+
+    const decided = await advanceCanonicalCycleFromEvidence({
+      childId: "reina",
+      homeworkId: "hw-runtime",
+      decide: async (cycle) => ({
+        status: "supported",
+        reason: "The fresh checkpoint matched the prediction.",
+        progressionAction: "collect_more_evidence",
+        preserve: [], change: [], testNext: ["delayed transfer"], nextEvidenceRequired: ["delayed evidence"],
+        predictionEvaluationIds: [cycle.predictionEvaluations[0]!.evaluationId],
+      }),
+    }, { rootDir });
+
+    expect(decided.predictionEvaluations).toHaveLength(1);
+    expect(decided.decisionHistory.at(-1)?.predictionEvaluationIds).toEqual([decided.predictionEvaluations[0]!.evaluationId]);
+    await advanceCanonicalCycleFromEvidence({ childId: "reina", homeworkId: "hw-runtime", decide: async () => { throw new Error("should not rerun"); } }, { rootDir });
+    expect(getLearningCycle("reina", "hw-runtime", { rootDir })?.predictionEvaluations).toHaveLength(1);
+  });
+
   it("hydrates the existing shared-entry math cycle into an agency experiment", () => {
     const rootDir = root();
     const routedNode = (id: string, routeId: string) => ({

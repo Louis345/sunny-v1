@@ -4,6 +4,7 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 import {
+  assertFreshResetAllowed,
   classifyIngestionFailure,
   currentRunBuildTokens,
   formatIngestionSummary,
@@ -24,6 +25,13 @@ describe("direct math ingestion checkpoints", () => {
     expect(shouldDeferToAdaptiveWorker("evidence_ready")).toBe(true);
     expect(shouldDeferToAdaptiveWorker("board_generating")).toBe(true);
     expect(shouldDeferToAdaptiveWorker(undefined)).toBe(false);
+  });
+
+  it("blocks --fresh once a canonical learning cycle exists", () => {
+    expect(() => assertFreshResetAllowed(true, "evaluation_active", "hw-1"))
+      .toThrow("fresh_reset_blocked_for_active_learning_cycle:hw-1:evaluation_active");
+    expect(() => assertFreshResetAllowed(false, "evaluation_active", "hw-1")).not.toThrow();
+    expect(() => assertFreshResetAllowed(true, undefined, "hw-1")).not.toThrow();
   });
   it("archives a malformed Planner diagnostic instead of poisoning every resume", () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-planner-checkpoint-"));

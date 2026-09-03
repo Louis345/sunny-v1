@@ -211,7 +211,7 @@ function plan(activityCount = 3): any {
     items: [{
       id: "q1",
       prompt: "5 x 2 = ?",
-      lineage: { sourceEvidenceIds: ["assignment:q1"], exposure: "unseen" },
+      lineage: { sourceEvidenceIds: ["assignment:q1"], exposure: "unseen", measurementRole: "fresh_checkpoint" },
       response: { mode: "selection", options: [{ id: "ten", label: "10", correct: true }, { id: "fifteen", label: "15", correct: false }] },
     }],
     acceptanceSteps: ["launch", "answer incorrectly", "recover", "answer correctly", "complete"],
@@ -323,6 +323,18 @@ function learningProgram(activityCount = 3): any {
 }
 
 describe("assignment concept", () => {
+  it("keeps legacy saved learning programs readable by treating missing item roles as practice", () => {
+    const legacy = learningProgram();
+    for (const activity of legacy.activities) {
+      for (const item of activity.items) delete item.lineage.measurementRole;
+    }
+
+    const parsed = parseMathLearningProgram(legacy);
+
+    expect(parsed.activities.flatMap((activity) => activity.items)
+      .every((item) => item.lineage.measurementRole === "practice")).toBe(true);
+  });
+
   it("rejects a concept id that carries the assignment's numbers", () => {
     // Reina's cycle accumulated five ids like math.multiplication.fact_retrieval.x2x5x10
     // for three ideas, so nothing matched across cycles.
@@ -506,6 +518,7 @@ describe("direct math experience", () => {
         },
       },
     } as never);
+    expect(JSON.stringify(childContext)).not.toContain("learningStyle");
 
     const designed = await askMathExperienceDesigner({
       childId: "reina",
@@ -791,7 +804,7 @@ describe("direct math experience", () => {
       variable.activities[0]!.items = Array.from({ length: itemCount }, (_, index) => ({
         id: `item-${index + 1}`,
         prompt: `Solve item ${index + 1}`,
-        lineage: { sourceEvidenceIds: [`assignment:item-${index + 1}`], exposure: "unseen" },
+        lineage: { sourceEvidenceIds: [`assignment:item-${index + 1}`], exposure: "unseen", measurementRole: "fresh_checkpoint" },
         response: { mode: "numeric", expected: index + 1 },
       }));
       expect(parseDirectLearningExperiencePlan(variable).activities[0]?.items).toHaveLength(itemCount);
@@ -902,13 +915,32 @@ describe("direct math experience", () => {
   it("supports selection, numeric, construction, and explanation response contracts", () => {
     const variable = plan(2);
     variable.activities[0]!.items = [
-      { id: "selection", prompt: "Which picture shows three equal groups?", lineage: { sourceEvidenceIds: ["assignment:selection"], exposure: "unseen" }, response: { mode: "selection", options: [{ id: "a", label: "A", correct: true }, { id: "b", label: "B", correct: false }] } },
-      { id: "numeric", prompt: "How many objects altogether?", lineage: { sourceEvidenceIds: ["assignment:numeric"], exposure: "unseen" }, response: { mode: "numeric", expected: 20 } },
-      { id: "construction", prompt: "Build four equal groups of five.", lineage: { sourceEvidenceIds: ["assignment:construction"], exposure: "unseen" }, response: { mode: "construction", expectedState: { groups: 4, perGroup: 5 }, successDescription: "Four groups each contain five objects." } },
-      { id: "explanation", prompt: "Explain how the groups show multiplication.", lineage: { sourceEvidenceIds: ["assignment:explanation"], exposure: "unseen" }, response: { mode: "explanation", rubric: ["names equal groups", "connects groups to total"] } },
+      { id: "selection", prompt: "Which picture shows three equal groups?", lineage: { sourceEvidenceIds: ["assignment:selection"], exposure: "unseen", measurementRole: "fresh_checkpoint" }, response: { mode: "selection", options: [{ id: "a", label: "A", correct: true }, { id: "b", label: "B", correct: false }] } },
+      { id: "numeric", prompt: "How many objects altogether?", lineage: { sourceEvidenceIds: ["assignment:numeric"], exposure: "unseen", measurementRole: "practice" }, response: { mode: "numeric", expected: 20 } },
+      { id: "construction", prompt: "Build four equal groups of five.", lineage: { sourceEvidenceIds: ["assignment:construction"], exposure: "unseen", measurementRole: "practice" }, response: { mode: "construction", expectedState: { groups: 4, perGroup: 5 }, successDescription: "Four groups each contain five objects." } },
+      { id: "explanation", prompt: "Explain how the groups show multiplication.", lineage: { sourceEvidenceIds: ["assignment:explanation"], exposure: "unseen", measurementRole: "practice" }, response: { mode: "explanation", rubric: ["names equal groups", "connects groups to total"] } },
     ];
     expect(parseDirectLearningExperiencePlan(variable).activities[0]?.items.map((item) => item.response.mode))
       .toEqual(["selection", "numeric", "construction", "explanation"]);
+  });
+
+  it("keeps legacy saved direct plans readable but rejects partially migrated checkpoint roles", () => {
+    const legacy = plan(2);
+    for (const activity of legacy.activities) {
+      for (const item of activity.items) delete item.lineage.measurementRole;
+    }
+    expect(parseDirectLearningExperiencePlan(legacy).activities
+      .flatMap((activity) => activity.items)
+      .every((item) => item.lineage.measurementRole === "practice")).toBe(true);
+
+    const mixed = plan(2);
+    mixed.activities[0]!.items.push({
+      ...structuredClone(mixed.activities[0]!.items[0]!),
+      id: "mixed-explicit-checkpoint",
+    });
+    delete mixed.activities[0]!.items[0]!.lineage.measurementRole;
+    expect(() => parseDirectLearningExperiencePlan(mixed))
+      .toThrow("direct_plan_activity_mixed_measurement_roles");
   });
 
   it("rejects initial activities that claim more than practice evidence", () => {

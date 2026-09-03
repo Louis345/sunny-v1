@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import Anthropic from "@anthropic-ai/sdk";
 import { resolveChildContextDir } from "../utils/contextRoot";
 import type { ActiveSessionPlan } from "../context/schemas/learningProfile";
@@ -15,12 +15,51 @@ import {
   type LearningCycleRecordV2,
   type LearningObservation,
 } from "./learningCycleRepository";
+import {
+  renderDiscoveryCandidate,
+  reviewDiscoveryCandidate,
+  withDiscoveryBrowserPage,
+} from "./discoveryVisualReview";
+
+export type DiscoveryResponseContract = {
+  mode: "tap_selection" | "tap_numeric_pad" | "drag_construct";
+  representationId: string;
+};
+
+export function buildDiscoveryRepairMessageContent(screenshotPaths: string[], prompt: string): Array<Record<string, unknown>> {
+  return [
+    ...screenshotPaths.map((screenshotPath) => ({
+      type: "image",
+      source: { type: "base64", media_type: "image/png", data: fs.readFileSync(screenshotPath).toString("base64") },
+    })),
+    { type: "text", text: prompt },
+  ];
+}
+
+export function buildDiscoveryRepairDiagnostic(input: {
+  response: { stop_reason?: string | null; usage?: unknown };
+  textCharacters: number;
+  screenshotPaths: string[];
+  issues: string[];
+  startedAt: number;
+  finishedAt: number;
+}): Record<string, unknown> {
+  return {
+    stopReason: input.response.stop_reason ?? "unknown",
+    usage: input.response.usage ?? {},
+    textCharacters: input.textCharacters,
+    screenshotCount: input.screenshotPaths.length,
+    screenshotPaths: input.screenshotPaths,
+    issues: input.issues,
+    latencyMs: Math.max(0, input.finishedAt - input.startedAt),
+  };
+}
 
 export type MathDiscoveryEvaluationItem = {
   itemId: string;
   constructId: string;
   prompt: string;
-  responseContract: string;
+  responseContract: DiscoveryResponseContract;
   correctAnswerContract: { acceptedValues: string[] };
   difficultyBoundary: string;
   exposureId: string;
@@ -45,6 +84,169 @@ export type MathDiscoveryEvaluationContract = {
 };
 
 type DiscoveryAcademicContract = Omit<MathDiscoveryEvaluationContract, "artifact">;
+
+const DISCOVERY_RESPONSE_MODES = new Set<DiscoveryResponseContract["mode"]>([
+  "tap_selection",
+  "tap_numeric_pad",
+  "drag_construct",
+]);
+
+function assertDiscoveryResponseContracts(
+  contract: Pick<DiscoveryAcademicContract, "items">,
+): void {
+  for (const item of contract.items) {
+    const response = item.responseContract as unknown;
+    if (
+      !response
+      || typeof response !== "object"
+      || !DISCOVERY_RESPONSE_MODES.has((response as DiscoveryResponseContract).mode)
+      || typeof (response as DiscoveryResponseContract).representationId !== "string"
+      || !(response as DiscoveryResponseContract).representationId.trim()
+    ) {
+      throw new Error(`discovery_response_contract_invalid:${item.itemId}`);
+    }
+  }
+}
+
+type DiscoveryRuntimeContract = {
+  items: Array<{
+    itemId: string;
+    constructId: string;
+    acceptedValues: string[];
+  }>;
+};
+
+function expectedDiscoveryRuntimeContract(
+  academic: Pick<DiscoveryAcademicContract, "items">,
+): DiscoveryRuntimeContract {
+  return {
+    items: academic.items.map((item) => ({
+      itemId: item.itemId,
+      constructId: item.constructId,
+      acceptedValues: [...item.correctAnswerContract.acceptedValues],
+    })),
+  };
+}
+
+function readDiscoveryRuntimeContract(html: string): DiscoveryRuntimeContract {
+  const source = html.match(
+    /<script\b[^>]*\bid=["']sunny-discovery-contract["'][^>]*>([\s\S]*?)<\/script>/i,
+  )?.[1];
+  if (!source) throw new Error("discovery_runtime_contract_missing");
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(source);
+  } catch {
+    throw new Error("discovery_runtime_contract_invalid_json");
+  }
+  if (!parsed || typeof parsed !== "object" || !Array.isArray((parsed as { items?: unknown }).items)) {
+    throw new Error("discovery_runtime_contract_invalid");
+  }
+  const items = (parsed as { items: unknown[] }).items.map((item) => {
+    if (!item || typeof item !== "object") throw new Error("discovery_runtime_contract_invalid_item");
+    const candidate = item as Record<string, unknown>;
+    if (
+      typeof candidate.itemId !== "string"
+      || typeof candidate.constructId !== "string"
+      || !Array.isArray(candidate.acceptedValues)
+      || candidate.acceptedValues.some((value) => typeof value !== "string")
+    ) {
+      throw new Error("discovery_runtime_contract_invalid_item");
+    }
+    return {
+      itemId: candidate.itemId,
+      constructId: candidate.constructId,
+      acceptedValues: candidate.acceptedValues as string[],
+    };
+  });
+  return { items };
+}
+
+export function validateDiscoveryAcademicBinding(
+  html: string,
+  academic: Pick<DiscoveryAcademicContract, "items">,
+): void {
+  const expected = expectedDiscoveryRuntimeContract(academic);
+  const actual = readDiscoveryRuntimeContract(html);
+  if (actual.items.length !== expected.items.length) {
+    throw new Error("discovery_runtime_contract_item_count_mismatch");
+  }
+  const actualById = new Map(actual.items.map((item) => [item.itemId, item]));
+  if (actualById.size !== actual.items.length) {
+    throw new Error("discovery_runtime_contract_duplicate_item");
+  }
+  for (const item of expected.items) {
+    const bound = actualById.get(item.itemId);
+    if (!bound) throw new Error(`discovery_runtime_contract_item_missing:${item.itemId}`);
+    if (bound.constructId !== item.constructId) {
+      throw new Error(`discovery_runtime_contract_construct_mismatch:${item.itemId}`);
+    }
+    const expectedValues = [...item.acceptedValues].sort();
+    const actualValues = [...bound.acceptedValues].sort();
+    if (JSON.stringify(actualValues) !== JSON.stringify(expectedValues)) {
+      throw new Error(`discovery_runtime_contract_answers_mismatch:${item.itemId}`);
+    }
+  }
+}
+
+export async function verifyDiscoveryRuntimeScoring(input: {
+  html: string;
+  academic: Pick<DiscoveryAcademicContract, "items">;
+  outputDir: string;
+}): Promise<void> {
+  validateDiscoveryAcademicBinding(input.html, input.academic);
+  fs.mkdirSync(input.outputDir, { recursive: true });
+  await withDiscoveryBrowserPage(input.html, async (page) => {
+    for (const item of input.academic.items) {
+      for (const acceptedValue of item.correctAnswerContract.acceptedValues) {
+        const result = await page.evaluate(
+          ({ itemId, attemptedValue }) => {
+            const runtime = (globalThis as unknown as {
+              __SUNNY_DISCOVERY_TEST__?: {
+                evaluate?: (id: string, value: string) => unknown;
+              };
+            }).__SUNNY_DISCOVERY_TEST__;
+            if (typeof runtime?.evaluate !== "function") {
+              throw new Error("discovery_runtime_scoring_bridge_missing");
+            }
+            return runtime.evaluate(itemId, attemptedValue);
+          },
+          { itemId: item.itemId, attemptedValue: acceptedValue },
+        ) as { itemId?: unknown; constructId?: unknown; correct?: unknown };
+        if (
+          result?.itemId !== item.itemId
+          || result.constructId !== item.constructId
+          || result.correct !== true
+        ) {
+          throw new Error(`discovery_runtime_scoring_mismatch:${item.itemId}:${acceptedValue}`);
+        }
+      }
+      const rejectedValue = `__sunny_reject__${hashDiscoveryContract(item.itemId).slice(0, 12)}`;
+      const rejected = await page.evaluate(
+        ({ itemId, attemptedValue }) => {
+          const runtime = (globalThis as unknown as {
+            __SUNNY_DISCOVERY_TEST__?: {
+              evaluate?: (id: string, value: string) => unknown;
+            };
+          }).__SUNNY_DISCOVERY_TEST__;
+          if (typeof runtime?.evaluate !== "function") {
+            throw new Error("discovery_runtime_scoring_bridge_missing");
+          }
+          return runtime.evaluate(itemId, attemptedValue);
+        },
+        { itemId: item.itemId, attemptedValue: rejectedValue },
+      ) as { itemId?: unknown; constructId?: unknown; correct?: unknown };
+      if (
+        rejected?.itemId !== item.itemId
+        || rejected.constructId !== item.constructId
+        || rejected.correct !== false
+      ) {
+        throw new Error(`discovery_runtime_reject_mismatch:${item.itemId}`);
+      }
+    }
+  });
+  console.log(` 🎮 [adaptive-math] [discovery-runtime-scoring] [passed] items=${input.academic.items.length}`);
+}
 
 function toolInput(response: unknown, name: string): Record<string, unknown> {
   const content = (response as { content?: Array<{ type?: string; name?: string; input?: unknown }> }).content ?? [];
@@ -133,12 +335,15 @@ export async function generateMathDiscoveryExperience(input: {
   plannerModel?: string;
   architectModel?: string;
   builderModel?: string;
+  visualReview?: (input: { html: string; draftDir: string }) => Promise<string>;
 }): Promise<{ contract: MathDiscoveryEvaluationContract; design: Record<string, unknown> }> {
   const rootDir = input.rootDir ?? process.cwd();
   const client = input.client ?? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
   const draftDir = path.join(resolveChildContextDir(input.childId, { rootDir }), "homework", "direct-drafts", input.homeworkId);
   const academicCheckpointFile = path.join(draftDir, "discovery-academic.json");
   const designCheckpointFile = path.join(draftDir, "discovery-design.json");
+  const builderCheckpointFile = path.join(draftDir, "discovery-builder.json");
+  const reviewedCheckpointFile = path.join(draftDir, "discovery-reviewed.json");
   const readCheckpoint = <T>(file: string): T | undefined => {
     if (!fs.existsSync(file)) return undefined;
     try {
@@ -170,13 +375,16 @@ export async function generateMathDiscoveryExperience(input: {
       schema: { type: "object", additionalProperties: false, required: ["evaluationId", "title", "assignmentEvidenceIds", "constructs", "items"], properties: {
         evaluationId: { type: "string" }, title: { type: "string" }, assignmentEvidenceIds: { type: "array", items: { type: "string" } },
         constructs: { type: "array", minItems: 1, items: { type: "object", additionalProperties: false, required: ["constructId", "prerequisiteIds"], properties: { constructId: { type: "string" }, prerequisiteIds: { type: "array", items: { type: "string" } } } } },
-        items: { type: "array", minItems: 1, items: { type: "object", additionalProperties: false, required: ["itemId", "constructId", "prompt", "responseContract", "correctAnswerContract", "difficultyBoundary", "exposureId", "possibleConfounds", "falsifyingEvidence", "measurementKeys"], properties: { itemId: { type: "string" }, constructId: { type: "string" }, prompt: { type: "string" }, responseContract: { type: "string" }, correctAnswerContract: { type: "object", additionalProperties: false, required: ["acceptedValues"], properties: { acceptedValues: { type: "array", minItems: 1, items: { type: "string" } } } }, difficultyBoundary: { type: "string" }, exposureId: { type: "string" }, possibleConfounds: { type: "array", items: { type: "string" } }, falsifyingEvidence: { type: "array", items: { type: "string" } }, measurementKeys: { type: "array", items: { type: "string" } } } } },
+        items: { type: "array", minItems: 1, items: { type: "object", additionalProperties: false, required: ["itemId", "constructId", "prompt", "responseContract", "correctAnswerContract", "difficultyBoundary", "exposureId", "possibleConfounds", "falsifyingEvidence", "measurementKeys"], properties: { itemId: { type: "string" }, constructId: { type: "string" }, prompt: { type: "string" }, responseContract: { type: "object", additionalProperties: false, required: ["mode", "representationId"], properties: { mode: { type: "string", enum: ["tap_selection", "tap_numeric_pad", "drag_construct"] }, representationId: { type: "string" } } }, correctAnswerContract: { type: "object", additionalProperties: false, required: ["acceptedValues"], properties: { acceptedValues: { type: "array", minItems: 1, items: { type: "string" } } } }, difficultyBoundary: { type: "string" }, exposureId: { type: "string" }, possibleConfounds: { type: "array", items: { type: "string" } }, falsifyingEvidence: { type: "array", items: { type: "string" } }, measurementKeys: { type: "array", items: { type: "string" } } } } },
       } },
     });
     academic = toolInput(plannerResponse, "create_math_discovery_contract") as DiscoveryAcademicContract;
+    assertDiscoveryResponseContracts(academic);
     atomicJson(academicCheckpointFile, academic);
   }
+  assertDiscoveryResponseContracts(academic);
   const contractHash = hashDiscoveryContract(academic);
+  const runtimeContractJson = JSON.stringify(expectedDiscoveryRuntimeContract(academic));
   console.log(` 🎮 [adaptive-math] [discovery-planner] [saved] hash=${contractHash.slice(0, 12)}`);
   let designed = readCheckpoint<Record<string, unknown>>(designCheckpointFile);
   if (designed && designed.contractHash !== contractHash) {
@@ -194,38 +402,105 @@ export async function generateMathDiscoveryExperience(input: {
     atomicJson(designCheckpointFile, designed);
   }
   if (designed.contractHash !== contractHash) throw new Error("discovery_design_changed_contract_hash");
-  const designHash = hashDiscoveryContract(designed);
+  const { designHash: _legacyDesignHash, ...stableDesigned } = designed;
+  designed = stableDesigned;
+  const designHash = hashDiscoveryContract(stableDesigned);
   console.log(` 🎮 [adaptive-math] [discovery-design] [saved] hash=${designHash.slice(0, 12)}`);
   const builderModel = input.builderModel ?? process.env.SUNNY_GENERATION_MODEL ?? process.env.SUNNY_INGEST_MODEL ?? "claude-sonnet-5";
-  const builderResponse = await create(builderModel, `You are Sunny's Experience Creator implementing a frozen academic contract and frozen design. Return one complete standalone HTML document for a 1365x768 iframe. It must work with touch or mouse without a keyboard, never trap the child, and post evaluation_ready, evaluation_attempt, evaluation_friction when relevant, and evaluation_complete to window.parent with the supplied stable identities and factual provenance. It may not access Sunny APIs, storage, currency, or child state. Do not use browser speech synthesis or oscillator audio. Do not change the contract or answers.\n\nACADEMIC CONTRACT HASH: ${contractHash}\n${JSON.stringify(academic, null, 2)}\n\nDESIGN HASH: ${designHash}\n${JSON.stringify(designed.design, null, 2)}`);
-  const builderResult = builderResponse as {
-    stop_reason?: string | null;
-    usage?: { input_tokens?: number; output_tokens?: number };
-    content?: unknown[];
-  };
-  const rawBuilderText = responseText(builderResponse);
-  const builderDiagnosticFile = path.join(draftDir, "provider-diagnostics", "discovery-builder-response.json");
-  atomicJson(builderDiagnosticFile, {
-    model: builderModel,
-    stopReason: builderResult.stop_reason ?? "unknown",
-    usage: builderResult.usage ?? {},
-    content: builderResult.content ?? [],
-    textCharacters: rawBuilderText.length,
+  const builderPrompt = `You are Sunny's Experience Creator implementing a frozen academic contract and frozen design. Return one complete standalone HTML document usable at both 1365x768 and 1280x720. It must work with touch or mouse without a keyboard and never trap the child. Keep every required action fully visible without scrolling, and keep every mathematical representation large and legible enough for a child to inspect. Post evaluation_ready and evaluation_complete to window.parent. For every committed response post evaluation_attempt with exactly this payload shape: {attemptId,itemId,attemptedValue,supportEventIds:[],instrumentSignals:[],observedAt}. attemptedValue is the selected value or a stable JSON serialization of constructed state. supportEventIds contains only real support events supplied to the activity; otherwise it is empty. instrumentSignals may contain only interface_friction, reading_friction, response_not_captured, scoring_disagreement, or prompt_ambiguity; otherwise it is empty. Do not post construct, correctness, exposure, assistance, or responseMode because the server derives those facts. Post evaluation_friction when relevant without replacing the attempt. It may not access Sunny APIs, storage, currency, or child state. Do not use browser speech synthesis or oscillator audio. Do not change the contract or answers. Expose the real side-effect-free scoring function through window.__SUNNY_DISCOVERY_TEST__.evaluate(itemId, attemptedValue), returning { itemId, constructId, correct } from the exact same scoring logic as the child-facing controls. Embed this exact JSON without alteration in <script id="sunny-discovery-contract" type="application/json">: ${runtimeContractJson}\n\nACADEMIC CONTRACT HASH: ${contractHash}\n${JSON.stringify(academic, null, 2)}\n\nDESIGN HASH: ${designHash}\n${JSON.stringify(designed.design, null, 2)}`;
+  const builderPromptHash = hashDiscoveryContract({ model: builderModel, prompt: builderPrompt });
+  type HtmlCheckpoint = { contractHash: string; designHash: string; builderPromptHash: string; html: string };
+  let initialHtml: string;
+  const savedBuilder = readCheckpoint<HtmlCheckpoint>(builderCheckpointFile);
+  if (savedBuilder?.contractHash === contractHash && savedBuilder.designHash === designHash
+    && savedBuilder.builderPromptHash === builderPromptHash) {
+    validateDiscoveryAcademicBinding(savedBuilder.html, academic);
+    initialHtml = savedBuilder.html;
+    console.log(` 🎮 [adaptive-math] [discovery-builder] [reused] hash=${hashDiscoveryContract(initialHtml).slice(0, 12)}`);
+  } else {
+    const builderResponse = await create(builderModel, builderPrompt);
+    const builderResult = builderResponse as {
+      stop_reason?: string | null;
+      usage?: { input_tokens?: number; output_tokens?: number };
+      content?: unknown[];
+    };
+    const rawBuilderText = responseText(builderResponse);
+    const builderDiagnosticFile = path.join(draftDir, "provider-diagnostics", "discovery-builder-response.json");
+    atomicJson(builderDiagnosticFile, {
+      model: builderModel,
+      stopReason: builderResult.stop_reason ?? "unknown",
+      usage: builderResult.usage ?? {},
+      content: builderResult.content ?? [],
+      textCharacters: rawBuilderText.length,
+    });
+    if (builderResult.stop_reason === "max_tokens") {
+      throw new Error(`discovery_builder_truncated:stop=max_tokens:chars=${rawBuilderText.length}:diagnostic=${builderDiagnosticFile}`);
+    }
+    if (!rawBuilderText.trim()) {
+      throw new Error(`discovery_builder_contract_failed:stop=${builderResult.stop_reason ?? "unknown"}:chars=0:diagnostic=${builderDiagnosticFile}`);
+    }
+    initialHtml = standaloneHtml(rawBuilderText);
+    validateDiscoveryAcademicBinding(initialHtml, academic);
+    atomicJson(builderCheckpointFile, { contractHash, designHash, builderPromptHash, html: initialHtml });
+  }
+  const savedReviewed = readCheckpoint<HtmlCheckpoint>(reviewedCheckpointFile);
+  let html: string;
+  if (savedReviewed?.contractHash === contractHash && savedReviewed.designHash === designHash
+    && savedReviewed.builderPromptHash === builderPromptHash) {
+    validateDiscoveryAcademicBinding(savedReviewed.html, academic);
+    html = savedReviewed.html;
+    console.log(` 🎮 [adaptive-math] [discovery-review] [reused] hash=${hashDiscoveryContract(html).slice(0, 12)}`);
+  } else {
+    html = input.visualReview
+      ? await input.visualReview({ html: initialHtml, draftDir })
+      : (await reviewDiscoveryCandidate({
+        html: initialHtml,
+        outputDir: path.join(draftDir, "visual-review"),
+        render: renderDiscoveryCandidate,
+        repair: async ({ html: rejectedHtml, issues, screenshotPaths }) => {
+          console.log(` 🎮 [adaptive-math] [discovery-builder-repair] [running] model=${builderModel}`);
+          const repairPrompt = `You are Sunny's Experience Creator repairing only the implementation of a frozen Discovery experience. The attached images show the current experience at 1365x768 and 1280x720. Preserve the academic contract, accepted answers, item identities, evidence events, design artifact, #sunny-discovery-contract JSON, and window.__SUNNY_DISCOVERY_TEST__.evaluate bridge. Correct the screenshot-grounded rendering defects listed below and return one complete standalone HTML document. The bridge must remain side-effect-free and use the exact same scoring logic as the child-facing controls. Do not redesign the experience or add child-state, API, storage, currency, speech-synthesis, or oscillator access.\n\nRENDERING DEFECTS:\n${issues.map((issue) => `- ${issue}`).join("\n")}\n\nRUNTIME CONTRACT JSON:\n${runtimeContractJson}\n\nACADEMIC CONTRACT HASH: ${contractHash}\n${JSON.stringify(academic, null, 2)}\n\nDESIGN HASH: ${designHash}\n${JSON.stringify(designed.design, null, 2)}\n\nCURRENT HTML:\n${rejectedHtml}`;
+          const repairStartedAt = Date.now();
+          const repairedResponse = await client.messages.stream({
+            model: builderModel,
+            max_tokens: 48_000,
+            messages: [{ role: "user", content: buildDiscoveryRepairMessageContent(screenshotPaths, repairPrompt) }],
+          } as never, { timeout: Number(process.env.SUNNY_AI_TIMEOUT_MS ?? 600_000) }).finalMessage();
+          const repairFinishedAt = Date.now();
+          const repairedText = responseText(repairedResponse);
+          atomicJson(path.join(draftDir, "provider-diagnostics", "discovery-builder-repair-response.json"), {
+            model: builderModel,
+            ...buildDiscoveryRepairDiagnostic({
+              response: repairedResponse as { stop_reason?: string | null; usage?: unknown },
+              textCharacters: repairedText.length,
+              screenshotPaths,
+              issues,
+              startedAt: repairStartedAt,
+              finishedAt: repairFinishedAt,
+            }),
+          });
+          const repairedHtml = standaloneHtml(repairedText);
+          validateDiscoveryAcademicBinding(repairedHtml, academic);
+          console.log(` 🎮 [adaptive-math] [discovery-builder-repair] [saved] hash=${hashDiscoveryContract(repairedHtml).slice(0, 12)}`);
+          return repairedHtml;
+        },
+        })).html;
+    validateDiscoveryAcademicBinding(html, academic);
+    atomicJson(reviewedCheckpointFile, { contractHash, designHash, builderPromptHash, html });
+  }
+  validateDiscoveryAcademicBinding(html, academic);
+  await verifyDiscoveryRuntimeScoring({
+    html,
+    academic,
+    outputDir: path.join(draftDir, "runtime-verification"),
   });
-  if (builderResult.stop_reason === "max_tokens") {
-    throw new Error(`discovery_builder_truncated:stop=max_tokens:chars=${rawBuilderText.length}:diagnostic=${builderDiagnosticFile}`);
-  }
-  if (!rawBuilderText.trim()) {
-    throw new Error(`discovery_builder_contract_failed:stop=${builderResult.stop_reason ?? "unknown"}:chars=0:diagnostic=${builderDiagnosticFile}`);
-  }
-  const html = standaloneHtml(rawBuilderText);
   const locations = discoveryArtifactLocations({ rootDir, childId: input.childId, homeworkId: input.homeworkId });
   fs.mkdirSync(locations.storageDir, { recursive: true });
   fs.writeFileSync(locations.htmlFile, html, "utf8");
   fs.writeFileSync(locations.artworkFile, String(designed.backgroundSvg), "utf8");
   const contract: MathDiscoveryEvaluationContract = { ...academic, artifact: { artifactId: `${input.homeworkId}:discovery`, htmlPath: locations.htmlPath, artworkPath: locations.artworkPath, contractHash, artifactHash: hashDiscoveryContract(html) } };
   atomicJson(path.join(draftDir, "discovery-contract.json"), contract);
-  atomicJson(designCheckpointFile, { ...designed, designHash });
+  atomicJson(designCheckpointFile, designed);
   console.log(` 🎮 [adaptive-math] [discovery-builder] [saved] hash=${contract.artifact.artifactHash.slice(0, 12)}`);
   return { contract, design: designed };
 }
@@ -233,14 +508,28 @@ export async function generateMathDiscoveryExperience(input: {
 export type MathDiscoveryAttempt = {
   attemptId: string;
   itemId: string;
-  constructId: string;
-  result: "correct" | "incorrect" | "assisted" | "unresolved" | "instrument_ambiguous";
-  assistance: "unassisted" | "assisted" | "unknown";
-  exposure: "unseen" | "previously_taught" | "previously_practiced" | "unknown";
-  responseMode: string;
-  attemptedValue?: string;
-  possibleConfounds: string[];
+  attemptedValue: string;
+  supportEventIds: string[];
+  instrumentSignals: string[];
   observedAt: string;
+};
+
+export type DiscoveryEvidenceSummary = {
+  version: 1;
+  homeworkId: string;
+  evaluationId: string;
+  constructs: Array<{
+    constructId: string;
+    independentCorrect: number;
+    independentIncorrect: number;
+    assisted: number;
+    ambiguous: number;
+    responseModes: string[];
+    representationIds: string[];
+    representationCount: number;
+    confounds: string[];
+    observationIds: string[];
+  }>;
 };
 
 export type TargetedMathNode = {
@@ -255,13 +544,13 @@ export type TargetedMathNode = {
   routeId?: string;
 };
 
-export type MathGenerationNodeStatus = "preparing" | "ready" | "evidence_locked" | "completed" | "failed_resumable";
+export type MathGenerationNodeStatus = "preparing" | "ready" | "evidence_locked" | "completed" | "failed_resumable" | "needs_attention";
 
 export type MathGenerationJob = {
   version: 1;
   childId: string;
   homeworkId: string;
-  phase: "targeted_planning" | "board_designing" | "board_generating" | "board_ready";
+  phase: "targeted_planning" | "board_designing" | "board_generating" | "board_ready" | "needs_attention";
   programHash: string;
   designHash: string;
   startedAt: string;
@@ -271,6 +560,7 @@ export type MathGenerationJob = {
     status: MathGenerationNodeStatus;
     artifactHash?: string;
     error?: string;
+    attemptCount?: number;
     updatedAt: string;
   }>;
 };
@@ -285,6 +575,69 @@ function generationJobPath(childId: string, homeworkId: string, opts: RootOption
     homeworkId,
     "adaptive-generation-job.json",
   );
+}
+
+function generationLeasePath(childId: string, homeworkId: string, opts: RootOptions): string {
+  return `${generationJobPath(childId, homeworkId, opts)}.worker-lock`;
+}
+
+export function acquireMathGenerationLease(input: {
+  rootDir?: string;
+  childId: string;
+  homeworkId: string;
+  ownerPid?: number;
+  staleAfterMs?: number;
+}): { acquired: boolean; token?: string; reason?: "worker_already_running" } {
+  const file = generationLeasePath(input.childId, input.homeworkId, input);
+  const token = randomUUID();
+  const payload = { token, ownerPid: input.ownerPid ?? process.pid, acquiredAt: new Date().toISOString() };
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  const tryCreate = (): boolean => {
+    try {
+      const descriptor = fs.openSync(file, "wx");
+      try { fs.writeFileSync(descriptor, `${JSON.stringify(payload)}\n`, "utf8"); }
+      finally { fs.closeSync(descriptor); }
+      return true;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
+      return false;
+    }
+  };
+  if (tryCreate()) {
+    console.log(` 🎮 [adaptive-math] [worker-lease] [acquired] child=${input.childId} homework=${input.homeworkId}`);
+    return { acquired: true, token };
+  }
+  let stale = false;
+  try {
+    const saved = JSON.parse(fs.readFileSync(file, "utf8")) as { acquiredAt?: string };
+    const ageMs = Date.now() - Date.parse(saved.acquiredAt ?? "");
+    stale = Number.isFinite(ageMs) && ageMs > (input.staleAfterMs ?? 30 * 60_000);
+  } catch {
+    stale = true;
+  }
+  if (stale) {
+    fs.rmSync(file, { force: true });
+    if (tryCreate()) {
+      console.log(` 🎮 [adaptive-math] [worker-lease] [recovered-stale] child=${input.childId} homework=${input.homeworkId}`);
+      return { acquired: true, token };
+    }
+  }
+  console.log(` 🎮 [adaptive-math] [worker-lease] [already-running] child=${input.childId} homework=${input.homeworkId}`);
+  return { acquired: false, reason: "worker_already_running" };
+}
+
+export function releaseMathGenerationLease(input: {
+  rootDir?: string;
+  childId: string;
+  homeworkId: string;
+  token: string;
+}): void {
+  const file = generationLeasePath(input.childId, input.homeworkId, input);
+  if (!fs.existsSync(file)) return;
+  const saved = JSON.parse(fs.readFileSync(file, "utf8")) as { token?: string };
+  if (saved.token !== input.token) throw new Error("math_generation_worker_lease_owner_mismatch");
+  fs.rmSync(file, { force: true });
+  console.log(` 🎮 [adaptive-math] [worker-lease] [released] child=${input.childId} homework=${input.homeworkId}`);
 }
 
 function atomicJson(file: string, value: unknown): void {
@@ -394,7 +747,7 @@ export function buildDiscoveryActiveSessionPlan(input: {
       progress: { currentNodeId: evaluationId, completedNodeIds: ["start"] },
     },
     variationPolicy: { avoidExactPreviousNodeOrder: true, avoidExactPreviousWordOrder: true, seed: input.homeworkId, previousCompletedNodeCount: 0 },
-    companionPolicy: { companionId: input.companion.id, displayName: input.companion.name, openingLinePolicy: "context_start_short", verbosity: "low", maxMicroProbes: 1 },
+    companionPolicy: { companionId: input.companion.id, displayName: input.companion.name, openingLinePolicy: "silent", verbosity: "low", maxMicroProbes: 1 },
     evidenceUsed: input.evaluation.assignmentEvidenceIds.map((id) => ({ id, type: "assignment", summary: "Captured assignment evidence for Discovery." })),
     openQuestions: [],
     approvalStatus: "approved",
@@ -496,6 +849,9 @@ export function publishTargetedBoardProjection(input: {
       if (status === "preparing" || status === "failed_resumable") {
         return { ...node, state: "preview" as const, action: { type: "show-preparing-status", payloadId: node.id } as never };
       }
+      if (status === "needs_attention") {
+        return { ...node, state: "locked" as const, action: { type: "show-locked-reason", payloadId: node.id }, lock: { reason: "generation-needs-attention", label: "Parent help needed" } };
+      }
       return { ...node, state: "locked" as const };
     });
     plan.adventureBoard.progress = {
@@ -521,6 +877,7 @@ export function createDiscoveryLearningCycle(input: {
   assignment: LearningCycleRecordV2["assignment"];
   evaluation: MathDiscoveryEvaluationContract;
 }): LearningCycleRecordV2 {
+  assertDiscoveryResponseContracts(input.evaluation);
   const theoryId = `${input.homeworkId}:discovery-theory`;
   return createLearningCycle({
     childId: input.childId,
@@ -537,20 +894,9 @@ export function createDiscoveryLearningCycle(input: {
     },
     engagementTheory: null,
     nodes: [evaluationNode(input.evaluation)],
-    academicPredictions: input.evaluation.constructs.map((construct) => ({
-      predictionId: `${input.evaluation.evaluationId}:prediction:${construct.constructId}`,
-      theoryId,
-      constructId: construct.constructId,
-      context: "independent opening evaluation",
-      horizon: "current discovery session",
-      expectedMetric: { key: "independent_observation_count", min: 1, max: input.evaluation.items.length },
-      predictedErrorPatterns: [],
-      confidence: 0.5,
-      evidenceIds: input.evaluation.assignmentEvidenceIds,
-      intervention: "independent evaluation",
-      evidenceLimit: "independent_performance",
-      createdAt: new Date().toISOString(),
-    })),
+    // Discovery establishes facts. Targeted academic predictions are authored
+    // by the Planner only after those facts are committed.
+    academicPredictions: [],
     assumptions: [],
     initialLifecycle: "evaluation_ready",
   }, { rootDir: input.rootDir });
@@ -566,35 +912,74 @@ export function recordDiscoveryAttempt(input: {
   if (!cycle) throw new Error(`learning_cycle_missing:${input.homeworkId}`);
   const evaluation = cycle.nodes.find((node) => node.role === "evaluation");
   if (!evaluation) throw new Error("learning_cycle_evaluation_node_missing");
+  const contractFile = path.join(
+    resolveChildContextDir(input.childId, { rootDir: input.rootDir }),
+    "homework",
+    "direct-drafts",
+    input.homeworkId,
+    "discovery-contract.json",
+  );
+  if (!fs.existsSync(contractFile)) throw new Error("discovery_frozen_contract_missing");
+  const frozen = JSON.parse(fs.readFileSync(contractFile, "utf8")) as Partial<MathDiscoveryEvaluationContract>;
+  if (frozen.evaluationId !== evaluation.nodeId || !Array.isArray(frozen.items)) {
+    throw new Error("discovery_frozen_contract_identity_invalid");
+  }
+  const frozenItem = frozen.items.find((item) => item.itemId === input.attempt.itemId);
+  if (!frozenItem) throw new Error(`discovery_attempt_item_not_in_frozen_contract:${input.attempt.itemId}`);
+  assertDiscoveryResponseContracts({ items: frozen.items as MathDiscoveryEvaluationItem[] });
+  if (!input.attempt.attemptId.trim() || !input.attempt.observedAt.trim()) {
+    throw new Error("discovery_attempt_identity_invalid");
+  }
+  if (!Array.isArray(input.attempt.supportEventIds) || input.attempt.supportEventIds.some((id) => typeof id !== "string" || !id.trim())) {
+    throw new Error("discovery_support_event_ids_invalid");
+  }
+  const allowedInstrumentSignals = new Set([
+    "interface_friction",
+    "reading_friction",
+    "response_not_captured",
+    "scoring_disagreement",
+    "prompt_ambiguity",
+  ]);
+  if (!Array.isArray(input.attempt.instrumentSignals) || input.attempt.instrumentSignals.some((signal) => !allowedInstrumentSignals.has(signal))) {
+    throw new Error("discovery_instrument_signal_invalid");
+  }
   if (cycle.lifecycle === "evaluation_ready") {
     cycle = transitionLearningCycle(input.childId, input.homeworkId, cycle.revision, {
       type: "evaluation_started",
       evaluationId: evaluation.nodeId,
     }, { rootDir: input.rootDir });
   }
-  const ambiguous = input.attempt.result === "instrument_ambiguous" || input.attempt.result === "unresolved";
-  const assisted = input.attempt.assistance !== "unassisted" || input.attempt.result === "assisted";
+  const attemptedValue = String(input.attempt.attemptedValue ?? "").trim();
+  const ambiguous = !attemptedValue || input.attempt.instrumentSignals.length > 0;
+  const assisted = input.attempt.supportEventIds.length > 0;
+  const repeated = cycle.observations.some((observation) =>
+    observation.sourceId === `evaluation:${evaluation.nodeId}` && observation.itemId === input.attempt.itemId);
+  const normalizedValue = attemptedValue.toLocaleLowerCase();
+  const correct = !ambiguous && frozenItem.correctAnswerContract.acceptedValues
+    .some((value) => value.trim().toLocaleLowerCase() === normalizedValue);
   const observation: LearningObservation = {
     observationId: input.attempt.attemptId,
     sourceId: `evaluation:${evaluation.nodeId}`,
     itemId: input.attempt.itemId,
-    ...(input.attempt.attemptedValue ? { childResponse: input.attempt.attemptedValue } : {}),
-    constructLinks: [{ constructId: input.attempt.constructId, role: "primary", confidence: 1 }],
+    ...(attemptedValue ? { childResponse: attemptedValue } : {}),
+    constructLinks: [{ constructId: frozenItem.constructId, role: "primary", confidence: 1 }],
     result: ambiguous
       ? { correct: undefined, observedErrorType: "instrument_ambiguous" }
-      : { correct: input.attempt.result === "correct", score: input.attempt.result === "correct" ? 1 : 0 },
+      : { correct, score: correct ? 1 : 0 },
     assistance: {
-      status: assisted ? "assisted" : input.attempt.assistance,
-      scaffolds: assisted ? ["discovery_support"] : [],
+      status: assisted ? "assisted" : "unassisted",
+      scaffolds: [...new Set(input.attempt.supportEventIds)],
     },
-    exposure: input.attempt.exposure,
-    provenance: assisted || input.attempt.exposure !== "unseen" ? "practice" : "independent_probe",
+    exposure: repeated ? "previously_practiced" : "unseen",
+    provenance: assisted || repeated || ambiguous ? "practice" : "independent_probe",
     observedAt: input.attempt.observedAt,
     confounds: [...new Set([
-      ...input.attempt.possibleConfounds,
+      ...input.attempt.instrumentSignals,
       ...(ambiguous ? ["instrument_ambiguous"] : []),
       ...(assisted ? ["assistance_present"] : []),
-      `response_mode:${input.attempt.responseMode}`,
+      ...(repeated ? ["repeated_attempt"] : []),
+      `response_mode:${frozenItem.responseContract.mode}`,
+      `representation:${frozenItem.responseContract.representationId}`,
     ])],
   };
   return transitionLearningCycle(input.childId, input.homeworkId, cycle.revision, {
@@ -604,14 +989,47 @@ export function recordDiscoveryAttempt(input: {
     observations: [observation],
     academicEvidence: [{
       evidenceId: observation.observationId,
-      summary: `${observation.itemId}: ${ambiguous ? "instrument ambiguous" : observation.result.correct ? "independent correct" : "incorrect"}; assistance=${observation.assistance.status}.`,
+      summary: `${observation.itemId}: ${ambiguous ? "instrument ambiguous" : observation.result.correct ? repeated ? "repeated correct" : "independent correct" : "incorrect"}; assistance=${observation.assistance.status}.`,
       ...(typeof observation.result.score === "number" ? { accuracy: observation.result.score } : {}),
     }],
-    engagementEvidence: input.attempt.possibleConfounds.length > 0
-      ? [{ evidenceId: `${observation.observationId}:interaction`, summary: input.attempt.possibleConfounds.join(", ") }]
+    engagementEvidence: input.attempt.instrumentSignals.length > 0
+      ? [{ evidenceId: `${observation.observationId}:interaction`, summary: input.attempt.instrumentSignals.join(", ") }]
       : [],
     companionObservations: [],
   }, { rootDir: input.rootDir });
+}
+
+export function buildDiscoveryEvidenceSummary(cycle: LearningCycleRecordV2): DiscoveryEvidenceSummary {
+  const evaluation = cycle.nodes.find((node) => node.role === "evaluation");
+  if (!evaluation) throw new Error("learning_cycle_evaluation_node_missing");
+  const observations = cycle.observations.filter((observation) => observation.sourceId === `evaluation:${evaluation.nodeId}`);
+  const constructIds = [...new Set(observations.flatMap((observation) => observation.constructLinks.map((link) => link.constructId)))].sort();
+  return {
+    version: 1,
+    homeworkId: cycle.homeworkId,
+    evaluationId: evaluation.nodeId,
+    constructs: constructIds.map((constructId) => {
+      const matching = observations.filter((observation) => observation.constructLinks.some((link) => link.constructId === constructId));
+      const responseModes = [...new Set(matching.flatMap((observation) => observation.confounds
+        .filter((confound) => confound.startsWith("response_mode:"))
+        .map((confound) => confound.slice("response_mode:".length))))].sort();
+      const representationIds = [...new Set(matching.flatMap((observation) => observation.confounds
+        .filter((confound) => confound.startsWith("representation:"))
+        .map((confound) => confound.slice("representation:".length))))].sort();
+      return {
+        constructId,
+        independentCorrect: matching.filter((observation) => observation.provenance === "independent_probe" && observation.result.correct === true).length,
+        independentIncorrect: matching.filter((observation) => observation.provenance === "independent_probe" && observation.result.correct === false).length,
+        assisted: matching.filter((observation) => observation.assistance.status !== "unassisted").length,
+        ambiguous: matching.filter((observation) => observation.result.observedErrorType === "instrument_ambiguous").length,
+        responseModes,
+        representationIds,
+        representationCount: representationIds.length,
+        confounds: [...new Set(matching.flatMap((observation) => observation.confounds))].sort(),
+        observationIds: matching.map((observation) => observation.observationId),
+      };
+    }),
+  };
 }
 
 export function completeDiscoveryEvaluation(input: {
@@ -624,11 +1042,24 @@ export function completeDiscoveryEvaluation(input: {
   if (!cycle) throw new Error(`learning_cycle_missing:${input.homeworkId}`);
   const evaluation = cycle.nodes.find((node) => node.role === "evaluation");
   if (!evaluation) throw new Error("learning_cycle_evaluation_node_missing");
-  return transitionLearningCycle(input.childId, input.homeworkId, cycle.revision, {
+  const completed = transitionLearningCycle(input.childId, input.homeworkId, cycle.revision, {
     type: "evaluation_completed",
     evaluationId: evaluation.nodeId,
     completedAt: input.completedAt,
   }, { rootDir: input.rootDir });
+  const summary = buildDiscoveryEvidenceSummary(completed);
+  const draftDir = path.join(
+    resolveChildContextDir(input.childId, { rootDir: input.rootDir }),
+    "homework",
+    "direct-drafts",
+    input.homeworkId,
+  );
+  atomicJson(path.join(draftDir, "discovery-evidence-summary.json"), {
+    summaryHash: hashDiscoveryContract(summary),
+    summary,
+  });
+  console.log(` 🎮 [adaptive-math] [discovery-summary] [saved] hash=${hashDiscoveryContract(summary).slice(0, 12)}`);
+  return completed;
 }
 
 function targetedNode(node: TargetedMathNode): LearningCycleNodeContract {
@@ -768,8 +1199,8 @@ export function writeMathGenerationJob(input: {
     updatedAt: now,
     nodes: input.nodeIds.map((nodeId) => {
       const saved = previous.get(nodeId);
-      if (saved?.status === "ready" || saved?.status === "completed" || saved?.status === "evidence_locked") return saved;
-      return { nodeId, status: "preparing", updatedAt: now };
+      if (saved?.status === "ready" || saved?.status === "completed" || saved?.status === "evidence_locked" || saved?.status === "needs_attention") return saved;
+      return { nodeId, status: "preparing", attemptCount: saved?.attemptCount ?? 0, updatedAt: now };
     }),
   };
   atomicJson(generationJobPath(input.childId, input.homeworkId, input), job);
@@ -850,10 +1281,62 @@ export function updateMathGenerationNode(input: {
   job.updatedAt = node.updatedAt;
   if (job.nodes.every((candidate) => ["ready", "completed", "evidence_locked"].includes(candidate.status))) {
     job.phase = "board_ready";
+  } else if (job.nodes.some((candidate) => candidate.status === "needs_attention")) {
+    job.phase = "needs_attention";
   }
   atomicJson(generationJobPath(input.childId, input.homeworkId, input), job);
   console.log(` 🎮 [adaptive-math] [node-generation] [${input.status}] child=${input.childId} homework=${input.homeworkId} node=${input.nodeId}`);
   return job;
+}
+
+function startMathGenerationNodeAttempt(input: {
+  rootDir?: string;
+  childId: string;
+  homeworkId: string;
+  nodeId: string;
+}): number {
+  const job = getMathGenerationStatus(input.childId, input.homeworkId, { rootDir: input.rootDir });
+  if (!job) throw new Error("math_generation_job_missing");
+  const node = job.nodes.find((candidate) => candidate.nodeId === input.nodeId);
+  if (!node) throw new Error(`math_generation_job_node_missing:${input.nodeId}`);
+  node.attemptCount = (node.attemptCount ?? 0) + 1;
+  node.updatedAt = new Date().toISOString();
+  job.updatedAt = node.updatedAt;
+  atomicJson(generationJobPath(input.childId, input.homeworkId, input), job);
+  console.log(` 🎮 [adaptive-math] [node-attempt] [started] child=${input.childId} homework=${input.homeworkId} node=${input.nodeId} attempt=${node.attemptCount}`);
+  return node.attemptCount;
+}
+
+function markMathGenerationNodeNeedsAttention(input: {
+  rootDir?: string;
+  childId: string;
+  homeworkId: string;
+  nodeId: string;
+  reason: string;
+}): void {
+  for (let attempt = 1; attempt <= 2; attempt += 1) {
+    const cycle = getLearningCycle(input.childId, input.homeworkId, { rootDir: input.rootDir });
+    if (!cycle) {
+      console.warn(` 🎮 [adaptive-math] [canonical-node-failure] [skipped-no-cycle] child=${input.childId} homework=${input.homeworkId} node=${input.nodeId}`);
+      return;
+    }
+    const node = cycle.nodes.find((candidate) => candidate.nodeId === input.nodeId);
+    if (!node) throw new Error(`learning_cycle_node_missing:${input.nodeId}`);
+    if (node.state === "blocked") return;
+    try {
+      transitionLearningCycle(input.childId, input.homeworkId, cycle.revision, {
+        type: "artifact_generation_attention_required",
+        nodeId: input.nodeId,
+        reason: input.reason,
+      }, { rootDir: input.rootDir });
+      console.log(` 🎮 [adaptive-math] [canonical-node-failure] [parent-help] child=${input.childId} homework=${input.homeworkId} node=${input.nodeId}`);
+      return;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (attempt < 2 && message.includes("revision")) continue;
+      throw error;
+    }
+  }
 }
 
 export async function buildTargetedNodesResumably(input: {
@@ -874,6 +1357,12 @@ export async function buildTargetedNodesResumably(input: {
   const remaining = missing.filter((nodeId) => nodeId !== first);
 
   const buildOne = async (nodeId: string): Promise<void> => {
+    const attemptCount = startMathGenerationNodeAttempt({
+      rootDir: input.rootDir,
+      childId: input.childId,
+      homeworkId: input.homeworkId,
+      nodeId,
+    });
     try {
       const built = await input.buildNode(nodeId);
       updateMathGenerationNode({
@@ -886,14 +1375,24 @@ export async function buildTargetedNodesResumably(input: {
       });
       await input.onNodeReady?.(nodeId, built.artifactHash);
     } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
       updateMathGenerationNode({
         rootDir: input.rootDir,
         childId: input.childId,
         homeworkId: input.homeworkId,
         nodeId,
-        status: "failed_resumable",
-        error: error instanceof Error ? error.message : String(error),
+        status: attemptCount >= 2 ? "needs_attention" : "failed_resumable",
+        error: message,
       });
+      if (attemptCount >= 2) {
+        markMathGenerationNodeNeedsAttention({
+          rootDir: input.rootDir,
+          childId: input.childId,
+          homeworkId: input.homeworkId,
+          nodeId,
+          reason: message,
+        });
+      }
     }
   };
 
