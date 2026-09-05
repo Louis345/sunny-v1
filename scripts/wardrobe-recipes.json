@@ -70,6 +70,15 @@
       "19": "top",
       "20": "top"
     },
-    "bodyProfileId": "vroid-slim-v1"
+    "bodyProfileId": "vroid-slim-v1",
+    "bodyRepair": {
+      "donorSourceUrl": "/companions/sample.vrm",
+      "donorSha256": "12c2b97e95e700783a6a550dc0eee2d7880aeedccef9ae67bc4c5a2f0f2631a2",
+      "donorMesh": 0,
+      "donorPrimitive": 0,
+      "targetMesh": 1,
+      "targetPrimitive": 0,
+      "targetMaterial": 8
+    }
   }
 ]

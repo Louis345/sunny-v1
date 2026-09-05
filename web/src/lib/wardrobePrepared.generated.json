@@ -18,7 +18,7 @@
     "recipeVersion": "identity-preserved-v1",
     "sourceUrl": "/companions/673852811403133503.vrm",
     "sourceSha256": "1b11bd3de4f708c147c408602ec21b3b86bc4d0003d8ebd9eba4451495e1d455",
-    "preparedSha256": "34874e8b98e8be33e515d88e4d2987aec4ed8582f4856cf4ba60e8e56e325bb2",
+    "preparedSha256": "c146b1d045e5feafadbf992f936ef3e73537eb066c2ddc0f4cef177bb93dcbbb",
     "modelUrl": "/companions/matilda-wardrobe-identity-preserved-v1.vrm",
     "bodyProfileId": "vroid-slim-v1",
     "clothingMaterials": {
@@ -32,6 +32,15 @@
       "18": "top",
       "19": "top",
       "20": "top"
+    },
+    "bodyRepair": {
+      "donorSourceUrl": "/companions/sample.vrm",
+      "donorSha256": "12c2b97e95e700783a6a550dc0eee2d7880aeedccef9ae67bc4c5a2f0f2631a2",
+      "donorMesh": 0,
+      "donorPrimitive": 0,
+      "targetMesh": 1,
+      "targetPrimitive": 0,
+      "targetMaterial": 8
     },
     "status": "candidate"
   }

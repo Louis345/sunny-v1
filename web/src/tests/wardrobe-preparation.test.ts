@@ -6,7 +6,7 @@ describe("complete wardrobe identity preparation", () => {
   it.each(WARDROBE_RECIPES)("preserves $id identity and adds explicit clothing roles", (recipe) => {
     const bytes = readFileSync(`public${recipe.sourceUrl}`);
     const original = readVrm(bytes);
-    const result = prepareWardrobeVrm(bytes, recipe);
+    const result = prepareWardrobeVrm(bytes, {...recipe, bodyRepair: undefined});
     const prepared = readVrm(result.bytes);
     expect(prepared.binary.equals(original.binary)).toBe(true);
     for (const key of ['meshes', 'skins', 'nodes', 'textures', 'images', 'accessors', 'bufferViews', 'extensions']) {
@@ -18,7 +18,7 @@ describe("complete wardrobe identity preparation", () => {
     }
     expect(result.manifest.sourceSha256).toMatch(/^[a-f0-9]{64}$/);
     expect(result.manifest.preparedSha256).toMatch(/^[a-f0-9]{64}$/);
-    expect(prepareWardrobeVrm(bytes, recipe).bytes.equals(result.bytes)).toBe(true);
+    expect(prepareWardrobeVrm(bytes, {...recipe, bodyRepair: undefined}).bytes.equals(result.bytes)).toBe(true);
   });
   it('rejects a stale material selection instead of guessing by name or weight', () => {
     const recipe = WARDROBE_RECIPES[0];
@@ -52,4 +52,27 @@ it('uses explicit prepared clothing roles, including ties, without hiding identi
   expect(identity.visible).toBe(true);
   setVrmBaseClothingVisible(scene, true);
   expect(tie.visible).toBe(true);
+});
+
+it('restores Matilda’s missing body surface from the approved body family without altering her face or rig', () => {
+  const recipe = WARDROBE_RECIPES.find(recipe => recipe.id === 'matilda')!;
+  const original = readVrm(readFileSync(`public${recipe.sourceUrl}`));
+  const donor = readFileSync('public/companions/sample.vrm');
+  const result = prepareWardrobeVrm(readFileSync(`public${recipe.sourceUrl}`), recipe, donor);
+  const prepared = readVrm(result.bytes);
+  const originalTriangles = original.json.accessors[original.json.meshes[1].primitives[0].indices].count;
+  const preparedTriangles = prepared.json.accessors[prepared.json.meshes[1].primitives[0].indices].count;
+  expect(preparedTriangles).toBeGreaterThan(originalTriangles);
+  const bodyPosition = prepared.json.accessors[prepared.json.meshes[1].primitives[0].attributes.POSITION];
+  expect(bodyPosition.max[1]).toBeGreaterThan(1.55); // Arbitrary donor head-bone axes must not flatten the scalp into the neck.
+  expect(prepared.json.meshes[0]).toEqual(original.json.meshes[0]);
+  expect(prepared.json.meshes[2]).toEqual(original.json.meshes[2]);
+  expect(prepared.json.nodes).toEqual(original.json.nodes);
+  expect(prepared.json.skins).toEqual(original.json.skins);
+  expect(prepared.json.materials[8].alphaMode).toBe('OPAQUE');
+});
+
+it('rejects incomplete preparation when a required body donor is absent', () => {
+  const recipe = WARDROBE_RECIPES.find(recipe => recipe.id === 'matilda')!;
+  expect(() => prepareWardrobeVrm(readFileSync(`public${recipe.sourceUrl}`),recipe)).toThrow(/required body donor/i);
 });
