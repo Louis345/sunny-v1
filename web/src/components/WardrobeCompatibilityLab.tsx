@@ -1,3 +1,4 @@
+import { DEFAULT_WARDROBE_INSPECTION, type WardrobeInspection } from "../lib/wardrobeInspection";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   WARDROBE_BODY_PROFILES,
@@ -33,14 +34,16 @@ export function WardrobeCompatibilityLab({
 }: {
   cases: readonly WardrobeCompatibilityCase[];
   items: readonly WardrobeStoreItem[];
-  renderSourceCompanion: (testCase: WardrobeCompatibilityCase) => ReactNode;
+  renderSourceCompanion: (testCase: WardrobeCompatibilityCase, inspection: WardrobeInspection) => ReactNode;
   renderCompanion: (
     testCase: WardrobeCompatibilityCase,
     item: WardrobeStoreItem,
     calibration: WardrobePreviewCalibration,
+    inspection: WardrobeInspection,
   ) => ReactNode;
   onExit: () => void;
 }) {
+  const [inspection, setInspection] = useState(DEFAULT_WARDROBE_INSPECTION);
   const outfitItems = useMemo(
     () => items.filter((item) => item.asset.kind === "outfit"),
     [items],
@@ -134,7 +137,7 @@ export function WardrobeCompatibilityLab({
           >
             <span>Original character</span>
             <div className="wardrobe-compatibility-lab__viewport">
-              {renderSourceCompanion(selectedCase)}
+              {renderSourceCompanion(selectedCase, inspection)}
             </div>
           </section>
           <section
@@ -143,7 +146,7 @@ export function WardrobeCompatibilityLab({
           >
             <span>Wardrobe fit</span>
             <div className="wardrobe-compatibility-lab__viewport">
-              {renderCompanion(selectedCase, selectedItem, selectedCalibration)}
+              {renderCompanion(selectedCase, selectedItem, selectedCalibration, inspection)}
             </div>
           </section>
         </div>
@@ -152,7 +155,7 @@ export function WardrobeCompatibilityLab({
             <span>
               {selectedCase.kind === "reference"
                 ? "Approved reference"
-                : "Standard-body identity candidate"}
+                : selectedCase.kind === "prepared" ? "Prepared complete identity · candidate" : "Standard-body identity candidate"}
             </span>
             <h2>{selectedCase.companionName} · {selectedItem.name}</h2>
             <p>{certification.reason}</p>
@@ -192,7 +195,18 @@ export function WardrobeCompatibilityLab({
           </div>
         </div>
 
-        <div className="wardrobe-compatibility-lab__calibration">
+        <div className="wardrobe-compatibility-lab__profile">
+          <label>Inspection view<select aria-label="Inspection view" value={inspection.view} onChange={event => setInspection({...inspection, view:event.target.value as WardrobeInspection["view"]})}>
+            <option value="front">Front</option><option value="side">Side</option><option value="back">Back</option><option value="face">Face close-up</option>
+          </select></label>
+          <label>Inspection movement<select aria-label="Inspection movement" value={inspection.pose} onChange={event => setInspection({...inspection, pose:event.target.value as WardrobeInspection["pose"]})}>
+            <option value="idle">Idle</option><option value="blink">Blink</option><option value="speak">Mouth open</option><option value="head-turn">Head turn</option><option value="arms-up">Arms raised</option><option value="leg-swing">Leg swing (synthetic)</option>
+          </select></label>
+          <label>Inspection accessory<select aria-label="Inspection accessory" value={inspection.accessory} onChange={event => setInspection({...inspection, accessory:event.target.value as WardrobeInspection["accessory"]})}>
+            <option value="none">None</option><option value="crown">Crown</option><option value="cat-ears">Cat ears</option><option value="halo">Halo</option>
+          </select></label>
+        </div>
+        {selectedCase.kind !== "prepared" && <div className="wardrobe-compatibility-lab__calibration">
           <div>
             <span>Preview calibration</span>
             <strong>{selectedCalibration.identityScale.toFixed(2)}× head</strong>
@@ -239,6 +253,7 @@ export function WardrobeCompatibilityLab({
           </div>
         </div>
 
+        }
         <div className="wardrobe-compatibility-lab__profile">
           <span>Body profile</span>
           <strong>{selectedCase.bodyProfileId}</strong>

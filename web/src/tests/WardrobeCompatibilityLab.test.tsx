@@ -51,12 +51,12 @@ describe("WardrobeCompatibilityLab", () => {
       WARDROBE_STORE_CERTIFICATION_CASES.length,
     );
     expect(screen.getByTestId("compatibility-preview")).toHaveTextContent(
-      "/companions/sample.vrm:sleeveless-dress:1.00:0.00",
+      "/companions/elli-wardrobe-identity-preserved-v1.vrm:sleeveless-dress:1.00:0.00",
     );
     expect(screen.getByTestId("source-preview")).toHaveTextContent("elli");
     expect(screen.getByText("Original character")).toBeTruthy();
     expect(screen.getByText("Wardrobe fit")).toBeTruthy();
-    expect(screen.getByText("2 of 8 companions approved")).toBeTruthy();
+    expect(screen.getByText("0 of 8 companions approved")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Preview Teal Ribbon Dress" })).toBeTruthy();
 
     fireEvent.click(screen.getByRole("button", { name: "Review Kefla identity on standard body" }));
@@ -75,13 +75,13 @@ describe("WardrobeCompatibilityLab", () => {
 
     fireEvent.click(
       screen.getByRole("button", {
-        name: "Review Matilda identity on standard body",
+        name: "Review Matilda prepared identity",
       }),
     );
 
-    expect(screen.getByText("Standard-body identity candidate")).toBeTruthy();
+    expect(screen.getByText("Prepared complete identity · candidate")).toBeTruthy();
     expect(screen.getAllByText("identity proof").length).toBeGreaterThan(0);
-    expect(screen.getByText("Approved for Matilda’s store")).toBeTruthy();
+    expect(screen.getByText("Quarantined — human review required")).toBeTruthy();
   });
 
   it("calibrates only the dressed preview and resets to the reviewed profile", () => {
@@ -123,4 +123,15 @@ describe("WardrobeCompatibilityLab", () => {
       "princess:1.28:0.00",
     );
   });
+});
+
+it('applies the same inspection view and movement to original and dressed companions', () => {
+  const original = vi.fn((..._args: unknown[]) => <div />);
+  const dressed = vi.fn((..._args: unknown[]) => <div />);
+  render(<WardrobeCompatibilityLab cases={WARDROBE_STORE_CERTIFICATION_CASES} items={WARDROBE_STORE_CATALOG} onExit={() => {}} renderSourceCompanion={original} renderCompanion={dressed} />);
+  fireEvent.change(screen.getByLabelText('Inspection view'), {target:{value:'side'}});
+  fireEvent.change(screen.getByLabelText('Inspection movement'), {target:{value:'arms-up'}});
+  fireEvent.change(screen.getByLabelText('Inspection accessory'), {target:{value:'crown'}});
+  expect(original.mock.calls.at(-1)?.[1]).toMatchObject({view:'side',pose:'arms-up',accessory:'crown'});
+  expect(dressed.mock.calls.at(-1)?.[3]).toMatchObject({view:'side',pose:'arms-up',accessory:'crown'});
 });

@@ -292,11 +292,8 @@ describe("companion wardrobe feasibility lab", () => {
 
     expect(source).toContain("wardrobeOutfitRequestGenerationRef");
     expect(source).toContain("reconcileVrmBaseClothingVisibility");
-    expect(
-      source.match(
-        /wardrobeOutfitRequestGenerationRef\.current !== requestGeneration/g,
-      )?.length,
-    ).toBeGreaterThanOrEqual(4);
+    // Behavioral cancellation, visibility and out-of-order coverage lives in
+    // verifyWardrobeSwitching.mjs; a count of duplicate effects proves nothing.
     expect(source).toContain(
       "outfit_variant stale_result_discarded",
     );
@@ -400,10 +397,10 @@ describe("companion wardrobe feasibility lab", () => {
 
     expect(source).toContain("wardrobeOutfitMaterialVariant");
     expect(source).toContain(
-      "attachXwearOutfit(vrmScene, outfitDefinition, wardrobeOutfitMaterialVariant)",
+      "attachXwearOutfit(vrm.scene, outfitDefinition, selectedMaterialVariant)",
     );
     expect(source).toContain(
-      "showroomCompanionConfig.vrmUrl,\n    wardrobeOutfitId,\n    wardrobeOutfitMaterialVariant,\n    wardrobeQaMode,",
+      "const selectionKey = JSON.stringify([entry.id, entry.companionConfig?.vrmUrl ?? entry.vrmUrl, identityOverlayModelUrl, wardrobeOutfitId, wardrobeOutfitMaterialVariant, wardrobeAccessoryId])",
     );
     expect(xwearSource).toContain(
       "applyXwearMaterialVariant(materials, materialVariant)",
