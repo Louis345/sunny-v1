@@ -1,3 +1,5 @@
+import preparedAssets from "./wardrobePrepared.generated.json";
+
 export type WardrobeBodyProfileId =
   | "sunny-standard-v1"
   | "vroid-slim-v1"
@@ -139,7 +141,7 @@ export type StandardizedWardrobePresentation = {
   identityHeadwearStyle?: WardrobeIdentityHeadwearStyle;
   identityScale?: number;
   identityOffsetY?: number;
-  bodyProfileId: "sunny-standard-v1";
+  bodyProfileId: WardrobeBodyProfileId;
 };
 
 export type WardrobeIdentityHeadwearStyle = "princess_bun";
@@ -267,12 +269,19 @@ const STANDARDIZED_WARDROBE_PRESENTATIONS = new Map<
 export function resolveStandardizedWardrobePresentation(
   companionId: string,
 ): StandardizedWardrobePresentation | null {
+  const prepared = preparedAssets.find(asset => asset.companionId === companionId);
+  if (prepared) return {
+    companionId,
+    bodyModelUrl: prepared.modelUrl,
+    bodyProfileId: prepared.bodyProfileId as WardrobeBodyProfileId,
+  };
   return STANDARDIZED_WARDROBE_PRESENTATIONS.get(companionId) ?? null;
 }
 
 export type WardrobeCompatibilityCase = {
   id: string;
-  kind: "reference" | "standardized_identity" | "source";
+  kind: "reference" | "standardized_identity" | "source" | "prepared";
+  sourceModelUrl?: string;
   companionId: string;
   companionName: string;
   label: string;
@@ -376,4 +385,15 @@ export function resolveWardrobeTemplateCertification(
 export const WARDROBE_STORE_CERTIFICATION_CASES: readonly WardrobeCompatibilityCase[] =
   WARDROBE_COMPATIBILITY_CASES.filter(
     (testCase) => testCase.kind !== "source",
-  );
+  ).map(testCase => {
+    const prepared = preparedAssets.find(asset => asset.companionId === testCase.companionId);
+    return prepared ? {
+      ...testCase, kind: "prepared" as const,
+      label: `${testCase.companionName} prepared identity`,
+      sourceModelUrl: prepared.sourceUrl,
+      modelUrl: prepared.modelUrl,
+      identityModelUrl: undefined,
+      bodyProfileId: prepared.bodyProfileId as WardrobeBodyProfileId,
+      dressQaStatus: "candidate" as const,
+    } : testCase;
+  });

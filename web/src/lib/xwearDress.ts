@@ -337,8 +337,10 @@ export function setVrmBaseClothingVisible(
     if (!(object instanceof THREE.Mesh)) return;
     const materials = Array.isArray(object.material) ? object.material : [object.material];
     for (const material of materials) {
-      const isReplaceableClothing =
-        (selectedCategories.has("top") && material.name.includes("Tops_")) ||
+      const explicitRole = material.userData.sunnyClothingCategory;
+      const isReplaceableClothing = scene.userData.sunnyWardrobe
+        ? selectedCategories.has(explicitRole)
+        : (selectedCategories.has("top") && material.name.includes("Tops_")) ||
         (selectedCategories.has("bottom") && material.name.includes("Bottoms_")) ||
         (selectedCategories.has("onepiece") && material.name.includes("Onepiece_"));
       if (isReplaceableClothing) {

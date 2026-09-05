@@ -1,0 +1,38 @@
+[
+  {
+    "companionId": "elli",
+    "recipeVersion": "identity-preserved-v1",
+    "sourceUrl": "/companions/sample.vrm",
+    "sourceSha256": "12c2b97e95e700783a6a550dc0eee2d7880aeedccef9ae67bc4c5a2f0f2631a2",
+    "preparedSha256": "6d9698c8fb9e9b41826612cd5fa3dcdde3339e9c0ee7c91368d94430044f8dec",
+    "modelUrl": "/companions/elli-wardrobe-identity-preserved-v1.vrm",
+    "bodyProfileId": "sunny-standard-v1",
+    "clothingMaterials": {
+      "1": "bottom",
+      "3": "top"
+    },
+    "status": "candidate"
+  },
+  {
+    "companionId": "matilda",
+    "recipeVersion": "identity-preserved-v1",
+    "sourceUrl": "/companions/673852811403133503.vrm",
+    "sourceSha256": "1b11bd3de4f708c147c408602ec21b3b86bc4d0003d8ebd9eba4451495e1d455",
+    "preparedSha256": "34874e8b98e8be33e515d88e4d2987aec4ed8582f4856cf4ba60e8e56e325bb2",
+    "modelUrl": "/companions/matilda-wardrobe-identity-preserved-v1.vrm",
+    "bodyProfileId": "vroid-slim-v1",
+    "clothingMaterials": {
+      "9": "bottom",
+      "10": "top",
+      "12": "top",
+      "14": "bottom",
+      "15": "onepiece",
+      "16": "bottom",
+      "17": "bottom",
+      "18": "top",
+      "19": "top",
+      "20": "top"
+    },
+    "status": "candidate"
+  }
+]

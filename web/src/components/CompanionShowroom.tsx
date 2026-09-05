@@ -6844,7 +6844,7 @@ export function CompanionShowroom({
             companionConfig: {
               ...sourceEntry.companionConfig,
               companionId: sourceEntry.id,
-              vrmUrl: testCase.identityModelUrl ?? testCase.modelUrl,
+              vrmUrl: testCase.sourceModelUrl ?? testCase.identityModelUrl ?? testCase.modelUrl,
             },
           };
           return (
