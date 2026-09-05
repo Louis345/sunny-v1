@@ -1,0 +1,46 @@
+(node:23032) [DEP0174] DeprecationWarning: Calling promisify on a function that returns a Promise is likely a mistake.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+
+> web@0.0.0 test
+> vitest run "--run" "src/tests/wardrobeStore.test.ts" "src/tests/WardrobeCompatibilityLab.test.tsx"
+
+
+ RUN  v3.2.4 /Users/jamaltaylor/.codex/worktrees/wardrobe-identity/sunny/web
+
+ ✓ src/tests/wardrobeStore.test.ts (12 tests) 6ms
+Browserslist: browsers data (caniuse-lite) is 6 months old. Please run:
+  npx update-browserslist-db@latest
+  Why you should do it regularly: https://github.com/browserslist/update-db#readme
+stdout | src/tests/WardrobeCompatibilityLab.test.tsx > WardrobeCompatibilityLab > presents every model at one consistent full-body review stage
+ 🎮 [wardrobe-certification-lab] preview_selected result=candidate companion=elli item=sleeveless-dress template=ribbon-dress
+ 🎮 [wardrobe-certification-lab] preview_selected result=candidate companion=kefla item=sleeveless-dress template=ribbon-dress
+ 🎮 [wardrobe-certification-lab] preview_selected result=candidate companion=kefla item=teal-ribbon-dress template=ribbon-dress
+ 🎮 [wardrobe-certification-lab] preview_selected result=candidate companion=matilda item=teal-ribbon-dress template=ribbon-dress
+
+stdout | src/tests/WardrobeCompatibilityLab.test.tsx > WardrobeCompatibilityLab > calibrates only the dressed preview and resets to the reviewed profile
+ 🎮 [wardrobe-certification-lab] preview_selected result=candidate companion=elli item=sleeveless-dress template=ribbon-dress
+ 🎮 [wardrobe-certification-lab] preview_selected result=candidate companion=princess item=sleeveless-dress template=ribbon-dress
+ 🎮 [wardrobe-certification-lab] calibration_changed result=preview_only companion=princess action=scale_up scale=1.32 offset_y=0.00
+ 🎮 [wardrobe-certification-lab] preview_selected result=candidate companion=princess item=sleeveless-dress template=ribbon-dress
+ 🎮 [wardrobe-certification-lab] calibration_changed result=preview_only companion=princess action=move_down scale=1.32 offset_y=-0.01
+ 🎮 [wardrobe-certification-lab] preview_selected result=candidate companion=princess item=sleeveless-dress template=ribbon-dress
+ 🎮 [wardrobe-certification-lab] calibration_changed result=preview_only companion=princess action=reset scale=1.28 offset_y=0.00
+ 🎮 [wardrobe-certification-lab] preview_selected result=candidate companion=princess item=sleeveless-dress template=ribbon-dress
+
+stdout | src/tests/WardrobeCompatibilityLab.test.tsx > applies the same inspection view and movement to original and dressed companions
+ 🎮 [wardrobe-certification-lab] preview_selected result=candidate companion=elli item=sleeveless-dress template=ribbon-dress
+ 🎮 [wardrobe-certification-lab] preview_selected result=candidate companion=elli item=sleeveless-dress template=ribbon-dress
+ 🎮 [wardrobe-certification-lab] preview_selected result=candidate companion=elli item=sleeveless-dress template=ribbon-dress
+ 🎮 [wardrobe-certification-lab] preview_selected result=candidate companion=elli item=sleeveless-dress template=ribbon-dress
+
+stdout | src/tests/WardrobeCompatibilityLab.test.tsx > offers distinct hoodie and blazer candidates in the diagnostic lab
+ 🎮 [wardrobe-certification-lab] preview_selected result=candidate companion=elli item=sleeveless-dress template=ribbon-dress
+ 🎮 [wardrobe-certification-lab] preview_selected result=candidate companion=elli item=comet-hoodie template=comet-hoodie
+ 🎮 [wardrobe-certification-lab] preview_selected result=candidate companion=elli item=constellation-blazer template=constellation-blazer
+
+ ✓ src/tests/WardrobeCompatibilityLab.test.tsx (5 tests) 291ms
+
+ Test Files  2 passed (2)
+      Tests  17 passed (17)
+   Start at  14:41:00
+   Duration  1.96s (transform 268ms, setup 268ms, collect 297ms, tests 297ms, environment 1.30s, prepare 201ms)

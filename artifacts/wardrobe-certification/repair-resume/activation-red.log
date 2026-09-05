@@ -1,0 +1,60 @@
+(node:51643) [DEP0174] DeprecationWarning: Calling promisify on a function that returns a Promise is likely a mistake.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+
+> web@0.0.0 test
+> vitest run "--run" "src/tests/wardrobe-prepared-activation.test.ts"
+
+
+ RUN  v3.2.4 /Users/jamaltaylor/.codex/worktrees/wardrobe-identity/sunny/web
+
+ ❯ src/tests/wardrobe-prepared-activation.test.ts (2 tests | 2 failed) 6ms
+   × uses exact current certification to activate 'elli' prepared fits 5ms
+     → expected true to be false // Object.is equality
+   × uses exact current certification to activate 'matilda' prepared fits 1ms
+     → expected false to be true // Object.is equality
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/tests/wardrobe-prepared-activation.test.ts > uses exact current certification to activate 'elli' prepared fits
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ src/tests/wardrobe-prepared-activation.test.ts:15:87
+     13|   expect(isXwearOutfitApprovedForAvatar(getXwearOutfitDefinition(id)!,…
+     14|   approval.mockReturnValue({companionId:body.companionId,templateId:it…
+     15|   expect(isXwearOutfitApprovedForAvatar(getXwearOutfitDefinition(id)!,…
+       |                                                                                       ^
+     16|  }
+     17| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  src/tests/wardrobe-prepared-activation.test.ts > uses exact current certification to activate 'matilda' prepared fits
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ src/tests/wardrobe-prepared-activation.test.ts:12:78
+     10|   const item=WARDROBE_STORE_CATALOG.find(i=>i.id===id)!;
+     11|   approval.mockReturnValue({companionId:body.companionId,templateId:it…
+     12|   expect(isWardrobeStoreItemCompatible(item,body.modelUrl,body.compani…
+       |                                                                              ^
+     13|   expect(isXwearOutfitApprovedForAvatar(getXwearOutfitDefinition(id)!,…
+     14|   approval.mockReturnValue({companionId:body.companionId,templateId:it…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  2 failed (2)
+   Start at  15:41:29
+   Duration  1.24s (transform 96ms, setup 148ms, collect 125ms, tests 6ms, environment 705ms, prepare 85ms)

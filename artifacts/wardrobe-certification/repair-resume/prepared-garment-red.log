@@ -1,0 +1,37 @@
+(node:31485) [DEP0174] DeprecationWarning: Calling promisify on a function that returns a Promise is likely a mistake.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+
+> web@0.0.0 test
+> vitest run "--run" "src/tests/wardrobe-prepared-garment.test.ts"
+
+
+ RUN  v3.2.4 /Users/jamaltaylor/.codex/worktrees/wardrobe-identity/sunny/web
+
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/tests/wardrobe-prepared-garment.test.ts [ src/tests/wardrobe-prepared-garment.test.ts ]
+Error: Failed to resolve import "../lib/wardrobePreparedGarment" from "src/tests/wardrobe-prepared-garment.test.ts". Does the file exist?
+  Plugin: vite:import-analysis
+  File: /Users/jamaltaylor/.codex/worktrees/wardrobe-identity/sunny/web/src/tests/wardrobe-prepared-garment.test.ts:5:112
+  3  |  import bodies from "../lib/wardrobePrepared.generated.json";
+  4  |  import versions from "../lib/wardrobeAssetVersions.generated.json";
+  5  |  import { resolvePreparedGarment, bindPreparedGarment } from "../lib/wardrobePreparedGarment";
+     |                                                               ^
+  6  |  const body = bodies[0];
+  7  |  const reference = { companionId: body.companionId, bodySha256: body.preparedSha256, outfitId: "sleeveless-dress", sou...
+ ❯ TransformPluginContext._formatLog node_modules/vitest/node_modules/vite/dist/node/chunks/config.js:29003:43
+ ❯ TransformPluginContext.error node_modules/vitest/node_modules/vite/dist/node/chunks/config.js:29000:14
+ ❯ normalizeUrl node_modules/vitest/node_modules/vite/dist/node/chunks/config.js:27123:18
+ ❯ node_modules/vitest/node_modules/vite/dist/node/chunks/config.js:27181:32
+ ❯ TransformPluginContext.transform node_modules/vitest/node_modules/vite/dist/node/chunks/config.js:27149:4
+ ❯ EnvironmentPluginContainer.transform node_modules/vitest/node_modules/vite/dist/node/chunks/config.js:28801:14
+ ❯ loadAndTransform node_modules/vitest/node_modules/vite/dist/node/chunks/config.js:22670:26
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  no tests
+   Start at  14:57:46
+   Duration  1.21s (transform 31ms, setup 125ms, collect 0ms, tests 0ms, environment 606ms, prepare 53ms)

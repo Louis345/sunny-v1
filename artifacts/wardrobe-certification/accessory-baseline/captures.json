@@ -1,0 +1,3085 @@
+{
+  "versions": {
+    "bodies": [
+      {
+        "companionId": "elli",
+        "recipeVersion": "identity-preserved-v1",
+        "sourceUrl": "/companions/sample.vrm",
+        "sourceSha256": "12c2b97e95e700783a6a550dc0eee2d7880aeedccef9ae67bc4c5a2f0f2631a2",
+        "preparedSha256": "6d9698c8fb9e9b41826612cd5fa3dcdde3339e9c0ee7c91368d94430044f8dec",
+        "modelUrl": "/companions/elli-wardrobe-identity-preserved-v1.vrm",
+        "bodyProfileId": "sunny-standard-v1",
+        "clothingMaterials": {
+          "1": "bottom",
+          "3": "top"
+        },
+        "status": "candidate"
+      },
+      {
+        "companionId": "matilda",
+        "recipeVersion": "identity-preserved-v3",
+        "sourceUrl": "/companions/673852811403133503.vrm",
+        "sourceSha256": "1b11bd3de4f708c147c408602ec21b3b86bc4d0003d8ebd9eba4451495e1d455",
+        "preparedSha256": "171b01c0adedca2ca4774642d42aa60fd862570e34910ae953c0ae2e5a80a293",
+        "modelUrl": "/companions/matilda-wardrobe-identity-preserved-v3.vrm",
+        "bodyProfileId": "vroid-slim-v1",
+        "clothingMaterials": {
+          "9": "bottom",
+          "10": "top",
+          "12": "top",
+          "14": "bottom",
+          "15": "onepiece",
+          "16": "top",
+          "17": "top",
+          "18": "top",
+          "19": "top",
+          "20": "top"
+        },
+        "bodyRepair": {
+          "donorSourceUrl": "/companions/sample.vrm",
+          "donorSha256": "12c2b97e95e700783a6a550dc0eee2d7880aeedccef9ae67bc4c5a2f0f2631a2",
+          "donorMesh": 0,
+          "donorPrimitive": 0,
+          "targetMesh": 1,
+          "targetPrimitive": 0,
+          "targetMaterial": 8,
+          "jointMappings": {
+            "J_Aim_L_Shoulder": [
+              {
+                "joint": "J_Bip_L_UpperArm",
+                "weight": 1
+              }
+            ],
+            "J_Roll_L_UpperArm": [
+              {
+                "joint": "J_Bip_L_UpperArm",
+                "weight": 1
+              }
+            ],
+            "J_Roll_L_LowerArm": [
+              {
+                "joint": "J_Bip_L_LowerArm",
+                "weight": 1
+              }
+            ],
+            "J_Roll_L_Hand": [
+              {
+                "joint": "J_Bip_L_Hand",
+                "weight": 1
+              }
+            ],
+            "J_Roll_L_Elbow": [
+              {
+                "joint": "J_Bip_L_UpperArm",
+                "weight": 0.5
+              },
+              {
+                "joint": "J_Bip_L_LowerArm",
+                "weight": 0.5
+              }
+            ],
+            "J_Aim_R_Shoulder": [
+              {
+                "joint": "J_Bip_R_UpperArm",
+                "weight": 1
+              }
+            ],
+            "J_Roll_R_UpperArm": [
+              {
+                "joint": "J_Bip_R_UpperArm",
+                "weight": 1
+              }
+            ],
+            "J_Roll_R_LowerArm": [
+              {
+                "joint": "J_Bip_R_LowerArm",
+                "weight": 1
+              }
+            ],
+            "J_Roll_R_Hand": [
+              {
+                "joint": "J_Bip_R_Hand",
+                "weight": 1
+              }
+            ],
+            "J_Roll_R_Elbow": [
+              {
+                "joint": "J_Bip_R_UpperArm",
+                "weight": 0.5
+              },
+              {
+                "joint": "J_Bip_R_LowerArm",
+                "weight": 0.5
+              }
+            ]
+          }
+        },
+        "status": "candidate"
+      }
+    ],
+    "fits": [
+      {
+        "companionId": "elli",
+        "bodySha256": "6d9698c8fb9e9b41826612cd5fa3dcdde3339e9c0ee7c91368d94430044f8dec",
+        "outfitId": "sleeveless-dress",
+        "sourceVersion": "c716207b017239dcbf2a096e8566d291650f3cb5fd2c6a8089b08f8251d2d0d3:8a8ada2c4e3cc906a3ca341ac20d176d205a4bec4d5f7d21a0dbfb620f09ccdf",
+        "url": "/__wardrobe-assets/prepared/elli-sleeveless-dress-d1332cf022581d3f374eac1ed78e27f25aa5d4f1824727fc5900f93833986dc8.json",
+        "sha256": "d1332cf022581d3f374eac1ed78e27f25aa5d4f1824727fc5900f93833986dc8"
+      },
+      {
+        "companionId": "elli",
+        "bodySha256": "6d9698c8fb9e9b41826612cd5fa3dcdde3339e9c0ee7c91368d94430044f8dec",
+        "outfitId": "comet-hoodie",
+        "sourceVersion": "ea114d56fd5e5803d6a06e07f8e97356b37403379a8b254f62d551ebe5a3e6cf:8a8ada2c4e3cc906a3ca341ac20d176d205a4bec4d5f7d21a0dbfb620f09ccdf",
+        "url": "/__wardrobe-assets/prepared/elli-comet-hoodie-999db4a1ae25b9cc89debb0d717d9baffc0d6c66a39c59a7d174074bf4873d91.json",
+        "sha256": "999db4a1ae25b9cc89debb0d717d9baffc0d6c66a39c59a7d174074bf4873d91"
+      },
+      {
+        "companionId": "elli",
+        "bodySha256": "6d9698c8fb9e9b41826612cd5fa3dcdde3339e9c0ee7c91368d94430044f8dec",
+        "outfitId": "constellation-blazer",
+        "sourceVersion": "3370358848af0e97fdea02d7bc3b2a0cfa5429b8512d20cf5add71c8fa8cca38:8a8ada2c4e3cc906a3ca341ac20d176d205a4bec4d5f7d21a0dbfb620f09ccdf",
+        "url": "/__wardrobe-assets/prepared/elli-constellation-blazer-e4fbf8dd452e31a430b85e5952ed990c47a33392fbfd9dcf41ecefd616d3d4ee.json",
+        "sha256": "e4fbf8dd452e31a430b85e5952ed990c47a33392fbfd9dcf41ecefd616d3d4ee"
+      },
+      {
+        "companionId": "matilda",
+        "bodySha256": "171b01c0adedca2ca4774642d42aa60fd862570e34910ae953c0ae2e5a80a293",
+        "outfitId": "sleeveless-dress",
+        "sourceVersion": "c716207b017239dcbf2a096e8566d291650f3cb5fd2c6a8089b08f8251d2d0d3:8a8ada2c4e3cc906a3ca341ac20d176d205a4bec4d5f7d21a0dbfb620f09ccdf",
+        "url": "/__wardrobe-assets/prepared/matilda-sleeveless-dress-44d8657a21f975fda56f1cb23c33fa4bb21639ffdf7580103066453aa7cf2e09.json",
+        "sha256": "44d8657a21f975fda56f1cb23c33fa4bb21639ffdf7580103066453aa7cf2e09"
+      },
+      {
+        "companionId": "matilda",
+        "bodySha256": "171b01c0adedca2ca4774642d42aa60fd862570e34910ae953c0ae2e5a80a293",
+        "outfitId": "comet-hoodie",
+        "sourceVersion": "ea114d56fd5e5803d6a06e07f8e97356b37403379a8b254f62d551ebe5a3e6cf:8a8ada2c4e3cc906a3ca341ac20d176d205a4bec4d5f7d21a0dbfb620f09ccdf",
+        "url": "/__wardrobe-assets/prepared/matilda-comet-hoodie-5478667e9f50db55de57485b96657bd45e30651c0dcc2335ca9c0473a388033e.json",
+        "sha256": "5478667e9f50db55de57485b96657bd45e30651c0dcc2335ca9c0473a388033e"
+      },
+      {
+        "companionId": "matilda",
+        "bodySha256": "171b01c0adedca2ca4774642d42aa60fd862570e34910ae953c0ae2e5a80a293",
+        "outfitId": "constellation-blazer",
+        "sourceVersion": "3370358848af0e97fdea02d7bc3b2a0cfa5429b8512d20cf5add71c8fa8cca38:8a8ada2c4e3cc906a3ca341ac20d176d205a4bec4d5f7d21a0dbfb620f09ccdf",
+        "url": "/__wardrobe-assets/prepared/matilda-constellation-blazer-8ae4e858946cd1ef2885aab45e2324979b0bd1fbbcbf0c70ace1a31e5e5fb264.json",
+        "sha256": "8ae4e858946cd1ef2885aab45e2324979b0bd1fbbcbf0c70ace1a31e5e5fb264"
+      }
+    ],
+    "assets": {
+      "ribbon-dress": "c716207b017239dcbf2a096e8566d291650f3cb5fd2c6a8089b08f8251d2d0d3:8a8ada2c4e3cc906a3ca341ac20d176d205a4bec4d5f7d21a0dbfb620f09ccdf",
+      "comet-hoodie": "ea114d56fd5e5803d6a06e07f8e97356b37403379a8b254f62d551ebe5a3e6cf:8a8ada2c4e3cc906a3ca341ac20d176d205a4bec4d5f7d21a0dbfb620f09ccdf",
+      "constellation-blazer": "3370358848af0e97fdea02d7bc3b2a0cfa5429b8512d20cf5add71c8fa8cca38:8a8ada2c4e3cc906a3ca341ac20d176d205a4bec4d5f7d21a0dbfb620f09ccdf",
+      "royal-crown": "252ac0606a01ed5a9b4c48db916412ba2078fc4dee1717bffacd318d8c940a5c",
+      "cat-ears": "252ac0606a01ed5a9b4c48db916412ba2078fc4dee1717bffacd318d8c940a5c",
+      "star-halo": "252ac0606a01ed5a9b4c48db916412ba2078fc4dee1717bffacd318d8c940a5c"
+    }
+  },
+  "captures": [
+    {
+      "companion": "matilda",
+      "family": "sleeveless-dress",
+      "view": "front",
+      "pose": "idle",
+      "accessory": "none",
+      "file": "matilda-sleeveless-dress-none-front-idle.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/673852811403133503.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/matilda-wardrobe-identity-preserved-v3.vrm\",null,\"sleeveless-dress\",{\"id\":\"sleeveless-dress\",\"tint\":\"#ffffff\"},\"none\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "matilda",
+      "family": "sleeveless-dress",
+      "view": "side",
+      "pose": "idle",
+      "accessory": "none",
+      "file": "matilda-sleeveless-dress-none-side-idle.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/673852811403133503.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/matilda-wardrobe-identity-preserved-v3.vrm\",null,\"sleeveless-dress\",{\"id\":\"sleeveless-dress\",\"tint\":\"#ffffff\"},\"none\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "matilda",
+      "family": "sleeveless-dress",
+      "view": "back",
+      "pose": "idle",
+      "accessory": "none",
+      "file": "matilda-sleeveless-dress-none-back-idle.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/673852811403133503.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/matilda-wardrobe-identity-preserved-v3.vrm\",null,\"sleeveless-dress\",{\"id\":\"sleeveless-dress\",\"tint\":\"#ffffff\"},\"none\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "matilda",
+      "family": "sleeveless-dress",
+      "view": "face",
+      "pose": "idle",
+      "accessory": "none",
+      "file": "matilda-sleeveless-dress-none-face-idle.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/673852811403133503.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/matilda-wardrobe-identity-preserved-v3.vrm\",null,\"sleeveless-dress\",{\"id\":\"sleeveless-dress\",\"tint\":\"#ffffff\"},\"none\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "matilda",
+      "family": "sleeveless-dress",
+      "view": "face",
+      "pose": "blink",
+      "accessory": "none",
+      "file": "matilda-sleeveless-dress-none-face-blink.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/673852811403133503.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/matilda-wardrobe-identity-preserved-v3.vrm\",null,\"sleeveless-dress\",{\"id\":\"sleeveless-dress\",\"tint\":\"#ffffff\"},\"none\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "matilda",
+      "family": "sleeveless-dress",
+      "view": "face",
+      "pose": "speak",
+      "accessory": "none",
+      "file": "matilda-sleeveless-dress-none-face-speak.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/673852811403133503.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/matilda-wardrobe-identity-preserved-v3.vrm\",null,\"sleeveless-dress\",{\"id\":\"sleeveless-dress\",\"tint\":\"#ffffff\"},\"none\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "matilda",
+      "family": "sleeveless-dress",
+      "view": "face",
+      "pose": "head-turn",
+      "accessory": "none",
+      "file": "matilda-sleeveless-dress-none-face-head-turn.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/673852811403133503.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/matilda-wardrobe-identity-preserved-v3.vrm\",null,\"sleeveless-dress\",{\"id\":\"sleeveless-dress\",\"tint\":\"#ffffff\"},\"none\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "matilda",
+      "family": "sleeveless-dress",
+      "view": "front",
+      "pose": "arms-up",
+      "accessory": "none",
+      "file": "matilda-sleeveless-dress-none-front-arms-up.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/673852811403133503.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/matilda-wardrobe-identity-preserved-v3.vrm\",null,\"sleeveless-dress\",{\"id\":\"sleeveless-dress\",\"tint\":\"#ffffff\"},\"none\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "matilda",
+      "family": "sleeveless-dress",
+      "view": "front",
+      "pose": "elbows-bent",
+      "accessory": "none",
+      "file": "matilda-sleeveless-dress-none-front-elbows-bent.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/673852811403133503.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/matilda-wardrobe-identity-preserved-v3.vrm\",null,\"sleeveless-dress\",{\"id\":\"sleeveless-dress\",\"tint\":\"#ffffff\"},\"none\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "matilda",
+      "family": "sleeveless-dress",
+      "view": "front",
+      "pose": "leg-swing",
+      "accessory": "none",
+      "file": "matilda-sleeveless-dress-none-front-leg-swing.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/673852811403133503.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/matilda-wardrobe-identity-preserved-v3.vrm\",null,\"sleeveless-dress\",{\"id\":\"sleeveless-dress\",\"tint\":\"#ffffff\"},\"none\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "matilda",
+      "family": "sleeveless-dress",
+      "view": "face",
+      "pose": "idle",
+      "accessory": "crown",
+      "file": "matilda-sleeveless-dress-crown-face-idle.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/673852811403133503.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/matilda-wardrobe-identity-preserved-v3.vrm\",null,\"sleeveless-dress\",{\"id\":\"sleeveless-dress\",\"tint\":\"#ffffff\"},\"crown\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "matilda",
+      "family": "sleeveless-dress",
+      "view": "side",
+      "pose": "idle",
+      "accessory": "crown",
+      "file": "matilda-sleeveless-dress-crown-side-idle.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/673852811403133503.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/matilda-wardrobe-identity-preserved-v3.vrm\",null,\"sleeveless-dress\",{\"id\":\"sleeveless-dress\",\"tint\":\"#ffffff\"},\"crown\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "matilda",
+      "family": "sleeveless-dress",
+      "view": "face",
+      "pose": "head-turn",
+      "accessory": "crown",
+      "file": "matilda-sleeveless-dress-crown-face-head-turn.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/673852811403133503.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/matilda-wardrobe-identity-preserved-v3.vrm\",null,\"sleeveless-dress\",{\"id\":\"sleeveless-dress\",\"tint\":\"#ffffff\"},\"crown\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "matilda",
+      "family": "sleeveless-dress",
+      "view": "front",
+      "pose": "arms-up",
+      "accessory": "crown",
+      "file": "matilda-sleeveless-dress-crown-front-arms-up.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/673852811403133503.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/matilda-wardrobe-identity-preserved-v3.vrm\",null,\"sleeveless-dress\",{\"id\":\"sleeveless-dress\",\"tint\":\"#ffffff\"},\"crown\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "matilda",
+      "family": "sleeveless-dress",
+      "view": "face",
+      "pose": "idle",
+      "accessory": "cat-ears",
+      "file": "matilda-sleeveless-dress-cat-ears-face-idle.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/673852811403133503.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/matilda-wardrobe-identity-preserved-v3.vrm\",null,\"sleeveless-dress\",{\"id\":\"sleeveless-dress\",\"tint\":\"#ffffff\"},\"cat-ears\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "matilda",
+      "family": "sleeveless-dress",
+      "view": "side",
+      "pose": "idle",
+      "accessory": "cat-ears",
+      "file": "matilda-sleeveless-dress-cat-ears-side-idle.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/673852811403133503.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/matilda-wardrobe-identity-preserved-v3.vrm\",null,\"sleeveless-dress\",{\"id\":\"sleeveless-dress\",\"tint\":\"#ffffff\"},\"cat-ears\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "matilda",
+      "family": "sleeveless-dress",
+      "view": "face",
+      "pose": "head-turn",
+      "accessory": "cat-ears",
+      "file": "matilda-sleeveless-dress-cat-ears-face-head-turn.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/673852811403133503.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/matilda-wardrobe-identity-preserved-v3.vrm\",null,\"sleeveless-dress\",{\"id\":\"sleeveless-dress\",\"tint\":\"#ffffff\"},\"cat-ears\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "matilda",
+      "family": "sleeveless-dress",
+      "view": "front",
+      "pose": "arms-up",
+      "accessory": "cat-ears",
+      "file": "matilda-sleeveless-dress-cat-ears-front-arms-up.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/673852811403133503.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/matilda-wardrobe-identity-preserved-v3.vrm\",null,\"sleeveless-dress\",{\"id\":\"sleeveless-dress\",\"tint\":\"#ffffff\"},\"cat-ears\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "matilda",
+      "family": "sleeveless-dress",
+      "view": "face",
+      "pose": "idle",
+      "accessory": "halo",
+      "file": "matilda-sleeveless-dress-halo-face-idle.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/673852811403133503.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/matilda-wardrobe-identity-preserved-v3.vrm\",null,\"sleeveless-dress\",{\"id\":\"sleeveless-dress\",\"tint\":\"#ffffff\"},\"halo\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "matilda",
+      "family": "sleeveless-dress",
+      "view": "side",
+      "pose": "idle",
+      "accessory": "halo",
+      "file": "matilda-sleeveless-dress-halo-side-idle.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/673852811403133503.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/matilda-wardrobe-identity-preserved-v3.vrm\",null,\"sleeveless-dress\",{\"id\":\"sleeveless-dress\",\"tint\":\"#ffffff\"},\"halo\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "matilda",
+      "family": "sleeveless-dress",
+      "view": "face",
+      "pose": "head-turn",
+      "accessory": "halo",
+      "file": "matilda-sleeveless-dress-halo-face-head-turn.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/673852811403133503.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/matilda-wardrobe-identity-preserved-v3.vrm\",null,\"sleeveless-dress\",{\"id\":\"sleeveless-dress\",\"tint\":\"#ffffff\"},\"halo\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "matilda",
+      "family": "sleeveless-dress",
+      "view": "front",
+      "pose": "arms-up",
+      "accessory": "halo",
+      "file": "matilda-sleeveless-dress-halo-front-arms-up.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/673852811403133503.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/matilda-wardrobe-identity-preserved-v3.vrm\",null,\"sleeveless-dress\",{\"id\":\"sleeveless-dress\",\"tint\":\"#ffffff\"},\"halo\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "matilda",
+      "family": "comet-hoodie",
+      "view": "front",
+      "pose": "idle",
+      "accessory": "none",
+      "file": "matilda-comet-hoodie-none-front-idle.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/673852811403133503.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/matilda-wardrobe-identity-preserved-v3.vrm\",null,\"comet-hoodie\",{\"id\":\"comet-hoodie\",\"tint\":\"#ffffff\"},\"none\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "matilda",
+      "family": "comet-hoodie",
+      "view": "side",
+      "pose": "idle",
+      "accessory": "none",
+      "file": "matilda-comet-hoodie-none-side-idle.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/673852811403133503.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/matilda-wardrobe-identity-preserved-v3.vrm\",null,\"comet-hoodie\",{\"id\":\"comet-hoodie\",\"tint\":\"#ffffff\"},\"none\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "matilda",
+      "family": "comet-hoodie",
+      "view": "back",
+      "pose": "idle",
+      "accessory": "none",
+      "file": "matilda-comet-hoodie-none-back-idle.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/673852811403133503.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/matilda-wardrobe-identity-preserved-v3.vrm\",null,\"comet-hoodie\",{\"id\":\"comet-hoodie\",\"tint\":\"#ffffff\"},\"none\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "matilda",
+      "family": "comet-hoodie",
+      "view": "face",
+      "pose": "idle",
+      "accessory": "none",
+      "file": "matilda-comet-hoodie-none-face-idle.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/673852811403133503.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/matilda-wardrobe-identity-preserved-v3.vrm\",null,\"comet-hoodie\",{\"id\":\"comet-hoodie\",\"tint\":\"#ffffff\"},\"none\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "matilda",
+      "family": "comet-hoodie",
+      "view": "face",
+      "pose": "blink",
+      "accessory": "none",
+      "file": "matilda-comet-hoodie-none-face-blink.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/673852811403133503.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/matilda-wardrobe-identity-preserved-v3.vrm\",null,\"comet-hoodie\",{\"id\":\"comet-hoodie\",\"tint\":\"#ffffff\"},\"none\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "matilda",
+      "family": "comet-hoodie",
+      "view": "face",
+      "pose": "speak",
+      "accessory": "none",
+      "file": "matilda-comet-hoodie-none-face-speak.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/673852811403133503.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/matilda-wardrobe-identity-preserved-v3.vrm\",null,\"comet-hoodie\",{\"id\":\"comet-hoodie\",\"tint\":\"#ffffff\"},\"none\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "matilda",
+      "family": "comet-hoodie",
+      "view": "face",
+      "pose": "head-turn",
+      "accessory": "none",
+      "file": "matilda-comet-hoodie-none-face-head-turn.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/673852811403133503.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/matilda-wardrobe-identity-preserved-v3.vrm\",null,\"comet-hoodie\",{\"id\":\"comet-hoodie\",\"tint\":\"#ffffff\"},\"none\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "matilda",
+      "family": "comet-hoodie",
+      "view": "front",
+      "pose": "arms-up",
+      "accessory": "none",
+      "file": "matilda-comet-hoodie-none-front-arms-up.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/673852811403133503.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/matilda-wardrobe-identity-preserved-v3.vrm\",null,\"comet-hoodie\",{\"id\":\"comet-hoodie\",\"tint\":\"#ffffff\"},\"none\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "matilda",
+      "family": "comet-hoodie",
+      "view": "front",
+      "pose": "elbows-bent",
+      "accessory": "none",
+      "file": "matilda-comet-hoodie-none-front-elbows-bent.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/673852811403133503.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/matilda-wardrobe-identity-preserved-v3.vrm\",null,\"comet-hoodie\",{\"id\":\"comet-hoodie\",\"tint\":\"#ffffff\"},\"none\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "matilda",
+      "family": "comet-hoodie",
+      "view": "front",
+      "pose": "leg-swing",
+      "accessory": "none",
+      "file": "matilda-comet-hoodie-none-front-leg-swing.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/673852811403133503.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/matilda-wardrobe-identity-preserved-v3.vrm\",null,\"comet-hoodie\",{\"id\":\"comet-hoodie\",\"tint\":\"#ffffff\"},\"none\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "matilda",
+      "family": "comet-hoodie",
+      "view": "face",
+      "pose": "idle",
+      "accessory": "crown",
+      "file": "matilda-comet-hoodie-crown-face-idle.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/673852811403133503.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/matilda-wardrobe-identity-preserved-v3.vrm\",null,\"comet-hoodie\",{\"id\":\"comet-hoodie\",\"tint\":\"#ffffff\"},\"crown\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "matilda",
+      "family": "comet-hoodie",
+      "view": "side",
+      "pose": "idle",
+      "accessory": "crown",
+      "file": "matilda-comet-hoodie-crown-side-idle.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/673852811403133503.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/matilda-wardrobe-identity-preserved-v3.vrm\",null,\"comet-hoodie\",{\"id\":\"comet-hoodie\",\"tint\":\"#ffffff\"},\"crown\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "matilda",
+      "family": "comet-hoodie",
+      "view": "face",
+      "pose": "head-turn",
+      "accessory": "crown",
+      "file": "matilda-comet-hoodie-crown-face-head-turn.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/673852811403133503.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/matilda-wardrobe-identity-preserved-v3.vrm\",null,\"comet-hoodie\",{\"id\":\"comet-hoodie\",\"tint\":\"#ffffff\"},\"crown\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "matilda",
+      "family": "comet-hoodie",
+      "view": "front",
+      "pose": "arms-up",
+      "accessory": "crown",
+      "file": "matilda-comet-hoodie-crown-front-arms-up.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/673852811403133503.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/matilda-wardrobe-identity-preserved-v3.vrm\",null,\"comet-hoodie\",{\"id\":\"comet-hoodie\",\"tint\":\"#ffffff\"},\"crown\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "matilda",
+      "family": "comet-hoodie",
+      "view": "face",
+      "pose": "idle",
+      "accessory": "cat-ears",
+      "file": "matilda-comet-hoodie-cat-ears-face-idle.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/673852811403133503.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/matilda-wardrobe-identity-preserved-v3.vrm\",null,\"comet-hoodie\",{\"id\":\"comet-hoodie\",\"tint\":\"#ffffff\"},\"cat-ears\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "matilda",
+      "family": "comet-hoodie",
+      "view": "side",
+      "pose": "idle",
+      "accessory": "cat-ears",
+      "file": "matilda-comet-hoodie-cat-ears-side-idle.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/673852811403133503.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/matilda-wardrobe-identity-preserved-v3.vrm\",null,\"comet-hoodie\",{\"id\":\"comet-hoodie\",\"tint\":\"#ffffff\"},\"cat-ears\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "matilda",
+      "family": "comet-hoodie",
+      "view": "face",
+      "pose": "head-turn",
+      "accessory": "cat-ears",
+      "file": "matilda-comet-hoodie-cat-ears-face-head-turn.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/673852811403133503.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/matilda-wardrobe-identity-preserved-v3.vrm\",null,\"comet-hoodie\",{\"id\":\"comet-hoodie\",\"tint\":\"#ffffff\"},\"cat-ears\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "matilda",
+      "family": "comet-hoodie",
+      "view": "front",
+      "pose": "arms-up",
+      "accessory": "cat-ears",
+      "file": "matilda-comet-hoodie-cat-ears-front-arms-up.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/673852811403133503.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/matilda-wardrobe-identity-preserved-v3.vrm\",null,\"comet-hoodie\",{\"id\":\"comet-hoodie\",\"tint\":\"#ffffff\"},\"cat-ears\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "matilda",
+      "family": "comet-hoodie",
+      "view": "face",
+      "pose": "idle",
+      "accessory": "halo",
+      "file": "matilda-comet-hoodie-halo-face-idle.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/673852811403133503.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/matilda-wardrobe-identity-preserved-v3.vrm\",null,\"comet-hoodie\",{\"id\":\"comet-hoodie\",\"tint\":\"#ffffff\"},\"halo\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "matilda",
+      "family": "comet-hoodie",
+      "view": "side",
+      "pose": "idle",
+      "accessory": "halo",
+      "file": "matilda-comet-hoodie-halo-side-idle.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/673852811403133503.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/matilda-wardrobe-identity-preserved-v3.vrm\",null,\"comet-hoodie\",{\"id\":\"comet-hoodie\",\"tint\":\"#ffffff\"},\"halo\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "matilda",
+      "family": "comet-hoodie",
+      "view": "face",
+      "pose": "head-turn",
+      "accessory": "halo",
+      "file": "matilda-comet-hoodie-halo-face-head-turn.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/673852811403133503.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/matilda-wardrobe-identity-preserved-v3.vrm\",null,\"comet-hoodie\",{\"id\":\"comet-hoodie\",\"tint\":\"#ffffff\"},\"halo\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "matilda",
+      "family": "comet-hoodie",
+      "view": "front",
+      "pose": "arms-up",
+      "accessory": "halo",
+      "file": "matilda-comet-hoodie-halo-front-arms-up.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/673852811403133503.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/matilda-wardrobe-identity-preserved-v3.vrm\",null,\"comet-hoodie\",{\"id\":\"comet-hoodie\",\"tint\":\"#ffffff\"},\"halo\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "matilda",
+      "family": "constellation-blazer",
+      "view": "front",
+      "pose": "idle",
+      "accessory": "none",
+      "file": "matilda-constellation-blazer-none-front-idle.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/673852811403133503.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/matilda-wardrobe-identity-preserved-v3.vrm\",null,\"constellation-blazer\",{\"id\":\"constellation-blazer\",\"tint\":\"#ffffff\"},\"none\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "matilda",
+      "family": "constellation-blazer",
+      "view": "side",
+      "pose": "idle",
+      "accessory": "none",
+      "file": "matilda-constellation-blazer-none-side-idle.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/673852811403133503.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/matilda-wardrobe-identity-preserved-v3.vrm\",null,\"constellation-blazer\",{\"id\":\"constellation-blazer\",\"tint\":\"#ffffff\"},\"none\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "matilda",
+      "family": "constellation-blazer",
+      "view": "back",
+      "pose": "idle",
+      "accessory": "none",
+      "file": "matilda-constellation-blazer-none-back-idle.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/673852811403133503.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/matilda-wardrobe-identity-preserved-v3.vrm\",null,\"constellation-blazer\",{\"id\":\"constellation-blazer\",\"tint\":\"#ffffff\"},\"none\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "matilda",
+      "family": "constellation-blazer",
+      "view": "face",
+      "pose": "idle",
+      "accessory": "none",
+      "file": "matilda-constellation-blazer-none-face-idle.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/673852811403133503.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/matilda-wardrobe-identity-preserved-v3.vrm\",null,\"constellation-blazer\",{\"id\":\"constellation-blazer\",\"tint\":\"#ffffff\"},\"none\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "matilda",
+      "family": "constellation-blazer",
+      "view": "face",
+      "pose": "blink",
+      "accessory": "none",
+      "file": "matilda-constellation-blazer-none-face-blink.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/673852811403133503.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/matilda-wardrobe-identity-preserved-v3.vrm\",null,\"constellation-blazer\",{\"id\":\"constellation-blazer\",\"tint\":\"#ffffff\"},\"none\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "matilda",
+      "family": "constellation-blazer",
+      "view": "face",
+      "pose": "speak",
+      "accessory": "none",
+      "file": "matilda-constellation-blazer-none-face-speak.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/673852811403133503.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/matilda-wardrobe-identity-preserved-v3.vrm\",null,\"constellation-blazer\",{\"id\":\"constellation-blazer\",\"tint\":\"#ffffff\"},\"none\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "matilda",
+      "family": "constellation-blazer",
+      "view": "face",
+      "pose": "head-turn",
+      "accessory": "none",
+      "file": "matilda-constellation-blazer-none-face-head-turn.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/673852811403133503.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/matilda-wardrobe-identity-preserved-v3.vrm\",null,\"constellation-blazer\",{\"id\":\"constellation-blazer\",\"tint\":\"#ffffff\"},\"none\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "matilda",
+      "family": "constellation-blazer",
+      "view": "front",
+      "pose": "arms-up",
+      "accessory": "none",
+      "file": "matilda-constellation-blazer-none-front-arms-up.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/673852811403133503.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/matilda-wardrobe-identity-preserved-v3.vrm\",null,\"constellation-blazer\",{\"id\":\"constellation-blazer\",\"tint\":\"#ffffff\"},\"none\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "matilda",
+      "family": "constellation-blazer",
+      "view": "front",
+      "pose": "elbows-bent",
+      "accessory": "none",
+      "file": "matilda-constellation-blazer-none-front-elbows-bent.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/673852811403133503.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/matilda-wardrobe-identity-preserved-v3.vrm\",null,\"constellation-blazer\",{\"id\":\"constellation-blazer\",\"tint\":\"#ffffff\"},\"none\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "matilda",
+      "family": "constellation-blazer",
+      "view": "front",
+      "pose": "leg-swing",
+      "accessory": "none",
+      "file": "matilda-constellation-blazer-none-front-leg-swing.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/673852811403133503.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/matilda-wardrobe-identity-preserved-v3.vrm\",null,\"constellation-blazer\",{\"id\":\"constellation-blazer\",\"tint\":\"#ffffff\"},\"none\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "matilda",
+      "family": "constellation-blazer",
+      "view": "face",
+      "pose": "idle",
+      "accessory": "crown",
+      "file": "matilda-constellation-blazer-crown-face-idle.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/673852811403133503.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/matilda-wardrobe-identity-preserved-v3.vrm\",null,\"constellation-blazer\",{\"id\":\"constellation-blazer\",\"tint\":\"#ffffff\"},\"crown\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "matilda",
+      "family": "constellation-blazer",
+      "view": "side",
+      "pose": "idle",
+      "accessory": "crown",
+      "file": "matilda-constellation-blazer-crown-side-idle.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/673852811403133503.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/matilda-wardrobe-identity-preserved-v3.vrm\",null,\"constellation-blazer\",{\"id\":\"constellation-blazer\",\"tint\":\"#ffffff\"},\"crown\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "matilda",
+      "family": "constellation-blazer",
+      "view": "face",
+      "pose": "head-turn",
+      "accessory": "crown",
+      "file": "matilda-constellation-blazer-crown-face-head-turn.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/673852811403133503.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/matilda-wardrobe-identity-preserved-v3.vrm\",null,\"constellation-blazer\",{\"id\":\"constellation-blazer\",\"tint\":\"#ffffff\"},\"crown\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "matilda",
+      "family": "constellation-blazer",
+      "view": "front",
+      "pose": "arms-up",
+      "accessory": "crown",
+      "file": "matilda-constellation-blazer-crown-front-arms-up.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/673852811403133503.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/matilda-wardrobe-identity-preserved-v3.vrm\",null,\"constellation-blazer\",{\"id\":\"constellation-blazer\",\"tint\":\"#ffffff\"},\"crown\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "matilda",
+      "family": "constellation-blazer",
+      "view": "face",
+      "pose": "idle",
+      "accessory": "cat-ears",
+      "file": "matilda-constellation-blazer-cat-ears-face-idle.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/673852811403133503.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/matilda-wardrobe-identity-preserved-v3.vrm\",null,\"constellation-blazer\",{\"id\":\"constellation-blazer\",\"tint\":\"#ffffff\"},\"cat-ears\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "matilda",
+      "family": "constellation-blazer",
+      "view": "side",
+      "pose": "idle",
+      "accessory": "cat-ears",
+      "file": "matilda-constellation-blazer-cat-ears-side-idle.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/673852811403133503.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/matilda-wardrobe-identity-preserved-v3.vrm\",null,\"constellation-blazer\",{\"id\":\"constellation-blazer\",\"tint\":\"#ffffff\"},\"cat-ears\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "matilda",
+      "family": "constellation-blazer",
+      "view": "face",
+      "pose": "head-turn",
+      "accessory": "cat-ears",
+      "file": "matilda-constellation-blazer-cat-ears-face-head-turn.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/673852811403133503.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/matilda-wardrobe-identity-preserved-v3.vrm\",null,\"constellation-blazer\",{\"id\":\"constellation-blazer\",\"tint\":\"#ffffff\"},\"cat-ears\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "matilda",
+      "family": "constellation-blazer",
+      "view": "front",
+      "pose": "arms-up",
+      "accessory": "cat-ears",
+      "file": "matilda-constellation-blazer-cat-ears-front-arms-up.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/673852811403133503.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/matilda-wardrobe-identity-preserved-v3.vrm\",null,\"constellation-blazer\",{\"id\":\"constellation-blazer\",\"tint\":\"#ffffff\"},\"cat-ears\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "matilda",
+      "family": "constellation-blazer",
+      "view": "face",
+      "pose": "idle",
+      "accessory": "halo",
+      "file": "matilda-constellation-blazer-halo-face-idle.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/673852811403133503.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/matilda-wardrobe-identity-preserved-v3.vrm\",null,\"constellation-blazer\",{\"id\":\"constellation-blazer\",\"tint\":\"#ffffff\"},\"halo\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "matilda",
+      "family": "constellation-blazer",
+      "view": "side",
+      "pose": "idle",
+      "accessory": "halo",
+      "file": "matilda-constellation-blazer-halo-side-idle.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/673852811403133503.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/matilda-wardrobe-identity-preserved-v3.vrm\",null,\"constellation-blazer\",{\"id\":\"constellation-blazer\",\"tint\":\"#ffffff\"},\"halo\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "matilda",
+      "family": "constellation-blazer",
+      "view": "face",
+      "pose": "head-turn",
+      "accessory": "halo",
+      "file": "matilda-constellation-blazer-halo-face-head-turn.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/673852811403133503.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/matilda-wardrobe-identity-preserved-v3.vrm\",null,\"constellation-blazer\",{\"id\":\"constellation-blazer\",\"tint\":\"#ffffff\"},\"halo\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "matilda",
+      "family": "constellation-blazer",
+      "view": "front",
+      "pose": "arms-up",
+      "accessory": "halo",
+      "file": "matilda-constellation-blazer-halo-front-arms-up.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/673852811403133503.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"matilda\",\"/companions/matilda-wardrobe-identity-preserved-v3.vrm\",null,\"constellation-blazer\",{\"id\":\"constellation-blazer\",\"tint\":\"#ffffff\"},\"halo\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "elli",
+      "family": "sleeveless-dress",
+      "view": "front",
+      "pose": "idle",
+      "accessory": "none",
+      "file": "elli-sleeveless-dress-none-front-idle.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/sample.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/elli-wardrobe-identity-preserved-v1.vrm\",null,\"sleeveless-dress\",{\"id\":\"sleeveless-dress\",\"tint\":\"#ffffff\"},\"none\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "elli",
+      "family": "sleeveless-dress",
+      "view": "side",
+      "pose": "idle",
+      "accessory": "none",
+      "file": "elli-sleeveless-dress-none-side-idle.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/sample.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/elli-wardrobe-identity-preserved-v1.vrm\",null,\"sleeveless-dress\",{\"id\":\"sleeveless-dress\",\"tint\":\"#ffffff\"},\"none\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "elli",
+      "family": "sleeveless-dress",
+      "view": "back",
+      "pose": "idle",
+      "accessory": "none",
+      "file": "elli-sleeveless-dress-none-back-idle.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/sample.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/elli-wardrobe-identity-preserved-v1.vrm\",null,\"sleeveless-dress\",{\"id\":\"sleeveless-dress\",\"tint\":\"#ffffff\"},\"none\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "elli",
+      "family": "sleeveless-dress",
+      "view": "face",
+      "pose": "idle",
+      "accessory": "none",
+      "file": "elli-sleeveless-dress-none-face-idle.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/sample.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/elli-wardrobe-identity-preserved-v1.vrm\",null,\"sleeveless-dress\",{\"id\":\"sleeveless-dress\",\"tint\":\"#ffffff\"},\"none\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "elli",
+      "family": "sleeveless-dress",
+      "view": "face",
+      "pose": "blink",
+      "accessory": "none",
+      "file": "elli-sleeveless-dress-none-face-blink.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/sample.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/elli-wardrobe-identity-preserved-v1.vrm\",null,\"sleeveless-dress\",{\"id\":\"sleeveless-dress\",\"tint\":\"#ffffff\"},\"none\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "elli",
+      "family": "sleeveless-dress",
+      "view": "face",
+      "pose": "speak",
+      "accessory": "none",
+      "file": "elli-sleeveless-dress-none-face-speak.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/sample.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/elli-wardrobe-identity-preserved-v1.vrm\",null,\"sleeveless-dress\",{\"id\":\"sleeveless-dress\",\"tint\":\"#ffffff\"},\"none\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "elli",
+      "family": "sleeveless-dress",
+      "view": "face",
+      "pose": "head-turn",
+      "accessory": "none",
+      "file": "elli-sleeveless-dress-none-face-head-turn.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/sample.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/elli-wardrobe-identity-preserved-v1.vrm\",null,\"sleeveless-dress\",{\"id\":\"sleeveless-dress\",\"tint\":\"#ffffff\"},\"none\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "elli",
+      "family": "sleeveless-dress",
+      "view": "front",
+      "pose": "arms-up",
+      "accessory": "none",
+      "file": "elli-sleeveless-dress-none-front-arms-up.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/sample.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/elli-wardrobe-identity-preserved-v1.vrm\",null,\"sleeveless-dress\",{\"id\":\"sleeveless-dress\",\"tint\":\"#ffffff\"},\"none\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "elli",
+      "family": "sleeveless-dress",
+      "view": "front",
+      "pose": "elbows-bent",
+      "accessory": "none",
+      "file": "elli-sleeveless-dress-none-front-elbows-bent.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/sample.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/elli-wardrobe-identity-preserved-v1.vrm\",null,\"sleeveless-dress\",{\"id\":\"sleeveless-dress\",\"tint\":\"#ffffff\"},\"none\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "elli",
+      "family": "sleeveless-dress",
+      "view": "front",
+      "pose": "leg-swing",
+      "accessory": "none",
+      "file": "elli-sleeveless-dress-none-front-leg-swing.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/sample.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/elli-wardrobe-identity-preserved-v1.vrm\",null,\"sleeveless-dress\",{\"id\":\"sleeveless-dress\",\"tint\":\"#ffffff\"},\"none\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "elli",
+      "family": "sleeveless-dress",
+      "view": "face",
+      "pose": "idle",
+      "accessory": "crown",
+      "file": "elli-sleeveless-dress-crown-face-idle.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/sample.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/elli-wardrobe-identity-preserved-v1.vrm\",null,\"sleeveless-dress\",{\"id\":\"sleeveless-dress\",\"tint\":\"#ffffff\"},\"crown\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "elli",
+      "family": "sleeveless-dress",
+      "view": "side",
+      "pose": "idle",
+      "accessory": "crown",
+      "file": "elli-sleeveless-dress-crown-side-idle.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/sample.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/elli-wardrobe-identity-preserved-v1.vrm\",null,\"sleeveless-dress\",{\"id\":\"sleeveless-dress\",\"tint\":\"#ffffff\"},\"crown\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "elli",
+      "family": "sleeveless-dress",
+      "view": "face",
+      "pose": "head-turn",
+      "accessory": "crown",
+      "file": "elli-sleeveless-dress-crown-face-head-turn.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/sample.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/elli-wardrobe-identity-preserved-v1.vrm\",null,\"sleeveless-dress\",{\"id\":\"sleeveless-dress\",\"tint\":\"#ffffff\"},\"crown\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "elli",
+      "family": "sleeveless-dress",
+      "view": "front",
+      "pose": "arms-up",
+      "accessory": "crown",
+      "file": "elli-sleeveless-dress-crown-front-arms-up.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/sample.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/elli-wardrobe-identity-preserved-v1.vrm\",null,\"sleeveless-dress\",{\"id\":\"sleeveless-dress\",\"tint\":\"#ffffff\"},\"crown\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "elli",
+      "family": "sleeveless-dress",
+      "view": "face",
+      "pose": "idle",
+      "accessory": "cat-ears",
+      "file": "elli-sleeveless-dress-cat-ears-face-idle.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/sample.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/elli-wardrobe-identity-preserved-v1.vrm\",null,\"sleeveless-dress\",{\"id\":\"sleeveless-dress\",\"tint\":\"#ffffff\"},\"cat-ears\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "elli",
+      "family": "sleeveless-dress",
+      "view": "side",
+      "pose": "idle",
+      "accessory": "cat-ears",
+      "file": "elli-sleeveless-dress-cat-ears-side-idle.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/sample.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/elli-wardrobe-identity-preserved-v1.vrm\",null,\"sleeveless-dress\",{\"id\":\"sleeveless-dress\",\"tint\":\"#ffffff\"},\"cat-ears\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "elli",
+      "family": "sleeveless-dress",
+      "view": "face",
+      "pose": "head-turn",
+      "accessory": "cat-ears",
+      "file": "elli-sleeveless-dress-cat-ears-face-head-turn.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/sample.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/elli-wardrobe-identity-preserved-v1.vrm\",null,\"sleeveless-dress\",{\"id\":\"sleeveless-dress\",\"tint\":\"#ffffff\"},\"cat-ears\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "elli",
+      "family": "sleeveless-dress",
+      "view": "front",
+      "pose": "arms-up",
+      "accessory": "cat-ears",
+      "file": "elli-sleeveless-dress-cat-ears-front-arms-up.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/sample.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/elli-wardrobe-identity-preserved-v1.vrm\",null,\"sleeveless-dress\",{\"id\":\"sleeveless-dress\",\"tint\":\"#ffffff\"},\"cat-ears\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "elli",
+      "family": "sleeveless-dress",
+      "view": "face",
+      "pose": "idle",
+      "accessory": "halo",
+      "file": "elli-sleeveless-dress-halo-face-idle.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/sample.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/elli-wardrobe-identity-preserved-v1.vrm\",null,\"sleeveless-dress\",{\"id\":\"sleeveless-dress\",\"tint\":\"#ffffff\"},\"halo\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "elli",
+      "family": "sleeveless-dress",
+      "view": "side",
+      "pose": "idle",
+      "accessory": "halo",
+      "file": "elli-sleeveless-dress-halo-side-idle.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/sample.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/elli-wardrobe-identity-preserved-v1.vrm\",null,\"sleeveless-dress\",{\"id\":\"sleeveless-dress\",\"tint\":\"#ffffff\"},\"halo\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "elli",
+      "family": "sleeveless-dress",
+      "view": "face",
+      "pose": "head-turn",
+      "accessory": "halo",
+      "file": "elli-sleeveless-dress-halo-face-head-turn.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/sample.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/elli-wardrobe-identity-preserved-v1.vrm\",null,\"sleeveless-dress\",{\"id\":\"sleeveless-dress\",\"tint\":\"#ffffff\"},\"halo\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "elli",
+      "family": "sleeveless-dress",
+      "view": "front",
+      "pose": "arms-up",
+      "accessory": "halo",
+      "file": "elli-sleeveless-dress-halo-front-arms-up.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/sample.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/elli-wardrobe-identity-preserved-v1.vrm\",null,\"sleeveless-dress\",{\"id\":\"sleeveless-dress\",\"tint\":\"#ffffff\"},\"halo\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "elli",
+      "family": "comet-hoodie",
+      "view": "front",
+      "pose": "idle",
+      "accessory": "none",
+      "file": "elli-comet-hoodie-none-front-idle.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/sample.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/elli-wardrobe-identity-preserved-v1.vrm\",null,\"comet-hoodie\",{\"id\":\"comet-hoodie\",\"tint\":\"#ffffff\"},\"none\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "elli",
+      "family": "comet-hoodie",
+      "view": "side",
+      "pose": "idle",
+      "accessory": "none",
+      "file": "elli-comet-hoodie-none-side-idle.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/sample.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/elli-wardrobe-identity-preserved-v1.vrm\",null,\"comet-hoodie\",{\"id\":\"comet-hoodie\",\"tint\":\"#ffffff\"},\"none\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "elli",
+      "family": "comet-hoodie",
+      "view": "back",
+      "pose": "idle",
+      "accessory": "none",
+      "file": "elli-comet-hoodie-none-back-idle.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/sample.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/elli-wardrobe-identity-preserved-v1.vrm\",null,\"comet-hoodie\",{\"id\":\"comet-hoodie\",\"tint\":\"#ffffff\"},\"none\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "elli",
+      "family": "comet-hoodie",
+      "view": "face",
+      "pose": "idle",
+      "accessory": "none",
+      "file": "elli-comet-hoodie-none-face-idle.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/sample.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/elli-wardrobe-identity-preserved-v1.vrm\",null,\"comet-hoodie\",{\"id\":\"comet-hoodie\",\"tint\":\"#ffffff\"},\"none\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "elli",
+      "family": "comet-hoodie",
+      "view": "face",
+      "pose": "blink",
+      "accessory": "none",
+      "file": "elli-comet-hoodie-none-face-blink.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/sample.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/elli-wardrobe-identity-preserved-v1.vrm\",null,\"comet-hoodie\",{\"id\":\"comet-hoodie\",\"tint\":\"#ffffff\"},\"none\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "elli",
+      "family": "comet-hoodie",
+      "view": "face",
+      "pose": "speak",
+      "accessory": "none",
+      "file": "elli-comet-hoodie-none-face-speak.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/sample.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/elli-wardrobe-identity-preserved-v1.vrm\",null,\"comet-hoodie\",{\"id\":\"comet-hoodie\",\"tint\":\"#ffffff\"},\"none\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "elli",
+      "family": "comet-hoodie",
+      "view": "face",
+      "pose": "head-turn",
+      "accessory": "none",
+      "file": "elli-comet-hoodie-none-face-head-turn.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/sample.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/elli-wardrobe-identity-preserved-v1.vrm\",null,\"comet-hoodie\",{\"id\":\"comet-hoodie\",\"tint\":\"#ffffff\"},\"none\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "elli",
+      "family": "comet-hoodie",
+      "view": "front",
+      "pose": "arms-up",
+      "accessory": "none",
+      "file": "elli-comet-hoodie-none-front-arms-up.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/sample.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/elli-wardrobe-identity-preserved-v1.vrm\",null,\"comet-hoodie\",{\"id\":\"comet-hoodie\",\"tint\":\"#ffffff\"},\"none\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "elli",
+      "family": "comet-hoodie",
+      "view": "front",
+      "pose": "elbows-bent",
+      "accessory": "none",
+      "file": "elli-comet-hoodie-none-front-elbows-bent.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/sample.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/elli-wardrobe-identity-preserved-v1.vrm\",null,\"comet-hoodie\",{\"id\":\"comet-hoodie\",\"tint\":\"#ffffff\"},\"none\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "elli",
+      "family": "comet-hoodie",
+      "view": "front",
+      "pose": "leg-swing",
+      "accessory": "none",
+      "file": "elli-comet-hoodie-none-front-leg-swing.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/sample.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/elli-wardrobe-identity-preserved-v1.vrm\",null,\"comet-hoodie\",{\"id\":\"comet-hoodie\",\"tint\":\"#ffffff\"},\"none\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "elli",
+      "family": "comet-hoodie",
+      "view": "face",
+      "pose": "idle",
+      "accessory": "crown",
+      "file": "elli-comet-hoodie-crown-face-idle.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/sample.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/elli-wardrobe-identity-preserved-v1.vrm\",null,\"comet-hoodie\",{\"id\":\"comet-hoodie\",\"tint\":\"#ffffff\"},\"crown\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "elli",
+      "family": "comet-hoodie",
+      "view": "side",
+      "pose": "idle",
+      "accessory": "crown",
+      "file": "elli-comet-hoodie-crown-side-idle.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/sample.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/elli-wardrobe-identity-preserved-v1.vrm\",null,\"comet-hoodie\",{\"id\":\"comet-hoodie\",\"tint\":\"#ffffff\"},\"crown\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "elli",
+      "family": "comet-hoodie",
+      "view": "face",
+      "pose": "head-turn",
+      "accessory": "crown",
+      "file": "elli-comet-hoodie-crown-face-head-turn.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/sample.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/elli-wardrobe-identity-preserved-v1.vrm\",null,\"comet-hoodie\",{\"id\":\"comet-hoodie\",\"tint\":\"#ffffff\"},\"crown\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "elli",
+      "family": "comet-hoodie",
+      "view": "front",
+      "pose": "arms-up",
+      "accessory": "crown",
+      "file": "elli-comet-hoodie-crown-front-arms-up.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/sample.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/elli-wardrobe-identity-preserved-v1.vrm\",null,\"comet-hoodie\",{\"id\":\"comet-hoodie\",\"tint\":\"#ffffff\"},\"crown\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "elli",
+      "family": "comet-hoodie",
+      "view": "face",
+      "pose": "idle",
+      "accessory": "cat-ears",
+      "file": "elli-comet-hoodie-cat-ears-face-idle.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/sample.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/elli-wardrobe-identity-preserved-v1.vrm\",null,\"comet-hoodie\",{\"id\":\"comet-hoodie\",\"tint\":\"#ffffff\"},\"cat-ears\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "elli",
+      "family": "comet-hoodie",
+      "view": "side",
+      "pose": "idle",
+      "accessory": "cat-ears",
+      "file": "elli-comet-hoodie-cat-ears-side-idle.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/sample.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/elli-wardrobe-identity-preserved-v1.vrm\",null,\"comet-hoodie\",{\"id\":\"comet-hoodie\",\"tint\":\"#ffffff\"},\"cat-ears\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "elli",
+      "family": "comet-hoodie",
+      "view": "face",
+      "pose": "head-turn",
+      "accessory": "cat-ears",
+      "file": "elli-comet-hoodie-cat-ears-face-head-turn.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/sample.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/elli-wardrobe-identity-preserved-v1.vrm\",null,\"comet-hoodie\",{\"id\":\"comet-hoodie\",\"tint\":\"#ffffff\"},\"cat-ears\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "elli",
+      "family": "comet-hoodie",
+      "view": "front",
+      "pose": "arms-up",
+      "accessory": "cat-ears",
+      "file": "elli-comet-hoodie-cat-ears-front-arms-up.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/sample.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/elli-wardrobe-identity-preserved-v1.vrm\",null,\"comet-hoodie\",{\"id\":\"comet-hoodie\",\"tint\":\"#ffffff\"},\"cat-ears\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "elli",
+      "family": "comet-hoodie",
+      "view": "face",
+      "pose": "idle",
+      "accessory": "halo",
+      "file": "elli-comet-hoodie-halo-face-idle.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/sample.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/elli-wardrobe-identity-preserved-v1.vrm\",null,\"comet-hoodie\",{\"id\":\"comet-hoodie\",\"tint\":\"#ffffff\"},\"halo\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "elli",
+      "family": "comet-hoodie",
+      "view": "side",
+      "pose": "idle",
+      "accessory": "halo",
+      "file": "elli-comet-hoodie-halo-side-idle.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/sample.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/elli-wardrobe-identity-preserved-v1.vrm\",null,\"comet-hoodie\",{\"id\":\"comet-hoodie\",\"tint\":\"#ffffff\"},\"halo\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "elli",
+      "family": "comet-hoodie",
+      "view": "face",
+      "pose": "head-turn",
+      "accessory": "halo",
+      "file": "elli-comet-hoodie-halo-face-head-turn.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/sample.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/elli-wardrobe-identity-preserved-v1.vrm\",null,\"comet-hoodie\",{\"id\":\"comet-hoodie\",\"tint\":\"#ffffff\"},\"halo\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "elli",
+      "family": "comet-hoodie",
+      "view": "front",
+      "pose": "arms-up",
+      "accessory": "halo",
+      "file": "elli-comet-hoodie-halo-front-arms-up.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/sample.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/elli-wardrobe-identity-preserved-v1.vrm\",null,\"comet-hoodie\",{\"id\":\"comet-hoodie\",\"tint\":\"#ffffff\"},\"halo\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "elli",
+      "family": "constellation-blazer",
+      "view": "front",
+      "pose": "idle",
+      "accessory": "none",
+      "file": "elli-constellation-blazer-none-front-idle.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/sample.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/elli-wardrobe-identity-preserved-v1.vrm\",null,\"constellation-blazer\",{\"id\":\"constellation-blazer\",\"tint\":\"#ffffff\"},\"none\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "elli",
+      "family": "constellation-blazer",
+      "view": "side",
+      "pose": "idle",
+      "accessory": "none",
+      "file": "elli-constellation-blazer-none-side-idle.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/sample.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/elli-wardrobe-identity-preserved-v1.vrm\",null,\"constellation-blazer\",{\"id\":\"constellation-blazer\",\"tint\":\"#ffffff\"},\"none\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "elli",
+      "family": "constellation-blazer",
+      "view": "back",
+      "pose": "idle",
+      "accessory": "none",
+      "file": "elli-constellation-blazer-none-back-idle.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/sample.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/elli-wardrobe-identity-preserved-v1.vrm\",null,\"constellation-blazer\",{\"id\":\"constellation-blazer\",\"tint\":\"#ffffff\"},\"none\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "elli",
+      "family": "constellation-blazer",
+      "view": "face",
+      "pose": "idle",
+      "accessory": "none",
+      "file": "elli-constellation-blazer-none-face-idle.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/sample.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/elli-wardrobe-identity-preserved-v1.vrm\",null,\"constellation-blazer\",{\"id\":\"constellation-blazer\",\"tint\":\"#ffffff\"},\"none\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "elli",
+      "family": "constellation-blazer",
+      "view": "face",
+      "pose": "blink",
+      "accessory": "none",
+      "file": "elli-constellation-blazer-none-face-blink.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/sample.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/elli-wardrobe-identity-preserved-v1.vrm\",null,\"constellation-blazer\",{\"id\":\"constellation-blazer\",\"tint\":\"#ffffff\"},\"none\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "elli",
+      "family": "constellation-blazer",
+      "view": "face",
+      "pose": "speak",
+      "accessory": "none",
+      "file": "elli-constellation-blazer-none-face-speak.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/sample.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/elli-wardrobe-identity-preserved-v1.vrm\",null,\"constellation-blazer\",{\"id\":\"constellation-blazer\",\"tint\":\"#ffffff\"},\"none\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "elli",
+      "family": "constellation-blazer",
+      "view": "face",
+      "pose": "head-turn",
+      "accessory": "none",
+      "file": "elli-constellation-blazer-none-face-head-turn.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/sample.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/elli-wardrobe-identity-preserved-v1.vrm\",null,\"constellation-blazer\",{\"id\":\"constellation-blazer\",\"tint\":\"#ffffff\"},\"none\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "elli",
+      "family": "constellation-blazer",
+      "view": "front",
+      "pose": "arms-up",
+      "accessory": "none",
+      "file": "elli-constellation-blazer-none-front-arms-up.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/sample.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/elli-wardrobe-identity-preserved-v1.vrm\",null,\"constellation-blazer\",{\"id\":\"constellation-blazer\",\"tint\":\"#ffffff\"},\"none\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "elli",
+      "family": "constellation-blazer",
+      "view": "front",
+      "pose": "elbows-bent",
+      "accessory": "none",
+      "file": "elli-constellation-blazer-none-front-elbows-bent.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/sample.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/elli-wardrobe-identity-preserved-v1.vrm\",null,\"constellation-blazer\",{\"id\":\"constellation-blazer\",\"tint\":\"#ffffff\"},\"none\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "elli",
+      "family": "constellation-blazer",
+      "view": "front",
+      "pose": "leg-swing",
+      "accessory": "none",
+      "file": "elli-constellation-blazer-none-front-leg-swing.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/sample.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/elli-wardrobe-identity-preserved-v1.vrm\",null,\"constellation-blazer\",{\"id\":\"constellation-blazer\",\"tint\":\"#ffffff\"},\"none\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "elli",
+      "family": "constellation-blazer",
+      "view": "face",
+      "pose": "idle",
+      "accessory": "crown",
+      "file": "elli-constellation-blazer-crown-face-idle.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/sample.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/elli-wardrobe-identity-preserved-v1.vrm\",null,\"constellation-blazer\",{\"id\":\"constellation-blazer\",\"tint\":\"#ffffff\"},\"crown\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "elli",
+      "family": "constellation-blazer",
+      "view": "side",
+      "pose": "idle",
+      "accessory": "crown",
+      "file": "elli-constellation-blazer-crown-side-idle.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/sample.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/elli-wardrobe-identity-preserved-v1.vrm\",null,\"constellation-blazer\",{\"id\":\"constellation-blazer\",\"tint\":\"#ffffff\"},\"crown\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "elli",
+      "family": "constellation-blazer",
+      "view": "face",
+      "pose": "head-turn",
+      "accessory": "crown",
+      "file": "elli-constellation-blazer-crown-face-head-turn.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/sample.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/elli-wardrobe-identity-preserved-v1.vrm\",null,\"constellation-blazer\",{\"id\":\"constellation-blazer\",\"tint\":\"#ffffff\"},\"crown\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "elli",
+      "family": "constellation-blazer",
+      "view": "front",
+      "pose": "arms-up",
+      "accessory": "crown",
+      "file": "elli-constellation-blazer-crown-front-arms-up.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/sample.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/elli-wardrobe-identity-preserved-v1.vrm\",null,\"constellation-blazer\",{\"id\":\"constellation-blazer\",\"tint\":\"#ffffff\"},\"crown\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "elli",
+      "family": "constellation-blazer",
+      "view": "face",
+      "pose": "idle",
+      "accessory": "cat-ears",
+      "file": "elli-constellation-blazer-cat-ears-face-idle.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/sample.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/elli-wardrobe-identity-preserved-v1.vrm\",null,\"constellation-blazer\",{\"id\":\"constellation-blazer\",\"tint\":\"#ffffff\"},\"cat-ears\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "elli",
+      "family": "constellation-blazer",
+      "view": "side",
+      "pose": "idle",
+      "accessory": "cat-ears",
+      "file": "elli-constellation-blazer-cat-ears-side-idle.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/sample.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/elli-wardrobe-identity-preserved-v1.vrm\",null,\"constellation-blazer\",{\"id\":\"constellation-blazer\",\"tint\":\"#ffffff\"},\"cat-ears\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "elli",
+      "family": "constellation-blazer",
+      "view": "face",
+      "pose": "head-turn",
+      "accessory": "cat-ears",
+      "file": "elli-constellation-blazer-cat-ears-face-head-turn.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/sample.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/elli-wardrobe-identity-preserved-v1.vrm\",null,\"constellation-blazer\",{\"id\":\"constellation-blazer\",\"tint\":\"#ffffff\"},\"cat-ears\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "elli",
+      "family": "constellation-blazer",
+      "view": "front",
+      "pose": "arms-up",
+      "accessory": "cat-ears",
+      "file": "elli-constellation-blazer-cat-ears-front-arms-up.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/sample.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/elli-wardrobe-identity-preserved-v1.vrm\",null,\"constellation-blazer\",{\"id\":\"constellation-blazer\",\"tint\":\"#ffffff\"},\"cat-ears\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "elli",
+      "family": "constellation-blazer",
+      "view": "face",
+      "pose": "idle",
+      "accessory": "halo",
+      "file": "elli-constellation-blazer-halo-face-idle.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/sample.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/elli-wardrobe-identity-preserved-v1.vrm\",null,\"constellation-blazer\",{\"id\":\"constellation-blazer\",\"tint\":\"#ffffff\"},\"halo\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "elli",
+      "family": "constellation-blazer",
+      "view": "side",
+      "pose": "idle",
+      "accessory": "halo",
+      "file": "elli-constellation-blazer-halo-side-idle.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/sample.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/elli-wardrobe-identity-preserved-v1.vrm\",null,\"constellation-blazer\",{\"id\":\"constellation-blazer\",\"tint\":\"#ffffff\"},\"halo\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "elli",
+      "family": "constellation-blazer",
+      "view": "face",
+      "pose": "head-turn",
+      "accessory": "halo",
+      "file": "elli-constellation-blazer-halo-face-head-turn.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/sample.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/elli-wardrobe-identity-preserved-v1.vrm\",null,\"constellation-blazer\",{\"id\":\"constellation-blazer\",\"tint\":\"#ffffff\"},\"halo\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    },
+    {
+      "companion": "elli",
+      "family": "constellation-blazer",
+      "view": "front",
+      "pose": "arms-up",
+      "accessory": "halo",
+      "file": "elli-constellation-blazer-halo-front-arms-up.png",
+      "states": [
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/sample.vrm\",null,\"none\",null,\"none\"]"
+        },
+        {
+          "state": "ready",
+          "revealed": "true",
+          "selection": "[\"elli\",\"/companions/elli-wardrobe-identity-preserved-v1.vrm\",null,\"constellation-blazer\",{\"id\":\"constellation-blazer\",\"tint\":\"#ffffff\"},\"halo\"]"
+        }
+      ],
+      "visual": "pending",
+      "humanApproval": null
+    }
+  ]
+}

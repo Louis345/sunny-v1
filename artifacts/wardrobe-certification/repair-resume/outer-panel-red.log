@@ -1,0 +1,59 @@
+(node:29490) [DEP0174] DeprecationWarning: Calling promisify on a function that returns a Promise is likely a mistake.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+
+> web@0.0.0 test
+> vitest run "--run" "src/tests/wardrobe-preparation.test.ts"
+
+
+ RUN  v3.2.4 /Users/jamaltaylor/.codex/worktrees/wardrobe-identity/sunny/web
+
+stdout | src/tests/wardrobe-preparation.test.ts > uses explicit prepared clothing roles, including ties, without hiding identity surfaces
+ 🎮 [companion-wardrobe-lab] base_clothing visibility=false materials=1
+ 🎮 [companion-wardrobe-lab] base_clothing visibility=true materials=1
+
+stdout | src/tests/wardrobe-preparation.test.ts > removes Matilda’s overlapping outer skirt panels with a replacement top while retaining her base skirt
+ 🎮 [companion-wardrobe-lab] base_clothing visibility=false materials=5
+
+ ❯ src/tests/wardrobe-preparation.test.ts (14 tests | 1 failed) 898ms
+   ✓ complete wardrobe identity preparation > preserves 'elli' identity and adds explicit clothing roles 59ms
+   ✓ complete wardrobe identity preparation > preserves 'matilda' identity and adds explicit clothing roles 92ms
+   ✓ complete wardrobe identity preparation > rejects a stale material selection instead of guessing by name or weight 7ms
+   ✓ routes migrated companions to their complete prepared identity without an overlay 0ms
+   ✓ uses explicit prepared clothing roles, including ties, without hiding identity surfaces 1ms
+   ✓ restores Matilda’s missing body surface from the approved body family without altering her face or rig 102ms
+   ✓ rejects incomplete preparation when a required body donor is absent 14ms
+   × removes Matilda’s overlapping outer skirt panels with a replacement top while retaining her base skirt 92ms
+     → expected true to be false // Object.is equality
+   ✓ transfers donor aim/roll arm weights to moving arm joints instead of pinning them to the shoulder 107ms
+   ✓ preserves every donor body weight through all ten explicit helper mappings with repeatable output  314ms
+   ✓ rejects bad sum instead of silently dropping body weights 21ms
+   ✓ rejects missing joint instead of silently dropping body weights 21ms
+   ✓ rejects unmapped active bone instead of silently dropping body weights 37ms
+   ✓ rejects too many influences instead of silently dropping body weights 30ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/tests/wardrobe-preparation.test.ts > removes Matilda’s overlapping outer skirt panels with a replacement top while retaining her base skirt
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ src/tests/wardrobe-preparation.test.ts:92:62
+     90|  // Diagnostic material-ID render identifies material 16 intersecting …
+     91|  // 16/17 are the outer layer, while 9/14 form the complete inner plea…
+     92|  for(const index of [16,17])expect(materials[index].visible).toBe(fals…
+       |                                                              ^
+     93|  for(const index of [9,14,0,1,2,3,4,5,6,7])expect(materials[index].vis…
+     94|  setVrmBaseClothingVisible(scene,true);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 13 passed (14)
+   Start at  14:53:59
+   Duration  2.01s (transform 82ms, setup 131ms, collect 108ms, tests 898ms, environment 623ms, prepare 61ms)

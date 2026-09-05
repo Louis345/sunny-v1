@@ -1,0 +1,58 @@
+(node:23726) [DEP0174] DeprecationWarning: Calling promisify on a function that returns a Promise is likely a mistake.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+
+> web@0.0.0 test
+> vitest run "--run" "src/tests/xwearDress.test.ts"
+
+
+ RUN  v3.2.4 /Users/jamaltaylor/.codex/worktrees/wardrobe-identity/sunny/web
+
+stdout | src/tests/xwearDress.test.ts > XWear avatar-space binding > lets partial outfits replace tops without hiding the avatar's bottoms
+ 🎮 [companion-wardrobe-lab] base_clothing visibility=false materials=1
+
+ ❯ src/tests/xwearDress.test.ts (22 tests | 2 failed) 13ms
+   ✓ XWear avatar-space binding > creates an isolated material palette for each wardrobe variant 2ms
+   ✓ XWear avatar-space binding > resolves every sellable outfit through the skinned XWear catalog 0ms
+   ✓ XWear avatar-space binding > keeps visually rejected garments available for QA but out of the approved registry 1ms
+   ✓ XWear avatar-space binding > lets partial outfits replace tops without hiding the avatar's bottoms 1ms
+   ✓ XWear avatar-space binding > only applies an outfit to avatar designs that passed visual fit QA 0ms
+   ✓ XWear avatar-space binding > gives the downloaded bodice enough clearance for varied VRoid torsos 0ms
+   ✓ XWear avatar-space binding > reuses avatar anatomy but isolates outfit helper bones 0ms
+   ✓ XWear avatar-space binding > uniformly scales a garment around source hips onto avatar proportions 0ms
+   ✓ XWear avatar-space binding > retargets each garment vertex from its source bone into the avatar bind pose 1ms
+   ✓ XWear avatar-space binding > derives outfit-owned helper bones from mesh bind poses 0ms
+   ✓ XWear avatar-space binding > discovers GUID-named XWear files directly from an archive 0ms
+   ✓ XWear avatar-space binding > rejects animations that an outfit has not passed visual fit QA 0ms
+   ✓ XWear avatar-space binding > resolves a complete XWear outfit from a reusable catalog definition 0ms
+   ✓ XWear avatar-space binding > applies a per-outfit surface clearance along normalized garment normals 0ms
+   ✓ XWear avatar-space binding > parents the garment before capturing its bind matrix 0ms
+   ✓ XWear avatar-space binding > retargets the garment from the avatar's current pose 0ms
+   ✓ XWear avatar-space binding > binds to the captured rest pose even after an intro animation moves bones 0ms
+   ✓ XWear avatar-space binding > discovers each renderer material's main texture from XWear metadata 0ms
+   ✓ fits authored T-pose surfaces without applying unrelated exporter bone axes 0ms
+   ✓ converts Unity garment handedness without reversing the intended front 0ms
+   × removes an original one-piece layer beneath comet-hoodie while retaining separate bottoms 5ms
+     → expected [ 'top' ] to include 'onepiece'
+   × removes an original one-piece layer beneath constellation-blazer while retaining separate bottoms 0ms
+     → expected [ 'top' ] to include 'onepiece'
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/tests/xwearDress.test.ts > removes an original one-piece layer beneath comet-hoodie while retaining separate bottoms
+ FAIL  src/tests/xwearDress.test.ts > removes an original one-piece layer beneath constellation-blazer while retaining separate bottoms
+AssertionError: expected [ 'top' ] to include 'onepiece'
+ ❯ src/tests/xwearDress.test.ts:385:36
+    383|  const definition=getXwearOutfitDefinition(id)!;
+    384|  expect(definition.slots.replaces).toContain('top');
+    385|  expect(definition.slots.replaces).toContain('onepiece');
+       |                                    ^
+    386|  expect(definition.slots.replaces).not.toContain('bottom');
+    387| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 20 passed (22)
+   Start at  14:42:13
+   Duration  833ms (transform 71ms, setup 70ms, collect 93ms, tests 13ms, environment 340ms, prepare 57ms)

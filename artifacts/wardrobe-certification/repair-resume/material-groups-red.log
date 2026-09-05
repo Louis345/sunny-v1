@@ -1,0 +1,328 @@
+(node:36987) [DEP0174] DeprecationWarning: Calling promisify on a function that returns a Promise is likely a mistake.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+
+> web@0.0.0 test
+> vitest run "--run" "src/tests/wardrobe-prepared-garment.test.ts"
+
+
+ RUN  v3.2.4 /Users/jamaltaylor/.codex/worktrees/wardrobe-identity/sunny/web
+
+stdout | src/tests/wardrobe-prepared-garment.test.ts > binds prepared coordinates without refitting, and follows the live rotated avatar
+ 🎮 [wardrobe-prepared] attached companion=elli outfit=sleeveless-dress sha256=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+
+stdout | src/tests/wardrobe-prepared-garment.test.ts > rejects empty material groups before allocating textures
+ 🎮 [wardrobe-prepared] attached companion=elli outfit=sleeveless-dress sha256=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+
+stdout | src/tests/wardrobe-prepared-garment.test.ts > rejects nonfinite material groups before allocating textures
+ 🎮 [wardrobe-prepared] attached companion=elli outfit=sleeveless-dress sha256=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+
+stdout | src/tests/wardrobe-prepared-garment.test.ts > rejects uncovered material groups before allocating textures
+ 🎮 [wardrobe-prepared] attached companion=elli outfit=sleeveless-dress sha256=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+
+ ❯ src/tests/wardrobe-prepared-garment.test.ts (14 tests | 3 failed) 186ms
+   ✓ requires an exact prepared body and garment version, with no fitting fallback for missing or stale data 1ms
+   ✓ binds prepared coordinates without refitting, and follows the live rotated avatar 3ms
+   ✓ rejects invalid body before loading textures or attaching anything 1ms
+   ✓ rejects invalid joint before loading textures or attaching anything 0ms
+   ✓ rejects invalid weights before loading textures or attaching anything 0ms
+   ✓ rejects invalid geometry before loading textures or attaching anything 0ms
+   ✓ disposes successful texture loads when another texture fails 0ms
+   ✓ refuses a failed prepared download before revealing a mesh 2ms
+   ✓ refuses a corrupt prepared download before revealing a mesh 1ms
+   × rejects empty material groups before allocating textures 8ms
+     → promise resolved "SkinnedMesh{ isObject3D: true, …(43) }" instead of rejecting
+   ✓ rejects fractional material groups before allocating textures 0ms
+   × rejects nonfinite material groups before allocating textures 2ms
+     → promise resolved "SkinnedMesh{ isObject3D: true, …(43) }" instead of rejecting
+   × rejects uncovered material groups before allocating textures 2ms
+     → promise resolved "SkinnedMesh{ isObject3D: true, …(43) }" instead of rejecting
+   ✓ has all six real fits with matching fingerprints, explicit versions and distinct garment geometry 164ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/tests/wardrobe-prepared-garment.test.ts > rejects empty material groups before allocating textures
+ FAIL  src/tests/wardrobe-prepared-garment.test.ts > rejects nonfinite material groups before allocating textures
+ FAIL  src/tests/wardrobe-prepared-garment.test.ts > rejects uncovered material groups before allocating textures
+AssertionError: promise resolved "SkinnedMesh{ isObject3D: true, …(43) }" instead of rejecting
+
+- Expected
++ Received
+
+- Error {
+-   "message": "rejected promise",
++ {
++   "geometries": [
++     {
++       "data": {
++         "attributes": {
++           "normal": {
++             "array": [
++               0,
++               0,
++               1,
++               0,
++               0,
++               1,
++               0,
++               0,
++               1,
++             ],
++             "itemSize": 3,
++             "normalized": false,
++             "type": "Float32Array",
++           },
++           "position": {
++             "array": [
++               0,
++               0,
++               0,
++               1,
++               0,
++               0,
++               0,
++               1,
++               0,
++             ],
++             "itemSize": 3,
++             "normalized": false,
++             "type": "Float32Array",
++           },
++           "skinIndex": {
++             "array": [
++               0,
++               0,
++               0,
++               0,
++               0,
++               0,
++               0,
++               0,
++               0,
++               0,
++               0,
++               0,
++             ],
++             "itemSize": 4,
++             "normalized": false,
++             "type": "Uint16Array",
++           },
++           "skinWeight": {
++             "array": [
++               1,
++               0,
++               0,
++               0,
++               1,
++               0,
++               0,
++               0,
++               1,
++               0,
++               0,
++               0,
++             ],
++             "itemSize": 4,
++             "normalized": false,
++             "type": "Float32Array",
++           },
++           "uv": {
++             "array": [
++               0,
++               0,
++               1,
++               0,
++               0,
++               1,
++             ],
++             "itemSize": 2,
++             "normalized": false,
++             "type": "Float32Array",
++           },
++         },
++         "boundingSphere": {
++           "center": [
++             0.5,
++             0.5,
++             0,
++           ],
++           "radius": 0.7071067811865476,
++         },
++         "index": {
++           "array": [
++             0,
++             1,
++             2,
++           ],
++           "type": "Uint16Array",
++         },
++       },
++       "type": "BufferGeometry",
++       "uuid": "dee138e9-d105-4bc9-be1b-c2dfc87d55f2",
++     },
++   ],
++   "images": [
++     {
++       "url": "",
++       "uuid": "a174542e-8d70-4bc4-8a9a-93cf84a52ac9",
++     },
++   ],
++   "materials": [
++     {
++       "alphaTest": 0.5,
++       "blendColor": 0,
++       "color": 16777215,
++       "envMapRotation": [
++         0,
++         0,
++         0,
++         "XYZ",
++       ],
++       "map": "24d348db-f7c5-47a9-8249-d7d3aed721ad",
++       "reflectivity": 1,
++       "refractionRatio": 0.98,
++       "side": 2,
++       "type": "MeshBasicMaterial",
++       "uuid": "6a281518-9d54-49a5-863e-b4ded65aee10",
++     },
++   ],
++   "metadata": {
++     "generator": "Object3D.toJSON",
++     "type": "Object",
++     "version": 4.7,
++   },
++   "object": {
++     "bindMatrix": [
++       1,
++       0,
++       0,
++       0,
++       0,
++       1,
++       0,
++       0,
++       0,
++       0,
++       1,
++       0,
++       0,
++       0,
++       0,
++       1,
++     ],
++     "bindMode": "attached",
++     "frustumCulled": false,
++     "geometry": "dee138e9-d105-4bc9-be1b-c2dfc87d55f2",
++     "layers": 1,
++     "material": [
++       "6a281518-9d54-49a5-863e-b4ded65aee10",
++     ],
++     "matrix": [
++       1,
++       0,
++       0,
++       0,
++       0,
++       1,
++       0,
++       0,
++       0,
++       0,
++       1,
++       0,
++       0,
++       0,
++       0,
++       1,
++     ],
++     "name": "sunny-wardrobe-downloaded-sleeveless-dress",
++     "skeleton": "a1d7581f-ac23-41d9-8bd3-25039b9f5017",
++     "type": "SkinnedMesh",
++     "up": [
++       0,
++       1,
++       0,
++     ],
++     "uuid": "34582f0e-2cb8-440f-b337-139b3e44038b",
++   },
++   "skeletons": [
++     {
++       "boneInverses": [
++         [
++           1,
++           0,
++           0,
++           0,
++           0,
++           1,
++           0,
++           0,
++           0,
++           0,
++           1,
++           0,
++           0,
++           0,
++           0,
++           1,
++         ],
++       ],
++       "bones": [
++         "8c4be07b-72d8-4777-972b-10c77be6288e",
++       ],
++       "uuid": "a1d7581f-ac23-41d9-8bd3-25039b9f5017",
++     },
++   ],
++   "textures": [
++     {
++       "anisotropy": 4,
++       "center": [
++         0,
++         0,
++       ],
++       "channel": 0,
++       "colorSpace": "srgb",
++       "flipY": true,
++       "format": 1023,
++       "generateMipmaps": true,
++       "image": "a174542e-8d70-4bc4-8a9a-93cf84a52ac9",
++       "internalFormat": null,
++       "magFilter": 1006,
++       "mapping": 300,
++       "minFilter": 1008,
++       "name": "",
++       "offset": [
++         0,
++         0,
++       ],
++       "premultiplyAlpha": false,
++       "repeat": [
++         1,
++         1,
++       ],
++       "rotation": 0,
++       "type": 1009,
++       "unpackAlignment": 4,
++       "uuid": "24d348db-f7c5-47a9-8249-d7d3aed721ad",
++       "wrap": [
++         1001,
++         1001,
++       ],
++     },
++   ],
+  }
+
+ ❯ src/tests/wardrobe-prepared-garment.test.ts:70:57
+     68|  if(mode==='uncovered')input.groups[0].count=0;
+     69|  const load=vi.spyOn(THREE.TextureLoader.prototype,'loadAsync').mockRe…
+     70|  await expect(bindPreparedGarment(scene,input,reference)).rejects.toTh…
+       |                                                         ^
+     71|  expect(load).not.toHaveBeenCalled();expect(scene.children).toHaveLeng…
+     72| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  3 failed | 11 passed (14)
+   Start at  15:07:10
+   Duration  1.19s (transform 48ms, setup 97ms, collect 55ms, tests 186ms, environment 618ms, prepare 48ms)

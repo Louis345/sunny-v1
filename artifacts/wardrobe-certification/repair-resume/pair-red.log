@@ -1,0 +1,40 @@
+(node:46353) [DEP0174] DeprecationWarning: Calling promisify on a function that returns a Promise is likely a mistake.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+
+> web@0.0.0 test
+> vitest run "--run" "src/tests/wardrobe-pair-certification.test.ts"
+
+
+ RUN  v3.2.4 /Users/jamaltaylor/.codex/worktrees/wardrobe-identity/sunny/web
+
+ ❯ src/tests/wardrobe-pair-certification.test.ts (2 tests | 2 failed) 6ms
+   × requires a reviewed exact pair even if each item has standalone approval 5ms
+     → expected 'equipped' to be 'incompatible' // Object.is equality
+   × invalidates pair approval on garment, variant, companion or fitted-output changes 0ms
+     → (0 , getWardrobePairVersion) is not a function
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/tests/wardrobe-pair-certification.test.ts > requires a reviewed exact pair even if each item has standalone approval
+AssertionError: expected 'equipped' to be 'incompatible' // Object.is equality
+
+Expected: "incompatible"
+Received: "equipped"
+
+ ❯ src/tests/wardrobe-pair-certification.test.ts:11:69
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  src/tests/wardrobe-pair-certification.test.ts > invalidates pair approval on garment, variant, companion or fitted-output changes
+TypeError: (0 , getWardrobePairVersion) is not a function
+ ❯ src/tests/wardrobe-pair-certification.test.ts:15:16
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  2 failed (2)
+   Start at  15:29:59
+   Duration  1.06s (transform 68ms, setup 132ms, collect 55ms, tests 6ms, environment 579ms, prepare 73ms)

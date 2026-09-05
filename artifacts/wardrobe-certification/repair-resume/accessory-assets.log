@@ -1,0 +1,8 @@
+(node:41025) [DEP0174] DeprecationWarning: Calling promisify on a function that returns a Promise is likely a mistake.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+ 🎮 [wardrobe-prepare] garment companion=elli outfit=sleeveless-dress vertices=6282 sha256=d1332cf022581d3f374eac1ed78e27f25aa5d4f1824727fc5900f93833986dc8
+ 🎮 [wardrobe-prepare] garment companion=elli outfit=comet-hoodie vertices=1754 sha256=999db4a1ae25b9cc89debb0d717d9baffc0d6c66a39c59a7d174074bf4873d91
+ 🎮 [wardrobe-prepare] garment companion=elli outfit=constellation-blazer vertices=4830 sha256=e4fbf8dd452e31a430b85e5952ed990c47a33392fbfd9dcf41ecefd616d3d4ee
+ 🎮 [wardrobe-prepare] garment companion=matilda outfit=sleeveless-dress vertices=6282 sha256=4650d8a648eeb6f9550d0e9161d262936dc8c21a6d371d2b1799c59105d04e74
+ 🎮 [wardrobe-prepare] garment companion=matilda outfit=comet-hoodie vertices=1754 sha256=019684be946bfc87e1b2e7a912f5f8d3838e180197f7a14728a7b300f22b54cb
+ 🎮 [wardrobe-prepare] garment companion=matilda outfit=constellation-blazer vertices=4830 sha256=d2a1bc6f97f46b1a281fdf8aa08efac0b7cd8f760928d15439c2a1e9696419e0

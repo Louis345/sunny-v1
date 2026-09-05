@@ -1,6 +1,6 @@
-Command: npm test
-Root suite failed before the web suite could run. Full raw log retained locally.
+Final npm test failed in unchanged non-wardrobe paths. Root failure prevented the web phase; the full web suite was run separately.
 
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 5 ⎯⎯⎯⎯⎯⎯⎯
  FAIL  src/engine/baselinePlannerIntegration.test.ts > baselinePlannerIntegration > prefers existing shells for time/money homework
 Error: Learning profile not found for child: demo-pashley
  ❯ readLearningProfileFromLink src/profiles/childChart.ts:232:11
@@ -12,8 +12,6 @@ Error: Learning profile not found for child: demo-pashley
     234|   return profile;
  ❯ getChildChart src/profiles/childChart.ts:327:30
  ❯ src/engine/baselinePlannerIntegration.test.ts:7:19
-
-⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/5]⎯
 
  FAIL  src/engine/baselineShellGap.test.ts > baselineShellGap > recognizes approved generated math shells by their cataloged skill target
 AssertionError: expected true to be false // Object.is equality
@@ -27,13 +25,6 @@ AssertionError: expected true to be false // Object.is equality
  ❯ src/engine/baselineShellGap.test.ts:51:33
      49|     });
      50|
-     51|     expect(gap.needsGeneration).toBe(false);
-       |                                 ^
-     52|     expect(gap.matchedShells).toContain("generated-baseline");
-     53|   });
-
-⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/5]⎯
-
  FAIL  src/engine/choiceEvents.test.ts > choice events > records baseline route choices as selected and skipped preference evidence
 AssertionError: expected false to be true // Object.is equality
 
@@ -46,13 +37,6 @@ AssertionError: expected false to be true // Object.is equality
  ❯ src/engine/choiceEvents.test.ts:238:28
     236|       fs.readFileSync(path.join(root, "src", "context", "reina", "lear…
     237|     ) as LearningProfile;
-    238|     expect(result.applied).toBe(true);
-       |                            ^
-    239|     expect(loaded[0]).toMatchObject({
-    240|       context: "baseline_route",
-
-⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/5]⎯
-
  FAIL  src/engine/mathPlanDefinitionOfDone.test.ts > math plan definition of done > spelling ingest catalog stays rich compared to a single-instrument math stub
 Error: Learning profile not found for child: demo-pashley
  ❯ readLearningProfileFromLink src/profiles/childChart.ts:232:11
@@ -64,8 +48,6 @@ Error: Learning profile not found for child: demo-pashley
     234|   return profile;
  ❯ getChildChart src/profiles/childChart.ts:327:30
  ❯ src/engine/mathPlanDefinitionOfDone.test.ts:178:19
-
-⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/5]⎯
 
  FAIL  src/tests/test-ui-accent-contract.ts > UI accent contract > does not use Ila/Reina object keys in component files
 Error: ENOENT: no such file or directory, open '/Users/jamaltaylor/.codex/worktrees/wardrobe-identity/sunny/web/src/components/SessionScreen.tsx'
@@ -79,9 +61,7 @@ Error: ENOENT: no such file or directory, open '/Users/jamaltaylor/.codex/worktr
  ❯ src/tests/test-ui-accent-contract.ts:23:19
 
 ⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/5]⎯
-
-
  Test Files  5 failed | 253 passed (258)
       Tests  5 failed | 2782 passed (2787)
-   Start at  14:04:21
-   Duration  290.17s (transform 8.56s, setup 0ms, collect 124.96s, tests 56.77s, environment 79ms, prepare 30.00s)
+   Start at  15:36:17
+   Duration  117.84s (transform 3.81s, setup 0ms, collect 40.62s, tests 38.47s, environment 25ms, prepare 9.68s)

@@ -1,0 +1,142 @@
+[
+  {
+    "name": "J_Aim_L_Shoulder",
+    "count": 202,
+    "constraint": {
+      "constraint": {
+        "aim": {
+          "aimAxis": "PositiveX",
+          "source": 97,
+          "weight": 1
+        }
+      },
+      "specVersion": "1.0"
+    }
+  },
+  {
+    "name": "J_Roll_L_UpperArm",
+    "count": 169,
+    "constraint": {
+      "constraint": {
+        "roll": {
+          "rollAxis": "X",
+          "source": 96,
+          "weight": 0.5
+        }
+      },
+      "specVersion": "1.0"
+    }
+  },
+  {
+    "name": "J_Roll_L_Elbow",
+    "count": 111,
+    "constraint": {
+      "constraint": {
+        "roll": {
+          "rollAxis": "Y",
+          "source": 97,
+          "weight": 0.5
+        }
+      },
+      "specVersion": "1.0"
+    }
+  },
+  {
+    "name": "J_Roll_L_LowerArm",
+    "count": 216,
+    "constraint": {
+      "constraint": {
+        "roll": {
+          "rollAxis": "X",
+          "source": 98,
+          "weight": 0.5
+        }
+      },
+      "specVersion": "1.0"
+    }
+  },
+  {
+    "name": "J_Roll_L_Hand",
+    "count": 254,
+    "constraint": {
+      "constraint": {
+        "roll": {
+          "rollAxis": "X",
+          "source": 98,
+          "weight": 1
+        }
+      },
+      "specVersion": "1.0"
+    }
+  },
+  {
+    "name": "J_Aim_R_Shoulder",
+    "count": 202,
+    "constraint": {
+      "constraint": {
+        "aim": {
+          "aimAxis": "NegativeX",
+          "source": 131,
+          "weight": 1
+        }
+      },
+      "specVersion": "1.0"
+    }
+  },
+  {
+    "name": "J_Roll_R_UpperArm",
+    "count": 169,
+    "constraint": {
+      "constraint": {
+        "roll": {
+          "rollAxis": "X",
+          "source": 130,
+          "weight": 0.5
+        }
+      },
+      "specVersion": "1.0"
+    }
+  },
+  {
+    "name": "J_Roll_R_Elbow",
+    "count": 111,
+    "constraint": {
+      "constraint": {
+        "roll": {
+          "rollAxis": "Y",
+          "source": 131,
+          "weight": 0.5
+        }
+      },
+      "specVersion": "1.0"
+    }
+  },
+  {
+    "name": "J_Roll_R_LowerArm",
+    "count": 216,
+    "constraint": {
+      "constraint": {
+        "roll": {
+          "rollAxis": "X",
+          "source": 132,
+          "weight": 0.5
+        }
+      },
+      "specVersion": "1.0"
+    }
+  },
+  {
+    "name": "J_Roll_R_Hand",
+    "count": 254,
+    "constraint": {
+      "constraint": {
+        "roll": {
+          "rollAxis": "X",
+          "source": 132,
+          "weight": 1
+        }
+      },
+      "specVersion": "1.0"
+    }
+  }
+]

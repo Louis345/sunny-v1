@@ -3,7 +3,7 @@
   "build": {
     "command": "npm run build",
     "result": "passed",
-    "log": "build-final.log"
+    "log": "repair-resume/final-build.log"
   },
   "fullTest": {
     "command": "npm test",
@@ -19,8 +19,8 @@
   "webSuite": {
     "command": "npm --prefix web test",
     "result": "passed",
-    "files": 105,
-    "tests": 829,
+    "files": 109,
+    "tests": 864,
     "log": "web-test-summary.txt"
   },
   "browser": {
@@ -31,17 +31,28 @@
     },
     "matildaGate": {
       "command": "node scripts/verifyWardrobeAcceptance.mjs",
-      "captureCount": 9,
+      "captureCount": 11,
       "captureRun": "passed",
-      "visualGate": "failed coverage",
-      "log": "acceptance-run.log"
+      "visualGate": "captured blink/mouth/head/arm proof passed; walking unverified",
+      "log": "repair-resume/acceptance-v2/"
     },
     "switching": {
       "command": "node scripts/verifyWardrobeSwitching.mjs",
       "result": "passed",
-      "frames": 228,
+      "frames": 379,
       "violations": 0,
       "log": "switching-result.json"
+    },
+    "accessoryMatrix": {
+      "captures": 72,
+      "agentReviewedSnapshots": 8,
+      "result": "rendered; exhaustive visual acceptance incomplete",
+      "evidence": "current-matrix/captures.json"
+    },
+    "dressColors": {
+      "captures": 8,
+      "result": "static material comparison passed; movement not certified",
+      "evidence": "colors/captures.json"
     }
   },
   "assetVersionHashes": "Verified against current prepared files, fitting implementation and accessory implementation",
@@ -51,5 +62,11 @@
   "sourceContextTestFixtures": "Restored/removed only test-generated changes in isolated worktree after full npm test",
   "humanApproval": null,
   "merged": false,
-  "deployed": false
+  "deployed": false,
+  "reproducibility": {
+    "result": "passed",
+    "outputs": 6,
+    "check": "Regenerated final fitted manifest byte-identical with cmp; manifest pins all six output hashes.",
+    "log": "repair-resume/reproducibility.log"
+  }
 }

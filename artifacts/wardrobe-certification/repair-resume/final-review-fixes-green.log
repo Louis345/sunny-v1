@@ -1,0 +1,145 @@
+(node:46710) [DEP0174] DeprecationWarning: Calling promisify on a function that returns a Promise is likely a mistake.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+
+> web@0.0.0 test
+> vitest run "--run" "src/tests/wardrobe-pair-certification.test.ts" "src/tests/wardrobeStore.test.ts" "src/tests/WardrobeStoreLab.test.tsx" "src/tests/wardrobe-accessory-fit.test.ts" "src/tests/test-companion-showroom-avatar-switch.ts"
+
+
+ RUN  v3.2.4 /Users/jamaltaylor/.codex/worktrees/wardrobe-identity/sunny/web
+
+stderr | src/tests/wardrobe-pair-certification.test.ts > requires a reviewed exact pair even if each item has standalone approval
+ 🎮 [wardrobe-store] equip rejected companion=elli reason=uncertified_pair
+
+Browserslist: browsers data (caniuse-lite) is 6 months old. Please run:
+  npx update-browserslist-db@latest
+  Why you should do it regularly: https://github.com/browserslist/update-db#readme
+ ✓ src/tests/wardrobe-pair-certification.test.ts (2 tests) 4ms
+ ✓ src/tests/wardrobeStore.test.ts (12 tests) 6ms
+stdout | src/tests/wardrobe-accessory-fit.test.ts > separates Matilda’s native halo without changing hair geometry, expressions or the rig
+ 🎮 [wardrobe-accessory] intrinsic visibility=false materials=1
+ 🎮 [wardrobe-accessory] intrinsic visibility=true materials=1
+
+stdout | src/tests/WardrobeStoreLab.test.tsx > WardrobeStoreLab shopping call > opens at the entrance with the full companion and no selected product
+ 🎮 [wardrobe-store-lab] companion_entered companion=elli mood=adventurous compatible_items=7
+
+stdout | src/tests/wardrobe-accessory-fit.test.ts > places 'elli' cat ears against the prepared scalp and follows head movement
+ 🎮 [wardrobe-accessory] fit companion=elli accessory=cat-ears body=6d9698c8fb9e9b41826612cd5fa3dcdde3339e9c0ee7c91368d94430044f8dec
+
+stdout | src/tests/wardrobe-accessory-fit.test.ts > places 'matilda' cat ears against the prepared scalp and follows head movement
+ 🎮 [wardrobe-accessory] fit companion=matilda accessory=cat-ears body=f642d38931582ed85c945d78fa012d0554b8b5b7099535fa1d8cbacf4c881ced
+
+stdout | src/tests/wardrobe-accessory-fit.test.ts > keeps attachment at the scaled scalp for avatar scale 0.5
+ 🎮 [wardrobe-accessory] fit companion=elli accessory=cat-ears body=6d9698c8fb9e9b41826612cd5fa3dcdde3339e9c0ee7c91368d94430044f8dec
+
+stdout | src/tests/wardrobe-accessory-fit.test.ts > keeps attachment at the scaled scalp for avatar scale 2
+ 🎮 [wardrobe-accessory] fit companion=elli accessory=cat-ears body=6d9698c8fb9e9b41826612cd5fa3dcdde3339e9c0ee7c91368d94430044f8dec
+
+ ✓ src/tests/wardrobe-accessory-fit.test.ts (5 tests) 154ms
+stdout | src/tests/WardrobeStoreLab.test.tsx > WardrobeStoreLab shopping call > renders variant-specific garment thumbnails instead of duplicate emoji
+ 🎮 [wardrobe-store-lab] companion_entered companion=elli mood=polished compatible_items=7
+
+stdout | src/tests/WardrobeStoreLab.test.tsx > WardrobeStoreLab shopping call > moves one live companion renderer to try-on and waits for the child to start the conversation
+ 🎮 [wardrobe-store-lab] companion_entered companion=elli mood=dreamy compatible_items=7
+ 🎮 [wardrobe-store-lab] item_reviewed companion=elli item=sleeveless-dress mood=dreamy verdict=reject
+ 🎮 [wardrobe-store-lab] voice_requested companion=elli mode=review item=sleeveless-dress
+ 🎮 [wardrobe-store-lab] try_on opened companion=elli item=sleeveless-dress variant=sleeveless-dress mood=dreamy verdict=reject conversation=waiting_for_child
+ 🎮 [wardrobe-store-lab] voice_requested companion=elli mode=try_on item=sleeveless-dress
+
+stdout | src/tests/WardrobeStoreLab.test.tsx > WardrobeStoreLab shopping call > shows an explicit provider failure on the try-on stage instead of looking canned
+ 🎮 [wardrobe-store-lab] companion_entered companion=elli mood=adventurous compatible_items=7
+ 🎮 [wardrobe-store-lab] item_reviewed companion=elli item=sleeveless-dress mood=adventurous verdict=reject
+ 🎮 [wardrobe-store-lab] try_on opened companion=elli item=sleeveless-dress variant=sleeveless-dress mood=adventurous verdict=reject conversation=waiting_for_child
+
+stdout | src/tests/WardrobeStoreLab.test.tsx > WardrobeStoreLab shopping call > keeps a real voice control available after the companion puts an item on
+ 🎮 [wardrobe-store-lab] companion_entered companion=elli mood=adventurous compatible_items=7
+ 🎮 [wardrobe-store-lab] item_reviewed companion=elli item=sleeveless-dress mood=adventurous verdict=reject
+ 🎮 [wardrobe-store-lab] try_on opened companion=elli item=sleeveless-dress variant=sleeveless-dress mood=adventurous verdict=reject conversation=waiting_for_child
+ 🎮 [wardrobe-store-lab] voice_requested companion=elli mode=try_on item=sleeveless-dress
+
+stdout | src/tests/WardrobeStoreLab.test.tsx > WardrobeStoreLab shopping call > keeps the fitting room open while the child cycles directly through items
+ 🎮 [wardrobe-store-lab] companion_entered companion=elli mood=polished compatible_items=7
+ 🎮 [wardrobe-store-lab] item_reviewed companion=elli item=sleeveless-dress mood=polished verdict=like
+ 🎮 [wardrobe-store-lab] try_on opened companion=elli item=sleeveless-dress variant=sleeveless-dress mood=polished verdict=like conversation=waiting_for_child
+ 🎮 [wardrobe-store-lab] try_on switched companion=elli from=sleeveless-dress to=royal-crown
+ 🎮 [wardrobe-store-lab] try_on opened companion=elli item=royal-crown variant=none mood=polished verdict=like conversation=waiting_for_child
+
+stdout | src/tests/WardrobeStoreLab.test.tsx > WardrobeStoreLab shopping call > preserves the product palette when cycling between variants of one silhouette
+ 🎮 [wardrobe-store-lab] companion_entered companion=elli mood=adventurous compatible_items=7
+ 🎮 [wardrobe-store-lab] item_reviewed companion=elli item=sleeveless-dress mood=adventurous verdict=reject
+ 🎮 [wardrobe-store-lab] try_on opened companion=elli item=sleeveless-dress variant=sleeveless-dress mood=adventurous verdict=reject conversation=waiting_for_child
+ 🎮 [wardrobe-store-lab] try_on switched companion=elli from=sleeveless-dress to=rose-ribbon-dress
+ 🎮 [wardrobe-store-lab] try_on opened companion=elli item=rose-ribbon-dress variant=rose-ribbon-dress mood=adventurous verdict=reject conversation=waiting_for_child
+
+stdout | src/tests/WardrobeStoreLab.test.tsx > WardrobeStoreLab shopping call > anchors the state bubble to the live VRM head instead of a fixed stage percentage
+ 🎮 [wardrobe-store-lab] companion_entered companion=elli mood=adventurous compatible_items=7
+ 🎮 [wardrobe-store-lab] item_reviewed companion=elli item=sleeveless-dress mood=adventurous verdict=reject
+ 🎮 [wardrobe-store-lab] try_on opened companion=elli item=sleeveless-dress variant=sleeveless-dress mood=adventurous verdict=reject conversation=waiting_for_child
+ 🎮 [wardrobe-store-lab] companion_entered companion=elli mood=adventurous compatible_items=7
+ 🎮 [wardrobe-store-lab] item_reviewed companion=elli item=sleeveless-dress mood=adventurous verdict=reject
+ 🎮 [wardrobe-store-lab] try_on opened companion=elli item=sleeveless-dress variant=sleeveless-dress mood=adventurous verdict=reject conversation=waiting_for_child
+
+stdout | src/tests/WardrobeStoreLab.test.tsx > WardrobeStoreLab shopping call > keeps purchase arithmetic and confirmation inside the same shopping screen
+ 🎮 [wardrobe-store-lab] companion_entered companion=elli mood=whimsical compatible_items=7
+ 🎮 [wardrobe-store-lab] item_reviewed companion=elli item=cat-ears mood=whimsical verdict=like
+ 🎮 [wardrobe-store-lab] try_on opened companion=elli item=cat-ears variant=none mood=whimsical verdict=like conversation=waiting_for_child
+ 🎮 [wardrobe-store-lab] purchase completed companion=elli item=cat-ears balance=85
+ 🎮 [wardrobe-store-lab] store_exited companion=elli mode=try-on
+
+stdout | src/tests/WardrobeStoreLab.test.tsx > WardrobeStoreLab shopping call > keeps unapproved downloaded outfits out of other character stores
+ 🎮 [wardrobe-store-lab] companion_entered companion=kefla mood=whimsical compatible_items=3
+
+stdout | src/tests/WardrobeStoreLab.test.tsx > WardrobeStoreLab shopping call > publishes exact store truth for the companion conversation
+ 🎮 [wardrobe-store-lab] companion_entered companion=elli mood=polished compatible_items=7
+
+stdout | src/tests/WardrobeStoreLab.test.tsx > WardrobeStoreLab shopping call > publishes exact store truth for the companion conversation
+ 🎮 [wardrobe-store-lab] item_reviewed companion=elli item=royal-crown mood=polished verdict=like
+
+stdout | src/tests/WardrobeStoreLab.test.tsx > WardrobeStoreLab shopping call > publishes exact store truth for the companion conversation
+ 🎮 [wardrobe-store-lab] try_on opened companion=elli item=royal-crown variant=none mood=polished verdict=like conversation=waiting_for_child
+
+stderr | src/tests/test-companion-showroom-avatar-switch.ts > disposes an unattached accessory if its prepared fit is unavailable
+ 🎮 [wardrobe-accessory] attachment failed model=/companions/elli-wardrobe-obsolete.vrm accessory=crown Error: Unknown prepared accessory body /companions/elli-wardrobe-obsolete.vrm
+    at applyPreparedAccessoryFit (/Users/jamaltaylor/.codex/worktrees/wardrobe-identity/sunny/web/src/lib/wardrobeAccessoryFit.ts:12:53)
+    at attachWardrobeAccessory (/Users/jamaltaylor/.codex/worktrees/wardrobe-identity/sunny/web/src/components/CompanionShowroom.tsx:2591:8)
+    at /Users/jamaltaylor/.codex/worktrees/wardrobe-identity/sunny/web/src/tests/test-companion-showroom-avatar-switch.ts:50:14
+    at Proxy.assertThrows (file:///Users/jamaltaylor/.codex/worktrees/wardrobe-identity/sunny/web/node_modules/chai/index.js:2767:5)
+    at Proxy.methodWrapper (file:///Users/jamaltaylor/.codex/worktrees/wardrobe-identity/sunny/web/node_modules/chai/index.js:1686:25)
+    at Proxy.<anonymous> (file:///Users/jamaltaylor/.codex/worktrees/wardrobe-identity/sunny/web/node_modules/@vitest/expect/dist/index.js:1088:12)
+    at Proxy.overwritingMethodWrapper (file:///Users/jamaltaylor/.codex/worktrees/wardrobe-identity/sunny/web/node_modules/chai/index.js:1735:33)
+    at Proxy.<anonymous> (file:///Users/jamaltaylor/.codex/worktrees/wardrobe-identity/sunny/web/node_modules/@vitest/expect/dist/index.js:1420:16)
+    at Proxy.<anonymous> (file:///Users/jamaltaylor/.codex/worktrees/wardrobe-identity/sunny/web/node_modules/@vitest/expect/dist/index.js:1029:14)
+    at Proxy.methodWrapper (file:///Users/jamaltaylor/.codex/worktrees/wardrobe-identity/sunny/web/node_modules/chai/index.js:1686:25)
+
+ ✓ src/tests/test-companion-showroom-avatar-switch.ts (5 tests) 17ms
+stdout | src/tests/WardrobeStoreLab.test.tsx > WardrobeStoreLab shopping call > exposes an opt-in copyable debug trace and records the store-to-conversation lifecycle
+ 🎮 [wardrobe-store-lab] companion_entered companion=elli mood=whimsical compatible_items=7
+
+stdout | src/tests/WardrobeStoreLab.test.tsx > WardrobeStoreLab shopping call > exposes an opt-in copyable debug trace and records the store-to-conversation lifecycle
+ 🎮 [wardrobe-store-lab] item_reviewed companion=elli item=sleeveless-dress mood=whimsical verdict=reject
+
+stdout | src/tests/WardrobeStoreLab.test.tsx > WardrobeStoreLab shopping call > exposes an opt-in copyable debug trace and records the store-to-conversation lifecycle
+ 🎮 [wardrobe-store-lab] try_on opened companion=elli item=sleeveless-dress variant=sleeveless-dress mood=whimsical verdict=reject conversation=waiting_for_child
+
+stdout | src/tests/WardrobeStoreLab.test.tsx > WardrobeStoreLab shopping call > exposes an opt-in copyable debug trace and records the store-to-conversation lifecycle
+ 🎮 [wardrobe-store-lab] voice_requested companion=elli mode=try_on item=sleeveless-dress
+ 🎮 [wardrobe-store-lab] store_exited companion=elli mode=try-on
+
+stdout | src/tests/WardrobeStoreLab.test.tsx > WardrobeStoreLab shopping call > turns provider failures into a safe portrait state instead of dialogue
+ 🎮 [wardrobe-store-lab] companion_entered companion=elli mood=adventurous compatible_items=7
+ 🎮 [wardrobe-store-lab] item_reviewed companion=elli item=royal-crown mood=adventurous verdict=like
+
+stdout | src/tests/WardrobeStoreLab.test.tsx > WardrobeStoreLab shopping call > enforces a code-owned refusal without spending coins
+ 🎮 [wardrobe-store-lab] companion_entered companion=elli mood=adventurous compatible_items=7
+ 🎮 [wardrobe-store-lab] item_reviewed companion=elli item=sleeveless-dress mood=adventurous verdict=reject
+ 🎮 [wardrobe-store-lab] try_on opened companion=elli item=sleeveless-dress variant=sleeveless-dress mood=adventurous verdict=reject conversation=waiting_for_child
+
+stdout | src/tests/WardrobeStoreLab.test.tsx > WardrobeStoreLab shopping call > blocks a rejected owned item from being equipped from the closet
+ 🎮 [wardrobe-store-lab] companion_entered companion=elli mood=adventurous compatible_items=7
+ 🎮 [wardrobe-store-lab] equip blocked companion=elli item=sleeveless-dress reason=companion_refused mood=adventurous
+
+ ✓ src/tests/WardrobeStoreLab.test.tsx (15 tests) 795ms
+
+ Test Files  5 passed (5)
+      Tests  39 passed (39)
+   Start at  15:31:24
+   Duration  3.78s (transform 1.13s, setup 1.36s, collect 2.49s, tests 975ms, environment 7.64s, prepare 474ms)

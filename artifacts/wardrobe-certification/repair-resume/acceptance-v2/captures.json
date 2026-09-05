@@ -1,0 +1,112 @@
+[
+  {
+    "companion": "matilda",
+    "garment": "ribbon-dress",
+    "view": "front",
+    "pose": "idle",
+    "capture": "matilda-dress-front-idle.png",
+    "automated": "rendered",
+    "visual": "pending review",
+    "walkingEquivalent": false
+  },
+  {
+    "companion": "matilda",
+    "garment": "ribbon-dress",
+    "view": "side",
+    "pose": "idle",
+    "capture": "matilda-dress-side-idle.png",
+    "automated": "rendered",
+    "visual": "pending review",
+    "walkingEquivalent": false
+  },
+  {
+    "companion": "matilda",
+    "garment": "ribbon-dress",
+    "view": "back",
+    "pose": "idle",
+    "capture": "matilda-dress-back-idle.png",
+    "automated": "rendered",
+    "visual": "pending review",
+    "walkingEquivalent": false
+  },
+  {
+    "companion": "matilda",
+    "garment": "ribbon-dress",
+    "view": "face",
+    "pose": "idle",
+    "capture": "matilda-dress-face-idle.png",
+    "automated": "rendered",
+    "visual": "pending review",
+    "walkingEquivalent": false
+  },
+  {
+    "companion": "matilda",
+    "garment": "ribbon-dress",
+    "view": "face",
+    "pose": "blink",
+    "capture": "matilda-dress-face-blink.png",
+    "automated": "rendered",
+    "visual": "pending review",
+    "walkingEquivalent": false
+  },
+  {
+    "companion": "matilda",
+    "garment": "ribbon-dress",
+    "view": "face",
+    "pose": "speak",
+    "capture": "matilda-dress-face-speak.png",
+    "automated": "rendered",
+    "visual": "pending review",
+    "walkingEquivalent": false
+  },
+  {
+    "companion": "matilda",
+    "garment": "ribbon-dress",
+    "view": "face",
+    "pose": "head-turn",
+    "capture": "matilda-dress-face-head-turn.png",
+    "automated": "rendered",
+    "visual": "pending review",
+    "walkingEquivalent": false
+  },
+  {
+    "companion": "matilda",
+    "garment": "ribbon-dress",
+    "view": "front",
+    "pose": "arms-up",
+    "capture": "matilda-dress-front-arms-up.png",
+    "automated": "rendered",
+    "visual": "pending review",
+    "walkingEquivalent": false
+  },
+  {
+    "companion": "matilda",
+    "garment": "ribbon-dress",
+    "view": "front",
+    "pose": "elbows-bent",
+    "capture": "matilda-dress-front-elbows-bent.png",
+    "automated": "rendered",
+    "visual": "pending review",
+    "walkingEquivalent": false
+  },
+  {
+    "companion": "matilda",
+    "garment": "ribbon-dress",
+    "view": "side",
+    "pose": "elbows-bent",
+    "capture": "matilda-dress-side-elbows-bent.png",
+    "automated": "rendered",
+    "visual": "pending review",
+    "walkingEquivalent": false
+  },
+  {
+    "companion": "matilda",
+    "garment": "ribbon-dress",
+    "view": "front",
+    "pose": "leg-swing",
+    "capture": "matilda-dress-front-leg-swing.png",
+    "automated": "rendered",
+    "visual": "pending review",
+    "walkingEquivalent": false
+  }
+]

@@ -1,96 +1,86 @@
-# Sunny wardrobe — incomplete engineering handoff
+# Sunny wardrobe — implementation progress and incomplete handoff
 
-**Status: BLOCKED / INCOMPLETE. No store approval. Do not merge or deploy this branch as a completed wardrobe.**
+**Status: INCOMPLETE. No store approval, merge or deployment.**
 
-Matilda's complete face, hair, blink and mouth expressions survive the prepared path. Her shoulder/upper-arm surfaces still show dark protrusions and discontinuities in the controlled dress preview. The required architecture proof gate therefore fails. Three distinct body-preparation attempts were made; further geometry/UV/weight repair is stopped under the approved attempt limit. Hoodie/blazer fitting and the full accessory matrix have not proceeded past this gate.
+The reopened Matilda repair succeeded. Complete faces, hair, native expression bindings and rigs are retained. The arm defect came from donor aim/roll helpers being mapped to a stationary shoulder; explicit versioned mappings now transfer all 5,307 donor-body vertices through the correct moving joints. The Matilda dress proof passed the captured blink, mouth, head-turn and arm poses. This is not a walking or spoken-audio synchronization certification.
 
-The isolated checkout is `/Users/jamaltaylor/.codex/worktrees/wardrobe-identity/sunny`, branch `codex/wardrobe-identity-preservation`. The original Sunny checkout and wardrobe sandbox were not edited. `isolation.json` identifies the preserved source state, patch fingerprint and copied ignored asset directories. The initial preservation commit is `a063c76`.
+Both Elli and Matilda now have separate prepared dress, hoodie and blazer fits. The hoodie and blazer use distinct meshes and silhouettes. Matilda's intersecting outer skirt panels are replaced with the top while the base skirt remains. Her native halo is separately tagged, allowing a selected accessory to replace it without altering hair geometry. Crown, cat-ear and halo anchors are versioned against each prepared identity. Cat-ear placement uses measured hair surfaces under the cone bases; whole-avatar scale and failed-attachment cleanup have regression tests.
 
-## Deliverable status
+The isolated checkout is `/Users/jamaltaylor/.codex/worktrees/wardrobe-identity/sunny`, branch `codex/wardrobe-identity-preservation`. The original checkout and wardrobe sandbox are outside this work. `isolation.json` records the preserved staged/unstaged wardrobe state and required ignored assets.
 
-| Deliverable | Result |
+## Deliverables
+
+| Deliverable | Current result |
 |---|---|
-| Isolated reproducible baseline | Complete locally. Staged/unstaged web wardrobe changes and required ignored assets preserved; dependencies cloned separately. |
-| Eight-companion asset audit | Structural audit and diagnostic previews supplied. Princess facial masking has a specific reproduced cause. Detailed mesh/material/texture/rig/expression inventories are in `asset-audit.json`; raw pixels are excluded. |
-| Prepared Elli/Matilda identities | Candidate outputs reproducible with pinned input hashes. Matilda face preservation demonstrated; body coverage fails. Original clothing is explicitly tagged, but baked texture details and the restored body's UV/weights still need repair. |
-| Dress/hoodie/blazer and accessories | Incomplete. Existing archives have distinct meshes (not recolors): dress 6,282 vertices; hoodie 1,754; blazer 4,830. Only dress fitting progressed. Full garment/accessory certification remains blocked. |
-| Runtime switching | Consolidated loading, immediate visibility gate, stale-result disposal, explicit unavailable state and GPU skeleton cleanup implemented. See browser/unit results for measured scope. |
-| Certification package | Audit/evidence and explicit incomplete matrix supplied. Exact version checks fail closed; no human approvals entered. Pair-specific garment/accessory certification is still missing. |
-| Verified handoff | Local checks and independent review recorded below. This is a preserved incomplete implementation, not engineering-ready approval. |
+| Isolated baseline | Preserved locally with source patch fingerprint and independent dependencies. |
+| Eight-companion audit | Mesh/material/texture/rig/expression inventories and attempted previews provided. Six companions remain quarantined with specific restrictions. |
+| Prepared Elli/Matilda | Elli identity-preserved-v1; Matilda identity-preserved-v4. Original face, hair geometry, expression bindings and rigs retained. Matilda donor arm mappings repaired; clothing and intrinsic halo explicitly separated. |
+| Three garment families/accessories | Six offline fitted garment assets generated. Versioned accessory anchors and comparison captures supplied. Full mandatory visual certification is incomplete. |
+| Runtime switching | Current-selection visibility gate, stale-result disposal, explicit unavailable state and prepared-file integrity checks implemented. |
+| Certification | Exact source/body/recipe/fitted-output checks plus garment/accessory pair version checks. Prepared runtime activation uses exact certification; legacy QA metadata cannot override it. No human approvals entered. |
+| Verified handoff | Build, web suite, full-suite result, browser evidence and independent readonly review recorded in verification.json. Overall engineering readiness remains incomplete. |
 
-## Reproduce locally
+## Remaining requirements
 
-Use the isolated checkout. Dependencies are installed locally; no secret file is needed for the diagnostic lab. Required ignored files are listed in `isolation.json`, `scripts/wardrobe-recipes.json` and `web/wardrobeAssets.ts`.
+- A compatible walking animation is missing. No walking/locomotion FBX, VRMA, GLB or JSON was found in the copied local wardrobe/public assets. Existing `leg-swing` is deliberately labelled synthetic. Supply an authored compatible walking clip and exercise its full cycle on all six fits; do not relabel the synthetic pose as a pass.
+- Complete the remaining current-version movement, palette and accessory visual certification, including any defects recorded in `certification-record.json`. Static captures and passing tests cannot certify all intermediate movement frames or spoken-audio synchronization.
+- Full `npm test` has failures outside wardrobe scope. They are listed with the actual latest counts in `verification.json`; no learning/math fixes are included.
+- Explicit human approval must name the delivered asset versions and combinations. No candidate, shared body profile or universal accessory label grants approval.
+
+## Reproduce
+
+From this isolated checkout, with the copied ignored source assets and installed dependencies:
 
 ```sh
 npx tsx scripts/prepareWardrobe.ts
-npx tsx scripts/auditWardrobe.ts
 VITE_MODE=intro npm --prefix web run dev -- --host 127.0.0.1 --port 5197 --strictPort
 ```
 
-Open `http://127.0.0.1:5197/?wardrobeLab=true&wardrobeCompatibilityLab=true&grokBackground=false`.
-
-In a second terminal from the same checkout:
+In another terminal, after Vite is ready:
 
 ```sh
-node scripts/verifyWardrobeAcceptance.mjs
+npx tsx scripts/prepareWardrobeGarments.ts
+node scripts/verifyWardrobeMatrix.mjs
 node scripts/verifyWardrobeSwitching.mjs
-WARDROBE_STAGE=audit-final node scripts/verifyWardrobeRendering.mjs
 npm run build
 npm test
+npm --prefix web test
 ```
 
-Preparation emits complete VRMs into ignored `web/public/companions/`, plus tracked version manifests. `sample.vrm` is Elli's exact identity reference; `673852811403133503.vrm` is Matilda's. Input fingerprint or material inventory changes stop conversion. The Matilda donor is mandatory. Prepared output bytes, garment archive bytes plus fitting code, and accessory implementation are fingerprinted. Any implementation edit requires rerunning preparation before evidence or approval.
+Lab URL: `http://127.0.0.1:5197/?wardrobeLab=true&wardrobeCompatibilityLab=true&grokBackground=false`.
 
-The dress archive's local SOURCE.md prohibits raw/modified redistribution and easily extractable game inclusion. Raw XWear archives remain in the ignored `.sunny-sandbox/wardrobe` directory and are served only by an allowlisted local dev/preview endpoint. They are not committed or emitted into dist. A static deployment would not serve this wardrobe; distribution packaging/licensing is outside this local milestone and still unresolved.
+Prepared VRMs remain in ignored `web/public/companions/`. Six fitted JSON files, including their textures, remain in ignored `.sunny-sandbox/wardrobe/prepared/`. Tracked manifests identify their exact hashes. Source fingerprint or material-inventory changes stop preparation. Run both preparation commands after fitting-code or recipe changes. The fitted index is written only after all six outputs succeed; stale/missing outputs cannot silently fall back to runtime fitting for a migrated model.
 
-## Evidence and failed proof gate
+The dress source prohibits raw/modified redistribution and easily extractable game inclusion. Local licensed files are served by an allowlisted development/preview route and are not committed or emitted into dist. Static deployment packaging/licensing remains unresolved and was not attempted.
 
-`acceptance/` contains equal-camera, equal-lighting source/prepared comparisons: front, side, back, face, blink, mouth opening, head turn, raised arms and synthetic leg swing. The corrected front camera faces the showroom's normalized +Z direction. These are rendered pose samples, not a production walking acceptance run or spoken-audio synchronization proof.
+## Evidence
 
-- `acceptance/matilda-dress-face-idle.png`: recognizable face preserved; shoulder/upper-arm defects visible.
-- `acceptance/matilda-dress-face-blink.png`: both reference and prepared face blink.
-- `acceptance/matilda-dress-face-speak.png`: mouth-expression sample.
-- `acceptance/matilda-dress-front-arms-up.png` and `...side-idle.png`: arm movement and silhouette evidence; still insufficient for acceptance.
-- `runtime-*.png`: preserved earlier legacy-composite baseline under the compatible renderer.
-- `audit-final-*.png`: current attempted previews of all eight companions. Six non-migrated companions still use the legacy diagnostic overlay; they are not conversions.
-- `matilda-body-repair.png`: rejected donor-axis attempt.
-- `matilda-body-repair-anchors.png`: corrected body anchors before garment-handedness correction.
-- `fit-handedness-matilda.png`: intermediate corrected garment front, before controlled inspection captures.
+- `repair-resume/acceptance-v2/`: successful reopened Matilda body/dress proof, including unobstructed front/side bent-elbow views.
+- `garment-families/`: earlier distinct hoodie/blazer previews; `panels-v3/` shows the corrected skirt-layer separation; `prepared/` checks saved geometry against the earlier runtime-fitted result.
+- `accessory-baseline/`: 132 baseline captures across both companions, three families, views, expressions and all accessories. These expose the floating ears and duplicate halo.
+- `accessory-first-fit/`: intermediate rejected scalp-maximum placement. Retained as diagnostic evidence, not final certification.
+- `current-matrix/`: 72 indexed accessory comparisons with exact captured source/body/garment/accessory versions. `fit-evidence-equivalence.json` verifies that the final activation-gate change altered only fitted-file sourceVersion metadata; every geometry, texture, binding and body value matches these captures. Human approval is still invalidated for the new file hashes. Consult capture results, not filenames alone, for completed checks.
+- `repair-resume/ear-surface.json`: actual raycast samples under ear bases; `hair-components-summary.log` identifies the separate native-halo material.
+- `asset-audit.json`, `audit-final-*.png`, `compatibility-matrix.md`: all-eight structural audit and precise restrictions for the six remaining companions.
+- `acceptance/` and earlier repair screenshots: rejected v1 history. The previous incomplete handoff is preserved in commit `328f830`; its Matilda body blocker is superseded by the reopened repair.
 
-The body repair attempts were:
+## Human-caught failures and lab invariants
 
-1. Complete original Matilda plus explicit original-clothing separation. Revealed missing underlying arm/torso geometry and alpha-cut body coverage. The original skin primitive has 8,320 triangles; the donor has 8,864, and substantially more arm-region vertices.
-2. Transfer the donor body through inverse-bind orientations while preserving Matilda's rig/face. Rejected flattened/fanned geometry: exporter bone axes differ, and the scalp maximum Y dropped to about 1.426.
-3. Transfer through authored T-pose joint anchors with VRM coordinate conversion. Restored coherent body/arms and preserved face. Controlled captures still show shoulder/upper-arm defects. No fourth fit adjustment is authorized by this milestone's stopping rule.
+| Failure | Why the human saw it while logs/lab missed it | New invariant/evidence |
+|---|---|---|
+| Princess malformed face | Mask/material counts did not prove semantic face completeness. Fully head-weighted mouth/expression primitives hit a false-return masking path and were hidden. | Exact source primitive audit explains the failure; Princess stays quarantined pending complete-identity preparation. |
+| Incompatible material rendering | Download/attach success ignored ShaderMaterial/WebGPU incompatibility. | Candidate wardrobe uses compatible WebGL; browser checks reject incompatible-material errors. |
+| Backwards/distorted garment | Exporter bone axes and handedness were treated as interchangeable. | T-pose anchor conversion, normal/winding reflection and controlled views. |
+| Matilda arm protrusions | Metadata/triangle counts could not identify donor constraint helpers attached to the wrong limb. | All ten helper mappings and all 5,307 body vertices verified; material ablations separated geometry defects from shading. |
+| Hoodie waist overlap | Successful attachment and clothing-name classification retained an outer panel crossing the hoodie. | Material-ID render identifies material16; versioned recipe replaces outer layers16/17 with the top while retaining the base skirt9/14. |
+| Floating/duplicated accessories | Generic world offsets ignored the existing halo, curved scalp and avatar scale. | Explicit halo material25, measured ear-base surfaces, versioned fits, head-motion/scale tests and failed-fit disposal checks. |
+| Stale or failed selection | Independent asynchronous success logs did not prove a complete current presentation. | Selection generation/key visibility gate, stale-result disposal, failed-load state and frame-sampled browser switching. |
+| Inherited approval | Source-code hashes alone did not identify changed fitted bytes or a new garment/accessory pairing. | Exact fitted SHA plus pair identity including body, recipe, variant and accessory; failed/candidate results never become human approval. |
 
-Required next dependency: manual inspection and repair of Matilda's restored body topology, skin weights and body UV/texture coverage in a capable VRM mesh editor, or an identity-matching complete source body from its author. Blender is absent from PATH, `/Applications/Blender.app`, `/opt/homebrew/bin/blender` and `/usr/local/bin/blender`. Installing an editor alone would not establish visual correctness. Once repaired, rerun the Matilda dress gate before fitting the remaining families.
+## Architecture and review
 
-## Why the human caught what the lab missed
+Migrated Elli/Matilda load one complete prepared identity. They do not use runtime face extraction or dual-avatar overlays. Six legacy diagnostic cases retain the old overlay with explicit restrictions. Offline garment preparation reuses the existing XWear ingestion/fitter; migrated runtime loads precomputed coordinates, validates hashes and binds to the live rig. Runtime refitting remains only for legacy diagnostic models and explicit preparation calls.
 
-| Regression | Human-visible evidence | Why logs missed it | Missing lab invariant / new evidence |
-|---|---|---|---|
-| Princess flat/incomplete expression surfaces | Legacy composite loses complete mouth/expression surfaces. | Logs counted masks/materials, not semantic face completeness. | Real asset has one mesh split into nine material primitives. Complete mouth/blink/happy primitives are 100% head-weighted; mask helper returns false when all indices survive, then opaque materials without identity names are hidden. Audit records retained/total triangles per primitive. Princess remains quarantined; no threshold patch claims to fix her. |
-| Missing/washed VRM material surfaces | Faces/materials displayed incorrectly despite successful loading. | Download/attach success did not mean ShaderMaterial was compatible with WebGPU. | Browser red captured 268 incompatible-material errors. Candidate wardrobe previews use the existing compatible WebGL path; browser asserts no backend/material mismatch. |
-| Distorted/backwards dress | Garment fronts and shoulders deform or face backwards. | Mesh attachment succeeded, so logs reported applied. | T-pose anchor regression replaces exporter local-axis dependence; Unity handedness reflection includes normals and triangle winding. Screenshots remain authoritative for coverage. |
-| Matilda gaps after clothing removal | Source body has missing surfaces; repaired body still has visible shoulder defects. | Identity metadata and triangle counts cannot prove watertight skin or good UV/weights. | Pinned source/explicit clothing-role tests plus real-asset surface diagnostics and controlled movement captures. Gate explicitly fails rather than inheriting a body-profile approval. |
-| Stale or failed selection | A previous/incomplete presentation could remain visible. | Independent model/outfit success logs did not certify a complete current selection. | One loading path and selection key; immediate CSS hiding, settled-key comparison, explicit failure state, bounded browser frame checks and out-of-order delivery. |
-| Mislabelled inspection views/poses | “Front” showed back; idle arms were raised. | Lab camera/pose setup had no own invariant. | Normalized +Z front and idle-arm tests fail before fix; corrected captures replaced misleading samples. |
+The old duplicate outfit effect and helper-bone insertion were removed earlier in this branch. Additions are the requested preparation/data path, integrity/lifecycle invariants, diagnostic controls and evidence. Accessory hiding acts only on explicitly tagged intrinsic headwear. No learning-loop, math, conversation, provider or source-checkout changes are part of this milestone.
 
-## Runtime architecture and remaining restrictions
-
-Elli/Matilda now load complete prepared VRMs with their original identity rigs and expression metadata. They do not use face extraction or a second-avatar identity overlay. The six other diagnostic cases retain the legacy overlay, with restrictions in the matrix. Model-specific clothing selections and donor preparation live in versioned recipe data.
-
-The fitting path now converts XWear T-pose anchors, handedness and winding. It removes runtime helper-bone insertion and its ambiguous local-axis correction. Fitting still occurs at runtime: the requested separately prepared offline fitted garment output is not delivered. Accessory anchors are existing generic anchors; model-specific validated anchors are not delivered.
-
-The duplicate outfit-loading effect was deleted. A complete selection key covers model, identity overlay, outfit, material and accessory. Setup cleanup cancels the generation; only a complete current result may reveal. Full selection changes reload the presentation, which trades performance for a simpler lifecycle. Failed loads remain hidden and show an unavailable state. Garment removal disposes its skeleton texture as well as geometry/materials; prepared VRM disposal uses VRMUtils.deepDispose.
-
-Store eligibility requires version-matching certification and explicit human-review metadata. Current records lack that evidence and stay quarantined. “Universal” accessories do not bypass approval. Remaining certification limitations: records cannot yet restrict an accessory to a particular garment pairing, and Matilda's `vroid-slim-v1` catalog/runtime fit eligibility must be reconciled before a future approval can enable her dress. These are contained by quarantine, not complete implementations.
-
-Necessary additions are asset preparation, real-asset invariants, inspection tooling and evidence. Runtime fitting and switching remove duplicated logic. No learning-loop, math, conversation prompts, provider calls, source-checkout edits, merge or deployment form part of this handoff.
-
-## Verification
-
-Final results: `npm run build` passed; all 829 web tests across 105 files passed; browser switching passed with 228 sampled frames and no violations. Full `npm test` failed five root tests in unchanged non-wardrobe paths (2,782 passed); its web phase did not run, so the full web suite was run separately. No passing full-suite claim is made.
-
-See `verification.json` for final command results and `independent-review.md` for findings and dispositions. Passing automated checks do not override the failed visual gate. `certification-record.json` lists versions, tested/untested combinations, restrictions and next steps; all records have no human approval.
+`independent-review.md` records review findings and their disposition. Passing code review or tests does not override the outstanding mandatory acceptance checks.

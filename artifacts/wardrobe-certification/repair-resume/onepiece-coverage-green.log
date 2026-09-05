@@ -1,0 +1,124 @@
+(node:24877) [DEP0174] DeprecationWarning: Calling promisify on a function that returns a Promise is likely a mistake.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+
+> web@0.0.0 test
+> vitest run "--run" "src/tests/xwearDress.test.ts" "src/tests/wardrobeStore.test.ts" "src/tests/WardrobeCompatibilityLab.test.tsx"
+
+
+ RUN  v3.2.4 /Users/jamaltaylor/.codex/worktrees/wardrobe-identity/sunny/web
+
+Browserslist: browsers data (caniuse-lite) is 6 months old. Please run:
+  npx update-browserslist-db@latest
+  Why you should do it regularly: https://github.com/browserslist/update-db#readme
+ ✓ src/tests/wardrobeStore.test.ts (12 tests) 6ms
+stdout | src/tests/xwearDress.test.ts > XWear avatar-space binding > lets partial outfits replace tops without hiding the avatar's bottoms
+ 🎮 [companion-wardrobe-lab] base_clothing visibility=false materials=1
+
+ ❯ src/tests/xwearDress.test.ts (22 tests | 2 failed) 14ms
+   ✓ XWear avatar-space binding > creates an isolated material palette for each wardrobe variant 3ms
+   ✓ XWear avatar-space binding > resolves every sellable outfit through the skinned XWear catalog 0ms
+   × XWear avatar-space binding > keeps visually rejected garments available for QA but out of the approved registry 5ms
+     → expected { occupies: [ 'top' ], …(1) } to deeply equal { occupies: [ 'top' ], …(1) }
+   × XWear avatar-space binding > lets partial outfits replace tops without hiding the avatar's bottoms 2ms
+     → expected [ 'top', 'onepiece' ] to deeply equal [ 'top' ]
+   ✓ XWear avatar-space binding > only applies an outfit to avatar designs that passed visual fit QA 0ms
+   ✓ XWear avatar-space binding > gives the downloaded bodice enough clearance for varied VRoid torsos 0ms
+   ✓ XWear avatar-space binding > reuses avatar anatomy but isolates outfit helper bones 0ms
+   ✓ XWear avatar-space binding > uniformly scales a garment around source hips onto avatar proportions 0ms
+   ✓ XWear avatar-space binding > retargets each garment vertex from its source bone into the avatar bind pose 0ms
+   ✓ XWear avatar-space binding > derives outfit-owned helper bones from mesh bind poses 0ms
+   ✓ XWear avatar-space binding > discovers GUID-named XWear files directly from an archive 0ms
+   ✓ XWear avatar-space binding > rejects animations that an outfit has not passed visual fit QA 0ms
+   ✓ XWear avatar-space binding > resolves a complete XWear outfit from a reusable catalog definition 0ms
+   ✓ XWear avatar-space binding > applies a per-outfit surface clearance along normalized garment normals 0ms
+   ✓ XWear avatar-space binding > parents the garment before capturing its bind matrix 1ms
+   ✓ XWear avatar-space binding > retargets the garment from the avatar's current pose 0ms
+   ✓ XWear avatar-space binding > binds to the captured rest pose even after an intro animation moves bones 0ms
+   ✓ XWear avatar-space binding > discovers each renderer material's main texture from XWear metadata 0ms
+   ✓ fits authored T-pose surfaces without applying unrelated exporter bone axes 0ms
+   ✓ converts Unity garment handedness without reversing the intended front 0ms
+   ✓ removes an original one-piece layer beneath comet-hoodie while retaining separate bottoms 0ms
+   ✓ removes an original one-piece layer beneath constellation-blazer while retaining separate bottoms 0ms
+stdout | src/tests/WardrobeCompatibilityLab.test.tsx > WardrobeCompatibilityLab > presents every model at one consistent full-body review stage
+ 🎮 [wardrobe-certification-lab] preview_selected result=candidate companion=elli item=sleeveless-dress template=ribbon-dress
+ 🎮 [wardrobe-certification-lab] preview_selected result=candidate companion=kefla item=sleeveless-dress template=ribbon-dress
+ 🎮 [wardrobe-certification-lab] preview_selected result=candidate companion=kefla item=teal-ribbon-dress template=ribbon-dress
+ 🎮 [wardrobe-certification-lab] preview_selected result=candidate companion=matilda item=teal-ribbon-dress template=ribbon-dress
+
+stdout | src/tests/WardrobeCompatibilityLab.test.tsx > WardrobeCompatibilityLab > calibrates only the dressed preview and resets to the reviewed profile
+ 🎮 [wardrobe-certification-lab] preview_selected result=candidate companion=elli item=sleeveless-dress template=ribbon-dress
+ 🎮 [wardrobe-certification-lab] preview_selected result=candidate companion=princess item=sleeveless-dress template=ribbon-dress
+ 🎮 [wardrobe-certification-lab] calibration_changed result=preview_only companion=princess action=scale_up scale=1.32 offset_y=0.00
+ 🎮 [wardrobe-certification-lab] preview_selected result=candidate companion=princess item=sleeveless-dress template=ribbon-dress
+ 🎮 [wardrobe-certification-lab] calibration_changed result=preview_only companion=princess action=move_down scale=1.32 offset_y=-0.01
+ 🎮 [wardrobe-certification-lab] preview_selected result=candidate companion=princess item=sleeveless-dress template=ribbon-dress
+ 🎮 [wardrobe-certification-lab] calibration_changed result=preview_only companion=princess action=reset scale=1.28 offset_y=0.00
+ 🎮 [wardrobe-certification-lab] preview_selected result=candidate companion=princess item=sleeveless-dress template=ribbon-dress
+
+stdout | src/tests/WardrobeCompatibilityLab.test.tsx > applies the same inspection view and movement to original and dressed companions
+ 🎮 [wardrobe-certification-lab] preview_selected result=candidate companion=elli item=sleeveless-dress template=ribbon-dress
+ 🎮 [wardrobe-certification-lab] preview_selected result=candidate companion=elli item=sleeveless-dress template=ribbon-dress
+ 🎮 [wardrobe-certification-lab] preview_selected result=candidate companion=elli item=sleeveless-dress template=ribbon-dress
+ 🎮 [wardrobe-certification-lab] preview_selected result=candidate companion=elli item=sleeveless-dress template=ribbon-dress
+
+stdout | src/tests/WardrobeCompatibilityLab.test.tsx > offers distinct hoodie and blazer candidates in the diagnostic lab
+ 🎮 [wardrobe-certification-lab] preview_selected result=candidate companion=elli item=sleeveless-dress template=ribbon-dress
+ 🎮 [wardrobe-certification-lab] preview_selected result=candidate companion=elli item=comet-hoodie template=comet-hoodie
+ 🎮 [wardrobe-certification-lab] preview_selected result=candidate companion=elli item=constellation-blazer template=constellation-blazer
+
+ ✓ src/tests/WardrobeCompatibilityLab.test.tsx (5 tests) 268ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/tests/xwearDress.test.ts > XWear avatar-space binding > keeps visually rejected garments available for QA but out of the approved registry
+AssertionError: expected { occupies: [ 'top' ], …(1) } to deeply equal { occupies: [ 'top' ], …(1) }
+
+- Expected
++ Received
+
+@@ -2,7 +2,8 @@
+    "occupies": [
+      "top",
+    ],
+    "replaces": [
+      "top",
++     "onepiece",
+    ],
+  }
+
+ ❯ src/tests/xwearDress.test.ts:63:41
+     61|     });
+     62|     expect(SLEEVELESS_DRESS_OUTFIT.qa).toMatchObject({ status: "approv…
+     63|     expect(CELTIC_SWEATER_OUTFIT.slots).toEqual({
+       |                                         ^
+     64|       occupies: ["top"],
+     65|       replaces: ["top"],
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  src/tests/xwearDress.test.ts > XWear avatar-space binding > lets partial outfits replace tops without hiding the avatar's bottoms
+AssertionError: expected [ 'top', 'onepiece' ] to deeply equal [ 'top' ]
+
+- Expected
++ Received
+
+  [
+    "top",
++   "onepiece",
+  ]
+
+ ❯ src/tests/xwearDress.test.ts:104:50
+    102|     expect((top.material as THREE.Material).visible).toBe(false);
+    103|     expect((bottom.material as THREE.Material).visible).toBe(true);
+    104|     expect(CELTIC_SWEATER_OUTFIT.slots.replaces).toEqual(["top"]);
+       |                                                  ^
+    105|     expect(COMET_HOODIE_OUTFIT.slots).toEqual({
+    106|       occupies: ["top"],
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed | 2 passed (3)
+      Tests  2 failed | 37 passed (39)
+   Start at  14:43:56
+   Duration  1.18s (transform 278ms, setup 222ms, collect 389ms, tests 288ms, environment 1.03s, prepare 131ms)

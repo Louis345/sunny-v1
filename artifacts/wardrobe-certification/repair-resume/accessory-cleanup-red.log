@@ -1,0 +1,46 @@
+(node:44990) [DEP0174] DeprecationWarning: Calling promisify on a function that returns a Promise is likely a mistake.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+
+> web@0.0.0 test
+> vitest run "--run" "src/tests/test-companion-showroom-avatar-switch.ts"
+
+
+ RUN  v3.2.4 /Users/jamaltaylor/.codex/worktrees/wardrobe-identity/sunny/web
+
+Browserslist: browsers data (caniuse-lite) is 6 months old. Please run:
+  npx update-browserslist-db@latest
+  Why you should do it regularly: https://github.com/browserslist/update-db#readme
+ ❯ src/tests/test-companion-showroom-avatar-switch.ts (5 tests | 1 failed) 8ms
+   ✓ Companion showroom avatar switching > never leaves the previous companion visible during an identity change 1ms
+   ✓ Companion showroom avatar switching > preserves the normal carousel animation outside an identity change 0ms
+   ✓ hides prepared identities until the complete current selection is ready 0ms
+   ✓ releases a discarded garment skeleton texture along with geometry and material 2ms
+   × disposes an unattached accessory if its prepared fit is unavailable 5ms
+     → expected [Function] to throw error matching /Unknown prepared accessory body/ but got '(0 , attachWard…'
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/tests/test-companion-showroom-avatar-switch.ts > disposes an unattached accessory if its prepared fit is unavailable
+AssertionError: expected [Function] to throw error matching /Unknown prepared accessory body/ but got '(0 , attachWard…'
+
+- Expected:
+/Unknown prepared accessory body/
+
++ Received:
+"(0 , __vite_ssr_import_5__.attachWardrobeAccessory) is not a function"
+
+ ❯ src/tests/test-companion-showroom-avatar-switch.ts:50:106
+     48|  const geometry=vi.spyOn(THREE.BufferGeometry.prototype,'dispose');
+     49|  try{
+     50|   expect(()=>attachWardrobeAccessory(new THREE.Bone(),'crown','/compan…
+       |                                                                                                          ^
+     51|   expect(geometry).toHaveBeenCalledTimes(5);
+     52|  }finally{geometry.mockRestore();}
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 4 passed (5)
+   Start at  15:26:21
+   Duration  2.38s (transform 597ms, setup 99ms, collect 1.09s, tests 8ms, environment 707ms, prepare 74ms)

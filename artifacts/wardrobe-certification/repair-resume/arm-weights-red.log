@@ -1,0 +1,43 @@
+(node:14533) [DEP0174] DeprecationWarning: Calling promisify on a function that returns a Promise is likely a mistake.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+
+> web@0.0.0 test
+> vitest run "--run" "src/tests/wardrobe-preparation.test.ts"
+
+
+ RUN  v3.2.4 /Users/jamaltaylor/.codex/worktrees/wardrobe-identity/sunny/web
+
+stdout | src/tests/wardrobe-preparation.test.ts > uses explicit prepared clothing roles, including ties, without hiding identity surfaces
+ 🎮 [companion-wardrobe-lab] base_clothing visibility=false materials=1
+ 🎮 [companion-wardrobe-lab] base_clothing visibility=true materials=1
+
+ ❯ src/tests/wardrobe-preparation.test.ts (8 tests | 1 failed) 353ms
+   ✓ complete wardrobe identity preparation > preserves 'elli' identity and adds explicit clothing roles 55ms
+   ✓ complete wardrobe identity preparation > preserves 'matilda' identity and adds explicit clothing roles 84ms
+   ✓ complete wardrobe identity preparation > rejects a stale material selection instead of guessing by name or weight 5ms
+   ✓ routes migrated companions to their complete prepared identity without an overlay 0ms
+   ✓ uses explicit prepared clothing roles, including ties, without hiding identity surfaces 1ms
+   ✓ restores Matilda’s missing body surface from the approved body family without altering her face or rig 93ms
+   ✓ rejects incomplete preparation when a required body donor is absent 14ms
+   × transfers donor aim/roll arm weights to moving arm joints instead of pinning them to the shoulder 101ms
+     → vertex 335, L upper-arm helper: expected 0.40806690603494644 to be greater than or equal to 0.5098186271095276
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/tests/wardrobe-preparation.test.ts > transfers donor aim/roll arm weights to moving arm joints instead of pinning them to the shoulder
+AssertionError: vertex 335, L upper-arm helper: expected 0.40806690603494644 to be greater than or equal to 0.5098186271095276
+ ❯ src/tests/wardrobe-preparation.test.ts:98:64
+     96|    if(required<.5)continue;
+     97|    const actual=tw[vertex].reduce((sum,w,k)=>sum+(tj[vertex][k]===uppe…
+     98|    expect(actual,`vertex ${vertex}, ${side} upper-arm helper`).toBeGre…
+       |                                                                ^
+     99|    inspected++;
+    100|   }
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 7 passed (8)
+   Start at  14:24:08
+   Duration  1.40s (transform 74ms, setup 117ms, collect 103ms, tests 353ms, environment 578ms, prepare 49ms)

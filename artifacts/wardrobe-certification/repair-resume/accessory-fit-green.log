@@ -1,0 +1,40 @@
+(node:43302) [DEP0174] DeprecationWarning: Calling promisify on a function that returns a Promise is likely a mistake.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+
+> web@0.0.0 test
+> vitest run "--run" "src/tests/wardrobe-accessory-fit.test.ts" "src/tests/wardrobe-preparation.test.ts" "src/tests/wardrobe-prepared-garment.test.ts" "src/tests/wardrobe-certification.test.ts"
+
+
+ RUN  v3.2.4 /Users/jamaltaylor/.codex/worktrees/wardrobe-identity/sunny/web
+
+stdout | src/tests/wardrobe-prepared-garment.test.ts > binds prepared coordinates without refitting, and follows the live rotated avatar
+ 🎮 [wardrobe-prepared] attached companion=elli outfit=sleeveless-dress sha256=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+
+ ✓ src/tests/wardrobe-certification.test.ts (10 tests) 4ms
+stdout | src/tests/wardrobe-accessory-fit.test.ts > separates Matilda’s native halo without changing hair geometry, expressions or the rig
+ 🎮 [wardrobe-accessory] intrinsic visibility=false materials=1
+ 🎮 [wardrobe-accessory] intrinsic visibility=true materials=1
+
+stdout | src/tests/wardrobe-accessory-fit.test.ts > places 'elli' cat ears against the prepared scalp and follows head movement
+ 🎮 [wardrobe-accessory] fit companion=elli accessory=cat-ears body=6d9698c8fb9e9b41826612cd5fa3dcdde3339e9c0ee7c91368d94430044f8dec
+
+stdout | src/tests/wardrobe-accessory-fit.test.ts > places 'matilda' cat ears against the prepared scalp and follows head movement
+ 🎮 [wardrobe-accessory] fit companion=matilda accessory=cat-ears body=f642d38931582ed85c945d78fa012d0554b8b5b7099535fa1d8cbacf4c881ced
+
+ ✓ src/tests/wardrobe-accessory-fit.test.ts (3 tests) 192ms
+ ✓ src/tests/wardrobe-prepared-garment.test.ts (14 tests) 279ms
+stdout | src/tests/wardrobe-preparation.test.ts > uses explicit prepared clothing roles, including ties, without hiding identity surfaces
+ 🎮 [companion-wardrobe-lab] base_clothing visibility=false materials=1
+ 🎮 [companion-wardrobe-lab] base_clothing visibility=true materials=1
+
+stdout | src/tests/wardrobe-preparation.test.ts > removes Matilda’s overlapping outer skirt panels with a replacement top while retaining her base skirt
+ 🎮 [companion-wardrobe-lab] base_clothing visibility=false materials=7
+ 🎮 [companion-wardrobe-lab] base_clothing visibility=true materials=10
+
+ ✓ src/tests/wardrobe-preparation.test.ts (14 tests) 958ms
+   ✓ preserves every donor body weight through all ten explicit helper mappings with repeatable output  330ms
+
+ Test Files  4 passed (4)
+      Tests  41 passed (41)
+   Start at  15:22:41
+   Duration  2.50s (transform 266ms, setup 629ms, collect 619ms, tests 1.43s, environment 2.85s, prepare 255ms)

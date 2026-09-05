@@ -1,0 +1,65 @@
+(node:44706) [DEP0174] DeprecationWarning: Calling promisify on a function that returns a Promise is likely a mistake.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+
+> web@0.0.0 test
+> vitest run "--run" "src/tests/wardrobe-accessory-fit.test.ts"
+
+
+ RUN  v3.2.4 /Users/jamaltaylor/.codex/worktrees/wardrobe-identity/sunny/web
+
+stdout | src/tests/wardrobe-accessory-fit.test.ts > separates Matilda’s native halo without changing hair geometry, expressions or the rig
+ 🎮 [wardrobe-accessory] intrinsic visibility=false materials=1
+ 🎮 [wardrobe-accessory] intrinsic visibility=true materials=1
+
+stdout | src/tests/wardrobe-accessory-fit.test.ts > places 'elli' cat ears against the prepared scalp and follows head movement
+ 🎮 [wardrobe-accessory] fit companion=elli accessory=cat-ears body=6d9698c8fb9e9b41826612cd5fa3dcdde3339e9c0ee7c91368d94430044f8dec
+
+stdout | src/tests/wardrobe-accessory-fit.test.ts > places 'matilda' cat ears against the prepared scalp and follows head movement
+ 🎮 [wardrobe-accessory] fit companion=matilda accessory=cat-ears body=f642d38931582ed85c945d78fa012d0554b8b5b7099535fa1d8cbacf4c881ced
+
+stdout | src/tests/wardrobe-accessory-fit.test.ts > keeps attachment at the scaled scalp for avatar scale 0.5
+ 🎮 [wardrobe-accessory] fit companion=elli accessory=cat-ears body=6d9698c8fb9e9b41826612cd5fa3dcdde3339e9c0ee7c91368d94430044f8dec
+
+stdout | src/tests/wardrobe-accessory-fit.test.ts > keeps attachment at the scaled scalp for avatar scale 2
+ 🎮 [wardrobe-accessory] fit companion=elli accessory=cat-ears body=6d9698c8fb9e9b41826612cd5fa3dcdde3339e9c0ee7c91368d94430044f8dec
+
+ ❯ src/tests/wardrobe-accessory-fit.test.ts (5 tests | 2 failed) 102ms
+   ✓ separates Matilda’s native halo without changing hair geometry, expressions or the rig 94ms
+   ✓ places 'elli' cat ears against the prepared scalp and follows head movement 2ms
+   ✓ places 'matilda' cat ears against the prepared scalp and follows head movement 0ms
+   × keeps attachment at the scaled scalp for avatar scale 0.5 4ms
+     → expected 0.19115117104308132 to be close to 0.11307558499999999, received difference is 0.07807558604308133, but expected 0.000005
+   × keeps attachment at the scaled scalp for avatar scale 2 1ms
+     → expected 0.29615116791383755 to be close to 0.45230233999999997, received difference is 0.15615117208616242, but expected 0.000005
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/tests/wardrobe-accessory-fit.test.ts > keeps attachment at the scaled scalp for avatar scale 0.5
+AssertionError: expected 0.19115117104308132 to be close to 0.11307558499999999, received difference is 0.07807558604308133, but expected 0.000005
+ ❯ src/tests/wardrobe-accessory-fit.test.ts:35:103
+     33|  const accessory=new THREE.Group();const ear=new THREE.Mesh(new THREE.…
+     34|  applyPreparedAccessoryFit(accessory,head,bodies[0].modelUrl,'cat-ears…
+     35|  expect(new THREE.Box3().setFromObject(accessory).min.y-head.getWorldP…
+       |                                                                                                       ^
+     36| });
+     37|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  src/tests/wardrobe-accessory-fit.test.ts > keeps attachment at the scaled scalp for avatar scale 2
+AssertionError: expected 0.29615116791383755 to be close to 0.45230233999999997, received difference is 0.15615117208616242, but expected 0.000005
+ ❯ src/tests/wardrobe-accessory-fit.test.ts:35:103
+     33|  const accessory=new THREE.Group();const ear=new THREE.Mesh(new THREE.…
+     34|  applyPreparedAccessoryFit(accessory,head,bodies[0].modelUrl,'cat-ears…
+     35|  expect(new THREE.Box3().setFromObject(accessory).min.y-head.getWorldP…
+       |                                                                                                       ^
+     36| });
+     37|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 3 passed (5)
+   Start at  15:25:20
+   Duration  1.33s (transform 55ms, setup 103ms, collect 69ms, tests 102ms, environment 796ms, prepare 55ms)

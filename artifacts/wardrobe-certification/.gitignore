@@ -3,3 +3,8 @@ full-test.log
 web-full-test.log
 web-full-test-final.log
 store-quarantine-red.log
+*-full-test.log
+*-web-tests.log
+web-tests.log
+repair-resume/hair-components.json
+repair-resume/skirt-components.json

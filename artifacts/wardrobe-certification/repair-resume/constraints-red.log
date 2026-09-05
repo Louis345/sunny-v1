@@ -1,0 +1,38 @@
+(node:16107) [DEP0174] DeprecationWarning: Calling promisify on a function that returns a Promise is likely a mistake.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+
+> web@0.0.0 test
+> vitest run "--run" "src/tests/wardrobe-inspection.test.ts"
+
+
+ RUN  v3.2.4 /Users/jamaltaylor/.codex/worktrees/wardrobe-identity/sunny/web
+
+ ❯ src/tests/wardrobe-inspection.test.ts (3 tests | 1 failed) 7ms
+   ✓ frames the normalized showroom front and lowers the arms for idle 2ms
+   ✓ lowers idle arms for the opposite VRM1 normalized coordinate convention 0ms
+   × updates constrained helper bones after the inspection pose and exercises bent elbows 4ms
+     → expected [ 'humanoid' ] to deeply equal [ 'humanoid', 'constraints' ]
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/tests/wardrobe-inspection.test.ts > updates constrained helper bones after the inspection pose and exercises bent elbows
+AssertionError: expected [ 'humanoid' ] to deeply equal [ 'humanoid', 'constraints' ]
+
+- Expected
++ Received
+
+  [
+    "humanoid",
+-   "constraints",
+  ]
+
+ ❯ src/tests/wardrobe-inspection.test.ts:28:16
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 2 passed (3)
+   Start at  14:29:17
+   Duration  889ms (transform 33ms, setup 105ms, collect 39ms, tests 7ms, environment 511ms, prepare 46ms)

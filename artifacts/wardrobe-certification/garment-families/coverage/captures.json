@@ -1,0 +1,178 @@
+[
+  {
+    "companion": "Matilda",
+    "family": "Comet Hoodie",
+    "view": "front",
+    "pose": "idle",
+    "file": "matilda-comet-hoodie-front-idle.png",
+    "states": [
+      "ready",
+      "ready"
+    ]
+  },
+  {
+    "companion": "Matilda",
+    "family": "Comet Hoodie",
+    "view": "side",
+    "pose": "idle",
+    "file": "matilda-comet-hoodie-side-idle.png",
+    "states": [
+      "ready",
+      "ready"
+    ]
+  },
+  {
+    "companion": "Matilda",
+    "family": "Comet Hoodie",
+    "view": "back",
+    "pose": "idle",
+    "file": "matilda-comet-hoodie-back-idle.png",
+    "states": [
+      "ready",
+      "ready"
+    ]
+  },
+  {
+    "companion": "Matilda",
+    "family": "Comet Hoodie",
+    "view": "front",
+    "pose": "arms-up",
+    "file": "matilda-comet-hoodie-front-arms-up.png",
+    "states": [
+      "ready",
+      "ready"
+    ]
+  },
+  {
+    "companion": "Matilda",
+    "family": "Constellation Blazer",
+    "view": "front",
+    "pose": "idle",
+    "file": "matilda-constellation-blazer-front-idle.png",
+    "states": [
+      "ready",
+      "ready"
+    ]
+  },
+  {
+    "companion": "Matilda",
+    "family": "Constellation Blazer",
+    "view": "side",
+    "pose": "idle",
+    "file": "matilda-constellation-blazer-side-idle.png",
+    "states": [
+      "ready",
+      "ready"
+    ]
+  },
+  {
+    "companion": "Matilda",
+    "family": "Constellation Blazer",
+    "view": "back",
+    "pose": "idle",
+    "file": "matilda-constellation-blazer-back-idle.png",
+    "states": [
+      "ready",
+      "ready"
+    ]
+  },
+  {
+    "companion": "Matilda",
+    "family": "Constellation Blazer",
+    "view": "front",
+    "pose": "arms-up",
+    "file": "matilda-constellation-blazer-front-arms-up.png",
+    "states": [
+      "ready",
+      "ready"
+    ]
+  },
+  {
+    "companion": "Elli",
+    "family": "Comet Hoodie",
+    "view": "front",
+    "pose": "idle",
+    "file": "elli-comet-hoodie-front-idle.png",
+    "states": [
+      "ready",
+      "ready"
+    ]
+  },
+  {
+    "companion": "Elli",
+    "family": "Comet Hoodie",
+    "view": "side",
+    "pose": "idle",
+    "file": "elli-comet-hoodie-side-idle.png",
+    "states": [
+      "ready",
+      "ready"
+    ]
+  },
+  {
+    "companion": "Elli",
+    "family": "Comet Hoodie",
+    "view": "back",
+    "pose": "idle",
+    "file": "elli-comet-hoodie-back-idle.png",
+    "states": [
+      "ready",
+      "ready"
+    ]
+  },
+  {
+    "companion": "Elli",
+    "family": "Comet Hoodie",
+    "view": "front",
+    "pose": "arms-up",
+    "file": "elli-comet-hoodie-front-arms-up.png",
+    "states": [
+      "ready",
+      "ready"
+    ]
+  },
+  {
+    "companion": "Elli",
+    "family": "Constellation Blazer",
+    "view": "front",
+    "pose": "idle",
+    "file": "elli-constellation-blazer-front-idle.png",
+    "states": [
+      "ready",
+      "ready"
+    ]
+  },
+  {
+    "companion": "Elli",
+    "family": "Constellation Blazer",
+    "view": "side",
+    "pose": "idle",
+    "file": "elli-constellation-blazer-side-idle.png",
+    "states": [
+      "ready",
+      "ready"
+    ]
+  },
+  {
+    "companion": "Elli",
+    "family": "Constellation Blazer",
+    "view": "back",
+    "pose": "idle",
+    "file": "elli-constellation-blazer-back-idle.png",
+    "states": [
+      "ready",
+      "ready"
+    ]
+  },
+  {
+    "companion": "Elli",
+    "family": "Constellation Blazer",
+    "view": "front",
+    "pose": "arms-up",
+    "file": "elli-constellation-blazer-front-arms-up.png",
+    "states": [
+      "ready",
+      "ready"
+    ]
+  }
+]

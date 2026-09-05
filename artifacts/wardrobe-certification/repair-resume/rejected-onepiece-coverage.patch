@@ -1,0 +1,46 @@
+diff --git a/web/src/lib/xwearDress.ts b/web/src/lib/xwearDress.ts
+index 1298fc1..5612288 100644
+--- a/web/src/lib/xwearDress.ts
++++ b/web/src/lib/xwearDress.ts
+@@ -120,7 +120,7 @@ export const COMET_HOODIE_OUTFIT: XwearOutfitDefinition = {
+   surfaceOffset: 0.02,
+   slots: {
+     occupies: ["top"],
+-    replaces: ["top"],
++    replaces: ["top", "onepiece"],
+   },
+   qa: {
+     status: "rejected",
+@@ -140,7 +140,7 @@ export const CONSTELLATION_BLAZER_OUTFIT: XwearOutfitDefinition = {
+   surfaceOffset: 0.02,
+   slots: {
+     occupies: ["top"],
+-    replaces: ["top"],
++    replaces: ["top", "onepiece"],
+   },
+   qa: {
+     status: "rejected",
+@@ -160,7 +160,7 @@ export const CELTIC_SWEATER_OUTFIT: XwearOutfitDefinition = {
+   surfaceOffset: 0.02,
+   slots: {
+     occupies: ["top"],
+-    replaces: ["top"],
++    replaces: ["top", "onepiece"],
+   },
+   qa: {
+     status: "rejected",
+diff --git a/web/src/tests/xwearDress.test.ts b/web/src/tests/xwearDress.test.ts
+index 07cab4c..e2782c4 100644
+--- a/web/src/tests/xwearDress.test.ts
++++ b/web/src/tests/xwearDress.test.ts
+@@ -378,3 +378,10 @@ it('converts Unity garment handedness without reversing the intended front', ()
+   expect(result.positions[2]).toBeCloseTo(-0.1);
+   expect(result.normals[2]).toBeCloseTo(-1);
+ });
++
++it.each(['comet-hoodie','constellation-blazer'])('removes an original one-piece layer beneath %s while retaining separate bottoms',id=>{
++ const definition=getXwearOutfitDefinition(id)!;
++ expect(definition.slots.replaces).toContain('top');
++ expect(definition.slots.replaces).toContain('onepiece');
++ expect(definition.slots.replaces).not.toContain('bottom');
++});

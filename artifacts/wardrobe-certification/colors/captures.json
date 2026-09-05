@@ -1,0 +1,74 @@
+[
+  {
+    "companion": "Elli",
+    "color": "Navy",
+    "file": "elli-navy.png",
+    "automated": "rendered",
+    "visual": "agent-reviewed-static-material-pass",
+    "humanApproval": null,
+    "limitation": "Static comparison only; full motion and human approval pending."
+  },
+  {
+    "companion": "Elli",
+    "color": "Plum",
+    "file": "elli-plum.png",
+    "automated": "rendered",
+    "visual": "agent-reviewed-static-material-pass",
+    "humanApproval": null,
+    "limitation": "Static comparison only; full motion and human approval pending."
+  },
+  {
+    "companion": "Elli",
+    "color": "Teal",
+    "file": "elli-teal.png",
+    "automated": "rendered",
+    "visual": "agent-reviewed-static-material-pass",
+    "humanApproval": null,
+    "limitation": "Static comparison only; full motion and human approval pending."
+  },
+  {
+    "companion": "Elli",
+    "color": "Rose",
+    "file": "elli-rose.png",
+    "automated": "rendered",
+    "visual": "agent-reviewed-static-material-pass",
+    "humanApproval": null,
+    "limitation": "Static comparison only; full motion and human approval pending."
+  },
+  {
+    "companion": "Matilda",
+    "color": "Navy",
+    "file": "matilda-navy.png",
+    "automated": "rendered",
+    "visual": "agent-reviewed-static-material-pass",
+    "humanApproval": null,
+    "limitation": "Static comparison only; full motion and human approval pending."
+  },
+  {
+    "companion": "Matilda",
+    "color": "Plum",
+    "file": "matilda-plum.png",
+    "automated": "rendered",
+    "visual": "agent-reviewed-static-material-pass",
+    "humanApproval": null,
+    "limitation": "Static comparison only; full motion and human approval pending."
+  },
+  {
+    "companion": "Matilda",
+    "color": "Teal",
+    "file": "matilda-teal.png",
+    "automated": "rendered",
+    "visual": "agent-reviewed-static-material-pass",
+    "humanApproval": null,
+    "limitation": "Static comparison only; full motion and human approval pending."
+  },
+  {
+    "companion": "Matilda",
+    "color": "Rose",
+    "file": "matilda-rose.png",
+    "automated": "rendered",
+    "visual": "agent-reviewed-static-material-pass",
+    "humanApproval": null,
+    "limitation": "Static comparison only; full motion and human approval pending."
+  }
+]

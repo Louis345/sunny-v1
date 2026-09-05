@@ -1,0 +1,60 @@
+(node:29723) [DEP0174] DeprecationWarning: Calling promisify on a function that returns a Promise is likely a mistake.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+
+> web@0.0.0 test
+> vitest run "--run" "src/tests/wardrobe-preparation.test.ts" "src/tests/wardrobeStore.test.ts" "src/tests/WardrobeCompatibilityLab.test.tsx"
+
+
+ RUN  v3.2.4 /Users/jamaltaylor/.codex/worktrees/wardrobe-identity/sunny/web
+
+ ✓ src/tests/wardrobeStore.test.ts (12 tests) 12ms
+Browserslist: browsers data (caniuse-lite) is 6 months old. Please run:
+  npx update-browserslist-db@latest
+  Why you should do it regularly: https://github.com/browserslist/update-db#readme
+stdout | src/tests/wardrobe-preparation.test.ts > uses explicit prepared clothing roles, including ties, without hiding identity surfaces
+ 🎮 [companion-wardrobe-lab] base_clothing visibility=false materials=1
+ 🎮 [companion-wardrobe-lab] base_clothing visibility=true materials=1
+
+stdout | src/tests/WardrobeCompatibilityLab.test.tsx > WardrobeCompatibilityLab > presents every model at one consistent full-body review stage
+ 🎮 [wardrobe-certification-lab] preview_selected result=candidate companion=elli item=sleeveless-dress template=ribbon-dress
+ 🎮 [wardrobe-certification-lab] preview_selected result=candidate companion=kefla item=sleeveless-dress template=ribbon-dress
+ 🎮 [wardrobe-certification-lab] preview_selected result=candidate companion=kefla item=teal-ribbon-dress template=ribbon-dress
+ 🎮 [wardrobe-certification-lab] preview_selected result=candidate companion=matilda item=teal-ribbon-dress template=ribbon-dress
+
+stdout | src/tests/WardrobeCompatibilityLab.test.tsx > WardrobeCompatibilityLab > calibrates only the dressed preview and resets to the reviewed profile
+ 🎮 [wardrobe-certification-lab] preview_selected result=candidate companion=elli item=sleeveless-dress template=ribbon-dress
+ 🎮 [wardrobe-certification-lab] preview_selected result=candidate companion=princess item=sleeveless-dress template=ribbon-dress
+ 🎮 [wardrobe-certification-lab] calibration_changed result=preview_only companion=princess action=scale_up scale=1.32 offset_y=0.00
+ 🎮 [wardrobe-certification-lab] preview_selected result=candidate companion=princess item=sleeveless-dress template=ribbon-dress
+ 🎮 [wardrobe-certification-lab] calibration_changed result=preview_only companion=princess action=move_down scale=1.32 offset_y=-0.01
+ 🎮 [wardrobe-certification-lab] preview_selected result=candidate companion=princess item=sleeveless-dress template=ribbon-dress
+ 🎮 [wardrobe-certification-lab] calibration_changed result=preview_only companion=princess action=reset scale=1.28 offset_y=0.00
+ 🎮 [wardrobe-certification-lab] preview_selected result=candidate companion=princess item=sleeveless-dress template=ribbon-dress
+
+stdout | src/tests/wardrobe-preparation.test.ts > removes Matilda’s overlapping outer skirt panels with a replacement top while retaining her base skirt
+ 🎮 [companion-wardrobe-lab] base_clothing visibility=false materials=7
+ 🎮 [companion-wardrobe-lab] base_clothing visibility=true materials=10
+
+stdout | src/tests/WardrobeCompatibilityLab.test.tsx > applies the same inspection view and movement to original and dressed companions
+ 🎮 [wardrobe-certification-lab] preview_selected result=candidate companion=elli item=sleeveless-dress template=ribbon-dress
+ 🎮 [wardrobe-certification-lab] preview_selected result=candidate companion=elli item=sleeveless-dress template=ribbon-dress
+ 🎮 [wardrobe-certification-lab] preview_selected result=candidate companion=elli item=sleeveless-dress template=ribbon-dress
+ 🎮 [wardrobe-certification-lab] preview_selected result=candidate companion=elli item=sleeveless-dress template=ribbon-dress
+
+stdout | src/tests/WardrobeCompatibilityLab.test.tsx > offers distinct hoodie and blazer candidates in the diagnostic lab
+ 🎮 [wardrobe-certification-lab] preview_selected result=candidate companion=elli item=sleeveless-dress template=ribbon-dress
+ 🎮 [wardrobe-certification-lab] preview_selected result=candidate companion=elli item=comet-hoodie template=comet-hoodie
+ 🎮 [wardrobe-certification-lab] preview_selected result=candidate companion=elli item=constellation-blazer template=constellation-blazer
+
+ ✓ src/tests/WardrobeCompatibilityLab.test.tsx (5 tests) 1559ms
+   ✓ WardrobeCompatibilityLab > presents every model at one consistent full-body review stage  813ms
+   ✓ WardrobeCompatibilityLab > calibrates only the dressed preview and resets to the reviewed profile  443ms
+ ✓ src/tests/wardrobe-preparation.test.ts (14 tests) 2511ms
+   ✓ restores Matilda’s missing body surface from the approved body family without altering her face or rig  322ms
+   ✓ removes Matilda’s overlapping outer skirt panels with a replacement top while retaining her base skirt  473ms
+   ✓ preserves every donor body weight through all ten explicit helper mappings with repeatable output  810ms
+
+ Test Files  3 passed (3)
+      Tests  31 passed (31)
+   Start at  14:54:28
+   Duration  5.20s (transform 708ms, setup 888ms, collect 1.20s, tests 4.08s, environment 3.04s, prepare 412ms)

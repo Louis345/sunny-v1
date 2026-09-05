@@ -1,0 +1,45 @@
+(node:34827) [DEP0174] DeprecationWarning: Calling promisify on a function that returns a Promise is likely a mistake.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+
+> web@0.0.0 test
+> vitest run "--run" "src/tests/wardrobe-certification.test.ts"
+
+
+ RUN  v3.2.4 /Users/jamaltaylor/.codex/worktrees/wardrobe-identity/sunny/web
+
+ ❯ src/tests/wardrobe-certification.test.ts (10 tests | 1 failed) 7ms
+   ✓ versioned wardrobe certification > quarantines migrated assets, including accessories previously labelled universal 1ms
+   ✓ versioned wardrobe certification > accepts an explicit human review for matching versions 0ms
+   ✓ versioned wardrobe certification > invalidates approval when modelUrl changes 0ms
+   ✓ versioned wardrobe certification > invalidates approval when preparedSha256 changes 0ms
+   ✓ versioned wardrobe certification > invalidates approval when assetVersion changes 0ms
+   ✓ versioned wardrobe certification > invalidates approval when recipeVersion changes 0ms
+   ✓ versioned wardrobe certification > invalidates approval when fittedSha256 changes 0ms
+   ✓ versioned wardrobe certification > cannot substitute automated success for human review 0ms
+   × binds approval to the fitted output hash even when source code and body versions are unchanged 4ms
+     → expected 'approved' to be 'candidate' // Object.is equality
+   ✓ does not present a shared body profile as garment approval 0ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/tests/wardrobe-certification.test.ts > binds approval to the fitted output hash even when source code and body versions are unchanged
+AssertionError: expected 'approved' to be 'candidate' // Object.is equality
+
+Expected: "candidate"
+Received: "approved"
+
+ ❯ src/tests/wardrobe-certification.test.ts:36:88
+     34|   expect(resolveWardrobeTemplateCertification(body.companionId,'ribbon…
+     35|   Object.assign(record,{fittedSha256:'different fitted bytes'});
+     36|   expect(resolveWardrobeTemplateCertification(body.companionId,'ribbon…
+       |                                                                                        ^
+     37|  }finally{for(const key of Object.keys(record))delete (record as unkno…
+     38| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 9 passed (10)
+   Start at  15:04:38
+   Duration  5.27s (transform 152ms, setup 888ms, collect 71ms, tests 7ms, environment 3.90s, prepare 191ms)

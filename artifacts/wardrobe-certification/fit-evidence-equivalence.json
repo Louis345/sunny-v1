@@ -1,0 +1,56 @@
+[
+  {
+    "companionId": "elli",
+    "outfitId": "sleeveless-dress",
+    "capturedFitSha256": "d1332cf022581d3f374eac1ed78e27f25aa5d4f1824727fc5900f93833986dc8",
+    "currentFitSha256": "0dedb0c6d77737dcdeb5c38251c1cd5a4823464ad1fb2b1f2324e65189eb87ae",
+    "geometryTexturesBindingAndBody": "byte-value-identical",
+    "difference": "sourceVersion fingerprint changed when legacy activation gate began using exact current certification; no fitting or rendering values changed",
+    "humanApproval": null
+  },
+  {
+    "companionId": "elli",
+    "outfitId": "comet-hoodie",
+    "capturedFitSha256": "999db4a1ae25b9cc89debb0d717d9baffc0d6c66a39c59a7d174074bf4873d91",
+    "currentFitSha256": "6f0027ce976339003f197bc476cd396c02cd2aba8a05d33434eaadbecc4661bd",
+    "geometryTexturesBindingAndBody": "byte-value-identical",
+    "difference": "sourceVersion fingerprint changed when legacy activation gate began using exact current certification; no fitting or rendering values changed",
+    "humanApproval": null
+  },
+  {
+    "companionId": "elli",
+    "outfitId": "constellation-blazer",
+    "capturedFitSha256": "e4fbf8dd452e31a430b85e5952ed990c47a33392fbfd9dcf41ecefd616d3d4ee",
+    "currentFitSha256": "b82e5a4ab2d1cd85430945525d0d9285af3ed7f182ad3290b43c1d0ad73e8240",
+    "geometryTexturesBindingAndBody": "byte-value-identical",
+    "difference": "sourceVersion fingerprint changed when legacy activation gate began using exact current certification; no fitting or rendering values changed",
+    "humanApproval": null
+  },
+  {
+    "companionId": "matilda",
+    "outfitId": "sleeveless-dress",
+    "capturedFitSha256": "4650d8a648eeb6f9550d0e9161d262936dc8c21a6d371d2b1799c59105d04e74",
+    "currentFitSha256": "15b2ef06cba34e55b4e289f77a3bd17beb3bc605eb25647c91665e6d952bd12f",
+    "geometryTexturesBindingAndBody": "byte-value-identical",
+    "difference": "sourceVersion fingerprint changed when legacy activation gate began using exact current certification; no fitting or rendering values changed",
+    "humanApproval": null
+  },
+  {
+    "companionId": "matilda",
+    "outfitId": "comet-hoodie",
+    "capturedFitSha256": "019684be946bfc87e1b2e7a912f5f8d3838e180197f7a14728a7b300f22b54cb",
+    "currentFitSha256": "223cc6fbded7e36e1a328f8516714d862bf346f967d0c49b09789dd132dec921",
+    "geometryTexturesBindingAndBody": "byte-value-identical",
+    "difference": "sourceVersion fingerprint changed when legacy activation gate began using exact current certification; no fitting or rendering values changed",
+    "humanApproval": null
+  },
+  {
+    "companionId": "matilda",
+    "outfitId": "constellation-blazer",
+    "capturedFitSha256": "d2a1bc6f97f46b1a281fdf8aa08efac0b7cd8f760928d15439c2a1e9696419e0",
+    "currentFitSha256": "53686246e9845bd428056aad409d18257a119ea21f96776f6bae79e63bbf939c",
+    "geometryTexturesBindingAndBody": "byte-value-identical",
+    "difference": "sourceVersion fingerprint changed when legacy activation gate began using exact current certification; no fitting or rendering values changed",
+    "humanApproval": null
+  }
+]
