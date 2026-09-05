@@ -362,6 +362,12 @@ export type WardrobeTemplateCertification = {
   humanReview?: { reviewedBy: string; reviewedAt: string; evidence: string[] };
 };
 
+export type WardrobePairCertification={companionId:string;outfitItemId:string;accessoryItemId:string;version:string;status:WardrobeTemplateCertificationStatus;humanReview?:WardrobeTemplateCertification['humanReview']};
+export const WARDROBE_PAIR_CERTIFICATIONS:readonly WardrobePairCertification[]=[];
+export function isWardrobePairApproved(companionId:string,outfitItemId:string,accessoryItemId:string,version:string,records:readonly WardrobePairCertification[]=WARDROBE_PAIR_CERTIFICATIONS){
+ return Boolean(version&&records.some(r=>r.companionId===companionId&&r.outfitItemId===outfitItemId&&r.accessoryItemId===accessoryItemId&&r.version===version&&r.status==='approved'&&r.humanReview?.reviewedBy.trim()&&r.humanReview.reviewedAt&&r.humanReview.evidence.length));
+}
+
 export function validateWardrobeCertification(
   record: WardrobeTemplateCertification,
   current: { modelUrl: string; preparedSha256: string; assetVersion: string; recipeVersion: string; fittedSha256: string },

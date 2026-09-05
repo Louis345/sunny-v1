@@ -2,7 +2,11 @@ import { createWardrobeVariantCatalog } from "./wardrobeContentFactory";
 import {
   resolveWardrobeBodyProfileId,
   resolveWardrobeTemplateCertification,
+  isWardrobePairApproved,
 } from "./wardrobeBodyProfiles";
+import preparedBodies from './wardrobePrepared.generated.json';
+import fittedGarments from './wardrobeFitted.generated.json';
+import assetVersions from './wardrobeAssetVersions.generated.json';
 
 export type WardrobeAccessoryId = "none" | "crown" | "cat-ears" | "halo";
 export type WardrobeOutfitId =
@@ -524,6 +528,21 @@ function getWardrobeStoreItem(itemId: string) {
   return WARDROBE_STORE_CATALOG.find((item) => item.id === itemId);
 }
 
+export function getWardrobePairVersion(companionId:string,modelUrl:string,outfitItemId:string,accessoryItemId:string){
+ const body=preparedBodies.find(b=>b.companionId===companionId&&b.modelUrl===modelUrl),outfit=getWardrobeStoreItem(outfitItemId),accessory=getWardrobeStoreItem(accessoryItemId);
+ if(!body||outfit?.asset.kind!=='outfit'||accessory?.asset.kind!=='accessory')return '';
+ const outfitVersion=(assetVersions as Record<string,string>)[outfit.templateId??''],accessoryVersion=(assetVersions as Record<string,string>)[accessory.templateId??accessory.id];
+ const outfitId=outfit.asset.outfitId;
+ const fit=fittedGarments.find(f=>f.companionId===companionId&&f.outfitId===outfitId&&f.bodySha256===body.preparedSha256&&f.sourceVersion===outfitVersion);
+ if(!fit||!accessoryVersion)return '';
+ return JSON.stringify({modelUrl,body:body.preparedSha256,recipe:body.recipeVersion,outfitItemId,accessoryItemId,outfitVersion,fit:fit.sha256,variant:outfit.asset.materialVariant,accessoryVersion});
+}
+
+function isEquippedPairApproved(companionId:string,modelUrl:string,equipped:EquippedWardrobe){
+ if(!equipped.outfitItemId||!equipped.accessoryItemId)return true;
+ return isWardrobePairApproved(companionId,equipped.outfitItemId,equipped.accessoryItemId,getWardrobePairVersion(companionId,modelUrl,equipped.outfitItemId,equipped.accessoryItemId));
+}
+
 export type WardrobePurchaseStatus =
   | "purchased"
   | "duplicate"
@@ -633,6 +652,10 @@ export function equipWardrobeItem(
     item.asset.kind === "accessory"
       ? { ...previous, accessoryItemId: item.id }
       : { ...previous, outfitItemId: item.id };
+  if(!isEquippedPairApproved(companionId,companionModelUrl,equipped)){
+    console.warn(` 🎮 [wardrobe-store] equip rejected companion=${companionId} reason=uncertified_pair`);
+    return {state,status:'incompatible'};
+  }
   return {
     status: "equipped",
     state: {
@@ -685,6 +708,7 @@ export function resolveEquippedWardrobeSelection(
   const equipped = state.equippedByCompanion[companionId];
   const empty: WardrobeSelection = { accessoryId: "none", outfitId: "none" };
   if (!equipped) return empty;
+  if(!isEquippedPairApproved(companionId,companionModelUrl,equipped))return empty;
   const accessory = getWardrobeStoreItem(equipped.accessoryItemId ?? "");
   const outfit = getWardrobeStoreItem(equipped.outfitItemId ?? "");
   const compatibleAccessory =
