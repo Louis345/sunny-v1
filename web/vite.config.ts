@@ -2,13 +2,14 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
+import { localWardrobeAssets } from "./wardrobeAssets";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const apiProxyTarget =
   process.env.VITE_API_PROXY_TARGET ?? "http://localhost:3001";
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), localWardrobeAssets()],
   server: {
     port: 5173,
     fs: {

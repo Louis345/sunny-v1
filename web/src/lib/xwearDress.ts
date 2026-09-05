@@ -92,12 +92,11 @@ export function resolveXwearOutfitAssetUrls(outfit: XwearOutfitDefinition) {
 export const SLEEVELESS_DRESS_OUTFIT: XwearOutfitDefinition = {
   id: "sleeveless-dress",
   assetRoot:
-    "/@fs/Users/jamaltaylor/Development/sunny-companion-wardrobe-sandbox/.sunny-sandbox/wardrobe/sleeveless-dress/unpacked",
+    "/__wardrobe-assets",
   meshPath: "Mesh/dress.mesh.bin",
   resourcePath: "Body/XResources/dress-resource.json",
   itemPath: "Body/XItem.json/dress-item.json",
-  archiveUrl:
-    "/@fs/Users/jamaltaylor/Development/sunny-companion-wardrobe-sandbox/.sunny-sandbox/wardrobe/sleeveless-dress/sleeveless_dress_Free.xwear",
+  archiveUrl: "/__wardrobe-assets/sleeveless-dress.xwear",
   surfaceOffset: 0.025,
   slots: {
     occupies: ["onepiece"],
@@ -113,12 +112,11 @@ export const SLEEVELESS_DRESS_OUTFIT: XwearOutfitDefinition = {
 export const COMET_HOODIE_OUTFIT: XwearOutfitDefinition = {
   id: "comet-hoodie",
   assetRoot:
-    "/@fs/Users/jamaltaylor/Development/sunny-companion-wardrobe-sandbox/.sunny-sandbox/wardrobe/vroid-hoodie",
+    "/__wardrobe-assets",
   meshPath: "Mesh/b437b86c-152c-49ab-8342-1e72aee49d87",
   resourcePath: "Body/XResources/9f9bd7fa-42bb-4ff2-88af-e80d3570e171",
   itemPath: "Body/XItem.json/XItem.json",
-  archiveUrl:
-    "/@fs/Users/jamaltaylor/Development/sunny-companion-wardrobe-sandbox/.sunny-sandbox/wardrobe/vroid-hoodie/sunny-hoodie-neutral.xwear",
+  archiveUrl: "/__wardrobe-assets/comet-hoodie.xwear",
   surfaceOffset: 0.02,
   slots: {
     occupies: ["top"],
@@ -134,12 +132,11 @@ export const COMET_HOODIE_OUTFIT: XwearOutfitDefinition = {
 export const CONSTELLATION_BLAZER_OUTFIT: XwearOutfitDefinition = {
   id: "constellation-blazer",
   assetRoot:
-    "/@fs/Users/jamaltaylor/Development/sunny-companion-wardrobe-sandbox/.sunny-sandbox/wardrobe/vroid-blazer",
+    "/__wardrobe-assets",
   meshPath: "Mesh/06cf93df-cfaf-469c-a65d-ad55d477984d",
   resourcePath: "Body/XResources/be8c7960-f0a3-4493-8d2b-f0eb6c2a6c07",
   itemPath: "Body/XItem.json/XItem.json",
-  archiveUrl:
-    "/@fs/Users/jamaltaylor/Development/sunny-companion-wardrobe-sandbox/.sunny-sandbox/wardrobe/vroid-blazer/sunny-blazer.xwear",
+  archiveUrl: "/__wardrobe-assets/constellation-blazer.xwear",
   surfaceOffset: 0.02,
   slots: {
     occupies: ["top"],
@@ -155,12 +152,11 @@ export const CONSTELLATION_BLAZER_OUTFIT: XwearOutfitDefinition = {
 export const CELTIC_SWEATER_OUTFIT: XwearOutfitDefinition = {
   id: "celtic-sweater",
   assetRoot:
-    "/@fs/Users/jamaltaylor/Development/sunny-companion-wardrobe-sandbox/.sunny-sandbox/wardrobe/celtic-sweater",
+    "/__wardrobe-assets",
   meshPath: "Mesh/dde76183-4b1c-4298-b115-5a82364cbaa6",
   resourcePath: "Body/XResources/0e82dcce-9eba-4418-872d-9d3c312511f0",
   itemPath: "Body/XItem.json/XItem.json",
-  archiveUrl:
-    "/@fs/Users/jamaltaylor/Development/sunny-companion-wardrobe-sandbox/.sunny-sandbox/wardrobe/celtic-sweater/Celtic_Holiday_V1_Blue.xwear",
+  archiveUrl: "/__wardrobe-assets/celtic-sweater.xwear",
   surfaceOffset: 0.02,
   slots: {
     occupies: ["top"],
