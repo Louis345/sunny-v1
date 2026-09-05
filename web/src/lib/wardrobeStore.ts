@@ -486,10 +486,10 @@ export function isWardrobeStoreItemCompatible(
     (bodyProfileId !== null &&
       item.compatibility.bodyProfileIds.includes(bodyProfileId));
   if (!bodyCompatible) return false;
-  if (item.asset.kind !== "outfit") return true;
-  if (!item.templateId) return false;
+  const templateId = item.templateId ?? (item.asset.kind === "accessory" ? item.id : null);
+  if (!templateId) return false;
   return (
-    resolveWardrobeTemplateCertification(companionId, item.templateId).status ===
+    resolveWardrobeTemplateCertification(companionId, templateId, companionModelUrl).status ===
     "approved"
   );
 }

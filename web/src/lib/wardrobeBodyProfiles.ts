@@ -1,4 +1,5 @@
 import preparedAssets from "./wardrobePrepared.generated.json";
+import assetVersions from "./wardrobeAssetVersions.generated.json";
 
 export type WardrobeBodyProfileId =
   | "sunny-standard-v1"
@@ -29,7 +30,7 @@ export const WARDROBE_BODY_PROFILES: Readonly<
   "sunny-standard-v1": {
     id: "sunny-standard-v1",
     label: "Sunny Standard v1",
-    classificationBasis: "Current Elli store reference model; Ribbon Dress visually approved.",
+    classificationBasis: "Current Elli identity reference. Wardrobe combinations require review for their exact asset versions.",
     bindPoseMetrics: {
       headToFoot: 1.2947,
       shoulderBoneSpan: 0.0448,
@@ -244,6 +245,10 @@ export function resolveWardrobeBodyProfileId(modelUrl: string) {
   return BODY_PROFILE_BY_MODEL_URL.get(modelUrl) ?? null;
 }
 
+for (const prepared of preparedAssets) {
+  BODY_PROFILE_BY_MODEL_URL.set(prepared.modelUrl, prepared.bodyProfileId as WardrobeBodyProfileId);
+}
+
 const STANDARDIZED_WARDROBE_PRESENTATIONS = new Map<
   string,
   StandardizedWardrobePresentation
@@ -348,7 +353,23 @@ export type WardrobeTemplateCertification = {
   templateId: string;
   status: WardrobeTemplateCertificationStatus;
   reason: string;
+  modelUrl?: string;
+  preparedSha256?: string;
+  assetVersion?: string;
+  recipeVersion?: string;
+  humanReview?: { reviewedBy: string; reviewedAt: string; evidence: string[] };
 };
+
+export function validateWardrobeCertification(
+  record: WardrobeTemplateCertification,
+  current: { modelUrl: string; preparedSha256: string; assetVersion: string; recipeVersion: string },
+): WardrobeTemplateCertification {
+  if (record.status !== "approved") return record;
+  const matches = Object.entries(current).every(([key, value]) => value && record[key as keyof WardrobeTemplateCertification] === value);
+  const review = record.humanReview;
+  if (matches && review?.reviewedBy.trim() && review.reviewedAt && review.evidence.length > 0) return record;
+  return { ...record, status: "candidate", reason: "Current asset versions require a recorded human visual review." };
+}
 
 export const WARDROBE_TEMPLATE_CERTIFICATIONS: readonly WardrobeTemplateCertification[] = [
   {
@@ -368,18 +389,19 @@ export const WARDROBE_TEMPLATE_CERTIFICATIONS: readonly WardrobeTemplateCertific
 export function resolveWardrobeTemplateCertification(
   companionId: string,
   templateId: string,
+  modelUrl?: string,
 ): WardrobeTemplateCertification {
-  return (
-    WARDROBE_TEMPLATE_CERTIFICATIONS.find(
-      (entry) =>
-        entry.companionId === companionId && entry.templateId === templateId,
-    ) ?? {
-      companionId,
-      templateId,
-      status: "candidate",
-      reason: "No human-reviewed fit has been recorded for this companion yet.",
-    }
-  );
+  const record = WARDROBE_TEMPLATE_CERTIFICATIONS.find(entry => entry.companionId === companionId && entry.templateId === templateId) ?? {
+    companionId, templateId, status: "candidate" as const,
+    reason: "No human-reviewed fit has been recorded for this companion yet.",
+  };
+  const prepared = preparedAssets.find(asset => asset.companionId === companionId);
+  return validateWardrobeCertification(record, {
+    modelUrl: modelUrl ?? prepared?.modelUrl ?? "",
+    preparedSha256: prepared?.preparedSha256 ?? "",
+    recipeVersion: prepared?.recipeVersion ?? "",
+    assetVersion: (assetVersions as Record<string, string>)[templateId] ?? "",
+  });
 }
 
 export const WARDROBE_STORE_CERTIFICATION_CASES: readonly WardrobeCompatibilityCase[] =

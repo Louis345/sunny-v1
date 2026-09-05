@@ -664,3 +664,14 @@ describe("WardrobeStoreLab shopping call", () => {
     expect(onWardrobeChange).not.toHaveBeenCalled();
   });
 });
+
+// Shopping behavior uses explicit synthetic approvals. Real assets stay quarantined;
+// wardrobe-certification.test.ts exercises the unmocked, version-bound gate.
+vi.mock("../lib/wardrobeBodyProfiles", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../lib/wardrobeBodyProfiles")>();
+  return {...actual, resolveWardrobeTemplateCertification: (companionId: string, templateId: string) => ({
+    companionId, templateId,
+    status: (["royal-crown", "cat-ears", "star-halo"].includes(templateId) || (templateId === "ribbon-dress" && ["elli", "matilda"].includes(companionId))) ? "approved" : "candidate",
+    reason: "TEST FIXTURE ONLY — synthetic human approval for shopping behavior",
+  })};
+});

@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   WARDROBE_STORE_CATALOG,
   createCompanionShoppingVisit,
@@ -72,7 +72,7 @@ describe("wardrobe store domain", () => {
     expect(moodIds.size).toBeGreaterThan(1);
   });
 
-  it("filters the catalog by the exact companion model approval", () => {
+  it("filters shopping fixtures by their supplied companion approval", () => {
     const sampleItems = getCompatibleWardrobeItems(
       WARDROBE_STORE_CATALOG,
       "/companions/sample.vrm",
@@ -311,4 +311,15 @@ describe("wardrobe store domain", () => {
     expect(getWardrobeBalance(duplicate.state)).toBe(100);
     expect(duplicate.state.ownedItemIds).toEqual([]);
   });
+});
+
+// Shopping behavior uses explicit synthetic approvals. Real assets stay quarantined;
+// wardrobe-certification.test.ts exercises the unmocked, version-bound gate.
+vi.mock("../lib/wardrobeBodyProfiles", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../lib/wardrobeBodyProfiles")>();
+  return {...actual, resolveWardrobeTemplateCertification: (companionId: string, templateId: string) => ({
+    companionId, templateId,
+    status: (["royal-crown", "cat-ears", "star-halo"].includes(templateId) || (templateId === "ribbon-dress" && ["elli", "matilda"].includes(companionId))) ? "approved" : "candidate",
+    reason: "TEST FIXTURE ONLY — synthetic human approval for shopping behavior",
+  })};
 });
