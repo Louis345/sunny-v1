@@ -23,11 +23,28 @@
       "1": "bottom",
       "3": "top"
     },
-    "bodyProfileId": "sunny-standard-v1"
+    "bodyProfileId": "sunny-standard-v1",
+    "accessoryFits": {
+      "crown": {
+        "baseY": 0.18915116999999998,
+        "scale": 0.85,
+        "rotationY": 3.141592653589793
+      },
+      "cat-ears": {
+        "baseY": 0.16611450626131796,
+        "scale": 0.7,
+        "rotationY": 3.141592653589793
+      },
+      "halo": {
+        "baseY": 0.28915117,
+        "scale": 0.75,
+        "rotationY": 3.141592653589793
+      }
+    }
   },
   {
     "id": "matilda",
-    "version": "identity-preserved-v3",
+    "version": "identity-preserved-v4",
     "sourceUrl": "/companions/673852811403133503.vrm",
     "sourceSha256": "1b11bd3de4f708c147c408602ec21b3b86bc4d0003d8ebd9eba4451495e1d455",
     "expectedMaterials": [
@@ -149,6 +166,26 @@
           }
         ]
       }
+    },
+    "accessoryFits": {
+      "crown": {
+        "baseY": 0.18407293,
+        "scale": 0.85,
+        "rotationY": 3.141592653589793
+      },
+      "cat-ears": {
+        "baseY": 0.1425854455302632,
+        "scale": 0.7,
+        "rotationY": 3.141592653589793
+      },
+      "halo": {
+        "baseY": 0.28407293,
+        "scale": 0.75,
+        "rotationY": 3.141592653589793
+      }
+    },
+    "intrinsicAccessoryMaterials": {
+      "25": "halo"
     }
   }
 ]

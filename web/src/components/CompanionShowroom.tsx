@@ -42,6 +42,7 @@ import {
   emitCompanionVideoCallTrace,
 } from "../utils/companionVideoCallTrace";
 import { loadCompanionVrm } from "../utils/loadCompanionVrm";
+import { applyPreparedAccessoryFit, setIntrinsicAccessoriesVisible } from "../lib/wardrobeAccessoryFit";
 import {
   attachXwearOutfit,
   captureXwearAvatarBindPose,
@@ -2580,11 +2581,22 @@ export function removeWardrobeAccessory(accessory: THREE.Object3D | null): void 
   });
 }
 
-function attachWardrobeAccessory(
+export function attachWardrobeAccessory(
   head: THREE.Object3D,
   accessoryId: Exclude<WardrobeAccessoryId, "none">,
+  modelUrl = "",
 ): THREE.Group {
   const accessory = createWardrobeAccessory(accessoryId);
+  try {
+    if(applyPreparedAccessoryFit(accessory,head,modelUrl,accessoryId)){
+      head.add(accessory);
+      return accessory;
+    }
+  } catch(error) {
+    removeWardrobeAccessory(accessory);
+    console.error(` 🎮 [wardrobe-accessory] attachment failed model=${modelUrl} accessory=${accessoryId}`,error);
+    throw error;
+  }
   head.updateWorldMatrix(true, false);
   const worldPosition = new THREE.Vector3();
   head.getWorldPosition(worldPosition);
@@ -2841,8 +2853,9 @@ function CompanionSlot({
     removeWardrobeAccessory(wardrobeAccessoryRef.current);
     wardrobeAccessoryRef.current = null;
     const head = wardrobeHeadRef.current;
+    if(wardrobeVrmSceneRef.current)setIntrinsicAccessoriesVisible(wardrobeVrmSceneRef.current,wardrobeAccessoryId==="none");
     if (head && wardrobeAccessoryId !== "none") {
-      wardrobeAccessoryRef.current = attachWardrobeAccessory(head, wardrobeAccessoryId);
+      wardrobeAccessoryRef.current = attachWardrobeAccessory(head, wardrobeAccessoryId, showroomCompanionConfig.vrmUrl);
     }
   }, [wardrobeAccessoryId]);
 
@@ -3178,10 +3191,12 @@ function CompanionSlot({
             settleLoad("failed");
           }
           const selectedAccessoryId = wardrobeAccessoryIdRef.current;
+          setIntrinsicAccessoriesVisible(vrm.scene,selectedAccessoryId==="none");
           if (head && selectedAccessoryId !== "none") {
             wardrobeAccessoryRef.current = attachWardrobeAccessory(
               head,
               selectedAccessoryId,
+              showroomCompanionConfig.vrmUrl,
             );
           }
           if (

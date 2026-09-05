@@ -15,6 +15,8 @@ export type WardrobeRecipe = {
   sourceSha256: string;
   expectedMaterials: string[];
   clothingMaterials: Record<string, string>;
+  intrinsicAccessoryMaterials?: Record<string,string>;
+  accessoryFits?: Record<string,{baseY:number;scale:number;rotationY:number}>;
   bodyProfileId: string;
   bodyRepair?: BodyRepair & { donorSourceUrl: string; donorSha256: string };
 };
@@ -42,6 +44,11 @@ export function prepareWardrobeVrm(bytes: Buffer, recipe: WardrobeRecipe, donorB
     if (!material || !["top", "bottom", "onepiece"].includes(category)) throw new Error("Invalid explicit clothing role");
     material.extras = { ...material.extras, sunnyClothingCategory: category };
   }
+  for (const [index, accessory] of Object.entries(recipe.intrinsicAccessoryMaterials ?? {})) {
+    const material=json.materials[Number(index)];
+    if(!material || accessory!=="halo")throw new Error("Invalid intrinsic accessory selection");
+    material.extras={...material.extras,sunnyIntrinsicAccessory:accessory};
+  }
   json.scenes[json.scene ?? 0].extras = { ...json.scenes[json.scene ?? 0].extras, sunnyWardrobe: true };
   let binary = source.binary;
   if (recipe.bodyRepair && !donorBytes) throw new Error(`Missing required body donor for ${recipe.id}`);
@@ -62,6 +69,8 @@ export function prepareWardrobeVrm(bytes: Buffer, recipe: WardrobeRecipe, donorB
     modelUrl: `/companions/${recipe.id}-wardrobe-${recipe.version}.vrm`,
     bodyProfileId: recipe.bodyProfileId,
     clothingMaterials: recipe.clothingMaterials,
+    intrinsicAccessoryMaterials: recipe.intrinsicAccessoryMaterials,
+    accessoryFits: recipe.accessoryFits,
     bodyRepair: donorBytes ? recipe.bodyRepair : undefined,
     status: "candidate" as const,
   } };
@@ -69,7 +78,7 @@ export function prepareWardrobeVrm(bytes: Buffer, recipe: WardrobeRecipe, donorB
 
 export function prepareWardrobe(root: string) {
   const fitVersion = hash(Buffer.concat(["web/src/lib/xwearDress.ts", "web/src/lib/wardrobePreparedGarment.ts", "scripts/prepareWardrobeGarments.ts"].map(file => readFileSync(path.join(root, file)))));
-  const accessoryVersion = hash(readFileSync(path.join(root, "web/src/components/CompanionShowroom.tsx")));
+  const accessoryVersion = hash(Buffer.concat(["web/src/components/CompanionShowroom.tsx", "web/src/lib/wardrobeAccessoryFit.ts", "scripts/wardrobe-recipes.json"].map(file=>readFileSync(path.join(root,file)))));
   const versions: Record<string,string> = {};
   for (const [id, archive] of Object.entries({"ribbon-dress":"sleeveless-dress.xwear", "comet-hoodie":"comet-hoodie.xwear", "constellation-blazer":"constellation-blazer.xwear"})) {
     versions[id] = `${hash(readFileSync(resolveLocalWardrobeAsset(`/__wardrobe-assets/${archive}`)!))}:${fitVersion}`;
