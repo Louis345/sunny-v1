@@ -1,5 +1,6 @@
 import preparedAssets from "./wardrobePrepared.generated.json";
 import assetVersions from "./wardrobeAssetVersions.generated.json";
+import fittedAssets from "./wardrobeFitted.generated.json";
 
 export type WardrobeBodyProfileId =
   | "sunny-standard-v1"
@@ -357,12 +358,13 @@ export type WardrobeTemplateCertification = {
   preparedSha256?: string;
   assetVersion?: string;
   recipeVersion?: string;
+  fittedSha256?: string;
   humanReview?: { reviewedBy: string; reviewedAt: string; evidence: string[] };
 };
 
 export function validateWardrobeCertification(
   record: WardrobeTemplateCertification,
-  current: { modelUrl: string; preparedSha256: string; assetVersion: string; recipeVersion: string },
+  current: { modelUrl: string; preparedSha256: string; assetVersion: string; recipeVersion: string; fittedSha256: string },
 ): WardrobeTemplateCertification {
   if (record.status !== "approved") return record;
   const matches = Object.entries(current).every(([key, value]) => value && record[key as keyof WardrobeTemplateCertification] === value);
@@ -396,11 +398,16 @@ export function resolveWardrobeTemplateCertification(
     reason: "No human-reviewed fit has been recorded for this companion yet.",
   };
   const prepared = preparedAssets.find(asset => asset.companionId === companionId);
+  const assetVersion = (assetVersions as Record<string, string>)[templateId] ?? "";
+  const outfitId = templateId === "ribbon-dress" ? "sleeveless-dress" : templateId;
+  const isGarment = ["ribbon-dress", "comet-hoodie", "constellation-blazer"].includes(templateId);
+  const fitted = fittedAssets.find(asset => asset.companionId === companionId && asset.outfitId === outfitId && asset.bodySha256 === prepared?.preparedSha256 && asset.sourceVersion === assetVersion);
   return validateWardrobeCertification(record, {
     modelUrl: modelUrl ?? prepared?.modelUrl ?? "",
     preparedSha256: prepared?.preparedSha256 ?? "",
     recipeVersion: prepared?.recipeVersion ?? "",
-    assetVersion: (assetVersions as Record<string, string>)[templateId] ?? "",
+    assetVersion,
+    fittedSha256: isGarment ? fitted?.sha256 ?? "" : "not-applicable",
   });
 }
 
