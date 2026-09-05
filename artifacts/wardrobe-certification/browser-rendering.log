@@ -1,0 +1,497 @@
+[vite] connecting...
+[vite] connected.
+%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+ 🎮 [wardrobe-certification-lab] preview_selected result=approved companion=elli item=sleeveless-dress template=ribbon-dress
+ 🎮 [deepgram-video-call-stt] [stop] [ok]
+ 🎮 [showroom-video-chat] camera_off
+ 🎮 [wardrobe-certification-lab] preview_selected result=approved companion=elli item=sleeveless-dress template=ribbon-dress
+[VRM] Full capability audit
+Expressions available: [aa, angry, blink, blinkLeft, blinkRight, ee, happy, ih, lookDown, lookLeft, lookRight, lookUp, neutral, oh, ou, relaxed, sad, surprised]
+Humanoid bones: [chest, head, hips, leftEye, leftFoot, leftHand, leftIndexDistal, leftIndexIntermediate, leftIndexProximal, leftLittleDistal, leftLittleIntermediate, leftLittleProximal, leftLowerArm, leftLowerLeg, leftMiddleDistal, leftMiddleIntermediate, leftMiddleProximal, leftRingDistal, leftRingIntermediate, leftRingProximal, leftShoulder, leftThumbDistal, leftThumbMetacarpal, leftThumbProximal, leftToes, leftUpperArm, leftUpperLeg, neck, rightEye, rightFoot, rightHand, rightIndexDistal, rightIndexIntermediate, rightIndexProximal, rightLittleDistal, rightLittleIntermediate, rightLittleProximal, rightLowerArm, rightLowerLeg, rightMiddleDistal, rightMiddleIntermediate, rightMiddleProximal, rightRingDistal, rightRingIntermediate, rightRingProximal, rightShoulder, rightThumbDistal, rightThumbMetacarpal, rightThumbProximal, rightToes, rightUpperArm, rightUpperLeg, spine, upperChest]
+VRM version: 1
+Has expressionManager: true
+Has humanoid: true
+Has springBoneManager: true
+console.groupEnd
+[VRM] Full capability audit
+Expressions available: [aa, angry, blink, blinkLeft, blinkRight, ee, happy, ih, lookDown, lookLeft, lookRight, lookUp, neutral, oh, ou, relaxed, sad, surprised]
+Humanoid bones: [chest, head, hips, leftEye, leftFoot, leftHand, leftIndexDistal, leftIndexIntermediate, leftIndexProximal, leftLittleDistal, leftLittleIntermediate, leftLittleProximal, leftLowerArm, leftLowerLeg, leftMiddleDistal, leftMiddleIntermediate, leftMiddleProximal, leftRingDistal, leftRingIntermediate, leftRingProximal, leftShoulder, leftThumbDistal, leftThumbMetacarpal, leftThumbProximal, leftToes, leftUpperArm, leftUpperLeg, neck, rightEye, rightFoot, rightHand, rightIndexDistal, rightIndexIntermediate, rightIndexProximal, rightLittleDistal, rightLittleIntermediate, rightLittleProximal, rightLowerArm, rightLowerLeg, rightMiddleDistal, rightMiddleIntermediate, rightMiddleProximal, rightRingDistal, rightRingIntermediate, rightRingProximal, rightShoulder, rightThumbDistal, rightThumbMetacarpal, rightThumbProximal, rightToes, rightUpperArm, rightUpperLeg, spine, upperChest]
+VRM version: 1
+Has expressionManager: true
+Has humanoid: true
+Has springBoneManager: true
+console.groupEnd
+ 🎮 [companion-wardrobe-lab] avatar_bind_pose captured bones=154
+🎮 [CompanionMotor] [animation-fetch] [start] name="idle" url=http://127.0.0.1:5197/animations/idle.fbx
+ 🎮 [wardrobe-compatibility-lab] source_loaded result=ready case=elli-store-reference slot=elli
+ 🎮 [wardrobe-identity-lab] preview_settled result=ready companion=elli identity=base
+[VRM] Full capability audit
+Expressions available: [aa, angry, blink, blinkLeft, blinkRight, ee, happy, ih, lookDown, lookLeft, lookRight, lookUp, neutral, oh, ou, relaxed, sad, surprised]
+Humanoid bones: [chest, head, hips, leftEye, leftFoot, leftHand, leftIndexDistal, leftIndexIntermediate, leftIndexProximal, leftLittleDistal, leftLittleIntermediate, leftLittleProximal, leftLowerArm, leftLowerLeg, leftMiddleDistal, leftMiddleIntermediate, leftMiddleProximal, leftRingDistal, leftRingIntermediate, leftRingProximal, leftShoulder, leftThumbDistal, leftThumbMetacarpal, leftThumbProximal, leftToes, leftUpperArm, leftUpperLeg, neck, rightEye, rightFoot, rightHand, rightIndexDistal, rightIndexIntermediate, rightIndexProximal, rightLittleDistal, rightLittleIntermediate, rightLittleProximal, rightLowerArm, rightLowerLeg, rightMiddleDistal, rightMiddleIntermediate, rightMiddleProximal, rightRingDistal, rightRingIntermediate, rightRingProximal, rightShoulder, rightThumbDistal, rightThumbMetacarpal, rightThumbProximal, rightToes, rightUpperArm, rightUpperLeg, spine, upperChest]
+VRM version: 1
+Has expressionManager: true
+Has humanoid: true
+Has springBoneManager: true
+console.groupEnd
+ 🎮 [companion-wardrobe-lab] avatar_bind_pose captured bones=154
+🎮 [CompanionMotor] [animation-fetch] [start] name="idle" url=http://127.0.0.1:5197/animations/idle.fbx
+ 🎮 [wardrobe-compatibility-lab] candidate_preview allowed outfit=sleeveless-dress model=/companions/sample.vrm
+ 🎮 [wardrobe-compatibility-lab] model_loaded result=ready case=elli-store-reference slot=elli
+ 🎮 [wardrobe-identity-lab] preview_settled result=ready companion=elli identity=base
+[VRM] Full capability audit
+Expressions available: [aa, angry, blink, blinkLeft, blinkRight, ee, happy, ih, lookDown, lookLeft, lookRight, lookUp, neutral, oh, ou, relaxed, sad, surprised]
+Humanoid bones: [chest, head, hips, leftEye, leftFoot, leftHand, leftIndexDistal, leftIndexIntermediate, leftIndexProximal, leftLittleDistal, leftLittleIntermediate, leftLittleProximal, leftLowerArm, leftLowerLeg, leftMiddleDistal, leftMiddleIntermediate, leftMiddleProximal, leftRingDistal, leftRingIntermediate, leftRingProximal, leftShoulder, leftThumbDistal, leftThumbMetacarpal, leftThumbProximal, leftToes, leftUpperArm, leftUpperLeg, neck, rightEye, rightFoot, rightHand, rightIndexDistal, rightIndexIntermediate, rightIndexProximal, rightLittleDistal, rightLittleIntermediate, rightLittleProximal, rightLowerArm, rightLowerLeg, rightMiddleDistal, rightMiddleIntermediate, rightMiddleProximal, rightRingDistal, rightRingIntermediate, rightRingProximal, rightShoulder, rightThumbDistal, rightThumbMetacarpal, rightThumbProximal, rightToes, rightUpperArm, rightUpperLeg, spine, upperChest]
+VRM version: 1
+Has expressionManager: true
+Has humanoid: true
+Has springBoneManager: true
+console.groupEnd
+ 🎮 [companion-wardrobe-lab] base_clothing visibility=false materials=4
+ 🎮 [companion-wardrobe-lab] downloaded_outfit applied outfit=sleeveless-dress variant=sleeveless-dress vertices=6282 fit_scale=1.0935 surface_offset=0.025
+ 🎮 [companion-wardrobe-lab] base_clothing visibility=true materials=4
+ 🎮 [companion-wardrobe-lab] base_clothing visibility=false materials=4
+🎮 [CompanionMotor] [animation-fetch] [ok] name="idle" retargetedTracks=53
+🎮 [CompanionMotor] [animation-fetch] [ok] name="idle" retargetedTracks=53
+🎮 [CompanionMotor] [animate] [play] "idle" tracks=53 loop=true
+🎮 [CompanionMotor] [animate] [play] "idle" tracks=53 loop=true
+ 🎮 [wardrobe-certification-lab] preview_selected result=candidate companion=kefla item=sleeveless-dress template=ribbon-dress
+[VRM] Full capability audit
+Expressions available: [aa, angry, blink, blinkLeft, blinkRight, ee, happy, ih, lookDown, lookLeft, lookRight, lookUp, neutral, oh, ou, relaxed, sad, surprised]
+Humanoid bones: [chest, head, hips, leftEye, leftFoot, leftHand, leftIndexDistal, leftIndexIntermediate, leftIndexProximal, leftLittleDistal, leftLittleIntermediate, leftLittleProximal, leftLowerArm, leftLowerLeg, leftMiddleDistal, leftMiddleIntermediate, leftMiddleProximal, leftRingDistal, leftRingIntermediate, leftRingProximal, leftShoulder, leftThumbDistal, leftThumbMetacarpal, leftThumbProximal, leftToes, leftUpperArm, leftUpperLeg, neck, rightEye, rightFoot, rightHand, rightIndexDistal, rightIndexIntermediate, rightIndexProximal, rightLittleDistal, rightLittleIntermediate, rightLittleProximal, rightLowerArm, rightLowerLeg, rightMiddleDistal, rightMiddleIntermediate, rightMiddleProximal, rightRingDistal, rightRingIntermediate, rightRingProximal, rightShoulder, rightThumbDistal, rightThumbMetacarpal, rightThumbProximal, rightToes, rightUpperArm, rightUpperLeg, spine, upperChest]
+VRM version: 1
+Has expressionManager: true
+Has humanoid: true
+Has springBoneManager: true
+console.groupEnd
+[VRM] Full capability audit
+Expressions available: [aa, angry, blink, blinkLeft, blinkRight, ee, happy, ih, lookDown, lookLeft, lookRight, lookUp, neutral, oh, ou, relaxed, sad, surprised]
+Humanoid bones: [chest, head, hips, leftEye, leftFoot, leftHand, leftIndexDistal, leftIndexIntermediate, leftIndexProximal, leftLittleDistal, leftLittleIntermediate, leftLittleProximal, leftLowerArm, leftLowerLeg, leftMiddleDistal, leftMiddleIntermediate, leftMiddleProximal, leftRingDistal, leftRingIntermediate, leftRingProximal, leftShoulder, leftThumbDistal, leftThumbMetacarpal, leftThumbProximal, leftToes, leftUpperArm, leftUpperLeg, neck, rightEye, rightFoot, rightHand, rightIndexDistal, rightIndexIntermediate, rightIndexProximal, rightLittleDistal, rightLittleIntermediate, rightLittleProximal, rightLowerArm, rightLowerLeg, rightMiddleDistal, rightMiddleIntermediate, rightMiddleProximal, rightRingDistal, rightRingIntermediate, rightRingProximal, rightShoulder, rightThumbDistal, rightThumbMetacarpal, rightThumbProximal, rightToes, rightUpperArm, rightUpperLeg, spine, upperChest]
+VRM version: 1
+Has expressionManager: true
+Has humanoid: true
+Has springBoneManager: true
+console.groupEnd
+ 🎮 [companion-wardrobe-lab] avatar_bind_pose captured bones=154
+🎮 [CompanionMotor] [animation-fetch] [start] name="idle" url=http://127.0.0.1:5197/animations/idle.fbx
+ 🎮 [wardrobe-compatibility-lab] candidate_preview allowed outfit=sleeveless-dress model=/companions/sample.vrm
+🎮 [CompanionMotor] [animation-fetch] [ok] name="idle" retargetedTracks=53
+🎮 [CompanionMotor] [animate] [play] "idle" tracks=53 loop=true
+[VRM] Full capability audit
+Expressions available: [neutral, aa, ih, ou, ee, oh, blink, blinkLeft, blinkRight, angry, relaxed, happy, sad, Surprised]
+Humanoid bones: [hips, leftUpperLeg, rightUpperLeg, leftLowerLeg, rightLowerLeg, leftFoot, rightFoot, spine, chest, neck, head, leftShoulder, rightShoulder, leftUpperArm, rightUpperArm, leftLowerArm, rightLowerArm, leftHand, rightHand, leftToes, rightToes, leftEye, rightEye, leftThumbMetacarpal, leftThumbProximal, leftThumbDistal, leftIndexProximal, leftIndexIntermediate, leftIndexDistal, leftMiddleProximal, leftMiddleIntermediate, leftMiddleDistal, leftRingProximal, leftRingIntermediate, leftRingDistal, leftLittleProximal, leftLittleIntermediate, leftLittleDistal, rightThumbMetacarpal, rightThumbProximal, rightThumbDistal, rightIndexProximal, rightIndexIntermediate, rightIndexDistal, rightMiddleProximal, rightMiddleIntermediate, rightMiddleDistal, rightRingProximal, rightRingIntermediate, rightRingDistal, rightLittleProximal, rightLittleIntermediate, rightLittleDistal, upperChest]
+VRM version: 0
+Has expressionManager: true
+Has humanoid: true
+Has springBoneManager: true
+console.groupEnd
+[VRM] Full capability audit
+Expressions available: [neutral, aa, ih, ou, ee, oh, blink, blinkLeft, blinkRight, angry, relaxed, happy, sad, Surprised]
+Humanoid bones: [hips, leftUpperLeg, rightUpperLeg, leftLowerLeg, rightLowerLeg, leftFoot, rightFoot, spine, chest, neck, head, leftShoulder, rightShoulder, leftUpperArm, rightUpperArm, leftLowerArm, rightLowerArm, leftHand, rightHand, leftToes, rightToes, leftEye, rightEye, leftThumbMetacarpal, leftThumbProximal, leftThumbDistal, leftIndexProximal, leftIndexIntermediate, leftIndexDistal, leftMiddleProximal, leftMiddleIntermediate, leftMiddleDistal, leftRingProximal, leftRingIntermediate, leftRingDistal, leftLittleProximal, leftLittleIntermediate, leftLittleDistal, rightThumbMetacarpal, rightThumbProximal, rightThumbDistal, rightIndexProximal, rightIndexIntermediate, rightIndexDistal, rightMiddleProximal, rightMiddleIntermediate, rightMiddleDistal, rightRingProximal, rightRingIntermediate, rightRingDistal, rightLittleProximal, rightLittleIntermediate, rightLittleDistal, upperChest]
+VRM version: 0
+Has expressionManager: true
+Has humanoid: true
+Has springBoneManager: true
+console.groupEnd
+ 🎮 [companion-wardrobe-lab] avatar_bind_pose captured bones=256
+🎮 [CompanionMotor] [animation-fetch] [start] name="idle" url=http://127.0.0.1:5197/animations/idle.fbx
+ 🎮 [wardrobe-compatibility-lab] source_loaded result=ready case=kefla-standard-body-identity slot=kefla
+ 🎮 [wardrobe-identity-lab] preview_settled result=ready companion=kefla identity=base
+ 🎮 [companion-wardrobe-lab] base_clothing visibility=false materials=4
+ 🎮 [companion-wardrobe-lab] downloaded_outfit applied outfit=sleeveless-dress variant=sleeveless-dress vertices=6282 fit_scale=1.0935 surface_offset=0.025
+ 🎮 [companion-wardrobe-lab] base_clothing visibility=true materials=4
+ 🎮 [companion-wardrobe-lab] base_clothing visibility=false materials=4
+🎮 [mixamoRetarget] [compat] [mirrored-arm-rest-x]
+🎮 [CompanionMotor] [animation-fetch] [ok] name="idle" retargetedTracks=53
+🎮 [CompanionMotor] [animate] [play] "idle" tracks=53 loop=true
+[VRM] Full capability audit
+Expressions available: [neutral, aa, ih, ou, ee, oh, blink, blinkLeft, blinkRight, angry, relaxed, happy, sad, Surprised]
+Humanoid bones: [hips, leftUpperLeg, rightUpperLeg, leftLowerLeg, rightLowerLeg, leftFoot, rightFoot, spine, chest, neck, head, leftShoulder, rightShoulder, leftUpperArm, rightUpperArm, leftLowerArm, rightLowerArm, leftHand, rightHand, leftToes, rightToes, leftEye, rightEye, leftThumbMetacarpal, leftThumbProximal, leftThumbDistal, leftIndexProximal, leftIndexIntermediate, leftIndexDistal, leftMiddleProximal, leftMiddleIntermediate, leftMiddleDistal, leftRingProximal, leftRingIntermediate, leftRingDistal, leftLittleProximal, leftLittleIntermediate, leftLittleDistal, rightThumbMetacarpal, rightThumbProximal, rightThumbDistal, rightIndexProximal, rightIndexIntermediate, rightIndexDistal, rightMiddleProximal, rightMiddleIntermediate, rightMiddleDistal, rightRingProximal, rightRingIntermediate, rightRingDistal, rightLittleProximal, rightLittleIntermediate, rightLittleDistal, upperChest]
+VRM version: 0
+Has expressionManager: true
+Has humanoid: true
+Has springBoneManager: true
+console.groupEnd
+ 🎮 [companion-wardrobe-lab] base_clothing visibility=true materials=4
+ 🎮 [companion-wardrobe-lab] base_clothing visibility=false materials=4
+ 🎮 [wardrobe-identity-lab] clothing_reconciled result=ready outfit=sleeveless-dress
+ 🎮 [wardrobe-identity-lab] composite_ready result=ready identity=/companions/Kefla.vrm scale=0.9810 standard_hidden=12 source_hidden=4 source_visible=9 source_head_masks=0 body_skin_transferred=0
+ 🎮 [wardrobe-compatibility-lab] model_loaded result=ready case=kefla-standard-body-identity slot=kefla
+ 🎮 [wardrobe-identity-lab] preview_settled result=ready companion=kefla identity=/companions/Kefla.vrm
+ 🎮 [wardrobe-certification-lab] preview_selected result=approved companion=matilda item=sleeveless-dress template=ribbon-dress
+[VRM] Full capability audit
+Expressions available: [aa, angry, blink, blinkLeft, blinkRight, ee, happy, ih, lookDown, lookLeft, lookRight, lookUp, neutral, oh, ou, relaxed, sad, surprised]
+Humanoid bones: [chest, head, hips, leftEye, leftFoot, leftHand, leftIndexDistal, leftIndexIntermediate, leftIndexProximal, leftLittleDistal, leftLittleIntermediate, leftLittleProximal, leftLowerArm, leftLowerLeg, leftMiddleDistal, leftMiddleIntermediate, leftMiddleProximal, leftRingDistal, leftRingIntermediate, leftRingProximal, leftShoulder, leftThumbDistal, leftThumbMetacarpal, leftThumbProximal, leftToes, leftUpperArm, leftUpperLeg, neck, rightEye, rightFoot, rightHand, rightIndexDistal, rightIndexIntermediate, rightIndexProximal, rightLittleDistal, rightLittleIntermediate, rightLittleProximal, rightLowerArm, rightLowerLeg, rightMiddleDistal, rightMiddleIntermediate, rightMiddleProximal, rightRingDistal, rightRingIntermediate, rightRingProximal, rightShoulder, rightThumbDistal, rightThumbMetacarpal, rightThumbProximal, rightToes, rightUpperArm, rightUpperLeg, spine, upperChest]
+VRM version: 1
+Has expressionManager: true
+Has humanoid: true
+Has springBoneManager: true
+console.groupEnd
+[VRM] Full capability audit
+Expressions available: [aa, angry, blink, blinkLeft, blinkRight, ee, happy, ih, lookDown, lookLeft, lookRight, lookUp, neutral, oh, ou, relaxed, sad, surprised]
+Humanoid bones: [chest, head, hips, leftEye, leftFoot, leftHand, leftIndexDistal, leftIndexIntermediate, leftIndexProximal, leftLittleDistal, leftLittleIntermediate, leftLittleProximal, leftLowerArm, leftLowerLeg, leftMiddleDistal, leftMiddleIntermediate, leftMiddleProximal, leftRingDistal, leftRingIntermediate, leftRingProximal, leftShoulder, leftThumbDistal, leftThumbMetacarpal, leftThumbProximal, leftToes, leftUpperArm, leftUpperLeg, neck, rightEye, rightFoot, rightHand, rightIndexDistal, rightIndexIntermediate, rightIndexProximal, rightLittleDistal, rightLittleIntermediate, rightLittleProximal, rightLowerArm, rightLowerLeg, rightMiddleDistal, rightMiddleIntermediate, rightMiddleProximal, rightRingDistal, rightRingIntermediate, rightRingProximal, rightShoulder, rightThumbDistal, rightThumbMetacarpal, rightThumbProximal, rightToes, rightUpperArm, rightUpperLeg, spine, upperChest]
+VRM version: 1
+Has expressionManager: true
+Has humanoid: true
+Has springBoneManager: true
+console.groupEnd
+ 🎮 [companion-wardrobe-lab] avatar_bind_pose captured bones=154
+🎮 [CompanionMotor] [animation-fetch] [start] name="idle" url=http://127.0.0.1:5197/animations/idle.fbx
+ 🎮 [wardrobe-compatibility-lab] candidate_preview allowed outfit=sleeveless-dress model=/companions/sample.vrm
+[VRM] Full capability audit
+Expressions available: [neutral, aa, ih, ou, ee, oh, blink, blinkLeft, blinkRight, angry, relaxed, happy, sad, Surprised]
+Humanoid bones: [hips, leftUpperLeg, rightUpperLeg, leftLowerLeg, rightLowerLeg, leftFoot, rightFoot, spine, chest, neck, head, leftShoulder, rightShoulder, leftUpperArm, rightUpperArm, leftLowerArm, rightLowerArm, leftHand, rightHand, leftToes, rightToes, leftEye, rightEye, leftThumbMetacarpal, leftThumbProximal, leftThumbDistal, leftIndexProximal, leftIndexIntermediate, leftIndexDistal, leftMiddleProximal, leftMiddleIntermediate, leftMiddleDistal, leftRingProximal, leftRingIntermediate, leftRingDistal, leftLittleProximal, leftLittleIntermediate, leftLittleDistal, rightThumbMetacarpal, rightThumbProximal, rightThumbDistal, rightIndexProximal, rightIndexIntermediate, rightIndexDistal, rightMiddleProximal, rightMiddleIntermediate, rightMiddleDistal, rightRingProximal, rightRingIntermediate, rightRingDistal, rightLittleProximal, rightLittleIntermediate, rightLittleDistal, upperChest]
+VRM version: 0
+Has expressionManager: true
+Has humanoid: true
+Has springBoneManager: true
+console.groupEnd
+[VRM] Full capability audit
+Expressions available: [neutral, aa, ih, ou, ee, oh, blink, blinkLeft, blinkRight, angry, relaxed, happy, sad, Surprised]
+Humanoid bones: [hips, leftUpperLeg, rightUpperLeg, leftLowerLeg, rightLowerLeg, leftFoot, rightFoot, spine, chest, neck, head, leftShoulder, rightShoulder, leftUpperArm, rightUpperArm, leftLowerArm, rightLowerArm, leftHand, rightHand, leftToes, rightToes, leftEye, rightEye, leftThumbMetacarpal, leftThumbProximal, leftThumbDistal, leftIndexProximal, leftIndexIntermediate, leftIndexDistal, leftMiddleProximal, leftMiddleIntermediate, leftMiddleDistal, leftRingProximal, leftRingIntermediate, leftRingDistal, leftLittleProximal, leftLittleIntermediate, leftLittleDistal, rightThumbMetacarpal, rightThumbProximal, rightThumbDistal, rightIndexProximal, rightIndexIntermediate, rightIndexDistal, rightMiddleProximal, rightMiddleIntermediate, rightMiddleDistal, rightRingProximal, rightRingIntermediate, rightRingDistal, rightLittleProximal, rightLittleIntermediate, rightLittleDistal, upperChest]
+VRM version: 0
+Has expressionManager: true
+Has humanoid: true
+Has springBoneManager: true
+console.groupEnd
+ 🎮 [companion-wardrobe-lab] avatar_bind_pose captured bones=222
+🎮 [CompanionMotor] [animation-fetch] [start] name="idle" url=http://127.0.0.1:5197/animations/idle.fbx
+ 🎮 [wardrobe-compatibility-lab] source_loaded result=ready case=matilda-standard-body-identity slot=matilda
+ 🎮 [wardrobe-identity-lab] preview_settled result=ready companion=matilda identity=base
+ 🎮 [companion-wardrobe-lab] base_clothing visibility=false materials=4
+ 🎮 [companion-wardrobe-lab] downloaded_outfit applied outfit=sleeveless-dress variant=sleeveless-dress vertices=6282 fit_scale=1.0935 surface_offset=0.025
+ 🎮 [companion-wardrobe-lab] base_clothing visibility=true materials=4
+ 🎮 [companion-wardrobe-lab] base_clothing visibility=false materials=4
+🎮 [CompanionMotor] [animation-fetch] [ok] name="idle" retargetedTracks=53
+🎮 [mixamoRetarget] [compat] [mirrored-arm-rest-x]
+🎮 [CompanionMotor] [animation-fetch] [ok] name="idle" retargetedTracks=53
+🎮 [CompanionMotor] [animate] [play] "idle" tracks=53 loop=true
+🎮 [CompanionMotor] [animate] [play] "idle" tracks=53 loop=true
+[VRM] Full capability audit
+Expressions available: [neutral, aa, ih, ou, ee, oh, blink, blinkLeft, blinkRight, angry, relaxed, happy, sad, Surprised]
+Humanoid bones: [hips, leftUpperLeg, rightUpperLeg, leftLowerLeg, rightLowerLeg, leftFoot, rightFoot, spine, chest, neck, head, leftShoulder, rightShoulder, leftUpperArm, rightUpperArm, leftLowerArm, rightLowerArm, leftHand, rightHand, leftToes, rightToes, leftEye, rightEye, leftThumbMetacarpal, leftThumbProximal, leftThumbDistal, leftIndexProximal, leftIndexIntermediate, leftIndexDistal, leftMiddleProximal, leftMiddleIntermediate, leftMiddleDistal, leftRingProximal, leftRingIntermediate, leftRingDistal, leftLittleProximal, leftLittleIntermediate, leftLittleDistal, rightThumbMetacarpal, rightThumbProximal, rightThumbDistal, rightIndexProximal, rightIndexIntermediate, rightIndexDistal, rightMiddleProximal, rightMiddleIntermediate, rightMiddleDistal, rightRingProximal, rightRingIntermediate, rightRingDistal, rightLittleProximal, rightLittleIntermediate, rightLittleDistal, upperChest]
+VRM version: 0
+Has expressionManager: true
+Has humanoid: true
+Has springBoneManager: true
+console.groupEnd
+ 🎮 [companion-wardrobe-lab] base_clothing visibility=true materials=4
+ 🎮 [companion-wardrobe-lab] base_clothing visibility=false materials=4
+ 🎮 [wardrobe-identity-lab] clothing_reconciled result=ready outfit=sleeveless-dress
+ 🎮 [wardrobe-identity-lab] composite_ready result=ready identity=/companions/673852811403133503.vrm scale=0.9954 standard_hidden=12 source_hidden=28 source_visible=13 source_head_masks=0 body_skin_transferred=0
+ 🎮 [wardrobe-compatibility-lab] model_loaded result=ready case=matilda-standard-body-identity slot=matilda
+ 🎮 [wardrobe-identity-lab] preview_settled result=ready companion=matilda identity=/companions/673852811403133503.vrm
+ 🎮 [wardrobe-certification-lab] preview_selected result=candidate companion=melty item=sleeveless-dress template=ribbon-dress
+[VRM] Full capability audit
+Expressions available: [aa, angry, blink, blinkLeft, blinkRight, ee, happy, ih, lookDown, lookLeft, lookRight, lookUp, neutral, oh, ou, relaxed, sad, surprised]
+Humanoid bones: [chest, head, hips, leftEye, leftFoot, leftHand, leftIndexDistal, leftIndexIntermediate, leftIndexProximal, leftLittleDistal, leftLittleIntermediate, leftLittleProximal, leftLowerArm, leftLowerLeg, leftMiddleDistal, leftMiddleIntermediate, leftMiddleProximal, leftRingDistal, leftRingIntermediate, leftRingProximal, leftShoulder, leftThumbDistal, leftThumbMetacarpal, leftThumbProximal, leftToes, leftUpperArm, leftUpperLeg, neck, rightEye, rightFoot, rightHand, rightIndexDistal, rightIndexIntermediate, rightIndexProximal, rightLittleDistal, rightLittleIntermediate, rightLittleProximal, rightLowerArm, rightLowerLeg, rightMiddleDistal, rightMiddleIntermediate, rightMiddleProximal, rightRingDistal, rightRingIntermediate, rightRingProximal, rightShoulder, rightThumbDistal, rightThumbMetacarpal, rightThumbProximal, rightToes, rightUpperArm, rightUpperLeg, spine, upperChest]
+VRM version: 1
+Has expressionManager: true
+Has humanoid: true
+Has springBoneManager: true
+console.groupEnd
+[VRM] Full capability audit
+Expressions available: [neutral, aa, ih, ou, ee, oh, blink, blinkLeft, blinkRight, angry, relaxed, happy, sad, Surprised]
+Humanoid bones: [hips, leftUpperLeg, rightUpperLeg, leftLowerLeg, rightLowerLeg, leftFoot, rightFoot, spine, chest, neck, head, leftShoulder, rightShoulder, leftUpperArm, rightUpperArm, leftLowerArm, rightLowerArm, leftHand, rightHand, leftToes, rightToes, leftEye, rightEye, leftThumbMetacarpal, leftThumbProximal, leftThumbDistal, leftIndexProximal, leftIndexIntermediate, leftIndexDistal, leftMiddleProximal, leftMiddleIntermediate, leftMiddleDistal, leftRingProximal, leftRingIntermediate, leftRingDistal, leftLittleProximal, leftLittleIntermediate, leftLittleDistal, rightThumbMetacarpal, rightThumbProximal, rightThumbDistal, rightIndexProximal, rightIndexIntermediate, rightIndexDistal, rightMiddleProximal, rightMiddleIntermediate, rightMiddleDistal, rightRingProximal, rightRingIntermediate, rightRingDistal, rightLittleProximal, rightLittleIntermediate, rightLittleDistal, upperChest]
+VRM version: 0
+Has expressionManager: true
+Has humanoid: true
+Has springBoneManager: true
+console.groupEnd
+[VRM] Full capability audit
+Expressions available: [neutral, aa, ih, ou, ee, oh, blink, blinkLeft, blinkRight, angry, relaxed, happy, sad, Surprised]
+Humanoid bones: [hips, leftUpperLeg, rightUpperLeg, leftLowerLeg, rightLowerLeg, leftFoot, rightFoot, spine, chest, neck, head, leftShoulder, rightShoulder, leftUpperArm, rightUpperArm, leftLowerArm, rightLowerArm, leftHand, rightHand, leftToes, rightToes, leftEye, rightEye, leftThumbMetacarpal, leftThumbProximal, leftThumbDistal, leftIndexProximal, leftIndexIntermediate, leftIndexDistal, leftMiddleProximal, leftMiddleIntermediate, leftMiddleDistal, leftRingProximal, leftRingIntermediate, leftRingDistal, leftLittleProximal, leftLittleIntermediate, leftLittleDistal, rightThumbMetacarpal, rightThumbProximal, rightThumbDistal, rightIndexProximal, rightIndexIntermediate, rightIndexDistal, rightMiddleProximal, rightMiddleIntermediate, rightMiddleDistal, rightRingProximal, rightRingIntermediate, rightRingDistal, rightLittleProximal, rightLittleIntermediate, rightLittleDistal, upperChest]
+VRM version: 0
+Has expressionManager: true
+Has humanoid: true
+Has springBoneManager: true
+console.groupEnd
+ 🎮 [companion-wardrobe-lab] avatar_bind_pose captured bones=246
+🎮 [CompanionMotor] [animation-fetch] [start] name="idle" url=http://127.0.0.1:5197/animations/idle.fbx
+ 🎮 [wardrobe-compatibility-lab] source_loaded result=ready case=melty-standard-body-identity slot=melty
+ 🎮 [wardrobe-identity-lab] preview_settled result=ready companion=melty identity=base
+[VRM] Full capability audit
+Expressions available: [aa, angry, blink, blinkLeft, blinkRight, ee, happy, ih, lookDown, lookLeft, lookRight, lookUp, neutral, oh, ou, relaxed, sad, surprised]
+Humanoid bones: [chest, head, hips, leftEye, leftFoot, leftHand, leftIndexDistal, leftIndexIntermediate, leftIndexProximal, leftLittleDistal, leftLittleIntermediate, leftLittleProximal, leftLowerArm, leftLowerLeg, leftMiddleDistal, leftMiddleIntermediate, leftMiddleProximal, leftRingDistal, leftRingIntermediate, leftRingProximal, leftShoulder, leftThumbDistal, leftThumbMetacarpal, leftThumbProximal, leftToes, leftUpperArm, leftUpperLeg, neck, rightEye, rightFoot, rightHand, rightIndexDistal, rightIndexIntermediate, rightIndexProximal, rightLittleDistal, rightLittleIntermediate, rightLittleProximal, rightLowerArm, rightLowerLeg, rightMiddleDistal, rightMiddleIntermediate, rightMiddleProximal, rightRingDistal, rightRingIntermediate, rightRingProximal, rightShoulder, rightThumbDistal, rightThumbMetacarpal, rightThumbProximal, rightToes, rightUpperArm, rightUpperLeg, spine, upperChest]
+VRM version: 1
+Has expressionManager: true
+Has humanoid: true
+Has springBoneManager: true
+console.groupEnd
+ 🎮 [companion-wardrobe-lab] avatar_bind_pose captured bones=154
+🎮 [CompanionMotor] [animation-fetch] [start] name="idle" url=http://127.0.0.1:5197/animations/idle.fbx
+ 🎮 [wardrobe-compatibility-lab] candidate_preview allowed outfit=sleeveless-dress model=/companions/sample.vrm
+ 🎮 [companion-wardrobe-lab] base_clothing visibility=false materials=4
+ 🎮 [companion-wardrobe-lab] downloaded_outfit applied outfit=sleeveless-dress variant=sleeveless-dress vertices=6282 fit_scale=1.0935 surface_offset=0.025
+ 🎮 [companion-wardrobe-lab] base_clothing visibility=true materials=4
+ 🎮 [companion-wardrobe-lab] base_clothing visibility=false materials=4
+🎮 [mixamoRetarget] [compat] [mirrored-arm-rest-x]
+🎮 [CompanionMotor] [animation-fetch] [ok] name="idle" retargetedTracks=53
+🎮 [CompanionMotor] [animation-fetch] [ok] name="idle" retargetedTracks=53
+🎮 [CompanionMotor] [animate] [play] "idle" tracks=53 loop=true
+🎮 [CompanionMotor] [animate] [play] "idle" tracks=53 loop=true
+[VRM] Full capability audit
+Expressions available: [neutral, aa, ih, ou, ee, oh, blink, blinkLeft, blinkRight, angry, relaxed, happy, sad, Surprised]
+Humanoid bones: [hips, leftUpperLeg, rightUpperLeg, leftLowerLeg, rightLowerLeg, leftFoot, rightFoot, spine, chest, neck, head, leftShoulder, rightShoulder, leftUpperArm, rightUpperArm, leftLowerArm, rightLowerArm, leftHand, rightHand, leftToes, rightToes, leftEye, rightEye, leftThumbMetacarpal, leftThumbProximal, leftThumbDistal, leftIndexProximal, leftIndexIntermediate, leftIndexDistal, leftMiddleProximal, leftMiddleIntermediate, leftMiddleDistal, leftRingProximal, leftRingIntermediate, leftRingDistal, leftLittleProximal, leftLittleIntermediate, leftLittleDistal, rightThumbMetacarpal, rightThumbProximal, rightThumbDistal, rightIndexProximal, rightIndexIntermediate, rightIndexDistal, rightMiddleProximal, rightMiddleIntermediate, rightMiddleDistal, rightRingProximal, rightRingIntermediate, rightRingDistal, rightLittleProximal, rightLittleIntermediate, rightLittleDistal, upperChest]
+VRM version: 0
+Has expressionManager: true
+Has humanoid: true
+Has springBoneManager: true
+console.groupEnd
+ 🎮 [companion-wardrobe-lab] base_clothing visibility=true materials=4
+ 🎮 [companion-wardrobe-lab] base_clothing visibility=false materials=4
+ 🎮 [wardrobe-identity-lab] clothing_reconciled result=ready outfit=sleeveless-dress
+ 🎮 [wardrobe-identity-lab] composite_ready result=ready identity=/companions/4573661938486170180.vrm scale=1.0352 standard_hidden=12 source_hidden=11 source_visible=12 source_head_masks=0 body_skin_transferred=0
+ 🎮 [wardrobe-compatibility-lab] model_loaded result=ready case=melty-standard-body-identity slot=melty
+ 🎮 [wardrobe-identity-lab] preview_settled result=ready companion=melty identity=/companions/4573661938486170180.vrm
+ 🎮 [wardrobe-certification-lab] preview_selected result=candidate companion=princess item=sleeveless-dress template=ribbon-dress
+[VRM] Full capability audit
+Expressions available: [aa, ih, ou, ee, oh, blink, relaxed, happy, neutral, angry, sad, blinkLeft, blinkRight]
+Humanoid bones: [hips, spine, chest, neck, head, leftUpperLeg, leftLowerLeg, leftFoot, leftToes, rightUpperLeg, rightLowerLeg, rightFoot, rightToes, leftShoulder, leftUpperArm, leftLowerArm, leftHand, rightShoulder, rightUpperArm, rightLowerArm, rightHand, leftThumbMetacarpal, leftThumbProximal, leftThumbDistal, leftIndexProximal, leftIndexIntermediate, leftIndexDistal, leftMiddleProximal, leftMiddleIntermediate, leftMiddleDistal, leftRingProximal, leftRingIntermediate, leftRingDistal, leftLittleProximal, leftLittleIntermediate, leftLittleDistal, rightThumbMetacarpal, rightThumbProximal, rightThumbDistal, rightIndexProximal, rightIndexIntermediate, rightIndexDistal, rightMiddleProximal, rightMiddleIntermediate, rightMiddleDistal, rightRingProximal, rightRingIntermediate, rightRingDistal, rightLittleProximal, rightLittleIntermediate, rightLittleDistal]
+VRM version: 0
+Has expressionManager: true
+Has humanoid: true
+Has springBoneManager: true
+console.groupEnd
+[VRM] Full capability audit
+Expressions available: [aa, ih, ou, ee, oh, blink, relaxed, happy, neutral, angry, sad, blinkLeft, blinkRight]
+Humanoid bones: [hips, spine, chest, neck, head, leftUpperLeg, leftLowerLeg, leftFoot, leftToes, rightUpperLeg, rightLowerLeg, rightFoot, rightToes, leftShoulder, leftUpperArm, leftLowerArm, leftHand, rightShoulder, rightUpperArm, rightLowerArm, rightHand, leftThumbMetacarpal, leftThumbProximal, leftThumbDistal, leftIndexProximal, leftIndexIntermediate, leftIndexDistal, leftMiddleProximal, leftMiddleIntermediate, leftMiddleDistal, leftRingProximal, leftRingIntermediate, leftRingDistal, leftLittleProximal, leftLittleIntermediate, leftLittleDistal, rightThumbMetacarpal, rightThumbProximal, rightThumbDistal, rightIndexProximal, rightIndexIntermediate, rightIndexDistal, rightMiddleProximal, rightMiddleIntermediate, rightMiddleDistal, rightRingProximal, rightRingIntermediate, rightRingDistal, rightLittleProximal, rightLittleIntermediate, rightLittleDistal]
+VRM version: 0
+Has expressionManager: true
+Has humanoid: true
+Has springBoneManager: true
+console.groupEnd
+ 🎮 [companion-wardrobe-lab] avatar_bind_pose captured bones=144
+🎮 [CompanionMotor] [animation-fetch] [start] name="idle" url=http://127.0.0.1:5197/animations/idle.fbx
+ 🎮 [wardrobe-compatibility-lab] source_loaded result=ready case=princess-standard-body-identity slot=princess
+ 🎮 [wardrobe-identity-lab] preview_settled result=ready companion=princess identity=base
+🎮 [mixamoRetarget] [compat] [mirrored-arm-rest-x]
+🎮 [CompanionMotor] [animation-fetch] [ok] name="idle" retargetedTracks=52
+🎮 [CompanionMotor] [animate] [play] "idle" tracks=52 loop=true
+[VRM] Full capability audit
+Expressions available: [aa, angry, blink, blinkLeft, blinkRight, ee, happy, ih, lookDown, lookLeft, lookRight, lookUp, neutral, oh, ou, relaxed, sad, surprised]
+Humanoid bones: [chest, head, hips, leftEye, leftFoot, leftHand, leftIndexDistal, leftIndexIntermediate, leftIndexProximal, leftLittleDistal, leftLittleIntermediate, leftLittleProximal, leftLowerArm, leftLowerLeg, leftMiddleDistal, leftMiddleIntermediate, leftMiddleProximal, leftRingDistal, leftRingIntermediate, leftRingProximal, leftShoulder, leftThumbDistal, leftThumbMetacarpal, leftThumbProximal, leftToes, leftUpperArm, leftUpperLeg, neck, rightEye, rightFoot, rightHand, rightIndexDistal, rightIndexIntermediate, rightIndexProximal, rightLittleDistal, rightLittleIntermediate, rightLittleProximal, rightLowerArm, rightLowerLeg, rightMiddleDistal, rightMiddleIntermediate, rightMiddleProximal, rightRingDistal, rightRingIntermediate, rightRingProximal, rightShoulder, rightThumbDistal, rightThumbMetacarpal, rightThumbProximal, rightToes, rightUpperArm, rightUpperLeg, spine, upperChest]
+VRM version: 1
+Has expressionManager: true
+Has humanoid: true
+Has springBoneManager: true
+console.groupEnd
+ 🎮 [companion-wardrobe-lab] avatar_bind_pose captured bones=154
+🎮 [CompanionMotor] [animation-fetch] [start] name="idle" url=http://127.0.0.1:5197/animations/idle.fbx
+ 🎮 [wardrobe-compatibility-lab] candidate_preview allowed outfit=sleeveless-dress model=/companions/sample.vrm
+[VRM] Full capability audit
+Expressions available: [aa, angry, blink, blinkLeft, blinkRight, ee, happy, ih, lookDown, lookLeft, lookRight, lookUp, neutral, oh, ou, relaxed, sad, surprised]
+Humanoid bones: [chest, head, hips, leftEye, leftFoot, leftHand, leftIndexDistal, leftIndexIntermediate, leftIndexProximal, leftLittleDistal, leftLittleIntermediate, leftLittleProximal, leftLowerArm, leftLowerLeg, leftMiddleDistal, leftMiddleIntermediate, leftMiddleProximal, leftRingDistal, leftRingIntermediate, leftRingProximal, leftShoulder, leftThumbDistal, leftThumbMetacarpal, leftThumbProximal, leftToes, leftUpperArm, leftUpperLeg, neck, rightEye, rightFoot, rightHand, rightIndexDistal, rightIndexIntermediate, rightIndexProximal, rightLittleDistal, rightLittleIntermediate, rightLittleProximal, rightLowerArm, rightLowerLeg, rightMiddleDistal, rightMiddleIntermediate, rightMiddleProximal, rightRingDistal, rightRingIntermediate, rightRingProximal, rightShoulder, rightThumbDistal, rightThumbMetacarpal, rightThumbProximal, rightToes, rightUpperArm, rightUpperLeg, spine, upperChest]
+VRM version: 1
+Has expressionManager: true
+Has humanoid: true
+Has springBoneManager: true
+console.groupEnd
+ 🎮 [companion-wardrobe-lab] base_clothing visibility=false materials=4
+ 🎮 [companion-wardrobe-lab] downloaded_outfit applied outfit=sleeveless-dress variant=sleeveless-dress vertices=6282 fit_scale=1.0935 surface_offset=0.025
+ 🎮 [companion-wardrobe-lab] base_clothing visibility=true materials=4
+ 🎮 [companion-wardrobe-lab] base_clothing visibility=false materials=4
+🎮 [CompanionMotor] [animation-fetch] [ok] name="idle" retargetedTracks=53
+🎮 [CompanionMotor] [animate] [play] "idle" tracks=53 loop=true
+[VRM] Full capability audit
+Expressions available: [aa, ih, ou, ee, oh, blink, relaxed, happy, neutral, angry, sad, blinkLeft, blinkRight]
+Humanoid bones: [hips, spine, chest, neck, head, leftUpperLeg, leftLowerLeg, leftFoot, leftToes, rightUpperLeg, rightLowerLeg, rightFoot, rightToes, leftShoulder, leftUpperArm, leftLowerArm, leftHand, rightShoulder, rightUpperArm, rightLowerArm, rightHand, leftThumbMetacarpal, leftThumbProximal, leftThumbDistal, leftIndexProximal, leftIndexIntermediate, leftIndexDistal, leftMiddleProximal, leftMiddleIntermediate, leftMiddleDistal, leftRingProximal, leftRingIntermediate, leftRingDistal, leftLittleProximal, leftLittleIntermediate, leftLittleDistal, rightThumbMetacarpal, rightThumbProximal, rightThumbDistal, rightIndexProximal, rightIndexIntermediate, rightIndexDistal, rightMiddleProximal, rightMiddleIntermediate, rightMiddleDistal, rightRingProximal, rightRingIntermediate, rightRingDistal, rightLittleProximal, rightLittleIntermediate, rightLittleDistal]
+VRM version: 0
+Has expressionManager: true
+Has humanoid: true
+Has springBoneManager: true
+console.groupEnd
+ 🎮 [companion-wardrobe-lab] base_clothing visibility=true materials=4
+ 🎮 [companion-wardrobe-lab] base_clothing visibility=false materials=4
+ 🎮 [wardrobe-identity-lab] clothing_reconciled result=ready outfit=sleeveless-dress
+ 🎮 [wardrobe-identity-lab] composite_ready result=ready identity=/companions/princess.vrm scale=1.1520 standard_hidden=12 source_hidden=7 source_visible=2 source_head_masks=1 body_skin_transferred=2
+ 🎮 [wardrobe-compatibility-lab] model_loaded result=ready case=princess-standard-body-identity slot=princess
+ 🎮 [wardrobe-identity-lab] preview_settled result=ready companion=princess identity=/companions/princess.vrm
+ 🎮 [wardrobe-certification-lab] preview_selected result=candidate companion=tene item=sleeveless-dress template=ribbon-dress
+[VRM] Full capability audit
+Expressions available: [aa, angry, blink, blinkLeft, blinkRight, ee, happy, ih, lookDown, lookLeft, lookRight, lookUp, neutral, oh, ou, relaxed, sad, surprised]
+Humanoid bones: [chest, head, hips, leftEye, leftFoot, leftHand, leftIndexDistal, leftIndexIntermediate, leftIndexProximal, leftLittleDistal, leftLittleIntermediate, leftLittleProximal, leftLowerArm, leftLowerLeg, leftMiddleDistal, leftMiddleIntermediate, leftMiddleProximal, leftRingDistal, leftRingIntermediate, leftRingProximal, leftShoulder, leftThumbDistal, leftThumbMetacarpal, leftThumbProximal, leftToes, leftUpperArm, leftUpperLeg, neck, rightEye, rightFoot, rightHand, rightIndexDistal, rightIndexIntermediate, rightIndexProximal, rightLittleDistal, rightLittleIntermediate, rightLittleProximal, rightLowerArm, rightLowerLeg, rightMiddleDistal, rightMiddleIntermediate, rightMiddleProximal, rightRingDistal, rightRingIntermediate, rightRingProximal, rightShoulder, rightThumbDistal, rightThumbMetacarpal, rightThumbProximal, rightToes, rightUpperArm, rightUpperLeg, spine, upperChest]
+VRM version: 1
+Has expressionManager: true
+Has humanoid: true
+Has springBoneManager: true
+console.groupEnd
+[VRM] Full capability audit
+Expressions available: [aa, angry, blink, blinkLeft, blinkRight, ee, happy, ih, lookDown, lookLeft, lookRight, lookUp, neutral, oh, ou, relaxed, sad, surprised]
+Humanoid bones: [chest, head, hips, leftEye, leftFoot, leftHand, leftIndexDistal, leftIndexIntermediate, leftIndexProximal, leftLittleDistal, leftLittleIntermediate, leftLittleProximal, leftLowerArm, leftLowerLeg, leftMiddleDistal, leftMiddleIntermediate, leftMiddleProximal, leftRingDistal, leftRingIntermediate, leftRingProximal, leftShoulder, leftThumbDistal, leftThumbMetacarpal, leftThumbProximal, leftToes, leftUpperArm, leftUpperLeg, neck, rightEye, rightFoot, rightHand, rightIndexDistal, rightIndexIntermediate, rightIndexProximal, rightLittleDistal, rightLittleIntermediate, rightLittleProximal, rightLowerArm, rightLowerLeg, rightMiddleDistal, rightMiddleIntermediate, rightMiddleProximal, rightRingDistal, rightRingIntermediate, rightRingProximal, rightShoulder, rightThumbDistal, rightThumbMetacarpal, rightThumbProximal, rightToes, rightUpperArm, rightUpperLeg, spine, upperChest]
+VRM version: 1
+Has expressionManager: true
+Has humanoid: true
+Has springBoneManager: true
+console.groupEnd
+ 🎮 [companion-wardrobe-lab] avatar_bind_pose captured bones=154
+🎮 [CompanionMotor] [animation-fetch] [start] name="idle" url=http://127.0.0.1:5197/animations/idle.fbx
+ 🎮 [wardrobe-compatibility-lab] candidate_preview allowed outfit=sleeveless-dress model=/companions/sample.vrm
+[VRM] Full capability audit
+Expressions available: [neutral, aa, ih, ou, ee, oh, blink, blinkLeft, blinkRight, angry, relaxed, happy, sad, Surprised]
+Humanoid bones: [hips, leftUpperLeg, rightUpperLeg, leftLowerLeg, rightLowerLeg, leftFoot, rightFoot, spine, chest, neck, head, leftShoulder, rightShoulder, leftUpperArm, rightUpperArm, leftLowerArm, rightLowerArm, leftHand, rightHand, leftToes, rightToes, leftEye, rightEye, leftThumbMetacarpal, leftThumbProximal, leftThumbDistal, leftIndexProximal, leftIndexIntermediate, leftIndexDistal, leftMiddleProximal, leftMiddleIntermediate, leftMiddleDistal, leftRingProximal, leftRingIntermediate, leftRingDistal, leftLittleProximal, leftLittleIntermediate, leftLittleDistal, rightThumbMetacarpal, rightThumbProximal, rightThumbDistal, rightIndexProximal, rightIndexIntermediate, rightIndexDistal, rightMiddleProximal, rightMiddleIntermediate, rightMiddleDistal, rightRingProximal, rightRingIntermediate, rightRingDistal, rightLittleProximal, rightLittleIntermediate, rightLittleDistal, upperChest]
+VRM version: 0
+Has expressionManager: true
+Has humanoid: true
+Has springBoneManager: true
+console.groupEnd
+[VRM] Full capability audit
+Expressions available: [neutral, aa, ih, ou, ee, oh, blink, blinkLeft, blinkRight, angry, relaxed, happy, sad, Surprised]
+Humanoid bones: [hips, leftUpperLeg, rightUpperLeg, leftLowerLeg, rightLowerLeg, leftFoot, rightFoot, spine, chest, neck, head, leftShoulder, rightShoulder, leftUpperArm, rightUpperArm, leftLowerArm, rightLowerArm, leftHand, rightHand, leftToes, rightToes, leftEye, rightEye, leftThumbMetacarpal, leftThumbProximal, leftThumbDistal, leftIndexProximal, leftIndexIntermediate, leftIndexDistal, leftMiddleProximal, leftMiddleIntermediate, leftMiddleDistal, leftRingProximal, leftRingIntermediate, leftRingDistal, leftLittleProximal, leftLittleIntermediate, leftLittleDistal, rightThumbMetacarpal, rightThumbProximal, rightThumbDistal, rightIndexProximal, rightIndexIntermediate, rightIndexDistal, rightMiddleProximal, rightMiddleIntermediate, rightMiddleDistal, rightRingProximal, rightRingIntermediate, rightRingDistal, rightLittleProximal, rightLittleIntermediate, rightLittleDistal, upperChest]
+VRM version: 0
+Has expressionManager: true
+Has humanoid: true
+Has springBoneManager: true
+console.groupEnd
+ 🎮 [companion-wardrobe-lab] avatar_bind_pose captured bones=192
+🎮 [CompanionMotor] [animation-fetch] [start] name="idle" url=http://127.0.0.1:5197/animations/idle.fbx
+ 🎮 [wardrobe-compatibility-lab] source_loaded result=ready case=tene-standard-body-identity slot=tene
+ 🎮 [wardrobe-identity-lab] preview_settled result=ready companion=tene identity=base
+ 🎮 [companion-wardrobe-lab] base_clothing visibility=false materials=4
+ 🎮 [companion-wardrobe-lab] downloaded_outfit applied outfit=sleeveless-dress variant=sleeveless-dress vertices=6282 fit_scale=1.0935 surface_offset=0.025
+ 🎮 [companion-wardrobe-lab] base_clothing visibility=true materials=4
+ 🎮 [companion-wardrobe-lab] base_clothing visibility=false materials=4
+🎮 [CompanionMotor] [animation-fetch] [ok] name="idle" retargetedTracks=53
+🎮 [mixamoRetarget] [compat] [mirrored-arm-rest-x]
+🎮 [CompanionMotor] [animation-fetch] [ok] name="idle" retargetedTracks=53
+🎮 [CompanionMotor] [animate] [play] "idle" tracks=53 loop=true
+🎮 [CompanionMotor] [animate] [play] "idle" tracks=53 loop=true
+[VRM] Full capability audit
+Expressions available: [neutral, aa, ih, ou, ee, oh, blink, blinkLeft, blinkRight, angry, relaxed, happy, sad, Surprised]
+Humanoid bones: [hips, leftUpperLeg, rightUpperLeg, leftLowerLeg, rightLowerLeg, leftFoot, rightFoot, spine, chest, neck, head, leftShoulder, rightShoulder, leftUpperArm, rightUpperArm, leftLowerArm, rightLowerArm, leftHand, rightHand, leftToes, rightToes, leftEye, rightEye, leftThumbMetacarpal, leftThumbProximal, leftThumbDistal, leftIndexProximal, leftIndexIntermediate, leftIndexDistal, leftMiddleProximal, leftMiddleIntermediate, leftMiddleDistal, leftRingProximal, leftRingIntermediate, leftRingDistal, leftLittleProximal, leftLittleIntermediate, leftLittleDistal, rightThumbMetacarpal, rightThumbProximal, rightThumbDistal, rightIndexProximal, rightIndexIntermediate, rightIndexDistal, rightMiddleProximal, rightMiddleIntermediate, rightMiddleDistal, rightRingProximal, rightRingIntermediate, rightRingDistal, rightLittleProximal, rightLittleIntermediate, rightLittleDistal, upperChest]
+VRM version: 0
+Has expressionManager: true
+Has humanoid: true
+Has springBoneManager: true
+console.groupEnd
+ 🎮 [companion-wardrobe-lab] base_clothing visibility=true materials=4
+ 🎮 [companion-wardrobe-lab] base_clothing visibility=false materials=4
+ 🎮 [wardrobe-identity-lab] clothing_reconciled result=ready outfit=sleeveless-dress
+ 🎮 [wardrobe-identity-lab] composite_ready result=ready identity=/companions/1537416846714225126.vrm scale=1.0132 standard_hidden=12 source_hidden=16 source_visible=11 source_head_masks=0 body_skin_transferred=2
+ 🎮 [wardrobe-compatibility-lab] model_loaded result=ready case=tene-standard-body-identity slot=tene
+ 🎮 [wardrobe-identity-lab] preview_settled result=ready companion=tene identity=/companions/1537416846714225126.vrm
+ 🎮 [wardrobe-certification-lab] preview_selected result=candidate companion=towa item=sleeveless-dress template=ribbon-dress
+[VRM] Full capability audit
+Expressions available: [aa, angry, blink, blinkLeft, blinkRight, ee, happy, ih, lookDown, lookLeft, lookRight, lookUp, neutral, oh, ou, relaxed, sad, surprised]
+Humanoid bones: [chest, head, hips, leftEye, leftFoot, leftHand, leftIndexDistal, leftIndexIntermediate, leftIndexProximal, leftLittleDistal, leftLittleIntermediate, leftLittleProximal, leftLowerArm, leftLowerLeg, leftMiddleDistal, leftMiddleIntermediate, leftMiddleProximal, leftRingDistal, leftRingIntermediate, leftRingProximal, leftShoulder, leftThumbDistal, leftThumbMetacarpal, leftThumbProximal, leftToes, leftUpperArm, leftUpperLeg, neck, rightEye, rightFoot, rightHand, rightIndexDistal, rightIndexIntermediate, rightIndexProximal, rightLittleDistal, rightLittleIntermediate, rightLittleProximal, rightLowerArm, rightLowerLeg, rightMiddleDistal, rightMiddleIntermediate, rightMiddleProximal, rightRingDistal, rightRingIntermediate, rightRingProximal, rightShoulder, rightThumbDistal, rightThumbMetacarpal, rightThumbProximal, rightToes, rightUpperArm, rightUpperLeg, spine, upperChest]
+VRM version: 1
+Has expressionManager: true
+Has humanoid: true
+Has springBoneManager: true
+console.groupEnd
+[VRM] Full capability audit
+Expressions available: [aa, angry, blink, blinkLeft, blinkRight, ee, happy, ih, lookDown, lookLeft, lookRight, lookUp, neutral, oh, ou, relaxed, sad, surprised]
+Humanoid bones: [chest, head, hips, leftEye, leftFoot, leftHand, leftIndexDistal, leftIndexIntermediate, leftIndexProximal, leftLittleDistal, leftLittleIntermediate, leftLittleProximal, leftLowerArm, leftLowerLeg, leftMiddleDistal, leftMiddleIntermediate, leftMiddleProximal, leftRingDistal, leftRingIntermediate, leftRingProximal, leftShoulder, leftThumbDistal, leftThumbMetacarpal, leftThumbProximal, leftToes, leftUpperArm, leftUpperLeg, neck, rightEye, rightFoot, rightHand, rightIndexDistal, rightIndexIntermediate, rightIndexProximal, rightLittleDistal, rightLittleIntermediate, rightLittleProximal, rightLowerArm, rightLowerLeg, rightMiddleDistal, rightMiddleIntermediate, rightMiddleProximal, rightRingDistal, rightRingIntermediate, rightRingProximal, rightShoulder, rightThumbDistal, rightThumbMetacarpal, rightThumbProximal, rightToes, rightUpperArm, rightUpperLeg, spine, upperChest]
+VRM version: 1
+Has expressionManager: true
+Has humanoid: true
+Has springBoneManager: true
+console.groupEnd
+ 🎮 [companion-wardrobe-lab] avatar_bind_pose captured bones=154
+🎮 [CompanionMotor] [animation-fetch] [start] name="idle" url=http://127.0.0.1:5197/animations/idle.fbx
+ 🎮 [wardrobe-compatibility-lab] candidate_preview allowed outfit=sleeveless-dress model=/companions/sample.vrm
+[VRM] Full capability audit
+Expressions available: [neutral, aa, ih, ou, ee, oh, blink, blinkLeft, blinkRight, angry, relaxed, happy, sad, Surprised]
+Humanoid bones: [hips, leftUpperLeg, rightUpperLeg, leftLowerLeg, rightLowerLeg, leftFoot, rightFoot, spine, chest, neck, head, leftShoulder, rightShoulder, leftUpperArm, rightUpperArm, leftLowerArm, rightLowerArm, leftHand, rightHand, leftToes, rightToes, leftEye, rightEye, leftThumbMetacarpal, leftThumbProximal, leftThumbDistal, leftIndexProximal, leftIndexIntermediate, leftIndexDistal, leftMiddleProximal, leftMiddleIntermediate, leftMiddleDistal, leftRingProximal, leftRingIntermediate, leftRingDistal, leftLittleProximal, leftLittleIntermediate, leftLittleDistal, rightThumbMetacarpal, rightThumbProximal, rightThumbDistal, rightIndexProximal, rightIndexIntermediate, rightIndexDistal, rightMiddleProximal, rightMiddleIntermediate, rightMiddleDistal, rightRingProximal, rightRingIntermediate, rightRingDistal, rightLittleProximal, rightLittleIntermediate, rightLittleDistal, upperChest]
+VRM version: 0
+Has expressionManager: true
+Has humanoid: true
+Has springBoneManager: true
+console.groupEnd
+[VRM] Full capability audit
+Expressions available: [neutral, aa, ih, ou, ee, oh, blink, blinkLeft, blinkRight, angry, relaxed, happy, sad, Surprised]
+Humanoid bones: [hips, leftUpperLeg, rightUpperLeg, leftLowerLeg, rightLowerLeg, leftFoot, rightFoot, spine, chest, neck, head, leftShoulder, rightShoulder, leftUpperArm, rightUpperArm, leftLowerArm, rightLowerArm, leftHand, rightHand, leftToes, rightToes, leftEye, rightEye, leftThumbMetacarpal, leftThumbProximal, leftThumbDistal, leftIndexProximal, leftIndexIntermediate, leftIndexDistal, leftMiddleProximal, leftMiddleIntermediate, leftMiddleDistal, leftRingProximal, leftRingIntermediate, leftRingDistal, leftLittleProximal, leftLittleIntermediate, leftLittleDistal, rightThumbMetacarpal, rightThumbProximal, rightThumbDistal, rightIndexProximal, rightIndexIntermediate, rightIndexDistal, rightMiddleProximal, rightMiddleIntermediate, rightMiddleDistal, rightRingProximal, rightRingIntermediate, rightRingDistal, rightLittleProximal, rightLittleIntermediate, rightLittleDistal, upperChest]
+VRM version: 0
+Has expressionManager: true
+Has humanoid: true
+Has springBoneManager: true
+console.groupEnd
+ 🎮 [companion-wardrobe-lab] avatar_bind_pose captured bones=119
+🎮 [CompanionMotor] [animation-fetch] [start] name="idle" url=http://127.0.0.1:5197/animations/idle.fbx
+ 🎮 [wardrobe-compatibility-lab] source_loaded result=ready case=towa-standard-body-identity slot=towa
+ 🎮 [wardrobe-identity-lab] preview_settled result=ready companion=towa identity=base
+ 🎮 [companion-wardrobe-lab] base_clothing visibility=false materials=4
+ 🎮 [companion-wardrobe-lab] downloaded_outfit applied outfit=sleeveless-dress variant=sleeveless-dress vertices=6282 fit_scale=1.0935 surface_offset=0.025
+ 🎮 [companion-wardrobe-lab] base_clothing visibility=true materials=4
+ 🎮 [companion-wardrobe-lab] base_clothing visibility=false materials=4
+🎮 [CompanionMotor] [animation-fetch] [ok] name="idle" retargetedTracks=53
+🎮 [mixamoRetarget] [compat] [mirrored-arm-rest-x]
+🎮 [CompanionMotor] [animation-fetch] [ok] name="idle" retargetedTracks=53
+🎮 [CompanionMotor] [animate] [play] "idle" tracks=53 loop=true
+🎮 [CompanionMotor] [animate] [play] "idle" tracks=53 loop=true
+[VRM] Full capability audit
+Expressions available: [neutral, aa, ih, ou, ee, oh, blink, blinkLeft, blinkRight, angry, relaxed, happy, sad, Surprised]
+Humanoid bones: [hips, leftUpperLeg, rightUpperLeg, leftLowerLeg, rightLowerLeg, leftFoot, rightFoot, spine, chest, neck, head, leftShoulder, rightShoulder, leftUpperArm, rightUpperArm, leftLowerArm, rightLowerArm, leftHand, rightHand, leftToes, rightToes, leftEye, rightEye, leftThumbMetacarpal, leftThumbProximal, leftThumbDistal, leftIndexProximal, leftIndexIntermediate, leftIndexDistal, leftMiddleProximal, leftMiddleIntermediate, leftMiddleDistal, leftRingProximal, leftRingIntermediate, leftRingDistal, leftLittleProximal, leftLittleIntermediate, leftLittleDistal, rightThumbMetacarpal, rightThumbProximal, rightThumbDistal, rightIndexProximal, rightIndexIntermediate, rightIndexDistal, rightMiddleProximal, rightMiddleIntermediate, rightMiddleDistal, rightRingProximal, rightRingIntermediate, rightRingDistal, rightLittleProximal, rightLittleIntermediate, rightLittleDistal, upperChest]
+VRM version: 0
+Has expressionManager: true
+Has humanoid: true
+Has springBoneManager: true
+console.groupEnd
+ 🎮 [companion-wardrobe-lab] base_clothing visibility=true materials=4
+ 🎮 [companion-wardrobe-lab] base_clothing visibility=false materials=4
+ 🎮 [wardrobe-identity-lab] clothing_reconciled result=ready outfit=sleeveless-dress
+ 🎮 [wardrobe-identity-lab] composite_ready result=ready identity=/companions/7339187387832391139.vrm scale=0.9859 standard_hidden=12 source_hidden=12 source_visible=11 source_head_masks=0 body_skin_transferred=2
+ 🎮 [wardrobe-compatibility-lab] model_loaded result=ready case=towa-standard-body-identity slot=towa
+ 🎮 [wardrobe-identity-lab] preview_settled result=ready companion=towa identity=/companions/7339187387832391139.vrm
+ 🎮 [wardrobe-certification-lab] preview_selected result=candidate companion=yukari item=sleeveless-dress template=ribbon-dress
+[VRM] Full capability audit
+Expressions available: [aa, angry, blink, blinkLeft, blinkRight, ee, happy, ih, lookDown, lookLeft, lookRight, lookUp, neutral, oh, ou, relaxed, sad, surprised]
+Humanoid bones: [chest, head, hips, leftEye, leftFoot, leftHand, leftIndexDistal, leftIndexIntermediate, leftIndexProximal, leftLittleDistal, leftLittleIntermediate, leftLittleProximal, leftLowerArm, leftLowerLeg, leftMiddleDistal, leftMiddleIntermediate, leftMiddleProximal, leftRingDistal, leftRingIntermediate, leftRingProximal, leftShoulder, leftThumbDistal, leftThumbMetacarpal, leftThumbProximal, leftToes, leftUpperArm, leftUpperLeg, neck, rightEye, rightFoot, rightHand, rightIndexDistal, rightIndexIntermediate, rightIndexProximal, rightLittleDistal, rightLittleIntermediate, rightLittleProximal, rightLowerArm, rightLowerLeg, rightMiddleDistal, rightMiddleIntermediate, rightMiddleProximal, rightRingDistal, rightRingIntermediate, rightRingProximal, rightShoulder, rightThumbDistal, rightThumbMetacarpal, rightThumbProximal, rightToes, rightUpperArm, rightUpperLeg, spine, upperChest]
+VRM version: 1
+Has expressionManager: true
+Has humanoid: true
+Has springBoneManager: true
+console.groupEnd
+[VRM] Full capability audit
+Expressions available: [aa, angry, blink, blinkLeft, blinkRight, ee, happy, ih, lookDown, lookLeft, lookRight, lookUp, neutral, oh, ou, relaxed, sad, surprised]
+Humanoid bones: [chest, head, hips, leftEye, leftFoot, leftHand, leftIndexDistal, leftIndexIntermediate, leftIndexProximal, leftLittleDistal, leftLittleIntermediate, leftLittleProximal, leftLowerArm, leftLowerLeg, leftMiddleDistal, leftMiddleIntermediate, leftMiddleProximal, leftRingDistal, leftRingIntermediate, leftRingProximal, leftShoulder, leftThumbDistal, leftThumbMetacarpal, leftThumbProximal, leftToes, leftUpperArm, leftUpperLeg, neck, rightEye, rightFoot, rightHand, rightIndexDistal, rightIndexIntermediate, rightIndexProximal, rightLittleDistal, rightLittleIntermediate, rightLittleProximal, rightLowerArm, rightLowerLeg, rightMiddleDistal, rightMiddleIntermediate, rightMiddleProximal, rightRingDistal, rightRingIntermediate, rightRingProximal, rightShoulder, rightThumbDistal, rightThumbMetacarpal, rightThumbProximal, rightToes, rightUpperArm, rightUpperLeg, spine, upperChest]
+VRM version: 1
+Has expressionManager: true
+Has humanoid: true
+Has springBoneManager: true
+console.groupEnd
+ 🎮 [companion-wardrobe-lab] avatar_bind_pose captured bones=154
+🎮 [CompanionMotor] [animation-fetch] [start] name="idle" url=http://127.0.0.1:5197/animations/idle.fbx
+ 🎮 [wardrobe-compatibility-lab] candidate_preview allowed outfit=sleeveless-dress model=/companions/sample.vrm
+[VRM] Full capability audit
+Expressions available: [neutral, aa, ih, ou, ee, oh, blink, blinkLeft, blinkRight, angry, relaxed, happy, sad, Surprised]
+Humanoid bones: [hips, leftUpperLeg, rightUpperLeg, leftLowerLeg, rightLowerLeg, leftFoot, rightFoot, spine, chest, neck, head, leftShoulder, rightShoulder, leftUpperArm, rightUpperArm, leftLowerArm, rightLowerArm, leftHand, rightHand, leftToes, rightToes, leftEye, rightEye, leftThumbMetacarpal, leftThumbProximal, leftThumbDistal, leftIndexProximal, leftIndexIntermediate, leftIndexDistal, leftMiddleProximal, leftMiddleIntermediate, leftMiddleDistal, leftRingProximal, leftRingIntermediate, leftRingDistal, leftLittleProximal, leftLittleIntermediate, leftLittleDistal, rightThumbMetacarpal, rightThumbProximal, rightThumbDistal, rightIndexProximal, rightIndexIntermediate, rightIndexDistal, rightMiddleProximal, rightMiddleIntermediate, rightMiddleDistal, rightRingProximal, rightRingIntermediate, rightRingDistal, rightLittleProximal, rightLittleIntermediate, rightLittleDistal, upperChest]
+VRM version: 0
+Has expressionManager: true
+Has humanoid: true
+Has springBoneManager: true
+console.groupEnd
+[VRM] Full capability audit
+Expressions available: [neutral, aa, ih, ou, ee, oh, blink, blinkLeft, blinkRight, angry, relaxed, happy, sad, Surprised]
+Humanoid bones: [hips, leftUpperLeg, rightUpperLeg, leftLowerLeg, rightLowerLeg, leftFoot, rightFoot, spine, chest, neck, head, leftShoulder, rightShoulder, leftUpperArm, rightUpperArm, leftLowerArm, rightLowerArm, leftHand, rightHand, leftToes, rightToes, leftEye, rightEye, leftThumbMetacarpal, leftThumbProximal, leftThumbDistal, leftIndexProximal, leftIndexIntermediate, leftIndexDistal, leftMiddleProximal, leftMiddleIntermediate, leftMiddleDistal, leftRingProximal, leftRingIntermediate, leftRingDistal, leftLittleProximal, leftLittleIntermediate, leftLittleDistal, rightThumbMetacarpal, rightThumbProximal, rightThumbDistal, rightIndexProximal, rightIndexIntermediate, rightIndexDistal, rightMiddleProximal, rightMiddleIntermediate, rightMiddleDistal, rightRingProximal, rightRingIntermediate, rightRingDistal, rightLittleProximal, rightLittleIntermediate, rightLittleDistal, upperChest]
+VRM version: 0
+Has expressionManager: true
+Has humanoid: true
+Has springBoneManager: true
+console.groupEnd
+ 🎮 [companion-wardrobe-lab] avatar_bind_pose captured bones=136
+🎮 [CompanionMotor] [animation-fetch] [start] name="idle" url=http://127.0.0.1:5197/animations/idle.fbx
+ 🎮 [wardrobe-compatibility-lab] source_loaded result=ready case=yukari-standard-body-identity slot=yukari
+ 🎮 [wardrobe-identity-lab] preview_settled result=ready companion=yukari identity=base
+ 🎮 [companion-wardrobe-lab] base_clothing visibility=false materials=4
+ 🎮 [companion-wardrobe-lab] downloaded_outfit applied outfit=sleeveless-dress variant=sleeveless-dress vertices=6282 fit_scale=1.0935 surface_offset=0.025
+ 🎮 [companion-wardrobe-lab] base_clothing visibility=true materials=4
+ 🎮 [companion-wardrobe-lab] base_clothing visibility=false materials=4
+🎮 [CompanionMotor] [animation-fetch] [ok] name="idle" retargetedTracks=53
+🎮 [mixamoRetarget] [compat] [mirrored-arm-rest-x]
+🎮 [CompanionMotor] [animation-fetch] [ok] name="idle" retargetedTracks=53
+🎮 [CompanionMotor] [animate] [play] "idle" tracks=53 loop=true
+🎮 [CompanionMotor] [animate] [play] "idle" tracks=53 loop=true
+[VRM] Full capability audit
+Expressions available: [neutral, aa, ih, ou, ee, oh, blink, blinkLeft, blinkRight, angry, relaxed, happy, sad, Surprised]
+Humanoid bones: [hips, leftUpperLeg, rightUpperLeg, leftLowerLeg, rightLowerLeg, leftFoot, rightFoot, spine, chest, neck, head, leftShoulder, rightShoulder, leftUpperArm, rightUpperArm, leftLowerArm, rightLowerArm, leftHand, rightHand, leftToes, rightToes, leftEye, rightEye, leftThumbMetacarpal, leftThumbProximal, leftThumbDistal, leftIndexProximal, leftIndexIntermediate, leftIndexDistal, leftMiddleProximal, leftMiddleIntermediate, leftMiddleDistal, leftRingProximal, leftRingIntermediate, leftRingDistal, leftLittleProximal, leftLittleIntermediate, leftLittleDistal, rightThumbMetacarpal, rightThumbProximal, rightThumbDistal, rightIndexProximal, rightIndexIntermediate, rightIndexDistal, rightMiddleProximal, rightMiddleIntermediate, rightMiddleDistal, rightRingProximal, rightRingIntermediate, rightRingDistal, rightLittleProximal, rightLittleIntermediate, rightLittleDistal, upperChest]
+VRM version: 0
+Has expressionManager: true
+Has humanoid: true
+Has springBoneManager: true
+console.groupEnd
+ 🎮 [companion-wardrobe-lab] base_clothing visibility=true materials=4
+ 🎮 [companion-wardrobe-lab] base_clothing visibility=false materials=4
+ 🎮 [wardrobe-identity-lab] clothing_reconciled result=ready outfit=sleeveless-dress
+ 🎮 [wardrobe-identity-lab] composite_ready result=ready identity=/companions/3852603318431396015.vrm scale=0.9849 standard_hidden=12 source_hidden=8 source_visible=9 source_head_masks=0 body_skin_transferred=0
+ 🎮 [wardrobe-compatibility-lab] model_loaded result=ready case=yukari-standard-body-identity slot=yukari
+ 🎮 [wardrobe-identity-lab] preview_settled result=ready companion=yukari identity=/companions/3852603318431396015.vrm

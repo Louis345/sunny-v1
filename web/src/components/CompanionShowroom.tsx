@@ -3339,9 +3339,13 @@ function CompanionSlot({
       let webgpuAttempt: WebGPURenderer | undefined;
 
       try {
-        webgpuAttempt = new WebGPURenderer({ antialias: true });
-        await webgpuAttempt.init();
-        renderer = webgpuAttempt;
+        // The wardrobe loader supplies classic MToon/ShaderMaterial assets.
+        // Certification must use the renderer that can actually display them.
+        if (wardrobeQaMode !== "candidate_preview") {
+          webgpuAttempt = new WebGPURenderer({ antialias: true });
+          await webgpuAttempt.init();
+          renderer = webgpuAttempt;
+        }
       } catch (err: unknown) {
         console.error("CompanionShowroom: WebGPU failed, falling back:", err);
         if (webgpuAttempt) {
@@ -3351,6 +3355,8 @@ function CompanionSlot({
             console.error("CompanionShowroom: WebGPU dispose after failure:", disposeErr);
           }
         }
+      }
+      if (!renderer) {
         renderer = new THREE.WebGLRenderer({
           alpha: true,
           antialias: true,
