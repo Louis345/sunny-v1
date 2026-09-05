@@ -299,6 +299,9 @@
   background:
     radial-gradient(circle, rgba(255, 255, 255, 0.94) 0 45%, rgba(241, 224, 238, 0.64) 72%, transparent 73%);
   filter: drop-shadow(0 28px 30px rgba(70, 47, 65, 0.12));
+}
+
+.wardrobe-store-lab__product-art .wardrobe-item-thumbnail.is-accessory {
   font-size: clamp(92px, 12vw, 170px);
 }
 
@@ -316,10 +319,6 @@
   stroke-linecap: round;
   stroke-linejoin: round;
   stroke-width: 2;
-}
-
-.wardrobe-item-thumbnail.is-accessory {
-  font-size: inherit;
 }
 
 .wardrobe-store-lab__closet-grid .wardrobe-item-thumbnail {

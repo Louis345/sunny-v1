@@ -1,0 +1,12 @@
+{
+  "source": "/Users/jamaltaylor/Development/sunny-companion-wardrobe-sandbox",
+  "destination": "/Users/jamaltaylor/.codex/worktrees/wardrobe-identity/sunny",
+  "sourceHead": "1e7fd169a62b0fa0120f5e65efc5ddf1c75a40b0",
+  "wardrobePatchSha256": "d76c268a76a8d5c3bf2f2073763d5ec3044599ef91d58dfa855db96f7471f087",
+  "copiedAssets": [
+    ".sunny-sandbox/wardrobe",
+    "web/public/companions",
+    "web/public/animations"
+  ],
+  "excluded": "Uncommitted src/context changes, credentials, unrelated artifacts"
+}

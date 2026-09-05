@@ -51,6 +51,7 @@ import {
   type XwearMaterialVariant,
 } from "../lib/xwearDress";
 import {
+  WARDROBE_STORE_CATALOG,
   isWardrobeOutfitCompatible,
   type WardrobeAccessoryId,
   type WardrobeOutfitId,
@@ -64,7 +65,7 @@ import {
 } from "./WardrobeStoreLab";
 import { WardrobeCompatibilityLab } from "./WardrobeCompatibilityLab";
 import {
-  WARDROBE_COMPATIBILITY_CASES,
+  WARDROBE_STORE_CERTIFICATION_CASES,
   resolveStandardizedWardrobePresentation,
   type WardrobeIdentityHeadwearStyle,
 } from "../lib/wardrobeBodyProfiles";
@@ -649,6 +650,15 @@ export type ShowroomContainedSlotFraming = {
   motorDisplayScale: number;
   transformOrigin: string;
 };
+
+export type WardrobeIdentityCompositeState = "loading" | "ready" | "failed";
+
+export function shouldRevealWardrobeCompanionCanvas(args: {
+  identityOverlayModelUrl?: string;
+  identityCompositeState: WardrobeIdentityCompositeState;
+}): boolean {
+  return !args.identityOverlayModelUrl || args.identityCompositeState === "ready";
+}
 
 export function getShowroomVideoChatLatencyBudget(): ShowroomVideoChatLatencyBudget {
   return {
@@ -2323,11 +2333,14 @@ function createPersistentSlotEntries(
   });
 }
 
-function slotFrameStyle(
+export function slotFrameStyle(
   slot: SlotName,
-  opts: { soleFlankPair?: boolean } = {},
+  opts: {
+    soleFlankPair?: boolean;
+    instantAvatarSwitch?: boolean;
+  } = {},
 ): CSSProperties {
-  const { soleFlankPair } = opts;
+  const { instantAvatarSwitch = false, soleFlankPair } = opts;
   const base: CSSProperties = {
     position: "absolute",
     top: slot === "current" ? "5%" : "8%",
@@ -2335,8 +2348,9 @@ function slotFrameStyle(
     height: "min(66vh, 560px)",
     minWidth: slot === "current" ? 230 : 150,
     minHeight: 300,
-    transition:
-      "left 620ms cubic-bezier(0.22, 1, 0.36, 1), width 620ms cubic-bezier(0.22, 1, 0.36, 1), transform 620ms cubic-bezier(0.22, 1, 0.36, 1), opacity 420ms ease, filter 420ms ease",
+    transition: instantAvatarSwitch
+      ? "none"
+      : "left 620ms cubic-bezier(0.22, 1, 0.36, 1), width 620ms cubic-bezier(0.22, 1, 0.36, 1), transform 620ms cubic-bezier(0.22, 1, 0.36, 1), opacity 420ms ease, filter 420ms ease",
     pointerEvents: slot === "current" ? "auto" : "none",
   };
 
@@ -2344,7 +2358,7 @@ function slotFrameStyle(
     return {
       ...base,
       left: soleFlankPair ? "24%" : "16%",
-      opacity: 0.4,
+      opacity: instantAvatarSwitch ? 0 : 0.4,
       filter: "saturate(0.75)",
       transform: "translateX(-50%) scale(0.76)",
       zIndex: 1,
@@ -2354,7 +2368,7 @@ function slotFrameStyle(
     return {
       ...base,
       left: soleFlankPair ? "76%" : "84%",
-      opacity: soleFlankPair ? 0.5 : 0.4,
+      opacity: instantAvatarSwitch ? 0 : soleFlankPair ? 0.5 : 0.4,
       filter: "saturate(0.75)",
       transform: `translateX(-50%) scale(${soleFlankPair ? 0.78 : 0.76})`,
       zIndex: 1,
@@ -2670,6 +2684,7 @@ function CompanionSlot({
   slot,
   active,
   soleFlankPair,
+  instantAvatarSwitch = false,
   contained = false,
   displayScaleOverride,
   cameraAngleOverride,
@@ -2683,6 +2698,8 @@ function CompanionSlot({
   identityOverlayModelUrl,
   identityBodySkinTint,
   identityHeadwearStyle,
+  identityScale,
+  identityOffsetY = 0,
   onMotorReady,
   onLoadSettled,
   onVrmAttached,
@@ -2696,6 +2713,7 @@ function CompanionSlot({
    * than the default side preview.
   */
   soleFlankPair?: boolean;
+  instantAvatarSwitch?: boolean;
   contained?: boolean;
   displayScaleOverride?: number;
   cameraAngleOverride?: CameraAngle;
@@ -2709,6 +2727,8 @@ function CompanionSlot({
   identityOverlayModelUrl?: string;
   identityBodySkinTint?: string;
   identityHeadwearStyle?: WardrobeIdentityHeadwearStyle;
+  identityScale?: number;
+  identityOffsetY?: number;
   onMotorReady?: (slot: SlotName, motor: CompanionMotor | null) => void;
   onLoadSettled: (slotKey: string) => void;
   /** Fires once after `attachVrm` succeeds (not called on load failure). */
@@ -2735,8 +2755,13 @@ function CompanionSlot({
     vrm: VRM;
     standardHead: THREE.Object3D;
     identityHead: THREE.Object3D;
+    offsetY: number;
   } | null>(null);
   const identityHeadwearRef = useRef<THREE.Group | null>(null);
+  const [identityCompositeState, setIdentityCompositeState] =
+    useState<WardrobeIdentityCompositeState>(
+      identityOverlayModelUrl ? "loading" : "ready",
+    );
   const wardrobeOutfitPartsRef = useRef<THREE.Object3D[]>([]);
   const wardrobeOutfitIdRef = useRef<WardrobeOutfitId>(wardrobeOutfitId);
   const wardrobeOutfitMaterialVariantRef = useRef<XwearMaterialVariant | null>(
@@ -2784,8 +2809,17 @@ function CompanionSlot({
   );
   const slotStyle = slotFrameStyle(slot, {
     soleFlankPair: Boolean(soleFlankPair) && (slot === "next" || slot === "prev"),
+    instantAvatarSwitch,
   });
   const hasCustomDisplayScale = displayScale > 1 && !contained;
+  const revealCompanionCanvas = shouldRevealWardrobeCompanionCanvas({
+    identityOverlayModelUrl,
+    identityCompositeState,
+  });
+
+  useEffect(() => {
+    setIdentityCompositeState(identityOverlayModelUrl ? "loading" : "ready");
+  }, [identityOverlayModelUrl]);
 
   useEffect(() => {
     vfxLayerRef.current?.setLevel(vfxLevel);
@@ -2962,6 +2996,7 @@ function CompanionSlot({
           standardHead: identityOverlay.standardHead,
           identityScene: identityOverlay.vrm.scene,
           identityHead: identityOverlay.identityHead,
+          offsetY: identityOverlay.offsetY,
         });
       }
       vfxLayerRef.current?.tick(dt, camera);
@@ -3023,8 +3058,20 @@ function CompanionSlot({
     if (!mount) return;
 
     let cancelled = false;
+    let loadSettled = false;
     let resizeObserver: ResizeObserver | null = null;
     stopLoop();
+
+    const settleLoad = (state: WardrobeIdentityCompositeState) => {
+      if (cancelled || loadSettled) return;
+      loadSettled = true;
+      setIdentityCompositeState(state);
+      onLoadSettled(slotKey);
+      if (state === "ready") onVrmAttached?.();
+      console.log(
+        ` 🎮 [wardrobe-identity-lab] preview_settled result=${state} companion=${entry.id} identity=${identityOverlayModelUrl ?? "base"}`,
+      );
+    };
 
     const readMountSize = () => {
       const rawW = Math.floor(mount.clientWidth || 0);
@@ -3130,6 +3177,7 @@ function CompanionSlot({
                   identityVrm.scene,
                   {
                     bodySkinTint: identityBodySkinTint,
+                    identityHead,
                   },
                 );
                 const alignment = alignIdentityOverlayToStandardHead({
@@ -3137,11 +3185,14 @@ function CompanionSlot({
                   standardHead: head,
                   identityScene: identityVrm.scene,
                   identityHead,
+                  scaleMultiplier: identityScale,
+                  offsetY: identityOffsetY,
                 });
                 identityOverlayRef.current = {
                   vrm: identityVrm,
                   standardHead: head,
                   identityHead,
+                  offsetY: identityOffsetY,
                 };
                 removeWardrobeAccessory(identityHeadwearRef.current);
                 identityHeadwearRef.current = identityHeadwearStyle
@@ -3156,8 +3207,9 @@ function CompanionSlot({
                   ` 🎮 [wardrobe-identity-lab] clothing_reconciled result=ready outfit=${wardrobeOutfitIdRef.current}`,
                 );
                 console.log(
-                  ` 🎮 [wardrobe-identity-lab] composite_ready result=ready identity=${identityOverlayModelUrl} scale=${alignment.scale.toFixed(4)} standard_hidden=${visibility.hiddenStandardIdentityMaterials} source_hidden=${visibility.hiddenSourceBodyMaterials} source_visible=${visibility.visibleSourceIdentityMaterials} body_skin_transferred=${visibility.transferredStandardBodyMaterials}`,
+                  ` 🎮 [wardrobe-identity-lab] composite_ready result=ready identity=${identityOverlayModelUrl} scale=${alignment.scale.toFixed(4)} standard_hidden=${visibility.hiddenStandardIdentityMaterials} source_hidden=${visibility.hiddenSourceBodyMaterials} source_visible=${visibility.visibleSourceIdentityMaterials} source_head_masks=${visibility.maskedSourceMeshes} body_skin_transferred=${visibility.transferredStandardBodyMaterials}`,
                 );
+                settleLoad("ready");
               })
               .catch((error: unknown) => {
                 console.error(
@@ -3174,7 +3226,13 @@ function CompanionSlot({
                       : [];
                   for (const item of materials) item.visible = true;
                 });
+                settleLoad("failed");
               });
+          } else if (identityOverlayModelUrl) {
+            console.error(
+              ` 🎮 [wardrobe-identity-lab] composite_failed result=hidden companion=${entry.id} reason=missing_standard_head`,
+            );
+            settleLoad("failed");
           }
           const selectedAccessoryId = wardrobeAccessoryIdRef.current;
           if (head && selectedAccessoryId !== "none") {
@@ -3263,12 +3321,11 @@ function CompanionSlot({
           ) {
             startLoop();
           }
-          onLoadSettled(slotKey);
-          onVrmAttached?.();
+          if (!identityOverlayModelUrl) settleLoad("ready");
         })
         .catch((err: unknown) => {
           console.error("CompanionShowroom: failed to load VRM —", err);
-          onLoadSettled(slotKey);
+          settleLoad("failed");
         });
     };
 
@@ -3370,6 +3427,8 @@ function CompanionSlot({
     identityOverlayModelUrl,
     identityBodySkinTint,
     identityHeadwearStyle,
+    identityScale,
+    identityOffsetY,
     wardrobeQaMode,
   ]);
 
@@ -3395,7 +3454,7 @@ function CompanionSlot({
     >
       <motion.div
         initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
+        animate={{ opacity: revealCompanionCanvas ? 1 : 0 }}
         exit={{ opacity: 0 }}
         transition={{ duration: 0.34, ease: "easeOut" }}
         style={{
@@ -3414,6 +3473,27 @@ function CompanionSlot({
           }}
         />
       </motion.div>
+      {contained && identityOverlayModelUrl && !revealCompanionCanvas && (
+        <div
+          role="status"
+          aria-live="polite"
+          style={{
+            position: "absolute",
+            inset: 0,
+            display: "grid",
+            placeItems: "center",
+            color: "rgba(62, 48, 76, 0.68)",
+            fontFamily: "Lexend, system-ui, sans-serif",
+            fontSize: 13,
+            fontWeight: 800,
+            letterSpacing: 0.2,
+          }}
+        >
+          {identityCompositeState === "failed"
+            ? `${entry.name} preview unavailable`
+            : `Preparing ${entry.name}`}
+        </div>
+      )}
     </motion.div>
   );
 }
@@ -3910,6 +3990,7 @@ export function CompanionShowroom({
     typeof window !== "undefined" &&
     new URLSearchParams(window.location.search).get("wardrobeCompatibilityLab") === "true";
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [showroomAvatarSwitching, setShowroomAvatarSwitching] = useState(false);
   const [wardrobeAccessoryId, setWardrobeAccessoryId] =
     useState<WardrobeAccessoryId>("none");
   const [wardrobeOutfitId, setWardrobeOutfitId] =
@@ -4146,7 +4227,11 @@ export function CompanionShowroom({
     wardrobePresentation?.bodyModelUrl ?? currentCompanionModelUrl;
   const effectiveWardrobeOutfitId: WardrobeOutfitId =
     current &&
-    isWardrobeOutfitCompatible(wardrobeOutfitId, currentWardrobeModelUrl)
+    isWardrobeOutfitCompatible(
+      wardrobeOutfitId,
+      currentWardrobeModelUrl,
+      current.id,
+    )
       ? wardrobeOutfitId
       : "none";
   const effectiveWardrobeOutfitMaterialVariant =
@@ -6239,6 +6324,32 @@ export function CompanionShowroom({
     [],
   );
 
+  const selectShowroomCompanionIndex = useCallback(
+    (nextIndex: number) => {
+      if (entries.length <= 1) return;
+      const normalizedIndex =
+        (nextIndex % entries.length + entries.length) % entries.length;
+      if (normalizedIndex === currentIndex) return;
+      console.log(
+        ` 🎮 [companion-showroom] [avatar-switch] [started] from=${entries[currentIndex]?.id ?? "none"} to=${entries[normalizedIndex]?.id ?? "none"}`,
+      );
+      setShowroomAvatarSwitching(true);
+      setCurrentIndex(normalizedIndex);
+    },
+    [currentIndex, entries],
+  );
+
+  useEffect(() => {
+    if (!showroomAvatarSwitching) return;
+    const frame = window.requestAnimationFrame(() => {
+      setShowroomAvatarSwitching(false);
+      console.log(
+        ` 🎮 [companion-showroom] [avatar-switch] [settled] companion=${current?.id ?? "none"}`,
+      );
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [current?.id, showroomAvatarSwitching]);
+
   const cycle = useCallback(
     (direction: -1 | 1) => {
       if (entries.length <= 1 || spotlightOpen || picking) return;
@@ -6261,12 +6372,14 @@ export function CompanionShowroom({
       setVideoCallLayout("call");
       setVideoCallCompanionView("full_body");
       setIntroVisible(false);
-      setCurrentIndex((prev) => (prev + direction + entries.length) % entries.length);
+      selectShowroomCompanionIndex(currentIndex + direction);
     },
     [
+      currentIndex,
       entries.length,
       picking,
       resetShowroomTalk,
+      selectShowroomCompanionIndex,
       spotlightOpen,
       stopShowroomVideoChatCamera,
       stopSpeech,
@@ -6708,13 +6821,45 @@ export function CompanionShowroom({
   if (wardrobeCompatibilityLabEnabled) {
     return (
       <WardrobeCompatibilityLab
-        cases={WARDROBE_COMPATIBILITY_CASES}
+        cases={WARDROBE_STORE_CERTIFICATION_CASES}
+        items={WARDROBE_STORE_CATALOG}
         onExit={() => {
           const params = new URLSearchParams(window.location.search);
           params.delete("wardrobeCompatibilityLab");
           window.location.search = params.toString();
         }}
-        renderCompanion={(testCase) => {
+        renderSourceCompanion={(testCase) => {
+          const sourceEntry = entries.find(
+            (entry) => entry.id === testCase.companionId,
+          );
+          if (!sourceEntry) return null;
+          const sourcePreviewEntry: CompanionManifestEntry = {
+            ...sourceEntry,
+            companionConfig: {
+              ...sourceEntry.companionConfig,
+              companionId: sourceEntry.id,
+              vrmUrl: testCase.identityModelUrl ?? testCase.modelUrl,
+            },
+          };
+          return (
+            <CompanionSlot
+              key={`${testCase.id}-source`}
+              entry={sourcePreviewEntry}
+              slot="current"
+              active
+              contained
+              displayScaleOverride={4}
+              cameraAngleOverride="full-body"
+              wardrobeQaMode="candidate_preview"
+              onLoadSettled={(slotKey) => {
+                console.log(
+                  ` 🎮 [wardrobe-compatibility-lab] source_loaded result=ready case=${testCase.id} slot=${slotKey}`,
+                );
+              }}
+            />
+          );
+        }}
+        renderCompanion={(testCase, item, calibration) => {
           const sourceEntry = entries.find(
             (entry) => entry.id === testCase.companionId,
           );
@@ -6736,15 +6881,22 @@ export function CompanionShowroom({
               contained
               displayScaleOverride={4}
               cameraAngleOverride="full-body"
-              wardrobeOutfitId="sleeveless-dress"
-              wardrobeOutfitMaterialVariant={{
-                id: "plum-ribbon-dress",
-                tint: "#c878ff",
-              }}
+              wardrobeOutfitId={
+                item.asset.kind === "outfit"
+                  ? item.asset.outfitId
+                  : "none"
+              }
+              wardrobeOutfitMaterialVariant={
+                item.asset.kind === "outfit"
+                  ? item.asset.materialVariant
+                  : undefined
+              }
               wardrobeQaMode="candidate_preview"
               identityOverlayModelUrl={testCase.identityModelUrl}
               identityBodySkinTint={testCase.bodySkinTint}
               identityHeadwearStyle={testCase.identityHeadwearStyle}
+              identityScale={calibration.identityScale}
+              identityOffsetY={calibration.identityOffsetY}
               onLoadSettled={(slotKey) => {
                 console.log(
                   ` 🎮 [wardrobe-compatibility-lab] model_loaded result=ready case=${testCase.id} slot=${slotKey}`,
@@ -7120,6 +7272,7 @@ export function CompanionShowroom({
               key={slot.entry.id}
               entry={slot.entry}
               slot={slot.slot}
+              instantAvatarSwitch={showroomAvatarSwitching}
               active={
                 !spotlightOpen && !(wardrobeLabEnabled && wardrobeStoreOpen)
               }
@@ -7167,8 +7320,8 @@ export function CompanionShowroom({
                 slot="current"
                 active
                 contained
-                displayScaleOverride={view === "full_body" ? 4 : 1}
-                cameraAngleOverride={view === "portrait" ? "mid-shot" : "full-body"}
+                displayScaleOverride={4}
+                cameraAngleOverride="full-body"
                 getAnalyser={getSpeechAnalyser}
                 wardrobeAccessoryId={wardrobeAccessoryId}
                 wardrobeOutfitId={effectiveWardrobeOutfitId}
@@ -7176,6 +7329,8 @@ export function CompanionShowroom({
                 identityOverlayModelUrl={wardrobePresentation.identityModelUrl}
                 identityBodySkinTint={wardrobePresentation.bodySkinTint}
                 identityHeadwearStyle={wardrobePresentation.identityHeadwearStyle}
+                identityScale={wardrobePresentation.identityScale}
+                identityOffsetY={wardrobePresentation.identityOffsetY}
                 onMotorReady={handleVideoChatMotorReady}
                 onLoadSettled={handleWardrobePreviewLoadSettled}
                 onHeadScreenAnchorChange={setCompanionHeadAnchor}
@@ -7262,7 +7417,7 @@ export function CompanionShowroom({
                   aria-current={dotActive ? "true" : undefined}
                   onClick={() => {
                     if (picking) return;
-                    setCurrentIndex(i);
+                    selectShowroomCompanionIndex(i);
                   }}
                   style={{
                     width: dotActive ? 12 : 9,
@@ -7390,7 +7545,7 @@ export function CompanionShowroom({
                     activeIndex={currentIndex}
                     onPick={(index) => {
                       if (picking) return;
-                      setCurrentIndex(index);
+                      selectShowroomCompanionIndex(index);
                     }}
                     disabled={picking}
                   />

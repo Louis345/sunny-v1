@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
+import { shouldRevealWardrobeCompanionCanvas } from "../components/CompanionShowroom";
 
 function readShowroomSource(): string {
   return readFileSync(
@@ -99,12 +100,34 @@ describe("companion wardrobe feasibility lab", () => {
     expect(showroomSource).not.toContain("companionPortrait={");
     expect(showroomSource).toContain("<CompanionSlot");
     expect(showroomSource).toContain("contained");
-    expect(showroomSource).toContain(
-      'displayScaleOverride={view === "full_body" ? 4 : 1}',
-    );
-    expect(showroomSource).toContain(
-      'cameraAngleOverride={view === "portrait" ? "mid-shot" : "full-body"}',
-    );
+    expect(showroomSource).toContain("displayScaleOverride={4}");
+    expect(showroomSource).toContain('cameraAngleOverride="full-body"');
+  });
+
+  it("never reveals Elli's standard body while another store identity is loading", () => {
+    expect(
+      shouldRevealWardrobeCompanionCanvas({
+        identityOverlayModelUrl: "/companions/princess.vrm",
+        identityCompositeState: "loading",
+      }),
+    ).toBe(false);
+    expect(
+      shouldRevealWardrobeCompanionCanvas({
+        identityOverlayModelUrl: "/companions/princess.vrm",
+        identityCompositeState: "failed",
+      }),
+    ).toBe(false);
+    expect(
+      shouldRevealWardrobeCompanionCanvas({
+        identityOverlayModelUrl: "/companions/princess.vrm",
+        identityCompositeState: "ready",
+      }),
+    ).toBe(true);
+    expect(
+      shouldRevealWardrobeCompanionCanvas({
+        identityCompositeState: "loading",
+      }),
+    ).toBe(true);
   });
 
   it("uses one shopping-call shell instead of the cluttered physical room", () => {
@@ -212,6 +235,14 @@ describe("companion wardrobe feasibility lab", () => {
     expect(styles).not.toContain("overflow-y: auto;\n  padding: 12px 14px;");
     expect(styles).not.toContain("transform: scale(1.45) !important;");
     expect(styles).not.toContain("transform: scale(1.55) !important;");
+  });
+
+  it("scales accessory art to the product display instead of inheriting body text size", () => {
+    const styles = readStoreStyles();
+
+    expect(styles).toMatch(
+      /wardrobe-store-lab__product-art\s+\.wardrobe-item-thumbnail\.is-accessory[^{]*\{[^}]*font-size:\s*clamp\(92px,\s*12vw,\s*170px\)/s,
+    );
   });
 
   it("projects the loaded VRM head into the preview so every character drives bubble placement", () => {

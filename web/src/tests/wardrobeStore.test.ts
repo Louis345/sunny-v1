@@ -12,6 +12,7 @@ import {
   resolveWardrobeItemSelection,
   saveWardrobeItemForLater,
 } from "../lib/wardrobeStore";
+import { resolveWardrobeTemplateCertification } from "../lib/wardrobeBodyProfiles";
 
 describe("wardrobe store domain", () => {
   it("creates one stable strong-opinion mood for a shopping visit", () => {
@@ -19,6 +20,7 @@ describe("wardrobe store domain", () => {
     const items = getCompatibleWardrobeItems(
       WARDROBE_STORE_CATALOG,
       "/companions/sample.vrm",
+      "elli",
     );
     const first = createCompanionShoppingVisit({
       companionId: "elli",
@@ -54,6 +56,7 @@ describe("wardrobe store domain", () => {
     const items = getCompatibleWardrobeItems(
       WARDROBE_STORE_CATALOG,
       "/companions/sample.vrm",
+      "elli",
     );
     const moodIds = new Set(
       Array.from({ length: 12 }, (_, index) =>
@@ -73,10 +76,17 @@ describe("wardrobe store domain", () => {
     const sampleItems = getCompatibleWardrobeItems(
       WARDROBE_STORE_CATALOG,
       "/companions/sample.vrm",
+      "elli",
     );
     const keflaItems = getCompatibleWardrobeItems(
       WARDROBE_STORE_CATALOG,
-      "/companions/Kefla.vrm",
+      "/companions/sample.vrm",
+      "kefla",
+    );
+    const matildaItems = getCompatibleWardrobeItems(
+      WARDROBE_STORE_CATALOG,
+      "/companions/sample.vrm",
+      "matilda",
     );
 
     expect(sampleItems.map((item) => item.id)).toEqual([
@@ -93,6 +103,33 @@ describe("wardrobe store domain", () => {
       "cat-ears",
       "star-halo",
     ]);
+    expect(matildaItems.map((item) => item.id)).toEqual(
+      sampleItems.map((item) => item.id),
+    );
+    expect(resolveWardrobeTemplateCertification("elli", "ribbon-dress").status).toBe(
+      "approved",
+    );
+    expect(resolveWardrobeTemplateCertification("matilda", "ribbon-dress").status).toBe(
+      "approved",
+    );
+    expect(resolveWardrobeTemplateCertification("kefla", "ribbon-dress").status).toBe(
+      "candidate",
+    );
+  });
+
+  it("quarantines an uncertified outfit even when the companion uses the standard body", () => {
+    const initial = createInitialWardrobeStoreState();
+    const result = purchaseWardrobeItem(initial, {
+      itemId: "sleeveless-dress",
+      companionId: "princess",
+      companionModelUrl: "/companions/sample.vrm",
+      transactionId: "uncertified-standard-body",
+      occurredAt: "2026-08-08T12:00:00.000Z",
+    });
+
+    expect(result.status).toBe("incompatible");
+    expect(result.state).toBe(initial);
+    expect(getWardrobeBalance(result.state)).toBe(100);
   });
 
   it("admits only skinned XWear assets as sellable clothing", () => {
@@ -259,11 +296,13 @@ describe("wardrobe store domain", () => {
       initial,
       "sleeveless-dress",
       "/companions/sample.vrm",
+      "elli",
     );
     const duplicate = saveWardrobeItemForLater(
       saved.state,
       "sleeveless-dress",
       "/companions/sample.vrm",
+      "elli",
     );
 
     expect(saved.status).toBe("saved");
