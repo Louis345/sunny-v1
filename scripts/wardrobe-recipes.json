@@ -27,7 +27,7 @@
   },
   {
     "id": "matilda",
-    "version": "identity-preserved-v1",
+    "version": "identity-preserved-v2",
     "sourceUrl": "/companions/673852811403133503.vrm",
     "sourceSha256": "1b11bd3de4f708c147c408602ec21b3b86bc4d0003d8ebd9eba4451495e1d455",
     "expectedMaterials": [
@@ -78,7 +78,77 @@
       "donorPrimitive": 0,
       "targetMesh": 1,
       "targetPrimitive": 0,
-      "targetMaterial": 8
+      "targetMaterial": 8,
+      "jointMappings": {
+        "J_Aim_L_Shoulder": [
+          {
+            "joint": "J_Bip_L_UpperArm",
+            "weight": 1
+          }
+        ],
+        "J_Roll_L_UpperArm": [
+          {
+            "joint": "J_Bip_L_UpperArm",
+            "weight": 1
+          }
+        ],
+        "J_Roll_L_LowerArm": [
+          {
+            "joint": "J_Bip_L_LowerArm",
+            "weight": 1
+          }
+        ],
+        "J_Roll_L_Hand": [
+          {
+            "joint": "J_Bip_L_Hand",
+            "weight": 1
+          }
+        ],
+        "J_Roll_L_Elbow": [
+          {
+            "joint": "J_Bip_L_UpperArm",
+            "weight": 0.5
+          },
+          {
+            "joint": "J_Bip_L_LowerArm",
+            "weight": 0.5
+          }
+        ],
+        "J_Aim_R_Shoulder": [
+          {
+            "joint": "J_Bip_R_UpperArm",
+            "weight": 1
+          }
+        ],
+        "J_Roll_R_UpperArm": [
+          {
+            "joint": "J_Bip_R_UpperArm",
+            "weight": 1
+          }
+        ],
+        "J_Roll_R_LowerArm": [
+          {
+            "joint": "J_Bip_R_LowerArm",
+            "weight": 1
+          }
+        ],
+        "J_Roll_R_Hand": [
+          {
+            "joint": "J_Bip_R_Hand",
+            "weight": 1
+          }
+        ],
+        "J_Roll_R_Elbow": [
+          {
+            "joint": "J_Bip_R_UpperArm",
+            "weight": 0.5
+          },
+          {
+            "joint": "J_Bip_R_LowerArm",
+            "weight": 0.5
+          }
+        ]
+      }
     }
   }
 ]

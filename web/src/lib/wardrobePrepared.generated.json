@@ -15,11 +15,11 @@
   },
   {
     "companionId": "matilda",
-    "recipeVersion": "identity-preserved-v1",
+    "recipeVersion": "identity-preserved-v2",
     "sourceUrl": "/companions/673852811403133503.vrm",
     "sourceSha256": "1b11bd3de4f708c147c408602ec21b3b86bc4d0003d8ebd9eba4451495e1d455",
-    "preparedSha256": "c146b1d045e5feafadbf992f936ef3e73537eb066c2ddc0f4cef177bb93dcbbb",
-    "modelUrl": "/companions/matilda-wardrobe-identity-preserved-v1.vrm",
+    "preparedSha256": "a6433c7040a3c3ddb3915c3be225e32be0d61bda445ce308b60a33609bd7de1e",
+    "modelUrl": "/companions/matilda-wardrobe-identity-preserved-v2.vrm",
     "bodyProfileId": "vroid-slim-v1",
     "clothingMaterials": {
       "9": "bottom",
@@ -40,7 +40,77 @@
       "donorPrimitive": 0,
       "targetMesh": 1,
       "targetPrimitive": 0,
-      "targetMaterial": 8
+      "targetMaterial": 8,
+      "jointMappings": {
+        "J_Aim_L_Shoulder": [
+          {
+            "joint": "J_Bip_L_UpperArm",
+            "weight": 1
+          }
+        ],
+        "J_Roll_L_UpperArm": [
+          {
+            "joint": "J_Bip_L_UpperArm",
+            "weight": 1
+          }
+        ],
+        "J_Roll_L_LowerArm": [
+          {
+            "joint": "J_Bip_L_LowerArm",
+            "weight": 1
+          }
+        ],
+        "J_Roll_L_Hand": [
+          {
+            "joint": "J_Bip_L_Hand",
+            "weight": 1
+          }
+        ],
+        "J_Roll_L_Elbow": [
+          {
+            "joint": "J_Bip_L_UpperArm",
+            "weight": 0.5
+          },
+          {
+            "joint": "J_Bip_L_LowerArm",
+            "weight": 0.5
+          }
+        ],
+        "J_Aim_R_Shoulder": [
+          {
+            "joint": "J_Bip_R_UpperArm",
+            "weight": 1
+          }
+        ],
+        "J_Roll_R_UpperArm": [
+          {
+            "joint": "J_Bip_R_UpperArm",
+            "weight": 1
+          }
+        ],
+        "J_Roll_R_LowerArm": [
+          {
+            "joint": "J_Bip_R_LowerArm",
+            "weight": 1
+          }
+        ],
+        "J_Roll_R_Hand": [
+          {
+            "joint": "J_Bip_R_Hand",
+            "weight": 1
+          }
+        ],
+        "J_Roll_R_Elbow": [
+          {
+            "joint": "J_Bip_R_UpperArm",
+            "weight": 0.5
+          },
+          {
+            "joint": "J_Bip_R_LowerArm",
+            "weight": 0.5
+          }
+        ]
+      }
     },
     "status": "candidate"
   }

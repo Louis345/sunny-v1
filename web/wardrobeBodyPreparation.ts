@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import type { GltfJson } from '../scripts/prepareWardrobe';
 
 type Asset = {json: GltfJson; binary: Buffer};
-export type BodyRepair = { donorMesh: number; donorPrimitive: number; targetMesh: number; targetPrimitive: number; targetMaterial: number };
+export type BodyRepair = { donorMesh: number; donorPrimitive: number; targetMesh: number; targetPrimitive: number; targetMaterial: number; jointMappings?: Record<string, { joint: string; weight: number }[]> };
 
 export function readAccessor(asset: Asset, index: number): number[][] {
   const accessor = asset.json.accessors[index];
@@ -30,20 +30,18 @@ export function restoreBodySurface(target: Asset, donor: Asset, recipe: BodyRepa
   const sourceSkin = skinFor(donor, recipe.donorMesh);
   const targetSkin = skinFor(target, recipe.targetMesh);
   const targetNames = targetSkin.joints.map((index: number) => target.json.nodes[index].name);
-  const parents = new Map<number, number>();
-  donor.json.nodes.forEach((node: GltfJson, parent: number) => (node.children ?? []).forEach((child: number) => parents.set(child, parent)));
-  const sourceAnchors: number[] = sourceSkin.joints.map((nodeIndex: number) => {
-    let current = nodeIndex;
-    for (let depth = 0; depth < 10; depth++) {
-      const skinIndex = sourceSkin.joints.indexOf(current);
-      if (skinIndex >= 0 && targetNames.includes(donor.json.nodes[current].name)) return skinIndex;
-      const parent = parents.get(current);
-      if (parent === undefined) return -1;
-      current = parent;
-    }
-    throw new Error('Body joint ancestry exceeded 10 steps');
+  const sourceNames: string[] = sourceSkin.joints.map((index: number) => donor.json.nodes[index].name);
+  // Constraint helpers can be siblings of the driven limb. An ancestry fallback
+  // pins their vertices to the shoulder; explicit recipe weights preserve motion.
+  const mappings = sourceNames.map((name: string) => {
+    const choices = recipe.jointMappings?.[name] ?? (targetNames.includes(name) ? [{joint:name,weight:1}] : []);
+    if (choices.length && Math.abs(choices.reduce((sum,choice)=>sum+choice.weight,0)-1)>1e-6) throw new Error(`Joint mapping weights must sum to one: ${name}`);
+    return choices.map(choice => {
+      const sourceAnchor = sourceNames.indexOf(choice.joint), targetJoint = targetNames.indexOf(choice.joint);
+      if (sourceAnchor < 0 || targetJoint < 0 || !(choice.weight > 0)) throw new Error(`Invalid body joint mapping: ${name} -> ${choice.joint}`);
+      return {sourceAnchor,targetJoint,weight:choice.weight};
+    });
   });
-  const mapping: number[] = sourceAnchors.map(index => index < 0 ? -1 : targetNames.indexOf(donor.json.nodes[sourceSkin.joints[index]].name));
   const sourceInverses = readAccessor(donor, sourceSkin.inverseBindMatrices).map(matrix => new THREE.Matrix4().fromArray(matrix));
   const targetWorld = readAccessor(target, targetSkin.inverseBindMatrices).map(matrix => new THREE.Matrix4().fromArray(matrix).invert());
   const coordinateRotation = new THREE.Matrix4().makeRotationY(Boolean(donor.json.extensions.VRM) !== Boolean(target.json.extensions.VRM) ? Math.PI : 0);
@@ -51,24 +49,30 @@ export function restoreBodySurface(target: Asset, donor: Asset, recipe: BodyRepa
   const normals = readAccessor(donor, sourcePrimitive.attributes.NORMAL);
   const joints = readAccessor(donor, sourcePrimitive.attributes.JOINTS_0);
   const weights = readAccessor(donor, sourcePrimitive.attributes.WEIGHTS_0);
-  const outputPositions: number[] = []; const outputNormals: number[] = []; const outputJoints: number[] = [];
+  const outputPositions: number[] = []; const outputNormals: number[] = []; const outputJoints: number[] = []; const outputWeights: number[] = [];
   for (let vertex = 0; vertex < positions.length; vertex++) {
     const position = new THREE.Vector3(); const normal = new THREE.Vector3();
+    const merged = new Map<number,number>();
     for (let influence = 0; influence < 4; influence++) {
-      const index = joints[vertex][influence]; const weight = weights[vertex][influence];
-      const mapped = mapping[index];
-      if (weight > 0 && mapped < 0) throw new Error(`Unmapped active donor joint ${index}`);
-      outputJoints.push(mapped < 0 ? 0 : mapped);
-      if (weight === 0) continue;
-      // Both meshes are already in their authored T pose. Local bone axes are
-      // exporter-specific (the donor head even permutes XYZ); map joint positions.
-      const sourceAnchor = new THREE.Vector3().setFromMatrixPosition(sourceInverses[sourceAnchors[index]].clone().invert());
-      const targetAnchor = new THREE.Vector3().setFromMatrixPosition(targetWorld[mapped]);
-      const transform = new THREE.Matrix4().makeTranslation(targetAnchor.x, targetAnchor.y, targetAnchor.z)
-        .multiply(coordinateRotation).multiply(new THREE.Matrix4().makeTranslation(-sourceAnchor.x, -sourceAnchor.y, -sourceAnchor.z));
-      position.add(new THREE.Vector3().fromArray(positions[vertex]).applyMatrix4(transform).multiplyScalar(weight));
-      normal.add(new THREE.Vector3().fromArray(normals[vertex]).applyMatrix3(new THREE.Matrix3().getNormalMatrix(transform)).multiplyScalar(weight));
+      const index = joints[vertex][influence], inputWeight = weights[vertex][influence];
+      if (inputWeight === 0) continue;
+      if (!mappings[index]?.length) throw new Error(`Unmapped active donor joint ${sourceNames[index]}`);
+      for (const mapping of mappings[index]) {
+        const weight = inputWeight * mapping.weight;
+        merged.set(mapping.targetJoint,(merged.get(mapping.targetJoint) ?? 0)+weight);
+        // Transfer in the authored T pose through canonical joint positions.
+        const sourceAnchor = new THREE.Vector3().setFromMatrixPosition(sourceInverses[mapping.sourceAnchor].clone().invert());
+        const targetAnchor = new THREE.Vector3().setFromMatrixPosition(targetWorld[mapping.targetJoint]);
+        const transform = new THREE.Matrix4().makeTranslation(targetAnchor.x,targetAnchor.y,targetAnchor.z)
+          .multiply(coordinateRotation).multiply(new THREE.Matrix4().makeTranslation(-sourceAnchor.x,-sourceAnchor.y,-sourceAnchor.z));
+        position.add(new THREE.Vector3().fromArray(positions[vertex]).applyMatrix4(transform).multiplyScalar(weight));
+        normal.add(new THREE.Vector3().fromArray(normals[vertex]).applyMatrix3(new THREE.Matrix3().getNormalMatrix(transform)).multiplyScalar(weight));
+      }
     }
+    const influences = [...merged].sort((a,b)=>b[1]-a[1]);
+    if (!influences.length || influences.length > 4) throw new Error(`Body vertex ${vertex} needs ${influences.length} skin influences; explicit repair required`);
+    const total = influences.reduce((sum,entry)=>sum+entry[1],0);
+    for (let slot=0;slot<4;slot++) {outputJoints.push(influences[slot]?.[0] ?? 0);outputWeights.push((influences[slot]?.[1] ?? 0)/total);}
     outputPositions.push(...position.toArray()); outputNormals.push(...normal.normalize().toArray());
   }
   const chunks = [target.binary.subarray(8)]; let length = chunks[0].length;
@@ -91,7 +95,7 @@ export function restoreBodySurface(target: Asset, donor: Asset, recipe: BodyRepa
     attributes: {
       POSITION: append(outputPositions,'VEC3',5126,3), NORMAL: append(outputNormals,'VEC3',5126,3),
       TEXCOORD_0: append(readAccessor(donor,sourcePrimitive.attributes.TEXCOORD_0).flat(),'VEC2',5126,2),
-      JOINTS_0: append(outputJoints,'VEC4',5123,4), WEIGHTS_0: append(weights.flat(),'VEC4',5126,4),
+      JOINTS_0: append(outputJoints,'VEC4',5123,4), WEIGHTS_0: append(outputWeights,'VEC4',5126,4),
     },
     indices: append(readAccessor(donor,sourcePrimitive.indices).flat(),'SCALAR',5125,1),
   };
