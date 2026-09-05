@@ -132,7 +132,7 @@ describe("wardrobe store domain", () => {
     expect(getWardrobeBalance(result.state)).toBe(100);
   });
 
-  it("admits only skinned XWear assets as sellable clothing", () => {
+  it("keeps every clothing candidate backed by skinned XWear", () => {
     const outfits = WARDROBE_STORE_CATALOG.filter(
       (item) => item.asset.kind === "outfit",
     );
@@ -142,6 +142,8 @@ describe("wardrobe store domain", () => {
       "Plum Ribbon Dress",
       "Teal Ribbon Dress",
       "Rose Ribbon Dress",
+      "Comet Hoodie",
+      "Constellation Blazer",
     ]);
     expect(
       outfits.every(

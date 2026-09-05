@@ -135,6 +135,18 @@ export const WARDROBE_STORE_CATALOG: readonly WardrobeStoreItem[] = [
     compatibility: { kind: "universal" },
   },
   ...RIBBON_DRESS_VARIANTS,
+  ...([
+    {id: "comet-hoodie", name: "Comet Hoodie", icon: "🧥"},
+    {id: "constellation-blazer", name: "Constellation Blazer", icon: "🧥"},
+  ] as const).map(candidate => ({
+    ...candidate,
+    templateId: candidate.id,
+    price: 0, // Diagnostic candidate; pricing and store entry require review.
+    styleTags: ["candidate"],
+    asset: {kind: "outfit" as const, outfitId: candidate.id, fit: "skinned_xwear" as const,
+      materialVariant: {id:candidate.id,tint:"#ffffff"}},
+    compatibility: {kind: "approved_body_profiles" as const,bodyProfileIds:["sunny-standard-v1","vroid-slim-v1"]},
+  })),
 ] as const;
 
 export type CompanionStoreDesire = {

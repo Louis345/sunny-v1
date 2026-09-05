@@ -135,3 +135,11 @@ it('applies the same inspection view and movement to original and dressed compan
   expect(original.mock.calls.at(-1)?.[1]).toMatchObject({view:'side',pose:'arms-up',accessory:'crown'});
   expect(dressed.mock.calls.at(-1)?.[3]).toMatchObject({view:'side',pose:'arms-up',accessory:'crown'});
 });
+it('offers distinct hoodie and blazer candidates in the diagnostic lab',()=>{
+ render(<WardrobeCompatibilityLab cases={WARDROBE_STORE_CERTIFICATION_CASES} items={WARDROBE_STORE_CATALOG} onExit={vi.fn()} renderSourceCompanion={()=>null} renderCompanion={(_c,item)=><div data-testid="candidate-id">{item.asset.kind==='outfit'?item.asset.outfitId:''}</div>}/>);
+  fireEvent.click(screen.getByRole('button',{name:'Preview Comet Hoodie'}));
+ expect(screen.getByTestId('candidate-id')).toHaveTextContent('comet-hoodie');
+  fireEvent.click(screen.getByRole('button',{name:'Preview Constellation Blazer'}));
+ expect(screen.getByTestId('candidate-id')).toHaveTextContent('constellation-blazer');
+ expect(screen.getByText('Quarantined — human review required')).toBeTruthy();
+});
