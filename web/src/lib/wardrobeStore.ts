@@ -62,7 +62,7 @@ const RIBBON_DRESS_VARIANTS = createWardrobeVariantCatalog({
       icon: "👗",
       compatibility: {
         kind: "approved_body_profiles",
-        bodyProfileIds: ["sunny-standard-v1"],
+        bodyProfileIds: ["sunny-standard-v1", "vroid-slim-v1"],
       },
       qa: {
         status: "approved",

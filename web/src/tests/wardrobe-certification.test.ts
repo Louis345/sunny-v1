@@ -6,7 +6,7 @@ describe('versioned wardrobe certification', () => {
   it('quarantines migrated assets, including accessories previously labelled universal', () => {
     for (const companion of ['elli','matilda']) {
       expect(resolveWardrobeTemplateCertification(companion,'ribbon-dress').status).toBe('candidate');
-      expect(getCompatibleWardrobeItems(WARDROBE_STORE_CATALOG, `/companions/${companion}-wardrobe-identity-preserved-${companion === "matilda" ? "v2" : "v1"}.vrm`, companion)).toEqual([]);
+      expect(getCompatibleWardrobeItems(WARDROBE_STORE_CATALOG, bodies.find(body=>body.companionId===companion)!.modelUrl, companion)).toEqual([]);
     }
   });
   const current = {modelUrl:'/prepared.vrm', preparedSha256:'body-v1', assetVersion:'garment-v1', recipeVersion:'recipe-v1',fittedSha256:'exact-fit-v1'};

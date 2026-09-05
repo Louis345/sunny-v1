@@ -3,48 +3,48 @@
     "companionId": "elli",
     "bodySha256": "6d9698c8fb9e9b41826612cd5fa3dcdde3339e9c0ee7c91368d94430044f8dec",
     "outfitId": "sleeveless-dress",
-    "sourceVersion": "c716207b017239dcbf2a096e8566d291650f3cb5fd2c6a8089b08f8251d2d0d3:8a8ada2c4e3cc906a3ca341ac20d176d205a4bec4d5f7d21a0dbfb620f09ccdf",
-    "url": "/__wardrobe-assets/prepared/elli-sleeveless-dress-d1332cf022581d3f374eac1ed78e27f25aa5d4f1824727fc5900f93833986dc8.json",
-    "sha256": "d1332cf022581d3f374eac1ed78e27f25aa5d4f1824727fc5900f93833986dc8"
+    "sourceVersion": "c716207b017239dcbf2a096e8566d291650f3cb5fd2c6a8089b08f8251d2d0d3:e50e01f2fc56f5991782e5599379293c8077c37032146a689b0e10c03a79a943",
+    "url": "/__wardrobe-assets/prepared/elli-sleeveless-dress-0dedb0c6d77737dcdeb5c38251c1cd5a4823464ad1fb2b1f2324e65189eb87ae.json",
+    "sha256": "0dedb0c6d77737dcdeb5c38251c1cd5a4823464ad1fb2b1f2324e65189eb87ae"
   },
   {
     "companionId": "elli",
     "bodySha256": "6d9698c8fb9e9b41826612cd5fa3dcdde3339e9c0ee7c91368d94430044f8dec",
     "outfitId": "comet-hoodie",
-    "sourceVersion": "ea114d56fd5e5803d6a06e07f8e97356b37403379a8b254f62d551ebe5a3e6cf:8a8ada2c4e3cc906a3ca341ac20d176d205a4bec4d5f7d21a0dbfb620f09ccdf",
-    "url": "/__wardrobe-assets/prepared/elli-comet-hoodie-999db4a1ae25b9cc89debb0d717d9baffc0d6c66a39c59a7d174074bf4873d91.json",
-    "sha256": "999db4a1ae25b9cc89debb0d717d9baffc0d6c66a39c59a7d174074bf4873d91"
+    "sourceVersion": "ea114d56fd5e5803d6a06e07f8e97356b37403379a8b254f62d551ebe5a3e6cf:e50e01f2fc56f5991782e5599379293c8077c37032146a689b0e10c03a79a943",
+    "url": "/__wardrobe-assets/prepared/elli-comet-hoodie-6f0027ce976339003f197bc476cd396c02cd2aba8a05d33434eaadbecc4661bd.json",
+    "sha256": "6f0027ce976339003f197bc476cd396c02cd2aba8a05d33434eaadbecc4661bd"
   },
   {
     "companionId": "elli",
     "bodySha256": "6d9698c8fb9e9b41826612cd5fa3dcdde3339e9c0ee7c91368d94430044f8dec",
     "outfitId": "constellation-blazer",
-    "sourceVersion": "3370358848af0e97fdea02d7bc3b2a0cfa5429b8512d20cf5add71c8fa8cca38:8a8ada2c4e3cc906a3ca341ac20d176d205a4bec4d5f7d21a0dbfb620f09ccdf",
-    "url": "/__wardrobe-assets/prepared/elli-constellation-blazer-e4fbf8dd452e31a430b85e5952ed990c47a33392fbfd9dcf41ecefd616d3d4ee.json",
-    "sha256": "e4fbf8dd452e31a430b85e5952ed990c47a33392fbfd9dcf41ecefd616d3d4ee"
+    "sourceVersion": "3370358848af0e97fdea02d7bc3b2a0cfa5429b8512d20cf5add71c8fa8cca38:e50e01f2fc56f5991782e5599379293c8077c37032146a689b0e10c03a79a943",
+    "url": "/__wardrobe-assets/prepared/elli-constellation-blazer-b82e5a4ab2d1cd85430945525d0d9285af3ed7f182ad3290b43c1d0ad73e8240.json",
+    "sha256": "b82e5a4ab2d1cd85430945525d0d9285af3ed7f182ad3290b43c1d0ad73e8240"
   },
   {
     "companionId": "matilda",
     "bodySha256": "f642d38931582ed85c945d78fa012d0554b8b5b7099535fa1d8cbacf4c881ced",
     "outfitId": "sleeveless-dress",
-    "sourceVersion": "c716207b017239dcbf2a096e8566d291650f3cb5fd2c6a8089b08f8251d2d0d3:8a8ada2c4e3cc906a3ca341ac20d176d205a4bec4d5f7d21a0dbfb620f09ccdf",
-    "url": "/__wardrobe-assets/prepared/matilda-sleeveless-dress-4650d8a648eeb6f9550d0e9161d262936dc8c21a6d371d2b1799c59105d04e74.json",
-    "sha256": "4650d8a648eeb6f9550d0e9161d262936dc8c21a6d371d2b1799c59105d04e74"
+    "sourceVersion": "c716207b017239dcbf2a096e8566d291650f3cb5fd2c6a8089b08f8251d2d0d3:e50e01f2fc56f5991782e5599379293c8077c37032146a689b0e10c03a79a943",
+    "url": "/__wardrobe-assets/prepared/matilda-sleeveless-dress-15b2ef06cba34e55b4e289f77a3bd17beb3bc605eb25647c91665e6d952bd12f.json",
+    "sha256": "15b2ef06cba34e55b4e289f77a3bd17beb3bc605eb25647c91665e6d952bd12f"
   },
   {
     "companionId": "matilda",
     "bodySha256": "f642d38931582ed85c945d78fa012d0554b8b5b7099535fa1d8cbacf4c881ced",
     "outfitId": "comet-hoodie",
-    "sourceVersion": "ea114d56fd5e5803d6a06e07f8e97356b37403379a8b254f62d551ebe5a3e6cf:8a8ada2c4e3cc906a3ca341ac20d176d205a4bec4d5f7d21a0dbfb620f09ccdf",
-    "url": "/__wardrobe-assets/prepared/matilda-comet-hoodie-019684be946bfc87e1b2e7a912f5f8d3838e180197f7a14728a7b300f22b54cb.json",
-    "sha256": "019684be946bfc87e1b2e7a912f5f8d3838e180197f7a14728a7b300f22b54cb"
+    "sourceVersion": "ea114d56fd5e5803d6a06e07f8e97356b37403379a8b254f62d551ebe5a3e6cf:e50e01f2fc56f5991782e5599379293c8077c37032146a689b0e10c03a79a943",
+    "url": "/__wardrobe-assets/prepared/matilda-comet-hoodie-223cc6fbded7e36e1a328f8516714d862bf346f967d0c49b09789dd132dec921.json",
+    "sha256": "223cc6fbded7e36e1a328f8516714d862bf346f967d0c49b09789dd132dec921"
   },
   {
     "companionId": "matilda",
     "bodySha256": "f642d38931582ed85c945d78fa012d0554b8b5b7099535fa1d8cbacf4c881ced",
     "outfitId": "constellation-blazer",
-    "sourceVersion": "3370358848af0e97fdea02d7bc3b2a0cfa5429b8512d20cf5add71c8fa8cca38:8a8ada2c4e3cc906a3ca341ac20d176d205a4bec4d5f7d21a0dbfb620f09ccdf",
-    "url": "/__wardrobe-assets/prepared/matilda-constellation-blazer-d2a1bc6f97f46b1a281fdf8aa08efac0b7cd8f760928d15439c2a1e9696419e0.json",
-    "sha256": "d2a1bc6f97f46b1a281fdf8aa08efac0b7cd8f760928d15439c2a1e9696419e0"
+    "sourceVersion": "3370358848af0e97fdea02d7bc3b2a0cfa5429b8512d20cf5add71c8fa8cca38:e50e01f2fc56f5991782e5599379293c8077c37032146a689b0e10c03a79a943",
+    "url": "/__wardrobe-assets/prepared/matilda-constellation-blazer-53686246e9845bd428056aad409d18257a119ea21f96776f6bae79e63bbf939c.json",
+    "sha256": "53686246e9845bd428056aad409d18257a119ea21f96776f6bae79e63bbf939c"
   }
 ]
