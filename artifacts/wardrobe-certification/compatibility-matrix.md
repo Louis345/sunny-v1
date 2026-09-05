@@ -1,0 +1,18 @@
+# Eight-companion compatibility matrix
+
+All combinations remain quarantined. **No companion is engineering-ready under the approved milestone.**
+
+| Companion | Meshes / materials / textures / humanoid bones | Dress | Hoodie / blazer / accessory pairs | Restriction and next step |
+|---|---|---|---|---|
+| Elli | 3 / 13 / 18 / 54 | [Diagnostic preview only](audit-final-elli.png) | Not tested; gate blocked | Complete prepared identity and dress render; full garment, color, accessory and motion acceptance is blocked behind Matilda’s failed architecture gate. **Next:** Complete all mandatory movements and family/accessory fits after Matilda gate passes. |
+| Matilda | 3 / 26 / 40 / 54 | [Failed coverage](audit-final-matilda.png) | Not tested; gate blocked | Face and expressions preserved; visible upper-arm/shoulder defects fail coverage after three preparation attempts. **Next:** Manual body topology/UV/skin-weight repair or complete matching source body; then repeat dress proof gate. |
+| Kefla | 3 / 6 / 13 / 54 | [Diagnostic preview only](audit-final-kefla.png) | Not tested; gate blocked | Legacy overlay shows yellow material contamination below face and substitutes standard body proportions; not identity-preserving preparation. **Next:** Prepare complete Kefla rig/body and separate clothing by explicit material/primitive data; preserve hair and tail dependencies. |
+| Melty | 3 / 23 / 38 / 54 | [Diagnostic preview only](audit-final-melty.png) | Not tested; gate blocked | Legacy overlay substitutes standard body, shoes and proportions; original profile has distinct skin/clothing material layout. **Next:** Prepare original complete body with its textures/physics and fit against her original proportions. |
+| Princess | 1 / 9 / 19 / 51 | [Diagnostic preview only](audit-final-princess.png) | Not tested; gate blocked | Visible lower-face corruption in diagnostic composite. Fully head-weighted mouth/expression primitives are hidden by the legacy mask false-return path. **Next:** Preserve complete original face/material expression surfaces; explicitly separate gown/body before any conversion certification. |
+| Tene | 3 / 17 / 28 / 54 | [Diagnostic preview only](audit-final-tene.png) | Not tested; gate blocked | Legacy overlay substitutes standard body and does not establish consistent source skin tone or original proportions. **Next:** Prepare complete Tene identity/body; verify skin materials under common lighting and preserve source arm proportions. |
+| Towa | 3 / 23 / 35 / 54 | [Diagnostic preview only](audit-final-towa.png) | Not tested; gate blocked | Legacy overlay substitutes slim standard body despite different source torso silhouette and proportions. **Next:** Prepare source body and a separate fit profile; verify chest/shoulders and expressions before certification. |
+| Yukari | 3 / 17 / 27 / 54 | [Diagnostic preview only](audit-final-yukari.png) | Not tested; gate blocked | Legacy overlay loses characteristic source cat ears and substitutes standard body/shoes. **Next:** Preserve ear geometry/materials and related physics in a complete prepared identity, then fit her original leg proportions. |
+
+The machine-readable `certification-record.json` contains 96 explicit companion × garment-family × accessory records with source/prepared/garment versions, evidence and restriction reasons. These audit records do not grant runtime store approval.
+
+All eight sources loaded for attempted previews. Six legacy composite cases are diagnostics only; their conversion was not required in this milestone. Matilda’s controlled movement/face evidence is in `acceptance/`.

@@ -1,0 +1,49 @@
+(node:86292) [DEP0174] DeprecationWarning: Calling promisify on a function that returns a Promise is likely a mistake.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+
+> web@0.0.0 test
+> vitest run "--run" "src/tests/wardrobe-preparation.test.ts"
+
+
+ RUN  v3.2.4 /Users/jamaltaylor/.codex/worktrees/wardrobe-identity/sunny/web
+
+stdout | src/tests/wardrobe-preparation.test.ts > uses explicit prepared clothing roles, including ties, without hiding identity surfaces
+ 🎮 [companion-wardrobe-lab] base_clothing visibility=false materials=1
+ 🎮 [companion-wardrobe-lab] base_clothing visibility=true materials=1
+
+ ❯ src/tests/wardrobe-preparation.test.ts (7 tests | 1 failed) 828ms
+   ✓ complete wardrobe identity preparation > preserves 'elli' identity and adds explicit clothing roles 142ms
+   ✓ complete wardrobe identity preparation > preserves 'matilda' identity and adds explicit clothing roles 284ms
+   ✓ complete wardrobe identity preparation > rejects a stale material selection instead of guessing by name or weight 15ms
+   ✓ routes migrated companions to their complete prepared identity without an overlay 1ms
+   ✓ uses explicit prepared clothing roles, including ties, without hiding identity surfaces 2ms
+   ✓ restores Matilda’s missing body surface from the approved body family without altering her face or rig 255ms
+   × rejects incomplete preparation when a required body donor is absent 123ms
+     → expected [Function] to throw an error
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/tests/wardrobe-preparation.test.ts > rejects incomplete preparation when a required body donor is absent
+AssertionError: expected [Function] to throw an error
+
+- Expected:
+null
+
++ Received:
+undefined
+
+ ❯ src/tests/wardrobe-preparation.test.ts:77:86
+     75| it('rejects incomplete preparation when a required body donor is absen…
+     76|   const recipe = WARDROBE_RECIPES.find(recipe => recipe.id === 'matild…
+     77|   expect(() => prepareWardrobeVrm(readFileSync(`public${recipe.sourceU…
+       |                                                                                      ^
+     78| });
+     79|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 6 passed (7)
+   Start at  13:55:39
+   Duration  3.54s (transform 174ms, setup 279ms, collect 267ms, tests 828ms, environment 1.08s, prepare 129ms)

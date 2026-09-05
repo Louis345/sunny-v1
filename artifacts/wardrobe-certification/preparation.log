@@ -1,0 +1,4 @@
+(node:7504) [DEP0174] DeprecationWarning: Calling promisify on a function that returns a Promise is likely a mistake.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+ 🎮 [wardrobe-prepare] complete companion=elli sha256=6d9698c8fb9e9b41826612cd5fa3dcdde3339e9c0ee7c91368d94430044f8dec status=candidate
+ 🎮 [wardrobe-prepare] complete companion=matilda sha256=c146b1d045e5feafadbf992f936ef3e73537eb066c2ddc0f4cef177bb93dcbbb status=candidate

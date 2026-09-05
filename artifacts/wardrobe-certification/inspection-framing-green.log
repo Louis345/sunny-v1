@@ -1,0 +1,15 @@
+(node:88431) [DEP0174] DeprecationWarning: Calling promisify on a function that returns a Promise is likely a mistake.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+
+> web@0.0.0 test
+> vitest run "--run" "src/tests/wardrobe-inspection.test.ts"
+
+
+ RUN  v3.2.4 /Users/jamaltaylor/.codex/worktrees/wardrobe-identity/sunny/web
+
+ ✓ src/tests/wardrobe-inspection.test.ts (1 test) 3ms
+
+ Test Files  1 passed (1)
+      Tests  1 passed (1)
+   Start at  13:57:48
+   Duration  4.14s (transform 151ms, setup 453ms, collect 91ms, tests 3ms, environment 1.64s, prepare 153ms)

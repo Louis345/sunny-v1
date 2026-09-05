@@ -1,0 +1,38 @@
+(node:6707) [DEP0174] DeprecationWarning: Calling promisify on a function that returns a Promise is likely a mistake.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+
+> web@0.0.0 test
+> vitest run "--run" "src/tests/test-companion-showroom-avatar-switch.ts"
+
+
+ RUN  v3.2.4 /Users/jamaltaylor/.codex/worktrees/wardrobe-identity/sunny/web
+
+Browserslist: browsers data (caniuse-lite) is 6 months old. Please run:
+  npx update-browserslist-db@latest
+  Why you should do it regularly: https://github.com/browserslist/update-db#readme
+ ❯ src/tests/test-companion-showroom-avatar-switch.ts (4 tests | 1 failed) 27ms
+   ✓ Companion showroom avatar switching > never leaves the previous companion visible during an identity change 3ms
+   ✓ Companion showroom avatar switching > preserves the normal carousel animation outside an identity change 1ms
+   ✓ hides prepared identities until the complete current selection is ready 1ms
+   × releases a discarded garment skeleton texture along with geometry and material 21ms
+     → expected "spy" to be called 1 times, but got 0 times
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/tests/test-companion-showroom-avatar-switch.ts > releases a discarded garment skeleton texture along with geometry and material
+AssertionError: expected "spy" to be called 1 times, but got 0 times
+ ❯ src/tests/test-companion-showroom-avatar-switch.ts:44:19
+     42|  const texture=garment.skeleton.boneTexture!;const disposed=vi.fn();te…
+     43|  removeWardrobeAccessory(garment);
+     44|  expect(disposed).toHaveBeenCalledTimes(1);
+       |                   ^
+     45|  expect(garment.skeleton.boneTexture).toBeNull();
+     46| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 3 passed (4)
+   Start at  14:06:46
+   Duration  6.20s (transform 1.49s, setup 335ms, collect 2.53s, tests 27ms, environment 1.73s, prepare 182ms)

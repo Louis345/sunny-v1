@@ -1,0 +1,6 @@
+Command: npm --prefix web test
+
+ Test Files  105 passed (105)
+      Tests  829 passed (829)
+   Start at  14:16:04
+   Duration  23.50s (transform 4.47s, setup 12.06s, collect 17.84s, tests 34.97s, environment 69.20s, prepare 5.91s)

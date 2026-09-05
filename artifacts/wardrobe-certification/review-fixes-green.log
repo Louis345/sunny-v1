@@ -1,0 +1,19 @@
+(node:7178) [DEP0174] DeprecationWarning: Calling promisify on a function that returns a Promise is likely a mistake.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+
+> web@0.0.0 test
+> vitest run "--run" "src/tests/test-companion-showroom-avatar-switch.ts" "src/tests/companion-wardrobe-lab.test.ts"
+
+
+ RUN  v3.2.4 /Users/jamaltaylor/.codex/worktrees/wardrobe-identity/sunny/web
+
+Browserslist: browsers data (caniuse-lite) is 6 months old. Please run:
+  npx update-browserslist-db@latest
+  Why you should do it regularly: https://github.com/browserslist/update-db#readme
+ ✓ src/tests/test-companion-showroom-avatar-switch.ts (4 tests) 13ms
+ ✓ src/tests/companion-wardrobe-lab.test.ts (26 tests) 73ms
+
+ Test Files  2 passed (2)
+      Tests  30 passed (30)
+   Start at  14:07:46
+   Duration  5.22s (transform 1.57s, setup 509ms, collect 4.97s, tests 86ms, environment 2.69s, prepare 249ms)

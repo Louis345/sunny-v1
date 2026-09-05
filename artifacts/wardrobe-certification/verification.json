@@ -1,0 +1,55 @@
+{
+  "status": "blocked-incomplete",
+  "build": {
+    "command": "npm run build",
+    "result": "passed",
+    "log": "build-final.log"
+  },
+  "fullTest": {
+    "command": "npm test",
+    "result": "failed",
+    "rootFilesPassed": 253,
+    "rootFilesFailed": 5,
+    "rootTestsPassed": 2782,
+    "rootTestsFailed": 5,
+    "webPhase": "not run because root failed",
+    "log": "full-test-failures.txt",
+    "scope": "Failures in unchanged non-wardrobe paths; no learning fixes attempted."
+  },
+  "webSuite": {
+    "command": "npm --prefix web test",
+    "result": "passed",
+    "files": 105,
+    "tests": 829,
+    "log": "web-test-summary.txt"
+  },
+  "browser": {
+    "audit": {
+      "command": "WARDROBE_STAGE=audit-final node scripts/verifyWardrobeRendering.mjs",
+      "result": "8 attempted previews; no incompatible-material errors",
+      "log": "audit-browser-run.log"
+    },
+    "matildaGate": {
+      "command": "node scripts/verifyWardrobeAcceptance.mjs",
+      "captureCount": 9,
+      "captureRun": "passed",
+      "visualGate": "failed coverage",
+      "log": "acceptance-run.log"
+    },
+    "switching": {
+      "command": "node scripts/verifyWardrobeSwitching.mjs",
+      "result": "passed",
+      "frames": 228,
+      "violations": 0,
+      "log": "switching-result.json"
+    }
+  },
+  "assetVersionHashes": "Verified against current prepared files, fitting implementation and accessory implementation",
+  "independentReview": "independent-review.md",
+  "sourceSandboxPatchSha256": "d76c268a76a8d5c3bf2f2073763d5ec3044599ef91d58dfa855db96f7471f087",
+  "sourceSandboxUnchanged": true,
+  "sourceContextTestFixtures": "Restored/removed only test-generated changes in isolated worktree after full npm test",
+  "humanApproval": null,
+  "merged": false,
+  "deployed": false
+}

@@ -1,0 +1,877 @@
+(node:82551) [DEP0174] DeprecationWarning: Calling promisify on a function that returns a Promise is likely a mistake.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+
+> web@0.0.0 test
+> vitest run "src/tests/WardrobeCompatibilityLab.test.tsx"
+
+
+ RUN  v3.2.4 /Users/jamaltaylor/.codex/worktrees/wardrobe-identity/sunny/web
+
+Browserslist: browsers data (caniuse-lite) is 6 months old. Please run:
+  npx update-browserslist-db@latest
+  Why you should do it regularly: https://github.com/browserslist/update-db#readme
+stdout | src/tests/WardrobeCompatibilityLab.test.tsx > WardrobeCompatibilityLab > presents every model at one consistent full-body review stage
+ 🎮 [wardrobe-certification-lab] preview_selected result=candidate companion=elli item=sleeveless-dress template=ribbon-dress
+
+stdout | src/tests/WardrobeCompatibilityLab.test.tsx > WardrobeCompatibilityLab > calibrates only the dressed preview and resets to the reviewed profile
+ 🎮 [wardrobe-certification-lab] preview_selected result=candidate companion=elli item=sleeveless-dress template=ribbon-dress
+ 🎮 [wardrobe-certification-lab] preview_selected result=candidate companion=princess item=sleeveless-dress template=ribbon-dress
+ 🎮 [wardrobe-certification-lab] calibration_changed result=preview_only companion=princess action=scale_up scale=1.32 offset_y=0.00
+ 🎮 [wardrobe-certification-lab] preview_selected result=candidate companion=princess item=sleeveless-dress template=ribbon-dress
+ 🎮 [wardrobe-certification-lab] calibration_changed result=preview_only companion=princess action=move_down scale=1.32 offset_y=-0.01
+ 🎮 [wardrobe-certification-lab] preview_selected result=candidate companion=princess item=sleeveless-dress template=ribbon-dress
+ 🎮 [wardrobe-certification-lab] calibration_changed result=preview_only companion=princess action=reset scale=1.28 offset_y=0.00
+ 🎮 [wardrobe-certification-lab] preview_selected result=candidate companion=princess item=sleeveless-dress template=ribbon-dress
+
+stdout | src/tests/WardrobeCompatibilityLab.test.tsx > applies the same inspection view and movement to original and dressed companions
+ 🎮 [wardrobe-certification-lab] preview_selected result=candidate companion=elli item=sleeveless-dress template=ribbon-dress
+
+ ❯ src/tests/WardrobeCompatibilityLab.test.tsx (4 tests | 2 failed) 217ms
+   ✓ WardrobeCompatibilityLab > keeps the full-body comparison canvas inside one viewport 2ms
+   × WardrobeCompatibilityLab > presents every model at one consistent full-body review stage 128ms
+     → expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  /companions/sample.vrm:sleeveless-dress:1.00:0.00
+Received:
+  /companions/elli-wardrobe-identity-preserved-v1.vrm:sleeveless-dress:1.00:0.00
+   ✓ WardrobeCompatibilityLab > calibrates only the dressed preview and resets to the reviewed profile 74ms
+   × applies the same inspection view and movement to original and dressed companions 13ms
+     → Unable to find a label with the text of: Inspection view
+
+Ignored nodes: comments, script, style
+<body>
+  <div>
+    <section
+      aria-label="VRM clothing compatibility lab"
+      class="wardrobe-compatibility-lab"
+      data-case-id="elli-store-reference"
+      data-certification-status="candidate"
+      data-item-id="sleeveless-dress"
+      data-model-url="/companions/elli-wardrobe-identity-preserved-v1.vrm"
+    >
+      <header
+        class="wardrobe-compatibility-lab__header"
+      >
+        <div>
+          <span>
+            Diagnostic sandbox · only approved pairings enter the store
+          </span>
+          <h1>
+            Wardrobe Certification Lab
+          </h1>
+        </div>
+        <div
+          class="wardrobe-compatibility-lab__header-actions"
+        >
+          <strong>
+            0
+             of
+            8
+             companions approved
+          </strong>
+          <button
+            type="button"
+          >
+            Back to showroom
+          </button>
+        </div>
+      </header>
+      <main
+        class="wardrobe-compatibility-lab__stage"
+      >
+        <div
+          class="wardrobe-compatibility-lab__comparison"
+        >
+          <section
+            aria-label="Original Elli"
+            class="wardrobe-compatibility-lab__pane"
+          >
+            <span>
+              Original character
+            </span>
+            <div
+              class="wardrobe-compatibility-lab__viewport"
+            >
+              <div />
+            </div>
+          </section>
+          <section
+            aria-label="Wardrobe fit Elli"
+            class="wardrobe-compatibility-lab__pane"
+          >
+            <span>
+              Wardrobe fit
+            </span>
+            <div
+              class="wardrobe-compatibility-lab__viewport"
+            >
+              <div />
+            </div>
+          </section>
+        </div>
+        <div
+          class="wardrobe-compatibility-lab__caption"
+        >
+          <div>
+            <span>
+              Standard-body identity candidate
+            </span>
+            <h2>
+              Elli
+               ·
+              Navy Ribbon Dress
+            </h2>
+            <p>
+              Current asset versions require a recorded human visual review.
+            </p>
+          </div>
+          <div
+            class="wardrobe-compatibility-lab__status is-candidate"
+          >
+            Quarantined — human review required
+          </div>
+        </div>
+      </main>
+      <aside
+        aria-label="Compatibility cases"
+        class="wardrobe-compatibility-lab__sidebar"
+      >
+        <div
+          class="wardrobe-compatibility-lab__outfits"
+        >
+          <span>
+            Outfit variants
+          </span>
+          <div
+            aria-label="Outfits to certify"
+            role="group"
+          >
+            <button
+              aria-label="Preview Navy Ribbon Dress"
+              aria-pressed="true"
+              type="button"
+            >
+              <i
+                aria-hidden="true"
+                style="background: rgb(255, 255, 255);"
+              />
+              <span>
+                Navy Ribbon Dress
+              </span>
+            </button>
+            <button
+              aria-label="Preview Plum Ribbon Dress"
+              aria-pressed="false"
+              type="button"
+            >
+              <i
+                aria-hidden="true"
+                style="background: rgb(200, 120, 255);"
+              />
+              <span>
+                Plum Ribbon Dress
+              </span>
+            </button>
+            <button
+              aria-label="Preview Teal Ribbon Dress"
+              aria-pressed="false"
+              type="button"
+            >
+              <i
+                aria-hidden="true"
+                style="background: rgb(100, 255, 210);"
+              />
+              <span>
+                Teal Ribbon Dress
+              </span>
+            </button>
+            <button
+              aria-label="Preview Rose Ribbon Dress"
+              aria-pressed="false"
+              type="button"
+            >
+              <i
+                aria-hidden="true"
+                style="background: rgb(255, 143, 178);"
+              />
+              <span>
+                Rose Ribbon Dress
+              </span>
+            </button>
+          </div>
+        </div>
+        <div
+          class="wardrobe-compatibility-lab__calibration"
+        >
+          <div>
+            <span>
+              Preview calibration
+            </span>
+            <strong>
+              1.00
+              × head
+            </strong>
+            <small>
+              +
+              0.00
+               vertical
+            </small>
+          </div>
+          <div
+            class="wardrobe-compatibility-lab__calibration-controls"
+          >
+            <button
+              aria-label="Decrease head size"
+              type="button"
+            >
+              −
+            </button>
+            <button
+              aria-label="Increase head size"
+              type="button"
+            >
+              +
+            </button>
+            <button
+              aria-label="Move head up"
+              type="button"
+            >
+              ↑
+            </button>
+            <button
+              aria-label="Move head down"
+              type="button"
+            >
+              ↓
+            </button>
+            <button
+              aria-label="Reset calibration"
+              type="button"
+            >
+              Reset
+            </button>
+          </div>
+        </div>
+        <div
+          class="wardrobe-compatibility-lab__profile"
+        >
+          <span>
+            Body profile
+          </span>
+          <strong>
+            sunny-standard-v1
+          </strong>
+          <p>
+            Current Elli store reference model; Ribbon Dress visually approved.
+          </p>
+          <dl>
+            <div>
+              <dt>
+                Head-to-foot
+              </dt>
+              <dd>
+                1.295
+              </dd>
+            </div>
+            <div>
+              <dt>
+                Shoulder span
+              </dt>
+              <dd>
+                0.045
+              </dd>
+            </div>
+            <div>
+              <dt>
+                Upper arm
+              </dt>
+              <dd>
+                0.220
+              </dd>
+            </div>
+            <div>
+              <dt>
+                Upper leg
+              </dt>
+              <dd>
+                0.353
+              </dd>
+            </div>
+          </dl>
+        </div>
+        <nav
+          aria-label="Character model reviews"
+        >
+          <button
+            aria-label="Review Elli prepared identity"
+            aria-pressed="true"
+            data-certification-status="candidate"
+            type="button"
+          >
+            <span>
+              Elli
+            </span>
+            <small>
+              identity proof
+            </small>
+            <b>
+              Review
+            </b>
+          </button>
+          <button
+            aria-label="Review Kefla identity on standard body"
+            aria-pressed="false"
+            data-certification-status="candidate"
+            type="button"
+          >
+            <span>
+              Kefla
+            </span>
+            <small>
+              identity proof
+            </small>
+            <b>
+              Review
+            </b>
+          </button>
+          <button
+            aria-label="Review Matilda prepared identity"
+            aria-pressed="false"
+            data-certification-status="candidate"
+            type="button"
+          >
+            <span>
+              Matilda
+            </span>
+            <small>
+              identity proof
+            </small>
+            <b>
+              Review
+            </b>
+          </button>
+          <button
+            aria-label="Review Melty identity on standard body"
+            aria-pressed="false"
+            data-certification-status="candidate"
+            type="button"
+          >
+            <span>
+              Melty
+            </span>
+            <small>
+              identity proof
+            </small>
+            <b>
+              Review
+            </b>
+          </button>
+          <button
+            aria-label="Review Princess identity on standard body"
+            aria-pressed="false"
+            data-certification-status="candidate"
+            type="button"
+          >
+            <span>
+              Princess
+            </span>
+            <small>
+              identity proof
+            </small>
+            <b>
+              Review
+            </b>
+          </button>
+          <button
+            aria-label="Review Tene identity on standard body"
+            aria-pressed="false"
+            data-certification-status="candidate"
+            type="button"
+          >
+            <span>
+              Tene
+            </span>
+            <small>
+              identity proof
+            </small>
+            <b>
+              Review
+            </b>
+          </button>
+          <button
+            aria-label="Review Towa identity on standard body"
+            aria-pressed="false"
+            data-certification-status="candidate"
+            type="button"
+          >
+            <span>
+              Towa
+            </span>
+            <small>
+              identity proof
+            </small>
+            <b>
+              Review
+            </b>
+          </button>
+          <button
+            aria-label="Review Yukari identity on standard body"
+            aria-pressed="false"
+            data-certification-status="candidate"
+            type="button"
+          >
+            <span>
+              Yukari
+            </span>
+            <small>
+              identity proof
+            </small>
+            <b>
+              Review
+            </b>
+          </button>
+        </nav>
+      </aside>
+    </section>
+  </div>
+</body>
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/tests/WardrobeCompatibilityLab.test.tsx > WardrobeCompatibilityLab > presents every model at one consistent full-body review stage
+Error: expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  /companions/sample.vrm:sleeveless-dress:1.00:0.00
+Received:
+  /companions/elli-wardrobe-identity-preserved-v1.vrm:sleeveless-dress:1.00:0.00
+ ❯ src/tests/WardrobeCompatibilityLab.test.tsx:53:57
+     51|       WARDROBE_STORE_CERTIFICATION_CASES.length,
+     52|     );
+     53|     expect(screen.getByTestId("compatibility-preview")).toHaveTextCont…
+       |                                                         ^
+     54|       "/companions/sample.vrm:sleeveless-dress:1.00:0.00",
+     55|     );
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  src/tests/WardrobeCompatibilityLab.test.tsx > applies the same inspection view and movement to original and dressed companions
+TestingLibraryElementError: Unable to find a label with the text of: Inspection view
+
+Ignored nodes: comments, script, style
+<body>
+  <div>
+    <section
+      aria-label="VRM clothing compatibility lab"
+      class="wardrobe-compatibility-lab"
+      data-case-id="elli-store-reference"
+      data-certification-status="candidate"
+      data-item-id="sleeveless-dress"
+      data-model-url="/companions/elli-wardrobe-identity-preserved-v1.vrm"
+    >
+      <header
+        class="wardrobe-compatibility-lab__header"
+      >
+        <div>
+          <span>
+            Diagnostic sandbox · only approved pairings enter the store
+          </span>
+          <h1>
+            Wardrobe Certification Lab
+          </h1>
+        </div>
+        <div
+          class="wardrobe-compatibility-lab__header-actions"
+        >
+          <strong>
+            0
+             of
+            8
+             companions approved
+          </strong>
+          <button
+            type="button"
+          >
+            Back to showroom
+          </button>
+        </div>
+      </header>
+      <main
+        class="wardrobe-compatibility-lab__stage"
+      >
+        <div
+          class="wardrobe-compatibility-lab__comparison"
+        >
+          <section
+            aria-label="Original Elli"
+            class="wardrobe-compatibility-lab__pane"
+          >
+            <span>
+              Original character
+            </span>
+            <div
+              class="wardrobe-compatibility-lab__viewport"
+            >
+              <div />
+            </div>
+          </section>
+          <section
+            aria-label="Wardrobe fit Elli"
+            class="wardrobe-compatibility-lab__pane"
+          >
+            <span>
+              Wardrobe fit
+            </span>
+            <div
+              class="wardrobe-compatibility-lab__viewport"
+            >
+              <div />
+            </div>
+          </section>
+        </div>
+        <div
+          class="wardrobe-compatibility-lab__caption"
+        >
+          <div>
+            <span>
+              Standard-body identity candidate
+            </span>
+            <h2>
+              Elli
+               ·
+              Navy Ribbon Dress
+            </h2>
+            <p>
+              Current asset versions require a recorded human visual review.
+            </p>
+          </div>
+          <div
+            class="wardrobe-compatibility-lab__status is-candidate"
+          >
+            Quarantined — human review required
+          </div>
+        </div>
+      </main>
+      <aside
+        aria-label="Compatibility cases"
+        class="wardrobe-compatibility-lab__sidebar"
+      >
+        <div
+          class="wardrobe-compatibility-lab__outfits"
+        >
+          <span>
+            Outfit variants
+          </span>
+          <div
+            aria-label="Outfits to certify"
+            role="group"
+          >
+            <button
+              aria-label="Preview Navy Ribbon Dress"
+              aria-pressed="true"
+              type="button"
+            >
+              <i
+                aria-hidden="true"
+                style="background: rgb(255, 255, 255);"
+              />
+              <span>
+                Navy Ribbon Dress
+              </span>
+            </button>
+            <button
+              aria-label="Preview Plum Ribbon Dress"
+              aria-pressed="false"
+              type="button"
+            >
+              <i
+                aria-hidden="true"
+                style="background: rgb(200, 120, 255);"
+              />
+              <span>
+                Plum Ribbon Dress
+              </span>
+            </button>
+            <button
+              aria-label="Preview Teal Ribbon Dress"
+              aria-pressed="false"
+              type="button"
+            >
+              <i
+                aria-hidden="true"
+                style="background: rgb(100, 255, 210);"
+              />
+              <span>
+                Teal Ribbon Dress
+              </span>
+            </button>
+            <button
+              aria-label="Preview Rose Ribbon Dress"
+              aria-pressed="false"
+              type="button"
+            >
+              <i
+                aria-hidden="true"
+                style="background: rgb(255, 143, 178);"
+              />
+              <span>
+                Rose Ribbon Dress
+              </span>
+            </button>
+          </div>
+        </div>
+        <div
+          class="wardrobe-compatibility-lab__calibration"
+        >
+          <div>
+            <span>
+              Preview calibration
+            </span>
+            <strong>
+              1.00
+              × head
+            </strong>
+            <small>
+              +
+              0.00
+               vertical
+            </small>
+          </div>
+          <div
+            class="wardrobe-compatibility-lab__calibration-controls"
+          >
+            <button
+              aria-label="Decrease head size"
+              type="button"
+            >
+              −
+            </button>
+            <button
+              aria-label="Increase head size"
+              type="button"
+            >
+              +
+            </button>
+            <button
+              aria-label="Move head up"
+              type="button"
+            >
+              ↑
+            </button>
+            <button
+              aria-label="Move head down"
+              type="button"
+            >
+              ↓
+            </button>
+            <button
+              aria-label="Reset calibration"
+              type="button"
+            >
+              Reset
+            </button>
+          </div>
+        </div>
+        <div
+          class="wardrobe-compatibility-lab__profile"
+        >
+          <span>
+            Body profile
+          </span>
+          <strong>
+            sunny-standard-v1
+          </strong>
+          <p>
+            Current Elli store reference model; Ribbon Dress visually approved.
+          </p>
+          <dl>
+            <div>
+              <dt>
+                Head-to-foot
+              </dt>
+              <dd>
+                1.295
+              </dd>
+            </div>
+            <div>
+              <dt>
+                Shoulder span
+              </dt>
+              <dd>
+                0.045
+              </dd>
+            </div>
+            <div>
+              <dt>
+                Upper arm
+              </dt>
+              <dd>
+                0.220
+              </dd>
+            </div>
+            <div>
+              <dt>
+                Upper leg
+              </dt>
+              <dd>
+                0.353
+              </dd>
+            </div>
+          </dl>
+        </div>
+        <nav
+          aria-label="Character model reviews"
+        >
+          <button
+            aria-label="Review Elli prepared identity"
+            aria-pressed="true"
+            data-certification-status="candidate"
+            type="button"
+          >
+            <span>
+              Elli
+            </span>
+            <small>
+              identity proof
+            </small>
+            <b>
+              Review
+            </b>
+          </button>
+          <button
+            aria-label="Review Kefla identity on standard body"
+            aria-pressed="false"
+            data-certification-status="candidate"
+            type="button"
+          >
+            <span>
+              Kefla
+            </span>
+            <small>
+              identity proof
+            </small>
+            <b>
+              Review
+            </b>
+          </button>
+          <button
+            aria-label="Review Matilda prepared identity"
+            aria-pressed="false"
+            data-certification-status="candidate"
+            type="button"
+          >
+            <span>
+              Matilda
+            </span>
+            <small>
+              identity proof
+            </small>
+            <b>
+              Review
+            </b>
+          </button>
+          <button
+            aria-label="Review Melty identity on standard body"
+            aria-pressed="false"
+            data-certification-status="candidate"
+            type="button"
+          >
+            <span>
+              Melty
+            </span>
+            <small>
+              identity proof
+            </small>
+            <b>
+              Review
+            </b>
+          </button>
+          <button
+            aria-label="Review Princess identity on standard body"
+            aria-pressed="false"
+            data-certification-status="candidate"
+            type="button"
+          >
+            <span>
+              Princess
+            </span>
+            <small>
+              identity proof
+            </small>
+            <b>
+              Review
+            </b>
+          </button>
+          <button
+            aria-label="Review Tene identity on standard body"
+            aria-pressed="false"
+            data-certification-status="candidate"
+            type="button"
+          >
+            <span>
+              Tene
+            </span>
+            <small>
+              identity proof
+            </small>
+            <b>
+              Review
+            </b>
+          </button>
+          <button
+            aria-label="Review Towa identity on standard body"
+            aria-pressed="false"
+            data-certification-status="candidate"
+            type="button"
+          >
+            <span>
+              Towa
+            </span>
+            <small>
+              identity proof
+            </small>
+            <b>
+              Review
+            </b>
+          </button>
+          <button
+            aria-label="Review Yukari identity on standard body"
+            aria-pressed="false"
+            data-certification-status="candidate"
+            type="button"
+          >
+            <span>
+              Yukari
+            </span>
+            <small>
+              identity proof
+            </small>
+            <b>
+              Review
+            </b>
+          </button>
+        </nav>
+      </aside>
+    </section>
+  </div>
+</body>
+ ❯ Object.getElementError node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ getAllByLabelText node_modules/@testing-library/dom/dist/queries/label-text.js:111:38
+ ❯ node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ src/tests/WardrobeCompatibilityLab.test.tsx:132:27
+    130|   const dressed = vi.fn(() => <div />);
+    131|   render(<WardrobeCompatibilityLab cases={WARDROBE_STORE_CERTIFICATION…
+    132|   fireEvent.change(screen.getByLabelText('Inspection view'), {target:{…
+       |                           ^
+    133|   fireEvent.change(screen.getByLabelText('Inspection movement'), {targ…
+    134|   fireEvent.change(screen.getByLabelText('Inspection accessory'), {tar…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 2 passed (4)
+   Start at  13:46:17
+   Duration  1.50s (transform 168ms, setup 131ms, collect 176ms, tests 217ms, environment 643ms, prepare 58ms)

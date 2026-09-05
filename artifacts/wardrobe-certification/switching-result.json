@@ -1,0 +1,13 @@
+{
+  "status": "passed",
+  "frames": 228,
+  "violations": [],
+  "checks": [
+    "slow archive stays hidden",
+    "switch discards previous companion",
+    "failed current model hidden with explicit unavailable state",
+    "accessory changes and removal",
+    "dress variant replacement",
+    "source pane with no replacement outfit"
+  ]
+}

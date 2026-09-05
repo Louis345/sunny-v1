@@ -1,0 +1,110 @@
+[
+  {
+    "companion": "matilda",
+    "garment": "ribbon-dress",
+    "view": "front",
+    "pose": "idle",
+    "capture": "matilda-dress-front-idle.png",
+    "automated": "rendered",
+    "visual": "failed overall coverage gate; face/blink preserved",
+    "walkingEquivalent": false,
+    "preparedSha256": "c146b1d045e5feafadbf992f936ef3e73537eb066c2ddc0f4cef177bb93dcbbb",
+    "garmentVersion": "c716207b017239dcbf2a096e8566d291650f3cb5fd2c6a8089b08f8251d2d0d3:23ceff7e2b960a46ff28d01a965b25cf23c17ae316b7b8e9857aff2bf397a5ca"
+  },
+  {
+    "companion": "matilda",
+    "garment": "ribbon-dress",
+    "view": "side",
+    "pose": "idle",
+    "capture": "matilda-dress-side-idle.png",
+    "automated": "rendered",
+    "visual": "failed overall coverage gate; face/blink preserved",
+    "walkingEquivalent": false,
+    "preparedSha256": "c146b1d045e5feafadbf992f936ef3e73537eb066c2ddc0f4cef177bb93dcbbb",
+    "garmentVersion": "c716207b017239dcbf2a096e8566d291650f3cb5fd2c6a8089b08f8251d2d0d3:23ceff7e2b960a46ff28d01a965b25cf23c17ae316b7b8e9857aff2bf397a5ca"
+  },
+  {
+    "companion": "matilda",
+    "garment": "ribbon-dress",
+    "view": "back",
+    "pose": "idle",
+    "capture": "matilda-dress-back-idle.png",
+    "automated": "rendered",
+    "visual": "failed overall coverage gate; face/blink preserved",
+    "walkingEquivalent": false,
+    "preparedSha256": "c146b1d045e5feafadbf992f936ef3e73537eb066c2ddc0f4cef177bb93dcbbb",
+    "garmentVersion": "c716207b017239dcbf2a096e8566d291650f3cb5fd2c6a8089b08f8251d2d0d3:23ceff7e2b960a46ff28d01a965b25cf23c17ae316b7b8e9857aff2bf397a5ca"
+  },
+  {
+    "companion": "matilda",
+    "garment": "ribbon-dress",
+    "view": "face",
+    "pose": "idle",
+    "capture": "matilda-dress-face-idle.png",
+    "automated": "rendered",
+    "visual": "failed overall coverage gate; face/blink preserved",
+    "walkingEquivalent": false,
+    "preparedSha256": "c146b1d045e5feafadbf992f936ef3e73537eb066c2ddc0f4cef177bb93dcbbb",
+    "garmentVersion": "c716207b017239dcbf2a096e8566d291650f3cb5fd2c6a8089b08f8251d2d0d3:23ceff7e2b960a46ff28d01a965b25cf23c17ae316b7b8e9857aff2bf397a5ca"
+  },
+  {
+    "companion": "matilda",
+    "garment": "ribbon-dress",
+    "view": "face",
+    "pose": "blink",
+    "capture": "matilda-dress-face-blink.png",
+    "automated": "rendered",
+    "visual": "failed overall coverage gate; face/blink preserved",
+    "walkingEquivalent": false,
+    "preparedSha256": "c146b1d045e5feafadbf992f936ef3e73537eb066c2ddc0f4cef177bb93dcbbb",
+    "garmentVersion": "c716207b017239dcbf2a096e8566d291650f3cb5fd2c6a8089b08f8251d2d0d3:23ceff7e2b960a46ff28d01a965b25cf23c17ae316b7b8e9857aff2bf397a5ca"
+  },
+  {
+    "companion": "matilda",
+    "garment": "ribbon-dress",
+    "view": "face",
+    "pose": "speak",
+    "capture": "matilda-dress-face-speak.png",
+    "automated": "rendered",
+    "visual": "pose rendered; no complete movement certification",
+    "walkingEquivalent": false,
+    "preparedSha256": "c146b1d045e5feafadbf992f936ef3e73537eb066c2ddc0f4cef177bb93dcbbb",
+    "garmentVersion": "c716207b017239dcbf2a096e8566d291650f3cb5fd2c6a8089b08f8251d2d0d3:23ceff7e2b960a46ff28d01a965b25cf23c17ae316b7b8e9857aff2bf397a5ca"
+  },
+  {
+    "companion": "matilda",
+    "garment": "ribbon-dress",
+    "view": "face",
+    "pose": "head-turn",
+    "capture": "matilda-dress-face-head-turn.png",
+    "automated": "rendered",
+    "visual": "pose rendered; no complete movement certification",
+    "walkingEquivalent": false,
+    "preparedSha256": "c146b1d045e5feafadbf992f936ef3e73537eb066c2ddc0f4cef177bb93dcbbb",
+    "garmentVersion": "c716207b017239dcbf2a096e8566d291650f3cb5fd2c6a8089b08f8251d2d0d3:23ceff7e2b960a46ff28d01a965b25cf23c17ae316b7b8e9857aff2bf397a5ca"
+  },
+  {
+    "companion": "matilda",
+    "garment": "ribbon-dress",
+    "view": "front",
+    "pose": "arms-up",
+    "capture": "matilda-dress-front-arms-up.png",
+    "automated": "rendered",
+    "visual": "pose rendered; no complete movement certification",
+    "walkingEquivalent": false,
+    "preparedSha256": "c146b1d045e5feafadbf992f936ef3e73537eb066c2ddc0f4cef177bb93dcbbb",
+    "garmentVersion": "c716207b017239dcbf2a096e8566d291650f3cb5fd2c6a8089b08f8251d2d0d3:23ceff7e2b960a46ff28d01a965b25cf23c17ae316b7b8e9857aff2bf397a5ca"
+  },
+  {
+    "companion": "matilda",
+    "garment": "ribbon-dress",
+    "view": "front",
+    "pose": "leg-swing",
+    "capture": "matilda-dress-front-leg-swing.png",
+    "automated": "rendered",
+    "visual": "pose rendered; no complete movement certification",
+    "walkingEquivalent": false,
+    "preparedSha256": "c146b1d045e5feafadbf992f936ef3e73537eb066c2ddc0f4cef177bb93dcbbb",
+    "garmentVersion": "c716207b017239dcbf2a096e8566d291650f3cb5fd2c6a8089b08f8251d2d0d3:23ceff7e2b960a46ff28d01a965b25cf23c17ae316b7b8e9857aff2bf397a5ca"
+  }
+]

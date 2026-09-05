@@ -1,0 +1,5 @@
+# Verbose synthetic/full-suite outputs stay local; concise failure/result evidence is committed.
+full-test.log
+web-full-test.log
+web-full-test-final.log
+store-quarantine-red.log
