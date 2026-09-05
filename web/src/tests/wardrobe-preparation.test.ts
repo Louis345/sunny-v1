@@ -78,6 +78,22 @@ it('rejects incomplete preparation when a required body donor is absent', () => 
 });
 
 import {readAccessor} from '../../wardrobeBodyPreparation';
+it('removes Matilda’s overlapping outer skirt panels with a replacement top while retaining her base skirt', () => {
+ const recipe=WARDROBE_RECIPES.find(r=>r.id==='matilda')!;
+ const prepared=readVrm(prepareWardrobeVrm(readFileSync(`public${recipe.sourceUrl}`),recipe,readFileSync('public/companions/sample.vrm')).bytes);
+ const scene=new THREE.Group();scene.userData.sunnyWardrobe=true;
+ const materials=prepared.json.materials.map((definition:any)=>{
+  const material=new THREE.MeshBasicMaterial({name:definition.name});material.userData=definition.extras ?? {};return material;
+ });
+ scene.add(new THREE.Mesh(new THREE.BufferGeometry(),materials));
+ setVrmBaseClothingVisible(scene,false,['top']);
+ // Diagnostic material-ID render identifies material 16 intersecting the hoodie;
+ // 16/17 are the outer layer, while 9/14 form the complete inner pleated skirt.
+ for(const index of [16,17])expect(materials[index].visible).toBe(false);
+ for(const index of [9,14,0,1,2,3,4,5,6,7])expect(materials[index].visible).toBe(true);
+ setVrmBaseClothingVisible(scene,true);
+ for(const material of materials)expect(material.visible).toBe(true);
+});
 it('transfers donor aim/roll arm weights to moving arm joints instead of pinning them to the shoulder',()=>{
  const recipe=WARDROBE_RECIPES.find(r=>r.id==='matilda')!;
  const donorBytes=readFileSync('public/companions/sample.vrm'),donor=readVrm(donorBytes);

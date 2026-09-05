@@ -27,7 +27,7 @@
   },
   {
     "id": "matilda",
-    "version": "identity-preserved-v2",
+    "version": "identity-preserved-v3",
     "sourceUrl": "/companions/673852811403133503.vrm",
     "sourceSha256": "1b11bd3de4f708c147c408602ec21b3b86bc4d0003d8ebd9eba4451495e1d455",
     "expectedMaterials": [
@@ -64,8 +64,8 @@
       "12": "top",
       "14": "bottom",
       "15": "onepiece",
-      "16": "bottom",
-      "17": "bottom",
+      "16": "top",
+      "17": "top",
       "18": "top",
       "19": "top",
       "20": "top"
