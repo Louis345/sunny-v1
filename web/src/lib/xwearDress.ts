@@ -443,6 +443,9 @@ export function retargetGarmentVerticesToAvatarBindPose(args: {
   boneWeights: ArrayLike<number>;
   sourceBindWorldMatrices: readonly THREE.Matrix4[];
   targetBindWorldMatrices: readonly THREE.Matrix4[];
+  coordinateRotationY?: number;
+  reflectZ?: boolean;
+  fitScale?: number;
 }) {
   if (args.positions.length !== args.normals.length) {
     throw new Error("Garment positions and normals must have matching lengths");
@@ -450,11 +453,17 @@ export function retargetGarmentVerticesToAvatarBindPose(args: {
   if (args.boneIndices.length !== args.boneWeights.length) {
     throw new Error("Garment bone indices and weights must have matching lengths");
   }
-  const boneDeltas = args.sourceBindWorldMatrices.map((sourceBind, index) =>
-    (args.targetBindWorldMatrices[index] ?? new THREE.Matrix4())
-      .clone()
-      .multiply(sourceBind.clone().invert()),
-  );
+  const rotation = new THREE.Matrix4().makeRotationY(args.coordinateRotationY ?? 0);
+  if (args.reflectZ) rotation.scale(new THREE.Vector3(1, 1, -1));
+  const boneDeltas = args.sourceBindWorldMatrices.map((sourceBind, index) => {
+    const targetBind = args.targetBindWorldMatrices[index];
+    if (!targetBind) throw new Error(`Garment target bind is missing joint ${index}`);
+    const source = new THREE.Vector3().setFromMatrixPosition(sourceBind);
+    const target = new THREE.Vector3().setFromMatrixPosition(targetBind);
+    return new THREE.Matrix4().makeTranslation(target.x, target.y, target.z)
+      .multiply(rotation).scale(new THREE.Vector3().setScalar(args.fitScale ?? 1))
+      .multiply(new THREE.Matrix4().makeTranslation(-source.x, -source.y, -source.z));
+  });
   const normalDeltas = boneDeltas.map((delta) =>
     new THREE.Matrix3().getNormalMatrix(delta),
   );
@@ -640,110 +649,38 @@ export async function attachXwearOutfit(
     new THREE.Vector3().setFromMatrixPosition(targetHipsMatrix),
     new THREE.Vector3().setFromMatrixPosition(targetNeckMatrix),
   );
-  const garmentBonesByName = new Map(avatarCanonicalBonesByName);
-  const garmentBindPoseByName = new Map(
-    [...avatarBindPose]
-      .filter(([name]) => isXwearCanonicalSkeletonBone(name))
-      .map(([name, matrix]) => [name, matrix.clone()]),
-  );
-
-  const activeBoneIndices = new Set<number>();
-  for (let index = 0; index < meshData.boneWeights.length; index += 1) {
-    if ((meshData.boneWeights[index] ?? 0) > 0.000001) {
-      activeBoneIndices.add(meshData.boneIndices[index] ?? 1);
+  // Bind clothing helpers to a stable humanoid ancestor instead of adding
+  // duplicate exporter-specific helper chains to the live companion skeleton.
+  const sourceAnchors = meshData.bindPoses.map((_, index) => {
+    let guid = garmentBoneGuids.get(index);
+    for (let depth = 0; depth < 10 && guid; depth++) {
+      const name = hierarchy.names.get(guid) ?? "";
+      const anchorIndex = garmentBoneIndicesByGuid.get(guid);
+      if (avatarCanonicalBonesByName.has(name) && anchorIndex !== undefined) return {name, index:anchorIndex};
+      guid = hierarchy.parents.get(guid);
     }
-  }
-
-  const requiredBoneIndices = new Set(activeBoneIndices);
-  for (let pass = 0; pass < 10; pass += 1) {
-    for (const index of [...requiredBoneIndices]) {
-      const guid = garmentBoneGuids.get(index);
-      const parentGuid = guid ? hierarchy.parents.get(guid) : undefined;
-      const parentIndex = parentGuid
-        ? garmentBoneIndicesByGuid.get(parentGuid)
-        : undefined;
-      if (parentIndex !== undefined) requiredBoneIndices.add(parentIndex);
+    if (meshData.boneIndices.some((joint, influence) => joint === index && meshData.boneWeights[influence] > 0)) {
+      throw new Error(`Unmapped active garment bone ${garmentBoneNames.get(index)} after 10 ancestor steps`);
     }
-  }
-  const unresolved = new Set(
-    [...requiredBoneIndices].filter((index) => {
-      const name = garmentBoneNames.get(index) ?? "";
-      return (
-        name &&
-        (!isXwearCanonicalSkeletonBone(name) || !garmentBonesByName.has(name))
-      );
-    }),
-  );
-  for (let pass = 0; pass < 10 && unresolved.size > 0; pass += 1) {
-    for (const index of [...unresolved]) {
-      const guid = garmentBoneGuids.get(index);
-      const object = guid ? hierarchy.objects.get(guid) : undefined;
-      const parentGuid = guid ? hierarchy.parents.get(guid) : undefined;
-      const parentName = parentGuid ? hierarchy.names.get(parentGuid) : undefined;
-      const parentBone = parentName ? garmentBonesByName.get(parentName) : undefined;
-      const parentBindMatrix = parentName
-        ? garmentBindPoseByName.get(parentName)
-        : undefined;
-      const parentIndex = parentGuid
-        ? garmentBoneIndicesByGuid.get(parentGuid)
-        : undefined;
-      const childBindPose = meshData.bindPoses[index];
-      const parentBindPose = parentIndex !== undefined
-        ? meshData.bindPoses[parentIndex]
-        : undefined;
-      if (
-        !object ||
-        !parentBone ||
-        !parentBindMatrix ||
-        !childBindPose ||
-        !parentBindPose
-      ) continue;
-
-      const bone = new THREE.Bone();
-      bone.name = object.Name;
-      const localBindMatrix = resolveGarmentBoneLocalMatrix(
-        childBindPose,
-        parentBindPose,
-        fitted.scale,
-      );
-      localBindMatrix.decompose(
-        bone.position,
-        bone.quaternion,
-        bone.scale,
-      );
-      parentBone.add(bone);
-      garmentBonesByName.set(bone.name, bone);
-      garmentBindPoseByName.set(
-        bone.name,
-        parentBindMatrix.clone().multiply(localBindMatrix),
-      );
-      unresolved.delete(index);
-    }
-  }
-  avatarScene.updateMatrixWorld(true);
-
-  const bones = Array.from({ length: meshData.bindPoses.length }, (_, index) => {
-    const name = garmentBoneNames.get(index) ?? "";
-    return garmentBonesByName.get(name) ?? hips;
+    return {name: hips.name, index: sourceHipsIndex!};
   });
-  const hipsBindMatrix = garmentBindPoseByName.get(hips.name);
-  if (!hipsBindMatrix) throw new Error("Avatar bind pose has no hips matrix");
-  const boneBindLocalMatrices = Array.from(
-    { length: meshData.bindPoses.length },
-    (_, index) => {
-      const name = garmentBoneNames.get(index) ?? "";
-      return (garmentBindPoseByName.get(name) ?? hipsBindMatrix).clone();
-    },
-  );
-  const boneBindWorldMatrices = boneBindLocalMatrices.map((localBindMatrix) =>
-    avatarScene.matrixWorld.clone().multiply(localBindMatrix),
-  );
+  const bones = sourceAnchors.map(anchor => avatarCanonicalBonesByName.get(anchor.name)!);
+  const boneBindLocalMatrices = sourceAnchors.map(anchor => avatarBindPose.get(anchor.name)!.clone());
+  const sourceBindLocalMatrices = sourceAnchors.map(anchor => sourceBoneMatrices[anchor.index]);
+  const boneBindWorldMatrices = boneBindLocalMatrices.map(matrix => avatarScene.matrixWorld.clone().multiply(matrix));
+  const sourceLeft = [...garmentBoneNames].find(([,name]) => name === "J_Bip_L_UpperArm")?.[0];
+  const targetLeft = avatarBindPose.get("J_Bip_L_UpperArm");
+  if (sourceLeft === undefined || !targetLeft) throw new Error("Garment coordinate orientation requires left upper-arm anchors");
+  const coordinateRotationY = sourceBoneMatrices[sourceLeft].elements[12] * targetLeft.elements[12] < 0 ? Math.PI : 0;
   const retargeted = retargetGarmentVerticesToAvatarBindPose({
     positions: meshData.positions,
     normals: meshData.normals,
     boneIndices: meshData.boneIndices,
     boneWeights: meshData.boneWeights,
-    sourceBindWorldMatrices: sourceBoneMatrices,
+    sourceBindWorldMatrices: sourceBindLocalMatrices,
+    coordinateRotationY,
+    reflectZ: true,
+    fitScale: fitted.scale,
     targetBindWorldMatrices: boneBindLocalMatrices,
   });
   const geometry = new THREE.BufferGeometry();
@@ -777,6 +714,9 @@ export async function attachXwearOutfit(
     geometry.addGroup(indexOffset, submesh.indices.length, materialIndex);
     indexOffset += submesh.indices.length;
   });
+  for (let triangle = 0; triangle < indices.length; triangle += 3) {
+    [indices[triangle + 1], indices[triangle + 2]] = [indices[triangle + 2], indices[triangle + 1]];
+  }
   geometry.setIndex(new THREE.BufferAttribute(indices, 1));
   geometry.computeBoundingSphere();
 

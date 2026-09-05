@@ -354,3 +354,27 @@ describe("XWear avatar-space binding", () => {
     ]);
   });
 });
+
+it('fits authored T-pose surfaces without applying unrelated exporter bone axes', () => {
+  const source = new THREE.Matrix4().makeRotationZ(Math.PI / 2).setPosition(0, 1, 0);
+  const target = new THREE.Matrix4().makeTranslation(0, 1.2, 0);
+  const result = retargetGarmentVerticesToAvatarBindPose({
+    positions: new Float32Array([0.1, 1.2, 0]), normals: new Float32Array([0, 0, 1]),
+    boneIndices: [0,0,0,0], boneWeights: [1,0,0,0],
+    sourceBindWorldMatrices: [source], targetBindWorldMatrices: [target],
+  });
+  expect(result.positions[0]).toBeCloseTo(0.1);
+  expect(result.positions[1]).toBeCloseTo(1.4);
+});
+
+it('converts Unity garment handedness without reversing the intended front', () => {
+  const result = retargetGarmentVerticesToAvatarBindPose({
+    positions: new Float32Array([0.1, 1.2, 0.1]), normals: new Float32Array([0,0,1]),
+    boneIndices: [0,0,0,0], boneWeights: [1,0,0,0],
+    sourceBindWorldMatrices: [new THREE.Matrix4().makeTranslation(0,1,0)],
+    targetBindWorldMatrices: [new THREE.Matrix4().makeTranslation(0,1,0)],
+    reflectZ: true,
+  });
+  expect(result.positions[2]).toBeCloseTo(-0.1);
+  expect(result.normals[2]).toBeCloseTo(-1);
+});
