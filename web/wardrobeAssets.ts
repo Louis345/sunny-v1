@@ -2,6 +2,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { readFile } from "node:fs/promises";
 import type { Plugin, ViteDevServer, PreviewServer } from "vite";
+import fitted from './src/lib/wardrobeFitted.generated.json';
 
 const assetRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../.sunny-sandbox/wardrobe");
 const archives: Readonly<Record<string, string>> = {
@@ -15,6 +16,8 @@ export function resolveLocalWardrobeAsset(url: string): string | undefined {
   const prefix = "/__wardrobe-assets/";
   if (!url.startsWith(prefix)) return undefined;
   const name = url.slice(prefix.length);
+  const prepared = (fitted as {url:string}[]).find(record => record.url === url);
+  if (prepared && /^prepared\/[a-z0-9-]+\.json$/.test(name)) return path.join(assetRoot, name);
   const relative = Object.hasOwn(archives, name) ? archives[name] : undefined;
   return relative ? path.join(assetRoot, relative) : undefined;
 }

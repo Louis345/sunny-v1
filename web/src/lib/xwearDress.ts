@@ -3,6 +3,7 @@ import * as THREE from "three";
 import { unzipSync } from "three/examples/jsm/libs/fflate.module.js";
 import { parseXwearMesh } from "./xwearMesh";
 import { resolveWardrobeBodyProfileId } from "./wardrobeBodyProfiles";
+import { resolvePreparedGarment, loadPreparedGarment } from "./wardrobePreparedGarment";
 
 export type XwearOutfitDefinition = {
   id: string;
@@ -529,7 +530,16 @@ export async function attachXwearOutfit(
   avatarScene: THREE.Object3D,
   outfit: XwearOutfitDefinition,
   materialVariant?: XwearMaterialVariant | null,
+  modelUrl?: string,
 ) {
+  if (modelUrl) {
+    const prepared = resolvePreparedGarment(modelUrl, outfit.id);
+    if (prepared) {
+      const garment = await loadPreparedGarment(avatarScene, prepared, materialVariant);
+      setVrmBaseClothingVisible(avatarScene, false, outfit.slots.replaces);
+      return garment;
+    }
+  }
   const cachedAvatarBindPose =
     avatarBindPoseCache.get(avatarScene) ?? captureXwearAvatarBindPose(avatarScene);
   const avatarBindPose = new Map(

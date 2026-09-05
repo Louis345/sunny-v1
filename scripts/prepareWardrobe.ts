@@ -68,7 +68,7 @@ export function prepareWardrobeVrm(bytes: Buffer, recipe: WardrobeRecipe, donorB
 }
 
 export function prepareWardrobe(root: string) {
-  const fitVersion = hash(readFileSync(path.join(root, "web/src/lib/xwearDress.ts")));
+  const fitVersion = hash(Buffer.concat(["web/src/lib/xwearDress.ts", "web/src/lib/wardrobePreparedGarment.ts", "scripts/prepareWardrobeGarments.ts"].map(file => readFileSync(path.join(root, file)))));
   const accessoryVersion = hash(readFileSync(path.join(root, "web/src/components/CompanionShowroom.tsx")));
   const versions: Record<string,string> = {};
   for (const [id, archive] of Object.entries({"ribbon-dress":"sleeveless-dress.xwear", "comet-hoodie":"comet-hoodie.xwear", "constellation-blazer":"constellation-blazer.xwear"})) {

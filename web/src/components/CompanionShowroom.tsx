@@ -3205,7 +3205,7 @@ function CompanionSlot({
             const requestGeneration = wardrobeOutfitRequestGenerationRef.current + 1;
             wardrobeOutfitRequestGenerationRef.current = requestGeneration;
             wardrobeOutfitRequestKeyRef.current = requestKey;
-            void attachXwearOutfit(vrm.scene, outfitDefinition, selectedMaterialVariant)
+            void attachXwearOutfit(vrm.scene, outfitDefinition, selectedMaterialVariant, showroomCompanionConfig.vrmUrl)
               .then((outfit) => {
                 if (
                   cancelled ||
