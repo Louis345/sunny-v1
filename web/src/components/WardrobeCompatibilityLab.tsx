@@ -200,7 +200,7 @@ export function WardrobeCompatibilityLab({
             <option value="front">Front</option><option value="side">Side</option><option value="back">Back</option><option value="face">Face close-up</option>
           </select></label>
           <label>Inspection movement<select aria-label="Inspection movement" value={inspection.pose} onChange={event => setInspection({...inspection, pose:event.target.value as WardrobeInspection["pose"]})}>
-            <option value="idle">Idle</option><option value="blink">Blink</option><option value="speak">Mouth open</option><option value="head-turn">Head turn</option><option value="arms-up">Arms raised</option><option value="leg-swing">Leg swing (synthetic)</option>
+            <option value="idle">Idle</option><option value="blink">Blink</option><option value="speak">Mouth open</option><option value="head-turn">Head turn</option><option value="arms-up">Arms raised</option><option value="elbows-bent">Elbows bent</option><option value="leg-swing">Leg swing (synthetic)</option>
           </select></label>
           <label>Inspection accessory<select aria-label="Inspection accessory" value={inspection.accessory} onChange={event => setInspection({...inspection, accessory:event.target.value as WardrobeInspection["accessory"]})}>
             <option value="none">None</option><option value="crown">Crown</option><option value="cat-ears">Cat ears</option><option value="halo">Halo</option>

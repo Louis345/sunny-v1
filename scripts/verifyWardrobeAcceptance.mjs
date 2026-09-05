@@ -1,7 +1,7 @@
 import { chromium } from 'playwright';
 import { mkdir, writeFile } from 'node:fs/promises';
 import assert from 'node:assert/strict';
-const root = new URL('../artifacts/wardrobe-certification/acceptance/', import.meta.url);
+const root = new URL(process.env.WARDROBE_EVIDENCE_DIR ?? '../artifacts/wardrobe-certification/acceptance/', import.meta.url);
 await mkdir(root,{recursive:true});
 const browser = await chromium.launch({headless:true,channel:'chrome'});
 const results=[];const logs=[];
@@ -12,7 +12,7 @@ try {
  await page.goto('http://127.0.0.1:5197/?wardrobeLab=true&wardrobeCompatibilityLab=true&grokBackground=false');
  await page.getByRole('button',{name:'Review Matilda prepared identity',exact:true}).click();
  const ready=async()=>{await page.waitForFunction(()=>{const p=[...document.querySelectorAll('[data-wardrobe-state]')];return p.length===2&&p.every(e=>e.dataset.wardrobeState==='ready'&&e.dataset.wardrobeRevealed==='true')},{},{timeout:20000}); await page.waitForTimeout(400);};
- for (const [view,pose] of [['front','idle'],['side','idle'],['back','idle'],['face','idle'],['face','blink'],['face','speak'],['face','head-turn'],['front','arms-up'],['front','leg-swing']]) {
+ for (const [view,pose] of [['front','idle'],['side','idle'],['back','idle'],['face','idle'],['face','blink'],['face','speak'],['face','head-turn'],['front','arms-up'],['front','elbows-bent'],['side','elbows-bent'],['front','leg-swing']]) {
   await page.getByLabel('Inspection view',{exact:true}).selectOption(view);
   await page.getByLabel('Inspection movement',{exact:true}).selectOption(pose);
   await ready();

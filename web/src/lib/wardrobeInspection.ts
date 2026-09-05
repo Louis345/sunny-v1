@@ -4,7 +4,7 @@ import type { WardrobeAccessoryId } from './wardrobeStore';
 
 export type WardrobeInspection = {
   view: 'front' | 'side' | 'back' | 'face';
-  pose: 'idle' | 'blink' | 'speak' | 'head-turn' | 'arms-up' | 'leg-swing';
+  pose: 'idle' | 'blink' | 'speak' | 'head-turn' | 'arms-up' | 'elbows-bent' | 'leg-swing';
   accessory: WardrobeAccessoryId;
 };
 export const DEFAULT_WARDROBE_INSPECTION: WardrobeInspection = {view:'front',pose:'idle',accessory:'none'};
@@ -19,14 +19,14 @@ export function applyWardrobeInspection(vrm: VRM, camera: THREE.PerspectiveCamer
     head: {rotation:rotation(0,settings.pose==='head-turn' ? .6 : 0,0)},
     leftUpperArm:{rotation:rotation(-swing,0,armSign * (settings.pose==='arms-up' ? -.6 : 1.25))},
     rightUpperArm:{rotation:rotation(swing,0,armSign * (settings.pose==='arms-up' ? .6 : -1.25))},
-    leftLowerArm:{rotation:rotation(0,0,0)}, rightLowerArm:{rotation:rotation(0,0,0)},
+    leftLowerArm:{rotation:rotation(0,settings.pose==='elbows-bent' ? -armSign*.95 : 0,0)}, rightLowerArm:{rotation:rotation(0,settings.pose==='elbows-bent' ? armSign*.95 : 0,0)},
     leftUpperLeg:{rotation:rotation(swing,0,0)}, rightUpperLeg:{rotation:rotation(-swing,0,0)},
     leftLowerLeg:{rotation:rotation(Math.max(0,-swing),0,0)}, rightLowerLeg:{rotation:rotation(Math.max(0,swing),0,0)},
   });
   vrm.expressionManager?.resetValues();
   vrm.expressionManager?.setValue('blink', settings.pose==='blink' ? 1 : 0);
   vrm.expressionManager?.setValue('aa', settings.pose==='speak' ? .7 : 0);
-  vrm.humanoid.update(); vrm.expressionManager?.update();
+  vrm.humanoid.update(); vrm.nodeConstraintManager?.update(); vrm.expressionManager?.update();
   vrm.scene.updateMatrixWorld(true);
   const head = vrm.humanoid.getRawBoneNode('head')!.getWorldPosition(new THREE.Vector3());
   const foot = vrm.humanoid.getRawBoneNode('leftFoot')!.getWorldPosition(new THREE.Vector3());
