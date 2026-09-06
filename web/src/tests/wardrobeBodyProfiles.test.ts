@@ -4,7 +4,7 @@ import {
   WARDROBE_BODY_PROFILES,
   WARDROBE_COMPANION_BODY_ASSIGNMENTS,
   WARDROBE_COMPATIBILITY_CASES,
-  resolveStandardizedWardrobePresentation,
+  resolvePreparedWardrobePresentation,
   resolveWardrobeBodyProfileId,
 } from "../lib/wardrobeBodyProfiles";
 
@@ -25,34 +25,9 @@ describe("wardrobe body profiles", () => {
     }
   });
 
-  it("gives every companion the approved standard body while preserving its identity model", () => {
-    for (const entry of COMPANION_MANIFEST.filter(entry => !["elli", "matilda"].includes(entry.id))) {
-      const presentation = resolveStandardizedWardrobePresentation(entry.id);
-
-      expect(presentation).toMatchObject({
-        companionId: entry.id,
-        bodyModelUrl: "/companions/sample.vrm",
-        bodyProfileId: "sunny-standard-v1",
-      });
-      expect(presentation?.identityModelUrl).toBe(
-        entry.id === "elli" ? undefined : entry.vrmUrl,
-      );
-    }
-    expect(resolveStandardizedWardrobePresentation("tene")?.bodySkinTint).toBe(
-      "#6d5148",
-    );
-    expect(resolveStandardizedWardrobePresentation("towa")?.bodySkinTint).toBe(
-      "#ffe1cc",
-    );
-    expect(
-      resolveStandardizedWardrobePresentation("princess")?.identityHeadwearStyle,
-    ).toBeUndefined();
-    expect(
-      resolveStandardizedWardrobePresentation("princess")?.identityScale,
-    ).toBe(1.28);
-    expect(
-      resolveStandardizedWardrobePresentation("princess")?.bodySkinTint,
-    ).toBe("#d69a78");
+  it("uses each companion complete prepared asset without tint or substituted geometry",()=>{
+    for(const entry of COMPANION_MANIFEST){const presentation=resolvePreparedWardrobePresentation(entry.id);expect(presentation?.bodyModelUrl).toContain("/companions/"+entry.id+"-wardrobe-");expect(presentation).not.toHaveProperty("identityModelUrl");expect(presentation).not.toHaveProperty("bodySkinTint");}
+    expect(resolvePreparedWardrobePresentation("unknown")).toBeNull();
   });
 
   it("keeps unknown or unreviewed models outside approved store profiles", () => {
@@ -63,41 +38,17 @@ describe("wardrobe body profiles", () => {
     expect(resolveWardrobeBodyProfileId("/companions/unknown.vrm")).toBeNull();
   });
 
-  it("builds a standardized-body review case for every non-reference identity", () => {
-    expect(WARDROBE_COMPATIBILITY_CASES).toHaveLength(
-      COMPANION_MANIFEST.length * 2,
-    );
-    expect(WARDROBE_COMPATIBILITY_CASES[0]).toMatchObject({
-      id: "elli-store-reference",
-      modelUrl: "/companions/sample.vrm",
-      bodyProfileId: "sunny-standard-v1",
-      dressQaStatus: "approved",
-    });
-    expect(
-      WARDROBE_COMPATIBILITY_CASES.filter((testCase) => testCase.kind === "source")
-        .map((testCase) => testCase.companionId)
-        .sort(),
-    ).toEqual(COMPANION_MANIFEST.map((entry) => entry.id).sort());
-    expect(
-      WARDROBE_COMPATIBILITY_CASES.filter((testCase) => testCase.kind === "source")
-        .every((testCase) => testCase.dressQaStatus === "candidate"),
-    ).toBe(true);
-    const standardizedCases = WARDROBE_COMPATIBILITY_CASES.filter(
-      (testCase) => testCase.kind === "standardized_identity",
-    );
-    expect(standardizedCases).toHaveLength(COMPANION_MANIFEST.length - 1);
-    expect(standardizedCases.map((testCase) => testCase.companionId).sort()).toEqual(
-      COMPANION_MANIFEST.filter((entry) => entry.id !== "elli")
-        .map((entry) => entry.id)
-        .sort(),
-    );
-    expect(
-      standardizedCases.find(
-        (testCase) => testCase.id === "matilda-standard-body-identity",
-      ),
-    ).toMatchObject({
-      identityModelUrl: "/companions/673852811403133503.vrm",
-      dressQaStatus: "approved",
-    });
+  it("pairs every prepared candidate with its own original reference",()=>{
+    expect(WARDROBE_COMPATIBILITY_CASES).toHaveLength(COMPANION_MANIFEST.length*2);
+    for(const entry of COMPANION_MANIFEST){
+      const prepared=WARDROBE_COMPATIBILITY_CASES.find(c=>c.companionId===entry.id&&c.kind==='prepared');
+      const original=WARDROBE_COMPATIBILITY_CASES.find(c=>c.companionId===entry.id&&c.kind==='source');
+      expect(prepared?.sourceModelUrl).toBe(original?.modelUrl);expect(prepared?.dressQaStatus).toBe('candidate');
+    }
   });
+});
+it('offers only complete native prepared identities and original references in the compatibility lab',()=>{
+ expect(WARDROBE_COMPATIBILITY_CASES.filter(c=>c.kind==='prepared')).toHaveLength(8);
+ expect(WARDROBE_COMPATIBILITY_CASES.some(c=>String(c.kind)==='standardized_identity')).toBe(false);
+ for(const c of WARDROBE_COMPATIBILITY_CASES)expect(c).not.toHaveProperty("identityModelUrl");
 });

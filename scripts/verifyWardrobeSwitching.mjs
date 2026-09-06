@@ -19,7 +19,7 @@ try {
   const tick=()=>{const a=window.wardrobeFrameAudit;if(a.frames++>=1800)return;
    for(const e of document.querySelectorAll('[data-wardrobe-state]'))if(e.dataset.wardrobeRevealed==='true'){
     const k=JSON.parse(e.dataset.wardrobeSelection),expected=window.wardrobeExpected;
-    if(e.dataset.wardrobeState!=='ready'||k[0]!==expected.companion||(k[3]!=='none'&&(k[4]?.id!==expected.variant||k[5]!==expected.accessory)))a.violations.push(e.dataset.wardrobeSelection);
+    if(e.dataset.wardrobeState!=='ready'||k[0]!==expected.companion||(k[2]!=='none'&&(k[3]?.id!==expected.variant||k[4]!==expected.accessory)))a.violations.push(e.dataset.wardrobeSelection);
    }
    requestAnimationFrame(tick);
   };requestAnimationFrame(tick);

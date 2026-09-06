@@ -17,10 +17,10 @@ describe("companion VRM / children.config (TASK companion-avatar)", () => {
 
   it("companion vrmUrl comes from children.config preset (not learning_profile legacy path)", async () => {
     const p = await buildProfile("reina");
-    expect(p?.companion.vrmUrl).toBe("/companions/sample.vrm");
+    expect(p?.companion.vrmUrl).toBe("/companions/673852811403133503.vrm");
     const cfg = readChildrenConfig();
     const matilda = companionConfigFromPreset("matilda", cfg.companions.matilda);
-    expect(matilda.vrmUrl).toBe("/companions/sample.vrm");
+    expect(matilda.vrmUrl).toBe("/companions/673852811403133503.vrm");
   });
 
   it("dopamine games skip predicate matches launched URL substrings", () => {

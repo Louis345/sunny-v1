@@ -28,3 +28,16 @@ it('updates constrained helper bones after the inspection pose and exercises ben
  expect(order).toEqual(['humanoid','constraints']);
  expect(new THREE.Euler().setFromQuaternion(new THREE.Quaternion().fromArray(pose.leftLowerArm.rotation)).y).toBeLessThan(-.5); // Bend toward the normalized front, not into the outfit.
 });
+it('updates hair and ear physics after applying the inspection pose',()=>{
+ const scene=new THREE.Group(),head=new THREE.Bone(),foot=new THREE.Bone();head.position.y=1.5;scene.add(head,foot);const order:string[]=[];
+ const vrm={scene,humanoid:{setNormalizedPose:()=>order.push('pose'),update:()=>order.push('humanoid'),getRawBoneNode:(id:string)=>id==='head'?head:foot},springBoneManager:{update:(dt:number)=>{expect(dt).toBeGreaterThan(0);order.push('physics');}}}as unknown as VRM;
+ applyWardrobeInspection(vrm,new THREE.PerspectiveCamera(),{...DEFAULT_WARDROBE_INSPECTION,pose:'head-turn'},0);
+ expect(order).toEqual(['pose','humanoid','physics']);
+});
+it('bends VRM1 forearms forward rather than backward behind the garment',()=>{
+ const scene=new THREE.Group(),head=new THREE.Bone(),foot=new THREE.Bone();head.position.y=1.5;scene.add(head,foot);let pose:any;
+ const vrm={meta:{metaVersion:'1'},scene,humanoid:{setNormalizedPose:(p:any)=>pose=p,update:()=>{},getRawBoneNode:(id:string)=>id==='head'?head:foot}}as unknown as VRM;
+ applyWardrobeInspection(vrm,new THREE.PerspectiveCamera(),{...DEFAULT_WARDROBE_INSPECTION,pose:'elbows-bent'},0);
+ const forearm=new THREE.Vector3(.2,0,0).applyQuaternion(new THREE.Quaternion().fromArray(pose.leftLowerArm.rotation));
+ expect(forearm.z).toBeGreaterThan(.1);
+});

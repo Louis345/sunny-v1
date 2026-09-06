@@ -136,7 +136,7 @@ describe("companion types (COMPANION-001)", () => {
     expect(p).not.toBeNull();
     if (!p) return;
     assertCompanionConfigShape(p.companion);
-    expect(p.companion.vrmUrl).toBe("/companions/sample.vrm");
+    expect(p.companion.vrmUrl).toBe("/companions/673852811403133503.vrm");
     expect(p.companion.companionId).toBe("matilda");
     expect(p.ttsName).toBe("Ray-nah");
     expect(p.avatarImagePath).toBe("/characters/reina.png");

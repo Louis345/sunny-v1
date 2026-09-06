@@ -1,3 +1,4 @@
+import engineeringReviews from "./wardrobeEngineeringReview.json";
 import preparedAssets from "./wardrobePrepared.generated.json";
 import assetVersions from "./wardrobeAssetVersions.generated.json";
 import fittedAssets from "./wardrobeFitted.generated.json";
@@ -135,31 +136,12 @@ export type CompanionWardrobeBodyAssignment = {
   sourceBodyProfileId: WardrobeBodyProfileId;
 };
 
-export type StandardizedWardrobePresentation = {
+export type PreparedWardrobePresentation = {
   companionId: string;
   bodyModelUrl: string;
-  identityModelUrl?: string;
-  bodySkinTint?: string;
-  identityHeadwearStyle?: WardrobeIdentityHeadwearStyle;
-  identityScale?: number;
-  identityOffsetY?: number;
   bodyProfileId: WardrobeBodyProfileId;
 };
 
-export type WardrobeIdentityHeadwearStyle = "princess_bun";
-
-const STANDARD_WARDROBE_BODY_MODEL_URL = "/companions/sample.vrm";
-const STANDARDIZED_BODY_SKIN_TINTS: Readonly<Record<string, string>> = {
-  princess: "#d69a78",
-  tene: "#6d5148",
-  towa: "#ffe1cc",
-};
-const STANDARDIZED_IDENTITY_HEADWEAR: Readonly<
-  Record<string, WardrobeIdentityHeadwearStyle>
-> = {};
-const STANDARDIZED_IDENTITY_SCALES: Readonly<Record<string, number>> = {
-  princess: 1.28,
-};
 
 export const WARDROBE_COMPANION_BODY_ASSIGNMENTS: Readonly<
   Record<string, CompanionWardrobeBodyAssignment>
@@ -183,8 +165,8 @@ export const WARDROBE_COMPANION_BODY_ASSIGNMENTS: Readonly<
   matilda: {
     companionId: "matilda",
     companionName: "Matilda",
-    activeModelUrl: "/companions/sample.vrm",
-    activeBodyProfileId: "sunny-standard-v1",
+    activeModelUrl: "/companions/673852811403133503.vrm",
+    activeBodyProfileId: "vroid-slim-v1",
     sourceModelUrl: "/companions/673852811403133503.vrm",
     sourceBodyProfileId: "vroid-slim-v1",
   },
@@ -250,97 +232,45 @@ for (const prepared of preparedAssets) {
   BODY_PROFILE_BY_MODEL_URL.set(prepared.modelUrl, prepared.bodyProfileId as WardrobeBodyProfileId);
 }
 
-const STANDARDIZED_WARDROBE_PRESENTATIONS = new Map<
-  string,
-  StandardizedWardrobePresentation
->(
-  Object.values(WARDROBE_COMPANION_BODY_ASSIGNMENTS).map((assignment) => [
-    assignment.companionId,
-    {
-      companionId: assignment.companionId,
-      bodyModelUrl: STANDARD_WARDROBE_BODY_MODEL_URL,
-      identityModelUrl:
-        assignment.companionId === "elli"
-          ? undefined
-          : assignment.sourceModelUrl,
-      bodySkinTint: STANDARDIZED_BODY_SKIN_TINTS[assignment.companionId],
-      identityHeadwearStyle:
-        STANDARDIZED_IDENTITY_HEADWEAR[assignment.companionId],
-      identityScale: STANDARDIZED_IDENTITY_SCALES[assignment.companionId],
-      bodyProfileId: "sunny-standard-v1" as const,
-    },
-  ]),
-);
-
-export function resolveStandardizedWardrobePresentation(
+export function resolvePreparedWardrobePresentation(
   companionId: string,
-): StandardizedWardrobePresentation | null {
+): PreparedWardrobePresentation | null {
   const prepared = preparedAssets.find(asset => asset.companionId === companionId);
   if (prepared) return {
     companionId,
     bodyModelUrl: prepared.modelUrl,
     bodyProfileId: prepared.bodyProfileId as WardrobeBodyProfileId,
   };
-  return STANDARDIZED_WARDROBE_PRESENTATIONS.get(companionId) ?? null;
+  return null;
 }
 
 export type WardrobeCompatibilityCase = {
   id: string;
-  kind: "reference" | "standardized_identity" | "source" | "prepared";
+  kind: "reference" | "source" | "prepared";
   sourceModelUrl?: string;
   companionId: string;
   companionName: string;
   label: string;
   modelUrl: string;
-  identityModelUrl?: string;
-  bodySkinTint?: string;
-  identityHeadwearStyle?: WardrobeIdentityHeadwearStyle;
-  identityScale?: number;
-  identityOffsetY?: number;
   bodyProfileId: WardrobeBodyProfileId;
   dressQaStatus: "approved" | "candidate";
 };
 
 export const WARDROBE_COMPATIBILITY_CASES: readonly WardrobeCompatibilityCase[] = [
-  {
-    id: "elli-store-reference",
-    kind: "reference",
-    companionId: "elli",
-    companionName: "Elli",
-    label: "Elli store reference",
-    modelUrl: "/companions/sample.vrm",
-    bodyProfileId: "sunny-standard-v1",
-    dressQaStatus: "approved",
-  },
-  ...Object.values(WARDROBE_COMPANION_BODY_ASSIGNMENTS)
-    .filter((assignment) => assignment.companionId !== "elli")
-    .map((assignment) => ({
-      id: `${assignment.companionId}-standard-body-identity`,
-      kind: "standardized_identity" as const,
-      companionId: assignment.companionId,
-      companionName: assignment.companionName,
-      label: `${assignment.companionName} identity on standard body`,
-      modelUrl: STANDARD_WARDROBE_BODY_MODEL_URL,
-      identityModelUrl: assignment.sourceModelUrl,
-      bodySkinTint: STANDARDIZED_BODY_SKIN_TINTS[assignment.companionId],
-      identityHeadwearStyle:
-        STANDARDIZED_IDENTITY_HEADWEAR[assignment.companionId],
-      identityScale: STANDARDIZED_IDENTITY_SCALES[assignment.companionId],
-      bodyProfileId: "sunny-standard-v1" as const,
-      dressQaStatus:
-        assignment.companionId === "matilda"
-          ? ("approved" as const)
-          : ("candidate" as const),
-    })),
-  ...Object.values(WARDROBE_COMPANION_BODY_ASSIGNMENTS).map((assignment) => ({
-    id: `${assignment.companionId}-source-model`,
-    kind: "source" as const,
-    companionId: assignment.companionId,
-    companionName: assignment.companionName,
+  ...preparedAssets.map(prepared => ({
+    id: `${prepared.companionId}-prepared-identity`, kind: "prepared" as const,
+    companionId: prepared.companionId,
+    companionName: WARDROBE_COMPANION_BODY_ASSIGNMENTS[prepared.companionId].companionName,
+    label: `${WARDROBE_COMPANION_BODY_ASSIGNMENTS[prepared.companionId].companionName} prepared identity`,
+    sourceModelUrl: prepared.sourceUrl, modelUrl: prepared.modelUrl,
+    bodyProfileId: prepared.bodyProfileId as WardrobeBodyProfileId, dressQaStatus: "candidate" as const,
+  })),
+  ...Object.values(WARDROBE_COMPANION_BODY_ASSIGNMENTS).map(assignment => ({
+    id: `${assignment.companionId}-source-model`, kind: "source" as const,
+    companionId: assignment.companionId, companionName: assignment.companionName,
     label: `${assignment.companionName} source model`,
-    modelUrl: assignment.sourceModelUrl,
-    bodyProfileId: assignment.sourceBodyProfileId,
-    dressQaStatus: "candidate" as const,
+    modelUrl: preparedAssets.find(p=>p.companionId===assignment.companionId)?.sourceUrl??assignment.sourceModelUrl,
+    bodyProfileId: assignment.sourceBodyProfileId, dressQaStatus: "candidate" as const,
   })),
 ];
 
@@ -418,17 +348,36 @@ export function resolveWardrobeTemplateCertification(
 }
 
 export const WARDROBE_STORE_CERTIFICATION_CASES: readonly WardrobeCompatibilityCase[] =
-  WARDROBE_COMPATIBILITY_CASES.filter(
-    (testCase) => testCase.kind !== "source",
-  ).map(testCase => {
-    const prepared = preparedAssets.find(asset => asset.companionId === testCase.companionId);
-    return prepared ? {
-      ...testCase, kind: "prepared" as const,
-      label: `${testCase.companionName} prepared identity`,
-      sourceModelUrl: prepared.sourceUrl,
-      modelUrl: prepared.modelUrl,
-      identityModelUrl: undefined,
-      bodyProfileId: prepared.bodyProfileId as WardrobeBodyProfileId,
-      dressQaStatus: "candidate" as const,
-    } : testCase;
+  WARDROBE_COMPATIBILITY_CASES.filter(testCase=>testCase.kind === "prepared");
+
+export type WardrobeEngineeringReview = {
+  companionId: string;
+  preparedSha256: string;
+  recipeVersion: string;
+  presentationVersion: string;
+  automated: string;
+  accessoryVersions?: Partial<Record<string,string>>;
+  supplemental?: {check:string;path:string}[];
+  garments: {outfitId:string;sha256:string;sourceVersion:string;visual:string;evidence:{check:string;path:string}[]}[];
+};
+const REQUIRED_VISUAL_CHECKS=['front:idle','back:idle','side:idle','face:idle','face:speak','face:head-turn','front:arms-up','front:elbows-bent'];
+export function isWardrobeReadyForHumanReview(companionId:string,records:readonly WardrobeEngineeringReview[]=engineeringReviews):boolean {
+  const body=preparedAssets.find(b=>b.companionId===companionId);
+  const record=records.find(r=>r.companionId===companionId);
+  const presentation=(assetVersions as Record<string,string>).presentation;
+  if(!body||!record||record.automated!=='passed'||!presentation||record.presentationVersion!==presentation||record.preparedSha256!==body.preparedSha256||record.recipeVersion!==body.recipeVersion)return false;
+  const hasSupplemental=(check:string)=>record.supplemental?.some(e=>e.check===check&&e.path.trim());
+  if(!hasSupplemental('face:blink'))return false;
+  // Measured optional accessories form the original complete wardrobe deliverable.
+  // Each must be inspected on every garment; profiles cannot grant that coverage.
+  const accessories=Object.keys(body.accessoryFits??{});
+  const accessoryIds:Record<string,string>={crown:'royal-crown','cat-ears':'cat-ears',halo:'star-halo'};
+  if(accessories.some(accessory=>!record.accessoryVersions?.[accessory]||record.accessoryVersions[accessory]!==((assetVersions as Record<string,string>)[accessoryIds[accessory]])))return false;
+  if(accessories.length&&(!['plum','teal','rose'].every(color=>hasSupplemental(`${color}-ribbon-dress`))||!['sleeveless-dress','comet-hoodie','constellation-blazer'].every(outfit=>accessories.every(accessory=>hasSupplemental(`${outfit}:${accessory}`)))))return false;
+  return ['sleeveless-dress','comet-hoodie','constellation-blazer'].every(outfitId=>{
+    const sourceVersion=(assetVersions as Record<string,string>)[outfitId==='sleeveless-dress'?'ribbon-dress':outfitId];
+    const fit=fittedAssets.find(f=>f.companionId===companionId&&f.outfitId===outfitId&&f.bodySha256===body.preparedSha256&&f.sourceVersion===sourceVersion);
+    const review=record.garments.find(g=>g.outfitId===outfitId);
+    return Boolean(fit&&review&&review.sha256===fit.sha256&&review.sourceVersion===sourceVersion&&review.visual==='passed'&&REQUIRED_VISUAL_CHECKS.every(check=>review.evidence.some(e=>e.check===check&&e.path.trim())));
   });
+}

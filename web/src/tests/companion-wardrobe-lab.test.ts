@@ -107,25 +107,25 @@ describe("companion wardrobe feasibility lab", () => {
   it("never reveals Elli's standard body while another store identity is loading", () => {
     expect(
       shouldRevealWardrobeCompanionCanvas({
-        identityOverlayModelUrl: "/companions/princess.vrm",
-        identityCompositeState: "loading",
+        requiresReady: true,
+        presentationState: "loading",
       }),
     ).toBe(false);
     expect(
       shouldRevealWardrobeCompanionCanvas({
-        identityOverlayModelUrl: "/companions/princess.vrm",
-        identityCompositeState: "failed",
+        requiresReady: true,
+        presentationState: "failed",
       }),
     ).toBe(false);
     expect(
       shouldRevealWardrobeCompanionCanvas({
-        identityOverlayModelUrl: "/companions/princess.vrm",
-        identityCompositeState: "ready",
+        requiresReady: true,
+        presentationState: "ready",
       }),
     ).toBe(true);
     expect(
       shouldRevealWardrobeCompanionCanvas({
-        identityCompositeState: "loading",
+        presentationState: "loading",
       }),
     ).toBe(true);
   });
@@ -260,31 +260,9 @@ describe("companion wardrobe feasibility lab", () => {
     expect(styles).not.toContain("left: calc(50% + clamp(42px, 5vw, 78px));");
   });
 
-  it("uses each companion identity on the standard fitted body inside the store", () => {
-    const source = readShowroomSource();
-
-    expect(source).toContain("identityOverlayModelUrl?: string");
-    expect(source).toContain("resolveStandardizedWardrobePresentation");
-    expect(source).toContain("wardrobeStoreEntry");
-    expect(source).toContain(
-      "identityOverlayModelUrl={wardrobePresentation.identityModelUrl}",
-    );
-    expect(source).toContain(
-      "identityBodySkinTint={wardrobePresentation.bodySkinTint}",
-    );
-    expect(source).toContain(
-      "identityHeadwearStyle={wardrobePresentation.identityHeadwearStyle}",
-    );
-    expect(source).toContain("createWardrobeIdentityHeadwear");
-    expect(source).toContain(
-      "identityOverlayModelUrl={testCase.identityModelUrl}",
-    );
-    expect(source).toContain(
-      " 🎮 [wardrobe-identity-lab] composite_ready result=ready",
-    );
-    expect(source).toContain(
-      " 🎮 [wardrobe-identity-lab] clothing_reconciled result=ready",
-    );
+  it("renders a single complete prepared identity without source overlays or synthesized identity geometry",()=>{
+    const source=readShowroomSource();expect(source).toContain("resolvePreparedWardrobePresentation");expect(source).toContain("wardrobeStoreEntry");
+    for(const retired of ["identityOverlayModelUrl","configureIdentityCompositeVisibility","createWardrobeIdentityHeadwear","pinIdentityOverlayToStandardHead"])expect(source).not.toContain(retired);
   });
 
   it("prevents stale async outfit loads from restoring an older garment", () => {
@@ -400,7 +378,7 @@ describe("companion wardrobe feasibility lab", () => {
       "attachXwearOutfit(vrm.scene, outfitDefinition, selectedMaterialVariant, showroomCompanionConfig.vrmUrl)",
     );
     expect(source).toContain(
-      "const selectionKey = JSON.stringify([entry.id, entry.companionConfig?.vrmUrl ?? entry.vrmUrl, identityOverlayModelUrl, wardrobeOutfitId, wardrobeOutfitMaterialVariant, wardrobeAccessoryId])",
+      "const selectionKey = JSON.stringify([entry.id, entry.companionConfig?.vrmUrl ?? entry.vrmUrl, wardrobeOutfitId, wardrobeOutfitMaterialVariant, wardrobeAccessoryId])",
     );
     expect(xwearSource).toContain(
       "applyXwearMaterialVariant(materials, materialVariant)",

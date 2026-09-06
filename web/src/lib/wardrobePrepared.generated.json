@@ -4,7 +4,7 @@
     "recipeVersion": "identity-preserved-v1",
     "sourceUrl": "/companions/sample.vrm",
     "sourceSha256": "12c2b97e95e700783a6a550dc0eee2d7880aeedccef9ae67bc4c5a2f0f2631a2",
-    "preparedSha256": "6d9698c8fb9e9b41826612cd5fa3dcdde3339e9c0ee7c91368d94430044f8dec",
+    "preparedSha256": "1bc1f48717b2c4b3b97800b92148df1ab30fa83d035516f777098143afdfc03e",
     "modelUrl": "/companions/elli-wardrobe-identity-preserved-v1.vrm",
     "bodyProfileId": "sunny-standard-v1",
     "clothingMaterials": {
@@ -18,7 +18,8 @@
         "rotationY": 3.141592653589793
       },
       "cat-ears": {
-        "baseY": 0.16611450626131796,
+        "baseY": 0.178,
+        "lateralTilt": 0.6,
         "scale": 0.7,
         "rotationY": 3.141592653589793
       },
@@ -32,11 +33,11 @@
   },
   {
     "companionId": "matilda",
-    "recipeVersion": "identity-preserved-v4",
+    "recipeVersion": "native-identity-v1",
     "sourceUrl": "/companions/673852811403133503.vrm",
     "sourceSha256": "1b11bd3de4f708c147c408602ec21b3b86bc4d0003d8ebd9eba4451495e1d455",
-    "preparedSha256": "f642d38931582ed85c945d78fa012d0554b8b5b7099535fa1d8cbacf4c881ced",
-    "modelUrl": "/companions/matilda-wardrobe-identity-preserved-v4.vrm",
+    "preparedSha256": "4e26aa5b05cf124dd3adc11f5b72799dedbc88ad15cc5e499060ebab9211dc3a",
+    "modelUrl": "/companions/matilda-wardrobe-native-identity-v1.vrm",
     "bodyProfileId": "vroid-slim-v1",
     "clothingMaterials": {
       "9": "bottom",
@@ -70,84 +71,96 @@
         "rotationY": 3.141592653589793
       }
     },
-    "bodyRepair": {
-      "donorSourceUrl": "/companions/sample.vrm",
-      "donorSha256": "12c2b97e95e700783a6a550dc0eee2d7880aeedccef9ae67bc4c5a2f0f2631a2",
-      "donorMesh": 0,
-      "donorPrimitive": 0,
-      "targetMesh": 1,
-      "targetPrimitive": 0,
-      "targetMaterial": 8,
-      "jointMappings": {
-        "J_Aim_L_Shoulder": [
-          {
-            "joint": "J_Bip_L_UpperArm",
-            "weight": 1
-          }
-        ],
-        "J_Roll_L_UpperArm": [
-          {
-            "joint": "J_Bip_L_UpperArm",
-            "weight": 1
-          }
-        ],
-        "J_Roll_L_LowerArm": [
-          {
-            "joint": "J_Bip_L_LowerArm",
-            "weight": 1
-          }
-        ],
-        "J_Roll_L_Hand": [
-          {
-            "joint": "J_Bip_L_Hand",
-            "weight": 1
-          }
-        ],
-        "J_Roll_L_Elbow": [
-          {
-            "joint": "J_Bip_L_UpperArm",
-            "weight": 0.5
-          },
-          {
-            "joint": "J_Bip_L_LowerArm",
-            "weight": 0.5
-          }
-        ],
-        "J_Aim_R_Shoulder": [
-          {
-            "joint": "J_Bip_R_UpperArm",
-            "weight": 1
-          }
-        ],
-        "J_Roll_R_UpperArm": [
-          {
-            "joint": "J_Bip_R_UpperArm",
-            "weight": 1
-          }
-        ],
-        "J_Roll_R_LowerArm": [
-          {
-            "joint": "J_Bip_R_LowerArm",
-            "weight": 1
-          }
-        ],
-        "J_Roll_R_Hand": [
-          {
-            "joint": "J_Bip_R_Hand",
-            "weight": 1
-          }
-        ],
-        "J_Roll_R_Elbow": [
-          {
-            "joint": "J_Bip_R_UpperArm",
-            "weight": 0.5
-          },
-          {
-            "joint": "J_Bip_R_LowerArm",
-            "weight": 0.5
-          }
-        ]
-      }
+    "status": "candidate"
+  },
+  {
+    "companionId": "princess",
+    "recipeVersion": "native-identity-v1",
+    "sourceUrl": "/companions/princess.vrm",
+    "sourceSha256": "7ab95a552520e02ed33ebd3b66ed9b90e586bca6f64dd208de39fad225346c75",
+    "preparedSha256": "529dc7d7576009e0da728eb97da9cc86555bd59b420f20aa23e6d9bf83c9ee3a",
+    "modelUrl": "/companions/princess-wardrobe-native-identity-v1.vrm",
+    "bodyProfileId": "princess-tall-v1",
+    "clothingMaterials": {},
+    "status": "candidate"
+  },
+  {
+    "companionId": "yukari",
+    "recipeVersion": "native-identity-v1",
+    "sourceUrl": "/companions/3852603318431396015.vrm",
+    "sourceSha256": "bde6da490a5ad1d78a0fbeb247bdba3a44051c869e4a0f32e84e3c112dbe4ee0",
+    "preparedSha256": "9848767120012b05fc0b835b060ed9b2e1133991244f1a90c2d24363a03c2134",
+    "modelUrl": "/companions/yukari-wardrobe-native-identity-v1.vrm",
+    "bodyProfileId": "yukari-long-leg-v1",
+    "clothingMaterials": {
+      "9": "top",
+      "12": "onepiece",
+      "13": "onepiece",
+      "14": "onepiece"
+    },
+    "intrinsicAccessoryMaterials": {
+      "11": "cat-ears"
+    },
+    "status": "candidate"
+  },
+  {
+    "companionId": "kefla",
+    "recipeVersion": "native-identity-v1",
+    "sourceUrl": "/companions/Kefla.vrm",
+    "sourceSha256": "87b20e1e4b655232af449fb4ef5f8c1f131ed3258f6ad1703648ea7108069703",
+    "preparedSha256": "a14186271b7e392f11d1a4168c682ff07dade935b56ac26a8efd24779c831733",
+    "modelUrl": "/companions/kefla-wardrobe-native-identity-v1.vrm",
+    "bodyProfileId": "kefla-v1",
+    "clothingMaterials": {},
+    "status": "candidate"
+  },
+  {
+    "companionId": "melty",
+    "recipeVersion": "native-identity-v1",
+    "sourceUrl": "/companions/4573661938486170180.vrm",
+    "sourceSha256": "8166b63da15229b9e4de9d8882103b9616a755d85e02969d07ec9054d220abd4",
+    "preparedSha256": "2783913c2e98e9f83ea4cb2ccf820af81aadf938f522bae45c789df4ad6d034d",
+    "modelUrl": "/companions/melty-wardrobe-native-identity-v1.vrm",
+    "bodyProfileId": "melty-compact-v1",
+    "clothingMaterials": {
+      "10": "top",
+      "11": "top",
+      "12": "top",
+      "13": "top",
+      "14": "bottom"
+    },
+    "status": "candidate"
+  },
+  {
+    "companionId": "tene",
+    "recipeVersion": "native-identity-v1",
+    "sourceUrl": "/companions/1537416846714225126.vrm",
+    "sourceSha256": "b0d70ffca52d9b4756a69ba9ee75c6d3ca3134202e15f561e19aa810dec246da",
+    "preparedSha256": "768920fd2dc5d73eea234aa65da4f6bb8554144815c7a7cc7b1619d47a2c35c3",
+    "modelUrl": "/companions/tene-wardrobe-native-identity-v1.vrm",
+    "bodyProfileId": "tene-long-arm-v1",
+    "clothingMaterials": {
+      "9": "top",
+      "10": "top",
+      "12": "top",
+      "13": "top"
+    },
+    "status": "candidate"
+  },
+  {
+    "companionId": "towa",
+    "recipeVersion": "native-identity-v1",
+    "sourceUrl": "/companions/7339187387832391139.vrm",
+    "sourceSha256": "2d708897471469093af09b9472d68853253857d2b59ed47ee5e5b2f7e3e9c9d9",
+    "preparedSha256": "5c87339d0750cd7cc0d01c0a4f9ea320a81af7db26680c72bea919fbd620c2d6",
+    "modelUrl": "/companions/towa-wardrobe-native-identity-v1.vrm",
+    "bodyProfileId": "towa-athletic-v1",
+    "clothingMaterials": {
+      "10": "top",
+      "11": "bottom",
+      "14": "top",
+      "15": "top",
+      "16": "top"
     },
     "status": "candidate"
   }

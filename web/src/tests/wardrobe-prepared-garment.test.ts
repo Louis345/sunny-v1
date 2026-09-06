@@ -71,8 +71,10 @@ it.each(['empty','fractional','nonfinite','uncovered'])('rejects %s material gro
  expect(load).not.toHaveBeenCalled();expect(scene.children).toHaveLength(1);
 });
 
-it('has all six real fits with matching fingerprints, explicit versions and distinct garment geometry',()=>{
- expect(fitted).toHaveLength(6);
+it('has all eight native identities and their three real fits with matching fingerprints, explicit versions and distinct garment geometry',()=>{
+ expect(bodies.map(b=>b.companionId).sort()).toEqual(['elli','kefla','matilda','melty','princess','tene','towa','yukari']);
+ expect(fitted).toHaveLength(24);
+ for(const body of bodies)expect(fitted.filter(f=>f.companionId===body.companionId).map(f=>f.outfitId).sort()).toEqual(['comet-hoodie','constellation-blazer','sleeveless-dress']);
  const counts=new Set<number>();
  for(const record of fitted){
   const body=bodies.find(b=>b.companionId===record.companionId)!;

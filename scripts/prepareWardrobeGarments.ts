@@ -17,10 +17,10 @@ async function main(){
 const browser=await chromium.launch({headless:true,channel:'chrome'});
 const records:PreparedGarmentReference[]=[];
 try{
+ for(const body of bodies)for(const outfitId of ['sleeveless-dress','comet-hoodie','constellation-blazer']){
  const page=await browser.newPage();
  await page.route('**/wardrobe-prepare.html',route=>route.fulfill({contentType:'text/html',body:'<title>Local wardrobe preparation</title>'}));
  await page.goto('http://127.0.0.1:5197/wardrobe-prepare.html');
- for(const body of bodies)for(const outfitId of ['sleeveless-dress','comet-hoodie','constellation-blazer']){
   const geometry=await page.evaluate(`(async()=>{
    const {modelUrl,outfitId}=${JSON.stringify({modelUrl:body.modelUrl,outfitId})};
    const loaderPath='/src/utils/loadCompanionVrm.ts',fitPath='/src/lib/xwearDress.ts';
@@ -34,6 +34,9 @@ try{
    vrm.scene.traverse(object=>{object.geometry?.dispose();const materials=Array.isArray(object.material)?object.material:[object.material];for(const material of materials){material?.map?.dispose();material?.dispose();}object.skeleton?.dispose();});
    return result;
   })()`) as Pick<PreparedGarmentData,'positions'|'normals'|'uv'|'skinIndices'|'skinWeights'|'indices'|'groups'|'bones'>;
+  // Closing the page releases every decoded texture, GLTF cache and WebGL resource
+  // before preparing the next bounded character/outfit pair.
+  await page.close();
   const outfit=getXwearOutfitDefinition(outfitId)!;
   const archive=resolveXwearArchiveFiles(unzipSync(readFileSync(resolveLocalWardrobeAsset(outfit.archiveUrl!)!)));
   const resource=JSON.parse(new TextDecoder().decode(archive.resource)),item=JSON.parse(new TextDecoder().decode(archive.item));

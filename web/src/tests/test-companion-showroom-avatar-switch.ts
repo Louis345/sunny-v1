@@ -26,11 +26,11 @@ describe("Companion showroom avatar switching", () => {
 
 import { shouldRevealWardrobeCompanionCanvas } from '../components/CompanionShowroom';
 it('hides prepared identities until the complete current selection is ready', () => {
-  const state = {requiresReady:true, requestedKey:'matilda:hoodie', settledKey:'matilda:dress', identityCompositeState:'ready' as const};
+  const state = {requiresReady:true, requestedKey:'matilda:hoodie', settledKey:'matilda:dress', presentationState:'ready' as const};
   expect(shouldRevealWardrobeCompanionCanvas(state)).toBe(false);
   expect(shouldRevealWardrobeCompanionCanvas({...state,settledKey:state.requestedKey})).toBe(true);
-  expect(shouldRevealWardrobeCompanionCanvas({...state,settledKey:state.requestedKey,identityCompositeState:'loading'})).toBe(false);
-  expect(shouldRevealWardrobeCompanionCanvas({...state,settledKey:state.requestedKey,identityCompositeState:'failed'})).toBe(false);
+  expect(shouldRevealWardrobeCompanionCanvas({...state,settledKey:state.requestedKey,presentationState:'loading'})).toBe(false);
+  expect(shouldRevealWardrobeCompanionCanvas({...state,settledKey:state.requestedKey,presentationState:'failed'})).toBe(false);
 });
 
 import * as THREE from 'three';

@@ -62,7 +62,7 @@ const RIBBON_DRESS_VARIANTS = createWardrobeVariantCatalog({
       icon: "👗",
       compatibility: {
         kind: "approved_body_profiles",
-        bodyProfileIds: ["sunny-standard-v1", "vroid-slim-v1"],
+        bodyProfileIds: preparedBodies.map(body => body.bodyProfileId),
       },
       qa: {
         status: "approved",
@@ -149,7 +149,7 @@ export const WARDROBE_STORE_CATALOG: readonly WardrobeStoreItem[] = [
     styleTags: ["candidate"],
     asset: {kind: "outfit" as const, outfitId: candidate.id, fit: "skinned_xwear" as const,
       materialVariant: {id:candidate.id,tint:"#ffffff"}},
-    compatibility: {kind: "approved_body_profiles" as const,bodyProfileIds:["sunny-standard-v1","vroid-slim-v1"]},
+    compatibility: {kind: "approved_body_profiles" as const,bodyProfileIds:preparedBodies.map(body => body.bodyProfileId)},
   })),
 ] as const;
 

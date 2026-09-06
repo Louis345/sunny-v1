@@ -1,29 +1,14 @@
+import {isPreparedAccessoryAvailable} from "../lib/wardrobeAccessoryFit";
 import { DEFAULT_WARDROBE_INSPECTION, type WardrobeInspection } from "../lib/wardrobeInspection";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   WARDROBE_BODY_PROFILES,
   resolveWardrobeTemplateCertification,
+  isWardrobeReadyForHumanReview,
   type WardrobeCompatibilityCase,
 } from "../lib/wardrobeBodyProfiles";
 import type { WardrobeStoreItem } from "../lib/wardrobeStore";
 import "./WardrobeCompatibilityLab.css";
-
-export type WardrobePreviewCalibration = {
-  identityScale: number;
-  identityOffsetY: number;
-};
-
-const SCALE_STEP = 0.04;
-const OFFSET_STEP = 0.01;
-
-function baseCalibration(
-  testCase: WardrobeCompatibilityCase,
-): WardrobePreviewCalibration {
-  return {
-    identityScale: testCase.identityScale ?? 1,
-    identityOffsetY: testCase.identityOffsetY ?? 0,
-  };
-}
 
 export function WardrobeCompatibilityLab({
   cases,
@@ -38,7 +23,6 @@ export function WardrobeCompatibilityLab({
   renderCompanion: (
     testCase: WardrobeCompatibilityCase,
     item: WardrobeStoreItem,
-    calibration: WardrobePreviewCalibration,
     inspection: WardrobeInspection,
   ) => ReactNode;
   onExit: () => void;
@@ -52,9 +36,6 @@ export function WardrobeCompatibilityLab({
   const [selectedItemId, setSelectedItemId] = useState(
     outfitItems[0]?.id ?? "",
   );
-  const [calibrationByCase, setCalibrationByCase] = useState<
-    Record<string, WardrobePreviewCalibration>
-  >({});
   const selectedCase = useMemo(
     () =>
       cases.find((testCase) => testCase.id === selectedCaseId) ?? cases[0],
@@ -64,25 +45,7 @@ export function WardrobeCompatibilityLab({
     () => outfitItems.find((item) => item.id === selectedItemId) ?? outfitItems[0],
     [outfitItems, selectedItemId],
   );
-  const selectedCalibration = selectedCase
-    ? calibrationByCase[selectedCase.id] ?? baseCalibration(selectedCase)
-    : { identityScale: 1, identityOffsetY: 0 };
-
-  const updateCalibration = (
-    action: string,
-    update: (current: WardrobePreviewCalibration) => WardrobePreviewCalibration,
-  ) => {
-    if (!selectedCase) return;
-    setCalibrationByCase((currentByCase) => {
-      const current = currentByCase[selectedCase.id] ?? baseCalibration(selectedCase);
-      const next = update(current);
-      console.log(
-        ` 🎮 [wardrobe-certification-lab] calibration_changed result=preview_only companion=${selectedCase.companionId} action=${action} scale=${next.identityScale.toFixed(2)} offset_y=${next.identityOffsetY.toFixed(2)}`,
-      );
-      return { ...currentByCase, [selectedCase.id]: next };
-    });
-  };
-
+  const currentInspection:WardrobeInspection=selectedCase&&isPreparedAccessoryAvailable(selectedCase.modelUrl,inspection.accessory)?inspection:{...inspection,accessory:'none'};
   const templateId = selectedItem?.templateId ?? "";
   const certification = selectedCase
     ? resolveWardrobeTemplateCertification(selectedCase.companionId, templateId)
@@ -100,14 +63,15 @@ export function WardrobeCompatibilityLab({
     );
   }, [certification, selectedCase, selectedItem, templateId]);
 
-  if (!selectedCase || !selectedItem || !certification) return null;
+  if (!selectedCase || !selectedItem || !certification) return <section aria-label="Wardrobe review queue"><p>No current fits have completed engineering verification.</p><button onClick={onExit}>Back to showroom</button></section>;
+  const engineeringReady = isWardrobeReadyForHumanReview(selectedCase.companionId);
   const profile = WARDROBE_BODY_PROFILES[selectedCase.bodyProfileId];
   const statusCopy =
     certification.status === "approved"
       ? `Approved for ${selectedCase.companionName}’s store`
       : certification.status === "rejected"
         ? "Rejected — excluded from store"
-        : "Quarantined — human review required";
+        : engineeringReady ? "Awaiting human approval" : "Engineering verification pending";
 
   return (
     <section
@@ -137,7 +101,7 @@ export function WardrobeCompatibilityLab({
           >
             <span>Original character</span>
             <div className="wardrobe-compatibility-lab__viewport">
-              {renderSourceCompanion(selectedCase, inspection)}
+              {renderSourceCompanion(selectedCase, currentInspection)}
             </div>
           </section>
           <section
@@ -146,7 +110,7 @@ export function WardrobeCompatibilityLab({
           >
             <span>Wardrobe fit</span>
             <div className="wardrobe-compatibility-lab__viewport">
-              {renderCompanion(selectedCase, selectedItem, selectedCalibration, inspection)}
+              {renderCompanion(selectedCase, selectedItem, currentInspection)}
             </div>
           </section>
         </div>
@@ -155,7 +119,7 @@ export function WardrobeCompatibilityLab({
             <span>
               {selectedCase.kind === "reference"
                 ? "Approved reference"
-                : selectedCase.kind === "prepared" ? "Prepared complete identity · candidate" : "Standard-body identity candidate"}
+                : selectedCase.kind === "prepared" ? (engineeringReady ? "Prepared complete identity · candidate" : "Prepared complete identity · engineering preview") : "Original identity reference"}
             </span>
             <h2>{selectedCase.companionName} · {selectedItem.name}</h2>
             <p>{certification.reason}</p>
@@ -202,58 +166,10 @@ export function WardrobeCompatibilityLab({
           <label>Inspection movement<select aria-label="Inspection movement" value={inspection.pose} onChange={event => setInspection({...inspection, pose:event.target.value as WardrobeInspection["pose"]})}>
             <option value="idle">Idle</option><option value="blink">Blink</option><option value="speak">Mouth open</option><option value="head-turn">Head turn</option><option value="arms-up">Arms raised</option><option value="elbows-bent">Elbows bent</option><option value="leg-swing">Leg swing (synthetic)</option>
           </select></label>
-          <label>Inspection accessory<select aria-label="Inspection accessory" value={inspection.accessory} onChange={event => setInspection({...inspection, accessory:event.target.value as WardrobeInspection["accessory"]})}>
-            <option value="none">None</option><option value="crown">Crown</option><option value="cat-ears">Cat ears</option><option value="halo">Halo</option>
+          <label>Inspection accessory<select aria-label="Inspection accessory" value={currentInspection.accessory} onChange={event => setInspection({...inspection, accessory:event.target.value as WardrobeInspection["accessory"]})}>
+            <option value="none">None</option><option disabled={!isPreparedAccessoryAvailable(selectedCase.modelUrl,"crown")} value="crown">Crown</option><option disabled={!isPreparedAccessoryAvailable(selectedCase.modelUrl,"cat-ears")} value="cat-ears">Cat ears</option><option disabled={!isPreparedAccessoryAvailable(selectedCase.modelUrl,"halo")} value="halo">Halo</option>
           </select></label>
         </div>
-        {selectedCase.kind !== "prepared" && <div className="wardrobe-compatibility-lab__calibration">
-          <div>
-            <span>Preview calibration</span>
-            <strong>{selectedCalibration.identityScale.toFixed(2)}× head</strong>
-            <small>{selectedCalibration.identityOffsetY >= 0 ? "+" : ""}{selectedCalibration.identityOffsetY.toFixed(2)} vertical</small>
-          </div>
-          <div className="wardrobe-compatibility-lab__calibration-controls">
-            <button
-              type="button"
-              aria-label="Decrease head size"
-              onClick={() => updateCalibration("scale_down", (current) => ({
-                ...current,
-                identityScale: Math.max(0.76, current.identityScale - SCALE_STEP),
-              }))}
-            >−</button>
-            <button
-              type="button"
-              aria-label="Increase head size"
-              onClick={() => updateCalibration("scale_up", (current) => ({
-                ...current,
-                identityScale: Math.min(1.48, current.identityScale + SCALE_STEP),
-              }))}
-            >+</button>
-            <button
-              type="button"
-              aria-label="Move head up"
-              onClick={() => updateCalibration("move_up", (current) => ({
-                ...current,
-                identityOffsetY: Math.min(0.12, current.identityOffsetY + OFFSET_STEP),
-              }))}
-            >↑</button>
-            <button
-              type="button"
-              aria-label="Move head down"
-              onClick={() => updateCalibration("move_down", (current) => ({
-                ...current,
-                identityOffsetY: Math.max(-0.12, current.identityOffsetY - OFFSET_STEP),
-              }))}
-            >↓</button>
-            <button
-              type="button"
-              aria-label="Reset calibration"
-              onClick={() => updateCalibration("reset", () => baseCalibration(selectedCase))}
-            >Reset</button>
-          </div>
-        </div>
-
-        }
         <div className="wardrobe-compatibility-lab__profile">
           <span>Body profile</span>
           <strong>{selectedCase.bodyProfileId}</strong>
@@ -279,7 +195,7 @@ export function WardrobeCompatibilityLab({
                 aria-label={`Review ${testCase.label}`}
                 aria-pressed={testCase.id === selectedCase.id}
                 data-certification-status={caseCertification.status}
-                onClick={() => setSelectedCaseId(testCase.id)}
+                onClick={() => {setSelectedCaseId(testCase.id);if(!isPreparedAccessoryAvailable(testCase.modelUrl,inspection.accessory))setInspection({...inspection,accessory:'none'});}}
               >
                 <span>{testCase.companionName}</span>
                 <small>{testCase.kind === "reference" ? "store reference" : "identity proof"}</small>

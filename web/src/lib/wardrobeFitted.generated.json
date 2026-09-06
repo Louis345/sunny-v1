@@ -1,50 +1,194 @@
 [
   {
     "companionId": "elli",
-    "bodySha256": "6d9698c8fb9e9b41826612cd5fa3dcdde3339e9c0ee7c91368d94430044f8dec",
+    "bodySha256": "1bc1f48717b2c4b3b97800b92148df1ab30fa83d035516f777098143afdfc03e",
     "outfitId": "sleeveless-dress",
-    "sourceVersion": "c716207b017239dcbf2a096e8566d291650f3cb5fd2c6a8089b08f8251d2d0d3:e50e01f2fc56f5991782e5599379293c8077c37032146a689b0e10c03a79a943",
-    "url": "/__wardrobe-assets/prepared/elli-sleeveless-dress-0dedb0c6d77737dcdeb5c38251c1cd5a4823464ad1fb2b1f2324e65189eb87ae.json",
-    "sha256": "0dedb0c6d77737dcdeb5c38251c1cd5a4823464ad1fb2b1f2324e65189eb87ae"
+    "sourceVersion": "c716207b017239dcbf2a096e8566d291650f3cb5fd2c6a8089b08f8251d2d0d3:6559a66f693854d63f227742977568324ebb23680a6a6a5ca27b65c47657c213",
+    "url": "/__wardrobe-assets/prepared/elli-sleeveless-dress-502b060b4751b46e9e72c8bfb629f9551f1def71a04258871eddc8901db9054c.json",
+    "sha256": "502b060b4751b46e9e72c8bfb629f9551f1def71a04258871eddc8901db9054c"
   },
   {
     "companionId": "elli",
-    "bodySha256": "6d9698c8fb9e9b41826612cd5fa3dcdde3339e9c0ee7c91368d94430044f8dec",
+    "bodySha256": "1bc1f48717b2c4b3b97800b92148df1ab30fa83d035516f777098143afdfc03e",
     "outfitId": "comet-hoodie",
-    "sourceVersion": "ea114d56fd5e5803d6a06e07f8e97356b37403379a8b254f62d551ebe5a3e6cf:e50e01f2fc56f5991782e5599379293c8077c37032146a689b0e10c03a79a943",
-    "url": "/__wardrobe-assets/prepared/elli-comet-hoodie-6f0027ce976339003f197bc476cd396c02cd2aba8a05d33434eaadbecc4661bd.json",
-    "sha256": "6f0027ce976339003f197bc476cd396c02cd2aba8a05d33434eaadbecc4661bd"
+    "sourceVersion": "ea114d56fd5e5803d6a06e07f8e97356b37403379a8b254f62d551ebe5a3e6cf:6559a66f693854d63f227742977568324ebb23680a6a6a5ca27b65c47657c213",
+    "url": "/__wardrobe-assets/prepared/elli-comet-hoodie-36770d0240d9349ae8592e4d0811c09023d581db430872a910b5d6103e0b435f.json",
+    "sha256": "36770d0240d9349ae8592e4d0811c09023d581db430872a910b5d6103e0b435f"
   },
   {
     "companionId": "elli",
-    "bodySha256": "6d9698c8fb9e9b41826612cd5fa3dcdde3339e9c0ee7c91368d94430044f8dec",
+    "bodySha256": "1bc1f48717b2c4b3b97800b92148df1ab30fa83d035516f777098143afdfc03e",
     "outfitId": "constellation-blazer",
-    "sourceVersion": "3370358848af0e97fdea02d7bc3b2a0cfa5429b8512d20cf5add71c8fa8cca38:e50e01f2fc56f5991782e5599379293c8077c37032146a689b0e10c03a79a943",
-    "url": "/__wardrobe-assets/prepared/elli-constellation-blazer-b82e5a4ab2d1cd85430945525d0d9285af3ed7f182ad3290b43c1d0ad73e8240.json",
-    "sha256": "b82e5a4ab2d1cd85430945525d0d9285af3ed7f182ad3290b43c1d0ad73e8240"
+    "sourceVersion": "3370358848af0e97fdea02d7bc3b2a0cfa5429b8512d20cf5add71c8fa8cca38:6559a66f693854d63f227742977568324ebb23680a6a6a5ca27b65c47657c213",
+    "url": "/__wardrobe-assets/prepared/elli-constellation-blazer-897a79aa86f9074dc47ebb16d87b7f550c026125dbbc9c5658511ecac54915cf.json",
+    "sha256": "897a79aa86f9074dc47ebb16d87b7f550c026125dbbc9c5658511ecac54915cf"
   },
   {
     "companionId": "matilda",
-    "bodySha256": "f642d38931582ed85c945d78fa012d0554b8b5b7099535fa1d8cbacf4c881ced",
+    "bodySha256": "4e26aa5b05cf124dd3adc11f5b72799dedbc88ad15cc5e499060ebab9211dc3a",
     "outfitId": "sleeveless-dress",
-    "sourceVersion": "c716207b017239dcbf2a096e8566d291650f3cb5fd2c6a8089b08f8251d2d0d3:e50e01f2fc56f5991782e5599379293c8077c37032146a689b0e10c03a79a943",
-    "url": "/__wardrobe-assets/prepared/matilda-sleeveless-dress-15b2ef06cba34e55b4e289f77a3bd17beb3bc605eb25647c91665e6d952bd12f.json",
-    "sha256": "15b2ef06cba34e55b4e289f77a3bd17beb3bc605eb25647c91665e6d952bd12f"
+    "sourceVersion": "c716207b017239dcbf2a096e8566d291650f3cb5fd2c6a8089b08f8251d2d0d3:6559a66f693854d63f227742977568324ebb23680a6a6a5ca27b65c47657c213",
+    "url": "/__wardrobe-assets/prepared/matilda-sleeveless-dress-864fa80d2469734549676e66b047850e40c1fd75bd5b6f5d5c37538758fd1843.json",
+    "sha256": "864fa80d2469734549676e66b047850e40c1fd75bd5b6f5d5c37538758fd1843"
   },
   {
     "companionId": "matilda",
-    "bodySha256": "f642d38931582ed85c945d78fa012d0554b8b5b7099535fa1d8cbacf4c881ced",
+    "bodySha256": "4e26aa5b05cf124dd3adc11f5b72799dedbc88ad15cc5e499060ebab9211dc3a",
     "outfitId": "comet-hoodie",
-    "sourceVersion": "ea114d56fd5e5803d6a06e07f8e97356b37403379a8b254f62d551ebe5a3e6cf:e50e01f2fc56f5991782e5599379293c8077c37032146a689b0e10c03a79a943",
-    "url": "/__wardrobe-assets/prepared/matilda-comet-hoodie-223cc6fbded7e36e1a328f8516714d862bf346f967d0c49b09789dd132dec921.json",
-    "sha256": "223cc6fbded7e36e1a328f8516714d862bf346f967d0c49b09789dd132dec921"
+    "sourceVersion": "ea114d56fd5e5803d6a06e07f8e97356b37403379a8b254f62d551ebe5a3e6cf:6559a66f693854d63f227742977568324ebb23680a6a6a5ca27b65c47657c213",
+    "url": "/__wardrobe-assets/prepared/matilda-comet-hoodie-66034ca61600f2057c2ed2a5012f02305033690cd47af39042b8aa583f879546.json",
+    "sha256": "66034ca61600f2057c2ed2a5012f02305033690cd47af39042b8aa583f879546"
   },
   {
     "companionId": "matilda",
-    "bodySha256": "f642d38931582ed85c945d78fa012d0554b8b5b7099535fa1d8cbacf4c881ced",
+    "bodySha256": "4e26aa5b05cf124dd3adc11f5b72799dedbc88ad15cc5e499060ebab9211dc3a",
     "outfitId": "constellation-blazer",
-    "sourceVersion": "3370358848af0e97fdea02d7bc3b2a0cfa5429b8512d20cf5add71c8fa8cca38:e50e01f2fc56f5991782e5599379293c8077c37032146a689b0e10c03a79a943",
-    "url": "/__wardrobe-assets/prepared/matilda-constellation-blazer-53686246e9845bd428056aad409d18257a119ea21f96776f6bae79e63bbf939c.json",
-    "sha256": "53686246e9845bd428056aad409d18257a119ea21f96776f6bae79e63bbf939c"
+    "sourceVersion": "3370358848af0e97fdea02d7bc3b2a0cfa5429b8512d20cf5add71c8fa8cca38:6559a66f693854d63f227742977568324ebb23680a6a6a5ca27b65c47657c213",
+    "url": "/__wardrobe-assets/prepared/matilda-constellation-blazer-757f0fb5bcda33e7f7c60a01558b3f06410cc31e50c162e99f6df9d2e072c3a9.json",
+    "sha256": "757f0fb5bcda33e7f7c60a01558b3f06410cc31e50c162e99f6df9d2e072c3a9"
+  },
+  {
+    "companionId": "princess",
+    "bodySha256": "529dc7d7576009e0da728eb97da9cc86555bd59b420f20aa23e6d9bf83c9ee3a",
+    "outfitId": "sleeveless-dress",
+    "sourceVersion": "c716207b017239dcbf2a096e8566d291650f3cb5fd2c6a8089b08f8251d2d0d3:6559a66f693854d63f227742977568324ebb23680a6a6a5ca27b65c47657c213",
+    "url": "/__wardrobe-assets/prepared/princess-sleeveless-dress-043d0a02c667db1819cae3f7d8b530fcf2ecbeb2708c0c00cb54a4c60abcbf99.json",
+    "sha256": "043d0a02c667db1819cae3f7d8b530fcf2ecbeb2708c0c00cb54a4c60abcbf99"
+  },
+  {
+    "companionId": "princess",
+    "bodySha256": "529dc7d7576009e0da728eb97da9cc86555bd59b420f20aa23e6d9bf83c9ee3a",
+    "outfitId": "comet-hoodie",
+    "sourceVersion": "ea114d56fd5e5803d6a06e07f8e97356b37403379a8b254f62d551ebe5a3e6cf:6559a66f693854d63f227742977568324ebb23680a6a6a5ca27b65c47657c213",
+    "url": "/__wardrobe-assets/prepared/princess-comet-hoodie-1b52b301d70b17b731efcd2d8763cdbccf6493e85733a8046f4c72f1568fd32a.json",
+    "sha256": "1b52b301d70b17b731efcd2d8763cdbccf6493e85733a8046f4c72f1568fd32a"
+  },
+  {
+    "companionId": "princess",
+    "bodySha256": "529dc7d7576009e0da728eb97da9cc86555bd59b420f20aa23e6d9bf83c9ee3a",
+    "outfitId": "constellation-blazer",
+    "sourceVersion": "3370358848af0e97fdea02d7bc3b2a0cfa5429b8512d20cf5add71c8fa8cca38:6559a66f693854d63f227742977568324ebb23680a6a6a5ca27b65c47657c213",
+    "url": "/__wardrobe-assets/prepared/princess-constellation-blazer-fc0ac5d1f911f44fbd30698257edbdfa91554be5a2e5c680d54e475af7f5eefc.json",
+    "sha256": "fc0ac5d1f911f44fbd30698257edbdfa91554be5a2e5c680d54e475af7f5eefc"
+  },
+  {
+    "companionId": "yukari",
+    "bodySha256": "9848767120012b05fc0b835b060ed9b2e1133991244f1a90c2d24363a03c2134",
+    "outfitId": "sleeveless-dress",
+    "sourceVersion": "c716207b017239dcbf2a096e8566d291650f3cb5fd2c6a8089b08f8251d2d0d3:6559a66f693854d63f227742977568324ebb23680a6a6a5ca27b65c47657c213",
+    "url": "/__wardrobe-assets/prepared/yukari-sleeveless-dress-15e84950f81ea427f63e431b1df0a189a16f08abf0b1605a593fbfebd226ab5b.json",
+    "sha256": "15e84950f81ea427f63e431b1df0a189a16f08abf0b1605a593fbfebd226ab5b"
+  },
+  {
+    "companionId": "yukari",
+    "bodySha256": "9848767120012b05fc0b835b060ed9b2e1133991244f1a90c2d24363a03c2134",
+    "outfitId": "comet-hoodie",
+    "sourceVersion": "ea114d56fd5e5803d6a06e07f8e97356b37403379a8b254f62d551ebe5a3e6cf:6559a66f693854d63f227742977568324ebb23680a6a6a5ca27b65c47657c213",
+    "url": "/__wardrobe-assets/prepared/yukari-comet-hoodie-de5d3d1d6aa3042f433895494acbd14f0333d4ccfea532bf7f51690fad105539.json",
+    "sha256": "de5d3d1d6aa3042f433895494acbd14f0333d4ccfea532bf7f51690fad105539"
+  },
+  {
+    "companionId": "yukari",
+    "bodySha256": "9848767120012b05fc0b835b060ed9b2e1133991244f1a90c2d24363a03c2134",
+    "outfitId": "constellation-blazer",
+    "sourceVersion": "3370358848af0e97fdea02d7bc3b2a0cfa5429b8512d20cf5add71c8fa8cca38:6559a66f693854d63f227742977568324ebb23680a6a6a5ca27b65c47657c213",
+    "url": "/__wardrobe-assets/prepared/yukari-constellation-blazer-a1492b013bae467450b43392ed4d9d6f005dc8b981c4dd5ee0d1f8b10f457aeb.json",
+    "sha256": "a1492b013bae467450b43392ed4d9d6f005dc8b981c4dd5ee0d1f8b10f457aeb"
+  },
+  {
+    "companionId": "kefla",
+    "bodySha256": "a14186271b7e392f11d1a4168c682ff07dade935b56ac26a8efd24779c831733",
+    "outfitId": "sleeveless-dress",
+    "sourceVersion": "c716207b017239dcbf2a096e8566d291650f3cb5fd2c6a8089b08f8251d2d0d3:6559a66f693854d63f227742977568324ebb23680a6a6a5ca27b65c47657c213",
+    "url": "/__wardrobe-assets/prepared/kefla-sleeveless-dress-1bf47dd09b695445001c5afaa8af2496b0ad62c52817487e1bffda40989e3bd7.json",
+    "sha256": "1bf47dd09b695445001c5afaa8af2496b0ad62c52817487e1bffda40989e3bd7"
+  },
+  {
+    "companionId": "kefla",
+    "bodySha256": "a14186271b7e392f11d1a4168c682ff07dade935b56ac26a8efd24779c831733",
+    "outfitId": "comet-hoodie",
+    "sourceVersion": "ea114d56fd5e5803d6a06e07f8e97356b37403379a8b254f62d551ebe5a3e6cf:6559a66f693854d63f227742977568324ebb23680a6a6a5ca27b65c47657c213",
+    "url": "/__wardrobe-assets/prepared/kefla-comet-hoodie-ef76fc51808c8e2d582ab404a569b840322d596c6e85c98c4f6f3e2569010dc3.json",
+    "sha256": "ef76fc51808c8e2d582ab404a569b840322d596c6e85c98c4f6f3e2569010dc3"
+  },
+  {
+    "companionId": "kefla",
+    "bodySha256": "a14186271b7e392f11d1a4168c682ff07dade935b56ac26a8efd24779c831733",
+    "outfitId": "constellation-blazer",
+    "sourceVersion": "3370358848af0e97fdea02d7bc3b2a0cfa5429b8512d20cf5add71c8fa8cca38:6559a66f693854d63f227742977568324ebb23680a6a6a5ca27b65c47657c213",
+    "url": "/__wardrobe-assets/prepared/kefla-constellation-blazer-626a42722c5721571ba500a1106322cddd7d7abb2df25fe2dccf6090d0e0517f.json",
+    "sha256": "626a42722c5721571ba500a1106322cddd7d7abb2df25fe2dccf6090d0e0517f"
+  },
+  {
+    "companionId": "melty",
+    "bodySha256": "2783913c2e98e9f83ea4cb2ccf820af81aadf938f522bae45c789df4ad6d034d",
+    "outfitId": "sleeveless-dress",
+    "sourceVersion": "c716207b017239dcbf2a096e8566d291650f3cb5fd2c6a8089b08f8251d2d0d3:6559a66f693854d63f227742977568324ebb23680a6a6a5ca27b65c47657c213",
+    "url": "/__wardrobe-assets/prepared/melty-sleeveless-dress-ca777cf8882c7ae84b73201095ff6a9c21e4fb3ea82dd598d0b543a57d1568a4.json",
+    "sha256": "ca777cf8882c7ae84b73201095ff6a9c21e4fb3ea82dd598d0b543a57d1568a4"
+  },
+  {
+    "companionId": "melty",
+    "bodySha256": "2783913c2e98e9f83ea4cb2ccf820af81aadf938f522bae45c789df4ad6d034d",
+    "outfitId": "comet-hoodie",
+    "sourceVersion": "ea114d56fd5e5803d6a06e07f8e97356b37403379a8b254f62d551ebe5a3e6cf:6559a66f693854d63f227742977568324ebb23680a6a6a5ca27b65c47657c213",
+    "url": "/__wardrobe-assets/prepared/melty-comet-hoodie-429216be154596ff9f187a917bc00725ce20a33185f4ce755cf656f01793b265.json",
+    "sha256": "429216be154596ff9f187a917bc00725ce20a33185f4ce755cf656f01793b265"
+  },
+  {
+    "companionId": "melty",
+    "bodySha256": "2783913c2e98e9f83ea4cb2ccf820af81aadf938f522bae45c789df4ad6d034d",
+    "outfitId": "constellation-blazer",
+    "sourceVersion": "3370358848af0e97fdea02d7bc3b2a0cfa5429b8512d20cf5add71c8fa8cca38:6559a66f693854d63f227742977568324ebb23680a6a6a5ca27b65c47657c213",
+    "url": "/__wardrobe-assets/prepared/melty-constellation-blazer-fde5481e78ce17e08917235c1bdc96d8a7c2be562810a66bf24c9dd7e3948989.json",
+    "sha256": "fde5481e78ce17e08917235c1bdc96d8a7c2be562810a66bf24c9dd7e3948989"
+  },
+  {
+    "companionId": "tene",
+    "bodySha256": "768920fd2dc5d73eea234aa65da4f6bb8554144815c7a7cc7b1619d47a2c35c3",
+    "outfitId": "sleeveless-dress",
+    "sourceVersion": "c716207b017239dcbf2a096e8566d291650f3cb5fd2c6a8089b08f8251d2d0d3:6559a66f693854d63f227742977568324ebb23680a6a6a5ca27b65c47657c213",
+    "url": "/__wardrobe-assets/prepared/tene-sleeveless-dress-1d6899003529508ab6d5cc23ddee27f5a924a7d83b0041380757a5e7d613bebb.json",
+    "sha256": "1d6899003529508ab6d5cc23ddee27f5a924a7d83b0041380757a5e7d613bebb"
+  },
+  {
+    "companionId": "tene",
+    "bodySha256": "768920fd2dc5d73eea234aa65da4f6bb8554144815c7a7cc7b1619d47a2c35c3",
+    "outfitId": "comet-hoodie",
+    "sourceVersion": "ea114d56fd5e5803d6a06e07f8e97356b37403379a8b254f62d551ebe5a3e6cf:6559a66f693854d63f227742977568324ebb23680a6a6a5ca27b65c47657c213",
+    "url": "/__wardrobe-assets/prepared/tene-comet-hoodie-d871fd15ae02c94aadbf50f4e3429d20515883d36ef4c71f6c5e60d074cde583.json",
+    "sha256": "d871fd15ae02c94aadbf50f4e3429d20515883d36ef4c71f6c5e60d074cde583"
+  },
+  {
+    "companionId": "tene",
+    "bodySha256": "768920fd2dc5d73eea234aa65da4f6bb8554144815c7a7cc7b1619d47a2c35c3",
+    "outfitId": "constellation-blazer",
+    "sourceVersion": "3370358848af0e97fdea02d7bc3b2a0cfa5429b8512d20cf5add71c8fa8cca38:6559a66f693854d63f227742977568324ebb23680a6a6a5ca27b65c47657c213",
+    "url": "/__wardrobe-assets/prepared/tene-constellation-blazer-cc2d16f4d451acc53c8ba2b33e346ac48e04d81eed61f1ece353a4e736028b61.json",
+    "sha256": "cc2d16f4d451acc53c8ba2b33e346ac48e04d81eed61f1ece353a4e736028b61"
+  },
+  {
+    "companionId": "towa",
+    "bodySha256": "5c87339d0750cd7cc0d01c0a4f9ea320a81af7db26680c72bea919fbd620c2d6",
+    "outfitId": "sleeveless-dress",
+    "sourceVersion": "c716207b017239dcbf2a096e8566d291650f3cb5fd2c6a8089b08f8251d2d0d3:6559a66f693854d63f227742977568324ebb23680a6a6a5ca27b65c47657c213",
+    "url": "/__wardrobe-assets/prepared/towa-sleeveless-dress-d473d38cad294acdc545ae6b305a3a32f7e50368c9fff7a217d9b75b3da8fb80.json",
+    "sha256": "d473d38cad294acdc545ae6b305a3a32f7e50368c9fff7a217d9b75b3da8fb80"
+  },
+  {
+    "companionId": "towa",
+    "bodySha256": "5c87339d0750cd7cc0d01c0a4f9ea320a81af7db26680c72bea919fbd620c2d6",
+    "outfitId": "comet-hoodie",
+    "sourceVersion": "ea114d56fd5e5803d6a06e07f8e97356b37403379a8b254f62d551ebe5a3e6cf:6559a66f693854d63f227742977568324ebb23680a6a6a5ca27b65c47657c213",
+    "url": "/__wardrobe-assets/prepared/towa-comet-hoodie-9564e9aaea072ba87f0ecab371e33e5eda00999163b8df1124dc65682e634137.json",
+    "sha256": "9564e9aaea072ba87f0ecab371e33e5eda00999163b8df1124dc65682e634137"
+  },
+  {
+    "companionId": "towa",
+    "bodySha256": "5c87339d0750cd7cc0d01c0a4f9ea320a81af7db26680c72bea919fbd620c2d6",
+    "outfitId": "constellation-blazer",
+    "sourceVersion": "3370358848af0e97fdea02d7bc3b2a0cfa5429b8512d20cf5add71c8fa8cca38:6559a66f693854d63f227742977568324ebb23680a6a6a5ca27b65c47657c213",
+    "url": "/__wardrobe-assets/prepared/towa-constellation-blazer-6275009b2a83d1e650ee11829948fe74a62fb0cb50737b718708d8e279ee7a6f.json",
+    "sha256": "6275009b2a83d1e650ee11829948fe74a62fb0cb50737b718708d8e279ee7a6f"
   }
 ]

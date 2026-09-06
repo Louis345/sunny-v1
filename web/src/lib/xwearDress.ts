@@ -14,6 +14,7 @@ export type XwearOutfitDefinition = {
   itemPath: string;
   archiveUrl?: string;
   surfaceOffset?: number;
+  pocketLining?: {vertexCount:number;loops:number[][]};
   slots: {
     occupies: readonly XwearClothingSlot[];
     replaces: readonly XwearBaseClothingCategory[];
@@ -40,6 +41,41 @@ export type XwearMaterialVariant = {
   id: string;
   tint: string;
 };
+
+// The source hoodie has open pocket bags. Seal only audited boundary loops;
+// existing positions, UVs and skin bindings remain unchanged.
+export function addGarmentPocketLinings(geometry:THREE.BufferGeometry,recipe:{vertexCount:number;loops:number[][]}) {
+  const position=geometry.getAttribute('position'),normal=geometry.getAttribute('normal'),index=geometry.index!;
+  if(position.count!==recipe.vertexCount)throw new Error('Stale garment pocket inventory');
+  const edges=new Map<string,number>(),key=(a:number,b:number)=>a<b?`${a}:${b}`:`${b}:${a}`;
+  for(let t=0;t<index.count;t+=3)for(let k=0;k<3;k++){const id=key(index.getX(t+k),index.getX(t+(k+1)%3));edges.set(id,(edges.get(id)??0)+1);}
+  const added:number[]=[];
+  for(const loop of recipe.loops){
+    if(loop.length<3||loop.length>64||new Set(loop).size!==loop.length||loop.some((v,k)=>!Number.isInteger(v)||v<0||v>=position.count||edges.get(key(v,loop[(k+1)%loop.length]))!==1))throw new Error('Stale garment pocket boundary');
+    // These folded pocket rims self-overlap in XY. Triangulate the complete
+    // spatial boundary with a bounded minimum-area disk, retaining every edge.
+    const points=loop.map(v=>new THREE.Vector3().fromBufferAttribute(position,v));
+    const disks:{cost:number;triangles:number[][]}[][]=Array.from({length:loop.length},()=>[]);
+    for(let i=0;i<loop.length-1;i++)disks[i][i+1]={cost:0,triangles:[]};
+    for(let span=2;span<loop.length;span++)for(let i=0;i+span<loop.length;i++){
+      const j=i+span;let best={cost:Infinity,triangles:[] as number[][]};
+      for(let k=i+1;k<j;k++){
+        const area=points[k].clone().sub(points[i]).cross(points[j].clone().sub(points[i])).length();
+        const cost=disks[i][k].cost+disks[k][j].cost+area;
+        if(cost<best.cost)best={cost,triangles:[...disks[i][k].triangles,...disks[k][j].triangles,[i,k,j]]};
+      }
+      disks[i][j]=best;
+    }
+    for(const triangle of disks[0][loop.length-1].triangles){
+      const ids=triangle.map(k=>loop[k]),a=new THREE.Vector3().fromBufferAttribute(position,ids[0]),b=new THREE.Vector3().fromBufferAttribute(position,ids[1]),c=new THREE.Vector3().fromBufferAttribute(position,ids[2]);
+      const outward=ids.reduce((v,i)=>v.add(new THREE.Vector3().fromBufferAttribute(normal,i)),new THREE.Vector3());
+      if(b.sub(a).cross(c.sub(a)).dot(outward)<0)[ids[1],ids[2]]=[ids[2],ids[1]];
+      added.push(...ids);
+    }
+  }
+  geometry.setIndex([...index.array,...added]);geometry.addGroup(index.count,added.length,0);geometry.computeVertexNormals();
+  console.log(` 🎮 [wardrobe-prepare] pocket_lining loops=${recipe.loops.length} triangles=${added.length/3}`);
+}
 
 export function applyXwearMaterialVariant(
   materials: readonly THREE.MeshBasicMaterial[],
@@ -121,6 +157,7 @@ export const COMET_HOODIE_OUTFIT: XwearOutfitDefinition = {
   resourcePath: "Body/XResources/9f9bd7fa-42bb-4ff2-88af-e80d3570e171",
   itemPath: "Body/XItem.json/XItem.json",
   archiveUrl: "/__wardrobe-assets/comet-hoodie.xwear",
+  pocketLining: {vertexCount:1754,loops:[[994,1080,984,979,971,978,981,989],[1137,1139,1141,1163,1158,1156,1136,1135]]},
   surfaceOffset: 0.02,
   slots: {
     occupies: ["top"],
@@ -232,6 +269,9 @@ export function captureXwearAvatarBindPose(avatarScene: THREE.Object3D) {
       avatarWorldInverse.clone().multiply(object.matrixWorld),
     );
   });
+  for(const [alias,nativeName] of Object.entries(avatarScene.userData.sunnyHumanoidBoneNames ?? {})) {
+    const matrix=bindPose.get(THREE.PropertyBinding.sanitizeNodeName(nativeName as string));if(matrix)bindPose.set(alias,matrix.clone());
+  }
   avatarBindPoseCache.set(avatarScene, bindPose);
   console.log(
     ` 🎮 [companion-wardrobe-lab] avatar_bind_pose captured bones=${bindPose.size}`,
@@ -334,6 +374,7 @@ export function setVrmBaseClothingVisible(
     "bottom",
     "onepiece",
   ],
+  outfitId?: string,
 ) {
   const selectedCategories = new Set(categories);
   let changed = 0;
@@ -343,7 +384,7 @@ export function setVrmBaseClothingVisible(
     for (const material of materials) {
       const explicitRole = material.userData.sunnyClothingCategory;
       const isReplaceableClothing = scene.userData.sunnyWardrobe
-        ? selectedCategories.has(explicitRole)
+        ? selectedCategories.has(explicitRole) || (outfitId!==undefined && material.userData.sunnyCoveredByOutfit===outfitId)
         : (selectedCategories.has("top") && material.name.includes("Tops_")) ||
         (selectedCategories.has("bottom") && material.name.includes("Bottoms_")) ||
         (selectedCategories.has("onepiece") && material.name.includes("Onepiece_"));
@@ -450,6 +491,9 @@ export function retargetGarmentVerticesToAvatarBindPose(args: {
   coordinateRotationY?: number;
   reflectZ?: boolean;
   fitScale?: number;
+  crossSectionScale?: number;
+  boneNames?: readonly string[];
+  bodyHeightMap?: {sourceY:number;targetY:number;scale:number};
 }) {
   if (args.positions.length !== args.normals.length) {
     throw new Error("Garment positions and normals must have matching lengths");
@@ -464,8 +508,13 @@ export function retargetGarmentVerticesToAvatarBindPose(args: {
     if (!targetBind) throw new Error(`Garment target bind is missing joint ${index}`);
     const source = new THREE.Vector3().setFromMatrixPosition(sourceBind);
     const target = new THREE.Vector3().setFromMatrixPosition(targetBind);
+    const lengthScale=args.fitScale??1,cross=args.crossSectionScale??lengthScale;
+    if(!(cross>0&&Number.isFinite(cross)))throw new Error('Invalid garment cross-section scale');
+    const arm=/_(UpperArm|LowerArm|Hand|Shoulder)$/.test(args.boneNames?.[index]??'');
+    const scale=arm?new THREE.Vector3(lengthScale,cross,cross):new THREE.Vector3(cross,lengthScale,cross);
+    if(args.bodyHeightMap&&/(Hips|UpperLeg|LowerLeg|Foot|Toes)$/.test(args.boneNames?.[index]??'')){const map=args.bodyHeightMap;target.y=map.targetY+(source.y-map.sourceY)*map.scale;scale.y=map.scale;}
     return new THREE.Matrix4().makeTranslation(target.x, target.y, target.z)
-      .multiply(rotation).scale(new THREE.Vector3().setScalar(args.fitScale ?? 1))
+      .multiply(rotation).scale(scale)
       .multiply(new THREE.Matrix4().makeTranslation(-source.x, -source.y, -source.z));
   });
   const normalDeltas = boneDeltas.map((delta) =>
@@ -529,6 +578,62 @@ export function resolveGarmentBoneLocalMatrix(
   return new THREE.Matrix4().compose(position, rotation, scale);
 }
 
+export type GarmentClearancePlane={vertices?:number[];normal:[number,number,number];offset:number;fromY:number;toY:number};
+export function applyGarmentClearancePlanes(positions:Float32Array,planes:readonly GarmentClearancePlane[]){
+ const result=positions.slice();
+ for(const plane of planes){
+  const selected=plane.vertices?new Set(plane.vertices):undefined;
+  const normal=new THREE.Vector3(...plane.normal);if(Math.abs(normal.length()-1)>1e-5||plane.toY<=plane.fromY)throw new Error('Invalid garment clearance plane');
+  for(let v=0;v<result.length;v+=3){if(selected&&!selected.has(v/3))continue;const point=new THREE.Vector3().fromArray(result,v),distance=normal.dot(point)-plane.offset;
+   if(distance<=0)continue;const t=Math.max(0,Math.min(1,(point.y-plane.fromY)/(plane.toY-plane.fromY)));
+   point.addScaledVector(normal,-distance*t*t*(3-2*t)).toArray(result,v);
+  }
+ }
+ return result;
+}
+
+export function conformXwearGarmentToBody(positions:Float32Array,scene:THREE.Object3D,materialNames:readonly string[]){
+ const surfaces:THREE.Mesh[]=[],material=new THREE.MeshBasicMaterial({side:THREE.DoubleSide});
+ scene.updateMatrixWorld(true);const inverse=scene.matrixWorld.clone().invert();
+ try{
+  scene.traverse(object=>{
+   if(!(object instanceof THREE.Mesh)||object.name.startsWith('sunny-wardrobe-downloaded-'))return;
+   const materials=Array.isArray(object.material)?object.material:[object.material];
+   if(!materials.some(m=>m.visible&&(materialNames.includes(m.name)||m.userData.sunnyClothingCategory==='bottom')))return;
+   const geometry=object.geometry.clone(),attribute=geometry.getAttribute('position'),point=new THREE.Vector3();
+   for(let v=0;v<attribute.count;v++){
+    point.fromBufferAttribute(attribute,v);if(object instanceof THREE.SkinnedMesh)object.applyBoneTransform(v,point);
+    point.applyMatrix4(object.matrixWorld).applyMatrix4(inverse);attribute.setXYZ(v,point.x,point.y,point.z);
+   }
+   geometry.computeBoundingBox();geometry.computeBoundingSphere();
+   const mesh=new THREE.Mesh(geometry,material);mesh.updateMatrixWorld(true);surfaces.push(mesh);
+  });
+  if(!surfaces.length)throw new Error('No original body surfaces for garment clearance');
+  const bounds=new THREE.Box3();for(const surface of surfaces)bounds.expandByObject(surface);
+  const center=bounds.getCenter(new THREE.Vector3()),extent=bounds.getSize(new THREE.Vector3()).length()+1,ray=new THREE.Raycaster(),result=positions.slice();let moved=0;
+  for(let v=0;v<result.length;v+=3){
+   ray.set(new THREE.Vector3(result[v],result[v+1],center.z-extent),new THREE.Vector3(0,0,1));
+   const back=ray.intersectObjects(surfaces,false)[0];
+   ray.set(new THREE.Vector3(result[v],result[v+1],center.z+extent),new THREE.Vector3(0,0,-1));
+   const front=ray.intersectObjects(surfaces,false)[0];
+   if(!back||!front)continue;
+   const low=back.point.z-.008,high=front.point.z+.008,z=result[v+2];
+   if(z>low&&z<high){result[v+2]=z-low<high-z?low:high;moved++;}
+  }
+  console.log(` 🎮 [wardrobe-prepare] surface_clearance adjusted=${moved} total=${positions.length/3}`);
+  return result;
+ }finally{for(const mesh of surfaces)mesh.geometry.dispose();material.dispose();}
+}
+
+export function resolveXwearFitPose(bind:Map<string,THREE.Matrix4>,anchors:Record<string,number[]>={}){
+ const fit=new Map([...bind].map(([name,matrix])=>[name,matrix.clone()]));
+ for(const [name,position] of Object.entries(anchors)){
+  if(!fit.has(name)||position.length!==3||position.some(n=>!Number.isFinite(n)))throw new Error(`Invalid anatomical fit anchor ${name}`);
+  fit.get(name)!.setPosition(new THREE.Vector3().fromArray(position));
+ }
+ return fit;
+}
+
 export async function attachXwearOutfit(
   avatarScene: THREE.Object3D,
   outfit: XwearOutfitDefinition,
@@ -539,7 +644,7 @@ export async function attachXwearOutfit(
     const prepared = resolvePreparedGarment(modelUrl, outfit.id);
     if (prepared) {
       const garment = await loadPreparedGarment(avatarScene, prepared, materialVariant);
-      setVrmBaseClothingVisible(avatarScene, false, outfit.slots.replaces);
+      setVrmBaseClothingVisible(avatarScene, false, outfit.slots.replaces, outfit.id);
       return garment;
     }
   }
@@ -621,6 +726,7 @@ export async function attachXwearOutfit(
   const sourceBoneMatrices = meshData.bindPoses.map((bindPose) =>
     new THREE.Matrix4().fromArray(bindPose).invert(),
   );
+  const avatarFitPose=resolveXwearFitPose(avatarBindPose,avatarScene.userData.sunnyGarmentAnchors);
   const avatarCanonicalBonesByName = new Map<string, THREE.Bone>();
   avatarScene.traverse((object) => {
     if (
@@ -631,10 +737,13 @@ export async function attachXwearOutfit(
     }
   });
 
+  for(const [alias,nativeName] of Object.entries(avatarScene.userData.sunnyHumanoidBoneNames ?? {})){
+    const bone=avatarScene.getObjectByName(THREE.PropertyBinding.sanitizeNodeName(nativeName as string));if(bone instanceof THREE.Bone)avatarCanonicalBonesByName.set(alias,bone);
+  }
   const hips = avatarCanonicalBonesByName.get("J_Bip_C_Hips");
   if (!hips) throw new Error("Avatar does not use the VRoid XWear skeleton");
   const sourceHipsIndex = [...garmentBoneNames].find(
-    ([, name]) => name === hips.name,
+    ([, name]) => name === "J_Bip_C_Hips",
   )?.[0];
   const sourceNeckIndex = [...garmentBoneNames].find(
     ([, name]) => name === "J_Bip_C_Neck",
@@ -645,8 +754,8 @@ export async function attachXwearOutfit(
   const sourceNeckMatrix = sourceNeckIndex !== undefined
     ? sourceBoneMatrices[sourceNeckIndex]
     : undefined;
-  const targetHipsMatrix = avatarBindPose.get(hips.name);
-  const targetNeckMatrix = avatarBindPose.get("J_Bip_C_Neck");
+  const targetHipsMatrix = avatarFitPose.get("J_Bip_C_Hips");
+  const targetNeckMatrix = avatarFitPose.get("J_Bip_C_Neck");
   if (
     !sourceHipsMatrix ||
     !sourceNeckMatrix ||
@@ -675,7 +784,7 @@ export async function attachXwearOutfit(
     if (meshData.boneIndices.some((joint, influence) => joint === index && meshData.boneWeights[influence] > 0)) {
       throw new Error(`Unmapped active garment bone ${garmentBoneNames.get(index)} after 10 ancestor steps`);
     }
-    return {name: hips.name, index: sourceHipsIndex!};
+    return {name: "J_Bip_C_Hips", index: sourceHipsIndex!};
   });
   const bones = sourceAnchors.map(anchor => avatarCanonicalBonesByName.get(anchor.name)!);
   const boneBindLocalMatrices = sourceAnchors.map(anchor => avatarBindPose.get(anchor.name)!.clone());
@@ -685,6 +794,7 @@ export async function attachXwearOutfit(
   const targetLeft = avatarBindPose.get("J_Bip_L_UpperArm");
   if (sourceLeft === undefined || !targetLeft) throw new Error("Garment coordinate orientation requires left upper-arm anchors");
   const coordinateRotationY = sourceBoneMatrices[sourceLeft].elements[12] * targetLeft.elements[12] < 0 ? Math.PI : 0;
+  const cross=avatarScene.userData.sunnyGarmentCrossSectionScales?.[outfit.id]??fitted.scale;
   const retargeted = retargetGarmentVerticesToAvatarBindPose({
     positions: meshData.positions,
     normals: meshData.normals,
@@ -694,8 +804,13 @@ export async function attachXwearOutfit(
     coordinateRotationY,
     reflectZ: true,
     fitScale: fitted.scale,
-    targetBindWorldMatrices: boneBindLocalMatrices,
+    crossSectionScale: cross,
+    bodyHeightMap: avatarScene.userData.sunnyGarmentAnchors?{sourceY:sourceHipsMatrix.elements[13],targetY:targetHipsMatrix.elements[13],scale:fitted.scale}:undefined,
+    boneNames: sourceAnchors.map(anchor=>anchor.name),
+    targetBindWorldMatrices: sourceAnchors.map(anchor=>avatarFitPose.get(anchor.name)!),
   });
+  if(avatarScene.userData.sunnyGarmentSurfaceMaterials){setVrmBaseClothingVisible(avatarScene,false,outfit.slots.replaces,outfit.id);retargeted.positions=conformXwearGarmentToBody(retargeted.positions,avatarScene,avatarScene.userData.sunnyGarmentSurfaceMaterials);}
+  if(avatarScene.userData.sunnyGarmentClearancePlanes?.[outfit.id])retargeted.positions=applyGarmentClearancePlanes(retargeted.positions,avatarScene.userData.sunnyGarmentClearancePlanes[outfit.id]);
   const geometry = new THREE.BufferGeometry();
   geometry.setAttribute(
     "position",
@@ -731,6 +846,8 @@ export async function attachXwearOutfit(
     [indices[triangle + 1], indices[triangle + 2]] = [indices[triangle + 2], indices[triangle + 1]];
   }
   geometry.setIndex(new THREE.BufferAttribute(indices, 1));
+  if(outfit.pocketLining)addGarmentPocketLinings(geometry,outfit.pocketLining);
+  if(avatarScene.userData.sunnyGarmentSurfaceMaterials)geometry.computeVertexNormals();
   geometry.computeBoundingSphere();
 
   const materials = textures.map(
@@ -759,6 +876,7 @@ export async function attachXwearOutfit(
     avatarScene,
     false,
     outfit.slots.replaces,
+    outfit.id,
   );
   console.log(
     ` 🎮 [companion-wardrobe-lab] downloaded_outfit applied outfit=${outfit.id} variant=${materialVariant?.id ?? "base"} vertices=${meshData.vertexCount} fit_scale=${fitted.scale.toFixed(4)} surface_offset=${outfit.surfaceOffset ?? 0}`,

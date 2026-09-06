@@ -1,5 +1,6 @@
+import * as engineering from "../lib/wardrobeBodyProfiles";
 import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
 import { WardrobeCompatibilityLab } from "../components/WardrobeCompatibilityLab";
@@ -8,6 +9,8 @@ import {
 } from "../lib/wardrobeBodyProfiles";
 import { WARDROBE_STORE_CATALOG } from "../lib/wardrobeStore";
 
+beforeEach(()=>vi.spyOn(engineering,"isWardrobeReadyForHumanReview").mockReturnValue(true));
+afterEach(()=>vi.restoreAllMocks());
 describe("WardrobeCompatibilityLab", () => {
   it("keeps the full-body comparison canvas inside one viewport", () => {
     const css = fs.readFileSync(
@@ -34,10 +37,9 @@ describe("WardrobeCompatibilityLab", () => {
         renderSourceCompanion={(testCase) => (
           <div data-testid="source-preview">{testCase.companionId}</div>
         )}
-        renderCompanion={(testCase, item, calibration) => (
+        renderCompanion={(testCase, item) => (
           <div data-testid="compatibility-preview">
-            {testCase.modelUrl}:{item.id}:{calibration.identityScale.toFixed(2)}:
-            {calibration.identityOffsetY.toFixed(2)}
+            {testCase.modelUrl}:{item.id}
           </div>
         )}
       />,
@@ -51,7 +53,7 @@ describe("WardrobeCompatibilityLab", () => {
       WARDROBE_STORE_CERTIFICATION_CASES.length,
     );
     expect(screen.getByTestId("compatibility-preview")).toHaveTextContent(
-      "/companions/elli-wardrobe-identity-preserved-v1.vrm:sleeveless-dress:1.00:0.00",
+      "/companions/elli-wardrobe-identity-preserved-v1.vrm:sleeveless-dress",
     );
     expect(screen.getByTestId("source-preview")).toHaveTextContent("elli");
     expect(screen.getByText("Original character")).toBeTruthy();
@@ -59,18 +61,18 @@ describe("WardrobeCompatibilityLab", () => {
     expect(screen.getByText("0 of 8 companions approved")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Preview Teal Ribbon Dress" })).toBeTruthy();
 
-    fireEvent.click(screen.getByRole("button", { name: "Review Kefla identity on standard body" }));
+    fireEvent.click(screen.getByRole("button", { name: "Review Kefla prepared identity" }));
 
     expect(screen.getByTestId("compatibility-preview")).toHaveTextContent(
-      "/companions/sample.vrm:sleeveless-dress:1.00:0.00",
+      "/companions/kefla-wardrobe-native-identity-v1.vrm:sleeveless-dress",
     );
     expect(screen.getByTestId("source-preview")).toHaveTextContent("kefla");
-    expect(screen.getByText("Quarantined — human review required")).toBeTruthy();
-    expect(screen.getAllByText("sunny-standard-v1").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText("Awaiting human approval")).toBeTruthy();
+    expect(screen.getAllByText("kefla-v1").length).toBeGreaterThanOrEqual(1);
 
     fireEvent.click(screen.getByRole("button", { name: "Preview Teal Ribbon Dress" }));
     expect(screen.getByTestId("compatibility-preview")).toHaveTextContent(
-      "/companions/sample.vrm:teal-ribbon-dress:1.00:0.00",
+      "/companions/kefla-wardrobe-native-identity-v1.vrm:teal-ribbon-dress",
     );
 
     fireEvent.click(
@@ -81,47 +83,15 @@ describe("WardrobeCompatibilityLab", () => {
 
     expect(screen.getByText("Prepared complete identity · candidate")).toBeTruthy();
     expect(screen.getAllByText("identity proof").length).toBeGreaterThan(0);
-    expect(screen.getByText("Quarantined — human review required")).toBeTruthy();
+    expect(screen.getByText("Awaiting human approval")).toBeTruthy();
   });
 
-  it("calibrates only the dressed preview and resets to the reviewed profile", () => {
-    render(
-      <WardrobeCompatibilityLab
-        cases={WARDROBE_STORE_CERTIFICATION_CASES}
-        items={WARDROBE_STORE_CATALOG}
-        onExit={vi.fn()}
-        renderSourceCompanion={(testCase) => (
-          <div data-testid="source-preview">{testCase.companionId}</div>
-        )}
-        renderCompanion={(testCase, _item, calibration) => (
-          <div data-testid="calibrated-preview">
-            {testCase.companionId}:{calibration.identityScale.toFixed(2)}:
-            {calibration.identityOffsetY.toFixed(2)}
-          </div>
-        )}
-      />,
-    );
-
-    fireEvent.click(
-      screen.getByRole("button", {
-        name: "Review Princess identity on standard body",
-      }),
-    );
-    expect(screen.getByTestId("calibrated-preview")).toHaveTextContent(
-      "princess:1.28:0.00",
-    );
-
-    fireEvent.click(screen.getByRole("button", { name: "Increase head size" }));
-    fireEvent.click(screen.getByRole("button", { name: "Move head down" }));
-    expect(screen.getByTestId("calibrated-preview")).toHaveTextContent(
-      "princess:1.32:-0.01",
-    );
-    expect(screen.getByTestId("source-preview")).toHaveTextContent("princess");
-
-    fireEvent.click(screen.getByRole("button", { name: "Reset calibration" }));
-    expect(screen.getByTestId("calibrated-preview")).toHaveTextContent(
-      "princess:1.28:0.00",
-    );
+  it("never offers head scaling or identity substitution controls", () => {
+    render(<WardrobeCompatibilityLab cases={WARDROBE_STORE_CERTIFICATION_CASES} items={WARDROBE_STORE_CATALOG} onExit={vi.fn()} renderSourceCompanion={()=>null} renderCompanion={testCase=><div data-testid="native-preview">{testCase.companionId}</div>} />);
+    fireEvent.click(screen.getByRole("button",{name:"Review Princess prepared identity"}));
+    expect(screen.getByTestId("native-preview")).toHaveTextContent("princess");
+    expect(screen.queryByRole("button",{name:"Increase head size"})).toBeNull();
+    expect(screen.queryByRole("button",{name:"Move head down"})).toBeNull();
   });
 });
 
@@ -133,7 +103,7 @@ it('applies the same inspection view and movement to original and dressed compan
   fireEvent.change(screen.getByLabelText('Inspection movement'), {target:{value:'arms-up'}});
   fireEvent.change(screen.getByLabelText('Inspection accessory'), {target:{value:'crown'}});
   expect(original.mock.calls.at(-1)?.[1]).toMatchObject({view:'side',pose:'arms-up',accessory:'crown'});
-  expect(dressed.mock.calls.at(-1)?.[3]).toMatchObject({view:'side',pose:'arms-up',accessory:'crown'});
+  expect(dressed.mock.calls.at(-1)?.[2]).toMatchObject({view:'side',pose:'arms-up',accessory:'crown'});
 });
 it('offers distinct hoodie and blazer candidates in the diagnostic lab',()=>{
  render(<WardrobeCompatibilityLab cases={WARDROBE_STORE_CERTIFICATION_CASES} items={WARDROBE_STORE_CATALOG} onExit={vi.fn()} renderSourceCompanion={()=>null} renderCompanion={(_c,item)=><div data-testid="candidate-id">{item.asset.kind==='outfit'?item.asset.outfitId:''}</div>}/>);
@@ -141,5 +111,19 @@ it('offers distinct hoodie and blazer candidates in the diagnostic lab',()=>{
  expect(screen.getByTestId('candidate-id')).toHaveTextContent('comet-hoodie');
   fireEvent.click(screen.getByRole('button',{name:'Preview Constellation Blazer'}));
  expect(screen.getByTestId('candidate-id')).toHaveTextContent('constellation-blazer');
- expect(screen.getByText('Quarantined — human review required')).toBeTruthy();
+ expect(screen.getByText('Awaiting human approval')).toBeTruthy();
+});
+it('never renders an unfitted external accessory when changing prepared characters',()=>{
+ const dressed=vi.fn(()=>null);render(<WardrobeCompatibilityLab cases={WARDROBE_STORE_CERTIFICATION_CASES} items={WARDROBE_STORE_CATALOG} onExit={vi.fn()} renderSourceCompanion={()=>null} renderCompanion={dressed}/>);
+ fireEvent.change(screen.getByLabelText('Inspection accessory'),{target:{value:'crown'}});
+ fireEvent.click(screen.getByRole('button',{name:'Review Kefla prepared identity'}));
+ expect(screen.getByRole('option',{name:'Crown'})).toBeDisabled();
+ expect((dressed.mock.calls.at(-1) as unknown[]|undefined)?.[2]).toMatchObject({accessory:'none'});
+});
+
+it('labels unchecked diagnostic previews as engineering work rather than a human-review candidate',()=>{
+ vi.mocked(engineering.isWardrobeReadyForHumanReview).mockReturnValue(false);
+ render(<WardrobeCompatibilityLab cases={WARDROBE_STORE_CERTIFICATION_CASES} items={WARDROBE_STORE_CATALOG} onExit={vi.fn()} renderSourceCompanion={()=>null} renderCompanion={()=>null}/>);
+ expect(screen.getByText('Engineering verification pending')).toBeTruthy();
+ expect(screen.queryByText('Awaiting human approval')).toBeNull();
 });
