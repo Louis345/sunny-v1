@@ -1,0 +1,71 @@
+(node:48805) [DEP0174] DeprecationWarning: Calling promisify on a function that returns a Promise is likely a mistake.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+
+> web@0.0.0 test
+> vitest run "--run" "src/tests/wardrobe-accessory-fit.test.ts"
+
+
+ RUN  v3.2.4 /Users/jamaltaylor/.codex/worktrees/wardrobe-identity/sunny/web
+
+stdout | src/tests/wardrobe-accessory-fit.test.ts > separates Matilda’s native halo without changing hair geometry, expressions or the rig
+ 🎮 [wardrobe-accessory] intrinsic retained=0 reused=true selection=halo
+
+stdout | src/tests/wardrobe-accessory-fit.test.ts > places 'elli' cat ears against the measured ear-base scalp surface and follows head movement
+ 🎮 [wardrobe-accessory] fit companion=elli accessory=cat-ears body=95a50db4d212a217b150b4a10ab8902e720d1d5a8d721eb783c2a9626800b334
+
+stdout | src/tests/wardrobe-accessory-fit.test.ts > places 'matilda' cat ears against the measured ear-base scalp surface and follows head movement
+ 🎮 [wardrobe-accessory] fit companion=matilda accessory=cat-ears body=4e26aa5b05cf124dd3adc11f5b72799dedbc88ad15cc5e499060ebab9211dc3a
+
+stdout | src/tests/wardrobe-accessory-fit.test.ts > keeps attachment at the scaled scalp for avatar scale 0.5
+ 🎮 [wardrobe-accessory] fit companion=elli accessory=cat-ears body=95a50db4d212a217b150b4a10ab8902e720d1d5a8d721eb783c2a9626800b334
+
+stdout | src/tests/wardrobe-accessory-fit.test.ts > keeps attachment at the scaled scalp for avatar scale 2
+ 🎮 [wardrobe-accessory] fit companion=elli accessory=cat-ears body=95a50db4d212a217b150b4a10ab8902e720d1d5a8d721eb783c2a9626800b334
+
+stdout | src/tests/wardrobe-accessory-fit.test.ts > reuses Yukari native cat ears without hiding them or adding substitute ears
+ 🎮 [wardrobe-accessory] intrinsic retained=0 reused=true selection=cat-ears
+
+stdout | src/tests/wardrobe-accessory-fit.test.ts > applies versioned lateral component tilt before seating an accessory
+ 🎮 [wardrobe-accessory] fit companion=elli accessory=cat-ears body=95a50db4d212a217b150b4a10ab8902e720d1d5a8d721eb783c2a9626800b334
+
+ ❯ src/tests/wardrobe-accessory-fit.test.ts (13 tests | 1 failed) 170ms
+   ✓ separates Matilda’s native halo without changing hair geometry, expressions or the rig 94ms
+   ✓ places 'elli' cat ears against the measured ear-base scalp surface and follows head movement 2ms
+   ✓ places 'matilda' cat ears against the measured ear-base scalp surface and follows head movement 0ms
+   ✓ keeps attachment at the scaled scalp for avatar scale 0.5 0ms
+   ✓ keeps attachment at the scaled scalp for avatar scale 2 0ms
+   ✓ rejects unfitted external accessories for 'princess' 0ms
+   ✓ rejects unfitted external accessories for 'yukari' 0ms
+   ✓ rejects unfitted external accessories for 'kefla' 0ms
+   ✓ rejects unfitted external accessories for 'melty' 0ms
+   ✓ rejects unfitted external accessories for 'tene' 0ms
+   ✓ rejects unfitted external accessories for 'towa' 0ms
+   ✓ reuses Yukari native cat ears without hiding them or adding substitute ears 67ms
+   × applies versioned lateral component tilt before seating an accessory 5ms
+     → expected [ 0.12, -0.12 ] to deeply equal [ 0.6, -0.6 ]
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/tests/wardrobe-accessory-fit.test.ts > applies versioned lateral component tilt before seating an accessory
+AssertionError: expected [ 0.12, -0.12 ] to deeply equal [ 0.6, -0.6 ]
+
+- Expected
++ Received
+
+  [
+-   0.6,
+-   -0.6,
++   0.12,
++   -0.12,
+  ]
+
+ ❯ src/tests/wardrobe-accessory-fit.test.ts:48:388
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 12 passed (13)
+   Start at  16:08:41
+   Duration  1.13s (transform 68ms, setup 112ms, collect 82ms, tests 170ms, environment 535ms, prepare 45ms)

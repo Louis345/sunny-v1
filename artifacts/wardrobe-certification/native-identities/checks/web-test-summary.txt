@@ -1,0 +1,11 @@
+ ✓ src/tests/test-companion-bridge.tsx (2 tests) 2ms
+ ✓ src/tests/test-companion-care-profile.ts (2 tests) 2ms
+ ✓ src/tests/SparkOrbEncounterPost.stories.test.tsx (1 test) 1ms
+ ✓ src/tests/test-companion-showroom-gestures.ts (3 tests) 4ms
+ ✓ src/tests/test-word-radar-stt-mode.ts (4 tests) 2ms
+ ✓ src/tests/test-companion-showroom-delay.ts (1 test) 1ms
+
+ Test Files  112 passed (112)
+      Tests  944 passed (944)
+   Start at  16:23:12
+   Duration  31.98s (transform 7.34s, setup 15.25s, collect 23.65s, tests 59.26s, environment 89.01s, prepare 7.98s)

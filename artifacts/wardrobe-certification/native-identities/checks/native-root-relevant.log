@@ -1,0 +1,12 @@
+(node:50070) [DEP0174] DeprecationWarning: Calling promisify on a function that returns a Promise is likely a mistake.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+
+ RUN  v3.2.4 /Users/jamaltaylor/.codex/worktrees/wardrobe-identity/sunny
+
+ ✓ src/tests/test-companion-avatar.ts (5 tests) 69ms
+ ✓ src/tests/test-companion-types.ts (12 tests) 29ms
+
+ Test Files  2 passed (2)
+      Tests  17 passed (17)
+   Start at  16:12:25
+   Duration  841ms (transform 187ms, setup 0ms, collect 424ms, tests 97ms, environment 0ms, prepare 89ms)

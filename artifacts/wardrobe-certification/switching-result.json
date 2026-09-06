@@ -1,6 +1,6 @@
 {
   "status": "passed",
-  "frames": 379,
+  "frames": 297,
   "violations": [],
   "checks": [
     "slow archive stays hidden",

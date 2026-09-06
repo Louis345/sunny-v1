@@ -1,0 +1,19 @@
+(node:38433) [DEP0174] DeprecationWarning: Calling promisify on a function that returns a Promise is likely a mistake.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+
+> web@0.0.0 test
+> vitest run "--run" "src/tests/wardrobe-native-identities.test.ts"
+
+
+ RUN  v3.2.4 /Users/jamaltaylor/.codex/worktrees/wardrobe-identity/sunny/web
+
+stdout | src/tests/wardrobe-native-identities.test.ts > captures native skeleton bones through explicit humanoid aliases without renaming the rig
+ 🎮 [companion-wardrobe-lab] avatar_bind_pose captured bones=2
+
+ ✓ src/tests/wardrobe-native-identities.test.ts (36 tests) 2491ms
+   ✓ bridges both Matilda arm boundaries with her own positions and complete original skin weights  951ms
+
+ Test Files  1 passed (1)
+      Tests  36 passed (36)
+   Start at  15:45:56
+   Duration  3.66s (transform 109ms, setup 118ms, collect 154ms, tests 2.49s, environment 596ms, prepare 60ms)

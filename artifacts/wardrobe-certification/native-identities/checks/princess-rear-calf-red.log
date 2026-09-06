@@ -1,0 +1,70 @@
+(node:38229) [DEP0174] DeprecationWarning: Calling promisify on a function that returns a Promise is likely a mistake.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+
+> web@0.0.0 test
+> vitest run "--run" "src/tests/wardrobe-native-identities.test.ts"
+
+
+ RUN  v3.2.4 /Users/jamaltaylor/.codex/worktrees/wardrobe-identity/sunny/web
+
+stdout | src/tests/wardrobe-native-identities.test.ts > captures native skeleton bones through explicit humanoid aliases without renaming the rig
+ 🎮 [companion-wardrobe-lab] avatar_bind_pose captured bones=2
+
+ ❯ src/tests/wardrobe-native-identities.test.ts (36 tests | 1 failed) 2622ms
+   ✓ prepares Princess with her complete expression surfaces and native skeleton 24ms
+   ✓ captures native skeleton bones through explicit humanoid aliases without renaming the rig 1ms
+   ✓ fills Princess covered limb gaps from her own source geometry without a donor 18ms
+   ✓ never classifies Princess head or neck identity triangles as clothing 9ms
+   ✓ fits Princess retained skirt below outerwear without changing identity attributes 19ms
+   ✓ gives native limb patches outward winding and normals derived from their actual geometry 23ms
+   ✓ prepares Yukari without removing her intrinsic cat ears or their physics 93ms
+   ✓ restores Yukari own masked skin without borrowing or replacing geometry or textures 86ms
+   ✓ repairs both removed Yukari upper-arm sections using her own boundary rings and rig 1ms
+   ✓ keeps repaired Yukari endpoints coincident with the original forearm under elbow rotation 88ms
+   ✓ preserves kefla native identity without an overlay or donor body 65ms
+   ✓ preserves melty native identity without an overlay or donor body 143ms
+   ✓ preserves tene native identity without an overlay or donor body 142ms
+   ✓ preserves towa native identity without an overlay or donor body 116ms
+   ✓ preserves matilda native identity without an overlay or donor body 85ms
+   ✓ keeps Kefla tail geometry even though it shares the clothing material 32ms
+   ✓ fills Melty hidden shoulder gaps from her own upper-arm boundaries 116ms
+   ✓ keeps Melty skirt beneath outerwear and preserves her native limb decorations 0ms
+   ✓ binds every garment collider and hair selection to existing native nodes 38ms
+   ✓ fits Melty upper skirt inside the hoodie hem while retaining her native skirt surfaces 103ms
+   ✓ fits Tene retained skirt inside outerwear while keeping her original jewelry 68ms
+   ✓ retains Tene complete native arm bracelets as well as her neck and wrist jewelry 55ms
+   ✓ samples visible native skin for Towa repaired arms instead of the black sleeve mask 87ms
+   ✓ keeps Towa original forearm seams outside the removed sleeve texture mask 106ms
+   ✓ bridges both Matilda arm boundaries with her own positions and complete original skin weights  950ms
+   ✓ provides Matilda hoodie clearance for her front hair without attaching halo ornaments to clothing 0ms
+   ✓ rejects malformed native patch source-radius before emitting corrupt geometry 14ms
+   ✓ rejects malformed native patch ring-radius before emitting corrupt geometry 16ms
+   ✓ rejects malformed native patch center before emitting corrupt geometry 14ms
+   ✓ rejects malformed native patch uv before emitting corrupt geometry 18ms
+   ✓ rejects malformed native patch source-uv before emitting corrupt geometry 17ms
+   ✓ rejects malformed native patch vertices before emitting corrupt geometry 33ms
+   ✓ uses exposed native skin UVs on Princess legs instead of the baked gown shadow 0ms
+   ✓ keeps Elli long hair on native springs with outerwear clearance 0ms
+   ✓ samples inside Princess native leg skin island without stretching its dark atlas border 17ms
+   × repairs the whole exposed Princess calf UV island without a boundary texture seam 22ms
+     → expected 0.3424459993839264 to be close to 0.39, received difference is 0.04755400061607362, but expected 0.005
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/tests/wardrobe-native-identities.test.ts > repairs the whole exposed Princess calf UV island without a boundary texture seam
+AssertionError: expected 0.3424459993839264 to be close to 0.39, received difference is 0.04755400061607362, but expected 0.005
+ ❯ src/tests/wardrobe-native-identities.test.ts:194:48
+    192|  const selected=positions.flatMap((p,i)=>p[1]<.43&&uv[i][0]>.22&&uv[i]…
+    193|  expect(selected.length).toBeGreaterThan(20);
+    194|  for(const v of selected){expect(result[v][0]).toBeCloseTo(.39);expect…
+       |                                                ^
+    195| });
+    196|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 35 passed (36)
+   Start at  15:45:25
+   Duration  4.10s (transform 114ms, setup 118ms, collect 150ms, tests 2.62s, environment 684ms, prepare 67ms)

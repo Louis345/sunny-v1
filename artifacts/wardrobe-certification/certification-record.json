@@ -1,28 +1,20 @@
 {
-  "schemaVersion": 2,
-  "milestone": "Sunny Wardrobe Identity-Preserving Compatibility",
-  "engineeringStatus": "blocked-incomplete",
+  "schemaVersion": 3,
+  "milestone": "Complete native identities for all eight wardrobe companions",
+  "engineeringStatus": "ready-for-human-review",
   "humanApproval": null,
-  "architectureProofGate": {
-    "companion": "matilda",
-    "garment": "ribbon-dress",
-    "result": "captured-proof-passed-after-authorized-repair",
-    "recipeVersion": "identity-preserved-v2",
-    "currentRecipeVersion": "identity-preserved-v4",
-    "evidence": "repair-resume/acceptance-v2/",
-    "reason": "Explicit aim/roll helper mappings repaired the arms; blink, mouth, head-turn and arm poses inspected. Walking and full milestone movement certification remain incomplete."
-  },
+  "walkingRequired": false,
+  "sourceAudit": "asset-audit.json",
+  "verification": "verification.json",
   "companions": [
     {
       "id": "elli",
-      "sourceFile": "sample.vrm",
-      "sourceSha256": "12c2b97e95e700783a6a550dc0eee2d7880aeedccef9ae67bc4c5a2f0f2631a2",
       "preparedAsset": {
         "companionId": "elli",
         "recipeVersion": "identity-preserved-v1",
         "sourceUrl": "/companions/sample.vrm",
         "sourceSha256": "12c2b97e95e700783a6a550dc0eee2d7880aeedccef9ae67bc4c5a2f0f2631a2",
-        "preparedSha256": "6d9698c8fb9e9b41826612cd5fa3dcdde3339e9c0ee7c91368d94430044f8dec",
+        "preparedSha256": "1bc1f48717b2c4b3b97800b92148df1ab30fa83d035516f777098143afdfc03e",
         "modelUrl": "/companions/elli-wardrobe-identity-preserved-v1.vrm",
         "bodyProfileId": "sunny-standard-v1",
         "clothingMaterials": {
@@ -36,7 +28,8 @@
             "rotationY": 3.141592653589793
           },
           "cat-ears": {
-            "baseY": 0.16611450626131796,
+            "baseY": 0.178,
+            "lateralTilt": 0.6,
             "scale": 0.7,
             "rotationY": 3.141592653589793
           },
@@ -48,29 +41,205 @@
         },
         "status": "candidate"
       },
-      "audit": {
-        "meshes": 3,
-        "materials": 13,
-        "textures": 18,
-        "humanoidBones": 54
+      "engineeringReview": {
+        "companionId": "elli",
+        "preparedSha256": "1bc1f48717b2c4b3b97800b92148df1ab30fa83d035516f777098143afdfc03e",
+        "recipeVersion": "identity-preserved-v1",
+        "presentationVersion": "0b16f8b3ff068ddb5ff74672d5e21187c5c8aa39674fbc02976f6c5cddcd0dc6",
+        "automated": "passed",
+        "accessoryVersions": {
+          "crown": "a5571e8b899d50bf2da6b3a08953abf4b597c1e68f0175230fcd4ee3911e1e3b",
+          "cat-ears": "a5571e8b899d50bf2da6b3a08953abf4b597c1e68f0175230fcd4ee3911e1e3b",
+          "halo": "a5571e8b899d50bf2da6b3a08953abf4b597c1e68f0175230fcd4ee3911e1e3b"
+        },
+        "supplemental": [
+          {
+            "check": "face:blink",
+            "path": "artifacts/wardrobe-certification/native-identities/elli/navy-ribbon-dress-face-blink.png"
+          },
+          {
+            "check": "sleeveless-dress:crown",
+            "path": "artifacts/wardrobe-certification/native-identities/elli/navy-ribbon-dress-face-head-turn-crown.png"
+          },
+          {
+            "check": "sleeveless-dress:cat-ears",
+            "path": "artifacts/wardrobe-certification/native-identities/elli/navy-ribbon-dress-face-head-turn-cat-ears.png"
+          },
+          {
+            "check": "sleeveless-dress:halo",
+            "path": "artifacts/wardrobe-certification/native-identities/elli/navy-ribbon-dress-face-head-turn-halo.png"
+          },
+          {
+            "check": "comet-hoodie:crown",
+            "path": "artifacts/wardrobe-certification/native-identities/elli/comet-hoodie-face-head-turn-crown.png"
+          },
+          {
+            "check": "comet-hoodie:cat-ears",
+            "path": "artifacts/wardrobe-certification/native-identities/elli/comet-hoodie-face-head-turn-cat-ears.png"
+          },
+          {
+            "check": "comet-hoodie:halo",
+            "path": "artifacts/wardrobe-certification/native-identities/elli/comet-hoodie-face-head-turn-halo.png"
+          },
+          {
+            "check": "constellation-blazer:crown",
+            "path": "artifacts/wardrobe-certification/native-identities/elli/constellation-blazer-face-head-turn-crown.png"
+          },
+          {
+            "check": "constellation-blazer:cat-ears",
+            "path": "artifacts/wardrobe-certification/native-identities/elli/constellation-blazer-face-head-turn-cat-ears.png"
+          },
+          {
+            "check": "constellation-blazer:halo",
+            "path": "artifacts/wardrobe-certification/native-identities/elli/constellation-blazer-face-head-turn-halo.png"
+          },
+          {
+            "check": "plum-ribbon-dress",
+            "path": "artifacts/wardrobe-certification/native-identities/elli/plum-ribbon-dress-front-idle.png"
+          },
+          {
+            "check": "teal-ribbon-dress",
+            "path": "artifacts/wardrobe-certification/native-identities/elli/teal-ribbon-dress-front-idle.png"
+          },
+          {
+            "check": "rose-ribbon-dress",
+            "path": "artifacts/wardrobe-certification/native-identities/elli/rose-ribbon-dress-front-idle.png"
+          }
+        ],
+        "garments": [
+          {
+            "outfitId": "sleeveless-dress",
+            "sha256": "502b060b4751b46e9e72c8bfb629f9551f1def71a04258871eddc8901db9054c",
+            "sourceVersion": "c716207b017239dcbf2a096e8566d291650f3cb5fd2c6a8089b08f8251d2d0d3:6559a66f693854d63f227742977568324ebb23680a6a6a5ca27b65c47657c213",
+            "visual": "passed",
+            "evidence": [
+              {
+                "check": "front:idle",
+                "path": "artifacts/wardrobe-certification/native-identities/elli/navy-ribbon-dress-front-idle.png"
+              },
+              {
+                "check": "back:idle",
+                "path": "artifacts/wardrobe-certification/native-identities/elli/navy-ribbon-dress-back-idle.png"
+              },
+              {
+                "check": "side:idle",
+                "path": "artifacts/wardrobe-certification/native-identities/elli/navy-ribbon-dress-side-idle.png"
+              },
+              {
+                "check": "face:idle",
+                "path": "artifacts/wardrobe-certification/native-identities/elli/navy-ribbon-dress-face-idle.png"
+              },
+              {
+                "check": "face:speak",
+                "path": "artifacts/wardrobe-certification/native-identities/elli/navy-ribbon-dress-face-speak.png"
+              },
+              {
+                "check": "face:head-turn",
+                "path": "artifacts/wardrobe-certification/native-identities/elli/navy-ribbon-dress-face-head-turn.png"
+              },
+              {
+                "check": "front:arms-up",
+                "path": "artifacts/wardrobe-certification/native-identities/elli/navy-ribbon-dress-front-arms-up.png"
+              },
+              {
+                "check": "front:elbows-bent",
+                "path": "artifacts/wardrobe-certification/native-identities/elli/navy-ribbon-dress-front-elbows-bent.png"
+              }
+            ]
+          },
+          {
+            "outfitId": "comet-hoodie",
+            "sha256": "36770d0240d9349ae8592e4d0811c09023d581db430872a910b5d6103e0b435f",
+            "sourceVersion": "ea114d56fd5e5803d6a06e07f8e97356b37403379a8b254f62d551ebe5a3e6cf:6559a66f693854d63f227742977568324ebb23680a6a6a5ca27b65c47657c213",
+            "visual": "passed",
+            "evidence": [
+              {
+                "check": "front:idle",
+                "path": "artifacts/wardrobe-certification/native-identities/elli/comet-hoodie-front-idle.png"
+              },
+              {
+                "check": "back:idle",
+                "path": "artifacts/wardrobe-certification/native-identities/elli/comet-hoodie-back-idle.png"
+              },
+              {
+                "check": "side:idle",
+                "path": "artifacts/wardrobe-certification/native-identities/elli/comet-hoodie-side-idle.png"
+              },
+              {
+                "check": "face:idle",
+                "path": "artifacts/wardrobe-certification/native-identities/elli/comet-hoodie-face-idle.png"
+              },
+              {
+                "check": "face:speak",
+                "path": "artifacts/wardrobe-certification/native-identities/elli/comet-hoodie-face-speak.png"
+              },
+              {
+                "check": "face:head-turn",
+                "path": "artifacts/wardrobe-certification/native-identities/elli/comet-hoodie-face-head-turn.png"
+              },
+              {
+                "check": "front:arms-up",
+                "path": "artifacts/wardrobe-certification/native-identities/elli/comet-hoodie-front-arms-up.png"
+              },
+              {
+                "check": "front:elbows-bent",
+                "path": "artifacts/wardrobe-certification/native-identities/elli/comet-hoodie-front-elbows-bent.png"
+              }
+            ]
+          },
+          {
+            "outfitId": "constellation-blazer",
+            "sha256": "897a79aa86f9074dc47ebb16d87b7f550c026125dbbc9c5658511ecac54915cf",
+            "sourceVersion": "3370358848af0e97fdea02d7bc3b2a0cfa5429b8512d20cf5add71c8fa8cca38:6559a66f693854d63f227742977568324ebb23680a6a6a5ca27b65c47657c213",
+            "visual": "passed",
+            "evidence": [
+              {
+                "check": "front:idle",
+                "path": "artifacts/wardrobe-certification/native-identities/elli/constellation-blazer-front-idle.png"
+              },
+              {
+                "check": "back:idle",
+                "path": "artifacts/wardrobe-certification/native-identities/elli/constellation-blazer-back-idle.png"
+              },
+              {
+                "check": "side:idle",
+                "path": "artifacts/wardrobe-certification/native-identities/elli/constellation-blazer-side-idle.png"
+              },
+              {
+                "check": "face:idle",
+                "path": "artifacts/wardrobe-certification/native-identities/elli/constellation-blazer-face-idle.png"
+              },
+              {
+                "check": "face:speak",
+                "path": "artifacts/wardrobe-certification/native-identities/elli/constellation-blazer-face-speak.png"
+              },
+              {
+                "check": "face:head-turn",
+                "path": "artifacts/wardrobe-certification/native-identities/elli/constellation-blazer-face-head-turn.png"
+              },
+              {
+                "check": "front:arms-up",
+                "path": "artifacts/wardrobe-certification/native-identities/elli/constellation-blazer-front-arms-up.png"
+              },
+              {
+                "check": "front:elbows-bent",
+                "path": "artifacts/wardrobe-certification/native-identities/elli/constellation-blazer-front-elbows-bent.png"
+              }
+            ]
+          }
+        ]
       },
-      "preview": "current-matrix/captures.json",
-      "restriction": "Walking is unverified: no compatible authored clip found. Complete current-version visual/movement certification and explicit human approval remain outstanding.",
-      "nextStep": "Provide a compatible authored walking clip; inspect full cycles and remaining required views/expressions for all six fits and accessory pairs, then request version-specific human review.",
-      "engineeringStatus": "incomplete",
       "humanApproval": null
     },
     {
       "id": "matilda",
-      "sourceFile": "673852811403133503.vrm",
-      "sourceSha256": "1b11bd3de4f708c147c408602ec21b3b86bc4d0003d8ebd9eba4451495e1d455",
       "preparedAsset": {
         "companionId": "matilda",
-        "recipeVersion": "identity-preserved-v4",
+        "recipeVersion": "native-identity-v1",
         "sourceUrl": "/companions/673852811403133503.vrm",
         "sourceSha256": "1b11bd3de4f708c147c408602ec21b3b86bc4d0003d8ebd9eba4451495e1d455",
-        "preparedSha256": "f642d38931582ed85c945d78fa012d0554b8b5b7099535fa1d8cbacf4c881ced",
-        "modelUrl": "/companions/matilda-wardrobe-identity-preserved-v4.vrm",
+        "preparedSha256": "4e26aa5b05cf124dd3adc11f5b72799dedbc88ad15cc5e499060ebab9211dc3a",
+        "modelUrl": "/companions/matilda-wardrobe-native-identity-v1.vrm",
         "bodyProfileId": "vroid-slim-v1",
         "clothingMaterials": {
           "9": "bottom",
@@ -104,2393 +273,1128 @@
             "rotationY": 3.141592653589793
           }
         },
-        "bodyRepair": {
-          "donorSourceUrl": "/companions/sample.vrm",
-          "donorSha256": "12c2b97e95e700783a6a550dc0eee2d7880aeedccef9ae67bc4c5a2f0f2631a2",
-          "donorMesh": 0,
-          "donorPrimitive": 0,
-          "targetMesh": 1,
-          "targetPrimitive": 0,
-          "targetMaterial": 8,
-          "jointMappings": {
-            "J_Aim_L_Shoulder": [
+        "status": "candidate"
+      },
+      "engineeringReview": {
+        "companionId": "matilda",
+        "preparedSha256": "4e26aa5b05cf124dd3adc11f5b72799dedbc88ad15cc5e499060ebab9211dc3a",
+        "recipeVersion": "native-identity-v1",
+        "presentationVersion": "0b16f8b3ff068ddb5ff74672d5e21187c5c8aa39674fbc02976f6c5cddcd0dc6",
+        "automated": "passed",
+        "accessoryVersions": {
+          "crown": "a5571e8b899d50bf2da6b3a08953abf4b597c1e68f0175230fcd4ee3911e1e3b",
+          "cat-ears": "a5571e8b899d50bf2da6b3a08953abf4b597c1e68f0175230fcd4ee3911e1e3b",
+          "halo": "a5571e8b899d50bf2da6b3a08953abf4b597c1e68f0175230fcd4ee3911e1e3b"
+        },
+        "supplemental": [
+          {
+            "check": "face:blink",
+            "path": "artifacts/wardrobe-certification/native-identities/matilda/navy-ribbon-dress-face-blink.png"
+          },
+          {
+            "check": "sleeveless-dress:crown",
+            "path": "artifacts/wardrobe-certification/native-identities/matilda/navy-ribbon-dress-face-head-turn-crown.png"
+          },
+          {
+            "check": "sleeveless-dress:cat-ears",
+            "path": "artifacts/wardrobe-certification/native-identities/matilda/navy-ribbon-dress-face-head-turn-cat-ears.png"
+          },
+          {
+            "check": "sleeveless-dress:halo",
+            "path": "artifacts/wardrobe-certification/native-identities/matilda/navy-ribbon-dress-face-head-turn-halo.png"
+          },
+          {
+            "check": "comet-hoodie:crown",
+            "path": "artifacts/wardrobe-certification/native-identities/matilda/comet-hoodie-face-head-turn-crown.png"
+          },
+          {
+            "check": "comet-hoodie:cat-ears",
+            "path": "artifacts/wardrobe-certification/native-identities/matilda/comet-hoodie-face-head-turn-cat-ears.png"
+          },
+          {
+            "check": "comet-hoodie:halo",
+            "path": "artifacts/wardrobe-certification/native-identities/matilda/comet-hoodie-face-head-turn-halo.png"
+          },
+          {
+            "check": "constellation-blazer:crown",
+            "path": "artifacts/wardrobe-certification/native-identities/matilda/constellation-blazer-face-head-turn-crown.png"
+          },
+          {
+            "check": "constellation-blazer:cat-ears",
+            "path": "artifacts/wardrobe-certification/native-identities/matilda/constellation-blazer-face-head-turn-cat-ears.png"
+          },
+          {
+            "check": "constellation-blazer:halo",
+            "path": "artifacts/wardrobe-certification/native-identities/matilda/constellation-blazer-face-head-turn-halo.png"
+          },
+          {
+            "check": "plum-ribbon-dress",
+            "path": "artifacts/wardrobe-certification/native-identities/matilda/plum-ribbon-dress-front-idle.png"
+          },
+          {
+            "check": "teal-ribbon-dress",
+            "path": "artifacts/wardrobe-certification/native-identities/matilda/teal-ribbon-dress-front-idle.png"
+          },
+          {
+            "check": "rose-ribbon-dress",
+            "path": "artifacts/wardrobe-certification/native-identities/matilda/rose-ribbon-dress-front-idle.png"
+          }
+        ],
+        "garments": [
+          {
+            "outfitId": "sleeveless-dress",
+            "sha256": "864fa80d2469734549676e66b047850e40c1fd75bd5b6f5d5c37538758fd1843",
+            "sourceVersion": "c716207b017239dcbf2a096e8566d291650f3cb5fd2c6a8089b08f8251d2d0d3:6559a66f693854d63f227742977568324ebb23680a6a6a5ca27b65c47657c213",
+            "visual": "passed",
+            "evidence": [
               {
-                "joint": "J_Bip_L_UpperArm",
-                "weight": 1
-              }
-            ],
-            "J_Roll_L_UpperArm": [
-              {
-                "joint": "J_Bip_L_UpperArm",
-                "weight": 1
-              }
-            ],
-            "J_Roll_L_LowerArm": [
-              {
-                "joint": "J_Bip_L_LowerArm",
-                "weight": 1
-              }
-            ],
-            "J_Roll_L_Hand": [
-              {
-                "joint": "J_Bip_L_Hand",
-                "weight": 1
-              }
-            ],
-            "J_Roll_L_Elbow": [
-              {
-                "joint": "J_Bip_L_UpperArm",
-                "weight": 0.5
+                "check": "front:idle",
+                "path": "artifacts/wardrobe-certification/native-identities/matilda/navy-ribbon-dress-front-idle.png"
               },
               {
-                "joint": "J_Bip_L_LowerArm",
-                "weight": 0.5
-              }
-            ],
-            "J_Aim_R_Shoulder": [
-              {
-                "joint": "J_Bip_R_UpperArm",
-                "weight": 1
-              }
-            ],
-            "J_Roll_R_UpperArm": [
-              {
-                "joint": "J_Bip_R_UpperArm",
-                "weight": 1
-              }
-            ],
-            "J_Roll_R_LowerArm": [
-              {
-                "joint": "J_Bip_R_LowerArm",
-                "weight": 1
-              }
-            ],
-            "J_Roll_R_Hand": [
-              {
-                "joint": "J_Bip_R_Hand",
-                "weight": 1
-              }
-            ],
-            "J_Roll_R_Elbow": [
-              {
-                "joint": "J_Bip_R_UpperArm",
-                "weight": 0.5
+                "check": "back:idle",
+                "path": "artifacts/wardrobe-certification/native-identities/matilda/navy-ribbon-dress-back-idle.png"
               },
               {
-                "joint": "J_Bip_R_LowerArm",
-                "weight": 0.5
+                "check": "side:idle",
+                "path": "artifacts/wardrobe-certification/native-identities/matilda/navy-ribbon-dress-side-idle.png"
+              },
+              {
+                "check": "face:idle",
+                "path": "artifacts/wardrobe-certification/native-identities/matilda/navy-ribbon-dress-face-idle.png"
+              },
+              {
+                "check": "face:speak",
+                "path": "artifacts/wardrobe-certification/native-identities/matilda/navy-ribbon-dress-face-speak.png"
+              },
+              {
+                "check": "face:head-turn",
+                "path": "artifacts/wardrobe-certification/native-identities/matilda/navy-ribbon-dress-face-head-turn.png"
+              },
+              {
+                "check": "front:arms-up",
+                "path": "artifacts/wardrobe-certification/native-identities/matilda/navy-ribbon-dress-front-arms-up.png"
+              },
+              {
+                "check": "front:elbows-bent",
+                "path": "artifacts/wardrobe-certification/native-identities/matilda/navy-ribbon-dress-front-elbows-bent.png"
+              }
+            ]
+          },
+          {
+            "outfitId": "comet-hoodie",
+            "sha256": "66034ca61600f2057c2ed2a5012f02305033690cd47af39042b8aa583f879546",
+            "sourceVersion": "ea114d56fd5e5803d6a06e07f8e97356b37403379a8b254f62d551ebe5a3e6cf:6559a66f693854d63f227742977568324ebb23680a6a6a5ca27b65c47657c213",
+            "visual": "passed",
+            "evidence": [
+              {
+                "check": "front:idle",
+                "path": "artifacts/wardrobe-certification/native-identities/matilda/comet-hoodie-front-idle.png"
+              },
+              {
+                "check": "back:idle",
+                "path": "artifacts/wardrobe-certification/native-identities/matilda/comet-hoodie-back-idle.png"
+              },
+              {
+                "check": "side:idle",
+                "path": "artifacts/wardrobe-certification/native-identities/matilda/comet-hoodie-side-idle.png"
+              },
+              {
+                "check": "face:idle",
+                "path": "artifacts/wardrobe-certification/native-identities/matilda/comet-hoodie-face-idle.png"
+              },
+              {
+                "check": "face:speak",
+                "path": "artifacts/wardrobe-certification/native-identities/matilda/comet-hoodie-face-speak.png"
+              },
+              {
+                "check": "face:head-turn",
+                "path": "artifacts/wardrobe-certification/native-identities/matilda/comet-hoodie-face-head-turn.png"
+              },
+              {
+                "check": "front:arms-up",
+                "path": "artifacts/wardrobe-certification/native-identities/matilda/comet-hoodie-front-arms-up.png"
+              },
+              {
+                "check": "front:elbows-bent",
+                "path": "artifacts/wardrobe-certification/native-identities/matilda/comet-hoodie-front-elbows-bent.png"
+              }
+            ]
+          },
+          {
+            "outfitId": "constellation-blazer",
+            "sha256": "757f0fb5bcda33e7f7c60a01558b3f06410cc31e50c162e99f6df9d2e072c3a9",
+            "sourceVersion": "3370358848af0e97fdea02d7bc3b2a0cfa5429b8512d20cf5add71c8fa8cca38:6559a66f693854d63f227742977568324ebb23680a6a6a5ca27b65c47657c213",
+            "visual": "passed",
+            "evidence": [
+              {
+                "check": "front:idle",
+                "path": "artifacts/wardrobe-certification/native-identities/matilda/constellation-blazer-front-idle.png"
+              },
+              {
+                "check": "back:idle",
+                "path": "artifacts/wardrobe-certification/native-identities/matilda/constellation-blazer-back-idle.png"
+              },
+              {
+                "check": "side:idle",
+                "path": "artifacts/wardrobe-certification/native-identities/matilda/constellation-blazer-side-idle.png"
+              },
+              {
+                "check": "face:idle",
+                "path": "artifacts/wardrobe-certification/native-identities/matilda/constellation-blazer-face-idle.png"
+              },
+              {
+                "check": "face:speak",
+                "path": "artifacts/wardrobe-certification/native-identities/matilda/constellation-blazer-face-speak.png"
+              },
+              {
+                "check": "face:head-turn",
+                "path": "artifacts/wardrobe-certification/native-identities/matilda/constellation-blazer-face-head-turn.png"
+              },
+              {
+                "check": "front:arms-up",
+                "path": "artifacts/wardrobe-certification/native-identities/matilda/constellation-blazer-front-arms-up.png"
+              },
+              {
+                "check": "front:elbows-bent",
+                "path": "artifacts/wardrobe-certification/native-identities/matilda/constellation-blazer-front-elbows-bent.png"
               }
             ]
           }
-        },
-        "status": "candidate"
+        ]
       },
-      "audit": {
-        "meshes": 3,
-        "materials": 26,
-        "textures": 40,
-        "humanoidBones": 54
-      },
-      "preview": "current-matrix/captures.json",
-      "restriction": "Walking is unverified: no compatible authored clip found. Complete current-version visual/movement certification and explicit human approval remain outstanding.",
-      "nextStep": "Provide a compatible authored walking clip; inspect full cycles and remaining required views/expressions for all six fits and accessory pairs, then request version-specific human review.",
-      "engineeringStatus": "incomplete",
-      "humanApproval": null
-    },
-    {
-      "id": "kefla",
-      "sourceFile": "Kefla.vrm",
-      "sourceSha256": "87b20e1e4b655232af449fb4ef5f8c1f131ed3258f6ad1703648ea7108069703",
-      "preparedAsset": null,
-      "audit": {
-        "meshes": 3,
-        "materials": 6,
-        "textures": 13,
-        "humanoidBones": 54
-      },
-      "preview": "audit-final-kefla.png",
-      "restriction": "Legacy overlay shows yellow material contamination below face and substitutes standard body proportions; not identity-preserving preparation.",
-      "nextStep": "Prepare complete Kefla rig/body and separate clothing by explicit material/primitive data; preserve hair and tail dependencies.",
-      "engineeringStatus": "incomplete",
-      "humanApproval": null
-    },
-    {
-      "id": "melty",
-      "sourceFile": "4573661938486170180.vrm",
-      "sourceSha256": "8166b63da15229b9e4de9d8882103b9616a755d85e02969d07ec9054d220abd4",
-      "preparedAsset": null,
-      "audit": {
-        "meshes": 3,
-        "materials": 23,
-        "textures": 38,
-        "humanoidBones": 54
-      },
-      "preview": "audit-final-melty.png",
-      "restriction": "Legacy overlay substitutes standard body, shoes and proportions; original profile has distinct skin/clothing material layout.",
-      "nextStep": "Prepare original complete body with its textures/physics and fit against her original proportions.",
-      "engineeringStatus": "incomplete",
       "humanApproval": null
     },
     {
       "id": "princess",
-      "sourceFile": "princess.vrm",
-      "sourceSha256": "7ab95a552520e02ed33ebd3b66ed9b90e586bca6f64dd208de39fad225346c75",
-      "preparedAsset": null,
-      "audit": {
-        "meshes": 1,
-        "materials": 9,
-        "textures": 19,
-        "humanoidBones": 51
+      "preparedAsset": {
+        "companionId": "princess",
+        "recipeVersion": "native-identity-v1",
+        "sourceUrl": "/companions/princess.vrm",
+        "sourceSha256": "7ab95a552520e02ed33ebd3b66ed9b90e586bca6f64dd208de39fad225346c75",
+        "preparedSha256": "529dc7d7576009e0da728eb97da9cc86555bd59b420f20aa23e6d9bf83c9ee3a",
+        "modelUrl": "/companions/princess-wardrobe-native-identity-v1.vrm",
+        "bodyProfileId": "princess-tall-v1",
+        "clothingMaterials": {},
+        "status": "candidate"
       },
-      "preview": "audit-final-princess.png",
-      "restriction": "Visible lower-face corruption in diagnostic composite. Fully head-weighted mouth/expression primitives are hidden by the legacy mask false-return path.",
-      "nextStep": "Preserve complete original face/material expression surfaces; explicitly separate gown/body before any conversion certification.",
-      "engineeringStatus": "incomplete",
-      "humanApproval": null
-    },
-    {
-      "id": "tene",
-      "sourceFile": "1537416846714225126.vrm",
-      "sourceSha256": "b0d70ffca52d9b4756a69ba9ee75c6d3ca3134202e15f561e19aa810dec246da",
-      "preparedAsset": null,
-      "audit": {
-        "meshes": 3,
-        "materials": 17,
-        "textures": 28,
-        "humanoidBones": 54
+      "engineeringReview": {
+        "companionId": "princess",
+        "preparedSha256": "529dc7d7576009e0da728eb97da9cc86555bd59b420f20aa23e6d9bf83c9ee3a",
+        "recipeVersion": "native-identity-v1",
+        "presentationVersion": "0b16f8b3ff068ddb5ff74672d5e21187c5c8aa39674fbc02976f6c5cddcd0dc6",
+        "automated": "passed",
+        "accessoryVersions": {},
+        "supplemental": [
+          {
+            "check": "face:blink",
+            "path": "artifacts/wardrobe-certification/native-identities/princess/navy-ribbon-dress-face-blink.png"
+          }
+        ],
+        "garments": [
+          {
+            "outfitId": "sleeveless-dress",
+            "sha256": "043d0a02c667db1819cae3f7d8b530fcf2ecbeb2708c0c00cb54a4c60abcbf99",
+            "sourceVersion": "c716207b017239dcbf2a096e8566d291650f3cb5fd2c6a8089b08f8251d2d0d3:6559a66f693854d63f227742977568324ebb23680a6a6a5ca27b65c47657c213",
+            "visual": "passed",
+            "evidence": [
+              {
+                "check": "front:idle",
+                "path": "artifacts/wardrobe-certification/native-identities/princess/navy-ribbon-dress-front-idle.png"
+              },
+              {
+                "check": "back:idle",
+                "path": "artifacts/wardrobe-certification/native-identities/princess/navy-ribbon-dress-back-idle.png"
+              },
+              {
+                "check": "side:idle",
+                "path": "artifacts/wardrobe-certification/native-identities/princess/navy-ribbon-dress-side-idle.png"
+              },
+              {
+                "check": "face:idle",
+                "path": "artifacts/wardrobe-certification/native-identities/princess/navy-ribbon-dress-face-idle.png"
+              },
+              {
+                "check": "face:speak",
+                "path": "artifacts/wardrobe-certification/native-identities/princess/navy-ribbon-dress-face-speak.png"
+              },
+              {
+                "check": "face:head-turn",
+                "path": "artifacts/wardrobe-certification/native-identities/princess/navy-ribbon-dress-face-head-turn.png"
+              },
+              {
+                "check": "front:arms-up",
+                "path": "artifacts/wardrobe-certification/native-identities/princess/navy-ribbon-dress-front-arms-up.png"
+              },
+              {
+                "check": "front:elbows-bent",
+                "path": "artifacts/wardrobe-certification/native-identities/princess/navy-ribbon-dress-front-elbows-bent.png"
+              }
+            ]
+          },
+          {
+            "outfitId": "comet-hoodie",
+            "sha256": "1b52b301d70b17b731efcd2d8763cdbccf6493e85733a8046f4c72f1568fd32a",
+            "sourceVersion": "ea114d56fd5e5803d6a06e07f8e97356b37403379a8b254f62d551ebe5a3e6cf:6559a66f693854d63f227742977568324ebb23680a6a6a5ca27b65c47657c213",
+            "visual": "passed",
+            "evidence": [
+              {
+                "check": "front:idle",
+                "path": "artifacts/wardrobe-certification/native-identities/princess/comet-hoodie-front-idle.png"
+              },
+              {
+                "check": "back:idle",
+                "path": "artifacts/wardrobe-certification/native-identities/princess/comet-hoodie-back-idle.png"
+              },
+              {
+                "check": "side:idle",
+                "path": "artifacts/wardrobe-certification/native-identities/princess/comet-hoodie-side-idle.png"
+              },
+              {
+                "check": "face:idle",
+                "path": "artifacts/wardrobe-certification/native-identities/princess/comet-hoodie-face-idle.png"
+              },
+              {
+                "check": "face:speak",
+                "path": "artifacts/wardrobe-certification/native-identities/princess/comet-hoodie-face-speak.png"
+              },
+              {
+                "check": "face:head-turn",
+                "path": "artifacts/wardrobe-certification/native-identities/princess/comet-hoodie-face-head-turn.png"
+              },
+              {
+                "check": "front:arms-up",
+                "path": "artifacts/wardrobe-certification/native-identities/princess/comet-hoodie-front-arms-up.png"
+              },
+              {
+                "check": "front:elbows-bent",
+                "path": "artifacts/wardrobe-certification/native-identities/princess/comet-hoodie-front-elbows-bent.png"
+              }
+            ]
+          },
+          {
+            "outfitId": "constellation-blazer",
+            "sha256": "fc0ac5d1f911f44fbd30698257edbdfa91554be5a2e5c680d54e475af7f5eefc",
+            "sourceVersion": "3370358848af0e97fdea02d7bc3b2a0cfa5429b8512d20cf5add71c8fa8cca38:6559a66f693854d63f227742977568324ebb23680a6a6a5ca27b65c47657c213",
+            "visual": "passed",
+            "evidence": [
+              {
+                "check": "front:idle",
+                "path": "artifacts/wardrobe-certification/native-identities/princess/constellation-blazer-front-idle.png"
+              },
+              {
+                "check": "back:idle",
+                "path": "artifacts/wardrobe-certification/native-identities/princess/constellation-blazer-back-idle.png"
+              },
+              {
+                "check": "side:idle",
+                "path": "artifacts/wardrobe-certification/native-identities/princess/constellation-blazer-side-idle.png"
+              },
+              {
+                "check": "face:idle",
+                "path": "artifacts/wardrobe-certification/native-identities/princess/constellation-blazer-face-idle.png"
+              },
+              {
+                "check": "face:speak",
+                "path": "artifacts/wardrobe-certification/native-identities/princess/constellation-blazer-face-speak.png"
+              },
+              {
+                "check": "face:head-turn",
+                "path": "artifacts/wardrobe-certification/native-identities/princess/constellation-blazer-face-head-turn.png"
+              },
+              {
+                "check": "front:arms-up",
+                "path": "artifacts/wardrobe-certification/native-identities/princess/constellation-blazer-front-arms-up.png"
+              },
+              {
+                "check": "front:elbows-bent",
+                "path": "artifacts/wardrobe-certification/native-identities/princess/constellation-blazer-front-elbows-bent.png"
+              }
+            ]
+          }
+        ]
       },
-      "preview": "audit-final-tene.png",
-      "restriction": "Legacy overlay substitutes standard body and does not establish consistent source skin tone or original proportions.",
-      "nextStep": "Prepare complete Tene identity/body; verify skin materials under common lighting and preserve source arm proportions.",
-      "engineeringStatus": "incomplete",
-      "humanApproval": null
-    },
-    {
-      "id": "towa",
-      "sourceFile": "7339187387832391139.vrm",
-      "sourceSha256": "2d708897471469093af09b9472d68853253857d2b59ed47ee5e5b2f7e3e9c9d9",
-      "preparedAsset": null,
-      "audit": {
-        "meshes": 3,
-        "materials": 23,
-        "textures": 35,
-        "humanoidBones": 54
-      },
-      "preview": "audit-final-towa.png",
-      "restriction": "Legacy overlay substitutes slim standard body despite different source torso silhouette and proportions.",
-      "nextStep": "Prepare source body and a separate fit profile; verify chest/shoulders and expressions before certification.",
-      "engineeringStatus": "incomplete",
       "humanApproval": null
     },
     {
       "id": "yukari",
-      "sourceFile": "3852603318431396015.vrm",
-      "sourceSha256": "bde6da490a5ad1d78a0fbeb247bdba3a44051c869e4a0f32e84e3c112dbe4ee0",
-      "preparedAsset": null,
-      "audit": {
-        "meshes": 3,
-        "materials": 17,
-        "textures": 27,
-        "humanoidBones": 54
+      "preparedAsset": {
+        "companionId": "yukari",
+        "recipeVersion": "native-identity-v1",
+        "sourceUrl": "/companions/3852603318431396015.vrm",
+        "sourceSha256": "bde6da490a5ad1d78a0fbeb247bdba3a44051c869e4a0f32e84e3c112dbe4ee0",
+        "preparedSha256": "9848767120012b05fc0b835b060ed9b2e1133991244f1a90c2d24363a03c2134",
+        "modelUrl": "/companions/yukari-wardrobe-native-identity-v1.vrm",
+        "bodyProfileId": "yukari-long-leg-v1",
+        "clothingMaterials": {
+          "9": "top",
+          "12": "onepiece",
+          "13": "onepiece",
+          "14": "onepiece"
+        },
+        "intrinsicAccessoryMaterials": {
+          "11": "cat-ears"
+        },
+        "status": "candidate"
       },
-      "preview": "audit-final-yukari.png",
-      "restriction": "Legacy overlay loses characteristic source cat ears and substitutes standard body/shoes.",
-      "nextStep": "Preserve ear geometry/materials and related physics in a complete prepared identity, then fit her original leg proportions.",
-      "engineeringStatus": "incomplete",
+      "engineeringReview": {
+        "companionId": "yukari",
+        "preparedSha256": "9848767120012b05fc0b835b060ed9b2e1133991244f1a90c2d24363a03c2134",
+        "recipeVersion": "native-identity-v1",
+        "presentationVersion": "0b16f8b3ff068ddb5ff74672d5e21187c5c8aa39674fbc02976f6c5cddcd0dc6",
+        "automated": "passed",
+        "accessoryVersions": {},
+        "supplemental": [
+          {
+            "check": "face:blink",
+            "path": "artifacts/wardrobe-certification/native-identities/yukari/navy-ribbon-dress-face-blink.png"
+          }
+        ],
+        "garments": [
+          {
+            "outfitId": "sleeveless-dress",
+            "sha256": "15e84950f81ea427f63e431b1df0a189a16f08abf0b1605a593fbfebd226ab5b",
+            "sourceVersion": "c716207b017239dcbf2a096e8566d291650f3cb5fd2c6a8089b08f8251d2d0d3:6559a66f693854d63f227742977568324ebb23680a6a6a5ca27b65c47657c213",
+            "visual": "passed",
+            "evidence": [
+              {
+                "check": "front:idle",
+                "path": "artifacts/wardrobe-certification/native-identities/yukari/navy-ribbon-dress-front-idle.png"
+              },
+              {
+                "check": "back:idle",
+                "path": "artifacts/wardrobe-certification/native-identities/yukari/navy-ribbon-dress-back-idle.png"
+              },
+              {
+                "check": "side:idle",
+                "path": "artifacts/wardrobe-certification/native-identities/yukari/navy-ribbon-dress-side-idle.png"
+              },
+              {
+                "check": "face:idle",
+                "path": "artifacts/wardrobe-certification/native-identities/yukari/navy-ribbon-dress-face-idle.png"
+              },
+              {
+                "check": "face:speak",
+                "path": "artifacts/wardrobe-certification/native-identities/yukari/navy-ribbon-dress-face-speak.png"
+              },
+              {
+                "check": "face:head-turn",
+                "path": "artifacts/wardrobe-certification/native-identities/yukari/navy-ribbon-dress-face-head-turn.png"
+              },
+              {
+                "check": "front:arms-up",
+                "path": "artifacts/wardrobe-certification/native-identities/yukari/navy-ribbon-dress-front-arms-up.png"
+              },
+              {
+                "check": "front:elbows-bent",
+                "path": "artifacts/wardrobe-certification/native-identities/yukari/navy-ribbon-dress-front-elbows-bent.png"
+              }
+            ]
+          },
+          {
+            "outfitId": "comet-hoodie",
+            "sha256": "de5d3d1d6aa3042f433895494acbd14f0333d4ccfea532bf7f51690fad105539",
+            "sourceVersion": "ea114d56fd5e5803d6a06e07f8e97356b37403379a8b254f62d551ebe5a3e6cf:6559a66f693854d63f227742977568324ebb23680a6a6a5ca27b65c47657c213",
+            "visual": "passed",
+            "evidence": [
+              {
+                "check": "front:idle",
+                "path": "artifacts/wardrobe-certification/native-identities/yukari/comet-hoodie-front-idle.png"
+              },
+              {
+                "check": "back:idle",
+                "path": "artifacts/wardrobe-certification/native-identities/yukari/comet-hoodie-back-idle.png"
+              },
+              {
+                "check": "side:idle",
+                "path": "artifacts/wardrobe-certification/native-identities/yukari/comet-hoodie-side-idle.png"
+              },
+              {
+                "check": "face:idle",
+                "path": "artifacts/wardrobe-certification/native-identities/yukari/comet-hoodie-face-idle.png"
+              },
+              {
+                "check": "face:speak",
+                "path": "artifacts/wardrobe-certification/native-identities/yukari/comet-hoodie-face-speak.png"
+              },
+              {
+                "check": "face:head-turn",
+                "path": "artifacts/wardrobe-certification/native-identities/yukari/comet-hoodie-face-head-turn.png"
+              },
+              {
+                "check": "front:arms-up",
+                "path": "artifacts/wardrobe-certification/native-identities/yukari/comet-hoodie-front-arms-up.png"
+              },
+              {
+                "check": "front:elbows-bent",
+                "path": "artifacts/wardrobe-certification/native-identities/yukari/comet-hoodie-front-elbows-bent.png"
+              }
+            ]
+          },
+          {
+            "outfitId": "constellation-blazer",
+            "sha256": "a1492b013bae467450b43392ed4d9d6f005dc8b981c4dd5ee0d1f8b10f457aeb",
+            "sourceVersion": "3370358848af0e97fdea02d7bc3b2a0cfa5429b8512d20cf5add71c8fa8cca38:6559a66f693854d63f227742977568324ebb23680a6a6a5ca27b65c47657c213",
+            "visual": "passed",
+            "evidence": [
+              {
+                "check": "front:idle",
+                "path": "artifacts/wardrobe-certification/native-identities/yukari/constellation-blazer-front-idle.png"
+              },
+              {
+                "check": "back:idle",
+                "path": "artifacts/wardrobe-certification/native-identities/yukari/constellation-blazer-back-idle.png"
+              },
+              {
+                "check": "side:idle",
+                "path": "artifacts/wardrobe-certification/native-identities/yukari/constellation-blazer-side-idle.png"
+              },
+              {
+                "check": "face:idle",
+                "path": "artifacts/wardrobe-certification/native-identities/yukari/constellation-blazer-face-idle.png"
+              },
+              {
+                "check": "face:speak",
+                "path": "artifacts/wardrobe-certification/native-identities/yukari/constellation-blazer-face-speak.png"
+              },
+              {
+                "check": "face:head-turn",
+                "path": "artifacts/wardrobe-certification/native-identities/yukari/constellation-blazer-face-head-turn.png"
+              },
+              {
+                "check": "front:arms-up",
+                "path": "artifacts/wardrobe-certification/native-identities/yukari/constellation-blazer-front-arms-up.png"
+              },
+              {
+                "check": "front:elbows-bent",
+                "path": "artifacts/wardrobe-certification/native-identities/yukari/constellation-blazer-front-elbows-bent.png"
+              }
+            ]
+          }
+        ]
+      },
+      "humanApproval": null
+    },
+    {
+      "id": "kefla",
+      "preparedAsset": {
+        "companionId": "kefla",
+        "recipeVersion": "native-identity-v1",
+        "sourceUrl": "/companions/Kefla.vrm",
+        "sourceSha256": "87b20e1e4b655232af449fb4ef5f8c1f131ed3258f6ad1703648ea7108069703",
+        "preparedSha256": "a14186271b7e392f11d1a4168c682ff07dade935b56ac26a8efd24779c831733",
+        "modelUrl": "/companions/kefla-wardrobe-native-identity-v1.vrm",
+        "bodyProfileId": "kefla-v1",
+        "clothingMaterials": {},
+        "status": "candidate"
+      },
+      "engineeringReview": {
+        "companionId": "kefla",
+        "preparedSha256": "a14186271b7e392f11d1a4168c682ff07dade935b56ac26a8efd24779c831733",
+        "recipeVersion": "native-identity-v1",
+        "presentationVersion": "0b16f8b3ff068ddb5ff74672d5e21187c5c8aa39674fbc02976f6c5cddcd0dc6",
+        "automated": "passed",
+        "accessoryVersions": {},
+        "supplemental": [
+          {
+            "check": "face:blink",
+            "path": "artifacts/wardrobe-certification/native-identities/kefla/navy-ribbon-dress-face-blink.png"
+          }
+        ],
+        "garments": [
+          {
+            "outfitId": "sleeveless-dress",
+            "sha256": "1bf47dd09b695445001c5afaa8af2496b0ad62c52817487e1bffda40989e3bd7",
+            "sourceVersion": "c716207b017239dcbf2a096e8566d291650f3cb5fd2c6a8089b08f8251d2d0d3:6559a66f693854d63f227742977568324ebb23680a6a6a5ca27b65c47657c213",
+            "visual": "passed",
+            "evidence": [
+              {
+                "check": "front:idle",
+                "path": "artifacts/wardrobe-certification/native-identities/kefla/navy-ribbon-dress-front-idle.png"
+              },
+              {
+                "check": "back:idle",
+                "path": "artifacts/wardrobe-certification/native-identities/kefla/navy-ribbon-dress-back-idle.png"
+              },
+              {
+                "check": "side:idle",
+                "path": "artifacts/wardrobe-certification/native-identities/kefla/navy-ribbon-dress-side-idle.png"
+              },
+              {
+                "check": "face:idle",
+                "path": "artifacts/wardrobe-certification/native-identities/kefla/navy-ribbon-dress-face-idle.png"
+              },
+              {
+                "check": "face:speak",
+                "path": "artifacts/wardrobe-certification/native-identities/kefla/navy-ribbon-dress-face-speak.png"
+              },
+              {
+                "check": "face:head-turn",
+                "path": "artifacts/wardrobe-certification/native-identities/kefla/navy-ribbon-dress-face-head-turn.png"
+              },
+              {
+                "check": "front:arms-up",
+                "path": "artifacts/wardrobe-certification/native-identities/kefla/navy-ribbon-dress-front-arms-up.png"
+              },
+              {
+                "check": "front:elbows-bent",
+                "path": "artifacts/wardrobe-certification/native-identities/kefla/navy-ribbon-dress-front-elbows-bent.png"
+              }
+            ]
+          },
+          {
+            "outfitId": "comet-hoodie",
+            "sha256": "ef76fc51808c8e2d582ab404a569b840322d596c6e85c98c4f6f3e2569010dc3",
+            "sourceVersion": "ea114d56fd5e5803d6a06e07f8e97356b37403379a8b254f62d551ebe5a3e6cf:6559a66f693854d63f227742977568324ebb23680a6a6a5ca27b65c47657c213",
+            "visual": "passed",
+            "evidence": [
+              {
+                "check": "front:idle",
+                "path": "artifacts/wardrobe-certification/native-identities/kefla/comet-hoodie-front-idle.png"
+              },
+              {
+                "check": "back:idle",
+                "path": "artifacts/wardrobe-certification/native-identities/kefla/comet-hoodie-back-idle.png"
+              },
+              {
+                "check": "side:idle",
+                "path": "artifacts/wardrobe-certification/native-identities/kefla/comet-hoodie-side-idle.png"
+              },
+              {
+                "check": "face:idle",
+                "path": "artifacts/wardrobe-certification/native-identities/kefla/comet-hoodie-face-idle.png"
+              },
+              {
+                "check": "face:speak",
+                "path": "artifacts/wardrobe-certification/native-identities/kefla/comet-hoodie-face-speak.png"
+              },
+              {
+                "check": "face:head-turn",
+                "path": "artifacts/wardrobe-certification/native-identities/kefla/comet-hoodie-face-head-turn.png"
+              },
+              {
+                "check": "front:arms-up",
+                "path": "artifacts/wardrobe-certification/native-identities/kefla/comet-hoodie-front-arms-up.png"
+              },
+              {
+                "check": "front:elbows-bent",
+                "path": "artifacts/wardrobe-certification/native-identities/kefla/comet-hoodie-front-elbows-bent.png"
+              }
+            ]
+          },
+          {
+            "outfitId": "constellation-blazer",
+            "sha256": "626a42722c5721571ba500a1106322cddd7d7abb2df25fe2dccf6090d0e0517f",
+            "sourceVersion": "3370358848af0e97fdea02d7bc3b2a0cfa5429b8512d20cf5add71c8fa8cca38:6559a66f693854d63f227742977568324ebb23680a6a6a5ca27b65c47657c213",
+            "visual": "passed",
+            "evidence": [
+              {
+                "check": "front:idle",
+                "path": "artifacts/wardrobe-certification/native-identities/kefla/constellation-blazer-front-idle.png"
+              },
+              {
+                "check": "back:idle",
+                "path": "artifacts/wardrobe-certification/native-identities/kefla/constellation-blazer-back-idle.png"
+              },
+              {
+                "check": "side:idle",
+                "path": "artifacts/wardrobe-certification/native-identities/kefla/constellation-blazer-side-idle.png"
+              },
+              {
+                "check": "face:idle",
+                "path": "artifacts/wardrobe-certification/native-identities/kefla/constellation-blazer-face-idle.png"
+              },
+              {
+                "check": "face:speak",
+                "path": "artifacts/wardrobe-certification/native-identities/kefla/constellation-blazer-face-speak.png"
+              },
+              {
+                "check": "face:head-turn",
+                "path": "artifacts/wardrobe-certification/native-identities/kefla/constellation-blazer-face-head-turn.png"
+              },
+              {
+                "check": "front:arms-up",
+                "path": "artifacts/wardrobe-certification/native-identities/kefla/constellation-blazer-front-arms-up.png"
+              },
+              {
+                "check": "front:elbows-bent",
+                "path": "artifacts/wardrobe-certification/native-identities/kefla/constellation-blazer-front-elbows-bent.png"
+              }
+            ]
+          }
+        ]
+      },
+      "humanApproval": null
+    },
+    {
+      "id": "melty",
+      "preparedAsset": {
+        "companionId": "melty",
+        "recipeVersion": "native-identity-v1",
+        "sourceUrl": "/companions/4573661938486170180.vrm",
+        "sourceSha256": "8166b63da15229b9e4de9d8882103b9616a755d85e02969d07ec9054d220abd4",
+        "preparedSha256": "2783913c2e98e9f83ea4cb2ccf820af81aadf938f522bae45c789df4ad6d034d",
+        "modelUrl": "/companions/melty-wardrobe-native-identity-v1.vrm",
+        "bodyProfileId": "melty-compact-v1",
+        "clothingMaterials": {
+          "10": "top",
+          "11": "top",
+          "12": "top",
+          "13": "top",
+          "14": "bottom"
+        },
+        "status": "candidate"
+      },
+      "engineeringReview": {
+        "companionId": "melty",
+        "preparedSha256": "2783913c2e98e9f83ea4cb2ccf820af81aadf938f522bae45c789df4ad6d034d",
+        "recipeVersion": "native-identity-v1",
+        "presentationVersion": "0b16f8b3ff068ddb5ff74672d5e21187c5c8aa39674fbc02976f6c5cddcd0dc6",
+        "automated": "passed",
+        "accessoryVersions": {},
+        "supplemental": [
+          {
+            "check": "face:blink",
+            "path": "artifacts/wardrobe-certification/native-identities/melty/navy-ribbon-dress-face-blink.png"
+          }
+        ],
+        "garments": [
+          {
+            "outfitId": "sleeveless-dress",
+            "sha256": "ca777cf8882c7ae84b73201095ff6a9c21e4fb3ea82dd598d0b543a57d1568a4",
+            "sourceVersion": "c716207b017239dcbf2a096e8566d291650f3cb5fd2c6a8089b08f8251d2d0d3:6559a66f693854d63f227742977568324ebb23680a6a6a5ca27b65c47657c213",
+            "visual": "passed",
+            "evidence": [
+              {
+                "check": "front:idle",
+                "path": "artifacts/wardrobe-certification/native-identities/melty/navy-ribbon-dress-front-idle.png"
+              },
+              {
+                "check": "back:idle",
+                "path": "artifacts/wardrobe-certification/native-identities/melty/navy-ribbon-dress-back-idle.png"
+              },
+              {
+                "check": "side:idle",
+                "path": "artifacts/wardrobe-certification/native-identities/melty/navy-ribbon-dress-side-idle.png"
+              },
+              {
+                "check": "face:idle",
+                "path": "artifacts/wardrobe-certification/native-identities/melty/navy-ribbon-dress-face-idle.png"
+              },
+              {
+                "check": "face:speak",
+                "path": "artifacts/wardrobe-certification/native-identities/melty/navy-ribbon-dress-face-speak.png"
+              },
+              {
+                "check": "face:head-turn",
+                "path": "artifacts/wardrobe-certification/native-identities/melty/navy-ribbon-dress-face-head-turn.png"
+              },
+              {
+                "check": "front:arms-up",
+                "path": "artifacts/wardrobe-certification/native-identities/melty/navy-ribbon-dress-front-arms-up.png"
+              },
+              {
+                "check": "front:elbows-bent",
+                "path": "artifacts/wardrobe-certification/native-identities/melty/navy-ribbon-dress-front-elbows-bent.png"
+              }
+            ]
+          },
+          {
+            "outfitId": "comet-hoodie",
+            "sha256": "429216be154596ff9f187a917bc00725ce20a33185f4ce755cf656f01793b265",
+            "sourceVersion": "ea114d56fd5e5803d6a06e07f8e97356b37403379a8b254f62d551ebe5a3e6cf:6559a66f693854d63f227742977568324ebb23680a6a6a5ca27b65c47657c213",
+            "visual": "passed",
+            "evidence": [
+              {
+                "check": "front:idle",
+                "path": "artifacts/wardrobe-certification/native-identities/melty/comet-hoodie-front-idle.png"
+              },
+              {
+                "check": "back:idle",
+                "path": "artifacts/wardrobe-certification/native-identities/melty/comet-hoodie-back-idle.png"
+              },
+              {
+                "check": "side:idle",
+                "path": "artifacts/wardrobe-certification/native-identities/melty/comet-hoodie-side-idle.png"
+              },
+              {
+                "check": "face:idle",
+                "path": "artifacts/wardrobe-certification/native-identities/melty/comet-hoodie-face-idle.png"
+              },
+              {
+                "check": "face:speak",
+                "path": "artifacts/wardrobe-certification/native-identities/melty/comet-hoodie-face-speak.png"
+              },
+              {
+                "check": "face:head-turn",
+                "path": "artifacts/wardrobe-certification/native-identities/melty/comet-hoodie-face-head-turn.png"
+              },
+              {
+                "check": "front:arms-up",
+                "path": "artifacts/wardrobe-certification/native-identities/melty/comet-hoodie-front-arms-up.png"
+              },
+              {
+                "check": "front:elbows-bent",
+                "path": "artifacts/wardrobe-certification/native-identities/melty/comet-hoodie-front-elbows-bent.png"
+              }
+            ]
+          },
+          {
+            "outfitId": "constellation-blazer",
+            "sha256": "fde5481e78ce17e08917235c1bdc96d8a7c2be562810a66bf24c9dd7e3948989",
+            "sourceVersion": "3370358848af0e97fdea02d7bc3b2a0cfa5429b8512d20cf5add71c8fa8cca38:6559a66f693854d63f227742977568324ebb23680a6a6a5ca27b65c47657c213",
+            "visual": "passed",
+            "evidence": [
+              {
+                "check": "front:idle",
+                "path": "artifacts/wardrobe-certification/native-identities/melty/constellation-blazer-front-idle.png"
+              },
+              {
+                "check": "back:idle",
+                "path": "artifacts/wardrobe-certification/native-identities/melty/constellation-blazer-back-idle.png"
+              },
+              {
+                "check": "side:idle",
+                "path": "artifacts/wardrobe-certification/native-identities/melty/constellation-blazer-side-idle.png"
+              },
+              {
+                "check": "face:idle",
+                "path": "artifacts/wardrobe-certification/native-identities/melty/constellation-blazer-face-idle.png"
+              },
+              {
+                "check": "face:speak",
+                "path": "artifacts/wardrobe-certification/native-identities/melty/constellation-blazer-face-speak.png"
+              },
+              {
+                "check": "face:head-turn",
+                "path": "artifacts/wardrobe-certification/native-identities/melty/constellation-blazer-face-head-turn.png"
+              },
+              {
+                "check": "front:arms-up",
+                "path": "artifacts/wardrobe-certification/native-identities/melty/constellation-blazer-front-arms-up.png"
+              },
+              {
+                "check": "front:elbows-bent",
+                "path": "artifacts/wardrobe-certification/native-identities/melty/constellation-blazer-front-elbows-bent.png"
+              }
+            ]
+          }
+        ]
+      },
+      "humanApproval": null
+    },
+    {
+      "id": "tene",
+      "preparedAsset": {
+        "companionId": "tene",
+        "recipeVersion": "native-identity-v1",
+        "sourceUrl": "/companions/1537416846714225126.vrm",
+        "sourceSha256": "b0d70ffca52d9b4756a69ba9ee75c6d3ca3134202e15f561e19aa810dec246da",
+        "preparedSha256": "768920fd2dc5d73eea234aa65da4f6bb8554144815c7a7cc7b1619d47a2c35c3",
+        "modelUrl": "/companions/tene-wardrobe-native-identity-v1.vrm",
+        "bodyProfileId": "tene-long-arm-v1",
+        "clothingMaterials": {
+          "9": "top",
+          "10": "top",
+          "12": "top",
+          "13": "top"
+        },
+        "status": "candidate"
+      },
+      "engineeringReview": {
+        "companionId": "tene",
+        "preparedSha256": "768920fd2dc5d73eea234aa65da4f6bb8554144815c7a7cc7b1619d47a2c35c3",
+        "recipeVersion": "native-identity-v1",
+        "presentationVersion": "0b16f8b3ff068ddb5ff74672d5e21187c5c8aa39674fbc02976f6c5cddcd0dc6",
+        "automated": "passed",
+        "accessoryVersions": {},
+        "supplemental": [
+          {
+            "check": "face:blink",
+            "path": "artifacts/wardrobe-certification/native-identities/tene/navy-ribbon-dress-face-blink.png"
+          }
+        ],
+        "garments": [
+          {
+            "outfitId": "sleeveless-dress",
+            "sha256": "1d6899003529508ab6d5cc23ddee27f5a924a7d83b0041380757a5e7d613bebb",
+            "sourceVersion": "c716207b017239dcbf2a096e8566d291650f3cb5fd2c6a8089b08f8251d2d0d3:6559a66f693854d63f227742977568324ebb23680a6a6a5ca27b65c47657c213",
+            "visual": "passed",
+            "evidence": [
+              {
+                "check": "front:idle",
+                "path": "artifacts/wardrobe-certification/native-identities/tene/navy-ribbon-dress-front-idle.png"
+              },
+              {
+                "check": "back:idle",
+                "path": "artifacts/wardrobe-certification/native-identities/tene/navy-ribbon-dress-back-idle.png"
+              },
+              {
+                "check": "side:idle",
+                "path": "artifacts/wardrobe-certification/native-identities/tene/navy-ribbon-dress-side-idle.png"
+              },
+              {
+                "check": "face:idle",
+                "path": "artifacts/wardrobe-certification/native-identities/tene/navy-ribbon-dress-face-idle.png"
+              },
+              {
+                "check": "face:speak",
+                "path": "artifacts/wardrobe-certification/native-identities/tene/navy-ribbon-dress-face-speak.png"
+              },
+              {
+                "check": "face:head-turn",
+                "path": "artifacts/wardrobe-certification/native-identities/tene/navy-ribbon-dress-face-head-turn.png"
+              },
+              {
+                "check": "front:arms-up",
+                "path": "artifacts/wardrobe-certification/native-identities/tene/navy-ribbon-dress-front-arms-up.png"
+              },
+              {
+                "check": "front:elbows-bent",
+                "path": "artifacts/wardrobe-certification/native-identities/tene/navy-ribbon-dress-front-elbows-bent.png"
+              }
+            ]
+          },
+          {
+            "outfitId": "comet-hoodie",
+            "sha256": "d871fd15ae02c94aadbf50f4e3429d20515883d36ef4c71f6c5e60d074cde583",
+            "sourceVersion": "ea114d56fd5e5803d6a06e07f8e97356b37403379a8b254f62d551ebe5a3e6cf:6559a66f693854d63f227742977568324ebb23680a6a6a5ca27b65c47657c213",
+            "visual": "passed",
+            "evidence": [
+              {
+                "check": "front:idle",
+                "path": "artifacts/wardrobe-certification/native-identities/tene/comet-hoodie-front-idle.png"
+              },
+              {
+                "check": "back:idle",
+                "path": "artifacts/wardrobe-certification/native-identities/tene/comet-hoodie-back-idle.png"
+              },
+              {
+                "check": "side:idle",
+                "path": "artifacts/wardrobe-certification/native-identities/tene/comet-hoodie-side-idle.png"
+              },
+              {
+                "check": "face:idle",
+                "path": "artifacts/wardrobe-certification/native-identities/tene/comet-hoodie-face-idle.png"
+              },
+              {
+                "check": "face:speak",
+                "path": "artifacts/wardrobe-certification/native-identities/tene/comet-hoodie-face-speak.png"
+              },
+              {
+                "check": "face:head-turn",
+                "path": "artifacts/wardrobe-certification/native-identities/tene/comet-hoodie-face-head-turn.png"
+              },
+              {
+                "check": "front:arms-up",
+                "path": "artifacts/wardrobe-certification/native-identities/tene/comet-hoodie-front-arms-up.png"
+              },
+              {
+                "check": "front:elbows-bent",
+                "path": "artifacts/wardrobe-certification/native-identities/tene/comet-hoodie-front-elbows-bent.png"
+              }
+            ]
+          },
+          {
+            "outfitId": "constellation-blazer",
+            "sha256": "cc2d16f4d451acc53c8ba2b33e346ac48e04d81eed61f1ece353a4e736028b61",
+            "sourceVersion": "3370358848af0e97fdea02d7bc3b2a0cfa5429b8512d20cf5add71c8fa8cca38:6559a66f693854d63f227742977568324ebb23680a6a6a5ca27b65c47657c213",
+            "visual": "passed",
+            "evidence": [
+              {
+                "check": "front:idle",
+                "path": "artifacts/wardrobe-certification/native-identities/tene/constellation-blazer-front-idle.png"
+              },
+              {
+                "check": "back:idle",
+                "path": "artifacts/wardrobe-certification/native-identities/tene/constellation-blazer-back-idle.png"
+              },
+              {
+                "check": "side:idle",
+                "path": "artifacts/wardrobe-certification/native-identities/tene/constellation-blazer-side-idle.png"
+              },
+              {
+                "check": "face:idle",
+                "path": "artifacts/wardrobe-certification/native-identities/tene/constellation-blazer-face-idle.png"
+              },
+              {
+                "check": "face:speak",
+                "path": "artifacts/wardrobe-certification/native-identities/tene/constellation-blazer-face-speak.png"
+              },
+              {
+                "check": "face:head-turn",
+                "path": "artifacts/wardrobe-certification/native-identities/tene/constellation-blazer-face-head-turn.png"
+              },
+              {
+                "check": "front:arms-up",
+                "path": "artifacts/wardrobe-certification/native-identities/tene/constellation-blazer-front-arms-up.png"
+              },
+              {
+                "check": "front:elbows-bent",
+                "path": "artifacts/wardrobe-certification/native-identities/tene/constellation-blazer-front-elbows-bent.png"
+              }
+            ]
+          }
+        ]
+      },
+      "humanApproval": null
+    },
+    {
+      "id": "towa",
+      "preparedAsset": {
+        "companionId": "towa",
+        "recipeVersion": "native-identity-v1",
+        "sourceUrl": "/companions/7339187387832391139.vrm",
+        "sourceSha256": "2d708897471469093af09b9472d68853253857d2b59ed47ee5e5b2f7e3e9c9d9",
+        "preparedSha256": "5c87339d0750cd7cc0d01c0a4f9ea320a81af7db26680c72bea919fbd620c2d6",
+        "modelUrl": "/companions/towa-wardrobe-native-identity-v1.vrm",
+        "bodyProfileId": "towa-athletic-v1",
+        "clothingMaterials": {
+          "10": "top",
+          "11": "bottom",
+          "14": "top",
+          "15": "top",
+          "16": "top"
+        },
+        "status": "candidate"
+      },
+      "engineeringReview": {
+        "companionId": "towa",
+        "preparedSha256": "5c87339d0750cd7cc0d01c0a4f9ea320a81af7db26680c72bea919fbd620c2d6",
+        "recipeVersion": "native-identity-v1",
+        "presentationVersion": "0b16f8b3ff068ddb5ff74672d5e21187c5c8aa39674fbc02976f6c5cddcd0dc6",
+        "automated": "passed",
+        "accessoryVersions": {},
+        "supplemental": [
+          {
+            "check": "face:blink",
+            "path": "artifacts/wardrobe-certification/native-identities/towa/navy-ribbon-dress-face-blink.png"
+          }
+        ],
+        "garments": [
+          {
+            "outfitId": "sleeveless-dress",
+            "sha256": "d473d38cad294acdc545ae6b305a3a32f7e50368c9fff7a217d9b75b3da8fb80",
+            "sourceVersion": "c716207b017239dcbf2a096e8566d291650f3cb5fd2c6a8089b08f8251d2d0d3:6559a66f693854d63f227742977568324ebb23680a6a6a5ca27b65c47657c213",
+            "visual": "passed",
+            "evidence": [
+              {
+                "check": "front:idle",
+                "path": "artifacts/wardrobe-certification/native-identities/towa/navy-ribbon-dress-front-idle.png"
+              },
+              {
+                "check": "back:idle",
+                "path": "artifacts/wardrobe-certification/native-identities/towa/navy-ribbon-dress-back-idle.png"
+              },
+              {
+                "check": "side:idle",
+                "path": "artifacts/wardrobe-certification/native-identities/towa/navy-ribbon-dress-side-idle.png"
+              },
+              {
+                "check": "face:idle",
+                "path": "artifacts/wardrobe-certification/native-identities/towa/navy-ribbon-dress-face-idle.png"
+              },
+              {
+                "check": "face:speak",
+                "path": "artifacts/wardrobe-certification/native-identities/towa/navy-ribbon-dress-face-speak.png"
+              },
+              {
+                "check": "face:head-turn",
+                "path": "artifacts/wardrobe-certification/native-identities/towa/navy-ribbon-dress-face-head-turn.png"
+              },
+              {
+                "check": "front:arms-up",
+                "path": "artifacts/wardrobe-certification/native-identities/towa/navy-ribbon-dress-front-arms-up.png"
+              },
+              {
+                "check": "front:elbows-bent",
+                "path": "artifacts/wardrobe-certification/native-identities/towa/navy-ribbon-dress-front-elbows-bent.png"
+              }
+            ]
+          },
+          {
+            "outfitId": "comet-hoodie",
+            "sha256": "9564e9aaea072ba87f0ecab371e33e5eda00999163b8df1124dc65682e634137",
+            "sourceVersion": "ea114d56fd5e5803d6a06e07f8e97356b37403379a8b254f62d551ebe5a3e6cf:6559a66f693854d63f227742977568324ebb23680a6a6a5ca27b65c47657c213",
+            "visual": "passed",
+            "evidence": [
+              {
+                "check": "front:idle",
+                "path": "artifacts/wardrobe-certification/native-identities/towa/comet-hoodie-front-idle.png"
+              },
+              {
+                "check": "back:idle",
+                "path": "artifacts/wardrobe-certification/native-identities/towa/comet-hoodie-back-idle.png"
+              },
+              {
+                "check": "side:idle",
+                "path": "artifacts/wardrobe-certification/native-identities/towa/comet-hoodie-side-idle.png"
+              },
+              {
+                "check": "face:idle",
+                "path": "artifacts/wardrobe-certification/native-identities/towa/comet-hoodie-face-idle.png"
+              },
+              {
+                "check": "face:speak",
+                "path": "artifacts/wardrobe-certification/native-identities/towa/comet-hoodie-face-speak.png"
+              },
+              {
+                "check": "face:head-turn",
+                "path": "artifacts/wardrobe-certification/native-identities/towa/comet-hoodie-face-head-turn.png"
+              },
+              {
+                "check": "front:arms-up",
+                "path": "artifacts/wardrobe-certification/native-identities/towa/comet-hoodie-front-arms-up.png"
+              },
+              {
+                "check": "front:elbows-bent",
+                "path": "artifacts/wardrobe-certification/native-identities/towa/comet-hoodie-front-elbows-bent.png"
+              }
+            ]
+          },
+          {
+            "outfitId": "constellation-blazer",
+            "sha256": "6275009b2a83d1e650ee11829948fe74a62fb0cb50737b718708d8e279ee7a6f",
+            "sourceVersion": "3370358848af0e97fdea02d7bc3b2a0cfa5429b8512d20cf5add71c8fa8cca38:6559a66f693854d63f227742977568324ebb23680a6a6a5ca27b65c47657c213",
+            "visual": "passed",
+            "evidence": [
+              {
+                "check": "front:idle",
+                "path": "artifacts/wardrobe-certification/native-identities/towa/constellation-blazer-front-idle.png"
+              },
+              {
+                "check": "back:idle",
+                "path": "artifacts/wardrobe-certification/native-identities/towa/constellation-blazer-back-idle.png"
+              },
+              {
+                "check": "side:idle",
+                "path": "artifacts/wardrobe-certification/native-identities/towa/constellation-blazer-side-idle.png"
+              },
+              {
+                "check": "face:idle",
+                "path": "artifacts/wardrobe-certification/native-identities/towa/constellation-blazer-face-idle.png"
+              },
+              {
+                "check": "face:speak",
+                "path": "artifacts/wardrobe-certification/native-identities/towa/constellation-blazer-face-speak.png"
+              },
+              {
+                "check": "face:head-turn",
+                "path": "artifacts/wardrobe-certification/native-identities/towa/constellation-blazer-face-head-turn.png"
+              },
+              {
+                "check": "front:arms-up",
+                "path": "artifacts/wardrobe-certification/native-identities/towa/constellation-blazer-front-arms-up.png"
+              },
+              {
+                "check": "front:elbows-bent",
+                "path": "artifacts/wardrobe-certification/native-identities/towa/constellation-blazer-front-elbows-bent.png"
+              }
+            ]
+          }
+        ]
+      },
       "humanApproval": null
     }
-  ],
-  "combinations": [
-    {
-      "companionId": "elli",
-      "garmentFamily": "ribbon-dress",
-      "garmentVersion": "c716207b017239dcbf2a096e8566d291650f3cb5fd2c6a8089b08f8251d2d0d3:e50e01f2fc56f5991782e5599379293c8077c37032146a689b0e10c03a79a943",
-      "accessoryId": "none",
-      "accessoryVersion": null,
-      "sourceSha256": "12c2b97e95e700783a6a550dc0eee2d7880aeedccef9ae67bc4c5a2f0f2631a2",
-      "preparedSha256": "6d9698c8fb9e9b41826612cd5fa3dcdde3339e9c0ee7c91368d94430044f8dec",
-      "recipeVersion": "identity-preserved-v1",
-      "bodyProfileId": "sunny-standard-v1",
-      "automatedResult": "rendered-partial-acceptance",
-      "visualResult": "partial-snapshot-review-not-certified",
-      "engineeringStatus": "incomplete",
-      "storeEligible": false,
-      "humanApproval": null,
-      "evidence": [
-        "fit-evidence-equivalence.json",
-        "garment-families/prepared/"
-      ],
-      "restriction": "Walking is unverified: no compatible authored clip found. Complete current-version visual/movement certification and explicit human approval remain outstanding.",
-      "nextStep": "Provide a compatible authored walking clip; inspect full cycles and remaining required views/expressions for all six fits and accessory pairs, then request version-specific human review.",
-      "fittedSha256": "0dedb0c6d77737dcdeb5c38251c1cd5a4823464ad1fb2b1f2324e65189eb87ae"
-    },
-    {
-      "companionId": "elli",
-      "garmentFamily": "ribbon-dress",
-      "garmentVersion": "c716207b017239dcbf2a096e8566d291650f3cb5fd2c6a8089b08f8251d2d0d3:e50e01f2fc56f5991782e5599379293c8077c37032146a689b0e10c03a79a943",
-      "accessoryId": "royal-crown",
-      "accessoryVersion": "aa185a4d108dc9459205b9273dea72c29c0335327cbe695f7b0f679345e32592",
-      "sourceSha256": "12c2b97e95e700783a6a550dc0eee2d7880aeedccef9ae67bc4c5a2f0f2631a2",
-      "preparedSha256": "6d9698c8fb9e9b41826612cd5fa3dcdde3339e9c0ee7c91368d94430044f8dec",
-      "recipeVersion": "identity-preserved-v1",
-      "bodyProfileId": "sunny-standard-v1",
-      "automatedResult": "rendered-partial-acceptance",
-      "visualResult": "partial-snapshot-review-not-certified",
-      "engineeringStatus": "incomplete",
-      "storeEligible": false,
-      "humanApproval": null,
-      "evidence": [
-        "fit-evidence-equivalence.json",
-        "garment-families/prepared/",
-        "current-matrix/elli-sleeveless-dress-crown-face-idle.png",
-        "current-matrix/elli-sleeveless-dress-crown-side-idle.png",
-        "current-matrix/elli-sleeveless-dress-crown-face-head-turn.png",
-        "current-matrix/elli-sleeveless-dress-crown-front-arms-up.png"
-      ],
-      "restriction": "Walking is unverified: no compatible authored clip found. Complete current-version visual/movement certification and explicit human approval remain outstanding.",
-      "nextStep": "Provide a compatible authored walking clip; inspect full cycles and remaining required views/expressions for all six fits and accessory pairs, then request version-specific human review.",
-      "fittedSha256": "0dedb0c6d77737dcdeb5c38251c1cd5a4823464ad1fb2b1f2324e65189eb87ae"
-    },
-    {
-      "companionId": "elli",
-      "garmentFamily": "ribbon-dress",
-      "garmentVersion": "c716207b017239dcbf2a096e8566d291650f3cb5fd2c6a8089b08f8251d2d0d3:e50e01f2fc56f5991782e5599379293c8077c37032146a689b0e10c03a79a943",
-      "accessoryId": "cat-ears",
-      "accessoryVersion": "aa185a4d108dc9459205b9273dea72c29c0335327cbe695f7b0f679345e32592",
-      "sourceSha256": "12c2b97e95e700783a6a550dc0eee2d7880aeedccef9ae67bc4c5a2f0f2631a2",
-      "preparedSha256": "6d9698c8fb9e9b41826612cd5fa3dcdde3339e9c0ee7c91368d94430044f8dec",
-      "recipeVersion": "identity-preserved-v1",
-      "bodyProfileId": "sunny-standard-v1",
-      "automatedResult": "rendered-partial-acceptance",
-      "visualResult": "partial-snapshot-review-not-certified",
-      "engineeringStatus": "incomplete",
-      "storeEligible": false,
-      "humanApproval": null,
-      "evidence": [
-        "fit-evidence-equivalence.json",
-        "garment-families/prepared/",
-        "current-matrix/elli-sleeveless-dress-cat-ears-face-idle.png",
-        "current-matrix/elli-sleeveless-dress-cat-ears-side-idle.png",
-        "current-matrix/elli-sleeveless-dress-cat-ears-face-head-turn.png",
-        "current-matrix/elli-sleeveless-dress-cat-ears-front-arms-up.png"
-      ],
-      "restriction": "Walking is unverified: no compatible authored clip found. Complete current-version visual/movement certification and explicit human approval remain outstanding.",
-      "nextStep": "Provide a compatible authored walking clip; inspect full cycles and remaining required views/expressions for all six fits and accessory pairs, then request version-specific human review.",
-      "fittedSha256": "0dedb0c6d77737dcdeb5c38251c1cd5a4823464ad1fb2b1f2324e65189eb87ae"
-    },
-    {
-      "companionId": "elli",
-      "garmentFamily": "ribbon-dress",
-      "garmentVersion": "c716207b017239dcbf2a096e8566d291650f3cb5fd2c6a8089b08f8251d2d0d3:e50e01f2fc56f5991782e5599379293c8077c37032146a689b0e10c03a79a943",
-      "accessoryId": "star-halo",
-      "accessoryVersion": "aa185a4d108dc9459205b9273dea72c29c0335327cbe695f7b0f679345e32592",
-      "sourceSha256": "12c2b97e95e700783a6a550dc0eee2d7880aeedccef9ae67bc4c5a2f0f2631a2",
-      "preparedSha256": "6d9698c8fb9e9b41826612cd5fa3dcdde3339e9c0ee7c91368d94430044f8dec",
-      "recipeVersion": "identity-preserved-v1",
-      "bodyProfileId": "sunny-standard-v1",
-      "automatedResult": "rendered-partial-acceptance",
-      "visualResult": "partial-snapshot-review-not-certified",
-      "engineeringStatus": "incomplete",
-      "storeEligible": false,
-      "humanApproval": null,
-      "evidence": [
-        "fit-evidence-equivalence.json",
-        "garment-families/prepared/",
-        "current-matrix/elli-sleeveless-dress-halo-face-idle.png",
-        "current-matrix/elli-sleeveless-dress-halo-side-idle.png",
-        "current-matrix/elli-sleeveless-dress-halo-face-head-turn.png",
-        "current-matrix/elli-sleeveless-dress-halo-front-arms-up.png"
-      ],
-      "restriction": "Walking is unverified: no compatible authored clip found. Complete current-version visual/movement certification and explicit human approval remain outstanding.",
-      "nextStep": "Provide a compatible authored walking clip; inspect full cycles and remaining required views/expressions for all six fits and accessory pairs, then request version-specific human review.",
-      "fittedSha256": "0dedb0c6d77737dcdeb5c38251c1cd5a4823464ad1fb2b1f2324e65189eb87ae"
-    },
-    {
-      "companionId": "elli",
-      "garmentFamily": "comet-hoodie",
-      "garmentVersion": "ea114d56fd5e5803d6a06e07f8e97356b37403379a8b254f62d551ebe5a3e6cf:e50e01f2fc56f5991782e5599379293c8077c37032146a689b0e10c03a79a943",
-      "accessoryId": "none",
-      "accessoryVersion": null,
-      "sourceSha256": "12c2b97e95e700783a6a550dc0eee2d7880aeedccef9ae67bc4c5a2f0f2631a2",
-      "preparedSha256": "6d9698c8fb9e9b41826612cd5fa3dcdde3339e9c0ee7c91368d94430044f8dec",
-      "recipeVersion": "identity-preserved-v1",
-      "bodyProfileId": "sunny-standard-v1",
-      "automatedResult": "rendered-partial-acceptance",
-      "visualResult": "partial-snapshot-review-not-certified",
-      "engineeringStatus": "incomplete",
-      "storeEligible": false,
-      "humanApproval": null,
-      "evidence": [
-        "fit-evidence-equivalence.json",
-        "garment-families/prepared/"
-      ],
-      "restriction": "Walking is unverified: no compatible authored clip found. Complete current-version visual/movement certification and explicit human approval remain outstanding.",
-      "nextStep": "Provide a compatible authored walking clip; inspect full cycles and remaining required views/expressions for all six fits and accessory pairs, then request version-specific human review.",
-      "fittedSha256": "6f0027ce976339003f197bc476cd396c02cd2aba8a05d33434eaadbecc4661bd"
-    },
-    {
-      "companionId": "elli",
-      "garmentFamily": "comet-hoodie",
-      "garmentVersion": "ea114d56fd5e5803d6a06e07f8e97356b37403379a8b254f62d551ebe5a3e6cf:e50e01f2fc56f5991782e5599379293c8077c37032146a689b0e10c03a79a943",
-      "accessoryId": "royal-crown",
-      "accessoryVersion": "aa185a4d108dc9459205b9273dea72c29c0335327cbe695f7b0f679345e32592",
-      "sourceSha256": "12c2b97e95e700783a6a550dc0eee2d7880aeedccef9ae67bc4c5a2f0f2631a2",
-      "preparedSha256": "6d9698c8fb9e9b41826612cd5fa3dcdde3339e9c0ee7c91368d94430044f8dec",
-      "recipeVersion": "identity-preserved-v1",
-      "bodyProfileId": "sunny-standard-v1",
-      "automatedResult": "rendered-partial-acceptance",
-      "visualResult": "partial-snapshot-review-not-certified",
-      "engineeringStatus": "incomplete",
-      "storeEligible": false,
-      "humanApproval": null,
-      "evidence": [
-        "fit-evidence-equivalence.json",
-        "garment-families/prepared/",
-        "current-matrix/elli-comet-hoodie-crown-face-idle.png",
-        "current-matrix/elli-comet-hoodie-crown-side-idle.png",
-        "current-matrix/elli-comet-hoodie-crown-face-head-turn.png",
-        "current-matrix/elli-comet-hoodie-crown-front-arms-up.png"
-      ],
-      "restriction": "Walking is unverified: no compatible authored clip found. Complete current-version visual/movement certification and explicit human approval remain outstanding.",
-      "nextStep": "Provide a compatible authored walking clip; inspect full cycles and remaining required views/expressions for all six fits and accessory pairs, then request version-specific human review.",
-      "fittedSha256": "6f0027ce976339003f197bc476cd396c02cd2aba8a05d33434eaadbecc4661bd"
-    },
-    {
-      "companionId": "elli",
-      "garmentFamily": "comet-hoodie",
-      "garmentVersion": "ea114d56fd5e5803d6a06e07f8e97356b37403379a8b254f62d551ebe5a3e6cf:e50e01f2fc56f5991782e5599379293c8077c37032146a689b0e10c03a79a943",
-      "accessoryId": "cat-ears",
-      "accessoryVersion": "aa185a4d108dc9459205b9273dea72c29c0335327cbe695f7b0f679345e32592",
-      "sourceSha256": "12c2b97e95e700783a6a550dc0eee2d7880aeedccef9ae67bc4c5a2f0f2631a2",
-      "preparedSha256": "6d9698c8fb9e9b41826612cd5fa3dcdde3339e9c0ee7c91368d94430044f8dec",
-      "recipeVersion": "identity-preserved-v1",
-      "bodyProfileId": "sunny-standard-v1",
-      "automatedResult": "rendered-partial-acceptance",
-      "visualResult": "partial-snapshot-review-not-certified",
-      "engineeringStatus": "incomplete",
-      "storeEligible": false,
-      "humanApproval": null,
-      "evidence": [
-        "fit-evidence-equivalence.json",
-        "garment-families/prepared/",
-        "current-matrix/elli-comet-hoodie-cat-ears-face-idle.png",
-        "current-matrix/elli-comet-hoodie-cat-ears-side-idle.png",
-        "current-matrix/elli-comet-hoodie-cat-ears-face-head-turn.png",
-        "current-matrix/elli-comet-hoodie-cat-ears-front-arms-up.png"
-      ],
-      "restriction": "Walking is unverified: no compatible authored clip found. Complete current-version visual/movement certification and explicit human approval remain outstanding.",
-      "nextStep": "Provide a compatible authored walking clip; inspect full cycles and remaining required views/expressions for all six fits and accessory pairs, then request version-specific human review.",
-      "fittedSha256": "6f0027ce976339003f197bc476cd396c02cd2aba8a05d33434eaadbecc4661bd"
-    },
-    {
-      "companionId": "elli",
-      "garmentFamily": "comet-hoodie",
-      "garmentVersion": "ea114d56fd5e5803d6a06e07f8e97356b37403379a8b254f62d551ebe5a3e6cf:e50e01f2fc56f5991782e5599379293c8077c37032146a689b0e10c03a79a943",
-      "accessoryId": "star-halo",
-      "accessoryVersion": "aa185a4d108dc9459205b9273dea72c29c0335327cbe695f7b0f679345e32592",
-      "sourceSha256": "12c2b97e95e700783a6a550dc0eee2d7880aeedccef9ae67bc4c5a2f0f2631a2",
-      "preparedSha256": "6d9698c8fb9e9b41826612cd5fa3dcdde3339e9c0ee7c91368d94430044f8dec",
-      "recipeVersion": "identity-preserved-v1",
-      "bodyProfileId": "sunny-standard-v1",
-      "automatedResult": "rendered-partial-acceptance",
-      "visualResult": "partial-snapshot-review-not-certified",
-      "engineeringStatus": "incomplete",
-      "storeEligible": false,
-      "humanApproval": null,
-      "evidence": [
-        "fit-evidence-equivalence.json",
-        "garment-families/prepared/",
-        "current-matrix/elli-comet-hoodie-halo-face-idle.png",
-        "current-matrix/elli-comet-hoodie-halo-side-idle.png",
-        "current-matrix/elli-comet-hoodie-halo-face-head-turn.png",
-        "current-matrix/elli-comet-hoodie-halo-front-arms-up.png"
-      ],
-      "restriction": "Walking is unverified: no compatible authored clip found. Complete current-version visual/movement certification and explicit human approval remain outstanding.",
-      "nextStep": "Provide a compatible authored walking clip; inspect full cycles and remaining required views/expressions for all six fits and accessory pairs, then request version-specific human review.",
-      "fittedSha256": "6f0027ce976339003f197bc476cd396c02cd2aba8a05d33434eaadbecc4661bd"
-    },
-    {
-      "companionId": "elli",
-      "garmentFamily": "constellation-blazer",
-      "garmentVersion": "3370358848af0e97fdea02d7bc3b2a0cfa5429b8512d20cf5add71c8fa8cca38:e50e01f2fc56f5991782e5599379293c8077c37032146a689b0e10c03a79a943",
-      "accessoryId": "none",
-      "accessoryVersion": null,
-      "sourceSha256": "12c2b97e95e700783a6a550dc0eee2d7880aeedccef9ae67bc4c5a2f0f2631a2",
-      "preparedSha256": "6d9698c8fb9e9b41826612cd5fa3dcdde3339e9c0ee7c91368d94430044f8dec",
-      "recipeVersion": "identity-preserved-v1",
-      "bodyProfileId": "sunny-standard-v1",
-      "automatedResult": "rendered-partial-acceptance",
-      "visualResult": "partial-snapshot-review-not-certified",
-      "engineeringStatus": "incomplete",
-      "storeEligible": false,
-      "humanApproval": null,
-      "evidence": [
-        "fit-evidence-equivalence.json",
-        "garment-families/prepared/"
-      ],
-      "restriction": "Walking is unverified: no compatible authored clip found. Complete current-version visual/movement certification and explicit human approval remain outstanding.",
-      "nextStep": "Provide a compatible authored walking clip; inspect full cycles and remaining required views/expressions for all six fits and accessory pairs, then request version-specific human review.",
-      "fittedSha256": "b82e5a4ab2d1cd85430945525d0d9285af3ed7f182ad3290b43c1d0ad73e8240"
-    },
-    {
-      "companionId": "elli",
-      "garmentFamily": "constellation-blazer",
-      "garmentVersion": "3370358848af0e97fdea02d7bc3b2a0cfa5429b8512d20cf5add71c8fa8cca38:e50e01f2fc56f5991782e5599379293c8077c37032146a689b0e10c03a79a943",
-      "accessoryId": "royal-crown",
-      "accessoryVersion": "aa185a4d108dc9459205b9273dea72c29c0335327cbe695f7b0f679345e32592",
-      "sourceSha256": "12c2b97e95e700783a6a550dc0eee2d7880aeedccef9ae67bc4c5a2f0f2631a2",
-      "preparedSha256": "6d9698c8fb9e9b41826612cd5fa3dcdde3339e9c0ee7c91368d94430044f8dec",
-      "recipeVersion": "identity-preserved-v1",
-      "bodyProfileId": "sunny-standard-v1",
-      "automatedResult": "rendered-partial-acceptance",
-      "visualResult": "partial-snapshot-review-not-certified",
-      "engineeringStatus": "incomplete",
-      "storeEligible": false,
-      "humanApproval": null,
-      "evidence": [
-        "fit-evidence-equivalence.json",
-        "garment-families/prepared/",
-        "current-matrix/elli-constellation-blazer-crown-face-idle.png",
-        "current-matrix/elli-constellation-blazer-crown-side-idle.png",
-        "current-matrix/elli-constellation-blazer-crown-face-head-turn.png",
-        "current-matrix/elli-constellation-blazer-crown-front-arms-up.png"
-      ],
-      "restriction": "Walking is unverified: no compatible authored clip found. Complete current-version visual/movement certification and explicit human approval remain outstanding.",
-      "nextStep": "Provide a compatible authored walking clip; inspect full cycles and remaining required views/expressions for all six fits and accessory pairs, then request version-specific human review.",
-      "fittedSha256": "b82e5a4ab2d1cd85430945525d0d9285af3ed7f182ad3290b43c1d0ad73e8240"
-    },
-    {
-      "companionId": "elli",
-      "garmentFamily": "constellation-blazer",
-      "garmentVersion": "3370358848af0e97fdea02d7bc3b2a0cfa5429b8512d20cf5add71c8fa8cca38:e50e01f2fc56f5991782e5599379293c8077c37032146a689b0e10c03a79a943",
-      "accessoryId": "cat-ears",
-      "accessoryVersion": "aa185a4d108dc9459205b9273dea72c29c0335327cbe695f7b0f679345e32592",
-      "sourceSha256": "12c2b97e95e700783a6a550dc0eee2d7880aeedccef9ae67bc4c5a2f0f2631a2",
-      "preparedSha256": "6d9698c8fb9e9b41826612cd5fa3dcdde3339e9c0ee7c91368d94430044f8dec",
-      "recipeVersion": "identity-preserved-v1",
-      "bodyProfileId": "sunny-standard-v1",
-      "automatedResult": "rendered-partial-acceptance",
-      "visualResult": "partial-snapshot-review-not-certified",
-      "engineeringStatus": "incomplete",
-      "storeEligible": false,
-      "humanApproval": null,
-      "evidence": [
-        "fit-evidence-equivalence.json",
-        "garment-families/prepared/",
-        "current-matrix/elli-constellation-blazer-cat-ears-face-idle.png",
-        "current-matrix/elli-constellation-blazer-cat-ears-side-idle.png",
-        "current-matrix/elli-constellation-blazer-cat-ears-face-head-turn.png",
-        "current-matrix/elli-constellation-blazer-cat-ears-front-arms-up.png"
-      ],
-      "restriction": "Walking is unverified: no compatible authored clip found. Complete current-version visual/movement certification and explicit human approval remain outstanding.",
-      "nextStep": "Provide a compatible authored walking clip; inspect full cycles and remaining required views/expressions for all six fits and accessory pairs, then request version-specific human review.",
-      "fittedSha256": "b82e5a4ab2d1cd85430945525d0d9285af3ed7f182ad3290b43c1d0ad73e8240"
-    },
-    {
-      "companionId": "elli",
-      "garmentFamily": "constellation-blazer",
-      "garmentVersion": "3370358848af0e97fdea02d7bc3b2a0cfa5429b8512d20cf5add71c8fa8cca38:e50e01f2fc56f5991782e5599379293c8077c37032146a689b0e10c03a79a943",
-      "accessoryId": "star-halo",
-      "accessoryVersion": "aa185a4d108dc9459205b9273dea72c29c0335327cbe695f7b0f679345e32592",
-      "sourceSha256": "12c2b97e95e700783a6a550dc0eee2d7880aeedccef9ae67bc4c5a2f0f2631a2",
-      "preparedSha256": "6d9698c8fb9e9b41826612cd5fa3dcdde3339e9c0ee7c91368d94430044f8dec",
-      "recipeVersion": "identity-preserved-v1",
-      "bodyProfileId": "sunny-standard-v1",
-      "automatedResult": "rendered-partial-acceptance",
-      "visualResult": "partial-snapshot-review-not-certified",
-      "engineeringStatus": "incomplete",
-      "storeEligible": false,
-      "humanApproval": null,
-      "evidence": [
-        "fit-evidence-equivalence.json",
-        "garment-families/prepared/",
-        "current-matrix/elli-constellation-blazer-halo-face-idle.png",
-        "current-matrix/elli-constellation-blazer-halo-side-idle.png",
-        "current-matrix/elli-constellation-blazer-halo-face-head-turn.png",
-        "current-matrix/elli-constellation-blazer-halo-front-arms-up.png"
-      ],
-      "restriction": "Walking is unverified: no compatible authored clip found. Complete current-version visual/movement certification and explicit human approval remain outstanding.",
-      "nextStep": "Provide a compatible authored walking clip; inspect full cycles and remaining required views/expressions for all six fits and accessory pairs, then request version-specific human review.",
-      "fittedSha256": "b82e5a4ab2d1cd85430945525d0d9285af3ed7f182ad3290b43c1d0ad73e8240"
-    },
-    {
-      "companionId": "matilda",
-      "garmentFamily": "ribbon-dress",
-      "garmentVersion": "c716207b017239dcbf2a096e8566d291650f3cb5fd2c6a8089b08f8251d2d0d3:e50e01f2fc56f5991782e5599379293c8077c37032146a689b0e10c03a79a943",
-      "accessoryId": "none",
-      "accessoryVersion": null,
-      "sourceSha256": "1b11bd3de4f708c147c408602ec21b3b86bc4d0003d8ebd9eba4451495e1d455",
-      "preparedSha256": "f642d38931582ed85c945d78fa012d0554b8b5b7099535fa1d8cbacf4c881ced",
-      "recipeVersion": "identity-preserved-v4",
-      "bodyProfileId": "vroid-slim-v1",
-      "automatedResult": "rendered-partial-acceptance",
-      "visualResult": "partial-snapshot-review-not-certified",
-      "engineeringStatus": "incomplete",
-      "storeEligible": false,
-      "humanApproval": null,
-      "evidence": [
-        "fit-evidence-equivalence.json",
-        "garment-families/prepared/"
-      ],
-      "restriction": "Walking is unverified: no compatible authored clip found. Complete current-version visual/movement certification and explicit human approval remain outstanding.",
-      "nextStep": "Provide a compatible authored walking clip; inspect full cycles and remaining required views/expressions for all six fits and accessory pairs, then request version-specific human review.",
-      "fittedSha256": "15b2ef06cba34e55b4e289f77a3bd17beb3bc605eb25647c91665e6d952bd12f"
-    },
-    {
-      "companionId": "matilda",
-      "garmentFamily": "ribbon-dress",
-      "garmentVersion": "c716207b017239dcbf2a096e8566d291650f3cb5fd2c6a8089b08f8251d2d0d3:e50e01f2fc56f5991782e5599379293c8077c37032146a689b0e10c03a79a943",
-      "accessoryId": "royal-crown",
-      "accessoryVersion": "aa185a4d108dc9459205b9273dea72c29c0335327cbe695f7b0f679345e32592",
-      "sourceSha256": "1b11bd3de4f708c147c408602ec21b3b86bc4d0003d8ebd9eba4451495e1d455",
-      "preparedSha256": "f642d38931582ed85c945d78fa012d0554b8b5b7099535fa1d8cbacf4c881ced",
-      "recipeVersion": "identity-preserved-v4",
-      "bodyProfileId": "vroid-slim-v1",
-      "automatedResult": "rendered-partial-acceptance",
-      "visualResult": "partial-snapshot-review-not-certified",
-      "engineeringStatus": "incomplete",
-      "storeEligible": false,
-      "humanApproval": null,
-      "evidence": [
-        "fit-evidence-equivalence.json",
-        "garment-families/prepared/",
-        "current-matrix/matilda-sleeveless-dress-crown-face-idle.png",
-        "current-matrix/matilda-sleeveless-dress-crown-side-idle.png",
-        "current-matrix/matilda-sleeveless-dress-crown-face-head-turn.png",
-        "current-matrix/matilda-sleeveless-dress-crown-front-arms-up.png"
-      ],
-      "restriction": "Walking is unverified: no compatible authored clip found. Complete current-version visual/movement certification and explicit human approval remain outstanding.",
-      "nextStep": "Provide a compatible authored walking clip; inspect full cycles and remaining required views/expressions for all six fits and accessory pairs, then request version-specific human review.",
-      "fittedSha256": "15b2ef06cba34e55b4e289f77a3bd17beb3bc605eb25647c91665e6d952bd12f"
-    },
-    {
-      "companionId": "matilda",
-      "garmentFamily": "ribbon-dress",
-      "garmentVersion": "c716207b017239dcbf2a096e8566d291650f3cb5fd2c6a8089b08f8251d2d0d3:e50e01f2fc56f5991782e5599379293c8077c37032146a689b0e10c03a79a943",
-      "accessoryId": "cat-ears",
-      "accessoryVersion": "aa185a4d108dc9459205b9273dea72c29c0335327cbe695f7b0f679345e32592",
-      "sourceSha256": "1b11bd3de4f708c147c408602ec21b3b86bc4d0003d8ebd9eba4451495e1d455",
-      "preparedSha256": "f642d38931582ed85c945d78fa012d0554b8b5b7099535fa1d8cbacf4c881ced",
-      "recipeVersion": "identity-preserved-v4",
-      "bodyProfileId": "vroid-slim-v1",
-      "automatedResult": "rendered-partial-acceptance",
-      "visualResult": "partial-snapshot-review-not-certified",
-      "engineeringStatus": "incomplete",
-      "storeEligible": false,
-      "humanApproval": null,
-      "evidence": [
-        "fit-evidence-equivalence.json",
-        "garment-families/prepared/",
-        "current-matrix/matilda-sleeveless-dress-cat-ears-face-idle.png",
-        "current-matrix/matilda-sleeveless-dress-cat-ears-side-idle.png",
-        "current-matrix/matilda-sleeveless-dress-cat-ears-face-head-turn.png",
-        "current-matrix/matilda-sleeveless-dress-cat-ears-front-arms-up.png"
-      ],
-      "restriction": "Walking is unverified: no compatible authored clip found. Complete current-version visual/movement certification and explicit human approval remain outstanding.",
-      "nextStep": "Provide a compatible authored walking clip; inspect full cycles and remaining required views/expressions for all six fits and accessory pairs, then request version-specific human review.",
-      "fittedSha256": "15b2ef06cba34e55b4e289f77a3bd17beb3bc605eb25647c91665e6d952bd12f"
-    },
-    {
-      "companionId": "matilda",
-      "garmentFamily": "ribbon-dress",
-      "garmentVersion": "c716207b017239dcbf2a096e8566d291650f3cb5fd2c6a8089b08f8251d2d0d3:e50e01f2fc56f5991782e5599379293c8077c37032146a689b0e10c03a79a943",
-      "accessoryId": "star-halo",
-      "accessoryVersion": "aa185a4d108dc9459205b9273dea72c29c0335327cbe695f7b0f679345e32592",
-      "sourceSha256": "1b11bd3de4f708c147c408602ec21b3b86bc4d0003d8ebd9eba4451495e1d455",
-      "preparedSha256": "f642d38931582ed85c945d78fa012d0554b8b5b7099535fa1d8cbacf4c881ced",
-      "recipeVersion": "identity-preserved-v4",
-      "bodyProfileId": "vroid-slim-v1",
-      "automatedResult": "rendered-partial-acceptance",
-      "visualResult": "partial-snapshot-review-not-certified",
-      "engineeringStatus": "incomplete",
-      "storeEligible": false,
-      "humanApproval": null,
-      "evidence": [
-        "fit-evidence-equivalence.json",
-        "garment-families/prepared/",
-        "current-matrix/matilda-sleeveless-dress-halo-face-idle.png",
-        "current-matrix/matilda-sleeveless-dress-halo-side-idle.png",
-        "current-matrix/matilda-sleeveless-dress-halo-face-head-turn.png",
-        "current-matrix/matilda-sleeveless-dress-halo-front-arms-up.png"
-      ],
-      "restriction": "Walking is unverified: no compatible authored clip found. Complete current-version visual/movement certification and explicit human approval remain outstanding.",
-      "nextStep": "Provide a compatible authored walking clip; inspect full cycles and remaining required views/expressions for all six fits and accessory pairs, then request version-specific human review.",
-      "fittedSha256": "15b2ef06cba34e55b4e289f77a3bd17beb3bc605eb25647c91665e6d952bd12f"
-    },
-    {
-      "companionId": "matilda",
-      "garmentFamily": "comet-hoodie",
-      "garmentVersion": "ea114d56fd5e5803d6a06e07f8e97356b37403379a8b254f62d551ebe5a3e6cf:e50e01f2fc56f5991782e5599379293c8077c37032146a689b0e10c03a79a943",
-      "accessoryId": "none",
-      "accessoryVersion": null,
-      "sourceSha256": "1b11bd3de4f708c147c408602ec21b3b86bc4d0003d8ebd9eba4451495e1d455",
-      "preparedSha256": "f642d38931582ed85c945d78fa012d0554b8b5b7099535fa1d8cbacf4c881ced",
-      "recipeVersion": "identity-preserved-v4",
-      "bodyProfileId": "vroid-slim-v1",
-      "automatedResult": "rendered-partial-acceptance",
-      "visualResult": "partial-snapshot-review-not-certified",
-      "engineeringStatus": "incomplete",
-      "storeEligible": false,
-      "humanApproval": null,
-      "evidence": [
-        "fit-evidence-equivalence.json",
-        "garment-families/prepared/"
-      ],
-      "restriction": "Walking is unverified: no compatible authored clip found. Complete current-version visual/movement certification and explicit human approval remain outstanding.",
-      "nextStep": "Provide a compatible authored walking clip; inspect full cycles and remaining required views/expressions for all six fits and accessory pairs, then request version-specific human review.",
-      "fittedSha256": "223cc6fbded7e36e1a328f8516714d862bf346f967d0c49b09789dd132dec921"
-    },
-    {
-      "companionId": "matilda",
-      "garmentFamily": "comet-hoodie",
-      "garmentVersion": "ea114d56fd5e5803d6a06e07f8e97356b37403379a8b254f62d551ebe5a3e6cf:e50e01f2fc56f5991782e5599379293c8077c37032146a689b0e10c03a79a943",
-      "accessoryId": "royal-crown",
-      "accessoryVersion": "aa185a4d108dc9459205b9273dea72c29c0335327cbe695f7b0f679345e32592",
-      "sourceSha256": "1b11bd3de4f708c147c408602ec21b3b86bc4d0003d8ebd9eba4451495e1d455",
-      "preparedSha256": "f642d38931582ed85c945d78fa012d0554b8b5b7099535fa1d8cbacf4c881ced",
-      "recipeVersion": "identity-preserved-v4",
-      "bodyProfileId": "vroid-slim-v1",
-      "automatedResult": "rendered-partial-acceptance",
-      "visualResult": "partial-snapshot-review-not-certified",
-      "engineeringStatus": "incomplete",
-      "storeEligible": false,
-      "humanApproval": null,
-      "evidence": [
-        "fit-evidence-equivalence.json",
-        "garment-families/prepared/",
-        "current-matrix/matilda-comet-hoodie-crown-face-idle.png",
-        "current-matrix/matilda-comet-hoodie-crown-side-idle.png",
-        "current-matrix/matilda-comet-hoodie-crown-face-head-turn.png",
-        "current-matrix/matilda-comet-hoodie-crown-front-arms-up.png"
-      ],
-      "restriction": "Walking is unverified: no compatible authored clip found. Complete current-version visual/movement certification and explicit human approval remain outstanding.",
-      "nextStep": "Provide a compatible authored walking clip; inspect full cycles and remaining required views/expressions for all six fits and accessory pairs, then request version-specific human review.",
-      "fittedSha256": "223cc6fbded7e36e1a328f8516714d862bf346f967d0c49b09789dd132dec921"
-    },
-    {
-      "companionId": "matilda",
-      "garmentFamily": "comet-hoodie",
-      "garmentVersion": "ea114d56fd5e5803d6a06e07f8e97356b37403379a8b254f62d551ebe5a3e6cf:e50e01f2fc56f5991782e5599379293c8077c37032146a689b0e10c03a79a943",
-      "accessoryId": "cat-ears",
-      "accessoryVersion": "aa185a4d108dc9459205b9273dea72c29c0335327cbe695f7b0f679345e32592",
-      "sourceSha256": "1b11bd3de4f708c147c408602ec21b3b86bc4d0003d8ebd9eba4451495e1d455",
-      "preparedSha256": "f642d38931582ed85c945d78fa012d0554b8b5b7099535fa1d8cbacf4c881ced",
-      "recipeVersion": "identity-preserved-v4",
-      "bodyProfileId": "vroid-slim-v1",
-      "automatedResult": "rendered-partial-acceptance",
-      "visualResult": "partial-snapshot-review-not-certified",
-      "engineeringStatus": "incomplete",
-      "storeEligible": false,
-      "humanApproval": null,
-      "evidence": [
-        "fit-evidence-equivalence.json",
-        "garment-families/prepared/",
-        "current-matrix/matilda-comet-hoodie-cat-ears-face-idle.png",
-        "current-matrix/matilda-comet-hoodie-cat-ears-side-idle.png",
-        "current-matrix/matilda-comet-hoodie-cat-ears-face-head-turn.png",
-        "current-matrix/matilda-comet-hoodie-cat-ears-front-arms-up.png"
-      ],
-      "restriction": "Walking is unverified: no compatible authored clip found. Complete current-version visual/movement certification and explicit human approval remain outstanding.",
-      "nextStep": "Provide a compatible authored walking clip; inspect full cycles and remaining required views/expressions for all six fits and accessory pairs, then request version-specific human review.",
-      "fittedSha256": "223cc6fbded7e36e1a328f8516714d862bf346f967d0c49b09789dd132dec921"
-    },
-    {
-      "companionId": "matilda",
-      "garmentFamily": "comet-hoodie",
-      "garmentVersion": "ea114d56fd5e5803d6a06e07f8e97356b37403379a8b254f62d551ebe5a3e6cf:e50e01f2fc56f5991782e5599379293c8077c37032146a689b0e10c03a79a943",
-      "accessoryId": "star-halo",
-      "accessoryVersion": "aa185a4d108dc9459205b9273dea72c29c0335327cbe695f7b0f679345e32592",
-      "sourceSha256": "1b11bd3de4f708c147c408602ec21b3b86bc4d0003d8ebd9eba4451495e1d455",
-      "preparedSha256": "f642d38931582ed85c945d78fa012d0554b8b5b7099535fa1d8cbacf4c881ced",
-      "recipeVersion": "identity-preserved-v4",
-      "bodyProfileId": "vroid-slim-v1",
-      "automatedResult": "rendered-partial-acceptance",
-      "visualResult": "partial-snapshot-review-not-certified",
-      "engineeringStatus": "incomplete",
-      "storeEligible": false,
-      "humanApproval": null,
-      "evidence": [
-        "fit-evidence-equivalence.json",
-        "garment-families/prepared/",
-        "current-matrix/matilda-comet-hoodie-halo-face-idle.png",
-        "current-matrix/matilda-comet-hoodie-halo-side-idle.png",
-        "current-matrix/matilda-comet-hoodie-halo-face-head-turn.png",
-        "current-matrix/matilda-comet-hoodie-halo-front-arms-up.png"
-      ],
-      "restriction": "Walking is unverified: no compatible authored clip found. Complete current-version visual/movement certification and explicit human approval remain outstanding.",
-      "nextStep": "Provide a compatible authored walking clip; inspect full cycles and remaining required views/expressions for all six fits and accessory pairs, then request version-specific human review.",
-      "fittedSha256": "223cc6fbded7e36e1a328f8516714d862bf346f967d0c49b09789dd132dec921"
-    },
-    {
-      "companionId": "matilda",
-      "garmentFamily": "constellation-blazer",
-      "garmentVersion": "3370358848af0e97fdea02d7bc3b2a0cfa5429b8512d20cf5add71c8fa8cca38:e50e01f2fc56f5991782e5599379293c8077c37032146a689b0e10c03a79a943",
-      "accessoryId": "none",
-      "accessoryVersion": null,
-      "sourceSha256": "1b11bd3de4f708c147c408602ec21b3b86bc4d0003d8ebd9eba4451495e1d455",
-      "preparedSha256": "f642d38931582ed85c945d78fa012d0554b8b5b7099535fa1d8cbacf4c881ced",
-      "recipeVersion": "identity-preserved-v4",
-      "bodyProfileId": "vroid-slim-v1",
-      "automatedResult": "rendered-partial-acceptance",
-      "visualResult": "partial-snapshot-review-not-certified",
-      "engineeringStatus": "incomplete",
-      "storeEligible": false,
-      "humanApproval": null,
-      "evidence": [
-        "fit-evidence-equivalence.json",
-        "garment-families/prepared/"
-      ],
-      "restriction": "Walking is unverified: no compatible authored clip found. Complete current-version visual/movement certification and explicit human approval remain outstanding.",
-      "nextStep": "Provide a compatible authored walking clip; inspect full cycles and remaining required views/expressions for all six fits and accessory pairs, then request version-specific human review.",
-      "fittedSha256": "53686246e9845bd428056aad409d18257a119ea21f96776f6bae79e63bbf939c"
-    },
-    {
-      "companionId": "matilda",
-      "garmentFamily": "constellation-blazer",
-      "garmentVersion": "3370358848af0e97fdea02d7bc3b2a0cfa5429b8512d20cf5add71c8fa8cca38:e50e01f2fc56f5991782e5599379293c8077c37032146a689b0e10c03a79a943",
-      "accessoryId": "royal-crown",
-      "accessoryVersion": "aa185a4d108dc9459205b9273dea72c29c0335327cbe695f7b0f679345e32592",
-      "sourceSha256": "1b11bd3de4f708c147c408602ec21b3b86bc4d0003d8ebd9eba4451495e1d455",
-      "preparedSha256": "f642d38931582ed85c945d78fa012d0554b8b5b7099535fa1d8cbacf4c881ced",
-      "recipeVersion": "identity-preserved-v4",
-      "bodyProfileId": "vroid-slim-v1",
-      "automatedResult": "rendered-partial-acceptance",
-      "visualResult": "partial-snapshot-review-not-certified",
-      "engineeringStatus": "incomplete",
-      "storeEligible": false,
-      "humanApproval": null,
-      "evidence": [
-        "fit-evidence-equivalence.json",
-        "garment-families/prepared/",
-        "current-matrix/matilda-constellation-blazer-crown-face-idle.png",
-        "current-matrix/matilda-constellation-blazer-crown-side-idle.png",
-        "current-matrix/matilda-constellation-blazer-crown-face-head-turn.png",
-        "current-matrix/matilda-constellation-blazer-crown-front-arms-up.png"
-      ],
-      "restriction": "Walking is unverified: no compatible authored clip found. Complete current-version visual/movement certification and explicit human approval remain outstanding.",
-      "nextStep": "Provide a compatible authored walking clip; inspect full cycles and remaining required views/expressions for all six fits and accessory pairs, then request version-specific human review.",
-      "fittedSha256": "53686246e9845bd428056aad409d18257a119ea21f96776f6bae79e63bbf939c"
-    },
-    {
-      "companionId": "matilda",
-      "garmentFamily": "constellation-blazer",
-      "garmentVersion": "3370358848af0e97fdea02d7bc3b2a0cfa5429b8512d20cf5add71c8fa8cca38:e50e01f2fc56f5991782e5599379293c8077c37032146a689b0e10c03a79a943",
-      "accessoryId": "cat-ears",
-      "accessoryVersion": "aa185a4d108dc9459205b9273dea72c29c0335327cbe695f7b0f679345e32592",
-      "sourceSha256": "1b11bd3de4f708c147c408602ec21b3b86bc4d0003d8ebd9eba4451495e1d455",
-      "preparedSha256": "f642d38931582ed85c945d78fa012d0554b8b5b7099535fa1d8cbacf4c881ced",
-      "recipeVersion": "identity-preserved-v4",
-      "bodyProfileId": "vroid-slim-v1",
-      "automatedResult": "rendered-partial-acceptance",
-      "visualResult": "partial-snapshot-review-not-certified",
-      "engineeringStatus": "incomplete",
-      "storeEligible": false,
-      "humanApproval": null,
-      "evidence": [
-        "fit-evidence-equivalence.json",
-        "garment-families/prepared/",
-        "current-matrix/matilda-constellation-blazer-cat-ears-face-idle.png",
-        "current-matrix/matilda-constellation-blazer-cat-ears-side-idle.png",
-        "current-matrix/matilda-constellation-blazer-cat-ears-face-head-turn.png",
-        "current-matrix/matilda-constellation-blazer-cat-ears-front-arms-up.png"
-      ],
-      "restriction": "Walking is unverified: no compatible authored clip found. Complete current-version visual/movement certification and explicit human approval remain outstanding.",
-      "nextStep": "Provide a compatible authored walking clip; inspect full cycles and remaining required views/expressions for all six fits and accessory pairs, then request version-specific human review.",
-      "fittedSha256": "53686246e9845bd428056aad409d18257a119ea21f96776f6bae79e63bbf939c"
-    },
-    {
-      "companionId": "matilda",
-      "garmentFamily": "constellation-blazer",
-      "garmentVersion": "3370358848af0e97fdea02d7bc3b2a0cfa5429b8512d20cf5add71c8fa8cca38:e50e01f2fc56f5991782e5599379293c8077c37032146a689b0e10c03a79a943",
-      "accessoryId": "star-halo",
-      "accessoryVersion": "aa185a4d108dc9459205b9273dea72c29c0335327cbe695f7b0f679345e32592",
-      "sourceSha256": "1b11bd3de4f708c147c408602ec21b3b86bc4d0003d8ebd9eba4451495e1d455",
-      "preparedSha256": "f642d38931582ed85c945d78fa012d0554b8b5b7099535fa1d8cbacf4c881ced",
-      "recipeVersion": "identity-preserved-v4",
-      "bodyProfileId": "vroid-slim-v1",
-      "automatedResult": "rendered-partial-acceptance",
-      "visualResult": "partial-snapshot-review-not-certified",
-      "engineeringStatus": "incomplete",
-      "storeEligible": false,
-      "humanApproval": null,
-      "evidence": [
-        "fit-evidence-equivalence.json",
-        "garment-families/prepared/",
-        "current-matrix/matilda-constellation-blazer-halo-face-idle.png",
-        "current-matrix/matilda-constellation-blazer-halo-side-idle.png",
-        "current-matrix/matilda-constellation-blazer-halo-face-head-turn.png",
-        "current-matrix/matilda-constellation-blazer-halo-front-arms-up.png"
-      ],
-      "restriction": "Walking is unverified: no compatible authored clip found. Complete current-version visual/movement certification and explicit human approval remain outstanding.",
-      "nextStep": "Provide a compatible authored walking clip; inspect full cycles and remaining required views/expressions for all six fits and accessory pairs, then request version-specific human review.",
-      "fittedSha256": "53686246e9845bd428056aad409d18257a119ea21f96776f6bae79e63bbf939c"
-    },
-    {
-      "companionId": "kefla",
-      "garmentFamily": "ribbon-dress",
-      "garmentVersion": "c716207b017239dcbf2a096e8566d291650f3cb5fd2c6a8089b08f8251d2d0d3:e50e01f2fc56f5991782e5599379293c8077c37032146a689b0e10c03a79a943",
-      "accessoryId": "none",
-      "accessoryVersion": null,
-      "sourceSha256": "87b20e1e4b655232af449fb4ef5f8c1f131ed3258f6ad1703648ea7108069703",
-      "preparedSha256": null,
-      "recipeVersion": "legacy-overlay-diagnostic-only",
-      "bodyProfileId": "sunny-standard-v1 legacy donor (not certified)",
-      "automatedResult": "source-preview-rendered; combination-not-prepared",
-      "visualResult": "not-certified",
-      "engineeringStatus": "incomplete",
-      "storeEligible": false,
-      "humanApproval": null,
-      "evidence": [
-        "audit-final-kefla.png",
-        "asset-audit.json"
-      ],
-      "restriction": "Legacy overlay shows yellow material contamination below face and substitutes standard body proportions; not identity-preserving preparation.",
-      "nextStep": "Prepare complete Kefla rig/body and separate clothing by explicit material/primitive data; preserve hair and tail dependencies."
-    },
-    {
-      "companionId": "kefla",
-      "garmentFamily": "ribbon-dress",
-      "garmentVersion": "c716207b017239dcbf2a096e8566d291650f3cb5fd2c6a8089b08f8251d2d0d3:e50e01f2fc56f5991782e5599379293c8077c37032146a689b0e10c03a79a943",
-      "accessoryId": "royal-crown",
-      "accessoryVersion": "aa185a4d108dc9459205b9273dea72c29c0335327cbe695f7b0f679345e32592",
-      "sourceSha256": "87b20e1e4b655232af449fb4ef5f8c1f131ed3258f6ad1703648ea7108069703",
-      "preparedSha256": null,
-      "recipeVersion": "legacy-overlay-diagnostic-only",
-      "bodyProfileId": "sunny-standard-v1 legacy donor (not certified)",
-      "automatedResult": "source-preview-rendered; combination-not-prepared",
-      "visualResult": "not-certified",
-      "engineeringStatus": "incomplete",
-      "storeEligible": false,
-      "humanApproval": null,
-      "evidence": [
-        "garment-audit.json"
-      ],
-      "restriction": "Legacy overlay shows yellow material contamination below face and substitutes standard body proportions; not identity-preserving preparation.",
-      "nextStep": "Prepare complete Kefla rig/body and separate clothing by explicit material/primitive data; preserve hair and tail dependencies."
-    },
-    {
-      "companionId": "kefla",
-      "garmentFamily": "ribbon-dress",
-      "garmentVersion": "c716207b017239dcbf2a096e8566d291650f3cb5fd2c6a8089b08f8251d2d0d3:e50e01f2fc56f5991782e5599379293c8077c37032146a689b0e10c03a79a943",
-      "accessoryId": "cat-ears",
-      "accessoryVersion": "aa185a4d108dc9459205b9273dea72c29c0335327cbe695f7b0f679345e32592",
-      "sourceSha256": "87b20e1e4b655232af449fb4ef5f8c1f131ed3258f6ad1703648ea7108069703",
-      "preparedSha256": null,
-      "recipeVersion": "legacy-overlay-diagnostic-only",
-      "bodyProfileId": "sunny-standard-v1 legacy donor (not certified)",
-      "automatedResult": "source-preview-rendered; combination-not-prepared",
-      "visualResult": "not-certified",
-      "engineeringStatus": "incomplete",
-      "storeEligible": false,
-      "humanApproval": null,
-      "evidence": [
-        "garment-audit.json"
-      ],
-      "restriction": "Legacy overlay shows yellow material contamination below face and substitutes standard body proportions; not identity-preserving preparation.",
-      "nextStep": "Prepare complete Kefla rig/body and separate clothing by explicit material/primitive data; preserve hair and tail dependencies."
-    },
-    {
-      "companionId": "kefla",
-      "garmentFamily": "ribbon-dress",
-      "garmentVersion": "c716207b017239dcbf2a096e8566d291650f3cb5fd2c6a8089b08f8251d2d0d3:e50e01f2fc56f5991782e5599379293c8077c37032146a689b0e10c03a79a943",
-      "accessoryId": "star-halo",
-      "accessoryVersion": "aa185a4d108dc9459205b9273dea72c29c0335327cbe695f7b0f679345e32592",
-      "sourceSha256": "87b20e1e4b655232af449fb4ef5f8c1f131ed3258f6ad1703648ea7108069703",
-      "preparedSha256": null,
-      "recipeVersion": "legacy-overlay-diagnostic-only",
-      "bodyProfileId": "sunny-standard-v1 legacy donor (not certified)",
-      "automatedResult": "source-preview-rendered; combination-not-prepared",
-      "visualResult": "not-certified",
-      "engineeringStatus": "incomplete",
-      "storeEligible": false,
-      "humanApproval": null,
-      "evidence": [
-        "garment-audit.json"
-      ],
-      "restriction": "Legacy overlay shows yellow material contamination below face and substitutes standard body proportions; not identity-preserving preparation.",
-      "nextStep": "Prepare complete Kefla rig/body and separate clothing by explicit material/primitive data; preserve hair and tail dependencies."
-    },
-    {
-      "companionId": "kefla",
-      "garmentFamily": "comet-hoodie",
-      "garmentVersion": "ea114d56fd5e5803d6a06e07f8e97356b37403379a8b254f62d551ebe5a3e6cf:e50e01f2fc56f5991782e5599379293c8077c37032146a689b0e10c03a79a943",
-      "accessoryId": "none",
-      "accessoryVersion": null,
-      "sourceSha256": "87b20e1e4b655232af449fb4ef5f8c1f131ed3258f6ad1703648ea7108069703",
-      "preparedSha256": null,
-      "recipeVersion": "legacy-overlay-diagnostic-only",
-      "bodyProfileId": "sunny-standard-v1 legacy donor (not certified)",
-      "automatedResult": "source-preview-rendered; combination-not-prepared",
-      "visualResult": "not-certified",
-      "engineeringStatus": "incomplete",
-      "storeEligible": false,
-      "humanApproval": null,
-      "evidence": [
-        "garment-audit.json"
-      ],
-      "restriction": "Legacy overlay shows yellow material contamination below face and substitutes standard body proportions; not identity-preserving preparation.",
-      "nextStep": "Prepare complete Kefla rig/body and separate clothing by explicit material/primitive data; preserve hair and tail dependencies."
-    },
-    {
-      "companionId": "kefla",
-      "garmentFamily": "comet-hoodie",
-      "garmentVersion": "ea114d56fd5e5803d6a06e07f8e97356b37403379a8b254f62d551ebe5a3e6cf:e50e01f2fc56f5991782e5599379293c8077c37032146a689b0e10c03a79a943",
-      "accessoryId": "royal-crown",
-      "accessoryVersion": "aa185a4d108dc9459205b9273dea72c29c0335327cbe695f7b0f679345e32592",
-      "sourceSha256": "87b20e1e4b655232af449fb4ef5f8c1f131ed3258f6ad1703648ea7108069703",
-      "preparedSha256": null,
-      "recipeVersion": "legacy-overlay-diagnostic-only",
-      "bodyProfileId": "sunny-standard-v1 legacy donor (not certified)",
-      "automatedResult": "source-preview-rendered; combination-not-prepared",
-      "visualResult": "not-certified",
-      "engineeringStatus": "incomplete",
-      "storeEligible": false,
-      "humanApproval": null,
-      "evidence": [
-        "garment-audit.json"
-      ],
-      "restriction": "Legacy overlay shows yellow material contamination below face and substitutes standard body proportions; not identity-preserving preparation.",
-      "nextStep": "Prepare complete Kefla rig/body and separate clothing by explicit material/primitive data; preserve hair and tail dependencies."
-    },
-    {
-      "companionId": "kefla",
-      "garmentFamily": "comet-hoodie",
-      "garmentVersion": "ea114d56fd5e5803d6a06e07f8e97356b37403379a8b254f62d551ebe5a3e6cf:e50e01f2fc56f5991782e5599379293c8077c37032146a689b0e10c03a79a943",
-      "accessoryId": "cat-ears",
-      "accessoryVersion": "aa185a4d108dc9459205b9273dea72c29c0335327cbe695f7b0f679345e32592",
-      "sourceSha256": "87b20e1e4b655232af449fb4ef5f8c1f131ed3258f6ad1703648ea7108069703",
-      "preparedSha256": null,
-      "recipeVersion": "legacy-overlay-diagnostic-only",
-      "bodyProfileId": "sunny-standard-v1 legacy donor (not certified)",
-      "automatedResult": "source-preview-rendered; combination-not-prepared",
-      "visualResult": "not-certified",
-      "engineeringStatus": "incomplete",
-      "storeEligible": false,
-      "humanApproval": null,
-      "evidence": [
-        "garment-audit.json"
-      ],
-      "restriction": "Legacy overlay shows yellow material contamination below face and substitutes standard body proportions; not identity-preserving preparation.",
-      "nextStep": "Prepare complete Kefla rig/body and separate clothing by explicit material/primitive data; preserve hair and tail dependencies."
-    },
-    {
-      "companionId": "kefla",
-      "garmentFamily": "comet-hoodie",
-      "garmentVersion": "ea114d56fd5e5803d6a06e07f8e97356b37403379a8b254f62d551ebe5a3e6cf:e50e01f2fc56f5991782e5599379293c8077c37032146a689b0e10c03a79a943",
-      "accessoryId": "star-halo",
-      "accessoryVersion": "aa185a4d108dc9459205b9273dea72c29c0335327cbe695f7b0f679345e32592",
-      "sourceSha256": "87b20e1e4b655232af449fb4ef5f8c1f131ed3258f6ad1703648ea7108069703",
-      "preparedSha256": null,
-      "recipeVersion": "legacy-overlay-diagnostic-only",
-      "bodyProfileId": "sunny-standard-v1 legacy donor (not certified)",
-      "automatedResult": "source-preview-rendered; combination-not-prepared",
-      "visualResult": "not-certified",
-      "engineeringStatus": "incomplete",
-      "storeEligible": false,
-      "humanApproval": null,
-      "evidence": [
-        "garment-audit.json"
-      ],
-      "restriction": "Legacy overlay shows yellow material contamination below face and substitutes standard body proportions; not identity-preserving preparation.",
-      "nextStep": "Prepare complete Kefla rig/body and separate clothing by explicit material/primitive data; preserve hair and tail dependencies."
-    },
-    {
-      "companionId": "kefla",
-      "garmentFamily": "constellation-blazer",
-      "garmentVersion": "3370358848af0e97fdea02d7bc3b2a0cfa5429b8512d20cf5add71c8fa8cca38:e50e01f2fc56f5991782e5599379293c8077c37032146a689b0e10c03a79a943",
-      "accessoryId": "none",
-      "accessoryVersion": null,
-      "sourceSha256": "87b20e1e4b655232af449fb4ef5f8c1f131ed3258f6ad1703648ea7108069703",
-      "preparedSha256": null,
-      "recipeVersion": "legacy-overlay-diagnostic-only",
-      "bodyProfileId": "sunny-standard-v1 legacy donor (not certified)",
-      "automatedResult": "source-preview-rendered; combination-not-prepared",
-      "visualResult": "not-certified",
-      "engineeringStatus": "incomplete",
-      "storeEligible": false,
-      "humanApproval": null,
-      "evidence": [
-        "garment-audit.json"
-      ],
-      "restriction": "Legacy overlay shows yellow material contamination below face and substitutes standard body proportions; not identity-preserving preparation.",
-      "nextStep": "Prepare complete Kefla rig/body and separate clothing by explicit material/primitive data; preserve hair and tail dependencies."
-    },
-    {
-      "companionId": "kefla",
-      "garmentFamily": "constellation-blazer",
-      "garmentVersion": "3370358848af0e97fdea02d7bc3b2a0cfa5429b8512d20cf5add71c8fa8cca38:e50e01f2fc56f5991782e5599379293c8077c37032146a689b0e10c03a79a943",
-      "accessoryId": "royal-crown",
-      "accessoryVersion": "aa185a4d108dc9459205b9273dea72c29c0335327cbe695f7b0f679345e32592",
-      "sourceSha256": "87b20e1e4b655232af449fb4ef5f8c1f131ed3258f6ad1703648ea7108069703",
-      "preparedSha256": null,
-      "recipeVersion": "legacy-overlay-diagnostic-only",
-      "bodyProfileId": "sunny-standard-v1 legacy donor (not certified)",
-      "automatedResult": "source-preview-rendered; combination-not-prepared",
-      "visualResult": "not-certified",
-      "engineeringStatus": "incomplete",
-      "storeEligible": false,
-      "humanApproval": null,
-      "evidence": [
-        "garment-audit.json"
-      ],
-      "restriction": "Legacy overlay shows yellow material contamination below face and substitutes standard body proportions; not identity-preserving preparation.",
-      "nextStep": "Prepare complete Kefla rig/body and separate clothing by explicit material/primitive data; preserve hair and tail dependencies."
-    },
-    {
-      "companionId": "kefla",
-      "garmentFamily": "constellation-blazer",
-      "garmentVersion": "3370358848af0e97fdea02d7bc3b2a0cfa5429b8512d20cf5add71c8fa8cca38:e50e01f2fc56f5991782e5599379293c8077c37032146a689b0e10c03a79a943",
-      "accessoryId": "cat-ears",
-      "accessoryVersion": "aa185a4d108dc9459205b9273dea72c29c0335327cbe695f7b0f679345e32592",
-      "sourceSha256": "87b20e1e4b655232af449fb4ef5f8c1f131ed3258f6ad1703648ea7108069703",
-      "preparedSha256": null,
-      "recipeVersion": "legacy-overlay-diagnostic-only",
-      "bodyProfileId": "sunny-standard-v1 legacy donor (not certified)",
-      "automatedResult": "source-preview-rendered; combination-not-prepared",
-      "visualResult": "not-certified",
-      "engineeringStatus": "incomplete",
-      "storeEligible": false,
-      "humanApproval": null,
-      "evidence": [
-        "garment-audit.json"
-      ],
-      "restriction": "Legacy overlay shows yellow material contamination below face and substitutes standard body proportions; not identity-preserving preparation.",
-      "nextStep": "Prepare complete Kefla rig/body and separate clothing by explicit material/primitive data; preserve hair and tail dependencies."
-    },
-    {
-      "companionId": "kefla",
-      "garmentFamily": "constellation-blazer",
-      "garmentVersion": "3370358848af0e97fdea02d7bc3b2a0cfa5429b8512d20cf5add71c8fa8cca38:e50e01f2fc56f5991782e5599379293c8077c37032146a689b0e10c03a79a943",
-      "accessoryId": "star-halo",
-      "accessoryVersion": "aa185a4d108dc9459205b9273dea72c29c0335327cbe695f7b0f679345e32592",
-      "sourceSha256": "87b20e1e4b655232af449fb4ef5f8c1f131ed3258f6ad1703648ea7108069703",
-      "preparedSha256": null,
-      "recipeVersion": "legacy-overlay-diagnostic-only",
-      "bodyProfileId": "sunny-standard-v1 legacy donor (not certified)",
-      "automatedResult": "source-preview-rendered; combination-not-prepared",
-      "visualResult": "not-certified",
-      "engineeringStatus": "incomplete",
-      "storeEligible": false,
-      "humanApproval": null,
-      "evidence": [
-        "garment-audit.json"
-      ],
-      "restriction": "Legacy overlay shows yellow material contamination below face and substitutes standard body proportions; not identity-preserving preparation.",
-      "nextStep": "Prepare complete Kefla rig/body and separate clothing by explicit material/primitive data; preserve hair and tail dependencies."
-    },
-    {
-      "companionId": "melty",
-      "garmentFamily": "ribbon-dress",
-      "garmentVersion": "c716207b017239dcbf2a096e8566d291650f3cb5fd2c6a8089b08f8251d2d0d3:e50e01f2fc56f5991782e5599379293c8077c37032146a689b0e10c03a79a943",
-      "accessoryId": "none",
-      "accessoryVersion": null,
-      "sourceSha256": "8166b63da15229b9e4de9d8882103b9616a755d85e02969d07ec9054d220abd4",
-      "preparedSha256": null,
-      "recipeVersion": "legacy-overlay-diagnostic-only",
-      "bodyProfileId": "sunny-standard-v1 legacy donor (not certified)",
-      "automatedResult": "source-preview-rendered; combination-not-prepared",
-      "visualResult": "not-certified",
-      "engineeringStatus": "incomplete",
-      "storeEligible": false,
-      "humanApproval": null,
-      "evidence": [
-        "audit-final-melty.png",
-        "asset-audit.json"
-      ],
-      "restriction": "Legacy overlay substitutes standard body, shoes and proportions; original profile has distinct skin/clothing material layout.",
-      "nextStep": "Prepare original complete body with its textures/physics and fit against her original proportions."
-    },
-    {
-      "companionId": "melty",
-      "garmentFamily": "ribbon-dress",
-      "garmentVersion": "c716207b017239dcbf2a096e8566d291650f3cb5fd2c6a8089b08f8251d2d0d3:e50e01f2fc56f5991782e5599379293c8077c37032146a689b0e10c03a79a943",
-      "accessoryId": "royal-crown",
-      "accessoryVersion": "aa185a4d108dc9459205b9273dea72c29c0335327cbe695f7b0f679345e32592",
-      "sourceSha256": "8166b63da15229b9e4de9d8882103b9616a755d85e02969d07ec9054d220abd4",
-      "preparedSha256": null,
-      "recipeVersion": "legacy-overlay-diagnostic-only",
-      "bodyProfileId": "sunny-standard-v1 legacy donor (not certified)",
-      "automatedResult": "source-preview-rendered; combination-not-prepared",
-      "visualResult": "not-certified",
-      "engineeringStatus": "incomplete",
-      "storeEligible": false,
-      "humanApproval": null,
-      "evidence": [
-        "garment-audit.json"
-      ],
-      "restriction": "Legacy overlay substitutes standard body, shoes and proportions; original profile has distinct skin/clothing material layout.",
-      "nextStep": "Prepare original complete body with its textures/physics and fit against her original proportions."
-    },
-    {
-      "companionId": "melty",
-      "garmentFamily": "ribbon-dress",
-      "garmentVersion": "c716207b017239dcbf2a096e8566d291650f3cb5fd2c6a8089b08f8251d2d0d3:e50e01f2fc56f5991782e5599379293c8077c37032146a689b0e10c03a79a943",
-      "accessoryId": "cat-ears",
-      "accessoryVersion": "aa185a4d108dc9459205b9273dea72c29c0335327cbe695f7b0f679345e32592",
-      "sourceSha256": "8166b63da15229b9e4de9d8882103b9616a755d85e02969d07ec9054d220abd4",
-      "preparedSha256": null,
-      "recipeVersion": "legacy-overlay-diagnostic-only",
-      "bodyProfileId": "sunny-standard-v1 legacy donor (not certified)",
-      "automatedResult": "source-preview-rendered; combination-not-prepared",
-      "visualResult": "not-certified",
-      "engineeringStatus": "incomplete",
-      "storeEligible": false,
-      "humanApproval": null,
-      "evidence": [
-        "garment-audit.json"
-      ],
-      "restriction": "Legacy overlay substitutes standard body, shoes and proportions; original profile has distinct skin/clothing material layout.",
-      "nextStep": "Prepare original complete body with its textures/physics and fit against her original proportions."
-    },
-    {
-      "companionId": "melty",
-      "garmentFamily": "ribbon-dress",
-      "garmentVersion": "c716207b017239dcbf2a096e8566d291650f3cb5fd2c6a8089b08f8251d2d0d3:e50e01f2fc56f5991782e5599379293c8077c37032146a689b0e10c03a79a943",
-      "accessoryId": "star-halo",
-      "accessoryVersion": "aa185a4d108dc9459205b9273dea72c29c0335327cbe695f7b0f679345e32592",
-      "sourceSha256": "8166b63da15229b9e4de9d8882103b9616a755d85e02969d07ec9054d220abd4",
-      "preparedSha256": null,
-      "recipeVersion": "legacy-overlay-diagnostic-only",
-      "bodyProfileId": "sunny-standard-v1 legacy donor (not certified)",
-      "automatedResult": "source-preview-rendered; combination-not-prepared",
-      "visualResult": "not-certified",
-      "engineeringStatus": "incomplete",
-      "storeEligible": false,
-      "humanApproval": null,
-      "evidence": [
-        "garment-audit.json"
-      ],
-      "restriction": "Legacy overlay substitutes standard body, shoes and proportions; original profile has distinct skin/clothing material layout.",
-      "nextStep": "Prepare original complete body with its textures/physics and fit against her original proportions."
-    },
-    {
-      "companionId": "melty",
-      "garmentFamily": "comet-hoodie",
-      "garmentVersion": "ea114d56fd5e5803d6a06e07f8e97356b37403379a8b254f62d551ebe5a3e6cf:e50e01f2fc56f5991782e5599379293c8077c37032146a689b0e10c03a79a943",
-      "accessoryId": "none",
-      "accessoryVersion": null,
-      "sourceSha256": "8166b63da15229b9e4de9d8882103b9616a755d85e02969d07ec9054d220abd4",
-      "preparedSha256": null,
-      "recipeVersion": "legacy-overlay-diagnostic-only",
-      "bodyProfileId": "sunny-standard-v1 legacy donor (not certified)",
-      "automatedResult": "source-preview-rendered; combination-not-prepared",
-      "visualResult": "not-certified",
-      "engineeringStatus": "incomplete",
-      "storeEligible": false,
-      "humanApproval": null,
-      "evidence": [
-        "garment-audit.json"
-      ],
-      "restriction": "Legacy overlay substitutes standard body, shoes and proportions; original profile has distinct skin/clothing material layout.",
-      "nextStep": "Prepare original complete body with its textures/physics and fit against her original proportions."
-    },
-    {
-      "companionId": "melty",
-      "garmentFamily": "comet-hoodie",
-      "garmentVersion": "ea114d56fd5e5803d6a06e07f8e97356b37403379a8b254f62d551ebe5a3e6cf:e50e01f2fc56f5991782e5599379293c8077c37032146a689b0e10c03a79a943",
-      "accessoryId": "royal-crown",
-      "accessoryVersion": "aa185a4d108dc9459205b9273dea72c29c0335327cbe695f7b0f679345e32592",
-      "sourceSha256": "8166b63da15229b9e4de9d8882103b9616a755d85e02969d07ec9054d220abd4",
-      "preparedSha256": null,
-      "recipeVersion": "legacy-overlay-diagnostic-only",
-      "bodyProfileId": "sunny-standard-v1 legacy donor (not certified)",
-      "automatedResult": "source-preview-rendered; combination-not-prepared",
-      "visualResult": "not-certified",
-      "engineeringStatus": "incomplete",
-      "storeEligible": false,
-      "humanApproval": null,
-      "evidence": [
-        "garment-audit.json"
-      ],
-      "restriction": "Legacy overlay substitutes standard body, shoes and proportions; original profile has distinct skin/clothing material layout.",
-      "nextStep": "Prepare original complete body with its textures/physics and fit against her original proportions."
-    },
-    {
-      "companionId": "melty",
-      "garmentFamily": "comet-hoodie",
-      "garmentVersion": "ea114d56fd5e5803d6a06e07f8e97356b37403379a8b254f62d551ebe5a3e6cf:e50e01f2fc56f5991782e5599379293c8077c37032146a689b0e10c03a79a943",
-      "accessoryId": "cat-ears",
-      "accessoryVersion": "aa185a4d108dc9459205b9273dea72c29c0335327cbe695f7b0f679345e32592",
-      "sourceSha256": "8166b63da15229b9e4de9d8882103b9616a755d85e02969d07ec9054d220abd4",
-      "preparedSha256": null,
-      "recipeVersion": "legacy-overlay-diagnostic-only",
-      "bodyProfileId": "sunny-standard-v1 legacy donor (not certified)",
-      "automatedResult": "source-preview-rendered; combination-not-prepared",
-      "visualResult": "not-certified",
-      "engineeringStatus": "incomplete",
-      "storeEligible": false,
-      "humanApproval": null,
-      "evidence": [
-        "garment-audit.json"
-      ],
-      "restriction": "Legacy overlay substitutes standard body, shoes and proportions; original profile has distinct skin/clothing material layout.",
-      "nextStep": "Prepare original complete body with its textures/physics and fit against her original proportions."
-    },
-    {
-      "companionId": "melty",
-      "garmentFamily": "comet-hoodie",
-      "garmentVersion": "ea114d56fd5e5803d6a06e07f8e97356b37403379a8b254f62d551ebe5a3e6cf:e50e01f2fc56f5991782e5599379293c8077c37032146a689b0e10c03a79a943",
-      "accessoryId": "star-halo",
-      "accessoryVersion": "aa185a4d108dc9459205b9273dea72c29c0335327cbe695f7b0f679345e32592",
-      "sourceSha256": "8166b63da15229b9e4de9d8882103b9616a755d85e02969d07ec9054d220abd4",
-      "preparedSha256": null,
-      "recipeVersion": "legacy-overlay-diagnostic-only",
-      "bodyProfileId": "sunny-standard-v1 legacy donor (not certified)",
-      "automatedResult": "source-preview-rendered; combination-not-prepared",
-      "visualResult": "not-certified",
-      "engineeringStatus": "incomplete",
-      "storeEligible": false,
-      "humanApproval": null,
-      "evidence": [
-        "garment-audit.json"
-      ],
-      "restriction": "Legacy overlay substitutes standard body, shoes and proportions; original profile has distinct skin/clothing material layout.",
-      "nextStep": "Prepare original complete body with its textures/physics and fit against her original proportions."
-    },
-    {
-      "companionId": "melty",
-      "garmentFamily": "constellation-blazer",
-      "garmentVersion": "3370358848af0e97fdea02d7bc3b2a0cfa5429b8512d20cf5add71c8fa8cca38:e50e01f2fc56f5991782e5599379293c8077c37032146a689b0e10c03a79a943",
-      "accessoryId": "none",
-      "accessoryVersion": null,
-      "sourceSha256": "8166b63da15229b9e4de9d8882103b9616a755d85e02969d07ec9054d220abd4",
-      "preparedSha256": null,
-      "recipeVersion": "legacy-overlay-diagnostic-only",
-      "bodyProfileId": "sunny-standard-v1 legacy donor (not certified)",
-      "automatedResult": "source-preview-rendered; combination-not-prepared",
-      "visualResult": "not-certified",
-      "engineeringStatus": "incomplete",
-      "storeEligible": false,
-      "humanApproval": null,
-      "evidence": [
-        "garment-audit.json"
-      ],
-      "restriction": "Legacy overlay substitutes standard body, shoes and proportions; original profile has distinct skin/clothing material layout.",
-      "nextStep": "Prepare original complete body with its textures/physics and fit against her original proportions."
-    },
-    {
-      "companionId": "melty",
-      "garmentFamily": "constellation-blazer",
-      "garmentVersion": "3370358848af0e97fdea02d7bc3b2a0cfa5429b8512d20cf5add71c8fa8cca38:e50e01f2fc56f5991782e5599379293c8077c37032146a689b0e10c03a79a943",
-      "accessoryId": "royal-crown",
-      "accessoryVersion": "aa185a4d108dc9459205b9273dea72c29c0335327cbe695f7b0f679345e32592",
-      "sourceSha256": "8166b63da15229b9e4de9d8882103b9616a755d85e02969d07ec9054d220abd4",
-      "preparedSha256": null,
-      "recipeVersion": "legacy-overlay-diagnostic-only",
-      "bodyProfileId": "sunny-standard-v1 legacy donor (not certified)",
-      "automatedResult": "source-preview-rendered; combination-not-prepared",
-      "visualResult": "not-certified",
-      "engineeringStatus": "incomplete",
-      "storeEligible": false,
-      "humanApproval": null,
-      "evidence": [
-        "garment-audit.json"
-      ],
-      "restriction": "Legacy overlay substitutes standard body, shoes and proportions; original profile has distinct skin/clothing material layout.",
-      "nextStep": "Prepare original complete body with its textures/physics and fit against her original proportions."
-    },
-    {
-      "companionId": "melty",
-      "garmentFamily": "constellation-blazer",
-      "garmentVersion": "3370358848af0e97fdea02d7bc3b2a0cfa5429b8512d20cf5add71c8fa8cca38:e50e01f2fc56f5991782e5599379293c8077c37032146a689b0e10c03a79a943",
-      "accessoryId": "cat-ears",
-      "accessoryVersion": "aa185a4d108dc9459205b9273dea72c29c0335327cbe695f7b0f679345e32592",
-      "sourceSha256": "8166b63da15229b9e4de9d8882103b9616a755d85e02969d07ec9054d220abd4",
-      "preparedSha256": null,
-      "recipeVersion": "legacy-overlay-diagnostic-only",
-      "bodyProfileId": "sunny-standard-v1 legacy donor (not certified)",
-      "automatedResult": "source-preview-rendered; combination-not-prepared",
-      "visualResult": "not-certified",
-      "engineeringStatus": "incomplete",
-      "storeEligible": false,
-      "humanApproval": null,
-      "evidence": [
-        "garment-audit.json"
-      ],
-      "restriction": "Legacy overlay substitutes standard body, shoes and proportions; original profile has distinct skin/clothing material layout.",
-      "nextStep": "Prepare original complete body with its textures/physics and fit against her original proportions."
-    },
-    {
-      "companionId": "melty",
-      "garmentFamily": "constellation-blazer",
-      "garmentVersion": "3370358848af0e97fdea02d7bc3b2a0cfa5429b8512d20cf5add71c8fa8cca38:e50e01f2fc56f5991782e5599379293c8077c37032146a689b0e10c03a79a943",
-      "accessoryId": "star-halo",
-      "accessoryVersion": "aa185a4d108dc9459205b9273dea72c29c0335327cbe695f7b0f679345e32592",
-      "sourceSha256": "8166b63da15229b9e4de9d8882103b9616a755d85e02969d07ec9054d220abd4",
-      "preparedSha256": null,
-      "recipeVersion": "legacy-overlay-diagnostic-only",
-      "bodyProfileId": "sunny-standard-v1 legacy donor (not certified)",
-      "automatedResult": "source-preview-rendered; combination-not-prepared",
-      "visualResult": "not-certified",
-      "engineeringStatus": "incomplete",
-      "storeEligible": false,
-      "humanApproval": null,
-      "evidence": [
-        "garment-audit.json"
-      ],
-      "restriction": "Legacy overlay substitutes standard body, shoes and proportions; original profile has distinct skin/clothing material layout.",
-      "nextStep": "Prepare original complete body with its textures/physics and fit against her original proportions."
-    },
-    {
-      "companionId": "princess",
-      "garmentFamily": "ribbon-dress",
-      "garmentVersion": "c716207b017239dcbf2a096e8566d291650f3cb5fd2c6a8089b08f8251d2d0d3:e50e01f2fc56f5991782e5599379293c8077c37032146a689b0e10c03a79a943",
-      "accessoryId": "none",
-      "accessoryVersion": null,
-      "sourceSha256": "7ab95a552520e02ed33ebd3b66ed9b90e586bca6f64dd208de39fad225346c75",
-      "preparedSha256": null,
-      "recipeVersion": "legacy-overlay-diagnostic-only",
-      "bodyProfileId": "sunny-standard-v1 legacy donor (not certified)",
-      "automatedResult": "source-preview-rendered; combination-not-prepared",
-      "visualResult": "not-certified",
-      "engineeringStatus": "incomplete",
-      "storeEligible": false,
-      "humanApproval": null,
-      "evidence": [
-        "audit-final-princess.png",
-        "asset-audit.json"
-      ],
-      "restriction": "Visible lower-face corruption in diagnostic composite. Fully head-weighted mouth/expression primitives are hidden by the legacy mask false-return path.",
-      "nextStep": "Preserve complete original face/material expression surfaces; explicitly separate gown/body before any conversion certification."
-    },
-    {
-      "companionId": "princess",
-      "garmentFamily": "ribbon-dress",
-      "garmentVersion": "c716207b017239dcbf2a096e8566d291650f3cb5fd2c6a8089b08f8251d2d0d3:e50e01f2fc56f5991782e5599379293c8077c37032146a689b0e10c03a79a943",
-      "accessoryId": "royal-crown",
-      "accessoryVersion": "aa185a4d108dc9459205b9273dea72c29c0335327cbe695f7b0f679345e32592",
-      "sourceSha256": "7ab95a552520e02ed33ebd3b66ed9b90e586bca6f64dd208de39fad225346c75",
-      "preparedSha256": null,
-      "recipeVersion": "legacy-overlay-diagnostic-only",
-      "bodyProfileId": "sunny-standard-v1 legacy donor (not certified)",
-      "automatedResult": "source-preview-rendered; combination-not-prepared",
-      "visualResult": "not-certified",
-      "engineeringStatus": "incomplete",
-      "storeEligible": false,
-      "humanApproval": null,
-      "evidence": [
-        "garment-audit.json"
-      ],
-      "restriction": "Visible lower-face corruption in diagnostic composite. Fully head-weighted mouth/expression primitives are hidden by the legacy mask false-return path.",
-      "nextStep": "Preserve complete original face/material expression surfaces; explicitly separate gown/body before any conversion certification."
-    },
-    {
-      "companionId": "princess",
-      "garmentFamily": "ribbon-dress",
-      "garmentVersion": "c716207b017239dcbf2a096e8566d291650f3cb5fd2c6a8089b08f8251d2d0d3:e50e01f2fc56f5991782e5599379293c8077c37032146a689b0e10c03a79a943",
-      "accessoryId": "cat-ears",
-      "accessoryVersion": "aa185a4d108dc9459205b9273dea72c29c0335327cbe695f7b0f679345e32592",
-      "sourceSha256": "7ab95a552520e02ed33ebd3b66ed9b90e586bca6f64dd208de39fad225346c75",
-      "preparedSha256": null,
-      "recipeVersion": "legacy-overlay-diagnostic-only",
-      "bodyProfileId": "sunny-standard-v1 legacy donor (not certified)",
-      "automatedResult": "source-preview-rendered; combination-not-prepared",
-      "visualResult": "not-certified",
-      "engineeringStatus": "incomplete",
-      "storeEligible": false,
-      "humanApproval": null,
-      "evidence": [
-        "garment-audit.json"
-      ],
-      "restriction": "Visible lower-face corruption in diagnostic composite. Fully head-weighted mouth/expression primitives are hidden by the legacy mask false-return path.",
-      "nextStep": "Preserve complete original face/material expression surfaces; explicitly separate gown/body before any conversion certification."
-    },
-    {
-      "companionId": "princess",
-      "garmentFamily": "ribbon-dress",
-      "garmentVersion": "c716207b017239dcbf2a096e8566d291650f3cb5fd2c6a8089b08f8251d2d0d3:e50e01f2fc56f5991782e5599379293c8077c37032146a689b0e10c03a79a943",
-      "accessoryId": "star-halo",
-      "accessoryVersion": "aa185a4d108dc9459205b9273dea72c29c0335327cbe695f7b0f679345e32592",
-      "sourceSha256": "7ab95a552520e02ed33ebd3b66ed9b90e586bca6f64dd208de39fad225346c75",
-      "preparedSha256": null,
-      "recipeVersion": "legacy-overlay-diagnostic-only",
-      "bodyProfileId": "sunny-standard-v1 legacy donor (not certified)",
-      "automatedResult": "source-preview-rendered; combination-not-prepared",
-      "visualResult": "not-certified",
-      "engineeringStatus": "incomplete",
-      "storeEligible": false,
-      "humanApproval": null,
-      "evidence": [
-        "garment-audit.json"
-      ],
-      "restriction": "Visible lower-face corruption in diagnostic composite. Fully head-weighted mouth/expression primitives are hidden by the legacy mask false-return path.",
-      "nextStep": "Preserve complete original face/material expression surfaces; explicitly separate gown/body before any conversion certification."
-    },
-    {
-      "companionId": "princess",
-      "garmentFamily": "comet-hoodie",
-      "garmentVersion": "ea114d56fd5e5803d6a06e07f8e97356b37403379a8b254f62d551ebe5a3e6cf:e50e01f2fc56f5991782e5599379293c8077c37032146a689b0e10c03a79a943",
-      "accessoryId": "none",
-      "accessoryVersion": null,
-      "sourceSha256": "7ab95a552520e02ed33ebd3b66ed9b90e586bca6f64dd208de39fad225346c75",
-      "preparedSha256": null,
-      "recipeVersion": "legacy-overlay-diagnostic-only",
-      "bodyProfileId": "sunny-standard-v1 legacy donor (not certified)",
-      "automatedResult": "source-preview-rendered; combination-not-prepared",
-      "visualResult": "not-certified",
-      "engineeringStatus": "incomplete",
-      "storeEligible": false,
-      "humanApproval": null,
-      "evidence": [
-        "garment-audit.json"
-      ],
-      "restriction": "Visible lower-face corruption in diagnostic composite. Fully head-weighted mouth/expression primitives are hidden by the legacy mask false-return path.",
-      "nextStep": "Preserve complete original face/material expression surfaces; explicitly separate gown/body before any conversion certification."
-    },
-    {
-      "companionId": "princess",
-      "garmentFamily": "comet-hoodie",
-      "garmentVersion": "ea114d56fd5e5803d6a06e07f8e97356b37403379a8b254f62d551ebe5a3e6cf:e50e01f2fc56f5991782e5599379293c8077c37032146a689b0e10c03a79a943",
-      "accessoryId": "royal-crown",
-      "accessoryVersion": "aa185a4d108dc9459205b9273dea72c29c0335327cbe695f7b0f679345e32592",
-      "sourceSha256": "7ab95a552520e02ed33ebd3b66ed9b90e586bca6f64dd208de39fad225346c75",
-      "preparedSha256": null,
-      "recipeVersion": "legacy-overlay-diagnostic-only",
-      "bodyProfileId": "sunny-standard-v1 legacy donor (not certified)",
-      "automatedResult": "source-preview-rendered; combination-not-prepared",
-      "visualResult": "not-certified",
-      "engineeringStatus": "incomplete",
-      "storeEligible": false,
-      "humanApproval": null,
-      "evidence": [
-        "garment-audit.json"
-      ],
-      "restriction": "Visible lower-face corruption in diagnostic composite. Fully head-weighted mouth/expression primitives are hidden by the legacy mask false-return path.",
-      "nextStep": "Preserve complete original face/material expression surfaces; explicitly separate gown/body before any conversion certification."
-    },
-    {
-      "companionId": "princess",
-      "garmentFamily": "comet-hoodie",
-      "garmentVersion": "ea114d56fd5e5803d6a06e07f8e97356b37403379a8b254f62d551ebe5a3e6cf:e50e01f2fc56f5991782e5599379293c8077c37032146a689b0e10c03a79a943",
-      "accessoryId": "cat-ears",
-      "accessoryVersion": "aa185a4d108dc9459205b9273dea72c29c0335327cbe695f7b0f679345e32592",
-      "sourceSha256": "7ab95a552520e02ed33ebd3b66ed9b90e586bca6f64dd208de39fad225346c75",
-      "preparedSha256": null,
-      "recipeVersion": "legacy-overlay-diagnostic-only",
-      "bodyProfileId": "sunny-standard-v1 legacy donor (not certified)",
-      "automatedResult": "source-preview-rendered; combination-not-prepared",
-      "visualResult": "not-certified",
-      "engineeringStatus": "incomplete",
-      "storeEligible": false,
-      "humanApproval": null,
-      "evidence": [
-        "garment-audit.json"
-      ],
-      "restriction": "Visible lower-face corruption in diagnostic composite. Fully head-weighted mouth/expression primitives are hidden by the legacy mask false-return path.",
-      "nextStep": "Preserve complete original face/material expression surfaces; explicitly separate gown/body before any conversion certification."
-    },
-    {
-      "companionId": "princess",
-      "garmentFamily": "comet-hoodie",
-      "garmentVersion": "ea114d56fd5e5803d6a06e07f8e97356b37403379a8b254f62d551ebe5a3e6cf:e50e01f2fc56f5991782e5599379293c8077c37032146a689b0e10c03a79a943",
-      "accessoryId": "star-halo",
-      "accessoryVersion": "aa185a4d108dc9459205b9273dea72c29c0335327cbe695f7b0f679345e32592",
-      "sourceSha256": "7ab95a552520e02ed33ebd3b66ed9b90e586bca6f64dd208de39fad225346c75",
-      "preparedSha256": null,
-      "recipeVersion": "legacy-overlay-diagnostic-only",
-      "bodyProfileId": "sunny-standard-v1 legacy donor (not certified)",
-      "automatedResult": "source-preview-rendered; combination-not-prepared",
-      "visualResult": "not-certified",
-      "engineeringStatus": "incomplete",
-      "storeEligible": false,
-      "humanApproval": null,
-      "evidence": [
-        "garment-audit.json"
-      ],
-      "restriction": "Visible lower-face corruption in diagnostic composite. Fully head-weighted mouth/expression primitives are hidden by the legacy mask false-return path.",
-      "nextStep": "Preserve complete original face/material expression surfaces; explicitly separate gown/body before any conversion certification."
-    },
-    {
-      "companionId": "princess",
-      "garmentFamily": "constellation-blazer",
-      "garmentVersion": "3370358848af0e97fdea02d7bc3b2a0cfa5429b8512d20cf5add71c8fa8cca38:e50e01f2fc56f5991782e5599379293c8077c37032146a689b0e10c03a79a943",
-      "accessoryId": "none",
-      "accessoryVersion": null,
-      "sourceSha256": "7ab95a552520e02ed33ebd3b66ed9b90e586bca6f64dd208de39fad225346c75",
-      "preparedSha256": null,
-      "recipeVersion": "legacy-overlay-diagnostic-only",
-      "bodyProfileId": "sunny-standard-v1 legacy donor (not certified)",
-      "automatedResult": "source-preview-rendered; combination-not-prepared",
-      "visualResult": "not-certified",
-      "engineeringStatus": "incomplete",
-      "storeEligible": false,
-      "humanApproval": null,
-      "evidence": [
-        "garment-audit.json"
-      ],
-      "restriction": "Visible lower-face corruption in diagnostic composite. Fully head-weighted mouth/expression primitives are hidden by the legacy mask false-return path.",
-      "nextStep": "Preserve complete original face/material expression surfaces; explicitly separate gown/body before any conversion certification."
-    },
-    {
-      "companionId": "princess",
-      "garmentFamily": "constellation-blazer",
-      "garmentVersion": "3370358848af0e97fdea02d7bc3b2a0cfa5429b8512d20cf5add71c8fa8cca38:e50e01f2fc56f5991782e5599379293c8077c37032146a689b0e10c03a79a943",
-      "accessoryId": "royal-crown",
-      "accessoryVersion": "aa185a4d108dc9459205b9273dea72c29c0335327cbe695f7b0f679345e32592",
-      "sourceSha256": "7ab95a552520e02ed33ebd3b66ed9b90e586bca6f64dd208de39fad225346c75",
-      "preparedSha256": null,
-      "recipeVersion": "legacy-overlay-diagnostic-only",
-      "bodyProfileId": "sunny-standard-v1 legacy donor (not certified)",
-      "automatedResult": "source-preview-rendered; combination-not-prepared",
-      "visualResult": "not-certified",
-      "engineeringStatus": "incomplete",
-      "storeEligible": false,
-      "humanApproval": null,
-      "evidence": [
-        "garment-audit.json"
-      ],
-      "restriction": "Visible lower-face corruption in diagnostic composite. Fully head-weighted mouth/expression primitives are hidden by the legacy mask false-return path.",
-      "nextStep": "Preserve complete original face/material expression surfaces; explicitly separate gown/body before any conversion certification."
-    },
-    {
-      "companionId": "princess",
-      "garmentFamily": "constellation-blazer",
-      "garmentVersion": "3370358848af0e97fdea02d7bc3b2a0cfa5429b8512d20cf5add71c8fa8cca38:e50e01f2fc56f5991782e5599379293c8077c37032146a689b0e10c03a79a943",
-      "accessoryId": "cat-ears",
-      "accessoryVersion": "aa185a4d108dc9459205b9273dea72c29c0335327cbe695f7b0f679345e32592",
-      "sourceSha256": "7ab95a552520e02ed33ebd3b66ed9b90e586bca6f64dd208de39fad225346c75",
-      "preparedSha256": null,
-      "recipeVersion": "legacy-overlay-diagnostic-only",
-      "bodyProfileId": "sunny-standard-v1 legacy donor (not certified)",
-      "automatedResult": "source-preview-rendered; combination-not-prepared",
-      "visualResult": "not-certified",
-      "engineeringStatus": "incomplete",
-      "storeEligible": false,
-      "humanApproval": null,
-      "evidence": [
-        "garment-audit.json"
-      ],
-      "restriction": "Visible lower-face corruption in diagnostic composite. Fully head-weighted mouth/expression primitives are hidden by the legacy mask false-return path.",
-      "nextStep": "Preserve complete original face/material expression surfaces; explicitly separate gown/body before any conversion certification."
-    },
-    {
-      "companionId": "princess",
-      "garmentFamily": "constellation-blazer",
-      "garmentVersion": "3370358848af0e97fdea02d7bc3b2a0cfa5429b8512d20cf5add71c8fa8cca38:e50e01f2fc56f5991782e5599379293c8077c37032146a689b0e10c03a79a943",
-      "accessoryId": "star-halo",
-      "accessoryVersion": "aa185a4d108dc9459205b9273dea72c29c0335327cbe695f7b0f679345e32592",
-      "sourceSha256": "7ab95a552520e02ed33ebd3b66ed9b90e586bca6f64dd208de39fad225346c75",
-      "preparedSha256": null,
-      "recipeVersion": "legacy-overlay-diagnostic-only",
-      "bodyProfileId": "sunny-standard-v1 legacy donor (not certified)",
-      "automatedResult": "source-preview-rendered; combination-not-prepared",
-      "visualResult": "not-certified",
-      "engineeringStatus": "incomplete",
-      "storeEligible": false,
-      "humanApproval": null,
-      "evidence": [
-        "garment-audit.json"
-      ],
-      "restriction": "Visible lower-face corruption in diagnostic composite. Fully head-weighted mouth/expression primitives are hidden by the legacy mask false-return path.",
-      "nextStep": "Preserve complete original face/material expression surfaces; explicitly separate gown/body before any conversion certification."
-    },
-    {
-      "companionId": "tene",
-      "garmentFamily": "ribbon-dress",
-      "garmentVersion": "c716207b017239dcbf2a096e8566d291650f3cb5fd2c6a8089b08f8251d2d0d3:e50e01f2fc56f5991782e5599379293c8077c37032146a689b0e10c03a79a943",
-      "accessoryId": "none",
-      "accessoryVersion": null,
-      "sourceSha256": "b0d70ffca52d9b4756a69ba9ee75c6d3ca3134202e15f561e19aa810dec246da",
-      "preparedSha256": null,
-      "recipeVersion": "legacy-overlay-diagnostic-only",
-      "bodyProfileId": "sunny-standard-v1 legacy donor (not certified)",
-      "automatedResult": "source-preview-rendered; combination-not-prepared",
-      "visualResult": "not-certified",
-      "engineeringStatus": "incomplete",
-      "storeEligible": false,
-      "humanApproval": null,
-      "evidence": [
-        "audit-final-tene.png",
-        "asset-audit.json"
-      ],
-      "restriction": "Legacy overlay substitutes standard body and does not establish consistent source skin tone or original proportions.",
-      "nextStep": "Prepare complete Tene identity/body; verify skin materials under common lighting and preserve source arm proportions."
-    },
-    {
-      "companionId": "tene",
-      "garmentFamily": "ribbon-dress",
-      "garmentVersion": "c716207b017239dcbf2a096e8566d291650f3cb5fd2c6a8089b08f8251d2d0d3:e50e01f2fc56f5991782e5599379293c8077c37032146a689b0e10c03a79a943",
-      "accessoryId": "royal-crown",
-      "accessoryVersion": "aa185a4d108dc9459205b9273dea72c29c0335327cbe695f7b0f679345e32592",
-      "sourceSha256": "b0d70ffca52d9b4756a69ba9ee75c6d3ca3134202e15f561e19aa810dec246da",
-      "preparedSha256": null,
-      "recipeVersion": "legacy-overlay-diagnostic-only",
-      "bodyProfileId": "sunny-standard-v1 legacy donor (not certified)",
-      "automatedResult": "source-preview-rendered; combination-not-prepared",
-      "visualResult": "not-certified",
-      "engineeringStatus": "incomplete",
-      "storeEligible": false,
-      "humanApproval": null,
-      "evidence": [
-        "garment-audit.json"
-      ],
-      "restriction": "Legacy overlay substitutes standard body and does not establish consistent source skin tone or original proportions.",
-      "nextStep": "Prepare complete Tene identity/body; verify skin materials under common lighting and preserve source arm proportions."
-    },
-    {
-      "companionId": "tene",
-      "garmentFamily": "ribbon-dress",
-      "garmentVersion": "c716207b017239dcbf2a096e8566d291650f3cb5fd2c6a8089b08f8251d2d0d3:e50e01f2fc56f5991782e5599379293c8077c37032146a689b0e10c03a79a943",
-      "accessoryId": "cat-ears",
-      "accessoryVersion": "aa185a4d108dc9459205b9273dea72c29c0335327cbe695f7b0f679345e32592",
-      "sourceSha256": "b0d70ffca52d9b4756a69ba9ee75c6d3ca3134202e15f561e19aa810dec246da",
-      "preparedSha256": null,
-      "recipeVersion": "legacy-overlay-diagnostic-only",
-      "bodyProfileId": "sunny-standard-v1 legacy donor (not certified)",
-      "automatedResult": "source-preview-rendered; combination-not-prepared",
-      "visualResult": "not-certified",
-      "engineeringStatus": "incomplete",
-      "storeEligible": false,
-      "humanApproval": null,
-      "evidence": [
-        "garment-audit.json"
-      ],
-      "restriction": "Legacy overlay substitutes standard body and does not establish consistent source skin tone or original proportions.",
-      "nextStep": "Prepare complete Tene identity/body; verify skin materials under common lighting and preserve source arm proportions."
-    },
-    {
-      "companionId": "tene",
-      "garmentFamily": "ribbon-dress",
-      "garmentVersion": "c716207b017239dcbf2a096e8566d291650f3cb5fd2c6a8089b08f8251d2d0d3:e50e01f2fc56f5991782e5599379293c8077c37032146a689b0e10c03a79a943",
-      "accessoryId": "star-halo",
-      "accessoryVersion": "aa185a4d108dc9459205b9273dea72c29c0335327cbe695f7b0f679345e32592",
-      "sourceSha256": "b0d70ffca52d9b4756a69ba9ee75c6d3ca3134202e15f561e19aa810dec246da",
-      "preparedSha256": null,
-      "recipeVersion": "legacy-overlay-diagnostic-only",
-      "bodyProfileId": "sunny-standard-v1 legacy donor (not certified)",
-      "automatedResult": "source-preview-rendered; combination-not-prepared",
-      "visualResult": "not-certified",
-      "engineeringStatus": "incomplete",
-      "storeEligible": false,
-      "humanApproval": null,
-      "evidence": [
-        "garment-audit.json"
-      ],
-      "restriction": "Legacy overlay substitutes standard body and does not establish consistent source skin tone or original proportions.",
-      "nextStep": "Prepare complete Tene identity/body; verify skin materials under common lighting and preserve source arm proportions."
-    },
-    {
-      "companionId": "tene",
-      "garmentFamily": "comet-hoodie",
-      "garmentVersion": "ea114d56fd5e5803d6a06e07f8e97356b37403379a8b254f62d551ebe5a3e6cf:e50e01f2fc56f5991782e5599379293c8077c37032146a689b0e10c03a79a943",
-      "accessoryId": "none",
-      "accessoryVersion": null,
-      "sourceSha256": "b0d70ffca52d9b4756a69ba9ee75c6d3ca3134202e15f561e19aa810dec246da",
-      "preparedSha256": null,
-      "recipeVersion": "legacy-overlay-diagnostic-only",
-      "bodyProfileId": "sunny-standard-v1 legacy donor (not certified)",
-      "automatedResult": "source-preview-rendered; combination-not-prepared",
-      "visualResult": "not-certified",
-      "engineeringStatus": "incomplete",
-      "storeEligible": false,
-      "humanApproval": null,
-      "evidence": [
-        "garment-audit.json"
-      ],
-      "restriction": "Legacy overlay substitutes standard body and does not establish consistent source skin tone or original proportions.",
-      "nextStep": "Prepare complete Tene identity/body; verify skin materials under common lighting and preserve source arm proportions."
-    },
-    {
-      "companionId": "tene",
-      "garmentFamily": "comet-hoodie",
-      "garmentVersion": "ea114d56fd5e5803d6a06e07f8e97356b37403379a8b254f62d551ebe5a3e6cf:e50e01f2fc56f5991782e5599379293c8077c37032146a689b0e10c03a79a943",
-      "accessoryId": "royal-crown",
-      "accessoryVersion": "aa185a4d108dc9459205b9273dea72c29c0335327cbe695f7b0f679345e32592",
-      "sourceSha256": "b0d70ffca52d9b4756a69ba9ee75c6d3ca3134202e15f561e19aa810dec246da",
-      "preparedSha256": null,
-      "recipeVersion": "legacy-overlay-diagnostic-only",
-      "bodyProfileId": "sunny-standard-v1 legacy donor (not certified)",
-      "automatedResult": "source-preview-rendered; combination-not-prepared",
-      "visualResult": "not-certified",
-      "engineeringStatus": "incomplete",
-      "storeEligible": false,
-      "humanApproval": null,
-      "evidence": [
-        "garment-audit.json"
-      ],
-      "restriction": "Legacy overlay substitutes standard body and does not establish consistent source skin tone or original proportions.",
-      "nextStep": "Prepare complete Tene identity/body; verify skin materials under common lighting and preserve source arm proportions."
-    },
-    {
-      "companionId": "tene",
-      "garmentFamily": "comet-hoodie",
-      "garmentVersion": "ea114d56fd5e5803d6a06e07f8e97356b37403379a8b254f62d551ebe5a3e6cf:e50e01f2fc56f5991782e5599379293c8077c37032146a689b0e10c03a79a943",
-      "accessoryId": "cat-ears",
-      "accessoryVersion": "aa185a4d108dc9459205b9273dea72c29c0335327cbe695f7b0f679345e32592",
-      "sourceSha256": "b0d70ffca52d9b4756a69ba9ee75c6d3ca3134202e15f561e19aa810dec246da",
-      "preparedSha256": null,
-      "recipeVersion": "legacy-overlay-diagnostic-only",
-      "bodyProfileId": "sunny-standard-v1 legacy donor (not certified)",
-      "automatedResult": "source-preview-rendered; combination-not-prepared",
-      "visualResult": "not-certified",
-      "engineeringStatus": "incomplete",
-      "storeEligible": false,
-      "humanApproval": null,
-      "evidence": [
-        "garment-audit.json"
-      ],
-      "restriction": "Legacy overlay substitutes standard body and does not establish consistent source skin tone or original proportions.",
-      "nextStep": "Prepare complete Tene identity/body; verify skin materials under common lighting and preserve source arm proportions."
-    },
-    {
-      "companionId": "tene",
-      "garmentFamily": "comet-hoodie",
-      "garmentVersion": "ea114d56fd5e5803d6a06e07f8e97356b37403379a8b254f62d551ebe5a3e6cf:e50e01f2fc56f5991782e5599379293c8077c37032146a689b0e10c03a79a943",
-      "accessoryId": "star-halo",
-      "accessoryVersion": "aa185a4d108dc9459205b9273dea72c29c0335327cbe695f7b0f679345e32592",
-      "sourceSha256": "b0d70ffca52d9b4756a69ba9ee75c6d3ca3134202e15f561e19aa810dec246da",
-      "preparedSha256": null,
-      "recipeVersion": "legacy-overlay-diagnostic-only",
-      "bodyProfileId": "sunny-standard-v1 legacy donor (not certified)",
-      "automatedResult": "source-preview-rendered; combination-not-prepared",
-      "visualResult": "not-certified",
-      "engineeringStatus": "incomplete",
-      "storeEligible": false,
-      "humanApproval": null,
-      "evidence": [
-        "garment-audit.json"
-      ],
-      "restriction": "Legacy overlay substitutes standard body and does not establish consistent source skin tone or original proportions.",
-      "nextStep": "Prepare complete Tene identity/body; verify skin materials under common lighting and preserve source arm proportions."
-    },
-    {
-      "companionId": "tene",
-      "garmentFamily": "constellation-blazer",
-      "garmentVersion": "3370358848af0e97fdea02d7bc3b2a0cfa5429b8512d20cf5add71c8fa8cca38:e50e01f2fc56f5991782e5599379293c8077c37032146a689b0e10c03a79a943",
-      "accessoryId": "none",
-      "accessoryVersion": null,
-      "sourceSha256": "b0d70ffca52d9b4756a69ba9ee75c6d3ca3134202e15f561e19aa810dec246da",
-      "preparedSha256": null,
-      "recipeVersion": "legacy-overlay-diagnostic-only",
-      "bodyProfileId": "sunny-standard-v1 legacy donor (not certified)",
-      "automatedResult": "source-preview-rendered; combination-not-prepared",
-      "visualResult": "not-certified",
-      "engineeringStatus": "incomplete",
-      "storeEligible": false,
-      "humanApproval": null,
-      "evidence": [
-        "garment-audit.json"
-      ],
-      "restriction": "Legacy overlay substitutes standard body and does not establish consistent source skin tone or original proportions.",
-      "nextStep": "Prepare complete Tene identity/body; verify skin materials under common lighting and preserve source arm proportions."
-    },
-    {
-      "companionId": "tene",
-      "garmentFamily": "constellation-blazer",
-      "garmentVersion": "3370358848af0e97fdea02d7bc3b2a0cfa5429b8512d20cf5add71c8fa8cca38:e50e01f2fc56f5991782e5599379293c8077c37032146a689b0e10c03a79a943",
-      "accessoryId": "royal-crown",
-      "accessoryVersion": "aa185a4d108dc9459205b9273dea72c29c0335327cbe695f7b0f679345e32592",
-      "sourceSha256": "b0d70ffca52d9b4756a69ba9ee75c6d3ca3134202e15f561e19aa810dec246da",
-      "preparedSha256": null,
-      "recipeVersion": "legacy-overlay-diagnostic-only",
-      "bodyProfileId": "sunny-standard-v1 legacy donor (not certified)",
-      "automatedResult": "source-preview-rendered; combination-not-prepared",
-      "visualResult": "not-certified",
-      "engineeringStatus": "incomplete",
-      "storeEligible": false,
-      "humanApproval": null,
-      "evidence": [
-        "garment-audit.json"
-      ],
-      "restriction": "Legacy overlay substitutes standard body and does not establish consistent source skin tone or original proportions.",
-      "nextStep": "Prepare complete Tene identity/body; verify skin materials under common lighting and preserve source arm proportions."
-    },
-    {
-      "companionId": "tene",
-      "garmentFamily": "constellation-blazer",
-      "garmentVersion": "3370358848af0e97fdea02d7bc3b2a0cfa5429b8512d20cf5add71c8fa8cca38:e50e01f2fc56f5991782e5599379293c8077c37032146a689b0e10c03a79a943",
-      "accessoryId": "cat-ears",
-      "accessoryVersion": "aa185a4d108dc9459205b9273dea72c29c0335327cbe695f7b0f679345e32592",
-      "sourceSha256": "b0d70ffca52d9b4756a69ba9ee75c6d3ca3134202e15f561e19aa810dec246da",
-      "preparedSha256": null,
-      "recipeVersion": "legacy-overlay-diagnostic-only",
-      "bodyProfileId": "sunny-standard-v1 legacy donor (not certified)",
-      "automatedResult": "source-preview-rendered; combination-not-prepared",
-      "visualResult": "not-certified",
-      "engineeringStatus": "incomplete",
-      "storeEligible": false,
-      "humanApproval": null,
-      "evidence": [
-        "garment-audit.json"
-      ],
-      "restriction": "Legacy overlay substitutes standard body and does not establish consistent source skin tone or original proportions.",
-      "nextStep": "Prepare complete Tene identity/body; verify skin materials under common lighting and preserve source arm proportions."
-    },
-    {
-      "companionId": "tene",
-      "garmentFamily": "constellation-blazer",
-      "garmentVersion": "3370358848af0e97fdea02d7bc3b2a0cfa5429b8512d20cf5add71c8fa8cca38:e50e01f2fc56f5991782e5599379293c8077c37032146a689b0e10c03a79a943",
-      "accessoryId": "star-halo",
-      "accessoryVersion": "aa185a4d108dc9459205b9273dea72c29c0335327cbe695f7b0f679345e32592",
-      "sourceSha256": "b0d70ffca52d9b4756a69ba9ee75c6d3ca3134202e15f561e19aa810dec246da",
-      "preparedSha256": null,
-      "recipeVersion": "legacy-overlay-diagnostic-only",
-      "bodyProfileId": "sunny-standard-v1 legacy donor (not certified)",
-      "automatedResult": "source-preview-rendered; combination-not-prepared",
-      "visualResult": "not-certified",
-      "engineeringStatus": "incomplete",
-      "storeEligible": false,
-      "humanApproval": null,
-      "evidence": [
-        "garment-audit.json"
-      ],
-      "restriction": "Legacy overlay substitutes standard body and does not establish consistent source skin tone or original proportions.",
-      "nextStep": "Prepare complete Tene identity/body; verify skin materials under common lighting and preserve source arm proportions."
-    },
-    {
-      "companionId": "towa",
-      "garmentFamily": "ribbon-dress",
-      "garmentVersion": "c716207b017239dcbf2a096e8566d291650f3cb5fd2c6a8089b08f8251d2d0d3:e50e01f2fc56f5991782e5599379293c8077c37032146a689b0e10c03a79a943",
-      "accessoryId": "none",
-      "accessoryVersion": null,
-      "sourceSha256": "2d708897471469093af09b9472d68853253857d2b59ed47ee5e5b2f7e3e9c9d9",
-      "preparedSha256": null,
-      "recipeVersion": "legacy-overlay-diagnostic-only",
-      "bodyProfileId": "sunny-standard-v1 legacy donor (not certified)",
-      "automatedResult": "source-preview-rendered; combination-not-prepared",
-      "visualResult": "not-certified",
-      "engineeringStatus": "incomplete",
-      "storeEligible": false,
-      "humanApproval": null,
-      "evidence": [
-        "audit-final-towa.png",
-        "asset-audit.json"
-      ],
-      "restriction": "Legacy overlay substitutes slim standard body despite different source torso silhouette and proportions.",
-      "nextStep": "Prepare source body and a separate fit profile; verify chest/shoulders and expressions before certification."
-    },
-    {
-      "companionId": "towa",
-      "garmentFamily": "ribbon-dress",
-      "garmentVersion": "c716207b017239dcbf2a096e8566d291650f3cb5fd2c6a8089b08f8251d2d0d3:e50e01f2fc56f5991782e5599379293c8077c37032146a689b0e10c03a79a943",
-      "accessoryId": "royal-crown",
-      "accessoryVersion": "aa185a4d108dc9459205b9273dea72c29c0335327cbe695f7b0f679345e32592",
-      "sourceSha256": "2d708897471469093af09b9472d68853253857d2b59ed47ee5e5b2f7e3e9c9d9",
-      "preparedSha256": null,
-      "recipeVersion": "legacy-overlay-diagnostic-only",
-      "bodyProfileId": "sunny-standard-v1 legacy donor (not certified)",
-      "automatedResult": "source-preview-rendered; combination-not-prepared",
-      "visualResult": "not-certified",
-      "engineeringStatus": "incomplete",
-      "storeEligible": false,
-      "humanApproval": null,
-      "evidence": [
-        "garment-audit.json"
-      ],
-      "restriction": "Legacy overlay substitutes slim standard body despite different source torso silhouette and proportions.",
-      "nextStep": "Prepare source body and a separate fit profile; verify chest/shoulders and expressions before certification."
-    },
-    {
-      "companionId": "towa",
-      "garmentFamily": "ribbon-dress",
-      "garmentVersion": "c716207b017239dcbf2a096e8566d291650f3cb5fd2c6a8089b08f8251d2d0d3:e50e01f2fc56f5991782e5599379293c8077c37032146a689b0e10c03a79a943",
-      "accessoryId": "cat-ears",
-      "accessoryVersion": "aa185a4d108dc9459205b9273dea72c29c0335327cbe695f7b0f679345e32592",
-      "sourceSha256": "2d708897471469093af09b9472d68853253857d2b59ed47ee5e5b2f7e3e9c9d9",
-      "preparedSha256": null,
-      "recipeVersion": "legacy-overlay-diagnostic-only",
-      "bodyProfileId": "sunny-standard-v1 legacy donor (not certified)",
-      "automatedResult": "source-preview-rendered; combination-not-prepared",
-      "visualResult": "not-certified",
-      "engineeringStatus": "incomplete",
-      "storeEligible": false,
-      "humanApproval": null,
-      "evidence": [
-        "garment-audit.json"
-      ],
-      "restriction": "Legacy overlay substitutes slim standard body despite different source torso silhouette and proportions.",
-      "nextStep": "Prepare source body and a separate fit profile; verify chest/shoulders and expressions before certification."
-    },
-    {
-      "companionId": "towa",
-      "garmentFamily": "ribbon-dress",
-      "garmentVersion": "c716207b017239dcbf2a096e8566d291650f3cb5fd2c6a8089b08f8251d2d0d3:e50e01f2fc56f5991782e5599379293c8077c37032146a689b0e10c03a79a943",
-      "accessoryId": "star-halo",
-      "accessoryVersion": "aa185a4d108dc9459205b9273dea72c29c0335327cbe695f7b0f679345e32592",
-      "sourceSha256": "2d708897471469093af09b9472d68853253857d2b59ed47ee5e5b2f7e3e9c9d9",
-      "preparedSha256": null,
-      "recipeVersion": "legacy-overlay-diagnostic-only",
-      "bodyProfileId": "sunny-standard-v1 legacy donor (not certified)",
-      "automatedResult": "source-preview-rendered; combination-not-prepared",
-      "visualResult": "not-certified",
-      "engineeringStatus": "incomplete",
-      "storeEligible": false,
-      "humanApproval": null,
-      "evidence": [
-        "garment-audit.json"
-      ],
-      "restriction": "Legacy overlay substitutes slim standard body despite different source torso silhouette and proportions.",
-      "nextStep": "Prepare source body and a separate fit profile; verify chest/shoulders and expressions before certification."
-    },
-    {
-      "companionId": "towa",
-      "garmentFamily": "comet-hoodie",
-      "garmentVersion": "ea114d56fd5e5803d6a06e07f8e97356b37403379a8b254f62d551ebe5a3e6cf:e50e01f2fc56f5991782e5599379293c8077c37032146a689b0e10c03a79a943",
-      "accessoryId": "none",
-      "accessoryVersion": null,
-      "sourceSha256": "2d708897471469093af09b9472d68853253857d2b59ed47ee5e5b2f7e3e9c9d9",
-      "preparedSha256": null,
-      "recipeVersion": "legacy-overlay-diagnostic-only",
-      "bodyProfileId": "sunny-standard-v1 legacy donor (not certified)",
-      "automatedResult": "source-preview-rendered; combination-not-prepared",
-      "visualResult": "not-certified",
-      "engineeringStatus": "incomplete",
-      "storeEligible": false,
-      "humanApproval": null,
-      "evidence": [
-        "garment-audit.json"
-      ],
-      "restriction": "Legacy overlay substitutes slim standard body despite different source torso silhouette and proportions.",
-      "nextStep": "Prepare source body and a separate fit profile; verify chest/shoulders and expressions before certification."
-    },
-    {
-      "companionId": "towa",
-      "garmentFamily": "comet-hoodie",
-      "garmentVersion": "ea114d56fd5e5803d6a06e07f8e97356b37403379a8b254f62d551ebe5a3e6cf:e50e01f2fc56f5991782e5599379293c8077c37032146a689b0e10c03a79a943",
-      "accessoryId": "royal-crown",
-      "accessoryVersion": "aa185a4d108dc9459205b9273dea72c29c0335327cbe695f7b0f679345e32592",
-      "sourceSha256": "2d708897471469093af09b9472d68853253857d2b59ed47ee5e5b2f7e3e9c9d9",
-      "preparedSha256": null,
-      "recipeVersion": "legacy-overlay-diagnostic-only",
-      "bodyProfileId": "sunny-standard-v1 legacy donor (not certified)",
-      "automatedResult": "source-preview-rendered; combination-not-prepared",
-      "visualResult": "not-certified",
-      "engineeringStatus": "incomplete",
-      "storeEligible": false,
-      "humanApproval": null,
-      "evidence": [
-        "garment-audit.json"
-      ],
-      "restriction": "Legacy overlay substitutes slim standard body despite different source torso silhouette and proportions.",
-      "nextStep": "Prepare source body and a separate fit profile; verify chest/shoulders and expressions before certification."
-    },
-    {
-      "companionId": "towa",
-      "garmentFamily": "comet-hoodie",
-      "garmentVersion": "ea114d56fd5e5803d6a06e07f8e97356b37403379a8b254f62d551ebe5a3e6cf:e50e01f2fc56f5991782e5599379293c8077c37032146a689b0e10c03a79a943",
-      "accessoryId": "cat-ears",
-      "accessoryVersion": "aa185a4d108dc9459205b9273dea72c29c0335327cbe695f7b0f679345e32592",
-      "sourceSha256": "2d708897471469093af09b9472d68853253857d2b59ed47ee5e5b2f7e3e9c9d9",
-      "preparedSha256": null,
-      "recipeVersion": "legacy-overlay-diagnostic-only",
-      "bodyProfileId": "sunny-standard-v1 legacy donor (not certified)",
-      "automatedResult": "source-preview-rendered; combination-not-prepared",
-      "visualResult": "not-certified",
-      "engineeringStatus": "incomplete",
-      "storeEligible": false,
-      "humanApproval": null,
-      "evidence": [
-        "garment-audit.json"
-      ],
-      "restriction": "Legacy overlay substitutes slim standard body despite different source torso silhouette and proportions.",
-      "nextStep": "Prepare source body and a separate fit profile; verify chest/shoulders and expressions before certification."
-    },
-    {
-      "companionId": "towa",
-      "garmentFamily": "comet-hoodie",
-      "garmentVersion": "ea114d56fd5e5803d6a06e07f8e97356b37403379a8b254f62d551ebe5a3e6cf:e50e01f2fc56f5991782e5599379293c8077c37032146a689b0e10c03a79a943",
-      "accessoryId": "star-halo",
-      "accessoryVersion": "aa185a4d108dc9459205b9273dea72c29c0335327cbe695f7b0f679345e32592",
-      "sourceSha256": "2d708897471469093af09b9472d68853253857d2b59ed47ee5e5b2f7e3e9c9d9",
-      "preparedSha256": null,
-      "recipeVersion": "legacy-overlay-diagnostic-only",
-      "bodyProfileId": "sunny-standard-v1 legacy donor (not certified)",
-      "automatedResult": "source-preview-rendered; combination-not-prepared",
-      "visualResult": "not-certified",
-      "engineeringStatus": "incomplete",
-      "storeEligible": false,
-      "humanApproval": null,
-      "evidence": [
-        "garment-audit.json"
-      ],
-      "restriction": "Legacy overlay substitutes slim standard body despite different source torso silhouette and proportions.",
-      "nextStep": "Prepare source body and a separate fit profile; verify chest/shoulders and expressions before certification."
-    },
-    {
-      "companionId": "towa",
-      "garmentFamily": "constellation-blazer",
-      "garmentVersion": "3370358848af0e97fdea02d7bc3b2a0cfa5429b8512d20cf5add71c8fa8cca38:e50e01f2fc56f5991782e5599379293c8077c37032146a689b0e10c03a79a943",
-      "accessoryId": "none",
-      "accessoryVersion": null,
-      "sourceSha256": "2d708897471469093af09b9472d68853253857d2b59ed47ee5e5b2f7e3e9c9d9",
-      "preparedSha256": null,
-      "recipeVersion": "legacy-overlay-diagnostic-only",
-      "bodyProfileId": "sunny-standard-v1 legacy donor (not certified)",
-      "automatedResult": "source-preview-rendered; combination-not-prepared",
-      "visualResult": "not-certified",
-      "engineeringStatus": "incomplete",
-      "storeEligible": false,
-      "humanApproval": null,
-      "evidence": [
-        "garment-audit.json"
-      ],
-      "restriction": "Legacy overlay substitutes slim standard body despite different source torso silhouette and proportions.",
-      "nextStep": "Prepare source body and a separate fit profile; verify chest/shoulders and expressions before certification."
-    },
-    {
-      "companionId": "towa",
-      "garmentFamily": "constellation-blazer",
-      "garmentVersion": "3370358848af0e97fdea02d7bc3b2a0cfa5429b8512d20cf5add71c8fa8cca38:e50e01f2fc56f5991782e5599379293c8077c37032146a689b0e10c03a79a943",
-      "accessoryId": "royal-crown",
-      "accessoryVersion": "aa185a4d108dc9459205b9273dea72c29c0335327cbe695f7b0f679345e32592",
-      "sourceSha256": "2d708897471469093af09b9472d68853253857d2b59ed47ee5e5b2f7e3e9c9d9",
-      "preparedSha256": null,
-      "recipeVersion": "legacy-overlay-diagnostic-only",
-      "bodyProfileId": "sunny-standard-v1 legacy donor (not certified)",
-      "automatedResult": "source-preview-rendered; combination-not-prepared",
-      "visualResult": "not-certified",
-      "engineeringStatus": "incomplete",
-      "storeEligible": false,
-      "humanApproval": null,
-      "evidence": [
-        "garment-audit.json"
-      ],
-      "restriction": "Legacy overlay substitutes slim standard body despite different source torso silhouette and proportions.",
-      "nextStep": "Prepare source body and a separate fit profile; verify chest/shoulders and expressions before certification."
-    },
-    {
-      "companionId": "towa",
-      "garmentFamily": "constellation-blazer",
-      "garmentVersion": "3370358848af0e97fdea02d7bc3b2a0cfa5429b8512d20cf5add71c8fa8cca38:e50e01f2fc56f5991782e5599379293c8077c37032146a689b0e10c03a79a943",
-      "accessoryId": "cat-ears",
-      "accessoryVersion": "aa185a4d108dc9459205b9273dea72c29c0335327cbe695f7b0f679345e32592",
-      "sourceSha256": "2d708897471469093af09b9472d68853253857d2b59ed47ee5e5b2f7e3e9c9d9",
-      "preparedSha256": null,
-      "recipeVersion": "legacy-overlay-diagnostic-only",
-      "bodyProfileId": "sunny-standard-v1 legacy donor (not certified)",
-      "automatedResult": "source-preview-rendered; combination-not-prepared",
-      "visualResult": "not-certified",
-      "engineeringStatus": "incomplete",
-      "storeEligible": false,
-      "humanApproval": null,
-      "evidence": [
-        "garment-audit.json"
-      ],
-      "restriction": "Legacy overlay substitutes slim standard body despite different source torso silhouette and proportions.",
-      "nextStep": "Prepare source body and a separate fit profile; verify chest/shoulders and expressions before certification."
-    },
-    {
-      "companionId": "towa",
-      "garmentFamily": "constellation-blazer",
-      "garmentVersion": "3370358848af0e97fdea02d7bc3b2a0cfa5429b8512d20cf5add71c8fa8cca38:e50e01f2fc56f5991782e5599379293c8077c37032146a689b0e10c03a79a943",
-      "accessoryId": "star-halo",
-      "accessoryVersion": "aa185a4d108dc9459205b9273dea72c29c0335327cbe695f7b0f679345e32592",
-      "sourceSha256": "2d708897471469093af09b9472d68853253857d2b59ed47ee5e5b2f7e3e9c9d9",
-      "preparedSha256": null,
-      "recipeVersion": "legacy-overlay-diagnostic-only",
-      "bodyProfileId": "sunny-standard-v1 legacy donor (not certified)",
-      "automatedResult": "source-preview-rendered; combination-not-prepared",
-      "visualResult": "not-certified",
-      "engineeringStatus": "incomplete",
-      "storeEligible": false,
-      "humanApproval": null,
-      "evidence": [
-        "garment-audit.json"
-      ],
-      "restriction": "Legacy overlay substitutes slim standard body despite different source torso silhouette and proportions.",
-      "nextStep": "Prepare source body and a separate fit profile; verify chest/shoulders and expressions before certification."
-    },
-    {
-      "companionId": "yukari",
-      "garmentFamily": "ribbon-dress",
-      "garmentVersion": "c716207b017239dcbf2a096e8566d291650f3cb5fd2c6a8089b08f8251d2d0d3:e50e01f2fc56f5991782e5599379293c8077c37032146a689b0e10c03a79a943",
-      "accessoryId": "none",
-      "accessoryVersion": null,
-      "sourceSha256": "bde6da490a5ad1d78a0fbeb247bdba3a44051c869e4a0f32e84e3c112dbe4ee0",
-      "preparedSha256": null,
-      "recipeVersion": "legacy-overlay-diagnostic-only",
-      "bodyProfileId": "sunny-standard-v1 legacy donor (not certified)",
-      "automatedResult": "source-preview-rendered; combination-not-prepared",
-      "visualResult": "not-certified",
-      "engineeringStatus": "incomplete",
-      "storeEligible": false,
-      "humanApproval": null,
-      "evidence": [
-        "audit-final-yukari.png",
-        "asset-audit.json"
-      ],
-      "restriction": "Legacy overlay loses characteristic source cat ears and substitutes standard body/shoes.",
-      "nextStep": "Preserve ear geometry/materials and related physics in a complete prepared identity, then fit her original leg proportions."
-    },
-    {
-      "companionId": "yukari",
-      "garmentFamily": "ribbon-dress",
-      "garmentVersion": "c716207b017239dcbf2a096e8566d291650f3cb5fd2c6a8089b08f8251d2d0d3:e50e01f2fc56f5991782e5599379293c8077c37032146a689b0e10c03a79a943",
-      "accessoryId": "royal-crown",
-      "accessoryVersion": "aa185a4d108dc9459205b9273dea72c29c0335327cbe695f7b0f679345e32592",
-      "sourceSha256": "bde6da490a5ad1d78a0fbeb247bdba3a44051c869e4a0f32e84e3c112dbe4ee0",
-      "preparedSha256": null,
-      "recipeVersion": "legacy-overlay-diagnostic-only",
-      "bodyProfileId": "sunny-standard-v1 legacy donor (not certified)",
-      "automatedResult": "source-preview-rendered; combination-not-prepared",
-      "visualResult": "not-certified",
-      "engineeringStatus": "incomplete",
-      "storeEligible": false,
-      "humanApproval": null,
-      "evidence": [
-        "garment-audit.json"
-      ],
-      "restriction": "Legacy overlay loses characteristic source cat ears and substitutes standard body/shoes.",
-      "nextStep": "Preserve ear geometry/materials and related physics in a complete prepared identity, then fit her original leg proportions."
-    },
-    {
-      "companionId": "yukari",
-      "garmentFamily": "ribbon-dress",
-      "garmentVersion": "c716207b017239dcbf2a096e8566d291650f3cb5fd2c6a8089b08f8251d2d0d3:e50e01f2fc56f5991782e5599379293c8077c37032146a689b0e10c03a79a943",
-      "accessoryId": "cat-ears",
-      "accessoryVersion": "aa185a4d108dc9459205b9273dea72c29c0335327cbe695f7b0f679345e32592",
-      "sourceSha256": "bde6da490a5ad1d78a0fbeb247bdba3a44051c869e4a0f32e84e3c112dbe4ee0",
-      "preparedSha256": null,
-      "recipeVersion": "legacy-overlay-diagnostic-only",
-      "bodyProfileId": "sunny-standard-v1 legacy donor (not certified)",
-      "automatedResult": "source-preview-rendered; combination-not-prepared",
-      "visualResult": "not-certified",
-      "engineeringStatus": "incomplete",
-      "storeEligible": false,
-      "humanApproval": null,
-      "evidence": [
-        "garment-audit.json"
-      ],
-      "restriction": "Legacy overlay loses characteristic source cat ears and substitutes standard body/shoes.",
-      "nextStep": "Preserve ear geometry/materials and related physics in a complete prepared identity, then fit her original leg proportions."
-    },
-    {
-      "companionId": "yukari",
-      "garmentFamily": "ribbon-dress",
-      "garmentVersion": "c716207b017239dcbf2a096e8566d291650f3cb5fd2c6a8089b08f8251d2d0d3:e50e01f2fc56f5991782e5599379293c8077c37032146a689b0e10c03a79a943",
-      "accessoryId": "star-halo",
-      "accessoryVersion": "aa185a4d108dc9459205b9273dea72c29c0335327cbe695f7b0f679345e32592",
-      "sourceSha256": "bde6da490a5ad1d78a0fbeb247bdba3a44051c869e4a0f32e84e3c112dbe4ee0",
-      "preparedSha256": null,
-      "recipeVersion": "legacy-overlay-diagnostic-only",
-      "bodyProfileId": "sunny-standard-v1 legacy donor (not certified)",
-      "automatedResult": "source-preview-rendered; combination-not-prepared",
-      "visualResult": "not-certified",
-      "engineeringStatus": "incomplete",
-      "storeEligible": false,
-      "humanApproval": null,
-      "evidence": [
-        "garment-audit.json"
-      ],
-      "restriction": "Legacy overlay loses characteristic source cat ears and substitutes standard body/shoes.",
-      "nextStep": "Preserve ear geometry/materials and related physics in a complete prepared identity, then fit her original leg proportions."
-    },
-    {
-      "companionId": "yukari",
-      "garmentFamily": "comet-hoodie",
-      "garmentVersion": "ea114d56fd5e5803d6a06e07f8e97356b37403379a8b254f62d551ebe5a3e6cf:e50e01f2fc56f5991782e5599379293c8077c37032146a689b0e10c03a79a943",
-      "accessoryId": "none",
-      "accessoryVersion": null,
-      "sourceSha256": "bde6da490a5ad1d78a0fbeb247bdba3a44051c869e4a0f32e84e3c112dbe4ee0",
-      "preparedSha256": null,
-      "recipeVersion": "legacy-overlay-diagnostic-only",
-      "bodyProfileId": "sunny-standard-v1 legacy donor (not certified)",
-      "automatedResult": "source-preview-rendered; combination-not-prepared",
-      "visualResult": "not-certified",
-      "engineeringStatus": "incomplete",
-      "storeEligible": false,
-      "humanApproval": null,
-      "evidence": [
-        "garment-audit.json"
-      ],
-      "restriction": "Legacy overlay loses characteristic source cat ears and substitutes standard body/shoes.",
-      "nextStep": "Preserve ear geometry/materials and related physics in a complete prepared identity, then fit her original leg proportions."
-    },
-    {
-      "companionId": "yukari",
-      "garmentFamily": "comet-hoodie",
-      "garmentVersion": "ea114d56fd5e5803d6a06e07f8e97356b37403379a8b254f62d551ebe5a3e6cf:e50e01f2fc56f5991782e5599379293c8077c37032146a689b0e10c03a79a943",
-      "accessoryId": "royal-crown",
-      "accessoryVersion": "aa185a4d108dc9459205b9273dea72c29c0335327cbe695f7b0f679345e32592",
-      "sourceSha256": "bde6da490a5ad1d78a0fbeb247bdba3a44051c869e4a0f32e84e3c112dbe4ee0",
-      "preparedSha256": null,
-      "recipeVersion": "legacy-overlay-diagnostic-only",
-      "bodyProfileId": "sunny-standard-v1 legacy donor (not certified)",
-      "automatedResult": "source-preview-rendered; combination-not-prepared",
-      "visualResult": "not-certified",
-      "engineeringStatus": "incomplete",
-      "storeEligible": false,
-      "humanApproval": null,
-      "evidence": [
-        "garment-audit.json"
-      ],
-      "restriction": "Legacy overlay loses characteristic source cat ears and substitutes standard body/shoes.",
-      "nextStep": "Preserve ear geometry/materials and related physics in a complete prepared identity, then fit her original leg proportions."
-    },
-    {
-      "companionId": "yukari",
-      "garmentFamily": "comet-hoodie",
-      "garmentVersion": "ea114d56fd5e5803d6a06e07f8e97356b37403379a8b254f62d551ebe5a3e6cf:e50e01f2fc56f5991782e5599379293c8077c37032146a689b0e10c03a79a943",
-      "accessoryId": "cat-ears",
-      "accessoryVersion": "aa185a4d108dc9459205b9273dea72c29c0335327cbe695f7b0f679345e32592",
-      "sourceSha256": "bde6da490a5ad1d78a0fbeb247bdba3a44051c869e4a0f32e84e3c112dbe4ee0",
-      "preparedSha256": null,
-      "recipeVersion": "legacy-overlay-diagnostic-only",
-      "bodyProfileId": "sunny-standard-v1 legacy donor (not certified)",
-      "automatedResult": "source-preview-rendered; combination-not-prepared",
-      "visualResult": "not-certified",
-      "engineeringStatus": "incomplete",
-      "storeEligible": false,
-      "humanApproval": null,
-      "evidence": [
-        "garment-audit.json"
-      ],
-      "restriction": "Legacy overlay loses characteristic source cat ears and substitutes standard body/shoes.",
-      "nextStep": "Preserve ear geometry/materials and related physics in a complete prepared identity, then fit her original leg proportions."
-    },
-    {
-      "companionId": "yukari",
-      "garmentFamily": "comet-hoodie",
-      "garmentVersion": "ea114d56fd5e5803d6a06e07f8e97356b37403379a8b254f62d551ebe5a3e6cf:e50e01f2fc56f5991782e5599379293c8077c37032146a689b0e10c03a79a943",
-      "accessoryId": "star-halo",
-      "accessoryVersion": "aa185a4d108dc9459205b9273dea72c29c0335327cbe695f7b0f679345e32592",
-      "sourceSha256": "bde6da490a5ad1d78a0fbeb247bdba3a44051c869e4a0f32e84e3c112dbe4ee0",
-      "preparedSha256": null,
-      "recipeVersion": "legacy-overlay-diagnostic-only",
-      "bodyProfileId": "sunny-standard-v1 legacy donor (not certified)",
-      "automatedResult": "source-preview-rendered; combination-not-prepared",
-      "visualResult": "not-certified",
-      "engineeringStatus": "incomplete",
-      "storeEligible": false,
-      "humanApproval": null,
-      "evidence": [
-        "garment-audit.json"
-      ],
-      "restriction": "Legacy overlay loses characteristic source cat ears and substitutes standard body/shoes.",
-      "nextStep": "Preserve ear geometry/materials and related physics in a complete prepared identity, then fit her original leg proportions."
-    },
-    {
-      "companionId": "yukari",
-      "garmentFamily": "constellation-blazer",
-      "garmentVersion": "3370358848af0e97fdea02d7bc3b2a0cfa5429b8512d20cf5add71c8fa8cca38:e50e01f2fc56f5991782e5599379293c8077c37032146a689b0e10c03a79a943",
-      "accessoryId": "none",
-      "accessoryVersion": null,
-      "sourceSha256": "bde6da490a5ad1d78a0fbeb247bdba3a44051c869e4a0f32e84e3c112dbe4ee0",
-      "preparedSha256": null,
-      "recipeVersion": "legacy-overlay-diagnostic-only",
-      "bodyProfileId": "sunny-standard-v1 legacy donor (not certified)",
-      "automatedResult": "source-preview-rendered; combination-not-prepared",
-      "visualResult": "not-certified",
-      "engineeringStatus": "incomplete",
-      "storeEligible": false,
-      "humanApproval": null,
-      "evidence": [
-        "garment-audit.json"
-      ],
-      "restriction": "Legacy overlay loses characteristic source cat ears and substitutes standard body/shoes.",
-      "nextStep": "Preserve ear geometry/materials and related physics in a complete prepared identity, then fit her original leg proportions."
-    },
-    {
-      "companionId": "yukari",
-      "garmentFamily": "constellation-blazer",
-      "garmentVersion": "3370358848af0e97fdea02d7bc3b2a0cfa5429b8512d20cf5add71c8fa8cca38:e50e01f2fc56f5991782e5599379293c8077c37032146a689b0e10c03a79a943",
-      "accessoryId": "royal-crown",
-      "accessoryVersion": "aa185a4d108dc9459205b9273dea72c29c0335327cbe695f7b0f679345e32592",
-      "sourceSha256": "bde6da490a5ad1d78a0fbeb247bdba3a44051c869e4a0f32e84e3c112dbe4ee0",
-      "preparedSha256": null,
-      "recipeVersion": "legacy-overlay-diagnostic-only",
-      "bodyProfileId": "sunny-standard-v1 legacy donor (not certified)",
-      "automatedResult": "source-preview-rendered; combination-not-prepared",
-      "visualResult": "not-certified",
-      "engineeringStatus": "incomplete",
-      "storeEligible": false,
-      "humanApproval": null,
-      "evidence": [
-        "garment-audit.json"
-      ],
-      "restriction": "Legacy overlay loses characteristic source cat ears and substitutes standard body/shoes.",
-      "nextStep": "Preserve ear geometry/materials and related physics in a complete prepared identity, then fit her original leg proportions."
-    },
-    {
-      "companionId": "yukari",
-      "garmentFamily": "constellation-blazer",
-      "garmentVersion": "3370358848af0e97fdea02d7bc3b2a0cfa5429b8512d20cf5add71c8fa8cca38:e50e01f2fc56f5991782e5599379293c8077c37032146a689b0e10c03a79a943",
-      "accessoryId": "cat-ears",
-      "accessoryVersion": "aa185a4d108dc9459205b9273dea72c29c0335327cbe695f7b0f679345e32592",
-      "sourceSha256": "bde6da490a5ad1d78a0fbeb247bdba3a44051c869e4a0f32e84e3c112dbe4ee0",
-      "preparedSha256": null,
-      "recipeVersion": "legacy-overlay-diagnostic-only",
-      "bodyProfileId": "sunny-standard-v1 legacy donor (not certified)",
-      "automatedResult": "source-preview-rendered; combination-not-prepared",
-      "visualResult": "not-certified",
-      "engineeringStatus": "incomplete",
-      "storeEligible": false,
-      "humanApproval": null,
-      "evidence": [
-        "garment-audit.json"
-      ],
-      "restriction": "Legacy overlay loses characteristic source cat ears and substitutes standard body/shoes.",
-      "nextStep": "Preserve ear geometry/materials and related physics in a complete prepared identity, then fit her original leg proportions."
-    },
-    {
-      "companionId": "yukari",
-      "garmentFamily": "constellation-blazer",
-      "garmentVersion": "3370358848af0e97fdea02d7bc3b2a0cfa5429b8512d20cf5add71c8fa8cca38:e50e01f2fc56f5991782e5599379293c8077c37032146a689b0e10c03a79a943",
-      "accessoryId": "star-halo",
-      "accessoryVersion": "aa185a4d108dc9459205b9273dea72c29c0335327cbe695f7b0f679345e32592",
-      "sourceSha256": "bde6da490a5ad1d78a0fbeb247bdba3a44051c869e4a0f32e84e3c112dbe4ee0",
-      "preparedSha256": null,
-      "recipeVersion": "legacy-overlay-diagnostic-only",
-      "bodyProfileId": "sunny-standard-v1 legacy donor (not certified)",
-      "automatedResult": "source-preview-rendered; combination-not-prepared",
-      "visualResult": "not-certified",
-      "engineeringStatus": "incomplete",
-      "storeEligible": false,
-      "humanApproval": null,
-      "evidence": [
-        "garment-audit.json"
-      ],
-      "restriction": "Legacy overlay loses characteristic source cat ears and substitutes standard body/shoes.",
-      "nextStep": "Preserve ear geometry/materials and related physics in a complete prepared identity, then fit her original leg proportions."
-    }
-  ],
-  "dressColors": {
-    "elli-navy": {
-      "visualResult": "agent-reviewed-static-material-pass",
-      "evidence": "colors/elli-navy.png",
-      "humanApproval": null
-    },
-    "elli-plum": {
-      "visualResult": "agent-reviewed-static-material-pass",
-      "evidence": "colors/elli-plum.png",
-      "humanApproval": null
-    },
-    "elli-teal": {
-      "visualResult": "agent-reviewed-static-material-pass",
-      "evidence": "colors/elli-teal.png",
-      "humanApproval": null
-    },
-    "elli-rose": {
-      "visualResult": "agent-reviewed-static-material-pass",
-      "evidence": "colors/elli-rose.png",
-      "humanApproval": null
-    },
-    "matilda-navy": {
-      "visualResult": "agent-reviewed-static-material-pass",
-      "evidence": "colors/matilda-navy.png",
-      "humanApproval": null
-    },
-    "matilda-plum": {
-      "visualResult": "agent-reviewed-static-material-pass",
-      "evidence": "colors/matilda-plum.png",
-      "humanApproval": null
-    },
-    "matilda-teal": {
-      "visualResult": "agent-reviewed-static-material-pass",
-      "evidence": "colors/matilda-teal.png",
-      "humanApproval": null
-    },
-    "matilda-rose": {
-      "visualResult": "agent-reviewed-static-material-pass",
-      "evidence": "colors/matilda-rose.png",
-      "humanApproval": null
-    }
-  },
-  "limitations": [
-    "Walking is unverified: no compatible authored clip found. Complete current-version visual/movement certification and explicit human approval remain outstanding.",
-    "Full root npm test: five failures in unchanged non-wardrobe paths; full web suite passes.",
-    "Six other companions are audited diagnostic composites, not converted or approved.",
-    "Licensed local asset redistribution/deployment packaging unresolved; no deployment attempted.",
-    "Captured fitted files differ from final sourceVersion metadata only; fit-evidence-equivalence.json records exact hashes. No inherited human approval."
   ]
 }

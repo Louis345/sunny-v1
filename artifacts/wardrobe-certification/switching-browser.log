@@ -1,118 +1,16 @@
 [vite] connecting...
 [vite] connected.
 %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
- 🎮 [wardrobe-selection] loading selection=["elli","/companions/sample.vrm",null,"none",null,"none"]
- 🎮 [wardrobe-selection] loading selection=["elli","/companions/elli-wardrobe-identity-preserved-v1.vrm",null,"sleeveless-dress",{"id":"sleeveless-dress","tint":"#ffffff"},"none"]
+ 🎮 [wardrobe-selection] loading selection=["elli","/companions/sample.vrm","none",null,"none"]
+ 🎮 [wardrobe-selection] loading selection=["elli","/companions/elli-wardrobe-identity-preserved-v1.vrm","sleeveless-dress",{"id":"sleeveless-dress","tint":"#ffffff"},"none"]
  🎮 [wardrobe-certification-lab] preview_selected result=candidate companion=elli item=sleeveless-dress template=ribbon-dress
  🎮 [deepgram-video-call-stt] [stop] [ok]
  🎮 [showroom-video-chat] camera_off
- 🎮 [wardrobe-selection] cancelled selection=["elli","/companions/sample.vrm",null,"none",null,"none"]
- 🎮 [wardrobe-selection] cancelled selection=["elli","/companions/elli-wardrobe-identity-preserved-v1.vrm",null,"sleeveless-dress",{"id":"sleeveless-dress","tint":"#ffffff"},"none"]
- 🎮 [wardrobe-selection] loading selection=["elli","/companions/sample.vrm",null,"none",null,"none"]
- 🎮 [wardrobe-selection] loading selection=["elli","/companions/elli-wardrobe-identity-preserved-v1.vrm",null,"sleeveless-dress",{"id":"sleeveless-dress","tint":"#ffffff"},"none"]
+ 🎮 [wardrobe-selection] cancelled selection=["elli","/companions/sample.vrm","none",null,"none"]
+ 🎮 [wardrobe-selection] cancelled selection=["elli","/companions/elli-wardrobe-identity-preserved-v1.vrm","sleeveless-dress",{"id":"sleeveless-dress","tint":"#ffffff"},"none"]
+ 🎮 [wardrobe-selection] loading selection=["elli","/companions/sample.vrm","none",null,"none"]
+ 🎮 [wardrobe-selection] loading selection=["elli","/companions/elli-wardrobe-identity-preserved-v1.vrm","sleeveless-dress",{"id":"sleeveless-dress","tint":"#ffffff"},"none"]
  🎮 [wardrobe-certification-lab] preview_selected result=candidate companion=elli item=sleeveless-dress template=ribbon-dress
- 🎮 [wardrobe-selection] cancelled selection=["elli","/companions/sample.vrm",null,"none",null,"none"]
- 🎮 [wardrobe-selection] cancelled selection=["elli","/companions/elli-wardrobe-identity-preserved-v1.vrm",null,"sleeveless-dress",{"id":"sleeveless-dress","tint":"#ffffff"},"none"]
- 🎮 [wardrobe-selection] loading selection=["matilda","/companions/673852811403133503.vrm",null,"none",null,"none"]
- 🎮 [wardrobe-selection] loading selection=["matilda","/companions/matilda-wardrobe-identity-preserved-v4.vrm",null,"sleeveless-dress",{"id":"sleeveless-dress","tint":"#ffffff"},"none"]
- 🎮 [wardrobe-certification-lab] preview_selected result=candidate companion=matilda item=sleeveless-dress template=ribbon-dress
- 🎮 [wardrobe-selection] cancelled selection=["matilda","/companions/673852811403133503.vrm",null,"none",null,"none"]
- 🎮 [wardrobe-selection] loading selection=["matilda","/companions/673852811403133503.vrm",null,"none",null,"none"]
- 🎮 [wardrobe-selection] cancelled selection=["matilda","/companions/matilda-wardrobe-identity-preserved-v4.vrm",null,"sleeveless-dress",{"id":"sleeveless-dress","tint":"#ffffff"},"none"]
- 🎮 [wardrobe-selection] loading selection=["matilda","/companions/matilda-wardrobe-identity-preserved-v4.vrm",null,"sleeveless-dress",{"id":"sleeveless-dress","tint":"#ffffff"},"none"]
-[VRM] Full capability audit
-Expressions available: [aa, angry, blink, blinkLeft, blinkRight, ee, happy, ih, lookDown, lookLeft, lookRight, lookUp, neutral, oh, ou, relaxed, sad, surprised]
-Humanoid bones: [chest, head, hips, leftEye, leftFoot, leftHand, leftIndexDistal, leftIndexIntermediate, leftIndexProximal, leftLittleDistal, leftLittleIntermediate, leftLittleProximal, leftLowerArm, leftLowerLeg, leftMiddleDistal, leftMiddleIntermediate, leftMiddleProximal, leftRingDistal, leftRingIntermediate, leftRingProximal, leftShoulder, leftThumbDistal, leftThumbMetacarpal, leftThumbProximal, leftToes, leftUpperArm, leftUpperLeg, neck, rightEye, rightFoot, rightHand, rightIndexDistal, rightIndexIntermediate, rightIndexProximal, rightLittleDistal, rightLittleIntermediate, rightLittleProximal, rightLowerArm, rightLowerLeg, rightMiddleDistal, rightMiddleIntermediate, rightMiddleProximal, rightRingDistal, rightRingIntermediate, rightRingProximal, rightShoulder, rightThumbDistal, rightThumbMetacarpal, rightThumbProximal, rightToes, rightUpperArm, rightUpperLeg, spine, upperChest]
-VRM version: 1
-Has expressionManager: true
-Has humanoid: true
-Has springBoneManager: true
-console.groupEnd
-[VRM] Full capability audit
-Expressions available: [aa, angry, blink, blinkLeft, blinkRight, ee, happy, ih, lookDown, lookLeft, lookRight, lookUp, neutral, oh, ou, relaxed, sad, surprised]
-Humanoid bones: [chest, head, hips, leftEye, leftFoot, leftHand, leftIndexDistal, leftIndexIntermediate, leftIndexProximal, leftLittleDistal, leftLittleIntermediate, leftLittleProximal, leftLowerArm, leftLowerLeg, leftMiddleDistal, leftMiddleIntermediate, leftMiddleProximal, leftRingDistal, leftRingIntermediate, leftRingProximal, leftShoulder, leftThumbDistal, leftThumbMetacarpal, leftThumbProximal, leftToes, leftUpperArm, leftUpperLeg, neck, rightEye, rightFoot, rightHand, rightIndexDistal, rightIndexIntermediate, rightIndexProximal, rightLittleDistal, rightLittleIntermediate, rightLittleProximal, rightLowerArm, rightLowerLeg, rightMiddleDistal, rightMiddleIntermediate, rightMiddleProximal, rightRingDistal, rightRingIntermediate, rightRingProximal, rightShoulder, rightThumbDistal, rightThumbMetacarpal, rightThumbProximal, rightToes, rightUpperArm, rightUpperLeg, spine, upperChest]
-VRM version: 1
-Has expressionManager: true
-Has humanoid: true
-Has springBoneManager: true
-console.groupEnd
-[VRM] Full capability audit
-Expressions available: [neutral, aa, ih, ou, ee, oh, blink, blinkLeft, blinkRight, angry, relaxed, happy, sad, Surprised]
-Humanoid bones: [hips, leftUpperLeg, rightUpperLeg, leftLowerLeg, rightLowerLeg, leftFoot, rightFoot, spine, chest, neck, head, leftShoulder, rightShoulder, leftUpperArm, rightUpperArm, leftLowerArm, rightLowerArm, leftHand, rightHand, leftToes, rightToes, leftEye, rightEye, leftThumbMetacarpal, leftThumbProximal, leftThumbDistal, leftIndexProximal, leftIndexIntermediate, leftIndexDistal, leftMiddleProximal, leftMiddleIntermediate, leftMiddleDistal, leftRingProximal, leftRingIntermediate, leftRingDistal, leftLittleProximal, leftLittleIntermediate, leftLittleDistal, rightThumbMetacarpal, rightThumbProximal, rightThumbDistal, rightIndexProximal, rightIndexIntermediate, rightIndexDistal, rightMiddleProximal, rightMiddleIntermediate, rightMiddleDistal, rightRingProximal, rightRingIntermediate, rightRingDistal, rightLittleProximal, rightLittleIntermediate, rightLittleDistal, upperChest]
-VRM version: 0
-Has expressionManager: true
-Has humanoid: true
-Has springBoneManager: true
-console.groupEnd
-[VRM] Full capability audit
-Expressions available: [neutral, aa, ih, ou, ee, oh, blink, blinkLeft, blinkRight, angry, relaxed, happy, sad, Surprised]
-Humanoid bones: [hips, leftUpperLeg, rightUpperLeg, leftLowerLeg, rightLowerLeg, leftFoot, rightFoot, spine, chest, neck, head, leftShoulder, rightShoulder, leftUpperArm, rightUpperArm, leftLowerArm, rightLowerArm, leftHand, rightHand, leftToes, rightToes, leftEye, rightEye, leftThumbMetacarpal, leftThumbProximal, leftThumbDistal, leftIndexProximal, leftIndexIntermediate, leftIndexDistal, leftMiddleProximal, leftMiddleIntermediate, leftMiddleDistal, leftRingProximal, leftRingIntermediate, leftRingDistal, leftLittleProximal, leftLittleIntermediate, leftLittleDistal, rightThumbMetacarpal, rightThumbProximal, rightThumbDistal, rightIndexProximal, rightIndexIntermediate, rightIndexDistal, rightMiddleProximal, rightMiddleIntermediate, rightMiddleDistal, rightRingProximal, rightRingIntermediate, rightRingDistal, rightLittleProximal, rightLittleIntermediate, rightLittleDistal, upperChest]
-VRM version: 0
-Has expressionManager: true
-Has humanoid: true
-Has springBoneManager: true
-console.groupEnd
- 🎮 [companion-wardrobe-lab] avatar_bind_pose captured bones=222
-🎮 [CompanionMotor] [animation-fetch] [start] name="idle" url=http://127.0.0.1:5197/animations/idle.fbx
- 🎮 [wardrobe-compatibility-lab] source_loaded result=settled case=matilda-standard-body-identity slot=matilda
- 🎮 [wardrobe-identity-lab] preview_settled result=ready companion=matilda identity=base
-[VRM] Full capability audit
-Expressions available: [neutral, aa, ih, ou, ee, oh, blink, blinkLeft, blinkRight, angry, relaxed, happy, sad, Surprised]
-Humanoid bones: [hips, leftUpperLeg, rightUpperLeg, leftLowerLeg, rightLowerLeg, leftFoot, rightFoot, spine, chest, neck, head, leftShoulder, rightShoulder, leftUpperArm, rightUpperArm, leftLowerArm, rightLowerArm, leftHand, rightHand, leftToes, rightToes, leftEye, rightEye, leftThumbMetacarpal, leftThumbProximal, leftThumbDistal, leftIndexProximal, leftIndexIntermediate, leftIndexDistal, leftMiddleProximal, leftMiddleIntermediate, leftMiddleDistal, leftRingProximal, leftRingIntermediate, leftRingDistal, leftLittleProximal, leftLittleIntermediate, leftLittleDistal, rightThumbMetacarpal, rightThumbProximal, rightThumbDistal, rightIndexProximal, rightIndexIntermediate, rightIndexDistal, rightMiddleProximal, rightMiddleIntermediate, rightMiddleDistal, rightRingProximal, rightRingIntermediate, rightRingDistal, rightLittleProximal, rightLittleIntermediate, rightLittleDistal, upperChest]
-VRM version: 0
-Has expressionManager: true
-Has humanoid: true
-Has springBoneManager: true
-console.groupEnd
- 🎮 [companion-wardrobe-lab] avatar_bind_pose captured bones=222
-🎮 [CompanionMotor] [animation-fetch] [start] name="idle" url=http://127.0.0.1:5197/animations/idle.fbx
- 🎮 [wardrobe-accessory] intrinsic visibility=true materials=1
- 🎮 [wardrobe-compatibility-lab] candidate_preview allowed outfit=sleeveless-dress model=/companions/matilda-wardrobe-identity-preserved-v4.vrm
-[VRM] Full capability audit
-Expressions available: [neutral, aa, ih, ou, ee, oh, blink, blinkLeft, blinkRight, angry, relaxed, happy, sad, Surprised]
-Humanoid bones: [hips, leftUpperLeg, rightUpperLeg, leftLowerLeg, rightLowerLeg, leftFoot, rightFoot, spine, chest, neck, head, leftShoulder, rightShoulder, leftUpperArm, rightUpperArm, leftLowerArm, rightLowerArm, leftHand, rightHand, leftToes, rightToes, leftEye, rightEye, leftThumbMetacarpal, leftThumbProximal, leftThumbDistal, leftIndexProximal, leftIndexIntermediate, leftIndexDistal, leftMiddleProximal, leftMiddleIntermediate, leftMiddleDistal, leftRingProximal, leftRingIntermediate, leftRingDistal, leftLittleProximal, leftLittleIntermediate, leftLittleDistal, rightThumbMetacarpal, rightThumbProximal, rightThumbDistal, rightIndexProximal, rightIndexIntermediate, rightIndexDistal, rightMiddleProximal, rightMiddleIntermediate, rightMiddleDistal, rightRingProximal, rightRingIntermediate, rightRingDistal, rightLittleProximal, rightLittleIntermediate, rightLittleDistal, upperChest]
-VRM version: 0
-Has expressionManager: true
-Has humanoid: true
-Has springBoneManager: true
-console.groupEnd
- 🎮 [wardrobe-prepared] attached companion=matilda outfit=sleeveless-dress sha256=15b2ef06cba34e55b4e289f77a3bd17beb3bc605eb25647c91665e6d952bd12f
- 🎮 [companion-wardrobe-lab] base_clothing visibility=false materials=20
- 🎮 [companion-wardrobe-lab] base_clothing visibility=true materials=20
- 🎮 [companion-wardrobe-lab] base_clothing visibility=false materials=20
- 🎮 [wardrobe-compatibility-lab] model_loaded result=settled case=matilda-standard-body-identity slot=matilda
- 🎮 [wardrobe-identity-lab] preview_settled result=ready companion=matilda identity=base
-🎮 [mixamoRetarget] [compat] [mirrored-arm-rest-x]
-🎮 [CompanionMotor] [animation-fetch] [ok] name="idle" retargetedTracks=53
-🎮 [mixamoRetarget] [compat] [mirrored-arm-rest-x]
-🎮 [CompanionMotor] [animation-fetch] [ok] name="idle" retargetedTracks=53
-🎮 [CompanionMotor] [animate] [play] "idle" tracks=53 loop=true
-🎮 [CompanionMotor] [animate] [play] "idle" tracks=53 loop=true
-[VRM] Full capability audit
-Expressions available: [aa, angry, blink, blinkLeft, blinkRight, ee, happy, ih, lookDown, lookLeft, lookRight, lookUp, neutral, oh, ou, relaxed, sad, surprised]
-Humanoid bones: [chest, head, hips, leftEye, leftFoot, leftHand, leftIndexDistal, leftIndexIntermediate, leftIndexProximal, leftLittleDistal, leftLittleIntermediate, leftLittleProximal, leftLowerArm, leftLowerLeg, leftMiddleDistal, leftMiddleIntermediate, leftMiddleProximal, leftRingDistal, leftRingIntermediate, leftRingProximal, leftShoulder, leftThumbDistal, leftThumbMetacarpal, leftThumbProximal, leftToes, leftUpperArm, leftUpperLeg, neck, rightEye, rightFoot, rightHand, rightIndexDistal, rightIndexIntermediate, rightIndexProximal, rightLittleDistal, rightLittleIntermediate, rightLittleProximal, rightLowerArm, rightLowerLeg, rightMiddleDistal, rightMiddleIntermediate, rightMiddleProximal, rightRingDistal, rightRingIntermediate, rightRingProximal, rightShoulder, rightThumbDistal, rightThumbMetacarpal, rightThumbProximal, rightToes, rightUpperArm, rightUpperLeg, spine, upperChest]
-VRM version: 1
-Has expressionManager: true
-Has humanoid: true
-Has springBoneManager: true
-console.groupEnd
-[VRM] Full capability audit
-Expressions available: [aa, angry, blink, blinkLeft, blinkRight, ee, happy, ih, lookDown, lookLeft, lookRight, lookUp, neutral, oh, ou, relaxed, sad, surprised]
-Humanoid bones: [chest, head, hips, leftEye, leftFoot, leftHand, leftIndexDistal, leftIndexIntermediate, leftIndexProximal, leftLittleDistal, leftLittleIntermediate, leftLittleProximal, leftLowerArm, leftLowerLeg, leftMiddleDistal, leftMiddleIntermediate, leftMiddleProximal, leftRingDistal, leftRingIntermediate, leftRingProximal, leftShoulder, leftThumbDistal, leftThumbMetacarpal, leftThumbProximal, leftToes, leftUpperArm, leftUpperLeg, neck, rightEye, rightFoot, rightHand, rightIndexDistal, rightIndexIntermediate, rightIndexProximal, rightLittleDistal, rightLittleIntermediate, rightLittleProximal, rightLowerArm, rightLowerLeg, rightMiddleDistal, rightMiddleIntermediate, rightMiddleProximal, rightRingDistal, rightRingIntermediate, rightRingProximal, rightShoulder, rightThumbDistal, rightThumbMetacarpal, rightThumbProximal, rightToes, rightUpperArm, rightUpperLeg, spine, upperChest]
-VRM version: 1
-Has expressionManager: true
-Has humanoid: true
-Has springBoneManager: true
-console.groupEnd
- 🎮 [wardrobe-selection] cancelled selection=["matilda","/companions/673852811403133503.vrm",null,"none",null,"none"]
- 🎮 [wardrobe-selection] cancelled selection=["matilda","/companions/matilda-wardrobe-identity-preserved-v4.vrm",null,"sleeveless-dress",{"id":"sleeveless-dress","tint":"#ffffff"},"none"]
- 🎮 [wardrobe-selection] loading selection=["elli","/companions/sample.vrm",null,"none",null,"none"]
- 🎮 [wardrobe-selection] loading selection=["elli","/companions/elli-wardrobe-identity-preserved-v1.vrm",null,"sleeveless-dress",{"id":"sleeveless-dress","tint":"#ffffff"},"none"]
- 🎮 [wardrobe-certification-lab] preview_selected result=candidate companion=elli item=sleeveless-dress template=ribbon-dress
- 🎮 [wardrobe-selection] cancelled selection=["elli","/companions/sample.vrm",null,"none",null,"none"]
- 🎮 [wardrobe-selection] loading selection=["elli","/companions/sample.vrm",null,"none",null,"none"]
- 🎮 [wardrobe-selection] cancelled selection=["elli","/companions/elli-wardrobe-identity-preserved-v1.vrm",null,"sleeveless-dress",{"id":"sleeveless-dress","tint":"#ffffff"},"none"]
- 🎮 [wardrobe-selection] loading selection=["elli","/companions/elli-wardrobe-identity-preserved-v1.vrm",null,"sleeveless-dress",{"id":"sleeveless-dress","tint":"#ffffff"},"none"]
 [VRM] Full capability audit
 Expressions available: [aa, angry, blink, blinkLeft, blinkRight, ee, happy, ih, lookDown, lookLeft, lookRight, lookUp, neutral, oh, ou, relaxed, sad, surprised]
 Humanoid bones: [chest, head, hips, leftEye, leftFoot, leftHand, leftIndexDistal, leftIndexIntermediate, leftIndexProximal, leftLittleDistal, leftLittleIntermediate, leftLittleProximal, leftLowerArm, leftLowerLeg, leftMiddleDistal, leftMiddleIntermediate, leftMiddleProximal, leftRingDistal, leftRingIntermediate, leftRingProximal, leftShoulder, leftThumbDistal, leftThumbMetacarpal, leftThumbProximal, leftToes, leftUpperArm, leftUpperLeg, neck, rightEye, rightFoot, rightHand, rightIndexDistal, rightIndexIntermediate, rightIndexProximal, rightLittleDistal, rightLittleIntermediate, rightLittleProximal, rightLowerArm, rightLowerLeg, rightMiddleDistal, rightMiddleIntermediate, rightMiddleProximal, rightRingDistal, rightRingIntermediate, rightRingProximal, rightShoulder, rightThumbDistal, rightThumbMetacarpal, rightThumbProximal, rightToes, rightUpperArm, rightUpperLeg, spine, upperChest]
@@ -131,8 +29,107 @@ Has springBoneManager: true
 console.groupEnd
  🎮 [companion-wardrobe-lab] avatar_bind_pose captured bones=154
 🎮 [CompanionMotor] [animation-fetch] [start] name="idle" url=http://127.0.0.1:5197/animations/idle.fbx
- 🎮 [wardrobe-compatibility-lab] source_loaded result=settled case=elli-store-reference slot=elli
- 🎮 [wardrobe-identity-lab] preview_settled result=ready companion=elli identity=base
+ 🎮 [wardrobe-compatibility-lab] source_loaded result=settled case=elli-prepared-identity slot=elli
+ 🎮 [wardrobe-identity-lab] preview_settled result=ready companion=elli model=/companions/sample.vrm
+ 🎮 [wardrobe-selection] cancelled selection=["elli","/companions/sample.vrm","none",null,"none"]
+ 🎮 [wardrobe-selection] cancelled selection=["elli","/companions/elli-wardrobe-identity-preserved-v1.vrm","sleeveless-dress",{"id":"sleeveless-dress","tint":"#ffffff"},"none"]
+ 🎮 [wardrobe-selection] loading selection=["matilda","/companions/673852811403133503.vrm","none",null,"none"]
+ 🎮 [wardrobe-selection] loading selection=["matilda","/companions/matilda-wardrobe-native-identity-v1.vrm","sleeveless-dress",{"id":"sleeveless-dress","tint":"#ffffff"},"none"]
+ 🎮 [wardrobe-certification-lab] preview_selected result=candidate companion=matilda item=sleeveless-dress template=ribbon-dress
+ 🎮 [wardrobe-selection] cancelled selection=["matilda","/companions/673852811403133503.vrm","none",null,"none"]
+ 🎮 [wardrobe-selection] loading selection=["matilda","/companions/673852811403133503.vrm","none",null,"none"]
+ 🎮 [wardrobe-selection] cancelled selection=["matilda","/companions/matilda-wardrobe-native-identity-v1.vrm","sleeveless-dress",{"id":"sleeveless-dress","tint":"#ffffff"},"none"]
+ 🎮 [wardrobe-selection] loading selection=["matilda","/companions/matilda-wardrobe-native-identity-v1.vrm","sleeveless-dress",{"id":"sleeveless-dress","tint":"#ffffff"},"none"]
+🎮 [CompanionMotor] [animation-fetch] [ok] name="idle" retargetedTracks=53
+🎮 [CompanionMotor] [animate] [stale] skip "idle" request=3 latest=4
+[VRM] Full capability audit
+Expressions available: [neutral, aa, ih, ou, ee, oh, blink, blinkLeft, blinkRight, angry, relaxed, happy, sad, Surprised]
+Humanoid bones: [hips, leftUpperLeg, rightUpperLeg, leftLowerLeg, rightLowerLeg, leftFoot, rightFoot, spine, chest, neck, head, leftShoulder, rightShoulder, leftUpperArm, rightUpperArm, leftLowerArm, rightLowerArm, leftHand, rightHand, leftToes, rightToes, leftEye, rightEye, leftThumbMetacarpal, leftThumbProximal, leftThumbDistal, leftIndexProximal, leftIndexIntermediate, leftIndexDistal, leftMiddleProximal, leftMiddleIntermediate, leftMiddleDistal, leftRingProximal, leftRingIntermediate, leftRingDistal, leftLittleProximal, leftLittleIntermediate, leftLittleDistal, rightThumbMetacarpal, rightThumbProximal, rightThumbDistal, rightIndexProximal, rightIndexIntermediate, rightIndexDistal, rightMiddleProximal, rightMiddleIntermediate, rightMiddleDistal, rightRingProximal, rightRingIntermediate, rightRingDistal, rightLittleProximal, rightLittleIntermediate, rightLittleDistal, upperChest]
+VRM version: 0
+Has expressionManager: true
+Has humanoid: true
+Has springBoneManager: true
+console.groupEnd
+[VRM] Full capability audit
+Expressions available: [neutral, aa, ih, ou, ee, oh, blink, blinkLeft, blinkRight, angry, relaxed, happy, sad, Surprised]
+Humanoid bones: [hips, leftUpperLeg, rightUpperLeg, leftLowerLeg, rightLowerLeg, leftFoot, rightFoot, spine, chest, neck, head, leftShoulder, rightShoulder, leftUpperArm, rightUpperArm, leftLowerArm, rightLowerArm, leftHand, rightHand, leftToes, rightToes, leftEye, rightEye, leftThumbMetacarpal, leftThumbProximal, leftThumbDistal, leftIndexProximal, leftIndexIntermediate, leftIndexDistal, leftMiddleProximal, leftMiddleIntermediate, leftMiddleDistal, leftRingProximal, leftRingIntermediate, leftRingDistal, leftLittleProximal, leftLittleIntermediate, leftLittleDistal, rightThumbMetacarpal, rightThumbProximal, rightThumbDistal, rightIndexProximal, rightIndexIntermediate, rightIndexDistal, rightMiddleProximal, rightMiddleIntermediate, rightMiddleDistal, rightRingProximal, rightRingIntermediate, rightRingDistal, rightLittleProximal, rightLittleIntermediate, rightLittleDistal, upperChest]
+VRM version: 0
+Has expressionManager: true
+Has humanoid: true
+Has springBoneManager: true
+console.groupEnd
+ 🎮 [companion-wardrobe-lab] avatar_bind_pose captured bones=222
+🎮 [CompanionMotor] [animation-fetch] [start] name="idle" url=http://127.0.0.1:5197/animations/idle.fbx
+ 🎮 [wardrobe-compatibility-lab] source_loaded result=settled case=matilda-prepared-identity slot=matilda
+ 🎮 [wardrobe-identity-lab] preview_settled result=ready companion=matilda model=/companions/673852811403133503.vrm
+[VRM] Full capability audit
+Expressions available: [neutral, aa, ih, ou, ee, oh, blink, blinkLeft, blinkRight, angry, relaxed, happy, sad, Surprised]
+Humanoid bones: [hips, leftUpperLeg, rightUpperLeg, leftLowerLeg, rightLowerLeg, leftFoot, rightFoot, spine, chest, neck, head, leftShoulder, rightShoulder, leftUpperArm, rightUpperArm, leftLowerArm, rightLowerArm, leftHand, rightHand, leftToes, rightToes, leftEye, rightEye, leftThumbMetacarpal, leftThumbProximal, leftThumbDistal, leftIndexProximal, leftIndexIntermediate, leftIndexDistal, leftMiddleProximal, leftMiddleIntermediate, leftMiddleDistal, leftRingProximal, leftRingIntermediate, leftRingDistal, leftLittleProximal, leftLittleIntermediate, leftLittleDistal, rightThumbMetacarpal, rightThumbProximal, rightThumbDistal, rightIndexProximal, rightIndexIntermediate, rightIndexDistal, rightMiddleProximal, rightMiddleIntermediate, rightMiddleDistal, rightRingProximal, rightRingIntermediate, rightRingDistal, rightLittleProximal, rightLittleIntermediate, rightLittleDistal, upperChest]
+VRM version: 0
+Has expressionManager: true
+Has humanoid: true
+Has springBoneManager: true
+console.groupEnd
+[VRM] Full capability audit
+Expressions available: [neutral, aa, ih, ou, ee, oh, blink, blinkLeft, blinkRight, angry, relaxed, happy, sad, Surprised]
+Humanoid bones: [hips, leftUpperLeg, rightUpperLeg, leftLowerLeg, rightLowerLeg, leftFoot, rightFoot, spine, chest, neck, head, leftShoulder, rightShoulder, leftUpperArm, rightUpperArm, leftLowerArm, rightLowerArm, leftHand, rightHand, leftToes, rightToes, leftEye, rightEye, leftThumbMetacarpal, leftThumbProximal, leftThumbDistal, leftIndexProximal, leftIndexIntermediate, leftIndexDistal, leftMiddleProximal, leftMiddleIntermediate, leftMiddleDistal, leftRingProximal, leftRingIntermediate, leftRingDistal, leftLittleProximal, leftLittleIntermediate, leftLittleDistal, rightThumbMetacarpal, rightThumbProximal, rightThumbDistal, rightIndexProximal, rightIndexIntermediate, rightIndexDistal, rightMiddleProximal, rightMiddleIntermediate, rightMiddleDistal, rightRingProximal, rightRingIntermediate, rightRingDistal, rightLittleProximal, rightLittleIntermediate, rightLittleDistal, upperChest]
+VRM version: 0
+Has expressionManager: true
+Has humanoid: true
+Has springBoneManager: true
+console.groupEnd
+ 🎮 [companion-wardrobe-lab] avatar_bind_pose captured bones=256
+🎮 [CompanionMotor] [animation-fetch] [start] name="idle" url=http://127.0.0.1:5197/animations/idle.fbx
+ 🎮 [wardrobe-compatibility-lab] candidate_preview allowed outfit=sleeveless-dress model=/companions/matilda-wardrobe-native-identity-v1.vrm
+🎮 [mixamoRetarget] [compat] [mirrored-arm-rest-x]
+🎮 [CompanionMotor] [animation-fetch] [ok] name="idle" retargetedTracks=53
+🎮 [CompanionMotor] [animate] [play] "idle" tracks=53 loop=true
+ 🎮 [wardrobe-prepared] attached companion=matilda outfit=sleeveless-dress sha256=864fa80d2469734549676e66b047850e40c1fd75bd5b6f5d5c37538758fd1843
+ 🎮 [companion-wardrobe-lab] base_clothing visibility=false materials=20
+ 🎮 [companion-wardrobe-lab] base_clothing visibility=true materials=20
+ 🎮 [companion-wardrobe-lab] base_clothing visibility=false materials=20
+ 🎮 [wardrobe-compatibility-lab] model_loaded result=settled case=matilda-prepared-identity slot=matilda
+ 🎮 [wardrobe-identity-lab] preview_settled result=ready companion=matilda model=/companions/matilda-wardrobe-native-identity-v1.vrm
+🎮 [mixamoRetarget] [compat] [mirrored-arm-rest-x]
+🎮 [CompanionMotor] [animation-fetch] [ok] name="idle" retargetedTracks=53
+🎮 [CompanionMotor] [animate] [play] "idle" tracks=53 loop=true
+[VRM] Full capability audit
+Expressions available: [aa, angry, blink, blinkLeft, blinkRight, ee, happy, ih, lookDown, lookLeft, lookRight, lookUp, neutral, oh, ou, relaxed, sad, surprised]
+Humanoid bones: [chest, head, hips, leftEye, leftFoot, leftHand, leftIndexDistal, leftIndexIntermediate, leftIndexProximal, leftLittleDistal, leftLittleIntermediate, leftLittleProximal, leftLowerArm, leftLowerLeg, leftMiddleDistal, leftMiddleIntermediate, leftMiddleProximal, leftRingDistal, leftRingIntermediate, leftRingProximal, leftShoulder, leftThumbDistal, leftThumbMetacarpal, leftThumbProximal, leftToes, leftUpperArm, leftUpperLeg, neck, rightEye, rightFoot, rightHand, rightIndexDistal, rightIndexIntermediate, rightIndexProximal, rightLittleDistal, rightLittleIntermediate, rightLittleProximal, rightLowerArm, rightLowerLeg, rightMiddleDistal, rightMiddleIntermediate, rightMiddleProximal, rightRingDistal, rightRingIntermediate, rightRingProximal, rightShoulder, rightThumbDistal, rightThumbMetacarpal, rightThumbProximal, rightToes, rightUpperArm, rightUpperLeg, spine, upperChest]
+VRM version: 1
+Has expressionManager: true
+Has humanoid: true
+Has springBoneManager: true
+console.groupEnd
+[VRM] Full capability audit
+Expressions available: [aa, angry, blink, blinkLeft, blinkRight, ee, happy, ih, lookDown, lookLeft, lookRight, lookUp, neutral, oh, ou, relaxed, sad, surprised]
+Humanoid bones: [chest, head, hips, leftEye, leftFoot, leftHand, leftIndexDistal, leftIndexIntermediate, leftIndexProximal, leftLittleDistal, leftLittleIntermediate, leftLittleProximal, leftLowerArm, leftLowerLeg, leftMiddleDistal, leftMiddleIntermediate, leftMiddleProximal, leftRingDistal, leftRingIntermediate, leftRingProximal, leftShoulder, leftThumbDistal, leftThumbMetacarpal, leftThumbProximal, leftToes, leftUpperArm, leftUpperLeg, neck, rightEye, rightFoot, rightHand, rightIndexDistal, rightIndexIntermediate, rightIndexProximal, rightLittleDistal, rightLittleIntermediate, rightLittleProximal, rightLowerArm, rightLowerLeg, rightMiddleDistal, rightMiddleIntermediate, rightMiddleProximal, rightRingDistal, rightRingIntermediate, rightRingProximal, rightShoulder, rightThumbDistal, rightThumbMetacarpal, rightThumbProximal, rightToes, rightUpperArm, rightUpperLeg, spine, upperChest]
+VRM version: 1
+Has expressionManager: true
+Has humanoid: true
+Has springBoneManager: true
+console.groupEnd
+ 🎮 [wardrobe-selection] cancelled selection=["matilda","/companions/673852811403133503.vrm","none",null,"none"]
+ 🎮 [wardrobe-selection] cancelled selection=["matilda","/companions/matilda-wardrobe-native-identity-v1.vrm","sleeveless-dress",{"id":"sleeveless-dress","tint":"#ffffff"},"none"]
+ 🎮 [wardrobe-selection] loading selection=["elli","/companions/sample.vrm","none",null,"none"]
+ 🎮 [wardrobe-selection] loading selection=["elli","/companions/elli-wardrobe-identity-preserved-v1.vrm","sleeveless-dress",{"id":"sleeveless-dress","tint":"#ffffff"},"none"]
+ 🎮 [wardrobe-certification-lab] preview_selected result=candidate companion=elli item=sleeveless-dress template=ribbon-dress
+ 🎮 [wardrobe-selection] cancelled selection=["elli","/companions/sample.vrm","none",null,"none"]
+ 🎮 [wardrobe-selection] loading selection=["elli","/companions/sample.vrm","none",null,"none"]
+ 🎮 [wardrobe-selection] cancelled selection=["elli","/companions/elli-wardrobe-identity-preserved-v1.vrm","sleeveless-dress",{"id":"sleeveless-dress","tint":"#ffffff"},"none"]
+ 🎮 [wardrobe-selection] loading selection=["elli","/companions/elli-wardrobe-identity-preserved-v1.vrm","sleeveless-dress",{"id":"sleeveless-dress","tint":"#ffffff"},"none"]
+[VRM] Full capability audit
+Expressions available: [aa, angry, blink, blinkLeft, blinkRight, ee, happy, ih, lookDown, lookLeft, lookRight, lookUp, neutral, oh, ou, relaxed, sad, surprised]
+Humanoid bones: [chest, head, hips, leftEye, leftFoot, leftHand, leftIndexDistal, leftIndexIntermediate, leftIndexProximal, leftLittleDistal, leftLittleIntermediate, leftLittleProximal, leftLowerArm, leftLowerLeg, leftMiddleDistal, leftMiddleIntermediate, leftMiddleProximal, leftRingDistal, leftRingIntermediate, leftRingProximal, leftShoulder, leftThumbDistal, leftThumbMetacarpal, leftThumbProximal, leftToes, leftUpperArm, leftUpperLeg, neck, rightEye, rightFoot, rightHand, rightIndexDistal, rightIndexIntermediate, rightIndexProximal, rightLittleDistal, rightLittleIntermediate, rightLittleProximal, rightLowerArm, rightLowerLeg, rightMiddleDistal, rightMiddleIntermediate, rightMiddleProximal, rightRingDistal, rightRingIntermediate, rightRingProximal, rightShoulder, rightThumbDistal, rightThumbMetacarpal, rightThumbProximal, rightToes, rightUpperArm, rightUpperLeg, spine, upperChest]
+VRM version: 1
+Has expressionManager: true
+Has humanoid: true
+Has springBoneManager: true
+console.groupEnd
+ 🎮 [companion-wardrobe-lab] avatar_bind_pose captured bones=154
+🎮 [CompanionMotor] [animation-fetch] [start] name="idle" url=http://127.0.0.1:5197/animations/idle.fbx
+ 🎮 [wardrobe-compatibility-lab] source_loaded result=settled case=elli-prepared-identity slot=elli
+ 🎮 [wardrobe-identity-lab] preview_settled result=ready companion=elli model=/companions/sample.vrm
 [VRM] Full capability audit
 Expressions available: [aa, angry, blink, blinkLeft, blinkRight, ee, happy, ih, lookDown, lookLeft, lookRight, lookUp, neutral, oh, ou, relaxed, sad, surprised]
 Humanoid bones: [chest, head, hips, leftEye, leftFoot, leftHand, leftIndexDistal, leftIndexIntermediate, leftIndexProximal, leftLittleDistal, leftLittleIntermediate, leftLittleProximal, leftLowerArm, leftLowerLeg, leftMiddleDistal, leftMiddleIntermediate, leftMiddleProximal, leftRingDistal, leftRingIntermediate, leftRingProximal, leftShoulder, leftThumbDistal, leftThumbMetacarpal, leftThumbProximal, leftToes, leftUpperArm, leftUpperLeg, neck, rightEye, rightFoot, rightHand, rightIndexDistal, rightIndexIntermediate, rightIndexProximal, rightLittleDistal, rightLittleIntermediate, rightLittleProximal, rightLowerArm, rightLowerLeg, rightMiddleDistal, rightMiddleIntermediate, rightMiddleProximal, rightRingDistal, rightRingIntermediate, rightRingProximal, rightShoulder, rightThumbDistal, rightThumbMetacarpal, rightThumbProximal, rightToes, rightUpperArm, rightUpperLeg, spine, upperChest]
@@ -152,25 +149,35 @@ Has expressionManager: true
 Has humanoid: true
 Has springBoneManager: true
 console.groupEnd
- 🎮 [wardrobe-prepared] attached companion=elli outfit=sleeveless-dress sha256=0dedb0c6d77737dcdeb5c38251c1cd5a4823464ad1fb2b1f2324e65189eb87ae
+[VRM] Full capability audit
+Expressions available: [aa, angry, blink, blinkLeft, blinkRight, ee, happy, ih, lookDown, lookLeft, lookRight, lookUp, neutral, oh, ou, relaxed, sad, surprised]
+Humanoid bones: [chest, head, hips, leftEye, leftFoot, leftHand, leftIndexDistal, leftIndexIntermediate, leftIndexProximal, leftLittleDistal, leftLittleIntermediate, leftLittleProximal, leftLowerArm, leftLowerLeg, leftMiddleDistal, leftMiddleIntermediate, leftMiddleProximal, leftRingDistal, leftRingIntermediate, leftRingProximal, leftShoulder, leftThumbDistal, leftThumbMetacarpal, leftThumbProximal, leftToes, leftUpperArm, leftUpperLeg, neck, rightEye, rightFoot, rightHand, rightIndexDistal, rightIndexIntermediate, rightIndexProximal, rightLittleDistal, rightLittleIntermediate, rightLittleProximal, rightLowerArm, rightLowerLeg, rightMiddleDistal, rightMiddleIntermediate, rightMiddleProximal, rightRingDistal, rightRingIntermediate, rightRingProximal, rightShoulder, rightThumbDistal, rightThumbMetacarpal, rightThumbProximal, rightToes, rightUpperArm, rightUpperLeg, spine, upperChest]
+VRM version: 1
+Has expressionManager: true
+Has humanoid: true
+Has springBoneManager: true
+console.groupEnd
+ 🎮 [wardrobe-prepared] attached companion=elli outfit=sleeveless-dress sha256=502b060b4751b46e9e72c8bfb629f9551f1def71a04258871eddc8901db9054c
  🎮 [companion-wardrobe-lab] base_clothing visibility=false materials=4
+ 🎮 [wardrobe-physics] attached outfit=sleeveless-dress colliders=3 hair_springs=39
  🎮 [companion-wardrobe-lab] base_clothing visibility=true materials=4
  🎮 [companion-wardrobe-lab] base_clothing visibility=false materials=4
- 🎮 [wardrobe-compatibility-lab] model_loaded result=settled case=elli-store-reference slot=elli
- 🎮 [wardrobe-identity-lab] preview_settled result=ready companion=elli identity=base
+ 🎮 [wardrobe-compatibility-lab] model_loaded result=settled case=elli-prepared-identity slot=elli
+ 🎮 [wardrobe-identity-lab] preview_settled result=ready companion=elli model=/companions/elli-wardrobe-identity-preserved-v1.vrm
 🎮 [CompanionMotor] [animation-fetch] [ok] name="idle" retargetedTracks=53
 🎮 [CompanionMotor] [animation-fetch] [ok] name="idle" retargetedTracks=53
 🎮 [CompanionMotor] [animate] [play] "idle" tracks=53 loop=true
 🎮 [CompanionMotor] [animate] [play] "idle" tracks=53 loop=true
- 🎮 [wardrobe-selection] cancelled selection=["elli","/companions/sample.vrm",null,"none",null,"none"]
- 🎮 [wardrobe-selection] cancelled selection=["elli","/companions/elli-wardrobe-identity-preserved-v1.vrm",null,"sleeveless-dress",{"id":"sleeveless-dress","tint":"#ffffff"},"none"]
- 🎮 [wardrobe-selection] loading selection=["matilda","/companions/673852811403133503.vrm",null,"none",null,"none"]
- 🎮 [wardrobe-selection] loading selection=["matilda","/companions/matilda-wardrobe-identity-preserved-v4.vrm",null,"sleeveless-dress",{"id":"sleeveless-dress","tint":"#ffffff"},"none"]
+ 🎮 [wardrobe-selection] cancelled selection=["elli","/companions/sample.vrm","none",null,"none"]
+ 🎮 [wardrobe-selection] cancelled selection=["elli","/companions/elli-wardrobe-identity-preserved-v1.vrm","sleeveless-dress",{"id":"sleeveless-dress","tint":"#ffffff"},"none"]
+ 🎮 [wardrobe-physics] removed outfit=sleeveless-dress
+ 🎮 [wardrobe-selection] loading selection=["matilda","/companions/673852811403133503.vrm","none",null,"none"]
+ 🎮 [wardrobe-selection] loading selection=["matilda","/companions/matilda-wardrobe-native-identity-v1.vrm","sleeveless-dress",{"id":"sleeveless-dress","tint":"#ffffff"},"none"]
  🎮 [wardrobe-certification-lab] preview_selected result=candidate companion=matilda item=sleeveless-dress template=ribbon-dress
- 🎮 [wardrobe-selection] cancelled selection=["matilda","/companions/673852811403133503.vrm",null,"none",null,"none"]
- 🎮 [wardrobe-selection] loading selection=["matilda","/companions/673852811403133503.vrm",null,"none",null,"none"]
- 🎮 [wardrobe-selection] cancelled selection=["matilda","/companions/matilda-wardrobe-identity-preserved-v4.vrm",null,"sleeveless-dress",{"id":"sleeveless-dress","tint":"#ffffff"},"none"]
- 🎮 [wardrobe-selection] loading selection=["matilda","/companions/matilda-wardrobe-identity-preserved-v4.vrm",null,"sleeveless-dress",{"id":"sleeveless-dress","tint":"#ffffff"},"none"]
+ 🎮 [wardrobe-selection] cancelled selection=["matilda","/companions/673852811403133503.vrm","none",null,"none"]
+ 🎮 [wardrobe-selection] loading selection=["matilda","/companions/673852811403133503.vrm","none",null,"none"]
+ 🎮 [wardrobe-selection] cancelled selection=["matilda","/companions/matilda-wardrobe-native-identity-v1.vrm","sleeveless-dress",{"id":"sleeveless-dress","tint":"#ffffff"},"none"]
+ 🎮 [wardrobe-selection] loading selection=["matilda","/companions/matilda-wardrobe-native-identity-v1.vrm","sleeveless-dress",{"id":"sleeveless-dress","tint":"#ffffff"},"none"]
 Failed to load resource: net::ERR_FAILED
 CompanionShowroom: failed to load VRM — TypeError: Failed to fetch
     at FileLoader.load (http://127.0.0.1:5197/node_modules/.vite/deps/three.core-f0FOnQUR.js?v=30d26fa7:30484:3)
@@ -179,9 +186,9 @@ CompanionShowroom: failed to load VRM — TypeError: Failed to fetch
     at new Promise (<anonymous>)
     at GLTFLoader.loadAsync (http://127.0.0.1:5197/node_modules/.vite/deps/three.core-f0FOnQUR.js?v=30d26fa7:30289:10)
     at loadCompanionVrm (http://127.0.0.1:5197/src/utils/loadCompanionVrm.ts:18:28)
-    at finishSetup (http://127.0.0.1:5197/src/components/CompanionShowroom.tsx:2346:4)
-    at http://127.0.0.1:5197/src/components/CompanionShowroom.tsx:2505:4
-    at http://127.0.0.1:5197/src/components/CompanionShowroom.tsx:2506:5
+    at finishSetup (http://127.0.0.1:5197/src/components/CompanionShowroom.tsx?t=1788726191563:2282:4)
+    at http://127.0.0.1:5197/src/components/CompanionShowroom.tsx?t=1788726191563:2391:4
+    at http://127.0.0.1:5197/src/components/CompanionShowroom.tsx?t=1788726191563:2392:5
     at Object.react_stack_bottom_frame (http://127.0.0.1:5197/node_modules/.vite/deps/react-dom_client.js?v=30d26fa7:12904:13)
 CompanionShowroom: failed to load VRM — TypeError: Failed to fetch
     at FileLoader.load (http://127.0.0.1:5197/node_modules/.vite/deps/three.core-f0FOnQUR.js?v=30d26fa7:30484:3)
@@ -190,29 +197,21 @@ CompanionShowroom: failed to load VRM — TypeError: Failed to fetch
     at new Promise (<anonymous>)
     at GLTFLoader.loadAsync (http://127.0.0.1:5197/node_modules/.vite/deps/three.core-f0FOnQUR.js?v=30d26fa7:30289:10)
     at loadCompanionVrm (http://127.0.0.1:5197/src/utils/loadCompanionVrm.ts:18:28)
-    at finishSetup (http://127.0.0.1:5197/src/components/CompanionShowroom.tsx:2346:4)
-    at http://127.0.0.1:5197/src/components/CompanionShowroom.tsx:2505:4
-    at http://127.0.0.1:5197/src/components/CompanionShowroom.tsx:2506:5
+    at finishSetup (http://127.0.0.1:5197/src/components/CompanionShowroom.tsx?t=1788726191563:2282:4)
+    at http://127.0.0.1:5197/src/components/CompanionShowroom.tsx?t=1788726191563:2391:4
+    at http://127.0.0.1:5197/src/components/CompanionShowroom.tsx?t=1788726191563:2392:5
     at Object.react_stack_bottom_frame (http://127.0.0.1:5197/node_modules/.vite/deps/react-dom_client.js?v=30d26fa7:12904:13)
- 🎮 [wardrobe-compatibility-lab] model_loaded result=settled case=matilda-standard-body-identity slot=matilda
- 🎮 [wardrobe-identity-lab] preview_settled result=failed companion=matilda identity=base
-[VRM] Full capability audit
-Expressions available: [neutral, aa, ih, ou, ee, oh, blink, blinkLeft, blinkRight, angry, relaxed, happy, sad, Surprised]
-Humanoid bones: [hips, leftUpperLeg, rightUpperLeg, leftLowerLeg, rightLowerLeg, leftFoot, rightFoot, spine, chest, neck, head, leftShoulder, rightShoulder, leftUpperArm, rightUpperArm, leftLowerArm, rightLowerArm, leftHand, rightHand, leftToes, rightToes, leftEye, rightEye, leftThumbMetacarpal, leftThumbProximal, leftThumbDistal, leftIndexProximal, leftIndexIntermediate, leftIndexDistal, leftMiddleProximal, leftMiddleIntermediate, leftMiddleDistal, leftRingProximal, leftRingIntermediate, leftRingDistal, leftLittleProximal, leftLittleIntermediate, leftLittleDistal, rightThumbMetacarpal, rightThumbProximal, rightThumbDistal, rightIndexProximal, rightIndexIntermediate, rightIndexDistal, rightMiddleProximal, rightMiddleIntermediate, rightMiddleDistal, rightRingProximal, rightRingIntermediate, rightRingDistal, rightLittleProximal, rightLittleIntermediate, rightLittleDistal, upperChest]
-VRM version: 0
-Has expressionManager: true
-Has humanoid: true
-Has springBoneManager: true
-console.groupEnd
- 🎮 [wardrobe-selection] cancelled selection=["matilda","/companions/673852811403133503.vrm",null,"none",null,"none"]
- 🎮 [wardrobe-selection] cancelled selection=["matilda","/companions/matilda-wardrobe-identity-preserved-v4.vrm",null,"sleeveless-dress",{"id":"sleeveless-dress","tint":"#ffffff"},"none"]
- 🎮 [wardrobe-selection] loading selection=["elli","/companions/sample.vrm",null,"none",null,"none"]
- 🎮 [wardrobe-selection] loading selection=["elli","/companions/elli-wardrobe-identity-preserved-v1.vrm",null,"sleeveless-dress",{"id":"sleeveless-dress","tint":"#ffffff"},"none"]
+ 🎮 [wardrobe-compatibility-lab] model_loaded result=settled case=matilda-prepared-identity slot=matilda
+ 🎮 [wardrobe-identity-lab] preview_settled result=failed companion=matilda model=/companions/matilda-wardrobe-native-identity-v1.vrm
+ 🎮 [wardrobe-selection] cancelled selection=["matilda","/companions/673852811403133503.vrm","none",null,"none"]
+ 🎮 [wardrobe-selection] cancelled selection=["matilda","/companions/matilda-wardrobe-native-identity-v1.vrm","sleeveless-dress",{"id":"sleeveless-dress","tint":"#ffffff"},"none"]
+ 🎮 [wardrobe-selection] loading selection=["elli","/companions/sample.vrm","none",null,"none"]
+ 🎮 [wardrobe-selection] loading selection=["elli","/companions/elli-wardrobe-identity-preserved-v1.vrm","sleeveless-dress",{"id":"sleeveless-dress","tint":"#ffffff"},"none"]
  🎮 [wardrobe-certification-lab] preview_selected result=candidate companion=elli item=sleeveless-dress template=ribbon-dress
- 🎮 [wardrobe-selection] cancelled selection=["elli","/companions/sample.vrm",null,"none",null,"none"]
- 🎮 [wardrobe-selection] loading selection=["elli","/companions/sample.vrm",null,"none",null,"none"]
- 🎮 [wardrobe-selection] cancelled selection=["elli","/companions/elli-wardrobe-identity-preserved-v1.vrm",null,"sleeveless-dress",{"id":"sleeveless-dress","tint":"#ffffff"},"none"]
- 🎮 [wardrobe-selection] loading selection=["elli","/companions/elli-wardrobe-identity-preserved-v1.vrm",null,"sleeveless-dress",{"id":"sleeveless-dress","tint":"#ffffff"},"none"]
+ 🎮 [wardrobe-selection] cancelled selection=["elli","/companions/sample.vrm","none",null,"none"]
+ 🎮 [wardrobe-selection] loading selection=["elli","/companions/sample.vrm","none",null,"none"]
+ 🎮 [wardrobe-selection] cancelled selection=["elli","/companions/elli-wardrobe-identity-preserved-v1.vrm","sleeveless-dress",{"id":"sleeveless-dress","tint":"#ffffff"},"none"]
+ 🎮 [wardrobe-selection] loading selection=["elli","/companions/elli-wardrobe-identity-preserved-v1.vrm","sleeveless-dress",{"id":"sleeveless-dress","tint":"#ffffff"},"none"]
 [VRM] Full capability audit
 Expressions available: [neutral, aa, ih, ou, ee, oh, blink, blinkLeft, blinkRight, angry, relaxed, happy, sad, Surprised]
 Humanoid bones: [hips, leftUpperLeg, rightUpperLeg, leftLowerLeg, rightLowerLeg, leftFoot, rightFoot, spine, chest, neck, head, leftShoulder, rightShoulder, leftUpperArm, rightUpperArm, leftLowerArm, rightLowerArm, leftHand, rightHand, leftToes, rightToes, leftEye, rightEye, leftThumbMetacarpal, leftThumbProximal, leftThumbDistal, leftIndexProximal, leftIndexIntermediate, leftIndexDistal, leftMiddleProximal, leftMiddleIntermediate, leftMiddleDistal, leftRingProximal, leftRingIntermediate, leftRingDistal, leftLittleProximal, leftLittleIntermediate, leftLittleDistal, rightThumbMetacarpal, rightThumbProximal, rightThumbDistal, rightIndexProximal, rightIndexIntermediate, rightIndexDistal, rightMiddleProximal, rightMiddleIntermediate, rightMiddleDistal, rightRingProximal, rightRingIntermediate, rightRingDistal, rightLittleProximal, rightLittleIntermediate, rightLittleDistal, upperChest]
@@ -222,6 +221,34 @@ Has humanoid: true
 Has springBoneManager: true
 console.groupEnd
 [VRM] Full capability audit
+Expressions available: [neutral, aa, ih, ou, ee, oh, blink, blinkLeft, blinkRight, angry, relaxed, happy, sad, Surprised]
+Humanoid bones: [hips, leftUpperLeg, rightUpperLeg, leftLowerLeg, rightLowerLeg, leftFoot, rightFoot, spine, chest, neck, head, leftShoulder, rightShoulder, leftUpperArm, rightUpperArm, leftLowerArm, rightLowerArm, leftHand, rightHand, leftToes, rightToes, leftEye, rightEye, leftThumbMetacarpal, leftThumbProximal, leftThumbDistal, leftIndexProximal, leftIndexIntermediate, leftIndexDistal, leftMiddleProximal, leftMiddleIntermediate, leftMiddleDistal, leftRingProximal, leftRingIntermediate, leftRingDistal, leftLittleProximal, leftLittleIntermediate, leftLittleDistal, rightThumbMetacarpal, rightThumbProximal, rightThumbDistal, rightIndexProximal, rightIndexIntermediate, rightIndexDistal, rightMiddleProximal, rightMiddleIntermediate, rightMiddleDistal, rightRingProximal, rightRingIntermediate, rightRingDistal, rightLittleProximal, rightLittleIntermediate, rightLittleDistal, upperChest]
+VRM version: 0
+Has expressionManager: true
+Has humanoid: true
+Has springBoneManager: true
+console.groupEnd
+[VRM] Full capability audit
+Expressions available: [aa, angry, blink, blinkLeft, blinkRight, ee, happy, ih, lookDown, lookLeft, lookRight, lookUp, neutral, oh, ou, relaxed, sad, surprised]
+Humanoid bones: [chest, head, hips, leftEye, leftFoot, leftHand, leftIndexDistal, leftIndexIntermediate, leftIndexProximal, leftLittleDistal, leftLittleIntermediate, leftLittleProximal, leftLowerArm, leftLowerLeg, leftMiddleDistal, leftMiddleIntermediate, leftMiddleProximal, leftRingDistal, leftRingIntermediate, leftRingProximal, leftShoulder, leftThumbDistal, leftThumbMetacarpal, leftThumbProximal, leftToes, leftUpperArm, leftUpperLeg, neck, rightEye, rightFoot, rightHand, rightIndexDistal, rightIndexIntermediate, rightIndexProximal, rightLittleDistal, rightLittleIntermediate, rightLittleProximal, rightLowerArm, rightLowerLeg, rightMiddleDistal, rightMiddleIntermediate, rightMiddleProximal, rightRingDistal, rightRingIntermediate, rightRingProximal, rightShoulder, rightThumbDistal, rightThumbMetacarpal, rightThumbProximal, rightToes, rightUpperArm, rightUpperLeg, spine, upperChest]
+VRM version: 1
+Has expressionManager: true
+Has humanoid: true
+Has springBoneManager: true
+console.groupEnd
+ 🎮 [companion-wardrobe-lab] avatar_bind_pose captured bones=154
+🎮 [CompanionMotor] [animation-fetch] [start] name="idle" url=http://127.0.0.1:5197/animations/idle.fbx
+ 🎮 [wardrobe-compatibility-lab] source_loaded result=settled case=elli-prepared-identity slot=elli
+ 🎮 [wardrobe-identity-lab] preview_settled result=ready companion=elli model=/companions/sample.vrm
+[VRM] Full capability audit
+Expressions available: [aa, angry, blink, blinkLeft, blinkRight, ee, happy, ih, lookDown, lookLeft, lookRight, lookUp, neutral, oh, ou, relaxed, sad, surprised]
+Humanoid bones: [chest, head, hips, leftEye, leftFoot, leftHand, leftIndexDistal, leftIndexIntermediate, leftIndexProximal, leftLittleDistal, leftLittleIntermediate, leftLittleProximal, leftLowerArm, leftLowerLeg, leftMiddleDistal, leftMiddleIntermediate, leftMiddleProximal, leftRingDistal, leftRingIntermediate, leftRingProximal, leftShoulder, leftThumbDistal, leftThumbMetacarpal, leftThumbProximal, leftToes, leftUpperArm, leftUpperLeg, neck, rightEye, rightFoot, rightHand, rightIndexDistal, rightIndexIntermediate, rightIndexProximal, rightLittleDistal, rightLittleIntermediate, rightLittleProximal, rightLowerArm, rightLowerLeg, rightMiddleDistal, rightMiddleIntermediate, rightMiddleProximal, rightRingDistal, rightRingIntermediate, rightRingProximal, rightShoulder, rightThumbDistal, rightThumbMetacarpal, rightThumbProximal, rightToes, rightUpperArm, rightUpperLeg, spine, upperChest]
+VRM version: 1
+Has expressionManager: true
+Has humanoid: true
+Has springBoneManager: true
+console.groupEnd
+[VRM] Full capability audit
 Expressions available: [aa, angry, blink, blinkLeft, blinkRight, ee, happy, ih, lookDown, lookLeft, lookRight, lookUp, neutral, oh, ou, relaxed, sad, surprised]
 Humanoid bones: [chest, head, hips, leftEye, leftFoot, leftHand, leftIndexDistal, leftIndexIntermediate, leftIndexProximal, leftLittleDistal, leftLittleIntermediate, leftLittleProximal, leftLowerArm, leftLowerLeg, leftMiddleDistal, leftMiddleIntermediate, leftMiddleProximal, leftRingDistal, leftRingIntermediate, leftRingProximal, leftShoulder, leftThumbDistal, leftThumbMetacarpal, leftThumbProximal, leftToes, leftUpperArm, leftUpperLeg, neck, rightEye, rightFoot, rightHand, rightIndexDistal, rightIndexIntermediate, rightIndexProximal, rightLittleDistal, rightLittleIntermediate, rightLittleProximal, rightLowerArm, rightLowerLeg, rightMiddleDistal, rightMiddleIntermediate, rightMiddleProximal, rightRingDistal, rightRingIntermediate, rightRingProximal, rightShoulder, rightThumbDistal, rightThumbMetacarpal, rightThumbProximal, rightToes, rightUpperArm, rightUpperLeg, spine, upperChest]
 VRM version: 1
@@ -240,40 +267,22 @@ console.groupEnd
  🎮 [companion-wardrobe-lab] avatar_bind_pose captured bones=154
 🎮 [CompanionMotor] [animation-fetch] [start] name="idle" url=http://127.0.0.1:5197/animations/idle.fbx
  🎮 [wardrobe-compatibility-lab] candidate_preview allowed outfit=sleeveless-dress model=/companions/elli-wardrobe-identity-preserved-v1.vrm
-[VRM] Full capability audit
-Expressions available: [aa, angry, blink, blinkLeft, blinkRight, ee, happy, ih, lookDown, lookLeft, lookRight, lookUp, neutral, oh, ou, relaxed, sad, surprised]
-Humanoid bones: [chest, head, hips, leftEye, leftFoot, leftHand, leftIndexDistal, leftIndexIntermediate, leftIndexProximal, leftLittleDistal, leftLittleIntermediate, leftLittleProximal, leftLowerArm, leftLowerLeg, leftMiddleDistal, leftMiddleIntermediate, leftMiddleProximal, leftRingDistal, leftRingIntermediate, leftRingProximal, leftShoulder, leftThumbDistal, leftThumbMetacarpal, leftThumbProximal, leftToes, leftUpperArm, leftUpperLeg, neck, rightEye, rightFoot, rightHand, rightIndexDistal, rightIndexIntermediate, rightIndexProximal, rightLittleDistal, rightLittleIntermediate, rightLittleProximal, rightLowerArm, rightLowerLeg, rightMiddleDistal, rightMiddleIntermediate, rightMiddleProximal, rightRingDistal, rightRingIntermediate, rightRingProximal, rightShoulder, rightThumbDistal, rightThumbMetacarpal, rightThumbProximal, rightToes, rightUpperArm, rightUpperLeg, spine, upperChest]
-VRM version: 1
-Has expressionManager: true
-Has humanoid: true
-Has springBoneManager: true
-console.groupEnd
-[VRM] Full capability audit
-Expressions available: [aa, angry, blink, blinkLeft, blinkRight, ee, happy, ih, lookDown, lookLeft, lookRight, lookUp, neutral, oh, ou, relaxed, sad, surprised]
-Humanoid bones: [chest, head, hips, leftEye, leftFoot, leftHand, leftIndexDistal, leftIndexIntermediate, leftIndexProximal, leftLittleDistal, leftLittleIntermediate, leftLittleProximal, leftLowerArm, leftLowerLeg, leftMiddleDistal, leftMiddleIntermediate, leftMiddleProximal, leftRingDistal, leftRingIntermediate, leftRingProximal, leftShoulder, leftThumbDistal, leftThumbMetacarpal, leftThumbProximal, leftToes, leftUpperArm, leftUpperLeg, neck, rightEye, rightFoot, rightHand, rightIndexDistal, rightIndexIntermediate, rightIndexProximal, rightLittleDistal, rightLittleIntermediate, rightLittleProximal, rightLowerArm, rightLowerLeg, rightMiddleDistal, rightMiddleIntermediate, rightMiddleProximal, rightRingDistal, rightRingIntermediate, rightRingProximal, rightShoulder, rightThumbDistal, rightThumbMetacarpal, rightThumbProximal, rightToes, rightUpperArm, rightUpperLeg, spine, upperChest]
-VRM version: 1
-Has expressionManager: true
-Has humanoid: true
-Has springBoneManager: true
-console.groupEnd
- 🎮 [companion-wardrobe-lab] avatar_bind_pose captured bones=154
-🎮 [CompanionMotor] [animation-fetch] [start] name="idle" url=http://127.0.0.1:5197/animations/idle.fbx
- 🎮 [wardrobe-compatibility-lab] source_loaded result=settled case=elli-store-reference slot=elli
- 🎮 [wardrobe-identity-lab] preview_settled result=ready companion=elli identity=base
- 🎮 [wardrobe-prepared] attached companion=elli outfit=sleeveless-dress sha256=0dedb0c6d77737dcdeb5c38251c1cd5a4823464ad1fb2b1f2324e65189eb87ae
+ 🎮 [wardrobe-prepared] attached companion=elli outfit=sleeveless-dress sha256=502b060b4751b46e9e72c8bfb629f9551f1def71a04258871eddc8901db9054c
  🎮 [companion-wardrobe-lab] base_clothing visibility=false materials=4
+ 🎮 [wardrobe-physics] attached outfit=sleeveless-dress colliders=3 hair_springs=39
  🎮 [companion-wardrobe-lab] base_clothing visibility=true materials=4
  🎮 [companion-wardrobe-lab] base_clothing visibility=false materials=4
- 🎮 [wardrobe-compatibility-lab] model_loaded result=settled case=elli-store-reference slot=elli
- 🎮 [wardrobe-identity-lab] preview_settled result=ready companion=elli identity=base
+ 🎮 [wardrobe-compatibility-lab] model_loaded result=settled case=elli-prepared-identity slot=elli
+ 🎮 [wardrobe-identity-lab] preview_settled result=ready companion=elli model=/companions/elli-wardrobe-identity-preserved-v1.vrm
 🎮 [CompanionMotor] [animation-fetch] [ok] name="idle" retargetedTracks=53
 🎮 [CompanionMotor] [animation-fetch] [ok] name="idle" retargetedTracks=53
 🎮 [CompanionMotor] [animate] [play] "idle" tracks=53 loop=true
 🎮 [CompanionMotor] [animate] [play] "idle" tracks=53 loop=true
- 🎮 [wardrobe-selection] cancelled selection=["elli","/companions/sample.vrm",null,"none",null,"none"]
- 🎮 [wardrobe-selection] cancelled selection=["elli","/companions/elli-wardrobe-identity-preserved-v1.vrm",null,"sleeveless-dress",{"id":"sleeveless-dress","tint":"#ffffff"},"none"]
- 🎮 [wardrobe-selection] loading selection=["elli","/companions/sample.vrm",null,"none",null,"none"]
- 🎮 [wardrobe-selection] loading selection=["elli","/companions/elli-wardrobe-identity-preserved-v1.vrm",null,"sleeveless-dress",{"id":"sleeveless-dress","tint":"#ffffff"},"crown"]
+ 🎮 [wardrobe-selection] cancelled selection=["elli","/companions/sample.vrm","none",null,"none"]
+ 🎮 [wardrobe-selection] cancelled selection=["elli","/companions/elli-wardrobe-identity-preserved-v1.vrm","sleeveless-dress",{"id":"sleeveless-dress","tint":"#ffffff"},"none"]
+ 🎮 [wardrobe-physics] removed outfit=sleeveless-dress
+ 🎮 [wardrobe-selection] loading selection=["elli","/companions/sample.vrm","none",null,"none"]
+ 🎮 [wardrobe-selection] loading selection=["elli","/companions/elli-wardrobe-identity-preserved-v1.vrm","sleeveless-dress",{"id":"sleeveless-dress","tint":"#ffffff"},"crown"]
  🎮 [wardrobe-certification-lab] preview_selected result=candidate companion=elli item=sleeveless-dress template=ribbon-dress
 [VRM] Full capability audit
 Expressions available: [aa, angry, blink, blinkLeft, blinkRight, ee, happy, ih, lookDown, lookLeft, lookRight, lookUp, neutral, oh, ou, relaxed, sad, surprised]
@@ -285,8 +294,8 @@ Has springBoneManager: true
 console.groupEnd
  🎮 [companion-wardrobe-lab] avatar_bind_pose captured bones=154
 🎮 [CompanionMotor] [animation-fetch] [start] name="idle" url=http://127.0.0.1:5197/animations/idle.fbx
- 🎮 [wardrobe-compatibility-lab] source_loaded result=settled case=elli-store-reference slot=elli
- 🎮 [wardrobe-identity-lab] preview_settled result=ready companion=elli identity=base
+ 🎮 [wardrobe-compatibility-lab] source_loaded result=settled case=elli-prepared-identity slot=elli
+ 🎮 [wardrobe-identity-lab] preview_settled result=ready companion=elli model=/companions/sample.vrm
 [VRM] Full capability audit
 Expressions available: [aa, angry, blink, blinkLeft, blinkRight, ee, happy, ih, lookDown, lookLeft, lookRight, lookUp, neutral, oh, ou, relaxed, sad, surprised]
 Humanoid bones: [chest, head, hips, leftEye, leftFoot, leftHand, leftIndexDistal, leftIndexIntermediate, leftIndexProximal, leftLittleDistal, leftLittleIntermediate, leftLittleProximal, leftLowerArm, leftLowerLeg, leftMiddleDistal, leftMiddleIntermediate, leftMiddleProximal, leftRingDistal, leftRingIntermediate, leftRingProximal, leftShoulder, leftThumbDistal, leftThumbMetacarpal, leftThumbProximal, leftToes, leftUpperArm, leftUpperLeg, neck, rightEye, rightFoot, rightHand, rightIndexDistal, rightIndexIntermediate, rightIndexProximal, rightLittleDistal, rightLittleIntermediate, rightLittleProximal, rightLowerArm, rightLowerLeg, rightMiddleDistal, rightMiddleIntermediate, rightMiddleProximal, rightRingDistal, rightRingIntermediate, rightRingProximal, rightShoulder, rightThumbDistal, rightThumbMetacarpal, rightThumbProximal, rightToes, rightUpperArm, rightUpperLeg, spine, upperChest]
@@ -297,22 +306,24 @@ Has springBoneManager: true
 console.groupEnd
  🎮 [companion-wardrobe-lab] avatar_bind_pose captured bones=154
 🎮 [CompanionMotor] [animation-fetch] [start] name="idle" url=http://127.0.0.1:5197/animations/idle.fbx
- 🎮 [wardrobe-accessory] fit companion=elli accessory=crown body=6d9698c8fb9e9b41826612cd5fa3dcdde3339e9c0ee7c91368d94430044f8dec
+ 🎮 [wardrobe-accessory] fit companion=elli accessory=crown body=1bc1f48717b2c4b3b97800b92148df1ab30fa83d035516f777098143afdfc03e
  🎮 [wardrobe-compatibility-lab] candidate_preview allowed outfit=sleeveless-dress model=/companions/elli-wardrobe-identity-preserved-v1.vrm
- 🎮 [wardrobe-prepared] attached companion=elli outfit=sleeveless-dress sha256=0dedb0c6d77737dcdeb5c38251c1cd5a4823464ad1fb2b1f2324e65189eb87ae
+ 🎮 [wardrobe-prepared] attached companion=elli outfit=sleeveless-dress sha256=502b060b4751b46e9e72c8bfb629f9551f1def71a04258871eddc8901db9054c
  🎮 [companion-wardrobe-lab] base_clothing visibility=false materials=4
+ 🎮 [wardrobe-physics] attached outfit=sleeveless-dress colliders=3 hair_springs=39
  🎮 [companion-wardrobe-lab] base_clothing visibility=true materials=4
  🎮 [companion-wardrobe-lab] base_clothing visibility=false materials=4
- 🎮 [wardrobe-compatibility-lab] model_loaded result=settled case=elli-store-reference slot=elli
- 🎮 [wardrobe-identity-lab] preview_settled result=ready companion=elli identity=base
+ 🎮 [wardrobe-compatibility-lab] model_loaded result=settled case=elli-prepared-identity slot=elli
+ 🎮 [wardrobe-identity-lab] preview_settled result=ready companion=elli model=/companions/elli-wardrobe-identity-preserved-v1.vrm
 🎮 [CompanionMotor] [animation-fetch] [ok] name="idle" retargetedTracks=53
 🎮 [CompanionMotor] [animation-fetch] [ok] name="idle" retargetedTracks=53
 🎮 [CompanionMotor] [animate] [play] "idle" tracks=53 loop=true
 🎮 [CompanionMotor] [animate] [play] "idle" tracks=53 loop=true
- 🎮 [wardrobe-selection] cancelled selection=["elli","/companions/sample.vrm",null,"none",null,"none"]
- 🎮 [wardrobe-selection] cancelled selection=["elli","/companions/elli-wardrobe-identity-preserved-v1.vrm",null,"sleeveless-dress",{"id":"sleeveless-dress","tint":"#ffffff"},"crown"]
- 🎮 [wardrobe-selection] loading selection=["elli","/companions/sample.vrm",null,"none",null,"none"]
- 🎮 [wardrobe-selection] loading selection=["elli","/companions/elli-wardrobe-identity-preserved-v1.vrm",null,"sleeveless-dress",{"id":"sleeveless-dress","tint":"#ffffff"},"cat-ears"]
+ 🎮 [wardrobe-selection] cancelled selection=["elli","/companions/sample.vrm","none",null,"none"]
+ 🎮 [wardrobe-selection] cancelled selection=["elli","/companions/elli-wardrobe-identity-preserved-v1.vrm","sleeveless-dress",{"id":"sleeveless-dress","tint":"#ffffff"},"crown"]
+ 🎮 [wardrobe-physics] removed outfit=sleeveless-dress
+ 🎮 [wardrobe-selection] loading selection=["elli","/companions/sample.vrm","none",null,"none"]
+ 🎮 [wardrobe-selection] loading selection=["elli","/companions/elli-wardrobe-identity-preserved-v1.vrm","sleeveless-dress",{"id":"sleeveless-dress","tint":"#ffffff"},"cat-ears"]
  🎮 [wardrobe-certification-lab] preview_selected result=candidate companion=elli item=sleeveless-dress template=ribbon-dress
 [VRM] Full capability audit
 Expressions available: [aa, angry, blink, blinkLeft, blinkRight, ee, happy, ih, lookDown, lookLeft, lookRight, lookUp, neutral, oh, ou, relaxed, sad, surprised]
@@ -324,7 +335,7 @@ Has springBoneManager: true
 console.groupEnd
  🎮 [companion-wardrobe-lab] avatar_bind_pose captured bones=154
 🎮 [CompanionMotor] [animation-fetch] [start] name="idle" url=http://127.0.0.1:5197/animations/idle.fbx
- 🎮 [wardrobe-accessory] fit companion=elli accessory=cat-ears body=6d9698c8fb9e9b41826612cd5fa3dcdde3339e9c0ee7c91368d94430044f8dec
+ 🎮 [wardrobe-accessory] fit companion=elli accessory=cat-ears body=1bc1f48717b2c4b3b97800b92148df1ab30fa83d035516f777098143afdfc03e
  🎮 [wardrobe-compatibility-lab] candidate_preview allowed outfit=sleeveless-dress model=/companions/elli-wardrobe-identity-preserved-v1.vrm
 [VRM] Full capability audit
 Expressions available: [aa, angry, blink, blinkLeft, blinkRight, ee, happy, ih, lookDown, lookLeft, lookRight, lookUp, neutral, oh, ou, relaxed, sad, surprised]
@@ -336,22 +347,24 @@ Has springBoneManager: true
 console.groupEnd
  🎮 [companion-wardrobe-lab] avatar_bind_pose captured bones=154
 🎮 [CompanionMotor] [animation-fetch] [start] name="idle" url=http://127.0.0.1:5197/animations/idle.fbx
- 🎮 [wardrobe-compatibility-lab] source_loaded result=settled case=elli-store-reference slot=elli
- 🎮 [wardrobe-identity-lab] preview_settled result=ready companion=elli identity=base
- 🎮 [wardrobe-prepared] attached companion=elli outfit=sleeveless-dress sha256=0dedb0c6d77737dcdeb5c38251c1cd5a4823464ad1fb2b1f2324e65189eb87ae
+ 🎮 [wardrobe-compatibility-lab] source_loaded result=settled case=elli-prepared-identity slot=elli
+ 🎮 [wardrobe-identity-lab] preview_settled result=ready companion=elli model=/companions/sample.vrm
+ 🎮 [wardrobe-prepared] attached companion=elli outfit=sleeveless-dress sha256=502b060b4751b46e9e72c8bfb629f9551f1def71a04258871eddc8901db9054c
  🎮 [companion-wardrobe-lab] base_clothing visibility=false materials=4
+ 🎮 [wardrobe-physics] attached outfit=sleeveless-dress colliders=3 hair_springs=39
  🎮 [companion-wardrobe-lab] base_clothing visibility=true materials=4
  🎮 [companion-wardrobe-lab] base_clothing visibility=false materials=4
- 🎮 [wardrobe-compatibility-lab] model_loaded result=settled case=elli-store-reference slot=elli
- 🎮 [wardrobe-identity-lab] preview_settled result=ready companion=elli identity=base
+ 🎮 [wardrobe-compatibility-lab] model_loaded result=settled case=elli-prepared-identity slot=elli
+ 🎮 [wardrobe-identity-lab] preview_settled result=ready companion=elli model=/companions/elli-wardrobe-identity-preserved-v1.vrm
 🎮 [CompanionMotor] [animation-fetch] [ok] name="idle" retargetedTracks=53
 🎮 [CompanionMotor] [animation-fetch] [ok] name="idle" retargetedTracks=53
 🎮 [CompanionMotor] [animate] [play] "idle" tracks=53 loop=true
 🎮 [CompanionMotor] [animate] [play] "idle" tracks=53 loop=true
- 🎮 [wardrobe-selection] cancelled selection=["elli","/companions/sample.vrm",null,"none",null,"none"]
- 🎮 [wardrobe-selection] cancelled selection=["elli","/companions/elli-wardrobe-identity-preserved-v1.vrm",null,"sleeveless-dress",{"id":"sleeveless-dress","tint":"#ffffff"},"cat-ears"]
- 🎮 [wardrobe-selection] loading selection=["elli","/companions/sample.vrm",null,"none",null,"none"]
- 🎮 [wardrobe-selection] loading selection=["elli","/companions/elli-wardrobe-identity-preserved-v1.vrm",null,"sleeveless-dress",{"id":"sleeveless-dress","tint":"#ffffff"},"none"]
+ 🎮 [wardrobe-selection] cancelled selection=["elli","/companions/sample.vrm","none",null,"none"]
+ 🎮 [wardrobe-selection] cancelled selection=["elli","/companions/elli-wardrobe-identity-preserved-v1.vrm","sleeveless-dress",{"id":"sleeveless-dress","tint":"#ffffff"},"cat-ears"]
+ 🎮 [wardrobe-physics] removed outfit=sleeveless-dress
+ 🎮 [wardrobe-selection] loading selection=["elli","/companions/sample.vrm","none",null,"none"]
+ 🎮 [wardrobe-selection] loading selection=["elli","/companions/elli-wardrobe-identity-preserved-v1.vrm","sleeveless-dress",{"id":"sleeveless-dress","tint":"#ffffff"},"none"]
  🎮 [wardrobe-certification-lab] preview_selected result=candidate companion=elli item=sleeveless-dress template=ribbon-dress
 [VRM] Full capability audit
 Expressions available: [aa, angry, blink, blinkLeft, blinkRight, ee, happy, ih, lookDown, lookLeft, lookRight, lookUp, neutral, oh, ou, relaxed, sad, surprised]
@@ -363,7 +376,8 @@ Has springBoneManager: true
 console.groupEnd
  🎮 [companion-wardrobe-lab] avatar_bind_pose captured bones=154
 🎮 [CompanionMotor] [animation-fetch] [start] name="idle" url=http://127.0.0.1:5197/animations/idle.fbx
- 🎮 [wardrobe-compatibility-lab] candidate_preview allowed outfit=sleeveless-dress model=/companions/elli-wardrobe-identity-preserved-v1.vrm
+ 🎮 [wardrobe-compatibility-lab] source_loaded result=settled case=elli-prepared-identity slot=elli
+ 🎮 [wardrobe-identity-lab] preview_settled result=ready companion=elli model=/companions/sample.vrm
 [VRM] Full capability audit
 Expressions available: [aa, angry, blink, blinkLeft, blinkRight, ee, happy, ih, lookDown, lookLeft, lookRight, lookUp, neutral, oh, ou, relaxed, sad, surprised]
 Humanoid bones: [chest, head, hips, leftEye, leftFoot, leftHand, leftIndexDistal, leftIndexIntermediate, leftIndexProximal, leftLittleDistal, leftLittleIntermediate, leftLittleProximal, leftLowerArm, leftLowerLeg, leftMiddleDistal, leftMiddleIntermediate, leftMiddleProximal, leftRingDistal, leftRingIntermediate, leftRingProximal, leftShoulder, leftThumbDistal, leftThumbMetacarpal, leftThumbProximal, leftToes, leftUpperArm, leftUpperLeg, neck, rightEye, rightFoot, rightHand, rightIndexDistal, rightIndexIntermediate, rightIndexProximal, rightLittleDistal, rightLittleIntermediate, rightLittleProximal, rightLowerArm, rightLowerLeg, rightMiddleDistal, rightMiddleIntermediate, rightMiddleProximal, rightRingDistal, rightRingIntermediate, rightRingProximal, rightShoulder, rightThumbDistal, rightThumbMetacarpal, rightThumbProximal, rightToes, rightUpperArm, rightUpperLeg, spine, upperChest]
@@ -374,22 +388,23 @@ Has springBoneManager: true
 console.groupEnd
  🎮 [companion-wardrobe-lab] avatar_bind_pose captured bones=154
 🎮 [CompanionMotor] [animation-fetch] [start] name="idle" url=http://127.0.0.1:5197/animations/idle.fbx
- 🎮 [wardrobe-compatibility-lab] source_loaded result=settled case=elli-store-reference slot=elli
- 🎮 [wardrobe-identity-lab] preview_settled result=ready companion=elli identity=base
- 🎮 [wardrobe-prepared] attached companion=elli outfit=sleeveless-dress sha256=0dedb0c6d77737dcdeb5c38251c1cd5a4823464ad1fb2b1f2324e65189eb87ae
+ 🎮 [wardrobe-compatibility-lab] candidate_preview allowed outfit=sleeveless-dress model=/companions/elli-wardrobe-identity-preserved-v1.vrm
+ 🎮 [wardrobe-prepared] attached companion=elli outfit=sleeveless-dress sha256=502b060b4751b46e9e72c8bfb629f9551f1def71a04258871eddc8901db9054c
  🎮 [companion-wardrobe-lab] base_clothing visibility=false materials=4
+ 🎮 [wardrobe-physics] attached outfit=sleeveless-dress colliders=3 hair_springs=39
  🎮 [companion-wardrobe-lab] base_clothing visibility=true materials=4
  🎮 [companion-wardrobe-lab] base_clothing visibility=false materials=4
- 🎮 [wardrobe-compatibility-lab] model_loaded result=settled case=elli-store-reference slot=elli
- 🎮 [wardrobe-identity-lab] preview_settled result=ready companion=elli identity=base
+ 🎮 [wardrobe-compatibility-lab] model_loaded result=settled case=elli-prepared-identity slot=elli
+ 🎮 [wardrobe-identity-lab] preview_settled result=ready companion=elli model=/companions/elli-wardrobe-identity-preserved-v1.vrm
 🎮 [CompanionMotor] [animation-fetch] [ok] name="idle" retargetedTracks=53
 🎮 [CompanionMotor] [animation-fetch] [ok] name="idle" retargetedTracks=53
 🎮 [CompanionMotor] [animate] [play] "idle" tracks=53 loop=true
 🎮 [CompanionMotor] [animate] [play] "idle" tracks=53 loop=true
- 🎮 [wardrobe-selection] cancelled selection=["elli","/companions/sample.vrm",null,"none",null,"none"]
- 🎮 [wardrobe-selection] cancelled selection=["elli","/companions/elli-wardrobe-identity-preserved-v1.vrm",null,"sleeveless-dress",{"id":"sleeveless-dress","tint":"#ffffff"},"none"]
- 🎮 [wardrobe-selection] loading selection=["elli","/companions/sample.vrm",null,"none",null,"none"]
- 🎮 [wardrobe-selection] loading selection=["elli","/companions/elli-wardrobe-identity-preserved-v1.vrm",null,"sleeveless-dress",{"id":"teal-ribbon-dress","tint":"#64ffd2"},"none"]
+ 🎮 [wardrobe-selection] cancelled selection=["elli","/companions/sample.vrm","none",null,"none"]
+ 🎮 [wardrobe-selection] cancelled selection=["elli","/companions/elli-wardrobe-identity-preserved-v1.vrm","sleeveless-dress",{"id":"sleeveless-dress","tint":"#ffffff"},"none"]
+ 🎮 [wardrobe-physics] removed outfit=sleeveless-dress
+ 🎮 [wardrobe-selection] loading selection=["elli","/companions/sample.vrm","none",null,"none"]
+ 🎮 [wardrobe-selection] loading selection=["elli","/companions/elli-wardrobe-identity-preserved-v1.vrm","sleeveless-dress",{"id":"teal-ribbon-dress","tint":"#64ffd2"},"none"]
  🎮 [wardrobe-certification-lab] preview_selected result=candidate companion=elli item=teal-ribbon-dress template=ribbon-dress
 [VRM] Full capability audit
 Expressions available: [aa, angry, blink, blinkLeft, blinkRight, ee, happy, ih, lookDown, lookLeft, lookRight, lookUp, neutral, oh, ou, relaxed, sad, surprised]
@@ -401,8 +416,8 @@ Has springBoneManager: true
 console.groupEnd
  🎮 [companion-wardrobe-lab] avatar_bind_pose captured bones=154
 🎮 [CompanionMotor] [animation-fetch] [start] name="idle" url=http://127.0.0.1:5197/animations/idle.fbx
- 🎮 [wardrobe-compatibility-lab] source_loaded result=settled case=elli-store-reference slot=elli
- 🎮 [wardrobe-identity-lab] preview_settled result=ready companion=elli identity=base
+ 🎮 [wardrobe-compatibility-lab] source_loaded result=settled case=elli-prepared-identity slot=elli
+ 🎮 [wardrobe-identity-lab] preview_settled result=ready companion=elli model=/companions/sample.vrm
 [VRM] Full capability audit
 Expressions available: [aa, angry, blink, blinkLeft, blinkRight, ee, happy, ih, lookDown, lookLeft, lookRight, lookUp, neutral, oh, ou, relaxed, sad, surprised]
 Humanoid bones: [chest, head, hips, leftEye, leftFoot, leftHand, leftIndexDistal, leftIndexIntermediate, leftIndexProximal, leftLittleDistal, leftLittleIntermediate, leftLittleProximal, leftLowerArm, leftLowerLeg, leftMiddleDistal, leftMiddleIntermediate, leftMiddleProximal, leftRingDistal, leftRingIntermediate, leftRingProximal, leftShoulder, leftThumbDistal, leftThumbMetacarpal, leftThumbProximal, leftToes, leftUpperArm, leftUpperLeg, neck, rightEye, rightFoot, rightHand, rightIndexDistal, rightIndexIntermediate, rightIndexProximal, rightLittleDistal, rightLittleIntermediate, rightLittleProximal, rightLowerArm, rightLowerLeg, rightMiddleDistal, rightMiddleIntermediate, rightMiddleProximal, rightRingDistal, rightRingIntermediate, rightRingProximal, rightShoulder, rightThumbDistal, rightThumbMetacarpal, rightThumbProximal, rightToes, rightUpperArm, rightUpperLeg, spine, upperChest]
@@ -414,12 +429,13 @@ console.groupEnd
  🎮 [companion-wardrobe-lab] avatar_bind_pose captured bones=154
 🎮 [CompanionMotor] [animation-fetch] [start] name="idle" url=http://127.0.0.1:5197/animations/idle.fbx
  🎮 [wardrobe-compatibility-lab] candidate_preview allowed outfit=sleeveless-dress model=/companions/elli-wardrobe-identity-preserved-v1.vrm
- 🎮 [wardrobe-prepared] attached companion=elli outfit=sleeveless-dress sha256=0dedb0c6d77737dcdeb5c38251c1cd5a4823464ad1fb2b1f2324e65189eb87ae
+ 🎮 [wardrobe-prepared] attached companion=elli outfit=sleeveless-dress sha256=502b060b4751b46e9e72c8bfb629f9551f1def71a04258871eddc8901db9054c
  🎮 [companion-wardrobe-lab] base_clothing visibility=false materials=4
+ 🎮 [wardrobe-physics] attached outfit=sleeveless-dress colliders=3 hair_springs=39
  🎮 [companion-wardrobe-lab] base_clothing visibility=true materials=4
  🎮 [companion-wardrobe-lab] base_clothing visibility=false materials=4
- 🎮 [wardrobe-compatibility-lab] model_loaded result=settled case=elli-store-reference slot=elli
- 🎮 [wardrobe-identity-lab] preview_settled result=ready companion=elli identity=base
+ 🎮 [wardrobe-compatibility-lab] model_loaded result=settled case=elli-prepared-identity slot=elli
+ 🎮 [wardrobe-identity-lab] preview_settled result=ready companion=elli model=/companions/elli-wardrobe-identity-preserved-v1.vrm
 🎮 [CompanionMotor] [animation-fetch] [ok] name="idle" retargetedTracks=53
 🎮 [CompanionMotor] [animation-fetch] [ok] name="idle" retargetedTracks=53
 🎮 [CompanionMotor] [animate] [play] "idle" tracks=53 loop=true

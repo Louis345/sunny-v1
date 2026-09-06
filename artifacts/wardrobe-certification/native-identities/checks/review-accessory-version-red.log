@@ -1,0 +1,48 @@
+(node:40399) [DEP0174] DeprecationWarning: Calling promisify on a function that returns a Promise is likely a mistake.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+
+> web@0.0.0 test
+> vitest run "--run" "src/tests/wardrobe-review-readiness.test.ts"
+
+
+ RUN  v3.2.4 /Users/jamaltaylor/.codex/worktrees/wardrobe-identity/sunny/web
+
+ ❯ src/tests/wardrobe-review-readiness.test.ts (15 tests | 1 failed) 7ms
+   ✓ requires an explicit complete current engineering record before human review 1ms
+   ✓ invalidates human-review readiness after body changes 0ms
+   ✓ invalidates human-review readiness after recipe changes 0ms
+   ✓ invalidates human-review readiness after presentation changes 0ms
+   ✓ invalidates human-review readiness after fit changes 0ms
+   ✓ invalidates human-review readiness after source changes 0ms
+   ✓ invalidates human-review readiness after missing-garment changes 0ms
+   ✓ invalidates human-review readiness after missing-view changes 0ms
+   ✓ invalidates human-review readiness after visual-failure changes 0ms
+   ✓ invalidates human-review readiness after automated-failure changes 0ms
+   ✓ requires supplemental milestone coverage: back 0ms
+   ✓ requires supplemental milestone coverage: blink 0ms
+   ✓ requires supplemental milestone coverage: accessory 0ms
+   ✓ requires supplemental milestone coverage: color 0ms
+   × invalidates review after an accessory-only fit revision without changing body or garment hashes 5ms
+     → expected true to be false // Object.is equality
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/tests/wardrobe-review-readiness.test.ts > invalidates review after an accessory-only fit revision without changing body or garment hashes
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ src/tests/wardrobe-review-readiness.test.ts:29:227
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 14 passed (15)
+   Start at  15:51:24
+   Duration  820ms (transform 43ms, setup 92ms, collect 40ms, tests 7ms, environment 343ms, prepare 37ms)

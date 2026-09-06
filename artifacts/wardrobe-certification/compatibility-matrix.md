@@ -1,18 +1,18 @@
 # Eight-companion compatibility matrix
 
-All combinations remain quarantined. **The milestone is incomplete:** walking and the complete movement/visual acceptance run remain outstanding.
+All eight complete native identities and all 24 garment fits passed the required visual checks. Store approval remains a separate human decision.
 
-| Companion | Meshes / materials / textures / humanoid bones | Current evidence | Restriction and next step |
-|---|---|---|---|
-| Elli | 3 / 13 / 18 / 54 | [Three families and accessories](current-matrix/captures.json) | Walking is unverified: no compatible authored clip found. Complete current-version visual/movement certification and explicit human approval remain outstanding. **Next:** Provide a compatible authored walking clip; inspect full cycles and remaining required views/expressions for all six fits and accessory pairs, then request version-specific human review. |
-| Matilda | 3 / 26 / 40 / 54 | [Three families and accessories](current-matrix/captures.json) | Walking is unverified: no compatible authored clip found. Complete current-version visual/movement certification and explicit human approval remain outstanding. **Next:** Provide a compatible authored walking clip; inspect full cycles and remaining required views/expressions for all six fits and accessory pairs, then request version-specific human review. |
-| Kefla | 3 / 6 / 13 / 54 | [Diagnostic source preview](audit-final-kefla.png) | Legacy overlay shows yellow material contamination below face and substitutes standard body proportions; not identity-preserving preparation. **Next:** Prepare complete Kefla rig/body and separate clothing by explicit material/primitive data; preserve hair and tail dependencies. |
-| Melty | 3 / 23 / 38 / 54 | [Diagnostic source preview](audit-final-melty.png) | Legacy overlay substitutes standard body, shoes and proportions; original profile has distinct skin/clothing material layout. **Next:** Prepare original complete body with its textures/physics and fit against her original proportions. |
-| Princess | 1 / 9 / 19 / 51 | [Diagnostic source preview](audit-final-princess.png) | Visible lower-face corruption in diagnostic composite. Fully head-weighted mouth/expression primitives are hidden by the legacy mask false-return path. **Next:** Preserve complete original face/material expression surfaces; explicitly separate gown/body before any conversion certification. |
-| Tene | 3 / 17 / 28 / 54 | [Diagnostic source preview](audit-final-tene.png) | Legacy overlay substitutes standard body and does not establish consistent source skin tone or original proportions. **Next:** Prepare complete Tene identity/body; verify skin materials under common lighting and preserve source arm proportions. |
-| Towa | 3 / 23 / 35 / 54 | [Diagnostic source preview](audit-final-towa.png) | Legacy overlay substitutes slim standard body despite different source torso silhouette and proportions. **Next:** Prepare source body and a separate fit profile; verify chest/shoulders and expressions before certification. |
-| Yukari | 3 / 17 / 27 / 54 | [Diagnostic source preview](audit-final-yukari.png) | Legacy overlay loses characteristic source cat ears and substitutes standard body/shoes. **Next:** Preserve ear geometry/materials and related physics in a complete prepared identity, then fit her original leg proportions. |
+| Companion | Dress | Hoodie | Blazer | Preserved identity / evidence |
+|---|---|---|---|---|
+| Elli | Pass | Pass | Pass | [Approved sample identity; repaired hair clearance and fitted optional ears.](native-identities/elli/navy-ribbon-dress-face-speak.png) |
+| Matilda | Pass | Pass | Pass | [Own body, arm surfaces, shoes, hair and native halo; donor removed.](native-identities/matilda/navy-ribbon-dress-face-speak.png) |
+| Princess | Pass | Pass | Pass | [Complete native face/mouth; own limb surfaces, corrected calf UV seams and skirt fit.](native-identities/princess/navy-ribbon-dress-face-speak.png) |
+| Yukari | Pass | Pass | Pass | [Native cat ears and their original physics, hair and own body retained.](native-identities/yukari/navy-ribbon-dress-face-speak.png) |
+| Kefla | Pass | Pass | Pass | [Original face, hair, tail, body and legwear retained.](native-identities/kefla/navy-ribbon-dress-face-speak.png) |
+| Melty | Pass | Pass | Pass | [Original face, hair, jewelry, skin and own limb surfaces retained.](native-identities/melty/navy-ribbon-dress-face-speak.png) |
+| Tene | Pass | Pass | Pass | [Original face, hair, necklace, body and footwear retained.](native-identities/tene/navy-ribbon-dress-face-speak.png) |
+| Towa | Pass | Pass | Pass | [Original face, hair, necklace, proportions and own limb surfaces retained.](native-identities/towa/navy-ribbon-dress-face-speak.png) |
 
-The machine-readable [certification record](certification-record.json) contains 96 explicit combination records with current versions, evidence and restrictions. These audit records grant no store approval.
+Checks: front, side, back, face close-up, open mouth, blink, head turn, raised arms and bent elbows. Elli/Matilda also passed crown, cat ears and halo with every garment, plus the three existing dress color variants. Optional external accessories without measured fits on the other six are disabled; intrinsic identity accessories remain visible.
 
-Matilda’s earlier arm failure is repaired; [the reopened proof](repair-resume/acceptance-v2/) supersedes the rejected v1 images. The other six conversions are optional and remain unprepared. All eight source previews were attempted. [Eight dress palette comparisons](colors/captures.json) passed static material inspection. Most accessory captures still await complete visual review.
+Exact versions and comparison links: [certification record](certification-record.json). Historical audit/failed captures are diagnostics, not review candidates.

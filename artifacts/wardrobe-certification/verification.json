@@ -1,9 +1,19 @@
 {
-  "status": "blocked-incomplete",
+  "status": "ready-for-human-review",
   "build": {
-    "command": "npm run build",
     "result": "passed",
-    "log": "repair-resume/final-build.log"
+    "log": "native-identities/checks/build-summary.txt"
+  },
+  "webSuite": {
+    "result": "passed",
+    "files": 112,
+    "tests": 944,
+    "log": "native-identities/checks/web-test-summary.txt"
+  },
+  "rootRelevant": {
+    "result": "passed",
+    "tests": 17,
+    "log": "native-identities/checks/native-root-relevant.log"
   },
   "fullTest": {
     "command": "npm test",
@@ -12,61 +22,60 @@
     "rootFilesFailed": 5,
     "rootTestsPassed": 2782,
     "rootTestsFailed": 5,
-    "webPhase": "not run because root failed",
-    "log": "full-test-failures.txt",
-    "scope": "Failures in unchanged non-wardrobe paths; no learning fixes attempted."
-  },
-  "webSuite": {
-    "command": "npm --prefix web test",
-    "result": "passed",
-    "files": 109,
-    "tests": 864,
-    "log": "web-test-summary.txt"
+    "scope": "Same five unchanged non-wardrobe failures recorded at starting commit c303af6; learning paths not modified. Web suite run separately.",
+    "log": "native-identities/checks/full-test-failures.txt"
   },
   "browser": {
-    "audit": {
-      "command": "WARDROBE_STAGE=audit-final node scripts/verifyWardrobeRendering.mjs",
-      "result": "8 attempted previews; no incompatible-material errors",
-      "log": "audit-browser-run.log"
-    },
-    "matildaGate": {
-      "command": "node scripts/verifyWardrobeAcceptance.mjs",
-      "captureCount": 11,
-      "captureRun": "passed",
-      "visualGate": "captured blink/mouth/head/arm proof passed; walking unverified",
-      "log": "repair-resume/acceptance-v2/"
+    "nativeIdentities": {
+      "companions": 8,
+      "posesPerIdentity": 6,
+      "result": "passed",
+      "evidence": "native-identities/checks/native-runtime.json"
     },
     "switching": {
-      "command": "node scripts/verifyWardrobeSwitching.mjs",
+      "status": "passed",
+      "frames": 297,
+      "violations": [],
+      "checks": [
+        "slow archive stays hidden",
+        "switch discards previous companion",
+        "failed current model hidden with explicit unavailable state",
+        "accessory changes and removal",
+        "dress variant replacement",
+        "source pane with no replacement outfit"
+      ]
+    },
+    "elliHair": {
       "result": "passed",
-      "frames": 379,
-      "violations": 0,
-      "log": "switching-result.json"
+      "garments": 3,
+      "poses": [
+        "arms-up",
+        "head-turn"
+      ],
+      "samples": 4244,
+      "intersections": 0,
+      "log": "native-identities/checks/elli-hair-final-green.log"
     },
-    "accessoryMatrix": {
-      "captures": 72,
-      "agentReviewedSnapshots": 8,
-      "result": "rendered; exhaustive visual acceptance incomplete",
-      "evidence": "current-matrix/captures.json"
-    },
-    "dressColors": {
-      "captures": 8,
-      "result": "static material comparison passed; movement not certified",
-      "evidence": "colors/captures.json"
+    "elliEars": {
+      "result": "passed",
+      "samples": 18,
+      "intersections": 0,
+      "log": "native-identities/checks/elli-ear-face-green.log"
     }
   },
-  "assetVersionHashes": "Verified against current prepared files, fitting implementation and accessory implementation",
+  "visual": {
+    "result": "passed",
+    "companions": 8,
+    "garmentFits": 24,
+    "linkedComparisons": 224,
+    "walking": "not required for this milestone",
+    "record": "certification-record.json"
+  },
   "independentReview": "independent-review.md",
-  "sourceSandboxPatchSha256": "d76c268a76a8d5c3bf2f2073763d5ec3044599ef91d58dfa855db96f7471f087",
-  "sourceSandboxUnchanged": true,
-  "sourceContextTestFixtures": "Restored/removed only test-generated changes in isolated worktree after full npm test",
   "humanApproval": null,
   "merged": false,
   "deployed": false,
-  "reproducibility": {
-    "result": "passed",
-    "outputs": 6,
-    "check": "Regenerated final fitted manifest byte-identical with cmp; manifest pins all six output hashes.",
-    "log": "repair-resume/reproducibility.log"
-  }
+  "sourceCheckoutEdited": false,
+  "assetIntegrity": "native-identities/checks/asset-integrity.json",
+  "reproducibility": "native-identities/checks/reproducibility.json"
 }

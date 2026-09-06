@@ -1,0 +1,6 @@
+{
+  "result": "passed",
+  "preparedIdentities": 8,
+  "manifestAndVersionHashesUnchanged": true,
+  "check": "Regenerated all eight prepared assets; exact output hashes and source versions unchanged."
+}

@@ -1,0 +1,188 @@
+{
+  outfitId: 'sleeveless-dress',
+  pose: 'arms-up',
+  hairTips: [
+    [ -0.09574605911254104, 1.0652346974701532, 0.12230340213151203 ],
+    [ 0.09573681093169732, 1.065234329648272, 0.12230321547973683 ]
+  ],
+  tested: 794,
+  intersections: 536,
+  worst: [
+    {
+      vertex: 8021,
+      y: 1.2157497126692043,
+      penetration: 0.06887735672695865
+    },
+    {
+      vertex: 9191,
+      y: 1.215621306711675,
+      penetration: 0.06887697715138143
+    },
+    {
+      vertex: 8024,
+      y: 1.2068629184541086,
+      penetration: 0.06842927212302376
+    },
+    {
+      vertex: 9194,
+      y: 1.206741619420548,
+      penetration: 0.06839652971307286
+    },
+    {
+      vertex: 8027,
+      y: 1.1980193405580013,
+      penetration: 0.06802092009233913
+    }
+  ]
+}
+{
+  outfitId: 'sleeveless-dress',
+  pose: 'head-turn',
+  hairTips: [
+    [ -0.09574605911254104, 1.0652346974701532, 0.12230340213151203 ],
+    [ 0.09573681093169732, 1.065234329648272, 0.12230321547973683 ]
+  ],
+  tested: 803,
+  intersections: 503,
+  worst: [
+    {
+      vertex: 9162,
+      y: 1.2946379755535204,
+      penetration: 0.08145315607236378
+    },
+    {
+      vertex: 9358,
+      y: 1.2946379755535204,
+      penetration: 0.08145315607236378
+    },
+    {
+      vertex: 9159,
+      y: 1.3033512138910572,
+      penetration: 0.07990031748203441
+    },
+    {
+      vertex: 9355,
+      y: 1.3033512138910572,
+      penetration: 0.07990031748203441
+    },
+    {
+      vertex: 9165,
+      y: 1.2862010670937887,
+      penetration: 0.07904686262594868
+    }
+  ]
+}
+{
+  outfitId: 'constellation-blazer',
+  pose: 'arms-up',
+  hairTips: [
+    [ -0.10875688343474726, 1.1029740698174806, 0.20589695236047523 ],
+    [ 0.11077223505543818, 1.1196038294724413, 0.22377679243066845 ]
+  ],
+  tested: 974,
+  intersections: 16,
+  worst: [
+    {
+      vertex: 9156,
+      y: 1.309587424555088,
+      penetration: 0.010176568682920467
+    },
+    {
+      vertex: 9352,
+      y: 1.309587424555088,
+      penetration: 0.010176568682920467
+    },
+    {
+      vertex: 9159,
+      y: 1.3023256758299646,
+      penetration: 0.009314436330221013
+    },
+    {
+      vertex: 9355,
+      y: 1.3023256758299646,
+      penetration: 0.009314436330221013
+    },
+    {
+      vertex: 9162,
+      y: 1.2953795150978897,
+      penetration: 0.007895278417752685
+    }
+  ]
+}
+{
+  outfitId: 'constellation-blazer',
+  pose: 'head-turn',
+  hairTips: [
+    [ -0.10875688343474726, 1.1029740698174806, 0.20589695236047523 ],
+    [ 0.11077223505543818, 1.1196038294724413, 0.22377679243066845 ]
+  ],
+  tested: 555,
+  intersections: 267,
+  worst: [
+    {
+      vertex: 9165,
+      y: 1.297635803417668,
+      penetration: 0.08698251281203218
+    },
+    {
+      vertex: 9361,
+      y: 1.297635803417668,
+      penetration: 0.08698251281203218
+    },
+    {
+      vertex: 9162,
+      y: 1.3050782043849052,
+      penetration: 0.0863180926119152
+    },
+    {
+      vertex: 9358,
+      y: 1.3050782043849052,
+      penetration: 0.0863180926119152
+    },
+    {
+      vertex: 9167,
+      y: 1.2935413459390244,
+      penetration: 0.08487691163804043
+    }
+  ]
+}
+{
+  outfitId: 'comet-hoodie',
+  pose: 'arms-up',
+  hairTips: [
+    [ -0.09440979457706226, 1.1062930149688042, 0.21637690649358543 ],
+    [ 0.09394969370350109, 1.1110968292388241, 0.22578642454281744 ]
+  ],
+  tested: 922,
+  intersections: 0,
+  worst: []
+}
+{
+  outfitId: 'comet-hoodie',
+  pose: 'head-turn',
+  hairTips: [
+    [ -0.09440979457706226, 1.1062930149688042, 0.21637690649358543 ],
+    [ 0.09394969370350109, 1.1110968292388241, 0.22578642454281744 ]
+  ],
+  tested: 471,
+  intersections: 0,
+  worst: []
+}
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: Front hair must not disappear inside the posed garment
+
+536 !== 0
+
+    at file:///Users/jamaltaylor/.codex/worktrees/wardrobe-identity/sunny/scripts/verifyElliHairClearance.mjs:21:331 {
+  generatedMessage: false,
+  code: 'ERR_ASSERTION',
+  actual: 536,
+  expected: 0,
+  operator: 'strictEqual',
+  diff: 'simple'
+}
+
+Node.js v24.19.0

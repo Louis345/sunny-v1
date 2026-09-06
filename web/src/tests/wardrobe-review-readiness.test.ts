@@ -27,3 +27,10 @@ it.each(['body','recipe','presentation','fit','source','missing-garment','missin
 it.each(['back','blink','accessory','color'])('requires supplemental milestone coverage: %s',kind=>{const r=verified();if(kind==='back')r.garments[0].evidence=r.garments[0].evidence.filter(e=>e.check!=='back:idle');else r.supplemental=r.supplemental.filter(e=>kind==='blink'?e.check!=='face:blink':kind==='accessory'?e.check!=='comet-hoodie:crown':e.check!=='teal-ribbon-dress');expect(isWardrobeReadyForHumanReview(body.companionId,[r])).toBe(false);});
 
 it('invalidates review after an accessory-only fit revision without changing body or garment hashes',()=>{const r=verified();r.accessoryVersions.crown='previous-fit';expect(isWardrobeReadyForHumanReview(body.companionId,[r])).toBe(false);});
+
+import records from '../lib/wardrobeEngineeringReview.json';
+import {existsSync} from 'node:fs';
+it('delivers current verified evidence files for every native companion and garment',()=>{
+ expect(records).toHaveLength(bodies.length);
+ for(const body of bodies){expect(isWardrobeReadyForHumanReview(body.companionId),body.companionId).toBe(true);const r=records.find(r=>r.companionId===body.companionId)!;for(const e of [...r.supplemental,...r.garments.flatMap(g=>g.evidence)])expect(existsSync(`../${e.path}`),e.path).toBe(true);}
+});

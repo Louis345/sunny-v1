@@ -1,0 +1,66 @@
+(node:39049) [DEP0174] DeprecationWarning: Calling promisify on a function that returns a Promise is likely a mistake.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+
+> web@0.0.0 test
+> vitest run "--run" "src/tests/wardrobe-native-identities.test.ts"
+
+
+ RUN  v3.2.4 /Users/jamaltaylor/.codex/worktrees/wardrobe-identity/sunny/web
+
+stdout | src/tests/wardrobe-native-identities.test.ts > captures native skeleton bones through explicit humanoid aliases without renaming the rig
+ 🎮 [companion-wardrobe-lab] avatar_bind_pose captured bones=2
+
+ ❯ src/tests/wardrobe-native-identities.test.ts (37 tests | 1 failed) 2390ms
+   ✓ prepares Princess with her complete expression surfaces and native skeleton 23ms
+   ✓ captures native skeleton bones through explicit humanoid aliases without renaming the rig 1ms
+   ✓ fills Princess covered limb gaps from her own source geometry without a donor 17ms
+   ✓ never classifies Princess head or neck identity triangles as clothing 8ms
+   ✓ fits Princess retained skirt below outerwear without changing identity attributes 18ms
+   ✓ gives native limb patches outward winding and normals derived from their actual geometry 23ms
+   ✓ prepares Yukari without removing her intrinsic cat ears or their physics 79ms
+   ✓ restores Yukari own masked skin without borrowing or replacing geometry or textures 76ms
+   ✓ repairs both removed Yukari upper-arm sections using her own boundary rings and rig 1ms
+   ✓ keeps repaired Yukari endpoints coincident with the original forearm under elbow rotation 78ms
+   ✓ preserves kefla native identity without an overlay or donor body 59ms
+   ✓ preserves melty native identity without an overlay or donor body 97ms
+   ✓ preserves tene native identity without an overlay or donor body 62ms
+   ✓ preserves towa native identity without an overlay or donor body 99ms
+   ✓ preserves matilda native identity without an overlay or donor body 82ms
+   ✓ keeps Kefla tail geometry even though it shares the clothing material 31ms
+   ✓ fills Melty hidden shoulder gaps from her own upper-arm boundaries 112ms
+   ✓ keeps Melty skirt beneath outerwear and preserves her native limb decorations 0ms
+   ✓ binds every garment collider and hair selection to existing native nodes 34ms
+   ✓ fits Melty upper skirt inside the hoodie hem while retaining her native skirt surfaces 96ms
+   ✓ fits Tene retained skirt inside outerwear while keeping her original jewelry 66ms
+   ✓ retains Tene complete native arm bracelets as well as her neck and wrist jewelry 56ms
+   ✓ samples visible native skin for Towa repaired arms instead of the black sleeve mask 82ms
+   ✓ keeps Towa original forearm seams outside the removed sleeve texture mask 95ms
+   ✓ bridges both Matilda arm boundaries with her own positions and complete original skin weights  919ms
+   ✓ provides Matilda hoodie clearance for her front hair without attaching halo ornaments to clothing 0ms
+   ✓ rejects malformed native patch source-radius before emitting corrupt geometry 16ms
+   ✓ rejects malformed native patch ring-radius before emitting corrupt geometry 15ms
+   ✓ rejects malformed native patch center before emitting corrupt geometry 15ms
+   ✓ rejects malformed native patch uv before emitting corrupt geometry 17ms
+   ✓ rejects malformed native patch source-uv before emitting corrupt geometry 18ms
+   ✓ rejects malformed native patch vertices before emitting corrupt geometry 34ms
+   ✓ uses exposed native skin UVs on Princess legs instead of the baked gown shadow 0ms
+   ✓ keeps Elli long hair on native springs with outerwear clearance 0ms
+   ✓ samples inside Princess native leg skin island without stretching its dark atlas border 16ms
+   ✓ repairs the whole exposed Princess calf UV island without a boundary texture seam 18ms
+   × keeps Princess retained skirt outside her native upper thighs under the blazer 23ms
+     → skirt clearance -0.1/1.06: expected -0.0019666253246213294 to be greater than or equal to 0.002
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/tests/wardrobe-native-identities.test.ts > keeps Princess retained skirt outside her native upper thighs under the blazer
+AssertionError: skirt clearance -0.1/1.06: expected -0.0019666253246213294 to be greater than or equal to 0.002
+ ❯ src/tests/wardrobe-native-identities.test.ts:202:188
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 36 passed (37)
+   Start at  15:47:51
+   Duration  3.42s (transform 101ms, setup 105ms, collect 133ms, tests 2.39s, environment 556ms, prepare 49ms)

@@ -1,22 +1,23 @@
-# Independent readonly review
+# Independent readonly review — complete native identities
 
-Reviewer: separate agent `wardrobe_readonly_review`, 2026-09-05. Scope: changes since preservation baseline a063c76 and current diff, AGENTS.md Laws 1–7. No reviewer edits.
+Reviewer: `matilda_repair_review`, separate readonly agent, against AGENTS.md Laws 1–7 and the expanded eight-companion milestone. No reviewer edits, merges, deployments or store approvals.
 
-| Finding | Disposition |
-|---|---|
-| Garment skeleton/bone-texture leak | Fixed. Removal now disposes the skeleton. Red test allocated a real skeleton texture and saw no disposal; green verifies exactly one disposal and null texture. |
-| Vacuous slow-load selector | Fixed. Browser checks require the actual Matilda prepared pane to exist before asserting hidden. |
-| Frame audit did not compare against requested selection | Fixed. Audit compares revealed companion, variant and accessory with current UI events, as well as ready state. |
-| Reverse-order delivery was not proven to occur | Fixed. Browser waits for the initial Elli request to enter its held route, renders Matilda first, then releases Elli and awaits its completed HTTP 200 response. |
-| Two tests asserted removed duplicate effects | Updated to the consolidated lifecycle; behavioral browser switching coverage is separate. Reviewer confirmed 30 relevant tests green. |
-| Pair-specific certification missing | Resolved on reopening: exact garment/accessory pair gate, equip and restore regression tests. |
-| Matilda fit-profile eligibility mismatch | Resolved: prepared activation uses exact certification; compatible body profile alone grants nothing. |
-| Offline fitted garments / complete visual matrix / walking | Offline fits and Matilda captured proof resolved. Walking and exhaustive visual acceptance remain incomplete. |
+## Findings resolved
 
-Reviewer recheck: disposal and expected-selection tests addressed; no scope creep into learning/math; diff whitespace clean. Final review allowed preservation as an **incomplete, quarantined handoff**, not milestone completion. The last requested request-hit/response-completion assertions were added and the browser run passed again. No merge or deployment.
+- Removed legacy overlay/face extraction and donor-body repair. All eight companions retain their own complete source identities and receive explicit clothing separation and fitted garments.
+- Corrected prepared-fit validation to cover all 24 current outputs. Repeated preparation and source/output fingerprints were checked.
+- Added back/blink evidence and Elli/Matilda accessory/color coverage to human-review readiness. Missing or stale body, recipe, presentation, garment or accessory versions invalidate readiness.
+- Reproduced the accessory-only approval bypass in memory. Changing the crown fit could previously leave an engineering record valid with unchanged body bytes. Exact accessory-version comparison and a failing-then-passing regression resolve this.
+- Inspected supplemental back/blink views for all six newly migrated companions. Princess calf seam duplicates and thigh/skirt intersections were found and repaired with exact vertex selection and measured skin/skirt clearance tests. All 15 final Princess garment/pose captures passed the recheck.
+- Rejected Elli’s excessive hoodie hair displacement, head-turn hair intersections, optional cat-ear seating, and dress/blazer strand interruptions. Native garment collision planes, measured accessory tilt/seating, and real-source mesh assertions repair these without editing native identity geometry. Final hoodie views, ear views, all 16 dress/blazer views and both cat-ear head turns passed the independent rechecks.
+- Reviewed collision cleanup, source spring preservation, intrinsic-accessory reuse, stale-load disposal, explicit loading failures, selection keys and coverage validation. No remaining blockers were identified in these reviewed paths.
 
-## Reopened milestone review
+## Verification
 
-Independent readonly reviewer `matilda_repair_review` checked the reopened changes against Laws 1–7. Findings about fitted-output approval hashes, invalid geometry groups, non-unit accessory scale, and failed-attachment cleanup were resolved with regression tests. Exact pair gating was rechecked with 12 targeted tests passing. The final review of commit `7d69f61` found no concrete blockers: prepared activation requires exact current certification, legacy behavior is preserved, and adding the body profile cannot bypass approval; all 12 targeted activation/certification tests passed. No reviewer files were edited.
+The implementing agent ran the complete web suite (112 files, 944 tests), build, 17 relevant root tests, all eight native runtime checks, six real-hair garment/pose cases (4,244 sampled vertices, zero penetration), and cat-ear surface checks (18 samples, zero penetration). The normal human-review lab passed 297 sampled switching frames with no stale-selection violations.
 
-This review certifies no visuals or human approval. Final build and all 864 web tests pass; full root tests retain five failures in unchanged paths. Walking and complete visual/movement evidence remain mandatory before engineering readiness.
+All 224 linked comparison files exist. Current records expose eight complete engineering candidates and confer no human store approval. Walking is outside the updated milestone.
+
+Full root `npm test` retains the same five failures documented at starting commit `c303af6`; they are in unchanged non-wardrobe paths. The web suite was run separately. These failures are recorded in `verification.json` and are not represented as a passing full suite. No learning-loop changes were made.
+
+Historical incomplete reviews are superseded for these delivered versions. The current visual checks support human review; explicit human approval remains separate.
