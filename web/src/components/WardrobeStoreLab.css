@@ -772,6 +772,18 @@
   padding-right: 3px;
 }
 
+.wardrobe-store-lab__empty-items {
+  align-self: center;
+  padding: 24px 16px;
+  border: 1px dashed rgba(75, 58, 82, 0.22);
+  border-radius: 15px;
+  color: #766d7c;
+  font-size: 12px;
+  font-weight: 750;
+  line-height: 1.45;
+  text-align: center;
+}
+
 .wardrobe-store-lab__items > button {
   width: 100%;
   min-height: 70px;

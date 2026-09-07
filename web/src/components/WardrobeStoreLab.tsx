@@ -979,7 +979,15 @@ export function WardrobeStoreLab({
           </div>
 
           <div className="wardrobe-store-lab__items">
-            {visibleItems.map((item) => {
+            {visibleItems.length === 0 ? (
+              <div
+                role="status"
+                aria-label="No approved items"
+                className="wardrobe-store-lab__empty-items"
+              >
+                No reviewed {filter === "all" ? "items" : filter} are ready for {companion.name} yet.
+              </div>
+            ) : visibleItems.map((item) => {
               const itemPriceLabel = priceLabel(item, storeState);
               return (
                 <button

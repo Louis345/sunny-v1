@@ -3,10 +3,33 @@ import { resolveWardrobeTemplateCertification, validateWardrobeCertification } f
 import { WARDROBE_STORE_CATALOG, getCompatibleWardrobeItems } from '../lib/wardrobeStore';
 
 describe('versioned wardrobe certification', () => {
-  it('quarantines migrated assets, including accessories previously labelled universal', () => {
-    for (const companion of ['elli','matilda']) {
-      expect(resolveWardrobeTemplateCertification(companion,'ribbon-dress').status).toBe('candidate');
-      expect(getCompatibleWardrobeItems(WARDROBE_STORE_CATALOG, bodies.find(body=>body.companionId===companion)!.modelUrl, companion)).toEqual([]);
+  it('publishes every human-reviewed garment family for every certified companion', () => {
+    for (const body of bodies) {
+      for (const templateId of ['ribbon-dress', 'comet-hoodie', 'constellation-blazer']) {
+        expect(
+          resolveWardrobeTemplateCertification(body.companionId, templateId, body.modelUrl),
+        ).toMatchObject({
+          status: 'approved',
+          humanReview: {
+            reviewedBy: 'Jamal Taylor',
+            reviewedAt: '2026-09-07',
+          },
+        });
+      }
+
+      const compatibleOutfitTemplates = new Set(
+        getCompatibleWardrobeItems(
+          WARDROBE_STORE_CATALOG,
+          body.modelUrl,
+          body.companionId,
+        )
+          .filter(item => item.asset.kind === 'outfit')
+          .map(item => item.templateId),
+      );
+
+      expect(compatibleOutfitTemplates).toEqual(
+        new Set(['ribbon-dress', 'comet-hoodie', 'constellation-blazer']),
+      );
     }
   });
   const current = {modelUrl:'/prepared.vrm', preparedSha256:'body-v1', assetVersion:'garment-v1', recipeVersion:'recipe-v1',fittedSha256:'exact-fit-v1'};

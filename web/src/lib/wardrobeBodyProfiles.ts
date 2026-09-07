@@ -2,6 +2,7 @@ import engineeringReviews from "./wardrobeEngineeringReview.json";
 import preparedAssets from "./wardrobePrepared.generated.json";
 import assetVersions from "./wardrobeAssetVersions.generated.json";
 import fittedAssets from "./wardrobeFitted.generated.json";
+import { WARDROBE_HUMAN_APPROVAL_BATCH } from "./wardrobeHumanApprovals";
 
 export type WardrobeBodyProfileId =
   | "sunny-standard-v1"
@@ -309,20 +310,33 @@ export function validateWardrobeCertification(
   return { ...record, status: "candidate", reason: "Current asset versions require a recorded human visual review." };
 }
 
-export const WARDROBE_TEMPLATE_CERTIFICATIONS: readonly WardrobeTemplateCertification[] = [
-  {
-    companionId: "elli",
-    templateId: "ribbon-dress",
-    status: "approved",
-    reason: "Human-reviewed reference fit on the Sunny standard body.",
-  },
-  {
-    companionId: "matilda",
-    templateId: "ribbon-dress",
-    status: "approved",
-    reason: "Human-reviewed identity composite on the Sunny standard body.",
-  },
-] as const;
+export const WARDROBE_TEMPLATE_CERTIFICATIONS: readonly WardrobeTemplateCertification[] =
+  Object.entries(WARDROBE_HUMAN_APPROVAL_BATCH.fits).flatMap(
+    ([companionId, approvedFits]) => {
+      const body = WARDROBE_HUMAN_APPROVAL_BATCH.bodies[
+        companionId as keyof typeof WARDROBE_HUMAN_APPROVAL_BATCH.bodies
+      ];
+      return Object.entries(approvedFits).map(([templateId, fit]) => ({
+        companionId,
+        templateId,
+        status: "approved" as const,
+        reason: "Human-reviewed in the native identity wardrobe certification lab.",
+        modelUrl: body.modelUrl,
+        preparedSha256: body.preparedSha256,
+        assetVersion:
+          WARDROBE_HUMAN_APPROVAL_BATCH.templates[
+            templateId as keyof typeof WARDROBE_HUMAN_APPROVAL_BATCH.templates
+          ],
+        recipeVersion: body.recipeVersion,
+        fittedSha256: fit.fittedSha256,
+        humanReview: {
+          reviewedBy: WARDROBE_HUMAN_APPROVAL_BATCH.reviewedBy,
+          reviewedAt: WARDROBE_HUMAN_APPROVAL_BATCH.reviewedAt,
+          evidence: [fit.evidence],
+        },
+      }));
+    },
+  );
 
 export function resolveWardrobeTemplateCertification(
   companionId: string,

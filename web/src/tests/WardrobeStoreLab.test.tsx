@@ -28,6 +28,27 @@ describe("WardrobeStoreLab shopping call", () => {
   beforeEach(() => window.localStorage.clear());
   afterEach(cleanup);
 
+  it("explains when a companion has no approved inventory", () => {
+    render(
+      <WardrobeStoreLab
+        companion={{
+          id: "future-companion",
+          name: "Future",
+          modelUrl: "/companions/not-certified.vrm",
+        }}
+        companionPreview={<div data-testid="companion-vrm">full body VRM</div>}
+        call={createCallProps()}
+        onWardrobeChange={vi.fn()}
+        onExit={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Outfits" }));
+    expect(screen.getByRole("status", { name: "No approved items" })).toHaveTextContent(
+      "No reviewed outfits are ready for Future yet.",
+    );
+  });
+
   it("opens at the entrance with the full companion and no selected product", () => {
     render(
       <WardrobeStoreLab
