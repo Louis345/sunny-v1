@@ -9,6 +9,8 @@ import {
   type CompanionConfig,
 } from "../companions/loader";
 import { getTtsNameForSessionChild } from "../profiles/childrenConfig";
+import { getChildChart } from "../profiles/childChart";
+import type { LearningObservation } from "../engine/learningCycleRepository";
 import { generateStoryImage } from "../utils/generateStoryImage";
 import { TEST_MODE_PROMPT, normalizeSessionSubject } from "../agents/prompts";
 import { getReadingCanvasPreferencesForChild } from "../utils/learningProfileIO";
@@ -24,6 +26,7 @@ import { mathProblem } from "../agents/elli/tools/mathProblem";
 import {
   recordAttempt,
   finalizeSession,
+  formatLegacySessionAccuracy,
   childIdFromName,
 } from "../engine/learningEngine";
 import { computeProgression } from "../engine/progression";
@@ -203,6 +206,8 @@ export class SessionManager {
 
   public readonly chartChildId: string;
   private currentActivityState: Record<string, unknown> | null = null;
+  private spellingAssessment?: gev.SpellingAssessmentState;
+  private spellingAssessmentHistory = new Map<string, NonNullable<SessionManager["spellingAssessment"]>>();
   private currentBoardSnapshot: CurrentBoardSnapshot | null = null;
   private pronunciationStruggleSignals = new Set<string>();
   private lastInstructionReadRequestKey: string | null = null;
@@ -890,6 +895,12 @@ export class SessionManager {
   }
 
   updateCurrentBoardSnapshot(state: Record<string, unknown>): void {
+    if (state.assessmentMode === true) {
+      this.spellingAssessmentHistory ??= new Map();
+      this.spellingAssessment = gev.bindSpellingAssessment({ state, cycle: getChildChart(this.chartChildId).learningCycle,
+        current: this.spellingAssessment, history: this.spellingAssessmentHistory,
+        sessionId: this.sessionId, summoned: this.companionPresence === "summoned" });
+    }
     const incomingPhase = String(state.phase ?? "").trim();
     const incomingNodeId = String(state.nodeId ?? "").trim();
     if (
@@ -919,6 +930,7 @@ export class SessionManager {
   ): void {
     const next = transitionCompanionPresence({ state, reason });
     this.companionPresence = next.presence;
+    if (state === "summoned" && this.spellingAssessment && !this.spellingAssessment.supportIds.length) this.spellingAssessment.supportIds.push(`support:${this.sessionId}:${this.spellingAssessment.itemId}`);
     this.companionInteractionMode = next.mode;
     this.send("companion_presence", { state, reason });
     console.log(`  🎮 [companion-presence] [${state}] reason=${reason}`);
@@ -1136,30 +1148,17 @@ export class SessionManager {
     text: string,
     metadata: Record<string, unknown> = {},
   ): Promise<void> {
-    const spoken = rewriteChildNameForTts(
-      text.trim().slice(0, 120),
-      this.childName,
-      this.sessionTtsLabel,
-    );
-    if (!spoken) return;
-    const event = {
-      text: spoken,
-      activityId: metadata.activityId,
-      nodeId: metadata.nodeId,
-      reason: metadata.reason,
-    };
-    this.debugRecorder.recordEvent("game_narration", "speak", event);
-    if (this.ttsBridge) {
-      await this.ttsBridge.connect().catch((err) =>
-        console.error("  🔴 [game_narration] TTS connect failed:", err),
-      );
-      this.ttsBridge.sendText(spoken);
-      await this.ttsBridge.finish().catch((err) =>
-        console.error("  🔴 [game_narration] TTS finish failed:", err),
-      );
-    }
-    this.debugRecorder.recordEvent("game_narration", "playback_done", event);
-    this.send("audio_done");
+    const assessment = metadata.assessmentMode === true ? this.spellingAssessment : undefined;
+    const spoken = await gev.narrateGameStimulus({ text, metadata, childName: this.childName, ttsLabel: this.sessionTtsLabel,
+      bridge: this.ttsBridge, assessment, isCurrent: () => this.spellingAssessment === assessment,
+      record: (action, event) => this.debugRecorder.recordEvent("game_narration", action, event) });
+    if (spoken) this.send("audio_done");
+  }
+
+  public getDiscoveryAttemptContext(homeworkId: string, itemId: string): { support: LearningObservation["assistance"]; instrumentSignals: string[]; artifactHash: string; sessionId: string } | undefined {
+    const context = this.spellingAssessmentHistory?.get(itemId) ?? this.spellingAssessment;
+    if (!context || context.homeworkId !== homeworkId || context.itemId !== itemId) return undefined;
+    return { support: { status: context.supportIds.length ? "assisted" : "unassisted", scaffolds: [...context.supportIds] }, instrumentSignals: [...(!context.audioDelivered ? ["audio_unavailable"] : []), ...(context.ambiguous ? ["answer_exposure"] : [])], artifactHash: context.artifactHash, sessionId: this.sessionId };
   }
 
   public recordWorksheetAttempt(transcript: string, correct: boolean): void {
@@ -1366,7 +1365,7 @@ export class SessionManager {
           });
           console.log(
             `  🎮 [engine] session finalized: ${summary.totalAttempts} attempts, ` +
-              `${Math.round(summary.accuracy * 100)}% accuracy`,
+              formatLegacySessionAccuracy(summary),
           );
         } catch (err) {
           console.error("  [engine] finalizeSession failed:", err);
@@ -1425,10 +1424,12 @@ export class SessionManager {
   }
 
   public async connectDeepgram(): Promise<void> {
-    this.fluxHandle = await connectFlux({
-      onOpen: () => {
-        console.log("  ✅ Deepgram Flux connected");
-      },
+    if (this.isEnding) {
+      console.log(" 🎮 [speech-connection] [skipped] session_ended=true");
+      return;
+    }
+    const handle = await connectFlux({
+      onOpen: () => console.log("  ✅ Deepgram Flux connected"),
       onStartOfTurn: () => {
         const MIN_SPEAK_MS = 1500;
         if (
@@ -1439,20 +1440,18 @@ export class SessionManager {
           this.bargeIn();
         }
       },
-      onEagerEndOfTurn: (transcript: string) => {
-        this.handleFluxEndOfTurn(transcript, "eager");
-      },
-      onInterim: (text) => {
-        this.send("interim", { text });
-      },
-      onEndOfTurn: (transcript) => {
-        this.handleFluxEndOfTurn(transcript, "final");
-      },
+      onEagerEndOfTurn: (transcript: string) => this.handleFluxEndOfTurn(transcript, "eager"),
+      onInterim: (text) => this.send("interim", { text }),
+      onEndOfTurn: (transcript) => this.handleFluxEndOfTurn(transcript, "final"),
       onError: (err) => {
         this.debugRecorder.recordError("Deepgram error", err);
         console.error("  🔴 Deepgram error:", err.message);
       },
     });
+    if (this.isEnding) {
+      handle.close();
+      console.log(" 🎮 [speech-connection] [closed] reason=opened_after_session_end");
+    } else this.fluxHandle = handle;
   }
 
   private handleFluxEndOfTurn(

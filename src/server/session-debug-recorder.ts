@@ -128,12 +128,17 @@ function sanitizeGameTraceValue(value: unknown, parentKey = ""): JsonValue | und
   return String(value);
 }
 
-export function defaultSessionLogRoot(): string {
-  return process.env.SUNNY_SESSION_LOG_ROOT?.trim()
-    ? path.resolve(process.env.SUNNY_SESSION_LOG_ROOT)
-    : process.env.VITEST === "true"
+export function defaultSessionLogRoot(
+  env: NodeJS.ProcessEnv = process.env,
+  cwd = process.cwd(),
+): string {
+  return env.SUNNY_SESSION_LOG_ROOT?.trim()
+    ? path.resolve(cwd, env.SUNNY_SESSION_LOG_ROOT)
+    : env.SUNNY_CONTEXT_ROOT?.trim()
+      ? path.join(path.resolve(cwd, env.SUNNY_CONTEXT_ROOT), ".runtime", "logs", "sessions")
+    : env.VITEST === "true"
       ? path.join(os.tmpdir(), "sunny-vitest-session-logs")
-    : path.join(process.cwd(), "logs", "sessions");
+    : path.join(cwd, "logs", "sessions");
 }
 
 export function buildSessionLogFolderName(input: {

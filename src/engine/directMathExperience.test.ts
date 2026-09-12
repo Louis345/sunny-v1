@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import {assignmentSourceFileHash} from "./assignmentSourceExtraction";
 import os from "node:os";
 import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
@@ -10,6 +11,7 @@ import {
   boardPosition,
   buildDirectActiveSessionPlan,
   buildDirectActivityCreatorPrompt,
+  buildDirectActivityRepairPrompt,
   createDirectBoardThumbnailFilename,
   createDirectBoardBackgroundPrompt,
   createDirectBoardThumbnailPrompt,
@@ -31,9 +33,9 @@ import {
   mapConcurrentSettled,
   mergeActiveDomainProjection,
   preserveDirectArtifactGenerationMetrics,
-  readOpenAiResponseStream,
   selectDirectArtifactActivities,
 } from "./directMathExperience";
+import { readOpenAiResponseStream } from "./openAiResponses";
 
 describe("math Planner evidence doorway", () => {
   it("projects factual engagement evidence into the exact Planner-facing chart context", () => {
@@ -128,6 +130,32 @@ describe("math publication assumption ledger", () => {
       report: { passed: true, failures: [], screenshots: [] },
     };
   }
+
+
+  it("keeps every publication write inside the selected context root", () => {
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-context-boundary-"));
+    const isolated = path.join(rootDir, "isolated-context");
+    const sourceChild = path.join(rootDir, "src/context/reina");
+    fs.mkdirSync(sourceChild, { recursive: true });
+    fs.writeFileSync(path.join(sourceChild, "learning_profile.json"), '{"source":"unchanged"}');
+    fs.mkdirSync(path.join(isolated, "reina"), { recursive: true });
+    fs.writeFileSync(path.join(isolated, "reina/learning_profile.json"), '{"aiContentCatalog":[]}');
+    vi.stubEnv("SUNNY_CONTEXT_ROOT", isolated);
+    vi.stubEnv("SUNNY_ALLOW_REAL_CHILD_CONTEXT_ROOT", "true");
+    try {
+      const published = persistDirectExperience(publicationInput(rootDir));
+      expect(published).toBe(path.join(isolated, "reina/homework/direct_experience_plan.json"));
+      expect(fs.readdirSync(sourceChild)).toEqual(["learning_profile.json"]);
+      expect(fs.readFileSync(path.join(sourceChild, "learning_profile.json"), "utf8")).toBe('{"source":"unchanged"}');
+      expect(hasReadyDirectMathExperience("reina", rootDir)).toBe(true);
+    } finally { vi.unstubAllEnvs(); fs.rmSync(rootDir, { recursive: true, force: true }); }
+  });
+
+it("refuses publication when the actual browser report failed", () => {
+  const rootDir=fs.mkdtempSync(path.join(os.tmpdir(), "sunny-publication-report-"));
+  const input={...publicationInput(rootDir),report:{passed:false,failures:["completion_missing"],screenshots:[]}};
+  expect(()=>persistDirectExperience(input)).toThrow("direct_publication_browser_verification_required");
+});
 
   it("creates the preregistered ledger only as part of successful publication", () => {
     const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-publish-ledger-"));
@@ -467,12 +495,7 @@ describe("direct math experience", () => {
         },
       }],
     };
-    const finalMessage = vi.fn()
-      .mockRejectedValueOnce(Object.assign(new Error("Connection error."), {
-        name: "APIConnectionError",
-        cause: { code: "ECONNRESET" },
-      }))
-      .mockResolvedValueOnce(successfulResponse);
+    const finalMessage = vi.fn().mockResolvedValueOnce(successfulResponse);
     const stream = vi.fn((..._args: any[]) => ({ finalMessage }));
     const childContext = buildMathCreativeChildContext({
       identity: { displayName: "Reina", ttsName: "Ray-nah" },
@@ -520,7 +543,9 @@ describe("direct math experience", () => {
     } as never);
     expect(JSON.stringify(childContext)).not.toContain("learningStyle");
 
+    const checkpointFile=path.join(fs.mkdtempSync(path.join(os.tmpdir(),"design-resume-")),"design.json");
     const designed = await askMathExperienceDesigner({
+      checkpointFile,
       childId: "reina",
       program,
       childContext,
@@ -532,8 +557,8 @@ describe("direct math experience", () => {
       client: { messages: { stream } } as never,
     });
 
-    expect(stream).toHaveBeenCalledTimes(2);
-    expect(finalMessage).toHaveBeenCalledTimes(2);
+    expect(stream).toHaveBeenCalledTimes(1);
+    expect(finalMessage).toHaveBeenCalledTimes(1);
     const prompt = String(stream.mock.calls[0]?.[0]?.messages?.[0]?.content);
     expect(prompt).toContain('"age": 8');
     expect(prompt).toContain('"grade": 2');
@@ -563,10 +588,35 @@ describe("direct math experience", () => {
         previewNodeId: route.nodeIds[0],
       })),
     );
+    const resumed=await askMathExperienceDesigner({childId:"reina",program,childContext,priorOutcomes:{},checkpointFile,client:{messages:{stream}} as never});
+    expect(resumed.packet.artifacts).toEqual(designed.packet.artifacts);
+    expect(stream).toHaveBeenCalledTimes(1);
+    fs.rmSync(path.dirname(checkpointFile),{recursive:true,force:true});
+  });
+
+  it("persists a design response before parsing so invalid output is not bought twice", async () => {
+    const root=fs.mkdtempSync(path.join(os.tmpdir(),"design-receipt-"));
+    const stream=vi.fn(()=>({finalMessage:async()=>({content:[],usage:{input_tokens:10,output_tokens:5},stop_reason:"end_turn"})}));
+    const run=()=>askMathExperienceDesigner({childId:"lab",program:parseMathLearningProgram(learningProgram(2)),childContext:{},priorOutcomes:{},checkpointFile:path.join(root,"design.json"),client:{messages:{stream}} as never});
+    try {
+      await expect(run()).rejects.toThrow("missing_tool_output");
+      await expect(run()).rejects.toThrow("missing_tool_output");
+      expect(stream).toHaveBeenCalledTimes(1);
+    } finally {fs.rmSync(root,{recursive:true,force:true});}
+  });
+
+  it("does not let SDK retries resubmit an uncertain targeted design request",async()=>{
+    const {default:Anthropic}=await import('@anthropic-ai/sdk');
+    const root=fs.mkdtempSync(path.join(os.tmpdir(),"design-transport-"));
+    const transport=vi.fn(async()=>{throw new Error('network interrupted');});
+    const client=new Anthropic({apiKey:'fixture',fetch:transport});
+    const run=()=>askMathExperienceDesigner({childId:'lab',program:parseMathLearningProgram(learningProgram(2)),childContext:{},priorOutcomes:{},checkpointFile:path.join(root,'design.json'),client});
+    try {await expect(run()).rejects.toThrow();await expect(run()).rejects.toThrow('outcome_uncertain');expect(transport).toHaveBeenCalledTimes(1);}
+    finally {fs.rmSync(root,{recursive:true,force:true});}
   });
 
   it("places artifact design before generation without a review pause or quality harness", () => {
-    const source = fs.readFileSync(path.join(process.cwd(), "src/scripts/ingestMathDirect.ts"), "utf8");
+    const source = fs.readFileSync(path.join(process.cwd(), "src/scripts/runAdaptiveMathGeneration.ts"), "utf8");
     const designer = source.indexOf("askMathExperienceDesigner({");
     const generation = source.indexOf("generateDirectArtifacts({");
     expect(designer).toBeGreaterThan(-1);
@@ -709,6 +759,20 @@ describe("direct math experience", () => {
     expect(prompt).toContain("1280×720 embedded frame");
   });
 
+  it("gives targeted repair the exact failed controls without reopening design authority", () => {
+    const activity = plan(2).activities[0];
+    const prompt = buildDirectActivityRepairPrompt({
+      activity,
+      html: "<!doctype html><button id='answer'>Go</button></html>",
+      failures: ["math_journey_item_commit_missing;item=q1;selector=#answer"],
+    });
+    expect(prompt).toContain("item=q1;selector=#answer");
+    expect(prompt).toContain("exact oldText");
+    const frozen = JSON.parse(prompt.split("IMMUTABLE ACADEMIC CONTRACT:\n")[1].split("\n\nIMMUTABLE DESIGN ARTIFACT:")[0]);
+    expect(frozen.items).toEqual(activity.items);
+    expect(prompt).toContain("Do not redesign");
+  });
+
   it("blocks an invalid Planner response without starting an AI repair loop", async () => {
     const validPlan = learningProgram(4);
     const create = vi.fn().mockResolvedValue({
@@ -725,6 +789,17 @@ describe("direct math experience", () => {
       client: { messages: { create, stream: streamOf(create) } } as never,
     })).rejects.toThrow("math_learning_program_requires_activities");
     expect(create).toHaveBeenCalledTimes(1);
+  });
+
+  it("requires route-bearing baseline activities instead of accepting a bonus-only program", () => {
+    const bonusOnly = learningProgram(3);
+    bonusOnly.activities = bonusOnly.activities.map((activity: Record<string, unknown>) => ({
+      ...activity,
+      purpose: "bonus",
+    }));
+    expect(() => parseMathLearningProgram(bonusOnly)).toThrow(
+      "math_learning_program_requires_baseline_activities",
+    );
   });
 
   it("includes prior prediction errors and theory decisions in the next Planner prompt", async () => {
@@ -775,7 +850,7 @@ describe("direct math experience", () => {
           decisionTrace: { latest: null },
         } as never,
         extraction: {
-          sourcePath,
+          sourcePath, fileHash:assignmentSourceFileHash(sourcePath),
           mediaType: "application/pdf",
           filename: "coins.pdf",
           fullText: "Imperfect OCR fallback",
@@ -1289,25 +1364,11 @@ describe("direct math experience", () => {
     });
   });
 
-  it("keeps ingestion validation bounded while exercising an available child-visible playthrough", () => {
+  it("requires bounded real controls through completion at both release sizes", () => {
     const source = fs.readFileSync(path.join(process.cwd(), "src/engine/directMathExperience.ts"), "utf8");
     expect(source).toContain("NODE_REGISTRY");
-    expect(source).toContain("activity_ready");
-    expect(source).toContain("pageErrors");
-    expect(source).toContain("SUNNY_VALIDATION_HOOKS");
-    expect(source).toContain("playthrough_completion_missing");
-    for (const removed of [
-      "directArtifactContractFailures",
-      "repairDirectArtifactsOnce",
-      "runDirectAcceptanceRepairLoop",
-    ]) expect(source).not.toContain(removed);
-    expect(source).not.toContain("qa_visible_control_missing");
-    expect(source).toContain("first_action_not_visible");
-    expect(source).toContain("primary_control_clipped");
-    expect(source).toContain("{ width: 1280, height: 720 }");
-    expect(source).toContain('htmlStyle.overflowX !== "hidden" && bodyStyle.overflowX !== "hidden"');
-    expect(source).not.toContain("Published after Playwright runtime verification");
-    expect(source).toContain("Published after a non-blocking opening browser smoke check");
+    expect(source).toContain("verifyMathControlJourney");
+    expect(source).toContain("DISCOVERY_RELEASE_VIEWPORTS");
   });
 
   it("regenerates HTML when adaptive Planner directives change", () => {
@@ -1375,8 +1436,8 @@ describe("direct math experience", () => {
   });
 
   it("rechecks implementation prompt hashes while reusing frozen board artwork", () => {
-    const ingestion = fs.readFileSync(path.join(process.cwd(), "src/scripts/ingestMathDirect.ts"), "utf8");
-    expect(ingestion).toContain("existingBuild");
+    const ingestion = fs.readFileSync(path.join(process.cwd(), "src/scripts/runAdaptiveMathGeneration.ts"), "utf8");
+    expect(ingestion).toContain("buildFile");
     expect(ingestion).toContain("existingArtworkUrls");
     expect(ingestion).toContain("generateDirectArtifacts({");
     expect(ingestion).not.toContain("let generated = fs.existsSync(buildFile)");
@@ -1452,7 +1513,7 @@ describe("direct math experience", () => {
   it("does not expose BLOCKED as a math-ingestion outcome", () => {
     const source = fs.readFileSync(path.join(process.cwd(), "src/scripts/ingestMathDirect.ts"), "utf8");
     expect(source).not.toContain("Done — BLOCKED");
-    expect(source).toContain("Existing board was not changed");
+    expect(source).toContain("Only browser-accepted Discovery is eligible for publication");
   });
 
   it("keeps Elli child-neutral while runtime supplies the active child and activity context", () => {
@@ -1527,32 +1588,16 @@ describe("direct math experience", () => {
   });
 
   it("loads prior outcomes without replaying deferred AI feedback before planning", () => {
-    const source = fs.readFileSync(path.join(process.cwd(), "src/scripts/ingestMathDirect.ts"), "utf8");
+    const source = fs.readFileSync(path.join(process.cwd(), "src/scripts/runAdaptiveMathGeneration.ts"), "utf8");
     expect(source).not.toContain("interpretPendingDirectExperienceOutcomes");
-    expect(source).toContain("readDirectFeedbackContext");
+    expect(source).toContain("discoveryCycle");
     expect(source).toContain("priorOutcomes");
   });
 
-  it("limits browser diagnostics to a non-blocking opening smoke check", () => {
-    const source = fs.readFileSync(path.join(process.cwd(), "src/engine/directMathExperience.ts"), "utf8");
-    expect(source).not.toContain("parseDirectQaJourney");
-    expect(source).not.toContain("sunny-qa-journey");
-    expect(source).not.toContain("qa_visible_control_missing");
-    expect(source).not.toContain("incorrect_recovery_evidence_missing");
-    expect(source).not.toContain("completion_evidence_missing");
-    expect(source).toContain("first_action_not_visible");
-    expect(source).toContain("primary_control_clipped");
-    expect(source).toContain("browser_error");
-    for (const forbidden of ["acceptanceScript", "repairDirectArtifactsOnce", "runDirectAcceptanceRepairLoop", "applyDirectArtifactEdits"]) {
-      expect(source).not.toContain(forbidden);
-    }
-    const entrypoint = fs.readFileSync(path.join(process.cwd(), "src/scripts/ingestMathDirect.ts"), "utf8");
-    expect(entrypoint).not.toContain("repairDirectArtifactsOnce");
-    expect(entrypoint).not.toContain("runDirectAcceptanceRepairLoop");
-    expect(entrypoint.match(/runDirectBrowserSmokeCheck\(/g)).toHaveLength(1);
-    expect(entrypoint).not.toContain("forceNodeIds: failedNodeIds");
-    expect(entrypoint).not.toContain("runtime_provider_contract_failed");
-    expect(entrypoint).toContain("[runtime-diagnostics]");
+  it("blocks worker publication on failed browser verification", () => {
+    const source = fs.readFileSync(path.join(process.cwd(), "src/scripts/runAdaptiveMathGeneration.ts"), "utf8");
+    expect(source).toContain("targeted_browser_verification_failed");
+    expect(source).toContain("MATH_BROWSER_VERIFIER_VERSION");
   });
 
   it("validates the registered homework launch URL instead of a private artifact shortcut", () => {
@@ -1794,4 +1839,11 @@ describe("direct math experience", () => {
     expect(first).toMatch(/^hw-math-cache-activity-1-thumbnail-[a-f0-9]{12}\.jpeg$/);
     expect(revised).not.toBe(first);
   });
+});
+
+
+it("preserves explicit prediction eligibility through the Planner parser", () => {
+  const input = learningProgram(2);
+  input.activities[0].academicPrediction.eligibility = { sources: ["independent_probe", "graded_work"], maxDelayDays: 7 };
+  expect(parseMathLearningProgram(input).activities[0].academicPrediction.eligibility).toEqual(input.activities[0].academicPrediction.eligibility);
 });

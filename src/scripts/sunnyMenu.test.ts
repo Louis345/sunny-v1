@@ -4,10 +4,12 @@ import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import {
   buildIngestInvocation,
+  buildImpersonatorInvocation,
   buildSessionInvocation,
   listParentChildIds,
   parentPageUrl,
   runSunnyMenu,
+  sunnyRuntimeEnv,
 } from "./sunnyMenu";
 
 describe("Sunny parent menu", () => {
@@ -22,6 +24,24 @@ describe("Sunny parent menu", () => {
     fs.writeFileSync(path.join(root, "src", "context", "reina", "learning_profile.json"), "{}");
 
     expect(listParentChildIds(root)).toEqual(["ila", "reina"]);
+    fs.rmSync(root, { recursive: true, force: true });
+  });
+
+  it("lists children from the active isolated context instead of the repository context", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-parent-isolated-"));
+    const isolatedContext = path.join(root, "isolated-context");
+    fs.writeFileSync(path.join(root, "children.config.json"), JSON.stringify({
+      childProfiles: { ila: {}, reina: {} },
+    }));
+    fs.mkdirSync(path.join(root, "src", "context", "ila"), { recursive: true });
+    fs.mkdirSync(path.join(root, "src", "context", "reina"), { recursive: true });
+    fs.writeFileSync(path.join(root, "src", "context", "ila", "learning_profile.json"), "{}");
+    fs.writeFileSync(path.join(root, "src", "context", "reina", "learning_profile.json"), "{}");
+    fs.mkdirSync(path.join(isolatedContext, "reina"), { recursive: true });
+    fs.writeFileSync(path.join(isolatedContext, "reina", "learning_profile.json"), "{}");
+
+    expect(listParentChildIds(root, { SUNNY_CONTEXT_ROOT: isolatedContext }))
+      .toEqual(["reina"]);
     fs.rmSync(root, { recursive: true, force: true });
   });
 
@@ -40,7 +60,7 @@ describe("Sunny parent menu", () => {
     });
   });
 
-  it("makes real-child versus parent-preview persistence explicit in the canonical runner", () => {
+  it("keeps the canonical child runner explicit", () => {
     expect(buildSessionInvocation("reina", "math", "real")).toEqual({
       command: "npm",
       args: ["run", "sunny:run", "--", "--subject", "homework", "--child", "reina", "--session-mode", "real", "--homework-domain", "math"],
@@ -49,6 +69,37 @@ describe("Sunny parent menu", () => {
       command: "npm",
       args: ["run", "sunny:run", "--", "--subject", "homework", "--child", "reina", "--session-mode", "as-child", "--homework-domain", "math"],
     });
+  });
+
+  it.each(["math", "spelling"] as const)("routes %s parent testing through the full isolated impersonator journey", async domain => {
+    expect(buildImpersonatorInvocation("reina", "math", "/tmp/assignment.pdf")).toEqual({
+      command: "npm",
+      args: ["run", "sunny:certify", "--", "--child", "reina", "--homework-domain", "math", "--pdf=/tmp/assignment.pdf"],
+    });
+
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-impersonator-menu-"));
+    const assignment = path.join(root, "4_13 Math.pdf");
+    fs.writeFileSync(assignment, "fixture");
+    const answers = ["2", "1", domain === "math" ? "1" : "2", "2", assignment.replaceAll(" ", "\\ "), "5"];
+    const invocations: Array<ReturnType<typeof buildImpersonatorInvocation>> = [];
+    const log = vi.fn();
+
+    await runSunnyMenu({
+      children: ["reina"],
+      ask: async () => answers.shift() ?? "5",
+      execute: async (invocation) => {
+        invocations.push(invocation);
+        return 0;
+      },
+      openParentPage: async () => undefined,
+      close: async () => undefined,
+      log,
+    });
+
+    expect(log).toHaveBeenCalledWith(expect.stringContaining("Impersonator test — full journey in an isolated copy"));
+    expect(log).not.toHaveBeenCalledWith(expect.stringContaining("Parent preview"));
+    expect(invocations).toEqual([buildImpersonatorInvocation("reina", domain, assignment)]);
+    fs.rmSync(root, { recursive: true, force: true });
   });
 
   it("uses stable parent URLs that a future app can replace", () => {
@@ -74,6 +125,7 @@ describe("Sunny parent menu", () => {
 
     expect(result).toBe("exit");
     expect(log).toHaveBeenCalledWith(expect.stringContaining("failed"));
+    expect(log).not.toHaveBeenCalledWith(expect.stringContaining("Saved checkpoints remain available"));
     expect(close).toHaveBeenCalledOnce();
     fs.rmSync(root, { recursive: true, force: true });
   });
@@ -103,4 +155,9 @@ describe("Sunny parent menu", () => {
     expect(log).toHaveBeenCalledWith(expect.stringContaining("Assignment file not found"));
     fs.rmSync(root, { recursive: true, force: true });
   });
+});
+
+
+it("uses an explicit environment file identically for menu and direct startup", () => {
+  expect(sunnyRuntimeEnv("/tmp", {DOTENV_CONFIG_PATH:"/isolated/config.env",SUNNY_CONTEXT_ROOT:"/isolated/context"})).toEqual({DOTENV_CONFIG_PATH:"/isolated/config.env",SUNNY_CONTEXT_ROOT:"/isolated/context"});
 });

@@ -39,6 +39,7 @@ describe("activity tool catalog", () => {
       "visible_read",
       "partial_visual_recall",
       "audio_cued_letter_recall",
+      "independent_spelling_discovery",
       "hidden_word_recall",
     ]);
     expect(wordRadar.capabilityModes[0]).toMatchObject({
@@ -72,7 +73,8 @@ describe("activity tool catalog", () => {
         requiresCapturedResponse: true,
       },
     });
-    expect(wordRadar.capabilityModes[3]).toMatchObject({
+    expect(wordRadar.capabilityModes[3]).toMatchObject({ id: "independent_spelling_discovery", masteryEligible: false, independentDiscovery: { protocol: "spelling-recall-v1" }, config: { inputMode: "keyboard", showTimer: false } });
+    expect(wordRadar.capabilityModes[4]).toMatchObject({
       id: "hidden_word_recall",
       difficulty: 3,
       purpose: "independent-retrieval",
@@ -83,7 +85,7 @@ describe("activity tool catalog", () => {
         requiresCapturedResponse: true,
       },
     });
-    expect(wordRadar.capabilityModes[3]?.measurementRisks.join(" ")).toMatch(/speech|capture|visual/i);
+    expect(wordRadar.capabilityModes[4]?.measurementRisks.join(" ")).toMatch(/speech|capture|visual/i);
   });
 
   it("serves Word Radar runtime mode config from the catalog as the single source of truth", () => {

@@ -13,6 +13,7 @@ import {
   buildLongitudinalLearningHistory,
   interpretReturnedWorkBatch,
   recordConfirmedReturnedWork,
+  frozenSpellingWordMapping,
   type ConfirmedReturnedWorkItem,
   type TheoryDecisionContent,
 } from "./longitudinalLearning";
@@ -68,6 +69,7 @@ type CreateOptions = RootOptions & {
   extract?: (input: {
     assignment: LearningCycleRecordV2["assignment"];
     knownConstructIds: string[];
+    spellingItems?: ReturnType<typeof frozenSpellingWordMapping>;
     filename: string;
     mimeType: string;
     dataBase64: string;
@@ -274,6 +276,7 @@ export function parseReturnedWorkExtraction(value: unknown): ReturnedWorkExtract
 async function extractWithPlanner(input: {
   assignment: LearningCycleRecordV2["assignment"];
   knownConstructIds: string[];
+  spellingItems?: ReturnType<typeof frozenSpellingWordMapping>;
   filename: string;
   mimeType: string;
   dataBase64: string;
@@ -292,7 +295,7 @@ async function extractWithPlanner(input: {
       role: "user",
       content: [
         media as never,
-        { type: "text", text: `Extract factual grading from this returned assignment. Do not infer mastery. Preserve uncertainty in extractionConfidence. Map each item to one primary and optional secondary stable constructs. Prefer these existing IDs: ${JSON.stringify(input.knownConstructIds)}. Original assignment: ${JSON.stringify(input.assignment)}. File: ${input.filename}` },
+        { type: "text", text: `Extract factual grading from this returned assignment. Do not infer mastery. Preserve uncertainty in extractionConfidence. Map each item to one primary and optional secondary stable constructs. Prefer these existing IDs: ${JSON.stringify(input.knownConstructIds)}. Original assignment: ${JSON.stringify(input.assignment)}. File: ${input.filename}${input.spellingItems ? ` Frozen spelling mapping: ${JSON.stringify(input.spellingItems)}. For spelling, prompt must be the exact assigned target word, not the child's response. Use only that word's primary constructId. An uncertain match must remain uncertain for confirmation; never guess a hash.` : ""}` },
       ],
     }],
     tools: [{
@@ -374,9 +377,10 @@ export async function createReturnedWorkDraft(input: {
   fs.mkdirSync(sourceDir, { recursive: true });
   if (!fs.existsSync(sourceFile)) fs.writeFileSync(sourceFile, bytes, { flag: "wx" });
   const history = buildLongitudinalLearningHistory(childId, { rootDir: opts.rootDir });
+  const spellingItems = frozenSpellingWordMapping(cycle);
   const extraction = opts.extract
-    ? await opts.extract({ assignment: cycle.assignment, knownConstructIds: Object.keys(history.constructs), filename: input.filename, mimeType: input.mimeType, dataBase64: input.dataBase64 })
-    : await extractWithPlanner({ assignment: cycle.assignment, knownConstructIds: Object.keys(history.constructs), filename: input.filename, mimeType: input.mimeType, dataBase64: input.dataBase64, client: opts.client, model: opts.model });
+    ? await opts.extract({ assignment: cycle.assignment, knownConstructIds: Object.keys(history.constructs), spellingItems, filename: input.filename, mimeType: input.mimeType, dataBase64: input.dataBase64 })
+    : await extractWithPlanner({ assignment: cycle.assignment, knownConstructIds: Object.keys(history.constructs), spellingItems, filename: input.filename, mimeType: input.mimeType, dataBase64: input.dataBase64, client: opts.client, model: opts.model });
   const parsed = parseReturnedWorkExtraction(extraction);
   const source: LearningEvidenceSourceRef = {
     sourceId,
@@ -447,6 +451,7 @@ export async function confirmReturnedWorkDraft(input: {
       reason: interpretation.reason,
     };
   } catch (error) {
+    console.warn(" 🎮 [returned-work] [interpretation] [pending]", error instanceof Error ? error.message : String(error));
     return { cycle, interpretationStatus: "pending", reason: error instanceof Error ? error.message : String(error) };
   }
 }

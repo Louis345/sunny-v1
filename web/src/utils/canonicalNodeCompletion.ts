@@ -2,6 +2,7 @@ export type CanonicalNodeCompletionInput = {
   childId: string;
   homeworkId: string;
   nodeId: string;
+  completionId: string;
   result: Record<string, unknown> & {
     completed?: boolean;
     accuracy?: number;
@@ -22,7 +23,7 @@ async function postDiscovery(path: string, body: unknown): Promise<Record<string
 }
 
 export function postDiscoveryAttempt(input: { childId: string; homeworkId: string; attempt: Record<string, unknown> }): Promise<Record<string, unknown>> {
-  return postDiscovery(`/api/learning/${encodeURIComponent(input.childId)}/assignments/${encodeURIComponent(input.homeworkId)}/discovery/attempt`, input.attempt);
+  return postDiscovery(`/api/learning/${encodeURIComponent(input.childId)}/assignments/${encodeURIComponent(input.homeworkId)}/discovery/attempt`, { supportEventIds: [], instrumentSignals: [], ...input.attempt });
 }
 
 export function postDiscoveryComplete(input: { childId: string; homeworkId: string }): Promise<Record<string, unknown>> {
@@ -67,6 +68,17 @@ export class DiscoveryAcademicCompletionCoordinator {
   private attempts: DiscoveryAttemptWrite[] = [];
   private completionPromise: Promise<unknown> | null = null;
   private sealed = false;
+  private instrumentSignals = new Map<string, string[]>();
+
+  recordInstrumentSignals(itemId: string, signals: string[]): void {
+    if (this.sealed) { console.warn(" 🎮 [discovery] [late-friction] [ignored]", itemId); return; }
+    this.instrumentSignals.set(itemId, [...new Set([...(this.instrumentSignals.get(itemId) ?? []), ...signals])]);
+  }
+
+  prepareAttempt(attempt: Record<string, unknown>): Record<string, unknown> {
+    const signals = Array.isArray(attempt.instrumentSignals) ? attempt.instrumentSignals : [];
+    return { ...attempt, ...(attempt.attemptedValue === null && signals.includes("response_not_captured") ? {attemptedValue:""} : {}), instrumentSignals: [...new Set([...signals, ...(this.instrumentSignals.get(String(attempt.itemId)) ?? [])])] };
+  }
 
   recordAttempt(send: () => Promise<unknown>): Promise<unknown> {
     if (this.sealed) {
@@ -95,6 +107,10 @@ export class DiscoveryAcademicCompletionCoordinator {
       if (this.completionPromise === completion) this.completionPromise = null;
     });
     return completion;
+  }
+
+  flushForExit(): Promise<void> {
+    return this.flushWithBoundedRetry();
   }
 
   private startWrite(entry: DiscoveryAttemptWrite): Promise<unknown> {
@@ -130,21 +146,26 @@ export class DiscoveryAcademicCompletionCoordinator {
 export async function postCanonicalNodeCompletion(input: CanonicalNodeCompletionInput): Promise<{
   lifecycle: string;
   revision: number;
+  nodeState?: string | null;
+  outcome: CanonicalNodeCompletionInput["result"];
   coinAward?: { amount: number; balance: number };
   videoCallTicket?: { homeworkId: string; earnedAt: string; bonusUrl?: string };
 }> {
+  const { completionId, ...request } = input;
   const response = await fetch("/api/learning-cycle/node-complete", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(input),
+    body: JSON.stringify({ ...request, result: { ...request.result, sessionId: completionId } }),
   });
   if (!response.ok) throw new Error(`canonical_node_completion_${response.status}`);
   const result = await response.json() as {
     lifecycle: string;
     revision: number;
+    nodeState?: string | null;
+    academicAccuracy?: number | null;
     coinAward?: { amount: number; balance: number };
     videoCallTicket?: { homeworkId: string; earnedAt: string; bonusUrl?: string };
   };
   window.dispatchEvent(new CustomEvent("sunny_learning_cycle_progression", { detail: result }));
-  return result;
+  return { ...result, outcome: { ...input.result, completed: result.nodeState === "completed", accuracy: result.academicAccuracy ?? undefined } };
 }

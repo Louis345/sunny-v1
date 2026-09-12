@@ -1,41 +1,31 @@
-import "dotenv/config";
+import { loadSunnyRuntimeEnvironment } from "./sunnyMenu";
+loadSunnyRuntimeEnvironment();
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import {
   ASSIGNMENT_SOURCE_CONTRACT_VERSION,
   assignmentSourceFileHash,
+  classifyAssignmentSource,
   isCurrentAssignmentSourceCheckpoint,
   loadOrExtractAssignmentSource,
+  writeAssignmentSourceExtraction,
   type AssignmentSourceCheckpoint,
+  type AssignmentSourceExtraction,
 } from "../engine/assignmentSourceExtraction";
-import {
-  askDirectMathPlanner,
-  askMathExperienceDesigner,
-  buildDirectActiveSessionPlan,
-  buildMathCreativeChildContext,
-  generateDirectArtifacts,
-  parseMathLearningProgram,
-  persistDirectExperience,
-  readDirectCanonicalLearningContext,
-  runDirectBrowserSmokeCheck,
-  type DirectArtifact,
-  type DirectLearningExperiencePlan,
-  type MathDesignCheckpoint,
-  mathDesignHasRoutePresentationBindings,
-  mathPlannerCandidateCards,
-  type MathDesignPacket,
-} from "../engine/directMathExperience";
-import { readDirectFeedbackContext } from "../engine/directExperienceFeedback";
-import { readPriorConceptIds } from "../engine/assignmentLedger";
+import { buildMathCreativeChildContext, mathPlannerChartContext } from "../engine/directMathExperience";
+import { withDiscoveryBrowserPage } from "../engine/discoveryVisualReview";
 import { getChildChart } from "../profiles/childChart";
 import {
+  acquireMathGenerationLease, releaseMathGenerationLease, recoverDiscoveryPublication,
   buildDiscoveryActiveSessionPlan,
   ensureDiscoveryArtifactsAreServed,
   generateMathDiscoveryExperience,
   publishDiscoveryExperience,
   getMathDiscoveryLifecycle,
   getMathGenerationStatus,
+  resolveDiscoveryRepairModel,
+  resolveAdaptiveMathDraftDir,
   type MathDiscoveryEvaluationContract,
 } from "../engine/adaptiveMathDiscovery";
 
@@ -55,94 +45,83 @@ function readJson<T>(file: string): T {
 
 function writeJson(file: string, value: unknown): void {
   fs.mkdirSync(path.dirname(file), { recursive: true });
-  fs.writeFileSync(file, `${JSON.stringify(value, null, 2)}\n`, "utf8");
+  const temporary = `${file}.${crypto.randomUUID()}.tmp`;
+  fs.writeFileSync(temporary, `${JSON.stringify(value, null, 2)}\n`, "utf8");
+  fs.renameSync(temporary, file);
 }
 
-function plannerProgramFromDiagnostic(file: string): unknown {
-  const diagnostic = readJson<{ content?: Array<{ type?: string; name?: string; input?: unknown }> }>(file);
-  return diagnostic.content?.find((block) =>
-    block.type === "tool_use" && block.name === "create_math_learning_program")?.input;
-}
-
-function archiveInvalidCheckpoint(file: string, archiveDir: string): void {
-  if (!fs.existsSync(file)) return;
-  fs.mkdirSync(archiveDir, { recursive: true });
-  fs.renameSync(file, path.join(archiveDir, `${path.basename(file)}.invalid-${Date.now()}`));
-}
-
-export function readReusablePlannerProgram(input: {
-  programFile: string;
-  diagnosticFile: string;
-  archiveDir: string;
-}): ReturnType<typeof parseMathLearningProgram> | undefined {
-  if (fs.existsSync(input.programFile)) {
-    try {
-      return parseMathLearningProgram(readJson(input.programFile));
-    } catch {
-      archiveInvalidCheckpoint(input.programFile, input.archiveDir);
-    }
+export function archiveStaleAssignmentSourceDraft(input: {
+  draftDir: string;
+  freshRequested: boolean;
+  savedSourceCheckpoint?: AssignmentSourceCheckpoint;
+  sourceCheckpoint: AssignmentSourceCheckpoint;
+  extraction: AssignmentSourceExtraction;
+  now?: number;
+}): boolean {
+  if (input.freshRequested
+    || !fs.existsSync(input.draftDir)
+    || isCurrentAssignmentSourceCheckpoint(input.savedSourceCheckpoint, input.sourceCheckpoint)) {
+    return false;
   }
-  if (fs.existsSync(input.diagnosticFile)) {
-    try {
-      return parseMathLearningProgram(plannerProgramFromDiagnostic(input.diagnosticFile));
-    } catch {
-      archiveInvalidCheckpoint(input.diagnosticFile, input.archiveDir);
-    }
-  }
-  return undefined;
+  const auditDir = path.join(
+    path.dirname(input.draftDir),
+    "audit",
+    `${path.basename(input.draftDir)}-${input.now ?? Date.now()}`,
+  );
+  fs.mkdirSync(path.dirname(auditDir), { recursive: true });
+  fs.renameSync(input.draftDir, auditDir);
+  writeAssignmentSourceExtraction(path.join(input.draftDir, "assignment-extraction.json"), input.extraction);
+  return true;
 }
 
-let currentPhase = "reading-assignment";
-let currentCheckpoint = "";
 
-export type IngestionFailureKind = "INPUT_ERROR" | "PROVIDER_PAUSED" | "PUBLICATION_FAILED";
+export type IngestionFailureKind = "INPUT_ERROR" | "PROVIDER_PAUSED" | "PUBLICATION_FAILED" | "NEEDS_ATTENTION";
 
 export function classifyIngestionFailure(error: unknown, phase: string): IngestionFailureKind {
   const message = error instanceof Error ? error.message : String(error);
+  if (/provider_outcome_uncertain|math_|discovery_.*(failed|mismatch|invalid)|ingestion_already_running/.test(message)) return "NEEDS_ATTENTION";
+  if (phase === "preflight") return "INPUT_ERROR";
   if (phase === "atomic-publication") return "PUBLICATION_FAILED";
-  if (phase === "reading-assignment"
-    && /assignment_source_missing|unsupported_assignment_source|EISDIR|ENOENT/i.test(message)) {
+  if (/Could not resolve authentication method|ANTHROPIC_API_KEY|OPENAI_API_KEY|apiKey or authToken/i.test(message)) {
     return "INPUT_ERROR";
   }
-  return "PROVIDER_PAUSED";
+  if (phase === "reading-assignment"
+    && /assignment_source_missing|unsupported_assignment_source|Learning profile not found|protected_child_context_root|EISDIR|ENOENT/i.test(message)) {
+    return "INPUT_ERROR";
+  }
+  if ((error as {status?:number})?.status === 429) return "PROVIDER_PAUSED";
+  return "NEEDS_ATTENTION";
 }
 
-export function formatIngestionSummary(input: {
-  planner: "generated" | "reused";
-  design: "generated" | "reused";
-  generatedNodeIds: string[];
-  reusedNodeIds: string[];
-  generatedImages: number;
-  reusedImages: number;
-  calls: number;
-  tokens: number;
-  elapsedMs: number;
-  checkpoint: string;
-  bonusDeferred: boolean;
-}): string {
+export function discoveryProgressGuide(): string[] {
   return [
-    "Board: published",
-    `Planner: ${input.planner}`,
-    `Design: ${input.design}`,
-    `Baseline nodes: ${input.generatedNodeIds.length} generated, ${input.reusedNodeIds.length} reused`,
-    `Bonus: ${input.bonusDeferred ? "deferred until earned" : "not planned"}`,
-    `Images: ${input.generatedImages} generated, ${input.reusedImages} reused`,
-    `Recorded calls: ${input.calls}`,
-    `Recorded tokens: ${input.tokens}`,
-    `Elapsed time: ${Math.round(input.elapsedMs / 1000)}s`,
-    `Checkpoint: ${input.checkpoint}`,
-    "Start session: npm run sunny → Start child session",
-  ].join("\n");
+    "1/3 Academic plan — deciding what independent evidence to collect",
+    "2/3 Experience design — deciding how the child will interact",
+    "3/3 Playable build — creating and browser-checking the activity",
+    "Saved stages are reused after interruption.",
+  ];
 }
 
-export function currentRunBuildTokens(
-  artifacts: Array<Pick<DirectArtifact, "nodeId" | "inputTokens" | "outputTokens">>,
-  generatedNodeIds: string[],
-): number {
-  const generated = new Set(generatedNodeIds);
-  return artifacts
-    .filter((artifact) => generated.has(artifact.nodeId))
-    .reduce((sum, artifact) => sum + (artifact.inputTokens ?? 0) + (artifact.outputTokens ?? 0), 0);
+export function initialIngestionProgressLabels(): { reading: string; discovery: string } {
+  return {
+    reading: "Step 1 — Reading assignment and child evidence",
+    discovery: "Step 2 — Preparing the child's independent Discovery",
+  };
+}
+
+function shellQuote(value: string): string {
+  return `'${value.replaceAll("'", `'"'"'`)}'`;
+}
+
+export function formatStartSessionCommand(
+  env: Partial<Record<string, string | undefined>> = process.env,
+): string {
+  const contextRoot = env.SUNNY_CONTEXT_ROOT?.trim();
+  if (!contextRoot) return "npm run sunny";
+  const allowProtected = env.SUNNY_ALLOW_REAL_CHILD_CONTEXT_ROOT === "true"
+    ? " SUNNY_ALLOW_REAL_CHILD_CONTEXT_ROOT=true"
+    : "";
+  return `SUNNY_CONTEXT_ROOT=${shellQuote(contextRoot)}${allowProtected} npm run sunny`;
 }
 
 export function shouldPublishDiscoveryFirst(lifecycle: string | undefined): boolean {
@@ -179,19 +158,64 @@ export async function withIngestionHeartbeat<T>(
   }
 }
 
-async function main(): Promise<void> {
-  const startedAt = Date.now();
-  const childId = arg("child").trim().toLowerCase();
-  const pdf = path.resolve(arg("pdf"));
-  const rebuildNodeIds = arg("rebuild-node", false).split(",").map((value) => value.trim()).filter(Boolean);
-  console.log("[1/5] Reading assignment and evidence");
+export async function preflightMathIngestion(input: {childId: string; pdf: string; rootDir?: string; env?: NodeJS.ProcessEnv}) {
+  const rootDir = input.rootDir ?? process.cwd(), env = input.env ?? process.env;
+  const childId = input.childId.trim().toLowerCase(), pdf = path.resolve(rootDir, input.pdf);
+  if (!/^[a-z0-9_-]+$/.test(childId)) throw new Error("preflight_child_id_invalid");
+  const chart = getChildChart(childId, {rootDir});
+  classifyAssignmentSource(pdf);
+  if (!fs.statSync(pdf).isFile()) throw new Error("preflight_assignment_not_file");
   const sourceHash = assignmentSourceFileHash(pdf);
   const homeworkId = `hw-math-${crypto.createHash("sha256").update(sourceHash).digest("hex").slice(0, 8)}`;
-  const draftDir = path.join(process.cwd(), "src", "context", childId, "homework", "direct-drafts", homeworkId);
-  const freshRequested = flag("fresh");
-  const existingLifecycleBeforeReset = getMathDiscoveryLifecycle(childId, homeworkId);
+  const draftDir = resolveAdaptiveMathDraftDir(childId, homeworkId, {rootDir});
+  const sourceFile = path.join(draftDir, "assignment-source.json");
+  if (fs.existsSync(sourceFile) && readJson<AssignmentSourceCheckpoint>(sourceFile).fileHash !== sourceHash) throw new Error("preflight_assignment_identity_collision");
+  const localCandidate = ["discovery-contract.json", "discovery-builder.json"].some(file => fs.existsSync(path.join(draftDir,file)));
+  if (!localCandidate && !env.ANTHROPIC_API_KEY && !env.ANTHROPIC_AUTH_TOKEN) throw new Error("preflight_missing:ANTHROPIC_API_KEY");
+  const repair = resolveDiscoveryRepairModel({
+    builderModel: env.SUNNY_GENERATION_MODEL ?? env.SUNNY_INGEST_MODEL ?? "claude-sonnet-5",
+    environment: env,
+  });
+  if (repair.provider === "openai" && !env.OPENAI_API_KEY?.trim()) {
+    throw new Error("preflight_missing:OPENAI_API_KEY");
+  }
+  const childDir=path.resolve(draftDir,"../../..");
+  const directories=[draftDir,...["provider-receipts","visual-review","runtime-verification"].map(name=>path.join(draftDir,name)),childDir,path.join(childDir,"plans"),path.join(childDir,"homework"),path.join(childDir,"homework/cycles"),path.join(childDir,"homework/games",homeworkId)];
+  for (const dir of directories) {
+    fs.mkdirSync(dir,{recursive:true});
+    const probe=path.join(dir,`.preflight-${crypto.randomUUID()}`);
+    try {fs.writeFileSync(probe,"",{flag:"wx"});} finally {fs.rmSync(probe,{force:true});}
+  }
+  for (const name of ["learning_profile.json","plans/active_session_plan.json","homework/current.json"]) {
+    const file=path.join(childDir,name);if(fs.existsSync(file))fs.accessSync(file,fs.constants.W_OK);
+  }
+  await withDiscoveryBrowserPage("<!doctype html><button>Preflight</button>", async () => undefined);
+  console.log(` 🎮 [math-ingestion] [preflight] [passed] child=${childId} homework=${homeworkId} context=${path.dirname(path.dirname(draftDir))}`);
+  return {childId,pdf,chart,sourceHash,homeworkId,draftDir,rootDir};
+}
+
+export async function ingestMathAssignment(input: {childId: string; pdf: string; rootDir?: string; fresh?: boolean; retryUncertain?: boolean}): Promise<void> {
+  const rootDir=input.rootDir ?? process.cwd(), childId=input.childId.trim().toLowerCase();
+  if (!/^[a-z0-9_-]+$/.test(childId)) throw new Error("preflight_child_id_invalid");
+  const leaseInput={rootDir,childId,homeworkId:"discovery-intake"};
+  const lease=acquireMathGenerationLease(leaseInput);
+  if (!lease.acquired) throw new Error("ingestion_already_running");
+  let currentPhase="preflight", checkpoint="";
+  let status: (state:string,error?:unknown)=>void=()=>undefined;
+  try {
+  recoverDiscoveryPublication({rootDir,childId});
+  const {pdf,chart,sourceHash,homeworkId,draftDir} = await preflightMathIngestion(input);
+  checkpoint=draftDir;
+  const jobFile=path.join(draftDir,"discovery-ingestion-job.json");
+  status=(state: string, error?: unknown) => writeJson(jobFile,{version:1,jobId:`${childId}:${sourceHash}:v${ASSIGNMENT_SOURCE_CONTRACT_VERSION}`,childId,homeworkId,state,phase:currentPhase,updatedAt:new Date().toISOString(),...(error ? {error: error instanceof Error ? error.message : String(error)} : {})});
+  const progressLabels = initialIngestionProgressLabels();
+  console.log(progressLabels.reading);
+  const freshRequested = input.fresh ?? false;
+  const existingLifecycleBeforeReset = getMathDiscoveryLifecycle(childId, homeworkId, {rootDir});
   assertFreshResetAllowed(freshRequested, existingLifecycleBeforeReset, homeworkId);
   if (freshRequested) fs.rmSync(draftDir, { recursive: true, force: true });
+  status("running");
+  currentPhase = "reading-assignment";
   const extractionCacheFile = path.join(draftDir, "assignment-extraction.json");
   const loadedExtraction = await loadOrExtractAssignmentSource(pdf, extractionCacheFile);
   const extraction = loadedExtraction.extraction;
@@ -210,33 +234,30 @@ async function main(): Promise<void> {
   } catch {
     savedSourceCheckpoint = undefined;
   }
-  if (!freshRequested && fs.existsSync(draftDir)
-    && !isCurrentAssignmentSourceCheckpoint(savedSourceCheckpoint, sourceCheckpoint)) {
-    const auditDir = path.join(path.dirname(draftDir), "audit", `${homeworkId}-${Date.now()}`);
-    fs.mkdirSync(path.dirname(auditDir), { recursive: true });
-    fs.renameSync(draftDir, auditDir);
+  if (archiveStaleAssignmentSourceDraft({
+    draftDir,
+    freshRequested,
+    savedSourceCheckpoint,
+    sourceCheckpoint,
+    extraction,
+  })) {
     console.log(`  ♻️ Previous partial-source draft archived; planning will restart from all ${extraction.pages.length} pages`);
   }
   writeJson(sourceCheckpointFile, sourceCheckpoint);
-  const programFile = path.join(draftDir, "math-learning-program.json");
-  const plannerDiagnosticFile = path.join(draftDir, "provider-diagnostics", "planner-response.json");
-  const designCheckpointFile = path.join(draftDir, "design-checkpoint.json");
-  const designFile = path.join(draftDir, "design-packet.json");
-  const finalPlanFile = path.join(draftDir, "designed-plan.json");
-  const buildFile = path.join(draftDir, "candidate-build-v3.json");
-  const chart = getChildChart(childId);
   const discoveryFile = path.join(draftDir, "discovery-contract.json");
-  const existingLifecycle = getMathDiscoveryLifecycle(childId, homeworkId);
+  const existingLifecycle = getMathDiscoveryLifecycle(childId, homeworkId, {rootDir});
   if (shouldPublishDiscoveryFirst(existingLifecycle)) {
     currentPhase = "discovery-generation";
-    console.log("[2/2] Preparing independent Discovery evaluation");
+    console.log(progressLabels.discovery);
+    discoveryProgressGuide().forEach((line) => console.log(`  ${line}`));
     const existingDiscovery = fs.existsSync(discoveryFile) ? readJson<MathDiscoveryEvaluationContract>(discoveryFile) : undefined;
-    const evaluation = existingDiscovery ? ensureDiscoveryArtifactsAreServed({ childId, homeworkId, contract: existingDiscovery }) : (await withIngestionHeartbeat("Discovery", () => generateMathDiscoveryExperience({
+    const evaluation = existingDiscovery ? await ensureDiscoveryArtifactsAreServed({ rootDir, childId, homeworkId, contract: existingDiscovery }) : (await withIngestionHeartbeat("Discovery", () => generateMathDiscoveryExperience({
+      rootDir, retryUncertain: input.retryUncertain,
       childId,
       homeworkId,
-      assignmentText: extraction.fullText,
+      assignmentText: extraction.fullText, assignmentSource: extraction,
       assignmentEvidenceIds: [`assignment:${homeworkId}:source`],
-      factualChildContext: buildMathCreativeChildContext(chart),
+      factualChildContext: { academic: mathPlannerChartContext(chart), engagement: buildMathCreativeChildContext(chart) },
     }))).contract;
     const activeSessionPlan = buildDiscoveryActiveSessionPlan({
       childId,
@@ -245,7 +266,9 @@ async function main(): Promise<void> {
       companion: { id: chart.companion.presetId, name: chart.companion.displayName },
     });
     currentPhase = "atomic-publication";
+    status("running");
     publishDiscoveryExperience({
+      rootDir,
       childId,
       homeworkId,
       evaluation,
@@ -257,181 +280,35 @@ async function main(): Promise<void> {
         targets: evaluation.constructs.map((construct) => construct.constructId),
       },
     });
+    status("ready");
     console.log("Done — DISCOVERY READY");
     console.log(`Discovery: ${existingDiscovery ? "reused" : "generated"}`);
     console.log("Targeted board: waits for committed Discovery evidence");
     console.log(`Checkpoint: ${draftDir}`);
-    console.log("Start session: npm run sunny → Start child session");
+    console.log(`Start session: ${formatStartSessionCommand()} → Start child session`);
     return;
   }
   if (shouldDeferToAdaptiveWorker(existingLifecycle)) {
-    const status = getMathGenerationStatus(childId, homeworkId);
+    status("ready");
+    const generationStatus = getMathGenerationStatus(childId, homeworkId, {rootDir});
     console.log("Done — ADAPTIVE GENERATION IN PROGRESS");
     console.log(`Lifecycle: ${existingLifecycle}`);
-    console.log(`Generation: ${status?.phase ?? "queued"}`);
+    console.log(`Generation: ${generationStatus?.phase ?? "queued"}`);
     console.log("Start or restart Sunny; saved work resumes automatically.");
     return;
   }
-  const priorOutcomes = {
-    directExperience: readDirectFeedbackContext(childId),
-    canonicalCycle: readDirectCanonicalLearningContext(childId, homeworkId),
-  };
-
-  currentCheckpoint = draftDir;
-  currentPhase = "academic-planning";
-  console.log("[2/5] Planner writing academic prescription");
-  const reusableProgram = readReusablePlannerProgram({
-    programFile,
-    diagnosticFile: plannerDiagnosticFile,
-    archiveDir: path.join(draftDir, "audit"),
-  });
-  const plannerStatus = reusableProgram ? "reused" as const : "generated" as const;
-  const program = reusableProgram ?? await withIngestionHeartbeat("Planner", () => askDirectMathPlanner({
-        childId,
-        chart,
-        extraction,
-        priorOutcomes,
-        priorConceptIds: readPriorConceptIds(childId),
-        rawResponseFile: plannerDiagnosticFile,
-      }));
-  writeJson(programFile, program);
-  console.log(`  📋 ${program.assumptions.length} assumptions preregistered; publication remains pending`);
-  const routeIds = new Set(program.fork.routes.map((route) => route.id));
-  const sharedNodes = program.activities.filter((activity) => !routeIds.has(activity.routeId)).map((activity) => activity.id);
-  console.log(`  🧭 Program: shared=${sharedNodes.join(",") || "none"}; ${program.fork.routes.map((route) => `${route.id}=${route.nodeIds.join(",")}`).join("; ")}`);
-
-  currentPhase = "experience-design";
-  const existingDesignPacket = fs.existsSync(designFile) ? readJson<MathDesignPacket>(designFile) : undefined;
-  const shouldDesign = !existingDesignPacket || !fs.existsSync(finalPlanFile)
-    || !mathDesignHasRoutePresentationBindings(existingDesignPacket);
-  console.log("[3/5] Creator designing coherent board and node artifacts");
-  const designStatus = shouldDesign ? "generated" as const : "reused" as const;
-  const designAttemptsBefore = fs.existsSync(designCheckpointFile)
-    ? readJson<MathDesignCheckpoint>(designCheckpointFile).attempts.length
-    : 0;
-  const designed = shouldDesign
-      ? await withIngestionHeartbeat("Designer", () => askMathExperienceDesigner({
-        childId,
-        program,
-        childContext: buildMathCreativeChildContext(chart),
-        priorOutcomes,
-        checkpoint: fs.existsSync(designCheckpointFile)
-          ? readJson<MathDesignCheckpoint>(designCheckpointFile)
-          : undefined,
-        checkpointFile: designCheckpointFile,
-        rawResponseDir: path.join(draftDir, "provider-diagnostics"),
-      }))
-    : {
-        packet: readJson<MathDesignPacket>(designFile),
-        plan: readJson<DirectLearningExperiencePlan>(finalPlanFile),
-      };
-  writeJson(designFile, designed.packet);
-  writeJson(finalPlanFile, designed.plan);
-
-  currentPhase = "activity-building";
-  console.log(`[4/5] Building ${designed.plan.activities.length} artifact-designed activities with bounded concurrency`);
-  const existingBuild = fs.existsSync(buildFile)
-    ? readJson<{ artifacts: DirectArtifact[]; backgroundUrl: string; questArtworkUrl: string; bossArtworkUrl: string }>(buildFile)
-    : undefined;
-  const existingArtworkUrls = existingBuild
-    ? {
-        backgroundUrl: existingBuild.backgroundUrl,
-        questArtworkUrl: existingBuild.questArtworkUrl,
-        bossArtworkUrl: existingBuild.bossArtworkUrl,
-      }
-    : undefined;
-  const generated = await withIngestionHeartbeat("Baseline builders", () => generateDirectArtifacts({
-    plan: designed.plan,
-    childId,
-    homeworkId,
-    plannerModel: process.env.SUNNY_PLANNER_MODEL ?? "claude-opus-5",
-    architectModel: process.env.SUNNY_ARCHITECT_MODEL ?? "claude-fable-5",
-    assignmentFingerprint: extraction.fileHash,
-    candidateCards: mathPlannerCandidateCards(chart),
-    existingArtworkUrls,
-    ...(rebuildNodeIds.length > 0 ? { forceNodeIds: rebuildNodeIds } : {}),
-  }));
-  writeJson(buildFile, generated);
-
-  currentPhase = "runtime-verification";
-  console.log("[5/5] Running the opening browser smoke check");
-  const report = await runDirectBrowserSmokeCheck({ artifacts: generated.artifacts });
-  if (!report.passed) {
-    console.warn(`  🎮 [direct-ingest] [runtime-diagnostics] warnings=${report.failures.length}`);
-    report.failures.forEach((failure) => console.warn(`    ${failure}`));
-  }
-
-  currentPhase = "atomic-publication";
-  const activeSessionPlan = buildDirectActiveSessionPlan({
-    childId,
-    homeworkId,
-    plan: designed.plan,
-    artifacts: generated.artifacts,
-    backgroundUrl: generated.backgroundUrl,
-    questArtworkUrl: generated.questArtworkUrl,
-    bossArtworkUrl: generated.bossArtworkUrl,
-    report,
-    companion: {
-      id: chart.companion.presetId,
-      name: chart.companion.displayName,
-    },
-  });
-  const record = persistDirectExperience({
-    childId,
-    homeworkId,
-    extraction,
-    plannerPlan: designed.plan,
-    activeSessionPlan,
-    artifacts: generated.artifacts,
-    report,
-    assumptions: program.assumptions,
-  });
-  console.log("Done — FULL");
-  console.log(`Browser smoke check: ${report.passed ? "passed" : "diagnostic warnings recorded"}`);
-  console.log("Quest: locked");
-  console.log("Boss: locked");
-  const designCheckpoint = fs.existsSync(designCheckpointFile)
-    ? readJson<MathDesignCheckpoint>(designCheckpointFile)
-    : undefined;
-  const designTokens = designStatus === "generated"
-    ? designCheckpoint?.attempts.slice(designAttemptsBefore)
-      .reduce((sum, attempt) => sum + attempt.inputTokens + attempt.outputTokens, 0) ?? 0
-    : 0;
-  const buildTokens = currentRunBuildTokens(generated.artifacts, generated.stats.generatedNodeIds);
-  const plannerDiagnostic = fs.existsSync(plannerDiagnosticFile)
-    ? readJson<{ usage?: { input_tokens?: number; output_tokens?: number } }>(plannerDiagnosticFile)
-    : {};
-  const plannerTokens = plannerStatus === "generated"
-    ? Number(plannerDiagnostic.usage?.input_tokens ?? 0) + Number(plannerDiagnostic.usage?.output_tokens ?? 0)
-    : 0;
-  const designAttemptsAfter = designCheckpoint?.attempts.length ?? designAttemptsBefore;
-  const calls = (plannerStatus === "generated" ? 1 : 0)
-    + Math.max(0, designAttemptsAfter - designAttemptsBefore)
-    + generated.stats.generatedNodeIds.length
-    + generated.stats.generatedImages;
-  console.log(formatIngestionSummary({
-    planner: plannerStatus,
-    design: designStatus,
-    generatedNodeIds: generated.stats.generatedNodeIds,
-    reusedNodeIds: generated.stats.reusedNodeIds,
-    generatedImages: generated.stats.generatedImages,
-    reusedImages: generated.stats.reusedImages,
-    calls,
-    tokens: plannerTokens + designTokens + buildTokens,
-    elapsedMs: Date.now() - startedAt,
-    checkpoint: draftDir,
-    bonusDeferred: generated.stats.bonusDeferred,
-  }));
-  console.log(`Plan: ${record}`);
+  } catch(error) { status("needs_attention", error); throw Object.assign(error instanceof Error ? error : new Error(String(error)),{phase:currentPhase,checkpoint}); }
+  finally { releaseMathGenerationLease({...leaseInput,token:lease.token!}); }
 }
 
 if (require.main === module) {
-  void main().catch((error) => {
+  void ingestMathAssignment({childId:arg("child"),pdf:arg("pdf"),fresh:flag("fresh"),retryUncertain:flag("retry-uncertain")}).catch((error) => {
+    const currentPhase=error.phase ?? "preflight";
     const failureKind = classifyIngestionFailure(error, currentPhase);
     console.error(`${failureKind} — ${failureKind === "INPUT_ERROR" ? "correct the assignment input" : "saved progress is available"}`);
-    console.error("Existing board was not changed.");
+    console.error("Only browser-accepted Discovery is eligible for publication.");
     console.error(`Phase: ${currentPhase}`);
-    if (currentCheckpoint) console.error(`Checkpoint: ${currentCheckpoint}`);
+    if (error.checkpoint) console.error(`Checkpoint: ${error.checkpoint}`);
     console.error(`Reason: ${error instanceof Error ? error.message : String(error)}`);
     if (failureKind === "PROVIDER_PAUSED") {
       console.error("Run ingestion again; saved work will resume automatically.");

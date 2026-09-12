@@ -1,4 +1,5 @@
 import path from "path";
+import { resolveChildContextDir } from "./contextRoot";
 
 export type ChildName = "Ila" | "Reina" | "creator";
 
@@ -21,7 +22,7 @@ export function contextFileSegments(childName: ChildName): string[] {
 }
 
 export function resolveContextFilePath(childName: ChildName): string {
-  return path.resolve(process.cwd(), "src", ...contextFileSegments(childName));
+  return path.join(resolveChildContextDir(childContextFolder(childName)), contextMarkdownBasename(childName));
 }
 
 /** Relative path from `src/` (for companions loader DIR = src). */

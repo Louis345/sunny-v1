@@ -42,6 +42,8 @@ describe("returned-work assignment linking", () => {
         context: "returned work", horizon: "one week", expectedMetric: { key: "academic.accuracy", min: 0.6, max: 0.9 },
         predictedErrorPatterns: [], confidence: 0.5, evidenceIds: ["source:assignment"], intervention: "equal groups",
         evidenceLimit: "calibrated_mastery", createdAt: "2026-07-18T12:00:00.000Z",
+        lockedAt: "2026-07-18T12:00:00.000Z",
+        eligibility: { sources: ["graded_work"], maxDelayDays: 365 },
       }],
     }, { rootDir });
     const uploadFile = path.join(rootDir, "marked.json");

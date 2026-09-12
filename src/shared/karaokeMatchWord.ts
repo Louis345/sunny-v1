@@ -39,6 +39,12 @@ const STT_HOMOPHONE_GROUPS = [
   ["for", "fore", "four"],
   ["one", "won"],
   ["no", "know"],
+  ["right", "write", "rite", "wright"],
+  ["sign", "sine"],
+  ["gnat", "nat"],
+  ["knock", "nock"],
+  ["climb", "clime"],
+  ["wheel", "we'll"],
   ["there", "their", "theyre"],
   ["to", "too", "two"],
 ] as const;
@@ -59,6 +65,28 @@ const PRONUNCIATION_STT_ALIASES = new Map<string, Set<string>>([
 ]);
 
 const cmuPronunciationCache = new Map<string, string[]>();
+
+// CMU includes a small number of informal orthographies. They are useful for
+// speech recognition, but they are not alternate correct spellings in an
+// audio-only spelling assessment.
+const NONSTANDARD_SPELLING_FORMS = new Set([
+  // CMU records pronunciations, not whether an orthography is acceptable on a
+  // spelling assessment. Keep common phonetic, advertising, and text-message
+  // shortcuts from converting a miss into instrument ambiguity.
+  "gonna",
+  "gotta",
+  "kool",
+  "lite",
+  "luv",
+  "nite",
+  "r",
+  "skool",
+  "tho",
+  "thru",
+  "u",
+  "ur",
+  "wanna",
+]);
 
 function normalizeSttHomophone(word: string): string {
   return STT_HOMOPHONE_CANONICAL.get(word) ?? word;
@@ -112,6 +140,22 @@ function cmuPronunciationEquivalent(heard: string, expected: string): boolean {
   const expectedPronunciations = new Set(cmuPronunciations(expected));
   return heardPronunciations.some((pronunciation) =>
     expectedPronunciations.has(pronunciation),
+  );
+}
+
+/** True only when two different written words share a known pronunciation. */
+export function areDistinctWordsPronunciationEquivalent(a: string, b: string): boolean {
+  const cleanA = a.toLowerCase().replace(/[^a-z']/g, "");
+  const cleanB = b.toLowerCase().replace(/[^a-z']/g, "");
+  if (!cleanA || !cleanB || cleanA === cleanB) return false;
+  if (NONSTANDARD_SPELLING_FORMS.has(cleanA) || NONSTANDARD_SPELLING_FORMS.has(cleanB)) {
+    return false;
+  }
+  const knownHomophone = normalizeSttHomophone(cleanA) === normalizeSttHomophone(cleanB);
+  if (!knownHomophone && cleanA.includes("'") !== cleanB.includes("'")) return false;
+  return (
+    knownHomophone ||
+    cmuPronunciationEquivalent(cleanA, cleanB)
   );
 }
 

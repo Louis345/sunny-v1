@@ -219,6 +219,7 @@ export function CompanionLayer({
   const feedEmoji = feedEffect ? (FEED_EMOJI[feedEffect.itemId] ?? "🍎") : null;
   const layerZIndex = feedEffect ? 12050 : 15;
   const [feedCombo, setFeedCombo] = useState<FeedComboState | null>(null);
+  const [modelStatus, setModelStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const feedComboRef = useRef<{ count: number; lastAt: number; eventId: string | null }>({
     count: 0,
     lastAt: 0,
@@ -423,6 +424,7 @@ export function CompanionLayer({
 
   useEffect(() => {
     if (!childId || !companion) {
+      setModelStatus("idle");
       stopLoop();
       const r = rendererRef.current;
       const s = sceneRef.current;
@@ -450,11 +452,13 @@ export function CompanionLayer({
 
     const mount = mountRef.current;
     if (!mount) {
+      setModelStatus("error");
       console.error("CompanionLayer: [effect] mountRef.current is null — skip Three setup");
       return;
     }
 
     let cancelled = false;
+    setModelStatus("loading");
     portraitHeadPosRef.current = null;
     stopLoop();
 
@@ -610,11 +614,13 @@ export function CompanionLayer({
         );
 
         console.log("CompanionLayer: [VRM] loaded, starting loop if visible");
+        setModelStatus("ready");
         if (!toggledOffRef.current) {
           startLoop();
         }
       })
       .catch((err: unknown) => {
+        if (!cancelled) setModelStatus("error");
         console.error("CompanionLayer: failed to load or validate VRM —", err);
       });
     };
@@ -720,6 +726,7 @@ export function CompanionLayer({
         <div
           ref={wrapRef}
           data-testid="companion-portrait-stack"
+          data-companion-model-status={modelStatus}
           data-companion-presence={summoned ? "summoned" : "collapsed"}
           data-companion-care-mood={behavior.mood}
           data-companion-care-state={behavior.presentationState}
@@ -840,6 +847,7 @@ export function CompanionLayer({
     <div
       ref={wrapRef}
       data-testid="companion-layer-stack"
+      data-companion-model-status={modelStatus}
       className="fixed inset-0"
       data-companion-care-mood={behavior.mood}
       data-companion-care-state={behavior.presentationState}

@@ -312,6 +312,15 @@ describe("adventure board validation", () => {
     expect(issues.map((issue) => issue.message).join(" ")).toContain("compiler-owned layout slots");
   });
 
+  it("rejects two visible nodes projected into the same board slot", () => {
+    const badBoard = board();
+    badBoard.nodes[2] = { ...badBoard.nodes[2]!, slot: badBoard.nodes[1]!.slot };
+
+    expect(validateBoardVisualContract(badBoard)).toEqual(expect.arrayContaining([
+      expect.objectContaining({ code: "board_node_slot_collision", nodeId: badBoard.nodes[2]!.id }),
+    ]));
+  });
+
   it("fails horizontal spine boards that put the route choice before baseline evidence", () => {
     const valid = board();
     const issues = validateBoardChoices({
@@ -360,7 +369,9 @@ describe("adventure board validation", () => {
             }
           : {
               ...node,
-              thumbnailUrl: "/thumbnails/activities/word-radar.svg",
+              thumbnailUrl: node.activityId === "spell-check"
+                ? "/thumbnails/activities/spell-check.svg"
+                : "/thumbnails/activities/word-radar.svg",
               layout: { role: node.kind === "choice-gate" ? "choice-gate" : "baseline", order: 1 },
             },
       ),
@@ -384,7 +395,9 @@ describe("adventure board validation", () => {
       ...valid,
       nodes: valid.nodes.map((node) => ({
         ...node,
-        thumbnailUrl: "/thumbnails/activities/word-radar.svg",
+        thumbnailUrl: node.activityId === "spell-check"
+          ? "/thumbnails/activities/spell-check.svg"
+          : "/thumbnails/activities/word-radar.svg",
         layout: {
           role: node.id === "choice_after_verify"
             ? "choice-gate"
@@ -425,7 +438,9 @@ describe("adventure board validation", () => {
       companion: { id: "matilda", name: "Matilda" },
       nodes: valid.nodes.map((node) => ({
         ...node,
-        thumbnailUrl: "/thumbnails/activities/word-radar.svg",
+        thumbnailUrl: node.activityId === "spell-check"
+          ? "/thumbnails/activities/spell-check.svg"
+          : "/thumbnails/activities/word-radar.svg",
         layout: { role: node.kind === "choice-gate" ? "choice-gate" : "baseline", order: 1 },
       })),
       choiceSets: valid.choiceSets?.map((choiceSet) => ({

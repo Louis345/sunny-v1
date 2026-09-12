@@ -333,6 +333,8 @@ function endGame(completed) {
   if (typeof window.sendNodeComplete === "function") {
     window.sendNodeComplete({
       completed: completed,
+      ended: true,
+      won: !!completed,
       accuracy: triesUsed === 1 ? 1.0 : completed ? 0.7 : 0,
       flaggedWords: completed ? [] : [w],
       xpEarned: completed ? Math.max(50 - triesUsed * 5, 10) : 5,

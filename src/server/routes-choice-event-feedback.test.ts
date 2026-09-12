@@ -1,6 +1,10 @@
 import express from "express";
 import type { AddressInfo } from "net";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+// Completion-route tests must never read a real chart or write currency.
+vi.mock("../profiles/childChart", () => ({ getChildChart: vi.fn(() => { throw new Error("test_chart_unavailable"); }) }));
+vi.mock("./currencyAward", () => ({ reconcileCompanionCareCurrencyAward: vi.fn(() => ({ ok: true, balance: 25 })) }));
 
 vi.mock("../engine/choiceEvents", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../engine/choiceEvents")>();
@@ -80,7 +84,7 @@ vi.mock("../engine/learningCycleRepository", () => ({
 }));
 
 import { appendContentFeedbackLesson } from "../engine/contentFeedbackMemory";
-import { applyChoiceEventPreference, findChoiceEventById } from "../engine/choiceEvents";
+import { applyChoiceEventPreference, findChoiceEventById, recordChoiceEvent } from "../engine/choiceEvents";
 import { getLearningCycle, transitionLearningCycle } from "../engine/learningCycleRepository";
 import { interpretDirectExperienceOutcome } from "../engine/directExperienceFeedback";
 import { advanceCanonicalCycleFromEvidence, recordCanonicalNodeCompletion } from "../engine/learningCycleRuntime";
@@ -96,6 +100,9 @@ const mockedFindChoiceEventById = vi.mocked(findChoiceEventById);
 
 describe("choice-event route feedback lessons", () => {
   const servers: Array<{ close: () => void }> = [];
+  beforeEach(() => {
+    mockedGetLearningCycle.mockReset().mockReturnValue({domain: "math",childId: "demo-pashley",homeworkId: "hw-math",lifecycle: "baseline_evaluating",revision: 2,nodes: [{nodeId: "array-forge",state: "active"}]} as never);
+  });
 
   afterEach(() => {
     for (const server of servers.splice(0)) server.close();
@@ -118,7 +125,7 @@ describe("choice-event route feedback lessons", () => {
     return { status: res.status, body: await res.json() as Record<string, unknown> };
   }
 
-  async function postNodeCompletion() {
+  async function postNodeCompletion(sessionId: string | null = "session-1") {
     const app = express();
     app.use(express.json());
     setupRoutes(app);
@@ -132,7 +139,7 @@ describe("choice-event route feedback lessons", () => {
         childId: "demo-pashley",
         homeworkId: "hw-math",
         nodeId: "array-forge",
-        result: { completed: true, accuracy: 0.8, sessionId: "session-1" },
+        result: { completed: true, accuracy: 0.8, sessionId },
       }),
     });
     return { status: res.status, body: await res.json() as Record<string, unknown> };
@@ -265,7 +272,7 @@ describe("choice-event route feedback lessons", () => {
     expect(mockedAppendLesson).not.toHaveBeenCalled();
   });
 
-  it("returns immediately while direct-experience interpretation continues in the background", async () => {
+  it("records canonical math engagement without starting a competing legacy interpretation", async () => {
     const out = await postChoiceEvent({
       ...routeChoicePayload,
       eventName: "activity_completed",
@@ -275,14 +282,51 @@ describe("choice-event route feedback lessons", () => {
       completed: true,
       funRating: 3,
       demoRequested: true,
+      accuracy: 1,
     });
 
     expect(out.status).toBe(200);
     expect(out.body.ok).toBe(true);
+    expect(mockedInterpretOutcome).not.toHaveBeenCalled();
+    expect(mockedApplyChoiceEventPreference).toHaveBeenCalledTimes(1);
+    expect(advanceCanonicalCycleFromEvidence).not.toHaveBeenCalled();
+    expect(vi.mocked(recordChoiceEvent).mock.calls[0][0]).not.toHaveProperty("accuracy");
+    expect(vi.mocked(recordChoiceEvent).mock.calls[0][0]).toMatchObject({funRating: 3, demoRequested: true});
+  });
+
+  it("preserves background interpretation for non-math legacy homework", async () => {
+    mockedGetLearningCycle.mockReturnValueOnce({domain: "reading",childId: "demo-pashley",homeworkId: "hw-reading",revision: 2,nodes: [{nodeId: "reading-room"}]} as never);
+    const out = await postChoiceEvent({
+      ...routeChoicePayload, domain: "reading", homeworkId: "hw-reading", context: "homework_required",
+      eventName: "activity_completed", nodeId: "reading-room", completed: true,
+    });
+    expect(out.status).toBe(200);
     expect(mockedInterpretOutcome).toHaveBeenCalledTimes(1);
   });
 
+  it.each([" Math ", "reading"])("uses the canonical homework domain instead of claimed %s", async (domain) => {
+    mockedGetLearningCycle.mockReturnValueOnce({domain: "math",childId: "demo-pashley",homeworkId: "hw-math",revision: 2,nodes: [{nodeId: "array-forge"}]} as never);
+    const out=await postChoiceEvent({...routeChoicePayload,domain,context: "homework_required",eventName: "activity_completed",nodeId: "array-forge",completed: true,accuracy: 1});
+    expect(out.status).toBe(200);
+    expect(mockedInterpretOutcome).not.toHaveBeenCalled();
+    expect(vi.mocked(recordChoiceEvent).mock.calls[0][0]).toMatchObject({domain: "math"});
+    expect(vi.mocked(recordChoiceEvent).mock.calls[0][0]).not.toHaveProperty("accuracy");
+  });
+
+  it("rejects a math node presented as belonging to a different reading assignment", async () => {
+    mockedGetLearningCycle.mockReturnValueOnce({domain: "reading",homeworkId: "hw-reading",nodes: [{nodeId: "reading-room"}]} as never);
+    const out=await postChoiceEvent({...routeChoicePayload,homeworkId: "hw-reading",domain: "reading",context: "homework_required",eventName: "activity_completed",nodeId: "array-forge",completed: true});
+    expect(out.status).toBe(409);
+    expect(out.body.error).toBe("choice_event_node_not_in_homework");
+    expect(recordChoiceEvent).not.toHaveBeenCalled();
+    expect(mockedInterpretOutcome).not.toHaveBeenCalled();
+  });
+
   it("starts exactly one next-chapter decision from the canonical completion endpoint", async () => {
+    const before = mockedGetLearningCycle("demo-pashley", "hw-math");
+    mockedGetLearningCycle.mockReturnValueOnce(before).mockReturnValueOnce({
+      ...before, nodes: [{ nodeId: "array-forge", state: "completed" }],
+    } as never);
     const out = await postNodeCompletion();
 
     expect(out.status).toBe(200);
@@ -291,6 +335,30 @@ describe("choice-event route feedback lessons", () => {
       expect(advanceCanonicalCycleFromEvidence).toHaveBeenCalledTimes(1);
       expect(generateCanonicalProgressionArtifact).toHaveBeenCalledTimes(1);
     });
+  });
+
+  it("does not restart the pending Planner when a previously completed node is replayed", async () => {
+    mockedGetLearningCycle.mockReturnValue({domain: "math", childId: "demo-pashley", homeworkId: "hw-math", lifecycle: "quest_evaluating", revision: 4, nodes: [{nodeId: "array-forge", state: "completed"}]} as never);
+    const out = await postNodeCompletion();
+    expect(out.status).toBe(200);
+    expect(recordCanonicalNodeCompletion).toHaveBeenCalledTimes(1);
+    expect(advanceCanonicalCycleFromEvidence).not.toHaveBeenCalled();
+    expect(generateCanonicalProgressionArtifact).not.toHaveBeenCalled();
+    expect(out.body.coinAward).toBeUndefined();
+  });
+
+  it("returns the saved canonical accuracy rather than the generated completion claim", async () => {
+    vi.mocked(recordCanonicalNodeCompletion).mockReturnValueOnce({lifecycle: "baseline_active", revision: 3, evidence: {academic: [{evidenceId: "session-1:array-forge:completion",accuracy: 0.4}]}} as never);
+    const out=await postNodeCompletion();
+    expect(out.status).toBe(200);
+    expect(out.body.academicAccuracy).toBe(0.4);
+  });
+
+  it("requires a stable launch identity for canonical math completion", async () => {
+    const out=await postNodeCompletion(null);
+    expect(out.status).toBe(400);
+    expect(out.body.error).toBe("canonical_completion_session_required");
+    expect(recordCanonicalNodeCompletion).not.toHaveBeenCalled();
   });
 
   it("blocks every canonical learning write when the server runtime is as-child", async () => {

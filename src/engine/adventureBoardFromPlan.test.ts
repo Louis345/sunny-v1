@@ -111,7 +111,7 @@ describe("buildAdventureBoardFromActiveSessionPlan", () => {
     });
 
     expect(board.nodes.find((node) => node.id === "baseline_silent_letters_spelling")?.shortLabel)
-      .toBe("The Lighthouse Lens");
+      .toBe("Lighthouse Lens");
   });
 
   it("ignores stale adventureBoard blobs and materializes from nodePlan", () => {
@@ -574,7 +574,7 @@ describe("buildAdventureBoardFromActiveSessionPlan", () => {
     expect(questNodes[0]?.state).toBe("locked");
   });
 
-  it("keeps excess unique route nodes out of the cramped middle route lane", () => {
+  it("keeps every Planner-authored route visible without slot collisions", () => {
     const board = buildAdventureBoardFromActiveSessionPlan({
       plan: {
         planId: "plan-route-overflow",
@@ -603,11 +603,79 @@ describe("buildAdventureBoardFromActiveSessionPlan", () => {
 
     const choiceSet = board.choiceSets?.find((set) => set.id === "baseline-route-options");
 
-    expect(choiceSet?.options.map((option) => option.nodeId)).toEqual(["route-a-primary", "route-b-primary"]);
-    expect(board.nodes.some((node) => node.slot === "5c.1" || node.slot === "5c.2")).toBe(false);
+    expect(choiceSet?.options.map((option) => option.nodeId)).toEqual(["route-a-primary", "route-b-primary", "route-c-extra"]);
     expect(board.nodes.find((node) => node.id === "route-a-extra")?.slot).toBe("5a.2");
     expect(board.nodes.find((node) => node.id === "route-b-extra")?.slot).toBe("5b.2");
-    expect(board.nodes.find((node) => node.id === "route-c-extra")).toBeUndefined();
+    expect(board.nodes.find((node) => node.id === "route-c-extra")?.slot).toBe("5c.1");
+    expect(new Set(board.nodes.map((node) => node.slot)).size).toBe(board.nodes.length);
+  });
+
+  it("renders the complete spelling program without hiding or colliding with the shared final check", () => {
+    const plan = {
+      planId: "spelling-six-known-four-gaps",
+      childId: "reina",
+      domain: "spelling",
+      nodePlan: [
+        { id: "silent-scan", title: "Silent Letter Scan", type: "word-radar", activityId: "word-radar", targets: ["sign", "know", "write", "thumb"] },
+        { id: "silent-spell", title: "Silent Letters Spelling Practice", type: "spell-check", activityId: "spell-check", targets: ["sign", "know", "write", "thumb"] },
+        { id: "sight-recall", title: "High-Frequency Word Recall Practice", type: "word-radar", activityId: "word-radar", targets: ["among", "building"] },
+        { id: "sight-rush", title: "High-Frequency Word Letter Rush", type: "letter-rush", activityId: "letter-rush", targets: ["among", "building"] },
+        { id: "wheel", title: "Silent Letters Wheel Challenge", type: "wheel-of-fortune", activityId: "wheel-of-fortune", targets: ["sign", "know", "write", "thumb"] },
+        { id: "final-check", title: "Full List Hidden Recall Checkpoint", type: "word-radar", activityId: "word-radar", targets: ["sign", "know", "write", "thumb", "among", "building"] },
+        { id: "quest", title: "Quest", type: "quest", activityId: "quest", targets: [], locked: true },
+        { id: "boss", title: "Boss", type: "boss", activityId: "boss", targets: [], locked: true },
+      ],
+      learningRoutes: [
+        { id: "silent-route", label: "Silent Letter Path", rationale: "Target the four current gaps.", nodeIds: ["silent-scan", "silent-spell", "wheel"] },
+        { id: "sight-route", label: "Sight Word Path", rationale: "Offer a different practice route.", nodeIds: ["sight-recall", "sight-rush"] },
+        { id: "checkpoint-route", label: "Final Check", rationale: "Recheck every assigned word after practice.", nodeIds: ["final-check", "quest", "boss"] },
+      ],
+      plannedMeasurements: [
+        {
+          id: "measure-final-check",
+          activityId: "word-radar",
+          target: "all assigned words",
+          evidenceType: "fresh recall",
+          supportCriteria: "Unassisted recall is captured",
+          reviseCriteria: "Evidence is mixed",
+          falsifyCriteria: "Recall does not hold",
+          spelling: { finalCheck: true },
+        },
+      ],
+    };
+    const board = buildAdventureBoardFromActiveSessionPlan({
+      plan: plan as never,
+      boardId: plan.planId,
+      theme,
+    });
+
+    const expectedPlanNodeIds = plan.nodePlan.map((node) => node.id);
+    expect(board.nodes.filter((node) => expectedPlanNodeIds.includes(node.id)).map((node) => node.id).sort())
+      .toEqual([...expectedPlanNodeIds].sort());
+    expect(new Set(board.nodes.map((node) => node.slot)).size).toBe(board.nodes.length);
+    expect(board.choiceSets?.find((set) => set.id === "baseline-route-options")?.options.map((option) => option.nodeId))
+      .toEqual(["silent-scan", "sight-recall"]);
+    expect(board.nodes.find((node) => node.id === "wheel")).toMatchObject({
+      slot: "5a.3",
+      thumbnailUrl: "/thumbnails/activities/wheel-of-fortune.svg",
+    });
+    expect(board.nodes.find((node) => node.id === "sight-rush")?.thumbnailUrl)
+      .toBe("/thumbnails/activities/letter-rush.svg");
+    expect(board.nodes.find((node) => node.id === "final-check")?.slot).toBe("6");
+    expect(board.edges).toEqual(expect.arrayContaining([
+      expect.objectContaining({ from: "wheel", to: "final-check" }),
+      expect.objectContaining({ from: "sight-rush", to: "final-check" }),
+      expect.objectContaining({ from: "final-check", to: "quest" }),
+    ]));
+    expect(board.nodes.every((node) => (node.shortLabel ?? node.label).length <= 18)).toBe(true);
+    expect(board.nodes.filter((node) => node.kind === "activity").map((node) => node.shortLabel)).toEqual([
+      "Silent Letter Scan",
+      "Spelling Practice",
+      "Wheel Challenge",
+      "Recall Practice",
+      "Letter Rush",
+      "Recall Checkpoint",
+    ]);
   });
 
   it("names generated-baseline and concept-check nodes after the concept, not the engine", () => {

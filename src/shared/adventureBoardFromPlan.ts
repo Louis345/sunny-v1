@@ -11,6 +11,7 @@ import type {
   AdventureChoiceOption,
   AdventureChoiceSet,
 } from "./adventureBoardJson";
+import { knownThumbnailUrlForActivity } from "./activityPresentation";
 
 export interface ActiveSessionPlanBoardNodeSnapshot {
   id: string;
@@ -52,6 +53,11 @@ export interface ActiveSessionPlanBoardSnapshot {
   domain: string;
   nodePlan: ActiveSessionPlanBoardNodeSnapshot[];
   learningRoutes?: ActiveSessionPlanLearningRouteSnapshot[];
+  plannedMeasurements?: Array<{
+    id: string;
+    activityId?: string;
+    spelling?: { finalCheck?: boolean };
+  }>;
   adventureBoard?: AdventureBoardJson;
 }
 
@@ -76,11 +82,6 @@ const supportedDomains = new Set<AdventureBoardDomain>([
   "generic",
 ]);
 
-const routeSlots = ["5a.1", "5b.1", "5a.2"] as const;
-const routeLanes = ["upper", "lower", "upper"] as const;
-const maxVisibleRouteCount = 2;
-const maxVisibleNodesPerRoute = 2;
-
 type NormalizedRouteLayoutEntry = {
   node: ActiveSessionPlanBoardNodeSnapshot;
   routeId: string;
@@ -95,10 +96,14 @@ function isBaselineLikeRouteNode(node: ActiveSessionPlanBoardNodeSnapshot): bool
 function normalizeRouteLayout(plan: ActiveSessionPlanBoardSnapshot): {
   requiredNodes: ActiveSessionPlanBoardNodeSnapshot[];
   routeEntries: NormalizedRouteLayoutEntry[];
+  convergedNodes: ActiveSessionPlanBoardNodeSnapshot[];
   hasExplicitRoutes: boolean;
 } {
   const baselineNodes = plan.nodePlan.filter((node) => !isDestinationNode(node));
   const nodeById = new Map(plan.nodePlan.map((node) => [node.id, node]));
+  const finalCheckNodeIds = new Set((plan.plannedMeasurements ?? [])
+    .filter((measurement) => measurement.spelling?.finalCheck === true)
+    .map((measurement) => measurement.id.replace(/^measure-/, "")));
   const routeUseCounts = new Map<string, number>();
   for (const route of plan.learningRoutes ?? []) {
     for (const nodeId of route.nodeIds) {
@@ -108,44 +113,60 @@ function normalizeRouteLayout(plan: ActiveSessionPlanBoardSnapshot): {
     }
   }
 
-  const visibleRouteIds = new Set((plan.learningRoutes ?? [])
-    .slice(0, maxVisibleRouteCount)
-    .map((route) => route.id));
   const routeEntries: NormalizedRouteLayoutEntry[] = [];
-  const hiddenRouteNodeIds = new Set<string>();
+  const visibleRoutes = (plan.learningRoutes ?? [])
+    .map((route) => ({
+      route,
+      candidates: route.nodeIds
+        .map((nodeId) => nodeById.get(nodeId))
+        .filter((node): node is ActiveSessionPlanBoardNodeSnapshot => Boolean(node))
+        .filter((node) => !isDestinationNode(node))
+        .filter((node) => !isBaselineLikeRouteNode(node))
+        .filter((node) => !finalCheckNodeIds.has(node.id))
+        .filter((node) => (routeUseCounts.get(node.id) ?? 0) === 1),
+    }))
+    .filter(({ candidates }) => candidates.length > 0)
+    .slice(0, 3);
 
-  for (const [routeIndex, route] of (plan.learningRoutes ?? []).entries()) {
-    const candidates: ActiveSessionPlanBoardNodeSnapshot[] = [];
-    for (const nodeId of route.nodeIds) {
-      const node = nodeById.get(nodeId);
-      if (!node) continue;
-      if (isDestinationNode(node)) continue;
-      if (isBaselineLikeRouteNode(node)) continue;
-      if ((routeUseCounts.get(node.id) ?? 0) !== 1) continue;
-      candidates.push(node);
-    }
-
-    if (!visibleRouteIds.has(route.id)) {
-      for (const node of candidates) hiddenRouteNodeIds.add(node.id);
-      continue;
-    }
-
-    for (const [routeOrder, node] of candidates.slice(0, maxVisibleNodesPerRoute).entries()) {
+  for (const [routeIndex, { route, candidates }] of visibleRoutes.entries()) {
+    for (const [routeOrder, node] of candidates.slice(0, 3).entries()) {
       routeEntries.push({ node, routeId: route.id, routeIndex, routeOrder });
     }
-    for (const node of candidates.slice(maxVisibleNodesPerRoute)) hiddenRouteNodeIds.add(node.id);
   }
 
   const routeNodeIds = new Set(routeEntries.map((entry) => entry.node.id));
+  const convergedNodes = baselineNodes.filter((node) => finalCheckNodeIds.has(node.id));
   const requiredNodes = baselineNodes.filter((node) =>
     !routeNodeIds.has(node.id) &&
-    !hiddenRouteNodeIds.has(node.id));
+    !finalCheckNodeIds.has(node.id));
 
   return {
     requiredNodes,
     routeEntries,
-    hasExplicitRoutes: (plan.learningRoutes?.length ?? 0) >= 2 && routeEntries.length >= 2,
+    convergedNodes,
+    hasExplicitRoutes: visibleRoutes.length >= 2 && routeEntries.length >= 2,
   };
+}
+
+/** The exact route options and node paths that the board will expose to a child. */
+export function getAdventureBoardSelectableRoutes(
+  plan: {
+    nodePlan: Array<Pick<ActiveSessionPlanBoardNodeSnapshot, "id" | "type" | "activityId">>;
+    learningRoutes?: ActiveSessionPlanLearningRouteSnapshot[];
+    plannedMeasurements?: ActiveSessionPlanBoardSnapshot["plannedMeasurements"];
+  },
+): Array<{ id: string; nodeIds: string[] }> {
+  const normalized = normalizeRouteLayout(plan as ActiveSessionPlanBoardSnapshot);
+  if (!normalized.hasExplicitRoutes) return [];
+  const nodeIdsByRoute = new Map<string, string[]>();
+  for (const entry of normalized.routeEntries) {
+    const nodeIds = nodeIdsByRoute.get(entry.routeId) ?? [];
+    nodeIds.push(entry.node.id);
+    nodeIdsByRoute.set(entry.routeId, nodeIds);
+  }
+  return (plan.learningRoutes ?? [])
+    .filter((route) => nodeIdsByRoute.has(route.id))
+    .map((route) => ({ id: route.id, nodeIds: nodeIdsByRoute.get(route.id)! }));
 }
 
 export function buildAdventureBoardFromActiveSessionPlan(
@@ -161,6 +182,9 @@ export function buildAdventureBoardFromActiveSessionPlan(
   const routeNodes = normalizedLayout.hasExplicitRoutes
     ? normalizedLayout.routeEntries.map((entry) => entry.node)
     : baselineNodes.slice(requiredBaselineCount);
+  const convergedNodes = normalizedLayout.hasExplicitRoutes
+    ? normalizedLayout.convergedNodes
+    : [];
   const hasRealRouteChoice = routeNodes.length >= 2;
   const mysteryNode = options.plan.nodePlan.find((node) => activityIdForPlanNode(node) === "mystery");
   const questNode = pickDestinationNode(options.plan.nodePlan, "quest");
@@ -191,11 +215,11 @@ export function buildAdventureBoardFromActiveSessionPlan(
     const routeSlot = routeEntry
       ? slotForRouteEntry(routeEntry)
       : (hasRealRouteChoice
-          ? routeSlots[index] ?? "5c.1"
-          : (index === 0 ? "4" : routeSlots[index - 1] ?? "5c.1"));
+          ? slotForLinearRouteIndex(index)
+          : (index === 0 ? "4" : slotForLinearRouteIndex(index - 1)));
     const routeLane = routeEntry
       ? laneForRouteEntry(routeEntry)
-      : (hasRealRouteChoice ? routeLanes[index] ?? "middle" : "main");
+      : (hasRealRouteChoice ? laneForLinearRouteIndex(index) : "main");
     const routeOrder = routeEntry
       ? routeEntry.routeOrder + 1
       : (hasRealRouteChoice ? laneOrderForRouteNode(index) : requiredNodes.length + index + 1);
@@ -211,6 +235,19 @@ export function buildAdventureBoardFromActiveSessionPlan(
       order: routeOrder,
     });
   });
+  const convergedBoardNodes = convergedNodes.map((node, index) =>
+    buildBoardNode({
+      planNode: node,
+      index: requiredNodes.length + routeNodes.length + index,
+      state: stateForPlanNode(node, completedNodeIds, currentNodeId),
+      label: options.labelForNode?.(node, requiredNodes.length + routeNodes.length + index) ?? labelForPlanNode(node),
+      thumbnailUrl: options.thumbnailForNode?.(node, requiredNodes.length + routeNodes.length + index) ?? thumbnailForPlanNode(node),
+      slot: mysteryNode ? "6.1" : "6",
+      role: "baseline",
+      lane: "main",
+      order: requiredNodes.length + index + 1,
+    }),
+  );
   const destinationNodes = [mysteryNode, questNode, bossNode]
     .filter((node): node is ActiveSessionPlanBoardNodeSnapshot => Boolean(node))
     .map((node, index) =>
@@ -220,7 +257,7 @@ export function buildAdventureBoardFromActiveSessionPlan(
         state: destinationStateForPlanNode(node),
         label: options.labelForNode?.(node, baselineNodes.length + index) ?? labelForPlanNode(node),
         thumbnailUrl: options.thumbnailForNode?.(node, baselineNodes.length + index),
-        slot: destinationSlotForPlanNode(node),
+        slot: destinationSlotForPlanNode(node, convergedBoardNodes.length > 0),
         role: layoutRoleForKind(kindForPlanNode(node)),
         lane: "main",
         order: 1,
@@ -235,6 +272,7 @@ export function buildAdventureBoardFromActiveSessionPlan(
     ...requiredBoardNodes,
     ...(choiceGate ? [choiceGate] : []),
     ...routeBoardNodes,
+    ...convergedBoardNodes,
     ...destinationNodes,
   ];
 
@@ -257,6 +295,7 @@ export function buildAdventureBoardFromActiveSessionPlan(
       startNode,
       requiredNodes: requiredBoardNodes,
       routeNodes: routeBoardNodes,
+      convergedNodes: convergedBoardNodes,
       destinationNodes,
       hasRealRouteChoice,
       choiceGate,
@@ -290,12 +329,22 @@ export function buildAdventureBoardFromActiveSessionPlan(
 }
 
 function slotForRouteEntry(entry: NormalizedRouteLayoutEntry): AdventureBoardNode["slot"] {
-  if (entry.routeIndex === 0) return entry.routeOrder === 0 ? "5a.1" : "5a.2";
-  return entry.routeOrder === 0 ? "5b.1" : "5b.2";
+  const route = ["a", "b", "c"][entry.routeIndex] ?? "c";
+  const order = Math.min(entry.routeOrder + 1, 3);
+  return `5${route}.${order}` as AdventureBoardNode["slot"];
 }
 
 function laneForRouteEntry(entry: NormalizedRouteLayoutEntry): NonNullable<AdventureBoardNode["layout"]>["lane"] {
-  return entry.routeIndex === 0 ? "upper" : "lower";
+  return (["upper", "lower", "middle"] as const)[entry.routeIndex] ?? "middle";
+}
+
+function slotForLinearRouteIndex(index: number): AdventureBoardNode["slot"] {
+  const slots: AdventureBoardNode["slot"][] = ["5a.1", "5b.1", "5c.1", "5a.2", "5b.2", "5c.2", "5a.3", "5b.3", "5c.3"];
+  return slots[index] ?? "5c.3";
+}
+
+function laneForLinearRouteIndex(index: number): NonNullable<AdventureBoardNode["layout"]>["lane"] {
+  return (["upper", "lower", "middle"] as const)[index % 3] ?? "middle";
 }
 
 export function resolveAdventureBoardForActiveSessionPlan(
@@ -304,12 +353,16 @@ export function resolveAdventureBoardForActiveSessionPlan(
   return buildAdventureBoardFromActiveSessionPlan(options);
 }
 
-function boardShortLabel(label: string, maxLength = 28): string {
+function boardShortLabel(label: string, maxLength = 18): string {
   const normalized = label.replace(/\s+/g, " ").trim();
   const lead = normalized.split(/\s*(?::|—|–)\s*/u, 1)[0] ?? normalized;
   if (lead.length <= maxLength) return lead;
-  const wholeWords = lead.slice(0, maxLength + 1).replace(/\s+\S*$/u, "").trim();
-  return wholeWords || lead;
+  const words = lead.split(" ");
+  const meaningfulSuffix = words.slice(-2).join(" ");
+  if (meaningfulSuffix.length <= maxLength) return meaningfulSuffix;
+  const lastWord = words.at(-1) ?? lead;
+  if (lastWord.length <= maxLength) return lastWord;
+  return lastWord.slice(0, maxLength);
 }
 
 function buildBoardNode(input: {
@@ -436,13 +489,17 @@ function buildPresentationEdges(args: {
   startNode: AdventureBoardNode;
   requiredNodes: AdventureBoardNode[];
   routeNodes: AdventureBoardNode[];
+  convergedNodes: AdventureBoardNode[];
   destinationNodes: AdventureBoardNode[];
   hasRealRouteChoice: boolean;
   choiceGate?: AdventureBoardNode;
 }): AdventureBoardEdge[] {
   const edges: AdventureBoardEdge[] = [];
-  const firstOnPath =
-    args.requiredNodes[0] ?? args.routeNodes[0] ?? args.destinationNodes[0];
+  const firstOnPath = args.requiredNodes[0]
+    ?? (args.hasRealRouteChoice ? args.choiceGate : undefined)
+    ?? args.routeNodes[0]
+    ?? args.convergedNodes[0]
+    ?? args.destinationNodes[0];
   if (firstOnPath) edges.push(edgeBetween(args.startNode, firstOnPath));
   for (let index = 0; index < args.requiredNodes.length - 1; index += 1) {
     const from = args.requiredNodes[index]!;
@@ -451,9 +508,9 @@ function buildPresentationEdges(args: {
   }
 
   const lastRequired = args.requiredNodes[args.requiredNodes.length - 1];
-  const firstDestination = args.destinationNodes[0];
-  if (args.hasRealRouteChoice && args.choiceGate && lastRequired) {
-    edges.push(edgeBetween(lastRequired, args.choiceGate));
+  const firstAfterRoutes = args.convergedNodes[0] ?? args.destinationNodes[0];
+  if (args.hasRealRouteChoice && args.choiceGate) {
+    if (lastRequired) edges.push(edgeBetween(lastRequired, args.choiceGate));
     for (const routeLane of routeLaneGroups(args.routeNodes)) {
       const firstRouteNode = routeLane[0];
       const lastRouteNode = routeLane[routeLane.length - 1];
@@ -462,10 +519,10 @@ function buildPresentationEdges(args: {
       for (let index = 0; index < routeLane.length - 1; index += 1) {
         edges.push(edgeBetween(routeLane[index]!, routeLane[index + 1]!));
       }
-      if (firstDestination) edges.push(edgeBetween(lastRouteNode, firstDestination));
+      if (firstAfterRoutes) edges.push(edgeBetween(lastRouteNode, firstAfterRoutes));
     }
   } else {
-    const linearNodes = [...args.requiredNodes, ...args.routeNodes, ...args.destinationNodes];
+    const linearNodes = [...args.requiredNodes, ...args.routeNodes, ...args.convergedNodes, ...args.destinationNodes];
     const existing = new Set(edges.map((edge) => `${edge.from}->${edge.to}`));
     for (let index = 0; index < linearNodes.length - 1; index += 1) {
       const from = linearNodes[index]!;
@@ -475,9 +532,11 @@ function buildPresentationEdges(args: {
     }
   }
 
-  for (let index = 0; index < args.destinationNodes.length - 1; index += 1) {
-    edges.push(edgeBetween(args.destinationNodes[index]!, args.destinationNodes[index + 1]!));
+  const sharedTail = [...args.convergedNodes, ...args.destinationNodes];
+  for (let index = 0; index < sharedTail.length - 1; index += 1) {
+    edges.push(edgeBetween(sharedTail[index]!, sharedTail[index + 1]!));
   }
+
   return [...new Map(edges.map((edge) => [edge.id, edge])).values()];
 }
 
@@ -536,7 +595,7 @@ function buildRouteChoiceSets(args: {
           id: `choice-${route.id}`,
           label: route.label,
           description: route.rationale,
-          thumbnailUrl: args.thumbnailForNode?.(node, absoluteIndex),
+          thumbnailUrl: args.thumbnailForNode?.(node, absoluteIndex) ?? thumbnailForPlanNode(node),
           state: node.locked
             ? "locked"
             : args.completedNodeIds.includes(node.id)
@@ -572,7 +631,7 @@ function buildRouteChoiceSets(args: {
         id: `choice-${route?.id ?? node.id}`,
         label,
         description: route?.rationale ?? `Try ${label} next.`,
-        thumbnailUrl: args.thumbnailForNode?.(node, absoluteIndex),
+        thumbnailUrl: args.thumbnailForNode?.(node, absoluteIndex) ?? thumbnailForPlanNode(node),
         state: node.locked
           ? "locked"
           : args.completedNodeIds.includes(node.id)
@@ -745,8 +804,11 @@ function destinationStateForPlanNode(node: ActiveSessionPlanBoardNodeSnapshot): 
   return node.locked ? "locked" : "available";
 }
 
-function destinationSlotForPlanNode(node: ActiveSessionPlanBoardNodeSnapshot): AdventureBoardNode["slot"] {
-  if (activityIdForPlanNode(node) === "mystery") return "6";
+function destinationSlotForPlanNode(
+  node: ActiveSessionPlanBoardNodeSnapshot,
+  hasConvergedNode = false,
+): AdventureBoardNode["slot"] {
+  if (activityIdForPlanNode(node) === "mystery") return hasConvergedNode ? "6.2" : "6";
   if (activityIdForPlanNode(node) === "quest") return "7";
   return "8";
 }
@@ -847,8 +909,12 @@ const CONCEPT_LABEL_THUMBNAILS: Record<string, string> = {
  * concept nodes get a visual identity instead of a bare icon circle.
  */
 function thumbnailForPlanNode(node: ActiveSessionPlanBoardNodeSnapshot): string | undefined {
-  if (node.thumbnailUrl) return node.thumbnailUrl;
   const activityId = activityIdForPlanNode(node);
+  const activityThumbnail = knownThumbnailUrlForActivity(activityId);
+  if (activityThumbnail && (!node.thumbnailUrl || node.thumbnailUrl.startsWith("/thumbnails/activities/"))) {
+    return activityThumbnail;
+  }
+  if (node.thumbnailUrl) return node.thumbnailUrl;
   const conceptLabel = conceptLabelForPlanNode(node, activityId);
   if (!conceptLabel) return undefined;
   return CONCEPT_LABEL_THUMBNAILS[conceptLabel] ?? "/thumbnails/activities/math-generic.svg";

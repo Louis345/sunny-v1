@@ -1,4 +1,5 @@
 import fs from "fs";
+import os from "os";
 import path from "path";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import {
@@ -6,34 +7,41 @@ import {
   finalizeClockSession,
   getClockLevel,
 } from "./clockTracker";
-import { readLearningProfile, writeLearningProfile } from "../utils/learningProfileIO";
+import {
+  initializeLearningProfile,
+  readLearningProfile,
+  resolveProfilePath,
+  writeLearningProfile,
+} from "../utils/learningProfileIO";
 import type { LearningProfile } from "../context/schemas/learningProfile";
 
-const childId = "ila";
-const profilePath = path.resolve(
-  process.cwd(),
-  "src",
-  "context",
-  childId,
-  "learning_profile.json",
-);
+const childId = "clock-tracker-lab";
 
 describe("clock mastery gating", () => {
-  let saved: string | null = null;
+  const previousContextRoot = process.env.SUNNY_CONTEXT_ROOT;
+  let rootDir = "";
+  let profilePath = "";
 
   beforeEach(() => {
-    saved = fs.existsSync(profilePath)
-      ? fs.readFileSync(profilePath, "utf-8")
-      : null;
-    const base = readLearningProfile(childId);
-    expect(base).not.toBeNull();
-    const p = JSON.parse(JSON.stringify(base)) as LearningProfile;
+    rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-clock-tracker-"));
+    process.env.SUNNY_CONTEXT_ROOT = rootDir;
+    profilePath = resolveProfilePath(childId);
+    expect(profilePath).not.toContain(path.join("src", "context", "ila"));
+    const p = initializeLearningProfile({
+      childId,
+      age: 8,
+      grade: 3,
+      diagnoses: [],
+      learningGoals: [],
+    }) as LearningProfile;
     p.clockMastery = { currentStep: 1, stepSessionHistory: [] };
     writeLearningProfile(childId, p);
   });
 
   afterEach(() => {
-    if (saved !== null) fs.writeFileSync(profilePath, saved, "utf-8");
+    fs.rmSync(rootDir, { recursive: true, force: true });
+    if (previousContextRoot === undefined) delete process.env.SUNNY_CONTEXT_ROOT;
+    else process.env.SUNNY_CONTEXT_ROOT = previousContextRoot;
   });
 
   it("advances step after 3 sessions at 80%+", () => {

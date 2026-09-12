@@ -1,4 +1,5 @@
 import type { AdventureBoardJson } from "./adventureBoardJson";
+import { knownThumbnailUrlForActivity } from "./activityPresentation";
 
 export type AdventureBoardValidationCode =
   | "missing_edge_endpoint"
@@ -18,7 +19,9 @@ export type AdventureBoardValidationCode =
   | "board_background_not_image"
   | "board_companion_missing"
   | "board_node_thumbnail_missing"
+  | "board_node_activity_thumbnail_mismatch"
   | "board_node_slot_missing"
+  | "board_node_slot_collision"
   | "board_node_layout_missing"
   | "board_label_too_long"
   | "board_choice_art_missing"
@@ -139,7 +142,12 @@ export function validateBoardChoices(board: AdventureBoardJson): AdventureBoardV
           message: `Baseline route choice ${option.id} points to ${option.nodeId}, but that route does not reconnect to Mystery, Quest, or Boss.`,
         });
       }
-      const experimentBoard = board.nodes.some((node) => node.theoryId);
+      const experimentBoard = (board.choiceSets ?? []).some((set) =>
+        set.options.some((candidate) => Boolean(
+          candidate.theoryId ||
+          candidate.contentId ||
+          candidate.engagementDimensions?.length,
+        )));
       if (experimentBoard && (!option.theoryId || !option.experimentId || !option.contentId || !option.engagementDimensions?.length)) {
         issues.push({
           code: "choice_experiment_metadata_missing",
@@ -157,7 +165,12 @@ export function validateBoardChoices(board: AdventureBoardJson): AdventureBoardV
         });
       }
     }
-    if (board.nodes.some((node) => node.theoryId)) {
+    if ((board.choiceSets ?? []).some((set) =>
+      set.options.some((candidate) => Boolean(
+        candidate.theoryId ||
+        candidate.contentId ||
+        candidate.engagementDimensions?.length,
+      )))) {
       const contentIds = choiceSet.options.map((option) => option.contentId).filter(Boolean);
       if (new Set(contentIds).size !== contentIds.length) {
         issues.push({
@@ -190,6 +203,10 @@ export function validateBoardChoices(board: AdventureBoardJson): AdventureBoardV
     }
     if (
       board.layout?.preset === "horizontal-adventure-spine" &&
+      board.nodes.some((candidate) =>
+        candidate.kind === "activity" &&
+        (candidate.evidenceRole === "baseline" || candidate.layout?.role === "baseline") &&
+        (candidate.slot === "2" || candidate.slot === "3")) &&
       !board.edges.some((edge) => {
         if (edge.to !== node.id) return false;
         const from = nodesById.get(edge.from);
@@ -290,9 +307,10 @@ export function validateBoardVisualContract(board: AdventureBoardJson): Adventur
     });
   }
 
+  const visibleNodeBySlot = new Map<string, string>();
   for (const node of board.nodes) {
     if (node.state === "hidden") continue;
-    if (!node.thumbnailUrl) {
+    if (!node.thumbnailUrl && !node.icon) {
       issues.push({
         code: "board_node_thumbnail_missing",
         severity: "error",
@@ -307,6 +325,29 @@ export function validateBoardVisualContract(board: AdventureBoardJson): Adventur
         nodeId: node.id,
         message: `Visible board node ${node.id} must use compiler-owned layout slots instead of authored coordinates.`,
       });
+    } else {
+      const existingNodeId = visibleNodeBySlot.get(node.slot);
+      if (existingNodeId) {
+        issues.push({
+          code: "board_node_slot_collision",
+          severity: "error",
+          nodeId: node.id,
+          message: `Visible board nodes ${existingNodeId} and ${node.id} both use slot ${node.slot}.`,
+        });
+      } else {
+        visibleNodeBySlot.set(node.slot, node.id);
+      }
+    }
+    if (node.kind === "activity" && node.activityId && node.thumbnailUrl?.startsWith("/thumbnails/activities/")) {
+      const expectedThumbnail = knownThumbnailUrlForActivity(node.activityId);
+      if (expectedThumbnail && node.thumbnailUrl !== expectedThumbnail) {
+        issues.push({
+          code: "board_node_activity_thumbnail_mismatch",
+          severity: "error",
+          nodeId: node.id,
+          message: `Visible board node ${node.id} uses ${node.thumbnailUrl}, but ${node.activityId} requires ${expectedThumbnail}.`,
+        });
+      }
     }
     if (!node.layout?.role) {
       issues.push({

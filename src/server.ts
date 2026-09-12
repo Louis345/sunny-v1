@@ -1,4 +1,5 @@
-import "dotenv/config";
+import { loadSunnyRuntimeEnvironment } from "./scripts/sunnyMenu";
+loadSunnyRuntimeEnvironment();
 import "./server/server";
 import express from "express";
 import cors from "cors";

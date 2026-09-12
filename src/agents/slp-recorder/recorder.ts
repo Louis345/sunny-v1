@@ -34,6 +34,10 @@ export async function recordSession(
     return;
   }
 
+  if (history.length === 0) {
+    console.log(" 🎮 [session-recorder] [skipped] reason=empty_conversation");
+    return;
+  }
   console.log("\n  💾 Saving session memory...");
 
   const { generateText } = await import("ai");

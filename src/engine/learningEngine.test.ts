@@ -1,6 +1,16 @@
 import fs from "fs";
+import os from "os";
 import path from "path";
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 import {
   planSession,
   recordAttempt,
@@ -8,12 +18,17 @@ import {
   getSessionRewardState,
 } from "./learningEngine";
 import { readWordBank } from "../utils/wordBankIO";
-import { readLearningProfile } from "../utils/learningProfileIO";
+import {
+  initializeLearningProfile,
+  readLearningProfile,
+  writeLearningProfile,
+} from "../utils/learningProfileIO";
 
 const childId = "ila";
-const ctxRoot = path.resolve(process.cwd(), "src", "context", childId);
-const wordBankPath = path.join(ctxRoot, "word_bank.json");
-const profilePath = path.join(ctxRoot, "learning_profile.json");
+let isolatedContextRoot = "";
+let ctxRoot = "";
+let wordBankPath = "";
+let profilePath = "";
 const today = () => new Date().toISOString().slice(0, 10);
 const sessionNotePath = () =>
   path.join(ctxRoot, "session_notes", `${today()}.md`);
@@ -22,7 +37,41 @@ let savedWordBank: string | null = null;
 let savedProfile: string | null = null;
 let savedSessionNote: string | null = null;
 
+beforeAll(() => {
+  isolatedContextRoot = fs.mkdtempSync(
+    path.join(os.tmpdir(), "sunny-learning-engine-"),
+  );
+  vi.stubEnv("SUNNY_CONTEXT_ROOT", isolatedContextRoot);
+  vi.stubEnv("SUNNY_ALLOW_REAL_CHILD_CONTEXT_ROOT", "true");
+  ctxRoot = path.join(isolatedContextRoot, childId);
+  wordBankPath = path.join(ctxRoot, "word_bank.json");
+  profilePath = path.join(ctxRoot, "learning_profile.json");
+  writeLearningProfile(
+    childId,
+    initializeLearningProfile({
+      childId,
+      age: 9,
+      grade: 3,
+      diagnoses: [],
+      learningGoals: ["spelling", "reading"],
+    }),
+  );
+});
+
+afterAll(() => {
+  vi.unstubAllEnvs();
+  if (isolatedContextRoot) {
+    fs.rmSync(isolatedContextRoot, { recursive: true, force: true });
+  }
+});
+
 describe("Priority 1 — recordAttempt updates SM-2", () => {
+  it("never points the learning-engine test at canonical family data", () => {
+    expect(ctxRoot).not.toBe(
+      path.resolve(process.cwd(), "src", "context", childId),
+    );
+  });
+
   beforeEach(() => {
     savedWordBank = fs.existsSync(wordBankPath)
       ? fs.readFileSync(wordBankPath, "utf-8")

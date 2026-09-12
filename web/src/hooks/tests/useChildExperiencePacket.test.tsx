@@ -29,7 +29,7 @@ describe("useChildExperiencePacket", () => {
     await waitFor(() => {
       expect(result.current.packet?.activeSessionPlan?.adventureBoard?.boardId).toBe("board-reina");
     });
-    expect(fetchMock).toHaveBeenCalledWith("/api/child-experience/reina");
+    expect(fetchMock).toHaveBeenCalledWith("/api/child-experience/reina", { signal: expect.any(AbortSignal) });
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(result.current.loading).toBe(false);
     expect(result.current.error).toBeNull();

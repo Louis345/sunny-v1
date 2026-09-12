@@ -89,6 +89,7 @@ import {
   getMapState,
   handleMapClientMessage,
   hydrateHomeworkCompletedNodeIds,
+  mapSessionNotePath,
   MapSessionError,
   startMapSession,
   buildMapSummary,
@@ -376,9 +377,28 @@ function mockProfileWithPendingHomework(
 
 describe("map coordinator (TASK-010)", () => {
   const cleanupPaths: string[] = [];
+  let isolatedContextRoot = "";
 
   beforeEach(() => {
     vi.unstubAllEnvs();
+    isolatedContextRoot = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-map-context-"));
+    cleanupPaths.push(isolatedContextRoot);
+    vi.stubEnv("SUNNY_CONTEXT_ROOT", isolatedContextRoot);
+    vi.stubEnv("SUNNY_ALLOW_REAL_CHILD_CONTEXT_ROOT", "true");
+    for (const childId of ["ila", "reina", "qa_map"]) {
+      const childDir = path.join(isolatedContextRoot, childId);
+      fs.mkdirSync(childDir, { recursive: true });
+      fs.writeFileSync(
+        path.join(childDir, "learning_profile.json"),
+        JSON.stringify(learningProfileIO.initializeLearningProfile({
+          childId,
+          age: 8,
+          grade: 2,
+          diagnoses: [],
+          learningGoals: [],
+        })),
+      );
+    }
     __resetAdventureMapSessionsForTests();
     __resetVoiceSessionRegistryForTests();
     vi.mocked(buildProfile).mockResolvedValue({
@@ -408,6 +428,13 @@ describe("map coordinator (TASK-010)", () => {
     for (const p of cleanupPaths.splice(0)) {
       fs.rmSync(p, { recursive: true, force: true });
     }
+  });
+
+  it("routes test learning records away from the family context", () => {
+    expect(process.env.SUNNY_CONTEXT_ROOT).toBe(isolatedContextRoot);
+    expect(mapSessionNotePath("reina", "2026-09-10T12:00:00.000Z")).toBe(
+      path.join(isolatedContextRoot, "reina", "session_notes", "2026-09-10.md"),
+    );
   });
 
   it("startMapSession returns mapState with nodes from buildNodeList", async () => {
@@ -2445,7 +2472,7 @@ describe("map coordinator (TASK-010)", () => {
 
   it("preview reuses saved Grok themes instead of generating a new theme", async () => {
     const childId = "qa_preview_theme";
-    const childDir = path.join(process.cwd(), "src", "context", childId);
+    const childDir = path.join(isolatedContextRoot, childId);
     const themeDir = path.join(childDir, "themes");
     cleanupPaths.push(childDir);
     fs.mkdirSync(themeDir, { recursive: true });

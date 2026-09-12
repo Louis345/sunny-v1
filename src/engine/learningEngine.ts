@@ -99,7 +99,7 @@ export interface SessionSummary {
   childId: string;
   date: string;
   totalAttempts: number;
-  accuracy: number;
+  accuracy: number | null;
   wordsReviewed: string[];
   wordsNew: string[];
   wordsRegressed: string[];
@@ -110,6 +110,10 @@ export interface SessionSummary {
   easinessDelta?: number;
   /** True when Wilson / mastery gate advanced this session. */
   masteryGateCrossed?: boolean;
+}
+
+export function formatLegacySessionAccuracy(summary: Pick<SessionSummary, "accuracy">): string {
+  return summary.accuracy === null ? "no measured legacy accuracy" : `${Math.round(summary.accuracy * 100)}% accuracy`;
 }
 
 // Per-session state (not persisted — lives only for the session lifetime)
@@ -551,7 +555,7 @@ export function finalizeSession(
     sessionStates.delete(childId);
     const totalAttempts = state?.rewardState.totalAttempts ?? 0;
     const totalCorrect = state?.rewardState.totalCorrect ?? 0;
-    const accuracy = totalAttempts > 0 ? totalCorrect / totalAttempts : 0;
+    const accuracy = totalAttempts > 0 ? totalCorrect / totalAttempts : null;
     return {
       childId,
       date: now,
@@ -569,7 +573,7 @@ export function finalizeSession(
 
   const totalAttempts = state?.rewardState.totalAttempts ?? 0;
   const totalCorrect = state?.rewardState.totalCorrect ?? 0;
-  const accuracy = totalAttempts > 0 ? totalCorrect / totalAttempts : 0;
+  const accuracy = totalAttempts > 0 ? totalCorrect / totalAttempts : null;
 
   const wordsReviewed = [...new Set(state?.attempts.map((a) => a.word) ?? [])];
   const wordsNew = state?.rewardState.wordsThisSession.filter(
@@ -586,7 +590,7 @@ export function finalizeSession(
     bondQuality: bondData?.quality ?? "moderate",
     sessionDuration: duration,
     moodStart: "neutral",
-    moodEnd: totalAttempts > 0 && accuracy < 0.4 ? "fatigued" : "neutral",
+    moodEnd: accuracy !== null && accuracy < 0.4 ? "fatigued" : "neutral",
     mode: state?.mode ?? "spelling",
     wilsonStep: state?.wilsonStep ?? 1,
     wordsRegressed: state?.wordsRegressed ?? [],

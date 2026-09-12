@@ -54,6 +54,7 @@ import { reconcileCompanionCurrencyAward } from "./currencyAward";
 import { computeStoryMovieCost } from "../shared/rewardEconomy";
 import { recordLearningAttempt } from "./learningAttemptEvents";
 import { getDopamineGameSlugsForChild } from "../profiles/childrenConfig";
+import { resolveChildContextDir } from "../utils/contextRoot";
 import {
   applySunnyRuntimeOverrides,
   resolveSunnyRuntimeConfig,
@@ -163,7 +164,7 @@ export type SavedHomeworkThemeFile = {
 };
 
 function themesDirForChild(childId: string): string {
-  return path.join(process.cwd(), "src", "context", mapCompanionWsKey(childId), "themes");
+  return path.join(resolveChildContextDir(mapCompanionWsKey(childId)), "themes");
 }
 
 /** List saved theme JSON files for a child, oldest → newest. */
@@ -2035,22 +2036,23 @@ function ratingFromResult(nodeType: NodeType, result: NodeResult): NodeRatingLik
   return result.accuracy >= 0.5 ? "like" : "dislike";
 }
 
+export function mapSessionNotePath(childId: string, sessionDate: string): string {
+  return path.join(
+    resolveChildContextDir(childId),
+    "session_notes",
+    `${sessionDate.slice(0, 10)}.md`,
+  );
+}
+
 function appendMapSessionNote(
   childId: string,
   sessionDate: string,
   summary: string,
 ): void {
   try {
-    const dateStr = sessionDate.slice(0, 10);
-    const dir = path.join(
-      process.cwd(),
-      "src",
-      "context",
-      childId,
-      "session_notes",
-    );
+    const fp = mapSessionNotePath(childId, sessionDate);
+    const dir = path.dirname(fp);
     fs.mkdirSync(dir, { recursive: true });
-    const fp = path.join(dir, `${dateStr}.md`);
     fs.appendFileSync(fp, `\n- ${summary}\n`, "utf-8");
     console.log(`  🎮 [map-coordinator] session note line: ${summary}`);
   } catch (err) {

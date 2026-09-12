@@ -12,6 +12,7 @@ import type {
 } from "../context/schemas/learningProfile";
 import type { AdventureBoardJson } from "../shared/adventureBoardJson";
 import { buildAdventureBoardFromActiveSessionPlan } from "../shared/adventureBoardFromPlan";
+import { knownThumbnailUrlForActivity } from "../shared/activityPresentation";
 import type { NodeType } from "../shared/adventureTypes";
 import type { ChildChart } from "../profiles/childChart";
 import {
@@ -38,8 +39,11 @@ import {
 } from "../scripts/contentAwareHomeworkPlanner";
 import {
   type AssignmentSourceExtraction,
+  assignmentPlannerContent,
 } from "./assignmentSourceExtraction";
 import { certifySpellingAdaptation } from "./spellingCertification";
+import { buildDiscoveryEvidenceSummary, hashDiscoveryContract, runMathProviderStage, type DiscoveryEvidenceSummary } from "./adaptiveMathDiscovery";
+import type { LearningObservation, SpellingDiagnosticInstrument, SpellingDiagnosticSelection } from "./learningCycleRepository";
 import {
   buildPlannerContentCandidateCards,
 } from "./learningDecisionContext";
@@ -190,7 +194,24 @@ export type AssignmentPlanningPacket = {
   parentDialogue?: AssignmentPlannerDialogueTurn[];
   plannerInstruction: string;
   priorPlannerOutput?: AssignmentPlannerOutput;
+  spellingDiagnostics?: { version: 1; instruments: SpellingDiagnosticInstrument[]; evidenceIds: string[]; observations: Omit<LearningObservation, "childResponse" | "prompt">[]; device: { status: "unknown" } };
+  discoveryEvidence?: { summary: DiscoveryEvidenceSummary; observations: Omit<LearningObservation, "childResponse" | "prompt">[]; history: ChildChart["learningHistory"]; diagnosticSelection?: SpellingDiagnosticSelection };
 };
+
+export function attachSpellingDiscoveryEvidence(packet: AssignmentPlanningPacket, chart: ChildChart): AssignmentPlanningPacket {
+  const cycle = chart.learningCycle;
+  if (!cycle || cycle.domain !== "spelling" || ["evaluation_ready", "evaluation_active"].includes(cycle.lifecycle)) throw new Error("spelling_evidence_not_committed");
+  const clean = ({ childResponse: _response, prompt: _prompt, ...facts }: LearningObservation): Omit<LearningObservation, "childResponse" | "prompt"> => facts;
+  // Replace pre-Discovery board prescriptions; current evidence, not the old
+  // ingestion spine, determines this program's topology and teaching emphasis.
+  packet = { ...packet, plannerInstruction: "Use the captured school words and cited child-chart evidence as assignment truth." };
+  packet = { ...packet, plannerInstruction: `${packet.plannerInstruction}\nNative activityConfig contracts: both engines require schemaVersion:1, activityId, domain:spelling, topic, learningGoal, gradeBand:early_elementary, evidencePolicy:{writesPracticeEvidence:true,writesMasteryEvidence:false,requiresPerTargetResult:true,allowedEvidence:[practice]}. Letter Rush also needs mode (type-and-spell, hear-and-spell, read-and-race, trap-the-imposter, mastery-run), scaffolds:{showWord,letterBank,allowRetryBeforeScore,companionHints} booleans, and words:[{id,text}]. Concept Check needs engine:{id,mode}, targets:[{id,label,type:word}], and rounds:[{id,mechanic:choose,targetId,prompt,options:[{id,label,correct}],scaffoldLevel}], with one correct option and one round per target. These are runtime capabilities, not a prescription to select those games.` };
+  const history = chart.learningHistory ? { ...chart.learningHistory, constructs: Object.fromEntries(Object.entries(chart.learningHistory.constructs).map(([id, entry]) => [id, { ...entry, observations: entry.observations.map(clean) }])) } : { childId: cycle.childId, constructs: {}, recentDecisions: [], pendingInterpretation: [] };
+  return { ...packet, capturedHomework: { ...packet.capturedHomework, title: cycle.assignment.title, type: "spelling_test", words: cycle.assignment.targets, questions: [], wordGroups: [{ id: "assigned", label: "Assigned school words", purpose: "spell_from_memory", words: cycle.assignment.targets, confidence: 1, evidence: cycle.assignment.capturedEvidenceIds }], contentProfile: { ...packet.capturedHomework.contentProfile, practiceDomain: "spelling", contentDomain: "language_arts", topic: cycle.assignment.title, primarySkill: "Spell assigned words from recall" } },
+    discoveryEvidence: { summary: buildDiscoveryEvidenceSummary(cycle), observations: cycle.observations.map(clean), history, diagnosticSelection: cycle.nodes.find(node => node.role === "evaluation")?.evidenceContract.diagnosticSelection },
+    plannerInstruction: `${packet.plannerInstruction}\nThis is targeted spelling planning after committed Discovery. Treat unknown, assisted, and instrument-ambiguous responses separately from spelling errors. Previous outcomes below are evidence, not permanent learning-style or preference instructions. You own practice emphasis, games, sequence, and predictions. Please concentrate practice on clean independent misses; do not spend equal practice time on words the child already demonstrated independently. If you offer child-choice practice routes, every selectable route must address every clean independent miss, either through required shared practice or within that route, so agency cannot bypass the demonstrated gap. Preserve the available spelling games and earning rules. For every node add plannedMeasurements.spelling: role (instruction, practice, fresh_checkpoint), evidenceIds, interventionNodeIds, reason, uncertainty, expectedAccuracy {min,max}, confidence, maxDelayDays, finalCheck. Cite actual observation IDs. A checkpoint follows and cites the intervention it measures. The final hidden recall check is a shared convergence after practice—not a child-choice route—and covers all assigned words, including initially secure words. Word Radar hidden_word_recall is the available capture instrument. Hearing a word is stimulus; seeing letters or help is assistance. Previously practiced words are never unseen. Predict immediate unassisted recall only, not retention, mastery, or causation. Use generationRequests only for a missing catalog capability; reuse available implementations otherwise. For letter-rush or concept-check provide the catalog's complete engine payload in node.activityConfig, with domain spelling and writesMasteryEvidence false. Its targets must exactly cover the node's assigned words; code binds their frozen identities. Concept-check selection measures recognition practice, not independent spelling recall. Academic conclusions stay in spelling; cross-domain interaction facts may inform tentative design hypotheses.`,
+  };
+}
 
 export type AssignmentPlanningCapturedHomework = Pick<
   CapturedHomeworkContent,
@@ -223,7 +244,9 @@ export type AssignmentPlanValidationIssue = {
     | "word_missing_source_group"
     | "missing_word_radar_config"
     | "missing_node_measurement"
+    | "missing_node_title"
     | "target_lane_mismatch"
+    | "activity_renderer_mismatch"
     | "unknown_activity_id";
   severity: "error" | "warning";
   message: string;
@@ -232,7 +255,102 @@ export type AssignmentPlanValidationIssue = {
 export type AssignmentPlanningOptions = {
   model?: string;
   callPlannerModel?: AssignmentPlannerModelCaller;
+  providerReceipt?: { draftDir: string; stage: string };
 };
+
+const spellingIntakeUncertaintySchema = z.object({
+  kind: z.enum(["unreadable_word", "ambiguous_word", "assignment_scope"]),
+  pageNumber: z.number().int().positive(),
+  detail: z.string().trim().min(1),
+}).strict();
+const spellingDiagnosticReasonSchema = z.object({
+  reason: z.string().trim().min(1), evidenceIds: z.array(z.string().min(1)).min(1),
+  uncertainty: z.array(z.string().trim().min(1)).min(1), nextEvidenceNeeded: z.array(z.string().trim().min(1)).min(1),
+});
+const spellingDiagnosticDecisionSchema = z.discriminatedUnion("action", [
+  spellingDiagnosticReasonSchema.extend({ action: z.literal("select"), activityId: z.string().min(1), modeId: z.string().min(1) }).strict(),
+  spellingDiagnosticReasonSchema.extend({ action: z.literal("needs_instrument") }).strict(),
+]);
+const spellingIntakeSchema = z.object({
+  title: z.string().trim().min(1),
+  words: z.array(z.object({ word: z.string().trim().min(1), pageNumber: z.number().int().positive() }).strict()).min(1),
+  uncertainty: z.array(z.union([spellingIntakeUncertaintySchema, z.string().trim().min(1)])),
+  sourceNotes: z.array(z.string()).optional(),
+  diagnostic: spellingDiagnosticDecisionSchema.optional(), // Historical captures did not have Planner selection.
+}).strict();
+export type SpellingIntake = z.infer<typeof spellingIntakeSchema>;
+
+export function prepareSpellingDiagnosticPacket(packet: AssignmentPlanningPacket, chart?: ChildChart): AssignmentPlanningPacket {
+  if (packet.spellingDiagnostics) return packet; // Frozen requests are not recomputed on resume.
+  const available = new Set(packet.activityCatalog.filter(card => card.launchable && card.domains.includes("spelling")).map(card => card.activityId));
+  const instruments = listActivityToolContracts().filter(tool => available.has(tool.id)).flatMap(tool => tool.capabilityModes.flatMap(mode =>
+    mode.independentDiscovery?.domain === "spelling" ? [{ activityId: tool.id, modeId: mode.id, protocol: mode.independentDiscovery.protocol, config: structuredClone(mode.config), measurementRisks: [...mode.measurementRisks] }] : []));
+  const observations = Object.values(chart?.learningHistory.constructs ?? {}).flatMap(entry => entry.observations)
+    .sort((a, b) => b.observedAt.localeCompare(a.observedAt)).slice(0, 40)
+    .map(({ childResponse: _response, prompt: _prompt, ...facts }) => facts);
+  return { ...packet, spellingDiagnostics: { version: 1, instruments, observations,
+    evidenceIds: [...new Set([`assignment:${packet.sourceDocument.fileHash}`, ...observations.map(row => row.observationId)])],
+    device: { status: "unknown" } } };
+}
+
+export function resolveSpellingDiagnosticSelection(capture: SpellingIntake, packet: AssignmentPlanningPacket): SpellingDiagnosticSelection | undefined {
+  const context = packet.spellingDiagnostics, decision = capture.diagnostic;
+  if (!context) {
+    if (decision) throw new Error("spelling_diagnostic_context_missing");
+    return undefined; // Explicitly versioned legacy compatibility, never an AI claim.
+  }
+  if (!decision) throw new Error("spelling_diagnostic_decision_required");
+  if (decision.evidenceIds.some(id => !context.evidenceIds.includes(id))) throw new Error("spelling_diagnostic_evidence_invalid");
+  if (decision.action === "needs_instrument") return undefined;
+  const instrument = context.instruments.find(row => row.activityId === decision.activityId && row.modeId === decision.modeId);
+  if (!instrument) throw new Error("spelling_diagnostic_instrument_unavailable");
+  return { decision: structuredClone(decision), instrument: structuredClone(instrument), snapshotHash: hashDiscoveryContract({ decision, instrument }) };
+}
+
+export function parseSpellingIntake(value: unknown, packet: AssignmentPlanningPacket): SpellingIntake {
+  const result = spellingIntakeSchema.parse(value);
+  const pages = new Set(packet.sourceDocument.pages.map(page => page.pageNumber));
+  if (result.words.some(row => !pages.has(row.pageNumber))) throw new Error("spelling_intake_source_page_invalid");
+  if (result.uncertainty.some(issue => typeof issue !== "string" && !pages.has(issue.pageNumber))) throw new Error("spelling_intake_uncertainty_page_invalid");
+  const identities = result.words.map(row => row.word.normalize("NFC").toLocaleLowerCase("en-US"));
+  if (new Set(identities).size !== identities.length) throw new Error("spelling_intake_word_duplicate");
+  resolveSpellingDiagnosticSelection(result, packet);
+  return result;
+}
+
+export function buildSpellingIntakePrompt(packet: AssignmentPlanningPacket): string {
+  return `This is the assignment-capture and diagnostic-selection phase of Sunny's existing Planner. Capture every assigned spelling word from the complete school source, preserving punctuation and word identity. Reference the source page for each word. Do not add practice words or guess unreadable words. Put informational observations about headers, OCR, repeated practice pages, and clearly captured content in sourceNotes; these notes do not block ingestion. Reserve top-level uncertainty for unresolved assigned-word identity or assignment scope: [{kind: unreadable_word | ambiguous_word | assignment_scope, pageNumber, detail}]. Leave it empty when assigned words and scope are clear. Do not prescribe a teaching board, predictions, games, or mastered/weak labels before current Discovery evidence exists.\n${packet.spellingDiagnostics ? "You own the diagnostic choice. Choose an available validated instrument whose capture can establish the assigned words' independent starting point for this child. Compare its capabilities and measurement risks with the source, child chart, factual observations, and device uncertainty. Availability does not establish suitability or prove this is the best tool. Return diagnostic with action select, activityId, modeId, reason, evidenceIds, uncertainty, and nextEvidenceNeeded; cite only IDs supplied below. If none fits, use action needs_instrument with reason, evidenceIds, uncertainty, and nextEvidenceNeeded, omitting activityId and modeId. Do not substitute an unvalidated practice game or invent a device or permanent learning-style preference. The selected instrument must offer every assigned word without first exposing its spelling, allow Not sure, exit and resume, and preserve unknown/support/confound status. Hearing a whole word is stimulus; spelling or letter clues are assistance. Keep diagnostic uncertainty separate from source-extraction uncertainty." : "This is a saved legacy capture request; preserve its capture-only response contract."}\nReturn only title, words [{word,pageNumber}], sourceNotes, uncertainty${packet.spellingDiagnostics ? ", and diagnostic" : ""}.\nSOURCE:\n${JSON.stringify(packet.sourceDocument)}\nCHILD CHART:\n${JSON.stringify(packet.childChart)}\nVALIDATED DIAGNOSTICS AND FACTUAL EVIDENCE:\n${JSON.stringify(packet.spellingDiagnostics ?? null)}`;
+}
+
+export async function planSpellingIntakeFromSource(packet: AssignmentPlanningPacket, opts: {
+  model?: string;
+  callPlannerModel?: (packet: AssignmentPlanningPacket, model: string) => Promise<{ draft: unknown; usage?: LanguageModelUsage }>;
+  providerReceipt?: { draftDir: string; stage: string };
+} = {}): Promise<{ output: SpellingIntake; telemetry: AssignmentPlannerTelemetry }> {
+  const model = resolveAssignmentPlannerModel({ model: opts.model });
+  const started = Date.now();
+  const parse = (value: unknown): SpellingIntake => {
+    const result = parseSpellingIntake(value, packet);
+    // Legacy saved warnings stay readable, but new captures must state an actionable issue.
+    if (result.uncertainty.some(issue => typeof issue === "string")) throw new Error("spelling_intake_structured_uncertainty_required");
+    return result;
+  };
+  const schema = spellingIntakeSchema.extend({ sourceNotes: z.array(z.string()), uncertainty: z.array(spellingIntakeUncertaintySchema), ...(packet.spellingDiagnostics ? { diagnostic: spellingDiagnosticDecisionSchema } : {}) });
+  type Receipt = { message: Anthropic.Messages.Message; latencyMs: number } | { draft: unknown; usage?: LanguageModelUsage; latencyMs: number } | { output: SpellingIntake; telemetry: AssignmentPlannerTelemetry };
+  const receive = async (): Promise<Receipt> => opts.callPlannerModel
+    ? { ...await opts.callPlannerModel(packet, model), latencyMs: Date.now() - started }
+    : { message: await requestAssignmentPlannerTool({ prompt: buildSpellingIntakePrompt(packet), model, source: packet.sourceDocument, schema: z.toJSONSchema(schema, { io: "input" }) }), latencyMs: Date.now() - started };
+  // Persist the entire paid response BEFORE schema/eligibility validation. Old completed
+  // capture receipts retain the same request hash and remain reusable without a call.
+  const receipt = opts.providerReceipt ? await runMathProviderStage({ ...opts.providerReceipt, model, request: packet, execute: receive }) : await receive();
+  if ("output" in receipt) return { ...receipt, output: parseSpellingIntake(receipt.output, packet) };
+  const tool = "message" in receipt ? receipt.message.content.find(block => block.type === "tool_use" && block.name === ASSIGNMENT_PLANNER_TOOL_NAME) : undefined;
+  const draft = "message" in receipt ? tool && "input" in tool ? tool.input : undefined : receipt.draft;
+  const usage = "message" in receipt ? usageFromAnthropic(receipt.message) : receipt.usage;
+  const output = parse(draft);
+  console.log(` 🎮 [spelling-discovery] [diagnostic-decision] [${output.diagnostic?.action ?? "legacy-fixed-instrument"}]`);
+  return { output, telemetry: { model, usage, latencyMs: receipt.latencyMs } };
+}
 
 export type AssignmentPlannerTelemetry = {
   model: string;
@@ -240,10 +358,15 @@ export type AssignmentPlannerTelemetry = {
   latencyMs: number;
 };
 
+type AssignmentPlannerResult = { output: AssignmentPlannerOutput; telemetry: AssignmentPlannerTelemetry; receivedAt?: string };
+type AssignmentPlannerReceipt =
+  | { message: Anthropic.Messages.Message; model: string; latencyMs: number; createdAt: string }
+  | { result: AssignmentPlannerResult; createdAt: string }; // Completed pre-raw receipts remain reusable.
+
 export type AssignmentPlannerModelCaller = (
   packet: AssignmentPlanningPacket,
   model: string,
-) => Promise<{ draft: AssignmentPlannerResponseObject; usage?: LanguageModelUsage }>;
+) => Promise<{ draft: AssignmentPlannerResponseObject; usage?: LanguageModelUsage; telemetry?: AssignmentPlannerTelemetry; receivedAt?: string }>;
 
 export type PlannerReadinessAuditRow = {
   activity: string;
@@ -448,6 +571,14 @@ const plannedMeasurementSchema: z.ZodType<PlannedMeasurement> = z.object({
   supportCriteria: z.string().min(1),
   reviseCriteria: z.string().min(1),
   falsifyCriteria: z.string().min(1),
+  spelling: z.object({
+    role: z.enum(["instruction", "practice", "fresh_checkpoint"]),
+    evidenceIds: z.array(z.string().min(1)).min(1),
+    interventionNodeIds: z.array(z.string().min(1)),
+    reason: z.string().min(1), uncertainty: z.string().min(1),
+    expectedAccuracy: z.object({ min: z.number().min(0).max(1), max: z.number().min(0).max(1) }).refine(range => range.min <= range.max),
+    confidence: z.number().min(0).max(1), maxDelayDays: z.number().nonnegative(), finalCheck: z.boolean(),
+  }).strict().optional(),
 });
 
 const WORD_RADAR_CONFIG_DEFAULTS = {
@@ -608,9 +739,11 @@ const baselineRoundSchema = z.object({
 
 const compactNodePlanSchema = z.object({
   id: z.string().min(1),
+  title: z.string().trim().min(1).optional(),
   type: z.enum(PLANNER_NODE_ACTIVITY_IDS),
   activityId: z.enum(PLANNER_NODE_ACTIVITY_IDS),
   targets: compactTargetsSchema,
+  activityConfig: z.record(z.string(), z.unknown()).optional(),
   difficulty: z.union([z.literal(1), z.literal(2), z.literal(3)]).optional(),
   targetLane: z.preprocess((value) => value === null ? undefined : value, z.string().optional()),
   choiceMode: z.enum(["choice_lab", "surprise_drop"]).optional(),
@@ -776,8 +909,10 @@ function activityCatalog(
               : "no-mastery-evidence",
         bestFor: evidenceFields.bestFor,
         contaminationRisks: evidenceFields.contaminationRisks,
-        modeEvidenceNotes: evidenceFields.modeEvidenceNotes,
-        capabilityModes: contract.capabilityModes.map((mode) => ({
+        modeEvidenceNotes: evidenceFields.modeEvidenceNotes.filter(note => !contract.capabilityModes.some(mode => mode.id === note.id && mode.independentDiscovery)),
+        // Opening diagnostics have their own evidence-limited request context;
+        // don't present assessment adapters as ordinary teaching-board modes.
+        capabilityModes: contract.capabilityModes.filter(mode => !mode.independentDiscovery).map((mode) => ({
           id: mode.id,
           label: mode.label,
           difficulty: mode.difficulty,
@@ -1271,6 +1406,8 @@ export function validateAssignmentPlannerOutput(
     extraction: AssignmentSourceExtraction;
     activityIds?: string[];
     activityCatalog?: AssignmentActivityCard[];
+    requireNodeTitles?: boolean;
+    requireCatalogBinding?: boolean;
   },
 ): AssignmentPlanValidationIssue[] {
   const issues: AssignmentPlanValidationIssue[] = [];
@@ -1313,6 +1450,14 @@ export function validateAssignmentPlannerOutput(
   );
   const measurementIds = new Set(output.plannedMeasurements.map((measurement) => measurement.id));
   for (const node of output.activeSessionPlan.nodePlan) {
+    const capability = catalog.find(card => card.launchable && card.activityId === node.activityId);
+    if (args.requireCatalogBinding && capability
+      && node.type !== (capability.nodeType ?? normalizeAssignmentNodeType(capability.activityId, capability.activityId))) {
+      issues.push({ code: "activity_renderer_mismatch", severity: "error", message: `Node ${node.id} activity ${node.activityId} cannot launch renderer ${node.type}.` });
+    }
+    if (args.requireNodeTitles && !node.title?.trim()) {
+      issues.push({ code: "missing_node_title", severity: "error", message: `Node ${node.id} is missing its Planner-authored title.` });
+    }
     if (!activityIds.has(node.activityId)) {
       issues.push({
         code: "unknown_activity_id",
@@ -1419,6 +1564,7 @@ export function assignmentPlannerSourceImages(packet: AssignmentPlanningPacket):
 }
 
 export function buildAssignmentPlannerPrompt(packet: AssignmentPlanningPacket): string {
+  if (packet.discoveryEvidence) return `${ASSIGNMENT_PLANNER_PERSONA}\nDesign the targeted spelling journey from the committed facts and available instruments. Return the existing ${ASSIGNMENT_PLANNER_TOOL_NAME} tool object once. Every node needs its own measure-<nodeId> planned measurement and the spelling decision fields. Preserve source words exactly. You choose the number of activities, emphasis, mechanics, and routes; do not fabricate evidence. Existing Quest/Boss gates and earning rules remain unchanged. Do not introduce new reward systems.\n${packet.plannerInstruction}\nEvidence-first packet:\n${JSON.stringify(packet)}`;
   const revisionInstruction = packet.parentDialogue?.length || packet.priorPlannerOutput
     ? "\n- This is a human-in-the-loop revision. Use parentDialogue and priorPlannerOutput as context, then return one coherent revised plan from the same source."
     : "";
@@ -1457,7 +1603,7 @@ Output contract:
 - Include parent-review language that explains why every group was routed to its activity.
 - In planTheory or reviewQuestions, explain why the journey you chose fits this child today.
 - Use the packet as the only source of assignment truth.${revisionInstruction}
-- Return one valid tool-call JSON object directly; the tool schema enforces activeSessionPlan.nodePlan, activeSessionPlan.learningRoutes, plannedMeasurements, planTheory, and reviewQuestions.
+- Return one tool-call object with nodePlan, learningRoutes, plannedMeasurements, planTheory, and reviewQuestions in their schema-defined locations.
 - Treat candidateCard child outcomes as factual, uncertain evidence. Academic compatibility is a hard gate; predicted learning value is primary; engagement is secondary; runtime clarity and reliability support the decision; uncertainty may justify bounded exploration; model-call cost and latency are penalties. A rating never overrides learning evidence, and one choice never proves preference.
 - Every route and Mystery option must declare a different experiment arm when it claims to test a preference. Do not use cosmetic labels for identical content.
 
@@ -1498,10 +1644,33 @@ function enforcePlannerToolContract(schema: JsonSchemaObject): JsonSchemaObject 
   return schema;
 }
 
-export function assignmentPlannerToolJsonSchema(): Record<string, unknown> {
-  return enforcePlannerToolContract(
+export function assignmentPlannerToolJsonSchema(
+  spellingEvidence = false,
+  catalog?: ReadonlyArray<Pick<AssignmentActivityCard, "activityId" | "launchable" | "nodeType">>,
+): Record<string, unknown> {
+  const schema = enforcePlannerToolContract(
     z.toJSONSchema(assignmentPlannerDraftSchema, { io: "input" }) as JsonSchemaObject,
   );
+  if (!spellingEvidence) {
+    removeSchemaProperty(schemaProperties(schema).plannedMeasurements?.items as JsonSchemaObject, "spelling");
+    removeSchemaProperty(schemaProperties(schemaProperties(schema).activeSessionPlan).nodePlan.items as JsonSchemaObject, "title");
+  }
+  if (spellingEvidence) {
+    const nodes = schemaProperties(schemaProperties(schema).activeSessionPlan).nodePlan.items as JsonSchemaObject;
+    setSchemaRequired(nodes, [...(nodes.required as string[]), "title"]);
+  }
+  if (spellingEvidence && catalog) {
+    const available = catalog.filter(card => card.launchable);
+    const ids = [...new Set(available.map(card => card.activityId))];
+    if (!ids.length) throw new Error("assignment_planner_launchable_catalog_empty");
+    const nodes = schemaProperties(schemaProperties(schema).activeSessionPlan).nodePlan.items as JsonSchemaObject;
+    schemaProperties(nodes).activityId.enum = ids;
+    schemaProperties(nodes).type.enum = [...new Set(available.map(card => card.nodeType ?? card.activityId))];
+    nodes.anyOf = available.map(card => ({ properties: {
+      activityId: { const: card.activityId }, type: { const: card.nodeType ?? card.activityId },
+    } }));
+  }
+  return schema;
 }
 
 export class AssignmentPlannerToolInvalidError extends Error {
@@ -1519,6 +1688,85 @@ export class AssignmentPlannerToolInvalidError extends Error {
     this.issues = issues;
     this.keys = keys;
   }
+}
+
+type AssignmentPlannerRelationshipIssue =
+  | {
+    code: "planner_baseline_intervention_lineage_invalid" | "planner_checkpoint_intervention_not_prior";
+    measurementId: string;
+    interventionNodeIds: string[];
+  }
+  | {
+    code: "planner_unknown_evidence_id";
+    measurementId: string;
+    evidenceIds: string[];
+  };
+
+function assignmentPlannerAllowedEvidenceIds(packet: AssignmentPlanningPacket): string[] {
+  const ids = new Set<string>();
+  (packet.capturedHomework.wordGroups ?? []).flatMap(group => group.evidence).forEach(id => ids.add(id));
+  packet.discoveryEvidence?.observations.forEach(observation => ids.add(observation.observationId));
+  packet.discoveryEvidence?.summary.constructs.flatMap(construct => construct.observationIds).forEach(id => ids.add(id));
+  Object.values(packet.discoveryEvidence?.history.constructs ?? {}).forEach(entry => {
+    entry.observations.forEach(observation => ids.add(observation.observationId));
+    entry.evaluations.forEach(evaluation => ids.add(evaluation.evaluationId));
+  });
+  return [...ids].sort();
+}
+
+/**
+ * Diagnose cross-field lineage before asking the Planner to correct an invalid
+ * tool call. The canonical cycle builder remains the authority that accepts or
+ * rejects the corrected plan; this only gives the same bounded correction call
+ * enough factual detail to fix relationships that JSON Schema cannot express.
+ */
+function assignmentPlannerRelationshipIssues(toolInput: unknown, allowedEvidenceIds: ReadonlySet<string>): AssignmentPlannerRelationshipIssue[] {
+  const input = jsonObject(toolInput);
+  const activeSessionPlan = jsonObject(input?.activeSessionPlan);
+  const rawNodes = Array.isArray(activeSessionPlan?.nodePlan) ? activeSessionPlan.nodePlan : [];
+  const rawMeasurements = Array.isArray(input?.plannedMeasurements) ? input.plannedMeasurements : [];
+  const nodeOrder = new Map<string, number>();
+  const gatedNodeIds = new Set<string>();
+  rawNodes.forEach((rawNode, index) => {
+    const node = jsonObject(rawNode);
+    const id = typeof node?.id === "string" ? node.id : undefined;
+    if (!id) return;
+    nodeOrder.set(id, index);
+    if (node?.type === "quest" || node?.type === "boss") gatedNodeIds.add(id);
+  });
+
+  const issues: AssignmentPlannerRelationshipIssue[] = [];
+  for (const rawMeasurement of rawMeasurements) {
+    const measurement = jsonObject(rawMeasurement);
+    const measurementId = typeof measurement?.id === "string" ? measurement.id : "unknown-measurement";
+    const nodeId = measurementId.startsWith("measure-") ? measurementId.slice("measure-".length) : undefined;
+    if (!nodeId || gatedNodeIds.has(nodeId)) continue;
+    const spelling = jsonObject(measurement?.spelling);
+    if (!spelling) continue;
+    const evidenceIds = Array.isArray(spelling.evidenceIds)
+      ? spelling.evidenceIds.filter((id): id is string => typeof id === "string")
+      : [];
+    const unknownEvidenceIds = evidenceIds.filter(id => !allowedEvidenceIds.has(id));
+    if (unknownEvidenceIds.length) {
+      issues.push({ code: "planner_unknown_evidence_id", measurementId, evidenceIds: unknownEvidenceIds });
+    }
+    const interventionNodeIds = Array.isArray(spelling.interventionNodeIds)
+      ? spelling.interventionNodeIds.filter((id): id is string => typeof id === "string")
+      : [];
+    if (!interventionNodeIds.length) continue;
+    if (spelling.role !== "fresh_checkpoint") {
+      issues.push({ code: "planner_baseline_intervention_lineage_invalid", measurementId, interventionNodeIds });
+      continue;
+    }
+    const checkpointOrder = nodeOrder.get(nodeId);
+    if (checkpointOrder === undefined || interventionNodeIds.some(id => {
+      const interventionOrder = nodeOrder.get(id);
+      return interventionOrder === undefined || interventionOrder >= checkpointOrder;
+    })) {
+      issues.push({ code: "planner_checkpoint_intervention_not_prior", measurementId, interventionNodeIds });
+    }
+  }
+  return issues;
 }
 
 function fallbackPlanTheoryForToolInput(input: Record<string, unknown>): PlanTheory {
@@ -1738,10 +1986,94 @@ export function parseAssignmentPlannerJson(value: string): AssignmentPlannerResp
 async function callAssignmentPlannerModel(
   packet: AssignmentPlanningPacket,
   model: string,
-): Promise<{ draft: AssignmentPlannerResponseObject; usage?: LanguageModelUsage }> {
+  providerReceipt?: AssignmentPlanningOptions["providerReceipt"],
+): Promise<({ draft: AssignmentPlannerResponseObject; usage?: LanguageModelUsage; telemetry: AssignmentPlannerTelemetry; receivedAt: string }) | { result: AssignmentPlannerResult; createdAt: string }> {
   const prompt = buildAssignmentPlannerPrompt(packet);
   const images = assignmentPlannerSourceImages(packet);
-  return callAssignmentPlannerTool({ prompt, model, images });
+  const receive = async (): Promise<AssignmentPlannerReceipt> => {
+    const started = Date.now();
+    const message = await requestAssignmentPlannerTool({ prompt, model, images, schema: assignmentPlannerToolJsonSchema(Boolean(packet.discoveryEvidence), packet.activityCatalog) });
+    return { message, model, latencyMs: Date.now() - started, createdAt: new Date().toISOString() };
+  };
+  const received = providerReceipt ? await runMathProviderStage({ ...providerReceipt, model, request: packet, beforeRequest: () => {
+    if (!process.env.ANTHROPIC_API_KEY) throw new Error("assignment_planner_ai_unavailable:ANTHROPIC_API_KEY");
+  }, execute: receive }) : await receive();
+  if ("result" in received) return received;
+  // The entire provider message, including usage and non-tool blocks, is durable
+  // before any local parser, hydration, or semantic validation can reject it.
+  console.log(` 🎮 [assignment-planner] [response] [received] id=${received.message.id}`);
+  const originalUsage = usageFromAnthropic(received.message);
+  try {
+    return { draft: parseAssignmentPlannerToolUseResponse(received.message), usage: originalUsage,
+      telemetry: { model: received.model, usage: originalUsage, latencyMs: received.latencyMs }, receivedAt: received.createdAt };
+  } catch (error) {
+    if (!(error instanceof AssignmentPlannerToolInvalidError) || !providerReceipt || !packet.discoveryEvidence) throw error;
+    const allowedEvidenceIds = assignmentPlannerAllowedEvidenceIds(packet);
+    const relationshipIssues = assignmentPlannerRelationshipIssues(error.toolInput, new Set(allowedEvidenceIds));
+    const correctionRequest = {
+      version: 3,
+      purpose: "assignment_planner_tool_correction",
+      originalRequestHash: hashDiscoveryContract(packet),
+      invalidToolInput: error.toolInput,
+      schemaIssues: error.issues,
+      relationshipIssues,
+      allowedEvidenceIds,
+    };
+    const correctionPrompt = `Your previous ${ASSIGNMENT_PLANNER_TOOL_NAME} input failed its declared tool contract. Reissue the complete tool input once. Preserve every valid academic, design, node, activity, target, prediction, and evidence choice. Correct only the listed schema and relationship violations. Every spelling.evidenceIds value must come from ALLOWED EVIDENCE IDS; remove unknown IDs and never invent evidence, child facts, or new activities. Practice or instruction measurements must use interventionNodeIds: []. A fresh_checkpoint may cite only prior targeted intervention nodes. A final fresh checkpoint must cover the assigned words and all prior pending interventions. If a future gated node needs evidenceIds, cite the current observations that motivated including that node.\nSCHEMA ISSUES:\n${JSON.stringify(error.issues)}\nRELATIONSHIP ISSUES:\n${JSON.stringify(relationshipIssues)}\nALLOWED EVIDENCE IDS:\n${JSON.stringify(allowedEvidenceIds)}\nPREVIOUS TOOL INPUT:\n${JSON.stringify(error.toolInput)}`;
+    const correctionStarted = Date.now();
+    const correction = await runMathProviderStage({
+      draftDir: providerReceipt.draftDir,
+      stage: `${providerReceipt.stage}-tool-correction-v3-1`,
+      model,
+      request: correctionRequest,
+      beforeRequest: () => {
+        if (!process.env.ANTHROPIC_API_KEY) throw new Error("assignment_planner_ai_unavailable:ANTHROPIC_API_KEY");
+      },
+      execute: async () => ({
+        message: await requestAssignmentPlannerTool({
+          prompt: correctionPrompt,
+          model,
+          schema: assignmentPlannerToolJsonSchema(true, packet.activityCatalog),
+        }),
+        model,
+        latencyMs: Date.now() - correctionStarted,
+        createdAt: new Date().toISOString(),
+      }),
+    });
+    console.log(` 🎮 [assignment-planner] [tool-correction] [received] id=${correction.message.id}`);
+    const correctionUsage = usageFromAnthropic(correction.message);
+    const combinedUsage = combinePlannerUsage(originalUsage, correctionUsage);
+    return {
+      draft: parseAssignmentPlannerToolUseResponse(correction.message),
+      usage: combinedUsage,
+      telemetry: {
+        model: correction.model,
+        usage: combinedUsage,
+        latencyMs: received.latencyMs + correction.latencyMs,
+      },
+      receivedAt: correction.createdAt,
+    };
+  }
+}
+
+function combinePlannerUsage(first?: LanguageModelUsage, second?: LanguageModelUsage): LanguageModelUsage | undefined {
+  if (!first && !second) return undefined;
+  const inputTokens = (first?.inputTokens ?? 0) + (second?.inputTokens ?? 0);
+  const outputTokens = (first?.outputTokens ?? 0) + (second?.outputTokens ?? 0);
+  return {
+    inputTokens,
+    outputTokens,
+    totalTokens: inputTokens + outputTokens,
+    inputTokenDetails: {
+      noCacheTokens: (first?.inputTokenDetails?.noCacheTokens ?? 0) + (second?.inputTokenDetails?.noCacheTokens ?? 0),
+      cacheReadTokens: (first?.inputTokenDetails?.cacheReadTokens ?? 0) + (second?.inputTokenDetails?.cacheReadTokens ?? 0),
+      cacheWriteTokens: (first?.inputTokenDetails?.cacheWriteTokens ?? 0) + (second?.inputTokenDetails?.cacheWriteTokens ?? 0),
+    },
+    outputTokenDetails: {
+      textTokens: (first?.outputTokenDetails?.textTokens ?? 0) + (second?.outputTokenDetails?.textTokens ?? 0),
+      reasoningTokens: (first?.outputTokenDetails?.reasoningTokens ?? 0) + (second?.outputTokenDetails?.reasoningTokens ?? 0),
+    },
+  };
 }
 
 function usageFromAnthropic(response: Pick<Anthropic.Messages.Message, "usage">): LanguageModelUsage {
@@ -1761,27 +2093,31 @@ function usageFromAnthropic(response: Pick<Anthropic.Messages.Message, "usage">)
   };
 }
 
-async function callAssignmentPlannerTool(args: {
+type AssignmentPlannerToolRequest = {
   prompt: string;
   model: string;
   images?: ReturnType<typeof assignmentPlannerSourceImages>;
-}): Promise<{ draft: AssignmentPlannerResponseObject; usage?: LanguageModelUsage }> {
-  const client = new Anthropic();
+  source?: AssignmentSourceExtraction;
+  schema?: Record<string, unknown>;
+};
+
+async function requestAssignmentPlannerTool(args: AssignmentPlannerToolRequest): Promise<Anthropic.Messages.Message> {
+  const client = new Anthropic({ maxRetries: 0 });
   const timeoutMs = Math.max(10_000, Number(process.env.SUNNY_AI_TIMEOUT_MS ?? 120_000));
   const signal = AbortSignal.timeout(timeoutMs);
-  const response = await client.messages.create({
+  return client.messages.create({
     model: args.model,
     max_tokens: Math.max(8_000, Number(process.env.SUNNY_PLANNER_MAX_TOKENS ?? ASSIGNMENT_PLANNER_MAX_TOKENS)),
     system: ASSIGNMENT_PLANNER_PERSONA,
     tools: [{
       name: ASSIGNMENT_PLANNER_TOOL_NAME,
       description: "Write Sunny's captured homework interpretation, active intervention node plan, measurements, and mastery theory. Populate every tool field directly as its declared object or array type. Never serialize the plan or any tool field into a JSON string.",
-      input_schema: assignmentPlannerToolJsonSchema() as Anthropic.Messages.Tool.InputSchema,
+      input_schema: (args.schema ?? assignmentPlannerToolJsonSchema()) as Anthropic.Messages.Tool.InputSchema,
     }],
     tool_choice: { type: "tool", name: ASSIGNMENT_PLANNER_TOOL_NAME },
     messages: [{
       role: "user",
-      content: [
+      content: args.source ? assignmentPlannerContent(args.source, args.prompt) : [
         ...(args.images ?? []).map((image) => ({
           type: "image" as const,
           source: {
@@ -1794,15 +2130,12 @@ async function callAssignmentPlannerTool(args: {
       ],
     }],
   }, { signal });
-  return {
-    draft: parseAssignmentPlannerToolUseResponse(response),
-    usage: usageFromAnthropic(response),
-  };
 }
 
 export function hydrateAssignmentPlannerOutputFromDraft(
   draft: AssignmentPlannerResponseObject,
   packet: AssignmentPlanningPacket,
+  createdAt?: string,
 ): AssignmentPlannerOutput {
   const legacyCapturedContent = capturedContentDraftSchema.safeParse((draft as Record<string, unknown>).capturedContent);
   const packetCapturedContent = buildCapturedHomeworkContent({
@@ -1870,6 +2203,7 @@ export function hydrateAssignmentPlannerOutputFromDraft(
   const activeSessionPlan = hydrateActiveSessionPlanFromDraft({
     draft: enrichedActiveSessionPlan,
     packet,
+    createdAt,
     capturedContent,
     homeworkWords: plannerHomeworkWords,
     planTheory: draft.planTheory,
@@ -1986,21 +2320,6 @@ const ASSIGNMENT_BOARD_THEME: AdventureBoardJson["theme"] = {
   },
 };
 
-const ASSIGNMENT_BOARD_THUMBNAILS: Record<string, string> = {
-  start: "/thumbnails/activities/word-radar.svg",
-  "choice-gate": "/thumbnails/mystery-fallback.svg",
-  "word-radar": "/generated/adventure-board-demo/word-radar.jpeg",
-  "spell-check": "/generated/adventure-board-demo/spell-check.jpeg",
-  pronunciation: "/generated/adventure-board-demo/pronunciation.jpeg",
-  mystery: "/generated/adventure-board-demo/mystery.jpeg",
-  quest: "/generated/adventure-board-demo/quest.jpeg",
-  boss: "/generated/adventure-board-demo/boss.jpeg",
-  "monster-stampede": "/thumbnails/activities/monster-stampede.svg",
-  "wheel-of-fortune": "/thumbnails/activities/wheel-of-fortune.svg",
-  karaoke: "/thumbnails/activities/karaoke.svg",
-  "letter-rush": "/thumbnails/activities/speed-catcher.svg",
-};
-
 function labelForAssignmentBoardNode(
   packet: AssignmentPlanningPacket,
   node: ActiveSessionPlan["nodePlan"][number],
@@ -2044,35 +2363,45 @@ function labelForWordRadarBoardNode(node: ActiveSessionPlan["nodePlan"][number])
   return undefined;
 }
 
-function thumbnailForAssignmentBoardNode(node: ActiveSessionPlan["nodePlan"][number]): string | undefined {
-  if (node.thumbnailUrl) return node.thumbnailUrl;
-  return ASSIGNMENT_BOARD_THUMBNAILS[node.activityId] ?? ASSIGNMENT_BOARD_THUMBNAILS[node.type];
+function thumbnailForAssignmentBoardNode(node: {
+  activityId?: string;
+  type: string;
+  thumbnailUrl?: string;
+}): string | undefined {
+  const known = (node.activityId ? knownThumbnailUrlForActivity(node.activityId) : undefined)
+    ?? knownThumbnailUrlForActivity(node.type);
+  if (known && (!node.thumbnailUrl || node.thumbnailUrl.startsWith("/thumbnails/activities/"))) return known;
+  return node.thumbnailUrl ?? known;
 }
 
 async function planAssignmentFromSourceInternal(
   packet: AssignmentPlanningPacket,
   opts: AssignmentPlanningOptions = {},
-): Promise<{ output: AssignmentPlannerOutput; telemetry: AssignmentPlannerTelemetry }> {
-  if (!process.env.ANTHROPIC_API_KEY && !opts.callPlannerModel) {
+): Promise<AssignmentPlannerResult> {
+  if (!process.env.ANTHROPIC_API_KEY && !opts.callPlannerModel && !opts.providerReceipt) {
     throw new Error("assignment_planner_ai_unavailable:ANTHROPIC_API_KEY");
   }
   const model = resolveAssignmentPlannerModel(opts);
   const started = Date.now();
-  const callPlannerModel = opts.callPlannerModel ?? callAssignmentPlannerModel;
-  const result = await callPlannerModel(packet, model);
-  const output = hydrateAssignmentPlannerOutputFromDraft(result.draft, packet);
+  const result = opts.callPlannerModel ? await opts.callPlannerModel(packet, model) : await callAssignmentPlannerModel(packet, model, opts.providerReceipt);
+  if ("result" in result) return { ...result.result, receivedAt: result.createdAt };
+  const receivedAt = result.receivedAt;
+  const output = hydrateAssignmentPlannerOutputFromDraft(result.draft, packet, receivedAt);
   const validationIssues = validateAssignmentPlannerOutput(output, {
     extraction: packet.sourceDocument,
     activityCatalog: packet.activityCatalog,
+    requireNodeTitles: Boolean(packet.discoveryEvidence),
+    requireCatalogBinding: Boolean(packet.discoveryEvidence),
   });
   const blockingIssues = validationIssues.filter((issue) => issue.severity === "error");
   if (blockingIssues.length > 0) {
-    throw new Error(`assignment_planner_validation_failed:${blockingIssues.map((issue) => issue.code).join(",")}`);
+    throw new Error(`assignment_planner_validation_failed:${blockingIssues.map((issue) => issue.code).join(",")}: ${blockingIssues.map(issue => issue.message).join("; ")}`);
   }
 
   return {
     output,
-    telemetry: {
+    ...(receivedAt ? { receivedAt } : {}),
+    telemetry: result.telemetry ?? {
       model,
       usage: result.usage,
       latencyMs: Date.now() - started,
@@ -2414,6 +2743,7 @@ export function normalizeLearningRoutesForPlan<TRoute extends { id: string; node
 function hydrateActiveSessionPlanFromDraft(args: {
   draft: AssignmentPlannerResponseObject["activeSessionPlan"];
   packet: AssignmentPlanningPacket;
+  createdAt?: string;
   capturedContent: CapturedHomeworkContent;
   homeworkWords: AssignmentPlannerHomeworkWord[];
   planTheory: PlanTheory;
@@ -2449,6 +2779,7 @@ function hydrateActiveSessionPlanFromDraft(args: {
       ? node.targetLane
       : undefined,
     wordRadarConfig: node.activityId === "word-radar" ? node.wordRadarConfig : undefined,
+    thumbnailUrl: thumbnailForAssignmentBoardNode(node),
     source: "chart_planner" as const,
   }));
   const normalizedRoutes = normalizeLearningRoutesForPlan<DraftLearningRoute>(
@@ -2458,7 +2789,7 @@ function hydrateActiveSessionPlanFromDraft(args: {
   return {
     planId,
     childId: args.packet.childId,
-    createdAt: new Date().toISOString(),
+    createdAt: args.createdAt ?? new Date().toISOString(),
     source: "ingest_human_loop",
     domain: args.capturedContent.contentProfile.practiceDomain,
     testDate: null,
@@ -2471,6 +2802,7 @@ function hydrateActiveSessionPlanFromDraft(args: {
         domain: args.capturedContent.contentProfile.practiceDomain,
         nodePlan,
         learningRoutes: normalizedRoutes.routes,
+        plannedMeasurements: args.plannedMeasurements,
       },
       boardId: `assignment-board-${args.packet.childId}-${args.packet.sourceDocument.fileHash.slice(0, 8)}`,
       title: args.capturedContent.title,
@@ -2568,6 +2900,6 @@ export async function planAssignmentFromSource(
 export async function planAssignmentFromSourceWithTelemetry(
   packet: AssignmentPlanningPacket,
   opts: AssignmentPlanningOptions = {},
-): Promise<{ output: AssignmentPlannerOutput; telemetry: AssignmentPlannerTelemetry }> {
+): Promise<AssignmentPlannerResult> {
   return planAssignmentFromSourceInternal(packet, opts);
 }

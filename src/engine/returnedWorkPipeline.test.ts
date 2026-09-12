@@ -35,6 +35,7 @@ function seed(rootDir: string): void {
     academicPredictions: [{
       predictionId: "prediction:original", theoryId: "theory:original",
       constructId: "math.multiplication.equal_groups", context: "returned schoolwork", horizon: "within_7_days",
+      eligibility: {sources:["graded_work"],maxDelayDays:7},
       expectedMetric: { key: "academic.accuracy", min: 0.7, max: 0.9 },
       predictedErrorPatterns: ["operation_selection"], confidence: 0.6,
       evidenceIds: ["assignment:original"], intervention: "equal-groups instruction",
@@ -96,6 +97,7 @@ describe("returned work pipeline", () => {
       mimeType: "application/pdf", dataBase64: Buffer.from("different marked file").toString("base64"),
     }, {
       rootDir,
+      now: new Date("2026-07-24T12:00:00Z"),
       extract: async () => ({
         score: { earned: 1, possible: 1 },
         items: [{
@@ -196,6 +198,7 @@ describe("returned work pipeline", () => {
       mimeType: "application/pdf", dataBase64: Buffer.from("marked report").toString("base64"),
     }, {
       rootDir,
+      now: new Date("2026-07-24T12:00:00.000Z"),
       extract: async () => ({ items: [{
         itemId: "item-1", prompt: "4 groups of 5", childResponse: "20", correct: true, extractionConfidence: 1,
         constructLinks: [{ constructId: "math.multiplication.equal_groups", role: "primary", confidence: 1 }],

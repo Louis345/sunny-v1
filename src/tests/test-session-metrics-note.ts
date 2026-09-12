@@ -1,5 +1,7 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import fs from "fs";
+import os from "os";
+import path from "path";
 import type { LearningProfile } from "../context/schemas/learningProfile";
 import {
   formatAdventureMetricsBlock,
@@ -64,6 +66,26 @@ describe("session note metrics (TASK-017)", () => {
     expect(written).toContain("Ratings: 3 likes, 1 dislikes, 1 null");
     expect(written).toContain("Most engaged node type: bubble-pop");
     expect(written).toContain("Least engaged: clock-game");
+  });
+
+  it("writes session notes beneath SUNNY_CONTEXT_ROOT during an isolated live run", () => {
+    const contextRoot = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-session-note-root-"));
+    const previous = process.env.SUNNY_CONTEXT_ROOT;
+    const previousAllow = process.env.SUNNY_ALLOW_REAL_CHILD_CONTEXT_ROOT;
+    process.env.SUNNY_CONTEXT_ROOT = contextRoot;
+    process.env.SUNNY_ALLOW_REAL_CHILD_CONTEXT_ROOT = "true";
+    const spy = vi.spyOn(fs, "writeFileSync").mockImplementation(() => undefined);
+    try {
+      writeSessionNote("reina", minimalSession({ childId: "reina" }));
+      expect(spy.mock.calls[0]?.[0]).toBe(
+        path.join(contextRoot, "reina", "session_notes", "2026-04-10.md"),
+      );
+    } finally {
+      if (previous === undefined) delete process.env.SUNNY_CONTEXT_ROOT;
+      else process.env.SUNNY_CONTEXT_ROOT = previous;
+      if (previousAllow === undefined) delete process.env.SUNNY_ALLOW_REAL_CHILD_CONTEXT_ROOT;
+      else process.env.SUNNY_ALLOW_REAL_CHILD_CONTEXT_ROOT = previousAllow;
+    }
   });
 
   it("updateLearningProfileFromSession tolerates profile JSON missing sessionStats (diag/creator)", () => {

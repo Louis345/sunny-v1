@@ -23,6 +23,7 @@ import {
   upsertProfileContentCatalog,
 } from "../engine/learningDecisionContext";
 import { getChildChart } from "../profiles/childChart";
+import { resolveChildContextDir } from "../utils/contextRoot";
 import { writeActiveSessionPlan } from "../engine/sessionPlanFromChart";
 import {
   recordPlannerReview,
@@ -47,6 +48,8 @@ import {
 } from "../utils/previewLauncher";
 import {
   extractAssignmentSource,
+  assignmentSourceFileHash,
+  loadOrExtractAssignmentSource,
   type AssignmentSourceExtraction,
 } from "../engine/assignmentSourceExtraction";
 import {
@@ -54,6 +57,11 @@ import {
   buildAssignmentPlanningPacket,
   buildPlannerReadinessAudit,
   planAssignmentFromSource,
+  planSpellingIntakeFromSource,
+  prepareSpellingDiagnosticPacket,
+  resolveSpellingDiagnosticSelection,
+  parseSpellingIntake,
+  type SpellingIntake,
   resolveAssignmentPlannerModel,
   summarizeAssignmentPlanForReview,
   validateAssignmentPlannerOutput,
@@ -74,11 +82,13 @@ import {
 } from "../engine/engagementTheory";
 import { validateFullExperienceReadiness } from "../engine/fullExperienceReadiness";
 import { enrichMathNodeArtwork, localizeMathNodeArtwork } from "../engine/mathNodeArtwork";
-import { persistIngestedLearningCycle } from "../engine/learningCycleIngest";
-import { repairLatestHistoricalLearningCycleBeforePlanning } from "../engine/learningCycleRepository";
+import { persistIngestedLearningCycle, buildSpellingRecallItems, createSpellingDiscoveryCycle, buildSpellingDiscoveryPlan } from "../engine/learningCycleIngest";
+import { acquireMathGenerationLease, releaseMathGenerationLease, resolveAdaptiveMathDraftDir, publishDiscoveryExperience, hashDiscoveryContract, runMathProviderStage } from "../engine/adaptiveMathDiscovery";
+import { getLearningCycle, repairLatestHistoricalLearningCycleBeforePlanning } from "../engine/learningCycleRepository";
 import { createIngestProgress, type IngestProgress } from "../utils/ingestOutput";
 import { generateStoryImage } from "../utils/generateStoryImage";
 import { buildAdventureBoardFromActiveSessionPlan } from "../shared/adventureBoardFromPlan";
+import { NODE_REGISTRY } from "../shared/nodeRegistry";
 
 type ExtractionShape = {
   title: string;
@@ -154,6 +164,7 @@ export async function withIngestPlannerTimeout<T>(
 }
 
 export type PlannedHomeworkIngestArgs = {
+  rootDir?: string;
   childId: string;
   sourceFile: string;
   assignmentSource: AssignmentSourceExtraction;
@@ -1026,7 +1037,8 @@ type IngestSummary = {
   domain: string;
   title: string;
   homeworkId: string;
-  status: "FULL" | "READY_WITH_FALLBACK" | "BLOCKED";
+  status: "FULL" | "READY_WITH_FALLBACK" | "DISCOVERY_READY" | "BLOCKED";
+  lifecycle?: string;
   plannedActivities: number;
   launchableActivities: number;
   uniqueShells: number;
@@ -1046,38 +1058,17 @@ function readJsonIfPresent<T>(filePath: string): T | null {
   }
 }
 
-function buildIngestSummary(childId: string, today: string): IngestSummary | null {
-  const contextDir = path.join(process.cwd(), "src", "context", childId);
+export function buildIngestSummary(childId: string, today: string, opts: { rootDir?: string } = {}): IngestSummary {
+  const rootDir = opts.rootDir ?? process.cwd();
+  const contextDir = resolveChildContextDir(childId, { rootDir });
   const pendingDir = path.join(contextDir, "homework", "pending", today);
   const homework = readJsonIfPresent<{
     selectedDomain?: string;
     current?: { homeworkId?: string; capturedContent?: { title?: string }; contentProfile?: { topic?: string } };
   }>(path.join(contextDir, "homework", "current.json"));
   const plan = readJsonIfPresent<{
-    current?: {
-      nodePlan?: Array<{
-        id: string;
-        type?: string;
-        locked?: boolean;
-        gameHtmlPath?: string | null;
-        activityConfigPath?: string | null;
-        title?: string;
-        contentId?: string;
-        mechanic?: string;
-        targets?: string[];
-        difficulty?: number;
-        engagementDimensions?: string[];
-        engagementVariable?: string;
-        validationProof?: {
-          engine: "playwright";
-          passed: boolean;
-          worldStateChanged: boolean;
-          screenshotPaths: string[];
-        };
-      }>;
-      adventureBoard?: {
-        nodes?: Array<{ id: string; kind?: string; thumbnailUrl?: string }>;
-      };
+    current?: Omit<ActiveSessionPlan, "nodePlan"> & {
+      nodePlan: Array<ActiveSessionPlan["nodePlan"][number] & { engagementVariable?: string }>;
     };
   }>(path.join(contextDir, "plans", "active_session_plan.json"));
   const nodes = plan?.current?.nodePlan ?? [];
@@ -1096,14 +1087,14 @@ function buildIngestSummary(childId: string, today: string): IngestSummary | nul
   const readiness = validateFullExperienceReadiness({
     baselineNodes,
     boardNodes: plan?.current?.adventureBoard?.nodes ?? [],
-    publicRoot: path.join(process.cwd(), "web", "public"),
+    publicRoot: path.join(rootDir, "web", "public"),
   });
   const readinessFailures = readiness.failures;
   const status: IngestSummary["status"] = readinessFailures.length === 0 && baselineNodes.length > 0
     ? "FULL"
     : "BLOCKED";
   const homeworkId = homework?.current?.homeworkId ?? "unknown";
-  return {
+  const summary: IngestSummary = {
     childId,
     domain: homework?.selectedDomain ?? "unknown",
     title: homework?.current?.capturedContent?.title ?? homework?.current?.contentProfile?.topic ?? "homework",
@@ -1118,6 +1109,47 @@ function buildIngestSummary(childId: string, today: string): IngestSummary | nul
     pendingDir,
     reportPath: path.join(pendingDir, "ingest-report.md"),
   };
+  if (summary.domain !== "spelling") return summary;
+  try {
+    const cycle = getLearningCycle(childId, homeworkId, { rootDir });
+    summary.lifecycle = cycle?.lifecycle;
+    const evaluating = cycle && ["evaluation_ready", "evaluation_active"].includes(cycle.lifecycle);
+    if (!evaluating && !plan?.current?.planId.startsWith("discovery:")) return summary;
+    const evaluation = cycle?.nodes.find(node => node.role === "evaluation");
+    const items = Object.values(evaluation?.evidenceContract.spellingItems ?? {});
+    const binding = evaluation?.artifactBinding;
+    const contractHash = hashDiscoveryContract(items);
+    const config = binding?.activityConfigPath ? readJsonIfPresent<{ version?: number; mode?: string; items?: unknown; contractHash?: string }>(binding.activityConfigPath) : null;
+    const published = plan?.current;
+    const node = published?.nodePlan[0];
+    const launch = published?.adventureBoard?.nodes.find(node => node.kind !== "start" && node.action?.type === "launch-activity");
+    const failures: string[] = [];
+    if (!evaluating || cycle.childId !== childId || cycle.homeworkId !== homeworkId || cycle.domain !== "spelling"
+      || cycle.nodes.length !== 1 || !evaluation || !["ready", "active"].includes(evaluation.state)) failures.push("discovery_canonical_evaluation_not_ready");
+    if (published?.childId !== childId || published?.activeHomeworkId !== homeworkId || published?.domain !== "spelling"
+      || published?.planId !== `discovery:${homeworkId}` || published.nodePlan.length !== 1
+      || node?.id !== evaluation?.nodeId || node?.contentId !== evaluation?.nodeId) failures.push("discovery_published_identity_mismatch");
+    if (!items.length || binding?.validationStatus !== "passed" || binding.contentId !== evaluation?.nodeId
+      || binding.contractFingerprint !== contractHash || config?.version !== 1 || config.mode !== "assessment"
+      || config.contractHash !== contractHash || hashDiscoveryContract(config.items) !== contractHash) failures.push("discovery_native_contract_missing_or_mismatched");
+    if (evaluation?.implementationType !== "word-radar" || node?.type !== "word-radar" || node.activityId !== "word-radar"
+      || !NODE_REGISTRY["word-radar"]?.canvasMessage || node.locked || launch?.id !== evaluation?.nodeId
+      || launch?.action?.payloadId !== evaluation?.nodeId || !["available", "current"].includes(launch?.state ?? "")
+      || hashDiscoveryContract(node.targets) !== hashDiscoveryContract(items.map(item => item.word))
+      || node.wordRadarConfig?.recallMode !== "hidden_word_recall" || node.wordRadarConfig.inputMode !== "keyboard"
+      || node.wordRadarConfig.hideWordDuringResponse !== true || node.wordRadarConfig.requiresCapturedResponse !== true
+      || node.wordRadarConfig.showTimer !== false) failures.push("discovery_native_launch_unavailable");
+    if (fs.existsSync(path.join(contextDir, "homework/discovery-publication.json"))) failures.push("discovery_publication_pending");
+    // Discovery is a native pre-board assessment, not a two-arm teaching board.
+    // This report never publishes, advances the cycle, or relaxes targeted-board gates.
+    Object.assign(summary, { status: failures.length ? "BLOCKED" : "DISCOVERY_READY", plannedActivities: evaluation ? 1 : 0,
+      launchableActivities: failures.length ? 0 : 1, uniqueShells: failures.length ? 0 : 1, fallbackActivities: 0, readinessFailures: failures });
+  } catch (error) {
+    summary.status = "BLOCKED";
+    summary.launchableActivities = 0;
+    summary.readinessFailures = [`discovery_summary_unavailable:${error instanceof Error ? error.message : String(error)}`];
+  }
+  return summary;
 }
 
 function writeIngestReport(summary: IngestSummary, diagnostics: string[]): void {
@@ -1130,7 +1162,9 @@ function writeIngestReport(summary: IngestSummary, diagnostics: string[]): void 
     `- Domain: ${summary.domain}`,
     `- Assignment: ${summary.title}`,
     `- Homework ID: ${summary.homeworkId}`,
-    `- Baseline activities: ${summary.launchableActivities}/${summary.plannedActivities} launchable`,
+    ...(summary.lifecycle ? [`- Lifecycle: ${summary.lifecycle}`] : []),
+    `- ${summary.status === "DISCOVERY_READY" ? "Discovery" : "Baseline"} activities: ${summary.launchableActivities}/${summary.plannedActivities} launchable`,
+    ...(summary.status === "DISCOVERY_READY" ? ["- Targeted board: awaiting Discovery evidence"] : []),
     `- Distinct shells: ${summary.uniqueShells}`,
     `- Shared fallback assignments: ${summary.fallbackActivities}`,
     `- Locked nodes: ${summary.lockedNodes}`,
@@ -1829,6 +1863,20 @@ function homeworkNodesFromAssignmentPlan(plan: ActiveSessionPlan, weekOf: string
 }
 
 export async function applyPlannedHomeworkIngest(args: PlannedHomeworkIngestArgs): Promise<void> {
+  if ((args.homeworkDomain ?? args.assignmentPlannerOutput.activeSessionPlan.domain) === "spelling") {
+    const captured = args.assignmentPlannerOutput.capturedContent;
+    const words = args.assignmentPlannerOutput.homeworkWords.filter(row => row.purpose === "spell_from_memory").map(row => row.text);
+    const selected = words.length ? words : captured.words;
+    const pages = args.assignmentSource.pages;
+    const capture = { title: captured.title, words: selected.map(word => {
+      const matches = pages.filter(page => page.text?.toLocaleLowerCase("en-US").includes(word.toLocaleLowerCase("en-US")));
+      const page = matches.length === 1 ? matches[0] : pages.length === 1 ? pages[0] : null;
+      if (!page) throw new Error(`spelling_confirmation_source_page_required:${word}`);
+      return { word, pageNumber: page.pageNumber };
+    }), uncertainty: [] };
+    await runSpellingDiscoveryIntake({ childId: args.childId, sourceFile: args.sourceFile, rootDir: args.rootDir, confirmedCapture: { capture, reviewer: args.reviewer ?? "parent-approval", approvedAt: args.approvedAt ?? new Date().toISOString() } });
+    return;
+  }
   const today = (args.approvedAt ?? new Date().toISOString()).slice(0, 10);
   const extracted = buildHomeworkExtractionFromAssignmentPlan({
     childId: args.childId,
@@ -2051,6 +2099,104 @@ export async function applyPlannedHomeworkIngest(args: PlannedHomeworkIngestArgs
   }
 }
 
+function spellingUncertaintyText(capture: SpellingIntake): string {
+  return capture.uncertainty.map(issue => typeof issue === "string" ? issue : `Page ${issue.pageNumber} (${issue.kind}): ${issue.detail}`).join("; ");
+}
+
+export async function reviewSpellingIntake(args: {
+  capture: SpellingIntake; sourceFile: string; interactive: boolean;
+  ask?: PromptFn; print?: (line: string) => void;
+}): Promise<boolean> {
+  // CLI diagnostics are buffered, so the review must write directly beside the input prompt.
+  const print = args.print ?? (line => { output.write(`${line}\n`); });
+  print(`\nSpelling source confirmation — ${args.sourceFile}`);
+  print(args.capture.words.map(row => `${row.word} (page ${row.pageNumber})`).join(", "));
+  print(`Needs confirmation: ${spellingUncertaintyText(args.capture)}`);
+  if (!args.interactive) {
+    print("Saved without publication. Resume this assignment in the Sunny menu to confirm the source; extraction will not repeat.");
+    return false;
+  }
+  const answer = String(await (args.ask ?? promptForLine)("Are these ALL assigned words, spelled exactly as on the source? [y/N] ")).trim().toLowerCase();
+  return answer === "y" || answer === "yes";
+}
+
+/** Existing intake entrypoint's spelling phase; the targeted Planner runs only after committed Discovery. */
+export async function runSpellingDiscoveryIntake(args: {
+  childId: string; sourceFile: string; rootDir?: string;
+  confirmedCapture?: { capture: SpellingIntake; reviewer: string; approvedAt: string };
+}, options: Parameters<typeof planSpellingIntakeFromSource>[1] & {
+  confirmCapture?: (capture: SpellingIntake) => Promise<boolean>;
+  reviewer?: string;
+} = {}): Promise<{ homeworkId: string }> {
+  const rootDir = args.rootDir ?? process.cwd();
+  const chart = getChildChart(args.childId, { rootDir });
+  const fingerprint = assignmentSourceFileHash(args.sourceFile);
+  const homeworkId = `hw-spelling-${fingerprint.slice(0, 8)}`;
+  const scope = { rootDir, childId: args.childId, homeworkId };
+  const lease = acquireMathGenerationLease({ ...scope, homeworkId: "discovery-intake" });
+  if (!lease.acquired || !lease.token) throw new Error("spelling_intake_worker_already_running");
+  const draft = resolveAdaptiveMathDraftDir(args.childId, homeworkId, { rootDir });
+  const save = (filename: string, value: unknown): void => {
+    fs.mkdirSync(draft, { recursive: true });
+    const file = path.join(draft, filename), temporary = `${file}.${process.pid}.tmp`;
+    fs.writeFileSync(temporary, JSON.stringify(value, null, 2)); fs.renameSync(temporary, file);
+  };
+  try {
+    console.log(` 🎮 [spelling-discovery] [assignment-capture] [running] child=${args.childId} homework=${homeworkId}`);
+    const { extraction } = await loadOrExtractAssignmentSource(args.sourceFile, path.join(draft, "assignment-extraction.json"));
+    const packetFile = path.join(draft, "spelling-intake-request.json");
+    const packet = fs.existsSync(packetFile) ? JSON.parse(fs.readFileSync(packetFile, "utf8")) as AssignmentPlanningPacket
+      : args.confirmedCapture ? buildAssignmentPlanningPacket({ childId: args.childId, extraction, childChart: chart })
+        : prepareSpellingDiagnosticPacket(buildAssignmentPlanningPacket({ childId: args.childId, extraction, childChart: chart }), chart);
+    if (packet.childId !== args.childId || packet.sourceDocument.fileHash !== fingerprint) throw new Error("spelling_intake_checkpoint_identity_mismatch");
+    if (!fs.existsSync(packetFile)) save("spelling-intake-request.json", packet);
+    const responseFile = path.join(draft, "spelling-intake-response.json");
+    type CaptureResult = Awaited<ReturnType<typeof planSpellingIntakeFromSource>>;
+    const saved = fs.existsSync(responseFile) ? JSON.parse(fs.readFileSync(responseFile, "utf8")) as CaptureResult & { requestHash: string; outputHash: string } : null;
+    const requestHash = hashDiscoveryContract(packet);
+    if (saved && (saved.requestHash !== requestHash || saved.outputHash !== hashDiscoveryContract({ output: saved.output, telemetry: saved.telemetry }))) throw new Error("spelling_intake_checkpoint_hash_mismatch");
+    const confirmationFile = path.join(draft, "spelling-intake-confirmation.json");
+    let confirmation = args.confirmedCapture ?? (fs.existsSync(confirmationFile) ? JSON.parse(fs.readFileSync(confirmationFile, "utf8")) as NonNullable<typeof args.confirmedCapture> : null);
+    if (confirmation && packet.spellingDiagnostics && (!saved || hashDiscoveryContract(parseSpellingIntake(confirmation.capture, packet).diagnostic) !== hashDiscoveryContract(parseSpellingIntake(saved.output, packet).diagnostic))) throw new Error("spelling_diagnostic_confirmation_changed");
+    const result: CaptureResult = confirmation ? { output: confirmation.capture, telemetry: { model: "human-confirmed", latencyMs: 0 } } : saved ?? await planSpellingIntakeFromSource(packet, { ...options, providerReceipt: { draftDir: draft, stage: "spelling-intake" } });
+    if (!saved && !confirmation) save("spelling-intake-response.json", { ...result, requestHash, outputHash: hashDiscoveryContract(result) });
+    parseSpellingIntake(result.output, packet);
+    console.log(` 🎮 [spelling-discovery] [assignment-capture] [${saved ? "reused" : "saved"}] hash=${hashDiscoveryContract(result.output)}`);
+    if (!confirmation && result.output.uncertainty.length && options.confirmCapture) {
+      const approved = await options.confirmCapture(structuredClone(result.output));
+      console.log(` 🎮 [spelling-discovery] [source-confirmation] [${approved ? "approved" : "pending"}] homework=${homeworkId}`);
+      if (approved) confirmation = { capture: { ...result.output, uncertainty: [] }, reviewer: options.reviewer?.trim() || process.env.SUNNY_REVIEWER?.trim() || "parent", approvedAt: new Date().toISOString() };
+    }
+    if (confirmation) {
+      if (!confirmation.reviewer.trim() || !Number.isFinite(Date.parse(confirmation.approvedAt)) || parseSpellingIntake(confirmation.capture, packet).uncertainty.length) throw new Error("spelling_intake_confirmation_invalid");
+      if (fs.existsSync(confirmationFile) && hashDiscoveryContract(JSON.parse(fs.readFileSync(confirmationFile, "utf8"))) !== hashDiscoveryContract(confirmation)) throw new Error("spelling_intake_confirmation_changed");
+      if (!fs.existsSync(confirmationFile)) save("spelling-intake-confirmation.json", confirmation);
+    }
+    const capture = parseSpellingIntake(confirmation?.capture ?? result.output, packet);
+    if (capture.uncertainty.length) throw new Error(`spelling_intake_confirmation_required:${spellingUncertaintyText(capture)}`);
+    if (capture.diagnostic?.action === "needs_instrument") throw new Error(`spelling_diagnostic_needs_instrument:${capture.diagnostic.reason}`);
+    const diagnosticSelection = resolveSpellingDiagnosticSelection(capture, packet);
+    console.log(` 🎮 [spelling-discovery] [diagnostic-selection] [${diagnosticSelection ? "planner-selected" : "legacy-fixed-instrument"}] activity=${diagnosticSelection?.instrument.activityId ?? "word-radar"} mode=${diagnosticSelection?.instrument.modeId ?? "legacy"}`);
+    const existing = getLearningCycle(args.childId, homeworkId, { rootDir });
+    const items = existing
+      ? Object.values(existing.nodes.find(node => node.role === "evaluation")?.evidenceContract.spellingItems ?? {})
+      : buildSpellingRecallItems({ homeworkId, words: capture.words.map(row => row.word), evidenceIds: [`assignment:${fingerprint}`], measurementRole: "fresh_checkpoint" }).map(item => {
+        const priorObservations = chart.learningHistory.constructs[item.wordId]?.observations ?? [];
+        const legacy = chart.wordBank.words.find(entry => entry.word.normalize("NFC").toLocaleLowerCase("en-US") === item.word.toLocaleLowerCase("en-US"));
+        const previouslyPracticed = priorObservations.length > 0 || Boolean(legacy?.tracks.spelling?.history.length);
+        return { ...item, lineage: { ...item.lineage, exposure: previouslyPracticed ? "practiced" as const : "unseen" as const } };
+      });
+    const cycle = createSpellingDiscoveryCycle({ childId: args.childId, homeworkId, title: capture.title, contentFingerprint: fingerprint, items, diagnosticSelection }, { rootDir });
+    const activeSessionPlan = buildSpellingDiscoveryPlan({ cycle, companion: { id: chart.companion.presetId, name: chart.companion.displayName } });
+    publishDiscoveryExperience({ ...scope, spellingItems: items, activeSessionPlan, assignment: cycle.assignment });
+    console.log(` 🎮 [spelling-discovery] [intake] [ready] homework=${homeworkId} words=${items.length} targeted-board=awaiting-evidence`);
+    return { homeworkId };
+  } catch (error) {
+    console.error(` 🎮 [spelling-discovery] [intake] [needs-attention] checkpoint=${draft}`, error);
+    throw error;
+  } finally { releaseMathGenerationLease({ ...scope, homeworkId: "discovery-intake", token: lease.token }); }
+}
+
 async function runIngestHomeworkInternal(
   argv: string[],
   onStage?: (stage: number, label: string) => void,
@@ -2076,7 +2222,7 @@ async function runIngestHomeworkInternal(
     interactive,
   });
   const today = new Date().toISOString().slice(0, 10);
-  const contextBase = path.join(process.cwd(), "src", "context", childId, "homework");
+  const contextBase = path.join(resolveChildContextDir(childId), "homework");
   const incomingDir = path.join(contextBase, "incoming");
   const pendingDir = path.join(contextBase, "pending", today);
   fs.mkdirSync(pendingDir, { recursive: true });
@@ -2098,6 +2244,16 @@ async function runIngestHomeworkInternal(
   }
   if (!isSupportedAssignmentSource(incomingFile)) {
     throw new Error(`Homework file must be a .pdf, image, or .txt file: ${incomingFile}`);
+  }
+
+  if (homeworkDomain === "spelling") {
+    onStage?.(2, "Capturing assigned spelling words");
+    await runSpellingDiscoveryIntake({ childId, sourceFile: incomingFile }, {
+      model: plannerModel,
+      confirmCapture: capture => reviewSpellingIntake({ capture, sourceFile: incomingFile, interactive }),
+    });
+    onStage?.(5, "Spelling Discovery ready — teaching waits for answers");
+    return;
   }
 
   console.log("📄 Step 1/4: Reading homework...");
@@ -2522,11 +2678,7 @@ async function runIngestHomeworkInternal(
     prompt: process.env.SUNNY_NON_INTERACTIVE !== "true",
     defaultOpen: true,
   });
-  console.log(
-    `Run session:  ${
-      homeworkDomain === "spelling" ? "npm run sunny:homework:spelling" : "npm run sunny:homework"
-    }`,
-  );
+  console.log("Run session: npm run sunny:homework");
 }
 
 /** Keep the terminal focused on the five ingestion stages. */

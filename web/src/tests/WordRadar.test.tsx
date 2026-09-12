@@ -76,6 +76,14 @@ describe("WordRadar", () => {
     );
   });
 
+  it("falls back to a real keyboard when voice capture is unavailable", async () => {
+    renderRadar({ inputMode: "letter-by-letter", voiceCaptureAvailable: false });
+    expect(screen.getByTestId("word-radar-mode-label").textContent).toContain("Type the word");
+    await startRadar();
+    expect(screen.getByTestId("word-radar-keyboard")).toBeTruthy();
+    expect(screen.getByRole("textbox", { name: "Type the word" })).toBeTruthy();
+  });
+
   it("sends a game trace config event to explain hidden-word and input-mode choices", () => {
     const sendMessage = vi.fn();
     renderRadar({

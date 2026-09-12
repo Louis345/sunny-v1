@@ -9,6 +9,10 @@ function root(): string {
   return fs.mkdtempSync(path.join(os.tmpdir(), "sunny-cycle-runtime-"));
 }
 
+function frozenItems(ids = ["2x5", "groups", "transfer-1", "synthesis-1", "unseen-transfer", "unseen-synthesis", "same-item", "checkpoint-1", "practice-1"]) {
+ return ids.map(id=>({id,prompt:`Lab ${id}`,lineage:{sourceEvidenceIds:["pdf:1"],exposure:"unseen" as const,measurementRole:id==="practice-1"?"practice" as const:"fresh_checkpoint" as const},response:{mode:"numeric" as const,expected:10}}));
+}
+function prescription(nodeId: string) { return {nodeId,title:nodeId,academicTarget:'multiplication',mechanic:'lab',theme:'lab',openingPurpose:'Measure',creatorPrompt:'Build',items:frozenItems()}; }
 function node(id: string, role: "baseline" | "quest" | "boss", state: "ready" | "locked" = "ready") {
   const title = role === "quest" ? "Quest" : role === "boss" ? "Boss" : id === "facts" ? "Fact Blaster" : "Story Solver";
   return {
@@ -35,7 +39,7 @@ function node(id: string, role: "baseline" | "quest" | "boss", state: "ready" | 
     artwork: { status: "ready" as const, localPath: `/generated/${id}.png`, prompt: null },
     sfxContract: ["tap", "correct", "incorrect", "progress", "complete"],
     companionContract: { events: ["session_complete"] },
-    evidenceContract: { academic: true, engagement: true, companionObservations: true },
+    evidenceContract: { academic: true, engagement: true, companionObservations: true, itemContracts: Object.fromEntries(frozenItems().map(item=>[item.id,item])) },
     evidenceIds: [],
   };
 }
@@ -53,6 +57,71 @@ function input(): CreateLearningCycleInput {
 }
 
 describe("canonical learning cycle runtime", () => {
+  it.each(["ready", "completed"] as const)("keeps %s Discovery out of generic teaching completion", (state) => {
+    const rootDir=root();
+    const before=createLearningCycle({...input(),nodes:[{...node("discovery","baseline"),role:"evaluation",state}]},{rootDir});
+    expect(()=>recordCanonicalNodeCompletion({childId:"reina",homeworkId:"hw-runtime",sessionId:"unexpected",nodeId:"discovery",result:{completed:true,accuracy:1,timeSpent_ms:1,targetResults:[{target:"checkpoint-1",correct:true,attemptedValue:"10"}]}},{rootDir})).toThrow("learning_cycle_evaluation_requires_discovery_endpoint");
+    expect(getLearningCycle("reina","hw-runtime",{rootDir})).toEqual(before);
+    fs.rmSync(rootDir,{recursive:true,force:true});
+  });
+
+  it.each([false, true])("commits one pending decision across replay but not a changed learning path (blocked=%s)", async (blocked) => {
+    const rootDir=root();
+    createLearningCycle({...input(),nodes:[node("facts","baseline")]},{rootDir});
+    const completion={childId:"reina",homeworkId:"hw-runtime",nodeId:"facts",result:{completed:true,accuracy:1,timeSpent_ms:1,targetResults:[{target:"checkpoint-1",correct:true,attemptedValue:"10"}]}};
+    recordCanonicalNodeCompletion({...completion,sessionId:"first"},{rootDir});
+    let calls=0;
+    const pending=advanceCanonicalCycleFromEvidence({childId:"reina",homeworkId:"hw-runtime",decide:async(cycle)=>{
+      calls++;
+      if(blocked)transitionLearningCycle("reina","hw-runtime",cycle.revision,{type:"block",reason:"Parent paused"},{rootDir});
+      else recordCanonicalNodeCompletion({...completion,sessionId:"replay"},{rootDir});
+      return {status:"inconclusive",reason:"Collect fresh evidence next",progressionAction:"collect_more_evidence",preserve:[],change:[],testNext:[],nextEvidenceRequired:[]};
+    }},{rootDir});
+    if(blocked) await expect(pending).rejects.toThrow("canonical_progression_context_changed");
+    else {
+      const after=await pending;
+      expect(after.lifecycle).toBe("baseline_active");
+      expect(after.observations).toHaveLength(2);
+      expect(after.observations[1]?.provenance).toBe("practice");
+      expect(after.decisionHistory.filter(d=>d.eventType==="theory_decided")).toHaveLength(1);
+      expect(after.decisionHistory.at(-1)?.evidenceIds).not.toContain("replay:facts:completion");
+    }
+    expect(calls).toBe(1);
+    fs.rmSync(rootDir,{recursive:true,force:true});
+  });
+
+  it.each([
+    { role: "baseline" as const, agency: false }, { role: "baseline" as const, agency: true },
+    { role: "quest" as const, agency: false }, { role: "boss" as const, agency: false },
+  ])("records completed $role replay as practice without resetting the frontier (agency=$agency)", ({ role, agency }) => {
+    const rootDir = root();
+    const original = createLearningCycle({
+      ...input(), initialLifecycle: "quest_ready",
+      nodes: [
+        { ...node("facts", role), state: "completed", artifactBinding: node("facts", "baseline").artifactBinding }, node("story", "baseline"),
+        ...(role === "boss" ? [{ ...node("quest", "quest"), state: "completed" as const, evidenceIds: ["prior-quest-evidence"], artifactBinding: node("facts", "baseline").artifactBinding }] : []),
+      ],
+      ...(agency ? { agencyExperiment: { experimentId: "agency", sharedNodeIds: ["facts", "story"], routes: [] } } : {}),
+    }, { rootDir });
+    const replay = {
+      childId: "reina", homeworkId: "hw-runtime", sessionId: "replay-session", nodeId: "facts",
+      result: { completed: true, accuracy: 1, replay: false, timeSpent_ms: 1000,
+        targetResults: [{ target: "checkpoint-1", correct: true, attemptedValue: "10" }] },
+    };
+    const after = recordCanonicalNodeCompletion(replay, { rootDir })!;
+    expect(after.lifecycle).toBe(original.lifecycle);
+    expect(after.nodes.map(n => [n.nodeId, n.state])).toEqual(original.nodes.map(n => [n.nodeId, n.state]));
+    expect(after.observations).toHaveLength(1);
+    expect(after.observations[0]).toMatchObject({
+      provenance: "practice", exposure: "previously_practiced", result: { correct: true },
+      confounds: expect.arrayContaining(["item_previously_exposed"]),
+    });
+    expect(after.evidence.engagement.at(-1)?.summary).toContain("replay=true");
+    expect(after.predictionEvaluations).toEqual(original.predictionEvaluations);
+    expect(recordCanonicalNodeCompletion(replay, { rootDir })?.revision).toBe(after.revision);
+    fs.rmSync(rootDir, { recursive: true, force: true });
+  });
+
   it("accepts only frozen fresh checkpoints as independent baseline evidence", () => {
     const rootDir = root();
     const instrument = {
@@ -61,6 +130,7 @@ describe("canonical learning cycle runtime", () => {
         academic: true,
         engagement: true,
         companionObservations: true,
+        itemContracts: Object.fromEntries(frozenItems().map(item=>[item.id,item])),
         itemRoles: {
           "teach-1": "instruction",
           "practice-1": "practice",
@@ -80,8 +150,8 @@ describe("canonical learning cycle runtime", () => {
         accuracy: 1,
         timeSpent_ms: 1000,
         targetResults: [
-          { target: "practice-1", correct: true },
-          { target: "checkpoint-1", correct: true },
+          { target: "practice-1", correct: true, attemptedValue: "10" },
+          { target: "checkpoint-1", correct: true, attemptedValue: "10" },
         ],
       },
     }, { rootDir });
@@ -102,7 +172,8 @@ describe("canonical learning cycle runtime", () => {
           academic: true,
           engagement: true,
           companionObservations: true,
-          itemRoles: { "checkpoint-1": "fresh_checkpoint" },
+          itemContracts: Object.fromEntries(frozenItems().map(item=>[item.id,item])),
+        itemRoles: { "checkpoint-1": "fresh_checkpoint" },
         },
       }] as never,
     }, { rootDir });
@@ -112,7 +183,7 @@ describe("canonical learning cycle runtime", () => {
       homeworkId: "hw-runtime",
       sessionId: "unknown-item-session",
       nodeId: "facts",
-      result: { completed: true, accuracy: 1, timeSpent_ms: 1000, targetResults: [{ target: "invented-item", correct: true }] },
+      result: { completed: true, accuracy: 1, timeSpent_ms: 1000, targetResults: [{ target: "invented-item", correct: true, attemptedValue: "10" }] },
     }, { rootDir })).toThrow("learning_cycle_instrument_unknown_item:invented-item");
   });
 
@@ -127,7 +198,8 @@ describe("canonical learning cycle runtime", () => {
           academic: true,
           engagement: true,
           companionObservations: true,
-          itemRoles: { "checkpoint-1": "fresh_checkpoint" },
+          itemContracts: Object.fromEntries(frozenItems().map(item=>[item.id,item])),
+        itemRoles: { "checkpoint-1": "fresh_checkpoint" },
         },
       }] as never,
       academicPredictions: [{
@@ -147,7 +219,7 @@ describe("canonical learning cycle runtime", () => {
     }, { rootDir });
     recordCanonicalNodeCompletion({
       childId: "reina", homeworkId: "hw-runtime", sessionId: "s1", nodeId: "facts",
-      result: { completed: true, accuracy: 1, timeSpent_ms: 1000, targetResults: [{ target: "checkpoint-1", correct: true }] },
+      result: { completed: true, accuracy: 1, timeSpent_ms: 1000, targetResults: [{ target: "checkpoint-1", correct: true, attemptedValue: "10" }] },
     }, { rootDir });
 
     const decided = await advanceCanonicalCycleFromEvidence({
@@ -325,11 +397,11 @@ describe("canonical learning cycle runtime", () => {
   it("records factual baseline scorecards before one Planner decision generates Quest", async () => {
     const rootDir = root();
     createLearningCycle(input(), { rootDir });
-    const first = recordCanonicalNodeCompletion({ childId: "reina", homeworkId: "hw-runtime", sessionId: "s1", nodeId: "facts", result: { completed: true, accuracy: 1, timeSpent_ms: 1000, targetResults: [{ target: "2x5", correct: true }], companionInteractions: ["Asked Elli to repeat the directions."] } }, { rootDir });
+    const first = recordCanonicalNodeCompletion({ childId: "reina", homeworkId: "hw-runtime", sessionId: "s1", nodeId: "facts", result: { completed: true, accuracy: 1, timeSpent_ms: 1000, targetResults: [{ target: "2x5", correct: true, attemptedValue: "10" }], companionInteractions: ["Asked Elli to repeat the directions."] } }, { rootDir });
     expect(first?.lifecycle).toBe("baseline_active");
     expect(first?.nodes.find((item) => item.nodeId === "quest")?.generationPrompt).toBeNull();
 
-    const second = recordCanonicalNodeCompletion({ childId: "reina", homeworkId: "hw-runtime", sessionId: "s1", nodeId: "story", result: { completed: true, accuracy: 0.8, timeSpent_ms: 1800, targetResults: [{ target: "groups", correct: true }] } }, { rootDir });
+    const second = recordCanonicalNodeCompletion({ childId: "reina", homeworkId: "hw-runtime", sessionId: "s1", nodeId: "story", result: { completed: true, accuracy: 0.8, timeSpent_ms: 1800, targetResults: [{ target: "groups", correct: true, attemptedValue: "10" }] } }, { rootDir });
     expect(second?.lifecycle).toBe("baseline_evaluating");
     expect(second?.observations).toHaveLength(2);
     expect(second?.decisionHistory.filter((item) => item.eventType === "theory_decided")).toHaveLength(0);
@@ -346,6 +418,7 @@ describe("canonical learning cycle runtime", () => {
         testNext: ["unseen transfer"],
         nextEvidenceRequired: ["Quest results"],
         nextInstrument: {
+          items: frozenItems(),
           nodeId: "quest",
           title: "Lantern Rescue",
           academicTarget: "unseen equal-groups transfer",
@@ -423,7 +496,7 @@ describe("canonical learning cycle runtime", () => {
   it("lets the Planner prescribe one harder support instrument instead of Quest", async () => {
     const rootDir = root();
     createLearningCycle({ ...input(), nodes: [node("facts", "baseline"), node("quest", "quest", "locked"), node("boss", "boss", "locked")] }, { rootDir });
-    recordCanonicalNodeCompletion({ childId: "reina", homeworkId: "hw-runtime", sessionId: "s1", nodeId: "facts", result: { completed: true, accuracy: 0.4, timeSpent_ms: 1000, targetResults: [{ target: "2x5", correct: false }] } }, { rootDir });
+    recordCanonicalNodeCompletion({ childId: "reina", homeworkId: "hw-runtime", sessionId: "s1", nodeId: "facts", result: { completed: true, accuracy: 0.4, timeSpent_ms: 1000, targetResults: [{ target: "2x5", correct: false, attemptedValue: "9" }] } }, { rootDir });
 
     const decided = await advanceCanonicalCycleFromEvidence({
       childId: "reina",
@@ -437,6 +510,7 @@ describe("canonical learning cycle runtime", () => {
         testNext: ["array to notation"],
         nextEvidenceRequired: ["unassisted construction"],
         nextInstrument: {
+          items: frozenItems(),
           nodeId: "support-array-link",
           title: "Array Bridge",
           academicTarget: "Connect arrays to multiplication notation",
@@ -463,7 +537,7 @@ describe("canonical learning cycle runtime", () => {
         completed: true,
         accuracy: 0,
         timeSpent_ms: 1000,
-        targetResults: [{ target: "2x5", correct: false }],
+        targetResults: [{ target: "2x5", correct: false, attemptedValue: "9" }],
       },
     },
     {
@@ -472,7 +546,7 @@ describe("canonical learning cycle runtime", () => {
         completed: true,
         accuracy: 1,
         timeSpent_ms: 1000,
-        targetResults: [{ target: "2x5", correct: true, scaffoldLevel: 2 }],
+        targetResults: [{ target: "2x5", correct: true, attemptedValue: "10", scaffoldLevel: 2 }],
         companionInteractions: ["Elli demonstrated an analogous example."],
       },
     },
@@ -502,6 +576,7 @@ describe("canonical learning cycle runtime", () => {
         testNext: ["transfer"],
         nextEvidenceRequired: ["Quest"],
         nextInstrument: {
+          items: frozenItems(),
           nodeId: "quest",
           title: "Quest",
           academicTarget: "unseen transfer",
@@ -528,7 +603,7 @@ describe("canonical learning cycle runtime", () => {
       activityTraitModel: { puzzle: { weight: 6, confidence: 0.84 } },
     }));
     createLearningCycle({ ...input(), nodes: [node("facts", "baseline"), node("quest", "quest", "locked"), node("boss", "boss", "locked")] }, { rootDir });
-    recordCanonicalNodeCompletion({ childId: "reina", homeworkId: "hw-runtime", sessionId: "s1", nodeId: "facts", result: { completed: true, accuracy: 1, timeSpent_ms: 1000 } }, { rootDir });
+    recordCanonicalNodeCompletion({ childId: "reina", homeworkId: "hw-runtime", sessionId: "s1", nodeId: "facts", result: { completed: true, accuracy: 1, timeSpent_ms: 1000, targetResults:[{target:"2x5",attemptedValue:"10",correct:true}] } }, { rootDir });
     let request: Record<string, unknown> | undefined;
     const client = {
       messages: {
@@ -547,6 +622,7 @@ describe("canonical learning cycle runtime", () => {
                 testNext: ["unseen transfer"],
                 nextEvidenceRequired: ["Quest scorecard"],
                 nextInstrument: {
+          items: frozenItems(),
                   nodeId: "quest",
                   title: "Quest",
                   academicTarget: "unseen multiplication transfer",
@@ -645,7 +721,7 @@ describe("canonical learning cycle runtime", () => {
       homeworkId: "hw-runtime",
       sessionId: "s1",
       nodeId: "facts",
-      result: { completed: true, accuracy: 1, timeSpent_ms: 1000 },
+      result: { completed: true, accuracy: 1, timeSpent_ms: 1000, targetResults:[{target:"2x5",attemptedValue:"10",correct:true}] },
     }, { rootDir });
     const cycleFile = path.join(rootDir, "src", "context", "reina", "homework", "cycles", "hw-runtime.json");
     const stored = JSON.parse(fs.readFileSync(cycleFile, "utf8"));
@@ -675,6 +751,7 @@ describe("canonical learning cycle runtime", () => {
                   change: [],
                   testNext: ["unseen transfer"],
                   nextEvidenceRequired: ["Quest scorecard"],
+                  nextItems: frozenItems(),
                   nextNodeId: "quest",
                   nextTitle: "Quest",
                   nextAcademicTarget: "unseen multiplication transfer",
@@ -711,15 +788,15 @@ describe("canonical learning cycle runtime", () => {
   it("uses Quest evidence for a Boss decision and Boss evidence only to await calibration", async () => {
     const rootDir = root();
     createLearningCycle({ ...input(), nodes: [node("facts", "baseline"), node("quest", "quest", "locked"), node("boss", "boss", "locked")] }, { rootDir });
-    recordCanonicalNodeCompletion({ childId: "reina", homeworkId: "hw-runtime", sessionId: "s1", nodeId: "facts", result: { completed: true, accuracy: 1, timeSpent_ms: 1000, targetResults: [{ target: "2x5", correct: true }] } }, { rootDir });
-    const questGenerating = await advanceCanonicalCycleFromEvidence({ childId: "reina", homeworkId: "hw-runtime", decide: async () => ({ status: "supported", reason: "Test transfer.", progressionAction: "generate_quest", preserve: [], change: [], testNext: ["transfer"], nextEvidenceRequired: ["Quest"] }) }, { rootDir });
+    recordCanonicalNodeCompletion({ childId: "reina", homeworkId: "hw-runtime", sessionId: "s1", nodeId: "facts", result: { completed: true, accuracy: 1, timeSpent_ms: 1000, targetResults: [{ target: "2x5", correct: true, attemptedValue: "10" }] } }, { rootDir });
+    const questGenerating = await advanceCanonicalCycleFromEvidence({ childId: "reina", homeworkId: "hw-runtime", decide: async () => ({ status: "supported", reason: "Test transfer.", progressionAction: "generate_quest", nextInstrument: prescription("quest"), preserve: [], change: [], testNext: ["transfer"], nextEvidenceRequired: ["Quest"] }) }, { rootDir });
     transitionLearningCycle("reina", "hw-runtime", questGenerating.revision, { type: "artifact_bound", nodeId: "quest", artifact: { contentId: "quest", artifactId: "quest", localArtifactPath: "/games/quest.html", localArtworkPath: "/generated/quest.png", contractFingerprint: "quest", validationStatus: "passed" } }, { rootDir });
-    recordCanonicalNodeCompletion({ childId: "reina", homeworkId: "hw-runtime", sessionId: "s2", nodeId: "quest", result: { completed: true, accuracy: 0.9, timeSpent_ms: 1000, targetResults: [{ target: "transfer-1", correct: true }] } }, { rootDir });
-    const bossGenerating = await advanceCanonicalCycleFromEvidence({ childId: "reina", homeworkId: "hw-runtime", decide: async () => ({ status: "supported", reason: "Transfer held on unseen material.", progressionAction: "generate_boss", preserve: [], change: [], testNext: ["synthesis"], nextEvidenceRequired: ["Boss"] }) }, { rootDir });
+    recordCanonicalNodeCompletion({ childId: "reina", homeworkId: "hw-runtime", sessionId: "s2", nodeId: "quest", result: { completed: true, accuracy: 0.9, timeSpent_ms: 1000, targetResults: [{ target: "transfer-1", correct: true, attemptedValue: "10" }] } }, { rootDir });
+    const bossGenerating = await advanceCanonicalCycleFromEvidence({ childId: "reina", homeworkId: "hw-runtime", decide: async () => ({ status: "supported", reason: "Transfer held on unseen material.", progressionAction: "generate_boss", nextInstrument: prescription("boss"), preserve: [], change: [], testNext: ["synthesis"], nextEvidenceRequired: ["Boss"] }) }, { rootDir });
     expect(bossGenerating.lifecycle).toBe("boss_generating");
 
     transitionLearningCycle("reina", "hw-runtime", bossGenerating.revision, { type: "artifact_bound", nodeId: "boss", artifact: { contentId: "boss", artifactId: "boss", localArtifactPath: "/games/boss.html", localArtworkPath: "/generated/boss.png", contractFingerprint: "boss", validationStatus: "passed" } }, { rootDir });
-    recordCanonicalNodeCompletion({ childId: "reina", homeworkId: "hw-runtime", sessionId: "s3", nodeId: "boss", result: { completed: true, accuracy: 1, timeSpent_ms: 1000, targetResults: [{ target: "synthesis-1", correct: true }] } }, { rootDir });
+    recordCanonicalNodeCompletion({ childId: "reina", homeworkId: "hw-runtime", sessionId: "s3", nodeId: "boss", result: { completed: true, accuracy: 1, timeSpent_ms: 1000, targetResults: [{ target: "synthesis-1", correct: true, attemptedValue: "10" }] } }, { rootDir });
     const awaiting = await advanceCanonicalCycleFromEvidence({ childId: "reina", homeworkId: "hw-runtime", decide: async () => ({ status: "awaiting_calibration", reason: "In-app synthesis is provisional.", progressionAction: "await_calibration", preserve: [], change: [], testNext: [], nextEvidenceRequired: ["returned graded work"] }) }, { rootDir });
     expect(awaiting.lifecycle).toBe("awaiting_calibration");
   });
@@ -727,13 +804,13 @@ describe("canonical learning cycle runtime", () => {
   it("lets the Boss lifecycle resolve a contradictory second-Boss action when the Planner already chose awaiting calibration", async () => {
     const rootDir = root();
     createLearningCycle({ ...input(), nodes: [node("facts", "baseline"), node("quest", "quest", "locked"), node("boss", "boss", "locked")] }, { rootDir });
-    recordCanonicalNodeCompletion({ childId: "reina", homeworkId: "hw-runtime", sessionId: "s1", nodeId: "facts", result: { completed: true, accuracy: 1, timeSpent_ms: 1000, targetResults: [{ target: "2x5", correct: true }] } }, { rootDir });
-    const questGenerating = await advanceCanonicalCycleFromEvidence({ childId: "reina", homeworkId: "hw-runtime", decide: async () => ({ status: "supported", reason: "Test transfer.", progressionAction: "generate_quest", preserve: [], change: [], testNext: ["transfer"], nextEvidenceRequired: ["Quest"] }) }, { rootDir });
+    recordCanonicalNodeCompletion({ childId: "reina", homeworkId: "hw-runtime", sessionId: "s1", nodeId: "facts", result: { completed: true, accuracy: 1, timeSpent_ms: 1000, targetResults: [{ target: "2x5", correct: true, attemptedValue: "10" }] } }, { rootDir });
+    const questGenerating = await advanceCanonicalCycleFromEvidence({ childId: "reina", homeworkId: "hw-runtime", decide: async () => ({ status: "supported", reason: "Test transfer.", progressionAction: "generate_quest", nextInstrument: prescription("quest"), preserve: [], change: [], testNext: ["transfer"], nextEvidenceRequired: ["Quest"] }) }, { rootDir });
     transitionLearningCycle("reina", "hw-runtime", questGenerating.revision, { type: "artifact_bound", nodeId: "quest", artifact: { contentId: "quest", artifactId: "quest", localArtifactPath: "/games/quest.html", localArtworkPath: "/generated/quest.png", contractFingerprint: "quest", validationStatus: "passed" } }, { rootDir });
-    recordCanonicalNodeCompletion({ childId: "reina", homeworkId: "hw-runtime", sessionId: "s2", nodeId: "quest", result: { completed: true, accuracy: 1, timeSpent_ms: 1000, targetResults: [{ target: "unseen-transfer", correct: true }] } }, { rootDir });
-    const bossGenerating = await advanceCanonicalCycleFromEvidence({ childId: "reina", homeworkId: "hw-runtime", decide: async () => ({ status: "supported", reason: "Transfer held.", progressionAction: "generate_boss", preserve: [], change: [], testNext: ["synthesis"], nextEvidenceRequired: ["Boss"] }) }, { rootDir });
+    recordCanonicalNodeCompletion({ childId: "reina", homeworkId: "hw-runtime", sessionId: "s2", nodeId: "quest", result: { completed: true, accuracy: 1, timeSpent_ms: 1000, targetResults: [{ target: "unseen-transfer", correct: true, attemptedValue: "10" }] } }, { rootDir });
+    const bossGenerating = await advanceCanonicalCycleFromEvidence({ childId: "reina", homeworkId: "hw-runtime", decide: async () => ({ status: "supported", reason: "Transfer held.", progressionAction: "generate_boss", nextInstrument: prescription("boss"), preserve: [], change: [], testNext: ["synthesis"], nextEvidenceRequired: ["Boss"] }) }, { rootDir });
     transitionLearningCycle("reina", "hw-runtime", bossGenerating.revision, { type: "artifact_bound", nodeId: "boss", artifact: { contentId: "boss", artifactId: "boss", localArtifactPath: "/games/boss.html", localArtworkPath: "/generated/boss.png", contractFingerprint: "boss", validationStatus: "passed" } }, { rootDir });
-    recordCanonicalNodeCompletion({ childId: "reina", homeworkId: "hw-runtime", sessionId: "s3", nodeId: "boss", result: { completed: true, accuracy: 1, timeSpent_ms: 1000, targetResults: [{ target: "unseen-synthesis", correct: true }] } }, { rootDir });
+    recordCanonicalNodeCompletion({ childId: "reina", homeworkId: "hw-runtime", sessionId: "s3", nodeId: "boss", result: { completed: true, accuracy: 1, timeSpent_ms: 1000, targetResults: [{ target: "unseen-synthesis", correct: true, attemptedValue: "10" }] } }, { rootDir });
 
     const awaiting = await advanceCanonicalCycleFromEvidence({
       childId: "reina",
@@ -758,10 +835,10 @@ describe("canonical learning cycle runtime", () => {
   it("downgrades a repeated Quest item to practice and refuses to use it to authorize Boss", async () => {
     const rootDir = root();
     createLearningCycle({ ...input(), nodes: [node("facts", "baseline"), node("quest", "quest", "locked"), node("boss", "boss", "locked")] }, { rootDir });
-    recordCanonicalNodeCompletion({ childId: "reina", homeworkId: "hw-runtime", sessionId: "s1", nodeId: "facts", result: { completed: true, accuracy: 1, timeSpent_ms: 1000, targetResults: [{ target: "same-item", correct: true }] } }, { rootDir });
-    const questGenerating = await advanceCanonicalCycleFromEvidence({ childId: "reina", homeworkId: "hw-runtime", decide: async () => ({ status: "supported", reason: "Test transfer.", progressionAction: "generate_quest", preserve: [], change: [], testNext: ["transfer"], nextEvidenceRequired: ["Quest"] }) }, { rootDir });
+    recordCanonicalNodeCompletion({ childId: "reina", homeworkId: "hw-runtime", sessionId: "s1", nodeId: "facts", result: { completed: true, accuracy: 1, timeSpent_ms: 1000, targetResults: [{ target: "same-item", correct: true, attemptedValue: "10" }] } }, { rootDir });
+    const questGenerating = await advanceCanonicalCycleFromEvidence({ childId: "reina", homeworkId: "hw-runtime", decide: async () => ({ status: "supported", reason: "Test transfer.", progressionAction: "generate_quest", nextInstrument: prescription("quest"), preserve: [], change: [], testNext: ["transfer"], nextEvidenceRequired: ["Quest"] }) }, { rootDir });
     transitionLearningCycle("reina", "hw-runtime", questGenerating.revision, { type: "artifact_bound", nodeId: "quest", artifact: { contentId: "quest", artifactId: "quest", localArtifactPath: "/games/quest.html", localArtworkPath: "/generated/quest.png", contractFingerprint: "quest", validationStatus: "passed" } }, { rootDir });
-    const observed = recordCanonicalNodeCompletion({ childId: "reina", homeworkId: "hw-runtime", sessionId: "s2", nodeId: "quest", result: { completed: true, accuracy: 1, timeSpent_ms: 1000, targetResults: [{ target: "same-item", correct: true }] } }, { rootDir });
+    const observed = recordCanonicalNodeCompletion({ childId: "reina", homeworkId: "hw-runtime", sessionId: "s2", nodeId: "quest", result: { completed: true, accuracy: 1, timeSpent_ms: 1000, targetResults: [{ target: "same-item", correct: true, attemptedValue: "10" }] } }, { rootDir });
 
     expect(observed?.observations.find((item) => item.sourceId === "activity:s2:quest")).toMatchObject({
       exposure: "previously_practiced",
@@ -771,7 +848,7 @@ describe("canonical learning cycle runtime", () => {
     await expect(advanceCanonicalCycleFromEvidence({
       childId: "reina",
       homeworkId: "hw-runtime",
-      decide: async () => ({ status: "supported", reason: "Repeated item was correct.", progressionAction: "generate_boss", preserve: [], change: [], testNext: ["synthesis"], nextEvidenceRequired: ["Boss"] }),
+      decide: async () => ({ status: "supported", reason: "Repeated item was correct.", progressionAction: "generate_boss", nextInstrument: prescription("boss"), preserve: [], change: [], testNext: ["synthesis"], nextEvidenceRequired: ["Boss"] }),
     }, { rootDir })).rejects.toThrow("canonical_progression_boss_requires_unseen_quest_evidence");
   });
 

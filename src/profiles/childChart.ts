@@ -17,6 +17,7 @@ import {
   activeHomeworkByDomainView,
   activeSessionPlanByDomainView,
   selectedHomeworkDomain,
+  inferHomeworkDomainFromPending,
 } from "../engine/homeworkLanes";
 import type {
   CompanionCarePlan,
@@ -24,7 +25,7 @@ import type {
 } from "../shared/companionCareTypes";
 import { loadCompanionCarePlanForChart } from "./companionCarePlan";
 import { readEngagementTheory } from "../engine/engagementTheory";
-import { resolveChildContextDir } from "../utils/contextRoot";
+import { assertChildPublicationCommitted, resolveChildContextDir } from "../utils/contextRoot";
 import {
   defaultWaterfallLinks,
   hydrateLearningProfileFromWaterfall,
@@ -416,6 +417,15 @@ export function getChildChart(childIdRaw: string, opts: ChildChartOptions = {}):
     ? projectLearningCycle(learningCycle, { presentationPlan: directActiveSessionPlan ?? legacySelectedActiveSessionPlan })
     : null;
   const selectedActiveSessionPlan = cycleProjection?.activeSessionPlan ?? directActiveSessionPlan ?? legacySelectedActiveSessionPlan;
+  // A healthy committed lane can survive another domain's interrupted publish.
+  // But the label alone is insufficient: every selected projection must agree.
+  const mixedPlan = [legacySelectedActiveSessionPlan, selectedActiveSessionPlan, learningProfile.activeSessionPlan].some(plan =>
+    plan && (plan.domain !== homeworkSelectedDomain || plan.activeHomeworkId !== selectedHomeworkId));
+  const mixedHomework = [selectedPendingHomework, learningProfile.pendingHomework].some(homework =>
+    homework && (inferHomeworkDomainFromPending(homework) !== homeworkSelectedDomain || (homework.homeworkId ?? homework.weekOf) !== selectedHomeworkId));
+  if (!homeworkSelectedDomain || homeworkSelectedDomain === "math" || mixedPlan || mixedHomework) {
+    assertChildPublicationCommitted(childId, { rootDir });
+  }
   const catalogItems = contentCatalogWaterfall.items;
   const chartBase = {
     childId,

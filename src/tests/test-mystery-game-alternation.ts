@@ -1,4 +1,11 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import {
+  afterAll,
+  beforeAll,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 import {
   selectMysteryGame,
   getMysteryDopaminePoolForChild,
@@ -11,8 +18,13 @@ import {
   recordAttempt,
   registerMysteryGameForSessionFinalize,
 } from "../engine/learningEngine";
-import { readLearningProfile } from "../utils/learningProfileIO";
+import {
+  initializeLearningProfile,
+  readLearningProfile,
+  writeLearningProfile,
+} from "../utils/learningProfileIO";
 import fs from "fs";
+import os from "os";
 import path from "path";
 
 describe("getDopamineGameSlugsForChild (children.config.json)", () => {
@@ -101,32 +113,39 @@ describe("HOMEWORK_QUEST_SPELLING_SLUGS (quest node, non-generated)", () => {
 
 describe("finalizeSession + lastMysteryGame", () => {
   const childId = "ila";
-  const ctxRoot = path.resolve(process.cwd(), "src", "context", childId);
-  const profilePath = path.join(ctxRoot, "learning_profile.json");
-  const wordBankPath = path.join(ctxRoot, "word_bank.json");
-  let savedProfile: string | null = null;
-  let savedWordBank: string | null = null;
+  let isolatedContextRoot = "";
+  let ctxRoot = "";
 
-  beforeEach(() => {
-    savedProfile = fs.existsSync(profilePath)
-      ? fs.readFileSync(profilePath, "utf-8")
-      : null;
-    savedWordBank = fs.existsSync(wordBankPath)
-      ? fs.readFileSync(wordBankPath, "utf-8")
-      : null;
-    if (fs.existsSync(wordBankPath)) fs.unlinkSync(wordBankPath);
+  beforeAll(() => {
+    isolatedContextRoot = fs.mkdtempSync(
+      path.join(os.tmpdir(), "sunny-mystery-finalization-"),
+    );
+    vi.stubEnv("SUNNY_CONTEXT_ROOT", isolatedContextRoot);
+    vi.stubEnv("SUNNY_ALLOW_REAL_CHILD_CONTEXT_ROOT", "true");
+    ctxRoot = path.join(isolatedContextRoot, childId);
+    writeLearningProfile(
+      childId,
+      initializeLearningProfile({
+        childId,
+        age: 9,
+        grade: 3,
+        diagnoses: [],
+        learningGoals: ["spelling"],
+      }),
+    );
   });
 
-  afterEach(() => {
-    if (savedWordBank !== null) {
-      fs.mkdirSync(path.dirname(wordBankPath), { recursive: true });
-      fs.writeFileSync(wordBankPath, savedWordBank, "utf-8");
-    } else if (fs.existsSync(wordBankPath)) {
-      fs.unlinkSync(wordBankPath);
+  afterAll(() => {
+    vi.unstubAllEnvs();
+    if (isolatedContextRoot) {
+      fs.rmSync(isolatedContextRoot, { recursive: true, force: true });
     }
-    if (savedProfile !== null) {
-      fs.writeFileSync(profilePath, savedProfile, "utf-8");
-    }
+  });
+
+  it("never points the mystery-finalization test at canonical family data", () => {
+    expect(ctxRoot).not.toBe(
+      path.resolve(process.cwd(), "src", "context", childId),
+    );
   });
 
   it("writes profile.lastMysteryGame after finalize when registerMysteryGameForSessionFinalize ran", () => {

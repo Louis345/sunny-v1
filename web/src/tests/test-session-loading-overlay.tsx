@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, render, screen } from "@testing-library/react";
-import { SessionLoadingOverlay } from "../components/SessionLoadingOverlay";
+import { SessionLoadingOverlay, sessionVoiceReady } from "../components/SessionLoadingOverlay";
 
 afterEach(() => {
   cleanup();
@@ -9,6 +9,11 @@ afterEach(() => {
 });
 
 describe("SessionLoadingOverlay", () => {
+  it("does not require unsolicited speech to open a wake-only session",()=>{
+    expect(sessionVoiceReady({bootReady:true,firstAudio:false,wakeOnly:true})).toBe(true);
+    expect(sessionVoiceReady({bootReady:false,firstAudio:false,wakeOnly:true})).toBe(false);
+    expect(sessionVoiceReady({bootReady:true,firstAudio:false,wakeOnly:false})).toBe(false);
+  });
   it("shows the selected child's avatar and readiness progress", () => {
     render(
       <SessionLoadingOverlay
@@ -155,6 +160,8 @@ describe("SessionLoadingOverlay", () => {
     expect(screen.getByTestId("session-loading-overlay").getAttribute("data-safety-released")).toBe(
       "true",
     );
+    expect(screen.getByText("67%")).not.toBeNull();
+    expect(screen.queryByText("100%")).toBeNull();
     expect(screen.getByText("Opening the curtain...")).not.toBeNull();
   });
 
@@ -177,6 +184,28 @@ describe("SessionLoadingOverlay", () => {
     expect(onCurtainOpen).not.toHaveBeenCalled();
     act(() => {
       vi.advanceTimersByTime(399);
+    });
+    expect(onCurtainOpen).not.toHaveBeenCalled();
+    act(() => {
+      vi.advanceTimersByTime(1);
+    });
+    expect(onCurtainOpen).toHaveBeenCalledTimes(1);
+  });
+
+  it("opens within 700ms after genuine 100 percent readiness by default", () => {
+    vi.useFakeTimers();
+    const onCurtainOpen = vi.fn();
+    render(
+      <SessionLoadingOverlay
+        childName="Ila"
+        voiceReady
+        mapReady
+        assetsReady
+        onCurtainOpen={onCurtainOpen}
+      />,
+    );
+    act(() => {
+      vi.advanceTimersByTime(699);
     });
     expect(onCurtainOpen).not.toHaveBeenCalled();
     act(() => {

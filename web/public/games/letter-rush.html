@@ -524,6 +524,7 @@
       letter-spacing:.1em;
       text-transform:uppercase;
     }
+    #startSub[role="alert"]{max-width:min(620px,90vw);line-height:1.4;letter-spacing:normal;text-transform:none}
 	    .banner button{
 	      margin-top:20px;
 	      background:var(--accent);
@@ -676,7 +677,7 @@
     <div class="inner">
       <div class="big">LETTER<br />RUSH</div>
       <div class="sub" id="startSub">Config loading...</div>
-      <button id="startBtn" type="button">Start</button>
+      <button id="startBtn" type="button" disabled>Start</button>
     </div>
   </section>
 
@@ -751,6 +752,7 @@
 
       var params = window.GAME_PARAMS || {};
       var configUrl = params.config;
+      var frozenSpelling = Array.isArray(params.spellingItemBindings) && params.spellingItemBindings.length > 0;
       var storybookPreview = params.previewStorybook === true;
       var storybookFixtureState = String(params.fixtureState || "");
       var config = null;
@@ -762,6 +764,8 @@
         word: null,
         targetLetters: [],
         typed: [],
+        expectedLetterAtLastSpawn: "",
+        distractorSpawnsForExpected: 0,
         wordStartedAt: 0,
         currentLetterStartedAt: 0,
         spawnTimer: null,
@@ -1377,8 +1381,16 @@
           return source[Math.floor(Math.random() * source.length)];
         }
         var expected = currentExpectedLetter() || randomLetter();
+        if (state.expectedLetterAtLastSpawn !== expected) {
+          state.expectedLetterAtLastSpawn = expected;
+          state.distractorSpawnsForExpected = 0;
+        }
         var correctLetterChance = config.mode === "mastery-run" ? 0.42 : 0.5;
-        if (Math.random() < correctLetterChance) return { letter: expected, imposter: false };
+        if (state.distractorSpawnsForExpected >= 2 || Math.random() < correctLetterChance) {
+          state.distractorSpawnsForExpected = 0;
+          return { letter: expected, imposter: false };
+        }
+        state.distractorSpawnsForExpected += 1;
         return { letter: distractorLetter(expected), imposter: false };
       }
       function streakSpeedMultiplier() {
@@ -1543,6 +1555,8 @@
         state.word = null;
         state.targetLetters = [];
         state.typed = [];
+        state.expectedLetterAtLastSpawn = "";
+        state.distractorSpawnsForExpected = 0;
         state.wordStartedAt = 0;
         state.currentLetterStartedAt = 0;
         state.lives = startingLives;
@@ -1952,6 +1966,8 @@
         state.trapRound = isTrapMode() ? buildTrapRound(state.word) : null;
         state.targetLetters = isTrapMode() ? [] : normalizeWord(state.word.text).split("");
         state.typed = [];
+        state.expectedLetterAtLastSpawn = "";
+        state.distractorSpawnsForExpected = 0;
         state.trapHits = 0;
         state.wordHadMiss = false;
         state.wordOutcomeLocked = false;
@@ -2150,6 +2166,18 @@
         setBanner("endBanner", true);
       }
       function validateRuntimeConfig(candidate) {
+        if (frozenSpelling) {
+          var bindings = params.spellingItemBindings;
+          if (!candidate || candidate.activityId !== "letter-rush" || candidate.domain !== "spelling"
+            || !LETTER_RUSH_MODES[candidate.mode] || !Array.isArray(candidate.words) || candidate.words.length !== bindings.length
+            || bindings.some(function (binding) {
+              return typeof binding.itemId !== "string" || !binding.itemId || typeof binding.word !== "string"
+                || candidate.words.filter(function (word) {
+                  return word && word.id === binding.itemId && typeof word.text === "string"
+                    && word.text.normalize("NFC").trim().toLowerCase() === binding.word.normalize("NFC").trim().toLowerCase();
+                }).length !== 1;
+            })) throw new Error("letter_rush_frozen_config_mismatch");
+        }
         if (!candidate || typeof candidate !== "object") return sampleConfig("sample");
         var mode = candidate.mode;
         if (!LETTER_RUSH_MODES[mode]) candidate.mode = "hear-and-spell";
@@ -2301,6 +2329,7 @@
               };
             })
           : null;
+        byId("startBtn").disabled = false;
       }
       function applyStorybookFixtureState() {
         if (!storybookPreview) return;
@@ -2326,8 +2355,18 @@
         setBanner("startBanner", false);
         setBanner("endBanner", true);
       }
+      function configFailed(err) {
+        console.error(" 🎮 [letter-rush] [config] [failed]", err);
+        if (!frozenSpelling) { start(sampleConfig("sample")); return; }
+        config = null;
+        byId("startBtn").disabled = true;
+        byId("startSub").setAttribute("role", "alert");
+        byId("startSub").textContent = "Sunny could not load this activity. Your spelling was not assessed. Use Back to Map to leave.";
+        window.SunnyActivity.productIssue({ activityId: "letter-rush", category: "instrument_failure", code: "letter_rush_config_unavailable" });
+      }
       function loadConfig() {
         if (!configUrl || configUrl.indexOf("sample") === 0) {
+          if (frozenSpelling) { configFailed(new Error("letter_rush_frozen_config_required")); return; }
           start(sampleConfig(configUrl || "sample-mastery"));
           return;
         }
@@ -2337,14 +2376,11 @@
             return res.json();
           })
           .then(start)
-          .catch(function (err) {
-            console.error("Letter Rush config failed", err);
-            start(sampleConfig("sample"));
-          });
+          .catch(configFailed);
       }
 
       byId("startBtn").addEventListener("click", function () {
-        if (state.started) return;
+        if (!config || state.started) return;
         playConfiguredSfxEvent("start");
         state.started = true;
         setBanner("startBanner", false);

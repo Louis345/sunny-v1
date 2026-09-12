@@ -2,24 +2,32 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { createHash } from "node:crypto";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { getLearningCycle, projectLearningCycle, transitionLearningCycle } from "./learningCycleRepository";
 import {
   buildTargetedNodesResumably,
   buildDiscoveryRepairMessageContent,
   buildDiscoveryRepairDiagnostic,
+  buildDiscoveryRepairPrompt,
+  applyDiscoveryHtmlPatch,
+  buildOpenAiDiscoveryRepairInput,
+  estimateDiscoveryRepairCost,
+  resolveDiscoveryRepairModel,
   acquireMathGenerationLease,
   buildDiscoveryActiveSessionPlan,
   runAdaptiveTargetedGeneration,
   completeDiscoveryEvaluation,
   createDiscoveryLearningCycle,
   ensureDiscoveryArtifactsAreServed,
+  hashDiscoveryContract,
   getMathGenerationStatus,
   recordDiscoveryAttempt,
   releaseMathGenerationLease,
   publishDiscoveryExperience,
+  recoverDiscoveryPublication,
   publishTargetedBoardProjection,
   generateMathDiscoveryExperience,
+  assertDiscoveryConstructSemantics,
   validateDiscoveryAcademicBinding,
   verifyDiscoveryRuntimeScoring,
   revealTargetedBoard,
@@ -37,13 +45,16 @@ function generatedDiscoveryHtml(): string {
   const runtimeContract = JSON.stringify({
     items: [{ itemId: "i1", constructId: "math.equal_groups", acceptedValues: ["4"] }],
   });
-  return `<!doctype html><html><body><button>Start</button>
+  return `<!doctype html><html><body><button id="answer">Start</button>
     <script id="sunny-discovery-contract" type="application/json">${runtimeContract}</script>
     <script>
       window.__SUNNY_DISCOVERY_TEST__ = { evaluate(itemId, attemptedValue) { return { itemId, constructId: "math.equal_groups", correct: attemptedValue === "4" }; } };
       parent.postMessage({type:'evaluation_ready'},'*');
-      parent.postMessage({type:'evaluation_attempt'},'*');
-      parent.postMessage({type:'evaluation_complete'},'*');
+      window.SUNNY_VALIDATION_HOOKS = {journey:[{itemId:'i1',steps:[{action:'click',selector:'#answer'}]}]};
+      document.querySelector('#answer').onclick=()=>{
+        parent.postMessage({type:'evaluation_attempt',payload:{attemptId:'attempt-i1',observedAt:new Date().toISOString(),supportEventIds:[],instrumentSignals:[],itemId:'i1',attemptedValue:'4'}},'*');
+        parent.postMessage({type:'evaluation_complete'},'*');
+      };
     </script></body></html>`;
 }
 
@@ -84,7 +95,26 @@ const contract: MathDiscoveryEvaluationContract = {
   },
 };
 
+async function acceptedPublication(rootDir: string, homeworkId: string) {
+  const html=generatedDiscoveryHtml().replaceAll("i1","probe-1").replaceAll("math.equal_groups","math.multiplication.equal_groups");
+  const storage=path.join(rootDir,"src/context/lab-child/homework/games",homeworkId);
+  fs.mkdirSync(storage,{recursive:true});fs.writeFileSync(path.join(storage,"discovery.html"),html);fs.writeFileSync(path.join(storage,"discovery-background.svg"),"<svg/>");
+  const evaluation={...contract,artifact:{...contract.artifact,artifactHash:hashDiscoveryContract(html)}};
+  await verifyDiscoveryRuntimeScoring({html,academic:evaluation,outputDir:path.join(rootDir,"src/context/lab-child/homework/direct-drafts",homeworkId,"runtime-verification")});
+  return evaluation;
+}
+
 describe("adaptive math discovery", () => {
+  it("rejects a construct that claims counting by tens while its item measures intervals of five", () => {
+    expect(() => assertDiscoveryConstructSemantics({
+      items: [{
+        itemId: "item:01-scale-interval",
+        constructId: "construct:scale-count-by-tens",
+        representationSpec: "Vertical axis gridlines at 0, 5, 10, 15, 20 (interval 5).",
+      }],
+    })).toThrow("discovery_construct_representation_mismatch:item:01-scale-interval:claimed=10:observed=5");
+  });
+
   it("requires a structured runtime contract instead of accepting academic strings in comments", () => {
     const academic = {
       ...contract,
@@ -196,8 +226,76 @@ describe("adaptive math discovery", () => {
     });
   });
 
-  it("publishes Discovery atomically while preserving another domain", () => {
+  it("gives repair exact control diagnostics without authority to change frozen contracts", () => {
+    const prompt = buildDiscoveryRepairPrompt({
+      issues: ["sunny:math_journey_control_not_actionable;item=item-02-which-hand;selector=#hand-long;tag=rect;missing=semantic_action_marker,accessible_name"],
+      runtimeContractJson: '{"items":[]}',
+      contractHash: "academic-hash",
+      academic: { items: [] },
+      designHash: "design-hash",
+      design: { interaction: "clock" },
+      html: "<html>broken</html>",
+    });
+
+    expect(prompt).toContain("item=item-02-which-hand");
+    expect(prompt).toContain("selector=#hand-long");
+    expect(prompt).toContain("missing fields on that exact control");
+    expect(prompt).toContain("ACADEMIC CONTRACT HASH: academic-hash");
+    expect(prompt).toContain("DESIGN HASH: design-hash");
+    expect(prompt).toContain("<html>broken</html>");
+    expect(prompt).toContain("exact oldText → newText replacements");
+    expect(prompt).not.toContain("return one complete standalone HTML document");
+  });
+
+  it("applies a surgical repair while leaving every unrelated byte unchanged", () => {
+    const before = "<!doctype html><html><body><button id=\"broken\">Go</button><script>const score=4;</script></body></html>";
+    const result = applyDiscoveryHtmlPatch(before, JSON.stringify({ replacements: [{
+      oldText: "<button id=\"broken\">Go</button>",
+      newText: "<button id=\"broken\" aria-label=\"Continue\">Go</button>",
+      reason: "Give the existing control an accessible name",
+    }] }));
+
+    expect(result.html).toBe("<!doctype html><html><body><button id=\"broken\" aria-label=\"Continue\">Go</button><script>const score=4;</script></body></html>");
+    expect(result.replacementCount).toBe(1);
+    expect(result.changedOriginalCharacters).toBe(31);
+  });
+
+  it("rejects broad, ambiguous, missing, and no-op repair patches", () => {
+    const html = "<!doctype html><html><body><button>Go</button><button>Go</button></body></html>";
+    expect(() => applyDiscoveryHtmlPatch(html, "<!doctype html><html>replacement</html>"))
+      .toThrow("discovery_repair_patch_invalid_json");
+    expect(() => applyDiscoveryHtmlPatch(html, JSON.stringify({ replacements: [{ oldText: "<button>Go</button>", newText: "<button>Stop</button>", reason: "x" }] })))
+      .toThrow("discovery_repair_patch_old_text_not_unique");
+    expect(() => applyDiscoveryHtmlPatch(html, JSON.stringify({ replacements: [{ oldText: "missing", newText: "fixed", reason: "x" }] })))
+      .toThrow("discovery_repair_patch_old_text_missing");
+    expect(() => applyDiscoveryHtmlPatch(html, JSON.stringify({ replacements: [{ oldText: "<body>", newText: "<body>", reason: "x" }] })))
+      .toThrow("discovery_repair_patch_noop");
+  });
+
+  it("routes only visual repair to GPT-5.6 and records comparable cost evidence", () => {
+    expect(resolveDiscoveryRepairModel({ builderModel: "claude-sonnet-5", environment: {} })).toEqual({
+      provider: "openai",
+      model: "gpt-5.6",
+    });
+    expect(resolveDiscoveryRepairModel({
+      builderModel: "claude-sonnet-5",
+      environment: { SUNNY_DISCOVERY_REPAIR_MODEL: "claude-sonnet-5" },
+    })).toEqual({ provider: "anthropic", model: "claude-sonnet-5" });
+    const content = buildOpenAiDiscoveryRepairInput([
+      { type: "image", source: { type: "base64", media_type: "image/png", data: "abc" } },
+      { type: "text", text: "same repair prompt" },
+    ]);
+    expect(content).toEqual([
+      { type: "input_image", image_url: "data:image/png;base64,abc" },
+      { type: "input_text", text: "same repair prompt" },
+    ]);
+    expect(estimateDiscoveryRepairCost({ provider: "openai", inputTokens: 16_586, outputTokens: 7_915 }))
+      .toBeCloseTo(0.224644, 6);
+  });
+
+  it("publishes accepted Discovery while preserving another domain", async () => {
     const rootDir = root();
+    const contract=await acceptedPublication(rootDir,"hw-equal-groups");
     const context = path.join(rootDir, "src/context/lab-child");
     fs.mkdirSync(path.join(context, "plans"), { recursive: true });
     fs.mkdirSync(path.join(context, "homework"), { recursive: true });
@@ -215,6 +313,15 @@ describe("adaptive math discovery", () => {
     expect(savedHomework.activeByDomain.spelling.homeworkId).toBe("spell-hw");
     expect(savedHomework.activeByDomain.math.homeworkId).toBe("hw-equal-groups");
     expect(getLearningCycle("lab-child", "hw-equal-groups", { rootDir })?.lifecycle).toBe("evaluation_ready");
+    const cycle=getLearningCycle("lab-child","hw-equal-groups",{rootDir})!;
+    transitionLearningCycle("lab-child","hw-equal-groups",cycle.revision,{type:"evaluation_started",evaluationId:contract.evaluationId},{rootDir});
+    const activeBefore=JSON.stringify(getLearningCycle("lab-child","hw-equal-groups",{rootDir}));
+    const unexpectedWrite=vi.spyOn(fs,"renameSync").mockImplementation(()=>{throw new Error("active_cycle_should_not_republish");});
+    try {publishDiscoveryExperience({rootDir,childId:"lab-child",homeworkId:"hw-equal-groups",evaluation:contract,activeSessionPlan:plan,assignment:cycle.assignment});}
+    finally {unexpectedWrite.mockRestore();}
+    expect(JSON.stringify(getLearningCycle("lab-child","hw-equal-groups",{rootDir}))).toBe(activeBefore);
+    expect(fs.existsSync(path.join(context,"homework/discovery-publication.json"))).toBe(false);
+
   });
 
   it("generates one frozen Discovery through Planner and Creator phases", async () => {
@@ -259,16 +366,61 @@ describe("adaptive math discovery", () => {
     expect(generated.contract.items).toHaveLength(1);
   });
 
-  it("migrates legacy Discovery files into the server-backed cycle directory without generation", () => {
+  it("can use GPT-5.6 for the initial builder without changing Planner or design contracts", async () => {
+    const rootDir = root();
+    const responses = [
+      { content: [{ type: "tool_use", name: "create_math_discovery_contract", input: { evaluationId: "eval-1", title: "Show What You Know", assignmentEvidenceIds: ["assignment:1"], constructs: [{ constructId: "math.equal_groups", prerequisiteIds: [] }], items: [{ itemId: "i1", constructId: "math.equal_groups", prompt: "How many groups?", responseContract: { mode: "tap_selection", representationId: "equal_groups" }, correctAnswerContract: { acceptedValues: ["4"] }, difficultyBoundary: "grade 3", exposureId: "eval-1:i1", possibleConfounds: ["interface_friction"], falsifyingEvidence: ["response is not independent"], measurementKeys: ["independent_correct"] }] } }], usage: { input_tokens: 10, output_tokens: 20 } },
+    ];
+    const client = { messages: { stream: (request: { messages: Array<{ content: string }> }) => ({
+      finalMessage: async () => request.messages[0]!.content.includes("CONTRACT HASH:")
+        ? { content: [{ type: "tool_use", name: "create_math_discovery_design", input: { contractHash: request.messages[0]!.content.match(/CONTRACT HASH: ([a-f0-9]+)/)?.[1], design: { firstAction: "Tap" }, backgroundSvg: "<svg/>" } }], usage: { input_tokens: 10, output_tokens: 20 } }
+        : responses.shift()!,
+    }) } };
+    const html = generatedDiscoveryHtml();
+    const body = [
+      `data: ${JSON.stringify({ type: "response.output_text.delta", delta: html })}\n\n`,
+      `data: ${JSON.stringify({ type: "response.completed", response: { status: "completed", usage: { input_tokens: 100, output_tokens: 200 } } })}\n\n`,
+    ].join("");
+    let requestedBody = "";
+    const fetchMock = vi.fn(async (_url: string | URL | Request, init?: RequestInit) => {
+      requestedBody = String(init?.body ?? "");
+      return new Response(body, { status: 200, headers: { "content-type": "text/event-stream" } });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const priorKey = process.env.OPENAI_API_KEY;
+    process.env.OPENAI_API_KEY = "synthetic";
+    try {
+      const generated = await generateMathDiscoveryExperience({ rootDir, childId: "lab-child", homeworkId: "hw-gpt-builder", assignmentText: "Four equal groups.", assignmentEvidenceIds: ["assignment:1"], factualChildContext: { age: 9 }, client: client as never, builderModel: "gpt-5.6", visualReview: async ({ html }) => html });
+      expect(generated.contract.artifact.artifactHash).toBe(hashDiscoveryContract(html));
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(JSON.parse(requestedBody)).toMatchObject({ model: "gpt-5.6", input: expect.any(String), stream: true });
+    } finally {
+      vi.unstubAllGlobals();
+      if (priorKey == null) delete process.env.OPENAI_API_KEY;
+      else process.env.OPENAI_API_KEY = priorKey;
+    }
+  });
+
+  it("refuses to reuse changed Discovery bytes even when its contract file exists", async () => {
+    const rootDir = root(), storage = path.join(rootDir, "src/context/lab-child/homework/games/hw-tampered");
+    fs.mkdirSync(storage, {recursive:true});
+    fs.writeFileSync(path.join(storage,"discovery.html"), "changed");
+    fs.writeFileSync(path.join(storage,"discovery-background.svg"), "<svg/>");
+    await expect(Promise.resolve().then(() => ensureDiscoveryArtifactsAreServed({rootDir, childId:"lab-child",homeworkId:"hw-tampered",contract})))
+      .rejects.toThrow("discovery_artifact_hash_mismatch");
+  });
+
+  it("migrates legacy Discovery files into the server-backed cycle directory without generation", async () => {
     const rootDir = root();
     const legacyHtml = path.join(rootDir, "public/games/hw-legacy/discovery.html");
     const legacyArtwork = path.join(rootDir, "public/generated/hw-legacy/discovery-background.svg");
     fs.mkdirSync(path.dirname(legacyHtml), { recursive: true });
     fs.mkdirSync(path.dirname(legacyArtwork), { recursive: true });
-    fs.writeFileSync(legacyHtml, "<!doctype html><html></html>");
+    const html = generatedDiscoveryHtml().replaceAll("i1", "probe-1").replaceAll("math.equal_groups", "math.multiplication.equal_groups");
+    fs.writeFileSync(legacyHtml, html);
     fs.writeFileSync(legacyArtwork, "<svg></svg>");
 
-    const migrated = ensureDiscoveryArtifactsAreServed({ rootDir, childId: "lab-child", homeworkId: "hw-legacy", contract: { ...contract, artifact: { ...contract.artifact, htmlPath: "/games/hw-legacy/discovery.html", artworkPath: "/generated/hw-legacy/discovery-background.svg" } } });
+    const migrated = await ensureDiscoveryArtifactsAreServed({ rootDir, childId: "lab-child", homeworkId: "hw-legacy", contract: { ...contract, artifact: { ...contract.artifact, artifactHash: hashDiscoveryContract(html), htmlPath: "/games/hw-legacy/discovery.html", artworkPath: "/generated/hw-legacy/discovery-background.svg" } } });
 
     expect(migrated.artifact.htmlPath).toBe("/api/homework/game/lab-child/hw-legacy/discovery.html");
     expect(migrated.artifact.artworkPath).toBe("/api/homework/game/lab-child/hw-legacy/discovery-background.svg");
@@ -300,11 +452,11 @@ describe("adaptive math discovery", () => {
       resumedCalls += 1;
       return { content: [{ type: "text", text: generatedDiscoveryHtml() }] };
     } }) } };
-    await generateMathDiscoveryExperience({ rootDir, childId: "lab-child", homeworkId: "hw-resume", assignmentText: "Four equal groups.", assignmentEvidenceIds: ["assignment:resume"], factualChildContext: { age: 9 }, client: resumedClient as never, visualReview: async ({ html }) => html });
+    await generateMathDiscoveryExperience({ rootDir, childId: "lab-child", homeworkId: "hw-resume", assignmentText: "Four equal groups.", assignmentEvidenceIds: ["assignment:resume"], factualChildContext: { age: 9 }, client: resumedClient as never, retryUncertain: true, visualReview: async ({ html }) => html });
     expect(resumedCalls).toBe(1);
   });
 
-  it("does not reuse Discovery HTML when its builder prompt checkpoint is missing", async () => {
+  it("rebuilds a missing prompt-bound checkpoint from its saved response without buying it again", async () => {
     const rootDir = root();
     const homeworkId = "hw-builder-prompt-version";
     const draftDir = path.join(rootDir, "src/context/lab-child/homework/direct-drafts", homeworkId);
@@ -341,8 +493,9 @@ describe("adaptive math discovery", () => {
     } }) } };
     await generateMathDiscoveryExperience({ rootDir, childId: "lab-child", homeworkId, assignmentText: "Four equal groups.", assignmentEvidenceIds: ["assignment:version"], factualChildContext: { age: 9 }, client: resumedClient as never, visualReview: async ({ html }) => html });
 
-    expect(resumedCalls).toBe(1);
-  });
+    expect(resumedCalls).toBe(0);
+    expect(JSON.parse(fs.readFileSync(checkpointFile,"utf8")).builderPromptHash).toBeTruthy();
+  }, 30000);
 
   it("persists the raw builder outcome and reports truncation before parsing HTML", async () => {
     const rootDir = root();
@@ -624,7 +777,7 @@ describe("adaptive math discovery", () => {
 
   it("allows only one durable generation lease per assignment", () => {
     const rootDir = root();
-    const first = acquireMathGenerationLease({ rootDir, childId: "lab-child", homeworkId: "hw-equal-groups", ownerPid: 101 });
+    const first = acquireMathGenerationLease({ rootDir, childId: "lab-child", homeworkId: "hw-equal-groups", ownerPid: process.pid });
     const duplicate = acquireMathGenerationLease({ rootDir, childId: "lab-child", homeworkId: "hw-equal-groups", ownerPid: 202 });
     expect(first).toMatchObject({ acquired: true });
     expect(duplicate).toMatchObject({ acquired: false, reason: "worker_already_running" });
@@ -647,6 +800,17 @@ describe("adaptive math discovery", () => {
     expect(getMathGenerationStatus("lab-child", "hw-equal-groups", { rootDir })?.nodes[0]).toMatchObject({ status: "needs_attention", attemptCount: 2 });
     await buildTargetedNodesResumably({ rootDir, childId: "lab-child", homeworkId: "hw-equal-groups", firstNodeId: "N1", concurrency: 1, buildNode: fail });
     expect(calls).toBe(2);
+  });
+
+  it("automatically uses the one repair attempt for a definite browser rejection", async () => {
+    const rootDir=root();
+    writeMathGenerationJob({rootDir,childId:"lab-child",homeworkId:"hw-repair",programHash:"program",designHash:"design",nodeIds:["N1"]});
+    const buildNode=vi.fn().mockRejectedValueOnce(new Error("targeted_browser_verification_failed:N1:control_hidden")).mockResolvedValue({artifactHash:"repaired"});
+    const job=await buildTargetedNodesResumably({rootDir,childId:"lab-child",homeworkId:"hw-repair",firstNodeId:"N1",concurrency:1,buildNode});
+    expect(buildNode).toHaveBeenCalledTimes(2);
+    expect(job.nodes[0]).toMatchObject({status:"ready",attemptCount:2});
+    await buildTargetedNodesResumably({rootDir,childId:"lab-child",homeworkId:"hw-repair",firstNodeId:"N1",concurrency:1,buildNode});
+    expect(buildNode).toHaveBeenCalledTimes(2);
   });
 
   it("turns a twice-failed generated node into a canonical parent-help state", async () => {
@@ -726,4 +890,116 @@ describe("adaptive math discovery", () => {
     expect(order).toEqual(["plan", "design", "publish", "build:support", "ready:support"]);
     expect(result.phase).toBe("board_ready");
   });
+});
+
+it("retains a completed build when board publication is interrupted", async () => {
+  const rootDir = root();
+  writeMathGenerationJob({rootDir,childId:"lab-child",homeworkId:"hw-publication",programHash:"p",designHash:"d",nodeIds:["N1"]});
+  await expect(buildTargetedNodesResumably({rootDir,childId:"lab-child",homeworkId:"hw-publication",firstNodeId:"N1",concurrency:1,buildNode:async()=>({artifactHash:"verified"}),onNodeReady:()=>{throw new Error("projection_write_interrupted");}})).rejects.toThrow("projection_write_interrupted");
+  expect(getMathGenerationStatus("lab-child","hw-publication",{rootDir})?.nodes[0]).toMatchObject({status:"ready",artifactHash:"verified"});
+});
+
+it("carries the corrected graph through the Planner-owned contract without visual repair changing it", async () => {
+  const {graphAuditExamples}=await import("../scripts/fixtures/adaptiveMathRelease");
+  const rootDir=root();let calls=0;let plannerRequest="";
+  const academic={evaluationId:"graph-evaluation",title:"Read the graph",assignmentEvidenceIds:["assignment:graph-lab"],constructs:[{constructId:"math.graph_reading",prerequisiteIds:[]}],items:[{itemId:"i1",constructId:"math.graph_reading",prompt:graphAuditExamples.corrected.prompt,representationSpec:graphAuditExamples.corrected.representationSpec,responseContract:{mode:"tap_selection",representationId:"unit_bar_graph"},correctAnswerContract:{acceptedValues:graphAuditExamples.corrected.acceptedValues},difficultyBoundary:"unit scale",exposureId:"graph-lab:i1",possibleConfounds:[],falsifyingEvidence:[],measurementKeys:[]}]};
+  const html=generatedDiscoveryHtml().replaceAll("math.equal_groups","math.graph_reading").replaceAll('"4"','"3"').replaceAll("'4'","'3'").replace('<body>','<body style="background:white;color:black"><h1>How many books did Cleo read?</h1><svg width="250" height="220"><text x="0" y="190">0</text><text x="0" y="150">1</text><text x="0" y="110">2</text><text x="0" y="70">3</text><text x="0" y="30">4</text><rect x="30" y="70" width="50" height="120" fill="blue"/><text x="30" y="215">Cleo</text></svg>');
+  const client={messages:{stream:(request:{messages:Array<{content:string}>})=>({finalMessage:async()=>{
+    calls++;if(calls===1){plannerRequest=request.messages[0].content;return {content:[{type:"tool_use",name:"create_math_discovery_contract",input:academic}]};}
+    if(calls===2)return {content:[{type:"tool_use",name:"create_math_discovery_design",input:{contractHash:request.messages[0].content.match(/CONTRACT HASH: ([a-f0-9]+)/)?.[1],design:{firstAction:"Read then choose"},backgroundSvg:'<svg xmlns="http://www.w3.org/2000/svg"/>'}}]};
+    return {content:[{type:"text",text:html}]};
+  }})}};
+  const result=await generateMathDiscoveryExperience({rootDir,childId:"lab-child",homeworkId:"hw-graph-lab",assignmentText:"Read a unit-scale bar graph",assignmentEvidenceIds:["assignment:graph-lab"],factualChildContext:{academic:{priorObservationId:"prior-graph-miss"},engagement:{hook:"mystery"}},client:client as never,visualReview:async ({html})=>html});
+  expect(result.contract.items).toEqual(academic.items);
+  expect(plannerRequest).toContain("prior-graph-miss");
+  expect(plannerRequest).toContain("never state the answer");
+  expect(result.contract.items[0].prompt).not.toContain("3");
+},30000);
+
+
+it("does not take a long-running worker's live lease just because it is old", () => {
+  const rootDir = root(), childId = "lab-child", homeworkId = "hw-live-lease";
+  const first = acquireMathGenerationLease({rootDir,childId,homeworkId});
+  const file = path.join(rootDir,"src/context",childId,"homework/direct-drafts",homeworkId,"adaptive-generation-job.json.worker-lock");
+  const saved = JSON.parse(fs.readFileSync(file,"utf8"));
+  fs.writeFileSync(file,JSON.stringify({...saved,acquiredAt:"2000-01-01T00:00:00Z"}));
+  expect(acquireMathGenerationLease({rootDir,childId,homeworkId}).acquired).toBe(false);
+  releaseMathGenerationLease({rootDir,childId,homeworkId,token:first.token!});
+});
+
+it("preserves an invalid paid Planner response so restarting cannot silently buy it again", async () => {
+  const rootDir=root(); let calls=0;
+  const input={rootDir,childId:"lab-child",homeworkId:"hw-invalid-receipt",assignmentText:"Groups",assignmentEvidenceIds:["synthetic:source"],factualChildContext:{},client:{messages:{stream:()=>({finalMessage:async()=>{calls++;return {content:[{type:"text",text:"invalid tool response"}]};}})}} as never};
+  await expect(generateMathDiscoveryExperience(input)).rejects.toThrow();
+  await expect(generateMathDiscoveryExperience(input)).rejects.toThrow();
+  expect(calls).toBe(1);
+});
+
+
+it("keeps an interrupted publication journal and resumes without replacing the canonical cycle", async () => {
+  const rootDir=root(), childId="lab-child", homeworkId="hw-publication-crash";
+  const contract=await acceptedPublication(rootDir,homeworkId);
+  const context=path.join(rootDir,"src/context",childId), planPath=path.join(context,"plans/active_session_plan.json");
+  fs.mkdirSync(path.dirname(planPath),{recursive:true});fs.writeFileSync(planPath,JSON.stringify({current:{planId:"previous"}}));
+  const input={rootDir,childId,homeworkId,evaluation:contract,activeSessionPlan:buildDiscoveryActiveSessionPlan({childId,homeworkId,evaluation:contract,companion:{id:"elli",name:"Elli"}}),assignment:{title:"Synthetic",contentFingerprint:"synthetic",capturedEvidenceIds:["synthetic"],targets:["math.multiplication.equal_groups"]}};
+  const rename=fs.renameSync.bind(fs);
+  const fail=vi.spyOn(fs,"renameSync").mockImplementation((from,to)=>{if(String(to)===planPath)throw new Error("interrupted_publication");return rename(from,to);});
+  try {expect(()=>publishDiscoveryExperience(input)).toThrow("interrupted_publication");} finally {fail.mockRestore();}
+  const cycleFile=path.join(context,"homework/cycles",`${homeworkId}.json`);
+  expect(fs.existsSync(path.join(context,"homework/discovery-publication.json"))).toBe(true);
+  const before=fs.readFileSync(cycleFile,"utf8");
+  expect(JSON.parse(fs.readFileSync(planPath,"utf8")).current.planId).toBe("previous");
+  recoverDiscoveryPublication({rootDir,childId});
+  expect(fs.readFileSync(cycleFile,"utf8")).toBe(before);
+  expect(JSON.parse(fs.readFileSync(planPath,"utf8")).current.planId).toBe(`discovery:${homeworkId}`);
+  expect(fs.existsSync(path.join(context,"homework/discovery-publication.json"))).toBe(false);
+});
+
+
+it("refuses publication without an exact current acceptance report",()=>{
+  const rootDir=root(),childId="lab-child",homeworkId="hw-unverified";
+  expect(()=>publishDiscoveryExperience({rootDir,childId,homeworkId,evaluation:contract,activeSessionPlan:buildDiscoveryActiveSessionPlan({childId,homeworkId,evaluation:contract,companion:{id:"elli",name:"Elli"}}),assignment:{title:"Synthetic",contentFingerprint:"synthetic",capturedEvidenceIds:[],targets:[]}})).toThrow("discovery_publication_acceptance_missing");
+  expect(getLearningCycle(childId,homeworkId,{rootDir})).toBeFalsy();
+});
+
+
+it("recovers a dead owner's lease immediately on restart",()=>{
+  const rootDir=root(),childId="lab-child",homeworkId="hw-dead-lease";
+  acquireMathGenerationLease({rootDir,childId,homeworkId,ownerPid:2147483647});
+  expect(acquireMathGenerationLease({rootDir,childId,homeworkId}).acquired).toBe(true);
+});
+
+
+it("does not buy a changed prompt while an earlier stage outcome is uncertain", async()=>{
+  const rootDir=root();let calls=0;
+  const input={rootDir,childId:"lab-child",homeworkId:"hw-uncertain-stage",assignmentText:"Groups",assignmentEvidenceIds:["synthetic"],factualChildContext:{revision:1},client:{messages:{stream:()=>({finalMessage:async()=>{calls++;throw new Error("connection lost");}})}} as never};
+  await expect(generateMathDiscoveryExperience(input)).rejects.toThrow("connection lost");
+  await expect(generateMathDiscoveryExperience({...input,factualChildContext:{revision:2}})).rejects.toThrow("provider_outcome_uncertain");
+  expect(calls).toBe(1);
+});
+
+it("fails closed on a damaged paid receipt",async()=>{
+  const rootDir=root();let calls=0;
+  const input={rootDir,childId:"lab-child",homeworkId:"hw-corrupt-receipt",assignmentText:"Groups",assignmentEvidenceIds:["synthetic"],factualChildContext:{},client:{messages:{stream:()=>({finalMessage:async()=>{calls++;return {content:[]};}})}} as never};
+  await expect(generateMathDiscoveryExperience(input)).rejects.toThrow();
+  const dir=path.join(rootDir,"src/context/lab-child/homework/direct-drafts/hw-corrupt-receipt/provider-receipts");
+  const file=fs.readdirSync(dir).find(name=>/^[a-f0-9]{64}\.json$/.test(name))!;
+  fs.writeFileSync(path.join(dir,file),"{truncated");
+  await expect(generateMathDiscoveryExperience(input)).rejects.toThrow("provider_receipt_invalid");
+  expect(calls).toBe(1);
+});
+
+it("fences canonical attempt and completion writes while publication is pending",()=>{
+  const rootDir=root(),childId="lab-child",homeworkId="hw-pending-fence";
+  const dir=path.join(rootDir,"src/context",childId,"homework");fs.mkdirSync(dir,{recursive:true});fs.writeFileSync(path.join(dir,"discovery-publication.json"),"{}");
+  expect(()=>recordDiscoveryAttempt({rootDir,childId,homeworkId,attempt:{} as never})).toThrow("discovery_publication_pending");
+  expect(()=>completeDiscoveryEvaluation({rootDir,childId,homeworkId,completedAt:new Date().toISOString()})).toThrow("discovery_publication_pending");
+});
+
+
+it("gives the Discovery Planner the original PDF when extracted text is empty",async()=>{
+  const rootDir=root(),sourcePath=path.join(rootDir,"synthetic.pdf");fs.writeFileSync(sourcePath,"%PDF synthetic source");
+  let request:any;
+  await expect(generateMathDiscoveryExperience({rootDir,childId:"lab-child",homeworkId:"hw-source-pdf",assignmentText:"",assignmentSource:{sourcePath,filename:"synthetic.pdf",mediaType:"application/pdf",sourceKind:"scanned_assignment_image",fileHash:createHash("sha256").update(fs.readFileSync(sourcePath)).digest("hex"),extractionMethod:"native_pdf",pages:[],fullText:"",warnings:[]},assignmentEvidenceIds:["synthetic"],factualChildContext:{},client:{messages:{stream:(value:unknown)=>({finalMessage:async()=>{request=value;throw new Error("stop after request inspection");}})}} as never})).rejects.toThrow("stop after request inspection");
+  expect(request.messages[0].content).toEqual(expect.arrayContaining([expect.objectContaining({type:"document",source:expect.objectContaining({media_type:"application/pdf",data:Buffer.from("%PDF synthetic source").toString("base64")})})]));
 });

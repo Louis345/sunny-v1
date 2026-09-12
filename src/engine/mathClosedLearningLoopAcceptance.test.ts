@@ -20,6 +20,10 @@ function root(): string {
   return fs.mkdtempSync(path.join(os.tmpdir(), "sunny-closed-loop-"));
 }
 
+function item(id: string, expected: number, measurementRole: "practice" | "fresh_checkpoint" = "fresh_checkpoint") {
+ return { id, prompt: `Lab ${id}`, lineage: {sourceEvidenceIds:["assignment:school-pdf"],exposure: "unseen" as const,measurementRole}, response:{mode:"numeric" as const,expected} };
+}
+function prescription(nodeId: string, id: string, expected: number) { return {nodeId,title:nodeId==="quest"?"Quest":"Boss",academicTarget:"math.multiplication.equal_groups",mechanic:"lab",theme:"harbor",openingPurpose:"Measure transfer",creatorPrompt:"Build frozen items",items:[item(id,expected)]}; }
 function node(
   nodeId: string,
   role: "baseline" | "quest" | "boss",
@@ -56,7 +60,7 @@ function node(
     artwork: { status: "ready", localPath: `/generated/${nodeId}.png`, prompt: null },
     sfxContract: ["interaction", "recovery", "progress", "completion"],
     companionContract: { events: ["completion", "frustration"] },
-    evidenceContract: { academic: true, engagement: true, companionObservations: true },
+    evidenceContract: { academic: true, engagement: true, companionObservations: true, ...(role === "baseline" ? {itemContracts:Object.fromEntries([item("practice-array-3x4",12,"practice"),item("practice-array-5x2",10,"practice"),item("checkpoint-array-4x4",16)].map(item=>[item.id,item]))} : {}) },
     evidenceIds: [],
   };
 }
@@ -89,6 +93,7 @@ function cycleInput(): CreateLearningCycleInput {
       constructId: "math.multiplication.equal_groups",
       context: "returned school assignment completed without Sunny",
       horizon: "within_7_days",
+      eligibility: {sources:["graded_work"],maxDelayDays:7},
       expectedMetric: { key: "academic.accuracy", min: 0.7, max: 0.9 },
       predictedErrorPatterns: ["representation_to_notation"],
       confidence: 0.65,
@@ -118,6 +123,7 @@ describe("math closed learning loop acceptance", () => {
         targetResults: [
           { target: "practice-array-3x4", correct: true, attemptedValue: "12", responseTime_ms: 15_000 },
           { target: "practice-array-5x2", correct: false, attemptedValue: "7", responseTime_ms: 20_000 },
+          { target: "checkpoint-array-4x4", correct: true, attemptedValue: "16", responseTime_ms: 10_000 },
         ],
       },
     }, { rootDir, now: new Date("2026-07-21T12:10:00.000Z") });
@@ -128,8 +134,9 @@ describe("math closed learning loop acceptance", () => {
       homeworkId: "hw-school-equal-groups",
       decide: async () => ({
         status: "supported",
-        reason: "Practice supports testing transfer but cannot establish mastery.",
+        reason: "A fresh independent checkpoint supports testing transfer but cannot establish mastery.",
         progressionAction: "generate_quest",
+        nextInstrument: prescription("quest","unseen-transfer-garden",18),
         preserve: ["visual grouping"],
         change: ["remove worked examples"],
         testNext: ["unseen equal-groups transfer"],
@@ -165,6 +172,7 @@ describe("math closed learning loop acceptance", () => {
         status: "supported",
         reason: "Unseen transfer held; test synthesis next.",
         progressionAction: "generate_boss",
+        nextInstrument: prescription("boss","unseen-synthesis-market",24),
         preserve: ["independent response"],
         change: ["combine representations"],
         testNext: ["unseen synthesis"],

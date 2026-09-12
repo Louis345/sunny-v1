@@ -1,4 +1,5 @@
 import path from "path";
+import fs from "fs";
 
 export type ContextRootOptions = {
   rootDir?: string;
@@ -52,4 +53,9 @@ export function resolveChildContextDir(
 ): string {
   assertChildAllowedForContextRoot(childId, opts);
   return path.join(resolveContextRoot(opts), normalizeChildId(childId));
+}
+
+
+export function assertChildPublicationCommitted(childId: string, opts: ContextRootOptions = {}): void {
+  if (fs.existsSync(path.join(resolveChildContextDir(childId,opts),"homework/discovery-publication.json"))) throw new Error("discovery_publication_pending:rerun_math_ingestion");
 }

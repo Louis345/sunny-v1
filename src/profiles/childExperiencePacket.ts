@@ -5,6 +5,8 @@ import type { AdventureBoardJson } from "../shared/adventureBoardJson";
 import { readChoiceEvents } from "../engine/choiceEvents";
 
 export type ChildExperiencePacket = {
+  spellingDiscovery?: { nodeId: string; items: Array<{ itemId: string; display: string; acceptedResponses: string[]; label: string; subject: string }> };
+  spellingInstruments?: Record<string, { assessment: boolean; items: NonNullable<ChildExperiencePacket["spellingDiscovery"]>["items"] }>;
   childChart: {
     childId: string;
     identity: ChildChart["identity"];
@@ -195,7 +197,20 @@ export function buildChildExperiencePacket(chart: ChildChart): ChildExperiencePa
   const selectedPlan = chart.learningCycle
     ? chart.activeSessionPlan
     : legacySelectedDomainPlan ?? chart.activeSessionPlan;
+  const spellingEvaluation = chart.learningCycle?.domain === "spelling" && ["evaluation_ready", "evaluation_active"].includes(chart.learningCycle.lifecycle)
+    ? chart.learningCycle.nodes.find(node => node.role === "evaluation" && node.evidenceContract.spellingItems)
+    : undefined;
+  const answered = new Set(spellingEvaluation ? chart.learningCycle!.observations.map(observation => observation.itemId) : []);
+  const spellingInstruments = chart.learningCycle?.domain === "spelling" ? Object.fromEntries(chart.learningCycle.nodes.flatMap(node => {
+    const items = Object.values(node.evidenceContract.spellingItems ?? {});
+    if (!items.length) return [];
+    const assessment = node.state !== "completed" && (node.role === "evaluation" || items.every(item => item.lineage.measurementRole === "fresh_checkpoint"));
+    const captured = new Set(chart.learningCycle!.observations.map(row => row.itemId));
+    return [[node.nodeId, { assessment, items: items.filter(item => !assessment || node.state === "completed" || !captured.has(item.id)).map(item => ({ itemId: item.id, display: item.word, acceptedResponses: item.response.acceptedForms, label: "Spelling", subject: "spelling" })) }]];
+  })) : undefined;
   return {
+    ...(spellingInstruments ? { spellingInstruments } : {}),
+    ...(spellingEvaluation ? { spellingDiscovery: { nodeId: spellingEvaluation.nodeId, items: Object.values(spellingEvaluation.evidenceContract.spellingItems!).filter(item => !answered.has(item.id)).map(item => ({ itemId: item.id, display: item.word, acceptedResponses: item.response.acceptedForms, label: "Spelling", subject: "spelling" })) } } : {}),
     childChart: {
       childId: chart.childId,
       identity: chart.identity,

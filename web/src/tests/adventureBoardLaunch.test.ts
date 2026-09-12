@@ -4,11 +4,15 @@ import { describe, expect, it } from "vitest";
 import type { ChildExperiencePacket } from "../../../src/profiles/childExperiencePacket";
 import {
   isDirectDiscoveryPacket,
+  hasPendingLearningGeneration,
   resolveDiscoveryCompletionHandoff,
+  resolvePlannerBoardSessionScope,
+  resolvePersistedDiscoveryHandoff,
   resolveDiscoveryEngagementDelivery,
   runDiscoveryExitSequence,
   resolveDirectDiscoverySurface,
   resolveDirectDiscoveryLaunchNode,
+  resolvePlannerBoardLaunchNode,
 } from "../utils/adventureBoardLaunch";
 
 function packet(planId: string, nodes: Array<Record<string, unknown>>): ChildExperiencePacket {
@@ -39,6 +43,45 @@ function packet(planId: string, nodes: Array<Record<string, unknown>>): ChildExp
 }
 
 describe("direct Discovery entry", () => {
+  it("passes frozen spelling identities to existing iframe games", () => {
+    const current = packet("targeted:hw-1", [{ id: "wheel", type: "wheel-of-fortune", targets: ["night"] }]);
+    current.activeSessionPlan!.domain = "spelling";
+    current.spellingInstruments = { wheel: { assessment: false, items: [{ itemId: "frozen-night", display: "night", acceptedResponses: ["night"], label: "Spelling", subject: "spelling" }] } };
+    const node = current.activeSessionPlan!.adventureBoard!.nodes[0]; node.state = "available"; node.action = { type: "launch-activity", payloadId: "wheel" };
+    expect(resolvePlannerBoardLaunchNode(current, node)?.spellingItemBindings).toEqual([{ itemId: "frozen-night", word: "night" }]);
+  });
+  it("polls the same durable job for spelling and math without enabling legacy domains", () => {
+    for (const domain of ["spelling", "math"]) {
+      const current = packet("discovery:hw-1", []);
+      current.activeSessionPlan!.domain = domain as "spelling" | "math";
+      current.childChart = { learningCycle: { lifecycle: "evidence_ready" } } as never;
+      expect(hasPendingLearningGeneration(current, false)).toBe(true);
+      current.childChart.learningCycle!.lifecycle = "board_ready";
+      expect(hasPendingLearningGeneration(current, false)).toBe(false);
+    }
+    const old = packet("legacy", []); old.activeSessionPlan!.domain = "reading";
+    expect(hasPendingLearningGeneration(old, false)).toBe(false);
+  });
+  it("launches only unanswered frozen spelling items after resuming Discovery", () => {
+    const discovery = packet("discovery:hw-1", [{ id: "start", type: "start" }, { id: "evaluation", type: "word-radar", targets: ["night", "light"] }]);
+    discovery.activeSessionPlan!.domain = "spelling";
+    discovery.spellingDiscovery = { nodeId: "evaluation", items: [{ itemId: "second", display: "light", acceptedResponses: ["light"], label: "Spelling", subject: "spelling" }] };
+    expect(resolveDirectDiscoveryLaunchNode(discovery)?.wordRadarItems).toEqual([{ itemId: "second", display: "light", acceptedResponses: ["light"], label: "Spelling", subject: "spelling" }]);
+    discovery.spellingDiscovery = undefined;
+    expect(resolveDirectDiscoveryLaunchNode(discovery)).toBeNull();
+  });
+  it("never lets a homework runtime fall through to the generic companion canvas", () => {
+    const source = readFileSync(resolve(process.cwd(), "src/App.tsx"), "utf8");
+    expect(source).toContain('const homeworkBoardMode = runtimeConfig.subject === "homework";');
+    expect(source).toContain('error="homework_child_identity_required"');
+  });
+  it("connects native spelling assessment to canonical writes and the shared completion barrier", () => {
+    const source = readFileSync(resolve(process.cwd(), "src/App.tsx"), "utf8");
+    expect(source).toContain("onAssessmentAttempt={handleSpellingDiscoveryAttempt}");
+    expect(source.includes("assessmentMode={directDiscoveryMode || plannerBoardLaunch.node.spellingAssessment === true}")).toBe(true);
+    expect(source.includes("enableLocalNarrationFallback={!directDiscoveryMode && !plannerBoardLaunch.node.spellingAssessment}")).toBe(true);
+    expect(source).toContain(".flushForExit()");
+  });
   it("opens the generated Discovery directly instead of showing its compatibility map", () => {
     const discovery = packet("discovery:hw-1", [
       { id: "start", type: "start", title: "Start" },
@@ -87,6 +130,30 @@ describe("direct Discovery entry", () => {
     );
   });
 
+  it("does not treat a learning-cycle revision as a new board session", () => {
+    // Human-caught invariant: completing Discovery refreshes the packet with a
+    // new cycle revision. That refresh must preserve the completion handoff
+    // instead of resetting state and auto-launching Discovery again.
+    expect(resolvePlannerBoardSessionScope("ila", "hw-math-97976379")).toBe(
+      resolvePlannerBoardSessionScope("ila", "hw-math-97976379"),
+    );
+
+    const source = readFileSync(resolve(process.cwd(), "src/App.tsx"), "utf8");
+    const resetStart = source.indexOf("setPlannerBoardLaunch(null);");
+    const resetEnd = source.indexOf("const launchPlannerBoardNode", resetStart);
+    const resetEffect = source.slice(resetStart, resetEnd);
+    expect(resetEffect).toContain("plannerBoardSessionScope");
+    expect(resetEffect).not.toContain("activeSessionPlan?.planId");
+  });
+
+  it("restores the preparing handoff after reloading a completed Discovery", () => {
+    expect(resolvePersistedDiscoveryHandoff(null, "evidence_ready")).toBe("targeted-planning");
+    expect(resolvePersistedDiscoveryHandoff(null, "evaluation_active")).toBeNull();
+    expect(resolvePersistedDiscoveryHandoff("preview-complete", "evaluation_ready")).toBe(
+      "preview-complete",
+    );
+  });
+
   it("does not call queued or failed engagement evidence committed", () => {
     expect(resolveDiscoveryEngagementDelivery({ ok: true, applied: true })).toBe("committed");
     expect(resolveDiscoveryEngagementDelivery({ ok: true, skippedPersistence: true })).toBe("preview-skipped");
@@ -94,13 +161,13 @@ describe("direct Discovery entry", () => {
     expect(resolveDiscoveryEngagementDelivery({ ok: false })).toBe("failed");
   });
 
-  it("waits for rating or Skip delivery before starting targeted planning", async () => {
+  it("starts academic completion independently of rating or Skip delivery", async () => {
     const order: string[] = [];
     const result = await runDiscoveryExitSequence({
       commitEngagement: async () => { order.push("engagement"); return { ok: true, applied: true }; },
       completeAcademic: async () => { order.push("complete"); return { targetedGenerationQueued: true }; },
     });
-    expect(order).toEqual(["engagement", "complete"]);
+    expect(order).toEqual(["complete", "engagement"]);
     expect(result).toMatchObject({ targetedGenerationQueued: true });
 
     const source = readFileSync(resolve(process.cwd(), "src/App.tsx"), "utf8");
@@ -111,7 +178,7 @@ describe("direct Discovery entry", () => {
     const branch = source.slice(branchStart, branchEnd);
 
     expect(attemptBranch).toContain("discovery_attempt_missing_provenance");
-    expect(branch).not.toContain("startDiscoveryAcademicCompletion()");
+    expect(branch).toContain("startDiscoveryAcademicCompletion()");
     expect(branch).toContain("showPlannerBoardEngagementOverlay");
     expect(branch).toContain("discovery_completion_missing_provenance");
     expect(branch.indexOf("discovery_completion_missing_provenance"))
@@ -120,12 +187,12 @@ describe("direct Discovery entry", () => {
       .toBeLessThan(branch.indexOf("showPlannerBoardEngagementOverlay"));
   });
 
-  it("does not start planning when engagement evidence failed or is only queued", async () => {
+  it("completes academics when engagement evidence failed or is only queued", async () => {
     let completionCalls = 0;
     await expect(runDiscoveryExitSequence({
       commitEngagement: async () => ({ ok: false, queued: true }),
       completeAcademic: async () => { completionCalls += 1; return {}; },
-    })).rejects.toThrow("discovery_engagement_not_committed:queued");
-    expect(completionCalls).toBe(0);
+    })).resolves.toEqual({});
+    expect(completionCalls).toBe(1);
   });
 });

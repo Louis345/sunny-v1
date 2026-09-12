@@ -1,4 +1,5 @@
 import crypto from "crypto";
+import type Anthropic from "@anthropic-ai/sdk";
 import fs from "fs";
 import os from "os";
 import path from "path";
@@ -96,11 +97,43 @@ export function assignmentSourceFileHash(filePath: string): string {
   return hash.digest("hex");
 }
 
-type AssignmentExtractionCache = {
-  version: number;
-  fileHash: string;
-  extraction: AssignmentSourceExtraction;
-};
+/** One disk contract for intake and the background worker; accept validated legacy raw records. */
+export function readAssignmentSourceExtraction(file: string): AssignmentSourceExtraction {
+  const saved = JSON.parse(fs.readFileSync(file, "utf8"));
+  const extraction = saved.extraction ?? saved;
+  if ((saved.extraction && (saved.version !== ASSIGNMENT_SOURCE_CONTRACT_VERSION || saved.fileHash !== extraction.fileHash))
+    || typeof extraction.fileHash !== "string" || typeof extraction.fullText !== "string"
+    || !Array.isArray(extraction.pages) || !Array.isArray(extraction.warnings)
+    || typeof extraction.sourcePath !== "string" || typeof extraction.extractionMethod !== "string") {
+    throw new Error(`assignment_extraction_invalid:${file}`);
+  }
+  return extraction;
+}
+
+export function writeAssignmentSourceExtraction(file: string, extraction: AssignmentSourceExtraction): void {
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  const temporary = `${file}.${crypto.randomUUID()}.tmp`;
+  fs.writeFileSync(temporary, `${JSON.stringify({version: ASSIGNMENT_SOURCE_CONTRACT_VERSION, fileHash: extraction.fileHash, extraction}, null, 2)}\n`);
+  fs.renameSync(temporary, file);
+}
+
+/** The same source evidence reaches both Discovery and targeted academic planning. */
+export function assignmentPlannerContent(extraction: AssignmentSourceExtraction, prompt: string): Anthropic.MessageParam["content"] {
+  if (fs.existsSync(extraction.sourcePath) && ["application/pdf","image/png","image/jpeg","image/webp"].includes(extraction.mediaType)) {
+    const bytes=fs.readFileSync(extraction.sourcePath);
+    if (crypto.createHash("sha256").update(bytes).digest("hex")!==extraction.fileHash) throw new Error("assignment_source_hash_mismatch");
+    if (extraction.mediaType === "application/pdf") return [
+      {type:"document",source:{type:"base64",media_type:"application/pdf",data:bytes.toString("base64")},title:extraction.filename || "Math assignment",context:"This is the complete original assignment. Inspect every page before prescribing the learning program."},
+      {type:"text",text:prompt},
+    ];
+    if (["image/png","image/jpeg","image/webp"].includes(extraction.mediaType)) return [
+      {type:"image",source:{type:"base64",media_type:extraction.mediaType as "image/png"|"image/jpeg"|"image/webp",data:bytes.toString("base64")}},
+      {type:"text",text:prompt},
+    ];
+  }
+  if (!extraction.fullText.trim()) throw new Error("assignment_evidence_empty:provide_readable_assignment");
+  return prompt;
+}
 
 export async function loadOrExtractAssignmentSource(
   filePath: string,
@@ -109,22 +142,17 @@ export async function loadOrExtractAssignmentSource(
 ): Promise<{ extraction: AssignmentSourceExtraction; reused: boolean }> {
   const fileHash = assignmentSourceFileHash(filePath);
   try {
-    const cached = JSON.parse(fs.readFileSync(cacheFile, "utf8")) as AssignmentExtractionCache;
-    if (cached.version === ASSIGNMENT_SOURCE_CONTRACT_VERSION
-      && cached.fileHash === fileHash
-      && cached.extraction?.fileHash === fileHash) {
-      return { extraction: cached.extraction, reused: true };
+    const cached = readAssignmentSourceExtraction(cacheFile);
+    if (cached.fileHash === fileHash) {
+      const extraction={...cached,sourcePath:path.resolve(filePath),filename:path.basename(filePath)};
+      if (extraction.sourcePath!==cached.sourcePath) writeAssignmentSourceExtraction(cacheFile,extraction);
+      return { extraction, reused: true };
     }
   } catch {
-    // A missing or malformed operational cache is safe to replace.
+    // Missing or invalid operational extraction is safe to recompute locally (no provider).
   }
   const extraction = { ...await extract(filePath), fileHash };
-  fs.mkdirSync(path.dirname(cacheFile), { recursive: true });
-  fs.writeFileSync(cacheFile, `${JSON.stringify({
-    version: ASSIGNMENT_SOURCE_CONTRACT_VERSION,
-    fileHash,
-    extraction,
-  }, null, 2)}\n`, "utf8");
+  writeAssignmentSourceExtraction(cacheFile, extraction);
   return { extraction, reused: false };
 }
 

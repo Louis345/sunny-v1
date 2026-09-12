@@ -14,7 +14,7 @@ import { ChildPicker } from "./components/ChildPicker";
 import { DiscoveryAcademicCompletionCoordinator, hasCanonicalLearningCycle, postCanonicalNodeCompletion, postDiscoveryAttempt, postDiscoveryComplete } from "./utils/canonicalNodeCompletion";
 import { SessionScreen } from "./components/SessionScreen";
 import { SessionEnd } from "./components/SessionEnd";
-import { SessionLoadingOverlay } from "./components/SessionLoadingOverlay";
+import { SessionLoadingOverlay, sessionVoiceReady } from "./components/SessionLoadingOverlay";
 import { CanvasTestOverlay } from "./components/CanvasTestPanel";
 import { AdventureBoardExperience } from "./components/AdventureBoardExperience";
 import type {
@@ -61,11 +61,14 @@ import { getCompanionCareFromProfile } from "./utils/companionCareProfile";
 import {
   buildPlannerBoardCompanionContext,
   isDirectDiscoveryPacket,
+  hasPendingLearningGeneration,
   resolveDiscoveryCompletionHandoff,
   resolveDiscoveryEngagementDelivery,
   runDiscoveryExitSequence,
   resolveDirectDiscoverySurface,
   resolveDirectDiscoveryLaunchNode,
+  resolvePlannerBoardSessionScope,
+  resolvePersistedDiscoveryHandoff,
   resolvePlannerBoardChoiceLaunchNode,
   resolvePlannerBoardLaunchNode,
 } from "./utils/adventureBoardLaunch";
@@ -83,6 +86,7 @@ import {
 } from "./utils/adventureBoardGeneratedChoices";
 import { useChildExperiencePacket } from "./hooks/useChildExperiencePacket";
 import { useAdaptiveMathGenerationRefresh } from "./hooks/useAdaptiveMathGenerationRefresh";
+import { LearningPreparationStatus } from "./components/LearningPreparationStatus";
 import {
   CompanionCareProvider,
   useCompanionCare,
@@ -250,39 +254,6 @@ function HomeworkBoardUnavailable(props: {
               {props.error}
             </p>
           ) : null}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function DiscoveryCompletionHandoff(props: {
-  mode: "preview-complete" | "targeted-planning";
-  onFinish: () => void;
-}): ReactNode {
-  const preview = props.mode === "preview-complete";
-  return (
-    <div className="w-screen h-screen overflow-hidden relative bg-zinc-950 text-white">
-      <div className="absolute inset-0 flex items-center justify-center p-6">
-        <div className="max-w-lg rounded-3xl border border-white/15 bg-white/10 p-8 text-center shadow-2xl">
-          <p className="text-sm font-bold uppercase tracking-[0.22em] text-amber-200">
-            Discovery complete
-          </p>
-          <h1 className="mt-3 text-3xl font-black">
-            {preview ? "Preview finished" : "Sunny is preparing your learning path"}
-          </h1>
-          <p className="mt-4 text-base leading-7 text-white/75">
-            {preview
-              ? "This was a parent preview. No child learning or engagement evidence was saved."
-              : "Your answers and your experience were saved separately. You can finish for now while Sunny prepares what comes next."}
-          </p>
-          <button
-            type="button"
-            className="mt-7 rounded-full bg-amber-300 px-7 py-3 text-base font-black text-zinc-950"
-            onClick={props.onFinish}
-          >
-            Finish for now
-          </button>
         </div>
       </div>
     </div>
@@ -611,6 +582,7 @@ function App() {
     node: NodeConfig;
     iframeUrl: string | null;
     replayNonce: number;
+    completionId: string;
   } | null>(null);
   const [postActivityEngagement, setPostActivityEngagement] = useState<{
     node: NodeConfig;
@@ -625,6 +597,8 @@ function App() {
   const [generatedMathSoundMuted, setGeneratedMathSoundMuted] = useState(false);
   const plannerBoardIframeCompletionKeyRef = useRef<string | null>(null);
   const [sessionReady, setSessionReady] = useState(false);
+  const [homeworkFinishedForNow, setHomeworkFinishedForNow] = useState(false);
+  const homeworkSessionFinished = homeworkFinishedForNow || state.phase === "ended";
   const [discoveryCompletionHandoff, setDiscoveryCompletionHandoff] = useState<
     "preview-complete" | "targeted-planning" | null
   >(null);
@@ -677,8 +651,7 @@ function App() {
     Boolean(adventureChildId);
   // Homework is a board product surface. Keep the legacy voice canvas for
   // other subjects, but never let homework silently fall through to it.
-  const homeworkBoardMode =
-    runtimeConfig.subject === "homework" && Boolean(adventureChildId);
+  const homeworkBoardMode = runtimeConfig.subject === "homework";
 
   useEffect(() => {
     if (!adventureMapEnabled || !adventureChildId) {
@@ -690,6 +663,11 @@ function App() {
     autoStartedAdventureVoiceRef.current = adventureChildId;
     setSelectedChildName(childNameFromId(adventureChildId));
     startSession(childNameFromId(adventureChildId));
+    return () => {
+      // A development remount cancels the session hook's pending connection.
+      // Its next setup must be allowed to start the same child's connection.
+      if (autoStartedAdventureVoiceRef.current === adventureChildId) autoStartedAdventureVoiceRef.current = null;
+    };
   }, [
     adventureChildId,
     adventureMapEnabled,
@@ -721,7 +699,15 @@ function App() {
     plannerBoardPacketState.packet?.activeSessionPlan?.adventureBoard
       ? plannerBoardPacketState.packet
       : null;
+  const plannerBoardSessionScope = resolvePlannerBoardSessionScope(
+    adventureChildId,
+    plannerBoardPacket?.activeSessionPlan?.activeHomeworkId,
+  );
   const directDiscoveryMode = isDirectDiscoveryPacket(plannerBoardPacket);
+  const effectiveDiscoveryCompletionHandoff = resolvePersistedDiscoveryHandoff(
+    discoveryCompletionHandoff,
+    plannerBoardPacket?.childChart.learningCycle?.lifecycle,
+  );
   const directDiscoveryLaunchNode = useMemo(
     () => resolveDirectDiscoveryLaunchNode(plannerBoardPacket),
     [plannerBoardPacket],
@@ -733,16 +719,19 @@ function App() {
   const plannerBoardRuntimeActive =
     plannerBoardRuntimeRequested &&
     (plannerBoardPacketState.loading || Boolean(plannerBoardPacket));
-  const targetedMathGenerationPending = Boolean(
-    plannerBoardPacket?.activeSessionPlan?.domain === "math" &&
-    plannerBoardPacket.activeSessionPlan.adventureBoard?.nodes.some((node) => node.state === "preview"),
-  );
-  useAdaptiveMathGenerationRefresh({
+  const targetedMathGenerationPending = hasPendingLearningGeneration(plannerBoardPacket, effectiveDiscoveryCompletionHandoff === "targeted-planning");
+  const generationProgress = useAdaptiveMathGenerationRefresh({
     childId: adventureChildId,
     homeworkId: plannerBoardPacket?.activeSessionPlan?.activeHomeworkId,
-    enabled: targetedMathGenerationPending,
+    enabled: targetedMathGenerationPending && !parentPreviewActive && !homeworkSessionFinished,
     onStatusChanged: refreshPlannerBoardPacket,
   });
+  const finishHomeworkSession = useCallback(() => {
+    setHomeworkFinishedForNow(true);
+    setPlannerBoardLaunch(null);
+    endSession();
+    console.log(" 🎮 [homework-session] [finish-for-now] [closed]");
+  }, [endSession]);
 
   const [vrrCelebrateEvent, setVrrCelebrateEvent] =
     useState<CompanionEventPayload | null>(null);
@@ -761,7 +750,7 @@ function App() {
   const voiceReady =
     !adventureChildId ||
     !theaterLoadingEnabled ||
-    (state.sessionBootReady && state.firstAudioChunkReceived);
+    sessionVoiceReady({bootReady:state.sessionBootReady,firstAudio:state.firstAudioChunkReceived,wakeOnly:homeworkBoardMode && (directDiscoveryMode || runtimeConfig.homeworkDomain === "math" || plannerBoardPacket?.activeSessionPlan?.domain === "math")});
   const profileReady = !activeProfileChildId || profileCompanion !== null;
   const themeImageUrls = [profileAvatarImagePath];
   const imagesReady = usePreloadedImages(
@@ -992,13 +981,14 @@ function App() {
 
   useEffect(() => {
     setPlannerBoardLaunch(null);
+    plannerBoardIframeCompletionKeyRef.current = null;
     setLocallyCompletedPlannerNodeIds([]);
     setDiscoveryCompletionHandoff(null);
     discoveryCompletionCoordinatorRef.current = new DiscoveryAcademicCompletionCoordinator();
-  }, [adventureChildId, plannerBoardPacket?.activeSessionPlan?.planId]);
+  }, [plannerBoardSessionScope]);
 
   const launchPlannerBoardNode = useCallback(
-    (node: NodeConfig) => {
+    (node: NodeConfig, replayNonce = 0) => {
       const companionConfig =
         plannerBoardPacket?.childChart.companion.config ?? effectiveCompanion;
       const companionId =
@@ -1055,11 +1045,13 @@ function App() {
       });
       setPostActivityEngagement(null);
       plannerBoardIframeCompletionKeyRef.current = null;
+      discoveryCompletionCoordinatorRef.current = new DiscoveryAcademicCompletionCoordinator();
       setCompanionPresence("collapsed");
       setPlannerBoardLaunch({
         node,
         iframeUrl: action.kind === "iframe" ? action.url : null,
-        replayNonce: 0,
+        replayNonce,
+        completionId: crypto.randomUUID(),
       });
       return true;
     },
@@ -1077,7 +1069,12 @@ function App() {
 
   const directDiscoveryAutoLaunchRef = useRef<string | null>(null);
   useEffect(() => {
-    if (!directDiscoveryMode || !sessionReady || !directDiscoveryLaunchNode) {
+    if (
+      !directDiscoveryMode ||
+      effectiveDiscoveryCompletionHandoff ||
+      !sessionReady ||
+      !directDiscoveryLaunchNode
+    ) {
       if (!directDiscoveryMode) directDiscoveryAutoLaunchRef.current = null;
       return;
     }
@@ -1094,6 +1091,7 @@ function App() {
     adventureChildId,
     directDiscoveryLaunchNode,
     directDiscoveryMode,
+    effectiveDiscoveryCompletionHandoff,
     launchPlannerBoardNode,
     plannerBoardLaunch,
     plannerBoardPacket?.activeSessionPlan?.planId,
@@ -1291,6 +1289,20 @@ function App() {
     return completionPromise;
   }, [adventureChildId, plannerBoardPacket?.childChart.learningCycle?.homeworkId]);
 
+  const handleSpellingDiscoveryAttempt = useCallback((response: { itemIndex: number; attemptedValue: string; skipped: boolean; observedAt: string }) => {
+    const itemId = plannerBoardLaunch?.node.wordRadarItems?.[response.itemIndex]?.itemId;
+    const homeworkId = plannerBoardPacket?.childChart.learningCycle?.homeworkId;
+    if (!(directDiscoveryMode || plannerBoardLaunch?.node.spellingAssessment) || !itemId || !homeworkId || !adventureChildId) {
+      console.error(" 🎮 [spelling-discovery] [attempt] [missing-provenance]");
+      return;
+    }
+    const attempt = discoveryCompletionCoordinatorRef.current.prepareAttempt({ ...response, itemId, attemptId: crypto.randomUUID() });
+    void discoveryCompletionCoordinatorRef.current.recordAttempt(() => postDiscoveryAttempt({ childId: adventureChildId, homeworkId, attempt })).catch(error => {
+      console.error(" 🎮 [spelling-discovery] [attempt] [retry-needed]", error);
+    });
+  }, [adventureChildId, directDiscoveryMode, plannerBoardLaunch, plannerBoardPacket?.childChart.learningCycle?.homeworkId]);
+
+
   const handlePlannerBoardFunRating = useCallback(
     (rating: 1 | 2 | 3 | 4 | 5 | null) => {
       const current = postActivityEngagement;
@@ -1409,18 +1421,53 @@ function App() {
     if (ticket) void openVideoCallTicket(ticket);
   }, [openVideoCallTicket, postActivityEngagement?.videoCallTicket]);
 
-  const replayPlannerBoardLaunch = useCallback(() => {
-    plannerBoardIframeCompletionKeyRef.current = null;
-    setPostActivityEngagement(null);
-    setPlannerBoardLaunch((prev) =>
-      prev
-        ? {
-            ...prev,
-            replayNonce: prev.replayNonce + 1,
-          }
-        : prev,
-    );
-  }, []);
+  const replayPlannerBoardLaunch = useCallback(async () => {
+    const current = plannerBoardLaunch;
+    if (!current) return;
+    if (!hasCanonicalLearningCycle(plannerBoardPacket)) {
+      launchPlannerBoardNode(current.node, current.replayNonce + 1);
+      return;
+    }
+    const completionKey = plannerBoardIframeCompletionKeyRef.current;
+    if (!completionKey) return;
+    const packet = await refreshPlannerBoardPacket();
+    if (plannerBoardIframeCompletionKeyRef.current !== completionKey) return;
+    if (!packet || packet.childChart.learningCycle?.homeworkId !== plannerBoardPacket?.childChart.learningCycle?.homeworkId) throw new Error("replay_assignment_not_available");
+    const node = packet.activeSessionPlan?.adventureBoard?.nodes
+      .map(boardNode => resolvePlannerBoardLaunchNode(packet, boardNode))
+      .find(candidate => candidate?.id === current.node.id);
+    if (!node) throw new Error("replay_node_not_available");
+    launchPlannerBoardNode(node, current.replayNonce + 1);
+  }, [launchPlannerBoardNode, plannerBoardLaunch, plannerBoardPacket, refreshPlannerBoardPacket]);
+
+  const completePlannerBoardActivity = useCallback((payload: Record<string, unknown>) => {
+    const launch = plannerBoardLaunch;
+    if (!launch) return;
+    const key = `${launch.node.id}:${launch.replayNonce}`;
+    if (plannerBoardIframeCompletionKeyRef.current === key) return;
+    plannerBoardIframeCompletionKeyRef.current = key;
+    const homeworkId = plannerBoardPacket?.childChart.learningCycle?.homeworkId;
+    const write = async () => {
+      if (!adventureChildId) throw new Error("canonical_completion_missing_child");
+      await discoveryCompletionCoordinatorRef.current.flushForExit();
+      return hasCanonicalLearningCycle(plannerBoardPacket) && homeworkId
+        ? postCanonicalNodeCompletion({ childId: adventureChildId, homeworkId, nodeId: launch.node.id, completionId: launch.completionId, result: payload })
+        : null;
+    };
+    void write().then(async completion => {
+      await refreshPlannerBoardPacket();
+      const completed = completion ? completion.nodeState === "completed"
+        : !hasCanonicalLearningCycle(plannerBoardPacket) && payload.completed === true && payload.earlyExit !== true;
+      if (completed) setLocallyCompletedPlannerNodeIds(current => current.includes(launch.node.id) ? current : [...current, launch.node.id]);
+      if (completion?.coinAward) setProfileCompanionCurrency(completion.coinAward.balance);
+      showPlannerBoardEngagementOverlay(launch.node, completion ? completion.outcome : payload, completion?.coinAward, completion?.videoCallTicket);
+      console.log(" 🎮 [AdventureBoard] [canonical-completion] [saved]", { nodeId: launch.node.id, nodeState: completion?.nodeState, completed });
+    }).catch((error: unknown) => {
+      plannerBoardIframeCompletionKeyRef.current = null;
+      console.error(" 🎮 [AdventureBoard] canonical_completion_failed", error);
+      setPostActivityEngagement({ node: launch.node, outcome: { completed: false }, title: "Progress could not be saved", stats: [], canTryHarder: false });
+    });
+  }, [adventureChildId, plannerBoardLaunch, plannerBoardPacket, refreshPlannerBoardPacket, showPlannerBoardEngagementOverlay]);
 
   const handlePlannerBoardPostActivityAction = useCallback(
     (action: PostActivityAction) => {
@@ -1428,7 +1475,10 @@ function App() {
       if (!current) return;
       recordPlannerBoardPostActivityAction(action, current.node, current.outcome);
       if (action === "replay_same" || action === "replay_harder") {
-        replayPlannerBoardLaunch();
+        void replayPlannerBoardLaunch().catch(error => {
+          console.error(" 🎮 [AdventureBoard] [replay] [unavailable]", error);
+          setPostActivityEngagement(previous => previous ? { ...previous, title: "Could not reload this activity. Try again or return to the map." } : previous);
+        });
         return;
       }
       closePlannerBoardLaunch();
@@ -1442,13 +1492,23 @@ function App() {
   );
 
   const handlePlannerBoardOverlayBack = useCallback(() => {
+    if (directDiscoveryMode || plannerBoardLaunch?.node.spellingAssessment) {
+      void discoveryCompletionCoordinatorRef.current.flushForExit().then(() => {
+        console.log(" 🎮 [discovery] [exit] [attempts-saved]");
+        closePlannerBoardLaunch();
+        if (directDiscoveryMode) endSession();
+      }).catch(error => {
+        console.error(" 🎮 [discovery] [exit] [save-failed]", error);
+        if (plannerBoardLaunch) setPostActivityEngagement({ node: plannerBoardLaunch.node, outcome: { completed: false }, title: "Progress could not be saved. Try leaving again.", stats: [], canTryHarder: false });
+      });
+      return;
+    }
     const current = postActivityEngagement;
     if (current) {
       recordPlannerBoardPostActivityAction("back_to_map", current.node, current.outcome);
     } else if (plannerBoardLaunch) {
       recordPlannerBoardPostActivityAction("abandon", plannerBoardLaunch.node, {
         completed: false,
-        frustrationScore: 0.75,
       });
     }
     closePlannerBoardLaunch();
@@ -1493,6 +1553,14 @@ function App() {
         return;
       }
       const homeworkId = plannerBoardPacket?.childChart.learningCycle?.homeworkId;
+      if (data.type === "evaluation_friction") {
+        const payload = data.payload as Record<string, unknown> | undefined;
+        if (payload && typeof payload.itemId === "string" && Array.isArray(payload.instrumentSignals)) {
+          discoveryCompletionCoordinatorRef.current.recordInstrumentSignals(payload.itemId, payload.instrumentSignals);
+          console.log(" 🎮 [discovery] [instrument-friction] [captured]", payload.itemId);
+        }
+        return;
+      }
       if (data.type === "evaluation_attempt") {
         const attempt = data.payload && typeof data.payload === "object" && !Array.isArray(data.payload)
           ? data.payload as Record<string, unknown>
@@ -1503,8 +1571,9 @@ function App() {
           );
           return;
         }
+        const preparedAttempt = discoveryCompletionCoordinatorRef.current.prepareAttempt(attempt);
         const attemptWrite = discoveryCompletionCoordinatorRef.current.recordAttempt(
-          () => postDiscoveryAttempt({ childId: adventureChildId, homeworkId, attempt }),
+          () => postDiscoveryAttempt({ childId: adventureChildId, homeworkId, attempt: preparedAttempt }),
         );
         void attemptWrite.catch((error: unknown) => {
           console.error(" 🎮 [AdventureBoard] discovery_attempt_failed", error);
@@ -1525,13 +1594,13 @@ function App() {
           childId: adventureChildId,
           homeworkId,
         });
+        void startDiscoveryAcademicCompletion().catch(error => {
+          console.error(" 🎮 [discovery] [academic-completion] [retry-needed]", error);
+        });
         showPlannerBoardEngagementOverlay(launch.node, { completed: true });
         return;
       }
       if (data.type !== "node_complete" && data.type !== "game_complete") return;
-      const key = `${launch.node.id}:${launch.replayNonce}`;
-      if (plannerBoardIframeCompletionKeyRef.current === key) return;
-      plannerBoardIframeCompletionKeyRef.current = key;
       const payload =
         data.payload && typeof data.payload === "object" && !Array.isArray(data.payload)
           ? data.payload as Record<string, unknown>
@@ -1542,54 +1611,13 @@ function App() {
         nodeType: launch.node.type,
         eventType: data.type,
       });
-      if (!adventureChildId) {
-        console.error(" 🎮 [AdventureBoard] completion_failed missing child identity");
-        setPostActivityEngagement({
-          node: launch.node,
-          outcome: { completed: false },
-          title: "Progress could not be saved",
-          stats: [],
-          canTryHarder: false,
-        });
-        return;
-      }
-      const completionWrite = hasCanonicalLearningCycle(plannerBoardPacket) && homeworkId
-        ? postCanonicalNodeCompletion({
-            childId: adventureChildId,
-            homeworkId,
-            nodeId: launch.node.id,
-            result: payload,
-          })
-        : Promise.resolve(null);
-      void completionWrite.then(async (completion) => {
-        await refreshPlannerBoardPacket();
-        setLocallyCompletedPlannerNodeIds((current) =>
-          current.includes(launch.node.id) ? current : [...current, launch.node.id],
-        );
-        if (completion?.coinAward) {
-          setProfileCompanionCurrency(completion.coinAward.balance);
-        }
-        showPlannerBoardEngagementOverlay(
-          launch.node,
-          payload,
-          completion?.coinAward,
-          completion?.videoCallTicket,
-        );
-      }).catch((error: unknown) => {
-        console.error(" 🎮 [AdventureBoard] canonical_completion_failed", error);
-        setPostActivityEngagement({
-          node: launch.node,
-          outcome: { completed: false },
-          title: "Progress could not be saved",
-          stats: [],
-          canTryHarder: false,
-        });
-      });
+      completePlannerBoardActivity(payload);
     }
     window.addEventListener("message", handleMessage);
     return () => window.removeEventListener("message", handleMessage);
   }, [
     adventureChildId,
+    completePlannerBoardActivity,
     generatedMathSoundMuted,
     plannerBoardLaunch,
     plannerBoardPacket,
@@ -1792,14 +1820,50 @@ function App() {
 
   let main: ReactNode = null;
 
-  if (homeworkBoardMode) {
-    if (plannerBoardPacket) {
+  if (homeworkSessionFinished) {
+    main = <div className="w-screen h-screen overflow-hidden"><SessionEnd
+      homeworkPaused={homeworkBoardMode}
+      autoReturnMs={homeworkBoardMode ? null : 5000}
+      onReturn={() => {
+        if (homeworkBoardMode) window.location.reload();
+        else { setSelectedChildName(null); resetToPicker(); }
+      }}
+      childName={state.childName}
+      companionName={state.companion?.companionName}
+    /></div>;
+  } else if (state.phase === "picker" && (!homeworkBoardMode || !adventureChildId)) {
+    main = (
+      <div className="w-screen h-screen overflow-hidden">
+        {state.error && (
+          <div className="absolute top-4 left-1/2 -translate-x-1/2 px-4 py-2 bg-red-100 text-red-800 rounded-lg text-sm z-10">
+            {state.error}
+          </div>
+        )}
+        <ChildPicker
+          onSelect={(name, opts) => {
+            setSelectedChildName(name);
+            if (runtimeConfig.subject === "homework") {
+              setAdventureChildId(name.trim().toLowerCase());
+            }
+            startSession(name, opts);
+          }}
+        />
+      </div>
+    );
+  } else if (homeworkBoardMode) {
+    if (!adventureChildId) {
+      main = (
+        <HomeworkBoardUnavailable
+          childName={state.childName ?? selectedChildName ?? "Sunny"}
+          error="homework_child_identity_required"
+        />
+      );
+    } else if (plannerBoardPacket) {
       main = directDiscoveryMode ? (
-        discoveryCompletionHandoff ? (
-          <DiscoveryCompletionHandoff
-            mode={discoveryCompletionHandoff}
-            onFinish={endSession}
-          />
+        effectiveDiscoveryCompletionHandoff ? (
+          <div className="flex h-screen w-screen items-center justify-center bg-zinc-950 p-6">
+            <div className="w-full max-w-lg"><LearningPreparationStatus {...generationProgress} preview={effectiveDiscoveryCompletionHandoff === "preview-complete"} onCheck={generationProgress.checkNow} onFinish={finishHomeworkSession}/></div>
+          </div>
         ) : resolveDirectDiscoverySurface(
             sessionReady,
             directDiscoveryLaunchNode != null,
@@ -1838,6 +1902,7 @@ function App() {
               }
             }}
           />
+          {targetedMathGenerationPending && !plannerBoardLaunch && !postActivityEngagement && <div className="absolute left-4 top-4 z-20 max-w-sm"><LearningPreparationStatus {...generationProgress} onCheck={generationProgress.checkNow} onFinish={finishHomeworkSession}/></div>}
         </div>
       );
     } else if (plannerBoardPacketState.loading) {
@@ -1858,25 +1923,6 @@ function App() {
         />
       );
     }
-  } else if (state.phase === "picker") {
-    main = (
-      <div className="w-screen h-screen overflow-hidden">
-        {state.error && (
-          <div className="absolute top-4 left-1/2 -translate-x-1/2 px-4 py-2 bg-red-100 text-red-800 rounded-lg text-sm z-10">
-            {state.error}
-          </div>
-        )}
-        <ChildPicker
-          onSelect={(name, opts) => {
-            setSelectedChildName(name);
-            if (runtimeConfig.subject === "homework") {
-              setAdventureChildId(name.trim().toLowerCase());
-            }
-            startSession(name, opts);
-          }}
-        />
-      </div>
-    );
   } else if (state.phase === "connecting") {
     main = (
       <div className="w-screen h-screen overflow-hidden relative bg-zinc-950">
@@ -1948,19 +1994,6 @@ function App() {
         />
       </div>
     );
-} else if (state.phase === "ended") {
-    main = (
-      <div className="w-screen h-screen overflow-hidden">
-        <SessionEnd
-          onReturn={() => {
-            setSelectedChildName(null);
-            resetToPicker();
-          }}
-          childName={state.childName}
-          companionName={state.companion?.companionName}
-        />
-      </div>
-    );
   }
 
   const companionPortraitMode =
@@ -2029,7 +2062,7 @@ function App() {
       >
       {main}
       <CompanionEconomyControls
-        visible={homeworkBoardMode && plannerBoardLaunch == null}
+        visible={homeworkBoardMode && !homeworkSessionFinished && plannerBoardLaunch == null}
         companionName={
           plannerBoardPacket?.childChart.companion.displayName ??
           (effectiveCompanion?.companionId
@@ -2069,7 +2102,7 @@ function App() {
       <CompanionLayerWithCare
         childId={activeProfileChildId}
         companion={effectiveCompanion}
-        toggledOff={false}
+        toggledOff={homeworkSessionFinished}
         mode={companionPortraitMode ? "portrait" : "full"}
         idlePose={homeworkBoardMode ? "flank" : "center"}
         karaokeActive={
@@ -2152,8 +2185,8 @@ function App() {
             }
             showKeyboard={profileWordRadar?.showKeyboard ?? false}
             inputMode={profileWordRadar?.inputMode}
+            voiceCaptureAvailable={state.microphoneAvailable !== false}
             personalBests={profileWordRadar?.personalBests ?? {}}
-            companion={effectiveCompanion}
             childId={activeProfileChildId ?? ""}
             onComplete={(result) => {
               console.log("  🎮 [DiagPanel] WordRadar result", result);
@@ -2163,9 +2196,12 @@ function App() {
         </FlowGameOverlay>
       ) : null}
       {plannerBoardLaunch?.node.type === "word-radar" ? (
-        <FlowGameOverlay onBack={handlePlannerBoardOverlayBack} backLabel="Back to map">
+        <FlowGameOverlay onBack={handlePlannerBoardOverlayBack} backLabel={directDiscoveryMode ? "Leave Discovery" : "Back to map"}>
           <WordRadar
             key={`${plannerBoardLaunch.node.id}:${plannerBoardLaunch.replayNonce}`}
+            assessmentMode={directDiscoveryMode || plannerBoardLaunch.node.spellingAssessment === true}
+            onAssessmentAttempt={handleSpellingDiscoveryAttempt}
+            autoStart={directDiscoveryMode || plannerBoardLaunch.node.spellingAssessment ? sessionReady : undefined}
             items={
               plannerBoardLaunch.node.wordRadarItems ??
               (plannerBoardLaunch.node.words ?? []).map((word) => ({
@@ -2185,6 +2221,7 @@ function App() {
               plannerBoardLaunch.node.wordRadarConfig?.inputMode === "keyboard"
             }
             inputMode={plannerBoardLaunch.node.wordRadarConfig?.inputMode}
+            voiceCaptureAvailable={state.microphoneAvailable !== false}
             speakStyle={plannerBoardLaunch.node.wordRadarConfig?.speakStyle}
             recallMode={plannerBoardLaunch.node.wordRadarConfig?.recallMode}
             hideWordDuringResponse={
@@ -2198,20 +2235,24 @@ function App() {
             targetLane={plannerBoardLaunch.node.targetLane}
             wordRadarConfig={plannerBoardLaunch.node.wordRadarConfig}
             personalBests={profileWordRadar?.personalBests ?? {}}
-            companion={effectiveCompanion}
             childId={activeProfileChildId ?? adventureChildId ?? ""}
-            enableLocalNarrationFallback
+            enableLocalNarrationFallback={!directDiscoveryMode && !plannerBoardLaunch.node.spellingAssessment}
             onComplete={(result) => {
+              if (directDiscoveryMode) {
+                void startDiscoveryAcademicCompletion().catch(error => console.error(" 🎮 [spelling-discovery] [completion] [retry-needed]", error));
+                showPlannerBoardEngagementOverlay(plannerBoardLaunch.node, { completed: true });
+                return;
+              }
               console.log(" 🎮 [AdventureBoard] word_radar_complete", {
                 nodeId: plannerBoardLaunch.node.id,
                 accuracy: result.accuracy,
                 wordsAttempted: result.rawResults.length,
               });
-              showPlannerBoardEngagementOverlay(plannerBoardLaunch.node, {
+              completePlannerBoardActivity({
                 completed: true,
                 accuracy: result.accuracy,
                 wordsAttempted: result.rawResults.length,
-                targetResults: result.rawResults,
+                targetResults: result.targetResults,
               });
             }}
           />
@@ -2220,7 +2261,8 @@ function App() {
               title={postActivityEngagement.title}
               outcome={postActivityEngagement.outcome}
               stats={postActivityEngagement.stats}
-              canReplay
+              canReplay={!directDiscoveryMode}
+              showBackAction={!directDiscoveryMode}
               canTryHarder={postActivityEngagement.canTryHarder}
               onAction={handlePlannerBoardPostActivityAction}
               onFunRating={handlePlannerBoardFunRating}

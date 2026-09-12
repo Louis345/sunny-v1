@@ -1,5 +1,9 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 
+export function sessionVoiceReady(input: {bootReady:boolean;firstAudio:boolean;wakeOnly:boolean}): boolean {
+  return input.bootReady && (input.wakeOnly || input.firstAudio);
+}
+
 export interface SessionLoadingOverlayProps {
   childName: string;
   avatarImagePath?: string | null;
@@ -90,13 +94,15 @@ export function SessionLoadingOverlay({
   onSafetyRelease,
   onHardRelease,
   onCurtainOpen,
-  curtainOpenMs = 1000,
+  curtainOpenMs = 700,
 }: SessionLoadingOverlayProps) {
   const [paletteStep, setPaletteStep] = useState(0);
   const [safetyReleased, setSafetyReleased] = useState(false);
   const baseProgress = pct([voiceReady, mapReady, assetsReady]);
   const ready = baseProgress === 100 || safetyReleased;
-  const progress = ready ? 100 : baseProgress;
+  // Safety release may open the experience without a stalled optional signal,
+  // but it must never turn incomplete readiness into a false 100% claim.
+  const progress = baseProgress;
   const lastProgressRef = useRef<number | null>(null);
   const safetyReleaseRef = useRef(onSafetyRelease);
   const hardReleaseRef = useRef(onHardRelease);
@@ -349,7 +355,7 @@ export function SessionLoadingOverlay({
             linear-gradient(135deg, var(--stage-curtain-a), var(--stage-curtain-b) 48%, var(--stage-curtain-a));
           box-shadow: inset 0 0 46px rgba(0,0,0,0.42);
           transition:
-            transform 950ms cubic-bezier(.2,.8,.2,1),
+            transform 650ms cubic-bezier(.2,.8,.2,1),
             background 800ms ease;
         }
         .sunny-curtain-left {

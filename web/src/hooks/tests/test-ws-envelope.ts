@@ -6,6 +6,7 @@ vi.mock("../../components/Canvas", () => ({
 }));
 
 import { useSession } from "../useSession";
+import { useAdventureState } from "../useAdventureState";
 
 const OPEN = 1;
 const CONNECTING = 0;
@@ -105,11 +106,43 @@ describe("WS envelope vs canvas payload type", () => {
   });
 
   afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.useRealTimers();
     vi.unstubAllGlobals();
     globalThis.WebSocket = OriginalWebSocket;
     globalThis.AudioContext = OriginalAudioContext;
     vi.restoreAllMocks();
     cleanup();
+  });
+
+  it.each(["math", "spelling"])("keeps %s homework identity and controls available when microphone permission is dismissed", async (homeworkDomain) => {
+    vi.stubEnv("VITE_SUNNY_RUNTIME_CONFIG", JSON.stringify({ subject: "homework", childId: "lab-child", homeworkDomain, sessionMode: "real", previewMode: "off", voiceMode: "normal" }));
+    vi.mocked(navigator.mediaDevices.getUserMedia).mockRejectedValue(new DOMException("Permission dismissed", "NotAllowedError"));
+    vi.useFakeTimers();
+    const { result } = renderHook(() => {
+      const session = useSession();
+      return { session, adventure: useAdventureState(session.state, true) };
+    });
+    act(() => result.current.session.startSession("lab-child"));
+    await act(async () => { await vi.advanceTimersByTimeAsync(150); });
+    expect(navigator.mediaDevices.getUserMedia).toHaveBeenCalledOnce();
+    expect(wsInstances[0]!.send.mock.calls.map(([raw]) => JSON.parse(String(raw))).filter(message => message.type === "start_session")).toHaveLength(1);
+    expect(result.current.session.state.errorFatal).toBe(false);
+    expect(result.current.session.state.error).toBeNull();
+    expect(result.current.session.state.warning).toMatch(/microphone unavailable/i);
+    expect(result.current.session.state.microphoneAvailable).toBe(false);
+    expect(result.current.adventure.adventureChildId).toBe("lab-child");
+  });
+
+  it("still reports microphone denial as fatal for a normal voice-only review", async () => {
+    vi.stubEnv("VITE_SUNNY_RUNTIME_CONFIG", JSON.stringify({ subject: "review", sessionMode: "real", previewMode: "off", voiceMode: "normal" }));
+    vi.mocked(navigator.mediaDevices.getUserMedia).mockRejectedValue(new DOMException("Permission dismissed", "NotAllowedError"));
+    vi.useFakeTimers();
+    const { result } = renderHook(() => useSession());
+    act(() => result.current.startSession("lab-child"));
+    await act(async () => { await vi.advanceTimersByTimeAsync(150); });
+    expect(result.current.state.errorFatal).toBe(true);
+    expect(result.current.state.error).toBe("Microphone access denied");
   });
 
   it("keeps wire message type when sendMessage payload has type: karaoke", async () => {

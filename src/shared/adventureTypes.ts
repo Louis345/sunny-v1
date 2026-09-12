@@ -245,7 +245,10 @@ export interface NodeConfig {
   /** Karaoke passage when `type === "karaoke"`. */
   words?: string[];
   /** Word Radar drills when `type === "word-radar"`. */
+  spellingAssessment?: boolean;
+  spellingItemBindings?: Array<{ itemId: string; word: string }>;
   wordRadarItems?: Array<{
+    itemId?: string;
     display: string;
     acceptedResponses: string[];
     hint?: string;

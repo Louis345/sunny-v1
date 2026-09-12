@@ -5,6 +5,7 @@ import path from "node:path";
 import { resolveChildContextDir } from "../utils/contextRoot";
 import {
   getLearningCycle,
+  hasSufficientCalibrationEvidence,
   transitionLearningCycle,
   type AcademicPrediction,
   type AssumptionAssessment,
@@ -66,6 +67,11 @@ export type TheoryDecisionContent = {
 
 type RootOptions = { rootDir?: string; now?: Date };
 
+export function frozenSpellingWordMapping(cycle: LearningCycleRecordV2): Array<{ itemId: string; wordId: string; word: string; constructId: string }> | undefined {
+  const items = cycle.domain === "spelling" ? cycle.nodes.find(node => node.role === "evaluation")?.evidenceContract.spellingItems : undefined;
+  return items ? Object.values(items).map(item => ({ itemId: item.id, wordId: item.wordId, word: item.word, constructId: item.constructId })) : undefined;
+}
+
 function stableId(value: unknown): string {
   return crypto.createHash("sha256").update(JSON.stringify(value)).digest("hex").slice(0, 16);
 }
@@ -86,12 +92,31 @@ export function evaluateAcademicPredictions(
   evaluatedAt = new Date().toISOString(),
 ): PredictionEvaluation[] {
   return predictions.flatMap((prediction) => {
-    const matched = observations.filter((observation) =>
-      observation.constructLinks.some((link) => link.constructId === prediction.constructId) &&
-      observation.provenance !== "practice" &&
-      observation.provenance !== "teacher_note");
-    if (matched.length === 0) return [];
-    const numeric = matched.map(scoreOf).filter((value): value is number => value != null);
+    const registeredAt = Date.parse(prediction.lockedAt ?? prediction.createdAt);
+    const eligibility = prediction.eligibility;
+    const matched = observations.filter((observation) => {
+      const observedAt = Date.parse(observation.observedAt);
+      const external = observation.provenance === "graded_work" || observation.provenance === "delayed_reassessment";
+      const unassistedSpellingRecall = prediction.constructId.startsWith("spelling.")
+        && prediction.expectedMetric.key === "unassisted_recall_accuracy" && prediction.evidenceLimit === "practice_only"
+        && eligibility?.checkpointItemIds?.includes(observation.itemId)
+        && observation.provenance === "practice" && observation.assistance.status === "unassisted"
+        && observation.confounds.includes("measurement_role:fresh_checkpoint") && observation.confounds.includes("first_response")
+        && !observation.confounds.some(c => /repeated_attempt|audio_unavailable|answer_exposure|live_context_unavailable/.test(c));
+      return Number.isFinite(registeredAt) && observedAt > registeredAt
+        && (!eligibility || (Number.isFinite(eligibility.maxDelayDays) && eligibility.maxDelayDays >= 0
+          && observedAt - registeredAt <= eligibility.maxDelayDays * 86_400_000
+          && (eligibility.sources as string[]).includes(observation.provenance)))
+        && observation.constructLinks.some((link) => link.constructId === prediction.constructId)
+        && (external || unassistedSpellingRecall || (observation.provenance === "independent_probe"
+          && observation.assistance.status === "unassisted" && observation.exposure === "unseen"))
+        && scoreOf(observation) != null
+        && !observation.confounds.some(c => /response_not_captured|instrument_ambiguous|assistance_present|item_previously_exposed/.test(c));
+    });
+    const sources = [...new Set(matched.map(observation => observation.sourceId))];
+    return sources.map(sourceId => {
+    const batch = matched.filter(observation => observation.sourceId === sourceId);
+    const numeric = batch.map(scoreOf).filter((value): value is number => value != null);
     const observedMetric = numeric.length > 0
       ? round(numeric.reduce((sum, value) => sum + value, 0) / numeric.length)
       : null;
@@ -102,9 +127,8 @@ export function evaluateAcademicPredictions(
         : observedMetric > prediction.expectedMetric.max
           ? round(observedMetric - prediction.expectedMetric.max)
           : 0;
-    const sourceId = matched[0]!.sourceId;
-    const observationIds = matched.map((observation) => observation.observationId);
-    return [{
+    const observationIds = batch.map((observation) => observation.observationId);
+    return {
       evaluationId: `evaluation:${stableId({ predictionId: prediction.predictionId, sourceId, observationIds })}`,
       predictionId: prediction.predictionId,
       sourceId,
@@ -112,11 +136,13 @@ export function evaluateAcademicPredictions(
       predictedMetric: { min: prediction.expectedMetric.min, max: prediction.expectedMetric.max },
       observedMetric,
       predictionError,
-      observedErrorPatterns: [...new Set(matched.flatMap((observation) =>
+      observedErrorPatterns: [...new Set(batch.flatMap((observation) =>
         observation.result.observedErrorType ? [observation.result.observedErrorType] : []))],
-      sufficiency: numeric.length > 0 ? "sufficient" : "insufficient",
+      sufficiency: eligibility && numeric.length > 0 ? "sufficient" as const : "insufficient" as const,
+      attribution: "observational_not_causal" as const,
       evaluatedAt,
-    }];
+    };
+    });
   });
 }
 
@@ -152,6 +178,11 @@ export function recordConfirmedReturnedWork(
   const duplicate = cycle.evidenceSources.find((source) =>
     source.sourceId === input.source.sourceId || source.fileFingerprint === input.source.fileFingerprint);
   if (duplicate) return cycle;
+  const spelling = frozenSpellingWordMapping(cycle);
+  if (spelling) for (const row of input.items) {
+    const target = spelling.find(item => item.word.normalize("NFC").toLocaleLowerCase("en-US") === row.prompt.normalize("NFC").trim().toLocaleLowerCase("en-US"));
+    if (!target || row.constructLinks.length !== 1 || row.constructLinks[0].role !== "primary" || row.constructLinks[0].constructId !== target.constructId) throw new Error(`returned_spelling_mapping_invalid:${row.itemId}`);
+  }
   const observations = observationsFromReturnedWork(input);
   const evaluations = evaluateAcademicPredictions(cycle.academicPredictions, observations, input.source.capturedAt);
   const score = input.score && input.score.possible > 0 ? round(input.score.earned / input.score.possible) : null;
@@ -369,6 +400,11 @@ export async function interpretReturnedWorkBatch(input: {
   if (content.evidenceIds.some((id) => !allowedObservationIds.has(id)) ||
       content.predictionEvaluationIds.some((id) => !allowedEvaluationIds.has(id))) {
     throw new Error("longitudinal_theory_decision_unknown_evidence");
+  }
+  if (["supported", "falsified"].includes(content.status) && !content.predictionEvaluationIds.length) throw new Error("longitudinal_prediction_evaluation_required");
+  if (!content.evidenceIds.length) throw new Error("longitudinal_theory_observation_required");
+  if (["supported", "falsified"].includes(content.status) && !hasSufficientCalibrationEvidence(cycle, content)) {
+    throw new Error("longitudinal_prediction_evidence_insufficient");
   }
   const updated = transitionLearningCycle(input.childId, input.homeworkId, cycle.revision, {
     type: "theory_decided",

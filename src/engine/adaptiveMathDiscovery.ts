@@ -2,11 +2,13 @@ import fs from "node:fs";
 import path from "node:path";
 import { createHash, randomUUID } from "node:crypto";
 import Anthropic from "@anthropic-ai/sdk";
-import { resolveChildContextDir } from "../utils/contextRoot";
+import {assignmentPlannerContent, type AssignmentSourceExtraction} from "./assignmentSourceExtraction";
+import { assertChildPublicationCommitted, resolveChildContextDir, resolveContextRoot, type ContextRootOptions } from "../utils/contextRoot";
 import type { ActiveSessionPlan } from "../context/schemas/learningProfile";
 import {
   createLearningCycle,
   getLearningCycle,
+  projectLearningCycle,
   transitionLearningCycle,
   type AcademicPrediction,
   type LearningAssumption,
@@ -14,12 +16,50 @@ import {
   type LearningCycleNodeContract,
   type LearningCycleRecordV2,
   type LearningObservation,
+  type LearningCycleSpellingItem,
 } from "./learningCycleRepository";
+import { createSpellingDiscoveryCycle } from "./learningCycleIngest";
 import {
-  renderDiscoveryCandidate,
+  renderDiscoveryCandidate, DISCOVERY_VERIFIER_VERSION,
+  MATH_JOURNEY_CONTRACT, MATH_IMPLEMENTATION_REPAIR_CONTRACT, verifyMathJourneyAtReleaseViewports, DISCOVERY_RELEASE_VIEWPORTS,
   reviewDiscoveryCandidate,
   withDiscoveryBrowserPage,
+  parseEngineeringLessonProposal, recordEngineeringRepairEvidence, verifyEngineeringRepairEvidence, invalidateEngineeringRepairEvidence, freezeEngineeringLessonSnapshot, engineeringFeatures, engineeringLessonContext,
 } from "./discoveryVisualReview";
+import { readOpenAiResponseStream } from "./openAiResponses";
+import {
+  validateBoardChoices,
+  validateBoardGraph,
+  validateBoardVisualContract,
+} from "../shared/adventureBoardValidation";
+
+export function resolveDiscoveryRepairModel(input: {
+  builderModel: string;
+  environment: Record<string, string | undefined>;
+}): { provider: "anthropic" | "openai"; model: string } {
+  const model = input.environment.SUNNY_DISCOVERY_REPAIR_MODEL?.trim() || "gpt-5.6";
+  return { provider: model.startsWith("gpt-") ? "openai" : "anthropic", model };
+}
+
+export function buildOpenAiDiscoveryRepairInput(content: Array<Record<string, unknown>>): Array<Record<string, unknown>> {
+  return content.map((block) => {
+    if (block.type === "text") return { type: "input_text", text: block.text };
+    const source = block.source as { media_type?: string; data?: string } | undefined;
+    if (block.type === "image" && source?.media_type && source.data) {
+      return { type: "input_image", image_url: `data:${source.media_type};base64,${source.data}` };
+    }
+    throw new Error(`discovery_repair_content_unsupported:${String(block.type ?? "unknown")}`);
+  });
+}
+
+export function estimateDiscoveryRepairCost(input: {
+  provider: "anthropic" | "openai";
+  inputTokens: number;
+  outputTokens: number;
+}): number {
+  const rates = input.provider === "openai" ? { input: 4, output: 20 } : { input: 3, output: 15 };
+  return input.inputTokens / 1_000_000 * rates.input + input.outputTokens / 1_000_000 * rates.output;
+}
 
 export type DiscoveryResponseContract = {
   mode: "tap_selection" | "tap_numeric_pad" | "drag_construct";
@@ -55,10 +95,88 @@ export function buildDiscoveryRepairDiagnostic(input: {
   };
 }
 
+export function applyDiscoveryHtmlPatch(originalHtml: string, responseText: string): {
+  html: string;
+  replacementCount: number;
+  changedOriginalCharacters: number;
+  engineeringLesson?: ReturnType<typeof parseEngineeringLessonProposal>;
+} {
+  const source = responseText.match(/```(?:json)?\s*([\s\S]*?)```/i)?.[1] ?? responseText;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(source.trim());
+  } catch {
+    throw new Error("discovery_repair_patch_invalid_json");
+  }
+  const replacements = (parsed as { replacements?: unknown })?.replacements;
+  if (!Array.isArray(replacements) || replacements.length < 1 || replacements.length > 8) {
+    throw new Error("discovery_repair_patch_replacement_count_invalid");
+  }
+  const ranges = replacements.map((candidate, index) => {
+    if (!candidate || typeof candidate !== "object") throw new Error(`discovery_repair_patch_invalid:${index}`);
+    const { oldText, newText, reason } = candidate as Record<string, unknown>;
+    if (typeof oldText !== "string" || !oldText || typeof newText !== "string" || typeof reason !== "string" || !reason.trim()) {
+      throw new Error(`discovery_repair_patch_invalid:${index}`);
+    }
+    if (oldText === newText) throw new Error(`discovery_repair_patch_noop:${index}`);
+    if (/<\/?(?:html|body)\b|<!doctype/i.test(oldText) || /<\/?(?:html|body)\b|<!doctype/i.test(newText)) {
+      throw new Error(`discovery_repair_patch_document_replacement_forbidden:${index}`);
+    }
+    const start = originalHtml.indexOf(oldText);
+    if (start < 0) throw new Error(`discovery_repair_patch_old_text_missing:${index}`);
+    if (originalHtml.indexOf(oldText, start + 1) >= 0) throw new Error(`discovery_repair_patch_old_text_not_unique:${index}`);
+    return { start, end: start + oldText.length, oldText, newText };
+  });
+  const changedOriginalCharacters = ranges.reduce((sum, range) => sum + range.oldText.length, 0);
+  if (changedOriginalCharacters > Math.max(1_000, Math.floor(originalHtml.length * 0.2))) {
+    throw new Error("discovery_repair_patch_scope_exceeded");
+  }
+  const sorted = [...ranges].sort((a, b) => b.start - a.start);
+  for (let index = 1; index < sorted.length; index += 1) {
+    if (sorted[index - 1]!.start < sorted[index]!.end) throw new Error("discovery_repair_patch_overlap");
+  }
+  let html = originalHtml;
+  for (const range of sorted) html = `${html.slice(0, range.start)}${range.newText}${html.slice(range.end)}`;
+  let engineeringLesson: ReturnType<typeof parseEngineeringLessonProposal> | undefined;
+  if ((parsed as { engineeringLesson?: unknown }).engineeringLesson != null) {
+    try { engineeringLesson = parseEngineeringLessonProposal((parsed as { engineeringLesson: unknown }).engineeringLesson); }
+    catch (error) { console.warn(" 🎮 [engineering-evidence] [proposal] [ignored-invalid]", error instanceof Error ? error.message : String(error)); }
+  }
+  return { html, replacementCount: ranges.length, changedOriginalCharacters, ...(engineeringLesson ? { engineeringLesson } : {}) };
+}
+
+export function buildDiscoveryRepairPrompt(input: {
+  issues: string[];
+  runtimeContractJson: string;
+  contractHash: string;
+  academic: unknown;
+  designHash: string;
+  design: unknown;
+  html: string;
+}): string {
+  return `You are Sunny's Experience Creator repairing only the implementation of a frozen Discovery experience. The attached images include the opening screens and exact failed journey states. Preserve #sunny-discovery-contract JSON and window.__SUNNY_DISCOVERY_TEST__.evaluate: this side-effect-free bridge must use the same scoring logic as the child-facing controls. Do not add child-state, API, storage, currency, speech-synthesis, or oscillator access. ${MATH_IMPLEMENTATION_REPAIR_CONTRACT} ${MATH_JOURNEY_CONTRACT}
+
+RENDERING AND RUNTIME DEFECTS:
+${input.issues.map((issue) => `- ${issue}`).join("\n")}
+
+RUNTIME CONTRACT JSON:
+${input.runtimeContractJson}
+
+ACADEMIC CONTRACT HASH: ${input.contractHash}
+${JSON.stringify(input.academic, null, 2)}
+
+DESIGN HASH: ${input.designHash}
+${JSON.stringify(input.design, null, 2)}
+
+CURRENT HTML:
+${input.html}`;
+}
+
 export type MathDiscoveryEvaluationItem = {
   itemId: string;
   constructId: string;
   prompt: string;
+  representationSpec?: string;
   responseContract: DiscoveryResponseContract;
   correctAnswerContract: { acceptedValues: string[] };
   difficultyBoundary: string;
@@ -104,6 +222,41 @@ function assertDiscoveryResponseContracts(
       || !(response as DiscoveryResponseContract).representationId.trim()
     ) {
       throw new Error(`discovery_response_contract_invalid:${item.itemId}`);
+    }
+  }
+}
+
+const DISCOVERY_NUMBER_WORDS = new Map<string, number>([
+  ["one", 1], ["two", 2], ["three", 3], ["four", 4], ["five", 5], ["six", 6],
+  ["seven", 7], ["eight", 8], ["nine", 9], ["ten", 10], ["eleven", 11], ["twelve", 12],
+  ["ones", 1], ["twos", 2], ["threes", 3], ["fours", 4], ["fives", 5], ["sixes", 6],
+  ["sevens", 7], ["eights", 8], ["nines", 9], ["tens", 10], ["elevens", 11], ["twelves", 12],
+]);
+
+function namedInterval(constructId: string): number | undefined {
+  const normalized = constructId.toLowerCase();
+  const numeric = normalized.match(/(?:by|interval)[-_:](\d{1,3})(?:\D|$)/)?.[1];
+  if (numeric) return Number(numeric);
+  const word = normalized.match(/(?:by|interval)[-_:]([a-z]+)(?:\D|$)/)?.[1];
+  return word ? DISCOVERY_NUMBER_WORDS.get(word) : undefined;
+}
+
+function representedInterval(representationSpec: string): number | undefined {
+  const explicit = representationSpec.match(/\binterval(?:\s+of)?\s*[:=(]?\s*(\d{1,3})\b/i)?.[1];
+  return explicit ? Number(explicit) : undefined;
+}
+
+/** Rejects obvious contradictions between evidence labels and frozen representations. */
+export function assertDiscoveryConstructSemantics(
+  contract: { items: Array<Pick<MathDiscoveryEvaluationItem, "itemId" | "constructId" | "representationSpec">> },
+): void {
+  for (const item of contract.items) {
+    const claimed = namedInterval(item.constructId);
+    const observed = representedInterval(item.representationSpec ?? "");
+    if (claimed !== undefined && observed !== undefined && claimed !== observed) {
+      throw new Error(
+        `discovery_construct_representation_mismatch:${item.itemId}:claimed=${claimed}:observed=${observed}`,
+      );
     }
   }
 }
@@ -245,6 +398,13 @@ export async function verifyDiscoveryRuntimeScoring(input: {
       }
     }
   });
+  const journeyScreenshots = await verifyMathJourneyAtReleaseViewports({
+    html: input.html,
+    outputDir: input.outputDir,
+    completionType: "evaluation_complete",
+    itemIds: input.academic.items.map(item => item.itemId),
+  });
+  atomicJson(path.join(input.outputDir,"acceptance.json"), {passed:true,verifierVersion:DISCOVERY_VERIFIER_VERSION,htmlHash:hashDiscoveryContract(input.html),academicHash:hashDiscoveryContract(input.academic.items),viewports:DISCOVERY_RELEASE_VIEWPORTS,completedItemIds:input.academic.items.map(item=>item.itemId),screenshots:journeyScreenshots,verifiedAt:new Date().toISOString()});
   console.log(` 🎮 [adaptive-math] [discovery-runtime-scoring] [passed] items=${input.academic.items.length}`);
 }
 
@@ -288,12 +448,12 @@ function discoveryArtifactLocations(input: { rootDir: string; childId: string; h
   };
 }
 
-export function ensureDiscoveryArtifactsAreServed(input: {
+export async function ensureDiscoveryArtifactsAreServed(input: {
   rootDir?: string;
   childId: string;
   homeworkId: string;
   contract: MathDiscoveryEvaluationContract;
-}): MathDiscoveryEvaluationContract {
+}): Promise<MathDiscoveryEvaluationContract> {
   const rootDir = input.rootDir ?? process.cwd();
   const locations = discoveryArtifactLocations({ rootDir, childId: input.childId, homeworkId: input.homeworkId });
   fs.mkdirSync(locations.storageDir, { recursive: true });
@@ -311,6 +471,15 @@ export function ensureDiscoveryArtifactsAreServed(input: {
   if (!fs.existsSync(locations.htmlFile) || !fs.existsSync(locations.artworkFile)) {
     throw new Error(`discovery_published_artifact_missing:html=${fs.existsSync(locations.htmlFile)}:artwork=${fs.existsSync(locations.artworkFile)}`);
   }
+  const html = fs.readFileSync(locations.htmlFile, "utf8");
+  const draftDir = resolveAdaptiveMathDraftDir(input.childId, input.homeworkId, { rootDir });
+  try {
+    if (hashDiscoveryContract(html) !== input.contract.artifact.artifactHash) throw new Error("discovery_artifact_hash_mismatch");
+    await verifyDiscoveryRuntimeScoring({ html, academic: input.contract, outputDir: path.join(draftDir, "runtime-verification") });
+  } catch (error) {
+    invalidateEngineeringRepairEvidence(path.join(draftDir, "provider-diagnostics/discovery.engineering-repair.json"));
+    throw error;
+  }
   const contract = {
     ...input.contract,
     artifact: {
@@ -324,26 +493,82 @@ export function ensureDiscoveryArtifactsAreServed(input: {
   return contract;
 }
 
+/** One durable receipt boundary for Discovery and targeted Creator work. */
+export function hasReceivedMathProviderStage(draftDir: string, stage: string): boolean {
+  const receipts = path.join(draftDir, "provider-receipts");
+  const stageFile = path.join(receipts, `${stage}.stage.json`);
+  if (!fs.existsSync(stageFile)) return false;
+  const saved = JSON.parse(fs.readFileSync(stageFile, "utf8"));
+  if (!/^[a-f0-9]{64}$/.test(saved?.requestHash)) throw new Error(`provider_receipt_invalid:${stageFile}`);
+  const receiptFile = path.join(receipts, `${saved.requestHash}.json`);
+  if (!fs.existsSync(receiptFile)) throw new Error(`provider_receipt_invalid:${receiptFile}`);
+  const receipt = JSON.parse(fs.readFileSync(receiptFile, "utf8"));
+  return receipt.status === "received" && receipt.response != null;
+}
+
+export async function runMathProviderStage<T>(input: {
+  draftDir: string; stage: string; model: string; request: unknown;
+  execute: () => Promise<T>; beforeRequest?: () => void; retryUncertain?: boolean;
+}): Promise<T> {
+  const provider = input.model.startsWith("gpt-") ? "openai" : "anthropic";
+  const requestHash = hashDiscoveryContract({ provider, request: input.request });
+  const receipts = path.join(input.draftDir, "provider-receipts");
+  const stageFile = path.join(receipts, `${input.stage}.stage.json`);
+  const readReceipt = (file: string): {status: string; response?: T; requestHash?: string} | undefined => {
+    if (!fs.existsSync(file)) return undefined;
+    try { const value=JSON.parse(fs.readFileSync(file,"utf8")); if (!value || typeof value!=="object") throw new Error("invalid"); return value; }
+    catch { throw new Error(`provider_receipt_invalid:${file}`); }
+  };
+  const stage = readReceipt(stageFile);
+  if (stage && (typeof stage.requestHash!=="string" || !/^[a-f0-9]{64}$/.test(stage.requestHash))) throw new Error(`provider_receipt_invalid:${stageFile}`);
+  const receiptFile = path.join(receipts, `${requestHash}.json`);
+  const priorFile = stage?.requestHash ? path.join(receipts,`${stage.requestHash}.json`) : receiptFile;
+  const prior = readReceipt(priorFile);
+  if (stage && !prior) throw new Error(`provider_receipt_invalid:${priorFile}`);
+  if (prior?.status === "received" && priorFile !== receiptFile) throw new Error(`provider_stage_request_changed:${input.stage}`);
+  if (prior?.status==="in_flight" && (!input.retryUncertain || priorFile!==receiptFile)) throw new Error(`provider_outcome_uncertain:${priorFile}`);
+  const saved = readReceipt(receiptFile);
+  if (saved && (!["received","rejected","in_flight"].includes(saved.status) || (saved.status==="received" && !saved.response))) throw new Error(`provider_receipt_invalid:${receiptFile}`);
+  if (saved?.status==="received") return saved.response!;
+  if (saved?.status==="in_flight" && !input.retryUncertain) throw new Error(`provider_outcome_uncertain:${receiptFile}`);
+  input.beforeRequest?.();
+  atomicJson(stageFile, {requestHash});
+  atomicJson(receiptFile, {status:"in_flight",model:input.model,startedAt:new Date().toISOString()});
+  try {
+    const response = await input.execute();
+    atomicJson(receiptFile, {status:"received",provider,model:input.model,response,receivedAt:new Date().toISOString()});
+    return response;
+  } catch (error) {
+    const status = (error as {status?: number}).status;
+    if (status && status>=400 && status<500) atomicJson(receiptFile, {status:"rejected",model:input.model,code:status});
+    console.error(` 🎮 [adaptive-math] [provider-request] [${status ? "rejected" : "outcome-uncertain"}] receipt=${receiptFile}`);
+    if (!status || status>=500) throw new Error(`provider_outcome_uncertain:${receiptFile}: ${error instanceof Error ? error.message : String(error)}`);
+    throw error;
+  }
+}
+
 export async function generateMathDiscoveryExperience(input: {
   rootDir?: string;
   childId: string;
   homeworkId: string;
   assignmentText: string;
+  assignmentSource?: AssignmentSourceExtraction;
   assignmentEvidenceIds: string[];
   factualChildContext: unknown;
   client?: Anthropic;
   plannerModel?: string;
   architectModel?: string;
   builderModel?: string;
+  repairModel?: string;
+  retryUncertain?: boolean;
   visualReview?: (input: { html: string; draftDir: string }) => Promise<string>;
 }): Promise<{ contract: MathDiscoveryEvaluationContract; design: Record<string, unknown> }> {
   const rootDir = input.rootDir ?? process.cwd();
-  const client = input.client ?? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+  const client = () => input.client ?? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY, maxRetries: 0 });
   const draftDir = path.join(resolveChildContextDir(input.childId, { rootDir }), "homework", "direct-drafts", input.homeworkId);
   const academicCheckpointFile = path.join(draftDir, "discovery-academic.json");
   const designCheckpointFile = path.join(draftDir, "discovery-design.json");
   const builderCheckpointFile = path.join(draftDir, "discovery-builder.json");
-  const reviewedCheckpointFile = path.join(draftDir, "discovery-reviewed.json");
   const readCheckpoint = <T>(file: string): T | undefined => {
     if (!fs.existsSync(file)) return undefined;
     try {
@@ -353,16 +578,55 @@ export async function generateMathDiscoveryExperience(input: {
       return undefined;
     }
   };
-  const create = async (model: string, prompt: string, tool?: { name: string; schema: Record<string, unknown> }): Promise<unknown> => {
+  const create = async (model: string, prompt: string | Array<Record<string, unknown>>, tool?: { name: string; schema: Record<string, unknown> }): Promise<unknown> => {
+    const provider = model.startsWith("gpt-") ? "openai" : "anthropic";
     const request = {
       model,
       max_tokens: tool ? 12_000 : 48_000,
-      messages: [{ role: "user", content: prompt }],
+      messages: [{ role: "user", content: tool?.name === "create_math_discovery_contract" && input.assignmentSource && typeof prompt === "string" ? assignmentPlannerContent(input.assignmentSource,prompt) : prompt }],
       ...(tool ? { tools: [{ name: tool.name, description: "Return the requested frozen artifact.", input_schema: tool.schema }], tool_choice: { type: "tool", name: tool.name } } : {}),
     };
-    return client.messages
-      .stream(request as never, { timeout: Number(process.env.SUNNY_AI_TIMEOUT_MS ?? 600_000) })
-      .finalMessage();
+    return runMathProviderStage({draftDir, stage: tool?.name ?? (Array.isArray(prompt) ? "repair" : "builder"), model, request, retryUncertain: input.retryUncertain, beforeRequest: () => {
+      if (provider === "openai" && !process.env.OPENAI_API_KEY?.trim()) throw new Error("preflight_missing:OPENAI_API_KEY");
+      if (provider === "anthropic" && !input.client && !process.env.ANTHROPIC_API_KEY && !process.env.ANTHROPIC_AUTH_TOKEN) throw new Error("preflight_missing:ANTHROPIC_API_KEY");
+    }, execute: async () => {
+      let response: unknown;
+      if (provider === "openai") {
+        if (tool) throw new Error("discovery_openai_text_generation_only");
+        const apiResponse = await fetch("https://api.openai.com/v1/responses", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}`, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            model,
+            input: typeof prompt === "string"
+              ? prompt
+              : [{ role: "user", content: buildOpenAiDiscoveryRepairInput(prompt) }],
+            reasoning: { effort: "high" },
+            max_output_tokens: 48_000,
+            stream: true,
+            store: false,
+          }),
+          signal: AbortSignal.timeout(Number(process.env.SUNNY_AI_TIMEOUT_MS ?? 600_000)),
+        });
+        if (!apiResponse.ok) {
+          const failure = new Error(`discovery_openai_failed:${apiResponse.status}:${(await apiResponse.text()).slice(0, 800)}`) as Error & { status?: number };
+          failure.status = apiResponse.status;
+          throw failure;
+        }
+        const streamed = await readOpenAiResponseStream(apiResponse);
+        if (streamed.stopReason !== "completed") throw new Error(`discovery_openai_incomplete:${streamed.stopReason}`);
+        response = {
+          provider,
+          model,
+          content: [{ type: "text", text: streamed.raw }],
+          stop_reason: streamed.stopReason,
+          usage: { input_tokens: streamed.inputTokens, output_tokens: streamed.outputTokens },
+        };
+      } else {
+        response = await client().messages.stream(request as never, { timeout: Number(process.env.SUNNY_AI_TIMEOUT_MS ?? 600_000), maxRetries: 0 }).finalMessage();
+      }
+      return response;
+    }});
   };
   const common = `ASSIGNMENT EVIDENCE IDS:\n${JSON.stringify(input.assignmentEvidenceIds)}\n\nASSIGNMENT:\n${input.assignmentText}\n\nFACTUAL CHILD CONTEXT:\n${JSON.stringify(input.factualChildContext, null, 2)}`;
   let academic = readCheckpoint<DiscoveryAcademicContract>(academicCheckpointFile);
@@ -370,19 +634,21 @@ export async function generateMathDiscoveryExperience(input: {
     console.log(` 🎮 [adaptive-math] [discovery-planner] [reused] child=${input.childId} homework=${input.homeworkId}`);
   } else {
     console.log(` 🎮 [adaptive-math] [discovery-planner] [running] child=${input.childId} homework=${input.homeworkId}`);
-    const plannerResponse = await create(input.plannerModel ?? process.env.SUNNY_PLANNER_MODEL ?? "claude-opus-5", `You are Sunny's Academic Planner. Create one independent opening mathematics evaluation that determines what the child already knows and where evidence is missing. Author three to five fresh items without copying the assignment. Each item must identify its construct, response contract, accepted answers, difficulty boundary, exposure identity, possible confounds, falsifying evidence, and measurement keys. Collect independent evidence before teaching or answer exposure. Prefer the lowest-friction response mode that preserves the mathematics. Do not choose presentation, characters, mechanics, sound, rewards, or implementation. Do not declare mastery.\n\n${common}`, {
+    const plannerResponse = await create(input.plannerModel ?? process.env.SUNNY_PLANNER_MODEL ?? "claude-opus-5", `You are Sunny's Academic Planner. Create one independent opening mathematics evaluation that determines what the child already knows and where evidence is missing. Author fresh items without copying the assignment. Keep visible question text separate from representation specifications: never state the answer or transcribe bar heights into a graph-reading question. The visible question, diagram, axis labels, and accepted answer must be consistent. Use prior academic observations to target missing evidence; do not infer learning styles. For each item ask whether it can be answered without using the claimed construct; revise it before returning if it can. Construct IDs are evidence labels: do not name a numeric strategy or interval (for example, by-tens) unless every linked item actually measures that exact strategy or interval. Before returning, compare each construct ID against each linked prompt, representation, and accepted answer. Each item must identify its construct, response contract, accepted answers, difficulty boundary, exposure identity, possible confounds, falsifying evidence, and measurement keys. Collect independent evidence before teaching or answer exposure. Prefer the lowest-friction response mode that preserves the mathematics. Do not choose presentation, characters, mechanics, sound, rewards, or implementation. Do not declare mastery.\n\n${common}`, {
       name: "create_math_discovery_contract",
       schema: { type: "object", additionalProperties: false, required: ["evaluationId", "title", "assignmentEvidenceIds", "constructs", "items"], properties: {
         evaluationId: { type: "string" }, title: { type: "string" }, assignmentEvidenceIds: { type: "array", items: { type: "string" } },
         constructs: { type: "array", minItems: 1, items: { type: "object", additionalProperties: false, required: ["constructId", "prerequisiteIds"], properties: { constructId: { type: "string" }, prerequisiteIds: { type: "array", items: { type: "string" } } } } },
-        items: { type: "array", minItems: 1, items: { type: "object", additionalProperties: false, required: ["itemId", "constructId", "prompt", "responseContract", "correctAnswerContract", "difficultyBoundary", "exposureId", "possibleConfounds", "falsifyingEvidence", "measurementKeys"], properties: { itemId: { type: "string" }, constructId: { type: "string" }, prompt: { type: "string" }, responseContract: { type: "object", additionalProperties: false, required: ["mode", "representationId"], properties: { mode: { type: "string", enum: ["tap_selection", "tap_numeric_pad", "drag_construct"] }, representationId: { type: "string" } } }, correctAnswerContract: { type: "object", additionalProperties: false, required: ["acceptedValues"], properties: { acceptedValues: { type: "array", minItems: 1, items: { type: "string" } } } }, difficultyBoundary: { type: "string" }, exposureId: { type: "string" }, possibleConfounds: { type: "array", items: { type: "string" } }, falsifyingEvidence: { type: "array", items: { type: "string" } }, measurementKeys: { type: "array", items: { type: "string" } } } } },
+        items: { type: "array", minItems: 1, items: { type: "object", additionalProperties: false, required: ["itemId", "constructId", "prompt", "representationSpec", "responseContract", "correctAnswerContract", "difficultyBoundary", "exposureId", "possibleConfounds", "falsifyingEvidence", "measurementKeys"], properties: { itemId: { type: "string" }, constructId: { type: "string" }, prompt: { type: "string" }, representationSpec: { type: "string", description: "Frozen academic diagram data, axes, labels, and scale. Do not include the answer in visible question text." }, responseContract: { type: "object", additionalProperties: false, required: ["mode", "representationId"], properties: { mode: { type: "string", enum: ["tap_selection", "tap_numeric_pad", "drag_construct"] }, representationId: { type: "string" } } }, correctAnswerContract: { type: "object", additionalProperties: false, required: ["acceptedValues"], properties: { acceptedValues: { type: "array", minItems: 1, items: { type: "string" } } } }, difficultyBoundary: { type: "string" }, exposureId: { type: "string" }, possibleConfounds: { type: "array", items: { type: "string" } }, falsifyingEvidence: { type: "array", items: { type: "string" } }, measurementKeys: { type: "array", items: { type: "string" } } } } },
       } },
     });
     academic = toolInput(plannerResponse, "create_math_discovery_contract") as DiscoveryAcademicContract;
     assertDiscoveryResponseContracts(academic);
+    assertDiscoveryConstructSemantics(academic);
     atomicJson(academicCheckpointFile, academic);
   }
   assertDiscoveryResponseContracts(academic);
+  assertDiscoveryConstructSemantics(academic);
   const contractHash = hashDiscoveryContract(academic);
   const runtimeContractJson = JSON.stringify(expectedDiscoveryRuntimeContract(academic));
   console.log(` 🎮 [adaptive-math] [discovery-planner] [saved] hash=${contractHash.slice(0, 12)}`);
@@ -407,8 +673,14 @@ export async function generateMathDiscoveryExperience(input: {
   const designHash = hashDiscoveryContract(stableDesigned);
   console.log(` 🎮 [adaptive-math] [discovery-design] [saved] hash=${designHash.slice(0, 12)}`);
   const builderModel = input.builderModel ?? process.env.SUNNY_GENERATION_MODEL ?? process.env.SUNNY_INGEST_MODEL ?? "claude-sonnet-5";
-  const builderPrompt = `You are Sunny's Experience Creator implementing a frozen academic contract and frozen design. Return one complete standalone HTML document usable at both 1365x768 and 1280x720. It must work with touch or mouse without a keyboard and never trap the child. Keep every required action fully visible without scrolling, and keep every mathematical representation large and legible enough for a child to inspect. Post evaluation_ready and evaluation_complete to window.parent. For every committed response post evaluation_attempt with exactly this payload shape: {attemptId,itemId,attemptedValue,supportEventIds:[],instrumentSignals:[],observedAt}. attemptedValue is the selected value or a stable JSON serialization of constructed state. supportEventIds contains only real support events supplied to the activity; otherwise it is empty. instrumentSignals may contain only interface_friction, reading_friction, response_not_captured, scoring_disagreement, or prompt_ambiguity; otherwise it is empty. Do not post construct, correctness, exposure, assistance, or responseMode because the server derives those facts. Post evaluation_friction when relevant without replacing the attempt. It may not access Sunny APIs, storage, currency, or child state. Do not use browser speech synthesis or oscillator audio. Do not change the contract or answers. Expose the real side-effect-free scoring function through window.__SUNNY_DISCOVERY_TEST__.evaluate(itemId, attemptedValue), returning { itemId, constructId, correct } from the exact same scoring logic as the child-facing controls. Embed this exact JSON without alteration in <script id="sunny-discovery-contract" type="application/json">: ${runtimeContractJson}\n\nACADEMIC CONTRACT HASH: ${contractHash}\n${JSON.stringify(academic, null, 2)}\n\nDESIGN HASH: ${designHash}\n${JSON.stringify(designed.design, null, 2)}`;
-  const builderPromptHash = hashDiscoveryContract({ model: builderModel, prompt: builderPrompt });
+  const repair = resolveDiscoveryRepairModel({
+    builderModel,
+    environment: { ...process.env, ...(input.repairModel ? { SUNNY_DISCOVERY_REPAIR_MODEL: input.repairModel } : {}) },
+  });
+  const builderPrompt = `You are Sunny's Experience Creator implementing a frozen academic contract and frozen design. Return one complete standalone HTML document usable at both 1365x768 and 1280x720. It must work with touch or mouse without a keyboard and never trap the child. Keep every required action fully visible without scrolling, and keep every mathematical representation large and legible enough for a child to inspect. Post evaluation_ready and evaluation_complete to window.parent. For every committed response post evaluation_attempt with exactly this payload shape: {attemptId,itemId,attemptedValue,supportEventIds:[],instrumentSignals:[],observedAt}. attemptedValue is the selected value or a stable JSON serialization of constructed state. supportEventIds contains only real support events supplied to the activity; otherwise it is empty. instrumentSignals may contain only interface_friction, reading_friction, response_not_captured, scoring_disagreement, or prompt_ambiguity; otherwise it is empty. Do not post construct, correctness, exposure, assistance, or responseMode because the server derives those facts. Post evaluation_friction when relevant without replacing the attempt. ${MATH_JOURNEY_CONTRACT} Accumulate all observed item friction into instrumentSignals on that item's evaluation_attempt. It may not access Sunny APIs, storage, currency, or child state. Do not use browser speech synthesis or oscillator audio. Do not change the contract or answers. Expose the real side-effect-free scoring function through window.__SUNNY_DISCOVERY_TEST__.evaluate(itemId, attemptedValue), returning { itemId, constructId, correct } from the exact same scoring logic as the child-facing controls. Embed this exact JSON without alteration in <script id="sunny-discovery-contract" type="application/json">: ${runtimeContractJson}\n\nACADEMIC CONTRACT HASH: ${contractHash}\n${JSON.stringify(academic, null, 2)}\n\nDESIGN HASH: ${designHash}\n${JSON.stringify(designed.design, null, 2)}`;
+  const builderEngineering = freezeEngineeringLessonSnapshot({ snapshotFile: path.join(draftDir, "discovery-builder-engineering.snapshot.json"), auditRoot: resolveContextRoot({ rootDir }), features: engineeringFeatures(JSON.stringify(designed.design)), verifierVersion: DISCOVERY_VERIFIER_VERSION, preserveCompleted: fs.existsSync(builderCheckpointFile) || hasReceivedMathProviderStage(draftDir, "builder") });
+  const completedAwareBuilderPrompt = builderPrompt + engineeringLessonContext(builderEngineering);
+  const builderPromptHash = hashDiscoveryContract({ model: builderModel, prompt: completedAwareBuilderPrompt });
   type HtmlCheckpoint = { contractHash: string; designHash: string; builderPromptHash: string; html: string };
   let initialHtml: string;
   const savedBuilder = readCheckpoint<HtmlCheckpoint>(builderCheckpointFile);
@@ -418,7 +690,8 @@ export async function generateMathDiscoveryExperience(input: {
     initialHtml = savedBuilder.html;
     console.log(` 🎮 [adaptive-math] [discovery-builder] [reused] hash=${hashDiscoveryContract(initialHtml).slice(0, 12)}`);
   } else {
-    const builderResponse = await create(builderModel, builderPrompt);
+    console.log(` 🎮 [adaptive-math] [discovery-builder] [running] model=${builderModel}`);
+    const builderResponse = await create(builderModel, completedAwareBuilderPrompt);
     const builderResult = builderResponse as {
       stop_reason?: string | null;
       usage?: { input_tokens?: number; output_tokens?: number };
@@ -443,33 +716,39 @@ export async function generateMathDiscoveryExperience(input: {
     validateDiscoveryAcademicBinding(initialHtml, academic);
     atomicJson(builderCheckpointFile, { contractHash, designHash, builderPromptHash, html: initialHtml });
   }
-  const savedReviewed = readCheckpoint<HtmlCheckpoint>(reviewedCheckpointFile);
   let html: string;
-  if (savedReviewed?.contractHash === contractHash && savedReviewed.designHash === designHash
-    && savedReviewed.builderPromptHash === builderPromptHash) {
-    validateDiscoveryAcademicBinding(savedReviewed.html, academic);
-    html = savedReviewed.html;
-    console.log(` 🎮 [adaptive-math] [discovery-review] [reused] hash=${hashDiscoveryContract(html).slice(0, 12)}`);
-  } else {
+    console.log(" 🎮 [adaptive-math] [discovery-review] [running] viewports=1365x768,1280x720");
     html = input.visualReview
       ? await input.visualReview({ html: initialHtml, draftDir })
       : (await reviewDiscoveryCandidate({
         html: initialHtml,
         outputDir: path.join(draftDir, "visual-review"),
         render: renderDiscoveryCandidate,
+        verificationKey: contractHash,
+        verify: html => verifyDiscoveryRuntimeScoring({html, academic, outputDir: path.join(draftDir, "runtime-verification")}),
         repair: async ({ html: rejectedHtml, issues, screenshotPaths }) => {
-          console.log(` 🎮 [adaptive-math] [discovery-builder-repair] [running] model=${builderModel}`);
-          const repairPrompt = `You are Sunny's Experience Creator repairing only the implementation of a frozen Discovery experience. The attached images show the current experience at 1365x768 and 1280x720. Preserve the academic contract, accepted answers, item identities, evidence events, design artifact, #sunny-discovery-contract JSON, and window.__SUNNY_DISCOVERY_TEST__.evaluate bridge. Correct the screenshot-grounded rendering defects listed below and return one complete standalone HTML document. The bridge must remain side-effect-free and use the exact same scoring logic as the child-facing controls. Do not redesign the experience or add child-state, API, storage, currency, speech-synthesis, or oscillator access.\n\nRENDERING DEFECTS:\n${issues.map((issue) => `- ${issue}`).join("\n")}\n\nRUNTIME CONTRACT JSON:\n${runtimeContractJson}\n\nACADEMIC CONTRACT HASH: ${contractHash}\n${JSON.stringify(academic, null, 2)}\n\nDESIGN HASH: ${designHash}\n${JSON.stringify(designed.design, null, 2)}\n\nCURRENT HTML:\n${rejectedHtml}`;
+          console.log(` 🎮 [adaptive-math] [discovery-builder-repair] [running] provider=${repair.provider} model=${repair.model}`);
+          const repairPrompt = buildDiscoveryRepairPrompt({
+            issues,
+            runtimeContractJson,
+            contractHash,
+            academic,
+            designHash,
+            design: designed.design,
+            html: rejectedHtml,
+          });
           const repairStartedAt = Date.now();
-          const repairedResponse = await client.messages.stream({
-            model: builderModel,
-            max_tokens: 48_000,
-            messages: [{ role: "user", content: buildDiscoveryRepairMessageContent(screenshotPaths, repairPrompt) }],
-          } as never, { timeout: Number(process.env.SUNNY_AI_TIMEOUT_MS ?? 600_000) }).finalMessage();
+          const repairEngineering = freezeEngineeringLessonSnapshot({ snapshotFile: path.join(draftDir, "discovery-repair-engineering.snapshot.json"), auditRoot: resolveContextRoot({ rootDir }), features: engineeringFeatures(rejectedHtml), defects: issues, verifierVersion: DISCOVERY_VERIFIER_VERSION, preserveCompleted: hasReceivedMathProviderStage(draftDir, "repair") });
+          const repairedResponse = await create(repair.model, buildDiscoveryRepairMessageContent(screenshotPaths, repairPrompt + engineeringLessonContext(repairEngineering)));
           const repairFinishedAt = Date.now();
           const repairedText = responseText(repairedResponse);
+          const inputTokens = Number((repairedResponse as { usage?: { input_tokens?: number } }).usage?.input_tokens ?? 0);
+          const outputTokens = Number((repairedResponse as { usage?: { output_tokens?: number } }).usage?.output_tokens ?? 0);
+          const estimatedCostUsd = estimateDiscoveryRepairCost({ provider: repair.provider, inputTokens, outputTokens });
           atomicJson(path.join(draftDir, "provider-diagnostics", "discovery-builder-repair-response.json"), {
-            model: builderModel,
+            provider: repair.provider,
+            model: repair.model,
+            estimatedCostUsd,
             ...buildDiscoveryRepairDiagnostic({
               response: repairedResponse as { stop_reason?: string | null; usage?: unknown },
               textCharacters: repairedText.length,
@@ -479,25 +758,30 @@ export async function generateMathDiscoveryExperience(input: {
               finishedAt: repairFinishedAt,
             }),
           });
-          const repairedHtml = standaloneHtml(repairedText);
+          const appliedPatch = applyDiscoveryHtmlPatch(rejectedHtml, repairedText);
+          const repairedHtml = appliedPatch.html;
           validateDiscoveryAcademicBinding(repairedHtml, academic);
-          console.log(` 🎮 [adaptive-math] [discovery-builder-repair] [saved] hash=${hashDiscoveryContract(repairedHtml).slice(0, 12)}`);
+          if (appliedPatch.engineeringLesson) recordEngineeringRepairEvidence({ file: path.join(draftDir, "provider-diagnostics/discovery.engineering-repair.json"), verifierVersion: DISCOVERY_VERIFIER_VERSION, originalHash: hashDiscoveryContract(rejectedHtml), repairedHash: hashDiscoveryContract(repairedHtml), academicHash: contractHash, designHash, issues, proposal: appliedPatch.engineeringLesson, inputTokens, outputTokens, latencyMs: repairFinishedAt - repairStartedAt, costUsd: estimatedCostUsd });
+          console.log(` 🎮 [adaptive-math] [discovery-builder-repair] [saved] model=${repair.model} replacements=${appliedPatch.replacementCount} changedOriginalCharacters=${appliedPatch.changedOriginalCharacters} hash=${hashDiscoveryContract(repairedHtml).slice(0, 12)} latencyMs=${repairFinishedAt - repairStartedAt} estimatedCostUsd=${estimatedCostUsd.toFixed(6)}`);
           return repairedHtml;
         },
         })).html;
     validateDiscoveryAcademicBinding(html, academic);
-    atomicJson(reviewedCheckpointFile, { contractHash, designHash, builderPromptHash, html });
-  }
   validateDiscoveryAcademicBinding(html, academic);
-  await verifyDiscoveryRuntimeScoring({
-    html,
-    academic,
-    outputDir: path.join(draftDir, "runtime-verification"),
-  });
+  console.log(" 🎮 [adaptive-math] [discovery-runtime-verification] [running] scoring=frozen-contract");
+  if (input.visualReview) await verifyDiscoveryRuntimeScoring({ html, academic, outputDir: path.join(draftDir, "runtime-verification") });
+  if (!input.visualReview) verifyEngineeringRepairEvidence(path.join(draftDir, "provider-diagnostics/discovery.engineering-repair.json"), { artifactHash: hashDiscoveryContract(html), academicHash: contractHash, designHash, verifierVersion: DISCOVERY_VERIFIER_VERSION, runtime: true, scoring: true, contracts: true, viewports: DISCOVERY_RELEASE_VIEWPORTS.map(viewport => `${viewport.width}x${viewport.height}`) });
   const locations = discoveryArtifactLocations({ rootDir, childId: input.childId, homeworkId: input.homeworkId });
   fs.mkdirSync(locations.storageDir, { recursive: true });
-  fs.writeFileSync(locations.htmlFile, html, "utf8");
-  fs.writeFileSync(locations.artworkFile, String(designed.backgroundSvg), "utf8");
+  for (const [file,content] of [[locations.htmlFile,html],[locations.artworkFile,String(designed.backgroundSvg)]]) {
+    if (fs.existsSync(file)) {
+      if (fs.readFileSync(file,"utf8")!==content) throw new Error(`discovery_immutable_artifact_mismatch:${file}`);
+    } else {
+      const temporary=`${file}.${randomUUID()}.tmp`;
+      try {fs.writeFileSync(temporary,content,"utf8");fs.linkSync(temporary,file);}
+      finally {fs.rmSync(temporary,{force:true});}
+    }
+  }
   const contract: MathDiscoveryEvaluationContract = { ...academic, artifact: { artifactId: `${input.homeworkId}:discovery`, htmlPath: locations.htmlPath, artworkPath: locations.artworkPath, contractHash, artifactHash: hashDiscoveryContract(html) } };
   atomicJson(path.join(draftDir, "discovery-contract.json"), contract);
   atomicJson(designCheckpointFile, designed);
@@ -518,6 +802,18 @@ export type DiscoveryEvidenceSummary = {
   version: 1;
   homeworkId: string;
   evaluationId: string;
+  coverage?: { assigned: number; attempted: number; untestedItemIds: string[]; complete: boolean };
+  spellingTargets?: Array<{
+    word: string;
+    itemId: string;
+    constructId: string;
+    attempts: number;
+    independentCorrect: number;
+    independentIncorrect: number;
+    assisted: number;
+    ambiguous: number;
+    observationIds: string[];
+  }>;
   constructs: Array<{
     constructId: string;
     independentCorrect: number;
@@ -555,6 +851,7 @@ export type MathGenerationJob = {
   designHash: string;
   startedAt: string;
   updatedAt: string;
+  error?: string;
   nodes: Array<{
     nodeId: string;
     status: MathGenerationNodeStatus;
@@ -565,16 +862,23 @@ export type MathGenerationJob = {
   }>;
 };
 
-type RootOptions = { rootDir?: string };
+type RootOptions = Pick<ContextRootOptions, "rootDir" | "contextRoot" | "env">;
 
-function generationJobPath(childId: string, homeworkId: string, opts: RootOptions): string {
+export function resolveAdaptiveMathDraftDir(
+  childId: string,
+  homeworkId: string,
+  opts: RootOptions = {},
+): string {
   return path.join(
-    resolveChildContextDir(childId, { rootDir: opts.rootDir }),
+    resolveChildContextDir(childId, opts),
     "homework",
     "direct-drafts",
     homeworkId,
-    "adaptive-generation-job.json",
   );
+}
+
+function generationJobPath(childId: string, homeworkId: string, opts: RootOptions): string {
+  return path.join(resolveAdaptiveMathDraftDir(childId, homeworkId, opts), "adaptive-generation-job.json");
 }
 
 function generationLeasePath(childId: string, homeworkId: string, opts: RootOptions): string {
@@ -594,9 +898,9 @@ export function acquireMathGenerationLease(input: {
   fs.mkdirSync(path.dirname(file), { recursive: true });
   const tryCreate = (): boolean => {
     try {
-      const descriptor = fs.openSync(file, "wx");
-      try { fs.writeFileSync(descriptor, `${JSON.stringify(payload)}\n`, "utf8"); }
-      finally { fs.closeSync(descriptor); }
+      const temporary=`${file}.${token}.tmp`;
+      try {fs.writeFileSync(temporary,`${JSON.stringify(payload)}\n`,"utf8");fs.linkSync(temporary,file);}
+      finally {fs.rmSync(temporary,{force:true});}
       return true;
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
@@ -607,20 +911,30 @@ export function acquireMathGenerationLease(input: {
     console.log(` 🎮 [adaptive-math] [worker-lease] [acquired] child=${input.childId} homework=${input.homeworkId}`);
     return { acquired: true, token };
   }
-  let stale = false;
+  let stale = false, savedBytes = "";
   try {
-    const saved = JSON.parse(fs.readFileSync(file, "utf8")) as { acquiredAt?: string };
-    const ageMs = Date.now() - Date.parse(saved.acquiredAt ?? "");
-    stale = Number.isFinite(ageMs) && ageMs > (input.staleAfterMs ?? 30 * 60_000);
-  } catch {
-    stale = true;
-  }
-  if (stale) {
-    fs.rmSync(file, { force: true });
-    if (tryCreate()) {
-      console.log(` 🎮 [adaptive-math] [worker-lease] [recovered-stale] child=${input.childId} homework=${input.homeworkId}`);
-      return { acquired: true, token };
+    savedBytes=fs.readFileSync(file,"utf8");
+    const saved = JSON.parse(savedBytes) as { acquiredAt?: string; ownerPid?: number };
+    let alive = false;
+    if (saved.ownerPid && Number.isInteger(saved.ownerPid) && saved.ownerPid > 0) {
+      try { process.kill(saved.ownerPid, 0); alive = true; }
+      catch (error) { alive = (error as NodeJS.ErrnoException).code !== "ESRCH"; }
     }
+    const ageMs = Date.now() - Date.parse(saved.acquiredAt ?? "");
+    stale = !alive && (Boolean(saved.ownerPid) || (Number.isFinite(ageMs) && ageMs > (input.staleAfterMs ?? 30 * 60_000)));
+  } catch {console.warn(` 🎮 [adaptive-math] [worker-lease] [unreadable] file=${file}`);}
+  if (stale) {
+    const reclaim=`${file}.reclaim`;
+    let ownsReclaim=false;
+    try {
+      fs.mkdirSync(reclaim);ownsReclaim=true;
+      if (fs.existsSync(file) && fs.readFileSync(file,"utf8")===savedBytes) fs.rmSync(file);
+      if (tryCreate()) {
+        console.log(` 🎮 [adaptive-math] [worker-lease] [recovered-stale] child=${input.childId} homework=${input.homeworkId}`);
+        return { acquired: true, token };
+      }
+    } catch(error) {if ((error as NodeJS.ErrnoException).code==="EEXIST") throw new Error(`math_generation_reclaim_needs_attention:${reclaim}`); throw error;}
+    finally {if(ownsReclaim)fs.rmdirSync(reclaim);}
   }
   console.log(` 🎮 [adaptive-math] [worker-lease] [already-running] child=${input.childId} homework=${input.homeworkId}`);
   return { acquired: false, reason: "worker_already_running" };
@@ -759,7 +1073,8 @@ export function publishDiscoveryExperience(input: {
   rootDir?: string;
   childId: string;
   homeworkId: string;
-  evaluation: MathDiscoveryEvaluationContract;
+  evaluation?: MathDiscoveryEvaluationContract;
+  spellingItems?: LearningCycleSpellingItem[];
   activeSessionPlan: ActiveSessionPlan;
   assignment: LearningCycleRecordV2["assignment"];
 }): void {
@@ -768,15 +1083,43 @@ export function publishDiscoveryExperience(input: {
   const planPath = path.join(contextDir, "plans", "active_session_plan.json");
   const homeworkPath = path.join(contextDir, "homework", "current.json");
   const profilePath = path.join(contextDir, "learning_profile.json");
-  const cyclePath = path.join(contextDir, "homework", "cycles", `${input.homeworkId}.json`);
-  const files = [planPath, homeworkPath, profilePath, cyclePath];
-  const before = new Map(files.map((file) => [file, fs.existsSync(file) ? fs.readFileSync(file) : null]));
+  const native = input.spellingItems;
+  const evaluation = input.evaluation;
+  if (Boolean(native) === Boolean(evaluation)) throw new Error("discovery_publication_contract_required");
+  const domain = native ? "spelling" : "math";
+  const artifactHash = native ? hashDiscoveryContract(native) : evaluation!.artifact.artifactHash;
+  if (native) {
+    const node = input.activeSessionPlan.nodePlan[0];
+    if (!native.length || input.activeSessionPlan.domain !== "spelling" || input.activeSessionPlan.nodePlan.length !== 1
+      || node?.activityId !== "word-radar" || node.wordRadarConfig?.recallMode !== "hidden_word_recall"
+      || node.wordRadarConfig?.hideWordDuringResponse !== true || node.wordRadarConfig?.showTimer !== false
+      || JSON.stringify(node.targets) !== JSON.stringify(native.map(item => item.word))) throw new Error("spelling_discovery_publication_contract_mismatch");
+  } else {
+  const locations=discoveryArtifactLocations({rootDir,childId:input.childId,homeworkId:input.homeworkId});
+  const proofFile=path.join(resolveAdaptiveMathDraftDir(input.childId,input.homeworkId,{rootDir}),"runtime-verification/acceptance.json");
+  if (!fs.existsSync(proofFile) || !fs.existsSync(locations.htmlFile)) throw new Error("discovery_publication_acceptance_missing");
+  const proof=JSON.parse(fs.readFileSync(proofFile,"utf8"));
+  if (proof.passed!==true || proof.verifierVersion!==DISCOVERY_VERIFIER_VERSION || proof.htmlHash!==artifactHash
+    || proof.htmlHash!==hashDiscoveryContract(fs.readFileSync(locations.htmlFile,"utf8")) || proof.academicHash!==hashDiscoveryContract(evaluation!.items)) throw new Error("discovery_publication_acceptance_mismatch");
+  }
+  const existing=getLearningCycle(input.childId,input.homeworkId,{rootDir});
+  if (existing && existing.lifecycle!=="evaluation_ready") {
+    const binding=existing.nodes.find(node=>node.role==="evaluation")?.artifactBinding;
+    if ((native ? binding?.contractFingerprint : binding?.creativeProvenance?.generatedHtmlHash)!==artifactHash) throw new Error("discovery_active_artifact_mismatch");
+    console.log(` 🎮 [adaptive-math] [discovery-publication] [active-cycle-preserved] child=${input.childId} homework=${input.homeworkId}`);
+    return;
+  }
+  const journal = path.join(contextDir, "homework", "discovery-publication.json");
+  if (fs.existsSync(journal)) {
+    const saved = JSON.parse(fs.readFileSync(journal,"utf8")) as {input: typeof input};
+    if (saved.input.homeworkId !== input.homeworkId || (saved.input.spellingItems ? hashDiscoveryContract(saved.input.spellingItems) : saved.input.evaluation?.artifact.artifactHash) !== artifactHash) throw new Error("discovery_publication_pending_other_assignment");
+  } else atomicJson(journal, {version:1,input:{...input,rootDir},createdAt:new Date().toISOString()});
   const readObject = (file: string): Record<string, unknown> => {
     try { return JSON.parse(fs.readFileSync(file, "utf8")) as Record<string, unknown>; } catch { return {}; }
   };
   const mergeDomain = (value: unknown, next: unknown): Record<string, unknown> => ({
     ...(value && typeof value === "object" ? value as Record<string, unknown> : {}),
-    math: next,
+    [domain]: next,
   });
   const now = new Date().toISOString();
   const pending = {
@@ -784,25 +1127,27 @@ export function publishDiscoveryExperience(input: {
     weekOf: now.slice(0, 10),
     testDate: null,
     returnTag: `#sunny_${input.childId}_${input.homeworkId}`,
-    wordList: [],
-    contentProfile: { practiceDomain: "math", topic: input.evaluation.title },
+    wordList: native?.map(item => item.word) ?? [],
+    contentProfile: { practiceDomain: domain, topic: input.assignment.title },
     capturedContent: { title: input.assignment.title, rawText: "Discovery evidence pending." },
     generatedAt: now,
     nodes: input.activeSessionPlan.nodePlan,
   };
   try {
-    if (!getLearningCycle(input.childId, input.homeworkId, { rootDir })) {
-      createDiscoveryLearningCycle({ ...input, rootDir });
+    if (native) {
+      let cycle = createSpellingDiscoveryCycle({ childId: input.childId, homeworkId: input.homeworkId, title: input.assignment.title, contentFingerprint: input.assignment.contentFingerprint, items: native }, { rootDir });
+      const configFile = path.join(resolveAdaptiveMathDraftDir(input.childId, input.homeworkId, { rootDir }), "spelling-discovery-config.json");
+      atomicJson(configFile, { version: 1, mode: "assessment", items: native, contractHash: artifactHash });
+      const node = cycle.nodes.find(node => node.role === "evaluation")!;
+      if (!node.artifactBinding) transitionLearningCycle(input.childId, input.homeworkId, cycle.revision, { type: "artifact_bound", nodeId: node.nodeId, artifact: { contentId: node.nodeId, artifactId: `${node.nodeId}:native-v1`, localArtifactPath: configFile, activityConfigPath: configFile, localArtworkPath: "/thumbnails/activities/word-radar.svg", contractFingerprint: artifactHash, validationStatus: "passed" } }, { rootDir });
+    } else if (!getLearningCycle(input.childId, input.homeworkId, { rootDir })) {
+      createDiscoveryLearningCycle({ ...input, evaluation: evaluation!, rootDir });
     }
     const previousPlan = readObject(planPath);
     const previousHomework = readObject(homeworkPath);
     const profile = readObject(profilePath);
-    atomicJson(planPath, {
-      version: 1, childId: input.childId, selectedDomain: "math", current: input.activeSessionPlan,
-      activeByDomain: mergeDomain(previousPlan.activeByDomain, input.activeSessionPlan), updatedAt: now,
-    });
     atomicJson(homeworkPath, {
-      version: 1, childId: input.childId, selectedDomain: "math", current: pending,
+      version: 1, childId: input.childId, selectedDomain: domain, current: pending,
       activeByDomain: mergeDomain(previousHomework.activeByDomain, pending), updatedAt: now,
     });
     profile.pendingHomework = pending;
@@ -810,15 +1155,27 @@ export function publishDiscoveryExperience(input: {
     profile.activeHomeworkByDomain = mergeDomain(profile.activeHomeworkByDomain, pending);
     profile.activeSessionPlanByDomain = mergeDomain(profile.activeSessionPlanByDomain, input.activeSessionPlan);
     atomicJson(profilePath, profile);
+    atomicJson(planPath, {
+      version: 1, childId: input.childId, selectedDomain: domain, current: input.activeSessionPlan,
+      activeByDomain: mergeDomain(previousPlan.activeByDomain, input.activeSessionPlan), updatedAt: now,
+    });
+    fs.rmSync(journal);
     console.log(` 🎮 [adaptive-math] [discovery-publication] [published] child=${input.childId} homework=${input.homeworkId}`);
   } catch (error) {
-    for (const [file, prior] of before) {
-      if (prior === null) fs.rmSync(file, { force: true });
-      else { fs.mkdirSync(path.dirname(file), { recursive: true }); fs.writeFileSync(file, prior); }
-    }
-    console.error(` 🎮 [adaptive-math] [discovery-publication] [rolled-back] child=${input.childId} homework=${input.homeworkId}`);
+    console.error(` 🎮 [adaptive-math] [discovery-publication] [recovery-required] child=${input.childId} homework=${input.homeworkId} journal=${journal}`);
     throw error;
   }
+}
+
+/** Finish only the interrupted projection; canonical observations are never rolled back. */
+export function recoverDiscoveryPublication(input: {rootDir?: string; childId: string}): void {
+  const journal=path.join(resolveChildContextDir(input.childId,input),"homework/discovery-publication.json");
+  if (!fs.existsSync(journal)) return;
+  const saved=JSON.parse(fs.readFileSync(journal,"utf8")) as {version:number;input:Parameters<typeof publishDiscoveryExperience>[0]};
+  if (saved.version!==1 || saved.input.childId!==input.childId) throw new Error("discovery_publication_journal_invalid");
+  const cycle=getLearningCycle(input.childId,saved.input.homeworkId,input);
+  if (cycle && cycle.lifecycle!=="evaluation_ready") throw new Error("discovery_publication_recovery_conflicts_with_started_cycle");
+  publishDiscoveryExperience({...saved.input,...input});
 }
 
 export function publishTargetedBoardProjection(input: {
@@ -834,7 +1191,19 @@ export function publishTargetedBoardProjection(input: {
   const readObject = (file: string): Record<string, unknown> => {
     try { return JSON.parse(fs.readFileSync(file, "utf8")) as Record<string, unknown>; } catch { return {}; }
   };
-  const plan = structuredClone(input.activeSessionPlan);
+  const cycle = getLearningCycle(input.childId, input.activeSessionPlan.activeHomeworkId!, { rootDir });
+  if (input.activeSessionPlan.domain === "spelling" && input.activeSessionPlan.adventureBoard) {
+    const presentedNodeIds = new Set(input.activeSessionPlan.adventureBoard.nodes.map((node) => node.id));
+    const missingNodeIds = input.activeSessionPlan.nodePlan
+      .filter((node) => !node.id.endsWith(":discovery"))
+      .map((node) => node.id)
+      .filter((nodeId) => !presentedNodeIds.has(nodeId));
+    if (missingNodeIds.length > 0) {
+      throw new Error(`spelling_board_presentation_missing_nodes:${missingNodeIds.join(",")}`);
+    }
+  }
+  const plan = cycle ? projectLearningCycle(cycle, { presentationPlan: input.activeSessionPlan }).activeSessionPlan : structuredClone(input.activeSessionPlan);
+  if (!cycle) {
   let currentAssigned = false;
   plan.nodePlan = plan.nodePlan.map((node) => ({ ...node, locked: input.nodeStatuses[node.id] !== "ready" }));
   if (plan.adventureBoard) {
@@ -860,12 +1229,25 @@ export function publishTargetedBoardProjection(input: {
       currentNodeId: plan.adventureBoard.nodes.find((node) => node.state === "current")?.id,
     };
   }
+  }
+  const domain = cycle?.domain ?? plan.domain;
+  if (domain === "spelling" && plan.adventureBoard) {
+    const issues = [
+      ...validateBoardGraph(plan.adventureBoard),
+      ...validateBoardChoices(plan.adventureBoard),
+      ...validateBoardVisualContract(plan.adventureBoard),
+    ].filter((issue) => issue.severity === "error");
+    if (issues.length > 0) {
+      throw new Error(`spelling_board_publication_rejected:${issues.map((issue) => `${issue.code}:${issue.nodeId ?? issue.choiceSetId ?? "board"}`).join("|")}`);
+    }
+    console.log(` 🎮 [spelling-board] [publication-gate] [passed] nodes=${plan.adventureBoard.nodes.length}`);
+  }
   const priorPlan = readObject(planPath);
   const profile = readObject(profilePath);
-  const activeByDomain = { ...(priorPlan.activeByDomain && typeof priorPlan.activeByDomain === "object" ? priorPlan.activeByDomain as Record<string, unknown> : {}), math: plan };
-  atomicJson(planPath, { version: 1, childId: input.childId, selectedDomain: "math", current: plan, activeByDomain, updatedAt: new Date().toISOString() });
+  const activeByDomain = { ...(priorPlan.activeByDomain && typeof priorPlan.activeByDomain === "object" ? priorPlan.activeByDomain as Record<string, unknown> : {}), [domain]: plan };
+  atomicJson(planPath, { version: 1, childId: input.childId, selectedDomain: domain, current: plan, activeByDomain, updatedAt: new Date().toISOString() });
   profile.activeSessionPlan = plan;
-  profile.activeSessionPlanByDomain = { ...(profile.activeSessionPlanByDomain && typeof profile.activeSessionPlanByDomain === "object" ? profile.activeSessionPlanByDomain as Record<string, unknown> : {}), math: plan };
+  profile.activeSessionPlanByDomain = { ...(profile.activeSessionPlanByDomain && typeof profile.activeSessionPlanByDomain === "object" ? profile.activeSessionPlanByDomain as Record<string, unknown> : {}), [domain]: plan };
   atomicJson(profilePath, profile);
   console.log(` 🎮 [adaptive-math] [targeted-board-projection] [published] child=${input.childId}`);
 }
@@ -908,6 +1290,7 @@ export function recordDiscoveryAttempt(input: {
   homeworkId: string;
   attempt: MathDiscoveryAttempt;
 }): LearningCycleRecordV2 {
+  assertChildPublicationCommitted(input.childId,input);
   let cycle = getLearningCycle(input.childId, input.homeworkId, { rootDir: input.rootDir });
   if (!cycle) throw new Error(`learning_cycle_missing:${input.homeworkId}`);
   const evaluation = cycle.nodes.find((node) => node.role === "evaluation");
@@ -1003,11 +1386,30 @@ export function buildDiscoveryEvidenceSummary(cycle: LearningCycleRecordV2): Dis
   const evaluation = cycle.nodes.find((node) => node.role === "evaluation");
   if (!evaluation) throw new Error("learning_cycle_evaluation_node_missing");
   const observations = cycle.observations.filter((observation) => observation.sourceId === `evaluation:${evaluation.nodeId}`);
-  const constructIds = [...new Set(observations.flatMap((observation) => observation.constructLinks.map((link) => link.constructId)))].sort();
+  const spellingItems = Object.values(evaluation.evidenceContract.spellingItems ?? {});
+  const untestedItemIds = spellingItems.filter(item => !observations.some(row => row.itemId === item.id)).map(item => item.id);
+  const constructIds = [...new Set([...spellingItems.map(item => item.constructId), ...observations.flatMap((observation) => observation.constructLinks.map((link) => link.constructId))])].sort();
   return {
     version: 1,
     homeworkId: cycle.homeworkId,
     evaluationId: evaluation.nodeId,
+    ...(spellingItems.length ? { coverage: { assigned: spellingItems.length, attempted: spellingItems.length - untestedItemIds.length, untestedItemIds, complete: untestedItemIds.length === 0 } } : {}),
+    ...(spellingItems.length ? {
+      spellingTargets: spellingItems.map((item) => {
+        const matching = observations.filter((observation) => observation.itemId === item.id);
+        return {
+          word: item.word,
+          itemId: item.id,
+          constructId: item.constructId,
+          attempts: matching.length,
+          independentCorrect: matching.filter((observation) => observation.provenance === "independent_probe" && observation.result.correct === true).length,
+          independentIncorrect: matching.filter((observation) => observation.provenance === "independent_probe" && observation.result.correct === false).length,
+          assisted: matching.filter((observation) => observation.assistance.status !== "unassisted").length,
+          ambiguous: matching.filter((observation) => observation.result.observedErrorType === "instrument_ambiguous").length,
+          observationIds: matching.map((observation) => observation.observationId),
+        };
+      }),
+    } : {}),
     constructs: constructIds.map((constructId) => {
       const matching = observations.filter((observation) => observation.constructLinks.some((link) => link.constructId === constructId));
       const responseModes = [...new Set(matching.flatMap((observation) => observation.confounds
@@ -1038,10 +1440,12 @@ export function completeDiscoveryEvaluation(input: {
   homeworkId: string;
   completedAt: string;
 }): LearningCycleRecordV2 {
+  assertChildPublicationCommitted(input.childId,input);
   const cycle = getLearningCycle(input.childId, input.homeworkId, { rootDir: input.rootDir });
   if (!cycle) throw new Error(`learning_cycle_missing:${input.homeworkId}`);
   const evaluation = cycle.nodes.find((node) => node.role === "evaluation");
   if (!evaluation) throw new Error("learning_cycle_evaluation_node_missing");
+  if (cycle.domain === "spelling" && buildDiscoveryEvidenceSummary(cycle).coverage?.complete !== true) throw new Error("spelling_discovery_coverage_incomplete");
   const completed = transitionLearningCycle(input.childId, input.homeworkId, cycle.revision, {
     type: "evaluation_completed",
     evaluationId: evaluation.nodeId,
@@ -1093,6 +1497,7 @@ export function revealTargetedBoard(input: {
   programHash: string;
   designHash: string;
   nodes: TargetedMathNode[];
+  nodeContracts?: LearningCycleNodeContract[];
   academicTheory?: LearningCycleRecordV2["academicTheory"];
   academicPredictions?: AcademicPrediction[];
   assumptions?: LearningAssumption[];
@@ -1116,7 +1521,7 @@ export function revealTargetedBoard(input: {
     type: "targeted_board_revealed",
     programHash: input.programHash,
     designHash: input.designHash,
-    nodes: input.nodes.map(targetedNode),
+    nodes: input.nodeContracts ?? input.nodes.map(targetedNode),
     academicTheory: input.academicTheory ?? {
       theoryId: `${input.homeworkId}:targeted-theory`,
       revision: 1,
@@ -1171,6 +1576,16 @@ export function queueTargetedMathGeneration(input: {
   atomicJson(generationJobPath(input.childId, input.homeworkId, input), job);
   console.log(` 🎮 [adaptive-math] [targeted-generation] [queued] child=${input.childId} homework=${input.homeworkId}`);
   return job;
+}
+
+export function setMathGenerationPhase(input: {rootDir?:string;childId:string;homeworkId:string;phase:MathGenerationJob["phase"];error?:string}): void {
+  const job = queueTargetedMathGeneration(input);
+  job.phase = input.phase;
+  job.updatedAt = new Date().toISOString();
+  if (input.error) job.error = input.error;
+  else delete job.error;
+  atomicJson(generationJobPath(input.childId,input.homeworkId,input),job);
+  console.log(` 🎮 [adaptive-math] [phase] [${input.phase}] child=${input.childId} homework=${input.homeworkId}${input.error ? ` reason=${input.error}` : ""}`);
 }
 
 export function writeMathGenerationJob(input: {
@@ -1373,7 +1788,6 @@ export async function buildTargetedNodesResumably(input: {
         status: "ready",
         artifactHash: built.artifactHash,
       });
-      await input.onNodeReady?.(nodeId, built.artifactHash);
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
       updateMathGenerationNode({
@@ -1393,7 +1807,14 @@ export async function buildTargetedNodesResumably(input: {
           reason: message,
         });
       }
+      if (attemptCount < 2 && message.startsWith("targeted_browser_verification_failed:")) {
+        console.log(` 🎮 [adaptive-math] [node-repair] [scheduled] node=${nodeId} attempt=2/2`);
+        await buildOne(nodeId);
+      }
+      return;
     }
+    const ready = getMathGenerationStatus(input.childId, input.homeworkId, { rootDir: input.rootDir })!.nodes.find(node => node.nodeId === nodeId)!;
+    await input.onNodeReady?.(nodeId, ready.artifactHash!);
   };
 
   if (first) await buildOne(first);

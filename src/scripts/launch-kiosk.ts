@@ -6,6 +6,11 @@ import { spawn, type ChildProcess } from "child_process";
 import { execSync } from "child_process";
 import path from "path";
 import fs from "fs";
+import {
+  browserProfileArgs,
+  healthMatchesCertificationRun,
+  mayReplaceExistingPortOwner,
+} from "../server/certificationRuntime";
 
 const PORT = parseInt(process.env.PORT || "3001", 10);
 const WEB_DIR = path.resolve(process.cwd(), "web");
@@ -38,7 +43,7 @@ async function waitForServer(timeoutMs = 15000): Promise<boolean> {
   while (Date.now() - start < timeoutMs) {
     try {
       const res = await fetch(`http://localhost:${PORT}/api/health`);
-      if (res.ok) return true;
+      if (res.ok && healthMatchesCertificationRun(await res.json(), process.env)) return true;
     } catch {
       // Server not ready yet
     }
@@ -88,6 +93,10 @@ async function main() {
   console.log("\n  🌟 Project Sunny — Starting up...\n");
 
   if (await isPortInUse()) {
+    if (!mayReplaceExistingPortOwner(process.env)) {
+      console.error(`  ⚠️  Certification port ${PORT} is already owned by another process. Nothing was stopped.`);
+      process.exit(1);
+    }
     console.log(`  🔄 Port ${PORT} busy — restarting Sunny server for fresh bundle...`);
     killProcessOnPort(PORT);
     const released = await waitForPortFree(15000);
@@ -151,6 +160,7 @@ async function main() {
             "--disable-session-crashed-bubble",
             "--disable-restore-session-state",
             "--autoplay-policy=no-user-gesture-required",
+            ...browserProfileArgs(process.env),
             `--app=http://localhost:${PORT}`,
           ],
           {

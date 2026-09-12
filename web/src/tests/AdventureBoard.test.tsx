@@ -307,26 +307,31 @@ describe("AdventureBoard", () => {
     const boss = screen.getByRole("button", { name: /Boss/ });
 
     expect(rawHorizontalBoard.nodes.every((node) => node.position == null && node.slot != null)).toBe(true);
-    expect(wordRadar).toHaveStyle({ left: "25%" });
-    expect(boss).toHaveStyle({ left: "86%" });
+    expect(wordRadar).toHaveStyle({ left: "22%" });
+    expect(boss).toHaveStyle({ left: "91%" });
     expect(container.querySelectorAll(".adventure-board__edge").length).toBeGreaterThan(0);
   });
 
   it("maps every horizontal adventure slot to the approved coordinate", () => {
     expect(HORIZONTAL_ADVENTURE_SLOTS).toEqual({
       "1": { x: 0.1, y: 0.82 },
-      "2": { x: 0.25, y: 0.7 },
-      "3": { x: 0.38, y: 0.56 },
-      "4": { x: 0.52, y: 0.56 },
-      "5a.1": { x: 0.44, y: 0.3 },
-      "5a.2": { x: 0.58, y: 0.26 },
-      "5b.1": { x: 0.46, y: 0.76 },
-      "5b.2": { x: 0.58, y: 0.72 },
-      "5c.1": { x: 0.57, y: 0.48 },
-      "5c.2": { x: 0.61, y: 0.52 },
-      "6": { x: 0.64, y: 0.46 },
-      "7": { x: 0.76, y: 0.34 },
-      "8": { x: 0.86, y: 0.18 },
+      "2": { x: 0.22, y: 0.68 },
+      "3": { x: 0.33, y: 0.56 },
+      "4": { x: 0.43, y: 0.5 },
+      "5a.1": { x: 0.52, y: 0.25 },
+      "5a.2": { x: 0.62, y: 0.2 },
+      "5a.3": { x: 0.7, y: 0.25 },
+      "5b.1": { x: 0.52, y: 0.73 },
+      "5b.2": { x: 0.62, y: 0.78 },
+      "5b.3": { x: 0.7, y: 0.73 },
+      "5c.1": { x: 0.52, y: 0.5 },
+      "5c.2": { x: 0.62, y: 0.5 },
+      "5c.3": { x: 0.7, y: 0.5 },
+      "6": { x: 0.76, y: 0.5 },
+      "6.1": { x: 0.74, y: 0.58 },
+      "6.2": { x: 0.78, y: 0.42 },
+      "7": { x: 0.84, y: 0.31 },
+      "8": { x: 0.91, y: 0.13 },
     });
   });
 
@@ -336,7 +341,7 @@ describe("AdventureBoard", () => {
 
     expect(slotBoard.nodes.every((node) => node.position == null)).toBe(true);
     expect(screen.getByRole("button", { name: "Start" })).toHaveStyle({ left: "10%" });
-    expect(screen.getByRole("button", { name: "Light Check" })).toHaveStyle({ left: "44%" });
+    expect(screen.getByRole("button", { name: "Light Check" })).toHaveStyle({ left: "52%" });
   });
 
   it("renders a three-way slot route into Mystery", () => {

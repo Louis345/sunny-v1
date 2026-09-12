@@ -23,6 +23,13 @@ web/test-artifacts/
 test-artifacts/
 tsconfig.tsbuildinfo
 
+# Generated certification, proof, and runtime artifacts (never release inputs)
+/output/
+/outputs/
+/public/
+/tmp/
+/web/public/generated/
+
 # Runtime child-chart evidence (local/private; code should use fixtures for tests)
 src/context/*/activity_results/
 src/context/*/attempts/*.ndjson
@@ -36,6 +43,10 @@ src/context/*/assumptions/*-pre.md
 src/context/*/companion_care/*.json
 src/context/*/homework/games/hw-*/
 src/context/*/homework/pending/[0-9]*/
+src/context/*/homework/direct-drafts/
+src/context/*/homework/cycles/
+src/context/*/engagement_theory.json
+src/context/lab/
 
 # Homework — runtime data, never committed (repo root only; not src/tests/fixtures/homework)
 /homework/

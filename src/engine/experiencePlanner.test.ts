@@ -193,6 +193,7 @@ describe("AI psychologist experience planner", () => {
       "visible_read",
       "partial_visual_recall",
       "audio_cued_letter_recall",
+      "independent_spelling_discovery",
       "hidden_word_recall",
     ]);
     expect(wordRadarCard?.validConfigOptions).toEqual(expect.arrayContaining([

@@ -4,6 +4,8 @@ import path from "path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   ASSIGNMENT_SOURCE_CONTRACT_VERSION,
+  assignmentPlannerContent,
+  assignmentSourceFileHash,
   assertCompletePdfPageCoverage,
   isCurrentAssignmentSourceCheckpoint,
   nativePdfPagePlaceholders,
@@ -11,6 +13,7 @@ import {
   extractAssignmentSource,
   isWeakExtractedText,
   loadOrExtractAssignmentSource,
+  readAssignmentSourceExtraction,
   PDF_PREVIEW_IMAGE_MAX_EDGE_PX,
   pdfExtractionMethodForWarnings,
 } from "./assignmentSourceExtraction";
@@ -43,6 +46,38 @@ describe("assignment source extraction", () => {
     expect(first.reused).toBe(false);
     expect(second.reused).toBe(true);
     expect(extract).toHaveBeenCalledTimes(1);
+  });
+
+  it("uses the same extraction codec for ingestion, restart, and the worker", async () => {
+    const dir = tempDir(), source = path.join(dir, "assignment.txt"), cache = path.join(dir, "assignment-extraction.json");
+    fs.writeFileSync(source, "Four equal groups");
+    const first = await loadOrExtractAssignmentSource(source, cache);
+    expect(readAssignmentSourceExtraction(cache)).toEqual(first.extraction);
+    // Previous archive recovery wrote a raw extraction. It must also resume locally.
+    fs.writeFileSync(cache, JSON.stringify(first.extraction));
+    const extract = vi.fn();
+    expect((await loadOrExtractAssignmentSource(source, cache, extract)).reused).toBe(true);
+    expect(extract).not.toHaveBeenCalled();
+    expect(readAssignmentSourceExtraction(cache).fullText).toBe("Four equal groups");
+    fs.writeFileSync(cache, JSON.stringify({version: 3, fileHash: "different", extraction: first.extraction}));
+    expect(() => readAssignmentSourceExtraction(cache)).toThrow("assignment_extraction_invalid");
+  });
+
+  it("uses the current verified path when the same assignment is uploaded elsewhere",async()=>{
+    const dir=tempDir(),original=path.join(dir,"original.txt"),moved=path.join(dir,"current.txt"),cache=path.join(dir,"cache.json");
+    fs.writeFileSync(original,"Four equal groups");fs.writeFileSync(moved,"Four equal groups");
+    await loadOrExtractAssignmentSource(original,cache);
+    const resumed=await loadOrExtractAssignmentSource(moved,cache);
+    expect(resumed.reused).toBe(true);
+    expect(resumed.extraction.sourcePath).toBe(moved);
+    expect(readAssignmentSourceExtraction(cache).sourcePath).toBe(moved);
+  });
+
+  it("will not attach changed bytes under the original assignment fingerprint",()=>{
+    const dir=tempDir(),sourcePath=path.join(dir,"original.pdf");fs.writeFileSync(sourcePath,"original synthetic PDF");
+    const extraction={sourcePath,filename:"original.pdf",mediaType:"application/pdf",fileHash:assignmentSourceFileHash(sourcePath),fullText:"old text"} as never;
+    fs.writeFileSync(sourcePath,"different assignment");
+    expect(()=>assignmentPlannerContent(extraction,"Plan this assignment")).toThrow("assignment_source_hash_mismatch");
   });
 
   it("classifies intake files before interpretation", () => {

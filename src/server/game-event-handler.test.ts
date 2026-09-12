@@ -144,6 +144,14 @@ describe("game event handler companion events", () => {
     );
   });
 
+  it("retains canonical math raw traces without telling Elli that an unverified explanation was correct", () => {
+    vi.mocked(recordLearningAttempt).mockReturnValueOnce({attempt: {domain: "math", word: "explain", correct: true}, skipped: true} as never);
+    const session = {chartChildId: "lab", recordDebugEvent: vi.fn(), recordGameTrace: vi.fn(), noteExternalEvent: vi.fn()};
+    handleGameEventForSession(session, {type: "attempt_event", domain: "math", target: "explain", correct: true});
+    expect(session.recordGameTrace).toHaveBeenCalledWith(expect.objectContaining({type: "attempt_event", target: "explain"}));
+    expect(session.noteExternalEvent).not.toHaveBeenCalled();
+  });
+
   it("appends companion video-call activity events to the same session game trace stream", () => {
     const fakeSession = {
       recordDebugEvent: vi.fn(),

@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { createHash } from "node:crypto";
 import { describe, expect, it, vi } from "vitest";
-import { DISCOVERY_RELEASE_VIEWPORTS, renderDiscoveryCandidate, reviewDiscoveryCandidate, withDiscoveryBrowserPage } from "./discoveryVisualReview";
+import { DISCOVERY_RELEASE_VIEWPORTS, DISCOVERY_VERIFIER_VERSION, renderDiscoveryCandidate, reviewDiscoveryCandidate, withDiscoveryBrowserPage } from "./discoveryVisualReview";
 
 const playwrightLaunch = vi.hoisted(() => vi.fn());
 
@@ -21,6 +21,10 @@ function activeHandles(): unknown[] {
 }
 
 describe("Discovery visual review", () => {
+  it("invalidates prior unscoped-control verdicts without resetting paid repair receipts", () => {
+    expect(DISCOVERY_VERIFIER_VERSION).toBe(11);
+  });
+
   it("keeps paid Fable and Haiku reviewers out of the production visual gate", () => {
     const source = fs.readFileSync(path.join(process.cwd(), "src/engine/discoveryVisualReview.ts"), "utf8");
 
@@ -66,6 +70,7 @@ describe("Discovery visual review", () => {
           if (event === "pageerror") reportPageError = listener;
         }),
         goto: vi.fn(async () => undefined),
+        addInitScript: vi.fn(async () => undefined),
       })),
       close: vi.fn(async () => undefined),
     });
@@ -74,6 +79,58 @@ describe("Discovery visual review", () => {
       reportPageError?.(new Error("interaction exploded"));
       return "finished";
     })).rejects.toThrow("discovery_browser_exception:interaction exploded");
+  });
+
+  it("repairs a failed full journey before it can approve or cache acceptance", async () => {
+    const outputDir = dir();
+    const render = vi.fn(async () => ["screenshot.png"]);
+    const verify = vi.fn(async (html: string) => {
+      if (html === "broken") throw new Error("math_control_clipped_or_obscured:pause-overlay");
+    });
+    const repair = vi.fn(async (_input: unknown) => "corrected");
+    const result = await reviewDiscoveryCandidate({ html: "broken", outputDir, render, verify, repair });
+    expect(repair).toHaveBeenCalledTimes(1);
+    expect(repair.mock.calls[0]?.[0]).toMatchObject({issues: [expect.stringContaining("pause-overlay")]});
+    expect(verify).toHaveBeenCalledTimes(2);
+    expect(result.html).toBe("corrected");
+    expect(result.audit.iterations[0].issues).toHaveLength(1);
+    await reviewDiscoveryCandidate({ html: "broken", outputDir, render, verify, repair });
+    expect(repair).toHaveBeenCalledTimes(1);
+  });
+
+  it("forwards runtime failure-state screenshots to the repair model", async () => {
+    const outputDir = dir();
+    const opening = path.join(outputDir, "opening.png");
+    const journeyGeneration = path.join(outputDir, "journey-generation.png");
+    const journeySunny = path.join(outputDir, "journey-sunny.png");
+    for (const file of [opening, journeyGeneration, journeySunny]) fs.writeFileSync(file, "png");
+    const repair = vi.fn(async () => "corrected");
+
+    await reviewDiscoveryCandidate({
+      html: "broken",
+      outputDir,
+      render: async () => [opening],
+      verify: async (html) => {
+        if (html === "broken") {
+          throw Object.assign(new Error("math_journey_control_not_actionable:item=item-02-which-hand;selector=#hand-long"), {
+            screenshotPaths: [journeyGeneration, journeySunny],
+          });
+        }
+      },
+      repair,
+    });
+
+    expect(repair).toHaveBeenCalledWith(expect.objectContaining({
+      screenshotPaths: [opening, journeyGeneration, journeySunny],
+    }));
+  });
+
+  it("routes rendering exceptions through the same bounded repair", async () => {
+    const outputDir=dir(); let calls=0;
+    const render=async()=>{if(++calls===1)throw new Error("discovery_browser_exception:broken startup");return ["fixed.png"];};
+    const repair=vi.fn(async()=>"fixed");
+    await expect(reviewDiscoveryCandidate({html:"broken",outputDir,render,repair})).resolves.toMatchObject({html:"fixed"});
+    expect(repair).toHaveBeenCalledTimes(1);
   });
 
   it("publishes without an AI review when both browser viewports pass", async () => {
@@ -197,5 +254,74 @@ describe("Discovery visual review", () => {
 
     expect(result.audit.status).toBe("approved");
     expect(render).toHaveBeenCalledTimes(1);
+  });
+
+  it("revalidates the prior verifier's paid repair bytes without buying another repair", async () => {
+    const outputDir = dir();
+    const initialHtml = "<html>initial</html>";
+    const repairedHtml = "<html>model-repaired</html>";
+    fs.writeFileSync(path.join(outputDir, "visual-review-checkpoint.json"), JSON.stringify({
+      version: DISCOVERY_VERIFIER_VERSION - 1,
+      verificationKey: `${DISCOVERY_VERIFIER_VERSION - 1}:contract:true`,
+      initialHtmlHash: createHash("sha256").update(initialHtml).digest("hex"),
+      html: repairedHtml,
+      iterations: [
+        { iteration: 1, htmlHash: createHash("sha256").update(initialHtml).digest("hex"), screenshotPath: "one.png", issues: ["old defect"] },
+        { iteration: 2, htmlHash: createHash("sha256").update(repairedHtml).digest("hex"), screenshotPath: "two.png", issues: ["old verifier false positive"] },
+      ],
+    }));
+    const render = vi.fn(async () => {
+      const file = path.join(outputDir, "current.png");
+      fs.writeFileSync(file, "png");
+      return [file, file];
+    });
+    const verify = vi.fn(async () => undefined);
+    const repair = vi.fn();
+
+    const result = await reviewDiscoveryCandidate({
+      html: initialHtml,
+      outputDir,
+      render,
+      verify,
+      verificationKey: "contract",
+      repair,
+    });
+
+    expect(result.html).toBe(repairedHtml);
+    expect(result.audit.status).toBe("approved");
+    expect(render).toHaveBeenCalledTimes(1);
+    expect(verify).toHaveBeenCalledWith(repairedHtml);
+    expect(repair).not.toHaveBeenCalled();
+  });
+
+  it.each([true,false])("reuses repaired bytes saved before iteration two when upgrading (accepted=%s)", async (accepted) => {
+    const outputDir=dir(), initial='<html>initial</html>', repaired='<html>paid repair</html>';
+    const hash=(html:string)=>createHash('sha256').update(html).digest('hex');
+    fs.writeFileSync(path.join(outputDir,'visual-review-checkpoint.json'),JSON.stringify({
+      version:DISCOVERY_VERIFIER_VERSION-1,initialHtmlHash:hash(initial),html:repaired,
+      iterations:[{iteration:1,htmlHash:hash(initial),issues:['hidden control'],screenshotPaths:['before.png']}],
+    }));
+    const render=vi.fn(async({html}:{html:string})=>Object.assign(['state.png'],{issues:accepted&&html===repaired?[]:['hidden control']}));
+    const repair=vi.fn(async()=>repaired);
+    const run=()=>reviewDiscoveryCandidate({html:initial,outputDir,render,repair});
+    if(accepted){await expect(run()).resolves.toMatchObject({html:repaired});await expect(run()).resolves.toMatchObject({html:repaired});}
+    else {await expect(run()).rejects.toThrow('bounded_repair');await expect(run()).rejects.toThrow('bounded_repair');}
+    expect(repair).not.toHaveBeenCalled();
+    expect(render.mock.calls.every(([input])=>input.html===repaired)).toBe(true);
+  });
+
+  it.each([1,2])("does not reset a spent repair allowance after %i verifier upgrades", async (versions) => {
+    const outputDir = dir(), initial = "<html>initial</html>", repaired = "<html>repaired</html>";
+    const hash = (html: string) => createHash("sha256").update(html).digest("hex");
+    fs.writeFileSync(path.join(outputDir,"visual-review-checkpoint.json"),JSON.stringify({
+      version:DISCOVERY_VERIFIER_VERSION-versions,initialHtmlHash:hash(initial),html:repaired,
+      iterations:[{iteration:1,htmlHash:hash(initial),issues:["first"],screenshotPaths:["one.png"]},{iteration:2,htmlHash:hash(repaired),issues:["remaining"],screenshotPaths:["two.png"]}],
+    }));
+    const render=vi.fn(async()=>Object.assign(["failure.png"],{issues:["remaining"]}));
+    const repair=vi.fn(async()=>repaired);
+    const run=()=>reviewDiscoveryCandidate({html:initial,outputDir,render,repair});
+    await expect(run()).rejects.toThrow("bounded_repair");
+    await expect(run()).rejects.toThrow("bounded_repair");
+    expect(repair).not.toHaveBeenCalled();
   });
 });

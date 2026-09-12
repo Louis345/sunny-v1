@@ -51,6 +51,7 @@ export type RoutableNodeConfig = Pick<
   | "id"
   | "words"
   | "wordRadarItems"
+  | "spellingItemBindings"
   | "difficulty"
   | "gameFile"
   | "gameHtmlPath"
@@ -111,7 +112,7 @@ export function nodeLaunchWords(
 export function buildNodeUrlSearchParams(
   node: Pick<
     RoutableNodeConfig,
-    "id" | "words" | "wordRadarItems" | "attentionConfig" | "activityIntent" | "targetSelectorDecision"
+    "id" | "words" | "wordRadarItems" | "spellingItemBindings" | "attentionConfig" | "activityIntent" | "targetSelectorDecision"
   > & { difficulty?: number },
   ctx: NodeContext,
 ): URLSearchParams {
@@ -128,6 +129,7 @@ export function buildNodeUrlSearchParams(
     companionMuted: String(ctx.companionMuted ?? false),
   };
   if (ctx.sessionId) params.sessionId = ctx.sessionId;
+  if (node.spellingItemBindings?.length) params.spellingItemBindings = JSON.stringify(node.spellingItemBindings);
   if (node.activityIntent?.intentId) params.activityIntentId = node.activityIntent.intentId;
   if (node.activityIntent?.purpose) params.activityIntentPurpose = node.activityIntent.purpose;
   if (node.activityIntent?.targetSelector) {

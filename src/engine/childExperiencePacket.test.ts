@@ -6,6 +6,20 @@ import { recordChoiceEvent } from "./choiceEvents";
 import { buildChildExperiencePacket } from "../profiles/childExperiencePacket";
 
 describe("buildChildExperiencePacket", () => {
+  it("replays a completed recall check as practice rather than resubmitting the assessment", () => {
+    const packet = buildChildExperiencePacket({ childId: "lab", companion: {}, homework: {}, learningCycle: { domain: "spelling", homeworkId: "hw", revision: 1, lifecycle: "board_ready", observations: [{ itemId: "i1" }], nodes: [{ nodeId: "check", role: "baseline", state: "completed", evidenceContract: { spellingItems: { i1: { id: "i1", word: "night", lineage: { measurementRole: "fresh_checkpoint" }, response: { acceptedForms: ["night"] } } } } }] } } as never);
+    expect(packet.spellingInstruments?.check).toMatchObject({ assessment: false, items: [{ itemId: "i1" }] });
+  });
+  it("projects unfinished targeted recall from frozen item identities, not reconstructed words", () => {
+    const packet = buildChildExperiencePacket({ childId: "lab", companion: {}, homework: {}, learningCycle: { domain: "spelling", homeworkId: "hw", revision: 1, lifecycle: "board_ready", observations: [{ itemId: "i1", childResponse: "private" }], nodes: [{ nodeId: "check", role: "baseline", state: "active", evidenceContract: { spellingItems: { i1: { id: "i1", word: "night", lineage: { measurementRole: "fresh_checkpoint" }, response: { acceptedForms: ["night"] } }, i2: { id: "i2", word: "light", lineage: { measurementRole: "fresh_checkpoint" }, response: { acceptedForms: ["light"] } } } } }] } } as never);
+    expect(packet.spellingInstruments?.check).toMatchObject({ assessment: true, items: [{ itemId: "i2", display: "light" }] });
+    expect(JSON.stringify(packet)).not.toContain("private");
+  });
+  it("projects frozen spelling recall identities without sharing raw responses", () => {
+    const packet = buildChildExperiencePacket({ childId: "lab-child", companion: {}, homework: {}, learningCycle: { domain: "spelling", homeworkId: "hw", revision: 1, lifecycle: "evaluation_active", observations: [{ itemId: "i1", childResponse: "private response" }], nodes: [{ nodeId: "opening", role: "evaluation", evidenceContract: { spellingItems: { i1: { id: "i1", word: "night", response: { acceptedForms: ["night"] } }, i2: { id: "i2", word: "light", response: { acceptedForms: ["light"] } } } } }] } } as never);
+    expect(packet.spellingDiscovery).toEqual({ nodeId: "opening", items: [{ itemId: "i2", display: "light", acceptedResponses: ["light"], label: "Spelling", subject: "spelling" }] });
+    expect(JSON.stringify(packet)).not.toContain("private response");
+  });
   it("projects the active homework identity onto generated playable nodes", () => {
     const packet = buildChildExperiencePacket({
       childId: "reina",

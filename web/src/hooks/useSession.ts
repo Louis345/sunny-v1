@@ -189,6 +189,7 @@ interface SessionState {
   error: string | null;
   errorFatal: boolean;
   warning: string | null;
+  microphoneAvailable: boolean | null;
   loadingMessage: string | null;
   /** Server sets true when DEBUG_CLAUDE — show canvas test overlay off localhost if needed */
   debugMode: boolean;
@@ -281,7 +282,7 @@ function micDeniedCanContinue(): boolean {
     if (preview === "free" || preview === "go-live") return true;
   }
   const runtime = resolveSunnyRuntimeConfig(import.meta.env as Record<string, string>);
-  return runtime.previewMode !== "off" || runtime.voiceMode !== "normal";
+  return runtime.subject === "homework" || runtime.previewMode !== "off" || runtime.voiceMode !== "normal";
 }
 
 function storyImageWatchdogMs(): number {
@@ -350,6 +351,7 @@ export function useSession(options?: UseSessionOptions) {
     error: null,
     errorFatal: false,
     warning: null,
+    microphoneAvailable: null,
     loadingMessage: null,
     debugMode: false,
     readingCanvas: DEFAULT_READING_CANVAS_PREFERENCES,
@@ -477,7 +479,7 @@ export function useSession(options?: UseSessionOptions) {
     };
 
     ws.onclose = () => {
-      wsRef.current = null;
+      if (wsRef.current === ws) wsRef.current = null;
     };
   }, []);
 
@@ -1201,6 +1203,7 @@ export function useSession(options?: UseSessionOptions) {
         });
 
         mediaStreamRef.current = stream;
+        setStateRef.current((s) => ({ ...s, microphoneAvailable: true }));
         stream.getAudioTracks().forEach((t) => {
           t.enabled = !micMutedRef.current;
         });
@@ -1281,11 +1284,12 @@ export function useSession(options?: UseSessionOptions) {
         processor.connect(silence);
         silence.connect(audioCtx.destination);
       } catch (err) {
-        console.error("Mic access failed:", err);
+        console.error(" 🎮 [session-microphone] [access] [unavailable]", err);
         if (micDeniedCanContinue()) {
           setStateRef.current((s) => ({
             ...s,
-            warning: "Microphone unavailable in preview; continuing without recording.",
+            warning: "Microphone unavailable; on-screen controls are still available.",
+            microphoneAvailable: false,
           }));
           return;
         }
@@ -1294,6 +1298,7 @@ export function useSession(options?: UseSessionOptions) {
           error: "Microphone access denied",
           errorFatal: true,
           warning: null,
+          microphoneAvailable: false,
         }));
       }
     })();
@@ -1441,6 +1446,7 @@ export function useSession(options?: UseSessionOptions) {
         error: null,
         errorFatal: false,
         warning: null,
+        microphoneAvailable: null,
         diagGameSessionReady: false,
       }));
       connect();
@@ -1581,6 +1587,7 @@ export function useSession(options?: UseSessionOptions) {
       error: null,
       errorFatal: false,
       warning: null,
+      microphoneAvailable: null,
       loadingMessage: null,
       debugMode: false,
       readingCanvas: DEFAULT_READING_CANVAS_PREFERENCES,

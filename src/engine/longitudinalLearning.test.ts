@@ -15,6 +15,17 @@ function root(): string {
   return fs.mkdtempSync(path.join(os.tmpdir(), "sunny-longitudinal-"));
 }
 
+it("cannot call a prediction supported when returned work produces no eligible evaluation", async () => {
+  const rootDir = root(), homeworkId = "unmatched-return";
+  const input = cycleInput(homeworkId);
+  input.academicPredictions = [];
+  createLearningCycle(input, { rootDir });
+  const work = returnedWork(homeworkId);
+  const cycle = recordConfirmedReturnedWork(work, { rootDir });
+  await expect(interpretReturnedWorkBatch({ childId: input.childId, homeworkId, sourceId: work.source.sourceId, rootDir, interpret: async () => ({ status: "supported", reason: "Good score", nextAction: "Finished", evidenceIds: cycle.observations.map(row => row.observationId), predictionEvaluationIds: [], preserve: [], change: [], testNext: [], nextEvidenceRequired: [] }) })).rejects.toThrow("longitudinal_prediction_evaluation_required");
+  expect(getLearningCycle(input.childId, homeworkId, { rootDir })!.observations).toHaveLength(work.items.length);
+});
+
 function cycleInput(homeworkId: string) {
   return {
     childId: "reina",
@@ -66,6 +77,7 @@ function cycleInput(homeworkId: string) {
       constructId: "math.multiplication.equal_groups",
       context: "Unassisted returned schoolwork",
       horizon: "within_7_days",
+      eligibility: {sources:["graded_work", "delayed_reassessment"] as Array<"graded_work" | "delayed_reassessment">,maxDelayDays:7},
       expectedMetric: { key: "academic.accuracy", min: 0.7, max: 0.9 },
       predictedErrorPatterns: ["operation_selection"],
       confidence: 0.65,
@@ -318,4 +330,35 @@ describe("longitudinal learning evidence", () => {
     expect(warn).toHaveBeenCalledWith(expect.stringContaining("[longitudinal-history] [cycle-skip]"));
     warn.mockRestore();
   });
+});
+
+
+describe("prediction measurement boundaries", () => {
+  const prediction = cycleInput("temporal").academicPredictions[0]!;
+  const observation = (id: string, sourceId: string, observedAt: string) => ({
+    observationId: id, sourceId, itemId: id,
+    constructLinks: [{ constructId: prediction.constructId, role: "primary" as const, confidence: 1 }],
+    result: { correct: true }, assistance: { status: "unassisted" as const, scaffolds: [] },
+    exposure: "unseen" as const, provenance: "independent_probe" as const, observedAt, confounds: [],
+  });
+  it("does not evaluate a later prediction using earlier Discovery", () => {
+    expect(evaluateAcademicPredictions([prediction], [observation("before", "evaluation:discovery", "2026-07-18T11:00:00Z")])).toEqual([]);
+  });
+  it("keeps source batches separate instead of pooling interventions", () => {
+    const rows = [observation("a", "activity:session:one", "2026-07-19T12:00:00Z"), observation("b", "activity:session:two", "2026-07-20T12:00:00Z")];
+    const result = evaluateAcademicPredictions([{ ...prediction, evidenceLimit: "independent_performance", eligibility: { sources: ["independent_probe"], maxDelayDays: 7 } } as never], rows);
+    expect(result.map(r => r.observationIds)).toEqual([["a"], ["b"]]);
+  });
+  it("excludes assisted, exposed, uncaptured and out-of-window observations", () => {
+    const good = observation("good", "activity:session:one", "2026-07-19T12:00:00Z");
+    const rows = [good, { ...good, observationId: "help", assistance: { status: "assisted" as const, scaffolds: ["hint"] } }, { ...good, observationId: "repeat", exposure: "previously_practiced" as const }, { ...good, observationId: "missing", result: { observedErrorType: "response_not_captured" } }, { ...good, observationId: "late", observedAt: "2026-08-19T12:00:00Z" }];
+    const result = evaluateAcademicPredictions([{ ...prediction, eligibility: { sources: ["independent_probe"], maxDelayDays: 7 } } as never], rows);
+    expect(result[0]?.observationIds).toEqual(["good"]);
+  });
+});
+
+it("does not invent legacy source eligibility from a horizon label", () => {
+  const {eligibility: _eligibility, ...prediction} = cycleInput("legacy").academicPredictions[0];
+  const observation = {observationId:"later",sourceId:"graded",itemId:"one",constructLinks:[{constructId:prediction.constructId,role:"primary",confidence:1}],result:{correct:true},assistance:{status:"unknown",scaffolds:[]},exposure:"unknown",provenance:"graded_work",observedAt:"2026-07-19T12:00:00Z",confounds:[]} as const;
+  expect(evaluateAcademicPredictions([prediction], [observation as never])[0]?.sufficiency).toBe("insufficient");
 });

@@ -304,23 +304,13 @@ describe("math artifact production boundary", () => {
     expect(designer).not.toContain('thinking: { type: "disabled" }');
   });
 
-  it("balances Opus and GPT-5.5 and rotates the starting model by assignment", () => {
+  it("uses the approved builder consistently instead of silently running a model experiment", () => {
     const nodes = ["a", "b", "c", "d"].map(activity);
     const first = assignBaselineBuilderModels("assignment-0", nodes);
     const second = assignBaselineBuilderModels("assignment-1", nodes);
 
-    expect(first.map((entry) => entry.model)).toEqual([
-      "claude-opus-5",
-      "gpt-5.5",
-      "claude-opus-5",
-      "gpt-5.5",
-    ]);
-    expect(second.map((entry) => entry.model)).toEqual([
-      "gpt-5.5",
-      "claude-opus-5",
-      "gpt-5.5",
-      "claude-opus-5",
-    ]);
+    expect(first.map((entry) => entry.model)).toEqual(Array(4).fill("gpt-5.6"));
+    expect(second).toEqual(first);
   });
 
   it("rejects a design artifact that changes the immutable academic contract", () => {

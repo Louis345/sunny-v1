@@ -1,6 +1,6 @@
 # Sunny Learning Feedback Loop
 
-Contract version: 7
+Contract version: 13
 
 This document is the **sole normative** authority for how Sunny forms, tests, and revises learning claims. Product changes that alter this loop must update this contract version before implementation. Other documents may describe infrastructure or history, but they must link here instead of creating another learning doctrine.
 
@@ -46,13 +46,19 @@ school assignment
 
 The child completes the selected route frontier, not every cosmetic route merely to satisfy a gate. A route selection is engagement evidence only. When the selected frontier is complete, code records observations and enters an evaluating lifecycle; it never chooses the educational next step. The Planner then makes exactly one evidence-citing choice: prescribe support, generate Quest, generate Boss when Quest evidence exists, collect more evidence, or await calibration.
 
-Before Quest is available as a Planner action, runtime must have target-aligned baseline observations with at least one fresh, correct, unassisted response. All-wrong or assisted-only completion is ineligible for Quest. This is an evidence-availability boundary, not a mastery percentage: when it is unmet, the Planner still owns the choice between targeted Support and collecting more evidence; when it is met, the Planner still decides whether Quest is justified.
+Before Quest is available as a Planner action, runtime must have target-aligned baseline observations with at least one fresh, correct, unassisted response. Practice, repeated exposure, missing captured responses, all-wrong or assisted-only completion is ineligible for Quest. This is an evidence-availability boundary, not a mastery percentage: when it is unmet, the Planner still owns the choice between targeted Support and collecting more evidence; when it is met, the Planner still decides whether Quest is justified.
 
 Every session is an honest chapter with a visible endpoint. Finishing the selected route does not reveal surprise required work in that same session. The child receives completion feedback and may replay completed nodes, while Sunny reduces the session into factual scorecards and asks the Planner for exactly one next-step decision in the background.
 
+Replaying a completed teaching instrument appends practice evidence without resetting the current lifecycle, sibling readiness, or completed next-step work. The server derives replay from the canonical node state, not a generated claim. Repeated completion deliveries remain idempotent; replay does not initiate another Planner call or award completion credit again. Raw activity messages remain audit facts rather than a second scoring authority, and engagement ratings cannot override canonical academic observations.
+
 When multiple academically valid interventions exist, the Planner may preregister a contextual agency experiment. It states the factual context, what academics remain comparable, one uncertain engagement hypothesis per route, predicted outcomes, falsifying evidence, and measurement keys. The board only projects the Planner's routes and records what was shown, selected, started, abandoned, completed, replayed, or switched. Selection alone never establishes preference; later interpretation must consider behavior, support, interaction, academic outcomes, and calibration together.
 
-Discovery establishes the child's independent starting point before targeted instruction. Its items are fresh and may not teach the answer before recording the observation. Correctness, assistance, exposure, prompt ambiguity, reading friction, interface friction, and response-mode friction remain separate facts. Completion commits one evidence packet before targeted planning begins; ratings may inform later design hypotheses but cannot alter academic conclusions.
+Discovery establishes the child's independent starting point before targeted instruction. Its items are fresh and may not teach the answer before recording the observation. Correctness, assistance, exposure, prompt ambiguity, reading friction, interface friction, and response-mode friction remain separate facts. Completion commits one evidence packet before targeted planning begins; ratings may inform later design hypotheses but cannot alter academic conclusions or gate academic completion. Reported reading/interface friction accompanies the canonical attempt even when emitted separately by the instrument.
+
+For spelling elicited by audio, an alternative written response with the same pronunciation is instrument-ambiguous unless the frozen item supplied meaning-bearing context. It is not a spelling error and cannot become independent evidence merely because the activity expected one orthography.
+
+Discovery completion is idempotent: replaying it returns the existing cycle without changing the original completion time, evidence, revision, or later lifecycle. Reconnection or a repeated completion request cannot send a published board back into evaluation or planning.
 
 The targeted program and complete board design are frozen before the targeted map appears. Nodes whose artifacts are still being implemented may appear as `preparing`; optional status polling may replace that presentation with `ready` without opening the node, interrupting the current activity, or creating evidence. `Preparing` is operational generation state, while `evidence_locked` is an academic lifecycle state. The child may exit and return without losing either state. When a route frontier is complete, its unselected route is no longer required.
 
@@ -62,6 +68,8 @@ The AI-authored board presentation is preserved as a projection template, while 
 
 ## Authority and storage
 
+Developer impersonation runs may exercise the complete production lifecycle only inside a physically isolated workspace snapshot. Their observations use the canonical schema for runtime fidelity but have simulation authority and may never enter a real child's chart, prediction evaluation, mastery, rewards, preferences, calibration, catalog decisions, or published board. Simulation authority cannot be promoted. The source child context is read-only and its before/after inventory is part of certification evidence.
+
 - One canonical `LearningCycleRecordV2` JSON is writable for each assignment cycle.
 - Raw uploads are immutable source artifacts referenced by that cycle.
 - Raw event logs are immutable supporting facts referenced by ID.
@@ -69,7 +77,7 @@ The AI-authored board presentation is preserved as a projection template, while 
 - **No second writable factsheet** may summarize or override the cycles.
 - Board, homework, session, and care-plan files are compatibility projections, never competing decision state.
 
-Code owns identity, provenance, immutability, mathematical/source truth, exposure tracking, and safe lifecycle transitions. The AI Planner owns educational hypotheses, predictions, interpretation, and the next intervention. Neither Playwright nor generated content may write child-learning conclusions.
+Code owns identity, provenance, immutability, mathematical/source truth, exposure tracking, and safe lifecycle transitions. New math instruments freeze the Planner item identities, response contracts and exposure before generation. Canonical scoring uses captured responses against those contracts, never generated correctness claims. Explanations without independent rubric interpretation, missing contracts and uncaptured or malformed responses remain unscored; duplicate item submissions in one completion are rejected. Historical records are not rewritten. The AI Planner owns educational hypotheses, predictions, interpretation, and the next intervention. Neither Playwright nor generated content may write child-learning conclusions.
 
 For generated math interventions, the Planner's academic contract is locked before creative design. A design artifact may choose presentation, interaction, stakes, recovery, and payoff, but it cannot alter the academic contract. Builder-model identity, artifact hashes, prompt hashes, and child-response measurements are recorded before launch so later model comparisons remain factual and observational. Builder ratings from unlike activities are not causal evidence and never select a model automatically.
 
@@ -99,6 +107,8 @@ Before an intervention launches, its academic prediction records:
 - evidence that informed the prediction;
 - selected intervention;
 - maximum evidence claim.
+
+Prediction evaluation uses only observations after registration, keeps source batches separate, and obeys explicit source and time-window eligibility. Unknown legacy eligibility is insufficient evidence, not an inferred outcome window. Several interventions preceding an outcome imply observational association, not causal attribution.
 
 The prediction is immutable after launch. A later observation can disagree with it but cannot rewrite it. UX-oriented design predictions remain separate and cannot stand in for an academic prediction.
 
@@ -168,3 +178,11 @@ Adaptive memory carries factual observations, provenance, confidence, and uncert
 ## Cross-domain contract
 
 The cycle records and evidence rules are domain-neutral. Math validates relationships and representations; spelling tracks canonical forms and delayed recall; reading separates passage exposure, decoding, and comprehension; science grounds claims and causal explanations in source evidence. Domain adapters verify truth but do not choose pedagogy.
+
+New spelling cycles offer every assigned spelling target in independent Discovery before targeted practice is planned. Not sure, skipped, and untested targets remain unknown. Exit and resume preserve the original responses. Hearing the whole word is the elicitation stimulus, not spelling assistance; seeing its canonical spelling, hearing its letters, hints, or uncertain speech capture must be recorded separately. The instrument never forces a model-answer round before evaluation.
+
+The existing intake Planner selects the opening spelling diagnostic from explicitly validated catalog capabilities, using the source and child-chart evidence. A generic diagnostic label on a practice game is not validation. The decision records rationale, cited evidence, uncertainty, and next evidence needed; a frozen capability snapshot and hash accompany the canonical evaluation. Code validates eligibility and projects this selection, not a preferred game. If no available instrument fits, the Planner records `needs_instrument`; no fallback publishes or additional model call starts automatically. Device context is unknown unless observed. Selection does not establish that an instrument is best, engaging, or effective. Legacy saved intake requests and cycles remain readable as legacy fixed-instrument behavior, never retroactively attributed to the Planner. Raw provider responses are checkpointed before validation and reused on restart.
+
+Spelling items freeze word identity, accepted forms, response mode, measurement role, and source evidence. A later unassisted recall opportunity can measure performance after practice, but the word remains previously exposed. Immediate recall is not delayed retention. Neither a new item ID nor a successful game resets word exposure. The final recall check includes targeted and initially secure words, and incomplete coverage remains explicit.
+
+Verified implementation-repair evidence is operational evidence, not child-learning evidence. Reusable engineering lessons may describe only implementation conditions, reproduced defects, verified changes, provenance and uncertainty. Failed or incompatible repairs cannot become trusted lessons. Selecting a lesson is not evidence that it improved a later artifact; recurrence, verification, latency, and cost remain separate measured outcomes. These records cannot change academic contracts, weaken verifiers, create child preferences, or promote simulation observations into a real chart.

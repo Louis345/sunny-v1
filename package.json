@@ -1,7 +1,7 @@
 {
   "name": "sunny",
   "version": "0.1.0",
-  "description": "Project Sunny — AI therapeutic learning companion",
+  "description": "Project Sunny \u2014 AI therapeutic learning companion",
   "main": "dist/index.js",
   "scripts": {
     "build": "npx tsx scripts/generate-game-registry.ts && tsc && npm run web:build",
@@ -36,6 +36,7 @@
     "sunny:ingest:scan": "npx tsx src/scripts/ingestScanResult.ts --child=ila",
     "sunny:ingest:tutoring": "npx tsx src/scripts/ingestTutoring.ts",
     "sunny:run": "npx tsx src/scripts/sunnyRun.ts",
+    "sunny:certify": "npx tsx src/scripts/sunnyCertification.ts",
     "sunny:adapt:demo:reset": "npx tsx src/scripts/adaptabilityDemo.ts --reset-only",
     "sunny:adapt:demo": "npx tsx src/scripts/adaptabilityDemo.ts",
     "sunny:adapt:demo:preview": "npx tsx src/scripts/adaptabilityDemo.ts --preview",
@@ -117,7 +118,9 @@
     "sunny:download:companion-vrms": "node scripts/download-companion-vrms.mjs",
     "sunny:visuallearner:openai": "npx tsx scripts/openaiVisualLearnerProbe.ts",
     "demo:game-factory": "npx tsx src/scripts/demoGameFactory.ts",
-    "verify:math-dod": "npx tsx -r dotenv/config src/scripts/verifyMathPlanDefinitionOfDone.ts"
+    "verify:math-dod": "npx tsx -r dotenv/config src/scripts/verifyMathPlanDefinitionOfDone.ts",
+    "test:math-release": "vitest run src/scripts/adaptiveMathBrowserAcceptance.test.ts",
+    "test:math-release:parent": "SUNNY_MATH_PARENT_ACCEPTANCE=1 vitest run src/scripts/adaptiveMathBrowserAcceptance.test.ts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.58",

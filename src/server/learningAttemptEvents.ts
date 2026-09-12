@@ -7,6 +7,10 @@ import type {
 import { recordAttempt } from "../engine/learningEngine";
 import { recordFactAttempt } from "../engine/factBankRecorder";
 import { appendAttemptLine } from "../utils/attempts";
+import { getChildChart } from "../profiles/childChart";
+import { getLearningCycle } from "../engine/learningCycleRepository";
+import { resolveSunnyRuntimeConfig } from "../shared/runtimeConfig";
+import { shouldPersistSessionData } from "../utils/runtimeMode";
 
 const DOMAINS: ReadonlySet<string> = new Set([
   "spelling",
@@ -30,6 +34,7 @@ export type RawLearningAttemptEvent = {
   scaffoldLevel?: unknown;
   responseTimeMs?: unknown;
   sessionId?: unknown;
+  nodeId?: unknown;
 };
 
 export type RecordedLearningAttempt = {
@@ -77,7 +82,7 @@ export function normalizeLearningAttemptEvent(
   raw: RawLearningAttemptEvent,
   fallbackChildId?: string,
 ): RecordedLearningAttempt {
-  const childId = String(raw.childId ?? fallbackChildId ?? "").trim().toLowerCase();
+  const childId = String(fallbackChildId ?? raw.childId ?? "").trim().toLowerCase();
   if (!childId) throw new Error("Missing attempt childId");
 
   const word = String(raw.target ?? raw.targetId ?? raw.word ?? "").trim().toLowerCase();
@@ -121,7 +126,29 @@ export function recordLearningAttempt(
   fallbackChildId?: string,
   opts?: { rootDir?: string },
 ): RecordedLearningAttempt {
-  const recorded = normalizeLearningAttemptEvent(raw, fallbackChildId);
+  const runtime = resolveSunnyRuntimeConfig(process.env);
+  const recorded = normalizeLearningAttemptEvent(raw, fallbackChildId ?? runtime.childId ?? undefined);
+  if (!shouldPersistSessionData()) {
+    console.log(` 🎮 [attempt_event] [preview-skipped] target=${recorded.attempt.word}`);
+    return { ...recorded, skipped: true };
+  }
+  const chart = getChildChart(recorded.childId, opts);
+  const mathHomeworkId = chart.homework?.activeByDomain?.math?.homeworkId;
+  const cycle = chart.learningCycle?.domain === "math" ? chart.learningCycle
+    : mathHomeworkId ? getLearningCycle(recorded.childId, mathHomeworkId, opts) : null;
+  const spellingHomeworkId = chart.homework?.activeByDomain?.spelling?.homeworkId;
+  const spelling = chart.learningCycle?.domain === "spelling" ? chart.learningCycle
+    : spellingHomeworkId ? getLearningCycle(recorded.childId, spellingHomeworkId, opts) : null;
+  const ownsItem = [cycle, spelling].some(candidate => candidate?.nodes.some(node => node.nodeId === raw.nodeId ||
+    Object.keys(node.evidenceContract.itemContracts ?? node.evidenceContract.spellingItems ?? node.evidenceContract.itemRoles ?? {}).some(id => id.toLowerCase() === recorded.attempt.word)));
+  const mathSession = runtime.subject === "homework" && runtime.homeworkDomain === "math" &&
+    (!runtime.childId || runtime.childId === recorded.childId);
+  const spellingSession = runtime.subject === "homework" && runtime.homeworkDomain === "spelling" &&
+    (!runtime.childId || runtime.childId === recorded.childId) && spelling?.nodes.some(node => node.evidenceContract.spellingItems);
+  if (mathSession || spellingSession || ownsItem) {
+    console.log(` 🎮 [attempt_event] [canonical-scoring-deferred] target=${recorded.attempt.word}`);
+    return { ...recorded, skipped: true };
+  }
   if (recorded.attemptId && !rememberAttemptId(recorded.attemptId)) {
     console.log(
       `  🎮 [attempt_event] duplicate skipped ${recorded.attempt.domain}:${recorded.attempt.word}`,

@@ -32,6 +32,17 @@ describe("App companion overlay stack", () => {
     expect(src).toContain("setCompanionPresence");
   });
 
+  it("keeps one host-owned companion across both Word Radar launch paths", () => {
+    // Component-only tests omitted companion props. The full journey exposed
+    // the second portrait only after summoning the host-owned companion.
+    const wordRadarLaunches = [...src.matchAll(/<WordRadar\b[\s\S]*?\/>/g)].map(match => match[0]);
+    expect(wordRadarLaunches).toHaveLength(2);
+    for (const launch of wordRadarLaunches) expect(launch).not.toMatch(/\bcompanion\s*=/);
+    expect(src.match(/<CompanionLayerWithCare\b/g)).toHaveLength(1);
+    expect(src).toContain("onSummon={");
+    expect(src).toContain("onDismiss={");
+  });
+
   it("reserves a host-owned safe area while the companion is summoned over a generated activity", () => {
     expect(src).toContain('data-testid="generated-activity-safe-area"');
     expect(src).toContain('data-testid="generated-activity-frame"');
@@ -93,7 +104,7 @@ describe("App companion overlay stack", () => {
   it("story karaoke keeps the companion visible as a muted portrait", () => {
     expect(src).toMatch(/voiceGameCompanionMicMuted[\s\S]{0,260}karaokeReadingActive/);
     expect(src).not.toContain("karaokeShellCompanionOff");
-    expect(src).toContain("toggledOff={false}");
+    expect(src).toContain("toggledOff={homeworkSessionFinished}");
     expect(src).toContain("micMuted={micMuted || voiceGameCompanionMicMuted}");
   });
 

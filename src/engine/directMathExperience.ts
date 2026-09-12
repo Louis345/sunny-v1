@@ -3,14 +3,18 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import http from "node:http";
 import path from "node:path";
+import { resolveChildContextDir, resolveContextRoot } from "../utils/contextRoot";
+import { DISCOVERY_VERIFIER_VERSION, DISCOVERY_RELEASE_VIEWPORTS, MATH_JOURNEY_CONTRACT, MATH_IMPLEMENTATION_REPAIR_CONTRACT, verifyMathControlJourney, assertMathControlsVisible, freezeEngineeringLessonSnapshot, engineeringFeatures, engineeringLessonContext, recordEngineeringRepairEvidence } from "./discoveryVisualReview";
 import type { ChildChart } from "../profiles/childChart";
-import type { AssignmentSourceExtraction } from "./assignmentSourceExtraction";
+import { assignmentPlannerContent, type AssignmentSourceExtraction } from "./assignmentSourceExtraction";
 import type { ActiveSessionPlan, AIContentCatalogItem } from "../context/schemas/learningProfile";
 import type { AdventureBoardJson } from "../shared/adventureBoardJson";
 import { NODE_REGISTRY } from "../shared/nodeRegistry";
 import { engagementTheoryEvidenceContext } from "./engagementTheory";
 import { assignmentLedgerPath, writeAssignmentLedgerEntry } from "./assignmentLedger";
 import { writeWaterfallContentCatalog } from "../profiles/chartWaterfall";
+import { readOpenAiResponseStream } from "./openAiResponses";
+import { applyDiscoveryHtmlPatch, runMathProviderStage, hasReceivedMathProviderStage, estimateDiscoveryRepairCost } from "./adaptiveMathDiscovery";
 import {
   buildPlannerContentCandidateCards,
   resolveExactMathCatalogReuse,
@@ -23,6 +27,7 @@ import {
   type CreateLearningCycleInput,
   type AcademicPrediction,
   type LearningAssumption,
+  type LearningCycleMathItem,
   type LearningCycleNodeContract,
   type LearningCycleRecordV2,
 } from "./learningCycleRepository";
@@ -61,20 +66,7 @@ export type DirectActivity = {
   designArtifact?: ExperienceDesignArtifactV1;
 };
 
-export type DirectItem = {
-  id: string;
-  prompt: string;
-  lineage: {
-    sourceEvidenceIds: string[];
-    exposure: "unseen" | "taught" | "practiced";
-    measurementRole: "instruction" | "practice" | "fresh_checkpoint";
-  };
-  response:
-    | { mode: "selection"; options: Array<{ id: string; label: string; correct: boolean }> }
-    | { mode: "numeric"; expected: number; unit?: string }
-    | { mode: "construction"; expectedState: Record<string, string | number | boolean>; successDescription: string }
-    | { mode: "explanation"; rubric: string[] };
-};
+export type DirectItem = LearningCycleMathItem;
 
 export function mergeActiveDomainProjection(
   existing: unknown,
@@ -244,24 +236,31 @@ export type MathDesignCheckpoint = {
 export type BaselineBuilderAssignment = {
   nodeId: string;
   provider: "anthropic" | "openai";
-  model: "claude-opus-5" | "gpt-5.5";
+  model: "gpt-5.6";
 };
 
 export function assignBaselineBuilderModels(
-  assignmentFingerprint: string,
+  _assignmentFingerprint: string,
   activities: Array<Pick<MathPlannedActivity, "id">>,
 ): BaselineBuilderAssignment[] {
-  const finalNibble = Number.parseInt(assignmentFingerprint.slice(-1), 16);
-  const startsWithGpt = Number.isFinite(finalNibble) && finalNibble % 2 === 1;
-  return activities.map((activity, index) => {
-    const useGpt = index % 2 === (startsWithGpt ? 0 : 1);
-    return {
-      nodeId: activity.id,
-      provider: useGpt ? "openai" : "anthropic",
-      model: useGpt ? "gpt-5.5" : "claude-opus-5",
-    };
-  });
+  return activities.map(activity => ({nodeId:activity.id,provider:"openai",model:"gpt-5.6"}));
 }
+
+function predictionEligibility(prediction: Record<string, unknown>): Pick<AcademicPrediction, "eligibility"> {
+  if (prediction.eligibility === undefined) return {};
+  const value = object(prediction.eligibility);
+  const sources = value && stringArray(value.sources, "prediction_eligibility_sources");
+  if (!value || !sources?.length || sources.some(source => !["independent_probe", "graded_work", "delayed_reassessment"].includes(source))
+    || typeof value.maxDelayDays !== "number" || !Number.isFinite(value.maxDelayDays) || value.maxDelayDays <= 0) {
+    throw new Error("prediction_eligibility_invalid");
+  }
+  return { eligibility: { sources: sources as NonNullable<AcademicPrediction["eligibility"]>["sources"], maxDelayDays: value.maxDelayDays } };
+}
+
+const schemaPredictionEligibility = { type: "object", additionalProperties: false, required: ["sources", "maxDelayDays"], properties: {
+  sources: { type: "array", minItems: 1, items: { enum: ["independent_probe", "graded_work", "delayed_reassessment"] } },
+  maxDelayDays: { type: "number", exclusiveMinimum: 0 },
+} };
 
 const schemaString = { type: "string", minLength: 1 } as const;
 const schemaStrings = { type: "array", items: schemaString } as const;
@@ -296,11 +295,13 @@ const directMathPlannerProperties = {
   activities: { type: "array", minItems: 1, items: schemaObject({ id: schemaString, title: schemaString, routeId: schemaString, responsibilityId: schemaString, academicTarget: schemaString, mechanic: schemaString, engagementVariable: schemaString,
     visualMock: schemaObject({ scene: schemaString, layout: schemaString, artworkPrompt: schemaString }), experience: schemaObject({ objective: schemaString, childAction: schemaString, worldReaction: schemaString, anticipation: schemaString, progress: schemaString, recovery: schemaString, reward: schemaString }),
     items: { type: "array", minItems: 1, items: schemaObject({ id: schemaString, prompt: schemaString, lineage: schemaObject({ sourceEvidenceIds: { type: "array", minItems: 1, items: schemaString }, exposure: { enum: ["unseen", "taught", "practiced"] }, measurementRole: { enum: ["instruction", "practice", "fresh_checkpoint"] } }), response: schemaItemResponse }) }, acceptanceSteps: schemaStrings, creatorPrompt: schemaString, designPrediction: schemaString,
-    academicPrediction: schemaObject({ constructId: schemaString, context: schemaString, horizon: schemaString, expectedMetric: schemaObject({ key: schemaString, min: { type: "number" }, max: { type: "number" } }), predictedErrorPatterns: schemaStrings, confidence: { type: "number" }, evidenceIds: schemaStrings, intervention: schemaString, evidenceLimit: { const: "practice_only" } }),
+    academicPrediction: schemaObject({ constructId: schemaString, context: schemaString, horizon: schemaString, eligibility: schemaPredictionEligibility, expectedMetric: schemaObject({ key: schemaString, min: { type: "number" }, max: { type: "number" } }), predictedErrorPatterns: schemaStrings, confidence: { type: "number" }, evidenceIds: schemaStrings, intervention: schemaString, evidenceLimit: { const: "practice_only" } }),
     preserve: schemaStrings, change: schemaStrings, explore: schemaStrings, avoid: schemaStrings, measurementKeys: schemaStrings }) },
   quest: schemaObject({ title: { const: "Quest" }, locked: { const: true }, teaser: schemaString, artworkPrompt: schemaString }),
   boss: schemaObject({ title: { const: "Boss" }, locked: { const: true }, teaser: schemaString, artworkPrompt: schemaString }),
 };
+
+export const MATH_ITEMS_SCHEMA = directMathPlannerProperties.activities.items.properties.items;
 
 export const DIRECT_MATH_PLANNER_TOOL_SCHEMA = schemaObject(
   directMathPlannerProperties,
@@ -399,6 +400,7 @@ export const MATH_LEARNING_PROGRAM_TOOL_SCHEMA = schemaObject({
         constructId: schemaString,
         context: schemaString,
         horizon: schemaString,
+        eligibility: schemaPredictionEligibility,
         expectedMetric: schemaObject({ key: schemaString, min: { type: "number" }, max: { type: "number" } }),
         predictedErrorPatterns: schemaStrings,
         confidence: { type: "number", minimum: 0, maximum: 1 },
@@ -485,6 +487,7 @@ export type DirectArtifact = {
   designArtifactHash?: string;
   htmlHash?: string;
   externalLibraryUrls?: string[];
+  itemIds?: string[];
   generationElapsedMs?: number;
   inputTokens?: number;
   outputTokens?: number;
@@ -515,6 +518,8 @@ export type DirectGenerationStats = {
   bonusDeferred: boolean;
 };
 
+export const MATH_BROWSER_VERIFIER_VERSION = 7;
+
 export type DirectPlaywrightReport = {
   passed: boolean;
   failures: string[];
@@ -522,7 +527,7 @@ export type DirectPlaywrightReport = {
 };
 
 export function hasReadyDirectMathExperience(childId: string, rootDir = process.cwd()): boolean {
-  const directPath = path.join(rootDir, "src", "context", childId.trim().toLowerCase(), "homework", "direct_experience_plan.json");
+  const directPath = path.join(resolveChildContextDir(childId, { rootDir }), "homework", "direct_experience_plan.json");
   if (!fs.existsSync(directPath)) return false;
   try {
     const record = JSON.parse(fs.readFileSync(directPath, "utf8")) as {
@@ -545,15 +550,16 @@ export function boardPosition(percentX: number, percentY: number): { x: number; 
 }
 
 export function routeNodePosition(index: number, count: number, routeIndex: number): { x: number; y: number } {
-  const safeCount = Math.max(1, count);
-  const x = 0.30 + ((index + 1) * 0.46) / (safeCount + 1);
-  return { x, y: routeIndex === 0 ? 0.32 : 0.72 };
+  const columns = Math.ceil(count / 2), row = Math.floor(index / columns);
+  return count > 4
+    ? { x: 0.42 + (index % columns) * 0.36 / (columns - 1), y: (routeIndex === 0 ? 0.18 : 0.56) + row * 0.25 }
+    : { x: count <= 1 ? 0.60 : count === 4 ? 0.40 + index * 0.12 : 0.44 + (index * 0.26) / (count - 1), y: routeIndex === 0 ? 0.22 : 0.76 };
 }
 
 export function sharedNodePosition(index: number, count: number): { x: number; y: number } {
   if (count <= 1) return { x: 0.22, y: 0.64 };
-  const progress = index / (count - 1);
-  return { x: 0.15 + progress * 0.15, y: 0.72 - progress * 0.14 };
+  const column = Math.floor(index / 3), row = index % 3;
+  return { x: count <= 3 ? 0.22 : 0.18 + column * 0.14, y: column % 2 === 0 ? 0.70 - row * 0.27 : 0.16 + row * 0.27 };
 }
 
 export function boardShortLabel(label: string, maxLength = 24): string {
@@ -613,11 +619,12 @@ export function parseAssignmentConcept(value: unknown): AssignmentConcept {
   };
 }
 
-function parseDirectItem(rawItem: unknown): DirectItem {
+export function parseDirectItem(rawItem: unknown): DirectItem {
   const item = object(rawItem);
   const lineage = object(item?.lineage);
   const response = object(item?.response);
-  if (!item || !lineage || !response) throw new Error("direct_plan_invalid_item");
+  if (!item || !lineage) throw new Error("direct_plan_invalid_item_lineage");
+  if (!response) throw new Error("direct_plan_invalid_item_response");
   const sourceEvidenceIds = stringArray(lineage.sourceEvidenceIds, "item_source_evidence_ids");
   if (sourceEvidenceIds.length === 0) throw new Error("direct_plan_invalid_item_lineage");
   const exposure = requiredString(lineage, "exposure");
@@ -632,29 +639,32 @@ function parseDirectItem(rawItem: unknown): DirectItem {
     const options = (Array.isArray(response.options) ? response.options : []).map((rawOption) => {
       const option = object(rawOption);
       if (!option || typeof option.correct !== "boolean") throw new Error("direct_plan_invalid_selection_option");
-      return { id: requiredString(option, "id"), label: requiredString(option, "label"), correct: option.correct };
+      return { id: requiredString(option, "id", "selection_option_id"), label: requiredString(option, "label"), correct: option.correct };
     });
     if (options.length < 2 || options.filter((option) => option.correct).length !== 1) {
       throw new Error("direct_plan_selection_requires_one_correct_option");
     }
+    if (new Set(options.map(option => option.id)).size !== options.length) throw new Error("direct_plan_duplicate_option_id");
     parsedResponse = { mode, options };
   } else if (mode === "numeric") {
     parsedResponse = { mode, expected: requiredNumber(response, "expected"), ...(typeof response.unit === "string" ? { unit: response.unit } : {}) };
   } else if (mode === "construction") {
     const expectedState = object(response.expectedState);
-    if (!expectedState || Object.keys(expectedState).length === 0) throw new Error("direct_plan_invalid_construction_state");
+    if (!expectedState || Object.keys(expectedState).length === 0 || Object.values(expectedState).some(value => !["string", "number", "boolean"].includes(typeof value))) throw new Error("direct_plan_invalid_construction_state");
     parsedResponse = {
       mode,
       expectedState: expectedState as Record<string, string | number | boolean>,
       successDescription: requiredString(response, "successDescription"),
     };
   } else if (mode === "explanation") {
-    parsedResponse = { mode, rubric: stringArray(response.rubric, "explanation_rubric") };
+    const rubric = stringArray(response.rubric, "explanation_rubric");
+    if (!rubric.length) throw new Error("direct_plan_invalid_explanation_rubric");
+    parsedResponse = { mode, rubric };
   } else {
     throw new Error(`direct_plan_invalid_response_mode:${mode}`);
   }
   return {
-    id: requiredString(item, "id"),
+    id: requiredString(item, "id", "item_id"),
     prompt: requiredString(item, "prompt"),
     lineage: {
       sourceEvidenceIds,
@@ -751,6 +761,7 @@ export function parseMathLearningProgram(value: unknown): MathLearningProgram {
         constructId: assertInstanceFreeConceptId(requiredString(prediction, "constructId")),
         context: requiredString(prediction, "context"),
         horizon: requiredString(prediction, "horizon"),
+        ...predictionEligibility(prediction),
         expectedMetric: { key: requiredString(metric, "key"), min: requiredNumber(metric, "min"), max: requiredNumber(metric, "max") },
         predictedErrorPatterns: stringArray(prediction.predictedErrorPatterns, "predicted_error_patterns"),
         confidence: requiredNumber(prediction, "confidence"),
@@ -773,10 +784,13 @@ export function parseMathLearningProgram(value: unknown): MathLearningProgram {
       },
     };
   });
+  const activities = parsedActivities.filter((activity) => activity.purpose !== "bonus");
+  if (activities.length === 0 && parsedActivities.length > 0) {
+    throw new Error("math_learning_program_requires_baseline_activities");
+  }
+  if (activities.length === 0) throw new Error("math_learning_program_requires_activities");
   const bonusActivities = parsedActivities.filter((activity) => activity.purpose === "bonus");
   if (bonusActivities.length > 1) throw new Error("math_learning_program_requires_at_most_one_bonus");
-  const activities = parsedActivities.filter((activity) => activity.purpose !== "bonus");
-  if (activities.length === 0) throw new Error("math_learning_program_requires_activities");
   const normalizedResponsibilities = [...learningResponsibilities];
   const knownResponsibilityIds = new Set(normalizedResponsibilities.map((item) => item.id));
   for (const activity of activities) {
@@ -917,67 +931,7 @@ export function parseDirectLearningExperiencePlan(value: unknown): DirectLearnin
     if (explicitRoleCount > 0 && explicitRoleCount !== rawItems.length) {
       throw new Error("direct_plan_activity_mixed_measurement_roles");
     }
-    const items = rawItems.map((rawItem): DirectItem => {
-      const item = object(rawItem);
-      const lineage = object(item?.lineage);
-      const response = object(item?.response);
-      if (!item || !lineage) throw new Error("direct_plan_invalid_item_lineage");
-      if (!response) throw new Error("direct_plan_invalid_item_response");
-      const sourceEvidenceIds = stringArray(lineage.sourceEvidenceIds, "item_source_evidence_ids");
-      if (sourceEvidenceIds.length === 0) throw new Error("direct_plan_invalid_item_lineage");
-      const exposure = requiredString(lineage, "exposure");
-      if (!["unseen", "taught", "practiced"].includes(exposure)) throw new Error("direct_plan_invalid_item_exposure");
-      const measurementRole = typeof lineage.measurementRole === "string" && lineage.measurementRole.trim()
-        ? lineage.measurementRole.trim()
-        : "practice";
-      if (!["instruction", "practice", "fresh_checkpoint"].includes(measurementRole)) throw new Error("direct_plan_invalid_measurement_role");
-      const mode = requiredString(response, "mode");
-      let parsedResponse: DirectItem["response"];
-      if (mode === "selection") {
-        const options = (Array.isArray(response.options) ? response.options : []).map((rawOption) => {
-          const option = object(rawOption);
-          if (!option || typeof option.correct !== "boolean") throw new Error("direct_plan_invalid_selection_option");
-          return { id: requiredString(option, "id", "selection_option_id"), label: requiredString(option, "label"), correct: option.correct };
-        });
-        if (options.length < 2 || options.filter((option) => option.correct).length !== 1) {
-          throw new Error("direct_plan_selection_requires_one_correct_option");
-        }
-        parsedResponse = { mode, options };
-      } else if (mode === "numeric") {
-        parsedResponse = {
-          mode,
-          expected: requiredNumber(response, "expected"),
-          ...(typeof response.unit === "string" && response.unit.trim() ? { unit: response.unit.trim() } : {}),
-        };
-      } else if (mode === "construction") {
-        const expectedState = object(response.expectedState);
-        if (!expectedState || Object.keys(expectedState).length === 0
-          || Object.values(expectedState).some((entry) => !["string", "number", "boolean"].includes(typeof entry))) {
-          throw new Error("direct_plan_invalid_construction_state");
-        }
-        parsedResponse = {
-          mode,
-          expectedState: expectedState as Record<string, string | number | boolean>,
-          successDescription: requiredString(response, "successDescription"),
-        };
-      } else if (mode === "explanation") {
-        const rubric = stringArray(response.rubric, "explanation_rubric");
-        if (rubric.length === 0) throw new Error("direct_plan_invalid_explanation_rubric");
-        parsedResponse = { mode, rubric };
-      } else {
-        throw new Error(`direct_plan_invalid_response_mode:${mode}`);
-      }
-      return {
-        id: requiredString(item, "id", "item_id"),
-        prompt: requiredString(item, "prompt"),
-        lineage: {
-          sourceEvidenceIds,
-          exposure: exposure as DirectItem["lineage"]["exposure"],
-          measurementRole: measurementRole as DirectItem["lineage"]["measurementRole"],
-        },
-        response: parsedResponse,
-      };
-    });
+    const items = rawItems.map(parseDirectItem);
     if (items.length === 0) throw new Error("direct_plan_activity_requires_items");
     if (explicitRoleCount > 0 && !items.some((item) => item.lineage.measurementRole === "fresh_checkpoint")) {
       throw new Error(`direct_plan_activity_requires_fresh_checkpoint:${requiredString(activity, "id", "activity_id")}`);
@@ -1014,6 +968,7 @@ export function parseDirectLearningExperiencePlan(value: unknown): DirectLearnin
         constructId: assertInstanceFreeConceptId(requiredString(academicPrediction, "constructId")),
         context: requiredString(academicPrediction, "context"),
         horizon: requiredString(academicPrediction, "horizon"),
+        ...predictionEligibility(academicPrediction),
         expectedMetric: {
           key: requiredString(expectedMetric, "key"),
           min: requiredNumber(expectedMetric, "min"),
@@ -1322,11 +1277,14 @@ export async function askMathExperienceDesigner(input: {
     bossTeaser: schemaString,
     bossArtworkDirection: schemaString,
   }, ["title", "narrative", "openingChoice", "backgroundDirection", "routeDirections"]);
-  let checkpoint = input.checkpoint ?? createMathDesignCheckpoint({
+  const savedCheckpoint = input.checkpointFile && fs.existsSync(input.checkpointFile)
+    ? JSON.parse(fs.readFileSync(input.checkpointFile, "utf8")) as MathDesignCheckpoint : undefined;
+  let checkpoint = input.checkpoint ?? savedCheckpoint ?? createMathDesignCheckpoint({
     planId: input.program.planId,
     expectedNodeIds: programActivities.map((activity) => activity.id),
     model,
   });
+  if (checkpoint.planId !== input.program.planId) throw new Error("math_design_checkpoint_identity_mismatch");
   for (let attemptIndex = 0;
     attemptIndex < 2 && (checkpoint.missingNodeIds.length > 0 || !mathDesignHasRoutePresentationBindings(checkpoint));
     attemptIndex += 1) {
@@ -1387,9 +1345,12 @@ ${JSON.stringify({ ...programWithoutBonusDuplicate, activities: contracts }, nul
     let response: Awaited<ReturnType<ReturnType<typeof client.messages.stream>["finalMessage"]>> | undefined;
     for (let transportAttempt = 1; transportAttempt <= 2; transportAttempt += 1) {
       try {
-        response = await client.messages
-          .stream(request, { timeout: Number(process.env.SUNNY_AI_TIMEOUT_MS ?? 600000) })
-          .finalMessage();
+        const execute = () => client.messages.stream(request, { timeout: Number(process.env.SUNNY_AI_TIMEOUT_MS ?? 600000), maxRetries: 0 }).finalMessage();
+        response = input.checkpointFile
+          ? await runMathProviderStage({draftDir:path.dirname(input.checkpointFile),stage:`targeted-design-${checkpoint.attempts.length+1}`,model,request,execute,beforeRequest:()=>{
+            if(!input.client&&!process.env.ANTHROPIC_API_KEY?.trim())throw new Error("preflight_missing:ANTHROPIC_API_KEY");
+          }})
+          : await execute();
         break;
       } catch (error) {
         const details = providerTransportErrorDetails(error);
@@ -1410,7 +1371,7 @@ ${JSON.stringify({ ...programWithoutBonusDuplicate, activities: contracts }, nul
             "utf8",
           );
         }
-        if (!isRetryableProviderTransportError(error) || transportAttempt === 2) throw error;
+        if (input.checkpointFile || !isRetryableProviderTransportError(error) || transportAttempt === 2) throw error;
         console.warn(
           ` 🎮 [math-design] [transport-retry] attempt=${transportAttempt} ` +
           `nodes=${requestedNodeIds.join(",")} reason=${details.name}:${details.message}`,
@@ -1487,7 +1448,8 @@ ${JSON.stringify({ ...programWithoutBonusDuplicate, activities: contracts }, nul
     });
     if (input.checkpointFile) {
       fs.mkdirSync(path.dirname(input.checkpointFile), { recursive: true });
-      fs.writeFileSync(input.checkpointFile, `${JSON.stringify(checkpoint, null, 2)}\n`, "utf8");
+      fs.writeFileSync(input.checkpointFile+".tmp", `${JSON.stringify(checkpoint, null, 2)}\n`, "utf8");
+      fs.renameSync(input.checkpointFile+".tmp",input.checkpointFile);
     }
   }
   if (!checkpoint.boardCreativeSpine || checkpoint.missingNodeIds.length > 0 || !mathDesignHasRoutePresentationBindings(checkpoint)) {
@@ -1813,7 +1775,7 @@ You own only the educational prescription:
 
 You do not choose titles, worlds, visuals, mechanics, stakes, consequences, rewards, motion, sound, artwork, libraries, HTML, or Creator prompts. A separate Experience Creator owns those choices after your program is locked.
 
-Choose any educationally sufficient activity and item counts for the baseline program. Mark baseline activities purpose=baseline. Use exactly two academically valid routes with at least one baseline node each. Distribute responsibilities across the whole board; do not duplicate the complete curriculum merely for symmetry. Also author exactly one optional purpose=bonus activity with fresh assignment-aligned practice_only material. It is not a route requirement, cannot support mastery, and failure to build it must not block the board. Keep initial nodes practice_only. Quest and Boss are not part of this baseline program and remain locked until real evidence supports a later decision.
+Choose any educationally sufficient activity and item counts for the baseline program. The activities array MUST contain at least two purpose=baseline activities, including at least one owned by each route. Distribute responsibilities across the whole board; do not duplicate the complete curriculum merely for symmetry. Add exactly one purpose=bonus activity after those baseline activities with fresh assignment-aligned practice_only material. The bonus is not a route requirement, cannot support mastery, and failure to build it must not block the board. A response containing only bonus activities is invalid. Keep initial nodes practice_only. Quest and Boss are not part of this baseline program and remain locked until real evidence supports a later decision.
 
 For activities completed before the child chooses a route, set routeId to exactly "shared" and do not include those node IDs in either fork route. For activities after the choice, set routeId to the exact owning fork route ID. The activity routeId is authoritative; fork.routes[].nodeIds is only a projection of route-owned activities.
 
@@ -1858,23 +1820,7 @@ ${JSON.stringify(mathPlannerChartContext(input.chart), null, 2)}
   Prior factual outcomes and Planner interpretations:
 ${JSON.stringify(factualModelContext(input.priorOutcomes ?? []), null, 2)}`;
   const toolName = "create_math_learning_program";
-  const plannerContent = input.extraction.mediaType === "application/pdf"
-    && input.extraction.sourcePath
-    && fs.existsSync(input.extraction.sourcePath)
-    ? [
-        {
-          type: "document" as const,
-          source: {
-            type: "base64" as const,
-            media_type: "application/pdf" as const,
-            data: fs.readFileSync(input.extraction.sourcePath).toString("base64"),
-          },
-          title: input.extraction.filename || "Math assignment",
-          context: "This is the complete original assignment. Inspect every page before prescribing the learning program.",
-        },
-        { type: "text" as const, text: prompt },
-      ]
-    : prompt;
+  const plannerContent = assignmentPlannerContent(input.extraction,prompt);
   // A whole board — every activity, item, prediction and creator prompt — is a
   // long generation against a 20k token budget, and the non-streaming request
   // was timing out before it finished. Stream it, as the Creator already does.
@@ -2056,13 +2002,14 @@ Listen for parent messages with type:"sunny_companion_presence". Pause activity 
 Sunny may reserve a 220px right-side companion safe area while the child asks for help. Keep essential instructions, mathematical representations, and primary controls outside it at the 1365×768 target and the 1280×720 embedded frame; decorative scenery may extend behind it.
 For sound, post semantic cues to Sunny with window.parent.postMessage({type:"sunny_sfx",payload:{cue}},"*"). The allowed cue values are "interaction", "recovery", "progress", and "completion". Emit them when the approved design calls for those moments; Sunny owns the actual recorded sound quality.
 Include one visible sound toggle. It must post window.parent.postMessage({type:"sunny_sound_toggle",payload:{muted}},"*") whenever its state changes. Do not use speechSynthesis, spoken browser narration, HTML audio elements, or external audio assets. Do not create AudioContext oscillators or synthesized tones. Spoken explanations belong only to Elli after the child asks.
-Maintain a factual targetResults array for the full activity. For each answer append {target,correct,attemptedValue,responseTimeMs,scaffoldLevel}, where target is the stable item id, attemptedValue is what the child submitted, and scaffoldLevel reflects demos, hints, or companion help.
+For captured attemptedValue use the selected option id, numeric text without units, JSON.stringify of the construction state, or the actual explanation text. Never substitute a correctness label for the response.
+Maintain a factual targetResults array for the full activity. Record exactly one first committed response per item as {target,correct,attemptedValue,responseTimeMs,scaffoldLevel}; recovery retries must never append duplicate target rows or overwrite the first response, where target is the stable item id, attemptedValue is what the child submitted, and scaffoldLevel reflects demos, hints, or companion help.
 Every Planner-authored item must render controls that match its response mode. When the response mode changes, replace the previous item's controls before accepting input; never leave numeric or selection controls under an explanation prompt. Exercise every item in order, including the final item, and prove that it can submit through the same handlers as the visible child controls.
 After the final submission, completion state must not read the next item or call question-state helpers that require a current item. Capture the final item before advancing, then render and emit completion from terminal-safe state.
 Emit window.parent.postMessage({type:"attempt_event",payload:{domain:"math",target,correct,attemptedValue,responseTimeMs,scaffoldLevel}},"*") for each answer.
 Emit window.parent.postMessage({type:"progress_event",payload:{nodeId:"${input.activity.id}",completedItems,totalItems}},"*") whenever visible progress advances.
 On completion calculate accuracy from targetResults and emit window.parent.postMessage({type:"node_complete",payload:{nodeId:"${input.activity.id}",completed:true,accuracy,targetResults,timeSpent_ms}},"*").
-Expose window.SUNNY_VALIDATION_HOOKS = {playthrough: async () => { ... }}. Its playthrough must use the same handlers as the visible child controls, submit every Planner-authored item including the final item, and reach the real node_complete path. It must not fabricate or post evidence directly.
+${MATH_JOURNEY_CONTRACT}
 Include <div id="sunny-companion"></div> so the parent app owns Elli.
 At a 1365×768 viewport and a 1280×720 embedded frame, the title and first required action must be visible immediately. Use high-contrast text and controls against every panel behind them. Keep all primary controls inside the viewport without page scrolling or clipping. Before returning, measure the bounding rectangle of every enabled child control at both sizes. If any edge lies outside the viewport, compact spacing or resize the layout until all controls fit without scrolling.
 Return raw HTML only and end with </html>.
@@ -2081,17 +2028,131 @@ Approved design artifact:
 ${JSON.stringify(input.activity.designArtifact, null, 2)}`;
 }
 
+export function buildDirectActivityRepairPrompt(input: {
+  activity: DirectActivity;
+  html: string;
+  failures: string[];
+}): string {
+  return `You are Sunny's Experience Creator repairing only the implementation of one frozen targeted math activity. The attached screenshots show exact failed journey states. The Planner's difficulty boundary and academic prediction remain immutable. Each submitted answer emits attempt_event with payload.target equal to the frozen item ID. Final node_complete contains exactly one first-response targetResults row per item. Do not emit Discovery evaluation_attempt events in a teaching activity. ${MATH_IMPLEMENTATION_REPAIR_CONTRACT}
+VERIFICATION FAILURES:
+${input.failures.map((failure) => `- ${failure}`).join("\n")}
+
+IMMUTABLE ACADEMIC CONTRACT:
+${JSON.stringify({
+  responsibilityId: input.activity.responsibilityId,
+  academicTarget: input.activity.academicTarget,
+  difficultyBoundary: input.activity.difficultyBoundary,
+  items: input.activity.items,
+  academicPrediction: input.activity.academicPrediction,
+}, null, 2)}
+
+IMMUTABLE DESIGN ARTIFACT:
+${JSON.stringify(input.activity.designArtifact, null, 2)}
+
+CURRENT HTML:
+${input.html}`;
+}
+
+export async function repairDirectArtifact(input: {
+  artifact: DirectArtifact;
+  activity: DirectActivity;
+  failures: string[];
+  screenshotPaths: string[];
+  outputDir: string;
+  model?: string;
+  rootDir?: string;
+}): Promise<DirectArtifact> {
+  const metadataPath = input.artifact.htmlPath.replace(/\.html$/i, ".artifact.json");
+  const metadata = fs.existsSync(metadataPath) ? JSON.parse(fs.readFileSync(metadataPath, "utf8")) as Record<string, unknown> : {};
+  const originalAcademicHash = input.artifact.academicContractHash;
+  const originalDesignHash = input.artifact.designArtifactHash;
+  if (metadata.academicContractHash !== originalAcademicHash || metadata.designArtifactHash !== originalDesignHash) throw new Error(`direct_activity_repair_frozen_hash_mismatch:${input.artifact.nodeId}`);
+  if (!input.screenshotPaths.length || input.screenshotPaths.some(file => !fs.existsSync(file))) throw new Error(`repair_screenshot_missing:${input.artifact.nodeId}`);
+  fs.mkdirSync(input.outputDir, { recursive: true });
+  const atomicWrite = (file: string, data: string): void => { fs.writeFileSync(file + ".tmp", data, "utf8"); fs.renameSync(file + ".tmp", file); };
+  const sourcePath = path.join(input.outputDir, `${input.artifact.nodeId}-repair-source.html`);
+  if (!fs.existsSync(sourcePath)) atomicWrite(sourcePath, fs.readFileSync(input.artifact.htmlPath, "utf8"));
+  const originalHtml = fs.readFileSync(sourcePath, "utf8");
+  const originalHtmlHash = crypto.createHash("sha256").update(originalHtml).digest("hex");
+  const model = input.model ?? (process.env.SUNNY_DIRECT_REPAIR_MODEL?.trim() || "gpt-5.6");
+  const lessonSnapshot = freezeEngineeringLessonSnapshot({ snapshotFile: path.join(input.outputDir, `${input.artifact.nodeId}-engineering.snapshot.json`), auditRoot: resolveContextRoot({ rootDir: input.rootDir }), features: engineeringFeatures(originalHtml), defects: input.failures, verifierVersion: MATH_BROWSER_VERIFIER_VERSION * 1000 + DISCOVERY_VERIFIER_VERSION, preserveCompleted: hasReceivedMathProviderStage(input.outputDir, `${input.artifact.nodeId}-repair`) });
+  const prompt = buildDirectActivityRepairPrompt({
+    activity: input.activity,
+    html: originalHtml,
+    failures: input.failures,
+  }) + engineeringLessonContext(lessonSnapshot);
+  const content: Array<Record<string, unknown>> = input.screenshotPaths
+    .map((file) => ({
+      type: "input_image",
+      image_url: `data:image/png;base64,${fs.readFileSync(file).toString("base64")}`,
+    }));
+  content.push({ type: "input_text", text: prompt });
+  const requestFile = path.join(input.outputDir, `${input.artifact.nodeId}-repair-request.json`);
+  if (!fs.existsSync(requestFile)) atomicWrite(requestFile, JSON.stringify({model,input:[{role:"user",content}],max_output_tokens:Number(process.env.SUNNY_REPAIR_MAX_TOKENS ?? 8000),reasoning:{effort:"high"},stream:true,store:false}));
+  const request = JSON.parse(fs.readFileSync(requestFile,"utf8"));
+  const startedAt = Date.now();
+  const streamed = await runMathProviderStage({draftDir:input.outputDir,stage:`${input.artifact.nodeId}-repair`,model:request.model,request,beforeRequest:() => {
+    if (!process.env.OPENAI_API_KEY?.trim()) throw new Error("preflight_missing:OPENAI_API_KEY");
+  },execute:async () => {
+  const response = await fetch("https://api.openai.com/v1/responses", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${process.env.OPENAI_API_KEY ?? ""}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(request),
+    signal: AbortSignal.timeout(Number(process.env.SUNNY_AI_TIMEOUT_MS ?? 600000)),
+  });
+  if (!response.ok) {
+    throw Object.assign(new Error(`direct_activity_repair_provider_failed:${input.artifact.nodeId}:${response.status}`), {status:response.status});
+  }
+  return readOpenAiResponseStream(response);
+  }});
+  if (streamed.stopReason !== "completed") throw new Error(`direct_activity_repair_incomplete:${streamed.stopReason}`);
+  const applied = applyDiscoveryHtmlPatch(originalHtml, streamed.raw);
+  const htmlHash = crypto.createHash("sha256").update(applied.html).digest("hex");
+  const currentHash = crypto.createHash("sha256").update(fs.readFileSync(input.artifact.htmlPath)).digest("hex");
+  if (![originalHtmlHash,htmlHash].includes(currentHash) || ![originalHtmlHash,htmlHash].includes(input.artifact.htmlHash ?? "")) throw new Error(`direct_activity_repair_source_changed:${input.artifact.nodeId}`);
+  const diagnosticPath = path.join(input.outputDir, `${input.artifact.nodeId}-repair.json`);
+  if (applied.engineeringLesson) recordEngineeringRepairEvidence({ file: path.join(input.outputDir, `${input.artifact.nodeId}.engineering-repair.json`), verifierVersion: MATH_BROWSER_VERIFIER_VERSION * 1000 + DISCOVERY_VERIFIER_VERSION, originalHash: originalHtmlHash, repairedHash: htmlHash, academicHash: originalAcademicHash!, designHash: originalDesignHash!, issues: input.failures, proposal: applied.engineeringLesson, inputTokens: streamed.inputTokens, outputTokens: streamed.outputTokens, latencyMs: Date.now() - startedAt, costUsd: estimateDiscoveryRepairCost({ provider: "openai", inputTokens: streamed.inputTokens, outputTokens: streamed.outputTokens }) });
+  fs.writeFileSync(diagnosticPath, `${JSON.stringify({
+    nodeId: input.artifact.nodeId,
+    model:request.model,
+    failures: input.failures,
+    screenshotPaths: input.screenshotPaths,
+    stopReason: streamed.stopReason,
+    inputTokens: streamed.inputTokens,
+    outputTokens: streamed.outputTokens,
+    latencyMs: Date.now() - startedAt,
+    replacementCount: applied.replacementCount,
+    changedOriginalCharacters: applied.changedOriginalCharacters,
+    originalHtmlHash,
+    repairedHtmlHash: htmlHash,
+  }, null, 2)}\n`, "utf8");
+  if (currentHash !== htmlHash) atomicWrite(input.artifact.htmlPath, applied.html);
+  atomicWrite(metadataPath, `${JSON.stringify({
+      ...metadata,
+      htmlHash,
+      repair: { model:request.model, diagnosticPath, originalHtmlHash },
+    }, null, 2)}\n`);
+  console.log(` 🎮 [adaptive-math] [node-repair] [saved] node=${input.artifact.nodeId} model=${model} replacements=${applied.replacementCount} latencyMs=${Date.now() - startedAt}`);
+  return { ...input.artifact, htmlHash };
+}
+
 export function buildAdaptiveProgressionCreatorPrompt(input: {
   cycle: LearningCycleRecordV2;
   node: LearningCycleNodeContract;
   childContext: unknown;
 }): string {
   const nodeId = input.node.nodeId;
+  const spelling = input.cycle.domain === "spelling";
   const { generationPrompt: _generationPrompt, ...creatorNodeContract } = input.node;
   const prompt = `You are Sunny's Experience Creator. Build one complete child-facing activity as self-contained HTML with inline CSS and JavaScript.
 
 Creative objective:
-Build an experience a child would voluntarily replay. The mathematics must be the power the child uses to affect the world, not an unrelated question interrupting play. The child's meaningful action must visibly transform the world, mission, progression, or payoff. Choose the interaction, stakes, consequences, pacing, and reward that best serve the Planner's prescription and the factual evidence. Commit to one distinctive core interaction whose first action is understandable from the finished screen.
+Build an experience a child would voluntarily replay. The ${spelling ? "assigned spelling" : "mathematics"} must be the power the child uses to affect the world, not an unrelated question interrupting play. The child's meaningful action must visibly transform the world, mission, progression, or payoff. Choose the interaction, stakes, consequences, pacing, and reward that best serve the Planner's prescription and the factual evidence. Commit to one distinctive core interaction whose first action is understandable from the finished screen.
+
+${spelling ? "Preserve the assigned spelling words and frozen item IDs in evidenceContract.spellingItems. attemptedValue is the child's actual submitted letters, never the revealed answer or game outcome. Missing capture stays absent. Report visible letters or other support as scaffoldLevel greater than zero. These are practice responses; no mastery or unseen-item claim is allowed." : "For captured attemptedValue use the selected option id, numeric text without units, JSON.stringify of the construction state, or the actual explanation text. Keep exactly one first committed response per item in targetResults; retries must not duplicate or overwrite it. Preserve evidenceContract.itemContracts exactly; explanations are unscored evidence for later interpretation."}
 
 The AI Planner already made the educational decision below. Implement it faithfully without changing the theory, evidence limit, or purpose:
 ${input.node.generationPrompt?.text ?? "No Planner prescription was provided."}
@@ -2106,7 +2167,7 @@ If the Planner specified a way to fail, that failure must be genuinely reachable
 ` : ""}
 Never display the answer to a question before the child has committed to a response.
 
-Author fresh content appropriate to this assignment and node responsibility. Do not reuse any exposed item identity or exact prompt listed in the cycle. Quest must test unseen transfer. Boss must test unseen synthesis. A generated support node remains teaching/practice evidence. Do not claim mastery.
+${spelling ? "Use the frozen spelling item identities even when a word was practiced earlier; make the activity presentation appropriate to the Planner's responsibility. Repetition remains previously exposed practice, not unseen evidence." : "Author fresh content appropriate to this assignment and node responsibility. Do not reuse any exposed item identity or exact prompt listed in the cycle. Quest must test unseen transfer. Boss must test unseen synthesis. A generated support node remains teaching/practice evidence. Do not claim mastery."}
 The first visible H1 must be exactly ${JSON.stringify(input.node.openingScreen.title)}. A short exciting subtitle may establish the AI-authored world.
 Visibly use the assigned artwork URL as part of the world: ${input.node.artwork.localPath ?? "none"}.
 Keep the complete HTML under 24,000 characters. Prefer concise CSS and JavaScript.
@@ -2116,15 +2177,15 @@ Runtime contract appendix:
 Load <script src="/games/_contract.js"></script> in <head>.
 Read runtime identity and parameters from window.GAME_PARAMS. Never hardcode the child identity, homework identity, or session identity into the HTML.
 Emit window.parent.postMessage({type:"activity_ready",payload:{nodeId:"${nodeId}"}},"*") when ready.
-Whenever the activity or problem changes, emit window.parent.postMessage({type:"game_state_update",payload:{game:"generated-math",activityId:"${nodeId}",nodeId:"${nodeId}",phase:"question",activityTitle:${JSON.stringify(input.node.title)},learningFocus:${JSON.stringify(input.node.academicTarget.skill)},mechanic:${JSON.stringify(input.node.mechanic)},currentChallenge,availableActions,itemIndex,totalItems,answerVisibility:"hidden"}},"*") so Elli has live context. Never expose answers.
+Whenever the activity or problem changes, emit window.parent.postMessage({type:"game_state_update",payload:{game:"generated-${spelling ? "spelling" : "math"}",activityId:"${nodeId}",nodeId:"${nodeId}",phase:"question",activityTitle:${JSON.stringify(input.node.title)},learningFocus:${JSON.stringify(input.node.academicTarget.skill)},mechanic:${JSON.stringify(input.node.mechanic)},currentChallenge,availableActions,itemIndex,totalItems,answerVisibility:"hidden"}},"*") so Elli has live context. Never expose answers.
 Represent currentChallenge as {id,prompt,mode,readAloudRequested:false,readAloudCount}. When the child activates a visible Read it to me control, increment readAloudCount and resend that same answer-hidden state with readAloudRequested:true. Do not narrate it inside the activity.
 Listen for parent messages with type:"sunny_companion_presence". Pause activity timers and input while summoned, and resume the same state when collapsed. Do not restart or change progress.
-Maintain a factual targetResults array. For every submitted answer append {target,correct,attemptedValue,responseTimeMs,scaffoldLevel} using a stable fresh item identity.
-For every answer call window.fireAttemptEvent({domain:"math",target,correct,attemptedValue,responseTimeMs,scaffoldLevel}).
+Maintain a factual targetResults array with exactly one immutable first committed response per Planner item: {target,correct,attemptedValue,responseTimeMs,scaffoldLevel}. Log retries as separate attempt events; never append duplicate targets or overwrite the first response.
+For every answer call window.fireAttemptEvent({domain:"${spelling ? "spelling" : "math"}",target,correct,attemptedValue,responseTimeMs,scaffoldLevel}).
 Emit window.parent.postMessage({type:"progress_event",payload:{nodeId:"${nodeId}",completedItems,totalItems}},"*") whenever visible progress advances.
 Use window.fireCompanionEvent("correct_answer" or "wrong_answer", {target}) after meaningful answers and window.fireCompanionEvent("game_complete", {}) at completion.
 On completion calculate accuracy from targetResults and call window.sendNodeComplete({nodeId:window.GAME_PARAMS.nodeId,completed:true,accuracy,targetResults,timeSpent_ms}).
-Expose window.SUNNY_VALIDATION_HOOKS = {playthrough: async () => { ... }}. This is required for Quest and Boss. The hook must use the same handlers as visible child controls, exercise an incorrect response and visible recovery, complete every assessable item, and reach completion. It must not fabricate or post evidence directly.
+${MATH_JOURNEY_CONTRACT}
 Include <div id="sunny-companion"></div>; Sunny owns its rendering, so do not create companion chrome. Return raw HTML only and end with </html>.
 
 Assignment identity and current theory:
@@ -2200,76 +2261,6 @@ type GeneratedActivityHtml = {
   outputTokens: number;
 };
 
-function openAiResponseText(payload: Record<string, unknown>): string {
-  if (typeof payload.output_text === "string") return payload.output_text;
-  const output = Array.isArray(payload.output) ? payload.output : [];
-  return output.flatMap((item) => {
-    const record = object(item);
-    const content = Array.isArray(record?.content) ? record.content : [];
-    return content.flatMap((part) => {
-      const block = object(part);
-      return typeof block?.text === "string" ? [block.text] : [];
-    });
-  }).join("\n");
-}
-
-export async function readOpenAiResponseStream(response: Response): Promise<{
-  raw: string;
-  inputTokens: number;
-  outputTokens: number;
-  stopReason: string;
-}> {
-  if (!response.body) throw new Error("direct_activity_openai_stream_missing_body");
-  const reader = response.body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = "";
-  let raw = "";
-  let inputTokens = 0;
-  let outputTokens = 0;
-  let stopReason = "unknown";
-
-  const consumeEvent = (record: string): void => {
-    const data = record.split("\n")
-      .filter((line) => line.startsWith("data:"))
-      .map((line) => line.slice(5).trimStart())
-      .join("\n")
-      .trim();
-    if (!data || data === "[DONE]") return;
-    const event = JSON.parse(data) as Record<string, unknown>;
-    if (event.type === "response.output_text.delta" && typeof event.delta === "string") {
-      raw += event.delta;
-      return;
-    }
-    if (event.type === "error" || event.type === "response.failed") {
-      const failure = object(event.error) ?? object(event.response);
-      throw new Error(`direct_activity_openai_stream_failed:${String(failure?.message ?? event.type)}`);
-    }
-    if (event.type === "response.completed" || event.type === "response.incomplete") {
-      const completed = object(event.response);
-      const usage = object(completed?.usage);
-      const incompleteDetails = object(completed?.incomplete_details);
-      inputTokens = Number(usage?.input_tokens ?? 0);
-      outputTokens = Number(usage?.output_tokens ?? 0);
-      stopReason = String(incompleteDetails?.reason ?? completed?.status ?? "completed");
-      if (!raw && completed) raw = openAiResponseText(completed);
-    }
-  };
-
-  while (true) {
-    const { done, value } = await reader.read();
-    buffer += decoder.decode(value, { stream: !done }).replace(/\r\n/g, "\n");
-    let boundary = buffer.indexOf("\n\n");
-    while (boundary >= 0) {
-      consumeEvent(buffer.slice(0, boundary));
-      buffer = buffer.slice(boundary + 2);
-      boundary = buffer.indexOf("\n\n");
-    }
-    if (done) break;
-  }
-  if (buffer.trim()) consumeEvent(buffer);
-  return { raw, inputTokens, outputTokens, stopReason };
-}
-
 function externalLibraryUrls(html: string): string[] {
   return [...new Set(
     [...html.matchAll(/(?:src|href)=["'](https:\/\/[^"']+)["']/gi)].map((match) => match[1]!),
@@ -2283,9 +2274,18 @@ async function generateActivityHtml(input: {
   client: Anthropic;
   provider: "anthropic" | "openai";
   model: string;
+  receiptDir: string;
+  rootDir?: string;
 }): Promise<GeneratedActivityHtml> {
-  const prompt = buildDirectActivityCreatorPrompt(input);
+  const lessonSnapshot = freezeEngineeringLessonSnapshot({ snapshotFile: path.join(input.receiptDir, `${input.activity.id}-engineering.snapshot.json`), auditRoot: resolveContextRoot({ rootDir: input.rootDir }), features: engineeringFeatures(JSON.stringify(input.activity)), verifierVersion: MATH_BROWSER_VERIFIER_VERSION * 1000 + DISCOVERY_VERIFIER_VERSION, preserveCompleted: hasReceivedMathProviderStage(input.receiptDir, `${input.activity.id}-build`) });
+  const prompt = buildDirectActivityCreatorPrompt(input) + engineeringLessonContext(lessonSnapshot);
   const startedAt = Date.now();
+  const request = input.provider === "openai"
+    ? {model:input.model,input:prompt,max_output_tokens:Number(process.env.SUNNY_GENERATION_MAX_TOKENS ?? 48000),reasoning:{effort:"high"},stream: true}
+    : {model:input.model,max_tokens:Number(process.env.SUNNY_GENERATION_MAX_TOKENS ?? 48000),thinking:{type:"adaptive"},output_config:{effort:"high"},messages:[{role:"user",content:prompt}]};
+  const captured = await runMathProviderStage({draftDir:input.receiptDir,stage:`${input.activity.id}-build`,model:input.model,request,beforeRequest:()=>{
+    if(input.provider==="openai"&&!process.env.OPENAI_API_KEY?.trim())throw new Error("preflight_missing:OPENAI_API_KEY");
+  },execute:async()=>{
   let raw = "";
   let inputTokens = 0;
   let outputTokens = 0;
@@ -2297,39 +2297,30 @@ async function generateActivityHtml(input: {
         Authorization: `Bearer ${process.env.OPENAI_API_KEY ?? ""}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        model: input.model,
-        input: prompt,
-        max_output_tokens: Number(process.env.SUNNY_GENERATION_MAX_TOKENS ?? 48000),
-        reasoning: { effort: "high" },
-        stream: true,
-      }),
+      body: JSON.stringify(request),
       signal: AbortSignal.timeout(Number(process.env.SUNNY_AI_TIMEOUT_MS ?? 600000)),
     });
     if (!response.ok) {
       const payload = await response.json() as Record<string, unknown>;
       const error = object(payload.error);
-      throw new Error(`direct_activity_provider_failed:${input.activity.id}:openai:${response.status}:${String(error?.message ?? "request_failed")}`);
+      throw Object.assign(new Error(`direct_activity_provider_failed:${input.activity.id}:openai:${response.status}:${String(error?.message ?? "request_failed")}`),{status:response.status});
     }
     ({ raw, inputTokens, outputTokens, stopReason } = await readOpenAiResponseStream(response));
   } else {
-    const response = await input.client.messages.stream({
-      model: input.model,
-      max_tokens: Number(process.env.SUNNY_GENERATION_MAX_TOKENS ?? 48000),
-      thinking: { type: "adaptive" },
-      output_config: { effort: "high" },
-      messages: [{ role: "user", content: prompt }],
-    } as never, { timeout: Number(process.env.SUNNY_AI_TIMEOUT_MS ?? 600000) }).finalMessage();
+    const response = await input.client.messages.stream(request as never, { timeout: Number(process.env.SUNNY_AI_TIMEOUT_MS ?? 600000), maxRetries: 0 }).finalMessage();
     raw = response.content.filter((block) => block.type === "text").map((block) => block.text).join("\n");
     inputTokens = response.usage.input_tokens;
     outputTokens = response.usage.output_tokens;
     stopReason = response.stop_reason ?? "unknown";
   }
+  return {raw,inputTokens,outputTokens,stopReason,elapsedMs:Date.now()-startedAt};
+  }});
+  const {raw,inputTokens,outputTokens,stopReason,elapsedMs}=captured;
   const html = normalizeGeneratedHtml(stripHtml(raw));
   if (!isCompleteGeneratedHtml(html)) {
     throw new Error(`direct_activity_html_truncated:${input.activity.id}:stop=${stopReason}:chars=${html.length}`);
   }
-  return { html, elapsedMs: Date.now() - startedAt, inputTokens, outputTokens };
+  return { html, elapsedMs, inputTokens, outputTokens };
 }
 
 async function mapConcurrent<T, R>(
@@ -2450,7 +2441,7 @@ export async function generateDirectArtifacts(input: {
   const thumbnailByNodeId = new Map(thumbnailEntries.map((entry) => [entry.nodeId, entry.thumbnailUrl]));
   const generatedNodeIds: string[] = [];
   const reusedNodeIds: string[] = [];
-  const gamesDir = path.join(rootDir, "src", "context", input.childId, "homework", "games", input.homeworkId);
+  const gamesDir = path.join(resolveChildContextDir(input.childId, { rootDir }), "homework", "games", input.homeworkId);
   fs.mkdirSync(gamesDir, { recursive: true });
   const activityBuild = await mapConcurrentSettled(selectedActivities, 2, async (activity): Promise<DirectArtifact> => {
     const artworkUrl = backgroundUrl;
@@ -2530,6 +2521,8 @@ export async function generateDirectArtifacts(input: {
         client,
         provider: builder.provider,
         model,
+        receiptDir: path.join(gamesDir,"provider-checkpoints"),
+        rootDir: input.rootDir,
       });
       fs.writeFileSync(htmlPath, generated.html, "utf8");
     } else if (!exactCatalogReuse) {
@@ -2670,103 +2663,36 @@ export async function runDirectBrowserSmokeCheck(input: {
   await new Promise<void>((resolve, reject) => { server.once("error", reject); server.listen(0, "127.0.0.1", resolve); });
   const address = server.address();
   if (!address || typeof address === "string") throw new Error("direct_playwright_server_failed");
-  const { chromium } = await import("playwright");
-  const browser = await chromium.launch({ headless: true });
-  const failures: string[] = [];
-  const screenshots: string[] = [];
-  const screenshotDir = input.artifacts[0]
-    ? path.join(rootDir, "web", "public", "generated", "direct-math", `${input.artifacts[0].homeworkId}-previews`)
-    : "";
-  if (screenshotDir) fs.mkdirSync(screenshotDir, { recursive: true });
+  let browser: Awaited<ReturnType<(typeof import("playwright"))["chromium"]["launch"]>> | undefined;
+  const failures: string[] = [], screenshots: string[] = [];
+  const screenshotDir = path.join(rootDir, "outputs", "math-browser-verification");
   try {
-    for (const artifact of input.artifacts) {
-      const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
-      const pageErrors: string[] = [];
-      page.on("pageerror", (error) => pageErrors.push(error.message));
-      await page.addInitScript(`window.__sunnyMessages=[];window.addEventListener("message",event=>window.__sunnyMessages.push(event.data));`);
-      const launchPath = NODE_REGISTRY["generated-baseline"]?.getUrl?.({
-        id: artifact.nodeId,
-        type: "generated-baseline",
-        gameHtmlPath: artifact.htmlPath,
-        date: artifact.homeworkId,
-        words: [],
-        difficulty: 2,
-      }, { childId: artifact.childId, companion: "elli", previewParam: "" });
-      if (!launchPath) {
-        failures.push(`${artifact.nodeId}:launch_url_missing`);
+    fs.mkdirSync(screenshotDir, { recursive: true });
+    const { chromium } = await import("playwright");
+    browser = await chromium.launch({ headless: true });
+    for (const artifact of input.artifacts) for (const viewport of DISCOVERY_RELEASE_VIEWPORTS) {
+      const page = await browser.newPage({ viewport });
+      const errors: string[] = [];
+      page.on("pageerror", error => errors.push(error.message));
+      try {
+        await page.addInitScript(`window.__sunnyMessages=[];window.addEventListener("message",event=>window.__sunnyMessages.push(event.data));`);
+        const launchPath = NODE_REGISTRY["generated-baseline"]?.getUrl?.({ id: artifact.nodeId, type: "generated-baseline", gameHtmlPath: artifact.htmlPath, date: artifact.homeworkId, words: [], difficulty: 2 }, { childId: artifact.childId, companion: "elli", previewParam: "" });
+        if (!launchPath) throw new Error("launch_url_missing");
+        const navigation = await page.goto(`http://127.0.0.1:${address.port}${launchPath}`, { waitUntil: "load" });
+        if (navigation?.status() !== 200 || !navigation.headers()["content-type"]?.includes("text/html")) throw new Error("real_launch_not_html");
+        await assertMathControlsVisible(page);
+        await verifyMathControlJourney(page, { completionType: "node_complete", itemIds: artifact.itemIds });
+      } catch (error) {
+        failures.push(`${artifact.nodeId}:${viewport.name}:${error instanceof Error ? error.message : String(error)}`);
+      } finally {
+        failures.push(...errors.map(error => `${artifact.nodeId}:${viewport.name}:browser_error:${error}`));
+        const target = path.join(screenshotDir, `${artifact.nodeId.replace(/[^a-z0-9_-]/gi,"_")}-${viewport.name}.png`);
+        await page.screenshot({ path: target }).then(() => screenshots.push(target)).catch(error => failures.push(`screenshot_failed:${String(error)}`));
         await page.close();
-        continue;
       }
-      const navigation = await page.goto(`http://127.0.0.1:${address.port}${launchPath}`, { waitUntil: "load" });
-      if (navigation?.status() !== 200 || !navigation.headers()["content-type"]?.includes("text/html")) {
-        failures.push(`${artifact.nodeId}:real_launch_not_html`);
-      }
-      await page.waitForFunction(
-        `window.__sunnyMessages.some(message=>message?.type==='activity_ready')`,
-        undefined,
-        { timeout: 5_000 },
-      ).catch(() => undefined);
-      const visibleTitle = page.locator("h1").first();
-      if (await visibleTitle.count() !== 1 || !await visibleTitle.isVisible()) {
-        failures.push(`${artifact.nodeId}:title_not_visible`);
-      }
-      const viewportCheck = await page.evaluate<{
-        interactiveCount: number;
-        clipped: boolean;
-        horizontalOverflow: boolean;
-      }>(`(() => {
-        const htmlStyle = getComputedStyle(document.documentElement);
-        const bodyStyle = getComputedStyle(document.body);
-        const interactive = [...document.querySelectorAll(
-          "button:not([disabled]),input:not([disabled]),select:not([disabled]),[role=button]:not([aria-disabled=true])"
-        )].filter((element) => {
-          const style = getComputedStyle(element);
-          const rect = element.getBoundingClientRect();
-          return style.visibility !== "hidden" && style.display !== "none" && rect.width > 0 && rect.height > 0;
-        });
-        return {
-          interactiveCount: interactive.length,
-          clipped: interactive.some((element) => {
-            const rect = element.getBoundingClientRect();
-            return rect.left < 0 || rect.top < 0 || rect.right > innerWidth || rect.bottom > innerHeight;
-          }),
-          horizontalOverflow: document.documentElement.scrollWidth > innerWidth + 2
-            && htmlStyle.overflowX !== "hidden" && bodyStyle.overflowX !== "hidden",
-        };
-      })()`);
-      if (viewportCheck.interactiveCount === 0) failures.push(`${artifact.nodeId}:first_action_not_visible`);
-      if (viewportCheck.clipped) failures.push(`${artifact.nodeId}:primary_control_clipped`);
-      if (viewportCheck.horizontalOverflow) failures.push(`${artifact.nodeId}:viewport_horizontal_overflow`);
-      if (screenshotDir) {
-        const screenshotPath = path.join(screenshotDir, `${artifact.nodeId.replace(/[^a-z0-9_-]/gi, "_")}-opening.png`);
-        await page.screenshot({ path: screenshotPath, fullPage: false })
-          .then(() => screenshots.push(screenshotPath))
-          .catch((error) => console.warn(` 🎮 [direct-taste] [screenshot-unavailable] node=${artifact.nodeId} reason=${error instanceof Error ? error.message : String(error)}`));
-      }
-      const playthrough = await page.evaluate<{ used: boolean; error?: string }>(`(async () => {
-        const hook = window.SUNNY_VALIDATION_HOOKS && window.SUNNY_VALIDATION_HOOKS.playthrough;
-        if (typeof hook !== "function") return { used: false };
-        try {
-          await Promise.race([
-            hook({ words: [] }),
-            new Promise((_, reject) => setTimeout(() => reject(new Error("playthrough_timeout")), 10000)),
-          ]);
-          return { used: true };
-        } catch (error) {
-          return { used: true, error: String(error && error.message ? error.message : error) };
-        }
-      })()`);
-      if (playthrough.error) failures.push(`${artifact.nodeId}:playthrough_error:${playthrough.error}`);
-      if (playthrough.used) {
-        const completed = await page.evaluate<boolean>(`window.__sunnyMessages.some(message=>message?.type==='node_complete')`);
-        if (!completed) failures.push(`${artifact.nodeId}:playthrough_completion_missing`);
-      }
-      pageErrors.forEach((error) => failures.push(`${artifact.nodeId}:browser_error:${error}`));
-      await page.close();
     }
   } finally {
-    await browser.close();
-    await new Promise<void>((resolve) => server.close(() => resolve()));
+    try { await browser?.close(); } finally { await new Promise<void>(resolve => server.close(() => resolve())); }
   }
   return { passed: failures.length === 0, failures, screenshots };
 }
@@ -2827,15 +2753,15 @@ export function buildDirectActiveSessionPlan(input: {
     const artifact = artifactById.get(activity.id)!;
     nodes.push({ id: activity.id, kind: "activity", activityId: "generated-baseline", label: activity.title, shortLabel: boardShortLabel(activity.title), state: index === 0 ? "current" : "locked", position: sharedNodePosition(index, sharedActivities.length), action: { type: "launch-activity", payloadId: activity.id }, thumbnailUrl: artifact.thumbnailUrl ?? previewUrl(activity.id, artifact.artworkUrl), mechanic: activity.mechanic, engagementDimensions: [activity.engagementVariable], engagementHypothesis: input.plan.fork.hypothesis, contentId: `${input.homeworkId}:${activity.id}` });
   });
-  nodes.push({ id: "choose-path", kind: "choice-gate", label: "Choose your path", shortLabel: "Choose Path", state: sharedActivities.length === 0 ? "current" : "locked", position: sharedActivities.length === 0 ? boardPosition(24, 58) : boardPosition(44, 48), action: { type: "open-choice-set", payloadId: "direct-route-choice" }, choiceSetId: "direct-route-choice" });
+  nodes.push({ id: "choose-path", kind: "choice-gate", label: "Choose your path", shortLabel: "Choose Path", state: sharedActivities.length === 0 ? "current" : "locked", position: sharedActivities.length === 0 ? boardPosition(24, 58) : input.plan.fork.routes.some(route => route.nodeIds.length > 3) ? boardPosition(32, 64) : boardPosition(44, 48), action: { type: "open-choice-set", payloadId: "direct-route-choice" }, choiceSetId: "direct-route-choice" });
   input.plan.fork.routes.forEach((route, routeIndex) => route.nodeIds.forEach((nodeId, index) => {
     const activity = input.plan.activities.find((item) => item.id === nodeId)!;
     const artifact = artifactById.get(nodeId)!;
     nodes.push({ id: nodeId, kind: "activity", activityId: "generated-baseline", label: activity.title, shortLabel: boardShortLabel(activity.title), state: "locked", position: routeNodePosition(index, route.nodeIds.length, routeIndex), action: { type: "launch-activity", payloadId: nodeId }, thumbnailUrl: artifact.thumbnailUrl ?? previewUrl(nodeId, artifact.artworkUrl), mechanic: activity.mechanic, engagementDimensions: [activity.engagementVariable], engagementHypothesis: engagementHypothesisForRoute(route.id), contentId: `${input.homeworkId}:${nodeId}` });
   }));
   nodes.push(
-    { id: "quest", kind: "quest", label: "Quest", state: "locked", position: boardPosition(82, 48), thumbnailUrl: input.questArtworkUrl, lock: { reason: "Complete your adventure routes to reveal the Quest.", label: "Locked" }, action: { type: "show-locked-reason", payloadId: "quest" } },
-    { id: "boss", kind: "boss", label: "Boss", state: "locked", position: boardPosition(94, 28), thumbnailUrl: input.bossArtworkUrl, lock: { reason: "Complete the Quest before facing the Boss.", label: "Locked" }, action: { type: "show-locked-reason", payloadId: "boss" } },
+    { id: "quest", kind: "quest", label: "Quest", state: "locked", position: boardPosition(92, 48), thumbnailUrl: input.questArtworkUrl, lock: { reason: "Complete your adventure routes to reveal the Quest.", label: "Locked" }, action: { type: "show-locked-reason", payloadId: "quest" } },
+    { id: "boss", kind: "boss", label: "Boss", state: "locked", position: boardPosition(92, 16), thumbnailUrl: input.bossArtworkUrl, lock: { reason: "Complete the Quest before facing the Boss.", label: "Locked" }, action: { type: "show-locked-reason", payloadId: "boss" } },
   );
   const edges: AdventureBoardJson["edges"] = [];
   let sharedPrevious = "start";
@@ -2975,6 +2901,7 @@ export function buildDirectLearningCycleInput(input: {
         engagement: true,
         companionObservations: true,
         itemRoles: Object.fromEntries(activity.items.map((item) => [item.id, item.lineage.measurementRole])),
+        itemContracts: Object.fromEntries(activity.items.map(item => [item.id, structuredClone(item)])),
       },
       evidenceIds: [],
     };
@@ -3079,8 +3006,9 @@ export function persistDirectExperience(input: {
   report: DirectPlaywrightReport;
   assumptions?: MathLearningProgram["assumptions"];
 }): string {
+  if (!input.report.passed || input.report.failures.length) throw new Error("direct_publication_browser_verification_required");
   const rootDir = input.rootDir ?? process.cwd();
-  const contextDir = path.join(rootDir, "src", "context", input.childId);
+  const contextDir = resolveChildContextDir(input.childId, { rootDir });
   const directPath = path.join(contextDir, "homework", "direct_experience_plan.json");
   const now = new Date().toISOString();
   let priorFeedback: { feedbackObservations?: unknown[]; feedbackDecisions?: unknown[] } = {};
@@ -3141,7 +3069,7 @@ export function persistDirectExperience(input: {
     createdAt: now,
   });
   const existingCycle = getLearningCycle(input.childId, input.homeworkId, { rootDir });
-  if (existingCycle) {
+  if (existingCycle && !existingCycle.adaptiveGeneration?.designHash) {
     transitionLearningCycle(input.childId, input.homeworkId, existingCycle.revision, {
       type: "plan_reconciled",
       assignment: canonicalInput.assignment,
@@ -3153,7 +3081,7 @@ export function persistDirectExperience(input: {
       agencyExperiment: canonicalInput.agencyExperiment,
       reason: "Re-ingestion reconciled the AI-authored board with the existing assignment cycle.",
     }, { rootDir, now: new Date(now) });
-  } else {
+  } else if (!existingCycle) {
     createLearningCycle(canonicalInput, { rootDir, now: new Date(now) });
   }
   writeAssignmentLedgerEntry(ledgerEntry, { rootDir });
@@ -3220,7 +3148,7 @@ export function persistDirectExperience(input: {
       reuseStatus: activity.catalogDecision?.action === "retire" ? "retire" : "candidate",
       reuseReason: activity.catalogDecision?.reason ?? "Artifact-designed candidate awaiting real child evidence.",
       reviewStatus: "approved_ready",
-      reviewReason: "Published after a non-blocking opening browser smoke check; human child-experience review remains authoritative.",
+      reviewReason: "Published after real browser controls completed; parent assessment-validity review remains separate.",
       validationStatus: "passed",
       mechanic: activity.mechanic,
       theme: activity.visualMock.scene,

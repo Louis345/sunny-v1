@@ -31,6 +31,45 @@ describe("getChildChart", () => {
     }
   });
 
+  it.each(["spelling", "reading"])("keeps the committed %s lane readable while math publication is interrupted", (domain) => {
+    const root = makeRoot();
+    roots.push(root);
+    const childId = "publication-lab";
+    const profile = initializeLearningProfile({ childId, age: 8, grade: 3, diagnoses: [], learningGoals: [] });
+    const pending = { homeworkId: `hw-${domain}`, wordList: ["river"], nodes: [], contentProfile: { practiceDomain: domain } };
+    const plan = { planId: `plan-${domain}`, domain, activeHomeworkId: pending.homeworkId, nodePlan: [] };
+    writeJson(root, `src/context/${childId}/learning_profile.json`, profile);
+    writeJson(root, `src/context/${childId}/homework/current.json`, { version: 1, childId, selectedDomain: domain, current: pending, activeByDomain: { [domain]: pending } });
+    writeJson(root, `src/context/${childId}/plans/active_session_plan.json`, { version: 1, childId, selectedDomain: domain, current: plan, activeByDomain: { [domain]: plan } });
+    writeJson(root, `src/context/${childId}/homework/discovery-publication.json`, { version: 1, input: { childId, homeworkId: "hw-math-interrupted" } });
+
+    const chart = getChildChart(childId, { rootDir: root });
+    expect(chart.homework.selectedDomain).toBe(domain);
+    expect(chart.homework.pending?.homeworkId).toBe(`hw-${domain}`);
+    expect(chart.activeSessionPlan?.planId).toBe(plan.planId);
+    expect(fs.existsSync(path.join(root, `src/context/${childId}/homework/discovery-publication.json`))).toBe(true);
+
+    writeJson(root, `src/context/${childId}/homework/current.json`, { version: 1, childId, selectedDomain: "math", current: { ...pending, homeworkId: "hw-math-interrupted", contentProfile: { practiceDomain: "math" } }, activeByDomain: {} });
+    expect(() => getChildChart(childId, { rootDir: root })).toThrow("discovery_publication_pending");
+  });
+
+  it.each(["session-plan", "profile-plan", "profile-homework", "wrong-assignment"])("fails closed for an interrupted math publication with a mixed %s projection", (mixed) => {
+    const root = makeRoot(); roots.push(root);
+    const childId = "mixed-publication-lab";
+    const profile = initializeLearningProfile({ childId, age: 8, grade: 3, diagnoses: [], learningGoals: [] });
+    const pending = { homeworkId: "hw-spelling", wordList: ["river"], nodes: [], contentProfile: { practiceDomain: "spelling" } };
+    const plan = { planId: "plan-spelling", domain: "spelling", activeHomeworkId: "hw-spelling", nodePlan: [] };
+    const mathPlan = { ...plan, planId: "plan-math", domain: "math", activeHomeworkId: "hw-math" };
+    writeJson(root, `src/context/${childId}/learning_profile.json`, { ...profile,
+      ...(mixed === "profile-plan" ? { activeSessionPlan: mathPlan } : {}),
+      ...(mixed === "profile-homework" ? { pendingHomework: { ...pending, homeworkId: "hw-math", contentProfile: { practiceDomain: "math" } } } : {}),
+    });
+    writeJson(root, `src/context/${childId}/homework/current.json`, { version: 1, childId, selectedDomain: "spelling", current: pending, activeByDomain: { spelling: pending } });
+    writeJson(root, `src/context/${childId}/plans/active_session_plan.json`, { version: 1, childId, selectedDomain: "spelling", current: mixed === "session-plan" ? mathPlan : mixed === "wrong-assignment" ? { ...plan, activeHomeworkId: "hw-other-spelling" } : plan, activeByDomain: { spelling: plan, math: mathPlan } });
+    writeJson(root, `src/context/${childId}/homework/discovery-publication.json`, { version: 1, input: { childId, homeworkId: "hw-math" } });
+    expect(() => getChildChart(childId, { rootDir: root })).toThrow("discovery_publication_pending");
+  });
+
   it("assembles Reina's chart from the child_profile cover sheet and attached records", () => {
     const chart = getChildChart("reina");
 

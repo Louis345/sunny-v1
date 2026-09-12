@@ -1,44 +1,43 @@
 import fs from "fs";
+import os from "os";
 import path from "path";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { computeProgression } from "./progression";
-import { readLearningProfile, writeLearningProfile } from "../utils/learningProfileIO";
+import {
+  initializeLearningProfile,
+  readLearningProfile,
+  resolveProfilePath,
+  writeLearningProfile,
+} from "../utils/learningProfileIO";
 import type { LearningProfile } from "../context/schemas/learningProfile";
 
-const childId = "ila";
-const profilePath = path.resolve(
-  process.cwd(),
-  "src",
-  "context",
-  childId,
-  "learning_profile.json",
-);
-const wordBankPath = path.resolve(
-  process.cwd(),
-  "src",
-  "context",
-  childId,
-  "word_bank.json",
-);
+const childId = "progression-lab";
 
 describe("progression system", () => {
-  let savedProfile: string | null = null;
-  let savedBank: string | null = null;
+  const previousContextRoot = process.env.SUNNY_CONTEXT_ROOT;
+  let rootDir = "";
+  let profilePath = "";
+  let wordBankPath = "";
 
   beforeEach(() => {
-    savedProfile = fs.existsSync(profilePath)
-      ? fs.readFileSync(profilePath, "utf-8")
-      : null;
-    savedBank = fs.existsSync(wordBankPath)
-      ? fs.readFileSync(wordBankPath, "utf-8")
-      : null;
+    rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-progression-"));
+    process.env.SUNNY_CONTEXT_ROOT = rootDir;
+    profilePath = resolveProfilePath(childId);
+    wordBankPath = path.join(rootDir, childId, "word_bank.json");
+    expect(profilePath).not.toContain(path.join("src", "context", "ila"));
+    writeLearningProfile(childId, initializeLearningProfile({
+      childId,
+      age: 8,
+      grade: 3,
+      diagnoses: [],
+      learningGoals: [],
+    }));
   });
 
   afterEach(() => {
-    if (savedProfile !== null)
-      fs.writeFileSync(profilePath, savedProfile, "utf-8");
-    if (savedBank !== null) fs.writeFileSync(wordBankPath, savedBank, "utf-8");
-    else if (fs.existsSync(wordBankPath)) fs.unlinkSync(wordBankPath);
+    fs.rmSync(rootDir, { recursive: true, force: true });
+    if (previousContextRoot === undefined) delete process.env.SUNNY_CONTEXT_ROOT;
+    else process.env.SUNNY_CONTEXT_ROOT = previousContextRoot;
   });
 
   it("computes XP from word bank mastery", () => {

@@ -1,3 +1,4 @@
+import { MATH_ITEMS_SCHEMA, parseDirectItem, type DirectItem } from "./directMathExperience";
 import Anthropic from "@anthropic-ai/sdk";
 import { getChildChart } from "../profiles/childChart";
 import { engagementTheoryEvidenceContext } from "./engagementTheory";
@@ -13,12 +14,18 @@ import {
   type LearningCycleRecordV2,
   type LearningCycleRepositoryOptions,
   type LearningObservation,
+  type LearningCycleSpellingItem,
   type LearningProgressionAction,
   type NextInstrumentPrescription,
 } from "./learningCycleRepository";
+import { areDistinctWordsPronunciationEquivalent } from "../shared/karaokeMatchWord";
 
 export type CanonicalCompletionResult = {
   completed: boolean;
+  /** Terminal participation is separate from a native game's legacy win flag. */
+  ended?: boolean;
+  won?: boolean;
+  earlyExit?: boolean;
   accuracy: number;
   timeSpent_ms: number;
   targetResults?: Array<{
@@ -57,18 +64,20 @@ export type BaselineQuestEvidenceEligibility = {
 export function baselineQuestEvidenceEligibility(
   cycle: LearningCycleRecordV2,
 ): BaselineQuestEvidenceEligibility {
-  const baselineNodeIds = new Set(cycle.nodes.filter((node) => node.role === "baseline").map((node) => node.nodeId));
-  const isSynthetic = (value: string): boolean =>
-    /(^|[:_-])(synthetic|playwright|browser-acceptance|readiness)([:_-]|$)/i.test(value);
-  const targetAligned = cycle.observations.filter((observation) => {
-    if (isSynthetic(observation.observationId) || isSynthetic(observation.sourceId)) return false;
-    const sourceNodeId = observation.sourceId.split(":").at(-1) ?? "";
-    return baselineNodeIds.has(sourceNodeId)
-      && observation.constructLinks.some((link) => link.role === "primary" && link.confidence > 0)
+  const targetAligned = cycle.observations.filter(observation => {
+    if (/(^|[:_-])(synthetic|playwright|browser-acceptance|readiness)([:_-]|$)/i.test(`${observation.observationId} ${observation.sourceId}`)) return false;
+    const node = cycle.nodes.find(node => node.role === "baseline" && observation.sourceId.endsWith(`:${node.nodeId}`));
+    if (!node) return false;
+    const construct = cycle.academicPredictions.find(p => p.predictionId === node.predictionId)?.constructId ?? `${cycle.domain}.${slug(node.academicTarget.skill)}`;
+    return observation.constructLinks.some(link => link.role === "primary" && link.confidence > 0 && link.constructId === construct)
       && !observation.confounds.includes("response_not_captured");
   });
   const independentCorrect = targetAligned.filter((observation) =>
     observation.result.correct === true
+    && observation.provenance === "independent_probe"
+    && observation.exposure === "unseen"
+    && Boolean(observation.childResponse?.trim())
+    && !observation.confounds.includes("item_previously_exposed")
     && observation.assistance.status === "unassisted"
     && !observation.confounds.includes("assistance_present"));
   return {
@@ -102,10 +111,112 @@ function slug(value: string): string {
   return value.trim().toLowerCase().replace(/[^a-z0-9]+/g, ".").replace(/^\.+|\.+$/g, "") || "unknown";
 }
 
-function isUncapturedResponse(value: string | undefined): boolean {
-  return /spoken[_\s-]*aloud.*not[_\s-]*transcribed|response[_\s-]*not[_\s-]*captured/i.test(
+function isUncapturedResponse(value: string | undefined, requireCapture: boolean): boolean {
+  return (requireCapture && (typeof value !== "string" || !value.trim())) || /spoken[_\s-]*aloud.*not[_\s-]*transcribed|response[_\s-]*not[_\s-]*captured/i.test(
     value ?? "",
   );
+}
+
+function scoreMathResponse(item: DirectItem | undefined, value: string): LearningObservation["result"] {
+  const response = item?.response;
+  if (!response) return { observedErrorType: "answer_contract_missing" };
+  if (response.mode === "explanation") return { observedErrorType: "explanation_requires_interpretation" };
+  let correct: boolean;
+  if (response.mode === "numeric") {
+    if (!/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$/.test(value.trim())) return { observedErrorType: "response_format_invalid" };
+    correct = Number.isFinite(Number(value)) && Number(value) === response.expected;
+  } else if (response.mode === "selection") {
+    const selected = response.options.find(option => option.id === value.trim());
+    if (!selected) return { observedErrorType: "response_format_invalid" };
+    correct = selected.correct;
+  } else {
+    let state: unknown;
+    try { state = JSON.parse(value); } catch { return { observedErrorType: "response_format_invalid" }; }
+    if (!state || typeof state !== "object" || Array.isArray(state)) return { observedErrorType: "response_format_invalid" };
+    correct = Object.entries(response.expectedState).every(([key, expected]) => Object.hasOwn(state, key) && (state as Record<string, unknown>)[key] === expected);
+  }
+  return { correct, score: correct ? 1 : 0 };
+}
+
+export function scoreSpellingRecall(
+  item: LearningCycleSpellingItem | undefined,
+  value: string,
+  disposition: { skipped?: boolean } = {},
+): LearningObservation["result"] {
+  if (!item) return { observedErrorType: "answer_contract_missing" };
+  if (disposition.skipped) return { observedErrorType: "not_sure" };
+  if (!value.trim()) return { observedErrorType: "response_not_captured" };
+  const normalize = (text: string): string => item.response.caseSensitive
+    ? text.normalize("NFC").trim()
+    : text.normalize("NFC").trim().toLocaleLowerCase("en-US");
+  const correct = item.response.acceptedForms.some(answer => normalize(answer) === normalize(value));
+  if (
+    !correct &&
+    item.response.acceptedForms.some((answer) =>
+      areDistinctWordsPronunciationEquivalent(normalize(answer), normalize(value)),
+    )
+  ) {
+    return { observedErrorType: "instrument_ambiguous" };
+  }
+  return { correct, score: correct ? 1 : 0 };
+}
+
+/** support is supplied by the server's live instrument context, never the attempt body. */
+export function recordSpellingDiscoveryAttempt(input: {
+  childId: string;
+  homeworkId: string;
+  attempt: { attemptId: string; itemId: string; attemptedValue: string; observedAt: string; skipped?: boolean };
+  support?: LearningObservation["assistance"];
+  instrumentSignals?: string[];
+  artifactHash?: string;
+  sessionId?: string;
+}, opts: LearningCycleRepositoryOptions = {}): LearningCycleRecordV2 {
+  let cycle = getLearningCycle(input.childId, input.homeworkId, opts);
+  if (!cycle || cycle.domain !== "spelling") throw new Error("spelling_cycle_missing");
+  const node = cycle.nodes.find(candidate => candidate.evidenceContract.spellingItems?.[input.attempt.itemId]);
+  const item = node?.evidenceContract.spellingItems?.[input.attempt.itemId];
+  if (!node || !item) throw new Error("spelling_item_not_in_contract");
+  const { attempt } = input;
+  if (!attempt.attemptId.trim() || !Number.isFinite(Date.parse(attempt.observedAt))) throw new Error("spelling_attempt_identity_invalid");
+  const prior = cycle.observations.find(row => row.observationId === attempt.attemptId);
+  if (prior) {
+    if (prior.itemId !== attempt.itemId || (prior.childResponse ?? "") !== attempt.attemptedValue
+      || (prior.confounds.includes("response_disposition:not_sure") || prior.result.observedErrorType === "not_sure") !== (attempt.skipped === true)) throw new Error("spelling_attempt_identity_conflict");
+    return cycle;
+  }
+  const support = input.support ?? { status: "unknown" as const, scaffolds: [] };
+  const repeated = cycle.observations.some(row => row.itemId === item.id);
+  const previouslyExposed = repeated || cycle.observations.some(row => row.confounds.includes(`word_id:${item.wordId}`));
+  const signals = input.instrumentSignals ?? [];
+  const result = signals.length ? { observedErrorType: "instrument_ambiguous" } : scoreSpellingRecall(item, attempt.attemptedValue, attempt);
+  const exposure: LearningObservation["exposure"] = previouslyExposed || item.lineage.exposure === "practiced"
+    ? "previously_practiced" : item.lineage.exposure === "taught" ? "previously_taught" : "unseen";
+  const independent = node.role === "evaluation" && support.status === "unassisted" && exposure === "unseen" && typeof result.correct === "boolean";
+  if (node.role !== "evaluation" && !["ready", "active"].includes(node.state)) throw new Error("spelling_instrument_not_active");
+  if (cycle.lifecycle === "evaluation_ready") cycle = transitionLearningCycle(input.childId, input.homeworkId, cycle.revision, { type: "evaluation_started", evaluationId: node.nodeId }, opts);
+  const observation: LearningObservation = {
+    observationId: attempt.attemptId, itemId: item.id, sourceId: node.role === "evaluation" ? `evaluation:${node.nodeId}` : `activity:${node.nodeId}:recall`,
+    ...(attempt.attemptedValue ? { childResponse: attempt.attemptedValue } : {}),
+    constructLinks: [{ constructId: item.constructId, role: "primary", confidence: 1 }],
+    result, assistance: structuredClone(support), exposure,
+    provenance: independent ? "independent_probe" : "practice", observedAt: attempt.observedAt,
+    confounds: [...new Set([
+      `word_id:${item.wordId}`, `response_mode:${item.response.mode}`, `measurement_role:${item.lineage.measurementRole}`,
+      ...(attempt.skipped ? ["response_disposition:not_sure"] : []),
+      ...(repeated ? ["repeated_attempt"] : ["first_response"]), ...(result.observedErrorType ? [result.observedErrorType] : []),
+      ...(support.status !== "unassisted" ? [`assistance_${support.status}`] : []), ...signals,
+      ...(input.artifactHash ? [`artifact_hash:${input.artifactHash}`] : []),
+      ...(input.sessionId ? [`session_id:${input.sessionId}`] : []),
+    ])],
+  };
+  const updated = transitionLearningCycle(input.childId, input.homeworkId, cycle.revision, {
+    ...(node.role === "evaluation" ? { type: "evaluation_attempted" as const, evaluationId: node.nodeId } : { type: "instrument_observed" as const, completed: false }), nodeId: node.nodeId,
+    observations: [observation], academicEvidence: [{ evidenceId: observation.observationId, summary: `${item.id}: ${result.observedErrorType ?? (result.correct ? "correct" : "incorrect")}; assistance=${support.status}; exposure=${exposure}.` }],
+    engagementEvidence: signals.length ? [{ evidenceId: `${observation.observationId}:instrument`, summary: signals.join(", ") }] : [],
+    companionObservations: support.scaffolds.map(evidenceId => ({ evidenceId, summary: `Support was invoked during spelling recall; item=${item.id}. Exact instructional exposure is not assumed from the request alone.` })),
+  }, opts);
+  console.log(` 🎮 [spelling-discovery] [attempt] [committed] homework=${input.homeworkId} item=${item.id} attempt=${attempt.attemptId} provenance=${observation.provenance}`);
+  return updated;
 }
 
 function observationsForCompletion(input: {
@@ -116,7 +227,19 @@ function observationsForCompletion(input: {
   observedAt: string;
 }): LearningObservation[] {
   const node = input.cycle.nodes.find((candidate) => candidate.nodeId === input.nodeId)!;
+  if (!node.evidenceContract.academic) return [];
+  const spellingItems = node.evidenceContract.spellingItems;
+  if (node.state !== "completed" && spellingItems && Object.values(spellingItems).every(item => item.lineage.measurementRole === "fresh_checkpoint")) {
+    const captured = Object.keys(spellingItems).map(itemId => input.cycle.observations.find(row => row.itemId === itemId && row.sourceId === `activity:${node.nodeId}:recall`));
+    if (captured.some(row => !row)) throw new Error("spelling_checkpoint_coverage_incomplete");
+    return captured as LearningObservation[];
+  }
   const itemRoles = node.evidenceContract.itemRoles;
+  const seen = new Set<string>();
+  for (const row of input.result.targetResults ?? []) {
+    if ((input.cycle.domain === "math" || itemRoles) && seen.has(row.target)) throw new Error(`learning_cycle_duplicate_item:${row.target}`);
+    seen.add(row.target);
+  }
   if (itemRoles && !input.result.targetResults?.length) {
     throw new Error(`learning_cycle_instrument_target_results_missing:${node.nodeId}`);
   }
@@ -135,11 +258,14 @@ function observationsForCompletion(input: {
   const companionHelp = (input.result.companionInteractions?.length ?? 0) > 0;
   const previouslyExposedItemIds = new Set(input.cycle.observations.map((observation) => observation.itemId));
   return rows.map((row, index) => {
-    const measurementRole = itemRoles?.[row.target] ?? "practice";
+    const item = node.evidenceContract.itemContracts?.[row.target];
+    const measurementRole = item?.lineage.measurementRole ?? itemRoles?.[row.target] ?? "practice";
     const scaffolded = Number(row.scaffoldLevel ?? 0) > 0 || companionHelp;
-    const repeatedAssessmentItem = previouslyExposedItemIds.has(row.target);
-    const responseNotCaptured = isUncapturedResponse(row.attemptedValue);
-    const eligibleFreshCheckpoint = (itemRoles
+    const repeatedAssessmentItem = node.state === "completed" || previouslyExposedItemIds.has(row.target);
+    const spellingItem = spellingItems?.[row.target];
+    const responseNotCaptured = isUncapturedResponse(row.attemptedValue, input.cycle.domain === "math" || Boolean(spellingItems));
+    const result = responseNotCaptured ? { observedErrorType: "response_not_captured" } : spellingItems ? scoreSpellingRecall(spellingItem, row.attemptedValue!) : input.cycle.domain === "math" ? scoreMathResponse(item, row.attemptedValue!) : { correct: row.correct, score: row.correct ? 1 : 0 };
+    const eligibleFreshCheckpoint = !spellingItems && (input.cycle.domain === "math" ? item?.lineage.exposure === "unseen" && typeof result.correct === "boolean" : true) && (item || itemRoles
       ? measurementRole === "fresh_checkpoint"
       : node.role !== "baseline")
       && !scaffolded
@@ -150,12 +276,10 @@ function observationsForCompletion(input: {
       sourceId: `activity:${input.sessionId}:${input.nodeId}`,
       itemId: row.target || `${input.nodeId}:item:${index + 1}`,
       ...(row.attemptedValue ? { childResponse: row.attemptedValue } : {}),
-      constructLinks: [{ constructId, role: "primary", confidence: 1 }],
-      result: responseNotCaptured
-        ? { observedErrorType: "response_not_captured" }
-        : { correct: row.correct, score: row.correct ? 1 : 0 },
+      constructLinks: [{ constructId: spellingItem?.constructId ?? constructId, role: "primary", confidence: 1 }],
+      result,
       assistance: {
-        status: scaffolded ? "assisted" : "unassisted",
+        status: scaffolded ? "assisted" : spellingItems ? "unknown" : "unassisted",
         scaffolds: [
           ...(Number(row.scaffoldLevel ?? 0) > 0 ? [`scaffold_level_${row.scaffoldLevel}`] : []),
           ...(companionHelp ? ["companion_help"] : []),
@@ -167,7 +291,7 @@ function observationsForCompletion(input: {
       confounds: [
         ...(scaffolded ? ["assistance_present"] : []),
         ...(repeatedAssessmentItem ? ["item_previously_exposed"] : []),
-        ...(responseNotCaptured ? ["response_not_captured"] : []),
+        ...(result.observedErrorType ? [result.observedErrorType] : []),
         `measurement_role:${measurementRole}`,
       ],
     };
@@ -185,12 +309,14 @@ export function recordCanonicalNodeCompletion(
   opts: LearningCycleRepositoryOptions = {},
 ): LearningCycleRecordV2 | null {
   const cycle = getLearningCycle(input.childId, input.homeworkId, opts);
-  if (!cycle || !input.result.completed) return cycle;
+  if (!cycle || input.result.earlyExit || (!input.result.completed && !input.result.ended)) return cycle;
+  const node = cycle.nodes.find((candidate) => candidate.nodeId === input.nodeId);
+  if (!node) throw new Error(`learning_cycle_node_missing:${input.nodeId}`);
+  if (node.evidenceContract.spellingItems && !input.sessionId.trim()) throw new Error("canonical_completion_session_required");
   const evidenceId = `${input.sessionId}:${input.nodeId}:completion`;
   const alreadyRecorded = cycle.evidence.academic.some((item) => item.evidenceId === evidenceId);
   if (alreadyRecorded) return cycle;
-  const node = cycle.nodes.find((candidate) => candidate.nodeId === input.nodeId);
-  if (!node) throw new Error(`learning_cycle_node_missing:${input.nodeId}`);
+  if (node.role === "evaluation") throw new Error("learning_cycle_evaluation_requires_discovery_endpoint");
   const experiment = cycle.agencyExperiment;
   const firstIncompleteShared = experiment?.sharedNodeIds.find((nodeId) =>
     cycle.nodes.find((candidate) => candidate.nodeId === nodeId)?.state !== "completed");
@@ -205,7 +331,7 @@ export function recordCanonicalNodeCompletion(
     : firstIncompleteShared
       ? node.nodeId === firstIncompleteShared
       : node.nodeId === firstIncompleteSelected;
-  if (agencyNodeLaunchable === false || (agencyNodeLaunchable === undefined && node.state !== "ready" && node.state !== "active")) {
+  if (node.state !== "completed" && (agencyNodeLaunchable === false || (agencyNodeLaunchable === undefined && node.state !== "ready" && node.state !== "active"))) {
     throw new Error(`learning_cycle_node_not_launchable:${input.nodeId}`);
   }
   const observedAt = (opts.now ?? new Date()).toISOString();
@@ -232,7 +358,7 @@ export function recordCanonicalNodeCompletion(
   }];
   const engagementEvidence: LearningCycleEvidenceSummary[] = [{
     evidenceId: `${evidenceId}:engagement`,
-    summary: `${node.title} completed in ${Math.max(0, input.result.timeSpent_ms)}ms; replay=${input.result.replay === true}; frustration=${(input.result.frustrationSignals ?? []).join(",") || "none"}.`,
+    summary: `${node.title} completed in ${Math.max(0, input.result.timeSpent_ms)}ms; won=${input.result.won ?? "unreported"}; replay=${node.state === "completed"}; frustration=${(input.result.frustrationSignals ?? []).join(",") || "none"}.`,
   }];
   const companionObservations: LearningCycleEvidenceSummary[] = (input.result.companionInteractions ?? []).map((summary, index) => ({
     evidenceId: `${evidenceId}:companion:${index + 1}`,
@@ -261,6 +387,7 @@ function parseNextInstrument(value: unknown): NextInstrumentPrescription | undef
   // but they are carried through whenever the Planner supplies them.
   const designKeys = ["stakesDesign", "failureMode", "escalation", "mechanicSpec", "mathematicalHook"] as const;
   return {
+    ...(Array.isArray(row.items) ? { items: row.items.map(parseDirectItem) } : {}),
     ...Object.fromEntries(keys.map((key) => [key, String(row[key]).trim()])),
     ...Object.fromEntries(designKeys
       .filter((key) => typeof row[key] === "string" && String(row[key]).trim())
@@ -284,6 +411,7 @@ export function parseCanonicalProgressionDecision(value: unknown): CanonicalProg
     nodeId: row.nextNodeId ?? generatedNodeId,
     title: row.nextTitle,
     academicTarget: row.nextAcademicTarget,
+    items: row.nextItems,
     mechanic: row.nextMechanic,
     theme: row.nextTheme,
     openingPurpose: row.nextOpeningPurpose,
@@ -367,7 +495,7 @@ async function askPlanner(
     model: model ?? process.env.SUNNY_INGEST_MODEL ?? "claude-sonnet-5",
     // The prescription now carries five additional design fields; 2600 truncated them.
     max_tokens: 6000,
-    messages: [{ role: "user", content: `You are Sunny's AI Planner. Compare the preregistered academic theory and predictions with the factual scorecard. Practice can justify a transfer test but cannot prove mastery. Quest tests unseen transfer; Boss tests unseen synthesis; Boss must end awaiting calibration. Return exactly one concise decision and always propose one complete next instrument using the required next* fields. Runtime uses that proposal only when progressionAction generates an instrument.
+    messages: [{ role: "user", content: `You are Sunny's AI Planner. Compare the preregistered academic theory and predictions with the factual scorecard. Quest requires a captured, correct, unseen independent checkpoint. Practice cannot satisfy that boundary. For math, author nextItems with stable unique ids, prompts, lineage, and frozen response contracts. Include fresh checkpoint evidence when further progression is intended. Explanation responses remain unscored and cannot independently unlock progression. Never reuse exposed item ids or prompts. Quest tests unseen transfer; Boss tests unseen synthesis; Boss must end awaiting calibration. Return exactly one concise decision and always propose one complete next instrument using the required next* fields. Runtime uses that proposal only when progressionAction generates an instrument.
 
 You are the artist here, not a compliance function. Sunny holds the academic truth and the evidence limits; everything else is yours. Stakes, failure, consequence, escalation, pacing, tone, and payoff are your decisions to make and to defend, and you may change them run to run. You have full freedom to choose a game, simulation, manipulative, story, conversation, demonstration, or another fitting form.
 
@@ -431,6 +559,7 @@ ${JSON.stringify({ lifecycle: cycle.lifecycle, assignment: cycle.assignment, the
           nextTheme: { type: "string", minLength: 1 },
           nextOpeningPurpose: { type: "string", minLength: 1 },
           nextCreatorPrompt: { type: "string", minLength: 1 },
+          ...(cycle.domain === "math" ? { nextItems: MATH_ITEMS_SCHEMA } : {}),
           nextStakesDesign: {
             type: "string",
             minLength: 1,
@@ -473,6 +602,7 @@ ${JSON.stringify({ lifecycle: cycle.lifecycle, assignment: cycle.assignment, the
           "nextTheme",
           "nextOpeningPurpose",
           "nextCreatorPrompt",
+          ...(cycle.domain === "math" ? ["nextItems"] : []),
           "nextStakesDesign",
           "nextFailureMode",
           "nextEscalation",
@@ -511,6 +641,11 @@ export async function advanceCanonicalCycleFromEvidence(
   }
   const plannerDecision = input.decide ? await input.decide(cycle) : await askPlanner(cycle, input.client, input.model, opts);
   const decision = resolveCanonicalProgressionDecisionForLifecycle(cycle.lifecycle, plannerDecision);
+  if (cycle.domain === "math" && ["generate_support", "generate_quest", "generate_boss"].includes(decision.progressionAction)) {
+    const items = decision.nextInstrument?.items;
+    if (!items?.length || new Set(items.map(item => item.id)).size !== items.length) throw new Error("math_instrument_requires_unique_frozen_items");
+    decision.nextInstrument!.items = items.map(parseDirectItem);
+  }
   const allowedEvaluationIds = new Set(cycle.predictionEvaluations.map((evaluation) => evaluation.evaluationId));
   const citedEvaluationIds = decision.predictionEvaluationIds ?? [];
   if (citedEvaluationIds.some((id) => !allowedEvaluationIds.has(id))) throw new Error("canonical_progression_unknown_prediction_evaluation");
@@ -546,10 +681,20 @@ export async function advanceCanonicalCycleFromEvidence(
     ...cycle.observations.map((observation) => observation.observationId),
     ...cycle.predictionEvaluations.map((evaluation) => evaluation.evaluationId),
   ]);
+  const latest = getLearningCycle(cycle.childId, cycle.homeworkId, opts);
+  if (!latest) throw new Error(`learning_cycle_missing:${cycle.homeworkId}`);
+  if (latest.revision !== cycle.revision) {
+    const intervening = latest.decisionHistory.slice(cycle.decisionHistory.length);
+    const replayOnly = latest.lifecycle === cycle.lifecycle && intervening.length === latest.revision - cycle.revision &&
+      intervening.every(event => event.eventType === "instrument_observed" && event.fromLifecycle === cycle.lifecycle && event.toLifecycle === cycle.lifecycle) &&
+      latest.observations.slice(cycle.observations.length).every(observation => observation.provenance === "practice");
+    if (!replayOnly) throw new Error("canonical_progression_context_changed");
+    console.log(` 🎮 [canonical-progression] [replay-preserved] fromRevision=${cycle.revision} toRevision=${latest.revision}`);
+  }
   if (decision.contentDecisions?.length) {
     applyEvidenceBasedMathContentDecisions(cycle.childId, decision.contentDecisions, decisionEvidenceIds, opts);
   }
-  return transitionLearningCycle(cycle.childId, cycle.homeworkId, cycle.revision, {
+  return transitionLearningCycle(cycle.childId, cycle.homeworkId, latest.revision, {
     type: "theory_decided",
     decision: {
       ...decision,

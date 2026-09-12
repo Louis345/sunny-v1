@@ -193,6 +193,7 @@ function buildFinalResult(
 }
 
 export interface UseWordRadarArgs {
+  assessmentMode?: boolean;
   items: RadarItem[];
   interimTranscript: string;
   timerSeconds?: number;
@@ -231,6 +232,7 @@ export interface UseWordRadarResult {
   canTryAgain: boolean;
   handleSkip: () => void;
   handleTryAgain: () => void;
+  submitAssessment: () => void;
 }
 
 function buildSpokenLetterBuffer(transcript: string, item: RadarItem): string[] {
@@ -302,9 +304,13 @@ export function useWordRadar(args: UseWordRadarArgs): UseWordRadarResult {
     onEvent,
     onFinish,
   } = args;
+  const assessmentMode = args.assessmentMode === true;
+  const assessmentRef = useRef(assessmentMode);
+  assessmentRef.current = assessmentMode;
+  const openingPhase = assessmentMode ? "response" : "flash";
 
   const [phase, setPhase] = useState<WordRadarPhase>(
-    items.length ? (startImmediately ? "flash" : "intro") : "idle",
+    items.length ? (startImmediately ? openingPhase : "intro") : "idle",
   );
   const [itemIndex, setItemIndex] = useState(0);
   const [lastFeedback, setLastFeedback] = useState<"got" | "missed" | null>(
@@ -329,9 +335,9 @@ export function useWordRadar(args: UseWordRadarArgs): UseWordRadarResult {
 
   const itemIndexRef = useRef(0);
   const phaseRef = useRef<WordRadarPhase>(
-    items.length ? (startImmediately ? "flash" : "intro") : "idle",
+    items.length ? (startImmediately ? openingPhase : "intro") : "idle",
   );
-  const responseStartRef = useRef<number | null>(null);
+  const responseStartRef = useRef<number | null>(assessmentMode && startImmediately ? Date.now() : null);
   const lastInterimRef = useRef("");
   const sessionStartRef = useRef(Date.now());
   const rawResultsRef = useRef<ItemResult[]>([]);
@@ -467,8 +473,10 @@ export function useWordRadar(args: UseWordRadarArgs): UseWordRadarResult {
       canTryAgainRef.current = true;
       setMatchRatioInterimFreeze(null);
       setTimerRearmVersion(0);
-      setPhase("flash");
-      phaseRef.current = "flash";
+      const nextPhase = assessmentRef.current ? "response" : "flash";
+      responseStartRef.current = assessmentRef.current ? Date.now() : null;
+      setPhase(nextPhase);
+      phaseRef.current = nextPhase;
     },
     [finishSession],
   );
@@ -499,9 +507,9 @@ export function useWordRadar(args: UseWordRadarArgs): UseWordRadarResult {
       clearResponseTimer();
       const item = itemsRef.current[itemIndexRef.current];
       if (!item) return;
-      if (correct) {
+      if (correct && !assessmentRef.current) {
         playChime();
-      } else if (incorrectReason !== "skip") {
+      } else if (!assessmentRef.current && incorrectReason !== "skip") {
         playBuzz();
       }
       const row: ItemResult = {
@@ -529,7 +537,7 @@ export function useWordRadar(args: UseWordRadarArgs): UseWordRadarResult {
           ? "known"
           : "weak"
         : "unknown";
-      bumpDot(itemIndexRef.current, tone);
+      bumpDot(itemIndexRef.current, assessmentRef.current ? "weak" : tone);
       const type: WordRadarGameEventType =
         eventType ?? (correct ? "correct" : "incorrect");
       onEventRef.current?.({
@@ -562,8 +570,10 @@ export function useWordRadar(args: UseWordRadarArgs): UseWordRadarResult {
     if (itemsRef.current.length === 0) return;
     if (phaseRef.current !== "intro") return;
     onEventRef.current?.({ type: "ready" });
-    setPhase("flash");
-    phaseRef.current = "flash";
+    const nextPhase = assessmentRef.current ? "response" : "flash";
+    responseStartRef.current = assessmentRef.current ? Date.now() : null;
+    setPhase(nextPhase);
+    phaseRef.current = nextPhase;
   }, []);
 
   useEffect(() => {
@@ -597,6 +607,7 @@ export function useWordRadar(args: UseWordRadarArgs): UseWordRadarResult {
 
   /** Response phase: optional countdown; at 0 → unknown + advance (no child tap). */
   useEffect(() => {
+    if (assessmentRef.current) return;
     if (phase !== "response") return;
     const responseMs =
       typeof timerSecondsRef.current === "number" && timerSecondsRef.current > 0
@@ -639,6 +650,7 @@ export function useWordRadar(args: UseWordRadarArgs): UseWordRadarResult {
 
   /** STT: whole-word or letter-by-letter match on the latest interim token. */
   useEffect(() => {
+    if (assessmentRef.current) return;
     if (phase !== "response") return;
     const item = items[itemIndex];
     if (!item || resolvedForItemRef.current) return;
@@ -738,6 +750,7 @@ export function useWordRadar(args: UseWordRadarArgs): UseWordRadarResult {
   /** Keyboard: full word length match → auto-advance or shake+clear. */
   useEffect(() => {
     typedBufferRef.current = typedBuffer;
+    if (assessmentRef.current) return;
     if (phase !== "response") return;
     if (inputModeRef.current !== "keyboard" && !showKeyboardRef.current) return;
     if (keyboardStyleRef.current === "option-b") return;
@@ -782,6 +795,13 @@ export function useWordRadar(args: UseWordRadarArgs): UseWordRadarResult {
     if (resolvedForItemRef.current) return;
     const item = itemsRef.current[itemIndexRef.current];
     if (!item) return;
+    if (assessmentRef.current) {
+      const next = key === "Backspace" ? typedBufferRef.current.slice(0, -1)
+        : key.length === 1 && /[a-zA-Z0-9\s'-]/.test(key) ? (typedBufferRef.current + key).slice(0, 128) : typedBufferRef.current;
+      typedBufferRef.current = next;
+      setTypedBufferState(next);
+      return;
+    }
     if (key === "Backspace") {
       if (inputModeRef.current === "keyboard" && keyboardStyleRef.current === "option-b") {
         const next = lockedLettersRef.current.slice(0, -1);
@@ -852,6 +872,12 @@ export function useWordRadar(args: UseWordRadarArgs): UseWordRadarResult {
     if (resolvedForItemRef.current) return;
     const item = itemsRef.current[itemIndexRef.current];
     if (!item) return;
+    if (assessmentRef.current) {
+      const captured = next.slice(0, 128);
+      typedBufferRef.current = captured;
+      setTypedBufferState(captured);
+      return;
+    }
     if (inputModeRef.current === "keyboard" && keyboardStyleRef.current === "option-b") {
       const letters = displayLetters(item);
       const cleaned = next.toLowerCase().replace(/[^a-z0-9]/g, "");
@@ -919,6 +945,7 @@ export function useWordRadar(args: UseWordRadarArgs): UseWordRadarResult {
   }, []);
 
   const handleTryAgain = useCallback(() => {
+    if (assessmentRef.current) return;
     if (phaseRef.current !== "response") return;
     if (resolvedForItemRef.current) return;
     if (!canTryAgainRef.current) return;
@@ -966,6 +993,17 @@ export function useWordRadar(args: UseWordRadarArgs): UseWordRadarResult {
     return computeMatchRatio(interimTranscript, it.display);
   }, [phase, itemIndex, interimTranscript, items, matchRatioInterimFreeze]);
 
+  const submitAssessment = useCallback(() => {
+    if (!assessmentRef.current || phaseRef.current !== "response" || resolvedForItemRef.current) return;
+    const item = itemsRef.current[itemIndexRef.current];
+    const captured = typedBufferRef.current;
+    if (!item || !captured.trim()) return;
+    const correct = typedMatchesAccepted(captured, item);
+    resolveItemRef.current(correct, Math.max(0, Date.now() - (responseStartRef.current ?? Date.now())), 1,
+      correct ? "correct" : "incorrect", undefined,
+      { typedResponse: captured, normalizedResponse: normalizeWordRadarResponse(captured), matchReason: "assessment_committed_letters" });
+  }, []);
+
   return {
     phase,
     itemIndex,
@@ -985,8 +1023,9 @@ export function useWordRadar(args: UseWordRadarArgs): UseWordRadarResult {
     dotOutcomes,
     matchRatio,
     attemptCount,
-    canTryAgain,
+    canTryAgain: assessmentMode ? false : canTryAgain,
     handleSkip,
     handleTryAgain,
+    submitAssessment,
   };
 }

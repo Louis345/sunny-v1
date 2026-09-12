@@ -22,6 +22,13 @@ export function isDirectDiscoveryPacket(packet: ChildExperiencePacket | null): b
   return Boolean(packet?.activeSessionPlan?.planId?.startsWith("discovery:"));
 }
 
+export function hasPendingLearningGeneration(packet: ChildExperiencePacket | null, completingDiscovery: boolean): boolean {
+  if (!["math", "spelling"].includes(packet?.activeSessionPlan?.domain ?? "")) return false;
+  return Boolean(packet?.activeSessionPlan?.adventureBoard?.nodes.some(node => node.state === "preview")
+    || ["evidence_ready", "targeted_planning", "board_designing", "board_generating"].includes(packet?.childChart.learningCycle?.lifecycle ?? "")
+    || (isDirectDiscoveryPacket(packet) && completingDiscovery));
+}
+
 export function resolveDirectDiscoverySurface(
   sessionReady: boolean,
   launchAvailable: boolean,
@@ -38,6 +45,23 @@ export function resolveDiscoveryCompletionHandoff(
     : "targeted-planning";
 }
 
+export function resolvePlannerBoardSessionScope(
+  childId: string | null,
+  activeHomeworkId: string | null | undefined,
+): string {
+  return `${childId ?? "none"}:${activeHomeworkId ?? "none"}`;
+}
+
+export function resolvePersistedDiscoveryHandoff(
+  localHandoff: "preview-complete" | "targeted-planning" | null,
+  lifecycle: string | null | undefined,
+): "preview-complete" | "targeted-planning" | null {
+  if (localHandoff) return localHandoff;
+  return lifecycle && !["evaluation_ready", "evaluation_active"].includes(lifecycle)
+    ? "targeted-planning"
+    : null;
+}
+
 export function resolveDiscoveryEngagementDelivery(
   result: Record<string, unknown>,
 ): "committed" | "preview-skipped" | "queued" | "failed" {
@@ -51,12 +75,11 @@ export async function runDiscoveryExitSequence(input: {
   commitEngagement: () => Promise<Record<string, unknown>>;
   completeAcademic: () => Promise<Record<string, unknown>>;
 }): Promise<Record<string, unknown>> {
-  const engagement = await input.commitEngagement();
-  const delivery = resolveDiscoveryEngagementDelivery(engagement);
-  if (delivery !== "committed" && delivery !== "preview-skipped") {
-    throw new Error(`discovery_engagement_not_committed:${delivery}`);
-  }
-  return input.completeAcademic();
+  const completion = input.completeAcademic();
+  void Promise.resolve().then(input.commitEngagement).then(result => {
+    console.log(` 🎮 [discovery-engagement] [delivery] [${resolveDiscoveryEngagementDelivery(result)}]`);
+  }).catch(error => console.error(" 🎮 [discovery-engagement] [delivery] [failed]", error));
+  return completion;
 }
 
 export function resolveDirectDiscoveryLaunchNode(
@@ -67,9 +90,14 @@ export function resolveDirectDiscoveryLaunchNode(
   const discoveryNode = board?.nodes.find(
     (node) => node.kind !== "start" && node.action?.type === "launch-activity",
   );
-  return discoveryNode
+  const launch = discoveryNode
     ? resolvePlannerBoardLaunchNode(packet, discoveryNode, { allowLocked: true })
     : null;
+  if (launch && packet.activeSessionPlan?.domain === "spelling") {
+    if (packet.spellingDiscovery?.nodeId !== launch.id) return null;
+    launch.wordRadarItems = packet.spellingDiscovery.items;
+  }
+  return launch;
 }
 
 function uniqueWords(words: Array<string | null | undefined>): string[] {
@@ -179,7 +207,7 @@ export function resolvePlannerBoardLaunchNode(
   ]);
   const radarItems =
     type === "word-radar"
-      ? words.map((word) => ({
+      ? packet.spellingInstruments?.[planNode?.id ?? boardNode.id]?.items ?? words.map((word) => ({
           display: word,
           acceptedResponses: [word.toLowerCase()],
           label: "Spelling",
@@ -198,6 +226,8 @@ export function resolvePlannerBoardLaunchNode(
     type,
     words,
     wordRadarItems: radarItems,
+    spellingAssessment: packet.spellingInstruments?.[planNode?.id ?? boardNode.id]?.assessment,
+    spellingItemBindings: packet.spellingInstruments?.[planNode?.id ?? boardNode.id]?.items.map(item => ({ itemId: item.itemId, word: item.display })),
     wordRadarConfig:
       type === "word-radar"
         ? planNode?.wordRadarConfig ?? boardWordRadarConfig(boardNode)

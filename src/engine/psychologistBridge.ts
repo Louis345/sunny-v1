@@ -5,10 +5,12 @@ import type { LearningProfile, MoodEntry } from "../context/schemas/learningProf
 import type { RewardTrigger } from "./rewardEngine";
 import { readLearningProfile, writeLearningProfile } from "../utils/learningProfileIO";
 import { sunnyPreviewBlocksPersistence } from "../utils/runtimeMode";
+import { resolveChildContextDir } from "../utils/contextRoot";
 
 const DEFAULT_SESSION_STATS: LearningProfile["sessionStats"] = {
   totalSessions: 0,
-  averageAccuracy: 0,
+  averageAccuracy: null,
+  accuracySessionCount: 0,
   averageDurationMinutes: 0,
   currentWilsonStep: 1,
   streakRecord: 0,
@@ -76,15 +78,15 @@ export function formatAdventureMetricsBlock(p: {
 
 export function writeSessionNote(childId: string, data: SessionData): void {
   if (sunnyPreviewBlocksPersistence()) return;
-  const dir = path.resolve(process.cwd(), "src", "context", childId, "session_notes");
+  const dir = path.join(resolveChildContextDir(childId), "session_notes");
   fs.mkdirSync(dir, { recursive: true });
 
   const dateStr = data.date.slice(0, 10);
   const filePath = path.resolve(dir, `${dateStr}.md`);
 
   const accuracy = data.totalAttempts > 0
-    ? Math.round((data.totalCorrect / data.totalAttempts) * 100)
-    : 0;
+    ? `${Math.round((data.totalCorrect / data.totalAttempts) * 100)}% (${data.totalCorrect}/${data.totalAttempts})`
+    : "unmeasured (0 legacy attempts)";
 
   const wordsReviewed = [...new Set(data.attempts.map((a) => a.word))];
   const rewardEvents = data.rewardsFired.map((r) => r.event).join(", ") || "none";
@@ -106,7 +108,7 @@ export function writeSessionNote(childId: string, data: SessionData): void {
 - Bond quality: ${data.bondQuality}
 
 ## Performance
-- Accuracy: ${accuracy}% (${data.totalCorrect}/${data.totalAttempts})
+- Accuracy: ${accuracy}
 - Words attempted: ${wordsReviewed.join(", ") || "none"}
 - Regressions: ${regressions}
 - Difficulty zones: ${[...new Set(data.difficultySignals.map((s) => s.zone))].join(", ") || "optimal"}
@@ -140,19 +142,24 @@ export function updateLearningProfileFromSession(
   const profile = readLearningProfile(childId);
   if (!profile) return;
 
-  const accuracy = data.totalAttempts > 0 ? data.totalCorrect / data.totalAttempts : 0;
+  const accuracy = data.totalAttempts > 0 ? data.totalCorrect / data.totalAttempts : null;
 
-  const moodEntry: MoodEntry = {
-    date: data.date,
-    startMood: data.moodStart as MoodEntry["startMood"],
-    endMood: data.moodEnd as MoodEntry["endMood"],
-    bondQuality: data.bondQuality,
-    sessionAccuracy: accuracy,
-    notableSignals: [],
-  };
-
-  const prevMood = Array.isArray(profile.moodHistory) ? profile.moodHistory : [];
-  profile.moodHistory = [...prevMood.slice(-9), moodEntry];
+  // This legacy history feeds accuracy trends; a visit without measurements
+  // must not become a zero-score row. Canonical domain evidence is separate.
+  if (accuracy !== null) {
+    const moodEntry: MoodEntry = {
+      date: data.date,
+      startMood: data.moodStart as MoodEntry["startMood"],
+      endMood: data.moodEnd as MoodEntry["endMood"],
+      bondQuality: data.bondQuality,
+      sessionAccuracy: accuracy,
+      notableSignals: [],
+    };
+    const prevMood = Array.isArray(profile.moodHistory) ? profile.moodHistory : [];
+    profile.moodHistory = [...prevMood.slice(-9), moodEntry];
+  } else {
+    console.log(" 🎮 [psychologistBridge] [legacy-accuracy] [unmeasured] attempts=0");
+  }
 
   if (!profile.sessionStats) {
     profile.sessionStats = { ...DEFAULT_SESSION_STATS };
@@ -162,10 +169,17 @@ export function updateLearningProfileFromSession(
   }
 
   const stats = profile.sessionStats;
+  // Keep the weight of existing aggregates; historical eligibility is unknown.
+  // From this point onward, empty visits never enter the accuracy denominator.
+  const priorAccuracyCount = stats.accuracySessionCount ?? stats.totalSessions;
+  stats.accuracySessionCount = priorAccuracyCount + (accuracy === null ? 0 : 1);
+  if (accuracy !== null) {
+    stats.averageAccuracy = ((stats.averageAccuracy ?? 0) * priorAccuracyCount + accuracy) / stats.accuracySessionCount;
+  } else if (priorAccuracyCount === 0) {
+    stats.averageAccuracy = null;
+  }
   stats.totalSessions++;
   stats.lastSessionDate = data.date;
-  stats.averageAccuracy =
-    (stats.averageAccuracy * (stats.totalSessions - 1) + accuracy) / stats.totalSessions;
   if (data.correctStreak > stats.streakRecord) {
     stats.streakRecord = data.correctStreak;
   }

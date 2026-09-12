@@ -1,9 +1,15 @@
-import { describe, expect, it } from "vitest";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { afterEach, describe, expect, it } from "vitest";
 import { buildAdventureBoardFromActiveSessionPlan } from "../shared/adventureBoardFromPlan";
 import { normalizeLearningRoutesForPlan } from "./assignmentPlanner";
 import { buildAssignmentPlanningPacket } from "./assignmentPlanner";
 import { getChildChart } from "../profiles/childChart";
 import type { AssignmentSourceExtraction } from "./assignmentSourceExtraction";
+
+const roots: string[] = [];
+afterEach(() => roots.splice(0).forEach(root => fs.rmSync(root, { recursive: true, force: true })));
 
 /** Lab invariant: rich math plans render agency forks and concept-sized spines. */
 describe("math plan definition of done", () => {
@@ -149,6 +155,16 @@ describe("math plan definition of done", () => {
   });
 
   it("spelling ingest catalog stays rich compared to a single-instrument math stub", () => {
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-math-plan-dod-"));
+    roots.push(rootDir);
+    const childId = "lab-catalog";
+    const context = path.join(rootDir, "src/context", childId);
+    fs.mkdirSync(context, { recursive: true });
+    fs.writeFileSync(path.join(context, "learning_profile.json"), JSON.stringify({
+      name: "Catalog fixture", demographics: { age: 8, grade: "3", dyslexia: false, adhd: false, languages: ["en"] },
+      interests: [], goals: [], moodHistory: [], sessionStats: { totalSessions: 0, totalWordsMastered: 0, currentStreak: 0 },
+    }));
+    const childChart = getChildChart(childId, { rootDir });
     const spellingExtraction: AssignmentSourceExtraction = {
       filename: "spelling-test.pdf",
       sourcePath: "/tmp/spelling-test.pdf",
@@ -168,14 +184,14 @@ describe("math plan definition of done", () => {
       fullText: "Unit 5: Fractions\nShade one third of the rectangle.\nWhich is larger: 1/3 or 1/4?",
     };
     const spellingPacket = buildAssignmentPlanningPacket({
-      childId: "reina",
+      childId,
       extraction: spellingExtraction,
-      childChart: getChildChart("reina"),
+      childChart,
     });
     const mathPacket = buildAssignmentPlanningPacket({
-      childId: "reina",
+      childId,
       extraction: mathExtraction,
-      childChart: getChildChart("reina"),
+      childChart,
     });
     const spellingLaunchable = spellingPacket.activityCatalog.filter((card) => card.launchable);
     const mathLaunchable = mathPacket.activityCatalog.filter((card) => card.launchable);

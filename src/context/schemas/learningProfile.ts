@@ -94,6 +94,17 @@ export interface PlannedMeasurement {
   supportCriteria: string;
   reviseCriteria: string;
   falsifyCriteria: string;
+  spelling?: {
+    role: "instruction" | "practice" | "fresh_checkpoint";
+    evidenceIds: string[];
+    interventionNodeIds: string[];
+    reason: string;
+    uncertainty: string;
+    expectedAccuracy: { min: number; max: number };
+    confidence: number;
+    maxDelayDays: number;
+    finalCheck: boolean;
+  };
 }
 
 export interface LearningRoutePrescription {
@@ -212,6 +223,8 @@ export interface ActiveSessionPlan {
     companionPolicy?: string;
     /** Per-node refillable config endpoint consumed by the generated shell. */
     activityConfigPath?: string;
+    /** Planner-authored payload for an existing reusable activity engine. */
+    activityConfig?: Record<string, unknown>;
     validationProof?: {
       engine: "playwright";
       passed: boolean;
@@ -650,7 +663,9 @@ export interface LearningProfile {
 
   sessionStats: {
     totalSessions: number;
-    averageAccuracy: number;
+    averageAccuracy: number | null;
+    /** Aggregate denominator, separate from all visits; legacy weight is preserved on first update. */
+    accuracySessionCount?: number;
     averageDurationMinutes: number;
     currentWilsonStep: number;
     streakRecord: number;

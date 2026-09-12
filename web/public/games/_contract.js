@@ -27,6 +27,7 @@ window.GameBridge = (function () {
     }
     return {
       words: csvList(rawWords),
+      spellingItemBindings: JSON.parse(p.get("spellingItemBindings") || "[]"),
       knownWords: csvList(p.get("knownWords")),
       weakWords: csvList(p.get("weakWords")),
       childId: p.get("childId") || "unknown",
@@ -77,6 +78,14 @@ window.GameBridge = (function () {
       })(),
     };
   })();
+
+  function bindSpellingTarget(row) {
+    var bindings = GAME_PARAMS.spellingItemBindings;
+    if (!bindings.length || !row || typeof row.target !== "string") return row;
+    var matches = bindings.filter(function (item) { return item.itemId === row.target || item.word.normalize("NFC").toLowerCase() === row.target.normalize("NFC").toLowerCase(); });
+    if (matches.length !== 1) return row; // Unknown/ambiguous identities remain rejectable by the server.
+    return Object.assign({}, row, { target: matches[0].itemId });
+  }
 
   function showPreviewBanner(payload) {
     payload = payload || {};
@@ -319,6 +328,7 @@ window.GameBridge = (function () {
         activityIntentId: GAME_PARAMS.activityIntentId,
         targetSelectorId: GAME_PARAMS.targetSelectorId,
       });
+      if (Array.isArray(r.targetResults)) merged.targetResults = r.targetResults.map(bindSpellingTarget);
       post("game_complete", merged);
       logContract("post", postSummary("node_complete", merged));
       window.parent.postMessage(
@@ -498,7 +508,7 @@ window.GameBridge = (function () {
       if (!attempt || typeof attempt !== "object" || Array.isArray(attempt)) {
         return;
       }
-      var payload = Object.assign({}, attempt);
+      var payload = Object.assign({}, bindSpellingTarget(attempt));
       if (payload.word == null && payload.target != null) {
         payload.word = String(payload.target);
       }

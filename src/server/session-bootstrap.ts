@@ -120,14 +120,36 @@ export function shouldEnableCompanionWakeGate(opts: {
   subject: string;
   homeworkId?: string | null;
   explicitDomain?: string | null;
+  discovery?: boolean;
 }): boolean {
   if (opts.subject !== "homework") return false;
   const domain = String(opts.explicitDomain ?? "").trim().toLowerCase();
-  return domain === "math" || /^hw-math(?:-|$)/i.test(String(opts.homeworkId ?? ""));
+  return opts.discovery === true || domain === "math" || /^hw-math(?:-|$)/i.test(String(opts.homeworkId ?? ""));
 }
 
-export function buildContextStartGreeting(pendingHomework: any): string {
-  const firstNode = (pendingHomework?.nodes ?? []).find((node: any) => !node.locked) ?? pendingHomework?.nodes?.[0];
+export function buildContextStartGreeting(context: any): string {
+  const pendingHomework = context?.pendingHomework ?? context;
+  const activeSessionPlan = context?.activeSessionPlan;
+  const useActivePlan = Boolean(
+    activeSessionPlan?.nodePlan?.length &&
+    (!pendingHomework?.homeworkId || !activeSessionPlan?.activeHomeworkId ||
+      String(activeSessionPlan.activeHomeworkId) === String(pendingHomework.homeworkId)),
+  );
+  const source = useActivePlan
+    ? {
+        nodes: activeSessionPlan.nodePlan,
+        completedAdventureNodeIds: activeSessionPlan.adventureBoard?.progress?.completedNodeIds,
+      }
+    : pendingHomework;
+  const completed = new Set(
+    Array.isArray(source?.completedAdventureNodeIds)
+      ? source.completedAdventureNodeIds.map(String)
+      : [],
+  );
+  const incompleteNodes = (source?.nodes ?? []).filter(
+    (node: any) => !completed.has(String(node?.id ?? "")),
+  );
+  const firstNode = incompleteNodes.find((node: any) => !node.locked) ?? incompleteNodes[0];
   const lane = String(firstNode?.targetLane ?? "").replace(/[_-]+/g, " ").trim();
   const target = String(firstNode?.words?.[0] ?? "").trim();
   if (!lane && !target) return "Your first challenge is ready. Want to try it?";
@@ -140,9 +162,13 @@ export function buildContextStartGreeting(pendingHomework: any): string {
 }
 
 export async function deliverInteractiveCompanionOpening(
-  session: Pick<any, "setCompanionPresence" | "handleCompanionTurn">,
+  session: Pick<any, "setCompanionPresence" | "handleCompanionTurn"> & {companionWakeGateEnabled?:boolean},
   opening: string,
 ): Promise<void> {
+  if (session.companionWakeGateEnabled) {
+    console.log(" 🎮 [companion] [opening] [child-invoked-only]");
+    return;
+  }
   session.setCompanionPresence("summoned", "voice");
   await session.handleCompanionTurn(opening);
 }
@@ -784,6 +810,7 @@ export async function runSessionStart(
       session.companionWakeGateEnabled = shouldEnableCompanionWakeGate({
         subject,
         homeworkId: pendingHomework.homeworkId,
+        discovery: sessionLearningProfile?.activeSessionPlan?.planId?.startsWith("discovery:") === true,
         explicitDomain: explicitHomeworkDomain,
       });
       console.log(
@@ -1272,6 +1299,7 @@ export async function runSessionStart(
       session.companionWakeGateEnabled = shouldEnableCompanionWakeGate({
         subject,
         homeworkId: sessionLearningProfile?.pendingHomework?.homeworkId,
+        discovery: sessionLearningProfile?.activeSessionPlan?.planId?.startsWith("discovery:") === true,
         explicitDomain:
           sessionLearningProfile?.pendingHomework?.contentProfile?.practiceDomain ??
           sessionLearningProfile?.pendingHomework?.capturedContent?.contentProfile?.practiceDomain,
@@ -1464,10 +1492,14 @@ This is a safe space to test everything.
     if (
       (subject === "homework" || subject === "spelling") &&
       sessionLearningProfile?.pendingHomework &&
+      !session.companionWakeGateEnabled &&
       !session.companion.openingLine.trim()
     ) {
       session.companion.openingLine = buildContextStartGreeting(
-        sessionLearningProfile.pendingHomework,
+        {
+          pendingHomework: sessionLearningProfile.pendingHomework,
+          activeSessionPlan: sessionLearningProfile.activeSessionPlan,
+        },
       );
       session.recordDebugEvent?.("companion", "greeting_generated", {
         source: "live_homework_context",

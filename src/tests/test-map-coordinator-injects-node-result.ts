@@ -1,6 +1,22 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import {
+  afterAll,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
+import fs from "fs";
+import os from "os";
+import path from "path";
 import WebSocket from "ws";
 import type { NodeResult } from "../shared/adventureTypes";
+import { resolveContextRoot } from "../utils/contextRoot";
+import {
+  initializeLearningProfile,
+  writeLearningProfile,
+} from "../utils/learningProfileIO";
 
 vi.mock("../utils/generateStoryImage", () => ({
   generateStoryImage: vi.fn().mockResolvedValue(null),
@@ -114,8 +130,39 @@ function getHistory(sm: SessionManager): Array<{ role: string; content: unknown 
 }
 
 describe("map-coordinator injects NodeResult into voice SessionManager (GAME-EVENT-001)", () => {
+  let isolatedContextRoot = "";
+
+  beforeAll(() => {
+    isolatedContextRoot = fs.mkdtempSync(
+      path.join(os.tmpdir(), "sunny-map-handoff-"),
+    );
+  });
+
+  afterAll(() => {
+    vi.unstubAllEnvs();
+    if (isolatedContextRoot) {
+      fs.rmSync(isolatedContextRoot, { recursive: true, force: true });
+    }
+  });
+
   beforeEach(() => {
     vi.unstubAllEnvs();
+    vi.stubEnv("SUNNY_CONTEXT_ROOT", isolatedContextRoot);
+    vi.stubEnv("SUNNY_ALLOW_REAL_CHILD_CONTEXT_ROOT", "true");
+    fs.rmSync(path.join(isolatedContextRoot, "ila"), {
+      recursive: true,
+      force: true,
+    });
+    writeLearningProfile(
+      "ila",
+      initializeLearningProfile({
+        childId: "ila",
+        age: 9,
+        grade: 3,
+        diagnoses: [],
+        learningGoals: ["spelling"],
+      }),
+    );
     __resetAdventureMapSessionsForTests();
     __resetVoiceSessionRegistryForTests();
     vi.mocked(buildProfile).mockResolvedValue({
@@ -132,6 +179,12 @@ describe("map-coordinator injects NodeResult into voice SessionManager (GAME-EVE
     });
     vi.mocked(generateTheme).mockResolvedValue(mockTheme() as never);
     vi.mocked(buildNodeList).mockResolvedValue(mockNodes());
+  });
+
+  it("never records coordinator handoff evidence in canonical family data", () => {
+    expect(resolveContextRoot()).not.toBe(
+      path.resolve(process.cwd(), "src", "context"),
+    );
   });
 
   it("8b. node_click updates board truth without auto-speaking or appending companion chat", async () => {

@@ -6,6 +6,7 @@ import type {
   ActivityTraitModelEntry,
   LearningProfile,
 } from "../context/schemas/learningProfile";
+import { thumbnailUrlForActivity } from "../shared/activityPresentation";
 import type {
   ChoiceEventSource,
   MysteryChoiceOption,
@@ -132,21 +133,6 @@ type ApplyChoiceOptions = RootOptions & {
   ) => Promise<void> | void;
 };
 
-const STATIC_ACTIVITY_THUMBNAILS: Record<string, string> = {
-  "monster-stampede": "/thumbnails/activities/monster-stampede.svg",
-  pronunciation: "/thumbnails/activities/pronunciation.svg",
-  karaoke: "/thumbnails/activities/karaoke.svg",
-  "spell-check": "/thumbnails/activities/spell-check.svg",
-  "word-radar": "/thumbnails/activities/word-radar.svg",
-  "letter-rush": "/thumbnails/activities/letter-rush.svg",
-  "speed-catcher": "/thumbnails/activities/speed-catcher.svg",
-  asteroid: "/thumbnails/activities/asteroid.svg",
-  "space-invaders": "/thumbnails/activities/space-invaders.svg",
-  "space-frogger": "/thumbnails/activities/space-frogger.svg",
-  "wheel-of-fortune": "/thumbnails/activities/wheel-of-fortune.svg",
-  mystery: "/thumbnails/mystery-fallback.svg",
-};
-
 function rootDir(opts?: RootOptions): string {
   return opts?.rootDir ?? process.cwd();
 }
@@ -219,10 +205,7 @@ function asNodeType(value: string | undefined): NodeType | null {
   return (ALL_NODE_TYPES as readonly string[]).includes(value) ? (value as NodeType) : null;
 }
 
-export function thumbnailUrlForActivity(activityId: string): string {
-  return STATIC_ACTIVITY_THUMBNAILS[activityId] ??
-    `/thumbnails/activities/${activityId.replace(/[^a-z0-9_-]+/gi, "-").toLowerCase()}.svg`;
-}
+export { thumbnailUrlForActivity } from "../shared/activityPresentation";
 
 export function preferenceWeightForChoiceSource(source: ChoiceEventSource): number {
   switch (source) {

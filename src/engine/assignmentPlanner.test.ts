@@ -356,6 +356,15 @@ function plannerDraftWithAdventureBoard(adventureBoard: unknown): unknown {
 }
 
 describe("assignment planner", () => {
+  it("preserves native spelling payloads and accountable measurements through the real provider parser", () => {
+    const draft = plannerDraftWithAdventureBoard(undefined) as Record<string, any>;
+    const config = { schemaVersion: 1, activityId: "letter-rush", domain: "spelling", words: [{ text: "sign" }], evidencePolicy: { writesMasteryEvidence: false } };
+    Object.assign(draft.activeSessionPlan.nodePlan[0], { type: "letter-rush", activityId: "letter-rush", activityConfig: config });
+    draft.plannedMeasurements[0].spelling = { role: "practice", evidenceIds: ["observed-sign"], interventionNodeIds: [], reason: "One uncertain response", uncertainty: "Immediate performance", expectedAccuracy: { min: 0, max: 1 }, confidence: 0.5, maxDelayDays: 7, finalCheck: false };
+    const parsed = parseAssignmentPlannerToolUseResponse({ content: [{ type: "tool_use", id: "recorded", name: ASSIGNMENT_PLANNER_TOOL_NAME, input: JSON.parse(JSON.stringify(draft)) }] } as never);
+    expect(parsed.activeSessionPlan.nodePlan[0].activityConfig).toEqual(config);
+    expect(parsed.plannedMeasurements[0].spelling).toEqual(draft.plannedMeasurements[0].spelling);
+  });
   it("defaults to the current available Sonnet planner model", () => {
     expect(resolveAssignmentPlannerModel({}, {})).toBe("claude-sonnet-5");
     expect(resolveAssignmentPlannerModel({}, {
@@ -1337,7 +1346,7 @@ describe("assignment planner", () => {
       "Monster Stampede",
       "Sight Build",
     ]);
-    expect(board.nodes.find((node) => node.id === "practice-high-freq-scaffolded")?.slot).toBe("5a.2");
+    expect(board.nodes.find((node) => node.id === "practice-high-freq-scaffolded")?.slot).toBe("5c.1");
   });
 
   it("does not invent fake route agency from Mystery or locked Quest when only one route node exists", () => {

@@ -9,12 +9,64 @@ import { recordLearningAttempt } from "./learningAttemptEvents";
 import { buildFlowGameEventFields } from "./flow-game-debug";
 import { buildGameContextSummary } from "./gameContextSummary";
 import { shouldPersistSessionData } from "../utils/runtimeMode";
+import { rewriteChildNameForTts } from "./sessionTextHelpers";
+import type { WsTtsBridge } from "./ws-tts-bridge";
+import type { LearningCycleRecordV2 } from "../engine/learningCycleRepository";
 import {
   recordCompanionVideoCallTraceEvent,
   type CompanionVideoCallTraceEventName,
 } from "./companionVideoCallTrace";
 
 export const WB_ACTIVITY_MS = 90_000;
+
+export type SpellingAssessmentState = { homeworkId: string; itemId: string; word: string; artifactHash: string; audioDelivered: boolean; supportIds: string[]; ambiguous: boolean };
+export function bindSpellingAssessment(input: {
+  state: Record<string, unknown>; cycle?: LearningCycleRecordV2 | null; current?: SpellingAssessmentState;
+  history: Map<string, SpellingAssessmentState>; sessionId: string; summoned: boolean;
+}): SpellingAssessmentState | undefined {
+  const { state, cycle, current, history } = input;
+  if (current && current.itemId === state.itemId && state.answerVisibility !== "hidden") current.ambiguous = true;
+  if (state.phase !== "response") return current;
+  const node = cycle?.nodes.find(node => node.nodeId === state.nodeId);
+  const item = node?.evidenceContract.spellingItems?.[String(state.itemId ?? "")];
+  if (cycle?.domain !== "spelling" || !item || !node?.artifactBinding) {
+    console.warn(" 🎮 [spelling-discovery] [live-context] [invalid-item]");
+    return undefined;
+  }
+  if (current?.itemId === item.id) return current;
+  const next = history.get(item.id) ?? { homeworkId: cycle.homeworkId, itemId: item.id, word: item.word, artifactHash: node.artifactBinding.contractFingerprint, audioDelivered: false, supportIds: input.summoned ? [`support:${input.sessionId}:${item.id}`] : [], ambiguous: state.answerVisibility !== "hidden" };
+  history.set(item.id, next);
+  console.log(` 🎮 [spelling-discovery] [live-context] [bound] item=${item.id}`);
+  return next;
+}
+
+/** The existing game-event adapter owns narration; SessionManager only routes it. */
+export async function narrateGameStimulus(input: {
+  text: string; metadata: Record<string, unknown>; childName: Parameters<typeof rewriteChildNameForTts>[1]; ttsLabel: string;
+  bridge?: Pick<WsTtsBridge, "connect" | "sendText" | "finish"> | null;
+  assessment?: { itemId: string; word: string; audioDelivered: boolean };
+  isCurrent: () => boolean;
+  record: (action: string, event: Record<string, unknown>) => void;
+}): Promise<boolean> {
+  const { text, metadata, assessment, bridge } = input;
+  if (metadata.assessmentMode === true) {
+    if (!assessment || assessment.itemId !== metadata.itemId || text.replace(/[.!?]$/, "").trim() !== assessment.word) throw new Error("spelling_stimulus_mismatch");
+    assessment.audioDelivered = false;
+    if (!bridge) throw new Error("spelling_stimulus_audio_unavailable");
+  }
+  const spoken = rewriteChildNameForTts(text.trim().slice(0, 120), input.childName, input.ttsLabel);
+  if (!spoken) return false;
+  const event = { text: spoken, activityId: metadata.activityId, nodeId: metadata.nodeId, reason: metadata.reason };
+  input.record("speak", event);
+  if (bridge) {
+    await bridge.connect().catch(error => { console.error("  🔴 [game_narration] TTS connect failed:", error); if (assessment) throw error; });
+    bridge.sendText(spoken);
+    await bridge.finish().catch(error => { console.error("  🔴 [game_narration] TTS finish failed:", error); if (assessment) throw error; });
+  }
+  if (assessment && input.isCurrent()) assessment.audioDelivered = true;
+  input.record("playback_done", event);
+  return true;
+}
 
 const TRACEABLE_GAME_EVENT_TYPES = new Set([
   "combo_breaker",
@@ -288,6 +340,8 @@ export function handleGameEventForSession(
         reason,
         activityId: event.activityId ?? game,
         nodeId: event.nodeId,
+        itemId: event.itemId,
+        assessmentMode: event.assessmentMode === true,
         word,
       }),
     ).catch((err: unknown) => {
@@ -442,6 +496,7 @@ export function handleGameEventForSession(
     }
     try {
       const recorded = recordLearningAttempt(event, chartChildIdForSession(s));
+      if (recorded.skipped) return;
       s.noteExternalEvent?.({
         source: "attempt_event",
         summary:

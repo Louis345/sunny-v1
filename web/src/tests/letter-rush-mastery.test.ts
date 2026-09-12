@@ -228,4 +228,14 @@ describe("Letter Rush Mastery Run behavior", () => {
     expect(falling?.dataset.hitbox).toBe("tap-target-default");
     expect(falling?.classList.contains("tap-target-default")).toBe(true);
   });
+
+  it("bounds how long a child can wait for the next correct letter", async () => {
+    const harness = loadLetterRushHarness({ config: "sample-read" });
+    vi.spyOn(Math, "random").mockReturnValue(0.99);
+
+    harness.clickStart();
+    await vi.advanceTimersByTimeAsync(3300);
+
+    expect(document.querySelector('button.falling[data-letter="f"]')).toBeTruthy();
+  });
 });

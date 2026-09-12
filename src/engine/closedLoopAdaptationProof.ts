@@ -12,7 +12,6 @@ import {
   planHomeworkSessionFromChart,
   writeActiveSessionPlan,
 } from "./sessionPlanFromChart";
-import { selectTargetedPracticePlan } from "./targetedPracticeSelector";
 import {
   registerActiveVoiceSessionManager,
   unregisterActiveVoiceSessionManager,
@@ -281,20 +280,10 @@ function firstWordDrivenNode(mapState: MapState): NodeConfig {
   return node;
 }
 
-function wordDrivenSupportNode(node: ClosedLoopProofNode): boolean {
-  return [
-    "word-radar",
-    "spell-check",
-    "monster-stampede",
-    "letter-rush",
-    "pronunciation",
-  ].includes(node.type);
-}
-
-function applyEvidenceToNextBoard(args: {
+function observeRuntimeBoardDiff(args: {
+  boardBefore: ClosedLoopProofNode[];
   runtimeAfter: ClosedLoopProofNode[];
   completedNode: NodeConfig;
-  result: NodeResult;
 }): {
   boardAfter: ClosedLoopProofNode[];
   diff: {
@@ -308,44 +297,23 @@ function applyEvidenceToNextBoard(args: {
     ...node,
     words: [...node.words],
   }));
-  const completedIndex = boardAfter.findIndex((node) => node.id === args.completedNode.id);
-  const practicePlan = selectTargetedPracticePlan({
-    nodeId: args.completedNode.id,
-    nodeType: args.completedNode.type,
-    domain: "spelling",
-    targets: args.completedNode.words ?? [],
-    correctWords: args.result.correctWords ?? [],
-    missedWords: args.result.missedWords ?? [],
-    targetResults: args.result.targetResults,
-    includeUnattempted: false,
+  // Observe production output only. A lab-selected practice plan is not proof
+  // that the real session applied that plan; completion/unlocking is not targeting.
+  const completedIndex = boardAfter.findIndex(node => node.id === args.completedNode.id);
+  const changed = boardAfter.slice(completedIndex + 1).filter(node => {
+    const before = args.boardBefore.find(previous => previous.id === node.id);
+    return !node.completed && (!before || JSON.stringify(before.words) !== JSON.stringify(node.words));
   });
-  const nextTargets = practicePlan.nextTargets;
-  const changedNodeIds: string[] = [];
-  const skippedPracticeNodeIds: string[] = [];
-  const futureSupport = boardAfter
-    .slice(Math.max(0, completedIndex + 1))
-    .filter((node) => wordDrivenSupportNode(node) && !node.completed);
-  if (nextTargets.length > 0) {
-    const supportNode = futureSupport[0];
-    if (supportNode) {
-      supportNode.words = [...nextTargets];
-      changedNodeIds.push(supportNode.id);
-    }
-  } else {
-    const practiceNode = futureSupport.find((node) => node.words.length > 0);
-    if (practiceNode) {
-      practiceNode.words = [];
-      changedNodeIds.push(practiceNode.id);
-      skippedPracticeNodeIds.push(practiceNode.id);
-    }
-  }
+  const changedNodeIds = changed.map(node => node.id);
+  const skippedPracticeNodeIds = changed.filter(node => node.words.length === 0).map(node => node.id);
+  const nextTargets = [...new Set(changed.flatMap(node => node.words))];
   return {
     boardAfter,
     diff: {
       changedNodeIds,
       skippedPracticeNodeIds,
       nextTargets,
-      reason: practicePlan.reason,
+      reason: changed.length ? "Observed target changes in the production map result" : "Production session kept its existing targets; adaptive retargeting is not proven",
     },
   };
 }
@@ -470,10 +438,10 @@ async function runTrajectoryProof(input: RunTrajectoryProofInput): Promise<Close
       const boardBefore = snapshotBoard(mapState);
       const result = input.resultForNode(node);
       const completed = await applyNodeResult(sessionId, result);
-      const { diff } = applyEvidenceToNextBoard({
+      const { diff } = observeRuntimeBoardDiff({
+        boardBefore,
         runtimeAfter: snapshotBoard(completed.mapState),
         completedNode: node,
-        result,
       });
       writeCanonicalAdaptationDiff({ sessionDir: recorder.sessionDir, diff });
       recorder.finalize({
@@ -605,10 +573,10 @@ export async function runClosedLoopAdaptationProof(
       const {
         boardAfter,
         diff: runtimeDiff,
-      } = applyEvidenceToNextBoard({
+      } = observeRuntimeBoardDiff({
+        boardBefore,
         runtimeAfter: snapshotBoard(completed.mapState),
         completedNode: node,
-        result,
       });
       writeCanonicalAdaptationDiff({ sessionDir: recorder.sessionDir, diff: runtimeDiff });
       recorder.finalize({

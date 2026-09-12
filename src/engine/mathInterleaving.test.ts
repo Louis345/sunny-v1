@@ -1,18 +1,12 @@
 import fs from "fs";
+import os from "os";
 import path from "path";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mathProblem } from "../agents/elli/tools/mathProblem";
-import { readWordBank } from "../utils/wordBankIO";
+import { readWordBank, resolveWordBankPath } from "../utils/wordBankIO";
 
 const childId = "ila";
 const mathLog = path.resolve(process.cwd(), "src", "logs", "ila_math.json");
-const wordBankPath = path.resolve(
-  process.cwd(),
-  "src",
-  "context",
-  childId,
-  "word_bank.json",
-);
 
 async function runMath(args: {
   childName: "Ila" | "Reina" | "creator";
@@ -29,15 +23,20 @@ async function runMath(args: {
 }
 
 describe("math interleaving integration", () => {
+  const previousContextRoot = process.env.SUNNY_CONTEXT_ROOT;
+  const previousAllowRealChild = process.env.SUNNY_ALLOW_REAL_CHILD_CONTEXT_ROOT;
   let savedLog: string | null = null;
-  let savedBank: string | null = null;
+  let isolatedContextRoot = "";
+  let wordBankPath = "";
 
   beforeEach(() => {
+    isolatedContextRoot = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-math-interleaving-"));
+    process.env.SUNNY_CONTEXT_ROOT = isolatedContextRoot;
+    process.env.SUNNY_ALLOW_REAL_CHILD_CONTEXT_ROOT = "true";
+    wordBankPath = resolveWordBankPath(childId);
+    expect(wordBankPath).not.toContain(path.join("src", "context", "ila"));
     savedLog = fs.existsSync(mathLog)
       ? fs.readFileSync(mathLog, "utf-8")
-      : null;
-    savedBank = fs.existsSync(wordBankPath)
-      ? fs.readFileSync(wordBankPath, "utf-8")
       : null;
     if (fs.existsSync(mathLog)) fs.unlinkSync(mathLog);
   });
@@ -45,7 +44,11 @@ describe("math interleaving integration", () => {
   afterEach(() => {
     if (savedLog !== null) fs.writeFileSync(mathLog, savedLog, "utf-8");
     else if (fs.existsSync(mathLog)) fs.unlinkSync(mathLog);
-    if (savedBank !== null) fs.writeFileSync(wordBankPath, savedBank, "utf-8");
+    fs.rmSync(isolatedContextRoot, { recursive: true, force: true });
+    if (previousContextRoot === undefined) delete process.env.SUNNY_CONTEXT_ROOT;
+    else process.env.SUNNY_CONTEXT_ROOT = previousContextRoot;
+    if (previousAllowRealChild === undefined) delete process.env.SUNNY_ALLOW_REAL_CHILD_CONTEXT_ROOT;
+    else process.env.SUNNY_ALLOW_REAL_CHILD_CONTEXT_ROOT = previousAllowRealChild;
   });
 
   it("returns nextRecommendation from interleaving algorithm", async () => {

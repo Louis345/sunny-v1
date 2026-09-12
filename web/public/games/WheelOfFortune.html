@@ -1085,6 +1085,8 @@ function App() {
       if (typeof window.sendNodeComplete === 'function') {
         window.sendNodeComplete({
           completed: true,
+          ended: true,
+          won: true,
           accuracy: (6 - wrongGuesses) / 6,
           wordsCorrect: [WORD_RAW],
           wordsStruggled: [],
@@ -1144,6 +1146,8 @@ function App() {
       if (typeof window.sendNodeComplete === 'function') {
         window.sendNodeComplete({
           completed: false,
+          ended: true,
+          won: false,
           accuracy: 0,
           wordsCorrect: [],
           wordsStruggled: [WORD_RAW],

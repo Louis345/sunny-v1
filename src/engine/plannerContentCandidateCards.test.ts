@@ -40,6 +40,13 @@ function chart(items: AIContentCatalogItem[] = []): ChildChart {
 }
 
 describe("Planner content candidate cards", () => {
+  it("does not offer the registered Visual Explainer as an immediately reusable math artifact", () => {
+    const cards = buildPlannerContentCandidateCards({ chart: chart(), domain: "math" });
+    const explainer = cards.find(card => card.contentId === "instrument:visual-explainer");
+    expect(explainer).toMatchObject({ runtime: { status: "registered_unverified" }, decisionCosts: { reuse: { eligible: false } } });
+    expect(resolveExactMathCatalogReuse({ decision: { action: "reuse", contentId: explainer!.contentId }, targetNodeId: "graph-bridge", academicContractHash: "graph-contract", cards })).toBeNull();
+  });
+
   it("uses one factual protocol while retaining domain-specific learning capabilities", () => {
     const spelling = buildPlannerContentCandidateCards({ chart: chart(), domain: "spelling" });
     const math = buildPlannerContentCandidateCards({ chart: chart(), domain: "math" });

@@ -5,10 +5,18 @@ import { describe, expect, it, vi } from "vitest";
 import {
   SessionDebugRecorder,
   buildSessionLogFolderName,
+  defaultSessionLogRoot,
   finalizeSessionDebugPacket,
 } from "../server/session-debug-recorder";
 
 describe("SessionDebugRecorder", () => {
+  it("keeps default logs inside an explicitly isolated context instead of the source checkout", () => {
+    const contextRoot = path.join(os.tmpdir(), "sunny-isolated-context", "src", "context");
+    expect(defaultSessionLogRoot({ SUNNY_CONTEXT_ROOT: contextRoot }, "/source-checkout")).toBe(
+      path.join(contextRoot, ".runtime", "logs", "sessions"),
+    );
+  });
+
   it("writes an AI-ready session packet with structured events and summary", () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-session-logs-"));
     const startedAt = new Date("2026-05-04T15:32:10.000Z");

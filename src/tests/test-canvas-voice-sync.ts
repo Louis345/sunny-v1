@@ -1,12 +1,79 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
+import fs from "fs";
+import os from "os";
+import path from "path";
 import WebSocket from "ws";
 import { SessionManager } from "../server/session-manager";
 import { TurnStateMachine } from "../server/session-state";
 import { createSessionContext } from "../server/session-context";
+import { resolveContextRoot } from "../utils/contextRoot";
+import {
+  initializeLearningProfile,
+  writeLearningProfile,
+} from "../utils/learningProfileIO";
 
 vi.mock("../agents/elli/run", () => ({
   runAgent: vi.fn().mockResolvedValue(""),
 }));
+
+let isolatedContextRoot = "";
+const TEST_CHART_ID = "canvas-voice-lab";
+const sessionManagers: SessionManager[] = [];
+
+beforeAll(() => {
+  isolatedContextRoot = fs.mkdtempSync(
+    path.join(os.tmpdir(), "sunny-canvas-voice-sync-"),
+  );
+});
+
+beforeEach(() => {
+  vi.stubEnv("SUNNY_CONTEXT_ROOT", isolatedContextRoot);
+  vi.stubEnv("SUNNY_ALLOW_REAL_CHILD_CONTEXT_ROOT", "true");
+  fs.rmSync(path.join(isolatedContextRoot, TEST_CHART_ID), {
+    recursive: true,
+    force: true,
+  });
+  writeLearningProfile(
+    TEST_CHART_ID,
+    initializeLearningProfile({
+      childId: TEST_CHART_ID,
+      age: 9,
+      grade: 3,
+      diagnoses: [],
+      learningGoals: ["spelling"],
+    }),
+  );
+});
+
+afterEach(() => {
+  for (const manager of sessionManagers.splice(0)) {
+    if (manager.gameTtsFallbackTimer) {
+      clearTimeout(manager.gameTtsFallbackTimer);
+      manager.gameTtsFallbackTimer = null;
+    }
+    if (manager.wbActivityTimeout) {
+      clearTimeout(manager.wbActivityTimeout);
+      manager.wbActivityTimeout = null;
+    }
+    getTurnSM(manager).onInterrupt();
+  }
+});
+
+afterAll(() => {
+  vi.unstubAllEnvs();
+  if (isolatedContextRoot) {
+    fs.rmSync(isolatedContextRoot, { recursive: true, force: true });
+  }
+});
 
 function mockWs(): WebSocket {
   return {
@@ -14,6 +81,15 @@ function mockWs(): WebSocket {
     OPEN: WebSocket.OPEN,
     send: vi.fn(),
   } as unknown as WebSocket;
+}
+
+function createTestSessionManager(): SessionManager {
+  const manager = new SessionManager(mockWs(), "Ila", false, {
+    chartChildId: TEST_CHART_ID,
+    silentTts: true,
+  });
+  sessionManagers.push(manager);
+  return manager;
 }
 
 function getTurnSM(sm: SessionManager): TurnStateMachine {
@@ -52,13 +128,21 @@ function attachMinimalSession(sm: SessionManager): void {
   };
 }
 
+describe("canvas voice-sync storage isolation", () => {
+  it("never records simulated Ila rounds in canonical family data", () => {
+    expect(resolveContextRoot()).not.toBe(
+      path.resolve(process.cwd(), "src", "context"),
+    );
+  });
+});
+
 describe("Suite 1 — TTS gate (Word Builder / Spell Check / Launch / canvasShow)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
   it("launchGame(word-builder): no TTS until game ready for revision", async () => {
-    const sm = new SessionManager(mockWs(), "Ila");
+    const sm = createTestSessionManager();
     attachMinimalSession(sm);
     (sm as unknown as { spellingHomeworkWordsByNorm: string[] }).spellingHomeworkWordsByNorm =
       ["add"];
@@ -99,7 +183,7 @@ describe("Suite 1 — TTS gate (Word Builder / Spell Check / Launch / canvasShow
   });
 
   it("launchGame(spell-check): no TTS until game ready", async () => {
-    const sm = new SessionManager(mockWs(), "Ila");
+    const sm = createTestSessionManager();
     attachMinimalSession(sm);
     (sm as unknown as { spellingHomeworkWordsByNorm: string[] }).spellingHomeworkWordsByNorm =
       ["go"];
@@ -140,7 +224,7 @@ describe("Suite 1 — TTS gate (Word Builder / Spell Check / Launch / canvasShow
   });
 
   it("launchGame: no TTS until game ready", async () => {
-    const sm = new SessionManager(mockWs(), "Ila");
+    const sm = createTestSessionManager();
     attachMinimalSession(sm);
 
     const sendText = (
@@ -169,7 +253,7 @@ describe("Suite 1 — TTS gate (Word Builder / Spell Check / Launch / canvasShow
   });
 
   it("canvasShow (game): no TTS until game ready (same gate as iframe tools)", async () => {
-    const sm = new SessionManager(mockWs(), "Ila");
+    const sm = createTestSessionManager();
     attachMinimalSession(sm);
 
     const sendText = (
@@ -206,7 +290,7 @@ describe("Suite 1 — TTS gate (Word Builder / Spell Check / Launch / canvasShow
 
 describe("Suite 2 — round_complete during SPEAKING", () => {
   it("pendingRoundComplete set, wbPendingEvent null; playbackDone re-enters handleGameEvent", async () => {
-    const sm = new SessionManager(mockWs(), "Ila");
+    const sm = createTestSessionManager();
     attachMinimalSession(sm);
     (sm as unknown as { wbActive: boolean }).wbActive = true;
     (sm as unknown as { wbWord: string }).wbWord = "add";
@@ -239,7 +323,7 @@ describe("Suite 2 — round_complete during SPEAKING", () => {
 
 describe("Suite 3 — round_complete during PROCESSING", () => {
   it("pending set; flushPendingRoundComplete runs handleGameEvent", async () => {
-    const sm = new SessionManager(mockWs(), "Ila");
+    const sm = createTestSessionManager();
     attachMinimalSession(sm);
     (sm as unknown as { wbActive: boolean }).wbActive = true;
     (sm as unknown as { wbWord: string }).wbWord = "add";
@@ -271,7 +355,7 @@ describe("Suite 3 — round_complete during PROCESSING", () => {
 
 describe("Suite 4 — round 4 forces IDLE; game_complete ignored", () => {
   it("after round 4 not WORD_BUILDER; onWordBuilderEnd once; game_complete no second end", async () => {
-    const sm = new SessionManager(mockWs(), "Ila");
+    const sm = createTestSessionManager();
     attachMinimalSession(sm);
     (sm as unknown as { spellingHomeworkWordsByNorm: string[] }).spellingHomeworkWordsByNorm = [
       "add",

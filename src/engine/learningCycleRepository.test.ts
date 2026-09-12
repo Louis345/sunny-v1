@@ -284,7 +284,7 @@ describe("canonical learning cycle repository", () => {
             return { ...node, position: { x: 0.82, y: 0.48 }, state: "locked" as const, action: { type: "show-locked-reason" as const, payloadId: "quest" } };
           }
           return node.id === "baseline-facts"
-            ? { ...node, thumbnailUrl: "/generated/baseline-dedicated-thumbnail.png" }
+            ? { ...node, label: "Sky Facts", shortLabel: "Sky Facts", thumbnailUrl: "/generated/baseline-dedicated-thumbnail.png" }
             : node;
         }),
         edges: canonical.adventureBoard.edges.map((edge) => ({
@@ -311,10 +311,23 @@ describe("canonical learning cycle repository", () => {
       .toBe("/generated/baseline-dedicated-thumbnail.png");
     expect(projected.adventureBoard.nodes.find((node) => node.id === "baseline-facts")?.thumbnailUrl)
       .toBe("/generated/baseline-dedicated-thumbnail.png");
+    expect(projected.adventureBoard.nodes.find((node) => node.id === "baseline-facts")).toMatchObject({
+      label: "Sky Facts",
+      shortLabel: "Sky Facts",
+    });
     expect(projected.adventureBoard.edges).toHaveLength(authoredPlan.adventureBoard.edges.length);
     expect(projected.adventureBoard.edges.map((edge) => edge.id))
       .toEqual(authoredPlan.adventureBoard.edges.map((edge) => edge.id));
     expect(() => assertLearningCycleProjectionWrite("reina", projected.activeSessionPlan, { rootDir })).not.toThrow();
+  });
+
+  it.each(["spelling", "reading", "science"] as const)("leaves %s authored edge projection unchanged by math Discovery archival", domain => {
+    const cycle = createLearningCycle({ ...input(), domain }, { rootDir: root() });
+    const original = projectLearningCycle(cycle);
+    const presentationPlan = structuredClone(original.activeSessionPlan);
+    const edge = { id: "authored-future-edge", from: "start", to: "unrevealed-territory", state: "locked" as const };
+    presentationPlan.adventureBoard!.edges.push(edge);
+    expect(projectLearningCycle(cycle, { presentationPlan }).adventureBoard.edges).toContainEqual(edge);
   });
 
   it("projects completed canonical nodes as replayable completed board nodes", () => {

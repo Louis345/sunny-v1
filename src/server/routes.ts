@@ -69,11 +69,21 @@ import {
   getMathGenerationStatus,
   queueTargetedMathGeneration,
   recordDiscoveryAttempt,
+  type MathGenerationJob,
   type MathDiscoveryAttempt,
 } from "../engine/adaptiveMathDiscovery";
+import {
+  assertCertificationWorkerScope,
+  certificationWorkerScope,
+} from "./certificationRuntime";
+
+export function shouldResumeAdaptiveMathWorker(phase: MathGenerationJob["phase"]): boolean {
+  return phase !== "needs_attention";
+}
 
 export function launchAdaptiveMathWorker(childId: string, homeworkId: string): void {
   if (process.env.VITEST) return;
+  assertCertificationWorkerScope(childId, homeworkId);
   const logPath = path.join(resolveChildContextDir(childId), "homework", "direct-drafts", homeworkId, "adaptive-generation-worker.log");
   fs.mkdirSync(path.dirname(logPath), { recursive: true });
   const logDescriptor = fs.openSync(logPath, "a");
@@ -95,13 +105,17 @@ export function launchAdaptiveMathWorker(childId: string, homeworkId: string): v
 
 export function resumeAdaptiveMathWorkers(): void {
   if (process.env.VITEST) return;
-  for (const childId of listChildProfileIds()) {
+  const certificationScope = certificationWorkerScope();
+  for (const childId of certificationScope ? [certificationScope.childId] : listChildProfileIds()) {
     const drafts = path.join(resolveChildContextDir(childId), "homework", "direct-drafts");
     if (!fs.existsSync(drafts)) continue;
-    for (const homeworkId of fs.readdirSync(drafts)) {
+    const homeworkIds = certificationScope
+      ? [certificationScope.homeworkId]
+      : fs.readdirSync(drafts);
+    for (const homeworkId of homeworkIds) {
       try {
         const job = getMathGenerationStatus(childId, homeworkId);
-        if (job && job.phase !== "board_ready" && job.phase !== "needs_attention") launchAdaptiveMathWorker(childId, homeworkId);
+        if (job && shouldResumeAdaptiveMathWorker(job.phase)) launchAdaptiveMathWorker(childId, homeworkId);
       } catch (error) {
         console.error(` 🎮 [adaptive-math] [worker-resume] [skipped] child=${childId} homework=${homeworkId}`, error);
       }
@@ -184,7 +198,8 @@ import type { SunnyRuntimeOverrides } from "../shared/runtimeConfig";
 import { resolveSunnyRuntimeConfig } from "../shared/runtimeConfig";
 import { reconcileCompanionCareCurrencyAward } from "./currencyAward";
 import { companionPickerIdentity } from "./companionPickerRows";
-import { advanceCanonicalCycleFromEvidence, recordCanonicalNodeCompletion } from "../engine/learningCycleRuntime";
+import { advanceCanonicalCycleFromEvidence, recordCanonicalNodeCompletion, recordSpellingDiscoveryAttempt } from "../engine/learningCycleRuntime";
+import { getActiveVoiceSessionManagerForChild } from "./voice-session-registry";
 import { generateCanonicalProgressionArtifact } from "../engine/canonicalProgressionGenerator";
 import {
   getLearningCycle,
@@ -686,7 +701,13 @@ export function setupRoutes(app: Express): void {
   }
 
   app.get("/api/health", (_req: Request, res: Response) => {
-    res.json({ status: "ok", timestamp: new Date().toISOString() });
+    res.json({
+      status: "ok",
+      timestamp: new Date().toISOString(),
+      ...(process.env.SUNNY_CERTIFICATION_RUN_ID
+        ? { certificationRunId: process.env.SUNNY_CERTIFICATION_RUN_ID }
+        : {}),
+    });
   });
 
   app.get("/api/learning/:childId/assignments", (req: Request, res: Response) => {
@@ -736,7 +757,7 @@ export function setupRoutes(app: Express): void {
     const childId = String(req.params.childId ?? "").trim().toLowerCase();
     const homeworkId = String(req.params.homeworkId ?? "").trim();
     if (!isValidRegistryChildId(childId)) return res.status(404).json({ error: "child_not_found" });
-    const body = req.body as Partial<MathDiscoveryAttempt>;
+    const body = req.body as Partial<MathDiscoveryAttempt> & { skipped?: boolean };
     if (
       !homeworkId
       || typeof body.attemptId !== "string"
@@ -761,7 +782,14 @@ export function setupRoutes(app: Express): void {
       return res.json({ ok: true, skippedPersistence: true });
     }
     try {
-      const cycle = recordDiscoveryAttempt({ childId, homeworkId, attempt });
+      const existing = getLearningCycle(childId, homeworkId);
+      const live = existing?.domain === "spelling" ? getActiveVoiceSessionManagerForChild(childId)?.getDiscoveryAttemptContext?.(homeworkId, attempt.itemId) : undefined;
+      const binding = existing?.nodes.find(node => node.evidenceContract.spellingItems?.[attempt.itemId])?.artifactBinding;
+      const verifiedLive = live && live.artifactHash === binding?.contractFingerprint ? live : undefined;
+      if (existing?.domain === "spelling" && attempt.supportEventIds.some(id => !verifiedLive?.support.scaffolds.includes(id))) throw new Error("spelling_support_reference_unknown");
+      const cycle = existing?.domain === "spelling"
+        ? recordSpellingDiscoveryAttempt({ childId, homeworkId, attempt: { ...attempt, skipped: body.skipped === true }, support: verifiedLive?.support, artifactHash: binding?.contractFingerprint, sessionId: verifiedLive?.sessionId, instrumentSignals: [...attempt.instrumentSignals, ...(verifiedLive?.instrumentSignals ?? ["live_context_unavailable"])] })
+        : recordDiscoveryAttempt({ childId, homeworkId, attempt });
       console.log(` 🎮 [adaptive-math] [discovery-attempt] [committed] child=${childId} homework=${homeworkId} attempt=${attempt.attemptId}`);
       return res.json({ ok: true, lifecycle: cycle.lifecycle, revision: cycle.revision });
     } catch (error: unknown) {
@@ -856,17 +884,24 @@ export function setupRoutes(app: Express): void {
     }
     try {
       const beforeCycle = getLearningCycle(childId, homeworkId);
-      const wasCompleted = beforeCycle?.nodes.some(
-        (node) => node.nodeId === nodeId && node.state === "completed",
-      ) === true;
+      const beforeNode = beforeCycle?.nodes.find(node => node.nodeId === nodeId);
+      const wasCompleted = beforeNode?.state === "completed";
       const accuracy = Number(body.result.accuracy ?? 0);
+      const suppliedSessionId = typeof body.result.sessionId === "string" ? body.result.sessionId.trim() : "";
+      if ((beforeCycle?.domain === "math" || beforeNode?.evidenceContract.spellingItems) && !suppliedSessionId) {
+        return res.status(400).json({ error: "canonical_completion_session_required" });
+      }
+      const sessionId = suppliedSessionId || randomUUID();
       const updated = recordCanonicalNodeCompletion({
         childId,
         homeworkId,
         nodeId,
-        sessionId: String(body.result.sessionId ?? randomUUID()),
+        sessionId,
         result: {
           completed: body.result.completed === true,
+          ended: body.result.ended === true,
+          won: typeof body.result.won === "boolean" ? body.result.won : undefined,
+          earlyExit: body.result.earlyExit === true,
           accuracy: Number.isFinite(accuracy) ? accuracy : 0,
           timeSpent_ms: Math.max(0, Number(body.result.timeSpent_ms ?? 0) || 0),
           targetResults: Array.isArray(body.result.targetResults)
@@ -883,8 +918,10 @@ export function setupRoutes(app: Express): void {
       });
       if (!updated) return res.status(404).json({ error: "learning_cycle_not_found" });
       const finalCycle = getLearningCycle(childId, homeworkId) ?? updated;
+      const nodeState = finalCycle.nodes.find(node => node.nodeId === nodeId)?.state ?? null;
+      const becameCompleted = !wasCompleted && nodeState === "completed";
       let videoCallTicket: { homeworkId: string; earnedAt: string; bonusUrl?: string } | undefined;
-      if (finalCycle.lifecycle === "baseline_evaluating") {
+      if (becameCompleted && finalCycle.lifecycle === "baseline_evaluating") {
         try {
           const chart = getChildChart(childId);
           const earnedAt = new Date().toISOString();
@@ -921,8 +958,8 @@ export function setupRoutes(app: Express): void {
           console.error(` 🎮 [learning-cycle-route] [video-call-ticket] [deferred] ${error instanceof Error ? error.message : String(error)}`);
         }
       }
-      console.log(` 🎮 [learning-cycle-route] [completion] [saved] child=${childId} node=${nodeId} lifecycle=${updated.lifecycle} revision=${updated.revision}`);
-      if (["baseline_evaluating", "quest_evaluating", "boss_evaluating"].includes(finalCycle.lifecycle)) {
+      console.log(` 🎮 [learning-cycle-route] [completion] [saved] child=${childId} node=${nodeId} state=${nodeState} transitioned=${becameCompleted} lifecycle=${finalCycle.lifecycle} revision=${finalCycle.revision}`);
+      if (becameCompleted && ["baseline_evaluating", "quest_evaluating", "boss_evaluating"].includes(finalCycle.lifecycle)) {
         void advanceCanonicalCycleFromEvidence({ childId, homeworkId })
           .then((decided) => {
             console.log(` 🎮 [learning-cycle-route] [planner-decision] [saved] lifecycle=${decided.lifecycle} revision=${decided.revision}`);
@@ -937,7 +974,7 @@ export function setupRoutes(app: Express): void {
             console.error(` 🎮 [learning-cycle-route] [next-session] [deferred] ${error instanceof Error ? error.message : String(error)}`);
           });
       }
-      const award = body.result.completed === true && !wasCompleted
+      const award = becameCompleted && body.result.completed === true && body.result.won !== false && body.result.earlyExit !== true
         ? reconcileCompanionCareCurrencyAward({
             childId,
             amount: 25,
@@ -948,6 +985,8 @@ export function setupRoutes(app: Express): void {
       return res.json({
         lifecycle: finalCycle.lifecycle,
         revision: finalCycle.revision,
+        nodeState,
+        academicAccuracy: updated.evidence?.academic.find(item => item.evidenceId === `${sessionId}:${nodeId}:completion`)?.accuracy ?? null,
         ...(award?.ok ? { coinAward: { amount: 25, balance: award.balance } } : {}),
         ...(videoCallTicket ? { videoCallTicket } : {}),
       });
@@ -1323,6 +1362,8 @@ export function setupRoutes(app: Express): void {
       return res.json({ ok: true, applied: false, skippedPersistence: true });
     }
     try {
+      const cycle = eventInput.homeworkId ? getLearningCycle(childId, eventInput.homeworkId) : null;
+      eventInput.domain = cycle?.domain ?? String(eventInput.domain ?? "").trim().toLowerCase();
       const isCanonicalMathEvidence = eventInput.domain === "math" && (
         eventInput.context === "homework_required" ||
         eventInput.context === "baseline_route" ||
@@ -1347,17 +1388,17 @@ export function setupRoutes(app: Express): void {
           choiceEventId: existingEvent.choiceEventId,
         });
       }
-      if (isCanonicalMathEvidence) {
-        const cycle = getLearningCycle(childId, eventInput.homeworkId!);
-        if (!cycle) {
-          return res.status(409).json({ ok: false, error: "choice_event_homework_not_found" });
-        }
-        if (
+      if (
+          cycle &&
           eventInput.nodeId &&
           eventInput.context !== "baseline_route" &&
           !cycle.nodes.some((node) => node.nodeId === eventInput.nodeId)
-        ) {
-          return res.status(409).json({ ok: false, error: "choice_event_node_not_in_homework" });
+      ) {
+        return res.status(409).json({ ok: false, error: "choice_event_node_not_in_homework" });
+      }
+      if (isCanonicalMathEvidence) {
+        if (!cycle) {
+          return res.status(409).json({ ok: false, error: "choice_event_homework_not_found" });
         }
         if (
           typeof eventInput.cycleRevision === "number" &&
@@ -1366,10 +1407,11 @@ export function setupRoutes(app: Express): void {
           return res.status(409).json({ ok: false, error: "choice_event_cycle_revision_stale" });
         }
         eventInput.cycleRevision ??= cycle.revision;
+        delete eventInput.accuracy; // Academic accuracy belongs to canonical observations, not the rating payload.
       }
       const event = recordChoiceEvent(eventInput);
       const applied = await applyChoiceEventPreference(event);
-      if (event.context === "homework_required" && event.eventName === "activity_completed") {
+      if (!isCanonicalMathEvidence && event.context === "homework_required" && event.eventName === "activity_completed") {
         void interpretDirectExperienceOutcome(event).catch((error: unknown) => {
           console.warn(
             ` 🎮 [direct-feedback] [deferred] child=${event.childId} node=${event.nodeId ?? "unknown"} reason=${error instanceof Error ? error.message : String(error)}`,
@@ -3126,10 +3168,7 @@ Return plain text only.`,
       return res.status(400).json({ error: "invalid_activity_config_request" });
     }
     const base = path.resolve(
-      process.cwd(),
-      "src",
-      "context",
-      childId,
+      resolveChildContextDir(childId),
       "homework",
       "games",
       homeworkId,

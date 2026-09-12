@@ -116,6 +116,8 @@ export type ActivityTraits = {
 };
 
 export type ActivityCapabilityMode = {
+  /** Runtime-certified independent capture, not inferred from a game's evidence label. */
+  independentDiscovery?: { domain: "spelling"; protocol: "spelling-recall-v1" };
   id: string;
   label: string;
   difficulty: 1 | 2 | 3;
@@ -2017,6 +2019,20 @@ const ACTIVITY_TOOL_CONTRACTS: ActivityToolContractSource[] = [
         measurementRisks: [
           "Audio cue plus length boxes is scaffolded spelling practice, not independent visual recall mastery.",
         ],
+      },
+      {
+        id: "independent_spelling_discovery",
+        label: "Independent spelling capture",
+        difficulty: 1,
+        purpose: "independent-retrieval",
+        skillTargets: ["spell_from_memory", "retrieval_practice"],
+        inputModes: ["typing", "touch"],
+        scaffolds: [],
+        evidenceType: "diagnostic",
+        masteryEligible: false,
+        independentDiscovery: { domain: "spelling", protocol: "spelling-recall-v1" },
+        config: { recallMode: "hidden_word_recall", inputMode: "keyboard", speakStyle: "option-b", showTimer: false, hideWordDuringResponse: true, requiresCapturedResponse: true },
+        measurementRisks: ["Requires audible whole-word stimulus and captured letters. Missing audio or failed capture is an instrument confound.", "Uses an isolated spoken word, not a contextual sentence: homophones may be ambiguous. It cannot currently supply meaning-based disambiguation.", "Hearing the word is stimulus; letter clues or spelling exposure are assistance.", "Measures recall on this occasion, not delayed retention or mastery. Keyboard/tap burden may confound the response."],
       },
       {
         id: "hidden_word_recall",

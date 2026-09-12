@@ -40,6 +40,7 @@ export function __resetVoiceSessionRegistryForTests(): void {
  * (avoids circular deps). The concrete SessionManager satisfies this.
  */
 export interface VoiceSessionManagerHandle {
+  getDiscoveryAttemptContext?: (homeworkId: string, itemId: string) => { support: { status: "unassisted" | "assisted" | "unknown"; scaffolds: string[] }; instrumentSignals: string[]; artifactHash: string; sessionId: string } | undefined;
   noteExternalEvent(event: unknown): void;
   speakGameNarration?: (
     text: string,
