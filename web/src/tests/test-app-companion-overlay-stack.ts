@@ -120,8 +120,34 @@ describe("App companion overlay stack", () => {
       /if \(plannerBoardRuntimeRequested\)\s*\{[\s\S]{0,220}return;/,
     );
     expect(src).toMatch(
-      /autoStartedAdventureVoiceRef\.current = adventureChildId;[\s\S]{0,220}startSession\(childNameFromId\(adventureChildId\)/,
+      /autoStartedAdventureVoiceRef\.current = adventureChildId;[\s\S]{0,500}startSession\(childNameFromId\(adventureChildId\)/,
     );
     expect(src).toMatch(/startSession\(childNameFromId\(adventureChildId\)/);
+  });
+
+  it("preselected Creator uses the authorized diagnostic session and preserves remount cleanup", () => {
+    const autoStartEffect = src.slice(
+      src.indexOf("if (!adventureMapEnabled || !adventureChildId)"),
+      src.indexOf("/** Tamagotchi quips"),
+    );
+    const creatorGuard = autoStartEffect.indexOf(
+      'if (adventureChildId.trim().toLowerCase() === "creator")',
+    );
+    const authorizedStart = autoStartEffect.indexOf(
+      'startSession("creator", { diagKiosk: true })',
+    );
+    const normalChildElse = autoStartEffect.indexOf("} else {", authorizedStart);
+    const normalChildStart = autoStartEffect.indexOf(
+      "startSession(childNameFromId(adventureChildId))",
+    );
+    const remountCleanup = autoStartEffect.indexOf(
+      "A development remount cancels the session hook's pending connection.",
+    );
+
+    expect(creatorGuard).toBeGreaterThanOrEqual(0);
+    expect(authorizedStart).toBeGreaterThan(creatorGuard);
+    expect(normalChildElse).toBeGreaterThan(authorizedStart);
+    expect(normalChildStart).toBeGreaterThan(normalChildElse);
+    expect(remountCleanup).toBeGreaterThan(normalChildStart);
   });
 });

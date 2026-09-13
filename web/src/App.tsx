@@ -683,8 +683,13 @@ function App() {
     if (state.phase !== "picker") return;
     if (autoStartedAdventureVoiceRef.current === adventureChildId) return;
     autoStartedAdventureVoiceRef.current = adventureChildId;
-    setSelectedChildName(childNameFromId(adventureChildId));
-    startSession(childNameFromId(adventureChildId));
+    if (adventureChildId.trim().toLowerCase() === "creator") {
+      setSelectedChildName("Creator");
+      startSession("creator", { diagKiosk: true });
+    } else {
+      setSelectedChildName(childNameFromId(adventureChildId));
+      startSession(childNameFromId(adventureChildId));
+    }
     return () => {
       // A development remount cancels the session hook's pending connection.
       // Its next setup must be allowed to start the same child's connection.
