@@ -66,4 +66,24 @@ describe("App companion overlay stack", () => {
     expect(src).toContain("if (plannerBoardRuntimeRequested)");
     expect(src).toMatch(/startSession\(childNameFromId\(adventureChildId\)/);
   });
+
+  it("auto-starts the preselected Creator identity only through the diagnostic kiosk boundary", () => {
+    const autoStartEffect = src.slice(
+      src.indexOf("if (!adventureMapEnabled || !adventureChildId)"),
+      src.indexOf("/** Tamagotchi quips"),
+    );
+    const creatorGuard = autoStartEffect.indexOf('if (adventureChildId === "creator")');
+    const authorizedStart = autoStartEffect.indexOf(
+      'startSession("creator", { diagKiosk: true })',
+    );
+    const creatorReturn = autoStartEffect.indexOf("return;", authorizedStart);
+    const normalChildStart = autoStartEffect.indexOf(
+      "startSession(childNameFromId(adventureChildId))",
+    );
+
+    expect(creatorGuard).toBeGreaterThanOrEqual(0);
+    expect(authorizedStart).toBeGreaterThan(creatorGuard);
+    expect(creatorReturn).toBeGreaterThan(authorizedStart);
+    expect(normalChildStart).toBeGreaterThan(creatorReturn);
+  });
 });

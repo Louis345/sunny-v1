@@ -562,6 +562,11 @@ function App() {
     }
     if (autoStartedAdventureVoiceRef.current === adventureChildId) return;
     autoStartedAdventureVoiceRef.current = adventureChildId;
+    if (adventureChildId === "creator") {
+      setSelectedChildName("Creator");
+      startSession("creator", { diagKiosk: true });
+      return;
+    }
     setSelectedChildName(childNameFromId(adventureChildId));
     startSession(childNameFromId(adventureChildId));
   }, [
