@@ -28,4 +28,8 @@ describe("childRegistry", () => {
     expect(isValidWsSessionChild("creator")).toBe(false);
     expect(isValidWsSessionChild("Unknown")).toBe(false);
   });
+
+  it("does not let display-case Creator bypass the diagnostic kiosk boundary", () => {
+    expect(isValidWsSessionChild("Creator")).toBe(false);
+  });
 });
