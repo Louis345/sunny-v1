@@ -41,6 +41,6 @@ export function childIdFromSessionName(name: string): string | null {
 }
 
 export function isValidWsSessionChild(name: string, diagKiosk = false): boolean {
-  if (name === "creator") return diagKiosk;
+  if (name.trim().toLowerCase() === "creator") return diagKiosk;
   return childIdFromSessionName(name) != null;
 }
