@@ -1,5 +1,6 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi, beforeAll, beforeEach, afterEach, afterAll } from "vitest";
 import fs from "fs";
+import os from "os";
 import path from "path";
 import type {
   AIContentCatalogItem,
@@ -65,6 +66,16 @@ import { buildProfile } from "../profiles/buildProfile";
 import { generateTheme } from "../agents/designer/designer";
 import { buildNodeList } from "../engine/nodeSelection";
 import { cloneCompanionDefaults } from "../shared/companionTypes";
+import { resolveChildContextDir } from "../utils/contextRoot";
+
+const canonicalPipelineFiles = [
+  "care_plan/current.json",
+  "content_catalog.json",
+  "homework/current.json",
+  "plans/active_session_plan.json",
+].map((relativePath) => path.join(process.cwd(), "src", "context", "qa_pipeline", relativePath));
+
+let canonicalPipelineState = new Map<string, string>();
 
 vi.mock("../profiles/buildProfile", () => ({
   buildProfile: vi.fn(),
@@ -124,7 +135,7 @@ function mockCastleBoss(): MapState["nodes"] {
 }
 
 function profilePath(childId: string): string {
-  return path.join(process.cwd(), "src", "context", childId, "learning_profile.json");
+  return path.join(resolveChildContextDir(childId), "learning_profile.json");
 }
 
 function baseLearningProfile(childId: string): LearningProfile {
@@ -189,9 +200,22 @@ function readProfile(childId: string): LearningProfile {
 
 describe("post-node pipeline (TASK-014)", () => {
   let appendSpy: ReturnType<typeof vi.spyOn>;
+  let isolatedContextRoot = "";
   const pipelineOrder: string[] = [];
 
+  beforeAll(() => {
+    canonicalPipelineState = new Map(canonicalPipelineFiles.map((file) => [file, fs.readFileSync(file, "utf8")]));
+  });
+
+  afterAll(() => {
+    const changed = canonicalPipelineFiles.filter((file) => fs.readFileSync(file, "utf8") !== canonicalPipelineState.get(file));
+    expect(changed).toEqual([]);
+  });
+
   beforeEach(() => {
+    vi.unstubAllEnvs();
+    isolatedContextRoot = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-post-node-context-"));
+    vi.stubEnv("SUNNY_CONTEXT_ROOT", isolatedContextRoot);
     __resetAdventureMapSessionsForTests();
     pipelineOrder.length = 0;
     writeBaseLearningProfile("qa_pipeline");
@@ -226,11 +250,8 @@ describe("post-node pipeline (TASK-014)", () => {
 
   afterEach(() => {
     appendSpy.mockRestore();
-    try {
-      fs.unlinkSync(profilePath("qa_pipeline"));
-    } catch {
-      // best-effort test cleanup
-    }
+    fs.rmSync(isolatedContextRoot, { recursive: true, force: true });
+    vi.unstubAllEnvs();
   });
 
   it("runs appendNodeRating then recordReward without synthesizing per-word attempts", async () => {

@@ -1,6 +1,7 @@
 import fs from "fs";
+import os from "os";
 import path from "path";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   __resetAdventureMapSessionsForTests,
   buildDiagMapSession,
@@ -9,6 +10,16 @@ import { readWordBank, writeWordBank } from "../utils/wordBankIO";
 import { createFreshSM2Track } from "../context/schemas/wordBank";
 import { writeLearningProfile } from "../utils/learningProfileIO";
 import type { LearningProfile } from "../context/schemas/learningProfile";
+import { resolveChildContextDir } from "../utils/contextRoot";
+
+const canonicalCreatorFiles = [
+  "care_plan/current.json",
+  "content_catalog.json",
+  "homework/current.json",
+  "plans/active_session_plan.json",
+].map((relativePath) => path.join(process.cwd(), "src", "context", "creator", relativePath));
+
+let canonicalCreatorState = new Map<string, string>();
 
 function minimalCreatorProfile(): LearningProfile {
   return {
@@ -89,46 +100,30 @@ function minimalCreatorProfile(): LearningProfile {
 }
 
 describe("buildDiagMapSession SM-2 due words (Audit 2)", () => {
-  const creatorDir = path.join(process.cwd(), "src", "context", "creator");
-  const creatorBankPath = path.join(creatorDir, "word_bank.json");
-  const creatorLpPath = path.join(creatorDir, "learning_profile.json");
-  let bankHadFile = false;
-  let bankPrevious: string | null = null;
-  let lpHadFile = false;
-  let lpPrevious: string | null = null;
+  let isolatedContextRoot = "";
+
+  beforeAll(() => {
+    canonicalCreatorState = new Map(canonicalCreatorFiles.map((file) => [file, fs.readFileSync(file, "utf8")]));
+  });
+
+  afterAll(() => {
+    const changed = canonicalCreatorFiles.filter((file) => fs.readFileSync(file, "utf8") !== canonicalCreatorState.get(file));
+    expect(changed).toEqual([]);
+  });
+
+  beforeEach(() => {
+    vi.unstubAllEnvs();
+    isolatedContextRoot = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-creator-diag-context-"));
+    vi.stubEnv("SUNNY_CONTEXT_ROOT", isolatedContextRoot);
+  });
 
   afterEach(() => {
     __resetAdventureMapSessionsForTests();
+    fs.rmSync(isolatedContextRoot, { recursive: true, force: true });
     vi.unstubAllEnvs();
-    if (bankHadFile && bankPrevious !== null) {
-      fs.mkdirSync(path.dirname(creatorBankPath), { recursive: true });
-      fs.writeFileSync(creatorBankPath, bankPrevious, "utf8");
-    } else if (fs.existsSync(creatorBankPath)) {
-      const b = readWordBank("creator");
-      b.words = b.words.filter((w) => w.word !== "diag-sm2-audit");
-      if (b.words.length === 0) {
-        fs.rmSync(creatorBankPath, { force: true });
-      } else {
-        writeWordBank("creator", b);
-      }
-    }
-    if (lpHadFile && lpPrevious !== null) {
-      fs.mkdirSync(path.dirname(creatorLpPath), { recursive: true });
-      fs.writeFileSync(creatorLpPath, lpPrevious, "utf8");
-    } else if (fs.existsSync(creatorLpPath)) {
-      fs.rmSync(creatorLpPath, { force: true });
-    }
-    bankHadFile = false;
-    bankPrevious = null;
-    lpHadFile = false;
-    lpPrevious = null;
   });
 
   it("word-builder and boss get dueWords; coin-counter empty", () => {
-    bankHadFile = fs.existsSync(creatorBankPath);
-    bankPrevious = bankHadFile ? fs.readFileSync(creatorBankPath, "utf8") : null;
-    lpHadFile = fs.existsSync(creatorLpPath);
-    lpPrevious = lpHadFile ? fs.readFileSync(creatorLpPath, "utf8") : null;
     writeLearningProfile("creator", minimalCreatorProfile());
     const bank = readWordBank("creator");
     const today = new Date().toISOString().slice(0, 10);
@@ -143,6 +138,7 @@ describe("buildDiagMapSession SM-2 due words (Audit 2)", () => {
       });
     }
     writeWordBank("creator", bank);
+    expect(resolveChildContextDir("creator")).toBe(path.join(isolatedContextRoot, "creator"));
     vi.stubEnv("SUNNY_SUBJECT", "diag");
     const { mapState } = buildDiagMapSession();
     expect(mapState.nodes.find((n) => n.id === "n-wb")?.words).toContain("diag-sm2-audit");
