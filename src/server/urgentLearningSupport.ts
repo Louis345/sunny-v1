@@ -275,10 +275,16 @@ export function handleCompanionPresenceTranscript(input: {
     return true;
   }
   if (route.action === "ignore_ambient") {
+    const ignoredReason = normalizeSpeechText(input.transcript)
+      ? "companion_collapsed_without_wake_phrase"
+      : "transcript_empty_after_normalization";
     console.log("  🎮 [companion-presence] [ambient-ignored]");
     input.recordEvent("transcript", "ambient_ignored", {
       transcriptLength: input.transcript.length,
       nodeId: input.nodeId,
+      reason: ignoredReason,
+      companionPresence: input.presence,
+      speechCaptureArmed: input.speechCaptureArmed,
     });
     return true;
   }
