@@ -32,6 +32,7 @@ import { isKaraokeReadingAssistSilence } from "./karaokeAssistSilence";
 import { flushBufferIfUnmuted } from "../../../src/shared/flushBuffer";
 import { mapNodeSessionAudioFlags } from "../../../src/shared/mapNodeSessionAudio";
 import { resolveSunnyRuntimeConfig } from "../../../src/shared/runtimeConfig";
+import type { ChildProgressionSnapshot } from "../../../src/engine/progression";
 
 type GameMode = keyof typeof TEACHING_TOOLS | keyof typeof REWARD_GAMES;
 
@@ -213,6 +214,8 @@ interface SessionState {
   firstAudioChunkReceived: boolean;
   /** Host-controlled activity companion presentation. */
   companionPresence: "collapsed" | "summoned";
+  /** Server-owned progression snapshot used by read-only level UI. */
+  progression: ChildProgressionSnapshot | null;
 }
 
 function isMathCanvas(content: string | undefined): boolean {
@@ -332,6 +335,7 @@ export function useSession(options?: UseSessionOptions) {
   const storyImageWatchdogRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const sessionStartPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const sessionStartTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const sessionChildIdRef = useRef<string | null>(null);
 
   const [state, setState] = useState<SessionState>({
     phase: "picker",
@@ -365,6 +369,7 @@ export function useSession(options?: UseSessionOptions) {
     sessionBootReady: false,
     firstAudioChunkReceived: false,
     companionPresence: "collapsed",
+    progression: null,
   });
 
   const sessionStateRef = useRef(state);
@@ -624,6 +629,53 @@ export function useSession(options?: UseSessionOptions) {
           ...s,
           companionCommands: [...s.companionCommands, cmd],
         }));
+        break;
+      }
+
+      case "progression":
+      case "progression_end": {
+        const childId = typeof msg.childId === "string"
+          ? msg.childId.trim().toLowerCase()
+          : "";
+        const expectedChildId = sessionChildIdRef.current;
+        if (!childId || !expectedChildId || childId !== expectedChildId) {
+          console.warn(
+            ` 🎮 [progression] [snapshot] [rejected-child] expected=${expectedChildId ?? "none"} received=${childId || "missing"}`,
+          );
+          break;
+        }
+        const level = Number(msg.level);
+        const currentXP = Number(msg.currentXP);
+        const xpToNextLevel = Number(msg.xpToNextLevel);
+        const totalXP = Number(msg.totalXP);
+        if (
+          !Number.isFinite(level) || level < 1 ||
+          !Number.isFinite(currentXP) || currentXP < 0 ||
+          !Number.isFinite(xpToNextLevel) || xpToNextLevel < 0 ||
+          !Number.isFinite(totalXP) || totalXP < 0
+        ) {
+          console.warn(" 🎮 [progression] [snapshot] [rejected]", msg);
+          break;
+        }
+        const recentTrend =
+          msg.recentTrend === "improving" || msg.recentTrend === "declining"
+            ? msg.recentTrend
+            : "stable";
+        const progression: ChildProgressionSnapshot = {
+          childId,
+          level: Math.floor(level),
+          currentXP: Math.floor(currentXP),
+          xpToNextLevel: Math.floor(xpToNextLevel),
+          totalXP: Math.floor(totalXP),
+          wordsMastered: Math.max(0, Math.floor(Number(msg.wordsMastered) || 0)),
+          totalWords: Math.max(0, Math.floor(Number(msg.totalWords) || 0)),
+          streakRecord: Math.max(0, Math.floor(Number(msg.streakRecord) || 0)),
+          recentTrend,
+        };
+        setStateRef.current((s) => ({ ...s, progression }));
+        console.log(
+          ` 🎮 [progression] [snapshot] [received] level=${progression.level} totalXP=${progression.totalXP}`,
+        );
         break;
       }
 
@@ -1448,6 +1500,7 @@ export function useSession(options?: UseSessionOptions) {
         warning: null,
         microphoneAvailable: null,
         diagGameSessionReady: false,
+        progression: null,
       }));
       connect();
 
@@ -1455,6 +1508,7 @@ export function useSession(options?: UseSessionOptions) {
       const silentTts = options?.silentTts === true;
       const sttOnly = options?.sttOnly === true;
       const wsChild = diagKiosk ? "creator" : childName;
+      sessionChildIdRef.current = wsChild.trim().toLowerCase();
 
       if (sessionStartPollRef.current) {
         clearInterval(sessionStartPollRef.current);
@@ -1555,6 +1609,7 @@ export function useSession(options?: UseSessionOptions) {
       storyImageWatchdogRef.current = null;
     }
     turnPolicyRef.current = DEFAULT_TURN_POLICY;
+    sessionChildIdRef.current = null;
     setMicMuted(false);
     setTtsMuted(false);
     setMapNodeType(null);
@@ -1601,6 +1656,7 @@ export function useSession(options?: UseSessionOptions) {
       sessionBootReady: false,
       firstAudioChunkReceived: false,
       companionPresence: "collapsed",
+      progression: null,
     });
     wsRef.current?.close();
     wsRef.current = null;

@@ -17,6 +17,7 @@ import { SessionEnd } from "./components/SessionEnd";
 import { SessionLoadingOverlay, sessionVoiceReady } from "./components/SessionLoadingOverlay";
 import { CanvasTestOverlay } from "./components/CanvasTestPanel";
 import { AdventureBoardExperience } from "./components/AdventureBoardExperience";
+import { LevelPathExperience } from "./components/LevelPathExperience";
 import type {
   AdventureBoardNode,
   AdventureChoiceOption,
@@ -2061,6 +2062,18 @@ function App() {
         }}
       >
       {main}
+      <LevelPathExperience
+        childId={activeProfileChildId ?? adventureChildId}
+        progression={state.progression}
+        companionCommands={mergedCompanionCommands}
+        showTrigger={
+          homeworkBoardMode &&
+          !directDiscoveryMode &&
+          !targetedMathGenerationPending &&
+          plannerBoardLaunch == null &&
+          !homeworkSessionFinished
+        }
+      />
       <CompanionEconomyControls
         visible={homeworkBoardMode && !homeworkSessionFinished && plannerBoardLaunch == null}
         companionName={

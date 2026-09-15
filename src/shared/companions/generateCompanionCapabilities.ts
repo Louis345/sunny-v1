@@ -10,9 +10,12 @@ const PHASE_ORDER: CompanionCapabilityPhase[] = [0.5, 1, 2, 3];
 
 export function generateCompanionCapabilities(
   maxPhase: CompanionCapabilityPhase = 0.5,
+  onlyTypes?: readonly string[],
 ): string {
   const defs = [...COMPANION_CAPABILITIES.values()].filter(
-    (d) => d.phase <= maxPhase,
+    (d) =>
+      d.phase <= maxPhase &&
+      (!onlyTypes || onlyTypes.includes(d.type)),
   );
   defs.sort(
     (a, b) =>

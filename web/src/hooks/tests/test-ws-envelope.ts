@@ -201,6 +201,84 @@ describe("WS envelope vs canvas payload type", () => {
     expect(result.current.state.companionPresence).toBe("collapsed");
   });
 
+  it("keeps the server progression snapshot for the level path", async () => {
+    const { result } = renderHook(() => useSession());
+
+    act(() => result.current.startSession("reina"));
+    const ws = wsInstances[0]!;
+    await act(async () => Promise.resolve());
+
+    act(() => {
+      ws.onmessage?.({
+        data: JSON.stringify({
+          type: "progression",
+          childId: "reina",
+          level: 7,
+          currentXP: 42,
+          xpToNextLevel: 58,
+          totalXP: 642,
+          wordsMastered: 12,
+          totalWords: 20,
+          streakRecord: 3,
+          recentTrend: "stable",
+        }),
+      } as MessageEvent);
+    });
+
+    expect(result.current.state.progression).toMatchObject({
+      childId: "reina",
+      level: 7,
+      currentXP: 42,
+      xpToNextLevel: 58,
+      totalXP: 642,
+    });
+  });
+
+  it("rejects another child's progression and accepts the scoped end-of-session update", async () => {
+    const { result } = renderHook(() => useSession());
+
+    act(() => result.current.startSession("reina"));
+    const ws = wsInstances[0]!;
+    await act(async () => Promise.resolve());
+
+    act(() => {
+      ws.onmessage?.({
+        data: JSON.stringify({
+          type: "progression",
+          childId: "ila",
+          level: 9,
+          currentXP: 90,
+          xpToNextLevel: 10,
+          totalXP: 890,
+        }),
+      } as MessageEvent);
+    });
+    expect(result.current.state.progression).toBeNull();
+
+    act(() => {
+      ws.onmessage?.({
+        data: JSON.stringify({
+          type: "progression_end",
+          childId: "reina",
+          level: 4,
+          currentXP: 5,
+          xpToNextLevel: 95,
+          totalXP: 305,
+          wordsMastered: 2,
+          totalWords: 4,
+          streakRecord: 1,
+          recentTrend: "improving",
+        }),
+      } as MessageEvent);
+    });
+    expect(result.current.state.progression).toMatchObject({
+      childId: "reina",
+      level: 4,
+      totalXP: 305,
+      recentTrend: "improving",
+    });
+  });
+
   it("lets the child summon and dismiss the companion through the existing socket", async () => {
     const { result } = renderHook(() => useSession());
     act(() => result.current.startSession("reina"));

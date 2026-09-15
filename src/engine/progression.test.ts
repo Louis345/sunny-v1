@@ -108,9 +108,18 @@ describe("progression system", () => {
     expect(snap.level).toBeGreaterThanOrEqual(2);
   });
 
-  it("handles empty data gracefully", () => {
-    const snap = computeProgression("__ghost_child__");
-    expect(snap.level).toBe(1);
-    expect(snap.totalXP).toBe(0);
+  it("does not fabricate level-one progression when the child profile is unavailable", () => {
+    expect(() => computeProgression("__ghost_child__")).toThrow(
+      "progression_profile_unavailable:__ghost_child__",
+    );
+  });
+
+  it("does not fabricate progression when the word bank is malformed", () => {
+    fs.mkdirSync(path.dirname(wordBankPath), { recursive: true });
+    fs.writeFileSync(wordBankPath, "{ definitely-not-json", "utf8");
+
+    expect(() => computeProgression(childId)).toThrow(
+      `word_bank_invalid:${childId}`,
+    );
   });
 });

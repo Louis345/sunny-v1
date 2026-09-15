@@ -684,7 +684,7 @@ export function handleDiagTriggerReward(
     const event = {
       timestamp: Date.now(),
       type: "progression" as const,
-      payload: { ...snap } as Record<string, unknown>,
+      payload: { childId, ...snap } as Record<string, unknown>,
     };
     return { status: 200, body: { ok: true, event } };
   } catch (err: unknown) {

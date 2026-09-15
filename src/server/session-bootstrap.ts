@@ -1522,14 +1522,15 @@ This is a safe space to test everything.
       diagKiosk: session.diagKioskFast,
     });
     try {
-      const progression = computeProgression(String(session.chartChildId ?? homeworkChild).toLowerCase());
-      session.send("progression", { ...progression } as Record<string, unknown>);
+      const progressionChildId = String(session.chartChildId ?? homeworkChild).toLowerCase();
+      const progression = computeProgression(progressionChildId);
+      session.send("progression", { childId: progressionChildId, ...progression } as Record<string, unknown>);
       console.log(
-        `  🎮 [engine] progression: level ${progression.level}, ` +
+        `  🎮 [progression] [snapshot] [sent] child=${progressionChildId} level=${progression.level}, ` +
           `${progression.totalXP} XP, ${progression.wordsMastered} words mastered`,
       );
     } catch (err) {
-      console.error("[engine] progression failed:", err);
+      console.error("  🎮 [progression] [snapshot] [unavailable]", err);
     }
     session.broadcastContext();
 

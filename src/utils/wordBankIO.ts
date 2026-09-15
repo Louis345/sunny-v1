@@ -23,6 +23,31 @@ export function readWordBank(childId: string): WordBankFile {
   }
 }
 
+/**
+ * Truth-sensitive reader for authoritative projections such as progression.
+ * A missing bank is a valid empty starting point; a damaged bank is not.
+ */
+export function readWordBankStrict(childId: string): WordBankFile {
+  const filePath = resolveWordBankPath(childId);
+  if (!fs.existsSync(filePath)) return createEmptyWordBank(childId);
+
+  try {
+    const raw: unknown = JSON.parse(fs.readFileSync(filePath, "utf-8"));
+    if (
+      !raw ||
+      typeof raw !== "object" ||
+      (raw as { childId?: unknown }).childId !== childId ||
+      !Number.isFinite((raw as { version?: unknown }).version) ||
+      !Array.isArray((raw as { words?: unknown }).words)
+    ) {
+      throw new Error("invalid_shape");
+    }
+    return raw as WordBankFile;
+  } catch (error) {
+    throw new Error(`word_bank_invalid:${childId}`, { cause: error });
+  }
+}
+
 export function writeWordBank(childId: string, data: WordBankFile): void {
   if (sunnyPreviewBlocksPersistence()) {
     return;

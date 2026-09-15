@@ -1373,6 +1373,7 @@ export class SessionManager {
         try {
           const endProgression = computeProgression(childId);
           this.send("progression_end", {
+            childId,
             ...endProgression,
           } as Record<string, unknown>);
           this.debugRecorder.recordEvent("engine", "progression_computed", {
@@ -1380,8 +1381,8 @@ export class SessionManager {
             totalXP: endProgression.totalXP,
             wordsMastered: endProgression.wordsMastered,
           });
-        } catch {
-          // Silent
+        } catch (err) {
+          console.error("  🎮 [progression] [end-snapshot] [unavailable]", err);
         }
         await recordSession(this.conversationHistory, this.childName);
         appendRewardLog(this.childName, this.rewardEngine.getRewardLog());

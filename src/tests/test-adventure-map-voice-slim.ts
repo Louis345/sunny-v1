@@ -97,6 +97,8 @@ describe("buildSessionPrompt — ADVENTURE_MAP voice slim", () => {
     expect(prompt).toContain("The adventure map controls which activities appear on screen");
     expect(prompt).toContain("### takeGameScreenshot");
     expect(prompt).toContain("### companionAct");
+    expect(prompt).toContain("### show_level_path");
+    expect(prompt).toMatch(/show_level_path[\s\S]*never open it proactively/i);
   });
 
   it("does not seed adventure-map companion chatter", async () => {

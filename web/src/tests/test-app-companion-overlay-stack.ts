@@ -67,6 +67,12 @@ describe("App companion overlay stack", () => {
     expect(src).toMatch(/type:\s*"game_state_update"[\s\S]{0,300}companionContext/);
   });
 
+  it("connects the same level path to live progression and companion commands", () => {
+    expect(src).toContain("<LevelPathExperience");
+    expect(src).toContain("progression={state.progression}");
+    expect(src).toContain("companionCommands={mergedCompanionCommands}");
+  });
+
   it("routes generated-math semantic sound through the host without forwarding it as learning evidence", () => {
     expect(src).toContain('data.type === "sunny_sfx"');
     expect(src).toContain('data.type === "sunny_sound_toggle"');
