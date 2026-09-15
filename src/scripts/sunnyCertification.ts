@@ -53,6 +53,17 @@ export function normalizeDraggedPath(value: string): string {
     .replace(/\\([\\ "'()])/g, "$1");
 }
 
+export function isReadablePdf(filePath: string): boolean {
+  const descriptor = fs.openSync(filePath, "r");
+  try {
+    const header = Buffer.alloc(1024);
+    const bytesRead = fs.readSync(descriptor, header, 0, header.length, 0);
+    return header.subarray(0, bytesRead).includes(Buffer.from("%PDF-"));
+  } finally {
+    fs.closeSync(descriptor);
+  }
+}
+
 export function formatCertificationProgress(step: number, total: number, label: string): string {
   const safeTotal = Math.max(1, total);
   const safeStep = Math.min(safeTotal, Math.max(0, step));
@@ -211,6 +222,7 @@ export function createCertificationRun(input: CreateCertificationRunInput): Cert
   const sourceChildDir = path.join(rootDir, "src", "context", childId);
   if (!fs.existsSync(sourceChildDir)) throw new Error(`certification_source_child_missing:${childId}`);
   if (!fs.statSync(assignmentPath).isFile()) throw new Error(`certification_assignment_missing:${assignmentPath}`);
+  if (!isReadablePdf(assignmentPath)) throw new Error(`certification_assignment_not_pdf:${assignmentPath}`);
   if (isInside(rootDir, certificationRoot)) throw new Error("certification_root_must_be_outside_source_workspace");
   const sourceSnapshotHash = hashDirectory(sourceChildDir);
   const sourceImplementationHash = hashCertificationImplementation(rootDir);
@@ -294,6 +306,18 @@ export function findCertificationRun(input: {
       && run.homeworkDomain === input.domain)
     .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
   return matches[0] ?? null;
+}
+
+export function requireCertificationRun(input: {
+  certificationRoot?: string;
+  childId: string;
+  domain: CertificationDomain;
+}): CertificationRunManifest {
+  const manifest = findCertificationRun(input);
+  if (!manifest) {
+    throw new Error(`certification_resume_not_found:${input.childId.trim().toLowerCase()}:${input.domain}`);
+  }
+  return manifest;
 }
 
 export function assertSourceSnapshotUnchanged(manifest: CertificationRunManifest): void {
@@ -505,6 +529,7 @@ async function main(): Promise<void> {
   const childId = arg("child")?.trim().toLowerCase();
   const domain = arg("homework-domain") ?? "math";
   const assignmentArg = arg("pdf");
+  const resumeOnly = arg("resume-only") === "true";
   if (!childId) throw new Error("certification_child_required");
   if (domain !== "math" && domain !== "spelling") throw new Error("certification_domain_not_supported");
   const showProgress = (event: CertificationProgressEvent) => {
@@ -518,6 +543,9 @@ async function main(): Promise<void> {
       assignmentPath: normalizeDraggedPath(assignmentArg),
       onProgress: showProgress,
     });
+  } else if (resumeOnly) {
+    manifest = requireCertificationRun({ childId, domain });
+    console.log(` 🎮 [certification] [resume] [found] run=${manifest.certificationRunId}`);
   } else {
     manifest = findCertificationRun({ childId, domain });
     const rl = readline.createInterface({ input, output });

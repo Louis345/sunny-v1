@@ -10,6 +10,7 @@ import {
   parentPageUrl,
   runSunnyMenu,
   sunnyRuntimeEnv,
+  type SunnyInvocation,
 } from "./sunnyMenu";
 
 describe("Sunny parent menu", () => {
@@ -79,8 +80,8 @@ describe("Sunny parent menu", () => {
 
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-impersonator-menu-"));
     const assignment = path.join(root, "4_13 Math.pdf");
-    fs.writeFileSync(assignment, "fixture");
-    const answers = ["2", "1", domain === "math" ? "1" : "2", "2", assignment.replaceAll(" ", "\\ "), "5"];
+    fs.writeFileSync(assignment, "%PDF-1.4\nfixture");
+    const answers = ["2", "1", domain === "math" ? "1" : "2", "2", "2", assignment.replaceAll(" ", "\\ "), "5"];
     const invocations: Array<ReturnType<typeof buildImpersonatorInvocation>> = [];
     const log = vi.fn();
 
@@ -102,6 +103,36 @@ describe("Sunny parent menu", () => {
     fs.rmSync(root, { recursive: true, force: true });
   });
 
+  it.each(["math", "spelling"] as const)("resumes the latest isolated %s journey without asking for the assignment again", async (domain) => {
+    expect(buildImpersonatorInvocation("ila", domain)).toEqual({
+      command: "npm",
+      args: ["run", "sunny:certify", "--", "--child", "ila", "--homework-domain", domain, "--resume-only=true"],
+    });
+    const answers = ["2", "1", domain === "math" ? "1" : "2", "2", "1", "5"];
+    const prompts: string[] = [];
+    const invocations: SunnyInvocation[] = [];
+    const log = vi.fn();
+
+    await runSunnyMenu({
+      children: ["ila"],
+      ask: async (prompt) => {
+        prompts.push(prompt);
+        return answers.shift() ?? "5";
+      },
+      execute: async (invocation) => {
+        invocations.push(invocation);
+        return 0;
+      },
+      openParentPage: async () => undefined,
+      close: async () => undefined,
+      log,
+    });
+
+    expect(log).toHaveBeenCalledWith(expect.stringContaining("Resume latest isolated journey"));
+    expect(prompts.some((prompt) => prompt.includes("Drag assignment"))).toBe(false);
+    expect(invocations).toEqual([buildImpersonatorInvocation("ila", domain)]);
+  });
+
   it("uses stable parent URLs that a future app can replace", () => {
     expect(parentPageUrl("returned-work", "reina")).toBe("http://localhost:3001/parent/returned-work?child=reina");
     expect(parentPageUrl("learning-report", "reina")).toBe("http://localhost:3001/parent/learning-report?child=reina");
@@ -110,7 +141,7 @@ describe("Sunny parent menu", () => {
   it("returns to the menu after a failed action and closes menu-owned resources on exit", async () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-failed-ingest-"));
     const assignment = path.join(root, "fractions.pdf");
-    fs.writeFileSync(assignment, "fixture");
+    fs.writeFileSync(assignment, "%PDF-1.4\nfixture");
     const answers = ["1", "1", "1", assignment, "5"];
     const close = vi.fn(async () => undefined);
     const log = vi.fn();
@@ -133,9 +164,11 @@ describe("Sunny parent menu", () => {
   it("accepts a Finder drag-and-drop path and reprompts locally without losing child or domain", async () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-drag-drop-"));
     const assignment = path.join(root, "3_24 math coin.pdf");
-    fs.writeFileSync(assignment, "fixture");
+    const notPdf = path.join(root, "notes.txt");
+    fs.writeFileSync(assignment, "%PDF-1.4\nfixture");
+    fs.writeFileSync(notPdf, "not a PDF");
     const draggedPath = assignment.replaceAll(" ", "\\ ");
-    const answers = ["1", "1", "1", path.join(root, "missing.pdf"), draggedPath, "5"];
+    const answers = ["1", "1", "1", path.join(root, "missing.pdf"), notPdf, draggedPath, "5"];
     const invocations: Array<ReturnType<typeof buildIngestInvocation>> = [];
     const log = vi.fn();
 
@@ -153,6 +186,7 @@ describe("Sunny parent menu", () => {
 
     expect(invocations).toEqual([buildIngestInvocation("reina", "math", assignment)]);
     expect(log).toHaveBeenCalledWith(expect.stringContaining("Assignment file not found"));
+    expect(log).toHaveBeenCalledWith(expect.stringContaining("not a readable PDF"));
     fs.rmSync(root, { recursive: true, force: true });
   });
 });

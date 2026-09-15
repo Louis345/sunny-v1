@@ -9,6 +9,7 @@ import {
   formatCertificationProgress,
   findCertificationRun,
   hashCertificationImplementation,
+  requireCertificationRun,
   runCertificationSetupOnly,
   normalizeDraggedPath,
   validateCertificationWorkspace,
@@ -44,11 +45,25 @@ function fixture(): { rootDir: string; certificationRoot: string; pdf: string } 
   fs.mkdirSync(path.join(rootDir, "web", "public", "generated", "direct-math"), { recursive: true });
   fs.writeFileSync(path.join(rootDir, "web", "public", "generated", "direct-math", "live.jpeg"), "family-art");
   const pdf = path.join(rootDir, "assignment.pdf");
-  fs.writeFileSync(pdf, "assignment");
+  fs.writeFileSync(pdf, "%PDF-1.4\nassignment");
   return { rootDir, certificationRoot, pdf };
 }
 
 describe("Sunny impersonation certification", () => {
+  it("rejects a non-PDF before creating an isolated workspace", () => {
+    const { rootDir, certificationRoot, pdf } = fixture();
+    fs.writeFileSync(pdf, "not a PDF");
+
+    expect(() => createCertificationRun({
+      rootDir,
+      certificationRoot,
+      childId: "ila",
+      domain: "math",
+      assignmentPath: pdf,
+    })).toThrow("certification_assignment_not_pdf");
+    expect(fs.readdirSync(certificationRoot)).toEqual([]);
+  });
+
   it("keeps generated proof and runtime learning records out of release commits", () => {
     const ignore = fs.readFileSync(path.join(process.cwd(), ".gitignore"), "utf8");
     expect(ignore).toContain("/output/");
@@ -156,6 +171,16 @@ describe("Sunny impersonation certification", () => {
 
     fs.writeFileSync(path.join(rootDir, "src/context/ila/notes.md"), "changed");
     expect(() => assertSourceSnapshotUnchanged(manifest)).toThrow("certification_source_child_changed");
+  });
+
+  it("never turns an explicit resume request into a new-assignment prompt", () => {
+    const { rootDir, certificationRoot, pdf } = fixture();
+    expect(() => requireCertificationRun({ certificationRoot, childId: "ila", domain: "math" }))
+      .toThrow("certification_resume_not_found:ila:math");
+
+    const created = createCertificationRun({ rootDir, certificationRoot, childId: "ila", domain: "math", assignmentPath: pdf });
+    expect(requireCertificationRun({ certificationRoot, childId: "ila", domain: "math" }).certificationRunId)
+      .toBe(created.certificationRunId);
   });
 
   it("never reuses a certification workspace copied from an older pipeline implementation", () => {
