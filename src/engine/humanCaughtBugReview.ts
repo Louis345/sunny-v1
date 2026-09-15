@@ -65,6 +65,14 @@ export type BuildHumanCaughtBugReviewInput = {
 
 export const SEEDED_HUMAN_BUG_INVARIANTS: LabInvariant[] = [
   {
+    code: "microphone_stream_requires_audible_input_proof",
+    source: "human_caught_bug",
+    invariant:
+      "Opening a browser microphone stream and forwarding audio bytes is not proof that Sunny can hear; sustained zero-energy input must surface the selected device and a recovery message.",
+    suggestedFailingTest:
+      "A permitted microphone that emits only silent PCM produces one logged silent_input diagnostic and a visible recovery message, while audible PCM clears it.",
+  },
+  {
     code: "word_radar_audio_affordance_requires_narration",
     source: "human_caught_bug",
     invariant:

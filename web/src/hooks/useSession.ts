@@ -279,6 +279,14 @@ const DEFAULT_TURN_POLICY: TurnPolicy = {
   interruptible: true,
 };
 
+const SILENT_MIC_DURATION_MS = 12000;
+const AUDIBLE_MIC_RMS_THRESHOLD = 0.003;
+const AUDIBLE_MIC_FRAME_CONFIRMATION = 3;
+
+function isVirtualMicrophoneLabel(label: string): boolean {
+  return /\b(blackhole|virtual|loopback|soundflower|vb-audio|voicemeeter|aggregate)\b/i.test(label);
+}
+
 function micDeniedCanContinue(): boolean {
   if (typeof window !== "undefined") {
     const preview = new URLSearchParams(window.location.search).get("preview");
@@ -336,6 +344,11 @@ export function useSession(options?: UseSessionOptions) {
   const sessionStartPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const sessionStartTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const sessionChildIdRef = useRef<string | null>(null);
+  const micInputLabelRef = useRef("selected microphone");
+  const micSilentDurationMsRef = useRef(0);
+  const micAudibleFramesRef = useRef(0);
+  const micInputConfirmedRef = useRef(false);
+  const micSilentWarningRef = useRef<string | null>(null);
 
   const [state, setState] = useState<SessionState>({
     phase: "picker",
@@ -1256,7 +1269,23 @@ export function useSession(options?: UseSessionOptions) {
 
         mediaStreamRef.current = stream;
         setStateRef.current((s) => ({ ...s, microphoneAvailable: true }));
-        stream.getAudioTracks().forEach((t) => {
+        const audioTracks = stream.getAudioTracks();
+        const selectedTrack = audioTracks[0];
+        const inputLabel = selectedTrack?.label?.trim() || "selected microphone";
+        micInputLabelRef.current = inputLabel;
+        micSilentDurationMsRef.current = 0;
+        micAudibleFramesRef.current = 0;
+        micInputConfirmedRef.current = false;
+        micSilentWarningRef.current = null;
+        console.log(
+          ` 🎮 [session-microphone] [capture] [started] input=${inputLabel}`,
+        );
+        sendMessageRef.current("client_audio_status", {
+          event: "capture_started",
+          reason: inputLabel,
+          message: "Browser microphone stream opened; awaiting audible input.",
+        });
+        audioTracks.forEach((t) => {
           t.enabled = !micMutedRef.current;
         });
 
@@ -1275,6 +1304,64 @@ export function useSession(options?: UseSessionOptions) {
 
           const float32 = e.inputBuffer.getChannelData(0);
 
+          let sum = 0;
+          for (let i = 0; i < float32.length; i++) {
+            sum += float32[i] * float32[i];
+          }
+          const rms = Math.sqrt(sum / Math.max(1, float32.length));
+
+          if (!isPlayingRef.current && !micInputConfirmedRef.current) {
+            if (rms >= AUDIBLE_MIC_RMS_THRESHOLD) {
+              micAudibleFramesRef.current += 1;
+              micSilentDurationMsRef.current = 0;
+              if (micAudibleFramesRef.current >= AUDIBLE_MIC_FRAME_CONFIRMATION) {
+                micInputConfirmedRef.current = true;
+                const previousWarning = micSilentWarningRef.current;
+                micSilentWarningRef.current = null;
+                console.log(
+                  ` 🎮 [session-microphone] [input] [detected] input=${micInputLabelRef.current}`,
+                );
+                sendMessageRef.current("client_audio_status", {
+                  event: "input_detected",
+                  reason: micInputLabelRef.current,
+                  message: "Audible microphone energy confirmed.",
+                });
+                if (previousWarning) {
+                  setStateRef.current((s) => ({
+                    ...s,
+                    warning: s.warning === previousWarning ? null : s.warning,
+                  }));
+                }
+              }
+            } else {
+              micAudibleFramesRef.current = 0;
+              micSilentDurationMsRef.current +=
+                (float32.length / audioCtx.sampleRate) * 1000;
+              if (
+                micSilentDurationMsRef.current >= SILENT_MIC_DURATION_MS &&
+                micSilentWarningRef.current === null &&
+                isVirtualMicrophoneLabel(micInputLabelRef.current)
+              ) {
+                const warning =
+                  `I’m not hearing any sound from ${micInputLabelRef.current}. ` +
+                  "If you’re talking, choose the built-in microphone in Chrome settings.";
+                micSilentWarningRef.current = warning;
+                console.warn(
+                  ` 🎮 [session-microphone] [input] [silent] input=${micInputLabelRef.current}`,
+                );
+                sendMessageRef.current("client_audio_status", {
+                  event: "silent_input",
+                  reason: micInputLabelRef.current,
+                  message: warning,
+                });
+                setStateRef.current((s) => ({
+                  ...s,
+                  warning: s.warning ?? warning,
+                }));
+              }
+            }
+          }
+
           // Always convert — needed for both rolling buffer and Deepgram send
           const int16 = new Int16Array(float32.length);
           for (let i = 0; i < float32.length; i++) {
@@ -1290,9 +1377,6 @@ export function useSession(options?: UseSessionOptions) {
           }
 
           if (isPlayingRef.current) {
-            let sum = 0;
-            for (let i = 0; i < float32.length; i++) sum += float32[i] * float32[i];
-            const rms = Math.sqrt(sum / float32.length);
             const turnPolicy = turnPolicyRef.current;
             const playbackCapture = getPlaybackCaptureConfig(turnPolicy);
 
@@ -1357,14 +1441,23 @@ export function useSession(options?: UseSessionOptions) {
   }, []);
 
   const stopMic = useCallback(() => {
+    micSilentDurationMsRef.current = 0;
+    micAudibleFramesRef.current = 0;
+    micInputConfirmedRef.current = false;
+    micSilentWarningRef.current = null;
     if (processorRef.current) {
+      processorRef.current.onaudioprocess = null;
       try {
         processorRef.current.disconnect();
-      } catch {}
+      } catch (err) {
+        console.warn(" 🎮 [session-microphone] [processor-disconnect] [error]", err);
+      }
       processorRef.current = null;
     }
     if (micContextRef.current) {
-      micContextRef.current.close();
+      void micContextRef.current.close().catch((err) => {
+        console.warn(" 🎮 [session-microphone] [context-close] [error]", err);
+      });
       micContextRef.current = null;
     }
     if (mediaStreamRef.current) {

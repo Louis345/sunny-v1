@@ -15,6 +15,11 @@ describe("WS envelope vs canvas payload type", () => {
   let wsInstances: MockWebSocket[];
   let OriginalWebSocket: typeof WebSocket;
   let OriginalAudioContext: typeof AudioContext;
+  let micProcessor: {
+    connect: ReturnType<typeof vi.fn>;
+    disconnect: ReturnType<typeof vi.fn>;
+    onaudioprocess: ((event: AudioProcessingEvent) => void) | null;
+  } | null;
 
   class MockWebSocket {
     static OPEN = OPEN;
@@ -36,6 +41,7 @@ describe("WS envelope vs canvas payload type", () => {
 
   beforeEach(() => {
     wsInstances = [];
+    micProcessor = null;
     OriginalWebSocket = globalThis.WebSocket;
     OriginalAudioContext = globalThis.AudioContext;
 
@@ -47,11 +53,12 @@ describe("WS envelope vs canvas payload type", () => {
         return { connect: vi.fn() };
       }
       createScriptProcessor() {
-        return {
+        micProcessor = {
           connect: vi.fn(),
           disconnect: vi.fn(),
           onaudioprocess: null,
         };
+        return micProcessor;
       }
       createGain() {
         return {
@@ -88,7 +95,7 @@ describe("WS envelope vs canvas payload type", () => {
         } as unknown as AudioBuffer;
       }
       resume = vi.fn(() => Promise.resolve());
-      close = vi.fn();
+      close = vi.fn(() => Promise.resolve());
     }
 
     globalThis.AudioContext = TestAudioContext as unknown as typeof AudioContext;
@@ -98,7 +105,12 @@ describe("WS envelope vs canvas payload type", () => {
       writable: true,
       value: {
         getUserMedia: vi.fn().mockResolvedValue({
-          getAudioTracks: () => [{ enabled: true, stop: vi.fn() }],
+          getAudioTracks: () => [{
+            enabled: true,
+            stop: vi.fn(),
+            label: "BlackHole 2ch",
+            getSettings: () => ({ deviceId: "virtual-input" }),
+          }],
           getTracks: () => [{ stop: vi.fn() }],
         } as unknown as MediaStream),
       },
@@ -143,6 +155,100 @@ describe("WS envelope vs canvas payload type", () => {
     await act(async () => { await vi.advanceTimersByTimeAsync(150); });
     expect(result.current.state.errorFatal).toBe(true);
     expect(result.current.state.error).toBe("Microphone access denied");
+  });
+
+  it("turns sustained silent microphone frames into a visible recovery message and one logged diagnostic", async () => {
+    // Human caught this by speaking and hearing no response. The old lab only
+    // asserted stream creation and packet flow, so a silent virtual input passed.
+    vi.useFakeTimers();
+    const { result } = renderHook(() => useSession());
+    act(() => result.current.startSession("ila"));
+    await act(async () => { await vi.advanceTimersByTimeAsync(150); });
+
+    expect(micProcessor?.onaudioprocess).toBeTypeOf("function");
+    const silentFrame = {
+      inputBuffer: { getChannelData: () => new Float32Array(4096) },
+    } as unknown as AudioProcessingEvent;
+    act(() => {
+      for (let frame = 0; frame < 72; frame += 1) {
+        micProcessor?.onaudioprocess?.(silentFrame);
+      }
+    });
+
+    expect(result.current.state.warning).toMatch(/not hearing any sound/i);
+    expect(result.current.state.warning).toMatch(/BlackHole 2ch/i);
+    const statuses = wsInstances[0]!.send.mock.calls
+      .map(([raw]) => JSON.parse(String(raw)))
+      .filter((message) => message.type === "client_audio_status");
+    expect(statuses).toEqual(expect.arrayContaining([
+      expect.objectContaining({ event: "capture_started", reason: "BlackHole 2ch" }),
+      expect.objectContaining({ event: "silent_input", reason: "BlackHole 2ch" }),
+    ]));
+    expect(statuses.filter((message) => message.event === "silent_input")).toHaveLength(1);
+  });
+
+  it("clears Sunny's silent-input warning when the selected microphone produces audio", async () => {
+    vi.useFakeTimers();
+    const { result } = renderHook(() => useSession());
+    act(() => result.current.startSession("ila"));
+    await act(async () => { await vi.advanceTimersByTimeAsync(150); });
+
+    const silentFrame = {
+      inputBuffer: { getChannelData: () => new Float32Array(4096) },
+    } as unknown as AudioProcessingEvent;
+    act(() => {
+      for (let frame = 0; frame < 72; frame += 1) {
+        micProcessor?.onaudioprocess?.(silentFrame);
+      }
+    });
+    expect(result.current.state.warning).toMatch(/not hearing any sound/i);
+
+    const audibleSamples = new Float32Array(4096).fill(0.05);
+    const audibleFrame = {
+      inputBuffer: { getChannelData: () => audibleSamples },
+    } as unknown as AudioProcessingEvent;
+    act(() => {
+      for (let frame = 0; frame < 3; frame += 1) {
+        micProcessor?.onaudioprocess?.(audibleFrame);
+      }
+    });
+
+    expect(result.current.state.warning).toBeNull();
+    const statuses = wsInstances[0]!.send.mock.calls
+      .map(([raw]) => JSON.parse(String(raw)))
+      .filter((message) => message.type === "client_audio_status");
+    expect(statuses.filter((message) => message.event === "input_detected")).toHaveLength(1);
+  });
+
+  it("does not mistake a quiet built-in microphone for a broken input", async () => {
+    vi.mocked(navigator.mediaDevices.getUserMedia).mockResolvedValueOnce({
+      getAudioTracks: () => [{
+        enabled: true,
+        stop: vi.fn(),
+        label: "MacBook Air Microphone",
+        getSettings: () => ({ deviceId: "builtin-input" }),
+      }],
+      getTracks: () => [{ stop: vi.fn() }],
+    } as unknown as MediaStream);
+    vi.useFakeTimers();
+    const { result } = renderHook(() => useSession());
+    act(() => result.current.startSession("ila"));
+    await act(async () => { await vi.advanceTimersByTimeAsync(150); });
+
+    const silentFrame = {
+      inputBuffer: { getChannelData: () => new Float32Array(4096) },
+    } as unknown as AudioProcessingEvent;
+    act(() => {
+      for (let frame = 0; frame < 72; frame += 1) {
+        micProcessor?.onaudioprocess?.(silentFrame);
+      }
+    });
+
+    expect(result.current.state.warning).toBeNull();
+    const statuses = wsInstances[0]!.send.mock.calls
+      .map(([raw]) => JSON.parse(String(raw)))
+      .filter((message) => message.type === "client_audio_status");
+    expect(statuses.filter((message) => message.event === "silent_input")).toHaveLength(0);
   });
 
   it("keeps wire message type when sendMessage payload has type: karaoke", async () => {
