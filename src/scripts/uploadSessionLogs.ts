@@ -171,6 +171,14 @@ export function uploadedStatusIsVerified(
   }
 }
 
+export function resolveSessionLogSourceRoot(
+  cwd: string = process.cwd(),
+  env: { SUNNY_SESSION_LOG_ROOT?: string } = process.env,
+): string {
+  const configuredRoot = env.SUNNY_SESSION_LOG_ROOT?.trim();
+  return path.resolve(cwd, configuredRoot || path.join("logs", "sessions"));
+}
+
 function runGit(repoRoot: string, args: string[]): string {
   return execFileSync("git", args, {
     cwd: repoRoot,
@@ -221,7 +229,7 @@ export function uploadSessionLogs(options: {
   now?: Date;
   files?: string[];
 }): { copied: number; pushed: boolean; deleted: string[]; repoRoot: string } {
-  const sourceRoot = path.resolve(options.sourceRoot ?? path.join(process.cwd(), "logs", "sessions"));
+  const sourceRoot = path.resolve(options.sourceRoot ?? resolveSessionLogSourceRoot());
   const repoRoot = path.resolve(options.repoRoot ?? process.env.SUNNY_LOG_REPO_DIR ?? repoDefaultDir());
   const repoUrl = options.repoUrl ?? process.env.SUNNY_LOG_REPO_URL ?? DEFAULT_REPO_URL;
   const files = options.files ?? collectSessionLogFiles(sourceRoot);
