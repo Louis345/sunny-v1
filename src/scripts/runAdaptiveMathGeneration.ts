@@ -88,6 +88,7 @@ export async function runAdaptiveMathGeneration(
   const designFile = path.join(draft, "design-packet.json");
   const planFile = path.join(draft, "designed-plan.json");
   const buildFile = path.join(draft, "candidate-build-v3.json");
+  const reportsFile = path.join(draft, "browser-verification.json");
   const rawPlannerResponseFile = path.join(draft, "provider-diagnostics", "targeted-planner-response.json");
   const cycle = getLearningCycle(childId, homeworkId, { rootDir });
   if (!cycle) throw new Error(`learning_cycle_missing:${homeworkId}`);
@@ -109,7 +110,20 @@ export async function runAdaptiveMathGeneration(
     && !fs.existsSync(planFile)
     && hasUncertainTargetedDesignReceipt(draft),
   );
-  if (initialJob?.phase === "needs_attention" && !recoveredProgram && !mayRetryFrozenDesign) {
+  const mayReverifySavedArtifacts = Boolean(initialJob?.phase === "needs_attention" && fs.existsSync(buildFile) && fs.existsSync(reportsFile) && (() => {
+    try {
+      const savedBuild = read<{ artifacts?: DirectArtifact[] }>(buildFile);
+      const savedReports = read<Record<string, { verifierVersion?: number }>>(reportsFile);
+      return (savedBuild.artifacts ?? []).some((artifact) => {
+        const status = initialJob.nodes.find((node) => node.nodeId === artifact.nodeId)?.status;
+        return ["ready", "failed_resumable", "needs_attention"].includes(status ?? "")
+          && savedReports[artifact.nodeId]?.verifierVersion !== MATH_BROWSER_VERIFIER_VERSION;
+      });
+    } catch {
+      return false;
+    }
+  })());
+  if (initialJob?.phase === "needs_attention" && !recoveredProgram && !mayRetryFrozenDesign && !mayReverifySavedArtifacts) {
     console.log(` 🎮 [adaptive-math] [worker] [no-work] child=${childId} homework=${homeworkId} phase=${initialJob.phase}`);
     return;
   }
@@ -141,7 +155,6 @@ export async function runAdaptiveMathGeneration(
   const programHash = hashDiscoveryContract(program);
   const designHash = hashDiscoveryContract(designed.packet);
   let build = fs.existsSync(buildFile) ? read<{ artifacts: DirectArtifact[]; backgroundUrl: string; questArtworkUrl: string; bossArtworkUrl: string }>(buildFile) : { artifacts: [], backgroundUrl: "/generated/adaptive-discovery-background.svg", questArtworkUrl: "", bossArtworkUrl: "" };
-  const reportsFile = path.join(draft, "browser-verification.json");
   const reports = fs.existsSync(reportsFile) ? read<Record<string, DirectPlaywrightReport & { htmlHash: string; verifierVersion: number }>>(reportsFile) : {};
   const report = (): DirectPlaywrightReport => ({ passed: designed.plan.activities.every(a => reports[a.id]?.passed), failures: Object.values(reports).flatMap(r => r.failures), screenshots: Object.values(reports).flatMap(r => r.screenshots) });
   const active = () => buildDirectActiveSessionPlan({ childId, homeworkId, plan: designed.plan, artifacts: placeholderArtifacts(designed.plan, childId, homeworkId, build.artifacts), backgroundUrl: build.backgroundUrl, questArtworkUrl: build.questArtworkUrl, bossArtworkUrl: build.bossArtworkUrl, report: report(), companion: { id: chart.companion.presetId, name: chart.companion.displayName } });
@@ -194,9 +207,27 @@ export async function runAdaptiveMathGeneration(
     }
     console.log(` 🎮 [adaptive-math] [artifact-publication] [verified-bound] node=${artifact.nodeId} hash=${htmlHash}`);
   };
-  // Repair interrupted publication from saved artifacts, including old board_ready jobs.
+  // Repair interrupted publication from saved artifacts, including old board_ready
+  // jobs and verifier false negatives. Reverification does not consume a build
+  // attempt or buy a repair.
   for (const artifact of build.artifacts) {
-    if (getMathGenerationStatus(childId, homeworkId, { rootDir })?.nodes.find(node => node.nodeId === artifact.nodeId)?.status === "ready") await verifyAndBind(artifact);
+    const node = getMathGenerationStatus(childId, homeworkId, { rootDir })?.nodes.find(candidate => candidate.nodeId === artifact.nodeId);
+    if (node?.status === "ready") {
+      await verifyAndBind(artifact);
+      if (getMathGenerationStatus(childId, homeworkId, { rootDir })?.phase === "needs_attention") {
+        updateMathGenerationNode({ rootDir, childId, homeworkId, nodeId: artifact.nodeId, status: "ready", artifactHash: artifact.htmlHash });
+      }
+    }
+    else if (["failed_resumable", "needs_attention"].includes(node?.status ?? "")
+      && reports[artifact.nodeId]?.verifierVersion !== MATH_BROWSER_VERIFIER_VERSION) {
+      try {
+        await verifyAndBind(artifact);
+        updateMathGenerationNode({ rootDir, childId, homeworkId, nodeId: artifact.nodeId, status: "ready", artifactHash: artifact.htmlHash });
+        console.log(` 🎮 [adaptive-math] [node-reverification] [recovered] child=${childId} homework=${homeworkId} node=${artifact.nodeId}`);
+      } catch (error) {
+        console.log(` 🎮 [adaptive-math] [node-reverification] [still-failing] child=${childId} homework=${homeworkId} node=${artifact.nodeId} reason=${error instanceof Error ? error.message : String(error)}`);
+      }
+    }
   }
   project();
   await buildTargetedNodesResumably({ rootDir, childId, homeworkId, firstNodeId: designed.plan.activities[0]?.id ?? "", concurrency: 2, buildNode: async (nodeId) => {

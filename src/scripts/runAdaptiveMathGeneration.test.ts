@@ -297,6 +297,22 @@ it("reverifies an old rejection before deciding to buy a repair", async () => {
   expect(getMathGenerationStatus(childId,homeworkId,{rootDir})?.phase).toBe("board_ready");
 });
 
+it("resumes a needs-attention job when saved artifacts require a newer verifier", async () => {
+  await runAdaptiveMathGeneration(childId, homeworkId, rootDir);
+  const reportsFile = path.join(rootDir, "src/context", childId, "homework/direct-drafts", homeworkId, "browser-verification.json");
+  const reports = JSON.parse(fs.readFileSync(reportsFile, "utf8"));
+  reports["activity-1"] = { ...reports["activity-1"], passed: false, failures: ["old_verifier_false_negative"], verifierVersion: 0 };
+  fs.writeFileSync(reportsFile, JSON.stringify(reports));
+  setMathGenerationPhase({ rootDir, childId, homeworkId, phase: "needs_attention", error: "targeted_browser_verification_failed:activity-1" });
+
+  await runAdaptiveMathGeneration(childId, homeworkId, rootDir);
+
+  expect(runDirectBrowserSmokeCheck).toHaveBeenCalledTimes(3);
+  expect(repairDirectArtifact).not.toHaveBeenCalled();
+  expect(generateDirectArtifacts).toHaveBeenCalledTimes(2);
+  expect(getMathGenerationStatus(childId, homeworkId, { rootDir })?.phase).toBe("board_ready");
+});
+
 
 it("preserves the child decision boundary when a sibling finishes later", async () => {
   const generate = vi.mocked(generateDirectArtifacts).getMockImplementation()!;
