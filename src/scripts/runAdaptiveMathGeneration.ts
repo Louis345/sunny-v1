@@ -173,6 +173,7 @@ export async function runAdaptiveMathGeneration(
     const visualVerdict = await judgeChildFacingScreens({
       screenshotPaths: reports[artifact.nodeId].screenshots,
       auditFile: path.join(draft, "provider-diagnostics", `${artifact.nodeId}-visual-verdict.json`),
+      retryUncertain: options.retryUncertainProvider,
     });
     if (visualVerdict.decision === "reject") {
       reports[artifact.nodeId] = {

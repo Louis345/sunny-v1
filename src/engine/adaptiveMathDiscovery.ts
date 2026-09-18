@@ -780,6 +780,7 @@ export async function generateMathDiscoveryExperience(input: {
             screenshotPaths,
             auditFile: path.join(draftDir, "visual-review", "blind-visual-verdict.json"),
             ...(input.client ? { client: input.client } : {}),
+            retryUncertain: input.retryUncertain,
           });
           return verdict.decision === "reject"
             ? verdict.observations.map(observation => `child_visual_review:${observation}`)

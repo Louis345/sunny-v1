@@ -146,11 +146,13 @@ const runningGenerationKeys = new Set<string>();
 export async function judgeBaselineShellDesign(input: {
   brief: BaselineMechanicBrief;
   screenshotPaths: string[];
+  auditFile: string;
   model?: string;
 }): Promise<BaselineShellJudgeVerdict> {
   void input.brief;
   const verdict = await judgeChildFacingScreens({
     screenshotPaths: input.screenshotPaths,
+    auditFile: input.auditFile,
     ...(input.model ? { model: input.model } : {}),
   });
   return {
@@ -479,6 +481,7 @@ export async function generateAndAttachBaselineShells(
         const verdict = await judgeBaselineShellDesign({
           brief: baseBrief,
           screenshotPaths: artifact.validationReport?.screenshotPaths ?? [],
+          auditFile: `${artifact.filePath}.visual-verdict.json`,
           model: input.judgeModel,
         });
         reviewBaselineShellArtifact({
