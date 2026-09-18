@@ -9,6 +9,21 @@ describe("truthful learning preparation",()=>{
     expect(screen.getByRole("status").textContent).toContain("Saved work is safe");
     expect(screen.getByRole("button",{name:"Finish for now"})).toBeEnabled();
   });
+  it("does not offer a progress check after preparation has stopped with no pending work",()=>{
+    const onCheck=vi.fn();
+    render(<LearningPreparationStatus
+      status={{phase:"needs_attention",updatedAt:"now",nodes:[]}}
+      error="Sunny could not finish preparing this assignment."
+      paused
+      onCheck={onCheck}
+      onFinish={vi.fn()}
+    />);
+    expect(screen.getByRole("status").textContent).toContain("Some activities need attention");
+    expect(screen.getByRole("status").textContent).toContain("Sunny could not finish preparing this assignment.");
+    expect(screen.getByRole("status").textContent).not.toContain("Check progress");
+    expect(screen.queryByRole("button",{name:"Check progress"})).toBeNull();
+    expect(onCheck).not.toHaveBeenCalled();
+  });
   it("shows planning without inventing a percentage or future nodes",()=>{
     render(<LearningPreparationStatus status={{phase:"targeted_planning",updatedAt:"now",nodes:[]}} onCheck={vi.fn()} onFinish={vi.fn()}/>);
     expect(screen.getByRole("status").textContent).toContain("Choosing what to work on");
