@@ -261,10 +261,10 @@ describe("spelling Planner raw-response durability", () => {
     expect(fs.readFileSync(f.receiptFile, "utf8")).toBe(original);
   });
 
-  it("leaves transport uncertainty in-flight and makes no second request", async () => {
+  it("records transport uncertainty and makes no second request", async () => {
     const f = await fixture(); transport.create.mockRejectedValue(new Error("recorded_connection_lost"));
     await expect(f.run()).rejects.toThrow("provider_outcome_uncertain");
-    expect(f.readReceipt().status).toBe("in_flight");
+    expect(f.readReceipt().status).toBe("outcome_uncertain");
     await expect(f.run()).rejects.toThrow("provider_outcome_uncertain");
     expect(transport.create).toHaveBeenCalledOnce();
   });

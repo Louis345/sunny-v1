@@ -617,6 +617,71 @@ describe("direct math experience", () => {
     finally {fs.rmSync(root,{recursive:true,force:true});}
   });
 
+  it("forwards explicit uncertainty authorization only to the frozen targeted design receipt", async () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "design-authorized-retry-"));
+    const checkpointFile = path.join(root, "design.json");
+    const program = parseMathLearningProgram(learningProgram(2));
+    const recoveredResponse = {
+        stop_reason: "tool_use",
+        usage: { input_tokens: 1, output_tokens: 1 },
+        content: [{
+          type: "tool_use",
+          name: "create_math_design_packet",
+          input: {
+            boardCreativeSpine: {
+              title: "Recovered world",
+              narrative: "Continue the same chapter.",
+              openingChoice: "Choose a route.",
+              backgroundDirection: "Readable map.",
+              routeDirections: program.fork.routes.map((route) => ({
+                routeId: route.id,
+                label: route.id,
+                promise: "Continue.",
+                childFacingActionCue: "Try one clear action.",
+                previewNodeId: route.nodeIds[0],
+                engagementVariable: "recorded",
+              })),
+            },
+            artifacts: program.activities.map((activity) => ({
+              artifactId: `artifact-${activity.id}`,
+              nodeId: activity.id,
+              academicContractHash: mathAcademicContractHash(activity),
+              title: `Recovered ${activity.id}`,
+              openingPromise: "Continue.",
+              firstThreeSeconds: "One action is visible.",
+              firstAction: "Tap the control.",
+              coreInteraction: "Use mathematics to move the world.",
+              mathAsPower: "Mathematics changes the world.",
+              visualDirection: "Readable world.",
+            })),
+            rationale: "Recovered the frozen request.",
+          },
+        }],
+      };
+    const transport = vi.fn()
+      .mockImplementationOnce(() => ({ finalMessage: async () => { throw new Error("read ETIMEDOUT"); } }))
+      .mockImplementationOnce(() => ({ finalMessage: async () => recoveredResponse }));
+    const client = { messages: { stream: transport } } as never;
+    const run = (retryUncertain = false) => askMathExperienceDesigner({
+      childId: "lab",
+      program,
+      childContext: {},
+      priorOutcomes: {},
+      checkpointFile,
+      client,
+      retryUncertain,
+    });
+    try {
+      await expect(run()).rejects.toThrow("provider_outcome_uncertain");
+      await expect(run()).rejects.toThrow("provider_outcome_uncertain");
+      expect(transport).toHaveBeenCalledTimes(1);
+      await expect(run(true)).resolves.toMatchObject({ packet: { boardCreativeSpine: { title: "Recovered world" } } });
+      expect(transport).toHaveBeenCalledTimes(2);
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+
   it("places artifact design before generation without a review pause or quality harness", () => {
     const source = fs.readFileSync(path.join(process.cwd(), "src/scripts/runAdaptiveMathGeneration.ts"), "utf8");
     const designer = source.indexOf("askMathExperienceDesigner({");

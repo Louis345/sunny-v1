@@ -511,11 +511,29 @@ export async function runMathProviderStage<T>(input: {
   draftDir: string; stage: string; model: string; request: unknown;
   execute: () => Promise<T>; beforeRequest?: () => void; retryUncertain?: boolean;
 }): Promise<T> {
+  type ProviderAttempt = {
+    attempt: number;
+    startedAt: string;
+    finishedAt?: string;
+    status: "in_flight" | "received" | "rejected" | "outcome_uncertain";
+    error?: string;
+    code?: number;
+  };
+  type ProviderReceipt = {
+    status: "in_flight" | "received" | "rejected" | "outcome_uncertain";
+    response?: T;
+    requestHash?: string;
+    model?: string;
+    provider?: string;
+    startedAt?: string;
+    receivedAt?: string;
+    attempts?: ProviderAttempt[];
+  };
   const provider = input.model.startsWith("gpt-") ? "openai" : "anthropic";
   const requestHash = hashDiscoveryContract({ provider, request: input.request });
   const receipts = path.join(input.draftDir, "provider-receipts");
   const stageFile = path.join(receipts, `${input.stage}.stage.json`);
-  const readReceipt = (file: string): {status: string; response?: T; requestHash?: string} | undefined => {
+  const readReceipt = (file: string): ProviderReceipt | undefined => {
     if (!fs.existsSync(file)) return undefined;
     try { const value=JSON.parse(fs.readFileSync(file,"utf8")); if (!value || typeof value!=="object") throw new Error("invalid"); return value; }
     catch { throw new Error(`provider_receipt_invalid:${file}`); }
@@ -527,22 +545,52 @@ export async function runMathProviderStage<T>(input: {
   const prior = readReceipt(priorFile);
   if (stage && !prior) throw new Error(`provider_receipt_invalid:${priorFile}`);
   if (prior?.status === "received" && priorFile !== receiptFile) throw new Error(`provider_stage_request_changed:${input.stage}`);
-  if (prior?.status==="in_flight" && (!input.retryUncertain || priorFile!==receiptFile)) throw new Error(`provider_outcome_uncertain:${priorFile}`);
+  if (["in_flight", "outcome_uncertain"].includes(prior?.status ?? "") && (!input.retryUncertain || priorFile!==receiptFile)) throw new Error(`provider_outcome_uncertain:${priorFile}`);
   const saved = readReceipt(receiptFile);
-  if (saved && (!["received","rejected","in_flight"].includes(saved.status) || (saved.status==="received" && !saved.response))) throw new Error(`provider_receipt_invalid:${receiptFile}`);
+  if (saved && (!["received","rejected","in_flight","outcome_uncertain"].includes(saved.status) || (saved.status==="received" && !saved.response))) throw new Error(`provider_receipt_invalid:${receiptFile}`);
   if (saved?.status==="received") return saved.response!;
-  if (saved?.status==="in_flight" && !input.retryUncertain) throw new Error(`provider_outcome_uncertain:${receiptFile}`);
+  if (["in_flight", "outcome_uncertain"].includes(saved?.status ?? "") && !input.retryUncertain) throw new Error(`provider_outcome_uncertain:${receiptFile}`);
   input.beforeRequest?.();
+  const previousAttempts: ProviderAttempt[] = Array.isArray(saved?.attempts)
+    ? saved.attempts
+    : saved
+      ? [{
+          attempt: 1,
+          startedAt: saved.startedAt ?? new Date().toISOString(),
+          status: saved.status === "in_flight" ? "outcome_uncertain" : saved.status,
+          ...(saved.status === "in_flight" ? { error: "prior_process_ended_without_provider_outcome" } : {}),
+        }]
+      : [];
+  if (saved && ["in_flight", "outcome_uncertain"].includes(saved.status) && input.retryUncertain) {
+    console.log(` 🎮 [adaptive-math] [provider-request] [retry-authorized] stage=${input.stage} attempt=${previousAttempts.length + 1}`);
+  }
+  const startedAt = new Date().toISOString();
+  const attempts: ProviderAttempt[] = [
+    ...previousAttempts,
+    { attempt: previousAttempts.length + 1, startedAt, status: "in_flight" },
+  ];
   atomicJson(stageFile, {requestHash});
-  atomicJson(receiptFile, {status:"in_flight",model:input.model,startedAt:new Date().toISOString()});
+  atomicJson(receiptFile, {status:"in_flight",provider,model:input.model,startedAt,attempts});
   try {
     const response = await input.execute();
-    atomicJson(receiptFile, {status:"received",provider,model:input.model,response,receivedAt:new Date().toISOString()});
+    const receivedAt = new Date().toISOString();
+    attempts[attempts.length - 1] = { ...attempts[attempts.length - 1]!, status: "received", finishedAt: receivedAt };
+    atomicJson(receiptFile, {status:"received",provider,model:input.model,response,startedAt,receivedAt,attempts});
     return response;
   } catch (error) {
     const status = (error as {status?: number}).status;
-    if (status && status>=400 && status<500) atomicJson(receiptFile, {status:"rejected",model:input.model,code:status});
-    console.error(` 🎮 [adaptive-math] [provider-request] [${status ? "rejected" : "outcome-uncertain"}] receipt=${receiptFile}`);
+    const rejected = Boolean(status && status>=400 && status<500);
+    const outcome = rejected ? "rejected" : "outcome_uncertain";
+    const finishedAt = new Date().toISOString();
+    attempts[attempts.length - 1] = {
+      ...attempts[attempts.length - 1]!,
+      status: outcome,
+      finishedAt,
+      error: error instanceof Error ? error.message : String(error),
+      ...(status ? { code: status } : {}),
+    };
+    atomicJson(receiptFile, {status:outcome,provider,model:input.model,startedAt,finishedAt,attempts});
+    console.error(` 🎮 [adaptive-math] [provider-request] [${outcome}] receipt=${receiptFile}`);
     if (!status || status>=500) throw new Error(`provider_outcome_uncertain:${receiptFile}: ${error instanceof Error ? error.message : String(error)}`);
     throw error;
   }

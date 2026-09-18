@@ -102,6 +102,56 @@ it("resumes a saved Planner response after a contract fix without buying the pla
   expect(getMathGenerationStatus(childId,homeworkId,{rootDir})?.phase).toBe("board_ready");
 });
 
+it("requires explicit authorization to resume an uncertain design without repeating Discovery or Planner", async () => {
+  const draft = path.join(rootDir, "src/context", childId, "homework/direct-drafts", homeworkId);
+  const packet = JSON.parse(fs.readFileSync(path.join(draft, "design-packet.json"), "utf8"));
+  const designedPlan = JSON.parse(fs.readFileSync(path.join(draft, "designed-plan.json"), "utf8"));
+  fs.rmSync(path.join(draft, "design-packet.json"));
+  fs.rmSync(path.join(draft, "designed-plan.json"));
+  const receiptDir = path.join(draft, "provider-receipts");
+  const requestHash = "a".repeat(64);
+  fs.mkdirSync(receiptDir, { recursive: true });
+  fs.writeFileSync(path.join(receiptDir, "targeted-design-1.stage.json"), JSON.stringify({ requestHash }));
+  fs.writeFileSync(path.join(receiptDir, `${requestHash}.json`), JSON.stringify({ status: "outcome_uncertain" }));
+  setMathGenerationPhase({
+    rootDir,
+    childId,
+    homeworkId,
+    phase: "needs_attention",
+    error: "provider_outcome_uncertain:targeted-design-1",
+  });
+  vi.mocked(askMathExperienceDesigner).mockResolvedValue({ packet, plan: designedPlan });
+
+  await runAdaptiveMathGeneration(childId, homeworkId, rootDir);
+  expect(askMathExperienceDesigner).not.toHaveBeenCalled();
+  expect(askDirectMathPlanner).not.toHaveBeenCalled();
+
+  await runAdaptiveMathGeneration(childId, homeworkId, rootDir, { retryUncertainProvider: true });
+  expect(askMathExperienceDesigner).toHaveBeenCalledWith(expect.objectContaining({ retryUncertain: true }));
+  expect(askDirectMathPlanner).not.toHaveBeenCalled();
+  expect(getMathGenerationStatus(childId, homeworkId, { rootDir })?.phase).toBe("board_ready");
+});
+
+it("does not let design retry authorization repurchase a missing Planner program", async () => {
+  const draft = path.join(rootDir, "src/context", childId, "homework/direct-drafts", homeworkId);
+  fs.rmSync(path.join(draft, "math-learning-program.json"));
+  fs.rmSync(path.join(draft, "design-packet.json"));
+  fs.rmSync(path.join(draft, "designed-plan.json"));
+  setMathGenerationPhase({
+    rootDir,
+    childId,
+    homeworkId,
+    phase: "needs_attention",
+    error: "provider_outcome_uncertain:targeted-design-1",
+  });
+
+  await runAdaptiveMathGeneration(childId, homeworkId, rootDir, { retryUncertainProvider: true });
+
+  expect(askDirectMathPlanner).not.toHaveBeenCalled();
+  expect(askMathExperienceDesigner).not.toHaveBeenCalled();
+  expect(getMathGenerationStatus(childId, homeworkId, { rootDir })?.phase).toBe("needs_attention");
+});
+
 it("freezes predictions and binds the first verified node while a sibling fails", async () => {
   const build = vi.mocked(generateDirectArtifacts).getMockImplementation()!;
   vi.mocked(generateDirectArtifacts).mockImplementation(async (input) => {

@@ -1228,6 +1228,7 @@ export async function askMathExperienceDesigner(input: {
   checkpoint?: MathDesignCheckpoint;
   checkpointFile?: string;
   rawResponseDir?: string;
+  retryUncertain?: boolean;
 }): Promise<{ packet: MathDesignPacket; plan: DirectLearningExperiencePlan }> {
   const client = input.client ?? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
   const model = input.model ?? process.env.SUNNY_ARCHITECT_MODEL ?? "claude-fable-5";
@@ -1361,7 +1362,7 @@ ${JSON.stringify({ ...programWithoutBonusDuplicate, activities: contracts }, nul
       try {
         const execute = () => client.messages.stream(request, { timeout: Number(process.env.SUNNY_AI_TIMEOUT_MS ?? 600000), maxRetries: 0 }).finalMessage();
         response = input.checkpointFile
-          ? await runMathProviderStage({draftDir:path.dirname(input.checkpointFile),stage:`targeted-design-${checkpoint.attempts.length+1}`,model,request,execute,beforeRequest:()=>{
+          ? await runMathProviderStage({draftDir:path.dirname(input.checkpointFile),stage:`targeted-design-${checkpoint.attempts.length+1}`,model,request,execute,retryUncertain:input.retryUncertain,beforeRequest:()=>{
             if(!input.client&&!process.env.ANTHROPIC_API_KEY?.trim())throw new Error("preflight_missing:ANTHROPIC_API_KEY");
           }})
           : await execute();

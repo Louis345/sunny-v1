@@ -44,6 +44,23 @@ function arg(name: string): string {
   return value.trim().toLowerCase();
 }
 
+function hasUncertainTargetedDesignReceipt(draftDir: string): boolean {
+  const receiptDir = path.join(draftDir, "provider-receipts");
+  if (!fs.existsSync(receiptDir)) return false;
+  return fs.readdirSync(receiptDir)
+    .filter((name) => /^targeted-design-\d+\.stage\.json$/.test(name))
+    .some((name) => {
+      try {
+        const stage = read<{ requestHash?: string }>(path.join(receiptDir, name));
+        if (!stage.requestHash || !/^[a-f0-9]{64}$/.test(stage.requestHash)) return false;
+        const receipt = read<{ status?: string }>(path.join(receiptDir, `${stage.requestHash}.json`));
+        return receipt.status === "in_flight" || receipt.status === "outcome_uncertain";
+      } catch {
+        return false;
+      }
+    });
+}
+
 export function nativeSpellingInstrumentContract(
   node: ActiveSessionPlan["nodePlan"][number],
   evidenceContract: unknown,
@@ -60,7 +77,12 @@ function placeholderArtifacts(plan: DirectLearningExperiencePlan, childId: strin
   });
 }
 
-export async function runAdaptiveMathGeneration(childId: string, homeworkId: string, rootDir = process.cwd()): Promise<void> {
+export async function runAdaptiveMathGeneration(
+  childId: string,
+  homeworkId: string,
+  rootDir = process.cwd(),
+  options: { retryUncertainProvider?: boolean } = {},
+): Promise<void> {
   const draft = resolveAdaptiveMathDraftDir(childId, homeworkId, { rootDir });
   const programFile = path.join(draft, "math-learning-program.json");
   const designFile = path.join(draft, "design-packet.json");
@@ -80,7 +102,14 @@ export async function runAdaptiveMathGeneration(childId: string, homeworkId: str
       console.log(` 🎮 [adaptive-math] [targeted-planner] [saved-response-still-invalid] child=${childId} homework=${homeworkId} reason=${error instanceof Error ? error.message : String(error)}`);
     }
   }
-  if (initialJob?.phase === "needs_attention" && !recoveredProgram) {
+  const mayRetryFrozenDesign = Boolean(
+    options.retryUncertainProvider
+    && fs.existsSync(programFile)
+    && !fs.existsSync(designFile)
+    && !fs.existsSync(planFile)
+    && hasUncertainTargetedDesignReceipt(draft),
+  );
+  if (initialJob?.phase === "needs_attention" && !recoveredProgram && !mayRetryFrozenDesign) {
     console.log(` 🎮 [adaptive-math] [worker] [no-work] child=${childId} homework=${homeworkId} phase=${initialJob.phase}`);
     return;
   }
@@ -107,7 +136,7 @@ export async function runAdaptiveMathGeneration(childId: string, homeworkId: str
   if (!fs.existsSync(designFile) || !fs.existsSync(planFile)) setMathGenerationPhase({rootDir,childId,homeworkId,phase:"board_designing"});
   const designed = fs.existsSync(designFile) && fs.existsSync(planFile)
     ? { packet: read<MathDesignPacket>(designFile), plan: read<DirectLearningExperiencePlan>(planFile) }
-    : await askMathExperienceDesigner({ childId, program, childContext: buildMathCreativeChildContext(chart), priorOutcomes: { discoveryCycle: cycle }, checkpointFile: path.join(draft, "design-checkpoint.json"), rawResponseDir: path.join(draft, "provider-diagnostics") });
+    : await askMathExperienceDesigner({ childId, program, childContext: buildMathCreativeChildContext(chart), priorOutcomes: { discoveryCycle: cycle }, checkpointFile: path.join(draft, "design-checkpoint.json"), rawResponseDir: path.join(draft, "provider-diagnostics"), retryUncertain: mayRetryFrozenDesign });
   write(designFile, designed.packet); write(planFile, designed.plan);
   const programHash = hashDiscoveryContract(program);
   const designHash = hashDiscoveryContract(designed.packet);
@@ -354,7 +383,8 @@ if (require.main === module) {
   if (!lease.acquired || !lease.token) {
     console.log(` 🎮 [adaptive-math] [worker] [duplicate-skipped] child=${childId} homework=${homeworkId}`);
   } else {
-    void runAdaptiveMathGeneration(childId, homeworkId)
+    const retryUncertainProvider = process.argv.slice(2).includes("--retry-uncertain-provider");
+    void runAdaptiveMathGeneration(childId, homeworkId, process.cwd(), { retryUncertainProvider })
       .catch((error) => {
         console.error(` 🎮 [adaptive-math] [worker] [paused] ${error instanceof Error ? error.message : String(error)}`);
         process.exitCode = 1;
