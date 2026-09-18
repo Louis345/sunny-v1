@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { SessionManager } from "./session-manager";
 
 describe("SessionManager game narration", () => {
-  it("records playback proof after game narration enters the audio path", async () => {
+  it("does not call provider completion browser playback proof", async () => {
     const recordEvent = vi.fn();
     const send = vi.fn();
     const fakeSession = {
@@ -16,6 +16,9 @@ describe("SessionManager game narration", () => {
         finish: vi.fn().mockResolvedValue(undefined),
       },
       send,
+      turnSM: { onPlaybackComplete: vi.fn(), consumePendingTranscript: vi.fn() },
+      flushPendingRoundComplete: vi.fn(),
+      handleEndOfTurn: vi.fn(),
     };
 
     await SessionManager.prototype.speakGameNarration.call(fakeSession, "know.", {
@@ -29,12 +32,21 @@ describe("SessionManager game narration", () => {
       nodeId: "n-word-radar",
       reason: "word_radar_response_prompt",
     }));
+    expect(recordEvent).toHaveBeenCalledWith("game_narration", "tts_stream_done", expect.objectContaining({
+      activityId: "word-radar",
+      nodeId: "n-word-radar",
+      reason: "word_radar_response_prompt",
+    }));
+    expect(recordEvent).not.toHaveBeenCalledWith("game_narration", "playback_done", expect.anything());
+    expect(send).toHaveBeenCalledWith("audio_done");
+
+    SessionManager.prototype.playbackDone.call(fakeSession);
+
     expect(recordEvent).toHaveBeenCalledWith("game_narration", "playback_done", expect.objectContaining({
       activityId: "word-radar",
       nodeId: "n-word-radar",
       reason: "word_radar_response_prompt",
     }));
-    expect(send).toHaveBeenCalledWith("audio_done");
   });
 
   it("does not append narration proof into companion conversation history", async () => {

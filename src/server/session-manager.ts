@@ -211,6 +211,7 @@ export class SessionManager {
   private currentBoardSnapshot: CurrentBoardSnapshot | null = null;
   private pronunciationStruggleSignals = new Set<string>();
   private lastInstructionReadRequestKey: string | null = null;
+  private pendingGameNarrationPlayback: Record<string, unknown> | null = null;
   private companionPresence: "collapsed" | "summoned" = "collapsed";
   private companionDispositionAfterSpeech:
     | "standby_after_speech"
@@ -1152,7 +1153,14 @@ export class SessionManager {
     const spoken = await gev.narrateGameStimulus({ text, metadata, childName: this.childName, ttsLabel: this.sessionTtsLabel,
       bridge: this.ttsBridge, assessment, isCurrent: () => this.spellingAssessment === assessment,
       record: (action, event) => this.debugRecorder.recordEvent("game_narration", action, event) });
-    if (spoken) this.send("audio_done");
+    if (spoken) {
+      this.pendingGameNarrationPlayback = {
+        activityId: metadata.activityId,
+        nodeId: metadata.nodeId,
+        reason: metadata.reason,
+      };
+      this.send("audio_done");
+    }
   }
 
   public getDiscoveryAttemptContext(homeworkId: string, itemId: string): { support: LearningObservation["assistance"]; instrumentSignals: string[]; artifactHash: string; sessionId: string } | undefined {
@@ -1267,6 +1275,10 @@ export class SessionManager {
   }
 
   playbackDone(): void {
+    if (this.pendingGameNarrationPlayback) {
+      this.debugRecorder.recordEvent("game_narration", "playback_done", this.pendingGameNarrationPlayback);
+      this.pendingGameNarrationPlayback = null;
+    }
     this.turnSM.onPlaybackComplete();
     this.flushPendingRoundComplete();
     const pending = this.turnSM.consumePendingTranscript();
