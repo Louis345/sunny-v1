@@ -291,5 +291,6 @@ it("refreshes canonical proof when the verifier version changes without regenera
 
 it("preserves the targeted Planner response for failure diagnosis and restart safety", () => {
   const source = fs.readFileSync(path.join(process.cwd(), "src/scripts/runAdaptiveMathGeneration.ts"), "utf8");
-  expect(source).toContain('rawResponseFile: path.join(draft, "provider-diagnostics", "targeted-planner-response.json")');
+  expect(source).toContain('const rawPlannerResponseFile = path.join(draft, "provider-diagnostics", "targeted-planner-response.json")');
+  expect(source).toContain("rawResponseFile: rawPlannerResponseFile");
 });
