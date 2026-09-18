@@ -33,6 +33,7 @@ import { verifyEngineeringRepairEvidence, DISCOVERY_VERIFIER_VERSION, DISCOVERY_
 import { thumbnailUrlForActivity } from "../shared/activityPresentation";
 import { buildAdventureBoardFromActiveSessionPlan } from "../shared/adventureBoardFromPlan";
 import type { ActiveSessionPlan } from "../context/schemas/learningProfile";
+import { judgeChildFacingScreens } from "../engine/childFacingVisualGate";
 
 const read = <T>(file: string): T => JSON.parse(fs.readFileSync(file, "utf8")) as T;
 const write = (file: string, value: unknown): void => { fs.mkdirSync(path.dirname(file), { recursive: true }); const temp = `${file}.${process.pid}.tmp`; fs.writeFileSync(temp, `${JSON.stringify(value, null, 2)}\n`); fs.renameSync(temp, file); };
@@ -130,6 +131,19 @@ export async function runAdaptiveMathGeneration(childId: string, homeworkId: str
     // Do not promote targeted repairs until that separate proof exists.
     verifyEngineeringRepairEvidence(path.join(draft, "provider-diagnostics", `${artifact.nodeId}.engineering-repair.json`), { artifactHash: htmlHash, academicHash: artifact.academicContractHash!, designHash: artifact.designArtifactHash!, verifierVersion: MATH_BROWSER_VERIFIER_VERSION * 1000 + DISCOVERY_VERIFIER_VERSION, runtime: reports[artifact.nodeId].passed, scoring: false, contracts: false, viewports: DISCOVERY_RELEASE_VIEWPORTS.map(viewport => `${viewport.width}x${viewport.height}`) });
     if (!reports[artifact.nodeId].passed) throw new Error(`targeted_browser_verification_failed:${artifact.nodeId}:${reports[artifact.nodeId].failures.join("|")}`);
+    const visualVerdict = await judgeChildFacingScreens({
+      screenshotPaths: reports[artifact.nodeId].screenshots,
+      auditFile: path.join(draft, "provider-diagnostics", `${artifact.nodeId}-visual-verdict.json`),
+    });
+    if (visualVerdict.decision === "reject") {
+      reports[artifact.nodeId] = {
+        ...reports[artifact.nodeId],
+        passed: false,
+        failures: visualVerdict.observations.map(observation => `child_visual_review:${observation}`),
+      };
+      write(reportsFile, reports);
+      throw new Error(`targeted_browser_verification_failed:${artifact.nodeId}:child_visual_review:${visualVerdict.observations.join("|")}`);
+    }
     const current = getLearningCycle(childId, homeworkId, { rootDir })!;
     const prior = current.nodes.find(n => n.nodeId === artifact.nodeId)!;
     if (prior.artifactBinding?.creativeProvenance?.generatedHtmlHash !== htmlHash || prior.artifactBinding.validationProof?.verifierVersion !== MATH_BROWSER_VERIFIER_VERSION) {

@@ -27,6 +27,7 @@ import {
   parseEngineeringLessonProposal, recordEngineeringRepairEvidence, verifyEngineeringRepairEvidence, invalidateEngineeringRepairEvidence, freezeEngineeringLessonSnapshot, engineeringFeatures, engineeringLessonContext,
 } from "./discoveryVisualReview";
 import { readOpenAiResponseStream } from "./openAiResponses";
+import { judgeChildFacingScreens } from "./childFacingVisualGate";
 import {
   validateBoardChoices,
   validateBoardGraph,
@@ -726,6 +727,16 @@ export async function generateMathDiscoveryExperience(input: {
         render: renderDiscoveryCandidate,
         verificationKey: contractHash,
         verify: html => verifyDiscoveryRuntimeScoring({html, academic, outputDir: path.join(draftDir, "runtime-verification")}),
+        judge: async ({ screenshotPaths }) => {
+          const verdict = await judgeChildFacingScreens({
+            screenshotPaths,
+            auditFile: path.join(draftDir, "visual-review", "blind-visual-verdict.json"),
+            ...(input.client ? { client: input.client } : {}),
+          });
+          return verdict.decision === "reject"
+            ? verdict.observations.map(observation => `child_visual_review:${observation}`)
+            : [];
+        },
         repair: async ({ html: rejectedHtml, issues, screenshotPaths }) => {
           console.log(` 🎮 [adaptive-math] [discovery-builder-repair] [running] provider=${repair.provider} model=${repair.model}`);
           const repairPrompt = buildDiscoveryRepairPrompt({

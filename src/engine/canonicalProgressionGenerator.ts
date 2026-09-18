@@ -11,6 +11,7 @@ import {
 } from "./directMathExperience";
 import { engagementTheoryEvidenceContext } from "./engagementTheory";
 import { validateGeneratedArtifactRuntime } from "./generatedArtifactRuntimeValidator";
+import { judgeChildFacingScreens } from "./childFacingVisualGate";
 import {
   getLearningCycle,
   transitionLearningCycle,
@@ -116,7 +117,15 @@ async function productionValidate(input: { html: string; node: LearningCycleNode
     const htmlPath = path.join(dir, "candidate.html"); fs.writeFileSync(htmlPath, input.html);
     const htmlHash = createHash("sha256").update(input.html).digest("hex");
     const report = await runDirectBrowserSmokeCheck({rootDir, artifacts:[{nodeId:input.node.nodeId,childId:input.cycle.childId,homeworkId:input.cycle.homeworkId,title:input.node.title,htmlPath,htmlHash,artworkUrl:input.node.artwork.localPath??"",creatorPrompt:input.node.generationPrompt?.text??"",promptHash:input.node.generationPrompt?.promptId??"",plannerModel:"canonical",creatorModel:"canonical",...(input.node.evidenceContract.itemRoles?{itemIds:Object.keys(input.node.evidenceContract.itemRoles)}:{})}]});
-    return {passed:report.passed,failures:report.failures,screenshotPaths:report.screenshots,htmlHash,verifierVersion:MATH_BROWSER_VERIFIER_VERSION};
+    if (!report.passed) return {passed:false,failures:report.failures,screenshotPaths:report.screenshots,htmlHash,verifierVersion:MATH_BROWSER_VERIFIER_VERSION};
+    const visualVerdict = await judgeChildFacingScreens({
+      screenshotPaths: report.screenshots,
+      auditFile: path.join(dir, "blind-visual-verdict.json"),
+    });
+    const visualFailures = visualVerdict.decision === "reject"
+      ? visualVerdict.observations.map(observation => `child_visual_review:${observation}`)
+      : [];
+    return {passed:visualFailures.length===0,failures:visualFailures,screenshotPaths:report.screenshots,htmlHash,verifierVersion:MATH_BROWSER_VERIFIER_VERSION};
   }
   const runtime = await validateGeneratedArtifactRuntime({
     html: input.html,
@@ -378,8 +387,8 @@ Correct only the implementation while preserving the Planner's academic target, 
       validationStatus: "passed",
       ...(retryableStage ? {
         creativeProvenance: {
-          rationale: "Technical runtime validation only; creative judgement is the human review of the captured screenshots.",
-          qualityPrediction: "No automated quality score is recorded.",
+          rationale: "Publication requires technical runtime validation and an open-ended child-view screenshot review.",
+          qualityPrediction: "No numeric quality score is inferred; the screenshot verdict is stored in the validation audit.",
           creatorPromptHash: createHash("sha256").update(generationPrompt).digest("hex"),
           artworkPromptHash: createHash("sha256").update(node.artwork.prompt ?? "").digest("hex"),
         },

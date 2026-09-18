@@ -5,12 +5,23 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createLearningCycle, getLearningCycle, transitionLearningCycle } from "./learningCycleRepository";
 import { buildSpellingRecallItems } from "./learningCycleIngest";
 import { runDirectBrowserSmokeCheck, buildAdaptiveProgressionCreatorPrompt } from "./directMathExperience";
+import { judgeChildFacingScreens } from "./childFacingVisualGate";
 vi.mock("../scripts/validateGeneratedGame",()=>({validateGeneratedGame:()=>({passed:true,failures:[]})}));
 vi.mock("./generatedArtifactRuntimeValidator",()=>({validateGeneratedArtifactRuntime:async()=>({passed:true,failures:[]})}));
 vi.mock("./directMathExperience",async original=>({...await original<typeof import("./directMathExperience")>(),runDirectBrowserSmokeCheck:vi.fn(async()=>({passed:false,failures:["real_controls_broken"],screenshots:[]}))}));
+vi.mock("./childFacingVisualGate",()=>({judgeChildFacingScreens:vi.fn(async()=>({decision:"approve",observations:[]}))}));
 import { generateCanonicalProgressionArtifact } from "./canonicalProgressionGenerator";
 
 function root(): string { return fs.mkdtempSync(path.join(os.tmpdir(), "sunny-progression-")); }
+
+beforeEach(() => {
+  vi.mocked(judgeChildFacingScreens).mockResolvedValue({ decision: "approve", observations: [] });
+  vi.mocked(runDirectBrowserSmokeCheck).mockResolvedValue({
+    passed: false,
+    failures: ["real_controls_broken"],
+    screenshots: [],
+  });
+});
 
 function baseInput() {
   const contract = (id: string, role: "baseline" | "quest" | "boss", state: "ready" | "locked") => ({
@@ -223,6 +234,47 @@ describe("spelling Creator assignment-scoped checkpoints", () => {
 });
 
 describe("canonical progression generation", () => {
+  /** A human rejected the clock immediately because its drawing contradicted
+   * the question. Logs only proved clicks and scoring, and the prior lab never
+   * showed screenshots to a vision-capable reviewer. This is that missing
+   * publication invariant for later Quest/Boss content. */
+  it("does not publish a browser-valid Quest that blind child review finds visually confusing", async () => {
+    const rootDir = root();
+    try {
+      const created = createLearningCycle(baseInput(), { rootDir });
+      transitionLearningCycle("reina", "hw-progression", created.revision, {
+        type: "baseline_completed",
+        nodeId: "facts",
+        academicEvidence: [{ evidenceId: "attempt:1", summary: "correct", accuracy: 1 }],
+        engagementEvidence: [],
+        companionObservations: [],
+        decision: { status: "supported", reason: "Ready for transfer", nextAction: "Generate Quest" },
+      }, { rootDir });
+      vi.mocked(runDirectBrowserSmokeCheck).mockResolvedValue({
+        passed: true,
+        failures: [],
+        screenshots: [path.join(rootDir, "quest.png")],
+      });
+      vi.mocked(judgeChildFacingScreens).mockResolvedValue({
+        decision: "reject",
+        observations: ["The picture contradicts the question."],
+      });
+
+      const result = await generateCanonicalProgressionArtifact({
+        childId: "reina",
+        homeworkId: "hw-progression",
+        generateHtml: async () => "<html><body><h1>Quest</h1></body></html>",
+      }, { rootDir });
+
+      expect(judgeChildFacingScreens).toHaveBeenCalledWith(expect.objectContaining({
+        screenshotPaths: [path.join(rootDir, "quest.png")],
+      }));
+      expect(result.nodes.find(node => node.role === "quest")?.artifactBinding).toBeNull();
+    } finally {
+      fs.rmSync(rootDir, { recursive: true, force: true });
+    }
+  });
+
   it("requires the shared full-journey gate for generated spelling instead of the legacy opening check", async () => {
     const rootDir = root();
     const initial = baseInput(); initial.domain = "spelling";

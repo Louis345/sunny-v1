@@ -3,7 +3,7 @@ import http from "node:http";
 import path from "node:path";
 import { createHash } from "node:crypto";
 
-export const DISCOVERY_VERIFIER_VERSION = 11;
+export const DISCOVERY_VERIFIER_VERSION = 12;
 
 export const DISCOVERY_RELEASE_VIEWPORTS = [
   { name: "generation", width: 1365, height: 768 },
@@ -12,7 +12,7 @@ export const DISCOVERY_RELEASE_VIEWPORTS = [
 
 export type DiscoveryVisualReviewAudit = {
   status: "approved" | "rejected_after_repair";
-  controllingGate: "browser";
+  controllingGate: "browser" | "browser_and_blind_vision";
   iterations: Array<{
     iteration: 1 | 2;
     htmlHash: string;
@@ -216,6 +216,7 @@ export async function reviewDiscoveryCandidate(input: {
   outputDir: string;
   render: (input: RenderInput) => Promise<DiscoveryRenderedScreenshots>;
   verify?: (html: string) => Promise<void>;
+  judge?: (input: { html: string; iteration: 1 | 2; screenshotPaths: string[] }) => Promise<string[]>;
   verificationKey?: string;
   repair: (input: RepairInput) => Promise<string>;
 }): Promise<{ html: string; audit: DiscoveryVisualReviewAudit }> {
@@ -257,7 +258,7 @@ export async function reviewDiscoveryCandidate(input: {
 
   const prior = iterations.at(-1);
   if (prior && prior.issues.length === 0 && prior.htmlHash === hash(html)) {
-    const audit: DiscoveryVisualReviewAudit = { status: "approved", controllingGate: "browser", iterations };
+    const audit: DiscoveryVisualReviewAudit = { status: "approved", controllingGate: input.judge ? "browser_and_blind_vision" : "browser", iterations };
     writeAudit(input.outputDir, audit);
     console.log(` 🎮 [adaptive-math] [visual-review] [reused] iteration=${prior.iteration}`);
     return { html, audit };
@@ -282,16 +283,19 @@ export async function reviewDiscoveryCandidate(input: {
       }
     }
     const iterationScreenshots = [...new Set([...screenshotPaths, ...verificationScreenshots])];
+    if (input.judge && iterationScreenshots.length > 0) {
+      deterministicIssues.push(...await input.judge({ html, iteration, screenshotPaths: iterationScreenshots }));
+    }
     const screenshotPath = iterationScreenshots[0] ?? "";
     if (!screenshotPath && deterministicIssues.length === 0) deterministicIssues.push("discovery_visual_screenshot_missing");
     iterations.push({ iteration, htmlHash: hash(html), screenshotPath, screenshotPaths: iterationScreenshots, issues: deterministicIssues });
     writeReviewCheckpoint(input.outputDir, { version: DISCOVERY_VERIFIER_VERSION, verificationKey, initialHtmlHash, html, iterations, repairConsumed });
-    console.log(` 🎮 [adaptive-math] [visual-review] [${deterministicIssues.length === 0 ? "approve" : "repair_required"}] iteration=${iteration} gate=browser`);
+    console.log(` 🎮 [adaptive-math] [visual-review] [${deterministicIssues.length === 0 ? "approve" : "repair_required"}] iteration=${iteration} gate=${input.judge ? "browser+blind-vision" : "browser"}`);
 
     if (deterministicIssues.length === 0) {
       const audit: DiscoveryVisualReviewAudit = {
         status: "approved",
-        controllingGate: "browser",
+        controllingGate: input.judge ? "browser_and_blind_vision" : "browser",
         iterations,
       };
       writeAudit(input.outputDir, audit);
@@ -307,7 +311,7 @@ export async function reviewDiscoveryCandidate(input: {
 
   const audit: DiscoveryVisualReviewAudit = {
     status: "rejected_after_repair",
-    controllingGate: "browser",
+    controllingGate: input.judge ? "browser_and_blind_vision" : "browser",
     iterations,
   };
   writeAudit(input.outputDir, audit);

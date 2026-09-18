@@ -1,6 +1,5 @@
 import fs from "fs";
 import path from "path";
-import Anthropic from "@anthropic-ai/sdk";
 import { getChildChart } from "../profiles/childChart";
 import type { ChildChart } from "../profiles/childChart";
 import { planBaselineShellsForHomework } from "./baselinePlannerIntegration";
@@ -20,6 +19,7 @@ import { readContentFeedbackLessons } from "./contentFeedbackMemory";
 import { ingestDiagnostic, ingestDiagnosticError } from "../utils/ingestOutput";
 import { baselineShellMatchesNodeContract } from "./baselineShellGap";
 import { resolveChildContextDir } from "../utils/contextRoot";
+import { judgeChildFacingScreens } from "./childFacingVisualGate";
 
 export type BaselineShellPipelineInput = {
   rootDir?: string;
@@ -148,70 +148,15 @@ export async function judgeBaselineShellDesign(input: {
   screenshotPaths: string[];
   model?: string;
 }): Promise<BaselineShellJudgeVerdict> {
-  if (!process.env.ANTHROPIC_API_KEY) {
-    return { decision: "approve", reason: "offline: playwright validation passed", lessons: [] };
-  }
-  const images = input.screenshotPaths
-    .filter((file) => fs.existsSync(file))
-    .slice(0, 3)
-    .map((file) => ({
-      type: "image" as const,
-      source: {
-        type: "base64" as const,
-        media_type: "image/png" as const,
-        data: fs.readFileSync(file).toString("base64"),
-      },
-    }));
-  if (images.length === 0) {
-    return { decision: "reject", reason: "no gameplay screenshots to judge", lessons: [] };
-  }
-  const client = new Anthropic();
-  const response = await client.messages.create({
-    model: input.model ?? "claude-sonnet-5",
-    max_tokens: 600,
-    tools: [{
-      name: "judge_generated_game",
-      description: "Judge whether a generated learning game is ready for a child to play.",
-      input_schema: {
-        type: "object",
-        required: ["decision", "reason"],
-        properties: {
-          decision: { type: "string", enum: ["approve", "reject"] },
-          reason: { type: "string" },
-          lessons: { type: "array", items: { type: "string" }, maxItems: 3 },
-        },
-      },
-    }],
-    tool_choice: { type: "tool", name: "judge_generated_game" },
-    messages: [{
-      role: "user",
-      content: [
-        ...images,
-        {
-          type: "text" as const,
-          text: [
-            "These are load/midplay/completion screenshots of a generated learning game for an early-elementary child.",
-            `Intended mechanic: ${input.brief.mechanic}`,
-            `Theme: ${input.brief.theme}. Skill target: ${input.brief.skillTarget}.`,
-            "Independent word-problem rounds may use different objects (for example pencils, stars, or flowers); judge whether each round expresses the same mechanic, not whether every round uses one decorative object.",
-            "Approve only if: prompts/text are readable, real interactivity is visible across the screenshots, the mechanic matches the brief, and the content is age-appropriate.",
-            "Reject with a concrete reason and up to 3 reusable design lessons otherwise.",
-          ].join("\n"),
-        },
-      ],
-    }],
+  void input.brief;
+  const verdict = await judgeChildFacingScreens({
+    screenshotPaths: input.screenshotPaths,
+    ...(input.model ? { model: input.model } : {}),
   });
-  const toolUse = response.content.find((block) => block.type === "tool_use");
-  const verdict = toolUse?.type === "tool_use"
-    ? (toolUse.input as Partial<BaselineShellJudgeVerdict>)
-    : undefined;
-  if (verdict?.decision !== "approve" && verdict?.decision !== "reject") {
-    return { decision: "reject", reason: "judge returned no usable verdict", lessons: [] };
-  }
   return {
     decision: verdict.decision,
-    reason: verdict.reason ?? "",
-    lessons: verdict.lessons ?? [],
+    reason: verdict.observations.join(" ") || "Blind visual review found no child-visible defect.",
+    lessons: verdict.observations.slice(0, 3),
   };
 }
 

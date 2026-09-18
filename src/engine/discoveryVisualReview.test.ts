@@ -22,10 +22,10 @@ function activeHandles(): unknown[] {
 
 describe("Discovery visual review", () => {
   it("invalidates prior unscoped-control verdicts without resetting paid repair receipts", () => {
-    expect(DISCOVERY_VERIFIER_VERSION).toBe(11);
+    expect(DISCOVERY_VERIFIER_VERSION).toBe(12);
   });
 
-  it("keeps paid Fable and Haiku reviewers out of the production visual gate", () => {
+  it("keeps provider and model selection out of browser mechanics", () => {
     const source = fs.readFileSync(path.join(process.cwd(), "src/engine/discoveryVisualReview.ts"), "utf8");
 
     expect(source).not.toContain("claude-fable");
@@ -38,6 +38,31 @@ describe("Discovery visual review", () => {
       { name: "generation", width: 1365, height: 768 },
       { name: "sunny", width: 1280, height: 720 },
     ]);
+  });
+
+  it("routes blind screenshot findings through the bounded Discovery repair", async () => {
+    const outputDir = dir();
+    const screenshot = path.join(outputDir, "child-visible.png");
+    fs.writeFileSync(screenshot, "recorded screenshot");
+    const repair = vi.fn(async () => "repaired");
+    const judge = vi.fn(async ({ html }: { html: string }) => html === "broken"
+      ? ["child_visual_review:The representation contradicts the prompt."]
+      : []);
+
+    const result = await reviewDiscoveryCandidate({
+      html: "broken",
+      outputDir,
+      render: vi.fn(async () => Object.assign([screenshot], { issues: [] })),
+      judge,
+      repair,
+    });
+
+    expect(result.html).toBe("repaired");
+    expect(judge).toHaveBeenCalledTimes(2);
+    expect(repair).toHaveBeenCalledWith(expect.objectContaining({
+      issues: ["child_visual_review:The representation contradicts the prompt."],
+      screenshotPaths: [screenshot],
+    }));
   });
   it("closes the temporary HTML server when browser launch fails", async () => {
     const handlesBefore = new Set(activeHandles());

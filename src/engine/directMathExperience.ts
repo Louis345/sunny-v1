@@ -518,7 +518,7 @@ export type DirectGenerationStats = {
   bonusDeferred: boolean;
 };
 
-export const MATH_BROWSER_VERIFIER_VERSION = 7;
+export const MATH_BROWSER_VERIFIER_VERSION = 8;
 
 export type DirectPlaywrightReport = {
   passed: boolean;

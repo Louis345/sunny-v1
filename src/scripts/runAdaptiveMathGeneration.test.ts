@@ -9,6 +9,7 @@ import { getLearningCycle, projectLearningCycle, transitionLearningCycle } from 
 import { runAdaptiveMathGeneration } from "./runAdaptiveMathGeneration";
 import { askMathExperienceDesigner, generateDirectArtifacts, repairDirectArtifact, runDirectBrowserSmokeCheck } from "../engine/directMathExperience";
 import { recordEngineeringRepairEvidence } from "../engine/discoveryVisualReview";
+import { judgeChildFacingScreens } from "../engine/childFacingVisualGate";
 
 vi.mock("../profiles/childChart", () => ({ getChildChart: () => ({
   identity: { displayName: "Lab" }, demographics: { age: 9, grade: 3 },
@@ -20,6 +21,9 @@ vi.mock("../engine/directMathExperience", async (original) => ({
   askDirectMathPlanner: vi.fn(() => { throw new Error("unexpected_paid_planner"); }),
   askMathExperienceDesigner: vi.fn(() => { throw new Error("unexpected_paid_creator"); }),
   generateDirectArtifacts: vi.fn(), repairDirectArtifact: vi.fn(), runDirectBrowserSmokeCheck: vi.fn(),
+}));
+vi.mock("../engine/childFacingVisualGate", () => ({
+  judgeChildFacingScreens: vi.fn(),
 }));
 let rootDir: string;
 const childId = "reina", homeworkId = "hw-worker-lab";
@@ -52,6 +56,7 @@ beforeEach(() => {
     return { artifacts: [{ childId, homeworkId, nodeId, title: nodeId, htmlPath, htmlHash: createHash("sha256").update(fs.readFileSync(htmlPath)).digest("hex"), artworkUrl: "/art.svg", creatorPrompt: "fixture", promptHash: "prompt", plannerModel: "mock", creatorModel: "mock" }], backgroundUrl: "/art.svg", questArtworkUrl: "/quest.svg", bossArtworkUrl: "/boss.svg", stats: { generatedNodeIds: [nodeId], reusedNodeIds: [], generatedImages: 0, reusedImages: 0, bonusDeferred: true } };
   });
   vi.mocked(runDirectBrowserSmokeCheck).mockResolvedValue({ passed: true, failures: [], screenshots: ["lab.png"] });
+  vi.mocked(judgeChildFacingScreens).mockResolvedValue({ decision: "approve", observations: [] });
   vi.mocked(repairDirectArtifact).mockImplementation(async ({ artifact }) => {
     fs.appendFileSync(artifact.htmlPath, "<!-- recorded repair -->");
     return { ...artifact, htmlHash: createHash("sha256").update(fs.readFileSync(artifact.htmlPath)).digest("hex") };
@@ -98,6 +103,23 @@ it("does not publish a browser-invalid artifact", async () => {
   await runAdaptiveMathGeneration(childId, homeworkId, rootDir);
   expect(runDirectBrowserSmokeCheck).toHaveBeenCalled();
   expect(getLearningCycle(childId, homeworkId, { rootDir })!.nodes.filter(n => n.role === "baseline").every(n => n.artifactBinding === null)).toBe(true);
+  expect(getMathGenerationStatus(childId, homeworkId, { rootDir })?.phase).not.toBe("board_ready");
+});
+
+it("does not publish a child-visible artifact rejected by blind screenshot review", async () => {
+  vi.mocked(judgeChildFacingScreens).mockResolvedValue({
+    decision: "reject",
+    observations: ["The clock hands visibly contradict the question."],
+  });
+
+  await runAdaptiveMathGeneration(childId, homeworkId, rootDir);
+
+  expect(judgeChildFacingScreens).toHaveBeenCalledWith(expect.objectContaining({
+    screenshotPaths: ["lab.png"],
+  }));
+  expect(getLearningCycle(childId, homeworkId, { rootDir })!.nodes
+    .filter(node => node.role === "baseline")
+    .every(node => node.artifactBinding === null)).toBe(true);
   expect(getMathGenerationStatus(childId, homeworkId, { rootDir })?.phase).not.toBe("board_ready");
 });
 
