@@ -518,7 +518,7 @@ export type DirectGenerationStats = {
   bonusDeferred: boolean;
 };
 
-export const MATH_BROWSER_VERIFIER_VERSION = 8;
+export const MATH_BROWSER_VERIFIER_VERSION = 9;
 
 export type DirectPlaywrightReport = {
   passed: boolean;
@@ -2689,7 +2689,11 @@ export async function runDirectBrowserSmokeCheck(input: {
         const navigation = await page.goto(`http://127.0.0.1:${address.port}${launchPath}`, { waitUntil: "load" });
         if (navigation?.status() !== 200 || !navigation.headers()["content-type"]?.includes("text/html")) throw new Error("real_launch_not_html");
         await assertMathControlsVisible(page);
-        await verifyMathControlJourney(page, { completionType: "node_complete", itemIds: artifact.itemIds });
+        await verifyMathControlJourney(page, {
+          completionType: "node_complete",
+          itemIds: artifact.itemIds,
+          requireItemStateTransitions: Boolean(artifact.itemIds?.length),
+        });
       } catch (error) {
         failures.push(`${artifact.nodeId}:${viewport.name}:${error instanceof Error ? error.message : String(error)}`);
       } finally {

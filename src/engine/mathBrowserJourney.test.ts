@@ -8,11 +8,11 @@ import { runDirectBrowserSmokeCheck } from "./directMathExperience";
 
 const roots: string[] = [];
 afterEach(() => roots.splice(0).forEach(root => fs.rmSync(root, { recursive: true, force: true })));
-async function verify(body: string) {
+async function verify(body: string, itemIds?: string[]) {
   const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-browser-journey-")); roots.push(rootDir);
   const htmlPath = path.join(rootDir, "node.html");
   fs.writeFileSync(htmlPath, `<!doctype html><h1>Lab</h1>${body}`);
-  return runDirectBrowserSmokeCheck({ rootDir, artifacts: [{ nodeId: "node", childId: "lab", homeworkId: "hw-lab", title: "Lab", htmlPath, artworkUrl: "/art.svg", creatorPrompt: "fixture", promptHash: "fixture", plannerModel: "mock", creatorModel: "mock" }] });
+  return runDirectBrowserSmokeCheck({ rootDir, artifacts: [{ nodeId: "node", childId: "lab", homeworkId: "hw-lab", title: "Lab", htmlPath, artworkUrl: "/art.svg", creatorPrompt: "fixture", promptHash: "fixture", plannerModel: "mock", creatorModel: "mock", ...(itemIds ? { itemIds } : {}) }] });
 }
 const journey = `<script>window.SUNNY_VALIDATION_HOOKS={journey:[{itemId:'one',steps:[{action:'click',selector:'#answer'}]}]};</script>`;
 it("accepts the teaching attempt protocol before a later completion", async () => {
@@ -141,6 +141,165 @@ it("still rejects that same point if it lacks semantics when its question activa
 
 it("waits for an existing graph point to become actionable after the prior answer transition", async () => {
   const result=await verify(stagedGraph(true,650));
+  expect(result.failures).toEqual([]);
+},20000);
+
+it("waits for the next item identity before reusing persistent controls", async () => {
+  const result = await verify(`<p id="prompt">First prompt</p><button id="answer">Commit answer</button>
+    <script>
+    const rows=[];let active='one',prompt='First prompt';
+    window.SUNNY_VALIDATION_HOOKS={journey:[
+      {itemId:'one',steps:[{action:'click',selector:'#answer'}]},
+      {itemId:'two',steps:[{action:'click',selector:'#answer'}]}
+    ]};
+    const report=()=>parent.postMessage({type:'game_state_update',payload:{currentChallenge:{id:active,prompt}}},'*');
+    document.querySelector('#answer').onclick=()=>{
+      const item=active;
+      rows.push({target:item,attemptedValue:item});
+      parent.postMessage({type:'attempt_event',payload:{target:item,attemptedValue:item}},'*');
+      if(item==='one')setTimeout(()=>{active='two';prompt='Second prompt';document.querySelector('#prompt').textContent=prompt;report()},180);
+      else parent.postMessage({type:'node_complete',payload:{targetResults:rows}},'*');
+    };
+    report();
+    </script>`);
+  expect(result.failures).toEqual([]);
+},20000);
+
+it("rejects a next-item state announcement while the prior stimulus is still visible", async () => {
+  const result = await verify(`<p id="prompt">First prompt</p><button id="answer">Commit answer</button>
+    <script>
+    const rows=[];let active='one';
+    window.SUNNY_VALIDATION_HOOKS={journey:[
+      {itemId:'one',steps:[{action:'click',selector:'#answer'}]},
+      {itemId:'two',steps:[{action:'click',selector:'#answer'}]}
+    ]};
+    const report=(id,prompt)=>parent.postMessage({type:'game_state_update',payload:{currentChallenge:{id,prompt}}},'*');
+    document.querySelector('#answer').onclick=()=>{
+      const item=active;
+      rows.push({target:item,attemptedValue:item});
+      parent.postMessage({type:'attempt_event',payload:{target:item,attemptedValue:item}},'*');
+      if(item==='one'){
+        active='two';report('two','Second prompt');
+        setTimeout(()=>{document.querySelector('#prompt').textContent='Second prompt'},5000);
+      } else parent.postMessage({type:'node_complete',payload:{targetResults:rows}},'*');
+    };
+    report('one','First prompt');
+    </script>`);
+  expect(result.passed).toBe(false);
+  expect(result.failures.join("|")).toContain("math_journey_item_state_not_visible;item=two");
+},20000);
+
+it("rejects state announced before a shortly delayed prompt render", async () => {
+  const result = await verify(`<p id="prompt">First prompt</p><button id="answer">Commit answer</button>
+    <script>
+    const rows=[];let active='one';
+    window.SUNNY_VALIDATION_HOOKS={journey:[
+      {itemId:'one',steps:[{action:'click',selector:'#answer'}]},
+      {itemId:'two',steps:[{action:'click',selector:'#answer'}]}
+    ]};
+    const report=(id,prompt)=>parent.postMessage({type:'game_state_update',payload:{currentChallenge:{id,prompt}}},'*');
+    document.querySelector('#answer').onclick=()=>{
+      const item=active;rows.push({target:item,attemptedValue:item});parent.postMessage({type:'attempt_event',payload:{target:item,attemptedValue:item}},'*');
+      if(item==='one'){active='two';report('two','Second prompt');setTimeout(()=>{document.querySelector('#prompt').textContent='Second prompt'},180);}
+      else parent.postMessage({type:'node_complete',payload:{targetResults:rows}},'*');
+    };
+    report('one','First prompt');
+    </script>`, ["one", "two"]);
+  expect(result.passed).toBe(false);
+  expect(result.failures.join("|")).toContain("math_journey_item_state_not_visible;item=two");
+},20000);
+
+it("does not accept the next prompt when it exists only outside the viewport", async () => {
+  const result = await verify(`<p id="prompt">First prompt</p><p style="position:absolute;left:-10000px">Second prompt</p><button id="answer">Commit answer</button>
+    <script>
+    const rows=[];let active='one';
+    window.SUNNY_VALIDATION_HOOKS={journey:[
+      {itemId:'one',steps:[{action:'click',selector:'#answer'}]},
+      {itemId:'two',steps:[{action:'click',selector:'#answer'}]}
+    ]};
+    const report=(id,prompt)=>parent.postMessage({type:'game_state_update',payload:{currentChallenge:{id,prompt}}},'*');
+    document.querySelector('#answer').onclick=()=>{
+      const item=active;
+      rows.push({target:item,attemptedValue:item});
+      parent.postMessage({type:'attempt_event',payload:{target:item,attemptedValue:item}},'*');
+      if(item==='one'){active='two';report('two','Second prompt');}
+      else parent.postMessage({type:'node_complete',payload:{targetResults:rows}},'*');
+    };
+    report('one','First prompt');
+    </script>`);
+  expect(result.passed).toBe(false);
+  expect(result.failures.join("|")).toContain("math_journey_item_state_not_visible;item=two");
+},20000);
+
+it("rejects reused controls when the activity omits item-state transitions", async () => {
+  const result = await verify(`<p>First prompt</p><button id="answer">Commit answer</button>
+    <script>
+    const rows=[];let active='one';
+    window.SUNNY_VALIDATION_HOOKS={journey:[
+      {itemId:'one',steps:[{action:'click',selector:'#answer'}]},
+      {itemId:'two',steps:[{action:'click',selector:'#answer'}]}
+    ]};
+    document.querySelector('#answer').onclick=()=>{
+      const item=active;
+      rows.push({target:item,attemptedValue:item});
+      parent.postMessage({type:'attempt_event',payload:{target:item,attemptedValue:item}},'*');
+      if(item==='one')active='two';
+      else parent.postMessage({type:'node_complete',payload:{targetResults:rows}},'*');
+    };
+    </script>`);
+  expect(result.passed).toBe(false);
+  expect(result.failures.join("|")).toContain("math_journey_item_state_missing;item=two");
+},20000);
+
+it("recognizes selector aliases that resolve to the same persistent control", async () => {
+  const result = await verify(`<p>First prompt</p><button id="answer">Commit answer</button>
+    <script>
+    const rows=[];let active='one';
+    window.SUNNY_VALIDATION_HOOKS={journey:[
+      {itemId:'one',steps:[{action:'click',selector:'#answer'}]},
+      {itemId:'two',steps:[{action:'click',selector:'button#answer'}]}
+    ]};
+    document.querySelector('#answer').onclick=()=>{
+      const item=active;
+      rows.push({target:item,attemptedValue:item});
+      parent.postMessage({type:'attempt_event',payload:{target:item,attemptedValue:item}},'*');
+      if(item==='one')active='two';
+      else parent.postMessage({type:'node_complete',payload:{targetResults:rows}},'*');
+    };
+    </script>`);
+  expect(result.passed).toBe(false);
+  expect(result.failures.join("|")).toContain("math_journey_item_state_missing;item=two");
+},20000);
+
+it("requires item-state transitions for a current frozen journey even when controls differ", async () => {
+  const result = await verify(`<p>First prompt</p><button id="one">First</button><button id="two">Second</button>
+    <script>
+    const rows=[];
+    window.SUNNY_VALIDATION_HOOKS={journey:[
+      {itemId:'one',steps:[{action:'click',selector:'#one'}]},
+      {itemId:'two',steps:[{action:'click',selector:'#two'}]}
+    ]};
+    document.querySelector('#one').onclick=()=>{rows.push({target:'one',attemptedValue:'one'});parent.postMessage({type:'attempt_event',payload:rows.at(-1)},'*');};
+    document.querySelector('#two').onclick=()=>{rows.push({target:'two',attemptedValue:'two'});parent.postMessage({type:'attempt_event',payload:rows.at(-1)},'*');parent.postMessage({type:'node_complete',payload:{targetResults:rows}},'*');};
+    </script>`, ["one", "two"]);
+  expect(result.passed).toBe(false);
+  expect(result.failures.join("|")).toContain("math_journey_item_state_missing;item=two");
+},20000);
+
+it("waits for a frozen journey's first item-state event after the transition", async () => {
+  const result = await verify(`<p id="prompt">First prompt</p><button id="one">First</button><button id="two" hidden>Second</button>
+    <script>
+    const rows=[];
+    window.SUNNY_VALIDATION_HOOKS={journey:[
+      {itemId:'one',steps:[{action:'click',selector:'#one'}]},
+      {itemId:'two',steps:[{action:'click',selector:'#two'}]}
+    ]};
+    document.querySelector('#one').onclick=()=>{
+      rows.push({target:'one',attemptedValue:'one'});parent.postMessage({type:'attempt_event',payload:rows.at(-1)},'*');
+      setTimeout(()=>{document.querySelector('#prompt').textContent='Second prompt';document.querySelector('#one').hidden=true;document.querySelector('#two').hidden=false;parent.postMessage({type:'game_state_update',payload:{currentChallenge:{id:'two',prompt:'Second prompt'}}},'*');},180);
+    };
+    document.querySelector('#two').onclick=()=>{rows.push({target:'two',attemptedValue:'two'});parent.postMessage({type:'attempt_event',payload:rows.at(-1)},'*');parent.postMessage({type:'node_complete',payload:{targetResults:rows}},'*');};
+    </script>`, ["one", "two"]);
   expect(result.failures).toEqual([]);
 },20000);
 

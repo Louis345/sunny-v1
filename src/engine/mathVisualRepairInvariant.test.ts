@@ -123,7 +123,9 @@ describe("generated math control diagnostics", () => {
         {itemId:"item-2",steps:[{action:"click",selector:"#second"}]}
       ]};
       const attempt=(id,value)=>parent.postMessage({type:"evaluation_attempt",payload:{attemptId:"a-"+id,itemId:id,attemptedValue:value,supportEventIds:[],instrumentSignals:[],observedAt:new Date().toISOString()}},"*");
-      document.querySelector("#first").onclick=()=>{attempt("item-1","one");setTimeout(()=>{document.querySelector("#first").hidden=true;document.querySelector("#second").hidden=false;},300)};
+      const state=(id,prompt)=>parent.postMessage({type:"game_state_update",payload:{currentChallenge:{id,prompt}}},"*");
+      state("item-1","First answer");
+      document.querySelector("#first").onclick=()=>{attempt("item-1","one");setTimeout(()=>{document.querySelector("#first").hidden=true;document.querySelector("#second").hidden=false;state("item-2","Second answer");},300)};
       document.querySelector("#second").onclick=()=>{attempt("item-2","two");parent.postMessage({type:"evaluation_complete"},"*")};
       </script></body></html>`;
 
@@ -147,11 +149,13 @@ describe("generated math control diagnostics", () => {
       ]};
       let current=1, settling=false;
       const attempt=(id)=>parent.postMessage({type:"evaluation_attempt",payload:{attemptId:"a-"+id,itemId:id,attemptedValue:String(id),supportEventIds:[],instrumentSignals:[],observedAt:new Date().toISOString()}},"*");
+      const state=(id,prompt)=>parent.postMessage({type:"game_state_update",payload:{currentChallenge:{id,prompt}}},"*");
+      state("item-1","Answer one");
       document.querySelector("#answer").onclick=()=>{
         if(settling){ parent.postMessage({type:"premature_second_click"},"*"); return; }
         if(current===1){
           settling=true;
-          setTimeout(()=>{ attempt("item-1"); current=2; settling=false; document.querySelector("#answer").textContent="Answer two"; },500);
+          setTimeout(()=>{ attempt("item-1"); current=2; settling=false; document.querySelector("#answer").textContent="Answer two"; state("item-2","Answer two"); },500);
         } else {
           attempt("item-2"); parent.postMessage({type:"evaluation_complete"},"*");
         }
@@ -180,11 +184,13 @@ describe("generated math control diagnostics", () => {
       ]};
       let current=1;
       const attempt=(id)=>parent.postMessage({type:"evaluation_attempt",payload:{attemptId:"a-"+id,itemId:id,attemptedValue:String(id),supportEventIds:[],instrumentSignals:[],observedAt:new Date().toISOString()}},"*");
+      const state=(id,prompt)=>parent.postMessage({type:"game_state_update",payload:{currentChallenge:{id,prompt}}},"*");
+      state("item-1","Answer one");
       document.querySelector("#answer").onclick=()=>{
         if(current===1){
           attempt("item-1");
           const ack=document.createElement("div"); ack.id="ack"; document.body.appendChild(ack);
-          setTimeout(()=>{ current=2; document.querySelector("#answer").textContent="Answer two"; ack.remove(); },500);
+          setTimeout(()=>{ current=2; document.querySelector("#answer").textContent="Answer two"; ack.remove(); state("item-2","Answer two"); },500);
         } else {
           attempt("item-2"); parent.postMessage({type:"evaluation_complete"},"*");
         }
