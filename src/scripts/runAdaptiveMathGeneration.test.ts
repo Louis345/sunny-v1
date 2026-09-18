@@ -4,10 +4,10 @@ import path from "node:path";
 import { createHash } from "node:crypto";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { plan, learningProgram } from "./fixtures/adaptiveMathRelease";
-import { createDiscoveryLearningCycle, completeDiscoveryEvaluation, recordDiscoveryAttempt, getMathGenerationStatus } from "../engine/adaptiveMathDiscovery";
+import { createDiscoveryLearningCycle, completeDiscoveryEvaluation, recordDiscoveryAttempt, getMathGenerationStatus, setMathGenerationPhase } from "../engine/adaptiveMathDiscovery";
 import { getLearningCycle, projectLearningCycle, transitionLearningCycle } from "../engine/learningCycleRepository";
 import { runAdaptiveMathGeneration } from "./runAdaptiveMathGeneration";
-import { askMathExperienceDesigner, generateDirectArtifacts, repairDirectArtifact, runDirectBrowserSmokeCheck } from "../engine/directMathExperience";
+import { askDirectMathPlanner, askMathExperienceDesigner, generateDirectArtifacts, repairDirectArtifact, runDirectBrowserSmokeCheck } from "../engine/directMathExperience";
 import { recordEngineeringRepairEvidence } from "../engine/discoveryVisualReview";
 import { judgeChildFacingScreens } from "../engine/childFacingVisualGate";
 
@@ -77,6 +77,29 @@ it("reports board design before nodes exist and saves a stopped phase on provide
   await runAdaptiveMathGeneration(childId,homeworkId,rootDir);
   expect(askMathExperienceDesigner).toHaveBeenCalledTimes(1);
   expect(generateDirectArtifacts).not.toHaveBeenCalled();
+});
+
+it("resumes a saved Planner response after a contract fix without buying the plan again", async () => {
+  const draft=path.join(rootDir,"src/context",childId,"homework/direct-drafts",homeworkId);
+  fs.rmSync(path.join(draft,"math-learning-program.json"));
+  const clockProgram=learningProgram(2);
+  clockProgram.concept.conceptId="clock.minute_tick_count_from_12_by_fives";
+  const responseFile=path.join(draft,"provider-diagnostics","targeted-planner-response.json");
+  fs.mkdirSync(path.dirname(responseFile),{recursive:true});
+  fs.writeFileSync(responseFile,JSON.stringify({
+    model:"saved-planner",
+    stopReason:"tool_use",
+    usage:{input_tokens:1,output_tokens:1},
+    content:[{type:"tool_use",name:"create_math_learning_program",input:clockProgram}],
+  }));
+  setMathGenerationPhase({rootDir,childId,homeworkId,phase:"needs_attention",error:"concept_id_contains_instance:clock.minute_tick_count_from_12_by_fives"});
+
+  await runAdaptiveMathGeneration(childId,homeworkId,rootDir);
+
+  expect(askDirectMathPlanner).not.toHaveBeenCalled();
+  expect(JSON.parse(fs.readFileSync(path.join(draft,"math-learning-program.json"),"utf8")).concept.conceptId)
+    .toBe("clock.minute_tick_count_from_12_by_fives");
+  expect(getMathGenerationStatus(childId,homeworkId,{rootDir})?.phase).toBe("board_ready");
 });
 
 it("freezes predictions and binds the first verified node while a sibling fails", async () => {

@@ -363,13 +363,15 @@ describe("assignment concept", () => {
       .every((item) => item.lineage.measurementRole === "practice")).toBe(true);
   });
 
-  it("rejects a concept id that carries the assignment's numbers", () => {
-    // Reina's cycle accumulated five ids like math.multiplication.fact_retrieval.x2x5x10
-    // for three ideas, so nothing matched across cycles.
-    const withInstance = learningProgram();
-    withInstance.concept.conceptId = "multiplication_x2x5x10";
-    expect(() => parseMathLearningProgram(withInstance))
-      .toThrow(/concept_id_contains_instance/);
+  it("keeps a Planner-authored clock identity when its number is intrinsic to the concept", () => {
+    const clockProgram = learningProgram();
+    clockProgram.concept.conceptId = "clock.minute_tick_count_from_12_by_fives";
+    clockProgram.concept.instanceScope = "Read the clocks shown on this assignment.";
+
+    expect(parseMathLearningProgram(clockProgram).concept).toMatchObject({
+      conceptId: "clock.minute_tick_count_from_12_by_fives",
+      instanceScope: "Read the clocks shown on this assignment.",
+    });
   });
 
   it("keeps the worksheet's numbers in instanceScope, not the identity", () => {

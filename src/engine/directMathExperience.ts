@@ -599,10 +599,9 @@ function requiredNumber(record: Record<string, unknown>, key: string): number {
   return value;
 }
 
-export function assertInstanceFreeConceptId(conceptId: string): string {
+export function assertConceptId(conceptId: string): string {
   const trimmed = conceptId.trim();
   if (!trimmed) throw new Error("direct_plan_invalid_concept_id");
-  if (/\d/.test(trimmed)) throw new Error(`concept_id_contains_instance:${trimmed}`);
   return trimmed;
 }
 
@@ -610,7 +609,7 @@ export function parseAssignmentConcept(value: unknown): AssignmentConcept {
   const record = object(value);
   if (!record) throw new Error("direct_plan_missing_concept");
   return {
-    conceptId: assertInstanceFreeConceptId(requiredString(record, "conceptId")),
+    conceptId: assertConceptId(requiredString(record, "conceptId")),
     name: requiredString(record, "name"),
     statement: requiredString(record, "statement"),
     instanceScope: requiredString(record, "instanceScope"),
@@ -681,7 +680,7 @@ export function parseMathLearningProgram(value: unknown): MathLearningProgram {
   const conceptRecord = object(root.concept);
   if (!conceptRecord) throw new Error("math_learning_program_missing_concept");
   const concept = {
-    conceptId: assertInstanceFreeConceptId(requiredString(conceptRecord, "conceptId")),
+    conceptId: assertConceptId(requiredString(conceptRecord, "conceptId")),
     name: requiredString(conceptRecord, "name"),
     statement: requiredString(conceptRecord, "statement"),
     instanceScope: requiredString(conceptRecord, "instanceScope"),
@@ -758,7 +757,7 @@ export function parseMathLearningProgram(value: unknown): MathLearningProgram {
       },
       items,
       academicPrediction: {
-        constructId: assertInstanceFreeConceptId(requiredString(prediction, "constructId")),
+        constructId: assertConceptId(requiredString(prediction, "constructId")),
         context: requiredString(prediction, "context"),
         horizon: requiredString(prediction, "horizon"),
         ...predictionEligibility(prediction),
@@ -866,6 +865,21 @@ export function parseMathLearningProgram(value: unknown): MathLearningProgram {
   };
 }
 
+export function parseSavedDirectMathPlannerResponse(
+  value: unknown,
+  maxTokens = Number(process.env.SUNNY_PLANNER_MAX_TOKENS ?? 32000),
+): MathLearningProgram {
+  const response = object(value);
+  const content = Array.isArray(response?.content) ? response.content : [];
+  const toolUse = content.map(object).find((block) =>
+    block?.type === "tool_use" && block.name === "create_math_learning_program");
+  if (!toolUse) throw new Error("direct_planner_tool_output_missing");
+  if (response?.stopReason === "max_tokens" || response?.stop_reason === "max_tokens") {
+    throw new Error(`direct_planner_plan_truncated:raise planner max tokens above ${maxTokens}`);
+  }
+  return parseMathLearningProgram(toolUse.input);
+}
+
 export function parseDirectLearningExperiencePlan(value: unknown): DirectLearningExperiencePlan {
   const root = object(value);
   if (!root) throw new Error("direct_plan_must_be_object");
@@ -965,7 +979,7 @@ export function parseDirectLearningExperiencePlan(value: unknown): DirectLearnin
       creatorPrompt: requiredString(activity, "creatorPrompt"),
       designPrediction: requiredString(activity, "designPrediction"),
       academicPrediction: {
-        constructId: assertInstanceFreeConceptId(requiredString(academicPrediction, "constructId")),
+        constructId: assertConceptId(requiredString(academicPrediction, "constructId")),
         context: requiredString(academicPrediction, "context"),
         horizon: requiredString(academicPrediction, "horizon"),
         ...predictionEligibility(academicPrediction),
@@ -1835,7 +1849,6 @@ ${JSON.stringify(factualModelContext(input.priorOutcomes ?? []), null, 2)}`;
     }],
     tool_choice: { type: "tool", name: toolName },
   }, { timeout: Number(process.env.SUNNY_AI_TIMEOUT_MS ?? 600000) }).finalMessage();
-  const toolUse = response.content.find((block) => block.type === "tool_use" && block.name === toolName);
   if (input.rawResponseFile) {
     fs.mkdirSync(path.dirname(input.rawResponseFile), { recursive: true });
     fs.writeFileSync(input.rawResponseFile, `${JSON.stringify({
@@ -1845,16 +1858,10 @@ ${JSON.stringify(factualModelContext(input.priorOutcomes ?? []), null, 2)}`;
       content: response.content,
     }, null, 2)}\n`, "utf8");
   }
-  if (!toolUse || toolUse.type !== "tool_use") throw new Error("direct_planner_tool_output_missing");
-  // A plan cut off at the token ceiling arrives structurally incomplete, and the
-  // schema parser then blames whichever field happened to be truncated away
-  // ("requires activities"), which sends you looking in the wrong place.
-  if (response.stop_reason === "max_tokens") {
-    throw new Error(
-      `direct_planner_plan_truncated:raise planner max tokens above ${input.maxTokens ?? process.env.SUNNY_PLANNER_MAX_TOKENS ?? 32000}`,
-    );
-  }
-  return parseMathLearningProgram(toolUse.input);
+  return parseSavedDirectMathPlannerResponse({
+    stopReason: response.stop_reason,
+    content: response.content,
+  }, input.maxTokens ?? Number(process.env.SUNNY_PLANNER_MAX_TOKENS ?? 32000));
 }
 
 async function download(url: string, destination: string): Promise<void> {

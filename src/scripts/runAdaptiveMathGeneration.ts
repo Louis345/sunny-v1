@@ -7,7 +7,7 @@ import { getChildChart } from "../profiles/childChart";
 import { readPriorConceptIds } from "../engine/assignmentLedger";
 import {
   askDirectMathPlanner, askMathExperienceDesigner, buildDirectActiveSessionPlan,
-  buildMathCreativeChildContext, generateDirectArtifacts, parseMathLearningProgram,
+  buildMathCreativeChildContext, generateDirectArtifacts, parseMathLearningProgram, parseSavedDirectMathPlannerResponse,
   repairDirectArtifact,
   persistDirectExperience, buildDirectLearningCycleInput, runDirectBrowserSmokeCheck, mathPlannerCandidateCards, MATH_BROWSER_VERIFIER_VERSION, type DirectPlaywrightReport, type DirectArtifact, type DirectLearningExperiencePlan,
   type MathDesignPacket, type MathLearningProgram,
@@ -66,11 +66,21 @@ export async function runAdaptiveMathGeneration(childId: string, homeworkId: str
   const designFile = path.join(draft, "design-packet.json");
   const planFile = path.join(draft, "designed-plan.json");
   const buildFile = path.join(draft, "candidate-build-v3.json");
+  const rawPlannerResponseFile = path.join(draft, "provider-diagnostics", "targeted-planner-response.json");
   const cycle = getLearningCycle(childId, homeworkId, { rootDir });
   if (!cycle) throw new Error(`learning_cycle_missing:${homeworkId}`);
   if (cycle.domain === "spelling") return runSpellingTargetedGeneration(childId, homeworkId, rootDir);
   const initialJob = getMathGenerationStatus(childId, homeworkId, { rootDir });
-  if (initialJob?.phase === "needs_attention") {
+  let recoveredProgram: MathLearningProgram | undefined;
+  if (!fs.existsSync(programFile) && fs.existsSync(rawPlannerResponseFile)) {
+    try {
+      recoveredProgram = parseSavedDirectMathPlannerResponse(read(rawPlannerResponseFile));
+      console.log(` 🎮 [adaptive-math] [targeted-planner] [revalidated] child=${childId} homework=${homeworkId}`);
+    } catch (error) {
+      console.log(` 🎮 [adaptive-math] [targeted-planner] [saved-response-still-invalid] child=${childId} homework=${homeworkId} reason=${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+  if (initialJob?.phase === "needs_attention" && !recoveredProgram) {
     console.log(` 🎮 [adaptive-math] [worker] [no-work] child=${childId} homework=${homeworkId} phase=${initialJob.phase}`);
     return;
   }
@@ -84,14 +94,14 @@ export async function runAdaptiveMathGeneration(childId: string, homeworkId: str
     : undefined;
   const program: MathLearningProgram = fs.existsSync(programFile)
     ? parseMathLearningProgram(read(programFile))
-    : await askDirectMathPlanner({
+    : recoveredProgram ?? await askDirectMathPlanner({
       childId,
       chart,
       extraction,
       priorConceptIds: readPriorConceptIds(childId, { rootDir }),
       priorOutcomes: { discoveryCycle: cycle },
       discoveryEvidenceSummary,
-      rawResponseFile: path.join(draft, "provider-diagnostics", "targeted-planner-response.json"),
+      rawResponseFile: rawPlannerResponseFile,
     });
   write(programFile, program);
   if (!fs.existsSync(designFile) || !fs.existsSync(planFile)) setMathGenerationPhase({rootDir,childId,homeworkId,phase:"board_designing"});
