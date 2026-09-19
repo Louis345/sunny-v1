@@ -5,6 +5,7 @@ import { afterEach, expect, it, vi } from "vitest";
 import {
   CHILD_FACING_VISUAL_PROMPT,
   judgeChildFacingScreens,
+  selectChildFacingJourneyScreens,
 } from "./childFacingVisualGate";
 
 const roots: string[] = [];
@@ -21,6 +22,19 @@ afterEach(() => {
   vi.unstubAllEnvs();
   vi.unstubAllGlobals();
   roots.splice(0).forEach(root => fs.rmSync(root, { recursive: true, force: true }));
+});
+
+it("reviews one child-frame state per question instead of diluting it with duplicate viewports", () => {
+  expect(selectChildFacingJourneyScreens([
+    "/tmp/journey-generation-item-01.png",
+    "/tmp/journey-sunny-item-01.png",
+    "/tmp/journey-generation-completion.png",
+    "/tmp/journey-sunny-completion.png",
+  ])).toEqual([
+    "/tmp/journey-sunny-item-01.png",
+    "/tmp/journey-sunny-completion.png",
+  ]);
+  expect(selectChildFacingJourneyScreens(["/tmp/opening.png"])).toEqual(["/tmp/opening.png"]);
 });
 
 it("shows the screenshots to an open-ended reviewer without defect-specific hints", async () => {
@@ -45,6 +59,31 @@ it("shows the screenshots to an open-ended reviewer without defect-specific hint
   expect(request.messages[0]!.content.some(block => block.type === "image")).toBe(true);
   expect(request.messages[0]!.content.at(-1)).toEqual({ type: "text", text: CHILD_FACING_VISUAL_PROMPT });
   expect(CHILD_FACING_VISUAL_PROMPT).not.toMatch(/clock|hand|overlap|clipp|button/i);
+});
+
+it("labels each gameplay state so the reviewer cannot mistake completion for question coverage", async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-state-labelled-review-"));
+  roots.push(root);
+  const item = path.join(root, "clock-room-sunny-item-02-which-hand.png");
+  const completion = path.join(root, "clock-room-sunny-completion.png");
+  fs.writeFileSync(item, Buffer.from("item screenshot"));
+  fs.writeFileSync(completion, Buffer.from("completion screenshot"));
+  const create = vi.fn(async (_request: unknown) => ({
+    content: [{ type: "tool_use", input: { decision: "approve", observations: [] } }],
+  }));
+
+  await judgeChildFacingScreens({
+    screenshotPaths: [item, completion],
+    client: { messages: { create } } as never,
+  });
+
+  const request = create.mock.calls[0]![0] as { messages: Array<{ content: Array<{ type: string; text?: string }> }> };
+  const labels = request.messages[0]!.content
+    .filter(block => block.type === "text")
+    .map(block => block.text);
+  expect(labels).toContain("Screen state 1/2: clock-room-sunny-item-02-which-hand.png");
+  expect(labels).toContain("Screen state 2/2: clock-room-sunny-completion.png");
+  expect(labels.at(-1)).toBe(CHILD_FACING_VISUAL_PROMPT);
 });
 
 it("reuses the verdict for unchanged screenshot bytes instead of paying twice", async () => {

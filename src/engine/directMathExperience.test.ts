@@ -64,6 +64,54 @@ describe("math Planner evidence doorway", () => {
       expect.arrayContaining([expect.objectContaining({ id: "choice_event_modal_1" })]),
     );
   });
+
+  it("routes factual reading access needs to Planner and Creator without a learning-style label", () => {
+    const chart = {
+      identity: { displayName: "Ila", ttsName: "Eye-la" },
+      demographics: {
+        age: 8,
+        grade: 2,
+        learningStyle: "visual_kinesthetic",
+        attentionSpan: "short",
+        diagnoses: [],
+        iepActive: false,
+      },
+      learningProfile: {
+        sessionStats: {},
+        readingProfile: {
+          currentReadingLevel: "CVC",
+          averageReadingAccuracy: 0,
+          comprehensionAccuracy: 0,
+          flaggedPatterns: [],
+          storiesCompleted: 0,
+          fontSize: 42,
+          lineHeight: 2.2,
+          fontFamily: "Lexend",
+          wordsPerLine: 7,
+          dyslexiaMode: true,
+        },
+        rewardPreferences: { favoriteGames: [], celebrationStyle: "mixed" },
+      },
+      engagementTheory: { evidence: [], dimensions: {} },
+      factBankSummary: { totalFacts: 0, dueFacts: 0 },
+      decisionTrace: { latest: null },
+      learningHistory: {},
+      companionCare: { plan: { economy: { coins: 0 } } },
+      economy: { coinBalance: 0 },
+    } as never;
+
+    const planner = JSON.stringify(mathPlannerChartContext(chart));
+    const creator = JSON.stringify(buildMathCreativeChildContext(chart));
+
+    for (const context of [planner, creator]) {
+      expect(context).toContain('"currentReadingLevel":"CVC"');
+      expect(context).toContain('"wordsPerLine":7');
+      expect(context).toContain('"fontSize":42');
+      expect(context).toContain('"dyslexiaMode":true');
+      expect(context).not.toContain("learningStyle");
+      expect(context).toContain("not a diagnosis");
+    }
+  });
 });
 
 describe("math publication domain preservation", () => {
@@ -746,6 +794,54 @@ describe("direct math experience", () => {
     for (const reference of ["Skyglider", "Crane", "Vault", "Moonlit Cargo", "Tidepool", "Rope-and-Peg"]) {
       expect(prompt).not.toContain(reference);
     }
+  });
+
+  it("requires later generated activities to use the same AI-led guided-support contract", () => {
+    const prompt = buildAdaptiveProgressionCreatorPrompt({
+      cycle: { childId: "ila", homeworkId: "hw", domain: "math", assignment: { title: "Clocks", targets: ["clock reading"] }, observations: [] } as never,
+      node: {
+        nodeId: "support",
+        title: "Clock Room",
+        role: "baseline",
+        academicTarget: { domain: "math", skill: "clock reading", targets: ["clock reading"] },
+        openingScreen: { title: "Clock Room", purpose: "Learn clocks" },
+        mechanic: "clock",
+        theme: "room",
+        generationPrompt: { text: "Teach clocks" },
+        artwork: { localPath: "/clock.png" },
+        evidenceContract: { itemContracts: { q1: { id: "q1", lineage: { measurementRole: "instruction" } } } },
+      } as never,
+      childContext: { demographics: { age: 8 }, readingAccess: { currentReadingLevel: "early-third", presentationSettings: { wordsPerLine: 7 } } },
+    });
+
+    expect(prompt).toContain('companionSupportTrigger:"guided_prompt"');
+    expect(prompt).toContain("fresh_checkpoint must not summon Elli automatically");
+    expect(prompt).toContain('"age": 8');
+    expect(prompt).toContain('"wordsPerLine": 7');
+    expect(prompt).toContain("availableActions");
+    expect(prompt).not.toContain("avathe current childbleActions");
+  });
+
+  it("never rewrites Ila substrings inside frozen item and evidence identities", () => {
+    const prompt = buildAdaptiveProgressionCreatorPrompt({
+      cycle: { childId: "ila", homeworkId: "hw", domain: "math", assignment: { title: "Clocks", targets: ["clock reading"] }, observations: [{ observationId: "child:ila:observation-1", itemId: "it-ila-clock-01" }] } as never,
+      node: {
+        nodeId: "support",
+        title: "Clock Room",
+        role: "baseline",
+        academicTarget: { domain: "math", skill: "clock reading", targets: ["clock reading"] },
+        openingScreen: { title: "Clock Room", purpose: "Learn clocks" },
+        mechanic: "clock",
+        theme: "room",
+        generationPrompt: { text: "Teach clocks" },
+        artwork: { localPath: "/clock.png" },
+        evidenceContract: { itemContracts: { "it-ila-clock-01": { id: "it-ila-clock-01", lineage: { measurementRole: "instruction", sourceEvidenceIds: ["child:ila:observation-1"] } } } },
+      } as never,
+      childContext: { identity: { displayName: "Ila" }, demographics: { age: 8 } },
+    });
+
+    expect(prompt).toContain("it-ila-clock-01");
+    expect(prompt).toContain("child:ila:observation-1");
   });
 
   it("uses adaptive thinking supported by the configured frontier Creator model", async () => {
@@ -1595,7 +1691,7 @@ describe("direct math experience", () => {
     expect(responseRunner).toContain("injecting game context into Claude call");
   });
 
-  it("keeps generated math audio semantic and Elli help child-invoked", () => {
+  it("keeps generated math audio semantic and gives Elli guided teaching authority without contaminating checkpoints", () => {
     const prompt = buildDirectActivityCreatorPrompt({
       activity: parseDirectLearningExperiencePlan(plan(2)).activities[0]!,
       artworkUrl: "/generated/math-world.jpeg",
@@ -1612,13 +1708,18 @@ describe("direct math experience", () => {
     expect(prompt).toContain("title and first required action");
     expect(prompt).toContain("primary controls");
     expect(prompt).toContain("readAloudRequested");
+    expect(prompt).toContain("measurementRole");
+    expect(prompt).toContain("guided_prompt");
+    expect(prompt).toContain("fresh_checkpoint");
+    expect(prompt).toContain("must not summon Elli automatically");
     expect(prompt).toContain('type:"sunny_companion_presence"');
     expect(prompt).toContain("Pause activity timers and input while summoned");
     expect(prompt).toContain("right-side companion safe area");
     expect(prompt).toContain("essential instructions, mathematical representations, and primary controls outside it");
 
     const elli = fs.readFileSync(path.join(process.cwd(), "src/companions/elli.md"), "utf8");
-    expect(elli).toContain("only after the child asks");
+    expect(elli).toContain("one automatic guided introduction");
+    expect(elli).toContain("Never automatically speak during a fresh independent checkpoint");
     expect(elli).toContain("Never reveal the active answer");
     expect(elli).toContain("recordChildSignal");
     expect(elli).toContain("help_needed");

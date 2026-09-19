@@ -3,7 +3,7 @@ import http from "node:http";
 import path from "node:path";
 import { createHash } from "node:crypto";
 
-export const DISCOVERY_VERIFIER_VERSION = 12;
+export const DISCOVERY_VERIFIER_VERSION = 13;
 
 export const DISCOVERY_RELEASE_VIEWPORTS = [
   { name: "generation", width: 1365, height: 768 },
@@ -28,6 +28,7 @@ type RepairInput = { html: string; issues: string[]; screenshotPaths: string[] }
 type BrowserPage = Awaited<ReturnType<Awaited<ReturnType<(typeof import("playwright"))["chromium"]["launch"]>>["newPage"]>>;
 export type MathJourneyItemContract = {
   id: string;
+  lineage?: { measurementRole?: "instruction" | "practice" | "fresh_checkpoint" };
   response:
     | { mode: "selection"; options: Array<{ id: string; correct: boolean }> }
     | { mode: "numeric"; expected: number }
@@ -223,7 +224,7 @@ export async function reviewDiscoveryCandidate(input: {
   html: string;
   outputDir: string;
   render: (input: RenderInput) => Promise<DiscoveryRenderedScreenshots>;
-  verify?: (html: string) => Promise<void>;
+  verify?: (html: string) => Promise<void | string[]>;
   judge?: (input: { html: string; iteration: 1 | 2; screenshotPaths: string[] }) => Promise<string[]>;
   verificationKey?: string;
   repair: (input: RepairInput) => Promise<string>;
@@ -283,7 +284,12 @@ export async function reviewDiscoveryCandidate(input: {
     catch (error) { screenshotPaths = []; screenshotPaths.issues = [error instanceof Error ? error.message : String(error)]; }
     const deterministicIssues = [...(screenshotPaths.issues ?? [])];
     const verificationScreenshots: string[] = [];
-    try { await input.verify?.(html); }
+    try {
+      const successfulVerificationScreenshots = await input.verify?.(html);
+      if (Array.isArray(successfulVerificationScreenshots)) {
+        verificationScreenshots.push(...successfulVerificationScreenshots);
+      }
+    }
     catch (error) {
       deterministicIssues.push(error instanceof Error ? error.message : String(error));
       if (error && typeof error === "object" && Array.isArray((error as { screenshotPaths?: unknown }).screenshotPaths)) {
@@ -455,6 +461,7 @@ export async function verifyMathControlJourney(page: BrowserPage, input: {
   itemIds?: string[];
   requireItemStateTransitions?: boolean;
   itemContracts?: MathJourneyItemContract[];
+  captureItemState?: (state: { itemId: string; itemIndex: number }) => Promise<void>;
 }): Promise<void> {
   const journey = await page.evaluate(`window.SUNNY_VALIDATION_HOOKS?.journey`) as Array<{ itemId: string; steps: Array<{ action: string; selector: string; value?: string; target?: string }> }>;
   if (!Array.isArray(journey) || journey.length === 0) throw new Error("math_journey_missing");
@@ -564,6 +571,35 @@ export async function verifyMathControlJourney(page: BrowserPage, input: {
         ].join(";"));
       }
       if (!itemCommitted) await assertMathControlsVisible(page, true, item.itemId);
+      if (stepIndex === 0) {
+        const contract = input.itemContracts?.find(candidate => candidate.id === item.itemId);
+        const role = contract?.lineage?.measurementRole;
+        if (role) {
+          const challenge = await page.evaluate(`(() => {
+            const messages = (window.__sunnyMessages ?? []).filter(message => message?.type === "game_state_update");
+            const match = messages.map(message => (message.payload ?? message)?.currentChallenge).filter(candidate => candidate?.id === ${JSON.stringify(item.itemId)}).at(-1);
+            return match ? {
+              measurementRole: match.measurementRole ?? null,
+              readAloudRequested: match.readAloudRequested === true,
+              readAloudCount: Number(match.readAloudCount ?? 0),
+              companionSupportTrigger: match.companionSupportTrigger ?? null,
+            } : null;
+          })()`) as null | {
+            measurementRole: string | null;
+            readAloudRequested: boolean;
+            readAloudCount: number;
+            companionSupportTrigger: string | null;
+          };
+          if (!challenge) throw new Error(`math_journey_item_state_missing;item=${item.itemId}`);
+          if (challenge.measurementRole !== role) throw new Error(`math_journey_measurement_role_mismatch;item=${item.itemId}`);
+          if (role === "fresh_checkpoint") {
+            if (challenge.readAloudRequested) throw new Error(`math_journey_checkpoint_auto_support;item=${item.itemId}`);
+          } else if (!challenge.readAloudRequested || challenge.readAloudCount !== 1 || challenge.companionSupportTrigger !== "guided_prompt") {
+            throw new Error(`math_journey_guided_companion_missing;item=${item.itemId}`);
+          }
+        }
+        await input.captureItemState?.({ itemId: item.itemId, itemIndex });
+      }
       const attemptCountExpression = `(({ itemId, attemptType, identityKey }) => (window.__sunnyMessages ?? []).filter((message) =>
         message?.type === attemptType && (message.payload ?? message)[identityKey] === itemId
       ).length)(${JSON.stringify({ itemId: item.itemId, attemptType, identityKey })})`;
@@ -735,7 +771,7 @@ export async function verifyMathJourneyAtReleaseViewports(input: {
   const issues: string[] = [];
   const screenshotPaths: string[] = [];
   for (const viewport of DISCOVERY_RELEASE_VIEWPORTS) {
-    const screenshotPath = path.join(input.outputDir, `journey-${viewport.name}.png`);
+    const screenshotPath = path.join(input.outputDir, `journey-${viewport.name}-completion.png`);
     try {
       await withDiscoveryBrowserPage(input.html, async (page) => {
         try {
@@ -743,9 +779,20 @@ export async function verifyMathJourneyAtReleaseViewports(input: {
             completionType: input.completionType,
             itemIds: input.itemIds,
             requireItemStateTransitions: Boolean(input.itemIds?.length),
+            captureItemState: async ({ itemId, itemIndex }) => {
+              const safeItemId = itemId.replace(/[^a-z0-9_-]/gi, "_");
+              const target = path.join(input.outputDir, `journey-${viewport.name}-item-${String(itemIndex + 1).padStart(2, "0")}-${safeItemId}.png`);
+              await page.screenshot({ path: target, fullPage: false });
+              screenshotPaths.push(target);
+            },
           });
-        } finally {
           await page.screenshot({ path: screenshotPath, fullPage: false });
+        } finally {
+          if (!fs.existsSync(screenshotPath)) {
+            const failurePath = path.join(input.outputDir, `journey-${viewport.name}-failure.png`);
+            await page.screenshot({ path: failurePath, fullPage: false });
+            screenshotPaths.push(failurePath);
+          }
         }
       }, viewport);
     } catch (error) {

@@ -20,7 +20,7 @@ afterEach(() => {
 });
 
 describe("game event handler companion events", () => {
-  it("routes an explicit generated-math read request to exact narration", () => {
+  it("routes an explicit generated-math read request to Elli's support turn", () => {
     const fakeSession = {
       childName: "Reina",
       chartChildId: "reina",
@@ -52,7 +52,11 @@ describe("game event handler companion events", () => {
       prompt: "Which rectangle is cut into 3 equal parts?",
       requestCount: 1,
       answerVisibility: "hidden",
+      trigger: "child_request",
     });
+    expect(fakeSession.updateCurrentBoardSnapshot.mock.invocationCallOrder[0]).toBeLessThan(
+      fakeSession.requestInstructionReadAloud.mock.invocationCallOrder[0],
+    );
   });
 
   it("keeps correct/wrong companion events visual-only while recording context", () => {

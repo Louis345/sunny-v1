@@ -6,12 +6,12 @@ import { getChildChart } from "../profiles/childChart";
 import { resolveChildContextDir } from "../utils/contextRoot";
 import { hashDiscoveryContract, runMathProviderStage } from "./adaptiveMathDiscovery";
 import {
-  createDirectArtwork, runDirectBrowserSmokeCheck, MATH_BROWSER_VERIFIER_VERSION,
+  buildMathCreativeChildContext, createDirectArtwork, runDirectBrowserSmokeCheck, MATH_BROWSER_VERIFIER_VERSION,
   generateAdaptiveProgressionActivityHtml,
 } from "./directMathExperience";
 import { engagementTheoryEvidenceContext } from "./engagementTheory";
 import { validateGeneratedArtifactRuntime } from "./generatedArtifactRuntimeValidator";
-import { judgeChildFacingScreens } from "./childFacingVisualGate";
+import { judgeChildFacingScreens, selectChildFacingJourneyScreens } from "./childFacingVisualGate";
 import {
   getLearningCycle,
   transitionLearningCycle,
@@ -66,7 +66,7 @@ function slug(value: string): string {
 
 function creatorChildContext(childId: string, rootDir: string): unknown {
   const chart = getChildChart(childId, { rootDir });
-  return { identity: chart.identity, demographics: chart.demographics, engagementEvidence: engagementTheoryEvidenceContext(chart.engagementTheory) };
+  return buildMathCreativeChildContext(chart);
 }
 
 async function productionGenerate(input: { prompt: string; node: LearningCycleNodeContract; cycle: LearningCycleRecordV2; childContext?: unknown }, rootDir: string): Promise<string> {
@@ -116,10 +116,17 @@ async function productionValidate(input: { html: string; node: LearningCycleNode
     fs.mkdirSync(dir, {recursive:true});
     const htmlPath = path.join(dir, "candidate.html"); fs.writeFileSync(htmlPath, input.html);
     const htmlHash = createHash("sha256").update(input.html).digest("hex");
-    const report = await runDirectBrowserSmokeCheck({rootDir, artifacts:[{nodeId:input.node.nodeId,childId:input.cycle.childId,homeworkId:input.cycle.homeworkId,title:input.node.title,htmlPath,htmlHash,artworkUrl:input.node.artwork.localPath??"",creatorPrompt:input.node.generationPrompt?.text??"",promptHash:input.node.generationPrompt?.promptId??"",plannerModel:"canonical",creatorModel:"canonical",...(input.node.evidenceContract.itemRoles?{itemIds:Object.keys(input.node.evidenceContract.itemRoles)}:{})}]});
+    const mathItemContracts = input.cycle.domain === "math"
+      ? Object.values(input.node.evidenceContract.itemContracts ?? {})
+      : [];
+    const report = await runDirectBrowserSmokeCheck({
+      rootDir,
+      artifacts:[{nodeId:input.node.nodeId,childId:input.cycle.childId,homeworkId:input.cycle.homeworkId,title:input.node.title,htmlPath,htmlHash,artworkUrl:input.node.artwork.localPath??"",creatorPrompt:input.node.generationPrompt?.text??"",promptHash:input.node.generationPrompt?.promptId??"",plannerModel:"canonical",creatorModel:"canonical",...(input.node.evidenceContract.itemRoles?{itemIds:Object.keys(input.node.evidenceContract.itemRoles)}:{})}],
+      ...(mathItemContracts.length > 0 ? { itemContractsByNodeId: { [input.node.nodeId]: mathItemContracts } } : {}),
+    });
     if (!report.passed) return {passed:false,failures:report.failures,screenshotPaths:report.screenshots,htmlHash,verifierVersion:MATH_BROWSER_VERIFIER_VERSION};
     const visualVerdict = await judgeChildFacingScreens({
-      screenshotPaths: report.screenshots,
+      screenshotPaths: selectChildFacingJourneyScreens(report.screenshots),
       auditFile: path.join(dir, "blind-visual-verdict.json"),
     });
     const visualFailures = visualVerdict.decision === "reject"

@@ -21,7 +21,8 @@ import { advanceCanonicalCycleFromEvidence } from "../engine/learningCycleRuntim
 import { setupRoutes } from "../server/routes";
 
 vi.mock("../engine/directMathExperience", async original => ({...await original<typeof import("../engine/directMathExperience")>(), generateDirectArtifacts:vi.fn(),askDirectMathPlanner:vi.fn(()=>{throw new Error("paid_planner_forbidden");}),askMathExperienceDesigner:vi.fn(()=>{throw new Error("paid_creator_forbidden");})}));
-vi.mock("../engine/childFacingVisualGate", () => ({
+vi.mock("../engine/childFacingVisualGate", async original => ({
+  ...await original<typeof import("../engine/childFacingVisualGate")>(),
   judgeChildFacingScreens: vi.fn(async () => ({ decision: "approve", observations: [] })),
 }));
 

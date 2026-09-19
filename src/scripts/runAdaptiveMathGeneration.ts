@@ -33,7 +33,7 @@ import { verifyEngineeringRepairEvidence, DISCOVERY_VERIFIER_VERSION, DISCOVERY_
 import { thumbnailUrlForActivity } from "../shared/activityPresentation";
 import { buildAdventureBoardFromActiveSessionPlan } from "../shared/adventureBoardFromPlan";
 import type { ActiveSessionPlan } from "../context/schemas/learningProfile";
-import { CHILD_FACING_VISUAL_GATE_VERSION, judgeChildFacingScreens } from "../engine/childFacingVisualGate";
+import { CHILD_FACING_VISUAL_GATE_VERSION, judgeChildFacingScreens, selectChildFacingJourneyScreens } from "../engine/childFacingVisualGate";
 
 const read = <T>(file: string): T => JSON.parse(fs.readFileSync(file, "utf8")) as T;
 const write = (file: string, value: unknown): void => { fs.mkdirSync(path.dirname(file), { recursive: true }); const temp = `${file}.${process.pid}.tmp`; fs.writeFileSync(temp, `${JSON.stringify(value, null, 2)}\n`); fs.renameSync(temp, file); };
@@ -286,7 +286,7 @@ export async function runAdaptiveMathGeneration(
       }
     }
     const visualVerdict = await judgeChildFacingScreens({
-      screenshotPaths: reports[artifact.nodeId].screenshots,
+      screenshotPaths: selectChildFacingJourneyScreens(reports[artifact.nodeId].screenshots),
       auditFile: visualAuditFile,
       retryUncertain: options.retryUncertainProvider,
     });

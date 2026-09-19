@@ -27,7 +27,7 @@ import {
   parseEngineeringLessonProposal, recordEngineeringRepairEvidence, verifyEngineeringRepairEvidence, invalidateEngineeringRepairEvidence, freezeEngineeringLessonSnapshot, engineeringFeatures, engineeringLessonContext,
 } from "./discoveryVisualReview";
 import { readOpenAiResponseStream } from "./openAiResponses";
-import { judgeChildFacingScreens } from "./childFacingVisualGate";
+import { judgeChildFacingScreens, selectChildFacingJourneyScreens } from "./childFacingVisualGate";
 import {
   validateBoardChoices,
   validateBoardGraph,
@@ -347,7 +347,7 @@ export async function verifyDiscoveryRuntimeScoring(input: {
   html: string;
   academic: Pick<DiscoveryAcademicContract, "items">;
   outputDir: string;
-}): Promise<void> {
+}): Promise<string[]> {
   validateDiscoveryAcademicBinding(input.html, input.academic);
   fs.mkdirSync(input.outputDir, { recursive: true });
   await withDiscoveryBrowserPage(input.html, async (page) => {
@@ -407,6 +407,7 @@ export async function verifyDiscoveryRuntimeScoring(input: {
   });
   atomicJson(path.join(input.outputDir,"acceptance.json"), {passed:true,verifierVersion:DISCOVERY_VERIFIER_VERSION,htmlHash:hashDiscoveryContract(input.html),academicHash:hashDiscoveryContract(input.academic.items),viewports:DISCOVERY_RELEASE_VIEWPORTS,completedItemIds:input.academic.items.map(item=>item.itemId),screenshots:journeyScreenshots,verifiedAt:new Date().toISOString()});
   console.log(` 🎮 [adaptive-math] [discovery-runtime-scoring] [passed] items=${input.academic.items.length}`);
+  return journeyScreenshots;
 }
 
 function toolInput(response: unknown, name: string): Record<string, unknown> {
@@ -777,7 +778,7 @@ export async function generateMathDiscoveryExperience(input: {
         verify: html => verifyDiscoveryRuntimeScoring({html, academic, outputDir: path.join(draftDir, "runtime-verification")}),
         judge: async ({ screenshotPaths }) => {
           const verdict = await judgeChildFacingScreens({
-            screenshotPaths,
+            screenshotPaths: selectChildFacingJourneyScreens(screenshotPaths),
             auditFile: path.join(draftDir, "visual-review", "blind-visual-verdict.json"),
             ...(input.client ? { client: input.client } : {}),
             retryUncertain: input.retryUncertain,

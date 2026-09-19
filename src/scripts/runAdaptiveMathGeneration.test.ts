@@ -23,7 +23,11 @@ vi.mock("../engine/directMathExperience", async (original) => ({
   generateDirectArtifacts: vi.fn(), repairDirectArtifact: vi.fn(), runDirectBrowserSmokeCheck: vi.fn(),
 }));
 vi.mock("../engine/childFacingVisualGate", () => ({
-  CHILD_FACING_VISUAL_GATE_VERSION: 2,
+  CHILD_FACING_VISUAL_GATE_VERSION: 3,
+  selectChildFacingJourneyScreens: (screenshots: string[]) => {
+    const selected = screenshots.filter(file => file.includes("-sunny-item-") || file.includes("-sunny-completion"));
+    return selected.length > 0 ? selected : screenshots;
+  },
   judgeChildFacingScreens: vi.fn(),
 }));
 let rootDir: string;
@@ -181,6 +185,16 @@ it("does not publish a browser-invalid artifact", async () => {
 });
 
 it("does not publish a child-visible artifact rejected by blind screenshot review", async () => {
+  vi.mocked(runDirectBrowserSmokeCheck).mockResolvedValue({
+    passed: true,
+    failures: [],
+    screenshots: [
+      "node-generation-item-01-question.png",
+      "node-generation-completion.png",
+      "node-sunny-item-01-question.png",
+      "node-sunny-completion.png",
+    ],
+  });
   vi.mocked(judgeChildFacingScreens).mockResolvedValue({
     decision: "reject",
     observations: ["The clock hands visibly contradict the question."],
@@ -189,7 +203,7 @@ it("does not publish a child-visible artifact rejected by blind screenshot revie
   await runAdaptiveMathGeneration(childId, homeworkId, rootDir);
 
   expect(judgeChildFacingScreens).toHaveBeenCalledWith(expect.objectContaining({
-    screenshotPaths: ["lab.png"],
+    screenshotPaths: ["node-sunny-item-01-question.png", "node-sunny-completion.png"],
   }));
   expect(getLearningCycle(childId, homeworkId, { rootDir })!.nodes
     .filter(node => node.role === "baseline")
@@ -331,7 +345,7 @@ it("gives a current visual rejection one separately tracked repair after generic
   await runAdaptiveMathGeneration(childId, homeworkId, rootDir);
 
   expect(repairDirectArtifact).toHaveBeenCalledTimes(2);
-  expect(vi.mocked(repairDirectArtifact).mock.calls[1]?.[0].outputDir).toContain("visual-repair-v2/activity-1");
+  expect(vi.mocked(repairDirectArtifact).mock.calls[1]?.[0].outputDir).toContain("visual-repair-v3/activity-1");
   expect(generateDirectArtifacts).toHaveBeenCalledTimes(2);
   expect(getMathGenerationStatus(childId, homeworkId, { rootDir })?.phase).toBe("board_ready");
   const finalArtifact = JSON.parse(fs.readFileSync(path.join(draft, "candidate-build-v3.json"), "utf8")).artifacts
@@ -359,8 +373,8 @@ it("does not buy a second visual repair for the same artifact and gate version",
     .find((candidate: { nodeId: string }) => candidate.nodeId === "activity-1");
   expect(JSON.parse(fs.readFileSync(path.join(
     draft,
-    `provider-diagnostics/visual-repair-v2/activity-1/${artifact.htmlHash.slice(0, 12)}/activity-1-visual-repair-attempt.json`,
-  ), "utf8"))).toMatchObject({ status: "failed", gateVersion: 2, nodeId: "activity-1" });
+    `provider-diagnostics/visual-repair-v3/activity-1/${artifact.htmlHash.slice(0, 12)}/activity-1-visual-repair-attempt.json`,
+  ), "utf8"))).toMatchObject({ status: "failed", gateVersion: 3, nodeId: "activity-1" });
 
   vi.mocked(judgeChildFacingScreens).mockResolvedValue({ decision: "approve", observations: [] });
   await runAdaptiveMathGeneration(childId, homeworkId, rootDir);
@@ -422,11 +436,11 @@ it("resumes a started visual repair without purchasing another generic build", a
   await runAdaptiveMathGeneration(childId, homeworkId, rootDir);
   const artifact = JSON.parse(fs.readFileSync(path.join(draft, "candidate-build-v3.json"), "utf8")).artifacts
     .find((candidate: { nodeId: string }) => candidate.nodeId === "activity-1");
-  const attemptDir = path.join(draft, "provider-diagnostics", "visual-repair-v2", "activity-1", artifact.htmlHash.slice(0, 12));
+  const attemptDir = path.join(draft, "provider-diagnostics", "visual-repair-v3", "activity-1", artifact.htmlHash.slice(0, 12));
   fs.mkdirSync(attemptDir, { recursive: true });
   fs.writeFileSync(path.join(attemptDir, "activity-1-visual-repair-attempt.json"), JSON.stringify({
     version: 1,
-    gateVersion: 2,
+    gateVersion: 3,
     nodeId: "activity-1",
     inputHtmlHash: artifact.htmlHash,
     failures: ["child_visual_review:The activity ends without a visible way to continue."],
@@ -457,7 +471,7 @@ it("finishes publication after a crash left a provider-completed repair with pas
   const build = JSON.parse(fs.readFileSync(buildFile, "utf8"));
   const artifact = build.artifacts.find((candidate: { nodeId: string }) => candidate.nodeId === "activity-1");
   const inputHash = artifact.htmlHash;
-  const attemptDir = path.join(draft, "provider-diagnostics", "visual-repair-v2", "activity-1", inputHash.slice(0, 12));
+  const attemptDir = path.join(draft, "provider-diagnostics", "visual-repair-v3", "activity-1", inputHash.slice(0, 12));
   fs.mkdirSync(attemptDir, { recursive: true });
   fs.writeFileSync(path.join(attemptDir, "activity-1-visual-original.html"), fs.readFileSync(artifact.htmlPath));
   fs.appendFileSync(artifact.htmlPath, "<!-- provider completed before crash -->");
@@ -476,7 +490,7 @@ it("finishes publication after a crash left a provider-completed repair with pas
   const attemptFile = path.join(attemptDir, "activity-1-visual-repair-attempt.json");
   fs.writeFileSync(attemptFile, JSON.stringify({
     version: 1,
-    gateVersion: 2,
+    gateVersion: 3,
     nodeId: "activity-1",
     inputHtmlHash: inputHash,
     outputHtmlHash: outputHash,
@@ -514,7 +528,7 @@ it("restores an original proof matching the original bytes when resumed repair p
   const reportsFile = path.join(draft, "browser-verification.json");
   const reports = JSON.parse(fs.readFileSync(reportsFile, "utf8"));
   const originalReport = structuredClone(reports["activity-1"]);
-  const attemptDir = path.join(draft, "provider-diagnostics", "visual-repair-v2", "activity-1", inputHash.slice(0, 12));
+  const attemptDir = path.join(draft, "provider-diagnostics", "visual-repair-v3", "activity-1", inputHash.slice(0, 12));
   fs.mkdirSync(attemptDir, { recursive: true });
   fs.writeFileSync(path.join(attemptDir, "activity-1-visual-original.html"), originalHtml);
   fs.appendFileSync(artifact.htmlPath, "<!-- provider completed before crash -->");
@@ -531,7 +545,7 @@ it("restores an original proof matching the original bytes when resumed repair p
   const attemptFile = path.join(attemptDir, "activity-1-visual-repair-attempt.json");
   fs.writeFileSync(attemptFile, JSON.stringify({
     version: 1,
-    gateVersion: 2,
+    gateVersion: 3,
     nodeId: "activity-1",
     inputHtmlHash: inputHash,
     outputHtmlHash: outputHash,

@@ -50,7 +50,36 @@ it("detects a later-screen trap through real clicks", async () => {
 it("verifies actual completion at both release sizes", async () => {
   const result = await verify(`${journey}<button id="answer" onclick="parent.postMessage({type:'attempt_event',payload:{domain:'math',target:'one',attemptedValue:'4',correct:true}},'*');parent.postMessage({type:'node_complete',payload:{nodeId:'node',targetResults:[{target:'one',attemptedValue:'4',correct:true}]}},'*')">Answer</button>`);
   expect(result.passed).toBe(true);
-  expect(result.screenshots).toHaveLength(2);
+  expect(result.screenshots).toHaveLength(4);
+  expect(result.screenshots.filter(file => file.includes("item-01-one"))).toHaveLength(2);
+  expect(result.screenshots.filter(file => file.includes("completion"))).toHaveLength(2);
+}, 20000);
+
+it("captures every question before answering so blind review cannot see completion only", async () => {
+  const result = await verify(`<h2 id="prompt">First prompt</h2><button id="answer">Answer</button>
+    <script>
+    window.SUNNY_VALIDATION_HOOKS={journey:[
+      {itemId:'one',steps:[{action:'click',selector:'#answer'}]},
+      {itemId:'two',steps:[{action:'click',selector:'#answer'}]}
+    ]};
+    let item='one';
+    const report=()=>parent.postMessage({type:'game_state_update',payload:{currentChallenge:{id:item,prompt:document.querySelector('#prompt').textContent}}},'*');
+    report();
+    document.querySelector('#answer').onclick=()=>{
+      parent.postMessage({type:'attempt_event',payload:{domain:'math',target:item,attemptedValue:'4',correct:true}},'*');
+      if(item==='one'){
+        item='two';document.querySelector('#prompt').textContent='Second prompt';report();
+      }else{
+        parent.postMessage({type:'node_complete',payload:{nodeId:'node',targetResults:[{target:'one',attemptedValue:'4',correct:true},{target:'two',attemptedValue:'4',correct:true}]}},'*');
+      }
+    };
+    </script>`);
+
+  expect(result.passed).toBe(true);
+  expect(result.screenshots).toHaveLength(6);
+  expect(result.screenshots.filter(file => file.includes("item-01-one"))).toHaveLength(2);
+  expect(result.screenshots.filter(file => file.includes("item-02-two"))).toHaveLength(2);
+  expect(result.screenshots.filter(file => file.includes("completion"))).toHaveLength(2);
 }, 20000);
 
 it("rejects a targeted activity whose evidence claims a frozen wrong answer is correct", async () => {
@@ -60,10 +89,36 @@ it("rejects a targeted activity whose evidence claims a frozen wrong answer is c
     lineage: { sourceEvidenceIds: ["assignment:one"], exposure: "unseen", measurementRole: "fresh_checkpoint" },
     response: { mode: "selection", options: [{ id: "four", label: "4", correct: true }, { id: "five", label: "5", correct: false }] },
   };
-  const result = await verify(`${journey}<button id="answer" onclick="parent.postMessage({type:'attempt_event',payload:{domain:'math',target:'one',attemptedValue:'five',correct:true}},'*');parent.postMessage({type:'node_complete',payload:{nodeId:'node',targetResults:[{target:'one',attemptedValue:'five',correct:true}]}},'*')">Five</button>`, ["one"], [item]);
+  const result = await verify(`${journey}<button id="answer" onclick="parent.postMessage({type:'attempt_event',payload:{domain:'math',target:'one',attemptedValue:'five',correct:true}},'*');parent.postMessage({type:'node_complete',payload:{nodeId:'node',targetResults:[{target:'one',attemptedValue:'five',correct:true}]}},'*')">Five</button><script>parent.postMessage({type:'game_state_update',payload:{currentChallenge:{id:'one',prompt:'Which value is four?',measurementRole:'fresh_checkpoint',readAloudRequested:false,readAloudCount:0}}},'*');</script>`, ["one"], [item]);
   expect(result.passed).toBe(false);
   expect(result.failures.join("|")).toContain("math_journey_scoring_mismatch;item=one");
 }, 20000);
+
+it("rejects instruction screens that omit Elli's one guided introduction", async () => {
+  const item = {
+    id: "one",
+    prompt: "Choose four.",
+    lineage: { sourceEvidenceIds: ["assignment:one"], exposure: "taught", measurementRole: "instruction" },
+    response: { mode: "selection", options: [{ id: "four", label: "4", correct: true }] },
+  };
+  const result = await verify(`<h2>Choose four.</h2><button id="answer" onclick="parent.postMessage({type:'attempt_event',payload:{domain:'math',target:'one',attemptedValue:'four',correct:true}},'*');parent.postMessage({type:'node_complete',payload:{nodeId:'node',accuracy:1,targetResults:[{target:'one',attemptedValue:'four',correct:true}]}},'*')">Four</button>
+    <script>window.SUNNY_VALIDATION_HOOKS={journey:[{itemId:'one',steps:[{action:'click',selector:'#answer'}]}]};parent.postMessage({type:'game_state_update',payload:{currentChallenge:{id:'one',prompt:'Choose four.',measurementRole:'instruction',readAloudRequested:false,readAloudCount:0}}},'*');</script>`, ["one"], [item]);
+  expect(result.failures.join("|")).toContain("math_journey_guided_companion_missing;item=one");
+}, 20000);
+
+it("accepts guided teaching but rejects automatic help on a fresh checkpoint", async () => {
+  const contract = (measurementRole: "instruction" | "fresh_checkpoint") => ({
+    id: "one",
+    prompt: "Choose four.",
+    lineage: { sourceEvidenceIds: ["assignment:one"], exposure: measurementRole === "instruction" ? "taught" : "unseen", measurementRole },
+    response: { mode: "selection", options: [{ id: "four", label: "4", correct: true }] },
+  });
+  const activity = (measurementRole: string, trigger: string) => `<h2>Choose four.</h2><button id="answer" onclick="parent.postMessage({type:'attempt_event',payload:{domain:'math',target:'one',attemptedValue:'four',correct:true}},'*');parent.postMessage({type:'node_complete',payload:{nodeId:'node',accuracy:1,targetResults:[{target:'one',attemptedValue:'four',correct:true}]}},'*')">Four</button>
+    <script>window.SUNNY_VALIDATION_HOOKS={journey:[{itemId:'one',steps:[{action:'click',selector:'#answer'}]}]};parent.postMessage({type:'game_state_update',payload:{currentChallenge:{id:'one',prompt:'Choose four.',measurementRole:'${measurementRole}',readAloudRequested:true,readAloudCount:1,companionSupportTrigger:'${trigger}'}}},'*');</script>`;
+  await expect(verify(activity("instruction", "guided_prompt"), ["one"], [contract("instruction")])).resolves.toMatchObject({ passed: true });
+  const checkpoint = await verify(activity("fresh_checkpoint", "guided_prompt"), ["one"], [contract("fresh_checkpoint")]);
+  expect(checkpoint.failures.join("|")).toContain("math_journey_checkpoint_auto_support;item=one");
+}, 30000);
 
 
 it("does not approve Discovery when the scorer works but the child cannot finish", async () => {
@@ -146,7 +201,7 @@ function stagedGraph(activateSemantics: boolean, transitionMs = 0) {
 it("checks a persistent graph point when its question activates, not while it is scenery", async () => {
   const result=await verify(stagedGraph(true));
   expect(result.failures).toEqual([]);
-  expect(result.screenshots).toHaveLength(2);
+  expect(result.screenshots).toHaveLength(6);
 },20000);
 
 it("still rejects that same point if it lacks semantics when its question activates", async () => {
@@ -344,6 +399,6 @@ it("identifies a later hidden-state defect and leaves unreached items explicitly
     expect(state.notYetVerifiedItemIds).toEqual(['two','three']);
     expect(state.hidden).toEqual([expect.objectContaining({selector:'#numeric-panel',tag:'div',hiddenAttribute:'',computedDisplay:'flex',rect:expect.objectContaining({width:expect.any(Number),height:expect.any(Number)})})]);
   }
-  expect(result.screenshots).toHaveLength(2);
+  expect(result.screenshots).toHaveLength(4);
   expect(result.screenshots.every(file=>fs.existsSync(file))).toBe(true);
 },20000);

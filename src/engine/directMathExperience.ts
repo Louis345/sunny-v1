@@ -518,7 +518,9 @@ export type DirectGenerationStats = {
   bonusDeferred: boolean;
 };
 
-export const MATH_BROWSER_VERIFIER_VERSION = 10;
+export const MATH_BROWSER_VERIFIER_VERSION = 11;
+
+export const TARGETED_COMPANION_RUNTIME_CONTRACT = `Represent currentChallenge as {id,prompt,mode,measurementRole,readAloudRequested,readAloudCount,companionSupportTrigger}. For each instruction or practice item, its first answer-hidden state must set readAloudRequested:true, readAloudCount:1, and companionSupportTrigger:"guided_prompt" so Elli can give one brief contextual introduction. Do this once per item, never after an answer. A fresh_checkpoint must not summon Elli automatically. When the child activates a visible Read it to me or Explain control on any item, increment readAloudCount and resend that same answer-hidden state with readAloudRequested:true and companionSupportTrigger:"child_request". Elli owns spoken teaching; do not narrate inside the activity.`;
 
 export type DirectPlaywrightReport = {
   passed: boolean;
@@ -1617,13 +1619,41 @@ ${JSON.stringify({ ...programWithoutBonusDuplicate, activities: contracts }, nul
   return { packet, plan };
 }
 
+function mathReadingAccessContext(chart: ChildChart): unknown {
+  const reading = chart.learningProfile.readingProfile;
+  return {
+    currentReadingLevel: reading?.currentReadingLevel ?? null,
+    averageReadingAccuracy: reading?.averageReadingAccuracy ?? null,
+    comprehensionAccuracy: reading?.comprehensionAccuracy ?? null,
+    flaggedPatterns: reading?.flaggedPatterns ?? [],
+    presentationSettings: {
+      fontSize: reading?.fontSize ?? null,
+      lineHeight: reading?.lineHeight ?? null,
+      fontFamily: reading?.fontFamily ?? null,
+      wordsPerLine: reading?.wordsPerLine ?? null,
+      dyslexiaMode: reading?.dyslexiaMode ?? null,
+    },
+    interpretation: [
+      "Recorded reading observations and caregiver presentation settings; preserve their uncertainty.",
+      "A presentation setting such as dyslexiaMode is not a diagnosis.",
+      "Use this context to reduce avoidable reading and writing load without replacing the Planner's pedagogical judgment.",
+    ],
+  };
+}
+
 export function mathPlannerChartContext(chart: ChildChart): unknown {
   const economy = chart.companionCare?.plan.economy;
   return {
     identity: chart.identity,
-    demographics: chart.demographics,
+    demographics: {
+      age: chart.demographics.age,
+      grade: chart.demographics.grade,
+      attentionSpan: chart.demographics.attentionSpan,
+      iepActive: chart.demographics.iepActive,
+    },
     learningProfile: {
       sessionStats: chart.learningProfile.sessionStats,
+      readingAccess: mathReadingAccessContext(chart),
     },
     engagementEvidence: engagementTheoryEvidenceContext(chart.engagementTheory),
     factBankSummary: chart.factBankSummary,
@@ -1663,6 +1693,13 @@ function factualModelContext(value: unknown): unknown {
       .filter(([key]) => !INHERITED_CREATIVE_KEYS.has(key))
       .map(([key, nested]) => [key, factualModelContext(nested)]),
   );
+}
+
+function creatorChildContextWithoutIdentity(value: unknown): unknown {
+  const factual = factualModelContext(value);
+  if (!factual || typeof factual !== "object" || Array.isArray(factual)) return factual;
+  const { identity: _identity, ...context } = factual as Record<string, unknown>;
+  return context;
 }
 
 function isSyntheticEvidenceIdentity(value: string): boolean {
@@ -1729,6 +1766,7 @@ export function buildMathCreativeChildContext(chart: ChildChart): unknown {
       grade: chart.demographics.grade,
       attentionSpan: chart.demographics.attentionSpan,
     },
+    readingAccess: mathReadingAccessContext(chart),
     explicitPreferences: favoriteGames.length > 0 ? { favoriteGames } : null,
     engagementObservations: {
       howToRead: [
@@ -2010,7 +2048,7 @@ You may use the HTTPS libraries named by the design artifact, or no library. Kee
 Runtime contract:
 Emit window.parent.postMessage({type:"activity_ready",payload:{nodeId:"${input.activity.id}"}},"*") only when the opening is genuinely ready. Do not emit activity_ready while the opening is empty, loading, charging, or waiting through a decorative animation. The title, mathematical representation, and first meaningful action must already be rendered, enabled, and visually obvious.
 Whenever the activity or active problem changes, emit window.parent.postMessage({type:"game_state_update",payload:{game:"generated-math",activityId:"${input.activity.id}",nodeId:"${input.activity.id}",phase:"question",activityTitle:${JSON.stringify(input.activity.title)},learningFocus:${JSON.stringify(input.activity.academicTarget)},mechanic:${JSON.stringify(input.activity.mechanic)},currentChallenge,availableActions,itemIndex,totalItems,answerVisibility:"hidden"}},"*") so Elli has live context. Never expose answers.
-Represent currentChallenge as {id,prompt,mode,readAloudRequested:false,readAloudCount}. When the child activates a visible Read it to me control, increment readAloudCount and resend that same answer-hidden state with readAloudRequested:true. Do not narrate it inside the activity.
+${TARGETED_COMPANION_RUNTIME_CONTRACT}
 Listen for parent messages with type:"sunny_companion_presence". Pause activity timers and input while summoned, and resume the same state when collapsed. Do not restart or change progress.
 Sunny may reserve a 220px right-side companion safe area while the child asks for help. Keep essential instructions, mathematical representations, and primary controls outside it at the 1365×768 target and the 1280×720 embedded frame; decorative scenery may extend behind it.
 For sound, post semantic cues to Sunny with window.parent.postMessage({type:"sunny_sfx",payload:{cue}},"*"). The allowed cue values are "interaction", "recovery", "progress", and "completion". Emit them when the approved design calls for those moments; Sunny owns the actual recorded sound quality.
@@ -2191,7 +2229,7 @@ Load <script src="/games/_contract.js"></script> in <head>.
 Read runtime identity and parameters from window.GAME_PARAMS. Never hardcode the child identity, homework identity, or session identity into the HTML.
 Emit window.parent.postMessage({type:"activity_ready",payload:{nodeId:"${nodeId}"}},"*") when ready.
 Whenever the activity or problem changes, emit window.parent.postMessage({type:"game_state_update",payload:{game:"generated-${spelling ? "spelling" : "math"}",activityId:"${nodeId}",nodeId:"${nodeId}",phase:"question",activityTitle:${JSON.stringify(input.node.title)},learningFocus:${JSON.stringify(input.node.academicTarget.skill)},mechanic:${JSON.stringify(input.node.mechanic)},currentChallenge,availableActions,itemIndex,totalItems,answerVisibility:"hidden"}},"*") so Elli has live context. Never expose answers.
-Represent currentChallenge as {id,prompt,mode,readAloudRequested:false,readAloudCount}. When the child activates a visible Read it to me control, increment readAloudCount and resend that same answer-hidden state with readAloudRequested:true. Do not narrate it inside the activity.
+${TARGETED_COMPANION_RUNTIME_CONTRACT}
 Listen for parent messages with type:"sunny_companion_presence". Pause activity timers and input while summoned, and resume the same state when collapsed. Do not restart or change progress.
 Maintain a factual targetResults array with exactly one immutable first committed response per Planner item: {target,correct,attemptedValue,responseTimeMs,scaffoldLevel}. Log retries as separate attempt events; never append duplicate targets or overwrite the first response.
 For every answer call window.fireAttemptEvent({domain:"${spelling ? "spelling" : "math"}",target,correct,attemptedValue,responseTimeMs,scaffoldLevel}).
@@ -2220,23 +2258,8 @@ Prior factual observations (never rewrite them):
 ${JSON.stringify(factualCycleObservations(input.cycle), null, 2)}
 
 Current child context:
-${JSON.stringify(factualModelContext(input.childContext), null, 2)}`;
-  const childIdentity = input.cycle.childId.trim();
-  if (!childIdentity) return prompt;
-  const escapedIdentity = childIdentity.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const scrubbed = prompt.replace(new RegExp(escapedIdentity, "gi"), "the current child");
-  // The Planner may legitimately put the child's own name in the title it
-  // chose. Scrubbing the prompt would rewrite the mandated H1 too, and the
-  // Creator would faithfully render "the current child's Last Cargo Run" — which
-  // then fails the opening-title check against the contract. Restore the exact
-  // required title after scrubbing; it is the one place the name belongs.
-  const requiredTitle = JSON.stringify(input.node.openingScreen.title);
-  const scrubbedTitle = JSON.stringify(
-    input.node.openingScreen.title.replace(new RegExp(escapedIdentity, "gi"), "the current child"),
-  );
-  return scrubbedTitle === requiredTitle
-    ? scrubbed
-    : scrubbed.replace(`The first visible H1 must be exactly ${scrubbedTitle}`, `The first visible H1 must be exactly ${requiredTitle}`);
+${JSON.stringify(creatorChildContextWithoutIdentity(input.childContext), null, 2)}`;
+  return prompt;
 }
 
 export async function generateAdaptiveProgressionActivityHtml(input: {
@@ -2700,13 +2723,26 @@ export async function runDirectBrowserSmokeCheck(input: {
           itemIds: artifact.itemIds,
           requireItemStateTransitions: Boolean(artifact.itemIds?.length),
           itemContracts: input.itemContractsByNodeId?.[artifact.nodeId],
+          captureItemState: async ({ itemId, itemIndex }) => {
+            const safeNodeId = artifact.nodeId.replace(/[^a-z0-9_-]/gi, "_");
+            const safeItemId = itemId.replace(/[^a-z0-9_-]/gi, "_");
+            const target = path.join(screenshotDir, `${safeNodeId}-${viewport.name}-item-${String(itemIndex + 1).padStart(2, "0")}-${safeItemId}.png`);
+            await page.screenshot({ path: target, fullPage: false });
+            screenshots.push(target);
+          },
         });
+        const safeNodeId = artifact.nodeId.replace(/[^a-z0-9_-]/gi, "_");
+        const completionTarget = path.join(screenshotDir, `${safeNodeId}-${viewport.name}-completion.png`);
+        await page.screenshot({ path: completionTarget, fullPage: false });
+        screenshots.push(completionTarget);
       } catch (error) {
         failures.push(`${artifact.nodeId}:${viewport.name}:${error instanceof Error ? error.message : String(error)}`);
       } finally {
         failures.push(...errors.map(error => `${artifact.nodeId}:${viewport.name}:browser_error:${error}`));
-        const target = path.join(screenshotDir, `${artifact.nodeId.replace(/[^a-z0-9_-]/gi,"_")}-${viewport.name}.png`);
-        await page.screenshot({ path: target }).then(() => screenshots.push(target)).catch(error => failures.push(`screenshot_failed:${String(error)}`));
+        if (failures.some(failure => failure.startsWith(`${artifact.nodeId}:${viewport.name}:`))) {
+          const target = path.join(screenshotDir, `${artifact.nodeId.replace(/[^a-z0-9_-]/gi,"_")}-${viewport.name}-failure.png`);
+          await page.screenshot({ path: target, fullPage: false }).then(() => screenshots.push(target)).catch(error => failures.push(`screenshot_failed:${String(error)}`));
+        }
         await page.close();
       }
     }

@@ -9,7 +9,13 @@ import { judgeChildFacingScreens } from "./childFacingVisualGate";
 vi.mock("../scripts/validateGeneratedGame",()=>({validateGeneratedGame:()=>({passed:true,failures:[]})}));
 vi.mock("./generatedArtifactRuntimeValidator",()=>({validateGeneratedArtifactRuntime:async()=>({passed:true,failures:[]})}));
 vi.mock("./directMathExperience",async original=>({...await original<typeof import("./directMathExperience")>(),runDirectBrowserSmokeCheck:vi.fn(async()=>({passed:false,failures:["real_controls_broken"],screenshots:[]}))}));
-vi.mock("./childFacingVisualGate",()=>({judgeChildFacingScreens:vi.fn(async()=>({decision:"approve",observations:[]}))}));
+vi.mock("./childFacingVisualGate",()=>({
+  selectChildFacingJourneyScreens: (screenshots: string[]) => {
+    const selected = screenshots.filter(file => file.includes("-sunny-item-") || file.includes("-sunny-completion"));
+    return selected.length > 0 ? selected : screenshots;
+  },
+  judgeChildFacingScreens:vi.fn(async()=>({decision:"approve",observations:[]})),
+}));
 import { generateCanonicalProgressionArtifact } from "./canonicalProgressionGenerator";
 
 function root(): string { return fs.mkdtempSync(path.join(os.tmpdir(), "sunny-progression-")); }
@@ -282,6 +288,33 @@ describe("canonical progression generation", () => {
     createLearningCycle(initial, { rootDir });
     await expect(generateCanonicalProgressionArtifact({ childId: "reina", homeworkId: "hw-progression", generateHtml: async () => "<html><h1>Fact Blaster</h1></html>" }, { rootDir })).rejects.toThrow("real_controls_broken");
     expect(runDirectBrowserSmokeCheck).toHaveBeenCalledWith(expect.objectContaining({ artifacts: [expect.objectContaining({ itemIds: ["frozen-night"] })] }));
+  });
+  it("passes frozen math item contracts through the later Support/Quest/Boss browser gate", async () => {
+    const rootDir = root();
+    const initial = baseInput();
+    const item = {
+      id: "checkpoint-clock",
+      constructId: "clock.reading",
+      prompt: "Which hand shows the minutes?",
+      lineage: { measurementRole: "fresh_checkpoint" },
+      response: { mode: "selection", options: [{ id: "long", label: "Long", correct: true }, { id: "short", label: "Short", correct: false }] },
+    };
+    initial.nodes = [{
+      ...initial.nodes[0], state: "generating", artifactBinding: null,
+      generationPrompt: { promptId: "math-prompt", text: "Check clock reading", createdFromEvidenceIds: ["pdf"] },
+      evidenceContract: { academic: true, engagement: true, companionObservations: true, itemRoles: { [item.id]: "fresh_checkpoint" }, itemContracts: { [item.id]: item } },
+    }] as never;
+    createLearningCycle(initial, { rootDir });
+
+    await expect(generateCanonicalProgressionArtifact({
+      childId: "reina",
+      homeworkId: initial.homeworkId,
+      generateHtml: async () => "<html><h1>Fact Blaster</h1></html>",
+    }, { rootDir })).rejects.toThrow("real_controls_broken");
+
+    expect(runDirectBrowserSmokeCheck).toHaveBeenCalledWith(expect.objectContaining({
+      itemContractsByNodeId: { facts: [item] },
+    }));
   });
   it("keeps generated spelling in the same Creator with the assigned word identities", () => {
     const cycle = { ...baseInput(), domain: "spelling", observations: [] };

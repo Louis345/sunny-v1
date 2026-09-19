@@ -3,13 +3,21 @@ import path from "node:path";
 import { createHash } from "node:crypto";
 import Anthropic from "@anthropic-ai/sdk";
 
-export const CHILD_FACING_VISUAL_GATE_VERSION = 2;
+export const CHILD_FACING_VISUAL_GATE_VERSION = 3;
 export const CHILD_FACING_VISUAL_PROMPT = "Review these screenshots as a child would. Are there any visual bugs, confusing or contradictory elements, or anything that would make the activity difficult to understand or complete? Describe everything you notice.";
 
 export type ChildFacingVisualVerdict = {
   decision: "approve" | "reject";
   observations: string[];
 };
+
+export function selectChildFacingJourneyScreens(screenshots: string[]): string[] {
+  const childFrame = screenshots.filter(file => {
+    const name = path.basename(file);
+    return name.includes("-sunny-item-") || name.includes("-sunny-completion");
+  });
+  return childFrame.length > 0 ? childFrame : screenshots;
+}
 
 type VisualJudgeClient = Pick<Anthropic, "messages">;
 
@@ -115,10 +123,12 @@ export async function judgeChildFacingScreens(input: {
     ?? (input.client ? "claude-sonnet-5" : "gpt-5.6");
   const provider = model.startsWith("gpt-") ? "openai" : "anthropic";
   const screenshotHashes = screenshotPaths.map(file => digest(fs.readFileSync(file)));
+  const screenshotLabels = screenshotPaths.map(file => path.basename(file));
   const requestHash = digest(JSON.stringify({
     version: CHILD_FACING_VISUAL_GATE_VERSION,
     model,
     prompt: CHILD_FACING_VISUAL_PROMPT,
+    screenshotLabels,
     screenshotHashes,
   }));
 
@@ -191,11 +201,14 @@ export async function judgeChildFacingScreens(input: {
         input: [{
           role: "user",
           content: [
-            ...screenshotPaths.map(file => ({
-              type: "input_image",
-              image_url: `data:image/png;base64,${fs.readFileSync(file).toString("base64")}`,
-              detail: "high",
-            })),
+            ...screenshotPaths.flatMap((file, index) => [
+              { type: "input_text", text: `Screen state ${index + 1}/${screenshotPaths.length}: ${path.basename(file)}` },
+              {
+                type: "input_image",
+                image_url: `data:image/png;base64,${fs.readFileSync(file).toString("base64")}`,
+                detail: "high",
+              },
+            ]),
             { type: "input_text", text: CHILD_FACING_VISUAL_PROMPT },
           ],
         }],
@@ -228,14 +241,17 @@ export async function judgeChildFacingScreens(input: {
       messages: [{
         role: "user",
         content: [
-          ...screenshotPaths.map(file => ({
-            type: "image" as const,
-            source: {
-              type: "base64" as const,
-              media_type: "image/png" as const,
-              data: fs.readFileSync(file).toString("base64"),
+          ...screenshotPaths.flatMap((file, index) => [
+            { type: "text" as const, text: `Screen state ${index + 1}/${screenshotPaths.length}: ${path.basename(file)}` },
+            {
+              type: "image" as const,
+              source: {
+                type: "base64" as const,
+                media_type: "image/png" as const,
+                data: fs.readFileSync(file).toString("base64"),
+              },
             },
-          })),
+          ]),
           { type: "text" as const, text: CHILD_FACING_VISUAL_PROMPT },
         ],
       }],

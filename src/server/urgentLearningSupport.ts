@@ -172,6 +172,8 @@ export function prepareInstructionReadRequest(input: {
   prompt: string;
   requestCount: number;
   answerVisibility: string;
+  measurementRole?: "instruction" | "practice" | "fresh_checkpoint";
+  trigger?: "guided_prompt" | "child_request";
   previousRequestKey: string | null;
 }): { requestKey: string; prompt: string; trace: Record<string, unknown> } | null {
   const prompt = input.prompt.trim();
@@ -180,13 +182,28 @@ export function prepareInstructionReadRequest(input: {
   if (requestKey === input.previousRequestKey) return null;
   return {
     requestKey,
-    prompt,
+    prompt: [
+      "Activity support turn:",
+      input.trigger === "guided_prompt"
+        ? "The targeted teaching activity has invited one automatic guided introduction."
+        : "The child asked Elli to read or explain the current prompt.",
+      `Frozen prompt: ${JSON.stringify(prompt)}`,
+      `Measurement role: ${input.measurementRole ?? "unknown"}.`,
+      "Use the live answer-hidden activity context. Speak naturally in one short, age-appropriate sentence.",
+      "Read or briefly simplify what the child needs to do; do not reveal, imply, or eliminate toward the answer and do not alter the choices or scoring contract.",
+      input.trigger === "guided_prompt"
+        ? "This was system-invited support, not evidence that the child asked for help; do not record a help-needed child signal."
+        : "This was child-requested support; record it only as support/interaction evidence, never mastery.",
+      "Return control to the activity unless a brief understanding question is genuinely needed.",
+    ].join("\n"),
     trace: {
-      type: "instructional_read_aloud",
+      type: "instructional_companion_support",
       source: "companion",
       activityId: input.activityId,
       nodeId: input.nodeId,
       itemId: input.itemId,
+      measurementRole: input.measurementRole ?? "unknown",
+      trigger: input.trigger ?? "child_request",
       evidenceRole: "support",
       masteryEligible: false,
     },

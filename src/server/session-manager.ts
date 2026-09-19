@@ -965,6 +965,8 @@ export class SessionManager {
     prompt: string;
     requestCount: number;
     answerVisibility: string;
+    measurementRole?: "instruction" | "practice" | "fresh_checkpoint";
+    trigger?: "guided_prompt" | "child_request";
   }): Promise<void> {
     const request = prepareInstructionReadRequest({
       ...input,
@@ -973,11 +975,21 @@ export class SessionManager {
     if (!request) return;
     this.lastInstructionReadRequestKey = request.requestKey;
     this.setCompanionPresence("summoned", "read_instruction");
+    this.resetCompanionDispositionAfterSpeech();
     this.recordGameTrace(request.trace);
-    console.log(`  🎮 [companion-help] [read-instruction] node=${input.nodeId} item=${input.itemId}`);
+    console.log(`  🎮 [companion-help] [agent-support] node=${input.nodeId} item=${input.itemId} trigger=${input.trigger ?? "child_request"}`);
     if (this.turnSM.getState() !== "IDLE") this.bargeIn();
-    await this.handleCompanionTurn(request.prompt);
-    this.applyCompanionDispositionAfterSpeech();
+    try {
+      await this.runCompanionResponse(request.prompt);
+    } finally {
+      if (
+        this.lastInstructionReadRequestKey === request.requestKey
+        && this.companionPresence === "summoned"
+        && this.companionInteractionMode === "activity_help"
+      ) {
+        this.applyCompanionDispositionAfterSpeech();
+      }
+    }
   }
 
   /**

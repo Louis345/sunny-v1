@@ -1,7 +1,10 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
+import { runDirectBrowserSmokeCheck } from "./directMathExperience";
+import { selectChildFacingJourneyScreens } from "./childFacingVisualGate";
 import {
   DiscoveryRuntimeVerificationError,
   verifyMathJourneyAtReleaseViewports,
@@ -21,6 +24,41 @@ document.querySelector("#hand-long").addEventListener("click",()=>{
 </script></body></html>`;
 
 describe("generated math control diagnostics", () => {
+  it("keeps Saori's missing-hand clock as immutable journey-review evidence", async () => {
+    const fixture = path.join(process.cwd(), "outputs/saori-session-readiness-20260919/saved-clock/original.html");
+    const html = fs.readFileSync(fixture);
+    expect(createHash("sha256").update(html).digest("hex")).toBe(
+      "40a7a0c84ff1405a6eba339dcce9f083a50b0d0b5f7b768efba368813c98e1c7",
+    );
+
+    const report = await runDirectBrowserSmokeCheck({
+      rootDir: process.cwd(),
+      artifacts: [{
+        nodeId: "act-two-scales-intro",
+        childId: "fixture-child",
+        homeworkId: "fixture-clock",
+        title: "Lamp Room",
+        htmlPath: fixture,
+        htmlHash: createHash("sha256").update(html).digest("hex"),
+        artworkUrl: "",
+        creatorPrompt: "immutable recorded fixture",
+        promptHash: "fixture",
+        plannerModel: "recorded",
+        creatorModel: "recorded",
+        itemIds: ["it-intro-01", "it-intro-02", "it-intro-03", "it-intro-04"],
+      }],
+    });
+
+    expect(report.passed).toBe(true);
+    expect(selectChildFacingJourneyScreens(report.screenshots).map(file => path.basename(file))).toEqual([
+      "act-two-scales-intro-sunny-item-01-it-intro-01.png",
+      "act-two-scales-intro-sunny-item-02-it-intro-02.png",
+      "act-two-scales-intro-sunny-item-03-it-intro-03.png",
+      "act-two-scales-intro-sunny-item-04-it-intro-04.png",
+      "act-two-scales-intro-sunny-completion.png",
+    ]);
+  }, 60_000);
+
   it("reports perpetual geometry animation before a repair wastes its only attempt", async () => {
     const outputDir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-moving-control-"));
     const html = `<!doctype html><html><head><style>
@@ -134,7 +172,7 @@ describe("generated math control diagnostics", () => {
       outputDir,
       completionType: "evaluation_complete",
       itemIds: ["item-1", "item-2"],
-    })).resolves.toHaveLength(2);
+    })).resolves.toHaveLength(6);
     fs.rmSync(outputDir, { recursive: true, force: true });
   });
 
@@ -167,7 +205,7 @@ describe("generated math control diagnostics", () => {
       outputDir,
       completionType: "evaluation_complete",
       itemIds: ["item-1", "item-2"],
-    })).resolves.toHaveLength(2);
+    })).resolves.toHaveLength(6);
     fs.rmSync(outputDir, { recursive: true, force: true });
   }, 15_000);
 
@@ -202,7 +240,7 @@ describe("generated math control diagnostics", () => {
       outputDir,
       completionType: "evaluation_complete",
       itemIds: ["item-1", "item-2"],
-    })).resolves.toHaveLength(2);
+    })).resolves.toHaveLength(6);
     fs.rmSync(outputDir, { recursive: true, force: true });
   }, 15_000);
 
@@ -228,7 +266,7 @@ describe("generated math control diagnostics", () => {
       outputDir,
       completionType: "evaluation_complete",
       itemIds: ["item-1"],
-    })).resolves.toHaveLength(2);
+    })).resolves.toHaveLength(4);
     fs.rmSync(outputDir, { recursive: true, force: true });
   });
 });

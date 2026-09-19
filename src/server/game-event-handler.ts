@@ -380,6 +380,15 @@ export function handleGameEventForSession(
       challenge && typeof challenge.prompt === "string"
         ? challenge.prompt.trim()
         : "";
+    const ctx: Record<string, unknown> = { ...event };
+    delete ctx.type;
+    delete ctx.version;
+    delete ctx.payload;
+    if (typeof s.updateCurrentBoardSnapshot === "function") {
+      s.updateCurrentBoardSnapshot(ctx);
+    } else {
+      s.injectGameContext?.(ctx);
+    }
     if (challenge?.readAloudRequested === true && prompt) {
       const request = {
         nodeId: String(event.nodeId ?? ""),
@@ -391,6 +400,14 @@ export function handleGameEventForSession(
             ? challenge.readAloudCount
             : 1,
         answerVisibility: String(event.answerVisibility ?? "hidden"),
+        ...(challenge.measurementRole === "instruction"
+          || challenge.measurementRole === "practice"
+          || challenge.measurementRole === "fresh_checkpoint"
+          ? { measurementRole: challenge.measurementRole }
+          : {}),
+        trigger: challenge.companionSupportTrigger === "guided_prompt"
+          ? "guided_prompt" as const
+          : "child_request" as const,
       };
       try {
         const pending = s.requestInstructionReadAloud?.(request);
@@ -402,15 +419,6 @@ export function handleGameEventForSession(
       } catch (err: unknown) {
         console.error("  🔴 [companion-help] read aloud failed:", err);
       }
-    }
-    const ctx: Record<string, unknown> = { ...event };
-    delete ctx.type;
-    delete ctx.version;
-    delete ctx.payload;
-    if (typeof s.updateCurrentBoardSnapshot === "function") {
-      s.updateCurrentBoardSnapshot(ctx);
-    } else {
-      s.injectGameContext?.(ctx);
     }
     return;
   }

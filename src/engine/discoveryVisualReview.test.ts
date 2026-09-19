@@ -22,7 +22,7 @@ function activeHandles(): unknown[] {
 
 describe("Discovery visual review", () => {
   it("invalidates prior unscoped-control verdicts without resetting paid repair receipts", () => {
-    expect(DISCOVERY_VERIFIER_VERSION).toBe(12);
+    expect(DISCOVERY_VERIFIER_VERSION).toBe(13);
   });
 
   it("keeps provider and model selection out of browser mechanics", () => {
@@ -147,6 +147,28 @@ describe("Discovery visual review", () => {
 
     expect(repair).toHaveBeenCalledWith(expect.objectContaining({
       screenshotPaths: [opening, journeyGeneration, journeySunny],
+    }));
+  });
+
+  it("shows successful per-question runtime captures to the blind visual judge", async () => {
+    const outputDir = dir();
+    const opening = path.join(outputDir, "opening.png");
+    const question = path.join(outputDir, "journey-sunny-item-02-clock.png");
+    fs.writeFileSync(opening, "opening");
+    fs.writeFileSync(question, "question");
+    const judge = vi.fn(async () => []);
+
+    await reviewDiscoveryCandidate({
+      html: "working",
+      outputDir,
+      render: async () => Object.assign([opening], { issues: [] }),
+      verify: async () => [question],
+      judge,
+      repair: vi.fn(async () => "unused"),
+    });
+
+    expect(judge).toHaveBeenCalledWith(expect.objectContaining({
+      screenshotPaths: [opening, question],
     }));
   });
 
