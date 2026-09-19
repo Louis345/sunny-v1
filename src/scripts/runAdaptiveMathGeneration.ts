@@ -50,6 +50,7 @@ type VisualRepairAttempt = {
   startedAt?: string;
   finishedAt?: string;
   error?: string;
+  truncationRetryCount?: number;
 };
 
 function visualRepairNodeDir(draft: string, nodeId: string): string {
@@ -78,6 +79,9 @@ function findVisualRepairAttempt(draft: string, nodeId: string, artifactHash: st
 
 function mayRunVisualRepair(attempt: VisualRepairAttempt | undefined, retryUncertain: boolean): boolean {
   if (!attempt || ["started", "provider_completed"].includes(attempt.status)) return true;
+  if (attempt.status === "failed"
+    && attempt.error === "direct_activity_repair_incomplete:max_output_tokens"
+    && (attempt.truncationRetryCount ?? 0) < 1) return true;
   return retryUncertain && attempt.status === "verification_uncertain";
 }
 
@@ -180,7 +184,10 @@ export async function runAdaptiveMathGeneration(
       return (savedBuild.artifacts ?? []).some((artifact) => {
         const status = initialJob.nodes.find((node) => node.nodeId === artifact.nodeId)?.status;
         const attempt = findVisualRepairAttempt(draft, artifact.nodeId, artifact.htmlHash ?? "")?.value;
-        const resumableAttempt = attempt && ["started", "provider_completed"].includes(attempt.status);
+        const resumableAttempt = attempt && (["started", "provider_completed"].includes(attempt.status)
+          || (attempt.status === "failed"
+            && attempt.error === "direct_activity_repair_incomplete:max_output_tokens"
+            && (attempt.truncationRetryCount ?? 0) < 1));
         return ["failed_resumable", "needs_attention"].includes(status ?? "")
           && (Boolean(resumableAttempt)
             || (isCurrentVisualRejection(savedReports[artifact.nodeId])
@@ -387,7 +394,10 @@ export async function runAdaptiveMathGeneration(
     const node = getMathGenerationStatus(childId, homeworkId, { rootDir })?.nodes.find(candidate => candidate.nodeId === currentArtifact.nodeId);
     const savedReport = reports[currentArtifact.nodeId];
     const savedAttempt = findVisualRepairAttempt(draft, currentArtifact.nodeId, currentArtifact.htmlHash ?? "");
-    const resumableAttempt = savedAttempt && ["started", "provider_completed"].includes(savedAttempt.value.status);
+    const resumableAttempt = savedAttempt && (["started", "provider_completed"].includes(savedAttempt.value.status)
+      || (savedAttempt.value.status === "failed"
+        && savedAttempt.value.error === "direct_activity_repair_incomplete:max_output_tokens"
+        && (savedAttempt.value.truncationRetryCount ?? 0) < 1));
     if (!["failed_resumable", "needs_attention"].includes(node?.status ?? "")
       || !(resumableAttempt || (isCurrentVisualRejection(savedReport)
         && mayRunVisualRepair(savedAttempt?.value, Boolean(options.retryUncertainProvider))))) continue;
@@ -417,6 +427,10 @@ export async function runAdaptiveMathGeneration(
       failures: savedAttempt?.value.failures ?? savedReport.failures,
       status: "started",
       startedAt,
+      truncationRetryCount: savedAttempt?.value.status === "failed"
+        && savedAttempt.value.error === "direct_activity_repair_incomplete:max_output_tokens"
+        ? (savedAttempt.value.truncationRetryCount ?? 0) + 1
+        : savedAttempt?.value.truncationRetryCount,
     };
     write(attemptFile, attemptBase);
     console.log(` 🎮 [adaptive-math] [visual-repair] [${savedAttempt ? "resumed" : "scheduled"}] node=${currentArtifact.nodeId} gate=v${CHILD_FACING_VISUAL_GATE_VERSION}`);

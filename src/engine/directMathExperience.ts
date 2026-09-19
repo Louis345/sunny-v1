@@ -2101,41 +2101,81 @@ export async function repairDirectArtifact(input: {
     }));
   content.push({ type: "input_text", text: prompt });
   const requestFile = path.join(input.outputDir, `${input.artifact.nodeId}-repair-request.json`);
-  if (!fs.existsSync(requestFile)) atomicWrite(requestFile, JSON.stringify({model,input:[{role:"user",content}],max_output_tokens:Number(process.env.SUNNY_REPAIR_MAX_TOKENS ?? 8000),reasoning:{effort:"high"},stream:true,store:false}));
+  if (!fs.existsSync(requestFile)) atomicWrite(requestFile, JSON.stringify({model,input:[{role:"user",content}],max_output_tokens:Number(process.env.SUNNY_REPAIR_MAX_TOKENS ?? 48000),reasoning:{effort:"high"},stream:true,store:false}));
   const request = JSON.parse(fs.readFileSync(requestFile,"utf8"));
   const startedAt = Date.now();
-  const streamed = await runMathProviderStage({draftDir:input.outputDir,stage:`${input.artifact.nodeId}-repair`,model:request.model,request,beforeRequest:() => {
-    if (!process.env.OPENAI_API_KEY?.trim()) throw new Error("preflight_missing:OPENAI_API_KEY");
-  },execute:async () => {
-  const response = await fetch("https://api.openai.com/v1/responses", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${process.env.OPENAI_API_KEY ?? ""}`,
-      "Content-Type": "application/json",
+  const executeRepairRequest = async (repairRequest: Record<string, unknown>) => {
+    const response = await fetch("https://api.openai.com/v1/responses", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${process.env.OPENAI_API_KEY ?? ""}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(repairRequest),
+      signal: AbortSignal.timeout(Number(process.env.SUNNY_AI_TIMEOUT_MS ?? 600000)),
+    });
+    if (!response.ok) {
+      throw Object.assign(new Error(`direct_activity_repair_provider_failed:${input.artifact.nodeId}:${response.status}`), {status:response.status});
+    }
+    return readOpenAiResponseStream(response);
+  };
+  const runRepairStage = (stage: string, repairRequest: Record<string, unknown>) => runMathProviderStage({
+    draftDir: input.outputDir,
+    stage,
+    model: String(repairRequest.model),
+    request: repairRequest,
+    beforeRequest: () => {
+      if (!process.env.OPENAI_API_KEY?.trim()) throw new Error("preflight_missing:OPENAI_API_KEY");
     },
-    body: JSON.stringify(request),
-    signal: AbortSignal.timeout(Number(process.env.SUNNY_AI_TIMEOUT_MS ?? 600000)),
+    execute: () => executeRepairRequest(repairRequest),
   });
-  if (!response.ok) {
-    throw Object.assign(new Error(`direct_activity_repair_provider_failed:${input.artifact.nodeId}:${response.status}`), {status:response.status});
+  let streamed = await runRepairStage(`${input.artifact.nodeId}-repair`, request);
+  const initialStopReason = streamed.stopReason;
+  let providerCalls = 1;
+  let inputTokens = streamed.inputTokens;
+  let outputTokens = streamed.outputTokens;
+  let truncationEscalated = false;
+  if (streamed.stopReason === "max_output_tokens") {
+    const initialMaxTokens = Number(request.max_output_tokens ?? 0);
+    const retryMaxTokens = Number(process.env.SUNNY_REPAIR_RETRY_MAX_TOKENS ?? 48000);
+    if (retryMaxTokens <= initialMaxTokens) {
+      throw new Error("direct_activity_repair_incomplete:max_output_tokens_at_ceiling");
+    }
+    const retryRequestFile = path.join(input.outputDir, `${input.artifact.nodeId}-repair-token-escalation-v1-request.json`);
+    if (!fs.existsSync(retryRequestFile)) {
+      atomicWrite(retryRequestFile, JSON.stringify({ ...request, max_output_tokens: retryMaxTokens }));
+    }
+    const retryRequest = JSON.parse(fs.readFileSync(retryRequestFile, "utf8")) as Record<string, unknown>;
+    console.log(` 🎮 [adaptive-math] [node-repair] [token-escalation] node=${input.artifact.nodeId} from=${initialMaxTokens} to=${retryMaxTokens}`);
+    const retry = await runRepairStage(`${input.artifact.nodeId}-repair-token-escalation-v1`, retryRequest);
+    providerCalls += 1;
+    inputTokens += retry.inputTokens;
+    outputTokens += retry.outputTokens;
+    truncationEscalated = true;
+    streamed = retry;
+    if (streamed.stopReason !== "completed") {
+      throw new Error(`direct_activity_repair_incomplete:${streamed.stopReason}_after_escalation`);
+    }
+  } else if (streamed.stopReason !== "completed") {
+    throw new Error(`direct_activity_repair_incomplete:${streamed.stopReason}`);
   }
-  return readOpenAiResponseStream(response);
-  }});
-  if (streamed.stopReason !== "completed") throw new Error(`direct_activity_repair_incomplete:${streamed.stopReason}`);
   const applied = applyDiscoveryHtmlPatch(originalHtml, streamed.raw);
   const htmlHash = crypto.createHash("sha256").update(applied.html).digest("hex");
   const currentHash = crypto.createHash("sha256").update(fs.readFileSync(input.artifact.htmlPath)).digest("hex");
   if (![originalHtmlHash,htmlHash].includes(currentHash) || ![originalHtmlHash,htmlHash].includes(input.artifact.htmlHash ?? "")) throw new Error(`direct_activity_repair_source_changed:${input.artifact.nodeId}`);
   const diagnosticPath = path.join(input.outputDir, `${input.artifact.nodeId}-repair.json`);
-  if (applied.engineeringLesson) recordEngineeringRepairEvidence({ file: path.join(input.outputDir, `${input.artifact.nodeId}.engineering-repair.json`), verifierVersion: MATH_BROWSER_VERIFIER_VERSION * 1000 + DISCOVERY_VERIFIER_VERSION, originalHash: originalHtmlHash, repairedHash: htmlHash, academicHash: originalAcademicHash!, designHash: originalDesignHash!, issues: input.failures, proposal: applied.engineeringLesson, inputTokens: streamed.inputTokens, outputTokens: streamed.outputTokens, latencyMs: Date.now() - startedAt, costUsd: estimateDiscoveryRepairCost({ provider: "openai", inputTokens: streamed.inputTokens, outputTokens: streamed.outputTokens }) });
+  if (applied.engineeringLesson) recordEngineeringRepairEvidence({ file: path.join(input.outputDir, `${input.artifact.nodeId}.engineering-repair.json`), verifierVersion: MATH_BROWSER_VERIFIER_VERSION * 1000 + DISCOVERY_VERIFIER_VERSION, originalHash: originalHtmlHash, repairedHash: htmlHash, academicHash: originalAcademicHash!, designHash: originalDesignHash!, issues: input.failures, proposal: applied.engineeringLesson, inputTokens, outputTokens, latencyMs: Date.now() - startedAt, costUsd: estimateDiscoveryRepairCost({ provider: "openai", inputTokens, outputTokens }) });
   fs.writeFileSync(diagnosticPath, `${JSON.stringify({
     nodeId: input.artifact.nodeId,
     model:request.model,
     failures: input.failures,
     screenshotPaths: input.screenshotPaths,
     stopReason: streamed.stopReason,
-    inputTokens: streamed.inputTokens,
-    outputTokens: streamed.outputTokens,
+    inputTokens,
+    outputTokens,
+    providerCalls,
+    initialStopReason,
+    truncationEscalated,
     latencyMs: Date.now() - startedAt,
     replacementCount: applied.replacementCount,
     changedOriginalCharacters: applied.changedOriginalCharacters,
