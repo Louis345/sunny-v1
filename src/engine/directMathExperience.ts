@@ -518,12 +518,17 @@ export type DirectGenerationStats = {
   bonusDeferred: boolean;
 };
 
-export const MATH_BROWSER_VERIFIER_VERSION = 9;
+export const MATH_BROWSER_VERIFIER_VERSION = 10;
 
 export type DirectPlaywrightReport = {
   passed: boolean;
   failures: string[];
   screenshots: string[];
+  verification?: {
+    runtime: boolean;
+    scoring: boolean;
+    contracts: boolean;
+  };
 };
 
 export function hasReadyDirectMathExperience(childId: string, rootDir = process.cwd()): boolean {
@@ -2645,6 +2650,7 @@ function contentType(file: string): string {
 export async function runDirectBrowserSmokeCheck(input: {
   artifacts: DirectArtifact[];
   rootDir?: string;
+  itemContractsByNodeId?: Record<string, DirectItem[]>;
 }): Promise<DirectPlaywrightReport> {
   const rootDir = input.rootDir ?? process.cwd();
   const publicDir = path.join(rootDir, "web", "public");
@@ -2693,6 +2699,7 @@ export async function runDirectBrowserSmokeCheck(input: {
           completionType: "node_complete",
           itemIds: artifact.itemIds,
           requireItemStateTransitions: Boolean(artifact.itemIds?.length),
+          itemContracts: input.itemContractsByNodeId?.[artifact.nodeId],
         });
       } catch (error) {
         failures.push(`${artifact.nodeId}:${viewport.name}:${error instanceof Error ? error.message : String(error)}`);
@@ -2706,7 +2713,20 @@ export async function runDirectBrowserSmokeCheck(input: {
   } finally {
     try { await browser?.close(); } finally { await new Promise<void>(resolve => server.close(() => resolve())); }
   }
-  return { passed: failures.length === 0, failures, screenshots };
+  const passed = failures.length === 0;
+  const frozenContractsCovered = input.artifacts.length > 0 && input.artifacts.every(
+    artifact => (input.itemContractsByNodeId?.[artifact.nodeId]?.length ?? 0) > 0,
+  );
+  return {
+    passed,
+    failures,
+    screenshots,
+    verification: {
+      runtime: passed,
+      scoring: passed && frozenContractsCovered,
+      contracts: passed && frozenContractsCovered,
+    },
+  };
 }
 
 export function buildDirectActiveSessionPlan(input: {

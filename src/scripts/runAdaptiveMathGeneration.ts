@@ -33,10 +33,53 @@ import { verifyEngineeringRepairEvidence, DISCOVERY_VERIFIER_VERSION, DISCOVERY_
 import { thumbnailUrlForActivity } from "../shared/activityPresentation";
 import { buildAdventureBoardFromActiveSessionPlan } from "../shared/adventureBoardFromPlan";
 import type { ActiveSessionPlan } from "../context/schemas/learningProfile";
-import { judgeChildFacingScreens } from "../engine/childFacingVisualGate";
+import { CHILD_FACING_VISUAL_GATE_VERSION, judgeChildFacingScreens } from "../engine/childFacingVisualGate";
 
 const read = <T>(file: string): T => JSON.parse(fs.readFileSync(file, "utf8")) as T;
 const write = (file: string, value: unknown): void => { fs.mkdirSync(path.dirname(file), { recursive: true }); const temp = `${file}.${process.pid}.tmp`; fs.writeFileSync(temp, `${JSON.stringify(value, null, 2)}\n`); fs.renameSync(temp, file); };
+const writeText = (file: string, value: string): void => { fs.mkdirSync(path.dirname(file), { recursive: true }); const temp = `${file}.${process.pid}.tmp`; fs.writeFileSync(temp, value); fs.renameSync(temp, file); };
+
+type VisualRepairAttempt = {
+  version: 1;
+  gateVersion: number;
+  nodeId: string;
+  inputHtmlHash: string;
+  outputHtmlHash?: string;
+  failures: string[];
+  status: "started" | "provider_completed" | "verified" | "failed" | "verification_uncertain";
+  startedAt?: string;
+  finishedAt?: string;
+  error?: string;
+};
+
+function visualRepairNodeDir(draft: string, nodeId: string): string {
+  return path.join(draft, "provider-diagnostics", `visual-repair-v${CHILD_FACING_VISUAL_GATE_VERSION}`, nodeId);
+}
+
+function visualRepairAttemptPath(draft: string, nodeId: string, inputHtmlHash: string): string {
+  return path.join(visualRepairNodeDir(draft, nodeId), inputHtmlHash.slice(0, 12), `${nodeId}-visual-repair-attempt.json`);
+}
+
+function findVisualRepairAttempt(draft: string, nodeId: string, artifactHash: string): { file: string; value: VisualRepairAttempt } | undefined {
+  const nodeDir = visualRepairNodeDir(draft, nodeId);
+  if (!fs.existsSync(nodeDir)) return undefined;
+  const files = fs.readdirSync(nodeDir, { recursive: true, encoding: "utf8" })
+    .filter(name => name.endsWith(`${nodeId}-visual-repair-attempt.json`))
+    .map(name => path.join(nodeDir, name));
+  for (const file of files) {
+    const value = read<VisualRepairAttempt>(file);
+    if (value.gateVersion !== CHILD_FACING_VISUAL_GATE_VERSION || value.nodeId !== nodeId) {
+      throw new Error(`visual_repair_attempt_identity_mismatch:${nodeId}`);
+    }
+    if (value.inputHtmlHash === artifactHash || value.outputHtmlHash === artifactHash) return { file, value };
+  }
+  return undefined;
+}
+
+function mayRunVisualRepair(attempt: VisualRepairAttempt | undefined, retryUncertain: boolean): boolean {
+  if (!attempt || ["started", "provider_completed"].includes(attempt.status)) return true;
+  return retryUncertain && attempt.status === "verification_uncertain";
+}
 
 function arg(name: string): string {
   const value = process.argv.slice(2).find((part) => part.startsWith(`--${name}=`))?.slice(name.length + 3);
@@ -110,6 +153,13 @@ export async function runAdaptiveMathGeneration(
     && !fs.existsSync(planFile)
     && hasUncertainTargetedDesignReceipt(draft),
   );
+  const isCurrentVisualRejection = (saved?: { passed?: boolean; failures?: string[]; verifierVersion?: number }): boolean => Boolean(
+    saved
+    && saved.verifierVersion === MATH_BROWSER_VERIFIER_VERSION
+    && saved.passed === false
+    && saved.failures?.length
+    && saved.failures.every((failure) => failure.startsWith("child_visual_review:")),
+  );
   const mayReverifySavedArtifacts = Boolean(initialJob?.phase === "needs_attention" && fs.existsSync(buildFile) && fs.existsSync(reportsFile) && (() => {
     try {
       const savedBuild = read<{ artifacts?: DirectArtifact[] }>(buildFile);
@@ -123,7 +173,38 @@ export async function runAdaptiveMathGeneration(
       return false;
     }
   })());
-  if (initialJob?.phase === "needs_attention" && !recoveredProgram && !mayRetryFrozenDesign && !mayReverifySavedArtifacts) {
+  const mayRepairSavedVisualRejection = Boolean(initialJob?.phase === "needs_attention" && fs.existsSync(buildFile) && fs.existsSync(reportsFile) && (() => {
+    try {
+      const savedBuild = read<{ artifacts?: DirectArtifact[] }>(buildFile);
+      const savedReports = read<Record<string, DirectPlaywrightReport & { verifierVersion?: number }>>(reportsFile);
+      return (savedBuild.artifacts ?? []).some((artifact) => {
+        const status = initialJob.nodes.find((node) => node.nodeId === artifact.nodeId)?.status;
+        const attempt = findVisualRepairAttempt(draft, artifact.nodeId, artifact.htmlHash ?? "")?.value;
+        const resumableAttempt = attempt && ["started", "provider_completed"].includes(attempt.status);
+        return ["failed_resumable", "needs_attention"].includes(status ?? "")
+          && (Boolean(resumableAttempt)
+            || (isCurrentVisualRejection(savedReports[artifact.nodeId])
+              && mayRunVisualRepair(attempt, Boolean(options.retryUncertainProvider))));
+      });
+    } catch (error) {
+      console.warn(` 🎮 [adaptive-math] [visual-repair-eligibility] [invalid] child=${childId} homework=${homeworkId} reason=${error instanceof Error ? error.message : String(error)}`);
+      return false;
+    }
+  })());
+  const mayFinalizeSavedVisualRepair = Boolean(initialJob?.phase === "needs_attention" && fs.existsSync(buildFile) && (() => {
+    try {
+      const savedBuild = read<{ artifacts?: DirectArtifact[] }>(buildFile);
+      return (savedBuild.artifacts ?? []).some((artifact) => {
+        const status = initialJob.nodes.find((node) => node.nodeId === artifact.nodeId)?.status;
+        const attempt = findVisualRepairAttempt(draft, artifact.nodeId, artifact.htmlHash ?? "")?.value;
+        return status === "ready" && attempt?.status === "provider_completed" && attempt.outputHtmlHash === artifact.htmlHash;
+      });
+    } catch (error) {
+      console.warn(` 🎮 [adaptive-math] [visual-repair-finalization] [invalid] child=${childId} homework=${homeworkId} reason=${error instanceof Error ? error.message : String(error)}`);
+      return false;
+    }
+  })());
+  if (initialJob?.phase === "needs_attention" && !recoveredProgram && !mayRetryFrozenDesign && !mayReverifySavedArtifacts && !mayRepairSavedVisualRejection && !mayFinalizeSavedVisualRepair) {
     console.log(` 🎮 [adaptive-math] [worker] [no-work] child=${childId} homework=${homeworkId} phase=${initialJob.phase}`);
     return;
   }
@@ -170,22 +251,43 @@ export async function runAdaptiveMathGeneration(
     const status = getMathGenerationStatus(childId, homeworkId, { rootDir });
     publishTargetedBoardProjection({ rootDir, childId, activeSessionPlan: active(), nodeStatuses: Object.fromEntries(status?.nodes.map(n => [n.nodeId, n.status]) ?? []) });
   };
-  const verifyAndBind = async (artifact: DirectArtifact): Promise<void> => {
+  const verifyArtifact = async (artifact: DirectArtifact): Promise<void> => {
     const htmlHash = crypto.createHash("sha256").update(fs.readFileSync(artifact.htmlPath)).digest("hex");
     if (artifact.htmlHash !== htmlHash) throw new Error(`targeted_artifact_hash_changed:${artifact.nodeId}`);
-    artifact.itemIds = designed.plan.activities.find(a => a.id === artifact.nodeId)!.items.map(item => item.id);
+    const activity = designed.plan.activities.find(a => a.id === artifact.nodeId);
+    if (!activity) throw new Error(`targeted_activity_missing:${artifact.nodeId}`);
+    artifact.itemIds = activity.items.map(item => item.id);
     const saved = reports[artifact.nodeId];
     if (!saved?.passed || saved.htmlHash !== htmlHash || saved.verifierVersion !== MATH_BROWSER_VERIFIER_VERSION) {
-      reports[artifact.nodeId] = { ...await runDirectBrowserSmokeCheck({ artifacts: [artifact], rootDir }), htmlHash, verifierVersion: MATH_BROWSER_VERIFIER_VERSION };
+      reports[artifact.nodeId] = { ...await runDirectBrowserSmokeCheck({ artifacts: [artifact], rootDir, itemContractsByNodeId: { [artifact.nodeId]: activity.items } }), htmlHash, verifierVersion: MATH_BROWSER_VERIFIER_VERSION };
       write(reportsFile, reports);
     }
-    // This journey proves controls and completion, not frozen-answer grading.
-    // Do not promote targeted repairs until that separate proof exists.
-    verifyEngineeringRepairEvidence(path.join(draft, "provider-diagnostics", `${artifact.nodeId}.engineering-repair.json`), { artifactHash: htmlHash, academicHash: artifact.academicContractHash!, designHash: artifact.designArtifactHash!, verifierVersion: MATH_BROWSER_VERIFIER_VERSION * 1000 + DISCOVERY_VERIFIER_VERSION, runtime: reports[artifact.nodeId].passed, scoring: false, contracts: false, viewports: DISCOVERY_RELEASE_VIEWPORTS.map(viewport => `${viewport.width}x${viewport.height}`) });
+    verifyEngineeringRepairEvidence(path.join(draft, "provider-diagnostics", `${artifact.nodeId}.engineering-repair.json`), {
+      artifactHash: htmlHash,
+      academicHash: artifact.academicContractHash!,
+      designHash: artifact.designArtifactHash!,
+      verifierVersion: MATH_BROWSER_VERIFIER_VERSION * 1000 + DISCOVERY_VERIFIER_VERSION,
+      runtime: reports[artifact.nodeId].verification?.runtime ?? reports[artifact.nodeId].passed,
+      scoring: reports[artifact.nodeId].verification?.scoring ?? false,
+      contracts: reports[artifact.nodeId].verification?.contracts ?? false,
+      viewports: DISCOVERY_RELEASE_VIEWPORTS.map(viewport => `${viewport.width}x${viewport.height}`),
+    });
     if (!reports[artifact.nodeId].passed) throw new Error(`targeted_browser_verification_failed:${artifact.nodeId}:${reports[artifact.nodeId].failures.join("|")}`);
+    const visualAuditFile = path.join(
+      draft,
+      "provider-diagnostics",
+      `${artifact.nodeId}-visual-v${CHILD_FACING_VISUAL_GATE_VERSION}-${htmlHash.slice(0, 12)}.json`,
+    );
+    const legacyVisualAuditFile = path.join(draft, "provider-diagnostics", `${artifact.nodeId}-visual-verdict.json`);
+    if (!fs.existsSync(visualAuditFile) && fs.existsSync(legacyVisualAuditFile)) {
+      const legacyAudit = read<{ status?: string; decision?: string }>(legacyVisualAuditFile);
+      if ((legacyAudit.status ?? (legacyAudit.decision ? "received" : undefined)) === "received") {
+        fs.copyFileSync(legacyVisualAuditFile, visualAuditFile);
+      }
+    }
     const visualVerdict = await judgeChildFacingScreens({
       screenshotPaths: reports[artifact.nodeId].screenshots,
-      auditFile: path.join(draft, "provider-diagnostics", `${artifact.nodeId}-visual-verdict.json`),
+      auditFile: visualAuditFile,
       retryUncertain: options.retryUncertainProvider,
     });
     if (visualVerdict.decision === "reject") {
@@ -197,6 +299,13 @@ export async function runAdaptiveMathGeneration(
       write(reportsFile, reports);
       throw new Error(`targeted_browser_verification_failed:${artifact.nodeId}:child_visual_review:${visualVerdict.observations.join("|")}`);
     }
+    console.log(` 🎮 [adaptive-math] [artifact-verification] [passed] node=${artifact.nodeId} hash=${htmlHash}`);
+  };
+  const bindVerifiedArtifact = (artifact: DirectArtifact): void => {
+    const htmlHash = artifact.htmlHash;
+    if (!htmlHash || reports[artifact.nodeId]?.passed !== true || reports[artifact.nodeId]?.htmlHash !== htmlHash) {
+      throw new Error(`targeted_artifact_binding_without_current_proof:${artifact.nodeId}`);
+    }
     const current = getLearningCycle(childId, homeworkId, { rootDir })!;
     const prior = current.nodes.find(n => n.nodeId === artifact.nodeId)!;
     if (prior.artifactBinding?.creativeProvenance?.generatedHtmlHash !== htmlHash || prior.artifactBinding.validationProof?.verifierVersion !== MATH_BROWSER_VERIFIER_VERSION) {
@@ -207,15 +316,57 @@ export async function runAdaptiveMathGeneration(
     }
     console.log(` 🎮 [adaptive-math] [artifact-publication] [verified-bound] node=${artifact.nodeId} hash=${htmlHash}`);
   };
+  const verifyAndBind = async (artifact: DirectArtifact): Promise<void> => {
+    await verifyArtifact(artifact);
+    bindVerifiedArtifact(artifact);
+  };
+  const markArtifactUnavailable = (nodeId: string, reason: string): void => {
+    const generationNode = getMathGenerationStatus(childId, homeworkId, { rootDir })?.nodes
+      .find(candidate => candidate.nodeId === nodeId);
+    updateMathGenerationNode({
+      rootDir,
+      childId,
+      homeworkId,
+      nodeId,
+      status: "needs_attention",
+      ...(generationNode?.artifactHash ? { artifactHash: generationNode.artifactHash } : {}),
+      error: reason,
+    });
+    const current = getLearningCycle(childId, homeworkId, { rootDir });
+    const node = current?.nodes.find(candidate => candidate.nodeId === nodeId);
+    if (current && node && node.state !== "blocked" && node.state !== "completed") {
+      transitionLearningCycle(childId, homeworkId, current.revision, {
+        type: "artifact_generation_attention_required",
+        nodeId,
+        reason,
+      }, { rootDir });
+    }
+    console.log(` 🎮 [adaptive-math] [artifact-publication] [withheld] node=${nodeId} reason=${reason}`);
+  };
   // Repair interrupted publication from saved artifacts, including old board_ready
   // jobs and verifier false negatives. Reverification does not consume a build
   // attempt or buy a repair.
   for (const artifact of build.artifacts) {
     const node = getMathGenerationStatus(childId, homeworkId, { rootDir })?.nodes.find(candidate => candidate.nodeId === artifact.nodeId);
     if (node?.status === "ready") {
-      await verifyAndBind(artifact);
+      try {
+        await verifyAndBind(artifact);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        markArtifactUnavailable(artifact.nodeId, message);
+        continue;
+      }
       if (getMathGenerationStatus(childId, homeworkId, { rootDir })?.phase === "needs_attention") {
         updateMathGenerationNode({ rootDir, childId, homeworkId, nodeId: artifact.nodeId, status: "ready", artifactHash: artifact.htmlHash });
+      }
+      const completedRepair = findVisualRepairAttempt(draft, artifact.nodeId, artifact.htmlHash ?? "");
+      if (completedRepair?.value.status === "provider_completed" && completedRepair.value.outputHtmlHash === artifact.htmlHash) {
+        write(completedRepair.file, {
+          ...completedRepair.value,
+          status: "verified",
+          finishedAt: new Date().toISOString(),
+        });
+        console.log(` 🎮 [adaptive-math] [visual-repair] [publication-resumed] node=${artifact.nodeId} gate=v${CHILD_FACING_VISUAL_GATE_VERSION}`);
       }
     }
     else if (["failed_resumable", "needs_attention"].includes(node?.status ?? "")
@@ -227,6 +378,103 @@ export async function runAdaptiveMathGeneration(
       } catch (error) {
         console.log(` 🎮 [adaptive-math] [node-reverification] [still-failing] child=${childId} homework=${homeworkId} node=${artifact.nodeId} reason=${error instanceof Error ? error.message : String(error)}`);
       }
+    }
+  }
+  // A runtime/provider failure and a child-visible visual defect are different
+  // failure classes. Generic build attempts must not consume the one bounded
+  // visual repair available for a frozen artifact under this gate version.
+  for (const currentArtifact of [...build.artifacts]) {
+    const node = getMathGenerationStatus(childId, homeworkId, { rootDir })?.nodes.find(candidate => candidate.nodeId === currentArtifact.nodeId);
+    const savedReport = reports[currentArtifact.nodeId];
+    const savedAttempt = findVisualRepairAttempt(draft, currentArtifact.nodeId, currentArtifact.htmlHash ?? "");
+    const resumableAttempt = savedAttempt && ["started", "provider_completed"].includes(savedAttempt.value.status);
+    if (!["failed_resumable", "needs_attention"].includes(node?.status ?? "")
+      || !(resumableAttempt || (isCurrentVisualRejection(savedReport)
+        && mayRunVisualRepair(savedAttempt?.value, Boolean(options.retryUncertainProvider))))) continue;
+    const activity = designed.plan.activities.find(candidate => candidate.id === currentArtifact.nodeId);
+    if (!activity) throw new Error(`targeted_activity_missing:${currentArtifact.nodeId}`);
+    if (!currentArtifact.htmlHash) throw new Error(`targeted_artifact_hash_missing:${currentArtifact.nodeId}`);
+    const attemptFile = savedAttempt?.file ?? visualRepairAttemptPath(draft, currentArtifact.nodeId, currentArtifact.htmlHash);
+    const outputDir = path.dirname(attemptFile);
+    const originalHtmlFile = path.join(outputDir, `${currentArtifact.nodeId}-visual-original.html`);
+    const metadataFile = currentArtifact.htmlPath.replace(/\.html$/i, ".artifact.json");
+    const originalMetadataFile = path.join(outputDir, `${currentArtifact.nodeId}-visual-original.artifact.json`);
+    const originalReportFile = path.join(outputDir, `${currentArtifact.nodeId}-visual-original-report.json`);
+    const reportBeforeRepair = fs.existsSync(originalReportFile)
+      ? read<DirectPlaywrightReport & { htmlHash: string; verifierVersion: number }>(originalReportFile)
+      : savedAttempt?.value.outputHtmlHash === savedReport.htmlHash
+        ? { ...savedReport, passed: false, failures: savedAttempt.value.failures, htmlHash: savedAttempt.value.inputHtmlHash }
+        : savedReport;
+    if (!fs.existsSync(originalHtmlFile)) writeText(originalHtmlFile, fs.readFileSync(currentArtifact.htmlPath, "utf8"));
+    if (fs.existsSync(metadataFile) && !fs.existsSync(originalMetadataFile)) writeText(originalMetadataFile, fs.readFileSync(metadataFile, "utf8"));
+    if (!fs.existsSync(originalReportFile)) write(originalReportFile, reportBeforeRepair);
+    const startedAt = savedAttempt?.value.startedAt ?? new Date().toISOString();
+    const attemptBase: VisualRepairAttempt = {
+      version: 1,
+      gateVersion: CHILD_FACING_VISUAL_GATE_VERSION,
+      nodeId: currentArtifact.nodeId,
+      inputHtmlHash: savedAttempt?.value.inputHtmlHash ?? currentArtifact.htmlHash,
+      failures: savedAttempt?.value.failures ?? savedReport.failures,
+      status: "started",
+      startedAt,
+    };
+    write(attemptFile, attemptBase);
+    console.log(` 🎮 [adaptive-math] [visual-repair] [${savedAttempt ? "resumed" : "scheduled"}] node=${currentArtifact.nodeId} gate=v${CHILD_FACING_VISUAL_GATE_VERSION}`);
+    let repaired: DirectArtifact | undefined;
+    const buildBeforeRepair = build;
+    try {
+      repaired = await repairDirectArtifact({
+        rootDir,
+        artifact: currentArtifact,
+        activity,
+        failures: attemptBase.failures,
+        screenshotPaths: savedReport.screenshots,
+        outputDir,
+      });
+      write(attemptFile, { ...attemptBase, outputHtmlHash: repaired.htmlHash, status: "provider_completed" });
+      await verifyArtifact(repaired);
+      const merged = new Map(build.artifacts.map(artifact => [artifact.nodeId, artifact]));
+      merged.set(currentArtifact.nodeId, repaired);
+      build = { ...build, artifacts: [...merged.values()] };
+      write(buildFile, build);
+      bindVerifiedArtifact(repaired);
+      const repairVerification = reports[repaired.nodeId]?.verification;
+      verifyEngineeringRepairEvidence(path.join(outputDir, `${currentArtifact.nodeId}.engineering-repair.json`), {
+        artifactHash: repaired.htmlHash!,
+        academicHash: repaired.academicContractHash!,
+        designHash: repaired.designArtifactHash!,
+        verifierVersion: MATH_BROWSER_VERIFIER_VERSION * 1000 + DISCOVERY_VERIFIER_VERSION,
+        runtime: repairVerification?.runtime ?? false,
+        scoring: repairVerification?.scoring ?? false,
+        contracts: repairVerification?.contracts ?? false,
+        viewports: DISCOVERY_RELEASE_VIEWPORTS.map(viewport => `${viewport.width}x${viewport.height}`),
+      });
+      updateMathGenerationNode({ rootDir, childId, homeworkId, nodeId: repaired.nodeId, status: "ready", artifactHash: repaired.htmlHash });
+      write(attemptFile, {
+        ...attemptBase,
+        outputHtmlHash: repaired.htmlHash,
+        status: "verified",
+        finishedAt: new Date().toISOString(),
+      });
+      console.log(` 🎮 [adaptive-math] [visual-repair] [verified] node=${repaired.nodeId} gate=v${CHILD_FACING_VISUAL_GATE_VERSION}`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      writeText(currentArtifact.htmlPath, fs.readFileSync(originalHtmlFile, "utf8"));
+      if (fs.existsSync(originalMetadataFile)) writeText(metadataFile, fs.readFileSync(originalMetadataFile, "utf8"));
+      build = buildBeforeRepair;
+      write(buildFile, build);
+      reports[currentArtifact.nodeId] = reportBeforeRepair;
+      write(reportsFile, reports);
+      markArtifactUnavailable(currentArtifact.nodeId, message);
+      const uncertain = /child_visual_review_(?:in_flight|outcome_uncertain|received_raw)/.test(message);
+      write(attemptFile, {
+        ...attemptBase,
+        ...(repaired?.htmlHash ? { outputHtmlHash: repaired.htmlHash } : {}),
+        status: uncertain ? "verification_uncertain" : "failed",
+        error: message,
+        finishedAt: new Date().toISOString(),
+      });
+      console.log(` 🎮 [adaptive-math] [visual-repair] [failed] node=${currentArtifact.nodeId} reason=${message}`);
     }
   }
   project();

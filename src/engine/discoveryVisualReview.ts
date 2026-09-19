@@ -26,6 +26,14 @@ type RenderInput = { html: string; iteration: 1 | 2; outputDir: string };
 type DiscoveryRenderedScreenshots = string[] & { issues?: string[] };
 type RepairInput = { html: string; issues: string[]; screenshotPaths: string[] };
 type BrowserPage = Awaited<ReturnType<Awaited<ReturnType<(typeof import("playwright"))["chromium"]["launch"]>>["newPage"]>>;
+export type MathJourneyItemContract = {
+  id: string;
+  response:
+    | { mode: "selection"; options: Array<{ id: string; correct: boolean }> }
+    | { mode: "numeric"; expected: number }
+    | { mode: "construction"; expectedState: Record<string, string | number | boolean> }
+    | { mode: "explanation"; rubric: string[] };
+};
 
 export class DiscoveryRuntimeVerificationError extends Error {
   readonly issues: string[];
@@ -446,6 +454,7 @@ export async function verifyMathControlJourney(page: BrowserPage, input: {
   completionType: "evaluation_complete" | "node_complete";
   itemIds?: string[];
   requireItemStateTransitions?: boolean;
+  itemContracts?: MathJourneyItemContract[];
 }): Promise<void> {
   const journey = await page.evaluate(`window.SUNNY_VALIDATION_HOOKS?.journey`) as Array<{ itemId: string; steps: Array<{ action: string; selector: string; value?: string; target?: string }> }>;
   if (!Array.isArray(journey) || journey.length === 0) throw new Error("math_journey_missing");
@@ -650,7 +659,14 @@ export async function verifyMathControlJourney(page: BrowserPage, input: {
     }
   }
   await page.waitForFunction(`window.__sunnyMessages?.some(m => m?.type === ${JSON.stringify(input.completionType)})`, undefined, { timeout: 3000 }).catch(() => { throw new Error("math_journey_completion_missing"); });
-  const messages = await page.evaluate(`window.__sunnyMessages`) as Array<{type: string; payload?: {itemId?: string; attemptedValue?: string; targetResults?: Array<{target: string; attemptedValue?: string}>}} >;
+  type JourneyResult = { target?: string; attemptedValue?: string; correct?: boolean };
+  type JourneyPayload = JourneyResult & {
+    itemId?: string;
+    accuracy?: number;
+    targetResults?: JourneyResult[];
+  };
+  type JourneyMessage = JourneyPayload & { type: string; payload?: JourneyPayload };
+  const messages = await page.evaluate(`window.__sunnyMessages`) as JourneyMessage[];
   if (input.completionType === "evaluation_complete") {
     const attempts = messages.filter(m=>m.type==="evaluation_attempt").map(m=>(m.payload??m) as Record<string,unknown>);
     const ids = new Set();
@@ -663,11 +679,50 @@ export async function verifyMathControlJourney(page: BrowserPage, input: {
       if (row.attemptedValue === null && row.instrumentSignals.includes("response_not_captured")) row.attemptedValue = "";
     }
   }
-  const rows = input.completionType === "evaluation_complete"
+  const rows: JourneyResult[] = input.completionType === "evaluation_complete"
     ? messages.filter(m => m.type === "evaluation_attempt").map(m => { const row = m.payload ?? m as NonNullable<typeof m.payload>; return {target: row.itemId, attemptedValue: row.attemptedValue}; })
     : messages.find(m => m.type === "node_complete")?.payload?.targetResults ?? [];
   const expected = input.itemIds ?? journey.map(row => row.itemId);
   if (rows.length !== expected.length || expected.some(id => rows.filter(row => row.target === id && typeof row.attemptedValue === "string").length !== 1)) throw new Error("math_journey_evidence_missing");
+  if (input.completionType === "node_complete" && input.itemContracts) {
+    const contracts = new Map(input.itemContracts.map(item => [item.id, item]));
+    if (contracts.size !== input.itemContracts.length || input.itemContracts.length !== expected.length
+      || expected.some(itemId => !contracts.has(itemId))) throw new Error("math_journey_contract_coverage");
+    const attempts: JourneyPayload[] = messages.filter(message => message.type === "attempt_event").map(message => message.payload ?? message);
+    const final = messages.find(message => message.type === "node_complete")?.payload;
+    for (const itemId of expected) {
+      const contract = contracts.get(itemId)!;
+      const firstAttempt = attempts.find(row => row.target === itemId);
+      const result = rows.find(row => row.target === itemId)!;
+      if (!firstAttempt || firstAttempt.attemptedValue !== result.attemptedValue || firstAttempt.correct !== result.correct) {
+        throw new Error(`math_journey_first_response_mismatch;item=${itemId}`);
+      }
+      let expectedCorrect: boolean | undefined;
+      if (contract.response.mode === "selection") {
+        expectedCorrect = contract.response.options.find(option => option.id === result.attemptedValue)?.correct ?? false;
+      } else if (contract.response.mode === "numeric") {
+        expectedCorrect = result.attemptedValue?.trim() !== "" && Number(result.attemptedValue) === contract.response.expected;
+      } else if (contract.response.mode === "construction") {
+        try {
+          const attempted = JSON.parse(result.attemptedValue ?? "") as Record<string, unknown>;
+          expectedCorrect = Object.keys(contract.response.expectedState).length === Object.keys(attempted).length
+            && Object.entries(contract.response.expectedState).every(([key, value]) => attempted[key] === value);
+        } catch {
+          expectedCorrect = false;
+        }
+      }
+      if (expectedCorrect !== undefined && (result.correct !== expectedCorrect || firstAttempt.correct !== expectedCorrect)) {
+        throw new Error(`math_journey_scoring_mismatch;item=${itemId}`);
+      }
+    }
+    const scoredRows = rows.filter(row => row.target && contracts.get(row.target)?.response.mode !== "explanation");
+    const expectedAccuracy = scoredRows.length
+      ? scoredRows.filter(row => row.correct === true).length / scoredRows.length
+      : undefined;
+    if (expectedAccuracy !== undefined && (typeof final?.accuracy !== "number" || Math.abs(final.accuracy - expectedAccuracy) > 0.0001)) {
+      throw new Error("math_journey_accuracy_mismatch");
+    }
+  }
 }
 
 export async function verifyMathJourneyAtReleaseViewports(input: {

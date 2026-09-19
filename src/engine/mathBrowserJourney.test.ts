@@ -8,11 +8,15 @@ import { runDirectBrowserSmokeCheck } from "./directMathExperience";
 
 const roots: string[] = [];
 afterEach(() => roots.splice(0).forEach(root => fs.rmSync(root, { recursive: true, force: true })));
-async function verify(body: string, itemIds?: string[]) {
+async function verify(body: string, itemIds?: string[], itemContracts?: unknown[]) {
   const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-browser-journey-")); roots.push(rootDir);
   const htmlPath = path.join(rootDir, "node.html");
   fs.writeFileSync(htmlPath, `<!doctype html><h1>Lab</h1>${body}`);
-  return runDirectBrowserSmokeCheck({ rootDir, artifacts: [{ nodeId: "node", childId: "lab", homeworkId: "hw-lab", title: "Lab", htmlPath, artworkUrl: "/art.svg", creatorPrompt: "fixture", promptHash: "fixture", plannerModel: "mock", creatorModel: "mock", ...(itemIds ? { itemIds } : {}) }] });
+  return runDirectBrowserSmokeCheck({
+    rootDir,
+    artifacts: [{ nodeId: "node", childId: "lab", homeworkId: "hw-lab", title: "Lab", htmlPath, artworkUrl: "/art.svg", creatorPrompt: "fixture", promptHash: "fixture", plannerModel: "mock", creatorModel: "mock", ...(itemIds ? { itemIds } : {}) }],
+    ...(itemContracts ? { itemContractsByNodeId: { node: itemContracts as never } } : {}),
+  });
 }
 const journey = `<script>window.SUNNY_VALIDATION_HOOKS={journey:[{itemId:'one',steps:[{action:'click',selector:'#answer'}]}]};</script>`;
 it("accepts the teaching attempt protocol before a later completion", async () => {
@@ -47,6 +51,18 @@ it("verifies actual completion at both release sizes", async () => {
   const result = await verify(`${journey}<button id="answer" onclick="parent.postMessage({type:'attempt_event',payload:{domain:'math',target:'one',attemptedValue:'4',correct:true}},'*');parent.postMessage({type:'node_complete',payload:{nodeId:'node',targetResults:[{target:'one',attemptedValue:'4',correct:true}]}},'*')">Answer</button>`);
   expect(result.passed).toBe(true);
   expect(result.screenshots).toHaveLength(2);
+}, 20000);
+
+it("rejects a targeted activity whose evidence claims a frozen wrong answer is correct", async () => {
+  const item = {
+    id: "one",
+    prompt: "Which value is four?",
+    lineage: { sourceEvidenceIds: ["assignment:one"], exposure: "unseen", measurementRole: "fresh_checkpoint" },
+    response: { mode: "selection", options: [{ id: "four", label: "4", correct: true }, { id: "five", label: "5", correct: false }] },
+  };
+  const result = await verify(`${journey}<button id="answer" onclick="parent.postMessage({type:'attempt_event',payload:{domain:'math',target:'one',attemptedValue:'five',correct:true}},'*');parent.postMessage({type:'node_complete',payload:{nodeId:'node',targetResults:[{target:'one',attemptedValue:'five',correct:true}]}},'*')">Five</button>`, ["one"], [item]);
+  expect(result.passed).toBe(false);
+  expect(result.failures.join("|")).toContain("math_journey_scoring_mismatch;item=one");
 }, 20000);
 
 

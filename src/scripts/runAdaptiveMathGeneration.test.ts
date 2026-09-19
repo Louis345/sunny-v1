@@ -23,6 +23,7 @@ vi.mock("../engine/directMathExperience", async (original) => ({
   generateDirectArtifacts: vi.fn(), repairDirectArtifact: vi.fn(), runDirectBrowserSmokeCheck: vi.fn(),
 }));
 vi.mock("../engine/childFacingVisualGate", () => ({
+  CHILD_FACING_VISUAL_GATE_VERSION: 2,
   judgeChildFacingScreens: vi.fn(),
 }));
 let rootDir: string;
@@ -311,6 +312,250 @@ it("resumes a needs-attention job when saved artifacts require a newer verifier"
   expect(repairDirectArtifact).not.toHaveBeenCalled();
   expect(generateDirectArtifacts).toHaveBeenCalledTimes(2);
   expect(getMathGenerationStatus(childId, homeworkId, { rootDir })?.phase).toBe("board_ready");
+});
+
+it("gives a current visual rejection one separately tracked repair after generic attempts are exhausted", async () => {
+  const draft = path.join(rootDir, "src/context", childId, "homework/direct-drafts", homeworkId);
+  fs.writeFileSync(path.join(draft, "math-learning-program.json"), JSON.stringify(learningProgram(2)));
+  fs.writeFileSync(path.join(draft, "designed-plan.json"), JSON.stringify(plan(2)));
+  vi.mocked(judgeChildFacingScreens).mockImplementation(async ({ auditFile }) => auditFile?.includes("activity-1") ? {
+    decision: "reject",
+    observations: ["The completion screen contradicts its progress and has no Finish action."],
+  } : { decision: "approve", observations: [] });
+
+  await runAdaptiveMathGeneration(childId, homeworkId, rootDir);
+  expect(getMathGenerationStatus(childId, homeworkId, { rootDir })?.nodes[0]).toMatchObject({ status: "needs_attention", attemptCount: 2 });
+  expect(repairDirectArtifact).toHaveBeenCalledTimes(1);
+
+  vi.mocked(judgeChildFacingScreens).mockResolvedValue({ decision: "approve", observations: [] });
+  await runAdaptiveMathGeneration(childId, homeworkId, rootDir);
+
+  expect(repairDirectArtifact).toHaveBeenCalledTimes(2);
+  expect(vi.mocked(repairDirectArtifact).mock.calls[1]?.[0].outputDir).toContain("visual-repair-v2/activity-1");
+  expect(generateDirectArtifacts).toHaveBeenCalledTimes(2);
+  expect(getMathGenerationStatus(childId, homeworkId, { rootDir })?.phase).toBe("board_ready");
+  const finalArtifact = JSON.parse(fs.readFileSync(path.join(draft, "candidate-build-v3.json"), "utf8")).artifacts
+    .find((candidate: { nodeId: string }) => candidate.nodeId === "activity-1");
+  const finalBinding = getLearningCycle(childId, homeworkId, { rootDir })?.nodes
+    .find(node => node.nodeId === "activity-1")?.artifactBinding;
+  expect(finalBinding?.creativeProvenance?.generatedHtmlHash).toBe(finalArtifact.htmlHash);
+  expect(finalBinding?.validationProof?.htmlHash).toBe(finalArtifact.htmlHash);
+});
+
+it("does not buy a second visual repair for the same artifact and gate version", async () => {
+  const draft = path.join(rootDir, "src/context", childId, "homework/direct-drafts", homeworkId);
+  fs.writeFileSync(path.join(draft, "math-learning-program.json"), JSON.stringify(learningProgram(2)));
+  fs.writeFileSync(path.join(draft, "designed-plan.json"), JSON.stringify(plan(2)));
+  vi.mocked(judgeChildFacingScreens).mockImplementation(async ({ auditFile }) => auditFile?.includes("activity-1") ? {
+    decision: "reject",
+    observations: ["The completion screen contradicts its progress and has no Finish action."],
+  } : { decision: "approve", observations: [] });
+
+  await runAdaptiveMathGeneration(childId, homeworkId, rootDir);
+  await runAdaptiveMathGeneration(childId, homeworkId, rootDir);
+  expect(repairDirectArtifact).toHaveBeenCalledTimes(2);
+  expect(getMathGenerationStatus(childId, homeworkId, { rootDir })?.phase).toBe("needs_attention");
+  const artifact = JSON.parse(fs.readFileSync(path.join(draft, "candidate-build-v3.json"), "utf8")).artifacts
+    .find((candidate: { nodeId: string }) => candidate.nodeId === "activity-1");
+  expect(JSON.parse(fs.readFileSync(path.join(
+    draft,
+    `provider-diagnostics/visual-repair-v2/activity-1/${artifact.htmlHash.slice(0, 12)}/activity-1-visual-repair-attempt.json`,
+  ), "utf8"))).toMatchObject({ status: "failed", gateVersion: 2, nodeId: "activity-1" });
+
+  vi.mocked(judgeChildFacingScreens).mockResolvedValue({ decision: "approve", observations: [] });
+  await runAdaptiveMathGeneration(childId, homeworkId, rootDir);
+
+  expect(repairDirectArtifact).toHaveBeenCalledTimes(2);
+  expect(getMathGenerationStatus(childId, homeworkId, { rootDir })?.phase).toBe("needs_attention");
+});
+
+it("removes a previously ready artifact from play when a newer visual review rejects it", async () => {
+  await runAdaptiveMathGeneration(childId, homeworkId, rootDir);
+  const draft = path.join(rootDir, "src/context", childId, "homework/direct-drafts", homeworkId);
+  const reportsFile = path.join(draft, "browser-verification.json");
+  const reports = JSON.parse(fs.readFileSync(reportsFile, "utf8"));
+  reports["activity-1"] = { ...reports["activity-1"], verifierVersion: 0 };
+  fs.writeFileSync(reportsFile, JSON.stringify(reports));
+  setMathGenerationPhase({ rootDir, childId, homeworkId, phase: "needs_attention", error: "new_visual_gate" });
+  vi.mocked(judgeChildFacingScreens).mockImplementation(async ({ auditFile }) => auditFile?.includes("activity-1") ? {
+    decision: "reject",
+    observations: ["The activity ends without a visible way to continue."],
+  } : { decision: "approve", observations: [] });
+  vi.mocked(repairDirectArtifact).mockRejectedValueOnce(new Error("repair_offline"));
+
+  await runAdaptiveMathGeneration(childId, homeworkId, rootDir);
+
+  expect(getMathGenerationStatus(childId, homeworkId, { rootDir })?.nodes.find(node => node.nodeId === "activity-1")?.status).toBe("needs_attention");
+  expect(getLearningCycle(childId, homeworkId, { rootDir })?.nodes.find(node => node.nodeId === "activity-1")).toMatchObject({
+    state: "blocked",
+    artifactBinding: null,
+  });
+});
+
+it("removes a Ready artifact from play when its saved HTML bytes change", async () => {
+  await runAdaptiveMathGeneration(childId, homeworkId, rootDir);
+  const draft = path.join(rootDir, "src/context", childId, "homework/direct-drafts", homeworkId);
+  const build = JSON.parse(fs.readFileSync(path.join(draft, "candidate-build-v3.json"), "utf8"));
+  const artifact = build.artifacts.find((candidate: { nodeId: string }) => candidate.nodeId === "activity-1");
+  fs.appendFileSync(artifact.htmlPath, "<!-- unexpected mutation -->");
+  const reportsFile = path.join(draft, "browser-verification.json");
+  const reports = JSON.parse(fs.readFileSync(reportsFile, "utf8"));
+  reports["activity-1"] = { ...reports["activity-1"], verifierVersion: 0 };
+  fs.writeFileSync(reportsFile, JSON.stringify(reports));
+  setMathGenerationPhase({ rootDir, childId, homeworkId, phase: "needs_attention", error: "revalidate_saved_artifact" });
+
+  await runAdaptiveMathGeneration(childId, homeworkId, rootDir);
+
+  expect(getMathGenerationStatus(childId, homeworkId, { rootDir })?.nodes.find(node => node.nodeId === "activity-1")?.status).toBe("needs_attention");
+  expect(getLearningCycle(childId, homeworkId, { rootDir })?.nodes.find(node => node.nodeId === "activity-1")).toMatchObject({
+    state: "blocked",
+    artifactBinding: null,
+  });
+});
+
+it("resumes a started visual repair without purchasing another generic build", async () => {
+  const draft = path.join(rootDir, "src/context", childId, "homework/direct-drafts", homeworkId);
+  vi.mocked(judgeChildFacingScreens).mockImplementation(async ({ auditFile }) => auditFile?.includes("activity-1") ? {
+    decision: "reject",
+    observations: ["The activity ends without a visible way to continue."],
+  } : { decision: "approve", observations: [] });
+  await runAdaptiveMathGeneration(childId, homeworkId, rootDir);
+  const artifact = JSON.parse(fs.readFileSync(path.join(draft, "candidate-build-v3.json"), "utf8")).artifacts
+    .find((candidate: { nodeId: string }) => candidate.nodeId === "activity-1");
+  const attemptDir = path.join(draft, "provider-diagnostics", "visual-repair-v2", "activity-1", artifact.htmlHash.slice(0, 12));
+  fs.mkdirSync(attemptDir, { recursive: true });
+  fs.writeFileSync(path.join(attemptDir, "activity-1-visual-repair-attempt.json"), JSON.stringify({
+    version: 1,
+    gateVersion: 2,
+    nodeId: "activity-1",
+    inputHtmlHash: artifact.htmlHash,
+    failures: ["child_visual_review:The activity ends without a visible way to continue."],
+    status: "started",
+  }));
+  vi.mocked(judgeChildFacingScreens).mockResolvedValue({ decision: "approve", observations: [] });
+
+  await runAdaptiveMathGeneration(childId, homeworkId, rootDir);
+
+  expect(repairDirectArtifact).toHaveBeenCalledTimes(2);
+  expect(generateDirectArtifacts).toHaveBeenCalledTimes(2);
+  expect(getMathGenerationStatus(childId, homeworkId, { rootDir })?.phase).toBe("board_ready");
+  expect(JSON.parse(fs.readFileSync(path.join(attemptDir, "activity-1-visual-repair-attempt.json"), "utf8"))).toMatchObject({
+    status: "verified",
+    inputHtmlHash: artifact.htmlHash,
+  });
+});
+
+it("finishes publication after a crash left a provider-completed repair with passing proof", async () => {
+  const draft = path.join(rootDir, "src/context", childId, "homework/direct-drafts", homeworkId);
+  vi.mocked(judgeChildFacingScreens).mockImplementation(async ({ auditFile }) => auditFile?.includes("activity-1") ? {
+    decision: "reject",
+    observations: ["The completion state has no visible way to continue."],
+  } : { decision: "approve", observations: [] });
+  await runAdaptiveMathGeneration(childId, homeworkId, rootDir);
+
+  const buildFile = path.join(draft, "candidate-build-v3.json");
+  const build = JSON.parse(fs.readFileSync(buildFile, "utf8"));
+  const artifact = build.artifacts.find((candidate: { nodeId: string }) => candidate.nodeId === "activity-1");
+  const inputHash = artifact.htmlHash;
+  const attemptDir = path.join(draft, "provider-diagnostics", "visual-repair-v2", "activity-1", inputHash.slice(0, 12));
+  fs.mkdirSync(attemptDir, { recursive: true });
+  fs.writeFileSync(path.join(attemptDir, "activity-1-visual-original.html"), fs.readFileSync(artifact.htmlPath));
+  fs.appendFileSync(artifact.htmlPath, "<!-- provider completed before crash -->");
+  const outputHash = createHash("sha256").update(fs.readFileSync(artifact.htmlPath)).digest("hex");
+  const reportsFile = path.join(draft, "browser-verification.json");
+  const reports = JSON.parse(fs.readFileSync(reportsFile, "utf8"));
+  reports["activity-1"] = {
+    passed: true,
+    failures: [],
+    screenshots: ["lab.png"],
+    htmlHash: outputHash,
+    verifierVersion: 10,
+    verification: { runtime: true, scoring: true, contracts: true },
+  };
+  fs.writeFileSync(reportsFile, JSON.stringify(reports));
+  const attemptFile = path.join(attemptDir, "activity-1-visual-repair-attempt.json");
+  fs.writeFileSync(attemptFile, JSON.stringify({
+    version: 1,
+    gateVersion: 2,
+    nodeId: "activity-1",
+    inputHtmlHash: inputHash,
+    outputHtmlHash: outputHash,
+    failures: ["child_visual_review:The completion state has no visible way to continue."],
+    status: "provider_completed",
+  }));
+  vi.mocked(judgeChildFacingScreens).mockResolvedValue({ decision: "approve", observations: [] });
+
+  await runAdaptiveMathGeneration(childId, homeworkId, rootDir);
+
+  expect(generateDirectArtifacts).toHaveBeenCalledTimes(2);
+  expect(getMathGenerationStatus(childId, homeworkId, { rootDir })?.phase).toBe("board_ready");
+  expect(JSON.parse(fs.readFileSync(attemptFile, "utf8"))).toMatchObject({ status: "verified", inputHtmlHash: inputHash });
+  const published = JSON.parse(fs.readFileSync(buildFile, "utf8")).artifacts
+    .find((candidate: { nodeId: string }) => candidate.nodeId === "activity-1");
+  const binding = getLearningCycle(childId, homeworkId, { rootDir })?.nodes
+    .find(node => node.nodeId === "activity-1")?.artifactBinding;
+  expect(binding?.creativeProvenance?.generatedHtmlHash).toBe(published.htmlHash);
+  expect(binding?.validationProof?.htmlHash).toBe(published.htmlHash);
+});
+
+it("restores an original proof matching the original bytes when resumed repair publication fails", async () => {
+  const draft = path.join(rootDir, "src/context", childId, "homework/direct-drafts", homeworkId);
+  vi.mocked(judgeChildFacingScreens).mockImplementation(async ({ auditFile }) => auditFile?.includes("activity-1") ? {
+    decision: "reject",
+    observations: ["The completion state has no visible way to continue."],
+  } : { decision: "approve", observations: [] });
+  await runAdaptiveMathGeneration(childId, homeworkId, rootDir);
+
+  const buildFile = path.join(draft, "candidate-build-v3.json");
+  const build = JSON.parse(fs.readFileSync(buildFile, "utf8"));
+  const artifact = build.artifacts.find((candidate: { nodeId: string }) => candidate.nodeId === "activity-1");
+  const inputHash = artifact.htmlHash;
+  const originalHtml = fs.readFileSync(artifact.htmlPath, "utf8");
+  const reportsFile = path.join(draft, "browser-verification.json");
+  const reports = JSON.parse(fs.readFileSync(reportsFile, "utf8"));
+  const originalReport = structuredClone(reports["activity-1"]);
+  const attemptDir = path.join(draft, "provider-diagnostics", "visual-repair-v2", "activity-1", inputHash.slice(0, 12));
+  fs.mkdirSync(attemptDir, { recursive: true });
+  fs.writeFileSync(path.join(attemptDir, "activity-1-visual-original.html"), originalHtml);
+  fs.appendFileSync(artifact.htmlPath, "<!-- provider completed before crash -->");
+  const outputHash = createHash("sha256").update(fs.readFileSync(artifact.htmlPath)).digest("hex");
+  reports["activity-1"] = {
+    passed: true,
+    failures: [],
+    screenshots: ["lab.png"],
+    htmlHash: outputHash,
+    verifierVersion: 10,
+    verification: { runtime: true, scoring: true, contracts: true },
+  };
+  fs.writeFileSync(reportsFile, JSON.stringify(reports));
+  const attemptFile = path.join(attemptDir, "activity-1-visual-repair-attempt.json");
+  fs.writeFileSync(attemptFile, JSON.stringify({
+    version: 1,
+    gateVersion: 2,
+    nodeId: "activity-1",
+    inputHtmlHash: inputHash,
+    outputHtmlHash: outputHash,
+    failures: originalReport.failures,
+    status: "provider_completed",
+  }));
+  const cycleFile = path.join(rootDir, "src/context", childId, "homework/cycles", `${homeworkId}.json`);
+  const cycle = JSON.parse(fs.readFileSync(cycleFile, "utf8"));
+  const activityOne = cycle.nodes.find((node: { nodeId: string }) => node.nodeId === "activity-1");
+  const activityTwo = cycle.nodes.find((node: { nodeId: string }) => node.nodeId === "activity-2");
+  activityOne.state = "completed";
+  activityOne.artifactBinding = structuredClone(activityTwo.artifactBinding);
+  fs.writeFileSync(cycleFile, JSON.stringify(cycle));
+  vi.mocked(judgeChildFacingScreens).mockResolvedValue({ decision: "approve", observations: [] });
+
+  await runAdaptiveMathGeneration(childId, homeworkId, rootDir);
+
+  const restoredBuild = JSON.parse(fs.readFileSync(buildFile, "utf8"));
+  const restoredArtifact = restoredBuild.artifacts.find((candidate: { nodeId: string }) => candidate.nodeId === "activity-1");
+  const restoredReport = JSON.parse(fs.readFileSync(reportsFile, "utf8"))["activity-1"];
+  expect(restoredArtifact.htmlHash).toBe(inputHash);
+  expect(createHash("sha256").update(fs.readFileSync(artifact.htmlPath)).digest("hex")).toBe(inputHash);
+  expect(restoredReport).toMatchObject({ htmlHash: inputHash, passed: false, failures: originalReport.failures });
+  expect(JSON.parse(fs.readFileSync(attemptFile, "utf8"))).toMatchObject({ status: "failed" });
 });
 
 
