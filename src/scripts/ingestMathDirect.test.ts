@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 import {
   archiveStaleAssignmentSourceDraft,
   preflightMathIngestion,
+  probeOpenAiGenerationAvailability,
   assertFreshResetAllowed,
   classifyIngestionFailure,
   discoveryProgressGuide,
@@ -128,6 +129,7 @@ describe("direct math ingestion checkpoints", () => {
     expect(classifyIngestionFailure(new Error("request timed out"), "activity-building"))
       .toBe("NEEDS_ATTENTION");
     expect(classifyIngestionFailure(Object.assign(new Error("rate limited"),{status:429}),"discovery-generation")).toBe("PROVIDER_PAUSED");
+    expect(classifyIngestionFailure(Object.assign(new Error("provider_unavailable:openai:credit_balance_exhausted"),{status:429}),"preflight")).toBe("PROVIDER_PAUSED");
     expect(classifyIngestionFailure(new Error("disk full"), "atomic-publication"))
       .toBe("PUBLICATION_FAILED");
     expect(classifyIngestionFailure(new Error("Learning profile not found for child: ila"), "reading-assignment"))
@@ -173,6 +175,47 @@ it("preflights the selected GPT repair credential before buying earlier stages",
   } finally {fs.rmSync(rootDir,{recursive:true,force:true});}
 });
 
+it("proves the selected OpenAI model can generate before starting paid ingestion", async () => {
+  let requests = 0;
+  await expect(probeOpenAiGenerationAvailability({
+    apiKey: "secret-test-key",
+    model: "gpt-5.6",
+    fetchImpl: async (_url, init) => {
+      requests += 1;
+      expect(String((init?.headers as Record<string, string>).Authorization)).toBe("Bearer secret-test-key");
+      return new Response(JSON.stringify({ error: { code: "credit_balance_exhausted" } }), {
+        status: 429,
+        headers: { "content-type": "application/json" },
+      });
+    },
+  })).rejects.toMatchObject({
+    message: "provider_unavailable:openai:gpt-5.6:credit_balance_exhausted",
+    status: 429,
+  });
+  expect(requests).toBe(1);
+});
+
+it("runs the provider capability probe before extraction or browser setup", async () => {
+  const rootDir=fs.mkdtempSync(path.join(os.tmpdir(),"sunny-provider-preflight-"));
+  const dir=path.join(rootDir,"src/context/lab-child");fs.mkdirSync(dir,{recursive:true});
+  fs.writeFileSync(path.join(dir,"learning_profile.json"),JSON.stringify({childId:"lab-child"}));
+  const pdf=path.join(rootDir,"assignment.txt");fs.writeFileSync(pdf,"Count four groups.");
+  let probes=0;
+  try {
+    await expect(preflightMathIngestion({
+      rootDir,
+      childId:"lab-child",
+      pdf,
+      env:{ANTHROPIC_API_KEY:"synthetic",OPENAI_API_KEY:"synthetic"},
+      providerProbe: async () => {
+        probes += 1;
+        throw Object.assign(new Error("provider_unavailable:openai:gpt-5.6:credit_balance_exhausted"),{status:429});
+      },
+    })).rejects.toMatchObject({status:429});
+    expect(probes).toBe(1);
+  } finally {fs.rmSync(rootDir,{recursive:true,force:true});}
+});
+
 
 it("preflights the publication directories, not just the draft directory",async()=>{
   const rootDir=fs.mkdtempSync(path.join(os.tmpdir(),"sunny-preflight-publication-"));
@@ -180,6 +223,6 @@ it("preflights the publication directories, not just the draft directory",async(
   fs.writeFileSync(path.join(context,"learning_profile.json"),JSON.stringify({childId:"lab-child"}));
   fs.writeFileSync(path.join(context,"homework/games"),"not a directory");
   const pdf=path.join(rootDir,"assignment.txt");fs.writeFileSync(pdf,"Count groups.");
-  try {await expect(preflightMathIngestion({rootDir,childId:"lab-child",pdf,env:{ANTHROPIC_API_KEY:"synthetic",OPENAI_API_KEY:"synthetic"}})).rejects.toThrow();}
+  try {await expect(preflightMathIngestion({rootDir,childId:"lab-child",pdf,env:{ANTHROPIC_API_KEY:"synthetic",OPENAI_API_KEY:"synthetic"},providerProbe:async()=>undefined})).rejects.toThrow();}
   finally {fs.rmSync(rootDir,{recursive:true,force:true});}
 });

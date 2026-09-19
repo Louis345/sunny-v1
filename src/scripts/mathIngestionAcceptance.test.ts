@@ -31,17 +31,28 @@ it("runs the actual intake, resumes a saved paid response, repairs the browser j
     return {content:[{type:"text",text:html.replace("[hidden]{display:none!important}","#pause-overlay{display:flex;position:fixed;inset:0}")}]};
   });
   const patch=JSON.stringify({replacements:[{oldText:"#pause-overlay{display:flex;position:fixed;inset:0}",newText:"[hidden]{display:none!important}",reason:"Keep the hidden pause overlay from obscuring the answer control."}]});
-  const fetchMock=vi.fn(async()=>new Response(`data: ${JSON.stringify({type:"response.output_text.delta",delta:patch})}\n\ndata: ${JSON.stringify({type:"response.completed",response:{status:"completed",usage:{input_tokens:10,output_tokens:10}}})}\n\ndata: [DONE]\n\n`,{status:200,headers:{"content-type":"text/event-stream"}}));
+  let visualChecks=0;
+  const fetchMock=vi.fn(async(_url:unknown,init?:RequestInit)=>{
+    const body=JSON.parse(String(init?.body ?? "{}")) as {text?:{format?:{name?:string}}};
+    if(body.text?.format?.name==="child_visual_verdict"){
+      visualChecks+=1;
+      const verdict=visualChecks===1
+        ? {decision:"reject",observations:["The pause overlay covers the answer control."]}
+        : {decision:"approve",observations:[]};
+      return new Response(JSON.stringify({status:"completed",output_text:JSON.stringify(verdict)}),{status:200,headers:{"content-type":"application/json"}});
+    }
+    return new Response(`data: ${JSON.stringify({type:"response.output_text.delta",delta:patch})}\n\ndata: ${JSON.stringify({type:"response.completed",response:{status:"completed",usage:{input_tokens:10,output_tokens:10}}})}\n\ndata: [DONE]\n\n`,{status:200,headers:{"content-type":"text/event-stream"}});
+  });
   vi.stubGlobal("fetch",fetchMock);
   const rename=fs.renameSync.bind(fs);let interrupted=false;
   const failure=vi.spyOn(fs,"renameSync").mockImplementation((from,to)=>{
     if(!interrupted && String(to).endsWith("discovery-builder.json")){interrupted=true;throw new Error("synthetic_checkpoint_interruption");}return rename(from,to);
   });
-  await expect(ingestMathAssignment({rootDir,childId:"lab-child",pdf})).rejects.toThrow("synthetic_checkpoint_interruption");failure.mockRestore();
+  await expect(ingestMathAssignment({rootDir,childId:"lab-child",pdf,providerProbe:async()=>undefined})).rejects.toThrow("synthetic_checkpoint_interruption");failure.mockRestore();
   expect(transport).toHaveBeenCalledTimes(3);
-  await ingestMathAssignment({rootDir,childId:"lab-child",pdf});
+  await ingestMathAssignment({rootDir,childId:"lab-child",pdf,providerProbe:async()=>undefined});
   expect(transport).toHaveBeenCalledTimes(3);
-  expect(fetchMock).toHaveBeenCalledTimes(1);
+  expect(fetchMock).toHaveBeenCalledTimes(3);
   const drafts=path.join(context,"homework/direct-drafts");
   const homeworkId=fs.readdirSync(drafts).find(name=>name.startsWith("hw-math-"))!;
   const draft=path.join(drafts,homeworkId);
@@ -50,9 +61,9 @@ it("runs the actual intake, resumes a saved paid response, repairs the browser j
   expect(read("runtime-verification/acceptance.json")).toMatchObject({passed:true,htmlHash:read("discovery-contract.json").artifact.artifactHash,completedItemIds:["one"]});
   expect(read("discovery-ingestion-job.json").state).toBe("ready");
   const before=JSON.stringify(getLearningCycle("lab-child",homeworkId,{rootDir}));
-  await ingestMathAssignment({rootDir,childId:"lab-child",pdf});
+  await ingestMathAssignment({rootDir,childId:"lab-child",pdf,providerProbe:async()=>undefined});
   expect(transport).toHaveBeenCalledTimes(3);
-  expect(fetchMock).toHaveBeenCalledTimes(1);
+  expect(fetchMock).toHaveBeenCalledTimes(3);
   expect(JSON.stringify(getLearningCycle("lab-child",homeworkId,{rootDir}))).toBe(before);
 },60000);
 
@@ -63,6 +74,6 @@ it("refuses empty captured assignment evidence before paying a Planner",async()=
   vi.stubEnv("OPENAI_API_KEY","synthetic-provider-only");
   const context=path.join(rootDir,"src/context/lab-child");fs.mkdirSync(context,{recursive:true});fs.writeFileSync(path.join(context,"learning_profile.json"),JSON.stringify({childId:"lab-child"}));
   const pdf=path.join(rootDir,"blank.txt");fs.writeFileSync(pdf,"   ");transport.mockReset().mockRejectedValue(new Error("provider must not run"));
-  await expect(ingestMathAssignment({rootDir,childId:"lab-child",pdf})).rejects.toThrow("assignment_evidence_empty");
+  await expect(ingestMathAssignment({rootDir,childId:"lab-child",pdf,providerProbe:async()=>undefined})).rejects.toThrow("assignment_evidence_empty");
   expect(transport).not.toHaveBeenCalled();
 });

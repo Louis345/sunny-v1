@@ -80,6 +80,7 @@ export type IngestionFailureKind = "INPUT_ERROR" | "PROVIDER_PAUSED" | "PUBLICAT
 export function classifyIngestionFailure(error: unknown, phase: string): IngestionFailureKind {
   const message = error instanceof Error ? error.message : String(error);
   if (/provider_outcome_uncertain|math_|discovery_.*(failed|mismatch|invalid)|ingestion_already_running/.test(message)) return "NEEDS_ATTENTION";
+  if ((error as {status?:number})?.status === 429) return "PROVIDER_PAUSED";
   if (phase === "preflight") return "INPUT_ERROR";
   if (phase === "atomic-publication") return "PUBLICATION_FAILED";
   if (/Could not resolve authentication method|ANTHROPIC_API_KEY|OPENAI_API_KEY|apiKey or authToken/i.test(message)) {
@@ -89,7 +90,6 @@ export function classifyIngestionFailure(error: unknown, phase: string): Ingesti
     && /assignment_source_missing|unsupported_assignment_source|Learning profile not found|protected_child_context_root|EISDIR|ENOENT/i.test(message)) {
     return "INPUT_ERROR";
   }
-  if ((error as {status?:number})?.status === 429) return "PROVIDER_PAUSED";
   return "NEEDS_ATTENTION";
 }
 
@@ -158,7 +158,45 @@ export async function withIngestionHeartbeat<T>(
   }
 }
 
-export async function preflightMathIngestion(input: {childId: string; pdf: string; rootDir?: string; env?: NodeJS.ProcessEnv}) {
+export async function probeOpenAiGenerationAvailability(input: {
+  apiKey: string;
+  model: string;
+  fetchImpl?: typeof fetch;
+}): Promise<void> {
+  const response = await (input.fetchImpl ?? fetch)("https://api.openai.com/v1/responses", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${input.apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: input.model,
+      input: "Reply only OK",
+      max_output_tokens: 16,
+    }),
+    signal: AbortSignal.timeout(20_000),
+  });
+  if (response.ok) return;
+  let code = `http_${response.status}`;
+  try {
+    const payload = await response.json() as {error?: {code?: string}};
+    code = payload.error?.code?.trim() || code;
+  } catch {
+    // HTTP status remains the factual provider diagnostic when no JSON body exists.
+  }
+  throw Object.assign(
+    new Error(`provider_unavailable:openai:${input.model}:${code}`),
+    {status: response.status},
+  );
+}
+
+export async function preflightMathIngestion(input: {
+  childId: string;
+  pdf: string;
+  rootDir?: string;
+  env?: NodeJS.ProcessEnv;
+  providerProbe?: (input: {apiKey: string; model: string}) => Promise<void>;
+}) {
   const rootDir = input.rootDir ?? process.cwd(), env = input.env ?? process.env;
   const childId = input.childId.trim().toLowerCase(), pdf = path.resolve(rootDir, input.pdf);
   if (!/^[a-z0-9_-]+$/.test(childId)) throw new Error("preflight_child_id_invalid");
@@ -179,6 +217,14 @@ export async function preflightMathIngestion(input: {childId: string; pdf: strin
   if (repair.provider === "openai" && !env.OPENAI_API_KEY?.trim()) {
     throw new Error("preflight_missing:OPENAI_API_KEY");
   }
+  if (!localCandidate && repair.provider === "openai") {
+    console.log(` 🎮 [math-ingestion] [provider-preflight] [running] provider=openai model=${repair.model}`);
+    await (input.providerProbe ?? probeOpenAiGenerationAvailability)({
+      apiKey: env.OPENAI_API_KEY!.trim(),
+      model: repair.model,
+    });
+    console.log(` 🎮 [math-ingestion] [provider-preflight] [passed] provider=openai model=${repair.model}`);
+  }
   const childDir=path.resolve(draftDir,"../../..");
   const directories=[draftDir,...["provider-receipts","visual-review","runtime-verification"].map(name=>path.join(draftDir,name)),childDir,path.join(childDir,"plans"),path.join(childDir,"homework"),path.join(childDir,"homework/cycles"),path.join(childDir,"homework/games",homeworkId)];
   for (const dir of directories) {
@@ -194,7 +240,14 @@ export async function preflightMathIngestion(input: {childId: string; pdf: strin
   return {childId,pdf,chart,sourceHash,homeworkId,draftDir,rootDir};
 }
 
-export async function ingestMathAssignment(input: {childId: string; pdf: string; rootDir?: string; fresh?: boolean; retryUncertain?: boolean}): Promise<void> {
+export async function ingestMathAssignment(input: {
+  childId: string;
+  pdf: string;
+  rootDir?: string;
+  fresh?: boolean;
+  retryUncertain?: boolean;
+  providerProbe?: (input: {apiKey: string; model: string}) => Promise<void>;
+}): Promise<void> {
   const rootDir=input.rootDir ?? process.cwd(), childId=input.childId.trim().toLowerCase();
   if (!/^[a-z0-9_-]+$/.test(childId)) throw new Error("preflight_child_id_invalid");
   const leaseInput={rootDir,childId,homeworkId:"discovery-intake"};
