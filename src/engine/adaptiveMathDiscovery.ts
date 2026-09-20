@@ -923,6 +923,10 @@ export type MathGenerationJob = {
   }>;
 };
 
+export function hasResumableMathGenerationWork(job: MathGenerationJob): boolean {
+  return job.nodes.some((node) => node.status === "preparing" || node.status === "failed_resumable");
+}
+
 type RootOptions = Pick<ContextRootOptions, "rootDir" | "contextRoot" | "env">;
 
 export function resolveAdaptiveMathDraftDir(

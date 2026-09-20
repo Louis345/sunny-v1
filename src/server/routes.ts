@@ -67,6 +67,7 @@ import { interpretDirectExperienceOutcome } from "../engine/directExperienceFeed
 import {
   completeDiscoveryEvaluation,
   getMathGenerationStatus,
+  hasResumableMathGenerationWork,
   queueTargetedMathGeneration,
   recordDiscoveryAttempt,
   type MathGenerationJob,
@@ -77,8 +78,8 @@ import {
   certificationWorkerScope,
 } from "./certificationRuntime";
 
-export function shouldResumeAdaptiveMathWorker(phase: MathGenerationJob["phase"]): boolean {
-  return phase !== "needs_attention";
+export function shouldResumeAdaptiveMathWorker(job: MathGenerationJob): boolean {
+  return job.phase !== "needs_attention" || hasResumableMathGenerationWork(job);
 }
 
 export function launchAdaptiveMathWorker(childId: string, homeworkId: string): void {
@@ -115,7 +116,7 @@ export function resumeAdaptiveMathWorkers(): void {
     for (const homeworkId of homeworkIds) {
       try {
         const job = getMathGenerationStatus(childId, homeworkId);
-        if (job && shouldResumeAdaptiveMathWorker(job.phase)) launchAdaptiveMathWorker(childId, homeworkId);
+        if (job && shouldResumeAdaptiveMathWorker(job)) launchAdaptiveMathWorker(childId, homeworkId);
       } catch (error) {
         console.error(` 🎮 [adaptive-math] [worker-resume] [skipped] child=${childId} homework=${homeworkId}`, error);
       }

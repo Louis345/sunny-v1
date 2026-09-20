@@ -19,6 +19,7 @@ import { writeWaterfallContentCatalog } from "../profiles/chartWaterfall";
 import {
   acquireMathGenerationLease,
   buildTargetedNodesResumably, getMathGenerationStatus, hashDiscoveryContract,
+  hasResumableMathGenerationWork,
   publishTargetedBoardProjection, releaseMathGenerationLease, resolveAdaptiveMathDraftDir,
   revealTargetedBoard, writeMathGenerationJob,
   queueTargetedMathGeneration, setMathGenerationPhase,
@@ -204,7 +205,8 @@ export async function runAdaptiveMathGeneration(
       return false;
     }
   })());
-  if (initialJob?.phase === "needs_attention" && !recoveredProgram && !mayRetryFrozenDesign && !mayReverifySavedArtifacts && !mayRepairSavedVisualRejection && !mayFinalizeSavedVisualRepair) {
+  const hasUnfinishedSiblingWork = Boolean(initialJob && hasResumableMathGenerationWork(initialJob));
+  if (initialJob?.phase === "needs_attention" && !hasUnfinishedSiblingWork && !recoveredProgram && !mayRetryFrozenDesign && !mayReverifySavedArtifacts && !mayRepairSavedVisualRejection && !mayFinalizeSavedVisualRepair) {
     console.log(` 🎮 [adaptive-math] [worker] [no-work] child=${childId} homework=${homeworkId} phase=${initialJob.phase}`);
     return;
   }

@@ -4,7 +4,7 @@ import path from "node:path";
 import { createHash } from "node:crypto";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { plan, learningProgram } from "./fixtures/adaptiveMathRelease";
-import { createDiscoveryLearningCycle, completeDiscoveryEvaluation, recordDiscoveryAttempt, getMathGenerationStatus, setMathGenerationPhase } from "../engine/adaptiveMathDiscovery";
+import { createDiscoveryLearningCycle, completeDiscoveryEvaluation, recordDiscoveryAttempt, getMathGenerationStatus, hashDiscoveryContract, setMathGenerationPhase, updateMathGenerationNode, writeMathGenerationJob } from "../engine/adaptiveMathDiscovery";
 import { getLearningCycle, projectLearningCycle, transitionLearningCycle } from "../engine/learningCycleRepository";
 import { runAdaptiveMathGeneration } from "./runAdaptiveMathGeneration";
 import { askDirectMathPlanner, askMathExperienceDesigner, generateDirectArtifacts, repairDirectArtifact, runDirectBrowserSmokeCheck } from "../engine/directMathExperience";
@@ -174,6 +174,37 @@ it("freezes predictions and binds the first verified node while a sibling fails"
   expect(cycle.academicPredictions).toHaveLength(2);
   expect(cycle.nodes.find(n => n.nodeId === "activity-1")?.artifactBinding?.validationStatus).toBe("passed");
   expect(runDirectBrowserSmokeCheck).toHaveBeenCalledTimes(1);
+});
+
+it("builds unfinished siblings when another node already needs attention", async () => {
+  const draft = path.join(rootDir, "src/context", childId, "homework/direct-drafts", homeworkId);
+  const program = JSON.parse(fs.readFileSync(path.join(draft, "math-learning-program.json"), "utf8"));
+  const design = JSON.parse(fs.readFileSync(path.join(draft, "design-packet.json"), "utf8"));
+  writeMathGenerationJob({
+    rootDir,
+    childId,
+    homeworkId,
+    programHash: hashDiscoveryContract(program),
+    designHash: hashDiscoveryContract(design),
+    nodeIds: ["activity-1", "activity-2"],
+  });
+  updateMathGenerationNode({
+    rootDir,
+    childId,
+    homeworkId,
+    nodeId: "activity-1",
+    status: "needs_attention",
+    error: "bounded_attempts_exhausted",
+  });
+
+  await runAdaptiveMathGeneration(childId, homeworkId, rootDir);
+
+  expect(generateDirectArtifacts).toHaveBeenCalledTimes(1);
+  expect(generateDirectArtifacts).toHaveBeenCalledWith(expect.objectContaining({ nodeIds: ["activity-2"] }));
+  expect(getMathGenerationStatus(childId, homeworkId, { rootDir })?.nodes).toEqual(expect.arrayContaining([
+    expect.objectContaining({ nodeId: "activity-1", status: "needs_attention" }),
+    expect.objectContaining({ nodeId: "activity-2", status: "ready" }),
+  ]));
 });
 
 it("does not publish a browser-invalid artifact", async () => {
