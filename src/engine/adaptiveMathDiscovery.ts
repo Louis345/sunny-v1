@@ -162,6 +162,35 @@ export function buildDiscoveryRepairDiagnostic(input: {
   };
 }
 
+function boundedCharacterEditCount(before: string, after: string, maximum: number): number {
+  if (before === after) return 0;
+  if (Math.abs(before.length - after.length) > maximum) return maximum + 1;
+  const furthest = new Int32Array((maximum * 2) + 3);
+  furthest.fill(-1);
+  const offset = maximum + 1;
+  furthest[offset + 1] = 0;
+  const lastDistance = Math.min(maximum, before.length + after.length);
+  for (let distance = 0; distance <= lastDistance; distance += 1) {
+    for (let diagonal = -distance; diagonal <= distance; diagonal += 2) {
+      const index = offset + diagonal;
+      let beforeIndex: number;
+      if (diagonal === -distance || (diagonal !== distance && furthest[index - 1]! < furthest[index + 1]!)) {
+        beforeIndex = furthest[index + 1]!;
+      } else {
+        beforeIndex = furthest[index - 1]! + 1;
+      }
+      let afterIndex = beforeIndex - diagonal;
+      while (beforeIndex < before.length && afterIndex < after.length && before[beforeIndex] === after[afterIndex]) {
+        beforeIndex += 1;
+        afterIndex += 1;
+      }
+      furthest[index] = beforeIndex;
+      if (beforeIndex >= before.length && afterIndex >= after.length) return distance;
+    }
+  }
+  return maximum + 1;
+}
+
 export function applyDiscoveryHtmlPatch(originalHtml: string, responseText: string): {
   html: string;
   replacementCount: number;
@@ -206,9 +235,13 @@ export function applyDiscoveryHtmlPatch(originalHtml: string, responseText: stri
     const match = locateUniqueRange(oldText, index);
     return { start: match.start, end: match.end, oldText: match.matchedText, newText };
   });
-  const changedOriginalCharacters = ranges.reduce((sum, range) => sum + range.oldText.length, 0);
-  if (changedOriginalCharacters > Math.max(1_000, Math.floor(originalHtml.length * 0.2))) {
-    throw new Error("discovery_repair_patch_scope_exceeded");
+  const scopeLimit = Math.max(1_000, Math.floor(originalHtml.length * 0.2));
+  let changedOriginalCharacters = 0;
+  for (const range of ranges) {
+    const remaining = scopeLimit - changedOriginalCharacters;
+    const changed = boundedCharacterEditCount(range.oldText, range.newText, remaining);
+    if (changed > remaining) throw new Error("discovery_repair_patch_scope_exceeded");
+    changedOriginalCharacters += changed;
   }
   const sorted = [...ranges].sort((a, b) => b.start - a.start);
   for (let index = 1; index < sorted.length; index += 1) {

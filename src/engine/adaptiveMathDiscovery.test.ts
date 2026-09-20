@@ -292,7 +292,34 @@ describe("adaptive math discovery", () => {
 
     expect(result.html).toBe("<!doctype html><html><body><button id=\"broken\" aria-label=\"Continue\">Go</button><script>const score=4;</script></body></html>");
     expect(result.replacementCount).toBe(1);
-    expect(result.changedOriginalCharacters).toBe(31);
+    expect(result.changedOriginalCharacters).toBe(22);
+  });
+
+  it("measures edited characters instead of unchanged locator context", () => {
+    const stableContext = "A".repeat(1_300);
+    const oldText = `const payload="${stableContext}";const state="ready";`;
+    const newText = `const payload="${stableContext}";const state="not-ready";`;
+    const before = `<!doctype html><html><body><script>${oldText}</script></body></html>`;
+    const result = applyDiscoveryHtmlPatch(before, JSON.stringify({ replacements: [{
+      oldText,
+      newText,
+      reason: "Make the existing state label truthful without replacing its surrounding implementation",
+    }] }));
+
+    expect(result.html).toContain('const state="not-ready"');
+    expect(result.changedOriginalCharacters).toBe(4);
+  });
+
+  it("still rejects a genuinely broad rewrite when locator context is measured correctly", () => {
+    const oldText = `const payload="${"A".repeat(1_200)}";`;
+    const newText = `const payload="${"B".repeat(1_200)}";`;
+    const before = `<!doctype html><html><body><script>${oldText}</script></body></html>`;
+
+    expect(() => applyDiscoveryHtmlPatch(before, JSON.stringify({ replacements: [{
+      oldText,
+      newText,
+      reason: "Replace the entire implementation",
+    }] }))).toThrow("discovery_repair_patch_scope_exceeded");
   });
 
   it("accepts a unique repair target whose only drift is source whitespace", () => {
