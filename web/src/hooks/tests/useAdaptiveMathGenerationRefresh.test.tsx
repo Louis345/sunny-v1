@@ -106,4 +106,44 @@ describe("useAdaptiveMathGenerationRefresh", () => {
     unmount();
     expect(onStatusChanged).not.toHaveBeenCalled();
   });
+
+  // Human miss (2026-09-20): Saori clicked Check progress and saw nothing.
+  // Logs recorded generation work but not the discarded click; the lab had only
+  // tested manual checks after polling paused, never during an in-flight request.
+  it("replaces a stale automatic request when the child explicitly checks progress", async () => {
+    let automaticRequestAborted = false;
+    const onStatusChanged = vi.fn();
+    const fetchMock = vi.fn()
+      .mockImplementationOnce((_url, options) => new Promise((_resolve, reject) => {
+        options?.signal?.addEventListener("abort", () => {
+          automaticRequestAborted = true;
+          reject(new Error("manual_refresh_replaced_automatic_request"));
+        }, { once: true });
+      }))
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ updatedAt: "manual", phase: "board_generating", nodes: [] }),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { result } = renderHook(() => useAdaptiveMathGenerationRefresh({
+      childId: "ila",
+      homeworkId: "hw-1",
+      enabled: true,
+      onStatusChanged,
+    }));
+    await act(async () => { await Promise.resolve(); });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      result.current.checkNow();
+      await Promise.resolve();
+    });
+
+    expect(automaticRequestAborted).toBe(true);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(onStatusChanged).toHaveBeenCalledWith(expect.objectContaining({ updatedAt: "manual" }));
+    expect(result.current.checking).toBe(false);
+    expect(result.current.checkedAt).not.toBeNull();
+  });
 });

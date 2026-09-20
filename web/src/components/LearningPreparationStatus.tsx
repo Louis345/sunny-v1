@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type { GenerationStatus } from "../hooks/useAdaptiveMathGenerationRefresh";
 
 /** Operational status only: no invented ETA, teaching instruction, or learning claim. */
@@ -5,10 +6,13 @@ export function LearningPreparationStatus(props: {
   status: GenerationStatus | null;
   error?: string | null;
   paused?: boolean;
+  checking?: boolean;
+  checkedAt?: number | null;
   preview?: boolean;
   onCheck: () => void;
   onFinish?: () => void;
 }) {
+  const [finishing,setFinishing]=useState(false);
   const status=props.status;
   const total=status?.nodes.length ?? 0;
   const ready=status?.nodes.filter(node=>["ready","completed","evidence_locked"].includes(node.status)).length ?? 0;
@@ -24,10 +28,11 @@ export function LearningPreparationStatus(props: {
       {total > 0 && <><p className="mt-2 text-sm">{ready} of {total} activities ready. Some may need earlier learning first.</p><progress aria-label="Activities prepared, not time remaining" aria-valuenow={ready} aria-valuemax={total} max={total} value={ready} className="mt-2 w-full accent-amber-300" /></>}
       {props.error && <p className="mt-2 text-sm text-amber-200">{props.error}</p>}
       {props.paused && canCheck && <p className="mt-2 text-sm text-white/70">Automatic checks paused. Check progress for the latest status.</p>}
+      {!props.checking && props.checkedAt && <p className="mt-2 text-sm text-emerald-200">Progress checked.</p>}
     </div>
     <div className="mt-3 flex flex-wrap gap-3">
-      {canCheck && <button className="rounded-full border border-white/40 px-4 py-2 font-bold" onClick={props.onCheck}>Check progress</button>}
-      {props.onFinish && <button className="rounded-full bg-amber-300 px-4 py-2 font-bold text-zinc-950" onClick={props.onFinish}>Finish for now</button>}
+      {canCheck && <button type="button" disabled={props.checking} className="rounded-full border border-white/40 px-4 py-2 font-bold disabled:cursor-wait disabled:opacity-70" onClick={props.onCheck}>{props.checking ? "Checking progress…" : "Check progress"}</button>}
+      {props.onFinish && <button type="button" disabled={finishing} className="rounded-full bg-amber-300 px-4 py-2 font-bold text-zinc-950 disabled:cursor-wait disabled:opacity-70" onClick={()=>{if(finishing)return;setFinishing(true);props.onFinish?.();}}>{finishing ? "Finishing…" : "Finish for now"}</button>}
     </div>
   </section>;
 }

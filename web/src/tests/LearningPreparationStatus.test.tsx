@@ -45,4 +45,32 @@ describe("truthful learning preparation",()=>{
     expect(onCheck).toHaveBeenCalledTimes(1);
     expect(screen.queryByText(/All ready/)).toBeNull();
   });
+
+  // Human miss (2026-09-20): both actions looked inert because the screen gave
+  // no immediate acknowledgement. Component tests checked enabled state, not
+  // the child's visible result after clicking.
+  it("makes progress checks and finishing visibly responsive",()=>{
+    const onCheck=vi.fn();
+    const onFinish=vi.fn();
+    const {rerender}=render(<LearningPreparationStatus
+      status={{phase:"targeted_planning",updatedAt:"now",nodes:[]}}
+      checking
+      checkedAt={null}
+      onCheck={onCheck}
+      onFinish={onFinish}
+    />);
+    expect(screen.getByRole("button",{name:"Checking progress…"})).toBeDisabled();
+
+    rerender(<LearningPreparationStatus
+      status={{phase:"targeted_planning",updatedAt:"now",nodes:[]}}
+      checking={false}
+      checkedAt={Date.now()}
+      onCheck={onCheck}
+      onFinish={onFinish}
+    />);
+    expect(screen.getByRole("status").textContent).toContain("Progress checked.");
+    fireEvent.click(screen.getByRole("button",{name:"Finish for now"}));
+    expect(onFinish).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("button",{name:"Finishing…"})).toBeDisabled();
+  });
 });
