@@ -435,6 +435,27 @@ describe("assignment concept", () => {
     expect(() => parseMathLearningProgram(withoutConcept))
       .toThrow("math_learning_program_missing_concept");
   });
+
+  it("rejects an impossible on-the-hour clock contract before design or building", () => {
+    const raw = learningProgram();
+    raw.activities[0].items[0] = {
+      id: "clock-checkpoint",
+      prompt: "Short hand just past 3, long hand on 12. Build the written time.",
+      lineage: {
+        sourceEvidenceIds: ["attempt-clock"],
+        exposure: "unseen",
+        measurementRole: "fresh_checkpoint",
+      },
+      response: {
+        mode: "construction",
+        expectedState: { hour: 3, minutes: "00", minuteDigitCount: 2 },
+        successDescription: "Written time reads 3:00.",
+      },
+    };
+
+    expect(() => parseMathLearningProgram(raw))
+      .toThrow("math_item_clock_state_inconsistent:clock-checkpoint:minute_hand_12_requires_hour_hand_on_hour");
+  });
 });
 
 describe("optional reward contract", () => {
@@ -952,6 +973,44 @@ describe("direct math experience", () => {
       client: { messages: { create, stream: streamOf(create) } } as never,
     })).rejects.toThrow("math_learning_program_requires_activities");
     expect(create).toHaveBeenCalledTimes(1);
+  });
+
+  it("gives the same Planner one bounded correction for a factual clock contradiction", async () => {
+    const invalid = learningProgram(2);
+    invalid.activities[0].items[0] = {
+      id: "clock-checkpoint",
+      prompt: "Short hand just past 3, long hand on 12. Build the written time.",
+      lineage: { sourceEvidenceIds: ["attempt-clock"], exposure: "unseen", measurementRole: "fresh_checkpoint" },
+      response: {
+        mode: "construction",
+        expectedState: { hour: 3, minutes: "00", minuteDigitCount: 2 },
+        successDescription: "Written time reads 3:00.",
+      },
+    };
+    const corrected = structuredClone(invalid);
+    corrected.activities[0].items[0].prompt = "Short hand on 3, long hand on 12. Build the written time.";
+    const create = vi.fn()
+      .mockResolvedValueOnce({ stop_reason: "tool_use", usage: {}, content: [{ type: "tool_use", name: "create_math_learning_program", input: invalid }] })
+      .mockResolvedValueOnce({ stop_reason: "tool_use", usage: {}, content: [{ type: "tool_use", name: "create_math_learning_program", input: corrected }] });
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-planner-truth-"));
+    const rawResponseFile = path.join(dir, "targeted-planner-response.json");
+
+    const result = await askDirectMathPlanner({
+      childId: "reina",
+      chart: {
+        identity: {}, demographics: {}, engagementTheory: null, factBankSummary: {},
+        learningProfile: { rewardPreferences: [], sessionStats: {}, activityModel: {}, activityTraitModel: {} },
+        decisionTrace: { latest: null },
+      } as never,
+      extraction: { fullText: "Clock assignment" } as never,
+      client: { messages: { create, stream: streamOf(create) } } as never,
+      rawResponseFile,
+    });
+
+    expect(create).toHaveBeenCalledTimes(2);
+    expect(JSON.stringify(create.mock.calls[1]?.[0])).toContain("math_item_clock_state_inconsistent:clock-checkpoint");
+    expect(result.activities[0].items[0].prompt).toContain("Short hand on 3");
+    expect(fs.existsSync(rawResponseFile.replace(/\.json$/, "-correction.json"))).toBe(true);
   });
 
   it("requires route-bearing baseline activities instead of accepting a bonus-only program", () => {

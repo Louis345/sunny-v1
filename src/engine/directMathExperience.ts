@@ -669,9 +669,25 @@ export function parseDirectItem(rawItem: unknown): DirectItem {
   } else {
     throw new Error(`direct_plan_invalid_response_mode:${mode}`);
   }
+  const id = requiredString(item, "id", "item_id");
+  const prompt = requiredString(item, "prompt");
+  const longHandOnTwelve = /\blong hand\s+(?:is\s+)?(?:on|points?\s+to)\s+(?:the\s+)?12\b/i.test(prompt);
+  const shortHandPastHour = /\bshort hand\s+(?:is\s+)?(?:just\s+)?past\b/i.test(prompt);
+  const expectedMinutes = parsedResponse.mode === "construction"
+    ? Number(parsedResponse.expectedState.minutes)
+    : parsedResponse.mode === "numeric"
+      ? parsedResponse.unit?.toLowerCase().includes("minute")
+        ? parsedResponse.expected
+        : parsedResponse.expected % 100
+      : parsedResponse.mode === "selection"
+        ? Number(parsedResponse.options.find(option => option.correct)?.label.match(/:(\d{1,2})$/)?.[1])
+        : Number.NaN;
+  if (longHandOnTwelve && shortHandPastHour && expectedMinutes === 0) {
+    throw new Error(`math_item_clock_state_inconsistent:${id}:minute_hand_12_requires_hour_hand_on_hour`);
+  }
   return {
-    id: requiredString(item, "id", "item_id"),
-    prompt: requiredString(item, "prompt"),
+    id,
+    prompt,
     lineage: {
       sourceEvidenceIds,
       exposure: exposure as DirectItem["lineage"]["exposure"],
@@ -885,6 +901,52 @@ export function parseSavedDirectMathPlannerResponse(
     throw new Error(`direct_planner_plan_truncated:raise planner max tokens above ${maxTokens}`);
   }
   return parseMathLearningProgram(toolUse.input);
+}
+
+function correctableMathPlannerTruthError(error: unknown): error is Error {
+  return error instanceof Error && error.message.startsWith("math_item_clock_state_inconsistent:");
+}
+
+export async function correctSavedDirectMathPlannerResponse(input: {
+  savedResponse: unknown;
+  validationError: string;
+  client?: Anthropic;
+  model?: string;
+  maxTokens?: number;
+  correctionResponseFile?: string;
+}): Promise<MathLearningProgram> {
+  if (input.correctionResponseFile && fs.existsSync(input.correctionResponseFile)) {
+    return parseSavedDirectMathPlannerResponse(JSON.parse(fs.readFileSync(input.correctionResponseFile, "utf8")), input.maxTokens);
+  }
+  const saved = object(input.savedResponse);
+  const toolUse = (Array.isArray(saved?.content) ? saved.content : []).map(object)
+    .find(block => block?.type === "tool_use" && block.name === "create_math_learning_program");
+  if (!toolUse) throw new Error("direct_planner_tool_output_missing");
+  const client = input.client ?? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+  const model = input.model ?? process.env.SUNNY_PLANNER_MODEL ?? "claude-opus-5";
+  const maxTokens = input.maxTokens ?? Number(process.env.SUNNY_PLANNER_MAX_TOKENS ?? 32000);
+  const response = await client.messages.stream({
+    model,
+    max_tokens: maxTokens,
+    messages: [{ role: "user", content: `Your prior math learning program is structurally valid but failed Sunny's domain-truth gate. Correct only the cited factual contradiction and directly dependent wording. Preserve every child-evidence ID, item ID, measurement role, construct, route, activity count, prediction, theory, and difficulty decision. Do not add a new intervention or reinterpret evidence. Return the complete corrected program through the required tool.\n\nVALIDATION ERROR:\n${input.validationError}\n\nPRIOR PROGRAM:\n${JSON.stringify(toolUse.input, null, 2)}` }],
+    tools: [{
+      name: "create_math_learning_program",
+      description: "Return the corrected academic-only math learning program.",
+      input_schema: MATH_LEARNING_PROGRAM_TOOL_SCHEMA,
+    }],
+    tool_choice: { type: "tool", name: "create_math_learning_program" },
+  }, { timeout: Number(process.env.SUNNY_AI_TIMEOUT_MS ?? 600000) }).finalMessage();
+  const savedCorrection = {
+    model,
+    stopReason: response.stop_reason,
+    usage: response.usage,
+    content: response.content,
+  };
+  if (input.correctionResponseFile) {
+    fs.mkdirSync(path.dirname(input.correctionResponseFile), { recursive: true });
+    fs.writeFileSync(input.correctionResponseFile, `${JSON.stringify(savedCorrection, null, 2)}\n`, "utf8");
+  }
+  return parseSavedDirectMathPlannerResponse(savedCorrection, maxTokens);
 }
 
 export function parseDirectLearningExperiencePlan(value: unknown): DirectLearningExperiencePlan {
@@ -1902,10 +1964,24 @@ ${JSON.stringify(factualModelContext(input.priorOutcomes ?? []), null, 2)}`;
       content: response.content,
     }, null, 2)}\n`, "utf8");
   }
-  return parseSavedDirectMathPlannerResponse({
+  const savedResponse = {
     stopReason: response.stop_reason,
     content: response.content,
-  }, input.maxTokens ?? Number(process.env.SUNNY_PLANNER_MAX_TOKENS ?? 32000));
+  };
+  try {
+    return parseSavedDirectMathPlannerResponse(savedResponse, input.maxTokens ?? Number(process.env.SUNNY_PLANNER_MAX_TOKENS ?? 32000));
+  } catch (error) {
+    if (!correctableMathPlannerTruthError(error)) throw error;
+    console.log(` 🎮 [adaptive-math] [targeted-planner-truth] [correction-required] child=${input.childId} reason=${error.message}`);
+    return correctSavedDirectMathPlannerResponse({
+      savedResponse,
+      validationError: error.message,
+      client,
+      model: input.model,
+      maxTokens: input.maxTokens,
+      ...(input.rawResponseFile ? { correctionResponseFile: input.rawResponseFile.replace(/\.json$/i, "-correction.json") } : {}),
+    });
+  }
 }
 
 async function download(url: string, destination: string): Promise<void> {

@@ -7,7 +7,7 @@ import { getChildChart } from "../profiles/childChart";
 import { readPriorConceptIds } from "../engine/assignmentLedger";
 import {
   askDirectMathPlanner, askMathExperienceDesigner, buildDirectActiveSessionPlan,
-  buildMathCreativeChildContext, generateDirectArtifacts, parseMathLearningProgram, parseSavedDirectMathPlannerResponse,
+  buildMathCreativeChildContext, correctSavedDirectMathPlannerResponse, generateDirectArtifacts, parseMathLearningProgram, parseSavedDirectMathPlannerResponse,
   repairDirectArtifact,
   persistDirectExperience, buildDirectLearningCycleInput, runDirectBrowserSmokeCheck, mathPlannerCandidateCards, MATH_BROWSER_VERIFIER_VERSION, type DirectPlaywrightReport, type DirectArtifact, type DirectLearningExperiencePlan,
   type MathDesignPacket, type MathLearningProgram,
@@ -190,16 +190,21 @@ export async function runAdaptiveMathGeneration(
   const buildFile = path.join(draft, "candidate-build-v3.json");
   const reportsFile = path.join(draft, "browser-verification.json");
   const rawPlannerResponseFile = path.join(draft, "provider-diagnostics", "targeted-planner-response.json");
+  const plannerCorrectionResponseFile = rawPlannerResponseFile.replace(/\.json$/i, "-correction.json");
   const cycle = getLearningCycle(childId, homeworkId, { rootDir });
   if (!cycle) throw new Error(`learning_cycle_missing:${homeworkId}`);
   if (cycle.domain === "spelling") return runSpellingTargetedGeneration(childId, homeworkId, rootDir);
   const initialJob = getMathGenerationStatus(childId, homeworkId, { rootDir });
   let recoveredProgram: MathLearningProgram | undefined;
+  let savedPlannerTruthError: string | undefined;
   if (!fs.existsSync(programFile) && fs.existsSync(rawPlannerResponseFile)) {
     try {
       recoveredProgram = parseSavedDirectMathPlannerResponse(read(rawPlannerResponseFile));
       console.log(` 🎮 [adaptive-math] [targeted-planner] [revalidated] child=${childId} homework=${homeworkId}`);
     } catch (error) {
+      if (error instanceof Error && error.message.startsWith("math_item_clock_state_inconsistent:")) {
+        savedPlannerTruthError = error.message;
+      }
       console.log(` 🎮 [adaptive-math] [targeted-planner] [saved-response-still-invalid] child=${childId} homework=${homeworkId} reason=${error instanceof Error ? error.message : String(error)}`);
     }
   }
@@ -280,7 +285,7 @@ export async function runAdaptiveMathGeneration(
     }
   })());
   const hasUnfinishedSiblingWork = Boolean(initialJob && hasResumableMathGenerationWork(initialJob));
-  if (initialJob?.phase === "needs_attention" && !hasUnfinishedSiblingWork && !recoveredProgram && !mayRetryFrozenDesign && !mayReverifySavedArtifacts && !mayRepairSavedVisualRejection && !mayFinalizeSavedVisualRepair && !mayResumeSavedVisualReview) {
+  if (initialJob?.phase === "needs_attention" && !hasUnfinishedSiblingWork && !recoveredProgram && !savedPlannerTruthError && !mayRetryFrozenDesign && !mayReverifySavedArtifacts && !mayRepairSavedVisualRejection && !mayFinalizeSavedVisualRepair && !mayResumeSavedVisualReview) {
     console.log(` 🎮 [adaptive-math] [worker] [no-work] child=${childId} homework=${homeworkId} phase=${initialJob.phase}`);
     return;
   }
@@ -294,7 +299,13 @@ export async function runAdaptiveMathGeneration(
     : undefined;
   const program: MathLearningProgram = fs.existsSync(programFile)
     ? parseMathLearningProgram(read(programFile))
-    : recoveredProgram ?? await askDirectMathPlanner({
+    : recoveredProgram ?? (savedPlannerTruthError
+      ? await correctSavedDirectMathPlannerResponse({
+        savedResponse: read(rawPlannerResponseFile),
+        validationError: savedPlannerTruthError,
+        correctionResponseFile: plannerCorrectionResponseFile,
+      })
+      : await askDirectMathPlanner({
       childId,
       chart,
       extraction,
@@ -302,7 +313,7 @@ export async function runAdaptiveMathGeneration(
       priorOutcomes: { discoveryCycle: cycle },
       discoveryEvidenceSummary,
       rawResponseFile: rawPlannerResponseFile,
-    });
+    }));
   write(programFile, program);
   if (!fs.existsSync(designFile) || !fs.existsSync(planFile)) setMathGenerationPhase({rootDir,childId,homeworkId,phase:"board_designing"});
   const designed = fs.existsSync(designFile) && fs.existsSync(planFile)

@@ -7,7 +7,7 @@ import { plan, learningProgram } from "./fixtures/adaptiveMathRelease";
 import { createDiscoveryLearningCycle, completeDiscoveryEvaluation, recordDiscoveryAttempt, getMathGenerationStatus, hashDiscoveryContract, setMathGenerationPhase, updateMathGenerationNode, writeMathGenerationJob } from "../engine/adaptiveMathDiscovery";
 import { getLearningCycle, projectLearningCycle, transitionLearningCycle } from "../engine/learningCycleRepository";
 import { runAdaptiveMathGeneration } from "./runAdaptiveMathGeneration";
-import { askDirectMathPlanner, askMathExperienceDesigner, generateDirectArtifacts, repairDirectArtifact, runDirectBrowserSmokeCheck } from "../engine/directMathExperience";
+import { askDirectMathPlanner, askMathExperienceDesigner, correctSavedDirectMathPlannerResponse, generateDirectArtifacts, repairDirectArtifact, runDirectBrowserSmokeCheck } from "../engine/directMathExperience";
 import { recordEngineeringRepairEvidence } from "../engine/discoveryVisualReview";
 import { judgeChildFacingScreens } from "../engine/childFacingVisualGate";
 
@@ -19,6 +19,7 @@ vi.mock("../profiles/childChart", () => ({ getChildChart: () => ({
 vi.mock("../engine/directMathExperience", async (original) => ({
   ...await original<typeof import("../engine/directMathExperience")>(),
   askDirectMathPlanner: vi.fn(() => { throw new Error("unexpected_paid_planner"); }),
+  correctSavedDirectMathPlannerResponse: vi.fn(),
   askMathExperienceDesigner: vi.fn(() => { throw new Error("unexpected_paid_creator"); }),
   generateDirectArtifacts: vi.fn(), repairDirectArtifact: vi.fn(), runDirectBrowserSmokeCheck: vi.fn(),
 }));
@@ -105,6 +106,41 @@ it("resumes a saved Planner response after a contract fix without buying the pla
   expect(JSON.parse(fs.readFileSync(path.join(draft,"math-learning-program.json"),"utf8")).concept.conceptId)
     .toBe("clock.minute_tick_count_from_12_by_fives");
   expect(getMathGenerationStatus(childId,homeworkId,{rootDir})?.phase).toBe("board_ready");
+});
+
+it("corrects a saved factual Planner contradiction without buying the original plan again", async () => {
+  const draft = path.join(rootDir, "src/context", childId, "homework/direct-drafts", homeworkId);
+  fs.rmSync(path.join(draft, "math-learning-program.json"));
+  fs.rmSync(path.join(draft, "design-packet.json"));
+  fs.rmSync(path.join(draft, "designed-plan.json"));
+  const invalid = learningProgram(2);
+  invalid.activities[0].items[0] = {
+    id: "clock-checkpoint",
+    prompt: "Short hand just past 3, long hand on 12. Build the written time.",
+    lineage: { sourceEvidenceIds: ["attempt-clock"], exposure: "unseen", measurementRole: "fresh_checkpoint" },
+    response: { mode: "construction", expectedState: { hour: 3, minutes: "00" }, successDescription: "3:00" },
+  };
+  const rawResponseFile = path.join(draft, "provider-diagnostics", "targeted-planner-response.json");
+  fs.mkdirSync(path.dirname(rawResponseFile), { recursive: true });
+  fs.writeFileSync(rawResponseFile, JSON.stringify({
+    model: "saved-planner",
+    stopReason: "tool_use",
+    usage: {},
+    content: [{ type: "tool_use", name: "create_math_learning_program", input: invalid }],
+  }));
+  vi.mocked(correctSavedDirectMathPlannerResponse).mockResolvedValue(learningProgram(2));
+  vi.mocked(askMathExperienceDesigner).mockResolvedValue({
+    packet: { version: 1, planId: "corrected-plan" } as never,
+    plan: plan(2),
+  });
+  setMathGenerationPhase({ rootDir, childId, homeworkId, phase: "needs_attention", error: "math_item_clock_state_inconsistent:clock-checkpoint" });
+
+  await runAdaptiveMathGeneration(childId, homeworkId, rootDir);
+
+  expect(askDirectMathPlanner).not.toHaveBeenCalled();
+  expect(correctSavedDirectMathPlannerResponse).toHaveBeenCalledTimes(1);
+  expect(askMathExperienceDesigner).toHaveBeenCalledTimes(1);
+  expect(getMathGenerationStatus(childId, homeworkId, { rootDir })?.phase).toBe("board_ready");
 });
 
 it("requires explicit authorization to resume an uncertain design without repeating Discovery or Planner", async () => {

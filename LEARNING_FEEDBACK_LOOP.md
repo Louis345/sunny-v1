@@ -1,6 +1,6 @@
 # Sunny Learning Feedback Loop
 
-Contract version: 13
+Contract version: 14
 
 This document is the **sole normative** authority for how Sunny forms, tests, and revises learning claims. Product changes that alter this loop must update this contract version before implementation. Other documents may describe infrastructure or history, but they must link here instead of creating another learning doctrine.
 
@@ -80,6 +80,8 @@ Developer impersonation runs may exercise the complete production lifecycle only
 Code owns identity, provenance, immutability, mathematical/source truth, exposure tracking, and safe lifecycle transitions. New math instruments freeze the Planner item identities, response contracts and exposure before generation. Canonical scoring uses captured responses against those contracts, never generated correctness claims. Explanations without independent rubric interpretation, missing contracts and uncaptured or malformed responses remain unscored; duplicate item submissions in one completion are rejected. Historical records are not rewritten. The AI Planner owns educational hypotheses, predictions, interpretation, and the next intervention. Neither Playwright nor generated content may write child-learning conclusions.
 
 For generated math interventions, the Planner's academic contract is locked before creative design. A design artifact may choose presentation, interaction, stakes, recovery, and payoff, but it cannot alter the academic contract. Builder-model identity, artifact hashes, prompt hashes, and child-response measurements are recorded before launch so later model comparisons remain factual and observational. Builder ratings from unlike activities are not causal evidence and never select a model automatically.
+
+Before that lock, the math domain adapter validates explicit representation facts against the item answer contract. Contradictory states—for example, a minute hand on 12 paired with an hour hand described as past the hour for an `:00` answer—cannot proceed to creative design or implementation repair. The same Planner may receive one bounded correction request containing the exact factual contradiction and immutable evidence identities. A correction may repair the academic contract but may not reinterpret child evidence, add a new learning theory, or bypass the ordinary parser. Downstream design and implementation start only after the corrected program passes the same truth gate.
 
 Generation checkpoints are operational state, not learning authority. Valid Planner-authored nodes and Creator artifacts are preserved independently, and missing siblings may be requested without regenerating completed work. The board does not judge or rewrite activity count, route length, pedagogy, mechanics, themes, or presentation. Discovery publishes atomically before child use; after Discovery, the complete frozen topology may publish with truthful `preparing` nodes while each ready artifact is bound independently. A failed candidate never removes the previously safe published experience.
 
