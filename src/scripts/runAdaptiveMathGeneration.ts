@@ -55,6 +55,7 @@ type VisualRepairAttempt = {
 };
 
 const VISUAL_REPAIR_PATCH_PARSER_VERSION = 2;
+const MAX_VISUAL_REPAIR_PASSES = 2;
 
 function visualRepairNodeDir(draft: string, nodeId: string): string {
   return path.join(draft, "provider-diagnostics", `visual-repair-v${CHILD_FACING_VISUAL_GATE_VERSION}`, nodeId);
@@ -80,8 +81,37 @@ function findVisualRepairAttempt(draft: string, nodeId: string, artifactHash: st
   return undefined;
 }
 
-function mayRunVisualRepair(attempt: VisualRepairAttempt | undefined, retryUncertain: boolean): boolean {
+function countVisualRepairAttempts(draft: string, nodeId: string): number {
+  const nodeDir = visualRepairNodeDir(draft, nodeId);
+  if (!fs.existsSync(nodeDir)) return 0;
+  return fs.readdirSync(nodeDir, { recursive: true, encoding: "utf8" })
+    .filter(name => name.endsWith(`${nodeId}-visual-repair-attempt.json`))
+    .length;
+}
+
+function isChildVisualReviewFailure(attempt: VisualRepairAttempt | undefined): boolean {
+  return attempt?.status === "failed"
+    && Boolean(attempt.outputHtmlHash)
+    && Boolean(attempt.error?.includes(":child_visual_review:"));
+}
+
+function isRolledBackVisualRepair(attempt: VisualRepairAttempt | undefined, artifactHash: string): boolean {
+  return isChildVisualReviewFailure(attempt) && attempt?.inputHtmlHash === artifactHash;
+}
+
+function isVisualRepairFollowUp(
+  attempt: VisualRepairAttempt | undefined,
+  artifactHash: string,
+  attemptCount: number,
+): boolean {
+  return isChildVisualReviewFailure(attempt)
+    && attempt?.outputHtmlHash === artifactHash
+    && attemptCount < MAX_VISUAL_REPAIR_PASSES;
+}
+
+function mayRunVisualRepair(attempt: VisualRepairAttempt | undefined, retryUncertain: boolean, artifactHash?: string): boolean {
   if (!attempt || ["started", "provider_completed"].includes(attempt.status)) return true;
+  if (artifactHash && isRolledBackVisualRepair(attempt, artifactHash)) return true;
   if (attempt.status === "failed"
     && (attempt.patchParserVersion ?? 1) < VISUAL_REPAIR_PATCH_PARSER_VERSION
     && attempt.error?.startsWith("discovery_repair_patch_")) return true;
@@ -207,11 +237,13 @@ export async function runAdaptiveMathGeneration(
       return (savedBuild.artifacts ?? []).some((artifact) => {
         const status = initialJob.nodes.find((node) => node.nodeId === artifact.nodeId)?.status;
         const attempt = findVisualRepairAttempt(draft, artifact.nodeId, artifact.htmlHash ?? "")?.value;
+        const attemptCount = countVisualRepairAttempts(draft, artifact.nodeId);
         const resumableAttempt = attempt && ["started", "provider_completed"].includes(attempt.status);
         return ["failed_resumable", "needs_attention"].includes(status ?? "")
           && (Boolean(resumableAttempt)
+            || isVisualRepairFollowUp(attempt, artifact.htmlHash ?? "", attemptCount)
             || (isCurrentVisualRejection(savedReports[artifact.nodeId])
-              && mayRunVisualRepair(attempt, Boolean(options.retryUncertainProvider))));
+              && mayRunVisualRepair(attempt, Boolean(options.retryUncertainProvider), artifact.htmlHash)));
       });
     } catch (error) {
       console.warn(` 🎮 [adaptive-math] [visual-repair-eligibility] [invalid] child=${childId} homework=${homeworkId} reason=${error instanceof Error ? error.message : String(error)}`);
@@ -436,14 +468,22 @@ export async function runAdaptiveMathGeneration(
   // A runtime/provider failure and a child-visible visual defect are different
   // failure classes. Generic build attempts must not consume the one bounded
   // visual repair available for a frozen artifact under this gate version.
-  for (const currentArtifact of [...build.artifacts]) {
+  const visualRepairQueue = [...build.artifacts];
+  for (let repairIndex = 0; repairIndex < visualRepairQueue.length; repairIndex += 1) {
+    const currentArtifact = visualRepairQueue[repairIndex]!;
     const node = getMathGenerationStatus(childId, homeworkId, { rootDir })?.nodes.find(candidate => candidate.nodeId === currentArtifact.nodeId);
     const savedReport = reports[currentArtifact.nodeId];
-    const savedAttempt = findVisualRepairAttempt(draft, currentArtifact.nodeId, currentArtifact.htmlHash ?? "");
+    const foundAttempt = findVisualRepairAttempt(draft, currentArtifact.nodeId, currentArtifact.htmlHash ?? "");
+    const followUp = isVisualRepairFollowUp(
+      foundAttempt?.value,
+      currentArtifact.htmlHash ?? "",
+      countVisualRepairAttempts(draft, currentArtifact.nodeId),
+    );
+    const savedAttempt = followUp ? undefined : foundAttempt;
     const resumableAttempt = savedAttempt && ["started", "provider_completed"].includes(savedAttempt.value.status);
     if (!["failed_resumable", "needs_attention"].includes(node?.status ?? "")
-      || !(resumableAttempt || (isCurrentVisualRejection(savedReport)
-        && mayRunVisualRepair(savedAttempt?.value, Boolean(options.retryUncertainProvider))))) continue;
+      || !(resumableAttempt || followUp || (isCurrentVisualRejection(savedReport)
+        && mayRunVisualRepair(savedAttempt?.value, Boolean(options.retryUncertainProvider), currentArtifact.htmlHash)))) continue;
     const activity = designed.plan.activities.find(candidate => candidate.id === currentArtifact.nodeId);
     if (!activity) throw new Error(`targeted_activity_missing:${currentArtifact.nodeId}`);
     if (!currentArtifact.htmlHash) throw new Error(`targeted_artifact_hash_missing:${currentArtifact.nodeId}`);
@@ -513,12 +553,21 @@ export async function runAdaptiveMathGeneration(
       console.log(` 🎮 [adaptive-math] [visual-repair] [verified] node=${repaired.nodeId} gate=v${CHILD_FACING_VISUAL_GATE_VERSION}`);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      writeText(currentArtifact.htmlPath, fs.readFileSync(originalHtmlFile, "utf8"));
-      if (fs.existsSync(originalMetadataFile)) writeText(metadataFile, fs.readFileSync(originalMetadataFile, "utf8"));
-      build = buildBeforeRepair;
-      write(buildFile, build);
-      reports[currentArtifact.nodeId] = reportBeforeRepair;
-      write(reportsFile, reports);
+      const preserveUnpublishedCandidate = Boolean(repaired && message.includes(":child_visual_review:"));
+      if (preserveUnpublishedCandidate && repaired) {
+        const merged = new Map(build.artifacts.map(artifact => [artifact.nodeId, artifact]));
+        merged.set(currentArtifact.nodeId, repaired);
+        build = { ...build, artifacts: [...merged.values()] };
+        write(buildFile, build);
+        console.log(` 🎮 [adaptive-math] [visual-repair] [candidate-preserved] node=${repaired.nodeId} hash=${repaired.htmlHash}`);
+      } else {
+        writeText(currentArtifact.htmlPath, fs.readFileSync(originalHtmlFile, "utf8"));
+        if (fs.existsSync(originalMetadataFile)) writeText(metadataFile, fs.readFileSync(originalMetadataFile, "utf8"));
+        build = buildBeforeRepair;
+        write(buildFile, build);
+        reports[currentArtifact.nodeId] = reportBeforeRepair;
+        write(reportsFile, reports);
+      }
       markArtifactUnavailable(currentArtifact.nodeId, message);
       const uncertain = /child_visual_review_(?:in_flight|outcome_uncertain|received_raw)/.test(message);
       write(attemptFile, {
@@ -528,6 +577,11 @@ export async function runAdaptiveMathGeneration(
         error: message,
         finishedAt: new Date().toISOString(),
       });
+      if (preserveUnpublishedCandidate
+        && repaired
+        && countVisualRepairAttempts(draft, currentArtifact.nodeId) < MAX_VISUAL_REPAIR_PASSES) {
+        visualRepairQueue.push(repaired);
+      }
       console.log(` 🎮 [adaptive-math] [visual-repair] [failed] node=${currentArtifact.nodeId} reason=${message}`);
     }
   }
