@@ -61,6 +61,46 @@ it("shows the screenshots to an open-ended reviewer without defect-specific hint
   expect(CHILD_FACING_VISUAL_PROMPT).not.toMatch(/clock|hand|overlap|clipp|button/i);
 });
 
+it("gives the reviewer the same child and host facts used to create the experience", async () => {
+  const { screenshot } = fixture();
+  const create = vi.fn(async (_request: unknown) => ({
+    content: [{ type: "tool_use", input: { decision: "approve", observations: [] } }],
+  }));
+  const reviewContext = {
+    visibleDisplayName: "Ila",
+    spokenTtsName: "Ayla",
+    hostRuntime: {
+      completion: "The host shows rating, preparation status, and exit after evaluation_complete.",
+    },
+  };
+
+  await judgeChildFacingScreens({
+    screenshotPaths: [screenshot],
+    reviewContext,
+    client: { messages: { create } } as never,
+  });
+
+  const request = create.mock.calls[0]![0] as { messages: Array<{ content: Array<{ type: string; text?: string }> }> };
+  const finalPrompt = request.messages[0]!.content.at(-1)?.text ?? "";
+  expect(finalPrompt).toContain(CHILD_FACING_VISUAL_PROMPT);
+  expect(finalPrompt).toContain('"visibleDisplayName":"Ila"');
+  expect(finalPrompt).toContain('"spokenTtsName":"Ayla"');
+  expect(finalPrompt).toContain("trusted factual context");
+});
+
+it("does not reuse a verdict when the trusted review context changes", async () => {
+  const { screenshot, audit } = fixture();
+  const create = vi.fn(async () => ({
+    content: [{ type: "tool_use", input: { decision: "approve", observations: [] } }],
+  }));
+  const client = { messages: { create } } as never;
+
+  await judgeChildFacingScreens({ screenshotPaths: [screenshot], auditFile: audit, reviewContext: { visibleDisplayName: "Ila" }, client });
+  await judgeChildFacingScreens({ screenshotPaths: [screenshot], auditFile: audit, reviewContext: { visibleDisplayName: "Reina" }, client });
+
+  expect(create).toHaveBeenCalledTimes(2);
+});
+
 it("labels each gameplay state so the reviewer cannot mistake completion for question coverage", async () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-state-labelled-review-"));
   roots.push(root);

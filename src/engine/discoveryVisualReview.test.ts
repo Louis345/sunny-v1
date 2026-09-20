@@ -22,7 +22,7 @@ function activeHandles(): unknown[] {
 
 describe("Discovery visual review", () => {
   it("invalidates prior unscoped-control verdicts without resetting paid repair receipts", () => {
-    expect(DISCOVERY_VERIFIER_VERSION).toBe(13);
+    expect(DISCOVERY_VERIFIER_VERSION).toBe(14);
   });
 
   it("keeps provider and model selection out of browser mechanics", () => {
@@ -207,7 +207,7 @@ describe("Discovery visual review", () => {
 
   it("routes browser-detected clipping through one screenshot-informed repair", async () => {
     const outputDir = dir();
-    const render = vi.fn(async ({ iteration }: { iteration: 1 | 2 }) => {
+    const render = vi.fn(async ({ iteration }: { iteration: 1 | 2 | 3 }) => {
       const file = path.join(outputDir, `shot-${iteration}.png`);
       fs.writeFileSync(file, "png");
       const screenshots = [file, file] as string[] & { issues?: string[] };
@@ -231,7 +231,7 @@ describe("Discovery visual review", () => {
     expect(result.audit.status).toBe("approved");
   });
 
-  it("stops unpublished when browser checks still fail after one repair", async () => {
+  it("stops unpublished when browser checks still fail after two bounded repairs", async () => {
     const outputDir = dir();
     const repair = vi.fn(async () => "<html>repaired</html>");
 
@@ -248,14 +248,38 @@ describe("Discovery visual review", () => {
       repair,
     })).rejects.toThrow("discovery_visual_review_failed_after_bounded_repair");
 
-    expect(repair).toHaveBeenCalledTimes(1);
+    expect(repair).toHaveBeenCalledTimes(2);
     expect(repair).toHaveBeenCalledWith(expect.objectContaining({
       html: "<html>first</html>",
       issues: ["sunny:required_action_clipped:Skip"],
+      repairAttempt: 1,
     }));
     expect(JSON.parse(fs.readFileSync(path.join(outputDir, "visual-review.json"), "utf8"))).toEqual(
       expect.objectContaining({ status: "rejected_after_repair", iterations: expect.any(Array) }),
     );
+  });
+
+  it("repairs a newly reachable defect once more and verifies the full journey", async () => {
+    const outputDir = dir();
+    const repair = vi.fn(async ({ repairAttempt }: { repairAttempt: 1 | 2 }) => repairAttempt === 1 ? "first-repair" : "second-repair");
+    const verify = vi.fn(async (html: string) => {
+      if (html === "broken") throw new Error("opening_control_obscured");
+      if (html === "first-repair") throw new Error("later_item_representation_broken");
+    });
+
+    const result = await reviewDiscoveryCandidate({
+      html: "broken",
+      outputDir,
+      render: async ({ iteration }) => [`state-${iteration}.png`],
+      verify,
+      repair,
+    });
+
+    expect(result.html).toBe("second-repair");
+    expect(result.audit.iterations).toHaveLength(3);
+    expect(repair).toHaveBeenNthCalledWith(1, expect.objectContaining({ repairAttempt: 1, issues: ["opening_control_obscured"] }));
+    expect(repair).toHaveBeenNthCalledWith(2, expect.objectContaining({ repairAttempt: 2, issues: ["later_item_representation_broken"] }));
+    expect(verify).toHaveBeenCalledTimes(3);
   });
 
   it("resumes after an interrupted repair without repeating the completed browser render", async () => {
@@ -353,22 +377,23 @@ describe("Discovery visual review", () => {
     const run=()=>reviewDiscoveryCandidate({html:initial,outputDir,render,repair});
     if(accepted){await expect(run()).resolves.toMatchObject({html:repaired});await expect(run()).resolves.toMatchObject({html:repaired});}
     else {await expect(run()).rejects.toThrow('bounded_repair');await expect(run()).rejects.toThrow('bounded_repair');}
-    expect(repair).not.toHaveBeenCalled();
+    if (accepted) expect(repair).not.toHaveBeenCalled();
+    else expect(repair).toHaveBeenCalledTimes(1);
     expect(render.mock.calls.every(([input])=>input.html===repaired)).toBe(true);
   });
 
-  it.each([1,2])("does not reset a spent repair allowance after %i verifier upgrades", async (versions) => {
+  it("revalidates a prior repaired artifact and permits exactly one follow-up repair", async () => {
     const outputDir = dir(), initial = "<html>initial</html>", repaired = "<html>repaired</html>";
     const hash = (html: string) => createHash("sha256").update(html).digest("hex");
     fs.writeFileSync(path.join(outputDir,"visual-review-checkpoint.json"),JSON.stringify({
-      version:DISCOVERY_VERIFIER_VERSION-versions,initialHtmlHash:hash(initial),html:repaired,
+      version:DISCOVERY_VERIFIER_VERSION-1,initialHtmlHash:hash(initial),html:repaired,
       iterations:[{iteration:1,htmlHash:hash(initial),issues:["first"],screenshotPaths:["one.png"]},{iteration:2,htmlHash:hash(repaired),issues:["remaining"],screenshotPaths:["two.png"]}],
     }));
-    const render=vi.fn(async()=>Object.assign(["failure.png"],{issues:["remaining"]}));
-    const repair=vi.fn(async()=>repaired);
-    const run=()=>reviewDiscoveryCandidate({html:initial,outputDir,render,repair});
-    await expect(run()).rejects.toThrow("bounded_repair");
-    await expect(run()).rejects.toThrow("bounded_repair");
-    expect(repair).not.toHaveBeenCalled();
+    const render=vi.fn(async({html}:{html:string})=>Object.assign(["state.png"],{issues:html===repaired?["remaining"]:[]}));
+    const repair=vi.fn(async({repairAttempt}:{repairAttempt:1|2})=>repairAttempt===2?"follow-up-repair":"wrong");
+    const result=await reviewDiscoveryCandidate({html:initial,outputDir,render,repair});
+    expect(result.html).toBe("follow-up-repair");
+    expect(repair).toHaveBeenCalledTimes(1);
+    expect(repair).toHaveBeenCalledWith(expect.objectContaining({repairAttempt:2,html:repaired}));
   });
 });

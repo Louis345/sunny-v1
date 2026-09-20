@@ -67,6 +67,72 @@ export type DiscoveryResponseContract = {
   representationId: string;
 };
 
+export type DiscoveryPresentationContract = {
+  version: 1;
+  visibleDisplayName: string | null;
+  spokenTtsName: string | null;
+  identityRule: string;
+  audience: { age: number | null; grade: number | null; attentionSpan: unknown };
+  readingAccess: unknown;
+  academicItems: Array<{ itemId: string; prompt: string; representationSpec: string | null; acceptedValues: string[] }>;
+  hostRuntime: {
+    practiceInterstitials: string;
+    completion: string;
+    visualAuthority: string;
+  };
+};
+
+function discoveryRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : null;
+}
+
+export function buildDiscoveryPresentationContract(
+  factualChildContext: unknown,
+  academic: { evaluationId?: unknown; items?: unknown },
+): DiscoveryPresentationContract {
+  const root = discoveryRecord(factualChildContext) ?? {};
+  const academicContext = discoveryRecord(root.academic) ?? root;
+  const identity = discoveryRecord(academicContext.identity) ?? {};
+  const demographics = discoveryRecord(academicContext.demographics) ?? {};
+  const engagement = discoveryRecord(root.engagement) ?? {};
+  const audience = discoveryRecord(engagement.audience) ?? {};
+  const learningProfile = discoveryRecord(academicContext.learningProfile) ?? {};
+  const visibleDisplayName = typeof identity.displayName === "string"
+    ? identity.displayName
+    : typeof audience.displayName === "string" ? audience.displayName : null;
+  const spokenTtsName = typeof identity.ttsName === "string" ? identity.ttsName : visibleDisplayName;
+  const readingAccess = learningProfile.readingAccess ?? engagement.readingAccess ?? null;
+  const items = Array.isArray(academic.items) ? academic.items : [];
+  return {
+    version: 1,
+    visibleDisplayName,
+    spokenTtsName,
+    identityRule: "Visible text must use visibleDisplayName. spokenTtsName is pronunciation guidance for audio only and must never replace the visible name.",
+    audience: {
+      age: typeof demographics.age === "number" ? demographics.age : typeof audience.age === "number" ? audience.age : null,
+      grade: typeof demographics.grade === "number" ? demographics.grade : typeof audience.grade === "number" ? audience.grade : null,
+      attentionSpan: demographics.attentionSpan ?? audience.attentionSpan ?? null,
+    },
+    readingAccess,
+    academicItems: items.flatMap((value) => {
+      const item = discoveryRecord(value);
+      const correctAnswer = discoveryRecord(item?.correctAnswerContract);
+      if (!item || typeof item.itemId !== "string" || typeof item.prompt !== "string") return [];
+      return [{
+        itemId: item.itemId,
+        prompt: item.prompt,
+        representationSpec: typeof item.representationSpec === "string" ? item.representationSpec : null,
+        acceptedValues: Array.isArray(correctAnswer?.acceptedValues) ? correctAnswer.acceptedValues.filter((entry): entry is string => typeof entry === "string") : [],
+      }];
+    }),
+    hostRuntime: {
+      practiceInterstitials: "A short practice or explanation screen may appear before a scored item only when the browser journey proves its visible Continue control reaches that item.",
+      completion: "After evaluation_complete, Sunny's host—not the generated iframe—shows rating, preparation status, and a safe exit. Do not require a duplicate iframe exit button.",
+      visualAuthority: "Still reject unreadable, contradictory, misleading, clipped, obscured, or unusable generated content in every captured item state.",
+    },
+  };
+}
+
 export function buildDiscoveryRepairMessageContent(screenshotPaths: string[], prompt: string): Array<Record<string, unknown>> {
   return [
     ...screenshotPaths.map((screenshotPath) => ({
@@ -166,6 +232,7 @@ export function buildDiscoveryRepairPrompt(input: {
   designHash: string;
   design: unknown;
   html: string;
+  presentationContract?: DiscoveryPresentationContract;
 }): string {
   return `You are Sunny's Experience Creator repairing only the implementation of a frozen Discovery experience. The attached images include the opening screens and exact failed journey states. Preserve #sunny-discovery-contract JSON and window.__SUNNY_DISCOVERY_TEST__.evaluate: this side-effect-free bridge must use the same scoring logic as the child-facing controls. Do not add child-state, API, storage, currency, speech-synthesis, or oscillator access. ${MATH_IMPLEMENTATION_REPAIR_CONTRACT} ${MATH_JOURNEY_CONTRACT}
 
@@ -180,6 +247,9 @@ ${JSON.stringify(input.academic, null, 2)}
 
 DESIGN HASH: ${input.designHash}
 ${JSON.stringify(input.design, null, 2)}
+
+CHILD PRESENTATION AND HOST CONTRACT:
+${JSON.stringify(input.presentationContract ?? null, null, 2)}
 
 CURRENT HTML:
 ${input.html}`;
@@ -640,7 +710,12 @@ export async function generateMathDiscoveryExperience(input: {
       return undefined;
     }
   };
-  const create = async (model: string, prompt: string | Array<Record<string, unknown>>, tool?: { name: string; schema: Record<string, unknown> }): Promise<unknown> => {
+  const create = async (
+    model: string,
+    prompt: string | Array<Record<string, unknown>>,
+    tool?: { name: string; schema: Record<string, unknown> },
+    stageOverride?: string,
+  ): Promise<unknown> => {
     const provider = model.startsWith("gpt-") ? "openai" : "anthropic";
     const request = {
       model,
@@ -648,7 +723,7 @@ export async function generateMathDiscoveryExperience(input: {
       messages: [{ role: "user", content: tool?.name === "create_math_discovery_contract" && input.assignmentSource && typeof prompt === "string" ? assignmentPlannerContent(input.assignmentSource,prompt) : prompt }],
       ...(tool ? { tools: [{ name: tool.name, description: "Return the requested frozen artifact.", input_schema: tool.schema }], tool_choice: { type: "tool", name: tool.name } } : {}),
     };
-    return runMathProviderStage({draftDir, stage: tool?.name ?? (Array.isArray(prompt) ? "repair" : "builder"), model, request, retryUncertain: input.retryUncertain, beforeRequest: () => {
+    return runMathProviderStage({draftDir, stage: stageOverride ?? tool?.name ?? (Array.isArray(prompt) ? "repair" : "builder"), model, request, retryUncertain: input.retryUncertain, beforeRequest: () => {
       if (provider === "openai" && !process.env.OPENAI_API_KEY?.trim()) throw new Error("preflight_missing:OPENAI_API_KEY");
       if (provider === "anthropic" && !input.client && !process.env.ANTHROPIC_API_KEY && !process.env.ANTHROPIC_AUTH_TOKEN) throw new Error("preflight_missing:ANTHROPIC_API_KEY");
     }, execute: async () => {
@@ -713,6 +788,7 @@ export async function generateMathDiscoveryExperience(input: {
   assertDiscoveryConstructSemantics(academic);
   const contractHash = hashDiscoveryContract(academic);
   const runtimeContractJson = JSON.stringify(expectedDiscoveryRuntimeContract(academic));
+  const presentationContract = buildDiscoveryPresentationContract(input.factualChildContext, academic);
   console.log(` 🎮 [adaptive-math] [discovery-planner] [saved] hash=${contractHash.slice(0, 12)}`);
   let designed = readCheckpoint<Record<string, unknown>>(designCheckpointFile);
   if (designed && designed.contractHash !== contractHash) {
@@ -722,7 +798,7 @@ export async function generateMathDiscoveryExperience(input: {
   if (designed) {
     console.log(` 🎮 [adaptive-math] [discovery-design] [reused] child=${input.childId} homework=${input.homeworkId}`);
   } else {
-    const architectResponse = await create(input.architectModel ?? process.env.SUNNY_ARCHITECT_MODEL ?? "claude-fable-5", `You are Sunny's Experience Creator. Design the frozen independent evaluation below for the child and device. Choose the presentation, interaction, pacing, stakes, recovery, visual language, motion, sound cues, and payoff. Make the first action immediately understandable and make mathematics visibly control the interaction. Do not teach or reveal an answer before the first committed response to an item. Never trap the child. Preserve the contract exactly.\n\nCONTRACT HASH: ${contractHash}\n${JSON.stringify(academic, null, 2)}\n\n${common}`, {
+    const architectResponse = await create(input.architectModel ?? process.env.SUNNY_ARCHITECT_MODEL ?? "claude-fable-5", `You are Sunny's Experience Creator. Design the frozen independent evaluation below for the child and device. Choose the presentation, interaction, pacing, stakes, recovery, visual language, motion, sound cues, and payoff. Make the first action immediately understandable and make mathematics visibly control the interaction. Do not teach or reveal an answer before the first committed response to an item. Never trap the child. Preserve the contract exactly.\n\nCONTRACT HASH: ${contractHash}\n${JSON.stringify(academic, null, 2)}\n\nCHILD PRESENTATION AND HOST CONTRACT:\n${JSON.stringify(presentationContract, null, 2)}\n\n${common}`, {
       name: "create_math_discovery_design",
       schema: { type: "object", additionalProperties: false, required: ["contractHash", "design", "backgroundSvg"], properties: { contractHash: { type: "string" }, design: { type: "object", additionalProperties: true }, backgroundSvg: { type: "string" } } },
     });
@@ -739,7 +815,7 @@ export async function generateMathDiscoveryExperience(input: {
     builderModel,
     environment: { ...process.env, ...(input.repairModel ? { SUNNY_DISCOVERY_REPAIR_MODEL: input.repairModel } : {}) },
   });
-  const builderPrompt = `You are Sunny's Experience Creator implementing a frozen academic contract and frozen design. Return one complete standalone HTML document usable at both 1365x768 and 1280x720. It must work with touch or mouse without a keyboard and never trap the child. Keep every required action fully visible without scrolling, and keep every mathematical representation large and legible enough for a child to inspect. Post evaluation_ready and evaluation_complete to window.parent. For every committed response post evaluation_attempt with exactly this payload shape: {attemptId,itemId,attemptedValue,supportEventIds:[],instrumentSignals:[],observedAt}. attemptedValue is the selected value or a stable JSON serialization of constructed state. supportEventIds contains only real support events supplied to the activity; otherwise it is empty. instrumentSignals may contain only interface_friction, reading_friction, response_not_captured, scoring_disagreement, or prompt_ambiguity; otherwise it is empty. Do not post construct, correctness, exposure, assistance, or responseMode because the server derives those facts. Post evaluation_friction when relevant without replacing the attempt. ${MATH_JOURNEY_CONTRACT} Accumulate all observed item friction into instrumentSignals on that item's evaluation_attempt. It may not access Sunny APIs, storage, currency, or child state. Do not use browser speech synthesis or oscillator audio. Do not change the contract or answers. Expose the real side-effect-free scoring function through window.__SUNNY_DISCOVERY_TEST__.evaluate(itemId, attemptedValue), returning { itemId, constructId, correct } from the exact same scoring logic as the child-facing controls. Embed this exact JSON without alteration in <script id="sunny-discovery-contract" type="application/json">: ${runtimeContractJson}\n\nACADEMIC CONTRACT HASH: ${contractHash}\n${JSON.stringify(academic, null, 2)}\n\nDESIGN HASH: ${designHash}\n${JSON.stringify(designed.design, null, 2)}`;
+  const builderPrompt = `You are Sunny's Experience Creator implementing a frozen academic contract and frozen design. Return one complete standalone HTML document usable at both 1365x768 and 1280x720. It must work with touch or mouse without a keyboard and never trap the child. Keep every required action fully visible without scrolling, and keep every mathematical representation large and legible enough for a child to inspect. Post evaluation_ready and evaluation_complete to window.parent. For every committed response post evaluation_attempt with exactly this payload shape: {attemptId,itemId,attemptedValue,supportEventIds:[],instrumentSignals:[],observedAt}. attemptedValue is the selected value or a stable JSON serialization of constructed state. supportEventIds contains only real support events supplied to the activity; otherwise it is empty. instrumentSignals may contain only interface_friction, reading_friction, response_not_captured, scoring_disagreement, or prompt_ambiguity; otherwise it is empty. Do not post construct, correctness, exposure, assistance, or responseMode because the server derives those facts. Post evaluation_friction when relevant without replacing the attempt. ${MATH_JOURNEY_CONTRACT} Accumulate all observed item friction into instrumentSignals on that item's evaluation_attempt. It may not access Sunny APIs, storage, currency, or child state. Do not use browser speech synthesis or oscillator audio. Do not change the contract or answers. Expose the real side-effect-free scoring function through window.__SUNNY_DISCOVERY_TEST__.evaluate(itemId, attemptedValue), returning { itemId, constructId, correct } from the exact same scoring logic as the child-facing controls. Embed this exact JSON without alteration in <script id="sunny-discovery-contract" type="application/json">: ${runtimeContractJson}\n\nACADEMIC CONTRACT HASH: ${contractHash}\n${JSON.stringify(academic, null, 2)}\n\nDESIGN HASH: ${designHash}\n${JSON.stringify(designed.design, null, 2)}\n\nCHILD PRESENTATION AND HOST CONTRACT:\n${JSON.stringify(presentationContract, null, 2)}`;
   const builderEngineering = freezeEngineeringLessonSnapshot({ snapshotFile: path.join(draftDir, "discovery-builder-engineering.snapshot.json"), auditRoot: resolveContextRoot({ rootDir }), features: engineeringFeatures(JSON.stringify(designed.design)), verifierVersion: DISCOVERY_VERIFIER_VERSION, preserveCompleted: fs.existsSync(builderCheckpointFile) || hasReceivedMathProviderStage(draftDir, "builder") });
   const completedAwareBuilderPrompt = builderPrompt + engineeringLessonContext(builderEngineering);
   const builderPromptHash = hashDiscoveryContract({ model: builderModel, prompt: completedAwareBuilderPrompt });
@@ -792,6 +868,7 @@ export async function generateMathDiscoveryExperience(input: {
           const verdict = await judgeChildFacingScreens({
             screenshotPaths: selectChildFacingJourneyScreens(screenshotPaths),
             auditFile: path.join(draftDir, "visual-review", "blind-visual-verdict.json"),
+            reviewContext: presentationContract,
             ...(input.client ? { client: input.client } : {}),
             retryUncertain: input.retryUncertain,
           });
@@ -799,7 +876,9 @@ export async function generateMathDiscoveryExperience(input: {
             ? verdict.observations.map(observation => `child_visual_review:${observation}`)
             : [];
         },
-        repair: async ({ html: rejectedHtml, issues, screenshotPaths }) => {
+        repair: async ({ html: rejectedHtml, issues, screenshotPaths, repairAttempt }) => {
+          const repairStage = repairAttempt === 1 ? "repair" : "repair-2";
+          const repairSuffix = repairAttempt === 1 ? "" : "-2";
           console.log(` 🎮 [adaptive-math] [discovery-builder-repair] [running] provider=${repair.provider} model=${repair.model}`);
           const repairPrompt = buildDiscoveryRepairPrompt({
             issues,
@@ -809,16 +888,17 @@ export async function generateMathDiscoveryExperience(input: {
             designHash,
             design: designed.design,
             html: rejectedHtml,
+            presentationContract,
           });
           const repairStartedAt = Date.now();
-          const repairEngineering = freezeEngineeringLessonSnapshot({ snapshotFile: path.join(draftDir, "discovery-repair-engineering.snapshot.json"), auditRoot: resolveContextRoot({ rootDir }), features: engineeringFeatures(rejectedHtml), defects: issues, verifierVersion: DISCOVERY_VERIFIER_VERSION, preserveCompleted: hasReceivedMathProviderStage(draftDir, "repair") });
-          const repairedResponse = await create(repair.model, buildDiscoveryRepairMessageContent(screenshotPaths, repairPrompt + engineeringLessonContext(repairEngineering)));
+          const repairEngineering = freezeEngineeringLessonSnapshot({ snapshotFile: path.join(draftDir, `discovery-repair${repairSuffix}-engineering.snapshot.json`), auditRoot: resolveContextRoot({ rootDir }), features: engineeringFeatures(rejectedHtml), defects: issues, verifierVersion: DISCOVERY_VERIFIER_VERSION, preserveCompleted: hasReceivedMathProviderStage(draftDir, repairStage) });
+          const repairedResponse = await create(repair.model, buildDiscoveryRepairMessageContent(screenshotPaths, repairPrompt + engineeringLessonContext(repairEngineering)), undefined, repairStage);
           const repairFinishedAt = Date.now();
           const repairedText = responseText(repairedResponse);
           const inputTokens = Number((repairedResponse as { usage?: { input_tokens?: number } }).usage?.input_tokens ?? 0);
           const outputTokens = Number((repairedResponse as { usage?: { output_tokens?: number } }).usage?.output_tokens ?? 0);
           const estimatedCostUsd = estimateDiscoveryRepairCost({ provider: repair.provider, inputTokens, outputTokens });
-          atomicJson(path.join(draftDir, "provider-diagnostics", "discovery-builder-repair-response.json"), {
+          atomicJson(path.join(draftDir, "provider-diagnostics", `discovery-builder-repair${repairSuffix}-response.json`), {
             provider: repair.provider,
             model: repair.model,
             estimatedCostUsd,
@@ -834,7 +914,7 @@ export async function generateMathDiscoveryExperience(input: {
           const appliedPatch = applyDiscoveryHtmlPatch(rejectedHtml, repairedText);
           const repairedHtml = appliedPatch.html;
           validateDiscoveryAcademicBinding(repairedHtml, academic);
-          if (appliedPatch.engineeringLesson) recordEngineeringRepairEvidence({ file: path.join(draftDir, "provider-diagnostics/discovery.engineering-repair.json"), verifierVersion: DISCOVERY_VERIFIER_VERSION, originalHash: hashDiscoveryContract(rejectedHtml), repairedHash: hashDiscoveryContract(repairedHtml), academicHash: contractHash, designHash, issues, proposal: appliedPatch.engineeringLesson, inputTokens, outputTokens, latencyMs: repairFinishedAt - repairStartedAt, costUsd: estimatedCostUsd });
+          if (appliedPatch.engineeringLesson) recordEngineeringRepairEvidence({ file: path.join(draftDir, `provider-diagnostics/discovery${repairSuffix}.engineering-repair.json`), verifierVersion: DISCOVERY_VERIFIER_VERSION, originalHash: hashDiscoveryContract(rejectedHtml), repairedHash: hashDiscoveryContract(repairedHtml), academicHash: contractHash, designHash, issues, proposal: appliedPatch.engineeringLesson, inputTokens, outputTokens, latencyMs: repairFinishedAt - repairStartedAt, costUsd: estimatedCostUsd });
           console.log(` 🎮 [adaptive-math] [discovery-builder-repair] [saved] model=${repair.model} replacements=${appliedPatch.replacementCount} changedOriginalCharacters=${appliedPatch.changedOriginalCharacters} hash=${hashDiscoveryContract(repairedHtml).slice(0, 12)} latencyMs=${repairFinishedAt - repairStartedAt} estimatedCostUsd=${estimatedCostUsd.toFixed(6)}`);
           return repairedHtml;
         },
@@ -843,7 +923,11 @@ export async function generateMathDiscoveryExperience(input: {
   validateDiscoveryAcademicBinding(html, academic);
   console.log(" 🎮 [adaptive-math] [discovery-runtime-verification] [running] scoring=frozen-contract");
   if (input.visualReview) await verifyDiscoveryRuntimeScoring({ html, academic, outputDir: path.join(draftDir, "runtime-verification") });
-  if (!input.visualReview) verifyEngineeringRepairEvidence(path.join(draftDir, "provider-diagnostics/discovery.engineering-repair.json"), { artifactHash: hashDiscoveryContract(html), academicHash: contractHash, designHash, verifierVersion: DISCOVERY_VERIFIER_VERSION, runtime: true, scoring: true, contracts: true, viewports: DISCOVERY_RELEASE_VIEWPORTS.map(viewport => `${viewport.width}x${viewport.height}`) });
+  if (!input.visualReview) {
+    const verification = { artifactHash: hashDiscoveryContract(html), academicHash: contractHash, designHash, verifierVersion: DISCOVERY_VERIFIER_VERSION, runtime: true, scoring: true, contracts: true, viewports: DISCOVERY_RELEASE_VIEWPORTS.map(viewport => `${viewport.width}x${viewport.height}`) };
+    verifyEngineeringRepairEvidence(path.join(draftDir, "provider-diagnostics/discovery.engineering-repair.json"), verification);
+    verifyEngineeringRepairEvidence(path.join(draftDir, "provider-diagnostics/discovery-2.engineering-repair.json"), verification);
+  }
   const locations = discoveryArtifactLocations({ rootDir, childId: input.childId, homeworkId: input.homeworkId });
   fs.mkdirSync(locations.storageDir, { recursive: true });
   for (const [file,content] of [[locations.htmlFile,html],[locations.artworkFile,String(designed.backgroundSvg)]]) {

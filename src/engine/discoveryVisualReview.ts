@@ -3,7 +3,7 @@ import http from "node:http";
 import path from "node:path";
 import { createHash } from "node:crypto";
 
-export const DISCOVERY_VERIFIER_VERSION = 13;
+export const DISCOVERY_VERIFIER_VERSION = 14;
 
 export const DISCOVERY_RELEASE_VIEWPORTS = [
   { name: "generation", width: 1365, height: 768 },
@@ -14,7 +14,7 @@ export type DiscoveryVisualReviewAudit = {
   status: "approved" | "rejected_after_repair";
   controllingGate: "browser" | "browser_and_blind_vision";
   iterations: Array<{
-    iteration: 1 | 2;
+    iteration: 1 | 2 | 3;
     htmlHash: string;
     screenshotPath: string;
     screenshotPaths: string[];
@@ -22,9 +22,10 @@ export type DiscoveryVisualReviewAudit = {
   }>;
 };
 
-type RenderInput = { html: string; iteration: 1 | 2; outputDir: string };
+type ReviewIteration = 1 | 2 | 3;
+type RenderInput = { html: string; iteration: ReviewIteration; outputDir: string };
 type DiscoveryRenderedScreenshots = string[] & { issues?: string[] };
-type RepairInput = { html: string; issues: string[]; screenshotPaths: string[] };
+type RepairInput = { html: string; issues: string[]; screenshotPaths: string[]; repairAttempt: 1 | 2 };
 type BrowserPage = Awaited<ReturnType<Awaited<ReturnType<(typeof import("playwright"))["chromium"]["launch"]>>["newPage"]>>;
 export type MathJourneyItemContract = {
   id: string;
@@ -209,6 +210,8 @@ type VisualReviewCheckpoint = {
   initialHtmlHash: string;
   html: string;
   iterations: DiscoveryVisualReviewAudit["iterations"];
+  repairsConsumed?: number;
+  /** Legacy verifier 13 field. */
   repairConsumed?: boolean;
 };
 
@@ -225,7 +228,7 @@ export async function reviewDiscoveryCandidate(input: {
   outputDir: string;
   render: (input: RenderInput) => Promise<DiscoveryRenderedScreenshots>;
   verify?: (html: string) => Promise<void | string[]>;
-  judge?: (input: { html: string; iteration: 1 | 2; screenshotPaths: string[] }) => Promise<string[]>;
+  judge?: (input: { html: string; iteration: ReviewIteration; screenshotPaths: string[] }) => Promise<string[]>;
   verificationKey?: string;
   repair: (input: RepairInput) => Promise<string>;
 }): Promise<{ html: string; audit: DiscoveryVisualReviewAudit }> {
@@ -254,7 +257,7 @@ export async function reviewDiscoveryCandidate(input: {
         initialHtmlHash,
         html: saved.html,
         iterations: [],
-        repairConsumed: true,
+        repairsConsumed: Math.max(1, Number(saved.repairsConsumed ?? (saved.repairConsumed ? 1 : 0))),
       };
       console.log(` 🎮 [adaptive-math] [visual-review] [revalidating-paid-bytes] previousVersion=${saved.version}`);
     }
@@ -263,7 +266,7 @@ export async function reviewDiscoveryCandidate(input: {
   }
   let html = checkpoint?.html ?? input.html;
   const iterations: DiscoveryVisualReviewAudit["iterations"] = checkpoint?.iterations ?? [];
-  const repairConsumed = checkpoint?.repairConsumed === true;
+  let repairsConsumed = Math.max(0, Number(checkpoint?.repairsConsumed ?? (checkpoint?.repairConsumed ? 1 : 0)));
 
   const prior = iterations.at(-1);
   if (prior && prior.issues.length === 0 && prior.htmlHash === hash(html)) {
@@ -272,12 +275,14 @@ export async function reviewDiscoveryCandidate(input: {
     console.log(` 🎮 [adaptive-math] [visual-review] [reused] iteration=${prior.iteration}`);
     return { html, audit };
   }
-  if (!repairConsumed && prior?.iteration === 1 && prior.issues.length > 0 && hash(html) === prior.htmlHash) {
-    html = await input.repair({ html, issues: prior.issues, screenshotPaths: prior.screenshotPaths ?? [prior.screenshotPath] });
-    writeReviewCheckpoint(input.outputDir, { version: DISCOVERY_VERIFIER_VERSION, verificationKey, initialHtmlHash, html, iterations, repairConsumed });
+  if (repairsConsumed < 2 && prior && prior.issues.length > 0 && hash(html) === prior.htmlHash) {
+    const repairAttempt = (repairsConsumed + 1) as 1 | 2;
+    html = await input.repair({ html, issues: prior.issues, screenshotPaths: prior.screenshotPaths ?? [prior.screenshotPath], repairAttempt });
+    repairsConsumed = repairAttempt;
+    writeReviewCheckpoint(input.outputDir, { version: DISCOVERY_VERIFIER_VERSION, verificationKey, initialHtmlHash, html, iterations, repairsConsumed });
   }
 
-  for (const iteration of [1, 2] as const) {
+  for (const iteration of [1, 2, 3] as const) {
     if (iterations.some((saved) => saved.iteration === iteration)) continue;
     let screenshotPaths: DiscoveryRenderedScreenshots;
     try { screenshotPaths = await input.render({ html, iteration, outputDir: input.outputDir }); }
@@ -303,7 +308,7 @@ export async function reviewDiscoveryCandidate(input: {
     const screenshotPath = iterationScreenshots[0] ?? "";
     if (!screenshotPath && deterministicIssues.length === 0) deterministicIssues.push("discovery_visual_screenshot_missing");
     iterations.push({ iteration, htmlHash: hash(html), screenshotPath, screenshotPaths: iterationScreenshots, issues: deterministicIssues });
-    writeReviewCheckpoint(input.outputDir, { version: DISCOVERY_VERIFIER_VERSION, verificationKey, initialHtmlHash, html, iterations, repairConsumed });
+    writeReviewCheckpoint(input.outputDir, { version: DISCOVERY_VERIFIER_VERSION, verificationKey, initialHtmlHash, html, iterations, repairsConsumed });
     console.log(` 🎮 [adaptive-math] [visual-review] [${deterministicIssues.length === 0 ? "approve" : "repair_required"}] iteration=${iteration} gate=${input.judge ? "browser+blind-vision" : "browser"}`);
 
     if (deterministicIssues.length === 0) {
@@ -315,12 +320,11 @@ export async function reviewDiscoveryCandidate(input: {
       writeAudit(input.outputDir, audit);
       return { html, audit };
     }
-    if (repairConsumed) break;
-    if (iteration === 1) {
-      html = await input.repair({ html, issues: deterministicIssues, screenshotPaths: iterationScreenshots });
-      writeReviewCheckpoint(input.outputDir, { version: DISCOVERY_VERIFIER_VERSION, verificationKey, initialHtmlHash, html, iterations });
-      continue;
-    }
+    if (repairsConsumed >= 2) break;
+    const repairAttempt = (repairsConsumed + 1) as 1 | 2;
+    html = await input.repair({ html, issues: deterministicIssues, screenshotPaths: iterationScreenshots, repairAttempt });
+    repairsConsumed = repairAttempt;
+    writeReviewCheckpoint(input.outputDir, { version: DISCOVERY_VERIFIER_VERSION, verificationKey, initialHtmlHash, html, iterations, repairsConsumed });
   }
 
   const audit: DiscoveryVisualReviewAudit = {

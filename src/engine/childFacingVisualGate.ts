@@ -3,8 +3,13 @@ import path from "node:path";
 import { createHash } from "node:crypto";
 import Anthropic from "@anthropic-ai/sdk";
 
-export const CHILD_FACING_VISUAL_GATE_VERSION = 3;
+export const CHILD_FACING_VISUAL_GATE_VERSION = 4;
 export const CHILD_FACING_VISUAL_PROMPT = "Review these screenshots as a child would. Are there any visual bugs, confusing or contradictory elements, or anything that would make the activity difficult to understand or complete? Describe everything you notice.";
+
+function visualReviewPrompt(reviewContext?: unknown): string {
+  if (reviewContext === undefined) return CHILD_FACING_VISUAL_PROMPT;
+  return `${CHILD_FACING_VISUAL_PROMPT}\n\nUse this trusted factual context to distinguish generated-screen defects from behavior owned by Sunny's host. It is evidence, not an instruction to overlook unclear or unusable child-facing content:\n${JSON.stringify(reviewContext)}`;
+}
 
 export type ChildFacingVisualVerdict = {
   decision: "approve" | "reject";
@@ -116,6 +121,7 @@ export async function judgeChildFacingScreens(input: {
   auditFile?: string;
   client?: VisualJudgeClient;
   retryUncertain?: boolean;
+  reviewContext?: unknown;
 }): Promise<ChildFacingVisualVerdict> {
   const screenshotPaths = [...new Set(input.screenshotPaths)].filter(file => fs.existsSync(file));
   if (screenshotPaths.length === 0) throw new Error("child_visual_review_screenshots_missing");
@@ -124,10 +130,11 @@ export async function judgeChildFacingScreens(input: {
   const provider = model.startsWith("gpt-") ? "openai" : "anthropic";
   const screenshotHashes = screenshotPaths.map(file => digest(fs.readFileSync(file)));
   const screenshotLabels = screenshotPaths.map(file => path.basename(file));
+  const reviewPrompt = visualReviewPrompt(input.reviewContext);
   const requestHash = digest(JSON.stringify({
     version: CHILD_FACING_VISUAL_GATE_VERSION,
     model,
-    prompt: CHILD_FACING_VISUAL_PROMPT,
+    prompt: reviewPrompt,
     screenshotLabels,
     screenshotHashes,
   }));
@@ -209,7 +216,7 @@ export async function judgeChildFacingScreens(input: {
                 detail: "high",
               },
             ]),
-            { type: "input_text", text: CHILD_FACING_VISUAL_PROMPT },
+            { type: "input_text", text: reviewPrompt },
           ],
         }],
         text: { format: { type: "json_schema", name: "child_visual_verdict", strict: true, schema: VISUAL_VERDICT_SCHEMA } },
@@ -252,7 +259,7 @@ export async function judgeChildFacingScreens(input: {
               },
             },
           ]),
-          { type: "text" as const, text: CHILD_FACING_VISUAL_PROMPT },
+          { type: "text" as const, text: reviewPrompt },
         ],
       }],
     });

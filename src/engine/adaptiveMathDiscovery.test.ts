@@ -5,6 +5,7 @@ import { createHash } from "node:crypto";
 import { describe, expect, it, vi } from "vitest";
 import { getLearningCycle, projectLearningCycle, transitionLearningCycle } from "./learningCycleRepository";
 import {
+  buildDiscoveryPresentationContract,
   buildTargetedNodesResumably,
   buildDiscoveryRepairMessageContent,
   buildDiscoveryRepairDiagnostic,
@@ -105,6 +106,35 @@ async function acceptedPublication(rootDir: string, homeworkId: string) {
 }
 
 describe("adaptive math discovery", () => {
+  it("separates the child's visible name from spoken pronunciation in one shared presentation contract", () => {
+    const presentation = buildDiscoveryPresentationContract({
+      academic: {
+        identity: { displayName: "Ila", ttsName: "Ayla" },
+        demographics: { age: 8, grade: 3, attentionSpan: "short" },
+        learningProfile: { readingAccess: { currentReadingLevel: "CVC", presentationSettings: { wordsPerLine: 7 } } },
+      },
+      engagement: { readingAccess: { currentReadingLevel: "CVC" } },
+    }, {
+      evaluationId: "eval-1",
+      items: [{
+        itemId: "clock-1",
+        prompt: "Which clock shows 3:00?",
+        representationSpec: "Four clocks with distinct hands.",
+        correctAnswerContract: { acceptedValues: ["clock-c"] },
+      }],
+    });
+
+    expect(presentation).toMatchObject({
+      visibleDisplayName: "Ila",
+      spokenTtsName: "Ayla",
+      audience: { age: 8, grade: 3, attentionSpan: "short" },
+      readingAccess: { currentReadingLevel: "CVC" },
+      academicItems: [{ itemId: "clock-1", acceptedValues: ["clock-c"] }],
+    });
+    expect(presentation.identityRule).toContain("Visible text must use visibleDisplayName");
+    expect(presentation.hostRuntime.completion).toContain("evaluation_complete");
+  });
+
   it("rejects a construct that claims counting by tens while its item measures intervals of five", () => {
     expect(() => assertDiscoveryConstructSemantics({
       items: [{
@@ -235,6 +265,9 @@ describe("adaptive math discovery", () => {
       designHash: "design-hash",
       design: { interaction: "clock" },
       html: "<html>broken</html>",
+      presentationContract: buildDiscoveryPresentationContract({
+        academic: { identity: { displayName: "Ila", ttsName: "Ayla" } },
+      }, { items: [] }),
     });
 
     expect(prompt).toContain("item=item-02-which-hand");
@@ -242,6 +275,8 @@ describe("adaptive math discovery", () => {
     expect(prompt).toContain("missing fields on that exact control");
     expect(prompt).toContain("ACADEMIC CONTRACT HASH: academic-hash");
     expect(prompt).toContain("DESIGN HASH: design-hash");
+    expect(prompt).toContain('"visibleDisplayName": "Ila"');
+    expect(prompt).toContain('"spokenTtsName": "Ayla"');
     expect(prompt).toContain("<html>broken</html>");
     expect(prompt).toContain("exact oldText → newText replacements");
     expect(prompt).not.toContain("return one complete standalone HTML document");
@@ -368,9 +403,11 @@ describe("adaptive math discovery", () => {
     expect(calls[2]?.model).toBe(process.env.SUNNY_GENERATION_MODEL ?? process.env.SUNNY_INGEST_MODEL ?? "claude-sonnet-5");
     expect(calls[0]?.prompt).not.toContain("world");
     expect(calls[1]?.prompt).toContain(generated.contract.artifact.contractHash);
+    expect(calls[1]?.prompt).toContain("CHILD PRESENTATION AND HOST CONTRACT");
     expect(calls[2]?.prompt).toContain("1365x768 and 1280x720");
     expect(calls[2]?.prompt).toContain("fully visible without scrolling");
     expect(calls[2]?.prompt).toContain("mathematical representation large and legible");
+    expect(calls[2]?.prompt).toContain("CHILD PRESENTATION AND HOST CONTRACT");
     expect(generated.contract.artifact.htmlPath).toBe("/api/homework/game/lab-child/hw-1/discovery.html");
     expect(generated.contract.artifact.artworkPath).toBe("/api/homework/game/lab-child/hw-1/discovery-background.svg");
     expect(fs.existsSync(path.join(rootDir, "src/context/lab-child/homework/games/hw-1/discovery.html"))).toBe(true);
