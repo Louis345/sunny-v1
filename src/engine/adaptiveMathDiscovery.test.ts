@@ -260,6 +260,18 @@ describe("adaptive math discovery", () => {
     expect(result.changedOriginalCharacters).toBe(31);
   });
 
+  it("accepts a unique repair target whose only drift is source whitespace", () => {
+    const before = "<script>const view='<div>Done</div>'+\n  '<p>Ready</p>';</script>";
+    const result = applyDiscoveryHtmlPatch(before, JSON.stringify({ replacements: [{
+      oldText: "'<div>Done</div>'+ \n   '<p>Ready</p>'",
+      newText: "'<div>Finished</div>'+\n   '<p>Ready</p>'",
+      reason: "Correct the child-facing completion label",
+    }] }));
+
+    expect(result.html).toBe("<script>const view='<div>Finished</div>'+\n   '<p>Ready</p>';</script>");
+    expect(result.replacementCount).toBe(1);
+  });
+
   it("rejects broad, ambiguous, missing, and no-op repair patches", () => {
     const html = "<!doctype html><html><body><button>Go</button><button>Go</button></body></html>";
     expect(() => applyDiscoveryHtmlPatch(html, "<!doctype html><html>replacement</html>"))

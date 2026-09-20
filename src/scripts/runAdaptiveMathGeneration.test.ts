@@ -448,6 +448,36 @@ it("does not buy a second visual repair for the same artifact and gate version",
   expect(getMathGenerationStatus(childId, homeworkId, { rootDir })?.phase).toBe("needs_attention");
 });
 
+it("reapplies a saved visual repair after a patch-parser upgrade without another provider build", async () => {
+  const draft = path.join(rootDir, "src/context", childId, "homework/direct-drafts", homeworkId);
+  vi.mocked(judgeChildFacingScreens).mockImplementation(async ({ auditFile }) => auditFile?.includes("activity-1") ? {
+    decision: "reject",
+    observations: ["The completion wording contradicts the visible state."],
+  } : { decision: "approve", observations: [] });
+  await runAdaptiveMathGeneration(childId, homeworkId, rootDir);
+  const artifact = JSON.parse(fs.readFileSync(path.join(draft, "candidate-build-v3.json"), "utf8")).artifacts
+    .find((candidate: { nodeId: string }) => candidate.nodeId === "activity-1");
+  const attemptDir = path.join(draft, "provider-diagnostics", "visual-repair-v3", "activity-1", artifact.htmlHash.slice(0, 12));
+  fs.mkdirSync(attemptDir, { recursive: true });
+  fs.writeFileSync(path.join(attemptDir, "activity-1-visual-repair-attempt.json"), JSON.stringify({
+    version: 1,
+    patchParserVersion: 1,
+    gateVersion: 3,
+    nodeId: "activity-1",
+    inputHtmlHash: artifact.htmlHash,
+    failures: ["child_visual_review:The completion wording contradicts the visible state."],
+    status: "failed",
+    error: "discovery_repair_patch_old_text_missing:7",
+  }));
+  vi.mocked(judgeChildFacingScreens).mockResolvedValue({ decision: "approve", observations: [] });
+
+  await runAdaptiveMathGeneration(childId, homeworkId, rootDir);
+
+  expect(repairDirectArtifact).toHaveBeenCalledTimes(2);
+  expect(generateDirectArtifacts).toHaveBeenCalledTimes(2);
+  expect(getMathGenerationStatus(childId, homeworkId, { rootDir })?.nodes.find(node => node.nodeId === "activity-1")?.status).toBe("ready");
+});
+
 it("removes a previously ready artifact from play when a newer visual review rejects it", async () => {
   await runAdaptiveMathGeneration(childId, homeworkId, rootDir);
   const draft = path.join(rootDir, "src/context", childId, "homework/direct-drafts", homeworkId);

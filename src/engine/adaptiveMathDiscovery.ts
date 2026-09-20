@@ -113,6 +113,20 @@ export function applyDiscoveryHtmlPatch(originalHtml: string, responseText: stri
   if (!Array.isArray(replacements) || replacements.length < 1 || replacements.length > 8) {
     throw new Error("discovery_repair_patch_replacement_count_invalid");
   }
+  const locateUniqueRange = (oldText: string, index: number): { start: number; end: number; matchedText: string } => {
+    const exactStart = originalHtml.indexOf(oldText);
+    if (exactStart >= 0) {
+      if (originalHtml.indexOf(oldText, exactStart + 1) >= 0) throw new Error(`discovery_repair_patch_old_text_not_unique:${index}`);
+      return { start: exactStart, end: exactStart + oldText.length, matchedText: oldText };
+    }
+    const tokens = oldText.trim().split(/\s+/).filter(Boolean);
+    const pattern = tokens.map((token) => token.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("\\s+");
+    const matches = [...originalHtml.matchAll(new RegExp(pattern, "g"))];
+    if (matches.length < 1) throw new Error(`discovery_repair_patch_old_text_missing:${index}`);
+    if (matches.length > 1) throw new Error(`discovery_repair_patch_old_text_not_unique:${index}`);
+    const match = matches[0]!;
+    return { start: match.index!, end: match.index! + match[0].length, matchedText: match[0] };
+  };
   const ranges = replacements.map((candidate, index) => {
     if (!candidate || typeof candidate !== "object") throw new Error(`discovery_repair_patch_invalid:${index}`);
     const { oldText, newText, reason } = candidate as Record<string, unknown>;
@@ -123,10 +137,8 @@ export function applyDiscoveryHtmlPatch(originalHtml: string, responseText: stri
     if (/<\/?(?:html|body)\b|<!doctype/i.test(oldText) || /<\/?(?:html|body)\b|<!doctype/i.test(newText)) {
       throw new Error(`discovery_repair_patch_document_replacement_forbidden:${index}`);
     }
-    const start = originalHtml.indexOf(oldText);
-    if (start < 0) throw new Error(`discovery_repair_patch_old_text_missing:${index}`);
-    if (originalHtml.indexOf(oldText, start + 1) >= 0) throw new Error(`discovery_repair_patch_old_text_not_unique:${index}`);
-    return { start, end: start + oldText.length, oldText, newText };
+    const match = locateUniqueRange(oldText, index);
+    return { start: match.start, end: match.end, oldText: match.matchedText, newText };
   });
   const changedOriginalCharacters = ranges.reduce((sum, range) => sum + range.oldText.length, 0);
   if (changedOriginalCharacters > Math.max(1_000, Math.floor(originalHtml.length * 0.2))) {

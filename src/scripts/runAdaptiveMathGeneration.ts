@@ -42,6 +42,7 @@ const writeText = (file: string, value: string): void => { fs.mkdirSync(path.dir
 
 type VisualRepairAttempt = {
   version: 1;
+  patchParserVersion?: number;
   gateVersion: number;
   nodeId: string;
   inputHtmlHash: string;
@@ -52,6 +53,8 @@ type VisualRepairAttempt = {
   finishedAt?: string;
   error?: string;
 };
+
+const VISUAL_REPAIR_PATCH_PARSER_VERSION = 2;
 
 function visualRepairNodeDir(draft: string, nodeId: string): string {
   return path.join(draft, "provider-diagnostics", `visual-repair-v${CHILD_FACING_VISUAL_GATE_VERSION}`, nodeId);
@@ -79,6 +82,9 @@ function findVisualRepairAttempt(draft: string, nodeId: string, artifactHash: st
 
 function mayRunVisualRepair(attempt: VisualRepairAttempt | undefined, retryUncertain: boolean): boolean {
   if (!attempt || ["started", "provider_completed"].includes(attempt.status)) return true;
+  if (attempt.status === "failed"
+    && (attempt.patchParserVersion ?? 1) < VISUAL_REPAIR_PATCH_PARSER_VERSION
+    && attempt.error?.startsWith("discovery_repair_patch_")) return true;
   return retryUncertain && attempt.status === "verification_uncertain";
 }
 
@@ -458,6 +464,7 @@ export async function runAdaptiveMathGeneration(
     const startedAt = savedAttempt?.value.startedAt ?? new Date().toISOString();
     const attemptBase: VisualRepairAttempt = {
       version: 1,
+      patchParserVersion: VISUAL_REPAIR_PATCH_PARSER_VERSION,
       gateVersion: CHILD_FACING_VISUAL_GATE_VERSION,
       nodeId: currentArtifact.nodeId,
       inputHtmlHash: savedAttempt?.value.inputHtmlHash ?? currentArtifact.htmlHash,
