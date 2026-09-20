@@ -819,14 +819,29 @@ export async function generateMathDiscoveryExperience(input: {
   const builderEngineering = freezeEngineeringLessonSnapshot({ snapshotFile: path.join(draftDir, "discovery-builder-engineering.snapshot.json"), auditRoot: resolveContextRoot({ rootDir }), features: engineeringFeatures(JSON.stringify(designed.design)), verifierVersion: DISCOVERY_VERIFIER_VERSION, preserveCompleted: fs.existsSync(builderCheckpointFile) || hasReceivedMathProviderStage(draftDir, "builder") });
   const completedAwareBuilderPrompt = builderPrompt + engineeringLessonContext(builderEngineering);
   const builderPromptHash = hashDiscoveryContract({ model: builderModel, prompt: completedAwareBuilderPrompt });
-  type HtmlCheckpoint = { contractHash: string; designHash: string; builderPromptHash: string; html: string };
+  type HtmlCheckpoint = {
+    contractHash: string;
+    designHash: string;
+    builderPromptHash?: string;
+    presentationContractVersion?: 1;
+    revalidatedPresentationContractVersion?: 1;
+    html: string;
+  };
   let initialHtml: string;
   const savedBuilder = readCheckpoint<HtmlCheckpoint>(builderCheckpointFile);
+  const legacyBuilderRequiresRevalidation = Boolean(savedBuilder
+    && savedBuilder.contractHash === contractHash
+    && savedBuilder.designHash === designHash
+    && savedBuilder.presentationContractVersion == null
+    && savedBuilder.revalidatedPresentationContractVersion !== presentationContract.version
+    && hasReceivedMathProviderStage(draftDir, "builder"));
   if (savedBuilder?.contractHash === contractHash && savedBuilder.designHash === designHash
-    && savedBuilder.builderPromptHash === builderPromptHash) {
+    && (savedBuilder.builderPromptHash === builderPromptHash
+      || savedBuilder.revalidatedPresentationContractVersion === presentationContract.version
+      || legacyBuilderRequiresRevalidation)) {
     validateDiscoveryAcademicBinding(savedBuilder.html, academic);
     initialHtml = savedBuilder.html;
-    console.log(` 🎮 [adaptive-math] [discovery-builder] [reused] hash=${hashDiscoveryContract(initialHtml).slice(0, 12)}`);
+    console.log(` 🎮 [adaptive-math] [discovery-builder] [${legacyBuilderRequiresRevalidation ? "revalidating-legacy" : "reused"}] hash=${hashDiscoveryContract(initialHtml).slice(0, 12)}`);
   } else {
     console.log(` 🎮 [adaptive-math] [discovery-builder] [running] model=${builderModel}`);
     const builderResponse = await create(builderModel, completedAwareBuilderPrompt);
@@ -852,7 +867,7 @@ export async function generateMathDiscoveryExperience(input: {
     }
     initialHtml = standaloneHtml(rawBuilderText);
     validateDiscoveryAcademicBinding(initialHtml, academic);
-    atomicJson(builderCheckpointFile, { contractHash, designHash, builderPromptHash, html: initialHtml });
+    atomicJson(builderCheckpointFile, { contractHash, designHash, builderPromptHash, presentationContractVersion: presentationContract.version, html: initialHtml });
   }
   let html: string;
     console.log(" 🎮 [adaptive-math] [discovery-review] [running] viewports=1365x768,1280x720");
@@ -921,6 +936,14 @@ export async function generateMathDiscoveryExperience(input: {
         })).html;
     validateDiscoveryAcademicBinding(html, academic);
   validateDiscoveryAcademicBinding(html, academic);
+  if (legacyBuilderRequiresRevalidation && savedBuilder) {
+    atomicJson(builderCheckpointFile, {
+      ...savedBuilder,
+      revalidatedPresentationContractVersion: presentationContract.version,
+      html: initialHtml,
+    });
+    console.log(` 🎮 [adaptive-math] [discovery-builder] [legacy-revalidated] presentationContractVersion=${presentationContract.version}`);
+  }
   console.log(" 🎮 [adaptive-math] [discovery-runtime-verification] [running] scoring=frozen-contract");
   if (input.visualReview) await verifyDiscoveryRuntimeScoring({ html, academic, outputDir: path.join(draftDir, "runtime-verification") });
   if (!input.visualReview) {

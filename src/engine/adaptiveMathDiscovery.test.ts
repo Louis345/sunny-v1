@@ -505,7 +505,7 @@ describe("adaptive math discovery", () => {
     expect(resumedCalls).toBe(1);
   });
 
-  it("rebuilds a missing prompt-bound checkpoint from its saved response without buying it again", async () => {
+  it("revalidates legacy builder bytes under the presentation contract without buying them again", async () => {
     const rootDir = root();
     const homeworkId = "hw-builder-prompt-version";
     const draftDir = path.join(rootDir, "src/context/lab-child/homework/direct-drafts", homeworkId);
@@ -531,7 +531,9 @@ describe("adaptive math discovery", () => {
     expect(unchangedCalls).toBe(0);
     const checkpointFile = path.join(draftDir, "discovery-builder.json");
     const checkpoint = JSON.parse(fs.readFileSync(checkpointFile, "utf8"));
+    expect(checkpoint.presentationContractVersion).toBe(1);
     delete checkpoint.builderPromptHash;
+    delete checkpoint.presentationContractVersion;
     fs.writeFileSync(checkpointFile, JSON.stringify(checkpoint));
     fs.rmSync(path.join(draftDir, "discovery-reviewed.json"), { force: true });
 
@@ -540,10 +542,10 @@ describe("adaptive math discovery", () => {
       resumedCalls += 1;
       return { content: [{ type: "text", text: generatedDiscoveryHtml() }] };
     } }) } };
-    await generateMathDiscoveryExperience({ rootDir, childId: "lab-child", homeworkId, assignmentText: "Four equal groups.", assignmentEvidenceIds: ["assignment:version"], factualChildContext: { age: 9 }, client: resumedClient as never, visualReview: async ({ html }) => html });
+    await generateMathDiscoveryExperience({ rootDir, childId: "lab-child", homeworkId, assignmentText: "Four equal groups.", assignmentEvidenceIds: ["assignment:version"], factualChildContext: { academic: { identity: { displayName: "Ila", ttsName: "Ayla" } } }, client: resumedClient as never, visualReview: async ({ html }) => html });
 
     expect(resumedCalls).toBe(0);
-    expect(JSON.parse(fs.readFileSync(checkpointFile,"utf8")).builderPromptHash).toBeTruthy();
+    expect(JSON.parse(fs.readFileSync(checkpointFile,"utf8")).revalidatedPresentationContractVersion).toBe(1);
   }, 30000);
 
   it("persists the raw builder outcome and reports truncation before parsing HTML", async () => {
