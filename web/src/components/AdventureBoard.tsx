@@ -281,9 +281,8 @@ export function AdventureBoard({
             node.state === "preview" ||
             node.lock?.label.trim().toLowerCase() === "preparing";
           const needsParentHelp =
-            isLocked &&
-            (node.lock?.reason === "generation-needs-attention" ||
-              node.lock?.label.trim().toLowerCase() === "parent help needed");
+            node.lock?.reason === "generation-needs-attention" ||
+            node.lock?.label.trim().toLowerCase() === "parent help needed";
           const isCompleted = node.state === "completed";
           return (
             <button

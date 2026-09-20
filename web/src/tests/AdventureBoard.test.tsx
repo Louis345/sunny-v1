@@ -754,9 +754,10 @@ describe("AdventureBoardExperience", () => {
     expect(onNodeClick).not.toHaveBeenCalled();
   });
 
-  // Human miss (2026-09-20): the preserved board also publishes exhausted
-  // generation attempts as locked `Parent help needed` nodes. The visible
-  // label was truthful, but the click fell through without any response.
+  // Human miss (2026-09-20): the preserved board publishes this exhausted
+  // generation attempt as a current node carrying `Parent help needed` lock
+  // metadata. The label was truthful, but state-only handling made the click
+  // fall through without any response.
   it("explains a production-shaped Parent help needed node without launching it", () => {
     const onNodeClick = vi.fn();
     const board: AdventureBoardJson = {
@@ -765,7 +766,7 @@ describe("AdventureBoardExperience", () => {
         index === 1
           ? {
               ...node,
-              state: "locked" as const,
+              state: "current" as const,
               lock: { reason: "generation-needs-attention", label: "Parent help needed" },
             }
           : node,
