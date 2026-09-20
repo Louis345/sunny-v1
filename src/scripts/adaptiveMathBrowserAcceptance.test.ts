@@ -122,10 +122,12 @@ it("plays the isolated math release journey through calibration and the next Pla
       await page.screenshot({path:path.join(outputDir,"discovery-completed.png")});
       step="truthful preparation handoff before a map exists";
       await page.getByRole("button",{name:"Check progress",exact:true}).waitFor({state:"visible",timeout:5000});
+      await page.screenshot({path:path.join(outputDir,"post-evaluation-actions-before.png")});
       step="finish for now without losing Discovery";
       await page.getByRole("button",{name:"Finish for now",exact:true}).click();
-      await page.getByRole("heading",{name:"Finished for now",exact:true}).waitFor({state:"visible",timeout:5000});
-      await page.getByRole("button",{name:"Return to assignment",exact:true}).click();
+      await page.getByRole("heading",{name:"Sunny is resting",exact:true}).waitFor({state:"visible",timeout:5000});
+      await page.screenshot({path:path.join(outputDir,"post-evaluation-finished-resting.png")});
+      await page.getByRole("button",{name:"Start Sunny",exact:true}).click();
       await page.getByRole("button",{name:"Check progress",exact:true}).waitFor({state:"visible"});
       step="prepare mocked targeted providers";
       const targeted = plan(2);
