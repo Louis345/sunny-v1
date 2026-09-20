@@ -280,6 +280,10 @@ export function AdventureBoard({
           const isPreparing =
             node.state === "preview" ||
             node.lock?.label.trim().toLowerCase() === "preparing";
+          const needsParentHelp =
+            isLocked &&
+            (node.lock?.reason === "generation-needs-attention" ||
+              node.lock?.label.trim().toLowerCase() === "parent help needed");
           const isCompleted = node.state === "completed";
           return (
             <button
@@ -302,6 +306,11 @@ export function AdventureBoard({
                 if (isPreparing) {
                   console.log(` 🎮 [adventure-board] [preparing-node] [acknowledged] node=${node.id}`);
                   setPreparingMessage(`${node.shortLabel ?? node.label} is still being prepared. You can keep exploring or come back later.`);
+                  return;
+                }
+                if (needsParentHelp) {
+                  console.log(` 🎮 [adventure-board] [parent-help-node] [acknowledged] node=${node.id}`);
+                  setPreparingMessage(`${node.shortLabel ?? node.label} needs a grown-up to check it before it can open. You can keep exploring another activity.`);
                   return;
                 }
                 setPreparingMessage(null);

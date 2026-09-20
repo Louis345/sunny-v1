@@ -754,6 +754,38 @@ describe("AdventureBoardExperience", () => {
     expect(onNodeClick).not.toHaveBeenCalled();
   });
 
+  // Human miss (2026-09-20): the preserved board also publishes exhausted
+  // generation attempts as locked `Parent help needed` nodes. The visible
+  // label was truthful, but the click fell through without any response.
+  it("explains a production-shaped Parent help needed node without launching it", () => {
+    const onNodeClick = vi.fn();
+    const board: AdventureBoardJson = {
+      ...grokFullExperienceBoard,
+      nodes: grokFullExperienceBoard.nodes.map((node, index) =>
+        index === 1
+          ? {
+              ...node,
+              state: "locked" as const,
+              lock: { reason: "generation-needs-attention", label: "Parent help needed" },
+            }
+          : node,
+      ),
+    };
+    const needsHelp = board.nodes[1]!;
+
+    render(
+      <AdventureBoardExperience
+        packet={packetForBoard(board)}
+        onNodeClick={onNodeClick}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: new RegExp(`^${needsHelp.label}, Parent help needed`) }));
+
+    expect(screen.getByRole("status")).toHaveTextContent("needs a grown-up to check it");
+    expect(onNodeClick).not.toHaveBeenCalled();
+  });
+
   it("explains a preparing node without launching it or emitting a node callback", () => {
     const onNodeClick = vi.fn();
     const board: AdventureBoardJson = {
