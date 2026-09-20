@@ -45,4 +45,8 @@ describe("truthful learning preparation",()=>{
     expect(onCheck).toHaveBeenCalledTimes(1);
     expect(screen.queryByText(/All ready/)).toBeNull();
   });
+  it("shows that a requested progress check is running",()=>{
+    render(<LearningPreparationStatus status={{phase:"targeted_planning",updatedAt:"now",nodes:[]}} checking onCheck={vi.fn()}/>);
+    expect(screen.getByRole("button",{name:"Checking progress"})).toBeDisabled();
+  });
 });

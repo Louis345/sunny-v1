@@ -752,7 +752,7 @@ function App() {
     setHomeworkFinishedForNow(true);
     setPlannerBoardLaunch(null);
     endSession();
-    console.log(" 🎮 [homework-session] [finish-for-now] [closed]");
+    console.log(" 🎮 [homework-session] [finish-for-now] [resting]");
   }, [endSession]);
 
   const [vrrCelebrateEvent, setVrrCelebrateEvent] =
@@ -1854,13 +1854,12 @@ function App() {
   let main: ReactNode = null;
 
   if (homeworkSessionFinished) {
-    main = <div className="w-screen h-screen overflow-hidden"><SessionEnd
-      homeworkPaused={homeworkBoardMode}
-      autoReturnMs={homeworkBoardMode ? null : 5000}
-      onReturn={() => {
-        if (homeworkBoardMode) window.location.reload();
-        else { setSelectedChildName(null); resetToPicker(); }
-      }}
+    main = homeworkBoardMode ? <KioskRestingScreen onStart={() => {
+      console.log(" 🎮 [homework-session] [restart] [requested]");
+      window.location.reload();
+    }}/> : <div className="w-screen h-screen overflow-hidden"><SessionEnd
+      autoReturnMs={5000}
+      onReturn={() => { setSelectedChildName(null); resetToPicker(); }}
       childName={state.childName}
       companionName={state.companion?.companionName}
     /></div>;

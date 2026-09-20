@@ -5,6 +5,7 @@ export function LearningPreparationStatus(props: {
   status: GenerationStatus | null;
   error?: string | null;
   paused?: boolean;
+  checking?: boolean;
   preview?: boolean;
   onCheck: () => void;
   onFinish?: () => void;
@@ -26,7 +27,7 @@ export function LearningPreparationStatus(props: {
       {props.paused && canCheck && <p className="mt-2 text-sm text-white/70">Automatic checks paused. Check progress for the latest status.</p>}
     </div>
     <div className="mt-3 flex flex-wrap gap-3">
-      {canCheck && <button className="rounded-full border border-white/40 px-4 py-2 font-bold" onClick={props.onCheck}>Check progress</button>}
+      {canCheck && <button className="rounded-full border border-white/40 px-4 py-2 font-bold disabled:cursor-wait disabled:opacity-70" disabled={props.checking} onClick={props.onCheck}>{props.checking ? "Checking progress" : "Check progress"}</button>}
       {props.onFinish && <button className="rounded-full bg-amber-300 px-4 py-2 font-bold text-zinc-950" onClick={props.onFinish}>Finish for now</button>}
     </div>
   </section>;
