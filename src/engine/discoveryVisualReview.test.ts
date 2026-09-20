@@ -22,7 +22,7 @@ function activeHandles(): unknown[] {
 
 describe("Discovery visual review", () => {
   it("invalidates prior unscoped-control verdicts without resetting paid repair receipts", () => {
-    expect(DISCOVERY_VERIFIER_VERSION).toBe(14);
+    expect(DISCOVERY_VERIFIER_VERSION).toBe(15);
   });
 
   it("keeps provider and model selection out of browser mechanics", () => {

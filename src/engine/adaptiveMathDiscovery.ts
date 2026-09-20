@@ -514,9 +514,10 @@ export async function verifyDiscoveryRuntimeScoring(input: {
       }
     }
   });
+  const journeyOutputDir = path.join(input.outputDir, hashDiscoveryContract(input.html).slice(0, 16));
   const journeyScreenshots = await verifyMathJourneyAtReleaseViewports({
     html: input.html,
-    outputDir: input.outputDir,
+    outputDir: journeyOutputDir,
     completionType: "evaluation_complete",
     itemIds: input.academic.items.map(item => item.itemId),
   });

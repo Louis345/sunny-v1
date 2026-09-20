@@ -91,7 +91,7 @@ describe("generated math control diagnostics", () => {
         && issue.includes("missing=interaction_stability"),
     )).toBe(true);
     fs.rmSync(outputDir, { recursive: true, force: true });
-  });
+  }, 15_000);
 
   it("names the item and SVG selector and captures both failure viewports", async () => {
     const outputDir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-clock-control-"));
@@ -241,6 +241,82 @@ describe("generated math control diagnostics", () => {
       completionType: "evaluation_complete",
       itemIds: ["item-1", "item-2"],
     })).resolves.toHaveLength(6);
+    fs.rmSync(outputDir, { recursive: true, force: true });
+  }, 15_000);
+
+  it("crosses a newly visible evidence-free interstitial before verifying the next item", async () => {
+    const outputDir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-entry-transition-"));
+    const html = `<!doctype html><html><body>
+      <button id="answer-one">Answer one</button>
+      <button id="continue" hidden>Continue</button>
+      <button id="answer-two" hidden>Answer two</button>
+      <script>
+      window.SUNNY_VALIDATION_HOOKS={journey:[
+        {itemId:"item-1",steps:[{action:"click",selector:"#answer-one"}]},
+        {itemId:"item-2",steps:[{action:"click",selector:"#continue"},{action:"click",selector:"#answer-two"}]}
+      ]};
+      const attempt=(id)=>parent.postMessage({type:"evaluation_attempt",payload:{attemptId:"a-"+id,itemId:id,attemptedValue:id,supportEventIds:[],instrumentSignals:[],observedAt:new Date().toISOString()}},"*");
+      const state=(id,prompt)=>parent.postMessage({type:"game_state_update",payload:{currentChallenge:{id,prompt}}},"*");
+      state("item-1","Answer one");
+      document.querySelector("#answer-one").onclick=()=>{
+        attempt("item-1");
+        document.querySelector("#answer-one").hidden=true;
+        document.querySelector("#continue").hidden=false;
+      };
+      document.querySelector("#continue").onclick=()=>{
+        document.querySelector("#continue").hidden=true;
+        document.querySelector("#answer-two").hidden=false;
+        state("item-2","Answer two");
+      };
+      document.querySelector("#answer-two").onclick=()=>{
+        attempt("item-2");
+        parent.postMessage({type:"evaluation_complete"},"*");
+      };
+      </script></body></html>`;
+
+    await expect(verifyMathJourneyAtReleaseViewports({
+      html,
+      outputDir,
+      completionType: "evaluation_complete",
+      itemIds: ["item-1", "item-2"],
+    })).resolves.toHaveLength(8);
+    fs.rmSync(outputDir, { recursive: true, force: true });
+  }, 15_000);
+
+  it("never reports stale completion screenshots from an earlier verification", async () => {
+    const outputDir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-stale-journey-"));
+    const working = `<!doctype html><html><body><button id="answer">Answer</button><script>
+      window.SUNNY_VALIDATION_HOOKS={journey:[{itemId:"item-1",steps:[{action:"click",selector:"#answer"}]}]};
+      document.querySelector("#answer").onclick=()=>{
+        parent.postMessage({type:"evaluation_attempt",payload:{attemptId:"a-1",itemId:"item-1",attemptedValue:"1",supportEventIds:[],instrumentSignals:[],observedAt:new Date().toISOString()}},"*");
+        parent.postMessage({type:"evaluation_complete"},"*");
+      };
+    </script></body></html>`;
+    const broken = `<!doctype html><html><body><div id="answer">Answer</div><script>
+      window.SUNNY_VALIDATION_HOOKS={journey:[{itemId:"item-1",steps:[{action:"click",selector:"#answer"}]}]};
+    </script></body></html>`;
+    await verifyMathJourneyAtReleaseViewports({
+      html: working,
+      outputDir,
+      completionType: "evaluation_complete",
+      itemIds: ["item-1"],
+    });
+
+    let failure: unknown;
+    try {
+      await verifyMathJourneyAtReleaseViewports({
+        html: broken,
+        outputDir,
+        completionType: "evaluation_complete",
+        itemIds: ["item-1"],
+      });
+    } catch (error) {
+      failure = error;
+    }
+
+    expect(failure).toBeInstanceOf(DiscoveryRuntimeVerificationError);
+    const screenshots = (failure as DiscoveryRuntimeVerificationError).screenshotPaths.map(file => path.basename(file));
+    expect(screenshots).toEqual(["journey-generation-failure.png", "journey-sunny-failure.png"]);
     fs.rmSync(outputDir, { recursive: true, force: true });
   }, 15_000);
 
