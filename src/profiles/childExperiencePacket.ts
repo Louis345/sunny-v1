@@ -111,7 +111,13 @@ function projectCanonicalAgencyChoice(
   const routeByNodeId = new Map(experiment.routes.flatMap((route) =>
     route.nodeIds.map((nodeId) => [nodeId, route.routeId] as const)));
   const agencyNodeIds = new Set([...experiment.sharedNodeIds, ...routeByNodeId.keys()]);
-  const launchableNodeId = firstIncompleteShared ?? firstIncompleteSelected;
+  const isLaunchable = (nodeId: string | undefined) => {
+    const state = nodeId ? cycleNodeState.get(nodeId) : undefined;
+    return state === "ready" || state === "active";
+  };
+  const launchableNodeId = firstIncompleteShared
+    ? (isLaunchable(firstIncompleteShared) ? firstIncompleteShared : undefined)
+    : (isLaunchable(firstIncompleteSelected) ? firstIncompleteSelected : undefined);
   const previewUrl = (nodeId: string) =>
     `/generated/direct-math/${plan.activeHomeworkId}-previews/${nodeId}-opening.png`;
 
@@ -119,9 +125,11 @@ function projectCanonicalAgencyChoice(
     if (experiment.sharedNodeIds.includes(node.id)) {
       const state: AdventureBoardJson["nodes"][number]["state"] = completedNodeIds.has(node.id)
         ? "completed"
-        : node.id === firstIncompleteShared
+        : node.id === launchableNodeId
           ? "current"
-          : "locked";
+          : node.state === "preview"
+            ? "preview"
+            : "locked";
       return { ...node, state };
     }
     if (node.kind === "choice-gate") {
@@ -136,9 +144,11 @@ function projectCanonicalAgencyChoice(
     if (routeId) {
       const state: AdventureBoardJson["nodes"][number]["state"] = completedNodeIds.has(node.id)
         ? "completed"
-        : routeId === selectedRoute?.routeId && node.id === firstIncompleteSelected
+        : routeId === selectedRoute?.routeId && node.id === launchableNodeId
           ? "current"
-          : "locked";
+          : node.state === "preview"
+            ? "preview"
+            : "locked";
       return { ...node, state, thumbnailUrl: node.thumbnailUrl ?? previewUrl(node.id) };
     }
     const canonicalState = cycleNodeState.get(node.id);
@@ -180,7 +190,7 @@ function projectCanonicalAgencyChoice(
       progress: {
         ...board.progress,
         completedNodeIds: [...new Set([...(board.progress?.completedNodeIds ?? []), ...completedNodeIds])],
-        currentNodeId: firstIncompleteShared ?? firstIncompleteSelected,
+        currentNodeId: launchableNodeId,
         ...(!selectedRouteComplete && sharedComplete ? { activeChoiceSetId: choiceSets?.find((set) => set.kind === "baseline-route")?.id } : {}),
       },
     },

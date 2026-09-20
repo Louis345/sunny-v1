@@ -13,6 +13,7 @@ import {
   resolveDirectDiscoverySurface,
   resolveDirectDiscoveryLaunchNode,
   resolvePlannerBoardLaunchNode,
+  shouldHoldTargetedBoardForPreparation,
 } from "../utils/adventureBoardLaunch";
 
 function packet(planId: string, nodes: Array<Record<string, unknown>>): ChildExperiencePacket {
@@ -110,6 +111,24 @@ describe("direct Discovery entry", () => {
 
     expect(isDirectDiscoveryPacket(targeted)).toBe(false);
     expect(resolveDirectDiscoveryLaunchNode(targeted)).toBeNull();
+  });
+
+  it("holds a targeted board when no activity is playable", () => {
+    const targeted = packet("targeted:hw-1", [
+      { id: "start", type: "start", title: "Start" },
+      { id: "gear-secret", type: "generated", title: "The Gear Secret" },
+    ]);
+    const node = targeted.activeSessionPlan!.adventureBoard!.nodes[1]!;
+    node.state = "locked";
+    node.lock = { reason: "generation-needs-attention", label: "Parent help needed" };
+    node.action = { type: "show-locked-reason", payloadId: node.id };
+
+    expect(shouldHoldTargetedBoardForPreparation(targeted)).toBe(true);
+
+    node.state = "current";
+    node.lock = undefined;
+    node.action = { type: "launch-activity", payloadId: node.id };
+    expect(shouldHoldTargetedBoardForPreparation(targeted)).toBe(false);
   });
 
   it("keeps the familiar curtain mounted until Discovery is ready to launch", () => {

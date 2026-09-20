@@ -754,11 +754,10 @@ describe("AdventureBoardExperience", () => {
     expect(onNodeClick).not.toHaveBeenCalled();
   });
 
-  // Human miss (2026-09-20): the preserved board publishes this exhausted
-  // generation attempt as a current node carrying `Parent help needed` lock
-  // metadata. The label was truthful, but state-only handling made the click
-  // fall through without any response.
-  it("explains a production-shaped Parent help needed node without launching it", () => {
+  // Human miss (2026-09-20): an agency projection promoted a blocked node to
+  // current. The child should see the board's existing locked presentation;
+  // no second parent-help message system is needed.
+  it("uses the existing locked presentation for a Parent help needed node", () => {
     const onNodeClick = vi.fn();
     const board: AdventureBoardJson = {
       ...grokFullExperienceBoard,
@@ -766,7 +765,7 @@ describe("AdventureBoardExperience", () => {
         index === 1
           ? {
               ...node,
-              state: "current" as const,
+              state: "locked" as const,
               lock: { reason: "generation-needs-attention", label: "Parent help needed" },
             }
           : node,
@@ -781,10 +780,12 @@ describe("AdventureBoardExperience", () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: new RegExp(`^${needsHelp.label}, Parent help needed`) }));
-
-    expect(screen.getByRole("status")).toHaveTextContent("needs a grown-up to check it");
-    expect(onNodeClick).not.toHaveBeenCalled();
+    const button = screen.getByRole("button", { name: new RegExp(`^${needsHelp.label}, Parent help needed`) });
+    expect(button).toHaveClass("adventure-board__node--locked");
+    expect(button.querySelector("svg")).not.toBeNull();
+    fireEvent.click(button);
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    expect(onNodeClick).toHaveBeenCalledWith(expect.objectContaining({ state: "locked" }));
   });
 
   it("explains a preparing node without launching it or emitting a node callback", () => {

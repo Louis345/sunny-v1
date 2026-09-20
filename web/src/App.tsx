@@ -73,6 +73,7 @@ import {
   resolvePersistedDiscoveryHandoff,
   resolvePlannerBoardChoiceLaunchNode,
   resolvePlannerBoardLaunchNode,
+  shouldHoldTargetedBoardForPreparation,
 } from "./utils/adventureBoardLaunch";
 import {
   buildAdventureBoardChoiceEventInput,
@@ -746,7 +747,9 @@ function App() {
   const plannerBoardRuntimeActive =
     plannerBoardRuntimeRequested &&
     (plannerBoardPacketState.loading || Boolean(plannerBoardPacket));
-  const targetedMathGenerationPending = hasPendingLearningGeneration(plannerBoardPacket, effectiveDiscoveryCompletionHandoff === "targeted-planning");
+  const targetedBoardHeldForPreparation = shouldHoldTargetedBoardForPreparation(plannerBoardPacket);
+  const targetedMathGenerationPending = hasPendingLearningGeneration(plannerBoardPacket, effectiveDiscoveryCompletionHandoff === "targeted-planning")
+    || targetedBoardHeldForPreparation;
   const generationProgress = useAdaptiveMathGenerationRefresh({
     childId: adventureChildId,
     homeworkId: plannerBoardPacket?.activeSessionPlan?.activeHomeworkId,
@@ -1843,6 +1846,10 @@ function App() {
           }}
           onCurtainOpen={handleMapLoadingCurtainOpen}
         />
+      ) : targetedBoardHeldForPreparation ? (
+        <div className="flex h-screen w-screen items-center justify-center bg-zinc-950 p-6">
+          <div className="w-full max-w-lg"><LearningPreparationStatus {...generationProgress} onCheck={generationProgress.checkNow} onFinish={finishHomeworkSession}/></div>
+        </div>
       ) : (
         <div className="absolute inset-0 flex items-center justify-center">
           <p

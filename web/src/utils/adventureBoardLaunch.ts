@@ -29,6 +29,21 @@ export function hasPendingLearningGeneration(packet: ChildExperiencePacket | nul
     || (isDirectDiscoveryPacket(packet) && completingDiscovery));
 }
 
+/** Keep the child off a targeted map until it contains something they can actually play. */
+export function shouldHoldTargetedBoardForPreparation(packet: ChildExperiencePacket | null): boolean {
+  if (!packet || isDirectDiscoveryPacket(packet)) return false;
+  if (!["math", "spelling"].includes(packet.activeSessionPlan?.domain ?? "")) return false;
+  const nodes = packet.activeSessionPlan?.adventureBoard?.nodes ?? [];
+  const hasPlayableActivity = nodes.some((node) =>
+    node.action?.type === "launch-activity"
+    && ["current", "available", "completed"].includes(node.state));
+  if (hasPlayableActivity) return false;
+  return nodes.some((node) =>
+    node.state === "preview"
+    || node.lock?.reason === "generation-needs-attention"
+    || node.lock?.reason === "artifact-generating");
+}
+
 export function resolveDirectDiscoverySurface(
   sessionReady: boolean,
   launchAvailable: boolean,
