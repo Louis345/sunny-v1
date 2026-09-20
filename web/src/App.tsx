@@ -15,6 +15,7 @@ import { DiscoveryAcademicCompletionCoordinator, hasCanonicalLearningCycle, post
 import { SessionScreen } from "./components/SessionScreen";
 import { SessionEnd } from "./components/SessionEnd";
 import { SessionLoadingOverlay, sessionVoiceReady } from "./components/SessionLoadingOverlay";
+import { KioskRestingScreen, useKioskIdleRest } from "./components/KioskIdleRest";
 import { CanvasTestOverlay } from "./components/CanvasTestPanel";
 import { AdventureBoardExperience } from "./components/AdventureBoardExperience";
 import { LevelPathExperience } from "./components/LevelPathExperience";
@@ -136,6 +137,7 @@ const isCanvasTestMode =
     window.location.search.includes("testmode"));
 
 const adventureMapEnabled = true;
+const KIOSK_IDLE_TIMEOUT_MS = 30 * 60 * 1000;
 
 function resolveMapPreviewMode(): false | "free" | "go-live" {
   if (typeof window !== "undefined") {
@@ -653,6 +655,25 @@ function App() {
   // Homework is a board product surface. Keep the legacy voice canvas for
   // other subjects, but never let homework silently fall through to it.
   const homeworkBoardMode = runtimeConfig.subject === "homework";
+
+  const handleKioskIdle = useCallback(() => {
+    console.log(" 🎮 [kiosk-idle] [session-ended] inactivity=30m");
+    if (state.phase === "active" || state.phase === "connecting") {
+      endSession();
+    }
+  }, [endSession, state.phase]);
+
+  const { resting: kioskResting } = useKioskIdleRest({
+    enabled:
+      homeworkBoardMode &&
+      Boolean(adventureChildId) &&
+      runtimeConfig.previewMode === "off" &&
+      (runtimeConfig.sessionMode === "real" ||
+        runtimeConfig.sessionMode === "as-child"),
+    timeoutMs: KIOSK_IDLE_TIMEOUT_MS,
+    activitySignal: state.interimTranscript,
+    onIdle: handleKioskIdle,
+  });
 
   useEffect(() => {
     if (!adventureMapEnabled || !adventureChildId) {
@@ -1771,6 +1792,17 @@ function App() {
 
   if (import.meta.env.VITE_MODE === "intro" || window.location.pathname === "/companions") {
     return <CompanionShowroomPage />;
+  }
+
+  if (kioskResting) {
+    return (
+      <KioskRestingScreen
+        onStart={() => {
+          console.log(" 🎮 [kiosk-idle] [restart] result=requested");
+          window.location.reload();
+        }}
+      />
+    );
   }
 
   const adventureLoadingMain = (
