@@ -82,6 +82,26 @@ function mayRunVisualRepair(attempt: VisualRepairAttempt | undefined, retryUncer
   return retryUncertain && attempt.status === "verification_uncertain";
 }
 
+function childFacingVisualAuditFile(draft: string, artifact: Pick<DirectArtifact, "nodeId" | "htmlHash">): string {
+  return path.join(
+    draft,
+    "provider-diagnostics",
+    `${artifact.nodeId}-visual-v${CHILD_FACING_VISUAL_GATE_VERSION}-${artifact.htmlHash?.slice(0, 12)}.json`,
+  );
+}
+
+function hasInterruptedVisualAudit(draft: string, artifact: Pick<DirectArtifact, "nodeId" | "htmlHash">): boolean {
+  if (!artifact.htmlHash) return false;
+  const file = childFacingVisualAuditFile(draft, artifact);
+  if (!fs.existsSync(file)) return false;
+  try {
+    const status = read<{ status?: string }>(file).status;
+    return ["in_flight", "outcome_uncertain", "received_raw"].includes(status ?? "");
+  } catch {
+    return false;
+  }
+}
+
 function arg(name: string): string {
   const value = process.argv.slice(2).find((part) => part.startsWith(`--${name}=`))?.slice(name.length + 3);
   if (!value) throw new Error(`missing_argument:${name}`);
@@ -205,8 +225,24 @@ export async function runAdaptiveMathGeneration(
       return false;
     }
   })());
+  const mayResumeSavedVisualReview = Boolean(options.retryUncertainProvider && initialJob?.phase === "needs_attention" && fs.existsSync(buildFile) && fs.existsSync(reportsFile) && (() => {
+    try {
+      const savedBuild = read<{ artifacts?: DirectArtifact[] }>(buildFile);
+      const savedReports = read<Record<string, DirectPlaywrightReport & { verifierVersion?: number }>>(reportsFile);
+      return (savedBuild.artifacts ?? []).some((artifact) => {
+        const status = initialJob.nodes.find((node) => node.nodeId === artifact.nodeId)?.status;
+        const report = savedReports[artifact.nodeId];
+        return status === "needs_attention"
+          && report?.passed === true
+          && report.verifierVersion === MATH_BROWSER_VERIFIER_VERSION
+          && hasInterruptedVisualAudit(draft, artifact);
+      });
+    } catch {
+      return false;
+    }
+  })());
   const hasUnfinishedSiblingWork = Boolean(initialJob && hasResumableMathGenerationWork(initialJob));
-  if (initialJob?.phase === "needs_attention" && !hasUnfinishedSiblingWork && !recoveredProgram && !mayRetryFrozenDesign && !mayReverifySavedArtifacts && !mayRepairSavedVisualRejection && !mayFinalizeSavedVisualRepair) {
+  if (initialJob?.phase === "needs_attention" && !hasUnfinishedSiblingWork && !recoveredProgram && !mayRetryFrozenDesign && !mayReverifySavedArtifacts && !mayRepairSavedVisualRejection && !mayFinalizeSavedVisualRepair && !mayResumeSavedVisualReview) {
     console.log(` 🎮 [adaptive-math] [worker] [no-work] child=${childId} homework=${homeworkId} phase=${initialJob.phase}`);
     return;
   }
@@ -275,11 +311,7 @@ export async function runAdaptiveMathGeneration(
       viewports: DISCOVERY_RELEASE_VIEWPORTS.map(viewport => `${viewport.width}x${viewport.height}`),
     });
     if (!reports[artifact.nodeId].passed) throw new Error(`targeted_browser_verification_failed:${artifact.nodeId}:${reports[artifact.nodeId].failures.join("|")}`);
-    const visualAuditFile = path.join(
-      draft,
-      "provider-diagnostics",
-      `${artifact.nodeId}-visual-v${CHILD_FACING_VISUAL_GATE_VERSION}-${htmlHash.slice(0, 12)}.json`,
-    );
+    const visualAuditFile = childFacingVisualAuditFile(draft, artifact);
     const legacyVisualAuditFile = path.join(draft, "provider-diagnostics", `${artifact.nodeId}-visual-verdict.json`);
     if (!fs.existsSync(visualAuditFile) && fs.existsSync(legacyVisualAuditFile)) {
       const legacyAudit = read<{ status?: string; decision?: string }>(legacyVisualAuditFile);
@@ -369,6 +401,19 @@ export async function runAdaptiveMathGeneration(
           finishedAt: new Date().toISOString(),
         });
         console.log(` 🎮 [adaptive-math] [visual-repair] [publication-resumed] node=${artifact.nodeId} gate=v${CHILD_FACING_VISUAL_GATE_VERSION}`);
+      }
+    }
+    else if (node?.status === "needs_attention"
+      && options.retryUncertainProvider
+      && reports[artifact.nodeId]?.passed === true
+      && reports[artifact.nodeId]?.verifierVersion === MATH_BROWSER_VERIFIER_VERSION
+      && hasInterruptedVisualAudit(draft, artifact)) {
+      try {
+        await verifyAndBind(artifact);
+        updateMathGenerationNode({ rootDir, childId, homeworkId, nodeId: artifact.nodeId, status: "ready", artifactHash: artifact.htmlHash });
+        console.log(` 🎮 [adaptive-math] [visual-review] [recovered] child=${childId} homework=${homeworkId} node=${artifact.nodeId}`);
+      } catch (error) {
+        console.log(` 🎮 [adaptive-math] [visual-review] [still-failing] child=${childId} homework=${homeworkId} node=${artifact.nodeId} reason=${error instanceof Error ? error.message : String(error)}`);
       }
     }
     else if (["failed_resumable", "needs_attention"].includes(node?.status ?? "")

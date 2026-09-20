@@ -359,6 +359,40 @@ it("resumes a needs-attention job when saved artifacts require a newer verifier"
   expect(getMathGenerationStatus(childId, homeworkId, { rootDir })?.phase).toBe("board_ready");
 });
 
+it("resumes an interrupted visual review without rebuilding the saved activity", async () => {
+  await runAdaptiveMathGeneration(childId, homeworkId, rootDir);
+  const draft = path.join(rootDir, "src/context", childId, "homework/direct-drafts", homeworkId);
+  const build = JSON.parse(fs.readFileSync(path.join(draft, "candidate-build-v3.json"), "utf8"));
+  const artifact = build.artifacts.find((candidate: { nodeId: string }) => candidate.nodeId === "activity-1");
+  const auditFile = path.join(draft, "provider-diagnostics", `activity-1-visual-v3-${artifact.htmlHash.slice(0, 12)}.json`);
+  fs.mkdirSync(path.dirname(auditFile), { recursive: true });
+  fs.writeFileSync(auditFile, JSON.stringify({
+    version: 3,
+    requestHash: "interrupted-review",
+    status: "in_flight",
+    attempts: [{ attempt: 1, startedAt: "2026-09-20T12:00:00.000Z", status: "in_flight" }],
+  }));
+  updateMathGenerationNode({
+    rootDir,
+    childId,
+    homeworkId,
+    nodeId: "activity-1",
+    status: "needs_attention",
+    artifactHash: artifact.htmlHash,
+    error: `child_visual_review_in_flight:${auditFile}`,
+  });
+  vi.mocked(judgeChildFacingScreens).mockClear();
+
+  await runAdaptiveMathGeneration(childId, homeworkId, rootDir, { retryUncertainProvider: true });
+
+  expect(vi.mocked(judgeChildFacingScreens).mock.calls
+    .filter(([input]) => input.auditFile?.includes("activity-1-visual-v3-")).length).toBe(1);
+  expect(generateDirectArtifacts).toHaveBeenCalledTimes(2);
+  expect(repairDirectArtifact).not.toHaveBeenCalled();
+  expect(getMathGenerationStatus(childId, homeworkId, { rootDir })?.nodes.find(node => node.nodeId === "activity-1"))
+    .toMatchObject({ status: "ready", artifactHash: artifact.htmlHash });
+});
+
 it("gives a current visual rejection one separately tracked repair after generic attempts are exhausted", async () => {
   const draft = path.join(rootDir, "src/context", childId, "homework/direct-drafts", homeworkId);
   fs.writeFileSync(path.join(draft, "math-learning-program.json"), JSON.stringify(learningProgram(2)));
