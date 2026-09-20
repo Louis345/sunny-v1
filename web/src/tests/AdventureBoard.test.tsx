@@ -721,6 +721,39 @@ describe("AdventureBoard", () => {
 });
 
 describe("AdventureBoardExperience", () => {
+  // Human miss (2026-09-20): the lab modeled Preparing as `preview`, while the
+  // real generation projection publishes a locked node whose lock label is
+  // Preparing. Saori's board therefore showed the label but silently ignored
+  // the click, and no click event reached the logs.
+  it("explains a production-shaped locked Preparing node without launching it", () => {
+    const onNodeClick = vi.fn();
+    const board: AdventureBoardJson = {
+      ...grokFullExperienceBoard,
+      nodes: grokFullExperienceBoard.nodes.map((node, index) =>
+        index === 1
+          ? {
+              ...node,
+              state: "locked" as const,
+              lock: { reason: "artifact-generating", label: "Preparing" },
+            }
+          : node,
+      ),
+    };
+    const preparing = board.nodes[1]!;
+
+    render(
+      <AdventureBoardExperience
+        packet={packetForBoard(board)}
+        onNodeClick={onNodeClick}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: new RegExp(`^${preparing.label}, Preparing`) }));
+
+    expect(screen.getByRole("status")).toHaveTextContent("still being prepared");
+    expect(onNodeClick).not.toHaveBeenCalled();
+  });
+
   it("explains a preparing node without launching it or emitting a node callback", () => {
     const onNodeClick = vi.fn();
     const board: AdventureBoardJson = {

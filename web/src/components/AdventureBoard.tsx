@@ -277,7 +277,9 @@ export function AdventureBoard({
         {resolvedNodes.filter((node) => node.state !== "hidden").map((node) => {
           const Icon = iconFor(node.icon, nodeFallbackIcon(node));
           const isLocked = node.state === "locked";
-          const isPreparing = node.state === "preview";
+          const isPreparing =
+            node.state === "preview" ||
+            node.lock?.label.trim().toLowerCase() === "preparing";
           const isCompleted = node.state === "completed";
           return (
             <button
@@ -298,6 +300,7 @@ export function AdventureBoard({
               }}
               onClick={() => {
                 if (isPreparing) {
+                  console.log(` 🎮 [adventure-board] [preparing-node] [acknowledged] node=${node.id}`);
                   setPreparingMessage(`${node.shortLabel ?? node.label} is still being prepared. You can keep exploring or come back later.`);
                   return;
                 }
