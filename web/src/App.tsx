@@ -1846,10 +1846,6 @@ function App() {
           }}
           onCurtainOpen={handleMapLoadingCurtainOpen}
         />
-      ) : targetedBoardHeldForPreparation ? (
-        <div className="flex h-screen w-screen items-center justify-center bg-zinc-950 p-6">
-          <div className="w-full max-w-lg"><LearningPreparationStatus {...generationProgress} onCheck={generationProgress.checkNow} onFinish={finishHomeworkSession}/></div>
-        </div>
       ) : (
         <div className="absolute inset-0 flex items-center justify-center">
           <p
@@ -1928,6 +1924,10 @@ function App() {
         ) : (
           <div className="w-screen h-screen overflow-hidden relative bg-zinc-950" />
         )
+      ) : targetedBoardHeldForPreparation ? (
+        <div className="flex h-screen w-screen items-center justify-center bg-zinc-950 p-6">
+          <div className="w-full max-w-lg"><LearningPreparationStatus {...generationProgress} onCheck={generationProgress.checkNow} onFinish={finishHomeworkSession}/></div>
+        </div>
       ) : (
         <div className="w-screen h-screen overflow-hidden relative bg-zinc-950">
           <AdventureBoardExperience

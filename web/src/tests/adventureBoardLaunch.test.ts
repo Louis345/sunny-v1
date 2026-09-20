@@ -131,6 +131,17 @@ describe("direct Discovery entry", () => {
     expect(shouldHoldTargetedBoardForPreparation(targeted)).toBe(false);
   });
 
+  it("renders preparation instead of mounting a targeted board with no playable activity", () => {
+    const source = readFileSync(resolve(process.cwd(), "src/App.tsx"), "utf8");
+    const branch = source.slice(
+      source.indexOf("} else if (plannerBoardPacket) {"),
+      source.indexOf("} else if (plannerBoardPacketState.loading)"),
+    );
+    expect(branch).toContain(") : targetedBoardHeldForPreparation ? (");
+    expect(branch.indexOf("targetedBoardHeldForPreparation"))
+      .toBeLessThan(branch.indexOf("<AdventureBoardExperience"));
+  });
+
   it("keeps the familiar curtain mounted until Discovery is ready to launch", () => {
     // Human-caught invariant: node resolution passed while the live App rendered
     // a blank surface. No launch log appeared because removing the curtain also
