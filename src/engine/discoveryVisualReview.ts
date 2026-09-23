@@ -2,16 +2,50 @@ import fs from "node:fs";
 import http from "node:http";
 import path from "node:path";
 import { createHash } from "node:crypto";
+import { selectVerifiedChildFacingCaptures } from "./childFacingVisualGate";
 
-export const DISCOVERY_VERIFIER_VERSION = 17;
+export const DISCOVERY_VERIFIER_VERSION = 18;
 
 export const DISCOVERY_RELEASE_VIEWPORTS = [
   { name: "generation", width: 1365, height: 768 },
   { name: "sunny", width: 1280, height: 720 },
 ] as const;
 
+/** Allows a short child-facing payoff animation before the host completion event. */
+const COMPLETION_EVENT_TIMEOUT_MS = 5_000;
+
+/**
+ * What the browser proved about a screenshot at the moment it was taken. A
+ * screen is an `academic_item` only when the frozen item ID was reported and
+ * its prompt was visibly rendered; otherwise the label says what it is.
+ */
+export type JourneyCaptureKind = "transition" | "academic_item" | "completion" | "failure" | "unconfirmed";
+export type JourneyCapture = {
+  path: string;
+  label: string;
+  kind: JourneyCaptureKind;
+  viewport: string;
+  verifierVersion: number;
+  expectedItemId?: string;
+  itemIndex?: number;
+  observedItemId: string | null;
+  promptVisible: boolean;
+};
+export type JourneyCaptureRequest = { kind: "transition" | "academic_item"; itemId: string; itemIndex: number };
+export type JourneyScreenshots = string[] & { captures?: JourneyCapture[] };
+
+export type ReviewFinding = { screen: number | null; claim: "visual_defect" | "content_missing"; observation: string };
+export type ReviewVerdict = { decision: "approve" | "reject"; findings: ReviewFinding[] };
+export type ReviewAttributionCategory =
+  | "generated_content_defect"
+  | "harness_failure"
+  | "capture_defect"
+  | "reviewer_disagreement"
+  | "verifier_incompatible";
+export type ReviewAttribution = { category: ReviewAttributionCategory; source: "deterministic" | "blind_review"; details: string[] };
+
 export type DiscoveryVisualReviewAudit = {
-  status: "approved" | "rejected_after_repair";
+  status: "approved" | "rejected_after_repair" | "needs_attention";
   controllingGate: "browser" | "browser_and_blind_vision";
   iterations: Array<{
     iteration: 1 | 2 | 3;
@@ -19,6 +53,8 @@ export type DiscoveryVisualReviewAudit = {
     screenshotPath: string;
     screenshotPaths: string[];
     issues: string[];
+    attribution?: ReviewAttribution;
+    repairAuthorized?: boolean;
   }>;
 };
 
@@ -40,12 +76,27 @@ export type MathJourneyItemContract = {
 export class DiscoveryRuntimeVerificationError extends Error {
   readonly issues: string[];
   readonly screenshotPaths: string[];
+  readonly captures: JourneyCapture[];
 
-  constructor(issues: string[], screenshotPaths: string[]) {
+  constructor(issues: string[], screenshotPaths: string[], captures: JourneyCapture[] = []) {
     super(issues.join(" | "));
     this.name = "DiscoveryRuntimeVerificationError";
     this.issues = issues;
     this.screenshotPaths = screenshotPaths;
+    this.captures = captures;
+  }
+}
+
+/** A review stop that must not buy a repair: the defect is not attributable to generated content. */
+export class DiscoveryReviewNeedsAttentionError extends Error {
+  readonly category: Exclude<ReviewAttributionCategory, "generated_content_defect">;
+  readonly diagnostics: string[];
+
+  constructor(category: Exclude<ReviewAttributionCategory, "generated_content_defect">, diagnostics: string[]) {
+    super(`discovery_visual_review_needs_attention:${category}:${diagnostics.join(" | ")}`);
+    this.name = "DiscoveryReviewNeedsAttentionError";
+    this.category = category;
+    this.diagnostics = diagnostics;
   }
 }
 
@@ -223,18 +274,57 @@ function writeReviewCheckpoint(outputDir: string, checkpoint: VisualReviewCheckp
   fs.renameSync(temporary, target);
 }
 
+/** Infrastructure failures prove nothing about generated content, so they can never buy a repair. */
+const HARNESS_FAILURE_PATTERN = /browserType\.launch|Executable doesn't exist|discovery_visual_server_failed|Target page, context or browser has been closed|discovery_visual_screenshot_missing|EADDRINUSE|ENOSPC/;
+
+export function isHarnessFailure(issue: string): boolean {
+  return HARNESS_FAILURE_PATTERN.test(issue);
+}
+
+/**
+ * Code decides who owns a blind-review rejection by checking each cited screen
+ * against what the browser recorded. Anything uncertain stops without repair.
+ */
+export function attributeReviewFindings(findings: ReviewFinding[], screens: JourneyCapture[]): ReviewAttribution {
+  const blame = (category: ReviewAttributionCategory, detail: string) => ({ category, detail });
+  const results = findings.length === 0
+    ? [blame("reviewer_disagreement", "reject_without_findings")]
+    : findings.map((finding, index) => {
+      const cited = Number.isInteger(finding.screen) && finding.screen! >= 1 ? screens[finding.screen! - 1] : undefined;
+      const where = `finding=${index + 1};screen=${finding.screen ?? "none"}`;
+      if (!cited) return blame("reviewer_disagreement", `${where};cites_no_reviewed_screen`);
+      if (cited.verifierVersion !== DISCOVERY_VERIFIER_VERSION) return blame("verifier_incompatible", `${where};captureVerifier=${cited.verifierVersion};current=${DISCOVERY_VERIFIER_VERSION}`);
+      if (cited.kind === "transition" || cited.kind === "unconfirmed" || cited.kind === "failure") {
+        return blame("capture_defect", `${where};kind=${cited.kind};label=${cited.label}`);
+      }
+      if (finding.claim === "content_missing") {
+        return blame("reviewer_disagreement", `${where};kind=${cited.kind};expected=${cited.expectedItemId ?? "none"};observed=${cited.observedItemId ?? "none"};promptVisible=${cited.promptVisible}`);
+      }
+      return blame("generated_content_defect", `${where};kind=${cited.kind};label=${cited.label}`);
+    });
+  const precedence: ReviewAttributionCategory[] = ["verifier_incompatible", "capture_defect", "reviewer_disagreement", "generated_content_defect"];
+  const category = precedence.find(candidate => results.some(result => result.category === candidate))!;
+  return { category, source: "blind_review", details: results.map(result => `${result.category}:${result.detail}`) };
+}
+
+function appendReviewHistory(outputDir: string, row: Record<string, unknown>): void {
+  fs.mkdirSync(outputDir, { recursive: true });
+  fs.appendFileSync(path.join(outputDir, "review-history.jsonl"), `${JSON.stringify({ ...row, recordedAt: new Date().toISOString() })}\n`, "utf8");
+}
+
 export async function reviewDiscoveryCandidate(input: {
   html: string;
   outputDir: string;
   render: (input: RenderInput) => Promise<DiscoveryRenderedScreenshots>;
-  verify?: (html: string) => Promise<void | string[]>;
-  judge?: (input: { html: string; iteration: ReviewIteration; screenshotPaths: string[] }) => Promise<string[]>;
+  verify?: (html: string) => Promise<void | string[] | JourneyScreenshots>;
+  judge?: (input: { html: string; iteration: ReviewIteration; screenshotPaths: string[]; screens: JourneyCapture[] }) => Promise<ReviewVerdict>;
   verificationKey?: string;
   repair: (input: RepairInput) => Promise<string>;
 }): Promise<{ html: string; audit: DiscoveryVisualReviewAudit }> {
   const initialHtmlHash = hash(input.html);
   const verificationKey = `${DISCOVERY_VERIFIER_VERSION}:${input.verificationKey ?? "visual"}:${Boolean(input.verify)}`;
   const checkpointFile = path.join(input.outputDir, "visual-review-checkpoint.json");
+  const controllingGate = input.judge ? "browser_and_blind_vision" : "browser";
   let checkpoint: VisualReviewCheckpoint | null = null;
   try {
     const saved = JSON.parse(fs.readFileSync(checkpointFile, "utf8")) as VisualReviewCheckpoint;
@@ -267,15 +357,24 @@ export async function reviewDiscoveryCandidate(input: {
   let html = checkpoint?.html ?? input.html;
   const iterations: DiscoveryVisualReviewAudit["iterations"] = checkpoint?.iterations ?? [];
   let repairsConsumed = Math.max(0, Number(checkpoint?.repairsConsumed ?? (checkpoint?.repairConsumed ? 1 : 0)));
+  const stop = (attribution: ReviewAttribution): never => {
+    writeAudit(input.outputDir, { status: "needs_attention", controllingGate, iterations });
+    console.warn(` 🎮 [adaptive-math] [repair-authorization] [refused] category=${attribution.category} repairs=0 details=${attribution.details.join(" | ")}`);
+    throw new DiscoveryReviewNeedsAttentionError(attribution.category as Exclude<ReviewAttributionCategory, "generated_content_defect">, attribution.details);
+  };
 
   const prior = iterations.at(-1);
   if (prior && prior.issues.length === 0 && prior.htmlHash === hash(html)) {
-    const audit: DiscoveryVisualReviewAudit = { status: "approved", controllingGate: input.judge ? "browser_and_blind_vision" : "browser", iterations };
+    const audit: DiscoveryVisualReviewAudit = { status: "approved", controllingGate, iterations };
     writeAudit(input.outputDir, audit);
     console.log(` 🎮 [adaptive-math] [visual-review] [reused] iteration=${prior.iteration}`);
     return { html, audit };
   }
-  if (repairsConsumed < 2 && prior && prior.issues.length > 0 && hash(html) === prior.htmlHash) {
+  if (prior && prior.issues.length > 0 && hash(html) === prior.htmlHash && prior.repairAuthorized === false
+    && prior.attribution && prior.attribution.category !== "generated_content_defect") {
+    stop(prior.attribution);
+  }
+  if (repairsConsumed < 2 && prior && prior.issues.length > 0 && hash(html) === prior.htmlHash && prior.repairAuthorized !== false) {
     const repairAttempt = (repairsConsumed + 1) as 1 | 2;
     html = await input.repair({ html, issues: prior.issues, screenshotPaths: prior.screenshotPaths ?? [prior.screenshotPath], repairAttempt });
     repairsConsumed = repairAttempt;
@@ -289,10 +388,12 @@ export async function reviewDiscoveryCandidate(input: {
     catch (error) { screenshotPaths = []; screenshotPaths.issues = [error instanceof Error ? error.message : String(error)]; }
     const deterministicIssues = [...(screenshotPaths.issues ?? [])];
     const verificationScreenshots: string[] = [];
+    let captures: JourneyCapture[] | undefined;
     try {
-      const successfulVerificationScreenshots = await input.verify?.(html);
-      if (Array.isArray(successfulVerificationScreenshots)) {
-        verificationScreenshots.push(...successfulVerificationScreenshots);
+      const verified = await input.verify?.(html);
+      if (Array.isArray(verified)) {
+        verificationScreenshots.push(...verified);
+        captures = (verified as JourneyScreenshots).captures;
       }
     }
     catch (error) {
@@ -302,36 +403,56 @@ export async function reviewDiscoveryCandidate(input: {
       }
     }
     const iterationScreenshots = [...new Set([...screenshotPaths, ...verificationScreenshots])];
-    if (input.judge && iterationScreenshots.length > 0) {
-      deterministicIssues.push(...await input.judge({ html, iteration, screenshotPaths: iterationScreenshots }));
-    }
     const screenshotPath = iterationScreenshots[0] ?? "";
     if (!screenshotPath && deterministicIssues.length === 0) deterministicIssues.push("discovery_visual_screenshot_missing");
-    iterations.push({ iteration, htmlHash: hash(html), screenshotPath, screenshotPaths: iterationScreenshots, issues: deterministicIssues });
-    writeReviewCheckpoint(input.outputDir, { version: DISCOVERY_VERIFIER_VERSION, verificationKey, initialHtmlHash, html, iterations, repairsConsumed });
-    console.log(` 🎮 [adaptive-math] [visual-review] [${deterministicIssues.length === 0 ? "approve" : "repair_required"}] iteration=${iteration} gate=${input.judge ? "browser+blind-vision" : "browser"}`);
 
-    if (deterministicIssues.length === 0) {
-      const audit: DiscoveryVisualReviewAudit = {
-        status: "approved",
-        controllingGate: input.judge ? "browser_and_blind_vision" : "browser",
-        iterations,
-      };
+    let verdict: ReviewVerdict | undefined;
+    let attribution: ReviewAttribution | undefined;
+    let issues = deterministicIssues;
+    if (deterministicIssues.length > 0) {
+      const harness = deterministicIssues.filter(isHarnessFailure);
+      attribution = harness.length > 0
+        ? { category: "harness_failure", source: "deterministic", details: harness }
+        : { category: "generated_content_defect", source: "deterministic", details: deterministicIssues };
+    } else if (input.judge) {
+      const screens = captures
+        ? selectVerifiedChildFacingCaptures(captures)
+        : iterationScreenshots.map((file): JourneyCapture => ({
+          path: file, label: path.basename(file), kind: "unconfirmed", viewport: "unknown",
+          verifierVersion: DISCOVERY_VERIFIER_VERSION, observedItemId: null, promptVisible: false,
+        }));
+      verdict = await input.judge({ html, iteration, screenshotPaths: screens.map(screen => screen.path), screens });
+      if (verdict.decision === "reject") {
+        attribution = attributeReviewFindings(verdict.findings, screens);
+        issues = verdict.findings.map(finding => `child_visual_review:screen=${finding.screen ?? "none"}:${finding.observation}`);
+        if (issues.length === 0) issues = ["child_visual_review:reject_without_findings"];
+      }
+    }
+    const repairEligible = attribution?.category === "generated_content_defect";
+    const repairAuthorized = repairEligible && repairsConsumed < 2;
+    iterations.push({ iteration, htmlHash: hash(html), screenshotPath, screenshotPaths: iterationScreenshots, issues, ...(attribution ? { attribution } : {}), repairAuthorized });
+    writeReviewCheckpoint(input.outputDir, { version: DISCOVERY_VERIFIER_VERSION, verificationKey, initialHtmlHash, html, iterations, repairsConsumed });
+    appendReviewHistory(input.outputDir, {
+      iteration, htmlHash: hash(html), verifierVersion: DISCOVERY_VERIFIER_VERSION, deterministicIssues,
+      ...(verdict ? { verdict } : {}), attribution: attribution ?? null, repairAuthorized, repairsConsumed,
+    });
+    console.log(` 🎮 [adaptive-math] [visual-review] [${issues.length === 0 ? "approve" : "repair_required"}] iteration=${iteration} gate=${input.judge ? "browser+blind-vision" : "browser"} attribution=${attribution?.category ?? "none"} repairAuthorized=${repairAuthorized}`);
+
+    if (issues.length === 0) {
+      const audit: DiscoveryVisualReviewAudit = { status: "approved", controllingGate, iterations };
       writeAudit(input.outputDir, audit);
       return { html, audit };
     }
-    if (repairsConsumed >= 2) break;
+    if (attribution && !repairEligible) stop(attribution);
+    if (!repairAuthorized) break;
     const repairAttempt = (repairsConsumed + 1) as 1 | 2;
-    html = await input.repair({ html, issues: deterministicIssues, screenshotPaths: iterationScreenshots, repairAttempt });
+    console.log(` 🎮 [adaptive-math] [repair-authorization] [authorized] iteration=${iteration} attempt=${repairAttempt} source=${attribution?.source ?? "deterministic"}`);
+    html = await input.repair({ html, issues, screenshotPaths: iterationScreenshots, repairAttempt });
     repairsConsumed = repairAttempt;
     writeReviewCheckpoint(input.outputDir, { version: DISCOVERY_VERIFIER_VERSION, verificationKey, initialHtmlHash, html, iterations, repairsConsumed });
   }
 
-  const audit: DiscoveryVisualReviewAudit = {
-    status: "rejected_after_repair",
-    controllingGate: input.judge ? "browser_and_blind_vision" : "browser",
-    iterations,
-  };
+  const audit: DiscoveryVisualReviewAudit = { status: "rejected_after_repair", controllingGate, iterations };
   writeAudit(input.outputDir, audit);
   throw new Error("discovery_visual_review_failed_after_bounded_repair");
 }
@@ -465,8 +586,12 @@ export async function verifyMathControlJourney(page: BrowserPage, input: {
   itemIds?: string[];
   requireItemStateTransitions?: boolean;
   itemContracts?: MathJourneyItemContract[];
-  capturePreludeState?: () => Promise<void>;
-  captureItemState?: (state: { itemId: string; itemIndex: number; stateIndex?: number }) => Promise<void>;
+  /**
+   * Called before evidence-free entry controls and before each uncommitted step
+   * of an item until the caller confirms that item on screen. Returns true only
+   * when the caller recorded a browser-confirmed academic item.
+   */
+  captureState?: (request: JourneyCaptureRequest) => Promise<boolean | void>;
 }): Promise<void> {
   const journey = await page.evaluate(`window.SUNNY_VALIDATION_HOOKS?.journey`) as Array<{ itemId: string; steps: Array<{ action: string; selector: string; value?: string; target?: string }> }>;
   if (!Array.isArray(journey) || journey.length === 0) throw new Error("math_journey_missing");
@@ -494,52 +619,6 @@ export async function verifyMathControlJourney(page: BrowserPage, input: {
   const attemptType = input.completionType === "evaluation_complete" ? "evaluation_attempt" : "attempt_event";
   const identityKey = input.completionType === "evaluation_complete" ? "itemId" : "target";
   const consumedEntrySteps = new Set<number>();
-  const firstItem = journey[0];
-  const firstStep = firstItem?.steps?.[0];
-  if (input.requireItemStateTransitions && firstItem && firstItem.steps.length > 1 && firstStep?.action === "click") {
-    const firstStateReportedExpression = `(() => {
-      const states = (window.__sunnyMessages ?? []).filter(message => message?.type === "game_state_update");
-      const challenge = (states.at(-1)?.payload ?? states.at(-1))?.currentChallenge;
-      return challenge?.id === ${JSON.stringify(firstItem.itemId)};
-    })()`;
-    const firstStateVisibleExpression = `(() => {
-      const states = (window.__sunnyMessages ?? []).filter(message => message?.type === "game_state_update");
-      const challenge = (states.at(-1)?.payload ?? states.at(-1))?.currentChallenge;
-      const normalize = value => String(value ?? "").replace(/\\s+/g, " ").trim().toLowerCase();
-      const prompt = normalize(challenge?.prompt);
-      const visibleText = (${VISIBLE_NORMALIZED_DOCUMENT_TEXT_SOURCE})();
-      return challenge?.id === ${JSON.stringify(firstItem.itemId)} && prompt.length > 0 && visibleText.includes(prompt);
-    })()`;
-    const firstItemAlreadyReported = Boolean(await page.evaluate(firstStateReportedExpression));
-    if (!firstItemAlreadyReported) {
-      const entryControl = page.locator(firstStep.selector);
-      let entryVisible = false;
-      try {
-        await entryControl.waitFor({ state: "visible", timeout: 750 });
-        entryVisible = true;
-      } catch {
-        entryVisible = false;
-      }
-      if (entryVisible) {
-        await assertMathControlsVisible(page, true, firstItem.itemId);
-        await input.capturePreludeState?.();
-        const evidenceExpression = `(window.__sunnyMessages ?? []).filter(message => ["attempt_event","evaluation_attempt","evaluation_complete","node_complete"].includes(message?.type)).length`;
-        const evidenceBefore = Number(await page.evaluate(evidenceExpression));
-        await entryControl.click({ timeout: 3000 });
-        await page.waitForTimeout(50);
-        const evidenceAfter = Number(await page.evaluate(evidenceExpression));
-        if (evidenceAfter !== evidenceBefore) {
-          throw new Error(`math_journey_entry_emitted_evidence;item=${firstItem.itemId};selector=${firstStep.selector}`);
-        }
-        consumedEntrySteps.add(0);
-        try {
-          await page.waitForFunction(firstStateVisibleExpression, undefined, { timeout: 3000 });
-        } catch {
-          throw new Error(`math_journey_first_item_state_not_ready;item=${firstItem.itemId};selector=${firstStep.selector}`);
-        }
-      }
-    }
-  }
   for (const [itemIndex, item] of journey.entries()) {
     const itemSteps = consumedEntrySteps.has(itemIndex) ? item.steps.slice(1) : item.steps;
     if (!Array.isArray(itemSteps) || itemSteps.length === 0 || item.steps.length > 10) throw new Error("math_journey_step_guard");
@@ -552,6 +631,7 @@ export async function verifyMathControlJourney(page: BrowserPage, input: {
     })(${JSON.stringify({ selector: nextEntryStep.selector })})`)) : true;
     let itemCommitted = false;
     let itemStarted = false;
+    let itemConfirmed = false;
     for (const [stepIndex, step] of itemSteps.entries()) {
       if (Date.now() > deadline) throw new Error("math_journey_deadline");
       const control = page.locator(step.selector);
@@ -658,8 +738,10 @@ export async function verifyMathControlJourney(page: BrowserPage, input: {
             throw new Error(`math_journey_guided_companion_missing;item=${item.itemId}`);
           }
         }
-        await input.captureItemState?.({ itemId: item.itemId, itemIndex, stateIndex: consumedEntrySteps.has(itemIndex) ? 1 : 0 });
         itemStarted = true;
+      }
+      if (!itemCommitted && !itemConfirmed) {
+        itemConfirmed = (await input.captureState?.({ kind: "academic_item", itemId: item.itemId, itemIndex })) === true;
       }
       const attemptCountExpression = `(({ itemId, attemptType, identityKey }) => (window.__sunnyMessages ?? []).filter((message) =>
         message?.type === attemptType && (message.payload ?? message)[identityKey] === itemId
@@ -755,7 +837,7 @@ export async function verifyMathControlJourney(page: BrowserPage, input: {
             entryReady = false;
           }
           if (entryReady) {
-            await input.captureItemState?.({ itemId: nextItem.itemId, itemIndex: itemIndex + 1, stateIndex: 0 });
+            await input.captureState?.({ kind: "transition", itemId: nextItem.itemId, itemIndex: itemIndex + 1 });
             const evidenceBefore = Number(await page.evaluate(`(window.__sunnyMessages ?? []).filter(message => ["attempt_event","evaluation_attempt","evaluation_complete","node_complete"].includes(message?.type)).length`));
             await entryControl.click({ timeout: 3000 });
             await page.waitForTimeout(50);
@@ -792,7 +874,7 @@ export async function verifyMathControlJourney(page: BrowserPage, input: {
       }
     }
   }
-  await page.waitForFunction(`window.__sunnyMessages?.some(m => m?.type === ${JSON.stringify(input.completionType)})`, undefined, { timeout: 3000 }).catch(() => { throw new Error("math_journey_completion_missing"); });
+  await page.waitForFunction(`window.__sunnyMessages?.some(m => m?.type === ${JSON.stringify(input.completionType)})`, undefined, { timeout: COMPLETION_EVENT_TIMEOUT_MS }).catch(() => { throw new Error("math_journey_completion_missing"); });
   type JourneyResult = { target?: string; attemptedValue?: string; correct?: boolean };
   type JourneyPayload = JourneyResult & {
     itemId?: string;
@@ -859,58 +941,142 @@ export async function verifyMathControlJourney(page: BrowserPage, input: {
   }
 }
 
+/** Reads what the page itself reports and renders right now; nothing generated can assert it. */
+export async function observeJourneyState(page: BrowserPage): Promise<{ observedItemId: string | null; promptVisible: boolean }> {
+  return await page.evaluate(`(() => {
+    const states = (window.__sunnyMessages ?? []).filter(message => message?.type === "game_state_update");
+    const challenge = (states.at(-1)?.payload ?? states.at(-1))?.currentChallenge;
+    const normalize = value => String(value ?? "").replace(/\\s+/g, " ").trim().toLowerCase();
+    const prompt = normalize(challenge?.prompt);
+    const visibleText = (${VISIBLE_NORMALIZED_DOCUMENT_TEXT_SOURCE})();
+    return {
+      observedItemId: typeof challenge?.id === "string" ? challenge.id : null,
+      promptVisible: prompt.length > 0 && visibleText.includes(prompt),
+    };
+  })()`) as { observedItemId: string | null; promptVisible: boolean };
+}
+
+/** Takes one screenshot and names it only from browser-observed state. */
+export async function captureJourneyState(page: BrowserPage, input: {
+  outputDir: string;
+  filePrefix: string;
+  viewport: string;
+  request?: JourneyCaptureRequest;
+  terminal?: "completion" | "failure";
+}): Promise<JourneyCapture> {
+  const observed = await observeJourneyState(page).catch((error: unknown) => {
+    console.warn(` 🎮 [journey-capture] [observe] [failed] reason=${error instanceof Error ? error.message : String(error)}`);
+    return { observedItemId: null, promptVisible: false };
+  });
+  let kind: JourneyCaptureKind;
+  let name: string;
+  if (input.terminal) {
+    kind = input.terminal;
+    name = input.terminal;
+  } else {
+    const request = input.request!;
+    const ordinal = String(request.itemIndex + 1).padStart(2, "0");
+    const safeItemId = request.itemId.replace(/[^a-z0-9_-]/gi, "_");
+    const confirmed = request.kind === "academic_item" && observed.observedItemId === request.itemId && observed.promptVisible;
+    kind = request.kind === "transition" ? "transition" : confirmed ? "academic_item" : "unconfirmed";
+    name = kind === "academic_item" ? `item-${ordinal}-${safeItemId}`
+      : kind === "transition" ? `transition-to-${ordinal}-${safeItemId}` : `unconfirmed-${ordinal}-${safeItemId}`;
+  }
+  const label = `${input.filePrefix}-${name}.png`;
+  const target = path.join(input.outputDir, label);
+  await page.screenshot({ path: target, fullPage: false });
+  return {
+    path: target,
+    label,
+    kind,
+    viewport: input.viewport,
+    verifierVersion: DISCOVERY_VERIFIER_VERSION,
+    ...(input.request ? { expectedItemId: input.request.itemId, itemIndex: input.request.itemIndex } : {}),
+    ...observed,
+  };
+}
+
+/**
+ * Records a capture, keeping only the first unconfirmed attempt for an item.
+ * The journey retries only before the item commits, so once the item is
+ * confirmed, an earlier unconfirmed screen of that item preceded only
+ * evidence-free steps: it was a transition, and is relabelled as one.
+ */
+export async function recordJourneyCapture(
+  page: BrowserPage,
+  input: Parameters<typeof captureJourneyState>[1],
+  captures: JourneyCapture[],
+): Promise<{ capture?: JourneyCapture; relabeled: Array<{ from: string; to: string }> }> {
+  const request = input.request;
+  const earlier = request?.kind === "academic_item"
+    ? captures.filter(row => row.viewport === input.viewport && row.kind === "unconfirmed" && row.itemIndex === request.itemIndex)
+    : [];
+  if (request?.kind === "academic_item" && earlier.length > 0) {
+    const observed = await observeJourneyState(page).catch((error: unknown) => {
+      console.warn(` 🎮 [journey-capture] [observe] [failed] item=${request.itemId} reason=${error instanceof Error ? error.message : String(error)}`);
+      return { observedItemId: null, promptVisible: false };
+    });
+    if (!(observed.observedItemId === request.itemId && observed.promptVisible)) return { relabeled: [] };
+  }
+  const capture = await captureJourneyState(page, input);
+  captures.push(capture);
+  const relabeled: Array<{ from: string; to: string }> = [];
+  if (capture.kind === "academic_item") {
+    for (const row of earlier) {
+      const label = row.label.replace(/-unconfirmed-(\d\d)-/, "-transition-to-$1-");
+      const target = path.join(path.dirname(row.path), label);
+      fs.renameSync(row.path, target);
+      relabeled.push({ from: row.path, to: target });
+      Object.assign(row, { kind: "transition" as const, label, path: target });
+    }
+  }
+  return { capture, relabeled };
+}
+
 export async function verifyMathJourneyAtReleaseViewports(input: {
   html: string;
   outputDir: string;
   completionType: "evaluation_complete" | "node_complete";
   itemIds?: string[];
-}): Promise<string[]> {
+}): Promise<JourneyScreenshots> {
   fs.mkdirSync(input.outputDir, { recursive: true });
+  const manifestFile = path.join(input.outputDir, "journey-captures.json");
+  fs.rmSync(manifestFile, { force: true });
   const issues: string[] = [];
-  const screenshotPaths: string[] = [];
+  const captures: JourneyCapture[] = [];
   for (const viewport of DISCOVERY_RELEASE_VIEWPORTS) {
     for (const entry of fs.readdirSync(input.outputDir)) {
       if (entry.startsWith(`journey-${viewport.name}-`) && entry.endsWith(".png")) {
         fs.rmSync(path.join(input.outputDir, entry), { force: true });
       }
     }
-    const screenshotPath = path.join(input.outputDir, `journey-${viewport.name}-completion.png`);
+    const capture = { outputDir: input.outputDir, filePrefix: `journey-${viewport.name}`, viewport: viewport.name };
     try {
       await withDiscoveryBrowserPage(input.html, async (page) => {
+        let completed = false;
         try {
           await verifyMathControlJourney(page, {
             completionType: input.completionType,
             itemIds: input.itemIds,
             requireItemStateTransitions: Boolean(input.itemIds?.length),
-            capturePreludeState: async () => {
-              const target = path.join(input.outputDir, `journey-${viewport.name}-intro.png`);
-              await page.screenshot({ path: target, fullPage: false });
-              screenshotPaths.push(target);
-            },
-            captureItemState: async ({ itemId, itemIndex, stateIndex = 0 }) => {
-              const safeItemId = itemId.replace(/[^a-z0-9_-]/gi, "_");
-              const stateSuffix = stateIndex > 0 ? `-state-${String(stateIndex + 1).padStart(2, "0")}` : "";
-              const target = path.join(input.outputDir, `journey-${viewport.name}-item-${String(itemIndex + 1).padStart(2, "0")}-${safeItemId}${stateSuffix}.png`);
-              await page.screenshot({ path: target, fullPage: false });
-              screenshotPaths.push(target);
-            },
+            captureState: async (request) =>
+              (await recordJourneyCapture(page, { ...capture, request }, captures)).capture?.kind === "academic_item",
           });
-          await page.screenshot({ path: screenshotPath, fullPage: false });
+          captures.push(await captureJourneyState(page, { ...capture, terminal: "completion" }));
+          completed = true;
         } finally {
-          if (!fs.existsSync(screenshotPath)) {
-            const failurePath = path.join(input.outputDir, `journey-${viewport.name}-failure.png`);
-            await page.screenshot({ path: failurePath, fullPage: false });
-            screenshotPaths.push(failurePath);
-          }
+          if (!completed) captures.push(await captureJourneyState(page, { ...capture, terminal: "failure" }));
         }
       }, viewport);
     } catch (error) {
       issues.push(`${viewport.name}:${error instanceof Error ? error.message : String(error)}`);
     }
-    if (fs.existsSync(screenshotPath)) screenshotPaths.push(screenshotPath);
   }
-  if (issues.length > 0) throw new DiscoveryRuntimeVerificationError(issues, screenshotPaths);
-  return screenshotPaths;
+  fs.writeFileSync(manifestFile, `${JSON.stringify({ version: DISCOVERY_VERIFIER_VERSION, captures }, null, 2)}\n`, "utf8");
+  const screenshotPaths = captures.map(row => row.path);
+  console.log(` 🎮 [journey-capture] [recorded] captures=${captures.length} academic=${captures.filter(row => row.kind === "academic_item").length} transitions=${captures.filter(row => row.kind === "transition").length} unconfirmed=${captures.filter(row => row.kind === "unconfirmed").length}`);
+  if (issues.length > 0) throw new DiscoveryRuntimeVerificationError(issues, screenshotPaths, captures);
+  return Object.assign(screenshotPaths, { captures });
 }
 
 export async function assertMathControlsVisible(page: BrowserPage, required = true, currentItemId?: string): Promise<void> {

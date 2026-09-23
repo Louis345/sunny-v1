@@ -21,8 +21,8 @@ function activeHandles(): unknown[] {
 }
 
 describe("Discovery visual review", () => {
-  it("invalidates prior unscoped-control verdicts without resetting paid repair receipts", () => {
-    expect(DISCOVERY_VERIFIER_VERSION).toBe(17);
+  it("invalidates proofs whose screenshots were labelled without browser-confirmed state", () => {
+    expect(DISCOVERY_VERIFIER_VERSION).toBe(18);
   });
 
   it("keeps provider and model selection out of browser mechanics", () => {
@@ -40,19 +40,21 @@ describe("Discovery visual review", () => {
     ]);
   });
 
-  it("routes blind screenshot findings through the bounded Discovery repair", async () => {
+  it("routes a cited blind finding on a confirmed screen through the bounded Discovery repair", async () => {
     const outputDir = dir();
-    const screenshot = path.join(outputDir, "child-visible.png");
+    const screenshot = path.join(outputDir, "journey-sunny-item-01-one.png");
     fs.writeFileSync(screenshot, "recorded screenshot");
+    const captures = [{ path: screenshot, label: "journey-sunny-item-01-one.png", kind: "academic_item" as const, viewport: "sunny", verifierVersion: DISCOVERY_VERIFIER_VERSION, expectedItemId: "one", itemIndex: 0, observedItemId: "one", promptVisible: true }];
     const repair = vi.fn(async () => "repaired");
     const judge = vi.fn(async ({ html }: { html: string }) => html === "broken"
-      ? ["child_visual_review:The representation contradicts the prompt."]
-      : []);
+      ? { decision: "reject" as const, findings: [{ screen: 1, claim: "visual_defect" as const, observation: "The representation contradicts the prompt." }] }
+      : { decision: "approve" as const, findings: [] });
 
     const result = await reviewDiscoveryCandidate({
       html: "broken",
       outputDir,
-      render: vi.fn(async () => Object.assign([screenshot], { issues: [] })),
+      render: vi.fn(async () => Object.assign([] as string[], { issues: [] })),
+      verify: async () => Object.assign([screenshot], { captures }),
       judge,
       repair,
     });
@@ -60,7 +62,7 @@ describe("Discovery visual review", () => {
     expect(result.html).toBe("repaired");
     expect(judge).toHaveBeenCalledTimes(2);
     expect(repair).toHaveBeenCalledWith(expect.objectContaining({
-      issues: ["child_visual_review:The representation contradicts the prompt."],
+      issues: ["child_visual_review:screen=1:The representation contradicts the prompt."],
       screenshotPaths: [screenshot],
     }));
   });
@@ -150,26 +152,29 @@ describe("Discovery visual review", () => {
     }));
   });
 
-  it("shows successful per-question runtime captures to the blind visual judge", async () => {
+  it("shows only browser-confirmed child-frame captures to the blind visual judge", async () => {
     const outputDir = dir();
     const opening = path.join(outputDir, "opening.png");
-    const question = path.join(outputDir, "journey-sunny-item-02-clock.png");
-    fs.writeFileSync(opening, "opening");
-    fs.writeFileSync(question, "question");
-    const judge = vi.fn(async () => []);
+    const generation = path.join(outputDir, "journey-generation-item-01-clock.png");
+    const question = path.join(outputDir, "journey-sunny-item-01-clock.png");
+    for (const file of [opening, generation, question]) fs.writeFileSync(file, path.basename(file));
+    const base = { kind: "academic_item" as const, verifierVersion: DISCOVERY_VERIFIER_VERSION, expectedItemId: "clock", itemIndex: 0, observedItemId: "clock", promptVisible: true };
+    const captures = [
+      { ...base, path: generation, label: path.basename(generation), viewport: "generation" },
+      { ...base, path: question, label: path.basename(question), viewport: "sunny" },
+    ];
+    const judge = vi.fn(async () => ({ decision: "approve" as const, findings: [] }));
 
     await reviewDiscoveryCandidate({
       html: "working",
       outputDir,
       render: async () => Object.assign([opening], { issues: [] }),
-      verify: async () => [question],
+      verify: async () => Object.assign([generation, question], { captures }),
       judge,
       repair: vi.fn(async () => "unused"),
     });
 
-    expect(judge).toHaveBeenCalledWith(expect.objectContaining({
-      screenshotPaths: [opening, question],
-    }));
+    expect(judge).toHaveBeenCalledWith(expect.objectContaining({ screens: [captures[1]] }));
   });
 
   it("routes rendering exceptions through the same bounded repair", async () => {

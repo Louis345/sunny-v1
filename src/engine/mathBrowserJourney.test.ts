@@ -51,7 +51,8 @@ it("verifies actual completion at both release sizes", async () => {
   const result = await verify(`${journey}<button id="answer" onclick="parent.postMessage({type:'attempt_event',payload:{domain:'math',target:'one',attemptedValue:'4',correct:true}},'*');parent.postMessage({type:'node_complete',payload:{nodeId:'node',targetResults:[{target:'one',attemptedValue:'4',correct:true}]}},'*')">Answer</button>`);
   expect(result.passed).toBe(true);
   expect(result.screenshots).toHaveLength(4);
-  expect(result.screenshots.filter(file => file.includes("item-01-one"))).toHaveLength(2);
+  expect(result.screenshots.filter(file => file.includes("-unconfirmed-01-one"))).toHaveLength(2);
+  expect(result.screenshots.filter(file => /-item-01-one\.png$/.test(file))).toHaveLength(0);
   expect(result.screenshots.filter(file => file.includes("completion"))).toHaveLength(2);
 }, 20000);
 
@@ -99,8 +100,8 @@ it("captures an evidence-free opening separately before the first academic item"
     </script>`, ["one"]);
 
   expect(result.failures).toEqual([]);
-  expect(result.screenshots.filter(file => file.includes("-intro"))).toHaveLength(2);
-  expect(result.screenshots.filter(file => file.includes("item-01-one"))).toHaveLength(2);
+  expect(result.screenshots.filter(file => file.includes("-transition-to-01-one"))).toHaveLength(2);
+  expect(result.screenshots.filter(file => /-item-01-one\.png$/.test(file))).toHaveLength(2);
 }, 20000);
 
 it("rejects a targeted activity whose evidence claims a frozen wrong answer is correct", async () => {
@@ -201,6 +202,22 @@ it("accepts the flat evidence messages supported by Sunny's actual host", async 
   const {withDiscoveryBrowserPage, verifyMathControlJourney} = await import("./discoveryVisualReview");
   await expect(withDiscoveryBrowserPage(`${journey}<button id="answer" onclick="parent.postMessage({type:'evaluation_attempt',attemptId:'attempt-one',observedAt:new Date().toISOString(),supportEventIds:[],instrumentSignals:[],itemId:'one',attemptedValue:'4'},'*');parent.postMessage({type:'evaluation_complete'},'*')">Answer</button>`, page => verifyMathControlJourney(page,{completionType:"evaluation_complete",itemIds:["one"]}))).resolves.toBeUndefined();
 });
+
+it("waits for a bounded completion ceremony after the final Discovery answer", async () => {
+  const {withDiscoveryBrowserPage, verifyMathControlJourney} = await import("./discoveryVisualReview");
+  const html = `${journey}<button id="answer">Answer</button><section id="finale" hidden>Done</section>
+    <script>
+    document.querySelector('#answer').onclick=()=>{
+      parent.postMessage({type:'evaluation_attempt',attemptId:'attempt-one',observedAt:new Date().toISOString(),supportEventIds:[],instrumentSignals:[],itemId:'one',attemptedValue:'4'},'*');
+      document.querySelector('#finale').hidden=false;
+      setTimeout(()=>parent.postMessage({type:'evaluation_complete'},'*'),3900);
+    };
+    </script>`;
+  await expect(withDiscoveryBrowserPage(html, page => verifyMathControlJourney(page, {
+    completionType: "evaluation_complete",
+    itemIds: ["one"],
+  }))).resolves.toBeUndefined();
+}, 15000);
 
 
 it("rejects answer messages the persistence endpoint cannot accept", async () => {

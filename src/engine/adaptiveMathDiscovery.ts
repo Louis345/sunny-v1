@@ -21,13 +21,13 @@ import {
 import { createSpellingDiscoveryCycle } from "./learningCycleIngest";
 import {
   renderDiscoveryCandidate, DISCOVERY_VERIFIER_VERSION,
-  MATH_JOURNEY_CONTRACT, MATH_IMPLEMENTATION_REPAIR_CONTRACT, verifyMathJourneyAtReleaseViewports, DISCOVERY_RELEASE_VIEWPORTS,
+  MATH_JOURNEY_CONTRACT, MATH_IMPLEMENTATION_REPAIR_CONTRACT, verifyMathJourneyAtReleaseViewports, DISCOVERY_RELEASE_VIEWPORTS, type JourneyScreenshots,
   reviewDiscoveryCandidate,
   withDiscoveryBrowserPage,
   parseEngineeringLessonProposal, recordEngineeringRepairEvidence, verifyEngineeringRepairEvidence, invalidateEngineeringRepairEvidence, freezeEngineeringLessonSnapshot, engineeringFeatures, engineeringLessonContext,
 } from "./discoveryVisualReview";
 import { readOpenAiResponseStream } from "./openAiResponses";
-import { judgeChildFacingScreens, selectChildFacingJourneyScreens } from "./childFacingVisualGate";
+import { judgeChildFacingScreens } from "./childFacingVisualGate";
 import {
   validateBoardChoices,
   validateBoardGraph,
@@ -462,7 +462,7 @@ export async function verifyDiscoveryRuntimeScoring(input: {
   html: string;
   academic: Pick<DiscoveryAcademicContract, "items">;
   outputDir: string;
-}): Promise<string[]> {
+}): Promise<JourneyScreenshots> {
   validateDiscoveryAcademicBinding(input.html, input.academic);
   fs.mkdirSync(input.outputDir, { recursive: true });
   await withDiscoveryBrowserPage(input.html, async (page) => {
@@ -521,7 +521,7 @@ export async function verifyDiscoveryRuntimeScoring(input: {
     completionType: "evaluation_complete",
     itemIds: input.academic.items.map(item => item.itemId),
   });
-  atomicJson(path.join(input.outputDir,"acceptance.json"), {passed:true,verifierVersion:DISCOVERY_VERIFIER_VERSION,htmlHash:hashDiscoveryContract(input.html),academicHash:hashDiscoveryContract(input.academic.items),viewports:DISCOVERY_RELEASE_VIEWPORTS,completedItemIds:input.academic.items.map(item=>item.itemId),screenshots:journeyScreenshots,verifiedAt:new Date().toISOString()});
+  atomicJson(path.join(input.outputDir,"acceptance.json"), {passed:true,verifierVersion:DISCOVERY_VERIFIER_VERSION,htmlHash:hashDiscoveryContract(input.html),academicHash:hashDiscoveryContract(input.academic.items),viewports:DISCOVERY_RELEASE_VIEWPORTS,completedItemIds:input.academic.items.map(item=>item.itemId),screenshots:[...journeyScreenshots],captures:journeyScreenshots.captures ?? [],verifiedAt:new Date().toISOString()});
   console.log(` 🎮 [adaptive-math] [discovery-runtime-scoring] [passed] items=${input.academic.items.length}`);
   return journeyScreenshots;
 }
@@ -915,15 +915,14 @@ export async function generateMathDiscoveryExperience(input: {
         verify: html => verifyDiscoveryRuntimeScoring({html, academic, outputDir: path.join(draftDir, "runtime-verification")}),
         judge: async ({ screenshotPaths }) => {
           const verdict = await judgeChildFacingScreens({
-            screenshotPaths: selectChildFacingJourneyScreens(screenshotPaths),
+            screenshotPaths,
             auditFile: path.join(draftDir, "visual-review", "blind-visual-verdict.json"),
             reviewContext: presentationContract,
+            citeScreens: true,
             ...(input.client ? { client: input.client } : {}),
             retryUncertain: input.retryUncertain,
           });
-          return verdict.decision === "reject"
-            ? verdict.observations.map(observation => `child_visual_review:${observation}`)
-            : [];
+          return { decision: verdict.decision, findings: verdict.findings ?? [] };
         },
         repair: async ({ html: rejectedHtml, issues, screenshotPaths, repairAttempt }) => {
           const repairStage = repairAttempt === 1 ? "repair" : "repair-2";

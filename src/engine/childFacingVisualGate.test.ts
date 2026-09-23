@@ -235,3 +235,65 @@ it("does not discard a paid raw response when screenshot bytes change", async ()
     .rejects.toThrow(/received_raw/);
   expect(fetchMock).toHaveBeenCalledTimes(1);
 });
+
+it("keeps transition and unconfirmed screens in legacy filename selection so targeted reviews lose no states", () => {
+  expect(selectChildFacingJourneyScreens([
+    "/tmp/node-sunny-transition-to-01-one.png",
+    "/tmp/node-sunny-item-01-one.png",
+    "/tmp/node-sunny-unconfirmed-02-two.png",
+    "/tmp/node-generation-item-01-one.png",
+    "/tmp/node-sunny-completion.png",
+    "/tmp/node-sunny-failure.png",
+  ])).toEqual([
+    "/tmp/node-sunny-transition-to-01-one.png",
+    "/tmp/node-sunny-item-01-one.png",
+    "/tmp/node-sunny-unconfirmed-02-two.png",
+    "/tmp/node-sunny-completion.png",
+  ]);
+});
+
+it("asks Discovery's reviewer to cite the reviewed screen for each finding without changing other callers", async () => {
+  const { screenshot } = fixture();
+  const create = vi.fn(async (_request: unknown) => ({
+    content: [{
+      type: "tool_use",
+      input: { decision: "reject", findings: [{ screen: 1, claim: "visual_defect", observation: "The numbers are too small to read." }] },
+    }],
+  }));
+
+  const verdict = await judgeChildFacingScreens({
+    screenshotPaths: [screenshot],
+    client: { messages: { create } } as never,
+    citeScreens: true,
+  });
+
+  expect(verdict).toEqual({
+    decision: "reject",
+    observations: ["The numbers are too small to read."],
+    findings: [{ screen: 1, claim: "visual_defect", observation: "The numbers are too small to read." }],
+  });
+  const request = create.mock.calls[0]![0] as {
+    messages: Array<{ content: Array<{ type: string; text?: string }> }>;
+    tools: Array<{ input_schema: { properties: Record<string, unknown> } }>;
+  };
+  expect(Object.keys(request.tools[0]!.input_schema.properties)).toEqual(["decision", "findings"]);
+  const prompt = request.messages[0]!.content.at(-1)!.text!;
+  expect(prompt.startsWith(CHILD_FACING_VISUAL_PROMPT)).toBe(true);
+  expect(prompt).toMatch(/screen number/i);
+  expect(prompt).not.toMatch(/clock|hand|overlap|clipp|button|harness|capture/i);
+
+  const legacyCreate = vi.fn(async (_request: unknown) => ({
+    content: [{ type: "tool_use", input: { decision: "approve", observations: [] } }],
+  }));
+  await judgeChildFacingScreens({ screenshotPaths: [screenshot], client: { messages: { create: legacyCreate } } as never });
+  const legacy = legacyCreate.mock.calls[0]![0] as typeof request;
+  expect(Object.keys(legacy.tools[0]!.input_schema.properties)).toEqual(["decision", "observations"]);
+  expect(legacy.messages[0]!.content.at(-1)).toEqual({ type: "text", text: CHILD_FACING_VISUAL_PROMPT });
+});
+
+it("rejects a cited verdict whose reject decision carries no findings", async () => {
+  const { screenshot } = fixture();
+  const create = vi.fn(async (_request: unknown) => ({ content: [{ type: "tool_use", input: { decision: "reject", findings: [] } }] }));
+  await expect(judgeChildFacingScreens({ screenshotPaths: [screenshot], client: { messages: { create } } as never, citeScreens: true }))
+    .rejects.toThrow("child_visual_review_invalid_verdict");
+});

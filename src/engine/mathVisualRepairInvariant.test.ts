@@ -50,7 +50,11 @@ describe("generated math control diagnostics", () => {
     });
 
     expect(report.passed).toBe(true);
+    // The activity announces item 1 during its "Tap the silver ring" opening, before
+    // the question is visible. That opening is a transition, never item 1; the real
+    // question is captured once the browser sees its prompt.
     expect(selectChildFacingJourneyScreens(report.screenshots).map(file => path.basename(file))).toEqual([
+      "act-two-scales-intro-sunny-transition-to-01-it-intro-01.png",
       "act-two-scales-intro-sunny-item-01-it-intro-01.png",
       "act-two-scales-intro-sunny-item-02-it-intro-02.png",
       "act-two-scales-intro-sunny-item-03-it-intro-03.png",

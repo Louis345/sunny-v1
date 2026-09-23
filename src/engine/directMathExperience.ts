@@ -4,7 +4,7 @@ import fs from "node:fs";
 import http from "node:http";
 import path from "node:path";
 import { resolveChildContextDir, resolveContextRoot } from "../utils/contextRoot";
-import { DISCOVERY_VERIFIER_VERSION, DISCOVERY_RELEASE_VIEWPORTS, MATH_JOURNEY_CONTRACT, MATH_IMPLEMENTATION_REPAIR_CONTRACT, verifyMathControlJourney, assertMathControlsVisible, freezeEngineeringLessonSnapshot, engineeringFeatures, engineeringLessonContext, recordEngineeringRepairEvidence } from "./discoveryVisualReview";
+import { DISCOVERY_VERIFIER_VERSION, DISCOVERY_RELEASE_VIEWPORTS, MATH_JOURNEY_CONTRACT, MATH_IMPLEMENTATION_REPAIR_CONTRACT, verifyMathControlJourney, recordJourneyCapture, assertMathControlsVisible, type JourneyCapture, freezeEngineeringLessonSnapshot, engineeringFeatures, engineeringLessonContext, recordEngineeringRepairEvidence } from "./discoveryVisualReview";
 import type { ChildChart } from "../profiles/childChart";
 import { assignmentPlannerContent, type AssignmentSourceExtraction } from "./assignmentSourceExtraction";
 import type { ActiveSessionPlan, AIContentCatalogItem } from "../context/schemas/learningProfile";
@@ -2785,6 +2785,7 @@ export async function runDirectBrowserSmokeCheck(input: {
     browser = await chromium.launch({ headless: true });
     for (const artifact of input.artifacts) for (const viewport of DISCOVERY_RELEASE_VIEWPORTS) {
       const page = await browser.newPage({ viewport });
+      const captures: JourneyCapture[] = [];
       const errors: string[] = [];
       page.on("pageerror", error => errors.push(error.message));
       try {
@@ -2799,18 +2800,19 @@ export async function runDirectBrowserSmokeCheck(input: {
           itemIds: artifact.itemIds,
           requireItemStateTransitions: Boolean(artifact.itemIds?.length),
           itemContracts: input.itemContractsByNodeId?.[artifact.nodeId],
-          capturePreludeState: async () => {
-            const safeNodeId = artifact.nodeId.replace(/[^a-z0-9_-]/gi, "_");
-            const target = path.join(screenshotDir, `${safeNodeId}-${viewport.name}-intro.png`);
-            await page.screenshot({ path: target, fullPage: false });
-            screenshots.push(target);
-          },
-          captureItemState: async ({ itemId, itemIndex }) => {
-            const safeNodeId = artifact.nodeId.replace(/[^a-z0-9_-]/gi, "_");
-            const safeItemId = itemId.replace(/[^a-z0-9_-]/gi, "_");
-            const target = path.join(screenshotDir, `${safeNodeId}-${viewport.name}-item-${String(itemIndex + 1).padStart(2, "0")}-${safeItemId}.png`);
-            await page.screenshot({ path: target, fullPage: false });
-            screenshots.push(target);
+          captureState: async (request) => {
+            const recorded = await recordJourneyCapture(page, {
+              outputDir: screenshotDir,
+              filePrefix: `${artifact.nodeId.replace(/[^a-z0-9_-]/gi, "_")}-${viewport.name}`,
+              viewport: viewport.name,
+              request,
+            }, captures);
+            for (const { from, to } of recorded.relabeled) {
+              const index = screenshots.indexOf(from);
+              if (index >= 0) screenshots[index] = to;
+            }
+            if (recorded.capture) screenshots.push(recorded.capture.path);
+            return recorded.capture?.kind === "academic_item";
           },
         });
         const safeNodeId = artifact.nodeId.replace(/[^a-z0-9_-]/gi, "_");
