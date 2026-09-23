@@ -3,7 +3,7 @@ import path from "node:path";
 import { createHash } from "node:crypto";
 import Anthropic from "@anthropic-ai/sdk";
 
-export const CHILD_FACING_VISUAL_GATE_VERSION = 4;
+export const CHILD_FACING_VISUAL_GATE_VERSION = 5;
 export const CHILD_FACING_VISUAL_PROMPT = "Review these screenshots as a child would. Are there any visual bugs, confusing or contradictory elements, or anything that would make the activity difficult to understand or complete? Describe everything you notice.";
 
 function visualReviewPrompt(reviewContext?: unknown): string {
@@ -48,6 +48,7 @@ type VisualReviewAttempt = {
 type SavedVisualVerdict = Partial<ChildFacingVisualVerdict> & {
   version: number;
   requestHash: string;
+  promptHash: string;
   model: string;
   screenshotHashes: string[];
   status?: VisualReviewStatus;
@@ -58,6 +59,16 @@ type SavedVisualVerdict = Partial<ChildFacingVisualVerdict> & {
 
 function digest(value: string | Buffer): string {
   return createHash("sha256").update(value).digest("hex");
+}
+
+export function childFacingVisualRequestHash(input: {
+  version: number;
+  model: string;
+  promptHash: string;
+  screenshotLabels: string[];
+  screenshotHashes: string[];
+}): string {
+  return digest(JSON.stringify(input));
 }
 
 function parseVerdict(value: unknown): ChildFacingVisualVerdict {
@@ -131,13 +142,14 @@ export async function judgeChildFacingScreens(input: {
   const screenshotHashes = screenshotPaths.map(file => digest(fs.readFileSync(file)));
   const screenshotLabels = screenshotPaths.map(file => path.basename(file));
   const reviewPrompt = visualReviewPrompt(input.reviewContext);
-  const requestHash = digest(JSON.stringify({
+  const promptHash = digest(reviewPrompt);
+  const requestHash = childFacingVisualRequestHash({
     version: CHILD_FACING_VISUAL_GATE_VERSION,
     model,
-    prompt: reviewPrompt,
+    promptHash,
     screenshotLabels,
     screenshotHashes,
-  }));
+  });
 
   let saved: SavedVisualVerdict | undefined;
   if (input.auditFile && fs.existsSync(input.auditFile)) {
@@ -191,6 +203,7 @@ export async function judgeChildFacingScreens(input: {
   if (input.auditFile) atomicJson(input.auditFile, {
     version: CHILD_FACING_VISUAL_GATE_VERSION,
     requestHash,
+    promptHash,
     model,
     screenshotHashes,
     status: "in_flight",
@@ -278,6 +291,7 @@ export async function judgeChildFacingScreens(input: {
     if (input.auditFile) atomicJson(input.auditFile, {
       version: CHILD_FACING_VISUAL_GATE_VERSION,
       requestHash,
+      promptHash,
       model,
       screenshotHashes,
       status,
@@ -292,6 +306,7 @@ export async function judgeChildFacingScreens(input: {
   if (input.auditFile) atomicJson(input.auditFile, {
     version: CHILD_FACING_VISUAL_GATE_VERSION,
     requestHash,
+    promptHash,
     model,
     screenshotHashes,
     status: "received_raw",
@@ -302,6 +317,7 @@ export async function judgeChildFacingScreens(input: {
   if (input.auditFile) atomicJson(input.auditFile, {
     version: CHILD_FACING_VISUAL_GATE_VERSION,
     requestHash,
+    promptHash,
     model,
     screenshotHashes,
     status: "received",

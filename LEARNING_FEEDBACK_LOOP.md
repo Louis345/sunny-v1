@@ -1,6 +1,6 @@
 # Sunny Learning Feedback Loop
 
-Contract version: 14
+Contract version: 15
 
 This document is the **sole normative** authority for how Sunny forms, tests, and revises learning claims. Product changes that alter this loop must update this contract version before implementation. Other documents may describe infrastructure or history, but they must link here instead of creating another learning doctrine.
 
@@ -68,7 +68,9 @@ The AI-authored board presentation is preserved as a projection template, while 
 
 ## Authority and storage
 
-Developer impersonation runs may exercise the complete production lifecycle only inside a physically isolated workspace snapshot. Their observations use the canonical schema for runtime fidelity but have simulation authority and may never enter a real child's chart, prediction evaluation, mastery, rewards, preferences, calibration, catalog decisions, or published board. Simulation authority cannot be promoted. The source child context is read-only and its before/after inventory is part of certification evidence.
+Developer impersonation runs may exercise the complete production lifecycle only inside a physically isolated workspace snapshot. Their observations use the canonical schema for runtime fidelity but have simulation authority and may never enter a real child's chart, prediction evaluation, mastery, rewards, preferences, calibration, catalog decisions, or published board. Simulation authority cannot be promoted. The source child context is read-only during certification and its before/after inventory is part of certification evidence.
+
+After the complete isolated journey has passed browser/runtime verification and explicit human acceptance, Sunny may promote only the immutable independent Discovery instrument into a pristine real-child cycle. Promotion is a content-provenance operation, not an evidence operation. It must revalidate the assignment fingerprint, child-profile snapshot, implementation and verifier versions, academic/design/artifact hashes, runtime proof, and blind visual approval. It then creates a new `evaluation_ready` cycle with zero observations. The impersonator cycle, attempts, summaries, predictions, decisions, targeted program, board, rewards, preferences, and generated teaching nodes are never copied. A matching promotion is idempotent; any conflicting real cycle or changed child snapshot blocks it.
 
 - One canonical `LearningCycleRecordV2` JSON is writable for each assignment cycle.
 - Raw uploads are immutable source artifacts referenced by that cycle.

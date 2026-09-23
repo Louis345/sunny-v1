@@ -3,7 +3,7 @@ import http from "node:http";
 import path from "node:path";
 import { createHash } from "node:crypto";
 
-export const DISCOVERY_VERIFIER_VERSION = 15;
+export const DISCOVERY_VERIFIER_VERSION = 16;
 
 export const DISCOVERY_RELEASE_VIEWPORTS = [
   { name: "generation", width: 1365, height: 768 },

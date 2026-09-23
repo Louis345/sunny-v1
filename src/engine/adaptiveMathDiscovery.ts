@@ -1179,7 +1179,10 @@ function atomicJson(file: string, value: unknown): void {
   fs.renameSync(temporary, file);
 }
 
-function evaluationNode(contract: MathDiscoveryEvaluationContract): LearningCycleNodeContract {
+export function buildDiscoveryEvaluationNode(
+  contract: MathDiscoveryEvaluationContract,
+  predictionCreatedAt: string = new Date().toISOString(),
+): LearningCycleNodeContract {
   return {
     nodeId: contract.evaluationId,
     role: "evaluation",
@@ -1199,7 +1202,7 @@ function evaluationNode(contract: MathDiscoveryEvaluationContract): LearningCycl
     generationPrompt: null,
     prediction: {
       claim: "The opening evaluation will distinguish prior understanding from interface or support effects.",
-      createdAt: new Date().toISOString(),
+      createdAt: predictionCreatedAt,
       evidenceLimit: "independent_performance",
     },
     artifactBinding: {
@@ -1493,7 +1496,7 @@ export function createDiscoveryLearningCycle(input: {
       falsifyCriteria: ["The evaluation cannot distinguish conceptual evidence from instrument friction."],
     },
     engagementTheory: null,
-    nodes: [evaluationNode(input.evaluation)],
+    nodes: [buildDiscoveryEvaluationNode(input.evaluation)],
     // Discovery establishes facts. Targeted academic predictions are authored
     // by the Planner only after those facts are committed.
     academicPredictions: [],
