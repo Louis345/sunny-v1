@@ -2799,6 +2799,12 @@ export async function runDirectBrowserSmokeCheck(input: {
           itemIds: artifact.itemIds,
           requireItemStateTransitions: Boolean(artifact.itemIds?.length),
           itemContracts: input.itemContractsByNodeId?.[artifact.nodeId],
+          capturePreludeState: async () => {
+            const safeNodeId = artifact.nodeId.replace(/[^a-z0-9_-]/gi, "_");
+            const target = path.join(screenshotDir, `${safeNodeId}-${viewport.name}-intro.png`);
+            await page.screenshot({ path: target, fullPage: false });
+            screenshots.push(target);
+          },
           captureItemState: async ({ itemId, itemIndex }) => {
             const safeNodeId = artifact.nodeId.replace(/[^a-z0-9_-]/gi, "_");
             const safeItemId = itemId.replace(/[^a-z0-9_-]/gi, "_");

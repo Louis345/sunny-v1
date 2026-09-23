@@ -19,7 +19,7 @@ export type ChildFacingVisualVerdict = {
 export function selectChildFacingJourneyScreens(screenshots: string[]): string[] {
   const childFrame = screenshots.filter(file => {
     const name = path.basename(file);
-    return name.includes("-sunny-item-") || name.includes("-sunny-completion");
+    return name.includes("-sunny-intro") || name.includes("-sunny-item-") || name.includes("-sunny-completion");
   });
   return childFrame.length > 0 ? childFrame : screenshots;
 }

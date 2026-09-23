@@ -82,6 +82,27 @@ it("captures every question before answering so blind review cannot see completi
   expect(result.screenshots.filter(file => file.includes("completion"))).toHaveLength(2);
 }, 20000);
 
+it("captures an evidence-free opening separately before the first academic item", async () => {
+  const result = await verify(`<section id="opening"><h2>Opening the market</h2><button id="begin">Begin</button></section>
+    <section id="question" hidden><h2>How many apples are in three baskets of four?</h2><button id="answer">12</button></section>
+    <script>
+    window.SUNNY_VALIDATION_HOOKS={journey:[{itemId:'one',steps:[{action:'click',selector:'#begin'},{action:'click',selector:'#answer'}]}]};
+    document.querySelector('#begin').onclick=()=>{
+      document.querySelector('#opening').hidden=true;
+      document.querySelector('#question').hidden=false;
+      parent.postMessage({type:'game_state_update',payload:{currentChallenge:{id:'one',prompt:'How many apples are in three baskets of four?'}}},'*');
+    };
+    document.querySelector('#answer').onclick=()=>{
+      parent.postMessage({type:'attempt_event',payload:{domain:'math',target:'one',attemptedValue:'12',correct:true}},'*');
+      parent.postMessage({type:'node_complete',payload:{nodeId:'node',targetResults:[{target:'one',attemptedValue:'12',correct:true}]}},'*');
+    };
+    </script>`, ["one"]);
+
+  expect(result.failures).toEqual([]);
+  expect(result.screenshots.filter(file => file.includes("-intro"))).toHaveLength(2);
+  expect(result.screenshots.filter(file => file.includes("item-01-one"))).toHaveLength(2);
+}, 20000);
+
 it("rejects a targeted activity whose evidence claims a frozen wrong answer is correct", async () => {
   const item = {
     id: "one",

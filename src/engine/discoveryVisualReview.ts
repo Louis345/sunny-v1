@@ -3,7 +3,7 @@ import http from "node:http";
 import path from "node:path";
 import { createHash } from "node:crypto";
 
-export const DISCOVERY_VERIFIER_VERSION = 16;
+export const DISCOVERY_VERIFIER_VERSION = 17;
 
 export const DISCOVERY_RELEASE_VIEWPORTS = [
   { name: "generation", width: 1365, height: 768 },
@@ -465,6 +465,7 @@ export async function verifyMathControlJourney(page: BrowserPage, input: {
   itemIds?: string[];
   requireItemStateTransitions?: boolean;
   itemContracts?: MathJourneyItemContract[];
+  capturePreludeState?: () => Promise<void>;
   captureItemState?: (state: { itemId: string; itemIndex: number; stateIndex?: number }) => Promise<void>;
 }): Promise<void> {
   const journey = await page.evaluate(`window.SUNNY_VALIDATION_HOOKS?.journey`) as Array<{ itemId: string; steps: Array<{ action: string; selector: string; value?: string; target?: string }> }>;
@@ -493,6 +494,52 @@ export async function verifyMathControlJourney(page: BrowserPage, input: {
   const attemptType = input.completionType === "evaluation_complete" ? "evaluation_attempt" : "attempt_event";
   const identityKey = input.completionType === "evaluation_complete" ? "itemId" : "target";
   const consumedEntrySteps = new Set<number>();
+  const firstItem = journey[0];
+  const firstStep = firstItem?.steps?.[0];
+  if (input.requireItemStateTransitions && firstItem && firstItem.steps.length > 1 && firstStep?.action === "click") {
+    const firstStateReportedExpression = `(() => {
+      const states = (window.__sunnyMessages ?? []).filter(message => message?.type === "game_state_update");
+      const challenge = (states.at(-1)?.payload ?? states.at(-1))?.currentChallenge;
+      return challenge?.id === ${JSON.stringify(firstItem.itemId)};
+    })()`;
+    const firstStateVisibleExpression = `(() => {
+      const states = (window.__sunnyMessages ?? []).filter(message => message?.type === "game_state_update");
+      const challenge = (states.at(-1)?.payload ?? states.at(-1))?.currentChallenge;
+      const normalize = value => String(value ?? "").replace(/\\s+/g, " ").trim().toLowerCase();
+      const prompt = normalize(challenge?.prompt);
+      const visibleText = (${VISIBLE_NORMALIZED_DOCUMENT_TEXT_SOURCE})();
+      return challenge?.id === ${JSON.stringify(firstItem.itemId)} && prompt.length > 0 && visibleText.includes(prompt);
+    })()`;
+    const firstItemAlreadyReported = Boolean(await page.evaluate(firstStateReportedExpression));
+    if (!firstItemAlreadyReported) {
+      const entryControl = page.locator(firstStep.selector);
+      let entryVisible = false;
+      try {
+        await entryControl.waitFor({ state: "visible", timeout: 750 });
+        entryVisible = true;
+      } catch {
+        entryVisible = false;
+      }
+      if (entryVisible) {
+        await assertMathControlsVisible(page, true, firstItem.itemId);
+        await input.capturePreludeState?.();
+        const evidenceExpression = `(window.__sunnyMessages ?? []).filter(message => ["attempt_event","evaluation_attempt","evaluation_complete","node_complete"].includes(message?.type)).length`;
+        const evidenceBefore = Number(await page.evaluate(evidenceExpression));
+        await entryControl.click({ timeout: 3000 });
+        await page.waitForTimeout(50);
+        const evidenceAfter = Number(await page.evaluate(evidenceExpression));
+        if (evidenceAfter !== evidenceBefore) {
+          throw new Error(`math_journey_entry_emitted_evidence;item=${firstItem.itemId};selector=${firstStep.selector}`);
+        }
+        consumedEntrySteps.add(0);
+        try {
+          await page.waitForFunction(firstStateVisibleExpression, undefined, { timeout: 3000 });
+        } catch {
+          throw new Error(`math_journey_first_item_state_not_ready;item=${firstItem.itemId};selector=${firstStep.selector}`);
+        }
+      }
+    }
+  }
   for (const [itemIndex, item] of journey.entries()) {
     const itemSteps = consumedEntrySteps.has(itemIndex) ? item.steps.slice(1) : item.steps;
     if (!Array.isArray(itemSteps) || itemSteps.length === 0 || item.steps.length > 10) throw new Error("math_journey_step_guard");
@@ -835,6 +882,11 @@ export async function verifyMathJourneyAtReleaseViewports(input: {
             completionType: input.completionType,
             itemIds: input.itemIds,
             requireItemStateTransitions: Boolean(input.itemIds?.length),
+            capturePreludeState: async () => {
+              const target = path.join(input.outputDir, `journey-${viewport.name}-intro.png`);
+              await page.screenshot({ path: target, fullPage: false });
+              screenshotPaths.push(target);
+            },
             captureItemState: async ({ itemId, itemIndex, stateIndex = 0 }) => {
               const safeItemId = itemId.replace(/[^a-z0-9_-]/gi, "_");
               const stateSuffix = stateIndex > 0 ? `-state-${String(stateIndex + 1).padStart(2, "0")}` : "";

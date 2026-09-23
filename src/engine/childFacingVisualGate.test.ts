@@ -26,11 +26,13 @@ afterEach(() => {
 
 it("reviews one child-frame state per question instead of diluting it with duplicate viewports", () => {
   expect(selectChildFacingJourneyScreens([
+    "/tmp/journey-sunny-intro.png",
     "/tmp/journey-generation-item-01.png",
     "/tmp/journey-sunny-item-01.png",
     "/tmp/journey-generation-completion.png",
     "/tmp/journey-sunny-completion.png",
   ])).toEqual([
+    "/tmp/journey-sunny-intro.png",
     "/tmp/journey-sunny-item-01.png",
     "/tmp/journey-sunny-completion.png",
   ]);
