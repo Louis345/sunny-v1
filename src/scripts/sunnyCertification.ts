@@ -9,7 +9,8 @@ import { stdin as input, stdout as output } from "node:process";
 type CertificationDomain = "math" | "spelling";
 
 export type CertificationRunManifest = {
-  version: 2;
+  /** 3: identity is assignment + child snapshot + domain; code hashes describe the last sync. */
+  version: 2 | 3;
   certificationRunId: string;
   sourceRoot: string;
   sourceChildId: string;
@@ -154,32 +155,34 @@ function readChildrenConfig(rootDir: string): Record<string, unknown> & {
   };
 }
 
-function copyWorkspace(rootDir: string, workspaceDir: string, childId: string): void {
+/** Paths holding certification runtime state that a code refresh must never replace. */
+function isPreservedWorkspacePath(relative: string, childId: string): boolean {
+  const preserved = [
+    path.join("src", "context", childId),
+    path.join("web", "public", "generated"),
+    path.join("public", "generated"),
+  ];
+  return preserved.some(entry => relative === entry || relative.startsWith(`${entry}${path.sep}`));
+}
+
+/** True for source-owned paths that are copied into (and refreshed inside) a workspace. */
+function workspaceCodeFilter(rootDir: string): (relative: string) => boolean {
   const config = readChildrenConfig(rootDir);
   const registered = new Set([...Object.keys(config.childProfiles ?? {}), "creator"]);
-  fs.mkdirSync(workspaceDir, { recursive: true });
-  fs.cpSync(rootDir, workspaceDir, {
-    recursive: true,
-    dereference: true,
-    filter: (source) => {
-      const relative = path.relative(rootDir, source);
-      if (!relative) return true;
-      const parts = relative.split(path.sep);
-      if (parts.includes("node_modules") || [".git", ".sunny-sandbox", "output", "outputs", "tmp"].includes(parts[0] ?? "")) return false;
-      if (relative === ".env" || relative.startsWith(`web${path.sep}dist`)) return false;
-      if (relative.startsWith(`web${path.sep}public${path.sep}generated${path.sep}direct-math`)) return false;
-      if (relative.startsWith(`src${path.sep}logs`)) return false;
-      if (parts[0] === "src" && parts[1] === "context" && (registered.has(parts[2] ?? "") || (parts[2] ?? "").startsWith("qa_"))) return false;
-      return true;
-    },
-  });
+  return (relative) => {
+    if (!relative) return true;
+    const parts = relative.split(path.sep);
+    if (parts.includes("node_modules") || [".git", ".sunny-sandbox", "output", "outputs", "tmp"].includes(parts[0] ?? "")) return false;
+    if (relative === ".env" || relative.startsWith(`web${path.sep}dist`)) return false;
+    if (relative.startsWith(`web${path.sep}public${path.sep}generated${path.sep}direct-math`)) return false;
+    if (relative.startsWith(`src${path.sep}logs`)) return false;
+    if (parts[0] === "src" && parts[1] === "context" && (registered.has(parts[2] ?? "") || (parts[2] ?? "").startsWith("qa_"))) return false;
+    return true;
+  };
+}
 
-  const sourceChild = path.join(rootDir, "src", "context", childId);
-  const clonedChild = path.join(workspaceDir, "src", "context", childId);
-  fs.cpSync(sourceChild, clonedChild, { recursive: true, dereference: true });
-  fs.rmSync(path.join(clonedChild, "homework", "direct-drafts"), { recursive: true, force: true });
-  fs.rmSync(path.join(workspaceDir, "web", "public", "generated", "direct-math"), { recursive: true, force: true });
-
+function writeScopedChildrenConfig(rootDir: string, workspaceDir: string, childId: string): void {
+  const config = readChildrenConfig(rootDir);
   const selectedProfile = config.childProfiles?.[childId];
   const selectedCompanionId = config.childCompanionIds?.[childId];
   fs.writeFileSync(
@@ -190,6 +193,23 @@ function copyWorkspace(rootDir: string, workspaceDir: string, childId: string): 
       childCompanionIds: selectedCompanionId == null ? {} : { [childId]: selectedCompanionId },
     }, null, 2)}\n`,
   );
+}
+
+function copyWorkspace(rootDir: string, workspaceDir: string, childId: string): void {
+  const copyable = workspaceCodeFilter(rootDir);
+  fs.mkdirSync(workspaceDir, { recursive: true });
+  fs.cpSync(rootDir, workspaceDir, {
+    recursive: true,
+    dereference: true,
+    filter: (source) => copyable(path.relative(rootDir, source)),
+  });
+
+  const sourceChild = path.join(rootDir, "src", "context", childId);
+  const clonedChild = path.join(workspaceDir, "src", "context", childId);
+  fs.cpSync(sourceChild, clonedChild, { recursive: true, dereference: true });
+  fs.rmSync(path.join(clonedChild, "homework", "direct-drafts"), { recursive: true, force: true });
+  fs.rmSync(path.join(workspaceDir, "web", "public", "generated", "direct-math"), { recursive: true, force: true });
+  writeScopedChildrenConfig(rootDir, workspaceDir, childId);
 
   for (const file of walkFiles(clonedChild)) {
     if (!/\.(json|md|txt)$/i.test(file)) continue;
@@ -208,9 +228,76 @@ function copyWorkspace(rootDir: string, workspaceDir: string, childId: string): 
   }
 }
 
+/**
+ * Replaces source-owned code inside an existing workspace with the current
+ * source, deleting files removed upstream, while keeping the cloned child,
+ * drafts, provider receipts, generated games, and runtime outputs intact.
+ */
+function refreshWorkspaceCode(rootDir: string, workspaceDir: string, childId: string): void {
+  const copyable = workspaceCodeFilter(rootDir);
+  const refreshable = (relative: string) => copyable(relative) && !isPreservedWorkspacePath(relative, childId);
+  const prune = (directory: string) => {
+    for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+      const full = path.join(directory, entry.name);
+      const relative = path.relative(workspaceDir, full);
+      if (!refreshable(relative)) continue;
+      if (entry.isDirectory()) prune(full);
+      else fs.rmSync(full, { force: true });
+    }
+  };
+  prune(workspaceDir);
+  fs.cpSync(rootDir, workspaceDir, {
+    recursive: true,
+    dereference: true,
+    force: true,
+    filter: (source) => refreshable(path.relative(rootDir, source)),
+  });
+  writeScopedChildrenConfig(rootDir, workspaceDir, childId);
+}
+
 function writeManifest(manifest: CertificationRunManifest): void {
   fs.mkdirSync(manifest.runDir, { recursive: true });
   fs.writeFileSync(path.join(manifest.runDir, MANIFEST), `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
+}
+
+function readManifests(certificationRoot: string): CertificationRunManifest[] {
+  if (!fs.existsSync(certificationRoot)) return [];
+  return fs.readdirSync(certificationRoot)
+    .map((name) => path.join(certificationRoot, name, MANIFEST))
+    .filter((file) => fs.existsSync(file))
+    .map((file) => JSON.parse(fs.readFileSync(file, "utf8")) as CertificationRunManifest)
+    .filter((run) => run.version === 2 || run.version === 3)
+    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+}
+
+/**
+ * Brings a workspace's executable code up to date with its source without
+ * discarding paid artifacts. Provider request hashes, not code hashes, decide
+ * whether saved provider work is reusable.
+ */
+export function syncCertificationWorkspace(manifest: CertificationRunManifest): CertificationRunManifest {
+  if (!isInside(manifest.runDir, manifest.workspaceDir)
+    || isInside(manifest.sourceRoot, manifest.workspaceDir)
+    || isInside(manifest.workspaceDir, manifest.sourceRoot)) {
+    throw new Error(`certification_workspace_location_invalid:${manifest.workspaceDir}`);
+  }
+  const sourceImplementationHash = hashCertificationImplementation(manifest.sourceRoot);
+  const workspaceHash = hashCertificationImplementation(manifest.workspaceDir);
+  if (manifest.version !== 3
+    || sourceImplementationHash !== manifest.sourceImplementationHash
+    || workspaceHash !== manifest.workspaceImplementationHash
+    || sourceImplementationHash !== workspaceHash) {
+    const previous = manifest.sourceImplementationHash;
+    refreshWorkspaceCode(manifest.sourceRoot, manifest.workspaceDir, manifest.sourceChildId);
+    manifest.version = 3;
+    manifest.sourceImplementationHash = sourceImplementationHash;
+    manifest.workspaceImplementationHash = hashCertificationImplementation(manifest.workspaceDir);
+    manifest.updatedAt = new Date().toISOString();
+    writeManifest(manifest);
+    console.log(` 🎮 [certification] [workspace-code] [refreshed] run=${manifest.certificationRunId} from=${previous.slice(0, 8)} to=${sourceImplementationHash.slice(0, 8)} preserved=child-context,drafts,receipts,generated`);
+  }
+  validateCertificationWorkspace(manifest);
+  return manifest;
 }
 
 export function createCertificationRun(input: CreateCertificationRunInput): CertificationRunManifest {
@@ -225,24 +312,28 @@ export function createCertificationRun(input: CreateCertificationRunInput): Cert
   if (!isReadablePdf(assignmentPath)) throw new Error(`certification_assignment_not_pdf:${assignmentPath}`);
   if (isInside(rootDir, certificationRoot)) throw new Error("certification_root_must_be_outside_source_workspace");
   const sourceSnapshotHash = hashDirectory(sourceChildDir);
-  const sourceImplementationHash = hashCertificationImplementation(rootDir);
   const assignmentFingerprint = sha256(fs.readFileSync(assignmentPath));
-  const certificationRunId = `cert-v2-${childId}-${input.domain}-${assignmentFingerprint.slice(0, 10)}-${sourceSnapshotHash.slice(0, 8)}-${sourceImplementationHash.slice(0, 8)}`;
-  const runDir = path.join(certificationRoot, certificationRunId);
-  const manifestPath = path.join(runDir, MANIFEST);
-  if (fs.existsSync(manifestPath)) {
+  const existing = readManifests(certificationRoot).find((run) => run.sourceRoot === rootDir
+    && run.sourceChildId === childId
+    && run.homeworkDomain === input.domain
+    && run.assignmentFingerprint === assignmentFingerprint
+    && run.sourceSnapshotHash === sourceSnapshotHash);
+  if (existing) {
     input.onProgress?.({ step: 2, total: 4, label: "Reusing isolated workspace" });
-    const existing = JSON.parse(fs.readFileSync(manifestPath, "utf8")) as CertificationRunManifest;
-    validateCertificationWorkspace(existing);
-    return existing;
+    console.log(` 🎮 [certification] [resume] [identity-matched] run=${existing.certificationRunId} manifestVersion=${existing.version}`);
+    return syncCertificationWorkspace(existing);
   }
+  const sourceImplementationHash = hashCertificationImplementation(rootDir);
+  const certificationRunId = `cert-v3-${childId}-${input.domain}-${assignmentFingerprint.slice(0, 10)}-${sourceSnapshotHash.slice(0, 8)}`;
+  const runDir = path.join(certificationRoot, certificationRunId);
+  if (fs.existsSync(runDir)) throw new Error(`certification_run_directory_conflict:${runDir}`);
   const workspaceDir = path.join(runDir, "workspace");
   input.onProgress?.({ step: 2, total: 4, label: "Creating isolated workspace" });
   copyWorkspace(rootDir, workspaceDir, childId);
   const workspaceImplementationHash = hashCertificationImplementation(workspaceDir);
   const now = new Date().toISOString();
   const manifest: CertificationRunManifest = {
-    version: 2,
+    version: 3,
     certificationRunId,
     sourceRoot: rootDir,
     sourceChildId: childId,
@@ -265,13 +356,8 @@ export function createCertificationRun(input: CreateCertificationRunInput): Cert
   return manifest;
 }
 
+/** Checks isolation and child scope. Code freshness is handled by syncCertificationWorkspace. */
 export function validateCertificationWorkspace(manifest: CertificationRunManifest): void {
-  if (
-    hashCertificationImplementation(manifest.sourceRoot) !== manifest.sourceImplementationHash ||
-    hashCertificationImplementation(manifest.workspaceDir) !== manifest.workspaceImplementationHash
-  ) {
-    throw new Error("certification_workspace_implementation_stale");
-  }
   const config = readChildrenConfig(manifest.workspaceDir);
   const childIds = Object.keys(config.childProfiles ?? {});
   if (childIds.length !== 1 || childIds[0] !== manifest.sourceChildId) {
@@ -294,18 +380,8 @@ export function findCertificationRun(input: {
   domain: CertificationDomain;
 }): CertificationRunManifest | null {
   const root = path.resolve(input.certificationRoot ?? path.join(os.homedir(), ".sunny", "certifications"));
-  if (!fs.existsSync(root)) return null;
-  const matches = fs.readdirSync(root)
-    .map((name) => path.join(root, name, MANIFEST))
-    .filter((file) => fs.existsSync(file))
-    .map((file) => JSON.parse(fs.readFileSync(file, "utf8")) as CertificationRunManifest)
-    .filter((run) => run.version === 2
-      && typeof run.sourceImplementationHash === "string"
-      && run.sourceImplementationHash === hashCertificationImplementation(run.sourceRoot)
-      && run.sourceChildId === input.childId.trim().toLowerCase()
-      && run.homeworkDomain === input.domain)
-    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
-  return matches[0] ?? null;
+  return readManifests(root).find((run) => run.sourceChildId === input.childId.trim().toLowerCase()
+    && run.homeworkDomain === input.domain) ?? null;
 }
 
 export function requireCertificationRun(input: {
@@ -338,7 +414,13 @@ export type CertificationReport = {
   homeworkId?: string;
   lifecycle?: string;
   state: CertificationRunManifest["state"];
-  cost: { currency: "USD"; knownTotal: number; incomplete: boolean; providerReceiptCount: number };
+  cost: {
+    currency: "USD";
+    knownTotal: number;
+    incomplete: boolean;
+    providerReceiptCount: number;
+    repairDiagnosticCount: number;
+  };
   limitations: string[];
   generatedAt: string;
 };
@@ -363,27 +445,44 @@ function readLifecycle(manifest: CertificationRunManifest): {
 function providerReceiptFiles(manifest: CertificationRunManifest): string[] {
   if (!manifest.homeworkId) return [];
   const draft = path.join(manifest.workspaceDir, "src", "context", manifest.sourceChildId, "homework", "direct-drafts", manifest.homeworkId);
-  return walkFiles(draft).filter((file) => file.includes(`${path.sep}provider-receipts${path.sep}`) && file.endsWith(".json"));
+  return walkFiles(draft).filter((file) => file.includes(`${path.sep}provider-receipts${path.sep}`)
+    && file.endsWith(".json")
+    && !file.endsWith(".stage.json"));
+}
+
+function repairCostFiles(manifest: CertificationRunManifest): string[] {
+  if (!manifest.homeworkId) return [];
+  const draft = path.join(manifest.workspaceDir, "src", "context", manifest.sourceChildId, "homework", "direct-drafts", manifest.homeworkId);
+  return walkFiles(draft).filter((file) => file.includes(`${path.sep}provider-diagnostics${path.sep}`)
+    && /^discovery-builder-repair(?:-\d+)?-response\.json$/.test(path.basename(file)));
 }
 
 export function writeCertificationReport(manifest: CertificationRunManifest): CertificationReport {
   const currentSourceSnapshotHash = hashDirectory(manifest.sourceChildDir);
   const sourceChildUnchanged = currentSourceSnapshotHash === manifest.sourceSnapshotHash;
   const receipts = providerReceiptFiles(manifest);
+  const repairDiagnostics = repairCostFiles(manifest);
   let knownTotal = 0;
   let pricedReceiptCount = 0;
+  let pricedRepairCount = 0;
   const reportInputLimitations: string[] = [];
-  for (const file of receipts) {
-    try {
-      const value = JSON.parse(fs.readFileSync(file, "utf8")) as Record<string, unknown>;
-      const amount = typeof value.estimatedCostUsd === "number"
-        ? value.estimatedCostUsd
-        : typeof value.costUsd === "number" ? value.costUsd : undefined;
-      if (amount != null) { knownTotal += amount; pricedReceiptCount += 1; }
-    } catch (error) {
-      const reason = error instanceof Error ? error.message : String(error);
-      console.warn(` 🎮 [certification] [report-input] [invalid] type=provider-receipt file=${path.basename(file)} reason=${reason}`);
-      reportInputLimitations.push(`Malformed provider receipt: ${path.basename(file)}.`);
+  for (const [kind, files] of [["provider-receipt", receipts], ["repair-diagnostic", repairDiagnostics]] as const) {
+    for (const file of files) {
+      try {
+        const value = JSON.parse(fs.readFileSync(file, "utf8")) as Record<string, unknown>;
+        const amount = typeof value.estimatedCostUsd === "number"
+          ? value.estimatedCostUsd
+          : typeof value.costUsd === "number" ? value.costUsd : undefined;
+        if (amount != null) {
+          knownTotal += amount;
+          if (kind === "provider-receipt") pricedReceiptCount += 1;
+          else pricedRepairCount += 1;
+        }
+      } catch (error) {
+        const reason = error instanceof Error ? error.message : String(error);
+        console.warn(` 🎮 [certification] [report-input] [invalid] type=${kind} file=${path.basename(file)} reason=${reason}`);
+        reportInputLimitations.push(`Malformed ${kind === "provider-receipt" ? "provider receipt" : "repair diagnostic"}: ${path.basename(file)}.`);
+      }
     }
   }
   const lifecycleRead = readLifecycle(manifest);
@@ -405,13 +504,20 @@ export function writeCertificationReport(manifest: CertificationRunManifest): Ce
     cost: {
       currency: "USD",
       knownTotal,
-      incomplete: receipts.length === 0 || pricedReceiptCount !== receipts.length,
+      incomplete: receipts.length === 0
+        || pricedReceiptCount !== receipts.length
+        || pricedRepairCount !== repairDiagnostics.length,
       providerReceiptCount: receipts.length,
+      repairDiagnosticCount: repairDiagnostics.length,
     },
     limitations: [
       ...(automatedReady ? [] : ["Targeted chapter is not yet board_ready."]),
       "Manual mathematical meaning, interaction clarity, Elli/VRM behavior, sound, animation, and ceremony review is still required.",
-      ...(receipts.length === pricedReceiptCount && receipts.length > 0 ? [] : ["Provider receipts do not yet contain complete USD pricing data."]),
+      ...(receipts.length === pricedReceiptCount
+        && receipts.length > 0
+        && repairDiagnostics.length === pricedRepairCount
+        ? []
+        : ["Provider receipts or repair diagnostics do not yet contain complete USD pricing data."]),
       ...reportInputLimitations,
     ],
     generatedAt: new Date().toISOString(),
@@ -423,7 +529,7 @@ export function writeCertificationReport(manifest: CertificationRunManifest): Ce
 }
 
 export function runCertificationSetupOnly(manifest: CertificationRunManifest): CertificationReport {
-  validateCertificationWorkspace(manifest);
+  syncCertificationWorkspace(manifest);
   assertSourceSnapshotUnchanged(manifest);
   const report = writeCertificationReport(manifest);
   console.log(` 🎮 [certification] [setup-only] [passed] run=${manifest.certificationRunId}`);
@@ -492,7 +598,7 @@ export function runCertification(
   onProgress?: (event: CertificationProgressEvent) => void,
 ): void {
   assertSourceSnapshotUnchanged(manifest);
-  validateCertificationWorkspace(manifest);
+  syncCertificationWorkspace(manifest);
   try {
     if (manifest.state === "created" || manifest.state === "failed") {
       onProgress?.({ step: 3, total: 4, label: "Preparing and verifying Discovery" });

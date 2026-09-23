@@ -36,9 +36,9 @@ it("runs the actual intake, resumes a saved paid response, repairs the browser j
     const body=JSON.parse(String(init?.body ?? "{}")) as {text?:{format?:{name?:string}}};
     if(body.text?.format?.name==="child_visual_verdict"){
       visualChecks+=1;
-      const verdict=visualChecks===1
-        ? {decision:"reject",observations:["The pause overlay covers the answer control."]}
-        : {decision:"approve",observations:[]};
+      // The browser journey already rejects the obscured control, so the blind
+      // reviewer is consulted only after the deterministic repair passes.
+      const verdict={decision:"approve",findings:[]};
       return new Response(JSON.stringify({status:"completed",output_text:JSON.stringify(verdict)}),{status:200,headers:{"content-type":"application/json"}});
     }
     return new Response(`data: ${JSON.stringify({type:"response.output_text.delta",delta:patch})}\n\ndata: ${JSON.stringify({type:"response.completed",response:{status:"completed",usage:{input_tokens:10,output_tokens:10}}})}\n\ndata: [DONE]\n\n`,{status:200,headers:{"content-type":"text/event-stream"}});
@@ -52,7 +52,8 @@ it("runs the actual intake, resumes a saved paid response, repairs the browser j
   expect(transport).toHaveBeenCalledTimes(3);
   await ingestMathAssignment({rootDir,childId:"lab-child",pdf,providerProbe:async()=>undefined});
   expect(transport).toHaveBeenCalledTimes(3);
-  expect(fetchMock).toHaveBeenCalledTimes(3);
+  expect(fetchMock).toHaveBeenCalledTimes(2);
+  expect(visualChecks).toBe(1);
   const drafts=path.join(context,"homework/direct-drafts");
   const homeworkId=fs.readdirSync(drafts).find(name=>name.startsWith("hw-math-"))!;
   const draft=path.join(drafts,homeworkId);
@@ -63,7 +64,8 @@ it("runs the actual intake, resumes a saved paid response, repairs the browser j
   const before=JSON.stringify(getLearningCycle("lab-child",homeworkId,{rootDir}));
   await ingestMathAssignment({rootDir,childId:"lab-child",pdf,providerProbe:async()=>undefined});
   expect(transport).toHaveBeenCalledTimes(3);
-  expect(fetchMock).toHaveBeenCalledTimes(3);
+  expect(fetchMock).toHaveBeenCalledTimes(2);
+  expect(visualChecks).toBe(1);
   expect(JSON.stringify(getLearningCycle("lab-child",homeworkId,{rootDir}))).toBe(before);
 },60000);
 

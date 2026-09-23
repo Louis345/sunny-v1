@@ -237,6 +237,29 @@ describe("certified Discovery promotion", () => {
     expect(deps.ensureArtifactsAreServed).toHaveBeenCalledOnce();
   });
 
+  it("accepts current-verifier proof for the exact artifact after unrelated source code changes", async () => {
+    const { rootDir, manifest, homeworkId, contract } = fixture();
+    const interrupted = dependencies();
+    interrupted.ensureArtifactsAreServed.mockRejectedValueOnce(new Error("simulated_crash"));
+    json(path.join(rootDir, "src/engine/unrelated-change.json"), { verifierNote: "after approval" });
+    await expect(promoteCertifiedMathDiscovery({ manifest, approvedBy: "Saori" }, interrupted))
+      .rejects.toThrow("simulated_crash");
+
+    json(path.join(rootDir, "src/engine/unrelated-change.json"), { verifierNote: "edited again while interrupted" });
+    const result = await promoteCertifiedMathDiscovery({ manifest, approvedBy: "Saori" }, dependencies());
+
+    expect(result).toMatchObject({ homeworkId, artifactHash: contract.artifact.artifactHash, reused: false });
+    expect(getLearningCycle("reina", homeworkId, { rootDir })?.lifecycle).toBe("evaluation_ready");
+  });
+
+  it("still refuses proof recorded by an older verifier for the same artifact", async () => {
+    const { manifest, homeworkId } = fixture();
+    const acceptance = path.join(manifest.workspaceDir, "src/context/reina/homework/direct-drafts", homeworkId, "runtime-verification/acceptance.json");
+    json(acceptance, { ...JSON.parse(fs.readFileSync(acceptance, "utf8")), verifierVersion: DISCOVERY_VERIFIER_VERSION - 1 });
+    await expect(promoteCertifiedMathDiscovery({ manifest, approvedBy: "Saori" }, dependencies()))
+      .rejects.toThrow("certification_promotion_runtime_approval_missing");
+  });
+
   it("blocks promotion when browser or blind visual approval is absent", async () => {
     const { manifest, homeworkId } = fixture();
     const verdict = path.join(manifest.workspaceDir, "src/context/reina/homework/direct-drafts", homeworkId, "visual-review/blind-visual-verdict.json");

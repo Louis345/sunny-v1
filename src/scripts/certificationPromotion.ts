@@ -28,7 +28,6 @@ import { getChildChart } from "../profiles/childChart";
 import {
   assertSourceSnapshotUnchanged,
   findCertificationRun,
-  hashCertificationImplementation,
   validateCertificationWorkspace,
   type CertificationRunManifest,
 } from "./sunnyCertification";
@@ -601,7 +600,7 @@ export async function promoteCertifiedMathDiscovery(
   if (priorJournal && (priorJournal.certificationRunId !== manifest.certificationRunId
     || priorJournal.artifactHash !== contract.artifact.artifactHash
     || priorJournal.assignmentFingerprint !== manifest.assignmentFingerprint
-    || priorJournal.sourceImplementationHash !== hashCertificationImplementation(manifest.sourceRoot)
+    || priorJournal.verifierVersion !== DISCOVERY_VERIFIER_VERSION
     || priorJournal.runtimeAcceptanceHash !== runtimeAcceptanceHash
     || priorJournal.visualAuditHash !== visualAuditHash
     || priorJournal.blindVisualVerdictHash !== blindVisualVerdictHash)) {
