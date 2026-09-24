@@ -98,6 +98,20 @@ describe("Creator-authored Playwright manifest", () => {
       .toThrow(error);
   });
 
+  it("rejects a complete manifest whose item order differs from the frozen Planner order", () => {
+    const row = (itemId: string) => ({
+      itemId,
+      steps: [{ action: "click", selector: `#${itemId}` }],
+      assertions: [{ type: "event", eventType: "attempt_event", itemId }],
+    });
+    const raw = generatedPackage(manifest({ journey: [row("item-two"), row("item-one")] }));
+
+    expect(() => parseGeneratedActivityPackage(raw, {
+      nodeId: "node-one",
+      itemIds: ["item-one", "item-two"],
+    })).toThrow("creator_playwright_manifest_item_order");
+  });
+
   it("runs the Creator proof and Sunny's canonical journey at both release viewports", async () => {
     const fixture = artifactFixture();
     const report = await runDirectBrowserSmokeCheck({

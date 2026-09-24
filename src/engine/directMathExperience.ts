@@ -2198,6 +2198,9 @@ export function parseCreatorPlaywrightManifest(
     || journey.some((item) => !expected.itemIds.includes(item.itemId))) {
     throw new Error(`creator_playwright_manifest_item_coverage:${expected.nodeId}`);
   }
+  if (journey.some((item, index) => item.itemId !== expected.itemIds[index])) {
+    throw new Error(`creator_playwright_manifest_item_order:${expected.nodeId}`);
+  }
   if (!Array.isArray(value.completionAssertions) || value.completionAssertions.length < 1 || value.completionAssertions.length > 8) {
     throw new Error(`creator_playwright_manifest_completion_missing:${expected.nodeId}`);
   }
