@@ -370,6 +370,28 @@ it("stops a browser harness failure as needs-attention without asking for review
     .toMatchObject({ status: "needs_attention", attemptCount: 1, error: expect.stringContaining("harness_failure") });
 });
 
+it("does not buy a blind review when the journey has no browser-confirmed academic screen", async () => {
+  vi.mocked(runDirectBrowserSmokeCheck).mockResolvedValue({
+    passed: true,
+    failures: [],
+    screenshots: ["activity-1-sunny-unconfirmed-01.png"],
+    captures: [confirmedAcademicCapture({
+      path: "activity-1-sunny-unconfirmed-01.png",
+      kind: "unconfirmed",
+      observedItemId: null,
+      promptVisible: false,
+    })],
+  });
+  vi.mocked(judgeChildFacingScreens).mockResolvedValue({ decision: "approve", observations: [] });
+
+  await runAdaptiveMathGeneration(childId, homeworkId, rootDir);
+
+  expect(judgeChildFacingScreens).not.toHaveBeenCalled();
+  expect(repairDirectArtifact).not.toHaveBeenCalled();
+  expect(getMathGenerationStatus(childId, homeworkId, { rootDir })?.nodes[0])
+    .toMatchObject({ status: "needs_attention", error: expect.stringContaining("no_browser_confirmed_academic_screen") });
+});
+
 it("repairs only a cited visual defect on a browser-confirmed academic screen", async () => {
   vi.mocked(runDirectBrowserSmokeCheck).mockImplementation(async ({ artifacts }) => ({
     passed: true,

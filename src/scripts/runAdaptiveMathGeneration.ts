@@ -46,7 +46,6 @@ import type { ActiveSessionPlan } from "../context/schemas/learningProfile";
 import {
   CHILD_FACING_VISUAL_GATE_VERSION,
   judgeChildFacingScreens,
-  selectChildFacingJourneyScreens,
   selectVerifiedChildFacingCaptures,
 } from "../engine/childFacingVisualGate";
 
@@ -434,17 +433,41 @@ export async function runAdaptiveMathGeneration(
       }
     }
     const recordedCaptures = reports[artifact.nodeId].captures ?? [];
-    const screens: JourneyCapture[] = recordedCaptures.length > 0
-      ? selectVerifiedChildFacingCaptures(recordedCaptures)
-      : selectChildFacingJourneyScreens(reports[artifact.nodeId].screenshots).map(file => ({
-        path: file,
-        label: path.basename(file),
-        kind: "unconfirmed",
-        viewport: "unknown",
-        verifierVersion: DISCOVERY_VERIFIER_VERSION,
-        observedItemId: null,
-        promptVisible: false,
-      }));
+    const screens: JourneyCapture[] = selectVerifiedChildFacingCaptures(recordedCaptures).filter(capture =>
+      capture.viewport === "sunny"
+      && capture.verifierVersion === DISCOVERY_VERIFIER_VERSION
+      && (capture.kind === "completion" || (
+        capture.kind === "academic_item"
+        && capture.promptVisible
+        && typeof capture.observedItemId === "string"
+        && capture.observedItemId.length > 0
+        && (!capture.expectedItemId || capture.expectedItemId === capture.observedItemId)
+      )),
+    );
+    if (!screens.some(screen => screen.kind === "academic_item")) {
+      const attribution: ReviewAttribution = {
+        category: "capture_defect",
+        source: "deterministic",
+        details: ["no_browser_confirmed_academic_screen"],
+      };
+      reports[artifact.nodeId] = {
+        ...reports[artifact.nodeId],
+        passed: false,
+        failures: ["child_visual_review_needs_attention:capture_defect:no_browser_confirmed_academic_screen"],
+        visualReview: { attribution, repairAuthorized: false, findings: [] },
+      };
+      write(reportsFile, reports);
+      appendBoardVisualReviewHistory(draft, artifact.nodeId, {
+        artifactHash: htmlHash,
+        browserVerifierVersion: MATH_BROWSER_VERIFIER_VERSION,
+        visualGateVersion: CHILD_FACING_VISUAL_GATE_VERSION,
+        screens,
+        attribution,
+        repairAuthorized: false,
+      });
+      console.log(` 🎮 [adaptive-math] [board-review-attribution] [needs-attention] node=${artifact.nodeId} category=capture_defect reason=no_browser_confirmed_academic_screen`);
+      throw new Error(`targeted_visual_review_needs_attention:${artifact.nodeId}:capture_defect:no_browser_confirmed_academic_screen`);
+    }
     let visualVerdict: Awaited<ReturnType<typeof judgeChildFacingScreens>>;
     try {
       visualVerdict = await judgeChildFacingScreens({
