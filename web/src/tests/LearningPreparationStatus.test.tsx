@@ -35,9 +35,15 @@ describe("truthful learning preparation",()=>{
     render(<LearningPreparationStatus status={{phase:"board_generating",updatedAt:"now",nodes:[{nodeId:"a",status:"ready"},{nodeId:"b",status:"preparing"}]}} checkedAt={Date.now()} onCheck={vi.fn()}/>);
     expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuenow","1");
     expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuemax","2");
-    expect(screen.getByText(/1 of 2 activities ready/)).toBeVisible();
+    expect(screen.getByText(/1 of 2 activities prepared/)).toBeVisible();
     expect(screen.getByRole("status").textContent).toContain("You can begin while 1 more finishes");
     expect(screen.getByRole("status").textContent).toContain("Latest status received — 1 activity is ready");
+  });
+  it("never describes evidence-locked activities as ready",()=>{
+    render(<LearningPreparationStatus status={{phase:"board_ready",updatedAt:"now",nodes:[{nodeId:"locked",status:"evidence_locked"}]}} checkedAt={Date.now()} onCheck={vi.fn()}/>);
+    expect(screen.getByRole("status").textContent).toContain("Complete earlier learning to unlock the next activity");
+    expect(screen.getByRole("status").textContent).toContain("the next activities are still learning-locked");
+    expect(screen.getByRole("status").textContent).not.toContain("activity is ready");
   });
   it("offers read-only refresh and honest stopped status while ready siblings remain playable",()=>{
     const onCheck=vi.fn();
