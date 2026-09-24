@@ -357,6 +357,66 @@ it("accepts the frozen Planner prompt when the activity reports a longer paraphr
   expect(result.failures).toEqual([]);
 },20000);
 
+it("accepts a complete reported sentence after the previous prompt has left the viewport", async () => {
+  const itemContracts = [
+    { id:"one", prompt:"Here is a labeled array. Tap the number of ROWS.", response:{ mode:"numeric", expected:3 } },
+    { id:"two", prompt:"Same labeled array. Now tap the number that tells how many COLUMNS it has.", response:{ mode:"numeric", expected:5 } },
+  ];
+  const result = await verify(`<p id="prompt">Here is a labeled array. Tap the number of ROWS.</p><button id="answer">Commit answer</button>
+    <script>
+    const rows=[];let active='one';
+    window.SUNNY_VALIDATION_HOOKS={journey:[
+      {itemId:'one',steps:[{action:'click',selector:'#answer'}]},
+      {itemId:'two',steps:[{action:'click',selector:'#answer'}]}
+    ]};
+    const report=(id,prompt)=>parent.postMessage({type:'game_state_update',payload:{currentChallenge:{id,prompt}}},'*');
+    document.querySelector('#answer').onclick=()=>{
+      const item=active;rows.push({target:item,attemptedValue:item==='one'?'3':'5',correct:true});
+      parent.postMessage({type:'attempt_event',payload:{target:item,attemptedValue:item==='one'?'3':'5',correct:true}},'*');
+      if(item==='one'){
+        active='two';document.querySelector('#prompt').textContent='Same labeled array. How many COLUMNS?';
+        report('two','Same labeled array. Now tap the number that tells how many COLUMNS it has.');
+      } else parent.postMessage({type:'node_complete',payload:{targetResults:rows,accuracy:1}},'*');
+    };
+    report('one','Here is a labeled array. Tap the number of ROWS.');
+    </script>`, ["one", "two"], itemContracts);
+  expect(result.failures).toEqual([]);
+},20000);
+
+it("reports a checker ambiguity instead of clicking a new answer control when only prompt text disagrees", async () => {
+  const itemContracts = [
+    { id:"one", prompt:"Count the rows in this array.", response:{ mode:"numeric", expected:3 } },
+    { id:"two", prompt:"In this array, which picture shows one whole ROW?", response:{ mode:"selection", expected:"picture-a" } },
+  ];
+  const result = await verify(`<p id="prompt">Count the rows in this array.</p><button id="number">3</button><div id="choices" hidden><button id="picture-a">Picture A</button></div>
+    <script>
+    const rows=[];let active='one';
+    window.SUNNY_VALIDATION_HOOKS={journey:[
+      {itemId:'one',steps:[{action:'click',selector:'#number'}]},
+      {itemId:'two',steps:[{action:'click',selector:'#picture-a'}]}
+    ]};
+    const report=(id,prompt)=>parent.postMessage({type:'game_state_update',payload:{currentChallenge:{id,prompt}}},'*');
+    document.querySelector('#number').onclick=()=>{
+      rows.push({target:'one',attemptedValue:'3',correct:true});
+      parent.postMessage({type:'attempt_event',payload:rows.at(-1)},'*');
+      setTimeout(()=>{
+        active='two';document.querySelector('#prompt').textContent='Which picture shows one whole ROW?';
+        document.querySelector('#number').hidden=true;document.querySelector('#choices').hidden=false;
+        setTimeout(()=>report('two','In this array, which picture shows one whole ROW?'),120);
+      },1800);
+    };
+    document.querySelector('#picture-a').onclick=()=>{
+      rows.push({target:'two',attemptedValue:'picture-a',correct:true});
+      parent.postMessage({type:'attempt_event',payload:rows.at(-1)},'*');
+      parent.postMessage({type:'node_complete',payload:{targetResults:rows,accuracy:1}},'*');
+    };
+    report('one','Count the rows in this array.');
+    </script>`, ["one", "two"], itemContracts);
+  expect(result.passed).toBe(false);
+  expect(result.failures.join("|")).toContain("math_journey_checker_contract_ambiguity;item=two");
+  expect(result.failures.join("|")).not.toContain("math_journey_entry_emitted_evidence");
+},20000);
+
 it("rejects a next-item state announcement while the prior stimulus is still visible", async () => {
   const result = await verify(`<p id="prompt">First prompt</p><button id="answer">Commit answer</button>
     <script>

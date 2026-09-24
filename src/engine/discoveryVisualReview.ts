@@ -617,6 +617,9 @@ export async function verifyMathControlJourney(page: BrowserPage, input: {
     const frozenPromptsByItem = ${JSON.stringify(frozenPromptsByItem)};
     const visibleText = (${VISIBLE_NORMALIZED_DOCUMENT_TEXT_SOURCE});
     const normalize = value => String(value ?? "").replace(/\\s+/g, " ").trim().toLowerCase();
+    const completeSentences = value => (String(value ?? "").match(/[^.!?]+[.!?]+/g) ?? [])
+      .map(normalize)
+      .filter(sentence => sentence.split(/\\s+/).length >= 3);
     window.addEventListener("message", event => {
       const message = event.data;
       if (message?.type !== "game_state_update") return;
@@ -631,6 +634,7 @@ export async function verifyMathControlJourney(page: BrowserPage, input: {
         frozenPrompt,
         promptVisibleAtReceipt: prompt.length > 0 && textAtReceipt.includes(prompt),
         frozenPromptVisibleAtReceipt: frozenPrompt.length > 0 && textAtReceipt.includes(frozenPrompt),
+        reportedSentenceVisibleAtReceipt: completeSentences(challenge.prompt).some(sentence => textAtReceipt.includes(sentence)),
       });
     });
   })()`);
@@ -819,13 +823,33 @@ export async function verifyMathControlJourney(page: BrowserPage, input: {
         const receipt = (window.__sunnyStateReceipts ?? []).filter(row => row.id === challenge?.id && row.prompt === prompt).at(-1);
         const visibleText = (${VISIBLE_NORMALIZED_DOCUMENT_TEXT_SOURCE})();
         const frozenPrompt = normalize((${JSON.stringify(frozenPromptsByItem)})[challenge?.id]);
+        const previousReceipt = (window.__sunnyStateReceipts ?? []).filter(row => row.id === ${JSON.stringify(item.itemId)}).at(-1);
+        const previousState = states
+          .map(message => (message?.payload ?? message)?.currentChallenge)
+          .filter(candidate => candidate?.id === ${JSON.stringify(item.itemId)})
+          .at(-1);
+        const previousReportedPrompt = normalize(previousReceipt?.prompt || previousState?.prompt);
+        const previousFrozenPrompt = normalize((${JSON.stringify(frozenPromptsByItem)})[${JSON.stringify(item.itemId)}]);
+        const previousPromptVisible = (previousReportedPrompt.length > 0 && visibleText.includes(previousReportedPrompt))
+          || (previousFrozenPrompt.length > 0 && visibleText.includes(previousFrozenPrompt));
+        const completeSentences = value => (String(value ?? "").match(/[^.!?]+[.!?]+/g) ?? [])
+          .map(normalize)
+          .filter(sentence => sentence.split(/\\s+/).length >= 3);
+        const completeReportedSentenceVisible = Boolean(receipt?.reportedSentenceVisibleAtReceipt)
+          && completeSentences(challenge?.prompt).some(sentence => visibleText.includes(sentence));
+        const reportedPromptCurrentlyVisible = prompt.length > 0 && visibleText.includes(prompt);
+        const frozenPromptCurrentlyVisible = frozenPrompt.length > 0 && visibleText.includes(frozenPrompt);
         return {
           id: challenge?.id ?? null,
           reportedPrompt: prompt,
           frozenPrompt,
           visibleText,
+          previousPromptVisible,
+          reportedPromptCurrentlyVisible,
+          frozenPromptCurrentlyVisible,
           promptVisible: (Boolean(receipt?.promptVisibleAtReceipt) && prompt.length > 0 && visibleText.includes(prompt))
-            || (Boolean(receipt?.frozenPromptVisibleAtReceipt) && frozenPrompt.length > 0 && visibleText.includes(frozenPrompt)),
+            || (Boolean(receipt?.frozenPromptVisibleAtReceipt) && frozenPrompt.length > 0 && visibleText.includes(frozenPrompt))
+            || (completeReportedSentenceVisible && !previousPromptVisible),
         };
       })()`;
       const hasReportedItemState = Boolean(await page.evaluate(`(window.__sunnyMessages ?? []).some(message =>
@@ -842,7 +866,10 @@ export async function verifyMathControlJourney(page: BrowserPage, input: {
             nextStateReady = false;
           }
         }
-        if (!nextStateReady && !nextEntryWasVisible && nextEntryStep?.action === "click") {
+        const stateBeforeEntry = !nextStateReady
+          ? await page.evaluate(nextStateSnapshotExpression) as { id: string | null }
+          : undefined;
+        if (!nextStateReady && stateBeforeEntry?.id !== nextItem.itemId && !nextEntryWasVisible && nextEntryStep?.action === "click") {
           const entryControl = page.locator(nextEntryStep.selector);
           let entryReady = false;
           try {
@@ -861,13 +888,21 @@ export async function verifyMathControlJourney(page: BrowserPage, input: {
             entryReady = false;
           }
           if (entryReady) {
-            await input.captureState?.({ kind: "transition", itemId: nextItem.itemId, itemIndex: itemIndex + 1 });
-            const evidenceBefore = Number(await page.evaluate(`(window.__sunnyMessages ?? []).filter(message => ["attempt_event","evaluation_attempt","evaluation_complete","node_complete"].includes(message?.type)).length`));
-            await entryControl.click({ timeout: 3000 });
-            await page.waitForTimeout(50);
-            const evidenceAfter = Number(await page.evaluate(`(window.__sunnyMessages ?? []).filter(message => ["attempt_event","evaluation_attempt","evaluation_complete","node_complete"].includes(message?.type)).length`));
-            if (evidenceAfter !== evidenceBefore) throw new Error(`math_journey_entry_emitted_evidence;item=${nextItem.itemId};selector=${nextEntryStep.selector}`);
-            consumedEntrySteps.add(itemIndex + 1);
+            try {
+              await page.waitForFunction(`(() => (${nextStateSnapshotExpression}).id === ${JSON.stringify(nextItem.itemId)})()`, undefined, { timeout: 300 });
+            } catch {
+              // A true entry control does not report the next academic item until activated.
+            }
+            const reportedAfterControlAppeared = await page.evaluate(nextStateSnapshotExpression) as { id: string | null };
+            if (reportedAfterControlAppeared.id !== nextItem.itemId) {
+              await input.captureState?.({ kind: "transition", itemId: nextItem.itemId, itemIndex: itemIndex + 1 });
+              const evidenceBefore = Number(await page.evaluate(`(window.__sunnyMessages ?? []).filter(message => ["attempt_event","evaluation_attempt","evaluation_complete","node_complete"].includes(message?.type)).length`));
+              await entryControl.click({ timeout: 3000 });
+              await page.waitForTimeout(50);
+              const evidenceAfter = Number(await page.evaluate(`(window.__sunnyMessages ?? []).filter(message => ["attempt_event","evaluation_attempt","evaluation_complete","node_complete"].includes(message?.type)).length`));
+              if (evidenceAfter !== evidenceBefore) throw new Error(`math_journey_entry_emitted_evidence;item=${nextItem.itemId};selector=${nextEntryStep.selector}`);
+              consumedEntrySteps.add(itemIndex + 1);
+            }
           }
         }
         try {
@@ -879,11 +914,18 @@ export async function verifyMathControlJourney(page: BrowserPage, input: {
             frozenPrompt: string;
             visibleText: string;
             promptVisible: boolean;
+            previousPromptVisible: boolean;
+            reportedPromptCurrentlyVisible: boolean;
+            frozenPromptCurrentlyVisible: boolean;
           };
           if (journeyKey === "incorrectJourney") throw new Error(`math_journey_incorrect_response_did_not_advance;item=${item.itemId}`);
           const code = !reported.id && input.requireItemStateTransitions
             ? "math_journey_item_state_missing"
-            : reported.id === nextItem.itemId && !reported.promptVisible && reported.frozenPrompt && reported.frozenPrompt !== reported.reportedPrompt
+            : reported.id === nextItem.itemId
+              && !reported.promptVisible
+              && !reported.previousPromptVisible
+              && !reported.reportedPromptCurrentlyVisible
+              && !reported.frozenPromptCurrentlyVisible
               ? "math_journey_checker_contract_ambiguity"
             : reported.id === nextItem.itemId && !reported.promptVisible
               ? "math_journey_item_state_not_visible"
