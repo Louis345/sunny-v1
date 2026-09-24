@@ -287,6 +287,62 @@ function isVirtualMicrophoneLabel(label: string): boolean {
   return /\b(blackhole|virtual|loopback|soundflower|vb-audio|voicemeeter|aggregate)\b/i.test(label);
 }
 
+function isBuiltInMicrophoneLabel(label: string): boolean {
+  return /\b(built[- ]?in|internal)\b|macbook.*microphone/i.test(label);
+}
+
+const MICROPHONE_CONSTRAINTS: MediaTrackConstraints = {
+  channelCount: 1,
+  sampleRate: 16000,
+  echoCancellation: true,
+  noiseSuppression: true,
+  autoGainControl: true,
+};
+
+async function openPreferredMicrophoneStream(): Promise<{
+  stream: MediaStream;
+  recoveredFrom: string | null;
+}> {
+  const initialStream = await navigator.mediaDevices.getUserMedia({
+    audio: MICROPHONE_CONSTRAINTS,
+  });
+  const initialTrack = initialStream.getAudioTracks()[0];
+  const initialLabel = initialTrack?.label?.trim() || "selected microphone";
+  if (
+    !isVirtualMicrophoneLabel(initialLabel) ||
+    typeof navigator.mediaDevices.enumerateDevices !== "function"
+  ) {
+    return { stream: initialStream, recoveredFrom: null };
+  }
+
+  const devices = await navigator.mediaDevices.enumerateDevices();
+  const builtIn = devices.find(
+    (device) =>
+      device.kind === "audioinput" &&
+      Boolean(device.deviceId) &&
+      isBuiltInMicrophoneLabel(device.label) &&
+      !isVirtualMicrophoneLabel(device.label),
+  );
+  if (!builtIn) return { stream: initialStream, recoveredFrom: null };
+
+  try {
+    const recoveredStream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        ...MICROPHONE_CONSTRAINTS,
+        deviceId: { exact: builtIn.deviceId },
+      },
+    });
+    initialStream.getTracks().forEach((track) => track.stop());
+    return { stream: recoveredStream, recoveredFrom: initialLabel };
+  } catch (err) {
+    console.warn(
+      ` 🎮 [session-microphone] [recovery] [failed] from=${initialLabel} to=${builtIn.label}`,
+      err,
+    );
+    return { stream: initialStream, recoveredFrom: null };
+  }
+}
+
 function micDeniedCanContinue(): boolean {
   if (typeof window !== "undefined") {
     const preview = new URLSearchParams(window.location.search).get("preview");
@@ -1257,15 +1313,7 @@ export function useSession(options?: UseSessionOptions) {
   const startMic = useCallback(() => {
     (async () => {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          audio: {
-            channelCount: 1,
-            sampleRate: 16000,
-            echoCancellation: true,
-            noiseSuppression: true,
-            autoGainControl: true,
-          },
-        });
+        const { stream, recoveredFrom } = await openPreferredMicrophoneStream();
 
         mediaStreamRef.current = stream;
         setStateRef.current((s) => ({ ...s, microphoneAvailable: true }));
@@ -1277,6 +1325,16 @@ export function useSession(options?: UseSessionOptions) {
         micAudibleFramesRef.current = 0;
         micInputConfirmedRef.current = false;
         micSilentWarningRef.current = null;
+        if (recoveredFrom) {
+          console.log(
+            ` 🎮 [session-microphone] [recovery] [selected] from=${recoveredFrom} to=${inputLabel}`,
+          );
+          sendMessageRef.current("client_audio_status", {
+            event: "capture_recovered",
+            reason: inputLabel,
+            message: `Switched from ${recoveredFrom} to ${inputLabel}.`,
+          });
+        }
         console.log(
           ` 🎮 [session-microphone] [capture] [started] input=${inputLabel}`,
         );

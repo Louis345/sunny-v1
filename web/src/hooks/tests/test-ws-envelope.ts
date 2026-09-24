@@ -251,6 +251,73 @@ describe("WS envelope vs canvas payload type", () => {
     expect(statuses.filter((message) => message.event === "silent_input")).toHaveLength(0);
   });
 
+  it("replaces a virtual default input with the built-in microphone before capture begins", async () => {
+    // Human caught this by speaking while Chrome silently selected BlackHole.
+    // The previous lab proved only that Sunny could name the silent device; it
+    // never required Sunny to recover when a usable physical input existed.
+    const stopVirtual = vi.fn();
+    const stopBuiltIn = vi.fn();
+    vi.mocked(navigator.mediaDevices.getUserMedia)
+      .mockResolvedValueOnce({
+        getAudioTracks: () => [{
+          enabled: true,
+          stop: stopVirtual,
+          label: "BlackHole 2ch (Virtual)",
+          getSettings: () => ({ deviceId: "virtual-input" }),
+        }],
+        getTracks: () => [{ stop: stopVirtual }],
+      } as unknown as MediaStream)
+      .mockResolvedValueOnce({
+        getAudioTracks: () => [{
+          enabled: true,
+          stop: stopBuiltIn,
+          label: "MacBook Air Microphone (Built-in)",
+          getSettings: () => ({ deviceId: "builtin-input" }),
+        }],
+        getTracks: () => [{ stop: stopBuiltIn }],
+      } as unknown as MediaStream);
+    Object.defineProperty(navigator.mediaDevices, "enumerateDevices", {
+      configurable: true,
+      value: vi.fn().mockResolvedValue([
+        {
+          kind: "audioinput",
+          label: "BlackHole 2ch (Virtual)",
+          deviceId: "virtual-input",
+          groupId: "virtual-group",
+        },
+        {
+          kind: "audioinput",
+          label: "MacBook Air Microphone (Built-in)",
+          deviceId: "builtin-input",
+          groupId: "builtin-group",
+        },
+      ]),
+    });
+
+    vi.useFakeTimers();
+    const { result } = renderHook(() => useSession());
+    act(() => result.current.startSession("ila"));
+    await act(async () => { await vi.advanceTimersByTimeAsync(150); });
+
+    expect(navigator.mediaDevices.getUserMedia).toHaveBeenCalledTimes(2);
+    expect(navigator.mediaDevices.getUserMedia).toHaveBeenLastCalledWith({
+      audio: expect.objectContaining({
+        deviceId: { exact: "builtin-input" },
+      }),
+    });
+    expect(stopVirtual).toHaveBeenCalled();
+
+    const statuses = wsInstances[0]!.send.mock.calls
+      .map(([raw]) => JSON.parse(String(raw)))
+      .filter((message) => message.type === "client_audio_status");
+    expect(statuses).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        event: "capture_recovered",
+        reason: "MacBook Air Microphone (Built-in)",
+      }),
+    ]));
+  });
+
   it("keeps wire message type when sendMessage payload has type: karaoke", async () => {
     const { result } = renderHook(() => useSession());
 
