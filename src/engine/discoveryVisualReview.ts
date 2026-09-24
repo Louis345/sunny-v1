@@ -74,6 +74,18 @@ export type MathJourneyItemContract = {
     | { mode: "explanation"; rubric: string[] };
 };
 
+export type MathJourneyStep = {
+  action: "click" | "fill" | "press" | "drag";
+  selector: string;
+  value?: string;
+  target?: string;
+};
+
+export type MathJourney = Array<{
+  itemId: string;
+  steps: MathJourneyStep[];
+}>;
+
 export class DiscoveryRuntimeVerificationError extends Error {
   readonly issues: string[];
   readonly screenshotPaths: string[];
@@ -591,6 +603,8 @@ export async function verifyMathControlJourney(page: BrowserPage, input: {
   itemContracts?: MathJourneyItemContract[];
   journeyKey?: "journey" | "incorrectJourney";
   acceptedValuesByItem?: Record<string, string[]>;
+  /** Trusted sidecar journey for new Creator artifacts; legacy pages may still expose the in-page hook. */
+  journey?: MathJourney;
   /**
    * Called before evidence-free entry controls and before each uncommitted step
    * of an item until the caller confirms that item on screen. Returns true only
@@ -599,7 +613,7 @@ export async function verifyMathControlJourney(page: BrowserPage, input: {
   captureState?: (request: JourneyCaptureRequest) => Promise<boolean | void>;
 }): Promise<void> {
   const journeyKey = input.journeyKey ?? "journey";
-  const journey = await page.evaluate(`window.SUNNY_VALIDATION_HOOKS?.[${JSON.stringify(journeyKey)}]`) as Array<{ itemId: string; steps: Array<{ action: string; selector: string; value?: string; target?: string }> }>;
+  const journey = input.journey ?? await page.evaluate(`window.SUNNY_VALIDATION_HOOKS?.[${JSON.stringify(journeyKey)}]`) as MathJourney;
   if (!Array.isArray(journey) || journey.length === 0) throw new Error(journeyKey === "incorrectJourney" ? "math_journey_incorrect_path_missing" : "math_journey_missing");
   if (input.itemIds && (journey.length !== input.itemIds.length || input.itemIds.some(id => journey.filter(row => row.itemId === id).length !== 1))) throw new Error("math_journey_item_coverage");
   const premature = await page.evaluate(`window.__sunnyMessages?.some(m => ["attempt_event", "evaluation_attempt", "evaluation_complete", "node_complete"].includes(m?.type))`);
@@ -785,6 +799,7 @@ export async function verifyMathControlJourney(page: BrowserPage, input: {
       const attemptsBefore = Number(await page.evaluate(attemptCountExpression));
       if (step.action === "click") await control.click({ timeout: 3000 });
       else if (step.action === "fill") await control.fill(String(step.value ?? ""), { timeout: 3000 });
+      else if (step.action === "press" && step.value) await control.press(step.value, { timeout: 3000 });
       else if (step.action === "drag" && step.target) await control.dragTo(page.locator(step.target), { timeout: 3000 });
       else throw new Error("math_journey_action_invalid");
       await page.waitForTimeout(50);

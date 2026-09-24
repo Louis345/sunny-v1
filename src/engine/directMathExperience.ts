@@ -4,7 +4,7 @@ import fs from "node:fs";
 import http from "node:http";
 import path from "node:path";
 import { resolveChildContextDir, resolveContextRoot } from "../utils/contextRoot";
-import { DISCOVERY_VERIFIER_VERSION, DISCOVERY_RELEASE_VIEWPORTS, MATH_JOURNEY_CONTRACT, MATH_IMPLEMENTATION_REPAIR_CONTRACT, verifyMathControlJourney, recordJourneyCapture, assertMathControlsVisible, type JourneyCapture, freezeEngineeringLessonSnapshot, engineeringFeatures, engineeringLessonContext, recordEngineeringRepairEvidence } from "./discoveryVisualReview";
+import { DISCOVERY_VERIFIER_VERSION, DISCOVERY_RELEASE_VIEWPORTS, MATH_JOURNEY_CONTRACT, MATH_IMPLEMENTATION_REPAIR_CONTRACT, verifyMathControlJourney, recordJourneyCapture, assertMathControlsVisible, type JourneyCapture, type MathJourney, type MathJourneyStep, freezeEngineeringLessonSnapshot, engineeringFeatures, engineeringLessonContext, recordEngineeringRepairEvidence } from "./discoveryVisualReview";
 import type { ChildChart } from "../profiles/childChart";
 import { assignmentPlannerContent, type AssignmentSourceExtraction } from "./assignmentSourceExtraction";
 import type { ActiveSessionPlan, AIContentCatalogItem } from "../context/schemas/learningProfile";
@@ -483,6 +483,9 @@ export type DirectArtifact = {
   architectModel?: string;
   builderProvider?: "anthropic" | "openai";
   builderModel?: string;
+  creatorContractVersion?: number;
+  creatorTestPath?: string;
+  creatorTestHash?: string;
   academicContractHash?: string;
   designArtifactHash?: string;
   htmlHash?: string;
@@ -494,7 +497,7 @@ export type DirectArtifact = {
 };
 
 export function preserveDirectArtifactGenerationMetrics(
-  generated: GeneratedActivityHtml | undefined,
+  generated: (Pick<GeneratedActivityHtml, "elapsedMs" | "inputTokens" | "outputTokens"> & { html?: string }) | undefined,
   existing: Pick<DirectArtifact, "generationElapsedMs" | "inputTokens" | "outputTokens">,
 ): Required<Pick<DirectArtifact, "generationElapsedMs" | "inputTokens" | "outputTokens">> {
   return generated
@@ -531,6 +534,12 @@ export type DirectPlaywrightReport = {
     runtime: boolean;
     scoring: boolean;
     contracts: boolean;
+  };
+  creatorTests?: {
+    passed: boolean;
+    manifestHash: string;
+    viewports: string[];
+    failures: string[];
   };
 };
 
@@ -2084,11 +2093,146 @@ export function normalizeGeneratedHtml(html: string): string {
   return `${trimmed}${/<\/body>\s*$/i.test(trimmed) ? "" : "</body>"}</html>`;
 }
 
+export type CreatorPlaywrightAssertion =
+  | { type: "visible" | "enabled" | "hidden" | "changed"; selector: string }
+  | { type: "text_contains"; selector: string; value: string }
+  | { type: "event"; eventType: "game_state_update" | "attempt_event" | "progress_event" | "node_complete"; itemId?: string };
+
+export type CreatorPlaywrightManifest = {
+  version: 1;
+  nodeId: string;
+  journey: Array<{
+    itemId: string;
+    steps: MathJourneyStep[];
+    assertions: CreatorPlaywrightAssertion[];
+  }>;
+  completionAssertions: CreatorPlaywrightAssertion[];
+};
+
+export type GeneratedActivityPackage = {
+  html: string;
+  htmlHash: string;
+  manifest: CreatorPlaywrightManifest;
+  manifestText: string;
+  manifestHash: string;
+};
+
+const CREATOR_TEST_SCRIPT = /<script\b(?=[^>]*\bid=["']sunny-playwright-test["'])(?=[^>]*\btype=["']application\/json["'])[^>]*>([\s\S]*?)<\/script>/i;
+const CREATOR_ACTIONS = new Set(["click", "fill", "press", "drag"]);
+const CREATOR_ASSERTIONS = new Set(["visible", "enabled", "hidden", "changed", "text_contains", "event"]);
+const CREATOR_EVENTS = new Set(["game_state_update", "attempt_event", "progress_event", "node_complete"]);
+
+function record(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : null;
+}
+
+function exactKeys(value: Record<string, unknown>, allowed: string[], code: string): void {
+  if (Object.keys(value).some((key) => !allowed.includes(key))) throw new Error(code);
+}
+
+function parseCreatorAssertion(value: unknown, itemId?: string): CreatorPlaywrightAssertion {
+  const assertion = record(value);
+  if (!assertion || typeof assertion.type !== "string" || !CREATOR_ASSERTIONS.has(assertion.type)) {
+    throw new Error("creator_playwright_manifest_assertion_invalid");
+  }
+  if (assertion.type === "event") {
+    exactKeys(assertion, ["type", "eventType", "itemId"], "creator_playwright_manifest_assertion_invalid");
+    if (typeof assertion.eventType !== "string" || !CREATOR_EVENTS.has(assertion.eventType)
+      || (assertion.itemId !== undefined && assertion.itemId !== itemId)) {
+      throw new Error("creator_playwright_manifest_assertion_invalid");
+    }
+    return assertion as CreatorPlaywrightAssertion;
+  }
+  exactKeys(assertion, assertion.type === "text_contains" ? ["type", "selector", "value"] : ["type", "selector"], "creator_playwright_manifest_assertion_invalid");
+  if (typeof assertion.selector !== "string" || !assertion.selector.trim()
+    || (assertion.type === "text_contains" && (typeof assertion.value !== "string" || !assertion.value.trim()))) {
+    throw new Error("creator_playwright_manifest_assertion_invalid");
+  }
+  return assertion as CreatorPlaywrightAssertion;
+}
+
+function parseCreatorStep(value: unknown): MathJourneyStep {
+  const step = record(value);
+  if (!step || typeof step.action !== "string" || !CREATOR_ACTIONS.has(step.action)) {
+    throw new Error("creator_playwright_manifest_action_invalid");
+  }
+  exactKeys(step, ["action", "selector", "value", "target"], "creator_playwright_manifest_action_invalid");
+  if (typeof step.selector !== "string" || !step.selector.trim()
+    || (["fill", "press"].includes(step.action) && typeof step.value !== "string")
+    || (step.action === "drag" && (typeof step.target !== "string" || !step.target.trim()))) {
+    throw new Error("creator_playwright_manifest_action_invalid");
+  }
+  return step as MathJourneyStep;
+}
+
+export function parseCreatorPlaywrightManifest(
+  parsed: unknown,
+  expected: { nodeId: string; itemIds: string[] },
+): CreatorPlaywrightManifest {
+  const value = record(parsed);
+  if (!value) throw new Error(`creator_playwright_manifest_invalid:${expected.nodeId}`);
+  exactKeys(value, ["version", "nodeId", "journey", "completionAssertions"], "creator_playwright_manifest_invalid");
+  if (value.version !== 1) throw new Error(`creator_playwright_manifest_version:${expected.nodeId}`);
+  if (value.nodeId !== expected.nodeId) throw new Error(`creator_playwright_manifest_node_mismatch:${expected.nodeId}`);
+  if (!Array.isArray(value.journey) || value.journey.length !== expected.itemIds.length) {
+    throw new Error(`creator_playwright_manifest_item_coverage:${expected.nodeId}`);
+  }
+  const journey = value.journey.map((candidate): CreatorPlaywrightManifest["journey"][number] => {
+    const item = record(candidate);
+    if (!item) throw new Error(`creator_playwright_manifest_item_invalid:${expected.nodeId}`);
+    exactKeys(item, ["itemId", "steps", "assertions"], "creator_playwright_manifest_item_invalid");
+    if (typeof item.itemId !== "string" || !Array.isArray(item.steps) || item.steps.length < 1 || item.steps.length > 10) {
+      throw new Error(`creator_playwright_manifest_item_invalid:${expected.nodeId}`);
+    }
+    if (!Array.isArray(item.assertions) || item.assertions.length < 1 || item.assertions.length > 8) {
+      throw new Error(`creator_playwright_manifest_assertion_missing:${item.itemId}`);
+    }
+    const itemId = item.itemId;
+    return {
+      itemId,
+      steps: item.steps.map(parseCreatorStep),
+      assertions: item.assertions.map((assertion) => parseCreatorAssertion(assertion, itemId)),
+    };
+  });
+  if (expected.itemIds.some((itemId) => journey.filter((item) => item.itemId === itemId).length !== 1)
+    || journey.some((item) => !expected.itemIds.includes(item.itemId))) {
+    throw new Error(`creator_playwright_manifest_item_coverage:${expected.nodeId}`);
+  }
+  if (!Array.isArray(value.completionAssertions) || value.completionAssertions.length < 1 || value.completionAssertions.length > 8) {
+    throw new Error(`creator_playwright_manifest_completion_missing:${expected.nodeId}`);
+  }
+  const completionAssertions = value.completionAssertions.map((assertion) => parseCreatorAssertion(assertion));
+  if (!completionAssertions.some((assertion) => assertion.type === "event" && assertion.eventType === "node_complete")) {
+    throw new Error(`creator_playwright_manifest_completion_missing:${expected.nodeId}`);
+  }
+  return { version: 1, nodeId: expected.nodeId, journey, completionAssertions };
+}
+
+export function parseGeneratedActivityPackage(raw: string, expected: { nodeId: string; itemIds: string[] }): GeneratedActivityPackage {
+  const normalized = normalizeGeneratedHtml(stripHtml(raw));
+  const match = normalized.match(CREATOR_TEST_SCRIPT);
+  if (!match) throw new Error(`creator_playwright_manifest_missing:${expected.nodeId}`);
+  let parsed: unknown;
+  try { parsed = JSON.parse(match[1]!); }
+  catch { throw new Error(`creator_playwright_manifest_json_invalid:${expected.nodeId}`); }
+  const manifest = parseCreatorPlaywrightManifest(parsed, expected);
+  const manifestText = `${JSON.stringify(manifest, null, 2)}\n`;
+  const html = normalizeGeneratedHtml(normalized.replace(CREATOR_TEST_SCRIPT, ""));
+  if (!isCompleteGeneratedHtml(html)) throw new Error(`direct_activity_html_truncated:${expected.nodeId}:chars=${html.length}`);
+  return {
+    html,
+    htmlHash: crypto.createHash("sha256").update(html).digest("hex"),
+    manifest,
+    manifestText,
+    manifestHash: crypto.createHash("sha256").update(manifestText).digest("hex"),
+  };
+}
+
 export function creatorPromptHash(
   activity: DirectActivity,
   plannerModel: string,
   creatorModel: string,
-  creatorContractVersion = 18,
+  creatorContractVersion = 19,
 ): string {
   return crypto.createHash("sha256").update(JSON.stringify({
     creatorContractVersion,
@@ -2109,6 +2253,10 @@ export function shouldReuseDirectArtifact(input: {
     || input.compatiblePromptHashes?.includes(input.savedPromptHash!) === true
   );
 }
+
+export const CREATOR_PLAYWRIGHT_MANIFEST_CONTRACT = `Before </body>, include one private <script id="sunny-playwright-test" type="application/json"> manifest. Sunny removes this script before publishing the activity. The JSON shape is {"version":1,"nodeId":string,"journey":[{"itemId":string,"steps":[action],"assertions":[assertion]}],"completionAssertions":[assertion]}.
+Cover every frozen item exactly once and in order. Each item needs 1-10 actions using its real visible controls and at least one assertion proving the intended result. Actions are {"action":"click","selector":"..."}, {"action":"fill","selector":"...","value":"..."}, {"action":"press","selector":"...","value":"Enter"}, or {"action":"drag","selector":"...","target":"..."}. Assertions are visible, enabled, hidden, changed, text_contains, or event. DOM assertions use {"type":"visible|enabled|hidden|changed","selector":"..."} or {"type":"text_contains","selector":"...","value":"..."}. Event assertions use {"type":"event","eventType":"game_state_update|attempt_event|progress_event|node_complete","itemId":"the frozen item id"}; omit itemId only for completion. completionAssertions must include node_complete. Use stable selectors for real child controls. The manifest is data only: no JavaScript, expressions, imports, callbacks, URLs, or generated evidence.
+Sunny runs this Creator-authored journey in Playwright, then independently verifies scoring, evidence, item transitions, and completion. The manifest cannot declare the activity correct.`;
 
 export function buildDirectActivityCreatorPrompt(input: {
   activity: DirectActivity;
@@ -2137,10 +2285,10 @@ After the final submission, completion state must not read the next item or call
 Emit window.parent.postMessage({type:"attempt_event",payload:{domain:"math",target,correct,attemptedValue,responseTimeMs,scaffoldLevel}},"*") for each answer.
 Emit window.parent.postMessage({type:"progress_event",payload:{nodeId:"${input.activity.id}",completedItems,totalItems}},"*") whenever visible progress advances.
 On completion calculate accuracy from targetResults and emit window.parent.postMessage({type:"node_complete",payload:{nodeId:"${input.activity.id}",completed:true,accuracy,targetResults,timeSpent_ms}},"*").
-${MATH_JOURNEY_CONTRACT}
+${CREATOR_PLAYWRIGHT_MANIFEST_CONTRACT}
 Include <div id="sunny-companion"></div> so the parent app owns Elli.
 At a 1365×768 viewport and a 1280×720 embedded frame, the title and first required action must be visible immediately. Use high-contrast text and controls against every panel behind them. Keep all primary controls inside the viewport without page scrolling or clipping. Before returning, measure the bounding rectangle of every enabled child control at both sizes. If any edge lies outside the viewport, compact spacing or resize the layout until all controls fit without scrolling.
-Return raw HTML only and end with </html>.
+Return raw HTML containing the private manifest and end with </html>.
 
 Child: ${input.childId}
 Immutable academic contract:
@@ -2430,6 +2578,10 @@ export async function generateAdaptiveProgressionActivityHtml(input: {
 
 type GeneratedActivityHtml = {
   html: string;
+  htmlHash: string;
+  manifest: CreatorPlaywrightManifest;
+  manifestText: string;
+  manifestHash: string;
   elapsedMs: number;
   inputTokens: number;
   outputTokens: number;
@@ -2490,11 +2642,11 @@ async function generateActivityHtml(input: {
   return {raw,inputTokens,outputTokens,stopReason,elapsedMs:Date.now()-startedAt};
   }});
   const {raw,inputTokens,outputTokens,stopReason,elapsedMs}=captured;
-  const html = normalizeGeneratedHtml(stripHtml(raw));
-  if (!isCompleteGeneratedHtml(html)) {
-    throw new Error(`direct_activity_html_truncated:${input.activity.id}:stop=${stopReason}:chars=${html.length}`);
-  }
-  return { html, elapsedMs, inputTokens, outputTokens };
+  const generated = parseGeneratedActivityPackage(raw, {
+    nodeId: input.activity.id,
+    itemIds: input.activity.items.map((item) => item.id),
+  });
+  return { ...generated, elapsedMs, inputTokens, outputTokens };
 }
 
 async function mapConcurrent<T, R>(
@@ -2623,13 +2775,10 @@ export async function generateDirectArtifacts(input: {
     if (!builder) throw new Error(`direct_builder_assignment_missing:${activity.id}`);
     const model = builder.model;
     const htmlPath = path.join(gamesDir, `${activity.id}.html`);
+    const creatorTestPath = path.join(gamesDir, `${activity.id}.playwright.json`);
     const metadataPath = path.join(gamesDir, `${activity.id}.artifact.json`);
     let existingHtml = fs.existsSync(htmlPath) ? fs.readFileSync(htmlPath, "utf8") : "";
     const expectedPromptHash = creatorPromptHash(activity, plannerModel, model);
-    const previousContractPromptHash = creatorPromptHash(activity, plannerModel, model, 17);
-    const priorContractPromptHash = creatorPromptHash(activity, plannerModel, model, 16);
-    const olderContractPromptHash = creatorPromptHash(activity, plannerModel, model, 15);
-    const oldestContractPromptHash = creatorPromptHash(activity, plannerModel, model, 14);
     let existingMetadata: Partial<DirectArtifact> & {
       creatorContractVersion?: number;
       designArtifact?: ExperienceDesignArtifactV1;
@@ -2641,8 +2790,13 @@ export async function generateDirectArtifacts(input: {
     } catch {
       savedPromptHash = undefined;
     }
+    const itemIds = activity.items.map((item) => item.id);
+    const savedManifestBytes = fs.existsSync(creatorTestPath) ? fs.readFileSync(creatorTestPath, "utf8") : "";
+    const savedManifestValid = existingMetadata.creatorContractVersion === 19
+      && Boolean(existingMetadata.creatorTestHash)
+      && crypto.createHash("sha256").update(savedManifestBytes).digest("hex") === existingMetadata.creatorTestHash;
     const frozenAcademicContractHash = activity.designArtifact?.academicContractHash ?? "";
-    const exactCatalogReuse = frozenAcademicContractHash && !forceNodeIds.has(activity.id)
+    let exactCatalogReuse = frozenAcademicContractHash && !forceNodeIds.has(activity.id)
       ? resolveExactMathCatalogReuse({
           decision: activity.catalogDecision ?? { action: "generate_new" },
           targetNodeId: activity.id,
@@ -2651,13 +2805,19 @@ export async function generateDirectArtifacts(input: {
         })
       : null;
     if (exactCatalogReuse?.runtime.launchPath) {
-      const sourceHtml = fs.readFileSync(exactCatalogReuse.runtime.launchPath, "utf8");
-      fs.writeFileSync(htmlPath, sourceHtml, "utf8");
-      existingHtml = sourceHtml;
       const sourceMetadataPath = exactCatalogReuse.runtime.launchPath.replace(/\.html$/i, ".artifact.json");
+      const sourceCreatorTestPath = exactCatalogReuse.runtime.launchPath.replace(/\.html$/i, ".playwright.json");
+      let sourceHtml = "";
+      let sourceManifest = "";
       if (fs.existsSync(sourceMetadataPath)) {
         try {
           const sourceMetadata = JSON.parse(fs.readFileSync(sourceMetadataPath, "utf8")) as typeof existingMetadata;
+          sourceHtml = fs.readFileSync(exactCatalogReuse.runtime.launchPath, "utf8");
+          sourceManifest = fs.existsSync(sourceCreatorTestPath) ? fs.readFileSync(sourceCreatorTestPath, "utf8") : "";
+          if (sourceMetadata.creatorContractVersion !== 19 || !sourceMetadata.creatorTestHash
+            || crypto.createHash("sha256").update(sourceManifest).digest("hex") !== sourceMetadata.creatorTestHash) {
+            throw new Error("creator_playwright_manifest_catalog_reuse_ineligible");
+          }
           existingMetadata = sourceMetadata;
           if (sourceMetadata.designArtifact?.academicContractHash === frozenAcademicContractHash) {
             activity.designArtifact = sourceMetadata.designArtifact;
@@ -2666,24 +2826,27 @@ export async function generateDirectArtifacts(input: {
           }
         } catch (error) {
           console.warn(` 🎮 [math-catalog] [reuse-metadata-warning] node=${activity.id} reason=${error instanceof Error ? error.message : String(error)}`);
+          exactCatalogReuse = null;
         }
+      } else {
+        exactCatalogReuse = null;
       }
-      savedPromptHash = exactCatalogReuse.hashes.implementationPromptHash ?? savedPromptHash;
-      reusedNodeIds.push(activity.id);
-      console.log(`  ✓ ${activity.id} [catalog/${exactCatalogReuse.contentId}] exact reuse`);
+      if (exactCatalogReuse) {
+        fs.writeFileSync(htmlPath, sourceHtml, "utf8");
+        fs.writeFileSync(creatorTestPath, sourceManifest, "utf8");
+        existingHtml = sourceHtml;
+        savedPromptHash = exactCatalogReuse.hashes.implementationPromptHash ?? savedPromptHash;
+        reusedNodeIds.push(activity.id);
+        console.log(`  ✓ ${activity.id} [catalog/${exactCatalogReuse.contentId}] exact reuse`);
+      }
     }
     let generated: GeneratedActivityHtml | undefined;
     const reusable = Boolean(exactCatalogReuse) || (!forceNodeIds.has(activity.id)
+      && savedManifestValid
       && shouldReuseDirectArtifact({
         htmlComplete: isCompleteGeneratedHtml(existingHtml),
         savedPromptHash,
         expectedPromptHash,
-        compatiblePromptHashes: [
-          previousContractPromptHash,
-          priorContractPromptHash,
-          olderContractPromptHash,
-          oldestContractPromptHash,
-        ],
       }));
     if (!reusable) {
       generatedNodeIds.push(activity.id);
@@ -2699,22 +2862,14 @@ export async function generateDirectArtifacts(input: {
         rootDir: input.rootDir,
       });
       fs.writeFileSync(htmlPath, generated.html, "utf8");
+      fs.writeFileSync(creatorTestPath, generated.manifestText, "utf8");
     } else if (!exactCatalogReuse) {
       reusedNodeIds.push(activity.id);
       console.log(`  ✓ ${activity.id} [${builder.provider}/${model}] reused`);
     }
     const resolvedPromptHash = generated ? expectedPromptHash : savedPromptHash ?? expectedPromptHash;
-    const resolvedCreatorContractVersion = generated
-      ? 18
-      : resolvedPromptHash === oldestContractPromptHash
-        ? 14
-        : resolvedPromptHash === olderContractPromptHash
-          ? 15
-          : resolvedPromptHash === priorContractPromptHash
-            ? 16
-            : resolvedPromptHash === previousContractPromptHash
-              ? 17
-              : 18;
+    const resolvedCreatorContractVersion = 19;
+    const resolvedCreatorTestHash = generated?.manifestHash ?? existingMetadata.creatorTestHash;
     const html = generated?.html ?? existingHtml;
     const generationMetrics = preserveDirectArtifactGenerationMetrics(generated, existingMetadata);
     const resolvedBuilderProvider = generated ? builder.provider : existingMetadata.builderProvider ?? builder.provider;
@@ -2730,6 +2885,9 @@ export async function generateDirectArtifacts(input: {
       creatorPrompt: activity.creatorPrompt,
       promptHash: resolvedPromptHash,
       creatorContractVersion: resolvedCreatorContractVersion,
+      creatorTestPath,
+      creatorTestHash: resolvedCreatorTestHash,
+      itemIds,
       plannerModel,
       architectModel,
       builderProvider: resolvedBuilderProvider,
@@ -2755,10 +2913,14 @@ export async function generateDirectArtifacts(input: {
       architectModel,
       builderProvider: resolvedBuilderProvider,
       builderModel: resolvedBuilderModel,
+      creatorContractVersion: resolvedCreatorContractVersion,
+      creatorTestPath,
+      creatorTestHash: resolvedCreatorTestHash,
       academicContractHash: activity.designArtifact?.academicContractHash,
       designArtifactHash,
       htmlHash,
       externalLibraryUrls: externalLibraryUrls(html),
+      itemIds,
       ...generationMetrics,
     };
     await input.onArtifactSaved?.(artifact);
@@ -2808,6 +2970,97 @@ function contentType(file: string): string {
   return "application/octet-stream";
 }
 
+type DirectBrowserPage = Awaited<ReturnType<Awaited<ReturnType<(typeof import("playwright"))["chromium"]["launch"]>>["newPage"]>>;
+
+async function openDirectArtifactPage(input: {
+  page: DirectBrowserPage;
+  artifact: DirectArtifact;
+  port: number;
+}): Promise<void> {
+  await input.page.addInitScript(`window.__sunnyMessages=[];window.addEventListener("message",event=>window.__sunnyMessages.push(event.data));`);
+  const launchPath = NODE_REGISTRY["generated-baseline"]?.getUrl?.({
+    id: input.artifact.nodeId,
+    type: "generated-baseline",
+    gameHtmlPath: input.artifact.htmlPath,
+    date: input.artifact.homeworkId,
+    words: [],
+    difficulty: 2,
+  }, { childId: input.artifact.childId, companion: "elli", previewParam: "" });
+  if (!launchPath) throw new Error("launch_url_missing");
+  const navigation = await input.page.goto(`http://127.0.0.1:${input.port}${launchPath}`, { waitUntil: "load" });
+  if (navigation?.status() !== 200 || !navigation.headers()["content-type"]?.includes("text/html")) {
+    throw new Error("real_launch_not_html");
+  }
+}
+
+async function creatorEventExists(
+  page: DirectBrowserPage,
+  assertion: Extract<CreatorPlaywrightAssertion, { type: "event" }>,
+): Promise<void> {
+  const eventType = JSON.stringify(assertion.eventType);
+  const itemId = JSON.stringify(assertion.itemId ?? null);
+  await page.waitForFunction(`(() => {
+    const eventType = ${eventType}; const itemId = ${itemId};
+    return (window.__sunnyMessages ?? []).some(message => {
+      if (message?.type !== eventType) return false;
+      if (!itemId) return true;
+      const payload = message?.payload && typeof message.payload === "object" ? message.payload : message;
+      return payload?.target === itemId || payload?.itemId === itemId || payload?.currentChallenge?.id === itemId;
+    });
+  })()`, undefined, { timeout: 5_000 });
+}
+
+async function runCreatorAssertion(
+  page: DirectBrowserPage,
+  assertion: CreatorPlaywrightAssertion,
+  changedFrom?: string | null,
+): Promise<void> {
+  if (assertion.type === "event") {
+    await creatorEventExists(page, assertion);
+    return;
+  }
+  const locator = page.locator(assertion.selector).first();
+  if (assertion.type === "hidden") {
+    await locator.waitFor({ state: "hidden", timeout: 5_000 });
+    return;
+  }
+  await locator.waitFor({ state: "visible", timeout: 5_000 });
+  if (assertion.type === "visible") return;
+  if (assertion.type === "enabled") {
+    await page.waitForFunction(`(() => { const element = document.querySelector(${JSON.stringify(assertion.selector)}); return Boolean(element) && !element.disabled && element.getAttribute("aria-disabled") !== "true"; })()`, undefined, { timeout: 5_000 });
+    return;
+  }
+  if (assertion.type === "text_contains") {
+    await page.waitForFunction(`document.querySelector(${JSON.stringify(assertion.selector)})?.textContent?.includes(${JSON.stringify(assertion.value)}) === true`, undefined, { timeout: 5_000 });
+    return;
+  }
+  await page.waitForFunction(`document.querySelector(${JSON.stringify(assertion.selector)})?.outerHTML !== ${JSON.stringify(changedFrom ?? null)}`, undefined, { timeout: 5_000 });
+}
+
+async function runCreatorPlaywrightManifest(page: DirectBrowserPage, manifest: CreatorPlaywrightManifest): Promise<void> {
+  for (const item of manifest.journey) {
+    const changedBaselines = new Map<number, string | null>();
+    for (let index = 0; index < item.assertions.length; index += 1) {
+      const assertion = item.assertions[index]!;
+      if (assertion.type === "changed") {
+        changedBaselines.set(index, await page.locator(assertion.selector).first()
+          .evaluate((element) => (element as unknown as { outerHTML: string }).outerHTML).catch(() => null));
+      }
+    }
+    for (const step of item.steps) {
+      const locator = page.locator(step.selector).first();
+      if (step.action === "click") await locator.click();
+      else if (step.action === "fill") await locator.fill(step.value ?? "");
+      else if (step.action === "press") await locator.press(step.value ?? "Enter");
+      else await locator.dragTo(page.locator(step.target!).first());
+    }
+    for (let index = 0; index < item.assertions.length; index += 1) {
+      await runCreatorAssertion(page, item.assertions[index]!, changedBaselines.get(index));
+    }
+  }
+  for (const assertion of manifest.completionAssertions) await runCreatorAssertion(page, assertion);
+}
+
 export async function runDirectBrowserSmokeCheck(input: {
   artifacts: DirectArtifact[];
   rootDir?: string;
@@ -2840,28 +3093,74 @@ export async function runDirectBrowserSmokeCheck(input: {
   if (!address || typeof address === "string") throw new Error("direct_playwright_server_failed");
   let browser: Awaited<ReturnType<(typeof import("playwright"))["chromium"]["launch"]>> | undefined;
   const failures: string[] = [], screenshots: string[] = [], captures: JourneyCapture[] = [];
+  const creatorFailures: string[] = [];
+  const creatorPassedViewports = new Set<string>();
+  const creatorManifests = new Map<string, CreatorPlaywrightManifest>();
+  const creatorManifestHashes: string[] = [];
+  for (const artifact of input.artifacts) {
+    if ((artifact.creatorContractVersion ?? 0) < 19) continue;
+    if (!artifact.creatorTestPath || !fs.existsSync(artifact.creatorTestPath)) {
+      const failure = `${artifact.nodeId}:creator_playwright_manifest_file_missing`;
+      failures.push(failure); creatorFailures.push(failure); continue;
+    }
+    const bytes = fs.readFileSync(artifact.creatorTestPath, "utf8");
+    const digest = crypto.createHash("sha256").update(bytes).digest("hex");
+    if (!artifact.creatorTestHash || digest !== artifact.creatorTestHash) {
+      const failure = `${artifact.nodeId}:creator_playwright_manifest_hash_mismatch`;
+      failures.push(failure); creatorFailures.push(failure); continue;
+    }
+    try {
+      const manifest = parseCreatorPlaywrightManifest(JSON.parse(bytes), {
+        nodeId: artifact.nodeId,
+        itemIds: artifact.itemIds ?? [],
+      });
+      creatorManifests.set(artifact.nodeId, manifest);
+      creatorManifestHashes.push(digest);
+    } catch (error) {
+      const failure = `${artifact.nodeId}:${error instanceof Error ? error.message : String(error)}`;
+      failures.push(failure); creatorFailures.push(failure);
+    }
+  }
   const screenshotDir = path.join(rootDir, "outputs", "math-browser-verification");
   try {
     fs.mkdirSync(screenshotDir, { recursive: true });
     const { chromium } = await import("playwright");
     browser = await chromium.launch({ headless: true });
     for (const artifact of input.artifacts) for (const viewport of DISCOVERY_RELEASE_VIEWPORTS) {
+      const creatorManifest = creatorManifests.get(artifact.nodeId);
+      if ((artifact.creatorContractVersion ?? 0) >= 19 && creatorManifest) {
+        const creatorPage = await browser.newPage({ viewport });
+        const creatorErrors: string[] = [];
+        creatorPage.on("pageerror", error => creatorErrors.push(error.message));
+        try {
+          await openDirectArtifactPage({ page: creatorPage, artifact, port: address.port });
+          await assertMathControlsVisible(creatorPage);
+          await runCreatorPlaywrightManifest(creatorPage, creatorManifest);
+          creatorPassedViewports.add(viewport.name);
+        } catch (error) {
+          const failure = `${artifact.nodeId}:${viewport.name}:creator_playwright:${error instanceof Error ? error.message : String(error)}`;
+          failures.push(failure); creatorFailures.push(failure);
+        } finally {
+          for (const error of creatorErrors) {
+            const failure = `${artifact.nodeId}:${viewport.name}:creator_playwright:browser_error:${error}`;
+            failures.push(failure); creatorFailures.push(failure);
+          }
+          await creatorPage.close();
+        }
+      }
       const page = await browser.newPage({ viewport });
       const viewportCaptures: JourneyCapture[] = [];
       const errors: string[] = [];
       page.on("pageerror", error => errors.push(error.message));
       try {
-        await page.addInitScript(`window.__sunnyMessages=[];window.addEventListener("message",event=>window.__sunnyMessages.push(event.data));`);
-        const launchPath = NODE_REGISTRY["generated-baseline"]?.getUrl?.({ id: artifact.nodeId, type: "generated-baseline", gameHtmlPath: artifact.htmlPath, date: artifact.homeworkId, words: [], difficulty: 2 }, { childId: artifact.childId, companion: "elli", previewParam: "" });
-        if (!launchPath) throw new Error("launch_url_missing");
-        const navigation = await page.goto(`http://127.0.0.1:${address.port}${launchPath}`, { waitUntil: "load" });
-        if (navigation?.status() !== 200 || !navigation.headers()["content-type"]?.includes("text/html")) throw new Error("real_launch_not_html");
+        await openDirectArtifactPage({ page, artifact, port: address.port });
         await assertMathControlsVisible(page);
         await verifyMathControlJourney(page, {
           completionType: "node_complete",
           itemIds: artifact.itemIds,
           requireItemStateTransitions: Boolean(artifact.itemIds?.length),
           itemContracts: input.itemContractsByNodeId?.[artifact.nodeId],
+          journey: creatorManifest?.journey.map((item) => ({ itemId: item.itemId, steps: item.steps })),
           captureState: async (request) => {
             const recorded = await recordJourneyCapture(page, {
               outputDir: screenshotDir,
@@ -2909,6 +3208,9 @@ export async function runDirectBrowserSmokeCheck(input: {
   const frozenContractsCovered = input.artifacts.length > 0 && input.artifacts.every(
     artifact => (input.itemContractsByNodeId?.[artifact.nodeId]?.length ?? 0) > 0,
   );
+  const aggregateManifestHash = creatorManifestHashes.length === 1
+    ? creatorManifestHashes[0]!
+    : crypto.createHash("sha256").update(JSON.stringify(creatorManifestHashes.sort())).digest("hex");
   return {
     passed,
     failures,
@@ -2919,6 +3221,15 @@ export async function runDirectBrowserSmokeCheck(input: {
       scoring: passed && frozenContractsCovered,
       contracts: passed && frozenContractsCovered,
     },
+    ...(input.artifacts.some((artifact) => (artifact.creatorContractVersion ?? 0) >= 19) ? {
+      creatorTests: {
+        passed: creatorFailures.length === 0,
+        manifestHash: aggregateManifestHash,
+        viewports: DISCOVERY_RELEASE_VIEWPORTS.map((viewport) => viewport.name)
+          .filter((name) => creatorPassedViewports.has(name)),
+        failures: creatorFailures,
+      },
+    } : {}),
   };
 }
 

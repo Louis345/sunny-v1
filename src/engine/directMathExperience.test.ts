@@ -937,7 +937,8 @@ describe("direct math experience", () => {
 
     expect(prompt).toContain("replace the previous item's controls");
     expect(prompt).toContain("including the final item");
-    expect(prompt).toContain("window.SUNNY_VALIDATION_HOOKS");
+    expect(prompt).toContain('id="sunny-playwright-test"');
+    expect(prompt).toContain("The manifest is data only");
     expect(prompt).toContain("same handlers as the visible child controls");
     expect(prompt).toContain("measure the bounding rectangle of every enabled child control");
     expect(prompt).toContain("1280×720 embedded frame");
