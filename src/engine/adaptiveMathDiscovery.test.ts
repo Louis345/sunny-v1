@@ -46,16 +46,26 @@ function generatedDiscoveryHtml(): string {
   const runtimeContract = JSON.stringify({
     items: [{ itemId: "i1", constructId: "math.equal_groups", acceptedValues: ["4"] }],
   });
-  return `<!doctype html><html><body><button id="answer">Start</button>
+  return `<!doctype html><html><body>
+    <button id="answer">Choose 4</button>
+    <button id="wrong-answer">Choose 2</button>
     <script id="sunny-discovery-contract" type="application/json">${runtimeContract}</script>
     <script>
       window.__SUNNY_DISCOVERY_TEST__ = { evaluate(itemId, attemptedValue) { return { itemId, constructId: "math.equal_groups", correct: attemptedValue === "4" }; } };
       parent.postMessage({type:'evaluation_ready'},'*');
-      window.SUNNY_VALIDATION_HOOKS = {journey:[{itemId:'i1',steps:[{action:'click',selector:'#answer'}]}]};
-      document.querySelector('#answer').onclick=()=>{
-        parent.postMessage({type:'evaluation_attempt',payload:{attemptId:'attempt-i1',observedAt:new Date().toISOString(),supportEventIds:[],instrumentSignals:[],itemId:'i1',attemptedValue:'4'}},'*');
+      window.SUNNY_VALIDATION_HOOKS = {
+        journey:[{itemId:'i1',steps:[{action:'click',selector:'#answer'}]}],
+        incorrectJourney:[{itemId:'i1',steps:[{action:'click',selector:'#wrong-answer'}]}],
+      };
+      const submit = attemptedValue => {
+        const result = window.__SUNNY_DISCOVERY_TEST__.evaluate('i1', attemptedValue);
+        const expectedCorrectness = attemptedValue === '4';
+        if (result.correct !== expectedCorrectness) throw new Error('fixture_scoring_disagreement');
+        parent.postMessage({type:'evaluation_attempt',payload:{attemptId:'attempt-i1-'+attemptedValue,observedAt:new Date().toISOString(),supportEventIds:[],instrumentSignals:[],itemId:'i1',attemptedValue}},'*');
         parent.postMessage({type:'evaluation_complete'},'*');
       };
+      document.querySelector('#answer').onclick=()=>submit('4');
+      document.querySelector('#wrong-answer').onclick=()=>submit('2');
     </script></body></html>`;
 }
 
