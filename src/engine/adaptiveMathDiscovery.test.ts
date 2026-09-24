@@ -477,6 +477,49 @@ describe("adaptive math discovery", () => {
     }
   });
 
+  it("saves an output-budget truncation as a received response before classifying the harness failure", async () => {
+    const rootDir = root();
+    const homeworkId = "hw-gpt-truncated";
+    const responses = [
+      { content: [{ type: "tool_use", name: "create_math_discovery_contract", input: { evaluationId: "eval-1", title: "Show What You Know", assignmentEvidenceIds: ["assignment:1"], constructs: [{ constructId: "math.equal_groups", prerequisiteIds: [] }], items: [{ itemId: "i1", constructId: "math.equal_groups", prompt: "How many groups?", responseContract: { mode: "tap_selection", representationId: "equal_groups" }, correctAnswerContract: { acceptedValues: ["4"] }, difficultyBoundary: "grade 3", exposureId: "eval-1:i1", possibleConfounds: ["interface_friction"], falsifyingEvidence: ["response is not independent"], measurementKeys: ["independent_correct"] }] } }], usage: { input_tokens: 10, output_tokens: 20 } },
+    ];
+    const client = { messages: { stream: (request: { messages: Array<{ content: string }> }) => ({
+      finalMessage: async () => request.messages[0]!.content.includes("CONTRACT HASH:")
+        ? { content: [{ type: "tool_use", name: "create_math_discovery_design", input: { contractHash: request.messages[0]!.content.match(/CONTRACT HASH: ([a-f0-9]+)/)?.[1], design: { firstAction: "Tap" }, backgroundSvg: "<svg/>" } }], usage: { input_tokens: 10, output_tokens: 20 } }
+        : responses.shift()!,
+    }) } };
+    const partial = "<!doctype html><html>";
+    const body = [
+      `data: ${JSON.stringify({ type: "response.output_text.delta", delta: partial })}\n\n`,
+      `data: ${JSON.stringify({ type: "response.incomplete", response: { status: "incomplete", incomplete_details: { reason: "max_output_tokens" }, usage: { input_tokens: 100, output_tokens: 48000, output_tokens_details: { reasoning_tokens: 47000 } } } })}\n\n`,
+    ].join("");
+    const fetchMock = vi.fn(async () => new Response(body, { status: 200, headers: { "content-type": "text/event-stream" } }));
+    vi.stubGlobal("fetch", fetchMock);
+    const priorKey = process.env.OPENAI_API_KEY;
+    process.env.OPENAI_API_KEY = "synthetic";
+    const run = () => generateMathDiscoveryExperience({ rootDir, childId: "lab-child", homeworkId, assignmentText: "Four equal groups.", assignmentEvidenceIds: ["assignment:1"], factualChildContext: { age: 9 }, client: client as never, builderModel: "gpt-5.6", visualReview: async ({ html }) => html });
+    try {
+      await expect(run()).rejects.toThrow("discovery_openai_harness_failure:output_budget_exhausted");
+      await expect(run()).rejects.toThrow("discovery_openai_harness_failure:output_budget_exhausted");
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      const receipts = path.join(rootDir, "src/context/lab-child/homework/direct-drafts", homeworkId, "provider-receipts");
+      const stage = JSON.parse(fs.readFileSync(path.join(receipts, "builder.stage.json"), "utf8"));
+      const receipt = JSON.parse(fs.readFileSync(path.join(receipts, `${stage.requestHash}.json`), "utf8"));
+      expect(receipt).toMatchObject({
+        status: "received",
+        response: {
+          stop_reason: "max_output_tokens",
+          usage: { output_tokens_details: { reasoning_tokens: 47000 } },
+          visible_text_characters: partial.length,
+        },
+      });
+    } finally {
+      vi.unstubAllGlobals();
+      if (priorKey == null) delete process.env.OPENAI_API_KEY;
+      else process.env.OPENAI_API_KEY = priorKey;
+    }
+  });
+
   it("refuses to reuse changed Discovery bytes even when its contract file exists", async () => {
     const rootDir = root(), storage = path.join(rootDir, "src/context/lab-child/homework/games/hw-tampered");
     fs.mkdirSync(storage, {recursive:true});

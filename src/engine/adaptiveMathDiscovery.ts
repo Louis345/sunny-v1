@@ -759,7 +759,7 @@ export async function generateMathDiscoveryExperience(input: {
       messages: [{ role: "user", content: tool?.name === "create_math_discovery_contract" && input.assignmentSource && typeof prompt === "string" ? assignmentPlannerContent(input.assignmentSource,prompt) : prompt }],
       ...(tool ? { tools: [{ name: tool.name, description: "Return the requested frozen artifact.", input_schema: tool.schema }], tool_choice: { type: "tool", name: tool.name } } : {}),
     };
-    return runMathProviderStage({draftDir, stage: stageOverride ?? tool?.name ?? (Array.isArray(prompt) ? "repair" : "builder"), model, request, retryUncertain: input.retryUncertain, beforeRequest: () => {
+    const received = await runMathProviderStage({draftDir, stage: stageOverride ?? tool?.name ?? (Array.isArray(prompt) ? "repair" : "builder"), model, request, retryUncertain: input.retryUncertain, beforeRequest: () => {
       if (provider === "openai" && !process.env.OPENAI_API_KEY?.trim()) throw new Error("preflight_missing:OPENAI_API_KEY");
       if (provider === "anthropic" && !input.client && !process.env.ANTHROPIC_API_KEY && !process.env.ANTHROPIC_AUTH_TOKEN) throw new Error("preflight_missing:ANTHROPIC_API_KEY");
     }, execute: async () => {
@@ -787,7 +787,6 @@ export async function generateMathDiscoveryExperience(input: {
           throw failure;
         }
         const streamed = await readOpenAiResponseStream(apiResponse);
-        if (streamed.stopReason !== "completed") throw new Error(`discovery_openai_incomplete:${streamed.stopReason}`);
         response = {
           provider,
           model,
@@ -805,6 +804,15 @@ export async function generateMathDiscoveryExperience(input: {
       }
       return response;
     }});
+    if (provider === "openai") {
+      const stopReason = String((received as { stop_reason?: unknown }).stop_reason ?? "unknown");
+      if (stopReason === "max_output_tokens") {
+        console.error(` 🎮 [adaptive-math] [provider-harness] [output-budget-exhausted] stage=${stageOverride ?? "builder"}`);
+        throw new Error("discovery_openai_harness_failure:output_budget_exhausted");
+      }
+      if (stopReason !== "completed") throw new Error(`discovery_openai_incomplete:${stopReason}`);
+    }
+    return received;
   };
   const common = `ASSIGNMENT EVIDENCE IDS:\n${JSON.stringify(input.assignmentEvidenceIds)}\n\nASSIGNMENT:\n${input.assignmentText}\n\nFACTUAL CHILD CONTEXT:\n${JSON.stringify(input.factualChildContext, null, 2)}`;
   let academic = readCheckpoint<DiscoveryAcademicContract>(academicCheckpointFile);
