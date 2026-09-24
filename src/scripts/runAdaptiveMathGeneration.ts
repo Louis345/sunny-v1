@@ -68,11 +68,13 @@ type VisualRepairAttempt = {
 };
 
 const VISUAL_REPAIR_PATCH_PARSER_VERSION = 2;
-const MAX_VISUAL_REPAIR_PASSES = 2;
+const MAX_VISUAL_REPAIR_PASSES = 1;
 
 function checkerContractAmbiguity(report?: Pick<DirectPlaywrightReport, "failures">): string | undefined {
   return report?.failures.find(failure => failure.startsWith("math_journey_checker_contract_ambiguity;"));
 }
+
+const CREATOR_MANIFEST_CONTRACT_FAILURE = /creator_playwright_manifest_(?:file_missing|hash_mismatch|json_invalid|invalid|version|node_mismatch|item_coverage|item_invalid|assertion_missing|assertion_invalid|completion_missing|action_invalid)/;
 
 function visualRepairNodeDir(draft: string, nodeId: string): string {
   return path.join(draft, "provider-diagnostics", `visual-repair-v${CHILD_FACING_VISUAL_GATE_VERSION}`, nodeId);
@@ -136,16 +138,6 @@ function isChildVisualReviewFailure(attempt: VisualRepairAttempt | undefined): b
 
 function isRolledBackVisualRepair(attempt: VisualRepairAttempt | undefined, artifactHash: string): boolean {
   return isChildVisualReviewFailure(attempt) && attempt?.inputHtmlHash === artifactHash;
-}
-
-function isVisualRepairFollowUp(
-  attempt: VisualRepairAttempt | undefined,
-  artifactHash: string,
-  attemptCount: number,
-): boolean {
-  return isChildVisualReviewFailure(attempt)
-    && attempt?.outputHtmlHash === artifactHash
-    && attemptCount < MAX_VISUAL_REPAIR_PASSES;
 }
 
 function mayRunVisualRepair(attempt: VisualRepairAttempt | undefined, retryUncertain: boolean, artifactHash?: string): boolean {
@@ -254,12 +246,11 @@ export async function runAdaptiveMathGeneration(
     && !fs.existsSync(planFile)
     && hasUncertainTargetedDesignReceipt(draft),
   );
-  const isCurrentVisualRejection = (saved?: Partial<BoardPlaywrightReport>): boolean => Boolean(
+  const isCurrentGeneratedContentRejection = (saved?: Partial<BoardPlaywrightReport>): boolean => Boolean(
     saved
     && saved.verifierVersion === MATH_BROWSER_VERIFIER_VERSION
     && saved.passed === false
     && saved.failures?.length
-    && saved.failures.every((failure) => failure.startsWith("child_visual_review:"))
     && saved.visualReview?.repairAuthorized === true
     && saved.visualReview.attribution?.category === "generated_content_defect",
   );
@@ -287,9 +278,8 @@ export async function runAdaptiveMathGeneration(
         const resumableAttempt = attempt && ["started", "provider_completed"].includes(attempt.status);
         return ["failed_resumable", "needs_attention"].includes(status ?? "")
           && (Boolean(resumableAttempt)
-            || isVisualRepairFollowUp(attempt, artifact.htmlHash ?? "", attemptCount)
             || (attemptCount < MAX_VISUAL_REPAIR_PASSES
-              && isCurrentVisualRejection(savedReports[artifact.nodeId])
+              && isCurrentGeneratedContentRejection(savedReports[artifact.nodeId])
               && mayRunVisualRepair(attempt, Boolean(options.retryUncertainProvider), artifact.htmlHash)));
       });
     } catch (error) {
@@ -423,7 +413,34 @@ export async function runAdaptiveMathGeneration(
     if (browserHarnessFailures.length > 0) {
       throw new Error(`targeted_visual_review_needs_attention:${artifact.nodeId}:harness_failure:${browserHarnessFailures.join("|")}`);
     }
-    if (!reports[artifact.nodeId].passed) throw new Error(`targeted_browser_verification_failed:${artifact.nodeId}:${reports[artifact.nodeId].failures.join("|")}`);
+    if (!reports[artifact.nodeId].passed) {
+      const contractFailures = reports[artifact.nodeId].failures.filter(failure => CREATOR_MANIFEST_CONTRACT_FAILURE.test(failure));
+      const attribution: ReviewAttribution = contractFailures.length > 0
+        ? { category: "verifier_incompatible", source: "deterministic", details: contractFailures }
+        : reports[artifact.nodeId].screenshots.length === 0
+          ? { category: "capture_defect", source: "deterministic", details: ["browser_failure_without_capture"] }
+          : { category: "generated_content_defect", source: "deterministic", details: reports[artifact.nodeId].failures };
+      const repairAuthorized = attribution.category === "generated_content_defect";
+      reports[artifact.nodeId] = {
+        ...reports[artifact.nodeId],
+        visualReview: { attribution, repairAuthorized, findings: [] },
+      };
+      write(reportsFile, reports);
+      appendBoardVisualReviewHistory(draft, artifact.nodeId, {
+        artifactHash: htmlHash,
+        browserVerifierVersion: MATH_BROWSER_VERIFIER_VERSION,
+        visualGateVersion: CHILD_FACING_VISUAL_GATE_VERSION,
+        deterministicFailures: reports[artifact.nodeId].failures,
+        attribution,
+        repairAuthorized,
+      });
+      console.log(` 🎮 [adaptive-math] [verification-attribution] [${repairAuthorized ? "repair-authorized" : "needs-attention"}] node=${artifact.nodeId} category=${attribution.category}`);
+      if (!repairAuthorized) {
+        const reason = contractFailures.length > 0 ? "creator_manifest_contract" : attribution.category;
+        throw new Error(`targeted_visual_review_needs_attention:${artifact.nodeId}:${reason}:${attribution.details.join("|")}`);
+      }
+      throw new Error(`targeted_generated_content_defect:${artifact.nodeId}:${reports[artifact.nodeId].failures.join("|")}`);
+    }
     const visualAuditFile = childFacingVisualAuditFile(draft, artifact);
     const legacyVisualAuditFile = path.join(draft, "provider-diagnostics", `${artifact.nodeId}-visual-verdict.json`);
     if (!fs.existsSync(visualAuditFile) && fs.existsSync(legacyVisualAuditFile)) {
@@ -523,7 +540,7 @@ export async function runAdaptiveMathGeneration(
       if (!repairAuthorized) {
         throw new Error(`targeted_visual_review_needs_attention:${artifact.nodeId}:${attribution.category}:${attribution.details.join("|")}`);
       }
-      throw new Error(`targeted_browser_verification_failed:${artifact.nodeId}:${reports[artifact.nodeId].failures.join("|")}`);
+      throw new Error(`targeted_generated_content_defect:${artifact.nodeId}:${reports[artifact.nodeId].failures.join("|")}`);
     }
     reports[artifact.nodeId] = { ...reports[artifact.nodeId], visualReview: { attribution: null, repairAuthorized: false, findings: [] } };
     write(reportsFile, reports);
@@ -659,25 +676,33 @@ export async function runAdaptiveMathGeneration(
       }
     }
   }
+  project();
+  await buildTargetedNodesResumably({ rootDir, childId, homeworkId, firstNodeId: designed.plan.activities[0]?.id ?? "", concurrency: 2, buildNode: async (nodeId) => {
+    let artifact = build.artifacts.find(candidate => candidate.nodeId === nodeId);
+    if (!artifact) {
+      const generated = await generateDirectArtifacts({ rootDir, plan: designed.plan, childId, homeworkId, plannerModel: process.env.SUNNY_PLANNER_MODEL ?? "claude-opus-5", architectModel: process.env.SUNNY_ARCHITECT_MODEL ?? "claude-fable-5", assignmentFingerprint: extraction.fileHash, candidateCards: mathPlannerCandidateCards(chart), existingArtworkUrls: build.artifacts.length ? build : undefined, nodeIds: [nodeId] });
+      const merged = new Map(build.artifacts.map(candidate => [candidate.nodeId, candidate]));
+      generated.artifacts.forEach(candidate => merged.set(candidate.nodeId, candidate));
+      build = { ...generated, artifacts: [...merged.values()] };
+      write(buildFile, build);
+      artifact = merged.get(nodeId);
+    }
+    if (!artifact?.htmlHash) throw new Error(`targeted_artifact_missing:${nodeId}`);
+    await verifyAndBind(artifact);
+    return { artifactHash: artifact.htmlHash };
+  }, onNodeReady: project });
   // A runtime/provider failure and a child-visible visual defect are different
   // failure classes. Generic build attempts must not consume the one bounded
   // visual repair available for a frozen artifact under this gate version.
-  const visualRepairQueue = [...build.artifacts];
-  for (let repairIndex = 0; repairIndex < visualRepairQueue.length; repairIndex += 1) {
-    const currentArtifact = visualRepairQueue[repairIndex]!;
+  for (const currentArtifact of [...build.artifacts]) {
     const node = getMathGenerationStatus(childId, homeworkId, { rootDir })?.nodes.find(candidate => candidate.nodeId === currentArtifact.nodeId);
     const savedReport = reports[currentArtifact.nodeId];
     const foundAttempt = findVisualRepairAttempt(draft, currentArtifact.nodeId, currentArtifact.htmlHash ?? "");
-    const followUp = isVisualRepairFollowUp(
-      foundAttempt?.value,
-      currentArtifact.htmlHash ?? "",
-      countVisualRepairAttempts(draft, currentArtifact.nodeId),
-    );
-    const savedAttempt = followUp ? undefined : foundAttempt;
+    const savedAttempt = foundAttempt;
     const resumableAttempt = savedAttempt && ["started", "provider_completed"].includes(savedAttempt.value.status);
     const consumedAttempts = countVisualRepairAttempts(draft, currentArtifact.nodeId);
     if (!["failed_resumable", "needs_attention"].includes(node?.status ?? "")
-      || !(resumableAttempt || followUp || (isCurrentVisualRejection(savedReport)
+      || !(resumableAttempt || (isCurrentGeneratedContentRejection(savedReport)
         && consumedAttempts < MAX_VISUAL_REPAIR_PASSES
         && mayRunVisualRepair(savedAttempt?.value, Boolean(options.retryUncertainProvider), currentArtifact.htmlHash)))) continue;
     const activity = designed.plan.activities.find(candidate => candidate.id === currentArtifact.nodeId);
@@ -773,46 +798,10 @@ export async function runAdaptiveMathGeneration(
         error: message,
         finishedAt: new Date().toISOString(),
       });
-      if (preserveUnpublishedCandidate
-        && repaired
-        && countVisualRepairAttempts(draft, currentArtifact.nodeId) < MAX_VISUAL_REPAIR_PASSES) {
-        visualRepairQueue.push(repaired);
-      }
       console.log(` 🎮 [adaptive-math] [visual-repair] [failed] node=${currentArtifact.nodeId} reason=${message}`);
     }
   }
   project();
-  await buildTargetedNodesResumably({ rootDir, childId, homeworkId, firstNodeId: designed.plan.activities[0]?.id ?? "", concurrency: 2, buildNode: async (nodeId) => {
-    let artifact = build.artifacts.find(a => a.nodeId === nodeId);
-    if (artifact && reports[nodeId]?.verifierVersion !== MATH_BROWSER_VERIFIER_VERSION) {
-      try { await verifyAndBind(artifact); }
-      catch (error) { if (!(error instanceof Error) || !error.message.startsWith("targeted_browser_verification_failed:")) throw error; }
-    }
-    const repair = Boolean(artifact && reports[nodeId]?.passed === false);
-    if (repair && artifact) {
-      artifact = await repairDirectArtifact({
-        rootDir,
-        artifact,
-        activity: designed.plan.activities.find(activity => activity.id === nodeId)!,
-        failures: reports[nodeId]!.failures,
-        screenshotPaths: reports[nodeId]!.screenshots,
-        outputDir: path.join(draft, "provider-diagnostics"),
-      });
-      const merged = new Map(build.artifacts.map(a => [a.nodeId, a]));
-      merged.set(nodeId, artifact);
-      build = { ...build, artifacts: [...merged.values()] };
-      write(buildFile, build);
-    } else if (!artifact) {
-      const generated = await generateDirectArtifacts({ rootDir, plan: designed.plan, childId, homeworkId, plannerModel: process.env.SUNNY_PLANNER_MODEL ?? "claude-opus-5", architectModel: process.env.SUNNY_ARCHITECT_MODEL ?? "claude-fable-5", assignmentFingerprint: extraction.fileHash, candidateCards: mathPlannerCandidateCards(chart), existingArtworkUrls: build.artifacts.length ? build : undefined, nodeIds: [nodeId] });
-      const merged = new Map(build.artifacts.map(a => [a.nodeId, a]));
-      generated.artifacts.forEach(a => merged.set(a.nodeId, a));
-      build = { ...generated, artifacts: [...merged.values()] }; write(buildFile, build);
-      artifact = merged.get(nodeId);
-    }
-    if (!artifact?.htmlHash) throw new Error(`targeted_artifact_missing:${nodeId}`);
-    await verifyAndBind(artifact);
-    return { artifactHash: artifact.htmlHash };
-  }, onNodeReady: project });
   if (getMathGenerationStatus(childId, homeworkId, { rootDir })?.phase === "board_ready") {
     persistDirectExperience({ rootDir, childId, homeworkId, extraction, plannerPlan: designed.plan, activeSessionPlan: active(), artifacts: build.artifacts, report: report(), assumptions: program.assumptions });
     project();

@@ -536,8 +536,8 @@ it("records a stopped job when saved source extraction is missing before plannin
   expect(generateDirectArtifacts).not.toHaveBeenCalled();
 });
 
-it("uses the second bounded build attempt to repair a rejected candidate", async () => {
-  vi.mocked(runDirectBrowserSmokeCheck).mockResolvedValueOnce({passed:false,failures:["missing_completion"],screenshots:[]});
+it("uses the single repair ledger for a browser-confirmed generated-content defect", async () => {
+  vi.mocked(runDirectBrowserSmokeCheck).mockResolvedValueOnce({passed:false,failures:["missing_completion"],screenshots:["failure.png"]});
   await runAdaptiveMathGeneration(childId, homeworkId, rootDir);
   expect(getMathGenerationStatus(childId, homeworkId, {rootDir})?.nodes[0].status).toBe("ready");
   await runAdaptiveMathGeneration(childId, homeworkId, rootDir);
@@ -647,7 +647,7 @@ it("resumes an interrupted visual review without rebuilding the saved activity",
     .toMatchObject({ status: "ready", artifactHash: artifact.htmlHash });
 });
 
-it("gives a current visual rejection one separately tracked repair after generic attempts are exhausted", async () => {
+it("consumes exactly one repair for a generated-content rejection and never buys a follow-up", async () => {
   const draft = path.join(rootDir, "src/context", childId, "homework/direct-drafts", homeworkId);
   fs.writeFileSync(path.join(draft, "math-learning-program.json"), JSON.stringify(learningProgram(2)));
   fs.writeFileSync(path.join(draft, "designed-plan.json"), JSON.stringify(plan(2)));
@@ -656,25 +656,18 @@ it("gives a current visual rejection one separately tracked repair after generic
     : { decision: "approve", observations: [] });
 
   await runAdaptiveMathGeneration(childId, homeworkId, rootDir);
-  expect(getMathGenerationStatus(childId, homeworkId, { rootDir })?.nodes[0]).toMatchObject({ status: "needs_attention", attemptCount: 2 });
+  expect(getMathGenerationStatus(childId, homeworkId, { rootDir })?.nodes[0]).toMatchObject({ status: "needs_attention" });
   expect(repairDirectArtifact).toHaveBeenCalledTimes(1);
 
   vi.mocked(judgeChildFacingScreens).mockResolvedValue({ decision: "approve", observations: [] });
   await runAdaptiveMathGeneration(childId, homeworkId, rootDir);
 
-  expect(repairDirectArtifact).toHaveBeenCalledTimes(2);
-  expect(vi.mocked(repairDirectArtifact).mock.calls[1]?.[0].outputDir).toContain("visual-repair-v3/activity-1");
+  expect(repairDirectArtifact).toHaveBeenCalledTimes(1);
   expect(generateDirectArtifacts).toHaveBeenCalledTimes(2);
-  expect(getMathGenerationStatus(childId, homeworkId, { rootDir })?.phase).toBe("board_ready");
-  const finalArtifact = JSON.parse(fs.readFileSync(path.join(draft, "candidate-build-v3.json"), "utf8")).artifacts
-    .find((candidate: { nodeId: string }) => candidate.nodeId === "activity-1");
-  const finalBinding = getLearningCycle(childId, homeworkId, { rootDir })?.nodes
-    .find(node => node.nodeId === "activity-1")?.artifactBinding;
-  expect(finalBinding?.creativeProvenance?.generatedHtmlHash).toBe(finalArtifact.htmlHash);
-  expect(finalBinding?.validationProof?.htmlHash).toBe(finalArtifact.htmlHash);
+  expect(getMathGenerationStatus(childId, homeworkId, { rootDir })?.phase).toBe("needs_attention");
 });
 
-it("uses one final visual follow-up on the verified repaired artifact, then stops", async () => {
+it("stops after the repaired artifact is rejected without entering another repair path", async () => {
   const draft = path.join(rootDir, "src/context", childId, "homework/direct-drafts", homeworkId);
   fs.writeFileSync(path.join(draft, "math-learning-program.json"), JSON.stringify(learningProgram(2)));
   fs.writeFileSync(path.join(draft, "designed-plan.json"), JSON.stringify(plan(2)));
@@ -684,24 +677,24 @@ it("uses one final visual follow-up on the verified repaired artifact, then stop
 
   await runAdaptiveMathGeneration(childId, homeworkId, rootDir);
   await runAdaptiveMathGeneration(childId, homeworkId, rootDir);
-  expect(repairDirectArtifact).toHaveBeenCalledTimes(3);
+  expect(repairDirectArtifact).toHaveBeenCalledTimes(1);
   expect(getMathGenerationStatus(childId, homeworkId, { rootDir })?.phase).toBe("needs_attention");
   const firstRejectedRepair = JSON.parse(fs.readFileSync(path.join(draft, "candidate-build-v3.json"), "utf8")).artifacts
     .find((candidate: { nodeId: string }) => candidate.nodeId === "activity-1");
   expect(firstRejectedRepair.htmlHash).not.toBeUndefined();
 
   await runAdaptiveMathGeneration(childId, homeworkId, rootDir);
-  expect(repairDirectArtifact).toHaveBeenCalledTimes(3);
+  expect(repairDirectArtifact).toHaveBeenCalledTimes(1);
   expect(getMathGenerationStatus(childId, homeworkId, { rootDir })?.phase).toBe("needs_attention");
 
   vi.mocked(judgeChildFacingScreens).mockResolvedValue({ decision: "approve", observations: [] });
   await runAdaptiveMathGeneration(childId, homeworkId, rootDir);
 
-  expect(repairDirectArtifact).toHaveBeenCalledTimes(3);
+  expect(repairDirectArtifact).toHaveBeenCalledTimes(1);
   expect(getMathGenerationStatus(childId, homeworkId, { rootDir })?.phase).toBe("needs_attention");
 });
 
-it("publishes a final visual follow-up only after the repaired journey passes", async () => {
+it("does not publish when approval would require a second repair", async () => {
   const draft = path.join(rootDir, "src/context", childId, "homework/direct-drafts", homeworkId);
   fs.writeFileSync(path.join(draft, "math-learning-program.json"), JSON.stringify(learningProgram(2)));
   fs.writeFileSync(path.join(draft, "designed-plan.json"), JSON.stringify(plan(2)));
@@ -717,12 +710,29 @@ it("publishes a final visual follow-up only after the repaired journey passes", 
   await runAdaptiveMathGeneration(childId, homeworkId, rootDir);
   await runAdaptiveMathGeneration(childId, homeworkId, rootDir);
 
-  expect(repairDirectArtifact).toHaveBeenCalledTimes(3);
+  expect(repairDirectArtifact).toHaveBeenCalledTimes(1);
   expect(generateDirectArtifacts).toHaveBeenCalledTimes(2);
-  expect(getMathGenerationStatus(childId, homeworkId, { rootDir })?.phase).toBe("board_ready");
+  expect(getMathGenerationStatus(childId, homeworkId, { rootDir })?.phase).toBe("needs_attention");
 });
 
-it("reapplies a saved visual repair after a patch-parser upgrade without another provider build", async () => {
+it("does not consume the repair ledger for a Creator manifest contract failure", async () => {
+  vi.mocked(runDirectBrowserSmokeCheck).mockResolvedValue({
+    passed: false,
+    failures: ["activity-1:creator_playwright_manifest_hash_mismatch"],
+    screenshots: [],
+    creatorTests: { passed: false, manifestHash: "", viewports: [], failures: ["activity-1:creator_playwright_manifest_hash_mismatch"] },
+  });
+
+  await runAdaptiveMathGeneration(childId, homeworkId, rootDir);
+
+  const draft = path.join(rootDir, "src/context", childId, "homework/direct-drafts", homeworkId);
+  expect(repairDirectArtifact).not.toHaveBeenCalled();
+  expect(fs.existsSync(path.join(draft, "provider-diagnostics", "visual-repair-v3"))).toBe(false);
+  expect(getMathGenerationStatus(childId, homeworkId, { rootDir })?.nodes[0])
+    .toMatchObject({ status: "needs_attention", error: expect.stringContaining("creator_manifest_contract") });
+});
+
+it("does not reset the one-repair budget after a patch-parser upgrade", async () => {
   const draft = path.join(rootDir, "src/context", childId, "homework/direct-drafts", homeworkId);
   vi.mocked(judgeChildFacingScreens).mockImplementation(async ({ auditFile }) => auditFile?.includes("activity-1")
     ? citedVisualReject("The completion wording contradicts the visible state.")
@@ -746,9 +756,9 @@ it("reapplies a saved visual repair after a patch-parser upgrade without another
 
   await runAdaptiveMathGeneration(childId, homeworkId, rootDir);
 
-  expect(repairDirectArtifact).toHaveBeenCalledTimes(2);
+  expect(repairDirectArtifact).toHaveBeenCalledTimes(1);
   expect(generateDirectArtifacts).toHaveBeenCalledTimes(2);
-  expect(getMathGenerationStatus(childId, homeworkId, { rootDir })?.nodes.find(node => node.nodeId === "activity-1")?.status).toBe("ready");
+  expect(getMathGenerationStatus(childId, homeworkId, { rootDir })?.nodes.find(node => node.nodeId === "activity-1")?.status).toBe("needs_attention");
 });
 
 it("removes a previously ready artifact from play when a newer visual review rejects it", async () => {

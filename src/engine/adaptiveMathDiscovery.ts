@@ -2027,7 +2027,8 @@ export async function buildTargetedNodesResumably(input: {
       const message = error instanceof Error ? error.message : String(error);
       const verifierContractAmbiguity = message.startsWith("targeted_verifier_contract_ambiguity:");
       const visualReviewNeedsAttention = message.startsWith("targeted_visual_review_needs_attention:");
-      const needsAttention = attemptCount >= 2 || verifierContractAmbiguity || visualReviewNeedsAttention;
+      const generatedContentDefect = message.startsWith("targeted_generated_content_defect:");
+      const needsAttention = attemptCount >= 2 || verifierContractAmbiguity || visualReviewNeedsAttention || generatedContentDefect;
       updateMathGenerationNode({
         rootDir: input.rootDir,
         childId: input.childId,
