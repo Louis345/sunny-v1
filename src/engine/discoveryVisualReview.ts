@@ -65,6 +65,7 @@ type RepairInput = { html: string; issues: string[]; screenshotPaths: string[]; 
 type BrowserPage = Awaited<ReturnType<Awaited<ReturnType<(typeof import("playwright"))["chromium"]["launch"]>>["newPage"]>>;
 export type MathJourneyItemContract = {
   id: string;
+  prompt?: string;
   lineage?: { measurementRole?: "instruction" | "practice" | "fresh_checkpoint" };
   response:
     | { mode: "selection"; options: Array<{ id: string; correct: boolean }> }
@@ -608,8 +609,12 @@ export async function verifyMathControlJourney(page: BrowserPage, input: {
     window.__sunnyIncorrectScoringCalls=0; window.__sunnyIncorrectResultReads=0;
     runtime.evaluate=(itemId,value)=>{window.__sunnyIncorrectScoringCalls+=1;const result=original(itemId,value);return {...result,get correct(){window.__sunnyIncorrectResultReads+=1;return result.correct;}};};
   })()`);
+  const frozenPromptsByItem = Object.fromEntries((input.itemContracts ?? [])
+    .filter(contract => typeof contract.prompt === "string" && contract.prompt.trim())
+    .map(contract => [contract.id, contract.prompt]));
   await page.evaluate(`(() => {
     window.__sunnyStateReceipts = [];
+    const frozenPromptsByItem = ${JSON.stringify(frozenPromptsByItem)};
     const visibleText = (${VISIBLE_NORMALIZED_DOCUMENT_TEXT_SOURCE});
     const normalize = value => String(value ?? "").replace(/\\s+/g, " ").trim().toLowerCase();
     window.addEventListener("message", event => {
@@ -618,10 +623,14 @@ export async function verifyMathControlJourney(page: BrowserPage, input: {
       const challenge = (message.payload ?? message)?.currentChallenge;
       if (typeof challenge?.id !== "string") return;
       const prompt = normalize(challenge.prompt);
+      const frozenPrompt = normalize(frozenPromptsByItem[challenge.id]);
+      const textAtReceipt = visibleText();
       window.__sunnyStateReceipts.push({
         id: challenge.id,
         prompt,
-        promptVisibleAtReceipt: prompt.length > 0 && visibleText().includes(prompt),
+        frozenPrompt,
+        promptVisibleAtReceipt: prompt.length > 0 && textAtReceipt.includes(prompt),
+        frozenPromptVisibleAtReceipt: frozenPrompt.length > 0 && textAtReceipt.includes(frozenPrompt),
       });
     });
   })()`);
@@ -809,9 +818,14 @@ export async function verifyMathControlJourney(page: BrowserPage, input: {
         const prompt = normalize(challenge?.prompt);
         const receipt = (window.__sunnyStateReceipts ?? []).filter(row => row.id === challenge?.id && row.prompt === prompt).at(-1);
         const visibleText = (${VISIBLE_NORMALIZED_DOCUMENT_TEXT_SOURCE})();
+        const frozenPrompt = normalize((${JSON.stringify(frozenPromptsByItem)})[challenge?.id]);
         return {
           id: challenge?.id ?? null,
-          promptVisible: Boolean(receipt?.promptVisibleAtReceipt) && prompt.length > 0 && visibleText.includes(prompt),
+          reportedPrompt: prompt,
+          frozenPrompt,
+          visibleText,
+          promptVisible: (Boolean(receipt?.promptVisibleAtReceipt) && prompt.length > 0 && visibleText.includes(prompt))
+            || (Boolean(receipt?.frozenPromptVisibleAtReceipt) && frozenPrompt.length > 0 && visibleText.includes(frozenPrompt)),
         };
       })()`;
       const hasReportedItemState = Boolean(await page.evaluate(`(window.__sunnyMessages ?? []).some(message =>
@@ -859,14 +873,29 @@ export async function verifyMathControlJourney(page: BrowserPage, input: {
         try {
           await page.waitForFunction(nextStateExpression, undefined, { timeout: 3000 });
         } catch {
-          const reported = await page.evaluate(nextStateSnapshotExpression) as { id: string | null; promptVisible: boolean };
+          const reported = await page.evaluate(nextStateSnapshotExpression) as {
+            id: string | null;
+            reportedPrompt: string;
+            frozenPrompt: string;
+            visibleText: string;
+            promptVisible: boolean;
+          };
           if (journeyKey === "incorrectJourney") throw new Error(`math_journey_incorrect_response_did_not_advance;item=${item.itemId}`);
           const code = !reported.id && input.requireItemStateTransitions
             ? "math_journey_item_state_missing"
+            : reported.id === nextItem.itemId && !reported.promptVisible && reported.frozenPrompt && reported.frozenPrompt !== reported.reportedPrompt
+              ? "math_journey_checker_contract_ambiguity"
             : reported.id === nextItem.itemId && !reported.promptVisible
               ? "math_journey_item_state_not_visible"
               : "math_journey_item_state_not_ready";
-          throw new Error(`${code};item=${nextItem.itemId};reported=${reported.id ?? "none"}`);
+          throw new Error([
+            code,
+            `item=${nextItem.itemId}`,
+            `reported=${reported.id ?? "none"}`,
+            `reportedPrompt=${JSON.stringify(reported.reportedPrompt)}`,
+            `frozenPrompt=${JSON.stringify(reported.frozenPrompt)}`,
+            `renderedText=${JSON.stringify(reported.visibleText)}`,
+          ].join(";"));
         }
       } else {
         const reusesControl = Boolean(await page.evaluate(`(({ currentSelectors, nextSelectors }) => {

@@ -58,6 +58,10 @@ type VisualRepairAttempt = {
 const VISUAL_REPAIR_PATCH_PARSER_VERSION = 2;
 const MAX_VISUAL_REPAIR_PASSES = 2;
 
+function checkerContractAmbiguity(report?: Pick<DirectPlaywrightReport, "failures">): string | undefined {
+  return report?.failures.find(failure => failure.startsWith("math_journey_checker_contract_ambiguity;"));
+}
+
 function visualRepairNodeDir(draft: string, nodeId: string): string {
   return path.join(draft, "provider-diagnostics", `visual-repair-v${CHILD_FACING_VISUAL_GATE_VERSION}`, nodeId);
 }
@@ -376,6 +380,8 @@ export async function runAdaptiveMathGeneration(
       contracts: reports[artifact.nodeId].verification?.contracts ?? false,
       viewports: DISCOVERY_RELEASE_VIEWPORTS.map(viewport => `${viewport.width}x${viewport.height}`),
     });
+    const checkerAmbiguity = checkerContractAmbiguity(reports[artifact.nodeId]);
+    if (checkerAmbiguity) throw new Error(`targeted_verifier_contract_ambiguity:${artifact.nodeId}:${checkerAmbiguity}`);
     if (!reports[artifact.nodeId].passed) throw new Error(`targeted_browser_verification_failed:${artifact.nodeId}:${reports[artifact.nodeId].failures.join("|")}`);
     const visualAuditFile = childFacingVisualAuditFile(draft, artifact);
     const legacyVisualAuditFile = path.join(draft, "provider-diagnostics", `${artifact.nodeId}-visual-verdict.json`);

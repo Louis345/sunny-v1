@@ -2017,15 +2017,17 @@ export async function buildTargetedNodesResumably(input: {
       });
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
+      const verifierContractAmbiguity = message.startsWith("targeted_verifier_contract_ambiguity:");
+      const needsAttention = attemptCount >= 2 || verifierContractAmbiguity;
       updateMathGenerationNode({
         rootDir: input.rootDir,
         childId: input.childId,
         homeworkId: input.homeworkId,
         nodeId,
-        status: attemptCount >= 2 ? "needs_attention" : "failed_resumable",
+        status: needsAttention ? "needs_attention" : "failed_resumable",
         error: message,
       });
-      if (attemptCount >= 2) {
+      if (needsAttention) {
         markMathGenerationNodeNeedsAttention({
           rootDir: input.rootDir,
           childId: input.childId,

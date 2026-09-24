@@ -331,6 +331,32 @@ it("waits for the next item identity before reusing persistent controls", async 
   expect(result.failures).toEqual([]);
 },20000);
 
+it("accepts the frozen Planner prompt when the activity reports a longer paraphrase", async () => {
+  const itemContracts = [
+    { id:"one", prompt:"First prompt", response:{ mode:"numeric", expected:1 } },
+    { id:"two", prompt:"Same labeled array. How many COLUMNS?", response:{ mode:"numeric", expected:4 } },
+  ];
+  const result = await verify(`<p id="prompt">First prompt</p><button id="answer">Commit answer</button>
+    <script>
+    const rows=[];let active='one';
+    window.SUNNY_VALIDATION_HOOKS={journey:[
+      {itemId:'one',steps:[{action:'click',selector:'#answer'}]},
+      {itemId:'two',steps:[{action:'click',selector:'#answer'}]}
+    ]};
+    const report=(id,prompt)=>parent.postMessage({type:'game_state_update',payload:{currentChallenge:{id,prompt}}},'*');
+    document.querySelector('#answer').onclick=()=>{
+      const item=active;rows.push({target:item,attemptedValue:item==='one'?'1':'4',correct:true});
+      parent.postMessage({type:'attempt_event',payload:{target:item,attemptedValue:item==='one'?'1':'4',correct:true}},'*');
+      if(item==='one'){
+        active='two';document.querySelector('#prompt').textContent='Same labeled array. How many COLUMNS?';
+        report('two','That same labeled array. How many columns does it have?');
+      } else parent.postMessage({type:'node_complete',payload:{targetResults:rows,accuracy:1}},'*');
+    };
+    report('one','First prompt');
+    </script>`, ["one", "two"], itemContracts);
+  expect(result.failures).toEqual([]);
+},20000);
+
 it("rejects a next-item state announcement while the prior stimulus is still visible", async () => {
   const result = await verify(`<p id="prompt">First prompt</p><button id="answer">Commit answer</button>
     <script>

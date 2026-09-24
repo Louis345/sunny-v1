@@ -257,6 +257,24 @@ it("does not publish a browser-invalid artifact", async () => {
   expect(getMathGenerationStatus(childId, homeworkId, { rootDir })?.phase).not.toBe("board_ready");
 });
 
+it("stops a matching-item prompt disagreement as verifier ambiguity without buying repair", async () => {
+  vi.mocked(runDirectBrowserSmokeCheck).mockImplementation(async ({ artifacts }) => artifacts[0]?.nodeId === "activity-1"
+    ? {
+        passed:false,
+        failures:[
+          'math_journey_checker_contract_ambiguity;item=item-02;reported=item-02;reportedPrompt="long reported prompt";frozenPrompt="short frozen prompt";renderedText="short frozen prompt"',
+        ],
+        screenshots:["activity-1-sunny-item-02.png"],
+      }
+    : { passed:true,failures:[],screenshots:["activity-2-sunny-item-01.png"] });
+
+  await runAdaptiveMathGeneration(childId,homeworkId,rootDir);
+
+  expect(repairDirectArtifact).not.toHaveBeenCalled();
+  expect(getMathGenerationStatus(childId,homeworkId,{rootDir})?.nodes.find(node=>node.nodeId==="activity-1"))
+    .toMatchObject({status:"needs_attention",attemptCount:1,error:expect.stringContaining("targeted_verifier_contract_ambiguity")});
+});
+
 it("does not publish a child-visible artifact rejected by blind screenshot review", async () => {
   vi.mocked(runDirectBrowserSmokeCheck).mockResolvedValue({
     passed: true,
