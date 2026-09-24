@@ -391,12 +391,12 @@ it("accepts a complete reported sentence after the previous prompt has left the 
   expect(result.failures).toEqual([]);
 },20000);
 
-it("does not accept a generic lead-in sentence when the reported academic target is absent", async () => {
+it("does not accept a generic lead-in sentence when the academic marker is visible elsewhere", async () => {
   const itemContracts = [
     { id:"one", prompt:"First prompt", response:{ mode:"numeric", expected:1 } },
     { id:"two", prompt:"Look at the array. How many COLUMNS?", response:{ mode:"numeric", expected:4 } },
   ];
-  const result = await verify(`<p id="prompt">First prompt</p><button id="answer">Commit answer</button>
+  const result = await verify(`<p id="prompt">First prompt</p><span id="diagram-label">COLUMNS</span><button id="answer">Commit answer</button>
     <script>
     const rows=[];let active='one';
     window.SUNNY_VALIDATION_HOOKS={journey:[

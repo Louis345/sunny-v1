@@ -620,6 +620,32 @@ export async function verifyMathControlJourney(page: BrowserPage, input: {
     const completeSentences = value => (String(value ?? "").match(/[^.!?]+[.!?]+/g) ?? [])
       .map(normalize)
       .filter(sentence => sentence.split(/\\s+/).length >= 3);
+    const academicMarkers = value => Array.from(new Set(String(value ?? "").match(/\\b[A-Z][A-Z0-9-]{1,}\\b/g) ?? []))
+      .map(normalize);
+    const visibleTextNodes = () => {
+      const texts = [];
+      const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+      for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+        const element = node.parentElement;
+        if (!element) continue;
+        const rect = element.getBoundingClientRect();
+        const style = getComputedStyle(element);
+        if (!(rect.width > 0 && rect.height > 0 && style.visibility !== "hidden"
+          && style.display !== "none" && Number(style.opacity) > 0
+          && rect.bottom > 0 && rect.right > 0 && rect.top < innerHeight && rect.left < innerWidth)) continue;
+        const text = normalize(node.nodeValue);
+        if (text) texts.push(text);
+      }
+      return texts;
+    };
+    const reportedSentenceAndMarkersVisible = value => {
+      const sentences = completeSentences(value);
+      const markers = academicMarkers(value);
+      if (sentences.length === 0 || markers.length === 0) return false;
+      return visibleTextNodes().some(text =>
+        sentences.some(sentence => text.includes(sentence)) && markers.every(marker => text.includes(marker))
+      );
+    };
     window.addEventListener("message", event => {
       const message = event.data;
       if (message?.type !== "game_state_update") return;
@@ -634,7 +660,7 @@ export async function verifyMathControlJourney(page: BrowserPage, input: {
         frozenPrompt,
         promptVisibleAtReceipt: prompt.length > 0 && textAtReceipt.includes(prompt),
         frozenPromptVisibleAtReceipt: frozenPrompt.length > 0 && textAtReceipt.includes(frozenPrompt),
-        reportedSentenceVisibleAtReceipt: completeSentences(challenge.prompt).some(sentence => textAtReceipt.includes(sentence)),
+        reportedSentenceAndMarkersVisibleAtReceipt: reportedSentenceAndMarkersVisible(challenge.prompt),
       });
     });
   })()`);
@@ -837,12 +863,30 @@ export async function verifyMathControlJourney(page: BrowserPage, input: {
           .filter(sentence => sentence.split(/\\s+/).length >= 3);
         const academicMarkers = value => Array.from(new Set(String(value ?? "").match(/\\b[A-Z][A-Z0-9-]{1,}\\b/g) ?? []))
           .map(normalize);
+        const visibleTextNodes = () => {
+          const texts = [];
+          const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+          for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+            const element = node.parentElement;
+            if (!element) continue;
+            const rect = element.getBoundingClientRect();
+            const style = getComputedStyle(element);
+            if (!(rect.width > 0 && rect.height > 0 && style.visibility !== "hidden"
+              && style.display !== "none" && Number(style.opacity) > 0
+              && rect.bottom > 0 && rect.right > 0 && rect.top < innerHeight && rect.left < innerWidth)) continue;
+            const text = normalize(node.nodeValue);
+            if (text) texts.push(text);
+          }
+          return texts;
+        };
         const reportedMarkers = academicMarkers(challenge?.prompt);
-        const reportedAcademicMarkersVisible = reportedMarkers.length > 0
-          && reportedMarkers.every(marker => visibleText.includes(marker));
-        const completeReportedSentenceVisible = Boolean(receipt?.reportedSentenceVisibleAtReceipt)
-          && completeSentences(challenge?.prompt).some(sentence => visibleText.includes(sentence))
-          && reportedAcademicMarkersVisible;
+        const completeReportedSentenceVisible = Boolean(receipt?.reportedSentenceAndMarkersVisibleAtReceipt)
+          && completeSentences(challenge?.prompt).length > 0
+          && reportedMarkers.length > 0
+          && visibleTextNodes().some(text =>
+            completeSentences(challenge?.prompt).some(sentence => text.includes(sentence))
+              && reportedMarkers.every(marker => text.includes(marker))
+          );
         const reportedPromptCurrentlyVisible = prompt.length > 0 && visibleText.includes(prompt);
         const frozenPromptCurrentlyVisible = frozenPrompt.length > 0 && visibleText.includes(frozenPrompt);
         return {
