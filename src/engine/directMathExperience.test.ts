@@ -1828,7 +1828,8 @@ describe("direct math experience", () => {
 
   it("blocks worker publication on failed browser verification", () => {
     const source = fs.readFileSync(path.join(process.cwd(), "src/scripts/runAdaptiveMathGeneration.ts"), "utf8");
-    expect(source).toContain("targeted_browser_verification_failed");
+    expect(source).toContain("targeted_generated_content_defect");
+    expect(source).toContain("targeted_visual_review_needs_attention");
     expect(source).toContain("MATH_BROWSER_VERIFIER_VERSION");
   });
 
