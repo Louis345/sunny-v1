@@ -18,6 +18,32 @@ function hash(value: string): string {
   return crypto.createHash("sha256").update(value).digest("hex");
 }
 
+function stable(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(stable).join(",")}]`;
+  if (value && typeof value === "object") {
+    return `{${Object.entries(value as Record<string, unknown>).sort(([a], [b]) => a.localeCompare(b)).map(([key, child]) => `${JSON.stringify(key)}:${stable(child)}`).join(",")}}`;
+  }
+  return JSON.stringify(value);
+}
+
+function hashDirectory(root: string): string {
+  const digest = crypto.createHash("sha256");
+  const visit = (current: string) => {
+    for (const entry of fs.readdirSync(current, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
+      const full = path.join(current, entry.name);
+      if (entry.isDirectory()) visit(full);
+      else {
+        digest.update(path.relative(root, full));
+        digest.update("\0");
+        digest.update(fs.readFileSync(full));
+        digest.update("\0");
+      }
+    }
+  };
+  visit(root);
+  return digest.digest("hex");
+}
+
 function writeJson(file: string, value: unknown): void {
   fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.writeFileSync(file, `${JSON.stringify(value, null, 2)}\n`);
@@ -33,13 +59,18 @@ function candidate(name: string, options: {
   strict?: boolean;
   failedNodeId?: string;
   model?: string;
+  omitVisualReview?: boolean;
+  omitBoardAcceptance?: boolean;
 } = {}): string {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), `sunny-board-${name}-`));
   roots.push(root);
   const nodeIds = options.nodeIds ?? ["node-1", "node-2"];
   const program = options.program ?? { activities: nodeIds.map((id) => ({ id, items: [{ id: `${id}-item` }] })) };
   const design = options.design ?? { acts: nodeIds.map((id) => ({ nodeId: id, title: `Design ${id}` })) };
-  const sourceHash = options.sourceHash ?? "child-snapshot";
+  const sourceChildDir = path.join(root, "source-child");
+  fs.mkdirSync(sourceChildDir, { recursive: true });
+  fs.writeFileSync(path.join(sourceChildDir, "profile.json"), '{"fixture":true}\n');
+  const sourceHash = options.sourceHash ?? hashDirectory(sourceChildDir);
   const assignmentFingerprint = options.assignmentFingerprint ?? "assignment-fingerprint";
   const draft = path.join(root, "workspace", "src", "context", "lab-child", "homework", "direct-drafts", "hw-math-lab");
   const artifacts = nodeIds.map((nodeId) => {
@@ -78,6 +109,7 @@ function candidate(name: string, options: {
     homeworkId: "hw-math-lab",
     evidenceAuthority: "simulation",
     workspaceDir: path.join(root, "workspace"),
+    sourceChildDir,
   });
   writeJson(path.join(root, "report", "report.json"), {
     sourceChildUnchanged: (options.currentSourceHash ?? sourceHash) === sourceHash,
@@ -118,8 +150,50 @@ function candidate(name: string, options: {
       viewports: ["1365x768", "1280x720"],
       failures: artifact.nodeId === options.failedNodeId ? ["blocked"] : [],
     },
-    visualReview: { attribution: null, repairAuthorized: false, findings: [] },
+    ...(options.omitVisualReview ? {} : { visualReview: { attribution: null, repairAuthorized: false, findings: [] } }),
   }])));
+  if (!options.omitBoardAcceptance) {
+    const receipt = {
+      version: 1,
+      evidenceAuthority: "simulation",
+      passed: true,
+      certificationRunId: `cert-${name}`,
+      assignmentFingerprint,
+      sourceSnapshotHash: sourceHash,
+      programHash: hash(stable(program)),
+      designHash: hash(stable(design)),
+      nodeCount: nodeIds.length,
+      plannerNodeIds: nodeIds,
+      readyNodeIds: nodeIds,
+      launchedNodeIds: nodeIds,
+      completedNodeIds: nodeIds,
+      boardVersion: 1,
+      verifierVersion: 1,
+      boardLoaded: true,
+      companionHostVisible: true,
+      navigationPassed: true,
+      artifactHashes: artifacts.map((artifact) => ({ nodeId: artifact.nodeId, htmlHash: artifact.htmlHash })),
+      nodes: artifacts.map((artifact) => ({
+        nodeId: artifact.nodeId,
+        htmlHash: artifact.htmlHash,
+        manifestHash: options.strict ? artifact.creatorTestHash : null,
+        launchPassed: true,
+        completionPassed: true,
+        runtimeErrors: [],
+        capturePaths: [`${artifact.nodeId}-board.png`],
+      })),
+      preparingNodeIds: [],
+      needsAttentionNodeIds: [],
+      sourceInventoryHashBefore: sourceHash,
+      sourceInventoryHashAfter: sourceHash,
+      startedAt: "2026-09-24T12:00:00.000Z",
+      endedAt: "2026-09-24T12:05:00.000Z",
+    };
+    writeJson(path.join(root, "report", "full-board-acceptance.json"), {
+      ...receipt,
+      receiptHash: hash(stable(receipt)),
+    });
+  }
   if (!options.strict) {
     for (const artifact of artifacts) {
       delete (artifact as { creatorTestPath?: string }).creatorTestPath;
@@ -157,6 +231,24 @@ describe("self-testing full-board comparison", () => {
       .toThrow("comparison_candidate_b_not_ready:node-2");
   });
 
+  it("blocks Candidate B when the cited-screen visual review record is absent", () => {
+    const a = candidate("a");
+    const b = candidate("b", { strict: true, omitVisualReview: true });
+    const outputDir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-comparison-out-"));
+    roots.push(outputDir);
+    expect(() => prepareSelfTestingBoardComparison({ candidateARunDir: a, candidateBRunDir: b, outputDir }))
+      .toThrow("comparison_candidate_b_not_ready:node-1,node-2");
+  });
+
+  it("requires a candidate-specific isolated full-board, companion, and navigation proof", () => {
+    const a = candidate("a");
+    const b = candidate("b", { strict: true, omitBoardAcceptance: true });
+    const outputDir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-comparison-out-"));
+    roots.push(outputDir);
+    expect(() => prepareSelfTestingBoardComparison({ candidateARunDir: a, candidateBRunDir: b, outputDir }))
+      .toThrow("comparison_full_board_acceptance_missing:self_testing_candidate");
+  });
+
   it("writes a blinded playable report without revealing provenance before Saori chooses reveal", () => {
     const nodeIds = Array.from({ length: 7 }, (_, index) => `node-${index + 1}`);
     const a = candidate("a", { nodeIds });
@@ -178,6 +270,18 @@ describe("self-testing full-board comparison", () => {
     expect(html).toContain("Recovery after uncertainty");
     expect(html).toContain("Ability to continue");
     expect(html).not.toContain("Candidate B may be accepted");
+    expect(html).toContain("Review incomplete");
+    expect(html).toContain("visitedNodes");
+    expect(html).toContain("touchedScores");
+  });
+
+  it("rejects comparison output inside canonical source child data", () => {
+    const a = candidate("a");
+    const b = candidate("b", { strict: true });
+    const outputDir = path.join(a, "source-child", "comparison");
+    expect(() => prepareSelfTestingBoardComparison({ candidateARunDir: a, candidateBRunDir: b, outputDir }))
+      .toThrow("comparison_output_inside_family_data");
+    expect(fs.existsSync(outputDir)).toBe(false);
   });
 
   it("fails isolation when the family snapshot changed", () => {
