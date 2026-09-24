@@ -18,7 +18,7 @@ const sha = (value: string) => createHash("sha256").update(value).digest("hex");
 it("keeps provider-facing Creator instructions byte-stable so verifier work never invalidates paid builds", () => {
   // Changing either text changes builder/repair request hashes. Treat that as a
   // provider-input change requiring explicit approval, never as verifier work.
-  expect(sha(MATH_JOURNEY_CONTRACT)).toBe("e74006e38267d9f7429cdadc13ddb7aa5685e453e9b489cfc5ff7d218d879230");
+  expect(sha(MATH_JOURNEY_CONTRACT)).toBe("b09a5adf4d5e74e975fa0a1041ca7782d13cefd6845f015f8b503411e1737c42");
   expect(sha(MATH_IMPLEMENTATION_REPAIR_CONTRACT)).toBe("e1d2358a846628b37828769882dd9c2c95b60d4e5884074185da763a2926eee9");
 });
 

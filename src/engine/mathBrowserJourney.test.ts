@@ -158,23 +158,28 @@ it("rejects Discovery when a first wrong answer keeps the child on the same item
     { itemId: "one", constructId: "math.count", correctAnswerContract: { acceptedValues: ["4"] } },
     { itemId: "two", constructId: "math.count", correctAnswerContract: { acceptedValues: ["5"] } },
   ] } as never;
-  const html = `<!doctype html><h1 id="prompt">Choose four.</h1><button id="answer">4</button>
+  const html = `<!doctype html><h1 id="prompt">Choose four.</h1><button id="answer">Correct choice</button><button id="wrong">Wrong choice</button>
   <script id="sunny-discovery-contract" type="application/json">{"items":[{"itemId":"one","constructId":"math.count","acceptedValues":["4"]},{"itemId":"two","constructId":"math.count","acceptedValues":["5"]}]}</script>
   <script>
   const items=[{id:'one',prompt:'Choose four.',answer:'4'},{id:'two',prompt:'Choose five.',answer:'5'}];
   let index=0;
   window.__SUNNY_DISCOVERY_TEST__={evaluate:(itemId,value)=>({itemId,constructId:'math.count',correct:value===items.find(item=>item.id===itemId).answer})};
-  window.SUNNY_VALIDATION_HOOKS={journey:items.map(item=>({itemId:item.id,steps:[{action:'click',selector:'#answer'}]}))};
+  window.SUNNY_VALIDATION_HOOKS={
+    journey:items.map(item=>({itemId:item.id,steps:[{action:'click',selector:'#answer'}]})),
+    incorrectJourney:items.map(item=>({itemId:item.id,steps:[{action:'click',selector:'#wrong'}]}))
+  };
   const report=()=>parent.postMessage({type:'game_state_update',payload:{currentChallenge:{id:items[index].id,prompt:items[index].prompt}}},'*');
   report();
-  document.querySelector('#answer').onclick=()=>{
+  const commit=(attemptedValue,allowAdvance)=>{
     const item=items[index];
-    const result=window.__SUNNY_DISCOVERY_TEST__.evaluate(item.id,item.answer);
-    parent.postMessage({type:'evaluation_attempt',payload:{attemptId:'attempt-'+item.id,itemId:item.id,attemptedValue:item.answer,supportEventIds:[],instrumentSignals:[],observedAt:new Date().toISOString()}},'*');
-    if(!result.correct)return;
+    const result=window.__SUNNY_DISCOVERY_TEST__.evaluate(item.id,attemptedValue);document.body.dataset.correct=String(result.correct);
+    parent.postMessage({type:'evaluation_attempt',payload:{attemptId:'attempt-'+item.id,itemId:item.id,attemptedValue,supportEventIds:[],instrumentSignals:[],observedAt:new Date().toISOString()}},'*');
+    if(!allowAdvance&&!result.correct)return;
     if(index===0){index=1;document.querySelector('#prompt').textContent=items[index].prompt;report();}
     else parent.postMessage({type:'evaluation_complete'},'*');
   };
+  document.querySelector('#answer').onclick=()=>commit(items[index].answer,true);
+  document.querySelector('#wrong').onclick=()=>commit('0',false);
   </script>`;
   const outputDir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-wrong-answer-trap-"));
   roots.push(outputDir);
@@ -188,16 +193,17 @@ it("rejects Discovery when child controls call but ignore the authoritative scor
     { itemId: "one", constructId: "math.count", correctAnswerContract: { acceptedValues: ["4"] } },
     { itemId: "two", constructId: "math.count", correctAnswerContract: { acceptedValues: ["5"] } },
   ] } as never;
-  const html = `<!doctype html><h1 id="prompt">Choose four.</h1><button id="answer">Answer</button>
+  const html = `<!doctype html><h1 id="prompt">Choose four.</h1><button id="answer">Answer</button><button id="wrong">Wrong answer</button>
   <script id="sunny-discovery-contract" type="application/json">{"items":[{"itemId":"one","constructId":"math.count","acceptedValues":["4"]},{"itemId":"two","constructId":"math.count","acceptedValues":["5"]}]}</script>
   <script>
   const items=[{id:'one',prompt:'Choose four.',answer:'4'},{id:'two',prompt:'Choose five.',answer:'5'}];let index=0;
   window.__SUNNY_DISCOVERY_TEST__={evaluate:(itemId,value)=>({itemId,constructId:'math.count',correct:value===items.find(item=>item.id===itemId).answer})};
-  window.SUNNY_VALIDATION_HOOKS={journey:items.map(item=>({itemId:item.id,steps:[{action:'click',selector:'#answer'}]}))};
+  window.SUNNY_VALIDATION_HOOKS={journey:items.map(item=>({itemId:item.id,steps:[{action:'click',selector:'#answer'}]})),incorrectJourney:items.map(item=>({itemId:item.id,steps:[{action:'click',selector:'#wrong'}]}))};
   const report=()=>parent.postMessage({type:'game_state_update',payload:{currentChallenge:{id:items[index].id,prompt:items[index].prompt}}},'*');report();
-  document.querySelector('#answer').onclick=()=>{const item=items[index];window.__SUNNY_DISCOVERY_TEST__.evaluate(item.id,item.answer);
-    parent.postMessage({type:'evaluation_attempt',payload:{attemptId:'attempt-'+item.id,itemId:item.id,attemptedValue:item.answer,supportEventIds:[],instrumentSignals:[],observedAt:new Date().toISOString()}},'*');
+  const commit=attemptedValue=>{const item=items[index];window.__SUNNY_DISCOVERY_TEST__.evaluate(item.id,attemptedValue);
+    parent.postMessage({type:'evaluation_attempt',payload:{attemptId:'attempt-'+item.id,itemId:item.id,attemptedValue,supportEventIds:[],instrumentSignals:[],observedAt:new Date().toISOString()}},'*');
     if(index===0){index=1;document.querySelector('#prompt').textContent=items[index].prompt;report();}else parent.postMessage({type:'evaluation_complete'},'*');};
+  document.querySelector('#answer').onclick=()=>commit(items[index].answer);document.querySelector('#wrong').onclick=()=>commit('0');
   </script>`;
   const outputDir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-ignored-scorer-")); roots.push(outputDir);
   await expect(verifyDiscoveryRuntimeScoring({ html, academic, outputDir }))

@@ -46,7 +46,7 @@ export function discoveryCeremonyHtml(options: { runtimeContract?: boolean } = {
     : "";
   return `<!doctype html><html><body>
     <section id="opening"><h2>Opening the market</h2><button id="begin">Begin</button></section>
-    <section id="question" hidden><h2 id="prompt"></h2><button id="answer">Answer</button></section>
+    <section id="question" hidden><h2 id="prompt"></h2><button id="answer">Answer</button><button id="wrong">Different answer</button></section>
     <section id="between" hidden><h2>Great work. Ready for the next basket?</h2><button id="next">Continue</button></section>
     ${binding}
     <script>
@@ -56,6 +56,9 @@ export function discoveryCeremonyHtml(options: { runtimeContract?: boolean } = {
     window.SUNNY_VALIDATION_HOOKS={journey:[
       {itemId:'one',steps:[{action:'click',selector:'#begin'},{action:'click',selector:'#answer'}]},
       {itemId:'two',steps:[{action:'click',selector:'#next'},{action:'click',selector:'#answer'}]}
+    ],incorrectJourney:[
+      {itemId:'one',steps:[{action:'click',selector:'#begin'},{action:'click',selector:'#wrong'}]},
+      {itemId:'two',steps:[{action:'click',selector:'#next'},{action:'click',selector:'#wrong'}]}
     ]};
     const show=id=>{
       active=id;el('opening').hidden=true;el('between').hidden=true;el('question').hidden=false;
@@ -64,14 +67,16 @@ export function discoveryCeremonyHtml(options: { runtimeContract?: boolean } = {
     };
     el('begin').onclick=()=>show('one');
     el('next').onclick=()=>show('two');
-    el('answer').onclick=()=>{
+    const commit=attemptedValue=>{
       count+=1;
-      const scoring=window.__SUNNY_DISCOVERY_TEST__?.evaluate(active,'12');
+      const scoring=window.__SUNNY_DISCOVERY_TEST__?.evaluate(active,attemptedValue);
       if(scoring)el('question').dataset.correct=String(scoring.correct);
-      parent.postMessage({type:'evaluation_attempt',payload:{attemptId:'attempt-'+count,itemId:active,attemptedValue:'12',supportEventIds:[],instrumentSignals:[],observedAt:new Date().toISOString()}},'*');
+      parent.postMessage({type:'evaluation_attempt',payload:{attemptId:'attempt-'+count,itemId:active,attemptedValue,supportEventIds:[],instrumentSignals:[],observedAt:new Date().toISOString()}},'*');
       if(active==='one'){el('question').hidden=true;el('between').hidden=false;}
       else parent.postMessage({type:'evaluation_complete',payload:{}},'*');
     };
+    el('answer').onclick=()=>commit(active==='one'?'12':'10');
+    el('wrong').onclick=()=>commit('0');
     parent.postMessage({type:'evaluation_ready'},'*');
     </script></body></html>`;
 }

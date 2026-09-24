@@ -521,7 +521,7 @@ export async function verifyDiscoveryRuntimeScoring(input: {
     completionType: "evaluation_complete",
     itemIds: input.academic.items.map(item => item.itemId),
     verifyIncorrectResponseAdvances: true,
-    forcedRejectedValues: Object.fromEntries(input.academic.items.map(item => [item.itemId, `__sunny_reject__${hashDiscoveryContract(item.itemId).slice(0, 12)}`])),
+    acceptedValuesByItem: Object.fromEntries(input.academic.items.map(item => [item.itemId, item.correctAnswerContract.acceptedValues])),
   });
   atomicJson(path.join(input.outputDir,"acceptance.json"), {passed:true,verifierVersion:DISCOVERY_VERIFIER_VERSION,htmlHash:hashDiscoveryContract(input.html),academicHash:hashDiscoveryContract(input.academic.items),viewports:DISCOVERY_RELEASE_VIEWPORTS,completedItemIds:input.academic.items.map(item=>item.itemId),screenshots:[...journeyScreenshots],captures:journeyScreenshots.captures ?? [],verifiedAt:new Date().toISOString()});
   console.log(` 🎮 [adaptive-math] [discovery-runtime-scoring] [passed] items=${input.academic.items.length}`);
