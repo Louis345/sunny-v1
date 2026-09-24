@@ -4,7 +4,7 @@ import path from "node:path";
 import { createHash } from "node:crypto";
 import { selectVerifiedChildFacingCaptures } from "./childFacingVisualGate";
 
-export const DISCOVERY_VERIFIER_VERSION = 18;
+export const DISCOVERY_VERIFIER_VERSION = 19;
 
 export const DISCOVERY_RELEASE_VIEWPORTS = [
   { name: "generation", width: 1365, height: 768 },
@@ -586,6 +586,7 @@ export async function verifyMathControlJourney(page: BrowserPage, input: {
   itemIds?: string[];
   requireItemStateTransitions?: boolean;
   itemContracts?: MathJourneyItemContract[];
+  forceIncorrectResponses?: boolean;
   /**
    * Called before evidence-free entry controls and before each uncommitted step
    * of an item until the caller confirms that item on screen. Returns true only
@@ -598,6 +599,12 @@ export async function verifyMathControlJourney(page: BrowserPage, input: {
   if (input.itemIds && (journey.length !== input.itemIds.length || input.itemIds.some(id => journey.filter(row => row.itemId === id).length !== 1))) throw new Error("math_journey_item_coverage");
   const premature = await page.evaluate(`window.__sunnyMessages?.some(m => ["attempt_event", "evaluation_attempt", "evaluation_complete", "node_complete"].includes(m?.type))`);
   if (premature) throw new Error("math_journey_premature_evidence");
+  if (input.forceIncorrectResponses) await page.evaluate(`(() => {
+    const runtime=window.__SUNNY_DISCOVERY_TEST__;
+    if(typeof runtime?.evaluate!=="function")throw new Error("discovery_runtime_scoring_bridge_missing");
+    const original=runtime.evaluate.bind(runtime); window.__sunnyIncorrectScoringCalls=0;
+    runtime.evaluate=(itemId,value)=>{window.__sunnyIncorrectScoringCalls+=1;return {...original(itemId,value),correct:false};};
+  })()`);
   await page.evaluate(`(() => {
     window.__sunnyStateReceipts = [];
     const visibleText = (${VISIBLE_NORMALIZED_DOCUMENT_TEXT_SOURCE});
@@ -850,6 +857,7 @@ export async function verifyMathControlJourney(page: BrowserPage, input: {
           await page.waitForFunction(nextStateExpression, undefined, { timeout: 3000 });
         } catch {
           const reported = await page.evaluate(nextStateSnapshotExpression) as { id: string | null; promptVisible: boolean };
+          if (input.forceIncorrectResponses) throw new Error(`math_journey_incorrect_response_did_not_advance;item=${item.itemId}`);
           const code = !reported.id && input.requireItemStateTransitions
             ? "math_journey_item_state_missing"
             : reported.id === nextItem.itemId && !reported.promptVisible
@@ -874,7 +882,10 @@ export async function verifyMathControlJourney(page: BrowserPage, input: {
       }
     }
   }
-  await page.waitForFunction(`window.__sunnyMessages?.some(m => m?.type === ${JSON.stringify(input.completionType)})`, undefined, { timeout: COMPLETION_EVENT_TIMEOUT_MS }).catch(() => { throw new Error("math_journey_completion_missing"); });
+  await page.waitForFunction(`window.__sunnyMessages?.some(m => m?.type === ${JSON.stringify(input.completionType)})`, undefined, { timeout: COMPLETION_EVENT_TIMEOUT_MS }).catch(() => {
+    if (input.forceIncorrectResponses) throw new Error(`math_journey_incorrect_response_did_not_advance;item=${journey.at(-1)?.itemId ?? "unknown"}`);
+    throw new Error("math_journey_completion_missing");
+  });
   type JourneyResult = { target?: string; attemptedValue?: string; correct?: boolean };
   type JourneyPayload = JourneyResult & {
     itemId?: string;
@@ -899,6 +910,9 @@ export async function verifyMathControlJourney(page: BrowserPage, input: {
     ? messages.filter(m => m.type === "evaluation_attempt").map(m => { const row = m.payload ?? m as NonNullable<typeof m.payload>; return {target: row.itemId, attemptedValue: row.attemptedValue}; })
     : messages.find(m => m.type === "node_complete")?.payload?.targetResults ?? [];
   const expected = input.itemIds ?? journey.map(row => row.itemId);
+  if (input.forceIncorrectResponses && Number(await page.evaluate(`window.__sunnyIncorrectScoringCalls ?? 0`)) < expected.length) {
+    throw new Error("math_journey_child_scoring_bridge_not_used");
+  }
   if (rows.length !== expected.length || expected.some(id => rows.filter(row => row.target === id && typeof row.attemptedValue === "string").length !== 1)) throw new Error("math_journey_evidence_missing");
   if (input.completionType === "node_complete" && input.itemContracts) {
     const contracts = new Map(input.itemContracts.map(item => [item.id, item]));
@@ -1038,6 +1052,7 @@ export async function verifyMathJourneyAtReleaseViewports(input: {
   outputDir: string;
   completionType: "evaluation_complete" | "node_complete";
   itemIds?: string[];
+  verifyIncorrectResponseAdvances?: boolean;
 }): Promise<JourneyScreenshots> {
   fs.mkdirSync(input.outputDir, { recursive: true });
   const manifestFile = path.join(input.outputDir, "journey-captures.json");
@@ -1045,6 +1060,7 @@ export async function verifyMathJourneyAtReleaseViewports(input: {
   const issues: string[] = [];
   const captures: JourneyCapture[] = [];
   for (const viewport of DISCOVERY_RELEASE_VIEWPORTS) {
+    if (viewport.name === "sunny") fs.rmSync(path.join(input.outputDir, "journey-incorrect-sunny-failure.png"), { force: true });
     for (const entry of fs.readdirSync(input.outputDir)) {
       if (entry.startsWith(`journey-${viewport.name}-`) && entry.endsWith(".png")) {
         fs.rmSync(path.join(input.outputDir, entry), { force: true });
@@ -1064,6 +1080,16 @@ export async function verifyMathJourneyAtReleaseViewports(input: {
           });
           captures.push(await captureJourneyState(page, { ...capture, terminal: "completion" }));
           completed = true;
+          if (viewport.name === "sunny" && input.completionType === "evaluation_complete" && input.verifyIncorrectResponseAdvances && input.itemIds?.length) {
+            await page.reload({ waitUntil: "networkidle" });
+            let advanced = false;
+            try {
+              await verifyMathControlJourney(page, { completionType: "evaluation_complete", itemIds: input.itemIds, requireItemStateTransitions: true, forceIncorrectResponses: true });
+              advanced = true;
+            } finally {
+              if (!advanced) captures.push(await captureJourneyState(page, { ...capture, filePrefix: "journey-incorrect-sunny", terminal: "failure" }));
+            }
+          }
         } finally {
           if (!completed) captures.push(await captureJourneyState(page, { ...capture, terminal: "failure" }));
         }

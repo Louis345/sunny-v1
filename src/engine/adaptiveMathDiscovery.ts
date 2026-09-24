@@ -520,6 +520,7 @@ export async function verifyDiscoveryRuntimeScoring(input: {
     outputDir: journeyOutputDir,
     completionType: "evaluation_complete",
     itemIds: input.academic.items.map(item => item.itemId),
+    verifyIncorrectResponseAdvances: true,
   });
   atomicJson(path.join(input.outputDir,"acceptance.json"), {passed:true,verifierVersion:DISCOVERY_VERIFIER_VERSION,htmlHash:hashDiscoveryContract(input.html),academicHash:hashDiscoveryContract(input.academic.items),viewports:DISCOVERY_RELEASE_VIEWPORTS,completedItemIds:input.academic.items.map(item=>item.itemId),screenshots:[...journeyScreenshots],captures:journeyScreenshots.captures ?? [],verifiedAt:new Date().toISOString()});
   console.log(` 🎮 [adaptive-math] [discovery-runtime-scoring] [passed] items=${input.academic.items.length}`);
