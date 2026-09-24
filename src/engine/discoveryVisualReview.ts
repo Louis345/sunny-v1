@@ -835,8 +835,14 @@ export async function verifyMathControlJourney(page: BrowserPage, input: {
         const completeSentences = value => (String(value ?? "").match(/[^.!?]+[.!?]+/g) ?? [])
           .map(normalize)
           .filter(sentence => sentence.split(/\\s+/).length >= 3);
+        const academicMarkers = value => Array.from(new Set(String(value ?? "").match(/\\b[A-Z][A-Z0-9-]{1,}\\b/g) ?? []))
+          .map(normalize);
+        const reportedMarkers = academicMarkers(challenge?.prompt);
+        const reportedAcademicMarkersVisible = reportedMarkers.length > 0
+          && reportedMarkers.every(marker => visibleText.includes(marker));
         const completeReportedSentenceVisible = Boolean(receipt?.reportedSentenceVisibleAtReceipt)
-          && completeSentences(challenge?.prompt).some(sentence => visibleText.includes(sentence));
+          && completeSentences(challenge?.prompt).some(sentence => visibleText.includes(sentence))
+          && reportedAcademicMarkersVisible;
         const reportedPromptCurrentlyVisible = prompt.length > 0 && visibleText.includes(prompt);
         const frozenPromptCurrentlyVisible = frozenPrompt.length > 0 && visibleText.includes(frozenPrompt);
         return {
