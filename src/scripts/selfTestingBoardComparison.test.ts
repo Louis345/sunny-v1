@@ -2,7 +2,7 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   evaluateHumanBoardScores,
   prepareSelfTestingBoardComparison,
@@ -10,8 +10,11 @@ import {
 
 const roots: string[] = [];
 
+beforeEach(() => vi.stubEnv("SUNNY_COMPARISON_ROOT", os.tmpdir()));
+
 afterEach(() => {
   for (const root of roots.splice(0)) fs.rmSync(root, { recursive: true, force: true });
+  vi.unstubAllEnvs();
 });
 
 function hash(value: string): string {
@@ -282,6 +285,19 @@ describe("self-testing full-board comparison", () => {
     expect(() => prepareSelfTestingBoardComparison({ candidateARunDir: a, candidateBRunDir: b, outputDir }))
       .toThrow("comparison_output_inside_family_data");
     expect(fs.existsSync(outputDir)).toBe(false);
+  });
+
+  it("rejects output outside the dedicated comparison root", () => {
+    const approvedRoot = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-approved-comparisons-"));
+    roots.push(approvedRoot);
+    vi.stubEnv("SUNNY_COMPARISON_ROOT", approvedRoot);
+    const a = candidate("a");
+    const b = candidate("b", { strict: true });
+    const outputDir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-outside-comparisons-"));
+    roots.push(outputDir);
+
+    expect(() => prepareSelfTestingBoardComparison({ candidateARunDir: a, candidateBRunDir: b, outputDir }))
+      .toThrow("comparison_output_outside_approved_root");
   });
 
   it("fails isolation when the family snapshot changed", () => {

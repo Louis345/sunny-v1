@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { hashDirectory } from "./sunnyCertification";
@@ -465,6 +466,12 @@ export function prepareSelfTestingBoardComparison(input: {
   candidateBRunDir: string;
   outputDir: string;
 }): BoardComparisonResult {
+  const outputDir = path.resolve(input.outputDir);
+  const approvedOutputRoot = path.resolve(process.env.SUNNY_COMPARISON_ROOT ?? path.join(os.homedir(), ".sunny", "comparisons"));
+  const relativeToApprovedRoot = path.relative(approvedOutputRoot, outputDir);
+  if (relativeToApprovedRoot.startsWith("..") || path.isAbsolute(relativeToApprovedRoot)) {
+    throw new Error("comparison_output_outside_approved_root");
+  }
   const candidateA = loadCandidate({ runDir: input.candidateARunDir, role: "saved_control", requireCreatorTests: false });
   const candidateB = loadCandidate({ runDir: input.candidateBRunDir, role: "self_testing_candidate", requireCreatorTests: true });
   const mismatches = frozenIdentityMismatches(candidateA, candidateB);
@@ -472,7 +479,6 @@ export function prepareSelfTestingBoardComparison(input: {
   if (!candidateA.ready) throw new Error(`comparison_candidate_a_not_playable:${candidateA.blockedNodeIds.join(",")}`);
   if (!candidateB.ready) throw new Error(`comparison_candidate_b_not_ready:${candidateB.blockedNodeIds.join(",")}`);
 
-  const outputDir = path.resolve(input.outputDir);
   const insideFamilyData = [candidateA.sourceChildDir, candidateB.sourceChildDir].some((sourceDir) => {
     const relative = path.relative(sourceDir, outputDir);
     return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative));
