@@ -22,7 +22,7 @@ function activeHandles(): unknown[] {
 
 describe("Discovery visual review", () => {
   it("invalidates proofs whose screenshots were labelled without browser-confirmed state", () => {
-    expect(DISCOVERY_VERIFIER_VERSION).toBe(20);
+    expect(DISCOVERY_VERIFIER_VERSION).toBe(21);
   });
 
   it("keeps provider and model selection out of browser mechanics", () => {

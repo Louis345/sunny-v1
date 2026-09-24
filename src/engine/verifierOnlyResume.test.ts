@@ -6,6 +6,8 @@ import { afterEach, expect, it, vi } from "vitest";
 import { generateMathDiscoveryExperience } from "./adaptiveMathDiscovery";
 import { discoveryCeremonyHtml, discoveryFixtureAcademic } from "./discoveryCeremonyFixture.test-helper";
 import { DISCOVERY_VERIFIER_VERSION, MATH_IMPLEMENTATION_REPAIR_CONTRACT, MATH_JOURNEY_CONTRACT } from "./discoveryVisualReview";
+import { MATH_BROWSER_VERIFIER_VERSION } from "./directMathExperience";
+import { CHILD_FACING_VISUAL_GATE_VERSION } from "./childFacingVisualGate";
 
 const roots: string[] = [];
 afterEach(() => {
@@ -20,6 +22,12 @@ it("keeps provider-facing Creator instructions byte-stable so verifier work neve
   // provider-input change requiring explicit approval, never as verifier work.
   expect(sha(MATH_JOURNEY_CONTRACT)).toBe("b09a5adf4d5e74e975fa0a1041ca7782d13cefd6845f015f8b503411e1737c42");
   expect(sha(MATH_IMPLEMENTATION_REPAIR_CONTRACT)).toBe("e1d2358a846628b37828769882dd9c2c95b60d4e5884074185da763a2926eee9");
+});
+
+it("versions prompt-visibility changes without resetting the visual repair budget", () => {
+  expect(DISCOVERY_VERIFIER_VERSION).toBe(21);
+  expect(MATH_BROWSER_VERIFIER_VERSION).toBe(14);
+  expect(CHILD_FACING_VISUAL_GATE_VERSION).toBe(5);
 });
 
 function paidRun() {

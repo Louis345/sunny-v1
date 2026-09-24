@@ -8,7 +8,7 @@ import { createDiscoveryLearningCycle, completeDiscoveryEvaluation, recordDiscov
 import { getLearningCycle, projectLearningCycle, transitionLearningCycle } from "../engine/learningCycleRepository";
 import { runAdaptiveMathGeneration } from "./runAdaptiveMathGeneration";
 import { askDirectMathPlanner, askMathExperienceDesigner, correctSavedDirectMathPlannerResponse, generateDirectArtifacts, repairDirectArtifact, runDirectBrowserSmokeCheck } from "../engine/directMathExperience";
-import { recordEngineeringRepairEvidence, type JourneyCapture } from "../engine/discoveryVisualReview";
+import { DISCOVERY_VERIFIER_VERSION, recordEngineeringRepairEvidence, type JourneyCapture } from "../engine/discoveryVisualReview";
 import { judgeChildFacingScreens } from "../engine/childFacingVisualGate";
 
 vi.mock("../profiles/childChart", () => ({ getChildChart: () => ({
@@ -39,7 +39,7 @@ const confirmedAcademicCapture = (overrides: Partial<JourneyCapture> = {}): Jour
   label: "activity-1-sunny-item-01",
   kind: "academic_item",
   viewport: "sunny",
-  verifierVersion: 20,
+  verifierVersion: DISCOVERY_VERIFIER_VERSION,
   expectedItemId: "item-01",
   observedItemId: "item-01",
   promptVisible: true,

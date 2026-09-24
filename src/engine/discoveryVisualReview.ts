@@ -4,7 +4,7 @@ import path from "node:path";
 import { createHash } from "node:crypto";
 import { selectVerifiedChildFacingCaptures } from "./childFacingVisualGate";
 
-export const DISCOVERY_VERIFIER_VERSION = 20;
+export const DISCOVERY_VERIFIER_VERSION = 21;
 
 export const DISCOVERY_RELEASE_VIEWPORTS = [
   { name: "generation", width: 1365, height: 768 },
