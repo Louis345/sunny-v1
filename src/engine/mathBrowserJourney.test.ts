@@ -391,12 +391,12 @@ it("accepts a complete reported sentence after the previous prompt has left the 
   expect(result.failures).toEqual([]);
 },20000);
 
-it("does not accept a generic lead-in sentence when the academic marker is visible elsewhere", async () => {
+it("does not accept a generic lead-in sentence when the academic marker is loose in the same text node", async () => {
   const itemContracts = [
     { id:"one", prompt:"First prompt", response:{ mode:"numeric", expected:1 } },
     { id:"two", prompt:"Look at the array. How many COLUMNS?", response:{ mode:"numeric", expected:4 } },
   ];
-  const result = await verify(`<p id="prompt">First prompt</p><span id="diagram-label">COLUMNS</span><button id="answer">Commit answer</button>
+  const result = await verify(`<p id="prompt">First prompt</p><button id="answer">Commit answer</button>
     <script>
     const rows=[];let active='one';
     window.SUNNY_VALIDATION_HOOKS={journey:[
@@ -408,8 +408,35 @@ it("does not accept a generic lead-in sentence when the academic marker is visib
       const item=active;rows.push({target:item,attemptedValue:item==='one'?'1':'4',correct:true});
       parent.postMessage({type:'attempt_event',payload:{target:item,attemptedValue:item==='one'?'1':'4',correct:true}},'*');
       if(item==='one'){
-        active='two';document.querySelector('#prompt').textContent='Look at the array.';
+        active='two';document.querySelector('#prompt').textContent='Look at the array. COLUMNS';
         report('two','Look at the array. How many COLUMNS?');
+      } else parent.postMessage({type:'node_complete',payload:{targetResults:rows,accuracy:1}},'*');
+    };
+    report('one','First prompt');
+    </script>`, ["one", "two"], itemContracts);
+  expect(result.passed).toBe(false);
+  expect(result.failures.join("|")).toContain("math_journey_checker_contract_ambiguity;item=two");
+},20000);
+
+it("does not accept a reported sentence that is hidden by an ancestor", async () => {
+  const itemContracts = [
+    { id:"one", prompt:"First prompt", response:{ mode:"numeric", expected:1 } },
+    { id:"two", prompt:"Same labeled array. Now tap the number that tells how many COLUMNS it has.", response:{ mode:"numeric", expected:4 } },
+  ];
+  const result = await verify(`<p id="prompt">First prompt</p><div id="hidden-prompt" style="opacity:0"><p>Same labeled array. How many COLUMNS?</p></div><button id="answer">Commit answer</button>
+    <script>
+    const rows=[];let active='one';
+    window.SUNNY_VALIDATION_HOOKS={journey:[
+      {itemId:'one',steps:[{action:'click',selector:'#answer'}]},
+      {itemId:'two',steps:[{action:'click',selector:'#answer'}]}
+    ]};
+    const report=(id,prompt)=>parent.postMessage({type:'game_state_update',payload:{currentChallenge:{id,prompt}}},'*');
+    document.querySelector('#answer').onclick=()=>{
+      const item=active;rows.push({target:item,attemptedValue:item==='one'?'1':'4',correct:true});
+      parent.postMessage({type:'attempt_event',payload:{target:item,attemptedValue:item==='one'?'1':'4',correct:true}},'*');
+      if(item==='one'){
+        active='two';document.querySelector('#prompt').textContent='Waiting';
+        report('two','Same labeled array. Now tap the number that tells how many COLUMNS it has.');
       } else parent.postMessage({type:'node_complete',payload:{targetResults:rows,accuracy:1}},'*');
     };
     report('one','First prompt');
