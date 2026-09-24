@@ -597,6 +597,45 @@ it("reverifies an old rejection before deciding to buy a repair", async () => {
   expect(getMathGenerationStatus(childId,homeworkId,{rootDir})?.phase).toBe("board_ready");
 });
 
+it("reverifies a ready node when its Creator manifest bytes no longer match the saved proof", async () => {
+  await runAdaptiveMathGeneration(childId, homeworkId, rootDir);
+  const draft = path.join(rootDir, "src/context", childId, "homework/direct-drafts", homeworkId);
+  const buildFile = path.join(draft, "candidate-build-v3.json");
+  const reportsFile = path.join(draft, "browser-verification.json");
+  const build = JSON.parse(fs.readFileSync(buildFile, "utf8"));
+  const artifact = build.artifacts.find((candidate: { nodeId: string }) => candidate.nodeId === "activity-1");
+  const manifestPath = path.join(rootDir, "activity-1.playwright.json");
+  const originalManifest = '{"version":1,"nodeId":"activity-1"}\n';
+  fs.writeFileSync(manifestPath, originalManifest);
+  artifact.creatorContractVersion = 19;
+  artifact.creatorTestPath = manifestPath;
+  artifact.creatorTestHash = createHash("sha256").update(originalManifest).digest("hex");
+  fs.writeFileSync(buildFile, JSON.stringify(build));
+  const reports = JSON.parse(fs.readFileSync(reportsFile, "utf8"));
+  reports["activity-1"].creatorTests = {
+    passed: true,
+    manifestHash: artifact.creatorTestHash,
+    viewports: ["generation", "sunny"],
+    failures: [],
+  };
+  fs.writeFileSync(reportsFile, JSON.stringify(reports));
+  fs.writeFileSync(manifestPath, `${originalManifest} `);
+  vi.mocked(runDirectBrowserSmokeCheck).mockClear();
+  const tamperedHash = createHash("sha256").update(fs.readFileSync(manifestPath)).digest("hex");
+  vi.mocked(runDirectBrowserSmokeCheck).mockResolvedValue({
+    passed: false,
+    failures: ["activity-1:creator_playwright_manifest_hash_mismatch"],
+    screenshots: [],
+    creatorTests: { passed: false, manifestHash: tamperedHash, viewports: [], failures: ["creator_playwright_manifest_hash_mismatch"] },
+  });
+
+  await runAdaptiveMathGeneration(childId, homeworkId, rootDir);
+
+  expect(runDirectBrowserSmokeCheck).toHaveBeenCalledTimes(1);
+  expect(getMathGenerationStatus(childId, homeworkId, { rootDir })?.nodes.find(node => node.nodeId === "activity-1"))
+    .toMatchObject({ status: "needs_attention", error: expect.stringContaining("creator_manifest_contract") });
+});
+
 it("resumes a needs-attention job when saved artifacts require a newer verifier", async () => {
   await runAdaptiveMathGeneration(childId, homeworkId, rootDir);
   const reportsFile = path.join(rootDir, "src/context", childId, "homework/direct-drafts", homeworkId, "browser-verification.json");

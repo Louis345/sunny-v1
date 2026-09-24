@@ -74,7 +74,7 @@ function checkerContractAmbiguity(report?: Pick<DirectPlaywrightReport, "failure
   return report?.failures.find(failure => failure.startsWith("math_journey_checker_contract_ambiguity;"));
 }
 
-const CREATOR_MANIFEST_CONTRACT_FAILURE = /creator_playwright_manifest_(?:file_missing|hash_mismatch|json_invalid|invalid|version|node_mismatch|item_coverage|item_invalid|assertion_missing|assertion_invalid|completion_missing|action_invalid)/;
+const CREATOR_MANIFEST_CONTRACT_FAILURE = /creator_playwright_manifest_(?:file_missing|hash_mismatch|proof_mismatch|json_invalid|invalid|version|node_mismatch|item_coverage|item_order|item_invalid|assertion_missing|assertion_invalid|completion_missing|action_invalid)/;
 
 function visualRepairNodeDir(draft: string, nodeId: string): string {
   return path.join(draft, "provider-diagnostics", `visual-repair-v${CHILD_FACING_VISUAL_GATE_VERSION}`, nodeId);
@@ -393,8 +393,31 @@ export async function runAdaptiveMathGeneration(
     if (!activity) throw new Error(`targeted_activity_missing:${artifact.nodeId}`);
     artifact.itemIds = activity.items.map(item => item.id);
     const saved = reports[artifact.nodeId];
-    if (!saved?.passed || saved.htmlHash !== htmlHash || saved.verifierVersion !== MATH_BROWSER_VERIFIER_VERSION) {
+    const manifestBytesHash = artifact.creatorContractVersion === 19 && artifact.creatorTestPath && fs.existsSync(artifact.creatorTestPath)
+      ? crypto.createHash("sha256").update(fs.readFileSync(artifact.creatorTestPath)).digest("hex")
+      : undefined;
+    const savedManifestProofMatches = artifact.creatorContractVersion !== 19 || Boolean(
+      artifact.creatorTestHash
+      && manifestBytesHash === artifact.creatorTestHash
+      && saved?.creatorTests?.passed === true
+      && saved.creatorTests.manifestHash === artifact.creatorTestHash,
+    );
+    if (!saved?.passed || saved.htmlHash !== htmlHash || saved.verifierVersion !== MATH_BROWSER_VERIFIER_VERSION || !savedManifestProofMatches) {
       reports[artifact.nodeId] = { ...await runDirectBrowserSmokeCheck({ artifacts: [artifact], rootDir, itemContractsByNodeId: { [artifact.nodeId]: activity.items } }), htmlHash, verifierVersion: MATH_BROWSER_VERIFIER_VERSION };
+      write(reportsFile, reports);
+    }
+    if (artifact.creatorContractVersion === 19 && !(
+      artifact.creatorTestHash
+      && manifestBytesHash === artifact.creatorTestHash
+      && reports[artifact.nodeId].creatorTests?.passed === true
+      && reports[artifact.nodeId].creatorTests?.manifestHash === artifact.creatorTestHash
+    )) {
+      const failure = `${artifact.nodeId}:creator_playwright_manifest_proof_mismatch`;
+      reports[artifact.nodeId] = {
+        ...reports[artifact.nodeId],
+        passed: false,
+        failures: [...new Set([...reports[artifact.nodeId].failures, failure])],
+      };
       write(reportsFile, reports);
     }
     verifyEngineeringRepairEvidence(path.join(draft, "provider-diagnostics", `${artifact.nodeId}.engineering-repair.json`), {
