@@ -570,7 +570,8 @@ const VISIBLE_NORMALIZED_TEXT_NODES_SOURCE = String.raw`() => {
     if (hidden) continue;
     const range = document.createRange();
     range.selectNodeContents(node);
-    const rendered = Array.from(range.getClientRects()).some(rect => {
+    const rects = Array.from(range.getClientRects());
+    const rendered = rects.length > 0 && rects.every(rect => {
       if (rect.width <= 0 || rect.height <= 0 || rect.right <= 0 || rect.bottom <= 0 || rect.left >= innerWidth || rect.top >= innerHeight) return false;
       const x = Math.min(innerWidth - 1, Math.max(0, rect.left + rect.width / 2));
       const y = Math.min(innerHeight - 1, Math.max(0, rect.top + rect.height / 2));
@@ -628,11 +629,9 @@ export async function verifyMathControlJourney(page: BrowserPage, input: {
       const sentences = completeSentences(value);
       const markers = academicMarkers(value);
       if (sentences.length === 0 || markers.length === 0) return false;
-      return visibleTextNodes().some(text => {
-        const renderedSentences = completeSentences(text);
-        return sentences.some(sentence => text.includes(sentence))
-          && renderedSentences.some(sentence => markers.every(marker => sentence.includes(marker)));
-      });
+      const academicSentences = sentences.filter(sentence => markers.every(marker => sentence.includes(marker)));
+      return academicSentences.length > 0
+        && visibleTextNodes().some(text => academicSentences.some(sentence => text.includes(sentence)));
     };
     window.addEventListener("message", event => {
       const message = event.data;
@@ -856,11 +855,9 @@ export async function verifyMathControlJourney(page: BrowserPage, input: {
         const completeReportedSentenceVisible = Boolean(receipt?.reportedSentenceAndMarkersVisibleAtReceipt)
           && completeSentences(challenge?.prompt).length > 0
           && reportedMarkers.length > 0
-          && visibleTextNodes().some(text => {
-            const renderedSentences = completeSentences(text);
-            return completeSentences(challenge?.prompt).some(sentence => text.includes(sentence))
-              && renderedSentences.some(sentence => reportedMarkers.every(marker => sentence.includes(marker)));
-          });
+          && completeSentences(challenge?.prompt)
+            .filter(sentence => reportedMarkers.every(marker => sentence.includes(marker)))
+            .some(sentence => visibleTextNodes().some(text => text.includes(sentence)));
         const reportedPromptCurrentlyVisible = prompt.length > 0 && visibleText.includes(prompt);
         const frozenPromptCurrentlyVisible = frozenPrompt.length > 0 && visibleText.includes(frozenPrompt);
         return {

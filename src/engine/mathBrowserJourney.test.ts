@@ -365,7 +365,7 @@ it("accepts the frozen Planner prompt when the activity reports a longer paraphr
   expect(result.failures).toEqual([]);
 },20000);
 
-it("accepts a complete reported sentence after the previous prompt has left the viewport", async () => {
+it("stops when only a generic reported sentence survives an academic paraphrase", async () => {
   const itemContracts = [
     { id:"one", prompt:"Here is a labeled array. Tap the number of ROWS.", response:{ mode:"numeric", expected:3 } },
     { id:"two", prompt:"Same labeled array. Now tap the number that tells how many COLUMNS it has.", response:{ mode:"numeric", expected:5 } },
@@ -384,6 +384,33 @@ it("accepts a complete reported sentence after the previous prompt has left the 
       if(item==='one'){
         active='two';document.querySelector('#prompt').textContent='Same labeled array. How many COLUMNS?';
         report('two','Same labeled array. Now tap the number that tells how many COLUMNS it has.');
+      } else parent.postMessage({type:'node_complete',payload:{targetResults:rows,accuracy:1}},'*');
+    };
+    report('one','Here is a labeled array. Tap the number of ROWS.');
+    </script>`, ["one", "two"], itemContracts);
+  expect(result.passed).toBe(false);
+  expect(result.failures.join("|")).toContain("math_journey_checker_contract_ambiguity;item=two");
+},20000);
+
+it("accepts an exact reported academic sentence after the previous prompt has left the viewport", async () => {
+  const itemContracts = [
+    { id:"one", prompt:"Here is a labeled array. Tap the number of ROWS.", response:{ mode:"numeric", expected:3 } },
+    { id:"two", prompt:"Same labeled array. How many COLUMNS?", response:{ mode:"numeric", expected:5 } },
+  ];
+  const result = await verify(`<p id="prompt">Here is a labeled array. Tap the number of ROWS.</p><button id="answer">Commit answer</button>
+    <script>
+    const rows=[];let active='one';
+    window.SUNNY_VALIDATION_HOOKS={journey:[
+      {itemId:'one',steps:[{action:'click',selector:'#answer'}]},
+      {itemId:'two',steps:[{action:'click',selector:'#answer'}]}
+    ]};
+    const report=(id,prompt)=>parent.postMessage({type:'game_state_update',payload:{currentChallenge:{id,prompt}}},'*');
+    document.querySelector('#answer').onclick=()=>{
+      const item=active;rows.push({target:item,attemptedValue:item==='one'?'3':'5',correct:true});
+      parent.postMessage({type:'attempt_event',payload:{target:item,attemptedValue:item==='one'?'3':'5',correct:true}},'*');
+      if(item==='one'){
+        active='two';document.querySelector('#prompt').textContent='How many COLUMNS?';
+        report('two','Same labeled array. How many COLUMNS?');
       } else parent.postMessage({type:'node_complete',payload:{targetResults:rows,accuracy:1}},'*');
     };
     report('one','Here is a labeled array. Tap the number of ROWS.');
@@ -408,7 +435,7 @@ it("does not accept a generic lead-in sentence when the academic marker is loose
       const item=active;rows.push({target:item,attemptedValue:item==='one'?'1':'4',correct:true});
       parent.postMessage({type:'attempt_event',payload:{target:item,attemptedValue:item==='one'?'1':'4',correct:true}},'*');
       if(item==='one'){
-        active='two';document.querySelector('#prompt').textContent='Look at the array. COLUMNS';
+        active='two';document.querySelector('#prompt').textContent='Look at the array. The COLUMNS label remains.';
         report('two','Look at the array. How many COLUMNS?');
       } else parent.postMessage({type:'node_complete',payload:{targetResults:rows,accuracy:1}},'*');
     };
@@ -437,6 +464,38 @@ it("does not accept a reported sentence that is hidden by an ancestor", async ()
       if(item==='one'){
         active='two';document.querySelector('#prompt').textContent='Waiting';
         report('two','Same labeled array. Now tap the number that tells how many COLUMNS it has.');
+      } else parent.postMessage({type:'node_complete',payload:{targetResults:rows,accuracy:1}},'*');
+    };
+    report('one','First prompt');
+    </script>`, ["one", "two"], itemContracts);
+  expect(result.passed).toBe(false);
+  expect(result.failures.join("|")).toContain("math_journey_checker_contract_ambiguity;item=two");
+},20000);
+
+it("does not treat a partly covered multiline prompt as fully visible", async () => {
+  const itemContracts = [
+    { id:"one", prompt:"First prompt", response:{ mode:"numeric", expected:1 } },
+    { id:"two", prompt:"Same labeled array. How many COLUMNS?", response:{ mode:"numeric", expected:4 } },
+  ];
+  const result = await verify(`<style>
+      #prompt{width:180px;font-size:20px;line-height:30px;margin:0}
+      #cover{display:none;position:absolute;left:0;top:30px;width:240px;height:100px;background:white;z-index:10}
+      #answer{position:fixed;left:20px;bottom:20px}
+    </style><p id="prompt">First prompt</p><div id="cover"></div><button id="answer">Commit answer</button>
+    <script>
+    const rows=[];let active='one';
+    window.SUNNY_VALIDATION_HOOKS={journey:[
+      {itemId:'one',steps:[{action:'click',selector:'#answer'}]},
+      {itemId:'two',steps:[{action:'click',selector:'#answer'}]}
+    ]};
+    const report=(id,prompt)=>parent.postMessage({type:'game_state_update',payload:{currentChallenge:{id,prompt}}},'*');
+    document.querySelector('#answer').onclick=()=>{
+      const item=active;rows.push({target:item,attemptedValue:item==='one'?'1':'4',correct:true});
+      parent.postMessage({type:'attempt_event',payload:{target:item,attemptedValue:item==='one'?'1':'4',correct:true}},'*');
+      if(item==='one'){
+        active='two';document.querySelector('#prompt').textContent='Same labeled array. How many COLUMNS?';
+        document.querySelector('#cover').style.display='block';
+        report('two','Same labeled array. How many COLUMNS?');
       } else parent.postMessage({type:'node_complete',payload:{targetResults:rows,accuracy:1}},'*');
     };
     report('one','First prompt');
