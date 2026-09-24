@@ -518,7 +518,7 @@ export type DirectGenerationStats = {
   bonusDeferred: boolean;
 };
 
-export const MATH_BROWSER_VERIFIER_VERSION = 12;
+export const MATH_BROWSER_VERIFIER_VERSION = 13;
 
 export const TARGETED_COMPANION_RUNTIME_CONTRACT = `Represent currentChallenge as {id,prompt,mode,measurementRole,readAloudRequested,readAloudCount,companionSupportTrigger}. For each instruction or practice item, its first answer-hidden state must set readAloudRequested:true, readAloudCount:1, and companionSupportTrigger:"guided_prompt" so Elli can give one brief contextual introduction. Do this once per item, never after an answer. A fresh_checkpoint must not summon Elli automatically. When the child activates a visible Read it to me or Explain control on any item, increment readAloudCount and resend that same answer-hidden state with readAloudRequested:true and companionSupportTrigger:"child_request". Elli owns spoken teaching; do not narrate inside the activity.`;
 
@@ -526,6 +526,7 @@ export type DirectPlaywrightReport = {
   passed: boolean;
   failures: string[];
   screenshots: string[];
+  captures?: JourneyCapture[];
   verification?: {
     runtime: boolean;
     scoring: boolean;
@@ -2838,7 +2839,7 @@ export async function runDirectBrowserSmokeCheck(input: {
   const address = server.address();
   if (!address || typeof address === "string") throw new Error("direct_playwright_server_failed");
   let browser: Awaited<ReturnType<(typeof import("playwright"))["chromium"]["launch"]>> | undefined;
-  const failures: string[] = [], screenshots: string[] = [];
+  const failures: string[] = [], screenshots: string[] = [], captures: JourneyCapture[] = [];
   const screenshotDir = path.join(rootDir, "outputs", "math-browser-verification");
   try {
     fs.mkdirSync(screenshotDir, { recursive: true });
@@ -2846,7 +2847,7 @@ export async function runDirectBrowserSmokeCheck(input: {
     browser = await chromium.launch({ headless: true });
     for (const artifact of input.artifacts) for (const viewport of DISCOVERY_RELEASE_VIEWPORTS) {
       const page = await browser.newPage({ viewport });
-      const captures: JourneyCapture[] = [];
+      const viewportCaptures: JourneyCapture[] = [];
       const errors: string[] = [];
       page.on("pageerror", error => errors.push(error.message));
       try {
@@ -2867,7 +2868,7 @@ export async function runDirectBrowserSmokeCheck(input: {
               filePrefix: `${artifact.nodeId.replace(/[^a-z0-9_-]/gi, "_")}-${viewport.name}`,
               viewport: viewport.name,
               request,
-            }, captures);
+            }, viewportCaptures);
             for (const { from, to } of recorded.relabeled) {
               const index = screenshots.indexOf(from);
               if (index >= 0) screenshots[index] = to;
@@ -2880,6 +2881,15 @@ export async function runDirectBrowserSmokeCheck(input: {
         const completionTarget = path.join(screenshotDir, `${safeNodeId}-${viewport.name}-completion.png`);
         await page.screenshot({ path: completionTarget, fullPage: false });
         screenshots.push(completionTarget);
+        viewportCaptures.push({
+          path: completionTarget,
+          label: path.basename(completionTarget, ".png"),
+          kind: "completion",
+          viewport: viewport.name,
+          verifierVersion: DISCOVERY_VERIFIER_VERSION,
+          observedItemId: null,
+          promptVisible: false,
+        });
       } catch (error) {
         failures.push(`${artifact.nodeId}:${viewport.name}:${error instanceof Error ? error.message : String(error)}`);
       } finally {
@@ -2888,6 +2898,7 @@ export async function runDirectBrowserSmokeCheck(input: {
           const target = path.join(screenshotDir, `${artifact.nodeId.replace(/[^a-z0-9_-]/gi,"_")}-${viewport.name}-failure.png`);
           await page.screenshot({ path: target, fullPage: false }).then(() => screenshots.push(target)).catch(error => failures.push(`screenshot_failed:${String(error)}`));
         }
+        captures.push(...viewportCaptures);
         await page.close();
       }
     }
@@ -2902,6 +2913,7 @@ export async function runDirectBrowserSmokeCheck(input: {
     passed,
     failures,
     screenshots,
+    captures,
     verification: {
       runtime: passed,
       scoring: passed && frozenContractsCovered,

@@ -8,7 +8,7 @@ import { createDiscoveryLearningCycle, completeDiscoveryEvaluation, recordDiscov
 import { getLearningCycle, projectLearningCycle, transitionLearningCycle } from "../engine/learningCycleRepository";
 import { runAdaptiveMathGeneration } from "./runAdaptiveMathGeneration";
 import { askDirectMathPlanner, askMathExperienceDesigner, correctSavedDirectMathPlannerResponse, generateDirectArtifacts, repairDirectArtifact, runDirectBrowserSmokeCheck } from "../engine/directMathExperience";
-import { recordEngineeringRepairEvidence } from "../engine/discoveryVisualReview";
+import { recordEngineeringRepairEvidence, type JourneyCapture } from "../engine/discoveryVisualReview";
 import { judgeChildFacingScreens } from "../engine/childFacingVisualGate";
 
 vi.mock("../profiles/childChart", () => ({ getChildChart: () => ({
@@ -25,12 +25,31 @@ vi.mock("../engine/directMathExperience", async (original) => ({
 }));
 vi.mock("../engine/childFacingVisualGate", () => ({
   CHILD_FACING_VISUAL_GATE_VERSION: 3,
+  selectVerifiedChildFacingCaptures: (captures: Array<{ viewport: string; kind: string }>) =>
+    captures.filter(capture => capture.viewport === "sunny" && capture.kind !== "failure"),
   selectChildFacingJourneyScreens: (screenshots: string[]) => {
     const selected = screenshots.filter(file => file.includes("-sunny-item-") || file.includes("-sunny-completion"));
     return selected.length > 0 ? selected : screenshots;
   },
   judgeChildFacingScreens: vi.fn(),
 }));
+
+const confirmedAcademicCapture = (overrides: Partial<JourneyCapture> = {}): JourneyCapture => ({
+  path: "activity-1-sunny-item-01.png",
+  label: "activity-1-sunny-item-01",
+  kind: "academic_item",
+  viewport: "sunny",
+  verifierVersion: 20,
+  expectedItemId: "item-01",
+  observedItemId: "item-01",
+  promptVisible: true,
+  ...overrides,
+});
+const citedVisualReject = (observation: string, screen = 1) => ({
+  decision: "reject" as const,
+  observations: [observation],
+  findings: [{ screen, claim: "visual_defect" as const, observation }],
+});
 let rootDir: string;
 const childId = "reina", homeworkId = "hw-worker-lab";
 beforeEach(() => {
@@ -61,7 +80,12 @@ beforeEach(() => {
     fs.writeFileSync(htmlPath, "<!doctype html><h1>Lab</h1><button>Answer</button>");
     return { artifacts: [{ childId, homeworkId, nodeId, title: nodeId, htmlPath, htmlHash: createHash("sha256").update(fs.readFileSync(htmlPath)).digest("hex"), artworkUrl: "/art.svg", creatorPrompt: "fixture", promptHash: "prompt", plannerModel: "mock", creatorModel: "mock" }], backgroundUrl: "/art.svg", questArtworkUrl: "/quest.svg", bossArtworkUrl: "/boss.svg", stats: { generatedNodeIds: [nodeId], reusedNodeIds: [], generatedImages: 0, reusedImages: 0, bonusDeferred: true } };
   });
-  vi.mocked(runDirectBrowserSmokeCheck).mockResolvedValue({ passed: true, failures: [], screenshots: ["lab.png"] });
+  vi.mocked(runDirectBrowserSmokeCheck).mockResolvedValue({
+    passed: true,
+    failures: [],
+    screenshots: ["lab.png"],
+    captures: [confirmedAcademicCapture({ path: "lab.png" })],
+  });
   vi.mocked(judgeChildFacingScreens).mockResolvedValue({ decision: "approve", observations: [] });
   vi.mocked(repairDirectArtifact).mockImplementation(async ({ artifact, outputDir, authorizeTruncatedReplacement }) => {
     if (authorizeTruncatedReplacement) {
@@ -285,11 +309,12 @@ it("does not publish a child-visible artifact rejected by blind screenshot revie
       "node-sunny-item-01-question.png",
       "node-sunny-completion.png",
     ],
+    captures: [
+      confirmedAcademicCapture({ path: "node-sunny-item-01-question.png" }),
+      confirmedAcademicCapture({ path: "node-sunny-completion.png", kind: "completion", observedItemId: null, promptVisible: false }),
+    ],
   });
-  vi.mocked(judgeChildFacingScreens).mockResolvedValue({
-    decision: "reject",
-    observations: ["The clock hands visibly contradict the question."],
-  });
+  vi.mocked(judgeChildFacingScreens).mockResolvedValue(citedVisualReject("The clock hands visibly contradict the question."));
 
   await runAdaptiveMathGeneration(childId, homeworkId, rootDir);
 
@@ -300,6 +325,117 @@ it("does not publish a child-visible artifact rejected by blind screenshot revie
     .filter(node => node.role === "baseline")
     .every(node => node.artifactBinding === null)).toBe(true);
   expect(getMathGenerationStatus(childId, homeworkId, { rootDir })?.phase).not.toBe("board_ready");
+});
+
+it.each([
+  ["an unconfirmed screen", confirmedAcademicCapture({ kind: "unconfirmed", observedItemId: null, promptVisible: false }), { screen: 1, claim: "visual_defect", observation: "The prompt is missing." }],
+  ["an older-verifier screen", confirmedAcademicCapture({ verifierVersion: 19 }), { screen: 1, claim: "visual_defect", observation: "The controls overlap." }],
+  ["an uncited finding", confirmedAcademicCapture(), { screen: null, claim: "visual_defect", observation: "The controls overlap." }],
+  ["a contradicted missing-content claim", confirmedAcademicCapture(), { screen: 1, claim: "content_missing", observation: "The prompt is missing." }],
+] as const)("stops %s as needs-attention without buying a visual repair", async (_label, capture, finding) => {
+  vi.mocked(runDirectBrowserSmokeCheck).mockImplementation(async ({ artifacts }) => ({
+    passed: true,
+    failures: [],
+    screenshots: [String(capture.path).replace("activity-1", artifacts[0]!.nodeId)],
+    captures: [{ ...capture, path: String(capture.path).replace("activity-1", artifacts[0]!.nodeId) }],
+  }) as never);
+  vi.mocked(judgeChildFacingScreens).mockImplementation(async ({ auditFile }) => auditFile?.includes("activity-1")
+    ? { decision: "reject", observations: [finding.observation], findings: [finding] } as never
+    : { decision: "approve", observations: [], findings: [] });
+  const draft = path.join(rootDir, "src/context", childId, "homework/direct-drafts", homeworkId);
+  const historyFile = path.join(draft, "provider-diagnostics", "activity-1-visual-review-history.jsonl");
+  fs.mkdirSync(path.dirname(historyFile), { recursive: true });
+  fs.writeFileSync(historyFile, `${JSON.stringify({ prior: true })}\n`);
+
+  await runAdaptiveMathGeneration(childId, homeworkId, rootDir);
+
+  expect(repairDirectArtifact).not.toHaveBeenCalled();
+  expect(getMathGenerationStatus(childId, homeworkId, { rootDir })?.nodes.find(node => node.nodeId === "activity-1"))
+    .toMatchObject({ status: "needs_attention", attemptCount: 1 });
+  expect(fs.readFileSync(historyFile, "utf8").trim().split("\n")).toHaveLength(2);
+});
+
+it("stops a browser harness failure as needs-attention without asking for review or repair", async () => {
+  vi.mocked(runDirectBrowserSmokeCheck).mockResolvedValue({
+    passed: false,
+    failures: ["browserType.launch: Executable doesn't exist"],
+    screenshots: [],
+  });
+
+  await runAdaptiveMathGeneration(childId, homeworkId, rootDir);
+
+  expect(judgeChildFacingScreens).not.toHaveBeenCalled();
+  expect(repairDirectArtifact).not.toHaveBeenCalled();
+  expect(getMathGenerationStatus(childId, homeworkId, { rootDir })?.nodes[0])
+    .toMatchObject({ status: "needs_attention", attemptCount: 1, error: expect.stringContaining("harness_failure") });
+});
+
+it("repairs only a cited visual defect on a browser-confirmed academic screen", async () => {
+  vi.mocked(runDirectBrowserSmokeCheck).mockImplementation(async ({ artifacts }) => ({
+    passed: true,
+    failures: [],
+    screenshots: [`${artifacts[0]!.nodeId}-sunny-item-01.png`],
+    captures: [{ ...confirmedAcademicCapture(), path: `${artifacts[0]!.nodeId}-sunny-item-01.png` }],
+  }) as never);
+  let firstReview = true;
+  vi.mocked(judgeChildFacingScreens).mockImplementation(async ({ auditFile }) => {
+    if (auditFile?.includes("activity-1") && firstReview) {
+      firstReview = false;
+      return {
+        decision: "reject",
+        observations: ["The two buttons overlap."],
+        findings: [{ screen: 1, claim: "visual_defect", observation: "The two buttons overlap." }],
+      };
+    }
+    return { decision: "approve", observations: [], findings: [] };
+  });
+
+  await runAdaptiveMathGeneration(childId, homeworkId, rootDir);
+
+  expect(repairDirectArtifact).toHaveBeenCalledTimes(1);
+  expect(getMathGenerationStatus(childId, homeworkId, { rootDir })?.nodes.find(node => node.nodeId === "activity-1")?.status).toBe("ready");
+});
+
+it("does not reset a consumed visual repair when the visual gate version changes", async () => {
+  await runAdaptiveMathGeneration(childId, homeworkId, rootDir);
+  const draft = path.join(rootDir, "src/context", childId, "homework/direct-drafts", homeworkId);
+  const build = JSON.parse(fs.readFileSync(path.join(draft, "candidate-build-v3.json"), "utf8"));
+  const artifact = build.artifacts.find((candidate: { nodeId: string }) => candidate.nodeId === "activity-1");
+  const oldAttemptDir = path.join(draft, "provider-diagnostics", "visual-repair-v2", "activity-1", artifact.htmlHash.slice(0, 12));
+  fs.mkdirSync(oldAttemptDir, { recursive: true });
+  fs.writeFileSync(path.join(oldAttemptDir, "activity-1-visual-repair-attempt.json"), JSON.stringify({
+    version: 1,
+    gateVersion: 2,
+    nodeId: "activity-1",
+    inputHtmlHash: artifact.htmlHash,
+    failures: ["child_visual_review:screen=1:The controls overlap."],
+    status: "failed",
+  }));
+  const secondOldAttemptDir = path.join(draft, "provider-diagnostics", "visual-repair-v2", "activity-1", "second-attempt");
+  fs.mkdirSync(secondOldAttemptDir, { recursive: true });
+  fs.writeFileSync(path.join(secondOldAttemptDir, "activity-1-visual-repair-attempt.json"), JSON.stringify({
+    version: 1,
+    gateVersion: 2,
+    nodeId: "activity-1",
+    inputHtmlHash: "f".repeat(64),
+    failures: ["child_visual_review:screen=1:The controls overlap."],
+    status: "failed",
+  }));
+  const reportsFile = path.join(draft, "browser-verification.json");
+  const reports = JSON.parse(fs.readFileSync(reportsFile, "utf8"));
+  reports["activity-1"] = {
+    ...reports["activity-1"],
+    passed: false,
+    failures: ["child_visual_review:screen=1:The controls overlap."],
+    visualReview: { repairAuthorized: true, attribution: { category: "generated_content_defect" } },
+  };
+  fs.writeFileSync(reportsFile, JSON.stringify(reports));
+  updateMathGenerationNode({ rootDir, childId, homeworkId, nodeId: "activity-1", status: "needs_attention", artifactHash: artifact.htmlHash, error: "saved_visual_rejection" });
+  vi.mocked(repairDirectArtifact).mockClear();
+
+  await runAdaptiveMathGeneration(childId, homeworkId, rootDir);
+
+  expect(repairDirectArtifact).not.toHaveBeenCalled();
 });
 
 it("does not trust a repair lesson from control-journey acceptance without frozen scoring proof", async () => {
@@ -493,10 +629,9 @@ it("gives a current visual rejection one separately tracked repair after generic
   const draft = path.join(rootDir, "src/context", childId, "homework/direct-drafts", homeworkId);
   fs.writeFileSync(path.join(draft, "math-learning-program.json"), JSON.stringify(learningProgram(2)));
   fs.writeFileSync(path.join(draft, "designed-plan.json"), JSON.stringify(plan(2)));
-  vi.mocked(judgeChildFacingScreens).mockImplementation(async ({ auditFile }) => auditFile?.includes("activity-1") ? {
-    decision: "reject",
-    observations: ["The completion screen contradicts its progress and has no Finish action."],
-  } : { decision: "approve", observations: [] });
+  vi.mocked(judgeChildFacingScreens).mockImplementation(async ({ auditFile }) => auditFile?.includes("activity-1")
+    ? citedVisualReject("The completion screen contradicts its progress and has no Finish action.")
+    : { decision: "approve", observations: [] });
 
   await runAdaptiveMathGeneration(childId, homeworkId, rootDir);
   expect(getMathGenerationStatus(childId, homeworkId, { rootDir })?.nodes[0]).toMatchObject({ status: "needs_attention", attemptCount: 2 });
@@ -521,10 +656,9 @@ it("uses one final visual follow-up on the verified repaired artifact, then stop
   const draft = path.join(rootDir, "src/context", childId, "homework/direct-drafts", homeworkId);
   fs.writeFileSync(path.join(draft, "math-learning-program.json"), JSON.stringify(learningProgram(2)));
   fs.writeFileSync(path.join(draft, "designed-plan.json"), JSON.stringify(plan(2)));
-  vi.mocked(judgeChildFacingScreens).mockImplementation(async ({ auditFile }) => auditFile?.includes("activity-1") ? {
-    decision: "reject",
-    observations: ["The completion screen contradicts its progress and has no Finish action."],
-  } : { decision: "approve", observations: [] });
+  vi.mocked(judgeChildFacingScreens).mockImplementation(async ({ auditFile }) => auditFile?.includes("activity-1")
+    ? citedVisualReject("The completion screen contradicts its progress and has no Finish action.")
+    : { decision: "approve", observations: [] });
 
   await runAdaptiveMathGeneration(childId, homeworkId, rootDir);
   await runAdaptiveMathGeneration(childId, homeworkId, rootDir);
@@ -554,7 +688,7 @@ it("publishes a final visual follow-up only after the repaired journey passes", 
     if (!auditFile?.includes("activity-1")) return { decision: "approve", observations: [] };
     activityOneReviews += 1;
     return activityOneReviews < 4
-      ? { decision: "reject", observations: [`Residual visual defect ${activityOneReviews}`] }
+      ? citedVisualReject(`Residual visual defect ${activityOneReviews}`)
       : { decision: "approve", observations: [] };
   });
 
@@ -568,10 +702,9 @@ it("publishes a final visual follow-up only after the repaired journey passes", 
 
 it("reapplies a saved visual repair after a patch-parser upgrade without another provider build", async () => {
   const draft = path.join(rootDir, "src/context", childId, "homework/direct-drafts", homeworkId);
-  vi.mocked(judgeChildFacingScreens).mockImplementation(async ({ auditFile }) => auditFile?.includes("activity-1") ? {
-    decision: "reject",
-    observations: ["The completion wording contradicts the visible state."],
-  } : { decision: "approve", observations: [] });
+  vi.mocked(judgeChildFacingScreens).mockImplementation(async ({ auditFile }) => auditFile?.includes("activity-1")
+    ? citedVisualReject("The completion wording contradicts the visible state.")
+    : { decision: "approve", observations: [] });
   await runAdaptiveMathGeneration(childId, homeworkId, rootDir);
   const artifact = JSON.parse(fs.readFileSync(path.join(draft, "candidate-build-v3.json"), "utf8")).artifacts
     .find((candidate: { nodeId: string }) => candidate.nodeId === "activity-1");
@@ -604,10 +737,9 @@ it("removes a previously ready artifact from play when a newer visual review rej
   reports["activity-1"] = { ...reports["activity-1"], verifierVersion: 0 };
   fs.writeFileSync(reportsFile, JSON.stringify(reports));
   setMathGenerationPhase({ rootDir, childId, homeworkId, phase: "needs_attention", error: "new_visual_gate" });
-  vi.mocked(judgeChildFacingScreens).mockImplementation(async ({ auditFile }) => auditFile?.includes("activity-1") ? {
-    decision: "reject",
-    observations: ["The activity ends without a visible way to continue."],
-  } : { decision: "approve", observations: [] });
+  vi.mocked(judgeChildFacingScreens).mockImplementation(async ({ auditFile }) => auditFile?.includes("activity-1")
+    ? citedVisualReject("The activity ends without a visible way to continue.")
+    : { decision: "approve", observations: [] });
   vi.mocked(repairDirectArtifact).mockRejectedValueOnce(new Error("repair_offline"));
 
   await runAdaptiveMathGeneration(childId, homeworkId, rootDir);
@@ -642,10 +774,9 @@ it("removes a Ready artifact from play when its saved HTML bytes change", async 
 
 it("resumes a started visual repair without purchasing another generic build", async () => {
   const draft = path.join(rootDir, "src/context", childId, "homework/direct-drafts", homeworkId);
-  vi.mocked(judgeChildFacingScreens).mockImplementation(async ({ auditFile }) => auditFile?.includes("activity-1") ? {
-    decision: "reject",
-    observations: ["The activity ends without a visible way to continue."],
-  } : { decision: "approve", observations: [] });
+  vi.mocked(judgeChildFacingScreens).mockImplementation(async ({ auditFile }) => auditFile?.includes("activity-1")
+    ? citedVisualReject("The activity ends without a visible way to continue.")
+    : { decision: "approve", observations: [] });
   await runAdaptiveMathGeneration(childId, homeworkId, rootDir);
   const artifact = JSON.parse(fs.readFileSync(path.join(draft, "candidate-build-v3.json"), "utf8")).artifacts
     .find((candidate: { nodeId: string }) => candidate.nodeId === "activity-1");
@@ -674,10 +805,9 @@ it("resumes a started visual repair without purchasing another generic build", a
 
 it("finishes publication after a crash left a provider-completed repair with passing proof", async () => {
   const draft = path.join(rootDir, "src/context", childId, "homework/direct-drafts", homeworkId);
-  vi.mocked(judgeChildFacingScreens).mockImplementation(async ({ auditFile }) => auditFile?.includes("activity-1") ? {
-    decision: "reject",
-    observations: ["The completion state has no visible way to continue."],
-  } : { decision: "approve", observations: [] });
+  vi.mocked(judgeChildFacingScreens).mockImplementation(async ({ auditFile }) => auditFile?.includes("activity-1")
+    ? citedVisualReject("The completion state has no visible way to continue.")
+    : { decision: "approve", observations: [] });
   await runAdaptiveMathGeneration(childId, homeworkId, rootDir);
 
   const buildFile = path.join(draft, "candidate-build-v3.json");
@@ -727,10 +857,9 @@ it("finishes publication after a crash left a provider-completed repair with pas
 
 it("restores an original proof matching the original bytes when resumed repair publication fails", async () => {
   const draft = path.join(rootDir, "src/context", childId, "homework/direct-drafts", homeworkId);
-  vi.mocked(judgeChildFacingScreens).mockImplementation(async ({ auditFile }) => auditFile?.includes("activity-1") ? {
-    decision: "reject",
-    observations: ["The completion state has no visible way to continue."],
-  } : { decision: "approve", observations: [] });
+  vi.mocked(judgeChildFacingScreens).mockImplementation(async ({ auditFile }) => auditFile?.includes("activity-1")
+    ? citedVisualReject("The completion state has no visible way to continue.")
+    : { decision: "approve", observations: [] });
   await runAdaptiveMathGeneration(childId, homeworkId, rootDir);
 
   const buildFile = path.join(draft, "candidate-build-v3.json");

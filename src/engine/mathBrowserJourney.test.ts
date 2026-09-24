@@ -81,6 +81,14 @@ it("captures every question before answering so blind review cannot see completi
   expect(result.screenshots.filter(file => file.includes("item-01-one"))).toHaveLength(2);
   expect(result.screenshots.filter(file => file.includes("item-02-two"))).toHaveLength(2);
   expect(result.screenshots.filter(file => file.includes("completion"))).toHaveLength(2);
+  expect(result.captures?.filter(capture => capture.viewport === "sunny").map(capture => ({
+    kind: capture.kind,
+    observedItemId: capture.observedItemId,
+  }))).toEqual([
+    { kind: "academic_item", observedItemId: "one" },
+    { kind: "academic_item", observedItemId: "two" },
+    { kind: "completion", observedItemId: null },
+  ]);
 }, 20000);
 
 it("captures an evidence-free opening separately before the first academic item", async () => {

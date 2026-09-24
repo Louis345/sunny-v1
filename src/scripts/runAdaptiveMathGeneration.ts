@@ -31,11 +31,24 @@ import { attachSpellingDiscoveryEvidence, buildAssignmentPlanningPacket, planAss
 import { buildSpellingTargetedCycleInput } from "../engine/learningCycleIngest";
 import { generateBoardNodeImages } from "../engine/boardNodeImageGenerator";
 import { resolveChildContextDir } from "../utils/contextRoot";
-import { verifyEngineeringRepairEvidence, DISCOVERY_VERIFIER_VERSION, DISCOVERY_RELEASE_VIEWPORTS } from "../engine/discoveryVisualReview";
+import {
+  attributeReviewFindings,
+  verifyEngineeringRepairEvidence,
+  DISCOVERY_VERIFIER_VERSION,
+  DISCOVERY_RELEASE_VIEWPORTS,
+  isHarnessFailure,
+  type JourneyCapture,
+  type ReviewAttribution,
+} from "../engine/discoveryVisualReview";
 import { thumbnailUrlForActivity } from "../shared/activityPresentation";
 import { buildAdventureBoardFromActiveSessionPlan } from "../shared/adventureBoardFromPlan";
 import type { ActiveSessionPlan } from "../context/schemas/learningProfile";
-import { CHILD_FACING_VISUAL_GATE_VERSION, judgeChildFacingScreens, selectChildFacingJourneyScreens } from "../engine/childFacingVisualGate";
+import {
+  CHILD_FACING_VISUAL_GATE_VERSION,
+  judgeChildFacingScreens,
+  selectChildFacingJourneyScreens,
+  selectVerifiedChildFacingCaptures,
+} from "../engine/childFacingVisualGate";
 
 const read = <T>(file: string): T => JSON.parse(fs.readFileSync(file, "utf8")) as T;
 const write = (file: string, value: unknown): void => { fs.mkdirSync(path.dirname(file), { recursive: true }); const temp = `${file}.${process.pid}.tmp`; fs.writeFileSync(temp, `${JSON.stringify(value, null, 2)}\n`); fs.renameSync(temp, file); };
@@ -87,12 +100,34 @@ function findVisualRepairAttempt(draft: string, nodeId: string, artifactHash: st
 }
 
 function countVisualRepairAttempts(draft: string, nodeId: string): number {
-  const nodeDir = visualRepairNodeDir(draft, nodeId);
-  if (!fs.existsSync(nodeDir)) return 0;
-  return fs.readdirSync(nodeDir, { recursive: true, encoding: "utf8" })
-    .filter(name => name.endsWith(`${nodeId}-visual-repair-attempt.json`))
-    .length;
+  const diagnosticsDir = path.join(draft, "provider-diagnostics");
+  if (!fs.existsSync(diagnosticsDir)) return 0;
+  return fs.readdirSync(diagnosticsDir, { recursive: true, encoding: "utf8" })
+    .filter(name => /(^|\/)visual-repair-v\d+\//.test(name))
+    .filter(name => name.endsWith(`${nodeId}-visual-repair-attempt.json`)).length;
 }
+
+function boardVisualReviewHistoryFile(draft: string, nodeId: string): string {
+  return path.join(draft, "provider-diagnostics", `${nodeId}-visual-review-history.jsonl`);
+}
+
+function appendBoardVisualReviewHistory(draft: string, nodeId: string, row: Record<string, unknown>): void {
+  const file = boardVisualReviewHistoryFile(draft, nodeId);
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.appendFileSync(file, `${JSON.stringify({ ...row, recordedAt: new Date().toISOString() })}\n`, "utf8");
+}
+
+type BoardVisualReviewRecord = {
+  attribution: ReviewAttribution | null;
+  repairAuthorized: boolean;
+  findings: Array<{ screen: number | null; claim: "visual_defect" | "content_missing"; observation: string }>;
+};
+
+type BoardPlaywrightReport = DirectPlaywrightReport & {
+  htmlHash: string;
+  verifierVersion: number;
+  visualReview?: BoardVisualReviewRecord;
+};
 
 function isChildVisualReviewFailure(attempt: VisualRepairAttempt | undefined): boolean {
   return attempt?.status === "failed"
@@ -220,12 +255,14 @@ export async function runAdaptiveMathGeneration(
     && !fs.existsSync(planFile)
     && hasUncertainTargetedDesignReceipt(draft),
   );
-  const isCurrentVisualRejection = (saved?: { passed?: boolean; failures?: string[]; verifierVersion?: number }): boolean => Boolean(
+  const isCurrentVisualRejection = (saved?: Partial<BoardPlaywrightReport>): boolean => Boolean(
     saved
     && saved.verifierVersion === MATH_BROWSER_VERIFIER_VERSION
     && saved.passed === false
     && saved.failures?.length
-    && saved.failures.every((failure) => failure.startsWith("child_visual_review:")),
+    && saved.failures.every((failure) => failure.startsWith("child_visual_review:"))
+    && saved.visualReview?.repairAuthorized === true
+    && saved.visualReview.attribution?.category === "generated_content_defect",
   );
   const mayReverifySavedArtifacts = Boolean(initialJob?.phase === "needs_attention" && fs.existsSync(buildFile) && fs.existsSync(reportsFile) && (() => {
     try {
@@ -243,7 +280,7 @@ export async function runAdaptiveMathGeneration(
   const mayRepairSavedVisualRejection = Boolean(initialJob?.phase === "needs_attention" && fs.existsSync(buildFile) && fs.existsSync(reportsFile) && (() => {
     try {
       const savedBuild = read<{ artifacts?: DirectArtifact[] }>(buildFile);
-      const savedReports = read<Record<string, DirectPlaywrightReport & { verifierVersion?: number }>>(reportsFile);
+      const savedReports = read<Record<string, BoardPlaywrightReport>>(reportsFile);
       return (savedBuild.artifacts ?? []).some((artifact) => {
         const status = initialJob.nodes.find((node) => node.nodeId === artifact.nodeId)?.status;
         const attempt = findVisualRepairAttempt(draft, artifact.nodeId, artifact.htmlHash ?? "")?.value;
@@ -252,7 +289,8 @@ export async function runAdaptiveMathGeneration(
         return ["failed_resumable", "needs_attention"].includes(status ?? "")
           && (Boolean(resumableAttempt)
             || isVisualRepairFollowUp(attempt, artifact.htmlHash ?? "", attemptCount)
-            || (isCurrentVisualRejection(savedReports[artifact.nodeId])
+            || (attemptCount < MAX_VISUAL_REPAIR_PASSES
+              && isCurrentVisualRejection(savedReports[artifact.nodeId])
               && mayRunVisualRepair(attempt, Boolean(options.retryUncertainProvider), artifact.htmlHash)));
       });
     } catch (error) {
@@ -344,7 +382,7 @@ export async function runAdaptiveMathGeneration(
   const programHash = hashDiscoveryContract(program);
   const designHash = hashDiscoveryContract(designed.packet);
   let build = fs.existsSync(buildFile) ? read<{ artifacts: DirectArtifact[]; backgroundUrl: string; questArtworkUrl: string; bossArtworkUrl: string }>(buildFile) : { artifacts: [], backgroundUrl: "/generated/adaptive-discovery-background.svg", questArtworkUrl: "", bossArtworkUrl: "" };
-  const reports = fs.existsSync(reportsFile) ? read<Record<string, DirectPlaywrightReport & { htmlHash: string; verifierVersion: number }>>(reportsFile) : {};
+  const reports = fs.existsSync(reportsFile) ? read<Record<string, BoardPlaywrightReport>>(reportsFile) : {};
   const report = (): DirectPlaywrightReport => ({ passed: designed.plan.activities.every(a => reports[a.id]?.passed), failures: Object.values(reports).flatMap(r => r.failures), screenshots: Object.values(reports).flatMap(r => r.screenshots) });
   const active = () => buildDirectActiveSessionPlan({ childId, homeworkId, plan: designed.plan, artifacts: placeholderArtifacts(designed.plan, childId, homeworkId, build.artifacts), backgroundUrl: build.backgroundUrl, questArtworkUrl: build.questArtworkUrl, bossArtworkUrl: build.bossArtworkUrl, report: report(), companion: { id: chart.companion.presetId, name: chart.companion.displayName } });
   const canonical = () => buildDirectLearningCycleInput({ childId, homeworkId, extraction, plannerPlan: designed.plan, activeSessionPlan: active(), artifacts: placeholderArtifacts(designed.plan, childId, homeworkId, build.artifacts), assumptions: program.assumptions });
@@ -382,6 +420,10 @@ export async function runAdaptiveMathGeneration(
     });
     const checkerAmbiguity = checkerContractAmbiguity(reports[artifact.nodeId]);
     if (checkerAmbiguity) throw new Error(`targeted_verifier_contract_ambiguity:${artifact.nodeId}:${checkerAmbiguity}`);
+    const browserHarnessFailures = reports[artifact.nodeId].failures.filter(isHarnessFailure);
+    if (browserHarnessFailures.length > 0) {
+      throw new Error(`targeted_visual_review_needs_attention:${artifact.nodeId}:harness_failure:${browserHarnessFailures.join("|")}`);
+    }
     if (!reports[artifact.nodeId].passed) throw new Error(`targeted_browser_verification_failed:${artifact.nodeId}:${reports[artifact.nodeId].failures.join("|")}`);
     const visualAuditFile = childFacingVisualAuditFile(draft, artifact);
     const legacyVisualAuditFile = path.join(draft, "provider-diagnostics", `${artifact.nodeId}-visual-verdict.json`);
@@ -391,20 +433,86 @@ export async function runAdaptiveMathGeneration(
         fs.copyFileSync(legacyVisualAuditFile, visualAuditFile);
       }
     }
-    const visualVerdict = await judgeChildFacingScreens({
-      screenshotPaths: selectChildFacingJourneyScreens(reports[artifact.nodeId].screenshots),
-      auditFile: visualAuditFile,
-      retryUncertain: options.retryUncertainProvider,
-    });
-    if (visualVerdict.decision === "reject") {
+    const recordedCaptures = reports[artifact.nodeId].captures ?? [];
+    const screens: JourneyCapture[] = recordedCaptures.length > 0
+      ? selectVerifiedChildFacingCaptures(recordedCaptures)
+      : selectChildFacingJourneyScreens(reports[artifact.nodeId].screenshots).map(file => ({
+        path: file,
+        label: path.basename(file),
+        kind: "unconfirmed",
+        viewport: "unknown",
+        verifierVersion: DISCOVERY_VERIFIER_VERSION,
+        observedItemId: null,
+        promptVisible: false,
+      }));
+    let visualVerdict: Awaited<ReturnType<typeof judgeChildFacingScreens>>;
+    try {
+      visualVerdict = await judgeChildFacingScreens({
+        screenshotPaths: screens.map(screen => screen.path),
+        auditFile: visualAuditFile,
+        retryUncertain: options.retryUncertainProvider,
+        citeScreens: true,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const attribution: ReviewAttribution = { category: "harness_failure", source: "deterministic", details: [message] };
       reports[artifact.nodeId] = {
         ...reports[artifact.nodeId],
         passed: false,
-        failures: visualVerdict.observations.map(observation => `child_visual_review:${observation}`),
+        failures: [`child_visual_review_needs_attention:harness_failure:${message}`],
+        visualReview: { attribution, repairAuthorized: false, findings: [] },
       };
       write(reportsFile, reports);
-      throw new Error(`targeted_browser_verification_failed:${artifact.nodeId}:child_visual_review:${visualVerdict.observations.join("|")}`);
+      appendBoardVisualReviewHistory(draft, artifact.nodeId, {
+        artifactHash: htmlHash,
+        browserVerifierVersion: MATH_BROWSER_VERIFIER_VERSION,
+        visualGateVersion: CHILD_FACING_VISUAL_GATE_VERSION,
+        screens,
+        error: message,
+        attribution,
+        repairAuthorized: false,
+      });
+      throw new Error(`targeted_visual_review_needs_attention:${artifact.nodeId}:harness_failure:${message}`);
     }
+    if (visualVerdict.decision === "reject") {
+      const findings = visualVerdict.findings ?? [];
+      const attribution = attributeReviewFindings(findings, screens);
+      const repairAuthorized = attribution.category === "generated_content_defect";
+      reports[artifact.nodeId] = {
+        ...reports[artifact.nodeId],
+        passed: false,
+        failures: findings.length > 0
+          ? findings.map(finding => `child_visual_review:screen=${finding.screen ?? "none"}:${finding.observation}`)
+          : ["child_visual_review:reject_without_findings"],
+        visualReview: { attribution, repairAuthorized, findings },
+      };
+      write(reportsFile, reports);
+      appendBoardVisualReviewHistory(draft, artifact.nodeId, {
+        artifactHash: htmlHash,
+        browserVerifierVersion: MATH_BROWSER_VERIFIER_VERSION,
+        visualGateVersion: CHILD_FACING_VISUAL_GATE_VERSION,
+        screens,
+        verdict: visualVerdict,
+        attribution,
+        repairAuthorized,
+      });
+      console.log(` 🎮 [adaptive-math] [board-review-attribution] [${repairAuthorized ? "repair-authorized" : "needs-attention"}] node=${artifact.nodeId} category=${attribution.category}`);
+      if (!repairAuthorized) {
+        throw new Error(`targeted_visual_review_needs_attention:${artifact.nodeId}:${attribution.category}:${attribution.details.join("|")}`);
+      }
+      throw new Error(`targeted_browser_verification_failed:${artifact.nodeId}:${reports[artifact.nodeId].failures.join("|")}`);
+    }
+    reports[artifact.nodeId] = { ...reports[artifact.nodeId], visualReview: { attribution: null, repairAuthorized: false, findings: [] } };
+    write(reportsFile, reports);
+    appendBoardVisualReviewHistory(draft, artifact.nodeId, {
+      artifactHash: htmlHash,
+      browserVerifierVersion: MATH_BROWSER_VERIFIER_VERSION,
+      visualGateVersion: CHILD_FACING_VISUAL_GATE_VERSION,
+      screens,
+      verdict: visualVerdict,
+      attribution: null,
+      repairAuthorized: false,
+    });
     console.log(` 🎮 [adaptive-math] [artifact-verification] [passed] node=${artifact.nodeId} hash=${htmlHash}`);
   };
   const bindVerifiedArtifact = (artifact: DirectArtifact): void => {
@@ -544,8 +652,10 @@ export async function runAdaptiveMathGeneration(
     );
     const savedAttempt = followUp ? undefined : foundAttempt;
     const resumableAttempt = savedAttempt && ["started", "provider_completed"].includes(savedAttempt.value.status);
+    const consumedAttempts = countVisualRepairAttempts(draft, currentArtifact.nodeId);
     if (!["failed_resumable", "needs_attention"].includes(node?.status ?? "")
       || !(resumableAttempt || followUp || (isCurrentVisualRejection(savedReport)
+        && consumedAttempts < MAX_VISUAL_REPAIR_PASSES
         && mayRunVisualRepair(savedAttempt?.value, Boolean(options.retryUncertainProvider), currentArtifact.htmlHash)))) continue;
     const activity = designed.plan.activities.find(candidate => candidate.id === currentArtifact.nodeId);
     if (!activity) throw new Error(`targeted_activity_missing:${currentArtifact.nodeId}`);
