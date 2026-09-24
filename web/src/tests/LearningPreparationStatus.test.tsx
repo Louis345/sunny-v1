@@ -32,10 +32,12 @@ describe("truthful learning preparation",()=>{
     expect(screen.queryByText(/100%|Quest|Boss/)).toBeNull();
   });
   it("counts verified artifacts without calling that a time estimate",()=>{
-    render(<LearningPreparationStatus status={{phase:"board_generating",updatedAt:"now",nodes:[{nodeId:"a",status:"ready"},{nodeId:"b",status:"preparing"}]}} onCheck={vi.fn()}/>);
+    render(<LearningPreparationStatus status={{phase:"board_generating",updatedAt:"now",nodes:[{nodeId:"a",status:"ready"},{nodeId:"b",status:"preparing"}]}} checkedAt={Date.now()} onCheck={vi.fn()}/>);
     expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuenow","1");
     expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuemax","2");
     expect(screen.getByText(/1 of 2 activities ready/)).toBeVisible();
+    expect(screen.getByRole("status").textContent).toContain("You can begin while 1 more finishes");
+    expect(screen.getByRole("status").textContent).toContain("Latest status received — 1 activity is ready");
   });
   it("offers read-only refresh and honest stopped status while ready siblings remain playable",()=>{
     const onCheck=vi.fn();
@@ -68,7 +70,8 @@ describe("truthful learning preparation",()=>{
       onCheck={onCheck}
       onFinish={onFinish}
     />);
-    expect(screen.getByRole("status").textContent).toContain("Progress checked.");
+    expect(screen.getByRole("status").textContent).toContain("Latest status received — Sunny is still planning");
+    expect(screen.getByRole("status").textContent).toContain("Sunny keeps preparing after you leave");
     fireEvent.click(screen.getByRole("button",{name:"Finish for now"}));
     expect(onFinish).toHaveBeenCalledTimes(1);
     expect(screen.getByRole("button",{name:"Finishing…"})).toBeDisabled();

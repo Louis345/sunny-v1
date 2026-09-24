@@ -16,19 +16,29 @@ export function LearningPreparationStatus(props: {
   const status=props.status;
   const total=status?.nodes.length ?? 0;
   const ready=status?.nodes.filter(node=>["ready","completed","evidence_locked"].includes(node.status)).length ?? 0;
+  const playable=status?.nodes.filter(node=>node.status === "ready").length ?? 0;
+  const preparing=status?.nodes.filter(node=>node.status === "preparing").length ?? 0;
   const attention=status?.phase === "needs_attention" || status?.nodes.some(node=>["needs_attention","failed_resumable"].includes(node.status));
   const hasRefreshableWork=status?.nodes.some(node=>["ready","preparing","failed_resumable"].includes(node.status)) ?? false;
   const canCheck=!props.preview && (!attention || hasRefreshableWork);
   const attentionDetail=status?.nodes.some(node=>node.status === "ready") ? "Ready activities are still available; ask a grown-up about the others." : "Ask a grown-up to check preparation before continuing.";
   const title=props.preview ? "Preview finished" : attention ? "Some activities need attention" : ({targeted_planning:"Choosing what to work on",board_designing:"Designing your learning map",board_generating:"Preparing your activities",board_ready:"Your learning map is ready"}[status?.phase ?? ""] ?? "Sunny is preparing your learning path");
+  const detail=props.preview ? "No child evidence was saved." : attention ? `Saved work is safe. ${attentionDetail}`
+    : playable > 0 && preparing > 0 ? `${playable} ${playable === 1 ? "activity is" : "activities are"} ready. You can begin while ${preparing} more ${preparing === 1 ? "finishes" : "finish"}.`
+      : status?.phase === "board_ready" ? "Everything is ready when you are."
+        : "Sunny keeps preparing after you leave. You can finish for now and return to this assignment.";
+  const checkedDetail=ready > 0 ? `Latest status received — ${ready} ${ready === 1 ? "activity is" : "activities are"} ready.`
+    : status?.phase === "targeted_planning" ? "Latest status received — Sunny is still planning."
+      : status?.phase === "board_designing" ? "Latest status received — Sunny is still designing the map."
+        : "Latest status received — Sunny is still preparing the first activity.";
   return <section aria-label="Learning preparation" className="rounded-2xl border border-white/20 bg-zinc-950/95 p-5 text-white shadow-xl">
     <div role="status" aria-live="polite">
       <h1 className="text-xl font-bold">{title}</h1>
-      <p className="mt-2 text-sm text-white/80">{props.preview ? "No child evidence was saved." : attention ? `Saved work is safe. ${attentionDetail}` : "You can finish for now and return to this assignment."}</p>
+      <p className="mt-2 text-sm text-white/80">{detail}</p>
       {total > 0 && <><p className="mt-2 text-sm">{ready} of {total} activities ready. Some may need earlier learning first.</p><progress aria-label="Activities prepared, not time remaining" aria-valuenow={ready} aria-valuemax={total} max={total} value={ready} className="mt-2 w-full accent-amber-300" /></>}
       {props.error && <p className="mt-2 text-sm text-amber-200">{props.error}</p>}
       {props.paused && canCheck && <p className="mt-2 text-sm text-white/70">Automatic checks paused. Check progress for the latest status.</p>}
-      {!props.checking && props.checkedAt && <p className="mt-2 text-sm text-emerald-200">Progress checked.</p>}
+      {!props.checking && props.checkedAt && <p className="mt-2 text-sm text-emerald-200">{checkedDetail}</p>}
     </div>
     <div className="mt-3 flex flex-wrap gap-3">
       {canCheck && <button type="button" disabled={props.checking} className="rounded-full border border-white/40 px-4 py-2 font-bold disabled:cursor-wait disabled:opacity-70" onClick={props.onCheck}>{props.checking ? "Checking progress…" : "Check progress"}</button>}
