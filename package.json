@@ -38,6 +38,7 @@
     "sunny:run": "npx tsx src/scripts/sunnyRun.ts",
     "sunny:certify": "npx tsx src/scripts/sunnyCertification.ts",
     "sunny:compare:self-testing-board": "npx tsx src/scripts/selfTestingBoardComparison.ts",
+    "sunny:verify:self-testing-board": "npx tsx src/scripts/verifySelfTestingBoardAcceptance.ts",
     "sunny:certification:promote": "npx tsx src/scripts/certificationPromotion.ts",
     "sunny:replay:discovery": "npx tsx src/scripts/replayDiscoveryVerification.ts",
     "sunny:adapt:demo:reset": "npx tsx src/scripts/adaptabilityDemo.ts --reset-only",
