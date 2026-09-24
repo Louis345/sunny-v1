@@ -2,11 +2,16 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
-import { writeFullBoardAcceptanceReceipt } from "./verifySelfTestingBoardAcceptance";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { hashDirectory } from "./sunnyCertification";
+import {
+  verifySelfTestingBoardAcceptance,
+  writeFullBoardAcceptanceReceipt,
+} from "./verifySelfTestingBoardAcceptance";
 
 const roots: string[] = [];
 afterEach(() => {
+  vi.unstubAllGlobals();
   for (const root of roots.splice(0)) fs.rmSync(root, { recursive: true, force: true });
 });
 
@@ -50,6 +55,28 @@ function input(overrides: Record<string, unknown> = {}) {
 }
 
 describe("trusted full-board acceptance receipt", () => {
+  it("refuses a browser host that does not belong to the requested certification run", async () => {
+    const runDir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-full-board-host-"));
+    const sourceChildDir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-full-board-source-"));
+    roots.push(runDir, sourceChildDir);
+    fs.writeFileSync(path.join(sourceChildDir, "profile.json"), "{}\n");
+    fs.writeFileSync(path.join(runDir, "certification-run.json"), `${JSON.stringify({
+      evidenceAuthority: "simulation",
+      sourceChildId: "fixture-child",
+      certificationRunId: "cert-expected",
+      assignmentFingerprint: sha("assignment"),
+      sourceSnapshotHash: hashDirectory(sourceChildDir),
+      sourceChildDir,
+    })}\n`);
+    vi.stubGlobal("fetch", vi.fn(async () => ({
+      ok: true,
+      json: async () => ({ status: "ok", certificationRunId: "cert-live-family-server" }),
+    })));
+
+    await expect(verifySelfTestingBoardAcceptance({ runDir, baseUrl: "http://127.0.0.1:3001" }))
+      .rejects.toThrow("full_board_acceptance_host_identity_mismatch");
+  });
+
   it("writes one hash-bound append-only receipt for a complete isolated host journey", () => {
     const value = input();
     fs.writeFileSync(value.nodes[0]!.capturePaths[0]!, "capture");

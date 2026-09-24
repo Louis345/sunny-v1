@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { chromium, type Frame, type Page } from "playwright";
 import { MATH_BROWSER_VERIFIER_VERSION } from "../engine/directMathExperience";
+import { healthMatchesCertificationRun } from "../server/certificationRuntime";
 import { hashDirectory } from "./sunnyCertification";
 
 type NodeProof = {
@@ -210,6 +211,14 @@ export async function verifySelfTestingBoardAcceptance(input: { runDir: string; 
   const sourceInventoryHashBefore = hashDirectory(sourceChildDir);
   if (sourceInventoryHashBefore !== sourceSnapshotHash) throw new Error("full_board_acceptance_family_data_changed");
 
+  const baseUrl = input.baseUrl.replace(/\/$/, "");
+  const healthResponse = await fetch(`${baseUrl}/api/health`).catch(() => null);
+  if (!healthResponse?.ok) throw new Error("full_board_acceptance_host_identity_unavailable");
+  const health = await healthResponse.json().catch(() => null);
+  if (!healthMatchesCertificationRun(health, { SUNNY_CERTIFICATION_RUN_ID: certificationRunId })) {
+    throw new Error("full_board_acceptance_host_identity_mismatch");
+  }
+
   const buildFile = oneFile(runDir, "candidate-build-v3.json");
   const draft = path.dirname(buildFile);
   const program = readJson<{ activities?: Array<{ id?: string }> }>(path.join(draft, "math-learning-program.json"));
@@ -228,7 +237,6 @@ export async function verifySelfTestingBoardAcceptance(input: { runDir: string; 
   const needsAttentionNodeIds = nodeIds.filter((nodeId) => statusByNode.get(nodeId) === "needs_attention");
   if (job.phase !== "board_ready" || readyNodeIds.length !== nodeIds.length) throw new Error("full_board_acceptance_pending_nodes");
 
-  const baseUrl = input.baseUrl.replace(/\/$/, "");
   const packetResponse = await fetch(`${baseUrl}/api/child-experience/${encodeURIComponent(childId)}`);
   if (!packetResponse.ok) throw new Error(`full_board_acceptance_packet_http_${packetResponse.status}`);
   const packet = await packetResponse.json() as Record<string, unknown>;
