@@ -1558,6 +1558,8 @@ describe("direct math experience", () => {
       raw: "<!doctype html><html><body>ready</body></html>",
       inputTokens: 321,
       outputTokens: 654,
+      reasoningTokens: 0,
+      visibleTextCharacters: 46,
       stopReason: "completed",
     });
     const source = fs.readFileSync(path.join(process.cwd(), "src/engine/directMathExperience.ts"), "utf8");
@@ -1573,7 +1575,7 @@ describe("direct math experience", () => {
           'data: {"type":"response.output_text.delta","delta":"<!doctype html><html>"}\n\n',
         ));
         controller.enqueue(encoder.encode(
-          'data: {"type":"response.incomplete","response":{"status":"incomplete","incomplete_details":{"reason":"max_output_tokens"},"usage":{"input_tokens":100,"output_tokens":32000}}}\n\n',
+          'data: {"type":"response.incomplete","response":{"status":"incomplete","incomplete_details":{"reason":"max_output_tokens"},"usage":{"input_tokens":100,"output_tokens":32000,"output_tokens_details":{"reasoning_tokens":31000}}}}\n\n',
         ));
         controller.close();
       },
@@ -1583,6 +1585,8 @@ describe("direct math experience", () => {
       stopReason: "max_output_tokens",
       inputTokens: 100,
       outputTokens: 32000,
+      reasoningTokens: 31000,
+      visibleTextCharacters: 21,
     });
   });
 

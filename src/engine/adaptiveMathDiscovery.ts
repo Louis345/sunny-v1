@@ -26,7 +26,7 @@ import {
   withDiscoveryBrowserPage,
   parseEngineeringLessonProposal, recordEngineeringRepairEvidence, verifyEngineeringRepairEvidence, invalidateEngineeringRepairEvidence, freezeEngineeringLessonSnapshot, engineeringFeatures, engineeringLessonContext,
 } from "./discoveryVisualReview";
-import { readOpenAiResponseStream } from "./openAiResponses";
+import { OPENAI_REPAIR_MAX_OUTPUT_TOKENS, readOpenAiResponseStream } from "./openAiResponses";
 import { judgeChildFacingScreens } from "./childFacingVisualGate";
 import {
   validateBoardChoices,
@@ -775,7 +775,7 @@ export async function generateMathDiscoveryExperience(input: {
               ? prompt
               : [{ role: "user", content: buildOpenAiDiscoveryRepairInput(prompt) }],
             reasoning: { effort: "high" },
-            max_output_tokens: 48_000,
+            max_output_tokens: OPENAI_REPAIR_MAX_OUTPUT_TOKENS,
             stream: true,
             store: false,
           }),
@@ -793,7 +793,12 @@ export async function generateMathDiscoveryExperience(input: {
           model,
           content: [{ type: "text", text: streamed.raw }],
           stop_reason: streamed.stopReason,
-          usage: { input_tokens: streamed.inputTokens, output_tokens: streamed.outputTokens },
+          usage: {
+            input_tokens: streamed.inputTokens,
+            output_tokens: streamed.outputTokens,
+            output_tokens_details: { reasoning_tokens: streamed.reasoningTokens },
+          },
+          visible_text_characters: streamed.visibleTextCharacters,
         };
       } else {
         response = await client().messages.stream(request as never, { timeout: Number(process.env.SUNNY_AI_TIMEOUT_MS ?? 600_000), maxRetries: 0 }).finalMessage();

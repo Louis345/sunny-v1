@@ -8,6 +8,7 @@ import { readPriorConceptIds } from "../engine/assignmentLedger";
 import {
   askDirectMathPlanner, askMathExperienceDesigner, buildDirectActiveSessionPlan,
   buildMathCreativeChildContext, correctSavedDirectMathPlannerResponse, generateDirectArtifacts, parseMathLearningProgram, parseSavedDirectMathPlannerResponse,
+  findTruncatedDirectRepairReceipt,
   repairDirectArtifact,
   persistDirectExperience, buildDirectLearningCycleInput, runDirectBrowserSmokeCheck, mathPlannerCandidateCards, MATH_BROWSER_VERIFIER_VERSION, type DirectPlaywrightReport, type DirectArtifact, type DirectLearningExperiencePlan,
   type MathDesignPacket, type MathLearningProgram,
@@ -181,7 +182,7 @@ export async function runAdaptiveMathGeneration(
   childId: string,
   homeworkId: string,
   rootDir = process.cwd(),
-  options: { retryUncertainProvider?: boolean } = {},
+  options: { retryUncertainProvider?: boolean; authorizeTruncatedRepairReplacementNodeId?: string } = {},
 ): Promise<void> {
   const draft = resolveAdaptiveMathDraftDir(childId, homeworkId, { rootDir });
   const programFile = path.join(draft, "math-learning-program.json");
@@ -285,7 +286,23 @@ export async function runAdaptiveMathGeneration(
     }
   })());
   const hasUnfinishedSiblingWork = Boolean(initialJob && hasResumableMathGenerationWork(initialJob));
-  if (initialJob?.phase === "needs_attention" && !hasUnfinishedSiblingWork && !recoveredProgram && !savedPlannerTruthError && !mayRetryFrozenDesign && !mayReverifySavedArtifacts && !mayRepairSavedVisualRejection && !mayFinalizeSavedVisualRepair && !mayResumeSavedVisualReview) {
+  const replacementNodeId = options.authorizeTruncatedRepairReplacementNodeId;
+  const replacementAuthorizationFile = replacementNodeId
+    ? path.join(draft, "provider-diagnostics", `${replacementNodeId}-repair-replacement-authorization.json`)
+    : undefined;
+  const replacementAlreadyResolved = Boolean(replacementNodeId
+    && replacementAuthorizationFile
+    && fs.existsSync(replacementAuthorizationFile)
+    && initialJob?.nodes.some(node => node.nodeId === replacementNodeId && node.status === "ready"));
+  if (replacementAlreadyResolved) {
+    console.log(` 🎮 [adaptive-math] [board-repair-replacement] [already-complete] node=${replacementNodeId}`);
+    return;
+  }
+  const mayReplaceTruncatedRepair = Boolean(replacementNodeId
+    && initialJob?.nodes.some(node => node.nodeId === replacementNodeId && node.status === "needs_attention")
+    && findTruncatedDirectRepairReceipt(path.join(draft, "provider-diagnostics"), replacementNodeId));
+  if (replacementNodeId && !mayReplaceTruncatedRepair) throw new Error(`board_repair_replacement_not_eligible:${replacementNodeId}`);
+  if (initialJob?.phase === "needs_attention" && !hasUnfinishedSiblingWork && !recoveredProgram && !savedPlannerTruthError && !mayRetryFrozenDesign && !mayReverifySavedArtifacts && !mayRepairSavedVisualRejection && !mayFinalizeSavedVisualRepair && !mayResumeSavedVisualReview && !mayReplaceTruncatedRepair) {
     console.log(` 🎮 [adaptive-math] [worker] [no-work] child=${childId} homework=${homeworkId} phase=${initialJob.phase}`);
     return;
   }
@@ -426,6 +443,35 @@ export async function runAdaptiveMathGeneration(
     }
     console.log(` 🎮 [adaptive-math] [artifact-publication] [withheld] node=${nodeId} reason=${reason}`);
   };
+  if (mayReplaceTruncatedRepair && replacementNodeId) {
+    const artifact = build.artifacts.find(candidate => candidate.nodeId === replacementNodeId);
+    const activity = designed.plan.activities.find(candidate => candidate.id === replacementNodeId);
+    const savedReport = reports[replacementNodeId];
+    if (!artifact || !activity || !savedReport) throw new Error(`board_repair_replacement_checkpoint_missing:${replacementNodeId}`);
+    console.log(` 🎮 [adaptive-math] [board-repair-replacement] [explicitly-authorized] node=${replacementNodeId}`);
+    try {
+      const repaired = await repairDirectArtifact({
+        rootDir,
+        artifact,
+        activity,
+        failures: savedReport.failures,
+        screenshotPaths: savedReport.screenshots,
+        outputDir: path.join(draft, "provider-diagnostics"),
+        authorizeTruncatedReplacement: true,
+      });
+      await verifyAndBind(repaired);
+      const merged = new Map(build.artifacts.map(candidate => [candidate.nodeId, candidate]));
+      merged.set(replacementNodeId, repaired);
+      build = { ...build, artifacts: [...merged.values()] };
+      write(buildFile, build);
+      updateMathGenerationNode({ rootDir, childId, homeworkId, nodeId: replacementNodeId, status: "ready", artifactHash: repaired.htmlHash });
+      console.log(` 🎮 [adaptive-math] [board-repair-replacement] [verified] node=${replacementNodeId}`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      markArtifactUnavailable(replacementNodeId, message);
+      console.log(` 🎮 [adaptive-math] [board-repair-replacement] [needs-attention] node=${replacementNodeId} reason=${message}`);
+    }
+  }
   // Repair interrupted publication from saved artifacts, including old board_ready
   // jobs and verifier false negatives. Reverification does not consume a build
   // attempt or buy a repair.
@@ -783,7 +829,10 @@ if (require.main === module) {
     console.log(` 🎮 [adaptive-math] [worker] [duplicate-skipped] child=${childId} homework=${homeworkId}`);
   } else {
     const retryUncertainProvider = process.argv.slice(2).includes("--retry-uncertain-provider");
-    void runAdaptiveMathGeneration(childId, homeworkId, process.cwd(), { retryUncertainProvider })
+    const authorizeTruncatedRepairReplacementNodeId = process.argv.slice(2)
+      .find(value => value.startsWith("--authorize-truncated-repair-replacement="))
+      ?.slice("--authorize-truncated-repair-replacement=".length);
+    void runAdaptiveMathGeneration(childId, homeworkId, process.cwd(), { retryUncertainProvider, authorizeTruncatedRepairReplacementNodeId })
       .catch((error) => {
         console.error(` 🎮 [adaptive-math] [worker] [paused] ${error instanceof Error ? error.message : String(error)}`);
         process.exitCode = 1;

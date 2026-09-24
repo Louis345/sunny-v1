@@ -63,7 +63,13 @@ beforeEach(() => {
   });
   vi.mocked(runDirectBrowserSmokeCheck).mockResolvedValue({ passed: true, failures: [], screenshots: ["lab.png"] });
   vi.mocked(judgeChildFacingScreens).mockResolvedValue({ decision: "approve", observations: [] });
-  vi.mocked(repairDirectArtifact).mockImplementation(async ({ artifact }) => {
+  vi.mocked(repairDirectArtifact).mockImplementation(async ({ artifact, outputDir, authorizeTruncatedReplacement }) => {
+    if (authorizeTruncatedReplacement) {
+      fs.writeFileSync(
+        path.join(outputDir, `${artifact.nodeId}-repair-replacement-authorization.json`),
+        JSON.stringify({ nodeId: artifact.nodeId, reason: "saved_request_output_budget_exhausted" }),
+      );
+    }
     fs.appendFileSync(artifact.htmlPath, "<!-- recorded repair -->");
     return { ...artifact, htmlHash: createHash("sha256").update(fs.readFileSync(artifact.htmlPath)).digest("hex") };
   });
@@ -366,6 +372,42 @@ it("uses the second bounded build attempt to repair a rejected candidate", async
   const source = fs.readFileSync(path.join(process.cwd(), "src/scripts/runAdaptiveMathGeneration.ts"), "utf8");
   expect(source).toContain("repairDirectArtifact");
   expect(source).not.toContain("forceNodeIds: [nodeId]");
+});
+
+it("routes one explicitly authorized truncated-repair replacement only to the named node", async () => {
+  await runAdaptiveMathGeneration(childId, homeworkId, rootDir);
+  const draft = path.join(rootDir,"src/context",childId,"homework/direct-drafts",homeworkId);
+  const diagnostics = path.join(draft,"provider-diagnostics");
+  const receipts = path.join(diagnostics,"provider-receipts");
+  fs.mkdirSync(receipts,{recursive:true});
+  fs.writeFileSync(path.join(diagnostics,"activity-1-repair-request.json"),JSON.stringify({
+    model:"gpt-5.6",input:[],max_output_tokens:8000,reasoning:{effort:"high"},stream:true,store:false,
+  }));
+  const oldHash = "a".repeat(64);
+  fs.writeFileSync(path.join(receipts,"activity-1-repair.stage.json"),JSON.stringify({requestHash:oldHash}));
+  fs.writeFileSync(path.join(receipts,`${oldHash}.json`),JSON.stringify({
+    status:"received",model:"gpt-5.6",response:{stopReason:"max_output_tokens",inputTokens:10,outputTokens:8000,reasoningTokens:7900,visibleTextCharacters:400},
+  }));
+  const reportsFile = path.join(draft,"browser-verification.json");
+  const reports = JSON.parse(fs.readFileSync(reportsFile,"utf8"));
+  reports["activity-1"] = {...reports["activity-1"],passed:false,failures:["math_control_clipped_or_obscured"],screenshots:["lab.png"]};
+  fs.writeFileSync(reportsFile,JSON.stringify(reports));
+  const savedArtifactHash = getMathGenerationStatus(childId,homeworkId,{rootDir})!.nodes.find(node=>node.nodeId==="activity-1")!.artifactHash;
+  updateMathGenerationNode({rootDir,childId,homeworkId,nodeId:"activity-1",status:"needs_attention",artifactHash:savedArtifactHash,error:"board_repair_harness_failure:output_budget_exhausted"});
+  vi.mocked(repairDirectArtifact).mockClear();
+
+  await runAdaptiveMathGeneration(childId,homeworkId,rootDir);
+  expect(repairDirectArtifact).not.toHaveBeenCalled();
+
+  await runAdaptiveMathGeneration(childId,homeworkId,rootDir,{authorizeTruncatedRepairReplacementNodeId:"activity-1"});
+  expect(repairDirectArtifact).toHaveBeenCalledTimes(1);
+  expect(repairDirectArtifact).toHaveBeenCalledWith(expect.objectContaining({
+    authorizeTruncatedReplacement:true,
+    artifact:expect.objectContaining({nodeId:"activity-1"}),
+  }));
+  await runAdaptiveMathGeneration(childId,homeworkId,rootDir,{authorizeTruncatedRepairReplacementNodeId:"activity-1"});
+  expect(repairDirectArtifact).toHaveBeenCalledTimes(1);
+  expect(fs.readFileSync(path.join(receipts,`${oldHash}.json`),"utf8")).toContain('"max_output_tokens"');
 });
 
 it("reverifies an old rejection before deciding to buy a repair", async () => {

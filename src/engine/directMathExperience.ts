@@ -13,7 +13,7 @@ import { NODE_REGISTRY } from "../shared/nodeRegistry";
 import { engagementTheoryEvidenceContext } from "./engagementTheory";
 import { assignmentLedgerPath, writeAssignmentLedgerEntry } from "./assignmentLedger";
 import { writeWaterfallContentCatalog } from "../profiles/chartWaterfall";
-import { readOpenAiResponseStream } from "./openAiResponses";
+import { OPENAI_REPAIR_MAX_OUTPUT_TOKENS, readOpenAiResponseStream } from "./openAiResponses";
 import { applyDiscoveryHtmlPatch, runMathProviderStage, hasReceivedMathProviderStage, estimateDiscoveryRepairCost } from "./adaptiveMathDiscovery";
 import {
   buildPlannerContentCandidateCards,
@@ -2180,6 +2180,34 @@ CURRENT HTML:
 ${input.html}`;
 }
 
+export type TruncatedDirectRepairReceipt = {
+  stage: string;
+  requestHash: string;
+  requestBudget: number;
+  receiptFile: string;
+};
+
+/** Finds only the legacy board-repair truncation that the human may replace once. */
+export function findTruncatedDirectRepairReceipt(outputDir: string, nodeId: string): TruncatedDirectRepairReceipt | undefined {
+  const stage = `${nodeId}-repair`;
+  const requestFile = path.join(outputDir, `${stage}-request.json`);
+  const stageFile = path.join(outputDir, "provider-receipts", `${stage}.stage.json`);
+  if (!fs.existsSync(requestFile) || !fs.existsSync(stageFile)) return undefined;
+  const request = JSON.parse(fs.readFileSync(requestFile, "utf8")) as { max_output_tokens?: number };
+  const savedStage = JSON.parse(fs.readFileSync(stageFile, "utf8")) as { requestHash?: string };
+  if (!savedStage.requestHash || !/^[a-f0-9]{64}$/.test(savedStage.requestHash)) throw new Error(`provider_receipt_invalid:${stageFile}`);
+  const receiptFile = path.join(outputDir, "provider-receipts", `${savedStage.requestHash}.json`);
+  if (!fs.existsSync(receiptFile)) throw new Error(`provider_receipt_invalid:${receiptFile}`);
+  const receipt = JSON.parse(fs.readFileSync(receiptFile, "utf8")) as { status?: string; response?: { stopReason?: string } };
+  const requestBudget = Number(request.max_output_tokens ?? 0);
+  return receipt.status === "received"
+    && receipt.response?.stopReason === "max_output_tokens"
+    && requestBudget > 0
+    && requestBudget < OPENAI_REPAIR_MAX_OUTPUT_TOKENS
+    ? { stage, requestHash: savedStage.requestHash, requestBudget, receiptFile }
+    : undefined;
+}
+
 export async function repairDirectArtifact(input: {
   artifact: DirectArtifact;
   activity: DirectActivity;
@@ -2188,6 +2216,7 @@ export async function repairDirectArtifact(input: {
   outputDir: string;
   model?: string;
   rootDir?: string;
+  authorizeTruncatedReplacement?: boolean;
 }): Promise<DirectArtifact> {
   const metadataPath = input.artifact.htmlPath.replace(/\.html$/i, ".artifact.json");
   const metadata = fs.existsSync(metadataPath) ? JSON.parse(fs.readFileSync(metadataPath, "utf8")) as Record<string, unknown> : {};
@@ -2214,11 +2243,34 @@ export async function repairDirectArtifact(input: {
       image_url: `data:image/png;base64,${fs.readFileSync(file).toString("base64")}`,
     }));
   content.push({ type: "input_text", text: prompt });
-  const requestFile = path.join(input.outputDir, `${input.artifact.nodeId}-repair-request.json`);
-  if (!fs.existsSync(requestFile)) atomicWrite(requestFile, JSON.stringify({model,input:[{role:"user",content}],max_output_tokens:Number(process.env.SUNNY_REPAIR_MAX_TOKENS ?? 8000),reasoning:{effort:"high"},stream:true,store:false}));
-  const request = JSON.parse(fs.readFileSync(requestFile,"utf8"));
+  const primaryStage = `${input.artifact.nodeId}-repair`;
+  const requestFile = path.join(input.outputDir, `${primaryStage}-request.json`);
+  if (!fs.existsSync(requestFile)) atomicWrite(requestFile, JSON.stringify({model,input:[{role:"user",content}],max_output_tokens:OPENAI_REPAIR_MAX_OUTPUT_TOKENS,reasoning:{effort:"high"},stream:true,store:false}));
+  const primaryRequest = JSON.parse(fs.readFileSync(requestFile,"utf8")) as Record<string, unknown>;
+  const truncatedPrimary = findTruncatedDirectRepairReceipt(input.outputDir, input.artifact.nodeId);
+  if (input.authorizeTruncatedReplacement && !truncatedPrimary) {
+    throw new Error(`board_repair_replacement_not_eligible:${input.artifact.nodeId}`);
+  }
+  const replacementStage = `${primaryStage}-replacement`;
+  const replacementRequestFile = path.join(input.outputDir, `${replacementStage}-request.json`);
+  const authorizationFile = path.join(input.outputDir, `${replacementStage}-authorization.json`);
+  if (input.authorizeTruncatedReplacement) {
+    if (!fs.existsSync(replacementRequestFile)) atomicWrite(replacementRequestFile, JSON.stringify({ ...primaryRequest, max_output_tokens: OPENAI_REPAIR_MAX_OUTPUT_TOKENS }));
+    if (!fs.existsSync(authorizationFile)) atomicWrite(authorizationFile, `${JSON.stringify({
+      version: 1,
+      nodeId: input.artifact.nodeId,
+      reason: "saved_request_output_budget_exhausted",
+      originalStage: primaryStage,
+      originalRequestHash: truncatedPrimary!.requestHash,
+      replacementStage,
+      authorizedAt: new Date().toISOString(),
+    }, null, 2)}\n`);
+    console.log(` 🎮 [adaptive-math] [board-repair-replacement] [authorized] node=${input.artifact.nodeId} originalStage=${primaryStage} replacementStage=${replacementStage}`);
+  }
+  const stage = input.authorizeTruncatedReplacement ? replacementStage : primaryStage;
+  const request = JSON.parse(fs.readFileSync(input.authorizeTruncatedReplacement ? replacementRequestFile : requestFile,"utf8"));
   const startedAt = Date.now();
-  const streamed = await runMathProviderStage({draftDir:input.outputDir,stage:`${input.artifact.nodeId}-repair`,model:request.model,request,beforeRequest:() => {
+  const streamed = await runMathProviderStage({draftDir:input.outputDir,stage,model:request.model,request,beforeRequest:() => {
     if (!process.env.OPENAI_API_KEY?.trim()) throw new Error("preflight_missing:OPENAI_API_KEY");
   },execute:async () => {
   const response = await fetch("https://api.openai.com/v1/responses", {
@@ -2235,7 +2287,14 @@ export async function repairDirectArtifact(input: {
   }
   return readOpenAiResponseStream(response);
   }});
-  if (streamed.stopReason !== "completed") throw new Error(`direct_activity_repair_incomplete:${streamed.stopReason}`);
+  if (streamed.stopReason !== "completed") {
+    if (streamed.stopReason === "max_output_tokens") {
+      const message = `board_repair_harness_failure:output_budget_exhausted:node=${input.artifact.nodeId}:stage=${stage}:budget=${request.max_output_tokens}:reasoningTokens=${streamed.reasoningTokens}:visibleTextCharacters=${streamed.visibleTextCharacters}`;
+      console.error(` 🎮 [adaptive-math] [repair-harness] [budget-exhausted] ${message}`);
+      throw new Error(message);
+    }
+    throw new Error(`direct_activity_repair_incomplete:${streamed.stopReason}`);
+  }
   const applied = applyDiscoveryHtmlPatch(originalHtml, streamed.raw);
   const htmlHash = crypto.createHash("sha256").update(applied.html).digest("hex");
   const currentHash = crypto.createHash("sha256").update(fs.readFileSync(input.artifact.htmlPath)).digest("hex");
@@ -2250,6 +2309,8 @@ export async function repairDirectArtifact(input: {
     stopReason: streamed.stopReason,
     inputTokens: streamed.inputTokens,
     outputTokens: streamed.outputTokens,
+    reasoningTokens: streamed.reasoningTokens,
+    visibleTextCharacters: streamed.visibleTextCharacters,
     latencyMs: Date.now() - startedAt,
     replacementCount: applied.replacementCount,
     changedOriginalCharacters: applied.changedOriginalCharacters,
