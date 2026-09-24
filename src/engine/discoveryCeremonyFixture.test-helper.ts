@@ -66,7 +66,8 @@ export function discoveryCeremonyHtml(options: { runtimeContract?: boolean } = {
     el('next').onclick=()=>show('two');
     el('answer').onclick=()=>{
       count+=1;
-      window.__SUNNY_DISCOVERY_TEST__?.evaluate(active,'12');
+      const scoring=window.__SUNNY_DISCOVERY_TEST__?.evaluate(active,'12');
+      if(scoring)el('question').dataset.correct=String(scoring.correct);
       parent.postMessage({type:'evaluation_attempt',payload:{attemptId:'attempt-'+count,itemId:active,attemptedValue:'12',supportEventIds:[],instrumentSignals:[],observedAt:new Date().toISOString()}},'*');
       if(active==='one'){el('question').hidden=true;el('between').hidden=false;}
       else parent.postMessage({type:'evaluation_complete',payload:{}},'*');

@@ -586,7 +586,7 @@ export async function verifyMathControlJourney(page: BrowserPage, input: {
   itemIds?: string[];
   requireItemStateTransitions?: boolean;
   itemContracts?: MathJourneyItemContract[];
-  forceIncorrectResponses?: boolean;
+  forcedRejectedValues?: Record<string, string>;
   /**
    * Called before evidence-free entry controls and before each uncommitted step
    * of an item until the caller confirms that item on screen. Returns true only
@@ -599,11 +599,12 @@ export async function verifyMathControlJourney(page: BrowserPage, input: {
   if (input.itemIds && (journey.length !== input.itemIds.length || input.itemIds.some(id => journey.filter(row => row.itemId === id).length !== 1))) throw new Error("math_journey_item_coverage");
   const premature = await page.evaluate(`window.__sunnyMessages?.some(m => ["attempt_event", "evaluation_attempt", "evaluation_complete", "node_complete"].includes(m?.type))`);
   if (premature) throw new Error("math_journey_premature_evidence");
-  if (input.forceIncorrectResponses) await page.evaluate(`(() => {
+  if (input.forcedRejectedValues) await page.evaluate(`(() => {
     const runtime=window.__SUNNY_DISCOVERY_TEST__;
     if(typeof runtime?.evaluate!=="function")throw new Error("discovery_runtime_scoring_bridge_missing");
-    const original=runtime.evaluate.bind(runtime); window.__sunnyIncorrectScoringCalls=0;
-    runtime.evaluate=(itemId,value)=>{window.__sunnyIncorrectScoringCalls+=1;return {...original(itemId,value),correct:false};};
+    const original=runtime.evaluate.bind(runtime),rejected=${JSON.stringify(input.forcedRejectedValues)};
+    window.__sunnyIncorrectScoringCalls=0; window.__sunnyIncorrectResultReads=0;
+    runtime.evaluate=(itemId,value)=>{window.__sunnyIncorrectScoringCalls+=1;const result=original(itemId,rejected[itemId]??value);return {...result,get correct(){window.__sunnyIncorrectResultReads+=1;return result.correct;}};};
   })()`);
   await page.evaluate(`(() => {
     window.__sunnyStateReceipts = [];
@@ -857,7 +858,7 @@ export async function verifyMathControlJourney(page: BrowserPage, input: {
           await page.waitForFunction(nextStateExpression, undefined, { timeout: 3000 });
         } catch {
           const reported = await page.evaluate(nextStateSnapshotExpression) as { id: string | null; promptVisible: boolean };
-          if (input.forceIncorrectResponses) throw new Error(`math_journey_incorrect_response_did_not_advance;item=${item.itemId}`);
+          if (input.forcedRejectedValues) throw new Error(`math_journey_incorrect_response_did_not_advance;item=${item.itemId}`);
           const code = !reported.id && input.requireItemStateTransitions
             ? "math_journey_item_state_missing"
             : reported.id === nextItem.itemId && !reported.promptVisible
@@ -883,7 +884,7 @@ export async function verifyMathControlJourney(page: BrowserPage, input: {
     }
   }
   await page.waitForFunction(`window.__sunnyMessages?.some(m => m?.type === ${JSON.stringify(input.completionType)})`, undefined, { timeout: COMPLETION_EVENT_TIMEOUT_MS }).catch(() => {
-    if (input.forceIncorrectResponses) throw new Error(`math_journey_incorrect_response_did_not_advance;item=${journey.at(-1)?.itemId ?? "unknown"}`);
+    if (input.forcedRejectedValues) throw new Error(`math_journey_incorrect_response_did_not_advance;item=${journey.at(-1)?.itemId ?? "unknown"}`);
     throw new Error("math_journey_completion_missing");
   });
   type JourneyResult = { target?: string; attemptedValue?: string; correct?: boolean };
@@ -910,8 +911,11 @@ export async function verifyMathControlJourney(page: BrowserPage, input: {
     ? messages.filter(m => m.type === "evaluation_attempt").map(m => { const row = m.payload ?? m as NonNullable<typeof m.payload>; return {target: row.itemId, attemptedValue: row.attemptedValue}; })
     : messages.find(m => m.type === "node_complete")?.payload?.targetResults ?? [];
   const expected = input.itemIds ?? journey.map(row => row.itemId);
-  if (input.forceIncorrectResponses && Number(await page.evaluate(`window.__sunnyIncorrectScoringCalls ?? 0`)) < expected.length) {
+  if (input.forcedRejectedValues && Number(await page.evaluate(`window.__sunnyIncorrectScoringCalls ?? 0`)) < expected.length) {
     throw new Error("math_journey_child_scoring_bridge_not_used");
+  }
+  if (input.forcedRejectedValues && Number(await page.evaluate(`window.__sunnyIncorrectResultReads ?? 0`)) < expected.length) {
+    throw new Error("math_journey_child_scoring_result_not_used");
   }
   if (rows.length !== expected.length || expected.some(id => rows.filter(row => row.target === id && typeof row.attemptedValue === "string").length !== 1)) throw new Error("math_journey_evidence_missing");
   if (input.completionType === "node_complete" && input.itemContracts) {
@@ -1053,6 +1057,7 @@ export async function verifyMathJourneyAtReleaseViewports(input: {
   completionType: "evaluation_complete" | "node_complete";
   itemIds?: string[];
   verifyIncorrectResponseAdvances?: boolean;
+  forcedRejectedValues?: Record<string, string>;
 }): Promise<JourneyScreenshots> {
   fs.mkdirSync(input.outputDir, { recursive: true });
   const manifestFile = path.join(input.outputDir, "journey-captures.json");
@@ -1084,7 +1089,7 @@ export async function verifyMathJourneyAtReleaseViewports(input: {
             await page.reload({ waitUntil: "networkidle" });
             let advanced = false;
             try {
-              await verifyMathControlJourney(page, { completionType: "evaluation_complete", itemIds: input.itemIds, requireItemStateTransitions: true, forceIncorrectResponses: true });
+              await verifyMathControlJourney(page, { completionType: "evaluation_complete", itemIds: input.itemIds, requireItemStateTransitions: true, forcedRejectedValues: input.forcedRejectedValues });
               advanced = true;
             } finally {
               if (!advanced) captures.push(await captureJourneyState(page, { ...capture, filePrefix: "journey-incorrect-sunny", terminal: "failure" }));

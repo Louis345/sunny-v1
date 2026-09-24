@@ -183,6 +183,27 @@ it("rejects Discovery when a first wrong answer keeps the child on the same item
     .rejects.toThrow("math_journey_incorrect_response_did_not_advance;item=one");
 }, 30000);
 
+it("rejects Discovery when child controls call but ignore the authoritative scorer", async () => {
+  const academic = { items: [
+    { itemId: "one", constructId: "math.count", correctAnswerContract: { acceptedValues: ["4"] } },
+    { itemId: "two", constructId: "math.count", correctAnswerContract: { acceptedValues: ["5"] } },
+  ] } as never;
+  const html = `<!doctype html><h1 id="prompt">Choose four.</h1><button id="answer">Answer</button>
+  <script id="sunny-discovery-contract" type="application/json">{"items":[{"itemId":"one","constructId":"math.count","acceptedValues":["4"]},{"itemId":"two","constructId":"math.count","acceptedValues":["5"]}]}</script>
+  <script>
+  const items=[{id:'one',prompt:'Choose four.',answer:'4'},{id:'two',prompt:'Choose five.',answer:'5'}];let index=0;
+  window.__SUNNY_DISCOVERY_TEST__={evaluate:(itemId,value)=>({itemId,constructId:'math.count',correct:value===items.find(item=>item.id===itemId).answer})};
+  window.SUNNY_VALIDATION_HOOKS={journey:items.map(item=>({itemId:item.id,steps:[{action:'click',selector:'#answer'}]}))};
+  const report=()=>parent.postMessage({type:'game_state_update',payload:{currentChallenge:{id:items[index].id,prompt:items[index].prompt}}},'*');report();
+  document.querySelector('#answer').onclick=()=>{const item=items[index];window.__SUNNY_DISCOVERY_TEST__.evaluate(item.id,item.answer);
+    parent.postMessage({type:'evaluation_attempt',payload:{attemptId:'attempt-'+item.id,itemId:item.id,attemptedValue:item.answer,supportEventIds:[],instrumentSignals:[],observedAt:new Date().toISOString()}},'*');
+    if(index===0){index=1;document.querySelector('#prompt').textContent=items[index].prompt;report();}else parent.postMessage({type:'evaluation_complete'},'*');};
+  </script>`;
+  const outputDir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-ignored-scorer-")); roots.push(outputDir);
+  await expect(verifyDiscoveryRuntimeScoring({ html, academic, outputDir }))
+    .rejects.toThrow("math_journey_child_scoring_result_not_used");
+}, 30000);
+
 it("rejects completion sent before decorative controls are exercised", async () => {
   const result = await verify(`${journey}<button id="answer">Decorative answer</button><script>parent.postMessage({type:'node_complete',payload:{nodeId:'node',targetResults:[{target:'one',attemptedValue:'4'}]}},'*');</script>`);
   expect(result.passed).toBe(false);
