@@ -137,6 +137,44 @@ describe("Creator-authored Playwright manifest", () => {
     expect(report.verification).toEqual({ runtime: true, scoring: true, contracts: true });
   }, 30_000);
 
+  it("binds a node-level progress event to the item attempt that immediately preceded it", async () => {
+    const raw = generatedPackage(manifest({
+      journey: [{
+        itemId: "item-one",
+        steps: [{ action: "click", selector: "#answer" }],
+        assertions: [
+          { type: "event", eventType: "attempt_event", itemId: "item-one" },
+          { type: "event", eventType: "progress_event", itemId: "item-one" },
+        ],
+      }],
+    })).replace(
+      "parent.postMessage({type:'node_complete'",
+      "parent.postMessage({type:'progress_event',payload:{nodeId:'node-one',completedItems:1,totalItems:1}},'*');\n    parent.postMessage({type:'node_complete'",
+    );
+    const fixture = artifactFixture(raw);
+    const report = await runDirectBrowserSmokeCheck({ rootDir: fixture.rootDir, artifacts: [fixture.artifact] });
+
+    expect(report.creatorTests?.passed).toBe(true);
+    expect(report.creatorTests?.failures).toEqual([]);
+  }, 30_000);
+
+  it("names the item and assertion when a Creator proof times out", async () => {
+    const raw = generatedPackage(manifest({
+      journey: [{
+        itemId: "item-one",
+        steps: [{ action: "click", selector: "#answer" }],
+        assertions: [{ type: "event", eventType: "progress_event", itemId: "item-one" }],
+      }],
+    }));
+    const fixture = artifactFixture(raw);
+    const report = await runDirectBrowserSmokeCheck({ rootDir: fixture.rootDir, artifacts: [fixture.artifact] });
+
+    expect(report.creatorTests?.passed).toBe(false);
+    expect(report.creatorTests?.failures.join("|")).toContain(
+      "creator_playwright_assertion_failed;item=item-one;assertion=event:progress_event",
+    );
+  }, 30_000);
+
   it("does not let a trivial Creator assertion bypass Sunny's missing evidence check", async () => {
     const raw = generatedPackage(manifest({
       journey: [{

@@ -3005,13 +3005,27 @@ async function creatorEventExists(
   const itemId = JSON.stringify(assertion.itemId ?? null);
   await page.waitForFunction(`(() => {
     const eventType = ${eventType}; const itemId = ${itemId};
-    return (window.__sunnyMessages ?? []).some(message => {
-      if (message?.type !== eventType) return false;
-      if (!itemId) return true;
+    const messages = window.__sunnyMessages ?? [];
+    const belongsToItem = message => {
       const payload = message?.payload && typeof message.payload === "object" ? message.payload : message;
       return payload?.target === itemId || payload?.itemId === itemId || payload?.currentChallenge?.id === itemId;
+    };
+    if (eventType === "progress_event" && itemId) {
+      const attemptIndex = messages.findLastIndex(message => message?.type === "attempt_event" && belongsToItem(message));
+      return attemptIndex >= 0 && messages.slice(attemptIndex + 1).some(message => message?.type === "progress_event");
+    }
+    return messages.some(message => {
+      if (message?.type !== eventType) return false;
+      if (!itemId) return true;
+      return belongsToItem(message);
     });
   })()`, undefined, { timeout: 5_000 });
+}
+
+function creatorAssertionLabel(assertion: CreatorPlaywrightAssertion): string {
+  return assertion.type === "event"
+    ? `event:${assertion.eventType}`
+    : `${assertion.type}:${assertion.selector}`;
 }
 
 async function runCreatorAssertion(
@@ -3051,18 +3065,34 @@ async function runCreatorPlaywrightManifest(page: DirectBrowserPage, manifest: C
           .evaluate((element) => (element as unknown as { outerHTML: string }).outerHTML).catch(() => null));
       }
     }
-    for (const step of item.steps) {
-      const locator = page.locator(step.selector).first();
-      if (step.action === "click") await locator.click();
-      else if (step.action === "fill") await locator.fill(step.value ?? "");
-      else if (step.action === "press") await locator.press(step.value ?? "Enter");
-      else await locator.dragTo(page.locator(step.target!).first());
+    for (let index = 0; index < item.steps.length; index += 1) {
+      const step = item.steps[index]!;
+      try {
+        const locator = page.locator(step.selector).first();
+        if (step.action === "click") await locator.click();
+        else if (step.action === "fill") await locator.fill(step.value ?? "");
+        else if (step.action === "press") await locator.press(step.value ?? "Enter");
+        else await locator.dragTo(page.locator(step.target!).first());
+      } catch (error) {
+        throw new Error(`creator_playwright_action_failed;item=${item.itemId};step=${index + 1};action=${step.action}:${step.selector};reason=${error instanceof Error ? error.message : String(error)}`);
+      }
     }
     for (let index = 0; index < item.assertions.length; index += 1) {
-      await runCreatorAssertion(page, item.assertions[index]!, changedBaselines.get(index));
+      const assertion = item.assertions[index]!;
+      try {
+        await runCreatorAssertion(page, assertion, changedBaselines.get(index));
+      } catch (error) {
+        throw new Error(`creator_playwright_assertion_failed;item=${item.itemId};assertion=${creatorAssertionLabel(assertion)};reason=${error instanceof Error ? error.message : String(error)}`);
+      }
     }
   }
-  for (const assertion of manifest.completionAssertions) await runCreatorAssertion(page, assertion);
+  for (const assertion of manifest.completionAssertions) {
+    try {
+      await runCreatorAssertion(page, assertion);
+    } catch (error) {
+      throw new Error(`creator_playwright_assertion_failed;item=completion;assertion=${creatorAssertionLabel(assertion)};reason=${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
 }
 
 export async function runDirectBrowserSmokeCheck(input: {
