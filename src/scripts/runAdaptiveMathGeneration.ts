@@ -137,6 +137,14 @@ type BoardPlaywrightReport = DirectPlaywrightReport & {
   visualReview?: BoardVisualReviewRecord;
 };
 
+function passedNonVisualActivityProof(report: BoardPlaywrightReport | undefined): boolean {
+  return report?.verifierVersion === MATH_BROWSER_VERIFIER_VERSION
+    && report.creatorTests?.passed === true
+    && report.verification?.runtime === true
+    && report.verification.scoring === true
+    && report.verification.contracts === true;
+}
+
 function isChildVisualReviewFailure(attempt: VisualRepairAttempt | undefined): boolean {
   return attempt?.status === "failed"
     && Boolean(attempt.outputHtmlHash)
@@ -311,13 +319,13 @@ export async function runAdaptiveMathGeneration(
   const mayResumeSavedVisualReview = Boolean(options.retryUncertainProvider && initialJob?.phase === "needs_attention" && fs.existsSync(buildFile) && fs.existsSync(reportsFile) && (() => {
     try {
       const savedBuild = read<{ artifacts?: DirectArtifact[] }>(buildFile);
-      const savedReports = read<Record<string, DirectPlaywrightReport & { verifierVersion?: number }>>(reportsFile);
+      const savedReports = read<Record<string, BoardPlaywrightReport>>(reportsFile);
       return (savedBuild.artifacts ?? []).some((artifact) => {
         const status = initialJob.nodes.find((node) => node.nodeId === artifact.nodeId)?.status;
         const report = savedReports[artifact.nodeId];
         return status === "needs_attention"
-          && report?.passed === true
-          && report.verifierVersion === MATH_BROWSER_VERIFIER_VERSION
+          && passedNonVisualActivityProof(report)
+          && report.visualReview?.attribution?.category === "harness_failure"
           && hasInterruptedVisualAudit(draft, artifact);
       });
     } catch {
@@ -685,8 +693,8 @@ export async function runAdaptiveMathGeneration(
     }
     else if (node?.status === "needs_attention"
       && options.retryUncertainProvider
-      && reports[artifact.nodeId]?.passed === true
-      && reports[artifact.nodeId]?.verifierVersion === MATH_BROWSER_VERIFIER_VERSION
+      && passedNonVisualActivityProof(reports[artifact.nodeId])
+      && reports[artifact.nodeId]?.visualReview?.attribution?.category === "harness_failure"
       && hasInterruptedVisualAudit(draft, artifact)) {
       try {
         await verifyAndBind(artifact);

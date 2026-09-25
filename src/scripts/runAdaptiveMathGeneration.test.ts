@@ -657,6 +657,21 @@ it("resumes an interrupted visual review without rebuilding the saved activity",
   const draft = path.join(rootDir, "src/context", childId, "homework/direct-drafts", homeworkId);
   const build = JSON.parse(fs.readFileSync(path.join(draft, "candidate-build-v3.json"), "utf8"));
   const artifact = build.artifacts.find((candidate: { nodeId: string }) => candidate.nodeId === "activity-1");
+  const reportsFile = path.join(draft, "browser-verification.json");
+  const reports = JSON.parse(fs.readFileSync(reportsFile, "utf8"));
+  reports["activity-1"] = {
+    ...reports["activity-1"],
+    passed: false,
+    failures: ["child_visual_review_needs_attention:harness_failure:provider_capacity"],
+    creatorTests: { passed: true, manifestHash: "saved-manifest", viewports: ["generation", "sunny"], failures: [] },
+    verification: { runtime: true, scoring: true, contracts: true },
+    visualReview: {
+      attribution: { category: "harness_failure", source: "deterministic", details: ["provider_capacity"] },
+      repairAuthorized: false,
+      findings: [],
+    },
+  };
+  fs.writeFileSync(reportsFile, JSON.stringify(reports));
   const auditFile = path.join(draft, "provider-diagnostics", `activity-1-visual-v3-${artifact.htmlHash.slice(0, 12)}.json`);
   fs.mkdirSync(path.dirname(auditFile), { recursive: true });
   fs.writeFileSync(auditFile, JSON.stringify({
