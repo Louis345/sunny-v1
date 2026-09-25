@@ -698,19 +698,22 @@ export async function runMathProviderStage<T>(input: {
     return response;
   } catch (error) {
     const status = (error as {status?: number}).status;
-    const rejected = Boolean(status && status>=400 && status<500);
+    const message = error instanceof Error ? error.message : String(error);
+    const explicitProviderRejection = /(?:credit_balance_exhausted|no credits remaining|billing_hard_limit_reached|insufficient_quota|invalid_api_key)/i.test(message);
+    const rejected = Boolean(status && status>=400 && status<500) || explicitProviderRejection;
     const outcome = rejected ? "rejected" : "outcome_uncertain";
     const finishedAt = new Date().toISOString();
     attempts[attempts.length - 1] = {
       ...attempts[attempts.length - 1]!,
       status: outcome,
       finishedAt,
-      error: error instanceof Error ? error.message : String(error),
+      error: message,
       ...(status ? { code: status } : {}),
     };
     atomicJson(receiptFile, {status:outcome,provider,model:input.model,startedAt,finishedAt,attempts});
     console.error(` 🎮 [adaptive-math] [provider-request] [${outcome}] receipt=${receiptFile}`);
-    if (!status || status>=500) throw new Error(`provider_outcome_uncertain:${receiptFile}: ${error instanceof Error ? error.message : String(error)}`);
+    if (explicitProviderRejection) throw new Error(`provider_request_rejected:${receiptFile}: ${message}`);
+    if (!status || status>=500) throw new Error(`provider_outcome_uncertain:${receiptFile}: ${message}`);
     throw error;
   }
 }

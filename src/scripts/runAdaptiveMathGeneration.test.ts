@@ -802,6 +802,37 @@ it("uses the single repair for a valid Creator test whose generated behavior tim
     .toMatchObject({ status: "ready" });
 });
 
+it("opens the repair-provider circuit after a capacity failure instead of contacting sibling nodes", async () => {
+  vi.mocked(runDirectBrowserSmokeCheck).mockResolvedValue({
+    passed: false,
+    failures: [
+      "creator_playwright:page.waitForFunction: Timeout 5000ms exceeded.",
+      "creator_playwright_manifest_proof_mismatch",
+    ],
+    screenshots: ["failure.png"],
+    captures: [confirmedAcademicCapture({ path: "failure.png" })],
+    creatorTests: {
+      passed: false,
+      manifestHash: "valid-manifest-hash",
+      viewports: [],
+      failures: ["creator_playwright:page.waitForFunction: Timeout 5000ms exceeded."],
+    },
+  });
+  vi.mocked(repairDirectArtifact).mockRejectedValue(
+    new Error("openai_stream_failed:You have no credits remaining. Add credits to continue using the API."),
+  );
+
+  await expect(runAdaptiveMathGeneration(childId, homeworkId, rootDir))
+    .rejects.toThrow("repair_provider_capacity_unavailable");
+
+  expect(repairDirectArtifact).toHaveBeenCalledTimes(1);
+  const status = getMathGenerationStatus(childId, homeworkId, { rootDir });
+  expect(status?.phase).toBe("needs_attention");
+  expect(status?.error).toContain("repair_provider_capacity_unavailable");
+  expect(status?.nodes.find(node => node.nodeId === "activity-2")?.error)
+    .not.toContain("openai_stream_failed");
+});
+
 it("does not reset the one-repair budget after a patch-parser upgrade", async () => {
   const draft = path.join(rootDir, "src/context", childId, "homework/direct-drafts", homeworkId);
   vi.mocked(judgeChildFacingScreens).mockImplementation(async ({ auditFile }) => auditFile?.includes("activity-1")

@@ -61,7 +61,7 @@ type VisualRepairAttempt = {
   inputHtmlHash: string;
   outputHtmlHash?: string;
   failures: string[];
-  status: "started" | "provider_completed" | "verified" | "failed" | "verification_uncertain";
+  status: "started" | "provider_completed" | "verified" | "failed" | "provider_unavailable" | "verification_uncertain";
   startedAt?: string;
   finishedAt?: string;
   error?: string;
@@ -105,7 +105,14 @@ function countVisualRepairAttempts(draft: string, nodeId: string): number {
   if (!fs.existsSync(diagnosticsDir)) return 0;
   return fs.readdirSync(diagnosticsDir, { recursive: true, encoding: "utf8" })
     .filter(name => /(^|\/)visual-repair-v\d+\//.test(name))
-    .filter(name => name.endsWith(`${nodeId}-visual-repair-attempt.json`)).length;
+    .filter(name => name.endsWith(`${nodeId}-visual-repair-attempt.json`))
+    .map(name => read<VisualRepairAttempt>(path.join(diagnosticsDir, name)))
+    .filter(attempt => attempt.status !== "provider_unavailable" && !isProviderCapacityUnavailable(attempt.error ?? ""))
+    .length;
+}
+
+function isProviderCapacityUnavailable(message: string): boolean {
+  return /(?:provider_request_rejected|credit_balance_exhausted|no credits remaining|billing_hard_limit_reached|insufficient_quota)/i.test(message);
 }
 
 function boardVisualReviewHistoryFile(draft: string, nodeId: string): string {
@@ -142,6 +149,7 @@ function isRolledBackVisualRepair(attempt: VisualRepairAttempt | undefined, arti
 
 function mayRunVisualRepair(attempt: VisualRepairAttempt | undefined, retryUncertain: boolean, artifactHash?: string): boolean {
   if (!attempt || ["started", "provider_completed"].includes(attempt.status)) return true;
+  if (attempt.status === "provider_unavailable" || isProviderCapacityUnavailable(attempt.error ?? "")) return true;
   if (artifactHash && isRolledBackVisualRepair(attempt, artifactHash)) return true;
   if (attempt.status === "failed"
     && (attempt.patchParserVersion ?? 1) < VISUAL_REPAIR_PATCH_PARSER_VERSION
@@ -797,6 +805,7 @@ export async function runAdaptiveMathGeneration(
       console.log(` 🎮 [adaptive-math] [visual-repair] [verified] node=${repaired.nodeId} gate=v${CHILD_FACING_VISUAL_GATE_VERSION}`);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
+      const providerUnavailable = isProviderCapacityUnavailable(message);
       const preserveUnpublishedCandidate = Boolean(repaired && message.includes(":child_visual_review:"));
       if (preserveUnpublishedCandidate && repaired) {
         const merged = new Map(build.artifacts.map(artifact => [artifact.nodeId, artifact]));
@@ -817,11 +826,16 @@ export async function runAdaptiveMathGeneration(
       write(attemptFile, {
         ...attemptBase,
         ...(repaired?.htmlHash ? { outputHtmlHash: repaired.htmlHash } : {}),
-        status: uncertain ? "verification_uncertain" : "failed",
+        status: providerUnavailable ? "provider_unavailable" : uncertain ? "verification_uncertain" : "failed",
         error: message,
         finishedAt: new Date().toISOString(),
       });
       console.log(` 🎮 [adaptive-math] [visual-repair] [failed] node=${currentArtifact.nodeId} reason=${message}`);
+      if (providerUnavailable) {
+        const circuitError = `repair_provider_capacity_unavailable:${currentArtifact.nodeId}`;
+        console.error(` 🎮 [adaptive-math] [repair-provider-circuit] [open] node=${currentArtifact.nodeId}`);
+        throw new Error(circuitError);
+      }
     }
   }
   project();

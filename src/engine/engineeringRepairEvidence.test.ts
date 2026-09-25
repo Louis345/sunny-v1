@@ -94,6 +94,34 @@ it("requires explicit authorization to retry an uncertain provider outcome and p
     expect.objectContaining({ attempt: 2, status: "received" }),
   ]);
 });
+it("records an explicit provider credit rejection as safely retryable instead of uncertain", async () => {
+  const { root } = fixture();
+  let calls = 0;
+  const input = {
+    draftDir: root,
+    stage: "activity-repair",
+    model: "gpt-5.6",
+    request: { prompt: "frozen" },
+    execute: async () => {
+      calls += 1;
+      if (calls === 1) throw new Error("openai_stream_failed:credit_balance_exhausted:You have no credits remaining.");
+      return { patch: "received" };
+    },
+  };
+
+  await expect(runMathProviderStage(input)).rejects.toThrow("provider_request_rejected");
+  await expect(runMathProviderStage(input)).resolves.toEqual({ patch: "received" });
+
+  expect(calls).toBe(2);
+  const receiptFile = fs.readdirSync(path.join(root, "provider-receipts"))
+    .map((name) => path.join(root, "provider-receipts", name))
+    .find((file) => !file.endsWith(".stage.json"))!;
+  const receipt = JSON.parse(fs.readFileSync(receiptFile, "utf8"));
+  expect(receipt.attempts).toEqual([
+    expect.objectContaining({ attempt: 1, status: "rejected", error: expect.stringContaining("credit_balance_exhausted") }),
+    expect.objectContaining({ attempt: 2, status: "received" }),
+  ]);
+});
 it("keeps a repair untrusted until complete independent verification and excludes incompatible or regressed lessons", () => {
   const { root, file, input, verify } = fixture();
   recordEngineeringRepairEvidence(input);
