@@ -26,7 +26,7 @@ it("keeps provider-facing Creator instructions byte-stable so verifier work neve
 
 it("versions prompt-visibility changes without resetting the visual repair budget", () => {
   expect(DISCOVERY_VERIFIER_VERSION).toBe(21);
-  expect(MATH_BROWSER_VERIFIER_VERSION).toBe(14);
+  expect(MATH_BROWSER_VERIFIER_VERSION).toBe(15);
   expect(CHILD_FACING_VISUAL_GATE_VERSION).toBe(5);
 });
 

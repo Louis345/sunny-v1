@@ -771,6 +771,37 @@ it("does not consume the repair ledger for a Creator manifest contract failure",
     .toMatchObject({ status: "needs_attention", error: expect.stringContaining("creator_manifest_contract") });
 });
 
+it("uses the single repair for a valid Creator test whose generated behavior times out", async () => {
+  vi.mocked(runDirectBrowserSmokeCheck)
+    .mockResolvedValueOnce({
+      passed: false,
+      failures: [
+        "activity-1:generation:creator_playwright:page.waitForFunction: Timeout 5000ms exceeded.",
+        "activity-1:creator_playwright_manifest_proof_mismatch",
+      ],
+      screenshots: ["failure.png"],
+      captures: [confirmedAcademicCapture({ path: "failure.png" })],
+      creatorTests: {
+        passed: false,
+        manifestHash: "valid-manifest-hash",
+        viewports: [],
+        failures: ["activity-1:generation:creator_playwright:page.waitForFunction: Timeout 5000ms exceeded."],
+      },
+    })
+    .mockResolvedValue({
+      passed: true,
+      failures: [],
+      screenshots: ["repaired.png"],
+      captures: [confirmedAcademicCapture({ path: "repaired.png" })],
+    });
+
+  await runAdaptiveMathGeneration(childId, homeworkId, rootDir);
+
+  expect(repairDirectArtifact).toHaveBeenCalledTimes(1);
+  expect(getMathGenerationStatus(childId, homeworkId, { rootDir })?.nodes[0])
+    .toMatchObject({ status: "ready" });
+});
+
 it("does not reset the one-repair budget after a patch-parser upgrade", async () => {
   const draft = path.join(rootDir, "src/context", childId, "homework/direct-drafts", homeworkId);
   vi.mocked(judgeChildFacingScreens).mockImplementation(async ({ auditFile }) => auditFile?.includes("activity-1")

@@ -521,7 +521,7 @@ export type DirectGenerationStats = {
   bonusDeferred: boolean;
 };
 
-export const MATH_BROWSER_VERIFIER_VERSION = 14;
+export const MATH_BROWSER_VERIFIER_VERSION = 15;
 
 export const TARGETED_COMPANION_RUNTIME_CONTRACT = `Represent currentChallenge as {id,prompt,mode,measurementRole,readAloudRequested,readAloudCount,companionSupportTrigger}. For each instruction or practice item, its first answer-hidden state must set readAloudRequested:true, readAloudCount:1, and companionSupportTrigger:"guided_prompt" so Elli can give one brief contextual introduction. Do this once per item, never after an answer. A fresh_checkpoint must not summon Elli automatically. When the child activates a visible Read it to me or Explain control on any item, increment readAloudCount and resend that same answer-hidden state with readAloudRequested:true and companionSupportTrigger:"child_request". Elli owns spoken teaching; do not narrate inside the activity.`;
 

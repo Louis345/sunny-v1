@@ -74,7 +74,7 @@ function checkerContractAmbiguity(report?: Pick<DirectPlaywrightReport, "failure
   return report?.failures.find(failure => failure.startsWith("math_journey_checker_contract_ambiguity;"));
 }
 
-const CREATOR_MANIFEST_CONTRACT_FAILURE = /creator_playwright_manifest_(?:file_missing|hash_mismatch|proof_mismatch|json_invalid|invalid|version|node_mismatch|item_coverage|item_order|item_invalid|assertion_missing|assertion_invalid|completion_missing|action_invalid)/;
+const CREATOR_MANIFEST_CONTRACT_FAILURE = /creator_playwright_manifest_(?:file_missing|hash_mismatch|json_invalid|invalid|version|node_mismatch|item_coverage|item_order|item_invalid|assertion_missing|assertion_invalid|completion_missing|action_invalid)/;
 
 function visualRepairNodeDir(draft: string, nodeId: string): string {
   return path.join(draft, "provider-diagnostics", `visual-repair-v${CHILD_FACING_VISUAL_GATE_VERSION}`, nodeId);
