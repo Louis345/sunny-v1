@@ -1,6 +1,6 @@
 # Sunny Learning Feedback Loop
 
-Contract version: 15
+Contract version: 16
 
 This document is the **sole normative** authority for how Sunny forms, tests, and revises learning claims. Product changes that alter this loop must update this contract version before implementation. Other documents may describe infrastructure or history, but they must link here instead of creating another learning doctrine.
 
@@ -26,7 +26,8 @@ For homework boards, the inner learning loop is:
 
 ```text
 school assignment
-→ AI-authored independent Discovery evaluation
+→ AI-authored independent Probe Board prepared before the child session
+→ one probe chapter covering the Planner-selected assignment concepts
 → factual evidence with instrument confounds separated
 → targeted Planner program and preregistered predictions
 → Fable board design
@@ -54,11 +55,15 @@ Replaying a completed teaching instrument appends practice evidence without rese
 
 When multiple academically valid interventions exist, the Planner may preregister a contextual agency experiment. It states the factual context, what academics remain comparable, one uncertain engagement hypothesis per route, predicted outcomes, falsifying evidence, and measurement keys. The board only projects the Planner's routes and records what was shown, selected, started, abandoned, completed, replayed, or switched. Selection alone never establishes preference; later interpretation must consider behavior, support, interaction, academic outcomes, and calibration together.
 
-Discovery establishes the child's independent starting point before targeted instruction. Its items are fresh and may not teach the answer before recording the observation. Correctness, assistance, exposure, prompt ambiguity, reading friction, interface friction, and response-mode friction remain separate facts. Completion commits one evidence packet before targeted planning begins; ratings may inform later design hypotheses but cannot alter academic conclusions or gate academic completion. Reported reading/interface friction accompanies the canonical attempt even when emitted separately by the instrument.
+The Probe Board establishes the child's independent starting point before targeted instruction. It is the complete first chapter for the assignment, not a single generated node followed by a child-visible generation wait. The Planner owns its construct coverage, activity count, item count, response formats, and evidence limits; the Experience Creator designs one coherent board from that frozen program. Every required probe node is implemented and verified before the child can enter the chapter.
+
+Probe items are fresh and may not teach or reveal the answer before recording the observation. Incorrect, uncertain, skipped, and `Not sure` responses advance without trapping the child. Companion reading or clarification remains available, but substantive help is recorded as assistance and cannot become independent evidence. Correctness, assistance, exposure, prompt ambiguity, reading friction, interface friction, and response-mode friction remain separate facts. Completion commits one evidence packet before targeted planning begins; ratings may inform later design hypotheses but cannot alter academic conclusions or gate academic completion. Reported reading/interface friction accompanies the canonical attempt even when emitted separately by the instrument. If the child exits early, Sunny preserves the original board and observations and reports incomplete coverage honestly.
+
+The Probe Board is generated after caregiver ingestion and before child play. Its generation time may appear in the caregiver workflow but never as an in-session child wait. Completing the Probe Board ends that child chapter normally and queues exactly one targeted Teaching Board job for the same assignment identity. The Teaching Board is generated asynchronously between sessions from committed probe evidence and prior chart history. It never appears as surprise required work in the completed probe session. A later session opens it only when its launchable frontier is ready; another ingestion is neither required nor permitted.
 
 For spelling elicited by audio, an alternative written response with the same pronunciation is instrument-ambiguous unless the frozen item supplied meaning-bearing context. It is not a spelling error and cannot become independent evidence merely because the activity expected one orthography.
 
-Discovery completion is idempotent: replaying it returns the existing cycle without changing the original completion time, evidence, revision, or later lifecycle. Reconnection or a repeated completion request cannot send a published board back into evaluation or planning.
+Probe Board completion is idempotent: replaying it returns the existing cycle without changing the original completion time, evidence, revision, or later lifecycle. Reconnection or a repeated completion request cannot send a published Teaching Board back into evaluation or planning.
 
 The targeted program and complete board design are frozen before the targeted map appears. Nodes whose artifacts are still being implemented may appear as `preparing`; optional status polling may replace that presentation with `ready` without opening the node, interrupting the current activity, or creating evidence. `Preparing` is operational generation state, while `evidence_locked` is an academic lifecycle state. The child may exit and return without losing either state. When a route frontier is complete, its unselected route is no longer required.
 
@@ -85,7 +90,7 @@ For generated math interventions, the Planner's academic contract is locked befo
 
 Before that lock, the math domain adapter validates explicit representation facts against the item answer contract. Contradictory states—for example, a minute hand on 12 paired with an hour hand described as past the hour for an `:00` answer—cannot proceed to creative design or implementation repair. The same Planner may receive one bounded correction request containing the exact factual contradiction and immutable evidence identities. A correction may repair the academic contract but may not reinterpret child evidence, add a new learning theory, or bypass the ordinary parser. Downstream design and implementation start only after the corrected program passes the same truth gate.
 
-Generation checkpoints are operational state, not learning authority. Valid Planner-authored nodes and Creator artifacts are preserved independently, and missing siblings may be requested without regenerating completed work. The board does not judge or rewrite activity count, route length, pedagogy, mechanics, themes, or presentation. Discovery publishes atomically before child use; after Discovery, the complete frozen topology may publish with truthful `preparing` nodes while each ready artifact is bound independently. A failed candidate never removes the previously safe published experience.
+Generation checkpoints are operational state, not learning authority. Valid Planner-authored nodes and Creator artifacts are preserved independently, and missing siblings may be requested without regenerating completed work. The board does not judge or rewrite activity count, route length, pedagogy, mechanics, themes, or presentation. The complete Probe Board publishes atomically before child use. After probe evidence is committed, the Teaching Board's complete frozen topology may publish between sessions with truthful `preparing` nodes while each ready artifact is bound independently. A failed candidate never removes the previously safe published experience.
 
 ## The many-to-many evidence model
 
