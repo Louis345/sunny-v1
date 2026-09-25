@@ -98,7 +98,20 @@ beforeEach(() => {
     return { ...artifact, htmlHash: createHash("sha256").update(fs.readFileSync(artifact.htmlPath)).digest("hex") };
   });
 });
-afterEach(() => { vi.unstubAllGlobals(); fs.rmSync(rootDir, { recursive: true, force: true }); });
+afterEach(() => { vi.unstubAllGlobals(); vi.unstubAllEnvs(); fs.rmSync(rootDir, { recursive: true, force: true }); });
+
+it("lets an explicitly isolated impersonator board publish deterministic-ready nodes while deferring blind visual review", async () => {
+  vi.stubEnv("SUNNY_CERTIFICATION_RUNTIME_ONLY", "true");
+  vi.stubEnv("SUNNY_CERTIFICATION_RUN_ID", "cert-v3-lab");
+  vi.stubEnv("SUNNY_EVIDENCE_AUTHORITY", "simulation");
+
+  await runAdaptiveMathGeneration(childId, homeworkId, rootDir);
+
+  expect(judgeChildFacingScreens).not.toHaveBeenCalled();
+  expect(getMathGenerationStatus(childId, homeworkId, { rootDir })?.nodes).toEqual(
+    expect.arrayContaining([expect.objectContaining({ status: "ready" })]),
+  );
+});
 
 it("reports board design before nodes exist and saves a stopped phase on provider failure", async () => {
   const draft=path.join(rootDir,"src/context",childId,"homework/direct-drafts",homeworkId);

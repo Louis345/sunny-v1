@@ -129,6 +129,7 @@ type BoardVisualReviewRecord = {
   attribution: ReviewAttribution | null;
   repairAuthorized: boolean;
   findings: Array<{ screen: number | null; claim: "visual_defect" | "content_missing"; observation: string }>;
+  deferredForHumanTest?: boolean;
 };
 
 type BoardPlaywrightReport = DirectPlaywrightReport & {
@@ -143,6 +144,12 @@ function passedNonVisualActivityProof(report: BoardPlaywrightReport | undefined)
     && report.verification?.runtime === true
     && report.verification.scoring === true
     && report.verification.contracts === true;
+}
+
+function isRuntimeOnlyCertification(env: NodeJS.ProcessEnv = process.env): boolean {
+  return env.SUNNY_CERTIFICATION_RUNTIME_ONLY === "true"
+    && env.SUNNY_EVIDENCE_AUTHORITY === "simulation"
+    && Boolean(env.SUNNY_CERTIFICATION_RUN_ID);
 }
 
 function isChildVisualReviewFailure(attempt: VisualRepairAttempt | undefined): boolean {
@@ -523,6 +530,24 @@ export async function runAdaptiveMathGeneration(
       });
       console.log(` 🎮 [adaptive-math] [board-review-attribution] [needs-attention] node=${artifact.nodeId} category=capture_defect reason=no_browser_confirmed_academic_screen`);
       throw new Error(`targeted_visual_review_needs_attention:${artifact.nodeId}:capture_defect:no_browser_confirmed_academic_screen`);
+    }
+    if (isRuntimeOnlyCertification()) {
+      reports[artifact.nodeId] = {
+        ...reports[artifact.nodeId],
+        visualReview: { attribution: null, repairAuthorized: false, findings: [], deferredForHumanTest: true },
+      };
+      write(reportsFile, reports);
+      appendBoardVisualReviewHistory(draft, artifact.nodeId, {
+        artifactHash: htmlHash,
+        browserVerifierVersion: MATH_BROWSER_VERIFIER_VERSION,
+        visualGateVersion: CHILD_FACING_VISUAL_GATE_VERSION,
+        screens,
+        runtimeOnlyCertification: true,
+        attribution: null,
+        repairAuthorized: false,
+      });
+      console.log(` 🎮 [adaptive-math] [blind-visual-review] [deferred-for-human-test] node=${artifact.nodeId} authority=simulation`);
+      return;
     }
     let visualVerdict: Awaited<ReturnType<typeof judgeChildFacingScreens>>;
     try {
