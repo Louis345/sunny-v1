@@ -112,7 +112,7 @@ function countVisualRepairAttempts(draft: string, nodeId: string): number {
 }
 
 function isProviderCapacityUnavailable(message: string): boolean {
-  return /(?:provider_request_rejected|credit_balance_exhausted|no credits remaining|billing_hard_limit_reached|insufficient_quota)/i.test(message);
+  return /(?:provider_request_rejected|credit_balance_exhausted|no credits remaining|billing_hard_limit_reached|insufficient_quota|(?:^|:)429(?:\b|$))/i.test(message);
 }
 
 function boardVisualReviewHistoryFile(draft: string, nodeId: string): string {

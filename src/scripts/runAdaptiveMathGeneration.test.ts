@@ -819,7 +819,7 @@ it("opens the repair-provider circuit after a capacity failure instead of contac
     },
   });
   vi.mocked(repairDirectArtifact).mockRejectedValue(
-    new Error("openai_stream_failed:You have no credits remaining. Add credits to continue using the API."),
+    Object.assign(new Error("direct_activity_repair_provider_failed:activity-1:429"), { status: 429 }),
   );
 
   await expect(runAdaptiveMathGeneration(childId, homeworkId, rootDir))

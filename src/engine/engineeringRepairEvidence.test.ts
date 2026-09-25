@@ -104,7 +104,7 @@ it("records an explicit provider credit rejection as safely retryable instead of
     request: { prompt: "frozen" },
     execute: async () => {
       calls += 1;
-      if (calls === 1) throw new Error("openai_stream_failed:credit_balance_exhausted:You have no credits remaining.");
+      if (calls === 1) throw Object.assign(new Error("direct_activity_repair_provider_failed:activity-1:429"), { status: 429 });
       return { patch: "received" };
     },
   };
@@ -118,7 +118,7 @@ it("records an explicit provider credit rejection as safely retryable instead of
     .find((file) => !file.endsWith(".stage.json"))!;
   const receipt = JSON.parse(fs.readFileSync(receiptFile, "utf8"));
   expect(receipt.attempts).toEqual([
-    expect.objectContaining({ attempt: 1, status: "rejected", error: expect.stringContaining("credit_balance_exhausted") }),
+    expect.objectContaining({ attempt: 1, status: "rejected", code: 429 }),
     expect.objectContaining({ attempt: 2, status: "received" }),
   ]);
 });

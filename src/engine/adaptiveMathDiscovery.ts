@@ -699,7 +699,8 @@ export async function runMathProviderStage<T>(input: {
   } catch (error) {
     const status = (error as {status?: number}).status;
     const message = error instanceof Error ? error.message : String(error);
-    const explicitProviderRejection = /(?:credit_balance_exhausted|no credits remaining|billing_hard_limit_reached|insufficient_quota|invalid_api_key)/i.test(message);
+    const explicitProviderRejection = status === 429
+      || /(?:credit_balance_exhausted|no credits remaining|billing_hard_limit_reached|insufficient_quota|invalid_api_key)/i.test(message);
     const rejected = Boolean(status && status>=400 && status<500) || explicitProviderRejection;
     const outcome = rejected ? "rejected" : "outcome_uncertain";
     const finishedAt = new Date().toISOString();
@@ -712,7 +713,7 @@ export async function runMathProviderStage<T>(input: {
     };
     atomicJson(receiptFile, {status:outcome,provider,model:input.model,startedAt,finishedAt,attempts});
     console.error(` 🎮 [adaptive-math] [provider-request] [${outcome}] receipt=${receiptFile}`);
-    if (explicitProviderRejection) throw new Error(`provider_request_rejected:${receiptFile}: ${message}`);
+    if (explicitProviderRejection) throw Object.assign(new Error(`provider_request_rejected:${receiptFile}: ${message}`), { ...(status ? { status } : {}) });
     if (!status || status>=500) throw new Error(`provider_outcome_uncertain:${receiptFile}: ${message}`);
     throw error;
   }
