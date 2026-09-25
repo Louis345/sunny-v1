@@ -776,6 +776,7 @@ export async function runAdaptiveMathGeneration(
         failures: attemptBase.failures,
         screenshotPaths: savedReport.screenshots,
         outputDir,
+        retryUncertain: Boolean(options.retryUncertainProvider),
       });
       write(attemptFile, { ...attemptBase, outputHtmlHash: repaired.htmlHash, status: "provider_completed" });
       await verifyArtifact(repaired);

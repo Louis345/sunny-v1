@@ -833,6 +833,22 @@ it("opens the repair-provider circuit after a capacity failure instead of contac
     .not.toContain("openai_stream_failed");
 });
 
+it("passes explicit uncertain-provider retry authorization only into the saved repair request", async () => {
+  vi.mocked(runDirectBrowserSmokeCheck)
+    .mockResolvedValueOnce({
+      passed: false,
+      failures: ["creator_playwright:page.waitForFunction: Timeout 5000ms exceeded."],
+      screenshots: ["failure.png"],
+      captures: [confirmedAcademicCapture({ path: "failure.png" })],
+      creatorTests: { passed: false, manifestHash: "valid", viewports: [], failures: ["timeout"] },
+    })
+    .mockResolvedValue({ passed: true, failures: [], screenshots: ["pass.png"], captures: [confirmedAcademicCapture({ path: "pass.png" })] });
+
+  await runAdaptiveMathGeneration(childId, homeworkId, rootDir, { retryUncertainProvider: true });
+
+  expect(repairDirectArtifact).toHaveBeenCalledWith(expect.objectContaining({ retryUncertain: true }));
+});
+
 it("does not reset the one-repair budget after a patch-parser upgrade", async () => {
   const draft = path.join(rootDir, "src/context", childId, "homework/direct-drafts", homeworkId);
   vi.mocked(judgeChildFacingScreens).mockImplementation(async ({ auditFile }) => auditFile?.includes("activity-1")

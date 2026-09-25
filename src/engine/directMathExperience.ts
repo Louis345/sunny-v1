@@ -2369,6 +2369,7 @@ export async function repairDirectArtifact(input: {
   model?: string;
   rootDir?: string;
   authorizeTruncatedReplacement?: boolean;
+  retryUncertain?: boolean;
 }): Promise<DirectArtifact> {
   const metadataPath = input.artifact.htmlPath.replace(/\.html$/i, ".artifact.json");
   const metadata = fs.existsSync(metadataPath) ? JSON.parse(fs.readFileSync(metadataPath, "utf8")) as Record<string, unknown> : {};
@@ -2422,7 +2423,7 @@ export async function repairDirectArtifact(input: {
   const stage = input.authorizeTruncatedReplacement ? replacementStage : primaryStage;
   const request = JSON.parse(fs.readFileSync(input.authorizeTruncatedReplacement ? replacementRequestFile : requestFile,"utf8"));
   const startedAt = Date.now();
-  const streamed = await runMathProviderStage({draftDir:input.outputDir,stage,model:request.model,request,beforeRequest:() => {
+  const streamed = await runMathProviderStage({draftDir:input.outputDir,stage,model:request.model,request,retryUncertain:input.retryUncertain,beforeRequest:() => {
     if (!process.env.OPENAI_API_KEY?.trim()) throw new Error("preflight_missing:OPENAI_API_KEY");
   },execute:async () => {
   const response = await fetch("https://api.openai.com/v1/responses", {
