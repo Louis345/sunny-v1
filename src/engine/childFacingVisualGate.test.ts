@@ -148,7 +148,7 @@ it("fails closed when no child-visible screenshot exists", async () => {
   })).rejects.toThrow("child_visual_review_screenshots_missing");
 });
 
-it("defaults to the funded OpenAI visual model without requiring Anthropic credentials", async () => {
+it("uses the funded OpenAI visual model when explicitly selected", async () => {
   const { screenshot, audit } = fixture();
   vi.stubEnv("OPENAI_API_KEY", "openai-test-key");
   vi.stubEnv("ANTHROPIC_API_KEY", "");
@@ -168,6 +168,7 @@ it("defaults to the funded OpenAI visual model without requiring Anthropic crede
   await expect(judgeChildFacingScreens({
     screenshotPaths: [screenshot],
     auditFile: audit,
+    model: "gpt-5.6",
   })).resolves.toEqual({ decision: "approve", observations: [] });
 
   expect(fetchMock).toHaveBeenCalledTimes(1);
@@ -185,6 +186,15 @@ it("defaults to the funded OpenAI visual model without requiring Anthropic crede
   expect(request.text.format).toMatchObject({ type: "json_schema", strict: true });
 });
 
+it("defaults production visual review to Opus 5.5", async () => {
+  const { screenshot, audit } = fixture();
+  vi.stubEnv("OPENAI_API_KEY", "openai-test-key");
+  vi.stubEnv("ANTHROPIC_API_KEY", "");
+
+  await expect(judgeChildFacingScreens({ screenshotPaths: [screenshot], auditFile: audit }))
+    .rejects.toThrow("child_visual_review_missing:ANTHROPIC_API_KEY");
+});
+
 it("writes an in-flight receipt before payment and refuses an automatic duplicate after uncertainty", async () => {
   const { screenshot, audit } = fixture();
   vi.stubEnv("OPENAI_API_KEY", "openai-test-key");
@@ -196,10 +206,10 @@ it("writes an in-flight receipt before payment and refuses an automatic duplicat
   });
   vi.stubGlobal("fetch", fetchMock);
 
-  await expect(judgeChildFacingScreens({ screenshotPaths: [screenshot], auditFile: audit }))
+  await expect(judgeChildFacingScreens({ screenshotPaths: [screenshot], auditFile: audit, model: "gpt-5.6" }))
     .rejects.toThrow(/outcome_uncertain/);
   expect(JSON.parse(fs.readFileSync(audit, "utf8"))).toMatchObject({ status: "outcome_uncertain" });
-  await expect(judgeChildFacingScreens({ screenshotPaths: [screenshot], auditFile: audit }))
+  await expect(judgeChildFacingScreens({ screenshotPaths: [screenshot], auditFile: audit, model: "gpt-5.6" }))
     .rejects.toThrow(/outcome_uncertain/);
   expect(calls).toBe(1);
 });
@@ -210,10 +220,10 @@ it("keeps an uncertain review blocked when screenshot bytes change", async () =>
   const fetchMock = vi.fn(async () => { throw new Error("connection_lost_after_acceptance"); });
   vi.stubGlobal("fetch", fetchMock);
 
-  await expect(judgeChildFacingScreens({ screenshotPaths: [screenshot], auditFile: audit }))
+  await expect(judgeChildFacingScreens({ screenshotPaths: [screenshot], auditFile: audit, model: "gpt-5.6" }))
     .rejects.toThrow(/outcome_uncertain/);
   fs.writeFileSync(screenshot, Buffer.from("changed screenshot bytes"));
-  await expect(judgeChildFacingScreens({ screenshotPaths: [screenshot], auditFile: audit }))
+  await expect(judgeChildFacingScreens({ screenshotPaths: [screenshot], auditFile: audit, model: "gpt-5.6" }))
     .rejects.toThrow(/outcome_uncertain/);
   expect(fetchMock).toHaveBeenCalledTimes(1);
 });
@@ -227,11 +237,11 @@ it("does not discard a paid raw response when screenshot bytes change", async ()
   }), { status: 200, headers: { "content-type": "application/json" } }));
   vi.stubGlobal("fetch", fetchMock);
 
-  await expect(judgeChildFacingScreens({ screenshotPaths: [screenshot], auditFile: audit }))
+  await expect(judgeChildFacingScreens({ screenshotPaths: [screenshot], auditFile: audit, model: "gpt-5.6" }))
     .rejects.toThrow();
   expect(JSON.parse(fs.readFileSync(audit, "utf8"))).toMatchObject({ status: "received_raw" });
   fs.writeFileSync(screenshot, Buffer.from("changed after provider response"));
-  await expect(judgeChildFacingScreens({ screenshotPaths: [screenshot], auditFile: audit }))
+  await expect(judgeChildFacingScreens({ screenshotPaths: [screenshot], auditFile: audit, model: "gpt-5.6" }))
     .rejects.toThrow(/received_raw/);
   expect(fetchMock).toHaveBeenCalledTimes(1);
 });

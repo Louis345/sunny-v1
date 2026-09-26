@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { spawn } from "node:child_process";
 import { expect, it } from "vitest";
-import { seedSpellingLab, recordedSpellingDiagnostic } from "./fixtures/spellingEvidenceFirst";
+import { seedSpellingLab, recordedSpellingDiagnostic, writeSpellingPdfFixture } from "./fixtures/spellingEvidenceFirst";
 
 it("runs the real menu and ingestion subprocess twice with one local recorded provider response", async () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-spelling-cli-"));
@@ -35,7 +35,8 @@ it("runs the real menu and ingestion subprocess twice with one local recorded pr
     fs.copyFileSync(path.join(sourceRoot, "package.json"), path.join(root, "package.json"));
     fs.copyFileSync(path.join(sourceRoot, "tsconfig.json"), path.join(root, "tsconfig.json"));
     fs.symlinkSync(path.join(sourceRoot, "node_modules"), path.join(root, "node_modules"));
-    const source = seedSpellingLab(root);
+    seedSpellingLab(root);
+    const source = writeSpellingPdfFixture(root, ["night", "light"]);
     const address = provider.address() as { port: number };
     const answers = ["1", "1", "2", source, "1", "1", "2", source, "5"];
     let pending = "";

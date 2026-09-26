@@ -24,6 +24,8 @@ import {
   publishDiscoveryExperience,
   getMathDiscoveryLifecycle,
   getMathGenerationStatus,
+  hashDiscoveryContract,
+  queueProbeBoardGeneration,
   resolveDiscoveryRepairModel,
   resolveAdaptiveMathDraftDir,
   type MathDiscoveryEvaluationContract,
@@ -304,14 +306,17 @@ export async function ingestMathAssignment(input: {
     console.log(progressLabels.discovery);
     discoveryProgressGuide().forEach((line) => console.log(`  ${line}`));
     const existingDiscovery = fs.existsSync(discoveryFile) ? readJson<MathDiscoveryEvaluationContract>(discoveryFile) : undefined;
-    const evaluation = existingDiscovery ? await ensureDiscoveryArtifactsAreServed({ rootDir, childId, homeworkId, contract: existingDiscovery }) : (await withIngestionHeartbeat("Discovery", () => generateMathDiscoveryExperience({
+    const generated = existingDiscovery ? undefined : await withIngestionHeartbeat("Discovery", () => generateMathDiscoveryExperience({
       rootDir, retryUncertain: input.retryUncertain,
       childId,
       homeworkId,
       assignmentText: extraction.fullText, assignmentSource: extraction,
       assignmentEvidenceIds: [`assignment:${homeworkId}:source`],
       factualChildContext: { academic: mathPlannerChartContext(chart), engagement: buildMathCreativeChildContext(chart) },
-    }))).contract;
+    }));
+    const evaluation = existingDiscovery
+      ? await ensureDiscoveryArtifactsAreServed({ rootDir, childId, homeworkId, contract: existingDiscovery })
+      : generated!.contract;
     const activeSessionPlan = buildDiscoveryActiveSessionPlan({
       childId,
       homeworkId,
@@ -333,10 +338,13 @@ export async function ingestMathAssignment(input: {
         targets: evaluation.constructs.map((construct) => construct.constructId),
       },
     });
+    const savedDesign = generated?.design ?? readJson<Record<string, unknown>>(path.join(draftDir, "discovery-design.json"));
+    const probeJob = queueProbeBoardGeneration({ rootDir, childId, homeworkId, evaluation, designHash: hashDiscoveryContract(savedDesign) });
     status("ready");
-    console.log("Done — DISCOVERY READY");
-    console.log(`Discovery: ${existingDiscovery ? "reused" : "generated"}`);
-    console.log("Targeted board: waits for committed Discovery evidence");
+    console.log("Done — PROBE BOARD READY");
+    console.log(`Probe Board: ${probeJob.nodes.filter(node => node.status === "ready").length}/${probeJob.nodes.length} ${existingDiscovery ? "reused" : "generated"} activities ready`);
+    if (probeJob.phase === "probe_generating") console.log("Locked activities will unlock automatically after Sunny starts and verifies them.");
+    console.log("Teaching Board: begins after the complete Probe chapter");
     console.log(`Checkpoint: ${draftDir}`);
     console.log(`Start session: ${formatStartSessionCommand()} → Start child session`);
     return;

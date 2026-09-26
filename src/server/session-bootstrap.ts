@@ -127,6 +127,12 @@ export function shouldEnableCompanionWakeGate(opts: {
   return opts.discovery === true || domain === "math" || /^hw-math(?:-|$)/i.test(String(opts.homeworkId ?? ""));
 }
 
+export function isIndependentEvaluationPlan(planId: string | null | undefined): boolean {
+  return Boolean(
+    planId?.startsWith("discovery:") || planId?.startsWith("probe-board:"),
+  );
+}
+
 export function buildContextStartGreeting(context: any): string {
   const pendingHomework = context?.pendingHomework ?? context;
   const activeSessionPlan = context?.activeSessionPlan;
@@ -810,7 +816,7 @@ export async function runSessionStart(
       session.companionWakeGateEnabled = shouldEnableCompanionWakeGate({
         subject,
         homeworkId: pendingHomework.homeworkId,
-        discovery: sessionLearningProfile?.activeSessionPlan?.planId?.startsWith("discovery:") === true,
+        discovery: isIndependentEvaluationPlan(sessionLearningProfile?.activeSessionPlan?.planId),
         explicitDomain: explicitHomeworkDomain,
       });
       console.log(
@@ -1299,7 +1305,7 @@ export async function runSessionStart(
       session.companionWakeGateEnabled = shouldEnableCompanionWakeGate({
         subject,
         homeworkId: sessionLearningProfile?.pendingHomework?.homeworkId,
-        discovery: sessionLearningProfile?.activeSessionPlan?.planId?.startsWith("discovery:") === true,
+        discovery: isIndependentEvaluationPlan(sessionLearningProfile?.activeSessionPlan?.planId),
         explicitDomain:
           sessionLearningProfile?.pendingHomework?.contentProfile?.practiceDomain ??
           sessionLearningProfile?.pendingHomework?.capturedContent?.contentProfile?.practiceDomain,

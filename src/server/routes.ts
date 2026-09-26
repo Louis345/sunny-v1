@@ -79,6 +79,7 @@ import {
 } from "./certificationRuntime";
 
 export function shouldResumeAdaptiveMathWorker(job: MathGenerationJob): boolean {
+  if (job.phase === "probe_ready") return false;
   return job.phase !== "needs_attention" || hasResumableMathGenerationWork(job);
 }
 
@@ -808,11 +809,21 @@ export function setupRoutes(app: Express): void {
       return res.json({ ok: true, skippedPersistence: true });
     }
     try {
-      const cycle = completeDiscoveryEvaluation({ childId, homeworkId, completedAt: new Date().toISOString() });
+      const nodeId = typeof req.body?.nodeId === "string" ? req.body.nodeId.trim() : undefined;
+      const cycle = completeDiscoveryEvaluation({ childId, homeworkId, ...(nodeId ? { nodeId } : {}), completedAt: new Date().toISOString() });
+      const evaluationNodes = cycle.nodes?.filter((node) => node.role === "evaluation") ?? [];
+      const probeChapterComplete = evaluationNodes.length > 0
+        ? evaluationNodes.every((node) => node.state === "completed")
+        : !["evaluation_ready", "evaluation_active"].includes(cycle.lifecycle);
+      if (!probeChapterComplete) {
+        console.log(` 🎮 [adaptive-math] [probe-node-complete] [chapter-active] child=${childId} homework=${homeworkId} node=${nodeId ?? "legacy"}`);
+        return res.json({ ok: true, lifecycle: cycle.lifecycle, revision: cycle.revision, probeChapterComplete: false, targetedGenerationQueued: false });
+      }
+      const existingJob = getMathGenerationStatus(childId, homeworkId);
       queueTargetedMathGeneration({ childId, homeworkId });
-      launchAdaptiveMathWorker(childId, homeworkId);
+      if (!existingJob || existingJob.phase === "probe_ready") launchAdaptiveMathWorker(childId, homeworkId);
       console.log(` 🎮 [adaptive-math] [discovery-complete] [targeted-generation-queued] child=${childId} homework=${homeworkId}`);
-      return res.status(202).json({ ok: true, lifecycle: cycle.lifecycle, revision: cycle.revision, targetedGenerationQueued: true });
+      return res.status(202).json({ ok: true, lifecycle: cycle.lifecycle, revision: cycle.revision, probeChapterComplete: true, targetedGenerationQueued: true, returnNextSession: true });
     } catch (error: unknown) {
       return res.status(409).json({ error: error instanceof Error ? error.message : String(error) });
     }

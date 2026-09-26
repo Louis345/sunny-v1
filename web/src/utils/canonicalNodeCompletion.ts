@@ -26,8 +26,11 @@ export function postDiscoveryAttempt(input: { childId: string; homeworkId: strin
   return postDiscovery(`/api/learning/${encodeURIComponent(input.childId)}/assignments/${encodeURIComponent(input.homeworkId)}/discovery/attempt`, { supportEventIds: [], instrumentSignals: [], ...input.attempt });
 }
 
-export function postDiscoveryComplete(input: { childId: string; homeworkId: string }): Promise<Record<string, unknown>> {
-  return postDiscovery(`/api/learning/${encodeURIComponent(input.childId)}/assignments/${encodeURIComponent(input.homeworkId)}/discovery/complete`, {});
+export function postDiscoveryComplete(input: { childId: string; homeworkId: string; nodeId?: string }): Promise<Record<string, unknown>> {
+  return postDiscovery(
+    `/api/learning/${encodeURIComponent(input.childId)}/assignments/${encodeURIComponent(input.homeworkId)}/discovery/complete`,
+    input.nodeId ? { nodeId: input.nodeId } : {},
+  );
 }
 
 export async function flushDiscoveryAttemptWrites(

@@ -28,6 +28,7 @@ export function discoveryFixtureAcademic() {
     assignmentEvidenceIds: ["assignment:fixture"],
     constructs: [{ constructId: "math.multiplication.equal_groups", prerequisiteIds: [] }],
     items: [item("one", "12"), item("two", "10")],
+    probeActivities: [{ nodeId: "probe-market-baskets", title: "Market Baskets", itemIds: ["one", "two"] }],
   };
 }
 
@@ -46,7 +47,7 @@ export function discoveryCeremonyHtml(options: { runtimeContract?: boolean } = {
     : "";
   return `<!doctype html><html><body>
     <section id="opening"><h2>Opening the market</h2><button id="begin">Begin</button></section>
-    <section id="question" hidden><h2 id="prompt"></h2><button id="answer">Answer</button><button id="wrong">Different answer</button></section>
+    <section id="question" hidden><h2 id="prompt"></h2><button id="answer">Answer</button><button id="wrong">Different answer</button><button id="not-sure">Not sure</button></section>
     <section id="between" hidden><h2>Great work. Ready for the next basket?</h2><button id="next">Continue</button></section>
     ${binding}
     <script>
@@ -59,6 +60,9 @@ export function discoveryCeremonyHtml(options: { runtimeContract?: boolean } = {
     ],incorrectJourney:[
       {itemId:'one',steps:[{action:'click',selector:'#begin'},{action:'click',selector:'#wrong'}]},
       {itemId:'two',steps:[{action:'click',selector:'#next'},{action:'click',selector:'#wrong'}]}
+    ],notSureJourney:[
+      {itemId:'one',steps:[{action:'click',selector:'#begin'},{action:'click',selector:'#not-sure'}]},
+      {itemId:'two',steps:[{action:'click',selector:'#next'},{action:'click',selector:'#not-sure'}]}
     ]};
     const show=id=>{
       active=id;el('opening').hidden=true;el('between').hidden=true;el('question').hidden=false;
@@ -67,16 +71,17 @@ export function discoveryCeremonyHtml(options: { runtimeContract?: boolean } = {
     };
     el('begin').onclick=()=>show('one');
     el('next').onclick=()=>show('two');
-    const commit=attemptedValue=>{
+    const commit=(attemptedValue,instrumentSignals=[])=>{
       count+=1;
       const scoring=window.__SUNNY_DISCOVERY_TEST__?.evaluate(active,attemptedValue);
       if(scoring)el('question').dataset.correct=String(scoring.correct);
-      parent.postMessage({type:'evaluation_attempt',payload:{attemptId:'attempt-'+count,itemId:active,attemptedValue,supportEventIds:[],instrumentSignals:[],observedAt:new Date().toISOString()}},'*');
+      parent.postMessage({type:'evaluation_attempt',payload:{attemptId:'attempt-'+count,itemId:active,attemptedValue,supportEventIds:[],instrumentSignals,observedAt:new Date().toISOString()}},'*');
       if(active==='one'){el('question').hidden=true;el('between').hidden=false;}
       else parent.postMessage({type:'evaluation_complete',payload:{}},'*');
     };
     el('answer').onclick=()=>commit(active==='one'?'12':'10');
     el('wrong').onclick=()=>commit('0');
+    el('not-sure').onclick=()=>commit('', ['response_not_captured']);
     parent.postMessage({type:'evaluation_ready'},'*');
     </script></body></html>`;
 }

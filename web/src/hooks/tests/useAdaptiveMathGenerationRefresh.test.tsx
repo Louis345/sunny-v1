@@ -38,6 +38,28 @@ describe("useAdaptiveMathGenerationRefresh", () => {
     expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 
+  it("stops the Probe Board watcher when every probe artifact is ready", async () => {
+    const onStatusChanged = vi.fn();
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ updatedAt: "t1", phase: "probe_generating", nodes: [{ nodeId: "P1", status: "ready" }, { nodeId: "P2", status: "preparing" }] }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ updatedAt: "t2", phase: "probe_ready", nodes: [{ nodeId: "P1", status: "ready" }, { nodeId: "P2", status: "ready" }] }) });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderHook(() => useAdaptiveMathGenerationRefresh({
+      childId: "reina",
+      homeworkId: "hw-probe",
+      enabled: true,
+      intervalMs: 30_000,
+      onStatusChanged,
+    }));
+
+    await act(async () => { await Promise.resolve(); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(30_000); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(90_000); });
+    expect(onStatusChanged).toHaveBeenCalledTimes(2);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
   it("does not poll when the board has no pending generation", async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
@@ -66,13 +88,33 @@ describe("useAdaptiveMathGenerationRefresh", () => {
     const fetchMock=vi.fn().mockResolvedValue({ok:true,json:async()=>({updatedAt:"t1",phase:"board_generating",nodes:[{nodeId:"n1",status:"preparing"}]})});
     vi.stubGlobal("fetch",fetchMock);
     const {result}=renderHook(()=>useAdaptiveMathGenerationRefresh({childId:"ila",homeworkId:"hw-1",enabled:true,onStatusChanged}));
-    await act(async()=>{await vi.advanceTimersByTimeAsync(600_000);});
+    await act(async()=>{await vi.advanceTimersByTimeAsync(1_500_000);});
     expect(fetchMock).toHaveBeenCalledTimes(10);
     expect(result.current.paused).toBe(true);
     await act(async()=>{result.current.checkNow();});
     expect(fetchMock).toHaveBeenCalledTimes(11);
     expect(fetchMock.mock.calls.every(call=>!call[1]?.method || call[1]?.method === "GET")).toBe(true);
     expect(onStatusChanged).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps a bounded Probe Board watch alive beyond five minutes", async () => {
+    const onStatusChanged = vi.fn();
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ updatedAt: "t1", phase: "probe_generating", nodes: [{ nodeId: "p1", status: "preparing" }] }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const { result } = renderHook(() => useAdaptiveMathGenerationRefresh({
+      childId: "ila",
+      homeworkId: "hw-probe-long",
+      enabled: true,
+      onStatusChanged,
+    }));
+
+    await act(async () => { await vi.advanceTimersByTimeAsync(6 * 60_000); });
+    expect(result.current.paused).toBe(false);
+    expect(fetchMock.mock.calls.length).toBeGreaterThan(1);
+    expect(fetchMock.mock.calls.length).toBeLessThan(10);
   });
 
   it("does not refresh another assignment when an old in-flight status returns", async () => {

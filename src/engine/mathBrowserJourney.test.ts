@@ -91,6 +91,32 @@ it("captures every question before answering so blind review cannot see completi
   ]);
 }, 20000);
 
+it("rejects an item that commits before its frozen prompt is visibly confirmed", async () => {
+  const { withDiscoveryBrowserPage, verifyMathControlJourney } = await import("./discoveryVisualReview");
+  const item = {
+    id: "one",
+    prompt: "How many stars are in the group?",
+    lineage: { sourceEvidenceIds: ["assignment:one"], exposure: "unseen", measurementRole: "fresh_checkpoint" },
+    response: { mode: "selection", options: [{ id: "four", label: "4", correct: true }] },
+  };
+  const html = `<p id="prompt">How many stars are in the group?</p><button id="answer">Four</button>
+    <script>
+    window.SUNNY_VALIDATION_HOOKS={journey:[{itemId:'one',steps:[{action:'click',selector:'#answer'}]}]};
+    parent.postMessage({type:'game_state_update',payload:{currentChallenge:{id:'one',prompt:'How many stars are in the group?',measurementRole:'fresh_checkpoint',readAloudRequested:false,readAloudCount:0}}},'*');
+    document.querySelector('#answer').onclick=()=>{
+      parent.postMessage({type:'attempt_event',payload:{domain:'math',target:'one',attemptedValue:'four',correct:true}},'*');
+      parent.postMessage({type:'node_complete',payload:{nodeId:'node',accuracy:1,targetResults:[{target:'one',attemptedValue:'four',correct:true}]}},'*');
+    };
+    </script>`;
+
+  await expect(withDiscoveryBrowserPage(html, page => verifyMathControlJourney(page, {
+    completionType: "node_complete",
+    itemIds: ["one"],
+    itemContracts: [item] as never,
+    captureState: async () => false,
+  }))).rejects.toThrow("math_journey_item_committed_without_confirmed_prompt;item=one");
+}, 20000);
+
 it("captures an evidence-free opening separately before the first academic item", async () => {
   const result = await verify(`<section id="opening"><h2>Opening the market</h2><button id="begin">Begin</button></section>
     <section id="question" hidden><h2>How many apples are in three baskets of four?</h2><button id="answer">12</button></section>
@@ -119,7 +145,7 @@ it("rejects a targeted activity whose evidence claims a frozen wrong answer is c
     lineage: { sourceEvidenceIds: ["assignment:one"], exposure: "unseen", measurementRole: "fresh_checkpoint" },
     response: { mode: "selection", options: [{ id: "four", label: "4", correct: true }, { id: "five", label: "5", correct: false }] },
   };
-  const result = await verify(`${journey}<button id="answer" onclick="parent.postMessage({type:'attempt_event',payload:{domain:'math',target:'one',attemptedValue:'five',correct:true}},'*');parent.postMessage({type:'node_complete',payload:{nodeId:'node',targetResults:[{target:'one',attemptedValue:'five',correct:true}]}},'*')">Five</button><script>parent.postMessage({type:'game_state_update',payload:{currentChallenge:{id:'one',prompt:'Which value is four?',measurementRole:'fresh_checkpoint',readAloudRequested:false,readAloudCount:0}}},'*');</script>`, ["one"], [item]);
+  const result = await verify(`${journey}<p>Which value is four?</p><button id="answer" onclick="parent.postMessage({type:'attempt_event',payload:{domain:'math',target:'one',attemptedValue:'five',correct:true}},'*');parent.postMessage({type:'node_complete',payload:{nodeId:'node',targetResults:[{target:'one',attemptedValue:'five',correct:true}]}},'*')">Five</button><script>parent.postMessage({type:'game_state_update',payload:{currentChallenge:{id:'one',prompt:'Which value is four?',measurementRole:'fresh_checkpoint',readAloudRequested:false,readAloudCount:0}}},'*');</script>`, ["one"], [item]);
   expect(result.passed).toBe(false);
   expect(result.failures.join("|")).toContain("math_journey_scoring_mismatch;item=one");
 }, 20000);
@@ -416,6 +442,7 @@ it("accepts an exact reported academic sentence after the previous prompt has le
     report('one','Here is a labeled array. Tap the number of ROWS.');
     </script>`, ["one", "two"], itemContracts);
   expect(result.failures).toEqual([]);
+  expect(result.captures?.filter(capture => capture.expectedItemId === "two" && capture.kind === "academic_item")).toHaveLength(2);
 },20000);
 
 it("does not accept a generic lead-in sentence when the academic marker is loose in the same text node", async () => {

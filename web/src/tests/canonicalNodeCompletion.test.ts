@@ -178,14 +178,15 @@ describe("canonical node completion handoff", () => {
   });
 
   it("posts Discovery facts and completion to the assignment endpoints", async () => {
-    const fetchMock = vi.fn(async (_url: string) => new Response(JSON.stringify({ ok: true }), { status: 200, headers: { "Content-Type": "application/json" } }));
+    const fetchMock = vi.fn(async (_url: string, _init?: RequestInit) => new Response(JSON.stringify({ ok: true }), { status: 200, headers: { "Content-Type": "application/json" } }));
     vi.stubGlobal("fetch", fetchMock);
     await postDiscoveryAttempt({ childId: "reina", homeworkId: "hw-1", attempt: { attemptId: "a1" } });
-    await postDiscoveryComplete({ childId: "reina", homeworkId: "hw-1" });
+    await postDiscoveryComplete({ childId: "reina", homeworkId: "hw-1", nodeId: "probe-groups" });
     expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
       "/api/learning/reina/assignments/hw-1/discovery/attempt",
       "/api/learning/reina/assignments/hw-1/discovery/complete",
     ]);
+    expect(JSON.parse((fetchMock.mock.calls[1]?.[1] as RequestInit).body as string)).toEqual({ nodeId: "probe-groups" });
   });
 
   it("posts the actual node identity and completion payload before showing post-activity UI", async () => {

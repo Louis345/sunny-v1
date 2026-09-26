@@ -3,7 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { spawn } from "node:child_process";
 import { expect, it } from "vitest";
-import { seedSpellingLab } from "./fixtures/spellingEvidenceFirst";
+import { seedSpellingLab, writeSpellingPdfFixture } from "./fixtures/spellingEvidenceFirst";
 
 it("hands the terminal to an ingestion child, then accepts menu input after it exits", async () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-menu-terminal-"));
@@ -14,7 +14,8 @@ it("hands the terminal to an ingestion child, then accepts menu input after it e
     fs.cpSync(path.join(sourceRoot, "src"), path.join(root, "src"), { recursive: true, filter: from => !from.startsWith(path.join(sourceRoot, "src/context") + path.sep) || from.startsWith(path.join(sourceRoot, "src/context/schemas")) });
     fs.copyFileSync(path.join(sourceRoot, "tsconfig.json"), path.join(root, "tsconfig.json"));
     fs.symlinkSync(path.join(sourceRoot, "node_modules"), path.join(root, "node_modules"));
-    const source = seedSpellingLab(root);
+    seedSpellingLab(root);
+    const source = writeSpellingPdfFixture(root, ["night", "light"]);
     fs.writeFileSync(path.join(root, "package.json"), JSON.stringify({ scripts: { "sunny:ingest:spelling": "node confirm.cjs" } }));
     fs.writeFileSync(path.join(root, "confirm.cjs"), `
       const readline=require('node:readline/promises');

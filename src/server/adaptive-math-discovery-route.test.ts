@@ -73,6 +73,65 @@ describe("adaptive math discovery routes", () => {
     expect(await complete.json()).toMatchObject({ lifecycle: "evidence_ready", targetedGenerationQueued: true });
   });
 
+  it("keeps the Probe chapter open between nodes and queues teaching only after the final node", async () => {
+    completeDiscoveryEvaluation
+      .mockReturnValueOnce({ lifecycle: "evaluation_active", revision: 3 })
+      .mockReturnValueOnce({ lifecycle: "evidence_ready", revision: 4 });
+
+    const first = await fetch(`${baseUrl}/api/learning/lab-child/assignments/hw-1/discovery/complete`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ nodeId: "probe-groups" }),
+    });
+    const final = await fetch(`${baseUrl}/api/learning/lab-child/assignments/hw-1/discovery/complete`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ nodeId: "probe-arrays" }),
+    });
+
+    expect(first.status).toBe(200);
+    expect(await first.json()).toMatchObject({
+      lifecycle: "evaluation_active",
+      probeChapterComplete: false,
+      targetedGenerationQueued: false,
+    });
+    expect(queueTargetedMathGeneration).not.toHaveBeenCalledTimes(2);
+    expect(final.status).toBe(202);
+    expect(await final.json()).toMatchObject({
+      lifecycle: "evidence_ready",
+      probeChapterComplete: true,
+      targetedGenerationQueued: true,
+      returnNextSession: true,
+    });
+    expect(completeDiscoveryEvaluation).toHaveBeenNthCalledWith(1, expect.objectContaining({ nodeId: "probe-groups" }));
+    expect(completeDiscoveryEvaluation).toHaveBeenNthCalledWith(2, expect.objectContaining({ nodeId: "probe-arrays" }));
+    expect(queueTargetedMathGeneration).toHaveBeenCalledTimes(1);
+  });
+
+  it("returns the final handoff idempotently after generation already advanced", async () => {
+    completeDiscoveryEvaluation.mockReturnValueOnce({
+      lifecycle: "targeted_planning",
+      revision: 5,
+      nodes: [
+        { role: "evaluation", state: "completed" },
+        { role: "evaluation", state: "completed" },
+      ],
+    });
+
+    const response = await fetch(`${baseUrl}/api/learning/lab-child/assignments/hw-1/discovery/complete`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ nodeId: "probe-arrays" }),
+    });
+
+    expect(response.status).toBe(202);
+    expect(await response.json()).toMatchObject({
+      lifecycle: "targeted_planning",
+      probeChapterComplete: true,
+      returnNextSession: true,
+    });
+  });
+
   it("allows preview interaction but writes no Discovery evidence", async () => {
     process.env.SUNNY_MODE = "as-child";
     const response = await fetch(`${baseUrl}/api/learning/lab-child/assignments/hw-1/discovery/complete`, { method: "POST" });

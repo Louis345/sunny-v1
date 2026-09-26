@@ -8,6 +8,18 @@ export type GenerationStatus = {
   nodes: Array<{ nodeId: string; status: string }>;
 };
 
+const GENERATION_WATCH_DELAYS_MS = [
+  30_000,
+  30_000,
+  60_000,
+  90_000,
+  120_000,
+  180_000,
+  240_000,
+  300_000,
+  300_000,
+] as const;
+
 export function useAdaptiveMathGenerationRefresh(input: {
   childId: string | null;
   homeworkId: string | null | undefined;
@@ -38,7 +50,6 @@ export function useAdaptiveMathGenerationRefresh(input: {
     let running = false;
     let controller: AbortController | null = null;
     let requestSequence = 0;
-    const intervalMs = input.intervalMs ?? 30_000;
     setSnapshot({scope,status:null,error:null,paused:false,checking:false,checkedAt:null});
 
     const poll = async (manual = false): Promise<void> => {
@@ -60,13 +71,15 @@ export function useAdaptiveMathGenerationRefresh(input: {
         const status = await response.json() as GenerationStatus;
         if (cancelled || requestId !== requestSequence) return;
         setSnapshot(prev=>({scope,status,error:null,paused:false,checking:prev.checking,checkedAt:prev.checkedAt}));
-        if (status.updatedAt !== lastUpdatedAt) {
+        const statusChanged = status.updatedAt !== lastUpdatedAt;
+        if (statusChanged) {
           if (await input.onStatusChanged(status) === null) throw new Error("generation_board_refresh_unavailable");
         }
         if (cancelled || requestId !== requestSequence) return;
+        if (lastUpdatedAt !== null && statusChanged) pollCount = 0;
         lastUpdatedAt = status.updatedAt;
         succeeded = true;
-        if (status.phase === "board_ready" || (status.phase === "needs_attention" && !status.nodes.some(node=>node.status === "preparing"))) return;
+        if (status.phase === "board_ready" || status.phase === "probe_ready" || (status.phase === "needs_attention" && !status.nodes.some(node=>node.status === "preparing"))) return;
       } catch (error: unknown) {
         if (cancelled || requestId !== requestSequence) return;
         console.warn(" 🎮 [adaptive-math-status] [poll] [unavailable]", error);
@@ -87,7 +100,10 @@ export function useAdaptiveMathGenerationRefresh(input: {
       if (!cancelled && pollCount >= 10) {
         console.log(" 🎮 [adaptive-math-status] [poll] [bounded-exit]");
         setSnapshot(prev=>({...prev,paused:true}));
-      } else if (!cancelled) timer = setTimeout(() => { void poll(false).catch(error=>console.error(" 🎮 [adaptive-math-status] [poll] [failed]",error)); }, intervalMs);
+      } else if (!cancelled) {
+        const delayMs = input.intervalMs ?? GENERATION_WATCH_DELAYS_MS[Math.min(Math.max(pollCount - 1, 0), GENERATION_WATCH_DELAYS_MS.length - 1)]!;
+        timer = setTimeout(() => { void poll(false).catch(error=>console.error(" 🎮 [adaptive-math-status] [poll] [failed]",error)); }, delayMs);
+      }
     };
 
     const check = () => {

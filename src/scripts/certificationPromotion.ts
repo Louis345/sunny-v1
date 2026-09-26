@@ -82,6 +82,7 @@ type RuntimeAcceptance = {
   academicHash?: unknown;
   viewports?: Array<{ width?: unknown; height?: unknown }>;
   completedItemIds?: unknown;
+  completedProbeActivityIds?: unknown;
 };
 
 type VisualAudit = {
@@ -289,33 +290,23 @@ function assertPristineCycle(
   contract: MathDiscoveryEvaluationContract,
 ): void {
   const { cycle, artifactHash: boundArtifactHash } = promotedEvaluationBinding(rootDir, childId, homeworkId);
-  const node = cycle.nodes[0];
-  const expectedTargets = contract.constructs.map((construct) => construct.constructId);
-  const expectedNode = buildDiscoveryEvaluationNode(
+  const activities = contract.probeActivities ?? [{
+    nodeId: contract.evaluationId,
+    title: contract.title,
+    itemIds: contract.items.map((item) => item.itemId),
+  }];
+  const expectedNodes = activities.map((activity, index) => buildDiscoveryEvaluationNode(
     contract,
-    typeof node?.prediction?.createdAt === "string" ? node.prediction.createdAt : "",
-  );
+    typeof cycle.nodes[index]?.prediction?.createdAt === "string" ? cycle.nodes[index]!.prediction.createdAt : "",
+    activity,
+  ));
   const contaminated = cycle.lifecycle !== "evaluation_ready"
     || cycle.childId !== childId
     || cycle.homeworkId !== homeworkId
     || cycle.domain !== "math"
     || cycle.assignment.contentFingerprint !== assignmentFingerprint
-    || cycle.nodes.length !== 1
-    || node?.role !== "evaluation"
-    || JSON.stringify(stableJson(node)) !== JSON.stringify(stableJson(expectedNode))
-    || node.nodeId !== contract.evaluationId
-    || node.title !== contract.title
-    || node.state !== "ready"
-    || node.evidenceIds.length !== 0
-    || node.artifactBinding?.artifactId !== contract.artifact.artifactId
-    || node.artifactBinding?.contractFingerprint !== contract.artifact.contractHash
-    || node.artifactBinding?.localArtifactPath !== contract.artifact.htmlPath
-    || node.artifactBinding?.localArtworkPath !== contract.artifact.artworkPath
-    || node.artifactBinding?.validationStatus !== "passed"
-    || node.evidenceContract.academic !== true
-    || node.evidenceContract.engagement !== true
-    || node.evidenceContract.companionObservations !== true
-    || JSON.stringify(node.academicTarget.targets) !== JSON.stringify(expectedTargets)
+    || cycle.nodes.length !== expectedNodes.length
+    || JSON.stringify(stableJson(cycle.nodes)) !== JSON.stringify(stableJson(expectedNodes))
     || cycle.observations.length !== 0
     || cycle.predictionEvaluations.length !== 0
     || cycle.decisionHistory.length !== 0
@@ -435,6 +426,7 @@ function assertCertificationProof(input: {
     throw new Error("certification_promotion_design_mismatch");
   }
   const acceptance = readJson<RuntimeAcceptance>(path.join(draftDir, "runtime-verification", "acceptance.json"));
+  const expectedProbeActivityIds = contract.probeActivities?.map((activity) => activity.nodeId) ?? [contract.evaluationId];
   const viewportKeys = new Set((acceptance.viewports ?? []).map((value) => `${value.width}x${value.height}`));
   if (acceptance.passed !== true
     || acceptance.verifierVersion !== DISCOVERY_VERIFIER_VERSION
@@ -442,6 +434,8 @@ function assertCertificationProof(input: {
     || acceptance.academicHash !== hashDiscoveryContract(contract.items)
     || !Array.isArray(acceptance.completedItemIds)
     || JSON.stringify(acceptance.completedItemIds) !== JSON.stringify(contract.items.map((item) => item.itemId))
+    || !Array.isArray(acceptance.completedProbeActivityIds)
+    || JSON.stringify(acceptance.completedProbeActivityIds) !== JSON.stringify(expectedProbeActivityIds)
     || !DISCOVERY_RELEASE_VIEWPORTS.every((viewport) => viewportKeys.has(`${viewport.width}x${viewport.height}`))) {
     throw new Error("certification_promotion_runtime_approval_missing");
   }

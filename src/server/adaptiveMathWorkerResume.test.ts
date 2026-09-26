@@ -25,6 +25,11 @@ function job(
 }
 
 describe("adaptive math worker startup reconciliation", () => {
+  it("resumes missing Probe nodes but never starts teaching from a completed Probe build alone", () => {
+    expect(shouldResumeAdaptiveMathWorker(job("probe_generating", ["ready", "preparing"]))).toBe(true);
+    expect(shouldResumeAdaptiveMathWorker(job("probe_ready", ["ready", "ready"]))).toBe(false);
+  });
+
   it("revisits board_ready jobs so interrupted canonical publication is repaired", () => {
     expect(shouldResumeAdaptiveMathWorker(job("board_ready", ["ready"]))).toBe(true);
   });

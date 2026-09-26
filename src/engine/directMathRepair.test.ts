@@ -161,7 +161,17 @@ it("reuses a paid initial build when metadata installation was interrupted", asy
   activity.designArtifact={academicContractHash:"frozen"} as never;
   const images=path.join(root,"web/public/generated/direct-math");fs.mkdirSync(images,{recursive:true});
   fs.writeFileSync(path.join(images,createDirectBoardThumbnailFilename("hw-lab",activity)),"saved thumbnail");
-  vi.mocked(fetch).mockImplementation(async()=>stream(original));
+  const generated = `<!doctype html><html><body><button id="answer">Answer</button><script id="sunny-playwright-test" type="application/json">${JSON.stringify({
+    version:1,
+    nodeId:activity.id,
+    journey:activity.items.map((item:{id:string})=>({
+      itemId:item.id,
+      steps:[{action:"click",selector:"#answer"}],
+      assertions:[{type:"visible",selector:"#answer"}],
+    })),
+    completionAssertions:[{type:"event",eventType:"node_complete"}],
+  })}</script></body></html>`;
+  vi.mocked(fetch).mockImplementation(async()=>stream(generated));
   const write=fs.writeFileSync.bind(fs);let interrupted=false;
   vi.spyOn(fs,"writeFileSync").mockImplementation((file,data,options)=>{
     if(!interrupted&&String(file).endsWith(activity.id+".artifact.json")){interrupted=true;throw new Error("metadata_interrupted");}

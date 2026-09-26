@@ -3,6 +3,7 @@ import {
   deliverInteractiveCompanionOpening,
   buildContextStartGreeting,
   shouldEnableCompanionWakeGate,
+  isIndependentEvaluationPlan,
   shouldActivateSpellingSession,
 } from "./session-bootstrap";
 
@@ -107,6 +108,9 @@ describe("homework subject mode", () => {
   });
 
   it("enables wake-only companion routing for direct math before a node opens", () => {
+    expect(isIndependentEvaluationPlan("probe-board:hw-math-1:cycle-r2")).toBe(true);
+    expect(isIndependentEvaluationPlan("discovery:hw-spelling-1")).toBe(true);
+    expect(isIndependentEvaluationPlan("targeted:hw-math-1")).toBe(false);
     expect(shouldEnableCompanionWakeGate({ subject: "homework", explicitDomain: "spelling", discovery: true })).toBe(true);
     expect(shouldEnableCompanionWakeGate({
       subject: "homework",

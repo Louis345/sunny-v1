@@ -57,16 +57,22 @@ it("plays the isolated math release journey through calibration and the next Pla
     evaluationId: "discovery-lab", title: "Lab Discovery", assignmentEvidenceIds: ["assignment:synthetic"],
     constructs: [{ constructId: "math.graph_reading", prerequisiteIds: [] }],
     items: ["graph", "numeric", "skipped"].map((itemId, i) => ({ itemId, constructId: "math.graph_reading", prompt: i===0?graphAuditExamples.corrected.prompt:i===1?"How many books did Nia read?":"How many books did Sol read?", representationSpec: "Bar graph: Cleo=3, Nia=4, Sol=2 books; axis ticks 0,1,2,3,4.", responseContract: { mode: i === 0 ? "tap_selection" : "tap_numeric_pad", representationId: "bar_graph" }, correctAnswerContract: { acceptedValues: [String([3,4,2][i])] }, difficultyBoundary: "unit scale", exposureId: `lab:${itemId}`, possibleConfounds: [], falsifyingEvidence: [], measurementKeys: [] })),
+    probeActivities: [
+      { nodeId: "probe-graph", title: "Graph Lookout", itemIds: ["graph", "numeric"] },
+      { nodeId: "probe-not-sure", title: "Quick Check", itemIds: ["skipped"] },
+    ],
     artifact: { artifactId: "lab", htmlPath: path.join(games, "discovery.html"), artworkPath: "/lab.svg", contractHash: "synthetic", artifactHash: "synthetic" },
   };
   fs.writeFileSync(path.join(draft, "discovery-contract.json"), JSON.stringify(evaluation));
-  fs.writeFileSync(evaluation.artifact.htmlPath, `<!doctype html><html><head><style>html,body{background:white;color:#172033;font:20px system-ui;margin:0;padding:16px}svg{display:block;margin:20px 0}button,input{font:20px system-ui;padding:12px;margin:8px}button{cursor:pointer}h1{font-size:30px}</style></head><body><h1 id="question">How many books did Cleo read?</h1><p>Books read</p><svg width="300" height="190"><text x="0" y="170">0</text><text x="0" y="135">1</text><text x="0" y="100">2</text><text x="0" y="65">3</text><text x="0" y="30">4</text><rect x="40" y="65" width="50" height="105" fill="blue"/><text x="40" y="188">Cleo</text><rect x="120" y="30" width="50" height="140" fill="green"/><text x="120" y="188">Nia</text><rect x="200" y="100" width="50" height="70" fill="purple"/><text x="200" y="188">Sol</text></svg><button id="help">Hard to read</button><span id="choices"><button id="three">3 books</button><button id="four">4 books</button><button id="one">1 book</button></span><input id="number" aria-label="Your answer" type="text" hidden><button id="submit" hidden>Submit</button><button id="skip" hidden>Skip question</button><script>
-  let item='graph';const post=(type,payload)=>parent.postMessage({type,payload},'*');
-  const answer=value=>{post('evaluation_attempt',{attemptId:'attempt-'+item,itemId:item,attemptedValue:value,supportEventIds:[],instrumentSignals:[],observedAt:new Date().toISOString()});};
+  fs.writeFileSync(evaluation.artifact.htmlPath, `<!doctype html><html><head><style>html,body{background:white;color:#172033;font:20px system-ui;margin:0;padding:16px}svg{display:block;margin:20px 0}button,input{font:20px system-ui;padding:12px;margin:8px}button{cursor:pointer}h1{font-size:30px}</style></head><body><h1 id="question">How many books did Cleo read?</h1><p>Books read</p><svg width="300" height="190"><text x="0" y="170">0</text><text x="0" y="135">1</text><text x="0" y="100">2</text><text x="0" y="65">3</text><text x="0" y="30">4</text><rect x="40" y="65" width="50" height="105" fill="blue"/><text x="40" y="188">Cleo</text><rect x="120" y="30" width="50" height="140" fill="green"/><text x="120" y="188">Nia</text><rect x="200" y="100" width="50" height="70" fill="purple"/><text x="200" y="188">Sol</text></svg><button id="help">Hard to read</button><span id="choices"><button id="three">3 books</button><button id="four">4 books</button><button id="one">1 book</button></span><input id="number" aria-label="Your answer" type="text" hidden><button id="submit" hidden>Submit</button><button id="skip" hidden>Not sure</button><script>
+  const activity=new URLSearchParams(location.search).get('probeActivity')||'probe-graph';let item=activity==='probe-not-sure'?'skipped':'graph';const post=(type,payload)=>parent.postMessage({type,payload},'*');
+  const answer=(value,instrumentSignals=[])=>{post('evaluation_attempt',{attemptId:'attempt-'+item,itemId:item,attemptedValue:value,supportEventIds:[],instrumentSignals,observedAt:new Date().toISOString()});};
+  const finish=()=>post('evaluation_complete',{nodeId:activity});
   document.querySelector('#help').onclick=()=>post('evaluation_friction',{itemId:item,instrumentSignals:['reading_friction']});
   const choose=value=>{answer(value);item='numeric';document.querySelector('#question').textContent='How many books did Nia read?';document.querySelector('#choices').hidden=true;document.querySelector('#number').hidden=false;document.querySelector('#submit').hidden=false;};document.querySelector('#three').onclick=()=>choose('3');document.querySelector('#four').onclick=()=>choose('4');document.querySelector('#one').onclick=()=>choose('1');
-  document.querySelector('#submit').onclick=()=>{answer(document.querySelector('#number').value);item='skipped';document.querySelector('#question').textContent='How many books did Sol read?';document.querySelector('#number').hidden=true;document.querySelector('#submit').hidden=true;document.querySelector('#skip').hidden=false;};
-  document.querySelector('#skip').onclick=()=>{post('evaluation_complete',{});};post('evaluation_ready',{});
+  document.querySelector('#submit').onclick=()=>{answer(document.querySelector('#number').value);finish();};
+  document.querySelector('#skip').onclick=()=>{answer('', ['response_not_captured']);finish();};
+  if(activity==='probe-not-sure'){document.querySelector('#question').textContent='How many books did Sol read?';document.querySelector('#choices').hidden=true;document.querySelector('#skip').hidden=false;}post('evaluation_ready',{nodeId:activity});
   </script></body></html>`);
   let activeSessionPlan = buildDiscoveryActiveSessionPlan({childId, homeworkId, evaluation, companion:{id:"elli",name:"Elli"}});
   createDiscoveryLearningCycle({rootDir,childId,homeworkId,evaluation,assignment:{title:"Synthetic graph",contentFingerprint:"synthetic",capturedEvidenceIds:["assignment:synthetic"],targets:[]}});
@@ -103,36 +109,40 @@ it("plays the isolated math release journey through calibration and the next Pla
       // A quiet companion emits no opening audio. The curtain must still open.
       await page.routeWebSocket("**/ws",socket=>socket.onMessage(data=>{if(JSON.parse(String(data)).type==="start_session"){socket.send(JSON.stringify({type:"session_started",child:"Lab-child"}));socket.send(JSON.stringify({type:"session_boot_ready"}));}}));
       await page.goto(vite.resolvedUrls.local[0]);
-      step="open Discovery automatically through host";
+      step="open the complete Probe Board through host";
+      await page.getByRole("button",{name:"Graph Lookout",exact:true}).click();
       const frame = page.frameLocator("iframe").last();
       await frame.locator("#help").waitFor({state:"visible"});
       await page.screenshot({path:path.join(outputDir,"discovery-graph.png")});
       step="Discovery responses";
-      if(parentOperated)console.log("PARENT: inspect the graph question. Click Hard to read, choose 3 books, enter 2 and Submit, then Skip question.");
-      else {await frame.locator("#help").click();await frame.locator("#three").click();await frame.locator("#number").fill("2");await frame.locator("#submit").click();await frame.locator("#skip").click();}
+      if(parentOperated)console.log("PARENT: inspect the graph question. Click Hard to read, choose 3 books, enter 2 and Submit.");
+      else {await frame.locator("#help").click();await frame.locator("#three").click();await frame.locator("#number").fill("2");await frame.locator("#submit").click();}
+      step="first Probe rating Skip with engagement offline";
+      await Promise.all([page.waitForResponse(response=>response.url().includes("/choice-event")&&response.status()===503,{timeout:parentOperated?180000:35000}), parentOperated?Promise.resolve(console.log("PARENT: click Skip below the fun rating.")):page.getByRole("button",{name:"Skip fun rating",exact:true}).click()]);
+      await expect.poll(()=>getLearningCycle(childId,homeworkId,{rootDir})?.lifecycle).toBe("evaluation_active");
+      await page.getByRole("button",{name:"Quick Check",exact:true}).click();
+      const finalProbeFrame=page.frameLocator("iframe").last();
+      if(parentOperated)console.log("PARENT: click Not sure, then Skip below the fun rating.");
+      else await finalProbeFrame.locator("#skip").click();
+      await Promise.all([page.waitForResponse(response=>response.url().includes("/choice-event")&&response.status()===503,{timeout:parentOperated?180000:35000}), parentOperated?Promise.resolve():page.getByRole("button",{name:"Skip fun rating",exact:true}).click()]);
       await expect.poll(()=>getLearningCycle(childId,homeworkId,{rootDir})?.lifecycle,{timeout:parentOperated?180000:10000}).toBe("evidence_ready");
       const cycle = getLearningCycle(childId,homeworkId,{rootDir})!;
-      expect(cycle.observations).toHaveLength(2);
-      expect(cycle.observations.some(o=>o.itemId==="skipped")).toBe(false);
+      expect(cycle.observations).toHaveLength(3);
       expect(cycle.observations.find(o=>o.itemId==="graph")?.confounds).toContain("reading_friction");
       expect(cycle.observations.find(o=>o.itemId==="numeric")?.result.correct).toBe(false);
-      step="rating Skip with engagement offline";
-      await Promise.all([page.waitForResponse(response=>response.url().includes("/choice-event")&&response.status()===503,{timeout:parentOperated?180000:35000}), parentOperated?Promise.resolve(console.log("PARENT: click Skip below the fun rating.")):page.getByRole("button",{name:"Skip fun rating",exact:true}).click()]);
-      expect(getLearningCycle(childId,homeworkId,{rootDir})!.observations).toEqual(cycle.observations);
-      await page.screenshot({path:path.join(outputDir,"discovery-completed.png")});
-      step="truthful preparation handoff before a map exists";
-      await page.getByRole("button",{name:"Check progress",exact:true}).waitFor({state:"visible",timeout:5000});
-      await page.screenshot({path:path.join(outputDir,"post-evaluation-actions-before.png")});
-      step="finish for now without losing Discovery";
-      await page.getByRole("button",{name:"Finish for now",exact:true}).click();
+      expect(cycle.observations.find(o=>o.itemId==="skipped")?.result.observedErrorType).toBe("instrument_ambiguous");
+      await page.screenshot({path:path.join(outputDir,"probe-chapter-completed.png")});
+      step="finish immediately while the Teaching Board prepares asynchronously";
       await page.getByRole("heading",{name:"Sunny is resting",exact:true}).waitFor({state:"visible",timeout:5000});
       await page.screenshot({path:path.join(outputDir,"post-evaluation-finished-resting.png")});
-      await page.getByRole("button",{name:"Start Sunny",exact:true}).click();
-      await page.getByRole("button",{name:"Check progress",exact:true}).waitFor({state:"visible"});
       step="prepare mocked targeted providers";
       const targeted = plan(2);
       for (const activity of targeted.activities) {
-        activity.items = ["q1","q2","q3"].map((id,index)=>({...activity.items[0],id,...(index===1?{prompt:"2 × 3 = ?",response:{mode:"numeric",expected:6}}:index===2?{prompt:"Construct the total for 5 × 2",response:{mode:"construction",expectedState:{total:10},successDescription:"Ten counters in the total"}}:{})}));
+        activity.items = ["q1","q2","q3"].map((id,index)=>({...activity.items[0],id,...(index===0
+          ? {prompt:"What is 5 × 2?"}
+          : index===1
+            ? {prompt:"What is 2 × 3?",response:{mode:"numeric",expected:6}}
+            : {prompt:"Move the 10-counter group to the total.",response:{mode:"construction",expectedState:{total:10},successDescription:"Ten counters in the total"}})}));
         activity.academicPrediction.eligibility = {sources:["independent_probe","graded_work"],maxDelayDays:7};
       }
       const program = learningProgram(2);
@@ -151,8 +161,8 @@ it("plays the isolated math release journey through calibration and the next Pla
       await expect.poll(()=>getLearningCycle(childId,homeworkId,{rootDir})!.nodes.find(n=>n.nodeId==="activity-1")?.artifactBinding?.validationStatus,{timeout:15000}).toBe("passed");
       const planFile=path.join(contextRoot,childId,"plans/active_session_plan.json");
       const published=JSON.parse(fs.readFileSync(planFile,"utf8"));activeSessionPlan=published.current??published;
-      step="reveal the map live while sibling prepares";
-      await page.getByRole("button",{name:"Check progress",exact:true}).click();
+      step="open the Teaching Board next session while a sibling prepares";
+      await page.getByRole("button",{name:"Start Sunny",exact:true}).click();
       await page.getByRole("button",{name:"Adventure 1",exact:true}).waitFor({state:"visible"});
       await page.screenshot({path:path.join(outputDir,"first-ready-sibling-preparing.png")});
       step="launch first ready node";if(parentOperated)console.log("PARENT: open Adventure 1, click 10, enter 6 and Submit, then drag the 10-counter group to Total.");else await page.getByRole("button",{name:"Adventure 1",exact:true}).click();

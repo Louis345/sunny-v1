@@ -1096,10 +1096,11 @@ export function transitionLearningCycle(
     next.adaptiveGeneration = { evaluationId: event.evaluationId };
     reason = "Independent Discovery evaluation started.";
   } else if (event.type === "evaluation_attempted") {
-    nodeOrThrow(next, event.evaluationId, "evaluation");
+    const evaluation = nodeOrThrow(next, event.evaluationId, "evaluation");
     if (current.lifecycle !== "evaluation_active" && current.lifecycle !== "evaluation_ready") {
       throw new Error("learning_cycle_evaluation_not_active");
     }
+    if (evaluation.state === "ready") evaluation.state = "active";
     evidenceIds = appendOutcomeEvidence(next, event);
     appendObservations(next, event.observations);
     next.lifecycle = "evaluation_active";
@@ -1114,17 +1115,22 @@ export function transitionLearningCycle(
       throw new Error("learning_cycle_evaluation_evidence_missing");
     }
     evaluation.state = "completed";
-    next.lifecycle = "evidence_ready";
-    next.adaptiveGeneration = {
-      ...(next.adaptiveGeneration ?? { evaluationId: event.evaluationId }),
-      evaluationId: event.evaluationId,
-      evaluationCompletedAt: event.completedAt,
-    };
-    reason = "Discovery evidence is ready for one targeted Planner program.";
     evidenceIds = next.observations
       .filter((observation) => observation.sourceId === `evaluation:${event.evaluationId}`)
       .map((observation) => observation.observationId);
     evaluation.evidenceIds = [...new Set([...evaluation.evidenceIds, ...evidenceIds])];
+    const allEvaluationNodesComplete = next.nodes
+      .filter((node) => node.role === "evaluation")
+      .every((node) => node.state === "completed");
+    next.lifecycle = allEvaluationNodesComplete ? "evidence_ready" : "evaluation_active";
+    next.adaptiveGeneration = {
+      ...(next.adaptiveGeneration ?? { evaluationId: event.evaluationId }),
+      evaluationId: event.evaluationId,
+      ...(allEvaluationNodesComplete ? { evaluationCompletedAt: event.completedAt } : {}),
+    };
+    reason = allEvaluationNodesComplete
+      ? "Probe Board evidence is ready for one targeted Planner program."
+      : "One Probe Board activity completed; the chapter remains active.";
   } else if (event.type === "targeted_planning_started") {
     if (current.lifecycle !== "evidence_ready") throw new Error("learning_cycle_discovery_evidence_not_ready");
     next.lifecycle = "targeted_planning";
@@ -1140,12 +1146,12 @@ export function transitionLearningCycle(
     reason = "Experience Creator is designing the coherent targeted board.";
   } else if (event.type === "targeted_board_revealed") {
     if (current.lifecycle !== "board_designing") throw new Error("learning_cycle_board_design_not_ready");
-    const completedEvaluation = next.nodes.find((node) => node.role === "evaluation");
-    if (!completedEvaluation || completedEvaluation.state !== "completed") {
+    const completedEvaluations = next.nodes.filter((node) => node.role === "evaluation");
+    if (!completedEvaluations.length || completedEvaluations.some((node) => node.state !== "completed")) {
       throw new Error("learning_cycle_completed_evaluation_missing");
     }
     next.nodes = [
-      completedEvaluation,
+      ...completedEvaluations,
       ...event.nodes.map((node) => ({ ...structuredClone(node), state: node.role === "baseline" ? "generating" as const : node.state, artifactBinding: null })),
     ];
     next.academicTheory = structuredClone(event.academicTheory);
@@ -1154,7 +1160,7 @@ export function transitionLearningCycle(
     next.agencyExperiment = event.agencyExperiment ? structuredClone(event.agencyExperiment) : undefined;
     next.lifecycle = "board_generating";
     next.adaptiveGeneration = {
-      ...(next.adaptiveGeneration ?? { evaluationId: completedEvaluation.nodeId }),
+      ...(next.adaptiveGeneration ?? { evaluationId: completedEvaluations.at(-1)!.nodeId }),
       programHash: event.programHash,
       designHash: event.designHash,
     };
@@ -1748,9 +1754,9 @@ export function projectLearningCycle(
     if (canonicalNode?.state === "generating") {
       return {
         ...node,
-        state: "preview" as const,
-        action: { type: "show-preparing-status" as const, payloadId: node.id },
-        lock: { reason: "artifact-generating", label: "Preparing" },
+        state: "locked" as const,
+        action: { type: "show-locked-reason" as const, payloadId: node.id },
+        lock: { reason: "artifact-not-ready", label: "Locked" },
       };
     }
     if (canonicalNode?.state === "blocked") {
@@ -1758,7 +1764,7 @@ export function projectLearningCycle(
         ...node,
         state: "locked" as const,
         action: { type: "show-locked-reason" as const, payloadId: node.id },
-        lock: { reason: "generation-needs-attention", label: "Parent help needed" },
+        lock: { reason: "artifact-not-ready", label: "Locked" },
       };
     }
     return node;

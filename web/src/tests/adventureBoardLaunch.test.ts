@@ -4,7 +4,10 @@ import { describe, expect, it } from "vitest";
 import type { ChildExperiencePacket } from "../../../src/profiles/childExperiencePacket";
 import {
   isDirectDiscoveryPacket,
+  isProbeBoardPacket,
   hasPendingLearningGeneration,
+  resolveProbeBoardCompletion,
+  runProbeBoardCompletionHandoff,
   resolveDiscoveryCompletionHandoff,
   resolvePlannerBoardSessionScope,
   resolvePersistedDiscoveryHandoff,
@@ -63,6 +66,25 @@ describe("direct Discovery entry", () => {
     const old = packet("legacy", []); old.activeSessionPlan!.domain = "reading";
     expect(hasPendingLearningGeneration(old, false)).toBe(false);
   });
+  it("keeps watching a Probe Board while verified siblings are still locked", () => {
+    const probe = packet("probe-board:hw-1", [
+      { id: "probe-ready", type: "generated-baseline", title: "Ready" },
+      { id: "probe-building", type: "generated-baseline", title: "Locked" },
+    ]);
+    probe.childChart = { learningCycle: { lifecycle: "evaluation_ready" } } as never;
+    const nodes = probe.activeSessionPlan!.adventureBoard!.nodes;
+    nodes[0]!.state = "current";
+    nodes[1]!.state = "locked";
+    nodes[1]!.action = { type: "show-locked-reason", payloadId: "probe-building" };
+    nodes[1]!.lock = { reason: "artifact-not-ready", label: "Locked" };
+
+    expect(hasPendingLearningGeneration(probe, false)).toBe(true);
+
+    nodes[1]!.state = "available";
+    nodes[1]!.action = { type: "launch-activity", payloadId: "probe-building" };
+    delete nodes[1]!.lock;
+    expect(hasPendingLearningGeneration(probe, false)).toBe(false);
+  });
   it("launches only unanswered frozen spelling items after resuming Discovery", () => {
     const discovery = packet("discovery:hw-1", [{ id: "start", type: "start" }, { id: "evaluation", type: "word-radar", targets: ["night", "light"] }]);
     discovery.activeSessionPlan!.domain = "spelling";
@@ -83,6 +105,10 @@ describe("direct Discovery entry", () => {
     expect(source.includes("enableLocalNarrationFallback={!directDiscoveryMode && !plannerBoardLaunch.node.spellingAssessment}")).toBe(true);
     expect(source).toContain(".flushForExit()");
   });
+  it("flushes Probe Board attempts before an early return to the map", () => {
+    const source = readFileSync(resolve(process.cwd(), "src/App.tsx"), "utf8");
+    expect(source).toContain("if (directDiscoveryMode || probeBoardMode || plannerBoardLaunch?.node.spellingAssessment)");
+  });
   it("opens the generated Discovery directly instead of showing its compatibility map", () => {
     const discovery = packet("discovery:hw-1", [
       { id: "start", type: "start", title: "Start" },
@@ -101,6 +127,55 @@ describe("direct Discovery entry", () => {
         gameHtmlPath: "/games/hw-1/discovery.html",
       }),
     );
+  });
+
+  it("shows a Planner-authored Probe Board instead of auto-launching one evaluation", () => {
+    // Human-caught invariant: the old lab proved one generated iframe, but not
+    // the board-level wait caused by building only one evaluation node.
+    const probe = packet("probe-board:hw-1", [
+      { id: "probe-a", type: "generated-baseline", title: "Notice the Pattern" },
+      { id: "probe-b", type: "generated-baseline", title: "Try Another Way" },
+    ]);
+
+    expect(isProbeBoardPacket(probe)).toBe(true);
+    expect(isDirectDiscoveryPacket(probe)).toBe(false);
+    expect(resolveDirectDiscoveryLaunchNode(probe)).toBeNull();
+  });
+
+  it("returns to the Probe Board between nodes and ends the session after the chapter", () => {
+    expect(resolveProbeBoardCompletion({ probeChapterComplete: false })).toBe("continue-probe");
+    expect(resolveProbeBoardCompletion({ probeChapterComplete: true, returnNextSession: true })).toBe("finish-session");
+    const source = readFileSync(resolve(process.cwd(), "src/App.tsx"), "utf8");
+    const probeCompletion = source.slice(
+      source.indexOf("if (probeBoardMode)"),
+      source.indexOf("const handoff = resolveDiscoveryCompletionHandoff", source.indexOf("if (probeBoardMode)")),
+    );
+    expect(probeCompletion).toContain("runProbeBoardCompletionHandoff");
+    expect(probeCompletion).toContain("finishSession: finishHomeworkSession");
+    expect(probeCompletion).not.toContain("setDiscoveryCompletionHandoff");
+  });
+
+  it("never traps the child when the packet refresh fails after Probe completion", async () => {
+    const refresh = async () => { throw new Error("packet unavailable"); };
+    let continued = 0;
+    let finished = 0;
+
+    await expect(runProbeBoardCompletionHandoff({
+      completion: { probeChapterComplete: false },
+      refresh,
+      continueProbe: () => { continued += 1; },
+      finishSession: () => { finished += 1; },
+    })).resolves.toBe("continue-probe");
+    expect(continued).toBe(1);
+    expect(finished).toBe(0);
+
+    await expect(runProbeBoardCompletionHandoff({
+      completion: { probeChapterComplete: true },
+      refresh,
+      continueProbe: () => { continued += 1; },
+      finishSession: () => { finished += 1; },
+    })).resolves.toBe("finish-session");
+    expect(finished).toBe(1);
   });
 
   it("does not bypass the map for a targeted teaching board", () => {
@@ -208,7 +283,7 @@ describe("direct Discovery entry", () => {
     const branch = source.slice(branchStart, branchEnd);
 
     expect(attemptBranch).toContain("discovery_attempt_missing_provenance");
-    expect(branch).toContain("startDiscoveryAcademicCompletion()");
+    expect(branch).toContain("startDiscoveryAcademicCompletion(launch.node.id)");
     expect(branch).toContain("showPlannerBoardEngagementOverlay");
     expect(branch).toContain("discovery_completion_missing_provenance");
     expect(branch.indexOf("discovery_completion_missing_provenance"))

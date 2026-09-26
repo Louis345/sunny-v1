@@ -305,9 +305,12 @@ export const NODE_REGISTRY: Record<string, NodeHandler> = {
   "generated-baseline": {
     getUrl: (node, ctx) => {
       if (node.gameHtmlPath) {
-        const filename = node.gameHtmlPath.split("/").pop();
+        const [artifactPath, artifactSearch = ""] = node.gameHtmlPath.split("?", 2);
+        const filename = artifactPath?.split("/").pop();
         if (filename && node.date) {
           const params = buildNodeUrlSearchParams(node, ctx);
+          const probeActivity = new URLSearchParams(artifactSearch).get("probeActivity");
+          if (probeActivity) params.set("probeActivity", probeActivity);
           const config =
             node.activityConfigPath ||
             `/api/activity-config/${ctx.childId}/${node.date ?? "sample"}/generated-baseline.json`;

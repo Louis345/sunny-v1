@@ -302,12 +302,35 @@ export type MathDiscoveryEvaluationItem = {
   measurementKeys: string[];
 };
 
+export type MathDiscoveryProbeActivity = {
+  nodeId: string;
+  title: string;
+  itemIds: string[];
+};
+
+export type MathDiscoveryProbeArtifact = {
+  nodeId: string;
+  artifactId: string;
+  htmlPath: string;
+  artworkPath: string;
+  contractHash: string;
+  artifactHash: string;
+};
+
 export type MathDiscoveryEvaluationContract = {
   evaluationId: string;
   title: string;
   assignmentEvidenceIds: string[];
   constructs: Array<{ constructId: string; prerequisiteIds: string[] }>;
   items: MathDiscoveryEvaluationItem[];
+  /** Planner-owned Probe Board grouping. Absent only on legacy one-node Discovery contracts. */
+  probeActivities?: MathDiscoveryProbeActivity[];
+  /**
+   * Independently verified Probe node artifacts. When absent, `artifact` is the
+   * legacy shared HTML used by every Probe activity. When present, an activity
+   * without a matching row is still being generated and remains locked.
+   */
+  probeArtifacts?: MathDiscoveryProbeArtifact[];
   artifact: {
     artifactId: string;
     htmlPath: string;
@@ -318,6 +341,57 @@ export type MathDiscoveryEvaluationContract = {
 };
 
 type DiscoveryAcademicContract = Omit<MathDiscoveryEvaluationContract, "artifact">;
+
+function discoveryProbeActivities(
+  contract: Pick<MathDiscoveryEvaluationContract, "evaluationId" | "title" | "items" | "probeActivities">,
+): MathDiscoveryProbeActivity[] {
+  const activities = contract.probeActivities ?? [{
+    nodeId: contract.evaluationId,
+    title: contract.title,
+    itemIds: contract.items.map(item => item.itemId),
+  }];
+  if (activities.length === 0) throw new Error("discovery_probe_activity_missing");
+  const knownItemIds = new Set(contract.items.map(item => item.itemId));
+  const seenNodeIds = new Set<string>();
+  const seenTitles = new Set<string>();
+  const seenItemIds = new Set<string>();
+  for (const activity of activities) {
+    if (!activity.nodeId.trim() || activity.nodeId === "start" || seenNodeIds.has(activity.nodeId)) throw new Error(`discovery_probe_activity_id_invalid:${activity.nodeId}`);
+    if (!activity.title.trim() || seenTitles.has(activity.title)) throw new Error(`discovery_probe_activity_title_invalid:${activity.nodeId}`);
+    if (!activity.itemIds.length) throw new Error(`discovery_probe_activity_items_missing:${activity.nodeId}`);
+    seenNodeIds.add(activity.nodeId);
+    seenTitles.add(activity.title);
+    for (const itemId of activity.itemIds) {
+      if (!knownItemIds.has(itemId)) throw new Error(`discovery_probe_activity_item_unknown:${activity.nodeId}:${itemId}`);
+      if (seenItemIds.has(itemId)) throw new Error(`discovery_probe_activity_item_duplicate:${itemId}`);
+      seenItemIds.add(itemId);
+    }
+  }
+  const missing = [...knownItemIds].filter(itemId => !seenItemIds.has(itemId));
+  if (missing.length) throw new Error(`discovery_probe_activity_item_unassigned:${missing.join(",")}`);
+  return activities;
+}
+
+function discoveryProbeActivityUrl(htmlPath: string, nodeId: string): string {
+  const separator = htmlPath.includes("?") ? "&" : "?";
+  return `${htmlPath}${separator}probeActivity=${encodeURIComponent(nodeId)}`;
+}
+
+function discoveryProbeArtifact(
+  contract: MathDiscoveryEvaluationContract,
+  nodeId: string,
+): MathDiscoveryProbeArtifact | undefined {
+  if (contract.probeArtifacts === undefined) {
+    return {
+      nodeId,
+      ...contract.artifact,
+      htmlPath: discoveryProbeActivityUrl(contract.artifact.htmlPath, nodeId),
+    };
+  }
+  const matching = contract.probeArtifacts.filter((artifact) => artifact.nodeId === nodeId);
+  if (matching.length > 1) throw new Error(`discovery_probe_artifact_duplicate:${nodeId}`);
+  return matching[0];
+}
 
 const DISCOVERY_RESPONSE_MODES = new Set<DiscoveryResponseContract["mode"]>([
   "tap_selection",
@@ -460,7 +534,7 @@ export function validateDiscoveryAcademicBinding(
 
 export async function verifyDiscoveryRuntimeScoring(input: {
   html: string;
-  academic: Pick<DiscoveryAcademicContract, "items">;
+  academic: Pick<DiscoveryAcademicContract, "items"> & Partial<Pick<DiscoveryAcademicContract, "evaluationId" | "title" | "probeActivities">>;
   outputDir: string;
 }): Promise<JourneyScreenshots> {
   validateDiscoveryAcademicBinding(input.html, input.academic);
@@ -514,16 +588,35 @@ export async function verifyDiscoveryRuntimeScoring(input: {
       }
     }
   });
-  const journeyOutputDir = path.join(input.outputDir, hashDiscoveryContract(input.html).slice(0, 16));
-  const journeyScreenshots = await verifyMathJourneyAtReleaseViewports({
-    html: input.html,
-    outputDir: journeyOutputDir,
-    completionType: "evaluation_complete",
-    itemIds: input.academic.items.map(item => item.itemId),
-    verifyIncorrectResponseAdvances: true,
-    acceptedValuesByItem: Object.fromEntries(input.academic.items.map(item => [item.itemId, item.correctAnswerContract.acceptedValues])),
-  });
-  atomicJson(path.join(input.outputDir,"acceptance.json"), {passed:true,verifierVersion:DISCOVERY_VERIFIER_VERSION,htmlHash:hashDiscoveryContract(input.html),academicHash:hashDiscoveryContract(input.academic.items),viewports:DISCOVERY_RELEASE_VIEWPORTS,completedItemIds:input.academic.items.map(item=>item.itemId),screenshots:[...journeyScreenshots],captures:journeyScreenshots.captures ?? [],verifiedAt:new Date().toISOString()});
+  const activities = input.academic.probeActivities
+    ? discoveryProbeActivities({
+        evaluationId: input.academic.evaluationId ?? "probe-board",
+        title: input.academic.title ?? "Probe Board",
+        items: input.academic.items as MathDiscoveryEvaluationItem[],
+        probeActivities: input.academic.probeActivities,
+      })
+    : [{ nodeId: input.academic.evaluationId ?? "legacy-discovery", title: input.academic.title ?? "Discovery", itemIds: input.academic.items.map(item => item.itemId) }];
+  const journeyScreenshots = Object.assign([] as string[], { captures: [] as NonNullable<JourneyScreenshots["captures"]> }) as JourneyScreenshots;
+  const htmlHash = hashDiscoveryContract(input.html);
+  for (const activity of activities) {
+    const itemIds = new Set(activity.itemIds);
+    const items = input.academic.items.filter(item => itemIds.has(item.itemId));
+    const safeNodeId = activity.nodeId.replace(/[^a-z0-9_-]/gi, "_");
+    const activityScreenshots = await verifyMathJourneyAtReleaseViewports({
+      html: input.html,
+      outputDir: path.join(input.outputDir, htmlHash.slice(0, 16), safeNodeId),
+      completionType: "evaluation_complete",
+      itemIds: activity.itemIds,
+      verifyIncorrectResponseAdvances: true,
+      verifyNotSureAdvances: Boolean(input.academic.probeActivities),
+      acceptedValuesByItem: Object.fromEntries(items.map(item => [item.itemId, item.correctAnswerContract.acceptedValues])),
+      frozenPromptsByItem: Object.fromEntries(items.map(item => [item.itemId, item.prompt])),
+      ...(input.academic.probeActivities ? { urlSearch: `?probeActivity=${encodeURIComponent(activity.nodeId)}` } : {}),
+    });
+    journeyScreenshots.push(...activityScreenshots);
+    journeyScreenshots.captures!.push(...(activityScreenshots.captures ?? []));
+  }
+  atomicJson(path.join(input.outputDir,"acceptance.json"), {passed:true,verifierVersion:DISCOVERY_VERIFIER_VERSION,htmlHash,academicHash:hashDiscoveryContract(input.academic.items),viewports:DISCOVERY_RELEASE_VIEWPORTS,completedItemIds:input.academic.items.map(item=>item.itemId),completedProbeActivityIds:activities.map(activity=>activity.nodeId),screenshots:[...journeyScreenshots],captures:journeyScreenshots.captures ?? [],verifiedAt:new Date().toISOString()});
   console.log(` 🎮 [adaptive-math] [discovery-runtime-scoring] [passed] items=${input.academic.items.length}`);
   return journeyScreenshots;
 }
@@ -577,6 +670,39 @@ export async function ensureDiscoveryArtifactsAreServed(input: {
   const rootDir = input.rootDir ?? process.cwd();
   const locations = discoveryArtifactLocations({ rootDir, childId: input.childId, homeworkId: input.homeworkId });
   fs.mkdirSync(locations.storageDir, { recursive: true });
+  if (input.contract.probeArtifacts !== undefined) {
+    if (!fs.existsSync(locations.artworkFile)) {
+      throw new Error("discovery_published_artwork_missing");
+    }
+    const activities = discoveryProbeActivities(input.contract);
+    const verifiedArtifacts: MathDiscoveryProbeArtifact[] = [];
+    for (const artifact of input.contract.probeArtifacts) {
+      const activity = activities.find(candidate => candidate.nodeId === artifact.nodeId);
+      if (!activity) throw new Error(`discovery_probe_artifact_activity_unknown:${artifact.nodeId}`);
+      const filename = path.basename(new URL(artifact.htmlPath, "http://sunny.local").pathname);
+      const htmlFile = path.join(locations.storageDir, filename);
+      if (!fs.existsSync(htmlFile)) throw new Error(`discovery_published_probe_artifact_missing:${artifact.nodeId}`);
+      const html = fs.readFileSync(htmlFile, "utf8");
+      if (hashDiscoveryContract(html) !== artifact.artifactHash) throw new Error(`discovery_artifact_hash_mismatch:${artifact.nodeId}`);
+      const academic: DiscoveryAcademicContract = {
+        ...input.contract,
+        items: input.contract.items.filter(item => activity.itemIds.includes(item.itemId)),
+        probeActivities: [activity],
+      };
+      await verifyDiscoveryRuntimeScoring({ html, academic, outputDir: path.join(resolveAdaptiveMathDraftDir(input.childId, input.homeworkId, { rootDir }), "runtime-verification", artifact.nodeId.replace(/[^a-z0-9_-]/gi, "_")) });
+      verifiedArtifacts.push({ ...artifact, artworkPath: locations.artworkPath });
+    }
+    const firstArtifact = verifiedArtifacts[0];
+    if (!firstArtifact) throw new Error("discovery_first_probe_artifact_missing");
+    const contract: MathDiscoveryEvaluationContract = {
+      ...input.contract,
+      probeArtifacts: verifiedArtifacts,
+      artifact: { ...firstArtifact },
+    };
+    atomicJson(path.join(resolveAdaptiveMathDraftDir(input.childId, input.homeworkId, { rootDir }), "discovery-contract.json"), contract);
+    console.log(` 🎮 [adaptive-math] [discovery-artifacts] [verified] child=${input.childId} homework=${input.homeworkId} nodes=${verifiedArtifacts.length}`);
+    return contract;
+  }
   const legacyHtml = path.join(rootDir, "public", "games", input.homeworkId, "discovery.html");
   const legacyArtwork = path.join(rootDir, "public", "generated", input.homeworkId, "discovery-background.svg");
   let migrated = false;
@@ -733,6 +859,9 @@ export async function generateMathDiscoveryExperience(input: {
   builderModel?: string;
   repairModel?: string;
   retryUncertain?: boolean;
+  /** Omit to build only the first missing Probe node. Workers pass specific siblings. */
+  probeNodeIds?: string[];
+  onProbeNodeReady?: (input: { nodeId: string; contract: MathDiscoveryEvaluationContract }) => Promise<void> | void;
   visualReview?: (input: { html: string; draftDir: string }) => Promise<string>;
 }): Promise<{ contract: MathDiscoveryEvaluationContract; design: Record<string, unknown> }> {
   const rootDir = input.rootDir ?? process.cwd();
@@ -824,15 +953,18 @@ export async function generateMathDiscoveryExperience(input: {
     console.log(` 🎮 [adaptive-math] [discovery-planner] [reused] child=${input.childId} homework=${input.homeworkId}`);
   } else {
     console.log(` 🎮 [adaptive-math] [discovery-planner] [running] child=${input.childId} homework=${input.homeworkId}`);
-    const plannerResponse = await create(input.plannerModel ?? process.env.SUNNY_PLANNER_MODEL ?? "claude-opus-5", `You are Sunny's Academic Planner. Create one independent opening mathematics evaluation that determines what the child already knows and where evidence is missing. Author fresh items without copying the assignment. Keep visible question text separate from representation specifications: never state the answer or transcribe bar heights into a graph-reading question. The visible question, diagram, axis labels, and accepted answer must be consistent. Use prior academic observations to target missing evidence; do not infer learning styles. For each item ask whether it can be answered without using the claimed construct; revise it before returning if it can. Construct IDs are evidence labels: do not name a numeric strategy or interval (for example, by-tens) unless every linked item actually measures that exact strategy or interval. Before returning, compare each construct ID against each linked prompt, representation, and accepted answer. Each item must identify its construct, response contract, accepted answers, difficulty boundary, exposure identity, possible confounds, falsifying evidence, and measurement keys. Collect independent evidence before teaching or answer exposure. Prefer the lowest-friction response mode that preserves the mathematics. Do not choose presentation, characters, mechanics, sound, rewards, or implementation. Do not declare mastery.\n\n${common}`, {
+    const plannerResponse = await create(input.plannerModel ?? process.env.SUNNY_PLANNER_MODEL ?? "claude-opus-5", `You are Sunny's Academic Planner. Create one independent opening mathematics Probe Board that determines what the child already knows and where evidence is missing. Author fresh items without copying the assignment. Group every item into exactly one probeActivities entry. You own the educationally sufficient activity count, the item grouping, the stable node IDs, and concise child-facing activity titles; do not use a fixed node count. Each probe activity should measure a coherent assignment concept without teaching it. Keep visible question text separate from representation specifications: never state the answer or transcribe bar heights into a graph-reading question. The visible question, diagram, axis labels, and accepted answer must be consistent. Use prior academic observations to target missing evidence; do not infer learning styles. For each item ask whether it can be answered without using the claimed construct; revise it before returning if it can. Construct IDs are evidence labels: do not name a numeric strategy or interval (for example, by-tens) unless every linked item actually measures that exact strategy or interval. Before returning, compare each construct ID against each linked prompt, representation, and accepted answer. Each item must identify its construct, response contract, accepted answers, difficulty boundary, exposure identity, possible confounds, falsifying evidence, and measurement keys. Collect independent evidence before teaching or answer exposure. Prefer the lowest-friction response mode that preserves the mathematics. Do not choose presentation, characters, mechanics, sound, rewards, or implementation. Do not declare mastery.\n\n${common}`, {
       name: "create_math_discovery_contract",
-      schema: { type: "object", additionalProperties: false, required: ["evaluationId", "title", "assignmentEvidenceIds", "constructs", "items"], properties: {
+      schema: { type: "object", additionalProperties: false, required: ["evaluationId", "title", "assignmentEvidenceIds", "constructs", "items", "probeActivities"], properties: {
         evaluationId: { type: "string" }, title: { type: "string" }, assignmentEvidenceIds: { type: "array", items: { type: "string" } },
         constructs: { type: "array", minItems: 1, items: { type: "object", additionalProperties: false, required: ["constructId", "prerequisiteIds"], properties: { constructId: { type: "string" }, prerequisiteIds: { type: "array", items: { type: "string" } } } } },
         items: { type: "array", minItems: 1, items: { type: "object", additionalProperties: false, required: ["itemId", "constructId", "prompt", "representationSpec", "responseContract", "correctAnswerContract", "difficultyBoundary", "exposureId", "possibleConfounds", "falsifyingEvidence", "measurementKeys"], properties: { itemId: { type: "string" }, constructId: { type: "string" }, prompt: { type: "string" }, representationSpec: { type: "string", description: "Frozen academic diagram data, axes, labels, and scale. Do not include the answer in visible question text." }, responseContract: { type: "object", additionalProperties: false, required: ["mode", "representationId"], properties: { mode: { type: "string", enum: ["tap_selection", "tap_numeric_pad", "drag_construct"] }, representationId: { type: "string" } } }, correctAnswerContract: { type: "object", additionalProperties: false, required: ["acceptedValues"], properties: { acceptedValues: { type: "array", minItems: 1, items: { type: "string" } } } }, difficultyBoundary: { type: "string" }, exposureId: { type: "string" }, possibleConfounds: { type: "array", items: { type: "string" } }, falsifyingEvidence: { type: "array", items: { type: "string" } }, measurementKeys: { type: "array", items: { type: "string" } } } } },
+        probeActivities: { type: "array", minItems: 1, items: { type: "object", additionalProperties: false, required: ["nodeId", "title", "itemIds"], properties: { nodeId: { type: "string" }, title: { type: "string" }, itemIds: { type: "array", minItems: 1, items: { type: "string" } } } } },
       } },
     });
     academic = toolInput(plannerResponse, "create_math_discovery_contract") as DiscoveryAcademicContract;
+    if (!Array.isArray(academic.probeActivities)) throw new Error("discovery_probe_activity_contract_missing");
+    discoveryProbeActivities(academic as MathDiscoveryEvaluationContract);
     assertDiscoveryResponseContracts(academic);
     assertDiscoveryConstructSemantics(academic);
     atomicJson(academicCheckpointFile, academic);
@@ -840,7 +972,19 @@ export async function generateMathDiscoveryExperience(input: {
   assertDiscoveryResponseContracts(academic);
   assertDiscoveryConstructSemantics(academic);
   const contractHash = hashDiscoveryContract(academic);
-  const runtimeContractJson = JSON.stringify(expectedDiscoveryRuntimeContract(academic));
+  let probeAcademic = academic;
+  if (!academic.probeActivities) {
+    const routingFile = path.join(draftDir, "discovery-probe-routing.json");
+    const savedRouting = readCheckpoint<{ sourceAcademicHash: string; probeActivities: MathDiscoveryProbeActivity[] }>(routingFile);
+    if (savedRouting && savedRouting.sourceAcademicHash !== contractHash) {
+      throw new Error("discovery_probe_routing_source_mismatch");
+    }
+    const probeActivities = savedRouting?.probeActivities ?? discoveryProbeActivities(academic as MathDiscoveryEvaluationContract);
+    if (!savedRouting) atomicJson(routingFile, { sourceAcademicHash: contractHash, probeActivities });
+    probeAcademic = { ...academic, probeActivities };
+    discoveryProbeActivities(probeAcademic as MathDiscoveryEvaluationContract);
+    console.log(` 🎮 [adaptive-math] [discovery-planner] [legacy-probe-routing] activities=${probeActivities.length} sourceHash=${contractHash.slice(0, 12)}`);
+  }
   const presentationContract = buildDiscoveryPresentationContract(input.factualChildContext, academic);
   console.log(` 🎮 [adaptive-math] [discovery-planner] [saved] hash=${contractHash.slice(0, 12)}`);
   let designed = readCheckpoint<Record<string, unknown>>(designCheckpointFile);
@@ -868,10 +1012,6 @@ export async function generateMathDiscoveryExperience(input: {
     builderModel,
     environment: { ...process.env, ...(input.repairModel ? { SUNNY_DISCOVERY_REPAIR_MODEL: input.repairModel } : {}) },
   });
-  const builderPrompt = `You are Sunny's Experience Creator implementing a frozen academic contract and frozen design. Return one complete standalone HTML document usable at both 1365x768 and 1280x720. It must work with touch or mouse without a keyboard and never trap the child. Keep every required action fully visible without scrolling, and keep every mathematical representation large and legible enough for a child to inspect. Post evaluation_ready and evaluation_complete to window.parent. For every committed response post evaluation_attempt with exactly this payload shape: {attemptId,itemId,attemptedValue,supportEventIds:[],instrumentSignals:[],observedAt}. attemptedValue is the selected value or a stable JSON serialization of constructed state. supportEventIds contains only real support events supplied to the activity; otherwise it is empty. instrumentSignals may contain only interface_friction, reading_friction, response_not_captured, scoring_disagreement, or prompt_ambiguity; otherwise it is empty. Do not post construct, correctness, exposure, assistance, or responseMode because the server derives those facts. Post evaluation_friction when relevant without replacing the attempt. ${MATH_JOURNEY_CONTRACT} Accumulate all observed item friction into instrumentSignals on that item's evaluation_attempt. It may not access Sunny APIs, storage, currency, or child state. Do not use browser speech synthesis or oscillator audio. Do not change the contract or answers. Expose the real side-effect-free scoring function through window.__SUNNY_DISCOVERY_TEST__.evaluate(itemId, attemptedValue), returning { itemId, constructId, correct } from the exact same scoring logic as the child-facing controls. Embed this exact JSON without alteration in <script id="sunny-discovery-contract" type="application/json">: ${runtimeContractJson}\n\nACADEMIC CONTRACT HASH: ${contractHash}\n${JSON.stringify(academic, null, 2)}\n\nDESIGN HASH: ${designHash}\n${JSON.stringify(designed.design, null, 2)}\n\nCHILD PRESENTATION AND HOST CONTRACT:\n${JSON.stringify(presentationContract, null, 2)}`;
-  const builderEngineering = freezeEngineeringLessonSnapshot({ snapshotFile: path.join(draftDir, "discovery-builder-engineering.snapshot.json"), auditRoot: resolveContextRoot({ rootDir }), features: engineeringFeatures(JSON.stringify(designed.design)), verifierVersion: DISCOVERY_VERIFIER_VERSION, preserveCompleted: fs.existsSync(builderCheckpointFile) || hasReceivedMathProviderStage(draftDir, "builder") });
-  const completedAwareBuilderPrompt = builderPrompt + engineeringLessonContext(builderEngineering);
-  const builderPromptHash = hashDiscoveryContract({ model: builderModel, prompt: completedAwareBuilderPrompt });
   type HtmlCheckpoint = {
     contractHash: string;
     designHash: string;
@@ -880,132 +1020,9 @@ export async function generateMathDiscoveryExperience(input: {
     revalidatedPresentationContractVersion?: 1;
     html: string;
   };
-  let initialHtml: string;
-  const savedBuilder = readCheckpoint<HtmlCheckpoint>(builderCheckpointFile);
-  const legacyBuilderRequiresRevalidation = Boolean(savedBuilder
-    && savedBuilder.contractHash === contractHash
-    && savedBuilder.designHash === designHash
-    && savedBuilder.presentationContractVersion == null
-    && savedBuilder.revalidatedPresentationContractVersion !== presentationContract.version
-    && hasReceivedMathProviderStage(draftDir, "builder"));
-  if (savedBuilder?.contractHash === contractHash && savedBuilder.designHash === designHash
-    && (savedBuilder.builderPromptHash === builderPromptHash
-      || savedBuilder.revalidatedPresentationContractVersion === presentationContract.version
-      || legacyBuilderRequiresRevalidation)) {
-    validateDiscoveryAcademicBinding(savedBuilder.html, academic);
-    initialHtml = savedBuilder.html;
-    console.log(` 🎮 [adaptive-math] [discovery-builder] [${legacyBuilderRequiresRevalidation ? "revalidating-legacy" : "reused"}] hash=${hashDiscoveryContract(initialHtml).slice(0, 12)}`);
-  } else {
-    console.log(` 🎮 [adaptive-math] [discovery-builder] [running] model=${builderModel}`);
-    const builderResponse = await create(builderModel, completedAwareBuilderPrompt);
-    const builderResult = builderResponse as {
-      stop_reason?: string | null;
-      usage?: { input_tokens?: number; output_tokens?: number };
-      content?: unknown[];
-    };
-    const rawBuilderText = responseText(builderResponse);
-    const builderDiagnosticFile = path.join(draftDir, "provider-diagnostics", "discovery-builder-response.json");
-    atomicJson(builderDiagnosticFile, {
-      model: builderModel,
-      stopReason: builderResult.stop_reason ?? "unknown",
-      usage: builderResult.usage ?? {},
-      content: builderResult.content ?? [],
-      textCharacters: rawBuilderText.length,
-    });
-    if (builderResult.stop_reason === "max_tokens") {
-      throw new Error(`discovery_builder_truncated:stop=max_tokens:chars=${rawBuilderText.length}:diagnostic=${builderDiagnosticFile}`);
-    }
-    if (!rawBuilderText.trim()) {
-      throw new Error(`discovery_builder_contract_failed:stop=${builderResult.stop_reason ?? "unknown"}:chars=0:diagnostic=${builderDiagnosticFile}`);
-    }
-    initialHtml = standaloneHtml(rawBuilderText);
-    validateDiscoveryAcademicBinding(initialHtml, academic);
-    atomicJson(builderCheckpointFile, { contractHash, designHash, builderPromptHash, presentationContractVersion: presentationContract.version, html: initialHtml });
-  }
-  let html: string;
-    console.log(" 🎮 [adaptive-math] [discovery-review] [running] viewports=1365x768,1280x720");
-    html = input.visualReview
-      ? await input.visualReview({ html: initialHtml, draftDir })
-      : (await reviewDiscoveryCandidate({
-        html: initialHtml,
-        outputDir: path.join(draftDir, "visual-review"),
-        render: renderDiscoveryCandidate,
-        verificationKey: contractHash,
-        verify: html => verifyDiscoveryRuntimeScoring({html, academic, outputDir: path.join(draftDir, "runtime-verification")}),
-        judge: async ({ screenshotPaths }) => {
-          const verdict = await judgeChildFacingScreens({
-            screenshotPaths,
-            auditFile: path.join(draftDir, "visual-review", "blind-visual-verdict.json"),
-            reviewContext: presentationContract,
-            citeScreens: true,
-            ...(input.client ? { client: input.client } : {}),
-            retryUncertain: input.retryUncertain,
-          });
-          return { decision: verdict.decision, findings: verdict.findings ?? [] };
-        },
-        repair: async ({ html: rejectedHtml, issues, screenshotPaths, repairAttempt }) => {
-          const repairStage = repairAttempt === 1 ? "repair" : "repair-2";
-          const repairSuffix = repairAttempt === 1 ? "" : "-2";
-          console.log(` 🎮 [adaptive-math] [discovery-builder-repair] [running] provider=${repair.provider} model=${repair.model}`);
-          const repairPrompt = buildDiscoveryRepairPrompt({
-            issues,
-            runtimeContractJson,
-            contractHash,
-            academic,
-            designHash,
-            design: designed.design,
-            html: rejectedHtml,
-            presentationContract,
-          });
-          const repairStartedAt = Date.now();
-          const repairEngineering = freezeEngineeringLessonSnapshot({ snapshotFile: path.join(draftDir, `discovery-repair${repairSuffix}-engineering.snapshot.json`), auditRoot: resolveContextRoot({ rootDir }), features: engineeringFeatures(rejectedHtml), defects: issues, verifierVersion: DISCOVERY_VERIFIER_VERSION, preserveCompleted: hasReceivedMathProviderStage(draftDir, repairStage) });
-          const repairedResponse = await create(repair.model, buildDiscoveryRepairMessageContent(screenshotPaths, repairPrompt + engineeringLessonContext(repairEngineering)), undefined, repairStage);
-          const repairFinishedAt = Date.now();
-          const repairedText = responseText(repairedResponse);
-          const inputTokens = Number((repairedResponse as { usage?: { input_tokens?: number } }).usage?.input_tokens ?? 0);
-          const outputTokens = Number((repairedResponse as { usage?: { output_tokens?: number } }).usage?.output_tokens ?? 0);
-          const estimatedCostUsd = estimateDiscoveryRepairCost({ provider: repair.provider, inputTokens, outputTokens });
-          atomicJson(path.join(draftDir, "provider-diagnostics", `discovery-builder-repair${repairSuffix}-response.json`), {
-            provider: repair.provider,
-            model: repair.model,
-            estimatedCostUsd,
-            ...buildDiscoveryRepairDiagnostic({
-              response: repairedResponse as { stop_reason?: string | null; usage?: unknown },
-              textCharacters: repairedText.length,
-              screenshotPaths,
-              issues,
-              startedAt: repairStartedAt,
-              finishedAt: repairFinishedAt,
-            }),
-          });
-          const appliedPatch = applyDiscoveryHtmlPatch(rejectedHtml, repairedText);
-          const repairedHtml = appliedPatch.html;
-          validateDiscoveryAcademicBinding(repairedHtml, academic);
-          if (appliedPatch.engineeringLesson) recordEngineeringRepairEvidence({ file: path.join(draftDir, `provider-diagnostics/discovery${repairSuffix}.engineering-repair.json`), verifierVersion: DISCOVERY_VERIFIER_VERSION, originalHash: hashDiscoveryContract(rejectedHtml), repairedHash: hashDiscoveryContract(repairedHtml), academicHash: contractHash, designHash, issues, proposal: appliedPatch.engineeringLesson, inputTokens, outputTokens, latencyMs: repairFinishedAt - repairStartedAt, costUsd: estimatedCostUsd });
-          console.log(` 🎮 [adaptive-math] [discovery-builder-repair] [saved] model=${repair.model} replacements=${appliedPatch.replacementCount} changedOriginalCharacters=${appliedPatch.changedOriginalCharacters} hash=${hashDiscoveryContract(repairedHtml).slice(0, 12)} latencyMs=${repairFinishedAt - repairStartedAt} estimatedCostUsd=${estimatedCostUsd.toFixed(6)}`);
-          return repairedHtml;
-        },
-        })).html;
-    validateDiscoveryAcademicBinding(html, academic);
-  validateDiscoveryAcademicBinding(html, academic);
-  if (legacyBuilderRequiresRevalidation && savedBuilder) {
-    atomicJson(builderCheckpointFile, {
-      ...savedBuilder,
-      revalidatedPresentationContractVersion: presentationContract.version,
-      html: initialHtml,
-    });
-    console.log(` 🎮 [adaptive-math] [discovery-builder] [legacy-revalidated] presentationContractVersion=${presentationContract.version}`);
-  }
-  console.log(" 🎮 [adaptive-math] [discovery-runtime-verification] [running] scoring=frozen-contract");
-  if (input.visualReview) await verifyDiscoveryRuntimeScoring({ html, academic, outputDir: path.join(draftDir, "runtime-verification") });
-  if (!input.visualReview) {
-    const verification = { artifactHash: hashDiscoveryContract(html), academicHash: contractHash, designHash, verifierVersion: DISCOVERY_VERIFIER_VERSION, runtime: true, scoring: true, contracts: true, viewports: DISCOVERY_RELEASE_VIEWPORTS.map(viewport => `${viewport.width}x${viewport.height}`) };
-    verifyEngineeringRepairEvidence(path.join(draftDir, "provider-diagnostics/discovery.engineering-repair.json"), verification);
-    verifyEngineeringRepairEvidence(path.join(draftDir, "provider-diagnostics/discovery-2.engineering-repair.json"), verification);
-  }
   const locations = discoveryArtifactLocations({ rootDir, childId: input.childId, homeworkId: input.homeworkId });
   fs.mkdirSync(locations.storageDir, { recursive: true });
-  for (const [file,content] of [[locations.htmlFile,html],[locations.artworkFile,String(designed.backgroundSvg)]]) {
+  for (const [file,content] of [[locations.artworkFile,String(designed.backgroundSvg)]]) {
     if (fs.existsSync(file)) {
       if (fs.readFileSync(file,"utf8")!==content) throw new Error(`discovery_immutable_artifact_mismatch:${file}`);
     } else {
@@ -1014,10 +1031,169 @@ export async function generateMathDiscoveryExperience(input: {
       finally {fs.rmSync(temporary,{force:true});}
     }
   }
-  const contract: MathDiscoveryEvaluationContract = { ...academic, artifact: { artifactId: `${input.homeworkId}:discovery`, htmlPath: locations.htmlPath, artworkPath: locations.artworkPath, contractHash, artifactHash: hashDiscoveryContract(html) } };
-  atomicJson(path.join(draftDir, "discovery-contract.json"), contract);
+  const activities = discoveryProbeActivities(probeAcademic as MathDiscoveryEvaluationContract);
+  const contractFile = path.join(draftDir, "discovery-contract.json");
+  const savedContract = readCheckpoint<MathDiscoveryEvaluationContract>(contractFile);
+  const artifacts = new Map((savedContract?.probeArtifacts ?? []).map(artifact => [artifact.nodeId, artifact]));
+  const contractFromArtifacts = (): MathDiscoveryEvaluationContract => {
+    const orderedArtifacts = activities.flatMap(candidate => {
+      const row = artifacts.get(candidate.nodeId);
+      return row ? [row] : [];
+    });
+    const firstArtifact = orderedArtifacts[0];
+    if (!firstArtifact) throw new Error("discovery_first_probe_artifact_missing");
+    return {
+      ...academic,
+      probeActivities: activities,
+      probeArtifacts: orderedArtifacts,
+      artifact: {
+        artifactId: firstArtifact.artifactId,
+        htmlPath: firstArtifact.htmlPath,
+        artworkPath: firstArtifact.artworkPath,
+        contractHash: firstArtifact.contractHash,
+        artifactHash: firstArtifact.artifactHash,
+      },
+    };
+  };
+  const requestedNodeIds = input.probeNodeIds ?? [activities[0]!.nodeId];
+  const requested = requestedNodeIds.map(nodeId => {
+    const activity = activities.find(candidate => candidate.nodeId === nodeId);
+    if (!activity) throw new Error(`discovery_probe_activity_unknown:${nodeId}`);
+    return activity;
+  });
+  for (const activity of requested) {
+    const legacySingleActivity = activities.length === 1;
+    const legacyCheckpoint = legacySingleActivity
+      ? readCheckpoint<HtmlCheckpoint>(builderCheckpointFile)
+      : undefined;
+    const existingArtifactNeedsLegacyRevalidation = Boolean(
+      artifacts.has(activity.nodeId)
+      && legacyCheckpoint
+      && legacyCheckpoint.contractHash === contractHash
+      && legacyCheckpoint.designHash === designHash
+      && legacyCheckpoint.presentationContractVersion == null
+      && legacyCheckpoint.revalidatedPresentationContractVersion !== presentationContract.version
+      && hasReceivedMathProviderStage(draftDir, "builder"),
+    );
+    if (artifacts.has(activity.nodeId) && !existingArtifactNeedsLegacyRevalidation) {
+      console.log(` 🎮 [adaptive-math] [discovery-probe-builder] [reused] node=${activity.nodeId}`);
+      await input.onProbeNodeReady?.({ nodeId: activity.nodeId, contract: contractFromArtifacts() });
+      continue;
+    }
+    const safeNodeId = activity.nodeId.replace(/[^a-z0-9_-]/gi, "_");
+    const singleActivityAcademic: DiscoveryAcademicContract = {
+      ...probeAcademic,
+      items: probeAcademic.items.filter(item => activity.itemIds.includes(item.itemId)),
+      probeActivities: [activity],
+    };
+    const singleRuntimeContractJson = JSON.stringify(expectedDiscoveryRuntimeContract(singleActivityAcademic));
+    const legacySingle = activities.length === 1;
+    const stagePrefix = legacySingle ? "" : `probe-${safeNodeId}-`;
+    const checkpointFile = legacySingle ? builderCheckpointFile : path.join(draftDir, `discovery-builder-${safeNodeId}.json`);
+    const builderStage = `${stagePrefix}builder`;
+    const reviewDir = legacySingle ? path.join(draftDir, "visual-review") : path.join(draftDir, "visual-review", safeNodeId);
+    const runtimeDir = legacySingle ? path.join(draftDir, "runtime-verification") : path.join(draftDir, "runtime-verification", safeNodeId);
+    const htmlFile = legacySingle ? locations.htmlFile : path.join(locations.storageDir, `probe-${safeNodeId}.html`);
+    const htmlPath = legacySingle ? locations.htmlPath : `${path.posix.dirname(locations.htmlPath)}/probe-${safeNodeId}.html`;
+    const builderPrompt = `You are Sunny's Experience Creator implementing one independently buildable Probe Board node. Return one complete standalone HTML document usable at both 1365x768 and 1280x720. It must work with touch or mouse without a keyboard and never trap the child. Keep every required action fully visible without scrolling, and keep every mathematical representation large and legible enough for a child to inspect. Implement only this frozen probe activity and only its assigned items. Do not implement sibling activities or route by URL. Post evaluation_ready with this activity's nodeId when its first prompt is visible. After its assigned items are complete, post evaluation_complete with that nodeId. For every committed response post evaluation_attempt with exactly this payload shape: {attemptId,itemId,attemptedValue,supportEventIds:[],instrumentSignals:[],observedAt}. attemptedValue is the selected value or a stable JSON serialization of constructed state. supportEventIds contains only real support events supplied to the activity; otherwise it is empty. instrumentSignals may contain only interface_friction, reading_friction, response_not_captured, scoring_disagreement, or prompt_ambiguity; otherwise it is empty. Do not post construct, correctness, exposure, assistance, or responseMode because the server derives those facts. Post evaluation_friction when relevant without replacing the attempt. ${MATH_JOURNEY_CONTRACT} Accumulate all observed item friction into instrumentSignals on that item's evaluation_attempt. It may not access Sunny APIs, storage, currency, or child state. Do not use browser speech synthesis or oscillator audio. Do not change the contract or answers. Expose the real side-effect-free scoring function through window.__SUNNY_DISCOVERY_TEST__.evaluate(itemId, attemptedValue), returning { itemId, constructId, correct } from the exact same scoring logic as the child-facing controls. Embed this exact JSON without alteration in <script id="sunny-discovery-contract" type="application/json">: ${singleRuntimeContractJson}\n\nACADEMIC CONTRACT HASH: ${contractHash}\n${JSON.stringify(singleActivityAcademic, null, 2)}\n\nDESIGN HASH: ${designHash}\n${JSON.stringify(designed.design, null, 2)}\n\nCHILD PRESENTATION AND HOST CONTRACT:\n${JSON.stringify(presentationContract, null, 2)}`;
+    const builderEngineering = freezeEngineeringLessonSnapshot({ snapshotFile: path.join(draftDir, `${stagePrefix}builder-engineering.snapshot.json`), auditRoot: resolveContextRoot({ rootDir }), features: engineeringFeatures(JSON.stringify(designed.design)), verifierVersion: DISCOVERY_VERIFIER_VERSION, preserveCompleted: fs.existsSync(checkpointFile) || hasReceivedMathProviderStage(draftDir, builderStage) });
+    const completedAwareBuilderPrompt = builderPrompt + engineeringLessonContext(builderEngineering);
+    const builderPromptHash = hashDiscoveryContract({ model: builderModel, prompt: completedAwareBuilderPrompt });
+    const savedBuilder = readCheckpoint<HtmlCheckpoint>(checkpointFile);
+    const legacyBuilderRequiresRevalidation = Boolean(savedBuilder && legacySingle
+      && savedBuilder.contractHash === contractHash
+      && savedBuilder.designHash === designHash
+      && savedBuilder.presentationContractVersion == null
+      && savedBuilder.revalidatedPresentationContractVersion !== presentationContract.version
+      && hasReceivedMathProviderStage(draftDir, builderStage));
+    let initialHtml: string;
+    if (savedBuilder?.contractHash === contractHash && savedBuilder.designHash === designHash
+      && (savedBuilder.builderPromptHash === builderPromptHash
+        || savedBuilder.revalidatedPresentationContractVersion === presentationContract.version
+        || legacyBuilderRequiresRevalidation)) {
+      validateDiscoveryAcademicBinding(savedBuilder.html, singleActivityAcademic);
+      initialHtml = savedBuilder.html;
+      console.log(` 🎮 [adaptive-math] [discovery-probe-builder] [${legacyBuilderRequiresRevalidation ? "revalidating-legacy" : "reused"}] node=${activity.nodeId} hash=${hashDiscoveryContract(initialHtml).slice(0, 12)}`);
+    } else {
+      console.log(` 🎮 [adaptive-math] [discovery-probe-builder] [running] node=${activity.nodeId} model=${builderModel}`);
+      const builderResponse = await create(builderModel, completedAwareBuilderPrompt, undefined, builderStage);
+      const builderResult = builderResponse as { stop_reason?: string | null; usage?: { input_tokens?: number; output_tokens?: number }; content?: unknown[] };
+      const rawBuilderText = responseText(builderResponse);
+      const builderDiagnosticFile = path.join(
+        draftDir,
+        "provider-diagnostics",
+        legacySingle ? "discovery-builder-response.json" : `${stagePrefix}builder-response.json`,
+      );
+      atomicJson(builderDiagnosticFile, { model: builderModel, stopReason: builderResult.stop_reason ?? "unknown", usage: builderResult.usage ?? {}, content: builderResult.content ?? [], textCharacters: rawBuilderText.length });
+      if (builderResult.stop_reason === "max_tokens") {
+        const nodeDetail = legacySingle ? "" : `node=${activity.nodeId}:`;
+        throw new Error(`discovery_builder_truncated:${nodeDetail}stop=max_tokens:chars=${rawBuilderText.length}:diagnostic=${builderDiagnosticFile}`);
+      }
+      if (!rawBuilderText.trim()) throw new Error(`discovery_builder_contract_failed:node=${activity.nodeId}:stop=${builderResult.stop_reason ?? "unknown"}:chars=0:diagnostic=${builderDiagnosticFile}`);
+      initialHtml = standaloneHtml(rawBuilderText);
+      validateDiscoveryAcademicBinding(initialHtml, singleActivityAcademic);
+      atomicJson(checkpointFile, { contractHash, designHash, builderPromptHash, presentationContractVersion: presentationContract.version, html: initialHtml });
+    }
+    console.log(` 🎮 [adaptive-math] [discovery-review] [running] node=${activity.nodeId} viewports=1365x768,1280x720`);
+    const html = input.visualReview
+      ? await input.visualReview({ html: initialHtml, draftDir })
+      : (await reviewDiscoveryCandidate({
+        html: initialHtml,
+        outputDir: reviewDir,
+        render: renderDiscoveryCandidate,
+        verificationKey: hashDiscoveryContract({ contractHash, nodeId: activity.nodeId }),
+        verify: candidate => verifyDiscoveryRuntimeScoring({ html: candidate, academic: singleActivityAcademic, outputDir: runtimeDir }),
+        judge: async ({ screenshotPaths }) => {
+          const verdict = await judgeChildFacingScreens({ screenshotPaths, auditFile: path.join(reviewDir, "blind-visual-verdict.json"), reviewContext: presentationContract, citeScreens: true, ...(input.client ? { client: input.client } : {}), retryUncertain: input.retryUncertain });
+          return { decision: verdict.decision, findings: verdict.findings ?? [] };
+        },
+        repair: async ({ html: rejectedHtml, issues, screenshotPaths, repairAttempt }) => {
+          const repairStage = `${stagePrefix}repair${repairAttempt === 1 ? "" : "-2"}`;
+          const repairSuffix = `${stagePrefix}repair${repairAttempt === 1 ? "" : "-2"}`;
+          console.log(` 🎮 [adaptive-math] [discovery-builder-repair] [running] node=${activity.nodeId} provider=${repair.provider} model=${repair.model}`);
+          const repairPrompt = buildDiscoveryRepairPrompt({ issues, runtimeContractJson: singleRuntimeContractJson, contractHash, academic: singleActivityAcademic, designHash, design: designed.design, html: rejectedHtml, presentationContract });
+          const repairStartedAt = Date.now();
+          const repairEngineering = freezeEngineeringLessonSnapshot({ snapshotFile: path.join(draftDir, `${repairSuffix}-engineering.snapshot.json`), auditRoot: resolveContextRoot({ rootDir }), features: engineeringFeatures(rejectedHtml), defects: issues, verifierVersion: DISCOVERY_VERIFIER_VERSION, preserveCompleted: hasReceivedMathProviderStage(draftDir, repairStage) });
+          const repairedResponse = await create(repair.model, buildDiscoveryRepairMessageContent(screenshotPaths, repairPrompt + engineeringLessonContext(repairEngineering)), undefined, repairStage);
+          const repairFinishedAt = Date.now();
+          const repairedText = responseText(repairedResponse);
+          const inputTokens = Number((repairedResponse as { usage?: { input_tokens?: number } }).usage?.input_tokens ?? 0);
+          const outputTokens = Number((repairedResponse as { usage?: { output_tokens?: number } }).usage?.output_tokens ?? 0);
+          const estimatedCostUsd = estimateDiscoveryRepairCost({ provider: repair.provider, inputTokens, outputTokens });
+          atomicJson(path.join(draftDir, "provider-diagnostics", `${repairSuffix}-response.json`), { provider: repair.provider, model: repair.model, estimatedCostUsd, ...buildDiscoveryRepairDiagnostic({ response: repairedResponse as { stop_reason?: string | null; usage?: unknown }, textCharacters: repairedText.length, screenshotPaths, issues, startedAt: repairStartedAt, finishedAt: repairFinishedAt }) });
+          const appliedPatch = applyDiscoveryHtmlPatch(rejectedHtml, repairedText);
+          const repairedHtml = appliedPatch.html;
+          validateDiscoveryAcademicBinding(repairedHtml, singleActivityAcademic);
+          if (appliedPatch.engineeringLesson) recordEngineeringRepairEvidence({ file: path.join(draftDir, `provider-diagnostics/${repairSuffix}.engineering-repair.json`), verifierVersion: DISCOVERY_VERIFIER_VERSION, originalHash: hashDiscoveryContract(rejectedHtml), repairedHash: hashDiscoveryContract(repairedHtml), academicHash: contractHash, designHash, issues, proposal: appliedPatch.engineeringLesson, inputTokens, outputTokens, latencyMs: repairFinishedAt - repairStartedAt, costUsd: estimatedCostUsd });
+          return repairedHtml;
+        },
+      })).html;
+    validateDiscoveryAcademicBinding(html, singleActivityAcademic);
+    if (legacyBuilderRequiresRevalidation && savedBuilder) atomicJson(checkpointFile, { ...savedBuilder, revalidatedPresentationContractVersion: presentationContract.version, html: initialHtml });
+    console.log(` 🎮 [adaptive-math] [discovery-runtime-verification] [running] node=${activity.nodeId} scoring=frozen-contract`);
+    if (input.visualReview) await verifyDiscoveryRuntimeScoring({ html, academic: singleActivityAcademic, outputDir: runtimeDir });
+    if (!input.visualReview) {
+      const verification = { artifactHash: hashDiscoveryContract(html), academicHash: contractHash, designHash, verifierVersion: DISCOVERY_VERIFIER_VERSION, runtime: true, scoring: true, contracts: true, viewports: DISCOVERY_RELEASE_VIEWPORTS.map(viewport => `${viewport.width}x${viewport.height}`) };
+      verifyEngineeringRepairEvidence(path.join(draftDir, `provider-diagnostics/${stagePrefix}repair.engineering-repair.json`), verification);
+      verifyEngineeringRepairEvidence(path.join(draftDir, `provider-diagnostics/${stagePrefix}repair-2.engineering-repair.json`), verification);
+    }
+    if (fs.existsSync(htmlFile)) {
+      if (fs.readFileSync(htmlFile, "utf8") !== html) throw new Error(`discovery_immutable_artifact_mismatch:${htmlFile}`);
+    } else {
+      const temporary = `${htmlFile}.${randomUUID()}.tmp`;
+      try { fs.writeFileSync(temporary, html, "utf8"); fs.linkSync(temporary, htmlFile); }
+      finally { fs.rmSync(temporary, { force: true }); }
+    }
+    const artifact: MathDiscoveryProbeArtifact = { nodeId: activity.nodeId, artifactId: `${input.homeworkId}:${activity.nodeId}`, htmlPath, artworkPath: locations.artworkPath, contractHash, artifactHash: hashDiscoveryContract(html) };
+    artifacts.set(activity.nodeId, artifact);
+    const contract = contractFromArtifacts();
+    atomicJson(contractFile, contract);
+    console.log(` 🎮 [adaptive-math] [discovery-probe-builder] [saved] node=${activity.nodeId} hash=${artifact.artifactHash.slice(0, 12)}`);
+    await input.onProbeNodeReady?.({ nodeId: activity.nodeId, contract });
+  }
+  const contract = readCheckpoint<MathDiscoveryEvaluationContract>(contractFile);
+  if (!contract) throw new Error("discovery_contract_missing_after_probe_build");
   atomicJson(designCheckpointFile, designed);
-  console.log(` 🎮 [adaptive-math] [discovery-builder] [saved] hash=${contract.artifact.artifactHash.slice(0, 12)}`);
   return { contract, design: designed };
 }
 
@@ -1078,7 +1254,7 @@ export type MathGenerationJob = {
   version: 1;
   childId: string;
   homeworkId: string;
-  phase: "targeted_planning" | "board_designing" | "board_generating" | "board_ready" | "needs_attention";
+  phase: "probe_generating" | "probe_ready" | "targeted_planning" | "board_designing" | "board_generating" | "board_ready" | "needs_attention";
   programHash: string;
   designHash: string;
   startedAt: string;
@@ -1200,44 +1376,50 @@ function atomicJson(file: string, value: unknown): void {
 export function buildDiscoveryEvaluationNode(
   contract: MathDiscoveryEvaluationContract,
   predictionCreatedAt: string = new Date().toISOString(),
+  activity: MathDiscoveryProbeActivity = discoveryProbeActivities(contract)[0]!,
 ): LearningCycleNodeContract {
+  const itemIds = new Set(activity.itemIds);
+  const targets = [...new Set(contract.items
+    .filter(item => itemIds.has(item.itemId))
+    .map(item => item.constructId))];
+  const artifact = discoveryProbeArtifact(contract, activity.nodeId);
   return {
-    nodeId: contract.evaluationId,
+    nodeId: activity.nodeId,
     role: "evaluation",
-    title: contract.title,
-    state: "ready",
+    title: activity.title,
+    state: artifact ? "ready" : "generating",
     academicTarget: {
       domain: "math",
       skill: "independent_discovery",
-      targets: contract.constructs.map((construct) => construct.constructId),
+      targets,
     },
     algorithmOwner: "independent-probe",
     theoryId: `${contract.evaluationId}:opening-theory`,
     experimentId: contract.evaluationId,
     mechanic: "ai-authored-independent-evaluation",
     theme: "ai-authored",
-    openingScreen: { title: contract.title, purpose: "Show Sunny what you already understand." },
+    openingScreen: { title: activity.title, purpose: "Show Sunny what you already understand." },
     generationPrompt: null,
     prediction: {
       claim: "The opening evaluation will distinguish prior understanding from interface or support effects.",
       createdAt: predictionCreatedAt,
       evidenceLimit: "independent_performance",
     },
-    artifactBinding: {
-      contentId: `${contract.evaluationId}:content`,
-      artifactId: contract.artifact.artifactId,
-      localArtifactPath: contract.artifact.htmlPath,
-      localArtworkPath: contract.artifact.artworkPath,
-      contractFingerprint: contract.artifact.contractHash,
+    artifactBinding: artifact ? {
+      contentId: `${activity.nodeId}:content`,
+      artifactId: artifact.artifactId,
+      localArtifactPath: artifact.htmlPath,
+      localArtworkPath: artifact.artworkPath,
+      contractFingerprint: artifact.contractHash,
       validationStatus: "passed",
       creativeProvenance: {
         rationale: "AI-authored independent evaluation.",
         qualityPrediction: "The evaluation will reveal prerequisite evidence without teaching first.",
-        creatorPromptHash: contract.artifact.contractHash,
-        artworkPromptHash: contract.artifact.artifactHash,
-        generatedHtmlHash: contract.artifact.artifactHash,
+        creatorPromptHash: artifact.contractHash,
+        artworkPromptHash: artifact.artifactHash,
+        generatedHtmlHash: artifact.artifactHash,
       },
-    },
+    } : null,
     artwork: { status: "ready", localPath: contract.artifact.artworkPath, prompt: null },
     sfxContract: ["interaction", "recovery", "completion"],
     companionContract: { events: ["help_requested", "evaluation_complete"] },
@@ -1254,35 +1436,53 @@ export function buildDiscoveryActiveSessionPlan(input: {
   createdAt?: string;
 }): ActiveSessionPlan {
   const createdAt = input.createdAt ?? new Date().toISOString();
-  const evaluationId = input.evaluation.evaluationId;
+  const probeActivities = discoveryProbeActivities(input.evaluation);
+  const artifacts = new Map(probeActivities.flatMap((activity) => {
+    const artifact = discoveryProbeArtifact(input.evaluation, activity.nodeId);
+    return artifact ? [[activity.nodeId, artifact] as const] : [];
+  }));
+  const activityItems = (activity: MathDiscoveryProbeActivity) => {
+    const itemIds = new Set(activity.itemIds);
+    return input.evaluation.items.filter(item => itemIds.has(item.itemId));
+  };
+  const probePosition = (index: number): { x: number; y: number } => {
+    if (probeActivities.length === 1) return { x: 0.42, y: 0.56 };
+    return {
+      x: Number((0.24 + (0.52 * index) / (probeActivities.length - 1)).toFixed(3)),
+      y: index % 2 === 0 ? 0.66 : 0.42,
+    };
+  };
   return {
-    planId: `discovery:${input.homeworkId}`,
+    planId: `probe-board:${input.homeworkId}`,
     childId: input.childId,
     createdAt,
     source: "ingest_human_loop",
     activeHomeworkId: input.homeworkId,
     domain: "math",
     testDate: null,
-    nodePlan: [{
-      id: evaluationId,
+    nodePlan: probeActivities.map((activity) => {
+      const artifact = artifacts.get(activity.nodeId);
+      return ({
+      id: activity.nodeId,
       type: "generated-baseline",
       activityId: "generated-baseline",
-      targets: input.evaluation.constructs.map((construct) => construct.constructId),
+      targets: [...new Set(activityItems(activity).map(item => item.constructId))],
       difficulty: 1,
       source: "chart_planner",
-      locked: false,
-      title: input.evaluation.title,
-      gameHtmlPath: input.evaluation.artifact.htmlPath,
-      date: input.homeworkId,
-      thumbnailUrl: input.evaluation.artifact.artworkPath,
-      contentId: `${input.homeworkId}:${evaluationId}`,
+      locked: !artifact,
+      masteryUnlockState: artifact ? "unlocked" : "preparing",
+      title: activity.title,
+      gameHtmlPath: artifact?.htmlPath,
+      date: artifact ? input.homeworkId : undefined,
+      thumbnailUrl: artifact?.artworkPath ?? input.evaluation.artifact.artworkPath,
+      contentId: `${input.homeworkId}:${activity.nodeId}`,
       targetLane: "independent_discovery",
-    }],
+    });}),
     learningRoutes: [],
     adventureBoard: {
       schemaVersion: 1,
-      boardId: `discovery:${input.homeworkId}`,
-      planId: `discovery:${input.homeworkId}`,
+      boardId: `probe-board:${input.homeworkId}`,
+      planId: `probe-board:${input.homeworkId}`,
       childId: input.childId,
       domain: "math",
       title: input.evaluation.title,
@@ -1293,11 +1493,33 @@ export function buildDiscoveryActiveSessionPlan(input: {
       layout: { preset: "horizontal-adventure-spine", companionSlot: "right" },
       nodes: [
         { id: "start", kind: "start", label: "Start", state: "completed", slot: "1" },
-        { id: evaluationId, kind: "activity", activityId: "generated-baseline", label: input.evaluation.title, shortLabel: "Discovery", state: "current", slot: "2", evidenceRole: "baseline", action: { type: "launch-activity", payloadId: evaluationId }, thumbnailUrl: input.evaluation.artifact.artworkPath },
+        ...probeActivities.map((activity, index) => {
+          const ready = artifacts.has(activity.nodeId);
+          const priorReady = probeActivities.slice(0, index).some(candidate => artifacts.has(candidate.nodeId));
+          return ({
+          id: activity.nodeId,
+          kind: "activity" as const,
+          activityId: "generated-baseline",
+          label: activity.title,
+          shortLabel: activity.title,
+          state: ready ? (priorReady ? "available" as const : "current" as const) : "locked" as const,
+          evidenceRole: "baseline" as const,
+          action: ready
+            ? { type: "launch-activity" as const, payloadId: activity.nodeId }
+            : { type: "show-locked-reason" as const, payloadId: activity.nodeId },
+          ...(ready ? {} : { lock: { reason: "artifact-not-ready", label: "Locked" } }),
+          thumbnailUrl: artifacts.get(activity.nodeId)?.artworkPath ?? input.evaluation.artifact.artworkPath,
+          position: probePosition(index),
+        });}),
       ],
-      edges: [{ id: `start-${evaluationId}`, from: "start", to: evaluationId, state: "available" }],
+      edges: probeActivities.map((activity, index) => ({
+        id: `${index === 0 ? "start" : probeActivities[index - 1]!.nodeId}-${activity.nodeId}`,
+        from: index === 0 ? "start" : probeActivities[index - 1]!.nodeId,
+        to: activity.nodeId,
+        state: artifacts.has(activity.nodeId) ? "available" as const : "locked" as const,
+      })),
       companion: input.companion,
-      progress: { currentNodeId: evaluationId, completedNodeIds: ["start"] },
+      progress: { currentNodeId: probeActivities.find(activity => artifacts.has(activity.nodeId))?.nodeId, completedNodeIds: ["start"] },
     },
     variationPolicy: { avoidExactPreviousNodeOrder: true, avoidExactPreviousWordOrder: true, seed: input.homeworkId, previousCompletedNodeCount: 0 },
     companionPolicy: { companionId: input.companion.id, displayName: input.companion.name, openingLinePolicy: "silent", verbosity: "low", maxMicroProbes: 1 },
@@ -1335,11 +1557,34 @@ export function publishDiscoveryExperience(input: {
       || JSON.stringify(node.targets) !== JSON.stringify(native.map(item => item.word))) throw new Error("spelling_discovery_publication_contract_mismatch");
   } else {
   const locations=discoveryArtifactLocations({rootDir,childId:input.childId,homeworkId:input.homeworkId});
-  const proofFile=path.join(resolveAdaptiveMathDraftDir(input.childId,input.homeworkId,{rootDir}),"runtime-verification/acceptance.json");
-  if (!fs.existsSync(proofFile) || !fs.existsSync(locations.htmlFile)) throw new Error("discovery_publication_acceptance_missing");
-  const proof=JSON.parse(fs.readFileSync(proofFile,"utf8"));
-  if (proof.passed!==true || proof.verifierVersion!==DISCOVERY_VERIFIER_VERSION || proof.htmlHash!==artifactHash
-    || proof.htmlHash!==hashDiscoveryContract(fs.readFileSync(locations.htmlFile,"utf8")) || proof.academicHash!==hashDiscoveryContract(evaluation!.items)) throw new Error("discovery_publication_acceptance_mismatch");
+  const activities=discoveryProbeActivities(evaluation!);
+  if (evaluation!.probeArtifacts !== undefined) {
+    const firstActivity = activities[0]!;
+    if (!evaluation!.probeArtifacts.some(row => row.nodeId === firstActivity.nodeId)) throw new Error("discovery_publication_first_probe_missing");
+    for (const artifact of evaluation!.probeArtifacts) {
+      const activity = activities.find(row => row.nodeId === artifact.nodeId);
+      if (!activity) throw new Error(`discovery_probe_artifact_activity_unknown:${artifact.nodeId}`);
+      const safeNodeId = artifact.nodeId.replace(/[^a-z0-9_-]/gi, "_");
+      const proofFile = activities.length === 1
+        ? path.join(resolveAdaptiveMathDraftDir(input.childId, input.homeworkId, { rootDir }), "runtime-verification", "acceptance.json")
+        : path.join(resolveAdaptiveMathDraftDir(input.childId, input.homeworkId, { rootDir }), "runtime-verification", safeNodeId, "acceptance.json");
+      const htmlFile=path.join(locations.storageDir,path.basename(new URL(artifact.htmlPath,"http://sunny.local").pathname));
+      if (!fs.existsSync(proofFile) || !fs.existsSync(htmlFile)) throw new Error(`discovery_publication_acceptance_missing:${artifact.nodeId}`);
+      const proof=JSON.parse(fs.readFileSync(proofFile,"utf8"));
+      const items=evaluation!.items.filter(item=>activity.itemIds.includes(item.itemId));
+      if (proof.passed!==true || proof.verifierVersion!==DISCOVERY_VERIFIER_VERSION || proof.htmlHash!==artifact.artifactHash
+        || proof.htmlHash!==hashDiscoveryContract(fs.readFileSync(htmlFile,"utf8")) || proof.academicHash!==hashDiscoveryContract(items)) throw new Error(`discovery_publication_acceptance_mismatch:${artifact.nodeId}`);
+      if (JSON.stringify(proof.completedProbeActivityIds)!==JSON.stringify([artifact.nodeId])) throw new Error(`discovery_publication_probe_coverage_mismatch:${artifact.nodeId}`);
+    }
+  } else {
+    const proofFile=path.join(resolveAdaptiveMathDraftDir(input.childId,input.homeworkId,{rootDir}),"runtime-verification/acceptance.json");
+    if (!fs.existsSync(proofFile) || !fs.existsSync(locations.htmlFile)) throw new Error("discovery_publication_acceptance_missing");
+    const proof=JSON.parse(fs.readFileSync(proofFile,"utf8"));
+    if (proof.passed!==true || proof.verifierVersion!==DISCOVERY_VERIFIER_VERSION || proof.htmlHash!==artifactHash
+      || proof.htmlHash!==hashDiscoveryContract(fs.readFileSync(locations.htmlFile,"utf8")) || proof.academicHash!==hashDiscoveryContract(evaluation!.items)) throw new Error("discovery_publication_acceptance_mismatch");
+    const expectedProbeActivityIds=activities.map(activity=>activity.nodeId);
+    if (JSON.stringify(proof.completedProbeActivityIds)!==JSON.stringify(expectedProbeActivityIds)) throw new Error("discovery_publication_probe_coverage_mismatch");
+  }
   }
   const existing=getLearningCycle(input.childId,input.homeworkId,{rootDir});
   if (existing && existing.lifecycle!=="evaluation_ready") {
@@ -1455,10 +1700,15 @@ export function publishTargetedBoardProjection(input: {
         return { ...node, state };
       }
       if (status === "preparing" || status === "failed_resumable") {
-        return { ...node, state: "preview" as const, action: { type: "show-preparing-status", payloadId: node.id } as never };
+        return {
+          ...node,
+          state: "locked" as const,
+          action: { type: "show-locked-reason", payloadId: node.id },
+          lock: { reason: "artifact-not-ready", label: "Locked" },
+        };
       }
       if (status === "needs_attention") {
-        return { ...node, state: "locked" as const, action: { type: "show-locked-reason", payloadId: node.id }, lock: { reason: "generation-needs-attention", label: "Parent help needed" } };
+        return { ...node, state: "locked" as const, action: { type: "show-locked-reason", payloadId: node.id }, lock: { reason: "artifact-not-ready", label: "Locked" } };
       }
       return { ...node, state: "locked" as const };
     });
@@ -1499,6 +1749,7 @@ export function createDiscoveryLearningCycle(input: {
   evaluation: MathDiscoveryEvaluationContract;
 }): LearningCycleRecordV2 {
   assertDiscoveryResponseContracts(input.evaluation);
+  const probeActivities = discoveryProbeActivities(input.evaluation);
   const theoryId = `${input.homeworkId}:discovery-theory`;
   return createLearningCycle({
     childId: input.childId,
@@ -1514,7 +1765,7 @@ export function createDiscoveryLearningCycle(input: {
       falsifyCriteria: ["The evaluation cannot distinguish conceptual evidence from instrument friction."],
     },
     engagementTheory: null,
-    nodes: [buildDiscoveryEvaluationNode(input.evaluation)],
+    nodes: probeActivities.map(activity => buildDiscoveryEvaluationNode(input.evaluation, undefined, activity)),
     // Discovery establishes facts. Targeted academic predictions are authored
     // by the Planner only after those facts are committed.
     academicPredictions: [],
@@ -1532,8 +1783,6 @@ export function recordDiscoveryAttempt(input: {
   assertChildPublicationCommitted(input.childId,input);
   let cycle = getLearningCycle(input.childId, input.homeworkId, { rootDir: input.rootDir });
   if (!cycle) throw new Error(`learning_cycle_missing:${input.homeworkId}`);
-  const evaluation = cycle.nodes.find((node) => node.role === "evaluation");
-  if (!evaluation) throw new Error("learning_cycle_evaluation_node_missing");
   const contractFile = path.join(
     resolveChildContextDir(input.childId, { rootDir: input.rootDir }),
     "homework",
@@ -1543,11 +1792,16 @@ export function recordDiscoveryAttempt(input: {
   );
   if (!fs.existsSync(contractFile)) throw new Error("discovery_frozen_contract_missing");
   const frozen = JSON.parse(fs.readFileSync(contractFile, "utf8")) as Partial<MathDiscoveryEvaluationContract>;
-  if (frozen.evaluationId !== evaluation.nodeId || !Array.isArray(frozen.items)) {
+  if (!frozen.evaluationId || !frozen.title || !Array.isArray(frozen.items)) {
     throw new Error("discovery_frozen_contract_identity_invalid");
   }
   const frozenItem = frozen.items.find((item) => item.itemId === input.attempt.itemId);
   if (!frozenItem) throw new Error(`discovery_attempt_item_not_in_frozen_contract:${input.attempt.itemId}`);
+  const activity = discoveryProbeActivities(frozen as MathDiscoveryEvaluationContract)
+    .find(candidate => candidate.itemIds.includes(input.attempt.itemId));
+  if (!activity) throw new Error(`discovery_attempt_activity_not_in_frozen_contract:${input.attempt.itemId}`);
+  const evaluation = cycle.nodes.find((node) => node.role === "evaluation" && node.nodeId === activity.nodeId);
+  if (!evaluation) throw new Error(`learning_cycle_evaluation_node_missing:${activity.nodeId}`);
   assertDiscoveryResponseContracts({ items: frozen.items as MathDiscoveryEvaluationItem[] });
   if (!input.attempt.attemptId.trim() || !input.attempt.observedAt.trim()) {
     throw new Error("discovery_attempt_identity_invalid");
@@ -1622,16 +1876,17 @@ export function recordDiscoveryAttempt(input: {
 }
 
 export function buildDiscoveryEvidenceSummary(cycle: LearningCycleRecordV2): DiscoveryEvidenceSummary {
-  const evaluation = cycle.nodes.find((node) => node.role === "evaluation");
-  if (!evaluation) throw new Error("learning_cycle_evaluation_node_missing");
-  const observations = cycle.observations.filter((observation) => observation.sourceId === `evaluation:${evaluation.nodeId}`);
-  const spellingItems = Object.values(evaluation.evidenceContract.spellingItems ?? {});
+  const evaluations = cycle.nodes.filter((node) => node.role === "evaluation");
+  if (!evaluations.length) throw new Error("learning_cycle_evaluation_node_missing");
+  const evaluationSourceIds = new Set(evaluations.map(node => `evaluation:${node.nodeId}`));
+  const observations = cycle.observations.filter((observation) => evaluationSourceIds.has(observation.sourceId));
+  const spellingItems = evaluations.flatMap(evaluation => Object.values(evaluation.evidenceContract.spellingItems ?? {}));
   const untestedItemIds = spellingItems.filter(item => !observations.some(row => row.itemId === item.id)).map(item => item.id);
   const constructIds = [...new Set([...spellingItems.map(item => item.constructId), ...observations.flatMap((observation) => observation.constructLinks.map((link) => link.constructId))])].sort();
   return {
     version: 1,
     homeworkId: cycle.homeworkId,
-    evaluationId: evaluation.nodeId,
+    evaluationId: evaluations.length === 1 ? evaluations[0]!.nodeId : `probe-board:${cycle.homeworkId}`,
     ...(spellingItems.length ? { coverage: { assigned: spellingItems.length, attempted: spellingItems.length - untestedItemIds.length, untestedItemIds, complete: untestedItemIds.length === 0 } } : {}),
     ...(spellingItems.length ? {
       spellingTargets: spellingItems.map((item) => {
@@ -1677,19 +1932,26 @@ export function completeDiscoveryEvaluation(input: {
   rootDir?: string;
   childId: string;
   homeworkId: string;
+  nodeId?: string;
   completedAt: string;
 }): LearningCycleRecordV2 {
   assertChildPublicationCommitted(input.childId,input);
   const cycle = getLearningCycle(input.childId, input.homeworkId, { rootDir: input.rootDir });
   if (!cycle) throw new Error(`learning_cycle_missing:${input.homeworkId}`);
-  const evaluation = cycle.nodes.find((node) => node.role === "evaluation");
-  if (!evaluation) throw new Error("learning_cycle_evaluation_node_missing");
+  const evaluations = cycle.nodes.filter((node) => node.role === "evaluation");
+  if (!evaluations.length) throw new Error("learning_cycle_evaluation_node_missing");
+  if (evaluations.length > 1 && !input.nodeId) throw new Error("probe_board_completion_node_required");
+  const evaluation = input.nodeId
+    ? evaluations.find(node => node.nodeId === input.nodeId)
+    : evaluations[0];
+  if (!evaluation) throw new Error(`learning_cycle_evaluation_node_missing:${input.nodeId}`);
   if (cycle.domain === "spelling" && buildDiscoveryEvidenceSummary(cycle).coverage?.complete !== true) throw new Error("spelling_discovery_coverage_incomplete");
   const completed = transitionLearningCycle(input.childId, input.homeworkId, cycle.revision, {
     type: "evaluation_completed",
     evaluationId: evaluation.nodeId,
     completedAt: input.completedAt,
   }, { rootDir: input.rootDir });
+  if (completed.lifecycle !== "evidence_ready") return completed;
   const summary = buildDiscoveryEvidenceSummary(completed);
   const draftDir = path.join(
     resolveChildContextDir(input.childId, { rootDir: input.rootDir }),
@@ -1799,7 +2061,10 @@ export function queueTargetedMathGeneration(input: {
   homeworkId: string;
 }): MathGenerationJob {
   const existing = getMathGenerationStatus(input.childId, input.homeworkId, { rootDir: input.rootDir });
-  if (existing) return existing;
+  if (existing && existing.phase !== "probe_ready") return existing;
+  if (existing?.phase === "probe_ready") {
+    atomicJson(path.join(resolveAdaptiveMathDraftDir(input.childId, input.homeworkId, input), "probe-generation-job.json"), existing);
+  }
   const now = new Date().toISOString();
   const job: MathGenerationJob = {
     version: 1,
@@ -1815,6 +2080,97 @@ export function queueTargetedMathGeneration(input: {
   atomicJson(generationJobPath(input.childId, input.homeworkId, input), job);
   console.log(` 🎮 [adaptive-math] [targeted-generation] [queued] child=${input.childId} homework=${input.homeworkId}`);
   return job;
+}
+
+export function queueProbeBoardGeneration(input: {
+  rootDir?: string;
+  childId: string;
+  homeworkId: string;
+  evaluation: MathDiscoveryEvaluationContract;
+  designHash: string;
+}): MathGenerationJob {
+  const activities = discoveryProbeActivities(input.evaluation);
+  const readyArtifacts = new Map((input.evaluation.probeArtifacts ?? []).map(artifact => [artifact.nodeId, artifact]));
+  const existing = getMathGenerationStatus(input.childId, input.homeworkId, { rootDir: input.rootDir });
+  if (existing && !["probe_generating", "probe_ready"].includes(existing.phase)) {
+    throw new Error(`probe_generation_job_conflicts:${existing.phase}`);
+  }
+  const now = new Date().toISOString();
+  const prior = new Map(existing?.nodes.map(node => [node.nodeId, node]) ?? []);
+  const nodes = activities.map(activity => {
+    const artifact = readyArtifacts.get(activity.nodeId);
+    const saved = prior.get(activity.nodeId);
+    if (saved?.status === "ready" && saved.artifactHash && artifact?.artifactHash !== saved.artifactHash) {
+      throw new Error(`math_generation_ready_artifact_immutable:${activity.nodeId}`);
+    }
+    return artifact
+      ? { nodeId: activity.nodeId, status: "ready" as const, artifactHash: artifact.artifactHash, attemptCount: saved?.attemptCount ?? 0, updatedAt: now }
+      : { nodeId: activity.nodeId, status: saved?.status === "needs_attention" ? "needs_attention" as const : "preparing" as const, attemptCount: saved?.attemptCount ?? 0, ...(saved?.error ? { error: saved.error } : {}), updatedAt: now };
+  });
+  const job: MathGenerationJob = {
+    version: 1,
+    childId: input.childId,
+    homeworkId: input.homeworkId,
+    phase: nodes.every(node => node.status === "ready") ? "probe_ready" : "probe_generating",
+    programHash: input.evaluation.artifact.contractHash,
+    designHash: input.designHash,
+    startedAt: existing?.startedAt ?? now,
+    updatedAt: now,
+    nodes,
+  };
+  atomicJson(generationJobPath(input.childId, input.homeworkId, input), job);
+  console.log(` 🎮 [adaptive-math] [probe-generation] [${job.phase}] child=${input.childId} homework=${input.homeworkId} ready=${nodes.filter(node => node.status === "ready").length}/${nodes.length}`);
+  return job;
+}
+
+export function publishDiscoveryProbeProgress(input: {
+  rootDir?: string;
+  childId: string;
+  homeworkId: string;
+  evaluation: MathDiscoveryEvaluationContract;
+  companion: { id: string; name: string };
+  transitionCycle?: typeof transitionLearningCycle;
+}): MathGenerationJob {
+  if (input.evaluation.probeArtifacts === undefined) throw new Error("discovery_probe_artifacts_required");
+  const rootDir = input.rootDir ?? process.cwd();
+  atomicJson(path.join(resolveAdaptiveMathDraftDir(input.childId, input.homeworkId, { rootDir }), "discovery-contract.json"), input.evaluation);
+  const transitionCycle = input.transitionCycle ?? transitionLearningCycle;
+  for (const activity of discoveryProbeActivities(input.evaluation)) {
+    const artifact = discoveryProbeArtifact(input.evaluation, activity.nodeId);
+    if (!artifact) continue;
+    for (let attempt = 1; attempt <= 3; attempt += 1) {
+      const cycle = getLearningCycle(input.childId, input.homeworkId, { rootDir });
+      if (!cycle) throw new Error(`learning_cycle_missing:${input.homeworkId}`);
+      const node = cycle.nodes.find(candidate => candidate.nodeId === activity.nodeId);
+      if (!node) throw new Error(`learning_cycle_evaluation_node_missing:${activity.nodeId}`);
+      if (node.artifactBinding) {
+        if (node.artifactBinding.artifactId !== artifact.artifactId
+          || node.artifactBinding.creativeProvenance?.generatedHtmlHash !== artifact.artifactHash) {
+          throw new Error(`discovery_probe_bound_artifact_mismatch:${activity.nodeId}`);
+        }
+        break;
+      }
+      const binding = buildDiscoveryEvaluationNode(input.evaluation, undefined, activity).artifactBinding;
+      if (!binding) throw new Error(`discovery_probe_artifact_binding_missing:${activity.nodeId}`);
+      try {
+        transitionCycle(input.childId, input.homeworkId, cycle.revision, { type: "artifact_bound", nodeId: activity.nodeId, artifact: binding }, { rootDir });
+        break;
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        if (attempt < 3 && message.startsWith("learning_cycle_revision_conflict:")) {
+          console.log(` 🎮 [adaptive-math] [probe-publication-rebase] [retry] child=${input.childId} homework=${input.homeworkId} node=${activity.nodeId} attempt=${attempt + 1}/3`);
+          continue;
+        }
+        throw error;
+      }
+    }
+    updateMathGenerationNode({ rootDir, childId: input.childId, homeworkId: input.homeworkId, nodeId: activity.nodeId, status: "ready", artifactHash: artifact.artifactHash });
+  }
+  const plan = buildDiscoveryActiveSessionPlan({ childId: input.childId, homeworkId: input.homeworkId, evaluation: input.evaluation, companion: input.companion });
+  const status = getMathGenerationStatus(input.childId, input.homeworkId, { rootDir });
+  if (!status) throw new Error("math_generation_job_missing");
+  publishTargetedBoardProjection({ rootDir, childId: input.childId, activeSessionPlan: plan, nodeStatuses: Object.fromEntries(status.nodes.map(node => [node.nodeId, node.status])) });
+  return getMathGenerationStatus(input.childId, input.homeworkId, { rootDir })!;
 }
 
 export function setMathGenerationPhase(input: {rootDir?:string;childId:string;homeworkId:string;phase:MathGenerationJob["phase"];error?:string}): void {
@@ -1934,7 +2290,7 @@ export function updateMathGenerationNode(input: {
   else delete node.error;
   job.updatedAt = node.updatedAt;
   if (job.nodes.every((candidate) => ["ready", "completed", "evidence_locked"].includes(candidate.status))) {
-    job.phase = "board_ready";
+    job.phase = job.phase === "probe_generating" || job.phase === "probe_ready" ? "probe_ready" : "board_ready";
   } else if (job.nodes.some((candidate) => candidate.status === "needs_attention")) {
     job.phase = "needs_attention";
   }

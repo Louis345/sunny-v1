@@ -7,7 +7,7 @@ import { getChildChart } from "../profiles/childChart";
 import { readPriorConceptIds } from "../engine/assignmentLedger";
 import {
   askDirectMathPlanner, askMathExperienceDesigner, buildDirectActiveSessionPlan,
-  buildMathCreativeChildContext, correctSavedDirectMathPlannerResponse, generateDirectArtifacts, parseMathLearningProgram, parseSavedDirectMathPlannerResponse,
+  buildMathCreativeChildContext, mathPlannerChartContext, correctSavedDirectMathPlannerResponse, generateDirectArtifacts, parseMathLearningProgram, parseSavedDirectMathPlannerResponse,
   findTruncatedDirectRepairReceipt,
   repairDirectArtifact,
   persistDirectExperience, buildDirectLearningCycleInput, runDirectBrowserSmokeCheck, mathPlannerCandidateCards, MATH_BROWSER_VERIFIER_VERSION, type DirectPlaywrightReport, type DirectArtifact, type DirectLearningExperiencePlan,
@@ -19,9 +19,9 @@ import { upsertProfileContentCatalog } from "../engine/learningDecisionContext";
 import { writeWaterfallContentCatalog } from "../profiles/chartWaterfall";
 import {
   acquireMathGenerationLease,
-  buildTargetedNodesResumably, getMathGenerationStatus, hashDiscoveryContract,
+  buildTargetedNodesResumably, generateMathDiscoveryExperience, getMathGenerationStatus, hashDiscoveryContract,
   hasResumableMathGenerationWork,
-  publishTargetedBoardProjection, releaseMathGenerationLease, resolveAdaptiveMathDraftDir,
+  publishDiscoveryProbeProgress, publishTargetedBoardProjection, releaseMathGenerationLease, resolveAdaptiveMathDraftDir,
   revealTargetedBoard, writeMathGenerationJob,
   queueTargetedMathGeneration, setMathGenerationPhase,
   updateMathGenerationNode,
@@ -247,8 +247,45 @@ export async function runAdaptiveMathGeneration(
   const plannerCorrectionResponseFile = rawPlannerResponseFile.replace(/\.json$/i, "-correction.json");
   const cycle = getLearningCycle(childId, homeworkId, { rootDir });
   if (!cycle) throw new Error(`learning_cycle_missing:${homeworkId}`);
-  if (cycle.domain === "spelling") return runSpellingTargetedGeneration(childId, homeworkId, rootDir);
   const initialJob = getMathGenerationStatus(childId, homeworkId, { rootDir });
+  if (initialJob?.phase === "probe_ready" && cycle.lifecycle.startsWith("evaluation_")) {
+    console.log(` 🎮 [adaptive-math] [probe-generation] [awaiting-child-evidence] child=${childId} homework=${homeworkId}`);
+    return;
+  }
+  if (initialJob?.phase === "probe_generating" || (initialJob?.phase === "needs_attention" && cycle.lifecycle.startsWith("evaluation_"))) {
+    const extraction = readAssignmentSourceExtraction(path.join(draft, "assignment-extraction.json"));
+    const chart = getChildChart(childId, { rootDir });
+    for (const node of initialJob.nodes.filter(candidate => candidate.status === "preparing" || candidate.status === "failed_resumable")) {
+      try {
+        await generateMathDiscoveryExperience({
+          rootDir,
+          childId,
+          homeworkId,
+          assignmentText: extraction.fullText,
+          assignmentSource: extraction,
+          assignmentEvidenceIds: [`assignment:${homeworkId}:source`],
+          factualChildContext: { academic: mathPlannerChartContext(chart), engagement: buildMathCreativeChildContext(chart) },
+          probeNodeIds: [node.nodeId],
+          retryUncertain: options.retryUncertainProvider,
+          onProbeNodeReady: ({ contract }) => {
+            publishDiscoveryProbeProgress({
+              rootDir,
+              childId,
+              homeworkId,
+              evaluation: contract,
+              companion: { id: chart.companion.presetId, name: chart.companion.displayName },
+            });
+          },
+        });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        updateMathGenerationNode({ rootDir, childId, homeworkId, nodeId: node.nodeId, status: "needs_attention", error: message });
+        console.error(` 🎮 [adaptive-math] [probe-node-generation] [needs-attention] child=${childId} homework=${homeworkId} node=${node.nodeId} reason=${message}`);
+      }
+    }
+    return;
+  }
+  if (cycle.domain === "spelling") return runSpellingTargetedGeneration(childId, homeworkId, rootDir);
   let recoveredProgram: MathLearningProgram | undefined;
   let savedPlannerTruthError: string | undefined;
   if (!fs.existsSync(programFile) && fs.existsSync(rawPlannerResponseFile)) {

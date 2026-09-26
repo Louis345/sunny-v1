@@ -63,6 +63,7 @@ import { getCompanionCareFromProfile } from "./utils/companionCareProfile";
 import {
   buildPlannerBoardCompanionContext,
   isDirectDiscoveryPacket,
+  isProbeBoardPacket,
   hasPendingLearningGeneration,
   resolveDiscoveryCompletionHandoff,
   resolveDiscoveryEngagementDelivery,
@@ -70,6 +71,8 @@ import {
   resolveDirectDiscoverySurface,
   resolveDirectDiscoveryLaunchNode,
   resolvePlannerBoardSessionScope,
+  resolveProbeBoardCompletion,
+  runProbeBoardCompletionHandoff,
   resolvePersistedDiscoveryHandoff,
   resolvePlannerBoardChoiceLaunchNode,
   resolvePlannerBoardLaunchNode,
@@ -732,6 +735,7 @@ function App() {
     plannerBoardPacket?.activeSessionPlan?.activeHomeworkId,
   );
   const directDiscoveryMode = isDirectDiscoveryPacket(plannerBoardPacket);
+  const probeBoardMode = isProbeBoardPacket(plannerBoardPacket);
   const effectiveDiscoveryCompletionHandoff = resolvePersistedDiscoveryHandoff(
     discoveryCompletionHandoff,
     plannerBoardPacket?.childChart.learningCycle?.lifecycle,
@@ -1301,7 +1305,7 @@ function App() {
     [adventureChildId, mapPreviewMode, plannerBoardPacket],
   );
 
-  const startDiscoveryAcademicCompletion = useCallback((): Promise<Record<string, unknown>> => {
+  const startDiscoveryAcademicCompletion = useCallback((nodeId?: string): Promise<Record<string, unknown>> => {
     const homeworkId = plannerBoardPacket?.childChart.learningCycle?.homeworkId;
     if (!adventureChildId || !homeworkId) {
       console.error(" 🎮 [adaptive-math] [discovery-complete] [failed] missing provenance");
@@ -1311,6 +1315,7 @@ function App() {
       () => postDiscoveryComplete({
         childId: adventureChildId,
         homeworkId,
+        ...(nodeId ? { nodeId } : {}),
       }),
     );
     void completionPromise.catch((error: unknown) => {
@@ -1337,7 +1342,7 @@ function App() {
     (rating: 1 | 2 | 3 | 4 | 5 | null) => {
       const current = postActivityEngagement;
       if (!current) return;
-      if (directDiscoveryMode) {
+      if (directDiscoveryMode || probeBoardMode) {
         const homeworkId = plannerBoardPacket?.childChart.learningCycle?.homeworkId;
         if (!adventureChildId || !homeworkId) {
           console.error(" 🎮 [adaptive-math] [discovery-exit] [failed] missing provenance");
@@ -1363,9 +1368,27 @@ function App() {
             });
             return engagement;
           }),
-          completeAcademic: startDiscoveryAcademicCompletion,
+          completeAcademic: () => startDiscoveryAcademicCompletion(current.node.id),
         })
           .then(async (completion) => {
+            if (probeBoardMode) {
+              const action = resolveProbeBoardCompletion(completion);
+              console.log(` 🎮 [adaptive-math] [probe-node-complete] [${action}]`, {
+                childId: adventureChildId,
+                homeworkId,
+                nodeId: current.node.id,
+              });
+              setLocallyCompletedPlannerNodeIds((completed) =>
+                completed.includes(current.node.id) ? completed : [...completed, current.node.id],
+              );
+              await runProbeBoardCompletionHandoff({
+                completion,
+                refresh: refreshPlannerBoardPacket,
+                continueProbe: closePlannerBoardLaunch,
+                finishSession: finishHomeworkSession,
+              });
+              return;
+            }
             const handoff = resolveDiscoveryCompletionHandoff(completion);
             setDiscoveryCompletionHandoff(handoff);
             console.log(` 🎮 [adaptive-math] [discovery-complete] [${handoff}]`, {
@@ -1392,8 +1415,10 @@ function App() {
       adventureChildId,
       closePlannerBoardLaunch,
       directDiscoveryMode,
+      finishHomeworkSession,
       plannerBoardPacket,
       postActivityEngagement,
+      probeBoardMode,
       recordPlannerBoardPostActivityAction,
       refreshPlannerBoardPacket,
       startDiscoveryAcademicCompletion,
@@ -1522,7 +1547,7 @@ function App() {
   );
 
   const handlePlannerBoardOverlayBack = useCallback(() => {
-    if (directDiscoveryMode || plannerBoardLaunch?.node.spellingAssessment) {
+    if (directDiscoveryMode || probeBoardMode || plannerBoardLaunch?.node.spellingAssessment) {
       void discoveryCompletionCoordinatorRef.current.flushForExit().then(() => {
         console.log(" 🎮 [discovery] [exit] [attempts-saved]");
         closePlannerBoardLaunch();
@@ -1549,6 +1574,7 @@ function App() {
     endSession,
     plannerBoardLaunch,
     postActivityEngagement,
+    probeBoardMode,
     recordPlannerBoardPostActivityAction,
   ]);
 
@@ -1624,7 +1650,7 @@ function App() {
           childId: adventureChildId,
           homeworkId,
         });
-        void startDiscoveryAcademicCompletion().catch(error => {
+        void startDiscoveryAcademicCompletion(launch.node.id).catch(error => {
           console.error(" 🎮 [discovery] [academic-completion] [retry-needed]", error);
         });
         showPlannerBoardEngagementOverlay(launch.node, { completed: true });
@@ -2404,8 +2430,8 @@ function App() {
               title={postActivityEngagement.title}
               outcome={postActivityEngagement.outcome}
               stats={postActivityEngagement.stats}
-              canReplay={!directDiscoveryMode}
-              showBackAction={!directDiscoveryMode}
+              canReplay={!directDiscoveryMode && !probeBoardMode}
+              showBackAction={!directDiscoveryMode && !probeBoardMode}
               canTryHarder={postActivityEngagement.canTryHarder}
               onAction={handlePlannerBoardPostActivityAction}
               onFunRating={handlePlannerBoardFunRating}

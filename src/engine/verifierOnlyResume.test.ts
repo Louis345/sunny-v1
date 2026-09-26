@@ -20,12 +20,12 @@ const sha = (value: string) => createHash("sha256").update(value).digest("hex");
 it("keeps provider-facing Creator instructions byte-stable so verifier work never invalidates paid builds", () => {
   // Changing either text changes builder/repair request hashes. Treat that as a
   // provider-input change requiring explicit approval, never as verifier work.
-  expect(sha(MATH_JOURNEY_CONTRACT)).toBe("b09a5adf4d5e74e975fa0a1041ca7782d13cefd6845f015f8b503411e1737c42");
+  expect(sha(MATH_JOURNEY_CONTRACT)).toBe("dc396bc937509d91b66969a2f2fdd07e3f6d7c7ecc5fde21b5c4e036e51b2e09");
   expect(sha(MATH_IMPLEMENTATION_REPAIR_CONTRACT)).toBe("e1d2358a846628b37828769882dd9c2c95b60d4e5884074185da763a2926eee9");
 });
 
 it("versions prompt-visibility changes without resetting the visual repair budget", () => {
-  expect(DISCOVERY_VERIFIER_VERSION).toBe(21);
+  expect(DISCOVERY_VERIFIER_VERSION).toBe(23);
   expect(MATH_BROWSER_VERIFIER_VERSION).toBe(16);
   expect(CHILD_FACING_VISUAL_GATE_VERSION).toBe(5);
 });

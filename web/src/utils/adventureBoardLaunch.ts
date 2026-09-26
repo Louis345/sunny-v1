@@ -22,9 +22,46 @@ export function isDirectDiscoveryPacket(packet: ChildExperiencePacket | null): b
   return Boolean(packet?.activeSessionPlan?.planId?.startsWith("discovery:"));
 }
 
+/**
+ * A Probe Board is a complete, playable opening chapter. Unlike the legacy
+ * direct Discovery packet it must remain a board so the child can move through
+ * each ready Planner-authored probe while unfinished siblings remain normally locked.
+ */
+export function isProbeBoardPacket(packet: ChildExperiencePacket | null): boolean {
+  return Boolean(packet?.activeSessionPlan?.planId?.startsWith("probe-board:"));
+}
+
+export function resolveProbeBoardCompletion(
+  result: Record<string, unknown>,
+): "continue-probe" | "finish-session" {
+  return result.probeChapterComplete === true
+    ? "finish-session"
+    : "continue-probe";
+}
+
+export async function runProbeBoardCompletionHandoff(input: {
+  completion: Record<string, unknown>;
+  refresh: () => Promise<unknown>;
+  continueProbe: () => void;
+  finishSession: () => void;
+}): Promise<"continue-probe" | "finish-session"> {
+  const action = resolveProbeBoardCompletion(input.completion);
+  try {
+    await input.refresh();
+  } catch (error) {
+    console.warn(" 🎮 [adaptive-math] [probe-board-refresh] [deferred]", error);
+  }
+  if (action === "finish-session") input.finishSession();
+  else input.continueProbe();
+  return action;
+}
+
 export function hasPendingLearningGeneration(packet: ChildExperiencePacket | null, completingDiscovery: boolean): boolean {
   if (!["math", "spelling"].includes(packet?.activeSessionPlan?.domain ?? "")) return false;
-  return Boolean(packet?.activeSessionPlan?.adventureBoard?.nodes.some(node => node.state === "preview")
+  const nodes = packet?.activeSessionPlan?.adventureBoard?.nodes ?? [];
+  return Boolean(nodes.some(node => node.state === "preview")
+    || (isProbeBoardPacket(packet) && nodes.some(node =>
+      node.state === "locked" && node.lock?.reason === "artifact-not-ready"))
     || ["evidence_ready", "targeted_planning", "board_designing", "board_generating"].includes(packet?.childChart.learningCycle?.lifecycle ?? "")
     || (isDirectDiscoveryPacket(packet) && completingDiscovery));
 }

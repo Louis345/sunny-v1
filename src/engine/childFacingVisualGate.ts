@@ -191,7 +191,7 @@ export async function judgeChildFacingScreens(input: {
   const screenshotPaths = [...new Set(input.screenshotPaths)].filter(file => fs.existsSync(file));
   if (screenshotPaths.length === 0) throw new Error("child_visual_review_screenshots_missing");
   const model = input.model ?? process.env.SUNNY_VISUAL_JUDGE_MODEL
-    ?? (input.client ? "claude-sonnet-5" : "gpt-5.6");
+    ?? (input.client ? "claude-sonnet-5" : "claude-opus-5-5");
   const provider = model.startsWith("gpt-") ? "openai" : "anthropic";
   const screenshotHashes = screenshotPaths.map(file => digest(fs.readFileSync(file)));
   const screenshotLabels = screenshotPaths.map(file => path.basename(file));

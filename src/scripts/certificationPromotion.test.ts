@@ -68,6 +68,11 @@ function fixture(): {
       falsifyingEvidence: [],
       measurementKeys: ["independent_correct"],
     }],
+    probeActivities: [{
+      nodeId: "probe-multiplication-arrays",
+      title: "Multiplication Arrays",
+      itemIds: ["array-1"],
+    }],
   };
   const contractHash = hashDiscoveryContract(academic);
   const contract: MathDiscoveryEvaluationContract = {
@@ -107,6 +112,7 @@ function fixture(): {
     academicHash: hashDiscoveryContract(contract.items),
     viewports: DISCOVERY_RELEASE_VIEWPORTS,
     completedItemIds: contract.items.map((item) => item.itemId),
+    completedProbeActivityIds: contract.probeActivities?.map((activity) => activity.nodeId),
     screenshots: ["journey-1.png"],
     verifiedAt: "2026-09-22T20:00:00.000Z",
   });

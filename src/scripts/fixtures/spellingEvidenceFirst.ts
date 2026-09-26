@@ -5,6 +5,30 @@ import { hydrateAssignmentPlannerOutputFromDraft } from "../../engine/assignment
 import type { AssignmentPlanningPacket, AssignmentPlannerOutput, SpellingIntake } from "../../engine/assignmentPlanner";
 import { COMPANION_DEFAULTS } from "../../shared/companionTypes";
 
+export function writeSpellingPdfFixture(rootDir: string, words: string[]): string {
+  const content = `BT /F1 20 Tf 72 720 Td (Spelling words: ${words.join(", ")}) Tj ET`;
+  const objects = [
+    "<< /Type /Catalog /Pages 2 0 R >>",
+    "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+    "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>",
+    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+    `<< /Length ${Buffer.byteLength(content)} >>\nstream\n${content}\nendstream`,
+  ];
+  let pdf = "%PDF-1.4\n";
+  const offsets = [0];
+  objects.forEach((object, index) => {
+    offsets.push(Buffer.byteLength(pdf));
+    pdf += `${index + 1} 0 obj\n${object}\nendobj\n`;
+  });
+  const xref = Buffer.byteLength(pdf);
+  pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
+  pdf += offsets.slice(1).map((offset) => `${String(offset).padStart(10, "0")} 00000 n \n`).join("");
+  pdf += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`;
+  const filePath = path.join(rootDir, "school-words.pdf");
+  fs.writeFileSync(filePath, pdf);
+  return filePath;
+}
+
 export function seedSpellingLab(rootDir: string, words = ["night", "light"], companionVrmUrl = ""): string {
   const child = path.join(rootDir, "src/context/lab-child"); fs.mkdirSync(child, { recursive: true });
   fs.writeFileSync(path.join(child, "learning_profile.json"), JSON.stringify({ childId: "lab-child", name: "Lab", age: 8, grade: 3, totalSessions: 0, sessionHistory: [], preferences: {}, strengths: [], challenges: [], notes: [], diagnoses: [], learningGoals: [] }));

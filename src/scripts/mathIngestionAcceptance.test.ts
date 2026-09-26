@@ -15,15 +15,18 @@ it("runs the actual intake, resumes a saved paid response, repairs the browser j
   const rootDir=fs.mkdtempSync(path.join(os.tmpdir(),"sunny-intake-acceptance-"));roots.push(rootDir);
   vi.stubEnv("ANTHROPIC_API_KEY","synthetic-provider-only");
   vi.stubEnv("OPENAI_API_KEY","synthetic-provider-only");
+  vi.stubEnv("SUNNY_VISUAL_JUDGE_MODEL","gpt-5.6");
   const context=path.join(rootDir,"src/context/lab-child");fs.mkdirSync(context,{recursive:true});
   fs.writeFileSync(path.join(context,"learning_profile.json"),JSON.stringify({childId:"lab-child"}));
   const pdf=path.join(rootDir,"assignment.txt");fs.writeFileSync(pdf,"How many equal groups? Read the diagram.");
-  const academic={evaluationId:"synthetic-discovery",title:"Count groups",assignmentEvidenceIds:["synthetic-source"],constructs:[{constructId:"math.groups",prerequisiteIds:[]}],items:[{itemId:"one",constructId:"math.groups",prompt:"How many groups?",responseContract:{mode:"tap_selection",representationId:"groups"},correctAnswerContract:{acceptedValues:["4"]},difficultyBoundary:"four groups",exposureId:"synthetic:one",possibleConfounds:[],falsifyingEvidence:["cannot count groups"],measurementKeys:["independent_correct"]}]};
-  const html=`<!doctype html><html><body><style>[hidden]{display:none!important}</style><button id="answer">Four</button><div id="pause-overlay" hidden><button>Resume</button></div>
+  const academic={evaluationId:"synthetic-discovery",title:"Count groups",assignmentEvidenceIds:["synthetic-source"],constructs:[{constructId:"math.groups",prerequisiteIds:[]}],items:[{itemId:"one",constructId:"math.groups",prompt:"How many groups?",responseContract:{mode:"tap_selection",representationId:"groups"},correctAnswerContract:{acceptedValues:["4"]},difficultyBoundary:"four groups",exposureId:"synthetic:one",possibleConfounds:[],falsifyingEvidence:["cannot count groups"],measurementKeys:["independent_correct"]}],probeActivities:[{nodeId:"probe-groups",title:"Count Groups",itemIds:["one"]}]};
+  const html=`<!doctype html><html><body><style>[hidden]{display:none!important}</style><h1>How many groups?</h1><button id="answer">Four</button><button id="wrong">Two</button><button id="not-sure">Not sure</button><div id="pause-overlay" hidden><button>Resume</button></div>
   <script id="sunny-discovery-contract" type="application/json">{"items":[{"itemId":"one","constructId":"math.groups","acceptedValues":["4"]}]}</script>
   <script>window.__SUNNY_DISCOVERY_TEST__={evaluate:(itemId,value)=>({itemId,constructId:'math.groups',correct:value==='4'})};
-  window.SUNNY_VALIDATION_HOOKS={journey:[{itemId:'one',steps:[{action:'click',selector:'#answer'}]}]};
-  parent.postMessage({type:'evaluation_ready'},'*');document.querySelector('#answer').onclick=()=>{parent.postMessage({type:'evaluation_attempt',attemptId:'synthetic-one',itemId:'one',attemptedValue:'4',supportEventIds:[],instrumentSignals:[],observedAt:new Date().toISOString()},'*');parent.postMessage({type:'evaluation_complete'},'*');};</script></body></html>`;
+  window.SUNNY_VALIDATION_HOOKS={journey:[{itemId:'one',steps:[{action:'click',selector:'#answer'}]}],incorrectJourney:[{itemId:'one',steps:[{action:'click',selector:'#wrong'}]}],notSureJourney:[{itemId:'one',steps:[{action:'click',selector:'#not-sure'}]}]};
+  parent.postMessage({type:'game_state_update',payload:{currentChallenge:{id:'one',prompt:'How many groups?'}}},'*');
+  const commit=(attemptedValue,instrumentSignals=[])=>{const scored=window.__SUNNY_DISCOVERY_TEST__.evaluate('one',attemptedValue);document.body.dataset.correct=String(scored.correct);parent.postMessage({type:'evaluation_attempt',payload:{attemptId:'synthetic-one-'+(attemptedValue||'unsure'),itemId:'one',attemptedValue,supportEventIds:[],instrumentSignals,observedAt:new Date().toISOString()}},'*');parent.postMessage({type:'evaluation_complete',payload:{nodeId:'probe-groups'}},'*');};
+  parent.postMessage({type:'evaluation_ready',payload:{nodeId:'probe-groups'}},'*');document.querySelector('#answer').onclick=()=>commit('4');document.querySelector('#wrong').onclick=()=>commit('2');document.querySelector('#not-sure').onclick=()=>commit('', ['response_not_captured']);</script></body></html>`;
   transport.mockReset().mockImplementation(async(request:{tools?:Array<{name:string}>;messages:Array<{content:string|unknown[]}>})=>{
     const name=request.tools?.[0]?.name;
     if(name==="create_math_discovery_contract")return {content:[{type:"tool_use",name,input:academic}]};
@@ -59,7 +62,7 @@ it("runs the actual intake, resumes a saved paid response, repairs the browser j
   const draft=path.join(drafts,homeworkId);
   const read=(name:string)=>JSON.parse(fs.readFileSync(path.join(draft,name),"utf8"));
   expect(read("visual-review/visual-review.json").iterations).toHaveLength(2);
-  expect(read("runtime-verification/acceptance.json")).toMatchObject({passed:true,htmlHash:read("discovery-contract.json").artifact.artifactHash,completedItemIds:["one"]});
+  expect(read("runtime-verification/acceptance.json")).toMatchObject({passed:true,htmlHash:read("discovery-contract.json").artifact.artifactHash,completedItemIds:["one"],completedProbeActivityIds:["probe-groups"]});
   expect(read("discovery-ingestion-job.json").state).toBe("ready");
   const before=JSON.stringify(getLearningCycle("lab-child",homeworkId,{rootDir}));
   await ingestMathAssignment({rootDir,childId:"lab-child",pdf,providerProbe:async()=>undefined});
