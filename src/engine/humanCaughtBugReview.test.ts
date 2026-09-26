@@ -159,5 +159,9 @@ describe("human-caught bug review", () => {
     expect(codes).toContain("active_companion_identity_is_canonical");
     expect(codes).toContain("quest_requires_independent_correct_baseline_evidence");
     expect(codes).toContain("microphone_stream_requires_audible_input_proof");
+    expect(codes).toContain("route_guidance_is_not_a_fake_activity");
+    expect(codes).toContain("board_companion_preserves_route_visibility");
+    expect(codes).toContain("missing_node_art_has_a_stable_fallback");
+    expect(codes).toContain("progressive_generation_starts_ready_work_concurrently");
   });
 });

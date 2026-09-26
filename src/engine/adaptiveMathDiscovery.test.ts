@@ -1641,6 +1641,42 @@ describe("adaptive math discovery", () => {
     ]));
   });
 
+  it("starts the first intervention and its next sibling concurrently", async () => {
+    const rootDir = root();
+    writeMathGenerationJob({
+      rootDir,
+      childId: "lab-child",
+      homeworkId: "hw-progressive-build",
+      programHash: "program",
+      designHash: "design",
+      nodeIds: ["N1", "N2", "N3"],
+    });
+    const started: string[] = [];
+    const release = new Map<string, () => void>();
+
+    const build = buildTargetedNodesResumably({
+      rootDir,
+      childId: "lab-child",
+      homeworkId: "hw-progressive-build",
+      firstNodeId: "N1",
+      concurrency: 2,
+      buildNode: async (nodeId) => {
+        started.push(nodeId);
+        await new Promise<void>((resolve) => release.set(nodeId, resolve));
+        return { artifactHash: `built-${nodeId}` };
+      },
+    });
+
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    expect(started).toEqual(["N1", "N2"]);
+    release.get("N1")?.();
+    release.get("N2")?.();
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    expect(started).toEqual(["N1", "N2", "N3"]);
+    release.get("N3")?.();
+    await build;
+  });
+
   it("hands committed Discovery evidence to planning before design and map publication", async () => {
     const rootDir = root();
     createDiscoveryLearningCycle({ rootDir, childId: "lab-child", homeworkId: "hw-equal-groups", assignment: { title: "Equal groups", contentFingerprint: "fingerprint", capturedEvidenceIds: ["assignment:equal-groups"], targets: ["math.multiplication.equal_groups"] }, evaluation: contract });

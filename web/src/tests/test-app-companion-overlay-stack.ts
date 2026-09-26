@@ -32,6 +32,13 @@ describe("App companion overlay stack", () => {
     expect(src).toContain("setCompanionPresence");
   });
 
+  it("keeps the companion compact and child-invoked while the board map is visible", () => {
+    expect(src).toContain("const boardMapCompanionCompact =");
+    expect(src).toMatch(/companionPortraitMode\s*=\s*[\s\S]{0,180}boardMapCompanionCompact/);
+    expect(src).toMatch(/summoned=\{[\s\S]{0,180}boardMapCompanionCompact[\s\S]{0,180}state\.companionPresence === "summoned"/);
+    expect(src).toMatch(/onSummon=\{[\s\S]{0,180}boardMapCompanionCompact/);
+  });
+
   it("keeps one host-owned companion across both Word Radar launch paths", () => {
     // Component-only tests omitted companion props. The full journey exposed
     // the second portrait only after summoning the host-owned companion.

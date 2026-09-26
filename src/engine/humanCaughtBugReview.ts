@@ -65,6 +65,38 @@ export type BuildHumanCaughtBugReviewInput = {
 
 export const SEEDED_HUMAN_BUG_INVARIANTS: LabInvariant[] = [
   {
+    code: "route_guidance_is_not_a_fake_activity",
+    source: "human_caught_bug",
+    invariant:
+      "A baseline route-choice marker explains that the child may choose a path; it is not a fake playable node, and each verified route is selected directly on the map.",
+    suggestedFailingTest:
+      "Choose Path renders as non-interactive guidance while a ready route node records the canonical choice and a preparing route remains locked.",
+  },
+  {
+    code: "board_companion_preserves_route_visibility",
+    source: "human_caught_bug",
+    invariant:
+      "The persistent companion stays compact and child-invoked on the board so it cannot cover a route node or its label.",
+    suggestedFailingTest:
+      "The board map forces portrait mode with collapsed presence until the child summons the companion.",
+  },
+  {
+    code: "missing_node_art_has_a_stable_fallback",
+    source: "human_caught_bug",
+    invariant:
+      "A missing or unreadable node thumbnail falls back to the node's stable semantic icon instead of exposing a broken-image marker.",
+    suggestedFailingTest:
+      "Dispatching an image error removes the broken thumbnail and leaves the semantic node icon visible.",
+  },
+  {
+    code: "progressive_generation_starts_ready_work_concurrently",
+    source: "human_caught_bug",
+    invariant:
+      "The first intervention retains scheduling priority while the next eligible node starts concurrently, so verified siblings can unlock during play.",
+    suggestedFailingTest:
+      "With concurrency two, node one and node two start before node one completes, while each readiness result is published independently.",
+  },
+  {
     code: "microphone_stream_requires_audible_input_proof",
     source: "human_caught_bug",
     invariant:

@@ -2066,7 +2066,13 @@ function App() {
     );
   }
 
+  const boardMapCompanionCompact =
+    homeworkBoardMode &&
+    plannerBoardPacket != null &&
+    plannerBoardLaunch == null &&
+    !homeworkSessionFinished;
   const companionPortraitMode =
+    boardMapCompanionCompact ||
     karaokeReadingActive ||
     diagFlowGameOpen != null ||
     plannerBoardLaunch != null ||
@@ -2201,15 +2207,17 @@ function App() {
         micMuted={micMuted || voiceGameCompanionMicMuted}
         onToggleMute={toggleMicMute}
         summoned={
-          plannerBoardLaunch == null || state.companionPresence === "summoned"
+          boardMapCompanionCompact
+            ? state.companionPresence === "summoned"
+            : plannerBoardLaunch == null || state.companionPresence === "summoned"
         }
         onSummon={
-          plannerBoardLaunch
+          plannerBoardLaunch || boardMapCompanionCompact
             ? () => setCompanionPresence("summoned")
             : undefined
         }
         onDismiss={
-          plannerBoardLaunch
+          plannerBoardLaunch || boardMapCompanionCompact
             ? () => setCompanionPresence("collapsed")
             : undefined
         }

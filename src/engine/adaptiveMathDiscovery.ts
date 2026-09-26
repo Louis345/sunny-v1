@@ -2365,6 +2365,7 @@ export async function buildTargetedNodesResumably(input: {
     .map((node) => node.nodeId);
   const first = missing.includes(input.firstNodeId) ? input.firstNodeId : undefined;
   const remaining = missing.filter((nodeId) => nodeId !== first);
+  const buildQueue = first ? [first, ...remaining] : remaining;
 
   const buildOne = async (nodeId: string): Promise<void> => {
     const attemptCount = startMathGenerationNodeAttempt({
@@ -2416,12 +2417,11 @@ export async function buildTargetedNodesResumably(input: {
     await input.onNodeReady?.(nodeId, ready.artifactHash!);
   };
 
-  if (first) await buildOne(first);
   let cursor = 0;
-  const workerCount = Math.max(1, Math.min(Math.floor(input.concurrency), remaining.length || 1));
+  const workerCount = Math.max(1, Math.min(Math.floor(input.concurrency), buildQueue.length || 1));
   await Promise.all(Array.from({ length: workerCount }, async () => {
-    while (cursor < remaining.length) {
-      const nodeId = remaining[cursor];
+    while (cursor < buildQueue.length) {
+      const nodeId = buildQueue[cursor];
       cursor += 1;
       if (nodeId) await buildOne(nodeId);
     }
