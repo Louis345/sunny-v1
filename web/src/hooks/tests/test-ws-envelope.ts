@@ -10,6 +10,7 @@ import { useAdventureState } from "../useAdventureState";
 
 const OPEN = 1;
 const CONNECTING = 0;
+let playbackStart: ReturnType<typeof vi.fn>;
 
 describe("WS envelope vs canvas payload type", () => {
   let wsInstances: MockWebSocket[];
@@ -47,6 +48,7 @@ describe("WS envelope vs canvas payload type", () => {
   beforeEach(() => {
     wsInstances = [];
     micProcessor = null;
+    playbackStart = vi.fn();
     OriginalWebSocket = globalThis.WebSocket;
     OriginalAudioContext = globalThis.AudioContext;
 
@@ -85,7 +87,7 @@ describe("WS envelope vs canvas payload type", () => {
         const src = {
           buffer: null as AudioBuffer | null,
           connect: () => src as unknown as AudioNode,
-          start: vi.fn(),
+          start: playbackStart,
           stop: vi.fn(),
           onended: null as (() => void) | null,
         };
@@ -131,6 +133,26 @@ describe("WS envelope vs canvas payload type", () => {
     vi.restoreAllMocks();
     cleanup();
   });
+
+  function deliverJson(ws: MockWebSocket, message: Record<string, unknown>) {
+    ws.onmessage?.({ data: JSON.stringify(message) } as MessageEvent);
+  }
+
+  function deliverSessionStarted(ws: MockWebSocket) {
+    deliverJson(ws, {
+      type: "session_started",
+      childName: "Ila",
+      child: "ila",
+      companionName: "Elli",
+      companion: "elli",
+      emoji: "🌟",
+      accentColor: "#7C3AED",
+      accentBg: "#F3E8FF",
+      voiceId: "v1",
+      openingLine: "Hi!",
+      goodbye: "Bye",
+    });
+  }
 
   it.each(["math", "spelling"])("keeps %s homework identity and controls available when microphone permission is dismissed", async (homeworkDomain) => {
     vi.stubEnv("VITE_SUNNY_RUNTIME_CONFIG", JSON.stringify({ subject: "homework", childId: "lab-child", homeworkDomain, sessionMode: "real", previewMode: "off", voiceMode: "normal" }));
@@ -461,6 +483,26 @@ describe("WS envelope vs canvas payload type", () => {
       storyText: "Hello",
       words: ["Hello"],
     });
+  });
+
+  it("plays requested Word Radar narration while unrelated companion speech stays muted", async () => {
+    // Human catch: the server generated the word, but the browser's node mute discarded every PCM chunk.
+    // Log miss: an empty muted queue still emitted playback_done, falsely claiming the child heard it.
+    const { result } = renderHook(() => useSession());
+    act(() => result.current.startSession("ila"));
+    const ws = wsInstances[0]!;
+    await act(async () => Promise.resolve());
+    act(() => deliverSessionStarted(ws));
+    act(() => result.current.registerMapNodeType("word-radar"));
+
+    act(() => deliverJson(ws, { type: "audio", data: "AAA=" }));
+    expect(playbackStart).not.toHaveBeenCalled();
+
+    act(() => result.current.sendMessage("game_event", {
+      event: { type: "narration_request", payload: { game: "word-radar", word: "able" } },
+    }));
+    act(() => deliverJson(ws, { type: "audio", data: "AAA=" }));
+    expect(playbackStart).toHaveBeenCalledOnce();
   });
 
   it("surfaces server-owned companion summon and dismiss state", async () => {
