@@ -155,22 +155,45 @@ describe("spelling Planner raw-response durability", () => {
     expect(transport.create).toHaveBeenCalledTimes(2);
   });
 
-  it("does not checkpoint a schema-valid plan before its academic lineage is validated", async () => {
+  it("corrects a schema-valid checkpoint-before-intervention plan once before checkpointing it", async () => {
     const f = await fixture();
-    const invalid = structuredClone(f.message);
-    invalid.content[1].input!.plannedMeasurements[0].spelling!.evidenceIds = [];
     const relationshipInvalid = structuredClone(f.message);
-    relationshipInvalid.id = "recorded-relationship-invalid-correction";
-    relationshipInvalid.content[1].input!.plannedMeasurements[0].spelling!.interventionNodeIds = ["check"];
+    relationshipInvalid.id = "recorded-relationship-invalid";
+    relationshipInvalid.content[1].input!.plannedMeasurements[1].spelling!.interventionNodeIds = ["quest"];
+    const corrected = structuredClone(f.message);
+    corrected.id = "recorded-relationship-correction";
     transport.create
-      .mockResolvedValueOnce(invalid)
-      .mockResolvedValueOnce(relationshipInvalid);
+      .mockResolvedValueOnce(relationshipInvalid)
+      .mockResolvedValueOnce(corrected);
 
-    await expect(f.worker()).rejects.toThrow("spelling_checkpoint_intervention_not_prior:practice");
-    expect(fs.existsSync(path.join(f.draftDir, "spelling-targeted-response.json"))).toBe(false);
-    expect(f.readReceipt()).toMatchObject({ status: "received", response: { message: invalid } });
+    await f.worker();
+    expect(getMathGenerationStatus(f.childId, f.homeworkId, f)?.phase).toBe("board_ready");
+    expect(fs.existsSync(path.join(f.draftDir, "spelling-targeted-response.json"))).toBe(true);
+    expect(f.readReceipt()).toMatchObject({ status: "received", response: { message: relationshipInvalid } });
     expect(hasReceivedMathProviderStage(f.draftDir, "spelling-targeted-planner-tool-correction-v3-1")).toBe(true);
     expect(transport.create).toHaveBeenCalledTimes(2);
+    expect(JSON.stringify(transport.create.mock.calls[1]?.[0])).toContain("planner_checkpoint_intervention_not_prior");
+
+    vi.stubEnv("ANTHROPIC_API_KEY", "");
+    await f.worker();
+    expect(transport.create).toHaveBeenCalledTimes(2);
+  });
+
+  it("stops after one relationship-invalid correction without saving a targeted checkpoint", async () => {
+    const f = await fixture();
+    const invalid = structuredClone(f.message);
+    invalid.id = "recorded-relationship-invalid";
+    invalid.content[1].input!.plannedMeasurements[1].spelling!.interventionNodeIds = ["quest"];
+    const stillInvalid = structuredClone(invalid);
+    stillInvalid.id = "recorded-relationship-invalid-correction";
+    transport.create
+      .mockResolvedValueOnce(invalid)
+      .mockResolvedValueOnce(stillInvalid);
+
+    await expect(f.run()).rejects.toThrow("assignment_planner_relationship_invalid");
+    expect(transport.create).toHaveBeenCalledTimes(2);
+    expect(hasReceivedMathProviderStage(f.draftDir, "spelling-targeted-planner-tool-correction-v3-1")).toBe(true);
+    expect(fs.existsSync(path.join(f.draftDir, "spelling-targeted-response.json"))).toBe(false);
   });
 
   it.each(["missing tool", "unknown activity", "renderer mismatch"])("saves the entire received message before %s rejection and revalidates without a call", async failure => {

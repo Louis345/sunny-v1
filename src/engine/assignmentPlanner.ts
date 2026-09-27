@@ -1702,6 +1702,18 @@ type AssignmentPlannerRelationshipIssue =
     evidenceIds: string[];
   };
 
+class AssignmentPlannerRelationshipInvalidError extends Error {
+  readonly toolInput: AssignmentPlannerResponseObject;
+  readonly issues: AssignmentPlannerRelationshipIssue[];
+
+  constructor(toolInput: AssignmentPlannerResponseObject, issues: AssignmentPlannerRelationshipIssue[]) {
+    super(`assignment_planner_relationship_invalid:issues=${JSON.stringify(issues)}`);
+    this.name = "AssignmentPlannerRelationshipInvalidError";
+    this.toolInput = toolInput;
+    this.issues = issues;
+  }
+}
+
 function assignmentPlannerAllowedEvidenceIds(packet: AssignmentPlanningPacket): string[] {
   const ids = new Set<string>();
   (packet.capturedHomework.wordGroups ?? []).flatMap(group => group.evidence).forEach(id => ids.add(id));
@@ -1767,6 +1779,15 @@ function assignmentPlannerRelationshipIssues(toolInput: unknown, allowedEvidence
     }
   }
   return issues;
+}
+
+function validateAssignmentPlannerRelationships(
+  draft: AssignmentPlannerResponseObject,
+  allowedEvidenceIds: ReadonlySet<string>,
+): AssignmentPlannerResponseObject {
+  const issues = assignmentPlannerRelationshipIssues(draft, allowedEvidenceIds);
+  if (issues.length) throw new AssignmentPlannerRelationshipInvalidError(draft, issues);
+  return draft;
 }
 
 function fallbackPlanTheoryForToolInput(input: Record<string, unknown>): PlanTheory {
@@ -2003,23 +2024,29 @@ async function callAssignmentPlannerModel(
   // before any local parser, hydration, or semantic validation can reject it.
   console.log(` 🎮 [assignment-planner] [response] [received] id=${received.message.id}`);
   const originalUsage = usageFromAnthropic(received.message);
+  const allowedEvidenceIds = assignmentPlannerAllowedEvidenceIds(packet);
+  const allowedEvidenceIdSet = new Set(allowedEvidenceIds);
   try {
-    return { draft: parseAssignmentPlannerToolUseResponse(received.message), usage: originalUsage,
+    const draft = parseAssignmentPlannerToolUseResponse(received.message);
+    return { draft: packet.discoveryEvidence ? validateAssignmentPlannerRelationships(draft, allowedEvidenceIdSet) : draft, usage: originalUsage,
       telemetry: { model: received.model, usage: originalUsage, latencyMs: received.latencyMs }, receivedAt: received.createdAt };
   } catch (error) {
-    if (!(error instanceof AssignmentPlannerToolInvalidError) || !providerReceipt || !packet.discoveryEvidence) throw error;
-    const allowedEvidenceIds = assignmentPlannerAllowedEvidenceIds(packet);
-    const relationshipIssues = assignmentPlannerRelationshipIssues(error.toolInput, new Set(allowedEvidenceIds));
+    if ((!providerReceipt || !packet.discoveryEvidence)
+      || (!(error instanceof AssignmentPlannerToolInvalidError) && !(error instanceof AssignmentPlannerRelationshipInvalidError))) throw error;
+    const schemaIssues = error instanceof AssignmentPlannerToolInvalidError ? error.issues : [];
+    const relationshipIssues = error instanceof AssignmentPlannerRelationshipInvalidError
+      ? error.issues
+      : assignmentPlannerRelationshipIssues(error.toolInput, allowedEvidenceIdSet);
     const correctionRequest = {
       version: 3,
       purpose: "assignment_planner_tool_correction",
       originalRequestHash: hashDiscoveryContract(packet),
       invalidToolInput: error.toolInput,
-      schemaIssues: error.issues,
+      schemaIssues,
       relationshipIssues,
       allowedEvidenceIds,
     };
-    const correctionPrompt = `Your previous ${ASSIGNMENT_PLANNER_TOOL_NAME} input failed its declared tool contract. Reissue the complete tool input once. Preserve every valid academic, design, node, activity, target, prediction, and evidence choice. Correct only the listed schema and relationship violations. Every spelling.evidenceIds value must come from ALLOWED EVIDENCE IDS; remove unknown IDs and never invent evidence, child facts, or new activities. Practice or instruction measurements must use interventionNodeIds: []. A fresh_checkpoint may cite only prior targeted intervention nodes. A final fresh checkpoint must cover the assigned words and all prior pending interventions. If a future gated node needs evidenceIds, cite the current observations that motivated including that node.\nSCHEMA ISSUES:\n${JSON.stringify(error.issues)}\nRELATIONSHIP ISSUES:\n${JSON.stringify(relationshipIssues)}\nALLOWED EVIDENCE IDS:\n${JSON.stringify(allowedEvidenceIds)}\nPREVIOUS TOOL INPUT:\n${JSON.stringify(error.toolInput)}`;
+    const correctionPrompt = `Your previous ${ASSIGNMENT_PLANNER_TOOL_NAME} input failed its declared tool contract. Reissue the complete tool input once. Preserve every valid academic, design, node, activity, target, prediction, and evidence choice. Correct only the listed schema and relationship violations. Every spelling.evidenceIds value must come from ALLOWED EVIDENCE IDS; remove unknown IDs and never invent evidence, child facts, or new activities. Practice or instruction measurements must use interventionNodeIds: []. A fresh_checkpoint may cite only prior targeted intervention nodes. A final fresh checkpoint must cover the assigned words and all prior pending interventions. If a future gated node needs evidenceIds, cite the current observations that motivated including that node.\nSCHEMA ISSUES:\n${JSON.stringify(schemaIssues)}\nRELATIONSHIP ISSUES:\n${JSON.stringify(relationshipIssues)}\nALLOWED EVIDENCE IDS:\n${JSON.stringify(allowedEvidenceIds)}\nPREVIOUS TOOL INPUT:\n${JSON.stringify(error.toolInput)}`;
     const correctionStarted = Date.now();
     const correction = await runMathProviderStage({
       draftDir: providerReceipt.draftDir,
@@ -2043,8 +2070,9 @@ async function callAssignmentPlannerModel(
     console.log(` 🎮 [assignment-planner] [tool-correction] [received] id=${correction.message.id}`);
     const correctionUsage = usageFromAnthropic(correction.message);
     const combinedUsage = combinePlannerUsage(originalUsage, correctionUsage);
+    const correctedDraft = parseAssignmentPlannerToolUseResponse(correction.message);
     return {
-      draft: parseAssignmentPlannerToolUseResponse(correction.message),
+      draft: validateAssignmentPlannerRelationships(correctedDraft, allowedEvidenceIdSet),
       usage: combinedUsage,
       telemetry: {
         model: correction.model,
