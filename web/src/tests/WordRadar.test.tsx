@@ -555,9 +555,11 @@ describe("WordRadar", () => {
   it("plays the first hidden word once when the visible Listen phase begins", async () => {
     // Human catch: the child saw “Listen” but heard nothing before the response screen.
     // Log miss: server TTS entries came from later speaker taps and did not prove first-phase playback.
-    // Lab miss: the previous assertion explicitly required zero narration during the Listen phase.
+    // Lab miss: the previous assertion explicitly required zero narration during the Listen phase,
+    // then only counted the new request without proving the server had bound the frozen item first.
     const sendMessage = vi.fn();
     renderRadar({
+      items: [{ ...sampleItems[0]!, itemId: "homework:discovery:item-1" }],
       autoStart: true,
       assessmentMode: true,
       recallMode: "hidden_word_recall",
@@ -590,6 +592,13 @@ describe("WordRadar", () => {
         }),
       ]),
     ]);
+
+    const eventTypes = sendMessage.mock.calls
+      .filter(([type]) => type === "game_event")
+      .map(([, payload]) => (payload as { event?: { type?: string; payload?: { progress?: string } } }).event)
+      .filter(event => event?.type === "narration_request" || event?.payload?.progress === "Word Radar target state.")
+      .map(event => event?.type);
+    expect(eventTypes).toEqual(["game_state_update", "narration_request"]);
 
     await act(async () => {
       vi.advanceTimersByTime(1500);
