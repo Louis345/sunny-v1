@@ -51,6 +51,29 @@ describe("Planner-authored spelling node titles survive the real parser", () => 
     expect(transport.create).toHaveBeenCalledOnce();
   });
 
+  it("revalidates a saved board after a local presentation compiler fix without another Planner call", async () => {
+    const f = await fixture();
+    transport.create.mockResolvedValue(structuredClone(f.message));
+    await f.worker();
+    const savedResponse = fs.readFileSync(path.join(f.draftDir, "spelling-targeted-response.json"), "utf8");
+    const jobFile = path.join(f.draftDir, "adaptive-generation-job.json");
+    const job = JSON.parse(fs.readFileSync(jobFile, "utf8"));
+    job.phase = "needs_attention";
+    job.error = "spelling_board_presentation_missing_nodes:shared-check";
+    job.nodes = job.nodes.map((node: Record<string, unknown>) => ({
+      ...node,
+      status: node.status === "evidence_locked" ? "evidence_locked" : "preparing",
+    }));
+    fs.writeFileSync(jobFile, `${JSON.stringify(job, null, 2)}\n`, "utf8");
+
+    vi.stubEnv("ANTHROPIC_API_KEY", "");
+    await f.worker();
+
+    expect(getMathGenerationStatus(f.childId, f.homeworkId, f)?.phase).toBe("board_ready");
+    expect(fs.readFileSync(path.join(f.draftDir, "spelling-targeted-response.json"), "utf8")).toBe(savedResponse);
+    expect(transport.create).toHaveBeenCalledOnce();
+  });
+
   it("requires an authored title in the targeted spelling tool contract but preserves legacy optional titles", async () => {
     const f = await fixture();
     const schema = assignmentPlannerToolJsonSchema(true, f.packet.activityCatalog) as any;

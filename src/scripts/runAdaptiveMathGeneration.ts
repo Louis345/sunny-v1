@@ -930,8 +930,9 @@ async function runSpellingTargetedGeneration(childId: string, homeworkId: string
   if (stoppedJob?.phase === "needs_attention") {
     const publicationOnlyRetry = stoppedJob.nodes.length > 0 && stoppedJob.nodes.every((node) =>
       ["ready", "completed", "evidence_locked"].includes(node.status));
-    if (!publicationOnlyRetry) return;
-    console.log(` 🎮 [spelling] [targeted-generation] [resuming-publication] homework=${homeworkId}`);
+    const localProjectionRetry = stoppedJob.error?.startsWith("spelling_board_presentation_missing_nodes:") === true;
+    if (!publicationOnlyRetry && !localProjectionRetry) return;
+    console.log(` 🎮 [spelling] [targeted-generation] [${localProjectionRetry ? "revalidating-local-projection" : "resuming-publication"}] homework=${homeworkId}`);
   }
   queueTargetedMathGeneration(scope);
   const draft = resolveAdaptiveMathDraftDir(childId, homeworkId, { rootDir });
