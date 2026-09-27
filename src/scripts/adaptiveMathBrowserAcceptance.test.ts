@@ -192,14 +192,26 @@ it("plays the isolated math release journey through calibration and the next Pla
     return res.json(buildChildExperiencePacket(lab.chart() as never));
   });
   app.post("/api/child/:childId/choice-event", (_req,res)=>res.status(503).json({error:"synthetic_engagement_offline"}));
-  setupRoutes(app);
+  let releaseTargetedFixture!: () => void;
+  const targetedFixtureReady = new Promise<void>((resolve) => { releaseTargetedFixture = resolve; });
+  let generation: Promise<void> | undefined;
+  let workerLaunchCount = 0;
+  setupRoutes(app, {
+    launchAdaptiveMathWorker: (launchedChildId, launchedHomeworkId) => {
+      workerLaunchCount += 1;
+      generation = (async () => {
+        await targetedFixtureReady;
+        await runAdaptiveMathGeneration(launchedChildId, launchedHomeworkId, rootDir);
+      })();
+    },
+  });
   const server = app.listen(0,"127.0.0.1"); await new Promise<void>(resolve=>server.once("listening",resolve));
   const address = server.address(); if (!address || typeof address === "string") throw new Error("address_missing");
   const ws = new WebSocketServer({server,path:"/ws"});
   ws.on("connection", socket=>socket.on("message",data=>{if(JSON.parse(String(data)).type==="start_session"){socket.send(JSON.stringify({type:"session_started",child:"Lab-child"}));socket.send(JSON.stringify({type:"session_boot_ready"}));socket.send(JSON.stringify({type:"audio",data:"UklGRiYAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQIAAAAAAA=="}));socket.send(JSON.stringify({type:"audio_done"}));}}));
   let vite: any, browser: Awaited<ReturnType<typeof chromium.launch>> | undefined;
   const browserErrors: string[] = [], networkEvents:string[]=[]; let step = "boot";
-  let releaseSibling: (()=>void)|undefined, generation: Promise<void>|undefined;
+  let releaseSibling: (()=>void)|undefined;
   try {
     const viteModule = await import(pathToFileURL(path.join(process.cwd(),"web/node_modules/vite/dist/node/index.js")).href);
     vite = await viteModule.createServer({configFile:false,root:path.join(process.cwd(),"web"),cacheDir:path.join(rootDir,"vite-cache"),esbuild:{jsx:"automatic"},css:{postcss:{plugins:[require(path.join(process.cwd(),"web/node_modules/tailwindcss"))({content:[path.join(process.cwd(),"web/src/**/*.{js,ts,jsx,tsx}")]})]}},define:{"import.meta.env":JSON.stringify({VITE_SUNNY_RUNTIME_CONFIG:JSON.stringify({subject:"homework",sessionMode:"real",previewMode:"off",nodeAccess:"normal",voiceMode:"normal",childId,homeworkDomain:"math"})})},server:{host:"127.0.0.1",port:0,fs:{allow:[process.cwd()]},proxy:{"/api":`http://127.0.0.1:${address.port}`,"/ws":{target:`ws://127.0.0.1:${address.port}`,ws:true}}}});
@@ -233,6 +245,7 @@ it("plays the isolated math release journey through calibration and the next Pla
       else await finalProbeFrame.locator("#skip").click();
       await Promise.all([page.waitForResponse(response=>response.url().includes("/choice-event")&&response.status()===503,{timeout:parentOperated?180000:35000}), parentOperated?Promise.resolve():page.getByRole("button",{name:"Skip fun rating",exact:true}).click()]);
       await expect.poll(()=>getLearningCycle(childId,homeworkId,{rootDir})?.lifecycle,{timeout:parentOperated?180000:10000}).toBe("evidence_ready");
+      expect(workerLaunchCount).toBe(1);
       const cycle = getLearningCycle(childId,homeworkId,{rootDir})!;
       expect(cycle.observations).toHaveLength(3);
       expect(cycle.observations.find(o=>o.itemId==="graph")?.confounds).toContain("reading_friction");
@@ -267,7 +280,8 @@ it("plays the isolated math release journey through calibration and the next Pla
         const htmlPath=path.join(games,nodeId+".html");fs.writeFileSync(htmlPath,releaseActivityHtml(nodeId));
         return {artifacts:[{childId,homeworkId,nodeId,title:nodeId,htmlPath,htmlHash:createHash("sha256").update(fs.readFileSync(htmlPath)).digest("hex"),artworkUrl:"/lab.svg",creatorPrompt:"lab",promptHash:"lab",plannerModel:"mock",creatorModel:"mock"}],backgroundUrl:"/lab.svg",questArtworkUrl:"/lab.svg",bossArtworkUrl:"/lab.svg",stats:{generatedNodeIds:[nodeId],reusedNodeIds:[],generatedImages:0,reusedImages:0,bonusDeferred:true}};
       });
-      generation=runAdaptiveMathGeneration(childId,homeworkId,rootDir);
+      releaseTargetedFixture();
+      expect(generation).toBeDefined();
       await expect.poll(()=>getLearningCycle(childId,homeworkId,{rootDir})!.nodes.find(n=>n.nodeId==="activity-1")?.artifactBinding?.validationStatus,{timeout:15000}).toBe("passed");
       const planFile=path.join(contextRoot,childId,"plans/active_session_plan.json");
       const published=JSON.parse(fs.readFileSync(planFile,"utf8"));activeSessionPlan=published.current??published;

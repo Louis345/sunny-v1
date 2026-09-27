@@ -79,7 +79,16 @@ it.each([
   const app = express(); app.use(express.json());
   app.get("/api/profile/:child", (_req, res) => res.json({ companion: { ...COMPANION_DEFAULTS, vrmUrl: scenario.adaptive ? "/companions/sample.vrm" : "" } }));
   app.get("/api/child-experience/:child", (_req, res) => res.json(buildChildExperiencePacket(getChildChart("lab-child", { rootDir }))));
-  setupRoutes(app);
+  let automaticGeneration: Promise<void> | undefined;
+  let generationStartedAt: number | undefined;
+  let workerLaunchCount = 0;
+  setupRoutes(app, {
+    launchAdaptiveMathWorker: (launchedChildId, launchedHomeworkId) => {
+      workerLaunchCount += 1;
+      generationStartedAt = Date.now();
+      automaticGeneration = runAdaptiveMathGeneration(launchedChildId, launchedHomeworkId, rootDir);
+    },
+  });
   const server = app.listen(0, "127.0.0.1"); await new Promise<void>(resolve => server.once("listening", resolve));
   const address = server.address(); if (!address || typeof address === "string") throw new Error("lab_address_missing");
   const ws = new WebSocketServer({ server, path: "/ws" });
@@ -177,9 +186,11 @@ it.each([
     expect(events.filter(event => event === "browser:assessment-playback-confirmed")).toHaveLength(words.length);
     expect(before.observations.at(-1)?.result.observedErrorType).toBeUndefined();
     await page.screenshot({ path: path.join(outputDir, "preparing.png") });
-    const generationStartedAt = Date.now();
-    await runAdaptiveMathGeneration("lab-child", homeworkId, rootDir);
-    const firstReadyMs = Date.now() - generationStartedAt;
+    expect(workerLaunchCount).toBe(1);
+    expect(automaticGeneration).toBeDefined();
+    await automaticGeneration;
+    const firstReadyMs = Date.now() - generationStartedAt!;
+    // An explicit restart must reuse all completed work and never call the Planner again.
     await runAdaptiveMathGeneration("lab-child", homeworkId, rootDir);
     expect(lab.plannerCalls).toBe(1);
     const checkProgress = page.getByRole("button", { name: "Check progress", exact: true });
