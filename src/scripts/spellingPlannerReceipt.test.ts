@@ -51,7 +51,10 @@ describe("Planner-authored spelling node titles survive the real parser", () => 
     expect(transport.create).toHaveBeenCalledOnce();
   });
 
-  it("revalidates a saved board after a local presentation compiler fix without another Planner call", async () => {
+  it.each([
+    "spelling_board_presentation_missing_nodes:shared-check",
+    "spelling_board_publication_rejected:choice_experiment_metadata_missing:shared-check-options",
+  ])("revalidates a saved board after local publication failure %s without another Planner call", async (savedError) => {
     const f = await fixture();
     transport.create.mockResolvedValue(structuredClone(f.message));
     await f.worker();
@@ -59,7 +62,7 @@ describe("Planner-authored spelling node titles survive the real parser", () => 
     const jobFile = path.join(f.draftDir, "adaptive-generation-job.json");
     const job = JSON.parse(fs.readFileSync(jobFile, "utf8"));
     job.phase = "needs_attention";
-    job.error = "spelling_board_presentation_missing_nodes:shared-check";
+    job.error = savedError;
     job.nodes = job.nodes.map((node: Record<string, unknown>) => ({
       ...node,
       status: node.status === "evidence_locked" ? "evidence_locked" : "preparing",
