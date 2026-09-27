@@ -1,10 +1,11 @@
 import express from "express";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { recordDiscoveryAttempt, completeDiscoveryEvaluation, queueTargetedMathGeneration } = vi.hoisted(() => ({
+const { recordDiscoveryAttempt, completeDiscoveryEvaluation, queueTargetedMathGeneration, launchAdaptiveMathWorker } = vi.hoisted(() => ({
   recordDiscoveryAttempt: vi.fn(),
   completeDiscoveryEvaluation: vi.fn(),
   queueTargetedMathGeneration: vi.fn(),
+  launchAdaptiveMathWorker: vi.fn(),
 }));
 
 vi.mock("../engine/adaptiveMathDiscovery", async (importOriginal) => ({
@@ -30,9 +31,10 @@ describe("adaptive math discovery routes", () => {
     recordDiscoveryAttempt.mockReset().mockReturnValue({ lifecycle: "evaluation_active", revision: 2 });
     completeDiscoveryEvaluation.mockReset().mockReturnValue({ lifecycle: "evidence_ready", revision: 3 });
     queueTargetedMathGeneration.mockReset().mockReturnValue({ phase: "targeted_planning" });
+    launchAdaptiveMathWorker.mockReset();
     const app = express();
     app.use(express.json());
-    setupRoutes(app);
+    setupRoutes(app, { launchAdaptiveMathWorker });
     server = app.listen(0);
     await new Promise<void>((resolve) => server.once("listening", resolve));
     const address = server.address();
@@ -71,6 +73,7 @@ describe("adaptive math discovery routes", () => {
     }));
     expect(complete.status).toBe(202);
     expect(await complete.json()).toMatchObject({ lifecycle: "evidence_ready", targetedGenerationQueued: true });
+    expect(launchAdaptiveMathWorker).toHaveBeenCalledWith("lab-child", "hw-1");
   });
 
   it("keeps the Probe chapter open between nodes and queues teaching only after the final node", async () => {

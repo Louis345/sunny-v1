@@ -695,7 +695,12 @@ export function handleDiagTriggerReward(
   }
 }
 
-export function setupRoutes(app: Express): void {
+export type SunnyRouteRuntime = {
+  launchAdaptiveMathWorker?: (childId: string, homeworkId: string) => void;
+};
+
+export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void {
+  const launchTargetedWorker = runtime.launchAdaptiveMathWorker ?? launchAdaptiveMathWorker;
   setImmediate(() => resumeAdaptiveMathWorkers());
   const themesDir = path.resolve(process.cwd(), "src", "themes");
   if (fs.existsSync(themesDir)) {
@@ -821,7 +826,7 @@ export function setupRoutes(app: Express): void {
       }
       const existingJob = getMathGenerationStatus(childId, homeworkId);
       queueTargetedMathGeneration({ childId, homeworkId });
-      if (!existingJob || existingJob.phase === "probe_ready") launchAdaptiveMathWorker(childId, homeworkId);
+      if (!existingJob || existingJob.phase === "probe_ready") launchTargetedWorker(childId, homeworkId);
       console.log(` 🎮 [adaptive-math] [discovery-complete] [targeted-generation-queued] child=${childId} homework=${homeworkId}`);
       return res.status(202).json({ ok: true, lifecycle: cycle.lifecycle, revision: cycle.revision, probeChapterComplete: true, targetedGenerationQueued: true, returnNextSession: true });
     } catch (error: unknown) {
