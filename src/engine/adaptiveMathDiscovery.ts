@@ -2291,6 +2291,7 @@ export function updateMathGenerationNode(input: {
   job.updatedAt = node.updatedAt;
   if (job.nodes.every((candidate) => ["ready", "completed", "evidence_locked"].includes(candidate.status))) {
     job.phase = job.phase === "probe_generating" || job.phase === "probe_ready" ? "probe_ready" : "board_ready";
+    delete job.error;
   } else if (job.nodes.some((candidate) => candidate.status === "needs_attention")) {
     job.phase = "needs_attention";
   }

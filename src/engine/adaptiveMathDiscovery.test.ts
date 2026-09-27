@@ -35,6 +35,7 @@ import {
   validateDiscoveryAcademicBinding,
   verifyDiscoveryRuntimeScoring,
   revealTargetedBoard,
+  setMathGenerationPhase,
   updateMathGenerationNode,
   writeMathGenerationJob,
   type MathDiscoveryAttempt,
@@ -1548,6 +1549,18 @@ describe("adaptive math discovery", () => {
     ]));
     expect(resumed.nodes.find((node) => node.nodeId === "N1")?.artifactHash).toBe("html-hash-1");
     expect(resumed.nodes.find((node) => node.nodeId === "N2")?.status).toBe("preparing");
+  });
+
+  it("clears a stale assignment error when every node becomes ready", () => {
+    const rootDir = root();
+    writeMathGenerationJob({ rootDir, childId: "lab-child", homeworkId: "hw-recovered", programHash: "program", designHash: "design", nodeIds: ["N1"] });
+    setMathGenerationPhase({ rootDir, childId: "lab-child", homeworkId: "hw-recovered", phase: "needs_attention", error: "old_local_publication_failure" });
+
+    updateMathGenerationNode({ rootDir, childId: "lab-child", homeworkId: "hw-recovered", nodeId: "N1", status: "ready", artifactHash: "verified" });
+
+    const recovered = getMathGenerationStatus("lab-child", "hw-recovered", { rootDir });
+    expect(recovered?.phase).toBe("board_ready");
+    expect(recovered).not.toHaveProperty("error");
   });
 
   it("allows only one durable generation lease per assignment", () => {
