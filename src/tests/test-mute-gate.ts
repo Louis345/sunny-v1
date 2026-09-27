@@ -1,7 +1,10 @@
 import { describe, it, expect, vi } from "vitest";
 import { mapNodeSessionAudioFlags } from "../shared/mapNodeSessionAudio";
 import { createAudioGate } from "../server/audioGate";
-import { flushBufferIfUnmuted } from "../shared/flushBuffer";
+import {
+  flushBufferIfUnmuted,
+  shouldAcknowledgeAudioPlayback,
+} from "../shared/flushBuffer";
 import { getNodeAudioDefaults } from "../shared/nodeAudioDefaults";
 
 describe("server-side mute gate", () => {
@@ -65,6 +68,37 @@ describe("client-side leak prevention", () => {
     flushBufferIfUnmuted(frames, true, sendMessage);
     expect(sendMessage).not.toHaveBeenCalled();
   });
+
+  it("does not acknowledge required playback when every audio frame was discarded", () => {
+    expect(
+      shouldAcknowledgeAudioPlayback({
+        requiresAudio: true,
+        receivedAudioFrames: 1,
+        playedAudioFrames: 0,
+      }),
+    ).toBe(false);
+    expect(
+      shouldAcknowledgeAudioPlayback({
+        requiresAudio: true,
+        receivedAudioFrames: 1,
+        playedAudioFrames: 1,
+      }),
+    ).toBe(true);
+    expect(
+      shouldAcknowledgeAudioPlayback({
+        requiresAudio: false,
+        receivedAudioFrames: 0,
+        playedAudioFrames: 0,
+      }),
+    ).toBe(true);
+    expect(
+      shouldAcknowledgeAudioPlayback({
+        requiresAudio: true,
+        receivedAudioFrames: 2,
+        playedAudioFrames: 1,
+      }),
+    ).toBe(false);
+  });
 });
 
 describe("node-driven audio defaults", () => {
@@ -80,10 +114,10 @@ describe("node-driven audio defaults", () => {
     expect(cfg.companionTtsDefault).toBe("off");
   });
 
-  it("word-radar defaults to mic off and tts off", () => {
+  it("word-radar keeps TTS playback on while leaving the companion mic policy unchanged", () => {
     const cfg = getNodeAudioDefaults("word-radar");
     expect(cfg.companionMicDefault).toBe("off");
-    expect(cfg.companionTtsDefault).toBe("off");
+    expect(cfg.companionTtsDefault).toBe("on");
   });
 
   it("spell-check defaults to both on", () => {

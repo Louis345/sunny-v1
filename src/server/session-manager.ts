@@ -1163,15 +1163,20 @@ export class SessionManager {
   ): Promise<void> {
     const assessment = metadata.assessmentMode === true ? this.spellingAssessment : undefined;
     const spoken = await gev.narrateGameStimulus({ text, metadata, childName: this.childName, ttsLabel: this.sessionTtsLabel,
-      bridge: this.ttsBridge, assessment, isCurrent: () => this.spellingAssessment === assessment,
+      bridge: this.ttsBridge, assessment,
       record: (action, event) => this.debugRecorder.recordEvent("game_narration", action, event) });
     if (spoken) {
       this.pendingGameNarrationPlayback = {
         activityId: metadata.activityId,
         nodeId: metadata.nodeId,
         reason: metadata.reason,
+        ...(assessment ? { assessmentItemId: assessment.itemId } : {}),
       };
-      this.send("audio_done");
+      if (assessment) {
+        this.send("audio_done", { requiresAudio: true, itemId: assessment.itemId });
+      } else {
+        this.send("audio_done");
+      }
     }
   }
 
@@ -1222,6 +1227,14 @@ export class SessionManager {
     this.pendingRoundComplete = null;
     gev.abortGameTtsGate(this);
     this.deferredTtsFinish = false;
+    if (this.pendingGameNarrationPlayback) {
+      this.debugRecorder.recordEvent(
+        "game_narration",
+        "playback_interrupted",
+        this.pendingGameNarrationPlayback,
+      );
+      this.pendingGameNarrationPlayback = null;
+    }
 
     const stateBefore = this.turnSM.getState();
     this.turnSM.onInterrupt();
@@ -1288,7 +1301,19 @@ export class SessionManager {
 
   playbackDone(): void {
     if (this.pendingGameNarrationPlayback) {
-      this.debugRecorder.recordEvent("game_narration", "playback_done", this.pendingGameNarrationPlayback);
+      const pending = this.pendingGameNarrationPlayback;
+      const assessmentItemId = typeof pending.assessmentItemId === "string"
+        ? pending.assessmentItemId
+        : null;
+      if (assessmentItemId) {
+        const assessment =
+          this.spellingAssessmentHistory?.get(assessmentItemId) ??
+          (this.spellingAssessment?.itemId === assessmentItemId
+            ? this.spellingAssessment
+            : undefined);
+        if (assessment) assessment.audioDelivered = true;
+      }
+      this.debugRecorder.recordEvent("game_narration", "playback_done", pending);
       this.pendingGameNarrationPlayback = null;
     }
     this.turnSM.onPlaybackComplete();

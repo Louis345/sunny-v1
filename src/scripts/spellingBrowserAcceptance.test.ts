@@ -84,7 +84,9 @@ it.each([
   const address = server.address(); if (!address || typeof address === "string") throw new Error("lab_address_missing");
   const ws = new WebSocketServer({ server, path: "/ws" });
   const errors: string[] = [], events: string[] = [];
-  const voice = Object.assign(Object.create(SessionManager.prototype), { chartChildId: "lab-child", childName: "Lab", sessionTtsLabel: "Lab", sessionId: "recorded-voice", companionPresence: "collapsed", send: () => {}, debugRecorder: { recordEvent: () => {}, recordGameTrace: () => {} }, ttsBridge: { connect: async () => {}, sendText: () => {}, finish: async () => {}, hadAudioThisTurn: () => true } }) as SessionManager;
+  let pendingAssessmentPlayback = 0;
+  let confirmedAssessmentPlayback = 0;
+  const voice = Object.assign(Object.create(SessionManager.prototype), { chartChildId: "lab-child", childName: "Lab", sessionTtsLabel: "Lab", sessionId: "recorded-voice", companionPresence: "collapsed", send: () => {}, debugRecorder: { recordEvent: () => {}, recordGameTrace: () => {} }, ttsBridge: { connect: async () => {}, sendText: () => {}, finish: async () => {}, hadAudioThisTurn: () => true }, turnSM: { onPlaybackComplete: () => {}, consumePendingTranscript: () => undefined }, flushPendingRoundComplete: () => {} }) as SessionManager;
   registerActiveVoiceSessionManager("lab-child", { noteExternalEvent() {}, getDiscoveryAttemptContext: voice.getDiscoveryAttemptContext.bind(voice) });
   const handleVoiceMessage = (data: string | Buffer, send: (data: string) => void): void => {
     const message = JSON.parse(String(data));
@@ -96,12 +98,21 @@ it.each([
       }
     }
     const event = message.event;
+    if (message.type === "playback_done") {
+      voice.playbackDone();
+      if (pendingAssessmentPlayback > 0) {
+        pendingAssessmentPlayback -= 1;
+        confirmedAssessmentPlayback += 1;
+        events.push("browser:assessment-playback-confirmed");
+      }
+    }
     if (event?.type === "attempt_event") { events.push("canonical-game:attempt_event"); voice.handleGameEvent(event); }
     if (event?.type === "game_state_update") voice.updateCurrentBoardSnapshot(event.payload);
     if (event?.type === "narration_request") void voice.speakGameNarration(event.payload.text, event.payload).then(() => {
       events.push("server:audio");
+      pendingAssessmentPlayback += 1;
       send(JSON.stringify({ type: "audio", data: "UklGRiYAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQIAAAAAAA==" }));
-      send(JSON.stringify({ type: "audio_done" }));
+      send(JSON.stringify({ type: "audio_done", requiresAudio: true, itemId: event.payload.itemId }));
     }).catch(error => errors.push(String(error)));
   };
   ws.on("connection", socket => socket.on("message", data => handleVoiceMessage(String(data), value => socket.send(value))));
@@ -130,7 +141,10 @@ it.each([
       // The existing mic pulses continuously. Verify its real hit target rather
       // than requiring an animated control to stop moving for two frames.
       const hit = await hear.evaluate((element: any) => { const r = element.getBoundingClientRect(); const doc = element.ownerDocument; const x = r.x + r.width / 2, y = r.y + r.height / 2; return { x, y, inside: r.left >= 0 && r.top >= 0 && r.right <= doc.defaultView.innerWidth && r.bottom <= doc.defaultView.innerHeight, clear: element.contains(doc.elementFromPoint(x, y)) }; });
-      expect(hit.inside && hit.clear).toBe(true); await page.mouse.click(hit.x, hit.y);
+      expect(hit.inside && hit.clear).toBe(true);
+      const expectedPlaybackCount = confirmedAssessmentPlayback + 1;
+      await page.mouse.click(hit.x, hit.y);
+      await expect.poll(() => confirmedAssessmentPlayback).toBe(expectedPlaybackCount);
       await page.getByTestId("word-radar-input").fill(value);
       const written = page.waitForResponse(response => response.url().endsWith("/discovery/attempt"));
       await page.getByRole("button", { name: "Submit", exact: true }).click();
@@ -160,6 +174,7 @@ it.each([
       ? [true, true, true, true, true, true, false, false, false, false]
       : [true, false]);
     expect(events.filter(event => event === "server:audio")).toHaveLength(words.length);
+    expect(events.filter(event => event === "browser:assessment-playback-confirmed")).toHaveLength(words.length);
     expect(before.observations.at(-1)?.result.observedErrorType).toBeUndefined();
     await page.screenshot({ path: path.join(outputDir, "preparing.png") });
     const generationStartedAt = Date.now();

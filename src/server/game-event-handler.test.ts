@@ -20,6 +20,33 @@ afterEach(() => {
 });
 
 describe("game event handler companion events", () => {
+  it("shows a recoverable child-facing warning when a spelling stimulus cannot play", async () => {
+    const fakeSession = {
+      recordDebugEvent: vi.fn(),
+      recordGameTrace: vi.fn(),
+      speakGameNarration: vi.fn().mockRejectedValue(new Error("spelling_stimulus_audio_unavailable")),
+      send: vi.fn(),
+    };
+
+    handleGameEventForSession(fakeSession, {
+      type: "narration_request",
+      game: "word-radar",
+      activityId: "word-radar",
+      nodeId: "opening",
+      itemId: "item-1",
+      assessmentMode: true,
+      word: "sample",
+      text: "sample",
+    });
+
+    await vi.waitFor(() => {
+      expect(fakeSession.send).toHaveBeenCalledWith("error", {
+        fatal: false,
+        message: "I couldn't play that word. Tap Hear the word again.",
+      });
+    });
+  });
+
   it("routes an explicit generated-math read request to Elli's support turn", () => {
     const fakeSession = {
       childName: "Reina",

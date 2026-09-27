@@ -2,9 +2,9 @@ import { describe, it, expect } from "vitest";
 import { mapNodeSessionAudioFlags } from "../../../../src/shared/mapNodeSessionAudio";
 
 describe("mapNodeSessionAudioFlags", () => {
-  it("word-radar suppresses companion TTS while the node is active", () => {
+  it("word-radar keeps the playback channel open for the spoken spelling stimulus", () => {
     const f = mapNodeSessionAudioFlags("word-radar");
-    expect(f.companionTtsMuted).toBe(true);
+    expect(f.companionTtsMuted).toBe(false);
   });
 
   it("cleared map node unmutes companion TTS (regression: after Word Radar / karaoke)", () => {

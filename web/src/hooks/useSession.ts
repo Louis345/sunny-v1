@@ -29,7 +29,10 @@ import {
   resetAudioAnalyser,
 } from "../utils/audioAnalyser";
 import { isKaraokeReadingAssistSilence } from "./karaokeAssistSilence";
-import { flushBufferIfUnmuted } from "../../../src/shared/flushBuffer";
+import {
+  flushBufferIfUnmuted,
+  shouldAcknowledgeAudioPlayback,
+} from "../../../src/shared/flushBuffer";
 import { mapNodeSessionAudioFlags } from "../../../src/shared/mapNodeSessionAudio";
 import { resolveSunnyRuntimeConfig } from "../../../src/shared/runtimeConfig";
 import type { ChildProgressionSnapshot } from "../../../src/engine/progression";
@@ -389,6 +392,9 @@ export function useSession(options?: UseSessionOptions) {
   const currentSourceRef = useRef<AudioBufferSourceNode | null>(null);
   const analyserNodeRef = useRef<AnalyserNode | null>(null);
   const serverDoneRef = useRef(false);
+  const playbackRequiresAudioRef = useRef(false);
+  const receivedAudioFramesRef = useRef(0);
+  const playedAudioFramesRef = useRef(0);
   const bargeInConsecutiveRef = useRef(0);
   const rollingBufferRef = useRef<string[]>([]);
   const finalizePlaybackRef = useRef<() => void>(() => {});
@@ -521,7 +527,26 @@ export function useSession(options?: UseSessionOptions) {
     if (audioQueueRef.current.length > 0) return;
     if (currentSourceRef.current) return;
 
+    const playbackConfirmed = shouldAcknowledgeAudioPlayback({
+      requiresAudio: playbackRequiresAudioRef.current,
+      receivedAudioFrames: receivedAudioFramesRef.current,
+      playedAudioFrames: playedAudioFramesRef.current,
+    });
     serverDoneRef.current = false;
+    playbackRequiresAudioRef.current = false;
+    receivedAudioFramesRef.current = 0;
+    playedAudioFramesRef.current = 0;
+    if (!playbackConfirmed) {
+      setStateRef.current((s) => ({
+        ...s,
+        warning: "I couldn't play that word. Tap Hear the word again.",
+      }));
+      sendMessageRef.current("client_audio_status", {
+        event: "playback_not_confirmed",
+        reason: "required_audio_not_fully_played",
+      });
+      return;
+    }
     sendMessageRef.current("playback_done");
     flushBufferIfUnmuted(
       rollingBufferRef.current,
@@ -598,6 +623,9 @@ export function useSession(options?: UseSessionOptions) {
         audioQueueRef.current = [];
         isPlayingRef.current = false;
         serverDoneRef.current = false;
+        playbackRequiresAudioRef.current = false;
+        receivedAudioFramesRef.current = 0;
+        playedAudioFramesRef.current = 0;
         if (currentSourceRef.current) {
           try {
             currentSourceRef.current.stop();
@@ -843,6 +871,7 @@ export function useSession(options?: UseSessionOptions) {
 
       case "audio": {
         serverDoneRef.current = false;
+        receivedAudioFramesRef.current += 1;
         if (ttsMutedRef.current) {
           break;
         }
@@ -861,6 +890,7 @@ export function useSession(options?: UseSessionOptions) {
       }
 
       case "audio_done":
+        playbackRequiresAudioRef.current = msg.requiresAudio === true;
         serverDoneRef.current = true;
         finalizePlaybackRef.current();
         break;
@@ -1562,6 +1592,7 @@ export function useSession(options?: UseSessionOptions) {
       source.onended = () => {
         if (currentSourceRef.current === source) {
           currentSourceRef.current = null;
+          playedAudioFramesRef.current += 1;
         }
         playNextChunk();
       };
@@ -1712,6 +1743,9 @@ export function useSession(options?: UseSessionOptions) {
   const bargeIn = useCallback(() => {
     sendMessage("barge_in");
     serverDoneRef.current = false;
+    playbackRequiresAudioRef.current = false;
+    receivedAudioFramesRef.current = 0;
+    playedAudioFramesRef.current = 0;
     audioQueueRef.current = [];
     isPlayingRef.current = false;
     if (currentSourceRef.current) {
@@ -1733,6 +1767,9 @@ export function useSession(options?: UseSessionOptions) {
     audioQueueRef.current = [];
     isPlayingRef.current = false;
     serverDoneRef.current = false;
+    playbackRequiresAudioRef.current = false;
+    receivedAudioFramesRef.current = 0;
+    playedAudioFramesRef.current = 0;
     if (currentSourceRef.current) {
       try { currentSourceRef.current.stop(); } catch { /* already stopped */ }
       currentSourceRef.current = null;
@@ -1767,6 +1804,9 @@ export function useSession(options?: UseSessionOptions) {
     audioQueueRef.current = [];
     isPlayingRef.current = false;
     serverDoneRef.current = false;
+    playbackRequiresAudioRef.current = false;
+    receivedAudioFramesRef.current = 0;
+    playedAudioFramesRef.current = 0;
     if (currentSourceRef.current) {
       try {
         currentSourceRef.current.stop();

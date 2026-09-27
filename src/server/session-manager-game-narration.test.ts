@@ -72,4 +72,39 @@ describe("SessionManager game narration", () => {
 
     expect(fakeSession.noteExternalEvent).not.toHaveBeenCalled();
   });
+
+  it("does not count interrupted spelling narration as completed playback", () => {
+    const recordEvent = vi.fn();
+    const fakeSession = {
+      pendingGameNarrationPlayback: {
+        activityId: "word-radar",
+        assessmentItemId: "item-1",
+      },
+      pendingRoundComplete: null,
+      gamePendingRevision: null,
+      gameTtsFallbackTimer: null,
+      deferredTtsFinish: false,
+      currentAbort: null,
+      currentCanvasState: null,
+      childName: "Lab",
+      roundNumber: 1,
+      debugRecorder: { recordEvent },
+      turnSM: {
+        getState: vi.fn(() => "SPEAKING"),
+        onInterrupt: vi.fn(),
+        clearGameTtsHold: vi.fn(),
+      },
+      ttsBridge: { stop: vi.fn() },
+      send: vi.fn(),
+    };
+
+    SessionManager.prototype.bargeIn.call(fakeSession);
+
+    expect(fakeSession.pendingGameNarrationPlayback).toBeNull();
+    expect(recordEvent).toHaveBeenCalledWith(
+      "game_narration",
+      "playback_interrupted",
+      expect.objectContaining({ assessmentItemId: "item-1" }),
+    );
+  });
 });
