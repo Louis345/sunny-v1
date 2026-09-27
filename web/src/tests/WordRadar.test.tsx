@@ -552,11 +552,10 @@ describe("WordRadar", () => {
     );
   });
 
-  it("plays the first hidden word once when the visible Listen phase begins", async () => {
-    // Human catch: the child saw “Listen” but heard nothing before the response screen.
-    // Log miss: server TTS entries came from later speaker taps and did not prove first-phase playback.
-    // Lab miss: the previous assertion explicitly required zero narration during the Listen phase,
-    // then only counted the new request without proving the server had bound the frozen item first.
+  it("binds the first hidden word before one Hear tap requests its audio", async () => {
+    // Human catch: the child tapped Hear but heard nothing.
+    // Log miss: provider completion was recorded even when the browser never started playback.
+    // Lab miss: its AudioContext mock always ran, so it never exercised the real pre-gesture autoplay block.
     const sendMessage = vi.fn();
     renderRadar({
       items: [{ ...sampleItems[0]!, itemId: "homework:discovery:item-1" }],
@@ -578,6 +577,9 @@ describe("WordRadar", () => {
           (payload as { event?: { type?: string } })?.event?.type === "narration_request",
       );
 
+    expect(narrationCalls()).toHaveLength(0);
+    fireEvent.click(screen.getByRole("button", { name: "Hear the word" }));
+
     expect(narrationCalls()).toEqual([
       expect.arrayContaining([
         "game_event",
@@ -586,7 +588,7 @@ describe("WordRadar", () => {
             type: "narration_request",
             payload: expect.objectContaining({
               word: "sun",
-              reason: "word_radar_listen_phase",
+              reason: "word_radar_mic_click",
             }),
           }),
         }),
