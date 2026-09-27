@@ -222,7 +222,7 @@ it.each([
       await page.getByRole("button", { name: "Letter Rush", exact: true }).click();
 
       const letterRush = page.frameLocator('iframe[title="letter-rush"]');
-      await letterRush.locator("body").evaluate((_body: HTMLElement) => {
+      await letterRush.locator("body").evaluate((_body: any) => {
         Math.random = () => 0.1;
       });
       await letterRush.getByRole("button", { name: "Start", exact: true }).click();

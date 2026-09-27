@@ -136,7 +136,7 @@ describe.each(viewports)("native frozen LetterRush at $width×$height", viewport
         scaffolds: { ...recordedConfig.scaffolds, showWord: true, letterBank: true },
       },
     });
-    await frame.locator("body").evaluate((_body: HTMLElement) => { Math.random = () => 0.1; });
+    await frame.locator("body").evaluate((_body: any) => { Math.random = () => 0.1; });
     await frame.getByRole("button", { name: "Start", exact: true }).click();
     for (const letter of word.text) {
       const falling = frame.locator(`button.falling[data-letter="${letter}"]`).last();
