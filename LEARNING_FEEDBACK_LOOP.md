@@ -1,6 +1,6 @@
 # Sunny Learning Feedback Loop
 
-Contract version: 17
+Contract version: 18
 
 This document is the **sole normative** authority for how Sunny forms, tests, and revises learning claims. Product changes that alter this loop must update this contract version before implementation. Other documents may describe infrastructure or history, but they must link here instead of creating another learning doctrine.
 
@@ -54,6 +54,8 @@ Every session is an honest chapter with a visible endpoint. Finishing the select
 Replaying a completed teaching instrument appends practice evidence without resetting the current lifecycle, sibling readiness, or completed next-step work. The server derives replay from the canonical node state, not a generated claim. Repeated completion deliveries remain idempotent; replay does not initiate another Planner call or award completion credit again. Raw activity messages remain audit facts rather than a second scoring authority, and engagement ratings cannot override canonical academic observations.
 
 When multiple academically valid interventions exist, the Planner may preregister a contextual agency experiment. It states the factual context, what academics remain comparable, one uncertain engagement hypothesis per route, predicted outcomes, falsifying evidence, and measurement keys. The board only projects the Planner's routes and records what was shown, selected, started, abandoned, completed, replayed, or switched. Selection alone never establishes preference; later interpretation must consider behavior, support, interaction, academic outcomes, and calibration together.
+
+For targeted spelling, the exact Planner-authored routes that the child-facing board exposes are frozen into the canonical learning cycle before publication. The Planner's converged all-words checkpoint is frozen as the common tail of every selectable route, while any common opening nodes remain on the shared frontier. A direct route-node selection records that canonical route as engagement evidence; it never establishes mastery or a durable child preference.
 
 The Probe Board establishes the child's independent starting point before targeted instruction. It is the complete first chapter for the assignment, not a single generated node followed by a child-visible generation wait. The Planner owns its construct coverage, activity count, item count, response formats, and evidence limits; the Experience Creator designs one coherent board from that frozen program. The complete Planner-authored map may appear after its program and design are frozen. Each probe node is implemented and verified before that node unlocks; unfinished siblings remain locked, and no unverified content can launch.
 

@@ -61,6 +61,53 @@ describe("evidence-cited spelling targeted programs", () => {
     expect(checkpoint.every(item => item.lineage.exposure === "practiced" && item.lineage.measurementRole === "fresh_checkpoint")).toBe(true);
     expect(checkpoint[1].lineage.sourceEvidenceIds).toContain("attempt-light");
   });
+  it("freezes Planner-authored spelling routes into the canonical agency experiment", () => {
+    const { cycle, plan } = fixture();
+    plan.nodePlan.splice(1, 0, {
+      id: "quick-practice",
+      type: "word-radar",
+      activityId: "word-radar",
+      targets: ["light"],
+      title: "Quick Practice",
+    } as never);
+    plan.plannedMeasurements!.splice(1, 0, {
+      id: "measure-quick-practice",
+      activityId: "word-radar",
+      target: "light",
+      evidenceType: "practice",
+      supportCriteria: "Response captured",
+      reviseCriteria: "Support needed",
+      falsifyCriteria: "Instrument fails",
+      spelling: {
+        role: "practice",
+        evidenceIds: ["attempt-light"],
+        interventionNodeIds: [],
+        reason: "Current gap",
+        uncertainty: "One attempt",
+        finalCheck: false,
+        expectedAccuracy: { min: 0, max: 1 },
+        confidence: 0.5,
+        maxDelayDays: 7,
+      },
+    } as never);
+    plan.plannedMeasurements!.find((measurement) => measurement.id === "measure-check")!
+      .spelling!.interventionNodeIds = ["practice", "quick-practice"];
+    plan.learningRoutes = [
+      { id: "careful-route", label: "Build It", rationale: "Careful practice", nodeIds: ["practice"] },
+      { id: "quick-route", label: "Speed It", rationale: "Quick recall", nodeIds: ["quick-practice"] },
+    ];
+
+    const input = buildSpellingTargetedCycleInput({ cycle, plan, now: "2026-09-08T12:00:00Z" });
+
+    expect(input.agencyExperiment).toEqual({
+      experimentId: "hw:agency:targeted-spelling",
+      sharedNodeIds: [],
+      routes: [
+        { routeId: "careful-route", nodeIds: ["practice", "check"] },
+        { routeId: "quick-route", nodeIds: ["quick-practice", "check"] },
+      ],
+    });
+  });
   it("rejects unknown citations, absent final coverage, and checkpoints before their intervention", () => {
     for (const change of [
       (plan: ActiveSessionPlan) => { plan.plannedMeasurements![0].spelling!.evidenceIds = ["invented"]; },

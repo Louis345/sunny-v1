@@ -982,7 +982,17 @@ async function runSpellingTargetedGeneration(childId: string, homeworkId: string
     console.log(` 🎮 [spelling] [targeted-planner] [${saved ? "reused" : "saved"}] homework=${homeworkId}`);
     const programHash = hashDiscoveryContract(result.output), designHash = hashDiscoveryContract(active.adventureBoard);
     let presentation = (await generateBoardNodeImages({ ...scope, plan: active, generateMissing: false })).plan ?? active;
-    if (!cycle.adaptiveGeneration?.designHash) revealTargetedBoard({ ...scope, programHash, designHash, nodes: [], nodeContracts: contract.nodes, academicTheory: contract.academicTheory, academicPredictions: contract.academicPredictions });
+    if (!cycle.adaptiveGeneration?.designHash) revealTargetedBoard({
+      ...scope,
+      programHash,
+      designHash,
+      nodes: [],
+      nodeContracts: contract.nodes,
+      academicTheory: contract.academicTheory,
+      academicPredictions: contract.academicPredictions,
+      assumptions: contract.assumptions,
+      agencyExperiment: contract.agencyExperiment,
+    });
     if (!getMathGenerationStatus(childId, homeworkId, { rootDir })?.programHash) writeMathGenerationJob({ ...scope, programHash, designHash, nodeIds: active.nodePlan.map(node => node.id) });
     for (const node of contract.nodes.filter(node => node.role === "quest" || node.role === "boss")) {
       if (getMathGenerationStatus(childId, homeworkId, { rootDir })!.nodes.find(row => row.nodeId === node.nodeId)?.status === "preparing") updateMathGenerationNode({ ...scope, nodeId: node.nodeId, status: "evidence_locked" });

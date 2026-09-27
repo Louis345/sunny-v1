@@ -360,6 +360,25 @@ export function buildSpellingTargetedCycleInput(input: {
     }
   }
   const contract = buildLearningCycleInputFromPlan({ childId: cycle.childId, homeworkId: cycle.homeworkId, domain: "spelling", title: cycle.assignment.title, contentFingerprint: cycle.assignment.contentFingerprint, capturedEvidenceIds: cycle.assignment.capturedEvidenceIds, targets: cycle.assignment.targets, plan, engagementTheory: null });
+  const selectableRoutes = getAdventureBoardSelectableRoutes(plan);
+  if (selectableRoutes.length >= 2) {
+    const routedNodeIds = new Set(selectableRoutes.flatMap((route) => route.nodeIds));
+    const finalCheckpointNodeIds = (plan.plannedMeasurements ?? [])
+      .filter((measurement) => measurement.spelling?.finalCheck === true)
+      .map((measurement) => measurement.id.replace(/^measure-/, ""))
+      .filter((nodeId) => contract.nodes.some((node) => node.nodeId === nodeId && node.role === "baseline"));
+    const commonTailIds = new Set(finalCheckpointNodeIds);
+    contract.agencyExperiment = {
+      experimentId: `${cycle.homeworkId}:agency:targeted-spelling`,
+      sharedNodeIds: contract.nodes
+        .filter((node) => node.role === "baseline" && !routedNodeIds.has(node.nodeId) && !commonTailIds.has(node.nodeId))
+        .map((node) => node.nodeId),
+      routes: selectableRoutes.map((route) => ({
+        routeId: route.id,
+        nodeIds: [...route.nodeIds, ...finalCheckpointNodeIds],
+      })),
+    };
+  }
   contract.academicPredictions = [];
   const prior = new Set<string>();
   const pendingInterventions = new Map<string, Set<string>>();
