@@ -626,6 +626,47 @@ describe("buildAdventureBoardFromActiveSessionPlan", () => {
     ]));
   });
 
+  it("assigns unique slots to larger Planner-owned prefixes, routes, and converged tails", () => {
+    const sharedPrefix = ["observe", "model", "practice", "verify"];
+    const routeNodes = ["visual-route-node", "speed-route-node", "puzzle-route-node"];
+    const sharedTail = ["compare", "explain", "recheck", "final-check"];
+    const node = (id: string) => ({ id, type: "word-radar", activityId: "word-radar", targets: [id] });
+    const board = buildAdventureBoardFromActiveSessionPlan({
+      plan: {
+        planId: "larger-planner-owned-layout",
+        childId: "test-child",
+        domain: "spelling",
+        nodePlan: [
+          ...sharedPrefix.map(node),
+          ...routeNodes.map(node),
+          ...sharedTail.map(node),
+          { id: "quest", type: "quest", activityId: "quest", locked: true },
+          { id: "boss", type: "boss", activityId: "boss", locked: true },
+        ],
+        learningRoutes: routeNodes.map((routeNodeId, index) => ({
+          id: `route-${index + 1}`,
+          label: `Route ${index + 1}`,
+          rationale: `Planner route ${index + 1}.`,
+          nodeIds: [...sharedPrefix, routeNodeId, ...sharedTail, "quest", "boss"],
+        })),
+      },
+      boardId: "larger-planner-owned-layout",
+      theme,
+    });
+
+    expect(board.nodes.map((candidate) => candidate.id)).toEqual([
+      "start",
+      ...sharedPrefix,
+      "choose-path",
+      ...routeNodes,
+      ...sharedTail,
+      "quest",
+      "boss",
+    ]);
+    expect(board.nodes.every((candidate) => candidate.slot)).toBe(true);
+    expect(new Set(board.nodes.map((candidate) => candidate.slot)).size).toBe(board.nodes.length);
+  });
+
 
   it("prefers the locked mastery-gated node when two quest-typed nodes exist", () => {
     const board = buildAdventureBoardFromActiveSessionPlan({

@@ -241,6 +241,10 @@ export function buildAdventureBoardFromActiveSessionPlan(
     options.progress?.currentNodeId ??
     firstRequired?.id ??
     options.plan.nodePlan.find((node) => !node.locked && !completedNodeIds.includes(node.id))?.id;
+  const allocateSlot = createAdventureSlotAllocator({
+    reserveQuest: Boolean(questNode),
+    reserveBoss: Boolean(bossNode),
+  });
 
   const requiredBoardNodes = requiredNodes.map((node, index) =>
     buildBoardNode({
@@ -249,12 +253,20 @@ export function buildAdventureBoardFromActiveSessionPlan(
       state: stateForPlanNode(node, completedNodeIds, currentNodeId),
       label: options.labelForNode?.(node, index) ?? labelForPlanNode(node),
       thumbnailUrl: options.thumbnailForNode?.(node, index) ?? thumbnailForPlanNode(node),
-      slot: requiredSlotForIndex(index),
+      slot: allocateSlot([requiredSlotForIndex(index)]),
       role: "baseline",
       lane: "main",
       order: index + 1,
     }),
   );
+  const choiceGate = hasRealRouteChoice
+    ? buildChoiceGate(options, requiredNodes.length, allocateSlot([
+        requiredNodes.length >= 3 ? "5c.1" : "4",
+        "5c.1",
+        "5c.2",
+        "5c.3",
+      ]))
+    : undefined;
   const routeBoardNodes = routeNodes.map((node, index) => {
     const routeEntry = normalizedLayout.hasExplicitRoutes
       ? normalizedLayout.routeEntries.find((entry) => entry.node.id === node.id)
@@ -276,7 +288,7 @@ export function buildAdventureBoardFromActiveSessionPlan(
       state: stateForPlanNode(node, completedNodeIds, currentNodeId),
       label: options.labelForNode?.(node, requiredNodes.length + index) ?? labelForPlanNode(node),
       thumbnailUrl: options.thumbnailForNode?.(node, requiredNodes.length + index) ?? thumbnailForPlanNode(node),
-      slot: routeSlot,
+      slot: allocateSlot([routeSlot]),
       role: hasRealRouteChoice ? "evidence-route" : "baseline",
       lane: routeLane,
       order: routeOrder,
@@ -289,15 +301,12 @@ export function buildAdventureBoardFromActiveSessionPlan(
       state: stateForPlanNode(node, completedNodeIds, currentNodeId),
       label: options.labelForNode?.(node, requiredNodes.length + routeNodes.length + index) ?? labelForPlanNode(node),
       thumbnailUrl: options.thumbnailForNode?.(node, requiredNodes.length + routeNodes.length + index) ?? thumbnailForPlanNode(node),
-      slot: convergedSlotForIndex(index, convergedNodes.length),
+      slot: allocateSlot([convergedSlotForIndex(index, convergedNodes.length)]),
       role: "baseline",
       lane: "main",
       order: requiredNodes.length + index + 1,
     }),
   );
-  const occupiedTailSlots = new Set(convergedBoardNodes.map((node) => node.slot));
-  const availableMysterySlots = (["6", "6.1", "6.2"] as const)
-    .filter((slot) => !occupiedTailSlots.has(slot));
   const destinationPlanNodes = [
     ...destinationMysteryNodes,
     ...(questNode ? [questNode] : []),
@@ -311,16 +320,13 @@ export function buildAdventureBoardFromActiveSessionPlan(
         label: options.labelForNode?.(node, baselineNodes.length + index) ?? labelForPlanNode(node),
         thumbnailUrl: options.thumbnailForNode?.(node, baselineNodes.length + index),
         slot: activityIdForPlanNode(node) === "mystery"
-          ? availableMysterySlots[destinationMysteryNodes.indexOf(node)] ?? "6.2"
+          ? allocateSlot(["6", "6.1", "6.2"])
           : destinationSlotForPlanNode(node),
         role: layoutRoleForKind(kindForPlanNode(node)),
         lane: "main",
         order: 1,
       }),
     );
-  const choiceGate = hasRealRouteChoice
-    ? buildChoiceGate(options, requiredNodes.length, requiredNodes.length >= 3 ? "5c.1" : "4")
-    : undefined;
   const startNode = buildStartNode();
   const nodes = [
     startNode,
@@ -380,6 +386,30 @@ export function buildAdventureBoardFromActiveSessionPlan(
       activeChoiceSetId: options.progress?.activeChoiceSetId ??
         (hasRealRouteChoice ? "baseline-route-options" : undefined),
     },
+  };
+}
+
+const ALLOCATABLE_ACTIVITY_SLOTS: NonNullable<AdventureBoardNode["slot"]>[] = [
+  "2", "3", "4",
+  "5a.1", "5b.1", "5c.1",
+  "5a.2", "5b.2", "5c.2",
+  "5a.3", "5b.3", "5c.3",
+  "6", "6.1", "6.2",
+];
+
+function createAdventureSlotAllocator(options: {
+  reserveQuest: boolean;
+  reserveBoss: boolean;
+}): (preferred: NonNullable<AdventureBoardNode["slot"]>[]) => NonNullable<AdventureBoardNode["slot"]> {
+  const occupied = new Set<NonNullable<AdventureBoardNode["slot"]>>(["1"]);
+  if (options.reserveQuest) occupied.add("7");
+  if (options.reserveBoss) occupied.add("8");
+  return (preferred) => {
+    const slot = [...preferred, ...ALLOCATABLE_ACTIVITY_SLOTS]
+      .find((candidate) => !occupied.has(candidate));
+    if (!slot) throw new Error("adventure_board_layout_capacity_exceeded");
+    occupied.add(slot);
+    return slot;
   };
 }
 
