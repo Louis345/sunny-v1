@@ -107,11 +107,25 @@ describe("Planner-owned opening spelling diagnostic", () => {
     expect(next.spellingDiagnostics!.evidenceIds).toEqual(expect.arrayContaining(["observation-0", "observation-1"]));
     expect(JSON.stringify(next.spellingDiagnostics)).not.toContain("wrong-private-response");
   });
-  it("retains a malformed response before validation so restart cannot repeat completed provider work", async () => {
+  it("repairs one incomplete Planner response once, then reuses the validated intake on restart", async () => {
+    // Human catch: the real provider omitted one required field while the 12 visible words looked correct.
+    // Log catch: Zod named the missing field, but the durable raw receipt made every restart repeat the failure.
+    // Lab miss: prior mocks always returned complete diagnostics and the old invariant explicitly preserved malformed receipts.
     const input = await fixture();
-    const callPlannerModel = vi.fn(async (packet: AssignmentPlanningPacket) => ({ draft: { ...capture(packet), diagnostic: { ...capture(packet).diagnostic, activityId: "unavailable-game" } } }));
-    for (let i = 0; i < 2; i++) await expect(runSpellingDiscoveryIntake(input, { callPlannerModel })).rejects.toThrow("spelling_diagnostic_instrument_unavailable");
-    expect(callPlannerModel).toHaveBeenCalledOnce();
+    const incomplete = structuredClone(capture(input.packet));
+    delete (incomplete.diagnostic as Partial<typeof incomplete.diagnostic>).nextEvidenceNeeded;
+    const callPlannerModel = vi.fn()
+      .mockResolvedValueOnce({ draft: incomplete })
+      .mockResolvedValueOnce({ draft: capture(input.packet) });
+
+    const first = await runSpellingDiscoveryIntake(input, { callPlannerModel });
+    const cycle = getLearningCycle(input.childId, first.homeworkId, input)!;
+    expect(Object.values(cycle.nodes[0].evidenceContract.spellingItems!).map(item => item.word)).toEqual(["night", "light"]);
+    expect(cycle.nodes[0].evidenceContract.diagnosticSelection!.decision.nextEvidenceNeeded).toEqual(capture(input.packet).diagnostic.nextEvidenceNeeded);
+    expect(callPlannerModel).toHaveBeenCalledTimes(2);
+
+    await runSpellingDiscoveryIntake(input, { callPlannerModel });
+    expect(callPlannerModel).toHaveBeenCalledTimes(2);
   });
   it("source confirmation cannot replace the Planner's diagnostic decision", async () => {
     const input = await fixture(), draft = capture(input.packet);

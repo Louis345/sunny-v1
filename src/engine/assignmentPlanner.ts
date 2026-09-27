@@ -337,19 +337,60 @@ export async function planSpellingIntakeFromSource(packet: AssignmentPlanningPac
   };
   const schema = spellingIntakeSchema.extend({ sourceNotes: z.array(z.string()), uncertainty: z.array(spellingIntakeUncertaintySchema), ...(packet.spellingDiagnostics ? { diagnostic: spellingDiagnosticDecisionSchema } : {}) });
   type Receipt = { message: Anthropic.Messages.Message; latencyMs: number } | { draft: unknown; usage?: LanguageModelUsage; latencyMs: number } | { output: SpellingIntake; telemetry: AssignmentPlannerTelemetry };
-  const receive = async (): Promise<Receipt> => opts.callPlannerModel
-    ? { ...await opts.callPlannerModel(packet, model), latencyMs: Date.now() - started }
-    : { message: await requestAssignmentPlannerTool({ prompt: buildSpellingIntakePrompt(packet), model, source: packet.sourceDocument, schema: z.toJSONSchema(schema, { io: "input" }) }), latencyMs: Date.now() - started };
+  const receive = async (prompt = buildSpellingIntakePrompt(packet), requestStarted = started): Promise<Receipt> => opts.callPlannerModel
+    ? { ...await opts.callPlannerModel(packet, model), latencyMs: Date.now() - requestStarted }
+    : { message: await requestAssignmentPlannerTool({ prompt, model, source: packet.sourceDocument, schema: z.toJSONSchema(schema, { io: "input" }) }), latencyMs: Date.now() - requestStarted };
+  const unpack = (value: Receipt): { draft: unknown; usage?: LanguageModelUsage; latencyMs: number } => {
+    if ("output" in value) return { draft: value.output, usage: value.telemetry.usage, latencyMs: value.telemetry.latencyMs };
+    const tool = "message" in value ? value.message.content.find(block => block.type === "tool_use" && block.name === ASSIGNMENT_PLANNER_TOOL_NAME) : undefined;
+    return {
+      draft: "message" in value ? tool && "input" in tool ? tool.input : undefined : value.draft,
+      usage: "message" in value ? usageFromAnthropic(value.message) : value.usage,
+      latencyMs: value.latencyMs,
+    };
+  };
   // Persist the entire paid response BEFORE schema/eligibility validation. Old completed
   // capture receipts retain the same request hash and remain reusable without a call.
   const receipt = opts.providerReceipt ? await runMathProviderStage({ ...opts.providerReceipt, model, request: packet, execute: receive }) : await receive();
   if ("output" in receipt) return { ...receipt, output: parseSpellingIntake(receipt.output, packet) };
-  const tool = "message" in receipt ? receipt.message.content.find(block => block.type === "tool_use" && block.name === ASSIGNMENT_PLANNER_TOOL_NAME) : undefined;
-  const draft = "message" in receipt ? tool && "input" in tool ? tool.input : undefined : receipt.draft;
-  const usage = "message" in receipt ? usageFromAnthropic(receipt.message) : receipt.usage;
-  const output = parse(draft);
+  const original = unpack(receipt);
+  let output: SpellingIntake;
+  let usage = original.usage;
+  let latencyMs = original.latencyMs;
+  try {
+    output = parse(original.draft);
+  } catch (error) {
+    const { diagnostic: _invalidDiagnostic, ...captureFields } = original.draft && typeof original.draft === "object"
+      ? original.draft as Record<string, unknown>
+      : {};
+    const captured = spellingIntakeSchema.omit({ diagnostic: true }).safeParse(captureFields);
+    const issues = error instanceof z.ZodError ? error.issues : [];
+    if (!captured.success || issues.length === 0 || issues.some(issue => issue.path[0] !== "diagnostic")) throw error;
+    const correctionRequest = {
+      version: 1,
+      purpose: "spelling_intake_diagnostic_schema_correction",
+      originalRequestHash: hashDiscoveryContract(packet),
+      invalidDiagnostic: (original.draft as { diagnostic?: unknown })?.diagnostic,
+      schemaIssues: issues,
+    };
+    const correctionPrompt = `Your previous spelling intake preserved the assignment capture but its diagnostic object failed the declared schema. Reissue the complete response once. Preserve the title, words, page numbers, sourceNotes, and source uncertainty exactly. Correct only the diagnostic fields listed below. Do not invent evidence IDs, child facts, activities, modes, or device facts. Return every required diagnostic field, including non-empty reason, evidenceIds, uncertainty, and nextEvidenceNeeded.\nSCHEMA ISSUES:\n${JSON.stringify(issues)}\nPREVIOUS RESPONSE:\n${JSON.stringify(original.draft)}`;
+    const correctionStarted = Date.now();
+    const corrected = opts.providerReceipt ? await runMathProviderStage({
+      draftDir: opts.providerReceipt.draftDir,
+      stage: `${opts.providerReceipt.stage}-diagnostic-schema-correction-v1`,
+      model,
+      request: correctionRequest,
+      execute: () => receive(correctionPrompt, correctionStarted),
+    }) : await receive(correctionPrompt, correctionStarted);
+    const repair = unpack(corrected);
+    const repairedDiagnostic = spellingDiagnosticDecisionSchema.parse((repair.draft as { diagnostic?: unknown })?.diagnostic);
+    output = parse({ ...captured.data, diagnostic: repairedDiagnostic });
+    usage = combinePlannerUsage(original.usage, repair.usage);
+    latencyMs += repair.latencyMs;
+    console.log(" 🎮 [spelling-discovery] [diagnostic-schema-repair] [validated] attempt=2");
+  }
   console.log(` 🎮 [spelling-discovery] [diagnostic-decision] [${output.diagnostic?.action ?? "legacy-fixed-instrument"}]`);
-  return { output, telemetry: { model, usage, latencyMs: receipt.latencyMs } };
+  return { output, telemetry: { model, usage, latencyMs } };
 }
 
 export type AssignmentPlannerTelemetry = {
