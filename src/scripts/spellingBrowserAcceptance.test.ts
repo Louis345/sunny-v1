@@ -83,7 +83,7 @@ it.each([
   const address = server.address(); if (!address || typeof address === "string") throw new Error("lab_address_missing");
   const ws = new WebSocketServer({ server, path: "/ws" });
   const errors: string[] = [], events: string[] = [];
-  const voice = Object.assign(Object.create(SessionManager.prototype), { chartChildId: "lab-child", childName: "Lab", sessionTtsLabel: "Lab", sessionId: "recorded-voice", companionPresence: "collapsed", send: () => {}, debugRecorder: { recordEvent: () => {}, recordGameTrace: () => {} }, ttsBridge: { connect: async () => {}, sendText: () => {}, finish: async () => {} } }) as SessionManager;
+  const voice = Object.assign(Object.create(SessionManager.prototype), { chartChildId: "lab-child", childName: "Lab", sessionTtsLabel: "Lab", sessionId: "recorded-voice", companionPresence: "collapsed", send: () => {}, debugRecorder: { recordEvent: () => {}, recordGameTrace: () => {} }, ttsBridge: { connect: async () => {}, sendText: () => {}, finish: async () => {}, hadAudioThisTurn: () => true } }) as SessionManager;
   registerActiveVoiceSessionManager("lab-child", { noteExternalEvent() {}, getDiscoveryAttemptContext: voice.getDiscoveryAttemptContext.bind(voice) });
   const handleVoiceMessage = (data: string | Buffer, send: (data: string) => void): void => {
     const message = JSON.parse(String(data));
@@ -97,7 +97,11 @@ it.each([
     const event = message.event;
     if (event?.type === "attempt_event") { events.push("canonical-game:attempt_event"); voice.handleGameEvent(event); }
     if (event?.type === "game_state_update") voice.updateCurrentBoardSnapshot(event.payload);
-    if (event?.type === "narration_request") void voice.speakGameNarration(event.payload.text, event.payload).then(() => { send(JSON.stringify({ type: "audio_done" })); }).catch(error => errors.push(String(error)));
+    if (event?.type === "narration_request") void voice.speakGameNarration(event.payload.text, event.payload).then(() => {
+      events.push("server:audio");
+      send(JSON.stringify({ type: "audio", data: "UklGRiYAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQIAAAAAAA==" }));
+      send(JSON.stringify({ type: "audio_done" }));
+    }).catch(error => errors.push(String(error)));
   };
   ws.on("connection", socket => socket.on("message", data => handleVoiceMessage(String(data), value => socket.send(value))));
   let vite: any, browser: Awaited<ReturnType<typeof chromium.launch>> | undefined;
@@ -154,6 +158,7 @@ it.each([
     expect(before.observations.map(row => row.result.correct)).toEqual(scenario.adaptive
       ? [true, true, true, true, true, true, false, false, false, false]
       : [true, false]);
+    expect(events.filter(event => event === "server:audio")).toHaveLength(words.length);
     expect(before.observations.at(-1)?.result.observedErrorType).toBeUndefined();
     await page.screenshot({ path: path.join(outputDir, "preparing.png") });
     const generationStartedAt = Date.now();
