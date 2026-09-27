@@ -197,6 +197,8 @@ export type SessionManagerOptions = {
   sttOnly?: boolean;
   /** Chart/storage child id. Lets sandbox runs use a real companion voice without touching real charts. */
   chartChildId?: string;
+  /** Exact assignment validated by the homework launch boundary. */
+  homeworkId?: string;
 };
 
 export class SessionManager {
@@ -782,6 +784,7 @@ export class SessionManager {
       silentTts: options?.silentTts === true,
       sttOnly: options?.sttOnly === true,
       chartChildId: this.chartChildId,
+      homeworkId: options?.homeworkId,
     });
 
     if (isSunnyTestMode()) {

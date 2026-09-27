@@ -490,6 +490,29 @@ export function resolveBootstrapSubject(opts: {
   return opts.diagKioskFast ? "diag" : envSubject;
 }
 
+export function assertHomeworkSessionAssignment(opts: {
+  expectedHomeworkId?: string | null;
+  pendingHomeworkId?: string | null;
+  activeHomeworkId?: string | null;
+  cycleHomeworkId?: string | null;
+  requireCanonicalCycle?: boolean;
+}): void {
+  const expected = String(opts.expectedHomeworkId ?? "").trim();
+  if (!expected) return;
+  const required = [opts.pendingHomeworkId, opts.activeHomeworkId];
+  if (opts.requireCanonicalCycle || opts.cycleHomeworkId) {
+    required.push(opts.cycleHomeworkId);
+  }
+  const matches = required.every(
+    (value) => String(value ?? "").trim() === expected,
+  );
+  if (!matches) {
+    throw new Error(
+      `homework_session_assignment_changed:expected=${expected}:pending=${opts.pendingHomeworkId ?? "none"}:plan=${opts.activeHomeworkId ?? "none"}:cycle=${opts.cycleHomeworkId ?? "none"}`,
+    );
+  }
+}
+
 export async function runSessionStart(
   session: any,
   hooks: SessionStartHooks = {},
@@ -533,6 +556,21 @@ export async function runSessionStart(
     const sessionLearningProfile = !session.diagKioskFast
       ? readLearningProfile(String(homeworkChild).toLowerCase())
       : null;
+    if (!session.diagKioskFast && subject === "homework") {
+      const chart = getChildChart(String(homeworkChild).toLowerCase());
+      assertHomeworkSessionAssignment({
+        expectedHomeworkId: session.options?.homeworkId,
+        pendingHomeworkId: sessionLearningProfile?.pendingHomework?.homeworkId,
+        activeHomeworkId: chart.activeSessionPlan?.activeHomeworkId,
+        cycleHomeworkId: chart.learningCycle?.homeworkId,
+        requireCanonicalCycle:
+          chart.activeSessionPlan?.domain === "math" ||
+          chart.activeSessionPlan?.domain === "spelling",
+      });
+      console.log(
+        `  🎮 [session-bootstrap] [assignment-validation] [accepted] child=${homeworkChild} homework=${session.options?.homeworkId ?? "legacy"}`,
+      );
+    }
     const activeMapState = !session.diagKioskFast
       ? getLatestMapStateForChild(String(homeworkChild).toLowerCase())
       : null;

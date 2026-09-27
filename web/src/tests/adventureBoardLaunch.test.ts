@@ -15,6 +15,8 @@ import {
   runDiscoveryExitSequence,
   resolveDirectDiscoverySurface,
   resolveDirectDiscoveryLaunchNode,
+  resolveHomeworkVoiceSessionStart,
+  resolveHomeworkVoiceAutostart,
   resolvePlannerBoardLaunchNode,
   shouldHoldTargetedBoardForPreparation,
 } from "../utils/adventureBoardLaunch";
@@ -47,6 +49,80 @@ function packet(planId: string, nodes: Array<Record<string, unknown>>): ChildExp
 }
 
 describe("direct Discovery entry", () => {
+  it("does not start homework voice until one exact assignment packet is validated", () => {
+    const ready = packet("discovery:hw-1", [
+      { id: "evaluation", type: "word-radar", title: "Show What You Know" },
+    ]);
+    ready.activeSessionPlan!.domain = "spelling";
+    ready.childChart = {
+      childId: "ila",
+      learningCycle: { homeworkId: "hw-1" },
+    } as never;
+
+    expect(resolveHomeworkVoiceSessionStart(null, true)).toBeNull();
+    expect(resolveHomeworkVoiceSessionStart(null, false)).toBeNull();
+
+    const mismatched = structuredClone(ready);
+    mismatched.childChart.learningCycle!.homeworkId = "hw-stale";
+    expect(resolveHomeworkVoiceSessionStart(mismatched, false)).toBeNull();
+
+    expect(resolveHomeworkVoiceSessionStart(ready, false)).toEqual({
+      childId: "ila",
+      homeworkId: "hw-1",
+      domain: "spelling",
+    });
+  });
+
+  it("does not auto-restart the same assignment after a fatal voice failure", () => {
+    const first = resolveHomeworkVoiceAutostart({
+      previousScope: null,
+      childId: "ila",
+      homeworkId: "hw-1",
+      phase: "picker",
+    });
+    expect(first).toEqual({ scope: "ila:hw-1", shouldStart: true });
+
+    expect(resolveHomeworkVoiceAutostart({
+      previousScope: first.scope,
+      childId: "ila",
+      homeworkId: "hw-1",
+      phase: "picker",
+    })).toEqual({ scope: "ila:hw-1", shouldStart: false });
+
+    expect(resolveHomeworkVoiceAutostart({
+      previousScope: first.scope,
+      childId: "ila",
+      homeworkId: "hw-2",
+      phase: "picker",
+    })).toEqual({ scope: "ila:hw-2", shouldStart: true });
+  });
+
+  it("keeps a legacy reading board launchable without inventing a canonical cycle", () => {
+    const legacy = packet("legacy:reading", []);
+    legacy.activeSessionPlan!.domain = "reading";
+    legacy.activeSessionPlan!.activeHomeworkId = "hw-reading-1";
+    legacy.childChart = { childId: "ila", learningCycle: null } as never;
+
+    expect(resolveHomeworkVoiceSessionStart(legacy, false)).toEqual({
+      childId: "ila",
+      homeworkId: "hw-reading-1",
+      domain: "reading",
+    });
+  });
+
+  it("never starts a homework voice session directly from the child picker", () => {
+    const source = readFileSync(resolve(process.cwd(), "src/App.tsx"), "utf8");
+    const picker = source.slice(
+      source.indexOf("<ChildPicker"),
+      source.indexOf("</ChildPicker>") > -1
+        ? source.indexOf("</ChildPicker>")
+        : source.indexOf("</div>", source.indexOf("<ChildPicker")),
+    );
+
+    expect(picker).not.toContain("startSession(name, opts)");
+    expect(source).toContain("resolveHomeworkVoiceSessionStart");
+  });
+
   it("passes frozen spelling identities to existing iframe games", () => {
     const current = packet("targeted:hw-1", [{ id: "wheel", type: "wheel-of-fortune", targets: ["night"] }]);
     current.activeSessionPlan!.domain = "spelling";

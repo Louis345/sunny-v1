@@ -1209,6 +1209,27 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
             "Active homework requires an activeSessionPlan.adventureBoard. Run homework ingestion before launching the board.",
         });
       }
+      const activeHomeworkId = chart.activeSessionPlan.activeHomeworkId;
+      const cycleHomeworkId = chart.learningCycle?.homeworkId;
+      const activeDomain = chart.activeSessionPlan.domain;
+      const cycleDomain = chart.learningCycle?.domain;
+      const requiresCanonicalCycle = activeDomain === "math" || activeDomain === "spelling";
+      const cycleMatches = requiresCanonicalCycle
+        ? Boolean(cycleHomeworkId && activeHomeworkId === cycleHomeworkId && activeDomain === cycleDomain)
+        : !chart.learningCycle || (activeHomeworkId === cycleHomeworkId && activeDomain === cycleDomain);
+      if (
+        !activeHomeworkId ||
+        !activeDomain ||
+        !cycleMatches
+      ) {
+        console.warn(
+          ` 🎮 [AdventureBoard] assignment_identity_mismatch child=${childId} plan=${activeHomeworkId ?? "none"} cycle=${cycleHomeworkId ?? "none"}`,
+        );
+        return res.status(409).json({
+          error: "homework_assignment_identity_mismatch",
+          message: "That assignment is no longer ready. Run homework ingestion before launching the board.",
+        });
+      }
       res.json(buildChildExperiencePacket(chart));
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);

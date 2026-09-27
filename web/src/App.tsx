@@ -71,6 +71,8 @@ import {
   resolveDirectDiscoverySurface,
   resolveDirectDiscoveryLaunchNode,
   resolvePlannerBoardSessionScope,
+  resolveHomeworkVoiceAutostart,
+  resolveHomeworkVoiceSessionStart,
   resolveProbeBoardCompletion,
   runProbeBoardCompletionHandoff,
   resolvePersistedDiscoveryHandoff,
@@ -679,34 +681,6 @@ function App() {
     onIdle: handleKioskIdle,
   });
 
-  useEffect(() => {
-    if (!adventureMapEnabled || !adventureChildId) {
-      autoStartedAdventureVoiceRef.current = null;
-      return;
-    }
-    if (state.phase !== "picker") return;
-    if (autoStartedAdventureVoiceRef.current === adventureChildId) return;
-    autoStartedAdventureVoiceRef.current = adventureChildId;
-    if (adventureChildId.trim().toLowerCase() === "creator") {
-      setSelectedChildName("Creator");
-      startSession("creator", { diagKiosk: true });
-    } else {
-      setSelectedChildName(childNameFromId(adventureChildId));
-      startSession(childNameFromId(adventureChildId));
-    }
-    return () => {
-      // A development remount cancels the session hook's pending connection.
-      // Its next setup must be allowed to start the same child's connection.
-      if (autoStartedAdventureVoiceRef.current === adventureChildId) autoStartedAdventureVoiceRef.current = null;
-    };
-  }, [
-    adventureChildId,
-    adventureMapEnabled,
-    plannerBoardRuntimeRequested,
-    startSession,
-    state.phase,
-  ]);
-
   /** Tamagotchi quips are suppressed on the adventure map — companion speaks via voice only. */
   const companionBubbleText = useMemo(() => {
     if (!adventureChildId) return null;
@@ -730,6 +704,39 @@ function App() {
     plannerBoardPacketState.packet?.activeSessionPlan?.adventureBoard
       ? plannerBoardPacketState.packet
       : null;
+  const homeworkVoiceStart = useMemo(
+    () => resolveHomeworkVoiceSessionStart(
+      plannerBoardPacket,
+      plannerBoardPacketState.loading,
+    ),
+    [plannerBoardPacket, plannerBoardPacketState.loading],
+  );
+
+  useEffect(() => {
+    if (!adventureMapEnabled || !adventureChildId) {
+      autoStartedAdventureVoiceRef.current = null;
+      return;
+    }
+    if (!homeworkVoiceStart) return;
+    if (homeworkVoiceStart.childId !== adventureChildId.trim().toLowerCase()) return;
+    const autostart = resolveHomeworkVoiceAutostart({
+      previousScope: autoStartedAdventureVoiceRef.current,
+      childId: homeworkVoiceStart.childId,
+      homeworkId: homeworkVoiceStart.homeworkId,
+      phase: state.phase,
+    });
+    if (!autostart.shouldStart) return;
+    autoStartedAdventureVoiceRef.current = autostart.scope;
+    const childName = childNameFromId(homeworkVoiceStart.childId);
+    setSelectedChildName(childName);
+    startSession(childName, { homeworkId: homeworkVoiceStart.homeworkId });
+  }, [
+    adventureChildId,
+    adventureMapEnabled,
+    homeworkVoiceStart,
+    startSession,
+    state.phase,
+  ]);
   const plannerBoardSessionScope = resolvePlannerBoardSessionScope(
     adventureChildId,
     plannerBoardPacket?.activeSessionPlan?.activeHomeworkId,
@@ -1908,10 +1915,15 @@ function App() {
         <ChildPicker
           onSelect={(name, opts) => {
             setSelectedChildName(name);
+            if (opts?.diagKiosk) {
+              startSession("creator", { diagKiosk: true });
+              return;
+            }
             if (runtimeConfig.subject === "homework") {
               setAdventureChildId(name.trim().toLowerCase());
+              return;
             }
-            startSession(name, opts);
+            startSession(name);
           }}
         />
       </div>

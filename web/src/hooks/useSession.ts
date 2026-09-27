@@ -1678,7 +1678,12 @@ export function useSession(options?: UseSessionOptions) {
   const startSession = useCallback(
     (
       childName: string,
-      options?: { diagKiosk?: boolean; silentTts?: boolean; sttOnly?: boolean },
+      options?: {
+        diagKiosk?: boolean;
+        silentTts?: boolean;
+        sttOnly?: boolean;
+        homeworkId?: string;
+      },
     ) => {
       primePlaybackAudioContext();
       setState((s) => ({
@@ -1696,6 +1701,7 @@ export function useSession(options?: UseSessionOptions) {
       const diagKiosk = options?.diagKiosk === true;
       const silentTts = options?.silentTts === true;
       const sttOnly = options?.sttOnly === true;
+      const homeworkId = options?.homeworkId?.trim() || undefined;
       const wsChild = diagKiosk ? "creator" : childName;
       sessionChildIdRef.current = wsChild.trim().toLowerCase();
 
@@ -1720,6 +1726,7 @@ export function useSession(options?: UseSessionOptions) {
             ...(diagKiosk ? { diagKiosk: true } : {}),
             ...(silentTts ? { silentTts: true } : {}),
             ...(sttOnly ? { sttOnly: true } : {}),
+            ...(homeworkId ? { homeworkId } : {}),
           });
           startMic();
         }

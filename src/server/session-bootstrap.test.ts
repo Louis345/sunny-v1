@@ -5,6 +5,7 @@ import {
   shouldEnableCompanionWakeGate,
   isIndependentEvaluationPlan,
   shouldActivateSpellingSession,
+  assertHomeworkSessionAssignment,
 } from "./session-bootstrap";
 
 describe("homework context greeting", () => {
@@ -83,6 +84,22 @@ describe("homework context greeting", () => {
 });
 
 describe("homework subject mode", () => {
+  it("refuses to bootstrap a different pending assignment after launch validation", () => {
+    expect(() => assertHomeworkSessionAssignment({
+      expectedHomeworkId: "hw-current",
+      pendingHomeworkId: "hw-stale",
+      activeHomeworkId: "hw-current",
+      cycleHomeworkId: "hw-current",
+    })).toThrow("homework_session_assignment_changed");
+
+    expect(() => assertHomeworkSessionAssignment({
+      expectedHomeworkId: "hw-current",
+      pendingHomeworkId: "hw-current",
+      activeHomeworkId: "hw-current",
+      cycleHomeworkId: "hw-current",
+    })).not.toThrow();
+  });
+
   it("does not label a generic math homework session as spelling", () => {
     expect(shouldActivateSpellingSession({
       subject: "homework",

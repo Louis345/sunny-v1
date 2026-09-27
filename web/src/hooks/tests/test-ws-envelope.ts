@@ -146,6 +146,25 @@ describe("WS envelope vs canvas payload type", () => {
     expect(result.current.adventure.adventureChildId).toBe("lab-child");
   });
 
+  it("carries the validated homework identity into the voice session", async () => {
+    vi.stubEnv("VITE_SUNNY_RUNTIME_CONFIG", JSON.stringify({ subject: "homework", childId: "ila", homeworkDomain: "spelling", sessionMode: "real", previewMode: "off", voiceMode: "normal" }));
+    vi.useFakeTimers();
+    const { result } = renderHook(() => useSession());
+
+    act(() => result.current.startSession("Ila", { homeworkId: "hw-spelling-1" }));
+    await act(async () => { await vi.advanceTimersByTimeAsync(150); });
+
+    const starts = wsInstances[0]!.send.mock.calls
+      .map(([raw]) => JSON.parse(String(raw)))
+      .filter((message) => message.type === "start_session");
+    expect(starts).toEqual([
+      expect.objectContaining({
+        child: "Ila",
+        homeworkId: "hw-spelling-1",
+      }),
+    ]);
+  });
+
   it("still reports microphone denial as fatal for a normal voice-only review", async () => {
     vi.stubEnv("VITE_SUNNY_RUNTIME_CONFIG", JSON.stringify({ subject: "review", sessionMode: "real", previewMode: "off", voiceMode: "normal" }));
     vi.mocked(navigator.mediaDevices.getUserMedia).mockRejectedValue(new DOMException("Permission dismissed", "NotAllowedError"));

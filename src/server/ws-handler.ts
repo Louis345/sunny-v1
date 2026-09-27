@@ -6,8 +6,13 @@ import {
 } from "./map-coordinator";
 import { createAudioGate } from "./audioGate";
 import { SessionManager } from "./session-manager";
-import { isValidWsSessionChild } from "../shared/childRegistry";
+import {
+  childIdFromSessionName,
+  isValidWsSessionChild,
+} from "../shared/childRegistry";
 import type { ChildName } from "./session-triggers";
+import { resolveSunnyRuntimeConfig } from "../shared/runtimeConfig";
+import { getChildChart } from "../profiles/childChart";
 
 function formatSessionStartError(message: string): { code: string; message: string } {
   if (message.includes("DEEPGRAM_API_KEY")) {
@@ -92,11 +97,13 @@ export function handleWsConnection(
           diagKiosk?: boolean;
           silentTts?: boolean;
           sttOnly?: boolean;
+          homeworkId?: string;
         };
         const child = raw.child;
         const diagKiosk = raw.diagKiosk === true;
         const silentTts = raw.silentTts === true;
         const sttOnly = raw.sttOnly === true;
+        const homeworkId = raw.homeworkId?.trim() || undefined;
         const validChild = typeof child === "string" && isValidWsSessionChild(child, diagKiosk);
         if (!validChild) {
           ws.send(
@@ -122,11 +129,66 @@ export function handleWsConnection(
           );
           return;
         }
+        const runtime = resolveSunnyRuntimeConfig(process.env);
+        if (runtime.subject === "homework" && !diagKiosk) {
+          if (!homeworkId) {
+            console.warn(
+              ` 🎮 [session-launch] [assignment-validation] [rejected] child=${child} requested=missing`,
+            );
+            ws.send(JSON.stringify({
+              type: "error",
+              code: "homework_assignment_identity_required",
+              message: "Choose a ready assignment before starting Sunny.",
+            }));
+            return;
+          }
+          const chartChildId = childIdFromSessionName(child);
+          let chart: ReturnType<typeof getChildChart> | null = null;
+          try {
+            chart = chartChildId ? getChildChart(chartChildId) : null;
+          } catch (error) {
+            console.error(
+              ` 🎮 [session-launch] [assignment-validation] [error] child=${chartChildId ?? child} reason=${error instanceof Error ? error.message : String(error)}`,
+            );
+            ws.send(JSON.stringify({
+              type: "error",
+              code: "homework_assignment_unavailable",
+              message: "Sunny could not load that assignment. Return to the child picker.",
+            }));
+            return;
+          }
+          const plan = chart?.activeSessionPlan;
+          const cycle = chart?.learningCycle;
+          const requiresCanonicalCycle = plan?.domain === "math" || plan?.domain === "spelling";
+          const cycleMatches = requiresCanonicalCycle
+            ? cycle?.homeworkId === homeworkId && cycle?.domain === plan?.domain
+            : !cycle || (cycle.homeworkId === homeworkId && cycle.domain === plan?.domain);
+          const assignmentMatches =
+            plan?.activeHomeworkId === homeworkId &&
+            Boolean(plan?.adventureBoard) &&
+            cycleMatches &&
+            (!runtime.homeworkDomain || plan?.domain === runtime.homeworkDomain);
+          if (!assignmentMatches) {
+            console.warn(
+              ` 🎮 [session-launch] [assignment-validation] [rejected] child=${chartChildId ?? child} requested=${homeworkId} plan=${plan?.activeHomeworkId ?? "none"} cycle=${cycle?.homeworkId ?? "none"}`,
+            );
+            ws.send(JSON.stringify({
+              type: "error",
+              code: "homework_assignment_identity_mismatch",
+              message: "That assignment is no longer ready. Return to the child picker.",
+            }));
+            return;
+          }
+          console.log(
+            ` 🎮 [session-launch] [assignment-validation] [accepted] child=${chartChildId} homework=${homeworkId} domain=${plan.domain}`,
+          );
+        }
         const sessionOptions =
-          silentTts || sttOnly
+          silentTts || sttOnly || homeworkId
             ? {
                 ...(silentTts ? { silentTts: true as const } : {}),
                 ...(sttOnly ? { sttOnly: true as const } : {}),
+                ...(homeworkId ? { homeworkId } : {}),
               }
             : undefined;
         session = new SessionManager(ws, child as ChildName, diagKiosk, sessionOptions);

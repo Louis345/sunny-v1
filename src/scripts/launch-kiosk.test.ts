@@ -3,6 +3,21 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 describe("Sunny kiosk port handoff", () => {
+  it("uses the homework-aware launcher as the default family entrypoint", () => {
+    // Human-caught invariant: Saori clicked Ila after the raw kiosk was
+    // restarted and landed in the generic companion canvas. The prior lab
+    // always supplied homework runtime flags, so it never exercised this door.
+    const pkg = JSON.parse(
+      fs.readFileSync(path.join(process.cwd(), "package.json"), "utf8"),
+    ) as { scripts?: Record<string, string> };
+    const start = pkg.scripts?.start ?? "";
+
+    expect(start).toContain("src/scripts/sunnyRun.ts");
+    expect(start).toContain("--subject homework");
+    expect(start).toContain("--no-browser");
+    expect(start).not.toContain("src/scripts/launch-kiosk.ts");
+  });
+
   it("terminates only the process listening on Sunny's port", () => {
     const source = fs.readFileSync(path.join(process.cwd(), "src/scripts/launch-kiosk.ts"), "utf8");
 

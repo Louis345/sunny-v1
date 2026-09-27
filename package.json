@@ -10,7 +10,7 @@
   "scripts": {
     "build": "npx tsx scripts/generate-game-registry.ts && tsc && npm run web:build",
     "ingest:animations": "npx tsx src/scripts/ingestAnimations.ts",
-    "start": "npx tsx src/scripts/launch-kiosk.ts --no-browser",
+    "start": "npx tsx src/scripts/sunnyRun.ts --subject homework --no-browser",
     "dev": "npx tsx src/index.ts",
     "ila": "npx tsx src/sessions/ila.ts",
     "reina": "npx tsx src/sessions/reina.ts",

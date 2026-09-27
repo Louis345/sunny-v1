@@ -13,6 +13,63 @@ import type {
 type ActiveSessionPlan = NonNullable<ChildExperiencePacket["activeSessionPlan"]>;
 type PlannerNode = ActiveSessionPlan["nodePlan"][number];
 
+export type HomeworkVoiceSessionStart = {
+  childId: string;
+  homeworkId: string;
+  domain: "spelling" | "science" | "reading" | "math";
+};
+
+export function resolveHomeworkVoiceAutostart(input: {
+  previousScope: string | null;
+  childId: string;
+  homeworkId: string;
+  phase: string;
+}): { scope: string; shouldStart: boolean } {
+  const scope = `${input.childId}:${input.homeworkId}`;
+  return {
+    scope,
+    shouldStart: input.phase === "picker" && input.previousScope !== scope,
+  };
+}
+
+/**
+ * Voice may join a homework session only after the browser has received one
+ * complete, canonical packet whose plan and evidence cycle name the same
+ * assignment. The child picker alone is never launch authority.
+ */
+export function resolveHomeworkVoiceSessionStart(
+  packet: ChildExperiencePacket | null,
+  loading: boolean,
+): HomeworkVoiceSessionStart | null {
+  if (loading || !packet) return null;
+  const childId = packet.childChart?.childId?.trim().toLowerCase();
+  const plan = packet.activeSessionPlan;
+  const homeworkId = plan?.activeHomeworkId?.trim();
+  const cycleHomeworkId = packet.childChart?.learningCycle?.homeworkId?.trim();
+  const domain = plan?.domain;
+  const supportedDomain =
+    domain === "spelling" ||
+    domain === "science" ||
+    domain === "reading" ||
+    domain === "math";
+  const requiresCanonicalCycle = domain === "math" || domain === "spelling";
+  if (
+    !childId ||
+    !homeworkId ||
+    !plan?.adventureBoard ||
+    !supportedDomain ||
+    (requiresCanonicalCycle && homeworkId !== cycleHomeworkId) ||
+    (!requiresCanonicalCycle && cycleHomeworkId && homeworkId !== cycleHomeworkId)
+  ) {
+    return null;
+  }
+  return {
+    childId,
+    homeworkId,
+    domain,
+  };
+}
+
 /**
  * Discovery keeps an adventureBoard-shaped packet for server and rollback
  * compatibility, but it is a pre-board experience. The child must enter its
