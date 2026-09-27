@@ -8,7 +8,7 @@ function session() {
   return Object.assign(Object.create(SessionManager.prototype), {
     chartChildId: "lab-child", childName: "Lab", sessionTtsLabel: "Lab", sessionId: "s1", companionPresence: "collapsed", send: vi.fn(),
     debugRecorder: { recordEvent: vi.fn() },
-    ttsBridge: { connect: vi.fn(async () => {}), sendText: vi.fn(), finish: vi.fn(async () => {}) },
+    ttsBridge: { connect: vi.fn(async () => {}), sendText: vi.fn(), finish: vi.fn(async () => {}), hadAudioThisTurn: vi.fn(() => true) },
   }) as SessionManager;
 }
 describe("live spelling assistance and audio provenance", () => {
@@ -44,6 +44,15 @@ describe("live spelling assistance and audio provenance", () => {
     await expect(s.speakGameNarration("light.", { assessmentMode: true, itemId: "i1" })).rejects.toThrow("spelling_stimulus_mismatch");
     (s as unknown as { ttsBridge: { finish: () => Promise<void> } }).ttsBridge.finish = async () => { throw new Error("audio failed"); };
     await expect(s.speakGameNarration("night.", { assessmentMode: true, itemId: "i1" })).rejects.toThrow("audio failed");
+    expect(s.getDiscoveryAttemptContext("hw-words", "i1")?.instrumentSignals).toContain("audio_unavailable");
+  });
+  it("rejects a TTS stream that finishes without sending playable audio", async () => {
+    const s = session();
+    s.updateCurrentBoardSnapshot({ assessmentMode: true, nodeId: "opening", itemId: "i1", phase: "response", answerVisibility: "hidden" });
+    (s as unknown as { ttsBridge: { hadAudioThisTurn: () => boolean } }).ttsBridge.hadAudioThisTurn = () => false;
+
+    await expect(s.speakGameNarration("night.", { assessmentMode: true, itemId: "i1" }))
+      .rejects.toThrow("spelling_stimulus_audio_unavailable");
     expect(s.getDiscoveryAttemptContext("hw-words", "i1")?.instrumentSignals).toContain("audio_unavailable");
   });
 });

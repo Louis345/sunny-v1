@@ -41,6 +41,7 @@ export class WsTtsBridge {
   private stopped = false;
   private connectingPromise: Promise<void> | null = null;
   private hasFlushedThisTurn = false;
+  private audioChunksThisTurn = 0;
 
   constructor(browserWs: WebSocket, voiceId: string) {
     this.browserWs = browserWs;
@@ -70,6 +71,7 @@ export class WsTtsBridge {
     this.stopped = false;
     this.buffer = "";
     this.hasFlushedThisTurn = false;
+    this.audioChunksThisTurn = 0;
     if (this.flushTimer) {
       clearTimeout(this.flushTimer);
       this.flushTimer = null;
@@ -131,6 +133,7 @@ export class WsTtsBridge {
         if (this.stopped) return;
         const msg = JSON.parse(data.toString());
         if (msg.audio && this.browserWs.readyState === this.browserWs.OPEN) {
+          this.audioChunksThisTurn += 1;
           this.browserWs.send(
             JSON.stringify({
               type: "audio",
@@ -256,6 +259,11 @@ export class WsTtsBridge {
       this.wsReady = false;
       this.elevenWs = null;
     }
+  }
+
+  /** Proof that this turn emitted playable PCM to the browser, not merely that the provider stream closed. */
+  hadAudioThisTurn(): boolean {
+    return this.audioChunksThisTurn > 0;
   }
 
   stop(): void {

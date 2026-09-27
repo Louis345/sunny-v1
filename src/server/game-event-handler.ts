@@ -43,7 +43,7 @@ export function bindSpellingAssessment(input: {
 /** The existing game-event adapter owns narration; SessionManager only routes it. */
 export async function narrateGameStimulus(input: {
   text: string; metadata: Record<string, unknown>; childName: Parameters<typeof rewriteChildNameForTts>[1]; ttsLabel: string;
-  bridge?: Pick<WsTtsBridge, "connect" | "sendText" | "finish"> | null;
+  bridge?: Pick<WsTtsBridge, "connect" | "sendText" | "finish" | "hadAudioThisTurn"> | null;
   assessment?: { itemId: string; word: string; audioDelivered: boolean };
   isCurrent: () => boolean;
   record: (action: string, event: Record<string, unknown>) => void;
@@ -62,6 +62,7 @@ export async function narrateGameStimulus(input: {
     await bridge.connect().catch(error => { console.error("  🔴 [game_narration] TTS connect failed:", error); if (assessment) throw error; });
     bridge.sendText(spoken);
     await bridge.finish().catch(error => { console.error("  🔴 [game_narration] TTS finish failed:", error); if (assessment) throw error; });
+    if (assessment && !bridge.hadAudioThisTurn()) throw new Error("spelling_stimulus_audio_unavailable");
   }
   if (assessment && input.isCurrent()) assessment.audioDelivered = true;
   input.record("tts_stream_done", event);
