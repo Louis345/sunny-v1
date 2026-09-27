@@ -552,10 +552,14 @@ describe("WordRadar", () => {
     );
   });
 
-  it("option-b listen flash waits for explicit hear click instead of auto narration", async () => {
+  it("plays the first hidden word once when the visible Listen phase begins", async () => {
+    // Human catch: the child saw “Listen” but heard nothing before the response screen.
+    // Log miss: server TTS entries came from later speaker taps and did not prove first-phase playback.
+    // Lab miss: the previous assertion explicitly required zero narration during the Listen phase.
     const sendMessage = vi.fn();
     renderRadar({
       autoStart: true,
+      assessmentMode: true,
       recallMode: "hidden_word_recall",
       speakStyle: "option-b",
       sendMessage,
@@ -572,13 +576,26 @@ describe("WordRadar", () => {
           (payload as { event?: { type?: string } })?.event?.type === "narration_request",
       );
 
-    expect(narrationCalls()).toHaveLength(0);
+    expect(narrationCalls()).toEqual([
+      expect.arrayContaining([
+        "game_event",
+        expect.objectContaining({
+          event: expect.objectContaining({
+            type: "narration_request",
+            payload: expect.objectContaining({
+              word: "sun",
+              reason: "word_radar_listen_phase",
+            }),
+          }),
+        }),
+      ]),
+    ]);
 
     await act(async () => {
       vi.advanceTimersByTime(1500);
     });
 
-    expect(narrationCalls()).toHaveLength(0);
+    expect(narrationCalls()).toHaveLength(1);
   });
 
   it("microphone click plays current word audio in Storybook local preview", async () => {

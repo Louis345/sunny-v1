@@ -343,6 +343,7 @@ export function WordRadar({
     [childId, sendMessage],
   );
   const wordAudioLockRef = useRef<{ key: string; until: number } | null>(null);
+  const autoNarratedItemRef = useRef<string | null>(null);
   const requestedInputMode = resolveWordRadarInputMode(inputMode);
   const resolvedInputMode = assessmentMode || voiceCaptureAvailable === false ? "keyboard" : requestedInputMode;
   const effectiveSpeakStyle = speakStyle ?? "option-a";
@@ -724,7 +725,7 @@ export function WordRadar({
     const word = display.trim();
     if (!word) return;
     const now = Date.now();
-    const lockKey = `${reason}:${word.toLowerCase()}`;
+    const lockKey = word.toLowerCase();
     const existingLock = wordAudioLockRef.current;
     if (existingLock?.key === lockKey && existingLock.until > now) return;
     wordAudioLockRef.current = {
@@ -746,8 +747,8 @@ export function WordRadar({
           itemIndex: hook.itemIndex,
           itemId: hook.currentItem?.itemId,
           phase: hook.phase,
-          control: "hear_again",
-          clickType: "speaker",
+          control: reason === "word_radar_listen_phase" ? "word_prompt" : "hear_again",
+          clickType: reason === "word_radar_listen_phase" ? "automatic" : "speaker",
           visibleState: {
             wordVisible: !assessmentMode && (
               hook.phase === "flash"
@@ -823,6 +824,16 @@ export function WordRadar({
     hook.phase === "flash" &&
     effectiveRecallMode !== "visible_read" &&
     effectiveSpeakStyle === "option-b";
+  useEffect(() => {
+    const listenPhase = effectiveRecallMode === "hidden_word_recall" && effectiveSpeakStyle === "option-b" && (
+      (assessmentMode && hook.phase === "response") || (!assessmentMode && hideFlashWord)
+    );
+    if (!listenPhase || !hook.currentItem) return;
+    const key = `${hook.itemIndex}:${hook.currentItem.itemId ?? hook.currentItem.display}`;
+    if (autoNarratedItemRef.current === key) return;
+    autoNarratedItemRef.current = key;
+    requestWordAudio("word_radar_listen_phase");
+  }, [assessmentMode, effectiveRecallMode, effectiveSpeakStyle, hideFlashWord, hook.currentItem, hook.itemIndex, hook.phase, requestWordAudio]);
   const hideLetterTilesInResponse =
     assessmentMode || hook.phase === "response" &&
     (effectiveRecallMode === "hidden_word_recall" ||
