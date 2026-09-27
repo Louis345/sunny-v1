@@ -405,6 +405,7 @@ export function useSession(options?: UseSessionOptions) {
   const storyImageWatchdogRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const sessionStartPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const sessionStartTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const deferredUnmountCleanupRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const sessionChildIdRef = useRef<string | null>(null);
   const micInputLabelRef = useRef("selected microphone");
   const micSilentDurationMsRef = useRef(0);
@@ -558,6 +559,12 @@ export function useSession(options?: UseSessionOptions) {
   };
 
   const connect = useCallback(() => {
+    if (
+      wsRef.current?.readyState === WebSocket.CONNECTING ||
+      wsRef.current?.readyState === WebSocket.OPEN
+    ) {
+      return;
+    }
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
     const ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
     wsRef.current = ws;
@@ -1881,27 +1888,36 @@ export function useSession(options?: UseSessionOptions) {
   }, []);
 
   useEffect(() => {
+    if (deferredUnmountCleanupRef.current) {
+      clearTimeout(deferredUnmountCleanupRef.current);
+      deferredUnmountCleanupRef.current = null;
+    }
     return () => {
-      if (storyImageWatchdogRef.current) {
-        clearTimeout(storyImageWatchdogRef.current);
-        storyImageWatchdogRef.current = null;
-      }
-      if (sessionStartPollRef.current) {
-        clearInterval(sessionStartPollRef.current);
-        sessionStartPollRef.current = null;
-      }
-      if (sessionStartTimeoutRef.current) {
-        clearTimeout(sessionStartTimeoutRef.current);
-        sessionStartTimeoutRef.current = null;
-      }
-      stopMic();
-      if (playContextRef.current) {
-        playContextRef.current.close();
-        playContextRef.current = null;
-      }
-      resetAudioAnalyser();
-      analyserNodeRef.current = null;
-      wsRef.current?.close();
+      // React StrictMode performs an immediate cleanup/remount in development.
+      // Defer irreversible session teardown one task so that remount can cancel it.
+      deferredUnmountCleanupRef.current = setTimeout(() => {
+        deferredUnmountCleanupRef.current = null;
+        if (storyImageWatchdogRef.current) {
+          clearTimeout(storyImageWatchdogRef.current);
+          storyImageWatchdogRef.current = null;
+        }
+        if (sessionStartPollRef.current) {
+          clearInterval(sessionStartPollRef.current);
+          sessionStartPollRef.current = null;
+        }
+        if (sessionStartTimeoutRef.current) {
+          clearTimeout(sessionStartTimeoutRef.current);
+          sessionStartTimeoutRef.current = null;
+        }
+        stopMic();
+        if (playContextRef.current) {
+          playContextRef.current.close();
+          playContextRef.current = null;
+        }
+        resetAudioAnalyser();
+        analyserNodeRef.current = null;
+        wsRef.current?.close();
+      }, 0);
     };
   }, [stopMic]);
 

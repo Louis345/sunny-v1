@@ -92,16 +92,29 @@ it.each([
   const server = app.listen(0, "127.0.0.1"); await new Promise<void>(resolve => server.once("listening", resolve));
   const address = server.address(); if (!address || typeof address === "string") throw new Error("lab_address_missing");
   const ws = new WebSocketServer({ server, path: "/ws" });
+  let serverWebSocketConnections = 0;
   const errors: string[] = [], events: string[] = [];
   let pendingAssessmentPlayback = 0;
   let confirmedAssessmentPlayback = 0;
-  const voice = Object.assign(Object.create(SessionManager.prototype), { chartChildId: "lab-child", childName: "Lab", sessionTtsLabel: "Lab", sessionId: "recorded-voice", companionPresence: "collapsed", send: () => {}, debugRecorder: { recordEvent: () => {}, recordGameTrace: () => {} }, ttsBridge: { connect: async () => {}, sendText: () => {}, finish: async () => {}, hadAudioThisTurn: () => true }, turnSM: { onPlaybackComplete: () => {}, consumePendingTranscript: () => undefined }, flushPendingRoundComplete: () => {} }) as SessionManager;
+  const recordedPcmFrame = Buffer.alloc(4_800).toString("base64");
+  let voice: SessionManager;
+  const recordedTtsBridge = {
+    connect: async () => {},
+    sendText: () => {},
+    finish: async () => {
+      events.push("server:audio");
+      (voice as unknown as { send: (type: string, payload: Record<string, unknown>) => void })
+        .send("audio", { data: recordedPcmFrame });
+    },
+    hadAudioThisTurn: () => true,
+  };
+  voice = Object.assign(Object.create(SessionManager.prototype), { chartChildId: "lab-child", childName: "Lab", sessionTtsLabel: "Lab", sessionId: "recorded-voice", companionPresence: "collapsed", ws: null, debugRecorder: { recordEvent: () => {}, recordGameTrace: () => {} }, ttsBridge: recordedTtsBridge, turnSM: { onPlaybackComplete: () => {}, consumePendingTranscript: () => undefined }, flushPendingRoundComplete: () => {} }) as SessionManager;
   registerActiveVoiceSessionManager("lab-child", { noteExternalEvent() {}, getDiscoveryAttemptContext: voice.getDiscoveryAttemptContext.bind(voice) });
   const handleVoiceMessage = (data: string | Buffer, send: (data: string) => void): void => {
     const message = JSON.parse(String(data));
     events.push(`ws:${message.type}`);
     if (message.type === "start_session") {
-      send(JSON.stringify({ type: "session_started", child: "Lab" })); send(JSON.stringify({ type: "session_boot_ready" }));
+      send(JSON.stringify({ type: "session_started", child: "lab-child" })); send(JSON.stringify({ type: "session_boot_ready" }));
       if (!["evaluation_ready", "evaluation_active"].includes(getLearningCycle("lab-child", homeworkId, { rootDir })!.lifecycle)) {
         send(JSON.stringify({ type: "audio", data: "UklGRiYAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQIAAAAAAA==" })); send(JSON.stringify({ type: "audio_done" }));
       }
@@ -117,14 +130,21 @@ it.each([
     }
     if (event?.type === "attempt_event") { events.push("canonical-game:attempt_event"); voice.handleGameEvent(event); }
     if (event?.type === "game_state_update") voice.updateCurrentBoardSnapshot(event.payload);
-    if (event?.type === "narration_request") void voice.speakGameNarration(event.payload.text, event.payload).then(() => {
-      events.push("server:audio");
+    if (event?.type === "narration_request") {
       pendingAssessmentPlayback += 1;
-      send(JSON.stringify({ type: "audio", data: "UklGRiYAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQIAAAAAAA==" }));
-      send(JSON.stringify({ type: "audio_done", requiresAudio: true, itemId: event.payload.itemId }));
-    }).catch(error => errors.push(String(error)));
+      void voice.speakGameNarration(event.payload.text, event.payload).catch(error => {
+        pendingAssessmentPlayback -= 1;
+        errors.push(String(error));
+      });
+    }
   };
-  ws.on("connection", socket => socket.on("message", data => handleVoiceMessage(String(data), value => socket.send(value))));
+  ws.on("connection", socket => {
+    serverWebSocketConnections += 1;
+    (voice as unknown as { ws: typeof socket }).ws = socket;
+    socket.on("close", (code, reason) => events.push(`server-ws:close:${code}:${String(reason)}`));
+    socket.on("error", error => errors.push(`server-ws:${error.message}`));
+    socket.on("message", data => handleVoiceMessage(String(data), value => socket.send(value)));
+  });
   let vite: any, browser: Awaited<ReturnType<typeof chromium.launch>> | undefined;
   try {
     const module = await import(pathToFileURL(path.join(process.cwd(), "web/node_modules/vite/dist/node/index.js")).href);
@@ -132,11 +152,12 @@ it.each([
     browser = await chromium.launch({ args: ["--use-fake-ui-for-media-stream", "--use-fake-device-for-media-stream"] });
     const page = await browser.newPage({ viewport }); page.setDefaultTimeout(12000);
     page.on("pageerror", error => errors.push(error.message)); page.on("response", response => { if (response.url().includes("/api/")) events.push(`${response.status()} ${response.url()}`); });
+    page.on("console", message => events.push(`console:${message.type()}:${message.text()}`));
     await page.route("**/*", route => ["127.0.0.1", "localhost", ""].includes(new URL(route.request().url()).hostname) ? route.continue() : route.abort());
-    await page.routeWebSocket("**/ws", socket => socket.onMessage(data => handleVoiceMessage(data, value => socket.send(value))));
     const entryStartedAt = Date.now();
     await page.goto(vite.resolvedUrls.local[0]);
     await page.getByRole("button", { name: "Hear the word", exact: true }).waitFor();
+    expect(serverWebSocketConnections).toBe(1);
     const discoveryReadyMs = Date.now() - entryStartedAt;
     expect(await page.getByText("night", { exact: true }).count()).toBe(0);
     if (scenario.adaptive) {
@@ -318,6 +339,14 @@ it.each([
           completion: { path: completionScreenshotPath, sha256: hashFile(completionScreenshotPath) },
         },
         companion: { modelStatus: companionModelStatus, canvasVisible: companionCanvasVisible },
+        audio: {
+          provider: "recorded_pcm",
+          transport: "real_server_websocket",
+          serverWebSocketConnections,
+          discoveryRequested: words.length,
+          totalFramesDelivered: events.filter((event) => event === "server:audio").length,
+          totalPlaybackConfirmed: confirmedAssessmentPlayback,
+        },
         familyIsolation: { paths: canonicalFamilyPaths, before: canonicalFamilyHashBefore, after: canonicalFamilyHashAfter, unchanged: canonicalFamilyHashBefore === canonicalFamilyHashAfter },
         plannerCalls: lab.plannerCalls,
         timing: { discoveryReadyMs, firstReadyMs, limitation: "Recorded Planner and native games only; not a live provider latency or learning-effect estimate." },
