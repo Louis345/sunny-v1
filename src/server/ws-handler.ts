@@ -202,7 +202,7 @@ export function handleWsConnection(
 
       case "playback_done": {
         if (!session) return;
-        session.playbackDone();
+        session.playbackDone(msg as unknown as Record<string, unknown>);
         break;
       }
 

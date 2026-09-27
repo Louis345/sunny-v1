@@ -1170,6 +1170,8 @@ export class SessionManager {
         activityId: metadata.activityId,
         nodeId: metadata.nodeId,
         reason: metadata.reason,
+        itemId: metadata.itemId,
+        assessmentMode: metadata.assessmentMode === true,
       };
       this.send("audio_done");
     }
@@ -1286,9 +1288,16 @@ export class SessionManager {
     void gev.tryCompleteTtsTurnAsync(this);
   }
 
-  playbackDone(): void {
+  playbackDone(payload: Record<string, unknown> = {}): void {
     if (this.pendingGameNarrationPlayback) {
-      this.debugRecorder.recordEvent("game_narration", "playback_done", this.pendingGameNarrationPlayback);
+      const audible = payload.audible !== false;
+      const event = { ...this.pendingGameNarrationPlayback, ...(audible ? {} : { reason: payload.reason ?? "browser_playback_failed" }) };
+      this.debugRecorder.recordEvent("game_narration", audible ? "playback_done" : "playback_failed", event);
+      if (this.pendingGameNarrationPlayback.assessmentMode === true) {
+        const itemId = String(this.pendingGameNarrationPlayback.itemId ?? "");
+        const assessment = this.spellingAssessmentHistory?.get(itemId) ?? this.spellingAssessment;
+        if (assessment?.itemId === itemId) assessment.audioDelivered = audible;
+      }
       this.pendingGameNarrationPlayback = null;
     }
     this.turnSM.onPlaybackComplete();

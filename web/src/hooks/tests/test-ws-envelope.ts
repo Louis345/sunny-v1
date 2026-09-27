@@ -390,6 +390,21 @@ describe("WS envelope vs canvas payload type", () => {
     expect(playbackStart).toHaveBeenCalledOnce();
   });
 
+  it("reports failed activity playback when audio_done arrives without a started audio chunk", async () => {
+    const { result } = renderHook(() => useSession());
+    act(() => result.current.startSession("ila"));
+    const ws = wsInstances[0]!;
+    await act(async () => Promise.resolve());
+    act(() => deliverSessionStarted(ws));
+    act(() => result.current.registerMapNodeType("word-radar"));
+    act(() => result.current.sendMessage("game_event", {
+      event: { type: "narration_request", payload: { game: "word-radar", word: "able" } },
+    }));
+    act(() => deliverJson(ws, { type: "audio_done" }));
+    const playback = ws.send.mock.calls.map(([raw]) => JSON.parse(String(raw))).findLast(message => message.type === "playback_done");
+    expect(playback).toMatchObject({ audible: false, reason: "no_audio_started" });
+  });
+
   it("surfaces server-owned companion summon and dismiss state", async () => {
     const { result } = renderHook(() => useSession());
 

@@ -9,6 +9,7 @@ function session() {
     chartChildId: "lab-child", childName: "Lab", sessionTtsLabel: "Lab", sessionId: "s1", companionPresence: "collapsed", send: vi.fn(),
     debugRecorder: { recordEvent: vi.fn() },
     ttsBridge: { connect: vi.fn(async () => {}), sendText: vi.fn(), finish: vi.fn(async () => {}) },
+    turnSM: { onPlaybackComplete: vi.fn(), consumePendingTranscript: vi.fn() }, flushPendingRoundComplete: vi.fn(), handleEndOfTurn: vi.fn(),
   }) as SessionManager;
 }
 describe("live spelling assistance and audio provenance", () => {
@@ -17,6 +18,7 @@ describe("live spelling assistance and audio provenance", () => {
     s.setCompanionPresence("summoned");
     s.updateCurrentBoardSnapshot({ assessmentMode: true, nodeId: "opening", itemId: "i1", phase: "response", answerVisibility: "hidden" });
     await s.speakGameNarration("night.", { assessmentMode: true, itemId: "i1" });
+    SessionManager.prototype.playbackDone.call(s, { audible: true });
     s.updateCurrentBoardSnapshot({ assessmentMode: true, nodeId: "opening", itemId: "i1", phase: "feedback", answerVisibility: "visible" });
     s.setCompanionPresence("collapsed");
     s.updateCurrentBoardSnapshot({ assessmentMode: true, nodeId: "opening", itemId: "i2", phase: "response", answerVisibility: "hidden" });
@@ -28,6 +30,8 @@ describe("live spelling assistance and audio provenance", () => {
     s.updateCurrentBoardSnapshot({ assessmentMode: true, nodeId: "opening", itemId: "i1", phase: "response", answerVisibility: "hidden" });
     expect(s.getDiscoveryAttemptContext("hw-words", "i1")?.instrumentSignals).toContain("audio_unavailable");
     await s.speakGameNarration("night.", { assessmentMode: true, itemId: "i1" });
+    expect(s.getDiscoveryAttemptContext("hw-words", "i1")?.instrumentSignals).toContain("audio_unavailable");
+    SessionManager.prototype.playbackDone.call(s, { audible: true });
     expect(s.getDiscoveryAttemptContext("hw-words", "i1")).toMatchObject({ support: { status: "unassisted" }, instrumentSignals: [], artifactHash: "frozen" });
     expect(s.getDiscoveryAttemptContext("other-homework", "i1")).toBeUndefined();
   });

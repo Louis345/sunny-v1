@@ -63,7 +63,6 @@ export async function narrateGameStimulus(input: {
     bridge.sendText(spoken);
     await bridge.finish().catch(error => { console.error("  🔴 [game_narration] TTS finish failed:", error); if (assessment) throw error; });
   }
-  if (assessment && input.isCurrent()) assessment.audioDelivered = true;
   input.record("tts_stream_done", event);
   return true;
 }

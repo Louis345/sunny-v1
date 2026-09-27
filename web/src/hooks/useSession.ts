@@ -390,7 +390,7 @@ export function useSession(options?: UseSessionOptions) {
   const analyserNodeRef = useRef<AnalyserNode | null>(null);
   const serverDoneRef = useRef(false);
   const activityNarrationPendingRef = useRef(false);
-  const activityNarrationAudioReceivedRef = useRef(false);
+  const activityNarrationPlaybackStartedRef = useRef(false);
   const bargeInConsecutiveRef = useRef(0);
   const rollingBufferRef = useRef<string[]>([]);
   const finalizePlaybackRef = useRef<() => void>(() => {});
@@ -511,7 +511,7 @@ export function useSession(options?: UseSessionOptions) {
         : null;
       if (type === "game_event" && gameEvent?.type === "narration_request") {
         activityNarrationPendingRef.current = true;
-        activityNarrationAudioReceivedRef.current = false;
+        activityNarrationPlaybackStartedRef.current = false;
       }
       const normalizedPayload =
         type === "canvas_show" && typeof payload.type === "string"
@@ -531,9 +531,11 @@ export function useSession(options?: UseSessionOptions) {
     if (currentSourceRef.current) return;
 
     serverDoneRef.current = false;
+    const activityNarrationPending = activityNarrationPendingRef.current;
+    const audible = !activityNarrationPending || activityNarrationPlaybackStartedRef.current;
     activityNarrationPendingRef.current = false;
-    activityNarrationAudioReceivedRef.current = false;
-    sendMessageRef.current("playback_done");
+    activityNarrationPlaybackStartedRef.current = false;
+    sendMessageRef.current("playback_done", audible ? { audible: true } : { audible: false, reason: "no_audio_started" });
     flushBufferIfUnmuted(
       rollingBufferRef.current,
       micMutedRef.current,
@@ -861,7 +863,6 @@ export function useSession(options?: UseSessionOptions) {
           break;
         }
         const audioData = base64ToArrayBuffer((msg.data as string) ?? "");
-        if (activityNarrationPendingRef.current) activityNarrationAudioReceivedRef.current = true;
         setStateRef.current((s) =>
           s.firstAudioChunkReceived ? s : { ...s, firstAudioChunkReceived: true },
         );
@@ -1578,6 +1579,7 @@ export function useSession(options?: UseSessionOptions) {
         playNextChunk();
       };
       source.start();
+      if (activityNarrationPendingRef.current) activityNarrationPlaybackStartedRef.current = true;
     } catch (err) {
       console.error("PCM playback error:", err);
       isPlayingRef.current = false;
