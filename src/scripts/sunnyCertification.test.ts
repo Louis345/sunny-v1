@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   assertSourceSnapshotUnchanged,
   certificationRuntimeEnv,
+  certificationScriptCommand,
   createCertificationRun,
   formatCertificationProgress,
   findCertificationRun,
@@ -147,6 +148,25 @@ describe("Sunny impersonation certification", () => {
     expect(env.SUNNY_BROWSER_PROFILE_DIR).toBe(path.join(manifest.runDir, "browser-profile"));
     expect(env.SUNNY_PREVIEW_MODE).toBeUndefined();
     expect(Number(env.PORT)).toBeGreaterThanOrEqual(4300);
+  });
+
+  it("runs certification children with the launcher's Node and the workspace-local tsx", () => {
+    const { rootDir, certificationRoot, pdf } = fixture();
+    const manifest = createCertificationRun({ rootDir, certificationRoot, childId: "ila", domain: "math", assignmentPath: pdf });
+
+    const command = certificationScriptCommand(manifest, "src/scripts/ingestMathDirect.ts", ["--child=ila"]);
+
+    expect(command.executable).toBe(process.execPath);
+    expect(command.args[0]).toBe(path.join(manifest.workspaceDir, "node_modules", "tsx", "dist", "cli.mjs"));
+    expect(command.args.slice(1)).toEqual([path.join(manifest.workspaceDir, "src/scripts/ingestMathDirect.ts"), "--child=ila"]);
+    expect(fs.readFileSync(path.join(process.cwd(), "src/scripts/sunnyCertification.ts"), "utf8"))
+      .not.toContain('spawnSync("npm"');
+  });
+
+  it("declares the supported Node runtime for repeatable installs", () => {
+    const packageJson = JSON.parse(fs.readFileSync(path.join(process.cwd(), "package.json"), "utf8"));
+    expect(fs.readFileSync(path.join(process.cwd(), ".nvmrc"), "utf8").trim()).toBe("20.20.0");
+    expect(packageJson.engines).toEqual({ node: "20.20.x", npm: "10.x" });
   });
 
   it("can prove the real setup handoff without starting ingestion or changing source child data", () => {

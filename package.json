@@ -1,6 +1,10 @@
 {
   "name": "sunny",
   "version": "0.1.0",
+  "engines": {
+    "node": "20.20.x",
+    "npm": "10.x"
+  },
   "description": "Project Sunny \u2014 AI therapeutic learning companion",
   "main": "dist/index.js",
   "scripts": {

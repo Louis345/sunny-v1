@@ -574,14 +574,31 @@ function updateState(manifest: CertificationRunManifest, state: CertificationRun
   writeManifest(manifest);
 }
 
-function runCommand(manifest: CertificationRunManifest, args: string[]): void {
-  const result = spawnSync("npm", args, {
+export function certificationScriptCommand(
+  manifest: CertificationRunManifest,
+  scriptRelative: string,
+  args: string[],
+): { executable: string; args: string[] } {
+  return {
+    executable: process.execPath,
+    args: [
+      path.join(manifest.workspaceDir, "node_modules", "tsx", "dist", "cli.mjs"),
+      path.join(manifest.workspaceDir, scriptRelative),
+      ...args,
+    ],
+  };
+}
+
+function runScript(manifest: CertificationRunManifest, scriptRelative: string, args: string[]): void {
+  const command = certificationScriptCommand(manifest, scriptRelative, args);
+  console.log(` 🎮 [certification] [runtime] [pinned] node=${process.version} executable=${command.executable}`);
+  const result = spawnSync(command.executable, command.args, {
     cwd: manifest.workspaceDir,
     env: certificationRuntimeEnv(manifest),
     stdio: "inherit",
   });
   if (result.error) throw result.error;
-  if (result.status !== 0) throw new Error(`certification_command_failed:${args.join(" ")}:${result.status ?? "signal"}`);
+  if (result.status !== 0) throw new Error(`certification_command_failed:${scriptRelative} ${args.join(" ")}:${result.status ?? "signal"}`);
 }
 
 function resolveGeneratedHomeworkId(manifest: CertificationRunManifest): string {
@@ -602,14 +619,21 @@ export function runCertification(
   try {
     if (manifest.state === "created" || manifest.state === "failed") {
       onProgress?.({ step: 3, total: 4, label: "Preparing and verifying Discovery" });
-      runCommand(manifest, ["run", `sunny:ingest:${manifest.homeworkDomain}`, "--", `--child=${manifest.sourceChildId}`, `--pdf=${manifest.assignmentPath}`]);
+      const ingestScript = manifest.homeworkDomain === "math"
+        ? "src/scripts/ingestMathDirect.ts"
+        : "src/scripts/ingestHomework.ts";
+      runScript(manifest, ingestScript, [
+        ...(manifest.homeworkDomain === "spelling" ? ["--domain=spelling"] : []),
+        `--child=${manifest.sourceChildId}`,
+        `--pdf=${manifest.assignmentPath}`,
+      ]);
       manifest.homeworkId = resolveGeneratedHomeworkId(manifest);
       updateState(manifest, "discovery_ready");
     }
     onProgress?.({ step: 4, total: 4, label: "Launching the isolated learning journey" });
     console.log(`\nImpersonator test — ${path.basename(manifest.assignmentPath)}`);
     console.log("All progress is recorded only in the isolated certification copy.");
-    runCommand(manifest, ["run", "sunny:run", "--", "--subject", "homework", "--child", manifest.sourceChildId, "--session-mode", "real", "--homework-domain", manifest.homeworkDomain]);
+    runScript(manifest, "src/scripts/sunnyRun.ts", ["--subject", "homework", "--child", manifest.sourceChildId, "--session-mode", "real", "--homework-domain", manifest.homeworkDomain]);
     updateState(manifest, "session_closed");
     assertSourceSnapshotUnchanged(manifest);
     writeCertificationReport(manifest);
