@@ -17,13 +17,29 @@ import { ASSIGNMENT_SOURCE_CONTRACT_VERSION, assignmentSourceFileHash } from "..
 import { DISCOVERY_VERIFIER_VERSION } from "../engine/discoveryVisualReview";
 import { generateCanonicalProgressionArtifact } from "../engine/canonicalProgressionGenerator";
 import { buildLongitudinalLearningHistory } from "../engine/longitudinalLearning";
-import { generateDirectArtifacts, runDirectBrowserSmokeCheck } from "../engine/directMathExperience";
+import { askDirectMathPlanner, askMathExperienceDesigner, generateDirectArtifacts, runDirectBrowserSmokeCheck } from "../engine/directMathExperience";
 import { createHash } from "node:crypto";
 import { projectLearningCycle } from "../engine/learningCycleRepository";
 import { advanceCanonicalCycleFromEvidence } from "../engine/learningCycleRuntime";
 import { setupRoutes } from "../server/routes";
 
-vi.mock("../engine/directMathExperience", async original => ({...await original<typeof import("../engine/directMathExperience")>(), generateDirectArtifacts:vi.fn(),askDirectMathPlanner:vi.fn(()=>{throw new Error("paid_planner_forbidden");}),askMathExperienceDesigner:vi.fn(()=>{throw new Error("paid_creator_forbidden");})}));
+const lab = vi.hoisted(() => ({
+  chart: () => ({}),
+  plannerOutput: undefined as any,
+  designerOutput: undefined as any,
+}));
+vi.mock("../engine/directMathExperience", async original => ({
+  ...await original<typeof import("../engine/directMathExperience")>(),
+  generateDirectArtifacts: vi.fn(),
+  askDirectMathPlanner: vi.fn(async () => {
+    if (!lab.plannerOutput) throw new Error("paid_planner_forbidden");
+    return lab.plannerOutput;
+  }),
+  askMathExperienceDesigner: vi.fn(async () => {
+    if (!lab.designerOutput) throw new Error("paid_creator_forbidden");
+    return lab.designerOutput;
+  }),
+}));
 vi.mock("../engine/childFacingVisualGate", async original => ({
   ...await original<typeof import("../engine/childFacingVisualGate")>(),
   judgeChildFacingScreens: vi.fn(async () => ({ decision: "approve", observations: [] })),
@@ -37,7 +53,6 @@ vi.mock("../engine/returnedWorkPipeline",async original=>{
 vi.mock("../profiles/buildProfile",()=>({buildProfile:async()=>({games:{}})}));
 vi.mock("../server/currencyAward",()=>({reconcileCompanionCareCurrencyAward:()=>({ok:true,balance:25})}));
 vi.mock("../engine/learningCycleRuntime",async original=>{const actual=await original<typeof import("../engine/learningCycleRuntime")>();return {...actual,advanceCanonicalCycleFromEvidence:(input:any,opts:any)=>input.decide?actual.advanceCanonicalCycleFromEvidence(input,opts):Promise.resolve(getLearningCycle(input.childId,input.homeworkId,opts))};});
-const lab = vi.hoisted(() => ({ chart: () => ({}) }));
 vi.mock("../profiles/childChart", () => ({ getChildChart: () => lab.chart() }));
 vi.mock("../shared/childRegistry", async original => ({ ...await original<typeof import("../shared/childRegistry")>(), listChildProfileIds: () => ["lab-child"] }));
 
@@ -72,6 +87,10 @@ it("plays the isolated math release journey through calibration and the next Pla
     path.join(process.cwd(), "src/context/reina"),
   ];
   const canonicalFamilyHashBefore = hashPaths(canonicalFamilyPaths);
+  lab.plannerOutput = undefined;
+  lab.designerOutput = undefined;
+  vi.mocked(askDirectMathPlanner).mockClear();
+  vi.mocked(askMathExperienceDesigner).mockClear();
   vi.stubEnv("ANTHROPIC_API_KEY", "recorded-provider-only");vi.stubEnv("OPENAI_API_KEY", "recorded-provider-only");
   vi.stubEnv("SUNNY_CONTEXT_ROOT", contextRoot);
   vi.stubEnv("SUNNY_MODE", "real");
@@ -276,8 +295,8 @@ it("plays the isolated math release journey through calibration and the next Pla
           discoveryObservationIds.includes(evidenceId),
         )).toBe(true);
       }
-      const writeDraft=(name:string,value:unknown)=>fs.writeFileSync(path.join(draft,name),JSON.stringify(value));
-      writeDraft("math-learning-program.json",program);writeDraft("design-packet.json",{version:1,planId:targeted.planId});writeDraft("designed-plan.json",targeted);
+      lab.plannerOutput = program;
+      lab.designerOutput = { packet: { version: 1, planId: targeted.planId }, plan: targeted };
       fs.writeFileSync(path.join(contextRoot,childId,"learning_profile.json"),'{"aiContentCatalog":[]}');
       const sibling = new Promise<void>(resolve=>{releaseSibling=resolve;});
       vi.mocked(generateDirectArtifacts).mockImplementation(async input=>{
@@ -288,6 +307,10 @@ it("plays the isolated math release journey through calibration and the next Pla
       releaseTargetedFixture();
       expect(generation).toBeDefined();
       await expect.poll(()=>getLearningCycle(childId,homeworkId,{rootDir})!.nodes.find(n=>n.nodeId==="activity-1")?.artifactBinding?.validationStatus,{timeout:15000}).toBe("passed");
+      expect(vi.mocked(askDirectMathPlanner)).toHaveBeenCalledTimes(1);
+      const plannerInput = vi.mocked(askDirectMathPlanner).mock.calls[0]?.[0] as any;
+      expect(plannerInput.priorOutcomes.discoveryCycle.observations.map((observation: any) => observation.observationId)).toEqual(discoveryObservationIds);
+      expect(vi.mocked(askMathExperienceDesigner)).toHaveBeenCalledTimes(1);
       const planFile=path.join(contextRoot,childId,"plans/active_session_plan.json");
       const published=JSON.parse(fs.readFileSync(planFile,"utf8"));activeSessionPlan=published.current??published;
       step="open the Teaching Board next session while a sibling prepares";
