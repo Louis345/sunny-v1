@@ -1171,7 +1171,8 @@ describe("assignment planner", () => {
       }),
       expect.objectContaining({
         label: "Speed Challenge",
-        nodeId: "baseline-radar",
+        nodeId: "mystery-choice",
+        launchNodeId: "baseline-radar",
         choiceSignal: expect.objectContaining({
           preferenceNotMastery: true,
           traits: expect.arrayContaining(["speed"]),

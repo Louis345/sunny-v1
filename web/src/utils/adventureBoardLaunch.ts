@@ -411,14 +411,20 @@ export function resolvePlannerBoardChoiceLaunchNode(
   option: AdventureChoiceOption,
 ): NodeConfig | null {
   if (option.state === "locked" || !option.nodeId) return null;
-  const boardNode = packet.activeSessionPlan?.adventureBoard?.nodes.find(
+  const ownerBoardNode = packet.activeSessionPlan?.adventureBoard?.nodes.find(
     (node) => node.id === option.nodeId,
   );
-  if (!boardNode) return null;
-  const launchNode = resolvePlannerBoardLaunchNode(packet, boardNode, { allowLocked: true });
+  if (!ownerBoardNode) return null;
+  const launchBoardNode = option.launchNodeId
+    ? packet.activeSessionPlan?.adventureBoard?.nodes.find((node) => node.id === option.launchNodeId)
+    : ownerBoardNode;
+  if (!launchBoardNode) return null;
+  const launchNode = resolvePlannerBoardLaunchNode(packet, launchBoardNode, { allowLocked: true });
   if (!launchNode) return null;
   return {
     ...launchNode,
+    id: ownerBoardNode.id,
+    choiceSetId: ownerBoardNode.choiceSetId ?? launchNode.choiceSetId,
     ...(option.activityId ? { activityId: option.activityId } : {}),
     ...(option.gameHtmlPath ? { gameHtmlPath: option.gameHtmlPath } : {}),
     ...(option.contentId ? { contentId: option.contentId } : {}),

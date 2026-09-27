@@ -413,27 +413,27 @@ function createAdventureSlotAllocator(options: {
   };
 }
 
-function requiredSlotForIndex(index: number): AdventureBoardNode["slot"] {
+function requiredSlotForIndex(index: number): NonNullable<AdventureBoardNode["slot"]> {
   return (["2", "3", "4"] as const)[index] ?? "4";
 }
 
-function convergedSlotForIndex(index: number, count: number): AdventureBoardNode["slot"] {
+function convergedSlotForIndex(index: number, count: number): NonNullable<AdventureBoardNode["slot"]> {
   if (count <= 1) return "6";
   return (["6.1", "6.2", "6"] as const)[index] ?? "6";
 }
 
-function slotForRouteEntry(entry: NormalizedRouteLayoutEntry): AdventureBoardNode["slot"] {
+function slotForRouteEntry(entry: NormalizedRouteLayoutEntry): NonNullable<AdventureBoardNode["slot"]> {
   const route = ["a", "b", "c"][entry.routeIndex] ?? "c";
   const order = Math.min(entry.routeOrder + 1, 3);
-  return `5${route}.${order}` as AdventureBoardNode["slot"];
+  return `5${route}.${order}` as NonNullable<AdventureBoardNode["slot"]>;
 }
 
 function laneForRouteEntry(entry: NormalizedRouteLayoutEntry): NonNullable<AdventureBoardNode["layout"]>["lane"] {
   return (["upper", "lower", "middle"] as const)[entry.routeIndex] ?? "middle";
 }
 
-function slotForLinearRouteIndex(index: number): AdventureBoardNode["slot"] {
-  const slots: AdventureBoardNode["slot"][] = ["5a.1", "5b.1", "5c.1", "5a.2", "5b.2", "5c.2", "5a.3", "5b.3", "5c.3"];
+function slotForLinearRouteIndex(index: number): NonNullable<AdventureBoardNode["slot"]> {
+  const slots: NonNullable<AdventureBoardNode["slot"]>[] = ["5a.1", "5b.1", "5c.1", "5a.2", "5b.2", "5c.2", "5a.3", "5b.3", "5c.3"];
   return slots[index] ?? "5c.3";
 }
 
@@ -787,7 +787,7 @@ function buildMysteryChoiceSets(args: {
   const puzzleNode = variants.find((node) => node.id !== storyNode?.id && node.id !== speedNode?.id);
   const optionBase = (node: ActiveSessionPlanBoardNodeSnapshot | undefined) => ({
     ...(node ? {
-      nodeId: node.id,
+      launchNodeId: node.id,
       activityId: node.activityId,
       gameHtmlPath: node.gameHtmlPath,
       activityConfigPath: node.activityConfigPath,

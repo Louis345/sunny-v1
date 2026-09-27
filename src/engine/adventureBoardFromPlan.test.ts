@@ -616,6 +616,14 @@ describe("buildAdventureBoardFromActiveSessionPlan", () => {
       .toEqual(["choice-visual", "choice-mystery"]);
     expect(board.choiceSets?.filter((set) => set.kind === "mystery").map((set) => set.id).sort())
       .toEqual(["choice-mystery-options", "concept-check-options"]);
+    for (const ownerId of ["choice-mystery", "concept-check"]) {
+      const choiceSet = board.choiceSets?.find((set) => set.id === `${ownerId}-options`);
+      expect(choiceSet?.options.every((option) => option.nodeId === ownerId)).toBe(true);
+      expect(choiceSet?.options.every((option) => {
+        const launchNodeId = (option as typeof option & { launchNodeId?: string }).launchNodeId;
+        return !launchNodeId || expectedIds.includes(launchNodeId);
+      })).toBe(true);
+    }
     expect(board.edges).toEqual(expect.arrayContaining([
       expect.objectContaining({ from: "letter-rush-practice", to: "choose-path" }),
       expect.objectContaining({ from: "choose-path", to: "choice-visual" }),

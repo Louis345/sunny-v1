@@ -1189,6 +1189,75 @@ describe("AdventureBoardExperience", () => {
     });
   });
 
+  it("runs a Mystery option with its selected activity while completing the owning Mystery node", () => {
+    const board: AdventureBoardJson = {
+      ...grokFullExperienceBoard,
+      nodes: [
+        {
+          id: "source-practice",
+          kind: "activity",
+          activityId: "word-radar",
+          label: "Source Practice",
+          state: "completed",
+          action: { type: "launch-activity", payloadId: "source-practice" },
+        },
+        {
+          id: "concept-check",
+          kind: "mystery",
+          activityId: "mystery",
+          label: "Concept Check",
+          state: "available",
+          action: { type: "open-choice-set", payloadId: "concept-check-options" },
+          choiceSetId: "concept-check-options",
+        },
+      ],
+      edges: [],
+      choiceSets: [{
+        id: "concept-check-options",
+        kind: "mystery",
+        title: "Choose a check",
+        options: [{
+          id: "concept-check-story",
+          label: "Story Check",
+          state: "available",
+          nodeId: "concept-check",
+          launchNodeId: "source-practice",
+          activityId: "word-radar",
+        } as never],
+      }],
+    };
+    const packet: ChildExperiencePacket = {
+      ...packetForBoard(board),
+      activeSessionPlan: {
+        ...packetForBoard(board).activeSessionPlan!,
+        nodePlan: [
+          {
+            id: "source-practice",
+            type: "word-radar",
+            activityId: "word-radar",
+            targets: ["sample"],
+            difficulty: 1,
+            source: "chart_planner",
+          },
+          {
+            id: "concept-check",
+            type: "mystery",
+            activityId: "mystery",
+            targets: ["sample"],
+            difficulty: 1,
+            source: "chart_planner",
+          },
+        ],
+      },
+    };
+
+    expect(resolvePlannerBoardChoiceLaunchNode(packet, board.choiceSets![0]!.options[0]!)).toMatchObject({
+      id: "concept-check",
+      type: "word-radar",
+      words: ["sample"],
+    });
+  });
+
   it("turns Quest wrapper card selection into a validated regenerate request and launch node", () => {
     const board = boardWithSpecialChoice("quest");
     const packet: ChildExperiencePacket = {
