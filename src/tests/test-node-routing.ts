@@ -193,6 +193,7 @@ describe("map node routing", () => {
       "word-builder",
       "spell-check",
       "letter-rush",
+      "speed-catcher",
       "monster-stampede",
       "wordle",
       "wheel-of-fortune",

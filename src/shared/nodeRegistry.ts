@@ -221,6 +221,9 @@ export const NODE_REGISTRY: Record<string, NodeHandler> = {
       return `/games/letter-rush.html?${params.toString()}`;
     },
   },
+  "speed-catcher": {
+    getUrl: (node, ctx) => `/games/speed-catcher.html?${buildParams(node, ctx)}`,
+  },
   "monster-stampede": {
     getUrl: (node, ctx) => `/games/monster-stampede.html?${buildParams(node, ctx)}`,
   },

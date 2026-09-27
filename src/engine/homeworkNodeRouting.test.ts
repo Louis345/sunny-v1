@@ -24,4 +24,27 @@ describe("generated Probe Board routing", () => {
     expect(url.searchParams.get("probeActivity")).toBe("probe-arrays");
     expect(url.searchParams.get("childId")).toBe("reina");
   });
+
+  it("launches a Planner-selected speed-catcher activity", () => {
+    const action = buildNodeLaunchAction({
+      id: "long-a-practice",
+      type: "speed-catcher",
+      difficulty: 2,
+      date: "hw-spelling-1",
+      words: ["safe", "late"],
+    }, {
+      childId: "test-child",
+      childName: "Test Child",
+      companion: "elli",
+      companionName: "Elli",
+      isDiagMode: false,
+    });
+
+    expect(action.kind).toBe("iframe");
+    if (action.kind !== "iframe") return;
+    const url = new URL(action.url, "http://sunny.local");
+    expect(url.pathname).toBe("/games/speed-catcher.html");
+    expect(url.searchParams.get("nodeId")).toBe("long-a-practice");
+    expect(url.searchParams.get("words")).toBe("safe,late");
+  });
 });
