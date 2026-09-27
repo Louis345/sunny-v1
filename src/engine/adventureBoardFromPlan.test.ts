@@ -550,6 +550,82 @@ describe("buildAdventureBoardFromActiveSessionPlan", () => {
     expect(board.nodes.some((node) => node.slot === "5c.1" || node.slot === "5c.2")).toBe(false);
   });
 
+  it("preserves route-specific and shared mystery activities from the Planner program", () => {
+    const plan = {
+      planId: "plan-two-mystery-activities",
+      childId: "test-child",
+      domain: "spelling",
+      nodePlan: [
+        { id: "discovery-verify", type: "word-radar", activityId: "word-radar", targets: ["word-a"] },
+        { id: "scaffold-radar", type: "word-radar", activityId: "word-radar", targets: ["word-b"] },
+        { id: "letter-rush-practice", type: "speed-catcher", activityId: "speed-catcher", targets: ["word-c"] },
+        { id: "choice-visual", type: "wheel-of-fortune", activityId: "wheel-of-fortune", targets: ["word-d"] },
+        { id: "choice-mystery", type: "mystery", activityId: "mystery", targets: ["word-d"] },
+        { id: "concept-check", type: "mystery", activityId: "mystery", targets: ["word-a", "word-b"] },
+        { id: "final-checkpoint", type: "word-radar", activityId: "word-radar", targets: ["word-a", "word-b", "word-c", "word-d"] },
+      ],
+      learningRoutes: [
+        {
+          id: "visual-route",
+          label: "Visual Route",
+          rationale: "Choose a visual practice route.",
+          nodeIds: [
+            "discovery-verify",
+            "scaffold-radar",
+            "letter-rush-practice",
+            "choice-visual",
+            "concept-check",
+            "final-checkpoint",
+          ],
+        },
+        {
+          id: "mystery-route",
+          label: "Mystery Route",
+          rationale: "Choose a mystery practice route.",
+          nodeIds: [
+            "discovery-verify",
+            "scaffold-radar",
+            "letter-rush-practice",
+            "choice-mystery",
+            "concept-check",
+            "final-checkpoint",
+          ],
+        },
+      ],
+      plannedMeasurements: [{
+        id: "measure-final-checkpoint",
+        activityId: "word-radar",
+        target: "assigned words",
+        evidenceType: "fresh recall",
+        supportCriteria: "Unassisted recall is captured",
+        reviseCriteria: "Evidence is mixed",
+        falsifyCriteria: "Recall does not hold",
+        spelling: { finalCheck: true },
+      }],
+    };
+    const board = buildAdventureBoardFromActiveSessionPlan({
+      plan: plan as never,
+      boardId: plan.planId,
+      theme,
+    });
+
+    const expectedIds = plan.nodePlan.map((node) => node.id);
+    expect(board.nodes.filter((node) => expectedIds.includes(node.id)).map((node) => node.id)).toEqual(expectedIds);
+    expect(new Set(board.nodes.map((node) => node.slot)).size).toBe(board.nodes.length);
+    expect(board.choiceSets?.find((set) => set.id === "baseline-route-options")?.options.map((option) => option.nodeId))
+      .toEqual(["choice-visual", "choice-mystery"]);
+    expect(board.choiceSets?.filter((set) => set.kind === "mystery").map((set) => set.id).sort())
+      .toEqual(["choice-mystery-options", "concept-check-options"]);
+    expect(board.edges).toEqual(expect.arrayContaining([
+      expect.objectContaining({ from: "letter-rush-practice", to: "choose-path" }),
+      expect.objectContaining({ from: "choose-path", to: "choice-visual" }),
+      expect.objectContaining({ from: "choose-path", to: "choice-mystery" }),
+      expect.objectContaining({ from: "choice-visual", to: "concept-check" }),
+      expect.objectContaining({ from: "choice-mystery", to: "concept-check" }),
+      expect.objectContaining({ from: "concept-check", to: "final-checkpoint" }),
+    ]));
+  });
+
 
   it("prefers the locked mastery-gated node when two quest-typed nodes exist", () => {
     const board = buildAdventureBoardFromActiveSessionPlan({
