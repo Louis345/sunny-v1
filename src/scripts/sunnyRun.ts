@@ -1,4 +1,4 @@
-import { execSync } from "child_process";
+import { execFileSync } from "child_process";
 import path from "path";
 import {
   encodeSunnyRuntimeConfig,
@@ -17,6 +17,7 @@ import {
   type HomeworkDomainFilter,
 } from "./homeworkSelector";
 import { hasReadyDirectMathExperience } from "../engine/directMathExperience";
+import { localNpmScriptCommand, localTsxCommand } from "./localRuntimeCommand";
 
 type ParsedArgs = {
   subject?: SunnySubject;
@@ -131,19 +132,22 @@ function main(): void {
   }
   const env = buildRuntimeEnv(args);
   const root = path.resolve(process.cwd());
-  execSync("npm run build", {
+  const build = localNpmScriptCommand(root, "build");
+  execFileSync(build.executable, build.args, {
     cwd: path.join(root, "web"),
     stdio: "inherit",
     env,
   });
-  execSync(
-    `npx tsx src/scripts/launch-kiosk.ts${args.noBrowser ? " --no-browser" : ""}`,
-    {
-      cwd: root,
-      stdio: "inherit",
-      env,
-    },
+  const kiosk = localTsxCommand(
+    root,
+    "src/scripts/launch-kiosk.ts",
+    args.noBrowser ? ["--no-browser"] : [],
   );
+  execFileSync(kiosk.executable, kiosk.args, {
+    cwd: root,
+    stdio: "inherit",
+    env,
+  });
 }
 
 main();

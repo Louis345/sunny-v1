@@ -3,7 +3,7 @@ import { writeCanvasCapabilities } from "../utils/generateCanvasCapabilities";
 writeCanvasCapabilities();
 
 import { spawn, type ChildProcess } from "child_process";
-import { execSync } from "child_process";
+import { execFileSync, execSync } from "child_process";
 import path from "path";
 import fs from "fs";
 import {
@@ -11,9 +11,11 @@ import {
   healthMatchesCertificationRun,
   mayReplaceExistingPortOwner,
 } from "../server/certificationRuntime";
+import { localNpmScriptCommand, localTsxCommand } from "./localRuntimeCommand";
 
 const PORT = parseInt(process.env.PORT || "3001", 10);
-const WEB_DIR = path.resolve(process.cwd(), "web");
+const root = path.resolve(process.cwd());
+const WEB_DIR = path.join(root, "web");
 const DIST_DIR = path.join(WEB_DIR, "dist");
 
 function needsRebuild(): boolean {
@@ -117,13 +119,15 @@ async function main() {
   // Step 1: Build frontend if dist doesn't exist or is stale
   if (needsRebuild()) {
     console.log("  📦 Building frontend...");
-    execSync("npm run build", { cwd: WEB_DIR, stdio: "inherit" });
+    const build = localNpmScriptCommand(root, "build");
+    execFileSync(build.executable, build.args, { cwd: WEB_DIR, stdio: "inherit" });
     console.log("  ✅ Frontend built\n");
   }
 
   // Step 2: Start the server (serves both API and static files)
   console.log("  🚀 Starting server...");
-  const server = spawn("npx", ["tsx", "src/server.ts", "--serve-static"], {
+  const serverCommand = localTsxCommand(root, "src/server.ts", ["--serve-static"]);
+  const server = spawn(serverCommand.executable, serverCommand.args, {
     stdio: "inherit",
     env: { ...process.env, PORT: String(PORT) },
   });

@@ -9,4 +9,11 @@ describe("Sunny kiosk port handoff", () => {
     expect(source).toContain("lsof -tiTCP:${port} -sTCP:LISTEN");
     expect(source).not.toContain("lsof -ti tcp:${port}");
   });
+
+  it("never falls back to PATH-selected npx for the Sunny server", () => {
+    const source = fs.readFileSync(path.join(process.cwd(), "src/scripts/launch-kiosk.ts"), "utf8");
+
+    expect(source).not.toContain('spawn("npx"');
+    expect(source).toContain('localTsxCommand(root, "src/server.ts", ["--serve-static"])');
+  });
 });
