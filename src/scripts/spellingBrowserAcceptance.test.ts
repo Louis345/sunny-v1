@@ -15,7 +15,7 @@ import { registerActiveVoiceSessionManager, __resetVoiceSessionRegistryForTests 
 import { runSpellingDiscoveryIntake } from "./ingestHomework";
 import { runAdaptiveMathGeneration } from "./runAdaptiveMathGeneration";
 import { getLearningCycle } from "../engine/learningCycleRepository";
-import { seedSpellingLab, recordedAdaptiveSpellingPlan, recordedSpellingPlan } from "./fixtures/spellingEvidenceFirst";
+import { seedSpellingLab, writeSpellingPdfFixture, recordedAdaptiveSpellingPlan, recordedSpellingPlan } from "./fixtures/spellingEvidenceFirst";
 import { COMPANION_DEFAULTS } from "../shared/companionTypes";
 import * as legacyLearning from "../engine/learningEngine";
 const lab = vi.hoisted(() => ({ root: "", plannerCalls: 0, adaptive: false }));
@@ -71,7 +71,8 @@ it.each([
   const words = scenario.adaptive
     ? ["night", "light", "right", "sight", "might", "fight", "write", "knife", "wrong", "climb"]
     : ["night", "light"];
-  const source = seedSpellingLab(rootDir, words, scenario.adaptive ? "/companions/sample.vrm" : "");
+  seedSpellingLab(rootDir, words, scenario.adaptive ? "/companions/sample.vrm" : "");
+  const source = writeSpellingPdfFixture(rootDir, words);
   const legacyAttempt = vi.spyOn(legacyLearning, "recordAttempt");
   const { homeworkId } = await runSpellingDiscoveryIntake({ childId: "lab-child", sourceFile: source, rootDir }, { callPlannerModel: async (packet: Parameters<typeof recordedSpellingDiagnostic>[0]) => ({ draft: { diagnostic: recordedSpellingDiagnostic(packet), title: "School spelling", words: words.map(word => ({ word, pageNumber: 1 })), uncertainty: [] } }) });
   fs.writeFileSync(path.join(outputDir, "opening-packet.json"), JSON.stringify(buildChildExperiencePacket(getChildChart("lab-child", { rootDir })), null, 2));
