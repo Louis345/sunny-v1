@@ -767,9 +767,6 @@ function buildMysteryChoiceSets(args: {
   const base = {
     thumbnailUrl: args.thumbnailForNode?.(args.mysteryNode, args.index),
     nodeId: args.mysteryNode.id,
-    theoryId: args.mysteryNode.theoryId,
-    experimentId: args.mysteryNode.experimentId,
-    contentId: args.mysteryNode.contentId,
     activityId: args.mysteryNode.activityId,
     gameHtmlPath: args.mysteryNode.gameHtmlPath,
     activityConfigPath: args.mysteryNode.activityConfigPath,
@@ -791,8 +788,6 @@ function buildMysteryChoiceSets(args: {
       activityId: node.activityId,
       gameHtmlPath: node.gameHtmlPath,
       activityConfigPath: node.activityConfigPath,
-      contentId: node.contentId,
-      theoryId: node.theoryId,
     } : {}),
   });
   return [{
@@ -815,9 +810,7 @@ function buildMysteryChoiceSets(args: {
         ...base,
         ...optionBase(storyNode),
         thumbnailUrl: "/thumbnails/activities/math-generic.svg",
-        contentId: `${args.mysteryNode.contentId ?? args.mysteryNode.id}:story`,
-        experimentId: `${args.mysteryNode.experimentId ?? args.mysteryNode.id}:story`,
-        engagementDimensions: ["story", "visual", "calm"],
+        ...mysteryChoiceExperimentMetadata(args.mysteryNode, "story", ["story", "visual", "calm"]),
         mechanic: "equal-groups-story",
         theme: "story-solver",
       },
@@ -836,9 +829,7 @@ function buildMysteryChoiceSets(args: {
         ...base,
         ...optionBase(speedNode),
         thumbnailUrl: "/thumbnails/activities/math-multiplication.svg",
-        contentId: `${args.mysteryNode.contentId ?? args.mysteryNode.id}:speed`,
-        experimentId: `${args.mysteryNode.experimentId ?? args.mysteryNode.id}:speed`,
-        engagementDimensions: ["speed", "competition"],
+        ...mysteryChoiceExperimentMetadata(args.mysteryNode, "speed", ["speed", "competition"]),
         mechanic: "fact-retrieval-speed",
         theme: "fact-blaster",
       },
@@ -857,14 +848,28 @@ function buildMysteryChoiceSets(args: {
         ...base,
         ...optionBase(puzzleNode),
         thumbnailUrl: "/thumbnails/activities/math-coins.svg",
-        contentId: `${args.mysteryNode.contentId ?? args.mysteryNode.id}:puzzle`,
-        experimentId: `${args.mysteryNode.experimentId ?? args.mysteryNode.id}:puzzle`,
-        engagementDimensions: ["puzzle", "control", "visual"],
+        ...mysteryChoiceExperimentMetadata(args.mysteryNode, "puzzle", ["puzzle", "control", "visual"]),
         mechanic: "equal-groups-puzzle",
         theme: "array-builder",
       },
     ],
   }];
+}
+
+function mysteryChoiceExperimentMetadata(
+  node: ActiveSessionPlanBoardNodeSnapshot,
+  variant: string,
+  engagementDimensions: string[],
+): Pick<AdventureChoiceOption, "theoryId" | "experimentId" | "contentId" | "engagementDimensions"> | Record<string, never> {
+  if (!node.theoryId || !node.experimentId || !node.contentId || !node.engagementDimensions?.length) {
+    return {};
+  }
+  return {
+    theoryId: node.theoryId,
+    experimentId: `${node.experimentId}:${variant}`,
+    contentId: `${node.contentId}:${variant}`,
+    engagementDimensions,
+  };
 }
 
 function stateForPlanNode(

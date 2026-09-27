@@ -5,6 +5,7 @@ import {
   type ActiveSessionPlanBoardSnapshot,
 } from "../shared/adventureBoardFromPlan";
 import type { AdventureBoardJson } from "../shared/adventureBoardJson";
+import { validateBoardChoices } from "../shared/adventureBoardValidation";
 
 const theme: AdventureBoardJson["theme"] = {
   background: { type: "solid", value: "#10233f" },
@@ -632,6 +633,7 @@ describe("buildAdventureBoardFromActiveSessionPlan", () => {
       expect.objectContaining({ from: "choice-mystery", to: "concept-check" }),
       expect.objectContaining({ from: "concept-check", to: "final-checkpoint" }),
     ]));
+    expect(validateBoardChoices(board)).toEqual([]);
   });
 
   it("assigns unique slots to larger Planner-owned prefixes, routes, and converged tails", () => {
