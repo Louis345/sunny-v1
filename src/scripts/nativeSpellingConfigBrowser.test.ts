@@ -42,7 +42,7 @@ async function launch(viewport: { width: number; height: number }, options: { bi
         <button id="hostExit" style="position:fixed;left:12px;top:12px;z-index:10;padding:12px">Back to Map</button>
         <script>window.captured=[];window.exited=false;
         addEventListener('message',event=>{if(event.source!==document.querySelector('iframe')?.contentWindow)return;
-          if(window.captured.filter(row=>row.type===event.data.type).length>=10)throw Error('native_event_loop');
+          if(window.captured.filter(row=>JSON.stringify(row)===JSON.stringify(event.data)).length>=10)throw Error('native_event_loop');
           window.captured.push(event.data);});
         document.getElementById('hostExit').onclick=()=>{document.querySelector('iframe').remove();window.exited=true;};</script>
         <iframe title="Letter Rush" src="/games/letter-rush.html?${params.toString()}" style="position:fixed;inset:0;width:100%;height:100%;border:0"></iframe>
@@ -127,6 +127,29 @@ describe.each(viewports)("native frozen LetterRush at $width×$height", viewport
     expect(errors).toEqual([]); expect(forbidden).toEqual([]);
     await assertUsable(page.getByRole("button", { name: "Back to Map", exact: true }));
   });
+
+  it("completes every falling letter before exposing a usable next-word control", async () => {
+    const { frame, messages, errors } = await launch(viewport, {
+      body: {
+        ...recordedConfig,
+        mode: "read-and-race",
+        scaffolds: { ...recordedConfig.scaffolds, showWord: true, letterBank: true },
+      },
+    });
+    await frame.locator("body").evaluate((_body: HTMLElement) => { Math.random = () => 0.1; });
+    await frame.getByRole("button", { name: "Start", exact: true }).click();
+    for (const letter of word.text) {
+      const falling = frame.locator(`button.falling[data-letter="${letter}"]`).last();
+      await falling.waitFor({ state: "visible", timeout: 12000 });
+      await falling.evaluate((element: any) => element.click());
+    }
+    await frame.locator("#jackpotBanner.on").waitFor();
+    const next = frame.getByRole("button", { name: "Next word →", exact: true });
+    await assertUsable(next);
+    await next.click();
+    await expect.poll(async () => (await messages()).filter((message) => message.type === "node_complete").length).toBe(1);
+    expect(errors).toEqual([]);
+  }, 30000);
 
   it.each([
     { name: "failed fetch", status: 503 },

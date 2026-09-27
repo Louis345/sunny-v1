@@ -133,7 +133,17 @@ it.each([
     };
     for (const [index, word] of words.entries()) {
       await answer(scenario.adaptive && index >= 6 ? "zzz" : index === 1 && !scenario.adaptive ? "lite" : word);
-      if (index < words.length - 1) await page.getByTestId("word-radar-input").waitFor();
+      if (index < words.length - 1) {
+        await page.getByTestId("word-radar-input").waitFor();
+      }
+      if (scenario.adaptive && index === 1) {
+        const committedBeforeRestart = getLearningCycle("lab-child", homeworkId, { rootDir })!.observations;
+        expect(committedBeforeRestart).toHaveLength(2);
+        await page.reload();
+        await page.getByTestId("word-radar-input").waitFor();
+        expect(getLearningCycle("lab-child", homeworkId, { rootDir })!.observations).toEqual(committedBeforeRestart);
+        expect(await page.getByText(words[2], { exact: true }).count()).toBe(0);
+      }
     }
     await page.getByText("Skip", { exact: true }).click();
     await Promise.race([
@@ -160,7 +170,8 @@ it.each([
     expect(board.theme.background.type).toBe("image");
     const backgroundLoaded = await page.evaluate(async url => new Promise<boolean>(resolve => { const image = new (globalThis as any).Image(); image.onload = () => resolve(true); image.onerror = () => resolve(false); image.src = url; }), board.theme.background.value);
     expect(backgroundLoaded).toBe(true);
-    await expect.poll(() => page.locator(".adventure-board__node-thumbnail").evaluateAll(elements => elements.length >= 3 && elements.every((element: any) => element.complete && element.naturalWidth > 0))).toBe(true);
+    const expectedThumbnailCount = board.nodes.filter((node) => Boolean(node.thumbnailUrl)).length;
+    await expect.poll(() => page.locator(".adventure-board__node-thumbnail").evaluateAll((elements, expectedCount) => elements.length === expectedCount && elements.every((element: any) => element.complete && element.naturalWidth > 0), expectedThumbnailCount)).toBe(true);
     if (scenario.adaptive) {
       const targeted = getLearningCycle("lab-child", homeworkId, { rootDir })!;
       const missedWords = words.slice(6);
@@ -172,12 +183,16 @@ it.each([
       })).toBe(true);
       expect(final.academicTarget.targets).toEqual(words);
       expect(new Set(board.nodes.map((node) => node.slot)).size).toBe(board.nodes.length);
-      expect(board.nodes.map((node) => node.id)).toEqual(expect.arrayContaining([...routeIds, "recall-checkpoint", "quest", "boss"]));
+      expect(board.nodes.map((node) => node.id)).toEqual(expect.arrayContaining([...routeIds, "recall-checkpoint"]));
+      expect(board.nodes.map((node) => node.id)).not.toContain("quest");
+      expect(board.nodes.map((node) => node.id)).not.toContain("boss");
+      expect(targeted.nodes.find((node) => node.nodeId === "quest")?.state).toBe("locked");
+      expect(targeted.nodes.find((node) => node.nodeId === "boss")?.state).toBe("locked");
       expect(getChildChart("lab-child", { rootDir }).companion.config.vrmUrl).toBe("/companions/sample.vrm");
-      const companion = page.getByTestId("companion-layer-stack");
+      const companion = page.getByTestId("companion-portrait-stack");
       expect(await companion.count()).toBe(1);
       await expect.poll(() => companion.getAttribute("data-companion-model-status")).toBe("ready");
-      const companionCanvas = companion.getByTestId("companion-full-stage").locator("canvas");
+      const companionCanvas = companion.getByTestId("companion-portrait").locator("canvas");
       expect(await companionCanvas.isVisible()).toBe(true);
       expect(await companionCanvas.evaluate((element: any) => element.width > 1 && element.height > 1)).toBe(true);
       const companionModelStatus = await companion.getAttribute("data-companion-model-status");
@@ -188,10 +203,11 @@ it.each([
       const completionScreenshotPath = path.join(outputDir, `completed-route-${viewport.width}x${viewport.height}.png`);
       await page.screenshot({ path: boardScreenshotPath });
 
-      await page.getByRole("button", { name: "Choose Path", exact: true }).click();
-      const routeDialog = page.getByRole("dialog", { name: "Choose your path", exact: true });
-      await routeDialog.waitFor();
-      await routeDialog.getByRole("button", { name: /route Speed It$/ }).click();
+      await page.getByRole("note", { name: "Choose Path", exact: true }).waitFor();
+      await page.getByRole("button", { name: "Recall Practice", exact: true }).click();
+      await expect.poll(() =>
+        getLearningCycle("lab-child", homeworkId, { rootDir })?.routeSelection?.selectedRouteId,
+      ).toBe("speed-route");
 
       await page.getByRole("button", { name: "Ready!", exact: true }).click();
       for (const [index, word] of missedWords.entries()) {
@@ -206,6 +222,9 @@ it.each([
       await page.getByRole("button", { name: "Letter Rush", exact: true }).click();
 
       const letterRush = page.frameLocator('iframe[title="letter-rush"]');
+      await letterRush.locator("body").evaluate((_body: HTMLElement) => {
+        Math.random = () => 0.1;
+      });
       await letterRush.getByRole("button", { name: "Start", exact: true }).click();
       const letterRushWords: string[] = [];
       for (let wordIndex = 0; wordIndex < missedWords.length; wordIndex += 1) {
@@ -215,10 +234,11 @@ it.each([
         letterRushWords.push(target);
         expect(target).toBe(missedWords[wordIndex]);
         for (const letter of target) {
-          const falling = letterRush.locator(`button.falling[data-letter="${letter}"]`).first();
-          await falling.waitFor({ state: "attached", timeout: 12000 });
-          await falling.click({ force: true });
+          const falling = letterRush.locator(`button.falling[data-letter="${letter}"]`).last();
+          await falling.waitFor({ state: "visible", timeout: 12000 });
+          await falling.evaluate((element: any) => element.click());
         }
+        await letterRush.locator("#jackpotBanner.on").waitFor();
         const next = letterRush.getByRole("button", { name: "Next word →", exact: true });
         await next.waitFor();
         await next.click();
