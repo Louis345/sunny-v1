@@ -1652,7 +1652,14 @@ export function projectLearningCycle(
 ): LearningCycleProjection {
   assertCycle(cycle);
   const planId = `learning-cycle:${cycle.homeworkId}:r${cycle.revision}`;
-  const nodePlan: ActiveSessionPlan["nodePlan"] = cycle.nodes.map((node) => {
+  const hiddenDestinationNodeIds = new Set(cycle.domain === "spelling"
+    ? cycle.nodes
+      .filter((node) => (node.role === "quest" || node.role === "boss") && node.state === "locked")
+      .map((node) => node.nodeId)
+    : []);
+  const nodePlan: ActiveSessionPlan["nodePlan"] = cycle.nodes
+    .filter((node) => !hiddenDestinationNodeIds.has(node.nodeId))
+    .map((node) => {
     const type = nodeActivityType(node);
     return {
       id: node.nodeId,
@@ -1681,7 +1688,7 @@ export function projectLearningCycle(
       thumbnailUrl: node.artwork.localPath ?? node.artifactBinding?.localArtworkPath ?? undefined,
       thumbnailPrompt: node.artwork.prompt ?? undefined,
     };
-  });
+    });
   const activeSessionPlan: ActiveSessionPlan = {
     planId,
     childId: cycle.childId,
@@ -1800,7 +1807,9 @@ export function projectLearningCycle(
   const canonicalPlanNodeById = new Map(
     canonicalProjection.activeSessionPlan.nodePlan.map((node) => [node.id, node]),
   );
-  const mergedNodePlan = presentationPlan.nodePlan.map((presented) => {
+  const mergedNodePlan = presentationPlan.nodePlan
+    .filter((presented) => !hiddenDestinationNodeIds.has(presented.id))
+    .map((presented) => {
     const canonical = canonicalPlanNodeById.get(presented.id);
     if (!canonical) return presented;
     canonicalPlanNodeById.delete(presented.id);
@@ -1836,7 +1845,9 @@ export function projectLearningCycle(
   const canonicalBoardNodeById = new Map(
     canonicalProjection.adventureBoard.nodes.map((node) => [node.id, node]),
   );
-  const mergedBoardNodes = presentedBoard.nodes.filter(node => node.id !== historicalDiscoveryId).map((presented) => {
+  const mergedBoardNodes = presentedBoard.nodes
+    .filter((node) => node.id !== historicalDiscoveryId && !hiddenDestinationNodeIds.has(node.id))
+    .map((presented) => {
     const canonical = canonicalBoardNodeById.get(presented.id);
     if (!canonical) return presented;
     canonicalBoardNodeById.delete(presented.id);
@@ -1866,7 +1877,10 @@ export function projectLearningCycle(
   const canonicalEdgeById = new Map(
     canonicalProjection.adventureBoard.edges.map((edge) => [edge.id, edge]),
   );
-  const mergedEdges: AdventureBoardJson["edges"] = presentedBoard.edges.filter(edge => edge.from !== historicalDiscoveryId && edge.to !== historicalDiscoveryId).map((edge) => {
+  const mergedEdges: AdventureBoardJson["edges"] = presentedBoard.edges
+    .filter((edge) => edge.from !== historicalDiscoveryId && edge.to !== historicalDiscoveryId
+      && !hiddenDestinationNodeIds.has(edge.from) && !hiddenDestinationNodeIds.has(edge.to))
+    .map((edge) => {
     canonicalEdgeById.delete(edge.id);
     const destination = mergedBoardNodeById.get(edge.to);
     const state = destination?.state === "completed"
@@ -1892,7 +1906,7 @@ export function projectLearningCycle(
   }
   const mergedChoiceSets = presentedBoard.choiceSets?.map((choiceSet) => ({
     ...choiceSet,
-    options: choiceSet.options.map((option) => {
+    options: choiceSet.options.filter((option) => !option.nodeId || !hiddenDestinationNodeIds.has(option.nodeId)).map((option) => {
       const node = option.nodeId ? mergedBoardNodeById.get(option.nodeId) : undefined;
       const planNode = option.nodeId ? mergedNodePlan.find((candidate) => candidate.id === option.nodeId) : undefined;
       if (!node) return option;
@@ -1903,7 +1917,7 @@ export function projectLearningCycle(
         activityConfigPath: planNode?.activityConfigPath,
       };
     }),
-  }));
+  })).filter((choiceSet) => choiceSet.options.length > 0);
   const mergedBoard: AdventureBoardJson = {
     ...presentedBoard,
     planId: presentationProjectionPlanId(presentationPlan.planId, cycle.revision),

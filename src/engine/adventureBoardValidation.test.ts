@@ -288,6 +288,35 @@ describe("adventure board validation", () => {
     expect(issues).toEqual([expect.objectContaining({ code: "baseline_choice_route_disconnected" })]);
   });
 
+  it("accepts routes that reconverge on a shared final checkpoint when gated destinations are hidden", () => {
+    const valid = board();
+    const checkpointBoard: AdventureBoardJson = {
+      ...valid,
+      nodes: [
+        ...valid.nodes.filter((node) => node.id !== "mystery_choice"),
+        {
+          id: "final_recall",
+          kind: "activity",
+          activityId: "word-radar",
+          label: "Final Recall",
+          slot: "6",
+          layout: { role: "baseline", lane: "main", order: 1 },
+          state: "locked",
+          evidenceRole: "baseline",
+        },
+      ],
+      edges: valid.edges.map((edge) => edge.to === "mystery_choice" ? { ...edge, to: "final_recall" } : edge),
+      choiceSets: valid.choiceSets
+        ?.filter((choiceSet) => choiceSet.id !== "mystery-options")
+        .map((choiceSet) => ({
+          ...choiceSet,
+          options: choiceSet.options.filter((option) => option.nodeId !== "mystery_choice"),
+        })),
+    };
+
+    expect(validateBoardChoices(checkpointBoard)).toEqual([]);
+  });
+
   it("fails horizontal spine boards that omit the approved visual contract", () => {
     const badBoard = board();
     badBoard.nodes[0] = {

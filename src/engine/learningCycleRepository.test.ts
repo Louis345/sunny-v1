@@ -14,13 +14,14 @@ import {
   recordLearningCycleCalibration,
   transitionLearningCycle,
   assertLearningCycleProjectionWrite,
+  type CreateLearningCycleInput,
 } from "./learningCycleRepository";
 
 function root(): string {
   return fs.mkdtempSync(path.join(os.tmpdir(), "sunny-learning-cycle-"));
 }
 
-function input() {
+function input(): CreateLearningCycleInput {
   return {
     childId: "reina",
     homeworkId: "hw-math-cycle",
@@ -238,6 +239,24 @@ describe("canonical learning cycle repository", () => {
     ]);
     expect(first.adventureBoard.nodes.find((node) => node.id === "quest")?.label).toBe("Quest");
     expect(first.adventureBoard.nodes.find((node) => node.id === "boss")?.label).toBe("Boss");
+  });
+
+  it("does not promise locked spelling Quest or Boss nodes before evidence authorizes them", () => {
+    const rootDir = root();
+    const spellingInput = input();
+    spellingInput.domain = "spelling";
+    spellingInput.nodes = spellingInput.nodes.map((node) => ({
+      ...node,
+      academicTarget: { ...node.academicTarget, domain: "spelling" },
+    }));
+
+    const cycle = createLearningCycle(spellingInput, { rootDir });
+    const projection = projectLearningCycle(cycle);
+
+    expect(projection.activeSessionPlan.nodePlan.map((node) => node.id)).toEqual(["baseline-facts"]);
+    expect(projection.adventureBoard.nodes.map((node) => node.id)).not.toContain("quest");
+    expect(projection.adventureBoard.nodes.map((node) => node.id)).not.toContain("boss");
+    expect(projection.adventureBoard.edges.some((edge) => edge.from === "quest" || edge.to === "quest" || edge.from === "boss" || edge.to === "boss")).toBe(false);
   });
 
   it("preserves the AI-authored board presentation while canonical state unlocks Quest", () => {
