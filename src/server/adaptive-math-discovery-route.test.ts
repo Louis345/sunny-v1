@@ -1,4 +1,5 @@
 import express from "express";
+import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const { recordDiscoveryAttempt, completeDiscoveryEvaluation, queueTargetedMathGeneration, launchAdaptiveMathWorker } = vi.hoisted(() => ({
@@ -19,11 +20,25 @@ vi.mock("../shared/childRegistry", async (importOriginal) => ({
   listChildProfileIds: () => ["lab-child"],
 }));
 
-import { setupRoutes } from "./routes";
+import { adaptiveMathWorkerCommand, setupRoutes } from "./routes";
 
 describe("adaptive math discovery routes", () => {
   let server: ReturnType<ReturnType<typeof express>["listen"]>;
   let baseUrl = "";
+
+  it("launches background generation with Sunny's pinned Node and workspace-local tsx", () => {
+    const root = "/tmp/sunny-workspace";
+
+    expect(adaptiveMathWorkerCommand(root, "lab-child", "hw-1")).toEqual({
+      executable: process.execPath,
+      args: [
+        path.join(root, "node_modules", "tsx", "dist", "cli.mjs"),
+        path.join(root, "src", "scripts", "runAdaptiveMathGeneration.ts"),
+        "--child=lab-child",
+        "--homework=hw-1",
+      ],
+    });
+  });
 
   beforeEach(async () => {
     process.env.SUNNY_MODE = "child";

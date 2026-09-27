@@ -77,10 +77,22 @@ import {
   assertCertificationWorkerScope,
   certificationWorkerScope,
 } from "./certificationRuntime";
+import { localTsxCommand, type LocalRuntimeCommand } from "../scripts/localRuntimeCommand";
 
 export function shouldResumeAdaptiveMathWorker(job: MathGenerationJob): boolean {
   if (job.phase === "probe_ready") return false;
   return job.phase !== "needs_attention" || hasResumableMathGenerationWork(job);
+}
+
+export function adaptiveMathWorkerCommand(
+  root: string,
+  childId: string,
+  homeworkId: string,
+): LocalRuntimeCommand {
+  return localTsxCommand(root, "src/scripts/runAdaptiveMathGeneration.ts", [
+    `--child=${childId}`,
+    `--homework=${homeworkId}`,
+  ]);
 }
 
 export function launchAdaptiveMathWorker(childId: string, homeworkId: string): void {
@@ -90,7 +102,8 @@ export function launchAdaptiveMathWorker(childId: string, homeworkId: string): v
   fs.mkdirSync(path.dirname(logPath), { recursive: true });
   const logDescriptor = fs.openSync(logPath, "a");
   try {
-    const worker = spawn("npx", ["tsx", "src/scripts/runAdaptiveMathGeneration.ts", `--child=${childId}`, `--homework=${homeworkId}`], {
+    const command = adaptiveMathWorkerCommand(process.cwd(), childId, homeworkId);
+    const worker = spawn(command.executable, command.args, {
       cwd: process.cwd(), env: process.env, detached: true, stdio: ["ignore", logDescriptor, logDescriptor],
     });
     worker.once("error", (error) => {
