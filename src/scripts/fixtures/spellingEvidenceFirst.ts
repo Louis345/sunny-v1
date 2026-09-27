@@ -4,6 +4,7 @@ import { getChildChart } from "../../profiles/childChart";
 import { hydrateAssignmentPlannerOutputFromDraft } from "../../engine/assignmentPlanner";
 import type { AssignmentPlanningPacket, AssignmentPlannerOutput, SpellingIntake } from "../../engine/assignmentPlanner";
 import { COMPANION_DEFAULTS } from "../../shared/companionTypes";
+import { initializeLearningProfile } from "../../utils/learningProfileIO";
 
 export function writeSpellingPdfFixture(rootDir: string, words: string[]): string {
   const content = `BT /F1 20 Tf 72 720 Td (Spelling words: ${words.join(", ")}) Tj ET`;
@@ -29,10 +30,16 @@ export function writeSpellingPdfFixture(rootDir: string, words: string[]): strin
   return filePath;
 }
 
-export function seedSpellingLab(rootDir: string, words = ["night", "light"], companionVrmUrl = ""): string {
-  const child = path.join(rootDir, "src/context/lab-child"); fs.mkdirSync(child, { recursive: true });
-  fs.writeFileSync(path.join(child, "learning_profile.json"), JSON.stringify({ childId: "lab-child", name: "Lab", age: 8, grade: 3, totalSessions: 0, sessionHistory: [], preferences: {}, strengths: [], challenges: [], notes: [], diagnoses: [], learningGoals: [] }));
-  fs.writeFileSync(path.join(rootDir, "children.config.json"), JSON.stringify({ childProfiles: { "lab-child": {} }, companions: { elli: { ...COMPANION_DEFAULTS, vrmUrl: companionVrmUrl, dopamineGames: [], faceCamera: { position: [0, 0, 1], target: [0, 0, 0] } } }, defaultCompanionId: "elli" }));
+export function seedSpellingLab(rootDir: string, words = ["night", "light"], companionVrmUrl = "", childId = "lab-child"): string {
+  const child = path.join(rootDir, "src/context", childId); fs.mkdirSync(child, { recursive: true });
+  fs.writeFileSync(path.join(child, "learning_profile.json"), JSON.stringify(initializeLearningProfile({
+    childId,
+    age: 8,
+    grade: 3,
+    diagnoses: [],
+    learningGoals: [],
+  })));
+  fs.writeFileSync(path.join(rootDir, "children.config.json"), JSON.stringify({ childProfiles: { [childId]: {} }, companions: { elli: { ...COMPANION_DEFAULTS, vrmUrl: companionVrmUrl, dopamineGames: [], faceCamera: { position: [0, 0, 1], target: [0, 0, 0] } } }, defaultCompanionId: "elli" }));
   const source = path.join(rootDir, "school-words.txt"); fs.writeFileSync(source, `School spelling: ${words.join(", ")}`); return source;
 }
 

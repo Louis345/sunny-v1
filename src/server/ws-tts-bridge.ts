@@ -20,8 +20,9 @@ function getPronunciationLocators(): object[] | undefined {
 }
 
 function buildWsUrl(voiceId: string): string {
+  const base = (process.env.ELEVENLABS_WS_BASE_URL ?? WS_BASE).replace(/\/$/, "");
   return (
-    `${WS_BASE}/${voiceId}/stream-input` +
+    `${base}/${voiceId}/stream-input` +
     `?model_id=${encodeURIComponent("eleven_flash_v2_5")}` +
     `&output_format=pcm_24000` +
     `&optimize_streaming_latency=3`
