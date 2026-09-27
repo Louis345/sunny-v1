@@ -10,7 +10,7 @@ import { COMPANION_DEFAULTS } from "../shared/companionTypes";
 import { buildChildExperiencePacket } from "../profiles/childExperiencePacket";
 import { getMathGenerationStatus, hashDiscoveryContract, setMathGenerationPhase, type MathDiscoveryEvaluationContract } from "../engine/adaptiveMathDiscovery";
 import { getLearningCycle } from "../engine/learningCycleRepository";
-import { plan, learningProgram, releaseActivityHtml, graphAuditExamples, writeMathPdfFixture } from "./fixtures/adaptiveMathRelease";
+import { graphActivityHtml, graphAuditExamples, graphLearningProgram, graphTargetedPlan, writeMathPdfFixture } from "./fixtures/adaptiveMathRelease";
 import { runAdaptiveMathGeneration } from "./runAdaptiveMathGeneration";
 import { ingestMathAssignment } from "./ingestMathDirect";
 import { ASSIGNMENT_SOURCE_CONTRACT_VERSION, assignmentSourceFileHash } from "../engine/assignmentSourceExtraction";
@@ -31,7 +31,7 @@ vi.mock("../engine/childFacingVisualGate", async original => ({
 
 vi.mock("../engine/returnedWorkPipeline",async original=>{
   const actual=await original<typeof import("../engine/returnedWorkPipeline")>();
-  return {...actual,createReturnedWorkDraft:(input:any)=>actual.createReturnedWorkDraft(input,{extract:async()=>({items:[{itemId:"graded-1",prompt:"5 × 2",childResponse:"10",correct:true,extractionConfidence:1,constructLinks:[{constructId:"math.multiplication.equal_groups",role:"primary",confidence:1}]}]})}),confirmReturnedWorkDraft:(input:any)=>actual.confirmReturnedWorkDraft(input,{interpret:async (cycle,sourceId)=>({status:"inconclusive",reason:"Observed returned work; assistance unknown",nextAction:"Fresh delayed checkpoint",evidenceIds:cycle.observations.filter(o=>o.sourceId===sourceId).map(o=>o.observationId),predictionEvaluationIds:cycle.predictionEvaluations.filter(e=>e.sourceId===sourceId).map(e=>e.evaluationId),preserve:[],change:[],testNext:[],nextEvidenceRequired:["delayed checkpoint"]})})};
+  return {...actual,createReturnedWorkDraft:(input:any)=>actual.createReturnedWorkDraft(input,{extract:async()=>({items:[{itemId:"graded-1",prompt:"How many books does Nia's bar show?",childResponse:"4",correct:true,extractionConfidence:1,constructLinks:[{constructId:"math.graph_reading",role:"primary",confidence:1}]}]})}),confirmReturnedWorkDraft:(input:any)=>actual.confirmReturnedWorkDraft(input,{interpret:async (cycle,sourceId)=>({status:"inconclusive",reason:"Observed returned work; assistance unknown",nextAction:"Fresh delayed checkpoint",evidenceIds:cycle.observations.filter(o=>o.sourceId===sourceId).map(o=>o.observationId),predictionEvaluationIds:cycle.predictionEvaluations.filter(e=>e.sourceId===sourceId).map(e=>e.evaluationId),preserve:[],change:[],testNext:[],nextEvidenceRequired:["delayed checkpoint"]})})};
 });
 
 vi.mock("../profiles/buildProfile",()=>({buildProfile:async()=>({games:{}})}));
@@ -260,24 +260,29 @@ it("plays the isolated math release journey through calibration and the next Pla
       await page.getByRole("heading",{name:"Choosing what to work on",exact:true}).waitFor({state:"visible",timeout:10000});
       await page.getByText("Sunny keeps preparing after you leave.",{exact:false}).waitFor({state:"visible"});
       step="prepare mocked targeted providers";
-      const targeted = plan(2);
-      for (const activity of targeted.activities) {
-        activity.items = ["q1","q2","q3"].map((id,index)=>({...activity.items[0],id,...(index===0
-          ? {prompt:"What is 5 × 2?"}
-          : index===1
-            ? {prompt:"What is 2 × 3?",response:{mode:"numeric",expected:6}}
-            : {prompt:"Move the 10-counter group to the total.",response:{mode:"construction",expectedState:{total:10},successDescription:"Ten counters in the total"}})}));
-        activity.academicPrediction.eligibility = {sources:["independent_probe","graded_work"],maxDelayDays:7};
+      const discoveryObservationIds = cycle.observations.map((observation) => observation.observationId);
+      const targetedEvidenceIds = [`assignment:${sourceHash}`, ...discoveryObservationIds];
+      const targeted = graphTargetedPlan(2, targetedEvidenceIds);
+      const program = graphLearningProgram(2, targetedEvidenceIds);
+      const serializedProgram = JSON.stringify(program).toLowerCase();
+      expect(serializedProgram).toContain("graph");
+      expect(serializedProgram).not.toMatch(/multiplication|equal groups/);
+      for (const activity of program.activities) {
+        expect(activity.academicPrediction.constructId).toBe("math.graph_reading");
+        expect(activity.items.every((item: any) =>
+          item.lineage.sourceEvidenceIds.some((evidenceId: string) => discoveryObservationIds.includes(evidenceId)),
+        )).toBe(true);
+        expect(activity.academicPrediction.evidenceIds.some((evidenceId: string) =>
+          discoveryObservationIds.includes(evidenceId),
+        )).toBe(true);
       }
-      const program = learningProgram(2);
-      program.activities.forEach((activity: any,index:number)=>{activity.items=targeted.activities[index].items;activity.academicPrediction=targeted.activities[index].academicPrediction;});
       const writeDraft=(name:string,value:unknown)=>fs.writeFileSync(path.join(draft,name),JSON.stringify(value));
       writeDraft("math-learning-program.json",program);writeDraft("design-packet.json",{version:1,planId:targeted.planId});writeDraft("designed-plan.json",targeted);
       fs.writeFileSync(path.join(contextRoot,childId,"learning_profile.json"),'{"aiContentCatalog":[]}');
       const sibling = new Promise<void>(resolve=>{releaseSibling=resolve;});
       vi.mocked(generateDirectArtifacts).mockImplementation(async input=>{
         const nodeId=input.nodeIds![0]; if(nodeId==="activity-2")await sibling;
-        const htmlPath=path.join(games,nodeId+".html");fs.writeFileSync(htmlPath,releaseActivityHtml(nodeId));
+        const htmlPath=path.join(games,nodeId+".html");fs.writeFileSync(htmlPath,graphActivityHtml(nodeId));
         return {artifacts:[{childId,homeworkId,nodeId,title:nodeId,htmlPath,htmlHash:createHash("sha256").update(fs.readFileSync(htmlPath)).digest("hex"),artworkUrl:"/lab.svg",creatorPrompt:"lab",promptHash:"lab",plannerModel:"mock",creatorModel:"mock"}],backgroundUrl:"/lab.svg",questArtworkUrl:"/lab.svg",bossArtworkUrl:"/lab.svg",stats:{generatedNodeIds:[nodeId],reusedNodeIds:[],generatedImages:0,reusedImages:0,bonusDeferred:true}};
       });
       releaseTargetedFixture();
@@ -288,9 +293,9 @@ it("plays the isolated math release journey through calibration and the next Pla
       step="open the Teaching Board next session while a sibling prepares";
       const startSunny = page.getByRole("button",{name:"Start Sunny",exact:true});
       if (await startSunny.isVisible().catch(() => false)) await startSunny.click();
-      await page.getByRole("button",{name:"Adventure 1",exact:true}).waitFor({state:"visible"});
+      await page.getByRole("button",{name:"Graph Mission 1",exact:true}).waitFor({state:"visible"});
       await page.screenshot({path:path.join(outputDir,"first-ready-sibling-preparing.png")});
-      step="launch first ready node";if(parentOperated)console.log("PARENT: open Adventure 1, click 10, enter 6 and Submit, then drag the 10-counter group to Total.");else await page.getByRole("button",{name:"Adventure 1",exact:true}).click();
+      step="launch first ready node";if(parentOperated)console.log("PARENT: open Graph Mission 1, choose Cleo, enter 4, then drag Nia's bar to Highest.");else await page.getByRole("button",{name:"Graph Mission 1",exact:true}).click();
       const targetedFrame=page.frameLocator("iframe").last();
       step="retain the active activity during a background packet failure";
       const activityUrl=await page.locator("iframe").last().getAttribute("src");
@@ -299,24 +304,24 @@ it("plays the isolated math release journey through calibration and the next Pla
       await page.waitForResponse(response=>response.url().includes("/api/child-experience/")&&response.status()===503,{timeout:40000});
       expect(await page.locator("iframe").last().getAttribute("src")).toBe(activityUrl);
       await page.screenshot({path:path.join(outputDir,"activity-survives-refresh-outage.png")});
-      step="targeted click fill drag transitions";if(!parentOperated){await targetedFrame.locator("#tap").click();await targetedFrame.locator("#value").fill("6");await targetedFrame.locator("#submit").click();await targetedFrame.locator("#piece").dragTo(targetedFrame.locator("#target"));}
+      step="targeted click fill drag transitions";if(!parentOperated){await targetedFrame.locator("#cleo").click();await targetedFrame.locator("#value").fill("4");await targetedFrame.locator("#submit").click();await targetedFrame.locator("#niaBar").dragTo(targetedFrame.locator("#highest"));}
       await expect.poll(()=>getLearningCycle(childId,homeworkId,{rootDir})!.nodes.find(n=>n.nodeId==="activity-1")?.state,{timeout:parentOperated?180000:10000}).toBe("completed");
       expect(getMathGenerationStatus(childId,homeworkId,{rootDir})!.nodes.find(n=>n.nodeId==="activity-2")?.status).toBe("preparing");
       releaseSibling!();await generation;generation=undefined;
       expect(getLearningCycle(childId,homeworkId,{rootDir})!.lifecycle).toBe("baseline_evaluating");
-      const decide = async (action:"generate_support"|"generate_quest"|"generate_boss"|"await_calibration") => advanceCanonicalCycleFromEvidence({childId,homeworkId,decide:async current=>({status:action==="await_calibration"?"awaiting_calibration":"revised",reason:"Explicit laboratory Planner decision",progressionAction:action,preserve:[],change:[],testNext:[],nextEvidenceRequired:["graded work"],predictionEvaluationIds:current.predictionEvaluations.map(e=>e.evaluationId),...(action!=="await_calibration"?{nextInstrument:{nodeId:action==="generate_support"?"support-lab":action.replace("generate_",""),title:action==="generate_support"?"Lab Support":action==="generate_quest"?"Quest":"Boss",academicTarget:"multiplication equal groups",mechanic:"mixed controls",theme:"lab",openingPurpose:"Measure fresh performance",creatorPrompt:"Use fresh synthetic items",items:targeted.activities[0].items.map((item:any)=>({...item,id:(action==="generate_support"?"support-lab":action.replace("generate_",""))+":"+item.id}))}}:{})})},{rootDir});
+      const decide = async (action:"generate_support"|"generate_quest"|"generate_boss"|"await_calibration") => advanceCanonicalCycleFromEvidence({childId,homeworkId,decide:async current=>({status:action==="await_calibration"?"awaiting_calibration":"revised",reason:"Explicit laboratory Planner decision",progressionAction:action,preserve:[],change:[],testNext:[],nextEvidenceRequired:["graded work"],predictionEvaluationIds:current.predictionEvaluations.map(e=>e.evaluationId),...(action!=="await_calibration"?{nextInstrument:{nodeId:action==="generate_support"?"support-lab":action.replace("generate_",""),title:action==="generate_support"?"Lab Support":action==="generate_quest"?"Quest":"Boss",academicTarget:"unit-scale bar graph reading",mechanic:"mixed graph controls",theme:"library graph lab",openingPurpose:"Measure fresh graph-reading performance",creatorPrompt:"Use fresh synthetic unit-scale graph items",items:targeted.activities[0].items.map((item:any)=>({...item,id:(action==="generate_support"?"support-lab":action.replace("generate_",""))+":"+item.id}))}}:{})})},{rootDir});
       for (const action of ["generate_support","generate_quest","generate_boss"] as const) {
         step="Planner "+action;await decide(action);
         let nodeId="";
-        await generateCanonicalProgressionArtifact({childId,homeworkId,generateHtml:async ({node})=>{nodeId=node.nodeId;return releaseActivityHtml(node.nodeId,node.openingScreen.title,node.nodeId+":");},generateArtwork:async()=>"/lab.svg",validate:async ({html,node})=>{
+        await generateCanonicalProgressionArtifact({childId,homeworkId,generateHtml:async ({node})=>{nodeId=node.nodeId;return graphActivityHtml(node.nodeId,node.nodeId+":",node.openingScreen.title);},generateArtwork:async()=>"/lab.svg",validate:async ({html,node})=>{
           const htmlPath=path.join(games,"validate-"+node.nodeId+".html");fs.writeFileSync(htmlPath,html);
           const report=await runDirectBrowserSmokeCheck({rootDir,artifacts:[{childId,homeworkId,nodeId:node.nodeId,title:node.title,htmlPath,artworkUrl:"/lab.svg",creatorPrompt:"lab",promptHash:"lab",plannerModel:"mock",creatorModel:"mock",itemIds:["q1","q2","q3"].map(id=>node.nodeId+":"+id)}]});return {...report,screenshotPaths:report.screenshots};
         }},{rootDir});
         step="play "+nodeId;await page.reload();
         const title=action==="generate_support"?"Lab Support":action==="generate_quest"?"Quest":"Boss";
-        if(parentOperated)console.log(`PARENT: open ${title}; click 10, enter 6 and Submit, then drag the counters to Total.`);else await page.getByRole("button",{name:title,exact:true}).click();
+        if(parentOperated)console.log(`PARENT: open ${title}; choose Cleo, enter 4, then drag Nia's bar to Highest.`);else await page.getByRole("button",{name:title,exact:true}).click();
         const activityFrame=page.frameLocator("iframe").last();
-        if(!parentOperated){await activityFrame.locator("#tap").click();await activityFrame.locator("#value").fill("6");await activityFrame.locator("#submit").click();await activityFrame.locator("#piece").dragTo(activityFrame.locator("#target"));}
+        if(!parentOperated){await activityFrame.locator("#cleo").click();await activityFrame.locator("#value").fill("4");await activityFrame.locator("#submit").click();await activityFrame.locator("#niaBar").dragTo(activityFrame.locator("#highest"));}
         await expect.poll(()=>getLearningCycle(childId,homeworkId,{rootDir})!.nodes.find(n=>n.nodeId===nodeId)?.state,{timeout:parentOperated?180000:10000}).toBe("completed");
       }
       await decide("await_calibration");
@@ -331,7 +336,7 @@ it("plays the isolated math release journey through calibration and the next Pla
       await Promise.all([page.waitForResponse(r=>r.url().endsWith("/confirm")&&r.status()===200),page.getByRole("button",{name:"Confirm results",exact:true}).click()]);
       expect(getLearningCycle(childId,homeworkId,{rootDir})!.observations).toEqual(confirmed.observations);
       expect(getLearningCycle(childId,homeworkId,{rootDir})!.predictionEvaluations).toEqual(confirmed.predictionEvaluations);
-      expect(buildLongitudinalLearningHistory(childId,{rootDir}).constructs["math.multiplication.equal_groups"].observations.some(o=>o.provenance==="graded_work"&&o.assistance.status==="unknown")).toBe(true);
+      expect(buildLongitudinalLearningHistory(childId,{rootDir}).constructs["math.graph_reading"].observations.some(o=>o.provenance==="graded_work"&&o.assistance.status==="unknown")).toBe(true);
       step="next related assignment Planner context";
       const history=buildLongitudinalLearningHistory(childId,{rootDir});
       const direct=await vi.importActual<typeof import("../engine/directMathExperience")>("../engine/directMathExperience");let nextRequest="";
