@@ -80,6 +80,7 @@ import {
   resolvePlannerBoardLaunchNode,
   shouldHoldTargetedBoardForPreparation,
 } from "./utils/adventureBoardLaunch";
+import { createBrowserRequestId } from "./utils/browserRequestId";
 import {
   buildAdventureBoardChoiceEventInput,
   buildAdventureBoardPostActivityChoiceEventInput,
@@ -350,7 +351,7 @@ function RewardDiagBridge() {
         }
         const rest = { ...raw };
         delete rest.type;
-        const diagId = crypto.randomUUID();
+        const diagId = createBrowserRequestId();
         const entry: RewardDiagQueued = {
           diagId,
           timestamp: Date.now(),
@@ -396,7 +397,7 @@ function RewardDiagBridge() {
       ) {
         return;
       }
-      const diagId = crypto.randomUUID();
+      const diagId = createBrowserRequestId();
       const entry: RewardDiagQueued = {
         diagId,
         timestamp: typeof d.timestamp === "number" ? d.timestamp : Date.now(),
@@ -1092,7 +1093,7 @@ function App() {
         node,
         iframeUrl: action.kind === "iframe" ? action.url : null,
         replayNonce,
-        completionId: crypto.randomUUID(),
+        completionId: createBrowserRequestId(),
       });
       return true;
     },
@@ -1338,7 +1339,7 @@ function App() {
       console.error(" 🎮 [spelling-discovery] [attempt] [missing-provenance]");
       return;
     }
-    const attempt = discoveryCompletionCoordinatorRef.current.prepareAttempt({ ...response, itemId, attemptId: crypto.randomUUID() });
+    const attempt = discoveryCompletionCoordinatorRef.current.prepareAttempt({ ...response, itemId, attemptId: createBrowserRequestId() });
     void discoveryCompletionCoordinatorRef.current.recordAttempt(() => postDiscoveryAttempt({ childId: adventureChildId, homeworkId, attempt })).catch(error => {
       console.error(" 🎮 [spelling-discovery] [attempt] [retry-needed]", error);
     });
