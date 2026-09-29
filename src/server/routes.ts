@@ -803,13 +803,15 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
     }
     try {
       const existing = getLearningCycle(childId, homeworkId);
-      const live = existing?.domain === "spelling" ? getActiveVoiceSessionManagerForChild(childId)?.getDiscoveryAttemptContext?.(homeworkId, attempt.itemId) : undefined;
-      const binding = existing?.nodes.find(node => node.evidenceContract.spellingItems?.[attempt.itemId])?.artifactBinding;
+      const live = getActiveVoiceSessionManagerForChild(childId)?.getDiscoveryAttemptContext?.(homeworkId, attempt.itemId);
+      const binding = existing?.domain === "spelling"
+        ? existing.nodes.find(node => node.evidenceContract.spellingItems?.[attempt.itemId])?.artifactBinding
+        : existing?.nodes.find(node => node.role === "evaluation" && node.artifactBinding?.contractFingerprint === live?.artifactHash)?.artifactBinding;
       const verifiedLive = live && live.artifactHash === binding?.contractFingerprint ? live : undefined;
-      if (existing?.domain === "spelling" && attempt.supportEventIds.some(id => !verifiedLive?.support.scaffolds.includes(id))) throw new Error("spelling_support_reference_unknown");
+      if (attempt.supportEventIds.some(id => !verifiedLive?.support.scaffolds.includes(id))) throw new Error("discovery_support_reference_unknown");
       const cycle = existing?.domain === "spelling"
         ? recordSpellingDiscoveryAttempt({ childId, homeworkId, attempt: { ...attempt, skipped: body.skipped === true }, support: verifiedLive?.support, artifactHash: binding?.contractFingerprint, sessionId: verifiedLive?.sessionId, instrumentSignals: [...attempt.instrumentSignals, ...(verifiedLive?.instrumentSignals ?? ["live_context_unavailable"])] })
-        : recordDiscoveryAttempt({ childId, homeworkId, attempt });
+        : recordDiscoveryAttempt({ childId, homeworkId, attempt, support: verifiedLive?.support });
       console.log(` 🎮 [adaptive-math] [discovery-attempt] [committed] child=${childId} homework=${homeworkId} attempt=${attempt.attemptId}`);
       return res.json({ ok: true, lifecycle: cycle.lifecycle, revision: cycle.revision });
     } catch (error: unknown) {

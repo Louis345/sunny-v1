@@ -1779,6 +1779,7 @@ export function recordDiscoveryAttempt(input: {
   childId: string;
   homeworkId: string;
   attempt: MathDiscoveryAttempt;
+  support?: LearningObservation["assistance"];
 }): LearningCycleRecordV2 {
   assertChildPublicationCommitted(input.childId,input);
   let cycle = getLearningCycle(input.childId, input.homeworkId, { rootDir: input.rootDir });
@@ -1827,7 +1828,9 @@ export function recordDiscoveryAttempt(input: {
   }
   const attemptedValue = String(input.attempt.attemptedValue ?? "").trim();
   const ambiguous = !attemptedValue || input.attempt.instrumentSignals.length > 0;
-  const assisted = input.attempt.supportEventIds.length > 0;
+  const support = input.support ?? { status: "unknown" as const, scaffolds: [] };
+  const assisted = support.status === "assisted";
+  const assistanceUnknown = support.status === "unknown";
   const repeated = cycle.observations.some((observation) =>
     observation.sourceId === `evaluation:${evaluation.nodeId}` && observation.itemId === input.attempt.itemId);
   const normalizedValue = attemptedValue.toLocaleLowerCase();
@@ -1843,16 +1846,17 @@ export function recordDiscoveryAttempt(input: {
       ? { correct: undefined, observedErrorType: "instrument_ambiguous" }
       : { correct, score: correct ? 1 : 0 },
     assistance: {
-      status: assisted ? "assisted" : "unassisted",
-      scaffolds: [...new Set(input.attempt.supportEventIds)],
+      status: support.status,
+      scaffolds: [...new Set(support.scaffolds)],
     },
     exposure: repeated ? "previously_practiced" : "unseen",
-    provenance: assisted || repeated || ambiguous ? "practice" : "independent_probe",
+    provenance: assisted || assistanceUnknown || repeated || ambiguous ? "practice" : "independent_probe",
     observedAt: input.attempt.observedAt,
     confounds: [...new Set([
       ...input.attempt.instrumentSignals,
       ...(ambiguous ? ["instrument_ambiguous"] : []),
       ...(assisted ? ["assistance_present"] : []),
+      ...(assistanceUnknown ? ["assistance_unknown"] : []),
       ...(repeated ? ["repeated_attempt"] : []),
       `response_mode:${frozenItem.responseContract.mode}`,
       `representation:${frozenItem.responseContract.representationId}`,

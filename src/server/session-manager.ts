@@ -190,6 +190,14 @@ type PendingGameStart = {
   config: Record<string, unknown>;
 };
 
+type MathDiscoverySupportState = {
+  homeworkId: string;
+  nodeId: string;
+  itemId: string;
+  artifactHash: string;
+  supportIds: string[];
+};
+
 /** Options passed from the client on `start_session` (see ws-handler). */
 export type SessionManagerOptions = {
   silentTts?: boolean;
@@ -210,6 +218,8 @@ export class SessionManager {
   private currentActivityState: Record<string, unknown> | null = null;
   private spellingAssessment?: gev.SpellingAssessmentState;
   private spellingAssessmentHistory = new Map<string, NonNullable<SessionManager["spellingAssessment"]>>();
+  private mathDiscoverySupport?: MathDiscoverySupportState;
+  private mathDiscoverySupportHistory = new Map<string, MathDiscoverySupportState>();
   private currentBoardSnapshot: CurrentBoardSnapshot | null = null;
   private pronunciationStruggleSignals = new Set<string>();
   private lastInstructionReadRequestKey: string | null = null;
@@ -921,6 +931,9 @@ export class SessionManager {
       state,
     });
     this.currentBoardSnapshot = snapshot;
+    if (snapshot.nodeId && snapshot.itemId && (snapshot.phase === "question" || snapshot.phase === "response")) {
+      this.bindMathDiscoverySupport(snapshot.nodeId, snapshot.itemId);
+    }
     this.currentActivityState = {
       ...snapshot,
       currentWord: snapshot.currentTarget,
@@ -935,6 +948,9 @@ export class SessionManager {
     const next = transitionCompanionPresence({ state, reason });
     this.companionPresence = next.presence;
     if (state === "summoned" && this.spellingAssessment && !this.spellingAssessment.supportIds.length) this.spellingAssessment.supportIds.push(`support:${this.sessionId}:${this.spellingAssessment.itemId}`);
+    if (state === "summoned" && this.mathDiscoverySupport && !this.mathDiscoverySupport.supportIds.length) {
+      this.mathDiscoverySupport.supportIds.push(`support:${this.sessionId}:${this.mathDiscoverySupport.itemId}`);
+    }
     this.companionInteractionMode = next.mode;
     this.send("companion_presence", { state, reason });
     console.log(`  🎮 [companion-presence] [${state}] reason=${reason}`);
@@ -977,6 +993,7 @@ export class SessionManager {
     });
     if (!request) return;
     this.lastInstructionReadRequestKey = request.requestKey;
+    this.bindMathDiscoverySupport(input.nodeId, input.itemId);
     this.setCompanionPresence("summoned", "read_instruction");
     this.resetCompanionDispositionAfterSpeech();
     this.recordGameTrace(request.trace);
@@ -1183,10 +1200,41 @@ export class SessionManager {
     }
   }
 
+  private bindMathDiscoverySupport(nodeId: string, itemId: string): MathDiscoverySupportState | undefined {
+    const cycle = getChildChart(this.chartChildId).learningCycle;
+    const node = cycle?.domain === "math"
+      ? cycle.nodes.find((candidate) => candidate.role === "evaluation" && candidate.nodeId === nodeId)
+      : undefined;
+    if (!cycle || !node?.artifactBinding || !itemId.trim()) return undefined;
+    this.mathDiscoverySupportHistory ??= new Map();
+    const key = `${nodeId}:${itemId}`;
+    const next = this.mathDiscoverySupportHistory.get(key) ?? {
+      homeworkId: cycle.homeworkId,
+      nodeId,
+      itemId,
+      artifactHash: node.artifactBinding.contractFingerprint,
+      supportIds: [],
+    };
+    this.mathDiscoverySupportHistory.set(key, next);
+    this.mathDiscoverySupport = next;
+    console.log(`  🎮 [math-discovery] [live-context] [bound] item=${itemId}`);
+    return next;
+  }
+
   public getDiscoveryAttemptContext(homeworkId: string, itemId: string): { support: LearningObservation["assistance"]; instrumentSignals: string[]; artifactHash: string; sessionId: string } | undefined {
     const context = this.spellingAssessmentHistory?.get(itemId) ?? this.spellingAssessment;
-    if (!context || context.homeworkId !== homeworkId || context.itemId !== itemId) return undefined;
-    return { support: { status: context.supportIds.length ? "assisted" : "unassisted", scaffolds: [...context.supportIds] }, instrumentSignals: [...(!context.audioDelivered ? ["audio_unavailable"] : []), ...(context.ambiguous ? ["answer_exposure"] : [])], artifactHash: context.artifactHash, sessionId: this.sessionId };
+    if (context && context.homeworkId === homeworkId && context.itemId === itemId) {
+      return { support: { status: context.supportIds.length ? "assisted" : "unassisted", scaffolds: [...context.supportIds] }, instrumentSignals: [...(!context.audioDelivered ? ["audio_unavailable"] : []), ...(context.ambiguous ? ["answer_exposure"] : [])], artifactHash: context.artifactHash, sessionId: this.sessionId };
+    }
+    const math = [...(this.mathDiscoverySupportHistory?.values() ?? [])]
+      .find((candidate) => candidate.homeworkId === homeworkId && candidate.itemId === itemId);
+    if (!math) return undefined;
+    return {
+      support: { status: math.supportIds.length ? "assisted" : "unassisted", scaffolds: [...math.supportIds] },
+      instrumentSignals: [],
+      artifactHash: math.artifactHash,
+      sessionId: this.sessionId,
+    };
   }
 
   public recordWorksheetAttempt(transcript: string, correct: boolean): void {

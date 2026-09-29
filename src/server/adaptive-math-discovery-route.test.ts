@@ -2,11 +2,12 @@ import express from "express";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { recordDiscoveryAttempt, completeDiscoveryEvaluation, queueTargetedMathGeneration, launchAdaptiveMathWorker } = vi.hoisted(() => ({
+const { recordDiscoveryAttempt, completeDiscoveryEvaluation, queueTargetedMathGeneration, launchAdaptiveMathWorker, getLearningCycle } = vi.hoisted(() => ({
   recordDiscoveryAttempt: vi.fn(),
   completeDiscoveryEvaluation: vi.fn(),
   queueTargetedMathGeneration: vi.fn(),
   launchAdaptiveMathWorker: vi.fn(),
+  getLearningCycle: vi.fn(),
 }));
 
 vi.mock("../engine/adaptiveMathDiscovery", async (importOriginal) => ({
@@ -19,8 +20,16 @@ vi.mock("../shared/childRegistry", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../shared/childRegistry")>()),
   listChildProfileIds: () => ["lab-child"],
 }));
+vi.mock("../engine/learningCycleRepository", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../engine/learningCycleRepository")>()),
+  getLearningCycle,
+}));
 
 import { adaptiveMathWorkerCommand, setupRoutes } from "./routes";
+import {
+  __resetVoiceSessionRegistryForTests,
+  registerActiveVoiceSessionManager,
+} from "./voice-session-registry";
 
 describe("adaptive math discovery routes", () => {
   let server: ReturnType<ReturnType<typeof express>["listen"]>;
@@ -47,6 +56,8 @@ describe("adaptive math discovery routes", () => {
     completeDiscoveryEvaluation.mockReset().mockReturnValue({ lifecycle: "evidence_ready", revision: 3 });
     queueTargetedMathGeneration.mockReset().mockReturnValue({ phase: "targeted_planning" });
     launchAdaptiveMathWorker.mockReset();
+    getLearningCycle.mockReset().mockReturnValue(null);
+    __resetVoiceSessionRegistryForTests();
     const app = express();
     app.use(express.json());
     setupRoutes(app, { launchAdaptiveMathWorker });
@@ -60,6 +71,7 @@ describe("adaptive math discovery routes", () => {
   afterEach(async () => {
     delete process.env.SUNNY_MODE;
     delete process.env.SUNNY_STATELESS;
+    __resetVoiceSessionRegistryForTests();
     await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
   });
 
@@ -89,6 +101,48 @@ describe("adaptive math discovery routes", () => {
     expect(complete.status).toBe(202);
     expect(await complete.json()).toMatchObject({ lifecycle: "evidence_ready", targetedGenerationQueued: true });
     expect(launchAdaptiveMathWorker).toHaveBeenCalledWith("lab-child", "hw-1");
+  });
+
+  it("uses live math support authority instead of trusting the browser's empty help list", async () => {
+    getLearningCycle.mockReturnValue({
+      domain: "math",
+      nodes: [{
+        nodeId: "probe-arrays",
+        role: "evaluation",
+        artifactBinding: { contractFingerprint: "math-frozen" },
+        evidenceContract: {},
+      }],
+    });
+    registerActiveVoiceSessionManager("lab-child", {
+      noteExternalEvent() {},
+      getDiscoveryAttemptContext: () => ({
+        support: { status: "assisted", scaffolds: ["support:voice:item-1"] },
+        instrumentSignals: [],
+        artifactHash: "math-frozen",
+        sessionId: "voice-session",
+      }),
+    });
+
+    const response = await fetch(`${baseUrl}/api/learning/lab-child/assignments/hw-1/discovery/attempt`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        attemptId: "a-live",
+        itemId: "item-1",
+        attemptedValue: "4",
+        supportEventIds: [],
+        instrumentSignals: [],
+        observedAt: "2026-08-22T12:00:00.000Z",
+      }),
+    });
+
+    expect(response.status).toBe(200);
+    expect(recordDiscoveryAttempt).toHaveBeenCalledWith(expect.objectContaining({
+      support: {
+        status: "assisted",
+        scaffolds: ["support:voice:item-1"],
+      },
+    }));
   });
 
   it("keeps the Probe chapter open between nodes and queues teaching only after the final node", async () => {

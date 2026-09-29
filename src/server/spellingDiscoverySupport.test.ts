@@ -61,3 +61,42 @@ describe("live spelling assistance and audio provenance", () => {
     expect(s.getDiscoveryAttemptContext("hw-words", "i1")?.instrumentSignals).toContain("audio_unavailable");
   });
 });
+
+describe("live math Discovery assistance provenance", () => {
+  it("binds Elli help to the frozen math item even when the browser reports no help", () => {
+    vi.mocked(getChildChart).mockReturnValue({
+      learningCycle: {
+        homeworkId: "hw-math",
+        domain: "math",
+        nodes: [{
+          nodeId: "probe-arrays",
+          role: "evaluation",
+          artifactBinding: { contractFingerprint: "math-frozen" },
+          evidenceContract: {},
+        }],
+      },
+    } as never);
+    const s = Object.assign(Object.create(SessionManager.prototype), {
+      chartChildId: "lab-child",
+      sessionId: "s-math",
+      companionPresence: "collapsed",
+      send: vi.fn(),
+    }) as SessionManager;
+
+    s.updateCurrentBoardSnapshot({
+      nodeId: "probe-arrays",
+      phase: "question",
+      currentChallenge: { id: "math-item-1", prompt: "Choose the matching array." },
+      answerVisibility: "hidden",
+    });
+    s.setCompanionPresence("summoned");
+
+    expect(s.getDiscoveryAttemptContext("hw-math", "math-item-1")).toMatchObject({
+      artifactHash: "math-frozen",
+      support: {
+        status: "assisted",
+        scaffolds: ["support:s-math:math-item-1"],
+      },
+    });
+  });
+});

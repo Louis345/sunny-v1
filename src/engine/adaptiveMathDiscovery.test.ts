@@ -1328,11 +1328,11 @@ describe("adaptive math discovery", () => {
     });
     writeFrozenDiscoveryContract(rootDir);
 
-    recordDiscoveryAttempt({ rootDir, childId: "lab-child", homeworkId: "hw-equal-groups", attempt: {
+    recordDiscoveryAttempt({ rootDir, childId: "lab-child", homeworkId: "hw-equal-groups", support: { status: "unassisted", scaffolds: [] }, attempt: {
       attemptId: "attempt-1", itemId: "probe-1", attemptedValue: "3",
       supportEventIds: [], instrumentSignals: [], observedAt: "2026-08-22T12:00:00.000Z",
     } });
-    const cycle = recordDiscoveryAttempt({ rootDir, childId: "lab-child", homeworkId: "hw-equal-groups", attempt: {
+    const cycle = recordDiscoveryAttempt({ rootDir, childId: "lab-child", homeworkId: "hw-equal-groups", support: { status: "assisted", scaffolds: ["support:elli:1"] }, attempt: {
       attemptId: "attempt-2", itemId: "probe-1", attemptedValue: "4",
       supportEventIds: ["support:elli:1"], instrumentSignals: ["interface_friction"], observedAt: "2026-08-22T12:01:00.000Z",
     } });
