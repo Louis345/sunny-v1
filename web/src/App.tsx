@@ -16,6 +16,7 @@ import { SessionScreen } from "./components/SessionScreen";
 import { SessionEnd } from "./components/SessionEnd";
 import { SessionLoadingOverlay, sessionVoiceReady } from "./components/SessionLoadingOverlay";
 import { KioskRestingScreen, useKioskIdleRest } from "./components/KioskIdleRest";
+import { HomeworkSessionRecovery } from "./components/HomeworkSessionRecovery";
 import { CanvasTestOverlay } from "./components/CanvasTestPanel";
 import { AdventureBoardExperience } from "./components/AdventureBoardExperience";
 import { LevelPathExperience } from "./components/LevelPathExperience";
@@ -1906,6 +1907,13 @@ function App() {
       childName={state.childName}
       companionName={state.companion?.companionName}
     /></div>;
+  } else if (homeworkBoardMode && state.errorFatal) {
+    main = (
+      <HomeworkSessionRecovery
+        error={state.error}
+        onRetry={() => window.location.reload()}
+      />
+    );
   } else if (state.phase === "picker" && (!homeworkBoardMode || !adventureChildId)) {
     main = (
       <div className="w-screen h-screen overflow-hidden">
