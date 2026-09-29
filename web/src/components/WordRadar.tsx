@@ -343,7 +343,6 @@ export function WordRadar({
     [childId, sendMessage],
   );
   const wordAudioLockRef = useRef<{ key: string; until: number } | null>(null);
-  const autoNarratedItemRef = useRef<string | null>(null);
   const requestedInputMode = resolveWordRadarInputMode(inputMode);
   const resolvedInputMode = assessmentMode || voiceCaptureAvailable === false ? "keyboard" : requestedInputMode;
   const effectiveSpeakStyle = speakStyle ?? "option-a";
@@ -824,16 +823,6 @@ export function WordRadar({
     hook.phase === "flash" &&
     effectiveRecallMode !== "visible_read" &&
     effectiveSpeakStyle === "option-b";
-  useEffect(() => {
-    const listenPhase = effectiveRecallMode === "hidden_word_recall" && effectiveSpeakStyle === "option-b" && (
-      (assessmentMode && hook.phase === "response") || (!assessmentMode && hideFlashWord)
-    );
-    if (!listenPhase || !hook.currentItem) return;
-    const key = `${hook.itemIndex}:${hook.currentItem.itemId ?? hook.currentItem.display}`;
-    if (autoNarratedItemRef.current === key) return;
-    autoNarratedItemRef.current = key;
-    requestWordAudio("word_radar_listen_phase");
-  }, [assessmentMode, effectiveRecallMode, effectiveSpeakStyle, hideFlashWord, hook.currentItem, hook.itemIndex, hook.phase, requestWordAudio]);
   const hideLetterTilesInResponse =
     assessmentMode || hook.phase === "response" &&
     (effectiveRecallMode === "hidden_word_recall" ||

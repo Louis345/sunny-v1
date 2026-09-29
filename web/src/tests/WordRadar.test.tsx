@@ -552,12 +552,13 @@ describe("WordRadar", () => {
     );
   });
 
-  it("plays the first hidden word once when the visible Listen phase begins", async () => {
-    // Human catch: the child saw “Listen” but heard nothing before the response screen.
-    // Log miss: server TTS entries came from later speaker taps and did not prove first-phase playback.
-    // Lab miss: the previous assertion explicitly required zero narration during the Listen phase.
+  it("binds the first hidden word before one Hear tap requests its audio", async () => {
+    // Human catch: the child tapped Hear but heard nothing because autoplay raced item binding.
+    // Log miss: the rejected automatic request looked like a provider/audio failure.
+    // Lab miss: the test expected autoplay, which browsers may block before a child gesture.
     const sendMessage = vi.fn();
     renderRadar({
+      items: [{ ...sampleItems[0]!, itemId: "homework:discovery:item-1" }],
       autoStart: true,
       assessmentMode: true,
       recallMode: "hidden_word_recall",
@@ -576,6 +577,9 @@ describe("WordRadar", () => {
           (payload as { event?: { type?: string } })?.event?.type === "narration_request",
       );
 
+    expect(narrationCalls()).toHaveLength(0);
+    fireEvent.click(screen.getByRole("button", { name: "Hear the word" }));
+
     expect(narrationCalls()).toEqual([
       expect.arrayContaining([
         "game_event",
@@ -584,12 +588,19 @@ describe("WordRadar", () => {
             type: "narration_request",
             payload: expect.objectContaining({
               word: "sun",
-              reason: "word_radar_listen_phase",
+              reason: "word_radar_mic_click",
             }),
           }),
         }),
       ]),
     ]);
+
+    const eventTypes = sendMessage.mock.calls
+      .filter(([type]) => type === "game_event")
+      .map(([, payload]) => (payload as { event?: { type?: string; payload?: { progress?: string } } }).event)
+      .filter(event => event?.type === "narration_request" || event?.payload?.progress === "Word Radar target state.")
+      .map(event => event?.type);
+    expect(eventTypes).toEqual(["game_state_update", "narration_request"]);
 
     await act(async () => {
       vi.advanceTimersByTime(1500);
