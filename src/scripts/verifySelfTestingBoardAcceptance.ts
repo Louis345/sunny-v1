@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import { chromium, type Frame, type Page } from "playwright";
+import { chromium, type Frame, type Locator, type Page } from "playwright";
 import { MATH_BROWSER_VERIFIER_VERSION } from "../engine/directMathExperience";
 import { healthMatchesCertificationRun } from "../server/certificationRuntime";
 import { hashDirectory } from "./sunnyCertification";
@@ -15,6 +15,23 @@ type NodeProof = {
   runtimeErrors: string[];
   capturePaths: string[];
 };
+
+type HostViewportProof = {
+  width: number;
+  height: number;
+  boardVisible: boolean;
+  activityVisible: boolean;
+  backControlVisible: boolean;
+  companionCollapsedPassed: boolean;
+  companionSummonedPassed: boolean;
+  activityReservedCompanionSpace: boolean;
+  capturePaths: string[];
+};
+
+const REQUIRED_HOST_VIEWPORTS = [
+  { width: 1365, height: 768 },
+  { width: 1280, height: 720 },
+] as const;
 
 export type FullBoardAcceptanceInput = {
   runDir: string;
@@ -34,6 +51,7 @@ export type FullBoardAcceptanceInput = {
   boardLoaded: boolean;
   companionHostVisible: boolean;
   navigationPassed: boolean;
+  hostViewports: HostViewportProof[];
   readyNodeIds: string[];
   preparingNodeIds: string[];
   needsAttentionNodeIds: string[];
@@ -72,7 +90,7 @@ function sameOrdered(actual: string[], expected: string[]): boolean {
 
 function receiptBody(input: FullBoardAcceptanceInput): Record<string, unknown> {
   return {
-    version: 1,
+    version: 2,
     evidenceAuthority: "simulation",
     passed: true,
     certificationRunId: input.certificationRunId,
@@ -90,6 +108,7 @@ function receiptBody(input: FullBoardAcceptanceInput): Record<string, unknown> {
     boardLoaded: input.boardLoaded,
     companionHostVisible: input.companionHostVisible,
     navigationPassed: input.navigationPassed,
+    hostViewports: input.hostViewports,
     artifactHashes: input.nodes.map((node) => ({ nodeId: node.nodeId, htmlHash: node.htmlHash })),
     nodes: input.nodes,
     preparingNodeIds: input.preparingNodeIds,
@@ -114,6 +133,24 @@ export function writeFullBoardAcceptanceReceipt(input: FullBoardAcceptanceInput)
     || !sameOrdered(input.readyNodeIds, input.nodeIds)
     || !sameOrdered(input.nodes.map((node) => node.nodeId), input.nodeIds)) {
     throw new Error("full_board_acceptance_host_failed");
+  }
+  const viewportBySize = new Map(input.hostViewports.map((proof) => [`${proof.width}x${proof.height}`, proof]));
+  if (REQUIRED_HOST_VIEWPORTS.some(({ width, height }) => !viewportBySize.has(`${width}x${height}`))) {
+    throw new Error("full_board_acceptance_host_viewports_missing");
+  }
+  for (const { width, height } of REQUIRED_HOST_VIEWPORTS) {
+    const proof = viewportBySize.get(`${width}x${height}`)!;
+    if (!proof.boardVisible
+      || !proof.activityVisible
+      || !proof.backControlVisible
+      || !proof.companionCollapsedPassed
+      || !proof.companionSummonedPassed
+      || !proof.activityReservedCompanionSpace) {
+      throw new Error(`full_board_acceptance_host_viewport_failed:${width}x${height}`);
+    }
+    if (proof.capturePaths.length < 2 || proof.capturePaths.some((file) => !fs.existsSync(file))) {
+      throw new Error(`full_board_acceptance_host_viewport_capture_missing:${width}x${height}`);
+    }
   }
   for (const node of input.nodes) {
     if (!node.launchPassed || !node.completionPassed || node.runtimeErrors.length > 0) {
@@ -196,6 +233,84 @@ async function dismissCompletion(page: Page): Promise<void> {
   }
 }
 
+function escapedLabel(label: string): RegExp {
+  return new RegExp(`^${label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`);
+}
+
+async function visibleInsideViewport(locator: Locator, width: number, height: number): Promise<boolean> {
+  if (!await locator.isVisible().catch(() => false)) return false;
+  const box = await locator.boundingBox();
+  return Boolean(box
+    && box.x >= 0
+    && box.y >= 0
+    && box.x + box.width <= width
+    && box.y + box.height <= height);
+}
+
+async function captureHostViewportProof(input: {
+  browserPage: Page;
+  baseUrl: string;
+  width: number;
+  height: number;
+  nodeId: string;
+  nodeLabel: string;
+  artifactBasename: string;
+  captureDir: string;
+}): Promise<HostViewportProof> {
+  const { browserPage: page, baseUrl, width, height, nodeId, nodeLabel, artifactBasename, captureDir } = input;
+  await page.setViewportSize({ width, height });
+  await page.goto(baseUrl, { waitUntil: "domcontentloaded", timeout: 120_000 });
+  const nodeButton = page.getByRole("button", { name: escapedLabel(nodeLabel) }).first();
+  const boardVisible = await nodeButton.waitFor({ state: "visible", timeout: 120_000 }).then(() => true).catch(() => false);
+  const portrait = page.locator('[data-testid="companion-portrait"]').first();
+  const portraitStack = page.locator('[data-testid="companion-portrait-stack"]').first();
+
+  if (boardVisible) await nodeButton.click();
+  const iframe = page.locator('iframe[title="generated-baseline"]').last();
+  const activityVisible = await iframe.waitFor({ state: "visible", timeout: 30_000 })
+    .then(async () => (await iframe.getAttribute("src"))?.includes(artifactBasename) === true)
+    .catch(() => false);
+  const companionCollapsedPassed = await portraitStack
+    .waitFor({ state: "visible", timeout: 30_000 })
+    .then(async () => (await portraitStack.getAttribute("data-companion-presence")) === "collapsed")
+    .catch(() => false);
+  const backControl = page.locator('[data-testid="flow-game-back"]').first();
+  const backControlVisible = await visibleInsideViewport(backControl, width, height);
+  const collapsedCapture = path.join(captureDir, `host-${width}x${height}-${nodeId}-collapsed.png`);
+  await page.screenshot({ path: collapsedCapture, fullPage: false });
+
+  let companionSummonedPassed = false;
+  let activityReservedCompanionSpace = false;
+  if (activityVisible && await portrait.isVisible().catch(() => false)) {
+    await portrait.click();
+    companionSummonedPassed = await page.locator('[data-testid="companion-portrait-stack"][data-companion-presence="summoned"]')
+      .waitFor({ state: "visible", timeout: 5_000 }).then(() => true).catch(() => false);
+    const activityBox = await page.locator('[data-testid="generated-activity-frame"]').boundingBox();
+    const portraitBox = await portrait.boundingBox();
+    activityReservedCompanionSpace = Boolean(activityBox && portraitBox
+      && activityBox.x >= 0
+      && activityBox.y >= 0
+      && activityBox.x + activityBox.width <= portraitBox.x
+      && activityBox.y + activityBox.height <= height);
+  }
+  const summonedCapture = path.join(captureDir, `host-${width}x${height}-${nodeId}-summoned.png`);
+  await page.screenshot({ path: summonedCapture, fullPage: false });
+  if (await backControl.isVisible().catch(() => false)) await backControl.click();
+  await nodeButton.waitFor({ state: "visible", timeout: 30_000 }).catch(() => undefined);
+
+  return {
+    width,
+    height,
+    boardVisible,
+    activityVisible,
+    backControlVisible,
+    companionCollapsedPassed,
+    companionSummonedPassed,
+    activityReservedCompanionSpace,
+    capturePaths: [collapsedCapture, summonedCapture],
+  };
+}
+
 export async function verifySelfTestingBoardAcceptance(input: { runDir: string; baseUrl: string }): Promise<string> {
   const runDir = path.resolve(input.runDir);
   const certification = readJson<Record<string, unknown>>(path.join(runDir, "certification-run.json"));
@@ -251,10 +366,34 @@ export async function verifySelfTestingBoardAcceptance(input: { runDir: string; 
   fs.mkdirSync(captureDir, { recursive: true });
   const browser = await chromium.launch({ headless: true });
   const proofs: NodeProof[] = [];
+  const hostViewports: HostViewportProof[] = [];
   let boardLoaded = false;
   let companionHostVisible = false;
   let navigationPassed = true;
   try {
+    const firstNodeId = nodeIds[0];
+    const firstArtifact = artifacts.find((candidate) => candidate.nodeId === firstNodeId);
+    const firstBoardNode = firstNodeId ? boardNodeById.get(firstNodeId) : undefined;
+    if (!firstNodeId || !firstArtifact?.htmlHash || !firstBoardNode?.label) {
+      throw new Error("full_board_acceptance_first_node_missing");
+    }
+    for (const viewport of REQUIRED_HOST_VIEWPORTS) {
+      const compositionPage = await browser.newPage({ viewport });
+      try {
+        hostViewports.push(await captureHostViewportProof({
+          browserPage: compositionPage,
+          baseUrl,
+          width: viewport.width,
+          height: viewport.height,
+          nodeId: firstNodeId,
+          nodeLabel: firstBoardNode.label,
+          artifactBasename: path.basename(firstArtifact.htmlPath),
+          captureDir,
+        }));
+      } finally {
+        await compositionPage.close();
+      }
+    }
     const page = await browser.newPage({ viewport: { width: 1365, height: 768 } });
     await page.goto(baseUrl, { waitUntil: "domcontentloaded", timeout: 120_000 });
     await page.evaluate("() => { window.__sunnyAcceptanceMessages = []; window.addEventListener('message', event => window.__sunnyAcceptanceMessages.push(event.data)); }");
@@ -272,7 +411,7 @@ export async function verifySelfTestingBoardAcceptance(input: { runDir: string; 
       let launchPassed = false;
       let completionPassed = false;
       try {
-        const nodeButton = page.getByRole("button", { name: new RegExp(`^${boardNode.label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`) }).first();
+        const nodeButton = page.getByRole("button", { name: escapedLabel(boardNode.label) }).first();
         await nodeButton.waitFor({ state: "visible", timeout: 120_000 });
         boardLoaded = true;
         await nodeButton.click();
@@ -336,6 +475,7 @@ export async function verifySelfTestingBoardAcceptance(input: { runDir: string; 
     boardLoaded,
     companionHostVisible,
     navigationPassed,
+    hostViewports,
     readyNodeIds,
     preparingNodeIds,
     needsAttentionNodeIds,

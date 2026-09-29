@@ -21,7 +21,7 @@ function input(overrides: Record<string, unknown> = {}) {
   const runDir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-full-board-proof-"));
   roots.push(runDir);
   const sourceHash = sha("source");
-  return {
+  const value = {
     runDir,
     certificationRunId: "cert-lab",
     assignmentFingerprint: sha("assignment"),
@@ -47,11 +47,44 @@ function input(overrides: Record<string, unknown> = {}) {
     boardLoaded: true,
     companionHostVisible: true,
     navigationPassed: true,
+    hostViewports: [
+      {
+        width: 1365,
+        height: 768,
+        boardVisible: true,
+        activityVisible: true,
+        backControlVisible: true,
+        companionCollapsedPassed: true,
+        companionSummonedPassed: true,
+        activityReservedCompanionSpace: true,
+        capturePaths: [path.join(runDir, "host-1365x768-collapsed.png"), path.join(runDir, "host-1365x768-summoned.png")],
+      },
+      {
+        width: 1280,
+        height: 720,
+        boardVisible: true,
+        activityVisible: true,
+        backControlVisible: true,
+        companionCollapsedPassed: true,
+        companionSummonedPassed: true,
+        activityReservedCompanionSpace: true,
+        capturePaths: [path.join(runDir, "host-1280x720-collapsed.png"), path.join(runDir, "host-1280x720-summoned.png")],
+      },
+    ],
     readyNodeIds: ["node-1"],
     preparingNodeIds: [],
     needsAttentionNodeIds: [],
     ...overrides,
   };
+  for (const node of value.nodes) {
+    for (const capture of node.capturePaths) {
+      if (capture !== "missing.png") fs.writeFileSync(capture, "capture");
+    }
+  }
+  for (const viewport of value.hostViewports) {
+    for (const capture of viewport.capturePaths) fs.writeFileSync(capture, "capture");
+  }
+  return value;
 }
 
 describe("trusted full-board acceptance receipt", () => {
@@ -79,7 +112,6 @@ describe("trusted full-board acceptance receipt", () => {
 
   it("writes one hash-bound append-only receipt for a complete isolated host journey", () => {
     const value = input();
-    fs.writeFileSync(value.nodes[0]!.capturePaths[0]!, "capture");
 
     const file = writeFullBoardAcceptanceReceipt(value);
     const receipt = JSON.parse(fs.readFileSync(file, "utf8"));
@@ -90,6 +122,10 @@ describe("trusted full-board acceptance receipt", () => {
       plannerNodeIds: ["node-1"],
       launchedNodeIds: ["node-1"],
       completedNodeIds: ["node-1"],
+      hostViewports: expect.arrayContaining([
+        expect.objectContaining({ width: 1365, height: 768, companionSummonedPassed: true }),
+        expect.objectContaining({ width: 1280, height: 720, companionSummonedPassed: true }),
+      ]),
       sourceInventoryHashBefore: value.sourceSnapshotHash,
       sourceInventoryHashAfter: value.sourceSnapshotHash,
     });
@@ -104,6 +140,8 @@ describe("trusted full-board acceptance receipt", () => {
     ["missing capture", { nodes: [{ nodeId: "node-1", htmlHash: sha("html"), manifestHash: sha("manifest"), launchPassed: true, completionPassed: true, runtimeErrors: [], capturePaths: ["missing.png"] }] }, "full_board_acceptance_capture_missing"],
     ["runtime error", { nodes: [{ nodeId: "node-1", htmlHash: sha("html"), manifestHash: sha("manifest"), launchPassed: true, completionPassed: true, runtimeErrors: ["boom"], capturePaths: ["missing.png"] }] }, "full_board_acceptance_node_failed"],
     ["preparing node", { preparingNodeIds: ["node-1"] }, "full_board_acceptance_pending_nodes"],
+    ["missing supported viewport", { hostViewports: [{ width: 1365, height: 768, boardVisible: true, activityVisible: true, backControlVisible: true, companionCollapsedPassed: true, companionSummonedPassed: true, activityReservedCompanionSpace: true, capturePaths: [] }] }, "full_board_acceptance_host_viewports_missing"],
+    ["summoned companion obscures activity", { hostViewports: [{ width: 1365, height: 768, boardVisible: true, activityVisible: true, backControlVisible: true, companionCollapsedPassed: true, companionSummonedPassed: false, activityReservedCompanionSpace: false, capturePaths: [] }, { width: 1280, height: 720, boardVisible: true, activityVisible: true, backControlVisible: true, companionCollapsedPassed: true, companionSummonedPassed: true, activityReservedCompanionSpace: true, capturePaths: [] }] }, "full_board_acceptance_host_viewport_failed:1365x768"],
   ])("rejects %s", (_label, overrides, code) => {
     const value = input(overrides);
     expect(() => writeFullBoardAcceptanceReceipt(value)).toThrow(code);
