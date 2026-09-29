@@ -563,9 +563,13 @@ export function useSession(options?: UseSessionOptions) {
         event: "playback_not_confirmed",
         reason: "required_audio_not_fully_played",
       });
+      sendMessageRef.current("playback_done", {
+        audible: false,
+        reason: "required_audio_not_fully_played",
+      });
       return;
     }
-    sendMessageRef.current("playback_done");
+    sendMessageRef.current("playback_done", { audible: true });
     flushBufferIfUnmuted(
       rollingBufferRef.current,
       micMutedRef.current,

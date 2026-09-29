@@ -489,6 +489,29 @@ describe("WS envelope vs canvas payload type", () => {
     expect(result.current.state.companionPresence).toBe("collapsed");
   });
 
+  it("reports required audio that never played instead of leaving the server pending", async () => {
+    // Human catch: Hear the word produced silence while the server waited indefinitely for proof.
+    // Lab miss: prior tests verified the warning but not the terminal negative acknowledgement.
+    const { result } = renderHook(() => useSession());
+    act(() => result.current.startSession("ila"));
+    const ws = wsInstances[0]!;
+    await act(async () => Promise.resolve());
+
+    act(() => {
+      ws.onmessage?.({
+        data: JSON.stringify({ type: "audio_done", requiresAudio: true, itemId: "item-1" }),
+      } as MessageEvent);
+    });
+
+    const messages = ws.send.mock.calls.map(([raw]) => JSON.parse(String(raw)));
+    expect(messages).toContainEqual(expect.objectContaining({
+      type: "playback_done",
+      audible: false,
+      reason: "required_audio_not_fully_played",
+    }));
+    expect(result.current.state.warning).toMatch(/couldn't play that word/i);
+  });
+
   it("keeps the server progression snapshot for the level path", async () => {
     const { result } = renderHook(() => useSession());
 

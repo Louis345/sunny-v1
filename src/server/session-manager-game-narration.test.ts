@@ -40,13 +40,60 @@ describe("SessionManager game narration", () => {
     expect(recordEvent).not.toHaveBeenCalledWith("game_narration", "playback_done", expect.anything());
     expect(send).toHaveBeenCalledWith("audio_done");
 
-    SessionManager.prototype.playbackDone.call(fakeSession);
+    SessionManager.prototype.playbackDone.call(fakeSession, { audible: true });
 
     expect(recordEvent).toHaveBeenCalledWith("game_narration", "playback_done", expect.objectContaining({
       activityId: "word-radar",
       nodeId: "n-word-radar",
       reason: "word_radar_response_prompt",
     }));
+  });
+
+  it("keeps assessment audio unavailable when the browser reports no audible playback", () => {
+    // Human catch: the word was never heard, but the server treated stream completion as delivery.
+    // Log miss: playback_done had no audible outcome, so the evidence looked successful.
+    const recordEvent = vi.fn();
+    const assessment = {
+      homeworkId: "homework-1",
+      itemId: "item-1",
+      word: "sample",
+      artifactHash: "artifact-1",
+      audioDelivered: false,
+      supportIds: [],
+      ambiguous: false,
+    };
+    const fakeSession = {
+      pendingGameNarrationPlayback: {
+        activityId: "word-radar",
+        assessmentItemId: "item-1",
+      },
+      spellingAssessment: assessment,
+      spellingAssessmentHistory: new Map([[assessment.itemId, assessment]]),
+      debugRecorder: { recordEvent },
+      turnSM: { onPlaybackComplete: vi.fn(), consumePendingTranscript: vi.fn() },
+      flushPendingRoundComplete: vi.fn(),
+      handleEndOfTurn: vi.fn(),
+    };
+
+    SessionManager.prototype.playbackDone.call(fakeSession, {
+      audible: false,
+      reason: "required_audio_not_fully_played",
+    });
+
+    expect(assessment.audioDelivered).toBe(false);
+    expect(recordEvent).toHaveBeenCalledWith(
+      "game_narration",
+      "playback_failed",
+      expect.objectContaining({
+        assessmentItemId: "item-1",
+        reason: "required_audio_not_fully_played",
+      }),
+    );
+    expect(recordEvent).not.toHaveBeenCalledWith(
+      "game_narration",
+      "playback_done",
+      expect.anything(),
+    );
   });
 
   it("does not append narration proof into companion conversation history", async () => {

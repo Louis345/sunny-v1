@@ -1354,9 +1354,10 @@ export class SessionManager {
     void gev.tryCompleteTtsTurnAsync(this);
   }
 
-  playbackDone(): void {
+  playbackDone(payload: Record<string, unknown> = {}): void {
     if (this.pendingGameNarrationPlayback) {
       const pending = this.pendingGameNarrationPlayback;
+      const audible = payload.audible !== false;
       const assessmentItemId = typeof pending.assessmentItemId === "string"
         ? pending.assessmentItemId
         : null;
@@ -1366,9 +1367,18 @@ export class SessionManager {
           (this.spellingAssessment?.itemId === assessmentItemId
             ? this.spellingAssessment
             : undefined);
-        if (assessment) assessment.audioDelivered = true;
+        if (assessment) assessment.audioDelivered = audible;
       }
-      this.debugRecorder.recordEvent("game_narration", "playback_done", pending);
+      this.debugRecorder.recordEvent(
+        "game_narration",
+        audible ? "playback_done" : "playback_failed",
+        {
+          ...pending,
+          ...(!audible
+            ? { reason: payload.reason ?? "browser_playback_failed" }
+            : {}),
+        },
+      );
       this.pendingGameNarrationPlayback = null;
     }
     this.turnSM.onPlaybackComplete();
