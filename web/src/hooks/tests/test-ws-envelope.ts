@@ -30,7 +30,10 @@ describe("WS envelope vs canvas payload type", () => {
     onerror: (() => void) | null = null;
     onclose: (() => void) | null = null;
     send = vi.fn();
-    close = vi.fn();
+    close = vi.fn(() => {
+      this.readyState = 3;
+      queueMicrotask(() => this.onclose?.());
+    });
 
     constructor(_url: string) {
       wsInstances.push(this);
@@ -236,6 +239,26 @@ describe("WS envelope vs canvas payload type", () => {
     expect(result.current.state.error).toMatch(/connection lost/i);
     await act(async () => { await vi.advanceTimersByTimeAsync(10_000); });
     expect(wsInstances).toHaveLength(4);
+  });
+
+  it("fails visibly after three reconnected sockets open but never acknowledge session startup", async () => {
+    vi.useFakeTimers();
+    const { result } = renderHook(() => useSession());
+    act(() => result.current.startSession("ila", { homeworkId: "hw-math-1" }));
+    await act(async () => { await vi.advanceTimersByTimeAsync(150); });
+    const original = wsInstances[0]!;
+    act(() => original.onmessage?.({ data: JSON.stringify({ type: "session_started", child: "Ila" }) } as MessageEvent));
+
+    act(() => {
+      original.readyState = 3;
+      original.onclose?.();
+    });
+    await act(async () => { await vi.advanceTimersByTimeAsync(35_000); });
+
+    expect(wsInstances).toHaveLength(4);
+    expect(result.current.state.phase).toBe("picker");
+    expect(result.current.state.errorFatal).toBe(true);
+    expect(result.current.state.error).toMatch(/three reconnect attempts/i);
   });
 
   it("still reports microphone denial as fatal for a normal voice-only review", async () => {

@@ -575,6 +575,23 @@ export function useSession(options?: UseSessionOptions) {
     bargeInConsecutiveRef.current = 0;
   };
 
+  const armSessionHandshakeTimeout = useCallback((ws: WebSocket) => {
+    if (sessionStartTimeoutRef.current) clearTimeout(sessionStartTimeoutRef.current);
+    sessionStartTimeoutRef.current = setTimeout(() => {
+      sessionStartTimeoutRef.current = null;
+      if (wsRef.current !== ws || sessionStateRef.current.phase === "active") return;
+      console.warn(
+        ` 🎮 [session-connection] [handshake] [timeout] attempt=${sessionReconnectAttemptRef.current}/${SESSION_RECONNECT_DELAYS_MS.length}`,
+      );
+      setStateRef.current((s) => ({
+        ...s,
+        phase: "connecting",
+        warning: "Sunny connected but did not finish starting. Reconnecting…",
+      }));
+      ws.close();
+    }, 10_000);
+  }, []);
+
   const connect = useCallback(() => {
     if (
       wsRef.current?.readyState === WebSocket.CONNECTING ||
@@ -588,14 +605,9 @@ export function useSession(options?: UseSessionOptions) {
 
     ws.onopen = () => {
       if (!reconnectHandshakePendingRef.current) return;
-      reconnectHandshakePendingRef.current = false;
       if (sessionStartPollRef.current) {
         clearInterval(sessionStartPollRef.current);
         sessionStartPollRef.current = null;
-      }
-      if (sessionStartTimeoutRef.current) {
-        clearTimeout(sessionStartTimeoutRef.current);
-        sessionStartTimeoutRef.current = null;
       }
       const request = sessionStartRequestRef.current;
       if (!request) return;
@@ -609,6 +621,7 @@ export function useSession(options?: UseSessionOptions) {
         ...(request.sttOnly ? { sttOnly: true } : {}),
         ...(request.homeworkId ? { homeworkId: request.homeworkId } : {}),
       });
+      armSessionHandshakeTimeout(ws);
       if (!mediaStreamRef.current) startMicRef.current();
     };
 
@@ -630,7 +643,13 @@ export function useSession(options?: UseSessionOptions) {
     };
 
     ws.onclose = () => {
-      if (wsRef.current === ws) wsRef.current = null;
+      if (wsRef.current === ws) {
+        wsRef.current = null;
+        if (sessionStartTimeoutRef.current) {
+          clearTimeout(sessionStartTimeoutRef.current);
+          sessionStartTimeoutRef.current = null;
+        }
+      }
       const request = sessionStartRequestRef.current;
       if (!request || sessionStateRef.current.phase === "picker" || sessionStateRef.current.phase === "ended") return;
       if (sessionReconnectTimerRef.current) return;
@@ -664,7 +683,7 @@ export function useSession(options?: UseSessionOptions) {
         connect();
       }, delayMs);
     };
-  }, []);
+  }, [armSessionHandshakeTimeout]);
 
   // --- Handle server messages ---
 
@@ -703,7 +722,12 @@ export function useSession(options?: UseSessionOptions) {
       }
 
       case "session_started": {
+        reconnectHandshakePendingRef.current = false;
         sessionReconnectAttemptRef.current = 0;
+        if (sessionStartTimeoutRef.current) {
+          clearTimeout(sessionStartTimeoutRef.current);
+          sessionStartTimeoutRef.current = null;
+        }
         if (sessionReconnectTimerRef.current) {
           clearTimeout(sessionReconnectTimerRef.current);
           sessionReconnectTimerRef.current = null;
@@ -1824,6 +1848,7 @@ export function useSession(options?: UseSessionOptions) {
             ...(sttOnly ? { sttOnly: true } : {}),
             ...(homeworkId ? { homeworkId } : {}),
           });
+          armSessionHandshakeTimeout(wsRef.current);
           startMic();
         }
       }, 100);
@@ -1848,7 +1873,7 @@ export function useSession(options?: UseSessionOptions) {
         }));
       }, 10000);
     },
-    [connect, sendMessage, startMic]
+    [armSessionHandshakeTimeout, connect, sendMessage, startMic]
   );
 
   const bargeIn = useCallback(() => {
