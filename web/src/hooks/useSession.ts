@@ -406,8 +406,6 @@ export function useSession(options?: UseSessionOptions) {
   const playbackRequiresAudioRef = useRef(false);
   const receivedAudioFramesRef = useRef(0);
   const playedAudioFramesRef = useRef(0);
-  const activityNarrationPendingRef = useRef(false);
-  const activityNarrationAudioReceivedRef = useRef(false);
   const bargeInConsecutiveRef = useRef(0);
   const rollingBufferRef = useRef<string[]>([]);
   const finalizePlaybackRef = useRef<() => void>(() => {});
@@ -530,13 +528,6 @@ export function useSession(options?: UseSessionOptions) {
       }));
     }
     if (wsRef.current?.readyState === WebSocket.OPEN) {
-      const gameEvent = payload.event && typeof payload.event === "object"
-        ? payload.event as { type?: unknown }
-        : null;
-      if (type === "game_event" && gameEvent?.type === "narration_request") {
-        activityNarrationPendingRef.current = true;
-        activityNarrationAudioReceivedRef.current = false;
-      }
       const normalizedPayload =
         type === "canvas_show" && typeof payload.type === "string"
           ? { ...payload, canvasType: payload.type }
@@ -563,8 +554,6 @@ export function useSession(options?: UseSessionOptions) {
     playbackRequiresAudioRef.current = false;
     receivedAudioFramesRef.current = 0;
     playedAudioFramesRef.current = 0;
-    activityNarrationPendingRef.current = false;
-    activityNarrationAudioReceivedRef.current = false;
     if (!playbackConfirmed) {
       setStateRef.current((s) => ({
         ...s,
@@ -996,15 +985,14 @@ export function useSession(options?: UseSessionOptions) {
 
       case "audio": {
         serverDoneRef.current = false;
-        if (ttsMutedRef.current && !activityNarrationPendingRef.current) {
+        receivedAudioFramesRef.current += 1;
+        if (ttsMutedRef.current) {
           break;
         }
         if (isKaraokeReadingAssistSilence(sessionStateRef.current)) {
           break;
         }
         const audioData = base64ToArrayBuffer((msg.data as string) ?? "");
-        receivedAudioFramesRef.current += 1;
-        if (activityNarrationPendingRef.current) activityNarrationAudioReceivedRef.current = true;
         setStateRef.current((s) =>
           s.firstAudioChunkReceived ? s : { ...s, firstAudioChunkReceived: true },
         );
