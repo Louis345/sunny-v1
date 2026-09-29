@@ -27,6 +27,8 @@ describe("WS envelope vs canvas payload type", () => {
     readyState = CONNECTING;
     onopen: (() => void) | null = null;
     onmessage: ((ev: MessageEvent) => void) | null = null;
+    onerror: (() => void) | null = null;
+    onclose: (() => void) | null = null;
     send = vi.fn();
     close = vi.fn();
 
@@ -163,6 +165,77 @@ describe("WS envelope vs canvas payload type", () => {
         homeworkId: "hw-spelling-1",
       }),
     ]);
+  });
+
+  it("reconnects a dropped active homework voice session and restores the same assignment", async () => {
+    vi.stubEnv("VITE_SUNNY_RUNTIME_CONFIG", JSON.stringify({ subject: "homework", childId: "ila", homeworkDomain: "spelling", sessionMode: "real", previewMode: "off", voiceMode: "normal" }));
+    vi.useFakeTimers();
+    const { result } = renderHook(() => useSession());
+
+    act(() => result.current.startSession("Ila", { homeworkId: "hw-spelling-1" }));
+    await act(async () => { await vi.advanceTimersByTimeAsync(150); });
+    const original = wsInstances[0]!;
+    act(() => original.onmessage?.({ data: JSON.stringify({ type: "session_started", child: "Ila" }) } as MessageEvent));
+    expect(result.current.state.phase).toBe("active");
+
+    act(() => {
+      original.readyState = 3;
+      original.onclose?.();
+    });
+    expect(result.current.state.warning).toMatch(/reconnecting/i);
+    expect(result.current.state.phase).toBe("connecting");
+
+    await act(async () => { await vi.advanceTimersByTimeAsync(300); });
+    expect(wsInstances).toHaveLength(2);
+    const resumed = wsInstances[1]!;
+    const starts = resumed.send.mock.calls
+      .map(([raw]) => JSON.parse(String(raw)))
+      .filter((message) => message.type === "start_session");
+    expect(starts).toEqual([expect.objectContaining({ child: "Ila", homeworkId: "hw-spelling-1" })]);
+
+    act(() => resumed.onmessage?.({ data: JSON.stringify({ type: "session_started", child: "Ila" }) } as MessageEvent));
+    expect(result.current.state.phase).toBe("active");
+    expect(result.current.state.warning).toBeNull();
+  });
+
+  it("starts microphone capture when the initial socket drops before session startup", async () => {
+    vi.useFakeTimers();
+    const { result } = renderHook(() => useSession());
+    act(() => result.current.startSession("ila", { homeworkId: "hw-math-1" }));
+    await act(async () => { await Promise.resolve(); });
+    const original = wsInstances[0]!;
+
+    act(() => {
+      original.readyState = 3;
+      original.onclose?.();
+    });
+    await act(async () => { await vi.advanceTimersByTimeAsync(300); });
+
+    expect(wsInstances).toHaveLength(2);
+    expect(navigator.mediaDevices.getUserMedia).toHaveBeenCalledOnce();
+  });
+
+  it("stops reconnecting after three bounded attempts", async () => {
+    vi.useFakeTimers();
+    const { result } = renderHook(() => useSession());
+    act(() => result.current.startSession("ila", { homeworkId: "hw-math-1" }));
+    await act(async () => { await vi.advanceTimersByTimeAsync(150); });
+    act(() => wsInstances[0]!.onmessage?.({ data: JSON.stringify({ type: "session_started", child: "Ila" }) } as MessageEvent));
+
+    for (let attempt = 0; attempt < 4; attempt += 1) {
+      const ws = wsInstances[attempt]!;
+      act(() => {
+        ws.readyState = 3;
+        ws.onclose?.();
+      });
+      await act(async () => { await vi.advanceTimersByTimeAsync(1200); });
+    }
+
+    expect(wsInstances).toHaveLength(4);
+    expect(result.current.state.errorFatal).toBe(true);
+    expect(result.current.state.error).toMatch(/connection lost/i);
+    await act(async () => { await vi.advanceTimersByTimeAsync(10_000); });
+    expect(wsInstances).toHaveLength(4);
   });
 
   it("still reports microphone denial as fatal for a normal voice-only review", async () => {

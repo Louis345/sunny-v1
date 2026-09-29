@@ -175,6 +175,16 @@ interface TurnPolicy {
 
 type SessionPhase = "picker" | "connecting" | "active" | "ended";
 
+type SessionStartRequest = {
+  child: string;
+  diagKiosk: boolean;
+  silentTts: boolean;
+  sttOnly: boolean;
+  homeworkId?: string;
+};
+
+const SESSION_RECONNECT_DELAYS_MS = [250, 500, 1000] as const;
+
 interface SessionState {
   phase: SessionPhase;
   childName: string | null;
@@ -405,6 +415,10 @@ export function useSession(options?: UseSessionOptions) {
   const storyImageWatchdogRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const sessionStartPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const sessionStartTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const sessionReconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const sessionReconnectAttemptRef = useRef(0);
+  const reconnectHandshakePendingRef = useRef(false);
+  const sessionStartRequestRef = useRef<SessionStartRequest | null>(null);
   const deferredUnmountCleanupRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const sessionChildIdRef = useRef<string | null>(null);
   const micInputLabelRef = useRef("selected microphone");
@@ -467,6 +481,7 @@ export function useSession(options?: UseSessionOptions) {
   setStateRef.current = setState;
 
   const sendMessageRef = useRef<(type: string, payload?: Record<string, unknown>) => void>(() => {});
+  const startMicRef = useRef<() => void>(() => {});
   const stopMicRef = useRef<() => void>(() => {});
   const adventureGameIframeSourceRef = useRef(options?.adventureGameIframeRef ?? null);
   adventureGameIframeSourceRef.current = options?.adventureGameIframeRef ?? null;
@@ -569,23 +584,83 @@ export function useSession(options?: UseSessionOptions) {
     const ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
     wsRef.current = ws;
 
+    ws.onopen = () => {
+      if (!reconnectHandshakePendingRef.current) return;
+      reconnectHandshakePendingRef.current = false;
+      if (sessionStartPollRef.current) {
+        clearInterval(sessionStartPollRef.current);
+        sessionStartPollRef.current = null;
+      }
+      if (sessionStartTimeoutRef.current) {
+        clearTimeout(sessionStartTimeoutRef.current);
+        sessionStartTimeoutRef.current = null;
+      }
+      const request = sessionStartRequestRef.current;
+      if (!request) return;
+      console.log(
+        ` 🎮 [session-connection] [reconnect] [handshake] attempt=${sessionReconnectAttemptRef.current}/${SESSION_RECONNECT_DELAYS_MS.length}`,
+      );
+      sendMessageRef.current("start_session", {
+        child: request.child,
+        ...(request.diagKiosk ? { diagKiosk: true } : {}),
+        ...(request.silentTts ? { silentTts: true } : {}),
+        ...(request.sttOnly ? { sttOnly: true } : {}),
+        ...(request.homeworkId ? { homeworkId: request.homeworkId } : {}),
+      });
+      if (!mediaStreamRef.current) startMicRef.current();
+    };
+
     ws.onmessage = (event) => {
       const msg = JSON.parse(event.data);
       handleServerMessage(msg, setStateRef, stopMicRef);
     };
 
     ws.onerror = () => {
-      setStateRef.current((s) => ({
-        ...s,
-        error: "Connection lost",
-        errorFatal: true,
-        warning: null,
-        phase: s.phase === "active" || s.phase === "connecting" ? "picker" : s.phase,
-      }));
+      if (sessionStartRequestRef.current) {
+        console.warn(" 🎮 [session-connection] [socket] [error] awaiting-close");
+        setStateRef.current((s) => ({
+          ...s,
+          warning: "Sunny lost connection. Reconnecting…",
+        }));
+        return;
+      }
+      setStateRef.current((s) => ({ ...s, error: "Connection lost", errorFatal: true, warning: null }));
     };
 
     ws.onclose = () => {
       if (wsRef.current === ws) wsRef.current = null;
+      const request = sessionStartRequestRef.current;
+      if (!request || sessionStateRef.current.phase === "picker" || sessionStateRef.current.phase === "ended") return;
+      if (sessionReconnectTimerRef.current) return;
+      if (sessionReconnectAttemptRef.current >= SESSION_RECONNECT_DELAYS_MS.length) {
+        reconnectHandshakePendingRef.current = false;
+        sessionStartRequestRef.current = null;
+        console.error(` 🎮 [session-connection] [reconnect] [exhausted] attempts=${SESSION_RECONNECT_DELAYS_MS.length}`);
+        setStateRef.current((s) => ({
+          ...s,
+          error: "Connection lost after three reconnect attempts",
+          errorFatal: true,
+          warning: null,
+          phase: "picker",
+        }));
+        return;
+      }
+      const attempt = sessionReconnectAttemptRef.current + 1;
+      sessionReconnectAttemptRef.current = attempt;
+      reconnectHandshakePendingRef.current = true;
+      const delayMs = SESSION_RECONNECT_DELAYS_MS[attempt - 1];
+      console.warn(` 🎮 [session-connection] [reconnect] [scheduled] attempt=${attempt}/${SESSION_RECONNECT_DELAYS_MS.length} delayMs=${delayMs}`);
+      setStateRef.current((s) => ({
+        ...s,
+        phase: "connecting",
+        error: null,
+        errorFatal: false,
+        warning: "Sunny lost connection. Reconnecting…",
+      }));
+      sessionReconnectTimerRef.current = setTimeout(() => {
+        sessionReconnectTimerRef.current = null;
+        connect();
+      }, delayMs);
     };
   }, []);
 
@@ -626,6 +701,11 @@ export function useSession(options?: UseSessionOptions) {
       }
 
       case "session_started": {
+        sessionReconnectAttemptRef.current = 0;
+        if (sessionReconnectTimerRef.current) {
+          clearTimeout(sessionReconnectTimerRef.current);
+          sessionReconnectTimerRef.current = null;
+        }
         const m = msg as Record<string, string>;
         audioQueueRef.current = [];
         isPlayingRef.current = false;
@@ -1283,6 +1363,9 @@ export function useSession(options?: UseSessionOptions) {
       }
 
       case "session_ended":
+        sessionStartRequestRef.current = null;
+        reconnectHandshakePendingRef.current = false;
+        sessionReconnectAttemptRef.current = 0;
         turnPolicyRef.current = DEFAULT_TURN_POLICY;
         setMicMuted(false);
         setStateRef.current((s) => {
@@ -1561,6 +1644,7 @@ export function useSession(options?: UseSessionOptions) {
     }
   }, []);
 
+  startMicRef.current = startMic;
   stopMicRef.current = stopMic;
 
   // --- Audio: Speaker (server → browser) ---
@@ -1704,6 +1788,15 @@ export function useSession(options?: UseSessionOptions) {
       const homeworkId = options?.homeworkId?.trim() || undefined;
       const wsChild = diagKiosk ? "creator" : childName;
       sessionChildIdRef.current = wsChild.trim().toLowerCase();
+      sessionStartRequestRef.current = {
+        child: wsChild,
+        diagKiosk,
+        silentTts,
+        sttOnly,
+        ...(homeworkId ? { homeworkId } : {}),
+      };
+      sessionReconnectAttemptRef.current = 0;
+      reconnectHandshakePendingRef.current = false;
 
       if (sessionStartPollRef.current) {
         clearInterval(sessionStartPollRef.current);
@@ -1738,6 +1831,7 @@ export function useSession(options?: UseSessionOptions) {
           sessionStartPollRef.current = null;
         }
         sessionStartTimeoutRef.current = null;
+        sessionStartRequestRef.current = null;
         setStateRef.current((s) => ({
           ...s,
           error: "Connection timeout",
@@ -1788,6 +1882,12 @@ export function useSession(options?: UseSessionOptions) {
       try { currentSourceRef.current.stop(); } catch { /* already stopped */ }
       currentSourceRef.current = null;
     }
+    sessionStartRequestRef.current = null;
+    reconnectHandshakePendingRef.current = false;
+    if (sessionReconnectTimerRef.current) {
+      clearTimeout(sessionReconnectTimerRef.current);
+      sessionReconnectTimerRef.current = null;
+    }
     sendMessage("end_session");
   }, [sendMessage]);
 
@@ -1812,6 +1912,13 @@ export function useSession(options?: UseSessionOptions) {
     }
     turnPolicyRef.current = DEFAULT_TURN_POLICY;
     sessionChildIdRef.current = null;
+    sessionStartRequestRef.current = null;
+    reconnectHandshakePendingRef.current = false;
+    sessionReconnectAttemptRef.current = 0;
+    if (sessionReconnectTimerRef.current) {
+      clearTimeout(sessionReconnectTimerRef.current);
+      sessionReconnectTimerRef.current = null;
+    }
     setMicMuted(false);
     setTtsMuted(false);
     setMapNodeType(null);
@@ -1915,6 +2022,12 @@ export function useSession(options?: UseSessionOptions) {
         if (sessionStartTimeoutRef.current) {
           clearTimeout(sessionStartTimeoutRef.current);
           sessionStartTimeoutRef.current = null;
+        }
+        sessionStartRequestRef.current = null;
+        reconnectHandshakePendingRef.current = false;
+        if (sessionReconnectTimerRef.current) {
+          clearTimeout(sessionReconnectTimerRef.current);
+          sessionReconnectTimerRef.current = null;
         }
         stopMic();
         if (playContextRef.current) {
