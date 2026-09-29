@@ -186,6 +186,7 @@ type SessionStartRequest = {
 const SESSION_RECONNECT_DELAYS_MS = [250, 500, 1000] as const;
 
 interface SessionState {
+  voiceSessionId: string | null;
   phase: SessionPhase;
   childName: string | null;
   companion: CompanionConfig | null;
@@ -428,6 +429,7 @@ export function useSession(options?: UseSessionOptions) {
   const micSilentWarningRef = useRef<string | null>(null);
 
   const [state, setState] = useState<SessionState>({
+    voiceSessionId: null,
     phase: "picker",
     childName: null,
     companion: null,
@@ -729,6 +731,7 @@ export function useSession(options?: UseSessionOptions) {
           (msg as Record<string, unknown>).debugMode === true;
         setStateRef.current((s) => ({
           ...s,
+          voiceSessionId: m.sessionId ?? null,
           phase: "active",
           loadingMessage: null,
           error: null,
@@ -1937,6 +1940,7 @@ export function useSession(options?: UseSessionOptions) {
       currentSourceRef.current = null;
     }
     setState({
+      voiceSessionId: null,
       phase: "picker",
       childName: null,
       companion: null,

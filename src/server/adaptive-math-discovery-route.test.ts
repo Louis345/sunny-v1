@@ -115,6 +115,7 @@ describe("adaptive math discovery routes", () => {
     });
     registerActiveVoiceSessionManager("lab-child", {
       noteExternalEvent() {},
+      getSessionId: () => "voice-session",
       getDiscoveryAttemptContext: () => ({
         support: { status: "assisted", scaffolds: ["support:voice:item-1"] },
         instrumentSignals: [],
@@ -128,6 +129,7 @@ describe("adaptive math discovery routes", () => {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
         attemptId: "a-live",
+        sessionId: "voice-session",
         itemId: "item-1",
         attemptedValue: "4",
         supportEventIds: [],
@@ -143,6 +145,90 @@ describe("adaptive math discovery routes", () => {
         scaffolds: ["support:voice:item-1"],
       },
     }));
+  });
+
+  it("binds support to the submitting voice session instead of the newest tab", async () => {
+    getLearningCycle.mockReturnValue({
+      domain: "math",
+      nodes: [{
+        nodeId: "probe-arrays",
+        role: "evaluation",
+        artifactBinding: { contractFingerprint: "math-frozen" },
+        evidenceContract: {},
+      }],
+    });
+    registerActiveVoiceSessionManager("lab-child", {
+      noteExternalEvent() {},
+      getSessionId: () => "session-with-help",
+      getDiscoveryAttemptContext: () => ({
+        support: { status: "assisted", scaffolds: ["support:session-with-help:item-1"] },
+        instrumentSignals: [], artifactHash: "math-frozen", sessionId: "session-with-help",
+      }),
+    });
+    registerActiveVoiceSessionManager("lab-child", {
+      noteExternalEvent() {},
+      getSessionId: () => "newer-unassisted-tab",
+      getDiscoveryAttemptContext: () => ({
+        support: { status: "unassisted", scaffolds: [] },
+        instrumentSignals: [], artifactHash: "math-frozen", sessionId: "newer-unassisted-tab",
+      }),
+    });
+
+    const response = await fetch(`${baseUrl}/api/learning/lab-child/assignments/hw-1/discovery/attempt`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        attemptId: "a-session-bound",
+        sessionId: "session-with-help",
+        itemId: "item-1",
+        attemptedValue: "4",
+        supportEventIds: [],
+        instrumentSignals: [],
+        observedAt: "2026-08-22T12:00:00.000Z",
+      }),
+    });
+
+    expect(response.status).toBe(200);
+    expect(recordDiscoveryAttempt).toHaveBeenCalledWith(expect.objectContaining({
+      support: { status: "assisted", scaffolds: ["support:session-with-help:item-1"] },
+    }));
+  });
+
+  it("does not infer independence when the submitting voice session is unknown", async () => {
+    getLearningCycle.mockReturnValue({
+      domain: "math",
+      nodes: [{
+        nodeId: "probe-arrays",
+        role: "evaluation",
+        artifactBinding: { contractFingerprint: "math-frozen" },
+        evidenceContract: {},
+      }],
+    });
+    registerActiveVoiceSessionManager("lab-child", {
+      noteExternalEvent() {},
+      getSessionId: () => "different-session",
+      getDiscoveryAttemptContext: () => ({
+        support: { status: "unassisted", scaffolds: [] },
+        instrumentSignals: [], artifactHash: "math-frozen", sessionId: "different-session",
+      }),
+    });
+
+    const response = await fetch(`${baseUrl}/api/learning/lab-child/assignments/hw-1/discovery/attempt`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        attemptId: "a-unknown-session",
+        sessionId: "stale-browser-session",
+        itemId: "item-1",
+        attemptedValue: "4",
+        supportEventIds: [],
+        instrumentSignals: [],
+        observedAt: "2026-08-22T12:00:00.000Z",
+      }),
+    });
+
+    expect(response.status).toBe(200);
+    expect(recordDiscoveryAttempt).toHaveBeenCalledWith(expect.objectContaining({ support: undefined }));
   });
 
   it("keeps the Probe chapter open between nodes and queues teaching only after the final node", async () => {

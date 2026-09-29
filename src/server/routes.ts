@@ -214,7 +214,7 @@ import { resolveSunnyRuntimeConfig } from "../shared/runtimeConfig";
 import { reconcileCompanionCareCurrencyAward } from "./currencyAward";
 import { companionPickerIdentity } from "./companionPickerRows";
 import { advanceCanonicalCycleFromEvidence, recordCanonicalNodeCompletion, recordSpellingDiscoveryAttempt } from "../engine/learningCycleRuntime";
-import { getActiveVoiceSessionManagerForChild } from "./voice-session-registry";
+import { getVoiceSessionManagerForChildSession } from "./voice-session-registry";
 import { generateCanonicalProgressionArtifact } from "../engine/canonicalProgressionGenerator";
 import {
   getLearningCycle,
@@ -777,7 +777,7 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
     const childId = String(req.params.childId ?? "").trim().toLowerCase();
     const homeworkId = String(req.params.homeworkId ?? "").trim();
     if (!isValidRegistryChildId(childId)) return res.status(404).json({ error: "child_not_found" });
-    const body = req.body as Partial<MathDiscoveryAttempt> & { skipped?: boolean };
+    const body = req.body as Partial<MathDiscoveryAttempt> & { skipped?: boolean; sessionId?: string };
     if (
       !homeworkId
       || typeof body.attemptId !== "string"
@@ -803,7 +803,9 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
     }
     try {
       const existing = getLearningCycle(childId, homeworkId);
-      const live = getActiveVoiceSessionManagerForChild(childId)?.getDiscoveryAttemptContext?.(homeworkId, attempt.itemId);
+      const submittingSessionId = typeof body.sessionId === "string" ? body.sessionId.trim() : "";
+      const live = getVoiceSessionManagerForChildSession(childId, submittingSessionId)
+        ?.getDiscoveryAttemptContext?.(homeworkId, attempt.itemId);
       const binding = existing?.domain === "spelling"
         ? existing.nodes.find(node => node.evidenceContract.spellingItems?.[attempt.itemId])?.artifactBinding
         : existing?.nodes.find(node => node.role === "evaluation" && node.artifactBinding?.contractFingerprint === live?.artifactHash)?.artifactBinding;

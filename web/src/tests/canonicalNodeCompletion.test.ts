@@ -16,8 +16,8 @@ describe("canonical node completion handoff", () => {
   it("sends native recall attempts with the same required factual envelope as generated activities", async () => {
     const fetch = vi.fn(async (_url: string, _request: RequestInit) => ({ ok: true, json: async () => ({ ok: true }) }));
     vi.stubGlobal("fetch", fetch);
-    await postDiscoveryAttempt({ childId: "lab", homeworkId: "hw", attempt: { itemId: "frozen", attemptId: "once", attemptedValue: "nite", observedAt: "2026-09-08T12:00:00Z" } });
-    expect(JSON.parse(String(fetch.mock.calls[0][1].body))).toMatchObject({ itemId: "frozen", supportEventIds: [], instrumentSignals: [] });
+    await postDiscoveryAttempt({ childId: "lab", homeworkId: "hw", sessionId: "voice-session-1", attempt: { itemId: "frozen", attemptId: "once", attemptedValue: "nite", observedAt: "2026-09-08T12:00:00Z" } });
+    expect(JSON.parse(String(fetch.mock.calls[0][1].body))).toMatchObject({ itemId: "frozen", sessionId: "voice-session-1", supportEventIds: [], instrumentSignals: [] });
   });
   it("flushes a pause without completing or sealing the evaluation", async () => {
     const coordinator = new DiscoveryAcademicCompletionCoordinator();

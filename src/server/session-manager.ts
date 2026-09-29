@@ -1237,6 +1237,10 @@ export class SessionManager {
     };
   }
 
+  public getSessionId(): string {
+    return this.sessionId;
+  }
+
   public recordWorksheetAttempt(transcript: string, correct: boolean): void {
     if (!this.ctx?.assignment) return;
     this.ctx.assignment.attempts.push({

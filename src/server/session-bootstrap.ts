@@ -1553,6 +1553,7 @@ This is a safe space to test everything.
     }
 
     session.send("session_started", {
+      sessionId: session.getSessionId(),
       child: session.childName,
       childName: session.childName,
       companion: session.companion.name,

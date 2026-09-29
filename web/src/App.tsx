@@ -1340,10 +1340,10 @@ function App() {
       return;
     }
     const attempt = discoveryCompletionCoordinatorRef.current.prepareAttempt({ ...response, itemId, attemptId: createBrowserRequestId() });
-    void discoveryCompletionCoordinatorRef.current.recordAttempt(() => postDiscoveryAttempt({ childId: adventureChildId, homeworkId, attempt })).catch(error => {
+    void discoveryCompletionCoordinatorRef.current.recordAttempt(() => postDiscoveryAttempt({ childId: adventureChildId, homeworkId, sessionId: state.voiceSessionId, attempt })).catch(error => {
       console.error(" 🎮 [spelling-discovery] [attempt] [retry-needed]", error);
     });
-  }, [adventureChildId, directDiscoveryMode, plannerBoardLaunch, plannerBoardPacket?.childChart.learningCycle?.homeworkId]);
+  }, [adventureChildId, directDiscoveryMode, plannerBoardLaunch, plannerBoardPacket?.childChart.learningCycle?.homeworkId, state.voiceSessionId]);
 
 
   const handlePlannerBoardFunRating = useCallback(
@@ -1637,7 +1637,7 @@ function App() {
         }
         const preparedAttempt = discoveryCompletionCoordinatorRef.current.prepareAttempt(attempt);
         const attemptWrite = discoveryCompletionCoordinatorRef.current.recordAttempt(
-          () => postDiscoveryAttempt({ childId: adventureChildId, homeworkId, attempt: preparedAttempt }),
+          () => postDiscoveryAttempt({ childId: adventureChildId, homeworkId, sessionId: state.voiceSessionId, attempt: preparedAttempt }),
         );
         void attemptWrite.catch((error: unknown) => {
           console.error(" 🎮 [AdventureBoard] discovery_attempt_failed", error);
@@ -1687,6 +1687,7 @@ function App() {
     plannerBoardPacket,
     refreshPlannerBoardPacket,
     showPlannerBoardEngagementOverlay,
+    state.voiceSessionId,
   ]);
 
   const mergedCompanionEvents = useMemo(() => {

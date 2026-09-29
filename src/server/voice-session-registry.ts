@@ -31,6 +31,7 @@ export function getActiveVoiceSessionIdForChild(
 export function __resetVoiceSessionRegistryForTests(): void {
   activeVoiceSessionIdByChildId.clear();
   activeVoiceSessionManagerByChildId.clear();
+  voiceSessionManagerByChildAndSession.clear();
 }
 
 // ── SessionManager handle registry (GAME-EVENT-001) ─────────────────────────
@@ -40,6 +41,7 @@ export function __resetVoiceSessionRegistryForTests(): void {
  * (avoids circular deps). The concrete SessionManager satisfies this.
  */
 export interface VoiceSessionManagerHandle {
+  getSessionId?: () => string;
   getDiscoveryAttemptContext?: (homeworkId: string, itemId: string) => { support: { status: "unassisted" | "assisted" | "unknown"; scaffolds: string[] }; instrumentSignals: string[]; artifactHash: string; sessionId: string } | undefined;
   noteExternalEvent(event: unknown): void;
   speakGameNarration?: (
@@ -51,12 +53,20 @@ export interface VoiceSessionManagerHandle {
 }
 
 const activeVoiceSessionManagerByChildId = new Map<string, VoiceSessionManagerHandle>();
+const voiceSessionManagerByChildAndSession = new Map<string, VoiceSessionManagerHandle>();
+
+function managerKey(childId: string, sessionId: string): string {
+  return `${childId.trim().toLowerCase()}:${sessionId.trim()}`;
+}
 
 export function registerActiveVoiceSessionManager(
   childId: string,
   sm: VoiceSessionManagerHandle,
 ): void {
-  activeVoiceSessionManagerByChildId.set(childId.trim().toLowerCase(), sm);
+  const normalizedChildId = childId.trim().toLowerCase();
+  activeVoiceSessionManagerByChildId.set(normalizedChildId, sm);
+  const sessionId = sm.getSessionId?.().trim();
+  if (sessionId) voiceSessionManagerByChildAndSession.set(managerKey(normalizedChildId, sessionId), sm);
 }
 
 export function unregisterActiveVoiceSessionManager(
@@ -67,12 +77,24 @@ export function unregisterActiveVoiceSessionManager(
   if (activeVoiceSessionManagerByChildId.get(k) === sm) {
     activeVoiceSessionManagerByChildId.delete(k);
   }
+  const sessionId = sm.getSessionId?.().trim();
+  if (sessionId && voiceSessionManagerByChildAndSession.get(managerKey(k, sessionId)) === sm) {
+    voiceSessionManagerByChildAndSession.delete(managerKey(k, sessionId));
+  }
 }
 
 export function getActiveVoiceSessionManagerForChild(
   childId: string,
 ): VoiceSessionManagerHandle | null {
   return activeVoiceSessionManagerByChildId.get(childId.trim().toLowerCase()) ?? null;
+}
+
+export function getVoiceSessionManagerForChildSession(
+  childId: string,
+  sessionId: string,
+): VoiceSessionManagerHandle | null {
+  if (!sessionId.trim()) return null;
+  return voiceSessionManagerByChildAndSession.get(managerKey(childId, sessionId)) ?? null;
 }
 
 export async function endActiveVoiceSessions(): Promise<void> {

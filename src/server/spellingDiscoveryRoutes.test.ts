@@ -36,8 +36,8 @@ describe("spelling through the production Discovery routes", () => {
   });
   it("uses live support provenance, grades frozen answers, and ignores forged correctness", async () => {
     const { rootDir, items, post } = await fixture();
-    registerActiveVoiceSessionManager("lab-child", { noteExternalEvent() {}, getDiscoveryAttemptContext: () => ({ support: { status: "unassisted", scaffolds: [] }, instrumentSignals: [], artifactHash: hashDiscoveryContract(items), sessionId: "s1" }) });
-    const body = { attemptId: "a1", itemId: items[0].id, attemptedValue: "nite", observedAt: "2026-09-08T12:00:00Z", supportEventIds: [], instrumentSignals: [], correct: true, constructId: "invented", assistance: "unassisted" };
+    registerActiveVoiceSessionManager("lab-child", { noteExternalEvent() {}, getSessionId: () => "s1", getDiscoveryAttemptContext: () => ({ support: { status: "unassisted", scaffolds: [] }, instrumentSignals: [], artifactHash: hashDiscoveryContract(items), sessionId: "s1" }) });
+    const body = { attemptId: "a1", sessionId: "s1", itemId: items[0].id, attemptedValue: "nite", observedAt: "2026-09-08T12:00:00Z", supportEventIds: [], instrumentSignals: [], correct: true, constructId: "invented", assistance: "unassisted" };
     expect((await post("attempt", body)).status).toBe(200);
     expect((await post("attempt", body)).status).toBe(200);
     const cycle = getLearningCycle("lab-child", "hw-words", { rootDir })!;
