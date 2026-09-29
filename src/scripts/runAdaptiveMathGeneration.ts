@@ -7,11 +7,11 @@ import { getChildChart } from "../profiles/childChart";
 import { readPriorConceptIds } from "../engine/assignmentLedger";
 import {
   askDirectMathPlanner, askMathExperienceDesigner, buildDirectActiveSessionPlan,
-  buildMathCreativeChildContext, mathPlannerChartContext, correctSavedDirectMathPlannerResponse, generateDirectArtifacts, parseMathLearningProgram, parseSavedDirectMathPlannerResponse,
+  buildMathCreativeChildContext, mathPlannerChartContext, correctSavedDirectMathPlannerResponse, generateDirectArtifacts, generateDirectArtworkBundle, parseMathLearningProgram, parseSavedDirectMathPlannerResponse,
   findTruncatedDirectRepairReceipt,
   repairDirectArtifact,
   persistDirectExperience, buildDirectLearningCycleInput, runDirectBrowserSmokeCheck, mathPlannerCandidateCards, MATH_BROWSER_VERIFIER_VERSION, type DirectPlaywrightReport, type DirectArtifact, type DirectLearningExperiencePlan,
-  type MathDesignPacket, type MathLearningProgram,
+  type DirectArtworkBundle, type MathDesignPacket, type MathLearningProgram,
 } from "../engine/directMathExperience";
 import { getLearningCycle, transitionLearningCycle } from "../engine/learningCycleRepository";
 import { generateCanonicalProgressionArtifact } from "../engine/canonicalProgressionGenerator";
@@ -68,6 +68,7 @@ type VisualRepairAttempt = {
 };
 
 const VISUAL_REPAIR_PATCH_PARSER_VERSION = 2;
+const DEFAULT_TARGETED_BOARD_BACKGROUND = "/generated/adaptive-discovery-background.svg";
 const MAX_VISUAL_REPAIR_PASSES = 1;
 
 function checkerContractAmbiguity(report?: Pick<DirectPlaywrightReport, "failures">): string | undefined {
@@ -430,7 +431,42 @@ export async function runAdaptiveMathGeneration(
   write(designFile, designed.packet); write(planFile, designed.plan);
   const programHash = hashDiscoveryContract(program);
   const designHash = hashDiscoveryContract(designed.packet);
-  let build = fs.existsSync(buildFile) ? read<{ artifacts: DirectArtifact[]; backgroundUrl: string; questArtworkUrl: string; bossArtworkUrl: string }>(buildFile) : { artifacts: [], backgroundUrl: "/generated/adaptive-discovery-background.svg", questArtworkUrl: "", bossArtworkUrl: "" };
+  let build = fs.existsSync(buildFile) ? read<{ artifacts: DirectArtifact[]; backgroundUrl: string; questArtworkUrl: string; bossArtworkUrl: string }>(buildFile) : { artifacts: [], backgroundUrl: DEFAULT_TARGETED_BOARD_BACKGROUND, questArtworkUrl: "", bossArtworkUrl: "" };
+  const artworkJobFile = path.join(draft, "provider-diagnostics", "targeted-artwork-job-v1.json");
+  const savedArtworkJob = fs.existsSync(artworkJobFile)
+    ? read<{ status: "started" | "completed" | "failed"; bundle?: DirectArtworkBundle }>(artworkJobFile)
+    : undefined;
+  const artworkMissing = build.backgroundUrl === DEFAULT_TARGETED_BOARD_BACKGROUND
+    || !build.questArtworkUrl
+    || !build.bossArtworkUrl
+    || designed.plan.activities.some(activity => !build.artifacts.find(artifact => artifact.nodeId === activity.id)?.thumbnailUrl);
+  const optionalArtworkJob: Promise<DirectArtworkBundle | undefined> | undefined = savedArtworkJob?.status === "completed" && savedArtworkJob.bundle
+    ? Promise.resolve(savedArtworkJob.bundle)
+    : artworkMissing && !savedArtworkJob
+      ? (() => {
+          write(artworkJobFile, { status: "started", startedAt: new Date().toISOString() });
+          console.log(` 🎮 [adaptive-math] [optional-artwork] [started] child=${childId} homework=${homeworkId}`);
+          return generateDirectArtworkBundle({
+            rootDir,
+            plan: designed.plan,
+            homeworkId,
+            nodeIds: designed.plan.activities.map(activity => activity.id),
+            existingArtworkUrls: {
+              ...(build.backgroundUrl !== DEFAULT_TARGETED_BOARD_BACKGROUND ? { backgroundUrl: build.backgroundUrl } : {}),
+              ...(build.questArtworkUrl ? { questArtworkUrl: build.questArtworkUrl } : {}),
+              ...(build.bossArtworkUrl ? { bossArtworkUrl: build.bossArtworkUrl } : {}),
+            },
+          }).then(bundle => {
+            write(artworkJobFile, { status: "completed", finishedAt: new Date().toISOString(), bundle });
+            return bundle;
+          }).catch(error => {
+            const message = error instanceof Error ? error.message : String(error);
+            write(artworkJobFile, { status: "failed", finishedAt: new Date().toISOString(), error: message });
+            console.log(` 🎮 [adaptive-math] [optional-artwork] [failed-nonblocking] child=${childId} homework=${homeworkId} reason=${message}`);
+            return undefined;
+          });
+        })()
+      : undefined;
   const reports = fs.existsSync(reportsFile) ? read<Record<string, BoardPlaywrightReport>>(reportsFile) : {};
   const report = (): DirectPlaywrightReport => ({ passed: designed.plan.activities.every(a => reports[a.id]?.passed), failures: Object.values(reports).flatMap(r => r.failures), screenshots: Object.values(reports).flatMap(r => r.screenshots) });
   const active = () => buildDirectActiveSessionPlan({ childId, homeworkId, plan: designed.plan, artifacts: placeholderArtifacts(designed.plan, childId, homeworkId, build.artifacts), backgroundUrl: build.backgroundUrl, questArtworkUrl: build.questArtworkUrl, bossArtworkUrl: build.bossArtworkUrl, report: report(), companion: { id: chart.companion.presetId, name: chart.companion.displayName } });
@@ -781,10 +817,10 @@ export async function runAdaptiveMathGeneration(
   await buildTargetedNodesResumably({ rootDir, childId, homeworkId, firstNodeId: designed.plan.activities[0]?.id ?? "", concurrency: 2, buildNode: async (nodeId) => {
     let artifact = build.artifacts.find(candidate => candidate.nodeId === nodeId);
     if (!artifact) {
-      const generated = await generateDirectArtifacts({ rootDir, plan: designed.plan, childId, homeworkId, plannerModel: process.env.SUNNY_PLANNER_MODEL ?? "claude-opus-5", architectModel: process.env.SUNNY_ARCHITECT_MODEL ?? "claude-fable-5", assignmentFingerprint: extraction.fileHash, candidateCards: mathPlannerCandidateCards(chart), existingArtworkUrls: build.artifacts.length ? build : undefined, nodeIds: [nodeId] });
+      const generated = await generateDirectArtifacts({ rootDir, plan: designed.plan, childId, homeworkId, plannerModel: process.env.SUNNY_PLANNER_MODEL ?? "claude-opus-5", architectModel: process.env.SUNNY_ARCHITECT_MODEL ?? "claude-fable-5", assignmentFingerprint: extraction.fileHash, candidateCards: mathPlannerCandidateCards(chart), existingArtworkUrls: build, deferOptionalArtwork: true, nodeIds: [nodeId] });
       const merged = new Map(build.artifacts.map(candidate => [candidate.nodeId, candidate]));
       generated.artifacts.forEach(candidate => merged.set(candidate.nodeId, candidate));
-      build = { ...generated, artifacts: [...merged.values()] };
+      build = { ...build, artifacts: [...merged.values()] };
       write(buildFile, build);
       artifact = merged.get(nodeId);
     }
@@ -792,6 +828,27 @@ export async function runAdaptiveMathGeneration(
     await verifyAndBind(artifact);
     return { artifactHash: artifact.htmlHash };
   }, onNodeReady: project });
+  const artworkBundle = await optionalArtworkJob;
+  if (artworkBundle) {
+    build = {
+      ...build,
+      backgroundUrl: artworkBundle.backgroundUrl,
+      questArtworkUrl: artworkBundle.questArtworkUrl,
+      bossArtworkUrl: artworkBundle.bossArtworkUrl,
+      artifacts: build.artifacts.map(artifact => ({
+        ...artifact,
+        thumbnailUrl: artworkBundle.thumbnailUrls[artifact.nodeId] ?? artifact.thumbnailUrl,
+      })),
+    };
+    for (const artifact of build.artifacts) {
+      const metadataFile = artifact.htmlPath.replace(/\.html$/i, ".artifact.json");
+      if (!artifact.thumbnailUrl || !fs.existsSync(metadataFile)) continue;
+      write(metadataFile, { ...read<Record<string, unknown>>(metadataFile), thumbnailUrl: artifact.thumbnailUrl });
+    }
+    write(buildFile, build);
+    project();
+    console.log(` 🎮 [adaptive-math] [optional-artwork] [published] child=${childId} homework=${homeworkId}`);
+  }
   // A runtime/provider failure and a child-visible visual defect are different
   // failure classes. Generic build attempts must not consume the one bounded
   // visual repair available for a frozen artifact under this gate version.

@@ -521,6 +521,15 @@ export type DirectGenerationStats = {
   bonusDeferred: boolean;
 };
 
+export type DirectArtworkBundle = {
+  backgroundUrl: string;
+  questArtworkUrl: string;
+  bossArtworkUrl: string;
+  thumbnailUrls: Record<string, string>;
+  generatedImages: number;
+  reusedImages: number;
+};
+
 export const MATH_BROWSER_VERIFIER_VERSION = 16;
 
 export const TARGETED_COMPANION_RUNTIME_CONTRACT = `Represent currentChallenge as {id,prompt,mode,measurementRole,readAloudRequested,readAloudCount,companionSupportTrigger}. For each instruction or practice item, its first answer-hidden state must set readAloudRequested:true, readAloudCount:1, and companionSupportTrigger:"guided_prompt" so Elli can give one brief contextual introduction. Do this once per item, never after an answer. A fresh_checkpoint must not summon Elli automatically. When the child activates a visible Read it to me or Explain control on any item, increment readAloudCount and resend that same answer-hidden state with readAloudRequested:true and companionSupportTrigger:"child_request". Elli owns spoken teaching; do not narrate inside the activity.`;
@@ -2704,6 +2713,51 @@ export function selectDirectArtifactActivities<T extends { id: string }>(
   return activities.filter((activity) => requested.has(activity.id));
 }
 
+export async function generateDirectArtworkBundle(input: {
+  plan: DirectLearningExperiencePlan;
+  homeworkId: string;
+  rootDir?: string;
+  nodeIds?: string[];
+  existingArtworkUrls?: Partial<Pick<DirectArtworkBundle, "backgroundUrl" | "questArtworkUrl" | "bossArtworkUrl">>;
+}): Promise<DirectArtworkBundle> {
+  const rootDir = input.rootDir ?? process.cwd();
+  const publicDir = path.join(rootDir, "web", "public");
+  const selectedActivities = selectDirectArtifactActivities(input.plan.activities, input.nodeIds);
+  process.env.SUNNY_IMAGE_GENERATION_MAX_PER_RUN = "3";
+  const artworkJobs = [
+    { key: "backgroundUrl" as const, prompt: createDirectBoardBackgroundPrompt(input.plan.boardWorld.backgroundPrompt), filename: `${input.homeworkId}-background.jpeg` },
+    { key: "questArtworkUrl" as const, prompt: input.plan.quest.artworkPrompt, filename: `${input.homeworkId}-quest.jpeg` },
+    { key: "bossArtworkUrl" as const, prompt: input.plan.boss.artworkPrompt, filename: `${input.homeworkId}-boss.jpeg` },
+  ];
+  let reusedImages = 0;
+  const resolvedArtwork = await mapConcurrent(artworkJobs, 2, async (job) => {
+    const existing = input.existingArtworkUrls?.[job.key];
+    if (existing) {
+      reusedImages += 1;
+      return [job.key, existing] as const;
+    }
+    const localFile = path.join(publicDir, "generated", "direct-math", job.filename);
+    if (fs.existsSync(localFile) && fs.statSync(localFile).size > 0) reusedImages += 1;
+    return [job.key, await createDirectArtwork(job.prompt, publicDir, job.filename)] as const;
+  });
+  const artworkUrls = Object.fromEntries(resolvedArtwork) as Pick<DirectArtworkBundle, "backgroundUrl" | "questArtworkUrl" | "bossArtworkUrl">;
+  const thumbnailEntries = await mapConcurrent(selectedActivities, 2, async (activity) => {
+    const filename = createDirectBoardThumbnailFilename(input.homeworkId, activity);
+    const localFile = path.join(publicDir, "generated", "direct-math", filename);
+    const reused = fs.existsSync(localFile) && fs.statSync(localFile).size > 0;
+    const thumbnailUrl = await createDirectArtwork(createDirectBoardThumbnailPrompt(activity), publicDir, filename);
+    if (reused) reusedImages += 1;
+    return [activity.id, thumbnailUrl] as const;
+  });
+  const totalImages = artworkJobs.length + thumbnailEntries.length;
+  return {
+    ...artworkUrls,
+    thumbnailUrls: Object.fromEntries(thumbnailEntries),
+    generatedImages: totalImages - reusedImages,
+    reusedImages,
+  };
+}
+
 export async function generateDirectArtifacts(input: {
   plan: DirectLearningExperiencePlan;
   childId: string;
@@ -2722,6 +2776,7 @@ export async function generateDirectArtifacts(input: {
     questArtworkUrl: string;
     bossArtworkUrl: string;
   };
+  deferOptionalArtwork?: boolean;
 }): Promise<{
   artifacts: DirectArtifact[];
   backgroundUrl: string;
@@ -2730,7 +2785,6 @@ export async function generateDirectArtifacts(input: {
   stats: DirectGenerationStats;
 }> {
   const rootDir = input.rootDir ?? process.cwd();
-  const publicDir = path.join(rootDir, "web", "public");
   const client = input.client ?? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
   const plannerModel = input.plannerModel ?? process.env.SUNNY_PLANNER_MODEL ?? "claude-opus-5";
   const architectModel = input.architectModel ?? process.env.SUNNY_ARCHITECT_MODEL ?? "claude-fable-5";
@@ -2740,35 +2794,24 @@ export async function generateDirectArtifacts(input: {
   );
   const selectedActivities = selectDirectArtifactActivities(input.plan.activities, input.nodeIds);
   const forceNodeIds = new Set(input.forceNodeIds ?? []);
-  process.env.SUNNY_IMAGE_GENERATION_MAX_PER_RUN = "3";
-  const artworkJobs = [
-    { prompt: createDirectBoardBackgroundPrompt(input.plan.boardWorld.backgroundPrompt), filename: `${input.homeworkId}-background.jpeg` },
-    { prompt: input.plan.quest.artworkPrompt, filename: `${input.homeworkId}-quest.jpeg` },
-    { prompt: input.plan.boss.artworkPrompt, filename: `${input.homeworkId}-boss.jpeg` },
-  ];
-  const cachedArtworkCount = input.existingArtworkUrls
-    ? artworkJobs.length
-    : artworkJobs.filter((job) => {
-        const file = path.join(publicDir, "generated", "direct-math", job.filename);
-        return fs.existsSync(file) && fs.statSync(file).size > 0;
-      }).length;
-  const artworkUrls = input.existingArtworkUrls ?? await mapConcurrent(artworkJobs, 2, (job) =>
-    createDirectArtwork(job.prompt, publicDir, job.filename));
-  const [backgroundUrl, questArtworkUrl, bossArtworkUrl] = Array.isArray(artworkUrls)
-    ? artworkUrls as [string, string, string]
-    : [artworkUrls.backgroundUrl, artworkUrls.questArtworkUrl, artworkUrls.bossArtworkUrl];
-  const thumbnailEntries = await mapConcurrent(selectedActivities, 2, async (activity) => {
-    const filename = createDirectBoardThumbnailFilename(input.homeworkId, activity);
-    const localFile = path.join(publicDir, "generated", "direct-math", filename);
-    const reused = fs.existsSync(localFile) && fs.statSync(localFile).size > 0;
-    const thumbnailUrl = await createDirectArtwork(
-      createDirectBoardThumbnailPrompt(activity),
-      publicDir,
-      filename,
-    );
-    return { nodeId: activity.id, thumbnailUrl, reused };
-  });
-  const thumbnailByNodeId = new Map(thumbnailEntries.map((entry) => [entry.nodeId, entry.thumbnailUrl]));
+  const artworkBundle = input.deferOptionalArtwork
+    ? {
+        backgroundUrl: input.existingArtworkUrls?.backgroundUrl ?? "/generated/adaptive-discovery-background.svg",
+        questArtworkUrl: input.existingArtworkUrls?.questArtworkUrl ?? "",
+        bossArtworkUrl: input.existingArtworkUrls?.bossArtworkUrl ?? "",
+        thumbnailUrls: {},
+        generatedImages: 0,
+        reusedImages: 0,
+      }
+    : await generateDirectArtworkBundle({
+        rootDir,
+        plan: input.plan,
+        homeworkId: input.homeworkId,
+        nodeIds: input.nodeIds,
+        existingArtworkUrls: input.existingArtworkUrls,
+      });
+  const { backgroundUrl, questArtworkUrl, bossArtworkUrl } = artworkBundle;
+  const thumbnailByNodeId = new Map(Object.entries(artworkBundle.thumbnailUrls));
   const generatedNodeIds: string[] = [];
   const reusedNodeIds: string[] = [];
   const gamesDir = path.join(resolveChildContextDir(input.childId, { rootDir }), "homework", "games", input.homeworkId);
@@ -2950,8 +2993,6 @@ export async function generateDirectArtifacts(input: {
   if (input.plan.bonusActivity) {
     console.log(`  ○ ${input.plan.bonusActivity.id} bonus deferred until earned`);
   }
-  const reusedImages = cachedArtworkCount + thumbnailEntries.filter((entry) => entry.reused).length;
-  const totalImages = artworkJobs.length + thumbnailEntries.length;
   return {
     artifacts,
     backgroundUrl,
@@ -2960,8 +3001,8 @@ export async function generateDirectArtifacts(input: {
     stats: {
       generatedNodeIds: generatedNodeIds.sort(),
       reusedNodeIds: reusedNodeIds.sort(),
-      generatedImages: totalImages - reusedImages,
-      reusedImages,
+      generatedImages: artworkBundle.generatedImages,
+      reusedImages: artworkBundle.reusedImages,
       bonusDeferred: Boolean(input.plan.bonusActivity),
     },
   };

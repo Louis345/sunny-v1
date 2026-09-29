@@ -7,7 +7,7 @@ import { plan, learningProgram } from "./fixtures/adaptiveMathRelease";
 import { createDiscoveryLearningCycle, completeDiscoveryEvaluation, recordDiscoveryAttempt, getMathGenerationStatus, hashDiscoveryContract, setMathGenerationPhase, updateMathGenerationNode, writeMathGenerationJob } from "../engine/adaptiveMathDiscovery";
 import { getLearningCycle, projectLearningCycle, transitionLearningCycle } from "../engine/learningCycleRepository";
 import { runAdaptiveMathGeneration } from "./runAdaptiveMathGeneration";
-import { askDirectMathPlanner, askMathExperienceDesigner, correctSavedDirectMathPlannerResponse, generateDirectArtifacts, repairDirectArtifact, runDirectBrowserSmokeCheck } from "../engine/directMathExperience";
+import { askDirectMathPlanner, askMathExperienceDesigner, correctSavedDirectMathPlannerResponse, generateDirectArtifacts, generateDirectArtworkBundle, repairDirectArtifact, runDirectBrowserSmokeCheck } from "../engine/directMathExperience";
 import { DISCOVERY_VERIFIER_VERSION, recordEngineeringRepairEvidence, type JourneyCapture } from "../engine/discoveryVisualReview";
 import { judgeChildFacingScreens } from "../engine/childFacingVisualGate";
 
@@ -21,7 +21,7 @@ vi.mock("../engine/directMathExperience", async (original) => ({
   askDirectMathPlanner: vi.fn(() => { throw new Error("unexpected_paid_planner"); }),
   correctSavedDirectMathPlannerResponse: vi.fn(),
   askMathExperienceDesigner: vi.fn(() => { throw new Error("unexpected_paid_creator"); }),
-  generateDirectArtifacts: vi.fn(), repairDirectArtifact: vi.fn(), runDirectBrowserSmokeCheck: vi.fn(),
+  generateDirectArtifacts: vi.fn(), generateDirectArtworkBundle: vi.fn(), repairDirectArtifact: vi.fn(), runDirectBrowserSmokeCheck: vi.fn(),
 }));
 vi.mock("../engine/childFacingVisualGate", () => ({
   CHILD_FACING_VISUAL_GATE_VERSION: 3,
@@ -80,6 +80,17 @@ beforeEach(() => {
     fs.writeFileSync(htmlPath, "<!doctype html><h1>Lab</h1><button>Answer</button>");
     return { artifacts: [{ childId, homeworkId, nodeId, title: nodeId, htmlPath, htmlHash: createHash("sha256").update(fs.readFileSync(htmlPath)).digest("hex"), artworkUrl: "/art.svg", creatorPrompt: "fixture", promptHash: "prompt", plannerModel: "mock", creatorModel: "mock" }], backgroundUrl: "/art.svg", questArtworkUrl: "/quest.svg", bossArtworkUrl: "/boss.svg", stats: { generatedNodeIds: [nodeId], reusedNodeIds: [], generatedImages: 0, reusedImages: 0, bonusDeferred: true } };
   });
+  vi.mocked(generateDirectArtworkBundle).mockResolvedValue({
+    backgroundUrl: "/polished-background.svg",
+    questArtworkUrl: "/polished-quest.svg",
+    bossArtworkUrl: "/polished-boss.svg",
+    thumbnailUrls: {
+      "activity-1": "/polished-activity-1.svg",
+      "activity-2": "/polished-activity-2.svg",
+    },
+    generatedImages: 5,
+    reusedImages: 0,
+  });
   vi.mocked(runDirectBrowserSmokeCheck).mockResolvedValue({
     passed: true,
     failures: [],
@@ -111,6 +122,71 @@ it("lets an explicitly isolated impersonator board publish deterministic-ready n
   expect(getMathGenerationStatus(childId, homeworkId, { rootDir })?.nodes).toEqual(
     expect.arrayContaining([expect.objectContaining({ status: "ready" })]),
   );
+});
+
+it("unlocks verified nodes before one shared optional-artwork job finishes", async () => {
+  let finishArtwork!: (value: Awaited<ReturnType<typeof generateDirectArtworkBundle>>) => void;
+  vi.mocked(generateDirectArtworkBundle).mockReturnValue(new Promise(resolve => { finishArtwork = resolve; }));
+
+  const generation = runAdaptiveMathGeneration(childId, homeworkId, rootDir);
+  for (let index = 0; index < 40; index += 1) {
+    if (getMathGenerationStatus(childId, homeworkId, { rootDir })?.nodes.every(node => node.status === "ready")) break;
+    await new Promise(resolve => setTimeout(resolve, 5));
+  }
+
+  expect(getMathGenerationStatus(childId, homeworkId, { rootDir })?.nodes).toEqual(expect.arrayContaining([
+    expect.objectContaining({ nodeId: "activity-1", status: "ready" }),
+    expect.objectContaining({ nodeId: "activity-2", status: "ready" }),
+  ]));
+  expect(generateDirectArtworkBundle).toHaveBeenCalledTimes(1);
+  for (const [input] of vi.mocked(generateDirectArtifacts).mock.calls) {
+    expect(input).toEqual(expect.objectContaining({
+      deferOptionalArtwork: true,
+      existingArtworkUrls: expect.objectContaining({
+        backgroundUrl: "/generated/adaptive-discovery-background.svg",
+      }),
+    }));
+  }
+
+  finishArtwork({
+    backgroundUrl: "/polished-background.svg",
+    questArtworkUrl: "/polished-quest.svg",
+    bossArtworkUrl: "/polished-boss.svg",
+    thumbnailUrls: {
+      "activity-1": "/polished-activity-1.svg",
+      "activity-2": "/polished-activity-2.svg",
+    },
+    generatedImages: 5,
+    reusedImages: 0,
+  });
+  await generation;
+
+  const build = JSON.parse(fs.readFileSync(path.join(
+    rootDir,
+    "src/context",
+    childId,
+    "homework/direct-drafts",
+    homeworkId,
+    "candidate-build-v3.json",
+  ), "utf8"));
+  expect(build).toMatchObject({
+    backgroundUrl: "/polished-background.svg",
+    questArtworkUrl: "/polished-quest.svg",
+    bossArtworkUrl: "/polished-boss.svg",
+  });
+  expect(build.artifacts).toEqual(expect.arrayContaining([
+    expect.objectContaining({ nodeId: "activity-1", thumbnailUrl: "/polished-activity-1.svg" }),
+    expect.objectContaining({ nodeId: "activity-2", thumbnailUrl: "/polished-activity-2.svg" }),
+  ]));
+});
+
+it("keeps verified nodes playable when optional artwork fails", async () => {
+  vi.mocked(generateDirectArtworkBundle).mockRejectedValue(new Error("image_provider_offline"));
+
+  await expect(runAdaptiveMathGeneration(childId, homeworkId, rootDir)).resolves.toBeUndefined();
+
+  expect(getMathGenerationStatus(childId, homeworkId, { rootDir })?.nodes.every(node => node.status === "ready")).toBe(true);
+  expect(getMathGenerationStatus(childId, homeworkId, { rootDir })?.phase).toBe("board_ready");
 });
 
 it("reports board design before nodes exist and saves a stopped phase on provider failure", async () => {

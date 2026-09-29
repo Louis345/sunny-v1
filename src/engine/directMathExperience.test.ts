@@ -1662,7 +1662,7 @@ describe("direct math experience", () => {
     expect(generation).not.toContain('purpose: "practice_only_bonus"');
   });
 
-  it("rechecks implementation prompt hashes while reusing frozen board artwork", () => {
+  it("rechecks implementation prompt hashes while optional board artwork is reused or deferred", () => {
     const ingestion = fs.readFileSync(path.join(process.cwd(), "src/scripts/runAdaptiveMathGeneration.ts"), "utf8");
     expect(ingestion).toContain("buildFile");
     expect(ingestion).toContain("existingArtworkUrls");
@@ -1671,7 +1671,9 @@ describe("direct math experience", () => {
 
     const source = fs.readFileSync(path.join(process.cwd(), "src/engine/directMathExperience.ts"), "utf8");
     expect(source).toContain("existingArtworkUrls?:");
-    expect(source).toContain("input.existingArtworkUrls ?? await mapConcurrent");
+    expect(source).toContain("export async function generateDirectArtworkBundle");
+    expect(source).toContain("input.deferOptionalArtwork");
+    expect(source).toContain("await generateDirectArtworkBundle({");
   });
 
   it("requires a genuine mandatory fork and enforces locked static Quest/Boss product roles", () => {
