@@ -180,6 +180,39 @@ it("unlocks verified nodes before one shared optional-artwork job finishes", asy
   ]));
 });
 
+it("repairs required learning content before optional artwork finishes", async () => {
+  let finishArtwork!: (value: Awaited<ReturnType<typeof generateDirectArtworkBundle>>) => void;
+  vi.mocked(generateDirectArtworkBundle).mockReturnValue(new Promise(resolve => { finishArtwork = resolve; }));
+  let firstActivityReview = true;
+  vi.mocked(judgeChildFacingScreens).mockImplementation(async ({ auditFile }) => {
+    if (auditFile?.includes("activity-1") && firstActivityReview) {
+      firstActivityReview = false;
+      return citedVisualReject("The required response control overlaps the prompt.");
+    }
+    return { decision: "approve", observations: [] };
+  });
+
+  const generation = runAdaptiveMathGeneration(childId, homeworkId, rootDir);
+  for (let index = 0; index < 40 && vi.mocked(repairDirectArtifact).mock.calls.length === 0; index += 1) {
+    await new Promise(resolve => setTimeout(resolve, 5));
+  }
+  const repairsBeforeArtwork = vi.mocked(repairDirectArtifact).mock.calls.length;
+
+  finishArtwork({
+    backgroundUrl: "/polished-background.svg",
+    questArtworkUrl: "/polished-quest.svg",
+    bossArtworkUrl: "/polished-boss.svg",
+    thumbnailUrls: {},
+    generatedImages: 3,
+    reusedImages: 0,
+  });
+  await generation;
+
+  expect(repairsBeforeArtwork).toBe(1);
+  expect(getMathGenerationStatus(childId, homeworkId, { rootDir })?.nodes.find(node => node.nodeId === "activity-1"))
+    .toMatchObject({ status: "ready" });
+});
+
 it("keeps verified nodes playable when optional artwork fails", async () => {
   vi.mocked(generateDirectArtworkBundle).mockRejectedValue(new Error("image_provider_offline"));
 

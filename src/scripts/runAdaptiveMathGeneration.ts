@@ -828,27 +828,6 @@ export async function runAdaptiveMathGeneration(
     await verifyAndBind(artifact);
     return { artifactHash: artifact.htmlHash };
   }, onNodeReady: project });
-  const artworkBundle = await optionalArtworkJob;
-  if (artworkBundle) {
-    build = {
-      ...build,
-      backgroundUrl: artworkBundle.backgroundUrl,
-      questArtworkUrl: artworkBundle.questArtworkUrl,
-      bossArtworkUrl: artworkBundle.bossArtworkUrl,
-      artifacts: build.artifacts.map(artifact => ({
-        ...artifact,
-        thumbnailUrl: artworkBundle.thumbnailUrls[artifact.nodeId] ?? artifact.thumbnailUrl,
-      })),
-    };
-    for (const artifact of build.artifacts) {
-      const metadataFile = artifact.htmlPath.replace(/\.html$/i, ".artifact.json");
-      if (!artifact.thumbnailUrl || !fs.existsSync(metadataFile)) continue;
-      write(metadataFile, { ...read<Record<string, unknown>>(metadataFile), thumbnailUrl: artifact.thumbnailUrl });
-    }
-    write(buildFile, build);
-    project();
-    console.log(` 🎮 [adaptive-math] [optional-artwork] [published] child=${childId} homework=${homeworkId}`);
-  }
   // A runtime/provider failure and a child-visible visual defect are different
   // failure classes. Generic build attempts must not consume the one bounded
   // visual repair available for a frozen artifact under this gate version.
@@ -971,6 +950,33 @@ export async function runAdaptiveMathGeneration(
     persistDirectExperience({ rootDir, childId, homeworkId, extraction, plannerPlan: designed.plan, activeSessionPlan: active(), artifacts: build.artifacts, report: report(), assumptions: program.assumptions });
     project();
     console.log(` 🎮 [adaptive-math] [targeted-board] [ready] child=${childId} homework=${homeworkId}`);
+  }
+  // Artwork is decorative and must never sit in front of required activity
+  // repair, verification, or publication. It starts in parallel above, then
+  // enriches an already-playable board when it finishes.
+  const artworkBundle = await optionalArtworkJob;
+  if (artworkBundle) {
+    build = {
+      ...build,
+      backgroundUrl: artworkBundle.backgroundUrl,
+      questArtworkUrl: artworkBundle.questArtworkUrl,
+      bossArtworkUrl: artworkBundle.bossArtworkUrl,
+      artifacts: build.artifacts.map(artifact => ({
+        ...artifact,
+        thumbnailUrl: artworkBundle.thumbnailUrls[artifact.nodeId] ?? artifact.thumbnailUrl,
+      })),
+    };
+    for (const artifact of build.artifacts) {
+      const metadataFile = artifact.htmlPath.replace(/\.html$/i, ".artifact.json");
+      if (!artifact.thumbnailUrl || !fs.existsSync(metadataFile)) continue;
+      write(metadataFile, { ...read<Record<string, unknown>>(metadataFile), thumbnailUrl: artifact.thumbnailUrl });
+    }
+    write(buildFile, build);
+    if (getMathGenerationStatus(childId, homeworkId, { rootDir })?.phase === "board_ready") {
+      persistDirectExperience({ rootDir, childId, homeworkId, extraction, plannerPlan: designed.plan, activeSessionPlan: active(), artifacts: build.artifacts, report: report(), assumptions: program.assumptions });
+    }
+    project();
+    console.log(` 🎮 [adaptive-math] [optional-artwork] [published] child=${childId} homework=${homeworkId}`);
   }
   } catch (error) {
     setMathGenerationPhase({rootDir,childId,homeworkId,phase:"needs_attention",error:error instanceof Error ? error.message : String(error)});
