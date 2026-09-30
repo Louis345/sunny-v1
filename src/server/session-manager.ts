@@ -49,10 +49,13 @@ import {
 import { TurnStateMachine } from "./session-state";
 import {
   type ActivityMode,
-  type ActivityPauseState,
   type SessionContext,
   type WordScaffoldSessionState,
 } from "./session-context";
+import {
+  ActiveCanvasActivityController,
+  type CanvasActivitySnapshot,
+} from "./activeCanvasActivity";
 import {
   type AssignmentManifest,
   type WorksheetInteractionMode,
@@ -164,24 +167,6 @@ export {
 } from "./creatorDiagControls";
 
 export { isSpellingAttempt, stripSvgFences } from "./sessionTextHelpers";
-
-type CanvasActivitySnapshot = {
-  mode: ActivityMode;
-  canvasState: Record<string, unknown> | null;
-  contextCanvas?: Record<string, unknown>;
-  worksheet?: {
-    problemIndex: number;
-    wrongForCurrent: number;
-    question: string;
-  };
-  wordBuilder?: {
-    word: string;
-    round: number;
-  };
-  spellCheck?: {
-    word: string;
-  };
-};
 
 type PendingGameStart = {
   gameUrl: string;
@@ -397,18 +382,11 @@ export class SessionManager {
   /** Per-problem trusted/suspect cents and reveal eligibility — single source for pool + reveals. */
   /** Actual worksheet PDF/image bytes — pinned into conversation so the model sees the real worksheet */
   public worksheetPageFile: { data: Buffer; mimeType: string } | null = null;
-  private activeCanvasActivity: {
-    mode: ActivityMode;
-    pauseState: ActivityPauseState;
-    resumable: boolean;
-    snapshot: CanvasActivitySnapshot | null;
-    reason?: string;
-  } = {
-    mode: "none",
-    pauseState: "active",
-    resumable: false,
-    snapshot: null,
-  };
+  private readonly activeCanvasController: ActiveCanvasActivityController;
+
+  public get activeCanvasActivity() {
+    return this.activeCanvasController.state;
+  }
 
   /** Canonical session state — drives tool filtering, canvas ownership, context injection. */
   private ctx: SessionContext | null = null;
@@ -536,16 +514,6 @@ export class SessionManager {
     if (this.ctx) this.broadcastContext();
   }
 
-  private syncActivityContext(): void {
-    if (!this.ctx) return;
-    this.ctx.updateActivity({
-      mode: this.activeCanvasActivity.mode,
-      pauseState: this.activeCanvasActivity.pauseState,
-      hidden: this.activeCanvasActivity.pauseState === "paused_for_checkin",
-      reason: this.activeCanvasActivity.reason,
-    });
-  }
-
   public setActiveCanvasActivity(
     mode: ActivityMode,
     opts: {
@@ -554,203 +522,33 @@ export class SessionManager {
       snapshot?: CanvasActivitySnapshot | null;
     } = {},
   ): void {
-    this.activeCanvasActivity = {
-      mode,
-      pauseState: "active",
-      resumable: opts.resumable ?? mode !== "none",
-      snapshot: opts.snapshot ?? null,
-      reason: opts.reason,
-    };
-    this.syncActivityContext();
+    this.activeCanvasController.set(mode, opts);
   }
 
   private clearActiveCanvasActivity(): void {
-    this.pendingGameStart = null;
-    this.activeCanvasActivity = {
-      mode: "none",
-      pauseState: "active",
-      resumable: false,
-      snapshot: null,
-    };
-    this.syncActivityContext();
+    this.activeCanvasController.clear();
   }
 
   private isPauseForCheckInRequest(transcript: string): boolean {
-    const t = transcript.toLowerCase().trim();
-    if (!t) return false;
-    if (/(clear|hide|turn off).*(canvas|screen)/i.test(t)) return true;
-    if (
-      /(talk about my day|tell you about my day|tell you something|need to talk|bad experience)/i.test(
-        t,
-      ) &&
-      /(can i|can we|i want to|i need to|could we|just|really quickly|before)/i.test(
-        t,
-      )
-    ) {
-      return true;
-    }
-    return false;
+    return this.activeCanvasController.isPauseRequest(transcript);
   }
 
   private isResumeActivityRequest(transcript: string): boolean {
-    const t = transcript.toLowerCase().trim();
-    if (!t) return false;
-    return /(\bi'?m ready\b|\blet'?s go back\b|\bgo back to\b|\bresume\b|\bcontinue\b|\bback to (math|the problem|the worksheet)\b)/i.test(
-      t,
-    );
+    return this.activeCanvasController.isResumeRequest(transcript);
   }
 
   private captureActiveCanvasSnapshot(): CanvasActivitySnapshot | null {
-    const mode = this.activeCanvasActivity.mode;
-    if (mode === "none") return null;
-    const canvasState = this.currentCanvasState
-      ? { ...this.currentCanvasState }
-      : null;
-    const contextCanvas = this.ctx
-      ? ({ ...this.ctx.canvas.current } as Record<string, unknown>)
-      : undefined;
-
-    if (mode === "worksheet") {
-      const p = this.worksheetProblems[this.worksheetProblemIndex];
-      return {
-        mode,
-        canvasState,
-        contextCanvas,
-        worksheet: {
-          problemIndex: this.worksheetProblemIndex,
-          wrongForCurrent: 0,
-          question: p?.question ?? "",
-        },
-      };
-    }
-
-    if (mode === "word-builder") {
-      return {
-        mode,
-        canvasState,
-        contextCanvas,
-        wordBuilder: {
-          word: this.wbWord,
-          round: this.wbRound,
-        },
-      };
-    }
-
-    if (mode === "spell-check") {
-      return {
-        mode,
-        canvasState,
-        contextCanvas,
-        spellCheck: {
-          word: this.activeSpellCheckWord,
-        },
-      };
-    }
-
-    return {
-      mode,
-      canvasState,
-      contextCanvas,
-    };
+    return this.activeCanvasController.capture();
   }
 
   private async pauseActiveCanvasForCheckIn(reason: string): Promise<boolean> {
-    if (
-      this.activeCanvasActivity.mode === "none" ||
-      !this.activeCanvasActivity.resumable ||
-      this.activeCanvasActivity.pauseState === "paused_for_checkin"
-    ) {
-      return false;
-    }
-
-    const snapshot = this.captureActiveCanvasSnapshot();
-    if (!snapshot) return false;
-
-    this.activeCanvasActivity = {
-      ...this.activeCanvasActivity,
-      pauseState: "paused_for_checkin",
-      snapshot,
-      reason,
-    };
-    this.syncActivityContext();
-    this.currentCanvasState = null;
-    if (this.ctx) {
-      this.ctx.updateCanvas({
-        mode: "idle",
-        svg: undefined,
-        label: undefined,
-        content: undefined,
-        sceneDescription: undefined,
-        problemAnswer: undefined,
-        problemHint: undefined,
-      });
-    }
-    this.broadcastContext();
-    this.send("canvas_draw", { mode: "idle" });
-    return true;
+    return this.activeCanvasController.pause(reason);
   }
 
   private async resumeActiveCanvasActivity(
     replayQuestion = true,
   ): Promise<boolean> {
-    if (this.activeCanvasActivity.pauseState !== "paused_for_checkin") {
-      return false;
-    }
-
-    const snapshot = this.activeCanvasActivity.snapshot;
-    if (!snapshot) return false;
-
-    this.activeCanvasActivity = {
-      ...this.activeCanvasActivity,
-      pauseState: "resuming",
-    };
-    this.syncActivityContext();
-
-    if (snapshot.mode === "worksheet" && snapshot.worksheet) {
-      this.worksheetProblemIndex = snapshot.worksheet.problemIndex;
-      if (snapshot.canvasState) {
-        this.currentCanvasState = { ...snapshot.canvasState };
-      }
-      if (this.ctx && snapshot.contextCanvas) {
-        this.ctx.updateCanvas(snapshot.contextCanvas as any);
-      }
-      this.broadcastContext();
-      if (snapshot.canvasState) {
-        this.send("canvas_draw", {
-          args: snapshot.canvasState,
-          result: snapshot.canvasState,
-        });
-      }
-      if (replayQuestion) {
-        await this.handleCompanionTurn(snapshot.worksheet.question);
-      }
-      this.activeCanvasActivity = {
-        ...this.activeCanvasActivity,
-        pauseState: "active",
-        snapshot: null,
-        reason: undefined,
-      };
-      this.syncActivityContext();
-      this.broadcastContext();
-      return true;
-    }
-
-    if (snapshot.canvasState) {
-      this.currentCanvasState = { ...snapshot.canvasState };
-      if (this.ctx && snapshot.contextCanvas) {
-        this.ctx.updateCanvas(snapshot.contextCanvas as any);
-      }
-      this.send("canvas_draw", snapshot.canvasState);
-    }
-    this.activeCanvasActivity = {
-      ...this.activeCanvasActivity,
-      pauseState: "active",
-      snapshot: null,
-      reason: undefined,
-    };
-    this.syncActivityContext();
-    this.broadcastContext();
-    return true;
+    return this.activeCanvasController.resume(replayQuestion);
   }
 
   /**
@@ -830,6 +628,37 @@ export class SessionManager {
         }
       },
     );
+
+    this.activeCanvasController = new ActiveCanvasActivityController({
+      readCanvasState: () => this.currentCanvasState,
+      clearCanvasState: () => { this.currentCanvasState = null; },
+      restoreCanvasState: (state) => { this.currentCanvasState = state; },
+      readContextCanvas: () => this.ctx
+        ? { ...this.ctx.canvas.current } as Record<string, unknown>
+        : undefined,
+      updateContextCanvas: (state) => { this.ctx?.updateCanvas(state as any); },
+      readWorksheet: () => ({
+        problemIndex: this.worksheetProblemIndex,
+        question: this.worksheetProblems[this.worksheetProblemIndex]?.question ?? "",
+      }),
+      restoreWorksheetProblemIndex: (problemIndex) => {
+        this.worksheetProblemIndex = problemIndex;
+      },
+      readWordBuilder: () => ({ word: this.wbWord, round: this.wbRound }),
+      readSpellCheck: () => ({ word: this.activeSpellCheckWord }),
+      clearPendingGameStart: () => { this.pendingGameStart = null; },
+      syncActivity: (state) => {
+        this.ctx?.updateActivity({
+          mode: state.mode,
+          pauseState: state.pauseState,
+          hidden: state.pauseState === "paused_for_checkin",
+          reason: state.reason,
+        });
+      },
+      sendCanvas: (payload) => this.send("canvas_draw", payload),
+      broadcastContext: () => this.broadcastContext(),
+      replayWorksheetQuestion: (question) => this.handleCompanionTurn(question),
+    });
 
     const cid = this.chartChildId;
     this.rewardEngine.attach(
