@@ -404,6 +404,8 @@ export function useSession(options?: UseSessionOptions) {
   const analyserNodeRef = useRef<AnalyserNode | null>(null);
   const serverDoneRef = useRef(false);
   const playbackRequiresAudioRef = useRef(false);
+  const playbackRequestIdRef = useRef<string | null>(null);
+  const playbackItemIdRef = useRef<string | null>(null);
   const receivedAudioFramesRef = useRef(0);
   const playedAudioFramesRef = useRef(0);
   const bargeInConsecutiveRef = useRef(0);
@@ -551,6 +553,12 @@ export function useSession(options?: UseSessionOptions) {
       playedAudioFrames: playedAudioFramesRef.current,
     });
     serverDoneRef.current = false;
+    const playbackIdentity = {
+      ...(playbackRequestIdRef.current ? { requestId: playbackRequestIdRef.current } : {}),
+      ...(playbackItemIdRef.current ? { itemId: playbackItemIdRef.current } : {}),
+    };
+    playbackRequestIdRef.current = null;
+    playbackItemIdRef.current = null;
     playbackRequiresAudioRef.current = false;
     receivedAudioFramesRef.current = 0;
     playedAudioFramesRef.current = 0;
@@ -566,10 +574,11 @@ export function useSession(options?: UseSessionOptions) {
       sendMessageRef.current("playback_done", {
         audible: false,
         reason: "required_audio_not_fully_played",
+        ...playbackIdentity,
       });
       return;
     }
-    sendMessageRef.current("playback_done", { audible: true });
+    sendMessageRef.current("playback_done", { audible: true, ...playbackIdentity });
     flushBufferIfUnmuted(
       rollingBufferRef.current,
       micMutedRef.current,
@@ -741,6 +750,8 @@ export function useSession(options?: UseSessionOptions) {
         isPlayingRef.current = false;
         serverDoneRef.current = false;
         playbackRequiresAudioRef.current = false;
+        playbackRequestIdRef.current = null;
+        playbackItemIdRef.current = null;
         receivedAudioFramesRef.current = 0;
         playedAudioFramesRef.current = 0;
         if (currentSourceRef.current) {
@@ -1009,6 +1020,8 @@ export function useSession(options?: UseSessionOptions) {
 
       case "audio_done":
         playbackRequiresAudioRef.current = msg.requiresAudio === true;
+        playbackRequestIdRef.current = typeof msg.requestId === "string" ? msg.requestId : null;
+        playbackItemIdRef.current = typeof msg.itemId === "string" ? msg.itemId : null;
         serverDoneRef.current = true;
         finalizePlaybackRef.current();
         break;

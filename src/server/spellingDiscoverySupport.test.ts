@@ -13,13 +13,23 @@ function session() {
     flushPendingRoundComplete: vi.fn(),
   }) as SessionManager;
 }
+function confirmCurrentPlayback(s: SessionManager): void {
+  const pending = (s as unknown as {
+    pendingGameNarrationPlayback: { requestId: string; assessmentItemId: string };
+  }).pendingGameNarrationPlayback;
+  s.playbackDone({
+    audible: true,
+    requestId: pending.requestId,
+    itemId: pending.assessmentItemId,
+  });
+}
 describe("live spelling assistance and audio provenance", () => {
   it("retains exposure and support when delayed writes arrive after the next item", async () => {
     const s = session();
     s.setCompanionPresence("summoned");
     s.updateCurrentBoardSnapshot({ assessmentMode: true, nodeId: "opening", itemId: "i1", phase: "response", answerVisibility: "hidden" });
     await s.speakGameNarration("night.", { assessmentMode: true, itemId: "i1" });
-    s.playbackDone();
+    confirmCurrentPlayback(s);
     s.updateCurrentBoardSnapshot({ assessmentMode: true, nodeId: "opening", itemId: "i1", phase: "feedback", answerVisibility: "visible" });
     s.setCompanionPresence("collapsed");
     s.updateCurrentBoardSnapshot({ assessmentMode: true, nodeId: "opening", itemId: "i2", phase: "response", answerVisibility: "hidden" });
@@ -32,7 +42,7 @@ describe("live spelling assistance and audio provenance", () => {
     expect(s.getDiscoveryAttemptContext("hw-words", "i1")?.instrumentSignals).toContain("audio_unavailable");
     await s.speakGameNarration("night.", { assessmentMode: true, itemId: "i1" });
     expect(s.getDiscoveryAttemptContext("hw-words", "i1")?.instrumentSignals).toContain("audio_unavailable");
-    s.playbackDone();
+    confirmCurrentPlayback(s);
     expect(s.getDiscoveryAttemptContext("hw-words", "i1")).toMatchObject({ support: { status: "unassisted" }, instrumentSignals: [], artifactHash: "frozen" });
     expect(s.getDiscoveryAttemptContext("other-homework", "i1")).toBeUndefined();
   });

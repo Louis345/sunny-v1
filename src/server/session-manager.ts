@@ -224,6 +224,7 @@ export class SessionManager {
   private pronunciationStruggleSignals = new Set<string>();
   private lastInstructionReadRequestKey: string | null = null;
   private pendingGameNarrationPlayback: Record<string, unknown> | null = null;
+  private activeGameNarrationRequestId: string | null = null;
   private companionPresence: "collapsed" | "summoned" = "collapsed";
   private companionDispositionAfterSpeech:
     | "standby_after_speech"
@@ -1181,22 +1182,43 @@ export class SessionManager {
     text: string,
     metadata: Record<string, unknown> = {},
   ): Promise<void> {
+    if (this.activeGameNarrationRequestId || this.pendingGameNarrationPlayback) {
+      this.debugRecorder.recordEvent("game_narration", "request_suppressed", {
+        reason: "playback_in_progress",
+        requestId: this.activeGameNarrationRequestId ?? this.pendingGameNarrationPlayback?.requestId,
+        itemId: metadata.itemId,
+        activityId: metadata.activityId,
+      });
+      console.log("  🎮 [game-narration] [suppressed] reason=playback_in_progress");
+      return;
+    }
+    const requestId = randomUUID();
+    this.activeGameNarrationRequestId = requestId;
     const assessment = metadata.assessmentMode === true ? this.spellingAssessment : undefined;
-    const spoken = await gev.narrateGameStimulus({ text, metadata, childName: this.childName, ttsLabel: this.sessionTtsLabel,
-      bridge: this.ttsBridge, assessment,
-      record: (action, event) => this.debugRecorder.recordEvent("game_narration", action, event) });
+    let spoken = false;
+    try {
+      spoken = await gev.narrateGameStimulus({ text, metadata, childName: this.childName, ttsLabel: this.sessionTtsLabel,
+        bridge: this.ttsBridge, assessment,
+        record: (action, event) => this.debugRecorder.recordEvent("game_narration", action, { ...event, requestId }) });
+    } catch (error) {
+      this.activeGameNarrationRequestId = null;
+      throw error;
+    }
     if (spoken) {
       this.pendingGameNarrationPlayback = {
+        requestId,
         activityId: metadata.activityId,
         nodeId: metadata.nodeId,
         reason: metadata.reason,
         ...(assessment ? { assessmentItemId: assessment.itemId } : {}),
       };
       if (assessment) {
-        this.send("audio_done", { requiresAudio: true, itemId: assessment.itemId });
+        this.send("audio_done", { requiresAudio: true, requestId, itemId: assessment.itemId });
       } else {
-        this.send("audio_done");
+        this.send("audio_done", { requestId, ...(metadata.itemId ? { itemId: metadata.itemId } : {}) });
       }
+    } else {
+      this.activeGameNarrationRequestId = null;
     }
   }
 
@@ -1290,6 +1312,7 @@ export class SessionManager {
       );
       this.pendingGameNarrationPlayback = null;
     }
+    this.activeGameNarrationRequestId = null;
 
     const stateBefore = this.turnSM.getState();
     this.turnSM.onInterrupt();
@@ -1357,6 +1380,24 @@ export class SessionManager {
   playbackDone(payload: Record<string, unknown> = {}): void {
     if (this.pendingGameNarrationPlayback) {
       const pending = this.pendingGameNarrationPlayback;
+      const expectedRequestId = String(pending.requestId ?? "");
+      const expectedItemId = String(pending.assessmentItemId ?? pending.itemId ?? "");
+      const receivedRequestId = String(payload.requestId ?? "");
+      const receivedItemId = String(payload.itemId ?? "");
+      if (
+        (expectedRequestId && receivedRequestId !== expectedRequestId) ||
+        (expectedItemId && receivedItemId !== expectedItemId)
+      ) {
+        this.debugRecorder.recordEvent("game_narration", "playback_ack_ignored", {
+          reason: "request_identity_mismatch",
+          expectedRequestId,
+          receivedRequestId,
+          expectedItemId,
+          receivedItemId,
+        });
+        console.log("  🎮 [game-narration] [playback-ack-ignored] reason=request_identity_mismatch");
+        return;
+      }
       const audible = payload.audible !== false;
       const assessmentItemId = typeof pending.assessmentItemId === "string"
         ? pending.assessmentItemId
@@ -1380,6 +1421,7 @@ export class SessionManager {
         },
       );
       this.pendingGameNarrationPlayback = null;
+      this.activeGameNarrationRequestId = null;
     }
     this.turnSM.onPlaybackComplete();
     this.flushPendingRoundComplete();

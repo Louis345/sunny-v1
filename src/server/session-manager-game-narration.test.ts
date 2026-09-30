@@ -38,9 +38,14 @@ describe("SessionManager game narration", () => {
       reason: "word_radar_response_prompt",
     }));
     expect(recordEvent).not.toHaveBeenCalledWith("game_narration", "playback_done", expect.anything());
-    expect(send).toHaveBeenCalledWith("audio_done");
+    expect(send).toHaveBeenCalledWith("audio_done", {
+      requestId: expect.any(String),
+    });
 
-    SessionManager.prototype.playbackDone.call(fakeSession, { audible: true });
+    const requestId = (fakeSession as unknown as {
+      pendingGameNarrationPlayback: { requestId: string };
+    }).pendingGameNarrationPlayback.requestId;
+    SessionManager.prototype.playbackDone.call(fakeSession, { audible: true, requestId });
 
     expect(recordEvent).toHaveBeenCalledWith("game_narration", "playback_done", expect.objectContaining({
       activityId: "word-radar",
@@ -64,6 +69,7 @@ describe("SessionManager game narration", () => {
     };
     const fakeSession = {
       pendingGameNarrationPlayback: {
+        requestId: "request-1",
         activityId: "word-radar",
         assessmentItemId: "item-1",
       },
@@ -78,6 +84,8 @@ describe("SessionManager game narration", () => {
     SessionManager.prototype.playbackDone.call(fakeSession, {
       audible: false,
       reason: "required_audio_not_fully_played",
+      requestId: "request-1",
+      itemId: "item-1",
     });
 
     expect(assessment.audioDelivered).toBe(false);
@@ -118,6 +126,91 @@ describe("SessionManager game narration", () => {
     });
 
     expect(fakeSession.noteExternalEvent).not.toHaveBeenCalled();
+  });
+
+  it("does not start a second word while the first narration still owns playback", async () => {
+    // Human catch: one spelling word played two or three times. The old debounce
+    // expired after one second and there was no server-side audio owner.
+    const recordEvent = vi.fn();
+    const bridge = {
+      connect: vi.fn().mockResolvedValue(undefined),
+      sendText: vi.fn(),
+      finish: vi.fn().mockResolvedValue(undefined),
+      hadAudioThisTurn: vi.fn(() => true),
+    };
+    const fakeSession = {
+      childName: "Ila",
+      sessionTtsLabel: "EYE-lah",
+      debugRecorder: { recordEvent },
+      ttsBridge: bridge,
+      send: vi.fn(),
+      activeGameNarrationRequestId: null,
+      pendingGameNarrationPlayback: null,
+    };
+
+    await SessionManager.prototype.speakGameNarration.call(fakeSession, "sample.", {
+      activityId: "word-radar",
+      nodeId: "opening",
+      itemId: "item-1",
+      reason: "word_radar_listen_phase",
+    });
+    await SessionManager.prototype.speakGameNarration.call(fakeSession, "sample.", {
+      activityId: "word-radar",
+      nodeId: "opening",
+      itemId: "item-1",
+      reason: "word_radar_listen_phase",
+    });
+
+    expect(bridge.connect).toHaveBeenCalledTimes(1);
+    expect(recordEvent).toHaveBeenCalledWith(
+      "game_narration",
+      "request_suppressed",
+      expect.objectContaining({ reason: "playback_in_progress", itemId: "item-1" }),
+    );
+  });
+
+  it("ignores a stale playback acknowledgement from a different narration request", () => {
+    // Human catch: Elli and the game drifted to different words. Browser acks had
+    // no request/item identity, so the server credited whichever word was current.
+    const recordEvent = vi.fn();
+    const assessment = {
+      homeworkId: "homework-1",
+      itemId: "item-2",
+      word: "sample",
+      artifactHash: "artifact-1",
+      audioDelivered: false,
+      supportIds: [],
+      ambiguous: false,
+    };
+    const fakeSession = {
+      activeGameNarrationRequestId: "request-current",
+      pendingGameNarrationPlayback: {
+        requestId: "request-current",
+        activityId: "word-radar",
+        assessmentItemId: "item-2",
+      },
+      spellingAssessment: assessment,
+      spellingAssessmentHistory: new Map([[assessment.itemId, assessment]]),
+      debugRecorder: { recordEvent },
+      turnSM: { onPlaybackComplete: vi.fn(), consumePendingTranscript: vi.fn() },
+      flushPendingRoundComplete: vi.fn(),
+      handleEndOfTurn: vi.fn(),
+    };
+
+    SessionManager.prototype.playbackDone.call(fakeSession, {
+      audible: true,
+      requestId: "request-old",
+      itemId: "item-1",
+    });
+
+    expect(assessment.audioDelivered).toBe(false);
+    expect(fakeSession.pendingGameNarrationPlayback).not.toBeNull();
+    expect(fakeSession.turnSM.onPlaybackComplete).not.toHaveBeenCalled();
+    expect(recordEvent).toHaveBeenCalledWith(
+      "game_narration",
+      "playback_ack_ignored",
+      expect.objectContaining({ reason: "request_identity_mismatch" }),
+    );
   });
 
   it("does not count interrupted spelling narration as completed playback", () => {

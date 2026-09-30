@@ -512,6 +512,34 @@ describe("WS envelope vs canvas payload type", () => {
     expect(result.current.state.warning).toMatch(/couldn't play that word/i);
   });
 
+  it("returns the narration request and item identities with playback proof", async () => {
+    // Human catch: a delayed browser ack was credited to the next spelling word.
+    // The prior lab asserted only audible=true, so stale ownership was invisible.
+    const { result } = renderHook(() => useSession());
+    act(() => result.current.startSession("ila"));
+    const ws = wsInstances[0]!;
+    await act(async () => Promise.resolve());
+
+    act(() => {
+      ws.onmessage?.({
+        data: JSON.stringify({
+          type: "audio_done",
+          requiresAudio: true,
+          requestId: "narration-2",
+          itemId: "item-2",
+        }),
+      } as MessageEvent);
+    });
+
+    const messages = ws.send.mock.calls.map(([raw]) => JSON.parse(String(raw)));
+    expect(messages).toContainEqual(expect.objectContaining({
+      type: "playback_done",
+      audible: false,
+      requestId: "narration-2",
+      itemId: "item-2",
+    }));
+  });
+
   it("keeps the server progression snapshot for the level path", async () => {
     const { result } = renderHook(() => useSession());
 
