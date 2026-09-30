@@ -1,11 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import WebSocket from "ws";
+import { runAgent } from "../agents/elli/run";
+import { getChildChart } from "../profiles/childChart";
 import { SessionManager } from "./session-manager";
 import { TurnStateMachine } from "./session-state";
 
 vi.mock("../agents/elli/run", () => ({
   runAgent: vi.fn().mockResolvedValue(""),
 }));
+vi.mock("../profiles/childChart", () => ({ getChildChart: vi.fn() }));
 
 function mockWs(): WebSocket {
   return {
@@ -24,6 +27,7 @@ describe("urgent learning support routing", () => {
 
   beforeEach(() => {
     process.env.SUNNY_STATELESS = "true";
+    vi.clearAllMocks();
   });
 
   afterEach(() => {
@@ -64,6 +68,45 @@ describe("urgent learning support routing", () => {
     );
     expect(ws.send).toHaveBeenCalledWith(
       expect.stringContaining('"pronunciation_support"'),
+    );
+  });
+
+  it("keeps ordinary room speech out of Elli while the canonical spelling assessment owns the turn", async () => {
+    // Human catch: Ila's self-talk repeatedly triggered model responses during Discovery.
+    // Logs recorded valid STT and model turns, so they did not identify the ownership bug.
+    // The old lab used injected transcripts without a live assessment snapshot.
+    vi.mocked(getChildChart).mockReturnValue({
+      learningCycle: {
+        homeworkId: "hw-lab",
+        domain: "spelling",
+        nodes: [{
+          nodeId: "opening",
+          role: "evaluation",
+          artifactBinding: { contractFingerprint: "frozen" },
+          evidenceContract: {
+            spellingItems: { "item-1": { id: "item-1", word: "sample" } },
+          },
+        }],
+      },
+    } as never);
+    const ws = mockWs();
+    const session = new SessionManager(ws, "Ila");
+
+    session.updateCurrentBoardSnapshot({
+      assessmentMode: true,
+      game: "word-radar",
+      nodeId: "opening",
+      itemId: "item-1",
+      phase: "response",
+      answerVisibility: "hidden",
+      speechCaptureArmed: false,
+    });
+    session.injectTranscript("I think I forgot where my pencil is");
+
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    expect(runAgent).not.toHaveBeenCalled();
+    expect(ws.send).not.toHaveBeenCalledWith(
+      expect.stringContaining('"type":"response_text"'),
     );
   });
 });

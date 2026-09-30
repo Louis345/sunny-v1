@@ -122,6 +122,7 @@ export function shouldEnableCompanionWakeGate(opts: {
   explicitDomain?: string | null;
   discovery?: boolean;
 }): boolean {
+  if (opts.subject === "spelling") return true;
   if (opts.subject !== "homework") return false;
   const domain = String(opts.explicitDomain ?? "").trim().toLowerCase();
   return opts.discovery === true || domain === "math" || /^hw-math(?:-|$)/i.test(String(opts.homeworkId ?? ""));

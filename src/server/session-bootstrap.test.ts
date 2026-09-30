@@ -134,10 +134,13 @@ describe("homework subject mode", () => {
       homeworkId: "hw-math-7ead7e33",
       explicitDomain: "math",
     })).toBe(true);
+    // Human catch: ordinary room speech became Elli turns during Ila's live spelling
+    // evaluation. The lab missed it because direct spelling sessions were explicitly
+    // exempted from the wake gate and browser acceptance used silent, serialized audio.
     expect(shouldEnableCompanionWakeGate({
       subject: "spelling",
       homeworkId: "hw-spelling-1",
       explicitDomain: "spelling",
-    })).toBe(false);
+    })).toBe(true);
   });
 });
