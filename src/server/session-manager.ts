@@ -1033,6 +1033,14 @@ export class SessionManager {
       this.activeGameNarrationRequestId = null;
       throw error;
     }
+    if (this.activeGameNarrationRequestId !== requestId) {
+      this.debugRecorder.recordEvent("game_narration", "synthesis_discarded", {
+        reason: "ownership_released_during_synthesis",
+        requestId,
+        itemId: metadata.itemId,
+      });
+      return;
+    }
     if (spoken) {
       this.pendingGameNarrationPlayback = {
         requestId,

@@ -247,4 +247,59 @@ describe("SessionManager game narration", () => {
       expect.objectContaining({ assessmentItemId: "item-1" }),
     );
   });
+
+  it("does not resurrect narration whose synthesis finishes after barge-in", async () => {
+    // Human catch: a canceled spelling word could return after Elli or the child
+    // interrupted because synthesis completed after ownership had been cleared.
+    let finishSynthesis!: () => void;
+    const synthesisPending = new Promise<void>((resolve) => {
+      finishSynthesis = resolve;
+    });
+    const send = vi.fn();
+    const fakeSession = {
+      childName: "Ila",
+      sessionTtsLabel: "EYE-lah",
+      debugRecorder: { recordEvent: vi.fn() },
+      ttsBridge: {
+        connect: vi.fn().mockResolvedValue(undefined),
+        sendText: vi.fn(),
+        finish: vi.fn(() => synthesisPending),
+        stop: vi.fn(),
+        hadAudioThisTurn: vi.fn(() => true),
+      },
+      send,
+      activeGameNarrationRequestId: null,
+      pendingGameNarrationPlayback: null,
+      pendingRoundComplete: null,
+      gamePendingRevision: null,
+      gameTtsFallbackTimer: null,
+      deferredTtsFinish: false,
+      currentAbort: null,
+      currentCanvasState: null,
+      roundNumber: 1,
+      turnSM: {
+        getState: vi.fn(() => "SPEAKING"),
+        onInterrupt: vi.fn(),
+        clearGameTtsHold: vi.fn(),
+      },
+    };
+
+    const narration = SessionManager.prototype.speakGameNarration.call(
+      fakeSession,
+      "sample.",
+      { activityId: "word-radar", itemId: "item-1" },
+    );
+    await vi.waitFor(() => expect(fakeSession.ttsBridge.finish).toHaveBeenCalled());
+
+    SessionManager.prototype.bargeIn.call(fakeSession);
+    finishSynthesis();
+    await narration;
+
+    expect(fakeSession.activeGameNarrationRequestId).toBeNull();
+    expect(fakeSession.pendingGameNarrationPlayback).toBeNull();
+    expect(send).not.toHaveBeenCalledWith(
+      "audio_done",
+      expect.objectContaining({ requestId: expect.any(String) }),
+    );
+  });
 });
