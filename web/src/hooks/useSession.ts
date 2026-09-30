@@ -406,6 +406,7 @@ export function useSession(options?: UseSessionOptions) {
   const playbackRequiresAudioRef = useRef(false);
   const playbackRequestIdRef = useRef<string | null>(null);
   const playbackItemIdRef = useRef<string | null>(null);
+  const activityNarrationPendingRef = useRef(false);
   const receivedAudioFramesRef = useRef(0);
   const playedAudioFramesRef = useRef(0);
   const bargeInConsecutiveRef = useRef(0);
@@ -475,6 +476,9 @@ export function useSession(options?: UseSessionOptions) {
   const [ttsMuted, setTtsMuted] = useState(false);
   const ttsMutedRef = useRef(false);
   ttsMutedRef.current = ttsMuted;
+  const [companionSpeechMuted, setCompanionSpeechMuted] = useState(false);
+  const companionSpeechMutedRef = useRef(false);
+  companionSpeechMutedRef.current = companionSpeechMuted;
   const [mapNodeType, setMapNodeType] = useState<string | null>(null);
   const registerMapNodeType = useCallback((t: string | null) => {
     setMapNodeType(t);
@@ -509,6 +513,11 @@ export function useSession(options?: UseSessionOptions) {
   // --- WebSocket connection ---
 
   const sendMessage = useCallback((type: string, payload: Record<string, unknown> = {}) => {
+    const gameEvent = payload.event as { type?: unknown } | undefined;
+    if (type === "game_event" && gameEvent?.type === "narration_request") {
+      activityNarrationPendingRef.current = true;
+      console.log(" 🎮 [session-audio] [activity-narration] [requested]");
+    }
     if (type === "reading_progress" && payload.event === "complete") {
       if (storyImageWatchdogRef.current) {
         clearTimeout(storyImageWatchdogRef.current);
@@ -559,6 +568,7 @@ export function useSession(options?: UseSessionOptions) {
     };
     playbackRequestIdRef.current = null;
     playbackItemIdRef.current = null;
+    activityNarrationPendingRef.current = false;
     playbackRequiresAudioRef.current = false;
     receivedAudioFramesRef.current = 0;
     playedAudioFramesRef.current = 0;
@@ -752,6 +762,7 @@ export function useSession(options?: UseSessionOptions) {
         playbackRequiresAudioRef.current = false;
         playbackRequestIdRef.current = null;
         playbackItemIdRef.current = null;
+        activityNarrationPendingRef.current = false;
         receivedAudioFramesRef.current = 0;
         playedAudioFramesRef.current = 0;
         if (currentSourceRef.current) {
@@ -975,6 +986,7 @@ export function useSession(options?: UseSessionOptions) {
           useBrowserTts &&
           !silenceAssist &&
           !ttsMutedRef.current &&
+          !companionSpeechMutedRef.current &&
           chunk &&
           typeof window !== "undefined" &&
           window.speechSynthesis
@@ -1001,7 +1013,10 @@ export function useSession(options?: UseSessionOptions) {
       case "audio": {
         serverDoneRef.current = false;
         receivedAudioFramesRef.current += 1;
-        if (ttsMutedRef.current) {
+        if (
+          (ttsMutedRef.current || companionSpeechMutedRef.current) &&
+          !activityNarrationPendingRef.current
+        ) {
           break;
         }
         if (isKaraokeReadingAssistSilence(sessionStateRef.current)) {
@@ -1022,6 +1037,7 @@ export function useSession(options?: UseSessionOptions) {
         playbackRequiresAudioRef.current = msg.requiresAudio === true;
         playbackRequestIdRef.current = typeof msg.requestId === "string" ? msg.requestId : null;
         playbackItemIdRef.current = typeof msg.itemId === "string" ? msg.itemId : null;
+        activityNarrationPendingRef.current = false;
         serverDoneRef.current = true;
         finalizePlaybackRef.current();
         break;
@@ -1412,6 +1428,8 @@ export function useSession(options?: UseSessionOptions) {
         sessionReconnectAttemptRef.current = 0;
         turnPolicyRef.current = DEFAULT_TURN_POLICY;
         setMicMuted(false);
+        setCompanionSpeechMuted(false);
+        activityNarrationPendingRef.current = false;
         setStateRef.current((s) => {
           const preservePronunciationOverlay =
             s.canvas.mode === "pronunciation" &&
@@ -1771,7 +1789,8 @@ export function useSession(options?: UseSessionOptions) {
   }, [karaokeAssistSilence]);
 
   useEffect(() => {
-    if (!ttsMuted) return;
+    if (!ttsMuted && !companionSpeechMuted) return;
+    if (activityNarrationPendingRef.current) return;
     audioQueueRef.current = [];
     if (currentSourceRef.current) {
       try {
@@ -1790,7 +1809,7 @@ export function useSession(options?: UseSessionOptions) {
     if (typeof window !== "undefined" && window.speechSynthesis) {
       window.speechSynthesis.cancel();
     }
-  }, [ttsMuted]);
+  }, [companionSpeechMuted, ttsMuted]);
 
   useEffect(() => {
     if (state.phase !== "active") return;
@@ -1944,6 +1963,16 @@ export function useSession(options?: UseSessionOptions) {
     });
   }, [sendMessage]);
 
+  const toggleCompanionSpeechMute = useCallback(() => {
+    setCompanionSpeechMuted((muted) => {
+      const next = !muted;
+      console.log(
+        ` 🎮 [session-audio] [companion-speech] [${next ? "quiet" : "audible"}]`,
+      );
+      return next;
+    });
+  }, []);
+
   useEffect(() => {
     mediaStreamRef.current?.getAudioTracks().forEach((t) => {
       t.enabled = !micMuted;
@@ -1966,11 +1995,13 @@ export function useSession(options?: UseSessionOptions) {
     }
     setMicMuted(false);
     setTtsMuted(false);
+    setCompanionSpeechMuted(false);
     setMapNodeType(null);
     audioQueueRef.current = [];
     isPlayingRef.current = false;
     serverDoneRef.current = false;
     playbackRequiresAudioRef.current = false;
+    activityNarrationPendingRef.current = false;
     receivedAudioFramesRef.current = 0;
     playedAudioFramesRef.current = 0;
     if (currentSourceRef.current) {
@@ -2146,6 +2177,8 @@ export function useSession(options?: UseSessionOptions) {
     sendMessage,
     micMuted,
     toggleMicMute,
+    companionSpeechMuted,
+    toggleCompanionSpeechMute,
     setCompanionPresence,
     registerMapNodeType,
     companionEvents: state.companionEvents,
