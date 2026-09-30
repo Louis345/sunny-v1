@@ -10,6 +10,7 @@ import { useAdventureState } from "../useAdventureState";
 
 const OPEN = 1;
 const CONNECTING = 0;
+let playbackStart: ReturnType<typeof vi.fn>;
 
 describe("WS envelope vs canvas payload type", () => {
   let wsInstances: MockWebSocket[];
@@ -47,6 +48,7 @@ describe("WS envelope vs canvas payload type", () => {
   beforeEach(() => {
     wsInstances = [];
     micProcessor = null;
+    playbackStart = vi.fn();
     OriginalWebSocket = globalThis.WebSocket;
     OriginalAudioContext = globalThis.AudioContext;
 
@@ -85,7 +87,7 @@ describe("WS envelope vs canvas payload type", () => {
         const src = {
           buffer: null as AudioBuffer | null,
           connect: () => src as unknown as AudioNode,
-          start: vi.fn(),
+          start: playbackStart,
           stop: vi.fn(),
           onended: null as (() => void) | null,
         };
@@ -510,6 +512,41 @@ describe("WS envelope vs canvas payload type", () => {
       reason: "required_audio_not_fully_played",
     }));
     expect(result.current.state.warning).toMatch(/couldn't play that word/i);
+  });
+
+  it("quiets companion speech without muting the child or required Word Radar audio", async () => {
+    // Human catch: Saori tapped the companion's Mute control, then Word Radar
+    // could neither hear the child nor play the spelling prompt.
+    const { result } = renderHook(() => useSession());
+    act(() => result.current.startSession("ila"));
+    const ws = wsInstances[0]!;
+    await act(async () => Promise.resolve());
+
+    act(() => result.current.toggleCompanionSpeechMute());
+    expect(result.current.companionSpeechMuted).toBe(true);
+    expect(result.current.micMuted).toBe(false);
+    expect(
+      ws.send.mock.calls
+        .map(([raw]) => JSON.parse(String(raw)))
+        .filter((message) => message.type === "set_mute" && message.muted === true),
+    ).toHaveLength(0);
+
+    act(() => {
+      ws.onmessage?.({ data: JSON.stringify({ type: "audio", data: "AAA=" }) } as MessageEvent);
+    });
+    expect(playbackStart).not.toHaveBeenCalled();
+
+    act(() => result.current.sendMessage("game_event", {
+      event: {
+        type: "narration_request",
+        payload: { game: "word-radar", word: "sample", itemId: "item-1" },
+      },
+    }));
+    act(() => {
+      ws.onmessage?.({ data: JSON.stringify({ type: "audio", data: "AAA=" }) } as MessageEvent);
+    });
+    await act(async () => Promise.resolve());
+    expect(playbackStart).toHaveBeenCalledOnce();
   });
 
   it("returns the narration request and item identities with playback proof", async () => {

@@ -542,6 +542,8 @@ function App() {
     sendMessage,
     micMuted,
     toggleMicMute,
+    companionSpeechMuted,
+    toggleCompanionSpeechMute,
     registerMapNodeType,
     companionEvents: voiceCompanionEvents,
     companionCommands: voiceCompanionCommands,
@@ -2103,7 +2105,7 @@ function App() {
     diagFlowGameOpen != null ||
     plannerBoardLaunch != null ||
     (state.phase === "active" && state.canvas.mode === "pronunciation");
-  const voiceGameCompanionMicMuted =
+  const voiceGameCompanionSpeechMuted =
     karaokeReadingActive ||
     (diagFlowGameOpen != null &&
       DIAG_GAMES_SUPPRESS_MIC.has(diagFlowGameOpen)) ||
@@ -2230,8 +2232,9 @@ function App() {
         activeNodeScreen={activeNodeScreen}
         analyserNodeRef={analyserNodeRef}
         speechBubbleText={companionBubbleText}
-        micMuted={micMuted || voiceGameCompanionMicMuted}
-        onToggleMute={toggleMicMute}
+        micMuted={companionSpeechMuted || voiceGameCompanionSpeechMuted}
+        muteControlKind="companion"
+        onToggleMute={toggleCompanionSpeechMute}
         summoned={
           boardMapCompanionCompact
             ? state.companionPresence === "summoned"
