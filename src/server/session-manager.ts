@@ -210,6 +210,7 @@ export class SessionManager {
   private lastInstructionReadRequestKey: string | null = null;
   private pendingGameNarrationPlayback: Record<string, unknown> | null = null;
   private activeGameNarrationRequestId: string | null = null;
+  private gameNarrationPlaybackTimer: ReturnType<typeof setTimeout> | null = null;
   private companionPresence: "collapsed" | "summoned" = "collapsed";
   private companionDispositionAfterSpeech:
     | "standby_after_speech"
@@ -1055,6 +1056,7 @@ export class SessionManager {
       } else {
         this.send("audio_done", { requestId, ...(metadata.itemId ? { itemId: metadata.itemId } : {}) });
       }
+      gev.armGameNarrationPlaybackTimer(this, requestId, String(metadata.itemId ?? assessment?.itemId ?? ""));
     } else {
       this.activeGameNarrationRequestId = null;
     }
@@ -1141,6 +1143,7 @@ export class SessionManager {
   bargeIn(): void {
     this.pendingRoundComplete = null;
     gev.abortGameTtsGate(this);
+    gev.clearGameNarrationPlaybackTimer(this);
     this.deferredTtsFinish = false;
     if (this.pendingGameNarrationPlayback) {
       this.debugRecorder.recordEvent(
@@ -1216,6 +1219,7 @@ export class SessionManager {
   }
 
   playbackDone(payload: Record<string, unknown> = {}): void {
+    gev.clearGameNarrationPlaybackTimer(this);
     if (this.pendingGameNarrationPlayback) {
       const pending = this.pendingGameNarrationPlayback;
       const expectedRequestId = String(pending.requestId ?? "");
@@ -1328,6 +1332,7 @@ export class SessionManager {
       this.ttsBridge.close();
       this.ttsBridge = null;
     }
+    gev.clearGameNarrationPlaybackTimer(this);
 
     this.spellCheckSessionActive = false;
     this.activeSpellCheckWord = "";

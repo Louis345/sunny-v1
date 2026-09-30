@@ -18,6 +18,29 @@ import {
 } from "./companionVideoCallTrace";
 
 export const WB_ACTIVITY_MS = 90_000;
+export const GAME_NARRATION_PLAYBACK_TIMEOUT_MS = 15_000;
+
+export function clearGameNarrationPlaybackTimer(s: SM): void {
+  if (!s.gameNarrationPlaybackTimer) return;
+  clearTimeout(s.gameNarrationPlaybackTimer);
+  s.gameNarrationPlaybackTimer = null;
+}
+
+export function armGameNarrationPlaybackTimer(
+  s: SM,
+  requestId: string,
+  itemId: string,
+): void {
+  clearGameNarrationPlaybackTimer(s);
+  s.gameNarrationPlaybackTimer = setTimeout(() => {
+    s.playbackDone({
+      audible: false,
+      reason: "playback_ack_timeout",
+      requestId,
+      itemId,
+    });
+  }, GAME_NARRATION_PLAYBACK_TIMEOUT_MS);
+}
 
 export type SpellingAssessmentState = { homeworkId: string; itemId: string; word: string; artifactHash: string; audioDelivered: boolean; supportIds: string[]; ambiguous: boolean };
 export function bindSpellingAssessment(input: {

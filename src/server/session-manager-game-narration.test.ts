@@ -312,4 +312,52 @@ describe("SessionManager game narration", () => {
       expect.objectContaining({ requestId: expect.any(String) }),
     );
   });
+
+  it("releases narration ownership when the browser never acknowledges playback", async () => {
+    vi.useFakeTimers();
+    try {
+      const recordEvent = vi.fn();
+      const fakeSession = {
+        childName: "Ila",
+        sessionTtsLabel: "EYE-lah",
+        debugRecorder: { recordEvent },
+        ttsBridge: {
+          connect: vi.fn().mockResolvedValue(undefined),
+          sendText: vi.fn(),
+          finish: vi.fn().mockResolvedValue(undefined),
+          hadAudioThisTurn: vi.fn(() => true),
+        },
+        send: vi.fn(),
+        activeGameNarrationRequestId: null,
+        pendingGameNarrationPlayback: null,
+        gameNarrationPlaybackTimer: null,
+        playbackDone: SessionManager.prototype.playbackDone,
+        turnSM: {
+          onPlaybackComplete: vi.fn(),
+          consumePendingTranscript: vi.fn(),
+        },
+        flushPendingRoundComplete: vi.fn(),
+        handleEndOfTurn: vi.fn(),
+      };
+
+      await SessionManager.prototype.speakGameNarration.call(
+        fakeSession,
+        "sample.",
+        { activityId: "word-radar", itemId: "item-1" },
+      );
+      expect(fakeSession.pendingGameNarrationPlayback).not.toBeNull();
+
+      await vi.advanceTimersByTimeAsync(15_000);
+
+      expect(fakeSession.pendingGameNarrationPlayback).toBeNull();
+      expect(fakeSession.activeGameNarrationRequestId).toBeNull();
+      expect(recordEvent).toHaveBeenCalledWith(
+        "game_narration",
+        "playback_failed",
+        expect.objectContaining({ reason: "playback_ack_timeout" }),
+      );
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });
