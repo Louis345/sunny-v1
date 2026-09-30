@@ -1,6 +1,7 @@
 import { execFileSync } from "child_process";
 import path from "path";
 import {
+  assertIntentionalHomeworkPreview,
   encodeSunnyRuntimeConfig,
   resolveSunnyRuntimeConfig,
   type RuntimeEnv,
@@ -94,6 +95,7 @@ function buildRuntimeEnv(args: ParsedArgs): RuntimeEnv {
     demoRoute: args.demoRoute,
     homeworkDomain: args.homeworkDomain as SunnyHomeworkDomain | undefined,
   });
+  assertIntentionalHomeworkPreview(config);
   const encoded = encodeSunnyRuntimeConfig(config);
   return {
     ...process.env,
