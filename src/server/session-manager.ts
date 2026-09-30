@@ -1685,7 +1685,7 @@ export class SessionManager {
     const generatedMathActivity =
       activeGame === "generated-baseline" || activeGame === "generated-math";
     if (handleCompanionPresenceTranscript({
-      enabled: !isReplay && !opts?.fromReadingComplete &&
+      enabled: !opts?.fromReadingComplete &&
         (generatedMathActivity || this.companionWakeGateEnabled || Boolean(this.spellingAssessment)),
       transcript,
       presence: this.companionPresence,

@@ -109,4 +109,38 @@ describe("urgent learning support routing", () => {
       expect.stringContaining('"type":"response_text"'),
     );
   });
+
+  it("rechecks a queued transcript against the live assessment before replaying it", async () => {
+    // Human catch: stale room speech received during audio later became an Elli
+    // turn. Logs called it a replay but skipped the wake gate entirely.
+    vi.mocked(getChildChart).mockReturnValue({
+      learningCycle: {
+        homeworkId: "hw-lab",
+        domain: "spelling",
+        nodes: [{
+          nodeId: "opening",
+          role: "evaluation",
+          artifactBinding: { contractFingerprint: "frozen" },
+          evidenceContract: {
+            spellingItems: { "item-1": { id: "item-1", word: "sample" } },
+          },
+        }],
+      },
+    } as never);
+    const session = new SessionManager(mockWs(), "Ila");
+    session.updateCurrentBoardSnapshot({
+      assessmentMode: true,
+      game: "word-radar",
+      nodeId: "opening",
+      itemId: "item-1",
+      phase: "response",
+      answerVisibility: "hidden",
+    });
+
+    await (session as unknown as {
+      handleEndOfTurn: (text: string, isReplay: boolean) => Promise<void>;
+    }).handleEndOfTurn("I was talking to someone else", true);
+
+    expect(runAgent).not.toHaveBeenCalled();
+  });
 });
