@@ -1046,6 +1046,7 @@ export class SessionManager {
         requestId,
         activityId: metadata.activityId,
         nodeId: metadata.nodeId,
+        itemId: metadata.itemId,
         reason: metadata.reason,
         ...(assessment ? { assessmentItemId: assessment.itemId } : {}),
       };

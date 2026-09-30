@@ -24,6 +24,7 @@ describe("SessionManager game narration", () => {
     await SessionManager.prototype.speakGameNarration.call(fakeSession, "know.", {
       activityId: "word-radar",
       nodeId: "n-word-radar",
+      itemId: "item-1",
       reason: "word_radar_response_prompt",
     });
 
@@ -40,12 +41,21 @@ describe("SessionManager game narration", () => {
     expect(recordEvent).not.toHaveBeenCalledWith("game_narration", "playback_done", expect.anything());
     expect(send).toHaveBeenCalledWith("audio_done", {
       requestId: expect.any(String),
+      itemId: "item-1",
     });
 
     const requestId = (fakeSession as unknown as {
-      pendingGameNarrationPlayback: { requestId: string };
+      pendingGameNarrationPlayback: { requestId: string; itemId?: string };
     }).pendingGameNarrationPlayback.requestId;
-    SessionManager.prototype.playbackDone.call(fakeSession, { audible: true, requestId });
+    const pending = (fakeSession as unknown as {
+      pendingGameNarrationPlayback: { requestId: string; itemId?: string };
+    }).pendingGameNarrationPlayback;
+    expect(pending.itemId).toBe("item-1");
+    SessionManager.prototype.playbackDone.call(fakeSession, {
+      audible: true,
+      requestId,
+      itemId: "item-1",
+    });
 
     expect(recordEvent).toHaveBeenCalledWith("game_narration", "playback_done", expect.objectContaining({
       activityId: "word-radar",
