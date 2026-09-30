@@ -14,6 +14,7 @@ type PresenceHarness = {
   recordGameTrace: ReturnType<typeof vi.fn>;
   runCompanionResponse: ReturnType<typeof vi.fn>;
   handleCompanionTurn: ReturnType<typeof vi.fn>;
+  bindMathDiscoverySupport: ReturnType<typeof vi.fn>;
   turnSM: { getState: ReturnType<typeof vi.fn> };
   bargeIn: ReturnType<typeof vi.fn>;
 };
@@ -28,6 +29,7 @@ function presenceHarness(): PresenceHarness {
   session.recordGameTrace = vi.fn();
   session.runCompanionResponse = vi.fn().mockResolvedValue(undefined);
   session.handleCompanionTurn = vi.fn().mockResolvedValue(undefined);
+  session.bindMathDiscoverySupport = vi.fn();
   session.turnSM = { getState: vi.fn(() => "IDLE") };
   session.bargeIn = vi.fn();
   return session;
