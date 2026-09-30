@@ -31,4 +31,15 @@ describe("Sunny kiosk port handoff", () => {
     expect(source).not.toContain('spawn("npx"');
     expect(source).toContain('localTsxCommand(root, "src/server.ts", ["--serve-static"])');
   });
+
+  it("delegates owned-process cleanup and waits for the visible runtime identity", () => {
+    const source = fs.readFileSync(path.join(process.cwd(), "src/scripts/launch-kiosk.ts"), "utf8");
+
+    expect(source).toContain('process.on("SIGTERM"');
+    expect(source).toContain('process.on("SIGHUP"');
+    expect(source).toContain("findStaleSunnyKioskPids");
+    expect(source).toContain("terminateProcessTargets");
+    expect(source).toContain("waitForKioskReady");
+    expect(source).toContain("kiosk-visible");
+  });
 });

@@ -4,12 +4,18 @@ writeCanvasCapabilities();
 
 import { spawn, type ChildProcess } from "child_process";
 import { execFileSync, execSync } from "child_process";
+import { randomUUID } from "crypto";
 import path from "path";
 import fs from "fs";
 import {
-  browserProfileArgs,
+  acceptOrStopKioskCandidate,
+  buildKioskAppUrl,
+  findStaleSunnyKioskPids,
   healthMatchesCertificationRun,
+  kioskReadyMatches,
   mayReplaceExistingPortOwner,
+  ownedKioskShutdownTargets,
+  terminateProcessTargets,
 } from "../server/certificationRuntime";
 import { localNpmScriptCommand, localTsxCommand } from "./localRuntimeCommand";
 
@@ -17,6 +23,21 @@ const PORT = parseInt(process.env.PORT || "3001", 10);
 const root = path.resolve(process.cwd());
 const WEB_DIR = path.join(root, "web");
 const DIST_DIR = path.join(WEB_DIR, "dist");
+const KIOSK_TOKEN = randomUUID();
+const BROWSER_PROFILE_DIR = process.env.SUNNY_BROWSER_PROFILE_DIR?.trim()
+  || path.join(process.env.HOME || root, ".sunny", "kiosk-browser-profile");
+const processTargetOps = {
+  sendSignal: (target: number, signal: NodeJS.Signals) => process.kill(target, signal),
+  isAlive: (target: number) => {
+    try {
+      process.kill(target, 0);
+      return true;
+    } catch {
+      return false;
+    }
+  },
+  wait: (milliseconds: number) => new Promise<void>((resolve) => setTimeout(resolve, milliseconds)),
+};
 
 function needsRebuild(): boolean {
   const distHtml = path.join(DIST_DIR, "index.html");
@@ -50,6 +71,20 @@ async function waitForServer(timeoutMs = 15000): Promise<boolean> {
       // Server not ready yet
     }
     await new Promise((r) => setTimeout(r, 300));
+  }
+  return false;
+}
+
+async function waitForKioskReady(timeoutMs = 15000): Promise<boolean> {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    try {
+      const res = await fetch(`http://localhost:${PORT}/api/kiosk/ready?token=${encodeURIComponent(KIOSK_TOKEN)}`);
+      if (res.ok && kioskReadyMatches(await res.json(), KIOSK_TOKEN)) return true;
+    } catch {
+      // The visible browser has not completed this launch yet.
+    }
+    await new Promise((resolve) => setTimeout(resolve, 250));
   }
   return false;
 }
@@ -91,6 +126,27 @@ function killProcessOnPort(port: number): void {
   }
 }
 
+function runningProcessTable(): string {
+  try {
+    return execFileSync("ps", ["-axo", "pid=,command="], { encoding: "utf8" });
+  } catch (error) {
+    console.error(" 🎮 [kiosk] [process-inventory] [failed]", error);
+    throw error;
+  }
+}
+
+async function stopStaleSunnyKiosks(profileDir: string): Promise<void> {
+  const stalePids = findStaleSunnyKioskPids(runningProcessTable(), profileDir)
+    .filter((pid) => pid !== process.pid);
+  if (stalePids.length === 0) return;
+  for (const pid of stalePids) {
+    console.log(` 🎮 [kiosk] [stale-browser] [stopping] pid=${pid}`);
+  }
+  const { forceKilled } = await terminateProcessTargets(stalePids, processTargetOps);
+  for (const pid of forceKilled) console.warn(` 🎮 [kiosk] [stale-browser] [force-stopped] pid=${pid}`);
+  console.log(" 🎮 [kiosk] [stale-browser] [stopped]");
+}
+
 async function main() {
   console.log("\n  🌟 Project Sunny — Starting up...\n");
 
@@ -129,22 +185,54 @@ async function main() {
   const serverCommand = localTsxCommand(root, "src/server.ts", ["--serve-static"]);
   const server = spawn(serverCommand.executable, serverCommand.args, {
     stdio: "inherit",
-    env: { ...process.env, PORT: String(PORT) },
+    env: { ...process.env, PORT: String(PORT), SUNNY_KIOSK_TOKEN: KIOSK_TOKEN },
   });
 
-  const ready = await waitForServer();
-  if (!ready) {
-    console.error("  ⚠️  Server did not become ready in time.");
-    server.kill();
-    process.exit(1);
-  }
-
   let chromium: ChildProcess | null = null;
-  const noBrowser = process.argv.includes("--no-browser");
+  let pendingChromium: ChildProcess | null = null;
+  let shuttingDown = false;
+  let shutdownPromise: Promise<void> | null = null;
+  const shutdown = (signal: string, exitCode = 0): Promise<void> => {
+    if (shutdownPromise) return shutdownPromise;
+    shutdownPromise = (async () => {
+      shuttingDown = true;
+      console.log(` 🎮 [kiosk] [shutdown] [running] signal=${signal}`);
+      const targets = ownedKioskShutdownTargets(server.pid, chromium?.pid, pendingChromium?.pid);
+      let finalExitCode = exitCode;
+      try {
+        const { forceKilled } = await terminateProcessTargets(targets, processTargetOps);
+        if (forceKilled.length > 0) {
+          console.warn(` 🎮 [kiosk] [shutdown] [force-stopped] targets=${forceKilled.join(",")}`);
+        }
+        console.log(` 🎮 [kiosk] [shutdown] [complete] signal=${signal}`);
+      } catch (error) {
+        finalExitCode = 1;
+        console.error(" 🎮 [kiosk] [shutdown] [failed]", error);
+      }
+      process.exit(finalExitCode);
+    })();
+    return shutdownPromise;
+  };
+  process.on("SIGINT", () => void shutdown("SIGINT"));
+  process.on("SIGTERM", () => void shutdown("SIGTERM"));
+  process.on("SIGHUP", () => void shutdown("SIGHUP"));
+  server.once("exit", (code, signal) => {
+    if (!shuttingDown) void shutdown(`server-exit:${signal ?? code ?? "unknown"}`, code ?? 1);
+  });
 
-  if (noBrowser) {
-    console.log(`  🌐 App ready → http://localhost:${PORT}\n`);
-  } else {
+  try {
+    const ready = await waitForServer();
+    if (!ready) throw new Error("sunny_server_not_ready");
+
+    const noBrowser = process.argv.includes("--no-browser");
+
+    if (noBrowser) {
+      console.log(`  🌐 App ready → http://localhost:${PORT}\n`);
+      return;
+    }
+
+    fs.mkdirSync(BROWSER_PROFILE_DIR, { recursive: true });
+    await stopStaleSunnyKiosks(BROWSER_PROFILE_DIR);
     // Step 3: Launch Chromium in kiosk mode
     const browsers = [
       "chromium-browser", // Pi OS
@@ -154,8 +242,10 @@ async function main() {
     ];
 
     for (const browser of browsers) {
+      if (shuttingDown) throw new Error("kiosk_startup_cancelled");
+      let candidate: ChildProcess;
       try {
-        chromium = spawn(
+        candidate = spawn(
           browser,
           [
             "--kiosk",
@@ -164,51 +254,54 @@ async function main() {
             "--disable-session-crashed-bubble",
             "--disable-restore-session-state",
             "--autoplay-policy=no-user-gesture-required",
-            ...browserProfileArgs(process.env),
-            `--app=http://localhost:${PORT}`,
+            `--user-data-dir=${BROWSER_PROFILE_DIR}`,
+            `--app=${buildKioskAppUrl(PORT, KIOSK_TOKEN)}`,
           ],
           {
             stdio: "ignore",
             detached: true,
           }
         );
-
-        chromium.on("error", () => {
-          chromium = null;
+        pendingChromium = candidate;
+        candidate.on("error", (error) => {
+          console.warn(` 🎮 [kiosk] [browser-launch] [failed] browser=${browser}`, error);
+          if (pendingChromium === candidate) pendingChromium = null;
         });
-        chromium.unref();
-
-        await new Promise((resolve) => setTimeout(resolve, 500));
-        if (chromium?.pid) {
-          console.log(
-            `  🖥️  Chromium kiosk launched → http://localhost:${PORT}\n`
-          );
-          break;
-        }
-      } catch {
+        candidate.unref();
+      } catch (error) {
+        console.warn(` 🎮 [kiosk] [browser-launch] [failed] browser=${browser}`, error);
         continue;
       }
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      const accepted = await acceptOrStopKioskCandidate(
+        candidate.pid,
+        waitForKioskReady,
+        async (target) => { await terminateProcessTargets([target], processTargetOps); },
+      );
+      if (accepted) {
+        chromium = candidate;
+        pendingChromium = null;
+        console.log(` 🎮 [kiosk] [kiosk-visible] [confirmed] port=${PORT}`);
+        console.log(`  🖥️  Chromium kiosk launched → http://localhost:${PORT}\n`);
+        break;
+      }
+      if (pendingChromium === candidate) pendingChromium = null;
     }
 
     if (!chromium?.pid) {
-      console.log(
-        `  ⚠️  Could not launch Chromium. Open http://localhost:${PORT} manually.\n`
-      );
+      throw new Error("visible_kiosk_not_confirmed");
     }
+    const visibleBrowser = chromium;
+    visibleBrowser.once("exit", (code, signal) => {
+      if (!shuttingDown) void shutdown(`browser-exit:${signal ?? code ?? "unknown"}`, code ?? 1);
+    });
+  } catch (error) {
+    console.error(" 🎮 [kiosk] [startup] [failed]", error);
+    await shutdown("startup-failed", 1);
   }
-
-  // Shutdown: kill children and exit. Do NOT log — server.ts logs "Shutting down".
-  process.on("SIGINT", () => {
-    if (chromium?.pid) {
-      try {
-        process.kill(-chromium.pid, "SIGTERM");
-      } catch {
-        /* process may already be gone */
-      }
-    }
-    server.kill();
-    process.exit(0);
-  });
 }
 
-main().catch(console.error);
+void main().catch((error) => {
+  console.error(" 🎮 [kiosk] [startup] [failed]", error);
+  process.exitCode = 1;
+});

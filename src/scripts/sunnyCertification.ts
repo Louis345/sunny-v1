@@ -554,6 +554,7 @@ export function certificationRuntimeEnv(
     SUNNY_CONTEXT_ROOT: path.join(manifest.workspaceDir, "src", "context"),
     SUNNY_ALLOW_REAL_CHILD_CONTEXT_ROOT: "true",
     SUNNY_CERTIFICATION_RUN_ID: manifest.certificationRunId,
+    SUNNY_BUILD_ID: manifest.sourceImplementationHash,
     SUNNY_CERTIFICATION_CHILD_ID: manifest.sourceChildId,
     ...(manifest.homeworkId ? { SUNNY_CERTIFICATION_HOMEWORK_ID: manifest.homeworkId } : {}),
     SUNNY_EVIDENCE_AUTHORITY: "simulation",

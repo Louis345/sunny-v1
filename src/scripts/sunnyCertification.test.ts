@@ -140,6 +140,7 @@ describe("Sunny impersonation certification", () => {
     expect(env.SUNNY_CONTEXT_ROOT).toBe(path.join(manifest.workspaceDir, "src", "context"));
     expect(env.SUNNY_ALLOW_REAL_CHILD_CONTEXT_ROOT).toBe("true");
     expect(env.SUNNY_CERTIFICATION_RUN_ID).toBe(manifest.certificationRunId);
+    expect(env.SUNNY_BUILD_ID).toBe(manifest.sourceImplementationHash);
     manifest.homeworkId = "hw-1";
     expect(certificationRuntimeEnv(manifest, {}).SUNNY_CERTIFICATION_HOMEWORK_ID).toBe("hw-1");
     expect(env.SUNNY_EVIDENCE_AUTHORITY).toBe("simulation");

@@ -11,6 +11,7 @@ import { TransitionProvider } from "./context/TransitionContext";
 import { resolveSunnyRuntimeConfig } from "../../src/shared/runtimeConfig";
 import { ReturnedWorkPage } from "./components/ReturnedWorkPage";
 import { LearningReportPage } from "./components/LearningReportPage";
+import { announceKioskReady } from "./kioskReady";
 
 const runtimeConfig = resolveSunnyRuntimeConfig(import.meta.env);
 const diagReadingEnabled = import.meta.env.VITE_DIAG_READING === "true";
@@ -52,3 +53,16 @@ createRoot(document.getElementById("root")!).render(
     </TransitionProvider>
   </StrictMode>
 );
+
+const announceVisibleKiosk = () => {
+  void announceKioskReady(window.location.href)
+    .then((ready) => {
+      if (ready) console.log(" 🎮 [kiosk] [visible-identity] [announced]");
+    })
+    .catch((error) => {
+      console.error(" 🎮 [kiosk] [visible-identity] [failed]", error);
+    });
+};
+
+if (document.readyState === "complete") announceVisibleKiosk();
+else window.addEventListener("load", announceVisibleKiosk, { once: true });
