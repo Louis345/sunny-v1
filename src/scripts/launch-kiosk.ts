@@ -249,6 +249,11 @@ async function main() {
           browser,
           [
             "--kiosk",
+            "--no-first-run",
+            "--no-default-browser-check",
+            "--disable-sync",
+            "--password-store=basic",
+            "--use-mock-keychain",
             "--noerrdialogs",
             "--disable-infobars",
             "--disable-session-crashed-bubble",

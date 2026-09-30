@@ -42,4 +42,18 @@ describe("Sunny kiosk port handoff", () => {
     expect(source).toContain("waitForKioskReady");
     expect(source).toContain("kiosk-visible");
   });
+
+  it("launches the isolated Chrome profile without macOS Keychain or first-run blockers", () => {
+    // Human-caught invariant: the automated checks only verified process and
+    // readiness plumbing. On Saori's Mac, Chrome's profile startup UI blocked
+    // navigation before Sunny could announce readiness, forcing a manual
+    // restart and exposing a Keychain prompt that never appeared in the lab.
+    const source = fs.readFileSync(path.join(process.cwd(), "src/scripts/launch-kiosk.ts"), "utf8");
+
+    expect(source).toContain('"--no-first-run"');
+    expect(source).toContain('"--no-default-browser-check"');
+    expect(source).toContain('"--disable-sync"');
+    expect(source).toContain('"--password-store=basic"');
+    expect(source).toContain('"--use-mock-keychain"');
+  });
 });
