@@ -96,6 +96,7 @@ import {
 } from "./utils/adventureBoardGeneratedChoices";
 import { useChildExperiencePacket } from "./hooks/useChildExperiencePacket";
 import { useAdaptiveMathGenerationRefresh } from "./hooks/useAdaptiveMathGenerationRefresh";
+import { DiscoveryCompletionChapter } from "./components/DiscoveryCompletionChapter";
 import { LearningPreparationStatus } from "./components/LearningPreparationStatus";
 import {
   CompanionCareProvider,
@@ -1950,7 +1951,10 @@ function App() {
       main = directDiscoveryMode ? (
         effectiveDiscoveryCompletionHandoff ? (
           <div className="flex h-screen w-screen items-center justify-center bg-zinc-950 p-6">
-            <div className="w-full max-w-lg"><LearningPreparationStatus {...generationProgress} preview={effectiveDiscoveryCompletionHandoff === "preview-complete"} onCheck={generationProgress.checkNow} onFinish={finishHomeworkSession}/></div>
+            <DiscoveryCompletionChapter
+              preview={effectiveDiscoveryCompletionHandoff === "preview-complete"}
+              onFinish={finishHomeworkSession}
+            />
           </div>
         ) : resolveDirectDiscoverySurface(
             sessionReady,

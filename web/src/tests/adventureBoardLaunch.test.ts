@@ -311,6 +311,16 @@ describe("direct Discovery entry", () => {
     );
   });
 
+  it("ends Discovery with a closing chapter instead of child-visible generation progress", () => {
+    const source = readFileSync(resolve(process.cwd(), "src/App.tsx"), "utf8");
+    const discoveryBranchStart = source.indexOf("main = directDiscoveryMode ? (");
+    const discoveryBranchEnd = source.indexOf(") : targetedBoardHeldForPreparation ? (", discoveryBranchStart);
+    const discoveryBranch = source.slice(discoveryBranchStart, discoveryBranchEnd);
+
+    expect(discoveryBranch).toContain("<DiscoveryCompletionChapter");
+    expect(discoveryBranch).not.toContain("<LearningPreparationStatus");
+  });
+
   it("does not treat a learning-cycle revision as a new board session", () => {
     // Human-caught invariant: completing Discovery refreshes the packet with a
     // new cycle revision. That refresh must preserve the completion handoff
