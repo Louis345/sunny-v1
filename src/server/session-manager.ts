@@ -2124,7 +2124,7 @@ export class SessionManager {
     await new Promise<void>((resolve) => setImmediate(resolve));
     this.turnSM.onAgentComplete();
     const ttsText = rewriteChildNameForTts(text, this.childName, this.sessionTtsLabel);
-    this.send("response_text", { chunk: ttsText });
+    this.send("response_text", { chunk: text });
     if (this.ttsBridge) {
       await this.ttsBridge.connect().catch(() => {});
       this.ttsBridge.sendText(ttsText);
