@@ -69,6 +69,16 @@ export class WsTtsBridge {
    * can adapt prosody and expressiveness based on conversation flow.
    */
   async connect(previousText?: string): Promise<void> {
+    if (this.elevenWs && this.elevenWs.readyState === WebSocket.OPEN) {
+      this.wsReady = true;
+      return;
+    }
+
+    // If a connection is already in progress, wait for it instead of opening a second one
+    if (this.connectingPromise) {
+      return this.connectingPromise;
+    }
+
     this.stopped = false;
     this.buffer = "";
     this.hasFlushedThisTurn = false;
@@ -83,16 +93,6 @@ export class WsTtsBridge {
       this.connectingPromise = null;
       this.elevenWs = null;
       return;
-    }
-
-    if (this.elevenWs && this.elevenWs.readyState === WebSocket.OPEN) {
-      this.wsReady = true;
-      return;
-    }
-
-    // If a connection is already in progress, wait for it instead of opening a second one
-    if (this.connectingPromise) {
-      return this.connectingPromise;
     }
 
     this.elevenWs = null;
