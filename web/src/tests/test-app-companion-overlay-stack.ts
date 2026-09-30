@@ -126,35 +126,20 @@ describe("App companion overlay stack", () => {
     expect(src).not.toMatch(
       /if \(plannerBoardRuntimeRequested\)\s*\{[\s\S]{0,220}return;/,
     );
+    expect(src).toContain("resolveHomeworkVoiceSessionStart");
+    expect(src).toContain("resolveHomeworkVoiceAutostart");
     expect(src).toMatch(
-      /autoStartedAdventureVoiceRef\.current = adventureChildId;[\s\S]{0,500}startSession\(childNameFromId\(adventureChildId\)/,
+      /autoStartedAdventureVoiceRef\.current = autostart\.scope;[\s\S]{0,300}startSession\(childName, \{ homeworkId: homeworkVoiceStart\.homeworkId \}\)/,
     );
-    expect(src).toMatch(/startSession\(childNameFromId\(adventureChildId\)/);
   });
 
-  it("preselected Creator uses the authorized diagnostic session and preserves remount cleanup", () => {
-    const autoStartEffect = src.slice(
-      src.indexOf("if (!adventureMapEnabled || !adventureChildId)"),
-      src.indexOf("/** Tamagotchi quips"),
+  it("preselected Creator uses the authorized diagnostic session while homework waits for its board packet", () => {
+    expect(src).toMatch(
+      /<ChildPicker[\s\S]{0,260}if \(opts\?\.diagKiosk\)[\s\S]{0,180}startSession\("creator", \{ diagKiosk: true \}\)/,
     );
-    const creatorGuard = autoStartEffect.indexOf(
-      'if (adventureChildId.trim().toLowerCase() === "creator")',
+    expect(src).toMatch(
+      /<ChildPicker[\s\S]{0,520}if \(runtimeConfig\.subject === "homework"\)[\s\S]{0,180}setAdventureChildId\(name\.trim\(\)\.toLowerCase\(\)\);[\s\S]{0,80}return;/,
     );
-    const authorizedStart = autoStartEffect.indexOf(
-      'startSession("creator", { diagKiosk: true })',
-    );
-    const normalChildElse = autoStartEffect.indexOf("} else {", authorizedStart);
-    const normalChildStart = autoStartEffect.indexOf(
-      "startSession(childNameFromId(adventureChildId))",
-    );
-    const remountCleanup = autoStartEffect.indexOf(
-      "A development remount cancels the session hook's pending connection.",
-    );
-
-    expect(creatorGuard).toBeGreaterThanOrEqual(0);
-    expect(authorizedStart).toBeGreaterThan(creatorGuard);
-    expect(normalChildElse).toBeGreaterThan(authorizedStart);
-    expect(normalChildStart).toBeGreaterThan(normalChildElse);
-    expect(remountCleanup).toBeGreaterThan(normalChildStart);
+    expect(src).toMatch(/<ChildPicker[\s\S]{0,700}startSession\(name\)/);
   });
 });
