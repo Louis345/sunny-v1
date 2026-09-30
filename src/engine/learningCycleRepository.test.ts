@@ -241,7 +241,7 @@ describe("canonical learning cycle repository", () => {
     expect(first.adventureBoard.nodes.find((node) => node.id === "boss")?.label).toBe("Boss");
   });
 
-  it("does not promise locked spelling Quest or Boss nodes before evidence authorizes them", () => {
+  it("shows locked spelling Quest and Boss finish-line markers without creating playable academic nodes", () => {
     const rootDir = root();
     const spellingInput = input();
     spellingInput.domain = "spelling";
@@ -254,9 +254,20 @@ describe("canonical learning cycle repository", () => {
     const projection = projectLearningCycle(cycle);
 
     expect(projection.activeSessionPlan.nodePlan.map((node) => node.id)).toEqual(["baseline-facts"]);
-    expect(projection.adventureBoard.nodes.map((node) => node.id)).not.toContain("quest");
-    expect(projection.adventureBoard.nodes.map((node) => node.id)).not.toContain("boss");
-    expect(projection.adventureBoard.edges.some((edge) => edge.from === "quest" || edge.to === "quest" || edge.from === "boss" || edge.to === "boss")).toBe(false);
+    expect(projection.adventureBoard.nodes.find((node) => node.id === "quest")).toMatchObject({
+      kind: "quest",
+      state: "locked",
+      lock: { reason: "needs-baseline-evidence", label: "Finish the path first" },
+    });
+    expect(projection.adventureBoard.nodes.find((node) => node.id === "boss")).toMatchObject({
+      kind: "boss",
+      state: "locked",
+      lock: { reason: "needs-quest-evidence", label: "After Quest" },
+    });
+    expect(projection.adventureBoard.edges).toEqual(expect.arrayContaining([
+      expect.objectContaining({ from: "baseline-facts", to: "quest", state: "locked" }),
+      expect.objectContaining({ from: "quest", to: "boss", state: "locked" }),
+    ]));
   });
 
   it("preserves the AI-authored board presentation while canonical state unlocks Quest", () => {

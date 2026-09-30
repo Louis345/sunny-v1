@@ -144,7 +144,7 @@ export function buildSpellingDiscoveryPlan(input: { cycle: LearningCycleRecordV2
     companionPolicy: { companionId: companion.id, displayName: companion.name, openingLinePolicy: "silent", verbosity: "low", maxMicroProbes: 0 },
     evidenceUsed: cycle.assignment.capturedEvidenceIds.map(id => ({ id, type: "assignment", summary: "Captured school spelling target." })), openQuestions: [], approvalStatus: "approved",
   };
-  plan.adventureBoard = buildAdventureBoardFromActiveSessionPlan({ plan: { ...plan, nodePlan: plan.nodePlan.map(node => ({ ...node, wordRadarConfig: node.wordRadarConfig ? { ...node.wordRadarConfig } : undefined })) }, boardId: plan.planId, title: "Spelling Discovery", companion, theme: { background: { type: "solid", value: "#12002e" }, palette: { path: "#fff4c2", completed: "#34d399", available: "#7c3aed", locked: "#64748b", current: "#f59e0b", preview: "#94a3b8", text: "#ffffff", panel: "#12002e" } } });
+  plan.adventureBoard = buildAdventureBoardFromActiveSessionPlan({ plan: { ...plan, nodePlan: plan.nodePlan.map(node => ({ ...node, wordRadarConfig: node.wordRadarConfig ? { ...node.wordRadarConfig } : undefined })) }, boardId: plan.planId, title: "Spelling Discovery", companion, showFinishLineDestinations: false, theme: { background: { type: "solid", value: "#12002e" }, palette: { path: "#fff4c2", completed: "#34d399", available: "#7c3aed", locked: "#64748b", current: "#f59e0b", preview: "#94a3b8", text: "#ffffff", panel: "#12002e" } } });
   return plan;
 }
 

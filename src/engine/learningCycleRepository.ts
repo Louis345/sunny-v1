@@ -1744,6 +1744,7 @@ export function projectLearningCycle(
       layoutChoice: "Render the canonical intervention sequence without semantic rewrites.",
     },
     companion: { id: "elli", name: "Elli" },
+    showFinishLineDestinations: cycle.nodes.some((node) => node.role !== "evaluation"),
     progress: {
       completedNodeIds: cycle.nodes
         .filter((node) => node.state === "completed")

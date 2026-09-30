@@ -1,6 +1,6 @@
 # Sunny Learning Feedback Loop
 
-Contract version: 18
+Contract version: 19
 
 This document is the **sole normative** authority for how Sunny forms, tests, and revises learning claims. Product changes that alter this loop must update this contract version before implementation. Other documents may describe infrastructure or history, but they must link here instead of creating another learning doctrine.
 
@@ -70,6 +70,8 @@ Probe Board completion is idempotent: replaying it returns the existing cycle wi
 The targeted program and complete board design are frozen before the targeted map appears. Nodes whose artifacts are still being implemented may appear as `preparing`; optional status polling may replace that presentation with `ready` without opening the node, interrupting the current activity, or creating evidence. `Preparing` is operational generation state, while `evidence_locked` is an academic lifecycle state. The child may exit and return without losing either state. When a route frontier is complete, its unselected route is no longer required.
 
 Quest and Boss never launch automatically. Once their evidence-authorized artifacts are generated and validated, the next session presents the node as unlocked. Quest uses unseen transfer material. Boss uses unseen synthesis material and always ends in `awaiting_calibration`; in-app performance alone cannot close the cycle.
+
+The targeted board always shows locked Quest and Boss destination markers as its visible finish line. A visible marker is navigation, not evidence authorization and not a promise that its activity artifact has already been generated. Quest remains locked until the Planner authorizes it from baseline evidence; Boss remains locked until the Planner authorizes it from Quest evidence.
 
 The AI-authored board presentation is preserved as a projection template, while node state, artifact binding, evidence, and lifecycle always come from the canonical cycle. A static compatibility file may not hide or override a newer canonical revision.
 

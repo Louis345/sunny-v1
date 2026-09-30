@@ -203,7 +203,7 @@ describe("buildAdventureBoardFromActiveSessionPlan", () => {
     expect(board.nodes[7].state).toBe("locked");
   });
 
-  it("does not invent missing Mystery, Quest, Boss, or modal choices", () => {
+  it("always shows locked Quest and Boss finish-line destinations without inventing optional Mystery or modal choices", () => {
     const board = buildAdventureBoardFromActiveSessionPlan({
       plan: {
         planId: "minimal-plan",
@@ -232,13 +232,55 @@ describe("buildAdventureBoardFromActiveSessionPlan", () => {
       theme,
     });
 
-    expect(board.nodes.map((node) => node.id)).toEqual(["start", "planner_word_radar", "planner_spell_check"]);
-    expect(board.nodes.some((node) => ["mystery", "quest", "boss"].includes(node.kind))).toBe(false);
+    expect(board.nodes.map((node) => node.id)).toEqual([
+      "start",
+      "planner_word_radar",
+      "planner_spell_check",
+      "quest",
+      "boss",
+    ]);
+    expect(board.nodes.find((node) => node.id === "quest")).toMatchObject({
+      kind: "quest",
+      state: "locked",
+      lock: { reason: "needs-baseline-evidence", label: "Finish the path first" },
+      action: { type: "show-locked-reason", payloadId: "quest" },
+    });
+    expect(board.nodes.find((node) => node.id === "boss")).toMatchObject({
+      kind: "boss",
+      state: "locked",
+      lock: { reason: "needs-quest-evidence", label: "After Quest" },
+      action: { type: "show-locked-reason", payloadId: "boss" },
+    });
+    expect(board.nodes.some((node) => node.kind === "mystery")).toBe(false);
     expect(board.choiceSets ?? []).toHaveLength(0);
     expect(board.edges.map((edge) => [edge.from, edge.to])).toEqual([
       ["start", "planner_word_radar"],
       ["planner_word_radar", "planner_spell_check"],
+      ["planner_spell_check", "quest"],
+      ["quest", "boss"],
     ]);
+  });
+
+  it("keeps Quest and Boss off the independent Probe Board", () => {
+    const board = buildAdventureBoardFromActiveSessionPlan({
+      plan: {
+        planId: "probe-board:hw-lab",
+        childId: "reina",
+        domain: "spelling",
+        nodePlan: [{
+          id: "probe-spelling",
+          type: "word-radar",
+          activityId: "word-radar",
+          targets: ["sample"],
+          locked: false,
+        }],
+      },
+      boardId: "probe-board:hw-lab",
+      theme,
+      showFinishLineDestinations: false,
+    });
+
+    expect(board.nodes.map((node) => node.id)).toEqual(["start", "probe-spelling"]);
   });
 
   it("creates a real baseline route choice when two launchable route nodes exist", () => {
