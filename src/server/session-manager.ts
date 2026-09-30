@@ -2133,6 +2133,7 @@ export class SessionManager {
   }
 
   private async handleCompanionTurn(text: string): Promise<void> {
+    if (this.activeGameNarrationRequestId || this.pendingGameNarrationPlayback) this.bargeIn();
     this.turnSM.onEndOfTurn();
     // onEndOfTurn uses setImmediate for LOADING → PROCESSING — wait for it
     await new Promise<void>((resolve) => setImmediate(resolve));

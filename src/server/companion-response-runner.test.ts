@@ -6,11 +6,16 @@ describe("companion response audio ownership", () => {
     // Human catch: Elli and the spelling word could overlap because each path
     // believed it owned the same TTS stream and browser completion signal.
     const setPendingTranscript = vi.fn();
+    const onInterrupt = vi.fn();
     const recordDebugEvent = vi.fn();
     const session = {
       activeGameNarrationRequestId: "request-1",
       pendingGameNarrationPlayback: null,
-      turnSM: { setPendingTranscript },
+      turnSM: {
+        setPendingTranscript,
+        getState: vi.fn(() => "LOADING"),
+        onInterrupt,
+      },
       recordDebugEvent,
     };
 
@@ -18,6 +23,7 @@ describe("companion response audio ownership", () => {
       deferCompanionUntilNarrationFinishes(session, "Elli, can you help me?"),
     ).toBe(true);
     expect(setPendingTranscript).toHaveBeenCalledWith("Elli, can you help me?");
+    expect(onInterrupt).toHaveBeenCalledTimes(1);
     expect(recordDebugEvent).toHaveBeenCalledWith(
       "companion",
       "deferred_for_game_narration",
@@ -30,7 +36,11 @@ describe("companion response audio ownership", () => {
     const session = {
       activeGameNarrationRequestId: null,
       pendingGameNarrationPlayback: null,
-      turnSM: { setPendingTranscript },
+      turnSM: {
+        setPendingTranscript,
+        getState: vi.fn(() => "IDLE"),
+        onInterrupt: vi.fn(),
+      },
       recordDebugEvent: vi.fn(),
     };
 

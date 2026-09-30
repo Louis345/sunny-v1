@@ -45,4 +45,38 @@ describe("child identity prompt", () => {
     });
     expect(sendText).toHaveBeenCalledWith("EYE-lah, choose the minute hand.");
   });
+
+  it("releases game narration before direct companion support speaks", async () => {
+    const bargeIn = vi.fn(function (this: Record<string, unknown>) {
+      this.activeGameNarrationRequestId = null;
+    });
+    const session = {
+      childName: "Ila",
+      sessionTtsLabel: "EYE-lah",
+      activeGameNarrationRequestId: "word-request",
+      pendingGameNarrationPlayback: null,
+      bargeIn,
+      turnSM: {
+        onEndOfTurn: vi.fn(),
+        onAgentComplete: vi.fn(),
+        onSpeakingDone: vi.fn(),
+      },
+      send: vi.fn(),
+      ttsBridge: {
+        connect: vi.fn().mockResolvedValue(undefined),
+        sendText: vi.fn(),
+        finish: vi.fn().mockResolvedValue(undefined),
+      },
+    };
+
+    await (SessionManager.prototype as any).handleCompanionTurn.call(
+      session,
+      "Let’s slow down together.",
+    );
+
+    expect(bargeIn).toHaveBeenCalledTimes(1);
+    expect(session.ttsBridge.sendText).toHaveBeenCalledWith(
+      "Let’s slow down together.",
+    );
+  });
 });

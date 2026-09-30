@@ -25,6 +25,10 @@ export function deferCompanionUntilNarrationFinishes(
   const requestId = session.activeGameNarrationRequestId
     ?? session.pendingGameNarrationPlayback?.requestId;
   if (!requestId) return false;
+  const turnState = session.turnSM.getState?.();
+  if (turnState === "LOADING" || turnState === "PROCESSING") {
+    session.turnSM.onInterrupt();
+  }
   session.turnSM.setPendingTranscript(userMessage);
   session.recordDebugEvent?.("companion", "deferred_for_game_narration", {
     requestId,
