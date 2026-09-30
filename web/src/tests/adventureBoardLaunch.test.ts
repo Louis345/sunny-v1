@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import type { ChildExperiencePacket } from "../../../src/profiles/childExperiencePacket";
 import {
+  buildPlannerBoardIframeStartMessage,
   isDirectDiscoveryPacket,
   isProbeBoardPacket,
   hasPendingLearningGeneration,
@@ -49,6 +50,30 @@ function packet(planId: string, nodes: Array<Record<string, unknown>>): ChildExp
 }
 
 describe("direct Discovery entry", () => {
+  it("starts a mystery reward iframe instead of leaving it waiting", () => {
+    // Human catch: the reward iframe rendered its waiting screen forever.
+    // The prior lab verified the frame URL but never exercised its load handshake.
+    expect(buildPlannerBoardIframeStartMessage({
+      nodeType: "mystery",
+      childName: "Learner",
+      companionName: "Elli",
+    })).toEqual({
+      type: "start",
+      childName: "Learner",
+      companionName: "Elli",
+      config: {},
+    });
+    expect(buildPlannerBoardIframeStartMessage({
+      nodeType: "generated-baseline",
+      childName: "Learner",
+      companionName: "Elli",
+    })).toBeNull();
+
+    const source = readFileSync(resolve(process.cwd(), "src/App.tsx"), "utf8");
+    expect(source).toContain("buildPlannerBoardIframeStartMessage");
+    expect(source).toContain("onLoad={handlePlannerBoardIframeLoad}");
+  });
+
   it("does not start homework voice until one exact assignment packet is validated", () => {
     const ready = packet("discovery:hw-1", [
       { id: "evaluation", type: "word-radar", title: "Show What You Know" },

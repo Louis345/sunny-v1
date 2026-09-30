@@ -13,6 +13,28 @@ import type {
 type ActiveSessionPlan = NonNullable<ChildExperiencePacket["activeSessionPlan"]>;
 type PlannerNode = ActiveSessionPlan["nodePlan"][number];
 
+export type PlannerBoardIframeStartMessage = {
+  type: "start";
+  childName: string;
+  companionName: string;
+  config: Record<string, never>;
+};
+
+/** Only legacy reward games require a parent-frame start handshake. */
+export function buildPlannerBoardIframeStartMessage(input: {
+  nodeType: string;
+  childName: string;
+  companionName: string;
+}): PlannerBoardIframeStartMessage | null {
+  if (input.nodeType !== "mystery") return null;
+  return {
+    type: "start",
+    childName: input.childName,
+    companionName: input.companionName,
+    config: {},
+  };
+}
+
 export type HomeworkVoiceSessionStart = {
   childId: string;
   homeworkId: string;

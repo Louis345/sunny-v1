@@ -62,6 +62,7 @@ import { FlowGameOverlay } from "./components/FlowGameOverlay";
 import { DIAG_WORD_RADAR_ITEMS } from "./fixtures/wordRadarDiagItems";
 import { getCompanionCareFromProfile } from "./utils/companionCareProfile";
 import {
+  buildPlannerBoardIframeStartMessage,
   buildPlannerBoardCompanionContext,
   isDirectDiscoveryPacket,
   isProbeBoardPacket,
@@ -1590,6 +1591,32 @@ function App() {
     recordPlannerBoardPostActivityAction,
   ]);
 
+  const handlePlannerBoardIframeLoad = useCallback(() => {
+    const launch = plannerBoardLaunch;
+    if (!launch?.iframeUrl) return;
+    const message = buildPlannerBoardIframeStartMessage({
+      nodeType: launch.node.type,
+      childName:
+        plannerBoardPacket?.childChart.identity.displayName ??
+        childNameFromId(adventureChildId),
+      companionName:
+        plannerBoardPacket?.childChart.companion.displayName ?? "Sunny",
+    });
+    if (!message) return;
+    const iframeWindow = adventureGameIframeRef.current?.contentWindow;
+    if (!iframeWindow) {
+      console.error(" 🎮 [AdventureBoard] [iframe-start] [missing-window]", {
+        nodeId: launch.node.id,
+      });
+      return;
+    }
+    iframeWindow.postMessage(message, "*");
+    console.log(" 🎮 [AdventureBoard] [iframe-start] [sent]", {
+      nodeId: launch.node.id,
+      nodeType: launch.node.type,
+    });
+  }, [adventureChildId, plannerBoardLaunch, plannerBoardPacket]);
+
   useEffect(() => {
     if (!plannerBoardLaunch?.iframeUrl) return;
     const launch = plannerBoardLaunch;
@@ -2457,6 +2484,7 @@ function App() {
                 ref={adventureGameIframeRef}
                 title={plannerBoardLaunch.node.type}
                 src={plannerBoardLaunch.iframeUrl}
+                onLoad={handlePlannerBoardIframeLoad}
                 style={{ width: "100%", height: "100%", border: "none", background: "transparent" }}
               />
             </div>
