@@ -178,7 +178,7 @@ describe("direct Discovery entry", () => {
     const source = readFileSync(resolve(process.cwd(), "src/App.tsx"), "utf8");
     expect(source).toContain("onAssessmentAttempt={handleSpellingDiscoveryAttempt}");
     expect(source.includes("assessmentMode={directDiscoveryMode || plannerBoardLaunch.node.spellingAssessment === true}")).toBe(true);
-    expect(source.includes("enableLocalNarrationFallback={!directDiscoveryMode && !plannerBoardLaunch.node.spellingAssessment}")).toBe(true);
+    expect(source.includes("enableLocalNarrationFallback={!directDiscoveryMode && !plannerBoardLaunch.node.spellingAssessment}")).toBe(false);
     expect(source).toContain(".flushForExit()");
   });
   it("flushes Probe Board attempts before an early return to the map", () => {

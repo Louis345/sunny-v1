@@ -2355,7 +2355,6 @@ function App() {
             wordRadarConfig={plannerBoardLaunch.node.wordRadarConfig}
             personalBests={profileWordRadar?.personalBests ?? {}}
             childId={activeProfileChildId ?? adventureChildId ?? ""}
-            enableLocalNarrationFallback={!directDiscoveryMode && !plannerBoardLaunch.node.spellingAssessment}
             onComplete={(result) => {
               if (directDiscoveryMode) {
                 void startDiscoveryAcademicCompletion().catch(error => console.error(" 🎮 [spelling-discovery] [completion] [retry-needed]", error));
