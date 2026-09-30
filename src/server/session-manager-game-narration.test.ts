@@ -202,6 +202,7 @@ describe("SessionManager game narration", () => {
       spellingAssessment: assessment,
       spellingAssessmentHistory: new Map([[assessment.itemId, assessment]]),
       debugRecorder: { recordEvent },
+      gameNarrationPlaybackTimer: setTimeout(() => {}, 15_000),
       turnSM: { onPlaybackComplete: vi.fn(), consumePendingTranscript: vi.fn() },
       flushPendingRoundComplete: vi.fn(),
       handleEndOfTurn: vi.fn(),
@@ -215,12 +216,16 @@ describe("SessionManager game narration", () => {
 
     expect(assessment.audioDelivered).toBe(false);
     expect(fakeSession.pendingGameNarrationPlayback).not.toBeNull();
+    expect(fakeSession.gameNarrationPlaybackTimer).not.toBeNull();
     expect(fakeSession.turnSM.onPlaybackComplete).not.toHaveBeenCalled();
     expect(recordEvent).toHaveBeenCalledWith(
       "game_narration",
       "playback_ack_ignored",
       expect.objectContaining({ reason: "request_identity_mismatch" }),
     );
+    if (fakeSession.gameNarrationPlaybackTimer) {
+      clearTimeout(fakeSession.gameNarrationPlaybackTimer);
+    }
   });
 
   it("does not count interrupted spelling narration as completed playback", () => {

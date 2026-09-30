@@ -1219,7 +1219,6 @@ export class SessionManager {
   }
 
   playbackDone(payload: Record<string, unknown> = {}): void {
-    gev.clearGameNarrationPlaybackTimer(this);
     if (this.pendingGameNarrationPlayback) {
       const pending = this.pendingGameNarrationPlayback;
       const expectedRequestId = String(pending.requestId ?? "");
@@ -1240,6 +1239,7 @@ export class SessionManager {
         console.log("  🎮 [game-narration] [playback-ack-ignored] reason=request_identity_mismatch");
         return;
       }
+      gev.clearGameNarrationPlaybackTimer(this);
       const audible = payload.audible !== false;
       const assessmentItemId = typeof pending.assessmentItemId === "string"
         ? pending.assessmentItemId
