@@ -90,6 +90,64 @@ describe("human-caught bug review", () => {
     expect(markdown).toContain("Why did the AI lab miss it?");
   });
 
+  it("classifies spoken spelling that disappears after successful word playback", () => {
+    const projectRoot = root();
+    const sessionDir = path.join(projectRoot, "logs", "sessions", "voice-handoff-fixture");
+    fs.mkdirSync(sessionDir, { recursive: true });
+    fs.writeFileSync(path.join(sessionDir, "transcript.md"), "", "utf8");
+    fs.writeFileSync(
+      path.join(sessionDir, "events.ndjson"),
+      [
+        JSON.stringify({
+          ts: "2026-09-30T20:40:00.000Z",
+          type: "narration_request",
+          game: "word-radar",
+          word: "indicate",
+          itemId: "word-3",
+        }),
+        JSON.stringify({
+          ts: "2026-09-30T20:40:01.000Z",
+          component: "game_narration",
+          action: "playback_done",
+          activityId: "word-radar",
+          itemId: "word-3",
+        }),
+        JSON.stringify({
+          ts: "2026-09-30T20:40:01.100Z",
+          component: "speech_connection",
+          action: "reconnecting",
+        }),
+        JSON.stringify({
+          ts: "2026-09-30T20:40:02.000Z",
+          component: "speech_connection",
+          action: "connected",
+        }),
+      ].join("\n") + "\n",
+      "utf8",
+    );
+    fs.writeFileSync(path.join(sessionDir, "game-traces.ndjson"), "", "utf8");
+
+    const review = buildHumanCaughtBugReview({
+      rootDir: projectRoot,
+      sessionDir,
+      bug: "She heard indicate, spelled it out loud, and no letters registered, so she could not finish the board.",
+      generatedAt: "2026-09-30T20:45:00.000Z",
+    });
+
+    expect(review.sessionEvidence).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: "word_radar_spoken_response_missing_after_playback",
+          severity: "high",
+        }),
+      ]),
+    );
+    expect(review.labMissCause).toEqual(
+      expect.arrayContaining(["log_signal_missing", "lab_assertion_missing"]),
+    );
+    expect(review.missingAssertion).toContain("child-response capture proof");
+  });
+
   it("writes the miss-review artifact set under the sandbox", () => {
     const projectRoot = root();
     const sessionDir = writeSessionFixture(projectRoot);
@@ -163,5 +221,6 @@ describe("human-caught bug review", () => {
     expect(codes).toContain("board_companion_preserves_route_visibility");
     expect(codes).toContain("missing_node_art_has_a_stable_fallback");
     expect(codes).toContain("progressive_generation_starts_ready_work_concurrently");
+    expect(codes).toContain("word_radar_spoken_response_requires_capture_proof");
   });
 });

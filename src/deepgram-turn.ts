@@ -26,6 +26,8 @@ export const FLUX_LISTEN_OPTIONS = {
   eot_timeout_ms: 5000,
 } as const;
 
+const MAX_RECONNECT_AUDIO_CHUNKS = 40;
+
 export async function connectFlux(callbacks: FluxCallbacks): Promise<FluxHandle> {
   const apiKey = process.env.DEEPGRAM_API_KEY;
   if (!apiKey) throw new Error("DEEPGRAM_API_KEY not set in .env");
@@ -37,8 +39,21 @@ export async function connectFlux(callbacks: FluxCallbacks): Promise<FluxHandle>
     Authorization: `Token ${apiKey}`,
   });
 
+  const reconnectAudio: Buffer[] = [];
+  let reconnectBufferingLogged = false;
+  let reconnectOverflowLogged = false;
+
   socket.on("open", () => {
     callbacks.onOpen();
+    const buffered = reconnectAudio.splice(0, MAX_RECONNECT_AUDIO_CHUNKS);
+    buffered.forEach((chunk) => socket.sendMedia(chunk));
+    if (buffered.length > 0) {
+      console.log(
+        ` 🎮 [speech-transport] [reconnect-audio] [flushed] chunks=${buffered.length}`,
+      );
+    }
+    reconnectBufferingLogged = false;
+    reconnectOverflowLogged = false;
   });
 
   socket.on("message", (msg) => {
@@ -80,9 +95,23 @@ export async function connectFlux(callbacks: FluxCallbacks): Promise<FluxHandle>
     sendAudio(chunk: Buffer) {
       if (socket.readyState === 1) {
         socket.sendMedia(chunk);
+        return;
+      }
+      if (reconnectAudio.length < MAX_RECONNECT_AUDIO_CHUNKS) {
+        reconnectAudio.push(Buffer.from(chunk));
+        if (!reconnectBufferingLogged) {
+          reconnectBufferingLogged = true;
+          console.log(" 🎮 [speech-transport] [reconnect-audio] [buffering]");
+        }
+      } else if (!reconnectOverflowLogged) {
+        reconnectOverflowLogged = true;
+        console.error(
+          ` 🎮 [speech-transport] [reconnect-audio] [overflow] chunks=${reconnectAudio.length}`,
+        );
       }
     },
     close() {
+      reconnectAudio.length = 0;
       socket.close();
     },
   };

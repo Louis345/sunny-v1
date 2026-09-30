@@ -113,6 +113,14 @@ export const SEEDED_HUMAN_BUG_INVARIANTS: LabInvariant[] = [
       "Word Radar response state with a visible mic automatically or explicitly emits narration_request for the current target.",
   },
   {
+    code: "word_radar_spoken_response_requires_capture_proof",
+    source: "human_caught_bug",
+    invariant:
+      "After a Word Radar target is audibly played, the child's spoken response must produce capture or attempt proof; speech received while recognition reconnects must be buffered rather than silently discarded.",
+    suggestedFailingTest:
+      "Spoken letters captured while Flux reconnects after target playback are delivered exactly once when it reopens, and a session with playback but no response proof is blocked by review.",
+  },
+  {
     code: "word_radar_hidden_scaffold_not_fillable_boxes",
     source: "human_caught_bug",
     invariant:
@@ -315,6 +323,26 @@ function eventHasWordRadarNarrationRequest(row: Record<string, unknown>): boolea
   return isNarration && joined.includes("word-radar");
 }
 
+function eventHasWordRadarPlaybackProof(row: Record<string, unknown>): boolean {
+  const joined = JSON.stringify(row).toLowerCase();
+  return joined.includes("word-radar") && joined.includes("playback_done");
+}
+
+function eventHasChildResponseProof(row: Record<string, unknown>): boolean {
+  const type = String(row.type ?? row.action ?? "").toLowerCase();
+  return [
+    "interim",
+    "final",
+    "heard",
+    "attempt",
+    "attempt_event",
+    "item_attempt",
+    "target_result",
+    "node_complete",
+    "game_complete",
+  ].some((candidate) => type.includes(candidate));
+}
+
 function wordRadarCompletionPercent(traces: Record<string, unknown>[]): number | null {
   const row = traces
     .filter((candidate) => String(candidate.game ?? candidate.activityId ?? "").toLowerCase() === "word-radar")
@@ -391,6 +419,31 @@ export function buildHumanCaughtBugReview(
     missCauses.add("lab_assertion_missing");
   }
 
+  const humanReportedMissingSpokenResponse =
+    includesAny(lowerBug, [/spoke|spoken|speaking|said|spell(?:ed|ing)?(?: it)? out loud/]) &&
+    includesAny(lowerBug, [/did not register|didn'?t register|nothing registered|no letters registered|could not (?:finish|advance|get through)|would not register/]);
+  const wordRadarPlaybackSeen = [...events, ...traces].some(eventHasWordRadarPlaybackProof);
+  const childResponseProofSeen = [...events, ...traces].some(eventHasChildResponseProof);
+  if (
+    humanReportedMissingSpokenResponse &&
+    wordRadarNarrationRequestSeen &&
+    wordRadarPlaybackSeen &&
+    !childResponseProofSeen
+  ) {
+    evidence.push({
+      code: "word_radar_spoken_response_missing_after_playback",
+      severity: "high",
+      source: "session_logs",
+      evidence:
+        "Word Radar played the target, but the session contains no transcript, heard event, attempt, or completion proof for the child's reported spoken response.",
+    });
+    logEvidence.push(
+      "Logs proved target playback but had no child-response capture proof; the speech handoff failed silently.",
+    );
+    missCauses.add("log_signal_missing");
+    missCauses.add("lab_assertion_missing");
+  }
+
   if (includesAny(lowerBug, [/box|boxes|fill|blank|empty/])) {
     evidence.push({
       code: "word_radar_fillable_box_affordance_unchecked",
@@ -440,13 +493,13 @@ export function buildHumanCaughtBugReview(
     logEvidence,
     labMissCause: [...missCauses],
     labGap:
-      "The lab checked runtime contracts, but did not fully assert child-perception affordances or compare companion claims against authoritative activity evidence.",
+      "The lab checked runtime contracts, but did not fully assert child-perception affordances, the real playback-to-speech handoff, or companion claims against authoritative activity evidence.",
     missingAssertion:
-      "A visible mic/hear control must prove audio happened, hidden recall scaffolds must not look like fillable boxes unless they fill, and companion praise must match game evidence.",
+      "A visible mic/hear control must prove audio happened, target playback must lead to child-response capture proof, hidden recall scaffolds must not look like fillable boxes unless they fill, and companion praise must match game evidence.",
     proposedInvariant:
       "Add product invariant coverage so human-caught child-session bugs become reusable lab assertions instead of one-off fixes.",
     suggestedFailingTest:
-      "Word Radar hidden/visual recall must emit audio proof, label hidden scaffolds as non-fillable length hints, and block perfect companion summaries when evidence is below perfect.",
+      "Word Radar hidden/visual recall must emit audio proof, preserve speech across recognition reconnects, require child-response capture proof, label hidden scaffolds as non-fillable length hints, and block perfect companion summaries when evidence is below perfect.",
     suggestedOrganicFixCategory:
       "Domain-neutral lab invariant and activity contract coverage, not a child-specific or word-specific branch.",
     humanApprovalRequired: true,
