@@ -96,6 +96,12 @@ type SavedVisualVerdict = Partial<ChildFacingVisualVerdict> & {
   screenshotHashes: string[];
   status?: VisualReviewStatus;
   rawResponse?: unknown;
+  supersededRawResponses?: Array<{
+    recordedAt: string;
+    reason: "invalid_verdict";
+    rawResponse: unknown;
+    providerUsage?: ProviderUsage;
+  }>;
   attempts?: VisualReviewAttempt[];
   providerUsage?: ProviderUsage;
   error?: string;
@@ -269,10 +275,26 @@ export async function judgeChildFacingScreens(input: {
         return verdict;
       }
       if (status === "received_raw") {
-        const verdict = parseProviderVerdict(provider, saved.rawResponse, citeScreens);
-        atomicJson(input.auditFile, { ...saved, status: "received", ...verdict });
-        console.log(` 🎮 [visual-judge] [verdict] [recovered] decision=${verdict.decision}`);
-        return verdict;
+        try {
+          const verdict = parseProviderVerdict(provider, saved.rawResponse, citeScreens);
+          atomicJson(input.auditFile, { ...saved, status: "received", ...verdict });
+          console.log(` 🎮 [visual-judge] [verdict] [recovered] decision=${verdict.decision}`);
+          return verdict;
+        } catch (error) {
+          if (!input.retryUncertain) throw error;
+          saved = {
+            ...saved,
+            supersededRawResponses: [
+              ...(saved.supersededRawResponses ?? []),
+              {
+                recordedAt: new Date().toISOString(),
+                reason: "invalid_verdict",
+                rawResponse: saved.rawResponse,
+                ...(saved.providerUsage ? { providerUsage: saved.providerUsage } : {}),
+              },
+            ],
+          };
+        }
       }
       if (!input.retryUncertain && status) {
         throw new Error(`child_visual_review_${status}:${input.auditFile}${saved.error ? `:${saved.error}` : ""}`);
@@ -308,6 +330,9 @@ export async function judgeChildFacingScreens(input: {
     screenshotHashes,
     status: "in_flight",
     attempts,
+    ...(saved?.supersededRawResponses
+      ? { supersededRawResponses: saved.supersededRawResponses }
+      : {}),
   } satisfies SavedVisualVerdict);
 
   let rawResponse: unknown;
@@ -416,6 +441,9 @@ export async function judgeChildFacingScreens(input: {
     rawResponse,
     ...(usage ? { providerUsage: usage } : {}),
     attempts,
+    ...(saved?.supersededRawResponses
+      ? { supersededRawResponses: saved.supersededRawResponses }
+      : {}),
   } satisfies SavedVisualVerdict);
   const verdict = parseProviderVerdict(provider, rawResponse, citeScreens);
   if (input.auditFile) atomicJson(input.auditFile, {
@@ -427,6 +455,9 @@ export async function judgeChildFacingScreens(input: {
     status: "received",
     attempts: attempts.map((attempt, index) => index === attempts.length - 1 ? { ...attempt, status: "received" } : attempt),
     ...(usage ? { providerUsage: usage } : {}),
+    ...(saved?.supersededRawResponses
+      ? { supersededRawResponses: saved.supersededRawResponses }
+      : {}),
     ...verdict,
   } satisfies SavedVisualVerdict);
   console.log(` 🎮 [visual-judge] [verdict] [${verdict.decision}] observations=${verdict.observations.length}`);

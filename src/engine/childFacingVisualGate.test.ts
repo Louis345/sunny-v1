@@ -291,6 +291,37 @@ it("does not discard a paid raw response when screenshot bytes change", async ()
   expect(fetchMock).toHaveBeenCalledTimes(1);
 });
 
+it("requires an explicit retry before replacing an incomplete raw verdict", async () => {
+  const { screenshot, audit } = fixture();
+  vi.stubEnv("OPENAI_API_KEY", "openai-test-key");
+  let calls = 0;
+  const fetchMock = vi.fn(async () => {
+    calls += 1;
+    return new Response(JSON.stringify(calls === 1
+      ? { status: "completed", output_text: "not valid JSON" }
+      : { status: "completed", output_text: JSON.stringify({ decision: "approve", observations: [] }) }), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    });
+  });
+  vi.stubGlobal("fetch", fetchMock);
+
+  await expect(judgeChildFacingScreens({ screenshotPaths: [screenshot], auditFile: audit, model: "gpt-5.6" }))
+    .rejects.toThrow();
+  await expect(judgeChildFacingScreens({
+    screenshotPaths: [screenshot],
+    auditFile: audit,
+    model: "gpt-5.6",
+    retryUncertain: true,
+  })).resolves.toEqual({ decision: "approve", observations: [] });
+  expect(fetchMock).toHaveBeenCalledTimes(2);
+  expect(JSON.parse(fs.readFileSync(audit, "utf8"))).toMatchObject({
+    status: "received",
+    decision: "approve",
+    supersededRawResponses: [{ reason: "invalid_verdict" }],
+  });
+});
+
 it("keeps transition and unconfirmed screens in legacy filename selection so targeted reviews lose no states", () => {
   expect(selectChildFacingJourneyScreens([
     "/tmp/node-sunny-transition-to-01-one.png",
