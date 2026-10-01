@@ -53,13 +53,13 @@ async function assertUsable(control: Locator): Promise<void> {
 
 async function launch(
   viewport: { width: number; height: number },
-  options: { configAvailable?: boolean } = {},
+  options: { configAvailable?: boolean; preview?: "false" | "true" } = {},
 ) {
   const server = http.createServer((request, response) => {
     const url = new URL(request.url!, "http://127.0.0.1");
     if (url.pathname === "/") {
       response.setHeader("Content-Type", "text/html");
-      response.end(`<!doctype html><html><body style="margin:0"><script>window.captured=[];addEventListener('message',event=>{if(event.source===document.querySelector('iframe').contentWindow)window.captured.push(event.data)});</script><iframe title="Visual Explainer" src="/games/spelling-visual-explainer.html?childId=lab-child&nodeId=visual-light&sessionId=visual-proof&companion=elli&companionName=Elli&preview=false&chrome=child&config=%2Fconfig.json" style="position:fixed;inset:0;width:100%;height:100%;border:0"></iframe></body></html>`);
+      response.end(`<!doctype html><html><body style="margin:0"><script>window.captured=[];addEventListener('message',event=>{if(event.source===document.querySelector('iframe').contentWindow)window.captured.push(event.data)});</script><iframe title="Visual Explainer" src="/games/spelling-visual-explainer.html?childId=lab-child&nodeId=visual-light&sessionId=visual-proof&companion=elli&companionName=Elli&preview=${options.preview ?? "false"}&chrome=child&config=%2Fconfig.json" style="position:fixed;inset:0;width:100%;height:100%;border:0"></iframe></body></html>`);
       return;
     }
     if (url.pathname === "/config.json") {
@@ -88,9 +88,10 @@ async function launch(
   page.on("pageerror", (error) => errors.push(error.message));
   await page.goto(`http://127.0.0.1:${address.port}`);
   const frame = page.frameLocator("iframe");
-  if (options.configAvailable !== false) {
+  if (options.configAvailable !== false || options.preview === "true") {
     await frame.getByRole("button", { name: "Show me" }).waitFor();
-    await expect.poll(() => frame.locator('[data-item-id="frozen-light"] .chunk').count()).toBe(2);
+    const expectedItemId = options.configAvailable === false ? "fallback" : "frozen-light";
+    await expect.poll(() => frame.locator(`[data-item-id="${expectedItemId}"] .chunk`).count()).toBe(2);
   }
   return { page, frame, errors };
 }
@@ -141,9 +142,22 @@ describe.each(viewports)("spelling Visual Explainer at $width×$height", (viewpo
     expect(await frame.getByRole("alert").textContent()).toContain("This activity needs a quick reset");
     await assertUsable(frame.getByRole("alert").getByRole("button", { name: "Back to map" }));
     expect(await frame.locator('[data-item-id="fallback"]').count()).toBe(0);
+    await frame.getByRole("alert").getByRole("button", { name: "Back to map" }).click();
+    await expect.poll(async () => (await page.evaluate<Array<Record<string, any>>>("window.captured")).map(message => message.type)).toContain("map_back");
     const captured = await page.evaluate<Array<Record<string, any>>>("window.captured");
     expect(captured.map((message) => message.type)).not.toContain("node_complete");
     expect(captured.map((message) => message.type)).not.toContain("attempt_event");
+    expect(errors).toEqual([]);
+  });
+
+  it("allows the embedded demonstration only in a non-writing preview", async () => {
+    const { page, frame, errors } = await launch(viewport, { configAvailable: false, preview: "true" });
+    await assertUsable(frame.getByRole("button", { name: "Show me" }));
+    expect(await frame.locator('[data-item-id="fallback"]').count()).toBe(1);
+    expect(await frame.getByRole("alert").count()).toBe(0);
+    const captured = await page.evaluate<Array<Record<string, any>>>("window.captured");
+    expect(captured.map(message => message.type)).not.toContain("node_complete");
+    expect(captured.map(message => message.type)).not.toContain("attempt_event");
     expect(errors).toEqual([]);
   });
 });
