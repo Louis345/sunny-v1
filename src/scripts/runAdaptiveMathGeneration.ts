@@ -42,7 +42,8 @@ import {
 } from "../engine/discoveryVisualReview";
 import { thumbnailUrlForActivity } from "../shared/activityPresentation";
 import { buildAdventureBoardFromActiveSessionPlan } from "../shared/adventureBoardFromPlan";
-import type { ActiveSessionPlan } from "../context/schemas/learningProfile";
+import type { ActiveSessionPlan, LearningAlgorithmTarget } from "../context/schemas/learningProfile";
+import { validateVisualLearnerArtifactConfig } from "../shared/visualLearnerArtifactConfig";
 import {
   CHILD_FACING_VISUAL_GATE_VERSION,
   judgeChildFacingScreens,
@@ -1072,7 +1073,9 @@ async function runSpellingTargetedGeneration(childId: string, homeworkId: string
         contentId: node.artifactBinding!.contentId, childId, homeworkId, domain: "spelling", type: "game" as const,
         source: node.implementationType === "generated-baseline" ? "generated" as const : "baseline" as const,
         theoryDecisionId: node.theoryId, title: node.title, activityId: node.mechanic, gameHtmlPath: node.artifactBinding!.localArtifactPath,
-        algorithmTargets: ["retrieval-practice" as const], targetSkills: [node.academicTarget.skill], targetConcepts: [], targetWords: node.academicTarget.targets, engagementHooks: [],
+        algorithmTargets: (node.implementationType === "visual-explainer"
+          ? validateVisualLearnerArtifactConfig(node.evidenceContract.nativeConfig).algorithmTargets
+          : ["retrieval-practice"]) as LearningAlgorithmTarget[], targetSkills: [node.academicTarget.skill], targetConcepts: [], targetWords: node.academicTarget.targets, engagementHooks: [],
         inputEvidence: { contentFingerprint: currentCycle.assignment.contentFingerprint, activityEvidenceIds: [...new Set(Object.values(node.evidenceContract.spellingItems ?? {}).flatMap(item => item.lineage.sourceEvidenceIds))] },
         reuseStatus: "candidate" as const, reuseReason: "Planner-selected instrument; subsequent outcomes are needed before reuse decisions.",
       }));

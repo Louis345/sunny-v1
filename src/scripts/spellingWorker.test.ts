@@ -105,6 +105,10 @@ describe("spelling in the production generation worker", () => {
     const catalog = getChildChart(childId, { rootDir }).contentCatalog.items;
     expect(catalog.filter(item => item.homeworkId === homeworkId)).toHaveLength(2);
     expect(catalog.every(item => item.reuseStatus === "candidate" && item.domain === "spelling" && item.inputEvidence.activityEvidenceIds?.includes("observed-1"))).toBe(true);
+    if (scenario === "visual") {
+      expect(catalog.find(item => item.activityId === "visual-explainer")?.algorithmTargets)
+        .toEqual(expect.arrayContaining(["error-pattern-remediation", "retrieval-practice"]));
+    }
     expect(getMathGenerationStatus(childId, homeworkId, { rootDir })?.nodes.every(node => node.status === "ready")).toBe(true);
     const projected = JSON.parse(fs.readFileSync(path.join(child, "plans/active_session_plan.json"), "utf8"));
     expect(projected.selectedDomain).toBe("spelling");
