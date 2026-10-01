@@ -110,10 +110,18 @@ describe.each(viewports)("spelling Visual Explainer at $width×$height", (viewpo
     await page.screenshot({ path: path.join(proofDir, `completion-${viewport.width}x${viewport.height}.png`) });
     const captured = await page.evaluate<Array<Record<string, any>>>("window.captured");
     expect(captured.map((message) => message.type)).toContain("node_complete");
-    const attempt = captured.find((message) => message.type === "attempt_event")?.payload;
-    expect(attempt).toMatchObject({ target: "frozen-light", correct: true, masteryEligible: false });
+    expect(captured.find((message) => message.type === "attempt_event")).toBeUndefined();
     const completion = captured.find((message) => message.type === "node_complete");
-    expect(completion).toMatchObject({ completed: true, targetResults: [{ target: "frozen-light", masteryEligible: false }] });
+    expect(completion).toMatchObject({
+      completed: true,
+      targetResults: [{
+        target: "frozen-light",
+        evidenceRole: "assisted_instruction",
+        masteryEligible: false,
+      }],
+    });
+    expect(completion.targetResults[0]).not.toHaveProperty("attemptedValue");
+    expect(completion.targetResults[0]).not.toHaveProperty("correct");
     expect(errors).toEqual([]);
   });
 });

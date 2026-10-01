@@ -86,6 +86,56 @@ function fixture() {
  * never a completed spelling checkpoint replayed through practice completion.
  */
 describe("spelling checkpoint replay evidence", () => {
+  it("records a Visual Explainer result as assisted exposure, never a wrong whole-word recall", () => {
+    const identity = { childId: "lab-child", homeworkId: "hw-visual-exposure" };
+    const items = buildSpellingRecallItems({
+      homeworkId: identity.homeworkId,
+      words: ["light"],
+      evidenceIds: ["source:lab"],
+      measurementRole: "practice",
+      exposure: "taught",
+      occasionId: "visual",
+    });
+    const item = items[0];
+    const visualNode: LearningCycleNodeContract = {
+      nodeId: "visual", role: "baseline", state: "ready", implementationType: "visual-explainer", title: "See the chunk",
+      academicTarget: { domain: "spelling", skill: "orthographic strategy", targets: [item.word] },
+      algorithmOwner: "error-pattern-remediation", theoryId: "theory", experimentId: "visual",
+      mechanic: "visual-explainer", theme: "lab", openingScreen: { title: "See the chunk", purpose: "Assisted instruction" },
+      generationPrompt: null, artifactBinding: null, artwork: { status: "pending", localPath: null, prompt: null },
+      sfxContract: [], companionContract: { events: [] }, evidenceIds: [],
+      evidenceContract: {
+        academic: true, engagement: true, companionObservations: true,
+        spellingItems: { [item.id]: item }, itemRoles: { [item.id]: "practice" },
+      },
+    };
+    createLearningCycle({
+      ...identity, domain: "spelling",
+      assignment: { title: "Lab spelling", contentFingerprint: "lab", capturedEvidenceIds: ["source:lab"], targets: [item.word] },
+      academicTheory: { theoryId: "theory", revision: 1, hypothesis: "Modeling may support later recall", supportCriteria: [], reviseCriteria: [], falsifyCriteria: [] },
+      engagementTheory: null, nodes: [visualNode],
+    }, { rootDir, now: new Date("2026-09-08T12:00:00Z") });
+
+    const completed = recordCanonicalNodeCompletion({
+      ...identity, nodeId: visualNode.nodeId, sessionId: "visual-session",
+      result: {
+        completed: true, accuracy: 1, timeSpent_ms: 100,
+        targetResults: [{ target: item.id, evidenceRole: "assisted_instruction", masteryEligible: false }],
+      } as never,
+    }, { rootDir, now: new Date("2026-09-08T12:01:00Z") })!;
+
+    expect(completed.observations).toHaveLength(1);
+    expect(completed.observations[0]).toMatchObject({
+      itemId: item.id,
+      provenance: "practice",
+      exposure: "previously_practiced",
+      assistance: { status: "assisted" },
+      result: { observedErrorType: "assisted_instruction" },
+    });
+    expect(completed.observations[0].result.correct).toBeUndefined();
+    expect(completed.observations[0].childResponse).toBeUndefined();
+  });
+
   it("reuses committed recall capture for initial completion/resume only, idempotently", () => {
     const { completion, current } = fixture();
     const captured = current().observations;

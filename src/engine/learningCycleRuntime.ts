@@ -34,6 +34,7 @@ export type CanonicalCompletionResult = {
     attemptedValue?: string;
     responseTime_ms?: number;
     scaffoldLevel?: number;
+    evidenceRole?: "assisted_instruction";
   }>;
   frustrationSignals?: string[];
   replay?: boolean;
@@ -260,11 +261,20 @@ function observationsForCompletion(input: {
   return rows.map((row, index) => {
     const item = node.evidenceContract.itemContracts?.[row.target];
     const measurementRole = item?.lineage.measurementRole ?? itemRoles?.[row.target] ?? "practice";
-    const scaffolded = Number(row.scaffoldLevel ?? 0) > 0 || companionHelp;
+    const assistedInstruction = row.evidenceRole === "assisted_instruction";
+    const scaffolded = assistedInstruction || Number(row.scaffoldLevel ?? 0) > 0 || companionHelp;
     const repeatedAssessmentItem = node.state === "completed" || previouslyExposedItemIds.has(row.target);
     const spellingItem = spellingItems?.[row.target];
-    const responseNotCaptured = isUncapturedResponse(row.attemptedValue, input.cycle.domain === "math" || Boolean(spellingItems));
-    const result = responseNotCaptured ? { observedErrorType: "response_not_captured" } : spellingItems ? scoreSpellingRecall(spellingItem, row.attemptedValue!) : input.cycle.domain === "math" ? scoreMathResponse(item, row.attemptedValue!) : { correct: row.correct, score: row.correct ? 1 : 0 };
+    const responseNotCaptured = !assistedInstruction && isUncapturedResponse(row.attemptedValue, input.cycle.domain === "math" || Boolean(spellingItems));
+    const result = assistedInstruction
+      ? { observedErrorType: "assisted_instruction" }
+      : responseNotCaptured
+        ? { observedErrorType: "response_not_captured" }
+        : spellingItems
+          ? scoreSpellingRecall(spellingItem, row.attemptedValue!)
+          : input.cycle.domain === "math"
+            ? scoreMathResponse(item, row.attemptedValue!)
+            : { correct: row.correct, score: row.correct ? 1 : 0 };
     const eligibleFreshCheckpoint = !spellingItems && (input.cycle.domain === "math" ? item?.lineage.exposure === "unseen" && typeof result.correct === "boolean" : true) && (item || itemRoles
       ? measurementRole === "fresh_checkpoint"
       : node.role !== "baseline")
@@ -275,7 +285,7 @@ function observationsForCompletion(input: {
       observationId: `${input.sessionId}:${input.nodeId}:observation:${index + 1}`,
       sourceId: `activity:${input.sessionId}:${input.nodeId}`,
       itemId: row.target || `${input.nodeId}:item:${index + 1}`,
-      ...(row.attemptedValue ? { childResponse: row.attemptedValue } : {}),
+      ...(!assistedInstruction && row.attemptedValue ? { childResponse: row.attemptedValue } : {}),
       constructLinks: [{ constructId: spellingItem?.constructId ?? constructId, role: "primary", confidence: 1 }],
       result,
       assistance: {

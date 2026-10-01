@@ -573,7 +573,7 @@
         targetConcept: q.targetConcept,
         misconception: targetResult.misconception,
       });
-      if (typeof window.fireAttemptEvent === "function") {
+      if (!artifactConfig.spellingModel && typeof window.fireAttemptEvent === "function") {
         window.fireAttemptEvent(targetResult);
       }
       if (window.GameBridge && typeof window.GameBridge.fireEvent === "function") {
@@ -592,12 +592,23 @@
       var accuracy;
       var completion;
       var nodeCompletion;
+      var canonicalTargetResults;
       if (state.completed) return;
       state.completed = true;
       correctCount = state.targetResults.filter(function (row) {
         return row.correct === true;
       }).length;
       accuracy = state.targetResults.length ? correctCount / state.targetResults.length : 1;
+      canonicalTargetResults = artifactConfig.spellingModel && artifactConfig.evidence && Array.isArray(artifactConfig.evidence.targetResults)
+        ? artifactConfig.evidence.targetResults.map(function (target) {
+            return {
+              target: target,
+              evidenceRole: "assisted_instruction",
+              scaffoldLevel: 2,
+              masteryEligible: false,
+            };
+          })
+        : state.targetResults;
       completion = {
         type: "activity_complete",
         activityId: artifactConfig.artifactId,
@@ -608,7 +619,7 @@
         timeSpent_ms: Date.now() - sessionStartedAt,
         wordsAttempted: state.targetResults.length,
         flaggedWords: [],
-        targetResults: state.targetResults,
+        targetResults: canonicalTargetResults,
         activityEvents: state.activityEvents,
       };
       emitEvidence("activity_complete", "Visual learner artifact complete.", completion);
@@ -616,7 +627,7 @@
       reportCompanionAnchor("activity_complete", {
         correct: accuracy >= 1,
         accuracy: accuracy,
-        targetResults: state.targetResults,
+        targetResults: canonicalTargetResults,
       });
       if (typeof window.sendNodeComplete === "function") {
         nodeCompletion = Object.assign({}, completion);
