@@ -81,6 +81,8 @@ describe("visual learner generated HTML artifact", () => {
     expect(shell).toContain("GameBridge.reportAction");
     expect(shell).toContain("activity_target_result");
     expect(shell).toContain("activity_complete");
+    expect(shell).toContain("masteryEligible: false");
+    expect(shell).not.toContain("masteryEligible: true");
     expect(shell).toContain("question-active");
     expect(shell).not.toContain("Centimeters vs Inches");
     expect(shell).not.toContain("same pencil");
@@ -229,4 +231,5 @@ describe("visual learner launch routing", () => {
     expect(playthroughAction.url).toContain("chrome=parent");
     expect(playthroughAction.url).toContain("visualLearnerFlow=playthrough");
   });
+
 });

@@ -561,7 +561,7 @@
         scaffoldLevel: q.scaffoldLevel,
         misconception: correct ? null : option.misconceptionTag || q.misconceptionTag || null,
         mode: "visual-explainer",
-        masteryEligible: true,
+        masteryEligible: false,
       };
       state.targetResults = [targetResult];
       emitEvidence("activity_target_result", "Prediction recorded: " + option.label + ".", targetResult);
