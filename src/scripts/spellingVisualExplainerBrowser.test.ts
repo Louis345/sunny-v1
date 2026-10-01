@@ -129,8 +129,9 @@ describe.each(viewports)("spelling Visual Explainer at $width×$height", (viewpo
         masteryEligible: false,
       }],
     });
-    expect(completion.targetResults[0]).not.toHaveProperty("attemptedValue");
-    expect(completion.targetResults[0]).not.toHaveProperty("correct");
+    expect(completion).toBeDefined();
+    expect(completion!.targetResults[0]).not.toHaveProperty("attemptedValue");
+    expect(completion!.targetResults[0]).not.toHaveProperty("correct");
     expect(errors).toEqual([]);
   });
 
