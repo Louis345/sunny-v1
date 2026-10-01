@@ -1196,6 +1196,10 @@ async function runSpellingTargetedGeneration(childId: string, homeworkId: string
     project();
     await buildTargetedNodesResumably({ ...scope, firstNodeId: active.nodePlan[0]?.id ?? "", concurrency: 2, buildNode, onNodeReady: project });
     project();
+    const verifiedJob = getMathGenerationStatus(childId, homeworkId, { rootDir });
+    if (verifiedJob?.nodes.every((candidate) => ["ready", "completed", "evidence_locked"].includes(candidate.status))) {
+      setMathGenerationPhase({ ...scope, phase: "board_ready" });
+    }
     // Reconnect the existing best-effort illustration stage after playable
     // content is published. Keep artwork outside frozen academic/provider data.
     process.env.SUNNY_IMAGE_GENERATION_MAX_PER_RUN ||= "8";
