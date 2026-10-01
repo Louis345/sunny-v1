@@ -1028,47 +1028,64 @@ export function WordRadar({
       <div
         style={{
           position: "absolute",
-          top: 20,
+          top: 14,
           left: 0,
           right: 0,
           display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
           justifyContent: "center",
-          gap: 8,
+          gap: 4,
           zIndex: 5,
         }}
       >
-        {items.map((item, i) => {
-          const tone = hook.dotOutcomes[i] ?? "pending";
-          const isBonus = isBonusRadarItem(item);
-          const bg =
-            isBonus && tone === "pending"
-              ? "linear-gradient(135deg,#facc15,#fb923c)"
-              : tone === "known"
-              ? "#22c55e"
-              : tone === "weak"
-                ? "#eab308"
-                : tone === "unknown"
-                  ? "#ef4444"
-                  : "rgba(255,255,255,0.25)";
-          return (
-            <span
-              key={i}
-              data-testid="word-radar-progress-dot"
-              data-word-role={isBonus ? "bonus" : "homework"}
-              aria-label={isBonus ? `Bonus word ${i + 1}` : `Homework word ${i + 1}`}
-              style={{
-                width: isBonus ? 13 : 10,
-                height: isBonus ? 13 : 10,
-                borderRadius: "50%",
-                background: bg,
-                border: isBonus
-                  ? "2px solid rgba(254,240,138,0.95)"
-                  : "1px solid rgba(255,255,255,0.2)",
-                boxShadow: isBonus ? "0 0 14px rgba(250,204,21,0.72)" : undefined,
-              }}
-            />
-          );
-        })}
+        <div data-testid="word-radar-progress-label" style={{ color: "rgba(248,250,252,0.9)", fontSize: 12, fontWeight: 800 }}>
+          Word {Math.min(hook.itemIndex + 1, items.length)} of {items.length}
+        </div>
+        <div style={{ display: "flex", justifyContent: "center", gap: 8 }}>
+          {items.map((item, i) => {
+            const tone = hook.dotOutcomes[i] ?? "pending";
+            const isBonus = isBonusRadarItem(item);
+            const isCurrent = i === hook.itemIndex;
+            const bg =
+              isBonus && tone === "pending"
+                ? "linear-gradient(135deg,#facc15,#fb923c)"
+                : tone === "known"
+                ? "#22c55e"
+                : tone === "weak"
+                  ? "#eab308"
+                  : tone === "unknown"
+                    ? "#ef4444"
+                    : "rgba(255,255,255,0.25)";
+            return (
+              <span
+                key={i}
+                data-testid="word-radar-progress-dot"
+                data-word-role={isBonus ? "bonus" : "homework"}
+                data-current={isCurrent ? "true" : "false"}
+                aria-current={isCurrent ? "step" : undefined}
+                aria-label={isBonus ? `Bonus word ${i + 1}` : `Homework word ${i + 1}`}
+                style={{
+                  width: isBonus ? 13 : 10,
+                  height: isBonus ? 13 : 10,
+                  borderRadius: "50%",
+                  background: bg,
+                  border: isCurrent
+                    ? "2px solid rgba(255,255,255,0.95)"
+                    : isBonus
+                      ? "2px solid rgba(254,240,138,0.95)"
+                      : "1px solid rgba(255,255,255,0.2)",
+                  boxShadow: isCurrent
+                    ? "0 0 12px rgba(255,255,255,0.72)"
+                    : isBonus
+                      ? "0 0 14px rgba(250,204,21,0.72)"
+                      : undefined,
+                  transform: isCurrent ? "scale(1.15)" : undefined,
+                }}
+              />
+            );
+          })}
+        </div>
       </div>
 
       {showPb && typeof pbMs === "number" ? (
@@ -1386,20 +1403,24 @@ export function WordRadar({
                   style={{
                     appearance: "none",
                     border: "1px solid rgba(167,139,250,0.4)",
-                    borderRadius: 999,
+                    borderRadius: 18,
                     background: "rgba(15,23,42,0.58)",
                     color: "#f8fafc",
-                    padding: 12,
+                    padding: "10px 14px",
                     cursor: display ? "pointer" : "default",
                     display: "inline-flex",
                     alignItems: "center",
                     justifyContent: "center",
+                    gap: 8,
                     lineHeight: 1,
+                    fontSize: 13,
+                    fontWeight: 900,
                     filter: "drop-shadow(0 0 12px rgba(167,139,250,0.55))",
                     animation: "wr-micPulse 1.2s ease-in-out infinite",
                   }}
                 >
-                  <Volume2 size={34} strokeWidth={2.4} aria-hidden />
+                  <Volume2 size={28} strokeWidth={2.4} aria-hidden />
+                  <span>{assessmentMode ? "Hear word" : "Hear again"}</span>
                 </button>
                 {confidencePresentation ? (
                   <div

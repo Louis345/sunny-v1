@@ -402,6 +402,8 @@ describe("WordRadar", () => {
   it("progress dots count matches items.length", () => {
     renderRadar();
     expect(screen.getAllByTestId("word-radar-progress-dot")).toHaveLength(2);
+    expect(screen.getAllByTestId("word-radar-progress-dot")[0]).toHaveAttribute("data-current", "true");
+    expect(screen.getByTestId("word-radar-progress-label")).toHaveTextContent("Word 1 of 2");
   });
 
   it("visually separates bonus review words from regular homework words", async () => {

@@ -50,7 +50,10 @@ describe("Word Radar independent assessment mode", () => {
     render(<WordRadar items={items} interimTranscript="" sendMessage={sendMessage} personalBests={{}} onComplete={vi.fn()} assessmentMode autoStart onAssessmentAttempt={onAssessmentAttempt} />);
     expect(screen.getByTestId("word-radar-phase").textContent).toBe("response");
     expect(screen.queryByText("night")).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Hear the word" })).toBeInTheDocument();
+    const hearWord = screen.getByRole("button", { name: "Hear the word" });
+    expect(hearWord).toBeInTheDocument();
+    expect(hearWord).toHaveTextContent("Hear word");
+    expect(screen.getByTestId("word-radar-progress-label")).toHaveTextContent("Word 1 of 2");
     fireEvent.click(screen.getByRole("button", { name: "Hear the word" }));
     const narration = sendMessage.mock.calls.map(([, payload]) => payload?.event).find(event => event?.type === "narration_request");
     expect(narration.payload).toMatchObject({ assessmentMode: true, itemId: "i1", visibleState: { wordVisible: false, slotsVisible: false } });
