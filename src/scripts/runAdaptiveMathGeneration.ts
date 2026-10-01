@@ -1129,6 +1129,7 @@ async function runSpellingTargetedGeneration(childId: string, homeworkId: string
       const hash = hashDiscoveryContract(configuration);
       let savedConfigHash: string | undefined;
       let validatedLocalMigration = false;
+      let migrationLabel = "presentation-metadata-migrated";
       if (fs.existsSync(configFile) && hashDiscoveryContract(read(configFile)) !== hash) {
         const existing = read<{ node?: ActiveSessionPlan["nodePlan"][number]; evidenceContract?: unknown }>(configFile);
         savedConfigHash = hashDiscoveryContract(existing);
@@ -1141,8 +1142,19 @@ async function runSpellingTargetedGeneration(childId: string, homeworkId: string
         }
         const presentationOnly = hashDiscoveryContract(migrated) === hash;
         const derivedNativeConfigOnly = hashDiscoveryContract(migrated) === hashDiscoveryContract(priorWithoutDerivedNativeConfig);
-        if (!presentationOnly && !derivedNativeConfigOnly) throw new Error(`spelling_native_contract_changed:${nodeId}`);
+        const priorMysteryChoiceContract = structuredClone(priorWithoutDerivedNativeConfig);
+        if (canonical.role === "mystery" && canonical.implementationType === "concept-check") {
+          const spellingItems = (priorMysteryChoiceContract.evidenceContract as { spellingItems?: Record<string, { response: { mode: string } }> } | undefined)?.spellingItems;
+          for (const item of Object.values(spellingItems ?? {})) item.response.mode = "spelling_letters";
+        }
+        const derivedMysteryChoiceOnly = canonical.role === "mystery"
+          && canonical.implementationType === "concept-check"
+          && hashDiscoveryContract(migrated) === hashDiscoveryContract(priorMysteryChoiceContract);
+        if (!presentationOnly && !derivedNativeConfigOnly && !derivedMysteryChoiceOnly) throw new Error(`spelling_native_contract_changed:${nodeId}`);
         validatedLocalMigration = true;
+        migrationLabel = derivedMysteryChoiceOnly ? "validated-choice-instrument-attached"
+          : derivedNativeConfigOnly ? "validated-instrument-attached"
+            : "presentation-metadata-migrated";
       }
       const localPath = node.type === "visual-explainer"
         ? "/games/spelling-visual-explainer.html"
@@ -1167,7 +1179,7 @@ async function runSpellingTargetedGeneration(childId: string, homeworkId: string
       if (bound && bound.contractFingerprint !== hash && !validatedLegacyBinding) throw new Error(`spelling_native_binding_changed:${nodeId}`);
       if (!fs.existsSync(configFile) || validatedLocalMigration) {
         write(configFile, configuration);
-        if (validatedLocalMigration) console.log(` 🎮 [spelling] [native-contract] [validated-instrument-attached] node=${nodeId}`);
+        if (validatedLocalMigration) console.log(` 🎮 [spelling] [native-contract] [${migrationLabel}] node=${nodeId}`);
       }
       if (activityConfigFile && !fs.existsSync(activityConfigFile)) write(activityConfigFile, canonical.evidenceContract.nativeConfig);
       const artifact = { contentId: `${homeworkId}:${nodeId}`, artifactId: `${homeworkId}:${nodeId}:native`, localArtifactPath: localPath, localArtworkPath: node.thumbnailUrl ?? thumbnailUrlForActivity(node.activityId ?? node.type), ...(activityConfigPath ? { activityConfigPath } : {}), contractFingerprint: hash, validationStatus: "passed" as const };

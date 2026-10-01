@@ -94,6 +94,9 @@ describe("spelling in the production generation worker", () => {
     if (scenario === "mystery-concept-check") {
       const legacyNative = JSON.parse(originalNative);
       delete legacyNative.evidenceContract.nativeConfig;
+      for (const item of Object.values(legacyNative.evidenceContract.spellingItems) as Array<{response:{mode:string}}>) {
+        item.response.mode = "spelling_letters";
+      }
       fs.writeFileSync(nativeConfig, `${JSON.stringify(legacyNative, null, 2)}\n`);
       const cycleFile = path.join(child, "homework/cycles", `${homeworkId}.json`);
       const legacy = JSON.parse(fs.readFileSync(cycleFile, "utf8"));
@@ -102,6 +105,9 @@ describe("spelling in the production generation worker", () => {
       legacyNode.state = "completed";
       legacyNode.evidenceIds = ["existing-completion-evidence"];
       delete legacyNode.evidenceContract.nativeConfig;
+      for (const item of Object.values(legacyNode.evidenceContract.spellingItems) as Array<{response:{mode:string}}>) {
+        item.response.mode = "spelling_letters";
+      }
       delete legacyNode.artifactBinding.activityConfigPath;
       legacyNode.artifactBinding.contractFingerprint = hashDiscoveryContract(legacyNative);
       fs.writeFileSync(cycleFile, `${JSON.stringify(legacy, null, 2)}\n`);
