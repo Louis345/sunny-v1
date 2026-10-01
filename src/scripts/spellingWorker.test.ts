@@ -7,7 +7,7 @@ import { nativeSpellingInstrumentContract, runAdaptiveMathGeneration } from "./r
 import { planAssignmentFromSourceWithTelemetry } from "../engine/assignmentPlanner";
 import { getLearningCycle } from "../engine/learningCycleRepository";
 import { recordCanonicalNodeCompletion, recordSpellingDiscoveryAttempt, advanceCanonicalCycleFromEvidence } from "../engine/learningCycleRuntime";
-import { completeDiscoveryEvaluation, getMathGenerationStatus } from "../engine/adaptiveMathDiscovery";
+import { completeDiscoveryEvaluation, getMathGenerationStatus, hashDiscoveryContract, setMathGenerationPhase } from "../engine/adaptiveMathDiscovery";
 import { buildAdventureBoardFromActiveSessionPlan } from "../shared/adventureBoardFromPlan";
 import { getChildChart } from "../profiles/childChart";
 import { writeWaterfallContentCatalog } from "../profiles/chartWaterfall";
@@ -91,15 +91,23 @@ describe("spelling in the production generation worker", () => {
     expect(JSON.stringify(frozenResult)).not.toContain(`/generated/adventure-board/${childId}/`);
     const nativeConfig = path.join(child, "homework/direct-drafts", homeworkId, "native-instruments/practice.json");
     const originalNative = fs.readFileSync(nativeConfig, "utf8");
-    fs.rmSync(nativeConfig);
     if (scenario === "mystery-concept-check") {
+      const legacyNative = JSON.parse(originalNative);
+      delete legacyNative.evidenceContract.nativeConfig;
+      fs.writeFileSync(nativeConfig, `${JSON.stringify(legacyNative, null, 2)}\n`);
       const cycleFile = path.join(child, "homework/cycles", `${homeworkId}.json`);
       const legacy = JSON.parse(fs.readFileSync(cycleFile, "utf8"));
       const legacyNode = legacy.nodes.find((node: {nodeId:string}) => node.nodeId === "practice");
       legacyNode.implementationType = "mystery";
+      legacyNode.state = "completed";
+      legacyNode.evidenceIds = ["existing-completion-evidence"];
       delete legacyNode.evidenceContract.nativeConfig;
       delete legacyNode.artifactBinding.activityConfigPath;
+      legacyNode.artifactBinding.contractFingerprint = hashDiscoveryContract(legacyNative);
       fs.writeFileSync(cycleFile, `${JSON.stringify(legacy, null, 2)}\n`);
+      setMathGenerationPhase({ rootDir, childId, homeworkId, phase: "needs_attention", error: "spelling_native_contract_changed:practice" });
+    } else {
+      fs.rmSync(nativeConfig);
     }
     // This high-level Planner fixture tests missing-instrument recovery. Raw
     // response/derived-checkpoint recovery uses the real parser and mocked
@@ -155,6 +163,8 @@ describe("spelling in the production generation worker", () => {
       expect(after.nodes.find(node => node.nodeId === "practice")).toMatchObject({
         role: "mystery",
         implementationType: "concept-check",
+        state: "completed",
+        evidenceIds: ["existing-completion-evidence"],
       });
       expect(binding.activityConfigPath).toMatch(/^\/api\/activity-config\/lab-child\//);
       const engine = JSON.parse(fs.readFileSync(path.join(child, "homework/games", homeworkId, path.basename(binding.activityConfigPath!)), "utf8"));

@@ -190,6 +190,14 @@ describe("learning cycle ingestion bridge", () => {
       domain: "spelling",
     });
     expect(Object.keys(mystery.evidenceContract.spellingItems ?? {})).toHaveLength(2);
+
+    const missingInstrument = structuredClone(plan);
+    delete missingInstrument.nodePlan[0]!.activityConfig;
+    expect(() => buildSpellingTargetedCycleInput({
+      cycle,
+      plan: missingInstrument,
+      now: "2026-10-01T12:00:00.000Z",
+    })).toThrow("spelling_mystery_academic_instrument_missing:mystery-check");
   });
 
   it("converts the final planner/artifact result into canonical node contracts", () => {

@@ -423,6 +423,9 @@ export function buildSpellingTargetedCycleInput(input: {
       return item;
     });
     const implementationType = spellingImplementationType(node);
+    if (contract.nodes[index].role === "mystery" && items.length > 0 && implementationType === "mystery") {
+      throw new Error(`spelling_mystery_academic_instrument_missing:${node.id}`);
+    }
     let nativeConfig: Record<string, unknown> | undefined;
     if (implementationType === "letter-rush" || implementationType === "concept-check") {
       const parsed = implementationType === "letter-rush" ? validateLetterRushConfig(node.activityConfig) : validateActivityEngineConfig(node.activityConfig);

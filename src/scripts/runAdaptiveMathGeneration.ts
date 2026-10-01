@@ -997,6 +997,7 @@ async function runSpellingTargetedGeneration(childId: string, homeworkId: string
     const localPublicationRetry = [
       "spelling_board_presentation_missing_nodes:",
       "spelling_board_publication_rejected:",
+      "spelling_native_contract_changed:",
     ].some((prefix) => stoppedJob.error?.startsWith(prefix));
     if (!publicationOnlyRetry && !localPublicationRetry) return;
     console.log(` 🎮 [spelling] [targeted-generation] [${localPublicationRetry ? "revalidating-local-publication" : "resuming-publication"}] homework=${homeworkId}`);
@@ -1126,33 +1127,52 @@ async function runSpellingTargetedGeneration(childId: string, homeworkId: string
       const configFile = path.join(draft, "native-instruments", `${nodeId.replace(/[^a-zA-Z0-9_-]/g, "_")}.json`);
       const configuration = nativeSpellingInstrumentContract(node, canonical.evidenceContract);
       const hash = hashDiscoveryContract(configuration);
+      let savedConfigHash: string | undefined;
+      let validatedLocalMigration = false;
       if (fs.existsSync(configFile) && hashDiscoveryContract(read(configFile)) !== hash) {
         const existing = read<{ node?: ActiveSessionPlan["nodePlan"][number]; evidenceContract?: unknown }>(configFile);
+        savedConfigHash = hashDiscoveryContract(existing);
         const migrated = existing.node
           ? nativeSpellingInstrumentContract(existing.node, existing.evidenceContract)
           : existing;
-        if (hashDiscoveryContract(migrated) !== hash) throw new Error(`spelling_native_contract_changed:${nodeId}`);
-        write(configFile, configuration);
-        console.log(` 🎮 [spelling] [native-contract] [presentation-metadata-migrated] node=${nodeId}`);
+        const priorWithoutDerivedNativeConfig = structuredClone(configuration);
+        if (priorWithoutDerivedNativeConfig.evidenceContract && typeof priorWithoutDerivedNativeConfig.evidenceContract === "object") {
+          delete (priorWithoutDerivedNativeConfig.evidenceContract as { nativeConfig?: unknown }).nativeConfig;
+        }
+        const presentationOnly = hashDiscoveryContract(migrated) === hash;
+        const derivedNativeConfigOnly = hashDiscoveryContract(migrated) === hashDiscoveryContract(priorWithoutDerivedNativeConfig);
+        if (!presentationOnly && !derivedNativeConfigOnly) throw new Error(`spelling_native_contract_changed:${nodeId}`);
+        validatedLocalMigration = true;
       }
-      if (!fs.existsSync(configFile)) write(configFile, configuration);
       const localPath = node.type === "visual-explainer"
         ? "/games/spelling-visual-explainer.html"
         : `/${path.relative(resolveChildContextDir(childId, { rootDir }), configFile).split(path.sep).join("/")}`;
       let activityConfigPath: string | undefined;
+      let activityConfigFile: string | undefined;
       if (canonical.evidenceContract.nativeConfig) {
         const filename = `${nodeId.replace(/[^a-zA-Z0-9_-]/g, "_")}-${hashDiscoveryContract(nodeId).slice(0, 8)}.json`;
         const file = path.join(resolveChildContextDir(childId, { rootDir }), "homework/games", homeworkId, filename);
         if (fs.existsSync(file) && hashDiscoveryContract(read(file)) !== hashDiscoveryContract(canonical.evidenceContract.nativeConfig)) throw new Error(`spelling_native_payload_changed:${nodeId}`);
-        if (!fs.existsSync(file)) write(file, canonical.evidenceContract.nativeConfig);
+        activityConfigFile = file;
         activityConfigPath = `/api/activity-config/${childId}/${homeworkId}/${filename}`;
       }
       const current = getLearningCycle(childId, homeworkId, { rootDir })!;
       const bound = current.nodes.find(row => row.nodeId === nodeId)?.artifactBinding;
-      if (bound && bound.contractFingerprint !== hash) throw new Error(`spelling_native_binding_changed:${nodeId}`);
+      const validatedLegacyBinding = Boolean(
+        bound
+        && validatedLocalMigration
+        && savedConfigHash
+        && bound.contractFingerprint === savedConfigHash,
+      );
+      if (bound && bound.contractFingerprint !== hash && !validatedLegacyBinding) throw new Error(`spelling_native_binding_changed:${nodeId}`);
+      if (!fs.existsSync(configFile) || validatedLocalMigration) {
+        write(configFile, configuration);
+        if (validatedLocalMigration) console.log(` 🎮 [spelling] [native-contract] [validated-instrument-attached] node=${nodeId}`);
+      }
+      if (activityConfigFile && !fs.existsSync(activityConfigFile)) write(activityConfigFile, canonical.evidenceContract.nativeConfig);
       const artifact = { contentId: `${homeworkId}:${nodeId}`, artifactId: `${homeworkId}:${nodeId}:native`, localArtifactPath: localPath, localArtworkPath: node.thumbnailUrl ?? thumbnailUrlForActivity(node.activityId ?? node.type), ...(activityConfigPath ? { activityConfigPath } : {}), contractFingerprint: hash, validationStatus: "passed" as const };
-      if (!bound || (activityConfigPath && bound.activityConfigPath !== activityConfigPath)) {
-        transitionLearningCycle(childId, homeworkId, current.revision, { type: "artifact_bound", nodeId, artifact: bound ? { ...bound, activityConfigPath } : artifact }, { rootDir });
+      if (!bound || bound.contractFingerprint !== hash || bound.localArtifactPath !== localPath || (activityConfigPath && bound.activityConfigPath !== activityConfigPath)) {
+        transitionLearningCycle(childId, homeworkId, current.revision, { type: "artifact_bound", nodeId, artifact }, { rootDir });
       }
       return { artifactHash: hash };
     };
