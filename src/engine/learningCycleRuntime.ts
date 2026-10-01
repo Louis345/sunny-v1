@@ -229,6 +229,12 @@ function observationsForCompletion(input: {
 }): LearningObservation[] {
   const node = input.cycle.nodes.find((candidate) => candidate.nodeId === input.nodeId)!;
   if (!node.evidenceContract.academic) return [];
+  const serverAssistedInstruction = input.cycle.domain === "spelling"
+    && node.implementationType === "visual-explainer";
+  if (input.result.targetResults?.some(row => row.evidenceRole === "assisted_instruction")
+    && !serverAssistedInstruction) {
+    throw new Error(`learning_cycle_evidence_role_conflict:${node.nodeId}`);
+  }
   const spellingItems = node.evidenceContract.spellingItems;
   if (node.state !== "completed" && spellingItems && Object.values(spellingItems).every(item => item.lineage.measurementRole === "fresh_checkpoint")) {
     const captured = Object.keys(spellingItems).map(itemId => input.cycle.observations.find(row => row.itemId === itemId && row.sourceId === `activity:${node.nodeId}:recall`));
@@ -261,7 +267,7 @@ function observationsForCompletion(input: {
   return rows.map((row, index) => {
     const item = node.evidenceContract.itemContracts?.[row.target];
     const measurementRole = item?.lineage.measurementRole ?? itemRoles?.[row.target] ?? "practice";
-    const assistedInstruction = row.evidenceRole === "assisted_instruction";
+    const assistedInstruction = serverAssistedInstruction;
     const scaffolded = assistedInstruction || Number(row.scaffoldLevel ?? 0) > 0 || companionHelp;
     const repeatedAssessmentItem = node.state === "completed" || previouslyExposedItemIds.has(row.target);
     const spellingItem = spellingItems?.[row.target];

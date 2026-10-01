@@ -135,7 +135,13 @@ describe("spelling in the production generation worker", () => {
     expect(() => recordCanonicalNodeCompletion({ childId, homeworkId, nodeId: "practice", sessionId: "duplicate-rows", result: { completed: true, accuracy: 1, timeSpent_ms: 100, targetResults: [practiceItems[0], practiceItems[0]].map(item => ({ target: item.id, correct: true, attemptedValue: item.word })) } }, { rootDir })).toThrow("learning_cycle_duplicate_item");
     recordCanonicalNodeCompletion({ childId, homeworkId, nodeId: "practice", sessionId: "practice-run", result: { completed: true, accuracy: 1, timeSpent_ms: 100, targetResults: practiceItems.map(item => ({ target: item.id, correct: true, attemptedValue: "wrong" })) } }, { rootDir });
     const practiceFacts = getLearningCycle(childId, homeworkId, { rootDir })!.observations.filter(row => practiceItems.some(item => item.id === row.itemId));
-    expect(practiceFacts.every(row => row.result.correct === false && row.provenance === "practice")).toBe(true);
+    if (scenario === "visual") {
+      expect(practiceFacts.every(row => row.result.observedErrorType === "assisted_instruction"
+        && row.result.correct === undefined && row.assistance.status === "assisted"
+        && row.provenance === "practice")).toBe(true);
+    } else {
+      expect(practiceFacts.every(row => row.result.correct === false && row.provenance === "practice")).toBe(true);
+    }
     const checkItems = Object.values(after.nodes.find(node => node.nodeId === "check")!.evidenceContract.spellingItems!);
     checkItems.forEach((item, index) => {
       recordSpellingDiscoveryAttempt({ childId, homeworkId, attempt: { attemptId: `check-${index}`, itemId: item.id, attemptedValue: item.word, observedAt: "2026-09-09T12:00:00Z" }, support: { status: "unassisted", scaffolds: [] } }, { rootDir });

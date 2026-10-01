@@ -120,7 +120,7 @@ describe("spelling checkpoint replay evidence", () => {
       ...identity, nodeId: visualNode.nodeId, sessionId: "visual-session",
       result: {
         completed: true, accuracy: 1, timeSpent_ms: 100,
-        targetResults: [{ target: item.id, evidenceRole: "assisted_instruction", masteryEligible: false }],
+        targetResults: [{ target: item.id, masteryEligible: false }],
       } as never,
     }, { rootDir, now: new Date("2026-09-08T12:01:00Z") })!;
 
@@ -134,6 +134,24 @@ describe("spelling checkpoint replay evidence", () => {
     });
     expect(completed.observations[0].result.correct).toBeUndefined();
     expect(completed.observations[0].childResponse).toBeUndefined();
+  });
+
+  it("rejects a client claim that an ordinary spelling activity was assisted instruction", () => {
+    const { items, completion, current } = fixture();
+    const before = current();
+    expect(() => recordCanonicalNodeCompletion({
+      ...completion,
+      sessionId: "forged-assisted-role",
+      result: {
+        ...completion.result,
+        targetResults: [{
+          target: items[0].id,
+          evidenceRole: "assisted_instruction",
+          masteryEligible: false,
+        }],
+      } as never,
+    }, { rootDir })).toThrow(`learning_cycle_evidence_role_conflict:${completion.nodeId}`);
+    expect(current()).toEqual(before);
   });
 
   it("reuses committed recall capture for initial completion/resume only, idempotently", () => {
