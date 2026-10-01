@@ -1068,17 +1068,26 @@ async function runSpellingTargetedGeneration(childId: string, homeworkId: string
     const project = (): void => {
       const currentChart = getChildChart(childId, { rootDir });
       const currentCycle = getLearningCycle(childId, homeworkId, { rootDir })!;
-      const existing = new Set(currentChart.contentCatalog.items.map(item => item.contentId));
-      const items = currentCycle.nodes.filter(node => node.role !== "evaluation" && node.artifactBinding && !existing.has(node.artifactBinding.contentId)).map(node => ({
-        contentId: node.artifactBinding!.contentId, childId, homeworkId, domain: "spelling", type: "game" as const,
-        source: node.implementationType === "generated-baseline" ? "generated" as const : "baseline" as const,
-        theoryDecisionId: node.theoryId, title: node.title, activityId: node.mechanic, gameHtmlPath: node.artifactBinding!.localArtifactPath,
-        algorithmTargets: (node.implementationType === "visual-explainer"
+      const existing = new Map(currentChart.contentCatalog.items.map(item => [item.contentId, item]));
+      const items = currentCycle.nodes.filter(node => node.role !== "evaluation" && node.artifactBinding).flatMap(node => {
+        const prior = existing.get(node.artifactBinding!.contentId);
+        const algorithmTargets = (node.implementationType === "visual-explainer"
           ? validateVisualLearnerArtifactConfig(node.evidenceContract.nativeConfig).algorithmTargets
-          : ["retrieval-practice"]) as LearningAlgorithmTarget[], targetSkills: [node.academicTarget.skill], targetConcepts: [], targetWords: node.academicTarget.targets, engagementHooks: [],
-        inputEvidence: { contentFingerprint: currentCycle.assignment.contentFingerprint, activityEvidenceIds: [...new Set(Object.values(node.evidenceContract.spellingItems ?? {}).flatMap(item => item.lineage.sourceEvidenceIds))] },
-        reuseStatus: "candidate" as const, reuseReason: "Planner-selected instrument; subsequent outcomes are needed before reuse decisions.",
-      }));
+          : ["retrieval-practice"]) as LearningAlgorithmTarget[];
+        if (prior) {
+          if (node.implementationType !== "visual-explainer"
+            || JSON.stringify(prior.algorithmTargets) === JSON.stringify(algorithmTargets)) return [];
+          return [{ ...prior, algorithmTargets }];
+        }
+        return [{
+          contentId: node.artifactBinding!.contentId, childId, homeworkId, domain: "spelling", type: "game" as const,
+          source: node.implementationType === "generated-baseline" ? "generated" as const : "baseline" as const,
+          theoryDecisionId: node.theoryId, title: node.title, activityId: node.mechanic, gameHtmlPath: node.artifactBinding!.localArtifactPath,
+          algorithmTargets, targetSkills: [node.academicTarget.skill], targetConcepts: [], targetWords: node.academicTarget.targets, engagementHooks: [],
+          inputEvidence: { contentFingerprint: currentCycle.assignment.contentFingerprint, activityEvidenceIds: [...new Set(Object.values(node.evidenceContract.spellingItems ?? {}).flatMap(item => item.lineage.sourceEvidenceIds))] },
+          reuseStatus: "candidate" as const, reuseReason: "Planner-selected instrument; subsequent outcomes are needed before reuse decisions.",
+        }];
+      });
       if (items.length) writeWaterfallContentCatalog(childId, upsertProfileContentCatalog(currentChart.learningProfile, items), { rootDir });
       publishTargetedBoardProjection({ rootDir, childId, activeSessionPlan: presentation, nodeStatuses: Object.fromEntries(getMathGenerationStatus(childId, homeworkId, { rootDir })!.nodes.map(node => [node.nodeId, node.status])) });
     };

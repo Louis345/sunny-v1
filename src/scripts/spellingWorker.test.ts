@@ -10,6 +10,7 @@ import { recordCanonicalNodeCompletion, recordSpellingDiscoveryAttempt, advanceC
 import { completeDiscoveryEvaluation, getMathGenerationStatus } from "../engine/adaptiveMathDiscovery";
 import { buildAdventureBoardFromActiveSessionPlan } from "../shared/adventureBoardFromPlan";
 import { getChildChart } from "../profiles/childChart";
+import { writeWaterfallContentCatalog } from "../profiles/chartWaterfall";
 import { generateStoryImage } from "../utils/generateStoryImage";
 import type { ActiveSessionPlan } from "../context/schemas/learningProfile";
 vi.mock("../utils/generateStoryImage", () => ({ generateStoryImage: vi.fn() }));
@@ -107,6 +108,14 @@ describe("spelling in the production generation worker", () => {
     expect(catalog.every(item => item.reuseStatus === "candidate" && item.domain === "spelling" && item.inputEvidence.activityEvidenceIds?.includes("observed-1"))).toBe(true);
     if (scenario === "visual") {
       expect(catalog.find(item => item.activityId === "visual-explainer")?.algorithmTargets)
+        .toEqual(expect.arrayContaining(["error-pattern-remediation", "retrieval-practice"]));
+      const chart = getChildChart(childId, { rootDir });
+      const staleCatalog = catalog.map(item => item.activityId === "visual-explainer"
+        ? { ...item, algorithmTargets: ["retrieval-practice" as const] }
+        : item);
+      writeWaterfallContentCatalog(childId, { ...chart.learningProfile, aiContentCatalog: staleCatalog }, { rootDir });
+      await runAdaptiveMathGeneration(childId, homeworkId, rootDir);
+      expect(getChildChart(childId, { rootDir }).contentCatalog.items.find(item => item.activityId === "visual-explainer")?.algorithmTargets)
         .toEqual(expect.arrayContaining(["error-pattern-remediation", "retrieval-practice"]));
     }
     expect(getMathGenerationStatus(childId, homeworkId, { rootDir })?.nodes.every(node => node.status === "ready")).toBe(true);
