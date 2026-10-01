@@ -1046,6 +1046,29 @@ async function runSpellingTargetedGeneration(childId: string, homeworkId: string
     };
     const historicalEvidence = Object.entries(packet.discoveryEvidence?.history.constructs ?? {}).flatMap(([construct, entry]) => [...entry.observations.map(row => row.observationId), ...entry.evaluations.map(row => row.evaluationId)].map(id => ({ id, domain: construct.split(".")[0] })));
     const contract = buildSpellingTargetedCycleInput({ cycle, plan: active, now: createdAt, historicalEvidence });
+    if (cycle.adaptiveGeneration?.designHash) {
+      const currentCycle = getLearningCycle(childId, homeworkId, { rootDir })!;
+      const currentById = new Map(currentCycle.nodes.map((node) => [node.nodeId, node]));
+      const instrumentContractChanged = contract.nodes.some((planned) => {
+        const current = currentById.get(planned.nodeId);
+        return current?.implementationType !== planned.implementationType
+          || JSON.stringify(current?.evidenceContract.nativeConfig) !== JSON.stringify(planned.evidenceContract.nativeConfig);
+      });
+      if (instrumentContractChanged) {
+        transitionLearningCycle(childId, homeworkId, currentCycle.revision, {
+          type: "plan_reconciled",
+          assignment: contract.assignment,
+          academicTheory: contract.academicTheory,
+          engagementTheory: contract.engagementTheory,
+          nodes: contract.nodes,
+          academicPredictions: contract.academicPredictions,
+          assumptions: contract.assumptions,
+          agencyExperiment: contract.agencyExperiment,
+          reason: "Reconciled the frozen spelling instrument implementation with its validated native activity contract.",
+        }, { rootDir });
+        console.log(` 🎮 [spelling] [instrument-contract] [reconciled] homework=${homeworkId}`);
+      }
+    }
     if (!saved) write(responseFile, { result, requestHash: hashDiscoveryContract(packet), outputHash: hashDiscoveryContract(result), createdAt });
     console.log(` 🎮 [spelling] [targeted-planner] [${saved ? "reused" : "saved"}] homework=${homeworkId}`);
     const programHash = hashDiscoveryContract(result.output), designHash = hashDiscoveryContract(active.adventureBoard);
@@ -1127,7 +1150,10 @@ async function runSpellingTargetedGeneration(childId: string, homeworkId: string
       const current = getLearningCycle(childId, homeworkId, { rootDir })!;
       const bound = current.nodes.find(row => row.nodeId === nodeId)?.artifactBinding;
       if (bound && bound.contractFingerprint !== hash) throw new Error(`spelling_native_binding_changed:${nodeId}`);
-      if (!bound) transitionLearningCycle(childId, homeworkId, current.revision, { type: "artifact_bound", nodeId, artifact: { contentId: `${homeworkId}:${nodeId}`, artifactId: `${homeworkId}:${nodeId}:native`, localArtifactPath: localPath, localArtworkPath: node.thumbnailUrl ?? thumbnailUrlForActivity(node.activityId ?? node.type), ...(activityConfigPath ? { activityConfigPath } : {}), contractFingerprint: hash, validationStatus: "passed" } }, { rootDir });
+      const artifact = { contentId: `${homeworkId}:${nodeId}`, artifactId: `${homeworkId}:${nodeId}:native`, localArtifactPath: localPath, localArtworkPath: node.thumbnailUrl ?? thumbnailUrlForActivity(node.activityId ?? node.type), ...(activityConfigPath ? { activityConfigPath } : {}), contractFingerprint: hash, validationStatus: "passed" as const };
+      if (!bound || (activityConfigPath && bound.activityConfigPath !== activityConfigPath)) {
+        transitionLearningCycle(childId, homeworkId, current.revision, { type: "artifact_bound", nodeId, artifact: bound ? { ...bound, activityConfigPath } : artifact }, { rootDir });
+      }
       return { artifactHash: hash };
     };
     // Reconstitute missing native payload files from the frozen contract before

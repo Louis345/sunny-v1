@@ -97,6 +97,14 @@ export const SEEDED_HUMAN_BUG_INVARIANTS: LabInvariant[] = [
       "With concurrency two, node one and node two start before node one completes, while each readiness result is published independently.",
   },
   {
+    code: "academic_node_launch_matches_evidence_contract",
+    source: "human_caught_bug",
+    invariant:
+      "A child-facing role such as Mystery never replaces the node's academic implementation: a node that requires item results must launch the validated instrument that can produce those results, never a reward-only game.",
+    suggestedFailingTest:
+      "A Mystery-wrapped Concept Check keeps its Mystery role, launches Concept Check at both viewports, and returns every frozen spelling item before completion.",
+  },
+  {
     code: "microphone_stream_requires_audible_input_proof",
     source: "human_caught_bug",
     invariant:

@@ -222,5 +222,6 @@ describe("human-caught bug review", () => {
     expect(codes).toContain("missing_node_art_has_a_stable_fallback");
     expect(codes).toContain("progressive_generation_starts_ready_work_concurrently");
     expect(codes).toContain("word_radar_spoken_response_requires_capture_proof");
+    expect(codes).toContain("academic_node_launch_matches_evidence_contract");
   });
 });

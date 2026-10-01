@@ -163,6 +163,18 @@ function roleForNode(node: ActiveSessionPlan["nodePlan"][number]): LearningCycle
   return "baseline";
 }
 
+function spellingImplementationType(
+  node: ActiveSessionPlan["nodePlan"][number],
+): ActiveSessionPlan["nodePlan"][number]["type"] {
+  if (node.activityConfig && typeof node.activityConfig === "object") {
+    const configured = (node.activityConfig as { activityId?: unknown }).activityId;
+    if (configured === "concept-check" || configured === "letter-rush" || configured === "visual-explainer") {
+      return configured;
+    }
+  }
+  return node.type;
+}
+
 function staticTitle(role: LearningCycleNodeContract["role"], proposed: string | undefined): string {
   if (role === "quest") return "Quest";
   if (role === "boss") return "Boss";
@@ -410,14 +422,15 @@ export function buildSpellingTargetedCycleInput(input: {
       pendingInterventions.set(item.wordId, pending);
       return item;
     });
+    const implementationType = spellingImplementationType(node);
     let nativeConfig: Record<string, unknown> | undefined;
-    if (node.type === "letter-rush" || node.type === "concept-check") {
-      const parsed = node.type === "letter-rush" ? validateLetterRushConfig(node.activityConfig) : validateActivityEngineConfig(node.activityConfig);
-      if (!parsed.ok || !parsed.normalized || parsed.normalized.domain !== "spelling" || parsed.normalized.activityId !== node.type
+    if (implementationType === "letter-rush" || implementationType === "concept-check") {
+      const parsed = implementationType === "letter-rush" ? validateLetterRushConfig(node.activityConfig) : validateActivityEngineConfig(node.activityConfig);
+      if (!parsed.ok || !parsed.normalized || parsed.normalized.domain !== "spelling" || parsed.normalized.activityId !== implementationType
         || parsed.normalized.evidencePolicy.writesMasteryEvidence) throw new Error(`spelling_engine_config_invalid:${node.id}`);
       const config = structuredClone(parsed.normalized);
       const match = (word: string) => items.find(item => item.word.normalize("NFC").toLowerCase() === word.normalize("NFC").toLowerCase());
-      if (node.type === "letter-rush") {
+      if (implementationType === "letter-rush") {
         const letter = config as LetterRushConfig;
         if (letter.words.length !== items.length || new Set(letter.words.map(word => word.text.toLowerCase())).size !== items.length) throw new Error(`spelling_engine_coverage_invalid:${node.id}`);
         letter.words = letter.words.map(word => { const item = match(word.text); if (!item) throw new Error(`spelling_engine_unknown_word:${node.id}`); return { ...word, id: item.id }; });
@@ -436,7 +449,7 @@ export function buildSpellingTargetedCycleInput(input: {
         });
       }
       nativeConfig = config as unknown as Record<string, unknown>;
-    } else if (node.type === "visual-explainer") {
+    } else if (implementationType === "visual-explainer") {
       try {
         const visual = validateSpellingVisualExplainerPlanConfig(node.activityConfig);
         const normalize = (value: string) => value.normalize("NFC").trim().toLocaleLowerCase("en-US");
@@ -508,7 +521,7 @@ export function buildSpellingTargetedCycleInput(input: {
         throw new Error(`spelling_visual_explainer_config_invalid:${node.id}`);
       }
     }
-    contract.nodes[index] = { ...contract.nodes[index], implementationType: node.type, mechanic: node.activityId, state: "generating", artifactBinding: null, evidenceContract: { ...contract.nodes[index].evidenceContract, academic: items.length > 0, ...(nativeConfig ? { nativeConfig } : {}), ...(items.length ? { spellingItems: Object.fromEntries(items.map(item => [item.id, item])), itemRoles: Object.fromEntries(items.map(item => [item.id, decision.role])) } : {}) } };
+    contract.nodes[index] = { ...contract.nodes[index], implementationType, mechanic: node.activityId, state: "generating", artifactBinding: null, evidenceContract: { ...contract.nodes[index].evidenceContract, academic: items.length > 0, ...(nativeConfig ? { nativeConfig } : {}), ...(items.length ? { spellingItems: Object.fromEntries(items.map(item => [item.id, item])), itemRoles: Object.fromEntries(items.map(item => [item.id, decision.role])) } : {}) } };
     prior.add(node.id);
   }
   if (captured.some(item => !finalWords.has(item.wordId)) || [...pendingInterventions.values()].some(ids => ids.size)) throw new Error("spelling_final_checkpoint_coverage_incomplete");

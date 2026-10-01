@@ -5,9 +5,11 @@ import { describe, expect, it } from "vitest";
 import type { ActiveSessionPlan } from "../context/schemas/learningProfile";
 import {
   buildLearningCycleInputFromPlan,
+  buildSpellingRecallItems,
+  buildSpellingTargetedCycleInput,
   persistIngestedLearningCycle,
 } from "./learningCycleIngest";
-import { getLearningCycle, transitionLearningCycle } from "./learningCycleRepository";
+import { getLearningCycle, transitionLearningCycle, type LearningCycleRecordV2 } from "./learningCycleRepository";
 
 function plan(): ActiveSessionPlan {
   return {
@@ -105,6 +107,91 @@ function input() {
 }
 
 describe("learning cycle ingestion bridge", () => {
+  it("keeps a Mystery role while launching its academic Concept Check instrument", () => {
+    const homeworkId = "hw-spelling-mystery-instrument";
+    const sourceEvidenceId = "assignment:spelling-list";
+    const spellingItems = buildSpellingRecallItems({
+      homeworkId,
+      words: ["night", "light"],
+      evidenceIds: [sourceEvidenceId],
+      measurementRole: "practice",
+    });
+    const cycle = {
+      childId: "lab-child",
+      homeworkId,
+      domain: "spelling",
+      assignment: {
+        title: "School words",
+        contentFingerprint: "spelling-fingerprint",
+        capturedEvidenceIds: [sourceEvidenceId],
+        targets: ["night", "light"],
+      },
+      nodes: [{
+        nodeId: `${homeworkId}:discovery`,
+        role: "evaluation",
+        evidenceContract: {
+          spellingItems: Object.fromEntries(spellingItems.map((item) => [item.id, item])),
+        },
+      }],
+      observations: [],
+    } as unknown as LearningCycleRecordV2;
+    const conceptCheck = {
+      schemaVersion: 1,
+      activityId: "concept-check",
+      engine: { id: "concept-check", mode: "choose" },
+      topic: "School words",
+      domain: "spelling",
+      learningGoal: "Choose the correctly spelled word.",
+      gradeBand: "early_elementary",
+      targets: [
+        { id: "planner-night", label: "night", type: "word" },
+        { id: "planner-light", label: "light", type: "word" },
+      ],
+      rounds: [
+        { id: "round-night", mechanic: "choose", targetId: "planner-night", prompt: "Choose night.", options: [{ id: "night", label: "night", correct: true }, { id: "nite", label: "nite", correct: false }], scaffoldLevel: 0 },
+        { id: "round-light", mechanic: "choose", targetId: "planner-light", prompt: "Choose light.", options: [{ id: "light", label: "light", correct: true }, { id: "lite", label: "lite", correct: false }], scaffoldLevel: 0 },
+      ],
+      evidencePolicy: { writesPracticeEvidence: true, writesMasteryEvidence: false, requiresPerTargetResult: true, allowedEvidence: ["practice"] },
+    };
+    const plan = {
+      planId: `targeted:${homeworkId}`,
+      childId: "lab-child",
+      createdAt: "2026-10-01T12:00:00.000Z",
+      source: "ingest_human_loop",
+      activeHomeworkId: homeworkId,
+      domain: "spelling",
+      testDate: null,
+      nodePlan: [
+        { id: "mystery-check", type: "mystery", activityId: "mystery", title: "Mystery Choice", targets: ["night", "light"], difficulty: 1, source: "chart_planner", activityConfig: conceptCheck },
+        { id: "fresh-check", type: "word-radar", activityId: "word-radar", title: "Fresh Check", targets: ["night", "light"], difficulty: 1, source: "chart_planner", wordRadarConfig: { recallMode: "hidden_word_recall", inputMode: "keyboard" } },
+      ],
+      plannedMeasurements: [
+        { id: "measure-mystery-check", activityId: "mystery", target: "night,light", evidenceType: "recall", supportCriteria: "Practice is completed.", reviseCriteria: "Practice is confusing.", falsifyCriteria: "No response is captured.", spelling: { role: "practice", evidenceIds: [sourceEvidenceId], interventionNodeIds: [], reason: "Practice both words.", uncertainty: "No delayed evidence yet.", expectedAccuracy: { min: 0.4, max: 1 }, confidence: 0.5, maxDelayDays: 7 } },
+        { id: "measure-fresh-check", activityId: "word-radar", target: "night,light", evidenceType: "recall", supportCriteria: "Fresh recall improves.", reviseCriteria: "Recall remains mixed.", falsifyCriteria: "No improvement.", spelling: { role: "fresh_checkpoint", evidenceIds: [sourceEvidenceId], interventionNodeIds: ["mystery-check"], reason: "Check both words without help.", uncertainty: "One occasion.", expectedAccuracy: { min: 0.6, max: 1 }, confidence: 0.5, maxDelayDays: 7, finalCheck: true } },
+      ],
+      variationPolicy: { avoidExactPreviousNodeOrder: true, avoidExactPreviousWordOrder: true, seed: "spelling", previousCompletedNodeCount: 0 },
+      companionPolicy: { companionId: "elli", displayName: "Elli", openingLinePolicy: "context_start_short", verbosity: "low", maxMicroProbes: 1 },
+      evidenceUsed: [{ id: sourceEvidenceId, type: "assignment", summary: "Captured spelling list." }],
+      openQuestions: [],
+      planTheory: { hypothesis: "Practice may improve recall.", evidenceSummary: [sourceEvidenceId], intervention: "Concept check then fresh recall.", supportCriteria: ["Improvement"], reviseCriteria: ["Mixed"], falsifyCriteria: ["No improvement"] },
+    } as unknown as ActiveSessionPlan;
+
+    const contract = buildSpellingTargetedCycleInput({
+      cycle,
+      plan,
+      now: "2026-10-01T12:00:00.000Z",
+    });
+    const mystery = contract.nodes.find((node) => node.nodeId === "mystery-check")!;
+
+    expect(mystery.role).toBe("mystery");
+    expect(mystery.implementationType).toBe("concept-check");
+    expect(mystery.evidenceContract.nativeConfig).toMatchObject({
+      activityId: "concept-check",
+      domain: "spelling",
+    });
+    expect(Object.keys(mystery.evidenceContract.spellingItems ?? {})).toHaveLength(2);
+  });
+
   it("converts the final planner/artifact result into canonical node contracts", () => {
     const cycleInput = buildLearningCycleInputFromPlan(input());
     expect(cycleInput.nodes.map((node) => node.title)).toEqual(["Fact Blaster", "Quest", "Boss"]);
