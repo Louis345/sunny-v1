@@ -92,7 +92,7 @@ it("gives the reviewer the same child and host facts used to create the experien
 
 it("does not reuse a verdict when the trusted review context changes", async () => {
   const { screenshot, audit } = fixture();
-  const create = vi.fn(async () => ({
+  const create = vi.fn(async (_request: unknown) => ({
     content: [{ type: "tool_use", input: { decision: "approve", observations: [] } }],
   }));
   const client = { messages: { create } } as never;
@@ -226,7 +226,7 @@ it("defaults production visual review to Opus 5.5", async () => {
 
 it("lets Opus 5.5 select the verdict tool because forced tool choice is unsupported", async () => {
   const { screenshot } = fixture();
-  const create = vi.fn(async () => ({
+  const create = vi.fn(async (_request: unknown) => ({
     content: [{ type: "tool_use", input: { decision: "approve", observations: [] } }],
   }));
 

@@ -591,6 +591,7 @@
       var correctCount;
       var accuracy;
       var completion;
+      var nodeCompletion;
       if (state.completed) return;
       state.completed = true;
       correctCount = state.targetResults.filter(function (row) {
@@ -618,7 +619,9 @@
         targetResults: state.targetResults,
       });
       if (typeof window.sendNodeComplete === "function") {
-        window.sendNodeComplete(completion);
+        nodeCompletion = Object.assign({}, completion);
+        delete nodeCompletion.type;
+        window.sendNodeComplete(nodeCompletion);
       }
     }
 

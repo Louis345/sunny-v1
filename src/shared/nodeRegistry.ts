@@ -231,6 +231,9 @@ export const NODE_REGISTRY: Record<string, NodeHandler> = {
     getUrl: (node, ctx) => {
       const params = buildNodeUrlSearchParams(node, ctx);
       const config = node.activityConfigPath || DEFAULT_VISUAL_LEARNER_CONFIG_URL;
+      const artifactUrl = node.gameHtmlPath?.endsWith(".html")
+        ? node.gameHtmlPath
+        : DEFAULT_VISUAL_LEARNER_ARTIFACT_URL;
       params.set("config", config);
       params.set(
         "chrome",
@@ -241,7 +244,7 @@ export const NODE_REGISTRY: Record<string, NodeHandler> = {
       if (ctx.visualLearnerFlowMode) {
         params.set("visualLearnerFlow", ctx.visualLearnerFlowMode);
       }
-      return `${DEFAULT_VISUAL_LEARNER_ARTIFACT_URL}?${params.toString()}`;
+      return `${artifactUrl}?${params.toString()}`;
     },
   },
   "word-builder": {

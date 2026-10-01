@@ -25,6 +25,64 @@ const narrationTimingSchema = z.object({
   text: z.string().min(1),
 });
 
+const spellingVisualWordSchema = z.object({
+  id: z.string().min(1),
+  text: z.string().min(1),
+  chunks: z.array(z.string().min(1)).min(2).max(6),
+  focusChunk: z.string().min(1),
+  tip: z.string().min(1).max(160),
+}).superRefine((word, context) => {
+  const normalize = (value: string) => value.normalize("NFC").toLocaleLowerCase("en-US");
+  if (normalize(word.chunks.join("")) !== normalize(word.text)) {
+    context.addIssue({ code: "custom", path: ["chunks"], message: "chunks must reconstruct the target word" });
+  }
+  if (!word.chunks.some((chunk) => normalize(chunk) === normalize(word.focusChunk))) {
+    context.addIssue({ code: "custom", path: ["focusChunk"], message: "focusChunk must be one complete chunk" });
+  }
+});
+
+const spellingVisualCheckSchema = z.object({
+  id: z.string().min(1),
+  targetWord: z.string().min(1),
+  prompt: z.string().min(1).max(180),
+  options: z.array(optionSchema.extend({ correct: z.boolean() })).min(2).max(4),
+  correctOptionId: z.string().min(1),
+}).superRefine((check, context) => {
+  const correct = check.options.filter((option) => option.correct);
+  if (correct.length !== 1 || correct[0]?.id !== check.correctOptionId) {
+    context.addIssue({ code: "custom", path: ["correctOptionId"], message: "check requires exactly one matching correct option" });
+  }
+});
+
+export const spellingVisualExplainerPlanConfigSchema = z.object({
+  schemaVersion: z.literal(1),
+  activityId: z.literal("visual-explainer"),
+  domain: z.literal("spelling"),
+  topic: z.string().min(1).max(120),
+  learningGoal: z.string().min(1).max(220),
+  misconception: z.string().min(1).max(220),
+  strategy: z.object({
+    title: z.string().min(1).max(100),
+    steps: z.array(z.string().min(1).max(140)).min(2).max(4),
+  }),
+  words: z.array(spellingVisualWordSchema).min(1).max(8),
+  check: spellingVisualCheckSchema,
+  evidencePolicy: z.object({
+    writesPracticeEvidence: z.literal(true),
+    writesMasteryEvidence: z.literal(false),
+    requiresPerTargetResult: z.literal(false),
+    allowedEvidence: z.array(z.enum(["practice", "companion"])).min(1),
+  }),
+}).superRefine((config, context) => {
+  const normalize = (value: string) => value.normalize("NFC").toLocaleLowerCase("en-US");
+  const words = new Set(config.words.map((word) => normalize(word.text)));
+  if (!words.has(normalize(config.check.targetWord))) {
+    context.addIssue({ code: "custom", path: ["check", "targetWord"], message: "check target must be one of the modeled words" });
+  }
+});
+
+export type SpellingVisualExplainerPlanConfig = z.infer<typeof spellingVisualExplainerPlanConfigSchema>;
+
 export const visualLearnerArtifactConfigSchema = z.object({
   artifactId: z.string().min(1),
   type: z.literal("visual-explainer"),
@@ -78,6 +136,10 @@ export const visualLearnerArtifactConfigSchema = z.object({
     childShowsCarePlan: z.boolean(),
     parentShowsCarePlan: z.boolean(),
   }),
+  spellingModel: z.object({
+    strategy: spellingVisualExplainerPlanConfigSchema.shape.strategy,
+    words: z.array(spellingVisualWordSchema).min(1).max(8),
+  }).optional(),
 });
 
 export type VisualLearnerArtifactConfig = z.infer<
@@ -88,4 +150,10 @@ export function validateVisualLearnerArtifactConfig(
   input: unknown,
 ): VisualLearnerArtifactConfig {
   return visualLearnerArtifactConfigSchema.parse(input);
+}
+
+export function validateSpellingVisualExplainerPlanConfig(
+  input: unknown,
+): SpellingVisualExplainerPlanConfig {
+  return spellingVisualExplainerPlanConfigSchema.parse(input);
 }

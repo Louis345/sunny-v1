@@ -1,6 +1,6 @@
 # Sunny Learning Feedback Loop
 
-Contract version: 19
+Contract version: 20
 
 This document is the **sole normative** authority for how Sunny forms, tests, and revises learning claims. Product changes that alter this loop must update this contract version before implementation. Other documents may describe infrastructure or history, but they must link here instead of creating another learning doctrine.
 
@@ -56,6 +56,8 @@ Replaying a completed teaching instrument appends practice evidence without rese
 When multiple academically valid interventions exist, the Planner may preregister a contextual agency experiment. It states the factual context, what academics remain comparable, one uncertain engagement hypothesis per route, predicted outcomes, falsifying evidence, and measurement keys. The board only projects the Planner's routes and records what was shown, selected, started, abandoned, completed, replayed, or switched. Selection alone never establishes preference; later interpretation must consider behavior, support, interaction, academic outcomes, and calibration together.
 
 For targeted spelling, the exact Planner-authored routes that the child-facing board exposes are frozen into the canonical learning cycle before publication. The Planner's converged all-words checkpoint is frozen as the common tail of every selectable route, while any common opening nodes remain on the shared frontier. A direct route-node selection records that canonical route as engagement evidence; it never establishes mastery or a durable child preference.
+
+When the targeted spelling Planner selects Visual Explainer, the artifact is an assisted teaching intervention. The Planner authors the word chunks, strategy, and practice check from committed evidence; code only validates assignment-word coverage, frozen identity, and truthful event provenance. Seeing a spelling, receiving a strategy, answering inside the explainer, or asking Elli for help remains practice/exposure and is never mastery. A later hidden-word recall checkpoint must cite the explainer intervention and capture a fresh unassisted response before Sunny may evaluate the prediction. The checkpoint—not the explainer—provides independent academic evidence.
 
 The Probe Board establishes the child's independent starting point before targeted instruction. It is the complete first chapter for the assignment, not a single generated node followed by a child-visible generation wait. The Planner owns its construct coverage, activity count, item count, response formats, and evidence limits; the Experience Creator designs one coherent board from that frozen program. The complete Planner-authored map may appear after its program and design are frozen. Each probe node is implemented and verified before that node unlocks; unfinished siblings remain locked, and no unverified content can launch.
 

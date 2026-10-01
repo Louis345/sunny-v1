@@ -661,6 +661,8 @@ describe("assignment planner", () => {
     expect(JSON.stringify(packet)).not.toContain("rewardWrapper");
     expect(packet.activityCatalog.some((card) => card.activityId === "word-builder")).toBe(true);
     expect(packet.activityCatalog.some((card) => card.activityId === "wordle")).toBe(true);
+    expect(packet.activityCatalog.some((card) => card.activityId === "visual-explainer")).toBe(true);
+    expect(packet.activityCatalog.some((card) => card.activityId === "generated-baseline")).toBe(false);
     expect(packet.activityCatalog.length).toBeLessThanOrEqual(16);
     expect(packet.activityCatalog.every((card) => card.sentToPlanner)).toBe(true);
     expect(Buffer.byteLength(JSON.stringify(packet))).toBeLessThan(30_000);
@@ -737,7 +739,7 @@ describe("assignment planner", () => {
 
     expect(activityIds).toEqual(expect.arrayContaining(["spell-check", "word-radar", "pronunciation"]));
     expect(activityIds).not.toContain("concept-check");
-    expect(activityIds).not.toContain("visual-explainer");
+    expect(activityIds).toContain("visual-explainer");
     expect(Buffer.byteLength(JSON.stringify(packet))).toBeLessThan(30_000);
   });
 

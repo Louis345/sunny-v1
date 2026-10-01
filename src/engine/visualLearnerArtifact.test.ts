@@ -232,4 +232,29 @@ describe("visual learner launch routing", () => {
     expect(playthroughAction.url).toContain("visualLearnerFlow=playthrough");
   });
 
+  it("launches a spelling visual explainer through its assignment-bound HTML and config", () => {
+    const action = buildNodeLaunchAction(
+      {
+        id: "visual-spelling-light",
+        type: "visual-explainer",
+        difficulty: 1,
+        gameHtmlPath: "/games/spelling-visual-explainer.html",
+        activityConfigPath: "/api/activity-config/ila/hw-spelling/visual-light.json",
+      },
+      {
+        childId: "ila",
+        childName: "Ila",
+        companion: "elli",
+        companionName: "Elli",
+        isDiagMode: false,
+      },
+    );
+
+    expect(action.kind).toBe("iframe");
+    if (action.kind !== "iframe") return;
+    expect(action.url).toContain("/games/spelling-visual-explainer.html");
+    expect(action.url).toContain("config=%2Fapi%2Factivity-config%2Fila%2Fhw-spelling%2Fvisual-light.json");
+    expect(action.url).toContain("chrome=child");
+  });
+
 });

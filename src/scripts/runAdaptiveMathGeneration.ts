@@ -1101,7 +1101,9 @@ async function runSpellingTargetedGeneration(childId: string, homeworkId: string
         console.log(` 🎮 [spelling] [native-contract] [presentation-metadata-migrated] node=${nodeId}`);
       }
       if (!fs.existsSync(configFile)) write(configFile, configuration);
-      const localPath = `/${path.relative(resolveChildContextDir(childId, { rootDir }), configFile).split(path.sep).join("/")}`;
+      const localPath = node.type === "visual-explainer"
+        ? "/games/spelling-visual-explainer.html"
+        : `/${path.relative(resolveChildContextDir(childId, { rootDir }), configFile).split(path.sep).join("/")}`;
       let activityConfigPath: string | undefined;
       if (canonical.evidenceContract.nativeConfig) {
         const filename = `${nodeId.replace(/[^a-zA-Z0-9_-]/g, "_")}-${hashDiscoveryContract(nodeId).slice(0, 8)}.json`;
