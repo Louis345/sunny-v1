@@ -258,8 +258,7 @@ it.each([
       expect(final.academicTarget.targets).toEqual(words);
       expect(new Set(board.nodes.map((node) => node.slot)).size).toBe(board.nodes.length);
       expect(board.nodes.map((node) => node.id)).toEqual(expect.arrayContaining([...routeIds, "recall-checkpoint"]));
-      expect(board.nodes.map((node) => node.id)).not.toContain("quest");
-      expect(board.nodes.map((node) => node.id)).not.toContain("boss");
+      expect(board.nodes.map((node) => node.id)).toEqual(expect.arrayContaining(["quest", "boss"]));
       expect(targeted.nodes.find((node) => node.nodeId === "quest")?.state).toBe("locked");
       expect(targeted.nodes.find((node) => node.nodeId === "boss")?.state).toBe("locked");
       expect(getChildChart(childId, { rootDir }).companion.config.vrmUrl).toBe("/companions/sample.vrm");
