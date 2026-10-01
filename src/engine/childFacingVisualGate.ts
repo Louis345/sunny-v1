@@ -79,6 +79,14 @@ type VisualReviewAttempt = {
   error?: string;
   code?: number;
 };
+type ProviderUsage = {
+  inputTokens: number;
+  outputTokens: number;
+  cacheCreationInputTokens?: number;
+  cacheReadInputTokens?: number;
+  cachedInputTokens?: number;
+  reasoningTokens?: number;
+};
 type SavedVisualVerdict = Partial<ChildFacingVisualVerdict> & {
   version: number;
   requestHash: string;
@@ -88,8 +96,45 @@ type SavedVisualVerdict = Partial<ChildFacingVisualVerdict> & {
   status?: VisualReviewStatus;
   rawResponse?: unknown;
   attempts?: VisualReviewAttempt[];
+  providerUsage?: ProviderUsage;
   error?: string;
 };
+
+function providerUsage(response: unknown): ProviderUsage | undefined {
+  if (!response || typeof response !== "object") return undefined;
+  const usage = (response as { usage?: unknown }).usage;
+  if (!usage || typeof usage !== "object") return undefined;
+  const record = usage as Record<string, unknown>;
+  const inputTokens = Number(record.input_tokens);
+  const outputTokens = Number(record.output_tokens);
+  if (!Number.isFinite(inputTokens) || !Number.isFinite(outputTokens)) return undefined;
+  const inputDetails = record.input_tokens_details && typeof record.input_tokens_details === "object"
+    ? record.input_tokens_details as Record<string, unknown>
+    : undefined;
+  const outputDetails = record.output_tokens_details && typeof record.output_tokens_details === "object"
+    ? record.output_tokens_details as Record<string, unknown>
+    : undefined;
+  const optional = (value: unknown): number | undefined => {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : undefined;
+  };
+  return {
+    inputTokens,
+    outputTokens,
+    ...(optional(record.cache_creation_input_tokens) !== undefined
+      ? { cacheCreationInputTokens: optional(record.cache_creation_input_tokens) }
+      : {}),
+    ...(optional(record.cache_read_input_tokens) !== undefined
+      ? { cacheReadInputTokens: optional(record.cache_read_input_tokens) }
+      : {}),
+    ...(optional(inputDetails?.cached_tokens) !== undefined
+      ? { cachedInputTokens: optional(inputDetails?.cached_tokens) }
+      : {}),
+    ...(optional(outputDetails?.reasoning_tokens) !== undefined
+      ? { reasoningTokens: optional(outputDetails?.reasoning_tokens) }
+      : {}),
+  };
+}
 
 function digest(value: string | Buffer): string {
   return createHash("sha256").update(value).digest("hex");
@@ -356,6 +401,7 @@ export async function judgeChildFacingScreens(input: {
   }
 
   const receivedAt = new Date().toISOString();
+  const usage = providerUsage(rawResponse);
   attempts[attempts.length - 1] = { ...attempts[attempts.length - 1]!, status: "received_raw", finishedAt: receivedAt };
   if (input.auditFile) atomicJson(input.auditFile, {
     version: CHILD_FACING_VISUAL_GATE_VERSION,
@@ -365,6 +411,7 @@ export async function judgeChildFacingScreens(input: {
     screenshotHashes,
     status: "received_raw",
     rawResponse,
+    ...(usage ? { providerUsage: usage } : {}),
     attempts,
   } satisfies SavedVisualVerdict);
   const verdict = parseProviderVerdict(provider, rawResponse, citeScreens);
@@ -376,6 +423,7 @@ export async function judgeChildFacingScreens(input: {
     screenshotHashes,
     status: "received",
     attempts: attempts.map((attempt, index) => index === attempts.length - 1 ? { ...attempt, status: "received" } : attempt),
+    ...(usage ? { providerUsage: usage } : {}),
     ...verdict,
   } satisfies SavedVisualVerdict);
   console.log(` 🎮 [visual-judge] [verdict] [${verdict.decision}] observations=${verdict.observations.length}`);

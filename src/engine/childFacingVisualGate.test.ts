@@ -141,6 +141,35 @@ it("reuses the verdict for unchanged screenshot bytes instead of paying twice", 
   expect(create).toHaveBeenCalledTimes(1);
 });
 
+it("keeps provider token usage with the durable visual-review receipt", async () => {
+  const { screenshot, audit } = fixture();
+  const create = vi.fn(async () => ({
+    content: [{ type: "tool_use", input: { decision: "approve", observations: [] } }],
+    usage: {
+      input_tokens: 321,
+      output_tokens: 45,
+      cache_creation_input_tokens: 12,
+      cache_read_input_tokens: 8,
+    },
+  }));
+
+  await judgeChildFacingScreens({
+    screenshotPaths: [screenshot],
+    auditFile: audit,
+    model: "claude-opus-5-5",
+    client: { messages: { create } } as never,
+  });
+
+  expect(JSON.parse(fs.readFileSync(audit, "utf8"))).toMatchObject({
+    providerUsage: {
+      inputTokens: 321,
+      outputTokens: 45,
+      cacheCreationInputTokens: 12,
+      cacheReadInputTokens: 8,
+    },
+  });
+});
+
 it("fails closed when no child-visible screenshot exists", async () => {
   await expect(judgeChildFacingScreens({
     screenshotPaths: ["/missing/screenshot.png"],
