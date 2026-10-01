@@ -356,7 +356,9 @@ export async function judgeChildFacingScreens(input: {
         description: "Record the result of the open-ended screenshot inspection.",
         input_schema: schema,
       }],
-      tool_choice: { type: "tool", name: "record_visual_verdict" },
+      ...(model === "claude-opus-5-5"
+        ? {}
+        : { tool_choice: { type: "tool" as const, name: "record_visual_verdict" } }),
       messages: [{
         role: "user",
         content: [

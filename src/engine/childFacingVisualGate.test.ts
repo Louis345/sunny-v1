@@ -224,6 +224,21 @@ it("defaults production visual review to Opus 5.5", async () => {
     .rejects.toThrow("child_visual_review_missing:ANTHROPIC_API_KEY");
 });
 
+it("lets Opus 5.5 select the verdict tool because forced tool choice is unsupported", async () => {
+  const { screenshot } = fixture();
+  const create = vi.fn(async () => ({
+    content: [{ type: "tool_use", input: { decision: "approve", observations: [] } }],
+  }));
+
+  await judgeChildFacingScreens({
+    screenshotPaths: [screenshot],
+    model: "claude-opus-5-5",
+    client: { messages: { create } } as never,
+  });
+
+  expect(create.mock.calls[0]![0]).not.toHaveProperty("tool_choice");
+});
+
 it("writes an in-flight receipt before payment and refuses an automatic duplicate after uncertainty", async () => {
   const { screenshot, audit } = fixture();
   vi.stubEnv("OPENAI_API_KEY", "openai-test-key");
