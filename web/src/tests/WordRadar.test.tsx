@@ -350,6 +350,9 @@ describe("WordRadar", () => {
     expect(
       screen.getByTestId("word-radar-starfield").querySelectorAll(".wr-star"),
     ).toHaveLength(55);
+    const shootingStars = screen.getAllByTestId("word-radar-shooting-star");
+    expect(shootingStars).toHaveLength(4);
+    expect(shootingStars.map((star) => star.style.top)).toEqual(["4%", "8%", "12%", "16%"]);
   });
 
   it("renders intro then flash for 1500ms then transitions to response", async () => {

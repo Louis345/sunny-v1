@@ -957,7 +957,7 @@ export function WordRadar({
         @keyframes wr-shoot {
           0% { transform: translate(0,0) rotate(-35deg); opacity: 0; }
           10% { opacity: 1; }
-          100% { transform: translate(-120vw, 60vh) rotate(-35deg); opacity: 0; }
+          100% { transform: translate(-120vw, 8vh) rotate(-35deg); opacity: 0; }
         }
         @keyframes wr-slamIn {
           0% { transform: scale(2.2); opacity: 0.85; }
@@ -985,7 +985,7 @@ export function WordRadar({
         }
       `}</style>
 
-      <div data-testid="word-radar-starfield" style={{ position: "absolute", inset: 0 }}>
+      <div data-testid="word-radar-starfield" style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
         {stars.map((s) => (
           <span
             key={s.id}
@@ -1007,11 +1007,12 @@ export function WordRadar({
         {[0, 1, 2, 3].map((i) => (
           <span
             key={`shoot-${i}`}
+            data-testid="word-radar-shooting-star"
             aria-hidden
             style={{
               position: "absolute",
               right: `${-10 + i * 18}%`,
-              top: `${8 + i * 12}%`,
+              top: `${4 + i * 4}%`,
               width: 80,
               height: 2,
               background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.85))",
