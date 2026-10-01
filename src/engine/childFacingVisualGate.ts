@@ -5,6 +5,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import type { JourneyCapture, ReviewFinding } from "./discoveryVisualReview";
 
 export const CHILD_FACING_VISUAL_GATE_VERSION = 5;
+export const CHILD_FACING_VISUAL_MAX_OUTPUT_TOKENS = 4_000;
 export const CHILD_FACING_VISUAL_PROMPT = "Review these screenshots as a child would. Are there any visual bugs, confusing or contradictory elements, or anything that would make the activity difficult to understand or complete? Describe everything you notice.";
 
 /** Discovery asks for per-finding screen citations so code, not the reviewer, attributes blame. */
@@ -333,7 +334,7 @@ export async function judgeChildFacingScreens(input: {
         }],
         text: { format: { type: "json_schema", name: "child_visual_verdict", strict: true, schema } },
         reasoning: { effort: "low" },
-        max_output_tokens: 1000,
+        max_output_tokens: CHILD_FACING_VISUAL_MAX_OUTPUT_TOKENS,
         store: false,
       }),
       signal: AbortSignal.timeout(Number(process.env.SUNNY_AI_TIMEOUT_MS ?? 600_000)),
@@ -350,7 +351,7 @@ export async function judgeChildFacingScreens(input: {
     const client = input.client ?? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
     rawResponse = await client.messages.create({
       model,
-      max_tokens: 1000,
+      max_tokens: CHILD_FACING_VISUAL_MAX_OUTPUT_TOKENS,
       tools: [{
         name: "record_visual_verdict",
         description: "Record the result of the open-ended screenshot inspection.",

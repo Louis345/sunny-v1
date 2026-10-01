@@ -236,6 +236,7 @@ it("lets Opus 5.5 select the verdict tool because forced tool choice is unsuppor
     client: { messages: { create } } as never,
   });
 
+  expect(create.mock.calls[0]![0]).toMatchObject({ max_tokens: 4_000 });
   expect(create.mock.calls[0]![0]).not.toHaveProperty("tool_choice");
 });
 
