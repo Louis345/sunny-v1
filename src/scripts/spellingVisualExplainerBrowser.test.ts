@@ -51,7 +51,10 @@ async function assertUsable(control: Locator): Promise<void> {
   })).toBe(true);
 }
 
-async function launch(viewport: { width: number; height: number }) {
+async function launch(
+  viewport: { width: number; height: number },
+  options: { configAvailable?: boolean } = {},
+) {
   const server = http.createServer((request, response) => {
     const url = new URL(request.url!, "http://127.0.0.1");
     if (url.pathname === "/") {
@@ -60,6 +63,10 @@ async function launch(viewport: { width: number; height: number }) {
       return;
     }
     if (url.pathname === "/config.json") {
+      if (options.configAvailable === false) {
+        response.writeHead(404).end();
+        return;
+      }
       response.writeHead(200, { "Content-Type": "application/json" });
       response.end(JSON.stringify(config));
       return;
@@ -81,8 +88,10 @@ async function launch(viewport: { width: number; height: number }) {
   page.on("pageerror", (error) => errors.push(error.message));
   await page.goto(`http://127.0.0.1:${address.port}`);
   const frame = page.frameLocator("iframe");
-  await frame.getByRole("button", { name: "Show me" }).waitFor();
-  await expect.poll(() => frame.locator('[data-item-id="frozen-light"] .chunk').count()).toBe(2);
+  if (options.configAvailable !== false) {
+    await frame.getByRole("button", { name: "Show me" }).waitFor();
+    await expect.poll(() => frame.locator('[data-item-id="frozen-light"] .chunk').count()).toBe(2);
+  }
   return { page, frame, errors };
 }
 
@@ -122,6 +131,18 @@ describe.each(viewports)("spelling Visual Explainer at $width×$height", (viewpo
     });
     expect(completion.targetResults[0]).not.toHaveProperty("attemptedValue");
     expect(completion.targetResults[0]).not.toHaveProperty("correct");
+    expect(errors).toEqual([]);
+  });
+
+  it("blocks safely instead of teaching fallback content when production config is missing", async () => {
+    const { page, frame, errors } = await launch(viewport, { configAvailable: false });
+    await frame.getByRole("alert").waitFor();
+    expect(await frame.getByRole("alert").textContent()).toContain("This activity needs a quick reset");
+    await assertUsable(frame.getByRole("alert").getByRole("button", { name: "Back to map" }));
+    expect(await frame.locator('[data-item-id="fallback"]').count()).toBe(0);
+    const captured = await page.evaluate<Array<Record<string, any>>>("window.captured");
+    expect(captured.map((message) => message.type)).not.toContain("node_complete");
+    expect(captured.map((message) => message.type)).not.toContain("attempt_event");
     expect(errors).toEqual([]);
   });
 });

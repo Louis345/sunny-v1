@@ -294,15 +294,62 @@
         })
         .then(function (config) {
           applyArtifactConfig(config);
+          setRunControlsDisabled(false);
+          setProgress(0, false);
           emitEvidence("artifact-config-loaded", "Artifact config loaded from " + configPath + ".");
           reportState("artifact_config_loaded", "Visual explainer config loaded.");
           reportCompanionAnchor("artifact_config_loaded");
         })
         .catch(function (err) {
-          console.warn("🎮 [visual-learner-shell] [config] fallback", err);
-          applyArtifactConfig(defaultConfig);
-          emitEvidence("artifact-config-fallback", "Artifact config failed to load; using embedded fallback.");
+          if (gameParams.previewDryRun) {
+            console.warn("🎮 [visual-learner-shell] [config] preview-fallback", err);
+            applyArtifactConfig(defaultConfig);
+            setRunControlsDisabled(false);
+            setProgress(0, false);
+            emitEvidence("artifact-config-fallback", "Preview config failed to load; using embedded preview content.");
+            return;
+          }
+          console.error("🎮 [visual-learner-shell] [config] blocked", err);
+          blockForConfigFailure();
         });
+    }
+
+    function setRunControlsDisabled(disabled) {
+      [el.playPause, el.finishButton, el.revealButton]
+        .concat(Array.isArray(el.choices) ? el.choices : [])
+        .filter(Boolean)
+        .forEach(function (control) {
+          control.disabled = disabled;
+        });
+    }
+
+    function blockForConfigFailure() {
+      var panel;
+      var title;
+      var message;
+      var button;
+      pause();
+      setRunControlsDisabled(true);
+      if (el.predictionPanel) el.predictionPanel.style.display = "none";
+      panel = document.createElement("section");
+      panel.id = "sunny-artifact-config-error";
+      panel.setAttribute("role", "alert");
+      panel.style.cssText = "position:fixed;inset:0;z-index:9999;display:grid;place-items:center;padding:24px;background:#12072f;color:#fff;text-align:center;font-family:ui-rounded,system-ui,sans-serif";
+      title = document.createElement("h1");
+      title.textContent = "This activity needs a quick reset";
+      title.style.cssText = "margin:0 0 12px;font-size:clamp(28px,4vw,48px)";
+      message = document.createElement("p");
+      message.textContent = "Your learning path is safe. Head back to the map and try another activity.";
+      message.style.cssText = "max-width:560px;margin:0 0 24px;font-size:clamp(17px,2vw,22px);line-height:1.45;color:rgba(255,255,255,.82)";
+      button = document.createElement("button");
+      button.type = "button";
+      button.textContent = "Back to map";
+      button.style.cssText = "border:0;border-radius:999px;padding:14px 24px;background:#8ff1d2;color:#102c2a;font:900 18px ui-rounded,system-ui,sans-serif;cursor:pointer";
+      button.addEventListener("click", backToMap);
+      panel.append(title, message, button);
+      document.body.appendChild(panel);
+      emitEvidence("artifact-config-failed", "Activity configuration could not be loaded; child content was blocked.");
+      reportState("artifact_config_failed", "Visual explainer configuration unavailable.");
     }
 
     function hasNarrationTimeline() {
@@ -749,8 +796,11 @@
 
     function start() {
       bindEvents();
-      applyArtifactConfig(defaultConfig);
-      setProgress(0, false);
+      setRunControlsDisabled(true);
+      if (gameParams.previewDryRun) {
+        applyArtifactConfig(defaultConfig);
+        setProgress(0, false);
+      }
       return loadArtifactConfig();
     }
 
