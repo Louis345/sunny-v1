@@ -2137,17 +2137,66 @@ async function callAssignmentPlannerModel(
     });
     console.log(` 🎮 [assignment-planner] [tool-correction] [received] id=${correction.message.id}`);
     const correctionUsage = usageFromAnthropic(correction.message);
-    const combinedUsage = combinePlannerUsage(originalUsage, correctionUsage);
+    let combinedUsage = combinePlannerUsage(originalUsage, correctionUsage);
     const correctedDraft = parseAssignmentPlannerToolUseResponse(correction.message);
+    let validatedDraft: AssignmentPlannerResponseObject;
+    let finalReceivedAt = correction.createdAt;
+    let totalLatencyMs = received.latencyMs + correction.latencyMs;
+    try {
+      validatedDraft = validateAssignmentPlannerRelationships(correctedDraft, allowedEvidenceIdSet, requireSpellingMeasurements);
+    } catch (correctionError) {
+      const missingOnly = correctionError instanceof AssignmentPlannerRelationshipInvalidError
+        && correctionError.issues.length > 0
+        && correctionError.issues.every((issue) => issue.code === "planner_missing_measurement");
+      if (!missingOnly || correctionStage.endsWith("v3-2-missing-measurement")) throw correctionError;
+      const measurementRequest = {
+        version: 4,
+        purpose: "assignment_planner_missing_measurement_correction",
+        originalRequestHash: hashDiscoveryContract(packet),
+        invalidToolInput: correctionError.toolInput,
+        relationshipIssues: correctionError.issues,
+        allowedEvidenceIds,
+      };
+      const measurementPrompt = `Your corrected ${ASSIGNMENT_PLANNER_TOOL_NAME} input still omitted required node measurements. Reissue the complete tool input once. Preserve every node, activity, target, route, prediction, and valid measurement exactly. Add only the listed missing plannedMeasurements entries. Each id must equal measure-<node id>; spelling.evidenceIds must come from ALLOWED EVIDENCE IDS; instruction or practice uses interventionNodeIds: []. Do not add, remove, reorder, or redesign nodes.\nMISSING MEASUREMENTS:\n${JSON.stringify(correctionError.issues)}\nALLOWED EVIDENCE IDS:\n${JSON.stringify(allowedEvidenceIds)}\nPREVIOUS CORRECTED TOOL INPUT:\n${JSON.stringify(correctionError.toolInput)}`;
+      const measurementStarted = Date.now();
+      const measurementCorrection = await runMathProviderStage({
+        draftDir: providerReceipt.draftDir,
+        stage: `${providerReceipt.stage}-tool-correction-v3-2-missing-measurement`,
+        model,
+        request: measurementRequest,
+        beforeRequest: () => {
+          if (!process.env.ANTHROPIC_API_KEY) throw new Error("assignment_planner_ai_unavailable:ANTHROPIC_API_KEY");
+        },
+        execute: async () => ({
+          message: await requestAssignmentPlannerTool({
+            prompt: measurementPrompt,
+            model,
+            schema: assignmentPlannerToolJsonSchema(true, packet.activityCatalog),
+          }),
+          model,
+          latencyMs: Date.now() - measurementStarted,
+          createdAt: new Date().toISOString(),
+        }),
+      });
+      console.log(` 🎮 [assignment-planner] [measurement-correction] [received] id=${measurementCorrection.message.id}`);
+      validatedDraft = validateAssignmentPlannerRelationships(
+        parseAssignmentPlannerToolUseResponse(measurementCorrection.message),
+        allowedEvidenceIdSet,
+        requireSpellingMeasurements,
+      );
+      combinedUsage = combinePlannerUsage(combinedUsage, usageFromAnthropic(measurementCorrection.message));
+      totalLatencyMs += measurementCorrection.latencyMs;
+      finalReceivedAt = measurementCorrection.createdAt;
+    }
     return {
-      draft: validateAssignmentPlannerRelationships(correctedDraft, allowedEvidenceIdSet, requireSpellingMeasurements),
+      draft: validatedDraft,
       usage: combinedUsage,
       telemetry: {
         model: correction.model,
         usage: combinedUsage,
-        latencyMs: received.latencyMs + correction.latencyMs,
+        latencyMs: totalLatencyMs,
       },
-      receivedAt: correction.createdAt,
+      receivedAt: finalReceivedAt,
     };
   }
 }

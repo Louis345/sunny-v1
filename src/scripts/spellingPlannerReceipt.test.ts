@@ -164,6 +164,37 @@ describe("spelling Planner raw-response durability", () => {
     expect(hasReceivedMathProviderStage(f.draftDir, "spelling-targeted-planner-tool-correction-v3-2-missing-measurement")).toBe(true);
   });
 
+  it("permits one measurement-only follow-up when an older generic correction still omitted a node measurement", async () => {
+    // Live migration invariant: Reina's original response needed the existing
+    // generic correction, whose saved result still omitted the Visual Explainer
+    // measurement. Preserve both receipts and allow exactly one newer,
+    // measurement-only correction rather than regenerating the plan.
+    const f = await fixture();
+    const genericInvalid = structuredClone(f.message);
+    genericInvalid.id = "recorded-generic-invalid";
+    genericInvalid.content[1].input!.plannedMeasurements[0].spelling!.evidenceIds = ["invented-evidence-id"];
+    const correctedButMissing = structuredClone(f.message);
+    correctedButMissing.id = "recorded-corrected-but-missing";
+    correctedButMissing.content[1].input!.plannedMeasurements =
+      correctedButMissing.content[1].input!.plannedMeasurements.filter(
+        (measurement) => measurement.id !== "measure-practice",
+      );
+    const finalCorrection = structuredClone(f.message);
+    finalCorrection.id = "recorded-final-measurement-correction";
+    transport.create
+      .mockResolvedValueOnce(genericInvalid)
+      .mockResolvedValueOnce(correctedButMissing)
+      .mockResolvedValueOnce(finalCorrection);
+
+    const result = await f.run();
+
+    expect(result.output.plannedMeasurements.some((measurement) => measurement.id === "measure-practice")).toBe(true);
+    expect(transport.create).toHaveBeenCalledTimes(3);
+    expect(hasReceivedMathProviderStage(f.draftDir, "spelling-targeted-planner-tool-correction-v3-1")).toBe(true);
+    expect(hasReceivedMathProviderStage(f.draftDir, "spelling-targeted-planner-tool-correction-v3-2-missing-measurement")).toBe(true);
+    expect(JSON.stringify(transport.create.mock.calls[2]?.[0])).toContain("planner_missing_measurement");
+  });
+
   it("asks the same Planner once to correct invalid targeted tool input, then reuses both paid receipts", async () => {
     const f = await fixture();
     const invalid = structuredClone(f.message);
