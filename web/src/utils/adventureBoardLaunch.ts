@@ -68,6 +68,7 @@ export function resolveHomeworkVoiceSessionStart(
   const plan = packet.activeSessionPlan;
   const homeworkId = plan?.activeHomeworkId?.trim();
   const cycleHomeworkId = packet.childChart?.learningCycle?.homeworkId?.trim();
+  const lifecycle = packet.childChart?.learningCycle?.lifecycle;
   const domain = plan?.domain;
   const supportedDomain =
     domain === "spelling" ||
@@ -80,6 +81,7 @@ export function resolveHomeworkVoiceSessionStart(
     !homeworkId ||
     !plan?.adventureBoard ||
     !supportedDomain ||
+    ["evidence_ready", "targeted_planning", "board_designing", "board_generating", "baseline_generating", "quest_generating", "boss_generating"].includes(lifecycle ?? "") ||
     (requiresCanonicalCycle && homeworkId !== cycleHomeworkId) ||
     (!requiresCanonicalCycle && cycleHomeworkId && homeworkId !== cycleHomeworkId)
   ) {

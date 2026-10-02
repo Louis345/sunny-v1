@@ -98,6 +98,21 @@ describe("direct Discovery entry", () => {
     });
   });
 
+  it("does not open empty voice sessions while a successor board is preparing", () => {
+    // Human catch: each waiting-screen reconnect opened and ended an empty
+    // session. The packet identity test did not account for lifecycle state.
+    const preparing = packet("discovery:hw-1", [
+      { id: "evaluation", type: "word-radar", title: "Show What You Know" },
+    ]);
+    preparing.activeSessionPlan!.domain = "spelling";
+    preparing.childChart = {
+      childId: "reina",
+      learningCycle: { homeworkId: "hw-1", lifecycle: "targeted_planning" },
+    } as never;
+
+    expect(resolveHomeworkVoiceSessionStart(preparing, false)).toBeNull();
+  });
+
   it("does not auto-restart the same assignment after a fatal voice failure", () => {
     const first = resolveHomeworkVoiceAutostart({
       previousScope: null,
