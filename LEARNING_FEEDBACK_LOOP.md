@@ -1,6 +1,6 @@
 # Sunny Learning Feedback Loop
 
-Contract version: 21
+Contract version: 22
 
 This document is the **sole normative** authority for how Sunny forms, tests, and revises learning claims. Product changes that alter this loop must update this contract version before implementation. Other documents may describe infrastructure or history, but they must link here instead of creating another learning doctrine.
 
@@ -211,7 +211,7 @@ Adaptive memory carries factual observations, provenance, confidence, and uncert
 
 The cycle records and evidence rules are domain-neutral. Math validates relationships and representations; spelling tracks canonical forms and delayed recall; reading separates passage exposure, decoding, and comprehension; science grounds claims and causal explanations in source evidence. Domain adapters verify truth but do not choose pedagogy.
 
-New spelling cycles offer every assigned spelling target in independent Discovery before targeted practice is planned. Not sure, skipped, and untested targets remain unknown. Exit and resume preserve the original responses. Hearing the whole word is the elicitation stimulus, not spelling assistance; seeing its canonical spelling, hearing its letters, hints, or uncertain speech capture must be recorded separately. The instrument never forces a model-answer round before evaluation.
+New spelling cycles offer every assigned spelling target in independent Discovery before targeted practice is planned. Not sure, skipped, and untested targets remain unknown. Exit and resume preserve the original responses. Hearing the whole word is the elicitation stimulus, not spelling assistance; seeing its canonical spelling, hearing its letters, hints, or uncertain speech capture must be recorded separately. Assistance attaches only to the item where that support occurred; an open companion from an earlier item cannot contaminate later responses. The instrument never forces a model-answer round before evaluation.
 
 The existing intake Planner selects the opening spelling diagnostic from explicitly validated catalog capabilities, using the source and child-chart evidence. A generic diagnostic label on a practice game is not validation. The decision records rationale, cited evidence, uncertainty, and next evidence needed; a frozen capability snapshot and hash accompany the canonical evaluation. Code validates eligibility and projects this selection, not a preferred game. If no available instrument fits, the Planner records `needs_instrument`; no fallback publishes or additional model call starts automatically. Device context is unknown unless observed. Selection does not establish that an instrument is best, engaging, or effective. Legacy saved intake requests and cycles remain readable as legacy fixed-instrument behavior, never retroactively attributed to the Planner. Raw provider responses are checkpointed before validation and reused on restart.
 

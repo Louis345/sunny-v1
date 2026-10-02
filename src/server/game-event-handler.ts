@@ -45,7 +45,7 @@ export function armGameNarrationPlaybackTimer(
 export type SpellingAssessmentState = { homeworkId: string; itemId: string; word: string; artifactHash: string; audioDelivered: boolean; supportIds: string[]; ambiguous: boolean };
 export function bindSpellingAssessment(input: {
   state: Record<string, unknown>; cycle?: LearningCycleRecordV2 | null; current?: SpellingAssessmentState;
-  history: Map<string, SpellingAssessmentState>; sessionId: string; summoned: boolean;
+  history: Map<string, SpellingAssessmentState>; pendingSupportId?: string;
 }): SpellingAssessmentState | undefined {
   const { state, cycle, current, history } = input;
   if (current && current.itemId === state.itemId && state.answerVisibility !== "hidden") current.ambiguous = true;
@@ -57,7 +57,7 @@ export function bindSpellingAssessment(input: {
     return undefined;
   }
   if (current?.itemId === item.id) return current;
-  const next = history.get(item.id) ?? { homeworkId: cycle.homeworkId, itemId: item.id, word: item.word, artifactHash: node.artifactBinding.contractFingerprint, audioDelivered: false, supportIds: input.summoned ? [`support:${input.sessionId}:${item.id}`] : [], ambiguous: state.answerVisibility !== "hidden" };
+  const next = history.get(item.id) ?? { homeworkId: cycle.homeworkId, itemId: item.id, word: item.word, artifactHash: node.artifactBinding.contractFingerprint, audioDelivered: false, supportIds: input.pendingSupportId ? [input.pendingSupportId] : [], ambiguous: state.answerVisibility !== "hidden" };
   history.set(item.id, next);
   console.log(` 🎮 [spelling-discovery] [live-context] [bound] item=${item.id}`);
   return next;

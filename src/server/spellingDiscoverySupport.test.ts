@@ -53,6 +53,22 @@ describe("live spelling assistance and audio provenance", () => {
     s.setCompanionPresence("summoned"); s.setCompanionPresence("collapsed");
     expect(s.getDiscoveryAttemptContext("hw-words", "i1")?.support.status).toBe("assisted");
   });
+  it("does not carry one item's help into the next item while the companion remains open", async () => {
+    // Human catch: one summoned companion state made every later spelling word
+    // look assisted. The logs recorded the bad classification but the lab never
+    // advanced to a second item without collapsing the companion first.
+    const s = session();
+    s.updateCurrentBoardSnapshot({ assessmentMode: true, nodeId: "opening", itemId: "i1", phase: "response", answerVisibility: "hidden" });
+    s.setCompanionPresence("summoned");
+    expect(s.getDiscoveryAttemptContext("hw-words", "i1")?.support.status).toBe("assisted");
+
+    s.updateCurrentBoardSnapshot({ assessmentMode: true, nodeId: "opening", itemId: "i2", phase: "response", answerVisibility: "hidden" });
+
+    expect(s.getDiscoveryAttemptContext("hw-words", "i2")?.support).toEqual({
+      status: "unassisted",
+      scaffolds: [],
+    });
+  });
   it("does not misreport a failed or mismatched audio stimulus as delivered", async () => {
     const s = session();
     s.updateCurrentBoardSnapshot({ assessmentMode: true, nodeId: "opening", itemId: "i1", phase: "response", answerVisibility: "hidden" });

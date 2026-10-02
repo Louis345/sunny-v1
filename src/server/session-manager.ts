@@ -203,6 +203,7 @@ export class SessionManager {
   private currentActivityState: Record<string, unknown> | null = null;
   private spellingAssessment?: gev.SpellingAssessmentState;
   private spellingAssessmentHistory = new Map<string, NonNullable<SessionManager["spellingAssessment"]>>();
+  private pendingSpellingAssessmentSupport = false;
   private mathDiscoverySupport?: MathDiscoverySupportState;
   private mathDiscoverySupportHistory = new Map<string, MathDiscoverySupportState>();
   private currentBoardSnapshot: CurrentBoardSnapshot | null = null;
@@ -742,9 +743,13 @@ export class SessionManager {
   updateCurrentBoardSnapshot(state: Record<string, unknown>): void {
     if (state.assessmentMode === true) {
       this.spellingAssessmentHistory ??= new Map();
+      const itemId = String(state.itemId ?? "");
+      const pendingSupportId = this.pendingSpellingAssessmentSupport && itemId
+        ? `support:${this.sessionId}:${itemId}`
+        : undefined;
       this.spellingAssessment = gev.bindSpellingAssessment({ state, cycle: getChildChart(this.chartChildId).learningCycle,
-        current: this.spellingAssessment, history: this.spellingAssessmentHistory,
-        sessionId: this.sessionId, summoned: this.companionPresence === "summoned" });
+        current: this.spellingAssessment, history: this.spellingAssessmentHistory, pendingSupportId });
+      if (pendingSupportId && this.spellingAssessment?.itemId === itemId) this.pendingSpellingAssessmentSupport = false;
     }
     const incomingPhase = String(state.phase ?? "").trim();
     const incomingNodeId = String(state.nodeId ?? "").trim();
@@ -778,7 +783,16 @@ export class SessionManager {
   ): void {
     const next = transitionCompanionPresence({ state, reason });
     this.companionPresence = next.presence;
-    if (state === "summoned" && this.spellingAssessment && !this.spellingAssessment.supportIds.length) this.spellingAssessment.supportIds.push(`support:${this.sessionId}:${this.spellingAssessment.itemId}`);
+    if (state === "summoned") {
+      const snapshotMatchesAssessment = this.spellingAssessment
+        && this.currentBoardSnapshot?.itemId === this.spellingAssessment.itemId
+        && this.currentBoardSnapshot?.phase === "response";
+      if (snapshotMatchesAssessment && this.spellingAssessment && !this.spellingAssessment.supportIds.length) {
+        this.spellingAssessment.supportIds.push(`support:${this.sessionId}:${this.spellingAssessment.itemId}`);
+      } else if (!this.spellingAssessment) {
+        this.pendingSpellingAssessmentSupport = true;
+      }
+    }
     if (state === "summoned" && this.mathDiscoverySupport && !this.mathDiscoverySupport.supportIds.length) {
       this.mathDiscoverySupport.supportIds.push(`support:${this.sessionId}:${this.mathDiscoverySupport.itemId}`);
     }
