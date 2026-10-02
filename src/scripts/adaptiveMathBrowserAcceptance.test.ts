@@ -15,7 +15,7 @@ import { runAdaptiveMathGeneration } from "./runAdaptiveMathGeneration";
 import { ingestMathAssignment } from "./ingestMathDirect";
 import { ASSIGNMENT_SOURCE_CONTRACT_VERSION, assignmentSourceFileHash } from "../engine/assignmentSourceExtraction";
 import { DISCOVERY_VERIFIER_VERSION } from "../engine/discoveryVisualReview";
-import { generateCanonicalProgressionArtifact } from "../engine/canonicalProgressionGenerator";
+import { prepareSuccessorBoard } from "../engine/canonicalProgressionGenerator";
 import { buildLongitudinalLearningHistory } from "../engine/longitudinalLearning";
 import { askDirectMathPlanner, askMathExperienceDesigner, generateDirectArtifacts, runDirectBrowserSmokeCheck } from "../engine/directMathExperience";
 import { createHash } from "node:crypto";
@@ -302,7 +302,7 @@ it("plays the isolated math release journey through calibration and the next Pla
       vi.mocked(generateDirectArtifacts).mockImplementation(async input=>{
         const nodeId=input.nodeIds![0]; if(nodeId==="activity-2")await sibling;
         const htmlPath=path.join(games,nodeId+".html");fs.writeFileSync(htmlPath,graphActivityHtml(nodeId));
-        return {artifacts:[{childId,homeworkId,nodeId,title:nodeId,htmlPath,htmlHash:createHash("sha256").update(fs.readFileSync(htmlPath)).digest("hex"),artworkUrl:"/lab.svg",creatorPrompt:"lab",promptHash:"lab",plannerModel:"mock",creatorModel:"mock"}],backgroundUrl:"/lab.svg",questArtworkUrl:"/lab.svg",bossArtworkUrl:"/lab.svg",stats:{generatedNodeIds:[nodeId],reusedNodeIds:[],generatedImages:0,reusedImages:0,bonusDeferred:true}};
+        return {artifacts:[{childId,homeworkId,nodeId,title:nodeId,htmlPath,htmlHash:createHash("sha256").update(fs.readFileSync(htmlPath)).digest("hex"),artworkUrl:"/lab.svg",creatorPrompt:"lab",promptHash:"lab",plannerModel:"mock",creatorModel:"mock"}],backgroundUrl:"/lab.svg",stats:{generatedNodeIds:[nodeId],reusedNodeIds:[],generatedImages:0,reusedImages:0,bonusDeferred:true}};
       });
       releaseTargetedFixture();
       expect(generation).toBeDefined();
@@ -313,32 +313,32 @@ it("plays the isolated math release journey through calibration and the next Pla
       expect(vi.mocked(askMathExperienceDesigner)).toHaveBeenCalledTimes(1);
       const planFile=path.join(contextRoot,childId,"plans/active_session_plan.json");
       const published=JSON.parse(fs.readFileSync(planFile,"utf8"));activeSessionPlan=published.current??published;
-      step="open the Teaching Board next session while a sibling prepares";
+      // Contract 21: the Teaching Board is published only once every node is verified, so the child
+      // never sees a half-built map. Release the slower sibling before the next session opens it.
+      expect(getLearningCycle(childId,homeworkId,{rootDir})!.boards?.at(-1)).toMatchObject({kind:"teaching",publishedAt:null});
+      releaseSibling!();await generation;generation=undefined;
+      expect(getLearningCycle(childId,homeworkId,{rootDir})!.lifecycle).toBe("board_ready");
+      expect(getLearningCycle(childId,homeworkId,{rootDir})!.boards?.at(-1)?.publishedAt).toEqual(expect.any(String));
+      step="open the complete Teaching Board next session";
+      await page.reload();
       const startSunny = page.getByRole("button",{name:"Start Sunny",exact:true});
       if (await startSunny.isVisible().catch(() => false)) await startSunny.click();
       await page.getByRole("button",{name:"Graph Mission 1",exact:true}).waitFor({state:"visible"});
-      await page.screenshot({path:path.join(outputDir,"first-ready-sibling-preparing.png")});
+      await page.screenshot({path:path.join(outputDir,"complete-teaching-board.png")});
       step="launch first ready node";if(parentOperated)console.log("PARENT: open Graph Mission 1, choose Cleo, enter 4, then drag Nia's bar to Highest.");else await page.getByRole("button",{name:"Graph Mission 1",exact:true}).click();
       const targetedFrame=page.frameLocator("iframe").last();
-      step="retain the active activity during a background packet failure";
-      const activityUrl=await page.locator("iframe").last().getAttribute("src");
-      unavailablePacketReads=1;
-      setMathGenerationPhase({rootDir,childId,homeworkId,phase:"board_generating"});
-      await page.waitForResponse(response=>response.url().includes("/api/child-experience/")&&response.status()===503,{timeout:40000});
-      expect(await page.locator("iframe").last().getAttribute("src")).toBe(activityUrl);
-      await page.screenshot({path:path.join(outputDir,"activity-survives-refresh-outage.png")});
+      // The former mid-board refresh-outage step needed a sibling still building behind a published
+      // board; contract 21 removes that state, so no generation poll runs while the child plays.
       step="targeted click fill drag transitions";if(!parentOperated){await targetedFrame.locator("#cleo").click();await targetedFrame.locator("#value").fill("4");await targetedFrame.locator("#submit").click();await targetedFrame.locator("#niaBar").dragTo(targetedFrame.locator("#highest"));}
       await expect.poll(()=>getLearningCycle(childId,homeworkId,{rootDir})!.nodes.find(n=>n.nodeId==="activity-1")?.state,{timeout:parentOperated?180000:10000}).toBe("completed");
-      expect(getMathGenerationStatus(childId,homeworkId,{rootDir})!.nodes.find(n=>n.nodeId==="activity-2")?.status).toBe("preparing");
-      releaseSibling!();await generation;generation=undefined;
       expect(getLearningCycle(childId,homeworkId,{rootDir})!.lifecycle).toBe("baseline_evaluating");
-      const decide = async (action:"generate_support"|"generate_quest"|"generate_boss"|"await_calibration") => advanceCanonicalCycleFromEvidence({childId,homeworkId,decide:async current=>({status:action==="await_calibration"?"awaiting_calibration":"revised",reason:"Explicit laboratory Planner decision",progressionAction:action,preserve:[],change:[],testNext:[],nextEvidenceRequired:["graded work"],predictionEvaluationIds:current.predictionEvaluations.map(e=>e.evaluationId),...(action!=="await_calibration"?{nextInstrument:{nodeId:action==="generate_support"?"support-lab":action.replace("generate_",""),title:action==="generate_support"?"Lab Support":action==="generate_quest"?"Quest":"Boss",academicTarget:"unit-scale bar graph reading",mechanic:"mixed graph controls",theme:"library graph lab",openingPurpose:"Measure fresh graph-reading performance",creatorPrompt:"Use fresh synthetic unit-scale graph items",items:targeted.activities[0].items.map((item:any)=>({...item,id:(action==="generate_support"?"support-lab":action.replace("generate_",""))+":"+item.id}))}}:{})})},{rootDir});
+      const decide = async (action:"generate_support"|"generate_quest"|"generate_boss"|"await_calibration") => advanceCanonicalCycleFromEvidence({childId,homeworkId,decide:async current=>({status:action==="await_calibration"?"awaiting_calibration":"revised",reason:"Explicit laboratory Planner decision",progressionAction:action,preserve:[],change:[],testNext:[],nextEvidenceRequired:["graded work"],predictionEvaluationIds:current.predictionEvaluations.map(e=>e.evaluationId),...(action!=="await_calibration"?{successor:{instruments:[{...(action==="generate_quest"?{encounter:"quest" as const}:action==="generate_boss"?{encounter:"boss" as const}:{}),nodeId:action==="generate_support"?"support-lab":action.replace("generate_",""),title:action==="generate_support"?"Lab Support":action==="generate_quest"?"Quest":"Boss",academicTarget:"unit-scale bar graph reading",mechanic:"mixed graph controls",theme:"library graph lab",openingPurpose:"Measure fresh graph-reading performance",creatorPrompt:"Use fresh synthetic unit-scale graph items",items:targeted.activities[0].items.map((item:any)=>({...item,id:(action==="generate_support"?"support-lab":action.replace("generate_",""))+":"+item.id}))}]}}:{})})},{rootDir});
       for (const action of ["generate_support","generate_quest","generate_boss"] as const) {
         step="Planner "+action;await decide(action);
         let nodeId="";
-        await generateCanonicalProgressionArtifact({childId,homeworkId,generateHtml:async ({node})=>{nodeId=node.nodeId;return graphActivityHtml(node.nodeId,node.nodeId+":",node.openingScreen.title);},generateArtwork:async()=>"/lab.svg",validate:async ({html,node})=>{
+        await prepareSuccessorBoard({childId,homeworkId,generateHtml:async ({node})=>{nodeId=node.nodeId;const itemPrefix=Object.keys(node.evidenceContract.itemContracts??{})[0]!.replace(/[^:]+$/,"");return graphActivityHtml(node.nodeId,itemPrefix,node.openingScreen.title);},generateArtwork:async()=>"/lab.svg",validate:async ({html,node})=>{
           const htmlPath=path.join(games,"validate-"+node.nodeId+".html");fs.writeFileSync(htmlPath,html);
-          const report=await runDirectBrowserSmokeCheck({rootDir,artifacts:[{childId,homeworkId,nodeId:node.nodeId,title:node.title,htmlPath,artworkUrl:"/lab.svg",creatorPrompt:"lab",promptHash:"lab",plannerModel:"mock",creatorModel:"mock",itemIds:["q1","q2","q3"].map(id=>node.nodeId+":"+id)}]});return {...report,screenshotPaths:report.screenshots};
+          const report=await runDirectBrowserSmokeCheck({rootDir,artifacts:[{childId,homeworkId,nodeId:node.nodeId,title:node.title,htmlPath,artworkUrl:"/lab.svg",creatorPrompt:"lab",promptHash:"lab",plannerModel:"mock",creatorModel:"mock",itemIds:Object.keys(node.evidenceContract.itemContracts??{})}]});return {...report,screenshotPaths:report.screenshots};
         }},{rootDir});
         step="play "+nodeId;await page.reload();
         const title=action==="generate_support"?"Lab Support":action==="generate_quest"?"Quest":"Boss";

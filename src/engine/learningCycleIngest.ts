@@ -20,6 +20,7 @@ import {
   type SpellingDiagnosticSelection,
   type LearningCycleRepositoryOptions,
 } from "./learningCycleRepository";
+import { withInitialBoard } from "./learningBoardInstances";
 
 export type LearningCycleIngestInput = {
   childId: string;
@@ -97,7 +98,7 @@ export function createSpellingDiscoveryCycle(input: {
       || hashDiscoveryContract(mode.config) !== hashDiscoveryContract(instrument.config)) throw new Error("spelling_diagnostic_selection_invalid");
   }
   const nodeId = `${input.homeworkId}:discovery`;
-  const cycle = createLearningCycle({
+  const cycle = createLearningCycle(withInitialBoard({
     childId: input.childId, homeworkId: input.homeworkId, domain: "spelling",
     assignment: {
       title: input.title, contentFingerprint: input.contentFingerprint,
@@ -123,7 +124,7 @@ export function createSpellingDiscoveryCycle(input: {
       },
       evidenceIds: [],
     }],
-  }, opts);
+  }, "probe", (opts.now ?? new Date()).toISOString()), opts);
   console.log(` 🎮 [spelling-discovery] [contract] [saved] homework=${input.homeworkId} items=${input.items.length} hash=${fingerprint}`);
   return cycle;
 }
@@ -148,7 +149,7 @@ export function buildSpellingDiscoveryPlan(input: { cycle: LearningCycleRecordV2
     companionPolicy: { companionId: companion.id, displayName: companion.name, openingLinePolicy: "silent", verbosity: "low", maxMicroProbes: 0 },
     evidenceUsed: cycle.assignment.capturedEvidenceIds.map(id => ({ id, type: "assignment", summary: "Captured school spelling target." })), openQuestions: [], approvalStatus: "approved",
   };
-  plan.adventureBoard = buildAdventureBoardFromActiveSessionPlan({ plan: { ...plan, nodePlan: plan.nodePlan.map(node => ({ ...node, wordRadarConfig: node.wordRadarConfig ? { ...node.wordRadarConfig } : undefined })) }, boardId: plan.planId, title: "Spelling Discovery", companion, showFinishLineDestinations: false, theme: { background: { type: "solid", value: "#12002e" }, palette: { path: "#fff4c2", completed: "#34d399", available: "#7c3aed", locked: "#64748b", current: "#f59e0b", preview: "#94a3b8", text: "#ffffff", panel: "#12002e" } } });
+  plan.adventureBoard = buildAdventureBoardFromActiveSessionPlan({ plan: { ...plan, nodePlan: plan.nodePlan.map(node => ({ ...node, wordRadarConfig: node.wordRadarConfig ? { ...node.wordRadarConfig } : undefined })) }, boardId: plan.planId, title: "Spelling Discovery", companion, theme: { background: { type: "solid", value: "#12002e" }, palette: { path: "#fff4c2", completed: "#34d399", available: "#7c3aed", locked: "#64748b", current: "#f59e0b", preview: "#94a3b8", text: "#ffffff", panel: "#12002e" } } });
   return plan;
 }
 
@@ -535,7 +536,9 @@ export function persistIngestedLearningCycle(
   input: LearningCycleIngestInput,
   opts: LearningCycleRepositoryOptions = {},
 ): LearningCycleRecordV2 {
-  const nextInput = buildLearningCycleInputFromPlan(input);
+  const built = buildLearningCycleInputFromPlan(input);
+  // An opening board never carries unauthorized Quest/Boss placeholders (contract 21).
+  const nextInput = { ...built, nodes: built.nodes.filter((node) => node.role !== "quest" && node.role !== "boss") };
   let current: LearningCycleRecordV2 | null;
   try {
     current = getLearningCycle(input.childId, input.homeworkId, opts);
@@ -545,7 +548,17 @@ export function persistIngestedLearningCycle(
     }
     current = repairInvalidLearningCycleForReingestion(nextInput, opts);
   }
-  if (!current) return createLearningCycle(nextInput, opts);
+  if (!current) return createLearningCycle(withInitialBoard(nextInput, "teaching", (opts.now ?? new Date()).toISOString()), opts);
+  if (current.boards) {
+    // Published boards are immutable: the same assignment resumes as-is; changed content needs a new assignment cycle.
+    if (current.assignment.contentFingerprint !== nextInput.assignment.contentFingerprint) {
+      throw new Error(`learning_cycle_reingestion_fingerprint_changed:${input.homeworkId}`);
+    }
+    console.log(` 🎮 [learning-cycle] [reingestion] [resumed] homework=${input.homeworkId} revision=${current.revision} boards=${current.boards.length}`);
+    return current;
+  }
+  // Legacy cycles keep any existing Quest/Boss node and its evidence; re-ingestion never deletes them.
+  const legacyEncounters = current.nodes.filter((node) => node.role === "quest" || node.role === "boss");
   return transitionLearningCycle(input.childId, input.homeworkId, current.revision, {
     type: "plan_reconciled",
     assignment: nextInput.assignment,
@@ -554,7 +567,7 @@ export function persistIngestedLearningCycle(
       revision: current.academicTheory.revision + 1,
     },
     engagementTheory: nextInput.engagementTheory,
-    nodes: nextInput.nodes,
+    nodes: [...nextInput.nodes, ...legacyEncounters],
     reason: "Re-ingestion reconciled the canonical cycle without discarding recorded evidence.",
   }, opts);
 }

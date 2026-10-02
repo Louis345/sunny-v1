@@ -18,6 +18,7 @@ import {
   type LearningObservation,
   type LearningCycleSpellingItem,
 } from "./learningCycleRepository";
+import { withInitialBoard } from "./learningBoardInstances";
 import { createSpellingDiscoveryCycle } from "./learningCycleIngest";
 import {
   renderDiscoveryCandidate, DISCOVERY_VERIFIER_VERSION,
@@ -1751,7 +1752,7 @@ export function createDiscoveryLearningCycle(input: {
   assertDiscoveryResponseContracts(input.evaluation);
   const probeActivities = discoveryProbeActivities(input.evaluation);
   const theoryId = `${input.homeworkId}:discovery-theory`;
-  return createLearningCycle({
+  return createLearningCycle(withInitialBoard({
     childId: input.childId,
     homeworkId: input.homeworkId,
     domain: "math",
@@ -1770,8 +1771,8 @@ export function createDiscoveryLearningCycle(input: {
     // by the Planner only after those facts are committed.
     academicPredictions: [],
     assumptions: [],
-    initialLifecycle: "evaluation_ready",
-  }, { rootDir: input.rootDir });
+    initialLifecycle: "evaluation_ready" as const,
+  }, "probe", new Date().toISOString()), { rootDir: input.rootDir });
 }
 
 export function recordDiscoveryAttempt(input: {

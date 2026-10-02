@@ -177,7 +177,7 @@ it("reuses a paid initial build when metadata installation was interrupted", asy
     if(!interrupted&&String(file).endsWith(activity.id+".artifact.json")){interrupted=true;throw new Error("metadata_interrupted");}
     return write(file,data,options);
   });
-  const build=()=>generateDirectArtifacts({rootDir:root,childId:"lab",homeworkId:"hw-lab",plan:program,nodeIds:[activity.id],assignmentFingerprint:"fixture",existingArtworkUrls:{backgroundUrl:"/saved.svg",questArtworkUrl:"/saved.svg",bossArtworkUrl:"/saved.svg"}});
+  const build=()=>generateDirectArtifacts({rootDir:root,childId:"lab",homeworkId:"hw-lab",plan:program,nodeIds:[activity.id],assignmentFingerprint:"fixture",existingArtworkUrls:{backgroundUrl:"/saved.svg",}});
   await expect(build()).rejects.toThrow("metadata_interrupted");
   const result=await build();
   expect(result.artifacts).toHaveLength(1);

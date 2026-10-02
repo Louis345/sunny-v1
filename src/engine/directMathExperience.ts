@@ -31,6 +31,7 @@ import {
   type LearningCycleNodeContract,
   type LearningCycleRecordV2,
 } from "./learningCycleRepository";
+import { withInitialBoard } from "./learningBoardInstances";
 
 export type DirectActivity = {
   id: string;
@@ -199,10 +200,6 @@ export type MathDesignPacket = {
       previewNodeId: string;
       engagementVariable: string;
     }>;
-    questTeaser: string;
-    questArtworkDirection: string;
-    bossTeaser: string;
-    bossArtworkDirection: string;
   };
   artifacts: ExperienceDesignArtifactV1[];
   rationale: string;
@@ -463,8 +460,6 @@ export type DirectLearningExperiencePlan = {
   agencyExperiment?: AgencyExperiment;
   activities: DirectActivity[];
   bonusActivity?: DirectActivity;
-  quest: { title: "Quest"; locked: true; teaser: string; artworkPrompt: string };
-  boss: { title: "Boss"; locked: true; teaser: string; artworkPrompt: string };
 };
 
 export type DirectArtifact = {
@@ -523,8 +518,6 @@ export type DirectGenerationStats = {
 
 export type DirectArtworkBundle = {
   backgroundUrl: string;
-  questArtworkUrl: string;
-  bossArtworkUrl: string;
   thumbnailUrls: Record<string, string>;
   generatedImages: number;
   reusedImages: number;
@@ -1106,14 +1099,6 @@ export function parseDirectLearningExperiencePlan(value: unknown): DirectLearnin
       throw new Error(`direct_plan_missing_responsibility:${responsibility.id}`);
     }
   }
-  const quest = object(root.quest);
-  const boss = object(root.boss);
-  const lockedTeaser = <Role extends "Quest" | "Boss">(role: Role, value: Record<string, unknown> | null) => ({
-    title: role,
-    locked: true as const,
-    teaser: value ? requiredString(value, "teaser") : `${role} unlocks when the learning evidence is ready.`,
-    artworkPrompt: value ? requiredString(value, "artworkPrompt") : `Locked ${role} destination placeholder`,
-  });
   const boardWorld = object(root.boardWorld);
   if (!boardWorld) throw new Error("direct_plan_missing_board_world");
   const boardTitle = requiredString(boardWorld, "title");
@@ -1137,8 +1122,6 @@ export function parseDirectLearningExperiencePlan(value: unknown): DirectLearnin
       routes,
     },
     activities,
-    quest: lockedTeaser("Quest", quest),
-    boss: lockedTeaser("Boss", boss),
   };
 }
 
@@ -1279,18 +1262,6 @@ function parseBoardCreativeSpine(value: unknown): MathDesignPacket["boardCreativ
         engagementVariable: requiredString(route, "engagementVariable"),
       };
     }),
-    questTeaser: typeof spine.questTeaser === "string" && spine.questTeaser.trim()
-      ? spine.questTeaser.trim()
-      : "Quest unlocks when the learning evidence is ready.",
-    questArtworkDirection: typeof spine.questArtworkDirection === "string" && spine.questArtworkDirection.trim()
-      ? spine.questArtworkDirection.trim()
-      : "Locked Quest destination placeholder",
-    bossTeaser: typeof spine.bossTeaser === "string" && spine.bossTeaser.trim()
-      ? spine.bossTeaser.trim()
-      : "Boss unlocks after qualifying Quest evidence.",
-    bossArtworkDirection: typeof spine.bossArtworkDirection === "string" && spine.bossArtworkDirection.trim()
-      ? spine.bossArtworkDirection.trim()
-      : "Locked Boss destination placeholder",
   };
 }
 
@@ -1653,8 +1624,6 @@ ${JSON.stringify({ ...programWithoutBonusDuplicate, activities: contracts }, nul
         designArtifact: design,
       };
     }),
-    quest: { title: "Quest", locked: true, teaser: packet.boardCreativeSpine.questTeaser, artworkPrompt: packet.boardCreativeSpine.questArtworkDirection },
-    boss: { title: "Boss", locked: true, teaser: packet.boardCreativeSpine.bossTeaser, artworkPrompt: packet.boardCreativeSpine.bossArtworkDirection },
   };
   if (input.program.bonusActivity) {
     const activity = input.program.bonusActivity;
@@ -2718,7 +2687,7 @@ export async function generateDirectArtworkBundle(input: {
   homeworkId: string;
   rootDir?: string;
   nodeIds?: string[];
-  existingArtworkUrls?: Partial<Pick<DirectArtworkBundle, "backgroundUrl" | "questArtworkUrl" | "bossArtworkUrl">>;
+  existingArtworkUrls?: Partial<Pick<DirectArtworkBundle, "backgroundUrl">>;
 }): Promise<DirectArtworkBundle> {
   const rootDir = input.rootDir ?? process.cwd();
   const publicDir = path.join(rootDir, "web", "public");
@@ -2726,8 +2695,6 @@ export async function generateDirectArtworkBundle(input: {
   process.env.SUNNY_IMAGE_GENERATION_MAX_PER_RUN = "3";
   const artworkJobs = [
     { key: "backgroundUrl" as const, prompt: createDirectBoardBackgroundPrompt(input.plan.boardWorld.backgroundPrompt), filename: `${input.homeworkId}-background.jpeg` },
-    { key: "questArtworkUrl" as const, prompt: input.plan.quest.artworkPrompt, filename: `${input.homeworkId}-quest.jpeg` },
-    { key: "bossArtworkUrl" as const, prompt: input.plan.boss.artworkPrompt, filename: `${input.homeworkId}-boss.jpeg` },
   ];
   let reusedImages = 0;
   const resolvedArtwork = await mapConcurrent(artworkJobs, 2, async (job) => {
@@ -2740,7 +2707,7 @@ export async function generateDirectArtworkBundle(input: {
     if (fs.existsSync(localFile) && fs.statSync(localFile).size > 0) reusedImages += 1;
     return [job.key, await createDirectArtwork(job.prompt, publicDir, job.filename)] as const;
   });
-  const artworkUrls = Object.fromEntries(resolvedArtwork) as Pick<DirectArtworkBundle, "backgroundUrl" | "questArtworkUrl" | "bossArtworkUrl">;
+  const artworkUrls = Object.fromEntries(resolvedArtwork) as Pick<DirectArtworkBundle, "backgroundUrl">;
   const thumbnailEntries = await mapConcurrent(selectedActivities, 2, async (activity) => {
     const filename = createDirectBoardThumbnailFilename(input.homeworkId, activity);
     const localFile = path.join(publicDir, "generated", "direct-math", filename);
@@ -2773,15 +2740,11 @@ export async function generateDirectArtifacts(input: {
   candidateCards?: PlannerContentCandidateCard[];
   existingArtworkUrls?: {
     backgroundUrl: string;
-    questArtworkUrl: string;
-    bossArtworkUrl: string;
   };
   deferOptionalArtwork?: boolean;
 }): Promise<{
   artifacts: DirectArtifact[];
   backgroundUrl: string;
-  questArtworkUrl: string;
-  bossArtworkUrl: string;
   stats: DirectGenerationStats;
 }> {
   const rootDir = input.rootDir ?? process.cwd();
@@ -2797,8 +2760,6 @@ export async function generateDirectArtifacts(input: {
   const artworkBundle = input.deferOptionalArtwork
     ? {
         backgroundUrl: input.existingArtworkUrls?.backgroundUrl ?? "/generated/adaptive-discovery-background.svg",
-        questArtworkUrl: input.existingArtworkUrls?.questArtworkUrl ?? "",
-        bossArtworkUrl: input.existingArtworkUrls?.bossArtworkUrl ?? "",
         thumbnailUrls: {},
         generatedImages: 0,
         reusedImages: 0,
@@ -2810,7 +2771,7 @@ export async function generateDirectArtifacts(input: {
         nodeIds: input.nodeIds,
         existingArtworkUrls: input.existingArtworkUrls,
       });
-  const { backgroundUrl, questArtworkUrl, bossArtworkUrl } = artworkBundle;
+  const { backgroundUrl } = artworkBundle;
   const thumbnailByNodeId = new Map(Object.entries(artworkBundle.thumbnailUrls));
   const generatedNodeIds: string[] = [];
   const reusedNodeIds: string[] = [];
@@ -2996,8 +2957,6 @@ export async function generateDirectArtifacts(input: {
   return {
     artifacts,
     backgroundUrl,
-    questArtworkUrl,
-    bossArtworkUrl,
     stats: {
       generatedNodeIds: generatedNodeIds.sort(),
       reusedNodeIds: reusedNodeIds.sort(),
@@ -3314,8 +3273,6 @@ export function buildDirectActiveSessionPlan(input: {
   plan: DirectLearningExperiencePlan;
   artifacts: DirectArtifact[];
   backgroundUrl: string;
-  questArtworkUrl: string;
-  bossArtworkUrl: string;
   report: DirectPlaywrightReport;
   companion?: { id: string; name: string };
   createdAt?: string;
@@ -3353,10 +3310,6 @@ export function buildDirectActiveSessionPlan(input: {
       engagementDimensions: [activity.engagementVariable as never], engagementHypothesis: engagementHypothesisForRoute(activity.routeId),
     };
   });
-  nodePlan.push(
-    { id: "quest", type: "quest", activityId: "quest", targets: [], difficulty: 2, source: "chart_planner", locked: true, masteryUnlockState: "preparing", title: "Quest", thumbnailUrl: input.questArtworkUrl },
-    { id: "boss", type: "boss", activityId: "boss", targets: [], difficulty: 3, source: "chart_planner", locked: true, masteryUnlockState: "preparing", title: "Boss", thumbnailUrl: input.bossArtworkUrl },
-  );
   const nodes: AdventureBoardJson["nodes"] = [
     { id: "start", kind: "start", label: "Start", shortLabel: "Start", state: "completed", position: boardPosition(7, 88) },
   ];
@@ -3370,10 +3323,6 @@ export function buildDirectActiveSessionPlan(input: {
     const artifact = artifactById.get(nodeId)!;
     nodes.push({ id: nodeId, kind: "activity", activityId: "generated-baseline", label: activity.title, shortLabel: boardShortLabel(activity.title), state: "locked", position: routeNodePosition(index, route.nodeIds.length, routeIndex), action: { type: "launch-activity", payloadId: nodeId }, thumbnailUrl: artifact.thumbnailUrl ?? previewUrl(nodeId, artifact.artworkUrl), mechanic: activity.mechanic, engagementDimensions: [activity.engagementVariable], engagementHypothesis: engagementHypothesisForRoute(route.id), contentId: `${input.homeworkId}:${nodeId}` });
   }));
-  nodes.push(
-    { id: "quest", kind: "quest", label: "Quest", state: "locked", position: boardPosition(92, 48), thumbnailUrl: input.questArtworkUrl, lock: { reason: "Complete your adventure routes to reveal the Quest.", label: "Locked" }, action: { type: "show-locked-reason", payloadId: "quest" } },
-    { id: "boss", kind: "boss", label: "Boss", state: "locked", position: boardPosition(92, 16), thumbnailUrl: input.bossArtworkUrl, lock: { reason: "Complete the Quest before facing the Boss.", label: "Locked" }, action: { type: "show-locked-reason", payloadId: "boss" } },
-  );
   const edges: AdventureBoardJson["edges"] = [];
   let sharedPrevious = "start";
   for (const activity of sharedActivities) {
@@ -3384,14 +3333,12 @@ export function buildDirectActiveSessionPlan(input: {
   for (const route of input.plan.fork.routes) {
     let previous = "choose-path";
     for (const nodeId of route.nodeIds) { edges.push({ id: `${previous}-${nodeId}`, from: previous, to: nodeId, state: "available" }); previous = nodeId; }
-    edges.push({ id: `${previous}-quest`, from: previous, to: "quest", state: "locked" });
   }
-  edges.push({ id: "quest-boss", from: "quest", to: "boss", state: "locked" });
   const adventureBoard: AdventureBoardJson = {
     schemaVersion: 1, boardId: `direct:${input.homeworkId}`, planId: input.plan.planId, childId: input.childId, domain: "math", title: input.plan.boardWorld.title,
     theme: { background: { type: "image", value: input.backgroundUrl }, palette: { path: "#fff4c2", completed: "#34d399", available: "#7c3aed", locked: "#64748b", current: "#f59e0b", preview: "#94a3b8", text: "#ffffff", panel: "rgba(15,23,42,.82)" } },
     layout: { preset: "horizontal-adventure-spine", companionSlot: "right", routeChoiceBehavior: "exclusive" },
-    plannerRationale: { agencyDesign: input.plan.fork.hypothesis, evidenceDesign: input.plan.fork.heldConstant.join("; "), layoutChoice: "Two visible choose-your-adventure routes converge on a locked Quest." },
+    plannerRationale: { agencyDesign: input.plan.fork.hypothesis, evidenceDesign: input.plan.fork.heldConstant.join("; "), layoutChoice: "Two visible choose-your-adventure routes; Quest and Boss appear only on a later evidence-authorized board." },
     nodes, edges,
     choiceSets: [{ id: "direct-route-choice", kind: "baseline-route", title: "Choose your path", options: input.plan.fork.routes.map((route) => {
       if (!route.childFacingActionCue || !route.previewNodeId || !route.nodeIds.includes(route.previewNodeId)) {
@@ -3517,39 +3464,6 @@ export function buildDirectLearningCycleInput(input: {
       evidenceIds: [],
     };
   });
-  const lockedNode = (role: "quest" | "boss"): LearningCycleNodeContract => {
-    const teaser = input.plannerPlan[role];
-    const sessionNode = planNodeById.get(role);
-    return {
-      nodeId: role,
-      role,
-      title: role === "quest" ? "Quest" : "Boss",
-      state: "locked",
-      // These were the literal strings "novel transfer" / "novel synthesis",
-      // which nothing ever replaced — so the payoff nodes had no concept to
-      // teach toward and their construct resolved to a slug of two words.
-      // The role still says what kind of evidence the node produces; the target
-      // says what it is about.
-      academicTarget: {
-        domain: "math",
-        skill: `${input.plannerPlan.concept.conceptId} (${role === "quest" ? "unseen transfer" : "unseen synthesis"})`,
-        targets: [],
-      },
-      algorithmOwner: "ai_tutor",
-      theoryId,
-      experimentId: `${input.homeworkId}:${role}`,
-      mechanic: "locked-teaser",
-      theme: teaser.teaser,
-      openingScreen: { title: role === "quest" ? "Quest" : "Boss", purpose: teaser.teaser },
-      generationPrompt: null,
-      artifactBinding: null,
-      artwork: { status: sessionNode?.thumbnailUrl ? "ready" : "placeholder", localPath: sessionNode?.thumbnailUrl ?? null, prompt: teaser.artworkPrompt },
-      sfxContract: [],
-      companionContract: { events: [] },
-      evidenceContract: { academic: true, engagement: false, companionObservations: true },
-      evidenceIds: [],
-    };
-  };
   return {
     childId: input.childId,
     homeworkId: input.homeworkId,
@@ -3584,7 +3498,7 @@ export function buildDirectLearningCycleInput(input: {
         })),
       },
     } : {}),
-    nodes: [...baselineNodes, lockedNode("quest"), lockedNode("boss")],
+    nodes: baselineNodes,
     academicPredictions: input.plannerPlan.activities.map((activity) => ({
       predictionId: `${input.homeworkId}:prediction:${activity.id}`,
       theoryId,
@@ -3680,7 +3594,13 @@ export function persistDirectExperience(input: {
     createdAt: now,
   });
   const existingCycle = getLearningCycle(input.childId, input.homeworkId, { rootDir });
-  if (existingCycle && !existingCycle.adaptiveGeneration?.designHash) {
+  if (existingCycle?.boards) {
+    // Published boards are immutable: the same assignment resumes as-is (contract 21).
+    if (existingCycle.assignment.contentFingerprint !== canonicalInput.assignment.contentFingerprint) {
+      throw new Error(`learning_cycle_reingestion_fingerprint_changed:${input.homeworkId}`);
+    }
+    console.log(` 🎮 [learning-cycle] [reingestion] [resumed] homework=${input.homeworkId} revision=${existingCycle.revision}`);
+  } else if (existingCycle && !existingCycle.adaptiveGeneration?.designHash) {
     transitionLearningCycle(input.childId, input.homeworkId, existingCycle.revision, {
       type: "plan_reconciled",
       assignment: canonicalInput.assignment,
@@ -3693,7 +3613,7 @@ export function persistDirectExperience(input: {
       reason: "Re-ingestion reconciled the AI-authored board with the existing assignment cycle.",
     }, { rootDir, now: new Date(now) });
   } else if (!existingCycle) {
-    createLearningCycle(canonicalInput, { rootDir, now: new Date(now) });
+    createLearningCycle(withInitialBoard(canonicalInput, "teaching", now), { rootDir, now: new Date(now) });
   }
   writeAssignmentLedgerEntry(ledgerEntry, { rootDir });
   fs.mkdirSync(path.dirname(directPath), { recursive: true });

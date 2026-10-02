@@ -1,6 +1,6 @@
 # Sunny Learning Feedback Loop
 
-Contract version: 20
+Contract version: 21
 
 This document is the **sole normative** authority for how Sunny forms, tests, and revises learning claims. Product changes that alter this loop must update this contract version before implementation. Other documents may describe infrastructure or history, but they must link here instead of creating another learning doctrine.
 
@@ -31,13 +31,13 @@ school assignment
 → factual evidence with instrument confounds separated
 → targeted Planner program and preregistered predictions
 → Fable board design
-→ personalized baseline intervention
+→ complete Teaching Board (immutable instance)
 → factual baseline scorecard
 → exactly one Planner decision
-→ targeted support or Quest
+→ one complete successor board: targeted support, or Quest-authorized
 → factual Quest transfer scorecard
 → exactly one Planner decision
-→ targeted support, defer, or Boss
+→ one complete successor board: targeted support, or Boss-authorized; or defer
 → factual Boss synthesis scorecard
 → awaiting calibration
 → returned graded or delayed work
@@ -45,11 +45,11 @@ school assignment
 → improved next intervention
 ```
 
-The child completes the selected route frontier, not every cosmetic route merely to satisfy a gate. A route selection is engagement evidence only. When the selected frontier is complete, code records observations and enters an evaluating lifecycle; it never chooses the educational next step. The Planner then makes exactly one evidence-citing choice: prescribe support, generate Quest, generate Boss when Quest evidence exists, collect more evidence, or await calibration.
+The child completes the selected route frontier, not every cosmetic route merely to satisfy a gate. A route selection is engagement evidence only. When the selected frontier is complete, code records observations, closes that board's evidence batch, and enters an evaluating lifecycle; it never chooses the educational next step. The Planner then makes exactly one evidence-citing choice: prescribe support, generate Quest, generate Boss when Quest evidence exists, collect more evidence, or await calibration. Every choice except `await_calibration` authors one complete successor program, which becomes exactly one new board instance (see *Immutable board instances*).
 
 Before Quest is available as a Planner action, runtime must have target-aligned baseline observations with at least one fresh, correct, unassisted response. Practice, repeated exposure, missing captured responses, all-wrong or assisted-only completion is ineligible for Quest. This is an evidence-availability boundary, not a mastery percentage: when it is unmet, the Planner still owns the choice between targeted Support and collecting more evidence; when it is met, the Planner still decides whether Quest is justified.
 
-Every session is an honest chapter with a visible endpoint. Finishing the selected route does not reveal surprise required work in that same session. The child receives completion feedback and may replay completed nodes, while Sunny reduces the session into factual scorecards and asks the Planner for exactly one next-step decision in the background.
+Every session is an honest chapter with a visible endpoint. Finishing the selected route does not reveal surprise required work in that same session. The child receives completion feedback and may replay completed nodes of the current board until its successor is published, while Sunny reduces the session into factual scorecards and asks the Planner for exactly one next-step decision in the background.
 
 Replaying a completed teaching instrument appends practice evidence without resetting the current lifecycle, sibling readiness, or completed next-step work. The server derives replay from the canonical node state, not a generated claim. Repeated completion deliveries remain idempotent; replay does not initiate another Planner call or award completion credit again. Raw activity messages remain audit facts rather than a second scoring authority, and engagement ratings cannot override canonical academic observations.
 
@@ -63,19 +63,33 @@ The Probe Board establishes the child's independent starting point before target
 
 Probe items are fresh and may not teach or reveal the answer before recording the observation. Incorrect, uncertain, skipped, and `Not sure` responses advance without trapping the child. Companion reading or clarification remains available, but substantive help is recorded as assistance and cannot become independent evidence. Correctness, assistance, exposure, prompt ambiguity, reading friction, interface friction, and response-mode friction remain separate facts. Completion commits one evidence packet before targeted planning begins; ratings may inform later design hypotheses but cannot alter academic conclusions or gate academic completion. Reported reading/interface friction accompanies the canonical attempt even when emitted separately by the instrument. If the child exits early, Sunny preserves the original board and observations and reports incomplete coverage honestly.
 
-The Probe Board program and coherent map design are generated after caregiver ingestion and before child play. The first verified probe node may open while remaining nodes continue building independently. Those unfinished nodes use the board's ordinary lock state and unlock only after their own artifacts pass verification; generation never interrupts or auto-opens a node. Completing the Probe Board ends that child chapter normally and queues exactly one targeted Teaching Board job for the same assignment identity. The Teaching Board is generated asynchronously between sessions from committed probe evidence and prior chart history. It never appears as surprise required work in the completed probe session. A later session opens it only when its launchable frontier is ready; another ingestion is neither required nor permitted.
+The Probe Board program and coherent map design are generated after caregiver ingestion and before child play. The Probe Board is the only board instance that may publish before every node is verified; its topology is still frozen at publication. The first verified probe node may open while remaining nodes continue building independently. Those unfinished nodes use the board's ordinary lock state and unlock only after their own artifacts pass verification; generation never interrupts or auto-opens a node. Completing the Probe Board ends that child chapter normally and queues exactly one targeted Teaching Board job for the same assignment identity. The Teaching Board is generated asynchronously between sessions from committed probe evidence and prior chart history. It never appears as surprise required work in the completed probe session. The Teaching Board is a successor board instance of the Probe Board: a later session opens it only after every one of its nodes is implemented and verified; another ingestion is neither required nor permitted.
 
 For spelling elicited by audio, an alternative written response with the same pronunciation is instrument-ambiguous unless the frozen item supplied meaning-bearing context. It is not a spelling error and cannot become independent evidence merely because the activity expected one orthography.
 
 Probe Board completion is idempotent: replaying it returns the existing cycle without changing the original completion time, evidence, revision, or later lifecycle. Reconnection or a repeated completion request cannot send a published Teaching Board back into evaluation or planning.
 
-The targeted program and complete board design are frozen before the targeted map appears. Nodes whose artifacts are still being implemented may appear as `preparing`; optional status polling may replace that presentation with `ready` without opening the node, interrupting the current activity, or creating evidence. `Preparing` is operational generation state, while `evidence_locked` is an academic lifecycle state. The child may exit and return without losing either state. When a route frontier is complete, its unselected route is no longer required.
+The targeted program and complete board design are frozen before the targeted map appears, and every node artifact is verified before publication. Until then the child sees the truthful between-board preparation experience outside any board; optional status polling never opens a board, interrupts the current activity, or creates evidence. `Preparing` is operational generation state, while `evidence_locked` is an academic lifecycle state. The child may exit and return without losing either state. When a route frontier is complete, its unselected route is no longer required; its nodes are presented as not taken and are never relocked, removed, or repurposed.
 
-Quest and Boss never launch automatically. Once their evidence-authorized artifacts are generated and validated, the next session presents the node as unlocked. Quest uses unseen transfer material. Boss uses unseen synthesis material and always ends in `awaiting_calibration`; in-app performance alone cannot close the cycle.
-
-The targeted board always shows locked Quest and Boss destination markers as its visible finish line. A visible marker is navigation, not evidence authorization and not a promise that its activity artifact has already been generated. Quest remains locked until the Planner authorizes it from baseline evidence; Boss remains locked until the Planner authorizes it from Quest evidence.
+Quest and Boss never launch automatically. They exist only as nodes of a successor board whose Planner decision authorized them, and they are visible and playable from that board's first render. Quest requires the baseline evidence boundary above; Boss requires valid unseen, unassisted Quest evidence and the existing mastery gate. An unauthorized encounter is entirely absent: no locked, hidden, teaser, preview, or "coming soon" marker appears on any board. Quest uses unseen transfer material. Boss uses unseen synthesis material and always ends in `awaiting_calibration`; in-app performance alone cannot close the cycle.
 
 The AI-authored board presentation is preserved as a projection template, while node state, artifact binding, evidence, and lifecycle always come from the canonical cycle. A static compatibility file may not hide or override a newer canonical revision.
+
+### Immutable board instances
+
+Each published board is a complete, immutable instance recorded inside the assignment's single canonical `LearningCycleRecordV2`; it is not a second store. An instance records its unique `boardId`, `predecessorBoardId`, the `plannerDecisionId` and cited evidence IDs that authorized it, its frozen topology, a `topologyHash`, and `publishedAt`.
+
+- **Frozen at publication and covered by the hash:** identity, predecessor, decision, cited evidence, node identities and order, node roles, Planner-authored academic contracts (targets, item and response-contract identities), Creator-authored titles, mechanics and themes, and route choices. Edges derive only from these frozen facts.
+- **Forward-only after publication:** a node never returns to `generating` once playable and never leaves `completed`. Route navigation inside the board's frozen choice (which route's next node is open) is not a lifecycle change. An artifact binding is written once and never replaced; a verified artifact that later fails a safety or semantic audit may be retired, leaving its node `blocked`, but any replacement belongs to a successor board.
+- **Forbidden:** appending, removing, relocking, replacing, or repurposing a node of a published board. "Nodes change after completion" always means a new board instance with a new identity.
+
+Completing a board's evidence batch leads to at most one Planner decision and at most one successor board; `await_calibration` produces none. The successor is prepared between sessions, never opens automatically, and never interrupts the child. Once a successor is published, its predecessor is read-only history rendered exactly as experienced; it accepts no new attempts.
+
+Encounter variability belongs to the Planner, not to code. Code never draws randomness to select an educational step. Reproducibility comes from the committed decision and from raw provider checkpoints saved before validation: a restart from the same frozen snapshot reuses that decision or checkpoint, makes no new provider call, and prepares the same successor. Rewards, engagement, play frequency, and randomness cannot authorize Quest or Boss. Presentation variety (theme, skin, narrative) remains the Experience Creator's.
+
+A checkpointed Planner response that fails validation, or a provider call whose outcome is uncertain, blocks the cycle visibly for a person; it is never replayed or re-bought automatically. A successor node that fails to build is marked as needing attention and the successor stays unpublished; no automatic rebuild follows a restart.
+
+Cycles written before contract 21 lack board instances. They remain readable as one synthesized legacy instance with no Planner decision attribution; they are never rewritten to claim one. Work already in flight on a legacy cycle finishes through the legacy path, re-ingestion never deletes its existing Quest or Boss evidence, and restarts never start a Planner call for it. Its first new Planner decision records the legacy instance and continues with successor boards.
 
 ## Authority and storage
 
@@ -96,7 +110,7 @@ For generated math interventions, the Planner's academic contract is locked befo
 
 Before that lock, the math domain adapter validates explicit representation facts against the item answer contract. Contradictory states—for example, a minute hand on 12 paired with an hour hand described as past the hour for an `:00` answer—cannot proceed to creative design or implementation repair. The same Planner may receive one bounded correction request containing the exact factual contradiction and immutable evidence identities. A correction may repair the academic contract but may not reinterpret child evidence, add a new learning theory, or bypass the ordinary parser. Downstream design and implementation start only after the corrected program passes the same truth gate.
 
-Generation checkpoints are operational state, not learning authority. Valid Planner-authored nodes and Creator artifacts are preserved independently, and missing siblings may be requested without regenerating completed work. The board does not judge or rewrite activity count, route length, pedagogy, mechanics, themes, or presentation. The complete frozen Probe topology publishes before child use, while each verified artifact is bound and unlocked independently. After probe evidence is committed, the Teaching Board's complete frozen topology may publish between sessions with truthful `preparing` nodes while each ready artifact is bound independently. A failed candidate never removes the previously safe published experience.
+Generation checkpoints are operational state, not learning authority. Valid Planner-authored nodes and Creator artifacts are preserved independently, and missing siblings may be requested without regenerating completed work. The board does not judge or rewrite activity count, route length, pedagogy, mechanics, themes, or presentation. The complete frozen Probe topology publishes before child use, while each verified artifact is bound and unlocked independently. After probe evidence is committed, the Teaching Board and every later successor publish between sessions only after every node artifact is verified. A failed candidate never removes the previously safe published experience.
 
 ## The many-to-many evidence model
 
@@ -189,6 +203,9 @@ Adaptive memory carries factual observations, provenance, confidence, and uncert
 - Automatic mastery thresholds that bypass one evidence-citing decision.
 - Game-specific private scores that do not enter the canonical cycle.
 - Parallel factsheets, writable mirrors, or competing learning-loop doctrines.
+- Appending, removing, relocking, or repurposing nodes of a published board.
+- Locked, teaser, or placeholder markers for an encounter the Planner has not authorized.
+- Code-level randomness selecting an educational step or encounter.
 
 ## Cross-domain contract
 

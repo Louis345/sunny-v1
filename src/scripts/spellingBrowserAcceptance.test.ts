@@ -258,9 +258,9 @@ it.each([
       expect(final.academicTarget.targets).toEqual(words);
       expect(new Set(board.nodes.map((node) => node.slot)).size).toBe(board.nodes.length);
       expect(board.nodes.map((node) => node.id)).toEqual(expect.arrayContaining([...routeIds, "recall-checkpoint"]));
-      expect(board.nodes.map((node) => node.id)).toEqual(expect.arrayContaining(["quest", "boss"]));
-      expect(targeted.nodes.find((node) => node.nodeId === "quest")?.state).toBe("locked");
-      expect(targeted.nodes.find((node) => node.nodeId === "boss")?.state).toBe("locked");
+      // Contract 21: no Quest/Boss placeholder appears on the Teaching Board or in its frozen nodes.
+      expect(board.nodes.some((node) => node.kind === "quest" || node.kind === "boss")).toBe(false);
+      expect(targeted.nodes.some((node) => node.role === "quest" || node.role === "boss")).toBe(false);
       expect(getChildChart(childId, { rootDir }).companion.config.vrmUrl).toBe("/companions/sample.vrm");
       const companion = page.getByTestId("companion-portrait-stack");
       expect(await companion.count()).toBe(1);
@@ -391,7 +391,7 @@ it.each([
     await page.getByRole("button", { name: "Play again", exact: true }).waitFor();
     const after = getLearningCycle(childId, homeworkId, { rootDir })!;
     expect(after.predictionEvaluations).toHaveLength(2);
-    expect(after.nodes.find(node => node.role === "quest")?.state).toBe("locked");
+    expect(after.nodes.some(node => node.role === "quest" || node.role === "boss")).toBe(false);
     const attemptsBeforeReplay = events.filter(event => event.includes("/discovery/attempt")).length;
     await page.getByRole("button", { name: "Play again", exact: true }).click();
     const ready = page.getByRole("button", { name: "Ready!", exact: true });

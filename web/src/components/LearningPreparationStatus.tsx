@@ -22,10 +22,11 @@ export function LearningPreparationStatus(props: {
   const preparing=status?.nodes.filter(node=>node.status === "preparing").length ?? 0;
   const attention=status?.phase === "needs_attention" || status?.nodes.some(node=>["needs_attention","failed_resumable"].includes(node.status));
   const hasRefreshableWork=status?.nodes.some(node=>["ready","preparing","failed_resumable"].includes(node.status)) ?? false;
-  const canCheck=!props.preview && (!attention || hasRefreshableWork);
+  const successorPublished=status?.phase === "successor_published";
+  const canCheck=!props.preview && !successorPublished && (!attention || hasRefreshableWork);
   const attentionDetail=status?.nodes.some(node=>node.status === "ready") ? "Ready activities are still available; ask a grown-up about the others." : "Ask a grown-up to check preparation before continuing.";
-  const title=props.preview ? "Preview finished" : attention ? "Some activities need attention" : ({targeted_planning:"Choosing what to work on",board_designing:"Designing your learning map",board_generating:"Preparing your activities",board_ready:"Your learning map is ready"}[status?.phase ?? ""] ?? "Sunny is preparing your learning path");
-  const detail=props.preview ? "No child evidence was saved." : attention ? `Saved work is safe. ${attentionDetail}`
+  const title=props.preview ? "Preview finished" : attention ? "Some activities need attention" : ({targeted_planning:"Choosing what to work on",board_designing:"Designing your learning map",board_generating:"Preparing your activities",board_ready:"Your learning map is ready",successor_preparing:"Sunny is preparing your next adventure",successor_published:"Your next adventure is ready for your next visit"}[status?.phase ?? ""] ?? "Sunny is preparing your learning path");
+  const detail=props.preview ? "No child evidence was saved." : successorPublished ? "Your work is saved. The new map opens when you come back." : attention ? `Saved work is safe. ${attentionDetail}`
     : ready > 0 && preparing > 0 ? `${ready} ${ready === 1 ? "activity is" : "activities are"} ready. You can begin while ${preparing} more ${preparing === 1 ? "finishes" : "finish"}.`
       : ready > 0 ? `${ready} ${ready === 1 ? "activity is" : "activities are"} ready when you are.`
         : total > 0 && completed === total ? "All activities are complete."

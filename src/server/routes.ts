@@ -118,6 +118,31 @@ export function launchAdaptiveMathWorker(childId: string, homeworkId: string): v
   }
 }
 
+/** Resume each outstanding successor decision or preparation once after restart; checkpoints prevent repeat paid calls. */
+export function resumeSuccessorBoards(): void {
+  if (process.env.VITEST) return;
+  for (const childId of listChildProfileIds()) {
+    const cyclesDir = path.join(resolveChildContextDir(childId), "homework", "cycles");
+    if (!fs.existsSync(cyclesDir)) continue;
+    for (const file of fs.readdirSync(cyclesDir).filter((name) => name.endsWith(".json"))) {
+      const homeworkId = file.replace(/\.json$/, "");
+      try {
+        const cycle = getLearningCycle(childId, homeworkId);
+        const action = cycle ? successorResumeAction(cycle) : null;
+        if (!action) continue;
+        console.log(` 🎮 [learning-board] [successor-resume] [${action}] child=${childId} homework=${homeworkId}`);
+        const decided = action === "decide" ? advanceCanonicalCycleFromEvidence({ childId, homeworkId }) : Promise.resolve(cycle!);
+        void decided
+          .then(() => prepareSuccessorBoard({ childId, homeworkId }))
+          .then((prepared) => console.log(` 🎮 [learning-board] [successor-resume] [done] child=${childId} homework=${homeworkId} lifecycle=${prepared.lifecycle}`))
+          .catch((error: unknown) => console.error(` 🎮 [learning-board] [successor-resume] [deferred] child=${childId} homework=${homeworkId}`, error));
+      } catch (error) {
+        console.error(` 🎮 [learning-board] [successor-resume] [skipped] child=${childId} homework=${homeworkId}`, error);
+      }
+    }
+  }
+}
+
 export function resumeAdaptiveMathWorkers(): void {
   if (process.env.VITEST) return;
   const certificationScope = certificationWorkerScope();
@@ -154,10 +179,6 @@ import {
 } from "../engine/generatedExperienceArtifact";
 import { recordQuestBossArtifactReview } from "../engine/generatedArtifactReview";
 import { appendContentFeedbackLesson } from "../engine/contentFeedbackMemory";
-import {
-  readQuestBossArtifactPreparationStatus,
-  startQuestBossArtifactPreparation,
-} from "../engine/questBossArtifactPreparation";
 import {
   prepareQuestVisualCandidates,
   resolveQuestVisualCandidateImagePath,
@@ -215,7 +236,8 @@ import { reconcileCompanionCareCurrencyAward } from "./currencyAward";
 import { companionPickerIdentity } from "./companionPickerRows";
 import { advanceCanonicalCycleFromEvidence, recordCanonicalNodeCompletion, recordSpellingDiscoveryAttempt } from "../engine/learningCycleRuntime";
 import { getVoiceSessionManagerForChildSession } from "./voice-session-registry";
-import { generateCanonicalProgressionArtifact } from "../engine/canonicalProgressionGenerator";
+import { prepareSuccessorBoard } from "../engine/canonicalProgressionGenerator";
+import { successorPreparationStatus, successorResumeAction } from "../engine/learningBoardInstances";
 import {
   getLearningCycle,
   getLatestLearningCycle,
@@ -716,7 +738,7 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
   const launchTargetedWorker = runtime.launchAdaptiveMathWorker ?? launchAdaptiveMathWorker;
   const expectedKioskToken = process.env.SUNNY_KIOSK_TOKEN?.trim() || null;
   let visibleKioskToken: string | null = null;
-  setImmediate(() => resumeAdaptiveMathWorkers());
+  setImmediate(() => { resumeAdaptiveMathWorkers(); resumeSuccessorBoards(); });
   const themesDir = path.resolve(process.cwd(), "src", "themes");
   if (fs.existsSync(themesDir)) {
     app.use("/themes", express.static(themesDir));
@@ -786,7 +808,8 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
     if (!isValidRegistryChildId(childId)) return res.status(404).json({ error: "child_not_found" });
     if (!homeworkId) return res.status(400).json({ error: "homeworkId is required" });
     try {
-      const status = getMathGenerationStatus(childId, homeworkId);
+      const cycle = getLearningCycle(childId, homeworkId);
+      const status = (cycle ? successorPreparationStatus(cycle) : undefined) ?? getMathGenerationStatus(childId, homeworkId);
       if (!status) return res.status(404).json({ error: "math_generation_job_not_found" });
       console.log(` 🎮 [adaptive-math-status] [read] [ok] child=${childId} homework=${homeworkId} phase=${status.phase}`);
       return res.json(status);
@@ -1021,7 +1044,7 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
           .then((decided) => {
             console.log(` 🎮 [learning-cycle-route] [planner-decision] [saved] lifecycle=${decided.lifecycle} revision=${decided.revision}`);
             return ["baseline_generating", "quest_generating", "boss_generating"].includes(decided.lifecycle)
-              ? generateCanonicalProgressionArtifact({ childId, homeworkId })
+              ? prepareSuccessorBoard({ childId, homeworkId })
               : decided;
           })
           .then((advanced) => {
@@ -1318,42 +1341,6 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
       console.error(" 🔴 [quest-visual-candidates] [select] [error]", message);
-      return res.status(500).json({ ok: false, error: message });
-    }
-  });
-
-  app.post("/api/homework/quest-boss/prepare", (req: Request, res: Response) => {
-    try {
-      const rawChildId = typeof req.body?.childId === "string" ? req.body.childId.trim() : "";
-      const childId = rawChildId.toLowerCase();
-      if (!childId || !isValidRegistryChildId(childId)) {
-        return res.status(400).json({ ok: false, error: "invalid_child_id" });
-      }
-      const status = startQuestBossArtifactPreparation({ childId });
-      if (!status.ok) {
-        return res.status(404).json(status);
-      }
-      return res.status(202).json(status);
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : String(err);
-      return res.status(500).json({ ok: false, error: message });
-    }
-  });
-
-  app.get("/api/homework/quest-boss/status", (req: Request, res: Response) => {
-    try {
-      const rawChildId = typeof req.query.childId === "string" ? req.query.childId.trim() : "";
-      const childId = rawChildId.toLowerCase();
-      if (!childId || !isValidRegistryChildId(childId)) {
-        return res.status(400).json({ ok: false, error: "invalid_child_id" });
-      }
-      const status = readQuestBossArtifactPreparationStatus({ childId });
-      if (!status.ok) {
-        return res.status(404).json(status);
-      }
-      return res.json(status);
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : String(err);
       return res.status(500).json({ ok: false, error: message });
     }
   });

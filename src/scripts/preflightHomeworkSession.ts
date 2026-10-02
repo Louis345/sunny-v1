@@ -163,12 +163,7 @@ export function runHomeworkSessionPreflight(input: {
   }
 
   for (const reason of missingAdventureSpineReasons(plan)) {
-    const message = reason === "missing_mystery_choice"
-      ? "Active plan is missing the compiler-owned Mystery/Bandit choice node."
-      : reason === "missing_quest_destination"
-        ? "Active plan is missing the locked compiler-owned Quest destination."
-        : "Active plan is missing the locked compiler-owned Boss destination.";
-    add(issues, "high", reason, message);
+    add(issues, "high", reason, "Active plan is missing the compiler-owned Mystery/Bandit choice node.");
   }
 
   const parentNote = plan.parentNote ?? "";

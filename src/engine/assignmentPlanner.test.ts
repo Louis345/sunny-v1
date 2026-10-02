@@ -1096,9 +1096,9 @@ describe("assignment planner", () => {
       "baseline-radar",
       "baseline-spell",
       "mystery-choice",
-      "quest-transfer",
-      "boss-mastery",
     ]));
+    // Contract 21: Planner-emitted Quest/Boss never reach an opening board.
+    expect(board.nodes.some((node) => node.kind === "quest" || node.kind === "boss")).toBe(false);
   });
 
   it("constrains planner nodePlan entries to real interventions, not presentation-only choice nodes", () => {
@@ -2407,7 +2407,7 @@ describe("generation requests and planner rounds", () => {
     expect(parsed.generationRequests).toEqual([]);
   });
 
-  it("demotes an earlier quest-typed route node so only the final quest stays a destination", () => {
+  it("removes every Planner-emitted Quest or Boss from an opening board (contract 21)", () => {
     const draft = draftWithGeneratedNode({
       extraNodes: [{
         id: "route-quest-prep",
@@ -2421,13 +2421,12 @@ describe("generation requests and planner rounds", () => {
     });
 
     const parsed = hydrateAssignmentPlannerOutputFromDraft(draft, packet());
-    const questNodes = parsed.activeSessionPlan.nodePlan.filter((entry) => entry.activityId === "quest");
-    const demoted = parsed.activeSessionPlan.nodePlan.find((entry) => entry.id === "route-quest-prep");
+    const destinations = parsed.activeSessionPlan.nodePlan.filter((entry) =>
+      ["quest", "boss"].includes(entry.activityId ?? "") || ["quest", "boss"].includes(entry.type));
 
-    expect(questNodes.map((entry) => entry.id)).toEqual(["quest-transfer"]);
-    expect(demoted?.activityId).toBe("generated-baseline");
-    expect(demoted?.locked).toBe(false);
-    expect(parsed.activeSessionPlan.openQuestions.join(" ")).toContain("planner_duplicate_destination_demoted");
+    expect(destinations).toEqual([]);
+    expect(parsed.activeSessionPlan.openQuestions.join(" ")).toContain("planner_unauthorized_destination_removed");
+    expect(parsed.activeSessionPlan.openQuestions.join(" ")).toContain("route-quest-prep");
   });
 
   it("keeps old drafts without generationRequests or rounds valid", () => {

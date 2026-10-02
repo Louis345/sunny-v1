@@ -6,6 +6,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { plan, learningProgram } from "./fixtures/adaptiveMathRelease";
 import { createDiscoveryLearningCycle, completeDiscoveryEvaluation, recordDiscoveryAttempt, getMathGenerationStatus, hashDiscoveryContract, setMathGenerationPhase, updateMathGenerationNode, writeMathGenerationJob } from "../engine/adaptiveMathDiscovery";
 import { getLearningCycle, projectLearningCycle, transitionLearningCycle } from "../engine/learningCycleRepository";
+import { listBoardInstances } from "../engine/learningBoardInstances";
 import { runAdaptiveMathGeneration } from "./runAdaptiveMathGeneration";
 import { askDirectMathPlanner, askMathExperienceDesigner, correctSavedDirectMathPlannerResponse, generateDirectArtifacts, generateDirectArtworkBundle, repairDirectArtifact, runDirectBrowserSmokeCheck } from "../engine/directMathExperience";
 import { DISCOVERY_VERIFIER_VERSION, recordEngineeringRepairEvidence, type JourneyCapture } from "../engine/discoveryVisualReview";
@@ -78,12 +79,10 @@ beforeEach(() => {
     const nodeId = input.nodeIds![0];
     const htmlPath = path.join(rootDir, `${nodeId}.html`);
     fs.writeFileSync(htmlPath, "<!doctype html><h1>Lab</h1><button>Answer</button>");
-    return { artifacts: [{ childId, homeworkId, nodeId, title: nodeId, htmlPath, htmlHash: createHash("sha256").update(fs.readFileSync(htmlPath)).digest("hex"), artworkUrl: "/art.svg", creatorPrompt: "fixture", promptHash: "prompt", plannerModel: "mock", creatorModel: "mock" }], backgroundUrl: "/art.svg", questArtworkUrl: "/quest.svg", bossArtworkUrl: "/boss.svg", stats: { generatedNodeIds: [nodeId], reusedNodeIds: [], generatedImages: 0, reusedImages: 0, bonusDeferred: true } };
+    return { artifacts: [{ childId, homeworkId, nodeId, title: nodeId, htmlPath, htmlHash: createHash("sha256").update(fs.readFileSync(htmlPath)).digest("hex"), artworkUrl: "/art.svg", creatorPrompt: "fixture", promptHash: "prompt", plannerModel: "mock", creatorModel: "mock" }], backgroundUrl: "/art.svg", stats: { generatedNodeIds: [nodeId], reusedNodeIds: [], generatedImages: 0, reusedImages: 0, bonusDeferred: true } };
   });
   vi.mocked(generateDirectArtworkBundle).mockResolvedValue({
     backgroundUrl: "/polished-background.svg",
-    questArtworkUrl: "/polished-quest.svg",
-    bossArtworkUrl: "/polished-boss.svg",
     thumbnailUrls: {
       "activity-1": "/polished-activity-1.svg",
       "activity-2": "/polished-activity-2.svg",
@@ -150,8 +149,6 @@ it("unlocks verified nodes before one shared optional-artwork job finishes", asy
 
   finishArtwork({
     backgroundUrl: "/polished-background.svg",
-    questArtworkUrl: "/polished-quest.svg",
-    bossArtworkUrl: "/polished-boss.svg",
     thumbnailUrls: {
       "activity-1": "/polished-activity-1.svg",
       "activity-2": "/polished-activity-2.svg",
@@ -171,8 +168,6 @@ it("unlocks verified nodes before one shared optional-artwork job finishes", asy
   ), "utf8"));
   expect(build).toMatchObject({
     backgroundUrl: "/polished-background.svg",
-    questArtworkUrl: "/polished-quest.svg",
-    bossArtworkUrl: "/polished-boss.svg",
   });
   expect(build.artifacts).toEqual(expect.arrayContaining([
     expect.objectContaining({ nodeId: "activity-1", thumbnailUrl: "/polished-activity-1.svg" }),
@@ -200,8 +195,6 @@ it("repairs required learning content before optional artwork finishes", async (
 
   finishArtwork({
     backgroundUrl: "/polished-background.svg",
-    questArtworkUrl: "/polished-quest.svg",
-    bossArtworkUrl: "/polished-boss.svg",
     thumbnailUrls: {},
     generatedImages: 3,
     reusedImages: 0,
@@ -615,11 +608,15 @@ it("keeps completed Discovery in history without inserting it into the targeted 
   expect(projectLearningCycle(before).adventureBoard.nodes.some(n => n.id === "discovery")).toBe(true);
   await runAdaptiveMathGeneration(childId, homeworkId, rootDir);
   const cycle = getLearningCycle(childId, homeworkId, { rootDir })!;
+  // Contract 21: board instances, not generation hashes, decide what is shown. Discovery stays readable
+  // as the Probe board in history and never reappears on the published Teaching Board.
   for (const missingHash of ["programHash", "designHash"] as const) {
     const incompleteContracts = structuredClone(cycle);
     delete incompleteContracts.adaptiveGeneration![missingHash];
-    expect(projectLearningCycle(incompleteContracts).adventureBoard.nodes.some(n => n.id === "discovery")).toBe(true);
+    expect(projectLearningCycle(incompleteContracts).adventureBoard.nodes.some(n => n.id === "discovery")).toBe(false);
   }
+  expect(listBoardInstances(cycle).map(board => board.kind)).toEqual(["probe", "teaching"]);
+  expect(listBoardInstances(cycle)[0]!.nodeIds).toContain("discovery");
   const presentation = JSON.parse(fs.readFileSync(path.join(rootDir, "src/context", childId, "plans/active_session_plan.json"), "utf8")).current;
   // Include a stale presentation from before this fix: reloading must not restore the extra node.
   const discovery = projectLearningCycle(before).adventureBoard.nodes.find(n => n.id === "discovery")!;
@@ -627,7 +624,7 @@ it("keeps completed Discovery in history without inserting it into the targeted 
   presentation.adventureBoard.edges.push({ id: "stale-discovery-edge", from: "start", to: "discovery", state: "completed" });
   for (const presentationPlan of [undefined, presentation]) {
     const projected = projectLearningCycle(cycle, { presentationPlan });
-    expect(projected.activeSessionPlan.nodePlan.some(n => n.id === "discovery")).toBe(true);
+    expect(projected.activeSessionPlan.nodePlan.some(n => n.id === "discovery")).toBe(false);
     expect(projected.adventureBoard.nodes.some(n => n.id === "discovery")).toBe(false);
     expect(projected.adventureBoard.edges.some(e => e.from === "discovery" || e.to === "discovery")).toBe(false);
     expect(projected.adventureBoard.nodes.filter(n => n.kind === "activity").map(n => n.id).sort()).toEqual(["activity-1", "activity-2"]);
@@ -672,8 +669,11 @@ it("uses the single repair ledger for a browser-confirmed generated-content defe
   expect(source).not.toContain("forceNodeIds: [nodeId]");
 });
 
-it("routes one explicitly authorized truncated-repair replacement only to the named node", async () => {
+it("routes one explicitly authorized truncated-repair replacement only to the named node on a legacy board", async () => {
   await runAdaptiveMathGeneration(childId, homeworkId, rootDir);
+  // A pre-contract-21 cycle has no immutable board instances, so the legacy repair ledger still applies.
+  const cycleFile = path.join(rootDir, "src/context", childId, "homework/cycles", `${homeworkId}.json`);
+  const legacy = JSON.parse(fs.readFileSync(cycleFile, "utf8")); delete legacy.boards; fs.writeFileSync(cycleFile, JSON.stringify(legacy));
   const draft = path.join(rootDir,"src/context",childId,"homework/direct-drafts",homeworkId);
   const diagnostics = path.join(draft,"provider-diagnostics");
   const receipts = path.join(diagnostics,"provider-receipts");
@@ -706,6 +706,33 @@ it("routes one explicitly authorized truncated-repair replacement only to the na
   await runAdaptiveMathGeneration(childId,homeworkId,rootDir,{authorizeTruncatedRepairReplacementNodeId:"activity-1"});
   expect(repairDirectArtifact).toHaveBeenCalledTimes(1);
   expect(fs.readFileSync(path.join(receipts,`${oldHash}.json`),"utf8")).toContain('"max_output_tokens"');
+});
+
+it("refuses a truncated-repair replacement of bytes already published on a board, before any provider call", async () => {
+  await runAdaptiveMathGeneration(childId, homeworkId, rootDir);
+  const draft = path.join(rootDir,"src/context",childId,"homework/direct-drafts",homeworkId);
+  const diagnostics = path.join(draft,"provider-diagnostics");
+  const receipts = path.join(diagnostics,"provider-receipts");
+  fs.mkdirSync(receipts,{recursive:true});
+  fs.writeFileSync(path.join(diagnostics,"activity-1-repair-request.json"),JSON.stringify({model:"gpt-5.6",input:[],max_output_tokens:8000,reasoning:{effort:"high"},stream:true,store:false}));
+  const oldHash = "a".repeat(64);
+  fs.writeFileSync(path.join(receipts,"activity-1-repair.stage.json"),JSON.stringify({requestHash:oldHash}));
+  fs.writeFileSync(path.join(receipts,`${oldHash}.json`),JSON.stringify({status:"received",model:"gpt-5.6",response:{stopReason:"max_output_tokens",inputTokens:10,outputTokens:8000,reasoningTokens:7900,visibleTextCharacters:400}}));
+  const reportsFile = path.join(draft,"browser-verification.json");
+  const reports = JSON.parse(fs.readFileSync(reportsFile,"utf8"));
+  reports["activity-1"] = {...reports["activity-1"],passed:false,failures:["math_control_clipped_or_obscured"],screenshots:["lab.png"]};
+  fs.writeFileSync(reportsFile,JSON.stringify(reports));
+  const savedArtifactHash = getMathGenerationStatus(childId,homeworkId,{rootDir})!.nodes.find(node=>node.nodeId==="activity-1")!.artifactHash;
+  updateMathGenerationNode({rootDir,childId,homeworkId,nodeId:"activity-1",status:"needs_attention",artifactHash:savedArtifactHash,error:"board_repair_harness_failure:output_budget_exhausted"});
+  const bindingBefore = getLearningCycle(childId,homeworkId,{rootDir})!.nodes.find(node=>node.nodeId==="activity-1")!.artifactBinding;
+  vi.mocked(repairDirectArtifact).mockClear();
+
+  await runAdaptiveMathGeneration(childId,homeworkId,rootDir,{authorizeTruncatedRepairReplacementNodeId:"activity-1"});
+
+  expect(repairDirectArtifact).not.toHaveBeenCalled();
+  expect(getMathGenerationStatus(childId,homeworkId,{rootDir})!.nodes.find(node=>node.nodeId==="activity-1")).toMatchObject({status:"needs_attention",error:"published_board_artifact_immutable"});
+  expect(getLearningCycle(childId,homeworkId,{rootDir})!.nodes.find(node=>node.nodeId==="activity-1")!.artifactBinding).toEqual(bindingBefore);
+  expect(fetch).not.toHaveBeenCalled();
 });
 
 it("reverifies an old rejection before deciding to buy a repair", async () => {
@@ -1201,34 +1228,41 @@ it("restores an original proof matching the original bytes when resumed repair p
 });
 
 
-it("preserves the child decision boundary when a sibling finishes later", async () => {
+it("refuses child evidence on a Teaching Board until every node is verified, then publishes it complete", async () => {
   const generate = vi.mocked(generateDirectArtifacts).getMockImplementation()!;
+  let refused = "";
   vi.mocked(generateDirectArtifacts).mockImplementation(async input => {
     if (input.nodeIds![0] === "activity-2") {
       const cycle = getLearningCycle(childId, homeworkId, {rootDir})!;
-      transitionLearningCycle(childId, homeworkId, cycle.revision, {type:"instrument_observed",nodeId:"activity-1",observations:[],academicEvidence:[],engagementEvidence:[],companionObservations:[]}, {rootDir});
-      expect(getLearningCycle(childId, homeworkId, {rootDir})!.lifecycle).toBe("baseline_evaluating");
+      try {
+        transitionLearningCycle(childId, homeworkId, cycle.revision, {type:"instrument_observed",nodeId:"activity-1",observations:[],academicEvidence:[],engagementEvidence:[],companionObservations:[]}, {rootDir});
+      } catch (error) { refused = (error as Error).message; }
     }
     return generate(input);
   });
   await runAdaptiveMathGeneration(childId, homeworkId, rootDir);
-  expect(getLearningCycle(childId, homeworkId, {rootDir})!.lifecycle).toBe("baseline_evaluating");
-  expect(getLearningCycle(childId, homeworkId, {rootDir})!.nodes.find(node=>node.nodeId==="activity-1")!.state).toBe("completed");
+  expect(refused).toBe("learning_board_not_published:activity-1");
+  const cycle = getLearningCycle(childId, homeworkId, {rootDir})!;
+  expect(cycle.lifecycle).toBe("board_ready");
+  expect(cycle.boards?.at(-1)).toMatchObject({ kind: "teaching", publishedAt: expect.any(String) });
+  expect(cycle.nodes.find(node=>node.nodeId==="activity-1")!.state).not.toBe("completed");
 });
 
-it("preserves Planner support added while the original sibling is building", async () => {
+it("never stacks a second successor onto a Teaching Board that is still being prepared", async () => {
   const generate = vi.mocked(generateDirectArtifacts).getMockImplementation()!;
+  let refused = "";
   vi.mocked(generateDirectArtifacts).mockImplementation(async input => {
     if (input.nodeIds![0] === "activity-2") {
-      let cycle = getLearningCycle(childId, homeworkId, {rootDir})!;
-      cycle = transitionLearningCycle(childId, homeworkId, cycle.revision, {type:"instrument_observed",nodeId:"activity-1",observations:[],academicEvidence:[{evidenceId:"lab:miss",summary:"needs support"}],engagementEvidence:[],companionObservations:[]}, {rootDir});
-      transitionLearningCycle(childId, homeworkId, cycle.revision, {type:"theory_decided",decision:{status:"revised",reason:"Needs support",nextAction:"Generate support",evidenceIds:["lab:miss"],predictionEvaluationIds:[],preserve:[],change:[],testNext:[],nextEvidenceRequired:[],progressionAction:"generate_support",nextInstrument:{nodeId:"support-lab",title:"Support",academicTarget:"math.multiplication.equal_groups",mechanic:"tap",theme:"lab",openingPurpose:"Support",creatorPrompt:"Use the measured miss"}}}, {rootDir});
+      const cycle = getLearningCycle(childId, homeworkId, {rootDir})!;
+      try {
+        transitionLearningCycle(childId, homeworkId, cycle.revision, {type:"theory_decided",decision:{status:"revised",reason:"Needs support",nextAction:"generate_support",evidenceIds:[],predictionEvaluationIds:[],preserve:[],change:[],testNext:[],nextEvidenceRequired:[],progressionAction:"generate_support",successor:{instruments:[{nodeId:"support-lab",title:"Support",academicTarget:"math.multiplication.equal_groups",mechanic:"tap",theme:"lab",openingPurpose:"Support",creatorPrompt:"Use the measured miss"}]}}}, {rootDir});
+      } catch (error) { refused = (error as Error).message; }
     }
     return generate(input);
   });
   await runAdaptiveMathGeneration(childId, homeworkId, rootDir);
-  expect(getLearningCycle(childId, homeworkId, {rootDir})!.nodes.some(node=>node.nodeId==="support-lab")).toBe(true);
-  expect(getLearningCycle(childId, homeworkId, {rootDir})!.lifecycle).toBe("baseline_generating");
+  expect(refused).toBe("learning_board_successor_already_preparing");
+  expect(getLearningCycle(childId, homeworkId, {rootDir})!.nodes.some(node=>node.nodeId.endsWith("support-lab"))).toBe(false);
 });
 
 it("refreshes canonical proof when the verifier version changes without regenerating", async () => {

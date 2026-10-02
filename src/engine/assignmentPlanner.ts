@@ -1638,9 +1638,9 @@ Output contract:
 - Use packet.masteryContext as the clock, deadline, and proof plan. The goal is demonstrated homework mastery by testDate, not merely completing a cute board.
 - If one node mixes targets from multiple source groups, omit targetLane or split the node. Never claim targetLane "silent_letters" for a node containing high-frequency targets.
 - Every word-radar node must include wordRadarConfig from the activity catalog capability modes. recallMode allows only visible_read, partial_visual_recall, hidden_word_recall. Never emit audio_cued_letter_recall as recallMode; cite capability ids only in rationale. If you choose the catalog's audio_cued_letter_recall capability mode, emit recallMode partial_visual_recall with audio-cued config values. Use partial_visual_recall for new/weak spelling construction, hidden_word_recall only with prior recall evidence, and visible_read for recognition/fluency. Omit wordRadarConfig on non-word-radar nodes.
-- Include the adventure spine in activeSessionPlan.nodePlan: baseline measurement nodes first, then route nodes referenced by learningRoutes, then exactly one mystery node for child choice/bandit preference evidence after evidence-generating work, then a locked quest destination for generated transfer, then a locked boss destination for the mastery finale after quest evidence.
+- Include the adventure spine in activeSessionPlan.nodePlan: baseline measurement nodes first, then route nodes referenced by learningRoutes, then exactly one mystery node for child choice/bandit preference evidence after evidence-generating work.
 - Use type/activityId "mystery", choiceMode "choice_lab", locked false, and targets from the relevant active homework targets.
-- Quest and Boss are destinations, not playable baseline nodes. Use type/activityId "quest" and "boss", locked true, masteryUnlockState "preparing"; Quest should target one exact source group if the theory is about one group, otherwise omit targetLane. Boss may have empty targets until quest evidence exists. Never invent targetLane values such as "all_homework", "mixed", or "combined".
+- Do not emit Quest or Boss nodes, locked or otherwise. They appear only on a later complete board after evidence authorizes them. Never invent targetLane values such as "all_homework", "mixed", or "combined".
 - Include parent-review language that explains why every group was routed to its activity.
 - In planTheory or reviewQuestions, explain why the journey you chose fits this child today.
 - Use the packet as the only source of assignment truth.${revisionInstruction}
@@ -2256,7 +2256,7 @@ export function hydrateAssignmentPlannerOutputFromDraft(
   const sourceWordGroups = capturedContent.assignmentInterpretation?.wordGroups
     ?? packet.capturedHomework.wordGroups
     ?? [];
-  const enrichedActiveSessionPlan = demoteDuplicateDestinations(defaultTargetLaneFromSingleGroup(
+  const enrichedActiveSessionPlan = removeUnauthorizedDestinations(defaultTargetLaneFromSingleGroup(
     capturedContent.contentProfile.practiceDomain === "math"
       ? enrichMathPlannerDraft({
           draft: draft.activeSessionPlan,
@@ -2299,38 +2299,20 @@ export function hydrateAssignmentPlannerOutputFromDraft(
 }
 
 /**
- * The planner contract allows exactly one quest and one boss destination, but
- * the LLM occasionally types an evidence route node "quest"; the board would
- * then promote that route node to the destination and drop the real quest.
- * Keep the last quest/boss-typed node (the planner is instructed to place
- * destinations at the end of the spine) and demote earlier duplicates to
- * generated-baseline evidence nodes.
+ * An initial board never carries Quest or Boss: those encounters appear only on
+ * a later successor board that evidence authorized (contract 21). Remove any
+ * the model emitted instead of rendering them as locked placeholders.
  */
-function demoteDuplicateDestinations(plan: PlannerDraftPlan): PlannerDraftPlan {
-  const demoted: string[] = [];
-  const nextNodePlan = [...plan.nodePlan];
-  for (const destination of ["quest", "boss"] as const) {
-    const indexes = nextNodePlan
-      .map((node, index) => (node.activityId === destination || node.type === destination ? index : -1))
-      .filter((index) => index >= 0);
-    for (const index of indexes.slice(0, -1)) {
-      const node = nextNodePlan[index]!;
-      nextNodePlan[index] = {
-        ...node,
-        type: "generated-baseline" as PlannerDraftNode["type"],
-        activityId: "generated-baseline" as PlannerDraftNode["activityId"],
-        locked: false,
-        masteryUnlockState: undefined,
-      };
-      demoted.push(`${node.id} (${destination})`);
-    }
-  }
-  if (demoted.length === 0) return plan;
-  const warning = `planner_duplicate_destination_demoted: ${demoted.join(", ")} retyped to generated-baseline; only the final quest/boss stay destinations.`;
-  console.log(`  🎮 [assignment-planner] [destination-warning] ${warning}`);
+function removeUnauthorizedDestinations(plan: PlannerDraftPlan): PlannerDraftPlan {
+  const isDestination = (node: PlannerDraftNode) =>
+    node.activityId === "quest" || node.activityId === "boss" || node.type === "quest" || node.type === "boss";
+  const removed = plan.nodePlan.filter(isDestination).map((node) => node.id);
+  if (removed.length === 0) return plan;
+  const warning = `planner_unauthorized_destination_removed: ${removed.join(", ")}`;
+  console.log(`  🎮 [assignment-planner] [destination-removed] ${warning}`);
   return {
     ...plan,
-    nodePlan: nextNodePlan,
+    nodePlan: plan.nodePlan.filter((node) => !isDestination(node)),
     openQuestions: [...(plan.openQuestions ?? []), warning],
   };
 }
@@ -2702,8 +2684,6 @@ export function enrichMathPlannerDraft(args: {
     routeExclusiveB.difficulty = 2;
   }
   const existingMystery = args.draft.nodePlan.find((node) => node.activityId === "mystery");
-  const existingQuest = args.draft.nodePlan.find((node) => node.activityId === "quest");
-  const existingBoss = args.draft.nodePlan.find((node) => node.activityId === "boss");
 
   const mystery: PlannerDraftNode = existingMystery ?? {
     id: "node-mystery",
@@ -2715,32 +2695,9 @@ export function enrichMathPlannerDraft(args: {
     locked: false,
     masteryUnlockState: "preparing",
   };
-  const quest: PlannerDraftNode = {
-    ...(existingQuest ?? {
-      id: "node-quest",
-      type: "quest",
-      activityId: "quest",
-      targets: allTargets.slice(0, 3),
-      difficulty: 2,
-    }),
-    locked: true,
-    masteryUnlockState: "preparing",
-  };
-  const boss: PlannerDraftNode = {
-    ...(existingBoss ?? {
-      id: "node-boss",
-      type: "boss",
-      activityId: "boss",
-      targets: [],
-      difficulty: 3,
-    }),
-    locked: true,
-    masteryUnlockState: "preparing",
-  };
-
   const nodePlan = multiplicationExperiment
-    ? [routeExclusiveA, routeExclusiveB, mystery, quest, boss]
-    : [...baselineNodes.slice(0, 3), routeExclusiveA, routeExclusiveB, mystery, quest, boss];
+    ? [routeExclusiveA, routeExclusiveB, mystery]
+    : [...baselineNodes.slice(0, 3), routeExclusiveA, routeExclusiveB, mystery];
 
   return {
     ...args.draft,
@@ -2755,8 +2712,6 @@ export function enrichMathPlannerDraft(args: {
         nodeIds: [
           routeExclusiveA.id,
           mystery.id,
-          quest.id,
-          boss.id,
         ],
       },
       {
@@ -2768,8 +2723,6 @@ export function enrichMathPlannerDraft(args: {
         nodeIds: [
           routeExclusiveB.id,
           mystery.id,
-          quest.id,
-          boss.id,
         ],
       },
     ],
@@ -2933,15 +2886,9 @@ function hydrateGeneratedExperienceBriefs(
   packet: AssignmentPlanningPacket,
 ): GeneratedExperienceBrief[] | undefined {
   const fallbackEvidence = defaultBriefEvidenceFromPacket(packet);
-  const sourceBriefs = briefs?.length
-    ? briefs
-    : [{
-        kind: "quest" as const,
-        title: `Quest: ${packet.capturedHomework.title || "Apply captured homework"}`,
-        learningGoal: "Transfer captured worksheet concepts with evidence-backed challenge design.",
-        targetWords: packet.capturedHomework.words.slice(0, 6),
-        evidenceUsed: fallbackEvidence,
-      }];
+  // Quest and Boss are never briefed before evidence authorizes them (contract 21).
+  const sourceBriefs = (briefs ?? []).filter((brief) => brief.kind !== "quest" && brief.kind !== "boss");
+  if (sourceBriefs.length === 0) return undefined;
 
   return sourceBriefs.map((brief, index) => ({
     briefId: `${packet.childId}-${brief.kind}-${index + 1}`,

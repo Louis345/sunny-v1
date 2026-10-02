@@ -72,7 +72,6 @@ export interface BuildAdventureBoardFromActiveSessionPlanOptions {
   progress?: Partial<AdventureBoardJson["progress"]>;
   labelForNode?: (node: ActiveSessionPlanBoardNodeSnapshot, index: number) => string | undefined;
   thumbnailForNode?: (node: ActiveSessionPlanBoardNodeSnapshot, index: number) => string | undefined;
-  showFinishLineDestinations?: boolean;
 }
 
 const supportedDomains = new Set<AdventureBoardDomain>([
@@ -235,14 +234,9 @@ export function buildAdventureBoardFromActiveSessionPlan(
     ? normalizedLayout.convergedNodes
     : [];
   const hasRealRouteChoice = routeNodes.length >= 2;
-  const questNode = pickDestinationNode(options.plan.nodePlan, "quest")
-    ?? (options.showFinishLineDestinations === false
-      ? undefined
-      : buildFinishLineDestination("quest"));
-  const bossNode = pickDestinationNode(options.plan.nodePlan, "boss")
-    ?? (options.showFinishLineDestinations === false
-      ? undefined
-      : buildFinishLineDestination("boss"));
+  // Quest and Boss render only when the board's own plan contains them (contract 21).
+  const questNode = pickDestinationNode(options.plan.nodePlan, "quest");
+  const bossNode = pickDestinationNode(options.plan.nodePlan, "boss");
   const firstRequired = requiredNodes[0] ?? baselineNodes[0] ?? mysteryNodes[0] ?? questNode ?? bossNode;
   const currentNodeId =
     options.progress?.currentNodeId ??
@@ -546,27 +540,6 @@ function pickDestinationNode(
   const gated = candidates.filter((node) => node.locked || node.masteryUnlockState);
   const pool = gated.length > 0 ? gated : candidates;
   return pool[pool.length - 1];
-}
-
-/**
- * Child-visible finish-line markers are not playable academic content. They
- * preserve the journey's destination while the Planner-owned evidence gates
- * continue to control whether Quest or Boss may be generated and unlocked.
- */
-function buildFinishLineDestination(
-  destination: "quest" | "boss",
-): ActiveSessionPlanBoardNodeSnapshot {
-  return {
-    id: destination,
-    type: destination,
-    activityId: destination,
-    targets: [],
-    locked: true,
-    masteryUnlockState: destination === "quest"
-      ? "needs-baseline-evidence"
-      : "needs-quest-evidence",
-    title: destination === "quest" ? "Quest" : "Boss",
-  };
 }
 
 /** Journey anchor: the child's entry point before the first measurement node. */
@@ -1064,11 +1037,7 @@ function iconForPlanNode(
 }
 
 function lockLabelForPlanNode(node: ActiveSessionPlanBoardNodeSnapshot): string {
-  if (activityIdForPlanNode(node) === "quest") {
-    return node.masteryUnlockState === "needs-baseline-evidence"
-      ? "Finish the path first"
-      : "Quest is preparing";
-  }
+  if (activityIdForPlanNode(node) === "quest") return "Quest is preparing";
   if (activityIdForPlanNode(node) === "boss") return "After Quest";
   return "Locked";
 }

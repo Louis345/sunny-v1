@@ -14,6 +14,7 @@ import {
   type DirectArtworkBundle, type MathDesignPacket, type MathLearningProgram,
 } from "../engine/directMathExperience";
 import { getLearningCycle, transitionLearningCycle } from "../engine/learningCycleRepository";
+import { isPublishedArtifactNode } from "../engine/learningBoardInstances";
 import { generateCanonicalProgressionArtifact } from "../engine/canonicalProgressionGenerator";
 import { upsertProfileContentCatalog } from "../engine/learningDecisionContext";
 import { writeWaterfallContentCatalog } from "../profiles/chartWaterfall";
@@ -432,14 +433,12 @@ export async function runAdaptiveMathGeneration(
   write(designFile, designed.packet); write(planFile, designed.plan);
   const programHash = hashDiscoveryContract(program);
   const designHash = hashDiscoveryContract(designed.packet);
-  let build = fs.existsSync(buildFile) ? read<{ artifacts: DirectArtifact[]; backgroundUrl: string; questArtworkUrl: string; bossArtworkUrl: string }>(buildFile) : { artifacts: [], backgroundUrl: DEFAULT_TARGETED_BOARD_BACKGROUND, questArtworkUrl: "", bossArtworkUrl: "" };
+  let build = fs.existsSync(buildFile) ? read<{ artifacts: DirectArtifact[]; backgroundUrl: string }>(buildFile) : { artifacts: [], backgroundUrl: DEFAULT_TARGETED_BOARD_BACKGROUND };
   const artworkJobFile = path.join(draft, "provider-diagnostics", "targeted-artwork-job-v1.json");
   const savedArtworkJob = fs.existsSync(artworkJobFile)
     ? read<{ status: "started" | "completed" | "failed"; bundle?: DirectArtworkBundle }>(artworkJobFile)
     : undefined;
   const artworkMissing = build.backgroundUrl === DEFAULT_TARGETED_BOARD_BACKGROUND
-    || !build.questArtworkUrl
-    || !build.bossArtworkUrl
     || designed.plan.activities.some(activity => !build.artifacts.find(artifact => artifact.nodeId === activity.id)?.thumbnailUrl);
   const optionalArtworkJob: Promise<DirectArtworkBundle | undefined> | undefined = savedArtworkJob?.status === "completed" && savedArtworkJob.bundle
     ? Promise.resolve(savedArtworkJob.bundle)
@@ -454,8 +453,6 @@ export async function runAdaptiveMathGeneration(
             nodeIds: designed.plan.activities.map(activity => activity.id),
             existingArtworkUrls: {
               ...(build.backgroundUrl !== DEFAULT_TARGETED_BOARD_BACKGROUND ? { backgroundUrl: build.backgroundUrl } : {}),
-              ...(build.questArtworkUrl ? { questArtworkUrl: build.questArtworkUrl } : {}),
-              ...(build.bossArtworkUrl ? { bossArtworkUrl: build.bossArtworkUrl } : {}),
             },
           }).then(bundle => {
             write(artworkJobFile, { status: "completed", finishedAt: new Date().toISOString(), bundle });
@@ -470,7 +467,7 @@ export async function runAdaptiveMathGeneration(
       : undefined;
   const reports = fs.existsSync(reportsFile) ? read<Record<string, BoardPlaywrightReport>>(reportsFile) : {};
   const report = (): DirectPlaywrightReport => ({ passed: designed.plan.activities.every(a => reports[a.id]?.passed), failures: Object.values(reports).flatMap(r => r.failures), screenshots: Object.values(reports).flatMap(r => r.screenshots) });
-  const active = () => buildDirectActiveSessionPlan({ childId, homeworkId, plan: designed.plan, artifacts: placeholderArtifacts(designed.plan, childId, homeworkId, build.artifacts), backgroundUrl: build.backgroundUrl, questArtworkUrl: build.questArtworkUrl, bossArtworkUrl: build.bossArtworkUrl, report: report(), companion: { id: chart.companion.presetId, name: chart.companion.displayName } });
+  const active = () => buildDirectActiveSessionPlan({ childId, homeworkId, plan: designed.plan, artifacts: placeholderArtifacts(designed.plan, childId, homeworkId, build.artifacts), backgroundUrl: build.backgroundUrl, report: report(), companion: { id: chart.companion.presetId, name: chart.companion.displayName } });
   const canonical = () => buildDirectLearningCycleInput({ childId, homeworkId, extraction, plannerPlan: designed.plan, activeSessionPlan: active(), artifacts: placeholderArtifacts(designed.plan, childId, homeworkId, build.artifacts), assumptions: program.assumptions });
   const contract = canonical();
   if (!getLearningCycle(childId, homeworkId, { rootDir })?.adaptiveGeneration?.designHash) {
@@ -735,7 +732,15 @@ export async function runAdaptiveMathGeneration(
     }
     console.log(` 🎮 [adaptive-math] [artifact-publication] [withheld] node=${nodeId} reason=${reason}`);
   };
-  if (mayReplaceTruncatedRepair && replacementNodeId) {
+  // Contract 21: bytes bound on a published board are never replaced; refuse before any provider call.
+  const refusePublishedRepair = (nodeId: string): boolean => {
+    if (!isPublishedArtifactNode(getLearningCycle(childId, homeworkId, { rootDir })!, nodeId)) return false;
+    console.log(` 🎮 [adaptive-math] [artifact-repair] [refused] node=${nodeId} reason=published_board_artifact_immutable`);
+    return true;
+  };
+  if (mayReplaceTruncatedRepair && replacementNodeId && refusePublishedRepair(replacementNodeId)) {
+    updateMathGenerationNode({ rootDir, childId, homeworkId, nodeId: replacementNodeId, status: "needs_attention", error: "published_board_artifact_immutable" });
+  } else if (mayReplaceTruncatedRepair && replacementNodeId) {
     const artifact = build.artifacts.find(candidate => candidate.nodeId === replacementNodeId);
     const activity = designed.plan.activities.find(candidate => candidate.id === replacementNodeId);
     const savedReport = reports[replacementNodeId];
@@ -843,6 +848,7 @@ export async function runAdaptiveMathGeneration(
       || !(resumableAttempt || (isCurrentGeneratedContentRejection(savedReport)
         && consumedAttempts < MAX_VISUAL_REPAIR_PASSES
         && mayRunVisualRepair(savedAttempt?.value, Boolean(options.retryUncertainProvider), currentArtifact.htmlHash)))) continue;
+    if (refusePublishedRepair(currentArtifact.nodeId)) continue;
     const activity = designed.plan.activities.find(candidate => candidate.id === currentArtifact.nodeId);
     if (!activity) throw new Error(`targeted_activity_missing:${currentArtifact.nodeId}`);
     if (!currentArtifact.htmlHash) throw new Error(`targeted_artifact_hash_missing:${currentArtifact.nodeId}`);
@@ -960,8 +966,6 @@ export async function runAdaptiveMathGeneration(
     build = {
       ...build,
       backgroundUrl: artworkBundle.backgroundUrl,
-      questArtworkUrl: artworkBundle.questArtworkUrl,
-      bossArtworkUrl: artworkBundle.bossArtworkUrl,
       artifacts: build.artifacts.map(artifact => ({
         ...artifact,
         thumbnailUrl: artworkBundle.thumbnailUrls[artifact.nodeId] ?? artifact.thumbnailUrl,
@@ -1050,11 +1054,17 @@ async function runSpellingTargetedGeneration(childId: string, homeworkId: string
     if (cycle.adaptiveGeneration?.designHash) {
       const currentCycle = getLearningCycle(childId, homeworkId, { rootDir })!;
       const currentById = new Map(currentCycle.nodes.map((node) => [node.nodeId, node]));
-      const instrumentContractChanged = contract.nodes.some((planned) => {
+      const instrumentContractChanged = contract.nodes.find((planned) => {
         const current = currentById.get(planned.nodeId);
+        // Unauthorized Quest/Boss never enter a contract-21 board, so their absence is not a contract change.
+        if (!current && currentCycle.boards) return false;
         return current?.implementationType !== planned.implementationType
           || JSON.stringify(current?.evidenceContract.nativeConfig) !== JSON.stringify(planned.evidenceContract.nativeConfig);
       });
+      if (instrumentContractChanged && currentCycle.boards) {
+        // A published board's instruments are frozen; a changed contract needs a new board, not an edit.
+        throw new Error(`published_board_instrument_contract_changed:${homeworkId}:${instrumentContractChanged.nodeId}`);
+      }
       if (instrumentContractChanged) {
         transitionLearningCycle(childId, homeworkId, currentCycle.revision, {
           type: "plan_reconciled",
@@ -1085,10 +1095,9 @@ async function runSpellingTargetedGeneration(childId: string, homeworkId: string
       assumptions: contract.assumptions,
       agencyExperiment: contract.agencyExperiment,
     });
-    if (!getMathGenerationStatus(childId, homeworkId, { rootDir })?.programHash) writeMathGenerationJob({ ...scope, programHash, designHash, nodeIds: active.nodePlan.map(node => node.id) });
-    for (const node of contract.nodes.filter(node => node.role === "quest" || node.role === "boss")) {
-      if (getMathGenerationStatus(childId, homeworkId, { rootDir })!.nodes.find(row => row.nodeId === node.nodeId)?.status === "preparing") updateMathGenerationNode({ ...scope, nodeId: node.nodeId, status: "evidence_locked" });
-    }
+    // Unauthorized Quest/Boss never enter the teaching board, so they are never generation jobs (contract 21).
+    const teachingNodeIds = new Set(contract.nodes.filter(node => node.role !== "quest" && node.role !== "boss").map(node => node.nodeId));
+    if (!getMathGenerationStatus(childId, homeworkId, { rootDir })?.programHash) writeMathGenerationJob({ ...scope, programHash, designHash, nodeIds: active.nodePlan.map(node => node.id).filter(nodeId => teachingNodeIds.has(nodeId)) });
     const project = (): void => {
       const currentChart = getChildChart(childId, { rootDir });
       const currentCycle = getLearningCycle(childId, homeworkId, { rootDir })!;

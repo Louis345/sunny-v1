@@ -79,7 +79,7 @@ export function useAdaptiveMathGenerationRefresh(input: {
         if (lastUpdatedAt !== null && statusChanged) pollCount = 0;
         lastUpdatedAt = status.updatedAt;
         succeeded = true;
-        if (status.phase === "board_ready" || status.phase === "probe_ready" || (status.phase === "needs_attention" && !status.nodes.some(node=>node.status === "preparing"))) return;
+        if (status.phase === "board_ready" || status.phase === "probe_ready" || status.phase === "successor_published" || (status.phase === "needs_attention" && !status.nodes.some(node=>node.status === "preparing"))) return;
       } catch (error: unknown) {
         if (cancelled || requestId !== requestSequence) return;
         console.warn(" 🎮 [adaptive-math-status] [poll] [unavailable]", error);

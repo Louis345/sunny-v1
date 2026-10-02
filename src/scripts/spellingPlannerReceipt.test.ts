@@ -37,7 +37,8 @@ describe("Planner-authored spelling node titles survive the real parser", () => 
     await f.worker();
     const cycle = getLearningCycle(f.childId, f.homeworkId, f)!;
     expect(cycle.nodes.filter(node => node.role !== "evaluation").map(node => ({ id: node.nodeId, title: node.title }))).toEqual([
-      { id: "practice", title: "Word workshop" }, { id: "check", title: "Recall check" }, { id: "quest", title: "Quest" },
+      // The saved Planner response still contains a Quest placeholder; contract 21 keeps it off the board.
+      { id: "practice", title: "Word workshop" }, { id: "check", title: "Recall check" },
     ]);
     expect(cycle.observations).toEqual(before.observations);
     expect(cycle.academicPredictions).toHaveLength(2);

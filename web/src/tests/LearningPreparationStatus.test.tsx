@@ -24,6 +24,18 @@ describe("truthful learning preparation",()=>{
     expect(screen.queryByRole("button",{name:"Check progress"})).toBeNull();
     expect(onCheck).not.toHaveBeenCalled();
   });
+  it("tells the child the next complete board is being prepared, without opening it or naming encounters",()=>{
+    render(<LearningPreparationStatus status={{phase:"successor_preparing",updatedAt:"t",nodes:[]}} onCheck={vi.fn()} onFinish={vi.fn()}/>);
+    expect(screen.getByRole("status").textContent).toContain("Sunny is preparing your next adventure");
+    expect(screen.getByRole("status").textContent).not.toMatch(/begin|Quest|Boss/);
+    expect(screen.getByRole("button",{name:"Finish for now"})).toBeEnabled();
+  });
+  it("says a published successor waits for a later visit instead of interrupting this one",()=>{
+    render(<LearningPreparationStatus status={{phase:"successor_published",updatedAt:"t",nodes:[]}} onCheck={vi.fn()} onFinish={vi.fn()}/>);
+    expect(screen.getByRole("status").textContent).toContain("Your next adventure is ready for your next visit");
+    expect(screen.getByRole("status").textContent).toContain("Your work is saved");
+    expect(screen.queryByRole("button",{name:"Check progress"})).toBeNull();
+  });
   it("shows planning without inventing a percentage or future nodes",()=>{
     render(<LearningPreparationStatus status={{phase:"targeted_planning",updatedAt:"now",nodes:[]}} onCheck={vi.fn()} onFinish={vi.fn()}/>);
     expect(screen.getByRole("status").textContent).toContain("Choosing what to work on");

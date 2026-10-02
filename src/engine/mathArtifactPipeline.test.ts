@@ -487,7 +487,6 @@ describe("math artifact production boundary", () => {
       builderModel: "claude-opus-5",
       generatedHtmlHash: "html-node-1",
     });
-    expect(cycle.nodes.find((node) => node.role === "quest")?.state).toBe("locked");
-    expect(cycle.nodes.find((node) => node.role === "boss")?.state).toBe("locked");
+    expect(cycle.nodes.some((node) => node.role === "quest" || node.role === "boss")).toBe(false);
   });
 });

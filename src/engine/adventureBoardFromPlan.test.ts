@@ -203,7 +203,7 @@ describe("buildAdventureBoardFromActiveSessionPlan", () => {
     expect(board.nodes[7].state).toBe("locked");
   });
 
-  it("always shows locked Quest and Boss finish-line destinations without inventing optional Mystery or modal choices", () => {
+  it("never invents Quest or Boss finish-line markers, optional Mystery, or modal choices", () => {
     const board = buildAdventureBoardFromActiveSessionPlan({
       plan: {
         planId: "minimal-plan",
@@ -232,32 +232,18 @@ describe("buildAdventureBoardFromActiveSessionPlan", () => {
       theme,
     });
 
+    // Contract 21: no invented finish-line markers for an unauthorized Quest or Boss.
     expect(board.nodes.map((node) => node.id)).toEqual([
       "start",
       "planner_word_radar",
       "planner_spell_check",
-      "quest",
-      "boss",
     ]);
-    expect(board.nodes.find((node) => node.id === "quest")).toMatchObject({
-      kind: "quest",
-      state: "locked",
-      lock: { reason: "needs-baseline-evidence", label: "Finish the path first" },
-      action: { type: "show-locked-reason", payloadId: "quest" },
-    });
-    expect(board.nodes.find((node) => node.id === "boss")).toMatchObject({
-      kind: "boss",
-      state: "locked",
-      lock: { reason: "needs-quest-evidence", label: "After Quest" },
-      action: { type: "show-locked-reason", payloadId: "boss" },
-    });
+    expect(board.nodes.some((node) => node.kind === "quest" || node.kind === "boss")).toBe(false);
     expect(board.nodes.some((node) => node.kind === "mystery")).toBe(false);
     expect(board.choiceSets ?? []).toHaveLength(0);
     expect(board.edges.map((edge) => [edge.from, edge.to])).toEqual([
       ["start", "planner_word_radar"],
       ["planner_word_radar", "planner_spell_check"],
-      ["planner_spell_check", "quest"],
-      ["quest", "boss"],
     ]);
   });
 
@@ -277,7 +263,6 @@ describe("buildAdventureBoardFromActiveSessionPlan", () => {
       },
       boardId: "probe-board:hw-lab",
       theme,
-      showFinishLineDestinations: false,
     });
 
     expect(board.nodes.map((node) => node.id)).toEqual(["start", "probe-spelling"]);

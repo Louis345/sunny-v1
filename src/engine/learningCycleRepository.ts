@@ -12,6 +12,16 @@ import {
   type ActiveSessionPlanBoardSnapshot,
 } from "../shared/adventureBoardFromPlan";
 import { resolveChildContextDir } from "../utils/contextRoot";
+import {
+  assertPublishedBoardsImmutable,
+  boardOwningNode,
+  boardsForWrite,
+  currentBoardInstance,
+  listBoardInstances,
+  preparingBoardInstance,
+  publishBoardInstance,
+  type LearningBoardInstance,
+} from "./learningBoardInstances";
 
 export type LearningCycleLifecycle =
   | "planning"
@@ -389,6 +399,8 @@ export type LearningCycleRecordV2 = {
   predictionEvaluations: PredictionEvaluation[];
   agencyExperiment?: LearningCycleAgencyExperiment;
   routeSelection?: LearningCycleRouteSelection;
+  /** Published immutable board instances (contract 21). Absent on legacy cycles. */
+  boards?: LearningBoardInstance[];
   adaptiveGeneration?: {
     evaluationId: string;
     evaluationCompletedAt?: string;
@@ -435,12 +447,6 @@ export function hasSufficientCalibrationEvidence(
   });
 }
 
-type OutcomeDecision = {
-  status: LearningTheoryDecisionStatus;
-  reason: string;
-  nextAction: string;
-};
-
 type OutcomeEvidence = {
   nodeId: string;
   academicEvidence: LearningCycleEvidenceSummary[];
@@ -475,6 +481,14 @@ export type NextInstrumentPrescription = {
   escalation?: string;
   mechanicSpec?: string;
   mathematicalHook?: string;
+  /** Marks the one Planner-authorized encounter on a Quest or Boss successor board. */
+  encounter?: "quest" | "boss";
+};
+
+/** One complete Planner-authored successor board program (contract 21). The Planner owns the count. */
+export type SuccessorProgram = {
+  instruments: NextInstrumentPrescription[];
+  routeChoice?: { sharedNodeIds: string[]; routes: Array<{ routeId: string; nodeIds: string[] }> };
 };
 
 export type LearningCycleEvent =
@@ -527,9 +541,6 @@ export type LearningCycleEvent =
       routeId: string;
       choiceEventId: string;
     }
-  | ({ type: "baseline_completed"; decision: OutcomeDecision } & OutcomeEvidence)
-  | ({ type: "quest_completed"; decision: OutcomeDecision & { bossRequired: boolean } } & OutcomeEvidence)
-  | ({ type: "boss_completed"; decision: OutcomeDecision } & OutcomeEvidence)
   | ({ type: "instrument_observed"; observations: LearningObservation[]; completed?: boolean } & OutcomeEvidence)
   | { type: "prediction_evaluations_recorded"; evaluations: PredictionEvaluation[] }
   | { type: "artifact_bound"; nodeId: string; artifact: LearningCycleArtifactBinding }
@@ -559,7 +570,7 @@ export type LearningCycleEvent =
         assumptionAssessments?: AssumptionAssessment[];
         revisedHypothesis?: string;
         progressionAction?: LearningProgressionAction;
-        nextInstrument?: NextInstrumentPrescription;
+        successor?: SuccessorProgram;
       };
     }
   | { type: "block"; reason: string };
@@ -645,13 +656,16 @@ function assertCycle(value: LearningCycleRecordV2): void {
   }
   const ids = value.nodes.map((node) => node.nodeId);
   if (new Set(ids).size !== ids.length) throw new Error("learning_cycle_duplicate_node_id");
-  const titles = value.nodes.filter((node) => node.role !== "quest" && node.role !== "boss").map((node) => node.title);
-  if (new Set(titles).size !== titles.length) throw new Error("learning_cycle_duplicate_child_title");
-  const quest = value.nodes.find((node) => node.role === "quest");
-  const boss = value.nodes.find((node) => node.role === "boss");
-  if (boss && boss.state !== "locked") {
-    const questEvidenceExists = quest?.state === "completed" && quest.evidenceIds.length > 0;
-    if (!questEvidenceExists) throw new Error("learning_cycle_boss_progress_requires_quest_evidence");
+  // Child titles are unique within one board; a later board may reuse a name.
+  for (const board of listBoardInstances(value)) {
+    const titles = value.nodes
+      .filter((node) => board.nodeIds.includes(node.nodeId) && node.role !== "quest" && node.role !== "boss")
+      .map((node) => node.title);
+    if (new Set(titles).size !== titles.length) throw new Error("learning_cycle_duplicate_child_title");
+  }
+  const questEvidenceExists = value.nodes.some((node) => node.role === "quest" && node.state === "completed" && node.evidenceIds.length > 0);
+  if (value.nodes.some((node) => node.role === "boss" && node.state !== "locked") && !questEvidenceExists) {
+    throw new Error("learning_cycle_boss_progress_requires_quest_evidence");
   }
   for (const node of value.nodes) {
     // `role` is the machine-readable identity, and the board keys off that.
@@ -1009,7 +1023,8 @@ function baselineFrontierComplete(cycle: LearningCycleRecordV2, completed: Learn
     return requiredIds.length > 0 && requiredIds.every((nodeId) =>
       cycle.nodes.find((node) => node.nodeId === nodeId)?.state === "completed");
   }
-  const baselines = cycle.nodes.filter((node) => node.role === "baseline");
+  const boardNodeIds = new Set(currentBoardInstance(cycle).nodeIds);
+  const baselines = cycle.nodes.filter((node) => node.role === "baseline" && boardNodeIds.has(node.nodeId));
   const sameLegacyExperiment = baselines.filter((node) => node.experimentId === completed.experimentId);
   const frontier = completed.routeId
     ? baselines.filter((node) => node.routeId === completed.routeId)
@@ -1044,21 +1059,24 @@ function prescriptionDesign(
  */
 function generationPrompt(
   cycle: LearningCycleRecordV2,
-  role: "quest" | "boss",
+  role: LearningCycleNodeRole,
+  nodeId: string,
   evidenceIds: string[],
   reason: string,
   at: string,
 ): LearningCyclePrompt {
   const exposedItemIds = [...new Set(cycle.observations.map((observation) => observation.itemId).filter(Boolean))];
   return {
-    promptId: `${cycle.homeworkId}:${role}:prompt:r${cycle.revision + 1}`,
+    promptId: `${nodeId}:prompt:r${cycle.revision + 1}`,
     createdFromEvidenceIds: evidenceIds,
     text: [
       `Assignment: ${cycle.assignment.title}.`,
       `Academic construct to preserve: ${cycle.academicTheory.hypothesis}`,
       role === "quest"
         ? "This node must test unseen transfer: change the context while preserving the construct."
-        : "This node must test unseen synthesis: combine the construct in a context not practised before.",
+        : role === "boss"
+          ? "This node must test unseen synthesis: combine the construct in a context not practised before."
+          : "This node is targeted support: practice and assisted success are practice evidence, never mastery.",
       exposedItemIds.length > 0
         ? `Author fresh items. These have already been seen and must not be reused verbatim: ${exposedItemIds.join(", ")}.`
         : "Author fresh items.",
@@ -1066,6 +1084,111 @@ function generationPrompt(
       `Created at: ${at}.`,
     ].join(" "),
   };
+}
+
+/** After a board's evidence batch closes, unplayed nodes are not taken: never relocked, never new evidence. */
+const BATCH_CLOSED_LIFECYCLES = new Set<LearningCycleLifecycle>([
+  "baseline_evaluating", "baseline_generating", "quest_generating", "boss_generating",
+  "quest_evaluating", "boss_evaluating", "awaiting_calibration", "complete",
+]);
+
+function slugId(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "node";
+}
+
+/** Freeze one Planner-authored successor program as a new, unpublished board instance. */
+function prepareSuccessorBoard(
+  next: LearningCycleRecordV2,
+  program: SuccessorProgram,
+  input: { plannerDecisionId: string; evidenceIds: string[]; reason: string; at: string },
+): LearningBoardInstance {
+  const boards = boardsForWrite(next);
+  next.boards = boards;
+  const prefix = `${next.homeworkId}:b${boards.length + 1}`;
+  const idFor = new Map(program.instruments.map((row) => [row.nodeId, `${prefix}:${slugId(row.nodeId)}`]));
+  if (idFor.size !== program.instruments.length) throw new Error("learning_cycle_successor_duplicate_node_id");
+  const mapIds = (ids: string[]) => ids.map((id) => {
+    const mapped = idFor.get(id);
+    if (!mapped) throw new Error(`learning_cycle_successor_route_node_missing:${id}`);
+    return mapped;
+  });
+  const reference = [...next.nodes].reverse().find((node) => node.artwork.localPath);
+  const nodes = program.instruments.map((prescription): LearningCycleNodeContract => {
+    const nodeId = idFor.get(prescription.nodeId)!;
+    const role: LearningCycleNodeRole = prescription.encounter ?? "baseline";
+    const design = prescriptionDesign(prescription);
+    const prompt = generationPrompt(next, role, nodeId, input.evidenceIds, input.reason, input.at);
+    prompt.text = `${prescription.creatorPrompt} ${prompt.text}`;
+    return {
+      nodeId,
+      role,
+      title: prescription.title,
+      state: "generating",
+      academicTarget: { domain: next.domain, skill: prescription.academicTarget, targets: [] },
+      algorithmOwner: role === "baseline" ? "ai_tutor" : "mastery-gating",
+      theoryId: next.academicTheory.theoryId,
+      experimentId: `${prefix}:${role}:${slugId(prescription.nodeId)}`,
+      mechanic: prescription.mechanic,
+      theme: prescription.theme,
+      ...(design ? { design } : {}),
+      openingScreen: { title: prescription.title, purpose: prescription.openingPurpose },
+      generationPrompt: prompt,
+      prediction: {
+        claim: `This ${role === "baseline" ? "support instrument" : role} follows the Planner decision: ${input.reason}`,
+        createdAt: input.at,
+        evidenceLimit: role === "baseline" ? "practice_only" : "provisional_transfer",
+      },
+      artifactBinding: null,
+      artwork: role === "baseline" && reference?.artwork.localPath
+        ? { status: "ready", localPath: reference.artwork.localPath, prompt: null }
+        : { status: "placeholder", localPath: `/generated/adventure-board-demo/${role === "boss" ? "boss" : "quest"}.jpeg`, prompt: null },
+      sfxContract: ["interaction", "recovery", "progress", "completion"],
+      companionContract: { events: ["completion", "frustration"] },
+      evidenceContract: {
+        academic: true, engagement: true, companionObservations: true,
+        ...(prescription.items ? prescriptionEvidence(prescription.items) : {}),
+      },
+      evidenceIds: [],
+    };
+  });
+  const route = program.routeChoice;
+  const agencyExperiment = route ? {
+    experimentId: `${prefix}:agency`,
+    sharedNodeIds: mapIds(route.sharedNodeIds),
+    routes: route.routes.map((entry) => ({ routeId: entry.routeId, nodeIds: mapIds(entry.nodeIds) })),
+  } : undefined;
+  for (const node of nodes) {
+    const owners = agencyExperiment?.routes.filter((entry) => entry.nodeIds.includes(node.nodeId)) ?? [];
+    if (owners.length === 1) node.routeId = owners[0]!.routeId;
+  }
+  next.nodes.push(...nodes);
+  const board = publishBoardInstance(next, {
+    kind: "successor",
+    predecessorBoardId: currentBoardInstance(next).boardId,
+    plannerDecisionId: input.plannerDecisionId,
+    evidenceIds: input.evidenceIds,
+    nodeIds: nodes.map((node) => node.nodeId),
+    ...(agencyExperiment ? { agencyExperiment } : {}),
+    publishedAt: null,
+  });
+  next.boards = [...boards, board];
+  return board;
+}
+
+/** Publish a preparing board once every node is implemented and verified. Never opens a node. */
+function publishPreparedBoardIfComplete(next: LearningCycleRecordV2, at: string): LearningBoardInstance | undefined {
+  const board = preparingBoardInstance(next);
+  if (!board) return undefined;
+  const nodes = next.nodes.filter((node) => board.nodeIds.includes(node.nodeId));
+  if (nodes.some((node) => node.state === "generating" || node.state === "blocked")) return undefined;
+  next.boards = next.boards!.map((candidate) => candidate.boardId === board.boardId ? { ...candidate, publishedAt: at } : candidate);
+  next.agencyExperiment = board.agencyExperiment ? structuredClone(board.agencyExperiment) : undefined;
+  next.routeSelection = undefined;
+  const encounter = nodes.find((node) => node.role === "quest" || node.role === "boss")?.role;
+  next.lifecycle = encounter === "quest" ? "quest_ready" : encounter === "boss" ? "boss_ready" : board.kind === "teaching" ? "board_ready" : "baseline_ready";
+  normalizeAgencyNodeStates(next);
+  console.log(` 🎮 [learning-board] [published] [${board.boardId}] kind=${board.kind} lifecycle=${next.lifecycle}`);
+  return board;
 }
 
 export function transitionLearningCycle(
@@ -1150,21 +1273,34 @@ export function transitionLearningCycle(
     if (!completedEvaluations.length || completedEvaluations.some((node) => node.state !== "completed")) {
       throw new Error("learning_cycle_completed_evaluation_missing");
     }
-    next.nodes = [
-      ...completedEvaluations,
-      ...event.nodes.map((node) => ({ ...structuredClone(node), state: node.role === "baseline" ? "generating" as const : node.state, artifactBinding: null })),
-    ];
+    next.boards = boardsForWrite(next);
+    // Unauthorized encounters are absent, never placeholders (contract 21).
+    const teachingNodes = event.nodes
+      .filter((node) => node.role !== "quest" && node.role !== "boss")
+      .map((node) => ({ ...structuredClone(node), state: node.role === "baseline" ? "generating" as const : node.state, artifactBinding: null }));
+    if (teachingNodes.length !== event.nodes.length) {
+      console.log(` 🎮 [learning-board] [teaching-placeholders] [dropped] count=${event.nodes.length - teachingNodes.length}`);
+    }
+    next.nodes = [...next.nodes, ...teachingNodes];
     next.academicTheory = structuredClone(event.academicTheory);
     next.academicPredictions = structuredClone(event.academicPredictions);
     next.assumptions = structuredClone(event.assumptions);
-    next.agencyExperiment = event.agencyExperiment ? structuredClone(event.agencyExperiment) : undefined;
+    next.boards = [...next.boards, publishBoardInstance(next, {
+      kind: "teaching",
+      predecessorBoardId: currentBoardInstance(next).boardId,
+      plannerDecisionId: `${next.homeworkId}:decision:r${current.revision + 1}`,
+      evidenceIds: next.observations.map((observation) => observation.observationId),
+      nodeIds: teachingNodes.map((node) => node.nodeId),
+      ...(event.agencyExperiment ? { agencyExperiment: structuredClone(event.agencyExperiment) } : {}),
+      publishedAt: null,
+    })];
     next.lifecycle = "board_generating";
     next.adaptiveGeneration = {
       ...(next.adaptiveGeneration ?? { evaluationId: completedEvaluations.at(-1)!.nodeId }),
       programHash: event.programHash,
       designHash: event.designHash,
     };
-    reason = "The coherent targeted map is visible while node artifacts build independently.";
+    reason = "The coherent targeted map is frozen; it publishes once every node artifact is verified.";
     evidenceIds = next.observations.map((observation) => observation.observationId);
   } else if (event.type === "plan_reconciled") {
     const adaptiveDiscoveryCycle = Boolean(next.adaptiveGeneration)
@@ -1213,6 +1349,7 @@ export function transitionLearningCycle(
     }
     reason = event.reason;
   } else if (event.type === "route_selected") {
+    if (BATCH_CLOSED_LIFECYCLES.has(current.lifecycle)) throw new Error(`learning_board_batch_closed:${event.routeId}`);
     const experiment = next.agencyExperiment;
     if (!experiment || experiment.experimentId !== event.experimentId) {
       throw new Error(`learning_cycle_agency_experiment_missing:${event.experimentId}`);
@@ -1244,14 +1381,19 @@ export function transitionLearningCycle(
       history: [...(next.routeSelection?.history ?? []), historyEntry],
     };
     normalizeAgencyNodeStates(next);
-    next.lifecycle = "baseline_active";
+    // A route on a Quest/Boss board is navigation; it never rewinds the encounter lifecycle.
+    if (!["quest_ready", "quest_active", "boss_ready"].includes(current.lifecycle)) next.lifecycle = "baseline_active";
     reason = previousRouteId && previousRouteId !== route.routeId
       ? `Child switched the active agency route from ${previousRouteId} to ${route.routeId}.`
       : `Child selected agency route ${route.routeId}.`;
     evidenceIds = [event.choiceEventId];
   } else if (event.type === "instrument_observed") {
     const node = nodeOrThrow(next, event.nodeId);
+    const owner = next.boards ? boardOwningNode(next, node.nodeId) : undefined;
+    if (owner && owner.publishedAt === null) throw new Error(`learning_board_not_published:${node.nodeId}`);
+    if (owner && owner.boardId !== currentBoardInstance(next).boardId) throw new Error(`learning_board_read_only:${node.nodeId}`);
     const replay = node.state === "completed";
+    if (!replay && BATCH_CLOSED_LIFECYCLES.has(current.lifecycle)) throw new Error(`learning_board_batch_closed:${node.nodeId}`);
     if (node.role === "quest" || node.role === "boss") {
       if (!node.artifactBinding || node.artifactBinding.validationStatus !== "passed") {
         throw new Error(`learning_cycle_${node.role}_artifact_not_ready`);
@@ -1270,23 +1412,14 @@ export function transitionLearningCycle(
       ...event.engagementEvidence,
       ...event.companionObservations,
     ]).map((item) => item.evidenceId);
-    if (!replay && node.role === "baseline") {
+    const boardNodeIds = new Set(currentBoardInstance(next).nodeIds);
+    const encounterBoard = Boolean(next.boards) && next.nodes.some((candidate) =>
+      boardNodeIds.has(candidate.nodeId) && (candidate.role === "quest" || candidate.role === "boss"));
+    if (!replay && node.role === "baseline" && encounterBoard) {
+      // A Quest or Boss board closes its evidence batch on the encounter itself.
+      normalizeAgencyNodeStates(next);
+    } else if (!replay && node.role === "baseline") {
       const frontierComplete = baselineFrontierComplete(next, node);
-      if (frontierComplete) {
-        for (const candidate of next.nodes) {
-          if (
-            candidate.role === "baseline" &&
-            (
-              node.routeId
-                ? candidate.routeId !== node.routeId
-                : candidate.experimentId !== node.experimentId
-            ) &&
-            candidate.state !== "completed"
-          ) {
-            candidate.state = "locked";
-          }
-        }
-      }
       normalizeAgencyNodeStates(next);
       next.lifecycle = frontierComplete ? "baseline_evaluating" : "baseline_active";
     } else if (!replay && node.role === "quest") {
@@ -1306,70 +1439,6 @@ export function transitionLearningCycle(
     evidenceIds = fresh.flatMap((evaluation) => evaluation.observationIds);
     reason = `Recorded ${fresh.length} idempotent prediction evaluation${fresh.length === 1 ? "" : "s"}.`;
     nextAction = "Give the evaluations to the existing progression Planner.";
-  } else if (event.type === "baseline_completed") {
-    const node = nodeOrThrow(next, event.nodeId, "baseline");
-    evidenceIds = appendOutcomeEvidence(next, event);
-    node.state = "completed";
-    node.evidenceIds = uniqueEvidence([
-      ...node.evidenceIds.map((evidenceId) => ({ evidenceId, summary: evidenceId })),
-      ...event.academicEvidence,
-      ...event.engagementEvidence,
-      ...event.companionObservations,
-    ]).map((item) => item.evidenceId);
-    const remainingBaseline = next.nodes.some((candidate) => candidate.role === "baseline" && candidate.state !== "completed");
-    if (remainingBaseline) {
-      next.lifecycle = "baseline_active";
-    } else {
-      const quest = next.nodes.find((candidate) => candidate.role === "quest");
-      if (!quest) throw new Error("learning_cycle_quest_node_missing");
-      const promptEvidenceIds = [
-        ...next.evidence.academic.map((item) => item.evidenceId),
-        ...next.evidence.engagement.map((item) => item.evidenceId),
-      ];
-      quest.state = "generating";
-      quest.generationPrompt = generationPrompt(next, "quest", promptEvidenceIds, event.decision.reason, at);
-      next.lifecycle = "quest_generating";
-    }
-    ({ reason, nextAction, status } = event.decision);
-  } else if (event.type === "quest_completed") {
-    const node = nodeOrThrow(next, event.nodeId, "quest");
-    if (!node.artifactBinding || node.artifactBinding.validationStatus !== "passed") {
-      throw new Error("learning_cycle_quest_artifact_not_ready");
-    }
-    evidenceIds = appendOutcomeEvidence(next, event);
-    node.state = "completed";
-    node.evidenceIds = uniqueEvidence([
-      ...node.evidenceIds.map((evidenceId) => ({ evidenceId, summary: evidenceId })),
-      ...event.academicEvidence,
-      ...event.engagementEvidence,
-      ...event.companionObservations,
-    ]).map((item) => item.evidenceId);
-    if (event.decision.bossRequired) {
-      const boss = next.nodes.find((candidate) => candidate.role === "boss");
-      if (!boss) throw new Error("learning_cycle_boss_node_missing");
-      boss.academicTarget.targets = [...node.academicTarget.targets];
-      boss.state = "generating";
-      boss.generationPrompt = generationPrompt(next, "boss", evidenceIds, event.decision.reason, at);
-      next.lifecycle = "boss_generating";
-    } else {
-      next.lifecycle = "awaiting_calibration";
-    }
-    ({ reason, nextAction, status } = event.decision);
-  } else if (event.type === "boss_completed") {
-    const node = nodeOrThrow(next, event.nodeId, "boss");
-    if (!node.artifactBinding || node.artifactBinding.validationStatus !== "passed") {
-      throw new Error("learning_cycle_boss_artifact_not_ready");
-    }
-    evidenceIds = appendOutcomeEvidence(next, event);
-    node.state = "completed";
-    node.evidenceIds = uniqueEvidence([
-      ...node.evidenceIds.map((evidenceId) => ({ evidenceId, summary: evidenceId })),
-      ...event.academicEvidence,
-      ...event.engagementEvidence,
-      ...event.companionObservations,
-    ]).map((item) => item.evidenceId);
-    next.lifecycle = "awaiting_calibration";
-    ({ reason, nextAction, status } = event.decision);
   } else if (event.type === "artifact_bound") {
     const node = nodeOrThrow(next, event.nodeId);
     if (event.artifact.validationStatus !== "passed") throw new Error("learning_cycle_artifact_validation_failed");
@@ -1378,7 +1447,9 @@ export function transitionLearningCycle(
     node.artifactBinding = event.artifact;
     node.artwork = { ...node.artwork, status: "ready", localPath: event.artifact.localArtworkPath };
     if (node.state !== "completed") node.state = "ready";
-    if (node.role === "quest") next.lifecycle = "quest_ready";
+    const preparing = next.boards ? preparingBoardInstance(next) : undefined;
+    if (preparing?.nodeIds.includes(node.nodeId)) publishPreparedBoardIfComplete(next, at);
+    else if (node.role === "quest") next.lifecycle = "quest_ready";
     else if (node.role === "boss") next.lifecycle = "boss_ready";
     else if (next.lifecycle === "baseline_generating") {
       if (!next.nodes.some(candidate => candidate.role === "baseline" && candidate.state === "generating")) next.lifecycle = "baseline_ready";
@@ -1440,119 +1511,29 @@ export function transitionLearningCycle(
         hypothesis: event.decision.revisedHypothesis,
       };
     }
-    if (event.decision.progressionAction === "generate_quest") {
-      const quest = next.nodes.find((node) => node.role === "quest");
-      if (!quest) throw new Error("learning_cycle_quest_node_missing");
-      const prescription = event.decision.nextInstrument;
-      if (prescription) {
-        quest.academicTarget.skill = prescription.academicTarget;
-        quest.mechanic = prescription.mechanic;
-        quest.theme = prescription.theme;
-        // `role` stays "quest" for the machine; the child sees the name the
-        // Planner chose, exactly as support nodes already do.
-        quest.title = prescription.title;
-        quest.openingScreen = { title: prescription.title, purpose: prescription.openingPurpose };
-        quest.design = prescriptionDesign(prescription);
-        if (prescription.items) quest.evidenceContract = { ...quest.evidenceContract, ...prescriptionEvidence(prescription.items) };
+    const action = event.decision.progressionAction;
+    if (action && action !== "await_calibration") {
+      const program = event.decision.successor;
+      if (!program?.instruments.length) throw new Error("learning_cycle_successor_program_missing");
+      const encounters = program.instruments.filter((row) => row.encounter);
+      const expected = action === "generate_quest" ? "quest" : action === "generate_boss" ? "boss" : undefined;
+      if (encounters.some((row) => row.encounter !== expected) || (expected && encounters.length !== 1)) {
+        throw new Error(`learning_cycle_encounter_not_authorized:${action}`);
       }
-      quest.state = "generating";
-      quest.generationPrompt = generationPrompt(next, "quest", evidenceIds, event.decision.reason, at);
-      if (prescription) {
-        quest.generationPrompt.text = `${prescription.creatorPrompt} ${quest.generationPrompt.text}`;
-      }
-      next.lifecycle = "quest_generating";
-    } else if (event.decision.progressionAction === "generate_boss") {
-      const quest = next.nodes.find((node) => node.role === "quest");
-      if (quest?.state !== "completed" || quest.evidenceIds.length === 0) {
-        throw new Error("learning_cycle_boss_progress_requires_quest_evidence");
-      }
-      const boss = next.nodes.find((node) => node.role === "boss");
-      if (!boss) throw new Error("learning_cycle_boss_node_missing");
-      const prescription = event.decision.nextInstrument;
-      boss.academicTarget.targets = [...quest.academicTarget.targets];
-      if (prescription) {
-        boss.academicTarget.skill = prescription.academicTarget;
-        boss.mechanic = prescription.mechanic;
-        boss.theme = prescription.theme;
-        boss.title = prescription.title;
-        boss.openingScreen = { title: prescription.title, purpose: prescription.openingPurpose };
-        boss.design = prescriptionDesign(prescription);
-        if (prescription.items) boss.evidenceContract = { ...boss.evidenceContract, ...prescriptionEvidence(prescription.items) };
-      }
-      boss.state = "generating";
-      boss.generationPrompt = generationPrompt(next, "boss", evidenceIds, event.decision.reason, at);
-      if (prescription) {
-        boss.generationPrompt.text = `${prescription.creatorPrompt} ${boss.generationPrompt.text}`;
-      }
-      next.lifecycle = "boss_generating";
-    } else if (event.decision.progressionAction === "generate_support") {
-      const prescription = event.decision.nextInstrument;
-      if (!prescription) throw new Error("learning_cycle_support_instrument_missing");
-      if (next.nodes.some((node) => node.nodeId === prescription.nodeId)) {
-        throw new Error(`learning_cycle_duplicate_node_id:${prescription.nodeId}`);
-      }
-      const reference = [...next.nodes].reverse().find((node) => node.state === "completed");
-      next.nodes.push({
-        nodeId: prescription.nodeId,
-        routeId: "adaptive-support",
-        role: "baseline",
-        title: prescription.title,
-        state: "generating",
-        academicTarget: {
-          domain: next.domain,
-          skill: prescription.academicTarget,
-          targets: [],
-        },
-        algorithmOwner: "ai_tutor",
-        theoryId: next.academicTheory.theoryId,
-        experimentId: `${next.homeworkId}:support:r${next.revision + 1}`,
-        mechanic: prescription.mechanic,
-        theme: prescription.theme,
-        ...(prescriptionDesign(prescription) ? { design: prescriptionDesign(prescription) } : {}),
-        openingScreen: { title: prescription.title, purpose: prescription.openingPurpose },
-        generationPrompt: {
-          promptId: `${next.homeworkId}:support:prompt:r${next.revision + 1}`,
-          createdFromEvidenceIds: evidenceIds,
-          text: [
-            prescription.creatorPrompt,
-            `Decision: ${event.decision.reason}`,
-            `Evidence references: ${evidenceIds.join(", ") || "none"}.`,
-            `Do not reuse these exposed item identities or their exact prompts: ${[...new Set(next.observations.map((observation) => observation.itemId))].join(", ") || "none recorded"}.`,
-          ].join(" "),
-        },
-        prediction: {
-          claim: `This support instrument will resolve: ${event.decision.reason}`,
-          createdAt: at,
-          evidenceLimit: "practice_only",
-        },
-        artifactBinding: null,
-        artwork: {
-          status: reference?.artwork.localPath ? "ready" : "placeholder",
-          localPath: reference?.artwork.localPath ?? "/generated/adventure-board-demo/quest.jpeg",
-          prompt: null,
-        },
-        sfxContract: ["interaction", "recovery", "progress", "completion"],
-        companionContract: { events: ["completion", "frustration"] },
-        evidenceContract: { academic: true, engagement: true, companionObservations: true, ...(prescription.items ? prescriptionEvidence(prescription.items) : {}) },
-        evidenceIds: [],
+      const independentQuestEvidence = next.nodes.some((node) => node.role === "quest" && node.state === "completed"
+        && next.observations.some((observation) => observation.sourceId.endsWith(`:${node.nodeId}`)
+          && observation.provenance === "independent_probe" && observation.exposure === "unseen"
+          && observation.assistance.status === "unassisted"));
+      if (expected === "boss" && !independentQuestEvidence) throw new Error("learning_cycle_boss_progress_requires_quest_evidence");
+      prepareSuccessorBoard(next, program, {
+        plannerDecisionId: `${next.homeworkId}:decision:r${current.revision + 1}`,
+        evidenceIds: [...new Set([...evidenceIds, ...event.decision.predictionEvaluationIds])],
+        reason: event.decision.reason,
+        at,
       });
-      const quest = next.nodes.find((node) => node.role === "quest");
-      const boss = next.nodes.find((node) => node.role === "boss");
-      if (quest) {
-        quest.state = "locked";
-        quest.generationPrompt = null;
-        quest.artifactBinding = null;
-      }
-      if (boss) {
-        boss.state = "locked";
-        boss.generationPrompt = null;
-        boss.artifactBinding = null;
-      }
-      next.lifecycle = "baseline_generating";
-    } else if (event.decision.progressionAction === "await_calibration") {
+      next.lifecycle = expected === "quest" ? "quest_generating" : expected === "boss" ? "boss_generating" : "baseline_generating";
+    } else if (action === "await_calibration") {
       next.lifecycle = "awaiting_calibration";
-    } else if (event.decision.progressionAction === "collect_more_evidence") {
-      next.lifecycle = fromLifecycle === "quest_evaluating" ? "quest_active" : "baseline_active";
     } else if (fromLifecycle === "awaiting_calibration") {
       if (!["inconclusive", "awaiting_calibration"].includes(event.decision.status)
         && hasSufficientCalibrationEvidence(next, event.decision)) {
@@ -1563,6 +1544,12 @@ export function transitionLearningCycle(
     next.engagementTheory = structuredClone(event.theory);
     reason = event.reason;
     evidenceIds = event.theory.evidence.map((item) => item.id);
+  } else if (event.type === "artifact_rejected" && next.boards && boardOwningNode(next, event.nodeId)) {
+    // Preparing boards retry the node; published boards retire it (any replacement belongs to a successor).
+    const node = nodeOrThrow(next, event.nodeId);
+    node.artifactBinding = null;
+    node.state = boardOwningNode(next, event.nodeId)!.publishedAt === null ? "generating" : "blocked";
+    reason = event.reason;
   } else if (event.type === "artifact_rejected") {
     const node = nodeOrThrow(next, event.nodeId);
     node.artifactBinding = null;
@@ -1581,7 +1568,7 @@ export function transitionLearningCycle(
     const node = nodeOrThrow(next, event.nodeId);
     node.artifactBinding = null;
     node.state = "blocked";
-    next.lifecycle = "board_ready";
+    if (!(next.boards && boardOwningNode(next, node.nodeId)?.publishedAt === null)) next.lifecycle = "board_ready";
     reason = event.reason;
   } else {
     next.lifecycle = "blocked";
@@ -1611,6 +1598,7 @@ export function transitionLearningCycle(
   };
   next.decisionHistory.push(decision);
   assertCycle(next);
+  assertPublishedBoardsImmutable(current, next);
   atomicWrite(cyclePath(next.childId, next.homeworkId, opts), next);
   appendDecisionTrace(next, decision, opts);
   return next;
@@ -1652,13 +1640,22 @@ export function projectLearningCycle(
 ): LearningCycleProjection {
   assertCycle(cycle);
   const planId = `learning-cycle:${cycle.homeworkId}:r${cycle.revision}`;
-  const hiddenDestinationNodeIds = new Set(cycle.domain === "spelling"
-    ? cycle.nodes
-      .filter((node) => (node.role === "quest" || node.role === "boss") && node.state === "locked")
-      .map((node) => node.nodeId)
+  // Only the current published board is shown. Unauthorized (locked) Quest/Boss
+  // placeholders from legacy cycles are absent, never markers (contract 21).
+  const board = currentBoardInstance(cycle);
+  const boardNodeIds = new Set(board.nodeIds);
+  // Contract-21 encounters are authorized; only legacy placeholders that are not yet playable are absent.
+  const hiddenDestinationNodeIds = new Set(cycle.nodes
+    .filter((node) => !boardNodeIds.has(node.nodeId)
+      || (board.kind === "legacy" && (node.role === "quest" || node.role === "boss")
+        && ["locked", "generating", "blocked"].includes(node.state)))
+    .map((node) => node.nodeId));
+  const boardNodes = cycle.nodes.filter((node) => !hiddenDestinationNodeIds.has(node.nodeId));
+  const experiment = board.kind === "legacy" ? undefined : board.agencyExperiment;
+  const notTakenNodeIds = new Set(BATCH_CLOSED_LIFECYCLES.has(cycle.lifecycle)
+    ? boardNodes.filter((node) => node.role === "baseline" && node.state !== "completed").map((node) => node.nodeId)
     : []);
-  const nodePlan: ActiveSessionPlan["nodePlan"] = cycle.nodes
-    .filter((node) => !hiddenDestinationNodeIds.has(node.nodeId))
+  const nodePlan: ActiveSessionPlan["nodePlan"] = boardNodes
     .map((node) => {
     const type = nodeActivityType(node);
     return {
@@ -1702,7 +1699,7 @@ export function projectLearningCycle(
       avoidExactPreviousNodeOrder: true,
       avoidExactPreviousWordOrder: true,
       seed: cycle.assignment.contentFingerprint.slice(0, 12),
-      previousCompletedNodeCount: cycle.nodes.filter((node) => node.state === "completed").length,
+      previousCompletedNodeCount: boardNodes.filter((node) => node.state === "completed").length,
     },
     companionPolicy: {
       companionId: "elli",
@@ -1733,23 +1730,28 @@ export function projectLearningCycle(
   const historicalDiscoveryId = cycle.adaptiveGeneration?.programHash && cycle.adaptiveGeneration.designHash
     ? cycle.nodes.find(node => node.role === "evaluation" && node.state === "completed")?.nodeId : undefined;
   const adventureBoard = buildAdventureBoardFromActiveSessionPlan({
-    plan: { ...activeSessionPlan, nodePlan: nodePlan.filter(node => node.id !== historicalDiscoveryId) } as unknown as ActiveSessionPlanBoardSnapshot,
-    boardId: `cycle-board:${cycle.homeworkId}`,
+    plan: {
+      ...activeSessionPlan,
+      nodePlan: nodePlan.filter(node => node.id !== historicalDiscoveryId),
+      ...(experiment ? { learningRoutes: experiment.routes.map((route) => ({
+        id: route.routeId, label: route.routeId, rationale: "Planner-authored route choice.", nodeIds: route.nodeIds,
+      })) } : {}),
+    } as unknown as ActiveSessionPlanBoardSnapshot,
+    boardId: board.boardId,
     title: cycle.assignment.title,
     theme: BOARD_THEME,
     layout: { preset: "horizontal-adventure-spine", companionSlot: "right" },
     plannerRationale: {
       agencyDesign: "The canonical cycle owns every visible node contract.",
-      evidenceDesign: "Quest and Boss unlock only from recorded evidence transitions.",
+      evidenceDesign: "Quest and Boss appear only on a successor board their evidence authorized.",
       layoutChoice: "Render the canonical intervention sequence without semantic rewrites.",
     },
     companion: { id: "elli", name: "Elli" },
-    showFinishLineDestinations: cycle.nodes.some((node) => node.role !== "evaluation"),
     progress: {
-      completedNodeIds: cycle.nodes
+      completedNodeIds: boardNodes
         .filter((node) => node.state === "completed")
         .map((node) => node.nodeId),
-      currentNodeId: cycle.nodes.find(
+      currentNodeId: boardNodes.find(
         (node) => node.state === "active" || node.state === "ready",
       )?.nodeId,
     },
@@ -1759,6 +1761,14 @@ export function projectLearningCycle(
   const cycleNodeById = new Map(cycle.nodes.map((node) => [node.nodeId, node]));
   adventureBoard.nodes = adventureBoard.nodes.map((node) => {
     const canonicalNode = cycleNodeById.get(node.id);
+    if (notTakenNodeIds.has(node.id)) {
+      return {
+        ...node,
+        state: "locked" as const,
+        action: { type: "show-locked-reason" as const, payloadId: node.id },
+        lock: { reason: "route-not-taken", label: "Not taken" },
+      };
+    }
     if (canonicalNode?.state === "generating") {
       return {
         ...node,
@@ -1801,7 +1811,8 @@ export function projectLearningCycle(
   };
 
   const presentationPlan = options.presentationPlan;
-  if (!presentationPlan || presentationPlan.activeHomeworkId !== cycle.homeworkId) {
+  if (!presentationPlan || presentationPlan.activeHomeworkId !== cycle.homeworkId
+    || !presentationPlan.nodePlan.some((node) => boardNodeIds.has(node.id) && !hiddenDestinationNodeIds.has(node.id))) {
     return canonicalProjection;
   }
 
@@ -1927,8 +1938,8 @@ export function projectLearningCycle(
     ...(mergedChoiceSets ? { choiceSets: mergedChoiceSets } : {}),
     progress: {
       ...presentedBoard.progress,
-      completedNodeIds: cycle.nodes.filter((node) => node.state === "completed").map((node) => node.nodeId),
-      currentNodeId: cycle.nodes.find((node) => node.state === "active" || node.state === "ready")?.nodeId,
+      completedNodeIds: boardNodes.filter((node) => node.state === "completed").map((node) => node.nodeId),
+      currentNodeId: boardNodes.find((node) => node.state === "active" || node.state === "ready")?.nodeId,
     },
   };
   const mergedPlan: ActiveSessionPlan = {

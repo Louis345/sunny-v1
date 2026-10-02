@@ -113,6 +113,10 @@ function input(): CreateLearningCycleInput {
   };
 }
 
+function observed(nodeId: string, academicEvidence: Array<{ evidenceId: string; summary: string; accuracy?: number }>, engagementEvidence: Array<{ evidenceId: string; summary: string }> = []) {
+  return { type: "instrument_observed" as const, nodeId, observations: [], academicEvidence, engagementEvidence, companionObservations: [] };
+}
+
 function writeJson(file: string, value: unknown): void {
   fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.writeFileSync(file, JSON.stringify(value, null, 2), "utf8");
@@ -225,129 +229,73 @@ describe("canonical learning cycle repository", () => {
     expect(JSON.parse(fs.readFileSync(`${file}.v1.backup`, "utf8"))).toMatchObject({ homeworkId: "hw-math-cycle" });
   });
 
-  it("derives deterministic compatibility projections with static Quest and Boss names", () => {
+  it("derives deterministic projections that omit unauthorized legacy Quest and Boss placeholders", () => {
     const rootDir = root();
     const cycle = createLearningCycle(input(), { rootDir });
     const first = projectLearningCycle(cycle);
     const second = projectLearningCycle(cycle);
 
     expect(second).toEqual(first);
-    expect(first.activeSessionPlan.nodePlan.map((node) => node.title)).toEqual([
-      "Fact Blaster",
-      "Quest",
-      "Boss",
-    ]);
-    expect(first.adventureBoard.nodes.find((node) => node.id === "quest")?.label).toBe("Quest");
-    expect(first.adventureBoard.nodes.find((node) => node.id === "boss")?.label).toBe("Boss");
+    expect(first.activeSessionPlan.nodePlan.map((node) => node.title)).toEqual(["Fact Blaster"]);
+    expect(first.adventureBoard.nodes.some((node) => node.kind === "quest" || node.kind === "boss")).toBe(false);
   });
 
-  it("shows locked spelling Quest and Boss finish-line markers without creating playable academic nodes", () => {
+  it.each(["math", "spelling"] as const)("never renders %s finish-line markers for an unauthorized Quest or Boss", (domain) => {
     const rootDir = root();
-    const spellingInput = input();
-    spellingInput.domain = "spelling";
-    spellingInput.nodes = spellingInput.nodes.map((node) => ({
-      ...node,
-      academicTarget: { ...node.academicTarget, domain: "spelling" },
-    }));
-
-    const cycle = createLearningCycle(spellingInput, { rootDir });
-    const projection = projectLearningCycle(cycle);
+    const domainInput = input();
+    domainInput.domain = domain;
+    domainInput.nodes = domainInput.nodes.map((node) => ({ ...node, academicTarget: { ...node.academicTarget, domain } }));
+    const projection = projectLearningCycle(createLearningCycle(domainInput, { rootDir }));
 
     expect(projection.activeSessionPlan.nodePlan.map((node) => node.id)).toEqual(["baseline-facts"]);
-    expect(projection.adventureBoard.nodes.find((node) => node.id === "quest")).toMatchObject({
-      kind: "quest",
-      state: "locked",
-      lock: { reason: "needs-baseline-evidence", label: "Finish the path first" },
-    });
-    expect(projection.adventureBoard.nodes.find((node) => node.id === "boss")).toMatchObject({
-      kind: "boss",
-      state: "locked",
-      lock: { reason: "needs-quest-evidence", label: "After Quest" },
-    });
-    expect(projection.adventureBoard.edges).toEqual(expect.arrayContaining([
-      expect.objectContaining({ from: "baseline-facts", to: "quest", state: "locked" }),
-      expect.objectContaining({ from: "quest", to: "boss", state: "locked" }),
-    ]));
+    expect(projection.adventureBoard.nodes.some((node) => node.kind === "quest" || node.kind === "boss")).toBe(false);
+    expect(projection.adventureBoard.edges.some((edge) => edge.to === "quest" || edge.to === "boss")).toBe(false);
   });
 
-  it("preserves the AI-authored board presentation while canonical state unlocks Quest", () => {
+  it("preserves the AI-authored board presentation for the current board", () => {
     const rootDir = root();
     const created = createLearningCycle(input(), { rootDir });
-    const questGenerating = transitionLearningCycle("reina", "hw-math-cycle", created.revision, {
-      type: "baseline_completed",
-      nodeId: "baseline-facts",
-      academicEvidence: [{ evidenceId: "attempt:1", summary: "Practice complete", accuracy: 0.8 }],
-      engagementEvidence: [],
-      companionObservations: [],
-      decision: { status: "supported", reason: "Test transfer.", nextAction: "Generate Quest." },
-    }, { rootDir });
-    const questReady = transitionLearningCycle("reina", "hw-math-cycle", questGenerating.revision, {
+    const bound = transitionLearningCycle("reina", "hw-math-cycle", created.revision, {
       type: "artifact_bound",
-      nodeId: "quest",
+      nodeId: "baseline-facts",
       artifact: {
-        contentId: "content:quest:1",
-        artifactId: "artifact:quest:1",
-        localArtifactPath: "/games/quest.html",
-        localArtworkPath: "/generated/quest-ready.png",
-        contractFingerprint: "quest-contract-1",
+        contentId: "content:fact:1",
+        artifactId: "artifact:fact:1",
+        localArtifactPath: "/games/fact.html",
+        localArtworkPath: "/generated/fact.png",
+        contractFingerprint: "fact-contract-1",
         validationStatus: "passed",
       },
     }, { rootDir });
-    const canonical = projectLearningCycle(questReady);
+    const canonical = projectLearningCycle(bound);
     const authoredPlan = {
       ...canonical.activeSessionPlan,
       planId: "ai-authored-board",
       nodePlan: canonical.activeSessionPlan.nodePlan.map((node) =>
-        node.id === "baseline-facts"
-          ? { ...node, thumbnailUrl: "/generated/baseline-dedicated-thumbnail.png" }
-          : node,
-      ),
+        node.id === "baseline-facts" ? { ...node, thumbnailUrl: "/generated/baseline-dedicated-thumbnail.png" } : node),
       adventureBoard: {
         ...canonical.adventureBoard,
         title: "The Clockwork Sky Harbor",
-        theme: {
-          ...canonical.adventureBoard.theme,
-          background: { type: "image" as const, value: "/generated/sky-harbor.jpeg" },
-        },
-        nodes: canonical.adventureBoard.nodes.map((node) => {
-          if (node.id === "quest") {
-            return { ...node, position: { x: 0.82, y: 0.48 }, state: "locked" as const, action: { type: "show-locked-reason" as const, payloadId: "quest" } };
-          }
-          return node.id === "baseline-facts"
-            ? { ...node, label: "Sky Facts", shortLabel: "Sky Facts", thumbnailUrl: "/generated/baseline-dedicated-thumbnail.png" }
-            : node;
-        }),
-        edges: canonical.adventureBoard.edges.map((edge) => ({
-          ...edge,
-          id: `authored-${edge.id}`,
-        })),
+        theme: { ...canonical.adventureBoard.theme, background: { type: "image" as const, value: "/generated/sky-harbor.jpeg" } },
+        nodes: canonical.adventureBoard.nodes.map((node) => node.id === "baseline-facts"
+          ? { ...node, label: "Sky Facts", shortLabel: "Sky Facts", thumbnailUrl: "/generated/baseline-dedicated-thumbnail.png" }
+          : node),
+        edges: canonical.adventureBoard.edges.map((edge) => ({ ...edge, id: `authored-${edge.id}` })),
       },
     };
 
-    const projected = projectLearningCycle(questReady, { presentationPlan: authoredPlan });
+    const projected = projectLearningCycle(bound, { presentationPlan: authoredPlan });
     const writeProjection = projectLearningCyclePlanForWrite("reina", authoredPlan, { rootDir });
 
-    expect(projected.activeSessionPlan.planId).toBe("ai-authored-board:cycle-r3");
+    expect(projected.activeSessionPlan.planId).toBe("ai-authored-board:cycle-r2");
     expect(writeProjection).toEqual(projected.activeSessionPlan);
     expect(projected.adventureBoard.title).toBe("The Clockwork Sky Harbor");
     expect(projected.adventureBoard.theme.background).toEqual({ type: "image", value: "/generated/sky-harbor.jpeg" });
-    expect(projected.adventureBoard.nodes.find((node) => node.id === "quest")).toMatchObject({
-      state: "available",
-      position: { x: 0.82, y: 0.48 },
-      thumbnailUrl: "/generated/quest-ready.png",
-      action: { type: "launch-activity", payloadId: "quest" },
-    });
-    expect(projected.activeSessionPlan.nodePlan.find((node) => node.id === "baseline-facts")?.thumbnailUrl)
-      .toBe("/generated/baseline-dedicated-thumbnail.png");
-    expect(projected.adventureBoard.nodes.find((node) => node.id === "baseline-facts")?.thumbnailUrl)
-      .toBe("/generated/baseline-dedicated-thumbnail.png");
     expect(projected.adventureBoard.nodes.find((node) => node.id === "baseline-facts")).toMatchObject({
-      label: "Sky Facts",
-      shortLabel: "Sky Facts",
+      label: "Sky Facts", shortLabel: "Sky Facts", thumbnailUrl: "/generated/baseline-dedicated-thumbnail.png",
     });
-    expect(projected.adventureBoard.edges).toHaveLength(authoredPlan.adventureBoard.edges.length);
-    expect(projected.adventureBoard.edges.map((edge) => edge.id))
-      .toEqual(authoredPlan.adventureBoard.edges.map((edge) => edge.id));
+    expect(projected.adventureBoard.nodes.some((node) => node.kind === "quest" || node.kind === "boss")).toBe(false);
+    expect(projected.adventureBoard.edges.map((edge) => edge.id)).toEqual(authoredPlan.adventureBoard.edges.map((edge) => edge.id));
     expect(() => assertLearningCycleProjectionWrite("reina", projected.activeSessionPlan, { rootDir })).not.toThrow();
   });
 
@@ -363,18 +311,8 @@ describe("canonical learning cycle repository", () => {
   it("projects completed canonical nodes as replayable completed board nodes", () => {
     const rootDir = root();
     const cycle = createLearningCycle(input(), { rootDir });
-    const completed = transitionLearningCycle("reina", "hw-math-cycle", cycle.revision, {
-      type: "baseline_completed",
-      nodeId: "baseline-facts",
-      academicEvidence: [{ evidenceId: "attempt:complete", summary: "Completed", accuracy: 1 }],
-      engagementEvidence: [],
-      companionObservations: [],
-      decision: {
-        status: "supported",
-        reason: "The activity was completed.",
-        nextAction: "Wait for the next instrument.",
-      },
-    }, { rootDir });
+    const completed = transitionLearningCycle("reina", "hw-math-cycle", cycle.revision,
+      observed("baseline-facts", [{ evidenceId: "attempt:complete", summary: "Completed", accuracy: 1 }]), { rootDir });
 
     const boardNode = projectLearningCycle(completed).adventureBoard.nodes
       .find((node) => node.id === "baseline-facts");
@@ -439,114 +377,6 @@ describe("canonical learning cycle repository", () => {
     expect(projectLearningCycle(bound).activeSessionPlan.nodePlan[0]?.date).toBe("hw-math-cycle");
   });
 
-  it("turns baseline evidence into the Quest prompt without mixing evidence streams", () => {
-    const rootDir = root();
-    const cycle = createLearningCycle(input(), { rootDir });
-    const next = transitionLearningCycle("reina", "hw-math-cycle", cycle.revision, {
-      type: "baseline_completed",
-      nodeId: "baseline-facts",
-      academicEvidence: [{ evidenceId: "attempt:1", summary: "4/5 correct", accuracy: 0.8 }],
-      engagementEvidence: [{ evidenceId: "choice:1", summary: "selected and completed speed route" }],
-      companionObservations: [{ evidenceId: "companion:1", summary: "asked for one hint" }],
-      decision: {
-        status: "supported",
-        reason: "Fact retrieval is strong enough to test transfer.",
-        nextAction: "Generate Quest from baseline evidence.",
-      },
-    }, { rootDir, now: new Date("2026-07-11T20:10:00.000Z") });
-
-    expect(next.lifecycle).toBe("quest_generating");
-    expect(next.evidence.academic.map((item) => item.evidenceId)).toEqual(["attempt:1"]);
-    expect(next.evidence.engagement.map((item) => item.evidenceId)).toEqual(["choice:1"]);
-    expect(next.evidence.companionObservations.map((item) => item.evidenceId)).toEqual(["companion:1"]);
-    const quest = next.nodes.find((node) => node.role === "quest");
-    expect(quest?.title).toBe("Quest");
-    expect(quest?.state).toBe("generating");
-    expect(quest?.generationPrompt?.createdFromEvidenceIds).toEqual(["attempt:1", "choice:1"]);
-    expect(quest?.generationPrompt?.text).toContain("Fact retrieval is strong enough to test transfer");
-    expect(quest?.generationPrompt?.text).not.toContain("asked for one hint");
-  });
-
-  it("requires Quest evidence before creating a Boss prompt and awaits calibration after Boss", () => {
-    const rootDir = root();
-    const cycleInput = input();
-    const initialQuest = cycleInput.nodes.find((node) => node.role === "quest");
-    if (initialQuest) (initialQuest.academicTarget as { targets: string[] }).targets = ["5x2", "5x5"];
-    const initialBoss = cycleInput.nodes.find((node) => node.role === "boss");
-    if (initialBoss) initialBoss.academicTarget.targets = [];
-    const created = createLearningCycle(cycleInput, { rootDir });
-    const baseline = transitionLearningCycle("reina", "hw-math-cycle", created.revision, {
-      type: "baseline_completed",
-      nodeId: "baseline-facts",
-      academicEvidence: [{ evidenceId: "attempt:1", summary: "4/5 correct", accuracy: 0.8 }],
-      engagementEvidence: [],
-      companionObservations: [],
-      decision: { status: "supported", reason: "Ready for transfer.", nextAction: "Generate Quest." },
-    }, { rootDir });
-    const questReady = transitionLearningCycle("reina", "hw-math-cycle", baseline.revision, {
-      type: "artifact_bound",
-      nodeId: "quest",
-      artifact: {
-        contentId: "content:quest:1",
-        artifactId: "artifact:quest:1",
-        localArtifactPath: "/tmp/quest.html",
-        localArtworkPath: "/generated/quest.png",
-        contractFingerprint: "quest-contract-1",
-        validationStatus: "passed",
-      },
-    }, { rootDir });
-    const questBoardNode = projectLearningCycle(questReady).adventureBoard.nodes
-      .find((node) => node.id === "quest");
-    expect(questBoardNode?.state).toBe("available");
-    expect(questBoardNode?.action?.type).toBe("launch-activity");
-    const bossGenerating = transitionLearningCycle("reina", "hw-math-cycle", questReady.revision, {
-      type: "quest_completed",
-      nodeId: "quest",
-      academicEvidence: [{ evidenceId: "attempt:quest:1", summary: "Transfer remained fragile", accuracy: 0.65 }],
-      engagementEvidence: [],
-      companionObservations: [],
-      decision: {
-        status: "revised",
-        reason: "Transfer is still fragile under context change.",
-        nextAction: "Generate Boss clarification probe.",
-        bossRequired: true,
-      },
-    }, { rootDir });
-
-    expect(bossGenerating.lifecycle).toBe("boss_generating");
-    expect(bossGenerating.nodes.find((node) => node.role === "boss")?.generationPrompt?.createdFromEvidenceIds)
-      .toEqual(["attempt:quest:1"]);
-    expect(bossGenerating.nodes.find((node) => node.role === "boss")?.academicTarget.targets)
-      .toEqual(questReady.nodes.find((node) => node.role === "quest")?.academicTarget.targets);
-
-    const bossReady = transitionLearningCycle("reina", "hw-math-cycle", bossGenerating.revision, {
-      type: "artifact_bound",
-      nodeId: "boss",
-      artifact: {
-        contentId: "content:boss:1",
-        artifactId: "artifact:boss:1",
-        localArtifactPath: "/tmp/boss.html",
-        localArtworkPath: "/generated/boss.png",
-        contractFingerprint: "boss-contract-1",
-        validationStatus: "passed",
-      },
-    }, { rootDir });
-    const awaiting = transitionLearningCycle("reina", "hw-math-cycle", bossReady.revision, {
-      type: "boss_completed",
-      nodeId: "boss",
-      academicEvidence: [{ evidenceId: "attempt:boss:1", summary: "Boss completed", accuracy: 0.9 }],
-      engagementEvidence: [],
-      companionObservations: [],
-      decision: {
-        status: "awaiting_calibration",
-        reason: "In-app mastery requires delayed or graded confirmation.",
-        nextAction: "Wait for calibration evidence.",
-      },
-    }, { rootDir });
-
-    expect(awaiting.lifecycle).toBe("awaiting_calibration");
-  });
-
   it("rejects stale writers", () => {
     const rootDir = root();
     const cycle = createLearningCycle(input(), { rootDir });
@@ -589,8 +419,6 @@ describe("canonical learning cycle repository", () => {
     expect(chart.activeSessionPlan?.planId).toContain("learning-cycle:hw-math-cycle");
     expect(chart.activeSessionPlan?.nodePlan.map((node) => node.title)).toEqual([
       "Fact Blaster",
-      "Quest",
-      "Boss",
     ]);
   });
 
@@ -635,14 +463,8 @@ describe("canonical learning cycle repository", () => {
   it("reconciles re-ingestion without erasing accumulated evidence", () => {
     const rootDir = root();
     const created = createLearningCycle(input(), { rootDir });
-    const measured = transitionLearningCycle("reina", "hw-math-cycle", created.revision, {
-      type: "baseline_completed",
-      nodeId: "baseline-facts",
-      academicEvidence: [{ evidenceId: "attempt:keep", summary: "evidence survives", accuracy: 0.8 }],
-      engagementEvidence: [],
-      companionObservations: [],
-      decision: { status: "supported", reason: "ready", nextAction: "generate quest" },
-    }, { rootDir });
+    const measured = transitionLearningCycle("reina", "hw-math-cycle", created.revision,
+      observed("baseline-facts", [{ evidenceId: "attempt:keep", summary: "evidence survives", accuracy: 0.8 }]), { rootDir });
     const replannedNodes = input().nodes.map((node) =>
       node.nodeId === "baseline-facts" ? { ...node, theme: "new controlled theme" } : node,
     );
@@ -708,14 +530,8 @@ describe("canonical learning cycle repository", () => {
   it("archives adult preview evidence and restores the frozen program to its pre-play frontier", () => {
     const rootDir = root();
     const created = createLearningCycle(input(), { rootDir });
-    const measured = transitionLearningCycle("reina", "hw-math-cycle", created.revision, {
-      type: "baseline_completed",
-      nodeId: "baseline-facts",
-      academicEvidence: [{ evidenceId: "adult-preview", summary: "Parent test", accuracy: 1 }],
-      engagementEvidence: [{ evidenceId: "adult-rating", summary: "Parent rating" }],
-      companionObservations: [],
-      decision: { status: "supported", reason: "preview", nextAction: "evaluate" },
-    }, { rootDir });
+    const measured = transitionLearningCycle("reina", "hw-math-cycle", created.revision,
+      observed("baseline-facts", [{ evidenceId: "adult-preview", summary: "Parent test", accuracy: 1 }], [{ evidenceId: "adult-rating", summary: "Parent rating" }]), { rootDir });
 
     const reset = resetLearningCycleRuntimeEvidence("reina", "hw-math-cycle", { rootDir });
 

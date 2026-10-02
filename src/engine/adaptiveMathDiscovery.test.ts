@@ -4,6 +4,7 @@ import path from "node:path";
 import { createHash } from "node:crypto";
 import { describe, expect, it, vi } from "vitest";
 import { getLearningCycle, projectLearningCycle, transitionLearningCycle } from "./learningCycleRepository";
+import { preparingBoardInstance } from "./learningBoardInstances";
 import { DISCOVERY_VERIFIER_VERSION } from "./discoveryVisualReview";
 import {
   buildDiscoveryPresentationContract,
@@ -972,7 +973,8 @@ describe("adaptive math discovery", () => {
 
   it("keeps the canonical Probe contract aligned with progressive verified publication", () => {
     const learningContract = fs.readFileSync(path.join(process.cwd(), "LEARNING_FEEDBACK_LOOP.md"), "utf8");
-    expect(learningContract).toContain("Contract version: 20");
+    expect(learningContract).toContain("Contract version: 21");
+    expect(learningContract).toContain("The Probe Board is the only board instance that may publish before every node is verified");
     expect(learningContract).toContain("Each probe node is implemented and verified before that node unlocks");
     expect(learningContract).toContain("unfinished siblings remain locked");
     expect(learningContract).toContain("The first verified probe node may open while remaining nodes continue building independently");
@@ -1492,11 +1494,8 @@ describe("adaptive math discovery", () => {
       academicTheory: { theoryId: "targeted-theory", revision: 1, hypothesis: "Planner hypothesis", supportCriteria: ["support"], reviseCriteria: ["revise"], falsifyCriteria: ["falsify"] },
       academicPredictions: [plannerPrediction],
     });
-    expect(projectLearningCycle(cycle).adventureBoard.nodes.find((node) => node.id === "N1")).toMatchObject({
-      state: "locked",
-      action: { type: "show-locked-reason", payloadId: "N1" },
-      lock: { label: "Locked" },
-    });
+    // Contract 21: the Teaching Board stays out of view until every node is verified.
+    expect(projectLearningCycle(cycle).adventureBoard.nodes.some((node) => node.id === "N1")).toBe(false);
     cycle = transitionLearningCycle("lab-child", "hw-equal-groups", cycle.revision, {
       type: "artifact_bound",
       nodeId: "N1",
@@ -1601,7 +1600,7 @@ describe("adaptive math discovery", () => {
     expect(buildNode).toHaveBeenCalledTimes(2);
   });
 
-  it("keeps a twice-failed generated node behind the board's ordinary lock state", async () => {
+  it("holds the whole Teaching Board unpublished when a generated node fails twice", async () => {
     const rootDir = root();
     createDiscoveryLearningCycle({ rootDir, childId: "lab-child", homeworkId: "hw-equal-groups", assignment: { title: "Equal groups", contentFingerprint: "fingerprint", capturedEvidenceIds: ["assignment:equal-groups"], targets: ["math.multiplication.equal_groups"] }, evaluation: contract });
     writeFrozenDiscoveryContract(rootDir);
@@ -1618,13 +1617,10 @@ describe("adaptive math discovery", () => {
     await buildTargetedNodesResumably({ rootDir, childId: "lab-child", homeworkId: "hw-equal-groups", firstNodeId: "N1", concurrency: 1, buildNode: fail });
 
     const cycle = getLearningCycle("lab-child", "hw-equal-groups", { rootDir })!;
-    expect(cycle.lifecycle).toBe("board_ready");
+    expect(cycle.lifecycle).toBe("board_generating");
     expect(cycle.nodes.find((node) => node.nodeId === "N1")?.state).toBe("blocked");
-    expect(projectLearningCycle(cycle).adventureBoard.nodes.find((node) => node.id === "N1")).toMatchObject({
-      state: "locked",
-      action: { type: "show-locked-reason" },
-      lock: { label: "Locked" },
-    });
+    expect(preparingBoardInstance(cycle)?.nodeIds).toEqual(["N1"]);
+    expect(projectLearningCycle(cycle).adventureBoard.nodes.some((node) => node.id === "N1")).toBe(false);
   });
 
   it("builds the first intervention first and preserves ready siblings when another fails", async () => {

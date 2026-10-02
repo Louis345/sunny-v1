@@ -153,8 +153,6 @@ describe("math publication assumption ledger", () => {
       plan: parsed,
       artifacts,
       backgroundUrl: "/generated/background.jpeg",
-      questArtworkUrl: "/generated/quest.jpeg",
-      bossArtworkUrl: "/generated/boss.jpeg",
       report: { passed: true, failures: [], screenshots: [] },
     });
     return {
@@ -1136,7 +1134,7 @@ describe("direct math experience", () => {
       plannerPlan: parsed,
       activeSessionPlan: buildDirectActiveSessionPlan({
         childId: "reina", homeworkId: "hw-math-test", plan: parsed, artifacts,
-        backgroundUrl: "/background.png", questArtworkUrl: "/quest.png", bossArtworkUrl: "/boss.png",
+        backgroundUrl: "/background.png",
         report: { passed: true, failures: [], screenshots: [] },
       }),
       artifacts,
@@ -1261,10 +1259,8 @@ describe("direct math experience", () => {
       .toThrow("direct_plan_missing_item_id");
   });
 
-  it("treats locked Quest and Boss as board furniture when the Planner omits teasers", () => {
+  it("never renders Quest or Boss placeholders on the opening math board, even when legacy teasers are supplied", () => {
     const plannerOutput = plan(2);
-    delete plannerOutput.quest;
-    delete plannerOutput.boss;
 
     const parsed = parseDirectLearningExperiencePlan(plannerOutput);
     const artifacts = parsed.activities.map((activity) => ({
@@ -1285,17 +1281,13 @@ describe("direct math experience", () => {
       plan: parsed,
       artifacts,
       backgroundUrl: "/generated/background.jpeg",
-      questArtworkUrl: "/generated/quest-placeholder.jpeg",
-      bossArtworkUrl: "/generated/boss-placeholder.jpeg",
       report: { passed: true, failures: [], screenshots: [] },
     });
 
-    expect(parsed.quest).toMatchObject({ title: "Quest", locked: true });
-    expect(parsed.boss).toMatchObject({ title: "Boss", locked: true });
-    expect(session.adventureBoard?.nodes.find((node) => node.id === "quest"))
-      .toMatchObject({ label: "Quest", state: "locked" });
-    expect(session.adventureBoard?.nodes.find((node) => node.id === "boss"))
-      .toMatchObject({ label: "Boss", state: "locked" });
+    expect("quest" in parsed).toBe(false);
+    expect(session.nodePlan.some((node) => node.type === "quest" || node.type === "boss")).toBe(false);
+    expect(session.adventureBoard?.nodes.some((node) => node.kind === "quest" || node.kind === "boss")).toBe(false);
+    expect(session.adventureBoard?.edges.some((edge) => edge.to === "quest" || edge.to === "boss")).toBe(false);
   });
 
   it("projects every AI-selected node and prediction into one canonical assignment cycle", () => {
@@ -1318,8 +1310,6 @@ describe("direct math experience", () => {
       plan: plannerPlan,
       artifacts,
       backgroundUrl: "/generated/background.jpeg",
-      questArtworkUrl: "/generated/quest.jpeg",
-      bossArtworkUrl: "/generated/boss.jpeg",
       report: { passed: true, failures: [], screenshots: [] },
       createdAt: "2026-07-17T12:00:00.000Z",
     });
@@ -1348,8 +1338,7 @@ describe("direct math experience", () => {
     expect(cycle.nodes.filter((node) => node.role === "baseline")).toHaveLength(3);
     expect(cycle.nodes.find((node) => node.nodeId === "activity-1")?.prediction?.claim)
       .toBe(plannerPlan.activities[0]?.designPrediction);
-    expect(cycle.nodes.find((node) => node.role === "quest")?.state).toBe("locked");
-    expect(cycle.nodes.find((node) => node.role === "boss")?.state).toBe("locked");
+    expect(cycle.nodes.some((node) => node.role === "quest" || node.role === "boss")).toBe(false);
   });
 
   it("does not impose a hidden game-design constitution on the Planner or Creator", () => {
@@ -1676,14 +1665,14 @@ describe("direct math experience", () => {
     expect(source).toContain("await generateDirectArtworkBundle({");
   });
 
-  it("requires a genuine mandatory fork and enforces locked static Quest/Boss product roles", () => {
+  it("requires a genuine mandatory fork and ignores any Planner-supplied Quest/Boss on the opening board", () => {
     const invalid = plan();
     invalid.fork.routes = [invalid.fork.routes[0]!];
     expect(() => parseDirectLearningExperiencePlan(invalid)).toThrow("direct_plan_requires_two_routes");
     const unlocked = plan();
     unlocked.quest.locked = false;
     unlocked.quest.title = "Multiplication Expedition";
-    expect(parseDirectLearningExperiencePlan(unlocked).quest).toMatchObject({ title: "Quest", locked: true });
+    expect("quest" in parseDirectLearningExperiencePlan(unlocked)).toBe(false);
   });
 
   it("keeps executable browser code out of the Planner contract", async () => {
@@ -1805,8 +1794,6 @@ describe("direct math experience", () => {
       plan: parsed,
       artifacts,
       backgroundUrl: "/background.png",
-      questArtworkUrl: "/quest.png",
-      bossArtworkUrl: "/boss.png",
       report: { passed: true, failures: [], screenshots: [] },
       companion: { id: "matilda", name: "Matilda" },
     });
@@ -1927,8 +1914,6 @@ describe("direct math experience", () => {
       plan: parsed,
       artifacts,
       backgroundUrl: "/generated/background.jpeg",
-      questArtworkUrl: "/generated/quest.jpeg",
-      bossArtworkUrl: "/generated/boss.jpeg",
       report: { passed: true, failures: [], screenshots: [] },
     }).adventureBoard!;
     const sharedPath = ["start", "activity-1", "activity-2", "choose-path"]
@@ -1983,8 +1968,6 @@ describe("direct math experience", () => {
       plan: parsed,
       artifacts,
       backgroundUrl: "/generated/background.jpeg",
-      questArtworkUrl: "/generated/quest.jpeg",
-      bossArtworkUrl: "/generated/boss.jpeg",
       report,
     });
     const board = session.adventureBoard!;
@@ -2028,8 +2011,6 @@ describe("direct math experience", () => {
       plan: parsed,
       artifacts,
       backgroundUrl: "/generated/background.jpeg",
-      questArtworkUrl: "/generated/quest.jpeg",
-      bossArtworkUrl: "/generated/boss.jpeg",
       report: {
         passed: true,
         failures: [],

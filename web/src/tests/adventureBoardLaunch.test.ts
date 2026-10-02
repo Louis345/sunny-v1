@@ -167,6 +167,14 @@ describe("direct Discovery entry", () => {
     const old = packet("legacy", []); old.activeSessionPlan!.domain = "reading";
     expect(hasPendingLearningGeneration(old, false)).toBe(false);
   });
+  it("shows truthful preparation while one complete successor board is built between sessions", () => {
+    for (const lifecycle of ["baseline_generating", "quest_generating", "boss_generating"]) {
+      const current = packet("hw-1:board:2", []);
+      current.activeSessionPlan!.domain = "math";
+      current.childChart = { learningCycle: { lifecycle } } as never;
+      expect(hasPendingLearningGeneration(current, false)).toBe(true);
+    }
+  });
   it("keeps watching a Probe Board while verified siblings are still locked", () => {
     const probe = packet("probe-board:hw-1", [
       { id: "probe-ready", type: "generated-baseline", title: "Ready" },

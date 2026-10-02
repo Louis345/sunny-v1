@@ -1,6 +1,9 @@
 import { MATH_ITEMS_SCHEMA, parseDirectItem, type DirectItem } from "./directMathExperience";
 import Anthropic from "@anthropic-ai/sdk";
+import path from "path";
 import { getChildChart } from "../profiles/childChart";
+import { resolveChildContextDir } from "../utils/contextRoot";
+import { runMathProviderStage } from "./adaptiveMathDiscovery";
 import { engagementTheoryEvidenceContext } from "./engagementTheory";
 import { evaluateAcademicPredictions } from "./longitudinalLearning";
 import {
@@ -17,6 +20,7 @@ import {
   type LearningCycleSpellingItem,
   type LearningProgressionAction,
   type NextInstrumentPrescription,
+  type SuccessorProgram,
 } from "./learningCycleRepository";
 import { areDistinctWordsPronunciationEquivalent } from "../shared/karaokeMatchWord";
 
@@ -52,7 +56,8 @@ export type CanonicalProgressionDecision = {
   predictionEvaluationIds?: string[];
   contentDecisions?: EvidenceBasedContentDecision[];
   revisedHypothesis?: string;
-  nextInstrument?: NextInstrumentPrescription;
+  /** The one complete successor board program. Absent only for await_calibration. */
+  successor?: SuccessorProgram;
 };
 
 export type BaselineQuestEvidenceEligibility = {
@@ -104,7 +109,7 @@ export function resolveCanonicalProgressionDecisionForLifecycle(
   return {
     ...decision,
     progressionAction: "await_calibration",
-    nextInstrument: undefined,
+    successor: undefined,
   };
 }
 
@@ -404,6 +409,7 @@ function parseNextInstrument(value: unknown): NextInstrumentPrescription | undef
   const designKeys = ["stakesDesign", "failureMode", "escalation", "mechanicSpec", "mathematicalHook"] as const;
   return {
     ...(Array.isArray(row.items) ? { items: row.items.map(parseDirectItem) } : {}),
+    ...(row.encounter === "quest" || row.encounter === "boss" ? { encounter: row.encounter } : {}),
     ...Object.fromEntries(keys.map((key) => [key, String(row[key]).trim()])),
     ...Object.fromEntries(designKeys
       .filter((key) => typeof row[key] === "string" && String(row[key]).trim())
@@ -423,7 +429,10 @@ export function parseCanonicalProgressionDecision(value: unknown): CanonicalProg
   const generatedNodeId = typeof row.nextTitle === "string" && row.nextTitle.trim()
     ? `generated-${String(row.progressionAction).replace("generate_", "")}-${row.nextTitle.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "")}`
     : undefined;
-  const nextInstrument = parseNextInstrument(row.nextInstrument) ?? parseNextInstrument({
+  const action = String(row.progressionAction);
+  const legacyEncounter = action === "generate_quest" ? "quest" : action === "generate_boss" ? "boss" : undefined;
+  // Older checkpointed responses carry one next* instrument; they replay as a one-node successor.
+  const legacyInstrument = parseNextInstrument(row.nextInstrument) ?? parseNextInstrument({
     nodeId: row.nextNodeId ?? generatedNodeId,
     title: row.nextTitle,
     academicTarget: row.nextAcademicTarget,
@@ -437,7 +446,31 @@ export function parseCanonicalProgressionDecision(value: unknown): CanonicalProg
     escalation: row.nextEscalation,
     mechanicSpec: row.nextMechanicSpec,
     mathematicalHook: row.nextMathematicalHook,
+    encounter: legacyEncounter,
   });
+  if (legacyInstrument && legacyEncounter && !legacyInstrument.encounter) legacyInstrument.encounter = legacyEncounter;
+  const instruments = Array.isArray(row.nextInstruments)
+    ? row.nextInstruments.map((value) => {
+        const parsed = parseNextInstrument(value);
+        if (!parsed) throw new Error("canonical_progression_instrument_invalid");
+        return parsed;
+      })
+    : legacyInstrument ? [legacyInstrument] : [];
+  const routeRow = row.routeChoice && typeof row.routeChoice === "object" && !Array.isArray(row.routeChoice)
+    ? row.routeChoice as Record<string, unknown>
+    : undefined;
+  const routeChoice = routeRow && Array.isArray(routeRow.routes) && routeRow.routes.length > 0
+    ? {
+        sharedNodeIds: strings(routeRow.sharedNodeIds),
+        routes: routeRow.routes.map((route) => {
+          const value = (route ?? {}) as Record<string, unknown>;
+          if (typeof value.routeId !== "string" || !value.routeId.trim() || strings(value.nodeIds).length === 0) {
+            throw new Error("canonical_progression_route_choice_invalid");
+          }
+          return { routeId: value.routeId.trim(), nodeIds: strings(value.nodeIds) };
+        }),
+      }
+    : undefined;
   const contentDecisions = (Array.isArray(row.contentDecisions) ? row.contentDecisions : []).map((value) => {
     if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("canonical_progression_content_decision_invalid");
     const decision = value as Record<string, unknown>;
@@ -450,7 +483,7 @@ export function parseCanonicalProgressionDecision(value: unknown): CanonicalProg
       evidenceIds: strings(decision.evidenceIds),
     };
   });
-  if (["generate_support", "generate_quest", "generate_boss"].includes(String(row.progressionAction)) && !nextInstrument) {
+  if (action !== "await_calibration" && instruments.length === 0) {
     console.log(` 🎮 [canonical-progression] [planner-prescription-invalid] action=${String(row.progressionAction)} value=${JSON.stringify({
       nextInstrument: row.nextInstrument ?? null,
       nextNodeId: row.nextNodeId ?? null,
@@ -461,7 +494,7 @@ export function parseCanonicalProgressionDecision(value: unknown): CanonicalProg
       nextOpeningPurpose: row.nextOpeningPurpose ?? null,
       nextCreatorPrompt: row.nextCreatorPrompt ?? null,
     })}`);
-    throw new Error(`canonical_progression_${String(row.progressionAction).replace("generate_", "")}_prescription_missing`);
+    throw new Error(`canonical_progression_${action.replace("generate_", "")}_prescription_missing`);
   }
   return {
     status: row.status as CanonicalProgressionDecision["status"],
@@ -474,7 +507,7 @@ export function parseCanonicalProgressionDecision(value: unknown): CanonicalProg
     predictionEvaluationIds: strings(row.predictionEvaluationIds),
     ...(contentDecisions.length > 0 ? { contentDecisions } : {}),
     ...(typeof row.revisedHypothesis === "string" && row.revisedHypothesis.trim() ? { revisedHypothesis: row.revisedHypothesis.trim() } : {}),
-    ...(nextInstrument ? { nextInstrument } : {}),
+    ...(action !== "await_calibration" ? { successor: { instruments, ...(routeChoice ? { routeChoice } : {}) } } : {}),
   };
 }
 
@@ -507,11 +540,46 @@ async function askPlanner(
   const allowedProgressionActions: LearningProgressionAction[] = cycle.lifecycle === "baseline_evaluating" && !baselineEligibility.eligible
     ? ["generate_support", "collect_more_evidence"]
     : ["generate_support", "generate_quest", "generate_boss", "collect_more_evidence", "await_calibration"];
+  const plannerModel = model ?? process.env.SUNNY_INGEST_MODEL ?? "claude-sonnet-5";
+  const instrumentSchema = {
+    type: "object",
+    additionalProperties: false,
+    properties: {
+      nodeId: { type: "string", minLength: 1 },
+      title: { type: "string", minLength: 1 },
+      academicTarget: { type: "string", minLength: 1 },
+      mechanic: { type: "string", minLength: 1 },
+      theme: { type: "string", minLength: 1 },
+      openingPurpose: { type: "string", minLength: 1 },
+      creatorPrompt: { type: "string", minLength: 1 },
+      ...(cycle.domain === "math" ? { items: MATH_ITEMS_SCHEMA } : {}),
+      encounter: { type: "string", enum: ["quest", "boss"], description: "Only on the single Quest or Boss node your progressionAction authorizes." },
+      stakesDesign: { type: "string", minLength: 1, description: "What is genuinely at risk for the child in this instrument, and what losing it costs them." },
+      failureMode: { type: "string", minLength: 1, description: "How a run can end badly. If you decide it cannot be failed, say so and say why that serves this child right now." },
+      escalation: { type: "string", minLength: 1, description: "How difficulty or pressure moves from the first moment to the last." },
+      mechanicSpec: { type: "string", minLength: 1, description: "Concretely: what the child's finger or cursor does, what visibly moves in response, and what failure looks like on screen. Not an adjective or a genre name." },
+      mathematicalHook: { type: "string", minLength: 1, description: "The surprising or satisfying thing about this specific mathematics that could make a child say whoa." },
+    },
+    required: ["nodeId", "title", "academicTarget", "mechanic", "theme", "openingPurpose", "creatorPrompt", ...(cycle.domain === "math" ? ["items"] : []), "stakesDesign", "failureMode", "escalation", "mechanicSpec", "mathematicalHook"],
+  };
+  // The raw response is checkpointed before validation; a restart from the same
+  // frozen snapshot replays it and makes no new provider call (contract 21).
+  // One checkpoint per closed evidence batch: keyed by the transition that closed it, so practice
+  // replays and recorded prediction evaluations cannot turn a restart into a new paid call.
+  const batchEntry = [...cycle.decisionHistory].reverse().find((entry) => entry.toLifecycle === cycle.lifecycle && entry.fromLifecycle !== cycle.lifecycle);
+  const batchId = batchEntry?.decisionId ?? `${cycle.homeworkId}:r${cycle.revision}`;
+  const draftDir = path.join(resolveChildContextDir(cycle.childId, { rootDir: opts.rootDir }), "homework", "cycles", ".planner", cycle.homeworkId, batchId.replace(/[^a-zA-Z0-9_-]+/g, "_"));
+  const snapshot = {
+    childId: cycle.childId, homeworkId: cycle.homeworkId, batchId, lifecycle: cycle.lifecycle,
+    observationIds: cycle.observations.filter((observation) => observation.provenance !== "practice").map((observation) => observation.observationId),
+    model: plannerModel,
+  };
+  const rawDecision = await runMathProviderStage({ draftDir, stage: "progression-decision", model: plannerModel, request: snapshot, execute: async () => {
   const response = await anthropic.messages.create({
-    model: model ?? process.env.SUNNY_INGEST_MODEL ?? "claude-sonnet-5",
+    model: plannerModel,
     // The prescription now carries five additional design fields; 2600 truncated them.
     max_tokens: 6000,
-    messages: [{ role: "user", content: `You are Sunny's AI Planner. Compare the preregistered academic theory and predictions with the factual scorecard. Quest requires a captured, correct, unseen independent checkpoint. Practice cannot satisfy that boundary. For math, author nextItems with stable unique ids, prompts, lineage, and frozen response contracts. Include fresh checkpoint evidence when further progression is intended. Explanation responses remain unscored and cannot independently unlock progression. Never reuse exposed item ids or prompts. Quest tests unseen transfer; Boss tests unseen synthesis; Boss must end awaiting calibration. Return exactly one concise decision and always propose one complete next instrument using the required next* fields. Runtime uses that proposal only when progressionAction generates an instrument.
+    messages: [{ role: "user", content: `You are Sunny's AI Planner. Compare the preregistered academic theory and predictions with the factual scorecard. Quest requires a captured, correct, unseen independent checkpoint. Practice cannot satisfy that boundary. For math, author nextItems with stable unique ids, prompts, lineage, and frozen response contracts. Include fresh checkpoint evidence when further progression is intended. Explanation responses remain unscored and cannot independently unlock progression. Never reuse exposed item ids or prompts. Quest tests unseen transfer; Boss tests unseen synthesis; Boss must end awaiting calibration. Return exactly one concise decision. Unless progressionAction is await_calibration, author the one complete next board in nextInstruments: you decide how many activities it has. A board may offer the child a real choice through routeChoice (shared opening nodes, then two or more routes that may reconverge on a common checkpoint). The current board is never changed; your program becomes a new board for a later session. Mark exactly one instrument with encounter "quest" only when progressionAction is generate_quest, or "boss" only when it is generate_boss; never add an encounter otherwise.
 
 You are the artist here, not a compliance function. Sunny holds the academic truth and the evidence limits; everything else is yours. Stakes, failure, consequence, escalation, pacing, tone, and payoff are your decisions to make and to defend, and you may change them run to run. You have full freedom to choose a game, simulation, manipulative, story, conversation, demonstration, or another fitting form.
 
@@ -519,9 +587,9 @@ Two things this Planner has gotten wrong before, stated plainly so you can avoid
 - Do not name a stake and then remove it in the same breath. Phrases like "no penalty", "no hard fail", "not punitive", or "low-pressure" attached to a tension you just introduced produce an experience with nothing at risk, which children read as boring. If you want a real stake, let it cost something. If you want no stake, say so deliberately and own it — do not do both.
 - Do not treat the engagement context as a list of things to avoid. It is observation with sample sizes attached, and dimensions too weakly evidenced to act on have already been withheld from you. A presentation that has not been seen to work is untested, not forbidden. Nothing in that context constrains stakes, difficulty, or consequence.
 
-Title the instrument as the child should see it. It appears as the first thing on their screen, so give it a real name, not a category label.
+Title each instrument as the child should see it. It appears as the first thing on their screen, so give it a real name, not a category label.
 
-Do not copy assignment items or name a prototype to imitate. If evidence is insufficient, prescribe exactly one concise harder or clarifying support instrument rather than a generic quiz.
+Do not copy assignment items or name a prototype to imitate. If evidence is insufficient, prescribe a focused harder or clarifying support board rather than a generic quiz.
 
 Child chart context:
 ${JSON.stringify(childContext, null, 2)}
@@ -568,38 +636,24 @@ ${JSON.stringify({ lifecycle: cycle.lifecycle, assignment: cycle.assignment, the
             },
           },
           revisedHypothesis: { type: "string" },
-          nextNodeId: { type: "string", minLength: 1 },
-          nextTitle: { type: "string", minLength: 1 },
-          nextAcademicTarget: { type: "string", minLength: 1 },
-          nextMechanic: { type: "string", minLength: 1 },
-          nextTheme: { type: "string", minLength: 1 },
-          nextOpeningPurpose: { type: "string", minLength: 1 },
-          nextCreatorPrompt: { type: "string", minLength: 1 },
-          ...(cycle.domain === "math" ? { nextItems: MATH_ITEMS_SCHEMA } : {}),
-          nextStakesDesign: {
-            type: "string",
-            minLength: 1,
-            description: "What is genuinely at risk for the child in this instrument, and what losing it costs them.",
-          },
-          nextFailureMode: {
-            type: "string",
-            minLength: 1,
-            description: "How a run can end badly. If you decide it cannot be failed, say so and say why that serves this child right now.",
-          },
-          nextEscalation: {
-            type: "string",
-            minLength: 1,
-            description: "How difficulty or pressure moves from the first moment to the last.",
-          },
-          nextMechanicSpec: {
-            type: "string",
-            minLength: 1,
-            description: "Concretely: what the child's finger or cursor does, what visibly moves in response, and what failure looks like on screen. Not an adjective or a genre name.",
-          },
-          nextMathematicalHook: {
-            type: "string",
-            minLength: 1,
-            description: "The surprising or satisfying thing about this specific mathematics that could make a child say whoa.",
+          nextInstruments: { type: "array", minItems: 1, items: instrumentSchema },
+          routeChoice: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              sharedNodeIds: { type: "array", items: { type: "string" } },
+              routes: {
+                type: "array",
+                minItems: 2,
+                items: {
+                  type: "object",
+                  additionalProperties: false,
+                  properties: { routeId: { type: "string" }, nodeIds: { type: "array", minItems: 1, items: { type: "string" } } },
+                  required: ["routeId", "nodeIds"],
+                },
+              },
+            },
+            required: ["sharedNodeIds", "routes"],
           },
         },
         required: [
@@ -611,19 +665,8 @@ ${JSON.stringify({ lifecycle: cycle.lifecycle, assignment: cycle.assignment, the
           "testNext",
           "nextEvidenceRequired",
           "predictionEvaluationIds",
-          "nextNodeId",
-          "nextTitle",
-          "nextAcademicTarget",
-          "nextMechanic",
-          "nextTheme",
-          "nextOpeningPurpose",
-          "nextCreatorPrompt",
-          ...(cycle.domain === "math" ? ["nextItems"] : []),
-          "nextStakesDesign",
-          "nextFailureMode",
-          "nextEscalation",
-          "nextMechanicSpec",
-          "nextMathematicalHook",
+          // Required so a decision cannot omit its successor; await_calibration's program is ignored.
+          "nextInstruments",
         ],
       },
     }],
@@ -631,18 +674,47 @@ ${JSON.stringify({ lifecycle: cycle.lifecycle, assignment: cycle.assignment, the
   }, { timeout: Number(process.env.SUNNY_AI_TIMEOUT_MS ?? 120000) });
   const tool = response.content.find((block) => block.type === "tool_use" && block.name === toolName);
   if (!tool || tool.type !== "tool_use") throw new Error("canonical_progression_tool_output_missing");
-  return parseCanonicalProgressionDecision(tool.input);
+  return tool.input;
+  } });
+  console.log(` 🎮 [canonical-progression] [planner-response] [checkpointed] homework=${cycle.homeworkId} revision=${cycle.revision}`);
+  return parseCanonicalProgressionDecision(rawDecision);
 }
 
+type AdvanceInput = {
+  childId: string;
+  homeworkId: string;
+  client?: Anthropic;
+  model?: string;
+  decide?: (cycle: LearningCycleRecordV2) => Promise<CanonicalProgressionDecision>;
+};
+
+/**
+ * One evidence-cited Planner decision for a closed batch. A provider decision that fails validation,
+ * or whose outcome is uncertain, blocks the cycle visibly instead of replaying or re-buying it forever.
+ */
 export async function advanceCanonicalCycleFromEvidence(
-  input: {
-    childId: string;
-    homeworkId: string;
-    client?: Anthropic;
-    model?: string;
-    decide?: (cycle: LearningCycleRecordV2) => Promise<CanonicalProgressionDecision>;
-  },
+  input: AdvanceInput,
   opts: LearningCycleRepositoryOptions = {},
+): Promise<LearningCycleRecordV2> {
+  try {
+    return await decideOnce(input, opts);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    const retryable = Boolean((error as { status?: number }).status)
+      || /^(learning_cycle_revision_conflict|canonical_progression_context_changed|provider_request_rejected|learning_cycle_missing)/.test(message);
+    const latest = !input.decide && !retryable ? getLearningCycle(input.childId, input.homeworkId, opts) : null;
+    if (latest && ["baseline_evaluating", "quest_evaluating", "boss_evaluating"].includes(latest.lifecycle)) {
+      const reason = message.startsWith("provider_outcome_uncertain") ? message : `planner_decision_invalid:${message}`;
+      transitionLearningCycle(latest.childId, latest.homeworkId, latest.revision, { type: "block", reason }, opts);
+      console.error(` 🎮 [canonical-progression] [blocked] homework=${latest.homeworkId} reason=${reason}`);
+    }
+    throw error;
+  }
+}
+
+async function decideOnce(
+  input: AdvanceInput,
+  opts: LearningCycleRepositoryOptions,
 ): Promise<LearningCycleRecordV2> {
   let cycle = getLearningCycle(input.childId, input.homeworkId, opts);
   if (!cycle) throw new Error(`learning_cycle_missing:${input.homeworkId}`);
@@ -657,10 +729,13 @@ export async function advanceCanonicalCycleFromEvidence(
   }
   const plannerDecision = input.decide ? await input.decide(cycle) : await askPlanner(cycle, input.client, input.model, opts);
   const decision = resolveCanonicalProgressionDecisionForLifecycle(cycle.lifecycle, plannerDecision);
-  if (cycle.domain === "math" && ["generate_support", "generate_quest", "generate_boss"].includes(decision.progressionAction)) {
-    const items = decision.nextInstrument?.items;
-    if (!items?.length || new Set(items.map(item => item.id)).size !== items.length) throw new Error("math_instrument_requires_unique_frozen_items");
-    decision.nextInstrument!.items = items.map(parseDirectItem);
+  const instruments = decision.successor?.instruments ?? [];
+  if (cycle.domain === "math") {
+    for (const instrument of instruments) {
+      const items = instrument.items;
+      if (!items?.length || new Set(items.map(item => item.id)).size !== items.length) throw new Error("math_instrument_requires_unique_frozen_items");
+      instrument.items = items.map(parseDirectItem);
+    }
   }
   const allowedEvaluationIds = new Set(cycle.predictionEvaluations.map((evaluation) => evaluation.evaluationId));
   const citedEvaluationIds = decision.predictionEvaluationIds ?? [];
@@ -675,9 +750,9 @@ export async function advanceCanonicalCycleFromEvidence(
     throw new Error("canonical_progression_quest_action_invalid");
   }
   if (cycle.lifecycle === "quest_evaluating" && decision.progressionAction === "generate_boss") {
-    const quest = cycle.nodes.find((node) => node.role === "quest");
-    const hasUnassistedUnseenQuestEvidence = quest && cycle.observations.some((observation) =>
-      observation.sourceId.endsWith(`:${quest.nodeId}`) &&
+    const completedQuests = cycle.nodes.filter((node) => node.role === "quest" && node.state === "completed");
+    const hasUnassistedUnseenQuestEvidence = cycle.observations.some((observation) =>
+      completedQuests.some((quest) => observation.sourceId.endsWith(`:${quest.nodeId}`)) &&
       observation.provenance === "independent_probe" &&
       observation.exposure === "unseen" &&
       observation.assistance.status === "unassisted");
@@ -688,6 +763,12 @@ export async function advanceCanonicalCycleFromEvidence(
   if (cycle.lifecycle === "boss_evaluating" && decision.progressionAction !== "await_calibration") {
     throw new Error("canonical_progression_boss_requires_calibration");
   }
+  const expectedEncounter = decision.progressionAction === "generate_quest" ? "quest" : decision.progressionAction === "generate_boss" ? "boss" : undefined;
+  const encounters = instruments.filter((instrument) => instrument.encounter);
+  if (encounters.some((instrument) => instrument.encounter !== expectedEncounter) || encounters.length > 1) {
+    throw new Error("canonical_progression_encounter_not_authorized");
+  }
+  if (expectedEncounter && encounters.length === 0) throw new Error("canonical_progression_encounter_missing");
   const evidenceIds = [...new Set([
     ...cycle.evidence.academic.map((item) => item.evidenceId),
     ...cycle.evidence.engagement.map((item) => item.evidenceId),
