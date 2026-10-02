@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   deliverInteractiveCompanionOpening,
+  INDEPENDENT_EVALUATION_OPENING,
   buildContextStartGreeting,
   shouldEnableCompanionWakeGate,
   isIndependentEvaluationPlan,
@@ -9,6 +10,11 @@ import {
 } from "./session-bootstrap";
 
 describe("homework context greeting", () => {
+  it("keeps the independent-evaluation opener child-facing and answer-neutral", () => {
+    expect(INDEPENDENT_EVALUATION_OPENING).toContain("Tap the speaker");
+    expect(INDEPENDENT_EVALUATION_OPENING).toContain("Not sure");
+    expect(INDEPENDENT_EVALUATION_OPENING).not.toMatch(/one short|do not say|target word/i);
+  });
   it("speaks one answer-neutral orientation without summoning an independent-evaluation companion",async()=>{
     // Human catch: the audio stack was healthy, but the wake gate made the
     // opening completely silent, which looked exactly like another voice bug.

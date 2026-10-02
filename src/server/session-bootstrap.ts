@@ -173,6 +173,9 @@ export function buildContextStartGreeting(context: any): string {
     : "Your first challenge is ready. Want to try it?";
 }
 
+export const INDEPENDENT_EVALUATION_OPENING =
+  "Let's see what you know! Tap the speaker, type the word you hear, and choose Not sure whenever you need it.";
+
 export async function deliverInteractiveCompanionOpening(
   session: Pick<any, "setCompanionPresence" | "handleCompanionTurn"> & {companionWakeGateEnabled?:boolean},
   opening: string,
@@ -1663,7 +1666,7 @@ This is a safe space to test everything.
           await deliverInteractiveCompanionOpening(
             session,
             independentEvaluation
-              ? "[Independent spelling check just opened] In ONE short, warm sentence, tell the child to tap the speaker, enter the word they hear, and use Not sure when needed. Do not say, spell, segment, hint at, or describe any target word."
+              ? INDEPENDENT_EVALUATION_OPENING
               : "[Adventure board just appeared] Greet the child by name in ONE short warm sentence and invite them to pick the first spot on today's adventure map. Do not list the nodes or explain rules.",
             { independentEvaluationOrientation: independentEvaluation },
           );
