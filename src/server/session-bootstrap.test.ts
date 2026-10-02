@@ -9,10 +9,16 @@ import {
 } from "./session-bootstrap";
 
 describe("homework context greeting", () => {
-  it("never summons a child-invoked math companion to deliver an opening",async()=>{
+  it("speaks one answer-neutral orientation without summoning an independent-evaluation companion",async()=>{
+    // Human catch: the audio stack was healthy, but the wake gate made the
+    // opening completely silent, which looked exactly like another voice bug.
     const events:string[]=[];
-    await deliverInteractiveCompanionOpening({companionWakeGateEnabled:true,setCompanionPresence:()=>events.push("summoned"),handleCompanionTurn:async()=>{events.push("spoke");}},"Stale Discovery greeting");
-    expect(events).toEqual([]);
+    await deliverInteractiveCompanionOpening(
+      {companionWakeGateEnabled:true,setCompanionPresence:()=>events.push("summoned"),handleCompanionTurn:async(text:string)=>{events.push(`spoke:${text}`);}},
+      "Give one warm direction without saying or spelling a target word.",
+      { independentEvaluationOrientation: true },
+    );
+    expect(events).toEqual(["spoke:Give one warm direction without saying or spelling a target word."]);
   });
   it("opens conversational presence before delivering a companion-initiated greeting", async () => {
     const events: string[] = [];

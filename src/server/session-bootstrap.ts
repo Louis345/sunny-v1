@@ -171,9 +171,15 @@ export function buildContextStartGreeting(context: any): string {
 export async function deliverInteractiveCompanionOpening(
   session: Pick<any, "setCompanionPresence" | "handleCompanionTurn"> & {companionWakeGateEnabled?:boolean},
   opening: string,
+  options: { independentEvaluationOrientation?: boolean } = {},
 ): Promise<void> {
   if (session.companionWakeGateEnabled) {
-    console.log(" 🎮 [companion] [opening] [child-invoked-only]");
+    if (options.independentEvaluationOrientation) {
+      await session.handleCompanionTurn(opening);
+      console.log(" 🎮 [companion] [opening] [independent-orientation-spoken]");
+    } else {
+      console.log(" 🎮 [companion] [opening] [child-invoked-only]");
+    }
     return;
   }
   session.setCompanionPresence("summoned", "voice");
@@ -1642,9 +1648,13 @@ This is a safe space to test everything.
           sessionLearningProfile.activeSessionPlan?.companionPolicy?.openingLinePolicy ??
           "context_start_short";
         if (openingPolicy === "context_start_short" && !session.options?.sttOnly) {
+          const independentEvaluation = session.companionWakeGateEnabled;
           await deliverInteractiveCompanionOpening(
             session,
-            "[Adventure board just appeared] Greet the child by name in ONE short warm sentence and invite them to pick the first spot on today's adventure map. Do not list the nodes or explain rules.",
+            independentEvaluation
+              ? "[Independent spelling check just opened] In ONE short, warm sentence, tell the child to tap the speaker, enter the word they hear, and use Not sure when needed. Do not say, spell, segment, hint at, or describe any target word."
+              : "[Adventure board just appeared] Greet the child by name in ONE short warm sentence and invite them to pick the first spot on today's adventure map. Do not list the nodes or explain rules.",
+            { independentEvaluationOrientation: independentEvaluation },
           );
         } else {
           console.log(
