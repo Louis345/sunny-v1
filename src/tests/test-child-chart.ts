@@ -70,14 +70,27 @@ describe("getChildChart", () => {
     expect(() => getChildChart(childId, { rootDir: root })).toThrow("discovery_publication_pending");
   });
 
-  it("assembles Reina's chart from the child_profile cover sheet and attached records", () => {
-    const chart = getChildChart("reina");
+  it("assembles a synthetic chart from the child_profile cover sheet and attached records", () => {
+    const root = makeRoot();
+    roots.push(root);
+    const childId = "cover-sheet-lab";
+    writeJson(root, `src/context/${childId}/learning_profile.json`, initializeLearningProfile({
+      childId, age: 8, grade: 3, diagnoses: [], learningGoals: [],
+    }));
+    writeJson(root, `src/context/${childId}/word_bank.json`, createEmptyWordBank(childId));
+    writeJson(root, `src/context/${childId}/child_profile.json`, {
+      childId,
+      identity: { displayName: "Practice Learner", ttsName: "Practice" },
+      companion: { companionId: "matilda" },
+    });
+    const chart = getChildChart(childId, { rootDir: root });
 
-    expect(chart.childId).toBe("reina");
-    expect(chart.identity.displayName).toBe("Reina");
-    expect(chart.identity.ttsName).toBe("Ray-nah");
+    expect(chart.childId).toBe(childId);
+    expect(chart.manifestSource).toBe("manifest");
+    expect(chart.identity.displayName).toBe("Practice Learner");
+    expect(chart.identity.ttsName).toBe("Practice");
     expect(chart.companion.presetId).toBe("matilda");
-    expect(chart.learningProfile.childId).toBe("reina");
+    expect(chart.learningProfile.childId).toBe(childId);
     expect(chart.wordBankSummary.totalWords).toBeGreaterThanOrEqual(0);
     expect(chart.attention.currentWindow_ms).toBeGreaterThan(0);
     expect(chart.economy.coinBalance).toBeGreaterThanOrEqual(0);

@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { describe, it, expect, beforeEach } from "vitest";
+import { useSyntheticProfileContext } from "./fixtures/syntheticProfileContext";
 import { buildProfile } from "../profiles/buildProfile";
 import {
   clearChildrenConfigCache,
@@ -9,6 +10,8 @@ import {
 } from "../profiles/childrenConfig";
 import { isDopamineGameUrl } from "../shared/companionIframeGuards";
 import { buildNodeUrlSearchParams } from "../shared/nodeRegistry";
+
+useSyntheticProfileContext();
 
 describe("companion VRM / children.config (TASK companion-avatar)", () => {
   beforeEach(() => {

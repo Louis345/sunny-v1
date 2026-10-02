@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
+import { useSyntheticProfileContext } from "../tests/fixtures/syntheticProfileContext";
 import { getChildChart } from "../profiles/childChart";
 import { planBaselineShellsForHomework, shouldTriggerBaselineGeneration } from "./baselinePlannerIntegration";
+
+useSyntheticProfileContext();
 
 describe("baselinePlannerIntegration", () => {
   it("prefers existing shells for time/money homework", () => {
