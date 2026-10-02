@@ -63,7 +63,9 @@ This spec keeps the app (games, companion, board, Planner, Experience Creator) a
 | `plan.decided` | planner | One decision: what to teach next, citing the responses and evaluations it relies on. |
 | `board.published` | system | A complete, frozen board: ID, previous board, the plan decision it implements, every node, route and artifact hash. A changed board is a new event. |
 | `node.started` / `node.completed` | system | Activity progress. |
-| `engagement.observed` | system | Route chosen, replays, quits, ratings. Never academic evidence. |
+| `engagement.observed` | room, recorded by system | Engagement vital signs (section 9). Never academic evidence. |
+| `engagement.prediction` / `engagement.evaluated` | creator / system | A presentation bet ("competition framing → finishes and replays") and its result. |
+| `learner.hypothesis` / `learner.hypothesis_evaluated` | planner / system | A how-she-learns guess, and whether it predicted correctly in a second department (section 8). |
 | `readiness.forecast` | planner | The predicted test score and the per-word risk, written before the test. This is the green light. |
 | `school_test.recorded` | parent | Per word: right or wrong and what she actually wrote, plus a photo hash. Typed in by the parent at first. |
 | `forecast.evaluated` | system | The readiness forecast compared with the school test. |
@@ -101,7 +103,60 @@ One screen, per week:
 
 **Sunny is working when both accuracy lines improve over the weeks.**
 
-## 8. What goes and what stays
+## 8. The shared hospital: departments, rooms and the whole child
+
+**The chart** is one per child. Everything reads from it and writes to it.
+
+**Departments** are the subjects: spelling first, math later. Each is a specialist and owns:
+- its item types and scoring;
+- what counts as help;
+- its skill or pattern list;
+- its fixed measuring tool;
+- its readiness forecast;
+- its real-world test;
+- its report-card section.
+
+A department never reads another department's skill scores. Every department must define all of the above before it ships.
+
+**Rooms** are the nodes, games and activities, and they work for any subject. A department hands a room the items to present. The room makes the experience and reports raw facts: the response, timing, replays, help requests, and the engagement vitals below. Rooms never score or interpret anything. One room can serve spelling and math.
+
+**The whole child** is a shared section about *how she learns*, not what she knows. Examples: "accuracy drops after ~12 minutes", "reading-heavy instructions slow her down", "a worked example first helps".
+- Each entry starts as a Planner `learner.hypothesis` event citing evidence from one department.
+- It becomes trusted only when it correctly predicts something in a **second** department (`learner.hypothesis_evaluated`).
+- Trusted entries may also correct measurements. For example, a slow decoder's missed math word problem is flagged as a possible reading miss.
+
+## 9. Engagement vital signs and rewards
+
+Every room records the same vitals in every session, from day one (`engagement.observed`):
+- time to start a node;
+- finished vs quit, and where she quit;
+- voluntary replays;
+- chose the harder or easier route;
+- pace, and long idle gaps;
+- frustration markers (rapid repeated misses, giving up mid-item);
+- whether she came back the next day without being asked;
+- her own quick rating.
+
+**Engagement loop.**
+- The Experience Creator writes an `engagement.prediction` for each presentation choice (theme, game type, competition vs calm, story, humor), for example "competition framing → she finishes and replays".
+- The vitals check that prediction.
+- Most nodes use what has worked for her. Roughly one in four tries something new as a recorded experiment, so her preferences can be discovered and can change over time.
+- Recent sessions count more than old ones.
+- Engagement facts feed content for **every** subject, because what she enjoys transfers even though what she knows does not.
+
+**Rewards** (variable reward is allowed, with these limits):
+- Rewards come from effort and participation: finishing, persisting, coming back. Never from correctness alone, and correctness is never adjusted to grant one.
+- The *form and timing* of rewards may vary (mystery reward, surprise unlock, companion moment). Earned rewards are never taken away.
+- Optimize for flow and willing return, not time on screen. Sessions have a parent-set cap.
+- XP and rewards are computed from events; nothing stores them separately.
+
+## 10. Reliable AI content
+
+- **Rooms are tested code.** The AI mostly writes *content as data* for proven rooms: words, problems, themes, story, art prompts, presentation settings. It does not write new programs for every node.
+- Generated bespoke artifacts are allowed only when Playwright verification can prove them (they launch, every item is reachable, responses are reported correctly), and they get published only after passing.
+- A room can't report academic results it didn't observe; scoring always happens in the department.
+
+## 11. What goes and what stays
 
 **Retired from the learning path** (the spelling path first; math and other subjects later):
 - `word_bank.json` and the SM2 writes (review scheduling is computed from events instead);
@@ -120,18 +175,19 @@ One screen, per week:
 
 `LEARNING_FEEDBACK_LOOP.md` is replaced by a one-page version of sections 4–6 when this ships. It is replaced, not appended to.
 
-## 9. Build order
+## 12. Build order
 
 | Phase | Work | Done when |
 |---|---|---|
-| **0. Pause** | Stop child sessions and live monitoring. Archive Saori's current data folder into one tarball that is never read again. Create `~/SunnyData/`. | Archive exists; no sessions running. |
+| **0. Reset** | Archive Saori's current data folder into one tarball that is never read again. Create `~/SunnyData/`. UX-testing sessions may continue, but their data is throwaway. | Archive exists. |
 | **1. Chart database** | Build `appendEvent`, `buildChart`, the immutability triggers, the startup guard, export and snapshot. | Tests prove: no update or delete possible; duplicate events are no-ops; the guard refuses a checkout path; two processes can write at once. |
-| **2. Ingest, guess, Discovery** | Spelling ingestion, pattern tags, priors, the fixed Discovery instrument writing events. | A synthetic child completes Discovery, and the export shows the prior, every response with its assistance facts, and the evaluation. |
+| **2. Ingest, guess, Discovery** | Spelling ingestion, pattern tags, priors, the fixed Discovery instrument writing events. Every room reports engagement vitals from the start. | A synthetic child completes Discovery, and the export shows the prior, every response with its assistance facts, the vitals, and the evaluation. |
 | **3. Board, forecast, test, report card** | Planner board from the chart, practice events, the readiness check and forecast, the parent test-entry screen, forecast evaluation, the report card. | A synthetic child runs 3 simulated weeks end to end, and the report card shows 3 weeks of numbers. |
 | **4. Pilot** | Reina, real spelling, 3 weeks, on Saori. | 3 real school tests entered, and the report card shows guess and forecast accuracy. |
-| **5. Grow** | Quest and Boss (from readiness evidence, as new boards), a richer companion, then math. | Each addition writes only events. |
+| **5. Engagement loop** | Engagement predictions, experiments in about one node in four, and rewards per section 9. | The report card shows which presentations worked for her. |
+| **6. Grow** | Quest and Boss (from readiness evidence, as new boards), whole-child hypotheses, then the math department. | Each addition writes only events; math reads the whole-child and engagement sections, never spelling scores. |
 
-## 10. Rules for agents (these replace the scattered rules for this path)
+## 13. Rules for agents (these replace the scattered rules for this path)
 
 1. Real-child databases exist only on Saori. Development uses synthetic children or read-only snapshots.
 2. All writes go through `appendEvent`. Never edit or delete events.
@@ -139,11 +195,11 @@ One screen, per week:
 4. Every audit states which database it read (host, path, snapshot time).
 5. One change per pull request, test first.
 
-## 11. During the pause
+## 14. During the rebuild
 
-The girls do spelling at school as normal. Keep photos of their graded spelling tests. They can be entered as `school_test.recorded` once the database exists, which gives Sunny real history to start from.
+UX-testing sessions with the girls can continue on the current system, but their data is throwaway: no audits, no learning conclusions, nothing carried forward. Keep logging UX bugs, since the games, companion and board carry over. Keep photos of graded school spelling tests; they can be entered as `school_test.recorded` once the database exists.
 
-## 12. Open questions
+## 15. Open questions
 
 1. Node version on Saori: built-in `node:sqlite` (Node 22+) or the `better-sqlite3` package?
 2. Is one family database or one database per child preferred? Per child is the default here.
