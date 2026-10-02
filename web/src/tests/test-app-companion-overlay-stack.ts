@@ -115,10 +115,12 @@ describe("App companion overlay stack", () => {
   });
 
   it("story karaoke keeps the companion visible as a muted portrait", () => {
-    expect(src).toMatch(/voiceGameCompanionMicMuted[\s\S]{0,260}karaokeReadingActive/);
+    expect(src).toMatch(/voiceGameCompanionSpeechMuted[\s\S]{0,260}karaokeReadingActive/);
     expect(src).not.toContain("karaokeShellCompanionOff");
     expect(src).toContain("toggledOff={homeworkSessionFinished}");
-    expect(src).toContain("micMuted={micMuted || voiceGameCompanionMicMuted}");
+    expect(src).toContain("micMuted={companionSpeechMuted || voiceGameCompanionSpeechMuted}");
+    expect(src).toContain('muteControlKind="companion"');
+    expect(src).toContain("onToggleMute={toggleCompanionSpeechMute}");
   });
 
   it("preselected homework board child starts companion voice exactly once", () => {
