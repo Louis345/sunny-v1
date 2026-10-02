@@ -100,7 +100,26 @@ export function resolveHomeworkVoiceSessionStart(
  * one generated evaluation directly; the targeted map does not exist yet.
  */
 export function isDirectDiscoveryPacket(packet: ChildExperiencePacket | null): boolean {
-  return Boolean(packet?.activeSessionPlan?.planId?.startsWith("discovery:"));
+  const plan = packet?.activeSessionPlan;
+  if (!plan) return false;
+  if (plan.planId?.startsWith("discovery:")) return true;
+  if (plan.planId?.startsWith("probe-board:")) return false;
+
+  const cycle = packet.childChart?.learningCycle;
+  if (
+    plan.domain !== "spelling" ||
+    !plan.planId?.startsWith("learning-cycle:") ||
+    !cycle ||
+    !["evaluation_ready", "evaluation_active"].includes(cycle.lifecycle) ||
+    cycle.homeworkId !== plan.activeHomeworkId ||
+    !packet.spellingDiscovery?.nodeId
+  ) {
+    return false;
+  }
+
+  return Boolean(plan.adventureBoard?.nodes.some((node) =>
+    node.id === packet.spellingDiscovery?.nodeId &&
+    node.action?.type === "launch-activity"));
 }
 
 /**

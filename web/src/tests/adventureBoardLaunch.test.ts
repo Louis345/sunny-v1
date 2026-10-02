@@ -217,6 +217,34 @@ describe("direct Discovery entry", () => {
     discovery.spellingDiscovery = undefined;
     expect(resolveDirectDiscoveryLaunchNode(discovery)).toBeNull();
   });
+  it("keeps the native spelling evaluation on the Discovery completion path after the canonical packet refreshes", () => {
+    // Human catch: the twelfth answer refreshed the packet from a legacy
+    // `discovery:` plan id to a canonical `learning-cycle:` id. The screen and
+    // attempt logs remained healthy, so the lab never exercised the final
+    // native Word Radar callback against that refreshed packet. Sunny then
+    // called the ordinary lesson endpoint, which correctly rejected an
+    // evaluation node and left the child stuck after completing every word.
+    const discovery = packet("learning-cycle:hw-1:r16", [
+      { id: "start", type: "start", title: "Start" },
+      { id: "hw-1:discovery", type: "word-radar", title: "Show What You Know" },
+    ]);
+    discovery.activeSessionPlan!.domain = "spelling";
+    discovery.childChart = {
+      childId: "learner",
+      learningCycle: {
+        homeworkId: "hw-1",
+        lifecycle: "evaluation_active",
+        revision: 16,
+      },
+    } as never;
+    discovery.spellingDiscovery = {
+      nodeId: "hw-1:discovery",
+      items: [],
+    };
+
+    expect(isDirectDiscoveryPacket(discovery)).toBe(true);
+    expect(resolveDirectDiscoveryLaunchNode(discovery)?.id).toBe("hw-1:discovery");
+  });
   it("never lets a homework runtime fall through to the generic companion canvas", () => {
     const source = readFileSync(resolve(process.cwd(), "src/App.tsx"), "utf8");
     expect(source).toContain('const homeworkBoardMode = runtimeConfig.subject === "homework";');
