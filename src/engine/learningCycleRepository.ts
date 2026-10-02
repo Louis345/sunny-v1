@@ -1634,6 +1634,12 @@ function presentationProjectionPlanId(planId: string, revision: number): string 
   return planId.endsWith(suffix) ? planId : `${planId}${suffix}`;
 }
 
+function isExplicitUnusedCyclePlaceholder(node: LearningCycleNodeContract): boolean {
+  if (node.academicTarget.targets.length > 0) return false;
+  return node.title.trim().toLowerCase() === "placeholder-unused"
+    || node.academicTarget.skill.trim().toLowerCase() === "unused";
+}
+
 export function projectLearningCycle(
   cycle: LearningCycleRecordV2,
   options: ProjectLearningCycleOptions = {},
@@ -1645,12 +1651,13 @@ export function projectLearningCycle(
   const board = currentBoardInstance(cycle);
   const boardNodeIds = new Set(board.nodeIds);
   // Contract-21 encounters are authorized; only legacy placeholders that are not yet playable are absent.
-  const hiddenDestinationNodeIds = new Set(cycle.nodes
+  const hiddenNodeIds = new Set(cycle.nodes
     .filter((node) => !boardNodeIds.has(node.nodeId)
+      || isExplicitUnusedCyclePlaceholder(node)
       || (board.kind === "legacy" && (node.role === "quest" || node.role === "boss")
         && ["locked", "generating", "blocked"].includes(node.state)))
     .map((node) => node.nodeId));
-  const boardNodes = cycle.nodes.filter((node) => !hiddenDestinationNodeIds.has(node.nodeId));
+  const boardNodes = cycle.nodes.filter((node) => !hiddenNodeIds.has(node.nodeId));
   const experiment = board.kind === "legacy" ? undefined : board.agencyExperiment;
   const notTakenNodeIds = new Set(BATCH_CLOSED_LIFECYCLES.has(cycle.lifecycle)
     ? boardNodes.filter((node) => node.role === "baseline" && node.state !== "completed").map((node) => node.nodeId)
@@ -1812,7 +1819,7 @@ export function projectLearningCycle(
 
   const presentationPlan = options.presentationPlan;
   if (!presentationPlan || presentationPlan.activeHomeworkId !== cycle.homeworkId
-    || !presentationPlan.nodePlan.some((node) => boardNodeIds.has(node.id) && !hiddenDestinationNodeIds.has(node.id))) {
+    || !presentationPlan.nodePlan.some((node) => boardNodeIds.has(node.id) && !hiddenNodeIds.has(node.id))) {
     return canonicalProjection;
   }
 
@@ -1820,7 +1827,7 @@ export function projectLearningCycle(
     canonicalProjection.activeSessionPlan.nodePlan.map((node) => [node.id, node]),
   );
   const mergedNodePlan = presentationPlan.nodePlan
-    .filter((presented) => !hiddenDestinationNodeIds.has(presented.id))
+    .filter((presented) => !hiddenNodeIds.has(presented.id))
     .map((presented) => {
     const canonical = canonicalPlanNodeById.get(presented.id);
     if (!canonical) return presented;
@@ -1858,7 +1865,7 @@ export function projectLearningCycle(
     canonicalProjection.adventureBoard.nodes.map((node) => [node.id, node]),
   );
   const mergedBoardNodes = presentedBoard.nodes
-    .filter((node) => node.id !== historicalDiscoveryId && !hiddenDestinationNodeIds.has(node.id))
+    .filter((node) => node.id !== historicalDiscoveryId && !hiddenNodeIds.has(node.id))
     .map((presented) => {
     const canonical = canonicalBoardNodeById.get(presented.id);
     if (!canonical) return presented;
@@ -1891,7 +1898,7 @@ export function projectLearningCycle(
   );
   const mergedEdges: AdventureBoardJson["edges"] = presentedBoard.edges
     .filter((edge) => edge.from !== historicalDiscoveryId && edge.to !== historicalDiscoveryId
-      && !hiddenDestinationNodeIds.has(edge.from) && !hiddenDestinationNodeIds.has(edge.to))
+      && !hiddenNodeIds.has(edge.from) && !hiddenNodeIds.has(edge.to))
     .map((edge) => {
     canonicalEdgeById.delete(edge.id);
     const destination = mergedBoardNodeById.get(edge.to);
@@ -1918,7 +1925,7 @@ export function projectLearningCycle(
   }
   const mergedChoiceSets = presentedBoard.choiceSets?.map((choiceSet) => ({
     ...choiceSet,
-    options: choiceSet.options.filter((option) => !option.nodeId || !hiddenDestinationNodeIds.has(option.nodeId)).map((option) => {
+    options: choiceSet.options.filter((option) => !option.nodeId || !hiddenNodeIds.has(option.nodeId)).map((option) => {
       const node = option.nodeId ? mergedBoardNodeById.get(option.nodeId) : undefined;
       const planNode = option.nodeId ? mergedNodePlan.find((candidate) => candidate.id === option.nodeId) : undefined;
       if (!node) return option;

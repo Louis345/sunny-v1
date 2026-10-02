@@ -2374,22 +2374,41 @@ export function hydrateAssignmentPlannerOutputFromDraft(
   };
 }
 
+function isExplicitUnusedPlannerPlaceholder(node: PlannerDraftNode): boolean {
+  if (node.targets.length > 0) return false;
+  const title = node.title?.trim().toLowerCase();
+  const targetLane = node.targetLane?.trim().toLowerCase();
+  return title === "placeholder-unused" || targetLane === "unused";
+}
+
 /**
  * An initial board never carries Quest or Boss: those encounters appear only on
- * a later successor board that evidence authorized (contract 21). Remove any
- * the model emitted instead of rendering them as locked placeholders.
+ * a later successor board that evidence authorized (contract 21). An explicit
+ * unused placeholder is also not a child activity. Remove either instead of
+ * rendering model scaffolding as a locked or playable node.
  */
 function removeUnauthorizedDestinations(plan: PlannerDraftPlan): PlannerDraftPlan {
   const isDestination = (node: PlannerDraftNode) =>
     node.activityId === "quest" || node.activityId === "boss" || node.type === "quest" || node.type === "boss";
-  const removed = plan.nodePlan.filter(isDestination).map((node) => node.id);
-  if (removed.length === 0) return plan;
-  const warning = `planner_unauthorized_destination_removed: ${removed.join(", ")}`;
-  console.log(`  🎮 [assignment-planner] [destination-removed] ${warning}`);
+  const destinations = plan.nodePlan.filter(isDestination).map((node) => node.id);
+  const placeholders = plan.nodePlan.filter(isExplicitUnusedPlannerPlaceholder).map((node) => node.id);
+  const removed = new Set([...destinations, ...placeholders]);
+  if (removed.size === 0) return plan;
+  const warnings = [
+    ...(destinations.length > 0
+      ? [`planner_unauthorized_destination_removed: ${destinations.join(", ")}`]
+      : []),
+    ...(placeholders.length > 0
+      ? [`planner_unused_placeholder_removed: ${placeholders.join(", ")}`]
+      : []),
+  ];
+  for (const warning of warnings) {
+    console.log(`  🎮 [assignment-planner] [node-removed] ${warning}`);
+  }
   return {
     ...plan,
-    nodePlan: plan.nodePlan.filter((node) => !isDestination(node)),
-    openQuestions: [...(plan.openQuestions ?? []), warning],
+    nodePlan: plan.nodePlan.filter((node) => !removed.has(node.id)),
+    openQuestions: [...(plan.openQuestions ?? []), ...warnings],
   };
 }
 

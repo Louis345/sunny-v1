@@ -2429,6 +2429,29 @@ describe("generation requests and planner rounds", () => {
     expect(parsed.activeSessionPlan.openQuestions.join(" ")).toContain("route-quest-prep");
   });
 
+  it("removes an explicitly unused Planner placeholder before publishing the board", () => {
+    // A live Reina board exposed a model-authored `placeholder-unused` mystery as
+    // a playable node. Logs only proved it was Ready; the lab never asserted that
+    // an explicit non-node was absent from the child-facing plan.
+    const draft = draftWithGeneratedNode({
+      extraNodes: [{
+        id: "node-unused",
+        title: "placeholder-unused",
+        type: "mystery",
+        activityId: "mystery",
+        targets: [],
+        difficulty: 1,
+        targetLane: "unused",
+        locked: true,
+      }],
+    });
+
+    const parsed = hydrateAssignmentPlannerOutputFromDraft(draft, packet());
+
+    expect(parsed.activeSessionPlan.nodePlan.some((node) => node.id === "node-unused")).toBe(false);
+    expect(parsed.activeSessionPlan.openQuestions.join(" ")).toContain("planner_unused_placeholder_removed");
+  });
+
   it("keeps old drafts without generationRequests or rounds valid", () => {
     const draft = parseAssignmentPlannerJson(
       JSON.stringify(plannerDraftWithAdventureBoard(undefined)),

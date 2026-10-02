@@ -252,6 +252,34 @@ describe("canonical learning cycle repository", () => {
     expect(projection.adventureBoard.edges.some((edge) => edge.to === "quest" || edge.to === "boss")).toBe(false);
   });
 
+  it("does not project a saved explicit unused placeholder into a child-facing board", () => {
+    // This covers saved cycles created before Planner hydration learned to remove
+    // explicit placeholders. The canonical record stays append-only; only its
+    // child-facing projection is filtered.
+    const rootDir = root();
+    const legacyInput = input();
+    legacyInput.domain = "spelling";
+    legacyInput.nodes.splice(1, 0, {
+      ...legacyInput.nodes[0]!,
+      implementationType: "mystery",
+      nodeId: "node-unused",
+      role: "mystery",
+      title: "placeholder-unused",
+      state: "ready",
+      academicTarget: { domain: "spelling", skill: "unused", targets: [] },
+      openingScreen: { title: "placeholder-unused", purpose: "Unused Planner placeholder." },
+      generationPrompt: null,
+      artifactBinding: null,
+    });
+
+    const cycle = createLearningCycle(legacyInput, { rootDir });
+    const projection = projectLearningCycle(cycle);
+
+    expect(cycle.nodes.some((node) => node.nodeId === "node-unused")).toBe(true);
+    expect(projection.activeSessionPlan.nodePlan.some((node) => node.id === "node-unused")).toBe(false);
+    expect(projection.adventureBoard.nodes.some((node) => node.id === "node-unused")).toBe(false);
+  });
+
   it("preserves the AI-authored board presentation for the current board", () => {
     const rootDir = root();
     const created = createLearningCycle(input(), { rootDir });
