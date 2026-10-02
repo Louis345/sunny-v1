@@ -137,6 +137,33 @@ async function fixture() {
 // The live run received a response but the outer validated-result receipt never
 // saved it. Higher-level Planner mocks bypassed the failing parser/validator.
 describe("spelling Planner raw-response durability", () => {
+  it("asks the same Planner to restore a missing measurement before the cycle builder sees the plan", async () => {
+    // Human catch: the live Planner added a Visual Explainer node without its
+    // matching measurement. The prompt described the rule, but the relationship
+    // validator checked only measurements that happened to exist. The provider
+    // logs therefore looked successful until the later cycle builder stopped.
+    const f = await fixture();
+    const missingMeasurement = structuredClone(f.message);
+    missingMeasurement.id = "recorded-missing-measurement";
+    missingMeasurement.content[1].input!.plannedMeasurements =
+      missingMeasurement.content[1].input!.plannedMeasurements.filter(
+        (measurement) => measurement.id !== "measure-practice",
+      );
+    const corrected = structuredClone(f.message);
+    corrected.id = "recorded-missing-measurement-correction";
+    transport.create
+      .mockResolvedValueOnce(missingMeasurement)
+      .mockResolvedValueOnce(corrected);
+
+    const result = await f.run();
+
+    expect(result.output.plannedMeasurements.some((measurement) => measurement.id === "measure-practice")).toBe(true);
+    expect(transport.create).toHaveBeenCalledTimes(2);
+    expect(JSON.stringify(transport.create.mock.calls[1]?.[0])).toContain("planner_missing_measurement");
+    expect(JSON.stringify(transport.create.mock.calls[1]?.[0])).toContain("measure-practice");
+    expect(hasReceivedMathProviderStage(f.draftDir, "spelling-targeted-planner-tool-correction-v3-2-missing-measurement")).toBe(true);
+  });
+
   it("asks the same Planner once to correct invalid targeted tool input, then reuses both paid receipts", async () => {
     const f = await fixture();
     const invalid = structuredClone(f.message);

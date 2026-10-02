@@ -1741,6 +1741,11 @@ type AssignmentPlannerRelationshipIssue =
     code: "planner_unknown_evidence_id";
     measurementId: string;
     evidenceIds: string[];
+  }
+  | {
+    code: "planner_missing_measurement";
+    nodeId: string;
+    measurementId: string;
   };
 
 class AssignmentPlannerRelationshipInvalidError extends Error {
@@ -1773,8 +1778,12 @@ function assignmentPlannerAllowedEvidenceIds(packet: AssignmentPlanningPacket): 
  * rejects the corrected plan; this only gives the same bounded correction call
  * enough factual detail to fix relationships that JSON Schema cannot express.
  */
-function assignmentPlannerRelationshipIssues(toolInput: unknown, allowedEvidenceIds: ReadonlySet<string>): AssignmentPlannerRelationshipIssue[] {
-  const input = jsonObject(toolInput);
+function assignmentPlannerRelationshipIssues(
+  toolInput: unknown,
+  allowedEvidenceIds: ReadonlySet<string>,
+  requireSpellingMeasurements = false,
+): AssignmentPlannerRelationshipIssue[] {
+  const input = jsonObject(normalizeAssignmentPlannerToolInput(toolInput));
   const activeSessionPlan = jsonObject(input?.activeSessionPlan);
   const rawNodes = Array.isArray(activeSessionPlan?.nodePlan) ? activeSessionPlan.nodePlan : [];
   const rawMeasurements = Array.isArray(input?.plannedMeasurements) ? input.plannedMeasurements : [];
@@ -1789,6 +1798,19 @@ function assignmentPlannerRelationshipIssues(toolInput: unknown, allowedEvidence
   });
 
   const issues: AssignmentPlannerRelationshipIssue[] = [];
+  if (requireSpellingMeasurements) {
+    const measurementById = new Map(rawMeasurements.flatMap((rawMeasurement) => {
+      const measurement = jsonObject(rawMeasurement);
+      return typeof measurement?.id === "string" ? [[measurement.id, measurement] as const] : [];
+    }));
+    for (const nodeId of nodeOrder.keys()) {
+      if (gatedNodeIds.has(nodeId)) continue;
+      const measurementId = `measure-${nodeId}`;
+      if (!jsonObject(measurementById.get(measurementId)?.spelling)) {
+        issues.push({ code: "planner_missing_measurement", nodeId, measurementId });
+      }
+    }
+  }
   for (const rawMeasurement of rawMeasurements) {
     const measurement = jsonObject(rawMeasurement);
     const measurementId = typeof measurement?.id === "string" ? measurement.id : "unknown-measurement";
@@ -1825,8 +1847,9 @@ function assignmentPlannerRelationshipIssues(toolInput: unknown, allowedEvidence
 function validateAssignmentPlannerRelationships(
   draft: AssignmentPlannerResponseObject,
   allowedEvidenceIds: ReadonlySet<string>,
+  requireSpellingMeasurements = false,
 ): AssignmentPlannerResponseObject {
-  const issues = assignmentPlannerRelationshipIssues(draft, allowedEvidenceIds);
+  const issues = assignmentPlannerRelationshipIssues(draft, allowedEvidenceIds, requireSpellingMeasurements);
   if (issues.length) throw new AssignmentPlannerRelationshipInvalidError(draft, issues);
   return draft;
 }
@@ -2067,9 +2090,10 @@ async function callAssignmentPlannerModel(
   const originalUsage = usageFromAnthropic(received.message);
   const allowedEvidenceIds = assignmentPlannerAllowedEvidenceIds(packet);
   const allowedEvidenceIdSet = new Set(allowedEvidenceIds);
+  const requireSpellingMeasurements = packet.capturedHomework.contentProfile.practiceDomain === "spelling";
   try {
     const draft = parseAssignmentPlannerToolUseResponse(received.message);
-    return { draft: packet.discoveryEvidence ? validateAssignmentPlannerRelationships(draft, allowedEvidenceIdSet) : draft, usage: originalUsage,
+    return { draft: packet.discoveryEvidence ? validateAssignmentPlannerRelationships(draft, allowedEvidenceIdSet, requireSpellingMeasurements) : draft, usage: originalUsage,
       telemetry: { model: received.model, usage: originalUsage, latencyMs: received.latencyMs }, receivedAt: received.createdAt };
   } catch (error) {
     if ((!providerReceipt || !packet.discoveryEvidence)
@@ -2077,7 +2101,7 @@ async function callAssignmentPlannerModel(
     const schemaIssues = error instanceof AssignmentPlannerToolInvalidError ? error.issues : [];
     const relationshipIssues = error instanceof AssignmentPlannerRelationshipInvalidError
       ? error.issues
-      : assignmentPlannerRelationshipIssues(error.toolInput, allowedEvidenceIdSet);
+      : assignmentPlannerRelationshipIssues(error.toolInput, allowedEvidenceIdSet, requireSpellingMeasurements);
     const correctionRequest = {
       version: 3,
       purpose: "assignment_planner_tool_correction",
@@ -2089,9 +2113,12 @@ async function callAssignmentPlannerModel(
     };
     const correctionPrompt = `Your previous ${ASSIGNMENT_PLANNER_TOOL_NAME} input failed its declared tool contract. Reissue the complete tool input once. Preserve every valid academic, design, node, activity, target, prediction, and evidence choice. Correct only the listed schema and relationship violations. Every spelling.evidenceIds value must come from ALLOWED EVIDENCE IDS; remove unknown IDs and never invent evidence, child facts, or new activities. Practice or instruction measurements must use interventionNodeIds: []. A fresh_checkpoint may cite only prior targeted intervention nodes. A final fresh checkpoint must cover the assigned words and all prior pending interventions. If a future gated node needs evidenceIds, cite the current observations that motivated including that node.\nSCHEMA ISSUES:\n${JSON.stringify(schemaIssues)}\nRELATIONSHIP ISSUES:\n${JSON.stringify(relationshipIssues)}\nALLOWED EVIDENCE IDS:\n${JSON.stringify(allowedEvidenceIds)}\nPREVIOUS TOOL INPUT:\n${JSON.stringify(error.toolInput)}`;
     const correctionStarted = Date.now();
+    const correctionStage = relationshipIssues.some((issue) => issue.code === "planner_missing_measurement")
+      ? `${providerReceipt.stage}-tool-correction-v3-2-missing-measurement`
+      : `${providerReceipt.stage}-tool-correction-v3-1`;
     const correction = await runMathProviderStage({
       draftDir: providerReceipt.draftDir,
-      stage: `${providerReceipt.stage}-tool-correction-v3-1`,
+      stage: correctionStage,
       model,
       request: correctionRequest,
       beforeRequest: () => {
@@ -2113,7 +2140,7 @@ async function callAssignmentPlannerModel(
     const combinedUsage = combinePlannerUsage(originalUsage, correctionUsage);
     const correctedDraft = parseAssignmentPlannerToolUseResponse(correction.message);
     return {
-      draft: validateAssignmentPlannerRelationships(correctedDraft, allowedEvidenceIdSet),
+      draft: validateAssignmentPlannerRelationships(correctedDraft, allowedEvidenceIdSet, requireSpellingMeasurements),
       usage: combinedUsage,
       telemetry: {
         model: correction.model,
