@@ -134,6 +134,9 @@ describe("homework subject mode", () => {
     expect(isIndependentEvaluationPlan("probe-board:hw-math-1:cycle-r2")).toBe(true);
     expect(isIndependentEvaluationPlan("discovery:hw-spelling-1")).toBe(true);
     expect(isIndependentEvaluationPlan("targeted:hw-math-1")).toBe(false);
+    expect(isIndependentEvaluationPlan(undefined, [
+      { targetLane: "independent_discovery" },
+    ])).toBe(true);
     expect(shouldEnableCompanionWakeGate({ subject: "homework", explicitDomain: "spelling", discovery: true })).toBe(true);
     expect(shouldEnableCompanionWakeGate({
       subject: "homework",
