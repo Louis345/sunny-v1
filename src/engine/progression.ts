@@ -56,13 +56,10 @@ export function computeProgression(childId: string): ProgressionSnapshot {
     }
   }
 
-  const totalSessions = profile.sessionStats.totalSessions ?? 0;
-  const sessionXp = totalSessions * 5;
   const wilsonStep = profile.sessionStats.currentWilsonStep ?? 1;
   const wilsonXp = Math.max(0, wilsonStep - 1) * 50;
 
-  const totalXP =
-    correctAttemptsXp + masteredWordXp + sessionXp + wilsonXp;
+  const totalXP = correctAttemptsXp + masteredWordXp + wilsonXp;
   const level = Math.floor(totalXP / 100) + 1;
   const currentXP = totalXP % 100;
   const xpToNextLevel = 100 - (totalXP % 100);
