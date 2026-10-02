@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Volume2 } from "lucide-react";
 import {
   useWordRadar,
@@ -121,7 +121,7 @@ const QWERTY_ROWS = [
   ["a", "s", "d", "f", "g", "h", "j", "k", "l"],
   ["z", "x", "c", "v", "b", "n", "m"],
 ];
-const WORD_AUDIO_CLICK_COOLDOWN_MS = 900;
+const WORD_AUDIO_CLICK_COOLDOWN_MS = 3_000;
 
 function timerColor(ratio: number): string {
   if (ratio > 0.5) return "#facc15";
@@ -343,6 +343,8 @@ export function WordRadar({
     [childId, sendMessage],
   );
   const wordAudioLockRef = useRef<{ key: string; until: number } | null>(null);
+  const wordAudioCooldownTimerRef = useRef<number | null>(null);
+  const [wordAudioPlaying, setWordAudioPlaying] = useState(false);
   const requestedInputMode = resolveWordRadarInputMode(inputMode);
   const resolvedInputMode = assessmentMode || voiceCaptureAvailable === false ? "keyboard" : requestedInputMode;
   const effectiveSpeakStyle = speakStyle ?? "option-a";
@@ -720,6 +722,21 @@ export function WordRadar({
   }, []);
 
   const display = hook.currentItem?.display ?? "";
+  useEffect(() => {
+    wordAudioLockRef.current = null;
+    setWordAudioPlaying(false);
+    if (wordAudioCooldownTimerRef.current !== null) {
+      window.clearTimeout(wordAudioCooldownTimerRef.current);
+      wordAudioCooldownTimerRef.current = null;
+    }
+    return () => {
+      if (wordAudioCooldownTimerRef.current !== null) {
+        window.clearTimeout(wordAudioCooldownTimerRef.current);
+        wordAudioCooldownTimerRef.current = null;
+      }
+    };
+  }, [display, hook.itemIndex]);
+
   const requestWordAudio = useCallback((reason: string) => {
     const word = display.trim();
     if (!word) return;
@@ -731,6 +748,14 @@ export function WordRadar({
       key: lockKey,
       until: now + WORD_AUDIO_CLICK_COOLDOWN_MS,
     };
+    setWordAudioPlaying(true);
+    if (wordAudioCooldownTimerRef.current !== null) {
+      window.clearTimeout(wordAudioCooldownTimerRef.current);
+    }
+    wordAudioCooldownTimerRef.current = window.setTimeout(() => {
+      wordAudioCooldownTimerRef.current = null;
+      setWordAudioPlaying(false);
+    }, WORD_AUDIO_CLICK_COOLDOWN_MS);
     const text = /[.!?]$/.test(word) ? word : `${word}.`;
     sendMessage("game_event", {
       event: {
@@ -1400,6 +1425,7 @@ export function WordRadar({
                   data-testid="word-radar-mic"
                   aria-label={assessmentMode ? "Hear the word" : `Hear ${display || "the word"} again`}
                   onClick={requestCurrentWordAudio}
+                  disabled={!display || wordAudioPlaying}
                   style={{
                     appearance: "none",
                     border: "1px solid rgba(167,139,250,0.4)",
@@ -1407,7 +1433,8 @@ export function WordRadar({
                     background: "rgba(15,23,42,0.58)",
                     color: "#f8fafc",
                     padding: "10px 14px",
-                    cursor: display ? "pointer" : "default",
+                    cursor: display && !wordAudioPlaying ? "pointer" : "default",
+                    opacity: wordAudioPlaying ? 0.72 : 1,
                     display: "inline-flex",
                     alignItems: "center",
                     justifyContent: "center",
@@ -1420,7 +1447,7 @@ export function WordRadar({
                   }}
                 >
                   <Volume2 size={28} strokeWidth={2.4} aria-hidden />
-                  <span>{assessmentMode ? "Hear word" : "Hear again"}</span>
+                  <span>{wordAudioPlaying ? "Playing…" : assessmentMode ? "Hear word" : "Hear again"}</span>
                 </button>
                 {confidencePresentation ? (
                   <div

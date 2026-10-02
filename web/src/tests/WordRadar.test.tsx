@@ -536,6 +536,34 @@ describe("WordRadar", () => {
     expect(narrationCalls).toHaveLength(1);
   });
 
+  it("keeps Hear disabled through the child-visible playback window", async () => {
+    // Human catch: Reina heard the opening word twice after tapping while waiting.
+    // Logs caught two successful TTS calls but did not identify the second tap as
+    // accidental. The lab only double-clicked synchronously, so its 900ms debounce
+    // test missed a realistic second tap just over one second later.
+    const sendMessage = vi.fn();
+    renderRadar({ timerSeconds: 10, sendMessage, childId: "reina" });
+    await startRadar();
+
+    const hear = screen.getByTestId("word-radar-mic");
+    fireEvent.click(hear);
+    expect(hear).toBeDisabled();
+    expect(hear).toHaveTextContent("Playing…");
+
+    await act(async () => {
+      vi.advanceTimersByTime(1_100);
+    });
+    fireEvent.click(hear);
+
+    expect(gameEventPayloads(sendMessage, "narration_request")).toHaveLength(1);
+
+    await act(async () => {
+      vi.advanceTimersByTime(2_000);
+    });
+    expect(hear).not.toBeDisabled();
+    expect(hear).toHaveTextContent("Hear again");
+  });
+
   it("does not automatically request word audio during hidden visual recall", async () => {
     const sendMessage = vi.fn();
     renderRadar({
