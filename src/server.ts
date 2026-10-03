@@ -31,6 +31,7 @@ if (spellingChart) {
   if (charts.status().connection !== 'open') throw new Error('spelling_chart_requires_persistent_connection');
   setupKioskHealthRoutes(app);
   setupChartSpellingRoutes(app, {children: charts.status().children, get: charts.get, token: process.env.SUNNY_KIOSK_TOKEN || '', parentPin: process.env.SUNNY_PARENT_PIN || '', provider: spellingPlanner, voice: spellingVoice});
+  console.log(' 🎮 [spelling-chart] [routes] [connected] legacy_learning=disabled');
   app.get('/', (req,res) => res.redirect(302, '/spelling' + (req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '')));
 } else setupRoutes(app);
 
