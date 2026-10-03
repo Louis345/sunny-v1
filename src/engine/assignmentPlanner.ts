@@ -2253,13 +2253,15 @@ async function requestAssignmentPlannerTool(args: AssignmentPlannerToolRequest):
   return client.messages.create({
     model: args.model,
     max_tokens: Math.max(8_000, Number(process.env.SUNNY_PLANNER_MAX_TOKENS ?? ASSIGNMENT_PLANNER_MAX_TOKENS)),
-    system: ASSIGNMENT_PLANNER_PERSONA,
+    system: `${ASSIGNMENT_PLANNER_PERSONA}\nCall ${ASSIGNMENT_PLANNER_TOOL_NAME} exactly once to submit the complete plan matching its schema.`,
     tools: [{
       name: ASSIGNMENT_PLANNER_TOOL_NAME,
       description: "Write Sunny's captured homework interpretation, active intervention node plan, measurements, and mastery theory. Populate every tool field directly as its declared object or array type. Never serialize the plan or any tool field into a JSON string.",
       input_schema: (args.schema ?? assignmentPlannerToolJsonSchema()) as Anthropic.Messages.Tool.InputSchema,
     }],
-    tool_choice: { type: "tool", name: ASSIGNMENT_PLANNER_TOOL_NAME },
+    tool_choice: args.model === "claude-opus-5-5"
+      ? { type: "auto" }
+      : { type: "tool", name: ASSIGNMENT_PLANNER_TOOL_NAME },
     messages: [{
       role: "user",
       content: args.source ? assignmentPlannerContent(args.source, args.prompt) : [

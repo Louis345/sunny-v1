@@ -472,6 +472,7 @@ export async function runAiPsychologistExperiencePlanner(
   const model = resolveExperiencePlannerModel(opts);
   const { object } = await generateObject({
     model: anthropic(model),
+    ...(model === "claude-opus-5-5" ? { providerOptions: { anthropic: { structuredOutputMode: "outputFormat" } } } : {}),
     schema: aiPlannerDecisionSchema,
     system: "You are Sunny's AI psychologist experience planner. You synthesize chart evidence into a safe, measurable learning plan brief. You do not generate playable artifacts.",
     prompt: buildExperiencePlannerPrompt(input),
