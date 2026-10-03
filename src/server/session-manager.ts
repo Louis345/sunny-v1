@@ -204,7 +204,7 @@ export class SessionManager {
   public readonly chartChildId: string;
   private currentActivityState: Record<string, unknown> | null = null;
   private spellingAssessment?: gev.SpellingAssessmentState;
-  private spellingLaunch?: {homeworkId:string;nodeId:string;launchId:string};
+  private spellingLaunch?: {homeworkId:string;nodeId:string;launchId:string;launchToken?:string};
   private spellingAssessmentHistory = new Map<string, NonNullable<SessionManager["spellingAssessment"]>>();
   private pendingSpellingAssessmentSupport = false;
   private mathDiscoverySupport?: MathDiscoverySupportState;
@@ -749,7 +749,7 @@ export class SessionManager {
       if (cycle?.domain === "spelling") {
         const node = cycle.nodes.find(node => node.nodeId === state.nodeId);
         this.spellingLaunch = node && ["ready", "active", "completed"].includes(node.state)
-          ? {homeworkId:cycle.homeworkId,nodeId:node.nodeId,launchId:randomUUID()} : undefined;
+          ? {homeworkId:cycle.homeworkId,nodeId:node.nodeId,launchId:randomUUID(),...(typeof state.launchToken === "string" ? {launchToken:state.launchToken} : {})} : undefined;
         console.log(` 🎮 [spelling] [node-launch] [${this.spellingLaunch ? "recorded" : "rejected"}] node=${String(state.nodeId)} launch=${this.spellingLaunch?.launchId ?? "unknown"}`);
       }
     }
@@ -1084,7 +1084,7 @@ export class SessionManager {
         nodeId: metadata.nodeId,
         itemId: metadata.itemId,
         reason: metadata.reason,
-        ...(assessment ? { assessmentItemId: assessment.itemId } : {}),
+        ...(assessment ? { assessmentItemId: assessment.itemId, assessmentLaunchId:assessment.launchId } : {}),
       };
       if (assessment) {
         this.send("audio_done", { requiresAudio: true, requestId, itemId: assessment.itemId });
@@ -1118,8 +1118,9 @@ export class SessionManager {
     return next;
   }
 
-  public getDiscoveryAttemptContext(homeworkId: string, itemId: string): { chartItemId?:string; audioReplays?:number; launchId?:string; nodeId: string; support: LearningObservation["assistance"]; instrumentSignals: string[]; artifactHash: string; sessionId: string } | undefined {
-    const context = this.spellingAssessmentHistory?.get(itemId) ?? this.spellingAssessment;
+  public getDiscoveryAttemptContext(homeworkId: string, itemId: string, launchToken?:string): { chartItemId?:string; audioReplays?:number; launchId?:string; nodeId: string; support: LearningObservation["assistance"]; instrumentSignals: string[]; artifactHash: string; sessionId: string } | undefined {
+    const candidates = [...(this.spellingAssessmentHistory?.values() ?? [])].filter(c => c.homeworkId === homeworkId && c.itemId === itemId && (launchToken === undefined || c.launchToken === launchToken));
+    const context = candidates.length === 1 ? candidates[0] : undefined;
     if (context && context.homeworkId === homeworkId && context.itemId === itemId) {
       return { chartItemId:context.chartItemId,audioReplays:Math.max(0,context.audioPlaybacks-1),launchId: context.launchId, nodeId: context.nodeId, support: { status: !context.launchId ? "unknown" : context.supportIds.length ? "assisted" : "unassisted", scaffolds: [...context.supportIds] }, instrumentSignals: [...(!context.launchId ? ["launch_unverified"] : []), ...(!context.audioDelivered ? ["audio_unavailable"] : []), ...(context.ambiguous ? ["answer_exposure"] : [])], artifactHash: context.artifactHash, sessionId: this.sessionId };
     }
@@ -1282,10 +1283,7 @@ export class SessionManager {
         : null;
       if (assessmentItemId) {
         const assessment =
-          this.spellingAssessmentHistory?.get(assessmentItemId) ??
-          (this.spellingAssessment?.itemId === assessmentItemId
-            ? this.spellingAssessment
-            : undefined);
+          [...(this.spellingAssessmentHistory?.values() ?? [])].find(c => c.itemId === assessmentItemId && c.launchId === pending.assessmentLaunchId);
         if (assessment) { assessment.audioDelivered = audible; if(audible)assessment.audioPlaybacks++; }
       }
       this.debugRecorder.recordEvent(

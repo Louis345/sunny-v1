@@ -1082,7 +1082,8 @@ function App() {
         });
         return false;
       }
-      const companionContext = buildPlannerBoardCompanionContext(node);
+      const completionId = createBrowserRequestId();
+      const companionContext = {...buildPlannerBoardCompanionContext(node),launchToken:completionId};
       sendMessage("game_event", {
         event: {
           type: "game_state_update",
@@ -1098,7 +1099,7 @@ function App() {
         node,
         iframeUrl: action.kind === "iframe" ? action.url : null,
         replayNonce,
-        completionId: createBrowserRequestId(),
+        completionId,
       });
       return true;
     },
@@ -1344,7 +1345,7 @@ function App() {
       console.error(" 🎮 [spelling-discovery] [attempt] [missing-provenance]");
       return;
     }
-    const attempt = discoveryCompletionCoordinatorRef.current.prepareAttempt({ ...response, itemId, attemptId: createBrowserRequestId() });
+    const attempt = discoveryCompletionCoordinatorRef.current.prepareAttempt({ ...response, itemId, launchToken:plannerBoardLaunch?.completionId, attemptId: createBrowserRequestId() });
     void discoveryCompletionCoordinatorRef.current.recordAttempt(() => postDiscoveryAttempt({ childId: adventureChildId, homeworkId, sessionId: state.voiceSessionId, attempt })).catch(error => {
       console.error(" 🎮 [spelling-discovery] [attempt] [retry-needed]", error);
     });
@@ -2376,6 +2377,7 @@ function App() {
             requiresCapturedResponse={
               plannerBoardLaunch.node.wordRadarConfig?.requiresCapturedResponse
             }
+            launchToken={plannerBoardLaunch.completionId}
             nodeId={plannerBoardLaunch.node.id}
             planId={plannerBoardLaunch.node.planId}
             targetLane={plannerBoardLaunch.node.targetLane}

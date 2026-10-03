@@ -42,14 +42,15 @@ export function armGameNarrationPlaybackTimer(
   }, GAME_NARRATION_PLAYBACK_TIMEOUT_MS);
 }
 
-export type SpellingAssessmentState = { chartItemId?:string; audioPlaybacks:number; instrument:"discovery"|"practice"|"recall_check"; launchId?: string; nodeId: string; homeworkId: string; itemId: string; word: string; artifactHash: string; audioDelivered: boolean; supportIds: string[]; ambiguous: boolean };
+export type SpellingAssessmentState = { launchToken?:string; chartItemId?:string; audioPlaybacks:number; instrument:"discovery"|"practice"|"recall_check"; launchId?: string; nodeId: string; homeworkId: string; itemId: string; word: string; artifactHash: string; audioDelivered: boolean; supportIds: string[]; ambiguous: boolean };
 export function bindSpellingAssessment(input: {
   state: Record<string, unknown>; cycle?: LearningCycleRecordV2 | null; current?: SpellingAssessmentState;
   history: Map<string, SpellingAssessmentState>; pendingSupportId?: string;
-  launch?: {homeworkId:string;nodeId:string;launchId:string};
+  launch?: {homeworkId:string;nodeId:string;launchId:string;launchToken?:string};
 }): SpellingAssessmentState | undefined {
   const { state, cycle, current, history } = input;
-  if (current && current.itemId === state.itemId && state.answerVisibility !== "hidden") current.ambiguous = true;
+  if (input.launch?.launchToken !== undefined && state.launchToken !== input.launch.launchToken) return current;
+  if (current && current.launchId === input.launch?.launchId && current.itemId === state.itemId && state.answerVisibility !== "hidden") current.ambiguous = true;
   if (state.phase !== "response") return current;
   const node = cycle?.nodes.find(node => node.nodeId === state.nodeId);
   const item = node?.evidenceContract.spellingItems?.[String(state.itemId ?? "")];
@@ -57,9 +58,10 @@ export function bindSpellingAssessment(input: {
     console.warn(" 🎮 [spelling-discovery] [live-context] [invalid-item]");
     return undefined;
   }
-  if (current?.itemId === item.id) return current;
-  const next = history.get(item.id) ?? { ...(input.launch?.homeworkId === cycle.homeworkId && input.launch.nodeId === node.nodeId ? {launchId:input.launch.launchId} : {}), audioPlaybacks:0, instrument:node.role === "evaluation" ? "discovery" as const : item.lineage?.measurementRole === "fresh_checkpoint" ? "recall_check" as const : "practice" as const, nodeId: node.nodeId, homeworkId: cycle.homeworkId, itemId: item.id, word: item.word, artifactHash: node.artifactBinding.contractFingerprint, audioDelivered: false, supportIds: input.pendingSupportId ? [input.pendingSupportId] : [], ambiguous: state.answerVisibility !== "hidden" };
-  history.set(item.id, next);
+  const key = JSON.stringify([input.launch?.launchId ?? null, item.id]);
+  if (current?.itemId === item.id && current.launchId === input.launch?.launchId) return current;
+  const next = history.get(key) ?? { ...(input.launch?.homeworkId === cycle.homeworkId && input.launch.nodeId === node.nodeId ? {launchId:input.launch.launchId,launchToken:input.launch.launchToken} : {}), audioPlaybacks:0, instrument:node.role === "evaluation" ? "discovery" as const : item.lineage?.measurementRole === "fresh_checkpoint" ? "recall_check" as const : "practice" as const, nodeId: node.nodeId, homeworkId: cycle.homeworkId, itemId: item.id, word: item.word, artifactHash: node.artifactBinding.contractFingerprint, audioDelivered: false, supportIds: input.pendingSupportId ? [input.pendingSupportId] : [], ambiguous: state.answerVisibility !== "hidden" };
+  history.set(key, next);
   console.log(` 🎮 [spelling-discovery] [live-context] [bound] item=${item.id}`);
   return next;
 }
@@ -68,12 +70,12 @@ export function bindSpellingAssessment(input: {
 export async function narrateGameStimulus(input: {
   text: string; metadata: Record<string, unknown>; childName: Parameters<typeof rewriteChildNameForTts>[1]; ttsLabel: string;
   bridge?: Pick<WsTtsBridge, "connect" | "sendText" | "finish" | "hadAudioThisTurn"> | null;
-  assessment?: { itemId: string; word: string; audioDelivered: boolean };
+  assessment?: { launchToken?:string; itemId: string; word: string; audioDelivered: boolean };
   record: (action: string, event: Record<string, unknown>) => void;
 }): Promise<boolean> {
   const { text, metadata, assessment, bridge } = input;
   if (metadata.assessmentMode === true) {
-    if (!assessment || assessment.itemId !== metadata.itemId || text.replace(/[.!?]$/, "").trim() !== assessment.word) throw new Error("spelling_stimulus_mismatch");
+    if (!assessment || (assessment.launchToken !== undefined && assessment.launchToken !== metadata.launchToken) || assessment.itemId !== metadata.itemId || text.replace(/[.!?]$/, "").trim() !== assessment.word) throw new Error("spelling_stimulus_mismatch");
     assessment.audioDelivered = false;
     if (!bridge) throw new Error("spelling_stimulus_audio_unavailable");
   }

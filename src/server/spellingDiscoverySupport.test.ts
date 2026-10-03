@@ -165,3 +165,22 @@ it('commits the original presentation before any answer and counts acknowledged 
  expect(s.getDiscoveryAttemptContext('hw-words','i1')).toMatchObject({audioReplays:1});
  }finally{db.close();vi.unstubAllEnvs();fs.rmSync(root,{recursive:true,force:true});}
 });
+
+it('keeps replay and delayed responses attached to their distinct launches',async()=>{
+ const s=session();
+ s.updateCurrentBoardSnapshot({phase:'launched',nodeId:'opening',launchToken:'first'});
+ s.updateCurrentBoardSnapshot({assessmentMode:true,nodeId:'opening',itemId:'i1',phase:'response',answerVisibility:'hidden',launchToken:'first'});
+ s.setCompanionPresence('summoned');
+ const first=s.getDiscoveryAttemptContext('hw-words','i1','first');
+ s.updateCurrentBoardSnapshot({phase:'launched',nodeId:'opening',launchToken:'second'});
+ s.updateCurrentBoardSnapshot({assessmentMode:true,nodeId:'opening',itemId:'i1',phase:'response',answerVisibility:'hidden',launchToken:'second'});
+ const second=s.getDiscoveryAttemptContext('hw-words','i1','second');
+ expect(second?.launchId).not.toBe(first?.launchId);
+ expect(second?.support.status).toBe('unassisted');
+ expect(s.getDiscoveryAttemptContext('hw-words','i1','first')?.support.status).toBe('assisted');
+ expect(s.getDiscoveryAttemptContext('hw-words','i1')).toBeUndefined();
+ expect(s.getDiscoveryAttemptContext('hw-words','i1','invented')).toBeUndefined();
+ s.updateCurrentBoardSnapshot({assessmentMode:true,nodeId:'opening',itemId:'i1',phase:'feedback',answerVisibility:'visible',launchToken:'first'});
+ expect(s.getDiscoveryAttemptContext('hw-words','i1','second')?.instrumentSignals).not.toContain('answer_exposure');
+ await expect(s.speakGameNarration('night.',{assessmentMode:true,itemId:'i1',launchToken:'first'})).rejects.toThrow('spelling_stimulus_mismatch');
+});

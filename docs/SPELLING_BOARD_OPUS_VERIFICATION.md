@@ -99,3 +99,26 @@ build passes. These tests establish retry recovery, not atomic transactions acro
 SQLite and JSON or an automatic startup sweep. Receipt disk-full and multi-process
 fault injection remain unverified. The extracted module is a new delivery invariant;
 route changes replace the direct chart write with the recoverable boundary.
+
+## Relaunch correlation
+
+The replay regression initially reused the first launch ID and its companion help
+for the same word on a second launch. The original App now sends its existing
+completion identity as an invisible correlation token in the launch event, item
+telemetry and submitted answer. The server still validates the node and issues
+its own launch ID; a client token is not authority to select an academic node.
+History is keyed by server launch plus item, and response lookup selects the
+matching token. An ambiguous tokenless lookup cannot choose one of two launches.
+Audio acknowledgments retain the launch captured when narration began.
+
+Two follow-up red checks caught old-launch feedback contaminating the current
+item and an old-launch narration request being accepted. Those now respect the
+same token boundary. These extend the human-caught wrong-activity/support
+invariants: older logs named the word but could not disambiguate repeated
+launches, and earlier tests never replayed the same item within one voice session.
+No visible strings, layout or activity mechanics change. The change replaces
+item-only history lookup; it does not introduce a second launch pathway.
+
+Verification: 28 server tests, 114 existing web tests and the isolated full build
+pass. The original-browser full-week and visual comparisons are still required;
+these unit/HTTP tests do not substitute for them. Saori remains unchanged.

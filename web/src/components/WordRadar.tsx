@@ -77,6 +77,7 @@ export interface WordRadarResult {
 }
 
 export interface WordRadarProps {
+  launchToken?:string;
   assessmentMode?: boolean;
   onAssessmentAttempt?: (attempt: { itemIndex: number; attemptedValue: string; skipped: boolean; observedAt: string }) => void;
   items: RadarItem[];
@@ -330,6 +331,7 @@ export function WordRadar({
   planId,
   targetLane,
   wordRadarConfig,
+  launchToken,
   assessmentMode = false,
   onAssessmentAttempt,
 }: WordRadarProps): React.ReactElement {
@@ -389,13 +391,14 @@ export function WordRadar({
   const wordRadarTelemetry = useMemo(
     () => ({
       activityId: "word-radar",
+      ...(launchToken ? {launchToken} : {}),
       ...(assessmentMode ? { assessmentMode: true } : {}),
       ...(nodeId ? { nodeId } : {}),
       ...(planId ? { planId } : {}),
       ...(targetLane ? { targetLane } : {}),
       wordRadarConfig: resolvedWordRadarConfig,
     }),
-    [assessmentMode, nodeId, planId, resolvedWordRadarConfig, targetLane],
+    [assessmentMode, launchToken, nodeId, planId, resolvedWordRadarConfig, targetLane],
   );
   const responseAnswerVisibility =
     effectiveHideWordDuringResponse && effectiveRecallMode !== "visible_read"
@@ -443,6 +446,7 @@ export function WordRadar({
           ...wordRadarTelemetry,
           game: "word-radar",
           activityId: "word-radar",
+      ...(launchToken ? {launchToken} : {}),
           domain: wordRadarAttemptDomain(event.item),
           target: event.item.itemId ?? event.item.display,
           itemIndex: event.itemIndex,
@@ -499,6 +503,7 @@ export function WordRadar({
             target: event.item.display,
             currentTarget: event.item.display,
             activityId: "word-radar",
+      ...(launchToken ? {launchToken} : {}),
             phase: "attempt_resolved",
             inputMode: resolvedInputMode,
             recallMode: effectiveRecallMode,

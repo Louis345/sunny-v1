@@ -6,14 +6,14 @@ import {eventId} from '../chart/eventId';
 import {recordOriginalSpellingResponse} from '../chart/spelling/originalResponses';
 import {recordSpellingDiscoveryAttempt} from '../engine/learningCycleRuntime';
 
-type Request = {attemptId:string;itemId:string;attemptedValue:string;observedAt:string;supportEventIds:string[];instrumentSignals:string[];skipped:boolean;sessionId:string};
+type Request = {launchToken?:string;attemptId:string;itemId:string;attemptedValue:string;observedAt:string;supportEventIds:string[];instrumentSignals:string[];skipped:boolean;sessionId:string};
 type Prepared = {response:Parameters<typeof recordOriginalSpellingResponse>[1];legacy:Parameters<typeof recordSpellingDiscoveryAttempt>[0]};
 /** Operational delivery receipt: preserves validated input, never invents observations on recovery. */
 export function commitOriginalSpellingAttempt<T>(db:ChartDatabase,homeworkId:string,request:Request,prepare:()=>Prepared,writeLegacy:(input:Prepared['legacy'])=>T):T {
  const directory=path.join(path.dirname(db.path),db.childId,'original-discovery-delivery');
  const file=path.join(directory,eventId('original-delivery',[homeworkId,request.sessionId,request.attemptId])+'.json');
  // Explicit field order makes equivalent JSON deliveries compare identically.
- const identity=JSON.stringify([homeworkId,request.sessionId,request.attemptId,request.itemId,request.attemptedValue,request.observedAt,request.skipped,request.supportEventIds,request.instrumentSignals]);
+ const identity=JSON.stringify([homeworkId,request.sessionId,request.attemptId,request.itemId,request.attemptedValue,request.observedAt,request.skipped,request.launchToken ?? null,request.supportEventIds,request.instrumentSignals]);
  if(!fs.existsSync(file)){
   const prepared=prepare();
   fs.mkdirSync(directory,{recursive:true,mode:0o700});

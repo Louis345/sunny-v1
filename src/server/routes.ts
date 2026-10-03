@@ -794,7 +794,7 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
     const childId = String(req.params.childId ?? "").trim().toLowerCase();
     const homeworkId = String(req.params.homeworkId ?? "").trim();
     if (!isValidRegistryChildId(childId)) return res.status(404).json({ error: "child_not_found" });
-    const body = req.body as Partial<MathDiscoveryAttempt> & { skipped?: boolean; sessionId?: string };
+    const body = req.body as Partial<MathDiscoveryAttempt> & { skipped?: boolean; sessionId?: string; launchToken?:string };
     if (
       !homeworkId
       || typeof body.attemptId !== "string"
@@ -822,7 +822,7 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
       const existing = getLearningCycle(childId, homeworkId);
       const submittingSessionId = typeof body.sessionId === "string" ? body.sessionId.trim() : "";
       const live = getVoiceSessionManagerForChildSession(childId, submittingSessionId)
-        ?.getDiscoveryAttemptContext?.(homeworkId, attempt.itemId);
+        ?.getDiscoveryAttemptContext?.(homeworkId, attempt.itemId, typeof body.launchToken === "string" ? body.launchToken : undefined);
       const spellingNode = existing?.domain === "spelling" ? existing.nodes.find(node => node.evidenceContract.spellingItems?.[attempt.itemId]) : undefined;
       if (spellingNode && live?.nodeId && live.nodeId !== spellingNode.nodeId) throw new Error("discovery_live_node_mismatch");
       const binding = existing?.domain === "spelling"
@@ -833,7 +833,7 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
         if (attempt.supportEventIds.some(id => !verifiedLive?.support.scaffolds.includes(id))) throw new Error("discovery_support_reference_unknown");
         return { childId, homeworkId, attempt: { ...attempt, skipped: body.skipped === true }, support: verifiedLive?.support, artifactHash: binding?.contractFingerprint, sessionId: verifiedLive?.sessionId, instrumentSignals: [...attempt.instrumentSignals, ...(verifiedLive?.instrumentSignals ?? ["live_context_unavailable"])] };
       };
-      const recorded = existing?.domain === "spelling" ? withOriginalSpellingChart(childId,db=>commitOriginalSpellingAttempt(db,homeworkId,{...attempt,skipped:body.skipped === true,sessionId:submittingSessionId},()=>{
+      const recorded = existing?.domain === "spelling" ? withOriginalSpellingChart(childId,db=>commitOriginalSpellingAttempt(db,homeworkId,{...attempt,skipped:body.skipped === true,sessionId:submittingSessionId,...(typeof body.launchToken === "string" ? {launchToken:body.launchToken} : {})},()=>{
         const legacy=prepareLegacy();
         if(!verifiedLive?.chartItemId || !verifiedLive.launchId || verifiedLive.audioReplays === undefined)throw new Error('chart_live_presentation_required');
         return {legacy,response:{
