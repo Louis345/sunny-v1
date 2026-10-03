@@ -4,14 +4,16 @@ import { getChildChart } from "../profiles/childChart";
 vi.mock("../profiles/childChart", () => ({ getChildChart: vi.fn() }));
 afterEach(() => vi.clearAllMocks());
 function session() {
-  vi.mocked(getChildChart).mockReturnValue({ learningCycle: { homeworkId: "hw-words", domain: "spelling", nodes: [{ nodeId: "opening", role: "evaluation", artifactBinding: { contractFingerprint: "frozen" }, evidenceContract: { spellingItems: { i1: { id: "i1", word: "night" }, i2: { id: "i2", word: "light" } } } }] } } as never);
-  return Object.assign(Object.create(SessionManager.prototype), {
+  vi.mocked(getChildChart).mockReturnValue({ learningCycle: { homeworkId: "hw-words", domain: "spelling", nodes: [{ nodeId: "opening", state: "ready", role: "evaluation", artifactBinding: { contractFingerprint: "frozen" }, evidenceContract: { spellingItems: { i1: { id: "i1", word: "night" }, i2: { id: "i2", word: "light" } } } }] } } as never);
+  const s = Object.assign(Object.create(SessionManager.prototype), {
     chartChildId: "lab-child", childName: "Lab", sessionTtsLabel: "Lab", sessionId: "s1", companionPresence: "collapsed", send: vi.fn(),
     debugRecorder: { recordEvent: vi.fn() },
     ttsBridge: { connect: vi.fn(async () => {}), sendText: vi.fn(), finish: vi.fn(async () => {}), hadAudioThisTurn: vi.fn(() => true) },
     turnSM: { onPlaybackComplete: vi.fn(), consumePendingTranscript: vi.fn() },
     flushPendingRoundComplete: vi.fn(),
   }) as SessionManager;
+  s.updateCurrentBoardSnapshot({phase:"launched",nodeId:"opening"});
+  return s;
 }
 function confirmCurrentPlayback(s: SessionManager): void {
   const pending = (s as unknown as {
@@ -131,4 +133,19 @@ it('keeps the frozen node identity with each spelling response context',()=>{
  const s=session();
  s.updateCurrentBoardSnapshot({assessmentMode:true,nodeId:'opening',itemId:'i1',phase:'response',answerVisibility:'hidden'});
  expect(s.getDiscoveryAttemptContext('hw-words','i1')).toMatchObject({nodeId:'opening',sessionId:'s1'});
+});
+
+it('cannot verify an item snapshot without a matching server-recorded launch',()=>{
+ const s=session();
+ s.updateCurrentBoardSnapshot({phase:'launched',nodeId:'not-in-cycle'});
+ s.updateCurrentBoardSnapshot({assessmentMode:true,nodeId:'opening',itemId:'i1',phase:'response',answerVisibility:'hidden'});
+ const context=s.getDiscoveryAttemptContext('hw-words','i1');
+ expect(context?.support.status).toBe('unknown');
+ expect(context?.instrumentSignals).toContain('launch_unverified');
+});
+it('records a valid launch before accepting that nodes item context',()=>{
+ const s=session();
+ s.updateCurrentBoardSnapshot({phase:'launched',nodeId:'opening'});
+ s.updateCurrentBoardSnapshot({assessmentMode:true,nodeId:'opening',itemId:'i1',phase:'response',answerVisibility:'hidden'});
+ expect(s.getDiscoveryAttemptContext('hw-words','i1')).toMatchObject({nodeId:'opening',launchId:expect.any(String)});
 });

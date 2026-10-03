@@ -36,3 +36,14 @@ without node identity. A parent can see which activity opened; earlier labs and
 logs checked artifact and item matches without comparing the retained node. This
 is a boundary check, not completion of actual launch tracking for practice games.
 The SQLite per-response bridge and full original-UI acceptance remain unfinished.
+
+The original board already sends a `phase: launched` context before mounting an
+activity. The server now validates that node against the current spelling cycle,
+issues a launch ID for ready/active/completed nodes, and freezes that ID into the
+item context. Missing or rejected launches make assistance unknown and add
+`launch_unverified`. Two tests failed before implementation. This closes the
+previous lab assumption that a valid item snapshot alone proves a launch; the
+parent could see the actual activity while old logs recorded only item binding.
+The launch ID is currently retained for the voice session, not yet persisted in
+SQLite. Replay correlation and the full browser/database journey still need
+verification before deployment. No child-facing controls changed.

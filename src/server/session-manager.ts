@@ -203,6 +203,7 @@ export class SessionManager {
   public readonly chartChildId: string;
   private currentActivityState: Record<string, unknown> | null = null;
   private spellingAssessment?: gev.SpellingAssessmentState;
+  private spellingLaunch?: {homeworkId:string;nodeId:string;launchId:string};
   private spellingAssessmentHistory = new Map<string, NonNullable<SessionManager["spellingAssessment"]>>();
   private pendingSpellingAssessmentSupport = false;
   private mathDiscoverySupport?: MathDiscoverySupportState;
@@ -742,6 +743,15 @@ export class SessionManager {
   }
 
   updateCurrentBoardSnapshot(state: Record<string, unknown>): void {
+    if (state.phase === "launched") {
+      const cycle = getChildChart(this.chartChildId).learningCycle;
+      if (cycle?.domain === "spelling") {
+        const node = cycle.nodes.find(node => node.nodeId === state.nodeId);
+        this.spellingLaunch = node && ["ready", "active", "completed"].includes(node.state)
+          ? {homeworkId:cycle.homeworkId,nodeId:node.nodeId,launchId:randomUUID()} : undefined;
+        console.log(` 🎮 [spelling] [node-launch] [${this.spellingLaunch ? "recorded" : "rejected"}] node=${String(state.nodeId)} launch=${this.spellingLaunch?.launchId ?? "unknown"}`);
+      }
+    }
     if (state.assessmentMode === true) {
       this.spellingAssessmentHistory ??= new Map();
       const itemId = String(state.itemId ?? "");
@@ -749,7 +759,7 @@ export class SessionManager {
         ? `support:${this.sessionId}:${itemId}`
         : undefined;
       this.spellingAssessment = gev.bindSpellingAssessment({ state, cycle: getChildChart(this.chartChildId).learningCycle,
-        current: this.spellingAssessment, history: this.spellingAssessmentHistory, pendingSupportId });
+        current: this.spellingAssessment, history: this.spellingAssessmentHistory, pendingSupportId, launch:this.spellingLaunch });
       if (pendingSupportId && this.spellingAssessment?.itemId === itemId) this.pendingSpellingAssessmentSupport = false;
     }
     const incomingPhase = String(state.phase ?? "").trim();
@@ -1098,10 +1108,10 @@ export class SessionManager {
     return next;
   }
 
-  public getDiscoveryAttemptContext(homeworkId: string, itemId: string): { nodeId: string; support: LearningObservation["assistance"]; instrumentSignals: string[]; artifactHash: string; sessionId: string } | undefined {
+  public getDiscoveryAttemptContext(homeworkId: string, itemId: string): { launchId?:string; nodeId: string; support: LearningObservation["assistance"]; instrumentSignals: string[]; artifactHash: string; sessionId: string } | undefined {
     const context = this.spellingAssessmentHistory?.get(itemId) ?? this.spellingAssessment;
     if (context && context.homeworkId === homeworkId && context.itemId === itemId) {
-      return { nodeId: context.nodeId, support: { status: context.supportIds.length ? "assisted" : "unassisted", scaffolds: [...context.supportIds] }, instrumentSignals: [...(!context.audioDelivered ? ["audio_unavailable"] : []), ...(context.ambiguous ? ["answer_exposure"] : [])], artifactHash: context.artifactHash, sessionId: this.sessionId };
+      return { launchId: context.launchId, nodeId: context.nodeId, support: { status: !context.launchId ? "unknown" : context.supportIds.length ? "assisted" : "unassisted", scaffolds: [...context.supportIds] }, instrumentSignals: [...(!context.launchId ? ["launch_unverified"] : []), ...(!context.audioDelivered ? ["audio_unavailable"] : []), ...(context.ambiguous ? ["answer_exposure"] : [])], artifactHash: context.artifactHash, sessionId: this.sessionId };
     }
     const math = [...(this.mathDiscoverySupportHistory?.values() ?? [])]
       .find((candidate) => candidate.homeworkId === homeworkId && candidate.itemId === itemId);
