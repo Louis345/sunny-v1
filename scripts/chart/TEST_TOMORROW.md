@@ -1,5 +1,10 @@
 # Phase 0/1: tomorrow’s check
 
+Update: the subsequently requested [kiosk startup connection](KIOSK_STARTUP.md)
+is implemented but awaits installation on Saori. Until then, her kiosk still uses
+the previously installed code. Even after installation, this connection alone
+does not switch the learning-event storage.
+
 This milestone provides a verified recovery archive and a separate append-only
 chart foundation. It does not change Reina’s kiosk, teaching, predictions, or
 school-test readiness. No new child-facing screen is expected yet.

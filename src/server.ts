@@ -8,16 +8,20 @@ import { createServer } from "http";
 import { WebSocketServer } from "ws";
 import { setupRoutes } from "./server/routes";
 import { handleWsConnection } from "./server/ws-handler";
+import { openKioskCharts } from "./chart/kioskLifecycle";
 import { endActiveVoiceSessions } from "./server/voice-session-registry";
 
 const PORT = parseInt(process.env.PORT || "3001", 10);
 const isKiosk = process.argv.includes("--kiosk");
 const serveStatic = process.argv.includes("--serve-static");
 
+// Validate/open the declared charts before accepting any HTTP or kiosk traffic.
+const charts = openKioskCharts(process.env, undefined, isKiosk);
 const app = express();
 app.use(cors());
 app.use(express.json({ limit: "18mb" }));
 
+app.get("/api/chart/status", (_req, res) => res.json(charts.status()));
 setupRoutes(app);
 
 // Without the built SPA, `web/public` has no index.html — send `/` straight to the world PoC.
@@ -71,16 +75,21 @@ async function shutdown(signal: string): Promise<void> {
   shuttingDown = true;
   console.log(`  🛑 Shutting down (${signal})...`);
 
+  let exitCode = 0;
   try {
     await endActiveVoiceSessions();
     wss.close();
     httpServer.close();
-  } catch (_) {
-    // ignore cleanup errors
+  } catch (error) {
+    exitCode = 1;
+    console.error(" 🎮 [server] [shutdown] [failed]", error);
+  } finally {
+    try { charts.close(); }
+    catch (error) { exitCode = 1; console.error(" 🎮 [chart] [shutdown] [failed]", error); }
   }
 
-  process.exit(0);
+  process.exit(exitCode);
 }
 
-process.on("SIGINT", () => shutdown("SIGINT"));
-process.on("SIGTERM", () => shutdown("SIGTERM"));
+process.on("SIGINT", () => { void shutdown("SIGINT").catch((error) => { console.error(" 🎮 [server] [shutdown] [failed]", error); process.exit(1); }); });
+process.on("SIGTERM", () => { void shutdown("SIGTERM").catch((error) => { console.error(" 🎮 [server] [shutdown] [failed]", error); process.exit(1); }); });

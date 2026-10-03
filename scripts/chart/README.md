@@ -1,5 +1,10 @@
 # Chart foundation: Phase 0 and Phase 1
 
+**Subsequent approved work:** [automatic kiosk database connection](KIOSK_STARTUP.md)
+is implemented, built and verified with 74 relevant tests. It is not deployed.
+The Phase 0/1 record below describes the earlier standalone foundation; the startup
+extension does not yet connect learning-event writers or readers.
+
 **Acceptance complete — 2026-10-02.** Build passes; 3,956 server tests,
 906 web tests, and 7 archive checks pass. Independent review is complete.
 Start with [tomorrow’s test instructions](TEST_TOMORROW.md). Nothing is merged,
