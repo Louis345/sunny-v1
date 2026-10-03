@@ -62,7 +62,7 @@ and absent browser UI. Further observed red/green regressions cover hidden-word
 leakage, exact prior input citations, stale in-flight proposals, truthful source
 kind, item catalogue/provenance, chart activation, legacy writes, parent form
 labels, missing pattern history and audio arriving after the child left.
-The final isolated build passes; all 132 scoped tests across 15 files and all
+The final isolated build passes; all 133 scoped tests across 15 files and all
 four workflow checks pass. A separate flag-off legacy cycle suite also passes
 all 25 tests; it runs in CI alongside the scoped suite. Existing schema/load checks are additional verification, not newly red-first
 implementation evidence. The program-word guard was introduced with the initial
@@ -75,6 +75,15 @@ are hand-authored recorded fixtures. Browser audio playback is stubbed, so these
 tests prove orchestration and invocation counts, not voice pronunciation, MP3
 playability or real model quality. No claim of learning gains follows from them.
 The actual-server acceptance separately checks readiness and legacy-route closure.
+A further red test terminated the dedicated launch wrapper and found its server
+still answering health requests. The wrapper now loads the existing launcher in
+the same process so its shutdown owner receives the terminal signal. The passing
+test requires a zero exit, shutdown-complete log and refused server connection.
+The new first-hearing/replay check also went red: normal plays were recorded as
+one replay. It now requires zero for the first hearing and one for an actual
+repeat, without changing correctness or assistance rules.
+Earlier server-only tests could not catch a parent wrapper leaving a child alive;
+this directly extends the lab coverage motivated by the human's Exit-hang report.
 
 Human-caught repetition: the parent heard duplicated “able”; historical logs
 showed consecutive TTS calls but no invariant prohibited them. The old lab did
