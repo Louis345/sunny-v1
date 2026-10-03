@@ -4,7 +4,9 @@
 
 **The child's experience must be identical to what the girls have been using. Only the plumbing changes.**
 
-The same launcher, kiosk, board, companion, Word Radar, games, flow, look, sounds and timing. Any visible change for the child is a **blocking** finding, unless it is one of the listed bug fixes, which restore intended behavior. The only new screen allowed is a **parent page**, reached from the existing parent/caregiver area and never shown in the child's flow.
+The same launcher, kiosk, board, companion, Word Radar, games, flow, look and sounds. Any visible change for the child is a **blocking** finding, unless it is one of the listed bug fixes, which restore intended behavior. The only new screen allowed is a **parent page**, reached from the existing parent/caregiver area and never shown in the child's flow.
+
+**Timing:** preserve the flow and its order of screens, and measure latency. Changing a model may change response times, so identical timing is not promised. Report any wait that changes for the child.
 
 ## Goal and deadline
 
@@ -13,6 +15,10 @@ The kids got their spelling list on Friday. By **Monday**:
 2. Every spelling answer from the existing activities is recorded correctly in the child's SQLite chart.
 3. The parent can enter school results and see the report card.
 4. The known live-session spelling bugs are fixed.
+
+**Known limitation of this milestone: the adaptive loop is not closed yet.** Answers, priors, forecasts and the report card move to the chart. The existing board Planner still decides the next board from the old cycle file. Moving it onto the chart, and deleting the old cycle's learning data, is the next milestone. Until then:
+- the Part C2 fixes are made where answers are first recorded, so the old cycle and the chart both get correct data;
+- the PR says plainly which decisions still read the old cycle.
 
 ## Context
 - Repository: `/Users/jamaltaylor/Development/sunny-chart-foundation`. Base the new branch `codex/spelling-plumbing` on `codex/spelling-chart-core` @ `53214e2`. Open a **draft PR** into `codex/spelling-chart-core` in `louis345/sunny-v1`.
@@ -40,14 +46,26 @@ Delete the spelling-only app path built in the previous milestone:
 Keep everything listed under "Reuse". Net line count for this part should go down.
 
 ## Part C: the plumbing (the existing UI is unchanged)
-1. **Assignment.** When a spelling list is ingested through the **existing** ingestion path, also record `assignment.ingested` in the chart with the same words and test date. The same assignment must not be recorded twice. Then the Planner writes `words.tagged` and `prediction.prior` from the chart packet, **before** Discovery opens. This happens behind the scenes, using `checkpointedAttempt`.
+1. **Assignment.** When a spelling list is ingested through the **existing** ingestion path, also record `assignment.ingested` in the chart with the same words. The same assignment must not be recorded twice. Then the Planner writes `words.tagged` and `prediction.prior` from the chart packet, **before** Discovery opens. This happens behind the scenes, using `checkpointedAttempt`.
 2. **Every answer is a typed fact.** At the server boundary where the existing spelling activities report results (Word Radar Discovery, practice games, explainer, the checkpoint), record `item.presented` and `response.observed` **per word**:
    - the raw answer, and correctness computed by code;
    - support facts **for that answer only**: letters shown, hint, companion help on that word, audio replays;
    - the **node actually launched**, from the server's own record of the launch, never inferred from the activity's label;
    - the instrument: Discovery (`discovery`, measure), games and explainer (`practice`), the final checkpoint (`recall_check`).
 
-   If an activity can't report per-word results or support, record its answers as **practice**, never as independent evidence. List those activities in the PR.
+   **Missing answers stay missing.**
+   - If an activity reports per-word answers but not reliable per-answer support, record those answers as **practice**, never as independent evidence.
+   - If an activity reports only an aggregate score, record that limitation (the aggregate and "per-word results unavailable"). Never invent per-word responses from it.
+   - List both kinds of activity in the PR.
+2b. **Test schedule, set by the parent.** For now, the parent sets when the school test is; later this becomes dynamic. Add a strict schema for a parent-actor schedule fact first, with two forms:
+   - a **default test weekday** for the child (for example Friday);
+   - a **per-assignment exception** with an explicit date.
+
+   The effective test date comes from the latest exception if there is one, otherwise from the default applied to that assignment. The parent page shows it and lets the parent confirm or change it.
+   - A test date printed on the source document is only a proposal until the parent confirms it.
+   - With no parent schedule, the date stays empty (null). Never invent one.
+   - The forecast cites the schedule fact its date came from.
+   - Friday's ingested list (`hw-spelling-569ac9f9`) currently has no date; the parent sets it on the parent page.
 3. **Forecast.** After the checkpoint, the Planner writes `readiness.forecast` from the chart, behind the scenes.
 4. **Parent page**, inside the existing parent area:
    - confirm each child's profile draft once;
@@ -70,8 +88,14 @@ Keep everything listed under "Reuse". Net line count for this part should go dow
 
    These are engagement facts only and must never affect academic scoring.
 6. **The old learning stores.** For spelling, stop writing to the word bank, SM2 and learning-profile learning fields **only where nothing visible reads them**. Anything the UI still reads (for example XP or the existing board's cycle) keeps working unchanged for now. List each remaining legacy spelling write and the screen that still depends on it. Those move in the next milestone.
-7. **Pipeline timing harness** (`pipeline.stage`, actor `system`). This records how long each step takes from the last scored answer to the new board. Add a strict schema for this type first.
-   - **One write path.** The existing provider-stage wrapper (`runMathProviderStage`) and the browser check write the event, so every AI or build step is measured automatically. Callers never write it themselves.
+7. **Pipeline timing harness** (`pipeline.stage`, actor `system`). This records how long each step takes from the last scored answer to the new board. Keep it narrowly to measurement: it must not delay the answer-recording and parent-report work, and it changes no pipeline behavior. Add a strict schema for this type first.
+   - **Precise definitions:**
+     - a successor board's clock starts at the last scored response that triggered it;
+     - the first board's clock starts at ingestion, because there is no answer yet;
+     - totals are **elapsed** time (first start to publish), never the sum of stage durations, because stages may run in parallel later;
+     - every stage is marked `new_call` or `reused_receipt`, so resumed checkpoints never count as fresh latency or cost.
+   - **One write path where possible.** The existing provider-stage wrapper (`runMathProviderStage`) writes the event for provider stages. Artwork, the browser check, visual review and publish may run outside it, so wire each one explicitly.
+   - **Coverage test:** one test per stage name proves a real event is written. A stage without such a test isn't covered.
    - **Payload:**
      - board/plan, assignment or homework, and node, when one applies;
      - the stage: `planner_decision`, `artwork`, `creator`, `browser_check`, `visual_review`, or `publish`;
@@ -81,19 +105,19 @@ Keep everything listed under "Reuse". Net line count for this part should go dow
      - the outcome: `ok`, `failed`, `timeout`, `max_tokens`, `refusal`, or `needs_attention`;
      - the receipt path or hash.
    - **Event ID:** use the natural key board + node + stage + attempt.
-   - **One more event per board:** `publish` cites the last scored response that triggered the board, so the time from the last answer to the published board can be computed.
+   - **One more event per board:** `publish` cites what started its clock (the last scored response, or `assignment.ingested` for the first board), so the elapsed time can be computed.
    - **Separate from learning.** These events never enter learning projections, scoring, priors, forecasts or the report card.
    - **Failures:** a failed timing write is logged loudly (` 🎮 [pipeline] [timing] [write-failed] …`) and never blocks the board.
    - **Projection `projectBoardTimings`:**
-     - per board: the total time from last answer to publish, the Planner time, and the build time;
+     - per board: the elapsed time from clock start (last answer, or ingestion for the first board) to publish, the Planner time, and the build time;
      - per stage and model/effort: the median, the slowest time, and the failure rate.
    - **Parent page:** add a plain table of recent boards from that projection.
-   - **First board too:** the board built after ingestion is timed the same way.
    - **Before the new code exists:** post a one-time read-only table on the PR, built from Saori's existing receipt timestamps (`startedAt` and `receivedAt`). Make no paid calls and no writes.
 
 ## Part C2: known live-session bugs to fix (each one red-first, with a test)
+Fix each one where answers are first recorded, so the old cycle the board Planner still reads and the chart both get correct data.
 1. **Wrong activity credited:** an answer was credited to Letter Rush when the Visual Explainer was the node launched.
-2. **Everything marked assisted:** one companion interaction marked every answer in the activity as assisted. In the chart, assistance is decided per answer.
+2. **Everything marked assisted:** one companion interaction marked every answer in the activity as assisted. Assistance is decided per answer, in both the old cycle and the chart.
 3. **The waiting screen opened empty sessions repeatedly** after Discovery completed.
 4. **XP from empty sessions:** confirm it's fixed at the base commit; fix it if not.
 5. **The companion not speaking during activities:** investigate. Fix it if the cause is clear and small, otherwise report the cause.
@@ -105,7 +129,9 @@ Keep everything listed under "Reuse". Net line count for this part should go dow
 4. Confirm Sunny is running and waiting for a session.
 5. Report on the PR.
 
-## Out of scope (next milestone)
+## Out of scope (next milestones; the human decides the order)
+- **Close the adaptive loop:** the board Planner decides from the chart, and the old cycle's learning data is deleted.
+- **Dynamic test schedule:** for example from the school calendar or the assignment itself, still confirmed by the parent.
 - **Board speed** (agreed with the human; it starts after this milestone is accepted):
   - build successor-board activities **in parallel**, with bounded concurrency, the same one-attempt-per-activity rule, the same lease and checkpoints, and publishing only when every activity passes;
   - an **honest progress bar** while a board is prepared: steps done out of total steps, with a time estimate from the measured `pipeline.stage` medians and no fake progress;
