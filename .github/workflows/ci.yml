@@ -70,7 +70,8 @@ jobs:
           test ! -e .env
           mkdir -p "$RUNNER_TEMP/synthetic-home"
           sudo unshare --net env -i PATH="$PATH" HOME="$RUNNER_TEMP/synthetic-home" CI=true DOTENV_CONFIG_PATH=/dev/null bash -e -c '
+            ip link set lo up
             node --test scripts/chart/reviewWorkflow.test.cjs
             npm run build
-            node node_modules/vitest/vitest.mjs run src/engine/chartFoundation.test.ts src/engine/chartCommitOrder.test.ts src/engine/chartSpellingCore.test.ts src/engine/chartSpellingSchemas.test.ts src/engine/chartSpellingLoad.test.ts src/engine/chartKioskLifecycle.test.ts
+            node node_modules/vitest/vitest.mjs run src/engine/chartFoundation.test.ts src/engine/chartCommitOrder.test.ts src/engine/chartSpellingCore.test.ts src/engine/chartSpellingSchemas.test.ts src/engine/chartSpellingLoad.test.ts src/engine/chartKioskLifecycle.test.ts src/engine/chartSpellingReview.test.ts src/scripts/chartKioskAcceptance.test.ts
           '

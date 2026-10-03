@@ -26,5 +26,8 @@ test('core CI runs the build and core acceptance with no family context or netwo
   assert.match(source, /unshare --net/);
   assert.match(source, /npm run build/);
   assert.match(source, /chartSpellingLoad\.test\.ts/);
+  assert.match(source, /chartSpellingReview\.test\.ts/);
+  assert.match(source, /chartKioskAcceptance\.test\.ts/);
+  assert.match(source, /ip link set lo up/);
   assert.match(source, /20\.20\.0/);
 });
