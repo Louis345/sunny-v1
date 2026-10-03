@@ -1,5 +1,11 @@
 # Chart foundation: Phase 0 and Phase 1
 
+**Acceptance complete — 2026-10-02.** Build passes; 3,956 server tests,
+906 web tests, and 7 archive checks pass. Independent review is complete.
+Start with [tomorrow’s test instructions](TEST_TOMORROW.md). Nothing is merged,
+deployed, or connected to live learning. Details and the earlier failed runs
+are preserved below.
+
 This tooling is separate from the kiosk. The existing `LEARNING_FEEDBACK_LOOP.md`
 remains the learning authority until a separately approved switchover. No imports,
 migrations, ingestion, generation, provider calls, or runtime integration are added.
@@ -94,9 +100,9 @@ in addition to identity, validation, replay, corrections, and snapshots.
   authorized the pause and the archive was verified. This is not a data reset
   or a runtime switchover.
 - No migrations, real-child database creation, runtime imports, or contract rewrite.
-- Source-code additions establish new tested invariants. No production hot-path
-  code is added or deleted. Only the CLI scripts, dependency and lockfile change
-  existing configuration; existing unrelated edits remain untouched.
+- Source-code additions establish new tested invariants. The separately authorized cleanup moves tool-name normalization into an existing
+  helper, reducing the session-manager hot path by 17 lines without changing behavior.
+  The chart stays standalone; existing unrelated edits remain untouched.
 - Future learning measures must distinguish storage correctness, forecasting
   accuracy, and retained learning. A school test is external evidence, not
   infallible truth; one successful cross-subject hypothesis test is not certainty.
@@ -144,9 +150,8 @@ compact JSON. It proves the checked file paths and bytes agree, not unchanged
 access times or an absence of writes by concurrent processes between checks.
 It is the dev checkout inventory, **not a checksum of Saori's live records**.
 
-Phase 0's verified archive is complete. Phase 1's implementation and focused
-checks pass, but the full-repository merge gate remains blocked as detailed
-below. Nothing is deployed; this foundation alone claims no improvement in learning
+Phase 0's verified archive and Phase 1 acceptance are complete. The full
+repository checks pass after the separately authorized cleanup detailed below. Nothing is deployed; this foundation alone claims no improvement in learning
 or prediction accuracy. Those require later validated evidence collection,
 forecasts recorded before outcomes, and repeated external assessment.
 
@@ -186,7 +191,7 @@ After local verification finished, a later SSH health recheck failed with
 resume. Current remote availability could not be re-confirmed; this does not
 change the recorded archive verification and initial HTTP-200 resume proof.
 
-### Final server verification and remaining gates
+### Earlier server verification and then-remaining gates
 
 The corrected full server run completed in 1,010 seconds: **3,910 passed,
 44 failed, zero skipped (3,954 tests)**. This was a disposable source copy with
@@ -229,4 +234,81 @@ checks, synthetic chart CLI acceptance, diff whitespace and context checksums
 pass. Independent read-only review cleared the implemented changes after its
 isolation finding was fixed. Existing production runtime files are unchanged;
 only test infrastructure/assertions were adjusted to finish the verification.
-**Do not merge or declare the full Phase 1 acceptance gate green yet.**
+This was the status before the separately authorized limited cleanup below.
+
+
+### Authorized limited cleanup — completed acceptance
+
+The user authorized finishing both remaining gates without changing product
+behavior. Commit `a761887` moves all 18 unchanged legacy tool-name aliases into
+the existing text helper. `session-manager.ts` decreases from 2,512 to 2,495
+lines; the original size threshold remains unchanged. The helper test failed
+before implementation and now verifies every alias plus canonical and unknown
+names. The initial review missed an indirect router caller through a loosely typed host;
+the first full run caught 11 integration failures. Restoring the instance method
+as a short delegation preserves that caller; 25 related checks then passed.
+Repository-wide review now confirms all callers remain compatible.
+
+Commit `3fc9e60` fixes only the terminal acceptance harness. Isolated diagnostics
+showed Sunny reached cleanup and exited while the Python PTY wrapper remained.
+The wrapper now checks actual exit status rather than waiting only for PTY EOF.
+Review found a timeout-cleanup gap; a non-exiting synthetic-child test failed
+before the correction and now verifies termination and reaping. Unexpected PTY
+errors remain visible. No menu runtime code changed. Additional lines belong to
+the bounded test harness and its regression, not the production hot path.
+
+The latest build passes. Archive tests pass 7/7; the combined focused acceptance
+passes 26/26; the web suite passes 906/906. Synthetic CLI export, snapshot export,
+duplicate retry, original preservation and corrected replay agree. Read-only
+review cleared both cleanup changes. No tests or limits were weakened.
+
+A fresh SSH check returned HTTP 200 from Saori. Its 509 source files still hash to
+`341580d19c9bf8af382ef431fbae8775687c1f84a2804d50b433058818fcfa7a`, and the archive
+still hashes to `d5c758d4000aa17a82f3591e1e4d708e5f8c9f54283f2f379ddaf5a7326a3747`.
+The earlier temporary connection failure has therefore cleared.
+
+[Tomorrow’s acceptance instructions](TEST_TOMORROW.md) include a synthetic
+review sample and a repeatable focused check.
+
+The first new full run reported **3,942 passed / 14 failed / zero skipped**.
+Eleven failures exposed the removed indirect method described above. The other
+three were five-second browser-test timeouts while the build and web suite were
+also running. All three passed in isolation under their unchanged limits; one
+finished at 4.944 seconds, so these tests remain sensitive to machine load.
+No timeout, size cap, assertion, or test exclusion was changed to get green.
+
+After restoring the method, the final full run used another fresh source copy
+with synthetic context, a temporary home, no credentials, and outbound network
+blocked except loopback. No build or web tests ran concurrently. Result:
+**337 server test files passed; 3,956 tests passed; zero failed; zero skipped**
+in **989.81 seconds**. All 66 Discovery checks, the repaired routing integration,
+and terminal cleanup checks passed in that full run. Together with the web and
+archive suites, this is 4,869 passing checks (focused reruns are not added twice).
+
+The final build includes the compatibility restoration. The synthetic CLI
+acceptance verified duplicate suppression, immutable originals, correction replay,
+and matching live/snapshot JSON exports. Read-only independent review cleared the
+final routing wrapper and the PTY cleanup; it also acknowledged its earlier missed
+indirect caller. The full test suite—not that earlier narrow review—caught it.
+
+The implementation remains on `codex/chart-foundation-phase01`; runtime cleanup
+commits are `a761887`, `3fc9e60`, and `b8da45b`. No merge, deployment, real-child chart
+creation, provider request, real intake/generation, or live chart integration was
+performed. The original dirty checkout remains untouched.
+
+Final data checks match the before values:
+
+| Location | Files | Before and after manifest SHA-256 |
+| --- | ---: | --- |
+| Development context | 1,137 | `c3eff39f05f2f737f96277a890b469cfb21d54b09940847585f2e4a8d66bf44c` |
+| Saori live context | 509 | `341580d19c9bf8af382ef431fbae8775687c1f84a2804d50b433058818fcfa7a` |
+
+The two manifest formats are described above; they are not interchangeable.
+Saori's final health recheck returned HTTP 200. The recovery archive file hash
+also matches the original verified archive. Equal before/after inventories prove
+file-path and content equality at those checks, not absence of intervening writes.
+
+Machine-readable full results and supporting logs are saved in
+`/Users/jamaltaylor/SunnyData/phase01-review-20261002/`. `server-first-run.json`
+retains the 14-failure run; `server-final.json` records the green final run.
+The snapshot and review sample contain synthetic data only.
