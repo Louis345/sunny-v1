@@ -1,3 +1,4 @@
+import {checkpointedAttempt} from './checkpointedAttempt';
 import fs from 'node:fs';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
@@ -15,7 +16,7 @@ export type SpellingStage = 'prior' | 'discovery' | 'plan' | 'practice' | 'recal
 export type SpellingPacket = ReturnType<typeof buildPlannerPacket> & {
     profile: Record<string, unknown> | null;
 };
-export type SpellingProvider = (stage: 'prior' | 'plan' | 'forecast', packet: SpellingPacket) => Promise<unknown>;
+export type SpellingProvider = ((stage: 'prior' | 'plan' | 'forecast', packet: SpellingPacket) => Promise<unknown>) & {modelId?:string};
 const ingestion = z.strictObject({ words: z.array(z.string().min(1).max(80)).min(1).max(100), testDate: z.iso.date(), sourceText: z.string().min(1).max(100000) });
 const submission = z.strictObject({ itemId: z.string().min(1), rawResponse: z.string().max(4096).nullable(), status: z.enum(['answered', 'unknown', 'skipped', 'ambiguous']), audioReplays: z.number().int().min(0).max(100) });
 const schoolInput = schemas['school_test.recorded'].omit({ assignmentId: true, photoHash: true, sourceKind: true }).extend({ sourceText: z.string().min(1).max(100000) }).strict();
@@ -93,7 +94,7 @@ export function createSpellingJourney(db: ChartDatabase, provider: SpellingProvi
             return recordResponse(db, { assignmentId: id, sessionId: String(p.payload.sessionId), itemId: body.itemId, attempt: 1, rawResponse: body.rawResponse, status: body.status, support: { audioReplays: body.audioReplays, spellingShown: p.payload.instrument === 'practice', hint: p.payload.instrument === 'practice', companionHelp: false } }, { cites: [p.event_id] });
         }).immediate();
     }
-    async function advance(id: string) {
+    async function advance(id: string, recover = false) {
         const s = state(id);
         if (!['prior', 'plan', 'forecast'].includes(s.stage))
             return s;
@@ -102,30 +103,11 @@ export function createSpellingJourney(db: ChartDatabase, provider: SpellingProvi
         const chart = getChildChart(db.childId, { department: 'spelling', database: db });
         const packet = { ...buildPlannerPacket(chart.events, id), profile: chart.profile };
         const base = path.join(path.dirname(db.path), db.childId, 'requests', hash(`${id}:${stage}`));
-        const output = base + '.response.json';
-        let proposal: unknown;
-        if (fs.existsSync(output))
-            proposal = JSON.parse(fs.readFileSync(output, 'utf8'));
-        else {
-            if (fs.existsSync(base + '.request.json'))
-                throw new Error('planner_needs_attention: request outcome uncertain');
-            preserve(base + '.request.json', JSON.stringify({ stage, packet }));
-            console.error(` 🎮 [spelling] [planner] [requested] stage=${stage}`);
-            try {
-                proposal = await provider(stage, packet);
-                preserve(output, JSON.stringify(proposal));
-            }
-            catch (error) {
-                console.error(` 🎮 [spelling] [planner] [needs_attention] stage=${stage}`, error);
-                throw error;
-            }
-        }
-        if (typeof proposal === 'string')
-            proposal = JSON.parse(proposal);
+        return checkpointedAttempt(base, {stage, packet, model:provider.modelId ?? 'injected-fixture'}, () => provider(stage,packet), (raw, metadata) => {
+        let proposal=raw;
+        if(typeof proposal==='string') proposal=JSON.parse(proposal.trim().replace(/^```(?:json)?\s*/i,'').replace(/\s*```$/,''));
+        const request=metadata as {packet:SpellingPacket;model?:string};
         db.sql.transaction(() => {
-            const request = JSON.parse(fs.readFileSync(base + '.request.json', 'utf8')) as {
-                packet: SpellingPacket;
-            };
             if (Math.max(0, ...facts().map(e => e.sequence)) !== request.packet.asOfSequence)
                 throw new Error('planner_stale_chart');
             if (state(id).stage !== stage)
@@ -153,6 +135,7 @@ export function createSpellingJourney(db: ChartDatabase, provider: SpellingProvi
         }).immediate();
         console.error(` 🎮 [spelling] [planner] [committed] stage=${stage}`);
         return state(id);
+        }, recover);
     }
     return { state, present, respond, advance,
         ingest(input: z.infer<typeof ingestion>) { const p = ingestion.parse(input); const words = p.words.map(w => w.normalize('NFC').trim().toLowerCase()); if (new Set(words).size !== words.length)

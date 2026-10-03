@@ -66,23 +66,18 @@ it('cannot submit another item, caller correctness, or school results with incom
     expect(() => j.respond(a.assignmentId, { itemId: item.itemId, rawResponse: 'knee', status: 'answered', audioReplays: 0, correct: true } as any)).toThrow();
     expect(() => j.school(a.assignmentId, { testDate: '2026-10-10', sourceText: 'result', results: [] })).toThrow();
 });
-it('does not repeat an uncertain provider request after restart', async () => {
-    const broken = vi.fn(async () => { throw new Error('connection lost'); });
-    const j = setup(broken);
-    const a = j.ingest({ words: ['knee', 'know'], testDate: '2026-10-10', sourceText: 'knee know' });
-    await expect(j.advance(a.assignmentId)).rejects.toThrow('connection lost');
-    await expect(setup(broken).advance(a.assignmentId)).rejects.toThrow('needs_attention');
-    expect(broken).toHaveBeenCalledTimes(1);
-    expect(exportEvents(db).filter(e => e.type === 'prediction.prior')).toHaveLength(0);
+it('recovers a known provider error on an explicit retry without duplicate facts', async () => {
+ let calls=0;const flaky:SpellingProvider=async(stage,packet)=>{if(++calls===1)throw Error('connection lost');return provider(stage,packet);};
+ const j=setup(flaky),a=j.ingest({words:['knee'],testDate:'2026-10-10',sourceText:'knee'});
+ await expect(j.advance(a.assignmentId)).rejects.toThrow('connection lost');
+ await j.advance(a.assignmentId);await j.advance(a.assignmentId);
+ expect(calls).toBe(2);expect(exportEvents(db).filter(e=>e.type==='prediction.prior')).toHaveLength(1);
 });
-it('invalid proposals write neither partial tags nor partial priors and are not repurchased', async () => {
-    const bad = vi.fn(async () => ({ tags: {}, priors: [] }));
-    const j = setup(bad);
-    const a = j.ingest({ words: ['knee'], testDate: '2026-10-10', sourceText: 'knee' });
-    await expect(j.advance(a.assignmentId)).rejects.toThrow();
-    await expect(j.advance(a.assignmentId)).rejects.toThrow();
-    expect(bad).toHaveBeenCalledTimes(1);
-    expect(exportEvents(db)).toHaveLength(1);
+it('preserves invalid proposals, accepts fenced JSON on retry and commits once',async()=>{
+ let calls=0;const flaky:SpellingProvider=async(stage,packet)=>++calls===1?{tags:{},priors:[]}:'```json\n'+JSON.stringify(await provider(stage,packet))+'\n```';
+ const j=setup(flaky),a=j.ingest({words:['knee'],testDate:'2026-10-10',sourceText:'knee'});
+ await expect(j.advance(a.assignmentId)).rejects.toThrow();expect(exportEvents(db)).toHaveLength(1);
+ await j.advance(a.assignmentId);expect(calls).toBe(2);expect(exportEvents(db).filter(e=>e.type==='prediction.prior')).toHaveLength(1);
 });
 it('refuses a saved Planner proposal if its input chart changed while the request ran', async () => {
     let release!: (p: unknown) => void;
