@@ -1,3 +1,4 @@
+import {configuredSpellingModel} from '../chart/spelling/provider';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
@@ -24,6 +25,8 @@ if (require.main === module) {
         require('dotenv').config();
         if (!process.env.ANTHROPIC_API_KEY || !process.env.ELEVENLABS_API_KEY)
             throw new Error('spelling_provider_configuration_missing: existing Anthropic and ElevenLabs keys are required');
+        const model=configuredSpellingModel();
+        console.log(` 🎮 [spelling-kiosk] [planner-model] [configured] model=${model}`);
         const env = spellingKioskEnvironment(process.env);
         console.log(`Parent PIN for this kiosk: ${env.SUNNY_PARENT_PIN}`);
         console.log(' 🎮 [spelling-kiosk] [startup] [chart_path_declared]');

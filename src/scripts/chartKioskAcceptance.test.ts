@@ -95,7 +95,7 @@ it('activates spelling routes and prevents legacy writes in a chart kiosk',async
 it('the dedicated launch command connects the chart and stops its server on terminal termination',async()=>{
  fs.mkdirSync(path.join(root,'web/dist'),{recursive:true});
  fs.copyFileSync(path.resolve('web/dist/index.html'),path.join(root,'web/dist/index.html'));
- const port=await launch({SUNNY_CHART_DIR:path.join(root,'chart'),ANTHROPIC_API_KEY:'synthetic-unused',ELEVENLABS_API_KEY:'synthetic-unused'},true);
+ const port=await launch({SUNNY_CHART_DIR:path.join(root,'chart'),ANTHROPIC_API_KEY:'synthetic-unused',ELEVENLABS_API_KEY:'synthetic-unused',SUNNY_EXPERIENCE_PLANNER_MODEL:'synthetic-model'},true);
  await ready(port);
  const status=await fetch(`http://127.0.0.1:${port}/api/chart/status`).then(r=>r.json()) as {learningEventsConnected:boolean};
  expect(status.learningEventsConnected).toBe(true);
