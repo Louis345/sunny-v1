@@ -19,6 +19,24 @@ The previous attempt failed because learning was written to many places: JSON cy
 - **Keep and build on** `src/chart/`: `db.ts`, `appendEvent.ts`, `guard.ts`, `eventId.ts`, `snapshot.ts`, the CLIs, and `kioskLifecycle.ts`.
 - Read first: `AGENTS.md`, `LEARNING_FEEDBACK_LOOP.md`, `docs/SUNNY_CHART_REBUILD_SPEC.md`, `scripts/chart/README.md`, `scripts/chart/KIOSK_STARTUP.md`.
 
+## Autonomous milestone authorization
+
+The human approves **Milestone 1 as defined in this prompt** as an autonomous milestone under `AGENTS.md` "Autonomous Milestone Mode". Work it through to the end without stopping for approval:
+- Red, then green, without pausing after reporting red tests.
+- Change all the files this milestone needs, and fix every blocker inside its scope.
+- Post short progress notes in the PR description. They are informational, not checkpoints.
+
+This authorization does **not** cover any of the following:
+- anything in the Roadmap, wiring into the kiosk, routes, ingestion or Planner;
+- deployment, Saori, merging, paid provider calls, or real child data;
+- changing the core design decision below.
+
+If you hit a genuine product decision or a conflict with `AGENTS.md`, record it under "Assumptions and open questions" in the PR. Take the most conservative option that keeps the rules in this prompt intact, and continue. Stop only when progress is truly impossible, and then state the exact blocker.
+
+Use bounded attempts. If the same failure persists after 3 different fixes, stop, record your diagnostics in the PR, and move on to the rest of the scope.
+
+The **spelling pattern taxonomy** (`patterns.ts`) is a draft for the human to review. Mark it as such in the PR, and don't block on it.
+
 ## Core design decision (do not change it without asking the human)
 
 **Typed facts are the record. Views are pure functions of facts.**
