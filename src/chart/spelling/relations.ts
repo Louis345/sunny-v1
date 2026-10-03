@@ -20,6 +20,8 @@ export function validateRelations(db: ChartDatabase, e: EventInput): void {
         const target = get(String(p.target_event_id));
         if (!target || !e.cites.includes(target.event_id) || target.type === 'correction.recorded')
             fail('correction_target');
+        if (target.type === 'plan.decided')
+            fail('correction_immutable_decision');
         if (target.type === 'readiness.forecast')
             fail('correction_immutable_prediction');
         validatePayload(target.type, p.replacement_payload);
@@ -61,6 +63,7 @@ export function validateRelations(db: ChartDatabase, e: EventInput): void {
         fail('assignment_word');
     const has = (type: string) => !!db.sql.prepare("SELECT 1 FROM events WHERE json_extract(payload,'$.assignmentId')=? AND type=? LIMIT 1").get(p.assignmentId, type);
     if (e.type === 'words.tagged') {
+        if (has('prediction.prior')) fail('tags_after_prior');
         if (!sameWords((p as Payloads['words.tagged']).tags.map(t => t.word)))
             fail('tag_coverage');
     }
@@ -110,6 +113,8 @@ export function validateRelations(db: ChartDatabase, e: EventInput): void {
         }
     }
     if (e.type === 'plan.decided') {
+        const previous = db.sql.prepare("SELECT count(*) AS n FROM events WHERE json_extract(payload,'$.assignmentId')=? AND type='plan.decided'").get(p.assignmentId) as { n: number };
+        if (p.decisionIndex !== previous.n + 1) fail('decision_sequence');
         // Bounded to this assignment, not the child's entire history. Evaluation reference is a pure content hash.
         const rows = db.sql.prepare("SELECT * FROM events WHERE json_extract(payload,'$.assignmentId')=? ORDER BY sequence").all(p.assignmentId).map(decodeRow);
         const corrections = rows.flatMap(r => db.sql.prepare("SELECT * FROM events WHERE type='correction.recorded' AND json_extract(payload,'$.target_event_id')=?").all(r.event_id).map(decodeRow));

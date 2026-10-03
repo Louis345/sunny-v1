@@ -45,3 +45,26 @@ it('permits nulling an unreliable reading and adding previously missing assistan
     correct(r, { ...r.payload, rawResponse: null, status: 'unknown', support: { ...(r.payload.support as object), companionHelp: true } });
     expect(projectAssignment(exportEvents(db), assignmentId).responses[0]).toMatchObject({ rawResponse: null, result: 'unknown', assistance: 'assisted', eligible: false });
 });
+function plan(decisionIndex = 1) {
+    const evaluation = evaluatePriors(exportEvents(db), assignmentId);
+    const ids = evaluation.rows.map(r => r.responseId);
+    return recordFact(db, 'plan.decided', { assignmentId, decisionIndex, action: 'collect_evidence', evaluationIds: [evaluation.id], responseIds: ids }, { cites: ids });
+}
+it('preserves original Planner decisions and requires the next decision index', () => {
+    loadThrough('response.observed');
+    const decision = plan();
+    expect(() => correct(decision, { ...decision.payload, action: 'targeted_practice' })).toThrow('correction_immutable_decision');
+    expect(() => plan(5)).toThrow('decision_sequence');
+    expect(plan(2).payload.decisionIndex).toBe(2);
+});
+it('freezes pattern tags as soon as priors exist', () => {
+    loadThrough('prediction.prior');
+    const tags = exportEvents(db).find(e => e.type === 'words.tagged')!;
+    expect(() => correct(tags, { ...tags.payload, tags: ['able', 'knee', 'know', 'write'].map(word => ({ word, patterns: ['spelling.irregular'] })) })).toThrow('tags_after_prior');
+});
+it('permits correcting draft pattern tags before priors', () => {
+    loadThrough('words.tagged');
+    const tags = exportEvents(db).find(e => e.type === 'words.tagged')!;
+    correct(tags, { ...tags.payload, tags: ['able', 'knee', 'know', 'write'].map(word => ({ word, patterns: ['spelling.irregular'] })) });
+    expect(projectAssignment(exportEvents(db), assignmentId).patterns[0].patterns).toEqual(['spelling.irregular']);
+});
