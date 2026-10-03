@@ -105,6 +105,34 @@ Before writing code, update `LEARNING_FEEDBACK_LOOP.md`. Add a short, precise "S
   - schema decisions;
   - anything in this prompt you think is wrong.
 
+## Review workflow (a separate reviewer grades your work)
+
+An independent reviewer will review your pull request on GitHub and grade both your **code** and your **reasoning**. Work so that your thinking is visible.
+
+1. Push `codex/spelling-chart-core` early and open a **draft PR** against base `codex/chart-foundation-phase01` in `louis345/sunny-v1`. Never merge it, and never mark it ready yourself.
+2. Commit in small, independently understandable steps. Each step goes red first, then green. The commit message states what changed and why.
+3. Keep the PR description current. It must contain:
+   - **Decisions log:** each meaningful choice, the alternatives you considered, why you chose it, and what would change your mind.
+   - **Assumptions and open questions:** anything you guessed rather than verified.
+   - **Red-test evidence:** each new test and the exact failure it showed before the implementation.
+   - **Verification:** commands run, the Node version, the isolation method, and results. Report only what you actually ran.
+   - **Known gaps and risks:** what this milestone does not do, and where it could be wrong.
+   - **Spec deviations:** any place you departed from this prompt, and why.
+4. When review comments arrive, either fix the issue and reply with the commit SHA, or reply explaining why not. Resolve nothing silently. Don't argue for scope creep: out-of-scope ideas go under "Known gaps".
+
+### Grading rubric (each category A–F)
+
+| Category | What earns an A |
+|---|---|
+| **Spec fidelity** | Typed facts are the record; views are pure projections; no legacy cycle, JSON or SM2 reads for spelling; scope stays in Milestone 1. |
+| **Evidence integrity** | Server-side scoring, per-response assistance, priors before Discovery, forecast before the school result, ordering by sequence, no caller-supplied correctness, no fact type accepting arbitrary payloads. |
+| **Tests** | All 12 required tests exist, were red first, test behavior rather than implementation, and include failure cases. |
+| **Simplicity** | The smallest design that meets the spec. No speculative abstractions; legacy hot paths untouched. |
+| **Safety** | No real-child data touched, no paid calls, isolated test runs, family-data inventory unchanged. |
+| **Honesty of reasoning** | Claims in the PR match the code; uncertainty is stated; nothing is labeled done that isn't. |
+
+**Merge gate:** no category below B, and zero unresolved blocking findings. The human makes the final decision.
+
 ## Roadmap (do not start these now)
 - **Milestone 2: wire it up.** Ingestion, the Discovery kiosk path, the Planner reading the packet and writing `plan.decided`, practice and recall rooms, the forecast step, a parent school-result entry screen, and the report card UI. Recorded providers, browser acceptance at both viewports, three synthetic weeks through real endpoints.
 - **Milestone 3: cutover.** An activation flag, `getChildChart` reading spelling from the chart, legacy spelling writes switched off, and a backed-up installation on Saori.
