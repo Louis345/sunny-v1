@@ -84,7 +84,7 @@ it.each([{SUNNY_MODE:'as-child'},{SUNNY_STATELESS:'true'}])('keeps nonpersistent
   expect(fs.existsSync(chartDir)).toBe(false);
 },15000);
 it('activates spelling routes and prevents legacy writes in a chart kiosk',async()=>{
- const port=await launch({SUNNY_CHART_DIR:path.join(root,'chart'),SUNNY_SPELLING_CHART:'1',SUNNY_KIOSK_TOKEN:'test-token',SUNNY_PARENT_PIN:'123456'});
+ const port=await launch({SUNNY_CHART_DIR:path.join(root,'chart'),SUNNY_SPELLING_CHART:'1',SUNNY_KIOSK_TOKEN:'test-token'});
  await ready(port);
  const status:any=await fetch(`http://127.0.0.1:${port}/api/chart/status`).then(r=>r.json());expect(status.learningEventsConnected).toBe(true);
  expect(output).toContain('[spelling-chart] [routes] [connected]');

@@ -2,7 +2,7 @@
 
 The user authorized continuing past the accepted module checkpoint until the
 spelling chart is connected to the kiosk for family testing. The normative
-contract is LEARNING_FEEDBACK_LOOP.md version 26. This implementation requires
+contract is LEARNING_FEEDBACK_LOOP.md version 27. This implementation requires
 independent review and a backed-up installation before declaring Saori ready.
 Nothing is merged. No live provider request or real-child ingestion was used
 for implementation verification.
@@ -10,10 +10,9 @@ for implementation verification.
 ## What the connected path does
 
 The dedicated launch command is `npm run sunny:spelling:chart` from this reviewed
-checkout. It validates the chart directory, creates/reuses a private parent PIN,
-and starts the existing kiosk launcher with the spelling-chart activation flag.
+checkout. It validates the chart directory and starts the existing kiosk launcher with the spelling-chart activation flag.
 The default directory is `~/SunnyData`; `SUNNY_CHART_DIR` can explicitly select
-another allowed directory. The PIN is shown in the parent's terminal. Existing
+another allowed directory. There is no parent PIN. Existing
 Anthropic and ElevenLabs configuration and an explicit
 `SUNNY_EXPERIENCE_PLANNER_MODEL` are required. There is no default Planner model;
 its ID is logged at startup and preserved with each request. Do not paste credentials
@@ -112,9 +111,9 @@ performance limit; synthetic three-week acceptance is not a large-history SLA.
 1. Run the dedicated command in the reviewed installed checkout. Confirm startup
    completes and the new “Your spelling journey” screen appears. A healthy database
    alone is insufficient; the new spelling screen must be visible.
-2. A parent opens Parent area and enters the PIN printed in the terminal. Add the
-   actual school list and test date. Optionally save interests before starting the
-   list; do not edit profile while a Planner request is running.
+2. Open Parent area. If profile details are offered as a draft, edit or remove
+   anything outdated and confirm them. This is the first testing/setup step; no
+   old learning evidence is imported. Add the actual school list and test date.
 3. Return to child view, select the list and prepare the next step. Let the child
    listen, type, replay a word and choose “I'm not sure” naturally. Comment on pace,
    pronunciation, clarity and engagement. Avoid helping during Discovery; the UI
@@ -143,16 +142,16 @@ Before/after aggregate SHA-256:
 Local inventories are in /tmp and are not uploaded. The foundation checkout's
 uncommitted work is preserved separately. No real chart has been created by tests.
 
-At preparation time Saori was absent from the connected hosts and SSH returned
-“No route to host.” Installation has not occurred. Once reachable, first inspect
-its running server/launcher, chart schema and local changes; preserve an explicit
-backup before switching the launcher. Never migrate/delete an older chart or
-reuse a live child directory as a synthetic test directory. A clean local test
-result does not establish that the family computer has this code.
+Saori is now reachable through verified SSH. Its running kiosk still uses the old
+checkout; installation has not occurred. Preserve an explicit backup before
+switching the launcher. Never migrate/delete an older chart or reuse a live child
+directory for synthetic tests. The installation will explicitly retain the current
+Planner model, `claude-sonnet-4-5`. A clean local test does not establish that the
+family computer has this code.
 
 ## Milestones 2/3 review round 1 follow-up
 
-The latest isolated build and 167 distinct tests pass (including 25 flag-off
+The latest isolated build and 170 distinct tests pass (including 25 flag-off
 legacy tests and the added three-failure browser case), plus four workflow checks.
 The independent review at `6d45cac` correctly identified permanent Planner and
 audio dead ends. Recovery now preserves every failed attempt, supports deliberate
@@ -164,8 +163,23 @@ before the three-week journey, plus a separate three-failure stop. Additional
 legacy-marker coverage is supplemental verification, not claimed as a separate
 pre-fix reproduction.
 
-The review also relayed requests to remove the PIN and import only a one-time,
-parent-confirmed profile draft. Those product decisions have been asked directly
-of the user and await confirmation. Until then the PIN remains, no legacy profile
-import is implemented or executed, and no second REVIEW READY is claimed. The
-current kiosk is not approved for child testing. Saori installation is still pending.
+The user directly authorized removing the parent PIN and continuing without
+routine checkpoints until testing. PIN-removal regressions first failed in four
+checks, then passed in the launcher, API and browser. Kiosk-token identity remains;
+the parent screen is accessible to anyone using that kiosk, including children.
+Old PIN settings files are left untouched and are no longer read.
+
+A one-time low-level adapter can prepare an external `profile-draft.json` from one
+explicit legacy profile file. It copies only display name, interests, companion,
+support needs and reading level, never scores, attempts, notes, word-bank state or
+predictions. Preparation does not open a database or write a fact. The parent can
+edit or remove draft details at first testing; confirmation writes one idempotent
+`child.profile_set`. Until then the draft is not Planner input. Source files and
+the draft remain preserved. The parent setup screen shows a saved profile instead
+of repeatedly offering the seed. Profile tests verify the whitelist, source
+preservation, mismatched-child rejection and confirmation/retry boundaries. The
+browser tests failed before the profile screen existed, then verify confirmation
+and the confirmed interests reaching the Planner packet.
+
+The current kiosk still requires exact-commit independent acceptance and backed-up
+Saori installation before it is declared ready for family testing.

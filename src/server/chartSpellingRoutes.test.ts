@@ -6,12 +6,12 @@ import { afterEach, beforeEach, expect, it } from 'vitest';
 import { openChart, type ChartDatabase } from '../chart/db';
 import { setupChartSpellingRoutes } from './chartSpellingRoutes';
 let root: string, db: ChartDatabase, server: ReturnType<ReturnType<typeof express>['listen']>, base: string;
-beforeEach(async () => { root = fs.mkdtempSync(path.join(os.tmpdir(), 'spelling-http-')); db = openChart('synthetic-http', { chartDir: root }); const app = express(); app.use(express.json()); setupChartSpellingRoutes(app, { children: ['synthetic-http'], get: () => db, token: 'test-token', parentPin: '123456', provider: async () => { throw new Error('not requested'); } }); server = app.listen(0, '127.0.0.1'); await new Promise<void>(r => server.once('listening', r)); base = `http://127.0.0.1:${(server.address() as any).port}`; });
+beforeEach(async () => { root = fs.mkdtempSync(path.join(os.tmpdir(), 'spelling-http-')); db = openChart('synthetic-http', { chartDir: root }); const app = express(); app.use(express.json()); setupChartSpellingRoutes(app, { children: ['synthetic-http'], get: () => db, token: 'test-token', provider: async () => { throw new Error('not requested'); } }); server = app.listen(0, '127.0.0.1'); await new Promise<void>(r => server.once('listening', r)); base = `http://127.0.0.1:${(server.address() as any).port}`; });
 afterEach(async () => { await new Promise<void>((r, j) => server.close(e => e ? j(e) : r())); db.close(); fs.rmSync(root, { recursive: true, force: true }); });
-const headers = { 'content-type': 'application/json', 'x-sunny-kiosk-token': 'test-token', 'x-sunny-parent-pin': '123456' };
-it('requires kiosk identity and explicit parent access; never accepts another child', async () => {
+const headers = { 'content-type': 'application/json', 'x-sunny-kiosk-token': 'test-token' };
+it('requires kiosk identity without a parent PIN; never accepts another child', async () => {
     expect((await fetch(base + '/api/spelling/synthetic-http/assignments')).status).toBe(401);
-    expect((await fetch(base + '/api/spelling/synthetic-http/assignments', { method: 'POST', headers: { ...headers, 'x-sunny-parent-pin': '' }, body: '{}' })).status).toBe(403);
+    expect((await fetch(base + '/api/spelling/synthetic-http/report', { headers })).status).toBe(200);
     expect((await fetch(base + '/api/spelling/reina/assignments', { headers })).status).toBe(404);
 });
 it('persists a confirmed assignment through the route and exposes truthful pending status', async () => {

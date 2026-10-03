@@ -6,6 +6,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { openChart, type ChartDatabase } from '../chart/db';
 import { exportEvents } from '../chart/exportEvents';
+import {prepareProfileDraft} from '../chart/profileDraft';
 import { setupChartSpellingRoutes } from '../server/chartSpellingRoutes';
 let browser: Browser | undefined, server: ReturnType<ReturnType<typeof express>['listen']> | undefined, db: ChartDatabase | undefined, root: string;
 afterEach(async () => { await browser?.close(); if (server)
@@ -14,10 +15,13 @@ afterEach(async () => { await browser?.close(); if (server)
 it.each([{ width: 1280, height: 800, exhaust:false }, { width: 390, height: 844, exhaust:false }, {width:1280,height:800,exhaust:true}])('verifies the kiosk journey and bounded recovery at %j', async (viewport) => {
     root = fs.mkdtempSync(path.join(os.tmpdir(), 'spelling-browser-'));
     db = openChart('synthetic-browser', { chartDir: root });
+    const legacy=path.join(root,'synthetic-legacy.json');fs.writeFileSync(legacy,JSON.stringify({childId:'synthetic-browser',displayName:'Test child',interests:['mysteries'],sessionNotes:['excluded']}));
+    prepareProfileDraft(legacy,'synthetic-browser',{chartDir:root});
     let audioCalls = 0, plannerCalls = 0;
     const app = express();
     app.use(express.json());
-    setupChartSpellingRoutes(app, { children: ['synthetic-browser'], get: () => db!, token: 'browser-token', parentPin: '123456', voice: { key: 'synthetic-recorded-audio', speak: async () => { audioCalls++; await new Promise(resolve=>setTimeout(resolve,250)); return Buffer.from('audio fixture'); } }, provider: async (stage, packet) => {
+    setupChartSpellingRoutes(app, { children: ['synthetic-browser'], get: () => db!, token: 'browser-token', voice: { key: 'synthetic-recorded-audio', speak: async () => { audioCalls++; await new Promise(resolve=>setTimeout(resolve,250)); return Buffer.from('audio fixture'); } }, provider: async (stage, packet) => {
+            expect(packet.profile?.interests).toEqual(['mazes']);
             if (++plannerCalls <= (viewport.exhaust ? 3 : 1)) throw new Error('synthetic provider failure');
             const a = packet.assignment.assignment!;
             // Hand-authored recorded-provider fixture; no model executes in this test.
@@ -38,10 +42,17 @@ it.each([{ width: 1280, height: 800, exhaust:false }, { width: 390, height: 844,
     await page.goto(`http://127.0.0.1:${(server.address() as any).port}/spelling?sunnyKioskToken=browser-token`);
     await page.getByRole('heading', { name: 'Your spelling journey' }).waitFor({ timeout: 5000 });
     expect(await page.getByRole('button', { name: 'Parent area' }).count()).toBe(1);
+    expect(await page.getByLabel('Parent PIN').count()).toBe(0);
     expect(await page.evaluate('document.documentElement.scrollWidth <= window.innerWidth')).toBe(true);
     for (let week = 1; week <= 3; week++) {
         await page.getByRole('button', { name: 'Parent area', exact: true }).click();
-        await page.getByLabel('Parent PIN').fill('123456');
+        if(week===1){
+            await page.getByRole('heading',{name:'Review profile details'}).waitFor();
+            await page.getByLabel('Profile interests').fill('mazes');
+            await page.getByRole('button',{name:'Confirm profile',exact:true}).click();
+            await page.getByText('Profile saved',{exact:true}).waitFor();
+            expect(exportEvents(db).filter(e=>e.type==='child.profile_set')).toHaveLength(1);
+        }
         await page.getByLabel('Words, one per line').fill('knee\nknow');
         const date = `2026-10-${10 + week}`;
         await page.getByLabel('Scheduled school test').fill(date);
@@ -53,7 +64,6 @@ it.each([{ width: 1280, height: 800, exhaust:false }, { width: 390, height: 844,
         if (week === 1) {
             await page.getByRole('alert').waitFor();
             await page.getByRole('button',{name:'Parent area',exact:true}).click();
-            await page.getByLabel('Parent PIN').fill('123456');
             await page.getByRole('button',{name:new RegExp(date)}).click();
             await page.getByText('Recover an interrupted step',{exact:true}).click();
             await page.getByLabel('I acknowledge the previous request may have completed').check();
@@ -94,7 +104,6 @@ it.each([{ width: 1280, height: 800, exhaust:false }, { width: 390, height: 844,
         await page.getByRole('button', { name: 'Prepare next step' }).click();
         await page.getByRole('heading', { name: 'All done for now' }).waitFor();
         await page.getByRole('button', { name: 'Parent area', exact: true }).click();
-        await page.getByLabel('Parent PIN').fill('123456');
         await page.getByRole('button', { name: new RegExp(date) }).click();
         await page.getByRole('button', { name: 'View words and forecast' }).click();
         await page.getByLabel('knee', { exact: true }).selectOption('correct');

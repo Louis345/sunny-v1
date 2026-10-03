@@ -1,6 +1,6 @@
 # Sunny Learning Feedback Loop
 
-Contract version: 26
+Contract version: 27
 
 This document is the **sole normative** authority for how Sunny forms, tests, and revises learning claims. Product changes that alter this loop must update this contract version before implementation. Other documents may describe infrastructure or history, but they must link here instead of creating another learning doctrine.
 
@@ -287,3 +287,13 @@ must be proved separately from module and browser tests before child acceptance.
 Parent-transcribed sources declare `sourceKind: parent_transcription`; a text
 hash is never presented as proof that a school photograph was attached. The
 existing hash field names remain readable for earlier typed facts.
+
+The spelling parent screen is not access-controlled on the kiosk; there is no
+parent PIN. Kiosk identity still restricts requests to the active local session.
+A one-time, explicit legacy-profile adapter may prepare a draft containing only
+display name, interests, companion, support needs and reading level. A parent must
+review/confirm it before one child.profile_set fact is appended. The draft is not
+Planner input. No word bank, SM2 history, old cycles, scores, session notes or XP
+may cross this boundary. Verification uses synthetic profiles only. Existing
+source files are retained unchanged; installation may prepare the draft, while
+confirmation belongs to the first parent testing/setup screen.
