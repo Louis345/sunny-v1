@@ -2,7 +2,7 @@
 
 The user authorized continuing past the accepted module checkpoint until the
 spelling chart is connected to the kiosk for family testing. The normative
-contract is LEARNING_FEEDBACK_LOOP.md version 25. This implementation requires
+contract is LEARNING_FEEDBACK_LOOP.md version 26. This implementation requires
 independent review and a backed-up installation before declaring Saori ready.
 Nothing is merged. No live provider request or real-child ingestion was used
 for implementation verification.
@@ -14,7 +14,9 @@ checkout. It validates the chart directory, creates/reuses a private parent PIN,
 and starts the existing kiosk launcher with the spelling-chart activation flag.
 The default directory is `~/SunnyData`; `SUNNY_CHART_DIR` can explicitly select
 another allowed directory. The PIN is shown in the parent's terminal. Existing
-Anthropic and ElevenLabs configuration is required. Do not paste credentials
+Anthropic and ElevenLabs configuration and an explicit
+`SUNNY_EXPERIENCE_PLANNER_MODEL` are required. There is no default Planner model;
+its ID is logged at startup and preserved with each request. Do not paste credentials
 into GitHub or into a test fixture.
 
 Startup opens schema-3 SQLite charts before reporting ready. Unsupported earlier
@@ -38,12 +40,20 @@ spoken-word replay alone is not assistance. Immediate recall is not retention.
 The content catalogue states its algorithm, source and evidence but does not claim
 proven learning effectiveness.
 
-Planner proposals use durable request/response files outside the fact log. Raw
-output is saved before validation; an uncertain request is not automatically
-reissued. A chart change while a proposal is in flight rejects it. Invalid or
-uncertain proposals currently require operator inspection; there is no parent
-repair screen. This deliberately visible stop can block a live journey and is a
-known readiness limitation, not an automatic retry loop.
+Planner proposals use durable request/response/error files outside the fact log.
+Every explicit retry preserves a separate attempt, capped at three per stage or
+spoken word. Known failures permit a later user retry. A request with no recorded
+outcome remains uncertain until the parent acknowledges it in the recovery panel.
+An active in-process request cannot be retried. Nothing automatically buys another
+request. Saved invalid/fenced output is preserved; fenced JSON is parsed, and the
+production transport forces a schema tool. The third failure stops visibly and
+requires operator attention. A changed chart still invalidates an in-flight result.
+
+Prior citations identify the facts present in the packet, including the current
+profile, rather than the entire log. Input sequence cutoff and model ID accompany
+new priors. A school result actually used in a later prediction remains a cited
+dependency and cannot be corrected retroactively; unrelated history stays free of
+that accidental dependency.
 
 Elli's existing ElevenLabs voice speaks the word. Audio is cached by voice and
 word; a failed/uncertain generation is not silently repeated. The same word across
@@ -139,3 +149,21 @@ its running server/launcher, chart schema and local changes; preserve an explici
 backup before switching the launcher. Never migrate/delete an older chart or
 reuse a live child directory as a synthetic test directory. A clean local test
 result does not establish that the family computer has this code.
+
+## Milestones 2/3 review round 1 follow-up
+
+The independent review at `6d45cac` correctly identified permanent Planner and
+audio dead ends. Recovery now preserves every failed attempt, supports deliberate
+parent recovery of an unknown outcome, refuses concurrent recovery, and stops at
+three calls. Red tests reproduced known-error and invalid-output dead ends, a
+missing model requirement, overly broad prior citations and a delayed limit message.
+A browser test now exercises provider failure → parent acknowledgment → success
+before the three-week journey, plus a separate three-failure stop. Additional
+legacy-marker coverage is supplemental verification, not claimed as a separate
+pre-fix reproduction.
+
+The review also relayed requests to remove the PIN and import only a one-time,
+parent-confirmed profile draft. Those product decisions have been asked directly
+of the user and await confirmation. Until then the PIN remains, no legacy profile
+import is implemented or executed, and no second REVIEW READY is claimed. The
+current kiosk is not approved for child testing. Saori installation is still pending.
