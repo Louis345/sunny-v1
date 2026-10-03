@@ -57,6 +57,20 @@ export function setupChartSpellingRoutes(app: Express, opts: Options) {
     route('get', 'report', j => j.report(), true);
     route('get', 'assignments/:assignment', (j, r) => safe(j.state(String(r.params.assignment))));
     route('get', 'assignments/:assignment/parent', (j, r) => j.state(String(r.params.assignment)).view, true);
+    route('post', 'assignments/:assignment/recover', async(j,r)=>{
+        if(r.body?.acknowledge!==true)throw Error('recovery_acknowledgment_required');
+        return safe(await j.advance(String(r.params.assignment),true));
+    },true);
+    route('post', 'assignments/:assignment/recover-audio', async(j,r)=>{
+        if(r.body?.acknowledge!==true)throw Error('recovery_acknowledgment_required');
+        if(!opts.voice)throw Error('audio_unavailable');
+        const s=j.state(String(r.params.assignment));const db=opts.get(String(r.params.child));
+        const itemId=`${s.assignmentId}:${s.stage}:${s.completed}`;
+        const item=exportEvents(db).find(e=>e.type==='item.presented'&&e.payload.itemId===itemId);
+        if(!item)throw Error('presentation_missing');
+        await cachedSpellingAudio(path.join(path.dirname(db.path),db.childId,'audio'),opts.voice)(String(item.payload.word),true);
+        return {ready:true};
+    },true);
     route('post', 'assignments/:assignment/advance', async (j, r) => safe(await j.advance(String(r.params.assignment))));
     route('post', 'assignments/:assignment/present', (j, r) => { const item = j.present(String(r.params.assignment)); const { word, ...hidden } = item; return item.instrument === 'practice' ? item : hidden; });
     route('post', 'assignments/:assignment/respond', (j, r) => { const e = j.respond(String(r.params.assignment), r.body); return { eventId: e.event_id, state: safe(j.state(String(r.params.assignment))) }; });

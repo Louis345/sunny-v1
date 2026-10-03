@@ -11,13 +11,14 @@ let browser: Browser | undefined, server: ReturnType<ReturnType<typeof express>[
 afterEach(async () => { await browser?.close(); if (server)
     await new Promise<void>((r, j) => server!.close(e => e ? j(e) : r())); db?.close(); if (root)
     fs.rmSync(root, { recursive: true, force: true }); });
-it.each([{ width: 1280, height: 800 }, { width: 390, height: 844 }])('completes three weeks through the connected kiosk at %j', async (viewport) => {
+it.each([{ width: 1280, height: 800, exhaust:false }, { width: 390, height: 844, exhaust:false }, {width:1280,height:800,exhaust:true}])('verifies the kiosk journey and bounded recovery at %j', async (viewport) => {
     root = fs.mkdtempSync(path.join(os.tmpdir(), 'spelling-browser-'));
     db = openChart('synthetic-browser', { chartDir: root });
-    let audioCalls = 0;
+    let audioCalls = 0, plannerCalls = 0;
     const app = express();
     app.use(express.json());
     setupChartSpellingRoutes(app, { children: ['synthetic-browser'], get: () => db!, token: 'browser-token', parentPin: '123456', voice: { key: 'synthetic-recorded-audio', speak: async () => { audioCalls++; await new Promise(resolve=>setTimeout(resolve,250)); return Buffer.from('audio fixture'); } }, provider: async (stage, packet) => {
+            if (++plannerCalls <= (viewport.exhaust ? 3 : 1)) throw new Error('synthetic provider failure');
             const a = packet.assignment.assignment!;
             // Hand-authored recorded-provider fixture; no model executes in this test.
             if (stage === 'prior')
@@ -32,7 +33,7 @@ it.each([{ width: 1280, height: 800 }, { width: 390, height: 844 }])('completes 
     await new Promise<void>(r => server!.once('listening', r));
     const chrome = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
     browser = await chromium.launch({ headless: true, ...(fs.existsSync(chrome) ? { executablePath: chrome } : {}) });
-    const page = await browser.newPage({ viewport });
+    const page = await browser.newPage({ viewport:{width:viewport.width,height:viewport.height} });
     await page.addInitScript("window.__plays = 0; HTMLMediaElement.prototype.play = function() { window.__plays++; setTimeout(() => this.onended && this.onended(), 0); return Promise.resolve(); }");
     await page.goto(`http://127.0.0.1:${(server.address() as any).port}/spelling?sunnyKioskToken=browser-token`);
     await page.getByRole('heading', { name: 'Your spelling journey' }).waitFor({ timeout: 5000 });
@@ -49,6 +50,26 @@ it.each([{ width: 1280, height: 800 }, { width: 390, height: 844 }])('completes 
         await page.getByRole('button', { name: 'Back to child view' }).click();
         await page.getByRole('button', { name: new RegExp(date) }).click();
         await page.getByRole('button', { name: 'Prepare next step' }).click();
+        if (week === 1) {
+            await page.getByRole('alert').waitFor();
+            await page.getByRole('button',{name:'Parent area',exact:true}).click();
+            await page.getByLabel('Parent PIN').fill('123456');
+            await page.getByRole('button',{name:new RegExp(date)}).click();
+            await page.getByText('Recover an interrupted step',{exact:true}).click();
+            await page.getByLabel('I acknowledge the previous request may have completed').check();
+            await page.getByRole('button',{name:'Try Planner again',exact:true}).click();
+            if(viewport.exhaust){
+                await page.getByRole('alert').waitFor();
+                await page.getByRole('button',{name:'Try Planner again',exact:true}).click();
+                await page.getByText('Three attempts failed. This step needs repair before more requests can run.',{exact:true}).waitFor();
+                expect(await page.getByRole('button',{name:'Try Planner again',exact:true}).isDisabled()).toBe(true);
+                expect(plannerCalls).toBe(3);
+                expect(exportEvents(db).filter(e=>e.type==='prediction.prior')).toHaveLength(0);
+                return;
+            }
+            await page.getByRole('button',{name:'Back to child view'}).click();
+            await page.getByRole('button',{name:new RegExp(date)}).click();
+        }
         for (const stage of ['Discovery', 'Practice', 'Recall check']) {
             if (stage === 'Practice')
                 await page.getByRole('button', { name: 'Prepare next step' }).click();
