@@ -1,3 +1,4 @@
+import {recordOriginalSpellingResponse,withOriginalSpellingChart} from '../chart/spelling/originalResponses';
 import { setupKioskHealthRoutes } from "./kioskHealthRoutes";
 import Anthropic from "@anthropic-ai/sdk";
 import { ElevenLabsClient } from "@elevenlabs/elevenlabs-js";
@@ -831,6 +832,14 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
       const cycle = existing?.domain === "spelling"
         ? recordSpellingDiscoveryAttempt({ childId, homeworkId, attempt: { ...attempt, skipped: body.skipped === true }, support: verifiedLive?.support, artifactHash: binding?.contractFingerprint, sessionId: verifiedLive?.sessionId, instrumentSignals: [...attempt.instrumentSignals, ...(verifiedLive?.instrumentSignals ?? ["live_context_unavailable"])] })
         : recordDiscoveryAttempt({ childId, homeworkId, attempt, support: verifiedLive?.support });
+      if(existing?.domain === "spelling") withOriginalSpellingChart(childId,db=>{
+        if(!verifiedLive?.chartItemId || !verifiedLive.launchId || verifiedLive.audioReplays === undefined)throw new Error('chart_live_presentation_required');
+        return recordOriginalSpellingResponse(db,{
+          assignmentId:homeworkId,sessionId:verifiedLive.sessionId,itemId:verifiedLive.chartItemId,sourceResponseId:attempt.attemptId,
+          rawResponse:attempt.attemptedValue,status:body.skipped === true ? 'skipped' : [...attempt.instrumentSignals,...verifiedLive.instrumentSignals].length ? 'ambiguous' : 'answered',
+          support:{audioReplays:verifiedLive.audioReplays,spellingShown:verifiedLive.instrumentSignals.includes('answer_exposure'),hint:false,companionHelp:verifiedLive.support.status === 'assisted'},
+        });
+      });
       console.log(` 🎮 [adaptive-math] [discovery-attempt] [committed] child=${childId} homework=${homeworkId} attempt=${attempt.attemptId}`);
       return res.json({ ok: true, lifecycle: cycle.lifecycle, revision: cycle.revision });
     } catch (error: unknown) {

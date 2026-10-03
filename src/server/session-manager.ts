@@ -1,3 +1,4 @@
+import {presentOriginalSpellingItem,withOriginalSpellingChart} from '../chart/spelling/originalResponses';
 import fs from "fs";
 import path from "path";
 import { randomUUID } from "crypto";
@@ -761,6 +762,15 @@ export class SessionManager {
       this.spellingAssessment = gev.bindSpellingAssessment({ state, cycle: getChildChart(this.chartChildId).learningCycle,
         current: this.spellingAssessment, history: this.spellingAssessmentHistory, pendingSupportId, launch:this.spellingLaunch });
       if (pendingSupportId && this.spellingAssessment?.itemId === itemId) this.pendingSpellingAssessmentSupport = false;
+      const assessment=this.spellingAssessment;
+      if(state.phase === "response" && assessment?.launchId && !assessment.chartItemId){
+        const presentation=withOriginalSpellingChart(this.chartChildId,db=>presentOriginalSpellingItem(db,{
+          assignmentId:assessment.homeworkId,sessionId:this.sessionId,nodeId:assessment.nodeId,launchId:assessment.launchId!,sourceItemId:assessment.itemId,word:assessment.word.normalize('NFC').toLowerCase(),instrument:assessment.instrument,
+          shown:{lettersVisible:assessment.ambiguous,hint:false,companionHelp:assessment.supportIds.length>0},
+        }));
+        if(presentation)assessment.chartItemId=String(presentation.payload.itemId);
+      }
+
     }
     const incomingPhase = String(state.phase ?? "").trim();
     const incomingNodeId = String(state.nodeId ?? "").trim();
@@ -1108,10 +1118,10 @@ export class SessionManager {
     return next;
   }
 
-  public getDiscoveryAttemptContext(homeworkId: string, itemId: string): { launchId?:string; nodeId: string; support: LearningObservation["assistance"]; instrumentSignals: string[]; artifactHash: string; sessionId: string } | undefined {
+  public getDiscoveryAttemptContext(homeworkId: string, itemId: string): { chartItemId?:string; audioReplays?:number; launchId?:string; nodeId: string; support: LearningObservation["assistance"]; instrumentSignals: string[]; artifactHash: string; sessionId: string } | undefined {
     const context = this.spellingAssessmentHistory?.get(itemId) ?? this.spellingAssessment;
     if (context && context.homeworkId === homeworkId && context.itemId === itemId) {
-      return { launchId: context.launchId, nodeId: context.nodeId, support: { status: !context.launchId ? "unknown" : context.supportIds.length ? "assisted" : "unassisted", scaffolds: [...context.supportIds] }, instrumentSignals: [...(!context.launchId ? ["launch_unverified"] : []), ...(!context.audioDelivered ? ["audio_unavailable"] : []), ...(context.ambiguous ? ["answer_exposure"] : [])], artifactHash: context.artifactHash, sessionId: this.sessionId };
+      return { chartItemId:context.chartItemId,audioReplays:Math.max(0,context.audioPlaybacks-1),launchId: context.launchId, nodeId: context.nodeId, support: { status: !context.launchId ? "unknown" : context.supportIds.length ? "assisted" : "unassisted", scaffolds: [...context.supportIds] }, instrumentSignals: [...(!context.launchId ? ["launch_unverified"] : []), ...(!context.audioDelivered ? ["audio_unavailable"] : []), ...(context.ambiguous ? ["answer_exposure"] : [])], artifactHash: context.artifactHash, sessionId: this.sessionId };
     }
     const math = [...(this.mathDiscoverySupportHistory?.values() ?? [])]
       .find((candidate) => candidate.homeworkId === homeworkId && candidate.itemId === itemId);
@@ -1276,7 +1286,7 @@ export class SessionManager {
           (this.spellingAssessment?.itemId === assessmentItemId
             ? this.spellingAssessment
             : undefined);
-        if (assessment) assessment.audioDelivered = audible;
+        if (assessment) { assessment.audioDelivered = audible; if(audible)assessment.audioPlaybacks++; }
       }
       this.debugRecorder.recordEvent(
         "game_narration",

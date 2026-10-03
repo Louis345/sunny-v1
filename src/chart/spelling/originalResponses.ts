@@ -1,4 +1,5 @@
-import type {ChartDatabase} from '../db';
+import {openChart,type ChartDatabase} from '../db';
+import {shouldPersistSessionData} from '../../utils/runtimeMode';
 import {decodeRow} from '../exportEvents';
 import {eventId} from '../eventId';
 import {factId,type Payloads} from './schemas';
@@ -24,4 +25,11 @@ export function recordOriginalSpellingResponse(db:ChartDatabase,input:Response){
   const count=db.sql.prepare("SELECT count(*) AS n FROM events WHERE type='response.observed' AND json_extract(payload,'$.sessionId')=? AND json_extract(payload,'$.itemId')=?").get(input.sessionId,input.itemId) as {n:number};
   return recordResponse(db,{...input,attempt:old ? Number(old.attempt) : count.n+1},{cites:[presentation.event_id]});
  }).immediate();
+}
+
+/** Low-level IO adapter shared by the original session and HTTP boundary. */
+export function withOriginalSpellingChart<T>(childId:string,write:(db:ChartDatabase)=>T):T|undefined {
+ if(!process.env.SUNNY_CHART_DIR?.trim() || !shouldPersistSessionData() || process.env.SUNNY_CERTIFICATION_RUN_ID)return undefined;
+ const db=openChart(childId);
+ try{return write(db);}catch(error){console.error(' 🎮 [spelling-chart] [write] [failed]',error);throw error;}finally{db.close();}
 }

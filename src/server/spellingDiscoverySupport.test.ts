@@ -149,3 +149,19 @@ it('records a valid launch before accepting that nodes item context',()=>{
  s.updateCurrentBoardSnapshot({assessmentMode:true,nodeId:'opening',itemId:'i1',phase:'response',answerVisibility:'hidden'});
  expect(s.getDiscoveryAttemptContext('hw-words','i1')).toMatchObject({nodeId:'opening',launchId:expect.any(String)});
 });
+
+it('commits the original presentation before any answer and counts acknowledged audio replays',async()=>{
+ const fs=await import('node:fs');const os=await import('node:os');const path=await import('node:path');
+ const {openChart}=await import('../chart/db');const {recordAssignment}=await import('../chart/spelling/record');const {exportEvents}=await import('../chart/exportEvents');
+ const root=fs.mkdtempSync(path.join(os.tmpdir(),'live-chart-'));vi.stubEnv('SUNNY_CHART_DIR',root);vi.stubEnv('SUNNY_MODE','real');
+ const db=openChart('lab-child',{chartDir:root});
+ try{
+ recordAssignment(db,{assignmentId:'hw-words',words:['night','light'],testDate:null,sourcePhotoHash:'a'.repeat(64)});
+ const s=session();s.updateCurrentBoardSnapshot({assessmentMode:true,nodeId:'opening',itemId:'i1',phase:'response',answerVisibility:'hidden'});
+ expect(exportEvents(db).map(e=>e.type)).toEqual(['assignment.ingested','item.presented']);
+ expect(s.getDiscoveryAttemptContext('hw-words','i1')).toMatchObject({chartItemId:expect.any(String),audioReplays:0});
+ await s.speakGameNarration('night.',{assessmentMode:true,itemId:'i1'});confirmCurrentPlayback(s);
+ await s.speakGameNarration('night.',{assessmentMode:true,itemId:'i1'});confirmCurrentPlayback(s);
+ expect(s.getDiscoveryAttemptContext('hw-words','i1')).toMatchObject({audioReplays:1});
+ }finally{db.close();vi.unstubAllEnvs();fs.rmSync(root,{recursive:true,force:true});}
+});

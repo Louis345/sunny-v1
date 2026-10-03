@@ -47,3 +47,26 @@ parent could see the actual activity while old logs recorded only item binding.
 The launch ID is currently retained for the voice session, not yet persisted in
 SQLite. Replay correlation and the full browser/database journey still need
 verification before deployment. No child-facing controls changed.
+
+## Original Discovery runtime bridge (integration in progress)
+
+The original session now writes a typed presentation when a validated response
+item opens, before its answer arrives. The original Discovery HTTP endpoint
+writes the captured answer with that presentation ID and source attempt ID.
+Repeated delivery remains idempotent. Confirmed browser playback acknowledgments
+supply the replay count; sending TTS alone does not establish audible playback.
+The existing cycle still receives the answer for the current board Planner.
+
+Two runtime regressions failed before wiring: no presentation at item opening,
+and no SQLite response after an actual HTTP submission. Both pass after wiring;
+27 tests in four files and the server/web build pass in the isolated offline lab.
+These additions establish the previously missing runtime calls; no child UI lines
+change. The adapter opens and closes its own database handle for each write.
+
+This is not deployment acceptance. Relaunch/late-response correlation, failure
+between the cycle and chart writes, practice/aggregate instrumentation and full
+original-browser verification remain required. A configured chart with no valid
+prior presentation rejects the write instead of fabricating an earlier exposure.
+Current audio-only Discovery has no separate hint button; its false hint field
+must not be reused for an instrument with unmeasured help. No live data or
+provider calls were used. Saori remains unchanged.

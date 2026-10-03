@@ -71,3 +71,20 @@ it('does not infer independent spelling evidence from a live context missing its
  expect(observation.assistance.status).toBe('unknown');
  expect(observation.provenance).toBe('practice');
 });
+
+it('writes one matching typed response through the original HTTP endpoint and preserves the cycle answer',async()=>{
+ const {rootDir,items,post}=await fixture();
+ const {openChart}=await import('../chart/db');const {recordAssignment}=await import('../chart/spelling/record');const {presentOriginalSpellingItem}=await import('../chart/spelling/originalResponses');const {exportEvents}=await import('../chart/exportEvents');
+ vi.stubEnv('SUNNY_CHART_DIR',path.join(rootDir,'charts'));const db=openChart('lab-child');
+ try{
+ recordAssignment(db,{assignmentId:'hw-words',words:['night','light'],testDate:null,sourcePhotoHash:'a'.repeat(64)});
+ const nodeId=getLearningCycle('lab-child','hw-words',{rootDir})!.nodes[0].nodeId;
+ const p=presentOriginalSpellingItem(db,{assignmentId:'hw-words',sessionId:'s1',nodeId,launchId:'launch',sourceItemId:items[0].id,word:'night',instrument:'discovery',shown:{lettersVisible:false,hint:false,companionHelp:false}});
+ registerActiveVoiceSessionManager('lab-child',{noteExternalEvent(){},getSessionId:()=> 's1',getDiscoveryAttemptContext:()=>({nodeId,launchId:'launch',chartItemId:String(p.payload.itemId),audioReplays:1,support:{status:'unassisted',scaffolds:[]},instrumentSignals:[],artifactHash:hashDiscoveryContract(items),sessionId:'s1'})});
+ const body={attemptId:'typed-answer',sessionId:'s1',itemId:items[0].id,attemptedValue:'nite',observedAt:'2026-10-03T12:00:00Z',supportEventIds:[],instrumentSignals:[]};
+ expect((await post('attempt',body)).status).toBe(200);expect((await post('attempt',body)).status).toBe(200);
+ const responses=exportEvents(db).filter(e=>e.type==='response.observed');expect(responses).toHaveLength(1);
+ expect(responses[0].payload).toMatchObject({rawResponse:'nite',sourceResponseId:'typed-answer',support:{audioReplays:1,companionHelp:false}});
+ expect(getLearningCycle('lab-child','hw-words',{rootDir})!.observations[0].result.correct).toBe(false);
+ }finally{db.close();}
+});
