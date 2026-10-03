@@ -1,3 +1,4 @@
+import {requestPlannerMessage, readPlannerToolReceipt} from "./plannerTransport";
 import { MATH_ITEMS_SCHEMA, parseDirectItem, type DirectItem } from "./directMathExperience";
 import Anthropic from "@anthropic-ai/sdk";
 import path from "path";
@@ -575,7 +576,7 @@ async function askPlanner(
     model: plannerModel,
   };
   const rawDecision = await runMathProviderStage({ draftDir, stage: "progression-decision", model: plannerModel, request: snapshot, execute: async () => {
-  const response = await anthropic.messages.create({
+  const response = await requestPlannerMessage(anthropic, {
     model: plannerModel,
     // The prescription now carries five additional design fields; 2600 truncated them.
     max_tokens: 6000,
@@ -670,14 +671,12 @@ ${JSON.stringify({ lifecycle: cycle.lifecycle, assignment: cycle.assignment, the
         ],
       },
     }],
-    tool_choice: plannerModel === "claude-opus-5-5" ? { type: "auto" } : { type: "tool", name: toolName },
+    tool_choice: { type: "tool", name: toolName },
   }, { timeout: Number(process.env.SUNNY_AI_TIMEOUT_MS ?? 120000) });
-  const tool = response.content.find((block) => block.type === "tool_use" && block.name === toolName);
-  if (!tool || tool.type !== "tool_use") throw new Error("canonical_progression_tool_output_missing");
-  return tool.input;
+  return { plannerMessage: response };
   } });
   console.log(` 🎮 [canonical-progression] [planner-response] [checkpointed] homework=${cycle.homeworkId} revision=${cycle.revision}`);
-  return parseCanonicalProgressionDecision(rawDecision);
+  return parseCanonicalProgressionDecision(readPlannerToolReceipt(rawDecision, toolName));
 }
 
 type AdvanceInput = {

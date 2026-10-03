@@ -1,5 +1,5 @@
 const modelRequest = vi.hoisted(() => vi.fn());
-vi.mock("ai", () => ({ generateObject: modelRequest }));
+vi.mock("ai", () => ({ generateObject: modelRequest, streamObject: (options:unknown) => ({object:modelRequest(options)}) }));
 import fs from "fs";
 import os from "os";
 import path from "path";
@@ -306,6 +306,6 @@ it('requests native JSON output for Opus instead of the old SDK forced-tool fall
   const input=buildExperiencePlannerInput(getChildChart('lab-opus',{rootDir:root}),{rootDir:root});
   modelRequest.mockRejectedValueOnce(new Error('fixture-stop'));
   await expect(runAiPsychologistExperiencePlanner(input,{model:'claude-opus-5-5'})).rejects.toThrow('fixture-stop');
-  expect(modelRequest.mock.lastCall?.[0]).toMatchObject({providerOptions:{anthropic:{structuredOutputMode:'outputFormat'}}});
+  expect(modelRequest.mock.lastCall?.[0]).toMatchObject({providerOptions:{anthropic:{structuredOutputMode:'outputFormat',effort:'high'}},maxOutputTokens:32000,maxRetries:0});
  }finally{fs.rmSync(root,{recursive:true,force:true});}
 });

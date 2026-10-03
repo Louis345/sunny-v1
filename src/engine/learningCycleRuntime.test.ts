@@ -651,7 +651,7 @@ describe("canonical learning cycle runtime", () => {
     await advanceCanonicalCycleFromEvidence({
       childId: "reina",
       homeworkId: "hw-runtime",
-      client: client as never,
+      client: {messages:{...client.messages,stream:(payload:Record<string,unknown>)=>({finalMessage:()=>client.messages.create(payload)})}} as never,
       model,
     }, { rootDir });
 
@@ -888,11 +888,25 @@ it('uses the configured spelling Planner for next-step decisions, keeping math c
     fs.writeFileSync(path.join(dir,'learning_profile.json'),JSON.stringify({childId:'reina'}));
     createLearningCycle({...input(),domain,nodes:[node('facts','baseline')]},{rootDir});
     recordCanonicalNodeCompletion({childId:'reina',homeworkId:'hw-runtime',sessionId:'lab',nodeId:'facts',result:{completed:true,accuracy:1,timeSpent_ms:1000,targetResults:[{target:'2x5',attemptedValue:'10',correct:true}]}},{rootDir});
-    const create=vi.fn(async()=>{throw Error('fixture-stop');});
-    await expect(advanceCanonicalCycleFromEvidence({childId:'reina',homeworkId:'hw-runtime',client:{messages:{create}} as never},{rootDir})).rejects.toThrow('fixture-stop');
+    const create=vi.fn(async(_payload?:unknown)=>{throw Error('fixture-stop');});
+    await expect(advanceCanonicalCycleFromEvidence({childId:'reina',homeworkId:'hw-runtime',client:{messages:{create,stream:(payload:unknown)=>({finalMessage:()=>create(payload)})}} as never},{rootDir})).rejects.toThrow('fixture-stop');
     expect(create).toHaveBeenCalledOnce();
     expect((create.mock.calls[0] as unknown as [Record<string,unknown>])[0].model).toBe(domain==='spelling'?'claude-opus-5-5':'legacy-math-model');
    }finally{fs.rmSync(rootDir,{recursive:true,force:true});}
   }
  }finally{vi.unstubAllEnvs();}
+});
+
+it.each(['max_tokens','refusal'])('preserves canonical Planner %s as a known completed response',async(reason)=>{
+ const rootDir=root();
+ try {
+  const dir=path.join(rootDir,'src/context/reina');fs.mkdirSync(dir,{recursive:true});fs.writeFileSync(path.join(dir,'learning_profile.json'),JSON.stringify({childId:'reina'}));
+  createLearningCycle({...input(),nodes:[node('facts','baseline')]},{rootDir});
+  recordCanonicalNodeCompletion({childId:'reina',homeworkId:'hw-runtime',sessionId:'lab',nodeId:'facts',result:{completed:true,accuracy:1,timeSpent_ms:1000,targetResults:[{target:'2x5',attemptedValue:'10',correct:true}]}},{rootDir});
+  const message={stop_reason:reason,content:[]};const create=vi.fn(async()=>message),stream=vi.fn(()=>({finalMessage:create}));
+  await expect(advanceCanonicalCycleFromEvidence({childId:'reina',homeworkId:'hw-runtime',model:'claude-opus-5-5',client:{messages:{create,stream}} as never},{rootDir})).rejects.toThrow('planner_response_'+reason);
+  const receipts=fs.readdirSync(path.join(dir,'homework/cycles/.planner/hw-runtime'),{recursive:true}) as string[];
+  const raw=receipts.filter(f=>f.endsWith('.json')).map(f=>fs.readFileSync(path.join(dir,'homework/cycles/.planner/hw-runtime',f),'utf8')).find(s=>s.includes('plannerMessage'));
+  expect(raw).toContain('"received"');expect(raw).toContain(reason);expect(create).toHaveBeenCalledTimes(1);
+ }finally{fs.rmSync(rootDir,{recursive:true,force:true});}
 });

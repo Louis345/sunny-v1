@@ -1,6 +1,6 @@
 import {expect,it,vi} from 'vitest';
 const create=vi.hoisted(()=>vi.fn());
-vi.mock('@anthropic-ai/sdk',()=>({default:class{messages={create};}}));
+vi.mock('@anthropic-ai/sdk',()=>({default:class{messages={create,stream:(...args:unknown[])=>({finalMessage:()=>create(...args as [unknown])})};}}));
 import {planSpellingIntakeFromSource, ASSIGNMENT_PLANNER_TOOL_NAME, type AssignmentPlanningPacket} from './assignmentPlanner';
 const packet = {
   childId: "lab-child", sourceDocument: { filename: "school.txt", sourcePath: "/missing/school.txt", mediaType: "text/plain", sourceKind: "text_assignment", extractionMethod: "text", fullText: "Spelling\nnight\nlight\ncan't", fileHash: "source-hash", pages: [{ pageNumber: 1, text: "Spelling\nnight\nlight\ncan't" }], warnings: [] },
@@ -21,4 +21,9 @@ it('rejects missing tool output with one call instead of inventing a plan',async
  create.mockClear();create.mockResolvedValue({content:[{type:'text',text:'I cannot decide'}],usage:{input_tokens:10,output_tokens:20}});
  await expect(planSpellingIntakeFromSource(packet,{model:'claude-opus-5-5'})).rejects.toThrow();
  expect(create).toHaveBeenCalledTimes(1);
+});
+
+it.each(['max_tokens','refusal'])('names assignment Planner %s instead of a missing tool',async(reason)=>{
+ create.mockClear();create.mockResolvedValue({stop_reason:reason,content:[],usage:{input_tokens:10,output_tokens:20}});
+ await expect(planSpellingIntakeFromSource(packet,{model:'claude-opus-5-5'})).rejects.toThrow('planner_response_'+reason);expect(create).toHaveBeenCalledTimes(1);
 });
