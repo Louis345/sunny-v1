@@ -1,3 +1,4 @@
+import { SpellingChart } from "./components/SpellingChart/SpellingChart";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import "./index.css";
@@ -33,7 +34,7 @@ const visualExplainerMapDemoEnabled =
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <TransitionProvider>
-      {learningReportEnabled ? (
+      {window.location.pathname === "/spelling" ? (<SpellingChart />) : learningReportEnabled ? (
         <LearningReportPage childId={returnedWorkChildId} initialHomeworkId={learningReportHomeworkId} />
       ) : returnedWorkEnabled ? (
         <ReturnedWorkPage childId={returnedWorkChildId} />

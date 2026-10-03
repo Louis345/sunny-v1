@@ -1,3 +1,4 @@
+import { assertLegacyLearningAuthority } from '../utils/runtimeMode';
 import fs from "fs";
 import path from "path";
 import { createHash } from "crypto";
@@ -619,6 +620,7 @@ function nowIso(opts: LearningCycleRepositoryOptions): string {
 }
 
 function cyclePath(childId: string, homeworkId: string, opts: LearningCycleRepositoryOptions): string {
+  assertLegacyLearningAuthority();
   return path.join(
     resolveChildContextDir(childId.trim().toLowerCase(), { rootDir: opts.rootDir }),
     "homework",

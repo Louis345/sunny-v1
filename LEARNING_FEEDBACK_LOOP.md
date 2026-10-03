@@ -1,6 +1,6 @@
 # Sunny Learning Feedback Loop
 
-Contract version: 22
+Contract version: 28
 
 This document is the **sole normative** authority for how Sunny forms, tests, and revises learning claims. Product changes that alter this loop must update this contract version before implementation. Other documents may describe infrastructure or history, but they must link here instead of creating another learning doctrine.
 
@@ -218,3 +218,85 @@ The existing intake Planner selects the opening spelling diagnostic from explici
 Spelling items freeze word identity, accepted forms, response mode, measurement role, and source evidence. A later unassisted recall opportunity can measure performance after practice, but the word remains previously exposed. Immediate recall is not delayed retention. Neither a new item ID nor a successful game resets word exposure. The final recall check includes targeted and initially secure words, and incomplete coverage remains explicit.
 
 Verified implementation-repair evidence is operational evidence, not child-learning evidence. Reusable engineering lessons may describe only implementation conditions, reproduced defects, verified changes, provenance and uncertainty. Failed or incompatible repairs cannot become trusted lessons. Selecting a lesson is not evidence that it improved a later artifact; recurrence, verification, latency, and cost remain separate measured outcomes. These records cannot change academic contracts, weaken verifiers, create child preferences, or promote simulation observations into a real chart.
+
+
+## Spelling chart authority — approved, not yet activated
+
+Milestone 1 supplies a standalone spelling department. Until an explicit cutover,
+legacy production paths remain authoritative; this section does not activate it.
+The new department records small, strictly validated typed facts in the child's
+append-only SQLite chart. Views, scoring, evaluations, pattern history, reports
+and Planner packets are pure projections; no legacy cycle commands, SM2 fields
+or JSON learning records are inputs. Missing history stays missing.
+
+Commit sequence and server-recorded time establish what was known when. Caller
+clocks cannot reorder facts or establish preregistration. Priors precede every
+Discovery response for the assignment; forecasts precede recorded school results.
+That latter boundary alone does not prove a forecast preceded the actual test.
+Rooms submit raw responses; code scores frozen accepted forms. Assistance is
+per response, including presentation support; audio replay alone is not help.
+Only first, unassisted Discovery measurements with known outcomes evaluate
+priors. Prior word exposure remains visible across sessions. Unknown, skipped
+and ambiguous outcomes remain missing evidence, not failures. Coverage accompanies
+accuracy. Plans cite reproducible evaluations and their actual input responses.
+Corrections preserve identity and cannot alter facts already depended on.
+The shared chart infrastructure is subject-neutral; spelling owns its schemas,
+taxonomy and measurements. No kiosk, Planner or other subject is wired here.
+
+For the unactivated spelling department, forecasts and Planner decisions cannot
+be corrected into different predictions or decisions at their original time.
+Response corrections can only downgrade reliability or add support: never replace
+a typed answer with another answer, upgrade an unknown result, or remove help.
+Pattern tags freeze when priors exist. Protocol 1 accepts only the canonical word
+frozen by the assignment; a presenter cannot add alternative answers. Hearing an
+unanswered audio-only prompt is elicitation, so resuming it preserves eligibility.
+Prior answered attempts and visible/support/practice exposure remain exclusions.
+
+## Spelling kiosk cutover — implementation authorized, activation explicit
+
+The approved next milestone connects the typed-fact department to a dedicated
+spelling kiosk journey. `SUNNY_SPELLING_CHART=1` selects that path; an unavailable
+chart fails visibly and never falls back to JSON cycles or SM2. Other departments
+retain their existing authority. The child-chart doorway provides spelling facts
+and profile facts from SQLite only. Parent-confirmed assignment input creates the
+source artifact; the Planner alone supplies pattern tags, priors, the teaching
+program and the forecast. Code validates those proposals and measures responses.
+No default probabilities, simulated answers or fallback teaching plans are allowed.
+
+Discovery covers the assignment before a teaching plan is requested. Each launched
+item has a server identity, frozen instrument and assistance conditions. Exit and
+resume use committed facts; duplicate submissions cannot create new attempts.
+Practice is visibly separate from hidden recall. Recall covers initially secure
+as well as targeted words. The school result is entered explicitly by a parent;
+missing results remain missing and are not filled with failures. Each fact can
+currently be corrected at most once; the parent UI must disclose that limitation.
+
+Provider requests use durable operational checkpoints outside the event stream:
+claim before calling, preserve the response before validation, and reuse it on
+restart. Each explicit user retry creates a separately preserved attempt after a
+recorded failure, with at most three attempts per explicitly opened batch for a stage
+or spoken word. Exhaustion pauses requests; a parent may explicitly acknowledge
+and open another bounded batch without deleting any earlier checkpoint. No retry
+runs automatically. After any failed audio attempt, further provider attempts
+require the parent recovery action; child taps and restarts cannot drain the budget. A request with no recorded outcome requires an explicit parent
+acknowledgment before another attempt; an active in-process request cannot be
+recovered concurrently. Saved invalid output and failures remain auditable. Request checkpoints name the explicitly configured model. New prior provenance
+records its input sequence cutoff and model; citations identify supplied facts,
+not every unrelated chart event. These checkpoints never supply child
+observations. Verification uses synthetic charts and recorded provider fixtures;
+those fixtures cannot be selected for a real child. Activation and host readiness
+must be proved separately from module and browser tests before child acceptance.
+
+Parent-transcribed sources declare `sourceKind: parent_transcription`; a text
+hash is never presented as proof that a school photograph was attached. The
+existing hash field names remain readable for earlier typed facts.
+
+The spelling parent screen is not access-controlled on the kiosk; there is no
+parent PIN. Kiosk identity still restricts requests to the active local session.
+A one-time, explicit legacy-profile adapter may prepare a draft containing only
+display name, interests, companion, support needs and reading level. A parent must
+review/confirm it before one child.profile_set fact is appended. The draft is not
+Planner input. No word bank, SM2 history, old cycles, scores, session notes or XP
+may cross this boundary. Verification uses synthetic profiles only. Existing
+source files are retained unchanged; installation may prepare the draft, while
+confirmation belongs to the first parent testing/setup screen.

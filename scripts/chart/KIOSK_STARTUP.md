@@ -81,3 +81,15 @@ The server entry point adds connection ownership, one factual status endpoint,
 and logged shutdown failures in place of swallowed cleanup errors. New source
 lines implement this requested lifecycle invariant; no teaching or measurement
 algorithm, math module, provider call or learning-contract change is introduced.
+
+
+## Future spelling-core installation preflight (not authorized or performed here)
+
+The unactivated spelling-core branch now requires schema 3. A host on which the
+startup foundation created a schema-1 database (even empty), or a development
+schema-2 database, will refuse that format rather than migrate it. Before any
+separately authorized Milestone 3 installation, inspect the actual target's
+schema and event count with the operator's authorization, preserve a verified
+backup, and resolve the format transition explicitly. Do not delete a child's
+file or bypass the guard to make startup pass. No target-host inspection,
+installation, migration or activation was performed by Milestone 1.
