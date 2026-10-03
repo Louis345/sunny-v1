@@ -2,7 +2,7 @@
 
 The user authorized continuing past the accepted module checkpoint until the
 spelling chart is connected to the kiosk for family testing. The normative
-contract is LEARNING_FEEDBACK_LOOP.md version 27. This implementation requires
+contract is LEARNING_FEEDBACK_LOOP.md version 28. This implementation requires
 independent review and a backed-up installation before declaring Saori ready.
 Nothing is merged. No live provider request or real-child ingestion was used
 for implementation verification.
@@ -40,13 +40,16 @@ The content catalogue states its algorithm, source and evidence but does not cla
 proven learning effectiveness.
 
 Planner proposals use durable request/response/error files outside the fact log.
-Every explicit retry preserves a separate attempt, capped at three per stage or
-spoken word. Known failures permit a later user retry. A request with no recorded
+Every explicit retry preserves a separate attempt, capped at three per explicitly opened batch for a stage or
+spoken word. After exhaustion, a parent can acknowledge and open a new batch;
+earlier files are never deleted. Failed audio can only be retried from Parent area;
+child taps and restarts cannot consume more provider calls. Known Planner failures
+permit a later explicit retry. A request with no recorded
 outcome remains uncertain until the parent acknowledges it in the recovery panel.
 An active in-process request cannot be retried. Nothing automatically buys another
 request. Saved invalid/fenced output is preserved; fenced JSON is parsed, and the
-production transport forces a schema tool. The third failure stops visibly and
-requires operator attention. A changed chart still invalidates an in-flight result.
+production transport forces a schema tool. The third failure pauses the batch visibly and offers an acknowledged parent
+action to open the next one. A changed chart still invalidates an in-flight result.
 
 Prior citations identify the facts present in the packet, including the current
 profile and the source tags for supplied pattern history, rather than the entire log. Input sequence cutoff and model ID accompany
@@ -151,7 +154,7 @@ family computer has this code.
 
 ## Milestones 2/3 review round 1 follow-up
 
-The latest isolated build and 170 distinct tests pass (including 25 flag-off
+The latest isolated build and 173 distinct tests pass (including 25 flag-off
 legacy tests and the added three-failure browser case), plus four workflow checks.
 The independent review at `6d45cac` correctly identified permanent Planner and
 audio dead ends. Recovery now preserves every failed attempt, supports deliberate
@@ -183,3 +186,24 @@ and the confirmed interests reaching the Planner packet.
 
 The current kiosk still requires exact-commit independent acceptance and backed-up
 Saori installation before it is declared ready for family testing.
+
+
+## Milestones 2/3 review round 2 follow-up
+
+The reviewer found that the three-failure stop was permanent. Our prior lab
+asserted that stop and ended the scenario, so it never tested returning after an
+outage. The updated invariant requires a parent to be able to reopen a bounded
+batch without erasing history, and forbids child taps from retrying failed audio.
+Five checks failed before this fix: exhausted Planner recovery, a second batch's
+bound, audio recovery after exhaustion, rapid child retries, and the browser stop.
+The shared checkpoint helper now records immutable batch-open acknowledgments;
+each batch allows three attempts with no automatic retry. First-batch and legacy
+checkpoint filenames remain readable. Child audio failures always show the audio
+message and disable the sound button; the server enforces the retry boundary even
+after reload. Parent recovery clears its checkbox for each explicit action.
+
+The extended browser case now continues through an exhausted Planner batch,
+parent reopening, failed audio, parent audio recovery and all three synthetic
+weeks. Unit checks prove byte-for-byte preservation of earlier attempts, reuse of
+the recovered response, and the same three-attempt bound in a subsequent batch.
+This is recovery verification with fixtures; it does not exercise live providers.

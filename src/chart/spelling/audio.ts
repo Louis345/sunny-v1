@@ -12,6 +12,6 @@ export function cachedSpellingAudio(directory:string,voice:SpellingVoice){
   if(fs.existsSync(base+'.requested')&&!fs.existsSync(base+'.attempt-1.request.json'))fs.writeFileSync(base+'.attempt-1.request.json',JSON.stringify({legacyUnknown:true}),{flag:'wx',mode:0o600});
   return checkpointedAttempt(base,{voice:voice.key,word},async()=>{
    const bytes=await voice.speak(word);if(!bytes.length)throw Error('audio_empty');return bytes.toString('base64');
-  },raw=>{if(typeof raw!=='string')throw Error('audio_invalid');const bytes=Buffer.from(raw,'base64');if(!bytes.length)throw Error('audio_empty');return bytes;},recover);
+  },raw=>{if(typeof raw!=='string')throw Error('audio_invalid');const bytes=Buffer.from(raw,'base64');if(!bytes.length)throw Error('audio_empty');return bytes;},recover,true);
  };
 }

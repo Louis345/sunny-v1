@@ -19,10 +19,13 @@ it('buys a word once across repeated plays and restarts', async () => {
         fs.rmSync(root, { recursive: true, force: true });
     }
 });
-it('preserves a known failure and allows a later tap to recover the audio', async () => {
+it('preserves a known failure and requires parent recovery for further audio calls', async () => {
  const root=fs.mkdtempSync(path.join(os.tmpdir(),'spelling-audio-'));let calls=0;
  const voice={key:'v',speak:async()=>{if(++calls===1)throw Error('lost');return Buffer.from('audio');}};
  try{await expect(cachedSpellingAudio(root,voice)('able')).rejects.toThrow('lost');
+ for(let n=0;n<5;n++)await expect(cachedSpellingAudio(root,voice)('able')).rejects.toThrow('parent_recovery_required');
+ expect(calls).toBe(1);
+ expect(await cachedSpellingAudio(root,voice)('able',true)).toEqual(Buffer.from('audio'));expect(calls).toBe(2);
  expect(await cachedSpellingAudio(root,voice)('able')).toEqual(Buffer.from('audio'));expect(calls).toBe(2);
  }finally{fs.rmSync(root,{recursive:true,force:true});}
 });
@@ -34,5 +37,15 @@ it('keeps a legacy unknown audio outcome blocked until explicit recovery',async(
  const audio=cachedSpellingAudio(root,{key:'v',speak:async()=>{calls++;return Buffer.from('audio');}});
  try{await expect(audio('able')).rejects.toThrow('needs_attention');expect(calls).toBe(0);
  expect(await audio('able',true)).toEqual(Buffer.from('audio'));expect(calls).toBe(1);expect(fs.existsSync(path.join(root,key+'.requested'))).toBe(true);
+ }finally{fs.rmSync(root,{recursive:true,force:true});}
+});
+
+it('recovers exhausted audio in a new batch without child taps opening it',async()=>{
+ const root=fs.mkdtempSync(path.join(os.tmpdir(),'spelling-audio-'));let calls=0;
+ const voice={key:'v',speak:async()=>{if(++calls<=3)throw Error('outage');return Buffer.from('audio');}};
+ try{for(let n=0;n<3;n++)await expect(cachedSpellingAudio(root,voice)('able',true)).rejects.toThrow();
+ await expect(cachedSpellingAudio(root,voice)('able')).rejects.toThrow('attempt_limit');expect(calls).toBe(3);
+ expect(await cachedSpellingAudio(root,voice)('able',true)).toEqual(Buffer.from('audio'));expect(calls).toBe(4);
+ expect(await cachedSpellingAudio(root,voice)('able')).toEqual(Buffer.from('audio'));expect(calls).toBe(4);
  }finally{fs.rmSync(root,{recursive:true,force:true});}
 });

@@ -20,7 +20,7 @@ it.each([{ width: 1280, height: 800, exhaust:false }, { width: 390, height: 844,
     let audioCalls = 0, plannerCalls = 0;
     const app = express();
     app.use(express.json());
-    setupChartSpellingRoutes(app, { children: ['synthetic-browser'], get: () => db!, token: 'browser-token', voice: { key: 'synthetic-recorded-audio', speak: async () => { audioCalls++; await new Promise(resolve=>setTimeout(resolve,250)); return Buffer.from('audio fixture'); } }, provider: async (stage, packet) => {
+    setupChartSpellingRoutes(app, { children: ['synthetic-browser'], get: () => db!, token: 'browser-token', voice: { key: 'synthetic-recorded-audio', speak: async () => { audioCalls++; await new Promise(resolve=>setTimeout(resolve,250)); if(viewport.exhaust && audioCalls===1)throw Error('synthetic timeout'); return Buffer.from('audio fixture'); } }, provider: async (stage, packet) => {
             expect(packet.profile?.interests).toEqual(['mazes']);
             if (++plannerCalls <= (viewport.exhaust ? 3 : 1)) throw new Error('synthetic provider failure');
             const a = packet.assignment.assignment!;
@@ -38,7 +38,7 @@ it.each([{ width: 1280, height: 800, exhaust:false }, { width: 390, height: 844,
     const chrome = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
     browser = await chromium.launch({ headless: true, ...(fs.existsSync(chrome) ? { executablePath: chrome } : {}) });
     const page = await browser.newPage({ viewport:{width:viewport.width,height:viewport.height} });
-    await page.addInitScript("window.__plays = 0; HTMLMediaElement.prototype.play = function() { window.__plays++; setTimeout(() => this.onended && this.onended(), 0); return Promise.resolve(); }");
+    await page.addInitScript("window.__plays = 0; window.Audio = class { onended = null; onerror = null; pause() {} play() { window.__plays++; setTimeout(() => this.onended && this.onended(), 0); return Promise.resolve(); } }");
     await page.goto(`http://127.0.0.1:${(server.address() as any).port}/spelling?sunnyKioskToken=browser-token`);
     await page.getByRole('heading', { name: 'Your spelling journey' }).waitFor({ timeout: 5000 });
     expect(await page.getByRole('button', { name: 'Parent area' }).count()).toBe(1);
@@ -70,12 +70,16 @@ it.each([{ width: 1280, height: 800, exhaust:false }, { width: 390, height: 844,
             await page.getByRole('button',{name:'Try Planner again',exact:true}).click();
             if(viewport.exhaust){
                 await page.getByRole('alert').waitFor();
+                await page.getByLabel('I acknowledge the previous request may have completed').check();
                 await page.getByRole('button',{name:'Try Planner again',exact:true}).click();
-                await page.getByText('Three attempts failed. This step needs repair before more requests can run.',{exact:true}).waitFor();
-                expect(await page.getByRole('button',{name:'Try Planner again',exact:true}).isDisabled()).toBe(true);
+                await page.getByText('Three attempts failed. A parent can acknowledge and open another batch.',{exact:true}).waitFor({timeout:5000});
+                expect(await page.getByRole('button',{name:'Open new Planner batch',exact:true}).isDisabled()).toBe(true);
                 expect(plannerCalls).toBe(3);
                 expect(exportEvents(db).filter(e=>e.type==='prediction.prior')).toHaveLength(0);
-                return;
+                await page.getByLabel('I acknowledge the previous request may have completed').check();
+                await page.getByRole('button',{name:'Open new Planner batch',exact:true}).click();
+                await page.getByRole('heading',{name:'Discovery',exact:true}).waitFor();
+                expect(plannerCalls).toBe(4);
             }
             await page.getByRole('button',{name:'Back to child view'}).click();
             await page.getByRole('button',{name:new RegExp(date)}).click();
@@ -92,6 +96,20 @@ it.each([{ width: 1280, height: 800, exhaust:false }, { width: 390, height: 844,
                     await page.getByRole('button', {name:'Save my place & leave'}).click();
                     await page.waitForTimeout(600);
                     expect(await page.evaluate('window.__plays')).toBe(0);
+                    await page.getByRole('button',{name:new RegExp(date)}).click();
+                    await page.getByRole('button',{name:'Start',exact:true}).click();
+                }
+                if(viewport.exhaust && week===1 && stage==='Discovery' && word===0){
+                    await page.getByRole('button',{name:'Hear the word',exact:true}).click();
+                    await page.getByText('The word audio could not play. A parent can help retry it.',{exact:true}).waitFor({timeout:5000});
+                    expect(await page.getByRole('button',{name:'Hear the word',exact:true}).isDisabled()).toBe(true);
+                    expect(audioCalls).toBe(1);
+                    await page.getByRole('button',{name:'Parent area',exact:true}).click();
+                    await page.getByRole('button',{name:new RegExp(date)}).click();
+                    await page.getByText('Recover an interrupted step',{exact:true}).click();
+                    await page.getByLabel('I acknowledge the previous request may have completed').check();
+                    await page.getByRole('button',{name:'Try word audio again',exact:true}).click();
+                    await page.getByRole('button',{name:'Back to child view'}).click();
                     await page.getByRole('button',{name:new RegExp(date)}).click();
                     await page.getByRole('button',{name:'Start',exact:true}).click();
                 }
@@ -120,7 +138,7 @@ it.each([{ width: 1280, height: 800, exhaust:false }, { width: 390, height: 844,
             await page.screenshot({ path: path.join(os.tmpdir(), `sunny-spelling-report-${viewport.width}.png`), fullPage: true });
         await page.getByRole('button', { name: 'Back to child view' }).click();
     }
-    expect(audioCalls).toBe(2);
+    expect(audioCalls).toBe(viewport.exhaust?3:2);
     const replayCounts=exportEvents(db).filter(e=>e.type==='response.observed').map(e=>(e.payload.support as {audioReplays:number}).audioReplays);
     expect(replayCounts.filter(n=>n===1)).toHaveLength(1);
     expect(replayCounts.filter(n=>n===0)).toHaveLength(17);

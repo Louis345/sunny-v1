@@ -30,3 +30,20 @@ it('cannot recover or repeat an actively running call',()=>isolated(async base=>
  await expect(checkpointedAttempt(base,{},produce,x=>x,true)).rejects.toThrow('in_progress');
  release('ok');expect(await first).toBe('ok');expect(calls).toBe(1);
 }));
+
+it('opens a new bounded batch only after explicit parent recovery and keeps all old files',()=>isolated(async base=>{
+ let calls=0;const produce=async()=>{if(++calls<=3)throw Error('outage');return 'ok';};
+ for(let n=0;n<3;n++)await expect(checkpointedAttempt(base,{},produce,x=>x)).rejects.toThrow();
+ const old=fs.readdirSync(path.dirname(base)).map(f=>[f,fs.readFileSync(path.join(path.dirname(base),f),'utf8')]);
+ await expect(checkpointedAttempt(base,{},produce,x=>x)).rejects.toThrow('attempt_limit');expect(calls).toBe(3);
+ expect(await checkpointedAttempt(base,{},produce,x=>x,true)).toBe('ok');expect(calls).toBe(4);
+ for(const [f,raw] of old)expect(fs.readFileSync(path.join(path.dirname(base),f),'utf8')).toBe(raw);
+ expect(fs.existsSync(base+'.batch-2.opened.json')).toBe(true);
+ expect(await checkpointedAttempt(base,{},produce,x=>x)).toBe('ok');expect(calls).toBe(4);
+}));
+it('enforces the three-attempt bound again within each reopened batch',()=>isolated(async base=>{
+ let calls=0;const fail=async()=>{calls++;throw Error('outage');};
+ for(let n=0;n<3;n++)await expect(checkpointedAttempt(base,{},fail,x=>x)).rejects.toThrow();
+ for(let n=0;n<3;n++)await expect(checkpointedAttempt(base,{},fail,x=>x,n===0)).rejects.toThrow();
+ await expect(checkpointedAttempt(base,{},fail,x=>x)).rejects.toThrow('attempt_limit');expect(calls).toBe(6);
+}));
