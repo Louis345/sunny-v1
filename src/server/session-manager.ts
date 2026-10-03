@@ -146,6 +146,7 @@ import {
   isSpellingAttempt,
   mathContentToSpoken,
   normalizeSessionChartChildId,
+  normalizeToolName,
   pronunciationCueFor,
   rewriteChildNameForTts,
   shouldAcceptInterruptedTranscript,
@@ -2026,28 +2027,6 @@ export class SessionManager {
     return hostSessionEnd(this as never, args);
   }
 
-  private normalizeToolName(tool: string): string {
-    if (tool === "start_spell_check") return "startSpellCheck";
-    if (tool === "launch_game") return "launchGame";
-    if (tool === "get_session_status") return "getSessionStatus";
-    if (tool === "get_next_problem") return "getNextProblem";
-    if (tool === "submit_answer") return "submitAnswer";
-    if (tool === "clear_canvas") return "clearCanvas";
-    if (tool === "canvas_show") return "canvasShow";
-    if (tool === "canvas_clear") return "canvasClear";
-    if (tool === "canvas_status") return "canvasStatus";
-    if (tool === "session_log") return "sessionLog";
-    if (tool === "session_status") return "sessionStatus";
-    if (tool === "session_end") return "sessionEnd";
-    if (tool === "record_child_signal") return "recordChildSignal";
-    if (tool === "record_product_issue") return "recordProductIssue";
-    if (tool === "express_companion") return "expressCompanion";
-    if (tool === "companion_act") return "companionAct";
-    if (tool === "request_pause_for_check_in") return "requestPauseForCheckIn";
-    if (tool === "request_resume_activity") return "requestResumeActivity";
-    return tool;
-  }
-
   public sendLaunchGameRegistryError(
     tool: string,
     args: Record<string, unknown>,
@@ -2221,7 +2200,7 @@ export class SessionManager {
 
   /** Browser test overlay — run tool handler and push canvas_draw. */
   applyClientToolCall(tool: string, args: Record<string, unknown>): void {
-    const t = this.normalizeToolName(tool);
+    const t = normalizeToolName(tool);
     this.handleToolCall(t, args, {});
     if (t === "canvasShow" && this.currentCanvasState) {
       const payload = { ...this.currentCanvasState };
