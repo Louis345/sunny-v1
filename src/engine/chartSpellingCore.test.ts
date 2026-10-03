@@ -132,13 +132,13 @@ it('a school correction must still cover the assigned words', () => {
     const s = fact('school_test.recorded', { assignmentId: 'week1', testDate: '2026-10-09', photoHash: 'a'.repeat(64), results: words.map(word => ({ word, correct: true, writtenResponse: null })) });
     expect(() => fact('correction.recorded', { target_event_id: s.event_id, reason: 'incomplete', replacement_payload: { ...s.payload, results: [{ word: 'unassigned', correct: true, writtenResponse: null }] } }, [s.event_id])).toThrow('school_coverage');
 });
-it('a response can be corrected before any decision depends on it', () => {
-    setup();
-    const r = response('able', { rawResponse: 'abl' });
-    expect(() => fact('correction.recorded', { target_event_id: r.event_id, reason: 'transcription', replacement_payload: { ...r.payload, rawResponse: 'able' } }, [r.event_id])).not.toThrow();
-    expect(evaluatePriors(exportEvents(db), 'week1').rows[0].actual).toBe(1);
+it('a response correction can downgrade reliability but cannot supply a different answer', () => {
+    setup(); const r = response('able', { rawResponse: 'abl' });
+    expect(() => fact('correction.recorded', { target_event_id: r.event_id, reason: 'transcription', replacement_payload: { ...r.payload, rawResponse: 'able' } }, [r.event_id])).toThrow('correction_response_upgrade');
+    expect(() => fact('correction.recorded', { target_event_id: r.event_id, reason: 'capture unreliable', replacement_payload: { ...r.payload, status: 'ambiguous' } }, [r.event_id])).not.toThrow();
+    expect(evaluatePriors(exportEvents(db), 'week1').coverage.matched).toBe(0);
     const evaluation = evaluatePriors(exportEvents(db), 'week1');
-    expect(() => fact('plan.decided', { assignmentId: 'week1', decisionIndex: 1, action: 'targeted_practice', evaluationIds: [evaluation.id], responseIds: [r.event_id] }, [r.event_id])).not.toThrow();
+    expect(() => fact('plan.decided', { assignmentId: 'week1', decisionIndex: 1, action: 'collect_evidence', evaluationIds: [evaluation.id], responseIds: [r.event_id] }, [r.event_id])).not.toThrow();
 });
 it('a future instrument version is refused rather than rescored using current rules', () => {
     setup();

@@ -36,6 +36,15 @@ export function validateRelations(db: ChartDatabase, e: EventInput): void {
         // Assignment membership is an implicit dependency even when callers omit a citation.
         if (target.type === 'assignment.ingested' && db.sql.prepare("SELECT 1 FROM events WHERE json_extract(payload,'$.assignmentId')=? AND type!='assignment.ingested' LIMIT 1").get(target.payload.assignmentId))
             fail('correction_has_dependents');
+        if (target.type === 'response.observed') {
+            const before = target.payload as Payloads['response.observed'];
+            const after = replacement as Payloads['response.observed'];
+            if ((after.rawResponse !== null && after.rawResponse !== before.rawResponse) ||
+                (after.status !== before.status && !['unknown', 'ambiguous'].includes(after.status)) ||
+                after.support.audioReplays < before.support.audioReplays ||
+                (['spellingShown', 'hint', 'companionHelp'] as const).some(key => before.support[key] && !after.support[key]))
+                fail('correction_response_upgrade');
+        }
         // Reuse the ordinary fact rules after checking correction identity/dependencies.
         e = { ...target, payload: replacement };
         p = replacement;
