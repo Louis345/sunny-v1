@@ -3,15 +3,20 @@ import type { ChartOptions } from './guard';
 import type { ChartEvent } from './eventTypes';
 import { exportEvents } from './exportEvents';
 
-export function projectChart(childId: string, input: ChartEvent[]) {
+export function correctedChartEvents(childId: string, input: ChartEvent[]): ChartEvent[] {
   if (input.some(event => event.child_id !== childId)) throw new Error('chart_child_mismatch');
   const events = [...input].sort((a, b) => a.occurred_at < b.occurred_at ? -1 : a.occurred_at > b.occurred_at ? 1 : a.event_id < b.event_id ? -1 : a.event_id > b.event_id ? 1 : 0);
   const corrections = new Map<string, Record<string, unknown>>();
   for (const event of events) if (event.type === 'correction.recorded') corrections.set(String(event.payload.target_event_id), event.payload.replacement_payload as Record<string, unknown>);
+  return events.map(event => ({ ...event, payload: corrections.get(event.event_id) ?? event.payload }));
+}
+
+export function projectChart(childId: string, input: ChartEvent[]) {
+  const events = correctedChartEvents(childId, input);
   let profile: Record<string, unknown> | null = null;
   const assignments = new Map<string, Record<string, unknown>>();
   for (const event of events) {
-    const payload = corrections.get(event.event_id) ?? event.payload;
+    const payload = event.payload;
     if (event.type === 'child.profile_set') profile = payload;
     if (event.type === 'assignment.ingested') assignments.set(String(payload.assignmentId), payload);
   }

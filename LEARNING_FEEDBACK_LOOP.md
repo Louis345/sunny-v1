@@ -1,6 +1,6 @@
 # Sunny Learning Feedback Loop
 
-Contract version: 22
+Contract version: 23
 
 This document is the **sole normative** authority for how Sunny forms, tests, and revises learning claims. Product changes that alter this loop must update this contract version before implementation. Other documents may describe infrastructure or history, but they must link here instead of creating another learning doctrine.
 
@@ -97,12 +97,24 @@ Developer impersonation runs may exercise the complete production lifecycle only
 
 After the complete isolated journey has passed browser/runtime verification and explicit human acceptance, Sunny may promote only the immutable independent Discovery instrument into a pristine real-child cycle. Promotion is a content-provenance operation, not an evidence operation. It must revalidate the assignment fingerprint, child-profile snapshot, implementation and verifier versions, academic/design/artifact hashes, runtime proof, and blind visual approval. It then creates a new `evaluation_ready` cycle with zero observations. The impersonator cycle, attempts, summaries, predictions, decisions, targeted program, board, rewards, preferences, and generated teaching nodes are never copied. A matching promotion is idempotent; any conflicting real cycle or changed child snapshot blocks it.
 
-- One canonical `LearningCycleRecordV2` JSON is writable for each assignment cycle.
+- Legacy assignments and departments retain one canonical `LearningCycleRecordV2` JSON per assignment. Activated spelling assignments instead have one append-only SQLite event history; their V2 cycle, board, and longitudinal views are derived in memory and are never saved as competing learning state.
 - Raw uploads are immutable source artifacts referenced by that cycle.
 - Raw event logs are immutable supporting facts referenced by ID.
-- `getChildChart()` derives longitudinal history by reading canonical cycles.
+- `getChildChart()` derives longitudinal history from the selected authority: events for activated spelling, canonical JSON cycles for legacy departments. An empty, missing, or failed spelling database must never fall back to old learning profiles, SM2 banks, or cycle files.
 - **No second writable factsheet** may summarize or override the cycles.
 - Board, homework, session, and care-plan files are compatibility projections, never competing decision state.
+
+### Spelling chart cutover and registration
+
+Spelling chart activation is a deliberate between-session cutover, after the complete isolated journey passes acceptance. Preserved legacy sessions remain outside the new spelling learning input. Parent-confirmed identity and support facts may seed the fresh chart; old learning conclusions may not. Other departments retain their existing path.
+
+The database stores typed source, prediction, response, evaluation, decision, and lifecycle commands, not periodically copied cycle snapshots. Existing cycle transition validation and immutable-board rules also govern event replay. Each accepted lifecycle command cites its predecessor and is committed under an expected revision in one database transaction. Exact retries reuse the committed fact; conflicting retries fail. Registration order is established by the committed chain, never inferred solely from client timestamps.
+
+Before Discovery publication, the intake Planner registers each assigned word's probability of a correct independent response, expected error, confidence, eligibility, cited history, and stable pattern constructs. Pattern identity is separate from word identity. Diagnostic selection remains the Planner's choice among validated capabilities. Facts about support attach to the actual launched item and response; hearing the whole word alone remains elicitation. Unknowns and ambiguous instruments do not count as incorrect answers.
+
+Code computes per-word prediction error and Brier score only over eligible scored observations and reports coverage separately. The Planner alone interprets the evidence and prescribes the next intervention. A readiness forecast is a separate preregistered per-word prediction of the school test, with a test date, uncertainty, missing evidence, and cited independent recall observations. It must be committed before the test; a backdated client time cannot establish preregistration. Immediate recall cannot be relabelled as delayed retention.
+
+Parent-confirmed returned test results identify the original assignment, each scored word, actual response when available, test time, and immutable source hash. Code compares them with eligible preregistered forecasts, without rewriting the forecasts. The parent report and next Planner packet derive from that same history and expose missing coverage, assistance, timing limits, and pending interpretation. Corrections preserve original facts and prior decisions; they require a new factual evaluation and explicit interpretation rather than silently rewriting what an earlier decision knew. Synthetic weeks prove plumbing and truthful measurement, not improved real-world prediction accuracy.
 
 Code owns identity, provenance, immutability, mathematical/source truth, exposure tracking, and safe lifecycle transitions. New math instruments freeze the Planner item identities, response contracts and exposure before generation. Canonical scoring uses captured responses against those contracts, never generated correctness claims. Explanations without independent rubric interpretation, missing contracts and uncaptured or malformed responses remain unscored; duplicate item submissions in one completion are rejected. Historical records are not rewritten. The AI Planner owns educational hypotheses, predictions, interpretation, and the next intervention. Neither Playwright nor generated content may write child-learning conclusions.
 
