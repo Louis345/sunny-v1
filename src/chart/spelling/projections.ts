@@ -37,9 +37,17 @@ export function projectAssignment(input: readonly ChartEvent[], assignmentId: st
         const assisted = p.shown.lettersVisible || p.shown.hint || p.shown.companionHelp || r.support.spellingShown || r.support.hint || r.support.companionHelp;
         const result = r.status === 'answered' ? (p.acceptedForms.includes((r.rawResponse ?? '').normalize('NFC').trim().toLowerCase()) ? 'correct' : 'incorrect') : r.status;
         const earlierResponses = all.some(x => x.sequence < e.sequence && x.type === 'response.observed' && x.payload.sessionId === r.sessionId && x.payload.itemId === r.itemId);
-        // Exposure is word-level, not reset by a new session, item ID or assignment.
-        const previouslyExposed = all.some(x => x.sequence < pe.sequence && x.type === 'item.presented' && x.payload.word === p.word);
-        const exposedThisAssignment = all.some(x => x.sequence < pe.sequence && x.type === 'item.presented' && x.payload.word === p.word && x.payload.assignmentId === assignmentId);
+        // Hearing an unanswered audio-only prompt is elicitation, not instruction.
+        // Use response commit order so a late answer to a previous item is not erased by resume.
+        const answered = new Set(all.filter(x => x.type === 'response.observed' && x.sequence < e.sequence).flatMap(x => x.cites));
+        const exposure = all.filter(x => {
+            if (x.type !== 'item.presented' || x.sequence >= e.sequence || x.payload.word !== p.word) return false;
+            const prior = payload(x, 'item.presented');
+            return answered.has(x.event_id) || (x.event_id !== pe.event_id &&
+                (prior.instrument === 'practice' || prior.shown.lettersVisible || prior.shown.hint || prior.shown.companionHelp));
+        });
+        const previouslyExposed = exposure.length > 0;
+        const exposedThisAssignment = exposure.some(x => x.payload.assignmentId === assignmentId);
         return { eventId: e.event_id, presentationId: pe.event_id, sequence: e.sequence, recordedAt: e.recorded_at, word: p.word, instrument: p.instrument, role: p.role, rawResponse: r.rawResponse, result, assistance: assisted ? 'assisted' : 'unassisted', firstTry: !earlierResponses, previouslyExposed, eligible: !earlierResponses && !exposedThisAssignment && !assisted && p.instrument === 'discovery' && p.role === 'measure' && (result === 'correct' || result === 'incorrect') };
     });
     const forecastEvent = events.find(e => e.type === 'readiness.forecast');

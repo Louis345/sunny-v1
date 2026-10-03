@@ -75,3 +75,16 @@ it('uses the assigned canonical word as the fixed accepted form in every present
     const recorded = recordFact(db, 'item.presented', presentation);
     expect(() => correct(recorded, { ...presentation, acceptedForms: ['able', 'abl'] })).toThrow('accepted_forms_assignment');
 });
+it.each(['audio_only', 'letters', 'hint', 'companion', 'practice', 'answered'] as const)('resumed Discovery preserves the evidence boundary after %s', prior => {
+    loadThrough('prediction.prior');
+    const base = fixture.find(e => e.type === 'item.presented')!.payload as any;
+    const original = recordFact(db, 'item.presented', { ...base, instrument: prior === 'practice' ? 'practice' : 'discovery', role: prior === 'practice' ? 'practice' : 'measure', shown: { lettersVisible: prior === 'letters', hint: prior === 'hint', companionHelp: prior === 'companion' } });
+    const resumed = recordFact(db, 'item.presented', { ...base, itemId: 'resumed' });
+    const answer = fixture.find(e => e.type === 'response.observed')!.payload as any;
+    // Also covers a late answer to the original prompt, committed after resume opened.
+    if (prior === 'answered') recordFact(db, 'response.observed', answer, { cites: [original.event_id] });
+    const r = recordFact(db, 'response.observed', { ...answer, itemId: 'resumed' }, { cites: [resumed.event_id] });
+    const reading = projectAssignment(exportEvents(db), assignmentId).responses.find(x => x.eventId === r.event_id)!;
+    expect(reading.eligible).toBe(prior === 'audio_only');
+    if (prior === 'audio_only') expect(evaluatePriors(exportEvents(db), assignmentId).coverage.matched).toBe(1);
+});
