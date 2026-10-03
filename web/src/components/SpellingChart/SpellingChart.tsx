@@ -58,7 +58,7 @@ async function request<T>(url: string, body?: unknown, pin = ''): Promise<T> { c
     throw new Error(data.error || 'request_failed'); return data as T; }
 export function SpellingChart() {
     const [children, setChildren] = useState<string[]>([]), [child, setChild] = useState(''), [weeks, setWeeks] = useState<Week[]>([]), [week, setWeek] = useState<Week | null>(null), [item, setItem] = useState<Item | null>(null);
-    const [parent, setParent] = useState(false), [pin, setPin] = useState(''), [busy, setBusy] = useState(false), [error, setError] = useState(''), [answer, setAnswer] = useState(''), [heard, setHeard] = useState(false), [replays, setReplays] = useState(0), [speaking, setSpeaking] = useState(false);
+    const [parent, setParent] = useState(false), [pin, setPin] = useState(''), [busy, setBusy] = useState(false), [error, setError] = useState(''), [answer, setAnswer] = useState(''), [heard, setHeard] = useState(false), [audioPlays, setAudioPlays] = useState(0), [speaking, setSpeaking] = useState(false);
     const [words, setWords] = useState(''), [date, setDate] = useState(''), [report, setReport] = useState<Report | null>(null), [parentView, setParentView] = useState<ParentView | null>(null), [results, setResults] = useState<Record<string, string>>({}), [actualDate, setActualDate] = useState('');
     const [interests, setInterests] = useState('');
     const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -88,9 +88,9 @@ export function SpellingChart() {
     const refresh = async () => setWeeks(await api('/assignments'));
     const open = async (w: Week) => { setWeek(await api(`/assignments/${w.assignmentId}`)); setItem(null); setParentView(null); setResults({}); setActualDate(w.testDate); };
     const present = async () => { if (!week)
-        return; const next = await api(`/assignments/${week.assignmentId}/present`, {}); setItem(next); setAnswer(''); setHeard(false); setReplays(0); };
+        return; const next = await api(`/assignments/${week.assignmentId}/present`, {}); setItem(next); setAnswer(''); setHeard(false); setAudioPlays(0); };
     const submit = async (status: 'answered' | 'unknown') => { if (!week || !item)
-        return; const saved = await api(`/assignments/${week.assignmentId}/respond`, { itemId: item.itemId, rawResponse: status === 'answered' ? answer : null, status, audioReplays: replays }); setWeek(saved.state); setItem(null); setAnswer(''); setHeard(false); await refresh(); };
+        return; const saved = await api(`/assignments/${week.assignmentId}/respond`, { itemId: item.itemId, rawResponse: status === 'answered' ? answer : null, status, audioReplays: Math.max(0, audioPlays - 1) }); setWeek(saved.state); setItem(null); setAnswer(''); setHeard(false); await refresh(); };
     const hear = () => {
         if (!item || speaking) return;
         cancelAudio(); const controller = new AbortController(); audioRequest.current = controller;
@@ -101,7 +101,7 @@ export function SpellingChart() {
                 const blob = await response.blob(); if (controller.signal.aborted) return;
                 const url = URL.createObjectURL(blob); audioUrl.current = url;
                 const audio = new Audio(url); audioRef.current = audio;
-                audio.onended = () => { URL.revokeObjectURL(url); if (!controller.signal.aborted) { setHeard(true); setReplays(n => n + 1); setSpeaking(false); } };
+                audio.onended = () => { URL.revokeObjectURL(url); if (!controller.signal.aborted) { setHeard(true); setAudioPlays(n => n + 1); setSpeaking(false); } };
                 audio.onerror = () => { URL.revokeObjectURL(url); if (!controller.signal.aborted) { setSpeaking(false); setError('audio_unavailable'); } };
                 await audio.play();
             }).catch(error => { if (!controller.signal.aborted) { console.error(' 🎮 [spelling-ui] [audio] [failed]', error); setSpeaking(false); setError('audio_unavailable'); } });

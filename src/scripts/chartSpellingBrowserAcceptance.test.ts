@@ -5,6 +5,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { openChart, type ChartDatabase } from '../chart/db';
+import { exportEvents } from '../chart/exportEvents';
 import { setupChartSpellingRoutes } from '../server/chartSpellingRoutes';
 let browser: Browser | undefined, server: ReturnType<ReturnType<typeof express>['listen']> | undefined, db: ChartDatabase | undefined, root: string;
 afterEach(async () => { await browser?.close(); if (server)
@@ -64,6 +65,7 @@ it.each([{ width: 1280, height: 800 }, { width: 390, height: 844 }])('completes 
                     await page.getByRole('button',{name:'Start',exact:true}).click();
                 }
                 await page.getByRole('button', { name: 'Hear the word', exact: true }).click();
+                if (week === 1 && stage === 'Discovery' && word === 1) await page.getByRole('button', {name:'Hear it again',exact:true}).click();
                 await page.getByLabel('Your spelling', { exact: true }).fill(word ? 'know' : 'knee');
                 await page.getByRole('button', { name: 'Save answer', exact: true }).click();
             }
@@ -89,4 +91,7 @@ it.each([{ width: 1280, height: 800 }, { width: 390, height: 844 }])('completes 
         await page.getByRole('button', { name: 'Back to child view' }).click();
     }
     expect(audioCalls).toBe(2);
+    const replayCounts=exportEvents(db).filter(e=>e.type==='response.observed').map(e=>(e.payload.support as {audioReplays:number}).audioReplays);
+    expect(replayCounts.filter(n=>n===1)).toHaveLength(1);
+    expect(replayCounts.filter(n=>n===0)).toHaveLength(17);
 }, 90000);
