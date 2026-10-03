@@ -163,3 +163,14 @@ it('a failed atomic prior batch never logs partial facts as committed', () => {
     expect(vi.mocked(console.error).mock.calls.flat().join('\n')).not.toContain('[ok]');
     expect(vi.mocked(console.error).mock.calls.flat().join('\n')).toContain('[rolled_back]');
 });
+
+it('preserves an unknown assignment test date without inventing a school outcome', () => {
+    const input = { ...assignment('undated'), testDate: null };
+    const first = fact('assignment.ingested', input);
+    expect(fact('assignment.ingested', input).event_id).toBe(first.event_id);
+    const view = projectAssignment(exportEvents(db), 'undated');
+    expect(view.assignment?.testDate).toBeNull();
+    expect(view.schoolResult).toBeNull();
+    expect(evaluateForecast(exportEvents(db), 'undated').prospectiveStatus).toBe('unverified');
+    expect(() => fact('school_test.recorded', { assignmentId:'undated', testDate:null, photoHash:'b'.repeat(64), results:words.map(word => ({word,correct:true,writtenResponse:null})) })).toThrow();
+});

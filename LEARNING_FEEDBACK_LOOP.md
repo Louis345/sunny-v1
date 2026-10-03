@@ -1,6 +1,6 @@
 # Sunny Learning Feedback Loop
 
-Contract version: 28
+Contract version: 29
 
 This document is the **sole normative** authority for how Sunny forms, tests, and revises learning claims. Product changes that alter this loop must update this contract version before implementation. Other documents may describe infrastructure or history, but they must link here instead of creating another learning doctrine.
 
@@ -300,3 +300,14 @@ Planner input. No word bank, SM2 history, old cycles, scores, session notes or X
 may cross this boundary. Verification uses synthetic profiles only. Existing
 source files are retained unchanged; installation may prepare the draft, while
 confirmation belongs to the first parent testing/setup screen.
+
+## Original-kiosk spelling plumbing — authorized integration
+
+The original kiosk, board, companion and activities remain the child experience.
+The separate spelling-only UI is superseded. The approved integration records typed
+SQLite facts alongside the legacy cycle projections still needed by those screens;
+legacy projections do not override typed facts or supply invented history. The
+existing targeted-board Planner remains on its current decision path in this
+milestone. Assignment capture preserves an absent scheduled test date as explicit
+`null`; it never guesses a date. Parent-entered school results still require the
+actual test date, and forecast prospectivity continues to use that actual date.
