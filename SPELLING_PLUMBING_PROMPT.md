@@ -70,6 +70,26 @@ Keep everything listed under "Reuse". Net line count for this part should go dow
 
    These are engagement facts only and must never affect academic scoring.
 6. **The old learning stores.** For spelling, stop writing to the word bank, SM2 and learning-profile learning fields **only where nothing visible reads them**. Anything the UI still reads (for example XP or the existing board's cycle) keeps working unchanged for now. List each remaining legacy spelling write and the screen that still depends on it. Those move in the next milestone.
+7. **Pipeline timing harness** (`pipeline.stage`, actor `system`). This records how long each step takes from the last scored answer to the new board. Add a strict schema for this type first.
+   - **One write path.** The existing provider-stage wrapper (`runMathProviderStage`) and the browser check write the event, so every AI or build step is measured automatically. Callers never write it themselves.
+   - **Payload:**
+     - board/plan, assignment or homework, and node, when one applies;
+     - the stage: `planner_decision`, `artwork`, `creator`, `browser_check`, `visual_review`, or `publish`;
+     - the attempt number, the model, and the effort level;
+     - start and finish times, and the duration in ms;
+     - input and output tokens;
+     - the outcome: `ok`, `failed`, `timeout`, `max_tokens`, `refusal`, or `needs_attention`;
+     - the receipt path or hash.
+   - **Event ID:** use the natural key board + node + stage + attempt.
+   - **One more event per board:** `publish` cites the last scored response that triggered the board, so the time from the last answer to the published board can be computed.
+   - **Separate from learning.** These events never enter learning projections, scoring, priors, forecasts or the report card.
+   - **Failures:** a failed timing write is logged loudly (` 🎮 [pipeline] [timing] [write-failed] …`) and never blocks the board.
+   - **Projection `projectBoardTimings`:**
+     - per board: the total time from last answer to publish, the Planner time, and the build time;
+     - per stage and model/effort: the median, the slowest time, and the failure rate.
+   - **Parent page:** add a plain table of recent boards from that projection.
+   - **First board too:** the board built after ingestion is timed the same way.
+   - **Before the new code exists:** post a one-time read-only table on the PR, built from Saori's existing receipt timestamps (`startedAt` and `receivedAt`). Make no paid calls and no writes.
 
 ## Part C2: known live-session bugs to fix (each one red-first, with a test)
 1. **Wrong activity credited:** an answer was credited to Letter Rush when the Visual Explainer was the node launched.
@@ -86,6 +106,10 @@ Keep everything listed under "Reuse". Net line count for this part should go dow
 5. Report on the PR.
 
 ## Out of scope (next milestone)
+- **Board speed** (agreed with the human; it starts after this milestone is accepted):
+  - build successor-board activities **in parallel**, with bounded concurrency, the same one-attempt-per-activity rule, the same lease and checkpoints, and publishing only when every activity passes;
+  - an **honest progress bar** while a board is prepared: steps done out of total steps, with a time estimate from the measured `pipeline.stage` medians and no fake progress;
+  - effort experiments (for example the Creator on medium for some activities), judged on the measured build time, browser-check and visual-review pass rates, retries, and engagement.
 - Making the Planner and the existing targeted board read from the chart instead of the old cycle.
 - Deleting the remaining old learning code for spelling.
 - Math, Quest and Boss.
@@ -93,6 +117,7 @@ Keep everything listed under "Reuse". Net line count for this part should go dow
 ## Verification
 - Build passes; existing tests pass; new tests cover the plumbing.
 - **Browser acceptance through the existing kiosk UI** (both viewports), with a synthetic child and recorded providers: a full spelling week through the normal screens. Afterwards, the chart contains the expected typed facts with the correct node attribution and per-answer support, and the parent page shows the report.
+- The browser acceptance run also leaves `pipeline.stage` events for every build step of each board it prepares. `projectBoardTimings` reports them correctly, and no learning projection changes because of them.
 - **A visual comparison** of the child screens before and after (screenshots of the same steps), which must match apart from the listed bug fixes.
 - The family-data inventory is unchanged. No real-child chart writes during verification.
 
