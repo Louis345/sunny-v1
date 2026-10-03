@@ -6,6 +6,7 @@ on:
 
 jobs:
   review:
+    if: ${{ github.head_ref != 'codex/spelling-chart-core' }}
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write

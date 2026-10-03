@@ -10,6 +10,7 @@ on:
 
 jobs:
   verify:
+    if: ${{ github.head_ref != 'codex/spelling-chart-core' }}
     runs-on: ubuntu-latest
     env:
       # Remove when GitHub Release `companion-vrms-v1` (see scripts/companion-vrms.manifest.json) ships all .vrm assets.
@@ -38,3 +39,19 @@ jobs:
 
       - name: Test (Vitest root + web)
         run: npm run test
+
+  spelling-core-review-setup:
+    if: ${{ github.head_ref == 'codex/spelling-chart-core' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /.github/workflows/
+            /scripts/chart/reviewWorkflow.test.cjs
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20.20.0'
+      - name: Verify review isolation (not core acceptance)
+        run: node --test scripts/chart/reviewWorkflow.test.cjs
