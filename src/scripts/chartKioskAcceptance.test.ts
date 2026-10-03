@@ -9,6 +9,7 @@ import { openChart } from '../chart/db';
 let root: string;
 let child: ChildProcess | undefined;
 let output: string;
+let launchedGroup: number | undefined;
 let exited: Promise<number | null>;
 beforeEach(() => {
   root = fs.mkdtempSync(path.join(os.tmpdir(), 'sunny-chart-server-'));
@@ -25,17 +26,23 @@ afterEach(async () => {
     const timer = setTimeout(() => child?.kill('SIGKILL'), 3000);
     try { await exited; } finally { clearTimeout(timer); }
   }
+  if (launchedGroup) {
+    try { process.kill(-launchedGroup, 'SIGKILL'); }
+    catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ESRCH') throw error; }
+    launchedGroup = undefined;
+  }
   child = undefined;
   fs.rmSync(root, {recursive:true,force:true});
 });
-async function launch(extra: NodeJS.ProcessEnv) {
+async function launch(extra: NodeJS.ProcessEnv, wrapper = false) {
   const socket = net.createServer();
   await new Promise<void>((resolve,reject) => { socket.once('error',reject); socket.listen(0,'127.0.0.1',resolve); });
   const port = (socket.address() as net.AddressInfo).port;
   await new Promise<void>((resolve,reject) => socket.close(error => error ? reject(error) : resolve()));
-  child = spawn(process.execPath,['--import','tsx','src/server.ts','--kiosk'],{
-    cwd:root, env:{PATH:process.env.PATH,HOME:root,TMPDIR:os.tmpdir(),DOTENV_CONFIG_PATH:'/dev/null',PORT:String(port),SUNNY_CHILD:'synthetic-kiosk',SUNNY_MODE:'real',SUNNY_CONTEXT_ROOT:path.join(root,'src/context'),...extra},stdio:'pipe',
+  child = spawn(process.execPath,['--import','tsx', ...(wrapper ? ['src/scripts/chartSpellingLaunch.ts','--no-browser'] : ['src/server.ts','--kiosk'])],{
+    cwd:root, env:{PATH:process.env.PATH,HOME:root,TMPDIR:os.tmpdir(),DOTENV_CONFIG_PATH:'/dev/null',PORT:String(port),SUNNY_CHILD:'synthetic-kiosk',SUNNY_MODE:'real',SUNNY_CONTEXT_ROOT:path.join(root,'src/context'),...extra},stdio:'pipe',detached:wrapper,
   });
+  if (wrapper) launchedGroup = child.pid;
   exited = new Promise((resolve,reject) => { child!.once('error',reject); child!.once('exit',resolve); });
   child.stdout!.on('data', chunk => { output += String(chunk); });
   child.stderr!.on('data', chunk => { output += String(chunk); });
@@ -84,3 +91,17 @@ it('activates spelling routes and prevents legacy writes in a chart kiosk',async
  const config=await fetch(`http://127.0.0.1:${port}/api/spelling/config`).then(r=>r.json());expect(config).toMatchObject({enabled:true,children:['synthetic-kiosk']});
  const legacy=await fetch(`http://127.0.0.1:${port}/api/map/start`,{method:'POST',headers:{'content-type':'application/json'},body:'{"childId":"synthetic-kiosk"}'});expect(legacy.status).toBe(404);
 },15000);
+
+it('the dedicated launch command connects the chart and stops its server on terminal termination',async()=>{
+ fs.mkdirSync(path.join(root,'web/dist'),{recursive:true});
+ fs.copyFileSync(path.resolve('web/dist/index.html'),path.join(root,'web/dist/index.html'));
+ const port=await launch({SUNNY_CHART_DIR:path.join(root,'chart'),ANTHROPIC_API_KEY:'synthetic-unused',ELEVENLABS_API_KEY:'synthetic-unused'},true);
+ await ready(port);
+ const status=await fetch(`http://127.0.0.1:${port}/api/chart/status`).then(r=>r.json()) as {learningEventsConnected:boolean};
+ expect(status.learningEventsConnected).toBe(true);
+ child!.kill('SIGTERM');
+ const exitCode=await exited;
+ await expect(fetch(`http://127.0.0.1:${port}/api/health`,{signal:AbortSignal.timeout(1000)})).rejects.toThrow();
+ expect(exitCode).toBe(0);
+ expect(output).toContain('[kiosk] [shutdown] [complete]');
+},20000);
