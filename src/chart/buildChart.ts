@@ -21,3 +21,10 @@ export function buildChart(childId: string, opts: ChartOptions = {}) {
   const db = openChart(childId, { ...opts, readonly: true });
   try { return projectChart(childId, exportEvents(db)); } finally { db.close(); }
 }
+
+/** Subject-neutral chart doorway for the activated typed-fact departments. */
+export function readTypedChildChart(childId: string, opts: { database: import('./db').ChartDatabase }) {
+  if (opts.database.childId !== childId) throw new Error('chart_child_mismatch');
+  const events = exportEvents(opts.database);
+  return { ...projectChart(childId, events), events };
+}

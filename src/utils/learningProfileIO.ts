@@ -1,3 +1,4 @@
+import { assertLegacyLearningAuthority } from './runtimeMode';
 import fs from "fs";
 import path from "path";
 import type { LearningProfile } from "../context/schemas/learningProfile";
@@ -46,6 +47,7 @@ export function writeLearningProfile(
   profile: LearningProfile,
   opts: { skipSessionPlanProjection?: boolean } = {},
 ): void {
+  assertLegacyLearningAuthority();
   const filePath = resolveProfilePath(childId);
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
   profile.lastUpdated = new Date().toISOString();

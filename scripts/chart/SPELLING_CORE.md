@@ -1,7 +1,10 @@
 # Spelling department core — Milestone 1
 
-Implementation prepared for independent review. Not activated, not deployed,
-and not ready for kiosk acceptance. The normative authority is
+Historical Milestone 1 report. Independent review accepted commit `b8f2a95`
+with no blockers; the chained-correction finding was retracted. This document
+describes that module-only checkpoint. See [SPELLING_KIOSK.md](./SPELLING_KIOSK.md)
+for the subsequent authorized kiosk integration and current limits.
+The normative authority is
 [LEARNING_FEEDBACK_LOOP.md](../../LEARNING_FEEDBACK_LOOP.md), version 24.
 The adopted scope is [SPELLING_CORE_PROMPT.md](../../SPELLING_CORE_PROMPT.md).
 
@@ -236,7 +239,8 @@ they received this earlier rejection; that is not a reproduced evidence bypass.
 The tests now assert the actual dependency boundary and unchanged projected
 assistance/unknown result. No production change is warranted by this reproduction.
 These are additional safety regressions, not a red-green implementation fix.
-The blocking finding is disputed pending the reviewer's reproduction or retraction.
+The reviewer retracted the blocking finding and accepted Milestone 1:
+https://github.com/Louis345/sunny-v1/pull/10#pullrequestreview-5401509417 .
 
 Verification: all 113 scoped tests, including actual-server acceptance, and the
 server/web build pass in the isolated offline copy. No production lines changed.

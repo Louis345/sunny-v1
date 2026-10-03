@@ -37,5 +37,10 @@ export function openKioskCharts(env: NodeJS.ProcessEnv = process.env, open: Open
       throw error;
     }
   }
-  return { close, status: () => ({ connection, children: [...children], learningEventsConnected: false as const }) };
+  const get = (child: string): ChartDatabase => {
+    const handle = handles[children.indexOf(child)] as ChartDatabase | undefined;
+    if (connection !== 'open' || !handle?.sql) throw new Error('chart_not_open');
+    return handle;
+  };
+  return { close, get, status: () => ({ connection, children: [...children], learningEventsConnected: false as const }) };
 }

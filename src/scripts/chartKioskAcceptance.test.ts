@@ -76,3 +76,10 @@ it.each([{SUNNY_MODE:'as-child'},{SUNNY_STATELESS:'true'}])('keeps nonpersistent
   expect(status).toMatchObject({connection:'disabled'});
   expect(fs.existsSync(chartDir)).toBe(false);
 },15000);
+it('activates spelling routes and prevents legacy writes in a chart kiosk',async()=>{
+ const port=await launch({SUNNY_CHART_DIR:path.join(root,'chart'),SUNNY_SPELLING_CHART:'1',SUNNY_KIOSK_TOKEN:'test-token',SUNNY_PARENT_PIN:'123456'});
+ await ready(port);
+ const status:any=await fetch(`http://127.0.0.1:${port}/api/chart/status`).then(r=>r.json());expect(status.learningEventsConnected).toBe(true);
+ const config=await fetch(`http://127.0.0.1:${port}/api/spelling/config`).then(r=>r.json());expect(config).toMatchObject({enabled:true,children:['synthetic-kiosk']});
+ const legacy=await fetch(`http://127.0.0.1:${port}/api/map/start`,{method:'POST',headers:{'content-type':'application/json'},body:'{"childId":"synthetic-kiosk"}'});expect(legacy.status).toBe(404);
+},15000);

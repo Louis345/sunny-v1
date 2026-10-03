@@ -1,6 +1,6 @@
 # Sunny Learning Feedback Loop
 
-Contract version: 24
+Contract version: 25
 
 This document is the **sole normative** authority for how Sunny forms, tests, and revises learning claims. Product changes that alter this loop must update this contract version before implementation. Other documents may describe infrastructure or history, but they must link here instead of creating another learning doctrine.
 
@@ -251,3 +251,34 @@ Pattern tags freeze when priors exist. Protocol 1 accepts only the canonical wor
 frozen by the assignment; a presenter cannot add alternative answers. Hearing an
 unanswered audio-only prompt is elicitation, so resuming it preserves eligibility.
 Prior answered attempts and visible/support/practice exposure remain exclusions.
+
+## Spelling kiosk cutover — implementation authorized, activation explicit
+
+The approved next milestone connects the typed-fact department to a dedicated
+spelling kiosk journey. `SUNNY_SPELLING_CHART=1` selects that path; an unavailable
+chart fails visibly and never falls back to JSON cycles or SM2. Other departments
+retain their existing authority. The child-chart doorway provides spelling facts
+and profile facts from SQLite only. Parent-confirmed assignment input creates the
+source artifact; the Planner alone supplies pattern tags, priors, the teaching
+program and the forecast. Code validates those proposals and measures responses.
+No default probabilities, simulated answers or fallback teaching plans are allowed.
+
+Discovery covers the assignment before a teaching plan is requested. Each launched
+item has a server identity, frozen instrument and assistance conditions. Exit and
+resume use committed facts; duplicate submissions cannot create new attempts.
+Practice is visibly separate from hidden recall. Recall covers initially secure
+as well as targeted words. The school result is entered explicitly by a parent;
+missing results remain missing and are not filled with failures. Each fact can
+currently be corrected at most once; the parent UI must disclose that limitation.
+
+Provider requests use durable operational checkpoints outside the event stream:
+claim before calling, preserve the response before validation, and reuse it on
+restart. An uncertain call or invalid proposal stops that stage for attention;
+there is no automatic retry or replacement. These checkpoints never supply child
+observations. Verification uses synthetic charts and recorded provider fixtures;
+those fixtures cannot be selected for a real child. Activation and host readiness
+must be proved separately from module and browser tests before child acceptance.
+
+Parent-transcribed sources declare `sourceKind: parent_transcription`; a text
+hash is never presented as proof that a school photograph was attached. The
+existing hash field names remain readable for earlier typed facts.

@@ -121,6 +121,7 @@ export function validateRelations(db: ChartDatabase, e: EventInput): void {
         const corrections = rows.flatMap(r => db.sql.prepare("SELECT * FROM events WHERE type='correction.recorded' AND json_extract(payload,'$.target_event_id')=?").all(r.event_id).map(decodeRow));
         const evaluation = evaluatePriors([...rows, ...corrections], String(p.assignmentId));
         const plan = p as Payloads['plan.decided'];
+        if (plan.program?.cards.some(card => !assignment.words.includes(card.word))) fail('plan_word');
         if (plan.evaluationIds.length !== 1 || plan.evaluationIds[0] !== evaluation.id)
             fail('plan_evaluation');
         for (const id of plan.responseIds)
