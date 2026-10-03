@@ -821,10 +821,12 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
       const submittingSessionId = typeof body.sessionId === "string" ? body.sessionId.trim() : "";
       const live = getVoiceSessionManagerForChildSession(childId, submittingSessionId)
         ?.getDiscoveryAttemptContext?.(homeworkId, attempt.itemId);
+      const spellingNode = existing?.domain === "spelling" ? existing.nodes.find(node => node.evidenceContract.spellingItems?.[attempt.itemId]) : undefined;
+      if (spellingNode && live?.nodeId && live.nodeId !== spellingNode.nodeId) throw new Error("discovery_live_node_mismatch");
       const binding = existing?.domain === "spelling"
         ? existing.nodes.find(node => node.evidenceContract.spellingItems?.[attempt.itemId])?.artifactBinding
         : existing?.nodes.find(node => node.role === "evaluation" && node.artifactBinding?.contractFingerprint === live?.artifactHash)?.artifactBinding;
-      const verifiedLive = live && live.artifactHash === binding?.contractFingerprint ? live : undefined;
+      const verifiedLive = live && live.artifactHash === binding?.contractFingerprint && (!spellingNode || live.nodeId === spellingNode.nodeId) ? live : undefined;
       if (attempt.supportEventIds.some(id => !verifiedLive?.support.scaffolds.includes(id))) throw new Error("discovery_support_reference_unknown");
       const cycle = existing?.domain === "spelling"
         ? recordSpellingDiscoveryAttempt({ childId, homeworkId, attempt: { ...attempt, skipped: body.skipped === true }, support: verifiedLive?.support, artifactHash: binding?.contractFingerprint, sessionId: verifiedLive?.sessionId, instrumentSignals: [...attempt.instrumentSignals, ...(verifiedLive?.instrumentSignals ?? ["live_context_unavailable"])] })

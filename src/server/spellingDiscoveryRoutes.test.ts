@@ -36,7 +36,7 @@ describe("spelling through the production Discovery routes", () => {
   });
   it("uses live support provenance, grades frozen answers, and ignores forged correctness", async () => {
     const { rootDir, items, post } = await fixture();
-    registerActiveVoiceSessionManager("lab-child", { noteExternalEvent() {}, getSessionId: () => "s1", getDiscoveryAttemptContext: () => ({ support: { status: "unassisted", scaffolds: [] }, instrumentSignals: [], artifactHash: hashDiscoveryContract(items), sessionId: "s1" }) });
+    registerActiveVoiceSessionManager("lab-child", { noteExternalEvent() {}, getSessionId: () => "s1", getDiscoveryAttemptContext: () => ({ nodeId: getLearningCycle("lab-child", "hw-words", {rootDir})!.nodes[0].nodeId, support: { status: "unassisted", scaffolds: [] }, instrumentSignals: [], artifactHash: hashDiscoveryContract(items), sessionId: "s1" }) });
     const body = { attemptId: "a1", sessionId: "s1", itemId: items[0].id, attemptedValue: "nite", observedAt: "2026-09-08T12:00:00Z", supportEventIds: [], instrumentSignals: [], correct: true, constructId: "invented", assistance: "unassisted" };
     expect((await post("attempt", body)).status).toBe(200);
     expect((await post("attempt", body)).status).toBe(200);
@@ -53,4 +53,21 @@ describe("spelling through the production Discovery routes", () => {
     expect(observed.result.correct).toBeUndefined(); expect(observed.assistance.status).toBe("unknown");
     expect((await post("complete", {})).status).toBe(409);
   });
+});
+
+it('rejects a live spelling node mismatch before recording any response',async()=>{
+ const {rootDir,items,post}=await fixture();
+ registerActiveVoiceSessionManager('lab-child',{noteExternalEvent(){},getSessionId:()=> 's1',getDiscoveryAttemptContext:()=>({nodeId:'other-node',support:{status:'unassisted',scaffolds:[]},instrumentSignals:[],artifactHash:hashDiscoveryContract(items),sessionId:'s1'})});
+ const response=await post('attempt',{attemptId:'wrong-node',sessionId:'s1',itemId:items[0].id,attemptedValue:'night',observedAt:'2026-10-03T12:00:00Z',supportEventIds:[],instrumentSignals:[]});
+ expect(response.status).toBe(409);
+ expect(getLearningCycle('lab-child','hw-words',{rootDir})!.observations).toHaveLength(0);
+});
+
+it('does not infer independent spelling evidence from a live context missing its node identity',async()=>{
+ const {rootDir,items,post}=await fixture();
+ registerActiveVoiceSessionManager('lab-child',{noteExternalEvent(){},getSessionId:()=> 's1',getDiscoveryAttemptContext:()=>({support:{status:'unassisted',scaffolds:[]},instrumentSignals:[],artifactHash:hashDiscoveryContract(items),sessionId:'s1'})});
+ expect((await post('attempt',{attemptId:'missing-node',sessionId:'s1',itemId:items[0].id,attemptedValue:'night',observedAt:'2026-10-03T12:00:00Z',supportEventIds:[],instrumentSignals:[]})).status).toBe(200);
+ const observation=getLearningCycle('lab-child','hw-words',{rootDir})!.observations[0];
+ expect(observation.assistance.status).toBe('unknown');
+ expect(observation.provenance).toBe('practice');
 });

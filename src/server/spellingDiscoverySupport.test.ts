@@ -126,3 +126,9 @@ describe("live math Discovery assistance provenance", () => {
     });
   });
 });
+
+it('keeps the frozen node identity with each spelling response context',()=>{
+ const s=session();
+ s.updateCurrentBoardSnapshot({assessmentMode:true,nodeId:'opening',itemId:'i1',phase:'response',answerVisibility:'hidden'});
+ expect(s.getDiscoveryAttemptContext('hw-words','i1')).toMatchObject({nodeId:'opening',sessionId:'s1'});
+});

@@ -25,3 +25,14 @@ Verification runs in a temporary copy without family context or .env, sanitized 
 No live model calls, new ingestion, generation, chart migration, merge or Saori code installation occurred during this verification. A model change cannot be claimed to improve learning until real predictions can be compared with eligible observations and later school results. Track coverage alongside prediction error; also track Planner failures, response time and cost. Do not compare unmatched word sets as a causal effect of the model.
 
 Before installation: obtain the existing GitHub reviewer's exact-commit acceptance, preserve a verified backup, and set the explicit model only in the original kiosk runtime. Reopen the kiosk after the assignment is published, preserving the user's window/orientation preference. Verify the new assignment identity and zero synthetic observations before inviting a child to test. Installation is not complete merely because this document exists.
+
+## In-progress original-kiosk evidence integration
+
+Discovery now retains the frozen node identity in its server response context. A
+context naming another node is refused before a response write; missing node
+identity leaves evidence unknown/practice. Three regressions failed first: missing
+identity in the context, accepted mismatched identity, and an independent reading
+without node identity. A parent can see which activity opened; earlier labs and
+logs checked artifact and item matches without comparing the retained node. This
+is a boundary check, not completion of actual launch tracking for practice games.
+The SQLite per-response bridge and full original-UI acceptance remain unfinished.

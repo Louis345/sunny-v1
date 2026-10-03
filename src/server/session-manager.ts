@@ -1098,15 +1098,16 @@ export class SessionManager {
     return next;
   }
 
-  public getDiscoveryAttemptContext(homeworkId: string, itemId: string): { support: LearningObservation["assistance"]; instrumentSignals: string[]; artifactHash: string; sessionId: string } | undefined {
+  public getDiscoveryAttemptContext(homeworkId: string, itemId: string): { nodeId: string; support: LearningObservation["assistance"]; instrumentSignals: string[]; artifactHash: string; sessionId: string } | undefined {
     const context = this.spellingAssessmentHistory?.get(itemId) ?? this.spellingAssessment;
     if (context && context.homeworkId === homeworkId && context.itemId === itemId) {
-      return { support: { status: context.supportIds.length ? "assisted" : "unassisted", scaffolds: [...context.supportIds] }, instrumentSignals: [...(!context.audioDelivered ? ["audio_unavailable"] : []), ...(context.ambiguous ? ["answer_exposure"] : [])], artifactHash: context.artifactHash, sessionId: this.sessionId };
+      return { nodeId: context.nodeId, support: { status: context.supportIds.length ? "assisted" : "unassisted", scaffolds: [...context.supportIds] }, instrumentSignals: [...(!context.audioDelivered ? ["audio_unavailable"] : []), ...(context.ambiguous ? ["answer_exposure"] : [])], artifactHash: context.artifactHash, sessionId: this.sessionId };
     }
     const math = [...(this.mathDiscoverySupportHistory?.values() ?? [])]
       .find((candidate) => candidate.homeworkId === homeworkId && candidate.itemId === itemId);
     if (!math) return undefined;
     return {
+      nodeId: math.nodeId,
       support: { status: math.supportIds.length ? "assisted" : "unassisted", scaffolds: [...math.supportIds] },
       instrumentSignals: [],
       artifactHash: math.artifactHash,
