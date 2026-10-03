@@ -20,6 +20,8 @@ export function validateRelations(db: ChartDatabase, e: EventInput): void {
         const target = get(String(p.target_event_id));
         if (!target || !e.cites.includes(target.event_id) || target.type === 'correction.recorded')
             fail('correction_target');
+        if (target.type === 'readiness.forecast')
+            fail('correction_immutable_prediction');
         validatePayload(target.type, p.replacement_payload);
         const replacement = p.replacement_payload as Record<string, unknown>;
         for (const key of ['assignmentId', 'word', 'sessionId', 'itemId', 'attempt', 'protocolVersion', 'instrument', 'role']) {

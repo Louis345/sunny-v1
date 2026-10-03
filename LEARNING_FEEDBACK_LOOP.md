@@ -1,6 +1,6 @@
 # Sunny Learning Feedback Loop
 
-Contract version: 23
+Contract version: 24
 
 This document is the **sole normative** authority for how Sunny forms, tests, and revises learning claims. Product changes that alter this loop must update this contract version before implementation. Other documents may describe infrastructure or history, but they must link here instead of creating another learning doctrine.
 
@@ -242,3 +242,12 @@ accuracy. Plans cite reproducible evaluations and their actual input responses.
 Corrections preserve identity and cannot alter facts already depended on.
 The shared chart infrastructure is subject-neutral; spelling owns its schemas,
 taxonomy and measurements. No kiosk, Planner or other subject is wired here.
+
+For the unactivated spelling department, forecasts and Planner decisions cannot
+be corrected into different predictions or decisions at their original time.
+Response corrections can only downgrade reliability or add support: never replace
+a typed answer with another answer, upgrade an unknown result, or remove help.
+Pattern tags freeze when priors exist. Protocol 1 accepts only the canonical word
+frozen by the assignment; a presenter cannot add alternative answers. Hearing an
+unanswered audio-only prompt is elicitation, so resuming it preserves eligibility.
+Prior answered attempts and visible/support/practice exposure remain exclusions.
