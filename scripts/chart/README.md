@@ -90,8 +90,9 @@ in addition to identity, validation, replay, corrections, and snapshots.
 - The old records are retired from future learning but preserved for recovery.
 - The Phase 0 archive requires a separately coordinated quiet interval; never
   interrupt a child session automatically. The synthetic Phase 1 implementation
-  was prepared after a remote dry run established the runtime. The requested
-  archive gate remains outstanding; this is not a completed reset or switchover.
+  was prepared after a remote dry run established the runtime. The human later
+  authorized the pause and the archive was verified. This is not a data reset
+  or a runtime switchover.
 - No migrations, real-child database creation, runtime imports, or contract rewrite.
 - Source-code additions establish new tested invariants. No production hot-path
   code is added or deleted. Only the CLI scripts, dependency and lockfile change
@@ -108,7 +109,7 @@ in an isolated sparse worktree; the original dirty checkout was preserved.
 
 - Archive tests: five initial failures before the scripts existed; seven pass
   after implementation and review regressions for writer confirmation and
-  durable publication. Saori dry run passed; **actual archive not performed**.
+  durable publication. Saori dry run and actual archive passed (details below).
 - Chart tests: initial import failure before the module existed; 22 pass after
   implementation. Review's sparse-array regression failed before the fix and
   passed afterward. Two subprocesses commit 400 events; interrupted writes
@@ -117,11 +118,11 @@ in an isolated sparse worktree; the original dirty checkout was preserved.
   append, JSON export, snapshot, snapshot export and chart replay agree.
 - Independent read-only review completed; reported defects were fixed and the
   reviewer cleared the narrow recheck. No existing runtime imports this module.
-- Web suite: 905 pass, one fails in the unchanged companion-overlay test
-  (`web/src/tests/test-app-companion-overlay-stack.ts:118`). Its input
-  `web/src/App.tsx` and the test match the base commit byte-for-byte; the failure
-  also reproduces alone. This work does not fix that unrelated UI issue.
-- Broad server suite: incomplete; interrupted after more than eight minutes
+- Web suite: initially 905 pass and one fails in a stale companion-overlay
+  assertion. The existing runtime renamed its speech-mute state in `a5b9837`.
+  Updating the test to that state and checking the companion-specific control
+  produces **906 passing tests**; no UI runtime change. Read-only review agrees.
+- Initial broad server suite: incomplete; interrupted after more than eight minutes
   without completion or a JSON result. No pass/fail total is claimed. Both broad
   suites ran in a disposable source copy with synthetic context, credentials
   removed and outbound network denied; no family records were copied there.
@@ -143,8 +144,85 @@ compact JSON. It proves the checked file paths and bytes agree, not unchanged
 access times or an absence of writes by concurrent processes between checks.
 It is the dev checkout inventory, **not a checksum of Saori's live records**.
 
-Phase 0 awaits a quiet archive interval. Phase 1 is not merge-ready until the
-existing-suite failures/incomplete checks have a separately agreed disposition.
-Nothing is deployed; this foundation alone claims no improvement in learning
+Phase 0's verified archive is complete. Phase 1's implementation and focused
+checks pass, but the full-repository merge gate remains blocked as detailed
+below. Nothing is deployed; this foundation alone claims no improvement in learning
 or prediction accuracy. Those require later validated evidence collection,
 forecasts recorded before outcomes, and repeated external assessment.
+
+### Live archive verification
+
+On 2026-10-02 at 23:29 UTC, after explicit confirmation that Reina was not using
+the kiosk, its existing server and browser process groups were suspended and
+resumed in a `finally` block. A separate 120-second watchdog would resume them
+if the archive operator process failed. No launcher restart, new child session,
+provider request, ingestion or generation was needed. All 302 JSON files parsed
+before capture. All 509 source files were verified against the archived bytes.
+
+Source on Saori: `/Users/jtaylor/Development/sunny/src/context`.
+Archive on Saori (5,266,093 bytes):
+
+```text
+/Users/jtaylor/SunnyData/archive/sunny-context-Saori.local-20261002T232908Z-0bf4d878d948.tar.gz
+```
+
+The adjacent `.manifest.json` records host, source path, time, file count and
+each relative path's SHA-256. Source hashes were equal before capture and after
+verification while writers were paused:
+
+```text
+before 341580d19c9bf8af382ef431fbae8775687c1f84a2804d50b433058818fcfa7a
+after  341580d19c9bf8af382ef431fbae8775687c1f84a2804d50b433058818fcfa7a
+archive-file SHA-256 d5c758d4000aa17a82f3591e1e4d708e5f8c9f54283f2f379ddaf5a7326a3747
+```
+
+The archive's manifest algorithm is SHA-256 of `json.dumps(files, sort_keys=True)`;
+it differs from the dev-inventory format above. The destination directories are
+mode 700; archive and manifest are mode 600. No child files were copied to the
+dev Mac. After resuming the original PIDs, HTTP on port 3001 returned 200 and
+the kiosk checkout remained `293294ca7c565b23fc064d42f6df7e4f764d6aa2`.
+
+### Final server verification and remaining gates
+
+The corrected full server run completed in 1,010 seconds: **3,910 passed,
+44 failed, zero skipped (3,954 tests)**. This was a disposable source copy with
+no family records, a temporary home, no credentials, and outbound network
+blocked except loopback. The earlier global context override was removed because
+it overrode per-test `rootDir` fixtures and caused unrelated record collisions.
+Browser binaries already installed locally were supplied explicitly. No live
+provider, real ingestion, or real generation was used; acceptance tests used
+local recorded provider fixtures and synthetic assignments.
+
+Verification-only fixes subsequently resolved 42 of those failing assertions:
+
+- Contract-version assertion: updated the stale 21 to the existing authority's
+  22; all substantive publication assertions retained. Focused check passes.
+- Shared game shell: verify completion through the explicitly loaded and mounted
+  artifact shell, including the actual payload fields. The game is not exempted.
+  Contract checks plus the real visual-explainer browser tests: 970 pass.
+- Family-dependent legacy tests: invented temporary profile/word-bank/context
+  fixtures replace checkout learning records. Eight affected suites: 89 pass.
+  A reviewer found inherited environment roots could bypass a cwd-only fixture;
+  two failures reproduced with a decoy root, then all 13 plan tests passed with
+  the corrected environment isolation. No family data was used to fill fixtures.
+- CLI document assertion: verify exact base64 PDF bytes and frozen target words,
+  rather than searching encoded transport for plaintext. Local recorded-provider
+  menu acceptance: one pass, one recorded request, zero paid calls.
+
+These are focused reruns after the full run, **not a second fully green suite**.
+The resulting known status is 3,952 server assertions validated and two remaining
+failures. No test is skipped or size threshold relaxed:
+
+1. `test-session-manager-lines.ts`: existing runtime file has 2,512 lines against
+   a strict `<2500` budget. It matches base `293294ca` byte-for-byte. A runtime
+   cleanup falls outside the standalone-chart/no-runtime-edit scope.
+2. `sunnyMenuTerminalAcceptance.test.ts`: the test now recognizes ANSI-decorated
+   prompts and proves nested confirmation handoff, but still times out after
+   sending Exit. Root cause remains unresolved between runtime and PTY harness.
+
+Both are recorded in `BUGS.md`. Build, all 906 web tests, the new chart/archive
+checks, synthetic chart CLI acceptance, diff whitespace and context checksums
+pass. Independent read-only review cleared the implemented changes after its
+isolation finding was fixed. Existing production runtime files are unchanged;
+only test infrastructure/assertions were adjusted to finish the verification.
+**Do not merge or declare the full Phase 1 acceptance gate green yet.**
