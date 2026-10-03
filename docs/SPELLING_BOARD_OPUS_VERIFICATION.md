@@ -70,3 +70,12 @@ prior presentation rejects the write instead of fabricating an earlier exposure.
 Current audio-only Discovery has no separate hint button; its false hint field
 must not be reused for an instrument with unmeasured help. No live data or
 provider calls were used. Saori remains unchanged.
+
+The next failure-injection test found that a missing chart presentation still
+advanced the legacy cycle before returning HTTP 409 (one observation instead of
+zero). The endpoint now commits the chart write first. The regression passes,
+as do the focused route/support/typed-response suites and isolated full build.
+This prevents a rejected chart write from advancing the current board's evidence.
+It does not make the two stores atomic: crash recovery after a successful chart
+write and failed cycle write remains unfinished and is required before activation.
+The change moves existing lines; it adds no alternate scoring or fallback path.

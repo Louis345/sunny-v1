@@ -88,3 +88,12 @@ it('writes one matching typed response through the original HTTP endpoint and pr
  expect(getLearningCycle('lab-child','hw-words',{rootDir})!.observations[0].result.correct).toBe(false);
  }finally{db.close();}
 });
+
+it('does not advance the legacy cycle when the configured chart cannot record the response',async()=>{
+ const {rootDir,items,post}=await fixture();
+ vi.stubEnv('SUNNY_CHART_DIR',path.join(rootDir,'charts'));
+ registerActiveVoiceSessionManager('lab-child',{noteExternalEvent(){},getSessionId:()=> 's1',getDiscoveryAttemptContext:()=>({nodeId:getLearningCycle('lab-child','hw-words',{rootDir})!.nodes[0].nodeId,launchId:'launch',chartItemId:'missing-presentation',audioReplays:0,support:{status:'unassisted',scaffolds:[]},instrumentSignals:[],artifactHash:hashDiscoveryContract(items),sessionId:'s1'})});
+ const response=await post('attempt',{attemptId:'failed-write',sessionId:'s1',itemId:items[0].id,attemptedValue:'night',observedAt:'2026-10-03T12:00:00Z',supportEventIds:[],instrumentSignals:[]});
+ expect(response.status).toBe(409);
+ expect(getLearningCycle('lab-child','hw-words',{rootDir})!.observations).toHaveLength(0);
+});

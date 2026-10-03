@@ -829,9 +829,6 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
         : existing?.nodes.find(node => node.role === "evaluation" && node.artifactBinding?.contractFingerprint === live?.artifactHash)?.artifactBinding;
       const verifiedLive = live && live.artifactHash === binding?.contractFingerprint && (!spellingNode || live.nodeId === spellingNode.nodeId) ? live : undefined;
       if (attempt.supportEventIds.some(id => !verifiedLive?.support.scaffolds.includes(id))) throw new Error("discovery_support_reference_unknown");
-      const cycle = existing?.domain === "spelling"
-        ? recordSpellingDiscoveryAttempt({ childId, homeworkId, attempt: { ...attempt, skipped: body.skipped === true }, support: verifiedLive?.support, artifactHash: binding?.contractFingerprint, sessionId: verifiedLive?.sessionId, instrumentSignals: [...attempt.instrumentSignals, ...(verifiedLive?.instrumentSignals ?? ["live_context_unavailable"])] })
-        : recordDiscoveryAttempt({ childId, homeworkId, attempt, support: verifiedLive?.support });
       if(existing?.domain === "spelling") withOriginalSpellingChart(childId,db=>{
         if(!verifiedLive?.chartItemId || !verifiedLive.launchId || verifiedLive.audioReplays === undefined)throw new Error('chart_live_presentation_required');
         return recordOriginalSpellingResponse(db,{
@@ -840,6 +837,9 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
           support:{audioReplays:verifiedLive.audioReplays,spellingShown:verifiedLive.instrumentSignals.includes('answer_exposure'),hint:false,companionHelp:verifiedLive.support.status === 'assisted'},
         });
       });
+      const cycle = existing?.domain === "spelling"
+        ? recordSpellingDiscoveryAttempt({ childId, homeworkId, attempt: { ...attempt, skipped: body.skipped === true }, support: verifiedLive?.support, artifactHash: binding?.contractFingerprint, sessionId: verifiedLive?.sessionId, instrumentSignals: [...attempt.instrumentSignals, ...(verifiedLive?.instrumentSignals ?? ["live_context_unavailable"])] })
+        : recordDiscoveryAttempt({ childId, homeworkId, attempt, support: verifiedLive?.support });
       console.log(` 🎮 [adaptive-math] [discovery-attempt] [committed] child=${childId} homework=${homeworkId} attempt=${attempt.attemptId}`);
       return res.json({ ok: true, lifecycle: cycle.lifecycle, revision: cycle.revision });
     } catch (error: unknown) {
