@@ -10,13 +10,22 @@ import { buildPlannerPacket, buildReportCard, evaluatePriors, orderedFacts, proj
 import { recordAssignment, recordFact, recordForecast, recordPlan, recordPresentation, recordResponse, recordSchoolTest, recordTags, recordPriors } from './record';
 import { schemas, teachingProgram } from './schemas';
 const hash = (text: string) => createHash('sha256').update(text).digest('hex');
-export const priorProposal = z.strictObject({ tags: schemas['words.tagged'], priors: z.array(schemas['prediction.prior']).min(1) });
+export const priorProposal = z.strictObject({ tags: schemas['words.tagged'], priors: z.array(schemas['prediction.prior'].omit({provenance:true})).min(1) });
 export const planProposal = z.strictObject({ action: z.enum(['targeted_practice', 'collect_evidence']), ...teachingProgram.shape });
 export type SpellingStage = 'prior' | 'discovery' | 'plan' | 'practice' | 'recall_check' | 'forecast' | 'await_calibration' | 'complete';
 export type SpellingPacket = ReturnType<typeof buildPlannerPacket> & {
     profile: Record<string, unknown> | null;
 };
 export type SpellingProvider = ((stage: 'prior' | 'plan' | 'forecast', packet: SpellingPacket) => Promise<unknown>) & {modelId?:string};
+function priorInputIds(packet:SpellingPacket,events:ReturnType<typeof exportEvents>):string[]{
+ const v=packet.assignment;
+ const ids=new Set([v.assignmentEventId,...v.priors.map(p=>p.eventId),...v.responses.flatMap(r=>[r.eventId,r.presentationId]),v.forecast?.eventId,v.schoolResult?.eventId,
+  ...packet.patternHistory.flatMap(h=>[h.assignmentEventId,h.schoolResult?.eventId,...h.readings.flatMap(r=>[r.eventId,r.presentationId])]),
+  ...packet.accuracy.flatMap(w=>[w.forecast.forecastId,w.forecast.schoolResultId,...w.prior.rows.flatMap(r=>[r.priorId,r.responseId])]),
+  events.filter(e=>e.type==='child.profile_set').at(-1)?.event_id]);
+ for(const e of events)if(e.type==='correction.recorded'&&ids.has(String(e.payload.target_event_id)))ids.add(e.event_id);
+ return events.filter(e=>ids.has(e.event_id)).map(e=>e.event_id);
+}
 const ingestion = z.strictObject({ words: z.array(z.string().min(1).max(80)).min(1).max(100), testDate: z.iso.date(), sourceText: z.string().min(1).max(100000) });
 const submission = z.strictObject({ itemId: z.string().min(1), rawResponse: z.string().max(4096).nullable(), status: z.enum(['answered', 'unknown', 'skipped', 'ambiguous']), audioReplays: z.number().int().min(0).max(100) });
 const schoolInput = schemas['school_test.recorded'].omit({ assignmentId: true, photoHash: true, sourceKind: true }).extend({ sourceText: z.string().min(1).max(100000) }).strict();
@@ -118,7 +127,7 @@ export function createSpellingJourney(db: ChartDatabase, provider: SpellingProvi
                 if (p.tags.assignmentId !== id || p.priors.length !== words.length || new Set(p.priors.map(r => r.word)).size !== words.length || p.priors.some(r => r.assignmentId !== id || !words.includes(r.word)))
                     throw new Error('prior_coverage');
                 recordTags(db, p.tags, { cites: [s.view.assignmentEventId!] });
-                recordPriors(db, p.priors, { cites: chart.events.map(e => e.event_id) });
+                recordPriors(db, p.priors.map(prior=>({...prior,provenance:{asOfSequence:request.packet.asOfSequence,modelId:request.model ?? 'unrecorded'}})), { cites: priorInputIds(request.packet,chart.events) });
             }
             else if (stage === 'plan') {
                 const p = planProposal.parse(proposal);

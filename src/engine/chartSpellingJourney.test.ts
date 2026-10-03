@@ -117,3 +117,13 @@ it('catalogs the instrument and cites the captured assignment before it is playa
  const assignment=exportEvents(db).find(e=>e.type==='assignment.ingested')!;
  expect(exportEvents(db).find(e=>e.event_id===item.presentationId)!.cites).toContain(assignment.event_id);
 });
+it('limits prior citations to packet inputs and records the immutable input cutoff',async()=>{
+ const j=setup(Object.assign(provider,{modelId:'synthetic-model'}));
+ const old=j.profile({displayName:'Old profile'});const current=j.profile({displayName:'Current profile'});
+ const a=j.ingest({words:['knee'],testDate:'2026-10-10',sourceText:'knee'});
+ const cutoff=exportEvents(db).at(-1)!.sequence;
+ await j.advance(a.assignmentId);
+ const prior=exportEvents(db).find(e=>e.type==='prediction.prior')!;
+ expect(prior.cites).not.toContain(old.event_id);expect(prior.cites).toContain(current.event_id);
+ expect(prior.payload.provenance).toEqual({asOfSequence:cutoff,modelId:'synthetic-model'});
+});
