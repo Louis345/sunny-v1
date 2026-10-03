@@ -1,3 +1,4 @@
+import {requestPlannerMessage, readPlannerToolReceipt} from "./plannerTransport";
 import { MATH_ITEMS_SCHEMA, parseDirectItem, type DirectItem } from "./directMathExperience";
 import Anthropic from "@anthropic-ai/sdk";
 import path from "path";
@@ -540,7 +541,7 @@ async function askPlanner(
   const allowedProgressionActions: LearningProgressionAction[] = cycle.lifecycle === "baseline_evaluating" && !baselineEligibility.eligible
     ? ["generate_support", "collect_more_evidence"]
     : ["generate_support", "generate_quest", "generate_boss", "collect_more_evidence", "await_calibration"];
-  const plannerModel = model ?? process.env.SUNNY_INGEST_MODEL ?? "claude-sonnet-5";
+  const plannerModel = model ?? (cycle.domain === "spelling" ? process.env.SUNNY_EXPERIENCE_PLANNER_MODEL : undefined) ?? process.env.SUNNY_INGEST_MODEL ?? "claude-sonnet-5";
   const instrumentSchema = {
     type: "object",
     additionalProperties: false,
@@ -575,11 +576,11 @@ async function askPlanner(
     model: plannerModel,
   };
   const rawDecision = await runMathProviderStage({ draftDir, stage: "progression-decision", model: plannerModel, request: snapshot, execute: async () => {
-  const response = await anthropic.messages.create({
+  const response = await requestPlannerMessage(anthropic, {
     model: plannerModel,
     // The prescription now carries five additional design fields; 2600 truncated them.
     max_tokens: 6000,
-    messages: [{ role: "user", content: `You are Sunny's AI Planner. Compare the preregistered academic theory and predictions with the factual scorecard. Quest requires a captured, correct, unseen independent checkpoint. Practice cannot satisfy that boundary. For math, author nextItems with stable unique ids, prompts, lineage, and frozen response contracts. Include fresh checkpoint evidence when further progression is intended. Explanation responses remain unscored and cannot independently unlock progression. Never reuse exposed item ids or prompts. Quest tests unseen transfer; Boss tests unseen synthesis; Boss must end awaiting calibration. Return exactly one concise decision. Unless progressionAction is await_calibration, author the one complete next board in nextInstruments: you decide how many activities it has. A board may offer the child a real choice through routeChoice (shared opening nodes, then two or more routes that may reconverge on a common checkpoint). The current board is never changed; your program becomes a new board for a later session. Mark exactly one instrument with encounter "quest" only when progressionAction is generate_quest, or "boss" only when it is generate_boss; never add an encounter otherwise.
+    messages: [{ role: "user", content: `You are Sunny's AI Planner. Compare the preregistered academic theory and predictions with the factual scorecard. Quest requires a captured, correct, unseen independent checkpoint. Practice cannot satisfy that boundary. For math, author nextItems with stable unique ids, prompts, lineage, and frozen response contracts. Include fresh checkpoint evidence when further progression is intended. Explanation responses remain unscored and cannot independently unlock progression. Never reuse exposed item ids or prompts. Quest tests unseen transfer; Boss tests unseen synthesis; Boss must end awaiting calibration. Call ${toolName} exactly once with one concise decision. Unless progressionAction is await_calibration, author the one complete next board in nextInstruments: you decide how many activities it has. A board may offer the child a real choice through routeChoice (shared opening nodes, then two or more routes that may reconverge on a common checkpoint). The current board is never changed; your program becomes a new board for a later session. Mark exactly one instrument with encounter "quest" only when progressionAction is generate_quest, or "boss" only when it is generate_boss; never add an encounter otherwise.
 
 You are the artist here, not a compliance function. Sunny holds the academic truth and the evidence limits; everything else is yours. Stakes, failure, consequence, escalation, pacing, tone, and payoff are your decisions to make and to defend, and you may change them run to run. You have full freedom to choose a game, simulation, manipulative, story, conversation, demonstration, or another fitting form.
 
@@ -672,12 +673,10 @@ ${JSON.stringify({ lifecycle: cycle.lifecycle, assignment: cycle.assignment, the
     }],
     tool_choice: { type: "tool", name: toolName },
   }, { timeout: Number(process.env.SUNNY_AI_TIMEOUT_MS ?? 120000) });
-  const tool = response.content.find((block) => block.type === "tool_use" && block.name === toolName);
-  if (!tool || tool.type !== "tool_use") throw new Error("canonical_progression_tool_output_missing");
-  return tool.input;
+  return { plannerMessage: response };
   } });
   console.log(` 🎮 [canonical-progression] [planner-response] [checkpointed] homework=${cycle.homeworkId} revision=${cycle.revision}`);
-  return parseCanonicalProgressionDecision(rawDecision);
+  return parseCanonicalProgressionDecision(readPlannerToolReceipt(rawDecision, toolName));
 }
 
 type AdvanceInput = {

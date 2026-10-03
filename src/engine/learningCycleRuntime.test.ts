@@ -1,7 +1,7 @@
 import fs from "fs";
 import os from "os";
 import path from "path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { createLearningCycle, getLearningCycle, projectLearningCycle, transitionLearningCycle, type CreateLearningCycleInput } from "./learningCycleRepository";
 import { advanceCanonicalCycleFromEvidence, parseCanonicalProgressionDecision, recordCanonicalNodeCompletion } from "./learningCycleRuntime";
 
@@ -598,7 +598,7 @@ describe("canonical learning cycle runtime", () => {
     }, { rootDir })).rejects.toThrow("canonical_progression_quest_requires_eligible_baseline_evidence");
   });
 
-  it("gives the Planner a concrete decision envelope instead of an unconstrained empty object", async () => {
+  it.each(["claude-opus-5-5", "claude-sonnet-4-5"])("gives %s a compatible concrete decision envelope", async (model) => {
     const rootDir = root();
     fs.mkdirSync(path.join(rootDir, "src", "context", "reina"), { recursive: true });
     fs.writeFileSync(path.join(rootDir, "src", "context", "reina", "child_profile.json"), JSON.stringify({
@@ -651,9 +651,11 @@ describe("canonical learning cycle runtime", () => {
     await advanceCanonicalCycleFromEvidence({
       childId: "reina",
       homeworkId: "hw-runtime",
-      client: client as never,
+      client: {messages:{...client.messages,stream:(payload:Record<string,unknown>)=>({finalMessage:()=>client.messages.create(payload)})}} as never,
+      model,
     }, { rootDir });
 
+    expect(request?.tool_choice).toEqual(model === "claude-opus-5-5" ? { type: "auto" } : { type: "tool", name: "decide_learning_cycle_progression" });
     const inputSchema = ((request?.tools as Array<{ input_schema: { required?: string[] } }>)[0]?.input_schema);
     const prompt = String((request?.messages as Array<{ content?: unknown }>)[0]?.content ?? "");
     expect(prompt).toContain("Child chart context");
@@ -873,4 +875,38 @@ describe("canonical learning cycle runtime", () => {
     expect(repeated?.revision).toBe(first?.revision);
     expect(repeated?.decisionHistory).toHaveLength(first?.decisionHistory.length ?? 0);
   });
+});
+
+it('uses the configured spelling Planner for next-step decisions, keeping math configuration separate',async()=>{
+ vi.stubEnv('SUNNY_EXPERIENCE_PLANNER_MODEL','claude-opus-5-5');
+ vi.stubEnv('SUNNY_INGEST_MODEL','legacy-math-model');
+ try {
+  for(const domain of ['spelling','math'] as const){
+   const rootDir=root();
+   try {
+    const dir=path.join(rootDir,'src/context/reina');fs.mkdirSync(dir,{recursive:true});
+    fs.writeFileSync(path.join(dir,'learning_profile.json'),JSON.stringify({childId:'reina'}));
+    createLearningCycle({...input(),domain,nodes:[node('facts','baseline')]},{rootDir});
+    recordCanonicalNodeCompletion({childId:'reina',homeworkId:'hw-runtime',sessionId:'lab',nodeId:'facts',result:{completed:true,accuracy:1,timeSpent_ms:1000,targetResults:[{target:'2x5',attemptedValue:'10',correct:true}]}},{rootDir});
+    const create=vi.fn(async(_payload?:unknown)=>{throw Error('fixture-stop');});
+    await expect(advanceCanonicalCycleFromEvidence({childId:'reina',homeworkId:'hw-runtime',client:{messages:{create,stream:(payload:unknown)=>({finalMessage:()=>create(payload)})}} as never},{rootDir})).rejects.toThrow('fixture-stop');
+    expect(create).toHaveBeenCalledOnce();
+    expect((create.mock.calls[0] as unknown as [Record<string,unknown>])[0].model).toBe(domain==='spelling'?'claude-opus-5-5':'legacy-math-model');
+   }finally{fs.rmSync(rootDir,{recursive:true,force:true});}
+  }
+ }finally{vi.unstubAllEnvs();}
+});
+
+it.each(['max_tokens','refusal'])('preserves canonical Planner %s as a known completed response',async(reason)=>{
+ const rootDir=root();
+ try {
+  const dir=path.join(rootDir,'src/context/reina');fs.mkdirSync(dir,{recursive:true});fs.writeFileSync(path.join(dir,'learning_profile.json'),JSON.stringify({childId:'reina'}));
+  createLearningCycle({...input(),nodes:[node('facts','baseline')]},{rootDir});
+  recordCanonicalNodeCompletion({childId:'reina',homeworkId:'hw-runtime',sessionId:'lab',nodeId:'facts',result:{completed:true,accuracy:1,timeSpent_ms:1000,targetResults:[{target:'2x5',attemptedValue:'10',correct:true}]}},{rootDir});
+  const message={stop_reason:reason,content:[]};const create=vi.fn(async()=>message),stream=vi.fn(()=>({finalMessage:create}));
+  await expect(advanceCanonicalCycleFromEvidence({childId:'reina',homeworkId:'hw-runtime',model:'claude-opus-5-5',client:{messages:{create,stream}} as never},{rootDir})).rejects.toThrow('planner_response_'+reason);
+  const receipts=fs.readdirSync(path.join(dir,'homework/cycles/.planner/hw-runtime'),{recursive:true}) as string[];
+  const raw=receipts.filter(f=>f.endsWith('.json')).map(f=>fs.readFileSync(path.join(dir,'homework/cycles/.planner/hw-runtime',f),'utf8')).find(s=>s.includes('plannerMessage'));
+  expect(raw).toContain('"received"');expect(raw).toContain(reason);expect(create).toHaveBeenCalledTimes(1);
+ }finally{fs.rmSync(rootDir,{recursive:true,force:true});}
 });

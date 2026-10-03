@@ -8,8 +8,13 @@ function enabled(workflow, branch) {
   const source = fs.readFileSync(path.join(root, workflow), 'utf8');
   const job = source.match(/^  (?:review|verify):\n([\s\S]*?)(?=^  [a-zA-Z_-]+:|$(?![\s\S]))/m)?.[1];
   assert.ok(job, 'expected job');
-  const condition = job.match(/^    if: \$\{\{ github\.head_ref != '([^']+)' \}\}$/m);
-  return condition ? branch !== condition[1] : true;
+  const condition = job.match(/^    if: \$\{\{ (.+) \}\}$/m)?.[1];
+  if (!condition) return true;
+  return condition.split(' && ').every(clause => {
+    const match = clause.match(/^github\.head_ref != '([^']+)'$/);
+    assert.ok(match, 'unrecognized job policy');
+    return branch !== match[1];
+  });
 }
 test('the spelling core PR cannot start the paid API reviewer', () => {
   assert.equal(enabled('.github/workflows/claude-review.yml', 'codex/spelling-chart-core'), false);
@@ -35,4 +40,8 @@ test('kiosk CI exercises real routes and both browser sizes', () => {
   const source = fs.readFileSync(path.join(root, '.github/workflows/ci.yml'), 'utf8');
   for (const name of ['chartSpellingJourney','chartSpellingAudio','chartSpellingRoutes','chartSpellingLaunch','chartSpellingBrowserAcceptance']) assert.ok(source.includes(name+'.test.ts'));
   assert.match(source, /playwright install/);
+});
+
+test('plumbing PR uses only the existing reviewer and isolated verification', () => {
+ for (const workflow of ['.github/workflows/claude-review.yml','.github/workflows/ci.yml']) assert.equal(enabled(workflow,'codex/spelling-plumbing'),false);
 });

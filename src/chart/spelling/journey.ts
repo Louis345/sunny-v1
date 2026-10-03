@@ -1,3 +1,4 @@
+import {readPlannerToolReceipt} from '../../engine/plannerTransport';
 import {checkpointedAttempt} from './checkpointedAttempt';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -115,7 +116,7 @@ export function createSpellingJourney(db: ChartDatabase, provider: SpellingProvi
         const packet = { ...buildPlannerPacket(chart.events, id), profile: chart.profile };
         const base = path.join(path.dirname(db.path), db.childId, 'requests', hash(`${id}:${stage}`));
         return checkpointedAttempt(base, {stage, packet, model:provider.modelId ?? 'injected-fixture'}, () => provider(stage,packet), (raw, metadata) => {
-        let proposal=raw;
+        let proposal=readPlannerToolReceipt(raw, 'submit_spelling_proposal');
         if(typeof proposal==='string') proposal=JSON.parse(proposal.trim().replace(/^```(?:json)?\s*/i,'').replace(/\s*```$/,''));
         const request=metadata as {packet:SpellingPacket;model?:string};
         db.sql.transaction(() => {

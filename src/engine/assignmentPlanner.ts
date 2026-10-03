@@ -1,3 +1,4 @@
+import {requestPlannerMessage, assertPlannerResponseComplete} from "./plannerTransport";
 import Anthropic from "@anthropic-ai/sdk";
 import fs from "fs";
 import path from "path";
@@ -342,6 +343,7 @@ export async function planSpellingIntakeFromSource(packet: AssignmentPlanningPac
     : { message: await requestAssignmentPlannerTool({ prompt, model, source: packet.sourceDocument, schema: z.toJSONSchema(schema, { io: "input" }) }), latencyMs: Date.now() - requestStarted };
   const unpack = (value: Receipt): { draft: unknown; usage?: LanguageModelUsage; latencyMs: number } => {
     if ("output" in value) return { draft: value.output, usage: value.telemetry.usage, latencyMs: value.telemetry.latencyMs };
+    if ("message" in value) assertPlannerResponseComplete(value.message);
     const tool = "message" in value ? value.message.content.find(block => block.type === "tool_use" && block.name === ASSIGNMENT_PLANNER_TOOL_NAME) : undefined;
     return {
       draft: "message" in value ? tool && "input" in tool ? tool.input : undefined : value.draft,
@@ -2010,8 +2012,9 @@ function normalizeAssignmentPlannerToolInput(input: unknown): unknown {
 }
 
 export function parseAssignmentPlannerToolUseResponse(
-  response: Pick<Anthropic.Messages.Message, "content">,
+  response: Pick<Anthropic.Messages.Message, "content"> & { stop_reason?: string | null },
 ): AssignmentPlannerResponseObject {
+  assertPlannerResponseComplete(response);
   const toolUse = response.content.find((block) =>
     block.type === "tool_use" &&
     "name" in block &&
@@ -2249,11 +2252,10 @@ type AssignmentPlannerToolRequest = {
 async function requestAssignmentPlannerTool(args: AssignmentPlannerToolRequest): Promise<Anthropic.Messages.Message> {
   const client = new Anthropic({ maxRetries: 0 });
   const timeoutMs = Math.max(10_000, Number(process.env.SUNNY_AI_TIMEOUT_MS ?? 120_000));
-  const signal = AbortSignal.timeout(timeoutMs);
-  return client.messages.create({
+  return requestPlannerMessage(client, {
     model: args.model,
     max_tokens: Math.max(8_000, Number(process.env.SUNNY_PLANNER_MAX_TOKENS ?? ASSIGNMENT_PLANNER_MAX_TOKENS)),
-    system: ASSIGNMENT_PLANNER_PERSONA,
+    system: `${ASSIGNMENT_PLANNER_PERSONA}\nCall ${ASSIGNMENT_PLANNER_TOOL_NAME} exactly once to submit the complete plan matching its schema.`,
     tools: [{
       name: ASSIGNMENT_PLANNER_TOOL_NAME,
       description: "Write Sunny's captured homework interpretation, active intervention node plan, measurements, and mastery theory. Populate every tool field directly as its declared object or array type. Never serialize the plan or any tool field into a JSON string.",
@@ -2274,7 +2276,7 @@ async function requestAssignmentPlannerTool(args: AssignmentPlannerToolRequest):
         { type: "text" as const, text: args.prompt },
       ],
     }],
-  }, { signal });
+  }, { timeout: timeoutMs });
 }
 
 export function hydrateAssignmentPlannerOutputFromDraft(
