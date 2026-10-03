@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { stripVTControlCharacters } from "node:util";
 import { expect, it } from "vitest";
 import { seedSpellingLab, writeSpellingPdfFixture } from "./fixtures/spellingEvidenceFirst";
@@ -28,7 +28,7 @@ it("hands the terminal to an ingestion child, then accepts menu input after it e
       }).catch(error=>{console.error(error);process.exitCode=1});
     `);
     const command = [process.execPath, path.join(sourceRoot, "node_modules/tsx/dist/cli.mjs"), "src/scripts/sunnyMenu.ts"];
-    const args = ["-c", "import os, pty, sys; sys.exit(os.waitstatus_to_exitcode(pty.spawn(sys.argv[1:])))", ...command];
+    const args = ["-c", fs.readFileSync(path.join(__dirname, "fixtures/terminalPty.py"), "utf8"), ...command];
     const answers = ["1", "1", "2", source, "yes", "5"];
     let pending = "";
     child = spawn("python3", args, { cwd: root, detached: true, env: { ...process.env, SUNNY_CONTEXT_ROOT: path.join(root, "src/context"), DOTENV_CONFIG_PATH: "/dev/null", ANTHROPIC_API_KEY: "", OPENAI_API_KEY: "", ELEVENLABS_API_KEY: "" }, stdio: "pipe" });
@@ -49,6 +49,25 @@ it("hands the terminal to an ingestion child, then accepts menu input after it e
     expect(code).toBe(0);
   } finally {
     if (child && child.exitCode === null && child.signalCode === null) process.kill(-child.pid!, "SIGTERM");
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+}, 20000);
+
+
+it("fails and reaps a synthetic child that never exits", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-pty-timeout-"));
+  const pidFile = path.join(root, "child.pid");
+  let pid: number | undefined;
+  try {
+    const result = spawnSync("python3", [path.join(__dirname, "fixtures/terminalPty.py"), process.execPath,
+      "-e", `require('fs').writeFileSync(${JSON.stringify(pidFile)}, String(process.pid)); process.on('SIGHUP',()=>{}); setInterval(()=>{},1000);`],
+      { env: { ...process.env, SUNNY_TEST_PTY_TICKS: "30" }, encoding: "utf8", timeout: 17000 });
+    pid = Number(fs.readFileSync(pidFile, "utf8"));
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain("PTY child did not exit");
+    expect(() => process.kill(pid!, 0)).toThrow();
+  } finally {
+    if (pid) { try { process.kill(pid, "SIGKILL"); } catch (error) { if ((error as NodeJS.ErrnoException).code !== "ESRCH") throw error; } }
     fs.rmSync(root, { recursive: true, force: true });
   }
 }, 20000);
