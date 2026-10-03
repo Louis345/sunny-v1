@@ -88,3 +88,18 @@ it.each(['audio_only', 'letters', 'hint', 'companion', 'practice', 'answered'] a
     expect(reading.eligible).toBe(prior === 'audio_only');
     if (prior === 'audio_only') expect(evaluatePriors(exportEvents(db), assignmentId).coverage.matched).toBe(1);
 });
+it('protects citation dependencies against direct SQL edits', () => {
+    loadThrough('response.observed');
+    const before = db.sql.prepare('SELECT * FROM event_citations ORDER BY source_id,target_id').all();
+    expect(() => db.sql.exec('DELETE FROM event_citations')).toThrow('chart_citations_immutable');
+    expect(() => db.sql.exec("UPDATE event_citations SET target_id='missing'")).toThrow('chart_citations_immutable');
+    expect(db.sql.prepare('SELECT * FROM event_citations ORDER BY source_id,target_id').all()).toEqual(before);
+});
+it('refuses the earlier schema without silently adding new triggers', () => {
+    db.sql.exec('UPDATE schema SET version=2'); db.close();
+    const before = fs.readFileSync(db.path);
+    let opened: ChartDatabase | undefined;
+    try { expect(() => { opened = openChart('synthetic-review', { chartDir: root }); }).toThrow('chart_schema_unsupported'); }
+    finally { opened?.close(); }
+    expect(fs.readFileSync(db.path)).toEqual(before);
+});

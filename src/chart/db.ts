@@ -15,7 +15,7 @@ export function openChart(childId: string, opts: ChartOptions = {}): ChartDataba
     const hasSchema = sql.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='schema'").get();
     if (hasSchema) {
       const old = sql.prepare('SELECT version,child_id FROM schema WHERE singleton=1').get() as {version:number;child_id:string} | undefined;
-      if (!old || old.version !== 2) throw new Error('chart_schema_unsupported');
+      if (!old || old.version !== 3) throw new Error('chart_schema_unsupported');
       if (old.child_id !== childId) throw new Error('chart_child_mismatch');
     }
 
@@ -31,6 +31,8 @@ export function openChart(childId: string, opts: ChartOptions = {}): ChartDataba
             actor TEXT NOT NULL, cites TEXT NOT NULL CHECK(json_valid(cites)), payload TEXT NOT NULL CHECK(json_valid(payload))
           );
           CREATE TABLE IF NOT EXISTS event_citations (source_id TEXT NOT NULL,target_id TEXT NOT NULL,PRIMARY KEY(source_id,target_id));
+          CREATE TRIGGER IF NOT EXISTS citations_no_update BEFORE UPDATE ON event_citations BEGIN SELECT RAISE(ABORT,'chart_citations_immutable'); END;
+          CREATE TRIGGER IF NOT EXISTS citations_no_delete BEFORE DELETE ON event_citations BEGIN SELECT RAISE(ABORT,'chart_citations_immutable'); END;
           CREATE INDEX IF NOT EXISTS citations_target ON event_citations(target_id);
           CREATE INDEX IF NOT EXISTS events_assignment ON events(json_extract(payload,'$.assignmentId'),type,sequence);
           CREATE INDEX IF NOT EXISTS events_correction ON events(json_extract(payload,'$.target_event_id'),sequence) WHERE type='correction.recorded';
@@ -39,15 +41,15 @@ export function openChart(childId: string, opts: ChartOptions = {}): ChartDataba
           CREATE TRIGGER IF NOT EXISTS events_no_delete BEFORE DELETE ON events BEGIN SELECT RAISE(ABORT,'chart_events_immutable'); END;
           CREATE TRIGGER IF NOT EXISTS events_no_replace BEFORE INSERT ON events WHEN EXISTS(SELECT 1 FROM events WHERE event_id=NEW.event_id) BEGIN SELECT RAISE(ABORT,'chart_event_duplicate'); END;
           CREATE TRIGGER IF NOT EXISTS events_child_identity BEFORE INSERT ON events WHEN NEW.child_id != (SELECT child_id FROM schema WHERE singleton=1) BEGIN SELECT RAISE(ABORT,'chart_child_mismatch'); END;`);
-        sql.prepare('INSERT OR IGNORE INTO schema VALUES (1, 2, ?)').run(childId);
+        sql.prepare('INSERT OR IGNORE INTO schema VALUES (1, 3, ?)').run(childId);
         const identity = sql.prepare('SELECT version,child_id FROM schema WHERE singleton=1').get() as { version: number; child_id: string };
         if (identity.child_id !== childId) throw new Error('chart_child_mismatch');
-        if (identity.version !== 2) throw new Error('chart_schema_unsupported');
+        if (identity.version !== 3) throw new Error('chart_schema_unsupported');
       }).immediate();
     }
     const identity = sql.prepare('SELECT version,child_id FROM schema WHERE singleton=1').get() as { version: number; child_id: string } | undefined;
     if (!identity || identity.child_id !== childId) throw new Error('chart_child_mismatch');
-    if (identity.version !== 2) throw new Error('chart_schema_unsupported');
+    if (identity.version !== 3) throw new Error('chart_schema_unsupported');
     if (readonly) sql.pragma('query_only = ON');
     const count = (sql.prepare('SELECT count(*) AS n FROM events').get() as { n: number }).n;
     console.error(` 🎮 [chart] [opened] child=${childId} path=${file} events=${count} readonly=${readonly}`);
