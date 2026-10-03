@@ -45,6 +45,20 @@ it('permits nulling an unreliable reading and adding previously missing assistan
     correct(r, { ...r.payload, rawResponse: null, status: 'unknown', support: { ...(r.payload.support as object), companionHelp: true } });
     expect(projectAssignment(exportEvents(db), assignmentId).responses[0]).toMatchObject({ rawResponse: null, result: 'unknown', assistance: 'assisted', eligible: false });
 });
+it('cannot remove support added by an earlier correction', () => {
+    loadThrough('response.observed');
+    const r = exportEvents(db).find(e => e.type === 'response.observed')!;
+    correct(r, { ...r.payload, support: { ...(r.payload.support as object), hint: true } });
+    expect(() => correct(r, { ...r.payload, support: { ...(r.payload.support as object), audioReplays: 1 } })).toThrow('correction_has_dependents');
+    expect(projectAssignment(exportEvents(db), assignmentId).responses[0]).toMatchObject({ assistance: 'assisted', eligible: false });
+});
+it('cannot restore a reading downgraded by an earlier correction', () => {
+    loadThrough('response.observed');
+    const r = exportEvents(db).find(e => e.type === 'response.observed')!;
+    correct(r, { ...r.payload, rawResponse: null, status: 'unknown' });
+    expect(() => correct(r, { ...r.payload, support: { ...(r.payload.support as object), audioReplays: 1 } })).toThrow('correction_has_dependents');
+    expect(projectAssignment(exportEvents(db), assignmentId).responses[0]).toMatchObject({ rawResponse: null, result: 'unknown', eligible: false });
+});
 function plan(decisionIndex = 1) {
     const evaluation = evaluatePriors(exportEvents(db), assignmentId);
     const ids = evaluation.rows.map(r => r.responseId);

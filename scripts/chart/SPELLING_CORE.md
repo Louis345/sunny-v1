@@ -223,3 +223,20 @@ The following questions are explicitly deferred for human/product review:
 Projection indexing and response/plan latency characterization remain known
 performance work before larger-history integration, as noted by the reviewer.
 No evidence is claimed for improved real-child learning from these simulations.
+
+### Round 2 follow-up: chained-correction finding verification
+
+The round-2 reviewer reported that a second response correction could remove
+support or restore a downgraded reading. Two new regressions exercise those exact
+sequences through the public append path. Both second corrections were already
+rejected by `chart_correction_has_dependents`: the first correction cites its
+target, and immutable citation rows protect it before the response comparison.
+The initial assertions expected `correction_response_upgrade` and failed because
+they received this earlier rejection; that is not a reproduced evidence bypass.
+The tests now assert the actual dependency boundary and unchanged projected
+assistance/unknown result. No production change is warranted by this reproduction.
+These are additional safety regressions, not a red-green implementation fix.
+The blocking finding is disputed pending the reviewer's reproduction or retraction.
+
+Verification: all 113 scoped tests, including actual-server acceptance, and the
+server/web build pass in the isolated offline copy. No production lines changed.
