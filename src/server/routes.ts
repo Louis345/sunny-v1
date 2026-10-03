@@ -1,4 +1,5 @@
-import {recordOriginalSpellingResponse,withOriginalSpellingChart} from '../chart/spelling/originalResponses';
+import {commitOriginalSpellingAttempt} from './originalSpellingCommit';
+import {withOriginalSpellingChart} from '../chart/spelling/originalResponses';
 import { setupKioskHealthRoutes } from "./kioskHealthRoutes";
 import Anthropic from "@anthropic-ai/sdk";
 import { ElevenLabsClient } from "@elevenlabs/elevenlabs-js";
@@ -828,18 +829,22 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
         ? existing.nodes.find(node => node.evidenceContract.spellingItems?.[attempt.itemId])?.artifactBinding
         : existing?.nodes.find(node => node.role === "evaluation" && node.artifactBinding?.contractFingerprint === live?.artifactHash)?.artifactBinding;
       const verifiedLive = live && live.artifactHash === binding?.contractFingerprint && (!spellingNode || live.nodeId === spellingNode.nodeId) ? live : undefined;
-      if (attempt.supportEventIds.some(id => !verifiedLive?.support.scaffolds.includes(id))) throw new Error("discovery_support_reference_unknown");
-      if(existing?.domain === "spelling") withOriginalSpellingChart(childId,db=>{
+      const prepareLegacy = () => {
+        if (attempt.supportEventIds.some(id => !verifiedLive?.support.scaffolds.includes(id))) throw new Error("discovery_support_reference_unknown");
+        return { childId, homeworkId, attempt: { ...attempt, skipped: body.skipped === true }, support: verifiedLive?.support, artifactHash: binding?.contractFingerprint, sessionId: verifiedLive?.sessionId, instrumentSignals: [...attempt.instrumentSignals, ...(verifiedLive?.instrumentSignals ?? ["live_context_unavailable"])] };
+      };
+      const recorded = existing?.domain === "spelling" ? withOriginalSpellingChart(childId,db=>commitOriginalSpellingAttempt(db,homeworkId,{...attempt,skipped:body.skipped === true,sessionId:submittingSessionId},()=>{
+        const legacy=prepareLegacy();
         if(!verifiedLive?.chartItemId || !verifiedLive.launchId || verifiedLive.audioReplays === undefined)throw new Error('chart_live_presentation_required');
-        return recordOriginalSpellingResponse(db,{
+        return {legacy,response:{
           assignmentId:homeworkId,sessionId:verifiedLive.sessionId,itemId:verifiedLive.chartItemId,sourceResponseId:attempt.attemptId,
           rawResponse:attempt.attemptedValue,status:body.skipped === true ? 'skipped' : [...attempt.instrumentSignals,...verifiedLive.instrumentSignals].length ? 'ambiguous' : 'answered',
           support:{audioReplays:verifiedLive.audioReplays,spellingShown:verifiedLive.instrumentSignals.includes('answer_exposure'),hint:false,companionHelp:verifiedLive.support.status === 'assisted'},
-        });
-      });
-      const cycle = existing?.domain === "spelling"
-        ? recordSpellingDiscoveryAttempt({ childId, homeworkId, attempt: { ...attempt, skipped: body.skipped === true }, support: verifiedLive?.support, artifactHash: binding?.contractFingerprint, sessionId: verifiedLive?.sessionId, instrumentSignals: [...attempt.instrumentSignals, ...(verifiedLive?.instrumentSignals ?? ["live_context_unavailable"])] })
-        : recordDiscoveryAttempt({ childId, homeworkId, attempt, support: verifiedLive?.support });
+        }};
+      },recordSpellingDiscoveryAttempt)) : undefined;
+      const cycle = recorded ?? (existing?.domain === "spelling"
+        ? recordSpellingDiscoveryAttempt(prepareLegacy())
+        : recordDiscoveryAttempt({ childId, homeworkId, attempt, support: prepareLegacy().support }));
       console.log(` 🎮 [adaptive-math] [discovery-attempt] [committed] child=${childId} homework=${homeworkId} attempt=${attempt.attemptId}`);
       return res.json({ ok: true, lifecycle: cycle.lifecycle, revision: cycle.revision });
     } catch (error: unknown) {

@@ -79,3 +79,23 @@ This prevents a rejected chart write from advancing the current board's evidence
 It does not make the two stores atomic: crash recovery after a successful chart
 write and failed cycle write remains unfinished and is required before activation.
 The change moves existing lines; it adds no alternate scoring or fallback path.
+
+## Discovery delivery recovery
+
+A server-owned operational receipt now preserves the verified raw submission,
+per-item support and both write inputs before either store is updated. It is
+published with an exclusive atomic link after file flush, followed by directory
+flush. Retrying the identical delivery uses those frozen inputs even after the
+voice session disappears. Changed text or other request facts are rejected.
+The chart presentation must already exist; recovery cannot manufacture one.
+No provider call, learning decision, automatic retry loop or new UI is introduced.
+
+The new recovery test initially failed to load the absent implementation. It now
+injects failure in the legacy write after the chart commits, closes/reopens the
+DB, repairs without live context, proves exactly one response and rejects a
+changed answer. The actual HTTP regression also clears the voice-session registry
+between duplicate deliveries. All 21 tests in four files pass; the isolated full
+build passes. These tests establish retry recovery, not atomic transactions across
+SQLite and JSON or an automatic startup sweep. Receipt disk-full and multi-process
+fault injection remain unverified. The extracted module is a new delivery invariant;
+route changes replace the direct chart write with the recoverable boundary.
