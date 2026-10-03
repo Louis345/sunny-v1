@@ -134,9 +134,9 @@ Fix each one where answers are first recorded, so the old cycle the board Planne
 - **Dynamic test schedule:** for example from the school calendar or the assignment itself, still confirmed by the parent.
 - **Board speed** (agreed with the human; it starts after this milestone is accepted):
   - build successor-board activities **in parallel**, with bounded concurrency, the same one-attempt-per-activity rule, the same lease and checkpoints, and publishing only when every activity passes;
-  - an **honest progress bar** while a board is prepared: steps done out of total steps, with a time estimate from the measured `pipeline.stage` medians and no fake progress;
   - effort experiments (for example the Creator on medium for some activities), judged on the measured build time, browser-check and visual-review pass rates, retries, and engagement.
 - Making the Planner and the existing targeted board read from the chart instead of the old cycle.
+- **Deferred by the human:** a progress bar while a board is prepared. Not before the pipeline is solid.
 - Deleting the remaining old learning code for spelling.
 - Math, Quest and Boss.
 
