@@ -61,12 +61,19 @@ it("runs the real menu and ingestion subprocess twice with one local recorded pr
     expect(transcript).not.toContain("Done — BLOCKED");
     expect(requests).toBe(1);
     expect(capturedRequests[0].url).toBe("/v1/messages");
-    expect(JSON.stringify(capturedRequests[0].input.messages)).toContain("night");
+    // The source is sent as a base64 PDF, not as extracted plaintext.
+    // Verify the exact supplied document instead of searching its encoding.
+    expect(capturedRequests[0].input.messages[0].content).toEqual(expect.arrayContaining([
+      expect.objectContaining({ type: "document", source: expect.objectContaining({
+        type: "base64", media_type: "application/pdf", data: fs.readFileSync(source).toString("base64"),
+      }) }),
+    ]));
     const cyclesDir = path.join(root, "src/context/lab-child/homework/cycles");
     const files = fs.readdirSync(cyclesDir).filter(file => file.endsWith(".json"));
     expect(files).toHaveLength(1);
     const cycle = JSON.parse(fs.readFileSync(path.join(cyclesDir, files[0]), "utf8"));
     expect(cycle.lifecycle).toBe("evaluation_ready");
+    expect(cycle.assignment.targets).toEqual(["night", "light"]);
     expect(cycle.nodes.map((node: any) => node.role)).toEqual(["evaluation"]);
     expect(cycle.observations).toEqual([]);
     expect(capturedRequests[0].input.tools[0].input_schema.required).toContain("diagnostic");
