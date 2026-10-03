@@ -2,6 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { spawn } from "node:child_process";
+import { stripVTControlCharacters } from "node:util";
 import { expect, it } from "vitest";
 import { seedSpellingLab, writeSpellingPdfFixture } from "./fixtures/spellingEvidenceFirst";
 
@@ -33,7 +34,7 @@ it("hands the terminal to an ingestion child, then accepts menu input after it e
     child = spawn("python3", args, { cwd: root, detached: true, env: { ...process.env, SUNNY_CONTEXT_ROOT: path.join(root, "src/context"), DOTENV_CONFIG_PATH: "/dev/null", ANTHROPIC_API_KEY: "", OPENAI_API_KEY: "", ELEVENLABS_API_KEY: "" }, stdio: "pipe" });
     child.stdout!.on("data", chunk => {
       transcript += String(chunk); pending += String(chunk);
-      if (/(?:> |cancel: |\[y\/N\]: )$/.test(pending) && answers.length) { child!.stdin!.write(answers.shift() + "\n"); pending = ""; }
+      if (/(?:> |cancel: |\[y\/N\]: )$/.test(stripVTControlCharacters(pending)) && answers.length) { child!.stdin!.write(answers.shift() + "\n"); pending = ""; }
     });
     child.stderr!.on("data", chunk => { transcript += String(chunk); });
     const code = await new Promise<number | null>((resolve, reject) => {
