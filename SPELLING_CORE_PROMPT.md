@@ -138,6 +138,23 @@ An independent reviewer will review your pull request on GitHub and grade both y
    - **Spec deviations:** any place you departed from this prompt, and why.
 4. When review comments arrive, either fix the issue and reply with the commit SHA, or reply explaining why not. Resolve nothing silently. Don't argue for scope creep: out-of-scope ideas go under "Known gaps".
 
+### Automated review loop (no human relay, no paid review calls)
+
+The reviewer is the human's existing Claude session. It watches this PR on GitHub. **Do not set up or call any other AI reviewer.** No paid review calls; the earlier ban on provider calls still applies in full.
+
+- **Requesting a review:** when a coherent step is complete and pushed, post a PR comment that starts with `REVIEW READY round <n> @ <full commit SHA>`, followed by a 3–6 line summary of what changed since the last round. The reviewer reviews **only that exact commit**, and only when that comment appears. Pushes without that comment are not reviewed.
+- **Findings:** the reviewer posts a review headed `Review round <n> @ <sha>`, with inline comments labelled:
+  - `🔴 BLOCKING`: must be fixed before the next round;
+  - `🟡 SHOULD`: fix it, or reply with a reason;
+  - `⚪ NOTE`: informational.
+
+  It ends with the A–F report card and a verdict: `CHANGES REQUIRED`, `READY FOR HUMAN ACCEPTANCE`, or `ESCALATED TO HUMAN`.
+- **Your response:** fix every 🔴. Reply on each thread with the fixing SHA, or with a reason if you believe the finding is wrong. Then post the next `REVIEW READY` comment.
+- **Watching for the review:** check the PR for a new `Review round` at least every 15 minutes while waiting. Stop waiting after 3 hours without one, and record that in the PR.
+- **Round limit:** at most **4 review rounds**. If 🔴 findings remain after round 4, or you and the reviewer disagree on a 🔴, the reviewer escalates to the human, and you stop and wait.
+- **Who notifies the human:** the reviewer, and only for a real product decision, a blocker, or `READY FOR HUMAN ACCEPTANCE`. You don't need to message the human between rounds.
+- **Never** merge, mark the PR ready for review, approve your own work, or deploy. Neither does the reviewer. The human decides.
+
 ### Grading rubric (each category A–F)
 
 | Category | What earns an A |
