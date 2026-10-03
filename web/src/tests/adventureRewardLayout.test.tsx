@@ -9,7 +9,7 @@ import type {AdventureBoardJson} from '../../../src/shared/adventureBoardJson';
 
 // Parent saw Reward Break covering the checkpoint. The old lab checked labels
 // against labels, not the complete button, and only used a large desktop viewport.
-it.each([{width:1200,height:780},{width:768,height:1024}])('keeps Reward Break clear of the locked checkpoint at $width x $height',async(viewport)=>{
+it.each([{width:1200,height:780},{width:768,height:1024},{width:390,height:844}])('keeps Reward Break clear of the locked checkpoint at $width x $height',async(viewport)=>{
  const board={...raw,boardId:'synthetic-reward-overlap',choiceSets:[],edges:[],nodes:[
   {id:'checkpoint',kind:'activity',label:'Word Radar',slot:'6',state:'locked',activityId:'word-radar'},
   {id:'reward',kind:'mystery',label:'Reward Break',slot:'6.1',state:'available'},
