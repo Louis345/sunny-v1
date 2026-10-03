@@ -76,8 +76,9 @@ export function validateRelations(db: ChartDatabase, e: EventInput): void {
     }
     if (e.type === 'item.presented') {
         const item = p as Payloads['item.presented'];
-        if (!item.acceptedForms.includes(item.word))
-            fail('accepted_forms_word');
+        // Protocol 1's single accepted spelling is frozen by the assignment, not the room.
+        if (item.acceptedForms.length !== 1 || item.acceptedForms[0] !== item.word)
+            fail('accepted_forms_assignment');
         if ((item.instrument === 'practice') !== (item.role === 'practice'))
             fail('instrument_role');
     }

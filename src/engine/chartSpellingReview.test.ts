@@ -68,3 +68,10 @@ it('permits correcting draft pattern tags before priors', () => {
     correct(tags, { ...tags.payload, tags: ['able', 'knee', 'know', 'write'].map(word => ({ word, patterns: ['spelling.irregular'] })) });
     expect(projectAssignment(exportEvents(db), assignmentId).patterns[0].patterns).toEqual(['spelling.irregular']);
 });
+it('uses the assigned canonical word as the fixed accepted form in every presentation', () => {
+    loadThrough('assignment.ingested');
+    const presentation = fixture.find(e => e.type === 'item.presented')!.payload as any;
+    expect(() => recordFact(db, 'item.presented', { ...presentation, acceptedForms: ['able', 'abl'] })).toThrow('accepted_forms_assignment');
+    const recorded = recordFact(db, 'item.presented', presentation);
+    expect(() => correct(recorded, { ...presentation, acceptedForms: ['able', 'abl'] })).toThrow('accepted_forms_assignment');
+});
