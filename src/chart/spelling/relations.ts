@@ -26,7 +26,10 @@ export function validateRelations(db: ChartDatabase, e: EventInput): void {
             fail('correction_immutable_prediction');
         validatePayload(target.type, p.replacement_payload);
         const replacement = p.replacement_payload as Record<string, unknown>;
-        for (const key of ['assignmentId', 'word', 'sessionId', 'itemId', 'attempt', 'protocolVersion', 'instrument', 'role']) {
+        for (const key of ['provenance', 'sourceResponseId']) {
+            if ((key in target.payload) !== (key in replacement)) fail('correction_identity');
+        }
+        for (const key of ['assignmentId', 'word', 'sessionId', 'itemId', 'attempt', 'protocolVersion', 'instrument', 'role', 'provenance', 'sourceResponseId']) {
             if (key in target.payload && canonicalJson(target.payload[key]) !== canonicalJson(replacement[key]))
                 fail('correction_identity');
         }

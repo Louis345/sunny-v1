@@ -1,6 +1,6 @@
 # Sunny Learning Feedback Loop
 
-Contract version: 30
+Contract version: 31
 
 This document is the **sole normative** authority for how Sunny forms, tests, and revises learning claims. Product changes that alter this loop must update this contract version before implementation. Other documents may describe infrastructure or history, but they must link here instead of creating another learning doctrine.
 
@@ -317,3 +317,8 @@ observation identity, named metric and nonnegative integer measurement. Only the
 room or system may append them. Timing, replay, erase, repeated-attempt, skip,
 help, quit and later-day-return metrics are operational observations, never
 correctness or mastery. Missing measurements are not replaced with zero.
+
+Original-kiosk presentations retain server launch ID, canonical node ID and source
+item ID as immutable provenance. Responses retain their source attempt ID for
+idempotent delivery. A response must cite a previously committed presentation;
+retry cannot replace its captured answer or move it to another item.
