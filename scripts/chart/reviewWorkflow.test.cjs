@@ -19,3 +19,12 @@ test('the spelling core PR cannot start legacy CI against checked-out child reco
   assert.equal(enabled('.github/workflows/ci.yml', 'codex/spelling-chart-core'), false);
   assert.equal(enabled('.github/workflows/ci.yml', 'some-other-branch'), true);
 });
+test('core CI runs the build and core acceptance with no family context or network', () => {
+  const source = fs.readFileSync(path.join(root, '.github/workflows/ci.yml'), 'utf8');
+  assert.match(source, /spelling-core-acceptance:/);
+  assert.match(source, /!\/src\/context\/\*/);
+  assert.match(source, /unshare --net/);
+  assert.match(source, /npm run build/);
+  assert.match(source, /chartSpellingLoad\.test\.ts/);
+  assert.match(source, /20\.20\.0/);
+});

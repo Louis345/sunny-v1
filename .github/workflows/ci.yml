@@ -40,18 +40,37 @@ jobs:
       - name: Test (Vitest root + web)
         run: npm run test
 
-  spelling-core-review-setup:
+  spelling-core-acceptance:
     if: ${{ github.head_ref == 'codex/spelling-chart-core' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
+          persist-credentials: false
           sparse-checkout-cone-mode: false
           sparse-checkout: |
-            /.github/workflows/
-            /scripts/chart/reviewWorkflow.test.cjs
+            /*
+            !/src/context/*
+            /src/context/schemas/
+            !.env*
       - uses: actions/setup-node@v4
         with:
           node-version: '20.20.0'
-      - name: Verify review isolation (not core acceptance)
-        run: node --test scripts/chart/reviewWorkflow.test.cjs
+      - name: Install dependencies without project lifecycle scripts
+        run: |
+          npm ci --ignore-scripts
+          npm rebuild better-sqlite3 esbuild
+          npm ci --prefix web --ignore-scripts
+          npm rebuild --prefix web esbuild
+      - name: Verify isolation and acceptance without network or credentials
+        shell: bash
+        run: |
+          test ! -e src/context/reina
+          test ! -e src/context/ila
+          test ! -e .env
+          mkdir -p "$RUNNER_TEMP/synthetic-home"
+          sudo unshare --net env -i PATH="$PATH" HOME="$RUNNER_TEMP/synthetic-home" CI=true DOTENV_CONFIG_PATH=/dev/null bash -e -c '
+            node --test scripts/chart/reviewWorkflow.test.cjs
+            npm run build
+            node node_modules/vitest/vitest.mjs run src/engine/chartFoundation.test.ts src/engine/chartCommitOrder.test.ts src/engine/chartSpellingCore.test.ts src/engine/chartSpellingSchemas.test.ts src/engine/chartSpellingLoad.test.ts src/engine/chartKioskLifecycle.test.ts
+          '
