@@ -1,6 +1,6 @@
 # Sunny Learning Feedback Loop
 
-Contract version: 25
+Contract version: 26
 
 This document is the **sole normative** authority for how Sunny forms, tests, and revises learning claims. Product changes that alter this loop must update this contract version before implementation. Other documents may describe infrastructure or history, but they must link here instead of creating another learning doctrine.
 
@@ -273,8 +273,13 @@ currently be corrected at most once; the parent UI must disclose that limitation
 
 Provider requests use durable operational checkpoints outside the event stream:
 claim before calling, preserve the response before validation, and reuse it on
-restart. An uncertain call or invalid proposal stops that stage for attention;
-there is no automatic retry or replacement. These checkpoints never supply child
+restart. Each explicit user retry creates a separately preserved attempt after a
+recorded failure, with at most three attempts per stage or spoken word. No retry
+runs automatically. A request with no recorded outcome requires an explicit parent
+acknowledgment before another attempt; an active in-process request cannot be
+recovered concurrently. Saved invalid output and failures remain auditable. Request checkpoints name the explicitly configured model. New prior provenance
+records its input sequence cutoff and model; citations identify supplied facts,
+not every unrelated chart event. These checkpoints never supply child
 observations. Verification uses synthetic charts and recorded provider fixtures;
 those fixtures cannot be selected for a real child. Activation and host readiness
 must be proved separately from module and browser tests before child acceptance.
