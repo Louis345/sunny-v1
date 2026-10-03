@@ -1,6 +1,6 @@
 # Sunny Learning Feedback Loop
 
-Contract version: 29
+Contract version: 30
 
 This document is the **sole normative** authority for how Sunny forms, tests, and revises learning claims. Product changes that alter this loop must update this contract version before implementation. Other documents may describe infrastructure or history, but they must link here instead of creating another learning doctrine.
 
@@ -311,3 +311,9 @@ existing targeted-board Planner remains on its current decision path in this
 milestone. Assignment capture preserves an absent scheduled test date as explicit
 `null`; it never guesses a date. Parent-entered school results still require the
 actual test date, and forecast prospectivity continues to use that actual date.
+
+Engagement facts record a session, launched node, optional presented item, unique
+observation identity, named metric and nonnegative integer measurement. Only the
+room or system may append them. Timing, replay, erase, repeated-attempt, skip,
+help, quit and later-day-return metrics are operational observations, never
+correctness or mastery. Missing measurements are not replaced with zero.
