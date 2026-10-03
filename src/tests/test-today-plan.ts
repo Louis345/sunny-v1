@@ -43,6 +43,8 @@ beforeAll(() => {
   // These legacy readers resolve curriculum and clinical notes from cwd.
   // Point only this suite at invented files, never the repository's child data.
   vi.spyOn(process, "cwd").mockReturnValue(fixtureRoot);
+  vi.stubEnv("SUNNY_CONTEXT_ROOT", path.join(fixtureRoot, "src/context"));
+  vi.stubEnv("SUNNY_ALLOW_REAL_CHILD_CONTEXT_ROOT", "true");
   for (const childId of ["ila", "reina"]) {
     const directory = path.join(fixtureRoot, "src/context", childId);
     fs.mkdirSync(directory, { recursive: true });
@@ -53,6 +55,7 @@ beforeAll(() => {
 });
 afterAll(() => {
   vi.mocked(process.cwd).mockRestore();
+  vi.unstubAllEnvs();
   fs.rmSync(fixtureRoot, { recursive: true, force: true });
 });
 
