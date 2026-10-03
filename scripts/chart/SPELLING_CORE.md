@@ -2,7 +2,7 @@
 
 Implementation prepared for independent review. Not activated, not deployed,
 and not ready for kiosk acceptance. The normative authority is
-[LEARNING_FEEDBACK_LOOP.md](../../LEARNING_FEEDBACK_LOOP.md), version 23.
+[LEARNING_FEEDBACK_LOOP.md](../../LEARNING_FEEDBACK_LOOP.md), version 24.
 The adopted scope is [SPELLING_CORE_PROMPT.md](../../SPELLING_CORE_PROMPT.md).
 
 ## What changed
@@ -20,10 +20,10 @@ server routes and UI are unchanged.
 
 ## Decisions log
 
-- **Schema 2, explicit sequence.** An INTEGER PRIMARY KEY AUTOINCREMENT survives
+- **Schema 3, explicit sequence.** An INTEGER PRIMARY KEY AUTOINCREMENT survives
   VACUUM and database snapshots. Implicit rowid was simpler but less explicit
   for durable ordering. Exports preserve sequence. Opening an existing unknown
-  or schema-1 file is refused before schema/WAL changes; no migration occurs.
+  or schema-1/schema-2 file is refused before schema/WAL changes; no migration occurs.
 - **Local presence check before changing schema.** A metadata-only walk of
   `~/Development`, `~/Devlopment` when present, and `~/SunnyData` found no
   `reina.db`, `ila.db`, `reina.sqlite` or `ila.sqlite`. Dependency/build/cache/git
@@ -36,7 +36,7 @@ server routes and UI are unchanged.
   path; prior batches use an enclosing transaction. Logs distinguish staged
   writes from committed batches and rollbacks.
 - **Indexed validation.** Natural IDs, assignment/type/sequence and item indexes
-  serve normal writes. A citation index records dependencies transactionally.
+  serve normal writes. An immutable citation index records dependencies transactionally.
   Plans recompute only their assignment's evaluation, not the entire chart.
 - **Pure evaluation IDs.** A versioned content hash identifies the evaluation's
   rows and coverage. `plan.decided.evaluationIds` must match the actual projection
@@ -49,7 +49,7 @@ server routes and UI are unchanged.
   earlier. A result correction changes later reports without changing an earlier
   report requested at its original cutoff. Corrections of corrections are refused.
 - **Exposure and scoring.** Protocol 1 normalizes captured answers with NFC,
-  trim and lowercase, comparing against frozen canonical accepted forms. Words
+  trim and lowercase, comparing against the single canonical word frozen in the assignment. Presenters cannot introduce aliases. Words
   and forms are canonical lowercase at this boundary. Assistance includes the
   frozen presentation and the individual response; spoken-word replay is not
   assistance. A new item/session cannot erase exposure within an assignment.
@@ -83,7 +83,9 @@ Additional red/green regressions during implementation:
 - Presentation word identity could be changed through a correction.
 - Duplicate evidence IDs were accepted; the committed fixture was initially absent.
 - A school-result correction could bypass assignment coverage.
-- A response correction before any dependent decision was incorrectly forbidden.
+- Round 1 permitted a response correction before a dependent decision. The reviewer
+  correctly rejected its answer-replacement case; round 2 now asserts that
+  replacement is refused and only reliability downgrades are allowed.
 - Future protocol versions were silently scored, and multiple presentation
   citations could select the wrong source.
 - A rolled-back prior batch logged a partial event as `[ok]`.
@@ -99,17 +101,19 @@ implementation evidence. This is a process deviation from the prompt's literal
 
 All execution used Node **20.20.0** in a temporary repository copy, with family
 `src/context` folders and `.env*` omitted, a clean temporary HOME/environment,
-and macOS `sandbox-exec` denying outbound network and writes anywhere under
+and macOS `sandbox-exec` denying external outbound network and writes anywhere under
 `~/Development`. Existing dependencies were read through links; compiler and
 Vite cache directories were local to the temporary copy. Two initial builds
 failed because those caches still pointed into the protected dependency checkout;
-the isolation was fixed, not weakened. No dependency installation was run locally.
+the isolation was fixed, not weakened. Round 2 permits loopback only for the actual-server
+HTTP test; external access remains blocked. No dependency installation was run locally.
 
 - Root `npm run build`: server TypeScript, web TypeScript and Vite pass. Existing
   bundle-size, Lottie eval and browser-data-age warnings remain.
 - `node node_modules/vitest/vitest.mjs run` with `chartFoundation`,
   `chartCommitOrder`, `chartSpellingCore`, `chartSpellingSchemas`,
-  `chartSpellingLoad` and `chartKioskLifecycle` test files: **92 pass**.
+  `chartSpellingLoad`, `chartKioskLifecycle`, `chartSpellingReview` and
+  `chartKioskAcceptance` test files: **111 pass**.
 - `node --test scripts/chart/reviewWorkflow.test.cjs`: **3 pass**.
 - Three synthetic weeks exercise assignment → tags → priors → Discovery → cited
   plan → recall → forecast → parent result → next packet/report. They verify
@@ -119,8 +123,9 @@ the isolation was fixed, not weakened. No dependency installation was run locall
 - Two subprocesses both attempt the same 100 responses: exactly 100 stored,
   no loss or duplicates. Foundation's separate 400-event process/rollback tests
   also pass.
-- 10,000 events plus 20 measured appends: below the stated **250 ms maximum**;
-  observed samples under 1 ms on this Mac. This is not a production latency SLA.
+- 10,000 events plus 20 measured `item.presented` appends: below the stated **250 ms maximum**;
+  observed samples under 1 ms on this Mac. Response/plan write latency is not
+  characterized by that test; this is not a production latency SLA.
 - Committed `week1.events.json` is a synthetic fact log with fixed expected
   coverage and scores. It proves current reproducibility, not that future edits
   can never break compatibility. Protocol/version guards and the fixture must
@@ -135,7 +140,9 @@ the isolation was fixed, not weakened. No dependency installation was run locall
 195 discovered `src/context` directories, 25,791 files across the local scan;
 all per-directory hashes matched before and after. The complete local inventories
 are in `/tmp/sunny-spelling-core-context-before.json` and
-`/tmp/sunny-spelling-core-context-after.json`, not uploaded to GitHub.
+`/tmp/sunny-spelling-core-context-after.json`, not uploaded to GitHub. Round 2
+rechecked every root with the same result; its inventory is
+`/tmp/sunny-spelling-core-round2-context-after.json`.
 Aggregate inventory SHA-256, both before and after:
 
 `ebe6ac6e19ef1ecca0f457aa03d5ce674c6fae25c6bb87366b94b9aa6c185e65`
@@ -163,3 +170,56 @@ Duplicate TTS is a separate runtime issue and is not claimed fixed here.
 Independent acceptance belongs to the existing Claude GitHub session, on the
 exact SHA announced by `REVIEW READY`. No other AI reviewer is configured here.
 No merge, deployment, provider calls, real ingestion or generation occurred.
+
+
+## Round 2 review response
+
+The independent review of `28feb23` found two blocking correction loopholes.
+They were real defects: permissive corrections could replace a child's typed
+answer or substitute forecast probabilities while retaining the earlier timestamp.
+The original lab accepted answer replacement as a positive case, so logs reported
+an allowed correction instead of exposing the evidence failure. The revised lab
+now rejects those operations and checks legitimate downgrades separately.
+
+Each behavioral fix went red before implementation and passed the relevant tests
+and isolated server/web build afterward:
+
+- Forecast correction after the test, before result entry: initially accepted;
+  now every forecast correction is refused.
+- Answer replacement and removal of help: initially accepted; now raw text is
+  preserved or nulled, status only downgraded, and support can only be added.
+- Decision correction and retagging after priors: initially accepted; now refused.
+  New decisions use consecutive indexes; draft tags can change before priors.
+- Presentation-specific alternate answers: initially accepted; protocol 1 now
+  requires exactly the assigned canonical word, including presentation corrections.
+- Unanswered audio-only resume: initially ineligible; now eligible. Earlier
+  answers, instruction/help and practice still exclude a fresh Discovery reading.
+  The tests include an earlier answer arriving after the resumed item opened.
+- Citation DELETE/UPDATE: initially allowed; now blocked by schema-3 triggers.
+  The earlier format is refused without altering its file. A repeated metadata-only
+  scan of the local development roots and SunnyData found no real-child DB paths.
+- CI omitted the actual-server acceptance and review regression files; its
+  workflow test failed before both were added. Isolated networking permits only
+  loopback for these HTTP checks. Four server-startup checks pass with synthetic
+  data, no provider credentials, and external networking blocked.
+
+No changes were made to the school-result product schema merely to close review.
+The following questions are explicitly deferred for human/product review:
+
+1. **Partial school tests:** current results must cover the assigned words. An
+   explicit `not_tested`/partial-result design is needed before a parent-facing
+   workflow can support subsets. Missing words must never be invented as failures.
+2. **Test-date changes:** assignment `testDate` is the scheduled date; result
+   `testDate` is the parent's actual date. They may differ when a test moves.
+   Requiring equality would lose truthful evidence. A future UI should surface
+   that difference; this module preserves both.
+3. **Capitalization and alternative forms:** protocol 1 measures canonical
+   lowercase single spellings. Proper nouns, capitalization and accepted aliases
+   need an explicit instrument/assignment contract, not presenter discretion.
+4. **Time zones:** the forecast label compares a server UTC date with the reported
+   test date. A late-evening local forecast can conservatively remain `unverified`.
+   It is not falsely marked prospective; exact local test timing remains future work.
+
+Projection indexing and response/plan latency characterization remain known
+performance work before larger-history integration, as noted by the reviewer.
+No evidence is claimed for improved real-child learning from these simulations.
