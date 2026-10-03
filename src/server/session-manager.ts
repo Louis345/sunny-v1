@@ -2027,6 +2027,10 @@ export class SessionManager {
     return hostSessionEnd(this as never, args);
   }
 
+  private normalizeToolName(tool: string): string {
+    return normalizeToolName(tool);
+  }
+
   public sendLaunchGameRegistryError(
     tool: string,
     args: Record<string, unknown>,
@@ -2200,7 +2204,7 @@ export class SessionManager {
 
   /** Browser test overlay — run tool handler and push canvas_draw. */
   applyClientToolCall(tool: string, args: Record<string, unknown>): void {
-    const t = normalizeToolName(tool);
+    const t = this.normalizeToolName(tool);
     this.handleToolCall(t, args, {});
     if (t === "canvasShow" && this.currentCanvasState) {
       const payload = { ...this.currentCanvasState };
