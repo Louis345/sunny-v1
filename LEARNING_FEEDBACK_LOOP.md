@@ -1,6 +1,6 @@
 # Sunny Learning Feedback Loop
 
-Contract version: 22
+Contract version: 23
 
 This document is the **sole normative** authority for how Sunny forms, tests, and revises learning claims. Product changes that alter this loop must update this contract version before implementation. Other documents may describe infrastructure or history, but they must link here instead of creating another learning doctrine.
 
@@ -218,3 +218,27 @@ The existing intake Planner selects the opening spelling diagnostic from explici
 Spelling items freeze word identity, accepted forms, response mode, measurement role, and source evidence. A later unassisted recall opportunity can measure performance after practice, but the word remains previously exposed. Immediate recall is not delayed retention. Neither a new item ID nor a successful game resets word exposure. The final recall check includes targeted and initially secure words, and incomplete coverage remains explicit.
 
 Verified implementation-repair evidence is operational evidence, not child-learning evidence. Reusable engineering lessons may describe only implementation conditions, reproduced defects, verified changes, provenance and uncertainty. Failed or incompatible repairs cannot become trusted lessons. Selecting a lesson is not evidence that it improved a later artifact; recurrence, verification, latency, and cost remain separate measured outcomes. These records cannot change academic contracts, weaken verifiers, create child preferences, or promote simulation observations into a real chart.
+
+
+## Spelling chart authority — approved, not yet activated
+
+Milestone 1 supplies a standalone spelling department. Until an explicit cutover,
+legacy production paths remain authoritative; this section does not activate it.
+The new department records small, strictly validated typed facts in the child's
+append-only SQLite chart. Views, scoring, evaluations, pattern history, reports
+and Planner packets are pure projections; no legacy cycle commands, SM2 fields
+or JSON learning records are inputs. Missing history stays missing.
+
+Commit sequence and server-recorded time establish what was known when. Caller
+clocks cannot reorder facts or establish preregistration. Priors precede every
+Discovery response for the assignment; forecasts precede recorded school results.
+That latter boundary alone does not prove a forecast preceded the actual test.
+Rooms submit raw responses; code scores frozen accepted forms. Assistance is
+per response, including presentation support; audio replay alone is not help.
+Only first, unassisted Discovery measurements with known outcomes evaluate
+priors. Prior word exposure remains visible across sessions. Unknown, skipped
+and ambiguous outcomes remain missing evidence, not failures. Coverage accompanies
+accuracy. Plans cite reproducible evaluations and their actual input responses.
+Corrections preserve identity and cannot alter facts already depended on.
+The shared chart infrastructure is subject-neutral; spelling owns its schemas,
+taxonomy and measurements. No kiosk, Planner or other subject is wired here.
