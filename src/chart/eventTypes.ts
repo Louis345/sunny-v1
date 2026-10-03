@@ -1,4 +1,5 @@
 import { canonicalJson } from './eventId';
+import { schemas, actors, factId, type FactType } from './spelling/schemas';
 
 export const EVENT_TYPES = [
   'child.profile_set', 'assignment.ingested', 'words.tagged', 'prediction.prior',
@@ -14,39 +15,23 @@ export type EventInput = {
   event_id: string; child_id: string; type: EventType; occurred_at: string;
   actor: Actor; cites: string[]; payload: Record<string, unknown>;
 };
-export type ChartEvent = EventInput & { recorded_at: string };
+export type ChartEvent = EventInput & { recorded_at: string; sequence: number };
 
 export function object(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === 'object' && !Array.isArray(value) && Object.getPrototypeOf(value) === Object.prototype;
 }
 function text(value: unknown): value is string { return typeof value === 'string' && value.trim().length > 0; }
-function date(value: unknown): boolean {
-  return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value) &&
-    Number.isFinite(Date.parse(value)) && new Date(value).toISOString().slice(0, 10) === value;
-}
 export function validatePayload(type: EventType, payload: unknown): asserts payload is Record<string, unknown> {
   if (!object(payload)) throw new Error('chart_payload_object');
   canonicalJson(payload);
-  if (type === 'child.profile_set') {
-    if (!text(payload.displayName)) throw new Error('chart_profile_display_name');
-    for (const key of ['interests', 'supportNeeds']) {
-      if (key in payload && (!Array.isArray(payload[key]) || !(payload[key] as unknown[]).every(text))) throw new Error('chart_profile_' + key);
-    }
-    for (const key of ['companion', 'readingLevel']) if (key in payload && !text(payload[key])) throw new Error('chart_profile_' + key);
-  }
-  if (type === 'assignment.ingested') {
-    if (!text(payload.assignmentId) || !Array.isArray(payload.words) || !payload.words.length ||
-        !payload.words.every(text) || new Set(payload.words.map(word => word.trim().toLowerCase())).size !== payload.words.length ||
-        !date(payload.testDate) || typeof payload.sourcePhotoHash !== 'string' || !/^[a-f0-9]{64}$/.test(payload.sourcePhotoHash)) {
-      throw new Error('chart_assignment_invalid');
-    }
-  }
-  if (type === 'correction.recorded' && (!text(payload.target_event_id) || !text(payload.reason) || !object(payload.replacement_payload))) {
-    throw new Error('chart_correction_invalid');
-  }
+  if (!(type in schemas)) throw new Error('chart_type_not_implemented:' + type);
+  const result = schemas[type as FactType].safeParse(payload);
+  if (!result.success) throw new Error('chart_payload_invalid:' + result.error.message);
+  // Validation must never silently trim or otherwise rewrite the submitted fact.
+  if (canonicalJson(result.data) !== canonicalJson(payload)) throw new Error('chart_payload_not_canonical');
 }
 export function validateEvent(event: EventInput): void {
-  if (!object(event) || !text(event.event_id) || event.event_id.length > 256 || !text(event.child_id) ||
+  if (!object(event) || Object.keys(event).some(k => !['event_id','child_id','type','occurred_at','actor','cites','payload'].includes(k)) || !text(event.event_id) || event.event_id.length > 256 || !text(event.child_id) ||
       !EVENT_TYPES.includes(event.type) || !['child', 'parent', 'planner', 'creator', 'system', 'room'].includes(event.actor) ||
       typeof event.occurred_at !== 'string' || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(event.occurred_at) ||
       !Number.isFinite(Date.parse(event.occurred_at)) || new Date(event.occurred_at).toISOString() !== event.occurred_at ||
@@ -54,7 +39,7 @@ export function validateEvent(event: EventInput): void {
     throw new Error('chart_event_invalid');
   }
   validatePayload(event.type, event.payload);
-  if (['child.profile_set', 'school_test.recorded'].includes(event.type) && event.actor !== 'parent') throw new Error('chart_actor_for_type');
-  if (event.type === 'assignment.ingested' && event.actor !== 'system') throw new Error('chart_actor_for_type');
-  if (event.type === 'correction.recorded' && !['parent', 'system'].includes(event.actor)) throw new Error('chart_actor_for_type');
+  const type = event.type as FactType;
+  if (!actors[type].includes(event.actor)) throw new Error('chart_actor_for_type');
+  if (type !== 'child.profile_set' && event.event_id !== factId(type,event.payload)) throw new Error('chart_natural_key');
 }

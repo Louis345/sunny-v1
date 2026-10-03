@@ -1,0 +1,648 @@
+[
+  {
+    "event_id": "fb50321770ca2d7111103d7f5945814f14449ff8ebccb82099988778765c576e",
+    "child_id": "synthetic-fixture",
+    "type": "assignment.ingested",
+    "actor": "system",
+    "occurred_at": "2026-10-03T12:00:00.000Z",
+    "recorded_at": "2026-10-03T12:00:00.000Z",
+    "sequence": 1,
+    "cites": [],
+    "payload": {
+      "assignmentId": "fixture-week1",
+      "words": [
+        "able",
+        "knee",
+        "know",
+        "write"
+      ],
+      "testDate": "2026-10-09",
+      "sourcePhotoHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    }
+  },
+  {
+    "event_id": "180a71340b142f34869135bf8f6c5e6b23fd923fb499884377c7e5db48fb2acd",
+    "child_id": "synthetic-fixture",
+    "type": "words.tagged",
+    "actor": "planner",
+    "occurred_at": "2026-10-03T12:00:00.000Z",
+    "recorded_at": "2026-10-03T12:00:00.000Z",
+    "sequence": 2,
+    "cites": [
+      "fb50321770ca2d7111103d7f5945814f14449ff8ebccb82099988778765c576e"
+    ],
+    "payload": {
+      "assignmentId": "fixture-week1",
+      "taxonomyVersion": 1,
+      "tags": [
+        {
+          "word": "able",
+          "patterns": [
+            "spelling.silent_letters"
+          ]
+        },
+        {
+          "word": "knee",
+          "patterns": [
+            "spelling.silent_letters"
+          ]
+        },
+        {
+          "word": "know",
+          "patterns": [
+            "spelling.silent_letters"
+          ]
+        },
+        {
+          "word": "write",
+          "patterns": [
+            "spelling.silent_letters"
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "event_id": "09a655af7b75cf69d8ce1b3da31570d9161cabfa03b336a8f531a0f0ec369009",
+    "child_id": "synthetic-fixture",
+    "type": "prediction.prior",
+    "actor": "planner",
+    "occurred_at": "2026-10-03T12:00:00.000Z",
+    "recorded_at": "2026-10-03T12:00:00.000Z",
+    "sequence": 3,
+    "cites": [
+      "fb50321770ca2d7111103d7f5945814f14449ff8ebccb82099988778765c576e"
+    ],
+    "payload": {
+      "assignmentId": "fixture-week1",
+      "word": "able",
+      "pCorrect": 0.8,
+      "confidence": 0.5,
+      "expectedError": "uncertain"
+    }
+  },
+  {
+    "event_id": "f764a61c0317ffa5ab6ca8ff3b906d73db31361eef99d9ccfe47641b1559affb",
+    "child_id": "synthetic-fixture",
+    "type": "prediction.prior",
+    "actor": "planner",
+    "occurred_at": "2026-10-03T12:00:00.000Z",
+    "recorded_at": "2026-10-03T12:00:00.000Z",
+    "sequence": 4,
+    "cites": [
+      "fb50321770ca2d7111103d7f5945814f14449ff8ebccb82099988778765c576e"
+    ],
+    "payload": {
+      "assignmentId": "fixture-week1",
+      "word": "knee",
+      "pCorrect": 0.8,
+      "confidence": 0.5,
+      "expectedError": "uncertain"
+    }
+  },
+  {
+    "event_id": "a5bfd66090dd77ac9343daa29bd557822d880b84845d95f4cd4de1ac187f4ee3",
+    "child_id": "synthetic-fixture",
+    "type": "prediction.prior",
+    "actor": "planner",
+    "occurred_at": "2026-10-03T12:00:00.000Z",
+    "recorded_at": "2026-10-03T12:00:00.000Z",
+    "sequence": 5,
+    "cites": [
+      "fb50321770ca2d7111103d7f5945814f14449ff8ebccb82099988778765c576e"
+    ],
+    "payload": {
+      "assignmentId": "fixture-week1",
+      "word": "know",
+      "pCorrect": 0.8,
+      "confidence": 0.5,
+      "expectedError": "uncertain"
+    }
+  },
+  {
+    "event_id": "0fc2dc32792694b08a1115000ba3173191e0eea1ad3266a78560111910cf1c62",
+    "child_id": "synthetic-fixture",
+    "type": "prediction.prior",
+    "actor": "planner",
+    "occurred_at": "2026-10-03T12:00:00.000Z",
+    "recorded_at": "2026-10-03T12:00:00.000Z",
+    "sequence": 6,
+    "cites": [
+      "fb50321770ca2d7111103d7f5945814f14449ff8ebccb82099988778765c576e"
+    ],
+    "payload": {
+      "assignmentId": "fixture-week1",
+      "word": "write",
+      "pCorrect": 0.8,
+      "confidence": 0.5,
+      "expectedError": "uncertain"
+    }
+  },
+  {
+    "event_id": "59ce35305d25338956490b8b200e7174ce5e876dff23321992694d2c8f8c2f51",
+    "child_id": "synthetic-fixture",
+    "type": "item.presented",
+    "actor": "system",
+    "occurred_at": "2026-10-03T12:00:00.000Z",
+    "recorded_at": "2026-10-03T12:00:00.000Z",
+    "sequence": 7,
+    "cites": [],
+    "payload": {
+      "assignmentId": "fixture-week1",
+      "sessionId": "discovery",
+      "itemId": "able",
+      "word": "able",
+      "acceptedForms": [
+        "able"
+      ],
+      "instrument": "discovery",
+      "role": "measure",
+      "protocolVersion": 1,
+      "shown": {
+        "lettersVisible": false,
+        "hint": false,
+        "companionHelp": false
+      }
+    }
+  },
+  {
+    "event_id": "32ec96dfa8c391bc1bce0c8a6e0599f2ef0049fddda4094382a2046465d3a7aa",
+    "child_id": "synthetic-fixture",
+    "type": "response.observed",
+    "actor": "system",
+    "occurred_at": "2026-10-03T12:00:00.000Z",
+    "recorded_at": "2026-10-03T12:00:00.000Z",
+    "sequence": 8,
+    "cites": [
+      "59ce35305d25338956490b8b200e7174ce5e876dff23321992694d2c8f8c2f51"
+    ],
+    "payload": {
+      "assignmentId": "fixture-week1",
+      "sessionId": "discovery",
+      "itemId": "able",
+      "attempt": 1,
+      "rawResponse": "able",
+      "status": "answered",
+      "support": {
+        "audioReplays": 0,
+        "spellingShown": false,
+        "hint": false,
+        "companionHelp": false
+      }
+    }
+  },
+  {
+    "event_id": "9b2b335fbb6f56fe8070c837c42877283cbf3c0e688311cea7ee560709e6f937",
+    "child_id": "synthetic-fixture",
+    "type": "item.presented",
+    "actor": "system",
+    "occurred_at": "2026-10-03T12:00:00.000Z",
+    "recorded_at": "2026-10-03T12:00:00.000Z",
+    "sequence": 9,
+    "cites": [],
+    "payload": {
+      "assignmentId": "fixture-week1",
+      "sessionId": "discovery",
+      "itemId": "knee",
+      "word": "knee",
+      "acceptedForms": [
+        "knee"
+      ],
+      "instrument": "discovery",
+      "role": "measure",
+      "protocolVersion": 1,
+      "shown": {
+        "lettersVisible": false,
+        "hint": false,
+        "companionHelp": false
+      }
+    }
+  },
+  {
+    "event_id": "2d4ab42550014d95a8ca498b13009076c13dc3a6d689164c5f2c2dce10627a54",
+    "child_id": "synthetic-fixture",
+    "type": "response.observed",
+    "actor": "system",
+    "occurred_at": "2026-10-03T12:00:00.000Z",
+    "recorded_at": "2026-10-03T12:00:00.000Z",
+    "sequence": 10,
+    "cites": [
+      "9b2b335fbb6f56fe8070c837c42877283cbf3c0e688311cea7ee560709e6f937"
+    ],
+    "payload": {
+      "assignmentId": "fixture-week1",
+      "sessionId": "discovery",
+      "itemId": "knee",
+      "attempt": 1,
+      "rawResponse": "nee",
+      "status": "answered",
+      "support": {
+        "audioReplays": 0,
+        "spellingShown": false,
+        "hint": false,
+        "companionHelp": false
+      }
+    }
+  },
+  {
+    "event_id": "61a4200337e1d57bf53c064ef6be76ca66916eec81db9033bbb1e82402ca9ac8",
+    "child_id": "synthetic-fixture",
+    "type": "item.presented",
+    "actor": "system",
+    "occurred_at": "2026-10-03T12:00:00.000Z",
+    "recorded_at": "2026-10-03T12:00:00.000Z",
+    "sequence": 11,
+    "cites": [],
+    "payload": {
+      "assignmentId": "fixture-week1",
+      "sessionId": "discovery",
+      "itemId": "know",
+      "word": "know",
+      "acceptedForms": [
+        "know"
+      ],
+      "instrument": "discovery",
+      "role": "measure",
+      "protocolVersion": 1,
+      "shown": {
+        "lettersVisible": false,
+        "hint": false,
+        "companionHelp": false
+      }
+    }
+  },
+  {
+    "event_id": "b6e608465783d82708ed824305ae1f0ccbb399c4c1dc7cd610f38848e12be973",
+    "child_id": "synthetic-fixture",
+    "type": "response.observed",
+    "actor": "system",
+    "occurred_at": "2026-10-03T12:00:00.000Z",
+    "recorded_at": "2026-10-03T12:00:00.000Z",
+    "sequence": 12,
+    "cites": [
+      "61a4200337e1d57bf53c064ef6be76ca66916eec81db9033bbb1e82402ca9ac8"
+    ],
+    "payload": {
+      "assignmentId": "fixture-week1",
+      "sessionId": "discovery",
+      "itemId": "know",
+      "attempt": 1,
+      "rawResponse": "know",
+      "status": "answered",
+      "support": {
+        "audioReplays": 0,
+        "spellingShown": false,
+        "hint": true,
+        "companionHelp": false
+      }
+    }
+  },
+  {
+    "event_id": "bb57b8d449e7f905bc5c16a1697cee5827c3a0e13cf1bd26dcd780f0bc881d76",
+    "child_id": "synthetic-fixture",
+    "type": "item.presented",
+    "actor": "system",
+    "occurred_at": "2026-10-03T12:00:00.000Z",
+    "recorded_at": "2026-10-03T12:00:00.000Z",
+    "sequence": 13,
+    "cites": [],
+    "payload": {
+      "assignmentId": "fixture-week1",
+      "sessionId": "discovery",
+      "itemId": "write",
+      "word": "write",
+      "acceptedForms": [
+        "write"
+      ],
+      "instrument": "discovery",
+      "role": "measure",
+      "protocolVersion": 1,
+      "shown": {
+        "lettersVisible": false,
+        "hint": false,
+        "companionHelp": false
+      }
+    }
+  },
+  {
+    "event_id": "8bc9344ea5a4f1c10ff43001fea7f27345b932a0a5d7f5a1c1822daeac056d66",
+    "child_id": "synthetic-fixture",
+    "type": "response.observed",
+    "actor": "system",
+    "occurred_at": "2026-10-03T12:00:00.000Z",
+    "recorded_at": "2026-10-03T12:00:00.000Z",
+    "sequence": 14,
+    "cites": [
+      "bb57b8d449e7f905bc5c16a1697cee5827c3a0e13cf1bd26dcd780f0bc881d76"
+    ],
+    "payload": {
+      "assignmentId": "fixture-week1",
+      "sessionId": "discovery",
+      "itemId": "write",
+      "attempt": 1,
+      "rawResponse": null,
+      "status": "unknown",
+      "support": {
+        "audioReplays": 0,
+        "spellingShown": false,
+        "hint": false,
+        "companionHelp": false
+      }
+    }
+  },
+  {
+    "event_id": "5d3f8d3d0a0f430a50fc00e013e963d982d39faf25ea6c42db630f7a3c88f579",
+    "child_id": "synthetic-fixture",
+    "type": "item.presented",
+    "actor": "system",
+    "occurred_at": "2026-10-03T12:00:00.000Z",
+    "recorded_at": "2026-10-03T12:00:00.000Z",
+    "sequence": 15,
+    "cites": [],
+    "payload": {
+      "assignmentId": "fixture-week1",
+      "sessionId": "recall_check",
+      "itemId": "able",
+      "word": "able",
+      "acceptedForms": [
+        "able"
+      ],
+      "instrument": "recall_check",
+      "role": "measure",
+      "protocolVersion": 1,
+      "shown": {
+        "lettersVisible": false,
+        "hint": false,
+        "companionHelp": false
+      }
+    }
+  },
+  {
+    "event_id": "2d51ad2fc82f7cf653bc7577ccb4105902626ed78170c86afad6d485179628cb",
+    "child_id": "synthetic-fixture",
+    "type": "response.observed",
+    "actor": "system",
+    "occurred_at": "2026-10-03T12:00:00.000Z",
+    "recorded_at": "2026-10-03T12:00:00.000Z",
+    "sequence": 16,
+    "cites": [
+      "5d3f8d3d0a0f430a50fc00e013e963d982d39faf25ea6c42db630f7a3c88f579"
+    ],
+    "payload": {
+      "assignmentId": "fixture-week1",
+      "sessionId": "recall_check",
+      "itemId": "able",
+      "attempt": 1,
+      "rawResponse": "able",
+      "status": "answered",
+      "support": {
+        "audioReplays": 0,
+        "spellingShown": false,
+        "hint": false,
+        "companionHelp": false
+      }
+    }
+  },
+  {
+    "event_id": "610a9a01984b502cc1705e0091b49fada8a7e6577d337b07a91c43e1a7215d7f",
+    "child_id": "synthetic-fixture",
+    "type": "item.presented",
+    "actor": "system",
+    "occurred_at": "2026-10-03T12:00:00.000Z",
+    "recorded_at": "2026-10-03T12:00:00.000Z",
+    "sequence": 17,
+    "cites": [],
+    "payload": {
+      "assignmentId": "fixture-week1",
+      "sessionId": "recall_check",
+      "itemId": "knee",
+      "word": "knee",
+      "acceptedForms": [
+        "knee"
+      ],
+      "instrument": "recall_check",
+      "role": "measure",
+      "protocolVersion": 1,
+      "shown": {
+        "lettersVisible": false,
+        "hint": false,
+        "companionHelp": false
+      }
+    }
+  },
+  {
+    "event_id": "ad0cce96490ed068bd7fd00ae72e0873cba96369a28635bed3186b2852311d74",
+    "child_id": "synthetic-fixture",
+    "type": "response.observed",
+    "actor": "system",
+    "occurred_at": "2026-10-03T12:00:00.000Z",
+    "recorded_at": "2026-10-03T12:00:00.000Z",
+    "sequence": 18,
+    "cites": [
+      "610a9a01984b502cc1705e0091b49fada8a7e6577d337b07a91c43e1a7215d7f"
+    ],
+    "payload": {
+      "assignmentId": "fixture-week1",
+      "sessionId": "recall_check",
+      "itemId": "knee",
+      "attempt": 1,
+      "rawResponse": "knee",
+      "status": "answered",
+      "support": {
+        "audioReplays": 0,
+        "spellingShown": false,
+        "hint": false,
+        "companionHelp": false
+      }
+    }
+  },
+  {
+    "event_id": "bb8b42c2da5f3841cec9a23dbfe65868812a8dabe2f248947608c37f52587907",
+    "child_id": "synthetic-fixture",
+    "type": "item.presented",
+    "actor": "system",
+    "occurred_at": "2026-10-03T12:00:00.000Z",
+    "recorded_at": "2026-10-03T12:00:00.000Z",
+    "sequence": 19,
+    "cites": [],
+    "payload": {
+      "assignmentId": "fixture-week1",
+      "sessionId": "recall_check",
+      "itemId": "know",
+      "word": "know",
+      "acceptedForms": [
+        "know"
+      ],
+      "instrument": "recall_check",
+      "role": "measure",
+      "protocolVersion": 1,
+      "shown": {
+        "lettersVisible": false,
+        "hint": false,
+        "companionHelp": false
+      }
+    }
+  },
+  {
+    "event_id": "cf44c557971d3bcc9fcd2caced426d4d74665539dff89cc9a684897aebe0e68e",
+    "child_id": "synthetic-fixture",
+    "type": "response.observed",
+    "actor": "system",
+    "occurred_at": "2026-10-03T12:00:00.000Z",
+    "recorded_at": "2026-10-03T12:00:00.000Z",
+    "sequence": 20,
+    "cites": [
+      "bb8b42c2da5f3841cec9a23dbfe65868812a8dabe2f248947608c37f52587907"
+    ],
+    "payload": {
+      "assignmentId": "fixture-week1",
+      "sessionId": "recall_check",
+      "itemId": "know",
+      "attempt": 1,
+      "rawResponse": "know",
+      "status": "answered",
+      "support": {
+        "audioReplays": 0,
+        "spellingShown": false,
+        "hint": false,
+        "companionHelp": false
+      }
+    }
+  },
+  {
+    "event_id": "633ba780617c5222a1393a6cec2f47978d9e475282a13c24d4045f39599b8cc4",
+    "child_id": "synthetic-fixture",
+    "type": "item.presented",
+    "actor": "system",
+    "occurred_at": "2026-10-03T12:00:00.000Z",
+    "recorded_at": "2026-10-03T12:00:00.000Z",
+    "sequence": 21,
+    "cites": [],
+    "payload": {
+      "assignmentId": "fixture-week1",
+      "sessionId": "recall_check",
+      "itemId": "write",
+      "word": "write",
+      "acceptedForms": [
+        "write"
+      ],
+      "instrument": "recall_check",
+      "role": "measure",
+      "protocolVersion": 1,
+      "shown": {
+        "lettersVisible": false,
+        "hint": false,
+        "companionHelp": false
+      }
+    }
+  },
+  {
+    "event_id": "7b15c3e4a38c15931b6bc3daa459010751bc8d05f827c1b8444ac96cf5462908",
+    "child_id": "synthetic-fixture",
+    "type": "response.observed",
+    "actor": "system",
+    "occurred_at": "2026-10-03T12:00:00.000Z",
+    "recorded_at": "2026-10-03T12:00:00.000Z",
+    "sequence": 22,
+    "cites": [
+      "633ba780617c5222a1393a6cec2f47978d9e475282a13c24d4045f39599b8cc4"
+    ],
+    "payload": {
+      "assignmentId": "fixture-week1",
+      "sessionId": "recall_check",
+      "itemId": "write",
+      "attempt": 1,
+      "rawResponse": "write",
+      "status": "answered",
+      "support": {
+        "audioReplays": 0,
+        "spellingShown": false,
+        "hint": false,
+        "companionHelp": false
+      }
+    }
+  },
+  {
+    "event_id": "60d7e31f02c51084d9edf4ea214a6f1af2b5d044e0257d9bbee1dfc62a77c911",
+    "child_id": "synthetic-fixture",
+    "type": "readiness.forecast",
+    "actor": "planner",
+    "occurred_at": "2026-10-03T12:00:00.000Z",
+    "recorded_at": "2026-10-03T12:00:00.000Z",
+    "sequence": 23,
+    "cites": [
+      "2d51ad2fc82f7cf653bc7577ccb4105902626ed78170c86afad6d485179628cb",
+      "7b15c3e4a38c15931b6bc3daa459010751bc8d05f827c1b8444ac96cf5462908",
+      "ad0cce96490ed068bd7fd00ae72e0873cba96369a28635bed3186b2852311d74",
+      "cf44c557971d3bcc9fcd2caced426d4d74665539dff89cc9a684897aebe0e68e"
+    ],
+    "payload": {
+      "assignmentId": "fixture-week1",
+      "probabilities": [
+        {
+          "word": "able",
+          "pCorrect": 0.75
+        },
+        {
+          "word": "knee",
+          "pCorrect": 0.75
+        },
+        {
+          "word": "know",
+          "pCorrect": 0.75
+        },
+        {
+          "word": "write",
+          "pCorrect": 0.75
+        }
+      ],
+      "uncertainty": "small sample",
+      "missingEvidence": [
+        "delayed recall"
+      ],
+      "responseIds": [
+        "2d51ad2fc82f7cf653bc7577ccb4105902626ed78170c86afad6d485179628cb",
+        "ad0cce96490ed068bd7fd00ae72e0873cba96369a28635bed3186b2852311d74",
+        "cf44c557971d3bcc9fcd2caced426d4d74665539dff89cc9a684897aebe0e68e",
+        "7b15c3e4a38c15931b6bc3daa459010751bc8d05f827c1b8444ac96cf5462908"
+      ]
+    }
+  },
+  {
+    "event_id": "ebbbb1e2a0e8675b7f55573648db27b4d6ef789d674a3b5875b6679ca2e9194c",
+    "child_id": "synthetic-fixture",
+    "type": "school_test.recorded",
+    "actor": "parent",
+    "occurred_at": "2026-10-03T12:00:00.000Z",
+    "recorded_at": "2026-10-03T12:00:00.000Z",
+    "sequence": 24,
+    "cites": [],
+    "payload": {
+      "assignmentId": "fixture-week1",
+      "testDate": "2026-10-09",
+      "photoHash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "results": [
+        {
+          "word": "able",
+          "correct": true,
+          "writtenResponse": null
+        },
+        {
+          "word": "knee",
+          "correct": false,
+          "writtenResponse": null
+        },
+        {
+          "word": "know",
+          "correct": true,
+          "writtenResponse": null
+        },
+        {
+          "word": "write",
+          "correct": true,
+          "writtenResponse": null
+        }
+      ]
+    }
+  }
+]

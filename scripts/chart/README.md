@@ -1,3 +1,8 @@
+> On `codex/spelling-chart-core`, Milestone 1 supersedes the storage details below:
+> schema 2, commit-sequence ordering and strictly typed spelling facts. See
+> [the Milestone 1 verification record](SPELLING_CORE.md). This remains unactivated.
+> The following Phase 0/1 record is historical, not the new format's contract.
+
 # Chart foundation: Phase 0 and Phase 1
 
 **Subsequent approved work:** [automatic kiosk database connection](KIOSK_STARTUP.md)

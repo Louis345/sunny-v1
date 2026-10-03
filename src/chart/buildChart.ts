@@ -5,7 +5,7 @@ import { exportEvents } from './exportEvents';
 
 export function projectChart(childId: string, input: ChartEvent[]) {
   if (input.some(event => event.child_id !== childId)) throw new Error('chart_child_mismatch');
-  const events = [...input].sort((a, b) => a.occurred_at < b.occurred_at ? -1 : a.occurred_at > b.occurred_at ? 1 : a.event_id < b.event_id ? -1 : a.event_id > b.event_id ? 1 : 0);
+  const events = [...input].sort((a,b) => a.sequence - b.sequence);
   const corrections = new Map<string, Record<string, unknown>>();
   for (const event of events) if (event.type === 'correction.recorded') corrections.set(String(event.payload.target_event_id), event.payload.replacement_payload as Record<string, unknown>);
   let profile: Record<string, unknown> | null = null;
