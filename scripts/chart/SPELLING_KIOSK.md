@@ -72,7 +72,7 @@ and absent browser UI. Further observed red/green regressions cover hidden-word
 leakage, exact prior input citations, stale in-flight proposals, truthful source
 kind, item catalogue/provenance, chart activation, legacy writes, parent form
 labels, missing pattern history and audio arriving after the child left.
-The final isolated build passes; all 133 scoped tests across 15 files and all
+The initial integration build passed with 133 scoped tests across 15 files and all
 four workflow checks pass. A separate flag-off legacy cycle suite also passes
 all 25 tests; it runs in CI alongside the scoped suite. Existing schema/load checks are additional verification, not newly red-first
 implementation evidence. The program-word guard was introduced with the initial
@@ -152,6 +152,8 @@ result does not establish that the family computer has this code.
 
 ## Milestones 2/3 review round 1 follow-up
 
+The latest isolated build and 166 distinct tests pass (including 25 flag-off
+legacy tests and the added three-failure browser case), plus four workflow checks.
 The independent review at `6d45cac` correctly identified permanent Planner and
 audio dead ends. Recovery now preserves every failed attempt, supports deliberate
 parent recovery of an unknown outcome, refuses concurrent recovery, and stops at
