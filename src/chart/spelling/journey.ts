@@ -19,10 +19,12 @@ export type SpellingPacket = ReturnType<typeof buildPlannerPacket> & {
 export type SpellingProvider = ((stage: 'prior' | 'plan' | 'forecast', packet: SpellingPacket) => Promise<unknown>) & {modelId?:string};
 function priorInputIds(packet:SpellingPacket,events:ReturnType<typeof exportEvents>):string[]{
  const v=packet.assignment;
+ const patternAssignments=new Set([v.assignmentId,...packet.patternHistory.map(h=>h.assignmentId)]);
  const ids=new Set([v.assignmentEventId,...v.priors.map(p=>p.eventId),...v.responses.flatMap(r=>[r.eventId,r.presentationId]),v.forecast?.eventId,v.schoolResult?.eventId,
   ...packet.patternHistory.flatMap(h=>[h.assignmentEventId,h.schoolResult?.eventId,...h.readings.flatMap(r=>[r.eventId,r.presentationId])]),
   ...packet.accuracy.flatMap(w=>[w.forecast.forecastId,w.forecast.schoolResultId,...w.prior.rows.flatMap(r=>[r.priorId,r.responseId])]),
-  events.filter(e=>e.type==='child.profile_set').at(-1)?.event_id]);
+  events.filter(e=>e.type==='child.profile_set').at(-1)?.event_id,
+  ...events.filter(e=>e.type==='words.tagged'&&patternAssignments.has(String(e.payload.assignmentId))).map(e=>e.event_id)]);
  for(const e of events)if(e.type==='correction.recorded'&&ids.has(String(e.payload.target_event_id)))ids.add(e.event_id);
  return events.filter(e=>ids.has(e.event_id)).map(e=>e.event_id);
 }

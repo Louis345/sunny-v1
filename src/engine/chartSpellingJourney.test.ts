@@ -127,3 +127,10 @@ it('limits prior citations to packet inputs and records the immutable input cuto
  expect(prior.cites).not.toContain(old.event_id);expect(prior.cites).toContain(current.event_id);
  expect(prior.payload.provenance).toEqual({asOfSequence:cutoff,modelId:'synthetic-model'});
 });
+it('includes the source tags behind the pattern history supplied to a later prior',async()=>{
+ const j=setup();const first=j.ingest({words:['knee'],testDate:'2026-10-10',sourceText:'knee'});await j.advance(first.assignmentId);
+ const tag=exportEvents(db).find(e=>e.type==='words.tagged')!;
+ const next=j.ingest({words:['knee'],testDate:'2026-10-17',sourceText:'knee'});await j.advance(next.assignmentId);
+ const prior=exportEvents(db).find(e=>e.type==='prediction.prior'&&e.payload.assignmentId===next.assignmentId)!;
+ expect(prior.cites).toContain(tag.event_id);
+});

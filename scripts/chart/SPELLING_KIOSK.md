@@ -50,7 +50,7 @@ production transport forces a schema tool. The third failure stops visibly and
 requires operator attention. A changed chart still invalidates an in-flight result.
 
 Prior citations identify the facts present in the packet, including the current
-profile, rather than the entire log. Input sequence cutoff and model ID accompany
+profile and the source tags for supplied pattern history, rather than the entire log. Input sequence cutoff and model ID accompany
 new priors. A school result actually used in a later prediction remains a cited
 dependency and cannot be corrected retroactively; unrelated history stays free of
 that accidental dependency.
@@ -152,7 +152,7 @@ result does not establish that the family computer has this code.
 
 ## Milestones 2/3 review round 1 follow-up
 
-The latest isolated build and 166 distinct tests pass (including 25 flag-off
+The latest isolated build and 167 distinct tests pass (including 25 flag-off
 legacy tests and the added three-failure browser case), plus four workflow checks.
 The independent review at `6d45cac` correctly identified permanent Planner and
 audio dead ends. Recovery now preserves every failed attempt, supports deliberate
