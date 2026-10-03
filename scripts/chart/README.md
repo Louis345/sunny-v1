@@ -181,6 +181,10 @@ it differs from the dev-inventory format above. The destination directories are
 mode 700; archive and manifest are mode 600. No child files were copied to the
 dev Mac. After resuming the original PIDs, HTTP on port 3001 returned 200 and
 the kiosk checkout remained `293294ca7c565b23fc064d42f6df7e4f764d6aa2`.
+After local verification finished, a later SSH health recheck failed with
+`No route to host`. No further pause/stop signals were sent after the verified
+resume. Current remote availability could not be re-confirmed; this does not
+change the recorded archive verification and initial HTTP-200 resume proof.
 
 ### Final server verification and remaining gates
 
