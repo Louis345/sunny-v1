@@ -611,6 +611,7 @@ function App() {
   const [locallyCompletedPlannerNodeIds, setLocallyCompletedPlannerNodeIds] = useState<string[]>([]);
   const [generatedMathSoundMuted, setGeneratedMathSoundMuted] = useState(false);
   const plannerBoardIframeCompletionKeyRef = useRef<string | null>(null);
+  const pendingPlannerBoardLaunchRef = useRef<{node:NodeConfig;replayNonce:number}|null>(null);
   const [sessionReady, setSessionReady] = useState(false);
   const [homeworkFinishedForNow, setHomeworkFinishedForNow] = useState(false);
   const homeworkSessionFinished = homeworkFinishedForNow || state.phase === "ended";
@@ -1020,6 +1021,7 @@ function App() {
   }, []);
 
   const closePlannerBoardLaunch = useCallback(() => {
+    pendingPlannerBoardLaunchRef.current = null;
     setPlannerBoardLaunch(null);
     setPostActivityEngagement(null);
     plannerBoardIframeCompletionKeyRef.current = null;
@@ -1032,10 +1034,16 @@ function App() {
     setLocallyCompletedPlannerNodeIds([]);
     setDiscoveryCompletionHandoff(null);
     discoveryCompletionCoordinatorRef.current = new DiscoveryAcademicCompletionCoordinator();
+    pendingPlannerBoardLaunchRef.current = null;
   }, [plannerBoardSessionScope]);
 
   const launchPlannerBoardNode = useCallback(
     (node: NodeConfig, replayNonce = 0) => {
+      if (!mapPreviewMode && !parentPreviewActive && !state.voiceSessionId) {
+        pendingPlannerBoardLaunchRef.current = {node,replayNonce};
+        console.log(" 🎮 [AdventureBoard] [launch] [waiting-for-session]", {nodeId:node.id});
+        return true;
+      }
       const companionConfig =
         plannerBoardPacket?.childChart.companion.config ?? effectiveCompanion;
       const companionId =
@@ -1111,9 +1119,20 @@ function App() {
       profileCompanionCurrency,
       profileDyslexiaMode,
       sendMessage,
+      state.voiceSessionId,
+      mapPreviewMode,
+      parentPreviewActive,
       setCompanionPresence,
     ],
   );
+
+  useEffect(() => {
+    if (!state.voiceSessionId || !pendingPlannerBoardLaunchRef.current) return;
+    const pending = pendingPlannerBoardLaunchRef.current;
+    // One queued launch; consume before dispatch so rerenders cannot launch twice.
+    pendingPlannerBoardLaunchRef.current = null;
+    launchPlannerBoardNode(pending.node,pending.replayNonce);
+  }, [state.voiceSessionId,launchPlannerBoardNode]);
 
   const directDiscoveryAutoLaunchRef = useRef<string | null>(null);
   useEffect(() => {

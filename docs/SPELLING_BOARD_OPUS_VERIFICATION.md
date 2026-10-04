@@ -320,3 +320,28 @@ evaluations. Screenshots of the adaptive board and completed route were inspecte
 These runs use fixture providers and no configured SQLite chart, so they verify
 the original UI path, not full chart integration, live model quality, portrait
 layout or installation readiness. Saori remains unchanged.
+
+## Original portrait kiosk with the chart enabled
+
+The browser lab now has a 768×1024 portrait scenario using the original host,
+WebSocket, activities and HTTP endpoints with an isolated SQLite chart and a
+recorded prior provider. It asserts priors precede presentations, Discovery
+correctness matches raw answers, and every replay/first answer has exactly one
+chart response matching the canonical observation ID. It exercises reload,
+practice, checkpoint, replay and return to board.
+
+Enabling the chart exposed a real startup race: clicking a teaching node just
+after reload could send its launch and presentation before the voice session
+existed. The chart correctly refused the subsequent answer, stopping completion.
+The old chart-disabled lab allowed unknown live context, so it missed this.
+The app now holds one requested launch until session_started supplies a session
+ID, then consumes it before dispatch. Closing or changing assignment clears the
+pending request. It does not invent a presentation after answering or relax
+evidence checks. The browser asserts exactly four distinct launches across the
+scenario. This adds a bounded pending-action handoff, not a new child screen.
+
+The first test setup also exposed the chart-directory guard because the synthetic
+child used a real-child ID without its required isolated directory declaration;
+that fixture error was corrected and is not claimed as a product bug. Portrait
+board screenshot inspected. This remains a fixture journey, not the full-week
+parent-report/calibration milestone or a live Saori acceptance.

@@ -1,4 +1,8 @@
 import fs from "node:fs";
+import {openChart} from "../chart/db";
+import {exportEvents} from "../chart/exportEvents";
+import {projectAssignment} from "../chart/spelling/projections";
+import type {SpellingProvider} from "../chart/spelling/journey";
 import { createHash } from "node:crypto";
 import os from "node:os";
 import path from "node:path";
@@ -60,11 +64,12 @@ it("keeps the spelling audio proof on Sunny's production WebSocket and TTS path"
 });
 
 it.each([
-  { width: 1365, height: 768, adaptive: false },
-  { width: 1280, height: 720, adaptive: false },
-  { width: 1365, height: 768, adaptive: true },
-  { width: 1280, height: 720, adaptive: true },
-])("plays spelling through the real host and canonical routes at $width×$height adaptive=$adaptive", async scenario => {
+  { width: 1365, height: 768, adaptive: false, chart: false },
+  { width: 1280, height: 720, adaptive: false, chart: false },
+  { width: 1365, height: 768, adaptive: true, chart: false },
+  { width: 1280, height: 720, adaptive: true, chart: false },
+  { width: 768, height: 1024, adaptive: false, chart: true },
+])("plays spelling through the real host and canonical routes at $width×$height adaptive=$adaptive chart=$chart", async scenario => {
   const childId = "ila";
   const viewport = { width: scenario.width, height: scenario.height };
   const canonicalFamilyPaths = [
@@ -87,9 +92,16 @@ it.each([
     ? ["night", "light", "right", "sight", "might", "fight", "write", "knife", "wrong", "climb"]
     : ["night", "light"];
   seedSpellingLab(rootDir, words, scenario.adaptive ? "/companions/sample.vrm" : "", childId);
+  if(scenario.chart) vi.stubEnv("SUNNY_CHART_DIR",path.join(rootDir,"charts"));
+  const chartDb = scenario.chart ? openChart(childId,{chartDir:path.join(rootDir,"charts")}) : undefined;
+  const chartProvider: SpellingProvider = async (stage,packet) => {
+    if(stage !== "prior") throw Error("unexpected_fixture_chart_stage");
+    const a=packet.assignment!.assignment!;
+    return {tags:{assignmentId:a.assignmentId,taxonomyVersion:1,tags:a.words.map(word=>({word,patterns:["spelling.irregular"]}))},priors:a.words.map(word=>({assignmentId:a.assignmentId,word,pCorrect:0.6,confidence:0.4,expectedError:"unknown"}))};
+  };
   const source = writeSpellingPdfFixture(rootDir, words);
   const legacyAttempt = vi.spyOn(legacyLearning, "recordAttempt");
-  const { homeworkId } = await runSpellingDiscoveryIntake({ childId, sourceFile: source, rootDir }, { callPlannerModel: async (packet: Parameters<typeof recordedSpellingDiagnostic>[0]) => ({ draft: { diagnostic: recordedSpellingDiagnostic(packet), title: "School spelling", words: words.map(word => ({ word, pageNumber: 1 })), uncertainty: [] } }) });
+  const { homeworkId } = await runSpellingDiscoveryIntake({ childId, sourceFile: source, rootDir }, { ...(chartDb ? {chart:{db:chartDb,provider:chartProvider}} : {}), callPlannerModel: async (packet: Parameters<typeof recordedSpellingDiagnostic>[0]) => ({ draft: { diagnostic: recordedSpellingDiagnostic(packet), title: "School spelling", words: words.map(word => ({ word, pageNumber: 1 })), uncertainty: [] } }) });
   fs.writeFileSync(path.join(outputDir, "opening-packet.json"), JSON.stringify(buildChildExperiencePacket(getChildChart(childId, { rootDir })), null, 2));
   const app = express(); app.use(express.json());
   app.get("/api/profile/:child", (_req, res) => res.json({ companion: { ...COMPANION_DEFAULTS, vrmUrl: scenario.adaptive ? "/companions/sample.vrm" : "" } }));
@@ -154,6 +166,7 @@ it.each([
       const message = JSON.parse(String(data));
       events.push(`ws:${message.type}`);
       const event = message.event;
+      if(event?.type === "game_state_update" && event.payload?.phase === "launched") events.push(`node-launch:${event.payload.launchToken}`);
       if (event?.type === "attempt_event") events.push("canonical-game:attempt_event");
       if (event?.type === "narration_request") pendingAssessmentPlayback += 1;
       if (message.type === "playback_done" && pendingAssessmentPlayback > 0) {
@@ -224,6 +237,12 @@ it.each([
       : [true, false]);
     expect(assessmentAudioFrames).toBe(words.length);
     expect(events.filter(event => event === "browser:assessment-playback-confirmed")).toHaveLength(words.length);
+    if(chartDb){
+      const facts=exportEvents(chartDb);const view=projectAssignment(facts,homeworkId);
+      expect(view.responses).toHaveLength(words.length);
+      expect(view.responses.map(row=>row.result)).toEqual(["correct","incorrect"]);
+      expect(Math.max(...view.priors.map(row=>row.sequence))).toBeLessThan(Math.min(...facts.filter(row=>row.type==='item.presented').map(row=>row.sequence)));
+    }
     const discoveryAudioFrames = assessmentAudioFrames;
     const discoveryPlaybackConfirmations = confirmedAssessmentPlayback;
     expect(before.observations.at(-1)?.result.observedErrorType).toBeUndefined();
@@ -409,6 +428,15 @@ it.each([
     expect(replayed.predictionEvaluations).toEqual(after.predictionEvaluations);
     const replayFacts = replayed.observations.slice(after.observations.length);
     expect(replayFacts).toHaveLength(2);
+    if(chartDb){
+      const launches=events.filter(event=>event.startsWith("node-launch:"));
+      expect(launches).toHaveLength(4);expect(new Set(launches).size).toBe(4);
+      const facts=exportEvents(chartDb);const responses=facts.filter(row=>row.type==='response.observed');
+      expect(responses).toHaveLength(replayed.observations.length);
+      expect(new Set(responses.map(row=>row.payload.sourceResponseId)).size).toBe(responses.length);
+      expect(responses.map(row=>row.payload.sourceResponseId).sort()).toEqual(replayed.observations.map(row=>row.observationId).sort());
+      fs.writeFileSync(path.join(outputDir,'chart-proof.json'),JSON.stringify({provider:'recorded',responses:responses.length,priorCount:projectAssignment(facts,homeworkId).priors.length,viewport}));
+    }
     expect(replayFacts.every(row => row.provenance === "practice" && row.exposure === "previously_practiced")).toBe(true);
     expect(replayFacts[0].result.correct).toBeUndefined();
     expect(replayFacts[0].childResponse).not.toBe("night");
@@ -433,6 +461,7 @@ it.each([
     vi.restoreAllMocks();
     vi.unstubAllEnvs();
     vi.unstubAllGlobals();
+    chartDb?.close();
     fs.rmSync(rootDir, { recursive: true, force: true });
   }
 }, 180000);
