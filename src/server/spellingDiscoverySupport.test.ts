@@ -207,7 +207,7 @@ it('keeps replay and delayed responses attached to their distinct launches',asyn
  const s=session();s.updateCurrentBoardSnapshot({phase:'launched',nodeId:'opening',launchToken:'native-launch'});
  const sandbox={location:{search:'?nodeId=opening&launchToken=native-launch&spellingItemBindings='+encodeURIComponent(JSON.stringify([{itemId:'i1',word:'night'}]))},URLSearchParams,console,Date,Math,document:{title:'Letter Rush',addEventListener(){}},window:{parent:{postMessage:(message:{type:string;payload:Record<string,unknown>})=>{if(message.type==='game_state_update')s.updateCurrentBoardSnapshot(message.payload);}}}};
  vm.runInNewContext(fs.readFileSync(path.join(process.cwd(),'web/public/games/_contract.js'),'utf8'),sandbox);
- (sandbox.window as any).GameBridge.reportState('item opened',{spellingItemOpened:true,currentWord:'night',phase:'flash',answerVisibility});
+ (sandbox.window as any).GameBridge.reportState('item opened',{spellingItemOpened:true,currentWord:'night',phase:'presentation',answerVisibility});
  const events=exportEvents(db);expect(events.filter(e=>e.type==='response.observed')).toHaveLength(0);
  expect(events.find(e=>e.type==='item.presented')?.payload).toMatchObject({instrument:'practice',shown:{lettersVisible:answerVisibility === 'visible' ? true : answerVisibility === 'hidden' ? false : null,hint:null,companionHelp:null},provenance:{nodeId:'opening',sourceItemId:'i1'}});
  expect(s.getDiscoveryAttemptContext('hw-words','i1','native-launch')?.chartItemId).toBeTruthy();

@@ -31,3 +31,18 @@ it("announces a native spelling item before its answer with frozen identity and 
   sandbox.window.GameBridge.reportState('unknown word',{spellingItemOpened:true,currentWord:'other',phase:'flash'});
   expect(messages.at(-1).payload.practiceCapture).not.toBe(true);
 });
+
+it.each(['read-and-race','type-and-spell','hear-and-spell','mastery-run','trap-the-imposter'])('opens the actual Letter Rush %s item before narration or response', mode => {
+  const html=fs.readFileSync(path.join(process.cwd(),'web/public/games/letter-rush.html'),'utf8');
+  const begin=html.slice(html.indexOf('      function beginWord() {'),html.indexOf('      function startWordPlay() {'));
+  const calls:any[]=[];
+  const sandbox:any={config:{mode,words:[{text:'night'}],scaffolds:{}},state:{index:0},isTrapMode:()=>mode==='trap-the-imposter',buildTrapRound:()=>({}),normalizeWord:(s:string)=>s,
+    byId:()=>({innerHTML:'',value:'',textContent:'',classList:{remove(){}}}),visiblePromptForWord:()=>'',resetMasteryTimerDisplay(){},resetTrapTimerDisplay(){},renderTiles(){},updateHud(){},flashWord(){},
+    report:(progress:string,extras:any)=>calls.push({progress,...extras}),requestNarration:()=>{calls.push({narration:true});return 650;},flashCompanion(){},modeDef:()=>({intro:''}),fireCompanion(){},companionVisibleWord:()=>'',roundCount:()=>1,setTimeout:()=>1,startWordPlay(){}};
+  vm.runInNewContext(begin+'\nbeginWord();',sandbox);
+  const openings=calls.filter(c=>c.spellingItemOpened);
+  if (mode === 'trap-the-imposter') { expect(openings).toHaveLength(0); return; } // Trap choices are not whole-word spelling answers.
+  expect(openings).toHaveLength(1);
+  expect(openings[0]).toMatchObject({currentWord:'night',phase:'presentation',answerVisibility:mode==='read-and-race'?'visible':'unknown'});
+  expect(calls[0]).toBe(openings[0]);
+});

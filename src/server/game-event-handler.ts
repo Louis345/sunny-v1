@@ -54,7 +54,7 @@ export function bindSpellingAssessment(input: {
   const { state, cycle, current, history } = input;
   if (input.launch?.launchToken !== undefined && state.launchToken !== input.launch.launchToken) return current;
   if (current && current.launchId === input.launch?.launchId && current.itemId === state.itemId && state.answerVisibility !== "hidden") current.lettersVisible = state.answerVisibility === "visible" || current.lettersVisible === true ? true : null;
-  if (state.phase !== "response" && !(state.practiceCapture === true && state.phase === "flash")) return current;
+  if (state.phase !== "response" && !(state.practiceCapture === true && (state.phase === "flash" || state.spellingItemOpened === true))) return current;
   const node = cycle?.nodes.find(node => node.nodeId === state.nodeId);
   const item = node?.evidenceContract.spellingItems?.[String(state.itemId ?? "")];
   if (cycle?.domain !== "spelling" || !item || !node?.artifactBinding) {
