@@ -1404,8 +1404,8 @@ export function transitionLearningCycle(
     evidenceIds = appendOutcomeEvidence(next, event);
     appendObservations(next, event.observations);
     if (event.completed === false) {
-      node.state = "active";
-      reason = "Factual item response captured; instrument remains incomplete.";
+      if (!(replay && next.domain === "spelling")) node.state = "active";
+      reason = replay && next.domain === "spelling" ? "Replay item captured as practice; completed instrument remains closed." : "Factual item response captured; instrument remains incomplete.";
     } else {
     node.state = "completed";
     node.evidenceIds = uniqueEvidence([

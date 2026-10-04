@@ -199,7 +199,7 @@ export function recordSpellingDiscoveryAttempt(input: {
   const exposure: LearningObservation["exposure"] = previouslyExposed || item.lineage.exposure === "practiced"
     ? "previously_practiced" : item.lineage.exposure === "taught" ? "previously_taught" : "unseen";
   const independent = node.role === "evaluation" && support.status === "unassisted" && exposure === "unseen" && typeof result.correct === "boolean";
-  if (node.role !== "evaluation" && !["ready", "active"].includes(node.state)) throw new Error("spelling_instrument_not_active");
+  if (node.role !== "evaluation" && !["ready", "active", "completed"].includes(node.state)) throw new Error("spelling_instrument_not_active");
   if (cycle.lifecycle === "evaluation_ready") cycle = transitionLearningCycle(input.childId, input.homeworkId, cycle.revision, { type: "evaluation_started", evaluationId: node.nodeId }, opts);
   const observation: LearningObservation = {
     observationId: attempt.attemptId, itemId: item.id, sourceId: node.role === "evaluation" ? `evaluation:${node.nodeId}` : `activity:${node.nodeId}:recall`,

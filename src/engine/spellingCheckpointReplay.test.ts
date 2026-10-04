@@ -228,3 +228,17 @@ it('does not distribute a session companion interaction across every spelling re
  expect(rows[1].assistance).toEqual({status:'unknown',scaffolds:[]});
  expect(rows.every(row=>row.provenance==='practice')).toBe(true);
 });
+
+it('records a replay item as practice without reopening a completed node or lifecycle',async()=>{
+ const f=fixture();await f.finish();const before=f.current();
+ const after=recordSpellingDiscoveryAttempt({childId:before.childId,homeworkId:before.homeworkId,sessionId:'replay-voice',attempt:{attemptId:'replay-raw',itemId:f.items[0].id,attemptedValue:'nite',observedAt:'2026-10-04T01:10:00Z'},support:{status:'unknown',scaffolds:[]}},{rootDir});
+ expect(after.nodes.find(n=>n.nodeId==='check')?.state).toBe('completed');
+ expect(after.lifecycle).toBe(before.lifecycle);
+ expect(after.observations).toHaveLength(before.observations.length+1);
+ expect(after.observations.at(-1)).toMatchObject({childResponse:'nite',provenance:'practice',result:{correct:false}});
+ expect(after.decisionHistory.filter(d=>d.eventType==='theory_decided')).toEqual(before.decisionHistory.filter(d=>d.eventType==='theory_decided'));
+ expect(after.decisionHistory.at(-1)?.eventType).toBe('instrument_observed');
+ expect(f.decide).toHaveBeenCalledTimes(1);
+ expect(after.predictionEvaluations).toEqual(before.predictionEvaluations);
+ expect(recordSpellingDiscoveryAttempt({childId:before.childId,homeworkId:before.homeworkId,sessionId:'replay-voice',attempt:{attemptId:'replay-raw',itemId:f.items[0].id,attemptedValue:'nite',observedAt:'2026-10-04T01:10:00Z'},support:{status:'unknown',scaffolds:[]}},{rootDir}).revision).toBe(after.revision);
+});

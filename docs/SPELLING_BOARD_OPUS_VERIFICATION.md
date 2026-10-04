@@ -194,3 +194,19 @@ aggregate limitations, completion deduplication against per-answer captures, and
 practice restart recovery still require integration before activation. Do not count
 completion summaries as additional independent attempts. Full-week browser proof
 and independent review remain outstanding; Saori is unchanged.
+
+## Per-answer replay preserves the closed chapter
+
+The newly connected practice response path initially rejected responses to a
+completed spelling node. The red replay test reproduced that rejection. The
+existing item reducer now accepts completed-node practice and preserves the
+node's completed state when recording an individual replay answer. Lifecycle,
+prior evaluations and the Planner decision remain unchanged; retries remain
+idempotent. The normal factual transition audit entry is still appended.
+The first test overconstrained that audit history and was corrected to assert
+unchanged theory decisions rather than suppressing the required audit entry.
+
+This replaces the active-state guard and item-state assignment; it adds no new
+progression logic and leaves math behavior unchanged. All 37 tests in three
+focused suites and the isolated full build pass. Completion deduplication and
+other practice instruments remain unfinished; no live installation occurred.
