@@ -11,7 +11,10 @@ import { buildGameContextSummary } from "./gameContextSummary";
 import { shouldPersistSessionData } from "../utils/runtimeMode";
 import { rewriteChildNameForTts } from "./sessionTextHelpers";
 import type { WsTtsBridge } from "./ws-tts-bridge";
-import type { LearningCycleRecordV2 } from "../engine/learningCycleRepository";
+import { getLearningCycle, type LearningCycleRecordV2 } from "../engine/learningCycleRepository";
+import { recordSpellingDiscoveryAttempt } from "../engine/learningCycleRuntime";
+import { withOriginalSpellingChart } from "../chart/spelling/originalResponses";
+import { commitOriginalSpellingAttempt } from "./originalSpellingCommit";
 import {
   recordCompanionVideoCallTraceEvent,
   type CompanionVideoCallTraceEventName,
@@ -534,7 +537,28 @@ export function handleGameEventForSession(
       return;
     }
     try {
-      const recorded = recordLearningAttempt(event, chartChildIdForSession(s));
+      const childId = chartChildIdForSession(s);
+      const launch = s.getSpellingLaunch?.();
+      if (event.domain === "spelling" && launch) {
+        if (event.nodeId !== launch.nodeId || event.launchToken !== launch.launchToken) throw new Error("native_spelling_launch_mismatch");
+        const live = s.getDiscoveryAttemptContext?.(launch.homeworkId, String(event.target ?? ""), event.launchToken);
+        if (live?.practice && typeof event.attemptedValue === "string") {
+          const cycle = getLearningCycle(childId, launch.homeworkId);
+          const node = cycle?.nodes.find(n => n.nodeId === launch.nodeId);
+          if (!node?.evidenceContract.spellingItems?.[String(event.target)] || live.launchId !== launch.launchId || live.nodeId !== launch.nodeId || live.artifactHash !== node.artifactBinding?.contractFingerprint) throw new Error("native_spelling_binding_mismatch");
+          if (typeof event.attemptId !== "string" || !event.attemptId || typeof event.timestamp !== "number" || !Number.isFinite(event.timestamp)) throw new Error("native_spelling_attempt_identity_required");
+          const request = {attemptId:event.attemptId,itemId:String(event.target),attemptedValue:event.attemptedValue,observedAt:new Date(event.timestamp).toISOString(),supportEventIds:[],instrumentSignals:[],skipped:false,sessionId:live.sessionId,launchToken:launch.launchToken};
+          const legacy = {childId,homeworkId:launch.homeworkId,attempt:request,support:live.support,artifactHash:live.artifactHash,sessionId:live.sessionId,launchId:launch.launchId,instrumentSignals:live.instrumentSignals};
+          const committed = withOriginalSpellingChart(childId, db => commitOriginalSpellingAttempt(db,launch.homeworkId,request,()=>{
+            if (!live.chartItemId) throw new Error("chart_live_presentation_required");
+            return {legacy,response:{assignmentId:launch.homeworkId,sessionId:live.sessionId,itemId:live.chartItemId,sourceResponseId:request.attemptId,rawResponse:request.attemptedValue,status:"answered",support:{spellingShown:live.spellingShown ?? null,hint:null,companionHelp:live.support.status === "assisted" ? true : null,audioReplays:live.audioReplays ?? null}}};
+          },recordSpellingDiscoveryAttempt)) ?? recordSpellingDiscoveryAttempt(legacy);
+          const correct = committed.observations.find(row => row.observationId === request.attemptId)?.result.correct;
+          // The private word bank cannot override the code-scored raw response.
+          if (typeof correct === "boolean") event = {...event,correct,quality:correct ? 5 : 1};
+        }
+      }
+      const recorded = recordLearningAttempt(event, childId);
       if (recorded.skipped) return;
       s.noteExternalEvent?.({
         source: "attempt_event",

@@ -110,3 +110,22 @@ it.each(['wrong-node','wrong-token','missing'] as const)('refuses spelling compl
  expect(await response.json()).toMatchObject({error:kind==='missing'?'spelling_completion_launch_required':'spelling_completion_launch_mismatch'});
  expect(getLearningCycle('lab-child','hw-words',{rootDir})!.observations).toHaveLength(0);
 });
+
+it('records a native raw answer in both stores using the already-presented server launch',async()=>{
+ const {rootDir,items}=await fixture();
+ const {openChart}=await import('../chart/db');const {recordAssignment}=await import('../chart/spelling/record');const {presentOriginalSpellingItem}=await import('../chart/spelling/originalResponses');const {exportEvents}=await import('../chart/exportEvents');const {handleGameEventForSession}=await import('./game-event-handler');
+ vi.stubEnv('SUNNY_CHART_DIR',path.join(rootDir,'charts'));const db=openChart('lab-child');
+ try{
+ recordAssignment(db,{assignmentId:'hw-words',words:['night','light'],testDate:null,sourcePhotoHash:'a'.repeat(64)});
+ const nodeId=getLearningCycle('lab-child','hw-words',{rootDir})!.nodes[0].nodeId;
+ const p=presentOriginalSpellingItem(db,{assignmentId:'hw-words',sessionId:'native-voice',nodeId,launchId:'native-launch',sourceItemId:items[0].id,word:'night',instrument:'practice',shown:{lettersVisible:true,hint:null,companionHelp:null}});
+ const s={chartChildId:'lab-child',getSessionId:()=> 'native-voice',getSpellingLaunch:()=>({homeworkId:'hw-words',nodeId,launchId:'native-launch',launchToken:'token'}),getDiscoveryAttemptContext:()=>({sessionId:'native-voice',nodeId,launchId:'native-launch',chartItemId:String(p.payload.itemId),artifactHash:hashDiscoveryContract(items),practice:true,spellingShown:true,audioReplays:null,support:{status:'unknown',scaffolds:[]},instrumentSignals:[]}),noteExternalEvent:vi.fn()};
+ const event={type:'attempt_event',nodeId,launchToken:'token',attemptId:'native-answer',target:items[0].id,word:'night',domain:'spelling',attemptedValue:'nite',correct:true,quality:5,timestamp:Date.parse('2026-10-04T03:40:00Z')};
+ handleGameEventForSession(s,event);handleGameEventForSession(s,event);
+ const responses=exportEvents(db).filter(e=>e.type==='response.observed');expect(responses).toHaveLength(1);
+ expect(responses[0].payload).toMatchObject({rawResponse:'nite',support:{spellingShown:true,hint:null,companionHelp:null,audioReplays:null}});
+ const observations=getLearningCycle('lab-child','hw-words',{rootDir})!.observations;expect(observations).toHaveLength(1);expect(observations[0]).toMatchObject({childResponse:'nite',result:{correct:false},provenance:'practice'});
+ handleGameEventForSession(s,{...event,attemptId:'wrong-launch',launchToken:'other'});
+ expect(exportEvents(db).filter(e=>e.type==='response.observed')).toHaveLength(1);
+ }finally{db.close();}
+});

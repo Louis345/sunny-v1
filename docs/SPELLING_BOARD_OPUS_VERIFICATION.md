@@ -251,3 +251,24 @@ new renderer. Native response delivery is still pending: existing attempt events
 continue through the old attempt recorder and must not be claimed as SQLite
 responses. Completion must not opt native games into per-answer dedup until
 that connection exists. Full-browser visual acceptance remains outstanding.
+
+## Native raw response delivery
+
+The existing native `attempt_event` boundary now connects an already-presented
+practice item to the durable two-store delivery helper. It verifies node, launch
+token, server launch ID and frozen contract before recording the raw response.
+SQLite keeps unmeasured help and replay fields null; the canonical cycle grades
+the actual letters. The private word-bank adapter receives that computed result
+instead of a conflicting client correctness flag. Unknown/uninstrumented items
+remain on the legacy path pending limitation capture.
+
+The red native-handler integration test produced zero chart responses. It now
+asserts one response and one canonical observation after duplicate delivery,
+wrong raw letters graded incorrect despite client `correct:true`, truthful
+support fields, and rejection of a different launch token. This adds a bridge
+to existing persistence at the original event boundary, not a new scoring rule.
+
+Native completion deduplication, retry after lost launch memory, remaining game
+modes and explainer capture still need integration. The earlier delivery-receipt
+restart test covers the shared helper, not recovery of a native event after the
+server loses its launch identity. No live installation or provider calls.
