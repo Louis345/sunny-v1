@@ -370,6 +370,7 @@ export function handleGameEventForSession(
         nodeId: event.nodeId,
         itemId: event.itemId,
         assessmentMode: event.assessmentMode === true,
+        launchToken: event.launchToken,
         word,
       }),
     ).catch((err: unknown) => {

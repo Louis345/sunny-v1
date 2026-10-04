@@ -213,3 +213,10 @@ it('keeps replay and delayed responses attached to their distinct launches',asyn
  expect(s.getDiscoveryAttemptContext('hw-words','i1','native-launch')?.chartItemId).toBeTruthy();
  }finally{db.close();vi.unstubAllEnvs();fs.rmSync(root,{recursive:true,force:true});}
  });
+
+it('keeps launch correlation through the production narration event adapter',async()=>{
+ const {handleGameEventForSession}=await import('./game-event-handler');
+ const speakGameNarration=vi.fn(async()=>true);
+ handleGameEventForSession({speakGameNarration},{type:'narration_request',payload:{text:'night',word:'night',game:'word-radar',nodeId:'opening',itemId:'i1',assessmentMode:true,launchToken:'launch-one'}});
+ expect(speakGameNarration).toHaveBeenCalledWith('night.',expect.objectContaining({itemId:'i1',launchToken:'launch-one'}));
+});

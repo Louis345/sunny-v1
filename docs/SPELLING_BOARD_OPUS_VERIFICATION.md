@@ -287,3 +287,18 @@ This replaces the Word-Radar-only route condition with an evidence-based opt-in;
 no new reducer or child flow is added. Uninstrumented native launches and missing
 raw answers still need explicit limitation handling, and completion recovery
 without live launch memory remains unfinished.
+
+## Original-browser audio regression
+
+The original-kiosk browser acceptance run failed all four scenarios at the first
+spelling prompt: the event adapter dropped launchToken before calling the speech
+handler, which correctly rejected the uncorrelated request. The smaller lab
+tested the speech handler directly and therefore missed the adapter boundary.
+Server logs did report spelling_stimulus_mismatch; the browser check turned that
+log into a failed child-visible outcome instead of accepting module-level green.
+
+The adapter now forwards the existing token. A focused regression first failed
+for the omitted field, then passed. This adds one metadata field and deletes no
+code; the guard remains intact. Original-browser verification is required before
+claiming readiness. This defect was found in the isolated lab; Saori was not
+changed.
