@@ -753,7 +753,7 @@ export class SessionManager {
         console.log(` 🎮 [spelling] [node-launch] [${this.spellingLaunch ? "recorded" : "rejected"}] node=${String(state.nodeId)} launch=${this.spellingLaunch?.launchId ?? "unknown"}`);
       }
     }
-    if (state.assessmentMode === true) {
+    if (state.assessmentMode === true || state.practiceCapture === true) {
       this.spellingAssessmentHistory ??= new Map();
       const itemId = String(state.itemId ?? "");
       const pendingSupportId = this.pendingSpellingAssessmentSupport && itemId
@@ -763,10 +763,10 @@ export class SessionManager {
         current: this.spellingAssessment, history: this.spellingAssessmentHistory, pendingSupportId, launch:this.spellingLaunch });
       if (pendingSupportId && this.spellingAssessment?.itemId === itemId) this.pendingSpellingAssessmentSupport = false;
       const assessment=this.spellingAssessment;
-      if(state.phase === "response" && assessment?.launchId && !assessment.chartItemId){
+      if((state.phase === "response" || (state.practiceCapture === true && state.phase === "flash")) && assessment?.launchId && !assessment.chartItemId){
         const presentation=withOriginalSpellingChart(this.chartChildId,db=>presentOriginalSpellingItem(db,{
           assignmentId:assessment.homeworkId,sessionId:this.sessionId,nodeId:assessment.nodeId,launchId:assessment.launchId!,sourceItemId:assessment.itemId,word:assessment.word.normalize('NFC').toLowerCase(),instrument:assessment.instrument,
-          shown:{lettersVisible:assessment.ambiguous,hint:false,companionHelp:assessment.supportIds.length>0},
+          shown:{lettersVisible:assessment.ambiguous,hint:assessment.instrument=== "practice" ? null : false,companionHelp:assessment.supportIds.length>0 ? true : assessment.instrument=== "practice" ? null : false},
         }));
         if(presentation)assessment.chartItemId=String(presentation.payload.itemId);
       }
@@ -1120,11 +1120,11 @@ export class SessionManager {
 
   public getSpellingLaunch() { return this.spellingLaunch ? {...this.spellingLaunch} : undefined; }
 
-  public getDiscoveryAttemptContext(homeworkId: string, itemId: string, launchToken?:string): { chartItemId?:string; audioReplays?:number; launchId?:string; nodeId: string; support: LearningObservation["assistance"]; instrumentSignals: string[]; artifactHash: string; sessionId: string } | undefined {
+  public getDiscoveryAttemptContext(homeworkId: string, itemId: string, launchToken?:string): { chartItemId?:string; practice?:boolean; spellingShown?:boolean; audioReplays?:number|null; launchId?:string; nodeId: string; support: LearningObservation["assistance"]; instrumentSignals: string[]; artifactHash: string; sessionId: string } | undefined {
     const candidates = [...(this.spellingAssessmentHistory?.values() ?? [])].filter(c => c.homeworkId === homeworkId && c.itemId === itemId && (launchToken === undefined || c.launchToken === launchToken));
     const context = candidates.length === 1 ? candidates[0] : undefined;
     if (context && context.homeworkId === homeworkId && context.itemId === itemId) {
-      return { chartItemId:context.chartItemId,audioReplays:Math.max(0,context.audioPlaybacks-1),launchId: context.launchId, nodeId: context.nodeId, support: { status: !context.launchId ? "unknown" : context.supportIds.length ? "assisted" : "unassisted", scaffolds: [...context.supportIds] }, instrumentSignals: [...(!context.launchId ? ["launch_unverified"] : []), ...(!context.audioDelivered ? ["audio_unavailable"] : []), ...(context.ambiguous ? ["answer_exposure"] : [])], artifactHash: context.artifactHash, sessionId: this.sessionId };
+      return { practice:context.instrument === "practice",spellingShown:context.ambiguous,chartItemId:context.chartItemId,audioReplays:context.instrument === "practice" ? null : Math.max(0,context.audioPlaybacks-1),launchId: context.launchId, nodeId: context.nodeId, support: { status: !context.launchId ? "unknown" : context.supportIds.length ? "assisted" : context.instrument === "practice" ? "unknown" : "unassisted", scaffolds: [...context.supportIds] }, instrumentSignals: [...(!context.launchId ? ["launch_unverified"] : []), ...(context.instrument !== "practice" && !context.audioDelivered ? ["audio_unavailable"] : []), ...(context.instrument !== "practice" && context.ambiguous ? ["answer_exposure"] : [])], artifactHash: context.artifactHash, sessionId: this.sessionId };
     }
     const math = [...(this.mathDiscoverySupportHistory?.values() ?? [])]
       .find((candidate) => candidate.homeworkId === homeworkId && candidate.itemId === itemId);

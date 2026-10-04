@@ -172,3 +172,25 @@ node, wrong token and missing launch and assert unchanged observations. Isolated
 server/web tests and build pass. Completion retry after loss of the live session
 still needs durable launch recovery for practice, alongside its typed capture;
 this gate alone is not full practice integration or deployment acceptance.
+
+## Original Word Radar practice capture
+
+The original Word Radar now reports captured practice responses through the same
+server boundary as Discovery while keeping its practice screens and behavior.
+The original App opts in only for spelling practice. Item flash/response telemetry
+commits a practice presentation before answering; unknown hint/help/replay
+measurements remain null. Typed text or a captured transcript is retained and
+code-scored as practice in the chart and cycle. A missing captured answer is not
+invented from the game's correctness flag. Assessment mode keeps its existing flow.
+
+Two red tests showed no practice presentation and no callback for an actual
+practice response. The component, session and HTTP tests now pass, including a
+practice response with null support and retry after voice-session removal. The
+isolated build initially caught a nonexistent packet field; the adapter now uses
+the existing active-plan domain. Full build and focused server/web tests pass.
+
+This connects one original practice instrument. Native iframe games, explainer,
+aggregate limitations, completion deduplication against per-answer captures, and
+practice restart recovery still require integration before activation. Do not count
+completion summaries as additional independent attempts. Full-week browser proof
+and independent review remain outstanding; Saori is unchanged.

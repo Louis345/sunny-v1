@@ -184,3 +184,16 @@ it('keeps replay and delayed responses attached to their distinct launches',asyn
  expect(s.getDiscoveryAttemptContext('hw-words','i1','second')?.instrumentSignals).not.toContain('answer_exposure');
  await expect(s.speakGameNarration('night.',{assessmentMode:true,itemId:'i1',launchToken:'first'})).rejects.toThrow('spelling_stimulus_mismatch');
 });
+
+ it('captures a practice presentation before answering with unknown support instead of invented independence',async()=>{
+ const fs=await import('node:fs');const os=await import('node:os');const path=await import('node:path');
+ const {openChart}=await import('../chart/db');const {recordAssignment}=await import('../chart/spelling/record');const {exportEvents}=await import('../chart/exportEvents');
+ const root=fs.mkdtempSync(path.join(os.tmpdir(),'practice-chart-'));vi.stubEnv('SUNNY_CHART_DIR',root);vi.stubEnv('SUNNY_MODE','real');const db=openChart('lab-child');
+ try{
+ recordAssignment(db,{assignmentId:'hw-words',words:['night','light'],testDate:null,sourcePhotoHash:'a'.repeat(64)});
+ const s=session();s.updateCurrentBoardSnapshot({practiceCapture:true,nodeId:'opening',itemId:'i1',phase:'response',answerVisibility:'visible'});
+ const p=exportEvents(db).find(e=>e.type==='item.presented');
+ expect(p?.payload).toMatchObject({instrument:'practice',shown:{lettersVisible:true,hint:null,companionHelp:null}});
+ expect(s.getDiscoveryAttemptContext('hw-words','i1')).toMatchObject({practice:true,support:{status:'unknown'},audioReplays:null,instrumentSignals:[]});
+ }finally{db.close();vi.unstubAllEnvs();fs.rmSync(root,{recursive:true,force:true});}
+ });

@@ -77,6 +77,7 @@ export interface WordRadarResult {
 }
 
 export interface WordRadarProps {
+  practiceCapture?:boolean;
   launchToken?:string;
   assessmentMode?: boolean;
   onAssessmentAttempt?: (attempt: { itemIndex: number; attemptedValue: string; skipped: boolean; observedAt: string }) => void;
@@ -331,6 +332,7 @@ export function WordRadar({
   planId,
   targetLane,
   wordRadarConfig,
+  practiceCapture = false,
   launchToken,
   assessmentMode = false,
   onAssessmentAttempt,
@@ -391,6 +393,7 @@ export function WordRadar({
   const wordRadarTelemetry = useMemo(
     () => ({
       activityId: "word-radar",
+      ...(practiceCapture ? {practiceCapture:true} : {}),
       ...(launchToken ? {launchToken} : {}),
       ...(assessmentMode ? { assessmentMode: true } : {}),
       ...(nodeId ? { nodeId } : {}),
@@ -398,7 +401,7 @@ export function WordRadar({
       ...(targetLane ? { targetLane } : {}),
       wordRadarConfig: resolvedWordRadarConfig,
     }),
-    [assessmentMode, launchToken, nodeId, planId, resolvedWordRadarConfig, targetLane],
+    [assessmentMode, practiceCapture, launchToken, nodeId, planId, resolvedWordRadarConfig, targetLane],
   );
   const responseAnswerVisibility =
     effectiveHideWordDuringResponse && effectiveRecallMode !== "visible_read"
@@ -407,11 +410,11 @@ export function WordRadar({
 
   const handleWordRadarEvent = useCallback(
     (event: WordRadarGameEvent) => {
-      if (assessmentMode) {
-        if ((event.type === "correct" || event.type === "incorrect" || event.type === "timeout") && event.item) {
-          onAssessmentAttempt?.({ itemIndex: event.itemIndex ?? 0, attemptedValue: event.typedResponse ?? "", skipped: event.skipped === true || event.reason === "skip", observedAt: new Date().toISOString() });
+      if (assessmentMode || practiceCapture) {
+        if ((event.type === "correct" || event.type === "incorrect" || event.type === "timeout") && event.item && (assessmentMode || event.typedResponse !== undefined || event.heardTranscript !== undefined || event.skipped === true || event.reason === "skip")) {
+          onAssessmentAttempt?.({ itemIndex: event.itemIndex ?? 0, attemptedValue: event.typedResponse ?? event.heardTranscript ?? "", skipped: event.skipped === true || event.reason === "skip", observedAt: new Date().toISOString() });
         }
-        return;
+        if(assessmentMode)return;
       }
       if (event.type === "ready") {
         flowEvents.reportState("Word Radar intro ready.");
@@ -439,13 +442,14 @@ export function WordRadar({
         });
         return;
       }
-      if ((event.type === "correct" || event.type === "incorrect" || event.type === "timeout") && event.item) {
+      if ((event.type === "correct" || event.type === "incorrect" || event.type === "timeout") && event.item && (assessmentMode || event.typedResponse !== undefined || event.heardTranscript !== undefined || event.skipped === true || event.reason === "skip")) {
         const correct = event.type === "correct";
         const attemptedValue = event.typedResponse ?? event.heardTranscript ?? event.heardToken;
         flowEvents.reportAttempt({
           ...wordRadarTelemetry,
           game: "word-radar",
           activityId: "word-radar",
+      ...(practiceCapture ? {practiceCapture:true} : {}),
       ...(launchToken ? {launchToken} : {}),
           domain: wordRadarAttemptDomain(event.item),
           target: event.item.itemId ?? event.item.display,
@@ -503,6 +507,7 @@ export function WordRadar({
             target: event.item.display,
             currentTarget: event.item.display,
             activityId: "word-radar",
+      ...(practiceCapture ? {practiceCapture:true} : {}),
       ...(launchToken ? {launchToken} : {}),
             phase: "attempt_resolved",
             inputMode: resolvedInputMode,
@@ -536,6 +541,7 @@ export function WordRadar({
     [
       assessmentMode,
       onAssessmentAttempt,
+      practiceCapture,
       effectiveHideWordDuringResponse,
       effectiveRecallMode,
       effectiveSpeakStyle,

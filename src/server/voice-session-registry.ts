@@ -43,7 +43,7 @@ export function __resetVoiceSessionRegistryForTests(): void {
 export interface VoiceSessionManagerHandle {
   getSessionId?: () => string;
   getSpellingLaunch?: () => {homeworkId:string;nodeId:string;launchId:string;launchToken?:string} | undefined;
-  getDiscoveryAttemptContext?: (homeworkId: string, itemId: string, launchToken?:string) => { chartItemId?:string; audioReplays?:number; launchId?:string; nodeId?: string; support: { status: "unassisted" | "assisted" | "unknown"; scaffolds: string[] }; instrumentSignals: string[]; artifactHash: string; sessionId: string } | undefined;
+  getDiscoveryAttemptContext?: (homeworkId: string, itemId: string, launchToken?:string) => { chartItemId?:string; practice?:boolean; spellingShown?:boolean; audioReplays?:number|null; launchId?:string; nodeId?: string; support: { status: "unassisted" | "assisted" | "unknown"; scaffolds: string[] }; instrumentSignals: string[]; artifactHash: string; sessionId: string } | undefined;
   noteExternalEvent(event: unknown): void;
   speakGameNarration?: (
     text: string,

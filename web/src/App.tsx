@@ -1341,7 +1341,7 @@ function App() {
   const handleSpellingDiscoveryAttempt = useCallback((response: { itemIndex: number; attemptedValue: string; skipped: boolean; observedAt: string }) => {
     const itemId = plannerBoardLaunch?.node.wordRadarItems?.[response.itemIndex]?.itemId;
     const homeworkId = plannerBoardPacket?.childChart.learningCycle?.homeworkId;
-    if (!(directDiscoveryMode || plannerBoardLaunch?.node.spellingAssessment) || !itemId || !homeworkId || !adventureChildId) {
+    if (!(directDiscoveryMode || plannerBoardLaunch?.node.spellingAssessment || plannerBoardPacket?.activeSessionPlan?.domain === "spelling") || !itemId || !homeworkId || !adventureChildId) {
       console.error(" 🎮 [spelling-discovery] [attempt] [missing-provenance]");
       return;
     }
@@ -2347,6 +2347,7 @@ function App() {
           <WordRadar
             key={`${plannerBoardLaunch.node.id}:${plannerBoardLaunch.replayNonce}`}
             assessmentMode={directDiscoveryMode || plannerBoardLaunch.node.spellingAssessment === true}
+            practiceCapture={plannerBoardPacket?.activeSessionPlan?.domain === "spelling" && !directDiscoveryMode && plannerBoardLaunch.node.spellingAssessment !== true}
             onAssessmentAttempt={handleSpellingDiscoveryAttempt}
             autoStart={directDiscoveryMode || plannerBoardLaunch.node.spellingAssessment ? sessionReady : undefined}
             items={

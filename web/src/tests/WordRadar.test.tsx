@@ -56,6 +56,15 @@ describe("WordRadar", () => {
     cleanup();
   });
 
+  it("reports a captured practice answer without entering assessment mode", async () => {
+    const onAssessmentAttempt=vi.fn();
+    const {props,rerender}=renderRadar({practiceCapture:true,onAssessmentAttempt,items:[{itemId:"i1",display:"sun",acceptedResponses:["sun"]}]});
+    await startRadar();
+    rerender(<WordRadar {...props} interimTranscript="sun" />);
+    await act(async()=>{await Promise.resolve();});
+    expect(onAssessmentAttempt).toHaveBeenCalledWith(expect.objectContaining({itemIndex:0,attemptedValue:"sun",skipped:false}));
+  });
+
   it("autoStart=true skips intro and moves to flash without a button click", async () => {
     renderRadar({ autoStart: true });
     await act(async () => {
