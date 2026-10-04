@@ -430,6 +430,7 @@ export function useSession(options?: UseSessionOptions) {
   const micAudibleFramesRef = useRef(0);
   const micInputConfirmedRef = useRef(false);
   const micSilentWarningRef = useRef<string | null>(null);
+  const micSetupWarningRef = useRef<string | null>(null);
 
   const [state, setState] = useState<SessionState>({
     voiceSessionId: null,
@@ -1498,10 +1499,18 @@ export function useSession(options?: UseSessionOptions) {
         const { stream, recoveredFrom } = await openPreferredMicrophoneStream();
 
         mediaStreamRef.current = stream;
-        setStateRef.current((s) => ({ ...s, microphoneAvailable: true }));
         const audioTracks = stream.getAudioTracks();
         const selectedTrack = audioTracks[0];
         const inputLabel = selectedTrack?.label?.trim() || "selected microphone";
+        const setupWarning =
+          `Audio check: use your Mac speakers and MacBook Air Microphone, then say hello. ` +
+          `Current input: ${inputLabel}.`;
+        micSetupWarningRef.current = setupWarning;
+        setStateRef.current((s) => ({
+          ...s,
+          microphoneAvailable: null,
+          warning: setupWarning,
+        }));
         micInputLabelRef.current = inputLabel;
         micSilentDurationMsRef.current = 0;
         micAudibleFramesRef.current = 0;
@@ -1557,7 +1566,9 @@ export function useSession(options?: UseSessionOptions) {
               if (micAudibleFramesRef.current >= AUDIBLE_MIC_FRAME_CONFIRMATION) {
                 micInputConfirmedRef.current = true;
                 const previousWarning = micSilentWarningRef.current;
+                const setupWarning = micSetupWarningRef.current;
                 micSilentWarningRef.current = null;
+                micSetupWarningRef.current = null;
                 console.log(
                   ` 🎮 [session-microphone] [input] [detected] input=${micInputLabelRef.current}`,
                 );
@@ -1569,7 +1580,14 @@ export function useSession(options?: UseSessionOptions) {
                 if (previousWarning) {
                   setStateRef.current((s) => ({
                     ...s,
+                    microphoneAvailable: true,
                     warning: s.warning === previousWarning ? null : s.warning,
+                  }));
+                } else {
+                  setStateRef.current((s) => ({
+                    ...s,
+                    microphoneAvailable: true,
+                    warning: s.warning === setupWarning ? null : s.warning,
                   }));
                 }
               }
@@ -1596,7 +1614,10 @@ export function useSession(options?: UseSessionOptions) {
                 });
                 setStateRef.current((s) => ({
                   ...s,
-                  warning: s.warning ?? warning,
+                  warning:
+                    s.warning === micSetupWarningRef.current || s.warning === null
+                      ? warning
+                      : s.warning,
                 }));
               }
             }
@@ -1685,6 +1706,7 @@ export function useSession(options?: UseSessionOptions) {
     micAudibleFramesRef.current = 0;
     micInputConfirmedRef.current = false;
     micSilentWarningRef.current = null;
+    micSetupWarningRef.current = null;
     if (processorRef.current) {
       processorRef.current.onaudioprocess = null;
       try {

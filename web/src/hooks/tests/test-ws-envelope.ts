@@ -337,6 +337,34 @@ describe("WS envelope vs canvas payload type", () => {
     expect(statuses.filter((message) => message.event === "input_detected")).toHaveLength(1);
   });
 
+  it("does not declare the microphone ready until real audible input is detected", async () => {
+    // Human catch (Saori kiosk, 2026-10-04): Chrome opened a stream, but Elli
+    // heard nothing and "Bye Sunny" could not dismiss her. The old lab injected
+    // transcripts directly or treated getUserMedia success as hearing proof.
+    vi.useFakeTimers();
+    const { result } = renderHook(() => useSession());
+    act(() => result.current.startSession("ila"));
+    await act(async () => { await vi.advanceTimersByTimeAsync(150); });
+
+    expect(result.current.state.microphoneAvailable).toBeNull();
+    expect(result.current.state.warning).toMatch(
+      /use your mac.*speakers.*macbook air microphone.*say hello/i,
+    );
+
+    const audibleSamples = new Float32Array(4096).fill(0.05);
+    const audibleFrame = {
+      inputBuffer: { getChannelData: () => audibleSamples },
+    } as unknown as AudioProcessingEvent;
+    act(() => {
+      for (let frame = 0; frame < 3; frame += 1) {
+        micProcessor?.onaudioprocess?.(audibleFrame);
+      }
+    });
+
+    expect(result.current.state.microphoneAvailable).toBe(true);
+    expect(result.current.state.warning).toBeNull();
+  });
+
   it("does not mistake a quiet built-in microphone for a broken input", async () => {
     vi.mocked(navigator.mediaDevices.getUserMedia).mockResolvedValueOnce({
       getAudioTracks: () => [{
@@ -361,7 +389,7 @@ describe("WS envelope vs canvas payload type", () => {
       }
     });
 
-    expect(result.current.state.warning).toBeNull();
+    expect(result.current.state.warning).toMatch(/audio check/i);
     const statuses = wsInstances[0]!.send.mock.calls
       .map(([raw]) => JSON.parse(String(raw)))
       .filter((message) => message.type === "client_audio_status");
