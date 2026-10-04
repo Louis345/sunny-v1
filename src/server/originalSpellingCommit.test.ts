@@ -6,7 +6,7 @@ import {openChart} from '../chart/db';
 import {recordAssignment} from '../chart/spelling/record';
 import {presentOriginalSpellingItem} from '../chart/spelling/originalResponses';
 import {exportEvents} from '../chart/exportEvents';
-import {commitOriginalSpellingAttempt} from './originalSpellingCommit';
+import {commitOriginalSpellingAttempt,recoverOriginalSpellingDeliveries} from './originalSpellingCommit';
 it.each([false,true])('repairs a failed legacy write after restart and preserves skip=%s once',skipped=>{
  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'original-recovery-'));
  const db=openChart('lab-child',{chartDir:dir});
@@ -21,7 +21,7 @@ it.each([false,true])('repairs a failed legacy write after restart and preserves
  db.close();const reopened=openChart('lab-child',{chartDir:dir});
  try{
  const missing=vi.fn(()=>{throw Error('live session gone');});const repaired=vi.fn(()=> 'repaired');
- expect(commitOriginalSpellingAttempt(reopened,'a',request,missing,repaired)).toBe('repaired');
+ expect(recoverOriginalSpellingDeliveries(reopened,'a',repaired)).toEqual({recovered:1});
  expect(exportEvents(reopened).filter(e=>e.type==='engagement.observed').map(e=>[e.payload.metric,e.payload.value])).toEqual(skipped?[['skipped',1]]:[]);
  expect(missing).not.toHaveBeenCalled();expect(repaired).toHaveBeenCalledWith(prepare.mock.results[0].value.legacy);
  expect(exportEvents(reopened).filter(e=>e.type==='response.observed')).toHaveLength(1);

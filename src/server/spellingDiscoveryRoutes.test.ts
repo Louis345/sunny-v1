@@ -130,6 +130,8 @@ it.each(['letter-rush','word-radar'])('records native answers once while preserv
  const observations=getLearningCycle('lab-child','hw-words',{rootDir})!.observations;expect(observations).toHaveLength(1);expect(observations[0]).toMatchObject({childResponse:'nite',result:{correct:false},provenance:'practice'});
  handleGameEventForSession(s,{...event,attemptId:'wrong-launch',launchToken:'other'});
  expect(exportEvents(db).filter(e=>e.type==='response.observed')).toHaveLength(1);
+ db.close();const reopened=openChart('lab-child');
+ try{const {recoverOriginalSpellingDeliveries}=await import('./originalSpellingCommit');expect(recoverOriginalSpellingDeliveries(reopened,'hw-words')).toEqual({recovered:1});expect(exportEvents(reopened).filter(e=>e.type==='response.observed')).toHaveLength(1);expect(getLearningCycle('lab-child','hw-words',{rootDir})!.observations).toEqual(observations);}finally{reopened.close();}
  }finally{db.close();}
 });
 

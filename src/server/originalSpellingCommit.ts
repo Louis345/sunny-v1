@@ -31,3 +31,21 @@ export function commitOriginalSpellingAttempt<T>(db:ChartDatabase,homeworkId:str
  console.log(' 🎮 [spelling] [delivery] [committed] attempt='+request.attemptId);
  return result;
 }
+
+/** Explicit parent recovery of frozen deliveries, including native answers whose live launch is gone. */
+export function recoverOriginalSpellingDeliveries(db:ChartDatabase,homeworkId:string,writeLegacy:(input:Prepared['legacy'])=>unknown=recordSpellingDiscoveryAttempt){
+ const directory=path.join(path.dirname(db.path),db.childId,'original-discovery-delivery');
+ const files=fs.existsSync(directory)?fs.readdirSync(directory).filter(name=>name.endsWith('.json')):[];
+ let recovered=0;
+ for(const name of files){
+  const receipt=JSON.parse(fs.readFileSync(path.join(directory,name),'utf8')) as {version:number;identity:string;prepared:Prepared};
+  if(receipt.version!==1||receipt.prepared.legacy.childId!==db.childId)throw Error('original_attempt_receipt_conflict');
+  const [assignmentId,sessionId,attemptId,itemId,attemptedValue,observedAt,skipped,launchToken,supportEventIds,instrumentSignals]=JSON.parse(receipt.identity);
+  if(assignmentId!==homeworkId)continue;
+  if(receipt.prepared.legacy.homeworkId!==homeworkId||receipt.prepared.response.assignmentId!==homeworkId)throw Error('original_attempt_receipt_conflict');
+  commitOriginalSpellingAttempt(db,homeworkId,{sessionId,attemptId,itemId,attemptedValue,observedAt,skipped,launchToken:launchToken??undefined,supportEventIds,instrumentSignals},()=>{throw Error('original_attempt_receipt_missing');},writeLegacy);
+  recovered++;
+ }
+ console.log(` 🎮 [spelling] [delivery-recovery] [complete] assignment=${homeworkId} receipts=${recovered}`);
+ return {recovered};
+}

@@ -485,6 +485,11 @@ it.each([
     if(chartDb){
       await page.goto(new URL(`/parent/learning-report?child=${childId}`,vite!.resolvedUrls!.local[0]).href);
       await page.getByRole('link',{name:'Spelling chart and school results'}).click();
+      const repairResponse=page.waitForResponse(response=>response.url().endsWith('/repair-answers')&&response.request().method()==='POST');
+      await page.getByRole('button',{name:'Repair saved answers'}).click();
+      expect((await repairResponse).status()).toBe(200);
+      expect(getLearningCycle(childId,homeworkId,{rootDir})!.observations).toEqual(replayed.observations);
+      expect(exportEvents(chartDb).filter(row=>row.type==='response.observed')).toHaveLength(replayed.observations.length);
       await page.getByRole('button',{name:'Try forecast again'}).click();
       await page.getByText('Forecast error: Awaiting matched school marks',{exact:true}).waitFor();
       expect(chartForecastCalls).toBe(2);

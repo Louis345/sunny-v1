@@ -47,3 +47,11 @@ it('offers parent retry for a failed intake without re-uploading the assignment'
  await waitFor(()=>expect(fetchMock.mock.calls.some(([,init])=>init?.method==='POST')).toBe(true));
  expect(JSON.parse(String(fetchMock.mock.calls.find(([,init])=>init?.method==='POST')![1]?.body))).toEqual({acknowledge:true,stage:'prior'});
 });
+it('offers explicit saved-answer repair without resubmitting child answers',async()=>{
+ const snapshot={draft:null,assignments:[{assignmentId:'a',assignment:{words:['knee']},coverage:{assigned:1,discovery:1,eligible:1,recall:0}}],report:{weeks:[],patternHistory:[]}};
+ const fetchMock=vi.spyOn(globalThis,'fetch').mockImplementation(async()=>new Response(JSON.stringify(snapshot)));
+ render(<SpellingParentPage childId="synthetic-parent"/>);
+ fireEvent.click(await screen.findByRole('button',{name:'Repair saved answers'}));
+ await waitFor(()=>expect(fetchMock.mock.calls.some(([url,init])=>String(url).endsWith('/repair-answers')&&init?.method==='POST')).toBe(true));
+ expect(JSON.parse(String(fetchMock.mock.calls.find(([,init])=>init?.method==='POST')![1]?.body))).toEqual({acknowledge:true});
+});

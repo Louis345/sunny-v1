@@ -57,3 +57,12 @@ it('recovers a failed intake prior through the original parent HTTP surface',asy
  expect((await send(true)).status).toBe(200);expect((await send(true)).status).toBe(200);expect(calls).toBe(1);
  expect(exportEvents(db).filter(e=>e.type==='assignment.ingested')).toHaveLength(1);
 });
+it('requires parent acknowledgment to repair saved deliveries for the selected assignment',async()=>{
+ const app=express();app.use(express.json());const repaired:string[]=[];
+ setupOriginalSpellingParentRoutes(app,()=>true,(_child,fn)=>fn(db),undefined,undefined,(_db,id)=>{repaired.push(id);return {recovered:1};});
+ await new Promise<void>(r=>server.close(()=>r()));server=app.listen(0,'127.0.0.1');await new Promise<void>(r=>server.once('listening',r));
+ const target=`http://127.0.0.1:${(server.address() as any).port}/api/parent/spelling/synthetic-parent/assignments/hw-1/repair-answers`;
+ const send=(acknowledge:boolean)=>fetch(target,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({acknowledge})});
+ expect((await send(false)).status).toBe(409);expect(repaired).toEqual([]);
+ expect((await send(true)).status).toBe(200);expect(repaired).toEqual(['hw-1']);
+});
