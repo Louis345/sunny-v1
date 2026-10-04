@@ -42,3 +42,18 @@ it('returns activity limitations separately from spelling performance',async()=>
  expect(snapshot.limitations).toHaveLength(1);expect(snapshot.limitations[0]).toMatchObject({assignmentId:'hw-1',rawChoice:'kn'});
  expect(snapshot.assignments[0].coverage.eligible).toBe(0);
 });
+it('recovers a failed intake prior through the original parent HTTP surface',async()=>{
+ const {prepareSpellingChartAssignment,recoverOriginalSpellingPrior}=await import('../chart/spelling/intakeBridge');
+ const assignment=exportEvents(db).find(e=>e.type==='assignment.ingested')!.payload as any;
+ await expect(prepareSpellingChartAssignment(db,assignment,async()=>{throw Error('fixture prior failure');})).rejects.toThrow();
+ const app=express();app.use(express.json());let calls=0;
+ const recover=async(_child:string,id:string)=>recoverOriginalSpellingPrior(db,id,async()=>{calls++;return {tags:{assignmentId:id,taxonomyVersion:1,tags:assignment.words.map((word:string)=>({word,patterns:['spelling.irregular']}))},priors:assignment.words.map((word:string)=>({assignmentId:id,word,pCorrect:.5,confidence:.2,expectedError:'unknown'}))};});
+ setupOriginalSpellingParentRoutes(app,()=>true,(_child,fn)=>fn(db),undefined,recover);
+ await new Promise<void>(r=>server.close(()=>r()));server=app.listen(0,'127.0.0.1');await new Promise<void>(r=>server.once('listening',r));
+ url=`http://127.0.0.1:${(server.address() as any).port}/api/parent/spelling/synthetic-parent`;
+ const snapshot=await fetch(url).then(r=>r.json()) as ReturnType<typeof spellingParentSnapshot>;expect(snapshot.priorRecovery[0]).toMatchObject({ready:false,attempted:true,needsAttention:true});
+ const send=(acknowledge:boolean)=>fetch(url+'/assignments/hw-1/recover',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({stage:'prior',acknowledge})});
+ expect((await send(false)).status).toBe(409);expect(calls).toBe(0);
+ expect((await send(true)).status).toBe(200);expect((await send(true)).status).toBe(200);expect(calls).toBe(1);
+ expect(exportEvents(db).filter(e=>e.type==='assignment.ingested')).toHaveLength(1);
+});

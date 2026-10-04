@@ -29,3 +29,19 @@ it('propagates Planner failure and preserves the captured assignment without inv
  expect(exportEvents(db).map(e=>e.type)).toEqual(['assignment.ingested']);
  }finally{db.close();fs.rmSync(root,{recursive:true,force:true});}
 });
+it('requires parent recovery after a prior failure and repairs the same assignment after restart',async()=>{
+ const root=fs.mkdtempSync(path.join(os.tmpdir(),'chart-intake-'));let db=openChart('synthetic-intake',{chartDir:root});
+ const assignment={assignmentId:'recover',words:['night'],testDate:null,sourcePhotoHash:'c'.repeat(64)};
+ const provider=vi.fn(async()=>({tags:{assignmentId:'recover',taxonomyVersion:1,tags:[{word:'night',patterns:['spelling.irregular']}]},priors:[{assignmentId:'recover',word:'night',pCorrect:.6,confidence:.4,expectedError:'unknown'}]})).mockRejectedValueOnce(Error('recorded_failure'));
+ try{
+  await expect(prepareSpellingChartAssignment(db,assignment,provider)).rejects.toThrow('recorded_failure');
+  db.close();db=openChart('synthetic-intake',{chartDir:root});
+  await expect(prepareSpellingChartAssignment(db,assignment,provider)).rejects.toThrow('prior_needs_attention');
+  expect(provider).toHaveBeenCalledTimes(1);
+  const {recoverOriginalSpellingPrior}=await import('../chart/spelling/intakeBridge');
+  await recoverOriginalSpellingPrior(db,'recover',provider);
+  await recoverOriginalSpellingPrior(db,'recover',provider);
+  expect(provider).toHaveBeenCalledTimes(2);
+  expect(exportEvents(db).map(e=>e.type)).toEqual(['assignment.ingested','words.tagged','prediction.prior']);
+ }finally{db.close();fs.rmSync(root,{recursive:true,force:true});}
+});

@@ -39,3 +39,11 @@ it('discloses missing word answers separately from game results',async()=>{
  render(<SpellingParentPage childId="synthetic-parent"/>);
  expect(await screen.findByText(/1 activity report did not include whole-word spelling answers/)).toBeTruthy();
 });
+it('offers parent retry for a failed intake without re-uploading the assignment',async()=>{
+ const snapshot={draft:null,assignments:[{assignmentId:'a',assignment:{words:['knee']},coverage:{assigned:1,discovery:0,eligible:0,recall:0},schoolResult:null,forecast:null}],priorRecovery:[{assignmentId:'a',ready:false,attempted:true,needsAttention:true}],report:{weeks:[],patternHistory:[]}};
+ const fetchMock=vi.spyOn(globalThis,'fetch').mockImplementation(async()=>new Response(JSON.stringify(snapshot)));
+ render(<SpellingParentPage childId="synthetic-parent"/>);
+ fireEvent.click(await screen.findByRole('button',{name:'Retry spelling preparation'}));
+ await waitFor(()=>expect(fetchMock.mock.calls.some(([,init])=>init?.method==='POST')).toBe(true));
+ expect(JSON.parse(String(fetchMock.mock.calls.find(([,init])=>init?.method==='POST')![1]?.body))).toEqual({acknowledge:true,stage:'prior'});
+});
