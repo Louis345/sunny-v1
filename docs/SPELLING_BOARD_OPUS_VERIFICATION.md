@@ -302,3 +302,21 @@ for the omitted field, then passed. This adds one metadata field and deletes no
 code; the guard remains intact. Original-browser verification is required before
 claiming readiness. This defect was found in the isolated lab; Saori was not
 changed.
+
+## Original-browser replay duplication
+
+After the audio correction, both adaptive full-route browser scenarios passed.
+The two replay scenarios found a new double-write: Word Radar emits general
+attempt telemetry as well as its durable per-answer HTTP request. The native
+iframe adapter was consuming both. It now leaves Word Radar persistence with
+the HTTP boundary; other native attempts keep their existing adapter. The
+focused regression failed with an unwanted chart response before the fix.
+
+Both replay browser scenarios now pass, as do 29 focused server tests and the
+full isolated build. The old browser expectation of no replay HTTP calls was
+updated to exactly two, matching the authorized per-answer plumbing; it still
+asserts exactly two new immutable practice observations and no changed prediction
+evaluations. Screenshots of the adaptive board and completed route were inspected.
+These runs use fixture providers and no configured SQLite chart, so they verify
+the original UI path, not full chart integration, live model quality, portrait
+layout or installation readiness. Saori remains unchanged.

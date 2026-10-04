@@ -413,7 +413,8 @@ it.each([
     expect(replayFacts[0].result.correct).toBeUndefined();
     expect(replayFacts[0].childResponse).not.toBe("night");
     expect(replayFacts[1].childResponse).toBe("light");
-    expect(events.filter(event => event.includes("/discovery/attempt"))).toHaveLength(attemptsBeforeReplay);
+    // Each replay answer now uses the original per-answer endpoint; completion must add no duplicate.
+    expect(events.filter(event => event.includes("/discovery/attempt"))).toHaveLength(attemptsBeforeReplay + 2);
     await page.getByText("Skip", { exact: true }).click();
     expect(events).toContain("canonical-game:attempt_event");
     expect(legacyAttempt).not.toHaveBeenCalled();

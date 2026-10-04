@@ -540,7 +540,7 @@ export function handleGameEventForSession(
     try {
       const childId = chartChildIdForSession(s);
       const launch = s.getSpellingLaunch?.();
-      if (event.domain === "spelling" && launch) {
+      if (event.domain === "spelling" && launch && event.activityId !== "word-radar" && event.game !== "word-radar") {
         if (event.nodeId !== launch.nodeId || event.launchToken !== launch.launchToken) throw new Error("native_spelling_launch_mismatch");
         const live = s.getDiscoveryAttemptContext?.(launch.homeworkId, String(event.target ?? ""), event.launchToken);
         if (live?.practice && typeof event.attemptedValue === "string") {
