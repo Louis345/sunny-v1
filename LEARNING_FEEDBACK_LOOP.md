@@ -1,6 +1,6 @@
 # Sunny Learning Feedback Loop
 
-Contract version: 31
+Contract version: 32
 
 This document is the **sole normative** authority for how Sunny forms, tests, and revises learning claims. Product changes that alter this loop must update this contract version before implementation. Other documents may describe infrastructure or history, but they must link here instead of creating another learning doctrine.
 
@@ -322,3 +322,8 @@ Original-kiosk presentations retain server launch ID, canonical node ID and sour
 item ID as immutable provenance. Responses retain their source attempt ID for
 idempotent delivery. A response must cite a previously committed presentation;
 retry cannot replace its captured answer or move it to another item.
+
+Unmeasured per-item support is explicit null, never false or zero. Original
+instruments whose presentation support is not fully measured are practice. Raw
+answers may still be scored, but unknown support cannot establish independent
+evidence. Corrections cannot replace unknown support with an asserted absence.

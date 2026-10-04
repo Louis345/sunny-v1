@@ -9,6 +9,7 @@ type Presentation = Pick<Payloads['item.presented'],'assignmentId'|'sessionId'|'
 /** Caller supplies the validated server launch and frozen contract, never a game label. */
 export function presentOriginalSpellingItem(db:ChartDatabase,input:Presentation){
  const {nodeId,launchId,sourceItemId, ...item}=input;
+ if(Object.values(item.shown).some(value=>value===null))item.instrument='practice';
  return recordPresentation(db,{...item,itemId:eventId('original-spelling-item',[input.sessionId,launchId,sourceItemId]),acceptedForms:[item.word],role:item.instrument==='practice'?'practice':'measure',protocolVersion:1,provenance:{nodeId,launchId,sourceItemId}});
 }
 

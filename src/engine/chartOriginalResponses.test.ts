@@ -33,3 +33,28 @@ it('cannot add invented launch provenance to a historical presentation through c
  expect(()=>recordCorrection(db,{target_event_id:p.event_id,reason:'invent launch',replacement_payload:{...p.payload,provenance:{nodeId:'invented',launchId:'invented',sourceItemId:'old'}}},{cites:[p.event_id]})).toThrow('correction_identity');
  }finally{db.close();fs.rmSync(root,{recursive:true,force:true});}
 });
+
+it('keeps unavailable per-word support unknown and downgrades its instrument to practice',async()=>{
+ const {recordCorrection}=await import('../chart/spelling/record');
+ const root=fs.mkdtempSync(path.join(os.tmpdir(),'unknown-support-'));const db=openChart('synthetic',{chartDir:root});
+ try{
+ recordAssignment(db,{assignmentId:'a',words:['night'],testDate:null,sourcePhotoHash:'a'.repeat(64)});
+ const p=presentOriginalSpellingItem(db,{assignmentId:'a',sessionId:'s',nodeId:'n',launchId:'l',sourceItemId:'i',word:'night',instrument:'discovery',shown:{lettersVisible:null,hint:null,companionHelp:null}});
+ expect(p.payload.instrument).toBe('practice');
+ const r=recordOriginalSpellingResponse(db,{assignmentId:'a',sessionId:'s',itemId:String(p.payload.itemId),sourceResponseId:'r',rawResponse:'night',status:'answered',support:{audioReplays:null,spellingShown:null,hint:null,companionHelp:null}});
+ expect(projectAssignment(exportEvents(db),'a').responses[0]).toMatchObject({rawResponse:'night',result:'correct',assistance:'unknown',eligible:false,instrument:'practice'});
+ expect(()=>recordCorrection(db,{target_event_id:r.event_id,reason:'invent absence of help',replacement_payload:{...r.payload,support:{audioReplays:0,spellingShown:false,hint:false,companionHelp:false}}},{cites:[r.event_id]})).toThrow('correction_response_upgrade');
+ }finally{db.close();fs.rmSync(root,{recursive:true,force:true});}
+});
+
+it('does not erase an unanswered presentation with unknown exposure on a later clean presentation',async()=>{
+ const {recordPresentation}=await import('../chart/spelling/record');
+ const root=fs.mkdtempSync(path.join(os.tmpdir(),'unknown-exposure-'));const db=openChart('synthetic',{chartDir:root});
+ try{
+ recordAssignment(db,{assignmentId:'a',words:['night'],testDate:null,sourcePhotoHash:'a'.repeat(64)});
+ recordPresentation(db,{assignmentId:'a',sessionId:'s',itemId:'uncertain',word:'night',acceptedForms:['night'],instrument:'discovery',role:'measure',protocolVersion:1,shown:{lettersVisible:null,hint:false,companionHelp:false}});
+ const p=presentOriginalSpellingItem(db,{assignmentId:'a',sessionId:'s',nodeId:'n',launchId:'l',sourceItemId:'new',word:'night',instrument:'discovery',shown:{lettersVisible:false,hint:false,companionHelp:false}});
+ recordOriginalSpellingResponse(db,{assignmentId:'a',sessionId:'s',itemId:String(p.payload.itemId),sourceResponseId:'r',rawResponse:'night',status:'answered',support:{audioReplays:0,spellingShown:false,hint:false,companionHelp:false}});
+ expect(projectAssignment(exportEvents(db),'a').responses[0].eligible).toBe(false);
+ }finally{db.close();fs.rmSync(root,{recursive:true,force:true});}
+});

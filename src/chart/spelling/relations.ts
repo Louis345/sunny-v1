@@ -46,8 +46,8 @@ export function validateRelations(db: ChartDatabase, e: EventInput): void {
             const after = replacement as Payloads['response.observed'];
             if ((after.rawResponse !== null && after.rawResponse !== before.rawResponse) ||
                 (after.status !== before.status && !['unknown', 'ambiguous'].includes(after.status)) ||
-                after.support.audioReplays < before.support.audioReplays ||
-                (['spellingShown', 'hint', 'companionHelp'] as const).some(key => before.support[key] && !after.support[key]))
+                (before.support.audioReplays === null ? after.support.audioReplays !== null : after.support.audioReplays !== null && after.support.audioReplays < before.support.audioReplays) ||
+                (['spellingShown', 'hint', 'companionHelp'] as const).some(key => (before.support[key] === true && after.support[key] !== true) || (before.support[key] === null && after.support[key] === false)))
                 fail('correction_response_upgrade');
         }
         // Reuse the ordinary fact rules after checking correction identity/dependencies.

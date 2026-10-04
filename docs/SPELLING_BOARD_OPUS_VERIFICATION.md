@@ -122,3 +122,20 @@ item-only history lookup; it does not introduce a second launch pathway.
 Verification: 28 server tests, 114 existing web tests and the isolated full build
 pass. The original-browser full-week and visual comparisons are still required;
 these unit/HTTP tests do not substitute for them. Saori remains unchanged.
+
+## Missing support remains unknown
+
+Practice adapters can now preserve unmeasured support as null rather than invent
+false or zero. The original presentation adapter downgrades an instrument with
+unknown presentation support to practice. Captured raw answers still receive
+code scoring, but unknown support is ineligible for independent evidence. An
+unanswered earlier presentation with unknown exposure also prevents a later
+clean-looking item from erasing that uncertainty; the projection reports it
+separately from confirmed exposure. Corrections cannot turn unknown help into
+asserted absence or remove recorded help.
+
+The unknown-support test first failed schema validation. A second red test caught
+eligibility surviving earlier unknown exposure; both now pass alongside core,
+review, schema and runtime suites and the isolated build. Contract version32
+records the boundary. This replaces boolean-only validation and eligibility;
+it does not claim that practice-game runtime capture is already connected.

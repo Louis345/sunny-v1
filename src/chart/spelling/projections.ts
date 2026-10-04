@@ -35,6 +35,7 @@ export function projectAssignment(input: readonly ChartEvent[], assignmentId: st
             throw new Error('chart_presentation_missing');
         const p = payload(pe, 'item.presented');
         const assisted = p.shown.lettersVisible || p.shown.hint || p.shown.companionHelp || r.support.spellingShown || r.support.hint || r.support.companionHelp;
+        const unknownSupport = [...Object.values(p.shown),...Object.values(r.support)].some(value=>value===null);
         const result = r.status === 'answered' ? (p.acceptedForms.includes((r.rawResponse ?? '').normalize('NFC').trim().toLowerCase()) ? 'correct' : 'incorrect') : r.status;
         const earlierResponses = all.some(x => x.sequence < e.sequence && x.type === 'response.observed' && x.payload.sessionId === r.sessionId && x.payload.itemId === r.itemId);
         // Hearing an unanswered audio-only prompt is elicitation, not instruction.
@@ -46,9 +47,10 @@ export function projectAssignment(input: readonly ChartEvent[], assignmentId: st
             return answered.has(x.event_id) || (x.event_id !== pe.event_id &&
                 (prior.instrument === 'practice' || prior.shown.lettersVisible || prior.shown.hint || prior.shown.companionHelp));
         });
+        const priorExposureUnknown = all.some(x => x.type === 'item.presented' && x.event_id !== pe.event_id && x.sequence < e.sequence && x.payload.assignmentId === assignmentId && x.payload.word === p.word && Object.values(payload(x,'item.presented').shown).some(value=>value===null));
         const previouslyExposed = exposure.length > 0;
         const exposedThisAssignment = exposure.some(x => x.payload.assignmentId === assignmentId);
-        return { eventId: e.event_id, presentationId: pe.event_id, sequence: e.sequence, recordedAt: e.recorded_at, word: p.word, instrument: p.instrument, role: p.role, rawResponse: r.rawResponse, result, assistance: assisted ? 'assisted' : 'unassisted', firstTry: !earlierResponses, previouslyExposed, eligible: !earlierResponses && !exposedThisAssignment && !assisted && p.instrument === 'discovery' && p.role === 'measure' && (result === 'correct' || result === 'incorrect') };
+        return { eventId: e.event_id, presentationId: pe.event_id, sequence: e.sequence, recordedAt: e.recorded_at, word: p.word, instrument: p.instrument, role: p.role, rawResponse: r.rawResponse, result, assistance: assisted ? 'assisted' : unknownSupport ? 'unknown' : 'unassisted', firstTry: !earlierResponses, previouslyExposed, priorExposureUnknown, eligible: !earlierResponses && !exposedThisAssignment && !priorExposureUnknown && !assisted && !unknownSupport && p.instrument === 'discovery' && p.role === 'measure' && (result === 'correct' || result === 'incorrect') };
     });
     const forecastEvent = events.find(e => e.type === 'readiness.forecast');
     const schoolEvent = events.find(e => e.type === 'school_test.recorded');
