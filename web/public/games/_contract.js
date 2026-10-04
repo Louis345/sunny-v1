@@ -80,6 +80,8 @@ window.GameBridge = (function () {
     };
   })();
 
+  var capturedSpellingTargets = Object.create(null);
+
   function bindSpellingTarget(row) {
     var bindings = GAME_PARAMS.spellingItemBindings;
     if (!bindings.length || !row || typeof row.target !== "string") return row;
@@ -321,6 +323,13 @@ window.GameBridge = (function () {
         showPreviewBanner(r);
         return;
       }
+      // Letter-selection/aggregate results cannot stand in for typed word answers.
+      if (GAME_PARAMS.launchToken && GAME_PARAMS.spellingItemBindings.length &&
+          GAME_PARAMS.spellingItemBindings.some(function (item) { return !capturedSpellingTargets[item.itemId]; })) {
+        window.fireAttemptEvent({ domain: "spelling", evidenceLimitation: "per_word_results_unavailable",
+          attemptId: "completion-limitation:" + GAME_PARAMS.launchToken,
+          rawChoice: null, aggregateAccuracy: typeof r.accuracy === "number" ? r.accuracy : null });
+      }
       var merged = Object.assign({}, r, {
         nodeId: GAME_PARAMS.nodeId,
         childId: GAME_PARAMS.childId,
@@ -517,6 +526,7 @@ window.GameBridge = (function () {
         return;
       }
       var payload = Object.assign({}, bindSpellingTarget(attempt));
+      if (payload.domain === "spelling" && typeof payload.attemptedValue === "string") capturedSpellingTargets[payload.target] = true;
       if (payload.word == null && payload.target != null) {
         payload.word = String(payload.target);
       }
@@ -535,7 +545,7 @@ window.GameBridge = (function () {
       post(
         "attempt_event",
         Object.assign(payload, {
-          attemptId: attemptId,
+          attemptId: typeof payload.attemptId === "string" ? payload.attemptId : attemptId,
           childId: GAME_PARAMS.childId,
           nodeId: GAME_PARAMS.nodeId,
           launchToken: GAME_PARAMS.launchToken,

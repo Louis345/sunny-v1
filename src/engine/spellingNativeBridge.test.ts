@@ -74,3 +74,28 @@ it('reports trap selection success as a limitation instead of a fabricated word 
  expect(calls).toHaveLength(1);expect(calls[0]).toMatchObject({evidenceLimitation:'per_word_results_unavailable',rawChoice:null,aggregateAccuracy:1});
  expect(calls[0].attemptedValue).toBeUndefined();
 });
+
+ it('captures spell-check memory input before feedback can clear it',()=>{
+  const html=fs.readFileSync('web/public/games/spell-check.html','utf8');
+  const fn=html.slice(html.indexOf('function submitR3()'),html.indexOf('function finishSession('));
+  const calls:any[]=[];
+  const sandbox:any={canTypeR3:true,ensureAudio(){},r3Input:'nitee',currentWord:'night',r3TotalWrong:0,r3Consec:0,r3FirstPass:true,fireC(){},sWrong(){},r3R(){},document:{getElementById:()=>({classList:{add(){},remove(){}}})},setTimeout(){},window:{fireAttemptEvent:(p:any)=>calls.push(p)}};
+  vm.runInNewContext(fn+'\nsubmitR3();',sandbox);
+  expect(calls).toHaveLength(1);expect(calls[0]).toMatchObject({domain:'spelling',target:'night',attemptedValue:'nitee'});
+  expect(sandbox.r3Input).toBe('');
+ });
+ it('announces spell-check and Wordle items at their opening boundary',()=>{
+  for(const file of ['spell-check','wordle']) {
+   const html=fs.readFileSync('web/public/games/'+file+'.html','utf8');
+   expect(html).toContain('spellingItemOpened: true');
+  }
+ });
+ it('records aggregate-only native completion without inventing a spelling response',()=>{
+  const messages:any[]=[];
+  const sandbox:any={location:{search:'?nodeId=wheel&launchToken=launch&spellingItemBindings='+encodeURIComponent(JSON.stringify([{itemId:'i',word:'night'}]))},URLSearchParams,console,Date,Math,document:{title:'Wheel',addEventListener(){}},window:{parent:{postMessage:(m:any)=>messages.push(m)}}};
+  vm.runInNewContext(fs.readFileSync('web/public/games/_contract.js','utf8'),sandbox);
+  sandbox.window.sendNodeComplete({accuracy:0.5,targetResults:[{target:'night',correct:true}]});
+  const facts=messages.filter(m=>m.type==='attempt_event');
+  expect(facts).toHaveLength(1);expect(facts[0].payload).toMatchObject({domain:'spelling',evidenceLimitation:'per_word_results_unavailable',aggregateAccuracy:0.5,launchToken:'launch'});
+  expect(facts[0].payload.attemptedValue).toBeUndefined();
+ });
