@@ -1021,12 +1021,15 @@ function App() {
   }, []);
 
   const closePlannerBoardLaunch = useCallback(() => {
+    if (plannerBoardLaunch) sendMessage("game_event", {event:{type:"game_state_update",version:"1.0",payload:{
+      phase: "closed", nodeId: plannerBoardLaunch.node.id, launchToken: plannerBoardLaunch.completionId,
+    }}});
     pendingPlannerBoardLaunchRef.current = null;
     setPlannerBoardLaunch(null);
     setPostActivityEngagement(null);
     plannerBoardIframeCompletionKeyRef.current = null;
     setCompanionPresence("collapsed");
-  }, [setCompanionPresence]);
+  }, [plannerBoardLaunch, sendMessage, setCompanionPresence]);
 
   useEffect(() => {
     setPlannerBoardLaunch(null);

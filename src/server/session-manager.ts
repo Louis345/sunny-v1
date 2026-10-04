@@ -744,6 +744,13 @@ export class SessionManager {
   }
 
   updateCurrentBoardSnapshot(state: Record<string, unknown>): void {
+    if (state.phase === "closed" && this.spellingLaunch
+      && state.nodeId === this.spellingLaunch.nodeId && state.launchToken === this.spellingLaunch.launchToken) {
+      this.spellingLaunch = undefined;
+      this.spellingAssessment = undefined;
+      this.pendingSpellingAssessmentSupport = false;
+      console.log(" 🎮 [spelling] [node-launch] [released]");
+    }
     if (state.phase === "launched") {
       const cycle = getChildChart(this.chartChildId).learningCycle;
       if (cycle?.domain === "spelling") {

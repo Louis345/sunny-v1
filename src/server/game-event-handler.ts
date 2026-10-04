@@ -542,17 +542,26 @@ export function handleGameEventForSession(
     try {
       const childId = chartChildIdForSession(s);
       const launch = s.getSpellingLaunch?.();
+      const matchesLaunch = launch && event.nodeId === launch.nodeId && event.launchToken === launch.launchToken;
+      if (event.domain === "spelling" && launch && !matchesLaunch) {
+        console.log(" 🎮 [spelling] [chart-capture] [unmatched launch; legacy feedback retained]");
+      }
       if (event.domain === "spelling" && event.evidenceLimitation) {
-        if (!launch || event.nodeId !== launch.nodeId || event.launchToken !== launch.launchToken) throw new Error("native_spelling_launch_mismatch");
-        withOriginalSpellingChart(childId, db => recordFact(db,'activity.limited',schemas['activity.limited'].parse({
-          assignmentId:launch.homeworkId,sessionId:s.getSessionId(),nodeId:launch.nodeId,launchId:launch.launchId,
-          sourceEventId:event.attemptId,reason:event.evidenceLimitation,rawChoice:event.rawChoice ?? null,aggregateAccuracy:event.aggregateAccuracy ?? null,
-        })));
-        console.log(' 🎮 [spelling] [activity-limitation] [recorded]');
+        if (launch && matchesLaunch) {
+          try {
+            withOriginalSpellingChart(childId, db => recordFact(db,'activity.limited',schemas['activity.limited'].parse({
+              assignmentId:launch.homeworkId,sessionId:s.getSessionId(),nodeId:launch.nodeId,launchId:launch.launchId,
+              sourceEventId:event.attemptId,reason:event.evidenceLimitation,rawChoice:event.rawChoice ?? null,aggregateAccuracy:event.aggregateAccuracy ?? null,
+            })));
+            console.log(' 🎮 [spelling] [activity-limitation] [recorded]');
+          } catch (err) {
+            console.error(" 🔴 [spelling] [activity-limitation] [record failed]", err);
+          }
+        }
+        s.noteExternalEvent?.({source:"attempt_event",summary:`Activity result: ${String(event.evidenceLimitation)}; not a scored spelling answer. Reported choice: ${String(event.rawChoice ?? "unknown")}; reported aggregate accuracy: ${String(event.aggregateAccuracy ?? "unknown")}.`});
         return; // A chunk/selection score never enters spelling scoring or the word bank.
       }
-      if (event.domain === "spelling" && launch && event.activityId !== "word-radar" && event.game !== "word-radar") {
-        if (event.nodeId !== launch.nodeId || event.launchToken !== launch.launchToken) throw new Error("native_spelling_launch_mismatch");
+      if (event.domain === "spelling" && launch && matchesLaunch && event.activityId !== "word-radar" && event.game !== "word-radar") {
         const live = s.getDiscoveryAttemptContext?.(launch.homeworkId, String(event.target ?? ""), event.launchToken);
         if (live?.practice && typeof event.attemptedValue === "string") {
           const cycle = getLearningCycle(childId, launch.homeworkId);

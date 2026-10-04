@@ -269,3 +269,18 @@ describe("game event handler companion events", () => {
     );
   });
 });
+
+it('preserves legacy answers and Elli notes when a voice game follows a board spelling launch',()=>{
+ vi.mocked(recordLearningAttempt).mockClear();
+ const s={chartChildId:'lab-child',getSpellingLaunch:()=>({homeworkId:'hw',nodeId:'board-node',launchId:'old',launchToken:'board-token'}),noteExternalEvent:vi.fn()};
+ handleGameEventForSession(s,{type:'attempt_event',domain:'spelling',activityId:'letter-rush',nodeId:'voice-game',target:'sun',attemptedValue:'sun',correct:true});
+ expect(recordLearningAttempt).toHaveBeenCalledTimes(1);
+ expect(s.noteExternalEvent).toHaveBeenCalledWith({source:'attempt_event',summary:'Game attempt: sun correct'});
+});
+it.each([undefined,{homeworkId:'hw',nodeId:'old-node',launchId:'old',launchToken:'old-token'}])('keeps a voice trap choice out of word scoring but informs Elli (launch=%j)',launch=>{
+ vi.mocked(recordLearningAttempt).mockClear();
+ const s={chartChildId:'lab-child',getSpellingLaunch:()=>launch,noteExternalEvent:vi.fn()};
+ handleGameEventForSession(s,{type:'attempt_event',domain:'spelling',activityId:'letter-rush',nodeId:'voice-game',evidenceLimitation:'per_word_results_unavailable',aggregateAccuracy:1});
+ expect(recordLearningAttempt).not.toHaveBeenCalled();
+ expect(s.noteExternalEvent).toHaveBeenCalledWith(expect.objectContaining({source:'attempt_event',summary:expect.stringContaining('not a scored spelling answer')}));
+});

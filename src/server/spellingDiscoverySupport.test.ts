@@ -230,3 +230,11 @@ it('keeps launch correlation through the production narration event adapter',asy
  handleGameEventForSession({speakGameNarration},{type:'narration_request',payload:{text:'night',word:'night',game:'word-radar',nodeId:'opening',itemId:'i1',assessmentMode:true,launchToken:'launch-one'}});
  expect(speakGameNarration).toHaveBeenCalledWith('night.',expect.objectContaining({itemId:'i1',launchToken:'launch-one'}));
 });
+
+it.each(['closed'])('releases only the matching spelling launch on host %s',phase=>{
+ const s=session();s.updateCurrentBoardSnapshot({phase:'launched',nodeId:'opening',launchToken:'current'});
+ s.updateCurrentBoardSnapshot({phase,nodeId:'opening',launchToken:'stale'});
+ expect(s.getSpellingLaunch()?.launchToken).toBe('current');
+ s.updateCurrentBoardSnapshot({phase,nodeId:'opening',launchToken:'current'});
+ expect(s.getSpellingLaunch()).toBeUndefined();
+});

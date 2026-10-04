@@ -463,3 +463,10 @@ describe("direct Discovery entry", () => {
     expect(completionCalls).toBe(1);
   });
 });
+
+it('notifies the server when the host closes a board launch with its exact token',()=>{
+ const source=readFileSync(resolve(process.cwd(),'src/App.tsx'),'utf8');
+ const close=source.slice(source.indexOf('const closePlannerBoardLaunch ='),source.indexOf('const launchPlannerBoardNode ='));
+ expect(close).toContain('phase: "closed"');
+ expect(close).toContain('launchToken: plannerBoardLaunch.completionId');
+});
