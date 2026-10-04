@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 const active = new Set<string>();
+export const isCheckpointAttemptActive=(base:string)=>active.has(base);
 function save(file:string,value:unknown){fs.mkdirSync(path.dirname(file),{recursive:true,mode:0o700});const fd=fs.openSync(file,'wx',0o600);try{fs.writeFileSync(fd,JSON.stringify(value));fs.fsyncSync(fd);}finally{fs.closeSync(fd);}}
 /** Explicit invocations only: no automatic retries, no erased outcomes. */
 export async function checkpointedAttempt<T>(base:string, metadata:Record<string,unknown>, produce:()=>Promise<unknown>, accept:(value:unknown,request:Record<string,unknown>)=>T,recover=false,parentOnlyRetry=false):Promise<T>{

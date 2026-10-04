@@ -1,3 +1,4 @@
+import {runOriginalSpellingForecast} from '../chart/spelling/originalForecast';
 import fs from "node:fs";
 import {openChart} from "../chart/db";
 import {exportEvents} from "../chart/exportEvents";
@@ -95,7 +96,10 @@ it.each([
   seedSpellingLab(rootDir, words, scenario.adaptive ? "/companions/sample.vrm" : "", childId);
   if(scenario.chart) vi.stubEnv("SUNNY_CHART_DIR",path.join(rootDir,"charts"));
   const chartDb = scenario.chart ? openChart(childId,{chartDir:path.join(rootDir,"charts")}) : undefined;
+  let chartForecastCalls=0;
   const chartProvider: SpellingProvider = async (stage,packet) => {
+    if(stage === "forecast" && ++chartForecastCalls===1 && !scenario.adaptive)throw Error("recorded_forecast_failure");
+    if(stage === "forecast") return {assignmentId:packet.assignment.assignmentId,probabilities:packet.assignment.assignment!.words.map(word=>({word,pCorrect:0.7})),uncertainty:"Recorded immediate recall; retention unknown",missingEvidence:[],responseIds:packet.assignment.recallChecks.map(row=>row.eventId)};
     if(stage !== "prior") throw Error("unexpected_fixture_chart_stage");
     const a=packet.assignment!.assignment!;
     return {tags:{assignmentId:a.assignmentId,taxonomyVersion:1,tags:a.words.map(word=>({word,patterns:["spelling.irregular"]}))},priors:a.words.map(word=>({assignmentId:a.assignmentId,word,pCorrect:0.6,confidence:0.4,expectedError:"unknown"}))};
@@ -111,6 +115,7 @@ it.each([
   let generationStartedAt: number | undefined;
   let workerLaunchCount = 0;
   setupRoutes(app, {
+    forecastSpelling: (child,id,recover) => runOriginalSpellingForecast(child,id,recover,chartProvider),
     launchAdaptiveMathWorker: (launchedChildId, launchedHomeworkId) => {
       workerLaunchCount += 1;
       generationStartedAt = Date.now();
@@ -462,7 +467,9 @@ it.each([
     if(chartDb){
       await page.goto(new URL(`/parent/learning-report?child=${childId}`,vite!.resolvedUrls!.local[0]).href);
       await page.getByRole('link',{name:'Spelling chart and school results'}).click();
-      await page.getByText('No readiness forecast recorded',{exact:true}).waitFor();
+      await page.getByRole('button',{name:'Try forecast again'}).click();
+      await page.getByText('Forecast error: Awaiting matched school marks',{exact:true}).waitFor();
+      expect(chartForecastCalls).toBe(2);
       await page.getByLabel('Usual test weekday').selectOption('5');
       await page.getByRole('button',{name:'Save usual weekday'}).click();
       await expect.poll(()=>exportEvents(chartDb!).filter(e=>e.type==='test_schedule.set').length).toBe(1);
@@ -476,6 +483,7 @@ it.each([
       await page.getByText('School results saved',{exact:true}).waitFor();
       const school=projectAssignment(exportEvents(chartDb),homeworkId).schoolResult;
       expect(school?.sourceKind).toBe('parent_transcription');
+      expect(projectAssignment(exportEvents(chartDb),homeworkId).forecast).toMatchObject({scheduledTestDate:null,scheduleFactId:null});
       expect(school?.results.map(r=>r.correct)).toEqual([true,false]);
       await page.screenshot({path:path.join(outputDir,'parent-report.png')});
     }

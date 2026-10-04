@@ -422,3 +422,31 @@ full build, and the original portrait browser journey saving both a weekday and
 an assignment exception before its school marks. Updated parent screenshot
 inspected. These are synthetic settings only; Saori and Reina's records remain
 untouched.
+
+## Original checkpoint forecast and parent recovery
+
+The new original-flow forecast adapter first failed its missing-module test. It
+uses the chart doorway, existing checkpointed provider receipts, shared transport
+and fact validation; it does not create a replacement-app plan. The browser test
+then failed at the parent page because the checkpoint had never invoked it.
+The original completion route now queues it after the spelling frontier completes,
+without holding up the child. Unknown/missing recall evidence is not manufactured.
+
+The request freezes the effective parent schedule and chart sequence. The forecast
+stores/cites that schedule fact (or explicit null when none exists); old facts
+without the new fields remain readable. A changed chart rejects a stale receipt.
+Provider failure preserves the receipt and cannot trigger another automatic call;
+the original parent page offers an explicit retry. A completed forecast is reused,
+including on replay, and school results prohibit a retrospective forecast. Schema
+validation still requires real cited recall facts, full word coverage and no school
+result. No default scheduled date or probabilities are invented by code.
+
+Verification: focused forecast/core/schema/server tests, three parent component
+cases, shared recovery tests and full build pass. Original portrait browser proves
+automatic invocation, a recorded failure, no automatic replay call, explicit
+parent recovery through HTTP, and saved forecast followed by school calibration.
+The browser uses recorded probabilities only; no paid provider verification.
+A further red test caught absence of pending status: the parent now sees a running
+forecast as preparing, with a read-only Refresh action, not a premature retry.
+The displayed forecast error screenshot was inspected. This still is not final
+all-activities/full-week/install acceptance.

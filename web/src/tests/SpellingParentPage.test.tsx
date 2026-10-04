@@ -26,3 +26,11 @@ it('saves an explicit default weekday through the existing parent page',async()=
  const call=fetchMock.mock.calls.find(([,init])=>init?.method==='POST')!;
  expect(JSON.parse(String(call[1]?.body))).toMatchObject({kind:'weekday',weekday:5,confirmed:true});
 });
+it('offers explicit recovery when a forecast attempt needs attention',async()=>{
+ const snapshot={draft:null,assignments:[{assignmentId:'a',assignment:{words:['knee']},coverage:{assigned:1,discovery:1,eligible:1,recall:1},schoolResult:null,forecast:null}],recovery:[{assignmentId:'a',attempted:true,needsAttention:true}],report:{weeks:[],patternHistory:[]}};
+ const fetchMock=vi.spyOn(globalThis,'fetch').mockImplementation(async()=>new Response(JSON.stringify(snapshot)));
+ render(<SpellingParentPage childId="synthetic-parent"/>);
+ fireEvent.click(await screen.findByRole('button',{name:'Try forecast again'}));
+ await waitFor(()=>expect(fetchMock.mock.calls.some(([url,init])=>String(url).endsWith('/recover')&&init?.method==='POST')).toBe(true));
+ expect(JSON.parse(String(fetchMock.mock.calls.find(([,init])=>init?.method==='POST')![1]?.body))).toEqual({acknowledge:true});
+});

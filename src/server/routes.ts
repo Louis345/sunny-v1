@@ -1,3 +1,4 @@
+import { runOriginalSpellingForecast } from '../chart/spelling/originalForecast';
 import { setupOriginalSpellingParentRoutes } from './originalSpellingParent';
 import {commitOriginalSpellingAttempt} from './originalSpellingCommit';
 import {withOriginalSpellingChart} from '../chart/spelling/originalResponses';
@@ -735,13 +736,14 @@ export function handleDiagTriggerReward(
 }
 
 export type SunnyRouteRuntime = {
+  forecastSpelling?: typeof runOriginalSpellingForecast;
   launchAdaptiveMathWorker?: (childId: string, homeworkId: string) => void;
 };
 
 export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void {
   const launchTargetedWorker = runtime.launchAdaptiveMathWorker ?? launchAdaptiveMathWorker;
   setupKioskHealthRoutes(app);
-  setupOriginalSpellingParentRoutes(app, isValidRegistryChildId);
+  setupOriginalSpellingParentRoutes(app, isValidRegistryChildId, undefined, runtime.forecastSpelling);
   setImmediate(() => { resumeAdaptiveMathWorkers(); resumeSuccessorBoards(); });
   const themesDir = path.resolve(process.cwd(), "src", "themes");
   if (fs.existsSync(themesDir)) {
@@ -996,6 +998,9 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
       const finalCycle = getLearningCycle(childId, homeworkId) ?? updated;
       const nodeState = finalCycle.nodes.find(node => node.nodeId === nodeId)?.state ?? null;
       const becameCompleted = !wasCompleted && nodeState === "completed";
+      if(becameCompleted && finalCycle.domain==='spelling' && finalCycle.lifecycle==='baseline_evaluating'){
+        void (runtime.forecastSpelling??runOriginalSpellingForecast)(childId,homeworkId).catch(error=>console.error(' 🎮 [spelling-forecast] [checkpoint] [needs-attention]',error));
+      }
       let videoCallTicket: { homeworkId: string; earnedAt: string; bonusUrl?: string } | undefined;
       if (becameCompleted && finalCycle.lifecycle === "baseline_evaluating") {
         try {

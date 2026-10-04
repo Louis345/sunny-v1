@@ -1,3 +1,4 @@
+import {projectTestSchedule} from './schedule';
 import type { ChartDatabase } from '../db';
 import type { EventInput, ChartEvent } from '../eventTypes';
 import { validatePayload } from '../eventTypes';
@@ -105,6 +106,10 @@ export function validateRelations(db: ChartDatabase, e: EventInput): void {
         if (has('school_test.recorded'))
             fail('forecast_after_result');
         const f = p as Payloads['readiness.forecast'];
+        if ('scheduledTestDate' in f || 'scheduleFactId' in f) {
+            const schedule=projectTestSchedule(db.sql.prepare('SELECT * FROM events ORDER BY sequence').all().map(decodeRow),f.assignmentId);
+            if(f.scheduledTestDate!==schedule.testDate || f.scheduleFactId!==schedule.scheduleFactId || (schedule.scheduleFactId!==null&&!e.cites.includes(schedule.scheduleFactId)))fail('forecast_schedule');
+        }
         if (!sameWords(f.probabilities.map(r => r.word)))
             fail('forecast_coverage');
         for (const id of f.responseIds) {

@@ -16,6 +16,7 @@ export const planProposal = z.strictObject({ action: z.enum(['targeted_practice'
 export type SpellingStage = 'prior' | 'discovery' | 'plan' | 'practice' | 'recall_check' | 'forecast' | 'await_calibration' | 'complete';
 export type SpellingPacket = ReturnType<typeof buildPlannerPacket> & {
     profile: Record<string, unknown> | null;
+    schedule?: {testDate:string|null;scheduleFactId:string|null};
 };
 export type SpellingProvider = ((stage: 'prior' | 'plan' | 'forecast', packet: SpellingPacket) => Promise<unknown>) & {modelId?:string};
 function priorInputIds(packet:SpellingPacket,events:ReturnType<typeof exportEvents>):string[]{
