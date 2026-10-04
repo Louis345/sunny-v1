@@ -345,3 +345,29 @@ child used a real-child ID without its required isolated directory declaration;
 that fixture error was corrected and is not claimed as a product bug. Portrait
 board screenshot inspected. This remains a fixture journey, not the full-week
 parent-report/calibration milestone or a live Saori acceptance.
+
+## Chart-enabled native route ordering
+
+The new portrait adaptive browser case enables SQLite through Discovery, route
+selection, Word Radar practice, Letter Rush and the final checkpoint. Its first
+run found another boundary race: the route-selection HTTP request and activity
+launch were sent concurrently. The server rejected the still-locked route node,
+then correctly refused its answers because no validated presentation existed.
+Earlier chart-disabled tests tolerated missing live context and therefore missed
+this failure despite completing the visible route.
+
+The route-choice handler now waits for the existing selection acknowledgment
+before launching its node. Preview acknowledgments preserve preview behavior;
+a failed choice is logged and cannot launch an uncommitted route. No evidence
+guard is weakened and there is no new screen or provider call. The test compares
+all chart response source IDs with canonical observations and requires every
+Letter Rush presentation to have its response, marked practice.
+
+Verification passed: original portrait adaptive route with configured SQLite,
+30 launch tests, and full isolated build. The recorded-provider journey wrote
+10 priors and 28 raw responses, exactly matching the canonical observation IDs;
+four Letter Rush presentations each had a response. The acknowledgment uses
+selectedRouteId, not the unrelated preference-applied flag. The initial attempt
+to use that flag correctly withheld launch but also blocked a valid route; the
+full browser regression caught it. Portrait board screenshot inspected. This is
+not yet the full-week parent report, all activity modes, or live acceptance.

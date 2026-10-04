@@ -1219,7 +1219,7 @@ function App() {
         choiceSet,
         option,
       );
-      void postAdventureBoardChoiceEvent(choiceEvent, { preview: mapPreviewMode })
+      const choiceRecorded = postAdventureBoardChoiceEvent(choiceEvent, { preview: mapPreviewMode })
         .then((out) => {
           console.log(" 🎮 [AdventureBoard] choice_event", {
             childId: adventureChildId,
@@ -1230,6 +1230,7 @@ function App() {
             skippedPersistence: out.skippedPersistence,
           });
           if (out.applied && !out.skippedPersistence) void refreshPlannerBoardPacket();
+          return out;
         })
         .catch((err: unknown) => {
           console.warn(" 🎮 [AdventureBoard] choice_event_failed", {
@@ -1237,6 +1238,7 @@ function App() {
             choiceSetId: choiceEvent.choiceSetId,
             error: err instanceof Error ? err.message : String(err),
           });
+          return null;
         });
       const generatedChoiceRequest = buildAdventureBoardGeneratedChoiceRequest(
         plannerBoardPacket,
@@ -1291,7 +1293,18 @@ function App() {
         });
         return;
       }
-      launchPlannerBoardNode(launchNode);
+      if (choiceEvent.context === "baseline_route") {
+        // Route selection makes its node launchable; commit it before sending the launch.
+        void choiceRecorded.then(out => {
+          const selected = choiceEvent.shownOptions.find(candidate => candidate.optionId === choiceEvent.selectedOptionId);
+          const expectedRoute = selected?.experimentId ?? choiceEvent.selectedOptionId;
+          if (out?.ok && (out.skippedPersistence || out.selectedRouteId === expectedRoute)) {
+            launchPlannerBoardNode(launchNode);
+          } else {
+            console.warn(" 🎮 [AdventureBoard] [route-launch] [not-confirmed]", { error: out?.error, expectedRoute });
+          }
+        }).catch(error => console.error(" 🎮 [AdventureBoard] [route-launch] [failed]", error));
+      } else launchPlannerBoardNode(launchNode);
     },
     [adventureChildId, launchPlannerBoardNode, mapPreviewMode, plannerBoardPacket, refreshPlannerBoardPacket],
   );

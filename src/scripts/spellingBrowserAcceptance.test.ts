@@ -69,6 +69,7 @@ it.each([
   { width: 1365, height: 768, adaptive: true, chart: false },
   { width: 1280, height: 720, adaptive: true, chart: false },
   { width: 768, height: 1024, adaptive: false, chart: true },
+  { width: 768, height: 1024, adaptive: true, chart: true },
 ])("plays spelling through the real host and canonical routes at $width×$height adaptive=$adaptive chart=$chart", async scenario => {
   const childId = "ila";
   const viewport = { width: scenario.width, height: scenario.height };
@@ -240,7 +241,7 @@ it.each([
     if(chartDb){
       const facts=exportEvents(chartDb);const view=projectAssignment(facts,homeworkId);
       expect(view.responses).toHaveLength(words.length);
-      expect(view.responses.map(row=>row.result)).toEqual(["correct","incorrect"]);
+      expect(view.responses.map(row=>row.result)).toEqual(scenario.adaptive ? words.map((_,index)=>index<6 ? "correct" : "incorrect") : ["correct","incorrect"]);
       expect(Math.max(...view.priors.map(row=>row.sequence))).toBeLessThan(Math.min(...facts.filter(row=>row.type==='item.presented').map(row=>row.sequence)));
     }
     const discoveryAudioFrames = assessmentAudioFrames;
@@ -356,6 +357,15 @@ it.each([
       expect(completed.nodes.find((node) => node.nodeId === "recall-practice")?.state).toBe("completed");
       expect(completed.nodes.find((node) => node.nodeId === "letter-rush")?.state).toBe("completed");
       expect(completed.nodes.find((node) => node.nodeId === "recall-checkpoint")?.state).toBe("completed");
+      if(chartDb){
+        const facts=exportEvents(chartDb);const responses=facts.filter(row=>row.type==='response.observed');
+        expect(responses.map(row=>row.payload.sourceResponseId).sort()).toEqual(completed.observations.map(row=>row.observationId).sort());
+        const nativePresentations=facts.filter(row=>row.type==='item.presented' && (row.payload.provenance as {nodeId?:string})?.nodeId==='letter-rush');
+        expect(nativePresentations).toHaveLength(letterRushWords.length);
+        expect(nativePresentations.every(row=>row.payload.instrument==='practice')).toBe(true);
+        expect(nativePresentations.every(row=>responses.some(response=>response.cites.includes(row.event_id)))).toBe(true);
+        fs.writeFileSync(path.join(outputDir,'chart-proof-'+viewport.width+'x'+viewport.height+'.json'),JSON.stringify({provider:'recorded',responseCount:responses.length,nativePresentationCount:nativePresentations.length,priorCount:projectAssignment(facts,homeworkId).priors.length,viewport}));
+      }
       const canonicalFamilyHashAfter = hashFilesUnder(canonicalFamilyPaths);
       expect(canonicalFamilyHashAfter).toBe(canonicalFamilyHashBefore);
       expect(errors).toEqual([]);
