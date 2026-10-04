@@ -304,7 +304,7 @@ describe("WS envelope vs canvas payload type", () => {
     expect(statuses.filter((message) => message.event === "silent_input")).toHaveLength(1);
   });
 
-  it("clears Sunny's silent-input warning when the selected microphone produces audio", async () => {
+  it("clears Sunny's silent-input warning when audible speech reaches recognition", async () => {
     vi.useFakeTimers();
     const { result } = renderHook(() => useSession());
     act(() => result.current.startSession("ila"));
@@ -328,6 +328,9 @@ describe("WS envelope vs canvas payload type", () => {
       for (let frame = 0; frame < 3; frame += 1) {
         micProcessor?.onaudioprocess?.(audibleFrame);
       }
+      wsInstances[0]!.onmessage?.({
+        data: JSON.stringify({ type: "interim", text: "hello sunny" }),
+      } as MessageEvent);
     });
 
     expect(result.current.state.warning).toBeNull();
@@ -337,7 +340,7 @@ describe("WS envelope vs canvas payload type", () => {
     expect(statuses.filter((message) => message.event === "input_detected")).toHaveLength(1);
   });
 
-  it("does not declare the microphone ready until real audible input is detected", async () => {
+  it("does not declare voice ready until audible input becomes recognized speech", async () => {
     // Human catch (Saori kiosk, 2026-10-04): Chrome opened a stream, but Elli
     // heard nothing and "Bye Sunny" could not dismiss her. The old lab injected
     // transcripts directly or treated getUserMedia success as hearing proof.
@@ -359,6 +362,15 @@ describe("WS envelope vs canvas payload type", () => {
       for (let frame = 0; frame < 3; frame += 1) {
         micProcessor?.onaudioprocess?.(audibleFrame);
       }
+    });
+
+    expect(result.current.state.microphoneAvailable).toBeNull();
+    expect(result.current.state.warning).toMatch(/say hello/i);
+
+    act(() => {
+      wsInstances[0]!.onmessage?.({
+        data: JSON.stringify({ type: "interim", text: "hello sunny" }),
+      } as MessageEvent);
     });
 
     expect(result.current.state.microphoneAvailable).toBe(true);

@@ -429,6 +429,7 @@ export function useSession(options?: UseSessionOptions) {
   const micSilentDurationMsRef = useRef(0);
   const micAudibleFramesRef = useRef(0);
   const micInputConfirmedRef = useRef(false);
+  const micTranscriptConfirmedRef = useRef(false);
   const micSilentWarningRef = useRef<string | null>(null);
   const micSetupWarningRef = useRef<string | null>(null);
 
@@ -716,6 +717,30 @@ export function useSession(options?: UseSessionOptions) {
     setStateRef: React.MutableRefObject<typeof setState>,
     stopMicRef: React.MutableRefObject<() => void>
   ) {
+    const confirmRecognizedSpeech = (text: string) => {
+      if (!text.trim() || micTranscriptConfirmedRef.current) return;
+      micTranscriptConfirmedRef.current = true;
+      const setupWarning = micSetupWarningRef.current;
+      const silentWarning = micSilentWarningRef.current;
+      micSetupWarningRef.current = null;
+      micSilentWarningRef.current = null;
+      console.log(
+        ` 🎮 [session-microphone] [speech] [recognized] input=${micInputLabelRef.current}`,
+      );
+      sendMessageRef.current("client_audio_status", {
+        event: "speech_recognized",
+        reason: micInputLabelRef.current,
+        message: "Audible speech reached Sunny's recognizer.",
+      });
+      setStateRef.current((s) => ({
+        ...s,
+        microphoneAvailable: true,
+        warning:
+          s.warning === setupWarning || s.warning === silentWarning
+            ? null
+            : s.warning,
+      }));
+    };
     switch (msg.type) {
       case "screenshot_request": {
         void (async () => {
@@ -935,6 +960,7 @@ export function useSession(options?: UseSessionOptions) {
         break;
 
       case "interim":
+        confirmRecognizedSpeech((msg.text as string) ?? "");
         setStateRef.current((s) => ({
           ...s,
           interimTranscript: (msg.text as string) ?? "",
@@ -945,6 +971,7 @@ export function useSession(options?: UseSessionOptions) {
       case "final":
         {
           const text = (msg.text as string) ?? "";
+          confirmRecognizedSpeech(text);
           browserTtsAccumRef.current = "";
           if (browserTtsDebounceRef.current) {
             clearTimeout(browserTtsDebounceRef.current);
@@ -1515,6 +1542,7 @@ export function useSession(options?: UseSessionOptions) {
         micSilentDurationMsRef.current = 0;
         micAudibleFramesRef.current = 0;
         micInputConfirmedRef.current = false;
+        micTranscriptConfirmedRef.current = false;
         micSilentWarningRef.current = null;
         if (recoveredFrom) {
           console.log(
@@ -1565,10 +1593,6 @@ export function useSession(options?: UseSessionOptions) {
               micSilentDurationMsRef.current = 0;
               if (micAudibleFramesRef.current >= AUDIBLE_MIC_FRAME_CONFIRMATION) {
                 micInputConfirmedRef.current = true;
-                const previousWarning = micSilentWarningRef.current;
-                const setupWarning = micSetupWarningRef.current;
-                micSilentWarningRef.current = null;
-                micSetupWarningRef.current = null;
                 console.log(
                   ` 🎮 [session-microphone] [input] [detected] input=${micInputLabelRef.current}`,
                 );
@@ -1577,19 +1601,6 @@ export function useSession(options?: UseSessionOptions) {
                   reason: micInputLabelRef.current,
                   message: "Audible microphone energy confirmed.",
                 });
-                if (previousWarning) {
-                  setStateRef.current((s) => ({
-                    ...s,
-                    microphoneAvailable: true,
-                    warning: s.warning === previousWarning ? null : s.warning,
-                  }));
-                } else {
-                  setStateRef.current((s) => ({
-                    ...s,
-                    microphoneAvailable: true,
-                    warning: s.warning === setupWarning ? null : s.warning,
-                  }));
-                }
               }
             } else {
               micAudibleFramesRef.current = 0;
@@ -1705,6 +1716,7 @@ export function useSession(options?: UseSessionOptions) {
     micSilentDurationMsRef.current = 0;
     micAudibleFramesRef.current = 0;
     micInputConfirmedRef.current = false;
+    micTranscriptConfirmedRef.current = false;
     micSilentWarningRef.current = null;
     micSetupWarningRef.current = null;
     if (processorRef.current) {
