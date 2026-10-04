@@ -231,3 +231,23 @@ so it did not catch double counting across both paths.
 Focused replay, delivery-recovery and HTTP tests plus the isolated full build
 pass. Native games, explainer capture, completion restart recovery, parent page,
 and full original-browser acceptance remain outstanding. No live changes.
+
+## Native item opening: Letter Rush read-and-race
+
+The real iframe bridge now carries the original launch token. Letter Rush
+read-and-race reports the word opening when its spelling is actually flashed;
+the bridge resolves the frozen item identity before forwarding the existing
+state message. The existing server presentation adapter then records practice
+with letters visible and unmeasured hint/help fields left null. No presentation
+is reconstructed from a completed game or an answer. Unknown words are not
+bound. Other Letter Rush modes remain uninstrumented at this checkpoint.
+
+The bridge regression failed first because item identity, practice capture and
+launch correlation were absent. A composed real-bridge/session/database test
+asserts the presentation exists while response count is zero. This adds only
+invisible source telemetry and URL correlation; it replaces the existing
+read-and-race flash statement with flash plus its exposure event. There is no
+new renderer. Native response delivery is still pending: existing attempt events
+continue through the old attempt recorder and must not be claimed as SQLite
+responses. Completion must not opt native games into per-answer dedup until
+that connection exists. Full-browser visual acceptance remains outstanding.

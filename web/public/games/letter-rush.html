@@ -1982,7 +1982,10 @@
         resetTrapTimerDisplay();
         renderTiles();
         updateHud();
-        if (config.mode === "read-and-race") flashWord(state.word.text);
+        if (config.mode === "read-and-race") {
+          flashWord(state.word.text);
+          report("Letter Rush spelling item opened", { spellingItemOpened: true, currentWord: state.word.text, phase: "flash", answerVisibility: "visible" });
+        }
         var promptDelay =
           config.mode === "type-and-spell" || config.mode === "hear-and-spell" || config.mode === "mastery-run"
             ? requestNarration("word_prompt")

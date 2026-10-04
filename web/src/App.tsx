@@ -1097,7 +1097,7 @@ function App() {
       setCompanionPresence("collapsed");
       setPlannerBoardLaunch({
         node,
-        iframeUrl: action.kind === "iframe" ? action.url : null,
+        iframeUrl: action.kind === "iframe" ? `${action.url}${action.url.includes("?") ? "&" : "?"}launchToken=${encodeURIComponent(completionId)}` : null,
         replayNonce,
         completionId,
       });

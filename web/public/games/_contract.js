@@ -37,6 +37,7 @@ window.GameBridge = (function () {
       difficulty: parseInt(p.get("difficulty") || "2", 10) || 2,
       fixtureState: p.get("fixtureState") || "",
       nodeId: p.get("nodeId") || "unknown",
+      launchToken: p.get("launchToken") || undefined,
       planId: p.get("planId") || "",
       targetLane: p.get("targetLane") || "",
       sessionId: p.get("sessionId") || null,
@@ -358,6 +359,12 @@ window.GameBridge = (function () {
      */
     reportState: function (progress, extras) {
       if (!progress || typeof progress !== "string") return;
+      if (extras && extras.spellingItemOpened === true && GAME_PARAMS.launchToken) {
+        var bound = bindSpellingTarget({ target: extras.currentWord });
+        if (GAME_PARAMS.spellingItemBindings.some(function (item) { return item.itemId === bound.target; })) {
+          extras = Object.assign({}, extras, { itemId: bound.target, practiceCapture: true });
+        }
+      }
       post(
         "game_state_update",
         Object.assign(
@@ -366,6 +373,7 @@ window.GameBridge = (function () {
             progress: progress.trim(),
             childId: GAME_PARAMS.childId,
             nodeId: GAME_PARAMS.nodeId,
+            launchToken: GAME_PARAMS.launchToken,
             sessionId: GAME_PARAMS.sessionId,
             traceId: GAME_PARAMS.traceId,
             activityIntentId: GAME_PARAMS.activityIntentId,
@@ -530,6 +538,7 @@ window.GameBridge = (function () {
           attemptId: attemptId,
           childId: GAME_PARAMS.childId,
           nodeId: GAME_PARAMS.nodeId,
+          launchToken: GAME_PARAMS.launchToken,
           sessionId: GAME_PARAMS.sessionId,
           traceId: GAME_PARAMS.traceId,
           activityIntentId: GAME_PARAMS.activityIntentId,
