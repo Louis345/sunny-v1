@@ -155,3 +155,20 @@ SQLite capture is still pending and must use the same per-item boundaries.
 The human could see which word received help; logs merely reflected the aggregate
 classification, while previous tests never combined one scaffolded word with
 another word and a session-level companion note.
+
+## Canonical completion launch gate
+
+Spelling completion now compares the submitted node and correlation token with
+the server's actual launch before recording canonical evidence. A configured chart
+requires that launch to be present. The App supplies the voice session separately
+from the completion identity: those IDs have different purposes and must not be
+interchanged. This adds a provenance invariant at the existing completion boundary;
+no activity, layout or learning decision changes.
+
+The first mismatch test went red because the route reached a later evaluation
+endpoint guard instead of checking launch provenance. It did not reproduce a
+successful false credit in that evaluation fixture. Expanded checks cover a wrong
+node, wrong token and missing launch and assert unchanged observations. Isolated
+server/web tests and build pass. Completion retry after loss of the live session
+still needs durable launch recovery for practice, alongside its typed capture;
+this gate alone is not full practice integration or deployment acceptance.

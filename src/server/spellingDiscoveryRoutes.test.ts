@@ -99,3 +99,14 @@ it('does not advance the legacy cycle when the configured chart cannot record th
  expect(response.status).toBe(409);
  expect(getLearningCycle('lab-child','hw-words',{rootDir})!.observations).toHaveLength(0);
 });
+
+it.each(['wrong-node','wrong-token','missing'] as const)('refuses spelling completion with %s launch provenance',async(kind)=>{
+ const {rootDir,origin}=await fixture();
+ const nodeId=getLearningCycle('lab-child','hw-words',{rootDir})!.nodes[0].nodeId;
+ if(kind==='missing')vi.stubEnv('SUNNY_CHART_DIR',path.join(rootDir,'charts'));
+ registerActiveVoiceSessionManager('lab-child',{noteExternalEvent(){},getSessionId:()=> 's1',getSpellingLaunch:()=>kind==='missing'?undefined:({homeworkId:'hw-words',nodeId:kind==='wrong-node'?'actual-explainer':nodeId,launchId:'server-launch',launchToken:kind==='wrong-token'?'other':'token'})});
+ const response=await fetch(origin+'/api/learning-cycle/node-complete',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({childId:'lab-child',homeworkId:'hw-words',nodeId,result:{sessionId:'completion',voiceSessionId:'s1',launchToken:'token',completed:true,accuracy:1}})});
+ expect(response.status).toBe(409);
+ expect(await response.json()).toMatchObject({error:kind==='missing'?'spelling_completion_launch_required':'spelling_completion_launch_mismatch'});
+ expect(getLearningCycle('lab-child','hw-words',{rootDir})!.observations).toHaveLength(0);
+});
