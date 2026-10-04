@@ -1,3 +1,4 @@
+import {prepareExistingOriginalSpelling} from '../chart/spelling/originalPreparation';
 import {runOriginalSpellingForecast} from '../chart/spelling/originalForecast';
 import fs from "node:fs";
 import {openChart} from "../chart/db";
@@ -71,7 +72,8 @@ it.each([
   { width: 1280, height: 720, adaptive: true, chart: false },
   { width: 768, height: 1024, adaptive: false, chart: true },
   { width: 768, height: 1024, adaptive: true, chart: true },
-])("plays spelling through the real host and canonical routes at $width×$height adaptive=$adaptive chart=$chart", async scenario => {
+  { width: 768, height: 1024, adaptive: false, chart: true, existing: true },
+])("plays spelling through the real host and canonical routes at $width×$height adaptive=$adaptive chart=$chart existing=$existing", async scenario => {
   const childId = "ila";
   const viewport = { width: scenario.width, height: scenario.height };
   const canonicalFamilyPaths = [
@@ -94,8 +96,8 @@ it.each([
     ? ["night", "light", "right", "sight", "might", "fight", "write", "knife", "wrong", "climb"]
     : ["night", "light"];
   seedSpellingLab(rootDir, words, scenario.adaptive ? "/companions/sample.vrm" : "", childId);
-  if(scenario.chart) vi.stubEnv("SUNNY_CHART_DIR",path.join(rootDir,"charts"));
-  const chartDb = scenario.chart ? openChart(childId,{chartDir:path.join(rootDir,"charts")}) : undefined;
+  if(scenario.chart&&!scenario.existing) vi.stubEnv("SUNNY_CHART_DIR",path.join(rootDir,"charts"));
+  let chartDb = scenario.chart&&!scenario.existing ? openChart(childId,{chartDir:path.join(rootDir,"charts")}) : undefined;
   let chartForecastCalls=0;
   const chartProvider: SpellingProvider = async (stage,packet) => {
     if(stage === "forecast" && ++chartForecastCalls===1 && !scenario.adaptive)throw Error("recorded_forecast_failure");
@@ -106,7 +108,17 @@ it.each([
   };
   const source = writeSpellingPdfFixture(rootDir, words);
   const legacyAttempt = vi.spyOn(legacyLearning, "recordAttempt");
-  const { homeworkId } = await runSpellingDiscoveryIntake({ childId, sourceFile: source, rootDir }, { ...(chartDb ? {chart:{db:chartDb,provider:chartProvider}} : {}), callPlannerModel: async (packet: Parameters<typeof recordedSpellingDiagnostic>[0]) => ({ draft: { diagnostic: recordedSpellingDiagnostic(packet), title: "School spelling", words: words.map(word => ({ word, pageNumber: 1 })), uncertainty: [] } }) });
+  const { homeworkId } = await runSpellingDiscoveryIntake({ childId, sourceFile: source, rootDir }, { ...(chartDb&&!scenario.existing ? {chart:{db:chartDb,provider:chartProvider}} : {}), callPlannerModel: async (packet: Parameters<typeof recordedSpellingDiagnostic>[0]) => ({ draft: { diagnostic: recordedSpellingDiagnostic(packet), title: "School spelling", words: words.map(word => ({ word, pageNumber: 1 })), uncertainty: [] } }) });
+  if(scenario.existing){
+    vi.stubEnv("SUNNY_CHART_DIR",path.join(rootDir,"charts"));
+    chartDb=openChart(childId,{chartDir:path.join(rootDir,"charts")});
+    expect(exportEvents(chartDb)).toEqual([]);
+    const frozen=JSON.stringify(getLearningCycle(childId,homeworkId,{rootDir}));
+    await prepareExistingOriginalSpelling(chartDb,homeworkId,chartProvider,{rootDir});
+    expect(JSON.stringify(getLearningCycle(childId,homeworkId,{rootDir}))).toBe(frozen);
+    expect(exportEvents(chartDb).filter(e=>e.type==='prediction.prior')).toHaveLength(words.length);
+    vi.stubEnv("SUNNY_CHART_DIR",path.join(rootDir,"charts"));
+  }
   fs.writeFileSync(path.join(outputDir, "opening-packet.json"), JSON.stringify(buildChildExperiencePacket(getChildChart(childId, { rootDir })), null, 2));
   const app = express(); app.use(express.json());
   app.get("/api/profile/:child", (_req, res) => res.json({ companion: { ...COMPANION_DEFAULTS, vrmUrl: scenario.adaptive ? "/companions/sample.vrm" : "" } }));
