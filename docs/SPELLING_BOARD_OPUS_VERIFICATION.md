@@ -210,3 +210,24 @@ This replaces the active-state guard and item-state assignment; it adds no new
 progression logic and leaves math behavior unchanged. All 37 tests in three
 focused suites and the isolated full build pass. Completion deduplication and
 other practice instruments remain unfinished; no live installation occurred.
+
+## Completion reuses the answers from the actual launch
+
+The red integration regression caught completion appending a correct summary
+observation after the same launch had already recorded a wrong raw answer.
+A second red case caught averaging two attempts to the same word into the
+completion score. The original response boundary now preserves the server launch
+ID in legacy observations, and Word Radar completion selects only that launch's
+latest committed response per item. All earlier attempts remain immutable audit
+facts. A different launch cannot borrow those observations or the client score.
+
+The changes add launch correlation to the existing boundary and replace summary
+observation creation for the instrument already connected per answer. Other
+instruments retain their existing path pending source instrumentation. There is
+no new child screen or Planner call. This regression was discovered during
+integration; the previous lab covered raw responses and completion separately,
+so it did not catch double counting across both paths.
+
+Focused replay, delivery-recovery and HTTP tests plus the isolated full build
+pass. Native games, explainer capture, completion restart recovery, parent page,
+and full original-browser acceptance remain outstanding. No live changes.

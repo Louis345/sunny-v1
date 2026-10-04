@@ -26,6 +26,8 @@ import {
 import { areDistinctWordsPronunciationEquivalent } from "../shared/karaokeMatchWord";
 
 export type CanonicalCompletionResult = {
+  /** Server-validated launch whose per-answer records already exist. */
+  captureLaunchId?: string;
   completed: boolean;
   /** Terminal participation is separate from a native game's legacy win flag. */
   ended?: boolean;
@@ -177,6 +179,7 @@ export function recordSpellingDiscoveryAttempt(input: {
   instrumentSignals?: string[];
   artifactHash?: string;
   sessionId?: string;
+  launchId?: string;
 }, opts: LearningCycleRepositoryOptions = {}): LearningCycleRecordV2 {
   let cycle = getLearningCycle(input.childId, input.homeworkId, opts);
   if (!cycle || cycle.domain !== "spelling") throw new Error("spelling_cycle_missing");
@@ -214,6 +217,7 @@ export function recordSpellingDiscoveryAttempt(input: {
       ...(support.status !== "unassisted" ? [`assistance_${support.status}`] : []), ...signals,
       ...(input.artifactHash ? [`artifact_hash:${input.artifactHash}`] : []),
       ...(input.sessionId ? [`session_id:${input.sessionId}`] : []),
+      ...(input.launchId ? [`launch_id:${input.launchId}`] : []),
     ])],
   };
   const updated = transitionLearningCycle(input.childId, input.homeworkId, cycle.revision, {
@@ -242,6 +246,12 @@ function observationsForCompletion(input: {
     throw new Error(`learning_cycle_evidence_role_conflict:${node.nodeId}`);
   }
   const spellingItems = node.evidenceContract.spellingItems;
+  if (input.cycle.domain === "spelling" && spellingItems && input.result.captureLaunchId) {
+    const captured = input.cycle.observations.filter(row => row.sourceId === `activity:${node.nodeId}:recall` && Boolean(spellingItems[row.itemId]) && row.confounds.includes(`launch_id:${input.result.captureLaunchId}`));
+    if (node.state !== "completed" && Object.values(spellingItems).every(item => item.lineage.measurementRole === "fresh_checkpoint") && Object.keys(spellingItems).some(itemId => !captured.some(row => row.itemId === itemId))) throw new Error("spelling_checkpoint_coverage_incomplete");
+    // Completion summarizes the latest captured response per item; earlier attempts remain audit facts.
+    return [...new Map(captured.map(row => [row.itemId, row])).values()];
+  }
   if (node.state !== "completed" && spellingItems && Object.values(spellingItems).every(item => item.lineage.measurementRole === "fresh_checkpoint")) {
     const captured = Object.keys(spellingItems).map(itemId => input.cycle.observations.find(row => row.itemId === itemId && row.sourceId === `activity:${node.nodeId}:recall`));
     if (captured.some(row => !row)) throw new Error("spelling_checkpoint_coverage_incomplete");

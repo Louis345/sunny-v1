@@ -242,3 +242,16 @@ it('records a replay item as practice without reopening a completed node or life
  expect(after.predictionEvaluations).toEqual(before.predictionEvaluations);
  expect(recordSpellingDiscoveryAttempt({childId:before.childId,homeworkId:before.homeworkId,sessionId:'replay-voice',attempt:{attemptId:'replay-raw',itemId:f.items[0].id,attemptedValue:'nite',observedAt:'2026-10-04T01:10:00Z'},support:{status:'unknown',scaffolds:[]}},{rootDir}).revision).toBe(after.revision);
 });
+
+it('reuses only the same launched practice answers when completion arrives',async()=>{
+ const f=fixture();await f.finish();const base=f.current();
+ recordSpellingDiscoveryAttempt({childId:base.childId,homeworkId:base.homeworkId,sessionId:'voice',launchId:'launch-new',attempt:{attemptId:'captured-earlier',itemId:f.items[0].id,attemptedValue:'night',observedAt:'2026-10-04T01:23:00Z'},support:{status:'unknown',scaffolds:[]}},{rootDir});
+ recordSpellingDiscoveryAttempt({childId:base.childId,homeworkId:base.homeworkId,sessionId:'voice',launchId:'launch-new',attempt:{attemptId:'captured-new',itemId:f.items[0].id,attemptedValue:'nite',observedAt:'2026-10-04T01:24:00Z'},support:{status:'unknown',scaffolds:[]}},{rootDir});
+ const before=f.current();
+ const after=recordCanonicalNodeCompletion({...f.completion,sessionId:'completion-new',result:{completed:true,accuracy:1,timeSpent_ms:100,captureLaunchId:'launch-new',targetResults:[{target:f.items[0].id,correct:true,attemptedValue:'night'}]}},{rootDir})!;
+ expect(after.observations).toEqual(before.observations);
+ expect(after.evidence.academic.find(e=>e.evidenceId==='completion-new:check:completion')?.accuracy).toBe(0);
+ const unrelated=recordCanonicalNodeCompletion({...f.completion,sessionId:'completion-other',result:{completed:true,accuracy:1,timeSpent_ms:100,captureLaunchId:'other-launch'}},{rootDir})!;
+ expect(unrelated.observations).toEqual(before.observations);
+ expect(unrelated.evidence.academic.find(e=>e.evidenceId==='completion-other:check:completion')?.accuracy).toBeUndefined();
+});

@@ -831,7 +831,7 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
       const verifiedLive = live && live.artifactHash === binding?.contractFingerprint && (!spellingNode || live.nodeId === spellingNode.nodeId) ? live : undefined;
       const prepareLegacy = () => {
         if (attempt.supportEventIds.some(id => !verifiedLive?.support.scaffolds.includes(id))) throw new Error("discovery_support_reference_unknown");
-        return { childId, homeworkId, attempt: { ...attempt, skipped: body.skipped === true }, support: verifiedLive?.support, artifactHash: binding?.contractFingerprint, sessionId: verifiedLive?.sessionId, instrumentSignals: [...attempt.instrumentSignals, ...(verifiedLive?.instrumentSignals ?? ["live_context_unavailable"])] };
+        return { childId, homeworkId, attempt: { ...attempt, skipped: body.skipped === true }, support: verifiedLive?.support, artifactHash: binding?.contractFingerprint, sessionId: verifiedLive?.sessionId, launchId:verifiedLive?.launchId, instrumentSignals: [...attempt.instrumentSignals, ...(verifiedLive?.instrumentSignals ?? ["live_context_unavailable"])] };
       };
       const recorded = existing?.domain === "spelling" ? withOriginalSpellingChart(childId,db=>commitOriginalSpellingAttempt(db,homeworkId,{...attempt,skipped:body.skipped === true,sessionId:submittingSessionId,...(typeof body.launchToken === "string" ? {launchToken:body.launchToken} : {})},()=>{
         const legacy=prepareLegacy();
@@ -957,11 +957,13 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
         return res.status(400).json({ error: "canonical_completion_session_required" });
       }
       const sessionId = suppliedSessionId || randomUUID();
+      let captureLaunchId: string | undefined;
       if(beforeCycle?.domain === "spelling"){
         const voiceSessionId=typeof body.result.voiceSessionId === "string" ? body.result.voiceSessionId : sessionId;
         const launch=getVoiceSessionManagerForChildSession(childId,voiceSessionId)?.getSpellingLaunch?.();
         if(launch && (launch.homeworkId!==homeworkId || launch.nodeId!==nodeId || (launch.launchToken!==undefined && launch.launchToken!==body.result.launchToken)))throw new Error('spelling_completion_launch_mismatch');
         if(!launch && process.env.SUNNY_CHART_DIR?.trim() && !process.env.SUNNY_CERTIFICATION_RUN_ID)throw new Error('spelling_completion_launch_required');
+        if(beforeNode?.implementationType === 'word-radar')captureLaunchId=launch?.launchId;
       }
       const updated = recordCanonicalNodeCompletion({
         childId,
@@ -969,6 +971,7 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
         nodeId,
         sessionId,
         result: {
+          captureLaunchId,
           completed: body.result.completed === true,
           ended: body.result.ended === true,
           won: typeof body.result.won === "boolean" ? body.result.won : undefined,
