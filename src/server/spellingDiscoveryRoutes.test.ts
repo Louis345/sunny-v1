@@ -129,3 +129,18 @@ it('records a native raw answer in both stores using the already-presented serve
  expect(exportEvents(db).filter(e=>e.type==='response.observed')).toHaveLength(1);
  }finally{db.close();}
 });
+
+it('uses captured native answers at completion instead of adding the client summary again',async()=>{
+ const {rootDir,items,origin}=await fixture();
+ const {createLearningCycle}=await import('../engine/learningCycleRepository');const {recordSpellingDiscoveryAttempt}=await import('../engine/learningCycleRuntime');
+ const template=getLearningCycle('lab-child','hw-words',{rootDir})!;
+ createLearningCycle({childId:template.childId,domain:template.domain,assignment:template.assignment,academicTheory:template.academicTheory,engagementTheory:template.engagementTheory,homeworkId:'hw-native',initialLifecycle:'baseline_active',nodes:[{...template.nodes[0],nodeId:'native',role:'baseline',state:'completed',implementationType:'letter-rush'}]},{rootDir});
+ recordSpellingDiscoveryAttempt({childId:'lab-child',homeworkId:'hw-native',sessionId:'voice',launchId:'native-launch',attempt:{attemptId:'native-raw',itemId:items[0].id,attemptedValue:'nite',observedAt:'2026-10-04T03:50:00Z'},support:{status:'unknown',scaffolds:[]}},{rootDir});
+ const before=getLearningCycle('lab-child','hw-native',{rootDir})!;
+ registerActiveVoiceSessionManager('lab-child',{noteExternalEvent(){},getSessionId:()=> 'voice',getSpellingLaunch:()=>({homeworkId:'hw-native',nodeId:'native',launchId:'native-launch',launchToken:'token'})});
+ const response=await fetch(origin+'/api/learning-cycle/node-complete',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({childId:'lab-child',homeworkId:'hw-native',nodeId:'native',result:{sessionId:'completion',voiceSessionId:'voice',launchToken:'token',completed:true,accuracy:1,targetResults:[{target:items[0].id,correct:true,attemptedValue:'night'}]}})});
+ expect(response.status).toBe(200);
+ const after=getLearningCycle('lab-child','hw-native',{rootDir})!;
+ expect(after.observations).toEqual(before.observations);
+ expect(after.evidence.academic.find(row=>row.evidenceId==='completion:native:completion')?.accuracy).toBe(0);
+});

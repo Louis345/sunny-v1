@@ -272,3 +272,18 @@ Native completion deduplication, retry after lost launch memory, remaining game
 modes and explainer capture still need integration. The earlier delivery-receipt
 restart test covers the shared helper, not recovery of a native event after the
 server loses its launch identity. No live installation or provider calls.
+
+## Native completion uses captured launch evidence
+
+The HTTP completion regression reproduced a native summary appending a second,
+incorrectly correct observation after a wrong per-answer record. Completion now
+uses the same launch-bound reduction as Word Radar when that actual launch has
+already committed native responses. It does not select captures by word/date or
+activity label. The fixture first needed correction to avoid copying an already
+published board into a different synthetic cycle; that fixture error was not
+evidence of the product bug. The subsequent red reproduced the duplicate.
+
+This replaces the Word-Radar-only route condition with an evidence-based opt-in;
+no new reducer or child flow is added. Uninstrumented native launches and missing
+raw answers still need explicit limitation handling, and completion recovery
+without live launch memory remains unfinished.

@@ -963,7 +963,7 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
         const launch=getVoiceSessionManagerForChildSession(childId,voiceSessionId)?.getSpellingLaunch?.();
         if(launch && (launch.homeworkId!==homeworkId || launch.nodeId!==nodeId || (launch.launchToken!==undefined && launch.launchToken!==body.result.launchToken)))throw new Error('spelling_completion_launch_mismatch');
         if(!launch && process.env.SUNNY_CHART_DIR?.trim() && !process.env.SUNNY_CERTIFICATION_RUN_ID)throw new Error('spelling_completion_launch_required');
-        if(beforeNode?.implementationType === 'word-radar')captureLaunchId=launch?.launchId;
+        if (launch && (beforeNode?.implementationType === 'word-radar' || beforeCycle.observations.some(row => row.sourceId === `activity:${nodeId}:recall` && row.confounds.includes(`launch_id:${launch.launchId}`)))) captureLaunchId = launch.launchId;
       }
       const updated = recordCanonicalNodeCompletion({
         childId,
