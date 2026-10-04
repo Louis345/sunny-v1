@@ -206,7 +206,10 @@ it.each([
     await page.route("**/*", route => ["127.0.0.1", "localhost", ""].includes(new URL(route.request().url()).hostname) ? route.continue() : route.abort());
     const entryStartedAt = Date.now();
     await page.goto(vite.resolvedUrls.local[0]);
-    await page.getByRole("button", { name: "Hear the word", exact: true }).waitFor();
+    // Cold Vite compilation plus software-rendered VRM startup can exceed the
+    // interaction timeout. Keep this bounded startup budget separate; later
+    // controls retain 12s and companion readiness/page-error checks stay strict.
+    await page.getByRole("button", { name: "Hear the word", exact: true }).waitFor({ timeout: 45000 });
     expect(serverWebSocketConnections).toBe(1);
     const discoveryReadyMs = Date.now() - entryStartedAt;
     expect(await page.getByText("night", { exact: true }).count()).toBe(0);

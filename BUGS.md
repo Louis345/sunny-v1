@@ -302,3 +302,5 @@
 ## Software-WebGL spelling acceptance: adaptive Discovery entry timeout (2026-10-04)
 
 After adding the requested Chromium `--use-angle=swiftshader --enable-unsafe-swiftshader` flags, four simple browser journeys pass, but all three adaptive journeys time out at `src/scripts/spellingBrowserAcceptance.test.ts:209` waiting for the initial "Hear the word" button. Reproduced in one isolated adaptive portrait rerun. Existing CI red evidence was WebGL-context/companion readiness failure; this later result does not establish a cause. Keep zero-error and companion-ready assertions. No further fix attempted under the parent's flag-only scope; await practice findings before broadening work.
+
+Resolution for the software-WebGL adaptive entry timeout: failure screenshots showed rendered Discovery controls and no page errors. Completed software-rendered adaptive journeys measured initial readiness at 13.8–15.6s, beyond the generic 12s control timeout. Give only initial startup a bounded 45s wait; retain the 12s interaction budget, companion readiness, zero-error, and academic evidence assertions. No product change.
