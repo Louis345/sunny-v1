@@ -8,11 +8,15 @@ import { runDirectBrowserSmokeCheck } from "./directMathExperience";
 
 const roots: string[] = [];
 afterEach(() => roots.splice(0).forEach(root => fs.rmSync(root, { recursive: true, force: true })));
-async function verify(body: string) {
+async function verify(body: string, itemIds?: string[], itemContracts?: unknown[]) {
   const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-browser-journey-")); roots.push(rootDir);
   const htmlPath = path.join(rootDir, "node.html");
   fs.writeFileSync(htmlPath, `<!doctype html><h1>Lab</h1>${body}`);
-  return runDirectBrowserSmokeCheck({ rootDir, artifacts: [{ nodeId: "node", childId: "lab", homeworkId: "hw-lab", title: "Lab", htmlPath, artworkUrl: "/art.svg", creatorPrompt: "fixture", promptHash: "fixture", plannerModel: "mock", creatorModel: "mock" }] });
+  return runDirectBrowserSmokeCheck({
+    rootDir,
+    artifacts: [{ nodeId: "node", childId: "lab", homeworkId: "hw-lab", title: "Lab", htmlPath, artworkUrl: "/art.svg", creatorPrompt: "fixture", promptHash: "fixture", plannerModel: "mock", creatorModel: "mock", ...(itemIds ? { itemIds } : {}) }],
+    ...(itemContracts ? { itemContractsByNodeId: { node: itemContracts as never } } : {}),
+  });
 }
 const journey = `<script>window.SUNNY_VALIDATION_HOOKS={journey:[{itemId:'one',steps:[{action:'click',selector:'#answer'}]}]};</script>`;
 it("accepts the teaching attempt protocol before a later completion", async () => {
@@ -46,8 +50,131 @@ it("detects a later-screen trap through real clicks", async () => {
 it("verifies actual completion at both release sizes", async () => {
   const result = await verify(`${journey}<button id="answer" onclick="parent.postMessage({type:'attempt_event',payload:{domain:'math',target:'one',attemptedValue:'4',correct:true}},'*');parent.postMessage({type:'node_complete',payload:{nodeId:'node',targetResults:[{target:'one',attemptedValue:'4',correct:true}]}},'*')">Answer</button>`);
   expect(result.passed).toBe(true);
-  expect(result.screenshots).toHaveLength(2);
+  expect(result.screenshots).toHaveLength(4);
+  expect(result.screenshots.filter(file => file.includes("-unconfirmed-01-one"))).toHaveLength(2);
+  expect(result.screenshots.filter(file => /-item-01-one\.png$/.test(file))).toHaveLength(0);
+  expect(result.screenshots.filter(file => file.includes("completion"))).toHaveLength(2);
 }, 20000);
+
+it("captures every question before answering so blind review cannot see completion only", async () => {
+  const result = await verify(`<h2 id="prompt">First prompt</h2><button id="answer">Answer</button>
+    <script>
+    window.SUNNY_VALIDATION_HOOKS={journey:[
+      {itemId:'one',steps:[{action:'click',selector:'#answer'}]},
+      {itemId:'two',steps:[{action:'click',selector:'#answer'}]}
+    ]};
+    let item='one';
+    const report=()=>parent.postMessage({type:'game_state_update',payload:{currentChallenge:{id:item,prompt:document.querySelector('#prompt').textContent}}},'*');
+    report();
+    document.querySelector('#answer').onclick=()=>{
+      parent.postMessage({type:'attempt_event',payload:{domain:'math',target:item,attemptedValue:'4',correct:true}},'*');
+      if(item==='one'){
+        item='two';document.querySelector('#prompt').textContent='Second prompt';report();
+      }else{
+        parent.postMessage({type:'node_complete',payload:{nodeId:'node',targetResults:[{target:'one',attemptedValue:'4',correct:true},{target:'two',attemptedValue:'4',correct:true}]}},'*');
+      }
+    };
+    </script>`);
+
+  expect(result.passed).toBe(true);
+  expect(result.screenshots).toHaveLength(6);
+  expect(result.screenshots.filter(file => file.includes("item-01-one"))).toHaveLength(2);
+  expect(result.screenshots.filter(file => file.includes("item-02-two"))).toHaveLength(2);
+  expect(result.screenshots.filter(file => file.includes("completion"))).toHaveLength(2);
+  expect(result.captures?.filter(capture => capture.viewport === "sunny").map(capture => ({
+    kind: capture.kind,
+    observedItemId: capture.observedItemId,
+  }))).toEqual([
+    { kind: "academic_item", observedItemId: "one" },
+    { kind: "academic_item", observedItemId: "two" },
+    { kind: "completion", observedItemId: null },
+  ]);
+}, 20000);
+
+it("rejects an item that commits before its frozen prompt is visibly confirmed", async () => {
+  const { withDiscoveryBrowserPage, verifyMathControlJourney } = await import("./discoveryVisualReview");
+  const item = {
+    id: "one",
+    prompt: "How many stars are in the group?",
+    lineage: { sourceEvidenceIds: ["assignment:one"], exposure: "unseen", measurementRole: "fresh_checkpoint" },
+    response: { mode: "selection", options: [{ id: "four", label: "4", correct: true }] },
+  };
+  const html = `<p id="prompt">How many stars are in the group?</p><button id="answer">Four</button>
+    <script>
+    window.SUNNY_VALIDATION_HOOKS={journey:[{itemId:'one',steps:[{action:'click',selector:'#answer'}]}]};
+    parent.postMessage({type:'game_state_update',payload:{currentChallenge:{id:'one',prompt:'How many stars are in the group?',measurementRole:'fresh_checkpoint',readAloudRequested:false,readAloudCount:0}}},'*');
+    document.querySelector('#answer').onclick=()=>{
+      parent.postMessage({type:'attempt_event',payload:{domain:'math',target:'one',attemptedValue:'four',correct:true}},'*');
+      parent.postMessage({type:'node_complete',payload:{nodeId:'node',accuracy:1,targetResults:[{target:'one',attemptedValue:'four',correct:true}]}},'*');
+    };
+    </script>`;
+
+  await expect(withDiscoveryBrowserPage(html, page => verifyMathControlJourney(page, {
+    completionType: "node_complete",
+    itemIds: ["one"],
+    itemContracts: [item] as never,
+    captureState: async () => false,
+  }))).rejects.toThrow("math_journey_item_committed_without_confirmed_prompt;item=one");
+}, 20000);
+
+it("captures an evidence-free opening separately before the first academic item", async () => {
+  const result = await verify(`<section id="opening"><h2>Opening the market</h2><button id="begin">Begin</button></section>
+    <section id="question" hidden><h2>How many apples are in three baskets of four?</h2><button id="answer">12</button></section>
+    <script>
+    window.SUNNY_VALIDATION_HOOKS={journey:[{itemId:'one',steps:[{action:'click',selector:'#begin'},{action:'click',selector:'#answer'}]}]};
+    document.querySelector('#begin').onclick=()=>{
+      document.querySelector('#opening').hidden=true;
+      document.querySelector('#question').hidden=false;
+      parent.postMessage({type:'game_state_update',payload:{currentChallenge:{id:'one',prompt:'How many apples are in three baskets of four?'}}},'*');
+    };
+    document.querySelector('#answer').onclick=()=>{
+      parent.postMessage({type:'attempt_event',payload:{domain:'math',target:'one',attemptedValue:'12',correct:true}},'*');
+      parent.postMessage({type:'node_complete',payload:{nodeId:'node',targetResults:[{target:'one',attemptedValue:'12',correct:true}]}},'*');
+    };
+    </script>`, ["one"]);
+
+  expect(result.failures).toEqual([]);
+  expect(result.screenshots.filter(file => file.includes("-transition-to-01-one"))).toHaveLength(2);
+  expect(result.screenshots.filter(file => /-item-01-one\.png$/.test(file))).toHaveLength(2);
+}, 20000);
+
+it("rejects a targeted activity whose evidence claims a frozen wrong answer is correct", async () => {
+  const item = {
+    id: "one",
+    prompt: "Which value is four?",
+    lineage: { sourceEvidenceIds: ["assignment:one"], exposure: "unseen", measurementRole: "fresh_checkpoint" },
+    response: { mode: "selection", options: [{ id: "four", label: "4", correct: true }, { id: "five", label: "5", correct: false }] },
+  };
+  const result = await verify(`${journey}<p>Which value is four?</p><button id="answer" onclick="parent.postMessage({type:'attempt_event',payload:{domain:'math',target:'one',attemptedValue:'five',correct:true}},'*');parent.postMessage({type:'node_complete',payload:{nodeId:'node',targetResults:[{target:'one',attemptedValue:'five',correct:true}]}},'*')">Five</button><script>parent.postMessage({type:'game_state_update',payload:{currentChallenge:{id:'one',prompt:'Which value is four?',measurementRole:'fresh_checkpoint',readAloudRequested:false,readAloudCount:0}}},'*');</script>`, ["one"], [item]);
+  expect(result.passed).toBe(false);
+  expect(result.failures.join("|")).toContain("math_journey_scoring_mismatch;item=one");
+}, 20000);
+
+it("rejects instruction screens that omit Elli's one guided introduction", async () => {
+  const item = {
+    id: "one",
+    prompt: "Choose four.",
+    lineage: { sourceEvidenceIds: ["assignment:one"], exposure: "taught", measurementRole: "instruction" },
+    response: { mode: "selection", options: [{ id: "four", label: "4", correct: true }] },
+  };
+  const result = await verify(`<h2>Choose four.</h2><button id="answer" onclick="parent.postMessage({type:'attempt_event',payload:{domain:'math',target:'one',attemptedValue:'four',correct:true}},'*');parent.postMessage({type:'node_complete',payload:{nodeId:'node',accuracy:1,targetResults:[{target:'one',attemptedValue:'four',correct:true}]}},'*')">Four</button>
+    <script>window.SUNNY_VALIDATION_HOOKS={journey:[{itemId:'one',steps:[{action:'click',selector:'#answer'}]}]};parent.postMessage({type:'game_state_update',payload:{currentChallenge:{id:'one',prompt:'Choose four.',measurementRole:'instruction',readAloudRequested:false,readAloudCount:0}}},'*');</script>`, ["one"], [item]);
+  expect(result.failures.join("|")).toContain("math_journey_guided_companion_missing;item=one");
+}, 20000);
+
+it("accepts guided teaching but rejects automatic help on a fresh checkpoint", async () => {
+  const contract = (measurementRole: "instruction" | "fresh_checkpoint") => ({
+    id: "one",
+    prompt: "Choose four.",
+    lineage: { sourceEvidenceIds: ["assignment:one"], exposure: measurementRole === "instruction" ? "taught" : "unseen", measurementRole },
+    response: { mode: "selection", options: [{ id: "four", label: "4", correct: true }] },
+  });
+  const activity = (measurementRole: string, trigger: string) => `<h2>Choose four.</h2><button id="answer" onclick="parent.postMessage({type:'attempt_event',payload:{domain:'math',target:'one',attemptedValue:'four',correct:true}},'*');parent.postMessage({type:'node_complete',payload:{nodeId:'node',accuracy:1,targetResults:[{target:'one',attemptedValue:'four',correct:true}]}},'*')">Four</button>
+    <script>window.SUNNY_VALIDATION_HOOKS={journey:[{itemId:'one',steps:[{action:'click',selector:'#answer'}]}]};parent.postMessage({type:'game_state_update',payload:{currentChallenge:{id:'one',prompt:'Choose four.',measurementRole:'${measurementRole}',readAloudRequested:true,readAloudCount:1,companionSupportTrigger:'${trigger}'}}},'*');</script>`;
+  await expect(verify(activity("instruction", "guided_prompt"), ["one"], [contract("instruction")])).resolves.toMatchObject({ passed: true });
+  const checkpoint = await verify(activity("fresh_checkpoint", "guided_prompt"), ["one"], [contract("fresh_checkpoint")]);
+  expect(checkpoint.failures.join("|")).toContain("math_journey_checkpoint_auto_support;item=one");
+}, 30000);
 
 
 it("does not approve Discovery when the scorer works but the child cannot finish", async () => {
@@ -59,6 +186,63 @@ it("does not approve Discovery when the scorer works but the child cannot finish
   </script>${journey}`;
   await expect(verifyDiscoveryRuntimeScoring({html,academic,outputDir:os.tmpdir()})).rejects.toThrow(/math_journey_item_commit_missing/);
 }, 20000);
+
+it("rejects Discovery when a first wrong answer keeps the child on the same item", async () => {
+  const academic = { items: [
+    { itemId: "one", constructId: "math.count", correctAnswerContract: { acceptedValues: ["4"] } },
+    { itemId: "two", constructId: "math.count", correctAnswerContract: { acceptedValues: ["5"] } },
+  ] } as never;
+  const html = `<!doctype html><h1 id="prompt">Choose four.</h1><button id="answer">Correct choice</button><button id="wrong">Wrong choice</button>
+  <script id="sunny-discovery-contract" type="application/json">{"items":[{"itemId":"one","constructId":"math.count","acceptedValues":["4"]},{"itemId":"two","constructId":"math.count","acceptedValues":["5"]}]}</script>
+  <script>
+  const items=[{id:'one',prompt:'Choose four.',answer:'4'},{id:'two',prompt:'Choose five.',answer:'5'}];
+  let index=0;
+  window.__SUNNY_DISCOVERY_TEST__={evaluate:(itemId,value)=>({itemId,constructId:'math.count',correct:value===items.find(item=>item.id===itemId).answer})};
+  window.SUNNY_VALIDATION_HOOKS={
+    journey:items.map(item=>({itemId:item.id,steps:[{action:'click',selector:'#answer'}]})),
+    incorrectJourney:items.map(item=>({itemId:item.id,steps:[{action:'click',selector:'#wrong'}]}))
+  };
+  const report=()=>parent.postMessage({type:'game_state_update',payload:{currentChallenge:{id:items[index].id,prompt:items[index].prompt}}},'*');
+  report();
+  const commit=(attemptedValue,allowAdvance)=>{
+    const item=items[index];
+    const result=window.__SUNNY_DISCOVERY_TEST__.evaluate(item.id,attemptedValue);document.body.dataset.correct=String(result.correct);
+    parent.postMessage({type:'evaluation_attempt',payload:{attemptId:'attempt-'+item.id,itemId:item.id,attemptedValue,supportEventIds:[],instrumentSignals:[],observedAt:new Date().toISOString()}},'*');
+    if(!allowAdvance&&!result.correct)return;
+    if(index===0){index=1;document.querySelector('#prompt').textContent=items[index].prompt;report();}
+    else parent.postMessage({type:'evaluation_complete'},'*');
+  };
+  document.querySelector('#answer').onclick=()=>commit(items[index].answer,true);
+  document.querySelector('#wrong').onclick=()=>commit('0',false);
+  </script>`;
+  const outputDir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-wrong-answer-trap-"));
+  roots.push(outputDir);
+
+  await expect(verifyDiscoveryRuntimeScoring({ html, academic, outputDir }))
+    .rejects.toThrow("math_journey_incorrect_response_did_not_advance;item=one");
+}, 30000);
+
+it("rejects Discovery when child controls call but ignore the authoritative scorer", async () => {
+  const academic = { items: [
+    { itemId: "one", constructId: "math.count", correctAnswerContract: { acceptedValues: ["4"] } },
+    { itemId: "two", constructId: "math.count", correctAnswerContract: { acceptedValues: ["5"] } },
+  ] } as never;
+  const html = `<!doctype html><h1 id="prompt">Choose four.</h1><button id="answer">Answer</button><button id="wrong">Wrong answer</button>
+  <script id="sunny-discovery-contract" type="application/json">{"items":[{"itemId":"one","constructId":"math.count","acceptedValues":["4"]},{"itemId":"two","constructId":"math.count","acceptedValues":["5"]}]}</script>
+  <script>
+  const items=[{id:'one',prompt:'Choose four.',answer:'4'},{id:'two',prompt:'Choose five.',answer:'5'}];let index=0;
+  window.__SUNNY_DISCOVERY_TEST__={evaluate:(itemId,value)=>({itemId,constructId:'math.count',correct:value===items.find(item=>item.id===itemId).answer})};
+  window.SUNNY_VALIDATION_HOOKS={journey:items.map(item=>({itemId:item.id,steps:[{action:'click',selector:'#answer'}]})),incorrectJourney:items.map(item=>({itemId:item.id,steps:[{action:'click',selector:'#wrong'}]}))};
+  const report=()=>parent.postMessage({type:'game_state_update',payload:{currentChallenge:{id:items[index].id,prompt:items[index].prompt}}},'*');report();
+  const commit=attemptedValue=>{const item=items[index];window.__SUNNY_DISCOVERY_TEST__.evaluate(item.id,attemptedValue);
+    parent.postMessage({type:'evaluation_attempt',payload:{attemptId:'attempt-'+item.id,itemId:item.id,attemptedValue,supportEventIds:[],instrumentSignals:[],observedAt:new Date().toISOString()}},'*');
+    if(index===0){index=1;document.querySelector('#prompt').textContent=items[index].prompt;report();}else parent.postMessage({type:'evaluation_complete'},'*');};
+  document.querySelector('#answer').onclick=()=>commit(items[index].answer);document.querySelector('#wrong').onclick=()=>commit('0');
+  </script>`;
+  const outputDir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-ignored-scorer-")); roots.push(outputDir);
+  await expect(verifyDiscoveryRuntimeScoring({ html, academic, outputDir }))
+    .rejects.toThrow("math_journey_child_scoring_result_not_used");
+}, 30000);
 
 it("rejects completion sent before decorative controls are exercised", async () => {
   const result = await verify(`${journey}<button id="answer">Decorative answer</button><script>parent.postMessage({type:'node_complete',payload:{nodeId:'node',targetResults:[{target:'one',attemptedValue:'4'}]}},'*');</script>`);
@@ -110,6 +294,22 @@ it("accepts the flat evidence messages supported by Sunny's actual host", async 
   await expect(withDiscoveryBrowserPage(`${journey}<button id="answer" onclick="parent.postMessage({type:'evaluation_attempt',attemptId:'attempt-one',observedAt:new Date().toISOString(),supportEventIds:[],instrumentSignals:[],itemId:'one',attemptedValue:'4'},'*');parent.postMessage({type:'evaluation_complete'},'*')">Answer</button>`, page => verifyMathControlJourney(page,{completionType:"evaluation_complete",itemIds:["one"]}))).resolves.toBeUndefined();
 });
 
+it("waits for a bounded completion ceremony after the final Discovery answer", async () => {
+  const {withDiscoveryBrowserPage, verifyMathControlJourney} = await import("./discoveryVisualReview");
+  const html = `${journey}<button id="answer">Answer</button><section id="finale" hidden>Done</section>
+    <script>
+    document.querySelector('#answer').onclick=()=>{
+      parent.postMessage({type:'evaluation_attempt',attemptId:'attempt-one',observedAt:new Date().toISOString(),supportEventIds:[],instrumentSignals:[],itemId:'one',attemptedValue:'4'},'*');
+      document.querySelector('#finale').hidden=false;
+      setTimeout(()=>parent.postMessage({type:'evaluation_complete'},'*'),3900);
+    };
+    </script>`;
+  await expect(withDiscoveryBrowserPage(html, page => verifyMathControlJourney(page, {
+    completionType: "evaluation_complete",
+    itemIds: ["one"],
+  }))).resolves.toBeUndefined();
+}, 15000);
+
 
 it("rejects answer messages the persistence endpoint cannot accept", async () => {
   const {withDiscoveryBrowserPage, verifyMathControlJourney}=await import("./discoveryVisualReview");
@@ -130,7 +330,7 @@ function stagedGraph(activateSemantics: boolean, transitionMs = 0) {
 it("checks a persistent graph point when its question activates, not while it is scenery", async () => {
   const result=await verify(stagedGraph(true));
   expect(result.failures).toEqual([]);
-  expect(result.screenshots).toHaveLength(2);
+  expect(result.screenshots).toHaveLength(6);
 },20000);
 
 it("still rejects that same point if it lacks semantics when its question activates", async () => {
@@ -141,6 +341,365 @@ it("still rejects that same point if it lacks semantics when its question activa
 
 it("waits for an existing graph point to become actionable after the prior answer transition", async () => {
   const result=await verify(stagedGraph(true,650));
+  expect(result.failures).toEqual([]);
+},20000);
+
+it("waits for the next item identity before reusing persistent controls", async () => {
+  const result = await verify(`<p id="prompt">First prompt</p><button id="answer">Commit answer</button>
+    <script>
+    const rows=[];let active='one',prompt='First prompt';
+    window.SUNNY_VALIDATION_HOOKS={journey:[
+      {itemId:'one',steps:[{action:'click',selector:'#answer'}]},
+      {itemId:'two',steps:[{action:'click',selector:'#answer'}]}
+    ]};
+    const report=()=>parent.postMessage({type:'game_state_update',payload:{currentChallenge:{id:active,prompt}}},'*');
+    document.querySelector('#answer').onclick=()=>{
+      const item=active;
+      rows.push({target:item,attemptedValue:item});
+      parent.postMessage({type:'attempt_event',payload:{target:item,attemptedValue:item}},'*');
+      if(item==='one')setTimeout(()=>{active='two';prompt='Second prompt';document.querySelector('#prompt').textContent=prompt;report()},180);
+      else parent.postMessage({type:'node_complete',payload:{targetResults:rows}},'*');
+    };
+    report();
+    </script>`);
+  expect(result.failures).toEqual([]);
+},20000);
+
+it("accepts the frozen Planner prompt when the activity reports a longer paraphrase", async () => {
+  const itemContracts = [
+    { id:"one", prompt:"First prompt", response:{ mode:"numeric", expected:1 } },
+    { id:"two", prompt:"Same labeled array. How many COLUMNS?", response:{ mode:"numeric", expected:4 } },
+  ];
+  const result = await verify(`<p id="prompt">First prompt</p><button id="answer">Commit answer</button>
+    <script>
+    const rows=[];let active='one';
+    window.SUNNY_VALIDATION_HOOKS={journey:[
+      {itemId:'one',steps:[{action:'click',selector:'#answer'}]},
+      {itemId:'two',steps:[{action:'click',selector:'#answer'}]}
+    ]};
+    const report=(id,prompt)=>parent.postMessage({type:'game_state_update',payload:{currentChallenge:{id,prompt}}},'*');
+    document.querySelector('#answer').onclick=()=>{
+      const item=active;rows.push({target:item,attemptedValue:item==='one'?'1':'4',correct:true});
+      parent.postMessage({type:'attempt_event',payload:{target:item,attemptedValue:item==='one'?'1':'4',correct:true}},'*');
+      if(item==='one'){
+        active='two';document.querySelector('#prompt').textContent='Same labeled array. How many COLUMNS?';
+        report('two','That same labeled array. How many columns does it have?');
+      } else parent.postMessage({type:'node_complete',payload:{targetResults:rows,accuracy:1}},'*');
+    };
+    report('one','First prompt');
+    </script>`, ["one", "two"], itemContracts);
+  expect(result.failures).toEqual([]);
+},20000);
+
+it("stops when only a generic reported sentence survives an academic paraphrase", async () => {
+  const itemContracts = [
+    { id:"one", prompt:"Here is a labeled array. Tap the number of ROWS.", response:{ mode:"numeric", expected:3 } },
+    { id:"two", prompt:"Same labeled array. Now tap the number that tells how many COLUMNS it has.", response:{ mode:"numeric", expected:5 } },
+  ];
+  const result = await verify(`<p id="prompt">Here is a labeled array. Tap the number of ROWS.</p><button id="answer">Commit answer</button>
+    <script>
+    const rows=[];let active='one';
+    window.SUNNY_VALIDATION_HOOKS={journey:[
+      {itemId:'one',steps:[{action:'click',selector:'#answer'}]},
+      {itemId:'two',steps:[{action:'click',selector:'#answer'}]}
+    ]};
+    const report=(id,prompt)=>parent.postMessage({type:'game_state_update',payload:{currentChallenge:{id,prompt}}},'*');
+    document.querySelector('#answer').onclick=()=>{
+      const item=active;rows.push({target:item,attemptedValue:item==='one'?'3':'5',correct:true});
+      parent.postMessage({type:'attempt_event',payload:{target:item,attemptedValue:item==='one'?'3':'5',correct:true}},'*');
+      if(item==='one'){
+        active='two';document.querySelector('#prompt').textContent='Same labeled array. How many COLUMNS?';
+        report('two','Same labeled array. Now tap the number that tells how many COLUMNS it has.');
+      } else parent.postMessage({type:'node_complete',payload:{targetResults:rows,accuracy:1}},'*');
+    };
+    report('one','Here is a labeled array. Tap the number of ROWS.');
+    </script>`, ["one", "two"], itemContracts);
+  expect(result.passed).toBe(false);
+  expect(result.failures.join("|")).toContain("math_journey_checker_contract_ambiguity;item=two");
+},20000);
+
+it("accepts an exact reported academic sentence after the previous prompt has left the viewport", async () => {
+  const itemContracts = [
+    { id:"one", prompt:"Here is a labeled array. Tap the number of ROWS.", response:{ mode:"numeric", expected:3 } },
+    { id:"two", prompt:"Same labeled array. How many COLUMNS?", response:{ mode:"numeric", expected:5 } },
+  ];
+  const result = await verify(`<p id="prompt">Here is a labeled array. Tap the number of ROWS.</p><button id="answer">Commit answer</button>
+    <script>
+    const rows=[];let active='one';
+    window.SUNNY_VALIDATION_HOOKS={journey:[
+      {itemId:'one',steps:[{action:'click',selector:'#answer'}]},
+      {itemId:'two',steps:[{action:'click',selector:'#answer'}]}
+    ]};
+    const report=(id,prompt)=>parent.postMessage({type:'game_state_update',payload:{currentChallenge:{id,prompt}}},'*');
+    document.querySelector('#answer').onclick=()=>{
+      const item=active;rows.push({target:item,attemptedValue:item==='one'?'3':'5',correct:true});
+      parent.postMessage({type:'attempt_event',payload:{target:item,attemptedValue:item==='one'?'3':'5',correct:true}},'*');
+      if(item==='one'){
+        active='two';document.querySelector('#prompt').textContent='How many COLUMNS?';
+        report('two','Same labeled array. How many COLUMNS?');
+      } else parent.postMessage({type:'node_complete',payload:{targetResults:rows,accuracy:1}},'*');
+    };
+    report('one','Here is a labeled array. Tap the number of ROWS.');
+    </script>`, ["one", "two"], itemContracts);
+  expect(result.failures).toEqual([]);
+  expect(result.captures?.filter(capture => capture.expectedItemId === "two" && capture.kind === "academic_item")).toHaveLength(2);
+},20000);
+
+it("does not accept a generic lead-in sentence when the academic marker is loose in the same text node", async () => {
+  const itemContracts = [
+    { id:"one", prompt:"First prompt", response:{ mode:"numeric", expected:1 } },
+    { id:"two", prompt:"Look at the array. How many COLUMNS?", response:{ mode:"numeric", expected:4 } },
+  ];
+  const result = await verify(`<p id="prompt">First prompt</p><button id="answer">Commit answer</button>
+    <script>
+    const rows=[];let active='one';
+    window.SUNNY_VALIDATION_HOOKS={journey:[
+      {itemId:'one',steps:[{action:'click',selector:'#answer'}]},
+      {itemId:'two',steps:[{action:'click',selector:'#answer'}]}
+    ]};
+    const report=(id,prompt)=>parent.postMessage({type:'game_state_update',payload:{currentChallenge:{id,prompt}}},'*');
+    document.querySelector('#answer').onclick=()=>{
+      const item=active;rows.push({target:item,attemptedValue:item==='one'?'1':'4',correct:true});
+      parent.postMessage({type:'attempt_event',payload:{target:item,attemptedValue:item==='one'?'1':'4',correct:true}},'*');
+      if(item==='one'){
+        active='two';document.querySelector('#prompt').textContent='Look at the array. The COLUMNS label remains.';
+        report('two','Look at the array. How many COLUMNS?');
+      } else parent.postMessage({type:'node_complete',payload:{targetResults:rows,accuracy:1}},'*');
+    };
+    report('one','First prompt');
+    </script>`, ["one", "two"], itemContracts);
+  expect(result.passed).toBe(false);
+  expect(result.failures.join("|")).toContain("math_journey_checker_contract_ambiguity;item=two");
+},20000);
+
+it("does not accept a reported sentence that is hidden by an ancestor", async () => {
+  const itemContracts = [
+    { id:"one", prompt:"First prompt", response:{ mode:"numeric", expected:1 } },
+    { id:"two", prompt:"Same labeled array. Now tap the number that tells how many COLUMNS it has.", response:{ mode:"numeric", expected:4 } },
+  ];
+  const result = await verify(`<p id="prompt">First prompt</p><div id="hidden-prompt" style="opacity:0"><p>Same labeled array. How many COLUMNS?</p></div><button id="answer">Commit answer</button>
+    <script>
+    const rows=[];let active='one';
+    window.SUNNY_VALIDATION_HOOKS={journey:[
+      {itemId:'one',steps:[{action:'click',selector:'#answer'}]},
+      {itemId:'two',steps:[{action:'click',selector:'#answer'}]}
+    ]};
+    const report=(id,prompt)=>parent.postMessage({type:'game_state_update',payload:{currentChallenge:{id,prompt}}},'*');
+    document.querySelector('#answer').onclick=()=>{
+      const item=active;rows.push({target:item,attemptedValue:item==='one'?'1':'4',correct:true});
+      parent.postMessage({type:'attempt_event',payload:{target:item,attemptedValue:item==='one'?'1':'4',correct:true}},'*');
+      if(item==='one'){
+        active='two';document.querySelector('#prompt').textContent='Waiting';
+        report('two','Same labeled array. Now tap the number that tells how many COLUMNS it has.');
+      } else parent.postMessage({type:'node_complete',payload:{targetResults:rows,accuracy:1}},'*');
+    };
+    report('one','First prompt');
+    </script>`, ["one", "two"], itemContracts);
+  expect(result.passed).toBe(false);
+  expect(result.failures.join("|")).toContain("math_journey_checker_contract_ambiguity;item=two");
+},20000);
+
+it("does not treat a partly covered multiline prompt as fully visible", async () => {
+  const itemContracts = [
+    { id:"one", prompt:"First prompt", response:{ mode:"numeric", expected:1 } },
+    { id:"two", prompt:"Same labeled array. How many COLUMNS?", response:{ mode:"numeric", expected:4 } },
+  ];
+  const result = await verify(`<style>
+      #prompt{width:180px;font-size:20px;line-height:30px;margin:0}
+      #cover{display:none;position:absolute;left:0;top:30px;width:240px;height:100px;background:white;z-index:10}
+      #answer{position:fixed;left:20px;bottom:20px}
+    </style><p id="prompt">First prompt</p><div id="cover"></div><button id="answer">Commit answer</button>
+    <script>
+    const rows=[];let active='one';
+    window.SUNNY_VALIDATION_HOOKS={journey:[
+      {itemId:'one',steps:[{action:'click',selector:'#answer'}]},
+      {itemId:'two',steps:[{action:'click',selector:'#answer'}]}
+    ]};
+    const report=(id,prompt)=>parent.postMessage({type:'game_state_update',payload:{currentChallenge:{id,prompt}}},'*');
+    document.querySelector('#answer').onclick=()=>{
+      const item=active;rows.push({target:item,attemptedValue:item==='one'?'1':'4',correct:true});
+      parent.postMessage({type:'attempt_event',payload:{target:item,attemptedValue:item==='one'?'1':'4',correct:true}},'*');
+      if(item==='one'){
+        active='two';document.querySelector('#prompt').textContent='Same labeled array. How many COLUMNS?';
+        document.querySelector('#cover').style.display='block';
+        report('two','Same labeled array. How many COLUMNS?');
+      } else parent.postMessage({type:'node_complete',payload:{targetResults:rows,accuracy:1}},'*');
+    };
+    report('one','First prompt');
+    </script>`, ["one", "two"], itemContracts);
+  expect(result.passed).toBe(false);
+  expect(result.failures.join("|")).toContain("math_journey_checker_contract_ambiguity;item=two");
+},20000);
+
+it("reports a checker ambiguity instead of clicking a new answer control when only prompt text disagrees", async () => {
+  const itemContracts = [
+    { id:"one", prompt:"Count the rows in this array.", response:{ mode:"numeric", expected:3 } },
+    { id:"two", prompt:"In this array, which picture shows one whole ROW?", response:{ mode:"selection", expected:"picture-a" } },
+  ];
+  const result = await verify(`<p id="prompt">Count the rows in this array.</p><button id="number">3</button><div id="choices" hidden><button id="picture-a">Picture A</button></div>
+    <script>
+    const rows=[];let active='one';
+    window.SUNNY_VALIDATION_HOOKS={journey:[
+      {itemId:'one',steps:[{action:'click',selector:'#number'}]},
+      {itemId:'two',steps:[{action:'click',selector:'#picture-a'}]}
+    ]};
+    const report=(id,prompt)=>parent.postMessage({type:'game_state_update',payload:{currentChallenge:{id,prompt}}},'*');
+    document.querySelector('#number').onclick=()=>{
+      rows.push({target:'one',attemptedValue:'3',correct:true});
+      parent.postMessage({type:'attempt_event',payload:rows.at(-1)},'*');
+      setTimeout(()=>{
+        active='two';document.querySelector('#prompt').textContent='Which picture shows one whole ROW?';
+        document.querySelector('#number').hidden=true;document.querySelector('#choices').hidden=false;
+        setTimeout(()=>report('two','In this array, which picture shows one whole ROW?'),120);
+      },1800);
+    };
+    document.querySelector('#picture-a').onclick=()=>{
+      rows.push({target:'two',attemptedValue:'picture-a',correct:true});
+      parent.postMessage({type:'attempt_event',payload:rows.at(-1)},'*');
+      parent.postMessage({type:'node_complete',payload:{targetResults:rows,accuracy:1}},'*');
+    };
+    report('one','Count the rows in this array.');
+    </script>`, ["one", "two"], itemContracts);
+  expect(result.passed).toBe(false);
+  expect(result.failures.join("|")).toContain("math_journey_checker_contract_ambiguity;item=two");
+  expect(result.failures.join("|")).not.toContain("math_journey_entry_emitted_evidence");
+},20000);
+
+it("rejects a next-item state announcement while the prior stimulus is still visible", async () => {
+  const result = await verify(`<p id="prompt">First prompt</p><button id="answer">Commit answer</button>
+    <script>
+    const rows=[];let active='one';
+    window.SUNNY_VALIDATION_HOOKS={journey:[
+      {itemId:'one',steps:[{action:'click',selector:'#answer'}]},
+      {itemId:'two',steps:[{action:'click',selector:'#answer'}]}
+    ]};
+    const report=(id,prompt)=>parent.postMessage({type:'game_state_update',payload:{currentChallenge:{id,prompt}}},'*');
+    document.querySelector('#answer').onclick=()=>{
+      const item=active;
+      rows.push({target:item,attemptedValue:item});
+      parent.postMessage({type:'attempt_event',payload:{target:item,attemptedValue:item}},'*');
+      if(item==='one'){
+        active='two';report('two','Second prompt');
+        setTimeout(()=>{document.querySelector('#prompt').textContent='Second prompt'},5000);
+      } else parent.postMessage({type:'node_complete',payload:{targetResults:rows}},'*');
+    };
+    report('one','First prompt');
+    </script>`);
+  expect(result.passed).toBe(false);
+  expect(result.failures.join("|")).toContain("math_journey_item_state_not_visible;item=two");
+},20000);
+
+it("rejects state announced before a shortly delayed prompt render", async () => {
+  const result = await verify(`<p id="prompt">First prompt</p><button id="answer">Commit answer</button>
+    <script>
+    const rows=[];let active='one';
+    window.SUNNY_VALIDATION_HOOKS={journey:[
+      {itemId:'one',steps:[{action:'click',selector:'#answer'}]},
+      {itemId:'two',steps:[{action:'click',selector:'#answer'}]}
+    ]};
+    const report=(id,prompt)=>parent.postMessage({type:'game_state_update',payload:{currentChallenge:{id,prompt}}},'*');
+    document.querySelector('#answer').onclick=()=>{
+      const item=active;rows.push({target:item,attemptedValue:item});parent.postMessage({type:'attempt_event',payload:{target:item,attemptedValue:item}},'*');
+      if(item==='one'){active='two';report('two','Second prompt');setTimeout(()=>{document.querySelector('#prompt').textContent='Second prompt'},180);}
+      else parent.postMessage({type:'node_complete',payload:{targetResults:rows}},'*');
+    };
+    report('one','First prompt');
+    </script>`, ["one", "two"]);
+  expect(result.passed).toBe(false);
+  expect(result.failures.join("|")).toContain("math_journey_item_state_not_visible;item=two");
+},20000);
+
+it("does not accept the next prompt when it exists only outside the viewport", async () => {
+  const result = await verify(`<p id="prompt">First prompt</p><p style="position:absolute;left:-10000px">Second prompt</p><button id="answer">Commit answer</button>
+    <script>
+    const rows=[];let active='one';
+    window.SUNNY_VALIDATION_HOOKS={journey:[
+      {itemId:'one',steps:[{action:'click',selector:'#answer'}]},
+      {itemId:'two',steps:[{action:'click',selector:'#answer'}]}
+    ]};
+    const report=(id,prompt)=>parent.postMessage({type:'game_state_update',payload:{currentChallenge:{id,prompt}}},'*');
+    document.querySelector('#answer').onclick=()=>{
+      const item=active;
+      rows.push({target:item,attemptedValue:item});
+      parent.postMessage({type:'attempt_event',payload:{target:item,attemptedValue:item}},'*');
+      if(item==='one'){active='two';report('two','Second prompt');}
+      else parent.postMessage({type:'node_complete',payload:{targetResults:rows}},'*');
+    };
+    report('one','First prompt');
+    </script>`);
+  expect(result.passed).toBe(false);
+  expect(result.failures.join("|")).toContain("math_journey_item_state_not_visible;item=two");
+},20000);
+
+it("rejects reused controls when the activity omits item-state transitions", async () => {
+  const result = await verify(`<p>First prompt</p><button id="answer">Commit answer</button>
+    <script>
+    const rows=[];let active='one';
+    window.SUNNY_VALIDATION_HOOKS={journey:[
+      {itemId:'one',steps:[{action:'click',selector:'#answer'}]},
+      {itemId:'two',steps:[{action:'click',selector:'#answer'}]}
+    ]};
+    document.querySelector('#answer').onclick=()=>{
+      const item=active;
+      rows.push({target:item,attemptedValue:item});
+      parent.postMessage({type:'attempt_event',payload:{target:item,attemptedValue:item}},'*');
+      if(item==='one')active='two';
+      else parent.postMessage({type:'node_complete',payload:{targetResults:rows}},'*');
+    };
+    </script>`);
+  expect(result.passed).toBe(false);
+  expect(result.failures.join("|")).toContain("math_journey_item_state_missing;item=two");
+},20000);
+
+it("recognizes selector aliases that resolve to the same persistent control", async () => {
+  const result = await verify(`<p>First prompt</p><button id="answer">Commit answer</button>
+    <script>
+    const rows=[];let active='one';
+    window.SUNNY_VALIDATION_HOOKS={journey:[
+      {itemId:'one',steps:[{action:'click',selector:'#answer'}]},
+      {itemId:'two',steps:[{action:'click',selector:'button#answer'}]}
+    ]};
+    document.querySelector('#answer').onclick=()=>{
+      const item=active;
+      rows.push({target:item,attemptedValue:item});
+      parent.postMessage({type:'attempt_event',payload:{target:item,attemptedValue:item}},'*');
+      if(item==='one')active='two';
+      else parent.postMessage({type:'node_complete',payload:{targetResults:rows}},'*');
+    };
+    </script>`);
+  expect(result.passed).toBe(false);
+  expect(result.failures.join("|")).toContain("math_journey_item_state_missing;item=two");
+},20000);
+
+it("requires item-state transitions for a current frozen journey even when controls differ", async () => {
+  const result = await verify(`<p>First prompt</p><button id="one">First</button><button id="two">Second</button>
+    <script>
+    const rows=[];
+    window.SUNNY_VALIDATION_HOOKS={journey:[
+      {itemId:'one',steps:[{action:'click',selector:'#one'}]},
+      {itemId:'two',steps:[{action:'click',selector:'#two'}]}
+    ]};
+    document.querySelector('#one').onclick=()=>{rows.push({target:'one',attemptedValue:'one'});parent.postMessage({type:'attempt_event',payload:rows.at(-1)},'*');};
+    document.querySelector('#two').onclick=()=>{rows.push({target:'two',attemptedValue:'two'});parent.postMessage({type:'attempt_event',payload:rows.at(-1)},'*');parent.postMessage({type:'node_complete',payload:{targetResults:rows}},'*');};
+    </script>`, ["one", "two"]);
+  expect(result.passed).toBe(false);
+  expect(result.failures.join("|")).toContain("math_journey_item_state_missing;item=two");
+},20000);
+
+it("waits for a frozen journey's first item-state event after the transition", async () => {
+  const result = await verify(`<p id="prompt">First prompt</p><button id="one">First</button><button id="two" hidden>Second</button>
+    <script>
+    const rows=[];
+    window.SUNNY_VALIDATION_HOOKS={journey:[
+      {itemId:'one',steps:[{action:'click',selector:'#one'}]},
+      {itemId:'two',steps:[{action:'click',selector:'#two'}]}
+    ]};
+    document.querySelector('#one').onclick=()=>{
+      rows.push({target:'one',attemptedValue:'one'});parent.postMessage({type:'attempt_event',payload:rows.at(-1)},'*');
+      setTimeout(()=>{document.querySelector('#prompt').textContent='Second prompt';document.querySelector('#one').hidden=true;document.querySelector('#two').hidden=false;parent.postMessage({type:'game_state_update',payload:{currentChallenge:{id:'two',prompt:'Second prompt'}}},'*');},180);
+    };
+    document.querySelector('#two').onclick=()=>{rows.push({target:'two',attemptedValue:'two'});parent.postMessage({type:'attempt_event',payload:rows.at(-1)},'*');parent.postMessage({type:'node_complete',payload:{targetResults:rows}},'*');};
+    </script>`, ["one", "two"]);
   expect(result.failures).toEqual([]);
 },20000);
 
@@ -169,6 +728,6 @@ it("identifies a later hidden-state defect and leaves unreached items explicitly
     expect(state.notYetVerifiedItemIds).toEqual(['two','three']);
     expect(state.hidden).toEqual([expect.objectContaining({selector:'#numeric-panel',tag:'div',hiddenAttribute:'',computedDisplay:'flex',rect:expect.objectContaining({width:expect.any(Number),height:expect.any(Number)})})]);
   }
-  expect(result.screenshots).toHaveLength(2);
+  expect(result.screenshots).toHaveLength(4);
   expect(result.screenshots.every(file=>fs.existsSync(file))).toBe(true);
 },20000);

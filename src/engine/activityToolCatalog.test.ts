@@ -32,6 +32,18 @@ describe("activity tool catalog", () => {
     expect(wordRadar.evidence.requiresPerTargetResult).toBe(true);
   });
 
+  it("offers Visual Explainer as assisted spelling instruction, never mastery", () => {
+    const explainer = getActivityToolContract("visual-explainer");
+
+    expect(explainer.domains).toContain("spelling");
+    expect(explainer.purposes).toContain("teach");
+    expect(explainer.evidence.writesPracticeEvidence).toBe(true);
+    expect(explainer.evidence.writesMasteryEvidence).toBe(false);
+    expect(explainer.weakFor).toContain("independent-recall");
+    expect(explainer.gameIds).toContain("spelling-visual-explainer");
+    expect(explainer.configSource).toBe("activity-config-file");
+  });
+
   it("exposes Word Radar's honest recall-mode capability ladder to the planner", () => {
     const wordRadar = getActivityToolContract("word-radar");
 

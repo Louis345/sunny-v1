@@ -4,7 +4,10 @@ import path from "node:path";
 import { createHash } from "node:crypto";
 import { describe, expect, it, vi } from "vitest";
 import { getLearningCycle, projectLearningCycle, transitionLearningCycle } from "./learningCycleRepository";
+import { preparingBoardInstance } from "./learningBoardInstances";
+import { DISCOVERY_VERIFIER_VERSION } from "./discoveryVisualReview";
 import {
+  buildDiscoveryPresentationContract,
   buildTargetedNodesResumably,
   buildDiscoveryRepairMessageContent,
   buildDiscoveryRepairDiagnostic,
@@ -26,11 +29,14 @@ import {
   publishDiscoveryExperience,
   recoverDiscoveryPublication,
   publishTargetedBoardProjection,
+  publishDiscoveryProbeProgress,
+  queueProbeBoardGeneration,
   generateMathDiscoveryExperience,
   assertDiscoveryConstructSemantics,
   validateDiscoveryAcademicBinding,
   verifyDiscoveryRuntimeScoring,
   revealTargetedBoard,
+  setMathGenerationPhase,
   updateMathGenerationNode,
   writeMathGenerationJob,
   type MathDiscoveryAttempt,
@@ -45,20 +51,87 @@ function generatedDiscoveryHtml(): string {
   const runtimeContract = JSON.stringify({
     items: [{ itemId: "i1", constructId: "math.equal_groups", acceptedValues: ["4"] }],
   });
-  return `<!doctype html><html><body><button id="answer">Start</button>
+  return `<!doctype html><html><body>
+    <h1>How many groups?</h1>
+    <button id="answer">Choose 4</button>
+    <button id="wrong-answer">Choose 2</button>
+    <button id="not-sure">Not sure</button>
     <script id="sunny-discovery-contract" type="application/json">${runtimeContract}</script>
     <script>
       window.__SUNNY_DISCOVERY_TEST__ = { evaluate(itemId, attemptedValue) { return { itemId, constructId: "math.equal_groups", correct: attemptedValue === "4" }; } };
       parent.postMessage({type:'evaluation_ready'},'*');
-      window.SUNNY_VALIDATION_HOOKS = {journey:[{itemId:'i1',steps:[{action:'click',selector:'#answer'}]}]};
-      document.querySelector('#answer').onclick=()=>{
-        parent.postMessage({type:'evaluation_attempt',payload:{attemptId:'attempt-i1',observedAt:new Date().toISOString(),supportEventIds:[],instrumentSignals:[],itemId:'i1',attemptedValue:'4'}},'*');
+      window.SUNNY_VALIDATION_HOOKS = {
+        journey:[{itemId:'i1',steps:[{action:'click',selector:'#answer'}]}],
+        incorrectJourney:[{itemId:'i1',steps:[{action:'click',selector:'#wrong-answer'}]}],
+        notSureJourney:[{itemId:'i1',steps:[{action:'click',selector:'#not-sure'}]}],
+      };
+      const submit = (attemptedValue, instrumentSignals=[]) => {
+        const result = window.__SUNNY_DISCOVERY_TEST__.evaluate('i1', attemptedValue);
+        if (!instrumentSignals.includes('response_not_captured')) {
+          const expectedCorrectness = attemptedValue === '4';
+          if (result.correct !== expectedCorrectness) throw new Error('fixture_scoring_disagreement');
+        }
+        parent.postMessage({type:'evaluation_attempt',payload:{attemptId:'attempt-i1-'+(attemptedValue||'unsure'),observedAt:new Date().toISOString(),supportEventIds:[],instrumentSignals,itemId:'i1',attemptedValue}},'*');
         parent.postMessage({type:'evaluation_complete'},'*');
       };
+      document.querySelector('#answer').onclick=()=>submit('4');
+      document.querySelector('#wrong-answer').onclick=()=>submit('2');
+      document.querySelector('#not-sure').onclick=()=>submit('', ['response_not_captured']);
+      parent.postMessage({type:'game_state_update',payload:{currentChallenge:{id:'i1',prompt:'How many groups?'}}},'*');
     </script></body></html>`;
 }
 
-function writeFrozenDiscoveryContract(rootDir: string, homeworkId = "hw-equal-groups"): void {
+function generatedProbeBoardHtml(): string {
+  const runtimeContract = JSON.stringify({
+    items: [
+      { itemId: "i1", constructId: "math.equal_groups", acceptedValues: ["4"] },
+      { itemId: "i2", constructId: "math.array_structure", acceptedValues: ["3"] },
+    ],
+  });
+  return `<!doctype html><html><body><main id="app"></main>
+    <script id="sunny-discovery-contract" type="application/json">${runtimeContract}</script>
+    <script>
+      const contracts={i1:{constructId:'math.equal_groups',answer:'4',wrong:'2',prompt:'How many groups?'},i2:{constructId:'math.array_structure',answer:'3',wrong:'1',prompt:'How many columns?'}};
+      const groups={'probe-groups':['i1'],'probe-arrays':['i2']};
+      const probeActivity=new URLSearchParams(location.search).get('probeActivity')||'probe-groups';
+      const itemId=groups[probeActivity]?.[0];
+      const item=contracts[itemId];
+      window.__SUNNY_DISCOVERY_TEST__={evaluate(id,value){const row=contracts[id];return {itemId:id,constructId:row.constructId,correct:value===row.answer};}};
+      document.querySelector('#app').innerHTML='<h1>'+item.prompt+'</h1><button id="answer" aria-label="Choose answer">'+item.answer+'</button><button id="wrong-answer" aria-label="Choose another answer">'+item.wrong+'</button><button id="not-sure">Not sure</button>';
+      window.SUNNY_VALIDATION_HOOKS={journey:[{itemId,steps:[{action:'click',selector:'#answer'}]}],incorrectJourney:[{itemId,steps:[{action:'click',selector:'#wrong-answer'}]}],notSureJourney:[{itemId,steps:[{action:'click',selector:'#not-sure'}]}]};
+      const submit=(value,instrumentSignals=[])=>{window.__SUNNY_DISCOVERY_TEST__.evaluate(itemId,value).correct;parent.postMessage({type:'evaluation_attempt',payload:{attemptId:'attempt-'+itemId+'-'+(value||'unsure'),observedAt:new Date().toISOString(),supportEventIds:[],instrumentSignals,itemId,attemptedValue:value}},'*');parent.postMessage({type:'evaluation_complete',payload:{nodeId:probeActivity}},'*');};
+      document.querySelector('#answer').onclick=()=>submit(item.answer);
+      document.querySelector('#wrong-answer').onclick=()=>submit(item.wrong);
+      document.querySelector('#not-sure').onclick=()=>submit('', ['response_not_captured']);
+      parent.postMessage({type:'game_state_update',payload:{currentChallenge:{id:itemId,prompt:item.prompt}}},'*');
+      parent.postMessage({type:'evaluation_ready',payload:{nodeId:probeActivity}},'*');
+    </script></body></html>`;
+}
+
+function generatedSingleProbeHtml(input: {
+  nodeId: string;
+  itemId: string;
+  constructId: string;
+  prompt: string;
+  answer: string;
+  wrong: string;
+}): string {
+  const runtimeContract = JSON.stringify({
+    items: [{ itemId: input.itemId, constructId: input.constructId, acceptedValues: [input.answer] }],
+  });
+  return `<!doctype html><html><body><main><h1>${input.prompt}</h1><button id="answer">${input.answer}</button><button id="wrong">${input.wrong}</button><button id="not-sure">Not sure</button></main>
+    <script id="sunny-discovery-contract" type="application/json">${runtimeContract}</script>
+    <script>
+      const nodeId=${JSON.stringify(input.nodeId)}, itemId=${JSON.stringify(input.itemId)}, constructId=${JSON.stringify(input.constructId)}, answer=${JSON.stringify(input.answer)}, wrong=${JSON.stringify(input.wrong)}, prompt=${JSON.stringify(input.prompt)};
+      window.__SUNNY_DISCOVERY_TEST__={evaluate(id,value){return {itemId:id,constructId,correct:value===answer};}};
+      window.SUNNY_VALIDATION_HOOKS={journey:[{itemId,steps:[{action:'click',selector:'#answer'}]}],incorrectJourney:[{itemId,steps:[{action:'click',selector:'#wrong'}]}],notSureJourney:[{itemId,steps:[{action:'click',selector:'#not-sure'}]}]};
+      const submit=(attemptedValue,instrumentSignals=[])=>{const result=window.__SUNNY_DISCOVERY_TEST__.evaluate(itemId,attemptedValue);if(result.correct!==(attemptedValue===answer))throw new Error('fixture_scoring_disagreement');parent.postMessage({type:'evaluation_attempt',payload:{attemptId:'attempt-'+itemId+'-'+(attemptedValue||'unsure'),itemId,attemptedValue,supportEventIds:[],instrumentSignals,observedAt:new Date().toISOString()}},'*');parent.postMessage({type:'evaluation_complete',payload:{nodeId}},'*');};
+      document.querySelector('#answer').onclick=()=>submit(answer);document.querySelector('#wrong').onclick=()=>submit(wrong);document.querySelector('#not-sure').onclick=()=>submit('', ['response_not_captured']);
+      parent.postMessage({type:'game_state_update',payload:{currentChallenge:{id:itemId,prompt}}},'*');parent.postMessage({type:'evaluation_ready',payload:{nodeId}},'*');
+    </script></body></html>`;
+}
+
+function writeFrozenDiscoveryContract(rootDir: string, homeworkId = "hw-equal-groups", frozenContract = contract): void {
   const file = path.join(
     rootDir,
     "src/context/lab-child/homework/direct-drafts",
@@ -66,7 +139,7 @@ function writeFrozenDiscoveryContract(rootDir: string, homeworkId = "hw-equal-gr
     "discovery-contract.json",
   );
   fs.mkdirSync(path.dirname(file), { recursive: true });
-  fs.writeFileSync(file, `${JSON.stringify(contract, null, 2)}\n`, "utf8");
+  fs.writeFileSync(file, `${JSON.stringify(frozenContract, null, 2)}\n`, "utf8");
 }
 
 const contract: MathDiscoveryEvaluationContract = {
@@ -96,7 +169,10 @@ const contract: MathDiscoveryEvaluationContract = {
 };
 
 async function acceptedPublication(rootDir: string, homeworkId: string) {
-  const html=generatedDiscoveryHtml().replaceAll("i1","probe-1").replaceAll("math.equal_groups","math.multiplication.equal_groups");
+  const html=generatedDiscoveryHtml()
+    .replaceAll("How many groups?", contract.items[0]!.prompt)
+    .replaceAll("i1","probe-1")
+    .replaceAll("math.equal_groups","math.multiplication.equal_groups");
   const storage=path.join(rootDir,"src/context/lab-child/homework/games",homeworkId);
   fs.mkdirSync(storage,{recursive:true});fs.writeFileSync(path.join(storage,"discovery.html"),html);fs.writeFileSync(path.join(storage,"discovery-background.svg"),"<svg/>");
   const evaluation={...contract,artifact:{...contract.artifact,artifactHash:hashDiscoveryContract(html)}};
@@ -105,6 +181,182 @@ async function acceptedPublication(rootDir: string, homeworkId: string) {
 }
 
 describe("adaptive math discovery", () => {
+  it("projects the Planner's complete Probe Board instead of one auto-launched evaluation node", () => {
+    const probeBoard = {
+      ...contract,
+      items: [
+        contract.items[0]!,
+        {
+          ...contract.items[0]!,
+          itemId: "probe-2",
+          constructId: "math.multiplication.array_structure",
+          prompt: "Choose the array that matches the groups.",
+          exposureId: "evaluation:equal-groups:probe-2",
+        },
+      ],
+      probeActivities: [
+        {
+          nodeId: "probe-equal-groups",
+          title: "Group Lookout",
+          itemIds: ["probe-1"],
+        },
+        {
+          nodeId: "probe-arrays",
+          title: "Array Lookout",
+          itemIds: ["probe-2"],
+        },
+      ],
+      probeArtifacts: [{
+        nodeId: "probe-equal-groups",
+        ...contract.artifact,
+        artifactId: "evaluation-artifact:probe-equal-groups",
+        htmlPath: "/games/hw-probe-board/probe-equal-groups.html",
+      }],
+    } as MathDiscoveryEvaluationContract & {
+      probeActivities: Array<{ nodeId: string; title: string; itemIds: string[] }>;
+    };
+
+    const plan = buildDiscoveryActiveSessionPlan({
+      childId: "lab-child",
+      homeworkId: "hw-probe-board",
+      evaluation: probeBoard,
+      companion: { id: "elli", name: "Elli" },
+      createdAt: "2026-09-25T12:00:00.000Z",
+    });
+    const cycle = createDiscoveryLearningCycle({
+      rootDir: root(),
+      childId: "lab-child",
+      homeworkId: "hw-probe-board",
+      assignment: {
+        title: "Equal groups",
+        contentFingerprint: "probe-board-fingerprint",
+        capturedEvidenceIds: ["assignment:equal-groups"],
+        targets: probeBoard.constructs.map(row => row.constructId),
+      },
+      evaluation: probeBoard,
+    });
+
+    expect(plan.nodePlan.map(node => ({ id: node.id, locked: node.locked }))).toEqual([
+      { id: "probe-equal-groups", locked: false },
+      { id: "probe-arrays", locked: true },
+    ]);
+    expect(plan.nodePlan.map(node => node.gameHtmlPath)).toEqual([
+      "/games/hw-probe-board/probe-equal-groups.html",
+      undefined,
+    ]);
+    expect(plan.planId).toBe("probe-board:hw-probe-board");
+    expect(plan.adventureBoard?.nodes.filter(node => node.kind === "activity").map(node => ({
+      id: node.id,
+      state: node.state,
+      position: node.position,
+    }))).toEqual([
+      { id: "probe-equal-groups", state: "current", position: { x: 0.24, y: 0.66 } },
+      { id: "probe-arrays", state: "locked", position: { x: 0.76, y: 0.42 } },
+    ]);
+    expect(cycle.nodes.map(node => ({ id: node.nodeId, role: node.role, state: node.state }))).toEqual([
+      { id: "probe-equal-groups", role: "evaluation", state: "ready" },
+      { id: "probe-arrays", role: "evaluation", state: "generating" },
+    ]);
+  });
+
+  it("completes Probe Board nodes independently and seals evidence only after the whole chapter", () => {
+    const rootDir = root();
+    const probeBoard = {
+      ...contract,
+      items: [
+        { ...contract.items[0]!, itemId: "probe-1" },
+        { ...contract.items[0]!, itemId: "probe-2", constructId: "math.multiplication.array_structure", exposureId: "evaluation:equal-groups:probe-2" },
+      ],
+      probeActivities: [
+        { nodeId: "probe-equal-groups", title: "Group Lookout", itemIds: ["probe-1"] },
+        { nodeId: "probe-arrays", title: "Array Lookout", itemIds: ["probe-2"] },
+      ],
+    } satisfies MathDiscoveryEvaluationContract;
+    createDiscoveryLearningCycle({
+      rootDir,
+      childId: "lab-child",
+      homeworkId: "hw-probe-chapter",
+      assignment: {
+        title: "Equal groups",
+        contentFingerprint: "probe-chapter-fingerprint",
+        capturedEvidenceIds: ["assignment:equal-groups"],
+        targets: probeBoard.constructs.map(row => row.constructId),
+      },
+      evaluation: probeBoard,
+    });
+    writeFrozenDiscoveryContract(rootDir, "hw-probe-chapter");
+    const frozenFile = path.join(rootDir, "src/context/lab-child/homework/direct-drafts/hw-probe-chapter/discovery-contract.json");
+    fs.writeFileSync(frozenFile, `${JSON.stringify(probeBoard, null, 2)}\n`);
+
+    recordDiscoveryAttempt({
+      rootDir,
+      childId: "lab-child",
+      homeworkId: "hw-probe-chapter",
+      attempt: { attemptId: "a1", itemId: "probe-1", attemptedValue: "2", supportEventIds: [], instrumentSignals: [], observedAt: "2026-09-25T12:00:00.000Z" },
+    });
+    const first = completeDiscoveryEvaluation({
+      rootDir,
+      childId: "lab-child",
+      homeworkId: "hw-probe-chapter",
+      nodeId: "probe-equal-groups",
+      completedAt: "2026-09-25T12:01:00.000Z",
+    });
+    expect(first.lifecycle).toBe("evaluation_active");
+    expect(first.nodes.map(node => [node.nodeId, node.state])).toEqual([
+      ["probe-equal-groups", "completed"],
+      ["probe-arrays", "ready"],
+    ]);
+
+    recordDiscoveryAttempt({
+      rootDir,
+      childId: "lab-child",
+      homeworkId: "hw-probe-chapter",
+      attempt: { attemptId: "a2", itemId: "probe-2", attemptedValue: "4", supportEventIds: [], instrumentSignals: [], observedAt: "2026-09-25T12:02:00.000Z" },
+    });
+    const final = completeDiscoveryEvaluation({
+      rootDir,
+      childId: "lab-child",
+      homeworkId: "hw-probe-chapter",
+      nodeId: "probe-arrays",
+      completedAt: "2026-09-25T12:03:00.000Z",
+    });
+    expect(final.lifecycle).toBe("evidence_ready");
+    expect(final.nodes.every(node => node.state === "completed")).toBe(true);
+    expect(final.observations.map(row => row.sourceId)).toEqual([
+      "evaluation:probe-equal-groups",
+      "evaluation:probe-arrays",
+    ]);
+  });
+
+  it("separates the child's visible name from spoken pronunciation in one shared presentation contract", () => {
+    const presentation = buildDiscoveryPresentationContract({
+      academic: {
+        identity: { displayName: "Ila", ttsName: "Ayla" },
+        demographics: { age: 8, grade: 3, attentionSpan: "short" },
+        learningProfile: { readingAccess: { currentReadingLevel: "CVC", presentationSettings: { wordsPerLine: 7 } } },
+      },
+      engagement: { readingAccess: { currentReadingLevel: "CVC" } },
+    }, {
+      evaluationId: "eval-1",
+      items: [{
+        itemId: "clock-1",
+        prompt: "Which clock shows 3:00?",
+        representationSpec: "Four clocks with distinct hands.",
+        correctAnswerContract: { acceptedValues: ["clock-c"] },
+      }],
+    });
+
+    expect(presentation).toMatchObject({
+      visibleDisplayName: "Ila",
+      spokenTtsName: "Ayla",
+      audience: { age: 8, grade: 3, attentionSpan: "short" },
+      readingAccess: { currentReadingLevel: "CVC" },
+      academicItems: [{ itemId: "clock-1", acceptedValues: ["clock-c"] }],
+    });
+    expect(presentation.identityRule).toContain("Visible text must use visibleDisplayName");
+    expect(presentation.hostRuntime.completion).toContain("evaluation_complete");
+  });
+
   it("rejects a construct that claims counting by tens while its item measures intervals of five", () => {
     expect(() => assertDiscoveryConstructSemantics({
       items: [{
@@ -190,6 +442,126 @@ describe("adaptive math discovery", () => {
     })).rejects.toThrow("discovery_runtime_reject_mismatch:probe-1");
   });
 
+  it("browser-verifies every Planner-owned Probe Board activity at both release viewports", async () => {
+    const outputDir = root();
+    const academic = {
+      evaluationId: "eval-board",
+      title: "Probe Board",
+      assignmentEvidenceIds: ["assignment:1"],
+      constructs: [
+        { constructId: "math.equal_groups", prerequisiteIds: [] },
+        { constructId: "math.array_structure", prerequisiteIds: [] },
+      ],
+      items: [
+        { ...contract.items[0]!, itemId: "i1", constructId: "math.equal_groups", prompt: "How many groups?", correctAnswerContract: { acceptedValues: ["4"] } },
+        { ...contract.items[0]!, itemId: "i2", constructId: "math.array_structure", prompt: "How many columns?", correctAnswerContract: { acceptedValues: ["3"] } },
+      ],
+      probeActivities: [
+        { nodeId: "probe-groups", title: "Group Lookout", itemIds: ["i1"] },
+        { nodeId: "probe-arrays", title: "Array Lookout", itemIds: ["i2"] },
+      ],
+    };
+
+    const screenshots = await verifyDiscoveryRuntimeScoring({
+      html: generatedProbeBoardHtml(),
+      academic,
+      outputDir,
+    });
+
+    expect(screenshots).toHaveLength(8);
+    expect(screenshots.captures?.filter(capture => capture.kind === "academic_item")).toHaveLength(4);
+    expect(JSON.parse(fs.readFileSync(path.join(outputDir, "acceptance.json"), "utf8"))).toMatchObject({
+      passed: true,
+      completedItemIds: ["i1", "i2"],
+      completedProbeActivityIds: ["probe-groups", "probe-arrays"],
+    });
+  }, 30000);
+
+  it("rejects a Probe activity that reports the right item ID while rendering a sibling prompt", async () => {
+    const academic = {
+      evaluationId: "eval-board",
+      title: "Probe Board",
+      assignmentEvidenceIds: ["assignment:1"],
+      constructs: [
+        { constructId: "math.equal_groups", prerequisiteIds: [] },
+        { constructId: "math.array_structure", prerequisiteIds: [] },
+      ],
+      items: [
+        { ...contract.items[0]!, itemId: "i1", constructId: "math.equal_groups", prompt: "How many groups?", correctAnswerContract: { acceptedValues: ["4"] } },
+        { ...contract.items[0]!, itemId: "i2", constructId: "math.array_structure", prompt: "How many columns?", correctAnswerContract: { acceptedValues: ["3"] } },
+      ],
+      probeActivities: [
+        { nodeId: "probe-groups", title: "Group Lookout", itemIds: ["i1"] },
+        { nodeId: "probe-arrays", title: "Array Lookout", itemIds: ["i2"] },
+      ],
+    };
+    const wrongSlice = generatedProbeBoardHtml().replace(
+      "const item=contracts[itemId];",
+      "const item={...contracts[itemId],prompt:contracts.i1.prompt};",
+    );
+
+    await expect(verifyDiscoveryRuntimeScoring({
+      html: wrongSlice,
+      academic,
+      outputDir: root(),
+    })).rejects.toThrow(/math_journey_item_state_not_visible|math_journey_checker_contract_ambiguity/);
+  }, 30000);
+
+  it("rejects a new Probe activity without a visible advancing Not sure path", async () => {
+    const academic = {
+      evaluationId: "eval-board",
+      title: "Probe Board",
+      assignmentEvidenceIds: ["assignment:1"],
+      constructs: [
+        { constructId: "math.equal_groups", prerequisiteIds: [] },
+        { constructId: "math.array_structure", prerequisiteIds: [] },
+      ],
+      items: [
+        { ...contract.items[0]!, itemId: "i1", constructId: "math.equal_groups", prompt: "How many groups?", correctAnswerContract: { acceptedValues: ["4"] } },
+        { ...contract.items[0]!, itemId: "i2", constructId: "math.array_structure", prompt: "How many columns?", correctAnswerContract: { acceptedValues: ["3"] } },
+      ],
+      probeActivities: [
+        { nodeId: "probe-groups", title: "Group Lookout", itemIds: ["i1"] },
+        { nodeId: "probe-arrays", title: "Array Lookout", itemIds: ["i2"] },
+      ],
+    };
+
+    await expect(verifyDiscoveryRuntimeScoring({
+      html: generatedProbeBoardHtml().replace(
+        ",notSureJourney:[{itemId,steps:[{action:'click',selector:'#not-sure'}]}]",
+        "",
+      ),
+      academic,
+      outputDir: root(),
+    })).rejects.toThrow("math_journey_not_sure_path_missing");
+  }, 30000);
+
+  it("rejects a generic control that masquerades as the Probe Not sure action", async () => {
+    const academic = {
+      evaluationId: "eval-board",
+      title: "Probe Board",
+      assignmentEvidenceIds: ["assignment:1"],
+      constructs: [
+        { constructId: "math.equal_groups", prerequisiteIds: [] },
+        { constructId: "math.array_structure", prerequisiteIds: [] },
+      ],
+      items: [
+        { ...contract.items[0]!, itemId: "i1", constructId: "math.equal_groups", prompt: "How many groups?", correctAnswerContract: { acceptedValues: ["4"] } },
+        { ...contract.items[0]!, itemId: "i2", constructId: "math.array_structure", prompt: "How many columns?", correctAnswerContract: { acceptedValues: ["3"] } },
+      ],
+      probeActivities: [
+        { nodeId: "probe-groups", title: "Group Lookout", itemIds: ["i1"] },
+        { nodeId: "probe-arrays", title: "Array Lookout", itemIds: ["i2"] },
+      ],
+    };
+
+    await expect(verifyDiscoveryRuntimeScoring({
+      html: generatedProbeBoardHtml().replace(">Not sure</button>", ">Continue</button>"),
+      academic,
+      outputDir: root(),
+    })).rejects.toThrow("math_journey_not_sure_control_label;item=i1");
+  }, 30000);
+
   it("gives the repair Creator both rendered viewports as image evidence", () => {
     const outputDir = root();
     const first = path.join(outputDir, "1365.png");
@@ -235,6 +607,9 @@ describe("adaptive math discovery", () => {
       designHash: "design-hash",
       design: { interaction: "clock" },
       html: "<html>broken</html>",
+      presentationContract: buildDiscoveryPresentationContract({
+        academic: { identity: { displayName: "Ila", ttsName: "Ayla" } },
+      }, { items: [] }),
     });
 
     expect(prompt).toContain("item=item-02-which-hand");
@@ -242,6 +617,8 @@ describe("adaptive math discovery", () => {
     expect(prompt).toContain("missing fields on that exact control");
     expect(prompt).toContain("ACADEMIC CONTRACT HASH: academic-hash");
     expect(prompt).toContain("DESIGN HASH: design-hash");
+    expect(prompt).toContain('"visibleDisplayName": "Ila"');
+    expect(prompt).toContain('"spokenTtsName": "Ayla"');
     expect(prompt).toContain("<html>broken</html>");
     expect(prompt).toContain("exact oldText → newText replacements");
     expect(prompt).not.toContain("return one complete standalone HTML document");
@@ -257,7 +634,46 @@ describe("adaptive math discovery", () => {
 
     expect(result.html).toBe("<!doctype html><html><body><button id=\"broken\" aria-label=\"Continue\">Go</button><script>const score=4;</script></body></html>");
     expect(result.replacementCount).toBe(1);
-    expect(result.changedOriginalCharacters).toBe(31);
+    expect(result.changedOriginalCharacters).toBe(22);
+  });
+
+  it("measures edited characters instead of unchanged locator context", () => {
+    const stableContext = "A".repeat(1_300);
+    const oldText = `const payload="${stableContext}";const state="ready";`;
+    const newText = `const payload="${stableContext}";const state="not-ready";`;
+    const before = `<!doctype html><html><body><script>${oldText}</script></body></html>`;
+    const result = applyDiscoveryHtmlPatch(before, JSON.stringify({ replacements: [{
+      oldText,
+      newText,
+      reason: "Make the existing state label truthful without replacing its surrounding implementation",
+    }] }));
+
+    expect(result.html).toContain('const state="not-ready"');
+    expect(result.changedOriginalCharacters).toBe(4);
+  });
+
+  it("still rejects a genuinely broad rewrite when locator context is measured correctly", () => {
+    const oldText = `const payload="${"A".repeat(1_200)}";`;
+    const newText = `const payload="${"B".repeat(1_200)}";`;
+    const before = `<!doctype html><html><body><script>${oldText}</script></body></html>`;
+
+    expect(() => applyDiscoveryHtmlPatch(before, JSON.stringify({ replacements: [{
+      oldText,
+      newText,
+      reason: "Replace the entire implementation",
+    }] }))).toThrow("discovery_repair_patch_scope_exceeded");
+  });
+
+  it("accepts a unique repair target whose only drift is source whitespace", () => {
+    const before = "<script>const view='<div>Done</div>'+\n  '<p>Ready</p>';</script>";
+    const result = applyDiscoveryHtmlPatch(before, JSON.stringify({ replacements: [{
+      oldText: "'<div>Done</div>'+ \n   '<p>Ready</p>'",
+      newText: "'<div>Finished</div>'+\n   '<p>Ready</p>'",
+      reason: "Correct the child-facing completion label",
+    }] }));
+
+    expect(result.html).toBe("<script>const view='<div>Finished</div>'+\n   '<p>Ready</p>';</script>");
+    expect(result.replacementCount).toBe(1);
   });
 
   it("rejects broad, ambiguous, missing, and no-op repair patches", () => {
@@ -309,7 +725,7 @@ describe("adaptive math discovery", () => {
     const savedPlan = JSON.parse(fs.readFileSync(path.join(context, "plans/active_session_plan.json"), "utf8"));
     const savedHomework = JSON.parse(fs.readFileSync(path.join(context, "homework/current.json"), "utf8"));
     expect(savedPlan.activeByDomain.spelling.planId).toBe("spell");
-    expect(savedPlan.activeByDomain.math.planId).toBe("discovery:hw-equal-groups");
+    expect(savedPlan.activeByDomain.math.planId).toBe("probe-board:hw-equal-groups");
     expect(savedHomework.activeByDomain.spelling.homeworkId).toBe("spell-hw");
     expect(savedHomework.activeByDomain.math.homeworkId).toBe("hw-equal-groups");
     expect(getLearningCycle("lab-child", "hw-equal-groups", { rootDir })?.lifecycle).toBe("evaluation_ready");
@@ -322,6 +738,43 @@ describe("adaptive math discovery", () => {
     expect(JSON.stringify(getLearningCycle("lab-child","hw-equal-groups",{rootDir}))).toBe(activeBefore);
     expect(fs.existsSync(path.join(context,"homework/discovery-publication.json"))).toBe(false);
 
+  }, 30000);
+
+  it("rejects a newly generated Discovery contract that does not let the Planner group items into a Probe Board", async () => {
+    const client = { messages: { stream: () => ({
+      finalMessage: async () => ({
+        content: [{ type: "tool_use", name: "create_math_discovery_contract", input: {
+          evaluationId: "eval-1",
+          title: "Show What You Know",
+          assignmentEvidenceIds: ["assignment:1"],
+          constructs: [{ constructId: "math.equal_groups", prerequisiteIds: [] }],
+          items: [{
+            itemId: "i1",
+            constructId: "math.equal_groups",
+            prompt: "How many groups?",
+            responseContract: { mode: "tap_selection", representationId: "equal_groups" },
+            correctAnswerContract: { acceptedValues: ["4"] },
+            difficultyBoundary: "grade 3",
+            exposureId: "eval-1:i1",
+            possibleConfounds: [],
+            falsifyingEvidence: ["response is not independent"],
+            measurementKeys: ["independent_correct"],
+          }],
+        } }],
+        usage: { input_tokens: 10, output_tokens: 20 },
+      }),
+    }) } };
+
+    await expect(generateMathDiscoveryExperience({
+      rootDir: root(),
+      childId: "lab-child",
+      homeworkId: "hw-probe-groups-required",
+      assignmentText: "Four equal groups.",
+      assignmentEvidenceIds: ["assignment:1"],
+      factualChildContext: { age: 9 },
+      client: client as never,
+      visualReview: async ({ html }) => html,
+    })).rejects.toThrow("discovery_probe_activity_contract_missing");
   });
 
   it("generates one frozen Discovery through Planner and Creator phases", async () => {
@@ -329,7 +782,7 @@ describe("adaptive math discovery", () => {
     const calls: Array<{ model: string; prompt: string }> = [];
     let nonStreamingCalls = 0;
     const responses = [
-      { content: [{ type: "tool_use", name: "create_math_discovery_contract", input: { evaluationId: "eval-1", title: "Show What You Know", assignmentEvidenceIds: ["assignment:1"], constructs: [{ constructId: "math.equal_groups", prerequisiteIds: [] }], items: [{ itemId: "i1", constructId: "math.equal_groups", prompt: "How many groups?", responseContract: { mode: "tap_selection", representationId: "equal_groups" }, correctAnswerContract: { acceptedValues: ["4"] }, difficultyBoundary: "grade 3", exposureId: "eval-1:i1", possibleConfounds: ["interface_friction"], falsifyingEvidence: ["response is not independent"], measurementKeys: ["independent_correct"] }] } }], usage: { input_tokens: 10, output_tokens: 20 } },
+      { content: [{ type: "tool_use", name: "create_math_discovery_contract", input: { evaluationId: "eval-1", title: "Show What You Know", assignmentEvidenceIds: ["assignment:1"], constructs: [{ constructId: "math.equal_groups", prerequisiteIds: [] }], items: [{ itemId: "i1", constructId: "math.equal_groups", prompt: "How many groups?", responseContract: { mode: "tap_selection", representationId: "equal_groups" }, correctAnswerContract: { acceptedValues: ["4"] }, difficultyBoundary: "grade 3", exposureId: "eval-1:i1", possibleConfounds: ["interface_friction"], falsifyingEvidence: ["response is not independent"], measurementKeys: ["independent_correct"] }], probeActivities: [{ nodeId: "probe-groups", title: "Group Lookout", itemIds: ["i1"] }] } }], usage: { input_tokens: 10, output_tokens: 20 } },
       { content: [{ type: "text", text: generatedDiscoveryHtml() }], usage: { input_tokens: 10, output_tokens: 20 } },
     ];
     const client = { messages: {
@@ -356,9 +809,14 @@ describe("adaptive math discovery", () => {
     expect(calls[2]?.model).toBe(process.env.SUNNY_GENERATION_MODEL ?? process.env.SUNNY_INGEST_MODEL ?? "claude-sonnet-5");
     expect(calls[0]?.prompt).not.toContain("world");
     expect(calls[1]?.prompt).toContain(generated.contract.artifact.contractHash);
+    expect(calls[1]?.prompt).toContain("CHILD PRESENTATION AND HOST CONTRACT");
     expect(calls[2]?.prompt).toContain("1365x768 and 1280x720");
     expect(calls[2]?.prompt).toContain("fully visible without scrolling");
     expect(calls[2]?.prompt).toContain("mathematical representation large and legible");
+    expect(calls[2]?.prompt).toContain("one independently buildable Probe Board node");
+    expect(calls[2]?.prompt).toContain("Do not implement sibling activities or route by URL");
+    expect(calls[2]?.prompt).toContain("nodeId");
+    expect(calls[2]?.prompt).toContain("CHILD PRESENTATION AND HOST CONTRACT");
     expect(generated.contract.artifact.htmlPath).toBe("/api/homework/game/lab-child/hw-1/discovery.html");
     expect(generated.contract.artifact.artworkPath).toBe("/api/homework/game/lab-child/hw-1/discovery-background.svg");
     expect(fs.existsSync(path.join(rootDir, "src/context/lab-child/homework/games/hw-1/discovery.html"))).toBe(true);
@@ -366,10 +824,167 @@ describe("adaptive math discovery", () => {
     expect(generated.contract.items).toHaveLength(1);
   });
 
+  it("builds Probe nodes as independent immutable artifacts and resumes only the missing sibling", async () => {
+    const rootDir = root();
+    const calls: Array<{ model: string; prompt: string }> = [];
+    const academic = {
+      evaluationId: "eval-independent",
+      title: "Show What You Know",
+      assignmentEvidenceIds: ["assignment:1"],
+      constructs: [
+        { constructId: "math.equal_groups", prerequisiteIds: [] },
+        { constructId: "math.array_structure", prerequisiteIds: [] },
+      ],
+      items: [
+        { itemId: "i1", constructId: "math.equal_groups", prompt: "How many groups?", responseContract: { mode: "tap_selection", representationId: "equal_groups" }, correctAnswerContract: { acceptedValues: ["4"] }, difficultyBoundary: "grade 3", exposureId: "eval-independent:i1", possibleConfounds: [], falsifyingEvidence: [], measurementKeys: ["independent_correct"] },
+        { itemId: "i2", constructId: "math.array_structure", prompt: "How many columns?", responseContract: { mode: "tap_selection", representationId: "array" }, correctAnswerContract: { acceptedValues: ["3"] }, difficultyBoundary: "grade 3", exposureId: "eval-independent:i2", possibleConfounds: [], falsifyingEvidence: [], measurementKeys: ["independent_correct"] },
+      ],
+      probeActivities: [
+        { nodeId: "probe-groups", title: "Group Lookout", itemIds: ["i1"] },
+        { nodeId: "probe-arrays", title: "Array Lookout", itemIds: ["i2"] },
+      ],
+    };
+    const builderResponses = [
+      generatedSingleProbeHtml({ nodeId: "probe-groups", itemId: "i1", constructId: "math.equal_groups", prompt: "How many groups?", answer: "4", wrong: "2" }),
+      generatedSingleProbeHtml({ nodeId: "probe-arrays", itemId: "i2", constructId: "math.array_structure", prompt: "How many columns?", answer: "3", wrong: "1" }),
+    ];
+    const client = { messages: { stream: (request: { model: string; messages: Array<{ content: string }> }) => ({
+      finalMessage: async () => {
+        const prompt = request.messages[0]!.content;
+        calls.push({ model: request.model, prompt });
+        if (prompt.includes("Academic Planner")) return { content: [{ type: "tool_use", name: "create_math_discovery_contract", input: academic }] };
+        if (prompt.includes("Design the frozen independent evaluation")) {
+          return { content: [{ type: "tool_use", name: "create_math_discovery_design", input: { contractHash: prompt.match(/CONTRACT HASH: ([a-f0-9]+)/)?.[1], design: { firstAction: "Tap" }, backgroundSvg: "<svg/>" } }] };
+        }
+        return { content: [{ type: "text", text: builderResponses.shift()! }] };
+      },
+    }) } };
+    const common = { rootDir, childId: "lab-child", homeworkId: "hw-independent-probes", assignmentText: "Groups and arrays.", assignmentEvidenceIds: ["assignment:1"], factualChildContext: { age: 9 }, client: client as never, builderModel: "claude-sonnet-5", visualReview: async ({ html }: { html: string }) => html };
+
+    const first = await generateMathDiscoveryExperience(common);
+    expect(first.contract.probeArtifacts?.map(row => row.nodeId)).toEqual(["probe-groups"]);
+    expect(first.contract.probeArtifacts?.[0]?.htmlPath).toContain("probe-probe-groups.html");
+    const firstHash = first.contract.probeArtifacts?.[0]?.artifactHash;
+    expect(calls).toHaveLength(3);
+    await expect(ensureDiscoveryArtifactsAreServed({ rootDir, childId: "lab-child", homeworkId: "hw-independent-probes", contract: first.contract }))
+      .resolves.toMatchObject({ probeArtifacts: [{ nodeId: "probe-groups", artifactHash: firstHash }] });
+
+    const completed = await generateMathDiscoveryExperience({ ...common, probeNodeIds: ["probe-arrays"] });
+    expect(completed.contract.probeArtifacts?.map(row => row.nodeId)).toEqual(["probe-groups", "probe-arrays"]);
+    expect(completed.contract.probeArtifacts?.map(row => row.htmlPath)).toEqual([
+      "/api/homework/game/lab-child/hw-independent-probes/probe-probe-groups.html",
+      "/api/homework/game/lab-child/hw-independent-probes/probe-probe-arrays.html",
+    ]);
+    expect(completed.contract.probeArtifacts?.[0]?.artifactHash).toBe(firstHash);
+    expect(calls).toHaveLength(4);
+    expect(calls[2]?.prompt).toContain('"nodeId": "probe-groups"');
+    expect(calls[2]?.prompt).not.toContain('"nodeId": "probe-arrays"');
+    expect(calls[3]?.prompt).toContain('"nodeId": "probe-arrays"');
+    expect(calls[3]?.prompt).not.toContain('"nodeId": "probe-groups"');
+  }, 30000);
+
+  it("reconciles a saved Probe artifact after publication was interrupted without another provider call", async () => {
+    const rootDir = root();
+    const calls: string[] = [];
+    const academic = {
+      evaluationId: "eval-resume-projection",
+      title: "Show What You Know",
+      assignmentEvidenceIds: ["assignment:1"],
+      constructs: [{ constructId: "math.equal_groups", prerequisiteIds: [] }],
+      items: [{ itemId: "i1", constructId: "math.equal_groups", prompt: "How many groups?", responseContract: { mode: "tap_selection", representationId: "equal_groups" }, correctAnswerContract: { acceptedValues: ["4"] }, difficultyBoundary: "grade 3", exposureId: "eval-resume-projection:i1", possibleConfounds: [], falsifyingEvidence: [], measurementKeys: ["independent_correct"] }],
+      probeActivities: [{ nodeId: "probe-groups", title: "Group Lookout", itemIds: ["i1"] }],
+    };
+    const client = { messages: { stream: (request: { messages: Array<{ content: string }> }) => ({
+      finalMessage: async () => {
+        const prompt = request.messages[0]!.content;
+        calls.push(prompt);
+        if (prompt.includes("Academic Planner")) return { content: [{ type: "tool_use", name: "create_math_discovery_contract", input: academic }] };
+        if (prompt.includes("Design the frozen independent evaluation")) return { content: [{ type: "tool_use", name: "create_math_discovery_design", input: { contractHash: prompt.match(/CONTRACT HASH: ([a-f0-9]+)/)?.[1], design: { firstAction: "Tap" }, backgroundSvg: "<svg/>" } }] };
+        return { content: [{ type: "text", text: generatedSingleProbeHtml({ nodeId: "probe-groups", itemId: "i1", constructId: "math.equal_groups", prompt: "How many groups?", answer: "4", wrong: "2" }) }] };
+      },
+    }) } };
+    const common = { rootDir, childId: "lab-child", homeworkId: "hw-resume-projection", assignmentText: "Groups.", assignmentEvidenceIds: ["assignment:1"], factualChildContext: { age: 9 }, client: client as never, visualReview: async ({ html }: { html: string }) => html };
+
+    await expect(generateMathDiscoveryExperience({
+      ...common,
+      onProbeNodeReady: async () => { throw new Error("simulated_projection_interruption"); },
+    })).rejects.toThrow("simulated_projection_interruption");
+    expect(calls).toHaveLength(3);
+
+    const reconciled = vi.fn();
+    await generateMathDiscoveryExperience({ ...common, onProbeNodeReady: reconciled });
+    expect(calls).toHaveLength(3);
+    expect(reconciled).toHaveBeenCalledWith(expect.objectContaining({ nodeId: "probe-groups" }));
+  });
+
+  it("rebases Probe publication when child evidence changes the cycle revision", () => {
+    const rootDir = root();
+    const firstHtml = "<!doctype html><html><body>probe one</body></html>";
+    const secondHtml = "<!doctype html><html><body>probe two</body></html>";
+    const firstArtifact = { nodeId: "probe-one", artifactId: "hw-race:probe-one", htmlPath: "/api/homework/game/lab-child/hw-race/probe-probe-one.html", artworkPath: "/api/homework/game/lab-child/hw-race/discovery-background.svg", contractHash: "contract", artifactHash: hashDiscoveryContract(firstHtml) };
+    const secondArtifact = { nodeId: "probe-two", artifactId: "hw-race:probe-two", htmlPath: "/api/homework/game/lab-child/hw-race/probe-probe-two.html", artworkPath: firstArtifact.artworkPath, contractHash: "contract", artifactHash: hashDiscoveryContract(secondHtml) };
+    const evaluation: MathDiscoveryEvaluationContract = {
+      ...contract,
+      evaluationId: "eval-race",
+      items: [
+        { ...contract.items[0]!, itemId: "probe-1", exposureId: "eval-race:probe-1" },
+        { ...contract.items[0]!, itemId: "probe-2", exposureId: "eval-race:probe-2" },
+      ],
+      probeActivities: [
+        { nodeId: "probe-one", title: "One", itemIds: ["probe-1"] },
+        { nodeId: "probe-two", title: "Two", itemIds: ["probe-2"] },
+      ],
+      probeArtifacts: [firstArtifact],
+      artifact: firstArtifact,
+    };
+    const storage = path.join(rootDir, "src/context/lab-child/homework/games/hw-race");
+    const proofDir = path.join(rootDir, "src/context/lab-child/homework/direct-drafts/hw-race/runtime-verification/probe-one");
+    fs.mkdirSync(storage, { recursive: true });
+    fs.mkdirSync(proofDir, { recursive: true });
+    fs.writeFileSync(path.join(storage, "probe-probe-one.html"), firstHtml);
+    fs.writeFileSync(path.join(storage, "probe-probe-two.html"), secondHtml);
+    fs.writeFileSync(path.join(storage, "discovery-background.svg"), "<svg/>");
+    fs.writeFileSync(path.join(proofDir, "acceptance.json"), JSON.stringify({ passed: true, verifierVersion: DISCOVERY_VERIFIER_VERSION, htmlHash: firstArtifact.artifactHash, academicHash: hashDiscoveryContract([evaluation.items[0]]), completedProbeActivityIds: ["probe-one"] }));
+    const plan = buildDiscoveryActiveSessionPlan({ childId: "lab-child", homeworkId: "hw-race", evaluation, companion: { id: "elli", name: "Elli" } });
+    publishDiscoveryExperience({ rootDir, childId: "lab-child", homeworkId: "hw-race", evaluation, activeSessionPlan: plan, assignment: { title: "Probe", contentFingerprint: "fingerprint", capturedEvidenceIds: ["assignment:1"], targets: ["math.equal_groups"] } });
+    queueProbeBoardGeneration({ rootDir, childId: "lab-child", homeworkId: "hw-race", evaluation, designHash: "design" });
+
+    let injected = false;
+    const completed = { ...evaluation, probeArtifacts: [firstArtifact, secondArtifact] };
+    publishDiscoveryProbeProgress({
+      rootDir,
+      childId: "lab-child",
+      homeworkId: "hw-race",
+      evaluation: completed,
+      companion: { id: "elli", name: "Elli" },
+      transitionCycle: (...args) => {
+        if (!injected && args[3].type === "artifact_bound" && args[3].nodeId === "probe-two") {
+          injected = true;
+          recordDiscoveryAttempt({ rootDir, childId: "lab-child", homeworkId: "hw-race", attempt: { attemptId: "concurrent-attempt", itemId: "probe-1", attemptedValue: "4", supportEventIds: [], instrumentSignals: [], observedAt: "2026-09-26T12:00:00.000Z" } });
+        }
+        return transitionLearningCycle(...args);
+      },
+    });
+
+    const cycle = getLearningCycle("lab-child", "hw-race", { rootDir })!;
+    expect(cycle.observations.some(observation => observation.itemId === "probe-1")).toBe(true);
+    expect(cycle.nodes.find(node => node.nodeId === "probe-two")?.artifactBinding?.artifactId).toBe(secondArtifact.artifactId);
+  });
+
+  it("keeps the canonical Probe contract aligned with progressive verified publication", () => {
+    const learningContract = fs.readFileSync(path.join(process.cwd(), "LEARNING_FEEDBACK_LOOP.md"), "utf8");
+    expect(learningContract).toContain("Contract version: 22");
+    expect(learningContract).toContain("The Probe Board is the only board instance that may publish before every node is verified");
+    expect(learningContract).toContain("Each probe node is implemented and verified before that node unlocks");
+    expect(learningContract).toContain("unfinished siblings remain locked");
+    expect(learningContract).toContain("The first verified probe node may open while remaining nodes continue building independently");
+    expect(learningContract).not.toContain("Every required probe node is implemented and verified before the child can enter the chapter");
+  });
+
   it("can use GPT-5.6 for the initial builder without changing Planner or design contracts", async () => {
     const rootDir = root();
     const responses = [
-      { content: [{ type: "tool_use", name: "create_math_discovery_contract", input: { evaluationId: "eval-1", title: "Show What You Know", assignmentEvidenceIds: ["assignment:1"], constructs: [{ constructId: "math.equal_groups", prerequisiteIds: [] }], items: [{ itemId: "i1", constructId: "math.equal_groups", prompt: "How many groups?", responseContract: { mode: "tap_selection", representationId: "equal_groups" }, correctAnswerContract: { acceptedValues: ["4"] }, difficultyBoundary: "grade 3", exposureId: "eval-1:i1", possibleConfounds: ["interface_friction"], falsifyingEvidence: ["response is not independent"], measurementKeys: ["independent_correct"] }] } }], usage: { input_tokens: 10, output_tokens: 20 } },
+      { content: [{ type: "tool_use", name: "create_math_discovery_contract", input: { evaluationId: "eval-1", title: "Show What You Know", assignmentEvidenceIds: ["assignment:1"], constructs: [{ constructId: "math.equal_groups", prerequisiteIds: [] }], items: [{ itemId: "i1", constructId: "math.equal_groups", prompt: "How many groups?", responseContract: { mode: "tap_selection", representationId: "equal_groups" }, correctAnswerContract: { acceptedValues: ["4"] }, difficultyBoundary: "grade 3", exposureId: "eval-1:i1", possibleConfounds: ["interface_friction"], falsifyingEvidence: ["response is not independent"], measurementKeys: ["independent_correct"] }], probeActivities: [{ nodeId: "probe-groups", title: "Group Lookout", itemIds: ["i1"] }] } }], usage: { input_tokens: 10, output_tokens: 20 } },
     ];
     const client = { messages: { stream: (request: { messages: Array<{ content: string }> }) => ({
       finalMessage: async () => request.messages[0]!.content.includes("CONTRACT HASH:")
@@ -401,6 +1016,49 @@ describe("adaptive math discovery", () => {
     }
   });
 
+  it("saves an output-budget truncation as a received response before classifying the harness failure", async () => {
+    const rootDir = root();
+    const homeworkId = "hw-gpt-truncated";
+    const responses = [
+      { content: [{ type: "tool_use", name: "create_math_discovery_contract", input: { evaluationId: "eval-1", title: "Show What You Know", assignmentEvidenceIds: ["assignment:1"], constructs: [{ constructId: "math.equal_groups", prerequisiteIds: [] }], items: [{ itemId: "i1", constructId: "math.equal_groups", prompt: "How many groups?", responseContract: { mode: "tap_selection", representationId: "equal_groups" }, correctAnswerContract: { acceptedValues: ["4"] }, difficultyBoundary: "grade 3", exposureId: "eval-1:i1", possibleConfounds: ["interface_friction"], falsifyingEvidence: ["response is not independent"], measurementKeys: ["independent_correct"] }], probeActivities: [{ nodeId: "probe-groups", title: "Group Lookout", itemIds: ["i1"] }] } }], usage: { input_tokens: 10, output_tokens: 20 } },
+    ];
+    const client = { messages: { stream: (request: { messages: Array<{ content: string }> }) => ({
+      finalMessage: async () => request.messages[0]!.content.includes("CONTRACT HASH:")
+        ? { content: [{ type: "tool_use", name: "create_math_discovery_design", input: { contractHash: request.messages[0]!.content.match(/CONTRACT HASH: ([a-f0-9]+)/)?.[1], design: { firstAction: "Tap" }, backgroundSvg: "<svg/>" } }], usage: { input_tokens: 10, output_tokens: 20 } }
+        : responses.shift()!,
+    }) } };
+    const partial = "<!doctype html><html>";
+    const body = [
+      `data: ${JSON.stringify({ type: "response.output_text.delta", delta: partial })}\n\n`,
+      `data: ${JSON.stringify({ type: "response.incomplete", response: { status: "incomplete", incomplete_details: { reason: "max_output_tokens" }, usage: { input_tokens: 100, output_tokens: 48000, output_tokens_details: { reasoning_tokens: 47000 } } } })}\n\n`,
+    ].join("");
+    const fetchMock = vi.fn(async () => new Response(body, { status: 200, headers: { "content-type": "text/event-stream" } }));
+    vi.stubGlobal("fetch", fetchMock);
+    const priorKey = process.env.OPENAI_API_KEY;
+    process.env.OPENAI_API_KEY = "synthetic";
+    const run = () => generateMathDiscoveryExperience({ rootDir, childId: "lab-child", homeworkId, assignmentText: "Four equal groups.", assignmentEvidenceIds: ["assignment:1"], factualChildContext: { age: 9 }, client: client as never, builderModel: "gpt-5.6", visualReview: async ({ html }) => html });
+    try {
+      await expect(run()).rejects.toThrow("discovery_openai_harness_failure:output_budget_exhausted");
+      await expect(run()).rejects.toThrow("discovery_openai_harness_failure:output_budget_exhausted");
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      const receipts = path.join(rootDir, "src/context/lab-child/homework/direct-drafts", homeworkId, "provider-receipts");
+      const stage = JSON.parse(fs.readFileSync(path.join(receipts, "builder.stage.json"), "utf8"));
+      const receipt = JSON.parse(fs.readFileSync(path.join(receipts, `${stage.requestHash}.json`), "utf8"));
+      expect(receipt).toMatchObject({
+        status: "received",
+        response: {
+          stop_reason: "max_output_tokens",
+          usage: { output_tokens_details: { reasoning_tokens: 47000 } },
+          visible_text_characters: partial.length,
+        },
+      });
+    } finally {
+      vi.unstubAllGlobals();
+      if (priorKey == null) delete process.env.OPENAI_API_KEY;
+      else process.env.OPENAI_API_KEY = priorKey;
+    }
+  });
+
   it("refuses to reuse changed Discovery bytes even when its contract file exists", async () => {
     const rootDir = root(), storage = path.join(rootDir, "src/context/lab-child/homework/games/hw-tampered");
     fs.mkdirSync(storage, {recursive:true});
@@ -416,7 +1074,10 @@ describe("adaptive math discovery", () => {
     const legacyArtwork = path.join(rootDir, "public/generated/hw-legacy/discovery-background.svg");
     fs.mkdirSync(path.dirname(legacyHtml), { recursive: true });
     fs.mkdirSync(path.dirname(legacyArtwork), { recursive: true });
-    const html = generatedDiscoveryHtml().replaceAll("i1", "probe-1").replaceAll("math.equal_groups", "math.multiplication.equal_groups");
+    const html = generatedDiscoveryHtml()
+      .replaceAll("How many groups?", contract.items[0]!.prompt)
+      .replaceAll("i1", "probe-1")
+      .replaceAll("math.equal_groups", "math.multiplication.equal_groups");
     fs.writeFileSync(legacyHtml, html);
     fs.writeFileSync(legacyArtwork, "<svg></svg>");
 
@@ -432,7 +1093,7 @@ describe("adaptive math discovery", () => {
     const rootDir = root();
     const draftDir = path.join(rootDir, "src/context/lab-child/homework/direct-drafts/hw-resume");
     let firstRunCalls = 0;
-    const academic = { evaluationId: "eval-resume", title: "Show What You Know", assignmentEvidenceIds: ["assignment:resume"], constructs: [{ constructId: "math.equal_groups", prerequisiteIds: [] }], items: [{ itemId: "i1", constructId: "math.equal_groups", prompt: "How many groups?", responseContract: { mode: "tap_selection", representationId: "equal_groups" }, correctAnswerContract: { acceptedValues: ["4"] }, difficultyBoundary: "grade 3", exposureId: "eval-resume:i1", possibleConfounds: ["interface_friction"], falsifyingEvidence: ["response is not independent"], measurementKeys: ["independent_correct"] }] };
+    const academic = { evaluationId: "eval-resume", title: "Show What You Know", assignmentEvidenceIds: ["assignment:resume"], constructs: [{ constructId: "math.equal_groups", prerequisiteIds: [] }], items: [{ itemId: "i1", constructId: "math.equal_groups", prompt: "How many groups?", responseContract: { mode: "tap_selection", representationId: "equal_groups" }, correctAnswerContract: { acceptedValues: ["4"] }, difficultyBoundary: "grade 3", exposureId: "eval-resume:i1", possibleConfounds: ["interface_friction"], falsifyingEvidence: ["response is not independent"], measurementKeys: ["independent_correct"] }], probeActivities: [{ nodeId: "probe-groups", title: "Group Lookout", itemIds: ["i1"] }] };
     const firstClient = { messages: { stream: (request: { messages: Array<{ content: string }> }) => ({ finalMessage: async () => {
       firstRunCalls += 1;
       if (firstRunCalls === 1) return { content: [{ type: "tool_use", name: "create_math_discovery_contract", input: academic }] };
@@ -456,11 +1117,47 @@ describe("adaptive math discovery", () => {
     expect(resumedCalls).toBe(1);
   });
 
-  it("rebuilds a missing prompt-bound checkpoint from its saved response without buying it again", async () => {
+  it("normalizes a legacy academic checkpoint into one durable Probe activity without rerunning the Planner", async () => {
+    const rootDir = root();
+    const homeworkId = "hw-legacy-probe-routing";
+    const draftDir = path.join(rootDir, "src/context/lab-child/homework/direct-drafts", homeworkId);
+    fs.mkdirSync(draftDir, { recursive: true });
+    const academic = {
+      evaluationId: "eval-legacy",
+      title: "Show What You Know",
+      assignmentEvidenceIds: ["assignment:legacy"],
+      constructs: [{ constructId: "math.equal_groups", prerequisiteIds: [] }],
+      items: [{ itemId: "i1", constructId: "math.equal_groups", prompt: "How many groups?", responseContract: { mode: "tap_selection", representationId: "equal_groups" }, correctAnswerContract: { acceptedValues: ["4"] }, difficultyBoundary: "grade 3", exposureId: "eval-legacy:i1", possibleConfounds: [], falsifyingEvidence: [], measurementKeys: ["independent_correct"] }],
+    };
+    fs.writeFileSync(path.join(draftDir, "discovery-academic.json"), JSON.stringify(academic));
+    let calls = 0;
+    let builderPrompt = "";
+    const client = { messages: { stream: (request: { messages: Array<{ content: string }>; tools?: Array<{ name: string }> }) => ({ finalMessage: async () => {
+      calls += 1;
+      expect(request.tools?.[0]?.name).not.toBe("create_math_discovery_contract");
+      if (calls === 1) {
+        const contractHash = request.messages[0]!.content.match(/CONTRACT HASH: ([a-f0-9]+)/)?.[1];
+        return { content: [{ type: "tool_use", name: "create_math_discovery_design", input: { contractHash, design: { firstAction: "Tap" }, backgroundSvg: "<svg xmlns=\"http://www.w3.org/2000/svg\"></svg>" } }] };
+      }
+      builderPrompt = request.messages[0]!.content;
+      return { content: [{ type: "text", text: generatedDiscoveryHtml() }] };
+    } }) } };
+
+    await generateMathDiscoveryExperience({ rootDir, childId: "lab-child", homeworkId, assignmentText: "Four equal groups.", assignmentEvidenceIds: ["assignment:legacy"], factualChildContext: { age: 9 }, client: client as never, visualReview: async ({ html }) => html });
+
+    expect(calls).toBe(2);
+    expect(builderPrompt).toContain('"probeActivities": [');
+    expect(JSON.parse(fs.readFileSync(path.join(draftDir, "discovery-probe-routing.json"), "utf8"))).toMatchObject({
+      sourceAcademicHash: hashDiscoveryContract(academic),
+      probeActivities: [{ nodeId: "eval-legacy", title: "Show What You Know", itemIds: ["i1"] }],
+    });
+  }, 30000);
+
+  it("revalidates legacy builder bytes under the presentation contract without buying them again", async () => {
     const rootDir = root();
     const homeworkId = "hw-builder-prompt-version";
     const draftDir = path.join(rootDir, "src/context/lab-child/homework/direct-drafts", homeworkId);
-    const academic = { evaluationId: "eval-version", title: "Show What You Know", assignmentEvidenceIds: ["assignment:version"], constructs: [{ constructId: "math.equal_groups", prerequisiteIds: [] }], items: [{ itemId: "i1", constructId: "math.equal_groups", prompt: "How many groups?", responseContract: { mode: "tap_selection", representationId: "equal_groups" }, correctAnswerContract: { acceptedValues: ["4"] }, difficultyBoundary: "grade 3", exposureId: "eval-version:i1", possibleConfounds: [], falsifyingEvidence: [], measurementKeys: ["independent_correct"] }] };
+    const academic = { evaluationId: "eval-version", title: "Show What You Know", assignmentEvidenceIds: ["assignment:version"], constructs: [{ constructId: "math.equal_groups", prerequisiteIds: [] }], items: [{ itemId: "i1", constructId: "math.equal_groups", prompt: "How many groups?", responseContract: { mode: "tap_selection", representationId: "equal_groups" }, correctAnswerContract: { acceptedValues: ["4"] }, difficultyBoundary: "grade 3", exposureId: "eval-version:i1", possibleConfounds: [], falsifyingEvidence: [], measurementKeys: ["independent_correct"] }], probeActivities: [{ nodeId: "probe-groups", title: "Group Lookout", itemIds: ["i1"] }] };
     let calls = 0;
     const client = { messages: { stream: (request: { messages: Array<{ content: string }> }) => ({ finalMessage: async () => {
       calls += 1;
@@ -482,7 +1179,9 @@ describe("adaptive math discovery", () => {
     expect(unchangedCalls).toBe(0);
     const checkpointFile = path.join(draftDir, "discovery-builder.json");
     const checkpoint = JSON.parse(fs.readFileSync(checkpointFile, "utf8"));
+    expect(checkpoint.presentationContractVersion).toBe(1);
     delete checkpoint.builderPromptHash;
+    delete checkpoint.presentationContractVersion;
     fs.writeFileSync(checkpointFile, JSON.stringify(checkpoint));
     fs.rmSync(path.join(draftDir, "discovery-reviewed.json"), { force: true });
 
@@ -491,10 +1190,10 @@ describe("adaptive math discovery", () => {
       resumedCalls += 1;
       return { content: [{ type: "text", text: generatedDiscoveryHtml() }] };
     } }) } };
-    await generateMathDiscoveryExperience({ rootDir, childId: "lab-child", homeworkId, assignmentText: "Four equal groups.", assignmentEvidenceIds: ["assignment:version"], factualChildContext: { age: 9 }, client: resumedClient as never, visualReview: async ({ html }) => html });
+    await generateMathDiscoveryExperience({ rootDir, childId: "lab-child", homeworkId, assignmentText: "Four equal groups.", assignmentEvidenceIds: ["assignment:version"], factualChildContext: { academic: { identity: { displayName: "Ila", ttsName: "Ayla" } } }, client: resumedClient as never, visualReview: async ({ html }) => html });
 
     expect(resumedCalls).toBe(0);
-    expect(JSON.parse(fs.readFileSync(checkpointFile,"utf8")).builderPromptHash).toBeTruthy();
+    expect(JSON.parse(fs.readFileSync(checkpointFile,"utf8")).revalidatedPresentationContractVersion).toBe(1);
   }, 30000);
 
   it("persists the raw builder outcome and reports truncation before parsing HTML", async () => {
@@ -512,7 +1211,7 @@ describe("adaptive math discovery", () => {
     expect(fs.existsSync(path.join(draftDir, "provider-diagnostics", "discovery-builder-response.json"))).toBe(true);
   });
 
-  it("projects preparing and ready nodes without erasing another domain", () => {
+  it("projects unfinished nodes as ordinary locks without erasing another domain", () => {
     const rootDir = root();
     const context = path.join(rootDir, "src/context/lab-child");
     fs.mkdirSync(path.join(context, "plans"), { recursive: true });
@@ -529,9 +1228,66 @@ describe("adaptive math discovery", () => {
     const saved = JSON.parse(fs.readFileSync(path.join(context, "plans/active_session_plan.json"), "utf8"));
     expect(saved.activeByDomain.spelling.planId).toBe("spell");
     expect(saved.activeByDomain.math.adventureBoard.nodes.find((node: { id: string }) => node.id === "N1").state).toBe("current");
-    expect(saved.activeByDomain.math.adventureBoard.nodes.find((node: { id: string }) => node.id === "N2")).toMatchObject({ state: "preview", action: { type: "show-preparing-status" } });
+    expect(saved.activeByDomain.math.adventureBoard.nodes.find((node: { id: string }) => node.id === "N2")).toMatchObject({ state: "locked", lock: { label: "Locked" } });
+    expect(saved.activeByDomain.math.adventureBoard.nodes.find((node: { id: string }) => node.id === "N2").action?.type).not.toBe("show-preparing-status");
   });
-  it("publishes only one independent Discovery node before evidence exists", () => {
+
+  it("publishes each independently verified Probe sibling by changing only its lock state", () => {
+    const rootDir = root();
+    const firstHtml = "<!doctype html><html><body>verified probe one</body></html>";
+    const firstArtifact = {
+      nodeId: "probe-one",
+      artifactId: "hw-probe-progress:probe-one",
+      htmlPath: "/api/homework/game/lab-child/hw-probe-progress/probe-probe-one.html",
+      artworkPath: "/api/homework/game/lab-child/hw-probe-progress/discovery-background.svg",
+      contractHash: "contract",
+      artifactHash: hashDiscoveryContract(firstHtml),
+    };
+    const secondArtifact = {
+      nodeId: "probe-two",
+      artifactId: "hw-probe-progress:probe-two",
+      htmlPath: "/api/homework/game/lab-child/hw-probe-progress/probe-probe-two.html",
+      artworkPath: firstArtifact.artworkPath,
+      contractHash: "contract",
+      artifactHash: "hash-two",
+    };
+    const evaluation: MathDiscoveryEvaluationContract = {
+      ...contract,
+      items: [
+        { ...contract.items[0]!, itemId: "probe-1" },
+        { ...contract.items[0]!, itemId: "probe-2", exposureId: "evaluation:progress:probe-2" },
+      ],
+      probeActivities: [
+        { nodeId: "probe-one", title: "One", itemIds: ["probe-1"] },
+        { nodeId: "probe-two", title: "Two", itemIds: ["probe-2"] },
+      ],
+      probeArtifacts: [firstArtifact],
+      artifact: firstArtifact,
+    };
+    const storage = path.join(rootDir, "src/context/lab-child/homework/games/hw-probe-progress");
+    const proofDir = path.join(rootDir, "src/context/lab-child/homework/direct-drafts/hw-probe-progress/runtime-verification/probe-one");
+    fs.mkdirSync(storage, { recursive: true });
+    fs.mkdirSync(proofDir, { recursive: true });
+    fs.writeFileSync(path.join(storage, "probe-probe-one.html"), firstHtml);
+    fs.writeFileSync(path.join(storage, "discovery-background.svg"), "<svg/>");
+    fs.writeFileSync(path.join(proofDir, "acceptance.json"), JSON.stringify({ passed: true, verifierVersion: DISCOVERY_VERIFIER_VERSION, htmlHash: firstArtifact.artifactHash, academicHash: hashDiscoveryContract([evaluation.items[0]]), completedProbeActivityIds: ["probe-one"] }));
+    const plan = buildDiscoveryActiveSessionPlan({ childId: "lab-child", homeworkId: "hw-probe-progress", evaluation, companion: { id: "elli", name: "Elli" } });
+    publishDiscoveryExperience({ rootDir, childId: "lab-child", homeworkId: "hw-probe-progress", evaluation, activeSessionPlan: plan, assignment: { title: "Probe", contentFingerprint: "fingerprint", capturedEvidenceIds: ["assignment:1"], targets: ["math.equal_groups"] } });
+    const initialJob = queueProbeBoardGeneration({ rootDir, childId: "lab-child", homeworkId: "hw-probe-progress", evaluation, designHash: "design" });
+    expect(initialJob).toMatchObject({ phase: "probe_generating", nodes: [{ nodeId: "probe-one", status: "ready" }, { nodeId: "probe-two", status: "preparing" }] });
+
+    const completed = { ...evaluation, probeArtifacts: [firstArtifact, secondArtifact] };
+    publishDiscoveryProbeProgress({ rootDir, childId: "lab-child", homeworkId: "hw-probe-progress", evaluation: completed, companion: { id: "elli", name: "Elli" } });
+
+    expect(getLearningCycle("lab-child", "hw-probe-progress", { rootDir })?.nodes.map(node => [node.nodeId, node.state])).toEqual([
+      ["probe-one", "ready"],
+      ["probe-two", "ready"],
+    ]);
+    expect(getMathGenerationStatus("lab-child", "hw-probe-progress", { rootDir })).toMatchObject({ phase: "probe_ready", nodes: [{ nodeId: "probe-one", status: "ready" }, { nodeId: "probe-two", status: "ready" }] });
+    const saved = JSON.parse(fs.readFileSync(path.join(rootDir, "src/context/lab-child/plans/active_session_plan.json"), "utf8"));
+    expect(saved.activeByDomain.math.adventureBoard.nodes.find((node: { id: string }) => node.id === "probe-two")).toMatchObject({ state: "available" });
+  });
+  it("keeps a legacy one-node Discovery contract readable before evidence exists", () => {
     const rootDir = root();
     const cycle = createDiscoveryLearningCycle({
       rootDir,
@@ -574,11 +1330,11 @@ describe("adaptive math discovery", () => {
     });
     writeFrozenDiscoveryContract(rootDir);
 
-    recordDiscoveryAttempt({ rootDir, childId: "lab-child", homeworkId: "hw-equal-groups", attempt: {
+    recordDiscoveryAttempt({ rootDir, childId: "lab-child", homeworkId: "hw-equal-groups", support: { status: "unassisted", scaffolds: [] }, attempt: {
       attemptId: "attempt-1", itemId: "probe-1", attemptedValue: "3",
       supportEventIds: [], instrumentSignals: [], observedAt: "2026-08-22T12:00:00.000Z",
     } });
-    const cycle = recordDiscoveryAttempt({ rootDir, childId: "lab-child", homeworkId: "hw-equal-groups", attempt: {
+    const cycle = recordDiscoveryAttempt({ rootDir, childId: "lab-child", homeworkId: "hw-equal-groups", support: { status: "assisted", scaffolds: ["support:elli:1"] }, attempt: {
       attemptId: "attempt-2", itemId: "probe-1", attemptedValue: "4",
       supportEventIds: ["support:elli:1"], instrumentSignals: ["interface_friction"], observedAt: "2026-08-22T12:01:00.000Z",
     } });
@@ -677,6 +1433,28 @@ describe("adaptive math discovery", () => {
     expect(revealed.nodes.filter((node) => node.role === "baseline").every((node) => node.state === "generating")).toBe(true);
   });
 
+  it("preserves every completed Probe node when the Teaching Board is revealed and a final completion repeats", () => {
+    const rootDir = root();
+    const probeBoard = {
+      ...contract,
+      items: [contract.items[0]!, { ...contract.items[0]!, itemId: "probe-2", exposureId: "evaluation:equal-groups:probe-2" }],
+      probeActivities: [
+        { nodeId: "probe-one", title: "First Look", itemIds: ["probe-1"] },
+        { nodeId: "probe-two", title: "Second Look", itemIds: ["probe-2"] },
+      ],
+    };
+    createDiscoveryLearningCycle({ rootDir, childId: "lab-child", homeworkId: "hw-probe-history", assignment: { title: "Equal groups", contentFingerprint: "fingerprint", capturedEvidenceIds: ["assignment:equal-groups"], targets: ["math.multiplication.equal_groups"] }, evaluation: probeBoard });
+    writeFrozenDiscoveryContract(rootDir, "hw-probe-history", probeBoard);
+    for (const [itemId, at] of [["probe-1", "12:00"], ["probe-2", "12:01"]] as const) {
+      recordDiscoveryAttempt({ rootDir, childId: "lab-child", homeworkId: "hw-probe-history", attempt: { attemptId: `attempt-${itemId}`, itemId, attemptedValue: "4", supportEventIds: [], instrumentSignals: [], observedAt: `2026-08-22T${at}:00.000Z` } });
+      completeDiscoveryEvaluation({ rootDir, childId: "lab-child", homeworkId: "hw-probe-history", nodeId: itemId === "probe-1" ? "probe-one" : "probe-two", completedAt: `2026-08-22T${at}:30.000Z` });
+    }
+    const revealed = revealTargetedBoard({ rootDir, childId: "lab-child", homeworkId: "hw-probe-history", programHash: "program", designHash: "design", nodes: [{ nodeId: "N1", title: "Teaching One", academicTarget: "math.multiplication.equal_groups", algorithmOwner: "planner", theoryId: "targeted-theory", experimentId: "experiment", mechanic: "tap", theme: "world" }] });
+    expect(revealed.nodes.filter(node => node.role === "evaluation").map(node => node.nodeId)).toEqual(["probe-one", "probe-two"]);
+    const repeated = completeDiscoveryEvaluation({ rootDir, childId: "lab-child", homeworkId: "hw-probe-history", nodeId: "probe-two", completedAt: "2026-08-22T12:03:00.000Z" });
+    expect(repeated.revision).toBe(revealed.revision);
+  });
+
   it("preserves completed Discovery, Planner truth, artifacts, and board_ready during final reconciliation", () => {
     const rootDir = root();
     createDiscoveryLearningCycle({
@@ -716,11 +1494,8 @@ describe("adaptive math discovery", () => {
       academicTheory: { theoryId: "targeted-theory", revision: 1, hypothesis: "Planner hypothesis", supportCriteria: ["support"], reviseCriteria: ["revise"], falsifyCriteria: ["falsify"] },
       academicPredictions: [plannerPrediction],
     });
-    expect(projectLearningCycle(cycle).adventureBoard.nodes.find((node) => node.id === "N1")).toMatchObject({
-      state: "preview",
-      action: { type: "show-preparing-status", payloadId: "N1" },
-      lock: { label: "Preparing" },
-    });
+    // Contract 21: the Teaching Board stays out of view until every node is verified.
+    expect(projectLearningCycle(cycle).adventureBoard.nodes.some((node) => node.id === "N1")).toBe(false);
     cycle = transitionLearningCycle("lab-child", "hw-equal-groups", cycle.revision, {
       type: "artifact_bound",
       nodeId: "N1",
@@ -775,6 +1550,18 @@ describe("adaptive math discovery", () => {
     expect(resumed.nodes.find((node) => node.nodeId === "N2")?.status).toBe("preparing");
   });
 
+  it("clears a stale assignment error when every node becomes ready", () => {
+    const rootDir = root();
+    writeMathGenerationJob({ rootDir, childId: "lab-child", homeworkId: "hw-recovered", programHash: "program", designHash: "design", nodeIds: ["N1"] });
+    setMathGenerationPhase({ rootDir, childId: "lab-child", homeworkId: "hw-recovered", phase: "needs_attention", error: "old_local_publication_failure" });
+
+    updateMathGenerationNode({ rootDir, childId: "lab-child", homeworkId: "hw-recovered", nodeId: "N1", status: "ready", artifactHash: "verified" });
+
+    const recovered = getMathGenerationStatus("lab-child", "hw-recovered", { rootDir });
+    expect(recovered?.phase).toBe("board_ready");
+    expect(recovered).not.toHaveProperty("error");
+  });
+
   it("allows only one durable generation lease per assignment", () => {
     const rootDir = root();
     const first = acquireMathGenerationLease({ rootDir, childId: "lab-child", homeworkId: "hw-equal-groups", ownerPid: process.pid });
@@ -813,7 +1600,7 @@ describe("adaptive math discovery", () => {
     expect(buildNode).toHaveBeenCalledTimes(2);
   });
 
-  it("turns a twice-failed generated node into a canonical parent-help state", async () => {
+  it("holds the whole Teaching Board unpublished when a generated node fails twice", async () => {
     const rootDir = root();
     createDiscoveryLearningCycle({ rootDir, childId: "lab-child", homeworkId: "hw-equal-groups", assignment: { title: "Equal groups", contentFingerprint: "fingerprint", capturedEvidenceIds: ["assignment:equal-groups"], targets: ["math.multiplication.equal_groups"] }, evaluation: contract });
     writeFrozenDiscoveryContract(rootDir);
@@ -830,13 +1617,10 @@ describe("adaptive math discovery", () => {
     await buildTargetedNodesResumably({ rootDir, childId: "lab-child", homeworkId: "hw-equal-groups", firstNodeId: "N1", concurrency: 1, buildNode: fail });
 
     const cycle = getLearningCycle("lab-child", "hw-equal-groups", { rootDir })!;
-    expect(cycle.lifecycle).toBe("board_ready");
+    expect(cycle.lifecycle).toBe("board_generating");
     expect(cycle.nodes.find((node) => node.nodeId === "N1")?.state).toBe("blocked");
-    expect(projectLearningCycle(cycle).adventureBoard.nodes.find((node) => node.id === "N1")).toMatchObject({
-      state: "locked",
-      action: { type: "show-locked-reason" },
-      lock: { label: "Parent help needed" },
-    });
+    expect(preparingBoardInstance(cycle)?.nodeIds).toEqual(["N1"]);
+    expect(projectLearningCycle(cycle).adventureBoard.nodes.some((node) => node.id === "N1")).toBe(false);
   });
 
   it("builds the first intervention first and preserves ready siblings when another fails", async () => {
@@ -864,6 +1648,42 @@ describe("adaptive math discovery", () => {
       expect.objectContaining({ nodeId: "N2", status: "ready", artifactHash: "saved-N2" }),
       expect.objectContaining({ nodeId: "N3", status: "failed_resumable", error: "provider_timeout" }),
     ]));
+  });
+
+  it("starts the first intervention and its next sibling concurrently", async () => {
+    const rootDir = root();
+    writeMathGenerationJob({
+      rootDir,
+      childId: "lab-child",
+      homeworkId: "hw-progressive-build",
+      programHash: "program",
+      designHash: "design",
+      nodeIds: ["N1", "N2", "N3"],
+    });
+    const started: string[] = [];
+    const release = new Map<string, () => void>();
+
+    const build = buildTargetedNodesResumably({
+      rootDir,
+      childId: "lab-child",
+      homeworkId: "hw-progressive-build",
+      firstNodeId: "N1",
+      concurrency: 2,
+      buildNode: async (nodeId) => {
+        started.push(nodeId);
+        await new Promise<void>((resolve) => release.set(nodeId, resolve));
+        return { artifactHash: `built-${nodeId}` };
+      },
+    });
+
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    expect(started).toEqual(["N1", "N2"]);
+    release.get("N1")?.();
+    release.get("N2")?.();
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    expect(started).toEqual(["N1", "N2", "N3"]);
+    release.get("N3")?.();
+    await build;
   });
 
   it("hands committed Discovery evidence to planning before design and map publication", async () => {
@@ -902,7 +1722,7 @@ it("retains a completed build when board publication is interrupted", async () =
 it("carries the corrected graph through the Planner-owned contract without visual repair changing it", async () => {
   const {graphAuditExamples}=await import("../scripts/fixtures/adaptiveMathRelease");
   const rootDir=root();let calls=0;let plannerRequest="";
-  const academic={evaluationId:"graph-evaluation",title:"Read the graph",assignmentEvidenceIds:["assignment:graph-lab"],constructs:[{constructId:"math.graph_reading",prerequisiteIds:[]}],items:[{itemId:"i1",constructId:"math.graph_reading",prompt:graphAuditExamples.corrected.prompt,representationSpec:graphAuditExamples.corrected.representationSpec,responseContract:{mode:"tap_selection",representationId:"unit_bar_graph"},correctAnswerContract:{acceptedValues:graphAuditExamples.corrected.acceptedValues},difficultyBoundary:"unit scale",exposureId:"graph-lab:i1",possibleConfounds:[],falsifyingEvidence:[],measurementKeys:[]}]};
+  const academic={evaluationId:"graph-evaluation",title:"Read the graph",assignmentEvidenceIds:["assignment:graph-lab"],constructs:[{constructId:"math.graph_reading",prerequisiteIds:[]}],items:[{itemId:"i1",constructId:"math.graph_reading",prompt:graphAuditExamples.corrected.prompt,representationSpec:graphAuditExamples.corrected.representationSpec,responseContract:{mode:"tap_selection",representationId:"unit_bar_graph"},correctAnswerContract:{acceptedValues:graphAuditExamples.corrected.acceptedValues},difficultyBoundary:"unit scale",exposureId:"graph-lab:i1",possibleConfounds:[],falsifyingEvidence:[],measurementKeys:[]}],probeActivities:[{nodeId:"probe-graph",title:"Graph Lookout",itemIds:["i1"]}]};
   const html=generatedDiscoveryHtml().replaceAll("math.equal_groups","math.graph_reading").replaceAll('"4"','"3"').replaceAll("'4'","'3'").replace('<body>','<body style="background:white;color:black"><h1>How many books did Cleo read?</h1><svg width="250" height="220"><text x="0" y="190">0</text><text x="0" y="150">1</text><text x="0" y="110">2</text><text x="0" y="70">3</text><text x="0" y="30">4</text><rect x="30" y="70" width="50" height="120" fill="blue"/><text x="30" y="215">Cleo</text></svg>');
   const client={messages:{stream:(request:{messages:Array<{content:string}>})=>({finalMessage:async()=>{
     calls++;if(calls===1){plannerRequest=request.messages[0].content;return {content:[{type:"tool_use",name:"create_math_discovery_contract",input:academic}]};}
@@ -951,7 +1771,7 @@ it("keeps an interrupted publication journal and resumes without replacing the c
   expect(JSON.parse(fs.readFileSync(planPath,"utf8")).current.planId).toBe("previous");
   recoverDiscoveryPublication({rootDir,childId});
   expect(fs.readFileSync(cycleFile,"utf8")).toBe(before);
-  expect(JSON.parse(fs.readFileSync(planPath,"utf8")).current.planId).toBe(`discovery:${homeworkId}`);
+  expect(JSON.parse(fs.readFileSync(planPath,"utf8")).current.planId).toBe(`probe-board:${homeworkId}`);
   expect(fs.existsSync(path.join(context,"homework/discovery-publication.json"))).toBe(false);
 });
 
@@ -960,6 +1780,16 @@ it("refuses publication without an exact current acceptance report",()=>{
   const rootDir=root(),childId="lab-child",homeworkId="hw-unverified";
   expect(()=>publishDiscoveryExperience({rootDir,childId,homeworkId,evaluation:contract,activeSessionPlan:buildDiscoveryActiveSessionPlan({childId,homeworkId,evaluation:contract,companion:{id:"elli",name:"Elli"}}),assignment:{title:"Synthetic",contentFingerprint:"synthetic",capturedEvidenceIds:[],targets:[]}})).toThrow("discovery_publication_acceptance_missing");
   expect(getLearningCycle(childId,homeworkId,{rootDir})).toBeFalsy();
+});
+
+it("refuses publication unless runtime proof completed every Probe Board activity", async()=>{
+  const rootDir=root(),childId="lab-child",homeworkId="hw-incomplete-probe-proof";
+  const evaluation=await acceptedPublication(rootDir,homeworkId);
+  const proofFile=path.join(rootDir,"src/context/lab-child/homework/direct-drafts",homeworkId,"runtime-verification/acceptance.json");
+  const proof=JSON.parse(fs.readFileSync(proofFile,"utf8"));
+  proof.completedProbeActivityIds=[];
+  fs.writeFileSync(proofFile,JSON.stringify(proof));
+  expect(()=>publishDiscoveryExperience({rootDir,childId,homeworkId,evaluation,activeSessionPlan:buildDiscoveryActiveSessionPlan({childId,homeworkId,evaluation,companion:{id:"elli",name:"Elli"}}),assignment:{title:"Synthetic",contentFingerprint:"synthetic",capturedEvidenceIds:[],targets:[]}})).toThrow("discovery_publication_probe_coverage_mismatch");
 });
 
 

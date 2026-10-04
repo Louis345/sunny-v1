@@ -1,3 +1,8 @@
+import {openChart, type ChartDatabase} from '../chart/db';
+import {prepareSpellingChartAssignment} from '../chart/spelling/intakeBridge';
+import {spellingPlanner} from '../chart/spelling/provider';
+import type {SpellingProvider} from '../chart/spelling/journey';
+import {shouldPersistSessionData} from '../utils/runtimeMode';
 import "dotenv/config";
 import { createHash } from "crypto";
 import fs from "fs";
@@ -2122,11 +2127,12 @@ export async function reviewSpellingIntake(args: {
 
 /** Existing intake entrypoint's spelling phase; the targeted Planner runs only after committed Discovery. */
 export async function runSpellingDiscoveryIntake(args: {
-  childId: string; sourceFile: string; rootDir?: string;
+  childId: string; sourceFile: string; rootDir?: string; testDate?: string | null;
   confirmedCapture?: { capture: SpellingIntake; reviewer: string; approvedAt: string };
 }, options: Parameters<typeof planSpellingIntakeFromSource>[1] & {
   confirmCapture?: (capture: SpellingIntake) => Promise<boolean>;
   reviewer?: string;
+  chart?: {db: ChartDatabase; provider: SpellingProvider};
 } = {}): Promise<{ homeworkId: string }> {
   const rootDir = args.rootDir ?? process.cwd();
   const chart = getChildChart(args.childId, { rootDir });
@@ -2186,6 +2192,17 @@ export async function runSpellingDiscoveryIntake(args: {
         const previouslyPracticed = priorObservations.length > 0 || Boolean(legacy?.tracks.spelling?.history.length);
         return { ...item, lineage: { ...item.lineage, exposure: previouslyPracticed ? "practiced" as const : "unseen" as const } };
       });
+    const chartEnabled = Boolean(process.env.SUNNY_CHART_DIR?.trim()) && shouldPersistSessionData() && !process.env.SUNNY_CERTIFICATION_RUN_ID;
+    const database = options.chart?.db ?? (chartEnabled ? openChart(args.childId) : undefined);
+    if (database) {
+      try {
+        if (database.childId !== args.childId) throw new Error('chart_child_mismatch');
+        if (existing?.observations.length && !database.sql.prepare("SELECT 1 FROM events WHERE type='prediction.prior' AND json_extract(payload,'$.assignmentId')=? LIMIT 1").get(homeworkId)) {
+          throw new Error('chart_prior_requires_unobserved_assignment');
+        }
+        await prepareSpellingChartAssignment(database, {assignmentId:homeworkId, words:items.map(item=>item.word.normalize('NFC').toLowerCase()), testDate:validIsoDate(args.testDate) ? args.testDate! : null, sourcePhotoHash:fingerprint}, options.chart?.provider ?? spellingPlanner);
+      } finally { if (!options.chart) database.close(); }
+    } else console.log(' 🎮 [spelling-chart] [intake] [disabled] chart_directory_not_configured_or_simulation');
     const cycle = createSpellingDiscoveryCycle({ childId: args.childId, homeworkId, title: capture.title, contentFingerprint: fingerprint, items, diagnosticSelection }, { rootDir });
     const activeSessionPlan = buildSpellingDiscoveryPlan({ cycle, companion: { id: chart.companion.presetId, name: chart.companion.displayName } });
     publishDiscoveryExperience({ ...scope, spellingItems: items, activeSessionPlan, assignment: cycle.assignment });
@@ -2248,7 +2265,7 @@ async function runIngestHomeworkInternal(
 
   if (homeworkDomain === "spelling") {
     onStage?.(2, "Capturing assigned spelling words");
-    await runSpellingDiscoveryIntake({ childId, sourceFile: incomingFile }, {
+    await runSpellingDiscoveryIntake({ childId, sourceFile: incomingFile, testDate: cliTestDate }, {
       model: plannerModel,
       confirmCapture: capture => reviewSpellingIntake({ capture, sourceFile: incomingFile, interactive }),
     });

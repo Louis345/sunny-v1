@@ -1,6 +1,7 @@
 import fs from "fs";
 import path from "path";
-import { generateObject } from "ai";
+import { generateObject, streamObject } from "ai";
+import { plannerTransportPolicy } from "./plannerTransport";
 import { anthropic } from "@ai-sdk/anthropic";
 import { z } from "zod";
 import type {
@@ -470,12 +471,19 @@ export async function runAiPsychologistExperiencePlanner(
 ): Promise<ActiveSessionPlan> {
   const basePlan = draftPsychologistExperiencePlan(input, opts);
   const model = resolveExperiencePlannerModel(opts);
-  const { object } = await generateObject({
+  const policy = plannerTransportPolicy(model, 8000);
+  const request = {
     model: anthropic(model),
     schema: aiPlannerDecisionSchema,
     system: "You are Sunny's AI psychologist experience planner. You synthesize chart evidence into a safe, measurable learning plan brief. You do not generate playable artifacts.",
     prompt: buildExperiencePlannerPrompt(input),
-  });
+  };
+  const object = policy.streaming
+    ? await streamObject({ ...request, maxOutputTokens: policy.maxTokens, maxRetries: 0,
+        abortSignal: AbortSignal.timeout(policy.timeout),
+        providerOptions: { anthropic: { structuredOutputMode: "outputFormat", effort: policy.effort! } },
+      }).object
+    : (await generateObject(request)).object;
   return {
     ...basePlan,
     plannerConfidence: Math.round(object.plannerConfidence * 100) / 100,

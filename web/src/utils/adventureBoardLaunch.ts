@@ -13,20 +13,172 @@ import type {
 type ActiveSessionPlan = NonNullable<ChildExperiencePacket["activeSessionPlan"]>;
 type PlannerNode = ActiveSessionPlan["nodePlan"][number];
 
+export type PlannerBoardIframeStartMessage = {
+  type: "start";
+  childName: string;
+  companionName: string;
+  config: Record<string, never>;
+};
+
+/** Only legacy reward games require a parent-frame start handshake. */
+export function buildPlannerBoardIframeStartMessage(input: {
+  nodeType: string;
+  childName: string;
+  companionName: string;
+}): PlannerBoardIframeStartMessage | null {
+  if (input.nodeType !== "mystery") return null;
+  return {
+    type: "start",
+    childName: input.childName,
+    companionName: input.companionName,
+    config: {},
+  };
+}
+
+export type HomeworkVoiceSessionStart = {
+  childId: string;
+  homeworkId: string;
+  domain: "spelling" | "science" | "reading" | "math";
+};
+
+export function resolveHomeworkVoiceAutostart(input: {
+  previousScope: string | null;
+  childId: string;
+  homeworkId: string;
+  phase: string;
+}): { scope: string; shouldStart: boolean } {
+  const scope = `${input.childId}:${input.homeworkId}`;
+  return {
+    scope,
+    shouldStart: input.phase === "picker" && input.previousScope !== scope,
+  };
+}
+
+/**
+ * Voice may join a homework session only after the browser has received one
+ * complete, canonical packet whose plan and evidence cycle name the same
+ * assignment. The child picker alone is never launch authority.
+ */
+export function resolveHomeworkVoiceSessionStart(
+  packet: ChildExperiencePacket | null,
+  loading: boolean,
+): HomeworkVoiceSessionStart | null {
+  if (loading || !packet) return null;
+  const childId = packet.childChart?.childId?.trim().toLowerCase();
+  const plan = packet.activeSessionPlan;
+  const homeworkId = plan?.activeHomeworkId?.trim();
+  const cycleHomeworkId = packet.childChart?.learningCycle?.homeworkId?.trim();
+  const lifecycle = packet.childChart?.learningCycle?.lifecycle;
+  const domain = plan?.domain;
+  const supportedDomain =
+    domain === "spelling" ||
+    domain === "science" ||
+    domain === "reading" ||
+    domain === "math";
+  const requiresCanonicalCycle = domain === "math" || domain === "spelling";
+  if (
+    !childId ||
+    !homeworkId ||
+    !plan?.adventureBoard ||
+    !supportedDomain ||
+    ["evidence_ready", "targeted_planning", "board_designing", "board_generating", "baseline_generating", "quest_generating", "boss_generating"].includes(lifecycle ?? "") ||
+    (requiresCanonicalCycle && homeworkId !== cycleHomeworkId) ||
+    (!requiresCanonicalCycle && cycleHomeworkId && homeworkId !== cycleHomeworkId)
+  ) {
+    return null;
+  }
+  return {
+    childId,
+    homeworkId,
+    domain,
+  };
+}
+
 /**
  * Discovery keeps an adventureBoard-shaped packet for server and rollback
  * compatibility, but it is a pre-board experience. The child must enter its
  * one generated evaluation directly; the targeted map does not exist yet.
  */
 export function isDirectDiscoveryPacket(packet: ChildExperiencePacket | null): boolean {
-  return Boolean(packet?.activeSessionPlan?.planId?.startsWith("discovery:"));
+  const plan = packet?.activeSessionPlan;
+  if (!plan) return false;
+  if (plan.planId?.startsWith("discovery:")) return true;
+  if (plan.planId?.startsWith("probe-board:")) return false;
+
+  const cycle = packet.childChart?.learningCycle;
+  if (
+    plan.domain !== "spelling" ||
+    !plan.planId?.startsWith("learning-cycle:") ||
+    !cycle ||
+    !["evaluation_ready", "evaluation_active"].includes(cycle.lifecycle) ||
+    cycle.homeworkId !== plan.activeHomeworkId ||
+    !packet.spellingDiscovery?.nodeId
+  ) {
+    return false;
+  }
+
+  return Boolean(plan.adventureBoard?.nodes.some((node) =>
+    node.id === packet.spellingDiscovery?.nodeId &&
+    node.action?.type === "launch-activity"));
+}
+
+/**
+ * A Probe Board is a complete, playable opening chapter. Unlike the legacy
+ * direct Discovery packet it must remain a board so the child can move through
+ * each ready Planner-authored probe while unfinished siblings remain normally locked.
+ */
+export function isProbeBoardPacket(packet: ChildExperiencePacket | null): boolean {
+  return Boolean(packet?.activeSessionPlan?.planId?.startsWith("probe-board:"));
+}
+
+export function resolveProbeBoardCompletion(
+  result: Record<string, unknown>,
+): "continue-probe" | "finish-session" {
+  return result.probeChapterComplete === true
+    ? "finish-session"
+    : "continue-probe";
+}
+
+export async function runProbeBoardCompletionHandoff(input: {
+  completion: Record<string, unknown>;
+  refresh: () => Promise<unknown>;
+  continueProbe: () => void;
+  finishSession: () => void;
+}): Promise<"continue-probe" | "finish-session"> {
+  const action = resolveProbeBoardCompletion(input.completion);
+  try {
+    await input.refresh();
+  } catch (error) {
+    console.warn(" 🎮 [adaptive-math] [probe-board-refresh] [deferred]", error);
+  }
+  if (action === "finish-session") input.finishSession();
+  else input.continueProbe();
+  return action;
 }
 
 export function hasPendingLearningGeneration(packet: ChildExperiencePacket | null, completingDiscovery: boolean): boolean {
   if (!["math", "spelling"].includes(packet?.activeSessionPlan?.domain ?? "")) return false;
-  return Boolean(packet?.activeSessionPlan?.adventureBoard?.nodes.some(node => node.state === "preview")
-    || ["evidence_ready", "targeted_planning", "board_designing", "board_generating"].includes(packet?.childChart.learningCycle?.lifecycle ?? "")
+  const nodes = packet?.activeSessionPlan?.adventureBoard?.nodes ?? [];
+  return Boolean(nodes.some(node => node.state === "preview")
+    || (isProbeBoardPacket(packet) && nodes.some(node =>
+      node.state === "locked" && node.lock?.reason === "artifact-not-ready"))
+    || ["evidence_ready", "targeted_planning", "board_designing", "board_generating", "baseline_generating", "quest_generating", "boss_generating"].includes(packet?.childChart.learningCycle?.lifecycle ?? "")
     || (isDirectDiscoveryPacket(packet) && completingDiscovery));
+}
+
+/** Keep the child off a targeted map until it contains something they can actually play. */
+export function shouldHoldTargetedBoardForPreparation(packet: ChildExperiencePacket | null): boolean {
+  if (!packet || isDirectDiscoveryPacket(packet)) return false;
+  if (!["math", "spelling"].includes(packet.activeSessionPlan?.domain ?? "")) return false;
+  const nodes = packet.activeSessionPlan?.adventureBoard?.nodes ?? [];
+  const hasPlayableActivity = nodes.some((node) =>
+    node.action?.type === "launch-activity"
+    && ["current", "available", "completed"].includes(node.state));
+  if (hasPlayableActivity) return false;
+  return nodes.some((node) =>
+    node.state === "preview"
+    || node.lock?.reason === "generation-needs-attention"
+    || node.lock?.reason === "artifact-generating");
 }
 
 export function resolveDirectDiscoverySurface(
@@ -302,14 +454,20 @@ export function resolvePlannerBoardChoiceLaunchNode(
   option: AdventureChoiceOption,
 ): NodeConfig | null {
   if (option.state === "locked" || !option.nodeId) return null;
-  const boardNode = packet.activeSessionPlan?.adventureBoard?.nodes.find(
+  const ownerBoardNode = packet.activeSessionPlan?.adventureBoard?.nodes.find(
     (node) => node.id === option.nodeId,
   );
-  if (!boardNode) return null;
-  const launchNode = resolvePlannerBoardLaunchNode(packet, boardNode, { allowLocked: true });
+  if (!ownerBoardNode) return null;
+  const launchBoardNode = option.launchNodeId
+    ? packet.activeSessionPlan?.adventureBoard?.nodes.find((node) => node.id === option.launchNodeId)
+    : ownerBoardNode;
+  if (!launchBoardNode) return null;
+  const launchNode = resolvePlannerBoardLaunchNode(packet, launchBoardNode, { allowLocked: true });
   if (!launchNode) return null;
   return {
     ...launchNode,
+    id: ownerBoardNode.id,
+    choiceSetId: ownerBoardNode.choiceSetId ?? launchNode.choiceSetId,
     ...(option.activityId ? { activityId: option.activityId } : {}),
     ...(option.gameHtmlPath ? { gameHtmlPath: option.gameHtmlPath } : {}),
     ...(option.contentId ? { contentId: option.contentId } : {}),

@@ -77,7 +77,7 @@ function relGamePath(abs: string): string {
 }
 
 function hasContractScript(html: string): boolean {
-  return /<script\s+src=["']_contract\.js["']\s*><\/script>/.test(html);
+  return /<script\s+src=["'](?:\/games\/)?_contract\.js["']\s*><\/script>/.test(html);
 }
 
 function loadSpellCheckPlanning(input: {
@@ -149,9 +149,18 @@ describe("game contract compliance (helper-based)", () => {
 
     describe(label, () => {
       let html: string;
+      let completionSource: string;
 
       beforeAll(() => {
         html = fs.readFileSync(absPath, "utf-8");
+        completionSource = html;
+        // Visual artifacts delegate completion to this loaded and mounted shell.
+        // Keep checking its real payload and call instead of exempting the game.
+        if (html.includes('<script src="/generated/openai-visual-probe/artifact-shell.js"></script>')
+          && html.includes("window.SunnyVisualLearnerArtifactShell.mount(")) {
+          completionSource += fs.readFileSync(path.join(PROJECT_ROOT,
+            "web/public/generated/openai-visual-probe/artifact-shell.js"), "utf-8");
+        }
       });
 
       it("loads the shared contract helper", () => {
@@ -159,14 +168,14 @@ describe("game contract compliance (helper-based)", () => {
       });
 
       it("uses sendNodeComplete for completion", () => {
-        expect(/sendNodeComplete\s*\(/.test(html)).toBe(true);
+        expect(/sendNodeComplete\s*\(/.test(completionSource)).toBe(true);
       });
 
       it("sends contract payload fields", () => {
-        expect(/\baccuracy\b/.test(html)).toBe(true);
-        expect(/\bflaggedWords\b/.test(html)).toBe(true);
-        expect(/\bxpEarned\b/.test(html)).toBe(true);
-        expect(/\btimeSpent_ms\b/.test(html)).toBe(true);
+        expect(/\baccuracy\b/.test(completionSource)).toBe(true);
+        expect(/\bflaggedWords\b/.test(completionSource)).toBe(true);
+        expect(/\bxpEarned\b/.test(completionSource)).toBe(true);
+        expect(/\btimeSpent_ms\b/.test(completionSource)).toBe(true);
       });
 
       it("does not use legacy node_result", () => {

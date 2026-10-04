@@ -5,6 +5,7 @@ export type CurrentBoardSnapshot = {
   childId: string;
   sessionId: string;
   nodeId?: string;
+  itemId?: string;
   activityId?: string;
   activityTitle?: string;
   learningFocus?: string;
@@ -130,6 +131,7 @@ export function buildCurrentBoardSnapshot(
 
   const stringFields: Array<[keyof CurrentBoardSnapshot, unknown]> = [
     ["nodeId", state.nodeId],
+    ["itemId", state.itemId ?? objectChallenge?.id],
     ["activityId", state.activityId],
     ["activityTitle", state.activityTitle],
     ["learningFocus", state.learningFocus],
@@ -204,6 +206,7 @@ export function buildCurrentBoardSnapshotContext(
   if (snapshot.intentPurpose) lines.push(`Activity intent: ${snapshot.intentPurpose}`);
   if (snapshot.diagnosticQuestion) lines.push(`Diagnostic question: ${snapshot.diagnosticQuestion}`);
   if (snapshot.nodeId) lines.push(`Current node: ${snapshot.nodeId}`);
+  if (snapshot.itemId) lines.push(`Current item: ${snapshot.itemId}`);
   if (snapshot.phase) lines.push(`Phase: ${snapshot.phase}`);
   lines.push(`Answer visibility: ${snapshot.answerVisibility}`);
   if (snapshot.currentTarget) lines.push(`Current target: ${snapshot.currentTarget}`);

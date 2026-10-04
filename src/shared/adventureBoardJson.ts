@@ -227,7 +227,10 @@ export interface AdventureChoiceOption {
   icon?: string;
   thumbnailUrl?: string;
   state: "available" | "locked" | "completed";
+  /** Board node whose completion this choice advances. */
   nodeId?: string;
+  /** Existing activity node that supplies the playable implementation for a wrapper choice. */
+  launchNodeId?: string;
   activityId?: string;
   gameHtmlPath?: string;
   activityConfigPath?: string;

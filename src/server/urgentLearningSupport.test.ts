@@ -204,7 +204,22 @@ describe("urgent learning support", () => {
       transcript: "three equal parts",
       presence: "collapsed",
     })).toBe(true);
-    expect(recordEvent).toHaveBeenCalledWith("transcript", "ambient_ignored", expect.any(Object));
+    expect(recordEvent).toHaveBeenCalledWith("transcript", "ambient_ignored", expect.objectContaining({
+      reason: "companion_collapsed_without_wake_phrase",
+      companionPresence: "collapsed",
+      speechCaptureArmed: false,
+    }));
+
+    expect(handleCompanionPresenceTranscript({
+      ...base,
+      transcript: "   ",
+      presence: "summoned",
+    })).toBe(true);
+    expect(recordEvent).toHaveBeenLastCalledWith("transcript", "ambient_ignored", expect.objectContaining({
+      reason: "transcript_empty_after_normalization",
+      companionPresence: "summoned",
+      speechCaptureArmed: false,
+    }));
 
     expect(handleCompanionPresenceTranscript({
       ...base,

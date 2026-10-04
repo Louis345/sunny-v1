@@ -1,3 +1,4 @@
+import {requestPlannerMessage, assertPlannerResponseComplete} from "./plannerTransport";
 import Anthropic from "@anthropic-ai/sdk";
 import fs from "fs";
 import path from "path";
@@ -209,7 +210,7 @@ export function attachSpellingDiscoveryEvidence(packet: AssignmentPlanningPacket
   const history = chart.learningHistory ? { ...chart.learningHistory, constructs: Object.fromEntries(Object.entries(chart.learningHistory.constructs).map(([id, entry]) => [id, { ...entry, observations: entry.observations.map(clean) }])) } : { childId: cycle.childId, constructs: {}, recentDecisions: [], pendingInterpretation: [] };
   return { ...packet, capturedHomework: { ...packet.capturedHomework, title: cycle.assignment.title, type: "spelling_test", words: cycle.assignment.targets, questions: [], wordGroups: [{ id: "assigned", label: "Assigned school words", purpose: "spell_from_memory", words: cycle.assignment.targets, confidence: 1, evidence: cycle.assignment.capturedEvidenceIds }], contentProfile: { ...packet.capturedHomework.contentProfile, practiceDomain: "spelling", contentDomain: "language_arts", topic: cycle.assignment.title, primarySkill: "Spell assigned words from recall" } },
     discoveryEvidence: { summary: buildDiscoveryEvidenceSummary(cycle), observations: cycle.observations.map(clean), history, diagnosticSelection: cycle.nodes.find(node => node.role === "evaluation")?.evidenceContract.diagnosticSelection },
-    plannerInstruction: `${packet.plannerInstruction}\nThis is targeted spelling planning after committed Discovery. Treat unknown, assisted, and instrument-ambiguous responses separately from spelling errors. Previous outcomes below are evidence, not permanent learning-style or preference instructions. You own practice emphasis, games, sequence, and predictions. Please concentrate practice on clean independent misses; do not spend equal practice time on words the child already demonstrated independently. If you offer child-choice practice routes, every selectable route must address every clean independent miss, either through required shared practice or within that route, so agency cannot bypass the demonstrated gap. Preserve the available spelling games and earning rules. For every node add plannedMeasurements.spelling: role (instruction, practice, fresh_checkpoint), evidenceIds, interventionNodeIds, reason, uncertainty, expectedAccuracy {min,max}, confidence, maxDelayDays, finalCheck. Cite actual observation IDs. A checkpoint follows and cites the intervention it measures. The final hidden recall check is a shared convergence after practice—not a child-choice route—and covers all assigned words, including initially secure words. Word Radar hidden_word_recall is the available capture instrument. Hearing a word is stimulus; seeing letters or help is assistance. Previously practiced words are never unseen. Predict immediate unassisted recall only, not retention, mastery, or causation. Use generationRequests only for a missing catalog capability; reuse available implementations otherwise. For letter-rush or concept-check provide the catalog's complete engine payload in node.activityConfig, with domain spelling and writesMasteryEvidence false. Its targets must exactly cover the node's assigned words; code binds their frozen identities. Concept-check selection measures recognition practice, not independent spelling recall. Academic conclusions stay in spelling; cross-domain interaction facts may inform tentative design hypotheses.`,
+    plannerInstruction: `${packet.plannerInstruction}\nThis is targeted spelling planning after committed Discovery. Separate unknown, assisted, and instrument-ambiguous responses from spelling errors. Prior outcomes are evidence, not permanent traits. You own emphasis, games, sequence, and predictions. Focus practice on clean independent misses; child-choice routes must all cover every such miss. Preserve available games and earning rules. Each node needs plannedMeasurements.spelling:{role,evidenceIds,interventionNodeIds,reason,uncertainty,expectedAccuracy:{min,max},confidence,maxDelayDays,finalCheck}; cite observations, and make checkpoints cite their intervention. The final shared hidden-recall check covers every assigned word, including initially secure words. Word Radar hidden_word_recall captures it. Hearing the word is stimulus; letters or help are assistance; practiced words are not unseen. Predict immediate unassisted recall, not retention, mastery, or causation. Reuse catalog instruments; use generationRequests only for a missing capability. Letter Rush or Concept Check needs its complete catalog activityConfig, exact node targets, domain spelling, and writesMasteryEvidence false; Concept Check is recognition practice. Visual Explainer is assisted instruction only. If selected, provide activityConfig:{schemaVersion:1,activityId:visual-explainer,domain:spelling,topic,learningGoal,misconception,strategy:{title,steps:[2-4 short steps]},words:[{id,text,chunks:[2-6 exact pieces reconstructing text],focusChunk,tip}],check:{id,targetWord,prompt,options:[{id,label,correct}],correctOptionId},evidencePolicy:{writesPracticeEvidence:true,writesMasteryEvidence:false,requiresPerTargetResult:false,allowedEvidence:[practice,companion]}}. Cover exactly the node targets, then add a fresh hidden-recall checkpoint citing the explainer. Academic conclusions stay in spelling; cross-domain interaction facts are tentative design evidence.`,
   };
 }
 
@@ -337,19 +338,61 @@ export async function planSpellingIntakeFromSource(packet: AssignmentPlanningPac
   };
   const schema = spellingIntakeSchema.extend({ sourceNotes: z.array(z.string()), uncertainty: z.array(spellingIntakeUncertaintySchema), ...(packet.spellingDiagnostics ? { diagnostic: spellingDiagnosticDecisionSchema } : {}) });
   type Receipt = { message: Anthropic.Messages.Message; latencyMs: number } | { draft: unknown; usage?: LanguageModelUsage; latencyMs: number } | { output: SpellingIntake; telemetry: AssignmentPlannerTelemetry };
-  const receive = async (): Promise<Receipt> => opts.callPlannerModel
-    ? { ...await opts.callPlannerModel(packet, model), latencyMs: Date.now() - started }
-    : { message: await requestAssignmentPlannerTool({ prompt: buildSpellingIntakePrompt(packet), model, source: packet.sourceDocument, schema: z.toJSONSchema(schema, { io: "input" }) }), latencyMs: Date.now() - started };
+  const receive = async (prompt = buildSpellingIntakePrompt(packet), requestStarted = started): Promise<Receipt> => opts.callPlannerModel
+    ? { ...await opts.callPlannerModel(packet, model), latencyMs: Date.now() - requestStarted }
+    : { message: await requestAssignmentPlannerTool({ prompt, model, source: packet.sourceDocument, schema: z.toJSONSchema(schema, { io: "input" }) }), latencyMs: Date.now() - requestStarted };
+  const unpack = (value: Receipt): { draft: unknown; usage?: LanguageModelUsage; latencyMs: number } => {
+    if ("output" in value) return { draft: value.output, usage: value.telemetry.usage, latencyMs: value.telemetry.latencyMs };
+    if ("message" in value) assertPlannerResponseComplete(value.message);
+    const tool = "message" in value ? value.message.content.find(block => block.type === "tool_use" && block.name === ASSIGNMENT_PLANNER_TOOL_NAME) : undefined;
+    return {
+      draft: "message" in value ? tool && "input" in tool ? tool.input : undefined : value.draft,
+      usage: "message" in value ? usageFromAnthropic(value.message) : value.usage,
+      latencyMs: value.latencyMs,
+    };
+  };
   // Persist the entire paid response BEFORE schema/eligibility validation. Old completed
   // capture receipts retain the same request hash and remain reusable without a call.
   const receipt = opts.providerReceipt ? await runMathProviderStage({ ...opts.providerReceipt, model, request: packet, execute: receive }) : await receive();
   if ("output" in receipt) return { ...receipt, output: parseSpellingIntake(receipt.output, packet) };
-  const tool = "message" in receipt ? receipt.message.content.find(block => block.type === "tool_use" && block.name === ASSIGNMENT_PLANNER_TOOL_NAME) : undefined;
-  const draft = "message" in receipt ? tool && "input" in tool ? tool.input : undefined : receipt.draft;
-  const usage = "message" in receipt ? usageFromAnthropic(receipt.message) : receipt.usage;
-  const output = parse(draft);
+  const original = unpack(receipt);
+  let output: SpellingIntake;
+  let usage = original.usage;
+  let latencyMs = original.latencyMs;
+  try {
+    output = parse(original.draft);
+  } catch (error) {
+    const { diagnostic: _invalidDiagnostic, ...captureFields } = original.draft && typeof original.draft === "object"
+      ? original.draft as Record<string, unknown>
+      : {};
+    const captured = spellingIntakeSchema.omit({ diagnostic: true }).safeParse(captureFields);
+    const issues = error instanceof z.ZodError ? error.issues : [];
+    if (!captured.success || issues.length === 0 || issues.some(issue => issue.path[0] !== "diagnostic")) throw error;
+    const correctionRequest = {
+      version: 1,
+      purpose: "spelling_intake_diagnostic_schema_correction",
+      originalRequestHash: hashDiscoveryContract(packet),
+      invalidDiagnostic: (original.draft as { diagnostic?: unknown })?.diagnostic,
+      schemaIssues: issues,
+    };
+    const correctionPrompt = `Your previous spelling intake preserved the assignment capture but its diagnostic object failed the declared schema. Reissue the complete response once. Preserve the title, words, page numbers, sourceNotes, and source uncertainty exactly. Correct only the diagnostic fields listed below. Do not invent evidence IDs, child facts, activities, modes, or device facts. Return every required diagnostic field, including non-empty reason, evidenceIds, uncertainty, and nextEvidenceNeeded.\nSCHEMA ISSUES:\n${JSON.stringify(issues)}\nPREVIOUS RESPONSE:\n${JSON.stringify(original.draft)}`;
+    const correctionStarted = Date.now();
+    const corrected = opts.providerReceipt ? await runMathProviderStage({
+      draftDir: opts.providerReceipt.draftDir,
+      stage: `${opts.providerReceipt.stage}-diagnostic-schema-correction-v1`,
+      model,
+      request: correctionRequest,
+      execute: () => receive(correctionPrompt, correctionStarted),
+    }) : await receive(correctionPrompt, correctionStarted);
+    const repair = unpack(corrected);
+    const repairedDiagnostic = spellingDiagnosticDecisionSchema.parse((repair.draft as { diagnostic?: unknown })?.diagnostic);
+    output = parse({ ...captured.data, diagnostic: repairedDiagnostic });
+    usage = combinePlannerUsage(original.usage, repair.usage);
+    latencyMs += repair.latencyMs;
+    console.log(" 🎮 [spelling-discovery] [diagnostic-schema-repair] [validated] attempt=2");
+  }
   console.log(` 🎮 [spelling-discovery] [diagnostic-decision] [${output.diagnostic?.action ?? "legacy-fixed-instrument"}]`);
-  return { output, telemetry: { model, usage, latencyMs: receipt.latencyMs } };
+  return { output, telemetry: { model, usage, latencyMs } };
 }
 
 export type AssignmentPlannerTelemetry = {
@@ -1597,9 +1640,9 @@ Output contract:
 - Use packet.masteryContext as the clock, deadline, and proof plan. The goal is demonstrated homework mastery by testDate, not merely completing a cute board.
 - If one node mixes targets from multiple source groups, omit targetLane or split the node. Never claim targetLane "silent_letters" for a node containing high-frequency targets.
 - Every word-radar node must include wordRadarConfig from the activity catalog capability modes. recallMode allows only visible_read, partial_visual_recall, hidden_word_recall. Never emit audio_cued_letter_recall as recallMode; cite capability ids only in rationale. If you choose the catalog's audio_cued_letter_recall capability mode, emit recallMode partial_visual_recall with audio-cued config values. Use partial_visual_recall for new/weak spelling construction, hidden_word_recall only with prior recall evidence, and visible_read for recognition/fluency. Omit wordRadarConfig on non-word-radar nodes.
-- Include the adventure spine in activeSessionPlan.nodePlan: baseline measurement nodes first, then route nodes referenced by learningRoutes, then exactly one mystery node for child choice/bandit preference evidence after evidence-generating work, then a locked quest destination for generated transfer, then a locked boss destination for the mastery finale after quest evidence.
+- Include the adventure spine in activeSessionPlan.nodePlan: baseline measurement nodes first, then route nodes referenced by learningRoutes, then exactly one mystery node for child choice/bandit preference evidence after evidence-generating work.
 - Use type/activityId "mystery", choiceMode "choice_lab", locked false, and targets from the relevant active homework targets.
-- Quest and Boss are destinations, not playable baseline nodes. Use type/activityId "quest" and "boss", locked true, masteryUnlockState "preparing"; Quest should target one exact source group if the theory is about one group, otherwise omit targetLane. Boss may have empty targets until quest evidence exists. Never invent targetLane values such as "all_homework", "mixed", or "combined".
+- Do not emit Quest or Boss nodes, locked or otherwise. They appear only on a later complete board after evidence authorizes them. Never invent targetLane values such as "all_homework", "mixed", or "combined".
 - Include parent-review language that explains why every group was routed to its activity.
 - In planTheory or reviewQuestions, explain why the journey you chose fits this child today.
 - Use the packet as the only source of assignment truth.${revisionInstruction}
@@ -1700,7 +1743,24 @@ type AssignmentPlannerRelationshipIssue =
     code: "planner_unknown_evidence_id";
     measurementId: string;
     evidenceIds: string[];
+  }
+  | {
+    code: "planner_missing_measurement";
+    nodeId: string;
+    measurementId: string;
   };
+
+class AssignmentPlannerRelationshipInvalidError extends Error {
+  readonly toolInput: AssignmentPlannerResponseObject;
+  readonly issues: AssignmentPlannerRelationshipIssue[];
+
+  constructor(toolInput: AssignmentPlannerResponseObject, issues: AssignmentPlannerRelationshipIssue[]) {
+    super(`assignment_planner_relationship_invalid:issues=${JSON.stringify(issues)}`);
+    this.name = "AssignmentPlannerRelationshipInvalidError";
+    this.toolInput = toolInput;
+    this.issues = issues;
+  }
+}
 
 function assignmentPlannerAllowedEvidenceIds(packet: AssignmentPlanningPacket): string[] {
   const ids = new Set<string>();
@@ -1720,8 +1780,12 @@ function assignmentPlannerAllowedEvidenceIds(packet: AssignmentPlanningPacket): 
  * rejects the corrected plan; this only gives the same bounded correction call
  * enough factual detail to fix relationships that JSON Schema cannot express.
  */
-function assignmentPlannerRelationshipIssues(toolInput: unknown, allowedEvidenceIds: ReadonlySet<string>): AssignmentPlannerRelationshipIssue[] {
-  const input = jsonObject(toolInput);
+function assignmentPlannerRelationshipIssues(
+  toolInput: unknown,
+  allowedEvidenceIds: ReadonlySet<string>,
+  requireSpellingMeasurements = false,
+): AssignmentPlannerRelationshipIssue[] {
+  const input = jsonObject(normalizeAssignmentPlannerToolInput(toolInput));
   const activeSessionPlan = jsonObject(input?.activeSessionPlan);
   const rawNodes = Array.isArray(activeSessionPlan?.nodePlan) ? activeSessionPlan.nodePlan : [];
   const rawMeasurements = Array.isArray(input?.plannedMeasurements) ? input.plannedMeasurements : [];
@@ -1736,6 +1800,19 @@ function assignmentPlannerRelationshipIssues(toolInput: unknown, allowedEvidence
   });
 
   const issues: AssignmentPlannerRelationshipIssue[] = [];
+  if (requireSpellingMeasurements) {
+    const measurementById = new Map(rawMeasurements.flatMap((rawMeasurement) => {
+      const measurement = jsonObject(rawMeasurement);
+      return typeof measurement?.id === "string" ? [[measurement.id, measurement] as const] : [];
+    }));
+    for (const nodeId of nodeOrder.keys()) {
+      if (gatedNodeIds.has(nodeId)) continue;
+      const measurementId = `measure-${nodeId}`;
+      if (!jsonObject(measurementById.get(measurementId)?.spelling)) {
+        issues.push({ code: "planner_missing_measurement", nodeId, measurementId });
+      }
+    }
+  }
   for (const rawMeasurement of rawMeasurements) {
     const measurement = jsonObject(rawMeasurement);
     const measurementId = typeof measurement?.id === "string" ? measurement.id : "unknown-measurement";
@@ -1767,6 +1844,16 @@ function assignmentPlannerRelationshipIssues(toolInput: unknown, allowedEvidence
     }
   }
   return issues;
+}
+
+function validateAssignmentPlannerRelationships(
+  draft: AssignmentPlannerResponseObject,
+  allowedEvidenceIds: ReadonlySet<string>,
+  requireSpellingMeasurements = false,
+): AssignmentPlannerResponseObject {
+  const issues = assignmentPlannerRelationshipIssues(draft, allowedEvidenceIds, requireSpellingMeasurements);
+  if (issues.length) throw new AssignmentPlannerRelationshipInvalidError(draft, issues);
+  return draft;
 }
 
 function fallbackPlanTheoryForToolInput(input: Record<string, unknown>): PlanTheory {
@@ -1925,8 +2012,9 @@ function normalizeAssignmentPlannerToolInput(input: unknown): unknown {
 }
 
 export function parseAssignmentPlannerToolUseResponse(
-  response: Pick<Anthropic.Messages.Message, "content">,
+  response: Pick<Anthropic.Messages.Message, "content"> & { stop_reason?: string | null },
 ): AssignmentPlannerResponseObject {
+  assertPlannerResponseComplete(response);
   const toolUse = response.content.find((block) =>
     block.type === "tool_use" &&
     "name" in block &&
@@ -2003,27 +2091,37 @@ async function callAssignmentPlannerModel(
   // before any local parser, hydration, or semantic validation can reject it.
   console.log(` 🎮 [assignment-planner] [response] [received] id=${received.message.id}`);
   const originalUsage = usageFromAnthropic(received.message);
+  const allowedEvidenceIds = assignmentPlannerAllowedEvidenceIds(packet);
+  const allowedEvidenceIdSet = new Set(allowedEvidenceIds);
+  const requireSpellingMeasurements = packet.capturedHomework.contentProfile.practiceDomain === "spelling";
   try {
-    return { draft: parseAssignmentPlannerToolUseResponse(received.message), usage: originalUsage,
+    const draft = parseAssignmentPlannerToolUseResponse(received.message);
+    return { draft: packet.discoveryEvidence ? validateAssignmentPlannerRelationships(draft, allowedEvidenceIdSet, requireSpellingMeasurements) : draft, usage: originalUsage,
       telemetry: { model: received.model, usage: originalUsage, latencyMs: received.latencyMs }, receivedAt: received.createdAt };
   } catch (error) {
-    if (!(error instanceof AssignmentPlannerToolInvalidError) || !providerReceipt || !packet.discoveryEvidence) throw error;
-    const allowedEvidenceIds = assignmentPlannerAllowedEvidenceIds(packet);
-    const relationshipIssues = assignmentPlannerRelationshipIssues(error.toolInput, new Set(allowedEvidenceIds));
+    if ((!providerReceipt || !packet.discoveryEvidence)
+      || (!(error instanceof AssignmentPlannerToolInvalidError) && !(error instanceof AssignmentPlannerRelationshipInvalidError))) throw error;
+    const schemaIssues = error instanceof AssignmentPlannerToolInvalidError ? error.issues : [];
+    const relationshipIssues = error instanceof AssignmentPlannerRelationshipInvalidError
+      ? error.issues
+      : assignmentPlannerRelationshipIssues(error.toolInput, allowedEvidenceIdSet, requireSpellingMeasurements);
     const correctionRequest = {
       version: 3,
       purpose: "assignment_planner_tool_correction",
       originalRequestHash: hashDiscoveryContract(packet),
       invalidToolInput: error.toolInput,
-      schemaIssues: error.issues,
+      schemaIssues,
       relationshipIssues,
       allowedEvidenceIds,
     };
-    const correctionPrompt = `Your previous ${ASSIGNMENT_PLANNER_TOOL_NAME} input failed its declared tool contract. Reissue the complete tool input once. Preserve every valid academic, design, node, activity, target, prediction, and evidence choice. Correct only the listed schema and relationship violations. Every spelling.evidenceIds value must come from ALLOWED EVIDENCE IDS; remove unknown IDs and never invent evidence, child facts, or new activities. Practice or instruction measurements must use interventionNodeIds: []. A fresh_checkpoint may cite only prior targeted intervention nodes. A final fresh checkpoint must cover the assigned words and all prior pending interventions. If a future gated node needs evidenceIds, cite the current observations that motivated including that node.\nSCHEMA ISSUES:\n${JSON.stringify(error.issues)}\nRELATIONSHIP ISSUES:\n${JSON.stringify(relationshipIssues)}\nALLOWED EVIDENCE IDS:\n${JSON.stringify(allowedEvidenceIds)}\nPREVIOUS TOOL INPUT:\n${JSON.stringify(error.toolInput)}`;
+    const correctionPrompt = `Your previous ${ASSIGNMENT_PLANNER_TOOL_NAME} input failed its declared tool contract. Reissue the complete tool input once. Preserve every valid academic, design, node, activity, target, prediction, and evidence choice. Correct only the listed schema and relationship violations. Every spelling.evidenceIds value must come from ALLOWED EVIDENCE IDS; remove unknown IDs and never invent evidence, child facts, or new activities. Practice or instruction measurements must use interventionNodeIds: []. A fresh_checkpoint may cite only prior targeted intervention nodes. A final fresh checkpoint must cover the assigned words and all prior pending interventions. If a future gated node needs evidenceIds, cite the current observations that motivated including that node.\nSCHEMA ISSUES:\n${JSON.stringify(schemaIssues)}\nRELATIONSHIP ISSUES:\n${JSON.stringify(relationshipIssues)}\nALLOWED EVIDENCE IDS:\n${JSON.stringify(allowedEvidenceIds)}\nPREVIOUS TOOL INPUT:\n${JSON.stringify(error.toolInput)}`;
     const correctionStarted = Date.now();
+    const correctionStage = relationshipIssues.some((issue) => issue.code === "planner_missing_measurement")
+      ? `${providerReceipt.stage}-tool-correction-v3-2-missing-measurement`
+      : `${providerReceipt.stage}-tool-correction-v3-1`;
     const correction = await runMathProviderStage({
       draftDir: providerReceipt.draftDir,
-      stage: `${providerReceipt.stage}-tool-correction-v3-1`,
+      stage: correctionStage,
       model,
       request: correctionRequest,
       beforeRequest: () => {
@@ -2042,16 +2140,66 @@ async function callAssignmentPlannerModel(
     });
     console.log(` 🎮 [assignment-planner] [tool-correction] [received] id=${correction.message.id}`);
     const correctionUsage = usageFromAnthropic(correction.message);
-    const combinedUsage = combinePlannerUsage(originalUsage, correctionUsage);
+    let combinedUsage = combinePlannerUsage(originalUsage, correctionUsage);
+    const correctedDraft = parseAssignmentPlannerToolUseResponse(correction.message);
+    let validatedDraft: AssignmentPlannerResponseObject;
+    let finalReceivedAt = correction.createdAt;
+    let totalLatencyMs = received.latencyMs + correction.latencyMs;
+    try {
+      validatedDraft = validateAssignmentPlannerRelationships(correctedDraft, allowedEvidenceIdSet, requireSpellingMeasurements);
+    } catch (correctionError) {
+      const missingOnly = correctionError instanceof AssignmentPlannerRelationshipInvalidError
+        && correctionError.issues.length > 0
+        && correctionError.issues.every((issue) => issue.code === "planner_missing_measurement");
+      if (!missingOnly || correctionStage.endsWith("v3-2-missing-measurement")) throw correctionError;
+      const measurementRequest = {
+        version: 4,
+        purpose: "assignment_planner_missing_measurement_correction",
+        originalRequestHash: hashDiscoveryContract(packet),
+        invalidToolInput: correctionError.toolInput,
+        relationshipIssues: correctionError.issues,
+        allowedEvidenceIds,
+      };
+      const measurementPrompt = `Your corrected ${ASSIGNMENT_PLANNER_TOOL_NAME} input still omitted required node measurements. Reissue the complete tool input once. Preserve every node, activity, target, route, prediction, and valid measurement exactly. Add only the listed missing plannedMeasurements entries. Each id must equal measure-<node id>; spelling.evidenceIds must come from ALLOWED EVIDENCE IDS; instruction or practice uses interventionNodeIds: []. Do not add, remove, reorder, or redesign nodes.\nMISSING MEASUREMENTS:\n${JSON.stringify(correctionError.issues)}\nALLOWED EVIDENCE IDS:\n${JSON.stringify(allowedEvidenceIds)}\nPREVIOUS CORRECTED TOOL INPUT:\n${JSON.stringify(correctionError.toolInput)}`;
+      const measurementStarted = Date.now();
+      const measurementCorrection = await runMathProviderStage({
+        draftDir: providerReceipt.draftDir,
+        stage: `${providerReceipt.stage}-tool-correction-v3-2-missing-measurement`,
+        model,
+        request: measurementRequest,
+        beforeRequest: () => {
+          if (!process.env.ANTHROPIC_API_KEY) throw new Error("assignment_planner_ai_unavailable:ANTHROPIC_API_KEY");
+        },
+        execute: async () => ({
+          message: await requestAssignmentPlannerTool({
+            prompt: measurementPrompt,
+            model,
+            schema: assignmentPlannerToolJsonSchema(true, packet.activityCatalog),
+          }),
+          model,
+          latencyMs: Date.now() - measurementStarted,
+          createdAt: new Date().toISOString(),
+        }),
+      });
+      console.log(` 🎮 [assignment-planner] [measurement-correction] [received] id=${measurementCorrection.message.id}`);
+      validatedDraft = validateAssignmentPlannerRelationships(
+        parseAssignmentPlannerToolUseResponse(measurementCorrection.message),
+        allowedEvidenceIdSet,
+        requireSpellingMeasurements,
+      );
+      combinedUsage = combinePlannerUsage(combinedUsage, usageFromAnthropic(measurementCorrection.message));
+      totalLatencyMs += measurementCorrection.latencyMs;
+      finalReceivedAt = measurementCorrection.createdAt;
+    }
     return {
-      draft: parseAssignmentPlannerToolUseResponse(correction.message),
+      draft: validatedDraft,
       usage: combinedUsage,
       telemetry: {
         model: correction.model,
         usage: combinedUsage,
-        latencyMs: received.latencyMs + correction.latencyMs,
+        latencyMs: totalLatencyMs,
       },
-      receivedAt: correction.createdAt,
+      receivedAt: finalReceivedAt,
     };
   }
 }
@@ -2104,11 +2252,10 @@ type AssignmentPlannerToolRequest = {
 async function requestAssignmentPlannerTool(args: AssignmentPlannerToolRequest): Promise<Anthropic.Messages.Message> {
   const client = new Anthropic({ maxRetries: 0 });
   const timeoutMs = Math.max(10_000, Number(process.env.SUNNY_AI_TIMEOUT_MS ?? 120_000));
-  const signal = AbortSignal.timeout(timeoutMs);
-  return client.messages.create({
+  return requestPlannerMessage(client, {
     model: args.model,
     max_tokens: Math.max(8_000, Number(process.env.SUNNY_PLANNER_MAX_TOKENS ?? ASSIGNMENT_PLANNER_MAX_TOKENS)),
-    system: ASSIGNMENT_PLANNER_PERSONA,
+    system: `${ASSIGNMENT_PLANNER_PERSONA}\nCall ${ASSIGNMENT_PLANNER_TOOL_NAME} exactly once to submit the complete plan matching its schema.`,
     tools: [{
       name: ASSIGNMENT_PLANNER_TOOL_NAME,
       description: "Write Sunny's captured homework interpretation, active intervention node plan, measurements, and mastery theory. Populate every tool field directly as its declared object or array type. Never serialize the plan or any tool field into a JSON string.",
@@ -2129,7 +2276,7 @@ async function requestAssignmentPlannerTool(args: AssignmentPlannerToolRequest):
         { type: "text" as const, text: args.prompt },
       ],
     }],
-  }, { signal });
+  }, { timeout: timeoutMs });
 }
 
 export function hydrateAssignmentPlannerOutputFromDraft(
@@ -2187,7 +2334,7 @@ export function hydrateAssignmentPlannerOutputFromDraft(
   const sourceWordGroups = capturedContent.assignmentInterpretation?.wordGroups
     ?? packet.capturedHomework.wordGroups
     ?? [];
-  const enrichedActiveSessionPlan = demoteDuplicateDestinations(defaultTargetLaneFromSingleGroup(
+  const enrichedActiveSessionPlan = removeUnauthorizedDestinations(defaultTargetLaneFromSingleGroup(
     capturedContent.contentProfile.practiceDomain === "math"
       ? enrichMathPlannerDraft({
           draft: draft.activeSessionPlan,
@@ -2229,40 +2376,41 @@ export function hydrateAssignmentPlannerOutputFromDraft(
   };
 }
 
+function isExplicitUnusedPlannerPlaceholder(node: PlannerDraftNode): boolean {
+  if (node.targets.length > 0) return false;
+  const title = node.title?.trim().toLowerCase();
+  const targetLane = node.targetLane?.trim().toLowerCase();
+  return title === "placeholder-unused" || targetLane === "unused";
+}
+
 /**
- * The planner contract allows exactly one quest and one boss destination, but
- * the LLM occasionally types an evidence route node "quest"; the board would
- * then promote that route node to the destination and drop the real quest.
- * Keep the last quest/boss-typed node (the planner is instructed to place
- * destinations at the end of the spine) and demote earlier duplicates to
- * generated-baseline evidence nodes.
+ * An initial board never carries Quest or Boss: those encounters appear only on
+ * a later successor board that evidence authorized (contract 21). An explicit
+ * unused placeholder is also not a child activity. Remove either instead of
+ * rendering model scaffolding as a locked or playable node.
  */
-function demoteDuplicateDestinations(plan: PlannerDraftPlan): PlannerDraftPlan {
-  const demoted: string[] = [];
-  const nextNodePlan = [...plan.nodePlan];
-  for (const destination of ["quest", "boss"] as const) {
-    const indexes = nextNodePlan
-      .map((node, index) => (node.activityId === destination || node.type === destination ? index : -1))
-      .filter((index) => index >= 0);
-    for (const index of indexes.slice(0, -1)) {
-      const node = nextNodePlan[index]!;
-      nextNodePlan[index] = {
-        ...node,
-        type: "generated-baseline" as PlannerDraftNode["type"],
-        activityId: "generated-baseline" as PlannerDraftNode["activityId"],
-        locked: false,
-        masteryUnlockState: undefined,
-      };
-      demoted.push(`${node.id} (${destination})`);
-    }
+function removeUnauthorizedDestinations(plan: PlannerDraftPlan): PlannerDraftPlan {
+  const isDestination = (node: PlannerDraftNode) =>
+    node.activityId === "quest" || node.activityId === "boss" || node.type === "quest" || node.type === "boss";
+  const destinations = plan.nodePlan.filter(isDestination).map((node) => node.id);
+  const placeholders = plan.nodePlan.filter(isExplicitUnusedPlannerPlaceholder).map((node) => node.id);
+  const removed = new Set([...destinations, ...placeholders]);
+  if (removed.size === 0) return plan;
+  const warnings = [
+    ...(destinations.length > 0
+      ? [`planner_unauthorized_destination_removed: ${destinations.join(", ")}`]
+      : []),
+    ...(placeholders.length > 0
+      ? [`planner_unused_placeholder_removed: ${placeholders.join(", ")}`]
+      : []),
+  ];
+  for (const warning of warnings) {
+    console.log(`  🎮 [assignment-planner] [node-removed] ${warning}`);
   }
-  if (demoted.length === 0) return plan;
-  const warning = `planner_duplicate_destination_demoted: ${demoted.join(", ")} retyped to generated-baseline; only the final quest/boss stay destinations.`;
-  console.log(`  🎮 [assignment-planner] [destination-warning] ${warning}`);
   return {
     ...plan,
-    nodePlan: nextNodePlan,
-    openQuestions: [...(plan.openQuestions ?? []), warning],
+    nodePlan: plan.nodePlan.filter((node) => !removed.has(node.id)),
+    openQuestions: [...(plan.openQuestions ?? []), ...warnings],
   };
 }
 
@@ -2633,8 +2781,6 @@ export function enrichMathPlannerDraft(args: {
     routeExclusiveB.difficulty = 2;
   }
   const existingMystery = args.draft.nodePlan.find((node) => node.activityId === "mystery");
-  const existingQuest = args.draft.nodePlan.find((node) => node.activityId === "quest");
-  const existingBoss = args.draft.nodePlan.find((node) => node.activityId === "boss");
 
   const mystery: PlannerDraftNode = existingMystery ?? {
     id: "node-mystery",
@@ -2646,32 +2792,9 @@ export function enrichMathPlannerDraft(args: {
     locked: false,
     masteryUnlockState: "preparing",
   };
-  const quest: PlannerDraftNode = {
-    ...(existingQuest ?? {
-      id: "node-quest",
-      type: "quest",
-      activityId: "quest",
-      targets: allTargets.slice(0, 3),
-      difficulty: 2,
-    }),
-    locked: true,
-    masteryUnlockState: "preparing",
-  };
-  const boss: PlannerDraftNode = {
-    ...(existingBoss ?? {
-      id: "node-boss",
-      type: "boss",
-      activityId: "boss",
-      targets: [],
-      difficulty: 3,
-    }),
-    locked: true,
-    masteryUnlockState: "preparing",
-  };
-
   const nodePlan = multiplicationExperiment
-    ? [routeExclusiveA, routeExclusiveB, mystery, quest, boss]
-    : [...baselineNodes.slice(0, 3), routeExclusiveA, routeExclusiveB, mystery, quest, boss];
+    ? [routeExclusiveA, routeExclusiveB, mystery]
+    : [...baselineNodes.slice(0, 3), routeExclusiveA, routeExclusiveB, mystery];
 
   return {
     ...args.draft,
@@ -2686,8 +2809,6 @@ export function enrichMathPlannerDraft(args: {
         nodeIds: [
           routeExclusiveA.id,
           mystery.id,
-          quest.id,
-          boss.id,
         ],
       },
       {
@@ -2699,8 +2820,6 @@ export function enrichMathPlannerDraft(args: {
         nodeIds: [
           routeExclusiveB.id,
           mystery.id,
-          quest.id,
-          boss.id,
         ],
       },
     ],
@@ -2864,15 +2983,9 @@ function hydrateGeneratedExperienceBriefs(
   packet: AssignmentPlanningPacket,
 ): GeneratedExperienceBrief[] | undefined {
   const fallbackEvidence = defaultBriefEvidenceFromPacket(packet);
-  const sourceBriefs = briefs?.length
-    ? briefs
-    : [{
-        kind: "quest" as const,
-        title: `Quest: ${packet.capturedHomework.title || "Apply captured homework"}`,
-        learningGoal: "Transfer captured worksheet concepts with evidence-backed challenge design.",
-        targetWords: packet.capturedHomework.words.slice(0, 6),
-        evidenceUsed: fallbackEvidence,
-      }];
+  // Quest and Boss are never briefed before evidence authorizes them (contract 21).
+  const sourceBriefs = (briefs ?? []).filter((brief) => brief.kind !== "quest" && brief.kind !== "boss");
+  if (sourceBriefs.length === 0) return undefined;
 
   return sourceBriefs.map((brief, index) => ({
     briefId: `${packet.childId}-${brief.kind}-${index + 1}`,

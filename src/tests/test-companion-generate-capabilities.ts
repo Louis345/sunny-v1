@@ -9,9 +9,16 @@ describe("generateCompanionCapabilities (COMPANION-API-005)", () => {
     const md = generateCompanionCapabilities(0.5);
     expect(md).toContain("### emote");
     expect(md).toContain("### camera");
+    expect(md).toContain("### show_level_path");
     expect(md).toContain("companionAct");
     expect(md).not.toContain("### animate");
     expect(md).not.toContain("### move");
+  });
+
+  it("tells Elli that the level path is child-invoked", () => {
+    const md = generateCompanionCapabilities(0.5);
+    expect(md).toMatch(/show_level_path[\s\S]*child asks/i);
+    expect(md).toMatch(/show_level_path[\s\S]*never open it proactively/i);
   });
 
   it("includes phase 1 capabilities when maxPhase is 1", () => {

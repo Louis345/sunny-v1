@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import {
   collectSessionLogFiles,
   copySessionLogsToRepo,
+  resolveSessionLogSourceRoot,
   resolveExpiredUploadedLocalPaths,
   resolveUploadedLocalPaths,
   uploadedStatusIsVerified,
@@ -15,6 +16,18 @@ function makeTempDir(): string {
 }
 
 describe("uploadSessionLogs", () => {
+  it("uses the isolated session-log root supplied by the running Sunny workflow", () => {
+    expect(
+      resolveSessionLogSourceRoot("/tmp/sunny", {
+        SUNNY_SESSION_LOG_ROOT: "./isolated/run-42/logs/sessions",
+      }),
+    ).toBe(path.resolve("/tmp/sunny", "isolated/run-42/logs/sessions"));
+
+    expect(resolveSessionLogSourceRoot("/tmp/sunny", {})).toBe(
+      path.resolve("/tmp/sunny", "logs/sessions"),
+    );
+  });
+
   it("copies packet logs and legacy daily server logs into separate repo folders", () => {
     const root = makeTempDir();
     const source = path.join(root, "source");

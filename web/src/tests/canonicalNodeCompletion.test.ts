@@ -16,8 +16,8 @@ describe("canonical node completion handoff", () => {
   it("sends native recall attempts with the same required factual envelope as generated activities", async () => {
     const fetch = vi.fn(async (_url: string, _request: RequestInit) => ({ ok: true, json: async () => ({ ok: true }) }));
     vi.stubGlobal("fetch", fetch);
-    await postDiscoveryAttempt({ childId: "lab", homeworkId: "hw", attempt: { itemId: "frozen", attemptId: "once", attemptedValue: "nite", observedAt: "2026-09-08T12:00:00Z" } });
-    expect(JSON.parse(String(fetch.mock.calls[0][1].body))).toMatchObject({ itemId: "frozen", supportEventIds: [], instrumentSignals: [] });
+    await postDiscoveryAttempt({ childId: "lab", homeworkId: "hw", sessionId: "voice-session-1", attempt: { itemId: "frozen", attemptId: "once", attemptedValue: "nite", observedAt: "2026-09-08T12:00:00Z" } });
+    expect(JSON.parse(String(fetch.mock.calls[0][1].body))).toMatchObject({ itemId: "frozen", sessionId: "voice-session-1", supportEventIds: [], instrumentSignals: [] });
   });
   it("flushes a pause without completing or sealing the evaluation", async () => {
     const coordinator = new DiscoveryAcademicCompletionCoordinator();
@@ -178,14 +178,15 @@ describe("canonical node completion handoff", () => {
   });
 
   it("posts Discovery facts and completion to the assignment endpoints", async () => {
-    const fetchMock = vi.fn(async (_url: string) => new Response(JSON.stringify({ ok: true }), { status: 200, headers: { "Content-Type": "application/json" } }));
+    const fetchMock = vi.fn(async (_url: string, _init?: RequestInit) => new Response(JSON.stringify({ ok: true }), { status: 200, headers: { "Content-Type": "application/json" } }));
     vi.stubGlobal("fetch", fetchMock);
     await postDiscoveryAttempt({ childId: "reina", homeworkId: "hw-1", attempt: { attemptId: "a1" } });
-    await postDiscoveryComplete({ childId: "reina", homeworkId: "hw-1" });
+    await postDiscoveryComplete({ childId: "reina", homeworkId: "hw-1", nodeId: "probe-groups" });
     expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
       "/api/learning/reina/assignments/hw-1/discovery/attempt",
       "/api/learning/reina/assignments/hw-1/discovery/complete",
     ]);
+    expect(JSON.parse((fetchMock.mock.calls[1]?.[1] as RequestInit).body as string)).toEqual({ nodeId: "probe-groups" });
   });
 
   it("posts the actual node identity and completion payload before showing post-activity UI", async () => {

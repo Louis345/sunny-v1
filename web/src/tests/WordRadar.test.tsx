@@ -56,6 +56,15 @@ describe("WordRadar", () => {
     cleanup();
   });
 
+  it("reports a captured practice answer without entering assessment mode", async () => {
+    const onAssessmentAttempt=vi.fn();
+    const {props,rerender}=renderRadar({practiceCapture:true,onAssessmentAttempt,items:[{itemId:"i1",display:"sun",acceptedResponses:["sun"]}]});
+    await startRadar();
+    rerender(<WordRadar {...props} interimTranscript="sun" />);
+    await act(async()=>{await Promise.resolve();});
+    expect(onAssessmentAttempt).toHaveBeenCalledWith(expect.objectContaining({itemIndex:0,attemptedValue:"sun",skipped:false}));
+  });
+
   it("autoStart=true skips intro and moves to flash without a button click", async () => {
     renderRadar({ autoStart: true });
     await act(async () => {
@@ -350,6 +359,9 @@ describe("WordRadar", () => {
     expect(
       screen.getByTestId("word-radar-starfield").querySelectorAll(".wr-star"),
     ).toHaveLength(55);
+    const shootingStars = screen.getAllByTestId("word-radar-shooting-star");
+    expect(shootingStars).toHaveLength(4);
+    expect(shootingStars.map((star) => star.style.top)).toEqual(["4%", "8%", "12%", "16%"]);
   });
 
   it("renders intro then flash for 1500ms then transitions to response", async () => {
@@ -399,6 +411,8 @@ describe("WordRadar", () => {
   it("progress dots count matches items.length", () => {
     renderRadar();
     expect(screen.getAllByTestId("word-radar-progress-dot")).toHaveLength(2);
+    expect(screen.getAllByTestId("word-radar-progress-dot")[0]).toHaveAttribute("data-current", "true");
+    expect(screen.getByTestId("word-radar-progress-label")).toHaveTextContent("Word 1 of 2");
   });
 
   it("visually separates bonus review words from regular homework words", async () => {
@@ -531,6 +545,34 @@ describe("WordRadar", () => {
     expect(narrationCalls).toHaveLength(1);
   });
 
+  it("keeps Hear disabled through the child-visible playback window", async () => {
+    // Human catch: Reina heard the opening word twice after tapping while waiting.
+    // Logs caught two successful TTS calls but did not identify the second tap as
+    // accidental. The lab only double-clicked synchronously, so its 900ms debounce
+    // test missed a realistic second tap just over one second later.
+    const sendMessage = vi.fn();
+    renderRadar({ timerSeconds: 10, sendMessage, childId: "reina" });
+    await startRadar();
+
+    const hear = screen.getByTestId("word-radar-mic");
+    fireEvent.click(hear);
+    expect(hear).toBeDisabled();
+    expect(hear).toHaveTextContent("Playing…");
+
+    await act(async () => {
+      vi.advanceTimersByTime(1_100);
+    });
+    fireEvent.click(hear);
+
+    expect(gameEventPayloads(sendMessage, "narration_request")).toHaveLength(1);
+
+    await act(async () => {
+      vi.advanceTimersByTime(2_000);
+    });
+    expect(hear).not.toBeDisabled();
+    expect(hear).toHaveTextContent("Hear again");
+  });
+
   it("does not automatically request word audio during hidden visual recall", async () => {
     const sendMessage = vi.fn();
     renderRadar({
@@ -552,10 +594,15 @@ describe("WordRadar", () => {
     );
   });
 
-  it("option-b listen flash waits for explicit hear click instead of auto narration", async () => {
+  it("binds the first hidden word before one Hear tap requests its audio", async () => {
+    // Human catch: the child tapped Hear but heard nothing because autoplay raced item binding.
+    // Log miss: the rejected automatic request looked like a provider/audio failure.
+    // Lab miss: the test expected autoplay, which browsers may block before a child gesture.
     const sendMessage = vi.fn();
     renderRadar({
+      items: [{ ...sampleItems[0]!, itemId: "homework:discovery:item-1" }],
       autoStart: true,
+      assessmentMode: true,
       recallMode: "hidden_word_recall",
       speakStyle: "option-b",
       sendMessage,
@@ -573,12 +620,35 @@ describe("WordRadar", () => {
       );
 
     expect(narrationCalls()).toHaveLength(0);
+    fireEvent.click(screen.getByRole("button", { name: "Hear the word" }));
+
+    expect(narrationCalls()).toEqual([
+      expect.arrayContaining([
+        "game_event",
+        expect.objectContaining({
+          event: expect.objectContaining({
+            type: "narration_request",
+            payload: expect.objectContaining({
+              word: "sun",
+              reason: "word_radar_mic_click",
+            }),
+          }),
+        }),
+      ]),
+    ]);
+
+    const eventTypes = sendMessage.mock.calls
+      .filter(([type]) => type === "game_event")
+      .map(([, payload]) => (payload as { event?: { type?: string; payload?: { progress?: string } } }).event)
+      .filter(event => event?.type === "narration_request" || event?.payload?.progress === "Word Radar target state.")
+      .map(event => event?.type);
+    expect(eventTypes).toEqual(["game_state_update", "narration_request"]);
 
     await act(async () => {
       vi.advanceTimersByTime(1500);
     });
 
-    expect(narrationCalls()).toHaveLength(0);
+    expect(narrationCalls()).toHaveLength(1);
   });
 
   it("microphone click plays current word audio in Storybook local preview", async () => {

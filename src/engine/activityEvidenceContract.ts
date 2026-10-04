@@ -72,6 +72,19 @@ const DEFAULT_MODE = "default";
 
 export const ACTIVITY_EVIDENCE_CONTRACTS: ActivityEvidenceContract[] = [
   {
+    activityId: "visual-explainer",
+    modeId: DEFAULT_MODE,
+    evidenceRole: "orthographic_strategy",
+    proofStrength: "practice",
+    bestFor: ["model spelling chunks before recall"],
+    weakFor: ["independent spelling recall", "mastery gating"],
+    contaminationRisks: ["visible-answer", "model-answer", "companion-coaching"],
+    requiresPerTargetEvidence: false,
+    requiresCapturedResponse: true,
+    masteryEligible: false,
+    notes: ["Assisted teaching only; a later hidden-word checkpoint supplies independent evidence."],
+  },
+  {
     activityId: "spelling-recall",
     modeId: DEFAULT_MODE,
     evidenceRole: "clean_spelling_recall",

@@ -1,4 +1,5 @@
 import { beforeEach, describe, it, expect } from "vitest";
+import { useSyntheticProfileContext } from "./fixtures/syntheticProfileContext";
 import { ELLI, MATILDA } from "../companions/loader";
 import { buildProfile } from "../profiles/buildProfile";
 import { clearChildrenConfigCache } from "../profiles/childrenConfig";
@@ -22,6 +23,8 @@ const TRIGGERS: CompanionTrigger[] = [
   "session_end",
   "idle_too_long",
 ];
+
+useSyntheticProfileContext();
 
 function assertCompanionConfigShape(c: CompanionConfig): void {
   expect(typeof c.companionId).toBe("string");

@@ -527,7 +527,9 @@ function sessionPromptCapabilitiesTail(subject: SessionSubject): string {
       adaptiveMicroProbeInstructions() +
       "\n\n" +
       "## Your tools\n" +
-      generateAdventureMapVoiceToolDocs()
+      generateAdventureMapVoiceToolDocs() +
+      "\n\n" +
+      generateCompanionCapabilities(0.5, ["show_level_path"])
     );
   }
   return (

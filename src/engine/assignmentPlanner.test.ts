@@ -661,6 +661,8 @@ describe("assignment planner", () => {
     expect(JSON.stringify(packet)).not.toContain("rewardWrapper");
     expect(packet.activityCatalog.some((card) => card.activityId === "word-builder")).toBe(true);
     expect(packet.activityCatalog.some((card) => card.activityId === "wordle")).toBe(true);
+    expect(packet.activityCatalog.some((card) => card.activityId === "visual-explainer")).toBe(true);
+    expect(packet.activityCatalog.some((card) => card.activityId === "generated-baseline")).toBe(false);
     expect(packet.activityCatalog.length).toBeLessThanOrEqual(16);
     expect(packet.activityCatalog.every((card) => card.sentToPlanner)).toBe(true);
     expect(Buffer.byteLength(JSON.stringify(packet))).toBeLessThan(30_000);
@@ -737,7 +739,7 @@ describe("assignment planner", () => {
 
     expect(activityIds).toEqual(expect.arrayContaining(["spell-check", "word-radar", "pronunciation"]));
     expect(activityIds).not.toContain("concept-check");
-    expect(activityIds).not.toContain("visual-explainer");
+    expect(activityIds).toContain("visual-explainer");
     expect(Buffer.byteLength(JSON.stringify(packet))).toBeLessThan(30_000);
   });
 
@@ -1094,9 +1096,9 @@ describe("assignment planner", () => {
       "baseline-radar",
       "baseline-spell",
       "mystery-choice",
-      "quest-transfer",
-      "boss-mastery",
     ]));
+    // Contract 21: Planner-emitted Quest/Boss never reach an opening board.
+    expect(board.nodes.some((node) => node.kind === "quest" || node.kind === "boss")).toBe(false);
   });
 
   it("constrains planner nodePlan entries to real interventions, not presentation-only choice nodes", () => {
@@ -1171,7 +1173,8 @@ describe("assignment planner", () => {
       }),
       expect.objectContaining({
         label: "Speed Challenge",
-        nodeId: "baseline-radar",
+        nodeId: "mystery-choice",
+        launchNodeId: "baseline-radar",
         choiceSignal: expect.objectContaining({
           preferenceNotMastery: true,
           traits: expect.arrayContaining(["speed"]),
@@ -2404,7 +2407,7 @@ describe("generation requests and planner rounds", () => {
     expect(parsed.generationRequests).toEqual([]);
   });
 
-  it("demotes an earlier quest-typed route node so only the final quest stays a destination", () => {
+  it("removes every Planner-emitted Quest or Boss from an opening board (contract 21)", () => {
     const draft = draftWithGeneratedNode({
       extraNodes: [{
         id: "route-quest-prep",
@@ -2418,13 +2421,35 @@ describe("generation requests and planner rounds", () => {
     });
 
     const parsed = hydrateAssignmentPlannerOutputFromDraft(draft, packet());
-    const questNodes = parsed.activeSessionPlan.nodePlan.filter((entry) => entry.activityId === "quest");
-    const demoted = parsed.activeSessionPlan.nodePlan.find((entry) => entry.id === "route-quest-prep");
+    const destinations = parsed.activeSessionPlan.nodePlan.filter((entry) =>
+      ["quest", "boss"].includes(entry.activityId ?? "") || ["quest", "boss"].includes(entry.type));
 
-    expect(questNodes.map((entry) => entry.id)).toEqual(["quest-transfer"]);
-    expect(demoted?.activityId).toBe("generated-baseline");
-    expect(demoted?.locked).toBe(false);
-    expect(parsed.activeSessionPlan.openQuestions.join(" ")).toContain("planner_duplicate_destination_demoted");
+    expect(destinations).toEqual([]);
+    expect(parsed.activeSessionPlan.openQuestions.join(" ")).toContain("planner_unauthorized_destination_removed");
+    expect(parsed.activeSessionPlan.openQuestions.join(" ")).toContain("route-quest-prep");
+  });
+
+  it("removes an explicitly unused Planner placeholder before publishing the board", () => {
+    // A live Reina board exposed a model-authored `placeholder-unused` mystery as
+    // a playable node. Logs only proved it was Ready; the lab never asserted that
+    // an explicit non-node was absent from the child-facing plan.
+    const draft = draftWithGeneratedNode({
+      extraNodes: [{
+        id: "node-unused",
+        title: "placeholder-unused",
+        type: "mystery",
+        activityId: "mystery",
+        targets: [],
+        difficulty: 1,
+        targetLane: "unused",
+        locked: true,
+      }],
+    });
+
+    const parsed = hydrateAssignmentPlannerOutputFromDraft(draft, packet());
+
+    expect(parsed.activeSessionPlan.nodePlan.some((node) => node.id === "node-unused")).toBe(false);
+    expect(parsed.activeSessionPlan.openQuestions.join(" ")).toContain("planner_unused_placeholder_removed");
   });
 
   it("keeps old drafts without generationRequests or rounds valid", () => {

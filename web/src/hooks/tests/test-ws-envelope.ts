@@ -10,11 +10,17 @@ import { useAdventureState } from "../useAdventureState";
 
 const OPEN = 1;
 const CONNECTING = 0;
+let playbackStart: ReturnType<typeof vi.fn>;
 
 describe("WS envelope vs canvas payload type", () => {
   let wsInstances: MockWebSocket[];
   let OriginalWebSocket: typeof WebSocket;
   let OriginalAudioContext: typeof AudioContext;
+  let micProcessor: {
+    connect: ReturnType<typeof vi.fn>;
+    disconnect: ReturnType<typeof vi.fn>;
+    onaudioprocess: ((event: AudioProcessingEvent) => void) | null;
+  } | null;
 
   class MockWebSocket {
     static OPEN = OPEN;
@@ -22,8 +28,13 @@ describe("WS envelope vs canvas payload type", () => {
     readyState = CONNECTING;
     onopen: (() => void) | null = null;
     onmessage: ((ev: MessageEvent) => void) | null = null;
+    onerror: (() => void) | null = null;
+    onclose: (() => void) | null = null;
     send = vi.fn();
-    close = vi.fn();
+    close = vi.fn(() => {
+      this.readyState = 3;
+      queueMicrotask(() => this.onclose?.());
+    });
 
     constructor(_url: string) {
       wsInstances.push(this);
@@ -36,6 +47,8 @@ describe("WS envelope vs canvas payload type", () => {
 
   beforeEach(() => {
     wsInstances = [];
+    micProcessor = null;
+    playbackStart = vi.fn();
     OriginalWebSocket = globalThis.WebSocket;
     OriginalAudioContext = globalThis.AudioContext;
 
@@ -47,11 +60,12 @@ describe("WS envelope vs canvas payload type", () => {
         return { connect: vi.fn() };
       }
       createScriptProcessor() {
-        return {
+        micProcessor = {
           connect: vi.fn(),
           disconnect: vi.fn(),
           onaudioprocess: null,
         };
+        return micProcessor;
       }
       createGain() {
         return {
@@ -73,7 +87,7 @@ describe("WS envelope vs canvas payload type", () => {
         const src = {
           buffer: null as AudioBuffer | null,
           connect: () => src as unknown as AudioNode,
-          start: vi.fn(),
+          start: playbackStart,
           stop: vi.fn(),
           onended: null as (() => void) | null,
         };
@@ -88,7 +102,7 @@ describe("WS envelope vs canvas payload type", () => {
         } as unknown as AudioBuffer;
       }
       resume = vi.fn(() => Promise.resolve());
-      close = vi.fn();
+      close = vi.fn(() => Promise.resolve());
     }
 
     globalThis.AudioContext = TestAudioContext as unknown as typeof AudioContext;
@@ -98,7 +112,12 @@ describe("WS envelope vs canvas payload type", () => {
       writable: true,
       value: {
         getUserMedia: vi.fn().mockResolvedValue({
-          getAudioTracks: () => [{ enabled: true, stop: vi.fn() }],
+          getAudioTracks: () => [{
+            enabled: true,
+            stop: vi.fn(),
+            label: "BlackHole 2ch",
+            getSettings: () => ({ deviceId: "virtual-input" }),
+          }],
           getTracks: () => [{ stop: vi.fn() }],
         } as unknown as MediaStream),
       },
@@ -134,6 +153,116 @@ describe("WS envelope vs canvas payload type", () => {
     expect(result.current.adventure.adventureChildId).toBe("lab-child");
   });
 
+  it("carries the validated homework identity into the voice session", async () => {
+    vi.stubEnv("VITE_SUNNY_RUNTIME_CONFIG", JSON.stringify({ subject: "homework", childId: "ila", homeworkDomain: "spelling", sessionMode: "real", previewMode: "off", voiceMode: "normal" }));
+    vi.useFakeTimers();
+    const { result } = renderHook(() => useSession());
+
+    act(() => result.current.startSession("Ila", { homeworkId: "hw-spelling-1" }));
+    await act(async () => { await vi.advanceTimersByTimeAsync(150); });
+
+    const starts = wsInstances[0]!.send.mock.calls
+      .map(([raw]) => JSON.parse(String(raw)))
+      .filter((message) => message.type === "start_session");
+    expect(starts).toEqual([
+      expect.objectContaining({
+        child: "Ila",
+        homeworkId: "hw-spelling-1",
+      }),
+    ]);
+  });
+
+  it("reconnects a dropped active homework voice session and restores the same assignment", async () => {
+    vi.stubEnv("VITE_SUNNY_RUNTIME_CONFIG", JSON.stringify({ subject: "homework", childId: "ila", homeworkDomain: "spelling", sessionMode: "real", previewMode: "off", voiceMode: "normal" }));
+    vi.useFakeTimers();
+    const { result } = renderHook(() => useSession());
+
+    act(() => result.current.startSession("Ila", { homeworkId: "hw-spelling-1" }));
+    await act(async () => { await vi.advanceTimersByTimeAsync(150); });
+    const original = wsInstances[0]!;
+    act(() => original.onmessage?.({ data: JSON.stringify({ type: "session_started", child: "Ila" }) } as MessageEvent));
+    expect(result.current.state.phase).toBe("active");
+
+    act(() => {
+      original.readyState = 3;
+      original.onclose?.();
+    });
+    expect(result.current.state.warning).toMatch(/reconnecting/i);
+    expect(result.current.state.phase).toBe("connecting");
+
+    await act(async () => { await vi.advanceTimersByTimeAsync(300); });
+    expect(wsInstances).toHaveLength(2);
+    const resumed = wsInstances[1]!;
+    const starts = resumed.send.mock.calls
+      .map(([raw]) => JSON.parse(String(raw)))
+      .filter((message) => message.type === "start_session");
+    expect(starts).toEqual([expect.objectContaining({ child: "Ila", homeworkId: "hw-spelling-1" })]);
+
+    act(() => resumed.onmessage?.({ data: JSON.stringify({ type: "session_started", child: "Ila" }) } as MessageEvent));
+    expect(result.current.state.phase).toBe("active");
+    expect(result.current.state.warning).toBeNull();
+  });
+
+  it("starts microphone capture when the initial socket drops before session startup", async () => {
+    vi.useFakeTimers();
+    const { result } = renderHook(() => useSession());
+    act(() => result.current.startSession("ila", { homeworkId: "hw-math-1" }));
+    await act(async () => { await Promise.resolve(); });
+    const original = wsInstances[0]!;
+
+    act(() => {
+      original.readyState = 3;
+      original.onclose?.();
+    });
+    await act(async () => { await vi.advanceTimersByTimeAsync(300); });
+
+    expect(wsInstances).toHaveLength(2);
+    expect(navigator.mediaDevices.getUserMedia).toHaveBeenCalledOnce();
+  });
+
+  it("stops reconnecting after three bounded attempts", async () => {
+    vi.useFakeTimers();
+    const { result } = renderHook(() => useSession());
+    act(() => result.current.startSession("ila", { homeworkId: "hw-math-1" }));
+    await act(async () => { await vi.advanceTimersByTimeAsync(150); });
+    act(() => wsInstances[0]!.onmessage?.({ data: JSON.stringify({ type: "session_started", child: "Ila" }) } as MessageEvent));
+
+    for (let attempt = 0; attempt < 4; attempt += 1) {
+      const ws = wsInstances[attempt]!;
+      act(() => {
+        ws.readyState = 3;
+        ws.onclose?.();
+      });
+      await act(async () => { await vi.advanceTimersByTimeAsync(1200); });
+    }
+
+    expect(wsInstances).toHaveLength(4);
+    expect(result.current.state.errorFatal).toBe(true);
+    expect(result.current.state.error).toMatch(/connection lost/i);
+    await act(async () => { await vi.advanceTimersByTimeAsync(10_000); });
+    expect(wsInstances).toHaveLength(4);
+  });
+
+  it("fails visibly after three reconnected sockets open but never acknowledge session startup", async () => {
+    vi.useFakeTimers();
+    const { result } = renderHook(() => useSession());
+    act(() => result.current.startSession("ila", { homeworkId: "hw-math-1" }));
+    await act(async () => { await vi.advanceTimersByTimeAsync(150); });
+    const original = wsInstances[0]!;
+    act(() => original.onmessage?.({ data: JSON.stringify({ type: "session_started", child: "Ila" }) } as MessageEvent));
+
+    act(() => {
+      original.readyState = 3;
+      original.onclose?.();
+    });
+    await act(async () => { await vi.advanceTimersByTimeAsync(35_000); });
+
+    expect(wsInstances).toHaveLength(4);
+    expect(result.current.state.phase).toBe("picker");
+    expect(result.current.state.errorFatal).toBe(true);
+    expect(result.current.state.error).toMatch(/three reconnect attempts/i);
+  });
+
   it("still reports microphone denial as fatal for a normal voice-only review", async () => {
     vi.stubEnv("VITE_SUNNY_RUNTIME_CONFIG", JSON.stringify({ subject: "review", sessionMode: "real", previewMode: "off", voiceMode: "normal" }));
     vi.mocked(navigator.mediaDevices.getUserMedia).mockRejectedValue(new DOMException("Permission dismissed", "NotAllowedError"));
@@ -143,6 +272,167 @@ describe("WS envelope vs canvas payload type", () => {
     await act(async () => { await vi.advanceTimersByTimeAsync(150); });
     expect(result.current.state.errorFatal).toBe(true);
     expect(result.current.state.error).toBe("Microphone access denied");
+  });
+
+  it("turns sustained silent microphone frames into a visible recovery message and one logged diagnostic", async () => {
+    // Human caught this by speaking and hearing no response. The old lab only
+    // asserted stream creation and packet flow, so a silent virtual input passed.
+    vi.useFakeTimers();
+    const { result } = renderHook(() => useSession());
+    act(() => result.current.startSession("ila"));
+    await act(async () => { await vi.advanceTimersByTimeAsync(150); });
+
+    expect(micProcessor?.onaudioprocess).toBeTypeOf("function");
+    const silentFrame = {
+      inputBuffer: { getChannelData: () => new Float32Array(4096) },
+    } as unknown as AudioProcessingEvent;
+    act(() => {
+      for (let frame = 0; frame < 72; frame += 1) {
+        micProcessor?.onaudioprocess?.(silentFrame);
+      }
+    });
+
+    expect(result.current.state.warning).toMatch(/not hearing any sound/i);
+    expect(result.current.state.warning).toMatch(/BlackHole 2ch/i);
+    const statuses = wsInstances[0]!.send.mock.calls
+      .map(([raw]) => JSON.parse(String(raw)))
+      .filter((message) => message.type === "client_audio_status");
+    expect(statuses).toEqual(expect.arrayContaining([
+      expect.objectContaining({ event: "capture_started", reason: "BlackHole 2ch" }),
+      expect.objectContaining({ event: "silent_input", reason: "BlackHole 2ch" }),
+    ]));
+    expect(statuses.filter((message) => message.event === "silent_input")).toHaveLength(1);
+  });
+
+  it("clears Sunny's silent-input warning when the selected microphone produces audio", async () => {
+    vi.useFakeTimers();
+    const { result } = renderHook(() => useSession());
+    act(() => result.current.startSession("ila"));
+    await act(async () => { await vi.advanceTimersByTimeAsync(150); });
+
+    const silentFrame = {
+      inputBuffer: { getChannelData: () => new Float32Array(4096) },
+    } as unknown as AudioProcessingEvent;
+    act(() => {
+      for (let frame = 0; frame < 72; frame += 1) {
+        micProcessor?.onaudioprocess?.(silentFrame);
+      }
+    });
+    expect(result.current.state.warning).toMatch(/not hearing any sound/i);
+
+    const audibleSamples = new Float32Array(4096).fill(0.05);
+    const audibleFrame = {
+      inputBuffer: { getChannelData: () => audibleSamples },
+    } as unknown as AudioProcessingEvent;
+    act(() => {
+      for (let frame = 0; frame < 3; frame += 1) {
+        micProcessor?.onaudioprocess?.(audibleFrame);
+      }
+    });
+
+    expect(result.current.state.warning).toBeNull();
+    const statuses = wsInstances[0]!.send.mock.calls
+      .map(([raw]) => JSON.parse(String(raw)))
+      .filter((message) => message.type === "client_audio_status");
+    expect(statuses.filter((message) => message.event === "input_detected")).toHaveLength(1);
+  });
+
+  it("does not mistake a quiet built-in microphone for a broken input", async () => {
+    vi.mocked(navigator.mediaDevices.getUserMedia).mockResolvedValueOnce({
+      getAudioTracks: () => [{
+        enabled: true,
+        stop: vi.fn(),
+        label: "MacBook Air Microphone",
+        getSettings: () => ({ deviceId: "builtin-input" }),
+      }],
+      getTracks: () => [{ stop: vi.fn() }],
+    } as unknown as MediaStream);
+    vi.useFakeTimers();
+    const { result } = renderHook(() => useSession());
+    act(() => result.current.startSession("ila"));
+    await act(async () => { await vi.advanceTimersByTimeAsync(150); });
+
+    const silentFrame = {
+      inputBuffer: { getChannelData: () => new Float32Array(4096) },
+    } as unknown as AudioProcessingEvent;
+    act(() => {
+      for (let frame = 0; frame < 72; frame += 1) {
+        micProcessor?.onaudioprocess?.(silentFrame);
+      }
+    });
+
+    expect(result.current.state.warning).toBeNull();
+    const statuses = wsInstances[0]!.send.mock.calls
+      .map(([raw]) => JSON.parse(String(raw)))
+      .filter((message) => message.type === "client_audio_status");
+    expect(statuses.filter((message) => message.event === "silent_input")).toHaveLength(0);
+  });
+
+  it("replaces a virtual default input with the built-in microphone before capture begins", async () => {
+    // Human caught this by speaking while Chrome silently selected BlackHole.
+    // The previous lab proved only that Sunny could name the silent device; it
+    // never required Sunny to recover when a usable physical input existed.
+    const stopVirtual = vi.fn();
+    const stopBuiltIn = vi.fn();
+    vi.mocked(navigator.mediaDevices.getUserMedia)
+      .mockResolvedValueOnce({
+        getAudioTracks: () => [{
+          enabled: true,
+          stop: stopVirtual,
+          label: "BlackHole 2ch (Virtual)",
+          getSettings: () => ({ deviceId: "virtual-input" }),
+        }],
+        getTracks: () => [{ stop: stopVirtual }],
+      } as unknown as MediaStream)
+      .mockResolvedValueOnce({
+        getAudioTracks: () => [{
+          enabled: true,
+          stop: stopBuiltIn,
+          label: "MacBook Air Microphone (Built-in)",
+          getSettings: () => ({ deviceId: "builtin-input" }),
+        }],
+        getTracks: () => [{ stop: stopBuiltIn }],
+      } as unknown as MediaStream);
+    Object.defineProperty(navigator.mediaDevices, "enumerateDevices", {
+      configurable: true,
+      value: vi.fn().mockResolvedValue([
+        {
+          kind: "audioinput",
+          label: "BlackHole 2ch (Virtual)",
+          deviceId: "virtual-input",
+          groupId: "virtual-group",
+        },
+        {
+          kind: "audioinput",
+          label: "MacBook Air Microphone (Built-in)",
+          deviceId: "builtin-input",
+          groupId: "builtin-group",
+        },
+      ]),
+    });
+
+    vi.useFakeTimers();
+    const { result } = renderHook(() => useSession());
+    act(() => result.current.startSession("ila"));
+    await act(async () => { await vi.advanceTimersByTimeAsync(150); });
+
+    expect(navigator.mediaDevices.getUserMedia).toHaveBeenCalledTimes(2);
+    expect(navigator.mediaDevices.getUserMedia).toHaveBeenLastCalledWith({
+      audio: expect.objectContaining({
+        deviceId: { exact: "builtin-input" },
+      }),
+    });
+    expect(stopVirtual).toHaveBeenCalled();
+
+    const statuses = wsInstances[0]!.send.mock.calls
+      .map(([raw]) => JSON.parse(String(raw)))
+      .filter((message) => message.type === "client_audio_status");
+    expect(statuses).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        event: "capture_recovered",
+        reason: "MacBook Air Microphone (Built-in)",
+      }),
+    ]));
   });
 
   it("keeps wire message type when sendMessage payload has type: karaoke", async () => {
@@ -199,6 +489,170 @@ describe("WS envelope vs canvas payload type", () => {
       } as MessageEvent);
     });
     expect(result.current.state.companionPresence).toBe("collapsed");
+  });
+
+  it("reports required audio that never played instead of leaving the server pending", async () => {
+    // Human catch: Hear the word produced silence while the server waited indefinitely for proof.
+    // Lab miss: prior tests verified the warning but not the terminal negative acknowledgement.
+    const { result } = renderHook(() => useSession());
+    act(() => result.current.startSession("ila"));
+    const ws = wsInstances[0]!;
+    await act(async () => Promise.resolve());
+
+    act(() => {
+      ws.onmessage?.({
+        data: JSON.stringify({ type: "audio_done", requiresAudio: true, itemId: "item-1" }),
+      } as MessageEvent);
+    });
+
+    const messages = ws.send.mock.calls.map(([raw]) => JSON.parse(String(raw)));
+    expect(messages).toContainEqual(expect.objectContaining({
+      type: "playback_done",
+      audible: false,
+      reason: "required_audio_not_fully_played",
+    }));
+    expect(result.current.state.warning).toMatch(/couldn't play that word/i);
+  });
+
+  it("quiets companion speech without muting the child or required Word Radar audio", async () => {
+    // Human catch: Saori tapped the companion's Mute control, then Word Radar
+    // could neither hear the child nor play the spelling prompt.
+    const { result } = renderHook(() => useSession());
+    act(() => result.current.startSession("ila"));
+    const ws = wsInstances[0]!;
+    await act(async () => Promise.resolve());
+
+    act(() => result.current.toggleCompanionSpeechMute());
+    expect(result.current.companionSpeechMuted).toBe(true);
+    expect(result.current.micMuted).toBe(false);
+    expect(
+      ws.send.mock.calls
+        .map(([raw]) => JSON.parse(String(raw)))
+        .filter((message) => message.type === "set_mute" && message.muted === true),
+    ).toHaveLength(0);
+
+    act(() => {
+      ws.onmessage?.({ data: JSON.stringify({ type: "audio", data: "AAA=" }) } as MessageEvent);
+    });
+    expect(playbackStart).not.toHaveBeenCalled();
+
+    act(() => result.current.sendMessage("game_event", {
+      event: {
+        type: "narration_request",
+        payload: { game: "word-radar", word: "sample", itemId: "item-1" },
+      },
+    }));
+    act(() => {
+      ws.onmessage?.({ data: JSON.stringify({ type: "audio", data: "AAA=" }) } as MessageEvent);
+    });
+    await act(async () => Promise.resolve());
+    expect(playbackStart).toHaveBeenCalledOnce();
+  });
+
+  it("returns the narration request and item identities with playback proof", async () => {
+    // Human catch: a delayed browser ack was credited to the next spelling word.
+    // The prior lab asserted only audible=true, so stale ownership was invisible.
+    const { result } = renderHook(() => useSession());
+    act(() => result.current.startSession("ila"));
+    const ws = wsInstances[0]!;
+    await act(async () => Promise.resolve());
+
+    act(() => {
+      ws.onmessage?.({
+        data: JSON.stringify({
+          type: "audio_done",
+          requiresAudio: true,
+          requestId: "narration-2",
+          itemId: "item-2",
+        }),
+      } as MessageEvent);
+    });
+
+    const messages = ws.send.mock.calls.map(([raw]) => JSON.parse(String(raw)));
+    expect(messages).toContainEqual(expect.objectContaining({
+      type: "playback_done",
+      audible: false,
+      requestId: "narration-2",
+      itemId: "item-2",
+    }));
+  });
+
+  it("keeps the server progression snapshot for the level path", async () => {
+    const { result } = renderHook(() => useSession());
+
+    act(() => result.current.startSession("reina"));
+    const ws = wsInstances[0]!;
+    await act(async () => Promise.resolve());
+
+    act(() => {
+      ws.onmessage?.({
+        data: JSON.stringify({
+          type: "progression",
+          childId: "reina",
+          level: 7,
+          currentXP: 42,
+          xpToNextLevel: 58,
+          totalXP: 642,
+          wordsMastered: 12,
+          totalWords: 20,
+          streakRecord: 3,
+          recentTrend: "stable",
+        }),
+      } as MessageEvent);
+    });
+
+    expect(result.current.state.progression).toMatchObject({
+      childId: "reina",
+      level: 7,
+      currentXP: 42,
+      xpToNextLevel: 58,
+      totalXP: 642,
+    });
+  });
+
+  it("rejects another child's progression and accepts the scoped end-of-session update", async () => {
+    const { result } = renderHook(() => useSession());
+
+    act(() => result.current.startSession("reina"));
+    const ws = wsInstances[0]!;
+    await act(async () => Promise.resolve());
+
+    act(() => {
+      ws.onmessage?.({
+        data: JSON.stringify({
+          type: "progression",
+          childId: "ila",
+          level: 9,
+          currentXP: 90,
+          xpToNextLevel: 10,
+          totalXP: 890,
+        }),
+      } as MessageEvent);
+    });
+    expect(result.current.state.progression).toBeNull();
+
+    act(() => {
+      ws.onmessage?.({
+        data: JSON.stringify({
+          type: "progression_end",
+          childId: "reina",
+          level: 4,
+          currentXP: 5,
+          xpToNextLevel: 95,
+          totalXP: 305,
+          wordsMastered: 2,
+          totalWords: 4,
+          streakRecord: 1,
+          recentTrend: "improving",
+        }),
+      } as MessageEvent);
+    });
+    expect(result.current.state.progression).toMatchObject({
+      childId: "reina",
+      level: 4,
+      totalXP: 305,
+      recentTrend: "improving",
+    });
   });
 
   it("lets the child summon and dismiss the companion through the existing socket", async () => {

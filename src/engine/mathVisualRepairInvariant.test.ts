@@ -1,7 +1,10 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
+import { runDirectBrowserSmokeCheck } from "./directMathExperience";
+import { selectChildFacingJourneyScreens } from "./childFacingVisualGate";
 import {
   DiscoveryRuntimeVerificationError,
   verifyMathJourneyAtReleaseViewports,
@@ -21,6 +24,45 @@ document.querySelector("#hand-long").addEventListener("click",()=>{
 </script></body></html>`;
 
 describe("generated math control diagnostics", () => {
+  it("keeps Saori's missing-hand clock as immutable journey-review evidence", async () => {
+    const fixture = path.join(process.cwd(), "outputs/saori-session-readiness-20260919/saved-clock/original.html");
+    const html = fs.readFileSync(fixture);
+    expect(createHash("sha256").update(html).digest("hex")).toBe(
+      "40a7a0c84ff1405a6eba339dcce9f083a50b0d0b5f7b768efba368813c98e1c7",
+    );
+
+    const report = await runDirectBrowserSmokeCheck({
+      rootDir: process.cwd(),
+      artifacts: [{
+        nodeId: "act-two-scales-intro",
+        childId: "fixture-child",
+        homeworkId: "fixture-clock",
+        title: "Lamp Room",
+        htmlPath: fixture,
+        htmlHash: createHash("sha256").update(html).digest("hex"),
+        artworkUrl: "",
+        creatorPrompt: "immutable recorded fixture",
+        promptHash: "fixture",
+        plannerModel: "recorded",
+        creatorModel: "recorded",
+        itemIds: ["it-intro-01", "it-intro-02", "it-intro-03", "it-intro-04"],
+      }],
+    });
+
+    expect(report.passed).toBe(true);
+    // The activity announces item 1 during its "Tap the silver ring" opening, before
+    // the question is visible. That opening is a transition, never item 1; the real
+    // question is captured once the browser sees its prompt.
+    expect(selectChildFacingJourneyScreens(report.screenshots).map(file => path.basename(file))).toEqual([
+      "act-two-scales-intro-sunny-transition-to-01-it-intro-01.png",
+      "act-two-scales-intro-sunny-item-01-it-intro-01.png",
+      "act-two-scales-intro-sunny-item-02-it-intro-02.png",
+      "act-two-scales-intro-sunny-item-03-it-intro-03.png",
+      "act-two-scales-intro-sunny-item-04-it-intro-04.png",
+      "act-two-scales-intro-sunny-completion.png",
+    ]);
+  }, 60_000);
+
   it("reports perpetual geometry animation before a repair wastes its only attempt", async () => {
     const outputDir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-moving-control-"));
     const html = `<!doctype html><html><head><style>
@@ -53,7 +95,7 @@ describe("generated math control diagnostics", () => {
         && issue.includes("missing=interaction_stability"),
     )).toBe(true);
     fs.rmSync(outputDir, { recursive: true, force: true });
-  });
+  }, 15_000);
 
   it("names the item and SVG selector and captures both failure viewports", async () => {
     const outputDir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-clock-control-"));
@@ -123,7 +165,9 @@ describe("generated math control diagnostics", () => {
         {itemId:"item-2",steps:[{action:"click",selector:"#second"}]}
       ]};
       const attempt=(id,value)=>parent.postMessage({type:"evaluation_attempt",payload:{attemptId:"a-"+id,itemId:id,attemptedValue:value,supportEventIds:[],instrumentSignals:[],observedAt:new Date().toISOString()}},"*");
-      document.querySelector("#first").onclick=()=>{attempt("item-1","one");setTimeout(()=>{document.querySelector("#first").hidden=true;document.querySelector("#second").hidden=false;},300)};
+      const state=(id,prompt)=>parent.postMessage({type:"game_state_update",payload:{currentChallenge:{id,prompt}}},"*");
+      state("item-1","First answer");
+      document.querySelector("#first").onclick=()=>{attempt("item-1","one");setTimeout(()=>{document.querySelector("#first").hidden=true;document.querySelector("#second").hidden=false;state("item-2","Second answer");},300)};
       document.querySelector("#second").onclick=()=>{attempt("item-2","two");parent.postMessage({type:"evaluation_complete"},"*")};
       </script></body></html>`;
 
@@ -132,7 +176,7 @@ describe("generated math control diagnostics", () => {
       outputDir,
       completionType: "evaluation_complete",
       itemIds: ["item-1", "item-2"],
-    })).resolves.toHaveLength(2);
+    })).resolves.toHaveLength(6);
     fs.rmSync(outputDir, { recursive: true, force: true });
   });
 
@@ -147,11 +191,13 @@ describe("generated math control diagnostics", () => {
       ]};
       let current=1, settling=false;
       const attempt=(id)=>parent.postMessage({type:"evaluation_attempt",payload:{attemptId:"a-"+id,itemId:id,attemptedValue:String(id),supportEventIds:[],instrumentSignals:[],observedAt:new Date().toISOString()}},"*");
+      const state=(id,prompt)=>parent.postMessage({type:"game_state_update",payload:{currentChallenge:{id,prompt}}},"*");
+      state("item-1","Answer one");
       document.querySelector("#answer").onclick=()=>{
         if(settling){ parent.postMessage({type:"premature_second_click"},"*"); return; }
         if(current===1){
           settling=true;
-          setTimeout(()=>{ attempt("item-1"); current=2; settling=false; document.querySelector("#answer").textContent="Answer two"; },500);
+          setTimeout(()=>{ attempt("item-1"); current=2; settling=false; document.querySelector("#answer").textContent="Answer two"; state("item-2","Answer two"); },500);
         } else {
           attempt("item-2"); parent.postMessage({type:"evaluation_complete"},"*");
         }
@@ -163,7 +209,7 @@ describe("generated math control diagnostics", () => {
       outputDir,
       completionType: "evaluation_complete",
       itemIds: ["item-1", "item-2"],
-    })).resolves.toHaveLength(2);
+    })).resolves.toHaveLength(6);
     fs.rmSync(outputDir, { recursive: true, force: true });
   }, 15_000);
 
@@ -180,11 +226,13 @@ describe("generated math control diagnostics", () => {
       ]};
       let current=1;
       const attempt=(id)=>parent.postMessage({type:"evaluation_attempt",payload:{attemptId:"a-"+id,itemId:id,attemptedValue:String(id),supportEventIds:[],instrumentSignals:[],observedAt:new Date().toISOString()}},"*");
+      const state=(id,prompt)=>parent.postMessage({type:"game_state_update",payload:{currentChallenge:{id,prompt}}},"*");
+      state("item-1","Answer one");
       document.querySelector("#answer").onclick=()=>{
         if(current===1){
           attempt("item-1");
           const ack=document.createElement("div"); ack.id="ack"; document.body.appendChild(ack);
-          setTimeout(()=>{ current=2; document.querySelector("#answer").textContent="Answer two"; ack.remove(); },500);
+          setTimeout(()=>{ current=2; document.querySelector("#answer").textContent="Answer two"; ack.remove(); state("item-2","Answer two"); },500);
         } else {
           attempt("item-2"); parent.postMessage({type:"evaluation_complete"},"*");
         }
@@ -196,7 +244,83 @@ describe("generated math control diagnostics", () => {
       outputDir,
       completionType: "evaluation_complete",
       itemIds: ["item-1", "item-2"],
-    })).resolves.toHaveLength(2);
+    })).resolves.toHaveLength(6);
+    fs.rmSync(outputDir, { recursive: true, force: true });
+  }, 15_000);
+
+  it("crosses a newly visible evidence-free interstitial before verifying the next item", async () => {
+    const outputDir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-entry-transition-"));
+    const html = `<!doctype html><html><body>
+      <button id="answer-one">Answer one</button>
+      <button id="continue" hidden>Continue</button>
+      <button id="answer-two" hidden>Answer two</button>
+      <script>
+      window.SUNNY_VALIDATION_HOOKS={journey:[
+        {itemId:"item-1",steps:[{action:"click",selector:"#answer-one"}]},
+        {itemId:"item-2",steps:[{action:"click",selector:"#continue"},{action:"click",selector:"#answer-two"}]}
+      ]};
+      const attempt=(id)=>parent.postMessage({type:"evaluation_attempt",payload:{attemptId:"a-"+id,itemId:id,attemptedValue:id,supportEventIds:[],instrumentSignals:[],observedAt:new Date().toISOString()}},"*");
+      const state=(id,prompt)=>parent.postMessage({type:"game_state_update",payload:{currentChallenge:{id,prompt}}},"*");
+      state("item-1","Answer one");
+      document.querySelector("#answer-one").onclick=()=>{
+        attempt("item-1");
+        document.querySelector("#answer-one").hidden=true;
+        document.querySelector("#continue").hidden=false;
+      };
+      document.querySelector("#continue").onclick=()=>{
+        document.querySelector("#continue").hidden=true;
+        document.querySelector("#answer-two").hidden=false;
+        state("item-2","Answer two");
+      };
+      document.querySelector("#answer-two").onclick=()=>{
+        attempt("item-2");
+        parent.postMessage({type:"evaluation_complete"},"*");
+      };
+      </script></body></html>`;
+
+    await expect(verifyMathJourneyAtReleaseViewports({
+      html,
+      outputDir,
+      completionType: "evaluation_complete",
+      itemIds: ["item-1", "item-2"],
+    })).resolves.toHaveLength(8);
+    fs.rmSync(outputDir, { recursive: true, force: true });
+  }, 15_000);
+
+  it("never reports stale completion screenshots from an earlier verification", async () => {
+    const outputDir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-stale-journey-"));
+    const working = `<!doctype html><html><body><button id="answer">Answer</button><script>
+      window.SUNNY_VALIDATION_HOOKS={journey:[{itemId:"item-1",steps:[{action:"click",selector:"#answer"}]}]};
+      document.querySelector("#answer").onclick=()=>{
+        parent.postMessage({type:"evaluation_attempt",payload:{attemptId:"a-1",itemId:"item-1",attemptedValue:"1",supportEventIds:[],instrumentSignals:[],observedAt:new Date().toISOString()}},"*");
+        parent.postMessage({type:"evaluation_complete"},"*");
+      };
+    </script></body></html>`;
+    const broken = `<!doctype html><html><body><div id="answer">Answer</div><script>
+      window.SUNNY_VALIDATION_HOOKS={journey:[{itemId:"item-1",steps:[{action:"click",selector:"#answer"}]}]};
+    </script></body></html>`;
+    await verifyMathJourneyAtReleaseViewports({
+      html: working,
+      outputDir,
+      completionType: "evaluation_complete",
+      itemIds: ["item-1"],
+    });
+
+    let failure: unknown;
+    try {
+      await verifyMathJourneyAtReleaseViewports({
+        html: broken,
+        outputDir,
+        completionType: "evaluation_complete",
+        itemIds: ["item-1"],
+      });
+    } catch (error) {
+      failure = error;
+    }
+
+    expect(failure).toBeInstanceOf(DiscoveryRuntimeVerificationError);
+    const screenshots = (failure as DiscoveryRuntimeVerificationError).screenshotPaths.map(file => path.basename(file));
+    expect(screenshots).toEqual(["journey-generation-failure.png", "journey-sunny-failure.png"]);
     fs.rmSync(outputDir, { recursive: true, force: true });
   }, 15_000);
 
@@ -222,7 +346,7 @@ describe("generated math control diagnostics", () => {
       outputDir,
       completionType: "evaluation_complete",
       itemIds: ["item-1"],
-    })).resolves.toHaveLength(2);
+    })).resolves.toHaveLength(4);
     fs.rmSync(outputDir, { recursive: true, force: true });
   });
 });

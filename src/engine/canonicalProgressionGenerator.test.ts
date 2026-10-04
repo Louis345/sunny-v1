@@ -5,12 +5,29 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createLearningCycle, getLearningCycle, transitionLearningCycle } from "./learningCycleRepository";
 import { buildSpellingRecallItems } from "./learningCycleIngest";
 import { runDirectBrowserSmokeCheck, buildAdaptiveProgressionCreatorPrompt } from "./directMathExperience";
+import { judgeChildFacingScreens } from "./childFacingVisualGate";
 vi.mock("../scripts/validateGeneratedGame",()=>({validateGeneratedGame:()=>({passed:true,failures:[]})}));
 vi.mock("./generatedArtifactRuntimeValidator",()=>({validateGeneratedArtifactRuntime:async()=>({passed:true,failures:[]})}));
 vi.mock("./directMathExperience",async original=>({...await original<typeof import("./directMathExperience")>(),runDirectBrowserSmokeCheck:vi.fn(async()=>({passed:false,failures:["real_controls_broken"],screenshots:[]}))}));
+vi.mock("./childFacingVisualGate",()=>({
+  selectChildFacingJourneyScreens: (screenshots: string[]) => {
+    const selected = screenshots.filter(file => file.includes("-sunny-item-") || file.includes("-sunny-completion"));
+    return selected.length > 0 ? selected : screenshots;
+  },
+  judgeChildFacingScreens:vi.fn(async()=>({decision:"approve",observations:[]})),
+}));
 import { generateCanonicalProgressionArtifact } from "./canonicalProgressionGenerator";
 
 function root(): string { return fs.mkdtempSync(path.join(os.tmpdir(), "sunny-progression-")); }
+
+beforeEach(() => {
+  vi.mocked(judgeChildFacingScreens).mockResolvedValue({ decision: "approve", observations: [] });
+  vi.mocked(runDirectBrowserSmokeCheck).mockResolvedValue({
+    passed: false,
+    failures: ["real_controls_broken"],
+    screenshots: [],
+  });
+});
 
 function baseInput() {
   const contract = (id: string, role: "baseline" | "quest" | "boss", state: "ready" | "locked") => ({
@@ -23,7 +40,23 @@ function baseInput() {
     sfxContract: ["tap", "correct", "incorrect", "progress", "complete"], companionContract: { events: ["session_complete"] },
     evidenceContract: { academic: true, engagement: true, companionObservations: true }, evidenceIds: [],
   });
-  return { childId: "reina", homeworkId: "hw-progression", domain: "math", assignment: { title: "Multiplication", contentFingerprint: "fp", capturedEvidenceIds: ["pdf"], targets: ["2x5"] }, academicTheory: { theoryId: "theory", revision: 1, hypothesis: "Test transfer", supportCriteria: [".8"], reviseCriteria: ["below .8"], falsifyCriteria: ["below .5"] }, engagementTheory: null, nodes: [contract("facts", "baseline", "ready"), contract("quest", "quest", "locked"), contract("boss", "boss", "locked")] };
+  return { childId: "reina", homeworkId: "hw-progression", domain: "math", assignment: { title: "Multiplication", contentFingerprint: "fp", capturedEvidenceIds: ["pdf"], targets: ["2x5"] }, academicTheory: { theoryId: "theory", revision: 1, hypothesis: "Test transfer", supportCriteria: [".8"], reviseCriteria: ["below .8"], falsifyCriteria: ["below .5"] }, engagementTheory: null, nodes: [contract("facts", "baseline", "ready")] };
+}
+
+/** Contract 21: a Quest exists only as a node of a successor board authorized by one Planner decision. */
+function decideQuest(rootDir: string, revision: number, reason = "Ready for transfer") {
+  const observed = transitionLearningCycle("reina", "hw-progression", revision, {
+    type: "instrument_observed", nodeId: "facts", observations: [],
+    academicEvidence: [{ evidenceId: "attempt:1", summary: "correct", accuracy: 1 }], engagementEvidence: [], companionObservations: [],
+  }, { rootDir });
+  return transitionLearningCycle("reina", "hw-progression", observed.revision, {
+    type: "theory_decided",
+    decision: {
+      status: "supported", reason, nextAction: "generate_quest", progressionAction: "generate_quest",
+      evidenceIds: ["attempt:1"], predictionEvaluationIds: [], preserve: [], change: [], testNext: [], nextEvidenceRequired: [],
+      successor: { instruments: [{ nodeId: "quest", title: "Quest", academicTarget: "multiplication transfer", mechanic: "adaptive-challenge", theme: "space", openingPurpose: "Practice multiplication", creatorPrompt: "Build the transfer Quest.", encounter: "quest" }] },
+    },
+  }, { rootDir });
 }
 
 /** Human review noticed that Planner node IDs repeat across assignments. Logs
@@ -223,6 +256,77 @@ describe("spelling Creator assignment-scoped checkpoints", () => {
 });
 
 describe("canonical progression generation", () => {
+  it("checkpoints an uncertain math Creator outcome and never buys it again implicitly", async () => {
+    const rootDir = root();
+    const initial = baseInput();
+    initial.nodes = [{
+      ...initial.nodes[0],
+      state: "generating",
+      artifactBinding: null,
+      generationPrompt: { promptId: "math-receipt", text: "Build the math activity.", createdFromEvidenceIds: ["pdf"] },
+    }] as never;
+    createLearningCycle(initial, { rootDir });
+    const generateHtml = vi.fn(async () => { throw new Error("socket hang up"); });
+    const run = () => generateCanonicalProgressionArtifact({
+      childId: "reina",
+      homeworkId: "hw-progression",
+      generateHtml,
+      validate: async () => ({ passed: true, failures: [] }),
+    }, { rootDir });
+
+    await expect(run()).rejects.toThrow("provider_outcome_uncertain");
+    await expect(run()).rejects.toThrow("provider_outcome_uncertain");
+    expect(generateHtml).toHaveBeenCalledOnce();
+  });
+
+  it("does not spend a second Quest attempt after an uncertain provider outcome", async () => {
+    const rootDir = root();
+    const created = createLearningCycle(baseInput(), { rootDir });
+    decideQuest(rootDir, created.revision);
+    const generateHtml = vi.fn(async () => { throw new Error("connection closed before response"); });
+    await expect(generateCanonicalProgressionArtifact({
+      childId: "reina",
+      homeworkId: "hw-progression",
+      generateHtml,
+      validate: async () => ({ passed: true, failures: [] }),
+    }, { rootDir })).rejects.toThrow("provider_outcome_uncertain");
+    expect(generateHtml).toHaveBeenCalledOnce();
+  });
+
+  /** A human rejected the clock immediately because its drawing contradicted
+   * the question. Logs only proved clicks and scoring, and the prior lab never
+   * showed screenshots to a vision-capable reviewer. This is that missing
+   * publication invariant for later Quest/Boss content. */
+  it("does not publish a browser-valid Quest that blind child review finds visually confusing", async () => {
+    const rootDir = root();
+    try {
+      const created = createLearningCycle(baseInput(), { rootDir });
+      decideQuest(rootDir, created.revision);
+      vi.mocked(runDirectBrowserSmokeCheck).mockResolvedValue({
+        passed: true,
+        failures: [],
+        screenshots: [path.join(rootDir, "quest.png")],
+      });
+      vi.mocked(judgeChildFacingScreens).mockResolvedValue({
+        decision: "reject",
+        observations: ["The picture contradicts the question."],
+      });
+
+      const result = await generateCanonicalProgressionArtifact({
+        childId: "reina",
+        homeworkId: "hw-progression",
+        generateHtml: async () => "<html><body><h1>Quest</h1></body></html>",
+      }, { rootDir });
+
+      expect(judgeChildFacingScreens).toHaveBeenCalledWith(expect.objectContaining({
+        screenshotPaths: [path.join(rootDir, "quest.png")],
+      }));
+      expect(result.nodes.find(node => node.role === "quest")?.artifactBinding).toBeNull();
+    } finally {
+      fs.rmSync(rootDir, { recursive: true, force: true });
+    }
+  });
+
   it("requires the shared full-journey gate for generated spelling instead of the legacy opening check", async () => {
     const rootDir = root();
     const initial = baseInput(); initial.domain = "spelling";
@@ -230,6 +334,33 @@ describe("canonical progression generation", () => {
     createLearningCycle(initial, { rootDir });
     await expect(generateCanonicalProgressionArtifact({ childId: "reina", homeworkId: "hw-progression", generateHtml: async () => "<html><h1>Fact Blaster</h1></html>" }, { rootDir })).rejects.toThrow("real_controls_broken");
     expect(runDirectBrowserSmokeCheck).toHaveBeenCalledWith(expect.objectContaining({ artifacts: [expect.objectContaining({ itemIds: ["frozen-night"] })] }));
+  });
+  it("passes frozen math item contracts through the later Support/Quest/Boss browser gate", async () => {
+    const rootDir = root();
+    const initial = baseInput();
+    const item = {
+      id: "checkpoint-clock",
+      constructId: "clock.reading",
+      prompt: "Which hand shows the minutes?",
+      lineage: { measurementRole: "fresh_checkpoint" },
+      response: { mode: "selection", options: [{ id: "long", label: "Long", correct: true }, { id: "short", label: "Short", correct: false }] },
+    };
+    initial.nodes = [{
+      ...initial.nodes[0], state: "generating", artifactBinding: null,
+      generationPrompt: { promptId: "math-prompt", text: "Check clock reading", createdFromEvidenceIds: ["pdf"] },
+      evidenceContract: { academic: true, engagement: true, companionObservations: true, itemRoles: { [item.id]: "fresh_checkpoint" }, itemContracts: { [item.id]: item } },
+    }] as never;
+    createLearningCycle(initial, { rootDir });
+
+    await expect(generateCanonicalProgressionArtifact({
+      childId: "reina",
+      homeworkId: initial.homeworkId,
+      generateHtml: async () => "<html><h1>Fact Blaster</h1></html>",
+    }, { rootDir })).rejects.toThrow("real_controls_broken");
+
+    expect(runDirectBrowserSmokeCheck).toHaveBeenCalledWith(expect.objectContaining({
+      itemContractsByNodeId: { facts: [item] },
+    }));
   });
   it("keeps generated spelling in the same Creator with the assigned word identities", () => {
     const cycle = { ...baseInput(), domain: "spelling", observations: [] };
@@ -295,25 +426,7 @@ describe("canonical progression generation", () => {
   it("generates and binds Quest only from the canonical Quest prompt", async () => {
     const rootDir = root();
     const created = createLearningCycle(baseInput(), { rootDir });
-    const generating = transitionLearningCycle("reina", "hw-progression", created.revision, { type: "baseline_completed", nodeId: "facts", academicEvidence: [{ evidenceId: "attempt:1", summary: "correct", accuracy: 1 }], engagementEvidence: [], companionObservations: [], decision: { status: "supported", reason: "Ready for transfer", nextAction: "Generate Quest" } }, { rootDir });
-    let receivedPrompt = "";
-    const result = await generateCanonicalProgressionArtifact({ childId: "reina", homeworkId: "hw-progression", generateHtml: async ({ prompt }) => { receivedPrompt = prompt; return "<html><body><h1>Quest</h1></body></html>"; }, validate: async () => ({ passed: true, failures: [], screenshotPaths: ["/tmp/open.png", "/tmp/recovery.png", "/tmp/mid.png", "/tmp/complete.png"] }) }, { rootDir });
-    expect(receivedPrompt).toContain(generating.nodes.find((node) => node.role === "quest")?.generationPrompt?.text);
-    expect(result.lifecycle).toBe("quest_ready");
-    expect(result.nodes.find((node) => node.role === "quest")?.artifactBinding?.localArtifactPath).toContain("/api/homework/game/reina/");
-  });
-
-  it("sends the canonical Quest directly to the Creator without a pre-build Creative Director call", async () => {
-    const rootDir = root();
-    const created = createLearningCycle(baseInput(), { rootDir });
-    const generating = transitionLearningCycle("reina", "hw-progression", created.revision, {
-      type: "baseline_completed",
-      nodeId: "facts",
-      academicEvidence: [{ evidenceId: "attempt:1", summary: "correct", accuracy: 1 }],
-      engagementEvidence: [],
-      companionObservations: [],
-      decision: { status: "supported", reason: "Ready for transfer", nextAction: "Generate Quest" },
-    }, { rootDir });
+    const generating = decideQuest(rootDir, created.revision);
     const questBefore = generating.nodes.find((node) => node.role === "quest")!;
     let creatorPrompt = "";
     let creatorArtwork = "";
@@ -353,14 +466,7 @@ describe("canonical progression generation", () => {
   it("retries a Quest once when runtime validation fails and binds the corrected implementation", async () => {
     const rootDir = root();
     const created = createLearningCycle(baseInput(), { rootDir });
-    transitionLearningCycle("reina", "hw-progression", created.revision, {
-      type: "baseline_completed",
-      nodeId: "facts",
-      academicEvidence: [{ evidenceId: "attempt:1", summary: "correct", accuracy: 1 }],
-      engagementEvidence: [],
-      companionObservations: [],
-      decision: { status: "supported", reason: "Ready for transfer", nextAction: "Generate Quest" },
-    }, { rootDir });
+    decideQuest(rootDir, created.revision);
     const generatedPrompts: string[] = [];
 
     const result = await generateCanonicalProgressionArtifact({
@@ -400,14 +506,7 @@ describe("canonical progression generation", () => {
   it("stops after two Creator attempts and leaves a rejected Quest unbound for human review", async () => {
     const rootDir = root();
     const created = createLearningCycle(baseInput(), { rootDir });
-    transitionLearningCycle("reina", "hw-progression", created.revision, {
-      type: "baseline_completed",
-      nodeId: "facts",
-      academicEvidence: [{ evidenceId: "attempt:1", summary: "correct", accuracy: 1 }],
-      engagementEvidence: [],
-      companionObservations: [],
-      decision: { status: "supported", reason: "Ready for transfer", nextAction: "Generate Quest" },
-    }, { rootDir });
+    decideQuest(rootDir, created.revision);
     let generateCalls = 0;
     const result = await generateCanonicalProgressionArtifact({
       childId: "reina",
@@ -460,7 +559,7 @@ describe("canonical progression generation", () => {
         change: ["representation"],
         testNext: ["array link"],
         nextEvidenceRequired: ["support result"],
-        nextInstrument: {
+        successor: { instruments: [{
           nodeId: "array-support",
           title: "Array Bridge",
           academicTarget: "array notation",
@@ -468,7 +567,7 @@ describe("canonical progression generation", () => {
           theme: "bridge",
           openingPurpose: "Connect an array to notation.",
           creatorPrompt: "Build the support activity.",
-        },
+        }] },
       },
     }, { rootDir });
 
@@ -480,7 +579,7 @@ describe("canonical progression generation", () => {
     }, { rootDir });
 
     expect(generated.lifecycle).toBe("baseline_ready");
-    const binding = generated.nodes.find((node) => node.nodeId === "array-support")?.artifactBinding;
+    const binding = generated.nodes.find((node) => node.title === "Array Bridge")?.artifactBinding;
     expect(binding).not.toBeNull();
     expect(binding?.localArtifactPath).toContain("/api/homework/game/reina/hw-progression/");
     expect(fs.existsSync(path.join(
@@ -493,13 +592,7 @@ describe("canonical progression generation", () => {
   it("keeps the published cycle unchanged when both Quest candidates conflict with the canonical role", async () => {
     const rootDir = root();
     const created = createLearningCycle(baseInput(), { rootDir });
-    transitionLearningCycle("reina", "hw-progression", created.revision, {
-      type: "baseline_completed",
-      nodeId: "facts",
-      academicEvidence: [{ evidenceId: "attempt:1", summary: "correct", accuracy: 1 }],
-      engagementEvidence: [], companionObservations: [],
-      decision: { status: "supported", reason: "Ready", nextAction: "Generate Quest" },
-    }, { rootDir });
+    decideQuest(rootDir, created.revision);
 
     let generateCalls = 0;
     const result = await generateCanonicalProgressionArtifact({
@@ -520,7 +613,7 @@ describe("canonical progression generation", () => {
 
 it("requires the real control verifier for newly generated math Quest", async () => {
   const rootDir=root();const cycle=createLearningCycle(baseInput(),{rootDir});
-  transitionLearningCycle("reina","hw-progression",cycle.revision,{type:"baseline_completed",nodeId:"facts",academicEvidence:[],engagementEvidence:[],companionObservations:[],decision:{status:"supported",reason:"Try transfer",nextAction:"Quest"}},{rootDir});
+  decideQuest(rootDir, cycle.revision);
   const result=await generateCanonicalProgressionArtifact({childId:"reina",homeworkId:"hw-progression",generateHtml:async()=>"<html><body><h1>Quest</h1><button>Broken</button></body></html>"},{rootDir});
   expect(runDirectBrowserSmokeCheck).toHaveBeenCalled();
   expect(result.nodes.find(node=>node.role==="quest")?.artifactBinding).toBeNull();
@@ -529,7 +622,7 @@ it("requires the real control verifier for newly generated math Quest", async ()
 
 it("binds verified content after an unrelated canonical revision changes during generation", async () => {
   const rootDir=root();const created=createLearningCycle(baseInput(),{rootDir});
-  transitionLearningCycle("reina","hw-progression",created.revision,{type:"baseline_completed",nodeId:"facts",academicEvidence:[],engagementEvidence:[],companionObservations:[],decision:{status:"supported",reason:"Transfer",nextAction:"Quest"}},{rootDir});
+  decideQuest(rootDir, created.revision);
   let calls=0;
   const result=await generateCanonicalProgressionArtifact({childId:"reina",homeworkId:"hw-progression",generateHtml:async()=>{calls++;const current=getLearningCycle("reina","hw-progression",{rootDir})!;transitionLearningCycle("reina","hw-progression",current.revision,{type:"prediction_evaluations_recorded",evaluations:[]},{rootDir});return "<html><h1>Quest</h1></html>";},validate:async()=>({passed:true,failures:[]})},{rootDir});
   expect(result.lifecycle).toBe("quest_ready");expect(calls).toBe(1);

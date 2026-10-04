@@ -64,6 +64,54 @@ describe("math Planner evidence doorway", () => {
       expect.arrayContaining([expect.objectContaining({ id: "choice_event_modal_1" })]),
     );
   });
+
+  it("routes factual reading access needs to Planner and Creator without a learning-style label", () => {
+    const chart = {
+      identity: { displayName: "Ila", ttsName: "Eye-la" },
+      demographics: {
+        age: 8,
+        grade: 2,
+        learningStyle: "visual_kinesthetic",
+        attentionSpan: "short",
+        diagnoses: [],
+        iepActive: false,
+      },
+      learningProfile: {
+        sessionStats: {},
+        readingProfile: {
+          currentReadingLevel: "CVC",
+          averageReadingAccuracy: 0,
+          comprehensionAccuracy: 0,
+          flaggedPatterns: [],
+          storiesCompleted: 0,
+          fontSize: 42,
+          lineHeight: 2.2,
+          fontFamily: "Lexend",
+          wordsPerLine: 7,
+          dyslexiaMode: true,
+        },
+        rewardPreferences: { favoriteGames: [], celebrationStyle: "mixed" },
+      },
+      engagementTheory: { evidence: [], dimensions: {} },
+      factBankSummary: { totalFacts: 0, dueFacts: 0 },
+      decisionTrace: { latest: null },
+      learningHistory: {},
+      companionCare: { plan: { economy: { coins: 0 } } },
+      economy: { coinBalance: 0 },
+    } as never;
+
+    const planner = JSON.stringify(mathPlannerChartContext(chart));
+    const creator = JSON.stringify(buildMathCreativeChildContext(chart));
+
+    for (const context of [planner, creator]) {
+      expect(context).toContain('"currentReadingLevel":"CVC"');
+      expect(context).toContain('"wordsPerLine":7');
+      expect(context).toContain('"fontSize":42');
+      expect(context).toContain('"dyslexiaMode":true');
+      expect(context).not.toContain("learningStyle");
+      expect(context).toContain("not a diagnosis");
+    }
+  });
 });
 
 describe("math publication domain preservation", () => {
@@ -105,8 +153,6 @@ describe("math publication assumption ledger", () => {
       plan: parsed,
       artifacts,
       backgroundUrl: "/generated/background.jpeg",
-      questArtworkUrl: "/generated/quest.jpeg",
-      bossArtworkUrl: "/generated/boss.jpeg",
       report: { passed: true, failures: [], screenshots: [] },
     });
     return {
@@ -363,13 +409,15 @@ describe("assignment concept", () => {
       .every((item) => item.lineage.measurementRole === "practice")).toBe(true);
   });
 
-  it("rejects a concept id that carries the assignment's numbers", () => {
-    // Reina's cycle accumulated five ids like math.multiplication.fact_retrieval.x2x5x10
-    // for three ideas, so nothing matched across cycles.
-    const withInstance = learningProgram();
-    withInstance.concept.conceptId = "multiplication_x2x5x10";
-    expect(() => parseMathLearningProgram(withInstance))
-      .toThrow(/concept_id_contains_instance/);
+  it("keeps a Planner-authored clock identity when its number is intrinsic to the concept", () => {
+    const clockProgram = learningProgram();
+    clockProgram.concept.conceptId = "clock.minute_tick_count_from_12_by_fives";
+    clockProgram.concept.instanceScope = "Read the clocks shown on this assignment.";
+
+    expect(parseMathLearningProgram(clockProgram).concept).toMatchObject({
+      conceptId: "clock.minute_tick_count_from_12_by_fives",
+      instanceScope: "Read the clocks shown on this assignment.",
+    });
   });
 
   it("keeps the worksheet's numbers in instanceScope, not the identity", () => {
@@ -384,6 +432,27 @@ describe("assignment concept", () => {
     delete withoutConcept.concept;
     expect(() => parseMathLearningProgram(withoutConcept))
       .toThrow("math_learning_program_missing_concept");
+  });
+
+  it("rejects an impossible on-the-hour clock contract before design or building", () => {
+    const raw = learningProgram();
+    raw.activities[0].items[0] = {
+      id: "clock-checkpoint",
+      prompt: "Short hand just past 3, long hand on 12. Build the written time.",
+      lineage: {
+        sourceEvidenceIds: ["attempt-clock"],
+        exposure: "unseen",
+        measurementRole: "fresh_checkpoint",
+      },
+      response: {
+        mode: "construction",
+        expectedState: { hour: 3, minutes: "00", minuteDigitCount: 2 },
+        successDescription: "Written time reads 3:00.",
+      },
+    };
+
+    expect(() => parseMathLearningProgram(raw))
+      .toThrow("math_item_clock_state_inconsistent:clock-checkpoint:minute_hand_12_requires_hour_hand_on_hour");
   });
 });
 
@@ -615,6 +684,71 @@ describe("direct math experience", () => {
     finally {fs.rmSync(root,{recursive:true,force:true});}
   });
 
+  it("forwards explicit uncertainty authorization only to the frozen targeted design receipt", async () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "design-authorized-retry-"));
+    const checkpointFile = path.join(root, "design.json");
+    const program = parseMathLearningProgram(learningProgram(2));
+    const recoveredResponse = {
+        stop_reason: "tool_use",
+        usage: { input_tokens: 1, output_tokens: 1 },
+        content: [{
+          type: "tool_use",
+          name: "create_math_design_packet",
+          input: {
+            boardCreativeSpine: {
+              title: "Recovered world",
+              narrative: "Continue the same chapter.",
+              openingChoice: "Choose a route.",
+              backgroundDirection: "Readable map.",
+              routeDirections: program.fork.routes.map((route) => ({
+                routeId: route.id,
+                label: route.id,
+                promise: "Continue.",
+                childFacingActionCue: "Try one clear action.",
+                previewNodeId: route.nodeIds[0],
+                engagementVariable: "recorded",
+              })),
+            },
+            artifacts: program.activities.map((activity) => ({
+              artifactId: `artifact-${activity.id}`,
+              nodeId: activity.id,
+              academicContractHash: mathAcademicContractHash(activity),
+              title: `Recovered ${activity.id}`,
+              openingPromise: "Continue.",
+              firstThreeSeconds: "One action is visible.",
+              firstAction: "Tap the control.",
+              coreInteraction: "Use mathematics to move the world.",
+              mathAsPower: "Mathematics changes the world.",
+              visualDirection: "Readable world.",
+            })),
+            rationale: "Recovered the frozen request.",
+          },
+        }],
+      };
+    const transport = vi.fn()
+      .mockImplementationOnce(() => ({ finalMessage: async () => { throw new Error("read ETIMEDOUT"); } }))
+      .mockImplementationOnce(() => ({ finalMessage: async () => recoveredResponse }));
+    const client = { messages: { stream: transport } } as never;
+    const run = (retryUncertain = false) => askMathExperienceDesigner({
+      childId: "lab",
+      program,
+      childContext: {},
+      priorOutcomes: {},
+      checkpointFile,
+      client,
+      retryUncertain,
+    });
+    try {
+      await expect(run()).rejects.toThrow("provider_outcome_uncertain");
+      await expect(run()).rejects.toThrow("provider_outcome_uncertain");
+      expect(transport).toHaveBeenCalledTimes(1);
+      await expect(run(true)).resolves.toMatchObject({ packet: { boardCreativeSpine: { title: "Recovered world" } } });
+      expect(transport).toHaveBeenCalledTimes(2);
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+
   it("places artifact design before generation without a review pause or quality harness", () => {
     const source = fs.readFileSync(path.join(process.cwd(), "src/scripts/runAdaptiveMathGeneration.ts"), "utf8");
     const designer = source.indexOf("askMathExperienceDesigner({");
@@ -679,6 +813,54 @@ describe("direct math experience", () => {
     for (const reference of ["Skyglider", "Crane", "Vault", "Moonlit Cargo", "Tidepool", "Rope-and-Peg"]) {
       expect(prompt).not.toContain(reference);
     }
+  });
+
+  it("requires later generated activities to use the same AI-led guided-support contract", () => {
+    const prompt = buildAdaptiveProgressionCreatorPrompt({
+      cycle: { childId: "ila", homeworkId: "hw", domain: "math", assignment: { title: "Clocks", targets: ["clock reading"] }, observations: [] } as never,
+      node: {
+        nodeId: "support",
+        title: "Clock Room",
+        role: "baseline",
+        academicTarget: { domain: "math", skill: "clock reading", targets: ["clock reading"] },
+        openingScreen: { title: "Clock Room", purpose: "Learn clocks" },
+        mechanic: "clock",
+        theme: "room",
+        generationPrompt: { text: "Teach clocks" },
+        artwork: { localPath: "/clock.png" },
+        evidenceContract: { itemContracts: { q1: { id: "q1", lineage: { measurementRole: "instruction" } } } },
+      } as never,
+      childContext: { demographics: { age: 8 }, readingAccess: { currentReadingLevel: "early-third", presentationSettings: { wordsPerLine: 7 } } },
+    });
+
+    expect(prompt).toContain('companionSupportTrigger:"guided_prompt"');
+    expect(prompt).toContain("fresh_checkpoint must not summon Elli automatically");
+    expect(prompt).toContain('"age": 8');
+    expect(prompt).toContain('"wordsPerLine": 7');
+    expect(prompt).toContain("availableActions");
+    expect(prompt).not.toContain("avathe current childbleActions");
+  });
+
+  it("never rewrites Ila substrings inside frozen item and evidence identities", () => {
+    const prompt = buildAdaptiveProgressionCreatorPrompt({
+      cycle: { childId: "ila", homeworkId: "hw", domain: "math", assignment: { title: "Clocks", targets: ["clock reading"] }, observations: [{ observationId: "child:ila:observation-1", itemId: "it-ila-clock-01" }] } as never,
+      node: {
+        nodeId: "support",
+        title: "Clock Room",
+        role: "baseline",
+        academicTarget: { domain: "math", skill: "clock reading", targets: ["clock reading"] },
+        openingScreen: { title: "Clock Room", purpose: "Learn clocks" },
+        mechanic: "clock",
+        theme: "room",
+        generationPrompt: { text: "Teach clocks" },
+        artwork: { localPath: "/clock.png" },
+        evidenceContract: { itemContracts: { "it-ila-clock-01": { id: "it-ila-clock-01", lineage: { measurementRole: "instruction", sourceEvidenceIds: ["child:ila:observation-1"] } } } },
+      } as never,
+      childContext: { identity: { displayName: "Ila" }, demographics: { age: 8 } },
+    });
+
+    expect(prompt).toContain("it-ila-clock-01");
+    expect(prompt).toContain("child:ila:observation-1");
   });
 
   it("uses adaptive thinking supported by the configured frontier Creator model", async () => {
@@ -753,7 +935,8 @@ describe("direct math experience", () => {
 
     expect(prompt).toContain("replace the previous item's controls");
     expect(prompt).toContain("including the final item");
-    expect(prompt).toContain("window.SUNNY_VALIDATION_HOOKS");
+    expect(prompt).toContain('id="sunny-playwright-test"');
+    expect(prompt).toContain("The manifest is data only");
     expect(prompt).toContain("same handlers as the visible child controls");
     expect(prompt).toContain("measure the bounding rectangle of every enabled child control");
     expect(prompt).toContain("1280×720 embedded frame");
@@ -789,6 +972,44 @@ describe("direct math experience", () => {
       client: { messages: { create, stream: streamOf(create) } } as never,
     })).rejects.toThrow("math_learning_program_requires_activities");
     expect(create).toHaveBeenCalledTimes(1);
+  });
+
+  it("gives the same Planner one bounded correction for a factual clock contradiction", async () => {
+    const invalid = learningProgram(2);
+    invalid.activities[0].items[0] = {
+      id: "clock-checkpoint",
+      prompt: "Short hand just past 3, long hand on 12. Build the written time.",
+      lineage: { sourceEvidenceIds: ["attempt-clock"], exposure: "unseen", measurementRole: "fresh_checkpoint" },
+      response: {
+        mode: "construction",
+        expectedState: { hour: 3, minutes: "00", minuteDigitCount: 2 },
+        successDescription: "Written time reads 3:00.",
+      },
+    };
+    const corrected = structuredClone(invalid);
+    corrected.activities[0].items[0].prompt = "Short hand on 3, long hand on 12. Build the written time.";
+    const create = vi.fn()
+      .mockResolvedValueOnce({ stop_reason: "tool_use", usage: {}, content: [{ type: "tool_use", name: "create_math_learning_program", input: invalid }] })
+      .mockResolvedValueOnce({ stop_reason: "tool_use", usage: {}, content: [{ type: "tool_use", name: "create_math_learning_program", input: corrected }] });
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-planner-truth-"));
+    const rawResponseFile = path.join(dir, "targeted-planner-response.json");
+
+    const result = await askDirectMathPlanner({
+      childId: "reina",
+      chart: {
+        identity: {}, demographics: {}, engagementTheory: null, factBankSummary: {},
+        learningProfile: { rewardPreferences: [], sessionStats: {}, activityModel: {}, activityTraitModel: {} },
+        decisionTrace: { latest: null },
+      } as never,
+      extraction: { fullText: "Clock assignment" } as never,
+      client: { messages: { create, stream: streamOf(create) } } as never,
+      rawResponseFile,
+    });
+
+    expect(create).toHaveBeenCalledTimes(2);
+    expect(JSON.stringify(create.mock.calls[1]?.[0])).toContain("math_item_clock_state_inconsistent:clock-checkpoint");
+    expect(result.activities[0].items[0].prompt).toContain("Short hand on 3");
+    expect(fs.existsSync(rawResponseFile.replace(/\.json$/, "-correction.json"))).toBe(true);
   });
 
   it("requires route-bearing baseline activities instead of accepting a bonus-only program", () => {
@@ -913,7 +1134,7 @@ describe("direct math experience", () => {
       plannerPlan: parsed,
       activeSessionPlan: buildDirectActiveSessionPlan({
         childId: "reina", homeworkId: "hw-math-test", plan: parsed, artifacts,
-        backgroundUrl: "/background.png", questArtworkUrl: "/quest.png", bossArtworkUrl: "/boss.png",
+        backgroundUrl: "/background.png",
         report: { passed: true, failures: [], screenshots: [] },
       }),
       artifacts,
@@ -1038,10 +1259,8 @@ describe("direct math experience", () => {
       .toThrow("direct_plan_missing_item_id");
   });
 
-  it("treats locked Quest and Boss as board furniture when the Planner omits teasers", () => {
+  it("never renders Quest or Boss placeholders on the opening math board, even when legacy teasers are supplied", () => {
     const plannerOutput = plan(2);
-    delete plannerOutput.quest;
-    delete plannerOutput.boss;
 
     const parsed = parseDirectLearningExperiencePlan(plannerOutput);
     const artifacts = parsed.activities.map((activity) => ({
@@ -1062,17 +1281,13 @@ describe("direct math experience", () => {
       plan: parsed,
       artifacts,
       backgroundUrl: "/generated/background.jpeg",
-      questArtworkUrl: "/generated/quest-placeholder.jpeg",
-      bossArtworkUrl: "/generated/boss-placeholder.jpeg",
       report: { passed: true, failures: [], screenshots: [] },
     });
 
-    expect(parsed.quest).toMatchObject({ title: "Quest", locked: true });
-    expect(parsed.boss).toMatchObject({ title: "Boss", locked: true });
-    expect(session.adventureBoard?.nodes.find((node) => node.id === "quest"))
-      .toMatchObject({ label: "Quest", state: "locked" });
-    expect(session.adventureBoard?.nodes.find((node) => node.id === "boss"))
-      .toMatchObject({ label: "Boss", state: "locked" });
+    expect("quest" in parsed).toBe(false);
+    expect(session.nodePlan.some((node) => node.type === "quest" || node.type === "boss")).toBe(false);
+    expect(session.adventureBoard?.nodes.some((node) => node.kind === "quest" || node.kind === "boss")).toBe(false);
+    expect(session.adventureBoard?.edges.some((edge) => edge.to === "quest" || edge.to === "boss")).toBe(false);
   });
 
   it("projects every AI-selected node and prediction into one canonical assignment cycle", () => {
@@ -1095,8 +1310,6 @@ describe("direct math experience", () => {
       plan: plannerPlan,
       artifacts,
       backgroundUrl: "/generated/background.jpeg",
-      questArtworkUrl: "/generated/quest.jpeg",
-      bossArtworkUrl: "/generated/boss.jpeg",
       report: { passed: true, failures: [], screenshots: [] },
       createdAt: "2026-07-17T12:00:00.000Z",
     });
@@ -1125,8 +1338,7 @@ describe("direct math experience", () => {
     expect(cycle.nodes.filter((node) => node.role === "baseline")).toHaveLength(3);
     expect(cycle.nodes.find((node) => node.nodeId === "activity-1")?.prediction?.claim)
       .toBe(plannerPlan.activities[0]?.designPrediction);
-    expect(cycle.nodes.find((node) => node.role === "quest")?.state).toBe("locked");
-    expect(cycle.nodes.find((node) => node.role === "boss")?.state).toBe("locked");
+    expect(cycle.nodes.some((node) => node.role === "quest" || node.role === "boss")).toBe(false);
   });
 
   it("does not impose a hidden game-design constitution on the Planner or Creator", () => {
@@ -1336,6 +1548,8 @@ describe("direct math experience", () => {
       raw: "<!doctype html><html><body>ready</body></html>",
       inputTokens: 321,
       outputTokens: 654,
+      reasoningTokens: 0,
+      visibleTextCharacters: 46,
       stopReason: "completed",
     });
     const source = fs.readFileSync(path.join(process.cwd(), "src/engine/directMathExperience.ts"), "utf8");
@@ -1351,7 +1565,7 @@ describe("direct math experience", () => {
           'data: {"type":"response.output_text.delta","delta":"<!doctype html><html>"}\n\n',
         ));
         controller.enqueue(encoder.encode(
-          'data: {"type":"response.incomplete","response":{"status":"incomplete","incomplete_details":{"reason":"max_output_tokens"},"usage":{"input_tokens":100,"output_tokens":32000}}}\n\n',
+          'data: {"type":"response.incomplete","response":{"status":"incomplete","incomplete_details":{"reason":"max_output_tokens"},"usage":{"input_tokens":100,"output_tokens":32000,"output_tokens_details":{"reasoning_tokens":31000}}}}\n\n',
         ));
         controller.close();
       },
@@ -1361,6 +1575,8 @@ describe("direct math experience", () => {
       stopReason: "max_output_tokens",
       inputTokens: 100,
       outputTokens: 32000,
+      reasoningTokens: 31000,
+      visibleTextCharacters: 21,
     });
   });
 
@@ -1435,7 +1651,7 @@ describe("direct math experience", () => {
     expect(generation).not.toContain('purpose: "practice_only_bonus"');
   });
 
-  it("rechecks implementation prompt hashes while reusing frozen board artwork", () => {
+  it("rechecks implementation prompt hashes while optional board artwork is reused or deferred", () => {
     const ingestion = fs.readFileSync(path.join(process.cwd(), "src/scripts/runAdaptiveMathGeneration.ts"), "utf8");
     expect(ingestion).toContain("buildFile");
     expect(ingestion).toContain("existingArtworkUrls");
@@ -1444,17 +1660,19 @@ describe("direct math experience", () => {
 
     const source = fs.readFileSync(path.join(process.cwd(), "src/engine/directMathExperience.ts"), "utf8");
     expect(source).toContain("existingArtworkUrls?:");
-    expect(source).toContain("input.existingArtworkUrls ?? await mapConcurrent");
+    expect(source).toContain("export async function generateDirectArtworkBundle");
+    expect(source).toContain("input.deferOptionalArtwork");
+    expect(source).toContain("await generateDirectArtworkBundle({");
   });
 
-  it("requires a genuine mandatory fork and enforces locked static Quest/Boss product roles", () => {
+  it("requires a genuine mandatory fork and ignores any Planner-supplied Quest/Boss on the opening board", () => {
     const invalid = plan();
     invalid.fork.routes = [invalid.fork.routes[0]!];
     expect(() => parseDirectLearningExperiencePlan(invalid)).toThrow("direct_plan_requires_two_routes");
     const unlocked = plan();
     unlocked.quest.locked = false;
     unlocked.quest.title = "Multiplication Expedition";
-    expect(parseDirectLearningExperiencePlan(unlocked).quest).toMatchObject({ title: "Quest", locked: true });
+    expect("quest" in parseDirectLearningExperiencePlan(unlocked)).toBe(false);
   });
 
   it("keeps executable browser code out of the Planner contract", async () => {
@@ -1528,7 +1746,7 @@ describe("direct math experience", () => {
     expect(responseRunner).toContain("injecting game context into Claude call");
   });
 
-  it("keeps generated math audio semantic and Elli help child-invoked", () => {
+  it("keeps generated math audio semantic and gives Elli guided teaching authority without contaminating checkpoints", () => {
     const prompt = buildDirectActivityCreatorPrompt({
       activity: parseDirectLearningExperiencePlan(plan(2)).activities[0]!,
       artworkUrl: "/generated/math-world.jpeg",
@@ -1545,13 +1763,18 @@ describe("direct math experience", () => {
     expect(prompt).toContain("title and first required action");
     expect(prompt).toContain("primary controls");
     expect(prompt).toContain("readAloudRequested");
+    expect(prompt).toContain("measurementRole");
+    expect(prompt).toContain("guided_prompt");
+    expect(prompt).toContain("fresh_checkpoint");
+    expect(prompt).toContain("must not summon Elli automatically");
     expect(prompt).toContain('type:"sunny_companion_presence"');
     expect(prompt).toContain("Pause activity timers and input while summoned");
     expect(prompt).toContain("right-side companion safe area");
     expect(prompt).toContain("essential instructions, mathematical representations, and primary controls outside it");
 
     const elli = fs.readFileSync(path.join(process.cwd(), "src/companions/elli.md"), "utf8");
-    expect(elli).toContain("only after the child asks");
+    expect(elli).toContain("one automatic guided introduction");
+    expect(elli).toContain("Never automatically speak during a fresh independent checkpoint");
     expect(elli).toContain("Never reveal the active answer");
     expect(elli).toContain("recordChildSignal");
     expect(elli).toContain("help_needed");
@@ -1571,8 +1794,6 @@ describe("direct math experience", () => {
       plan: parsed,
       artifacts,
       backgroundUrl: "/background.png",
-      questArtworkUrl: "/quest.png",
-      bossArtworkUrl: "/boss.png",
       report: { passed: true, failures: [], screenshots: [] },
       companion: { id: "matilda", name: "Matilda" },
     });
@@ -1596,7 +1817,8 @@ describe("direct math experience", () => {
 
   it("blocks worker publication on failed browser verification", () => {
     const source = fs.readFileSync(path.join(process.cwd(), "src/scripts/runAdaptiveMathGeneration.ts"), "utf8");
-    expect(source).toContain("targeted_browser_verification_failed");
+    expect(source).toContain("targeted_generated_content_defect");
+    expect(source).toContain("targeted_visual_review_needs_attention");
     expect(source).toContain("MATH_BROWSER_VERIFIER_VERSION");
   });
 
@@ -1692,8 +1914,6 @@ describe("direct math experience", () => {
       plan: parsed,
       artifacts,
       backgroundUrl: "/generated/background.jpeg",
-      questArtworkUrl: "/generated/quest.jpeg",
-      bossArtworkUrl: "/generated/boss.jpeg",
       report: { passed: true, failures: [], screenshots: [] },
     }).adventureBoard!;
     const sharedPath = ["start", "activity-1", "activity-2", "choose-path"]
@@ -1748,8 +1968,6 @@ describe("direct math experience", () => {
       plan: parsed,
       artifacts,
       backgroundUrl: "/generated/background.jpeg",
-      questArtworkUrl: "/generated/quest.jpeg",
-      bossArtworkUrl: "/generated/boss.jpeg",
       report,
     });
     const board = session.adventureBoard!;
@@ -1793,8 +2011,6 @@ describe("direct math experience", () => {
       plan: parsed,
       artifacts,
       backgroundUrl: "/generated/background.jpeg",
-      questArtworkUrl: "/generated/quest.jpeg",
-      bossArtworkUrl: "/generated/boss.jpeg",
       report: {
         passed: true,
         failures: [],

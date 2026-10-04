@@ -248,4 +248,63 @@ describe("buildChildExperiencePacket", () => {
       "Spot the bigger fair slice before the gull swoops",
     ]);
   });
+
+  it("never promotes a blocked first agency node to current", () => {
+    const packet = buildChildExperiencePacket({
+      childId: "ila",
+      identity: { displayName: "Ila" },
+      companion: { presetId: "elli", displayName: "Elli", config: {} },
+      companionCare: {}, economy: {}, adventureMapProfile: {},
+      homework: { selectedDomain: "math" },
+      activeSessionPlan: {
+        planId: "clock-plan",
+        activeHomeworkId: "hw-clock",
+        nodePlan: [{ id: "gear-secret", locked: true }],
+        adventureBoard: {
+          schemaVersion: 1,
+          boardId: "clock-board",
+          planId: "clock-plan",
+          childId: "ila",
+          domain: "math",
+          title: "Clock",
+          theme: { background: { type: "color", value: "#000" }, palette: { path: "#fff", completed: "#0f0", available: "#00f", locked: "#777", current: "#f90", preview: "#aaa", text: "#fff", panel: "#000" } },
+          layout: { preset: "horizontal-adventure-spine" },
+          plannerRationale: { agencyDesign: "choice", evidenceDesign: "practice", layoutChoice: "route" },
+          nodes: [
+            { id: "start", kind: "start", label: "Start", state: "completed", action: { type: "none" } },
+            { id: "gear-secret", kind: "activity", label: "The Gear Secret", state: "locked", action: { type: "show-locked-reason", payloadId: "gear-secret" }, lock: { reason: "generation-needs-attention", label: "Parent help needed" } },
+          ],
+          edges: [],
+          companion: { id: "elli", name: "Elli" },
+          progress: { completedNodeIds: ["start"] },
+        },
+      },
+      learningCycle: {
+        homeworkId: "hw-clock",
+        lifecycle: "board_ready",
+        revision: 8,
+        agencyExperiment: {
+          experimentId: "clock-agency",
+          sharedNodeIds: ["gear-secret"],
+          routes: [
+            { routeId: "route-a", nodeIds: ["route-a-node"] },
+            { routeId: "route-b", nodeIds: ["route-b-node"] },
+          ],
+        },
+        nodes: [
+          { nodeId: "gear-secret", state: "blocked" },
+          { nodeId: "route-a-node", state: "generating" },
+          { nodeId: "route-b-node", state: "generating" },
+        ],
+      },
+    } as never);
+
+    const board = packet.activeSessionPlan!.adventureBoard!;
+    expect(board.nodes.find((node) => node.id === "gear-secret")).toMatchObject({
+      state: "locked",
+      lock: { reason: "generation-needs-attention" },
+    });
+    expect(packet.activeSessionPlan!.nodePlan.find((node) => node.id === "gear-secret")?.locked).toBe(true);
+    expect(board.progress?.currentNodeId).toBeUndefined();
+  });
 });

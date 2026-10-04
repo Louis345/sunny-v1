@@ -107,6 +107,11 @@ export const TEACHING_TOOLS: Record<string, GameDefinition> = {
     "defaultConfig": {},
     "voiceEnabled": true
   },
+  "spelling-visual-explainer": {
+    "url": "/games/spelling-visual-explainer.html",
+    "defaultConfig": {},
+    "voiceEnabled": true
+  },
   "store-game": {
     "url": "/games/store-game.html",
     "defaultConfig": {

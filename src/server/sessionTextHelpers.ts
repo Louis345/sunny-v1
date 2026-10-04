@@ -100,3 +100,26 @@ export function normalizeSessionChartChildId(chartChildId: string | undefined, f
   const normalized = chartChildId?.trim().toLowerCase();
   return normalized && /^[a-z0-9_-]+$/.test(normalized) ? normalized : fallback;
 }
+
+export function normalizeToolName(tool: string): string {
+  if (tool === "start_spell_check") return "startSpellCheck";
+  if (tool === "launch_game") return "launchGame";
+  if (tool === "get_session_status") return "getSessionStatus";
+  if (tool === "get_next_problem") return "getNextProblem";
+  if (tool === "submit_answer") return "submitAnswer";
+  if (tool === "clear_canvas") return "clearCanvas";
+  if (tool === "canvas_show") return "canvasShow";
+  if (tool === "canvas_clear") return "canvasClear";
+  if (tool === "canvas_status") return "canvasStatus";
+  if (tool === "session_log") return "sessionLog";
+  if (tool === "session_status") return "sessionStatus";
+  if (tool === "session_end") return "sessionEnd";
+  if (tool === "record_child_signal") return "recordChildSignal";
+  if (tool === "record_product_issue") return "recordProductIssue";
+  if (tool === "express_companion") return "expressCompanion";
+  if (tool === "companion_act") return "companionAct";
+  if (tool === "request_pause_for_check_in") return "requestPauseForCheckIn";
+  if (tool === "request_resume_activity") return "requestResumeActivity";
+  return tool;
+}
+

@@ -20,8 +20,9 @@ function getPronunciationLocators(): object[] | undefined {
 }
 
 function buildWsUrl(voiceId: string): string {
+  const base = (process.env.ELEVENLABS_WS_BASE_URL ?? WS_BASE).replace(/\/$/, "");
   return (
-    `${WS_BASE}/${voiceId}/stream-input` +
+    `${base}/${voiceId}/stream-input` +
     `?model_id=${encodeURIComponent("eleven_flash_v2_5")}` +
     `&output_format=pcm_24000` +
     `&optimize_streaming_latency=3`
@@ -41,6 +42,7 @@ export class WsTtsBridge {
   private stopped = false;
   private connectingPromise: Promise<void> | null = null;
   private hasFlushedThisTurn = false;
+  private audioChunksThisTurn = 0;
 
   constructor(browserWs: WebSocket, voiceId: string) {
     this.browserWs = browserWs;
@@ -67,9 +69,20 @@ export class WsTtsBridge {
    * can adapt prosody and expressiveness based on conversation flow.
    */
   async connect(previousText?: string): Promise<void> {
+    if (this.elevenWs && this.elevenWs.readyState === WebSocket.OPEN) {
+      this.wsReady = true;
+      return;
+    }
+
+    // If a connection is already in progress, wait for it instead of opening a second one
+    if (this.connectingPromise) {
+      return this.connectingPromise;
+    }
+
     this.stopped = false;
     this.buffer = "";
     this.hasFlushedThisTurn = false;
+    this.audioChunksThisTurn = 0;
     if (this.flushTimer) {
       clearTimeout(this.flushTimer);
       this.flushTimer = null;
@@ -80,16 +93,6 @@ export class WsTtsBridge {
       this.connectingPromise = null;
       this.elevenWs = null;
       return;
-    }
-
-    if (this.elevenWs && this.elevenWs.readyState === WebSocket.OPEN) {
-      this.wsReady = true;
-      return;
-    }
-
-    // If a connection is already in progress, wait for it instead of opening a second one
-    if (this.connectingPromise) {
-      return this.connectingPromise;
     }
 
     this.elevenWs = null;
@@ -131,6 +134,7 @@ export class WsTtsBridge {
         if (this.stopped) return;
         const msg = JSON.parse(data.toString());
         if (msg.audio && this.browserWs.readyState === this.browserWs.OPEN) {
+          this.audioChunksThisTurn += 1;
           this.browserWs.send(
             JSON.stringify({
               type: "audio",
@@ -256,6 +260,11 @@ export class WsTtsBridge {
       this.wsReady = false;
       this.elevenWs = null;
     }
+  }
+
+  /** Proof that this turn emitted playable PCM to the browser, not merely that the provider stream closed. */
+  hadAudioThisTurn(): boolean {
+    return this.audioChunksThisTurn > 0;
   }
 
   stop(): void {

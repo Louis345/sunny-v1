@@ -7,13 +7,18 @@ import { DISCOVERY_VERIFIER_VERSION, engineeringLessonContext, freezeEngineering
 
 // Recorded provider fixtures, not edits to a published/generated child artifact.
 function fixture(id: string, answer: string) {
-  const academic = { items: [{ itemId: id, constructId: "math.counting", correctAnswerContract: { acceptedValues: [answer] } }] };
+  const prompt = `Choose ${answer} for this counting check.`;
+  const academic = { items: [{ itemId: id, constructId: "math.counting", prompt, correctAnswerContract: { acceptedValues: [answer] } }] };
   const contract = { items: [{ itemId: id, constructId: "math.counting", acceptedValues: [answer] }] };
-  const html = `<!doctype html><html><body><button id="response-${id}" style="position:absolute;top:1500px">${answer}</button><script id="sunny-discovery-contract" type="application/json">${JSON.stringify(contract)}</script><script>
+  const html = `<!doctype html><html><body><h1>${prompt}</h1><div id="response-controls" style="position:absolute;top:1500px"><button id="response-${id}">${answer}</button><button id="wrong-${id}">Different answer</button><button id="not-sure-${id}">Not sure</button></div><script id="sunny-discovery-contract" type="application/json">${JSON.stringify(contract)}</script><script>
   window.__SUNNY_DISCOVERY_TEST__={evaluate:(itemId,value)=>({itemId,constructId:'math.counting',correct:value==='${answer}'})};
-  window.SUNNY_VALIDATION_HOOKS={journey:[{itemId:'${id}',steps:[{action:'click',selector:'#response-${id}'}]}]};
+  window.SUNNY_VALIDATION_HOOKS={journey:[{itemId:'${id}',steps:[{action:'click',selector:'#response-${id}'}]}],incorrectJourney:[{itemId:'${id}',steps:[{action:'click',selector:'#wrong-${id}'}]}],notSureJourney:[{itemId:'${id}',steps:[{action:'click',selector:'#not-sure-${id}'}]}]};
   parent.postMessage({type:'evaluation_ready'},'*');
-  document.querySelector('#response-${id}').onclick=()=>{parent.postMessage({type:'evaluation_attempt',payload:{attemptId:'a-${id}',observedAt:new Date().toISOString(),itemId:'${id}',attemptedValue:'${answer}',supportEventIds:[],instrumentSignals:[]}},'*');parent.postMessage({type:'evaluation_complete'},'*')};
+  parent.postMessage({type:'game_state_update',payload:{currentChallenge:{id:'${id}',prompt:${JSON.stringify(prompt)}}}},'*');
+  const commit=(attemptedValue,instrumentSignals=[])=>{const scored=window.__SUNNY_DISCOVERY_TEST__.evaluate('${id}',attemptedValue);document.body.dataset.correct=String(scored.correct);parent.postMessage({type:'evaluation_attempt',payload:{attemptId:'a-${id}-'+(attemptedValue||'unsure'),observedAt:new Date().toISOString(),itemId:'${id}',attemptedValue,supportEventIds:[],instrumentSignals}},'*');parent.postMessage({type:'evaluation_complete'},'*')};
+  document.querySelector('#response-${id}').onclick=()=>commit('${answer}');
+  document.querySelector('#wrong-${id}').onclick=()=>commit('__wrong__');
+  document.querySelector('#not-sure-${id}').onclick=()=>commit('', ['response_not_captured']);
   </script></body></html>`;
   return { academic, html, patch: JSON.stringify({ replacements: [{ oldText: 'top:1500px', newText: 'top:60px', reason: "Place the existing response control inside the supported frames." }], engineeringLesson: { features: ["flex_layout"], cause: "overflow_geometry", change: "correct_layout_budget" } }) };
 }

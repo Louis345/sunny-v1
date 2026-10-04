@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
+import { useSyntheticProfileContext } from "../tests/fixtures/syntheticProfileContext";
 import { buildProfile } from "../profiles/buildProfile";
+
+useSyntheticProfileContext();
 
 describe("profile companionCare view", () => {
   it("buildProfile exposes companionCare while preserving legacy mirrors", async () => {

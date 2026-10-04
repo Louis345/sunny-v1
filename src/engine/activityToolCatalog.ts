@@ -555,8 +555,8 @@ const ACTIVITY_RUNTIME_CONFIG_BY_ID = {
     configSource: "activity-config-file",
   },
   "visual-explainer": {
-    gameIds: [],
-    configSource: "generated-artifact",
+    gameIds: ["spelling-visual-explainer"],
+    configSource: "activity-config-file",
   },
   "picture-question": {
     gameIds: [],
@@ -1811,15 +1811,17 @@ const ACTIVITY_TOOL_CONTRACTS: ActivityToolContractSource[] = [
     label: "Visual Explainer",
     nodeType: "visual-explainer",
     purposes: ["teach"],
-    domains: ["reading", "science", "math", "vocabulary"],
+    domains: ["reading", "science", "math", "spelling", "vocabulary"],
     strengths: [
       "Turns an abstract idea into a concrete visual model.",
       "Works well after a concept check shows the child has not learned the idea yet.",
+      "Can model a Planner-authored spelling chunk or strategy before a separate hidden recall check.",
     ],
     weakFor: ["independent-recall", "mastery-gating"],
     goodFitWhen: [
       "The child has little prior knowledge or needs a mental model before drills.",
       "The topic benefits from animation, diagrams, pictures, or cause/effect sequences.",
+      "Committed spelling evidence supports explicit modeling of a tricky chunk or pattern.",
     ],
     badFitWhen: [
       "Sunny needs clean independent evidence.",
@@ -3234,7 +3236,10 @@ const ACTIVITY_TOOL_CONTRACTS: ActivityToolContractSource[] = [
     nodeType: "generated-baseline",
     configSource: "generated-artifact",
     purposes: ["practice", "evaluate", "fluency"],
-    domains: ["math", "reading", "science", "spelling", "vocabulary"],
+    // Spelling has dedicated, evidence-calibrated native instruments plus the
+    // Visual Explainer bridge. Keep this generic generated shell for domains
+    // that still need it instead of expanding spelling's Planner packet.
+    domains: ["math", "reading", "science", "vocabulary"],
     strengths: [
       "Reusable generated shell that loads per-homework config JSON.",
       "Keeps domain-valid fun mechanics without hand-building a new HTML game each time.",

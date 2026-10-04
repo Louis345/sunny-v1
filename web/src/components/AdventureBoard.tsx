@@ -89,7 +89,7 @@ export const HORIZONTAL_ADVENTURE_SLOTS: Record<AdventureBoardSlot, { x: number;
   "5c.2": { x: 0.62, y: 0.50 },
   "5c.3": { x: 0.70, y: 0.50 },
   "6": { x: 0.76, y: 0.50 },
-  "6.1": { x: 0.74, y: 0.58 },
+  "6.1": { x: 0.87, y: 0.72 },
   "6.2": { x: 0.78, y: 0.42 },
   "7": { x: 0.84, y: 0.31 },
   "8": { x: 0.91, y: 0.13 },
@@ -156,6 +156,7 @@ export function AdventureBoard({
   const unlockCeremonyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [unlockCeremony, setUnlockCeremony] = useState<UnlockCeremonyEvent | null>(null);
   const [preparingMessage, setPreparingMessage] = useState<string | null>(null);
+  const [brokenThumbnails, setBrokenThumbnails] = useState<Set<string>>(() => new Set());
 
   useEffect(() => {
     const newlyUnlocked = board.nodes.find((node) => {
@@ -191,6 +192,35 @@ export function AdventureBoard({
     if (unlockCeremonyTimer.current) clearTimeout(unlockCeremonyTimer.current);
   }, []);
 
+  const projectedChoiceSets = (board.choiceSets ?? []).map((choiceSet) =>
+    inspectBaselineNodes && choiceSet.kind === "baseline-route"
+      ? {
+          ...choiceSet,
+          options: choiceSet.options.map((option) => ({
+            ...option,
+            state: "available" as const,
+            lock: undefined,
+          })),
+        }
+      : choiceSet,
+  );
+  const choiceSetsById = new Map(projectedChoiceSets.map((set) => [set.id, set]));
+  const directRouteChoicesByNodeId = new Map<
+    string,
+    { option: AdventureChoiceOption; choiceSet: AdventureChoiceSet }
+  >();
+  for (const choiceSet of projectedChoiceSets) {
+    if (choiceSet.kind !== "baseline-route") continue;
+    for (const option of choiceSet.options) {
+      const hasLaunchTarget = Boolean(
+        option.gameHtmlPath || option.activityConfigPath || option.activityId,
+      );
+      if (option.nodeId && option.state === "available" && hasLaunchTarget) {
+        directRouteChoicesByNodeId.set(option.nodeId, { option, choiceSet });
+      }
+    }
+  }
+
   const completedNodeIdSet = new Set(completedNodeIds);
   const resolvedNodes = board.nodes.flatMap((node) => {
     const positionedNode = resolveNodePosition(node);
@@ -212,27 +242,23 @@ export function AdventureBoard({
     ) {
       return [{ ...positionedNode, state: "completed" as const }];
     }
+    if (
+      positionedNode.state === "locked" &&
+      directRouteChoicesByNodeId.has(positionedNode.id)
+    ) {
+      return [{ ...positionedNode, state: "available" as const, lock: undefined }];
+    }
     return [positionedNode];
   });
-  const projectedChoiceSets = (board.choiceSets ?? []).map((choiceSet) =>
-    inspectBaselineNodes && choiceSet.kind === "baseline-route"
-      ? {
-          ...choiceSet,
-          options: choiceSet.options.map((option) => ({
-            ...option,
-            state: "available" as const,
-            lock: undefined,
-          })),
-        }
-      : choiceSet,
-  );
-  const choiceSetsById = new Map(projectedChoiceSets.map((set) => [set.id, set]));
   const [openChoiceSetId, setOpenChoiceSetId] = useState<string | null>(null);
   const openChoiceSet = openChoiceSetId ? choiceSetsById.get(openChoiceSetId) ?? null : null;
   const nodes = new Map(resolvedNodes.map((node) => [node.id, node]));
 
   return (
     <section
+      data-board-id={board.boardId}
+      data-child-id={board.childId}
+      data-plan-id={board.planId}
       className={[
         "adventure-board",
         unlockCeremony ? `adventure-board--unlocking-${unlockCeremony.variant}` : "",
@@ -276,43 +302,34 @@ export function AdventureBoard({
       <div className="adventure-board__nodes">
         {resolvedNodes.filter((node) => node.state !== "hidden").map((node) => {
           const Icon = iconFor(node.icon, nodeFallbackIcon(node));
+          const thumbnailKey = `${node.id}:${node.thumbnailUrl ?? ""}`;
+          const showThumbnail = Boolean(
+            node.thumbnailUrl && !brokenThumbnails.has(thumbnailKey),
+          );
+          const directRouteChoice = directRouteChoicesByNodeId.get(node.id);
+          const isRouteGuidance =
+            node.kind === "choice-gate" &&
+            Boolean(node.choiceSetId) &&
+            choiceSetsById.get(node.choiceSetId!)?.kind === "baseline-route";
           const isLocked = node.state === "locked";
-          const isPreparing = node.state === "preview";
+          const isPreparing =
+            node.state === "preview" ||
+            node.lock?.label.trim().toLowerCase() === "preparing";
           const isCompleted = node.state === "completed";
-          return (
-            <button
-              key={node.id}
-              type="button"
-              className={[
-                "adventure-board__node",
-                `adventure-board__node--${node.kind}`,
-                `adventure-board__node--${node.state}`,
-                unlockCeremony?.nodeId === node.id ? "adventure-board__node--unlocking" : "",
-                unlockCeremony?.nodeId === node.id
-                  ? `adventure-board__node--unlocking-${unlockCeremony.variant}`
-                  : "",
-              ].join(" ")}
-              style={{
-                left: `${node.position.x * 100}%`,
-                top: `${node.position.y * 100}%`,
-              }}
-              onClick={() => {
-                if (isPreparing) {
-                  setPreparingMessage(`${node.shortLabel ?? node.label} is still being prepared. You can keep exploring or come back later.`);
-                  return;
-                }
-                setPreparingMessage(null);
-                if (node.choiceSetId && choiceSetsById.has(node.choiceSetId)) {
-                  setOpenChoiceSetId(node.choiceSetId);
-                }
-                onNodeClick?.(node);
-              }}
-              aria-label={`${node.label}${node.lock ? `, ${node.lock.label}` : ""}`}
-            >
+          const content = (
+            <>
               <span className="adventure-board__node-orb">
-                {node.thumbnailUrl ? (
+                {showThumbnail ? (
                   <>
-                    <img className="adventure-board__node-thumbnail" src={node.thumbnailUrl} alt="" />
+                    <img
+                      className="adventure-board__node-thumbnail"
+                      src={node.thumbnailUrl}
+                      alt=""
+                      onError={() => {
+                        console.warn(` 🎮 [adventure-board] [thumbnail] [fallback] node=${node.id}`);
+                        setBrokenThumbnails((current) => new Set(current).add(thumbnailKey));
+                      }}
+                    />
                     {isCompleted || isLocked || isPreparing ? (
                       <span className="adventure-board__node-state-badge">
                         {isCompleted ? (
@@ -339,6 +356,68 @@ export function AdventureBoard({
               {node.lock ? (
                 <span className="adventure-board__lock-label">{node.lock.progressLabel ?? node.lock.label}</span>
               ) : null}
+            </>
+          );
+
+          if (isRouteGuidance) {
+            return (
+              <div
+                key={node.id}
+                role="note"
+                aria-label={node.label}
+                className={[
+                  "adventure-board__node",
+                  "adventure-board__node--choice-gate",
+                  "adventure-board__node--choice-guidance",
+                  `adventure-board__node--${node.state}`,
+                ].join(" ")}
+                style={{
+                  left: `${node.position.x * 100}%`,
+                  top: `${node.position.y * 100}%`,
+                }}
+              >
+                {content}
+              </div>
+            );
+          }
+
+          return (
+            <button
+              key={node.id}
+              type="button"
+              className={[
+                "adventure-board__node",
+                `adventure-board__node--${node.kind}`,
+                `adventure-board__node--${node.state}`,
+                unlockCeremony?.nodeId === node.id ? "adventure-board__node--unlocking" : "",
+                unlockCeremony?.nodeId === node.id
+                  ? `adventure-board__node--unlocking-${unlockCeremony.variant}`
+                  : "",
+              ].join(" ")}
+              style={{
+                left: `${node.position.x * 100}%`,
+                top: `${node.position.y * 100}%`,
+              }}
+              onClick={() => {
+                if (isPreparing) {
+                  console.log(` 🎮 [adventure-board] [preparing-node] [acknowledged] node=${node.id}`);
+                  setPreparingMessage(`${node.shortLabel ?? node.label} is still being prepared. You can keep exploring or come back later.`);
+                  return;
+                }
+                setPreparingMessage(null);
+                if (directRouteChoice) {
+                  console.log(` 🎮 [adventure-board] [route-choice] [selected] node=${node.id}`);
+                  onChoiceClick?.(directRouteChoice.option, directRouteChoice.choiceSet);
+                  return;
+                }
+                if (node.choiceSetId && choiceSetsById.has(node.choiceSetId)) {
+                  setOpenChoiceSetId(node.choiceSetId);
+                }
+                onNodeClick?.(node);
+              }}
+              aria-label={`${node.label}${node.lock ? `, ${node.lock.label}` : ""}`}
+            >
+              {content}
             </button>
           );
         })}

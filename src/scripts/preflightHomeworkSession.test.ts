@@ -141,7 +141,7 @@ describe("homework session preflight", () => {
     expect(report.issues.map((issue) => issue.message).join(" ")).toContain("planner-selected wordRadarConfig");
   });
 
-  it("reports missing compiler-owned Mystery, Quest, and Boss destinations", () => {
+  it("reports a missing compiler-owned Mystery but never requires unauthorized Quest or Boss destinations", () => {
     const root = makeRoot();
     roots.push(root);
     const childId = "reina";
@@ -150,11 +150,9 @@ describe("homework session preflight", () => {
 
     const report = runHomeworkSessionPreflight({ childId, rootDir: root });
 
-    expect(report.issues.map((issue) => issue.code)).toEqual(expect.arrayContaining([
-      "missing_mystery_choice",
-      "missing_quest_destination",
-      "missing_boss_destination",
-    ]));
+    expect(report.issues.map((issue) => issue.code)).toContain("missing_mystery_choice");
+    expect(report.issues.map((issue) => issue.code)).not.toEqual(expect.arrayContaining(["missing_quest_destination"]));
+    expect(report.issues.map((issue) => issue.code)).not.toEqual(expect.arrayContaining(["missing_boss_destination"]));
     expect(report.issues.map((issue) => issue.message).join(" ")).not.toMatch(/planner-authored|planner-owned/);
     expect(report.issues.map((issue) => issue.message).join(" ")).toContain("compiler-owned Mystery");
   });

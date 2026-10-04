@@ -4,13 +4,19 @@ import path from "path";
 import { validateGeneratedGame } from "../scripts/validateGeneratedGame";
 import { getChildChart } from "../profiles/childChart";
 import { resolveChildContextDir } from "../utils/contextRoot";
-import { hashDiscoveryContract, runMathProviderStage } from "./adaptiveMathDiscovery";
 import {
-  createDirectArtwork, runDirectBrowserSmokeCheck, MATH_BROWSER_VERIFIER_VERSION,
+  acquireMathGenerationLease,
+  hashDiscoveryContract,
+  releaseMathGenerationLease,
+  runMathProviderStage,
+} from "./adaptiveMathDiscovery";
+import {
+  buildMathCreativeChildContext, createDirectArtwork, runDirectBrowserSmokeCheck, MATH_BROWSER_VERIFIER_VERSION,
   generateAdaptiveProgressionActivityHtml,
 } from "./directMathExperience";
 import { engagementTheoryEvidenceContext } from "./engagementTheory";
 import { validateGeneratedArtifactRuntime } from "./generatedArtifactRuntimeValidator";
+import { judgeChildFacingScreens, selectChildFacingJourneyScreens } from "./childFacingVisualGate";
 import {
   getLearningCycle,
   transitionLearningCycle,
@@ -18,6 +24,7 @@ import {
   type LearningCycleRecordV2,
   type LearningCycleRepositoryOptions,
 } from "./learningCycleRepository";
+import { preparingBoardInstance } from "./learningBoardInstances";
 
 export type CanonicalProgressionGeneratorInput = {
   childId: string;
@@ -65,7 +72,7 @@ function slug(value: string): string {
 
 function creatorChildContext(childId: string, rootDir: string): unknown {
   const chart = getChildChart(childId, { rootDir });
-  return { identity: chart.identity, demographics: chart.demographics, engagementEvidence: engagementTheoryEvidenceContext(chart.engagementTheory) };
+  return buildMathCreativeChildContext(chart);
 }
 
 async function productionGenerate(input: { prompt: string; node: LearningCycleNodeContract; cycle: LearningCycleRecordV2; childContext?: unknown }, rootDir: string): Promise<string> {
@@ -115,8 +122,23 @@ async function productionValidate(input: { html: string; node: LearningCycleNode
     fs.mkdirSync(dir, {recursive:true});
     const htmlPath = path.join(dir, "candidate.html"); fs.writeFileSync(htmlPath, input.html);
     const htmlHash = createHash("sha256").update(input.html).digest("hex");
-    const report = await runDirectBrowserSmokeCheck({rootDir, artifacts:[{nodeId:input.node.nodeId,childId:input.cycle.childId,homeworkId:input.cycle.homeworkId,title:input.node.title,htmlPath,htmlHash,artworkUrl:input.node.artwork.localPath??"",creatorPrompt:input.node.generationPrompt?.text??"",promptHash:input.node.generationPrompt?.promptId??"",plannerModel:"canonical",creatorModel:"canonical",...(input.node.evidenceContract.itemRoles?{itemIds:Object.keys(input.node.evidenceContract.itemRoles)}:{})}]});
-    return {passed:report.passed,failures:report.failures,screenshotPaths:report.screenshots,htmlHash,verifierVersion:MATH_BROWSER_VERIFIER_VERSION};
+    const mathItemContracts = input.cycle.domain === "math"
+      ? Object.values(input.node.evidenceContract.itemContracts ?? {})
+      : [];
+    const report = await runDirectBrowserSmokeCheck({
+      rootDir,
+      artifacts:[{nodeId:input.node.nodeId,childId:input.cycle.childId,homeworkId:input.cycle.homeworkId,title:input.node.title,htmlPath,htmlHash,artworkUrl:input.node.artwork.localPath??"",creatorPrompt:input.node.generationPrompt?.text??"",promptHash:input.node.generationPrompt?.promptId??"",plannerModel:"canonical",creatorModel:"canonical",...(input.node.evidenceContract.itemRoles?{itemIds:Object.keys(input.node.evidenceContract.itemRoles)}:{})}],
+      ...(mathItemContracts.length > 0 ? { itemContractsByNodeId: { [input.node.nodeId]: mathItemContracts } } : {}),
+    });
+    if (!report.passed) return {passed:false,failures:report.failures,screenshotPaths:report.screenshots,htmlHash,verifierVersion:MATH_BROWSER_VERIFIER_VERSION};
+    const visualVerdict = await judgeChildFacingScreens({
+      screenshotPaths: selectChildFacingJourneyScreens(report.screenshots),
+      auditFile: path.join(dir, "blind-visual-verdict.json"),
+    });
+    const visualFailures = visualVerdict.decision === "reject"
+      ? visualVerdict.observations.map(observation => `child_visual_review:${observation}`)
+      : [];
+    return {passed:visualFailures.length===0,failures:visualFailures,screenshotPaths:report.screenshots,htmlHash,verifierVersion:MATH_BROWSER_VERIFIER_VERSION};
   }
   const runtime = await validateGeneratedArtifactRuntime({
     html: input.html,
@@ -159,7 +181,8 @@ function qualityDiagnosticsDir(
     "homework",
     "games",
     ".validation",
-    ...(cycle.domain === "spelling" ? ["assignments", cycle.homeworkId] : []),
+    "assignments",
+    cycle.homeworkId,
     node.nodeId,
     "quality",
   );
@@ -246,23 +269,22 @@ export async function generateCanonicalProgressionArtifact(
   const retryableStage = node.role === "quest" || node.role === "boss";
   const directory = qualityDiagnosticsDir(rootDir, cycle, node);
   const legacyDir = path.join(resolveChildContextDir(cycle.childId, { rootDir }), "homework/games/.validation", node.nodeId, "quality");
-  if (cycle.domain === "spelling") preserveLegacySpellingSnapshots(legacyDir, directory, cycle, node);
-  const spellingStage = <T>(stage: string, model: string, request: unknown, execute: () => Promise<T>) => {
-    preserveLegacySpellingReceipt(legacyDir, directory, stage, model, request);
-    return runMathProviderStage({ draftDir: directory, stage, model, request, execute });
+  preserveLegacySpellingSnapshots(legacyDir, directory, cycle, node);
+  const providerStage = <T>(stageName: string, model: string, request: unknown, execute: () => Promise<T>) => {
+    preserveLegacySpellingReceipt(legacyDir, directory, stageName, model, request);
+    return runMathProviderStage({ draftDir: directory, stage: stageName, model, request, execute });
   };
   const artworkInput = { prompt: node.artwork.prompt ?? "", node, cycle };
   const createArtwork = () => (input.generateArtwork ?? ((value) => productionArtwork(value, rootDir)))(artworkInput);
   const artworkPath = !node.artwork.localPath && node.artwork.prompt
-    ? cycle.domain === "spelling"
-      ? await spellingStage("artwork", "existing-artwork-provider", { prompt: artworkInput.prompt, contractHash: progressionContractFingerprint(node) }, createArtwork)
-      : await createArtwork()
+    ? await providerStage("artwork", "existing-artwork-provider", { prompt: artworkInput.prompt, contractHash: progressionContractFingerprint(node) }, createArtwork)
     : node.artwork.localPath;
   const nodeForGeneration: LearningCycleNodeContract = artworkPath
     ? { ...node, artwork: { ...node.artwork, status: "ready", localPath: artworkPath } }
     : node;
   const generationPrompt = node.generationPrompt.text;
   const generate = input.generateHtml ?? ((creatorInput) => productionGenerate(creatorInput, rootDir));
+  const creatorModel = process.env.SUNNY_GENERATION_MODEL ?? process.env.SUNNY_INGEST_MODEL ?? "claude-sonnet-5";
   const validate = input.validate ?? ((validationInput) => productionValidate(validationInput, rootDir));
   const maxAttempts = retryableStage ? 2 : 1;
   let prompt = generationPrompt;
@@ -273,30 +295,26 @@ export async function generateCanonicalProgressionArtifact(
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     try {
       let creatorInput: { prompt: string; node: LearningCycleNodeContract; cycle: LearningCycleRecordV2; childContext?: unknown } = { prompt, node: nodeForGeneration, cycle };
-      if (cycle.domain === "spelling") {
-        const file = path.join(directory, `creator-${attempt}.input.json`);
-        const digest = (value: unknown) => createHash("sha256").update(JSON.stringify(value)).digest("hex");
-        if (fs.existsSync(file)) {
-          const saved = JSON.parse(fs.readFileSync(file, "utf8"));
-          if (saved.hash !== digest(saved.input) || saved.input.prompt !== prompt || saved.input.cycle.childId !== cycle.childId
-            || saved.input.cycle.homeworkId !== cycle.homeworkId || saved.input.cycle.domain !== cycle.domain || saved.input.node.nodeId !== node.nodeId
-            || progressionContractFingerprint(saved.input.node) !== progressionContractFingerprint(nodeForGeneration)) throw new Error("spelling_creator_snapshot_changed");
-          creatorInput = saved.input;
-        } else {
-          creatorInput.childContext = input.generateHtml ? {} : creatorChildContext(cycle.childId, rootDir);
-          fs.mkdirSync(path.dirname(file), { recursive: true });
-          const temporary = `${file}.${process.pid}.tmp`;
-          fs.writeFileSync(temporary, JSON.stringify({ hash: digest(creatorInput), input: creatorInput })); fs.renameSync(temporary, file);
-        }
+      const file = path.join(directory, `creator-${attempt}.input.json`);
+      const digest = (value: unknown) => createHash("sha256").update(JSON.stringify(value)).digest("hex");
+      if (fs.existsSync(file)) {
+        const saved = JSON.parse(fs.readFileSync(file, "utf8"));
+        if (saved.hash !== digest(saved.input) || saved.input.prompt !== prompt || saved.input.cycle.childId !== cycle.childId
+          || saved.input.cycle.homeworkId !== cycle.homeworkId || saved.input.cycle.domain !== cycle.domain || saved.input.node.nodeId !== node.nodeId
+          || progressionContractFingerprint(saved.input.node) !== progressionContractFingerprint(nodeForGeneration)) throw new Error(`${cycle.domain}_creator_snapshot_changed`);
+        creatorInput = saved.input;
+      } else {
+        creatorInput.childContext = input.generateHtml ? {} : creatorChildContext(cycle.childId, rootDir);
+        fs.mkdirSync(path.dirname(file), { recursive: true });
+        const temporary = `${file}.${process.pid}.tmp`;
+        fs.writeFileSync(temporary, JSON.stringify({ hash: digest(creatorInput), input: creatorInput })); fs.renameSync(temporary, file);
       }
-      html = cycle.domain === "spelling"
-        ? await spellingStage(`creator-${attempt}`, process.env.SUNNY_GENERATION_MODEL ?? process.env.SUNNY_INGEST_MODEL ?? "claude-sonnet-5", creatorInput, () => generate(creatorInput))
-        : await generate(creatorInput);
+      html = await providerStage(`creator-${attempt}`, creatorModel, creatorInput, () => generate(creatorInput));
     } catch (error) {
       const reason = error instanceof Error ? error.message : String(error);
       // Receipt/snapshot failures are not broken HTML: another attempt would
       // bypass the frozen request or its uncertain/completed provider outcome.
-      if (!retryableStage || (cycle.domain === "spelling" && /^(provider_|spelling_)/.test(reason))) throw error;
+      if (!retryableStage || /^(provider_|(?:math|spelling)_creator_snapshot_changed)/.test(reason)) throw error;
       persistQualityCandidate({ rootDir, cycle, node, iteration: attempt, error: reason });
       console.warn(` 🎮 [canonical-progression] [candidate-invalid] node=${node.nodeId} iteration=${attempt} reason=${reason}`);
       if (attempt < maxAttempts) {
@@ -378,8 +396,8 @@ Correct only the implementation while preserving the Planner's academic target, 
       validationStatus: "passed",
       ...(retryableStage ? {
         creativeProvenance: {
-          rationale: "Technical runtime validation only; creative judgement is the human review of the captured screenshots.",
-          qualityPrediction: "No automated quality score is recorded.",
+          rationale: "Publication requires technical runtime validation and an open-ended child-view screenshot review.",
+          qualityPrediction: "No numeric quality score is inferred; the screenshot verdict is stored in the validation audit.",
           creatorPromptHash: createHash("sha256").update(generationPrompt).digest("hex"),
           artworkPromptHash: createHash("sha256").update(node.artwork.prompt ?? "").digest("hex"),
         },
@@ -395,4 +413,56 @@ Correct only the implementation while preserving the Planner's academic target, 
       } : {}),
     },
   }, opts);
+}
+
+/**
+ * Implement and verify every node of the one preparing successor board, reusing
+ * nodes already bound by an earlier run. The board publishes on its last verified
+ * binding; it never opens a node or interrupts the child.
+ */
+export async function prepareSuccessorBoard(
+  input: Omit<CanonicalProgressionGeneratorInput, "nodeId">,
+  opts: LearningCycleRepositoryOptions = {},
+): Promise<LearningCycleRecordV2> {
+  let cycle = getLearningCycle(input.childId, input.homeworkId, opts);
+  if (!cycle) throw new Error(`learning_cycle_missing:${input.homeworkId}`);
+  // Pre-contract-21 cycles finish their in-flight legacy node through the legacy generator.
+  if (!cycle.boards) return generateCanonicalProgressionArtifact(input, opts);
+  const board = preparingBoardInstance(cycle);
+  if (!board) return cycle;
+  if (cycle.nodes.some((node) => board.nodeIds.includes(node.nodeId) && node.state === "blocked")) {
+    console.warn(` 🎮 [learning-board] [successor-preparation] [awaiting-attention] board=${board.boardId}`);
+    return cycle;
+  }
+  const lease = acquireMathGenerationLease({ rootDir: opts.rootDir, childId: input.childId, homeworkId: input.homeworkId });
+  if (!lease.acquired || !lease.token) {
+    console.log(` 🎮 [learning-board] [successor-preparation] [already-running] board=${board.boardId}`);
+    return cycle;
+  }
+  try {
+    for (let attempt = 0; attempt <= board.nodeIds.length; attempt += 1) {
+      const pending = cycle.nodes.find((node) => board.nodeIds.includes(node.nodeId) && node.state === "generating" && node.generationPrompt);
+      if (!pending) return cycle;
+      let next: LearningCycleRecordV2;
+      let failure = "";
+      try {
+        next = await generateCanonicalProgressionArtifact({ ...input, nodeId: pending.nodeId }, opts);
+        if (next.revision === cycle.revision) failure = "human_review_required";
+      } catch (error) {
+        failure = error instanceof Error ? error.message : String(error);
+        next = getLearningCycle(input.childId, input.homeworkId, opts)!;
+      }
+      if (failure) {
+        // One bounded attempt per node: it waits for a person instead of re-buying builds on every restart.
+        console.warn(` 🎮 [learning-board] [successor-preparation] [needs-attention] board=${board.boardId} node=${pending.nodeId} reason=${failure}`);
+        return transitionLearningCycle(input.childId, input.homeworkId, next.revision, {
+          type: "artifact_generation_attention_required", nodeId: pending.nodeId, reason: `successor_node_failed:${failure}`,
+        }, opts);
+      }
+      cycle = next;
+    }
+    throw new Error(`successor_board_preparation_guard_exceeded:${board.boardId}`);
+  } finally {
+    releaseMathGenerationLease({ rootDir: opts.rootDir, childId: input.childId, homeworkId: input.homeworkId, token: lease.token });
+  }
 }

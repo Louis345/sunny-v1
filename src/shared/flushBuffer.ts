@@ -12,3 +12,15 @@ export function flushBufferIfUnmuted(
     sendMessage("audio", { data: frame });
   }
 }
+
+export function shouldAcknowledgeAudioPlayback(input: {
+  requiresAudio: boolean;
+  receivedAudioFrames: number;
+  playedAudioFrames: number;
+}): boolean {
+  if (!input.requiresAudio) return true;
+  return (
+    input.receivedAudioFrames > 0 &&
+    input.playedAudioFrames === input.receivedAudioFrames
+  );
+}

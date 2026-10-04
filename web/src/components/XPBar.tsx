@@ -5,19 +5,25 @@ export function XPBar({
   xp,
   xpToNext,
   side = "left",
+  onOpen,
 }: {
   level: number;
   xp: number;
   xpToNext: number;
   side?: "left" | "right";
+  onOpen: () => void;
 }) {
-  const safeNext = Math.max(1, xpToNext);
-  const pct = Math.min(100, Math.round((xp / safeNext) * 100));
+  const safeTarget = Math.max(1, xp + xpToNext);
+  const pct = Math.min(100, Math.round((xp / safeTarget) * 100));
 
   return (
-    <div
+    <button
+      type="button"
+      className="level-path-trigger"
+      aria-label={`Level ${level}. ${xp} of ${safeTarget} XP. Open level path`}
+      onClick={onOpen}
       style={{
-        position: "absolute",
+        position: "fixed",
         top: 16,
         left: side === "left" ? 16 : undefined,
         right: side === "right" ? 16 : undefined,
@@ -28,6 +34,9 @@ export function XPBar({
         boxShadow: "0 4px 16px rgba(0,0,0,0.12)",
         fontFamily: "system-ui, sans-serif",
         minWidth: 160,
+        border: "1px solid rgba(124,58,237,0.18)",
+        cursor: "pointer",
+        textAlign: "left",
       }}
     >
       <div style={{ fontSize: 13, color: "#7C3AED", fontWeight: 600 }}>
@@ -50,8 +59,8 @@ export function XPBar({
         />
       </div>
       <div style={{ fontSize: 10, color: "#9CA3AF", marginTop: 3 }}>
-        {xp} / {safeNext} XP
+        {xp} / {safeTarget} XP
       </div>
-    </div>
+    </button>
   );
 }

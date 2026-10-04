@@ -12,12 +12,22 @@ describe("companion capability registry (COMPANION-API-002)", () => {
     expect(COMPANION_CAPABILITIES.get("")).toBeUndefined();
   });
 
-  it("registers emote, camera, animate, move", () => {
-    expect(COMPANION_CAPABILITIES.size).toBe(4);
+  it("registers companion motion and the bounded level-path UI action", () => {
+    expect(COMPANION_CAPABILITIES.size).toBe(5);
     expect(COMPANION_CAPABILITIES.has("emote")).toBe(true);
     expect(COMPANION_CAPABILITIES.has("camera")).toBe(true);
     expect(COMPANION_CAPABILITIES.has("animate")).toBe(true);
     expect(COMPANION_CAPABILITIES.has("move")).toBe(true);
+    expect(COMPANION_CAPABILITIES.has("show_level_path")).toBe(true);
+  });
+
+  it("keeps show_level_path bounded to an empty payload", () => {
+    const capability = COMPANION_CAPABILITIES.get("show_level_path");
+    expect(capability).toBeDefined();
+    expect(capability?.payloadSchema.safeParse({}).success).toBe(true);
+    expect(capability?.payloadSchema.safeParse({ panel: "shop" }).success).toBe(false);
+    expect(capability?.whenToUse.join(" ")).toMatch(/asks/i);
+    expect(capability?.whenToUse.join(" ")).toMatch(/never.*proactive/i);
   });
 
   it("CompanionCommand shape is structurally valid when stamped by server", () => {

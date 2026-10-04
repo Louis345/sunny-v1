@@ -18,6 +18,25 @@ import {
 } from "./debug-helpers";
 import { createThinkingEmoteOnFirstToolInStep } from "./companionThinkingEmote";
 
+export function deferCompanionUntilNarrationFinishes(
+  session: any,
+  userMessage: string,
+): boolean {
+  const requestId = session.activeGameNarrationRequestId
+    ?? session.pendingGameNarrationPlayback?.requestId;
+  if (!requestId) return false;
+  const turnState = session.turnSM.getState?.();
+  if (turnState === "LOADING" || turnState === "PROCESSING") {
+    session.turnSM.onInterrupt();
+  }
+  session.turnSM.setPendingTranscript(userMessage);
+  session.recordDebugEvent?.("companion", "deferred_for_game_narration", {
+    requestId,
+  });
+  console.log("  🎮 [companion] [deferred] reason=game_narration_owns_audio");
+  return true;
+}
+
 async function speakShortRecovery(session: any, reason: string): Promise<void> {
   const fallback = "I’m having trouble connecting. Please say that again.";
   session.recordDebugError?.(reason);
@@ -45,6 +64,7 @@ export async function runCompanionResponseForSession(
   session: any,
   userMessage: string,
 ): Promise<void> {
+    if (deferCompanionUntilNarrationFinishes(session, userMessage)) return;
     session.resetCompanionDispositionAfterSpeech?.();
     const st = session.turnSM.getState();
     if (st === "WORD_BUILDER") {

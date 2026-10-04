@@ -377,6 +377,19 @@
   box-shadow: 0 8px 32px rgba(255, 255, 255, 0.58);
 }
 
+.adventure-board__node--choice-guidance {
+  cursor: default;
+  pointer-events: none;
+}
+
+.adventure-board__node--choice-guidance .adventure-board__node-orb {
+  width: 66px;
+  height: 66px;
+  border-style: dashed;
+  background: color-mix(in srgb, var(--board-panel) 82%, transparent);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
+}
+
 .adventure-board__node--completed .adventure-board__node-orb {
   background: #d1fae5;
   color: #065f46;

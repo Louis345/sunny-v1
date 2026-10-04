@@ -5,6 +5,10 @@ import { getActivityCapabilityMode } from "./activityToolCatalog";
 import { hashDiscoveryContract } from "./adaptiveMathDiscovery";
 import { validateActivityEngineConfig, validateLetterRushConfig, type ActivityEngineConfig, type LetterRushConfig } from "./activityEngineConfig";
 import {
+  validateSpellingVisualExplainerPlanConfig,
+  validateVisualLearnerArtifactConfig,
+} from "../shared/visualLearnerArtifactConfig";
+import {
   createLearningCycle,
   getLearningCycle,
   repairInvalidLearningCycleForReingestion,
@@ -16,6 +20,7 @@ import {
   type SpellingDiagnosticSelection,
   type LearningCycleRepositoryOptions,
 } from "./learningCycleRepository";
+import { withInitialBoard } from "./learningBoardInstances";
 
 export type LearningCycleIngestInput = {
   childId: string;
@@ -93,7 +98,7 @@ export function createSpellingDiscoveryCycle(input: {
       || hashDiscoveryContract(mode.config) !== hashDiscoveryContract(instrument.config)) throw new Error("spelling_diagnostic_selection_invalid");
   }
   const nodeId = `${input.homeworkId}:discovery`;
-  const cycle = createLearningCycle({
+  const cycle = createLearningCycle(withInitialBoard({
     childId: input.childId, homeworkId: input.homeworkId, domain: "spelling",
     assignment: {
       title: input.title, contentFingerprint: input.contentFingerprint,
@@ -119,7 +124,7 @@ export function createSpellingDiscoveryCycle(input: {
       },
       evidenceIds: [],
     }],
-  }, opts);
+  }, "probe", (opts.now ?? new Date()).toISOString()), opts);
   console.log(` 🎮 [spelling-discovery] [contract] [saved] homework=${input.homeworkId} items=${input.items.length} hash=${fingerprint}`);
   return cycle;
 }
@@ -157,6 +162,18 @@ function roleForNode(node: ActiveSessionPlan["nodePlan"][number]): LearningCycle
   if (node.type === "boss" || node.activityId === "boss") return "boss";
   if (node.type === "mystery" || node.activityId === "mystery") return "mystery";
   return "baseline";
+}
+
+function spellingImplementationType(
+  node: ActiveSessionPlan["nodePlan"][number],
+): ActiveSessionPlan["nodePlan"][number]["type"] {
+  if (node.activityConfig && typeof node.activityConfig === "object") {
+    const configured = (node.activityConfig as { activityId?: unknown }).activityId;
+    if (configured === "concept-check" || configured === "letter-rush" || configured === "visual-explainer") {
+      return configured;
+    }
+  }
+  return node.type;
 }
 
 function staticTitle(role: LearningCycleNodeContract["role"], proposed: string | undefined): string {
@@ -360,6 +377,25 @@ export function buildSpellingTargetedCycleInput(input: {
     }
   }
   const contract = buildLearningCycleInputFromPlan({ childId: cycle.childId, homeworkId: cycle.homeworkId, domain: "spelling", title: cycle.assignment.title, contentFingerprint: cycle.assignment.contentFingerprint, capturedEvidenceIds: cycle.assignment.capturedEvidenceIds, targets: cycle.assignment.targets, plan, engagementTheory: null });
+  const selectableRoutes = getAdventureBoardSelectableRoutes(plan);
+  if (selectableRoutes.length >= 2) {
+    const routedNodeIds = new Set(selectableRoutes.flatMap((route) => route.nodeIds));
+    const finalCheckpointNodeIds = (plan.plannedMeasurements ?? [])
+      .filter((measurement) => measurement.spelling?.finalCheck === true)
+      .map((measurement) => measurement.id.replace(/^measure-/, ""))
+      .filter((nodeId) => contract.nodes.some((node) => node.nodeId === nodeId && node.role === "baseline"));
+    const commonTailIds = new Set(finalCheckpointNodeIds);
+    contract.agencyExperiment = {
+      experimentId: `${cycle.homeworkId}:agency:targeted-spelling`,
+      sharedNodeIds: contract.nodes
+        .filter((node) => node.role === "baseline" && !routedNodeIds.has(node.nodeId) && !commonTailIds.has(node.nodeId))
+        .map((node) => node.nodeId),
+      routes: selectableRoutes.map((route) => ({
+        routeId: route.id,
+        nodeIds: [...route.nodeIds, ...finalCheckpointNodeIds],
+      })),
+    };
+  }
   contract.academicPredictions = [];
   const prior = new Set<string>();
   const pendingInterventions = new Map<string, Set<string>>();
@@ -387,14 +423,18 @@ export function buildSpellingTargetedCycleInput(input: {
       pendingInterventions.set(item.wordId, pending);
       return item;
     });
+    const implementationType = spellingImplementationType(node);
+    if (contract.nodes[index].role === "mystery" && items.length > 0 && implementationType === "mystery") {
+      throw new Error(`spelling_mystery_academic_instrument_missing:${node.id}`);
+    }
     let nativeConfig: Record<string, unknown> | undefined;
-    if (node.type === "letter-rush" || node.type === "concept-check") {
-      const parsed = node.type === "letter-rush" ? validateLetterRushConfig(node.activityConfig) : validateActivityEngineConfig(node.activityConfig);
-      if (!parsed.ok || !parsed.normalized || parsed.normalized.domain !== "spelling" || parsed.normalized.activityId !== node.type
+    if (implementationType === "letter-rush" || implementationType === "concept-check") {
+      const parsed = implementationType === "letter-rush" ? validateLetterRushConfig(node.activityConfig) : validateActivityEngineConfig(node.activityConfig);
+      if (!parsed.ok || !parsed.normalized || parsed.normalized.domain !== "spelling" || parsed.normalized.activityId !== implementationType
         || parsed.normalized.evidencePolicy.writesMasteryEvidence) throw new Error(`spelling_engine_config_invalid:${node.id}`);
       const config = structuredClone(parsed.normalized);
       const match = (word: string) => items.find(item => item.word.normalize("NFC").toLowerCase() === word.normalize("NFC").toLowerCase());
-      if (node.type === "letter-rush") {
+      if (implementationType === "letter-rush") {
         const letter = config as LetterRushConfig;
         if (letter.words.length !== items.length || new Set(letter.words.map(word => word.text.toLowerCase())).size !== items.length) throw new Error(`spelling_engine_coverage_invalid:${node.id}`);
         letter.words = letter.words.map(word => { const item = match(word.text); if (!item) throw new Error(`spelling_engine_unknown_word:${node.id}`); return { ...word, id: item.id }; });
@@ -413,8 +453,79 @@ export function buildSpellingTargetedCycleInput(input: {
         });
       }
       nativeConfig = config as unknown as Record<string, unknown>;
+    } else if (implementationType === "visual-explainer") {
+      try {
+        const visual = validateSpellingVisualExplainerPlanConfig(node.activityConfig);
+        const normalize = (value: string) => value.normalize("NFC").trim().toLocaleLowerCase("en-US");
+        const itemByWord = new Map(items.map((item) => [normalize(item.word), item]));
+        const configuredWords = visual.words.map((word) => normalize(word.text));
+        if (configuredWords.length !== items.length
+          || new Set(configuredWords).size !== items.length
+          || configuredWords.some((word) => !itemByWord.has(word))) {
+          throw new Error("coverage");
+        }
+        const checkItem = itemByWord.get(normalize(visual.check.targetWord));
+        if (!checkItem) throw new Error("check_target");
+        const frozenWords = visual.words.map((word) => ({
+          ...word,
+          id: itemByWord.get(normalize(word.text))!.id,
+        }));
+        nativeConfig = validateVisualLearnerArtifactConfig({
+          artifactId: `${cycle.homeworkId}:${node.id}:visual-explainer`,
+          type: "visual-explainer",
+          concept: visual.topic,
+          learningGoal: visual.learningGoal,
+          misconception: visual.misconception,
+          sourceEvidence: {
+            source: `assignment:${cycle.homeworkId}`,
+            capturedAt: input.now,
+            summary: decision.reason,
+          },
+          algorithmTargets: ["error-pattern-remediation", "retrieval-practice"],
+          reuseDecision: {
+            status: "candidate",
+            reason: "Planner-selected assisted spelling instruction; checkpoint outcomes are still pending.",
+          },
+          parentApproval: { status: "pending" },
+          mode: { default: "pause-for-question" },
+          preview: { allowPlaythrough: true },
+          narration: {
+            enabled: false,
+            provider: "companion",
+            voiceId: "runtime-companion",
+            modelId: "runtime-companion",
+            audioPath: "none",
+            scriptPath: "none",
+            timings: [{ id: "strategy", startProgress: 0, endProgress: 100, text: visual.strategy.title }],
+          },
+          questions: [{
+            id: visual.check.id,
+            prompt: visual.check.prompt,
+            options: visual.check.options,
+            correctOptionId: visual.check.correctOptionId,
+            targetConcept: checkItem.id,
+            misconceptionTag: visual.misconception,
+            pauseAtProgress: 48,
+            scaffoldLevel: 2,
+          }],
+          companionContext: { role: "hint_only", maxSentences: 3, canRevealAnswer: true },
+          evidence: {
+            targetResults: items.map((item) => item.id),
+            completion: `${node.id}:assisted-visual-instruction-complete`,
+          },
+          chrome: {
+            childShowsEvidence: false,
+            parentShowsEvidence: true,
+            childShowsCarePlan: false,
+            parentShowsCarePlan: true,
+          },
+          spellingModel: { strategy: visual.strategy, words: frozenWords },
+        }) as unknown as Record<string, unknown>;
+      } catch {
+        throw new Error(`spelling_visual_explainer_config_invalid:${node.id}`);
+      }
     }
-    contract.nodes[index] = { ...contract.nodes[index], implementationType: node.type, mechanic: node.activityId, state: "generating", artifactBinding: null, evidenceContract: { ...contract.nodes[index].evidenceContract, academic: items.length > 0, ...(nativeConfig ? { nativeConfig } : {}), ...(items.length ? { spellingItems: Object.fromEntries(items.map(item => [item.id, item])), itemRoles: Object.fromEntries(items.map(item => [item.id, decision.role])) } : {}) } };
+    contract.nodes[index] = { ...contract.nodes[index], implementationType, mechanic: node.activityId, state: "generating", artifactBinding: null, evidenceContract: { ...contract.nodes[index].evidenceContract, academic: items.length > 0, ...(nativeConfig ? { nativeConfig } : {}), ...(items.length ? { spellingItems: Object.fromEntries(items.map(item => [item.id, item])), itemRoles: Object.fromEntries(items.map(item => [item.id, decision.role])) } : {}) } };
     prior.add(node.id);
   }
   if (captured.some(item => !finalWords.has(item.wordId)) || [...pendingInterventions.values()].some(ids => ids.size)) throw new Error("spelling_final_checkpoint_coverage_incomplete");
@@ -425,7 +536,9 @@ export function persistIngestedLearningCycle(
   input: LearningCycleIngestInput,
   opts: LearningCycleRepositoryOptions = {},
 ): LearningCycleRecordV2 {
-  const nextInput = buildLearningCycleInputFromPlan(input);
+  const built = buildLearningCycleInputFromPlan(input);
+  // An opening board never carries unauthorized Quest/Boss placeholders (contract 21).
+  const nextInput = { ...built, nodes: built.nodes.filter((node) => node.role !== "quest" && node.role !== "boss") };
   let current: LearningCycleRecordV2 | null;
   try {
     current = getLearningCycle(input.childId, input.homeworkId, opts);
@@ -435,7 +548,17 @@ export function persistIngestedLearningCycle(
     }
     current = repairInvalidLearningCycleForReingestion(nextInput, opts);
   }
-  if (!current) return createLearningCycle(nextInput, opts);
+  if (!current) return createLearningCycle(withInitialBoard(nextInput, "teaching", (opts.now ?? new Date()).toISOString()), opts);
+  if (current.boards) {
+    // Published boards are immutable: the same assignment resumes as-is; changed content needs a new assignment cycle.
+    if (current.assignment.contentFingerprint !== nextInput.assignment.contentFingerprint) {
+      throw new Error(`learning_cycle_reingestion_fingerprint_changed:${input.homeworkId}`);
+    }
+    console.log(` 🎮 [learning-cycle] [reingestion] [resumed] homework=${input.homeworkId} revision=${current.revision} boards=${current.boards.length}`);
+    return current;
+  }
+  // Legacy cycles keep any existing Quest/Boss node and its evidence; re-ingestion never deletes them.
+  const legacyEncounters = current.nodes.filter((node) => node.role === "quest" || node.role === "boss");
   return transitionLearningCycle(input.childId, input.homeworkId, current.revision, {
     type: "plan_reconciled",
     assignment: nextInput.assignment,
@@ -444,7 +567,7 @@ export function persistIngestedLearningCycle(
       revision: current.academicTheory.revision + 1,
     },
     engagementTheory: nextInput.engagementTheory,
-    nodes: nextInput.nodes,
+    nodes: [...nextInput.nodes, ...legacyEncounters],
     reason: "Re-ingestion reconciled the canonical cycle without discarding recorded evidence.",
   }, opts);
 }

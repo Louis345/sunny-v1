@@ -44,8 +44,11 @@ describe("evidence-cited spelling targeted programs", () => {
     expect(next.plannerInstruction).toContain("activityConfig");
     expect(next.plannerInstruction).toContain("schemaVersion");
     expect(next.plannerInstruction).toContain("requiresPerTargetResult");
-    expect(next.plannerInstruction).toContain("concentrate practice on clean independent misses");
-    expect(next.plannerInstruction).toContain("every selectable route must address every clean independent miss");
+    expect(next.plannerInstruction).toContain("Focus practice on clean independent misses");
+    expect(next.plannerInstruction).toContain("child-choice routes must all cover every such miss");
+    expect(next.plannerInstruction).toContain("Visual Explainer");
+    expect(next.plannerInstruction).toContain("chunks");
+    expect(next.plannerInstruction).toContain("fresh hidden-recall checkpoint");
     expect(buildAssignmentPlannerPrompt(next)).not.toContain("exactly one mystery node");
     const priorPolicy = { ...packet, plannerInstruction: "Design two named learning routes. Size the spine before evidence." };
     expect(attachSpellingDiscoveryEvidence(priorPolicy as never, chart as never).plannerInstruction).not.toContain("Design two named learning routes");
@@ -60,6 +63,115 @@ describe("evidence-cited spelling targeted programs", () => {
     expect(checkpoint.map(item => item.word)).toEqual(["night", "light"]);
     expect(checkpoint.every(item => item.lineage.exposure === "practiced" && item.lineage.measurementRole === "fresh_checkpoint")).toBe(true);
     expect(checkpoint[1].lineage.sourceEvidenceIds).toContain("attempt-light");
+  });
+
+  it("binds Planner-authored spelling Visual Explainer content to frozen words and an independent checkpoint", () => {
+    const { cycle, plan } = fixture();
+    plan.nodePlan[0] = {
+      id: "practice",
+      type: "visual-explainer",
+      activityId: "visual-explainer",
+      targets: ["light"],
+      title: "See the tricky part",
+      activityConfig: {
+        schemaVersion: 1,
+        activityId: "visual-explainer",
+        domain: "spelling",
+        topic: "The ight chunk",
+        learningGoal: "Notice and remember the ight chunk in light.",
+        misconception: "The middle sound maps to a single letter.",
+        strategy: {
+          title: "Spot the chunk",
+          steps: ["Say light.", "Notice ight.", "Build l + ight."],
+        },
+        words: [{ id: "planner-light", text: "light", chunks: ["l", "ight"], focusChunk: "ight", tip: "Keep ight together." }],
+        check: {
+          id: "check-light",
+          targetWord: "light",
+          prompt: "Which chunk helps spell light?",
+          options: [
+            { id: "ight", label: "ight", correct: true },
+            { id: "ite", label: "ite", correct: false },
+          ],
+          correctOptionId: "ight",
+        },
+        evidencePolicy: {
+          writesPracticeEvidence: true,
+          writesMasteryEvidence: false,
+          requiresPerTargetResult: false,
+          allowedEvidence: ["practice", "companion"],
+        },
+      },
+    } as never;
+
+    const input = buildSpellingTargetedCycleInput({ cycle, plan, now: "2026-09-08T12:00:00Z" });
+    const intervention = input.nodes[0]!;
+    const frozenItem = Object.values(intervention.evidenceContract.spellingItems!)[0]!;
+    const visual = intervention.evidenceContract.nativeConfig as {
+      type: string;
+      spellingModel: { words: Array<{ id: string; text: string; chunks: string[] }> };
+      questions: Array<{ targetConcept: string }>;
+    };
+
+    expect(intervention.implementationType).toBe("visual-explainer");
+    expect(visual.type).toBe("visual-explainer");
+    expect(visual.spellingModel.words).toEqual([{ id: frozenItem.id, text: "light", chunks: ["l", "ight"], focusChunk: "ight", tip: "Keep ight together." }]);
+    expect(visual.questions[0]!.targetConcept).toBe(frozenItem.id);
+    expect(input.nodes[1]!.evidenceContract.itemRoles).toEqual(expect.objectContaining(
+      Object.fromEntries(Object.keys(input.nodes[1]!.evidenceContract.spellingItems!).map((id) => [id, "fresh_checkpoint"])),
+    ));
+
+    const malformed = structuredClone(plan);
+    (malformed.nodePlan[0]!.activityConfig as { words: Array<{ chunks: string[] }> }).words[0]!.chunks = ["l", "ite"];
+    expect(() => buildSpellingTargetedCycleInput({ cycle, plan: malformed, now: "2026-09-08T12:00:00Z" }))
+      .toThrow("spelling_visual_explainer_config_invalid:practice");
+  });
+  it("freezes Planner-authored spelling routes into the canonical agency experiment", () => {
+    const { cycle, plan } = fixture();
+    plan.nodePlan.splice(1, 0, {
+      id: "quick-practice",
+      type: "word-radar",
+      activityId: "word-radar",
+      targets: ["light"],
+      title: "Quick Practice",
+    } as never);
+    plan.plannedMeasurements!.splice(1, 0, {
+      id: "measure-quick-practice",
+      activityId: "word-radar",
+      target: "light",
+      evidenceType: "practice",
+      supportCriteria: "Response captured",
+      reviseCriteria: "Support needed",
+      falsifyCriteria: "Instrument fails",
+      spelling: {
+        role: "practice",
+        evidenceIds: ["attempt-light"],
+        interventionNodeIds: [],
+        reason: "Current gap",
+        uncertainty: "One attempt",
+        finalCheck: false,
+        expectedAccuracy: { min: 0, max: 1 },
+        confidence: 0.5,
+        maxDelayDays: 7,
+      },
+    } as never);
+    plan.plannedMeasurements!.find((measurement) => measurement.id === "measure-check")!
+      .spelling!.interventionNodeIds = ["practice", "quick-practice"];
+    plan.learningRoutes = [
+      { id: "careful-route", label: "Build It", rationale: "Careful practice", nodeIds: ["practice"] },
+      { id: "quick-route", label: "Speed It", rationale: "Quick recall", nodeIds: ["quick-practice"] },
+    ];
+
+    const input = buildSpellingTargetedCycleInput({ cycle, plan, now: "2026-09-08T12:00:00Z" });
+
+    expect(input.agencyExperiment).toEqual({
+      experimentId: "hw:agency:targeted-spelling",
+      sharedNodeIds: [],
+      routes: [
+        { routeId: "careful-route", nodeIds: ["practice", "check"] },
+        { routeId: "quick-route", nodeIds: ["quick-practice", "check"] },
+      ],
+    });
   });
   it("rejects unknown citations, absent final coverage, and checkpoints before their intervention", () => {
     for (const change of [

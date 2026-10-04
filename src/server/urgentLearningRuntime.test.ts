@@ -58,10 +58,48 @@ describe("active learning transcript suppression", () => {
     ).toBe(true);
   });
 
-  it("does not suppress Word Radar speech; Elli gets the board snapshot", () => {
+  it("keeps Word Radar spelling speech inside the activity-owned turn", () => {
     expect(
       shouldSuppressTranscriptDuringActiveLearningGame({
         transcript: "m a c h i n e",
+        currentActivityState: {
+          game: "word-radar",
+          currentWord: "machine",
+          phase: "response",
+        },
+        currentCanvasState: { mode: "word-radar" },
+      }),
+    ).toBe(true);
+
+    expect(
+      shouldSuppressTranscriptDuringActiveLearningGame({
+        transcript: "m a c h",
+        currentActivityState: {
+          game: "word-radar",
+          currentWord: "machine",
+          phase: "response",
+        },
+        currentCanvasState: { mode: "word-radar" },
+      }),
+    ).toBe(true);
+
+    expect(
+      shouldSuppressTranscriptDuringActiveLearningGame({
+        transcript: "machine",
+        currentActivityState: {
+          game: "word-radar",
+          currentWord: "machine",
+          phase: "response",
+        },
+        currentCanvasState: { mode: "word-radar" },
+      }),
+    ).toBe(true);
+  });
+
+  it("still lets a child explicitly summon Elli during Word Radar", () => {
+    expect(
+      shouldSuppressTranscriptDuringActiveLearningGame({
+        transcript: "Hey Elli, can you help me?",
         currentActivityState: {
           game: "word-radar",
           currentWord: "machine",

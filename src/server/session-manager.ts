@@ -1,3 +1,4 @@
+import {presentOriginalSpellingItem,withOriginalSpellingChart,recordPresentedEngagement} from '../chart/spelling/originalResponses';
 import fs from "fs";
 import path from "path";
 import { randomUUID } from "crypto";
@@ -49,10 +50,13 @@ import {
 import { TurnStateMachine } from "./session-state";
 import {
   type ActivityMode,
-  type ActivityPauseState,
   type SessionContext,
   type WordScaffoldSessionState,
 } from "./session-context";
+import {
+  ActiveCanvasActivityController,
+  type CanvasActivitySnapshot,
+} from "./activeCanvasActivity";
 import {
   type AssignmentManifest,
   type WorksheetInteractionMode,
@@ -143,6 +147,7 @@ import {
   isSpellingAttempt,
   mathContentToSpoken,
   normalizeSessionChartChildId,
+  normalizeToolName,
   pronunciationCueFor,
   rewriteChildNameForTts,
   shouldAcceptInterruptedTranscript,
@@ -165,29 +170,19 @@ export {
 
 export { isSpellingAttempt, stripSvgFences } from "./sessionTextHelpers";
 
-type CanvasActivitySnapshot = {
-  mode: ActivityMode;
-  canvasState: Record<string, unknown> | null;
-  contextCanvas?: Record<string, unknown>;
-  worksheet?: {
-    problemIndex: number;
-    wrongForCurrent: number;
-    question: string;
-  };
-  wordBuilder?: {
-    word: string;
-    round: number;
-  };
-  spellCheck?: {
-    word: string;
-  };
-};
-
 type PendingGameStart = {
   gameUrl: string;
   childName: string;
   companionName: string;
   config: Record<string, unknown>;
+};
+
+type MathDiscoverySupportState = {
+  homeworkId: string;
+  nodeId: string;
+  itemId: string;
+  artifactHash: string;
+  supportIds: string[];
 };
 
 /** Options passed from the client on `start_session` (see ws-handler). */
@@ -197,6 +192,8 @@ export type SessionManagerOptions = {
   sttOnly?: boolean;
   /** Chart/storage child id. Lets sandbox runs use a real companion voice without touching real charts. */
   chartChildId?: string;
+  /** Exact assignment validated by the homework launch boundary. */
+  homeworkId?: string;
 };
 
 export class SessionManager {
@@ -207,10 +204,17 @@ export class SessionManager {
   public readonly chartChildId: string;
   private currentActivityState: Record<string, unknown> | null = null;
   private spellingAssessment?: gev.SpellingAssessmentState;
+  private spellingLaunch?: {homeworkId:string;nodeId:string;launchId:string;launchToken?:string};
   private spellingAssessmentHistory = new Map<string, NonNullable<SessionManager["spellingAssessment"]>>();
+  private pendingSpellingAssessmentSupport = false;
+  private mathDiscoverySupport?: MathDiscoverySupportState;
+  private mathDiscoverySupportHistory = new Map<string, MathDiscoverySupportState>();
   private currentBoardSnapshot: CurrentBoardSnapshot | null = null;
   private pronunciationStruggleSignals = new Set<string>();
   private lastInstructionReadRequestKey: string | null = null;
+  private pendingGameNarrationPlayback: Record<string, unknown> | null = null;
+  private activeGameNarrationRequestId: string | null = null;
+  private gameNarrationPlaybackTimer: ReturnType<typeof setTimeout> | null = null;
   private companionPresence: "collapsed" | "summoned" = "collapsed";
   private companionDispositionAfterSpeech:
     | "standby_after_speech"
@@ -383,18 +387,11 @@ export class SessionManager {
   /** Per-problem trusted/suspect cents and reveal eligibility — single source for pool + reveals. */
   /** Actual worksheet PDF/image bytes — pinned into conversation so the model sees the real worksheet */
   public worksheetPageFile: { data: Buffer; mimeType: string } | null = null;
-  private activeCanvasActivity: {
-    mode: ActivityMode;
-    pauseState: ActivityPauseState;
-    resumable: boolean;
-    snapshot: CanvasActivitySnapshot | null;
-    reason?: string;
-  } = {
-    mode: "none",
-    pauseState: "active",
-    resumable: false,
-    snapshot: null,
-  };
+  private readonly activeCanvasController: ActiveCanvasActivityController;
+
+  public get activeCanvasActivity() {
+    return this.activeCanvasController.state;
+  }
 
   /** Canonical session state — drives tool filtering, canvas ownership, context injection. */
   private ctx: SessionContext | null = null;
@@ -522,16 +519,6 @@ export class SessionManager {
     if (this.ctx) this.broadcastContext();
   }
 
-  private syncActivityContext(): void {
-    if (!this.ctx) return;
-    this.ctx.updateActivity({
-      mode: this.activeCanvasActivity.mode,
-      pauseState: this.activeCanvasActivity.pauseState,
-      hidden: this.activeCanvasActivity.pauseState === "paused_for_checkin",
-      reason: this.activeCanvasActivity.reason,
-    });
-  }
-
   public setActiveCanvasActivity(
     mode: ActivityMode,
     opts: {
@@ -540,203 +527,33 @@ export class SessionManager {
       snapshot?: CanvasActivitySnapshot | null;
     } = {},
   ): void {
-    this.activeCanvasActivity = {
-      mode,
-      pauseState: "active",
-      resumable: opts.resumable ?? mode !== "none",
-      snapshot: opts.snapshot ?? null,
-      reason: opts.reason,
-    };
-    this.syncActivityContext();
+    this.activeCanvasController.set(mode, opts);
   }
 
   private clearActiveCanvasActivity(): void {
-    this.pendingGameStart = null;
-    this.activeCanvasActivity = {
-      mode: "none",
-      pauseState: "active",
-      resumable: false,
-      snapshot: null,
-    };
-    this.syncActivityContext();
+    this.activeCanvasController.clear();
   }
 
   private isPauseForCheckInRequest(transcript: string): boolean {
-    const t = transcript.toLowerCase().trim();
-    if (!t) return false;
-    if (/(clear|hide|turn off).*(canvas|screen)/i.test(t)) return true;
-    if (
-      /(talk about my day|tell you about my day|tell you something|need to talk|bad experience)/i.test(
-        t,
-      ) &&
-      /(can i|can we|i want to|i need to|could we|just|really quickly|before)/i.test(
-        t,
-      )
-    ) {
-      return true;
-    }
-    return false;
+    return this.activeCanvasController.isPauseRequest(transcript);
   }
 
   private isResumeActivityRequest(transcript: string): boolean {
-    const t = transcript.toLowerCase().trim();
-    if (!t) return false;
-    return /(\bi'?m ready\b|\blet'?s go back\b|\bgo back to\b|\bresume\b|\bcontinue\b|\bback to (math|the problem|the worksheet)\b)/i.test(
-      t,
-    );
+    return this.activeCanvasController.isResumeRequest(transcript);
   }
 
   private captureActiveCanvasSnapshot(): CanvasActivitySnapshot | null {
-    const mode = this.activeCanvasActivity.mode;
-    if (mode === "none") return null;
-    const canvasState = this.currentCanvasState
-      ? { ...this.currentCanvasState }
-      : null;
-    const contextCanvas = this.ctx
-      ? ({ ...this.ctx.canvas.current } as Record<string, unknown>)
-      : undefined;
-
-    if (mode === "worksheet") {
-      const p = this.worksheetProblems[this.worksheetProblemIndex];
-      return {
-        mode,
-        canvasState,
-        contextCanvas,
-        worksheet: {
-          problemIndex: this.worksheetProblemIndex,
-          wrongForCurrent: 0,
-          question: p?.question ?? "",
-        },
-      };
-    }
-
-    if (mode === "word-builder") {
-      return {
-        mode,
-        canvasState,
-        contextCanvas,
-        wordBuilder: {
-          word: this.wbWord,
-          round: this.wbRound,
-        },
-      };
-    }
-
-    if (mode === "spell-check") {
-      return {
-        mode,
-        canvasState,
-        contextCanvas,
-        spellCheck: {
-          word: this.activeSpellCheckWord,
-        },
-      };
-    }
-
-    return {
-      mode,
-      canvasState,
-      contextCanvas,
-    };
+    return this.activeCanvasController.capture();
   }
 
   private async pauseActiveCanvasForCheckIn(reason: string): Promise<boolean> {
-    if (
-      this.activeCanvasActivity.mode === "none" ||
-      !this.activeCanvasActivity.resumable ||
-      this.activeCanvasActivity.pauseState === "paused_for_checkin"
-    ) {
-      return false;
-    }
-
-    const snapshot = this.captureActiveCanvasSnapshot();
-    if (!snapshot) return false;
-
-    this.activeCanvasActivity = {
-      ...this.activeCanvasActivity,
-      pauseState: "paused_for_checkin",
-      snapshot,
-      reason,
-    };
-    this.syncActivityContext();
-    this.currentCanvasState = null;
-    if (this.ctx) {
-      this.ctx.updateCanvas({
-        mode: "idle",
-        svg: undefined,
-        label: undefined,
-        content: undefined,
-        sceneDescription: undefined,
-        problemAnswer: undefined,
-        problemHint: undefined,
-      });
-    }
-    this.broadcastContext();
-    this.send("canvas_draw", { mode: "idle" });
-    return true;
+    return this.activeCanvasController.pause(reason);
   }
 
   private async resumeActiveCanvasActivity(
     replayQuestion = true,
   ): Promise<boolean> {
-    if (this.activeCanvasActivity.pauseState !== "paused_for_checkin") {
-      return false;
-    }
-
-    const snapshot = this.activeCanvasActivity.snapshot;
-    if (!snapshot) return false;
-
-    this.activeCanvasActivity = {
-      ...this.activeCanvasActivity,
-      pauseState: "resuming",
-    };
-    this.syncActivityContext();
-
-    if (snapshot.mode === "worksheet" && snapshot.worksheet) {
-      this.worksheetProblemIndex = snapshot.worksheet.problemIndex;
-      if (snapshot.canvasState) {
-        this.currentCanvasState = { ...snapshot.canvasState };
-      }
-      if (this.ctx && snapshot.contextCanvas) {
-        this.ctx.updateCanvas(snapshot.contextCanvas as any);
-      }
-      this.broadcastContext();
-      if (snapshot.canvasState) {
-        this.send("canvas_draw", {
-          args: snapshot.canvasState,
-          result: snapshot.canvasState,
-        });
-      }
-      if (replayQuestion) {
-        await this.handleCompanionTurn(snapshot.worksheet.question);
-      }
-      this.activeCanvasActivity = {
-        ...this.activeCanvasActivity,
-        pauseState: "active",
-        snapshot: null,
-        reason: undefined,
-      };
-      this.syncActivityContext();
-      this.broadcastContext();
-      return true;
-    }
-
-    if (snapshot.canvasState) {
-      this.currentCanvasState = { ...snapshot.canvasState };
-      if (this.ctx && snapshot.contextCanvas) {
-        this.ctx.updateCanvas(snapshot.contextCanvas as any);
-      }
-      this.send("canvas_draw", snapshot.canvasState);
-    }
-    this.activeCanvasActivity = {
-      ...this.activeCanvasActivity,
-      pauseState: "active",
-      snapshot: null,
-      reason: undefined,
-    };
-    this.syncActivityContext();
-    this.broadcastContext();
-    return true;
+    return this.activeCanvasController.resume(replayQuestion);
   }
 
   /**
@@ -781,6 +598,7 @@ export class SessionManager {
       silentTts: options?.silentTts === true,
       sttOnly: options?.sttOnly === true,
       chartChildId: this.chartChildId,
+      homeworkId: options?.homeworkId,
     });
 
     if (isSunnyTestMode()) {
@@ -815,6 +633,37 @@ export class SessionManager {
         }
       },
     );
+
+    this.activeCanvasController = new ActiveCanvasActivityController({
+      readCanvasState: () => this.currentCanvasState,
+      clearCanvasState: () => { this.currentCanvasState = null; },
+      restoreCanvasState: (state) => { this.currentCanvasState = state; },
+      readContextCanvas: () => this.ctx
+        ? { ...this.ctx.canvas.current } as Record<string, unknown>
+        : undefined,
+      updateContextCanvas: (state) => { this.ctx?.updateCanvas(state as any); },
+      readWorksheet: () => ({
+        problemIndex: this.worksheetProblemIndex,
+        question: this.worksheetProblems[this.worksheetProblemIndex]?.question ?? "",
+      }),
+      restoreWorksheetProblemIndex: (problemIndex) => {
+        this.worksheetProblemIndex = problemIndex;
+      },
+      readWordBuilder: () => ({ word: this.wbWord, round: this.wbRound }),
+      readSpellCheck: () => ({ word: this.activeSpellCheckWord }),
+      clearPendingGameStart: () => { this.pendingGameStart = null; },
+      syncActivity: (state) => {
+        this.ctx?.updateActivity({
+          mode: state.mode,
+          pauseState: state.pauseState,
+          hidden: state.pauseState === "paused_for_checkin",
+          reason: state.reason,
+        });
+      },
+      sendCanvas: (payload) => this.send("canvas_draw", payload),
+      broadcastContext: () => this.broadcastContext(),
+      replayWorksheetQuestion: (question) => this.handleCompanionTurn(question),
+    });
 
     const cid = this.chartChildId;
     this.rewardEngine.attach(
@@ -895,11 +744,45 @@ export class SessionManager {
   }
 
   updateCurrentBoardSnapshot(state: Record<string, unknown>): void {
-    if (state.assessmentMode === true) {
+    if (state.phase === "closed" && this.spellingLaunch
+      && state.nodeId === this.spellingLaunch.nodeId && state.launchToken === this.spellingLaunch.launchToken) {
+      this.spellingLaunch = undefined;
+      this.spellingAssessment = undefined;
+      this.pendingSpellingAssessmentSupport = false;
+      console.log(" 🎮 [spelling] [node-launch] [released]");
+    }
+    if (state.phase === "launched") {
+      const cycle = getChildChart(this.chartChildId).learningCycle;
+      if (cycle?.domain === "spelling") {
+        const node = cycle.nodes.find(node => node.nodeId === state.nodeId);
+        this.spellingLaunch = node && ["ready", "active", "completed"].includes(node.state)
+          ? {homeworkId:cycle.homeworkId,nodeId:node.nodeId,launchId:randomUUID(),...(typeof state.launchToken === "string" ? {launchToken:state.launchToken} : {})} : undefined;
+        console.log(` 🎮 [spelling] [node-launch] [${this.spellingLaunch ? "recorded" : "rejected"}] node=${String(state.nodeId)} launch=${this.spellingLaunch?.launchId ?? "unknown"}`);
+      }
+    }
+    if (state.assessmentMode === true || state.practiceCapture === true) {
       this.spellingAssessmentHistory ??= new Map();
+      const itemId = String(state.itemId ?? "");
+      const pendingSupportId = this.pendingSpellingAssessmentSupport && itemId
+        ? `support:${this.sessionId}:${itemId}`
+        : undefined;
       this.spellingAssessment = gev.bindSpellingAssessment({ state, cycle: getChildChart(this.chartChildId).learningCycle,
-        current: this.spellingAssessment, history: this.spellingAssessmentHistory,
-        sessionId: this.sessionId, summoned: this.companionPresence === "summoned" });
+        current: this.spellingAssessment, history: this.spellingAssessmentHistory, pendingSupportId, launch:this.spellingLaunch });
+      if (pendingSupportId && this.spellingAssessment?.itemId === itemId) this.pendingSpellingAssessmentSupport = false;
+      const assessment=this.spellingAssessment;
+      if((state.phase === "response" || (state.practiceCapture === true && (state.phase === "flash" || state.spellingItemOpened === true))) && assessment?.launchId && !assessment.chartItemId){
+        const presentation=withOriginalSpellingChart(this.chartChildId,db=>presentOriginalSpellingItem(db,{
+          assignmentId:assessment.homeworkId,sessionId:this.sessionId,nodeId:assessment.nodeId,launchId:assessment.launchId!,sourceItemId:assessment.itemId,word:assessment.word.normalize('NFC').toLowerCase(),instrument:assessment.instrument,
+          shown:{lettersVisible:assessment.lettersVisible,hint:assessment.instrument=== "practice" ? null : false,companionHelp:assessment.supportIds.length>0 ? true : assessment.instrument=== "practice" ? null : false},
+        }));
+        if(presentation)assessment.chartItemId=String(presentation.payload.itemId);
+      }
+
+    }
+    const metric=state.engagement as {id?:unknown;metric?:unknown;value?:unknown}|undefined;
+    const measured=this.spellingAssessment;
+    if(metric && measured && measured.nodeId===state.nodeId && measured.itemId===state.itemId && measured.launchToken===state.launchToken && typeof metric.id==='string' && ['first_input_ms','idle_gap_ms','erase_burst'].includes(String(metric.metric)) && Number.isSafeInteger(metric.value) && Number(metric.value)>=0) {
+      this.recordSpellingEngagement(measured,metric.metric as 'first_input_ms'|'idle_gap_ms'|'erase_burst',metric.id,Number(metric.value));
     }
     const incomingPhase = String(state.phase ?? "").trim();
     const incomingNodeId = String(state.nodeId ?? "").trim();
@@ -917,6 +800,9 @@ export class SessionManager {
       state,
     });
     this.currentBoardSnapshot = snapshot;
+    if (snapshot.nodeId && snapshot.itemId && (snapshot.phase === "question" || snapshot.phase === "response")) {
+      this.bindMathDiscoverySupport(snapshot.nodeId, snapshot.itemId);
+    }
     this.currentActivityState = {
       ...snapshot,
       currentWord: snapshot.currentTarget,
@@ -924,13 +810,33 @@ export class SessionManager {
     };
   }
 
+  private recordSpellingEngagement(assessment:gev.SpellingAssessmentState|undefined,metric:"audio_replays"|"help_requests"|"first_input_ms"|"idle_gap_ms"|"erase_burst",sourceId:string,value=1):void {
+    if(!assessment?.chartItemId || !assessment.launchId)return;
+    try { withOriginalSpellingChart(this.chartChildId,db=>recordPresentedEngagement(db,{sessionId:this.sessionId,itemId:assessment.chartItemId!,observationId:`${assessment.launchId}:${metric}:${sourceId}`,metric,value})); }
+    catch(error) { console.error(' 🎮 [spelling-engagement] [measurement] [failed]',error); }
+  }
+
   public setCompanionPresence(
     state: "collapsed" | "summoned",
     reason: "client" | "voice" | "read_instruction" = "client",
   ): void {
+    const newlySummoned = state === "summoned" && this.companionPresence !== "summoned";
     const next = transitionCompanionPresence({ state, reason });
     this.companionPresence = next.presence;
-    if (state === "summoned" && this.spellingAssessment && !this.spellingAssessment.supportIds.length) this.spellingAssessment.supportIds.push(`support:${this.sessionId}:${this.spellingAssessment.itemId}`);
+    if (state === "summoned") {
+      const snapshotMatchesAssessment = this.spellingAssessment
+        && this.currentBoardSnapshot?.itemId === this.spellingAssessment.itemId
+        && this.currentBoardSnapshot?.phase === "response";
+      if (newlySummoned && snapshotMatchesAssessment) this.recordSpellingEngagement(this.spellingAssessment, "help_requests", randomUUID());
+      if (snapshotMatchesAssessment && this.spellingAssessment && !this.spellingAssessment.supportIds.length) {
+        this.spellingAssessment.supportIds.push(`support:${this.sessionId}:${this.spellingAssessment.itemId}`);
+      } else if (!this.spellingAssessment) {
+        this.pendingSpellingAssessmentSupport = true;
+      }
+    }
+    if (state === "summoned" && this.mathDiscoverySupport && !this.mathDiscoverySupport.supportIds.length) {
+      this.mathDiscoverySupport.supportIds.push(`support:${this.sessionId}:${this.mathDiscoverySupport.itemId}`);
+    }
     this.companionInteractionMode = next.mode;
     this.send("companion_presence", { state, reason });
     console.log(`  🎮 [companion-presence] [${state}] reason=${reason}`);
@@ -964,6 +870,8 @@ export class SessionManager {
     prompt: string;
     requestCount: number;
     answerVisibility: string;
+    measurementRole?: "instruction" | "practice" | "fresh_checkpoint";
+    trigger?: "guided_prompt" | "child_request";
   }): Promise<void> {
     const request = prepareInstructionReadRequest({
       ...input,
@@ -971,12 +879,23 @@ export class SessionManager {
     });
     if (!request) return;
     this.lastInstructionReadRequestKey = request.requestKey;
+    this.bindMathDiscoverySupport(input.nodeId, input.itemId);
     this.setCompanionPresence("summoned", "read_instruction");
+    this.resetCompanionDispositionAfterSpeech();
     this.recordGameTrace(request.trace);
-    console.log(`  🎮 [companion-help] [read-instruction] node=${input.nodeId} item=${input.itemId}`);
+    console.log(`  🎮 [companion-help] [agent-support] node=${input.nodeId} item=${input.itemId} trigger=${input.trigger ?? "child_request"}`);
     if (this.turnSM.getState() !== "IDLE") this.bargeIn();
-    await this.handleCompanionTurn(request.prompt);
-    this.applyCompanionDispositionAfterSpeech();
+    try {
+      await this.runCompanionResponse(request.prompt);
+    } finally {
+      if (
+        this.lastInstructionReadRequestKey === request.requestKey
+        && this.companionPresence === "summoned"
+        && this.companionInteractionMode === "activity_help"
+      ) {
+        this.applyCompanionDispositionAfterSpeech();
+      }
+    }
   }
 
   /**
@@ -1148,17 +1067,99 @@ export class SessionManager {
     text: string,
     metadata: Record<string, unknown> = {},
   ): Promise<void> {
+    if (this.activeGameNarrationRequestId || this.pendingGameNarrationPlayback) {
+      this.debugRecorder.recordEvent("game_narration", "request_suppressed", {
+        reason: "playback_in_progress",
+        requestId: this.activeGameNarrationRequestId ?? this.pendingGameNarrationPlayback?.requestId,
+        itemId: metadata.itemId,
+        activityId: metadata.activityId,
+      });
+      console.log("  🎮 [game-narration] [suppressed] reason=playback_in_progress");
+      return;
+    }
+    const requestId = randomUUID();
+    this.activeGameNarrationRequestId = requestId;
     const assessment = metadata.assessmentMode === true ? this.spellingAssessment : undefined;
-    const spoken = await gev.narrateGameStimulus({ text, metadata, childName: this.childName, ttsLabel: this.sessionTtsLabel,
-      bridge: this.ttsBridge, assessment, isCurrent: () => this.spellingAssessment === assessment,
-      record: (action, event) => this.debugRecorder.recordEvent("game_narration", action, event) });
-    if (spoken) this.send("audio_done");
+    let spoken = false;
+    try {
+      spoken = await gev.narrateGameStimulus({ text, metadata, childName: this.childName, ttsLabel: this.sessionTtsLabel,
+        bridge: this.ttsBridge, assessment,
+        record: (action, event) => this.debugRecorder.recordEvent("game_narration", action, { ...event, requestId }) });
+    } catch (error) {
+      this.activeGameNarrationRequestId = null;
+      throw error;
+    }
+    if (this.activeGameNarrationRequestId !== requestId) {
+      this.debugRecorder.recordEvent("game_narration", "synthesis_discarded", {
+        reason: "ownership_released_during_synthesis",
+        requestId,
+        itemId: metadata.itemId,
+      });
+      return;
+    }
+    if (spoken) {
+      this.pendingGameNarrationPlayback = {
+        requestId,
+        activityId: metadata.activityId,
+        nodeId: metadata.nodeId,
+        itemId: metadata.itemId,
+        reason: metadata.reason,
+        ...(assessment ? { assessmentItemId: assessment.itemId, assessmentLaunchId:assessment.launchId } : {}),
+      };
+      if (assessment) {
+        this.send("audio_done", { requiresAudio: true, requestId, itemId: assessment.itemId });
+      } else {
+        this.send("audio_done", { requestId, ...(metadata.itemId ? { itemId: metadata.itemId } : {}) });
+      }
+      gev.armGameNarrationPlaybackTimer(this, requestId, String(metadata.itemId ?? assessment?.itemId ?? ""));
+    } else {
+      this.activeGameNarrationRequestId = null;
+    }
   }
 
-  public getDiscoveryAttemptContext(homeworkId: string, itemId: string): { support: LearningObservation["assistance"]; instrumentSignals: string[]; artifactHash: string; sessionId: string } | undefined {
-    const context = this.spellingAssessmentHistory?.get(itemId) ?? this.spellingAssessment;
-    if (!context || context.homeworkId !== homeworkId || context.itemId !== itemId) return undefined;
-    return { support: { status: context.supportIds.length ? "assisted" : "unassisted", scaffolds: [...context.supportIds] }, instrumentSignals: [...(!context.audioDelivered ? ["audio_unavailable"] : []), ...(context.ambiguous ? ["answer_exposure"] : [])], artifactHash: context.artifactHash, sessionId: this.sessionId };
+  private bindMathDiscoverySupport(nodeId: string, itemId: string): MathDiscoverySupportState | undefined {
+    const cycle = getChildChart(this.chartChildId).learningCycle;
+    const node = cycle?.domain === "math"
+      ? cycle.nodes.find((candidate) => candidate.role === "evaluation" && candidate.nodeId === nodeId)
+      : undefined;
+    if (!cycle || !node?.artifactBinding || !itemId.trim()) return undefined;
+    this.mathDiscoverySupportHistory ??= new Map();
+    const key = `${nodeId}:${itemId}`;
+    const next = this.mathDiscoverySupportHistory.get(key) ?? {
+      homeworkId: cycle.homeworkId,
+      nodeId,
+      itemId,
+      artifactHash: node.artifactBinding.contractFingerprint,
+      supportIds: [],
+    };
+    this.mathDiscoverySupportHistory.set(key, next);
+    this.mathDiscoverySupport = next;
+    console.log(`  🎮 [math-discovery] [live-context] [bound] item=${itemId}`);
+    return next;
+  }
+
+  public getSpellingLaunch() { return this.spellingLaunch ? {...this.spellingLaunch} : undefined; }
+
+  public getDiscoveryAttemptContext(homeworkId: string, itemId: string, launchToken?:string): { chartItemId?:string; practice?:boolean; spellingShown?:boolean|null; audioReplays?:number|null; launchId?:string; nodeId: string; support: LearningObservation["assistance"]; instrumentSignals: string[]; artifactHash: string; sessionId: string } | undefined {
+    const candidates = [...(this.spellingAssessmentHistory?.values() ?? [])].filter(c => c.homeworkId === homeworkId && c.itemId === itemId && (launchToken === undefined || c.launchToken === launchToken));
+    const context = candidates.length === 1 ? candidates[0] : undefined;
+    if (context && context.homeworkId === homeworkId && context.itemId === itemId) {
+      return { practice:context.instrument === "practice",spellingShown:context.lettersVisible,chartItemId:context.chartItemId,audioReplays:context.instrument === "practice" ? null : Math.max(0,context.audioPlaybacks-1),launchId: context.launchId, nodeId: context.nodeId, support: { status: !context.launchId ? "unknown" : context.supportIds.length ? "assisted" : context.instrument === "practice" ? "unknown" : "unassisted", scaffolds: [...context.supportIds] }, instrumentSignals: [...(!context.launchId ? ["launch_unverified"] : []), ...(context.instrument !== "practice" && !context.audioDelivered ? ["audio_unavailable"] : []), ...(context.instrument !== "practice" && context.lettersVisible !== false ? [context.lettersVisible === true ? "answer_exposure" : "answer_visibility_unknown"] : [])], artifactHash: context.artifactHash, sessionId: this.sessionId };
+    }
+    const math = [...(this.mathDiscoverySupportHistory?.values() ?? [])]
+      .find((candidate) => candidate.homeworkId === homeworkId && candidate.itemId === itemId);
+    if (!math) return undefined;
+    return {
+      nodeId: math.nodeId,
+      support: { status: math.supportIds.length ? "assisted" : "unassisted", scaffolds: [...math.supportIds] },
+      instrumentSignals: [],
+      artifactHash: math.artifactHash,
+      sessionId: this.sessionId,
+    };
+  }
+
+  public getSessionId(): string {
+    return this.sessionId;
   }
 
   public recordWorksheetAttempt(transcript: string, correct: boolean): void {
@@ -1201,7 +1202,17 @@ export class SessionManager {
   bargeIn(): void {
     this.pendingRoundComplete = null;
     gev.abortGameTtsGate(this);
+    gev.clearGameNarrationPlaybackTimer(this);
     this.deferredTtsFinish = false;
+    if (this.pendingGameNarrationPlayback) {
+      this.debugRecorder.recordEvent(
+        "game_narration",
+        "playback_interrupted",
+        this.pendingGameNarrationPlayback,
+      );
+      this.pendingGameNarrationPlayback = null;
+    }
+    this.activeGameNarrationRequestId = null;
 
     const stateBefore = this.turnSM.getState();
     this.turnSM.onInterrupt();
@@ -1266,7 +1277,56 @@ export class SessionManager {
     void gev.tryCompleteTtsTurnAsync(this);
   }
 
-  playbackDone(): void {
+  playbackDone(payload: Record<string, unknown> = {}): void {
+    if (this.pendingGameNarrationPlayback) {
+      const pending = this.pendingGameNarrationPlayback;
+      const expectedRequestId = String(pending.requestId ?? "");
+      const expectedItemId = String(pending.assessmentItemId ?? pending.itemId ?? "");
+      const receivedRequestId = String(payload.requestId ?? "");
+      const receivedItemId = String(payload.itemId ?? "");
+      if (
+        (expectedRequestId && receivedRequestId !== expectedRequestId) ||
+        (expectedItemId && receivedItemId !== expectedItemId)
+      ) {
+        this.debugRecorder.recordEvent("game_narration", "playback_ack_ignored", {
+          reason: "request_identity_mismatch",
+          expectedRequestId,
+          receivedRequestId,
+          expectedItemId,
+          receivedItemId,
+        });
+        console.log("  🎮 [game-narration] [playback-ack-ignored] reason=request_identity_mismatch");
+        return;
+      }
+      gev.clearGameNarrationPlaybackTimer(this);
+      const audible = payload.audible !== false;
+      const assessmentItemId = typeof pending.assessmentItemId === "string"
+        ? pending.assessmentItemId
+        : null;
+      if (assessmentItemId) {
+        const assessment =
+          [...(this.spellingAssessmentHistory?.values() ?? [])].find(c => c.itemId === assessmentItemId && c.launchId === pending.assessmentLaunchId);
+        if (assessment) {
+          assessment.audioDelivered = audible;
+          if(audible) {
+            assessment.audioPlaybacks++;
+            if(assessment.audioPlaybacks>1) this.recordSpellingEngagement(assessment,"audio_replays",expectedRequestId);
+          }
+        }
+      }
+      this.debugRecorder.recordEvent(
+        "game_narration",
+        audible ? "playback_done" : "playback_failed",
+        {
+          ...pending,
+          ...(!audible
+            ? { reason: payload.reason ?? "browser_playback_failed" }
+            : {}),
+        },
+      );
+      this.pendingGameNarrationPlayback = null;
+      this.activeGameNarrationRequestId = null;
+    }
     this.turnSM.onPlaybackComplete();
     this.flushPendingRoundComplete();
     const pending = this.turnSM.consumePendingTranscript();
@@ -1334,6 +1394,7 @@ export class SessionManager {
       this.ttsBridge.close();
       this.ttsBridge = null;
     }
+    gev.clearGameNarrationPlaybackTimer(this);
 
     this.spellCheckSessionActive = false;
     this.activeSpellCheckWord = "";
@@ -1373,6 +1434,7 @@ export class SessionManager {
         try {
           const endProgression = computeProgression(childId);
           this.send("progression_end", {
+            childId,
             ...endProgression,
           } as Record<string, unknown>);
           this.debugRecorder.recordEvent("engine", "progression_computed", {
@@ -1380,8 +1442,8 @@ export class SessionManager {
             totalXP: endProgression.totalXP,
             wordsMastered: endProgression.wordsMastered,
           });
-        } catch {
-          // Silent
+        } catch (err) {
+          console.error("  🎮 [progression] [end-snapshot] [unavailable]", err);
         }
         await recordSession(this.conversationHistory, this.childName);
         appendRewardLog(this.childName, this.rewardEngine.getRewardLog());
@@ -1570,8 +1632,8 @@ export class SessionManager {
     const generatedMathActivity =
       activeGame === "generated-baseline" || activeGame === "generated-math";
     if (handleCompanionPresenceTranscript({
-      enabled: !isReplay && !opts?.fromReadingComplete &&
-        (generatedMathActivity || this.companionWakeGateEnabled),
+      enabled: !opts?.fromReadingComplete &&
+        (generatedMathActivity || this.companionWakeGateEnabled || Boolean(this.spellingAssessment)),
       transcript,
       presence: this.companionPresence,
       companionName: this.companion.name,
@@ -2013,25 +2075,7 @@ export class SessionManager {
   }
 
   private normalizeToolName(tool: string): string {
-    if (tool === "start_spell_check") return "startSpellCheck";
-    if (tool === "launch_game") return "launchGame";
-    if (tool === "get_session_status") return "getSessionStatus";
-    if (tool === "get_next_problem") return "getNextProblem";
-    if (tool === "submit_answer") return "submitAnswer";
-    if (tool === "clear_canvas") return "clearCanvas";
-    if (tool === "canvas_show") return "canvasShow";
-    if (tool === "canvas_clear") return "canvasClear";
-    if (tool === "canvas_status") return "canvasStatus";
-    if (tool === "session_log") return "sessionLog";
-    if (tool === "session_status") return "sessionStatus";
-    if (tool === "session_end") return "sessionEnd";
-    if (tool === "record_child_signal") return "recordChildSignal";
-    if (tool === "record_product_issue") return "recordProductIssue";
-    if (tool === "express_companion") return "expressCompanion";
-    if (tool === "companion_act") return "companionAct";
-    if (tool === "request_pause_for_check_in") return "requestPauseForCheckIn";
-    if (tool === "request_resume_activity") return "requestResumeActivity";
-    return tool;
+    return normalizeToolName(tool);
   }
 
   public sendLaunchGameRegistryError(
@@ -2133,12 +2177,13 @@ export class SessionManager {
   }
 
   private async handleCompanionTurn(text: string): Promise<void> {
+    if (this.activeGameNarrationRequestId || this.pendingGameNarrationPlayback) this.bargeIn();
     this.turnSM.onEndOfTurn();
     // onEndOfTurn uses setImmediate for LOADING → PROCESSING — wait for it
     await new Promise<void>((resolve) => setImmediate(resolve));
     this.turnSM.onAgentComplete();
     const ttsText = rewriteChildNameForTts(text, this.childName, this.sessionTtsLabel);
-    this.send("response_text", { chunk: ttsText });
+    this.send("response_text", { chunk: text });
     if (this.ttsBridge) {
       await this.ttsBridge.connect().catch(() => {});
       this.ttsBridge.sendText(ttsText);

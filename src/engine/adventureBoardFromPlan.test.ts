@@ -5,6 +5,7 @@ import {
   type ActiveSessionPlanBoardSnapshot,
 } from "../shared/adventureBoardFromPlan";
 import type { AdventureBoardJson } from "../shared/adventureBoardJson";
+import { validateBoardChoices } from "../shared/adventureBoardValidation";
 
 const theme: AdventureBoardJson["theme"] = {
   background: { type: "solid", value: "#10233f" },
@@ -202,7 +203,7 @@ describe("buildAdventureBoardFromActiveSessionPlan", () => {
     expect(board.nodes[7].state).toBe("locked");
   });
 
-  it("does not invent missing Mystery, Quest, Boss, or modal choices", () => {
+  it("never invents Quest or Boss finish-line markers, optional Mystery, or modal choices", () => {
     const board = buildAdventureBoardFromActiveSessionPlan({
       plan: {
         planId: "minimal-plan",
@@ -231,13 +232,40 @@ describe("buildAdventureBoardFromActiveSessionPlan", () => {
       theme,
     });
 
-    expect(board.nodes.map((node) => node.id)).toEqual(["start", "planner_word_radar", "planner_spell_check"]);
-    expect(board.nodes.some((node) => ["mystery", "quest", "boss"].includes(node.kind))).toBe(false);
+    // Contract 21: no invented finish-line markers for an unauthorized Quest or Boss.
+    expect(board.nodes.map((node) => node.id)).toEqual([
+      "start",
+      "planner_word_radar",
+      "planner_spell_check",
+    ]);
+    expect(board.nodes.some((node) => node.kind === "quest" || node.kind === "boss")).toBe(false);
+    expect(board.nodes.some((node) => node.kind === "mystery")).toBe(false);
     expect(board.choiceSets ?? []).toHaveLength(0);
     expect(board.edges.map((edge) => [edge.from, edge.to])).toEqual([
       ["start", "planner_word_radar"],
       ["planner_word_radar", "planner_spell_check"],
     ]);
+  });
+
+  it("keeps Quest and Boss off the independent Probe Board", () => {
+    const board = buildAdventureBoardFromActiveSessionPlan({
+      plan: {
+        planId: "probe-board:hw-lab",
+        childId: "reina",
+        domain: "spelling",
+        nodePlan: [{
+          id: "probe-spelling",
+          type: "word-radar",
+          activityId: "word-radar",
+          targets: ["sample"],
+          locked: false,
+        }],
+      },
+      boardId: "probe-board:hw-lab",
+      theme,
+    });
+
+    expect(board.nodes.map((node) => node.id)).toEqual(["start", "probe-spelling"]);
   });
 
   it("creates a real baseline route choice when two launchable route nodes exist", () => {
@@ -548,6 +576,132 @@ describe("buildAdventureBoardFromActiveSessionPlan", () => {
     expect(board.nodes.find((node) => node.id === "node-route-b-pronunciation")?.slot).toBe("5b.1");
     expect(board.nodes.find((node) => node.id === "node-mystery")?.slot).toBe("6");
     expect(board.nodes.some((node) => node.slot === "5c.1" || node.slot === "5c.2")).toBe(false);
+  });
+
+  it("preserves route-specific and shared mystery activities from the Planner program", () => {
+    const plan = {
+      planId: "plan-two-mystery-activities",
+      childId: "test-child",
+      domain: "spelling",
+      nodePlan: [
+        { id: "discovery-verify", type: "word-radar", activityId: "word-radar", targets: ["word-a"] },
+        { id: "scaffold-radar", type: "word-radar", activityId: "word-radar", targets: ["word-b"] },
+        { id: "letter-rush-practice", type: "speed-catcher", activityId: "speed-catcher", targets: ["word-c"] },
+        { id: "choice-visual", type: "wheel-of-fortune", activityId: "wheel-of-fortune", targets: ["word-d"] },
+        { id: "choice-mystery", type: "mystery", activityId: "mystery", targets: ["word-d"] },
+        { id: "concept-check", type: "mystery", activityId: "mystery", targets: ["word-a", "word-b"] },
+        { id: "final-checkpoint", type: "word-radar", activityId: "word-radar", targets: ["word-a", "word-b", "word-c", "word-d"] },
+      ],
+      learningRoutes: [
+        {
+          id: "visual-route",
+          label: "Visual Route",
+          rationale: "Choose a visual practice route.",
+          nodeIds: [
+            "discovery-verify",
+            "scaffold-radar",
+            "letter-rush-practice",
+            "choice-visual",
+            "concept-check",
+            "final-checkpoint",
+          ],
+        },
+        {
+          id: "mystery-route",
+          label: "Mystery Route",
+          rationale: "Choose a mystery practice route.",
+          nodeIds: [
+            "discovery-verify",
+            "scaffold-radar",
+            "letter-rush-practice",
+            "choice-mystery",
+            "concept-check",
+            "final-checkpoint",
+          ],
+        },
+      ],
+      plannedMeasurements: [{
+        id: "measure-final-checkpoint",
+        activityId: "word-radar",
+        target: "assigned words",
+        evidenceType: "fresh recall",
+        supportCriteria: "Unassisted recall is captured",
+        reviseCriteria: "Evidence is mixed",
+        falsifyCriteria: "Recall does not hold",
+        spelling: { finalCheck: true },
+      }],
+    };
+    const board = buildAdventureBoardFromActiveSessionPlan({
+      plan: plan as never,
+      boardId: plan.planId,
+      theme,
+    });
+
+    const expectedIds = plan.nodePlan.map((node) => node.id);
+    expect(board.nodes.filter((node) => expectedIds.includes(node.id)).map((node) => node.id)).toEqual(expectedIds);
+    expect(new Set(board.nodes.map((node) => node.slot)).size).toBe(board.nodes.length);
+    expect(board.choiceSets?.find((set) => set.id === "baseline-route-options")?.options.map((option) => option.nodeId))
+      .toEqual(["choice-visual", "choice-mystery"]);
+    expect(board.choiceSets?.filter((set) => set.kind === "mystery").map((set) => set.id).sort())
+      .toEqual(["choice-mystery-options", "concept-check-options"]);
+    for (const ownerId of ["choice-mystery", "concept-check"]) {
+      const choiceSet = board.choiceSets?.find((set) => set.id === `${ownerId}-options`);
+      expect(choiceSet?.options.every((option) => option.nodeId === ownerId)).toBe(true);
+      expect(choiceSet?.options.every((option) => {
+        const launchNodeId = (option as typeof option & { launchNodeId?: string }).launchNodeId;
+        return !launchNodeId || expectedIds.includes(launchNodeId);
+      })).toBe(true);
+    }
+    expect(board.edges).toEqual(expect.arrayContaining([
+      expect.objectContaining({ from: "letter-rush-practice", to: "choose-path" }),
+      expect.objectContaining({ from: "choose-path", to: "choice-visual" }),
+      expect.objectContaining({ from: "choose-path", to: "choice-mystery" }),
+      expect.objectContaining({ from: "choice-visual", to: "concept-check" }),
+      expect.objectContaining({ from: "choice-mystery", to: "concept-check" }),
+      expect.objectContaining({ from: "concept-check", to: "final-checkpoint" }),
+    ]));
+    expect(validateBoardChoices(board)).toEqual([]);
+  });
+
+  it("assigns unique slots to larger Planner-owned prefixes, routes, and converged tails", () => {
+    const sharedPrefix = ["observe", "model", "practice", "verify"];
+    const routeNodes = ["visual-route-node", "speed-route-node", "puzzle-route-node"];
+    const sharedTail = ["compare", "explain", "recheck", "final-check"];
+    const node = (id: string) => ({ id, type: "word-radar", activityId: "word-radar", targets: [id] });
+    const board = buildAdventureBoardFromActiveSessionPlan({
+      plan: {
+        planId: "larger-planner-owned-layout",
+        childId: "test-child",
+        domain: "spelling",
+        nodePlan: [
+          ...sharedPrefix.map(node),
+          ...routeNodes.map(node),
+          ...sharedTail.map(node),
+          { id: "quest", type: "quest", activityId: "quest", locked: true },
+          { id: "boss", type: "boss", activityId: "boss", locked: true },
+        ],
+        learningRoutes: routeNodes.map((routeNodeId, index) => ({
+          id: `route-${index + 1}`,
+          label: `Route ${index + 1}`,
+          rationale: `Planner route ${index + 1}.`,
+          nodeIds: [...sharedPrefix, routeNodeId, ...sharedTail, "quest", "boss"],
+        })),
+      },
+      boardId: "larger-planner-owned-layout",
+      theme,
+    });
+
+    expect(board.nodes.map((candidate) => candidate.id)).toEqual([
+      "start",
+      ...sharedPrefix,
+      "choose-path",
+      ...routeNodes,
+      ...sharedTail,
+      "quest",
+      "boss",
+    ]);
+    expect(board.nodes.every((candidate) => candidate.slot)).toBe(true);
+    expect(new Set(board.nodes.map((candidate) => candidate.slot)).size).toBe(board.nodes.length);
   });
 
 

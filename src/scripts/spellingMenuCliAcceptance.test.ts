@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { spawn } from "node:child_process";
 import { expect, it } from "vitest";
-import { seedSpellingLab, recordedSpellingDiagnostic } from "./fixtures/spellingEvidenceFirst";
+import { seedSpellingLab, recordedSpellingDiagnostic, writeSpellingPdfFixture } from "./fixtures/spellingEvidenceFirst";
 
 it("runs the real menu and ingestion subprocess twice with one local recorded provider response", async () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-spelling-cli-"));
@@ -35,7 +35,8 @@ it("runs the real menu and ingestion subprocess twice with one local recorded pr
     fs.copyFileSync(path.join(sourceRoot, "package.json"), path.join(root, "package.json"));
     fs.copyFileSync(path.join(sourceRoot, "tsconfig.json"), path.join(root, "tsconfig.json"));
     fs.symlinkSync(path.join(sourceRoot, "node_modules"), path.join(root, "node_modules"));
-    const source = seedSpellingLab(root);
+    seedSpellingLab(root);
+    const source = writeSpellingPdfFixture(root, ["night", "light"]);
     const address = provider.address() as { port: number };
     const answers = ["1", "1", "2", source, "1", "1", "2", source, "5"];
     let pending = "";
@@ -60,12 +61,19 @@ it("runs the real menu and ingestion subprocess twice with one local recorded pr
     expect(transcript).not.toContain("Done — BLOCKED");
     expect(requests).toBe(1);
     expect(capturedRequests[0].url).toBe("/v1/messages");
-    expect(JSON.stringify(capturedRequests[0].input.messages)).toContain("night");
+    // The source is sent as a base64 PDF, not as extracted plaintext.
+    // Verify the exact supplied document instead of searching its encoding.
+    expect(capturedRequests[0].input.messages[0].content).toEqual(expect.arrayContaining([
+      expect.objectContaining({ type: "document", source: expect.objectContaining({
+        type: "base64", media_type: "application/pdf", data: fs.readFileSync(source).toString("base64"),
+      }) }),
+    ]));
     const cyclesDir = path.join(root, "src/context/lab-child/homework/cycles");
     const files = fs.readdirSync(cyclesDir).filter(file => file.endsWith(".json"));
     expect(files).toHaveLength(1);
     const cycle = JSON.parse(fs.readFileSync(path.join(cyclesDir, files[0]), "utf8"));
     expect(cycle.lifecycle).toBe("evaluation_ready");
+    expect(cycle.assignment.targets).toEqual(["night", "light"]);
     expect(cycle.nodes.map((node: any) => node.role)).toEqual(["evaluation"]);
     expect(cycle.observations).toEqual([]);
     expect(capturedRequests[0].input.tools[0].input_schema.required).toContain("diagnostic");

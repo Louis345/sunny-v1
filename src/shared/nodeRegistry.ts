@@ -221,6 +221,9 @@ export const NODE_REGISTRY: Record<string, NodeHandler> = {
       return `/games/letter-rush.html?${params.toString()}`;
     },
   },
+  "speed-catcher": {
+    getUrl: (node, ctx) => `/games/speed-catcher.html?${buildParams(node, ctx)}`,
+  },
   "monster-stampede": {
     getUrl: (node, ctx) => `/games/monster-stampede.html?${buildParams(node, ctx)}`,
   },
@@ -228,6 +231,9 @@ export const NODE_REGISTRY: Record<string, NodeHandler> = {
     getUrl: (node, ctx) => {
       const params = buildNodeUrlSearchParams(node, ctx);
       const config = node.activityConfigPath || DEFAULT_VISUAL_LEARNER_CONFIG_URL;
+      const artifactUrl = node.gameHtmlPath?.endsWith(".html")
+        ? node.gameHtmlPath
+        : DEFAULT_VISUAL_LEARNER_ARTIFACT_URL;
       params.set("config", config);
       params.set(
         "chrome",
@@ -238,7 +244,7 @@ export const NODE_REGISTRY: Record<string, NodeHandler> = {
       if (ctx.visualLearnerFlowMode) {
         params.set("visualLearnerFlow", ctx.visualLearnerFlowMode);
       }
-      return `${DEFAULT_VISUAL_LEARNER_ARTIFACT_URL}?${params.toString()}`;
+      return `${artifactUrl}?${params.toString()}`;
     },
   },
   "word-builder": {
@@ -305,9 +311,12 @@ export const NODE_REGISTRY: Record<string, NodeHandler> = {
   "generated-baseline": {
     getUrl: (node, ctx) => {
       if (node.gameHtmlPath) {
-        const filename = node.gameHtmlPath.split("/").pop();
+        const [artifactPath, artifactSearch = ""] = node.gameHtmlPath.split("?", 2);
+        const filename = artifactPath?.split("/").pop();
         if (filename && node.date) {
           const params = buildNodeUrlSearchParams(node, ctx);
+          const probeActivity = new URLSearchParams(artifactSearch).get("probeActivity");
+          if (probeActivity) params.set("probeActivity", probeActivity);
           const config =
             node.activityConfigPath ||
             `/api/activity-config/${ctx.childId}/${node.date ?? "sample"}/generated-baseline.json`;

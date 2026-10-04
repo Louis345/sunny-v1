@@ -45,9 +45,7 @@ export function NodeCard({
 	  const lockGlyph =
 	    lockGlyphOverride && lockGlyphOverride.length > 0
 	      ? lockGlyphOverride
-	      : node.masteryUnlockState === "preparing"
-	        ? "..."
-	        : node.masteryUnlockState === "pending_ceremony"
+	      : node.masteryUnlockState === "pending_ceremony"
 	          ? "*"
 	          : node.masteryUnlockState === "teased_locked"
 	            ? "?"

@@ -5,10 +5,12 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   assertSourceSnapshotUnchanged,
   certificationRuntimeEnv,
+  certificationScriptCommand,
   createCertificationRun,
   formatCertificationProgress,
   findCertificationRun,
   hashCertificationImplementation,
+  requireCertificationRun,
   runCertificationSetupOnly,
   normalizeDraggedPath,
   validateCertificationWorkspace,
@@ -44,11 +46,25 @@ function fixture(): { rootDir: string; certificationRoot: string; pdf: string } 
   fs.mkdirSync(path.join(rootDir, "web", "public", "generated", "direct-math"), { recursive: true });
   fs.writeFileSync(path.join(rootDir, "web", "public", "generated", "direct-math", "live.jpeg"), "family-art");
   const pdf = path.join(rootDir, "assignment.pdf");
-  fs.writeFileSync(pdf, "assignment");
+  fs.writeFileSync(pdf, "%PDF-1.4\nassignment");
   return { rootDir, certificationRoot, pdf };
 }
 
 describe("Sunny impersonation certification", () => {
+  it("rejects a non-PDF before creating an isolated workspace", () => {
+    const { rootDir, certificationRoot, pdf } = fixture();
+    fs.writeFileSync(pdf, "not a PDF");
+
+    expect(() => createCertificationRun({
+      rootDir,
+      certificationRoot,
+      childId: "ila",
+      domain: "math",
+      assignmentPath: pdf,
+    })).toThrow("certification_assignment_not_pdf");
+    expect(fs.readdirSync(certificationRoot)).toEqual([]);
+  });
+
   it("keeps generated proof and runtime learning records out of release commits", () => {
     const ignore = fs.readFileSync(path.join(process.cwd(), ".gitignore"), "utf8");
     expect(ignore).toContain("/output/");
@@ -124,6 +140,7 @@ describe("Sunny impersonation certification", () => {
     expect(env.SUNNY_CONTEXT_ROOT).toBe(path.join(manifest.workspaceDir, "src", "context"));
     expect(env.SUNNY_ALLOW_REAL_CHILD_CONTEXT_ROOT).toBe("true");
     expect(env.SUNNY_CERTIFICATION_RUN_ID).toBe(manifest.certificationRunId);
+    expect(env.SUNNY_BUILD_ID).toBe(manifest.sourceImplementationHash);
     manifest.homeworkId = "hw-1";
     expect(certificationRuntimeEnv(manifest, {}).SUNNY_CERTIFICATION_HOMEWORK_ID).toBe("hw-1");
     expect(env.SUNNY_EVIDENCE_AUTHORITY).toBe("simulation");
@@ -132,6 +149,25 @@ describe("Sunny impersonation certification", () => {
     expect(env.SUNNY_BROWSER_PROFILE_DIR).toBe(path.join(manifest.runDir, "browser-profile"));
     expect(env.SUNNY_PREVIEW_MODE).toBeUndefined();
     expect(Number(env.PORT)).toBeGreaterThanOrEqual(4300);
+  });
+
+  it("runs certification children with the launcher's Node and the workspace-local tsx", () => {
+    const { rootDir, certificationRoot, pdf } = fixture();
+    const manifest = createCertificationRun({ rootDir, certificationRoot, childId: "ila", domain: "math", assignmentPath: pdf });
+
+    const command = certificationScriptCommand(manifest, "src/scripts/ingestMathDirect.ts", ["--child=ila"]);
+
+    expect(command.executable).toBe(process.execPath);
+    expect(command.args[0]).toBe(path.join(manifest.workspaceDir, "node_modules", "tsx", "dist", "cli.mjs"));
+    expect(command.args.slice(1)).toEqual([path.join(manifest.workspaceDir, "src/scripts/ingestMathDirect.ts"), "--child=ila"]);
+    expect(fs.readFileSync(path.join(process.cwd(), "src/scripts/sunnyCertification.ts"), "utf8"))
+      .not.toContain('spawnSync("npm"');
+  });
+
+  it("declares the supported Node runtime for repeatable installs", () => {
+    const packageJson = JSON.parse(fs.readFileSync(path.join(process.cwd(), "package.json"), "utf8"));
+    expect(fs.readFileSync(path.join(process.cwd(), ".nvmrc"), "utf8").trim()).toBe("20.20.0");
+    expect(packageJson.engines).toEqual({ node: "20.20.x", npm: "10.x" });
   });
 
   it("can prove the real setup handoff without starting ingestion or changing source child data", () => {
@@ -158,17 +194,96 @@ describe("Sunny impersonation certification", () => {
     expect(() => assertSourceSnapshotUnchanged(manifest)).toThrow("certification_source_child_changed");
   });
 
-  it("never reuses a certification workspace copied from an older pipeline implementation", () => {
+  it("never turns an explicit resume request into a new-assignment prompt", () => {
+    const { rootDir, certificationRoot, pdf } = fixture();
+    expect(() => requireCertificationRun({ certificationRoot, childId: "ila", domain: "math" }))
+      .toThrow("certification_resume_not_found:ila:math");
+
+    const created = createCertificationRun({ rootDir, certificationRoot, childId: "ila", domain: "math", assignmentPath: pdf });
+    expect(requireCertificationRun({ certificationRoot, childId: "ila", domain: "math" }).certificationRunId)
+      .toBe(created.certificationRunId);
+  });
+
+  it("resumes the same run after a code-only change, running the new code while keeping paid work", () => {
+    const { rootDir, certificationRoot, pdf } = fixture();
+    const first = createCertificationRun({ rootDir, certificationRoot, childId: "ila", domain: "math", assignmentPath: pdf });
+    const draft = path.join(first.workspaceDir, "src/context/ila/homework/direct-drafts/hw-math-saved");
+    const receipt = path.join(draft, "provider-receipts", "builder.stage.json");
+    const game = path.join(first.workspaceDir, "src/context/ila/homework/games/hw-math-saved/discovery.html");
+    const generatedArt = path.join(first.workspaceDir, "web/public/generated/direct-math/node.jpeg");
+    for (const [file, content] of [[receipt, "{\"requestHash\":\"paid\"}"], [game, "<html>paid</html>"], [generatedArt, "paid-art"]] as const) {
+      fs.mkdirSync(path.dirname(file), { recursive: true });
+      fs.writeFileSync(file, content);
+    }
+    fs.mkdirSync(path.join(first.workspaceDir, "src/engine"), { recursive: true });
+    fs.writeFileSync(path.join(first.workspaceDir, "src/engine/removed-upstream.ts"), "export const stale=true;");
+
+    fs.writeFileSync(path.join(rootDir, "src/context/schemas/marker.ts"), "export const marker='new-verifier';");
+    const second = createCertificationRun({ rootDir, certificationRoot, childId: "ila", domain: "math", assignmentPath: pdf });
+
+    expect(second.certificationRunId).toBe(first.certificationRunId);
+    expect(second.workspaceDir).toBe(first.workspaceDir);
+    expect(fs.readFileSync(path.join(second.workspaceDir, "src/context/schemas/marker.ts"), "utf8")).toContain("new-verifier");
+    expect(fs.existsSync(path.join(second.workspaceDir, "src/engine/removed-upstream.ts"))).toBe(false);
+    expect(fs.readFileSync(receipt, "utf8")).toBe("{\"requestHash\":\"paid\"}");
+    expect(fs.readFileSync(game, "utf8")).toBe("<html>paid</html>");
+    expect(fs.readFileSync(generatedArt, "utf8")).toBe("paid-art");
+    expect(second.sourceImplementationHash).toBe(hashCertificationImplementation(rootDir));
+    expect(second.workspaceImplementationHash).toBe(hashCertificationImplementation(second.workspaceDir));
+    expect(() => validateCertificationWorkspace(second)).not.toThrow();
+    expect(findCertificationRun({ certificationRoot, childId: "ila", domain: "math" })?.certificationRunId).toBe(first.certificationRunId);
+  });
+
+  it("refuses to refresh code when a manifest points its workspace at the source tree", () => {
+    const { rootDir, certificationRoot, pdf } = fixture();
+    const manifest = createCertificationRun({ rootDir, certificationRoot, childId: "ila", domain: "math", assignmentPath: pdf });
+    const manifestFile = path.join(manifest.runDir, "certification-run.json");
+    fs.writeFileSync(manifestFile, JSON.stringify({ ...manifest, workspaceDir: rootDir, sourceImplementationHash: "stale" }));
+    const marker = path.join(rootDir, "src/context/schemas/marker.ts");
+    const before = fs.readFileSync(marker, "utf8");
+
+    expect(() => createCertificationRun({ rootDir, certificationRoot, childId: "ila", domain: "math", assignmentPath: pdf }))
+      .toThrow("certification_workspace_location_invalid");
+    expect(fs.readFileSync(marker, "utf8")).toBe(before);
+  });
+
+  it("starts a separate run when the child snapshot or assignment actually changes", () => {
     const { rootDir, certificationRoot, pdf } = fixture();
     const first = createCertificationRun({ rootDir, certificationRoot, childId: "ila", domain: "math", assignmentPath: pdf });
 
-    fs.writeFileSync(path.join(rootDir, "src/context/schemas/marker.ts"), "export const marker='new-pipeline';");
-    const second = createCertificationRun({ rootDir, certificationRoot, childId: "ila", domain: "math", assignmentPath: pdf });
+    fs.writeFileSync(path.join(rootDir, "src/context/ila/notes.md"), "new family evidence");
+    const changedChild = createCertificationRun({ rootDir, certificationRoot, childId: "ila", domain: "math", assignmentPath: pdf });
+    fs.writeFileSync(pdf, "%PDF-1.4\na different assignment");
+    const changedAssignment = createCertificationRun({ rootDir, certificationRoot, childId: "ila", domain: "math", assignmentPath: pdf });
 
-    expect(second.certificationRunId).not.toBe(first.certificationRunId);
-    expect(second.workspaceDir).not.toBe(first.workspaceDir);
-    expect(fs.readFileSync(path.join(second.workspaceDir, "src/context/schemas/marker.ts"), "utf8"))
-      .toContain("new-pipeline");
+    expect(new Set([first.certificationRunId, changedChild.certificationRunId, changedAssignment.certificationRunId]).size).toBe(3);
+  });
+
+  it("adopts an existing run folder named by the older code-hash identity instead of starting over", () => {
+    const { rootDir, certificationRoot, pdf } = fixture();
+    const current = createCertificationRun({ rootDir, certificationRoot, childId: "ila", domain: "math", assignmentPath: pdf });
+    const legacyRunId = `${current.certificationRunId}-0ld0c0de`;
+    const legacyRunDir = path.join(certificationRoot, legacyRunId);
+    fs.renameSync(current.runDir, legacyRunDir);
+    const manifestFile = path.join(legacyRunDir, "certification-run.json");
+    const legacy = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
+    fs.writeFileSync(manifestFile, JSON.stringify({
+      ...legacy,
+      version: 2,
+      certificationRunId: legacyRunId,
+      runDir: legacyRunDir,
+      workspaceDir: path.join(legacyRunDir, "workspace"),
+      sourceImplementationHash: "0ld0c0de".repeat(8),
+    }));
+    fs.writeFileSync(path.join(rootDir, "src/context/schemas/marker.ts"), "export const marker='newer';");
+
+    const adopted = createCertificationRun({ rootDir, certificationRoot, childId: "ila", domain: "math", assignmentPath: pdf });
+
+    expect(adopted.runDir).toBe(legacyRunDir);
+    expect(adopted.certificationRunId).toBe(legacyRunId);
+    expect(fs.readdirSync(certificationRoot)).toEqual([legacyRunId]);
+    expect(fs.readFileSync(path.join(adopted.workspaceDir, "src/context/schemas/marker.ts"), "utf8")).toContain("newer");
+    expect(requireCertificationRun({ certificationRoot, childId: "ila", domain: "math" }).runDir).toBe(legacyRunDir);
   });
 
   it("invalidates reuse when child-visible styles, games, or companion configuration change", () => {
@@ -212,6 +327,23 @@ describe("Sunny impersonation certification", () => {
     expect(report).toMatchObject({ verdict: "INCOMPLETE", sourceChildUnchanged: true, evidenceAuthority: "simulation" });
     expect(report.cost).toMatchObject({ currency: "USD", knownTotal: 0, incomplete: true });
     expect(fs.existsSync(path.join(manifest.runDir, "report", "report.json"))).toBe(true);
+  });
+
+  it("includes saved Discovery repair costs in the certification total", () => {
+    const { rootDir, certificationRoot, pdf } = fixture();
+    const manifest = createCertificationRun({ rootDir, certificationRoot, childId: "ila", domain: "math", assignmentPath: pdf });
+    manifest.homeworkId = "hw-repair-cost";
+    const draft = path.join(manifest.workspaceDir, "src/context/ila/homework/direct-drafts/hw-repair-cost");
+    const receiptFile = path.join(draft, "provider-receipts/planner.json");
+    const repairFile = path.join(draft, "provider-diagnostics/discovery-builder-repair-response.json");
+    fs.mkdirSync(path.dirname(receiptFile), { recursive: true });
+    fs.mkdirSync(path.dirname(repairFile), { recursive: true });
+    fs.writeFileSync(receiptFile, JSON.stringify({ estimatedCostUsd: 0.25 }));
+    fs.writeFileSync(repairFile, JSON.stringify({ estimatedCostUsd: 0.4 }));
+
+    const report = writeCertificationReport(manifest);
+
+    expect(report.cost.knownTotal).toBeCloseTo(0.65, 8);
   });
 
   it("reports malformed lifecycle and provider receipts instead of swallowing them", () => {

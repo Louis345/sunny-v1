@@ -26,6 +26,7 @@ describe("childRegistry", () => {
     expect(isValidWsSessionChild("Demo-pashley")).toBe(true);
     expect(isValidWsSessionChild("creator", true)).toBe(true);
     expect(isValidWsSessionChild("creator")).toBe(false);
+    expect(isValidWsSessionChild("Creator")).toBe(false);
     expect(isValidWsSessionChild("Unknown")).toBe(false);
   });
 });

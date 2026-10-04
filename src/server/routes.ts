@@ -1,3 +1,8 @@
+import { runOriginalSpellingForecast } from '../chart/spelling/originalForecast';
+import { setupOriginalSpellingParentRoutes } from './originalSpellingParent';
+import {commitOriginalSpellingAttempt} from './originalSpellingCommit';
+import {withOriginalSpellingChart} from '../chart/spelling/originalResponses';
+import { setupKioskHealthRoutes } from "./kioskHealthRoutes";
 import Anthropic from "@anthropic-ai/sdk";
 import { ElevenLabsClient } from "@elevenlabs/elevenlabs-js";
 import { randomUUID } from "crypto";
@@ -67,6 +72,7 @@ import { interpretDirectExperienceOutcome } from "../engine/directExperienceFeed
 import {
   completeDiscoveryEvaluation,
   getMathGenerationStatus,
+  hasResumableMathGenerationWork,
   queueTargetedMathGeneration,
   recordDiscoveryAttempt,
   type MathGenerationJob,
@@ -76,9 +82,22 @@ import {
   assertCertificationWorkerScope,
   certificationWorkerScope,
 } from "./certificationRuntime";
+import { localTsxCommand, type LocalRuntimeCommand } from "../scripts/localRuntimeCommand";
 
-export function shouldResumeAdaptiveMathWorker(phase: MathGenerationJob["phase"]): boolean {
-  return phase !== "needs_attention";
+export function shouldResumeAdaptiveMathWorker(job: MathGenerationJob): boolean {
+  if (job.phase === "probe_ready") return false;
+  return job.phase !== "needs_attention" || hasResumableMathGenerationWork(job);
+}
+
+export function adaptiveMathWorkerCommand(
+  root: string,
+  childId: string,
+  homeworkId: string,
+): LocalRuntimeCommand {
+  return localTsxCommand(root, "src/scripts/runAdaptiveMathGeneration.ts", [
+    `--child=${childId}`,
+    `--homework=${homeworkId}`,
+  ]);
 }
 
 export function launchAdaptiveMathWorker(childId: string, homeworkId: string): void {
@@ -88,7 +107,8 @@ export function launchAdaptiveMathWorker(childId: string, homeworkId: string): v
   fs.mkdirSync(path.dirname(logPath), { recursive: true });
   const logDescriptor = fs.openSync(logPath, "a");
   try {
-    const worker = spawn("npx", ["tsx", "src/scripts/runAdaptiveMathGeneration.ts", `--child=${childId}`, `--homework=${homeworkId}`], {
+    const command = adaptiveMathWorkerCommand(process.cwd(), childId, homeworkId);
+    const worker = spawn(command.executable, command.args, {
       cwd: process.cwd(), env: process.env, detached: true, stdio: ["ignore", logDescriptor, logDescriptor],
     });
     worker.once("error", (error) => {
@@ -100,6 +120,31 @@ export function launchAdaptiveMathWorker(childId: string, homeworkId: string): v
     console.log(` 🎮 [adaptive-math] [worker-launch] [started] child=${childId} homework=${homeworkId} pid=${worker.pid ?? "unknown"} log=${logPath}`);
   } finally {
     fs.closeSync(logDescriptor);
+  }
+}
+
+/** Resume each outstanding successor decision or preparation once after restart; checkpoints prevent repeat paid calls. */
+export function resumeSuccessorBoards(): void {
+  if (process.env.VITEST) return;
+  for (const childId of listChildProfileIds()) {
+    const cyclesDir = path.join(resolveChildContextDir(childId), "homework", "cycles");
+    if (!fs.existsSync(cyclesDir)) continue;
+    for (const file of fs.readdirSync(cyclesDir).filter((name) => name.endsWith(".json"))) {
+      const homeworkId = file.replace(/\.json$/, "");
+      try {
+        const cycle = getLearningCycle(childId, homeworkId);
+        const action = cycle ? successorResumeAction(cycle) : null;
+        if (!action) continue;
+        console.log(` 🎮 [learning-board] [successor-resume] [${action}] child=${childId} homework=${homeworkId}`);
+        const decided = action === "decide" ? advanceCanonicalCycleFromEvidence({ childId, homeworkId }) : Promise.resolve(cycle!);
+        void decided
+          .then(() => prepareSuccessorBoard({ childId, homeworkId }))
+          .then((prepared) => console.log(` 🎮 [learning-board] [successor-resume] [done] child=${childId} homework=${homeworkId} lifecycle=${prepared.lifecycle}`))
+          .catch((error: unknown) => console.error(` 🎮 [learning-board] [successor-resume] [deferred] child=${childId} homework=${homeworkId}`, error));
+      } catch (error) {
+        console.error(` 🎮 [learning-board] [successor-resume] [skipped] child=${childId} homework=${homeworkId}`, error);
+      }
+    }
   }
 }
 
@@ -115,7 +160,7 @@ export function resumeAdaptiveMathWorkers(): void {
     for (const homeworkId of homeworkIds) {
       try {
         const job = getMathGenerationStatus(childId, homeworkId);
-        if (job && shouldResumeAdaptiveMathWorker(job.phase)) launchAdaptiveMathWorker(childId, homeworkId);
+        if (job && shouldResumeAdaptiveMathWorker(job)) launchAdaptiveMathWorker(childId, homeworkId);
       } catch (error) {
         console.error(` 🎮 [adaptive-math] [worker-resume] [skipped] child=${childId} homework=${homeworkId}`, error);
       }
@@ -139,10 +184,6 @@ import {
 } from "../engine/generatedExperienceArtifact";
 import { recordQuestBossArtifactReview } from "../engine/generatedArtifactReview";
 import { appendContentFeedbackLesson } from "../engine/contentFeedbackMemory";
-import {
-  readQuestBossArtifactPreparationStatus,
-  startQuestBossArtifactPreparation,
-} from "../engine/questBossArtifactPreparation";
 import {
   prepareQuestVisualCandidates,
   resolveQuestVisualCandidateImagePath,
@@ -199,8 +240,9 @@ import { resolveSunnyRuntimeConfig } from "../shared/runtimeConfig";
 import { reconcileCompanionCareCurrencyAward } from "./currencyAward";
 import { companionPickerIdentity } from "./companionPickerRows";
 import { advanceCanonicalCycleFromEvidence, recordCanonicalNodeCompletion, recordSpellingDiscoveryAttempt } from "../engine/learningCycleRuntime";
-import { getActiveVoiceSessionManagerForChild } from "./voice-session-registry";
-import { generateCanonicalProgressionArtifact } from "../engine/canonicalProgressionGenerator";
+import { getVoiceSessionManagerForChildSession } from "./voice-session-registry";
+import { prepareSuccessorBoard } from "../engine/canonicalProgressionGenerator";
+import { successorPreparationStatus, successorResumeAction } from "../engine/learningBoardInstances";
 import {
   getLearningCycle,
   getLatestLearningCycle,
@@ -684,7 +726,7 @@ export function handleDiagTriggerReward(
     const event = {
       timestamp: Date.now(),
       type: "progression" as const,
-      payload: { ...snap } as Record<string, unknown>,
+      payload: { childId, ...snap } as Record<string, unknown>,
     };
     return { status: 200, body: { ok: true, event } };
   } catch (err: unknown) {
@@ -693,22 +735,20 @@ export function handleDiagTriggerReward(
   }
 }
 
-export function setupRoutes(app: Express): void {
-  setImmediate(() => resumeAdaptiveMathWorkers());
+export type SunnyRouteRuntime = {
+  forecastSpelling?: typeof runOriginalSpellingForecast;
+  launchAdaptiveMathWorker?: (childId: string, homeworkId: string) => void;
+};
+
+export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void {
+  const launchTargetedWorker = runtime.launchAdaptiveMathWorker ?? launchAdaptiveMathWorker;
+  setupKioskHealthRoutes(app);
+  setupOriginalSpellingParentRoutes(app, isValidRegistryChildId, undefined, runtime.forecastSpelling);
+  setImmediate(() => { resumeAdaptiveMathWorkers(); resumeSuccessorBoards(); });
   const themesDir = path.resolve(process.cwd(), "src", "themes");
   if (fs.existsSync(themesDir)) {
     app.use("/themes", express.static(themesDir));
   }
-
-  app.get("/api/health", (_req: Request, res: Response) => {
-    res.json({
-      status: "ok",
-      timestamp: new Date().toISOString(),
-      ...(process.env.SUNNY_CERTIFICATION_RUN_ID
-        ? { certificationRunId: process.env.SUNNY_CERTIFICATION_RUN_ID }
-        : {}),
-    });
-  });
 
   app.get("/api/learning/:childId/assignments", (req: Request, res: Response) => {
     const childId = String(req.params.childId ?? "").trim().toLowerCase();
@@ -743,7 +783,8 @@ export function setupRoutes(app: Express): void {
     if (!isValidRegistryChildId(childId)) return res.status(404).json({ error: "child_not_found" });
     if (!homeworkId) return res.status(400).json({ error: "homeworkId is required" });
     try {
-      const status = getMathGenerationStatus(childId, homeworkId);
+      const cycle = getLearningCycle(childId, homeworkId);
+      const status = (cycle ? successorPreparationStatus(cycle) : undefined) ?? getMathGenerationStatus(childId, homeworkId);
       if (!status) return res.status(404).json({ error: "math_generation_job_not_found" });
       console.log(` 🎮 [adaptive-math-status] [read] [ok] child=${childId} homework=${homeworkId} phase=${status.phase}`);
       return res.json(status);
@@ -757,7 +798,7 @@ export function setupRoutes(app: Express): void {
     const childId = String(req.params.childId ?? "").trim().toLowerCase();
     const homeworkId = String(req.params.homeworkId ?? "").trim();
     if (!isValidRegistryChildId(childId)) return res.status(404).json({ error: "child_not_found" });
-    const body = req.body as Partial<MathDiscoveryAttempt> & { skipped?: boolean };
+    const body = req.body as Partial<MathDiscoveryAttempt> & { skipped?: boolean; sessionId?: string; launchToken?:string };
     if (
       !homeworkId
       || typeof body.attemptId !== "string"
@@ -783,13 +824,31 @@ export function setupRoutes(app: Express): void {
     }
     try {
       const existing = getLearningCycle(childId, homeworkId);
-      const live = existing?.domain === "spelling" ? getActiveVoiceSessionManagerForChild(childId)?.getDiscoveryAttemptContext?.(homeworkId, attempt.itemId) : undefined;
-      const binding = existing?.nodes.find(node => node.evidenceContract.spellingItems?.[attempt.itemId])?.artifactBinding;
-      const verifiedLive = live && live.artifactHash === binding?.contractFingerprint ? live : undefined;
-      if (existing?.domain === "spelling" && attempt.supportEventIds.some(id => !verifiedLive?.support.scaffolds.includes(id))) throw new Error("spelling_support_reference_unknown");
-      const cycle = existing?.domain === "spelling"
-        ? recordSpellingDiscoveryAttempt({ childId, homeworkId, attempt: { ...attempt, skipped: body.skipped === true }, support: verifiedLive?.support, artifactHash: binding?.contractFingerprint, sessionId: verifiedLive?.sessionId, instrumentSignals: [...attempt.instrumentSignals, ...(verifiedLive?.instrumentSignals ?? ["live_context_unavailable"])] })
-        : recordDiscoveryAttempt({ childId, homeworkId, attempt });
+      const submittingSessionId = typeof body.sessionId === "string" ? body.sessionId.trim() : "";
+      const live = getVoiceSessionManagerForChildSession(childId, submittingSessionId)
+        ?.getDiscoveryAttemptContext?.(homeworkId, attempt.itemId, typeof body.launchToken === "string" ? body.launchToken : undefined);
+      const spellingNode = existing?.domain === "spelling" ? existing.nodes.find(node => node.evidenceContract.spellingItems?.[attempt.itemId]) : undefined;
+      if (spellingNode && live?.nodeId && live.nodeId !== spellingNode.nodeId) throw new Error("discovery_live_node_mismatch");
+      const binding = existing?.domain === "spelling"
+        ? existing.nodes.find(node => node.evidenceContract.spellingItems?.[attempt.itemId])?.artifactBinding
+        : existing?.nodes.find(node => node.role === "evaluation" && node.artifactBinding?.contractFingerprint === live?.artifactHash)?.artifactBinding;
+      const verifiedLive = live && live.artifactHash === binding?.contractFingerprint && (!spellingNode || live.nodeId === spellingNode.nodeId) ? live : undefined;
+      const prepareLegacy = () => {
+        if (attempt.supportEventIds.some(id => !verifiedLive?.support.scaffolds.includes(id))) throw new Error("discovery_support_reference_unknown");
+        return { childId, homeworkId, attempt: { ...attempt, skipped: body.skipped === true }, support: verifiedLive?.support, artifactHash: binding?.contractFingerprint, sessionId: verifiedLive?.sessionId, launchId:verifiedLive?.launchId, instrumentSignals: [...attempt.instrumentSignals, ...(verifiedLive?.instrumentSignals ?? ["live_context_unavailable"])] };
+      };
+      const recorded = existing?.domain === "spelling" ? withOriginalSpellingChart(childId,db=>commitOriginalSpellingAttempt(db,homeworkId,{...attempt,skipped:body.skipped === true,sessionId:submittingSessionId,...(typeof body.launchToken === "string" ? {launchToken:body.launchToken} : {})},()=>{
+        const legacy=prepareLegacy();
+        if(!verifiedLive?.chartItemId || !verifiedLive.launchId || verifiedLive.audioReplays === undefined)throw new Error('chart_live_presentation_required');
+        return {legacy,response:{
+          assignmentId:homeworkId,sessionId:verifiedLive.sessionId,itemId:verifiedLive.chartItemId,sourceResponseId:attempt.attemptId,
+          rawResponse:attempt.attemptedValue,status:body.skipped === true ? 'skipped' : [...attempt.instrumentSignals,...verifiedLive.instrumentSignals].length ? 'ambiguous' : 'answered',
+          support:{audioReplays:verifiedLive.audioReplays,spellingShown:verifiedLive.spellingShown ?? null,hint:verifiedLive.practice ? null : false,companionHelp:verifiedLive.support.status === 'assisted' ? true : verifiedLive.practice ? null : false},
+        }};
+      },recordSpellingDiscoveryAttempt)) : undefined;
+      const cycle = recorded ?? (existing?.domain === "spelling"
+        ? recordSpellingDiscoveryAttempt(prepareLegacy())
+        : recordDiscoveryAttempt({ childId, homeworkId, attempt, support: prepareLegacy().support }));
       console.log(` 🎮 [adaptive-math] [discovery-attempt] [committed] child=${childId} homework=${homeworkId} attempt=${attempt.attemptId}`);
       return res.json({ ok: true, lifecycle: cycle.lifecycle, revision: cycle.revision });
     } catch (error: unknown) {
@@ -807,11 +866,21 @@ export function setupRoutes(app: Express): void {
       return res.json({ ok: true, skippedPersistence: true });
     }
     try {
-      const cycle = completeDiscoveryEvaluation({ childId, homeworkId, completedAt: new Date().toISOString() });
+      const nodeId = typeof req.body?.nodeId === "string" ? req.body.nodeId.trim() : undefined;
+      const cycle = completeDiscoveryEvaluation({ childId, homeworkId, ...(nodeId ? { nodeId } : {}), completedAt: new Date().toISOString() });
+      const evaluationNodes = cycle.nodes?.filter((node) => node.role === "evaluation") ?? [];
+      const probeChapterComplete = evaluationNodes.length > 0
+        ? evaluationNodes.every((node) => node.state === "completed")
+        : !["evaluation_ready", "evaluation_active"].includes(cycle.lifecycle);
+      if (!probeChapterComplete) {
+        console.log(` 🎮 [adaptive-math] [probe-node-complete] [chapter-active] child=${childId} homework=${homeworkId} node=${nodeId ?? "legacy"}`);
+        return res.json({ ok: true, lifecycle: cycle.lifecycle, revision: cycle.revision, probeChapterComplete: false, targetedGenerationQueued: false });
+      }
+      const existingJob = getMathGenerationStatus(childId, homeworkId);
       queueTargetedMathGeneration({ childId, homeworkId });
-      launchAdaptiveMathWorker(childId, homeworkId);
+      if (!existingJob || existingJob.phase === "probe_ready") launchTargetedWorker(childId, homeworkId);
       console.log(` 🎮 [adaptive-math] [discovery-complete] [targeted-generation-queued] child=${childId} homework=${homeworkId}`);
-      return res.status(202).json({ ok: true, lifecycle: cycle.lifecycle, revision: cycle.revision, targetedGenerationQueued: true });
+      return res.status(202).json({ ok: true, lifecycle: cycle.lifecycle, revision: cycle.revision, probeChapterComplete: true, targetedGenerationQueued: true, returnNextSession: true });
     } catch (error: unknown) {
       return res.status(409).json({ error: error instanceof Error ? error.message : String(error) });
     }
@@ -892,12 +961,21 @@ export function setupRoutes(app: Express): void {
         return res.status(400).json({ error: "canonical_completion_session_required" });
       }
       const sessionId = suppliedSessionId || randomUUID();
+      let captureLaunchId: string | undefined;
+      if(beforeCycle?.domain === "spelling"){
+        const voiceSessionId=typeof body.result.voiceSessionId === "string" ? body.result.voiceSessionId : sessionId;
+        const launch=getVoiceSessionManagerForChildSession(childId,voiceSessionId)?.getSpellingLaunch?.();
+        if(launch && (launch.homeworkId!==homeworkId || launch.nodeId!==nodeId || (launch.launchToken!==undefined && launch.launchToken!==body.result.launchToken)))throw new Error('spelling_completion_launch_mismatch');
+        if(!launch && process.env.SUNNY_CHART_DIR?.trim() && !process.env.SUNNY_CERTIFICATION_RUN_ID)throw new Error('spelling_completion_launch_required');
+        if (launch && (beforeNode?.implementationType === 'word-radar' || beforeCycle.observations.some(row => row.sourceId === `activity:${nodeId}:recall` && row.confounds.includes(`launch_id:${launch.launchId}`)))) captureLaunchId = launch.launchId;
+      }
       const updated = recordCanonicalNodeCompletion({
         childId,
         homeworkId,
         nodeId,
         sessionId,
         result: {
+          captureLaunchId,
           completed: body.result.completed === true,
           ended: body.result.ended === true,
           won: typeof body.result.won === "boolean" ? body.result.won : undefined,
@@ -920,6 +998,9 @@ export function setupRoutes(app: Express): void {
       const finalCycle = getLearningCycle(childId, homeworkId) ?? updated;
       const nodeState = finalCycle.nodes.find(node => node.nodeId === nodeId)?.state ?? null;
       const becameCompleted = !wasCompleted && nodeState === "completed";
+      if(becameCompleted && finalCycle.domain==='spelling' && finalCycle.lifecycle==='baseline_evaluating'){
+        void (runtime.forecastSpelling??runOriginalSpellingForecast)(childId,homeworkId).catch(error=>console.error(' 🎮 [spelling-forecast] [checkpoint] [needs-attention]',error));
+      }
       let videoCallTicket: { homeworkId: string; earnedAt: string; bonusUrl?: string } | undefined;
       if (becameCompleted && finalCycle.lifecycle === "baseline_evaluating") {
         try {
@@ -964,7 +1045,7 @@ export function setupRoutes(app: Express): void {
           .then((decided) => {
             console.log(` 🎮 [learning-cycle-route] [planner-decision] [saved] lifecycle=${decided.lifecycle} revision=${decided.revision}`);
             return ["baseline_generating", "quest_generating", "boss_generating"].includes(decided.lifecycle)
-              ? generateCanonicalProgressionArtifact({ childId, homeworkId })
+              ? prepareSuccessorBoard({ childId, homeworkId })
               : decided;
           })
           .then((advanced) => {
@@ -1179,6 +1260,27 @@ export function setupRoutes(app: Express): void {
             "Active homework requires an activeSessionPlan.adventureBoard. Run homework ingestion before launching the board.",
         });
       }
+      const activeHomeworkId = chart.activeSessionPlan.activeHomeworkId;
+      const cycleHomeworkId = chart.learningCycle?.homeworkId;
+      const activeDomain = chart.activeSessionPlan.domain;
+      const cycleDomain = chart.learningCycle?.domain;
+      const requiresCanonicalCycle = activeDomain === "math" || activeDomain === "spelling";
+      const cycleMatches = requiresCanonicalCycle
+        ? Boolean(cycleHomeworkId && activeHomeworkId === cycleHomeworkId && activeDomain === cycleDomain)
+        : !chart.learningCycle || (activeHomeworkId === cycleHomeworkId && activeDomain === cycleDomain);
+      if (
+        !activeHomeworkId ||
+        !activeDomain ||
+        !cycleMatches
+      ) {
+        console.warn(
+          ` 🎮 [AdventureBoard] assignment_identity_mismatch child=${childId} plan=${activeHomeworkId ?? "none"} cycle=${cycleHomeworkId ?? "none"}`,
+        );
+        return res.status(409).json({
+          error: "homework_assignment_identity_mismatch",
+          message: "That assignment is no longer ready. Run homework ingestion before launching the board.",
+        });
+      }
       res.json(buildChildExperiencePacket(chart));
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
@@ -1240,42 +1342,6 @@ export function setupRoutes(app: Express): void {
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
       console.error(" 🔴 [quest-visual-candidates] [select] [error]", message);
-      return res.status(500).json({ ok: false, error: message });
-    }
-  });
-
-  app.post("/api/homework/quest-boss/prepare", (req: Request, res: Response) => {
-    try {
-      const rawChildId = typeof req.body?.childId === "string" ? req.body.childId.trim() : "";
-      const childId = rawChildId.toLowerCase();
-      if (!childId || !isValidRegistryChildId(childId)) {
-        return res.status(400).json({ ok: false, error: "invalid_child_id" });
-      }
-      const status = startQuestBossArtifactPreparation({ childId });
-      if (!status.ok) {
-        return res.status(404).json(status);
-      }
-      return res.status(202).json(status);
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : String(err);
-      return res.status(500).json({ ok: false, error: message });
-    }
-  });
-
-  app.get("/api/homework/quest-boss/status", (req: Request, res: Response) => {
-    try {
-      const rawChildId = typeof req.query.childId === "string" ? req.query.childId.trim() : "";
-      const childId = rawChildId.toLowerCase();
-      if (!childId || !isValidRegistryChildId(childId)) {
-        return res.status(400).json({ ok: false, error: "invalid_child_id" });
-      }
-      const status = readQuestBossArtifactPreparationStatus({ childId });
-      if (!status.ok) {
-        return res.status(404).json(status);
-      }
-      return res.json(status);
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : String(err);
       return res.status(500).json({ ok: false, error: message });
     }
   });

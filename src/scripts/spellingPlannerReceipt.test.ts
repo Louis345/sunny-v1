@@ -37,7 +37,8 @@ describe("Planner-authored spelling node titles survive the real parser", () => 
     await f.worker();
     const cycle = getLearningCycle(f.childId, f.homeworkId, f)!;
     expect(cycle.nodes.filter(node => node.role !== "evaluation").map(node => ({ id: node.nodeId, title: node.title }))).toEqual([
-      { id: "practice", title: "Word workshop" }, { id: "check", title: "Recall check" }, { id: "quest", title: "Quest" },
+      // The saved Planner response still contains a Quest placeholder; contract 21 keeps it off the board.
+      { id: "practice", title: "Word workshop" }, { id: "check", title: "Recall check" },
     ]);
     expect(cycle.observations).toEqual(before.observations);
     expect(cycle.academicPredictions).toHaveLength(2);
@@ -48,6 +49,32 @@ describe("Planner-authored spelling node titles survive the real parser", () => 
     await f.worker();
     expect(fs.readFileSync(checkpoint, "utf8")).toBe(saved);
     expect(getLearningCycle(f.childId, f.homeworkId, f)!.academicPredictions).toEqual(cycle.academicPredictions);
+    expect(transport.create).toHaveBeenCalledOnce();
+  });
+
+  it.each([
+    "spelling_board_presentation_missing_nodes:shared-check",
+    "spelling_board_publication_rejected:choice_experiment_metadata_missing:shared-check-options",
+  ])("revalidates a saved board after local publication failure %s without another Planner call", async (savedError) => {
+    const f = await fixture();
+    transport.create.mockResolvedValue(structuredClone(f.message));
+    await f.worker();
+    const savedResponse = fs.readFileSync(path.join(f.draftDir, "spelling-targeted-response.json"), "utf8");
+    const jobFile = path.join(f.draftDir, "adaptive-generation-job.json");
+    const job = JSON.parse(fs.readFileSync(jobFile, "utf8"));
+    job.phase = "needs_attention";
+    job.error = savedError;
+    job.nodes = job.nodes.map((node: Record<string, unknown>) => ({
+      ...node,
+      status: node.status === "evidence_locked" ? "evidence_locked" : "preparing",
+    }));
+    fs.writeFileSync(jobFile, `${JSON.stringify(job, null, 2)}\n`, "utf8");
+
+    vi.stubEnv("ANTHROPIC_API_KEY", "");
+    await f.worker();
+
+    expect(getMathGenerationStatus(f.childId, f.homeworkId, f)?.phase).toBe("board_ready");
+    expect(fs.readFileSync(path.join(f.draftDir, "spelling-targeted-response.json"), "utf8")).toBe(savedResponse);
     expect(transport.create).toHaveBeenCalledOnce();
   });
 
@@ -110,6 +137,64 @@ async function fixture() {
 // The live run received a response but the outer validated-result receipt never
 // saved it. Higher-level Planner mocks bypassed the failing parser/validator.
 describe("spelling Planner raw-response durability", () => {
+  it("asks the same Planner to restore a missing measurement before the cycle builder sees the plan", async () => {
+    // Human catch: the live Planner added a Visual Explainer node without its
+    // matching measurement. The prompt described the rule, but the relationship
+    // validator checked only measurements that happened to exist. The provider
+    // logs therefore looked successful until the later cycle builder stopped.
+    const f = await fixture();
+    const missingMeasurement = structuredClone(f.message);
+    missingMeasurement.id = "recorded-missing-measurement";
+    missingMeasurement.content[1].input!.plannedMeasurements =
+      missingMeasurement.content[1].input!.plannedMeasurements.filter(
+        (measurement) => measurement.id !== "measure-practice",
+      );
+    const corrected = structuredClone(f.message);
+    corrected.id = "recorded-missing-measurement-correction";
+    transport.create
+      .mockResolvedValueOnce(missingMeasurement)
+      .mockResolvedValueOnce(corrected);
+
+    const result = await f.run();
+
+    expect(result.output.plannedMeasurements.some((measurement) => measurement.id === "measure-practice")).toBe(true);
+    expect(transport.create).toHaveBeenCalledTimes(2);
+    expect(JSON.stringify(transport.create.mock.calls[1]?.[0])).toContain("planner_missing_measurement");
+    expect(JSON.stringify(transport.create.mock.calls[1]?.[0])).toContain("measure-practice");
+    expect(hasReceivedMathProviderStage(f.draftDir, "spelling-targeted-planner-tool-correction-v3-2-missing-measurement")).toBe(true);
+  });
+
+  it("permits one measurement-only follow-up when an older generic correction still omitted a node measurement", async () => {
+    // Live migration invariant: Reina's original response needed the existing
+    // generic correction, whose saved result still omitted the Visual Explainer
+    // measurement. Preserve both receipts and allow exactly one newer,
+    // measurement-only correction rather than regenerating the plan.
+    const f = await fixture();
+    const genericInvalid = structuredClone(f.message);
+    genericInvalid.id = "recorded-generic-invalid";
+    genericInvalid.content[1].input!.plannedMeasurements[0].spelling!.evidenceIds = ["invented-evidence-id"];
+    const correctedButMissing = structuredClone(f.message);
+    correctedButMissing.id = "recorded-corrected-but-missing";
+    correctedButMissing.content[1].input!.plannedMeasurements =
+      correctedButMissing.content[1].input!.plannedMeasurements.filter(
+        (measurement) => measurement.id !== "measure-practice",
+      );
+    const finalCorrection = structuredClone(f.message);
+    finalCorrection.id = "recorded-final-measurement-correction";
+    transport.create
+      .mockResolvedValueOnce(genericInvalid)
+      .mockResolvedValueOnce(correctedButMissing)
+      .mockResolvedValueOnce(finalCorrection);
+
+    const result = await f.run();
+
+    expect(result.output.plannedMeasurements.some((measurement) => measurement.id === "measure-practice")).toBe(true);
+    expect(transport.create).toHaveBeenCalledTimes(3);
+    expect(hasReceivedMathProviderStage(f.draftDir, "spelling-targeted-planner-tool-correction-v3-1")).toBe(true);
+    expect(hasReceivedMathProviderStage(f.draftDir, "spelling-targeted-planner-tool-correction-v3-2-missing-measurement")).toBe(true);
+    expect(JSON.stringify(transport.create.mock.calls[2]?.[0])).toContain("planner_missing_measurement");
+  });
+
   it("asks the same Planner once to correct invalid targeted tool input, then reuses both paid receipts", async () => {
     const f = await fixture();
     const invalid = structuredClone(f.message);
@@ -155,22 +240,45 @@ describe("spelling Planner raw-response durability", () => {
     expect(transport.create).toHaveBeenCalledTimes(2);
   });
 
-  it("does not checkpoint a schema-valid plan before its academic lineage is validated", async () => {
+  it("corrects a schema-valid checkpoint-before-intervention plan once before checkpointing it", async () => {
     const f = await fixture();
-    const invalid = structuredClone(f.message);
-    invalid.content[1].input!.plannedMeasurements[0].spelling!.evidenceIds = [];
     const relationshipInvalid = structuredClone(f.message);
-    relationshipInvalid.id = "recorded-relationship-invalid-correction";
-    relationshipInvalid.content[1].input!.plannedMeasurements[0].spelling!.interventionNodeIds = ["check"];
+    relationshipInvalid.id = "recorded-relationship-invalid";
+    relationshipInvalid.content[1].input!.plannedMeasurements[1].spelling!.interventionNodeIds = ["quest"];
+    const corrected = structuredClone(f.message);
+    corrected.id = "recorded-relationship-correction";
     transport.create
-      .mockResolvedValueOnce(invalid)
-      .mockResolvedValueOnce(relationshipInvalid);
+      .mockResolvedValueOnce(relationshipInvalid)
+      .mockResolvedValueOnce(corrected);
 
-    await expect(f.worker()).rejects.toThrow("spelling_checkpoint_intervention_not_prior:practice");
-    expect(fs.existsSync(path.join(f.draftDir, "spelling-targeted-response.json"))).toBe(false);
-    expect(f.readReceipt()).toMatchObject({ status: "received", response: { message: invalid } });
+    await f.worker();
+    expect(getMathGenerationStatus(f.childId, f.homeworkId, f)?.phase).toBe("board_ready");
+    expect(fs.existsSync(path.join(f.draftDir, "spelling-targeted-response.json"))).toBe(true);
+    expect(f.readReceipt()).toMatchObject({ status: "received", response: { message: relationshipInvalid } });
     expect(hasReceivedMathProviderStage(f.draftDir, "spelling-targeted-planner-tool-correction-v3-1")).toBe(true);
     expect(transport.create).toHaveBeenCalledTimes(2);
+    expect(JSON.stringify(transport.create.mock.calls[1]?.[0])).toContain("planner_checkpoint_intervention_not_prior");
+
+    vi.stubEnv("ANTHROPIC_API_KEY", "");
+    await f.worker();
+    expect(transport.create).toHaveBeenCalledTimes(2);
+  });
+
+  it("stops after one relationship-invalid correction without saving a targeted checkpoint", async () => {
+    const f = await fixture();
+    const invalid = structuredClone(f.message);
+    invalid.id = "recorded-relationship-invalid";
+    invalid.content[1].input!.plannedMeasurements[1].spelling!.interventionNodeIds = ["quest"];
+    const stillInvalid = structuredClone(invalid);
+    stillInvalid.id = "recorded-relationship-invalid-correction";
+    transport.create
+      .mockResolvedValueOnce(invalid)
+      .mockResolvedValueOnce(stillInvalid);
+
+    await expect(f.run()).rejects.toThrow("assignment_planner_relationship_invalid");
+    expect(transport.create).toHaveBeenCalledTimes(2);
+    expect(hasReceivedMathProviderStage(f.draftDir, "spelling-targeted-planner-tool-correction-v3-1")).toBe(true);
+    expect(fs.existsSync(path.join(f.draftDir, "spelling-targeted-response.json"))).toBe(false);
   });
 
   it.each(["missing tool", "unknown activity", "renderer mismatch"])("saves the entire received message before %s rejection and revalidates without a call", async failure => {
@@ -261,10 +369,10 @@ describe("spelling Planner raw-response durability", () => {
     expect(fs.readFileSync(f.receiptFile, "utf8")).toBe(original);
   });
 
-  it("leaves transport uncertainty in-flight and makes no second request", async () => {
+  it("records transport uncertainty and makes no second request", async () => {
     const f = await fixture(); transport.create.mockRejectedValue(new Error("recorded_connection_lost"));
     await expect(f.run()).rejects.toThrow("provider_outcome_uncertain");
-    expect(f.readReceipt().status).toBe("in_flight");
+    expect(f.readReceipt().status).toBe("outcome_uncertain");
     await expect(f.run()).rejects.toThrow("provider_outcome_uncertain");
     expect(transport.create).toHaveBeenCalledOnce();
   });

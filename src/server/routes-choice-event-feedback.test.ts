@@ -44,7 +44,7 @@ vi.mock("../engine/learningCycleRuntime", () => ({
 }));
 
 vi.mock("../engine/canonicalProgressionGenerator", () => ({
-  generateCanonicalProgressionArtifact: vi.fn(async () => ({
+  prepareSuccessorBoard: vi.fn(async () => ({
     childId: "demo-pashley",
     homeworkId: "hw-math",
     lifecycle: "quest_ready",
@@ -88,7 +88,7 @@ import { applyChoiceEventPreference, findChoiceEventById, recordChoiceEvent } fr
 import { getLearningCycle, transitionLearningCycle } from "../engine/learningCycleRepository";
 import { interpretDirectExperienceOutcome } from "../engine/directExperienceFeedback";
 import { advanceCanonicalCycleFromEvidence, recordCanonicalNodeCompletion } from "../engine/learningCycleRuntime";
-import { generateCanonicalProgressionArtifact } from "../engine/canonicalProgressionGenerator";
+import { prepareSuccessorBoard } from "../engine/canonicalProgressionGenerator";
 import { setupRoutes } from "./routes";
 
 const mockedAppendLesson = vi.mocked(appendContentFeedbackLesson);
@@ -333,7 +333,7 @@ describe("choice-event route feedback lessons", () => {
     expect(out.body).toMatchObject({ lifecycle: "baseline_evaluating", revision: 2 });
     await vi.waitFor(() => {
       expect(advanceCanonicalCycleFromEvidence).toHaveBeenCalledTimes(1);
-      expect(generateCanonicalProgressionArtifact).toHaveBeenCalledTimes(1);
+      expect(prepareSuccessorBoard).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -343,7 +343,7 @@ describe("choice-event route feedback lessons", () => {
     expect(out.status).toBe(200);
     expect(recordCanonicalNodeCompletion).toHaveBeenCalledTimes(1);
     expect(advanceCanonicalCycleFromEvidence).not.toHaveBeenCalled();
-    expect(generateCanonicalProgressionArtifact).not.toHaveBeenCalled();
+    expect(prepareSuccessorBoard).not.toHaveBeenCalled();
     expect(out.body.coinAward).toBeUndefined();
   });
 

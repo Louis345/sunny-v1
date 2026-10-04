@@ -7,9 +7,10 @@ import { nativeSpellingInstrumentContract, runAdaptiveMathGeneration } from "./r
 import { planAssignmentFromSourceWithTelemetry } from "../engine/assignmentPlanner";
 import { getLearningCycle } from "../engine/learningCycleRepository";
 import { recordCanonicalNodeCompletion, recordSpellingDiscoveryAttempt, advanceCanonicalCycleFromEvidence } from "../engine/learningCycleRuntime";
-import { completeDiscoveryEvaluation, getMathGenerationStatus } from "../engine/adaptiveMathDiscovery";
+import { completeDiscoveryEvaluation, getMathGenerationStatus, hashDiscoveryContract, setMathGenerationPhase } from "../engine/adaptiveMathDiscovery";
 import { buildAdventureBoardFromActiveSessionPlan } from "../shared/adventureBoardFromPlan";
 import { getChildChart } from "../profiles/childChart";
+import { writeWaterfallContentCatalog } from "../profiles/chartWaterfall";
 import { generateStoryImage } from "../utils/generateStoryImage";
 import type { ActiveSessionPlan } from "../context/schemas/learningProfile";
 vi.mock("../utils/generateStoryImage", () => ({ generateStoryImage: vi.fn() }));
@@ -41,7 +42,7 @@ describe("spelling in the production generation worker", () => {
     );
   });
 
-  it.each(["strong", "weak", "assisted", "incomplete"])("plans from %s committed evidence, publishes native games, and resumes without repeated calls", async scenario => {
+  it.each(["strong", "weak", "assisted", "incomplete", "visual", "mystery-concept-check", "published-contract-change"])("plans from %s committed evidence, publishes native games, and resumes without repeated calls", async scenario => {
     vi.useFakeTimers({ toFake: ["Date"] }); vi.setSystemTime(new Date("2026-09-08T11:00:00Z"));
     const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-spelling-worker-")); roots.push(rootDir);
     const childId = "lab-child", child = path.join(rootDir, "src/context", childId);
@@ -65,6 +66,8 @@ describe("spelling in the production generation worker", () => {
         { id: "check", type: "word-radar", activityId: "word-radar", title: "Fresh recall check", targets: ["night", "light"], difficulty: 1, source: "chart_planner", wordRadarConfig: { recallMode: "hidden_word_recall", inputMode: "keyboard" } },
       ];
       if (scenario === "strong") Object.assign(nodePlan[0], { type: "letter-rush", activityId: "letter-rush", activityConfig: { schemaVersion: 1, activityId: "letter-rush", mode: "read-and-race", topic: "School words", domain: "spelling", learningGoal: "Practice captured spelling", gradeBand: "early_elementary", scaffolds: { showWord: true, letterBank: true, allowRetryBeforeScore: true, companionHints: false }, words: target.map(text => ({ text })), evidencePolicy: { writesPracticeEvidence: true, writesMasteryEvidence: false, requiresPerTargetResult: true, allowedEvidence: ["practice"] } } });
+      if (scenario === "visual") Object.assign(nodePlan[0], { type: "visual-explainer", activityId: "visual-explainer", activityConfig: { schemaVersion: 1, activityId: "visual-explainer", domain: "spelling", topic: "The ight chunk", learningGoal: "Notice and remember the ight chunk.", misconception: "The middle sound maps to one letter.", strategy: { title: "Keep the chunk together", steps: ["Say each word.", "Notice ight.", "Build the word around it."] }, words: target.map(text => ({ id: `planner-${text}`, text, chunks: [text.slice(0, -4), "ight"], focusChunk: "ight", tip: "Keep ight together." })), check: { id: "check-ight", targetWord: target[0], prompt: "Which chunk stays together?", options: [{ id: "ight", label: "ight", correct: true }, { id: "ite", label: "ite", correct: false }], correctOptionId: "ight" }, evidencePolicy: { writesPracticeEvidence: true, writesMasteryEvidence: false, requiresPerTargetResult: false, allowedEvidence: ["practice", "companion"] } } });
+      if (scenario === "mystery-concept-check" || scenario === "published-contract-change") Object.assign(nodePlan[0], { type: "mystery", activityId: "mystery", activityConfig: { schemaVersion: 1, activityId: "concept-check", engine: { id: "concept-check", mode: "choose" }, topic: "School words", domain: "spelling", learningGoal: "Choose the correctly spelled word.", gradeBand: "early_elementary", targets: target.map((label, index) => ({ id: `planner-${index}`, label, type: "word" })), rounds: target.map((label, index) => ({ id: `round-${index}`, mechanic: "choose", targetId: `planner-${index}`, prompt: `Choose ${label}.`, options: [{ id: `${index}-correct`, label, correct: true }, { id: `${index}-miss`, label: `${label}x`, correct: false }], scaffoldLevel: 0 })), evidencePolicy: { writesPracticeEvidence: true, writesMasteryEvidence: false, requiresPerTargetResult: true, allowedEvidence: ["practice"] } } });
       const plannedMeasurements = nodePlan.map(node => ({ id: `measure-${node.id}`, activityId: node.activityId, target: node.targets.join(","), evidenceType: "recall", supportCriteria: "Captured recall improves", reviseCriteria: "Mixed", falsifyCriteria: "No improvement", spelling: { role: node.id === "check" ? "fresh_checkpoint" : "practice", evidenceIds: ["observed-0", "observed-1"], interventionNodeIds: node.id === "check" ? ["practice"] : [], reason: scenario === "assisted" ? "Help limits inference" : "Current recall facts", uncertainty: "One occasion", expectedAccuracy: { min: 0.6, max: 1 }, confidence: 0.5, finalCheck: node.id === "check" } }));
       const activeSessionPlan = { planId: `targeted:${homeworkId}`, childId, activeHomeworkId: homeworkId, domain: "spelling", nodePlan, plannedMeasurements, planTheory: { hypothesis: "Recall may improve", evidenceSummary: ["observed-0", "observed-1"], intervention: "Selected practice", supportCriteria: ["Improvement"], reviseCriteria: ["Mixed"], falsifyCriteria: ["No improvement"] } };
       for (const measurement of plannedMeasurements) Object.assign(measurement.spelling, { maxDelayDays: 7 });
@@ -82,20 +85,50 @@ describe("spelling in the production generation worker", () => {
       return "https://recorded.invalid/image";
     });
     await runAdaptiveMathGeneration(childId, homeworkId, rootDir);
-    expect(generateStoryImage).not.toHaveBeenCalled();
+    const imageCallsAfterFirstRun = vi.mocked(generateStoryImage).mock.calls.length;
     const frozenFile = path.join(child, "homework/direct-drafts", homeworkId, "spelling-targeted-response.json");
     const frozenResult = JSON.parse(fs.readFileSync(frozenFile, "utf8")).result;
     expect(JSON.stringify(frozenResult)).not.toContain(`/generated/adventure-board/${childId}/`);
     const nativeConfig = path.join(child, "homework/direct-drafts", homeworkId, "native-instruments/practice.json");
     const originalNative = fs.readFileSync(nativeConfig, "utf8");
-    fs.rmSync(nativeConfig);
+    if (scenario === "mystery-concept-check" || scenario === "published-contract-change") {
+      const legacyNative = JSON.parse(originalNative);
+      delete legacyNative.evidenceContract.nativeConfig;
+      for (const item of Object.values(legacyNative.evidenceContract.spellingItems) as Array<{response:{mode:string}}>) {
+        item.response.mode = "spelling_letters";
+      }
+      fs.writeFileSync(nativeConfig, `${JSON.stringify(legacyNative, null, 2)}\n`);
+      const cycleFile = path.join(child, "homework/cycles", `${homeworkId}.json`);
+      const legacy = JSON.parse(fs.readFileSync(cycleFile, "utf8"));
+      // Saved cycles that predate this migration also predate contract-21 board instances.
+      if (scenario === "mystery-concept-check") delete legacy.boards;
+      const legacyNode = legacy.nodes.find((node: {nodeId:string}) => node.nodeId === "practice");
+      legacyNode.implementationType = "mystery";
+      legacyNode.state = "completed";
+      legacyNode.evidenceIds = ["existing-completion-evidence"];
+      delete legacyNode.evidenceContract.nativeConfig;
+      for (const item of Object.values(legacyNode.evidenceContract.spellingItems) as Array<{response:{mode:string}}>) {
+        item.response.mode = "spelling_letters";
+      }
+      delete legacyNode.artifactBinding.activityConfigPath;
+      legacyNode.artifactBinding.contractFingerprint = hashDiscoveryContract(legacyNative);
+      fs.writeFileSync(cycleFile, `${JSON.stringify(legacy, null, 2)}\n`);
+      setMathGenerationPhase({ rootDir, childId, homeworkId, phase: "needs_attention", error: "spelling_native_contract_changed:practice" });
+    } else {
+      fs.rmSync(nativeConfig);
+    }
+    if (scenario === "published-contract-change") {
+      // Contract 21: a published board's frozen instrument is never edited in place.
+      await expect(runAdaptiveMathGeneration(childId, homeworkId, rootDir)).rejects.toThrow(`published_board_instrument_contract_changed:${homeworkId}:practice`);
+      return;
+    }
     // This high-level Planner fixture tests missing-instrument recovery. Raw
     // response/derived-checkpoint recovery uses the real parser and mocked
     // transport in spellingPlannerReceipt.test.ts.
     await runAdaptiveMathGeneration(childId, homeworkId, rootDir);
     expect(fs.readFileSync(nativeConfig, "utf8")).toBe(originalNative);
     expect(planAssignmentFromSourceWithTelemetry).toHaveBeenCalledOnce();
-    expect(generateStoryImage).not.toHaveBeenCalled();
+    expect(vi.mocked(generateStoryImage).mock.calls.length).toBe(imageCallsAfterFirstRun);
     const after = getLearningCycle(childId, homeworkId, { rootDir })!;
     expect(after.lifecycle).toBe("board_ready");
     expect(after.observations).toEqual(originalObservations);
@@ -104,12 +137,28 @@ describe("spelling in the production generation worker", () => {
     const catalog = getChildChart(childId, { rootDir }).contentCatalog.items;
     expect(catalog.filter(item => item.homeworkId === homeworkId)).toHaveLength(2);
     expect(catalog.every(item => item.reuseStatus === "candidate" && item.domain === "spelling" && item.inputEvidence.activityEvidenceIds?.includes("observed-1"))).toBe(true);
+    if (scenario === "visual") {
+      expect(catalog.find(item => item.activityId === "visual-explainer")?.algorithmTargets)
+        .toEqual(expect.arrayContaining(["error-pattern-remediation", "retrieval-practice"]));
+      const chart = getChildChart(childId, { rootDir });
+      const staleCatalog = catalog.map(item => item.activityId === "visual-explainer"
+        ? { ...item, algorithmTargets: ["retrieval-practice" as const] }
+        : item);
+      writeWaterfallContentCatalog(childId, { ...chart.learningProfile, aiContentCatalog: staleCatalog }, { rootDir });
+      await runAdaptiveMathGeneration(childId, homeworkId, rootDir);
+      expect(getChildChart(childId, { rootDir }).contentCatalog.items.find(item => item.activityId === "visual-explainer")?.algorithmTargets)
+        .toEqual(expect.arrayContaining(["error-pattern-remediation", "retrieval-practice"]));
+    }
+    expect(getMathGenerationStatus(childId, homeworkId, { rootDir })).toMatchObject({
+      phase: "board_ready",
+      nodes: expect.arrayContaining([expect.objectContaining({ status: "ready" })]),
+    });
     expect(getMathGenerationStatus(childId, homeworkId, { rootDir })?.nodes.every(node => node.status === "ready")).toBe(true);
     const projected = JSON.parse(fs.readFileSync(path.join(child, "plans/active_session_plan.json"), "utf8"));
     expect(projected.selectedDomain).toBe("spelling");
     expect(projected.current.adventureBoard.nodes.find((node: {id:string}) => node.id === "practice").thumbnailUrl)
-      .toBe(scenario === "strong" ? "/thumbnails/activities/letter-rush.svg" : "/thumbnails/activities/word-radar.svg");
-    expect(projected.current.nodePlan.find((node: {id:string}) => node.id === "practice").type).toBe(scenario === "strong" ? "letter-rush" : "word-radar");
+      .toBe(scenario === "strong" ? "/thumbnails/activities/letter-rush.svg" : scenario === "visual" ? "/thumbnails/activities/visual-explainer.svg" : scenario === "mystery-concept-check" ? "/thumbnails/mystery-fallback.svg" : "/thumbnails/activities/word-radar.svg");
+    expect(projected.current.nodePlan.find((node: {id:string}) => node.id === "practice").type).toBe(scenario === "strong" ? "letter-rush" : scenario === "visual" ? "visual-explainer" : scenario === "mystery-concept-check" ? "concept-check" : "word-radar");
     if (scenario === "strong") {
       const url = after.nodes.find(node => node.nodeId === "practice")!.artifactBinding!.activityConfigPath!;
       expect(url).toMatch(/^\/api\/activity-config\/lab-child\//);
@@ -117,11 +166,38 @@ describe("spelling in the production generation worker", () => {
       expect(engine.activityId).toBe("letter-rush");
       expect(engine.words.map((word: {id:string}) => word.id)).toEqual(Object.keys(after.nodes.find(node => node.nodeId === "practice")!.evidenceContract.spellingItems!));
     }
+    if (scenario === "visual") {
+      const binding = after.nodes.find(node => node.nodeId === "practice")!.artifactBinding!;
+      expect(binding.localArtifactPath).toBe("/games/spelling-visual-explainer.html");
+      expect(binding.activityConfigPath).toMatch(/^\/api\/activity-config\/lab-child\//);
+      const visual = JSON.parse(fs.readFileSync(path.join(child, "homework/games", homeworkId, path.basename(binding.activityConfigPath!)), "utf8"));
+      expect(visual.type).toBe("visual-explainer");
+      expect(visual.spellingModel.words.map((word: {id:string}) => word.id)).toEqual(Object.keys(after.nodes.find(node => node.nodeId === "practice")!.evidenceContract.spellingItems!));
+      expect(visual.questions[0].targetConcept).toBe(visual.spellingModel.words[0].id);
+    }
+    if (scenario === "mystery-concept-check") {
+      const binding = after.nodes.find(node => node.nodeId === "practice")!.artifactBinding!;
+      expect(after.nodes.find(node => node.nodeId === "practice")).toMatchObject({
+        role: "mystery",
+        implementationType: "concept-check",
+        state: "completed",
+        evidenceIds: ["existing-completion-evidence"],
+      });
+      expect(binding.activityConfigPath).toMatch(/^\/api\/activity-config\/lab-child\//);
+      const engine = JSON.parse(fs.readFileSync(path.join(child, "homework/games", homeworkId, path.basename(binding.activityConfigPath!)), "utf8"));
+      expect(engine.activityId).toBe("concept-check");
+    }
     const practiceItems = Object.values(after.nodes.find(node => node.nodeId === "practice")!.evidenceContract.spellingItems!);
     expect(() => recordCanonicalNodeCompletion({ childId, homeworkId, nodeId: "practice", sessionId: "duplicate-rows", result: { completed: true, accuracy: 1, timeSpent_ms: 100, targetResults: [practiceItems[0], practiceItems[0]].map(item => ({ target: item.id, correct: true, attemptedValue: item.word })) } }, { rootDir })).toThrow("learning_cycle_duplicate_item");
     recordCanonicalNodeCompletion({ childId, homeworkId, nodeId: "practice", sessionId: "practice-run", result: { completed: true, accuracy: 1, timeSpent_ms: 100, targetResults: practiceItems.map(item => ({ target: item.id, correct: true, attemptedValue: "wrong" })) } }, { rootDir });
     const practiceFacts = getLearningCycle(childId, homeworkId, { rootDir })!.observations.filter(row => practiceItems.some(item => item.id === row.itemId));
-    expect(practiceFacts.every(row => row.result.correct === false && row.provenance === "practice")).toBe(true);
+    if (scenario === "visual") {
+      expect(practiceFacts.every(row => row.result.observedErrorType === "assisted_instruction"
+        && row.result.correct === undefined && row.assistance.status === "assisted"
+        && row.provenance === "practice")).toBe(true);
+    } else {
+      expect(practiceFacts.every(row => row.result.correct === false && row.provenance === "practice")).toBe(true);
+    }
     const checkItems = Object.values(after.nodes.find(node => node.nodeId === "check")!.evidenceContract.spellingItems!);
     checkItems.forEach((item, index) => {
       recordSpellingDiscoveryAttempt({ childId, homeworkId, attempt: { attemptId: `check-${index}`, itemId: item.id, attemptedValue: item.word, observedAt: "2026-09-09T12:00:00Z" }, support: { status: "unassisted", scaffolds: [] } }, { rootDir });

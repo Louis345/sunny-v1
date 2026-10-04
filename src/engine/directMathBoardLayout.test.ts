@@ -43,7 +43,7 @@ for (const viewport of [{ width: 1365, height: 768 }, { width: 1280, height: 720
       const generated: DirectArtifact[] = designed.activities.map((a: { id: string; title: string }) => ({
         childId: "layout-lab", homeworkId: "layout-lab", nodeId: a.id, title: a.title, htmlPath: "", artworkUrl: "", creatorPrompt: "fixture", promptHash: "fixture", plannerModel: "recorded", creatorModel: "recorded",
       }));
-      const projected = buildDirectActiveSessionPlan({ childId: "layout-lab", homeworkId: "layout-lab", plan: designed, artifacts: generated, backgroundUrl: "", questArtworkUrl: "", bossArtworkUrl: "", report: { passed: true, failures: [], screenshots: [] } });
+      const projected = buildDirectActiveSessionPlan({ childId: "layout-lab", homeworkId: "layout-lab", plan: designed, artifacts: generated, backgroundUrl: "", report: { passed: true, failures: [], screenshots: [] } });
       const board = projected.adventureBoard!;
       board.theme.background = { type: "solid", value: "#10233f" };
       board.nodes = board.nodes.map(node => node.kind === "activity" ? { ...node, shortLabel: "Read and record values", state: "preview", lock: { reason: "artifact-generating", label: "Preparing" } } : node);
@@ -74,7 +74,8 @@ for (const viewport of [{ width: 1365, height: 768 }, { width: 1280, height: 720
         const name = `${count}-${shared}-${upper}-${viewport.width}`;
         await page.screenshot({ path: path.join(artifacts, `${name}.png`) });
         fs.writeFileSync(path.join(artifacts, `${name}.json`), JSON.stringify({ viewport, boxes, failures }, null, 2));
-        expect(boxes).toHaveLength(count + 4);
+        // start + choice gate + activities; no Quest/Boss placeholders (contract 21).
+        expect(boxes).toHaveLength(count + 2);
         expect(failures).toEqual([]);
       } finally { await page.close(); }
     });

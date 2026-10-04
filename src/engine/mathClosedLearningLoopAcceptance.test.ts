@@ -2,7 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { generateCanonicalProgressionArtifact } from "./canonicalProgressionGenerator";
+import { prepareSuccessorBoard } from "./canonicalProgressionGenerator";
 import {
   createLearningCycle,
   getLearningCycle,
@@ -136,17 +136,17 @@ describe("math closed learning loop acceptance", () => {
         status: "supported",
         reason: "A fresh independent checkpoint supports testing transfer but cannot establish mastery.",
         progressionAction: "generate_quest",
-        nextInstrument: prescription("quest","unseen-transfer-garden",18),
+        successor: { instruments: [{ ...prescription("quest","unseen-transfer-garden",18), encounter: "quest" as const }] },
         preserve: ["visual grouping"],
         change: ["remove worked examples"],
         testNext: ["unseen equal-groups transfer"],
         nextEvidenceRequired: ["unassisted Quest scorecard"],
       }),
     }, { rootDir, now: new Date("2026-07-21T12:11:00.000Z") });
-    expect(questGenerating.nodes.find((entry) => entry.role === "quest")?.generationPrompt?.text)
+    expect([...questGenerating.nodes].reverse().find((entry) => entry.role === "quest")?.generationPrompt?.text)
       .toContain("practice-array-3x4");
 
-    const questReady = await generateCanonicalProgressionArtifact({
+    const questReady = await prepareSuccessorBoard({
       childId: "reina",
       homeworkId: "hw-school-equal-groups",
       generateHtml: async ({ node: generatedNode }) => `<!doctype html><html><body><h1>${generatedNode.title}</h1></body></html>`,
@@ -157,12 +157,16 @@ describe("math closed learning loop acceptance", () => {
       }),
     }, { rootDir, now: new Date("2026-07-21T12:12:00.000Z") });
     expect(questReady.lifecycle).toBe("quest_ready");
+    // Contract 21: the Quest lives on a newly published successor board, never on the original board.
+    const questNodeId = [...questReady.nodes].reverse().find((entry) => entry.role === "quest")!.nodeId;
+    expect(questReady.boards?.at(-1)).toMatchObject({ kind: "successor", publishedAt: expect.any(String) });
+    expect(questReady.boards?.at(-1)?.nodeIds).toContain(questNodeId);
 
     recordCanonicalNodeCompletion({
       childId: "reina",
       homeworkId: "hw-school-equal-groups",
       sessionId: "session:quest",
-      nodeId: "quest",
+      nodeId: questNodeId,
       result: { completed: true, accuracy: 1, timeSpent_ms: 70_000, targetResults: [{ target: "unseen-transfer-garden", correct: true, attemptedValue: "18" }] },
     }, { rootDir, now: new Date("2026-07-21T12:20:00.000Z") });
     await advanceCanonicalCycleFromEvidence({
@@ -172,14 +176,14 @@ describe("math closed learning loop acceptance", () => {
         status: "supported",
         reason: "Unseen transfer held; test synthesis next.",
         progressionAction: "generate_boss",
-        nextInstrument: prescription("boss","unseen-synthesis-market",24),
+        successor: { instruments: [{ ...prescription("boss","unseen-synthesis-market",24), encounter: "boss" as const }] },
         preserve: ["independent response"],
         change: ["combine representations"],
         testNext: ["unseen synthesis"],
         nextEvidenceRequired: ["Boss scorecard"],
       }),
     }, { rootDir, now: new Date("2026-07-21T12:21:00.000Z") });
-    const bossReady = await generateCanonicalProgressionArtifact({
+    const bossReady = await prepareSuccessorBoard({
       childId: "reina",
       homeworkId: "hw-school-equal-groups",
       generateHtml: async ({ node: generatedNode }) => `<!doctype html><html><body><h1>${generatedNode.title}</h1></body></html>`,
@@ -190,12 +194,13 @@ describe("math closed learning loop acceptance", () => {
       }),
     }, { rootDir, now: new Date("2026-07-21T12:22:00.000Z") });
     expect(bossReady.lifecycle).toBe("boss_ready");
+    const bossNodeId = [...bossReady.nodes].reverse().find((entry) => entry.role === "boss")!.nodeId;
 
     recordCanonicalNodeCompletion({
       childId: "reina",
       homeworkId: "hw-school-equal-groups",
       sessionId: "session:boss",
-      nodeId: "boss",
+      nodeId: bossNodeId,
       result: { completed: true, accuracy: 1, timeSpent_ms: 80_000, targetResults: [{ target: "unseen-synthesis-market", correct: true, attemptedValue: "24" }] },
     }, { rootDir, now: new Date("2026-07-21T12:30:00.000Z") });
     const awaiting = await advanceCanonicalCycleFromEvidence({

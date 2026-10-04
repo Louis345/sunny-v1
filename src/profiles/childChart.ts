@@ -1,3 +1,5 @@
+import { readTypedChildChart } from '../chart/buildChart';
+import type { ChartDatabase } from '../chart/db';
 import fs from "fs";
 import path from "path";
 import type { AdventureMapProfile, LearningProfile } from "../context/schemas/learningProfile";
@@ -294,7 +296,11 @@ function fallbackCompanionConfig(presetId: string): CompanionConfig {
   };
 }
 
-export function getChildChart(childIdRaw: string, opts: ChildChartOptions = {}): ChildChart {
+type SpellingChartOptions = { department: 'spelling'; database: ChartDatabase };
+export function getChildChart(childId: string, opts: SpellingChartOptions): ReturnType<typeof readTypedChildChart>;
+export function getChildChart(childId: string, opts?: ChildChartOptions): ChildChart;
+export function getChildChart(childIdRaw: string, opts: ChildChartOptions | SpellingChartOptions = {}): ChildChart | ReturnType<typeof readTypedChildChart> {
+  if ('department' in opts) return readTypedChildChart(childIdRaw, opts);
   const rootDir = opts.rootDir ?? process.cwd();
   const childId = normalizeChildId(childIdRaw);
   const baseDir = contextDir(rootDir, childId);

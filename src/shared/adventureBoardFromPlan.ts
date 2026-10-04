@@ -99,30 +99,43 @@ function normalizeRouteLayout(plan: ActiveSessionPlanBoardSnapshot): {
   convergedNodes: ActiveSessionPlanBoardNodeSnapshot[];
   hasExplicitRoutes: boolean;
 } {
-  const baselineNodes = plan.nodePlan.filter((node) => !isDestinationNode(node));
   const nodeById = new Map(plan.nodePlan.map((node) => [node.id, node]));
+  const learningRoutes = plan.learningRoutes ?? [];
+  const routeReferencedNodeIds = new Set(learningRoutes.length >= 2
+    ? learningRoutes.flatMap((route) => route.nodeIds)
+    : []);
+  const baselineNodes = plan.nodePlan.filter((node) =>
+    !isFixedDestinationNode(node) &&
+    (activityIdForPlanNode(node) !== "mystery" || routeReferencedNodeIds.has(node.id)));
   const finalCheckNodeIds = new Set((plan.plannedMeasurements ?? [])
     .filter((measurement) => measurement.spelling?.finalCheck === true)
     .map((measurement) => measurement.id.replace(/^measure-/, "")));
+  const routeSequences = learningRoutes.map((route) => route.nodeIds
+    .map((nodeId) => nodeById.get(nodeId))
+    .filter((node): node is ActiveSessionPlanBoardNodeSnapshot => Boolean(node))
+    .filter((node) => baselineNodes.some((candidate) => candidate.id === node.id)));
+  const commonPrefixNodeIds = commonRoutePrefix(routeSequences);
+  const commonSuffixNodeIds = commonRouteSuffix(routeSequences, commonPrefixNodeIds.length);
+  const convergedNodeIds = new Set([...commonSuffixNodeIds, ...finalCheckNodeIds]);
   const routeUseCounts = new Map<string, number>();
-  for (const route of plan.learningRoutes ?? []) {
+  for (const route of learningRoutes) {
     for (const nodeId of route.nodeIds) {
       const node = nodeById.get(nodeId);
-      if (!node || isDestinationNode(node)) continue;
+      if (!node || !baselineNodes.some((candidate) => candidate.id === node.id)) continue;
       routeUseCounts.set(nodeId, (routeUseCounts.get(nodeId) ?? 0) + 1);
     }
   }
 
   const routeEntries: NormalizedRouteLayoutEntry[] = [];
-  const visibleRoutes = (plan.learningRoutes ?? [])
+  const visibleRoutes = learningRoutes
     .map((route) => ({
       route,
       candidates: route.nodeIds
         .map((nodeId) => nodeById.get(nodeId))
         .filter((node): node is ActiveSessionPlanBoardNodeSnapshot => Boolean(node))
-        .filter((node) => !isDestinationNode(node))
+        .filter((node) => baselineNodes.some((candidate) => candidate.id === node.id))
         .filter((node) => !isBaselineLikeRouteNode(node))
-        .filter((node) => !finalCheckNodeIds.has(node.id))
+        .filter((node) => !convergedNodeIds.has(node.id))
         .filter((node) => (routeUseCounts.get(node.id) ?? 0) === 1),
     }))
     .filter(({ candidates }) => candidates.length > 0)
@@ -135,10 +148,10 @@ function normalizeRouteLayout(plan: ActiveSessionPlanBoardSnapshot): {
   }
 
   const routeNodeIds = new Set(routeEntries.map((entry) => entry.node.id));
-  const convergedNodes = baselineNodes.filter((node) => finalCheckNodeIds.has(node.id));
+  const convergedNodes = baselineNodes.filter((node) => convergedNodeIds.has(node.id));
   const requiredNodes = baselineNodes.filter((node) =>
     !routeNodeIds.has(node.id) &&
-    !finalCheckNodeIds.has(node.id));
+    !convergedNodeIds.has(node.id));
 
   return {
     requiredNodes,
@@ -146,6 +159,33 @@ function normalizeRouteLayout(plan: ActiveSessionPlanBoardSnapshot): {
     convergedNodes,
     hasExplicitRoutes: visibleRoutes.length >= 2 && routeEntries.length >= 2,
   };
+}
+
+function commonRoutePrefix(routeSequences: ActiveSessionPlanBoardNodeSnapshot[][]): string[] {
+  if (routeSequences.length < 2) return [];
+  const shortestLength = Math.min(...routeSequences.map((sequence) => sequence.length));
+  const common: string[] = [];
+  for (let index = 0; index < shortestLength; index += 1) {
+    const nodeId = routeSequences[0]?.[index]?.id;
+    if (!nodeId || !routeSequences.every((sequence) => sequence[index]?.id === nodeId)) break;
+    common.push(nodeId);
+  }
+  return common;
+}
+
+function commonRouteSuffix(
+  routeSequences: ActiveSessionPlanBoardNodeSnapshot[][],
+  sharedPrefixLength: number,
+): string[] {
+  if (routeSequences.length < 2) return [];
+  const shortestLength = Math.min(...routeSequences.map((sequence) => sequence.length));
+  const common: string[] = [];
+  for (let offset = 1; offset <= shortestLength - sharedPrefixLength; offset += 1) {
+    const nodeId = routeSequences[0]?.at(-offset)?.id;
+    if (!nodeId || !routeSequences.every((sequence) => sequence.at(-offset)?.id === nodeId)) break;
+    common.unshift(nodeId);
+  }
+  return common;
 }
 
 /** The exact route options and node paths that the board will expose to a child. */
@@ -173,8 +213,16 @@ export function buildAdventureBoardFromActiveSessionPlan(
   options: BuildAdventureBoardFromActiveSessionPlanOptions,
 ): AdventureBoardJson {
   const completedNodeIds = options.progress?.completedNodeIds ?? [];
-  const baselineNodes = options.plan.nodePlan.filter((node) => !isDestinationNode(node));
   const normalizedLayout = normalizeRouteLayout(options.plan);
+  const projectedNodeIds = new Set([
+    ...normalizedLayout.requiredNodes,
+    ...normalizedLayout.routeEntries.map((entry) => entry.node),
+    ...normalizedLayout.convergedNodes,
+  ].map((node) => node.id));
+  const mysteryNodes = options.plan.nodePlan.filter((node) => activityIdForPlanNode(node) === "mystery");
+  const destinationMysteryNodes = mysteryNodes.filter((node) => !projectedNodeIds.has(node.id));
+  const baselineNodes = options.plan.nodePlan.filter((node) =>
+    !isFixedDestinationNode(node) && !destinationMysteryNodes.some((destination) => destination.id === node.id));
   const requiredBaselineCount = baselineNodes.length >= 4 ? 2 : 1;
   const requiredNodes = normalizedLayout.hasExplicitRoutes
     ? normalizedLayout.requiredNodes
@@ -186,14 +234,18 @@ export function buildAdventureBoardFromActiveSessionPlan(
     ? normalizedLayout.convergedNodes
     : [];
   const hasRealRouteChoice = routeNodes.length >= 2;
-  const mysteryNode = options.plan.nodePlan.find((node) => activityIdForPlanNode(node) === "mystery");
+  // Quest and Boss render only when the board's own plan contains them (contract 21).
   const questNode = pickDestinationNode(options.plan.nodePlan, "quest");
   const bossNode = pickDestinationNode(options.plan.nodePlan, "boss");
-  const firstRequired = requiredNodes[0] ?? baselineNodes[0] ?? mysteryNode ?? questNode ?? bossNode;
+  const firstRequired = requiredNodes[0] ?? baselineNodes[0] ?? mysteryNodes[0] ?? questNode ?? bossNode;
   const currentNodeId =
     options.progress?.currentNodeId ??
     firstRequired?.id ??
     options.plan.nodePlan.find((node) => !node.locked && !completedNodeIds.includes(node.id))?.id;
+  const allocateSlot = createAdventureSlotAllocator({
+    reserveQuest: Boolean(questNode),
+    reserveBoss: Boolean(bossNode),
+  });
 
   const requiredBoardNodes = requiredNodes.map((node, index) =>
     buildBoardNode({
@@ -202,12 +254,20 @@ export function buildAdventureBoardFromActiveSessionPlan(
       state: stateForPlanNode(node, completedNodeIds, currentNodeId),
       label: options.labelForNode?.(node, index) ?? labelForPlanNode(node),
       thumbnailUrl: options.thumbnailForNode?.(node, index) ?? thumbnailForPlanNode(node),
-      slot: index === 0 ? "2" : "3",
+      slot: allocateSlot([requiredSlotForIndex(index)]),
       role: "baseline",
       lane: "main",
       order: index + 1,
     }),
   );
+  const choiceGate = hasRealRouteChoice
+    ? buildChoiceGate(options, requiredNodes.length, allocateSlot([
+        requiredNodes.length >= 3 ? "5c.1" : "4",
+        "5c.1",
+        "5c.2",
+        "5c.3",
+      ]))
+    : undefined;
   const routeBoardNodes = routeNodes.map((node, index) => {
     const routeEntry = normalizedLayout.hasExplicitRoutes
       ? normalizedLayout.routeEntries.find((entry) => entry.node.id === node.id)
@@ -229,7 +289,7 @@ export function buildAdventureBoardFromActiveSessionPlan(
       state: stateForPlanNode(node, completedNodeIds, currentNodeId),
       label: options.labelForNode?.(node, requiredNodes.length + index) ?? labelForPlanNode(node),
       thumbnailUrl: options.thumbnailForNode?.(node, requiredNodes.length + index) ?? thumbnailForPlanNode(node),
-      slot: routeSlot,
+      slot: allocateSlot([routeSlot]),
       role: hasRealRouteChoice ? "evidence-route" : "baseline",
       lane: routeLane,
       order: routeOrder,
@@ -242,30 +302,33 @@ export function buildAdventureBoardFromActiveSessionPlan(
       state: stateForPlanNode(node, completedNodeIds, currentNodeId),
       label: options.labelForNode?.(node, requiredNodes.length + routeNodes.length + index) ?? labelForPlanNode(node),
       thumbnailUrl: options.thumbnailForNode?.(node, requiredNodes.length + routeNodes.length + index) ?? thumbnailForPlanNode(node),
-      slot: mysteryNode ? "6.1" : "6",
+      slot: allocateSlot([convergedSlotForIndex(index, convergedNodes.length)]),
       role: "baseline",
       lane: "main",
       order: requiredNodes.length + index + 1,
     }),
   );
-  const destinationNodes = [mysteryNode, questNode, bossNode]
-    .filter((node): node is ActiveSessionPlanBoardNodeSnapshot => Boolean(node))
-    .map((node, index) =>
+  const destinationPlanNodes = [
+    ...destinationMysteryNodes,
+    ...(questNode ? [questNode] : []),
+    ...(bossNode ? [bossNode] : []),
+  ];
+  const destinationNodes = destinationPlanNodes.map((node, index) =>
       buildBoardNode({
         planNode: node,
         index: baselineNodes.length + index,
         state: destinationStateForPlanNode(node),
         label: options.labelForNode?.(node, baselineNodes.length + index) ?? labelForPlanNode(node),
-        thumbnailUrl: options.thumbnailForNode?.(node, baselineNodes.length + index),
-        slot: destinationSlotForPlanNode(node, convergedBoardNodes.length > 0),
+        thumbnailUrl: options.thumbnailForNode?.(node, baselineNodes.length + index)
+          ?? thumbnailForPlanNode(node),
+        slot: activityIdForPlanNode(node) === "mystery"
+          ? allocateSlot(["6", "6.1", "6.2"])
+          : destinationSlotForPlanNode(node),
         role: layoutRoleForKind(kindForPlanNode(node)),
         lane: "main",
         order: 1,
       }),
     );
-  const choiceGate = hasRealRouteChoice
-    ? buildChoiceGate(options, requiredNodes.length)
-    : undefined;
   const startNode = buildStartNode();
   const nodes = [
     startNode,
@@ -310,13 +373,13 @@ export function buildAdventureBoardFromActiveSessionPlan(
         thumbnailForNode: options.thumbnailForNode,
         routeStartIndex: requiredNodes.length,
       }),
-      ...buildMysteryChoiceSets({
-        mysteryNode,
-        variantNodes: baselineNodes,
-        completedNodeIds,
-        thumbnailForNode: options.thumbnailForNode,
-        index: baselineNodes.length,
-      }),
+      ...mysteryNodes.flatMap((mysteryNode, index) => buildMysteryChoiceSets({
+          mysteryNode,
+          variantNodes: baselineNodes.filter((node) => node.id !== mysteryNode.id),
+          completedNodeIds,
+          thumbnailForNode: options.thumbnailForNode,
+          index: baselineNodes.length + index,
+        })),
     ],
     companion: options.companion,
     progress: {
@@ -328,18 +391,51 @@ export function buildAdventureBoardFromActiveSessionPlan(
   };
 }
 
-function slotForRouteEntry(entry: NormalizedRouteLayoutEntry): AdventureBoardNode["slot"] {
+const ALLOCATABLE_ACTIVITY_SLOTS: NonNullable<AdventureBoardNode["slot"]>[] = [
+  "2", "3", "4",
+  "5a.1", "5b.1", "5c.1",
+  "5a.2", "5b.2", "5c.2",
+  "5a.3", "5b.3", "5c.3",
+  "6", "6.1", "6.2",
+];
+
+function createAdventureSlotAllocator(options: {
+  reserveQuest: boolean;
+  reserveBoss: boolean;
+}): (preferred: NonNullable<AdventureBoardNode["slot"]>[]) => NonNullable<AdventureBoardNode["slot"]> {
+  const occupied = new Set<NonNullable<AdventureBoardNode["slot"]>>(["1"]);
+  if (options.reserveQuest) occupied.add("7");
+  if (options.reserveBoss) occupied.add("8");
+  return (preferred) => {
+    const slot = [...preferred, ...ALLOCATABLE_ACTIVITY_SLOTS]
+      .find((candidate) => !occupied.has(candidate));
+    if (!slot) throw new Error("adventure_board_layout_capacity_exceeded");
+    occupied.add(slot);
+    return slot;
+  };
+}
+
+function requiredSlotForIndex(index: number): NonNullable<AdventureBoardNode["slot"]> {
+  return (["2", "3", "4"] as const)[index] ?? "4";
+}
+
+function convergedSlotForIndex(index: number, count: number): NonNullable<AdventureBoardNode["slot"]> {
+  if (count <= 1) return "6";
+  return (["6.1", "6.2", "6"] as const)[index] ?? "6";
+}
+
+function slotForRouteEntry(entry: NormalizedRouteLayoutEntry): NonNullable<AdventureBoardNode["slot"]> {
   const route = ["a", "b", "c"][entry.routeIndex] ?? "c";
   const order = Math.min(entry.routeOrder + 1, 3);
-  return `5${route}.${order}` as AdventureBoardNode["slot"];
+  return `5${route}.${order}` as NonNullable<AdventureBoardNode["slot"]>;
 }
 
 function laneForRouteEntry(entry: NormalizedRouteLayoutEntry): NonNullable<AdventureBoardNode["layout"]>["lane"] {
   return (["upper", "lower", "middle"] as const)[entry.routeIndex] ?? "middle";
 }
 
-function slotForLinearRouteIndex(index: number): AdventureBoardNode["slot"] {
-  const slots: AdventureBoardNode["slot"][] = ["5a.1", "5b.1", "5c.1", "5a.2", "5b.2", "5c.2", "5a.3", "5b.3", "5c.3"];
+function slotForLinearRouteIndex(index: number): NonNullable<AdventureBoardNode["slot"]> {
+  const slots: NonNullable<AdventureBoardNode["slot"]>[] = ["5a.1", "5b.1", "5c.1", "5a.2", "5b.2", "5c.2", "5a.3", "5b.3", "5c.3"];
   return slots[index] ?? "5c.3";
 }
 
@@ -463,6 +559,7 @@ function buildStartNode(): AdventureBoardNode {
 function buildChoiceGate(
   options: BuildAdventureBoardFromActiveSessionPlanOptions,
   index: number,
+  slot: AdventureBoardNode["slot"] = "4",
 ): AdventureBoardNode {
   const choiceGateNode: ActiveSessionPlanBoardNodeSnapshot = {
     id: "choose-path",
@@ -476,7 +573,7 @@ function buildChoiceGate(
     shortLabel: "Choose Path",
     icon: "route",
     thumbnailUrl: options.thumbnailForNode?.(choiceGateNode, index),
-    slot: "4",
+    slot,
     layout: { role: "choice-gate", lane: "main", order: 1 },
     state: "available",
     evidenceRole: "preference",
@@ -672,9 +769,6 @@ function buildMysteryChoiceSets(args: {
   const base = {
     thumbnailUrl: args.thumbnailForNode?.(args.mysteryNode, args.index),
     nodeId: args.mysteryNode.id,
-    theoryId: args.mysteryNode.theoryId,
-    experimentId: args.mysteryNode.experimentId,
-    contentId: args.mysteryNode.contentId,
     activityId: args.mysteryNode.activityId,
     gameHtmlPath: args.mysteryNode.gameHtmlPath,
     activityConfigPath: args.mysteryNode.activityConfigPath,
@@ -692,12 +786,10 @@ function buildMysteryChoiceSets(args: {
   const puzzleNode = variants.find((node) => node.id !== storyNode?.id && node.id !== speedNode?.id);
   const optionBase = (node: ActiveSessionPlanBoardNodeSnapshot | undefined) => ({
     ...(node ? {
-      nodeId: node.id,
+      launchNodeId: node.id,
       activityId: node.activityId,
       gameHtmlPath: node.gameHtmlPath,
       activityConfigPath: node.activityConfigPath,
-      contentId: node.contentId,
-      theoryId: node.theoryId,
     } : {}),
   });
   return [{
@@ -720,9 +812,7 @@ function buildMysteryChoiceSets(args: {
         ...base,
         ...optionBase(storyNode),
         thumbnailUrl: "/thumbnails/activities/math-generic.svg",
-        contentId: `${args.mysteryNode.contentId ?? args.mysteryNode.id}:story`,
-        experimentId: `${args.mysteryNode.experimentId ?? args.mysteryNode.id}:story`,
-        engagementDimensions: ["story", "visual", "calm"],
+        ...mysteryChoiceExperimentMetadata(args.mysteryNode, "story", ["story", "visual", "calm"]),
         mechanic: "equal-groups-story",
         theme: "story-solver",
       },
@@ -741,9 +831,7 @@ function buildMysteryChoiceSets(args: {
         ...base,
         ...optionBase(speedNode),
         thumbnailUrl: "/thumbnails/activities/math-multiplication.svg",
-        contentId: `${args.mysteryNode.contentId ?? args.mysteryNode.id}:speed`,
-        experimentId: `${args.mysteryNode.experimentId ?? args.mysteryNode.id}:speed`,
-        engagementDimensions: ["speed", "competition"],
+        ...mysteryChoiceExperimentMetadata(args.mysteryNode, "speed", ["speed", "competition"]),
         mechanic: "fact-retrieval-speed",
         theme: "fact-blaster",
       },
@@ -762,14 +850,28 @@ function buildMysteryChoiceSets(args: {
         ...base,
         ...optionBase(puzzleNode),
         thumbnailUrl: "/thumbnails/activities/math-coins.svg",
-        contentId: `${args.mysteryNode.contentId ?? args.mysteryNode.id}:puzzle`,
-        experimentId: `${args.mysteryNode.experimentId ?? args.mysteryNode.id}:puzzle`,
-        engagementDimensions: ["puzzle", "control", "visual"],
+        ...mysteryChoiceExperimentMetadata(args.mysteryNode, "puzzle", ["puzzle", "control", "visual"]),
         mechanic: "equal-groups-puzzle",
         theme: "array-builder",
       },
     ],
   }];
+}
+
+function mysteryChoiceExperimentMetadata(
+  node: ActiveSessionPlanBoardNodeSnapshot,
+  variant: string,
+  engagementDimensions: string[],
+): Pick<AdventureChoiceOption, "theoryId" | "experimentId" | "contentId" | "engagementDimensions"> | Record<string, never> {
+  if (!node.theoryId || !node.experimentId || !node.contentId || !node.engagementDimensions?.length) {
+    return {};
+  }
+  return {
+    theoryId: node.theoryId,
+    experimentId: `${node.experimentId}:${variant}`,
+    contentId: `${node.contentId}:${variant}`,
+    engagementDimensions,
+  };
 }
 
 function stateForPlanNode(
@@ -796,8 +898,8 @@ function activityIdForPlanNode(node: ActiveSessionPlanBoardNodeSnapshot): string
   return (node.activityId ?? node.type).toLowerCase();
 }
 
-function isDestinationNode(node: ActiveSessionPlanBoardNodeSnapshot): boolean {
-  return ["mystery", "quest", "boss"].includes(activityIdForPlanNode(node));
+function isFixedDestinationNode(node: ActiveSessionPlanBoardNodeSnapshot): boolean {
+  return ["quest", "boss"].includes(activityIdForPlanNode(node));
 }
 
 function destinationStateForPlanNode(node: ActiveSessionPlanBoardNodeSnapshot): AdventureBoardNodeState {

@@ -78,6 +78,7 @@ describe("adaptive math evidence authority", () => {
       rootDir,
       childId: "lab-child",
       homeworkId: "hw-graphs",
+      support: { status: "unassisted", scaffolds: [] },
       attempt: {
         attemptId: "attempt-1",
         itemId: "graph-1",
@@ -104,13 +105,39 @@ describe("adaptive math evidence authority", () => {
     });
   });
 
+  it("never treats missing authoritative support context as independent work", () => {
+    const rootDir = root();
+    prepare(rootDir);
+
+    const cycle = recordDiscoveryAttempt({
+      rootDir,
+      childId: "lab-child",
+      homeworkId: "hw-graphs",
+      attempt: {
+        attemptId: "attempt-without-live-context",
+        itemId: "graph-1",
+        attemptedValue: "blue",
+        supportEventIds: [],
+        instrumentSignals: [],
+        observedAt: "2026-09-02T12:00:00.000Z",
+      },
+    });
+
+    expect(cycle.observations[0]).toMatchObject({
+      result: { correct: true, score: 1 },
+      assistance: { status: "unknown", scaffolds: [] },
+      provenance: "practice",
+      confounds: expect.arrayContaining(["assistance_unknown"]),
+    });
+  });
+
   it("derives repetition and support conservatively and summarizes canonical observations", () => {
     const rootDir = root();
     prepare(rootDir);
-    recordDiscoveryAttempt({ rootDir, childId: "lab-child", homeworkId: "hw-graphs", attempt: {
+    recordDiscoveryAttempt({ rootDir, childId: "lab-child", homeworkId: "hw-graphs", support: { status: "unassisted", scaffolds: [] }, attempt: {
       attemptId: "attempt-1", itemId: "graph-1", attemptedValue: "red", supportEventIds: [], instrumentSignals: [], observedAt: "2026-09-02T12:00:00.000Z",
     } });
-    const cycle = recordDiscoveryAttempt({ rootDir, childId: "lab-child", homeworkId: "hw-graphs", attempt: {
+    const cycle = recordDiscoveryAttempt({ rootDir, childId: "lab-child", homeworkId: "hw-graphs", support: { status: "assisted", scaffolds: ["support:elli:1"] }, attempt: {
       attemptId: "attempt-2", itemId: "graph-1", attemptedValue: "blue", supportEventIds: ["support:elli:1"], instrumentSignals: ["interface_friction"], observedAt: "2026-09-02T12:01:00.000Z",
     } });
     const summary = buildDiscoveryEvidenceSummary(cycle);

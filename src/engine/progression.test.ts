@@ -89,8 +89,8 @@ describe("progression system", () => {
     const profile = readLearningProfile(childId);
     expect(profile).not.toBeNull();
     const p = JSON.parse(JSON.stringify(profile)) as LearningProfile;
-    p.sessionStats.totalSessions = 25;
-    p.sessionStats.currentWilsonStep = 1;
+    p.sessionStats.totalSessions = 0;
+    p.sessionStats.currentWilsonStep = 3;
     writeLearningProfile(childId, p);
     if (fs.existsSync(wordBankPath)) fs.unlinkSync(wordBankPath);
     fs.mkdirSync(path.dirname(wordBankPath), { recursive: true });
@@ -108,9 +108,40 @@ describe("progression system", () => {
     expect(snap.level).toBeGreaterThanOrEqual(2);
   });
 
-  it("handles empty data gracefully", () => {
-    const snap = computeProgression("__ghost_child__");
-    expect(snap.level).toBe(1);
-    expect(snap.totalXP).toBe(0);
+  it("does not award XP for empty or reconnect-only sessions", () => {
+    // Human catch: reconnects on the waiting screen increased XP by five each.
+    // The prior tests treated session count itself as an achievement.
+    const profile = readLearningProfile(childId)!;
+    profile.sessionStats.totalSessions = 25;
+    profile.sessionStats.currentWilsonStep = 1;
+    writeLearningProfile(childId, profile);
+    fs.mkdirSync(path.dirname(wordBankPath), { recursive: true });
+    fs.writeFileSync(wordBankPath, JSON.stringify({
+      childId,
+      version: 1,
+      lastUpdated: new Date().toISOString(),
+      words: [],
+    }), "utf-8");
+
+    expect(computeProgression(childId)).toMatchObject({
+      level: 1,
+      totalXP: 0,
+      currentXP: 0,
+    });
+  });
+
+  it("does not fabricate level-one progression when the child profile is unavailable", () => {
+    expect(() => computeProgression("__ghost_child__")).toThrow(
+      "progression_profile_unavailable:__ghost_child__",
+    );
+  });
+
+  it("does not fabricate progression when the word bank is malformed", () => {
+    fs.mkdirSync(path.dirname(wordBankPath), { recursive: true });
+    fs.writeFileSync(wordBankPath, "{ definitely-not-json", "utf8");
+
+    expect(() => computeProgression(childId)).toThrow(
+      `word_bank_invalid:${childId}`,
+    );
   });
 });

@@ -302,6 +302,9 @@ describe("useSession companion audio gate", () => {
       expect(vi.getTimerCount()).toBeGreaterThan(0);
 
       unmount();
+      act(() => {
+        vi.advanceTimersByTime(0);
+      });
 
       expect(vi.getTimerCount()).toBe(0);
     } finally {
