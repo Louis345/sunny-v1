@@ -218,3 +218,13 @@ describe("spelling checkpoint replay evidence", () => {
     expect(current()).toEqual(original);
   });
 });
+
+it('does not distribute a session companion interaction across every spelling response',async()=>{
+ const f=fixture();await f.finish();
+ const cycle=recordCanonicalNodeCompletion({...f.completion,sessionId:'per-word',result:{completed:true,accuracy:1,timeSpent_ms:100,companionInteractions:['Help was requested somewhere in this activity'],targetResults:f.items.map((item,index)=>({target:item.id,correct:true,attemptedValue:item.word,scaffoldLevel:index===0?1:0}))}},{rootDir})!;
+ const rows=cycle.observations.filter(row=>row.sourceId==='activity:per-word:check');
+ expect(rows).toHaveLength(2);
+ expect(rows[0].assistance.status).toBe('assisted');
+ expect(rows[1].assistance).toEqual({status:'unknown',scaffolds:[]});
+ expect(rows.every(row=>row.provenance==='practice')).toBe(true);
+});

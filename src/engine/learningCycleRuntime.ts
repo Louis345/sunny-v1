@@ -268,7 +268,7 @@ function observationsForCompletion(input: {
   const rows = input.result.targetResults?.length
     ? input.result.targetResults
     : [{ target: node.nodeId, correct: input.result.accuracy >= 0.5 }];
-  const companionHelp = (input.result.companionInteractions?.length ?? 0) > 0;
+  const companionHelp = input.cycle.domain !== "spelling" && (input.result.companionInteractions?.length ?? 0) > 0;
   const previouslyExposedItemIds = new Set(input.cycle.observations.map((observation) => observation.itemId));
   return rows.map((row, index) => {
     const item = node.evidenceContract.itemContracts?.[row.target];
@@ -301,7 +301,7 @@ function observationsForCompletion(input: {
       constructLinks: [{ constructId: spellingItem?.constructId ?? constructId, role: "primary", confidence: 1 }],
       result,
       assistance: {
-        status: scaffolded ? "assisted" : spellingItems ? "unknown" : "unassisted",
+        status: scaffolded ? "assisted" : input.cycle.domain === "spelling" ? "unknown" : "unassisted",
         scaffolds: [
           ...(Number(row.scaffoldLevel ?? 0) > 0 ? [`scaffold_level_${row.scaffoldLevel}`] : []),
           ...(companionHelp ? ["companion_help"] : []),

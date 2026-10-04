@@ -139,3 +139,19 @@ eligibility surviving earlier unknown exposure; both now pass alongside core,
 review, schema and runtime suites and the isolated build. Contract version32
 records the boundary. This replaces boolean-only validation and eligibility;
 it does not claim that practice-game runtime capture is already connected.
+
+## Legacy completion support boundary
+
+The canonical spelling completion path also spread a whole-session companion
+interaction across every target. A red regression reproduced two assisted words
+when only the first had a per-item scaffold. Spelling completion now uses the
+per-item scaffold and instrument's known teaching exposure; session companion
+notes remain separate observations. Missing word-specific support stays unknown,
+including legacy spelling nodes without frozen item contracts. Math is unchanged.
+This replaces two expressions in the existing first-recording reducer; no new
+learning path is added. The focused spelling/runtime suites and full isolated
+build pass. This fixes the legacy half of that contamination bug; practice-game
+SQLite capture is still pending and must use the same per-item boundaries.
+The human could see which word received help; logs merely reflected the aggregate
+classification, while previous tests never combined one scaffolded word with
+another word and a session-level companion note.
