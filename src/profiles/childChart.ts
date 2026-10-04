@@ -1,4 +1,3 @@
-import { assertLegacyLearningAuthority } from '../utils/runtimeMode';
 import { readTypedChildChart } from '../chart/buildChart';
 import type { ChartDatabase } from '../chart/db';
 import fs from "fs";
@@ -302,7 +301,6 @@ export function getChildChart(childId: string, opts: SpellingChartOptions): Retu
 export function getChildChart(childId: string, opts?: ChildChartOptions): ChildChart;
 export function getChildChart(childIdRaw: string, opts: ChildChartOptions | SpellingChartOptions = {}): ChildChart | ReturnType<typeof readTypedChildChart> {
   if ('department' in opts) return readTypedChildChart(childIdRaw, opts);
-  assertLegacyLearningAuthority();
   const rootDir = opts.rootDir ?? process.cwd();
   const childId = normalizeChildId(childIdRaw);
   const baseDir = contextDir(rootDir, childId);

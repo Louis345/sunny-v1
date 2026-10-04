@@ -38,7 +38,7 @@ test('core CI runs the build and core acceptance with no family context or netwo
 });
 test('kiosk CI exercises real routes and both browser sizes', () => {
   const source = fs.readFileSync(path.join(root, '.github/workflows/ci.yml'), 'utf8');
-  for (const name of ['chartSpellingJourney','chartSpellingAudio','chartSpellingRoutes','chartSpellingLaunch','chartSpellingBrowserAcceptance']) assert.ok(source.includes(name+'.test.ts'));
+  for (const name of ['chartSpellingJourney','chartSpellingAudio','originalSpellingEntrypoint','spellingBrowserAcceptance','originalSpellingParent']) assert.ok(source.includes(name+'.test.ts'));
   assert.match(source, /playwright install/);
 });
 

@@ -79,11 +79,3 @@ export function isSunnyAsChildMode(env: RuntimeEnv = process.env): boolean {
 export function isAdventureMapEnv(env: RuntimeEnv = process.env): boolean {
   return env.ADVENTURE_MAP === "true";
 }
-
-/** An activated spelling kiosk cannot accidentally use legacy learning authority. */
-export function assertLegacyLearningAuthority(env: RuntimeEnv = process.env): void {
-  if (env.SUNNY_SPELLING_CHART === '1') {
-    console.error(' 🎮 [spelling-chart] [legacy-path] [refused]');
-    throw new Error('spelling_chart_legacy_path_disabled: use the chart spelling kiosk');
-  }
-}
