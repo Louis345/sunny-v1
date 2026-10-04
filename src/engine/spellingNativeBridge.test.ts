@@ -46,3 +46,31 @@ it.each(['read-and-race','type-and-spell','hear-and-spell','mastery-run','trap-t
   expect(openings[0]).toMatchObject({currentWord:'night',phase:'presentation',answerVisibility:mode==='read-and-race'?'visible':'unknown'});
   expect(calls[0]).toBe(openings[0]);
 });
+
+it('records explainer exposure only when a word chunk actually becomes visible',()=>{
+ const html=fs.readFileSync(path.join(process.cwd(),'web/public/games/spelling-visual-explainer.html'),'utf8');
+ const source=html.slice(html.indexOf('      function renderScene('),html.indexOf('      function checkEvidence('));
+ const calls:any[]=[];const toggle={toggle(){}};
+ const sandbox:any={modelNodes:[{word:{text:'night'},chunkNodes:[{classList:toggle,dataset:{}}],tip:{classList:toggle}},{word:{text:'light'},chunkNodes:[{classList:toggle,dataset:{}}],tip:{classList:toggle}}],el:{finishButton:{}},window:{GameBridge:{reportState:(label:string,payload:any)=>calls.push(payload)}}};
+ vm.runInNewContext(source+'\nrenderScene({progress:0});',sandbox);expect(calls).toHaveLength(0);
+ vm.runInNewContext('renderScene({progress:8});renderScene({progress:8});',sandbox);
+ expect(calls).toHaveLength(1);expect(calls[0]).toMatchObject({spellingItemOpened:true,currentWord:'night',answerVisibility:'visible'});
+ vm.runInNewContext('renderScene({progress:12});',sandbox);expect(calls.map(c=>c.currentWord)).toEqual(['night','light']);
+});
+
+it('preserves the explainer chunk choice as non-spelling evidence at its source',()=>{
+ const source=fs.readFileSync(path.join(process.cwd(),'web/public/generated/openai-visual-probe/artifact-shell.js'),'utf8');
+ const fn=source.slice(source.indexOf('    function recordPrediction('),source.indexOf('    function completeActivity('));const calls:any[]=[];
+ const sandbox:any={state:{},artifactConfig:{spellingModel:{},concept:'chunk'},currentQuestion:()=>({id:'q',targetConcept:'chunk',options:[{id:'choice',label:'ight'}],correctOptionId:'choice'}),Date,sessionStartedAt:Date.now(),emitEvidence(){},reportState(){},reportCompanionAnchor(){},updatePredictionPanel(){},window:{fireAttemptEvent:(p:any)=>calls.push(p)}};
+ vm.runInNewContext(fn+"\nrecordPrediction('choice');",sandbox);
+ expect(calls).toHaveLength(1);expect(calls[0]).toMatchObject({domain:'spelling',evidenceLimitation:'non_spelling_response',rawChoice:'ight',aggregateAccuracy:null});
+ expect(calls[0].attemptedValue).toBeUndefined();
+});
+it('reports trap selection success as a limitation instead of a fabricated word response',()=>{
+ const html=fs.readFileSync(path.join(process.cwd(),'web/public/games/letter-rush.html'),'utf8');
+ const fn=html.slice(html.indexOf('      function emitTargetResult('),html.indexOf('      function startingLivesForSession('));const calls:any[]=[];
+ const sandbox:any={params:{nodeId:'n'},config:{mode:'trap-the-imposter'},state:{typed:[],wordStartedAt:Date.now(),targetResults:[]},normalizeWord:(v:string)=>v,Date,scaffoldLevelForMode:()=>1,canWriteMasteryEvidence:()=>false,postActivityEvent(){},isTrapMode:()=>true,fireCompanion(){},window:{fireAttemptEvent:(p:any)=>calls.push(p)}};
+ vm.runInNewContext(fn+"\nemitTargetResult({id:'i',text:'night'},true,'',null);",sandbox);
+ expect(calls).toHaveLength(1);expect(calls[0]).toMatchObject({evidenceLimitation:'per_word_results_unavailable',rawChoice:null,aggregateAccuracy:1});
+ expect(calls[0].attemptedValue).toBeUndefined();
+});

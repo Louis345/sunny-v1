@@ -1524,7 +1524,7 @@
         state.targetResults.push(result);
         postActivityEvent(result);
         if (window.fireAttemptEvent) {
-          window.fireAttemptEvent({
+          window.fireAttemptEvent(isTrapMode() ? {domain:"spelling",evidenceLimitation:"per_word_results_unavailable",rawChoice:null,aggregateAccuracy:correct ? 1 : 0,activityId:"letter-rush",mode:config.mode} : {
             domain: "spelling",
             word: word.text,
             target: word.text,

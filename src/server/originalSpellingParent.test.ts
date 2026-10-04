@@ -35,3 +35,10 @@ it('writes parent schedule revisions and returns the effective assignment date',
  expect(snapshot.schedules[0]).toMatchObject({testDate:'2026-10-12',defaultWeekday:5});
  expect((await send({changeId:'bad',kind:'weekday',weekday:5,confirmed:false})).status).toBe(409);
 });
+it('returns activity limitations separately from spelling performance',async()=>{
+ const {recordFact}=await import('../chart/spelling/record');
+ recordFact(db,'activity.limited',{assignmentId:'hw-1',sessionId:'s',nodeId:'n',launchId:'l',sourceEventId:'choice',reason:'non_spelling_response',rawChoice:'kn',aggregateAccuracy:null});
+ const snapshot=await fetch(url).then(r=>r.json()) as ReturnType<typeof spellingParentSnapshot>;
+ expect(snapshot.limitations).toHaveLength(1);expect(snapshot.limitations[0]).toMatchObject({assignmentId:'hw-1',rawChoice:'kn'});
+ expect(snapshot.assignments[0].coverage.eligible).toBe(0);
+});

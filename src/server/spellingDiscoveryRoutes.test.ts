@@ -147,3 +147,19 @@ it('uses captured native answers at completion instead of adding the client summ
  expect(after.observations).toEqual(before.observations);
  expect(after.evidence.academic.find(row=>row.evidenceId==='completion:native:completion')?.accuracy).toBe(0);
 });
+
+it('records a launched chunk choice as a limitation, never as a whole-word answer',async()=>{
+ const {rootDir}=await fixture();const {openChart}=await import('../chart/db');const {recordAssignment}=await import('../chart/spelling/record');const {exportEvents}=await import('../chart/exportEvents');const {handleGameEventForSession}=await import('./game-event-handler');
+ vi.stubEnv('SUNNY_CHART_DIR',path.join(rootDir,'charts'));const db=openChart('lab-child');
+ try{
+ recordAssignment(db,{assignmentId:'hw-words',words:['night','light'],testDate:null,sourcePhotoHash:'a'.repeat(64)});
+ const nodeId=getLearningCycle('lab-child','hw-words',{rootDir})!.nodes[0].nodeId;
+ const s={chartChildId:'lab-child',getSessionId:()=> 'voice',getSpellingLaunch:()=>({homeworkId:'hw-words',nodeId,launchId:'launch',launchToken:'token'}),noteExternalEvent:vi.fn()};
+ const event={type:'attempt_event',domain:'spelling',nodeId,launchToken:'token',attemptId:'choice',evidenceLimitation:'non_spelling_response',rawChoice:'ight',aggregateAccuracy:null};
+ handleGameEventForSession(s,event);handleGameEventForSession(s,event);
+ const facts=exportEvents(db);expect(facts.filter(e=>e.type==='activity.limited')).toHaveLength(1);
+ expect(facts.find(e=>e.type==='activity.limited')?.payload).toMatchObject({rawChoice:'ight',reason:'non_spelling_response',launchId:'launch'});
+ expect(facts.filter(e=>e.type==='response.observed')).toHaveLength(0);expect(getLearningCycle('lab-child','hw-words',{rootDir})!.observations).toHaveLength(0);
+ handleGameEventForSession(s,{...event,attemptId:'wrong',launchToken:'other'});expect(exportEvents(db).filter(e=>e.type==='activity.limited')).toHaveLength(1);
+ }finally{db.close();}
+});

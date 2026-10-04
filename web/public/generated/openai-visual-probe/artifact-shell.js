@@ -620,6 +620,9 @@
         targetConcept: q.targetConcept,
         misconception: targetResult.misconception,
       });
+      if (artifactConfig.spellingModel && typeof window.fireAttemptEvent === "function") {
+        window.fireAttemptEvent({domain:"spelling",evidenceLimitation:"non_spelling_response",rawChoice:option.label,aggregateAccuracy:null});
+      }
       if (!artifactConfig.spellingModel && typeof window.fireAttemptEvent === "function") {
         window.fireAttemptEvent(targetResult);
       }

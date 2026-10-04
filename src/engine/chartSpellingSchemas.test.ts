@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { validateEvent, validatePayload, EVENT_TYPES } from '../chart/eventTypes';
 import { actors, factId, schemas, type FactType } from '../chart/spelling/schemas';
 const samples: Record<FactType, Record<string, unknown>> = {
+    'activity.limited': {assignmentId:'a',sessionId:'s',nodeId:'n',launchId:'l',sourceEventId:'e',reason:'non_spelling_response',rawChoice:'ight',aggregateAccuracy:null},
     'test_schedule.set': {changeId:'schedule-1',kind:'weekday',weekday:5},
     'engagement.observed': { assignmentId:'a', sessionId:'s', nodeId:'n', itemId:null, observationId:'o', metric:'audio_replays', value:1 },
     'child.profile_set': { displayName: 'Synthetic' },

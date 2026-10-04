@@ -34,3 +34,8 @@ it('offers explicit recovery when a forecast attempt needs attention',async()=>{
  await waitFor(()=>expect(fetchMock.mock.calls.some(([url,init])=>String(url).endsWith('/recover')&&init?.method==='POST')).toBe(true));
  expect(JSON.parse(String(fetchMock.mock.calls.find(([,init])=>init?.method==='POST')![1]?.body))).toEqual({acknowledge:true});
 });
+it('discloses missing word answers separately from game results',async()=>{
+ vi.spyOn(globalThis,'fetch').mockResolvedValue(new Response(JSON.stringify({draft:null,assignments:[],report:{weeks:[],patternHistory:[]},limitations:[{assignmentId:'a',nodeId:'explainer',reason:'non_spelling_response',rawChoice:'ight',aggregateAccuracy:null}]})));
+ render(<SpellingParentPage childId="synthetic-parent"/>);
+ expect(await screen.findByText(/1 activity report did not include whole-word spelling answers/)).toBeTruthy();
+});

@@ -14,6 +14,8 @@ import type { WsTtsBridge } from "./ws-tts-bridge";
 import { getLearningCycle, type LearningCycleRecordV2 } from "../engine/learningCycleRepository";
 import { recordSpellingDiscoveryAttempt } from "../engine/learningCycleRuntime";
 import { withOriginalSpellingChart } from "../chart/spelling/originalResponses";
+import { schemas } from '../chart/spelling/schemas';
+import { recordFact } from '../chart/spelling/record';
 import { commitOriginalSpellingAttempt } from "./originalSpellingCommit";
 import {
   recordCompanionVideoCallTraceEvent,
@@ -540,6 +542,15 @@ export function handleGameEventForSession(
     try {
       const childId = chartChildIdForSession(s);
       const launch = s.getSpellingLaunch?.();
+      if (event.domain === "spelling" && event.evidenceLimitation) {
+        if (!launch || event.nodeId !== launch.nodeId || event.launchToken !== launch.launchToken) throw new Error("native_spelling_launch_mismatch");
+        withOriginalSpellingChart(childId, db => recordFact(db,'activity.limited',schemas['activity.limited'].parse({
+          assignmentId:launch.homeworkId,sessionId:s.getSessionId(),nodeId:launch.nodeId,launchId:launch.launchId,
+          sourceEventId:event.attemptId,reason:event.evidenceLimitation,rawChoice:event.rawChoice ?? null,aggregateAccuracy:event.aggregateAccuracy ?? null,
+        })));
+        console.log(' 🎮 [spelling] [activity-limitation] [recorded]');
+        return; // A chunk/selection score never enters spelling scoring or the word bank.
+      }
       if (event.domain === "spelling" && launch && event.activityId !== "word-radar" && event.game !== "word-radar") {
         if (event.nodeId !== launch.nodeId || event.launchToken !== launch.launchToken) throw new Error("native_spelling_launch_mismatch");
         const live = s.getDiscoveryAttemptContext?.(launch.homeworkId, String(event.target ?? ""), event.launchToken);

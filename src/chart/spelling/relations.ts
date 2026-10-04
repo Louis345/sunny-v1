@@ -21,7 +21,7 @@ export function validateRelations(db: ChartDatabase, e: EventInput): void {
         const target = get(String(p.target_event_id));
         if (!target || !e.cites.includes(target.event_id) || target.type === 'correction.recorded')
             fail('correction_target');
-        if (target.type === 'plan.decided' || target.type === 'test_schedule.set')
+        if (target.type === 'activity.limited' || target.type === 'plan.decided' || target.type === 'test_schedule.set')
             fail('correction_immutable_decision');
         if (target.type === 'readiness.forecast')
             fail('correction_immutable_prediction');

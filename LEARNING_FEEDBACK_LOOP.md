@@ -1,6 +1,6 @@
 # Sunny Learning Feedback Loop
 
-Contract version: 33
+Contract version: 34
 
 This document is the **sole normative** authority for how Sunny forms, tests, and revises learning claims. Product changes that alter this loop must update this contract version before implementation. Other documents may describe infrastructure or history, but they must link here instead of creating another learning doctrine.
 
@@ -336,3 +336,5 @@ date and offers an exception. Printed dates remain proposals. With no parent fac
 the effective date is null. Projections retain the responsible schedule fact ID;
 new original-kiosk forecasts must cite the fact supporting their scheduled date.
 Schedule changes never rewrite a saved forecast or actual school result date.
+
+Original activity limitation facts preserve server launch provenance, captured non-spelling choices and reported aggregates separately. They explicitly state that per-word spelling responses are unavailable or the response is not a spelling answer. They never create scored word responses or independent evidence. Shown explainer chunks record exposure only when rendered, not when the node launches.
