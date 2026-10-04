@@ -17,3 +17,12 @@ it('requires every school mark and explicit parent confirmation, leaves absent f
  const call=fetchMock.mock.calls.find(([,init])=>init?.method==='POST')!;
  expect(JSON.parse(String(call[1]?.body))).toEqual({testDate:'2026-10-09',confirmed:true,results:[{word:'knee',correct:true,writtenResponse:null},{word:'know',correct:false,writtenResponse:null}]});
 });
+it('saves an explicit default weekday through the existing parent page',async()=>{
+ const fetchMock=vi.spyOn(globalThis,'fetch').mockImplementation(async()=>new Response(JSON.stringify({draft:null,assignments:[],schedules:[],report:{weeks:[],patternHistory:[]}})));
+ render(<SpellingParentPage childId="synthetic-parent"/>);
+ fireEvent.change(await screen.findByLabelText('Usual test weekday'),{target:{value:'5'}});
+ fireEvent.click(screen.getByRole('button',{name:'Save usual weekday'}));
+ await waitFor(()=>expect(fetchMock.mock.calls.some(([url,init])=>String(url).endsWith('/schedule')&&init?.method==='POST')).toBe(true));
+ const call=fetchMock.mock.calls.find(([,init])=>init?.method==='POST')!;
+ expect(JSON.parse(String(call[1]?.body))).toMatchObject({kind:'weekday',weekday:5,confirmed:true});
+});

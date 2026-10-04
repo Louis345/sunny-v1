@@ -14,13 +14,13 @@ export function validateRelations(db: ChartDatabase, e: EventInput): void {
     };
     let p = e.payload;
     let replacing = false;
-    if (e.type === 'child.profile_set' || e.type === 'assignment.ingested')
+    if (e.type === 'child.profile_set' || e.type === 'assignment.ingested' || (e.type === 'test_schedule.set' && e.payload.kind === 'weekday'))
         return;
     if (e.type === 'correction.recorded') {
         const target = get(String(p.target_event_id));
         if (!target || !e.cites.includes(target.event_id) || target.type === 'correction.recorded')
             fail('correction_target');
-        if (target.type === 'plan.decided')
+        if (target.type === 'plan.decided' || target.type === 'test_schedule.set')
             fail('correction_immutable_decision');
         if (target.type === 'readiness.forecast')
             fail('correction_immutable_prediction');
@@ -55,7 +55,7 @@ export function validateRelations(db: ChartDatabase, e: EventInput): void {
         p = replacement;
         replacing = true;
     }
-    if (e.type === 'child.profile_set' || e.type === 'assignment.ingested')
+    if (e.type === 'child.profile_set' || e.type === 'assignment.ingested' || (e.type === 'test_schedule.set' && e.payload.kind === 'weekday'))
         return;
     const a = get(factId('assignment.ingested', { assignmentId: p.assignmentId }));
     if (!a)

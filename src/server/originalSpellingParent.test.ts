@@ -27,3 +27,11 @@ it('records parent-transcribed school outcomes without fabricating missing forec
  expect((await send({...body,results:[body.results[0]]})).status).toBe(409);
  expect((await fetch(url.replace('synthetic-parent','unknown'))).status).toBe(404);
 });
+it('writes parent schedule revisions and returns the effective assignment date',async()=>{
+ const send=(body:unknown)=>fetch(url+'/schedule',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});
+ expect((await send({changeId:'weekday-1',kind:'weekday',weekday:5,confirmed:true})).status).toBe(200);
+ expect((await send({changeId:'override-1',kind:'assignment',assignmentId:'hw-1',testDate:'2026-10-12',confirmed:true})).status).toBe(200);
+ const snapshot=await fetch(url).then(r=>r.json()) as ReturnType<typeof spellingParentSnapshot>;
+ expect(snapshot.schedules[0]).toMatchObject({testDate:'2026-10-12',defaultWeekday:5});
+ expect((await send({changeId:'bad',kind:'weekday',weekday:5,confirmed:false})).status).toBe(409);
+});

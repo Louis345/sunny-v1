@@ -1,6 +1,6 @@
 # Sunny Learning Feedback Loop
 
-Contract version: 32
+Contract version: 33
 
 This document is the **sole normative** authority for how Sunny forms, tests, and revises learning claims. Product changes that alter this loop must update this contract version before implementation. Other documents may describe infrastructure or history, but they must link here instead of creating another learning doctrine.
 
@@ -327,3 +327,12 @@ Unmeasured per-item support is explicit null, never false or zero. Original
 instruments whose presentation support is not fully measured are practice. Raw
 answers may still be scored, but unknown support cannot establish independent
 evidence. Corrections cannot replace unknown support with an asserted absence.
+
+Parent test schedules are append-only parent facts: a usual weekday or an explicit
+assignment date (including explicit unset). An assignment exception takes precedence
+over the latest usual weekday. The default means the first chosen weekday strictly
+after the assignment ingestion calendar date (UTC); the parent page shows that
+date and offers an exception. Printed dates remain proposals. With no parent fact,
+the effective date is null. Projections retain the responsible schedule fact ID;
+new original-kiosk forecasts must cite the fact supporting their scheduled date.
+Schedule changes never rewrite a saved forecast or actual school result date.

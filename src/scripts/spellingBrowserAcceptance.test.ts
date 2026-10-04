@@ -463,6 +463,12 @@ it.each([
       await page.goto(new URL(`/parent/learning-report?child=${childId}`,vite!.resolvedUrls!.local[0]).href);
       await page.getByRole('link',{name:'Spelling chart and school results'}).click();
       await page.getByText('No readiness forecast recorded',{exact:true}).waitFor();
+      await page.getByLabel('Usual test weekday').selectOption('5');
+      await page.getByRole('button',{name:'Save usual weekday'}).click();
+      await expect.poll(()=>exportEvents(chartDb!).filter(e=>e.type==='test_schedule.set').length).toBe(1);
+      await page.getByLabel('Date for this list').fill('2026-10-09');
+      await page.getByRole('button',{name:'Confirm date for this list'}).click();
+      await expect.poll(()=>exportEvents(chartDb!).filter(e=>e.type==='test_schedule.set').length).toBe(2);
       await page.getByLabel('School test date').fill('2026-10-09');
       for(const word of words)await page.getByLabel(`Mark for ${word}`).selectOption(word===words[0]?'correct':'incorrect');
       await page.getByLabel('I checked these marks against the returned school work').check();

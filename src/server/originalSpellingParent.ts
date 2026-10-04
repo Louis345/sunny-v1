@@ -1,3 +1,4 @@
+import {projectTestSchedule} from '../chart/spelling/schedule';
 import {createHash} from 'node:crypto';
 import type {Express,Request} from 'express';
 import {z} from 'zod';
@@ -5,13 +6,13 @@ import type {ChartDatabase} from '../chart/db';
 import {exportEvents} from '../chart/exportEvents';
 import {readProfileDraft,confirmProfileDraft} from '../chart/profileDraft';
 import {buildReportCard,projectAssignment} from '../chart/spelling/projections';
-import {recordSchoolTest} from '../chart/spelling/record';
+import {recordSchoolTest,recordFact} from '../chart/spelling/record';
 import {schemas} from '../chart/spelling/schemas';
 import {withOriginalSpellingChart} from '../chart/spelling/originalResponses';
 const schoolInput=schemas['school_test.recorded'].pick({testDate:true,results:true}).extend({confirmed:z.literal(true)});
 export function spellingParentSnapshot(db:ChartDatabase){
  const events=exportEvents(db);
- return {draft:readProfileDraft(db),assignments:events.filter(e=>e.type==='assignment.ingested').map(e=>projectAssignment(events,String(e.payload.assignmentId))),report:buildReportCard(events)};
+ return {schedules:events.filter(e=>e.type==='assignment.ingested').map(e=>projectTestSchedule(events,String(e.payload.assignmentId))),defaultWeekday:events.filter(e=>e.type==='test_schedule.set'&&e.payload.kind==='weekday').at(-1)?.payload.weekday??null,draft:readProfileDraft(db),assignments:events.filter(e=>e.type==='assignment.ingested').map(e=>projectAssignment(events,String(e.payload.assignmentId))),report:buildReportCard(events)};
 }
 /** Uses the original caregiver surface and its child registry, never opens the child-only replacement journey. */
 export function setupOriginalSpellingParentRoutes(app:Express,validChild:(child:string)=>boolean,chart:typeof withOriginalSpellingChart=withOriginalSpellingChart){
@@ -27,6 +28,10 @@ export function setupOriginalSpellingParentRoutes(app:Express,validChild:(child:
   });
  };
  route('get','',db=>spellingParentSnapshot(db));
+ route('post','/schedule',(db,req)=>{
+  const body=z.strictObject({confirmed:z.literal(true),schedule:schemas['test_schedule.set']}).parse({confirmed:req.body?.confirmed,schedule:Object.fromEntries(Object.entries(req.body??{}).filter(([key])=>key!=='confirmed'))});
+  return recordFact(db,'test_schedule.set',body.schedule);
+ });
  route('post','/profile/confirm',(db,req)=>confirmProfileDraft(db,req.body));
  route('post','/assignments/:assignmentId/school',(db,req)=>{
   const input=schoolInput.parse(req.body);

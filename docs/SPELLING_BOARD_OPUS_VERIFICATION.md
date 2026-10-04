@@ -398,3 +398,27 @@ screenshot inspected after the saved school marks. The isolated browser's
 post-session background chain logs a missing synthetic `soul.md` on navigation;
 this is not proof of a successful post-session chain, and full-week acceptance
 must cover that remaining fixture boundary rather than hide the diagnostic.
+
+## Parent-controlled test schedule
+
+Contract 33 adds strict parent-only schedule revisions and a pure projection.
+The new schema/projection test first failed (module absent), and the original
+parent component test failed for its missing weekday control. The actual parent
+page now saves a usual weekday or a date/explicit unset for a specific list.
+An exception wins over the default. Printed dates remain proposals, with no
+automatic confirmation. The page states the default calculation: first chosen
+weekday strictly after the recorded assignment date (UTC), with the computed
+date visible and changeable. No live date is set by this patch.
+
+Schedule facts retain natural change IDs and cannot be rewritten by corrections;
+new changes are new parent facts. Projections retain the supporting fact ID for
+the upcoming forecast integration. No scheduling decision changes correctness,
+legacy board decisions, or recorded school-result dates. Added parent controls
+are the requested feature; no child hot-path additions. Forecast citation wiring
+remains unfinished and must be implemented before full acceptance.
+
+Verification passed: 43 focused server/schema cases, two parent component cases,
+full build, and the original portrait browser journey saving both a weekday and
+an assignment exception before its school marks. Updated parent screenshot
+inspected. These are synthetic settings only; Saori and Reina's records remain
+untouched.
