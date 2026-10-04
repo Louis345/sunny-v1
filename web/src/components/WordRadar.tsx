@@ -139,7 +139,10 @@ function wordRadarModeCopy(
     return { label: "Type the word", helper: "Use the keyboard to answer." };
   }
   if (mode === "letter-by-letter") {
-    return { label: "Spell it out loud", helper: "Say one letter at a time." };
+    return {
+      label: "Spell it out loud or tap",
+      helper: "Say one letter at a time, or tap the letters below.",
+    };
   }
   if (recallMode === "visible_read") {
     return { label: "Read it on screen", helper: "Say the word while you can see it." };
@@ -351,6 +354,8 @@ export function WordRadar({
   const [wordAudioPlaying, setWordAudioPlaying] = useState(false);
   const requestedInputMode = resolveWordRadarInputMode(inputMode);
   const resolvedInputMode = assessmentMode || voiceCaptureAvailable === false ? "keyboard" : requestedInputMode;
+  const keyboardFallbackEnabled =
+    showKeyboard || resolvedInputMode === "letter-by-letter";
   const effectiveSpeakStyle = speakStyle ?? "option-a";
   const requestedRecallMode: WordRadarRecallMode | undefined =
     recallMode === "visible_read" ||
@@ -638,7 +643,7 @@ export function WordRadar({
     interimTranscript,
     timerSeconds,
     startImmediately: false,
-    showKeyboard,
+    showKeyboard: keyboardFallbackEnabled,
     inputMode: resolvedInputMode,
     speakStyle,
     keyboardStyle,
@@ -690,13 +695,14 @@ export function WordRadar({
       phase: "config_audit",
       requestedInputMode: inputMode ?? null,
       resolvedInputMode,
-      showKeyboard,
+      showKeyboard: keyboardFallbackEnabled,
       speakStyle: effectiveSpeakStyle,
       hiddenDuringSpeech,
       recallMode: effectiveRecallMode,
       hideWordDuringResponse: effectiveHideWordDuringResponse,
       requiresCapturedResponse,
-      keyboardVisible: showKeyboard || resolvedInputMode === "keyboard",
+      keyboardVisible:
+        keyboardFallbackEnabled || resolvedInputMode === "keyboard",
       targetRoleCounts: {
         homework: Math.max(0, items.length - bonusItemCount),
         bonus: bonusItemCount,
@@ -714,7 +720,7 @@ export function WordRadar({
     items.length,
     requiresCapturedResponse,
     resolvedInputMode,
-    showKeyboard,
+    keyboardFallbackEnabled,
     wordRadarTelemetry,
   ]);
 
@@ -868,7 +874,8 @@ export function WordRadar({
     (effectiveRecallMode === "hidden_word_recall" ||
       (effectiveSpeakStyle === "option-b" && resolvedInputMode !== "letter-by-letter"));
   const showTryAgainButton = hook.canTryAgain;
-  const keyboardVisible = showKeyboard || resolvedInputMode === "keyboard";
+  const keyboardVisible =
+    keyboardFallbackEnabled || resolvedInputMode === "keyboard";
   const showLengthHint =
     hook.phase === "response" && effectiveRecallMode === "partial_visual_recall";
   const currentVisibleState = useCallback(
