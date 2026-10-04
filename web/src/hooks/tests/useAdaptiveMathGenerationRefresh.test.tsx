@@ -199,8 +199,9 @@ describe("fast polling while the preparation screen is shown", () => {
   it("keeps polling an unchanged status for at least ten minutes at a fast interval", async () => {
     const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ updatedAt: "same", phase: "targeted_planning", nodes: [] }) });
     vi.stubGlobal("fetch", fetchMock);
+    const onStatusChanged = vi.fn();
     const { result } = renderHook(() => useAdaptiveMathGenerationRefresh({
-      childId: "lab", homeworkId: "hw", enabled: true, intervalMs: 10_000, onStatusChanged: vi.fn(),
+      childId: "lab", homeworkId: "hw", enabled: true, intervalMs: 10_000, onStatusChanged,
     }));
     await act(async () => { await Promise.resolve(); });
     await act(async () => { await vi.advanceTimersByTimeAsync(10 * 60_000); });
@@ -211,8 +212,9 @@ describe("fast polling while the preparation screen is shown", () => {
   it("still pauses eventually, so polling can never run forever", async () => {
     const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ updatedAt: "same", phase: "targeted_planning", nodes: [] }) });
     vi.stubGlobal("fetch", fetchMock);
+    const onStatusChanged = vi.fn();
     const { result } = renderHook(() => useAdaptiveMathGenerationRefresh({
-      childId: "lab", homeworkId: "hw", enabled: true, intervalMs: 10_000, onStatusChanged: vi.fn(),
+      childId: "lab", homeworkId: "hw", enabled: true, intervalMs: 10_000, onStatusChanged,
     }));
     await act(async () => { await Promise.resolve(); });
     await act(async () => { await vi.advanceTimersByTimeAsync(60 * 60_000); });
