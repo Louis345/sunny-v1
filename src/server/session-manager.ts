@@ -1,4 +1,4 @@
-import {presentOriginalSpellingItem,withOriginalSpellingChart} from '../chart/spelling/originalResponses';
+import {presentOriginalSpellingItem,withOriginalSpellingChart,recordPresentedEngagement} from '../chart/spelling/originalResponses';
 import fs from "fs";
 import path from "path";
 import { randomUUID } from "crypto";
@@ -772,6 +772,11 @@ export class SessionManager {
       }
 
     }
+    const metric=state.engagement as {id?:unknown;metric?:unknown;value?:unknown}|undefined;
+    const measured=this.spellingAssessment;
+    if(metric && measured && measured.nodeId===state.nodeId && measured.itemId===state.itemId && measured.launchToken===state.launchToken && typeof metric.id==='string' && ['first_input_ms','idle_gap_ms','erase_burst'].includes(String(metric.metric)) && Number.isSafeInteger(metric.value) && Number(metric.value)>=0) {
+      this.recordSpellingEngagement(measured,metric.metric as 'first_input_ms'|'idle_gap_ms'|'erase_burst',metric.id,Number(metric.value));
+    }
     const incomingPhase = String(state.phase ?? "").trim();
     const incomingNodeId = String(state.nodeId ?? "").trim();
     if (
@@ -798,16 +803,24 @@ export class SessionManager {
     };
   }
 
+  private recordSpellingEngagement(assessment:gev.SpellingAssessmentState|undefined,metric:"audio_replays"|"help_requests"|"first_input_ms"|"idle_gap_ms"|"erase_burst",sourceId:string,value=1):void {
+    if(!assessment?.chartItemId || !assessment.launchId)return;
+    try { withOriginalSpellingChart(this.chartChildId,db=>recordPresentedEngagement(db,{sessionId:this.sessionId,itemId:assessment.chartItemId!,observationId:`${assessment.launchId}:${metric}:${sourceId}`,metric,value})); }
+    catch(error) { console.error(' 🎮 [spelling-engagement] [measurement] [failed]',error); }
+  }
+
   public setCompanionPresence(
     state: "collapsed" | "summoned",
     reason: "client" | "voice" | "read_instruction" = "client",
   ): void {
+    const newlySummoned = state === "summoned" && this.companionPresence !== "summoned";
     const next = transitionCompanionPresence({ state, reason });
     this.companionPresence = next.presence;
     if (state === "summoned") {
       const snapshotMatchesAssessment = this.spellingAssessment
         && this.currentBoardSnapshot?.itemId === this.spellingAssessment.itemId
         && this.currentBoardSnapshot?.phase === "response";
+      if (newlySummoned && snapshotMatchesAssessment) this.recordSpellingEngagement(this.spellingAssessment, "help_requests", randomUUID());
       if (snapshotMatchesAssessment && this.spellingAssessment && !this.spellingAssessment.supportIds.length) {
         this.spellingAssessment.supportIds.push(`support:${this.sessionId}:${this.spellingAssessment.itemId}`);
       } else if (!this.spellingAssessment) {
@@ -1286,7 +1299,13 @@ export class SessionManager {
       if (assessmentItemId) {
         const assessment =
           [...(this.spellingAssessmentHistory?.values() ?? [])].find(c => c.itemId === assessmentItemId && c.launchId === pending.assessmentLaunchId);
-        if (assessment) { assessment.audioDelivered = audible; if(audible)assessment.audioPlaybacks++; }
+        if (assessment) {
+          assessment.audioDelivered = audible;
+          if(audible) {
+            assessment.audioPlaybacks++;
+            if(assessment.audioPlaybacks>1) this.recordSpellingEngagement(assessment,"audio_replays",expectedRequestId);
+          }
+        }
       }
       this.debugRecorder.recordEvent(
         "game_narration",

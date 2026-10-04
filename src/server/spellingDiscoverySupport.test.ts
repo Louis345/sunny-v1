@@ -163,6 +163,13 @@ it('commits the original presentation before any answer and counts acknowledged 
  await s.speakGameNarration('night.',{assessmentMode:true,itemId:'i1'});confirmCurrentPlayback(s);
  await s.speakGameNarration('night.',{assessmentMode:true,itemId:'i1'});confirmCurrentPlayback(s);
  expect(s.getDiscoveryAttemptContext('hw-words','i1')).toMatchObject({audioReplays:1});
+ s.updateCurrentBoardSnapshot({nodeId:'opening',itemId:'i1',phase:'response',engagement:{id:'input-1',metric:'first_input_ms',value:400}});
+ s.updateCurrentBoardSnapshot({nodeId:'opening',itemId:'i1',phase:'response',engagement:{id:'input-1',metric:'first_input_ms',value:400}});
+ s.setCompanionPresence('summoned');s.setCompanionPresence('summoned');
+ const signals=exportEvents(db).filter(e=>e.type==='engagement.observed');
+ expect(signals.map(e=>[e.payload.metric,e.payload.value])).toEqual([['audio_replays',1],['first_input_ms',400],['help_requests',1]]);
+ expect(signals.every(e=>e.payload.itemId===s.getDiscoveryAttemptContext('hw-words','i1')?.chartItemId)).toBe(true);
+ expect(exportEvents(db).filter(e=>e.type==='response.observed')).toHaveLength(0);
  }finally{db.close();vi.unstubAllEnvs();fs.rmSync(root,{recursive:true,force:true});}
 });
 

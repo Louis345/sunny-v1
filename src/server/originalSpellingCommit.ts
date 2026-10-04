@@ -3,7 +3,7 @@ import path from 'node:path';
 import {randomUUID} from 'node:crypto';
 import type {ChartDatabase} from '../chart/db';
 import {eventId} from '../chart/eventId';
-import {recordOriginalSpellingResponse} from '../chart/spelling/originalResponses';
+import {recordOriginalSpellingResponse,recordPresentedEngagement} from '../chart/spelling/originalResponses';
 import {recordSpellingDiscoveryAttempt} from '../engine/learningCycleRuntime';
 
 type Request = {launchToken?:string;attemptId:string;itemId:string;attemptedValue:string;observedAt:string;supportEventIds:string[];instrumentSignals:string[];skipped:boolean;sessionId:string};
@@ -26,6 +26,7 @@ export function commitOriginalSpellingAttempt<T>(db:ChartDatabase,homeworkId:str
  const receipt=JSON.parse(fs.readFileSync(file,'utf8')) as {version:number;identity:string;prepared:Prepared};
  if(receipt.version!==1 || receipt.identity!==identity)throw Error('original_attempt_receipt_conflict');
  recordOriginalSpellingResponse(db,receipt.prepared.response);
+ if(receipt.prepared.response.status==='skipped')recordPresentedEngagement(db,{sessionId:receipt.prepared.response.sessionId,itemId:receipt.prepared.response.itemId,observationId:'skip:'+request.attemptId,metric:'skipped',value:1});
  const result=writeLegacy(receipt.prepared.legacy);
  console.log(' 🎮 [spelling] [delivery] [committed] attempt='+request.attemptId);
  return result;

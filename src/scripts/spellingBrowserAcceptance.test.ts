@@ -364,6 +364,9 @@ it.each([
       expect(completed.nodes.find((node) => node.nodeId === "recall-checkpoint")?.state).toBe("completed");
       if(chartDb){
         const facts=exportEvents(chartDb);const responses=facts.filter(row=>row.type==='response.observed');
+      const inputSignals=facts.filter(row=>row.type==='engagement.observed'&&row.payload.metric==='first_input_ms');
+      expect(inputSignals.length).toBeGreaterThan(0);
+      expect(inputSignals.every(row=>row.cites.some(id=>facts.some(p=>p.event_id===id&&p.type==='item.presented')))).toBe(true);
         expect(responses.map(row=>row.payload.sourceResponseId).sort()).toEqual(completed.observations.map(row=>row.observationId).sort());
         const nativePresentations=facts.filter(row=>row.type==='item.presented' && (row.payload.provenance as {nodeId?:string})?.nodeId==='letter-rush');
         expect(nativePresentations).toHaveLength(letterRushWords.length);
@@ -447,6 +450,9 @@ it.each([
       const launches=events.filter(event=>event.startsWith("node-launch:"));
       expect(launches).toHaveLength(4);expect(new Set(launches).size).toBe(4);
       const facts=exportEvents(chartDb);const responses=facts.filter(row=>row.type==='response.observed');
+      const inputSignals=facts.filter(row=>row.type==='engagement.observed'&&row.payload.metric==='first_input_ms');
+      expect(inputSignals.length).toBeGreaterThan(0);
+      expect(inputSignals.every(row=>row.cites.some(id=>facts.some(p=>p.event_id===id&&p.type==='item.presented')))).toBe(true);
       expect(responses).toHaveLength(replayed.observations.length);
       expect(new Set(responses.map(row=>row.payload.sourceResponseId)).size).toBe(responses.length);
       expect(responses.map(row=>row.payload.sourceResponseId).sort()).toEqual(replayed.observations.map(row=>row.observationId).sort());

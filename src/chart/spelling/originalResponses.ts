@@ -3,7 +3,7 @@ import {shouldPersistSessionData} from '../../utils/runtimeMode';
 import {decodeRow} from '../exportEvents';
 import {eventId} from '../eventId';
 import {factId,type Payloads} from './schemas';
-import {recordPresentation,recordResponse} from './record';
+import {recordPresentation,recordResponse,recordFact} from './record';
 
 type Presentation = Pick<Payloads['item.presented'],'assignmentId'|'sessionId'|'word'|'instrument'|'shown'> & {nodeId:string;launchId:string;sourceItemId:string};
 /** Caller supplies the validated server launch and frozen contract, never a game label. */
@@ -33,4 +33,13 @@ export function withOriginalSpellingChart<T>(childId:string,write:(db:ChartDatab
  if(!process.env.SUNNY_CHART_DIR?.trim() || !shouldPersistSessionData() || process.env.SUNNY_CERTIFICATION_RUN_ID)return undefined;
  const db=openChart(childId);
  try{return write(db);}catch(error){console.error(' 🎮 [spelling-chart] [write] [failed]',error);throw error;}finally{db.close();}
+}
+
+/** Engagement cites an already-presented item and never supplies academic outcomes. */
+export function recordPresentedEngagement(db:ChartDatabase,input:Pick<Payloads['engagement.observed'],'sessionId'|'observationId'|'metric'|'value'> & {itemId:string}) {
+ const row=db.sql.prepare('SELECT * FROM events WHERE event_id=?').get(factId('item.presented',input));
+ if(!row)throw Error('chart_engagement_presentation_missing');
+ const presentation=decodeRow(row);const p=presentation.payload as Payloads['item.presented'];
+ if(!p.provenance)throw Error('chart_engagement_launch_missing');
+ return recordFact(db,'engagement.observed',{...input,assignmentId:p.assignmentId,nodeId:p.provenance.nodeId},{actor:'system',cites:[presentation.event_id]});
 }

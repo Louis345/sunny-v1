@@ -410,6 +410,10 @@ export function WordRadar({
 
   const handleWordRadarEvent = useCallback(
     (event: WordRadarGameEvent) => {
+      if(event.type==='engagement' && event.item){
+        flowEvents.reportState('Word Radar input measurement.',{...wordRadarTelemetry,itemId:event.item.itemId,phase:'response',answerVisibility:responseAnswerVisibility,engagement:{id:crypto.randomUUID(),metric:event.metric,value:event.value}});
+        return;
+      }
       if (assessmentMode || practiceCapture) {
         if ((event.type === "correct" || event.type === "incorrect" || event.type === "timeout") && event.item && (assessmentMode || event.typedResponse !== undefined || event.heardTranscript !== undefined || event.skipped === true || event.reason === "skip")) {
           onAssessmentAttempt?.({ itemIndex: event.itemIndex ?? 0, attemptedValue: event.typedResponse ?? event.heardTranscript ?? "", skipped: event.skipped === true || event.reason === "skip", observedAt: new Date().toISOString() });
