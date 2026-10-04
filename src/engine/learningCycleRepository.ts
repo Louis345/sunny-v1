@@ -1665,6 +1665,13 @@ export function projectLearningCycle(
   const nodePlan: ActiveSessionPlan["nodePlan"] = boardNodes
     .map((node) => {
     const type = nodeActivityType(node);
+    const nativeWordRadarConfig = type === "word-radar"
+      && node.evidenceContract.nativeConfig?.activityId === "word-radar"
+      && node.evidenceContract.nativeConfig.wordRadarConfig
+      && typeof node.evidenceContract.nativeConfig.wordRadarConfig === "object"
+      && !Array.isArray(node.evidenceContract.nativeConfig.wordRadarConfig)
+      ? structuredClone(node.evidenceContract.nativeConfig.wordRadarConfig) as NonNullable<ActiveSessionPlan["nodePlan"][number]["wordRadarConfig"]>
+      : undefined;
     return {
       id: node.nodeId,
       type,
@@ -1688,6 +1695,7 @@ export function projectLearningCycle(
       gameHtmlPath: node.artifactBinding?.localArtifactPath,
       date: node.artifactBinding?.localArtifactPath ? cycle.homeworkId : undefined,
       activityConfigPath: node.artifactBinding?.activityConfigPath,
+      ...(nativeWordRadarConfig ? { wordRadarConfig: nativeWordRadarConfig } : {}),
       validationProof: node.artifactBinding?.validationProof,
       thumbnailUrl: node.artwork.localPath ?? node.artifactBinding?.localArtworkPath ?? undefined,
       thumbnailPrompt: node.artwork.prompt ?? undefined,
