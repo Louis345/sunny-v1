@@ -1756,6 +1756,11 @@ type AssignmentPlannerRelationshipIssue =
     code: "planner_missing_measurement";
     nodeId: string;
     measurementId: string;
+  }
+  | {
+    code: "planner_unknown_spelling_target";
+    nodeId: string;
+    targets: string[];
   };
 
 class AssignmentPlannerRelationshipInvalidError extends Error {
@@ -1792,6 +1797,7 @@ function assignmentPlannerRelationshipIssues(
   toolInput: unknown,
   allowedEvidenceIds: ReadonlySet<string>,
   requireSpellingMeasurements = false,
+  allowedSpellingTargets: ReadonlySet<string> = new Set(),
 ): AssignmentPlannerRelationshipIssue[] {
   const input = jsonObject(normalizeAssignmentPlannerToolInput(toolInput));
   const activeSessionPlan = jsonObject(input?.activeSessionPlan);
@@ -1815,6 +1821,16 @@ function assignmentPlannerRelationshipIssues(
     }));
     for (const nodeId of nodeOrder.keys()) {
       if (gatedNodeIds.has(nodeId)) continue;
+      const node = jsonObject(rawNodes[nodeOrder.get(nodeId)!]);
+      const targets = Array.isArray(node?.targets)
+        ? node.targets.filter((target): target is string => typeof target === "string")
+        : [];
+      const unknownTargets = targets.filter(
+        target => !allowedSpellingTargets.has(target.trim().toLocaleLowerCase("en-US")),
+      );
+      if (unknownTargets.length) {
+        issues.push({ code: "planner_unknown_spelling_target", nodeId, targets: unknownTargets });
+      }
       const measurementId = `measure-${nodeId}`;
       if (!jsonObject(measurementById.get(measurementId)?.spelling)) {
         issues.push({ code: "planner_missing_measurement", nodeId, measurementId });
@@ -1858,8 +1874,14 @@ function validateAssignmentPlannerRelationships(
   draft: AssignmentPlannerResponseObject,
   allowedEvidenceIds: ReadonlySet<string>,
   requireSpellingMeasurements = false,
+  allowedSpellingTargets: ReadonlySet<string> = new Set(),
 ): AssignmentPlannerResponseObject {
-  const issues = assignmentPlannerRelationshipIssues(draft, allowedEvidenceIds, requireSpellingMeasurements);
+  const issues = assignmentPlannerRelationshipIssues(
+    draft,
+    allowedEvidenceIds,
+    requireSpellingMeasurements,
+    allowedSpellingTargets,
+  );
   if (issues.length) throw new AssignmentPlannerRelationshipInvalidError(draft, issues);
   return draft;
 }
@@ -2102,9 +2124,12 @@ async function callAssignmentPlannerModel(
   const allowedEvidenceIds = assignmentPlannerAllowedEvidenceIds(packet);
   const allowedEvidenceIdSet = new Set(allowedEvidenceIds);
   const requireSpellingMeasurements = packet.capturedHomework.contentProfile.practiceDomain === "spelling";
+  const allowedSpellingTargets = new Set(
+    packet.capturedHomework.words.map(word => word.trim().toLocaleLowerCase("en-US")),
+  );
   try {
     const draft = parseAssignmentPlannerToolUseResponse(received.message);
-    return { draft: packet.discoveryEvidence ? validateAssignmentPlannerRelationships(draft, allowedEvidenceIdSet, requireSpellingMeasurements) : draft, usage: originalUsage,
+    return { draft: packet.discoveryEvidence ? validateAssignmentPlannerRelationships(draft, allowedEvidenceIdSet, requireSpellingMeasurements, allowedSpellingTargets) : draft, usage: originalUsage,
       telemetry: { model: received.model, usage: originalUsage, latencyMs: received.latencyMs }, receivedAt: received.createdAt };
   } catch (error) {
     if ((!providerReceipt || !packet.discoveryEvidence)
@@ -2112,7 +2137,7 @@ async function callAssignmentPlannerModel(
     const schemaIssues = error instanceof AssignmentPlannerToolInvalidError ? error.issues : [];
     const relationshipIssues = error instanceof AssignmentPlannerRelationshipInvalidError
       ? error.issues
-      : assignmentPlannerRelationshipIssues(error.toolInput, allowedEvidenceIdSet, requireSpellingMeasurements);
+      : assignmentPlannerRelationshipIssues(error.toolInput, allowedEvidenceIdSet, requireSpellingMeasurements, allowedSpellingTargets);
     const correctionRequest = {
       version: 3,
       purpose: "assignment_planner_tool_correction",
@@ -2121,8 +2146,9 @@ async function callAssignmentPlannerModel(
       schemaIssues,
       relationshipIssues,
       allowedEvidenceIds,
+      allowedSpellingTargets: [...allowedSpellingTargets].sort(),
     };
-    const correctionPrompt = `Your previous ${ASSIGNMENT_PLANNER_TOOL_NAME} input failed its declared tool contract. Reissue the complete tool input once. Preserve every valid academic, design, node, activity, target, prediction, and evidence choice. Correct only the listed schema and relationship violations. Every spelling.evidenceIds value must come from ALLOWED EVIDENCE IDS; remove unknown IDs and never invent evidence, child facts, or new activities. Practice or instruction measurements must use interventionNodeIds: []. A fresh_checkpoint may cite only prior targeted intervention nodes. A final fresh checkpoint must cover the assigned words and all prior pending interventions. If a future gated node needs evidenceIds, cite the current observations that motivated including that node.\nSCHEMA ISSUES:\n${JSON.stringify(schemaIssues)}\nRELATIONSHIP ISSUES:\n${JSON.stringify(relationshipIssues)}\nALLOWED EVIDENCE IDS:\n${JSON.stringify(allowedEvidenceIds)}\nPREVIOUS TOOL INPUT:\n${JSON.stringify(error.toolInput)}`;
+    const correctionPrompt = `Your previous ${ASSIGNMENT_PLANNER_TOOL_NAME} input failed its declared tool contract. Reissue the complete tool input once. Preserve every valid academic, design, node, activity, target, prediction, and evidence choice. Correct only the listed schema and relationship violations. Every node target must come from ALLOWED SPELLING TARGETS; a reward or break is not an academic target. Every spelling.evidenceIds value must come from ALLOWED EVIDENCE IDS; remove unknown IDs and never invent evidence, child facts, or new activities. Practice or instruction measurements must use interventionNodeIds: []. A fresh_checkpoint may cite only prior targeted intervention nodes. A final fresh checkpoint must cover the assigned words and all prior pending interventions. If a future gated node needs evidenceIds, cite the current observations that motivated including that node.\nSCHEMA ISSUES:\n${JSON.stringify(schemaIssues)}\nRELATIONSHIP ISSUES:\n${JSON.stringify(relationshipIssues)}\nALLOWED SPELLING TARGETS:\n${JSON.stringify([...allowedSpellingTargets].sort())}\nALLOWED EVIDENCE IDS:\n${JSON.stringify(allowedEvidenceIds)}\nPREVIOUS TOOL INPUT:\n${JSON.stringify(error.toolInput)}`;
     const correctionStarted = Date.now();
     const correctionStage = relationshipIssues.some((issue) => issue.code === "planner_missing_measurement")
       ? `${providerReceipt.stage}-tool-correction-v3-2-missing-measurement`
@@ -2154,7 +2180,7 @@ async function callAssignmentPlannerModel(
     let finalReceivedAt = correction.createdAt;
     let totalLatencyMs = received.latencyMs + correction.latencyMs;
     try {
-      validatedDraft = validateAssignmentPlannerRelationships(correctedDraft, allowedEvidenceIdSet, requireSpellingMeasurements);
+      validatedDraft = validateAssignmentPlannerRelationships(correctedDraft, allowedEvidenceIdSet, requireSpellingMeasurements, allowedSpellingTargets);
     } catch (correctionError) {
       const missingOnly = correctionError instanceof AssignmentPlannerRelationshipInvalidError
         && correctionError.issues.length > 0
@@ -2194,6 +2220,7 @@ async function callAssignmentPlannerModel(
         parseAssignmentPlannerToolUseResponse(measurementCorrection.message),
         allowedEvidenceIdSet,
         requireSpellingMeasurements,
+        allowedSpellingTargets,
       );
       combinedUsage = combinePlannerUsage(combinedUsage, usageFromAnthropic(measurementCorrection.message));
       totalLatencyMs += measurementCorrection.latencyMs;
