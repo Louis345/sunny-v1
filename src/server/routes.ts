@@ -843,7 +843,7 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
         return {legacy,response:{
           assignmentId:homeworkId,sessionId:verifiedLive.sessionId,itemId:verifiedLive.chartItemId,sourceResponseId:attempt.attemptId,
           rawResponse:attempt.attemptedValue,status:body.skipped === true ? 'skipped' : [...attempt.instrumentSignals,...verifiedLive.instrumentSignals].length ? 'ambiguous' : 'answered',
-          support:{audioReplays:verifiedLive.audioReplays,spellingShown:verifiedLive.spellingShown ?? verifiedLive.instrumentSignals.includes('answer_exposure'),hint:verifiedLive.practice ? null : false,companionHelp:verifiedLive.support.status === 'assisted' ? true : verifiedLive.practice ? null : false},
+          support:{audioReplays:verifiedLive.audioReplays,spellingShown:verifiedLive.spellingShown ?? null,hint:verifiedLive.practice ? null : false,companionHelp:verifiedLive.support.status === 'assisted' ? true : verifiedLive.practice ? null : false},
         }};
       },recordSpellingDiscoveryAttempt)) : undefined;
       const cycle = recorded ?? (existing?.domain === "spelling"

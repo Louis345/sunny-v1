@@ -450,3 +450,7 @@ A further red test caught absence of pending status: the parent now sees a runni
 forecast as preparing, with a read-only Refresh action, not a premature retry.
 The displayed forecast error screenshot was inspected. This still is not final
 all-activities/full-week/install acceptance.
+
+### Native visibility measurement — October 4
+
+A composed native bridge → SessionManager → SQLite regression failed because an omitted visibility measurement was recorded as lettersVisible:true. The old ambiguity boolean conflated unknown and visible. Replaced it with nullable measured visibility throughout presentation and response context; confirmed exposure remains sticky and unknown cannot become false on a later hidden event. HTTP preserves null rather than inferring false from absent exposure flags. Three visibility cases and focused route/narration suites plus isolated full build pass. This fixes measurement truth before extending native modes; no UI changes, live data, provider calls or installation. Existing browser cases covered explicit visible/hidden states and missed omitted metadata; source-only logs did not distinguish the two.

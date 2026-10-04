@@ -198,7 +198,7 @@ it('keeps replay and delayed responses attached to their distinct launches',asyn
  }finally{db.close();vi.unstubAllEnvs();fs.rmSync(root,{recursive:true,force:true});}
  });
 
- it('persists a native bridge item opening before any answer arrives',async()=>{
+ it.each(['visible', 'hidden', undefined])('persists native opening visibility %s before any answer arrives',async(answerVisibility)=>{
  const fs=await import('node:fs');const os=await import('node:os');const path=await import('node:path');const vm=await import('node:vm');
  const {openChart}=await import('../chart/db');const {recordAssignment}=await import('../chart/spelling/record');const {exportEvents}=await import('../chart/exportEvents');
  const root=fs.mkdtempSync(path.join(os.tmpdir(),'native-presentation-'));vi.stubEnv('SUNNY_CHART_DIR',root);vi.stubEnv('SUNNY_MODE','real');const db=openChart('lab-child');
@@ -207,10 +207,13 @@ it('keeps replay and delayed responses attached to their distinct launches',asyn
  const s=session();s.updateCurrentBoardSnapshot({phase:'launched',nodeId:'opening',launchToken:'native-launch'});
  const sandbox={location:{search:'?nodeId=opening&launchToken=native-launch&spellingItemBindings='+encodeURIComponent(JSON.stringify([{itemId:'i1',word:'night'}]))},URLSearchParams,console,Date,Math,document:{title:'Letter Rush',addEventListener(){}},window:{parent:{postMessage:(message:{type:string;payload:Record<string,unknown>})=>{if(message.type==='game_state_update')s.updateCurrentBoardSnapshot(message.payload);}}}};
  vm.runInNewContext(fs.readFileSync(path.join(process.cwd(),'web/public/games/_contract.js'),'utf8'),sandbox);
- (sandbox.window as any).GameBridge.reportState('item opened',{spellingItemOpened:true,currentWord:'night',phase:'flash',answerVisibility:'visible'});
+ (sandbox.window as any).GameBridge.reportState('item opened',{spellingItemOpened:true,currentWord:'night',phase:'flash',answerVisibility});
  const events=exportEvents(db);expect(events.filter(e=>e.type==='response.observed')).toHaveLength(0);
- expect(events.find(e=>e.type==='item.presented')?.payload).toMatchObject({instrument:'practice',shown:{lettersVisible:true,hint:null,companionHelp:null},provenance:{nodeId:'opening',sourceItemId:'i1'}});
+ expect(events.find(e=>e.type==='item.presented')?.payload).toMatchObject({instrument:'practice',shown:{lettersVisible:answerVisibility === 'visible' ? true : answerVisibility === 'hidden' ? false : null,hint:null,companionHelp:null},provenance:{nodeId:'opening',sourceItemId:'i1'}});
  expect(s.getDiscoveryAttemptContext('hw-words','i1','native-launch')?.chartItemId).toBeTruthy();
+ expect(s.getDiscoveryAttemptContext('hw-words','i1','native-launch')?.spellingShown).toBe(answerVisibility === 'visible' ? true : answerVisibility === 'hidden' ? false : null);
+ s.updateCurrentBoardSnapshot({practiceCapture:true,nodeId:'opening',itemId:'i1',launchToken:'native-launch',phase:'response',answerVisibility:'hidden'});
+ expect(s.getDiscoveryAttemptContext('hw-words','i1','native-launch')?.spellingShown).toBe(answerVisibility === 'visible' ? true : answerVisibility === 'hidden' ? false : null);
  }finally{db.close();vi.unstubAllEnvs();fs.rmSync(root,{recursive:true,force:true});}
  });
 

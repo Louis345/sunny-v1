@@ -45,7 +45,7 @@ export function armGameNarrationPlaybackTimer(
   }, GAME_NARRATION_PLAYBACK_TIMEOUT_MS);
 }
 
-export type SpellingAssessmentState = { launchToken?:string; chartItemId?:string; audioPlaybacks:number; instrument:"discovery"|"practice"|"recall_check"; launchId?: string; nodeId: string; homeworkId: string; itemId: string; word: string; artifactHash: string; audioDelivered: boolean; supportIds: string[]; ambiguous: boolean };
+export type SpellingAssessmentState = { launchToken?:string; chartItemId?:string; audioPlaybacks:number; instrument:"discovery"|"practice"|"recall_check"; launchId?: string; nodeId: string; homeworkId: string; itemId: string; word: string; artifactHash: string; audioDelivered: boolean; supportIds: string[]; lettersVisible: boolean|null };
 export function bindSpellingAssessment(input: {
   state: Record<string, unknown>; cycle?: LearningCycleRecordV2 | null; current?: SpellingAssessmentState;
   history: Map<string, SpellingAssessmentState>; pendingSupportId?: string;
@@ -53,7 +53,7 @@ export function bindSpellingAssessment(input: {
 }): SpellingAssessmentState | undefined {
   const { state, cycle, current, history } = input;
   if (input.launch?.launchToken !== undefined && state.launchToken !== input.launch.launchToken) return current;
-  if (current && current.launchId === input.launch?.launchId && current.itemId === state.itemId && state.answerVisibility !== "hidden") current.ambiguous = true;
+  if (current && current.launchId === input.launch?.launchId && current.itemId === state.itemId && state.answerVisibility !== "hidden") current.lettersVisible = state.answerVisibility === "visible" || current.lettersVisible === true ? true : null;
   if (state.phase !== "response" && !(state.practiceCapture === true && state.phase === "flash")) return current;
   const node = cycle?.nodes.find(node => node.nodeId === state.nodeId);
   const item = node?.evidenceContract.spellingItems?.[String(state.itemId ?? "")];
@@ -63,7 +63,7 @@ export function bindSpellingAssessment(input: {
   }
   const key = JSON.stringify([input.launch?.launchId ?? null, item.id]);
   if (current?.itemId === item.id && current.launchId === input.launch?.launchId) return current;
-  const next = history.get(key) ?? { ...(input.launch?.homeworkId === cycle.homeworkId && input.launch.nodeId === node.nodeId ? {launchId:input.launch.launchId,launchToken:input.launch.launchToken} : {}), audioPlaybacks:0, instrument:state.practiceCapture === true ? "practice" as const : node.role === "evaluation" ? "discovery" as const : item.lineage?.measurementRole === "fresh_checkpoint" ? "recall_check" as const : "practice" as const, nodeId: node.nodeId, homeworkId: cycle.homeworkId, itemId: item.id, word: item.word, artifactHash: node.artifactBinding.contractFingerprint, audioDelivered: false, supportIds: input.pendingSupportId ? [input.pendingSupportId] : [], ambiguous: state.answerVisibility !== "hidden" };
+  const next = history.get(key) ?? { ...(input.launch?.homeworkId === cycle.homeworkId && input.launch.nodeId === node.nodeId ? {launchId:input.launch.launchId,launchToken:input.launch.launchToken} : {}), audioPlaybacks:0, instrument:state.practiceCapture === true ? "practice" as const : node.role === "evaluation" ? "discovery" as const : item.lineage?.measurementRole === "fresh_checkpoint" ? "recall_check" as const : "practice" as const, nodeId: node.nodeId, homeworkId: cycle.homeworkId, itemId: item.id, word: item.word, artifactHash: node.artifactBinding.contractFingerprint, audioDelivered: false, supportIds: input.pendingSupportId ? [input.pendingSupportId] : [], lettersVisible: state.answerVisibility === "visible" ? true : state.answerVisibility === "hidden" ? false : null };
   history.set(key, next);
   console.log(` 🎮 [spelling-discovery] [live-context] [bound] item=${item.id}`);
   return next;
