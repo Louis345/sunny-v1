@@ -93,6 +93,16 @@ describe("WordRadar", () => {
     expect(screen.getByRole("textbox", { name: "Type the word" })).toBeTruthy();
   });
 
+  it("keeps an on-screen letter fallback available when spoken letters are not captured", async () => {
+    // Human catch: Ila spoke each letter, but no transcript reached Word Radar,
+    // leaving empty tiles and no way to continue despite a healthy connection log.
+    renderRadar({ inputMode: "letter-by-letter", voiceCaptureAvailable: true });
+    await startRadar();
+
+    expect(screen.getByTestId("word-radar-keyboard")).toBeTruthy();
+    expect(screen.getByRole("textbox", { name: "Type the word" })).toBeTruthy();
+  });
+
   it("sends a game trace config event to explain hidden-word and input-mode choices", () => {
     const sendMessage = vi.fn();
     renderRadar({

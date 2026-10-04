@@ -221,6 +221,31 @@ describe("spelling Planner raw-response durability", () => {
     expect(transport.create).toHaveBeenCalledTimes(2);
   });
 
+  it("corrects an invented spelling target before the cycle builder rejects the board", async () => {
+    // Human catch: the rebuilt Ila board used `reward` as the target of a
+    // mystery break. The assignment contains no such spelling word, but the
+    // Planner relationship gate checked evidence lineage without checking node
+    // targets, so the paid correction completed before the cycle builder found
+    // the defect.
+    const f = await fixture();
+    const inventedTarget = structuredClone(f.message);
+    inventedTarget.id = "recorded-invented-target";
+    inventedTarget.content[1].input!.activeSessionPlan.nodePlan[0].targets = ["reward"];
+    const corrected = structuredClone(f.message);
+    corrected.id = "recorded-invented-target-correction";
+    transport.create
+      .mockResolvedValueOnce(inventedTarget)
+      .mockResolvedValueOnce(corrected);
+
+    const result = await f.run();
+
+    expect(result.output.activeSessionPlan.nodePlan[0].targets)
+      .toEqual(f.output.activeSessionPlan.nodePlan[0].targets);
+    expect(transport.create).toHaveBeenCalledTimes(2);
+    expect(JSON.stringify(transport.create.mock.calls[1]?.[0])).toContain("planner_unknown_spelling_target");
+    expect(JSON.stringify(transport.create.mock.calls[1]?.[0])).toContain("reward");
+  });
+
   it("stops after one invalid targeted Planner correction instead of looping", async () => {
     const f = await fixture();
     const invalid = structuredClone(f.message);
