@@ -459,6 +459,20 @@ it.each([
     expect(errors).toEqual([]);
     fs.writeFileSync(path.join(outputDir, "report.json"), JSON.stringify({ provider: "recorded", viewport, before, after, replayed, events, errors, plannerCalls: lab.plannerCalls, timing: { discoveryReadyMs, firstReadyMs, limitation: "Recorded Planner and native games only; not a live provider latency estimate." } }, null, 2));
     await page.screenshot({ path: path.join(outputDir, "complete.png") });
+    if(chartDb){
+      await page.goto(new URL(`/parent/learning-report?child=${childId}`,vite!.resolvedUrls!.local[0]).href);
+      await page.getByRole('link',{name:'Spelling chart and school results'}).click();
+      await page.getByText('No readiness forecast recorded',{exact:true}).waitFor();
+      await page.getByLabel('School test date').fill('2026-10-09');
+      for(const word of words)await page.getByLabel(`Mark for ${word}`).selectOption(word===words[0]?'correct':'incorrect');
+      await page.getByLabel('I checked these marks against the returned school work').check();
+      await page.getByRole('button',{name:'Save school results'}).click();
+      await page.getByText('School results saved',{exact:true}).waitFor();
+      const school=projectAssignment(exportEvents(chartDb),homeworkId).schoolResult;
+      expect(school?.sourceKind).toBe('parent_transcription');
+      expect(school?.results.map(r=>r.correct)).toEqual([true,false]);
+      await page.screenshot({path:path.join(outputDir,'parent-report.png')});
+    }
   } finally {
     if (browser) { const page = browser.contexts()[0]?.pages()[0]; if (page) { await page.screenshot({ path: path.join(outputDir, "last-state.png") }); fs.writeFileSync(path.join(outputDir, "diagnostic.json"), JSON.stringify({ events, errors, body: await page.locator("body").innerText() })); } await browser.close(); }
     await vite?.close();

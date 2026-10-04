@@ -371,3 +371,30 @@ selectedRouteId, not the unrelated preference-applied flag. The initial attempt
 to use that flag correctly withheld launch but also blocked a valid route; the
 full browser regression caught it. Portrait board screenshot inspected. This is
 not yet the full-week parent report, all activity modes, or live acceptance.
+
+## Original caregiver spelling report and school entry
+
+The original caregiver entry is the Sunny menu's Learning report, which opens
+`/parent/learning-report`. It now links to `/parent/spelling`; no child screen or
+launcher is changed. This page reads the existing typed projections, exposes the
+existing one-time profile-draft confirmation, and records explicitly confirmed
+per-word school marks as parent transcription. It does not claim a photo exists,
+invent missing written answers, or require a replacement-app plan to accept real
+school evidence. Missing priors/forecasts show insufficient evidence, not success.
+
+New HTTP and component tests first failed because these original-parent adapters
+did not exist. The HTTP test covers explicit confirmation, repeated submission,
+incomplete/conflicting results and unknown children; the component test requires
+all marks and confirmation. The original chart-enabled browser now also reaches
+this page through the existing report link and submits school marks. This change
+adds a parent-only feature; small route registration and parent navigation are the
+only additions to shared hot paths. No learning doctrine or scoring changed.
+Schedule controls, recovery, and automatic forecasts remain separate unfinished
+parts of this same milestone; this page alone does not close the loop.
+
+Verification: server route tests, both parent components, full build and the
+original portrait browser journey with real HTTP parent entry pass. Parent
+screenshot inspected after the saved school marks. The isolated browser's
+post-session background chain logs a missing synthetic `soul.md` on navigation;
+this is not proof of a successful post-session chain, and full-week acceptance
+must cover that remaining fixture boundary rather than hide the diagnostic.

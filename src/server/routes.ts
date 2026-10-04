@@ -1,3 +1,4 @@
+import { setupOriginalSpellingParentRoutes } from './originalSpellingParent';
 import {commitOriginalSpellingAttempt} from './originalSpellingCommit';
 import {withOriginalSpellingChart} from '../chart/spelling/originalResponses';
 import { setupKioskHealthRoutes } from "./kioskHealthRoutes";
@@ -740,6 +741,7 @@ export type SunnyRouteRuntime = {
 export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void {
   const launchTargetedWorker = runtime.launchAdaptiveMathWorker ?? launchAdaptiveMathWorker;
   setupKioskHealthRoutes(app);
+  setupOriginalSpellingParentRoutes(app, isValidRegistryChildId);
   setImmediate(() => { resumeAdaptiveMathWorkers(); resumeSuccessorBoards(); });
   const themesDir = path.resolve(process.cwd(), "src", "themes");
   if (fs.existsSync(themesDir)) {
