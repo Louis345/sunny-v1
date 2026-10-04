@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import { buildSpellingRecallItems, buildSpellingTargetedCycleInput } from "./learningCycleIngest";
 import type { ActiveSessionPlan } from "../context/schemas/learningProfile";
 import type { LearningCycleRecordV2 } from "./learningCycleRepository";
-import { attachSpellingDiscoveryEvidence, buildAssignmentPlannerPrompt } from "./assignmentPlanner";
+import { attachSpellingDiscoveryEvidence, buildAssignmentPlannerPrompt, SPELLING_TUTOR_PERSONA } from "./assignmentPlanner";
+import { listActivityToolContracts } from "./activityToolCatalog";
 
 function fixture() {
   const items = buildSpellingRecallItems({ homeworkId: "hw", words: ["night", "light"], evidenceIds: ["source"], measurementRole: "fresh_checkpoint" });
@@ -309,5 +310,37 @@ describe("evidence-cited spelling targeted programs", () => {
     ];
     expect(() => buildSpellingTargetedCycleInput({ cycle, plan: checkpointBypass, now: "2026-09-12T12:00:00Z" }))
       .toThrow(`spelling_plan_route_missed_word_unaddressed:checkpoint-bypass:${missed[0]}`);
+  });
+});
+
+// Human-caught (practice session, 2026-10-04): after a missed word the Planner chose
+// "spell it out loud" from memory instead of teaching. It never saw her misspelling,
+// was framed as a measurement bookkeeper, and the catalog called hidden recall "guided".
+describe("post-Discovery spelling Planner reasons as a tutor", () => {
+  function committed() {
+    const { cycle } = fixture();
+    cycle.lifecycle = "evidence_ready";
+    cycle.observations = cycle.observations.map(row => ({ ...row, childResponse: row.observationId === "attempt-night" ? "nite" : "light", constructLinks: [], result: {}, assistance: { status: "unassisted", scaffolds: [] }, exposure: "unseen", confounds: [], observedAt: "2026-09-08T12:00:00Z" }));
+    const packet = { childId: "lab", capturedHomework: {}, plannerInstruction: "Existing Planner", sourceDocument: {} };
+    return attachSpellingDiscoveryEvidence(packet as never, { learningCycle: cycle, learningHistory: { constructs: {}, recentDecisions: [], pendingInterpretation: [] } } as never);
+  }
+  it("opens with a tutor persona and goal, keeping record-keeping rules separate", () => {
+    const prompt = buildAssignmentPlannerPrompt(committed());
+    expect(prompt.startsWith(SPELLING_TUTOR_PERSONA)).toBe(true);
+    expect(SPELLING_TUTOR_PERSONA).toContain("school test");
+    expect(prompt).toContain("not teaching guidance");
+    expect(prompt).toContain("plannedMeasurements.spelling");
+  });
+  it("shows the Planner exactly what the child spelled", () => {
+    expect(committed().discoveryEvidence?.observations.find(row => row.observationId === "attempt-night")?.childResponse).toBe("nite");
+  });
+  it("describes word-hidden spoken spelling honestly as recall, not guided teaching", () => {
+    const radar = listActivityToolContracts().find(tool => tool.id === "word-radar")!;
+    for (const id of ["partial_visual_recall", "audio_cued_letter_recall"]) {
+      const mode = radar.capabilityModes.find(candidate => candidate.id === id)!;
+      expect(mode.purpose).not.toBe("guided-practice");
+      expect(mode.label).toContain("from memory");
+      expect(mode.label).toContain("not teaching");
+    }
   });
 });
