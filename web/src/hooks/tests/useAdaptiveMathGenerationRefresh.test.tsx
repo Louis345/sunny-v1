@@ -190,8 +190,7 @@ describe("useAdaptiveMathGenerationRefresh", () => {
   });
 });
 
-// Enabled in the wiring step: today the hook pauses after 10 unchanged checks.
-describe.skip("fast polling while the preparation screen is shown", () => {
+describe("fast polling while the preparation screen is shown", () => {
   beforeEach(() => { vi.useFakeTimers(); });
   afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); });
 
