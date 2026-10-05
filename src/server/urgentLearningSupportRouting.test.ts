@@ -110,6 +110,30 @@ describe("urgent learning support routing", () => {
     );
   });
 
+  it("forwards spoken letters to Word Radar while its response capture is armed", async () => {
+    // Human catch: microphone and STT health were green, but the collapsed
+    // companion gate discarded letters because the game never claimed them.
+    const ws = mockWs();
+    const session = new SessionManager(ws, "Ila");
+
+    session.updateCurrentBoardSnapshot({
+      game: "word-radar",
+      nodeId: "practice",
+      itemId: "item-1",
+      phase: "response",
+      answerVisibility: "hidden",
+      speechCaptureArmed: true,
+    });
+    session.injectTranscript("s");
+
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    expect(runAgent).not.toHaveBeenCalled();
+    expect(ws.send).toHaveBeenCalledWith(
+      expect.stringContaining('"type":"interim"'),
+    );
+    expect(ws.send).toHaveBeenCalledWith(expect.stringContaining('"text":"s"'));
+  });
+
   it("rechecks a queued transcript against the live assessment before replaying it", async () => {
     // Human catch: stale room speech received during audio later became an Elli
     // turn. Logs called it a replay but skipped the wake gate entirely.
