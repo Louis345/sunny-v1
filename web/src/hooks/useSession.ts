@@ -294,6 +294,7 @@ const DEFAULT_TURN_POLICY: TurnPolicy = {
 };
 
 const SILENT_MIC_DURATION_MS = 12000;
+const MICROPHONE_OPEN_TIMEOUT_MS = 5000;
 const AUDIBLE_MIC_RMS_THRESHOLD = 0.003;
 const AUDIBLE_MIC_FRAME_CONFIRMATION = 3;
 
@@ -313,11 +314,36 @@ const MICROPHONE_CONSTRAINTS: MediaTrackConstraints = {
   autoGainControl: true,
 };
 
+async function openMicrophoneWithTimeout(
+  constraints: MediaStreamConstraints,
+): Promise<MediaStream> {
+  let timedOut = false;
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
+  const request = navigator.mediaDevices.getUserMedia(constraints).then((stream) => {
+    if (timedOut) {
+      stream.getTracks().forEach((track) => track.stop());
+      throw new Error("microphone_open_timed_out");
+    }
+    return stream;
+  });
+  const timeout = new Promise<never>((_resolve, reject) => {
+    timeoutId = setTimeout(() => {
+      timedOut = true;
+      reject(new Error("microphone_open_timed_out"));
+    }, MICROPHONE_OPEN_TIMEOUT_MS);
+  });
+  try {
+    return await Promise.race([request, timeout]);
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId);
+  }
+}
+
 async function openPreferredMicrophoneStream(): Promise<{
   stream: MediaStream;
   recoveredFrom: string | null;
 }> {
-  const initialStream = await navigator.mediaDevices.getUserMedia({
+  const initialStream = await openMicrophoneWithTimeout({
     audio: MICROPHONE_CONSTRAINTS,
   });
   const initialTrack = initialStream.getAudioTracks()[0];
@@ -340,7 +366,7 @@ async function openPreferredMicrophoneStream(): Promise<{
   if (!builtIn) return { stream: initialStream, recoveredFrom: null };
 
   try {
-    const recoveredStream = await navigator.mediaDevices.getUserMedia({
+    const recoveredStream = await openMicrophoneWithTimeout({
       audio: {
         ...MICROPHONE_CONSTRAINTS,
         deviceId: { exact: builtIn.deviceId },
@@ -429,7 +455,9 @@ export function useSession(options?: UseSessionOptions) {
   const micSilentDurationMsRef = useRef(0);
   const micAudibleFramesRef = useRef(0);
   const micInputConfirmedRef = useRef(false);
+  const micTranscriptConfirmedRef = useRef(false);
   const micSilentWarningRef = useRef<string | null>(null);
+  const micSetupWarningRef = useRef<string | null>(null);
 
   const [state, setState] = useState<SessionState>({
     voiceSessionId: null,
@@ -715,6 +743,30 @@ export function useSession(options?: UseSessionOptions) {
     setStateRef: React.MutableRefObject<typeof setState>,
     stopMicRef: React.MutableRefObject<() => void>
   ) {
+    const confirmRecognizedSpeech = (text: string) => {
+      if (!text.trim() || micTranscriptConfirmedRef.current) return;
+      micTranscriptConfirmedRef.current = true;
+      const setupWarning = micSetupWarningRef.current;
+      const silentWarning = micSilentWarningRef.current;
+      micSetupWarningRef.current = null;
+      micSilentWarningRef.current = null;
+      console.log(
+        ` 🎮 [session-microphone] [speech] [recognized] input=${micInputLabelRef.current}`,
+      );
+      sendMessageRef.current("client_audio_status", {
+        event: "speech_recognized",
+        reason: micInputLabelRef.current,
+        message: "Audible speech reached Sunny's recognizer.",
+      });
+      setStateRef.current((s) => ({
+        ...s,
+        microphoneAvailable: true,
+        warning:
+          s.warning === setupWarning || s.warning === silentWarning
+            ? null
+            : s.warning,
+      }));
+    };
     switch (msg.type) {
       case "screenshot_request": {
         void (async () => {
@@ -934,6 +986,7 @@ export function useSession(options?: UseSessionOptions) {
         break;
 
       case "interim":
+        confirmRecognizedSpeech((msg.text as string) ?? "");
         setStateRef.current((s) => ({
           ...s,
           interimTranscript: (msg.text as string) ?? "",
@@ -944,6 +997,7 @@ export function useSession(options?: UseSessionOptions) {
       case "final":
         {
           const text = (msg.text as string) ?? "";
+          confirmRecognizedSpeech(text);
           browserTtsAccumRef.current = "";
           if (browserTtsDebounceRef.current) {
             clearTimeout(browserTtsDebounceRef.current);
@@ -1498,14 +1552,23 @@ export function useSession(options?: UseSessionOptions) {
         const { stream, recoveredFrom } = await openPreferredMicrophoneStream();
 
         mediaStreamRef.current = stream;
-        setStateRef.current((s) => ({ ...s, microphoneAvailable: true }));
         const audioTracks = stream.getAudioTracks();
         const selectedTrack = audioTracks[0];
         const inputLabel = selectedTrack?.label?.trim() || "selected microphone";
+        const setupWarning =
+          `Audio check: use your Mac speakers and MacBook Air Microphone, then say hello. ` +
+          `Current input: ${inputLabel}.`;
+        micSetupWarningRef.current = setupWarning;
+        setStateRef.current((s) => ({
+          ...s,
+          microphoneAvailable: null,
+          warning: setupWarning,
+        }));
         micInputLabelRef.current = inputLabel;
         micSilentDurationMsRef.current = 0;
         micAudibleFramesRef.current = 0;
         micInputConfirmedRef.current = false;
+        micTranscriptConfirmedRef.current = false;
         micSilentWarningRef.current = null;
         if (recoveredFrom) {
           console.log(
@@ -1556,8 +1619,6 @@ export function useSession(options?: UseSessionOptions) {
               micSilentDurationMsRef.current = 0;
               if (micAudibleFramesRef.current >= AUDIBLE_MIC_FRAME_CONFIRMATION) {
                 micInputConfirmedRef.current = true;
-                const previousWarning = micSilentWarningRef.current;
-                micSilentWarningRef.current = null;
                 console.log(
                   ` 🎮 [session-microphone] [input] [detected] input=${micInputLabelRef.current}`,
                 );
@@ -1566,12 +1627,6 @@ export function useSession(options?: UseSessionOptions) {
                   reason: micInputLabelRef.current,
                   message: "Audible microphone energy confirmed.",
                 });
-                if (previousWarning) {
-                  setStateRef.current((s) => ({
-                    ...s,
-                    warning: s.warning === previousWarning ? null : s.warning,
-                  }));
-                }
               }
             } else {
               micAudibleFramesRef.current = 0;
@@ -1596,7 +1651,10 @@ export function useSession(options?: UseSessionOptions) {
                 });
                 setStateRef.current((s) => ({
                   ...s,
-                  warning: s.warning ?? warning,
+                  warning:
+                    s.warning === micSetupWarningRef.current || s.warning === null
+                      ? warning
+                      : s.warning,
                 }));
               }
             }
@@ -1661,10 +1719,23 @@ export function useSession(options?: UseSessionOptions) {
         silence.connect(audioCtx.destination);
       } catch (err) {
         console.error(" 🎮 [session-microphone] [access] [unavailable]", err);
+        const microphoneTimedOut =
+          err instanceof Error && err.message === "microphone_open_timed_out";
         if (micDeniedCanContinue()) {
+          const warning = microphoneTimedOut
+            ? "The microphone did not start. Use the on-screen controls or reload Sunny."
+            : "Microphone unavailable; on-screen controls are still available.";
+          console.warn(
+            ` 🎮 [session-microphone] [capture] [${microphoneTimedOut ? "timed-out" : "unavailable"}]`,
+          );
+          sendMessageRef.current("client_audio_status", {
+            event: microphoneTimedOut ? "capture_timed_out" : "capture_unavailable",
+            reason: microphoneTimedOut ? "get_user_media_pending" : "microphone_access_unavailable",
+            message: warning,
+          });
           setStateRef.current((s) => ({
             ...s,
-            warning: "Microphone unavailable; on-screen controls are still available.",
+            warning,
             microphoneAvailable: false,
           }));
           return;
@@ -1684,7 +1755,9 @@ export function useSession(options?: UseSessionOptions) {
     micSilentDurationMsRef.current = 0;
     micAudibleFramesRef.current = 0;
     micInputConfirmedRef.current = false;
+    micTranscriptConfirmedRef.current = false;
     micSilentWarningRef.current = null;
+    micSetupWarningRef.current = null;
     if (processorRef.current) {
       processorRef.current.onaudioprocess = null;
       try {

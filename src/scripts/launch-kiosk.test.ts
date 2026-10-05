@@ -56,4 +56,25 @@ describe("Sunny kiosk port handoff", () => {
     expect(source).toContain('"--password-store=basic"');
     expect(source).toContain('"--use-mock-keychain"');
   });
+
+  it("auto-approves the real microphone inside the local family kiosk", () => {
+    // Human-caught invariant: macOS and Chrome both showed microphone access
+    // as allowed, but kiosk-mode getUserMedia remained pending behind browser
+    // permission UI. The old readiness check proved only that Chrome opened.
+    const source = fs.readFileSync(path.join(process.cwd(), "src/scripts/launch-kiosk.ts"), "utf8");
+
+    expect(source).toContain('"--use-fake-ui-for-media-stream"');
+    expect(source).not.toContain('"--use-fake-device-for-media-stream"');
+  });
+
+  it("blocks a human acceptance kiosk before startup unless the real audio chain is configured", () => {
+    // Human-caught invariant: the lab proved microphone energy and browser
+    // playback while a runtime hook discarded every audio chunk. Saori could
+    // neither be understood nor hear Elli, despite a readiness claim.
+    const source = fs.readFileSync(path.join(process.cwd(), "src/scripts/launch-kiosk.ts"), "utf8");
+
+    expect(source).toContain("assertHumanAcceptanceAudioEnvironment(process.env)");
+    expect(source.indexOf("assertHumanAcceptanceAudioEnvironment(process.env)"))
+      .toBeLessThan(source.indexOf("Starting server"));
+  });
 });

@@ -428,7 +428,12 @@ export function buildSpellingTargetedCycleInput(input: {
       throw new Error(`spelling_mystery_academic_instrument_missing:${node.id}`);
     }
     let nativeConfig: Record<string, unknown> | undefined;
-    if (implementationType === "letter-rush" || implementationType === "concept-check") {
+    if (implementationType === "word-radar" && node.wordRadarConfig) {
+      nativeConfig = {
+        activityId: "word-radar",
+        wordRadarConfig: structuredClone(node.wordRadarConfig),
+      };
+    } else if (implementationType === "letter-rush" || implementationType === "concept-check") {
       const parsed = implementationType === "letter-rush" ? validateLetterRushConfig(node.activityConfig) : validateActivityEngineConfig(node.activityConfig);
       if (!parsed.ok || !parsed.normalized || parsed.normalized.domain !== "spelling" || parsed.normalized.activityId !== implementationType
         || parsed.normalized.evidencePolicy.writesMasteryEvidence) throw new Error(`spelling_engine_config_invalid:${node.id}`);

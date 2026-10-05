@@ -17,6 +17,7 @@ import {
   ownedKioskShutdownTargets,
   terminateProcessTargets,
 } from "../server/certificationRuntime";
+import { assertHumanAcceptanceAudioEnvironment } from "../server/humanAcceptanceAudio";
 import { localNpmScriptCommand, localTsxCommand } from "./localRuntimeCommand";
 
 const PORT = parseInt(process.env.PORT || "3001", 10);
@@ -148,6 +149,7 @@ async function stopStaleSunnyKiosks(profileDir: string): Promise<void> {
 }
 
 async function main() {
+  assertHumanAcceptanceAudioEnvironment(process.env);
   console.log("\n  🌟 Project Sunny — Starting up...\n");
 
   if (await isPortInUse()) {
@@ -254,6 +256,7 @@ async function main() {
             "--disable-sync",
             "--password-store=basic",
             "--use-mock-keychain",
+            "--use-fake-ui-for-media-stream",
             "--noerrdialogs",
             "--disable-infobars",
             "--disable-session-crashed-bubble",

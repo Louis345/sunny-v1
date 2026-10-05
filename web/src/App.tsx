@@ -2375,7 +2375,7 @@ function App() {
             }
             showKeyboard={profileWordRadar?.showKeyboard ?? false}
             inputMode={profileWordRadar?.inputMode}
-            voiceCaptureAvailable={state.microphoneAvailable !== false}
+            voiceCaptureAvailable={state.microphoneAvailable === true}
             personalBests={profileWordRadar?.personalBests ?? {}}
             childId={activeProfileChildId ?? ""}
             onComplete={(result) => {
@@ -2412,7 +2412,7 @@ function App() {
               plannerBoardLaunch.node.wordRadarConfig?.inputMode === "keyboard"
             }
             inputMode={plannerBoardLaunch.node.wordRadarConfig?.inputMode}
-            voiceCaptureAvailable={state.microphoneAvailable !== false}
+            voiceCaptureAvailable={state.microphoneAvailable === true}
             speakStyle={plannerBoardLaunch.node.wordRadarConfig?.speakStyle}
             recallMode={plannerBoardLaunch.node.wordRadarConfig?.recallMode}
             hideWordDuringResponse={
