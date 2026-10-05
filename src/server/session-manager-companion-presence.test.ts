@@ -36,6 +36,37 @@ function presenceHarness(): PresenceHarness {
 }
 
 describe("SessionManager companion presence", () => {
+  it("promotes a held eager transcript when Flux never sends a final turn", async () => {
+    vi.useFakeTimers();
+    try {
+      const session = presenceHarness() as PresenceHarness & {
+        handleEndOfTurn: ReturnType<typeof vi.fn>;
+      };
+      session.companionPresence = "summoned";
+      session.handleEndOfTurn = vi.fn().mockResolvedValue(undefined);
+
+      // Human catch: the browser proved that the microphone heard Ila and the
+      // server logged `eager-held`, but no final Flux turn arrived. The prior
+      // lab asserted presence persistence without proving that a held child
+      // utterance could still reach Elli.
+      (session as any).handleFluxEndOfTurn("Elli, can you hear me?", "eager");
+      await vi.advanceTimersByTimeAsync(1_000);
+
+      expect(session.handleEndOfTurn).toHaveBeenCalledOnce();
+      expect(session.handleEndOfTurn).toHaveBeenCalledWith(
+        "Elli, can you hear me?",
+      );
+
+      (session as any).handleFluxEndOfTurn(
+        "Elli, can you hear me?",
+        "final",
+      );
+      expect(session.handleEndOfTurn).toHaveBeenCalledOnce();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("keeps a child-started conversation open until explicit dismissal", () => {
     const session = presenceHarness();
 

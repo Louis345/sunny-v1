@@ -246,6 +246,8 @@ export class SessionManager {
   private lastTranscriptTime = 0;
   private lastEagerTranscript = "";
   private lastEagerTranscriptTime = 0;
+  private heldCompanionEagerTranscript: string | null = null;
+  private heldCompanionEagerTimer: ReturnType<typeof setTimeout> | null = null;
   private speakingStartedAt = 0;
   private lastCanvasWasMath = false;
   /** Latest karaoke story body from canvasShow — used for optional story illustration after reading complete. */
@@ -820,6 +822,9 @@ export class SessionManager {
     state: "collapsed" | "summoned",
     reason: "client" | "voice" | "read_instruction" = "client",
   ): void {
+    if (state === "collapsed") {
+      this.clearHeldCompanionEagerTranscript("presence_collapsed");
+    }
     const newlySummoned = state === "summoned" && this.companionPresence !== "summoned";
     const next = transitionCompanionPresence({ state, reason });
     this.companionPresence = next.presence;
@@ -1379,6 +1384,7 @@ export class SessionManager {
       this.clearSessionTimer();
       this.clearSessionTimer = null;
     }
+    this.clearHeldCompanionEagerTranscript("session_ended");
 
     gev.wbEndCleanup(this);
     this.spaceInvadersRewardActive = false;
@@ -1503,6 +1509,7 @@ export class SessionManager {
         }
       },
       onEagerEndOfTurn: (transcript: string) => this.handleFluxEndOfTurn(transcript, "eager"),
+      onTurnResumed: () => this.clearHeldCompanionEagerTranscript("turn_resumed"),
       onInterim: (text) => this.send("interim", { text }),
       onEndOfTurn: (transcript) => this.handleFluxEndOfTurn(transcript, "final"),
       onError: (err) => {
@@ -1525,7 +1532,7 @@ export class SessionManager {
 
     if (source === "eager") {
       if (this.companionPresence === "summoned") {
-        console.log("  🎮 [transcript] [eager-held] reason=companion_conversation");
+        this.holdCompanionEagerTranscript(transcript);
         return;
       }
       if (this.turnSM.getState() === "IDLE") {
@@ -1545,6 +1552,8 @@ export class SessionManager {
       return;
     }
 
+    this.clearHeldCompanionEagerTranscript("final_received");
+
     if (
       normalized === this.lastEagerTranscript &&
       Date.now() - this.lastEagerTranscriptTime < 3000
@@ -1553,6 +1562,41 @@ export class SessionManager {
     }
 
     this.handleEndOfTurn(transcript).catch(console.error);
+  }
+
+  private clearHeldCompanionEagerTranscript(reason: string): void {
+    const hadHeldTranscript = typeof this.heldCompanionEagerTranscript === "string";
+    if (this.heldCompanionEagerTimer) {
+      clearTimeout(this.heldCompanionEagerTimer);
+      this.heldCompanionEagerTimer = null;
+    }
+    this.heldCompanionEagerTranscript = null;
+    if (hadHeldTranscript) {
+      console.log(`  🎮 [transcript] [eager-cleared] reason=${reason}`);
+    }
+  }
+
+  private holdCompanionEagerTranscript(transcript: string): void {
+    if (this.heldCompanionEagerTimer) {
+      clearTimeout(this.heldCompanionEagerTimer);
+    }
+    this.heldCompanionEagerTranscript = transcript;
+    console.log("  🎮 [transcript] [eager-buffered] reason=companion_conversation");
+    this.heldCompanionEagerTimer = setTimeout(() => {
+      const held = this.heldCompanionEagerTranscript;
+      this.heldCompanionEagerTimer = null;
+      this.heldCompanionEagerTranscript = null;
+      if (!held || this.isEnding) {
+        console.log("  🎮 [transcript] [eager-dropped] reason=session_ended_or_empty");
+        return;
+      }
+      this.lastEagerTranscript = held.toLowerCase().trim();
+      this.lastEagerTranscriptTime = Date.now();
+      console.log("  🎮 [transcript] [eager-promoted] reason=final_timeout");
+      this.handleEndOfTurn(held).catch((error: unknown) => {
+        console.error("  🔴 [transcript] eager promotion failed:", error);
+      });
+    }, 750);
   }
 
   private shouldAcceptInterruptedTranscript(transcript: string): boolean {
