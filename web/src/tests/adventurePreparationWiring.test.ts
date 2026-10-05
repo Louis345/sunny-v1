@@ -21,3 +21,20 @@ it("keeps the small on-board overlay unchanged", () => {
   expect(app).toContain("targetedMathGenerationPending && !plannerBoardLaunch && !postActivityEngagement && <div className=\"absolute left-4 top-4 z-20 max-w-sm\"><LearningPreparationStatus");
 });
 });
+
+// Human-caught 2026-10-05: on Saori the waiting screen sat under Elli's bookbag,
+// economy controls and her full-screen figure. Source tests only checked which
+// screen rendered, not what else stayed on top of it.
+describe("only the preparation UI and Elli's portrait while it is up", () => {
+  const app = readFileSync(resolve(process.cwd(), "src/App.tsx"), "utf8");
+  it("hides the bookbag, economy and level-path controls", () => {
+    expect(app).toContain("const preparationScreenActive = preparation.screen != null;");
+    expect(app).toMatch(/<CompanionEconomyControls\s+visible=\{[^}]*!preparationScreenActive/);
+    expect(app).toMatch(/showTrigger=\{[^}]*!preparationScreenActive/s);
+  });
+  it("shows Elli as her portrait, without a second speech bubble", () => {
+    const portrait = app.slice(app.indexOf("const companionPortraitMode ="), app.indexOf("const voiceGameCompanionSpeechMuted"));
+    expect(portrait).toContain("preparationScreenActive");
+    expect(app).toContain("speechBubbleText={preparationScreenActive ? null : companionBubbleText}");
+  });
+});
