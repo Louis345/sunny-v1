@@ -2148,6 +2148,37 @@ describe("assignment planner", () => {
     expect(text).toContain("planner-selected wordRadarConfig");
   });
 
+  it("rejects a Word Radar response contract that matches no catalog capability", () => {
+    const output = goodOutput();
+    output.activeSessionPlan.nodePlan[0] = {
+      ...output.activeSessionPlan.nodePlan[0]!,
+      type: "word-radar",
+      activityId: "word-radar",
+      wordRadarConfig: {
+        recallMode: "partial_visual_recall",
+        inputMode: "whole-word",
+        speakStyle: "option-a",
+        showTimer: false,
+        hideWordDuringResponse: true,
+        requiresCapturedResponse: true,
+      },
+    };
+
+    const issues = validateAssignmentPlannerOutput(output, {
+      extraction: extraction(),
+      activityCatalog: buildAssignmentPlanningPacket({
+        childId: "reina",
+        extraction: extraction(),
+        childChart: chart(),
+      }).activityCatalog,
+    });
+
+    expect(issues).toContainEqual(expect.objectContaining({
+      code: "word_radar_capability_mismatch",
+      severity: "error",
+    }));
+  });
+
   it("rejects target lanes that contain words outside their source group", () => {
     const output = goodOutput();
     output.activeSessionPlan.nodePlan[0] = {

@@ -1020,6 +1020,22 @@ describe("WordRadar", () => {
     expect(tiles[0]).toHaveStyle({ minWidth: "44px", minHeight: "60px" });
   });
 
+  it("keeps an on-screen response path for a legacy partial-recall whole-word node", async () => {
+    renderRadar({
+      recallMode: "partial_visual_recall",
+      inputMode: "whole-word",
+      speakStyle: "option-a",
+      hideWordDuringResponse: true,
+      requiresCapturedResponse: true,
+      voiceCaptureAvailable: true,
+      timerSeconds: 10,
+    });
+    await startRadar();
+
+    expect(screen.getByTestId("word-radar-keyboard")).toBeInTheDocument();
+    expect(screen.getByTestId("word-radar-input")).toBeEnabled();
+  });
+
   it("letter tiles rendered during response when speakStyle=option-a", async () => {
     renderRadar({ speakStyle: "option-a", timerSeconds: 10 });
     await startRadar();
