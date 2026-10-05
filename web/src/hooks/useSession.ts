@@ -294,6 +294,7 @@ const DEFAULT_TURN_POLICY: TurnPolicy = {
 };
 
 const SILENT_MIC_DURATION_MS = 12000;
+const MICROPHONE_OPEN_TIMEOUT_MS = 5000;
 const AUDIBLE_MIC_RMS_THRESHOLD = 0.003;
 const AUDIBLE_MIC_FRAME_CONFIRMATION = 3;
 
@@ -313,11 +314,36 @@ const MICROPHONE_CONSTRAINTS: MediaTrackConstraints = {
   autoGainControl: true,
 };
 
+async function openMicrophoneWithTimeout(
+  constraints: MediaStreamConstraints,
+): Promise<MediaStream> {
+  let timedOut = false;
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
+  const request = navigator.mediaDevices.getUserMedia(constraints).then((stream) => {
+    if (timedOut) {
+      stream.getTracks().forEach((track) => track.stop());
+      throw new Error("microphone_open_timed_out");
+    }
+    return stream;
+  });
+  const timeout = new Promise<never>((_resolve, reject) => {
+    timeoutId = setTimeout(() => {
+      timedOut = true;
+      reject(new Error("microphone_open_timed_out"));
+    }, MICROPHONE_OPEN_TIMEOUT_MS);
+  });
+  try {
+    return await Promise.race([request, timeout]);
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId);
+  }
+}
+
 async function openPreferredMicrophoneStream(): Promise<{
   stream: MediaStream;
   recoveredFrom: string | null;
 }> {
-  const initialStream = await navigator.mediaDevices.getUserMedia({
+  const initialStream = await openMicrophoneWithTimeout({
     audio: MICROPHONE_CONSTRAINTS,
   });
   const initialTrack = initialStream.getAudioTracks()[0];
@@ -340,7 +366,7 @@ async function openPreferredMicrophoneStream(): Promise<{
   if (!builtIn) return { stream: initialStream, recoveredFrom: null };
 
   try {
-    const recoveredStream = await navigator.mediaDevices.getUserMedia({
+    const recoveredStream = await openMicrophoneWithTimeout({
       audio: {
         ...MICROPHONE_CONSTRAINTS,
         deviceId: { exact: builtIn.deviceId },
@@ -1693,10 +1719,23 @@ export function useSession(options?: UseSessionOptions) {
         silence.connect(audioCtx.destination);
       } catch (err) {
         console.error(" 🎮 [session-microphone] [access] [unavailable]", err);
+        const microphoneTimedOut =
+          err instanceof Error && err.message === "microphone_open_timed_out";
         if (micDeniedCanContinue()) {
+          const warning = microphoneTimedOut
+            ? "The microphone did not start. Use the on-screen controls or reload Sunny."
+            : "Microphone unavailable; on-screen controls are still available.";
+          console.warn(
+            ` 🎮 [session-microphone] [capture] [${microphoneTimedOut ? "timed-out" : "unavailable"}]`,
+          );
+          sendMessageRef.current("client_audio_status", {
+            event: microphoneTimedOut ? "capture_timed_out" : "capture_unavailable",
+            reason: microphoneTimedOut ? "get_user_media_pending" : "microphone_access_unavailable",
+            message: warning,
+          });
           setStateRef.current((s) => ({
             ...s,
-            warning: "Microphone unavailable; on-screen controls are still available.",
+            warning,
             microphoneAvailable: false,
           }));
           return;

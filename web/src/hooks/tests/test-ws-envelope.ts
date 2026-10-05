@@ -274,6 +274,28 @@ describe("WS envelope vs canvas payload type", () => {
     expect(result.current.state.error).toBe("Microphone access denied");
   });
 
+  it("fails visibly when the browser microphone request never settles", async () => {
+    // Human-caught invariant: Saori and Ila spoke while Elli and Word Radar
+    // remained silent. macOS and Chrome both reported microphone permission,
+    // but getUserMedia never resolved. The prior lab only covered resolve and
+    // reject, so Sunny could advertise a ready session forever in this third
+    // browser state.
+    vi.stubEnv("VITE_SUNNY_RUNTIME_CONFIG", JSON.stringify({ subject: "homework", childId: "ila", homeworkDomain: "spelling", sessionMode: "real", previewMode: "off", voiceMode: "normal" }));
+    vi.mocked(navigator.mediaDevices.getUserMedia).mockImplementation(
+      () => new Promise<MediaStream>(() => {}),
+    );
+    vi.useFakeTimers();
+    const { result } = renderHook(() => useSession());
+
+    act(() => result.current.startSession("ila", { homeworkId: "hw-spelling-1" }));
+    await act(async () => { await vi.advanceTimersByTimeAsync(6_000); });
+
+    expect(result.current.state.microphoneAvailable).toBe(false);
+    expect(result.current.state.warning).toBe(
+      "The microphone did not start. Use the on-screen controls or reload Sunny.",
+    );
+  });
+
   it("turns sustained silent microphone frames into a visible recovery message and one logged diagnostic", async () => {
     // Human caught this by speaking and hearing no response. The old lab only
     // asserted stream creation and packet flow, so a silent virtual input passed.
