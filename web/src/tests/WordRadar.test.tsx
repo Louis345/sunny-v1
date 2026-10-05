@@ -227,6 +227,7 @@ describe("WordRadar", () => {
           wordRadarConfig,
           target: "sun",
           phase: "response",
+          speechCaptureArmed: true,
           visibleState: expect.objectContaining({
             wordVisible: false,
             slotsVisible: true,

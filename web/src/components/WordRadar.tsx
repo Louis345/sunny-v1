@@ -928,6 +928,8 @@ export function WordRadar({
       itemIndex: hook.itemIndex,
       itemId: hook.currentItem.itemId,
       phase: hook.phase,
+      speechCaptureArmed:
+        hook.phase === "response" && resolvedInputMode !== "keyboard",
       answerVisibility: assessmentMode ? "hidden" : hook.phase === "response" ? responseAnswerVisibility : "visible",
       attemptCount: hook.attemptCount,
       visibleState: currentVisibleState(hook.phase),
