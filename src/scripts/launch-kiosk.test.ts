@@ -56,4 +56,14 @@ describe("Sunny kiosk port handoff", () => {
     expect(source).toContain('"--password-store=basic"');
     expect(source).toContain('"--use-mock-keychain"');
   });
+
+  it("auto-approves the real microphone inside the local family kiosk", () => {
+    // Human-caught invariant: macOS and Chrome both showed microphone access
+    // as allowed, but kiosk-mode getUserMedia remained pending behind browser
+    // permission UI. The old readiness check proved only that Chrome opened.
+    const source = fs.readFileSync(path.join(process.cwd(), "src/scripts/launch-kiosk.ts"), "utf8");
+
+    expect(source).toContain('"--use-fake-ui-for-media-stream"');
+    expect(source).not.toContain('"--use-fake-device-for-media-stream"');
+  });
 });

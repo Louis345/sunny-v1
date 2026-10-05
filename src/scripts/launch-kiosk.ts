@@ -254,6 +254,7 @@ async function main() {
             "--disable-sync",
             "--password-store=basic",
             "--use-mock-keychain",
+            "--use-fake-ui-for-media-stream",
             "--noerrdialogs",
             "--disable-infobars",
             "--disable-session-crashed-bubble",
