@@ -54,6 +54,15 @@ export const S09PhoneBuilding: Story = { render: () => <Frame size="phone"><Adve
 export const S10PhoneNeedsAGrownUp: Story = { render: () => <Frame size="phone"><AdventurePreparationScreen {...screenFor("help")} /></Frame> };
 export const S11TabletReady: Story = { render: () => <Frame size="tablet"><AdventurePreparationScreen {...screenFor("ready")} /></Frame> };
 
+/** As in the app: no slot content; Sunny's real portrait Elli is a 120×120 circle fixed 16px from the bottom-right. */
+const PortraitStandIn = () => <div aria-hidden="true" style={{ position: "absolute", right: 16, bottom: 16, width: 120, height: 120, borderRadius: "50%", background: "radial-gradient(circle at 35% 30%, #ffe9d9, #f9b6a3 60%, #e07a5f)", boxShadow: "0 0 0 3px rgba(255,255,255,.25)", display: "grid", placeItems: "center", font: "600 13px Lexend, sans-serif", color: "#7a2f1f" }}>Elli portrait</div>;
+const inApp = (size: keyof typeof SIZES, state: PreparationState): Story => ({
+  render: () => <Frame size={size}><div style={{ position: "relative", width: "100%", height: "100%" }}><AdventurePreparationScreen {...screenFor(state, { elliSlot: undefined })} /><PortraitStandIn /></div></Frame>,
+});
+export const S12InAppKioskWithPortrait = inApp("kiosk", "build");
+export const S13InAppTabletWithPortrait = inApp("tablet", "build");
+export const S14InAppPhoneWithPortrait = inApp("phone", "look");
+
 /** Mock event driver: plays a whole wait through the real state machine. */
 type Path = "happy" | "slow" | "failed" | "stop";
 function replayScript(path: Path): Array<[number, PreparationEvent]> {

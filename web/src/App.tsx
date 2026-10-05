@@ -788,6 +788,8 @@ function App() {
     homeworkId: plannerBoardPacket?.activeSessionPlan?.activeHomeworkId, status: generationProgress.status,
     finished: homeworkSessionFinished, checkNow: generationProgress.checkNow, onFinish: finishHomeworkSession, sendMessage,
   });
+  // While it is up, only the preparation UI and Elli's portrait show.
+  const preparationScreenActive = preparation.screen != null;
 
   const [vrrCelebrateEvent, setVrrCelebrateEvent] =
     useState<CompanionEventPayload | null>(null);
@@ -2171,6 +2173,7 @@ function App() {
     plannerBoardLaunch == null &&
     !homeworkSessionFinished;
   const companionPortraitMode =
+    preparationScreenActive ||
     boardMapCompanionCompact ||
     karaokeReadingActive ||
     diagFlowGameOpen != null ||
@@ -2245,11 +2248,12 @@ function App() {
           !directDiscoveryMode &&
           !targetedMathGenerationPending &&
           plannerBoardLaunch == null &&
-          !homeworkSessionFinished
+          !homeworkSessionFinished &&
+          !preparationScreenActive
         }
       />
       <CompanionEconomyControls
-        visible={homeworkBoardMode && !homeworkSessionFinished && plannerBoardLaunch == null}
+        visible={homeworkBoardMode && !homeworkSessionFinished && plannerBoardLaunch == null && !preparationScreenActive}
         companionName={
           plannerBoardPacket?.childChart.companion.displayName ??
           (effectiveCompanion?.companionId
@@ -2302,7 +2306,7 @@ function App() {
         companionCommands={mergedCompanionCommands}
         activeNodeScreen={activeNodeScreen}
         analyserNodeRef={analyserNodeRef}
-        speechBubbleText={companionBubbleText}
+        speechBubbleText={preparationScreenActive ? null : companionBubbleText}
         micMuted={companionSpeechMuted || voiceGameCompanionSpeechMuted}
         muteControlKind="companion"
         onToggleMute={toggleCompanionSpeechMute}

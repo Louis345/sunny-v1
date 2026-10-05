@@ -99,7 +99,7 @@ export function AdventurePreparationScreen(props: AdventurePreparationScreenProp
   const reviewing = state === "look" && reviewed.length > 0;
 
   return (
-    <div className="ap-root" data-state={state} data-paused={paused ? "true" : "false"} aria-label="Getting your next adventure ready">
+    <div className="ap-root" data-state={state} data-paused={paused ? "true" : "false"} data-elli={props.elliSlot ? "slot" : "portrait"} aria-label="Getting your next adventure ready">
       <div className="ap-ui">
         <div className="ap-top">
           {grownUp.visible && <GrownUpStrip {...props} total={total} />}
