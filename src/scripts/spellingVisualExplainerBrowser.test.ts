@@ -59,7 +59,7 @@ async function launch(
     const url = new URL(request.url!, "http://127.0.0.1");
     if (url.pathname === "/") {
       response.setHeader("Content-Type", "text/html");
-      response.end(`<!doctype html><html><body style="margin:0"><script>window.captured=[];addEventListener('message',event=>{if(event.source===document.querySelector('iframe').contentWindow)window.captured.push(event.data)});</script><iframe title="Visual Explainer" src="/games/spelling-visual-explainer.html?childId=lab-child&nodeId=visual-light&sessionId=visual-proof&companion=elli&companionName=Elli&preview=${options.preview ?? "false"}&chrome=child&config=%2Fconfig.json" style="position:fixed;inset:0;width:100%;height:100%;border:0"></iframe></body></html>`);
+      response.end(`<!doctype html><html><body style="margin:0"><script>window.captured=[];addEventListener('message',event=>{if(event.source===document.querySelector('iframe').contentWindow)window.captured.push(event.data)});</script><iframe title="Visual Explainer" src="/games/spelling-visual-explainer.html?childId=lab-child&nodeId=visual-light&sessionId=visual-proof&launchToken=visual-launch&spellingItemBindings=${encodeURIComponent(JSON.stringify([{itemId:"frozen-light",word:"light"}]))}&companion=elli&companionName=Elli&preview=${options.preview ?? "false"}&chrome=child&config=%2Fconfig.json" style="position:fixed;inset:0;width:100%;height:100%;border:0"></iframe></body></html>`);
       return;
     }
     if (url.pathname === "/config.json") {
@@ -120,7 +120,14 @@ describe.each(viewports)("spelling Visual Explainer at $width×$height", (viewpo
     await page.screenshot({ path: path.join(proofDir, `completion-${viewport.width}x${viewport.height}.png`) });
     const captured = await page.evaluate<Array<Record<string, any>>>("window.captured");
     expect(captured.map((message) => message.type)).toContain("node_complete");
-    expect(captured.find((message) => message.type === "attempt_event")).toBeUndefined();
+    const attempts=captured.filter(message=>message.type==='attempt_event');
+    expect(attempts).toHaveLength(1);
+    expect(attempts[0].payload).toMatchObject({launchToken:'visual-launch',evidenceLimitation:'non_spelling_response',rawChoice:'ight',aggregateAccuracy:null});
+    expect(attempts[0].payload).not.toHaveProperty('attemptedValue');
+    const shown=captured.filter(message=>message.type==='game_state_update'&&message.payload.spellingItemOpened);
+    expect(shown).toHaveLength(1);
+    expect(shown[0].payload).toMatchObject({itemId:'frozen-light',launchToken:'visual-launch',practiceCapture:true,answerVisibility:'visible'});
+    expect(captured.indexOf(shown[0])).toBeLessThan(captured.indexOf(attempts[0]));
     const completion = captured.find((message) => message.type === "node_complete");
     expect(completion).toMatchObject({
       completed: true,

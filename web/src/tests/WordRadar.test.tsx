@@ -56,6 +56,15 @@ describe("WordRadar", () => {
     cleanup();
   });
 
+  it("reports a captured practice answer without entering assessment mode", async () => {
+    const onAssessmentAttempt=vi.fn();
+    const {props,rerender}=renderRadar({practiceCapture:true,onAssessmentAttempt,items:[{itemId:"i1",display:"sun",acceptedResponses:["sun"]}]});
+    await startRadar();
+    rerender(<WordRadar {...props} interimTranscript="sun" />);
+    await act(async()=>{await Promise.resolve();});
+    expect(onAssessmentAttempt).toHaveBeenCalledWith(expect.objectContaining({itemIndex:0,attemptedValue:"sun",skipped:false}));
+  });
+
   it("autoStart=true skips intro and moves to flash without a button click", async () => {
     renderRadar({ autoStart: true });
     await act(async () => {
@@ -80,6 +89,16 @@ describe("WordRadar", () => {
     renderRadar({ inputMode: "letter-by-letter", voiceCaptureAvailable: false });
     expect(screen.getByTestId("word-radar-mode-label").textContent).toContain("Type the word");
     await startRadar();
+    expect(screen.getByTestId("word-radar-keyboard")).toBeTruthy();
+    expect(screen.getByRole("textbox", { name: "Type the word" })).toBeTruthy();
+  });
+
+  it("keeps an on-screen letter fallback available when spoken letters are not captured", async () => {
+    // Human catch: Ila spoke each letter, but no transcript reached Word Radar,
+    // leaving empty tiles and no way to continue despite a healthy connection log.
+    renderRadar({ inputMode: "letter-by-letter", voiceCaptureAvailable: true });
+    await startRadar();
+
     expect(screen.getByTestId("word-radar-keyboard")).toBeTruthy();
     expect(screen.getByRole("textbox", { name: "Type the word" })).toBeTruthy();
   });
@@ -208,6 +227,7 @@ describe("WordRadar", () => {
           wordRadarConfig,
           target: "sun",
           phase: "response",
+          speechCaptureArmed: true,
           visibleState: expect.objectContaining({
             wordVisible: false,
             slotsVisible: true,
@@ -999,6 +1019,22 @@ describe("WordRadar", () => {
     expect(tiles).toHaveLength(3);
     expect(tiles.map((node) => node.textContent)).toEqual(["", "", ""]);
     expect(tiles[0]).toHaveStyle({ minWidth: "44px", minHeight: "60px" });
+  });
+
+  it("keeps an on-screen response path for a legacy partial-recall whole-word node", async () => {
+    renderRadar({
+      recallMode: "partial_visual_recall",
+      inputMode: "whole-word",
+      speakStyle: "option-a",
+      hideWordDuringResponse: true,
+      requiresCapturedResponse: true,
+      voiceCaptureAvailable: true,
+      timerSeconds: 10,
+    });
+    await startRadar();
+
+    expect(screen.getByTestId("word-radar-keyboard")).toBeInTheDocument();
+    expect(screen.getByTestId("word-radar-input")).toBeEnabled();
   });
 
   it("letter tiles rendered during response when speakStyle=option-a", async () => {

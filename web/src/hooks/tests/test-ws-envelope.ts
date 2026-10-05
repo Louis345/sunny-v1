@@ -274,6 +274,28 @@ describe("WS envelope vs canvas payload type", () => {
     expect(result.current.state.error).toBe("Microphone access denied");
   });
 
+  it("fails visibly when the browser microphone request never settles", async () => {
+    // Human-caught invariant: Saori and Ila spoke while Elli and Word Radar
+    // remained silent. macOS and Chrome both reported microphone permission,
+    // but getUserMedia never resolved. The prior lab only covered resolve and
+    // reject, so Sunny could advertise a ready session forever in this third
+    // browser state.
+    vi.stubEnv("VITE_SUNNY_RUNTIME_CONFIG", JSON.stringify({ subject: "homework", childId: "ila", homeworkDomain: "spelling", sessionMode: "real", previewMode: "off", voiceMode: "normal" }));
+    vi.mocked(navigator.mediaDevices.getUserMedia).mockImplementation(
+      () => new Promise<MediaStream>(() => {}),
+    );
+    vi.useFakeTimers();
+    const { result } = renderHook(() => useSession());
+
+    act(() => result.current.startSession("ila", { homeworkId: "hw-spelling-1" }));
+    await act(async () => { await vi.advanceTimersByTimeAsync(6_000); });
+
+    expect(result.current.state.microphoneAvailable).toBe(false);
+    expect(result.current.state.warning).toBe(
+      "The microphone did not start. Use the on-screen controls or reload Sunny.",
+    );
+  });
+
   it("turns sustained silent microphone frames into a visible recovery message and one logged diagnostic", async () => {
     // Human caught this by speaking and hearing no response. The old lab only
     // asserted stream creation and packet flow, so a silent virtual input passed.
@@ -304,7 +326,7 @@ describe("WS envelope vs canvas payload type", () => {
     expect(statuses.filter((message) => message.event === "silent_input")).toHaveLength(1);
   });
 
-  it("clears Sunny's silent-input warning when the selected microphone produces audio", async () => {
+  it("clears Sunny's silent-input warning when audible speech reaches recognition", async () => {
     vi.useFakeTimers();
     const { result } = renderHook(() => useSession());
     act(() => result.current.startSession("ila"));
@@ -328,6 +350,9 @@ describe("WS envelope vs canvas payload type", () => {
       for (let frame = 0; frame < 3; frame += 1) {
         micProcessor?.onaudioprocess?.(audibleFrame);
       }
+      wsInstances[0]!.onmessage?.({
+        data: JSON.stringify({ type: "interim", text: "hello sunny" }),
+      } as MessageEvent);
     });
 
     expect(result.current.state.warning).toBeNull();
@@ -335,6 +360,43 @@ describe("WS envelope vs canvas payload type", () => {
       .map(([raw]) => JSON.parse(String(raw)))
       .filter((message) => message.type === "client_audio_status");
     expect(statuses.filter((message) => message.event === "input_detected")).toHaveLength(1);
+  });
+
+  it("does not declare voice ready until audible input becomes recognized speech", async () => {
+    // Human catch (Saori kiosk, 2026-10-04): Chrome opened a stream, but Elli
+    // heard nothing and "Bye Sunny" could not dismiss her. The old lab injected
+    // transcripts directly or treated getUserMedia success as hearing proof.
+    vi.useFakeTimers();
+    const { result } = renderHook(() => useSession());
+    act(() => result.current.startSession("ila"));
+    await act(async () => { await vi.advanceTimersByTimeAsync(150); });
+
+    expect(result.current.state.microphoneAvailable).toBeNull();
+    expect(result.current.state.warning).toMatch(
+      /use your mac.*speakers.*macbook air microphone.*say hello/i,
+    );
+
+    const audibleSamples = new Float32Array(4096).fill(0.05);
+    const audibleFrame = {
+      inputBuffer: { getChannelData: () => audibleSamples },
+    } as unknown as AudioProcessingEvent;
+    act(() => {
+      for (let frame = 0; frame < 3; frame += 1) {
+        micProcessor?.onaudioprocess?.(audibleFrame);
+      }
+    });
+
+    expect(result.current.state.microphoneAvailable).toBeNull();
+    expect(result.current.state.warning).toMatch(/say hello/i);
+
+    act(() => {
+      wsInstances[0]!.onmessage?.({
+        data: JSON.stringify({ type: "interim", text: "hello sunny" }),
+      } as MessageEvent);
+    });
+
+    expect(result.current.state.microphoneAvailable).toBe(true);
+    expect(result.current.state.warning).toBeNull();
   });
 
   it("does not mistake a quiet built-in microphone for a broken input", async () => {
@@ -361,7 +423,7 @@ describe("WS envelope vs canvas payload type", () => {
       }
     });
 
-    expect(result.current.state.warning).toBeNull();
+    expect(result.current.state.warning).toMatch(/audio check/i);
     const statuses = wsInstances[0]!.send.mock.calls
       .map(([raw]) => JSON.parse(String(raw)))
       .filter((message) => message.type === "client_audio_status");

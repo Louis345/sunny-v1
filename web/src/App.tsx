@@ -99,6 +99,7 @@ import { useChildExperiencePacket } from "./hooks/useChildExperiencePacket";
 import { useAdaptiveMathGenerationRefresh } from "./hooks/useAdaptiveMathGenerationRefresh";
 import { DiscoveryCompletionChapter } from "./components/DiscoveryCompletionChapter";
 import { LearningPreparationStatus } from "./components/LearningPreparationStatus";
+import { resolvePreparationSurface, useAppAdventurePreparation } from "./components/AdventurePreparation/useAppAdventurePreparation";
 import {
   CompanionCareProvider,
   useCompanionCare,
@@ -611,6 +612,7 @@ function App() {
   const [locallyCompletedPlannerNodeIds, setLocallyCompletedPlannerNodeIds] = useState<string[]>([]);
   const [generatedMathSoundMuted, setGeneratedMathSoundMuted] = useState(false);
   const plannerBoardIframeCompletionKeyRef = useRef<string | null>(null);
+  const pendingPlannerBoardLaunchRef = useRef<{node:NodeConfig;replayNonce:number}|null>(null);
   const [sessionReady, setSessionReady] = useState(false);
   const [homeworkFinishedForNow, setHomeworkFinishedForNow] = useState(false);
   const homeworkSessionFinished = homeworkFinishedForNow || state.phase === "ended";
@@ -767,10 +769,12 @@ function App() {
   const targetedBoardHeldForPreparation = shouldHoldTargetedBoardForPreparation(plannerBoardPacket);
   const targetedMathGenerationPending = hasPendingLearningGeneration(plannerBoardPacket, effectiveDiscoveryCompletionHandoff === "targeted-planning")
     || targetedBoardHeldForPreparation;
+  const preparationSurface = resolvePreparationSurface({ packet: plannerBoardPacket, directDiscoveryMode, handoff: effectiveDiscoveryCompletionHandoff, held: targetedBoardHeldForPreparation, preview: parentPreviewActive });
   const generationProgress = useAdaptiveMathGenerationRefresh({
     childId: adventureChildId,
     homeworkId: plannerBoardPacket?.activeSessionPlan?.activeHomeworkId,
     enabled: targetedMathGenerationPending && !parentPreviewActive && !homeworkSessionFinished,
+    intervalMs: preparationSurface ? 10_000 : undefined,
     onStatusChanged: refreshPlannerBoardPacket,
   });
   const finishHomeworkSession = useCallback(() => {
@@ -779,6 +783,13 @@ function App() {
     endSession();
     console.log(" 🎮 [homework-session] [finish-for-now] [resting]");
   }, [endSession]);
+  const preparation = useAppAdventurePreparation({
+    surface: preparationSurface, packet: plannerBoardPacket, childId: adventureChildId,
+    homeworkId: plannerBoardPacket?.activeSessionPlan?.activeHomeworkId, status: generationProgress.status,
+    finished: homeworkSessionFinished, checkNow: generationProgress.checkNow, onFinish: finishHomeworkSession, sendMessage,
+  });
+  // While it is up, only the preparation UI and Elli's portrait show.
+  const preparationScreenActive = preparation.screen != null;
 
   const [vrrCelebrateEvent, setVrrCelebrateEvent] =
     useState<CompanionEventPayload | null>(null);
@@ -1020,11 +1031,15 @@ function App() {
   }, []);
 
   const closePlannerBoardLaunch = useCallback(() => {
+    if (plannerBoardLaunch) sendMessage("game_event", {event:{type:"game_state_update",version:"1.0",payload:{
+      phase: "closed", nodeId: plannerBoardLaunch.node.id, launchToken: plannerBoardLaunch.completionId,
+    }}});
+    pendingPlannerBoardLaunchRef.current = null;
     setPlannerBoardLaunch(null);
     setPostActivityEngagement(null);
     plannerBoardIframeCompletionKeyRef.current = null;
     setCompanionPresence("collapsed");
-  }, [setCompanionPresence]);
+  }, [plannerBoardLaunch, sendMessage, setCompanionPresence]);
 
   useEffect(() => {
     setPlannerBoardLaunch(null);
@@ -1032,10 +1047,16 @@ function App() {
     setLocallyCompletedPlannerNodeIds([]);
     setDiscoveryCompletionHandoff(null);
     discoveryCompletionCoordinatorRef.current = new DiscoveryAcademicCompletionCoordinator();
+    pendingPlannerBoardLaunchRef.current = null;
   }, [plannerBoardSessionScope]);
 
   const launchPlannerBoardNode = useCallback(
     (node: NodeConfig, replayNonce = 0) => {
+      if (!mapPreviewMode && !parentPreviewActive && !state.voiceSessionId) {
+        pendingPlannerBoardLaunchRef.current = {node,replayNonce};
+        console.log(" 🎮 [AdventureBoard] [launch] [waiting-for-session]", {nodeId:node.id});
+        return true;
+      }
       const companionConfig =
         plannerBoardPacket?.childChart.companion.config ?? effectiveCompanion;
       const companionId =
@@ -1082,7 +1103,8 @@ function App() {
         });
         return false;
       }
-      const companionContext = buildPlannerBoardCompanionContext(node);
+      const completionId = createBrowserRequestId();
+      const companionContext = {...buildPlannerBoardCompanionContext(node),launchToken:completionId};
       sendMessage("game_event", {
         event: {
           type: "game_state_update",
@@ -1096,9 +1118,9 @@ function App() {
       setCompanionPresence("collapsed");
       setPlannerBoardLaunch({
         node,
-        iframeUrl: action.kind === "iframe" ? action.url : null,
+        iframeUrl: action.kind === "iframe" ? `${action.url}${action.url.includes("?") ? "&" : "?"}launchToken=${encodeURIComponent(completionId)}` : null,
         replayNonce,
-        completionId: createBrowserRequestId(),
+        completionId,
       });
       return true;
     },
@@ -1110,9 +1132,20 @@ function App() {
       profileCompanionCurrency,
       profileDyslexiaMode,
       sendMessage,
+      state.voiceSessionId,
+      mapPreviewMode,
+      parentPreviewActive,
       setCompanionPresence,
     ],
   );
+
+  useEffect(() => {
+    if (!state.voiceSessionId || !pendingPlannerBoardLaunchRef.current) return;
+    const pending = pendingPlannerBoardLaunchRef.current;
+    // One queued launch; consume before dispatch so rerenders cannot launch twice.
+    pendingPlannerBoardLaunchRef.current = null;
+    launchPlannerBoardNode(pending.node,pending.replayNonce);
+  }, [state.voiceSessionId,launchPlannerBoardNode]);
 
   const directDiscoveryAutoLaunchRef = useRef<string | null>(null);
   useEffect(() => {
@@ -1199,7 +1232,7 @@ function App() {
         choiceSet,
         option,
       );
-      void postAdventureBoardChoiceEvent(choiceEvent, { preview: mapPreviewMode })
+      const choiceRecorded = postAdventureBoardChoiceEvent(choiceEvent, { preview: mapPreviewMode })
         .then((out) => {
           console.log(" 🎮 [AdventureBoard] choice_event", {
             childId: adventureChildId,
@@ -1210,6 +1243,7 @@ function App() {
             skippedPersistence: out.skippedPersistence,
           });
           if (out.applied && !out.skippedPersistence) void refreshPlannerBoardPacket();
+          return out;
         })
         .catch((err: unknown) => {
           console.warn(" 🎮 [AdventureBoard] choice_event_failed", {
@@ -1217,6 +1251,7 @@ function App() {
             choiceSetId: choiceEvent.choiceSetId,
             error: err instanceof Error ? err.message : String(err),
           });
+          return null;
         });
       const generatedChoiceRequest = buildAdventureBoardGeneratedChoiceRequest(
         plannerBoardPacket,
@@ -1271,7 +1306,18 @@ function App() {
         });
         return;
       }
-      launchPlannerBoardNode(launchNode);
+      if (choiceEvent.context === "baseline_route") {
+        // Route selection makes its node launchable; commit it before sending the launch.
+        void choiceRecorded.then(out => {
+          const selected = choiceEvent.shownOptions.find(candidate => candidate.optionId === choiceEvent.selectedOptionId);
+          const expectedRoute = selected?.experimentId ?? choiceEvent.selectedOptionId;
+          if (out?.ok && (out.skippedPersistence || out.selectedRouteId === expectedRoute)) {
+            launchPlannerBoardNode(launchNode);
+          } else {
+            console.warn(" 🎮 [AdventureBoard] [route-launch] [not-confirmed]", { error: out?.error, expectedRoute });
+          }
+        }).catch(error => console.error(" 🎮 [AdventureBoard] [route-launch] [failed]", error));
+      } else launchPlannerBoardNode(launchNode);
     },
     [adventureChildId, launchPlannerBoardNode, mapPreviewMode, plannerBoardPacket, refreshPlannerBoardPacket],
   );
@@ -1340,11 +1386,11 @@ function App() {
   const handleSpellingDiscoveryAttempt = useCallback((response: { itemIndex: number; attemptedValue: string; skipped: boolean; observedAt: string }) => {
     const itemId = plannerBoardLaunch?.node.wordRadarItems?.[response.itemIndex]?.itemId;
     const homeworkId = plannerBoardPacket?.childChart.learningCycle?.homeworkId;
-    if (!(directDiscoveryMode || plannerBoardLaunch?.node.spellingAssessment) || !itemId || !homeworkId || !adventureChildId) {
+    if (!(directDiscoveryMode || plannerBoardLaunch?.node.spellingAssessment || plannerBoardPacket?.activeSessionPlan?.domain === "spelling") || !itemId || !homeworkId || !adventureChildId) {
       console.error(" 🎮 [spelling-discovery] [attempt] [missing-provenance]");
       return;
     }
-    const attempt = discoveryCompletionCoordinatorRef.current.prepareAttempt({ ...response, itemId, attemptId: createBrowserRequestId() });
+    const attempt = discoveryCompletionCoordinatorRef.current.prepareAttempt({ ...response, itemId, launchToken:plannerBoardLaunch?.completionId, attemptId: createBrowserRequestId() });
     void discoveryCompletionCoordinatorRef.current.recordAttempt(() => postDiscoveryAttempt({ childId: adventureChildId, homeworkId, sessionId: state.voiceSessionId, attempt })).catch(error => {
       console.error(" 🎮 [spelling-discovery] [attempt] [retry-needed]", error);
     });
@@ -1519,7 +1565,7 @@ function App() {
       if (!adventureChildId) throw new Error("canonical_completion_missing_child");
       await discoveryCompletionCoordinatorRef.current.flushForExit();
       return hasCanonicalLearningCycle(plannerBoardPacket) && homeworkId
-        ? postCanonicalNodeCompletion({ childId: adventureChildId, homeworkId, nodeId: launch.node.id, completionId: launch.completionId, result: payload })
+        ? postCanonicalNodeCompletion({ childId: adventureChildId, homeworkId, nodeId: launch.node.id, completionId: launch.completionId, result: {...payload,launchToken:launch.completionId,voiceSessionId:state.voiceSessionId} })
         : null;
     };
     void write().then(async completion => {
@@ -1535,7 +1581,7 @@ function App() {
       console.error(" 🎮 [AdventureBoard] canonical_completion_failed", error);
       setPostActivityEngagement({ node: launch.node, outcome: { completed: false }, title: "Progress could not be saved", stats: [], canTryHarder: false });
     });
-  }, [adventureChildId, plannerBoardLaunch, plannerBoardPacket, refreshPlannerBoardPacket, showPlannerBoardEngagementOverlay]);
+  }, [adventureChildId, plannerBoardLaunch, plannerBoardPacket, refreshPlannerBoardPacket, showPlannerBoardEngagementOverlay, state.voiceSessionId]);
 
   const handlePlannerBoardPostActivityAction = useCallback(
     (action: PostActivityAction) => {
@@ -1978,7 +2024,7 @@ function App() {
       );
     } else if (plannerBoardPacket) {
       main = directDiscoveryMode ? (
-        effectiveDiscoveryCompletionHandoff ? (
+        effectiveDiscoveryCompletionHandoff ? preparation.screen ?? (
           <div className="flex h-screen w-screen items-center justify-center bg-zinc-950 p-6">
             <DiscoveryCompletionChapter
               preview={effectiveDiscoveryCompletionHandoff === "preview-complete"}
@@ -2005,7 +2051,7 @@ function App() {
         ) : (
           <div className="w-screen h-screen overflow-hidden relative bg-zinc-950" />
         )
-      ) : targetedBoardHeldForPreparation ? (
+      ) : preparation.screen ? preparation.screen : targetedBoardHeldForPreparation ? (
         <div className="flex h-screen w-screen items-center justify-center bg-zinc-950 p-6">
           <div className="w-full max-w-lg"><LearningPreparationStatus {...generationProgress} onCheck={generationProgress.checkNow} onFinish={finishHomeworkSession}/></div>
         </div>
@@ -2127,6 +2173,7 @@ function App() {
     plannerBoardLaunch == null &&
     !homeworkSessionFinished;
   const companionPortraitMode =
+    preparationScreenActive ||
     boardMapCompanionCompact ||
     karaokeReadingActive ||
     diagFlowGameOpen != null ||
@@ -2201,11 +2248,12 @@ function App() {
           !directDiscoveryMode &&
           !targetedMathGenerationPending &&
           plannerBoardLaunch == null &&
-          !homeworkSessionFinished
+          !homeworkSessionFinished &&
+          !preparationScreenActive
         }
       />
       <CompanionEconomyControls
-        visible={homeworkBoardMode && !homeworkSessionFinished && plannerBoardLaunch == null}
+        visible={homeworkBoardMode && !homeworkSessionFinished && plannerBoardLaunch == null && !preparationScreenActive}
         companionName={
           plannerBoardPacket?.childChart.companion.displayName ??
           (effectiveCompanion?.companionId
@@ -2258,7 +2306,7 @@ function App() {
         companionCommands={mergedCompanionCommands}
         activeNodeScreen={activeNodeScreen}
         analyserNodeRef={analyserNodeRef}
-        speechBubbleText={companionBubbleText}
+        speechBubbleText={preparationScreenActive ? null : companionBubbleText}
         micMuted={companionSpeechMuted || voiceGameCompanionSpeechMuted}
         muteControlKind="companion"
         onToggleMute={toggleCompanionSpeechMute}
@@ -2331,7 +2379,7 @@ function App() {
             }
             showKeyboard={profileWordRadar?.showKeyboard ?? false}
             inputMode={profileWordRadar?.inputMode}
-            voiceCaptureAvailable={state.microphoneAvailable !== false}
+            voiceCaptureAvailable={state.microphoneAvailable === true}
             personalBests={profileWordRadar?.personalBests ?? {}}
             childId={activeProfileChildId ?? ""}
             onComplete={(result) => {
@@ -2346,6 +2394,7 @@ function App() {
           <WordRadar
             key={`${plannerBoardLaunch.node.id}:${plannerBoardLaunch.replayNonce}`}
             assessmentMode={directDiscoveryMode || plannerBoardLaunch.node.spellingAssessment === true}
+            practiceCapture={plannerBoardPacket?.activeSessionPlan?.domain === "spelling" && !directDiscoveryMode && plannerBoardLaunch.node.spellingAssessment !== true}
             onAssessmentAttempt={handleSpellingDiscoveryAttempt}
             autoStart={directDiscoveryMode || plannerBoardLaunch.node.spellingAssessment ? sessionReady : undefined}
             items={
@@ -2367,7 +2416,7 @@ function App() {
               plannerBoardLaunch.node.wordRadarConfig?.inputMode === "keyboard"
             }
             inputMode={plannerBoardLaunch.node.wordRadarConfig?.inputMode}
-            voiceCaptureAvailable={state.microphoneAvailable !== false}
+            voiceCaptureAvailable={state.microphoneAvailable === true}
             speakStyle={plannerBoardLaunch.node.wordRadarConfig?.speakStyle}
             recallMode={plannerBoardLaunch.node.wordRadarConfig?.recallMode}
             hideWordDuringResponse={
@@ -2376,6 +2425,7 @@ function App() {
             requiresCapturedResponse={
               plannerBoardLaunch.node.wordRadarConfig?.requiresCapturedResponse
             }
+            launchToken={plannerBoardLaunch.completionId}
             nodeId={plannerBoardLaunch.node.id}
             planId={plannerBoardLaunch.node.planId}
             targetLane={plannerBoardLaunch.node.targetLane}

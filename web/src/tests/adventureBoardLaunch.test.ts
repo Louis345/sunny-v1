@@ -364,8 +364,8 @@ describe("direct Discovery entry", () => {
       source.indexOf("} else if (plannerBoardPacket) {"),
       source.indexOf("} else if (plannerBoardPacketState.loading)"),
     );
-    expect(branch).toContain(") : targetedBoardHeldForPreparation ? (");
-    expect(branch.indexOf("targetedBoardHeldForPreparation"))
+    expect(branch).toContain(" targetedBoardHeldForPreparation ? (");
+    expect(branch.indexOf("targetedBoardHeldForPreparation ? ("))
       .toBeLessThan(branch.indexOf("<AdventureBoardExperience"));
   });
 
@@ -387,12 +387,17 @@ describe("direct Discovery entry", () => {
     );
   });
 
-  it("ends Discovery with a closing chapter instead of child-visible generation progress", () => {
+  // 2026-09-30 a child met the operational status panel as her session's ending.
+  // 2026-10-05 the parent approved a designed alternative: spelling Discovery ends on
+  // the child-facing preparation chapter (her words, the stepper filling from real
+  // status, Elli speaking, "Stop for now" / "Bye for now"), never the operational panel.
+  it("ends Discovery on the designed preparation chapter, never the operational status panel", () => {
     const source = readFileSync(resolve(process.cwd(), "src/App.tsx"), "utf8");
     const discoveryBranchStart = source.indexOf("main = directDiscoveryMode ? (");
-    const discoveryBranchEnd = source.indexOf(") : targetedBoardHeldForPreparation ? (", discoveryBranchStart);
+    const discoveryBranchEnd = source.indexOf("targetedBoardHeldForPreparation ? (", discoveryBranchStart);
     const discoveryBranch = source.slice(discoveryBranchStart, discoveryBranchEnd);
 
+    expect(discoveryBranch).toContain("effectiveDiscoveryCompletionHandoff ? preparation.screen ?? (");
     expect(discoveryBranch).toContain("<DiscoveryCompletionChapter");
     expect(discoveryBranch).not.toContain("<LearningPreparationStatus");
   });
@@ -462,4 +467,11 @@ describe("direct Discovery entry", () => {
     })).resolves.toEqual({});
     expect(completionCalls).toBe(1);
   });
+});
+
+it('notifies the server when the host closes a board launch with its exact token',()=>{
+ const source=readFileSync(resolve(process.cwd(),'src/App.tsx'),'utf8');
+ const close=source.slice(source.indexOf('const closePlannerBoardLaunch ='),source.indexOf('const launchPlannerBoardNode ='));
+ expect(close).toContain('phase: "closed"');
+ expect(close).toContain('launchToken: plannerBoardLaunch.completionId');
 });

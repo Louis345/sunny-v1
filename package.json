@@ -130,8 +130,7 @@
     "test:math-release": "vitest run src/scripts/adaptiveMathBrowserAcceptance.test.ts",
     "test:math-release:parent": "SUNNY_MATH_PARENT_ACCEPTANCE=1 vitest run src/scripts/adaptiveMathBrowserAcceptance.test.ts",
     "chart:export": "tsx src/chart/cli/export.ts",
-    "chart:snapshot": "tsx src/chart/cli/snapshot.ts",
-    "sunny:spelling:chart": "tsx src/scripts/chartSpellingLaunch.ts"
+    "chart:snapshot": "tsx src/chart/cli/snapshot.ts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.58",

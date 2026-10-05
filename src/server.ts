@@ -11,11 +11,6 @@ import { handleWsConnection } from "./server/ws-handler";
 import { openKioskCharts } from "./chart/kioskLifecycle";
 import { endActiveVoiceSessions } from "./server/voice-session-registry";
 
-import { setupChartSpellingRoutes } from './server/chartSpellingRoutes';
-import { setupKioskHealthRoutes } from './server/kioskHealthRoutes';
-import { spellingVoice } from './chart/spelling/voice';
-import { spellingPlanner } from './chart/spelling/provider';
-const spellingChart = process.env.SUNNY_SPELLING_CHART === '1';
 const PORT = parseInt(process.env.PORT || "3001", 10);
 const isKiosk = process.argv.includes("--kiosk");
 const serveStatic = process.argv.includes("--serve-static");
@@ -23,17 +18,11 @@ const serveStatic = process.argv.includes("--serve-static");
 // Validate/open the declared charts before accepting any HTTP or kiosk traffic.
 const charts = openKioskCharts(process.env, undefined, isKiosk);
 const app = express();
-if (!spellingChart) app.use(cors());
+app.use(cors());
 app.use(express.json({ limit: "18mb" }));
 
-app.get("/api/chart/status", (_req, res) => res.json({...charts.status(), learningEventsConnected: spellingChart && charts.status().connection === "open"}));
-if (spellingChart) {
-  if (charts.status().connection !== 'open') throw new Error('spelling_chart_requires_persistent_connection');
-  setupKioskHealthRoutes(app);
-  setupChartSpellingRoutes(app, {children: charts.status().children, get: charts.get, token: process.env.SUNNY_KIOSK_TOKEN || '', provider: spellingPlanner, voice: spellingVoice});
-  console.log(' 🎮 [spelling-chart] [routes] [connected] legacy_learning=disabled');
-  app.get('/', (req,res) => res.redirect(302, '/spelling' + (req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '')));
-} else setupRoutes(app);
+app.get("/api/chart/status", (_req, res) => res.json({...charts.status(), learningEventsConnected: charts.status().connection === "open"}));
+setupRoutes(app);
 
 // Without the built SPA, `web/public` has no index.html — send `/` straight to the world PoC.
 if (!serveStatic) {
@@ -58,8 +47,7 @@ const httpServer = createServer(app);
 const wss = new WebSocketServer({ server: httpServer, path: "/ws" });
 
 wss.on("connection", (ws, req) => {
-  if (spellingChart) ws.close(1008, 'chart_spelling_uses_http');
-  else handleWsConnection(ws, req);
+  handleWsConnection(ws, req);
 });
 
 httpServer.listen(PORT, () => {

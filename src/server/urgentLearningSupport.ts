@@ -318,7 +318,6 @@ export function routeCompanionPresenceTranscript(input: {
   companionName: string;
   speechCaptureArmed?: boolean;
 }): CompanionPresenceTranscriptRoute {
-  if (input.speechCaptureArmed) return { action: "route_to_game" };
   const text = normalizeSpeechText(input.transcript);
   if (!text) return { action: "ignore_ambient" };
   const aliases = [...new Set(["sunny", "elli", "ellie", input.companionName]
@@ -327,7 +326,7 @@ export function routeCompanionPresenceTranscript(input: {
   const aliasPattern = aliases.map(escapeRegExp).join("|");
   const aliasToken = `(?:${aliasPattern})`;
   const repeatedFarewell = `(?:bye|goodbye)(?:\\s+${aliasToken})?(?:\\s+(?:bye|goodbye)(?:\\s+${aliasToken})?)*`;
-  const shortRecognizedFarewell = /^(?:(?:alright|okay|ok)\s+)?(?:bye|goodbye)(?:\s+\S+)?$/i;
+  const shortRecognizedFarewell = /^(?:(?:alright|okay|ok|k)\s+)?(?:bye|goodbye)(?:\s+\S+)?$/i;
   const dismissal = new RegExp(
     `^(?:${repeatedFarewell}|(?:dismiss|go away|im good|i am good)(?:\\s+${aliasToken})?)$`,
     "i",
@@ -338,6 +337,7 @@ export function routeCompanionPresenceTranscript(input: {
   ) {
     return { action: "dismiss" };
   }
+  if (input.speechCaptureArmed) return { action: "route_to_game" };
   const wake = new RegExp(
     `^(?:(?:hey|hi|okay|ok)\\s+)?(?:${aliasPattern})(?:\\b|$)`,
     "i",

@@ -77,6 +77,8 @@ export interface WordRadarResult {
 }
 
 export interface WordRadarProps {
+  practiceCapture?:boolean;
+  launchToken?:string;
   assessmentMode?: boolean;
   onAssessmentAttempt?: (attempt: { itemIndex: number; attemptedValue: string; skipped: boolean; observedAt: string }) => void;
   items: RadarItem[];
@@ -137,7 +139,10 @@ function wordRadarModeCopy(
     return { label: "Type the word", helper: "Use the keyboard to answer." };
   }
   if (mode === "letter-by-letter") {
-    return { label: "Spell it out loud", helper: "Say one letter at a time." };
+    return {
+      label: "Spell it out loud or tap",
+      helper: "Say one letter at a time, or tap the letters below.",
+    };
   }
   if (recallMode === "visible_read") {
     return { label: "Read it on screen", helper: "Say the word while you can see it." };
@@ -330,6 +335,8 @@ export function WordRadar({
   planId,
   targetLane,
   wordRadarConfig,
+  practiceCapture = false,
+  launchToken,
   assessmentMode = false,
   onAssessmentAttempt,
 }: WordRadarProps): React.ReactElement {
@@ -360,6 +367,14 @@ export function WordRadar({
       : effectiveSpeakStyle === "option-b"
         ? "hidden_word_recall"
         : "partial_visual_recall";
+  const keyboardFallbackEnabled =
+    showKeyboard ||
+    resolvedInputMode === "letter-by-letter" ||
+    (
+      inputMode === "whole-word" &&
+      effectiveRecallMode === "partial_visual_recall" &&
+      requiresCapturedResponse
+    );
   const effectiveHideWordDuringResponse =
     assessmentMode || (hideWordDuringResponse ?? effectiveRecallMode !== "visible_read");
   const hiddenDuringSpeech = effectiveSpeakStyle === "option-b";
@@ -389,13 +404,15 @@ export function WordRadar({
   const wordRadarTelemetry = useMemo(
     () => ({
       activityId: "word-radar",
+      ...(practiceCapture ? {practiceCapture:true} : {}),
+      ...(launchToken ? {launchToken} : {}),
       ...(assessmentMode ? { assessmentMode: true } : {}),
       ...(nodeId ? { nodeId } : {}),
       ...(planId ? { planId } : {}),
       ...(targetLane ? { targetLane } : {}),
       wordRadarConfig: resolvedWordRadarConfig,
     }),
-    [assessmentMode, nodeId, planId, resolvedWordRadarConfig, targetLane],
+    [assessmentMode, practiceCapture, launchToken, nodeId, planId, resolvedWordRadarConfig, targetLane],
   );
   const responseAnswerVisibility =
     effectiveHideWordDuringResponse && effectiveRecallMode !== "visible_read"
@@ -404,11 +421,15 @@ export function WordRadar({
 
   const handleWordRadarEvent = useCallback(
     (event: WordRadarGameEvent) => {
-      if (assessmentMode) {
-        if ((event.type === "correct" || event.type === "incorrect" || event.type === "timeout") && event.item) {
-          onAssessmentAttempt?.({ itemIndex: event.itemIndex ?? 0, attemptedValue: event.typedResponse ?? "", skipped: event.skipped === true || event.reason === "skip", observedAt: new Date().toISOString() });
-        }
+      if(event.type==='engagement' && event.item){
+        flowEvents.reportState('Word Radar input measurement.',{...wordRadarTelemetry,itemId:event.item.itemId,phase:'response',answerVisibility:responseAnswerVisibility,engagement:{id:crypto.randomUUID(),metric:event.metric,value:event.value}});
         return;
+      }
+      if (assessmentMode || practiceCapture) {
+        if ((event.type === "correct" || event.type === "incorrect" || event.type === "timeout") && event.item && (assessmentMode || event.typedResponse !== undefined || event.heardTranscript !== undefined || event.skipped === true || event.reason === "skip")) {
+          onAssessmentAttempt?.({ itemIndex: event.itemIndex ?? 0, attemptedValue: event.typedResponse ?? event.heardTranscript ?? "", skipped: event.skipped === true || event.reason === "skip", observedAt: new Date().toISOString() });
+        }
+        if(assessmentMode)return;
       }
       if (event.type === "ready") {
         flowEvents.reportState("Word Radar intro ready.");
@@ -436,13 +457,15 @@ export function WordRadar({
         });
         return;
       }
-      if ((event.type === "correct" || event.type === "incorrect" || event.type === "timeout") && event.item) {
+      if ((event.type === "correct" || event.type === "incorrect" || event.type === "timeout") && event.item && (assessmentMode || event.typedResponse !== undefined || event.heardTranscript !== undefined || event.skipped === true || event.reason === "skip")) {
         const correct = event.type === "correct";
         const attemptedValue = event.typedResponse ?? event.heardTranscript ?? event.heardToken;
         flowEvents.reportAttempt({
           ...wordRadarTelemetry,
           game: "word-radar",
           activityId: "word-radar",
+      ...(practiceCapture ? {practiceCapture:true} : {}),
+      ...(launchToken ? {launchToken} : {}),
           domain: wordRadarAttemptDomain(event.item),
           target: event.item.itemId ?? event.item.display,
           itemIndex: event.itemIndex,
@@ -499,6 +522,8 @@ export function WordRadar({
             target: event.item.display,
             currentTarget: event.item.display,
             activityId: "word-radar",
+      ...(practiceCapture ? {practiceCapture:true} : {}),
+      ...(launchToken ? {launchToken} : {}),
             phase: "attempt_resolved",
             inputMode: resolvedInputMode,
             recallMode: effectiveRecallMode,
@@ -531,6 +556,7 @@ export function WordRadar({
     [
       assessmentMode,
       onAssessmentAttempt,
+      practiceCapture,
       effectiveHideWordDuringResponse,
       effectiveRecallMode,
       effectiveSpeakStyle,
@@ -623,7 +649,7 @@ export function WordRadar({
     interimTranscript,
     timerSeconds,
     startImmediately: false,
-    showKeyboard,
+    showKeyboard: keyboardFallbackEnabled,
     inputMode: resolvedInputMode,
     speakStyle,
     keyboardStyle,
@@ -675,13 +701,14 @@ export function WordRadar({
       phase: "config_audit",
       requestedInputMode: inputMode ?? null,
       resolvedInputMode,
-      showKeyboard,
+      showKeyboard: keyboardFallbackEnabled,
       speakStyle: effectiveSpeakStyle,
       hiddenDuringSpeech,
       recallMode: effectiveRecallMode,
       hideWordDuringResponse: effectiveHideWordDuringResponse,
       requiresCapturedResponse,
-      keyboardVisible: showKeyboard || resolvedInputMode === "keyboard",
+      keyboardVisible:
+        keyboardFallbackEnabled || resolvedInputMode === "keyboard",
       targetRoleCounts: {
         homework: Math.max(0, items.length - bonusItemCount),
         bonus: bonusItemCount,
@@ -699,7 +726,7 @@ export function WordRadar({
     items.length,
     requiresCapturedResponse,
     resolvedInputMode,
-    showKeyboard,
+    keyboardFallbackEnabled,
     wordRadarTelemetry,
   ]);
 
@@ -853,7 +880,8 @@ export function WordRadar({
     (effectiveRecallMode === "hidden_word_recall" ||
       (effectiveSpeakStyle === "option-b" && resolvedInputMode !== "letter-by-letter"));
   const showTryAgainButton = hook.canTryAgain;
-  const keyboardVisible = showKeyboard || resolvedInputMode === "keyboard";
+  const keyboardVisible =
+    keyboardFallbackEnabled || resolvedInputMode === "keyboard";
   const showLengthHint =
     hook.phase === "response" && effectiveRecallMode === "partial_visual_recall";
   const currentVisibleState = useCallback(
@@ -900,6 +928,8 @@ export function WordRadar({
       itemIndex: hook.itemIndex,
       itemId: hook.currentItem.itemId,
       phase: hook.phase,
+      speechCaptureArmed:
+        hook.phase === "response" && resolvedInputMode !== "keyboard",
       answerVisibility: assessmentMode ? "hidden" : hook.phase === "response" ? responseAnswerVisibility : "visible",
       attemptCount: hook.attemptCount,
       visibleState: currentVisibleState(hook.phase),

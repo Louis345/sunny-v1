@@ -75,7 +75,7 @@ describe("SessionManager game narration", () => {
       artifactHash: "artifact-1",
       audioDelivered: false,
       supportIds: [],
-      ambiguous: false,
+      lettersVisible: false,
     };
     const fakeSession = {
       pendingGameNarrationPlayback: {
@@ -190,7 +190,7 @@ describe("SessionManager game narration", () => {
       artifactHash: "artifact-1",
       audioDelivered: false,
       supportIds: [],
-      ambiguous: false,
+      lettersVisible: false,
     };
     const fakeSession = {
       activeGameNarrationRequestId: "request-current",

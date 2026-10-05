@@ -1,6 +1,6 @@
 # Sunny Learning Feedback Loop
 
-Contract version: 28
+Contract version: 34
 
 This document is the **sole normative** authority for how Sunny forms, tests, and revises learning claims. Product changes that alter this loop must update this contract version before implementation. Other documents may describe infrastructure or history, but they must link here instead of creating another learning doctrine.
 
@@ -300,3 +300,41 @@ Planner input. No word bank, SM2 history, old cycles, scores, session notes or X
 may cross this boundary. Verification uses synthetic profiles only. Existing
 source files are retained unchanged; installation may prepare the draft, while
 confirmation belongs to the first parent testing/setup screen.
+
+## Original-kiosk spelling plumbing — authorized integration
+
+The original kiosk, board, companion and activities remain the child experience.
+The separate spelling-only UI is superseded. The approved integration records typed
+SQLite facts alongside the legacy cycle projections still needed by those screens;
+legacy projections do not override typed facts or supply invented history. The
+existing targeted-board Planner remains on its current decision path in this
+milestone. Assignment capture preserves an absent scheduled test date as explicit
+`null`; it never guesses a date. Parent-entered school results still require the
+actual test date, and forecast prospectivity continues to use that actual date.
+
+Engagement facts record a session, launched node, optional presented item, unique
+observation identity, named metric and nonnegative integer measurement. Only the
+room or system may append them. Timing, replay, erase, repeated-attempt, skip,
+help, quit and later-day-return metrics are operational observations, never
+correctness or mastery. Missing measurements are not replaced with zero.
+
+Original-kiosk presentations retain server launch ID, canonical node ID and source
+item ID as immutable provenance. Responses retain their source attempt ID for
+idempotent delivery. A response must cite a previously committed presentation;
+retry cannot replace its captured answer or move it to another item.
+
+Unmeasured per-item support is explicit null, never false or zero. Original
+instruments whose presentation support is not fully measured are practice. Raw
+answers may still be scored, but unknown support cannot establish independent
+evidence. Corrections cannot replace unknown support with an asserted absence.
+
+Parent test schedules are append-only parent facts: a usual weekday or an explicit
+assignment date (including explicit unset). An assignment exception takes precedence
+over the latest usual weekday. The default means the first chosen weekday strictly
+after the assignment ingestion calendar date (UTC); the parent page shows that
+date and offers an exception. Printed dates remain proposals. With no parent fact,
+the effective date is null. Projections retain the responsible schedule fact ID;
+new original-kiosk forecasts must cite the fact supporting their scheduled date.
+Schedule changes never rewrite a saved forecast or actual school result date.
+
+Original activity limitation facts preserve server launch provenance, captured non-spelling choices and reported aggregates separately. They explicitly state that per-word spelling responses are unavailable or the response is not a spelling answer. They never create scored word responses or independent evidence. Shown explainer chunks record exposure only when rendered, not when the node launches.

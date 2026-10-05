@@ -1,4 +1,3 @@
-import { assertLegacyLearningAuthority } from '../utils/runtimeMode';
 import fs from "fs";
 import path from "path";
 import { createHash } from "crypto";
@@ -620,7 +619,6 @@ function nowIso(opts: LearningCycleRepositoryOptions): string {
 }
 
 function cyclePath(childId: string, homeworkId: string, opts: LearningCycleRepositoryOptions): string {
-  assertLegacyLearningAuthority();
   return path.join(
     resolveChildContextDir(childId.trim().toLowerCase(), { rootDir: opts.rootDir }),
     "homework",
@@ -1404,8 +1402,8 @@ export function transitionLearningCycle(
     evidenceIds = appendOutcomeEvidence(next, event);
     appendObservations(next, event.observations);
     if (event.completed === false) {
-      node.state = "active";
-      reason = "Factual item response captured; instrument remains incomplete.";
+      if (!(replay && next.domain === "spelling")) node.state = "active";
+      reason = replay && next.domain === "spelling" ? "Replay item captured as practice; completed instrument remains closed." : "Factual item response captured; instrument remains incomplete.";
     } else {
     node.state = "completed";
     node.evidenceIds = uniqueEvidence([
@@ -1667,6 +1665,13 @@ export function projectLearningCycle(
   const nodePlan: ActiveSessionPlan["nodePlan"] = boardNodes
     .map((node) => {
     const type = nodeActivityType(node);
+    const nativeWordRadarConfig = type === "word-radar"
+      && node.evidenceContract.nativeConfig?.activityId === "word-radar"
+      && node.evidenceContract.nativeConfig.wordRadarConfig
+      && typeof node.evidenceContract.nativeConfig.wordRadarConfig === "object"
+      && !Array.isArray(node.evidenceContract.nativeConfig.wordRadarConfig)
+      ? structuredClone(node.evidenceContract.nativeConfig.wordRadarConfig) as NonNullable<ActiveSessionPlan["nodePlan"][number]["wordRadarConfig"]>
+      : undefined;
     return {
       id: node.nodeId,
       type,
@@ -1690,6 +1695,7 @@ export function projectLearningCycle(
       gameHtmlPath: node.artifactBinding?.localArtifactPath,
       date: node.artifactBinding?.localArtifactPath ? cycle.homeworkId : undefined,
       activityConfigPath: node.artifactBinding?.activityConfigPath,
+      ...(nativeWordRadarConfig ? { wordRadarConfig: nativeWordRadarConfig } : {}),
       validationProof: node.artifactBinding?.validationProof,
       thumbnailUrl: node.artwork.localPath ?? node.artifactBinding?.localArtworkPath ?? undefined,
       thumbnailPrompt: node.artwork.prompt ?? undefined,

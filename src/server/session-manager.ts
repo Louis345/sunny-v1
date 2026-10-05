@@ -1,3 +1,4 @@
+import {presentOriginalSpellingItem,withOriginalSpellingChart,recordPresentedEngagement} from '../chart/spelling/originalResponses';
 import fs from "fs";
 import path from "path";
 import { randomUUID } from "crypto";
@@ -203,6 +204,7 @@ export class SessionManager {
   public readonly chartChildId: string;
   private currentActivityState: Record<string, unknown> | null = null;
   private spellingAssessment?: gev.SpellingAssessmentState;
+  private spellingLaunch?: {homeworkId:string;nodeId:string;launchId:string;launchToken?:string};
   private spellingAssessmentHistory = new Map<string, NonNullable<SessionManager["spellingAssessment"]>>();
   private pendingSpellingAssessmentSupport = false;
   private mathDiscoverySupport?: MathDiscoverySupportState;
@@ -742,15 +744,45 @@ export class SessionManager {
   }
 
   updateCurrentBoardSnapshot(state: Record<string, unknown>): void {
-    if (state.assessmentMode === true) {
+    if (state.phase === "closed" && this.spellingLaunch
+      && state.nodeId === this.spellingLaunch.nodeId && state.launchToken === this.spellingLaunch.launchToken) {
+      this.spellingLaunch = undefined;
+      this.spellingAssessment = undefined;
+      this.pendingSpellingAssessmentSupport = false;
+      console.log(" 🎮 [spelling] [node-launch] [released]");
+    }
+    if (state.phase === "launched") {
+      const cycle = getChildChart(this.chartChildId).learningCycle;
+      if (cycle?.domain === "spelling") {
+        const node = cycle.nodes.find(node => node.nodeId === state.nodeId);
+        this.spellingLaunch = node && ["ready", "active", "completed"].includes(node.state)
+          ? {homeworkId:cycle.homeworkId,nodeId:node.nodeId,launchId:randomUUID(),...(typeof state.launchToken === "string" ? {launchToken:state.launchToken} : {})} : undefined;
+        console.log(` 🎮 [spelling] [node-launch] [${this.spellingLaunch ? "recorded" : "rejected"}] node=${String(state.nodeId)} launch=${this.spellingLaunch?.launchId ?? "unknown"}`);
+      }
+    }
+    if (state.assessmentMode === true || state.practiceCapture === true) {
       this.spellingAssessmentHistory ??= new Map();
       const itemId = String(state.itemId ?? "");
       const pendingSupportId = this.pendingSpellingAssessmentSupport && itemId
         ? `support:${this.sessionId}:${itemId}`
         : undefined;
       this.spellingAssessment = gev.bindSpellingAssessment({ state, cycle: getChildChart(this.chartChildId).learningCycle,
-        current: this.spellingAssessment, history: this.spellingAssessmentHistory, pendingSupportId });
+        current: this.spellingAssessment, history: this.spellingAssessmentHistory, pendingSupportId, launch:this.spellingLaunch });
       if (pendingSupportId && this.spellingAssessment?.itemId === itemId) this.pendingSpellingAssessmentSupport = false;
+      const assessment=this.spellingAssessment;
+      if((state.phase === "response" || (state.practiceCapture === true && (state.phase === "flash" || state.spellingItemOpened === true))) && assessment?.launchId && !assessment.chartItemId){
+        const presentation=withOriginalSpellingChart(this.chartChildId,db=>presentOriginalSpellingItem(db,{
+          assignmentId:assessment.homeworkId,sessionId:this.sessionId,nodeId:assessment.nodeId,launchId:assessment.launchId!,sourceItemId:assessment.itemId,word:assessment.word.normalize('NFC').toLowerCase(),instrument:assessment.instrument,
+          shown:{lettersVisible:assessment.lettersVisible,hint:assessment.instrument=== "practice" ? null : false,companionHelp:assessment.supportIds.length>0 ? true : assessment.instrument=== "practice" ? null : false},
+        }));
+        if(presentation)assessment.chartItemId=String(presentation.payload.itemId);
+      }
+
+    }
+    const metric=state.engagement as {id?:unknown;metric?:unknown;value?:unknown}|undefined;
+    const measured=this.spellingAssessment;
+    if(metric && measured && measured.nodeId===state.nodeId && measured.itemId===state.itemId && measured.launchToken===state.launchToken && typeof metric.id==='string' && ['first_input_ms','idle_gap_ms','erase_burst'].includes(String(metric.metric)) && Number.isSafeInteger(metric.value) && Number(metric.value)>=0) {
+      this.recordSpellingEngagement(measured,metric.metric as 'first_input_ms'|'idle_gap_ms'|'erase_burst',metric.id,Number(metric.value));
     }
     const incomingPhase = String(state.phase ?? "").trim();
     const incomingNodeId = String(state.nodeId ?? "").trim();
@@ -778,16 +810,24 @@ export class SessionManager {
     };
   }
 
+  private recordSpellingEngagement(assessment:gev.SpellingAssessmentState|undefined,metric:"audio_replays"|"help_requests"|"first_input_ms"|"idle_gap_ms"|"erase_burst",sourceId:string,value=1):void {
+    if(!assessment?.chartItemId || !assessment.launchId)return;
+    try { withOriginalSpellingChart(this.chartChildId,db=>recordPresentedEngagement(db,{sessionId:this.sessionId,itemId:assessment.chartItemId!,observationId:`${assessment.launchId}:${metric}:${sourceId}`,metric,value})); }
+    catch(error) { console.error(' 🎮 [spelling-engagement] [measurement] [failed]',error); }
+  }
+
   public setCompanionPresence(
     state: "collapsed" | "summoned",
     reason: "client" | "voice" | "read_instruction" = "client",
   ): void {
+    const newlySummoned = state === "summoned" && this.companionPresence !== "summoned";
     const next = transitionCompanionPresence({ state, reason });
     this.companionPresence = next.presence;
     if (state === "summoned") {
       const snapshotMatchesAssessment = this.spellingAssessment
         && this.currentBoardSnapshot?.itemId === this.spellingAssessment.itemId
         && this.currentBoardSnapshot?.phase === "response";
+      if (newlySummoned && snapshotMatchesAssessment) this.recordSpellingEngagement(this.spellingAssessment, "help_requests", randomUUID());
       if (snapshotMatchesAssessment && this.spellingAssessment && !this.spellingAssessment.supportIds.length) {
         this.spellingAssessment.supportIds.push(`support:${this.sessionId}:${this.spellingAssessment.itemId}`);
       } else if (!this.spellingAssessment) {
@@ -1064,7 +1104,7 @@ export class SessionManager {
         nodeId: metadata.nodeId,
         itemId: metadata.itemId,
         reason: metadata.reason,
-        ...(assessment ? { assessmentItemId: assessment.itemId } : {}),
+        ...(assessment ? { assessmentItemId: assessment.itemId, assessmentLaunchId:assessment.launchId } : {}),
       };
       if (assessment) {
         this.send("audio_done", { requiresAudio: true, requestId, itemId: assessment.itemId });
@@ -1098,15 +1138,19 @@ export class SessionManager {
     return next;
   }
 
-  public getDiscoveryAttemptContext(homeworkId: string, itemId: string): { support: LearningObservation["assistance"]; instrumentSignals: string[]; artifactHash: string; sessionId: string } | undefined {
-    const context = this.spellingAssessmentHistory?.get(itemId) ?? this.spellingAssessment;
+  public getSpellingLaunch() { return this.spellingLaunch ? {...this.spellingLaunch} : undefined; }
+
+  public getDiscoveryAttemptContext(homeworkId: string, itemId: string, launchToken?:string): { chartItemId?:string; practice?:boolean; spellingShown?:boolean|null; audioReplays?:number|null; launchId?:string; nodeId: string; support: LearningObservation["assistance"]; instrumentSignals: string[]; artifactHash: string; sessionId: string } | undefined {
+    const candidates = [...(this.spellingAssessmentHistory?.values() ?? [])].filter(c => c.homeworkId === homeworkId && c.itemId === itemId && (launchToken === undefined || c.launchToken === launchToken));
+    const context = candidates.length === 1 ? candidates[0] : undefined;
     if (context && context.homeworkId === homeworkId && context.itemId === itemId) {
-      return { support: { status: context.supportIds.length ? "assisted" : "unassisted", scaffolds: [...context.supportIds] }, instrumentSignals: [...(!context.audioDelivered ? ["audio_unavailable"] : []), ...(context.ambiguous ? ["answer_exposure"] : [])], artifactHash: context.artifactHash, sessionId: this.sessionId };
+      return { practice:context.instrument === "practice",spellingShown:context.lettersVisible,chartItemId:context.chartItemId,audioReplays:context.instrument === "practice" ? null : Math.max(0,context.audioPlaybacks-1),launchId: context.launchId, nodeId: context.nodeId, support: { status: !context.launchId ? "unknown" : context.supportIds.length ? "assisted" : context.instrument === "practice" ? "unknown" : "unassisted", scaffolds: [...context.supportIds] }, instrumentSignals: [...(!context.launchId ? ["launch_unverified"] : []), ...(context.instrument !== "practice" && !context.audioDelivered ? ["audio_unavailable"] : []), ...(context.instrument !== "practice" && context.lettersVisible !== false ? [context.lettersVisible === true ? "answer_exposure" : "answer_visibility_unknown"] : [])], artifactHash: context.artifactHash, sessionId: this.sessionId };
     }
     const math = [...(this.mathDiscoverySupportHistory?.values() ?? [])]
       .find((candidate) => candidate.homeworkId === homeworkId && candidate.itemId === itemId);
     if (!math) return undefined;
     return {
+      nodeId: math.nodeId,
       support: { status: math.supportIds.length ? "assisted" : "unassisted", scaffolds: [...math.supportIds] },
       instrumentSignals: [],
       artifactHash: math.artifactHash,
@@ -1261,11 +1305,14 @@ export class SessionManager {
         : null;
       if (assessmentItemId) {
         const assessment =
-          this.spellingAssessmentHistory?.get(assessmentItemId) ??
-          (this.spellingAssessment?.itemId === assessmentItemId
-            ? this.spellingAssessment
-            : undefined);
-        if (assessment) assessment.audioDelivered = audible;
+          [...(this.spellingAssessmentHistory?.values() ?? [])].find(c => c.itemId === assessmentItemId && c.launchId === pending.assessmentLaunchId);
+        if (assessment) {
+          assessment.audioDelivered = audible;
+          if(audible) {
+            assessment.audioPlaybacks++;
+            if(assessment.audioPlaybacks>1) this.recordSpellingEngagement(assessment,"audio_replays",expectedRequestId);
+          }
+        }
       }
       this.debugRecorder.recordEvent(
         "game_narration",

@@ -2,6 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { validateEvent, validatePayload, EVENT_TYPES } from '../chart/eventTypes';
 import { actors, factId, schemas, type FactType } from '../chart/spelling/schemas';
 const samples: Record<FactType, Record<string, unknown>> = {
+    'activity.limited': {assignmentId:'a',sessionId:'s',nodeId:'n',launchId:'l',sourceEventId:'e',reason:'non_spelling_response',rawChoice:'ight',aggregateAccuracy:null},
+    'test_schedule.set': {changeId:'schedule-1',kind:'weekday',weekday:5},
+    'engagement.observed': { assignmentId:'a', sessionId:'s', nodeId:'n', itemId:null, observationId:'o', metric:'audio_replays', value:1 },
     'child.profile_set': { displayName: 'Synthetic' },
     'assignment.ingested': { assignmentId: 'a', words: ['able'], testDate: '2026-10-09', sourcePhotoHash: 'a'.repeat(64) },
     'words.tagged': { assignmentId: 'a', taxonomyVersion: 1, tags: [{ word: 'able', patterns: ['spelling.irregular'] }] },
@@ -20,7 +23,7 @@ describe.each(Object.entries(samples) as [
     const event = () => ({ event_id: factId(type, payload), child_id: 'synthetic-schema', type, actor: actors[type][0] as any, occurred_at: '2026-10-03T12:00:00.000Z', cites: [], payload });
     it('accepts valid shape and actor', () => expect(() => validateEvent(event())).not.toThrow());
     it('rejects extra fields, wrong actor and bad values', () => {
-        expect(() => validateEvent({ ...event(), actor: 'room' })).toThrow('actor');
+        expect(() => validateEvent({ ...event(), actor: actors[type].includes('room') ? 'planner' : 'room' })).toThrow('actor');
         expect(() => validatePayload(type, { ...payload, correctness: 'invented' })).toThrow();
         for (const key of Object.keys(payload))
             expect(() => validatePayload(type, { ...payload, [key]: false })).toThrow();

@@ -89,7 +89,7 @@ export const HORIZONTAL_ADVENTURE_SLOTS: Record<AdventureBoardSlot, { x: number;
   "5c.2": { x: 0.62, y: 0.50 },
   "5c.3": { x: 0.70, y: 0.50 },
   "6": { x: 0.76, y: 0.50 },
-  "6.1": { x: 0.74, y: 0.58 },
+  "6.1": { x: 0.87, y: 0.72 },
   "6.2": { x: 0.78, y: 0.42 },
   "7": { x: 0.84, y: 0.31 },
   "8": { x: 0.91, y: 0.13 },
@@ -256,6 +256,9 @@ export function AdventureBoard({
 
   return (
     <section
+      data-board-id={board.boardId}
+      data-child-id={board.childId}
+      data-plan-id={board.planId}
       className={[
         "adventure-board",
         unlockCeremony ? `adventure-board--unlocking-${unlockCeremony.variant}` : "",

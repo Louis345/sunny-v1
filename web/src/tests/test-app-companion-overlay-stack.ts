@@ -130,6 +130,12 @@ describe("App companion overlay stack", () => {
     );
     expect(src).toContain("resolveHomeworkVoiceSessionStart");
     expect(src).toContain("resolveHomeworkVoiceAutostart");
+    // Human-caught invariant: Word Radar hid its keyboard while microphone
+    // startup was still unknown. The lab tested explicit denial but not a
+    // browser request that remained pending, leaving the child trapped.
+    expect(src).toContain(
+      "voiceCaptureAvailable={state.microphoneAvailable === true}",
+    );
     expect(src).toMatch(
       /autoStartedAdventureVoiceRef\.current = autostart\.scope;[\s\S]{0,300}startSession\(childName, \{ homeworkId: homeworkVoiceStart\.homeworkId \}\)/,
     );

@@ -11,7 +11,12 @@ import { buildGameContextSummary } from "./gameContextSummary";
 import { shouldPersistSessionData } from "../utils/runtimeMode";
 import { rewriteChildNameForTts } from "./sessionTextHelpers";
 import type { WsTtsBridge } from "./ws-tts-bridge";
-import type { LearningCycleRecordV2 } from "../engine/learningCycleRepository";
+import { getLearningCycle, type LearningCycleRecordV2 } from "../engine/learningCycleRepository";
+import { recordSpellingDiscoveryAttempt } from "../engine/learningCycleRuntime";
+import { withOriginalSpellingChart } from "../chart/spelling/originalResponses";
+import { schemas } from '../chart/spelling/schemas';
+import { recordFact } from '../chart/spelling/record';
+import { commitOriginalSpellingAttempt } from "./originalSpellingCommit";
 import {
   recordCompanionVideoCallTraceEvent,
   type CompanionVideoCallTraceEventName,
@@ -42,23 +47,26 @@ export function armGameNarrationPlaybackTimer(
   }, GAME_NARRATION_PLAYBACK_TIMEOUT_MS);
 }
 
-export type SpellingAssessmentState = { homeworkId: string; itemId: string; word: string; artifactHash: string; audioDelivered: boolean; supportIds: string[]; ambiguous: boolean };
+export type SpellingAssessmentState = { launchToken?:string; chartItemId?:string; audioPlaybacks:number; instrument:"discovery"|"practice"|"recall_check"; launchId?: string; nodeId: string; homeworkId: string; itemId: string; word: string; artifactHash: string; audioDelivered: boolean; supportIds: string[]; lettersVisible: boolean|null };
 export function bindSpellingAssessment(input: {
   state: Record<string, unknown>; cycle?: LearningCycleRecordV2 | null; current?: SpellingAssessmentState;
   history: Map<string, SpellingAssessmentState>; pendingSupportId?: string;
+  launch?: {homeworkId:string;nodeId:string;launchId:string;launchToken?:string};
 }): SpellingAssessmentState | undefined {
   const { state, cycle, current, history } = input;
-  if (current && current.itemId === state.itemId && state.answerVisibility !== "hidden") current.ambiguous = true;
-  if (state.phase !== "response") return current;
+  if (input.launch?.launchToken !== undefined && state.launchToken !== input.launch.launchToken) return current;
+  if (current && current.launchId === input.launch?.launchId && current.itemId === state.itemId && state.answerVisibility !== "hidden") current.lettersVisible = state.answerVisibility === "visible" || current.lettersVisible === true ? true : null;
+  if (state.phase !== "response" && !(state.practiceCapture === true && (state.phase === "flash" || state.spellingItemOpened === true))) return current;
   const node = cycle?.nodes.find(node => node.nodeId === state.nodeId);
   const item = node?.evidenceContract.spellingItems?.[String(state.itemId ?? "")];
   if (cycle?.domain !== "spelling" || !item || !node?.artifactBinding) {
     console.warn(" 🎮 [spelling-discovery] [live-context] [invalid-item]");
     return undefined;
   }
-  if (current?.itemId === item.id) return current;
-  const next = history.get(item.id) ?? { homeworkId: cycle.homeworkId, itemId: item.id, word: item.word, artifactHash: node.artifactBinding.contractFingerprint, audioDelivered: false, supportIds: input.pendingSupportId ? [input.pendingSupportId] : [], ambiguous: state.answerVisibility !== "hidden" };
-  history.set(item.id, next);
+  const key = JSON.stringify([input.launch?.launchId ?? null, item.id]);
+  if (current?.itemId === item.id && current.launchId === input.launch?.launchId) return current;
+  const next = history.get(key) ?? { ...(input.launch?.homeworkId === cycle.homeworkId && input.launch.nodeId === node.nodeId ? {launchId:input.launch.launchId,launchToken:input.launch.launchToken} : {}), audioPlaybacks:0, instrument:state.practiceCapture === true ? "practice" as const : node.role === "evaluation" ? "discovery" as const : item.lineage?.measurementRole === "fresh_checkpoint" ? "recall_check" as const : "practice" as const, nodeId: node.nodeId, homeworkId: cycle.homeworkId, itemId: item.id, word: item.word, artifactHash: node.artifactBinding.contractFingerprint, audioDelivered: false, supportIds: input.pendingSupportId ? [input.pendingSupportId] : [], lettersVisible: state.answerVisibility === "visible" ? true : state.answerVisibility === "hidden" ? false : null };
+  history.set(key, next);
   console.log(` 🎮 [spelling-discovery] [live-context] [bound] item=${item.id}`);
   return next;
 }
@@ -67,12 +75,12 @@ export function bindSpellingAssessment(input: {
 export async function narrateGameStimulus(input: {
   text: string; metadata: Record<string, unknown>; childName: Parameters<typeof rewriteChildNameForTts>[1]; ttsLabel: string;
   bridge?: Pick<WsTtsBridge, "connect" | "sendText" | "finish" | "hadAudioThisTurn"> | null;
-  assessment?: { itemId: string; word: string; audioDelivered: boolean };
+  assessment?: { launchToken?:string; itemId: string; word: string; audioDelivered: boolean };
   record: (action: string, event: Record<string, unknown>) => void;
 }): Promise<boolean> {
   const { text, metadata, assessment, bridge } = input;
   if (metadata.assessmentMode === true) {
-    if (!assessment || assessment.itemId !== metadata.itemId || text.replace(/[.!?]$/, "").trim() !== assessment.word) throw new Error("spelling_stimulus_mismatch");
+    if (!assessment || (assessment.launchToken !== undefined && assessment.launchToken !== metadata.launchToken) || assessment.itemId !== metadata.itemId || text.replace(/[.!?]$/, "").trim() !== assessment.word) throw new Error("spelling_stimulus_mismatch");
     assessment.audioDelivered = false;
     if (!bridge) throw new Error("spelling_stimulus_audio_unavailable");
   }
@@ -364,6 +372,7 @@ export function handleGameEventForSession(
         nodeId: event.nodeId,
         itemId: event.itemId,
         assessmentMode: event.assessmentMode === true,
+        launchToken: event.launchToken,
         word,
       }),
     ).catch((err: unknown) => {
@@ -531,7 +540,46 @@ export function handleGameEventForSession(
       return;
     }
     try {
-      const recorded = recordLearningAttempt(event, chartChildIdForSession(s));
+      const childId = chartChildIdForSession(s);
+      const launch = s.getSpellingLaunch?.();
+      const matchesLaunch = launch && event.nodeId === launch.nodeId && event.launchToken === launch.launchToken;
+      if (event.domain === "spelling" && launch && !matchesLaunch) {
+        console.log(" 🎮 [spelling] [chart-capture] [unmatched launch; legacy feedback retained]");
+      }
+      if (event.domain === "spelling" && event.evidenceLimitation) {
+        if (launch && matchesLaunch) {
+          try {
+            withOriginalSpellingChart(childId, db => recordFact(db,'activity.limited',schemas['activity.limited'].parse({
+              assignmentId:launch.homeworkId,sessionId:s.getSessionId(),nodeId:launch.nodeId,launchId:launch.launchId,
+              sourceEventId:event.attemptId,reason:event.evidenceLimitation,rawChoice:event.rawChoice ?? null,aggregateAccuracy:event.aggregateAccuracy ?? null,
+            })));
+            console.log(' 🎮 [spelling] [activity-limitation] [recorded]');
+          } catch (err) {
+            console.error(" 🔴 [spelling] [activity-limitation] [record failed]", err);
+          }
+        }
+        s.noteExternalEvent?.({source:"attempt_event",summary:`Activity result: ${String(event.evidenceLimitation)}; not a scored spelling answer. Reported choice: ${String(event.rawChoice ?? "unknown")}; reported aggregate accuracy: ${String(event.aggregateAccuracy ?? "unknown")}.`});
+        return; // A chunk/selection score never enters spelling scoring or the word bank.
+      }
+      if (event.domain === "spelling" && launch && matchesLaunch && event.activityId !== "word-radar" && event.game !== "word-radar") {
+        const live = s.getDiscoveryAttemptContext?.(launch.homeworkId, String(event.target ?? ""), event.launchToken);
+        if (live?.practice && typeof event.attemptedValue === "string") {
+          const cycle = getLearningCycle(childId, launch.homeworkId);
+          const node = cycle?.nodes.find(n => n.nodeId === launch.nodeId);
+          if (!node?.evidenceContract.spellingItems?.[String(event.target)] || live.launchId !== launch.launchId || live.nodeId !== launch.nodeId || live.artifactHash !== node.artifactBinding?.contractFingerprint) throw new Error("native_spelling_binding_mismatch");
+          if (typeof event.attemptId !== "string" || !event.attemptId || typeof event.timestamp !== "number" || !Number.isFinite(event.timestamp)) throw new Error("native_spelling_attempt_identity_required");
+          const request = {attemptId:event.attemptId,itemId:String(event.target),attemptedValue:event.attemptedValue,observedAt:new Date(event.timestamp).toISOString(),supportEventIds:[],instrumentSignals:[],skipped:false,sessionId:live.sessionId,launchToken:launch.launchToken};
+          const legacy = {childId,homeworkId:launch.homeworkId,attempt:request,support:live.support,artifactHash:live.artifactHash,sessionId:live.sessionId,launchId:launch.launchId,instrumentSignals:live.instrumentSignals};
+          const committed = withOriginalSpellingChart(childId, db => commitOriginalSpellingAttempt(db,launch.homeworkId,request,()=>{
+            if (!live.chartItemId) throw new Error("chart_live_presentation_required");
+            return {legacy,response:{assignmentId:launch.homeworkId,sessionId:live.sessionId,itemId:live.chartItemId,sourceResponseId:request.attemptId,rawResponse:request.attemptedValue,status:"answered",support:{spellingShown:live.spellingShown ?? null,hint:null,companionHelp:live.support.status === "assisted" ? true : null,audioReplays:live.audioReplays ?? null}}};
+          },recordSpellingDiscoveryAttempt)) ?? recordSpellingDiscoveryAttempt(legacy);
+          const correct = committed.observations.find(row => row.observationId === request.attemptId)?.result.correct;
+          // The private word bank cannot override the code-scored raw response.
+          if (typeof correct === "boolean") event = {...event,correct,quality:correct ? 5 : 1};
+        }
+      }
+      const recorded = recordLearningAttempt(event, childId);
       if (recorded.skipped) return;
       s.noteExternalEvent?.({
         source: "attempt_event",

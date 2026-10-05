@@ -189,3 +189,36 @@ describe("useAdaptiveMathGenerationRefresh", () => {
     expect(result.current.checkedAt).not.toBeNull();
   });
 });
+
+describe("fast polling while the preparation screen is shown", () => {
+  beforeEach(() => { vi.useFakeTimers(); });
+  afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); });
+
+  // A 3-minute planning step reports no change; a count-only bound of 10 fast polls
+  // would freeze the screen after ~100 s. The bound must be time-based.
+  it("keeps polling an unchanged status for at least ten minutes at a fast interval", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ updatedAt: "same", phase: "targeted_planning", nodes: [] }) });
+    vi.stubGlobal("fetch", fetchMock);
+    const onStatusChanged = vi.fn();
+    const { result } = renderHook(() => useAdaptiveMathGenerationRefresh({
+      childId: "lab", homeworkId: "hw", enabled: true, intervalMs: 10_000, onStatusChanged,
+    }));
+    await act(async () => { await Promise.resolve(); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(10 * 60_000); });
+    expect(fetchMock.mock.calls.length).toBeGreaterThanOrEqual(55);
+    expect(result.current.paused).toBe(false);
+  });
+
+  it("still pauses eventually, so polling can never run forever", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ updatedAt: "same", phase: "targeted_planning", nodes: [] }) });
+    vi.stubGlobal("fetch", fetchMock);
+    const onStatusChanged = vi.fn();
+    const { result } = renderHook(() => useAdaptiveMathGenerationRefresh({
+      childId: "lab", homeworkId: "hw", enabled: true, intervalMs: 10_000, onStatusChanged,
+    }));
+    await act(async () => { await Promise.resolve(); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(60 * 60_000); });
+    expect(result.current.paused).toBe(true);
+    expect(fetchMock.mock.calls.length).toBeLessThanOrEqual(200);
+  });
+});

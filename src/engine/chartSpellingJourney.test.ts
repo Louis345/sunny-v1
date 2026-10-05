@@ -134,3 +134,15 @@ it('includes the source tags behind the pattern history supplied to a later prio
  const prior=exportEvents(db).find(e=>e.type==='prediction.prior'&&e.payload.assignmentId===next.assignmentId)!;
  expect(prior.cites).toContain(tag.event_id);
 });
+
+it.each(['max_tokens','refusal'])('checkpoints the full %s message before rejecting it without learning writes',async(reason)=>{
+ const message={plannerMessage:{stop_reason:reason,content:[],usage:{output_tokens:32000}}};
+ const calls=vi.fn(async()=>message),j=setup(calls);
+ const a=j.ingest({words:['knee'],testDate:'2026-10-10',sourceText:'knee'});
+ const before=exportEvents(db);
+ await expect(j.advance(a.assignmentId)).rejects.toThrow('planner_response_'+reason);
+ const dir=path.join(root,'synthetic-journey','requests');
+ const response=fs.readdirSync(dir).find(f=>f.endsWith('.response.json'))!;
+ expect(JSON.parse(fs.readFileSync(path.join(dir,response),'utf8'))).toEqual(message);
+ expect(exportEvents(db)).toEqual(before);expect(calls).toHaveBeenCalledTimes(1);
+});

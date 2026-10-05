@@ -1,3 +1,4 @@
+import {readPlannerToolReceipt} from '../../engine/plannerTransport';
 import {checkpointedAttempt} from './checkpointedAttempt';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -15,6 +16,7 @@ export const planProposal = z.strictObject({ action: z.enum(['targeted_practice'
 export type SpellingStage = 'prior' | 'discovery' | 'plan' | 'practice' | 'recall_check' | 'forecast' | 'await_calibration' | 'complete';
 export type SpellingPacket = ReturnType<typeof buildPlannerPacket> & {
     profile: Record<string, unknown> | null;
+    schedule?: {testDate:string|null;scheduleFactId:string|null};
 };
 export type SpellingProvider = ((stage: 'prior' | 'plan' | 'forecast', packet: SpellingPacket) => Promise<unknown>) & {modelId?:string};
 function priorInputIds(packet:SpellingPacket,events:ReturnType<typeof exportEvents>):string[]{
@@ -115,7 +117,7 @@ export function createSpellingJourney(db: ChartDatabase, provider: SpellingProvi
         const packet = { ...buildPlannerPacket(chart.events, id), profile: chart.profile };
         const base = path.join(path.dirname(db.path), db.childId, 'requests', hash(`${id}:${stage}`));
         return checkpointedAttempt(base, {stage, packet, model:provider.modelId ?? 'injected-fixture'}, () => provider(stage,packet), (raw, metadata) => {
-        let proposal=raw;
+        let proposal=readPlannerToolReceipt(raw, 'submit_spelling_proposal');
         if(typeof proposal==='string') proposal=JSON.parse(proposal.trim().replace(/^```(?:json)?\s*/i,'').replace(/\s*```$/,''));
         const request=metadata as {packet:SpellingPacket;model?:string};
         db.sql.transaction(() => {

@@ -150,3 +150,39 @@ describe("production spelling intake phases", () => {
   });
 });
 import { recordedSpellingDiagnostic } from "./fixtures/spellingEvidenceFirst";
+
+it('blocks original Discovery publication until chart priors commit and reuses them on restart', async () => {
+  const input=fixture();
+  const {openChart}=await import('../chart/db');
+  const {exportEvents}=await import('../chart/exportEvents');
+  const db=openChart(input.childId,{chartDir:path.join(input.rootDir,'charts')});
+  const callPlannerModel=vi.fn(async(packet: Parameters<typeof recordedSpellingDiagnostic>[0])=>({draft:{diagnostic:recordedSpellingDiagnostic(packet),title:'School words',words:[{word:'night',pageNumber:1}],uncertainty:[]}}));
+  const provider=vi.fn(async(_stage:unknown, packet:any)=>{
+    const profile=JSON.parse(fs.readFileSync(path.join(input.rootDir,'src/context/lab-child/learning_profile.json'),'utf8'));
+    expect(profile.activeSessionPlan).toBeUndefined();
+    const assignmentId=packet.assignment.assignmentId;
+    return {tags:{assignmentId,taxonomyVersion:1,tags:[{word:'night',patterns:['spelling.irregular']}]},priors:[{assignmentId,word:'night',pCorrect:0.6,confidence:0.4,expectedError:'unknown'}]};
+  });
+  try{
+    const options={callPlannerModel,chart:{db,provider}};
+    const {homeworkId}=await runSpellingDiscoveryIntake(input,options);
+    expect(provider).toHaveBeenCalledTimes(1);
+    expect(exportEvents(db).map(e=>e.type)).toEqual(['assignment.ingested','words.tagged','prediction.prior']);
+    expect(exportEvents(db)[0].payload.assignmentId).toBe(homeworkId);
+    await runSpellingDiscoveryIntake(input,options);
+    expect(provider).toHaveBeenCalledTimes(1);
+  }finally{db.close();}
+});
+
+it('keeps original Discovery unpublished when the chart Planner fails', async () => {
+  const input=fixture();const {openChart}=await import('../chart/db');const {exportEvents}=await import('../chart/exportEvents');
+  const db=openChart(input.childId,{chartDir:path.join(input.rootDir,'charts')});
+  const callPlannerModel=vi.fn(async(packet: Parameters<typeof recordedSpellingDiagnostic>[0])=>({draft:{diagnostic:recordedSpellingDiagnostic(packet),title:'School words',words:[{word:'night',pageNumber:1}],uncertainty:[]}}));
+  try{
+    await expect(runSpellingDiscoveryIntake(input,{callPlannerModel,chart:{db,provider:async()=>{throw Error('recorded_prior_failure');}}})).rejects.toThrow('recorded_prior_failure');
+    const facts=exportEvents(db);expect(facts.map(e=>e.type)).toEqual(['assignment.ingested']);
+    expect(getLearningCycle(input.childId,String(facts[0].payload.assignmentId),input)).toBeNull();
+    const profile=JSON.parse(fs.readFileSync(path.join(input.rootDir,'src/context/lab-child/learning_profile.json'),'utf8'));
+    expect(profile.activeSessionPlan).toBeUndefined();
+  }finally{db.close();}
+});

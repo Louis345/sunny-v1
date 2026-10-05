@@ -1,3 +1,4 @@
+import {projectTestSchedule} from './schedule';
 import type { ChartDatabase } from '../db';
 import type { EventInput, ChartEvent } from '../eventTypes';
 import { validatePayload } from '../eventTypes';
@@ -14,19 +15,22 @@ export function validateRelations(db: ChartDatabase, e: EventInput): void {
     };
     let p = e.payload;
     let replacing = false;
-    if (e.type === 'child.profile_set' || e.type === 'assignment.ingested')
+    if (e.type === 'child.profile_set' || e.type === 'assignment.ingested' || (e.type === 'test_schedule.set' && e.payload.kind === 'weekday'))
         return;
     if (e.type === 'correction.recorded') {
         const target = get(String(p.target_event_id));
         if (!target || !e.cites.includes(target.event_id) || target.type === 'correction.recorded')
             fail('correction_target');
-        if (target.type === 'plan.decided')
+        if (target.type === 'activity.limited' || target.type === 'plan.decided' || target.type === 'test_schedule.set')
             fail('correction_immutable_decision');
         if (target.type === 'readiness.forecast')
             fail('correction_immutable_prediction');
         validatePayload(target.type, p.replacement_payload);
         const replacement = p.replacement_payload as Record<string, unknown>;
-        for (const key of ['assignmentId', 'word', 'sessionId', 'itemId', 'attempt', 'protocolVersion', 'instrument', 'role']) {
+        for (const key of ['provenance', 'sourceResponseId']) {
+            if ((key in target.payload) !== (key in replacement)) fail('correction_identity');
+        }
+        for (const key of ['assignmentId', 'word', 'sessionId', 'itemId', 'attempt', 'protocolVersion', 'instrument', 'role', 'provenance', 'sourceResponseId']) {
             if (key in target.payload && canonicalJson(target.payload[key]) !== canonicalJson(replacement[key]))
                 fail('correction_identity');
         }
@@ -43,8 +47,8 @@ export function validateRelations(db: ChartDatabase, e: EventInput): void {
             const after = replacement as Payloads['response.observed'];
             if ((after.rawResponse !== null && after.rawResponse !== before.rawResponse) ||
                 (after.status !== before.status && !['unknown', 'ambiguous'].includes(after.status)) ||
-                after.support.audioReplays < before.support.audioReplays ||
-                (['spellingShown', 'hint', 'companionHelp'] as const).some(key => before.support[key] && !after.support[key]))
+                (before.support.audioReplays === null ? after.support.audioReplays !== null : after.support.audioReplays !== null && after.support.audioReplays < before.support.audioReplays) ||
+                (['spellingShown', 'hint', 'companionHelp'] as const).some(key => (before.support[key] === true && after.support[key] !== true) || (before.support[key] === null && after.support[key] === false)))
                 fail('correction_response_upgrade');
         }
         // Reuse the ordinary fact rules after checking correction identity/dependencies.
@@ -52,7 +56,7 @@ export function validateRelations(db: ChartDatabase, e: EventInput): void {
         p = replacement;
         replacing = true;
     }
-    if (e.type === 'child.profile_set' || e.type === 'assignment.ingested')
+    if (e.type === 'child.profile_set' || e.type === 'assignment.ingested' || (e.type === 'test_schedule.set' && e.payload.kind === 'weekday'))
         return;
     const a = get(factId('assignment.ingested', { assignmentId: p.assignmentId }));
     if (!a)
@@ -102,6 +106,10 @@ export function validateRelations(db: ChartDatabase, e: EventInput): void {
         if (has('school_test.recorded'))
             fail('forecast_after_result');
         const f = p as Payloads['readiness.forecast'];
+        if ('scheduledTestDate' in f || 'scheduleFactId' in f) {
+            const schedule=projectTestSchedule(db.sql.prepare('SELECT * FROM events ORDER BY sequence').all().map(decodeRow),f.assignmentId);
+            if(f.scheduledTestDate!==schedule.testDate || f.scheduleFactId!==schedule.scheduleFactId || (schedule.scheduleFactId!==null&&!e.cites.includes(schedule.scheduleFactId)))fail('forecast_schedule');
+        }
         if (!sameWords(f.probabilities.map(r => r.word)))
             fail('forecast_coverage');
         for (const id of f.responseIds) {

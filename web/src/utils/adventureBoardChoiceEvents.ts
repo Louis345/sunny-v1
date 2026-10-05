@@ -44,6 +44,7 @@ type PostChoiceEventOptions = {
 type ChoiceEventResponse = {
   ok: boolean;
   applied?: boolean;
+  selectedRouteId?: string;
   skippedPersistence?: boolean;
   queued?: boolean;
   retryable?: boolean;

@@ -1,4 +1,10 @@
+import {prepareExistingOriginalSpelling} from '../chart/spelling/originalPreparation';
+import {runOriginalSpellingForecast} from '../chart/spelling/originalForecast';
 import fs from "node:fs";
+import {openChart} from "../chart/db";
+import {exportEvents} from "../chart/exportEvents";
+import {projectAssignment} from "../chart/spelling/projections";
+import type {SpellingProvider} from "../chart/spelling/journey";
 import { createHash } from "node:crypto";
 import os from "node:os";
 import path from "node:path";
@@ -60,11 +66,14 @@ it("keeps the spelling audio proof on Sunny's production WebSocket and TTS path"
 });
 
 it.each([
-  { width: 1365, height: 768, adaptive: false },
-  { width: 1280, height: 720, adaptive: false },
-  { width: 1365, height: 768, adaptive: true },
-  { width: 1280, height: 720, adaptive: true },
-])("plays spelling through the real host and canonical routes at $width×$height adaptive=$adaptive", async scenario => {
+  { width: 1365, height: 768, adaptive: false, chart: false },
+  { width: 1280, height: 720, adaptive: false, chart: false },
+  { width: 1365, height: 768, adaptive: true, chart: false },
+  { width: 1280, height: 720, adaptive: true, chart: false },
+  { width: 768, height: 1024, adaptive: false, chart: true },
+  { width: 768, height: 1024, adaptive: true, chart: true },
+  { width: 768, height: 1024, adaptive: false, chart: true, existing: true },
+])("plays spelling through the real host and canonical routes at $width×$height adaptive=$adaptive chart=$chart existing=$existing", async scenario => {
   const childId = "ila";
   const viewport = { width: scenario.width, height: scenario.height };
   const canonicalFamilyPaths = [
@@ -87,9 +96,29 @@ it.each([
     ? ["night", "light", "right", "sight", "might", "fight", "write", "knife", "wrong", "climb"]
     : ["night", "light"];
   seedSpellingLab(rootDir, words, scenario.adaptive ? "/companions/sample.vrm" : "", childId);
+  if(scenario.chart&&!scenario.existing) vi.stubEnv("SUNNY_CHART_DIR",path.join(rootDir,"charts"));
+  let chartDb = scenario.chart&&!scenario.existing ? openChart(childId,{chartDir:path.join(rootDir,"charts")}) : undefined;
+  let chartForecastCalls=0;
+  const chartProvider: SpellingProvider = async (stage,packet) => {
+    if(stage === "forecast" && ++chartForecastCalls===1 && !scenario.adaptive)throw Error("recorded_forecast_failure");
+    if(stage === "forecast") return {assignmentId:packet.assignment.assignmentId,probabilities:packet.assignment.assignment!.words.map(word=>({word,pCorrect:0.7})),uncertainty:"Recorded immediate recall; retention unknown",missingEvidence:[],responseIds:packet.assignment.recallChecks.map(row=>row.eventId)};
+    if(stage !== "prior") throw Error("unexpected_fixture_chart_stage");
+    const a=packet.assignment!.assignment!;
+    return {tags:{assignmentId:a.assignmentId,taxonomyVersion:1,tags:a.words.map(word=>({word,patterns:["spelling.irregular"]}))},priors:a.words.map(word=>({assignmentId:a.assignmentId,word,pCorrect:0.6,confidence:0.4,expectedError:"unknown"}))};
+  };
   const source = writeSpellingPdfFixture(rootDir, words);
   const legacyAttempt = vi.spyOn(legacyLearning, "recordAttempt");
-  const { homeworkId } = await runSpellingDiscoveryIntake({ childId, sourceFile: source, rootDir }, { callPlannerModel: async (packet: Parameters<typeof recordedSpellingDiagnostic>[0]) => ({ draft: { diagnostic: recordedSpellingDiagnostic(packet), title: "School spelling", words: words.map(word => ({ word, pageNumber: 1 })), uncertainty: [] } }) });
+  const { homeworkId } = await runSpellingDiscoveryIntake({ childId, sourceFile: source, rootDir }, { ...(chartDb&&!scenario.existing ? {chart:{db:chartDb,provider:chartProvider}} : {}), callPlannerModel: async (packet: Parameters<typeof recordedSpellingDiagnostic>[0]) => ({ draft: { diagnostic: recordedSpellingDiagnostic(packet), title: "School spelling", words: words.map(word => ({ word, pageNumber: 1 })), uncertainty: [] } }) });
+  if(scenario.existing){
+    vi.stubEnv("SUNNY_CHART_DIR",path.join(rootDir,"charts"));
+    chartDb=openChart(childId,{chartDir:path.join(rootDir,"charts")});
+    expect(exportEvents(chartDb)).toEqual([]);
+    const frozen=JSON.stringify(getLearningCycle(childId,homeworkId,{rootDir}));
+    await prepareExistingOriginalSpelling(chartDb,homeworkId,chartProvider,{rootDir});
+    expect(JSON.stringify(getLearningCycle(childId,homeworkId,{rootDir}))).toBe(frozen);
+    expect(exportEvents(chartDb).filter(e=>e.type==='prediction.prior')).toHaveLength(words.length);
+    vi.stubEnv("SUNNY_CHART_DIR",path.join(rootDir,"charts"));
+  }
   fs.writeFileSync(path.join(outputDir, "opening-packet.json"), JSON.stringify(buildChildExperiencePacket(getChildChart(childId, { rootDir })), null, 2));
   const app = express(); app.use(express.json());
   app.get("/api/profile/:child", (_req, res) => res.json({ companion: { ...COMPANION_DEFAULTS, vrmUrl: scenario.adaptive ? "/companions/sample.vrm" : "" } }));
@@ -98,6 +127,7 @@ it.each([
   let generationStartedAt: number | undefined;
   let workerLaunchCount = 0;
   setupRoutes(app, {
+    forecastSpelling: (child,id,recover) => runOriginalSpellingForecast(child,id,recover,chartProvider),
     launchAdaptiveMathWorker: (launchedChildId, launchedHomeworkId) => {
       workerLaunchCount += 1;
       generationStartedAt = Date.now();
@@ -154,6 +184,7 @@ it.each([
       const message = JSON.parse(String(data));
       events.push(`ws:${message.type}`);
       const event = message.event;
+      if(event?.type === "game_state_update" && event.payload?.phase === "launched") events.push(`node-launch:${event.payload.launchToken}`);
       if (event?.type === "attempt_event") events.push("canonical-game:attempt_event");
       if (event?.type === "narration_request") pendingAssessmentPlayback += 1;
       if (message.type === "playback_done" && pendingAssessmentPlayback > 0) {
@@ -168,14 +199,17 @@ it.each([
   try {
     const module = await import(pathToFileURL(path.join(process.cwd(), "web/node_modules/vite/dist/node/index.js")).href);
     vite = await module.createServer({ configFile: false, root: path.join(process.cwd(), "web"), cacheDir: path.join(rootDir, "vite-cache"), esbuild: { jsx: "automatic" }, css: { postcss: { plugins: [require(path.join(process.cwd(), "web/node_modules/tailwindcss"))({ content: [path.join(process.cwd(), "web/src/**/*.{js,ts,jsx,tsx}")] })] } }, define: { "import.meta.env": JSON.stringify({ VITE_SUNNY_RUNTIME_CONFIG: JSON.stringify({ subject: "homework", sessionMode: "real", previewMode: "off", nodeAccess: "normal", voiceMode: "normal", childId, homeworkDomain: "spelling" }) }) }, server: { host: "127.0.0.1", port: 0, fs: { allow: [process.cwd()] }, proxy: { "/api": `http://127.0.0.1:${address.port}`, "/ws": { target: `ws://127.0.0.1:${address.port}`, ws: true } } } }); await vite.listen();
-    browser = await chromium.launch({ args: ["--use-fake-ui-for-media-stream", "--use-fake-device-for-media-stream"] });
+    browser = await chromium.launch({ args: ["--use-fake-ui-for-media-stream", "--use-fake-device-for-media-stream", "--use-angle=swiftshader", "--enable-unsafe-swiftshader"] });
     const page = await browser.newPage({ viewport }); page.setDefaultTimeout(12000);
     page.on("pageerror", error => errors.push(error.message)); page.on("response", response => { if (response.url().includes("/api/")) events.push(`${response.status()} ${response.url()}`); });
     page.on("console", message => events.push(`console:${message.type()}:${message.text()}`));
     await page.route("**/*", route => ["127.0.0.1", "localhost", ""].includes(new URL(route.request().url()).hostname) ? route.continue() : route.abort());
     const entryStartedAt = Date.now();
     await page.goto(vite.resolvedUrls.local[0]);
-    await page.getByRole("button", { name: "Hear the word", exact: true }).waitFor();
+    // Cold Vite compilation plus software-rendered VRM startup can exceed the
+    // interaction timeout. Keep this bounded startup budget separate; later
+    // controls retain 12s and companion readiness/page-error checks stay strict.
+    await page.getByRole("button", { name: "Hear the word", exact: true }).waitFor({ timeout: 45000 });
     expect(serverWebSocketConnections).toBe(1);
     const discoveryReadyMs = Date.now() - entryStartedAt;
     expect(await page.getByText("night", { exact: true }).count()).toBe(0);
@@ -224,6 +258,12 @@ it.each([
       : [true, false]);
     expect(assessmentAudioFrames).toBe(words.length);
     expect(events.filter(event => event === "browser:assessment-playback-confirmed")).toHaveLength(words.length);
+    if(chartDb){
+      const facts=exportEvents(chartDb);const view=projectAssignment(facts,homeworkId);
+      expect(view.responses).toHaveLength(words.length);
+      expect(view.responses.map(row=>row.result)).toEqual(scenario.adaptive ? words.map((_,index)=>index<6 ? "correct" : "incorrect") : ["correct","incorrect"]);
+      expect(Math.max(...view.priors.map(row=>row.sequence))).toBeLessThan(Math.min(...facts.filter(row=>row.type==='item.presented').map(row=>row.sequence)));
+    }
     const discoveryAudioFrames = assessmentAudioFrames;
     const discoveryPlaybackConfirmations = confirmedAssessmentPlayback;
     expect(before.observations.at(-1)?.result.observedErrorType).toBeUndefined();
@@ -337,6 +377,18 @@ it.each([
       expect(completed.nodes.find((node) => node.nodeId === "recall-practice")?.state).toBe("completed");
       expect(completed.nodes.find((node) => node.nodeId === "letter-rush")?.state).toBe("completed");
       expect(completed.nodes.find((node) => node.nodeId === "recall-checkpoint")?.state).toBe("completed");
+      if(chartDb){
+        const facts=exportEvents(chartDb);const responses=facts.filter(row=>row.type==='response.observed');
+      const inputSignals=facts.filter(row=>row.type==='engagement.observed'&&row.payload.metric==='first_input_ms');
+      expect(inputSignals.length).toBeGreaterThan(0);
+      expect(inputSignals.every(row=>row.cites.some(id=>facts.some(p=>p.event_id===id&&p.type==='item.presented')))).toBe(true);
+        expect(responses.map(row=>row.payload.sourceResponseId).sort()).toEqual(completed.observations.map(row=>row.observationId).sort());
+        const nativePresentations=facts.filter(row=>row.type==='item.presented' && (row.payload.provenance as {nodeId?:string})?.nodeId==='letter-rush');
+        expect(nativePresentations).toHaveLength(letterRushWords.length);
+        expect(nativePresentations.every(row=>row.payload.instrument==='practice')).toBe(true);
+        expect(nativePresentations.every(row=>responses.some(response=>response.cites.includes(row.event_id)))).toBe(true);
+        fs.writeFileSync(path.join(outputDir,'chart-proof-'+viewport.width+'x'+viewport.height+'.json'),JSON.stringify({provider:'recorded',responseCount:responses.length,nativePresentationCount:nativePresentations.length,priorCount:projectAssignment(facts,homeworkId).priors.length,viewport}));
+      }
       const canonicalFamilyHashAfter = hashFilesUnder(canonicalFamilyPaths);
       expect(canonicalFamilyHashAfter).toBe(canonicalFamilyHashBefore);
       expect(errors).toEqual([]);
@@ -409,17 +461,58 @@ it.each([
     expect(replayed.predictionEvaluations).toEqual(after.predictionEvaluations);
     const replayFacts = replayed.observations.slice(after.observations.length);
     expect(replayFacts).toHaveLength(2);
+    if(chartDb){
+      const launches=events.filter(event=>event.startsWith("node-launch:"));
+      expect(launches).toHaveLength(4);expect(new Set(launches).size).toBe(4);
+      const facts=exportEvents(chartDb);const responses=facts.filter(row=>row.type==='response.observed');
+      const inputSignals=facts.filter(row=>row.type==='engagement.observed'&&row.payload.metric==='first_input_ms');
+      expect(inputSignals.length).toBeGreaterThan(0);
+      expect(inputSignals.every(row=>row.cites.some(id=>facts.some(p=>p.event_id===id&&p.type==='item.presented')))).toBe(true);
+      expect(responses).toHaveLength(replayed.observations.length);
+      expect(new Set(responses.map(row=>row.payload.sourceResponseId)).size).toBe(responses.length);
+      expect(responses.map(row=>row.payload.sourceResponseId).sort()).toEqual(replayed.observations.map(row=>row.observationId).sort());
+      fs.writeFileSync(path.join(outputDir,'chart-proof.json'),JSON.stringify({provider:'recorded',responses:responses.length,priorCount:projectAssignment(facts,homeworkId).priors.length,viewport}));
+    }
     expect(replayFacts.every(row => row.provenance === "practice" && row.exposure === "previously_practiced")).toBe(true);
     expect(replayFacts[0].result.correct).toBeUndefined();
     expect(replayFacts[0].childResponse).not.toBe("night");
     expect(replayFacts[1].childResponse).toBe("light");
-    expect(events.filter(event => event.includes("/discovery/attempt"))).toHaveLength(attemptsBeforeReplay);
+    // Each replay answer now uses the original per-answer endpoint; completion must add no duplicate.
+    expect(events.filter(event => event.includes("/discovery/attempt"))).toHaveLength(attemptsBeforeReplay + 2);
     await page.getByText("Skip", { exact: true }).click();
     expect(events).toContain("canonical-game:attempt_event");
     expect(legacyAttempt).not.toHaveBeenCalled();
     expect(errors).toEqual([]);
     fs.writeFileSync(path.join(outputDir, "report.json"), JSON.stringify({ provider: "recorded", viewport, before, after, replayed, events, errors, plannerCalls: lab.plannerCalls, timing: { discoveryReadyMs, firstReadyMs, limitation: "Recorded Planner and native games only; not a live provider latency estimate." } }, null, 2));
     await page.screenshot({ path: path.join(outputDir, "complete.png") });
+    if(chartDb){
+      await page.goto(new URL(`/parent/learning-report?child=${childId}`,vite!.resolvedUrls!.local[0]).href);
+      await page.getByRole('link',{name:'Spelling chart and school results'}).click();
+      const repairResponse=page.waitForResponse(response=>response.url().endsWith('/repair-answers')&&response.request().method()==='POST');
+      await page.getByRole('button',{name:'Repair saved answers'}).click();
+      expect((await repairResponse).status()).toBe(200);
+      expect(getLearningCycle(childId,homeworkId,{rootDir})!.observations).toEqual(replayed.observations);
+      expect(exportEvents(chartDb).filter(row=>row.type==='response.observed')).toHaveLength(replayed.observations.length);
+      await page.getByRole('button',{name:'Try forecast again'}).click();
+      await page.getByText('Forecast error: Awaiting matched school marks',{exact:true}).waitFor();
+      expect(chartForecastCalls).toBe(2);
+      await page.getByLabel('Usual test weekday').selectOption('5');
+      await page.getByRole('button',{name:'Save usual weekday'}).click();
+      await expect.poll(()=>exportEvents(chartDb!).filter(e=>e.type==='test_schedule.set').length).toBe(1);
+      await page.getByLabel('Date for this list').fill('2026-10-09');
+      await page.getByRole('button',{name:'Confirm date for this list'}).click();
+      await expect.poll(()=>exportEvents(chartDb!).filter(e=>e.type==='test_schedule.set').length).toBe(2);
+      await page.getByLabel('School test date').fill('2026-10-09');
+      for(const word of words)await page.getByLabel(`Mark for ${word}`).selectOption(word===words[0]?'correct':'incorrect');
+      await page.getByLabel('I checked these marks against the returned school work').check();
+      await page.getByRole('button',{name:'Save school results'}).click();
+      await page.getByText('School results saved',{exact:true}).waitFor();
+      const school=projectAssignment(exportEvents(chartDb),homeworkId).schoolResult;
+      expect(school?.sourceKind).toBe('parent_transcription');
+      expect(projectAssignment(exportEvents(chartDb),homeworkId).forecast).toMatchObject({scheduledTestDate:null,scheduleFactId:null});
+      expect(school?.results.map(r=>r.correct)).toEqual([true,false]);
+      await page.screenshot({path:path.join(outputDir,'parent-report.png')});
+    }
   } finally {
     if (browser) { const page = browser.contexts()[0]?.pages()[0]; if (page) { await page.screenshot({ path: path.join(outputDir, "last-state.png") }); fs.writeFileSync(path.join(outputDir, "diagnostic.json"), JSON.stringify({ events, errors, body: await page.locator("body").innerText() })); } await browser.close(); }
     await vite?.close();
@@ -432,6 +525,7 @@ it.each([
     vi.restoreAllMocks();
     vi.unstubAllEnvs();
     vi.unstubAllGlobals();
+    chartDb?.close();
     fs.rmSync(rootDir, { recursive: true, force: true });
   }
 }, 180000);

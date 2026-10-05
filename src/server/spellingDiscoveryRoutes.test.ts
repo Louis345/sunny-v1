@@ -36,7 +36,7 @@ describe("spelling through the production Discovery routes", () => {
   });
   it("uses live support provenance, grades frozen answers, and ignores forged correctness", async () => {
     const { rootDir, items, post } = await fixture();
-    registerActiveVoiceSessionManager("lab-child", { noteExternalEvent() {}, getSessionId: () => "s1", getDiscoveryAttemptContext: () => ({ support: { status: "unassisted", scaffolds: [] }, instrumentSignals: [], artifactHash: hashDiscoveryContract(items), sessionId: "s1" }) });
+    registerActiveVoiceSessionManager("lab-child", { noteExternalEvent() {}, getSessionId: () => "s1", getDiscoveryAttemptContext: () => ({ nodeId: getLearningCycle("lab-child", "hw-words", {rootDir})!.nodes[0].nodeId, support: { status: "unassisted", scaffolds: [] }, instrumentSignals: [], artifactHash: hashDiscoveryContract(items), sessionId: "s1" }) });
     const body = { attemptId: "a1", sessionId: "s1", itemId: items[0].id, attemptedValue: "nite", observedAt: "2026-09-08T12:00:00Z", supportEventIds: [], instrumentSignals: [], correct: true, constructId: "invented", assistance: "unassisted" };
     expect((await post("attempt", body)).status).toBe(200);
     expect((await post("attempt", body)).status).toBe(200);
@@ -53,4 +53,115 @@ describe("spelling through the production Discovery routes", () => {
     expect(observed.result.correct).toBeUndefined(); expect(observed.assistance.status).toBe("unknown");
     expect((await post("complete", {})).status).toBe(409);
   });
+});
+
+it('rejects a live spelling node mismatch before recording any response',async()=>{
+ const {rootDir,items,post}=await fixture();
+ registerActiveVoiceSessionManager('lab-child',{noteExternalEvent(){},getSessionId:()=> 's1',getDiscoveryAttemptContext:()=>({nodeId:'other-node',support:{status:'unassisted',scaffolds:[]},instrumentSignals:[],artifactHash:hashDiscoveryContract(items),sessionId:'s1'})});
+ const response=await post('attempt',{attemptId:'wrong-node',sessionId:'s1',itemId:items[0].id,attemptedValue:'night',observedAt:'2026-10-03T12:00:00Z',supportEventIds:[],instrumentSignals:[]});
+ expect(response.status).toBe(409);
+ expect(getLearningCycle('lab-child','hw-words',{rootDir})!.observations).toHaveLength(0);
+});
+
+it('does not infer independent spelling evidence from a live context missing its node identity',async()=>{
+ const {rootDir,items,post}=await fixture();
+ registerActiveVoiceSessionManager('lab-child',{noteExternalEvent(){},getSessionId:()=> 's1',getDiscoveryAttemptContext:()=>({support:{status:'unassisted',scaffolds:[]},instrumentSignals:[],artifactHash:hashDiscoveryContract(items),sessionId:'s1'})});
+ expect((await post('attempt',{attemptId:'missing-node',sessionId:'s1',itemId:items[0].id,attemptedValue:'night',observedAt:'2026-10-03T12:00:00Z',supportEventIds:[],instrumentSignals:[]})).status).toBe(200);
+ const observation=getLearningCycle('lab-child','hw-words',{rootDir})!.observations[0];
+ expect(observation.assistance.status).toBe('unknown');
+ expect(observation.provenance).toBe('practice');
+});
+
+it.each([false,true])('writes a typed response through the original HTTP endpoint (practice=%s)',async(practice)=>{
+ const {rootDir,items,post}=await fixture();
+ const {openChart}=await import('../chart/db');const {recordAssignment}=await import('../chart/spelling/record');const {presentOriginalSpellingItem}=await import('../chart/spelling/originalResponses');const {exportEvents}=await import('../chart/exportEvents');
+ vi.stubEnv('SUNNY_CHART_DIR',path.join(rootDir,'charts'));const db=openChart('lab-child');
+ try{
+ recordAssignment(db,{assignmentId:'hw-words',words:['night','light'],testDate:null,sourcePhotoHash:'a'.repeat(64)});
+ const nodeId=getLearningCycle('lab-child','hw-words',{rootDir})!.nodes[0].nodeId;
+ const p=presentOriginalSpellingItem(db,{assignmentId:'hw-words',sessionId:'s1',nodeId,launchId:'launch',sourceItemId:items[0].id,word:'night',instrument:practice?'practice':'discovery',shown:{lettersVisible:false,hint:practice?null:false,companionHelp:practice?null:false}});
+ registerActiveVoiceSessionManager('lab-child',{noteExternalEvent(){},getSessionId:()=> 's1',getDiscoveryAttemptContext:()=>({nodeId,launchId:'launch',chartItemId:String(p.payload.itemId),practice,audioReplays:practice?null:1,support:{status:practice?'unknown':'unassisted',scaffolds:[]},instrumentSignals:[],artifactHash:hashDiscoveryContract(items),sessionId:'s1'})});
+ const body={attemptId:'typed-answer',sessionId:'s1',itemId:items[0].id,attemptedValue:'nite',observedAt:'2026-10-03T12:00:00Z',supportEventIds:[],instrumentSignals:[]};
+ expect((await post('attempt',body)).status).toBe(200);
+ __resetVoiceSessionRegistryForTests();
+ expect((await post('attempt',body)).status).toBe(200);
+ const responses=exportEvents(db).filter(e=>e.type==='response.observed');
+ expect(responses).toHaveLength(1);
+ expect(responses[0].payload).toMatchObject({rawResponse:'nite',sourceResponseId:'typed-answer',support:{audioReplays:practice?null:1,companionHelp:practice?null:false}});
+ expect(getLearningCycle('lab-child','hw-words',{rootDir})!.observations[0].result.correct).toBe(false);
+ }finally{db.close();}
+});
+
+it('does not advance the legacy cycle when the configured chart cannot record the response',async()=>{
+ const {rootDir,items,post}=await fixture();
+ vi.stubEnv('SUNNY_CHART_DIR',path.join(rootDir,'charts'));
+ registerActiveVoiceSessionManager('lab-child',{noteExternalEvent(){},getSessionId:()=> 's1',getDiscoveryAttemptContext:()=>({nodeId:getLearningCycle('lab-child','hw-words',{rootDir})!.nodes[0].nodeId,launchId:'launch',chartItemId:'missing-presentation',audioReplays:0,support:{status:'unassisted',scaffolds:[]},instrumentSignals:[],artifactHash:hashDiscoveryContract(items),sessionId:'s1'})});
+ const response=await post('attempt',{attemptId:'failed-write',sessionId:'s1',itemId:items[0].id,attemptedValue:'night',observedAt:'2026-10-03T12:00:00Z',supportEventIds:[],instrumentSignals:[]});
+ expect(response.status).toBe(409);
+ expect(getLearningCycle('lab-child','hw-words',{rootDir})!.observations).toHaveLength(0);
+});
+
+it.each(['wrong-node','wrong-token','missing'] as const)('refuses spelling completion with %s launch provenance',async(kind)=>{
+ const {rootDir,origin}=await fixture();
+ const nodeId=getLearningCycle('lab-child','hw-words',{rootDir})!.nodes[0].nodeId;
+ if(kind==='missing')vi.stubEnv('SUNNY_CHART_DIR',path.join(rootDir,'charts'));
+ registerActiveVoiceSessionManager('lab-child',{noteExternalEvent(){},getSessionId:()=> 's1',getSpellingLaunch:()=>kind==='missing'?undefined:({homeworkId:'hw-words',nodeId:kind==='wrong-node'?'actual-explainer':nodeId,launchId:'server-launch',launchToken:kind==='wrong-token'?'other':'token'})});
+ const response=await fetch(origin+'/api/learning-cycle/node-complete',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({childId:'lab-child',homeworkId:'hw-words',nodeId,result:{sessionId:'completion',voiceSessionId:'s1',launchToken:'token',completed:true,accuracy:1}})});
+ expect(response.status).toBe(409);
+ expect(await response.json()).toMatchObject({error:kind==='missing'?'spelling_completion_launch_required':'spelling_completion_launch_mismatch'});
+ expect(getLearningCycle('lab-child','hw-words',{rootDir})!.observations).toHaveLength(0);
+});
+
+it.each(['letter-rush','word-radar'])('records native answers once while preserving HTTP ownership for %s',async(activityId)=>{
+ const {rootDir,items}=await fixture();
+ const {openChart}=await import('../chart/db');const {recordAssignment}=await import('../chart/spelling/record');const {presentOriginalSpellingItem}=await import('../chart/spelling/originalResponses');const {exportEvents}=await import('../chart/exportEvents');const {handleGameEventForSession}=await import('./game-event-handler');
+ vi.stubEnv('SUNNY_CHART_DIR',path.join(rootDir,'charts'));const db=openChart('lab-child');
+ try{
+ recordAssignment(db,{assignmentId:'hw-words',words:['night','light'],testDate:null,sourcePhotoHash:'a'.repeat(64)});
+ const nodeId=getLearningCycle('lab-child','hw-words',{rootDir})!.nodes[0].nodeId;
+ const p=presentOriginalSpellingItem(db,{assignmentId:'hw-words',sessionId:'native-voice',nodeId,launchId:'native-launch',sourceItemId:items[0].id,word:'night',instrument:'practice',shown:{lettersVisible:true,hint:null,companionHelp:null}});
+ const s={chartChildId:'lab-child',getSessionId:()=> 'native-voice',getSpellingLaunch:()=>({homeworkId:'hw-words',nodeId,launchId:'native-launch',launchToken:'token'}),getDiscoveryAttemptContext:()=>({sessionId:'native-voice',nodeId,launchId:'native-launch',chartItemId:String(p.payload.itemId),artifactHash:hashDiscoveryContract(items),practice:true,spellingShown:true,audioReplays:null,support:{status:'unknown',scaffolds:[]},instrumentSignals:[]}),noteExternalEvent:vi.fn()};
+ const event={type:'attempt_event',activityId,nodeId,launchToken:'token',attemptId:'native-answer',target:items[0].id,word:'night',domain:'spelling',attemptedValue:'nite',correct:true,quality:5,timestamp:Date.parse('2026-10-04T03:40:00Z')};
+ handleGameEventForSession(s,event);handleGameEventForSession(s,event);
+ const responses=exportEvents(db).filter(e=>e.type==='response.observed');
+ if(activityId==='word-radar'){expect(responses).toHaveLength(0);expect(getLearningCycle('lab-child','hw-words',{rootDir})!.observations).toHaveLength(0);return;}
+ expect(responses).toHaveLength(1);
+ expect(responses[0].payload).toMatchObject({rawResponse:'nite',support:{spellingShown:true,hint:null,companionHelp:null,audioReplays:null}});
+ const observations=getLearningCycle('lab-child','hw-words',{rootDir})!.observations;expect(observations).toHaveLength(1);expect(observations[0]).toMatchObject({childResponse:'nite',result:{correct:false},provenance:'practice'});
+ handleGameEventForSession(s,{...event,attemptId:'wrong-launch',launchToken:'other'});
+ expect(exportEvents(db).filter(e=>e.type==='response.observed')).toHaveLength(1);
+ db.close();const reopened=openChart('lab-child');
+ try{const {recoverOriginalSpellingDeliveries}=await import('./originalSpellingCommit');expect(recoverOriginalSpellingDeliveries(reopened,'hw-words')).toEqual({recovered:1});expect(exportEvents(reopened).filter(e=>e.type==='response.observed')).toHaveLength(1);expect(getLearningCycle('lab-child','hw-words',{rootDir})!.observations).toEqual(observations);}finally{reopened.close();}
+ }finally{db.close();}
+});
+
+it('uses captured native answers at completion instead of adding the client summary again',async()=>{
+ const {rootDir,items,origin}=await fixture();
+ const {createLearningCycle}=await import('../engine/learningCycleRepository');const {recordSpellingDiscoveryAttempt}=await import('../engine/learningCycleRuntime');
+ const template=getLearningCycle('lab-child','hw-words',{rootDir})!;
+ createLearningCycle({childId:template.childId,domain:template.domain,assignment:template.assignment,academicTheory:template.academicTheory,engagementTheory:template.engagementTheory,homeworkId:'hw-native',initialLifecycle:'baseline_active',nodes:[{...template.nodes[0],nodeId:'native',role:'baseline',state:'completed',implementationType:'letter-rush'}]},{rootDir});
+ recordSpellingDiscoveryAttempt({childId:'lab-child',homeworkId:'hw-native',sessionId:'voice',launchId:'native-launch',attempt:{attemptId:'native-raw',itemId:items[0].id,attemptedValue:'nite',observedAt:'2026-10-04T03:50:00Z'},support:{status:'unknown',scaffolds:[]}},{rootDir});
+ const before=getLearningCycle('lab-child','hw-native',{rootDir})!;
+ registerActiveVoiceSessionManager('lab-child',{noteExternalEvent(){},getSessionId:()=> 'voice',getSpellingLaunch:()=>({homeworkId:'hw-native',nodeId:'native',launchId:'native-launch',launchToken:'token'})});
+ const response=await fetch(origin+'/api/learning-cycle/node-complete',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({childId:'lab-child',homeworkId:'hw-native',nodeId:'native',result:{sessionId:'completion',voiceSessionId:'voice',launchToken:'token',completed:true,accuracy:1,targetResults:[{target:items[0].id,correct:true,attemptedValue:'night'}]}})});
+ expect(response.status).toBe(200);
+ const after=getLearningCycle('lab-child','hw-native',{rootDir})!;
+ expect(after.observations).toEqual(before.observations);
+ expect(after.evidence.academic.find(row=>row.evidenceId==='completion:native:completion')?.accuracy).toBe(0);
+});
+
+it('records a launched chunk choice as a limitation, never as a whole-word answer',async()=>{
+ const {rootDir}=await fixture();const {openChart}=await import('../chart/db');const {recordAssignment}=await import('../chart/spelling/record');const {exportEvents}=await import('../chart/exportEvents');const {handleGameEventForSession}=await import('./game-event-handler');
+ vi.stubEnv('SUNNY_CHART_DIR',path.join(rootDir,'charts'));const db=openChart('lab-child');
+ try{
+ recordAssignment(db,{assignmentId:'hw-words',words:['night','light'],testDate:null,sourcePhotoHash:'a'.repeat(64)});
+ const nodeId=getLearningCycle('lab-child','hw-words',{rootDir})!.nodes[0].nodeId;
+ const s={chartChildId:'lab-child',getSessionId:()=> 'voice',getSpellingLaunch:()=>({homeworkId:'hw-words',nodeId,launchId:'launch',launchToken:'token'}),noteExternalEvent:vi.fn()};
+ const event={type:'attempt_event',domain:'spelling',nodeId,launchToken:'token',attemptId:'choice',evidenceLimitation:'non_spelling_response',rawChoice:'ight',aggregateAccuracy:null};
+ handleGameEventForSession(s,event);handleGameEventForSession(s,event);
+ const facts=exportEvents(db);expect(facts.filter(e=>e.type==='activity.limited')).toHaveLength(1);
+ expect(facts.find(e=>e.type==='activity.limited')?.payload).toMatchObject({rawChoice:'ight',reason:'non_spelling_response',launchId:'launch'});
+ expect(facts.filter(e=>e.type==='response.observed')).toHaveLength(0);expect(getLearningCycle('lab-child','hw-words',{rootDir})!.observations).toHaveLength(0);
+ handleGameEventForSession(s,{...event,attemptId:'wrong',launchToken:'other'});expect(exportEvents(db).filter(e=>e.type==='activity.limited')).toHaveLength(1);
+ }finally{db.close();}
 });

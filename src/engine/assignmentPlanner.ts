@@ -1,3 +1,4 @@
+import {requestPlannerMessage, assertPlannerResponseComplete} from "./plannerTransport";
 import Anthropic from "@anthropic-ai/sdk";
 import fs from "fs";
 import path from "path";
@@ -195,7 +196,7 @@ export type AssignmentPlanningPacket = {
   plannerInstruction: string;
   priorPlannerOutput?: AssignmentPlannerOutput;
   spellingDiagnostics?: { version: 1; instruments: SpellingDiagnosticInstrument[]; evidenceIds: string[]; observations: Omit<LearningObservation, "childResponse" | "prompt">[]; device: { status: "unknown" } };
-  discoveryEvidence?: { summary: DiscoveryEvidenceSummary; observations: Omit<LearningObservation, "childResponse" | "prompt">[]; history: ChildChart["learningHistory"]; diagnosticSelection?: SpellingDiagnosticSelection };
+  discoveryEvidence?: { summary: DiscoveryEvidenceSummary; observations: Omit<LearningObservation, "prompt">[]; history: ChildChart["learningHistory"]; diagnosticSelection?: SpellingDiagnosticSelection };
 };
 
 export function attachSpellingDiscoveryEvidence(packet: AssignmentPlanningPacket, chart: ChildChart): AssignmentPlanningPacket {
@@ -208,8 +209,9 @@ export function attachSpellingDiscoveryEvidence(packet: AssignmentPlanningPacket
   packet = { ...packet, plannerInstruction: `${packet.plannerInstruction}\nNative activityConfig contracts: both engines require schemaVersion:1, activityId, domain:spelling, topic, learningGoal, gradeBand:early_elementary, evidencePolicy:{writesPracticeEvidence:true,writesMasteryEvidence:false,requiresPerTargetResult:true,allowedEvidence:[practice]}. Letter Rush also needs mode (type-and-spell, hear-and-spell, read-and-race, trap-the-imposter, mastery-run), scaffolds:{showWord,letterBank,allowRetryBeforeScore,companionHints} booleans, and words:[{id,text}]. Concept Check needs engine:{id,mode}, targets:[{id,label,type:word}], and rounds:[{id,mechanic:choose,targetId,prompt,options:[{id,label,correct}],scaffoldLevel}], with one correct option and one round per target. These are runtime capabilities, not a prescription to select those games.` };
   const history = chart.learningHistory ? { ...chart.learningHistory, constructs: Object.fromEntries(Object.entries(chart.learningHistory.constructs).map(([id, entry]) => [id, { ...entry, observations: entry.observations.map(clean) }])) } : { childId: cycle.childId, constructs: {}, recentDecisions: [], pendingInterpretation: [] };
   return { ...packet, capturedHomework: { ...packet.capturedHomework, title: cycle.assignment.title, type: "spelling_test", words: cycle.assignment.targets, questions: [], wordGroups: [{ id: "assigned", label: "Assigned school words", purpose: "spell_from_memory", words: cycle.assignment.targets, confidence: 1, evidence: cycle.assignment.capturedEvidenceIds }], contentProfile: { ...packet.capturedHomework.contentProfile, practiceDomain: "spelling", contentDomain: "language_arts", topic: cycle.assignment.title, primarySkill: "Spell assigned words from recall" } },
-    discoveryEvidence: { summary: buildDiscoveryEvidenceSummary(cycle), observations: cycle.observations.map(clean), history, diagnosticSelection: cycle.nodes.find(node => node.role === "evaluation")?.evidenceContract.diagnosticSelection },
-    plannerInstruction: `${packet.plannerInstruction}\nThis is targeted spelling planning after committed Discovery. Separate unknown, assisted, and instrument-ambiguous responses from spelling errors. Prior outcomes are evidence, not permanent traits. You own emphasis, games, sequence, and predictions. Focus practice on clean independent misses; child-choice routes must all cover every such miss. Preserve available games and earning rules. Each node needs plannedMeasurements.spelling:{role,evidenceIds,interventionNodeIds,reason,uncertainty,expectedAccuracy:{min,max},confidence,maxDelayDays,finalCheck}; cite observations, and make checkpoints cite their intervention. The final shared hidden-recall check covers every assigned word, including initially secure words. Word Radar hidden_word_recall captures it. Hearing the word is stimulus; letters or help are assistance; practiced words are not unseen. Predict immediate unassisted recall, not retention, mastery, or causation. Reuse catalog instruments; use generationRequests only for a missing capability. Letter Rush or Concept Check needs its complete catalog activityConfig, exact node targets, domain spelling, and writesMasteryEvidence false; Concept Check is recognition practice. Visual Explainer is assisted instruction only. If selected, provide activityConfig:{schemaVersion:1,activityId:visual-explainer,domain:spelling,topic,learningGoal,misconception,strategy:{title,steps:[2-4 short steps]},words:[{id,text,chunks:[2-6 exact pieces reconstructing text],focusChunk,tip}],check:{id,targetWord,prompt,options:[{id,label,correct}],correctOptionId},evidencePolicy:{writesPracticeEvidence:true,writesMasteryEvidence:false,requiresPerTargetResult:false,allowedEvidence:[practice,companion]}}. Cover exactly the node targets, then add a fresh hidden-recall checkpoint citing the explainer. Academic conclusions stay in spelling; cross-domain interaction facts are tentative design evidence.`,
+    // A tutor needs the actual attempt ("nite" for night) to see what to teach.
+    discoveryEvidence: { summary: buildDiscoveryEvidenceSummary(cycle), observations: cycle.observations.map(row => ({ ...clean(row), ...(row.childResponse ? { childResponse: row.childResponse.slice(0, 64) } : {}) })), history, diagnosticSelection: cycle.nodes.find(node => node.role === "evaluation")?.evidenceContract.diagnosticSelection },
+    plannerInstruction: `${packet.plannerInstruction}\nThis is targeted spelling planning after committed Discovery. Separate unknown, assisted, and instrument-ambiguous responses from spelling errors. Prior outcomes are evidence, not permanent traits. You own emphasis, games, sequence, and predictions. Focus practice on clean independent misses; child-choice routes must all cover every such miss. Preserve available games and earning rules. Each node needs plannedMeasurements.spelling:{role,evidenceIds,interventionNodeIds,reason,uncertainty,expectedAccuracy:{min,max},confidence,maxDelayDays,finalCheck}; cite observations, and make checkpoints cite their intervention. The final shared hidden-recall check covers every assigned word, including initially secure words. Word Radar hidden_word_recall captures it. Hearing the word is stimulus; letters or help are assistance; practiced words are not unseen. Predict immediate unassisted recall, not retention, mastery, or causation. Reuse catalog instruments; use generationRequests only for a missing capability. Letter Rush or Concept Check needs its complete catalog activityConfig, exact node targets, domain spelling, and writesMasteryEvidence false; Concept Check is recognition practice. Visual Explainer teaches: it shows each word in chunks with a tip and a quick check; its answers count as assisted practice, not independent evidence. If selected, provide activityConfig:{schemaVersion:1,activityId:visual-explainer,domain:spelling,topic,learningGoal,misconception,strategy:{title,steps:[2-4 short steps]},words:[{id,text,chunks:[2-6 exact pieces reconstructing text],focusChunk,tip}],check:{id,targetWord,prompt,options:[{id,label,correct}],correctOptionId},evidencePolicy:{writesPracticeEvidence:true,writesMasteryEvidence:false,requiresPerTargetResult:false,allowedEvidence:[practice,companion]}}. Cover exactly the node targets, then add a fresh hidden-recall checkpoint citing the explainer. Academic conclusions stay in spelling; cross-domain interaction facts are tentative design evidence.`,
   };
 }
 
@@ -243,6 +245,7 @@ export type AssignmentPlanValidationIssue = {
     | "missing_word_groups"
     | "word_missing_source_group"
     | "missing_word_radar_config"
+    | "word_radar_capability_mismatch"
     | "missing_node_measurement"
     | "missing_node_title"
     | "target_lane_mismatch"
@@ -342,6 +345,7 @@ export async function planSpellingIntakeFromSource(packet: AssignmentPlanningPac
     : { message: await requestAssignmentPlannerTool({ prompt, model, source: packet.sourceDocument, schema: z.toJSONSchema(schema, { io: "input" }) }), latencyMs: Date.now() - requestStarted };
   const unpack = (value: Receipt): { draft: unknown; usage?: LanguageModelUsage; latencyMs: number } => {
     if ("output" in value) return { draft: value.output, usage: value.telemetry.usage, latencyMs: value.telemetry.latencyMs };
+    if ("message" in value) assertPlannerResponseComplete(value.message);
     const tool = "message" in value ? value.message.content.find(block => block.type === "tool_use" && block.name === ASSIGNMENT_PLANNER_TOOL_NAME) : undefined;
     return {
       draft: "message" in value ? tool && "input" in tool ? tool.input : undefined : value.draft,
@@ -517,6 +521,13 @@ function plannerNodeActivityIds(): [string, ...string[]] {
 function isPlannerDestinationActivity(activityId: string): boolean {
   return PLANNER_DESTINATION_ACTIVITY_IDS.has(activityId);
 }
+
+/** Post-Discovery spelling only: role and goal, no rules; the model brings the pedagogy. */
+export const SPELLING_TUTOR_PERSONA = [
+  "You are an expert reading and spelling tutor planning this child's next session.",
+  "Your goal: she spells every assigned word correctly on her school test, and enjoys getting there.",
+  "Use what you know about how children learn to spell, her profile, and exactly what she wrote.",
+].join(" ");
 
 export const ASSIGNMENT_PLANNER_PERSONA = [
   "You are Sunny's assignment planner.",
@@ -1535,6 +1546,20 @@ export function validateAssignmentPlannerOutput(
         message: `Word Radar node ${node.id} must include planner-selected wordRadarConfig.`,
       });
     }
+    if (node.type === "word-radar" && node.wordRadarConfig && capability) {
+      const matchesCatalogMode = capability.capabilityModes.some((mode) =>
+        Object.entries(mode.config).every(([key, value]) =>
+          Object.is(node.wordRadarConfig?.[key as keyof typeof node.wordRadarConfig], value),
+        ),
+      );
+      if (!matchesCatalogMode) {
+        issues.push({
+          code: "word_radar_capability_mismatch",
+          severity: "error",
+          message: `Word Radar node ${node.id} response contract does not match a catalog capability mode.`,
+        });
+      }
+    }
   }
 
   return issues;
@@ -1605,7 +1630,7 @@ export function assignmentPlannerSourceImages(packet: AssignmentPlanningPacket):
 }
 
 export function buildAssignmentPlannerPrompt(packet: AssignmentPlanningPacket): string {
-  if (packet.discoveryEvidence) return `${ASSIGNMENT_PLANNER_PERSONA}\nDesign the targeted spelling journey from the committed facts and available instruments. Return the existing ${ASSIGNMENT_PLANNER_TOOL_NAME} tool object once. Every node needs its own measure-<nodeId> planned measurement and the spelling decision fields. Preserve source words exactly. You choose the number of activities, emphasis, mechanics, and routes; do not fabricate evidence. Existing Quest/Boss gates and earning rules remain unchanged. Do not introduce new reward systems.\n${packet.plannerInstruction}\nEvidence-first packet:\n${JSON.stringify(packet)}`;
+  if (packet.discoveryEvidence) return `${SPELLING_TUTOR_PERSONA}\nThe packet has her assigned words, her Discovery attempts (childResponse is exactly what she spelled), her profile, and the activities you can use; each activity's label says what it really does. Decide what she needs and design the session: you choose the activities, their order, and how many.\nEverything below only describes how to record your plan and which evidence rules the system enforces; it is not teaching guidance.\nReturn the existing ${ASSIGNMENT_PLANNER_TOOL_NAME} tool object once. Every node needs its own measure-<nodeId> planned measurement and the spelling decision fields. Preserve source words exactly. You choose the number of activities, emphasis, mechanics, and routes; do not fabricate evidence. Existing Quest/Boss gates and earning rules remain unchanged. Do not introduce new reward systems.\n${packet.plannerInstruction}\nEvidence-first packet:\n${JSON.stringify(packet)}`;
   const revisionInstruction = packet.parentDialogue?.length || packet.priorPlannerOutput
     ? "\n- This is a human-in-the-loop revision. Use parentDialogue and priorPlannerOutput as context, then return one coherent revised plan from the same source."
     : "";
@@ -1746,6 +1771,11 @@ type AssignmentPlannerRelationshipIssue =
     code: "planner_missing_measurement";
     nodeId: string;
     measurementId: string;
+  }
+  | {
+    code: "planner_unknown_spelling_target";
+    nodeId: string;
+    targets: string[];
   };
 
 class AssignmentPlannerRelationshipInvalidError extends Error {
@@ -1782,6 +1812,7 @@ function assignmentPlannerRelationshipIssues(
   toolInput: unknown,
   allowedEvidenceIds: ReadonlySet<string>,
   requireSpellingMeasurements = false,
+  allowedSpellingTargets: ReadonlySet<string> = new Set(),
 ): AssignmentPlannerRelationshipIssue[] {
   const input = jsonObject(normalizeAssignmentPlannerToolInput(toolInput));
   const activeSessionPlan = jsonObject(input?.activeSessionPlan);
@@ -1805,6 +1836,16 @@ function assignmentPlannerRelationshipIssues(
     }));
     for (const nodeId of nodeOrder.keys()) {
       if (gatedNodeIds.has(nodeId)) continue;
+      const node = jsonObject(rawNodes[nodeOrder.get(nodeId)!]);
+      const targets = Array.isArray(node?.targets)
+        ? node.targets.filter((target): target is string => typeof target === "string")
+        : [];
+      const unknownTargets = targets.filter(
+        target => !allowedSpellingTargets.has(target.trim().toLocaleLowerCase("en-US")),
+      );
+      if (unknownTargets.length) {
+        issues.push({ code: "planner_unknown_spelling_target", nodeId, targets: unknownTargets });
+      }
       const measurementId = `measure-${nodeId}`;
       if (!jsonObject(measurementById.get(measurementId)?.spelling)) {
         issues.push({ code: "planner_missing_measurement", nodeId, measurementId });
@@ -1848,8 +1889,14 @@ function validateAssignmentPlannerRelationships(
   draft: AssignmentPlannerResponseObject,
   allowedEvidenceIds: ReadonlySet<string>,
   requireSpellingMeasurements = false,
+  allowedSpellingTargets: ReadonlySet<string> = new Set(),
 ): AssignmentPlannerResponseObject {
-  const issues = assignmentPlannerRelationshipIssues(draft, allowedEvidenceIds, requireSpellingMeasurements);
+  const issues = assignmentPlannerRelationshipIssues(
+    draft,
+    allowedEvidenceIds,
+    requireSpellingMeasurements,
+    allowedSpellingTargets,
+  );
   if (issues.length) throw new AssignmentPlannerRelationshipInvalidError(draft, issues);
   return draft;
 }
@@ -2010,8 +2057,9 @@ function normalizeAssignmentPlannerToolInput(input: unknown): unknown {
 }
 
 export function parseAssignmentPlannerToolUseResponse(
-  response: Pick<Anthropic.Messages.Message, "content">,
+  response: Pick<Anthropic.Messages.Message, "content"> & { stop_reason?: string | null },
 ): AssignmentPlannerResponseObject {
+  assertPlannerResponseComplete(response);
   const toolUse = response.content.find((block) =>
     block.type === "tool_use" &&
     "name" in block &&
@@ -2091,9 +2139,12 @@ async function callAssignmentPlannerModel(
   const allowedEvidenceIds = assignmentPlannerAllowedEvidenceIds(packet);
   const allowedEvidenceIdSet = new Set(allowedEvidenceIds);
   const requireSpellingMeasurements = packet.capturedHomework.contentProfile.practiceDomain === "spelling";
+  const allowedSpellingTargets = new Set(
+    packet.capturedHomework.words.map(word => word.trim().toLocaleLowerCase("en-US")),
+  );
   try {
     const draft = parseAssignmentPlannerToolUseResponse(received.message);
-    return { draft: packet.discoveryEvidence ? validateAssignmentPlannerRelationships(draft, allowedEvidenceIdSet, requireSpellingMeasurements) : draft, usage: originalUsage,
+    return { draft: packet.discoveryEvidence ? validateAssignmentPlannerRelationships(draft, allowedEvidenceIdSet, requireSpellingMeasurements, allowedSpellingTargets) : draft, usage: originalUsage,
       telemetry: { model: received.model, usage: originalUsage, latencyMs: received.latencyMs }, receivedAt: received.createdAt };
   } catch (error) {
     if ((!providerReceipt || !packet.discoveryEvidence)
@@ -2101,7 +2152,7 @@ async function callAssignmentPlannerModel(
     const schemaIssues = error instanceof AssignmentPlannerToolInvalidError ? error.issues : [];
     const relationshipIssues = error instanceof AssignmentPlannerRelationshipInvalidError
       ? error.issues
-      : assignmentPlannerRelationshipIssues(error.toolInput, allowedEvidenceIdSet, requireSpellingMeasurements);
+      : assignmentPlannerRelationshipIssues(error.toolInput, allowedEvidenceIdSet, requireSpellingMeasurements, allowedSpellingTargets);
     const correctionRequest = {
       version: 3,
       purpose: "assignment_planner_tool_correction",
@@ -2110,8 +2161,9 @@ async function callAssignmentPlannerModel(
       schemaIssues,
       relationshipIssues,
       allowedEvidenceIds,
+      allowedSpellingTargets: [...allowedSpellingTargets].sort(),
     };
-    const correctionPrompt = `Your previous ${ASSIGNMENT_PLANNER_TOOL_NAME} input failed its declared tool contract. Reissue the complete tool input once. Preserve every valid academic, design, node, activity, target, prediction, and evidence choice. Correct only the listed schema and relationship violations. Every spelling.evidenceIds value must come from ALLOWED EVIDENCE IDS; remove unknown IDs and never invent evidence, child facts, or new activities. Practice or instruction measurements must use interventionNodeIds: []. A fresh_checkpoint may cite only prior targeted intervention nodes. A final fresh checkpoint must cover the assigned words and all prior pending interventions. If a future gated node needs evidenceIds, cite the current observations that motivated including that node.\nSCHEMA ISSUES:\n${JSON.stringify(schemaIssues)}\nRELATIONSHIP ISSUES:\n${JSON.stringify(relationshipIssues)}\nALLOWED EVIDENCE IDS:\n${JSON.stringify(allowedEvidenceIds)}\nPREVIOUS TOOL INPUT:\n${JSON.stringify(error.toolInput)}`;
+    const correctionPrompt = `Your previous ${ASSIGNMENT_PLANNER_TOOL_NAME} input failed its declared tool contract. Reissue the complete tool input once. Preserve every valid academic, design, node, activity, target, prediction, and evidence choice. Correct only the listed schema and relationship violations. Every node target must come from ALLOWED SPELLING TARGETS; a reward or break is not an academic target. Every spelling.evidenceIds value must come from ALLOWED EVIDENCE IDS; remove unknown IDs and never invent evidence, child facts, or new activities. Practice or instruction measurements must use interventionNodeIds: []. A fresh_checkpoint may cite only prior targeted intervention nodes. A final fresh checkpoint must cover the assigned words and all prior pending interventions. If a future gated node needs evidenceIds, cite the current observations that motivated including that node.\nSCHEMA ISSUES:\n${JSON.stringify(schemaIssues)}\nRELATIONSHIP ISSUES:\n${JSON.stringify(relationshipIssues)}\nALLOWED SPELLING TARGETS:\n${JSON.stringify([...allowedSpellingTargets].sort())}\nALLOWED EVIDENCE IDS:\n${JSON.stringify(allowedEvidenceIds)}\nPREVIOUS TOOL INPUT:\n${JSON.stringify(error.toolInput)}`;
     const correctionStarted = Date.now();
     const correctionStage = relationshipIssues.some((issue) => issue.code === "planner_missing_measurement")
       ? `${providerReceipt.stage}-tool-correction-v3-2-missing-measurement`
@@ -2143,7 +2195,7 @@ async function callAssignmentPlannerModel(
     let finalReceivedAt = correction.createdAt;
     let totalLatencyMs = received.latencyMs + correction.latencyMs;
     try {
-      validatedDraft = validateAssignmentPlannerRelationships(correctedDraft, allowedEvidenceIdSet, requireSpellingMeasurements);
+      validatedDraft = validateAssignmentPlannerRelationships(correctedDraft, allowedEvidenceIdSet, requireSpellingMeasurements, allowedSpellingTargets);
     } catch (correctionError) {
       const missingOnly = correctionError instanceof AssignmentPlannerRelationshipInvalidError
         && correctionError.issues.length > 0
@@ -2183,6 +2235,7 @@ async function callAssignmentPlannerModel(
         parseAssignmentPlannerToolUseResponse(measurementCorrection.message),
         allowedEvidenceIdSet,
         requireSpellingMeasurements,
+        allowedSpellingTargets,
       );
       combinedUsage = combinePlannerUsage(combinedUsage, usageFromAnthropic(measurementCorrection.message));
       totalLatencyMs += measurementCorrection.latencyMs;
@@ -2249,11 +2302,10 @@ type AssignmentPlannerToolRequest = {
 async function requestAssignmentPlannerTool(args: AssignmentPlannerToolRequest): Promise<Anthropic.Messages.Message> {
   const client = new Anthropic({ maxRetries: 0 });
   const timeoutMs = Math.max(10_000, Number(process.env.SUNNY_AI_TIMEOUT_MS ?? 120_000));
-  const signal = AbortSignal.timeout(timeoutMs);
-  return client.messages.create({
+  return requestPlannerMessage(client, {
     model: args.model,
     max_tokens: Math.max(8_000, Number(process.env.SUNNY_PLANNER_MAX_TOKENS ?? ASSIGNMENT_PLANNER_MAX_TOKENS)),
-    system: ASSIGNMENT_PLANNER_PERSONA,
+    system: `${ASSIGNMENT_PLANNER_PERSONA}\nCall ${ASSIGNMENT_PLANNER_TOOL_NAME} exactly once to submit the complete plan matching its schema.`,
     tools: [{
       name: ASSIGNMENT_PLANNER_TOOL_NAME,
       description: "Write Sunny's captured homework interpretation, active intervention node plan, measurements, and mastery theory. Populate every tool field directly as its declared object or array type. Never serialize the plan or any tool field into a JSON string.",
@@ -2274,7 +2326,7 @@ async function requestAssignmentPlannerTool(args: AssignmentPlannerToolRequest):
         { type: "text" as const, text: args.prompt },
       ],
     }],
-  }, { signal });
+  }, { timeout: timeoutMs });
 }
 
 export function hydrateAssignmentPlannerOutputFromDraft(

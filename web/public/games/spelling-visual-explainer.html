@@ -177,7 +177,7 @@
           });
           const tip = document.createElement("p"); tip.className = "tip"; tip.textContent = word.tip;
           row.append(chunks, tip);
-          return { row, chunkNodes, tip };
+          return { row, chunkNodes, tip, word, exposureRecorded: false };
         });
         words.replaceChildren(...modelNodes.map((entry) => entry.row));
       }
@@ -187,6 +187,10 @@
           entry.chunkNodes.forEach((chunk, chunkIndex) => {
             const threshold = 8 + rowIndex * 4 + chunkIndex * 7;
             chunk.classList.toggle("visible", progress >= threshold);
+            if (progress >= threshold && !entry.exposureRecorded && window.GameBridge) {
+              entry.exposureRecorded = true;
+              window.GameBridge.reportState("Spelling model shown", { spellingItemOpened:true, currentWord:entry.word.text, phase:"presentation", answerVisibility:"visible" });
+            }
             chunk.classList.toggle("focus", progress >= 60 && chunk.dataset.focus === "true");
           });
           entry.tip.classList.toggle("visible", progress >= 66 + rowIndex * 3);

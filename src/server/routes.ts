@@ -1,3 +1,7 @@
+import { runOriginalSpellingForecast } from '../chart/spelling/originalForecast';
+import { setupOriginalSpellingParentRoutes } from './originalSpellingParent';
+import {commitOriginalSpellingAttempt} from './originalSpellingCommit';
+import {withOriginalSpellingChart} from '../chart/spelling/originalResponses';
 import { setupKioskHealthRoutes } from "./kioskHealthRoutes";
 import Anthropic from "@anthropic-ai/sdk";
 import { ElevenLabsClient } from "@elevenlabs/elevenlabs-js";
@@ -732,12 +736,14 @@ export function handleDiagTriggerReward(
 }
 
 export type SunnyRouteRuntime = {
+  forecastSpelling?: typeof runOriginalSpellingForecast;
   launchAdaptiveMathWorker?: (childId: string, homeworkId: string) => void;
 };
 
 export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void {
   const launchTargetedWorker = runtime.launchAdaptiveMathWorker ?? launchAdaptiveMathWorker;
   setupKioskHealthRoutes(app);
+  setupOriginalSpellingParentRoutes(app, isValidRegistryChildId, undefined, runtime.forecastSpelling);
   setImmediate(() => { resumeAdaptiveMathWorkers(); resumeSuccessorBoards(); });
   const themesDir = path.resolve(process.cwd(), "src", "themes");
   if (fs.existsSync(themesDir)) {
@@ -792,7 +798,7 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
     const childId = String(req.params.childId ?? "").trim().toLowerCase();
     const homeworkId = String(req.params.homeworkId ?? "").trim();
     if (!isValidRegistryChildId(childId)) return res.status(404).json({ error: "child_not_found" });
-    const body = req.body as Partial<MathDiscoveryAttempt> & { skipped?: boolean; sessionId?: string };
+    const body = req.body as Partial<MathDiscoveryAttempt> & { skipped?: boolean; sessionId?: string; launchToken?:string };
     if (
       !homeworkId
       || typeof body.attemptId !== "string"
@@ -820,15 +826,29 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
       const existing = getLearningCycle(childId, homeworkId);
       const submittingSessionId = typeof body.sessionId === "string" ? body.sessionId.trim() : "";
       const live = getVoiceSessionManagerForChildSession(childId, submittingSessionId)
-        ?.getDiscoveryAttemptContext?.(homeworkId, attempt.itemId);
+        ?.getDiscoveryAttemptContext?.(homeworkId, attempt.itemId, typeof body.launchToken === "string" ? body.launchToken : undefined);
+      const spellingNode = existing?.domain === "spelling" ? existing.nodes.find(node => node.evidenceContract.spellingItems?.[attempt.itemId]) : undefined;
+      if (spellingNode && live?.nodeId && live.nodeId !== spellingNode.nodeId) throw new Error("discovery_live_node_mismatch");
       const binding = existing?.domain === "spelling"
         ? existing.nodes.find(node => node.evidenceContract.spellingItems?.[attempt.itemId])?.artifactBinding
         : existing?.nodes.find(node => node.role === "evaluation" && node.artifactBinding?.contractFingerprint === live?.artifactHash)?.artifactBinding;
-      const verifiedLive = live && live.artifactHash === binding?.contractFingerprint ? live : undefined;
-      if (attempt.supportEventIds.some(id => !verifiedLive?.support.scaffolds.includes(id))) throw new Error("discovery_support_reference_unknown");
-      const cycle = existing?.domain === "spelling"
-        ? recordSpellingDiscoveryAttempt({ childId, homeworkId, attempt: { ...attempt, skipped: body.skipped === true }, support: verifiedLive?.support, artifactHash: binding?.contractFingerprint, sessionId: verifiedLive?.sessionId, instrumentSignals: [...attempt.instrumentSignals, ...(verifiedLive?.instrumentSignals ?? ["live_context_unavailable"])] })
-        : recordDiscoveryAttempt({ childId, homeworkId, attempt, support: verifiedLive?.support });
+      const verifiedLive = live && live.artifactHash === binding?.contractFingerprint && (!spellingNode || live.nodeId === spellingNode.nodeId) ? live : undefined;
+      const prepareLegacy = () => {
+        if (attempt.supportEventIds.some(id => !verifiedLive?.support.scaffolds.includes(id))) throw new Error("discovery_support_reference_unknown");
+        return { childId, homeworkId, attempt: { ...attempt, skipped: body.skipped === true }, support: verifiedLive?.support, artifactHash: binding?.contractFingerprint, sessionId: verifiedLive?.sessionId, launchId:verifiedLive?.launchId, instrumentSignals: [...attempt.instrumentSignals, ...(verifiedLive?.instrumentSignals ?? ["live_context_unavailable"])] };
+      };
+      const recorded = existing?.domain === "spelling" ? withOriginalSpellingChart(childId,db=>commitOriginalSpellingAttempt(db,homeworkId,{...attempt,skipped:body.skipped === true,sessionId:submittingSessionId,...(typeof body.launchToken === "string" ? {launchToken:body.launchToken} : {})},()=>{
+        const legacy=prepareLegacy();
+        if(!verifiedLive?.chartItemId || !verifiedLive.launchId || verifiedLive.audioReplays === undefined)throw new Error('chart_live_presentation_required');
+        return {legacy,response:{
+          assignmentId:homeworkId,sessionId:verifiedLive.sessionId,itemId:verifiedLive.chartItemId,sourceResponseId:attempt.attemptId,
+          rawResponse:attempt.attemptedValue,status:body.skipped === true ? 'skipped' : [...attempt.instrumentSignals,...verifiedLive.instrumentSignals].length ? 'ambiguous' : 'answered',
+          support:{audioReplays:verifiedLive.audioReplays,spellingShown:verifiedLive.spellingShown ?? null,hint:verifiedLive.practice ? null : false,companionHelp:verifiedLive.support.status === 'assisted' ? true : verifiedLive.practice ? null : false},
+        }};
+      },recordSpellingDiscoveryAttempt)) : undefined;
+      const cycle = recorded ?? (existing?.domain === "spelling"
+        ? recordSpellingDiscoveryAttempt(prepareLegacy())
+        : recordDiscoveryAttempt({ childId, homeworkId, attempt, support: prepareLegacy().support }));
       console.log(` 🎮 [adaptive-math] [discovery-attempt] [committed] child=${childId} homework=${homeworkId} attempt=${attempt.attemptId}`);
       return res.json({ ok: true, lifecycle: cycle.lifecycle, revision: cycle.revision });
     } catch (error: unknown) {
@@ -941,12 +961,21 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
         return res.status(400).json({ error: "canonical_completion_session_required" });
       }
       const sessionId = suppliedSessionId || randomUUID();
+      let captureLaunchId: string | undefined;
+      if(beforeCycle?.domain === "spelling"){
+        const voiceSessionId=typeof body.result.voiceSessionId === "string" ? body.result.voiceSessionId : sessionId;
+        const launch=getVoiceSessionManagerForChildSession(childId,voiceSessionId)?.getSpellingLaunch?.();
+        if(launch && (launch.homeworkId!==homeworkId || launch.nodeId!==nodeId || (launch.launchToken!==undefined && launch.launchToken!==body.result.launchToken)))throw new Error('spelling_completion_launch_mismatch');
+        if(!launch && process.env.SUNNY_CHART_DIR?.trim() && !process.env.SUNNY_CERTIFICATION_RUN_ID)throw new Error('spelling_completion_launch_required');
+        if (launch && (beforeNode?.implementationType === 'word-radar' || beforeCycle.observations.some(row => row.sourceId === `activity:${nodeId}:recall` && row.confounds.includes(`launch_id:${launch.launchId}`)))) captureLaunchId = launch.launchId;
+      }
       const updated = recordCanonicalNodeCompletion({
         childId,
         homeworkId,
         nodeId,
         sessionId,
         result: {
+          captureLaunchId,
           completed: body.result.completed === true,
           ended: body.result.ended === true,
           won: typeof body.result.won === "boolean" ? body.result.won : undefined,
@@ -969,6 +998,9 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
       const finalCycle = getLearningCycle(childId, homeworkId) ?? updated;
       const nodeState = finalCycle.nodes.find(node => node.nodeId === nodeId)?.state ?? null;
       const becameCompleted = !wasCompleted && nodeState === "completed";
+      if(becameCompleted && finalCycle.domain==='spelling' && finalCycle.lifecycle==='baseline_evaluating'){
+        void (runtime.forecastSpelling??runOriginalSpellingForecast)(childId,homeworkId).catch(error=>console.error(' 🎮 [spelling-forecast] [checkpoint] [needs-attention]',error));
+      }
       let videoCallTicket: { homeworkId: string; earnedAt: string; bonusUrl?: string } | undefined;
       if (becameCompleted && finalCycle.lifecycle === "baseline_evaluating") {
         try {

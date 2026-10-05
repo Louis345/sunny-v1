@@ -1524,7 +1524,7 @@
         state.targetResults.push(result);
         postActivityEvent(result);
         if (window.fireAttemptEvent) {
-          window.fireAttemptEvent({
+          window.fireAttemptEvent(isTrapMode() ? {domain:"spelling",evidenceLimitation:"per_word_results_unavailable",rawChoice:null,aggregateAccuracy:correct ? 1 : 0,activityId:"letter-rush",mode:config.mode} : {
             domain: "spelling",
             word: word.text,
             target: word.text,
@@ -1982,7 +1982,10 @@
         resetTrapTimerDisplay();
         renderTiles();
         updateHud();
-        if (config.mode === "read-and-race") flashWord(state.word.text);
+        if (config.mode === "read-and-race") {
+          flashWord(state.word.text);
+        }
+        if (!isTrapMode()) report("Letter Rush spelling item opened", { spellingItemOpened: true, currentWord: state.word.text, phase: "presentation", answerVisibility: config.mode === "read-and-race" || (!isTrapMode() && config.scaffolds && config.scaffolds.showWord) ? "visible" : "unknown" });
         var promptDelay =
           config.mode === "type-and-spell" || config.mode === "hear-and-spell" || config.mode === "mastery-run"
             ? requestNarration("word_prompt")

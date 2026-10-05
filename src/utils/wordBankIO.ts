@@ -3,7 +3,7 @@ import path from "path";
 import type { WordEntry, Domain, SM2Track } from "../algorithms/types";
 import type { WordBankFile } from "../context/schemas/wordBank";
 import { createEmptyWordBank, createFreshSM2Track } from "../context/schemas/wordBank";
-import { assertLegacyLearningAuthority, sunnyPreviewBlocksPersistence } from "./runtimeMode";
+import { sunnyPreviewBlocksPersistence } from "./runtimeMode";
 import { resolveChildContextDir } from "./contextRoot";
 
 export function resolveWordBankPath(childId: string): string {
@@ -49,7 +49,6 @@ export function readWordBankStrict(childId: string): WordBankFile {
 }
 
 export function writeWordBank(childId: string, data: WordBankFile): void {
-  assertLegacyLearningAuthority();
   if (sunnyPreviewBlocksPersistence()) {
     return;
   }
