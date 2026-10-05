@@ -245,6 +245,7 @@ export type AssignmentPlanValidationIssue = {
     | "missing_word_groups"
     | "word_missing_source_group"
     | "missing_word_radar_config"
+    | "word_radar_capability_mismatch"
     | "missing_node_measurement"
     | "missing_node_title"
     | "target_lane_mismatch"
@@ -1544,6 +1545,20 @@ export function validateAssignmentPlannerOutput(
         severity: "error",
         message: `Word Radar node ${node.id} must include planner-selected wordRadarConfig.`,
       });
+    }
+    if (node.type === "word-radar" && node.wordRadarConfig && capability) {
+      const matchesCatalogMode = capability.capabilityModes.some((mode) =>
+        Object.entries(mode.config).every(([key, value]) =>
+          Object.is(node.wordRadarConfig?.[key as keyof typeof node.wordRadarConfig], value),
+        ),
+      );
+      if (!matchesCatalogMode) {
+        issues.push({
+          code: "word_radar_capability_mismatch",
+          severity: "error",
+          message: `Word Radar node ${node.id} response contract does not match a catalog capability mode.`,
+        });
+      }
     }
   }
 

@@ -354,8 +354,6 @@ export function WordRadar({
   const [wordAudioPlaying, setWordAudioPlaying] = useState(false);
   const requestedInputMode = resolveWordRadarInputMode(inputMode);
   const resolvedInputMode = assessmentMode || voiceCaptureAvailable === false ? "keyboard" : requestedInputMode;
-  const keyboardFallbackEnabled =
-    showKeyboard || resolvedInputMode === "letter-by-letter";
   const effectiveSpeakStyle = speakStyle ?? "option-a";
   const requestedRecallMode: WordRadarRecallMode | undefined =
     recallMode === "visible_read" ||
@@ -369,6 +367,14 @@ export function WordRadar({
       : effectiveSpeakStyle === "option-b"
         ? "hidden_word_recall"
         : "partial_visual_recall";
+  const keyboardFallbackEnabled =
+    showKeyboard ||
+    resolvedInputMode === "letter-by-letter" ||
+    (
+      inputMode === "whole-word" &&
+      effectiveRecallMode === "partial_visual_recall" &&
+      requiresCapturedResponse
+    );
   const effectiveHideWordDuringResponse =
     assessmentMode || (hideWordDuringResponse ?? effectiveRecallMode !== "visible_read");
   const hiddenDuringSpeech = effectiveSpeakStyle === "option-b";

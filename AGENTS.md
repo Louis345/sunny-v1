@@ -1,5 +1,6 @@
 Organic first: Sunny is an adaptive learning system, so code must route truth, evidence, and safety while Elli handles human conversation from live context instead of canned scripted responses.
 Every human-caught child-session bug must become a lab invariant: explain why the human caught it, why logs did or did not catch it, and why the AI lab missed it.
+Diagnose before you fix: for a human-caught bug, post the decision chain that produced it (evidence → Planner → activity settings → component) and name the earliest wrong decision, with its evidence, before any code or test. Make no edits until the human confirms the diagnosis. The regression test states the intended behavior at that layer, not the symptom. If the component did the right thing with its inputs, the component is not the fix. When intent is unclear, ask why instead of choosing the easiest change.
 
 Required learning authority: read [`LEARNING_FEEDBACK_LOOP.md`](./LEARNING_FEEDBACK_LOOP.md) before changing learning evidence, prediction, theory, or adaptation behavior. It is the sole normative learning-loop contract.
 

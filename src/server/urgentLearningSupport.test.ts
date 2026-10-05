@@ -99,6 +99,14 @@ describe("urgent learning support", () => {
     ).toEqual({ action: "dismiss" });
     expect(
       routeCompanionPresenceTranscript({
+        transcript: "k. Bye, Sunny.",
+        presence: "summoned",
+        companionName: "Elli",
+        speechCaptureArmed: true,
+      }),
+    ).toEqual({ action: "dismiss" });
+    expect(
+      routeCompanionPresenceTranscript({
         transcript: "Can you explain this another way?",
         presence: "summoned",
         companionName: "Elli",
@@ -198,6 +206,16 @@ describe("urgent learning support", () => {
       presence: "summoned",
     })).toBe(true);
     expect(setPresence).toHaveBeenCalledWith("collapsed", "voice");
+
+    sendFinal.mockClear();
+    expect(handleCompanionPresenceTranscript({
+      ...base,
+      transcript: "k. Bye, Sunny.",
+      presence: "summoned",
+      speechCaptureArmed: true,
+    })).toBe(true);
+    expect(setPresence).toHaveBeenLastCalledWith("collapsed", "voice");
+    expect(sendFinal).not.toHaveBeenCalled();
 
     expect(handleCompanionPresenceTranscript({
       ...base,
