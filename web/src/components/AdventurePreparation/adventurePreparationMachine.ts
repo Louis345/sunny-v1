@@ -20,8 +20,16 @@ export type PreparationEvent =
   | { type: "RETRY" }
   | { type: "STOP" };
 
+/**
+ * live: the design's own flow (Storybook). chapter: right after Discovery; the map
+ * opens next session, so a finished map ends the chapter instead of offering play.
+ * resume: next session, the map is still building; it ends on "Let's go!".
+ */
+export type PreparationMode = "live" | "chapter" | "resume";
+
 export type PreparationContext = {
   subject: PreparationSubject;
+  mode: PreparationMode;
   reviewTotal: number;
   reviewed: number[];
   stops: PreparationStop[];
@@ -34,7 +42,7 @@ export type PreparationContext = {
 const NOUN: Record<PreparationSubject, string> = { spelling: "words", math: "answers", science: "ideas" };
 const NUMBER_WORDS = ["Zero", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten"];
 
-export function preparationLine(state: PreparationState, ctx: Pick<PreparationContext, "subject" | "ready">): string {
+export function preparationLine(state: PreparationState, ctx: Pick<PreparationContext, "subject" | "ready"> & Partial<Pick<PreparationContext, "total" | "mode">>): string {
   const noun = NOUN[ctx.subject];
   switch (state) {
     case "look": return `You did it! Let me look at all your ${noun}.`;
@@ -47,7 +55,9 @@ export function preparationLine(state: PreparationState, ctx: Pick<PreparationCo
     case "long": return "It's a big map, so I'm taking my time.";
     case "ready": return "Your map is ready. Let's go!";
     case "help": return `Your ${noun} are all saved. Can you get a grown-up?`;
-    case "stop": return "You can go. I'll finish it for next time.";
+    case "stop": return ctx.mode === "chapter" && (ctx.total ?? 0) > 0 && ctx.ready >= (ctx.total ?? 0)
+      ? "Your map is ready for next time. Bye for now!"
+      : "You can go. I'll finish it for next time.";
   }
 }
 
@@ -55,7 +65,7 @@ export const adventurePreparationMachine = setup({
   types: {
     context: {} as PreparationContext,
     events: {} as PreparationEvent,
-    input: {} as { subject?: PreparationSubject },
+    input: {} as { subject?: PreparationSubject; mode?: PreparationMode; stops?: PreparationStop[]; ready?: number },
   },
   actions: {
     // Provided by the screen: say the current line once (queued, never overlapping).
@@ -84,19 +94,30 @@ export const adventurePreparationMachine = setup({
   guards: {
     isNewCount: ({ context, event }) => event.type === "ACTIVITY_READY" && event.n > context.ready && event.n < event.total,
     isFinalCount: ({ event }) => event.type === "ACTIVITY_READY" && event.total > 0 && event.n >= event.total,
+    isFinalInChapter: ({ context, event }) => context.mode === "chapter" && event.type === "ACTIVITY_READY" && event.total > 0 && event.n >= event.total,
+    resumesBuilding: ({ context }) => context.mode === "resume" && context.stops.length > 0,
+    resumesPlanning: ({ context }) => context.mode === "resume",
   },
 }).createMachine({
   id: "adventurePreparation",
   context: ({ input }) => ({
     subject: input?.subject ?? "spelling",
-    reviewTotal: 0, reviewed: [], stops: [], total: 0, ready: 0, failure: null, line: "",
+    mode: input?.mode ?? "live",
+    reviewTotal: 0, reviewed: [], stops: input?.stops ?? [], total: input?.stops?.length ?? 0, ready: input?.ready ?? 0, failure: null, line: "",
   }),
-  initial: "look",
+  initial: "boot",
   on: {
     FAILED: { target: ".help", actions: "takeFailure" },
     STOP: { target: ".stop" },
   },
   states: {
+    boot: {
+      always: [
+        { guard: "resumesBuilding", target: "build" },
+        { guard: "resumesPlanning", target: "plan" },
+        { target: "look" },
+      ],
+    },
     look: {
       entry: ["lookLine", "speak"],
       on: {
@@ -105,6 +126,7 @@ export const adventurePreparationMachine = setup({
         REVIEW_DONE: { target: "plan" },
         PLAN_DONE: { target: "build", actions: "takeStops" },
         ACTIVITY_READY: [
+          { guard: "isFinalInChapter", target: "stop", actions: "takeCount" },
           { guard: "isFinalCount", target: "ready", actions: "takeCount" },
           { target: "build", actions: "takeCount" },
         ],
@@ -115,6 +137,7 @@ export const adventurePreparationMachine = setup({
       on: {
         PLAN_DONE: { target: "build", actions: "takeStops" },
         ACTIVITY_READY: [
+          { guard: "isFinalInChapter", target: "stop", actions: "takeCount" },
           { guard: "isFinalCount", target: "ready", actions: "takeCount" },
           { target: "build", actions: "takeCount" },
         ],
@@ -124,6 +147,7 @@ export const adventurePreparationMachine = setup({
       entry: ["buildLine", "speak"],
       on: {
         ACTIVITY_READY: [
+          { guard: "isFinalInChapter", target: "stop", actions: "takeCount" },
           { guard: "isFinalCount", target: "ready", actions: "takeCount" },
           { guard: "isNewCount", actions: ["takeCount", "buildLine", "speak"] },
         ],
@@ -134,6 +158,7 @@ export const adventurePreparationMachine = setup({
       entry: ["longLine", "speak"],
       on: {
         ACTIVITY_READY: [
+          { guard: "isFinalInChapter", target: "stop", actions: "takeCount" },
           { guard: "isFinalCount", target: "ready", actions: "takeCount" },
           { guard: "isNewCount", actions: "takeCount" },
         ],

@@ -19,6 +19,7 @@ const GENERATION_WATCH_DELAYS_MS = [
   300_000,
   300_000,
 ] as const;
+const UNCHANGED_POLL_WINDOW_MS = 15 * 60_000;
 
 export function useAdaptiveMathGenerationRefresh(input: {
   childId: string | null;
@@ -45,6 +46,9 @@ export function useAdaptiveMathGenerationRefresh(input: {
 
     let cancelled = false;
     let pollCount = 0;
+    // Bounded by time, not by count: a fast interval must survive a long unchanged
+    // planning step (about 15 minutes) and still stop eventually.
+    const maxUnchangedPolls = input.intervalMs ? Math.max(10, Math.ceil(UNCHANGED_POLL_WINDOW_MS / input.intervalMs)) : 10;
     let lastUpdatedAt: string | null = null;
     let timer: ReturnType<typeof setTimeout> | null = null;
     let running = false;
@@ -53,8 +57,8 @@ export function useAdaptiveMathGenerationRefresh(input: {
     setSnapshot({scope,status:null,error:null,paused:false,checking:false,checkedAt:null});
 
     const poll = async (manual = false): Promise<void> => {
-      if (cancelled || pollCount >= 10) {
-        if (!cancelled && pollCount >= 10) setSnapshot(prev=>({...prev,paused:true}));
+      if (cancelled || pollCount >= maxUnchangedPolls) {
+        if (!cancelled && pollCount >= maxUnchangedPolls) setSnapshot(prev=>({...prev,paused:true}));
         return;
       }
       const requestId = ++requestSequence;
@@ -97,7 +101,7 @@ export function useAdaptiveMathGenerationRefresh(input: {
         }
       }
       if (cancelled || requestId !== requestSequence) return;
-      if (!cancelled && pollCount >= 10) {
+      if (!cancelled && pollCount >= maxUnchangedPolls) {
         console.log(" 🎮 [adaptive-math-status] [poll] [bounded-exit]");
         setSnapshot(prev=>({...prev,paused:true}));
       } else if (!cancelled) {

@@ -213,3 +213,35 @@ describe("AdventurePreparationScreen", () => {
     expect(screen.queryByTestId("ap-grownup")).toBeNull();
   });
 });
+
+// Learning contract: the Teaching Board opens in a later session, never as same-session work.
+describe("chapter end versus next-session resume", () => {
+  const start = (input: Record<string, unknown>) => {
+    const spoken: string[] = [];
+    const a = createActor(adventurePreparationMachine.provide({ actions: { speak: ({ context }) => { spoken.push(context.line); } } }), { input: input as never });
+    a.start();
+    return { a, spoken };
+  };
+
+  it("ends the Discovery chapter calmly when the map finishes, without offering it now", () => {
+    const { a, spoken } = start({ subject: "spelling", mode: "chapter" });
+    a.send({ type: "PLAN_DONE", stops });
+    a.send({ type: "ACTIVITY_READY", n: 4, total: 4 });
+    expect(a.getSnapshot().value).toBe("stop");
+    expect(spoken.at(-1)).toBe("Your map is ready for next time. Bye for now!");
+  });
+
+  it("resumes a still-building map next session at the building step, without replaying the review", () => {
+    const { a, spoken } = start({ subject: "spelling", mode: "resume", stops, ready: 1 });
+    expect(a.getSnapshot().value).toBe("build");
+    expect(a.getSnapshot().context.ready).toBe(1);
+    expect(spoken).toEqual(["I'm building your games. One is ready!"]);
+    a.send({ type: "ACTIVITY_READY", n: 4, total: 4 });
+    expect(a.getSnapshot().value).toBe("ready");
+  });
+
+  it("starts a resume with no known plan at the planning step", () => {
+    const { a } = start({ subject: "spelling", mode: "resume" });
+    expect(a.getSnapshot().value).toBe("plan");
+  });
+});

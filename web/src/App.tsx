@@ -99,6 +99,7 @@ import { useChildExperiencePacket } from "./hooks/useChildExperiencePacket";
 import { useAdaptiveMathGenerationRefresh } from "./hooks/useAdaptiveMathGenerationRefresh";
 import { DiscoveryCompletionChapter } from "./components/DiscoveryCompletionChapter";
 import { LearningPreparationStatus } from "./components/LearningPreparationStatus";
+import { resolvePreparationSurface, useAppAdventurePreparation } from "./components/AdventurePreparation/useAppAdventurePreparation";
 import {
   CompanionCareProvider,
   useCompanionCare,
@@ -768,10 +769,12 @@ function App() {
   const targetedBoardHeldForPreparation = shouldHoldTargetedBoardForPreparation(plannerBoardPacket);
   const targetedMathGenerationPending = hasPendingLearningGeneration(plannerBoardPacket, effectiveDiscoveryCompletionHandoff === "targeted-planning")
     || targetedBoardHeldForPreparation;
+  const preparationSurface = resolvePreparationSurface({ packet: plannerBoardPacket, directDiscoveryMode, handoff: effectiveDiscoveryCompletionHandoff, held: targetedBoardHeldForPreparation, preview: parentPreviewActive });
   const generationProgress = useAdaptiveMathGenerationRefresh({
     childId: adventureChildId,
     homeworkId: plannerBoardPacket?.activeSessionPlan?.activeHomeworkId,
     enabled: targetedMathGenerationPending && !parentPreviewActive && !homeworkSessionFinished,
+    intervalMs: preparationSurface ? 10_000 : undefined,
     onStatusChanged: refreshPlannerBoardPacket,
   });
   const finishHomeworkSession = useCallback(() => {
@@ -780,6 +783,11 @@ function App() {
     endSession();
     console.log(" 🎮 [homework-session] [finish-for-now] [resting]");
   }, [endSession]);
+  const preparation = useAppAdventurePreparation({
+    surface: preparationSurface, packet: plannerBoardPacket, childId: adventureChildId,
+    homeworkId: plannerBoardPacket?.activeSessionPlan?.activeHomeworkId, status: generationProgress.status,
+    finished: homeworkSessionFinished, checkNow: generationProgress.checkNow, onFinish: finishHomeworkSession, sendMessage,
+  });
 
   const [vrrCelebrateEvent, setVrrCelebrateEvent] =
     useState<CompanionEventPayload | null>(null);
@@ -2014,7 +2022,7 @@ function App() {
       );
     } else if (plannerBoardPacket) {
       main = directDiscoveryMode ? (
-        effectiveDiscoveryCompletionHandoff ? (
+        effectiveDiscoveryCompletionHandoff ? preparation.screen ?? (
           <div className="flex h-screen w-screen items-center justify-center bg-zinc-950 p-6">
             <DiscoveryCompletionChapter
               preview={effectiveDiscoveryCompletionHandoff === "preview-complete"}
@@ -2041,7 +2049,7 @@ function App() {
         ) : (
           <div className="w-screen h-screen overflow-hidden relative bg-zinc-950" />
         )
-      ) : targetedBoardHeldForPreparation ? (
+      ) : preparation.screen ? preparation.screen : targetedBoardHeldForPreparation ? (
         <div className="flex h-screen w-screen items-center justify-center bg-zinc-950 p-6">
           <div className="w-full max-w-lg"><LearningPreparationStatus {...generationProgress} onCheck={generationProgress.checkNow} onFinish={finishHomeworkSession}/></div>
         </div>
