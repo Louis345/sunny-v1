@@ -66,4 +66,15 @@ describe("Sunny kiosk port handoff", () => {
     expect(source).toContain('"--use-fake-ui-for-media-stream"');
     expect(source).not.toContain('"--use-fake-device-for-media-stream"');
   });
+
+  it("blocks a human acceptance kiosk before startup unless the real audio chain is configured", () => {
+    // Human-caught invariant: the lab proved microphone energy and browser
+    // playback while a runtime hook discarded every audio chunk. Saori could
+    // neither be understood nor hear Elli, despite a readiness claim.
+    const source = fs.readFileSync(path.join(process.cwd(), "src/scripts/launch-kiosk.ts"), "utf8");
+
+    expect(source).toContain("assertHumanAcceptanceAudioEnvironment(process.env)");
+    expect(source.indexOf("assertHumanAcceptanceAudioEnvironment(process.env)"))
+      .toBeLessThan(source.indexOf("Starting server"));
+  });
 });
