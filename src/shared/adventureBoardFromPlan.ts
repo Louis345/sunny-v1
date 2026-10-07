@@ -916,7 +916,7 @@ function destinationSlotForPlanNode(
 }
 
 function laneOrderForRouteNode(index: number): number {
-  return index < 2 ? 1 : index;
+  return Math.floor(index / 3) + 1;
 }
 
 function evidenceRoleForKind(kind: AdventureBoardNodeKind): AdventureBoardEvidenceRole {

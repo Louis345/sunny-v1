@@ -247,6 +247,38 @@ describe("buildAdventureBoardFromActiveSessionPlan", () => {
     ]);
   });
 
+  it("starts every generated linear route lane at order one", () => {
+    // Human-caught invariant: Ila waited on a fully built board because the
+    // third post-baseline node was the first node in the middle lane but was
+    // projected at order 2. Logs caught the publication rejection; the board
+    // construction lab never exercised three generated route lanes.
+    const board = buildAdventureBoardFromActiveSessionPlan({
+      plan: {
+        planId: "three-lane-linear-plan",
+        childId: "ila",
+        domain: "spelling",
+        nodePlan: ["teach", "practice", "route-a", "route-b", "route-c"].map((id) => ({
+          id,
+          type: "word-radar",
+          activityId: "word-radar",
+          targets: ["tomorrow"],
+          locked: false,
+        })),
+      },
+      boardId: "three-lane-linear-board",
+      theme,
+    });
+
+    expect(board.nodes
+      .filter((node) => node.layout?.role === "evidence-route")
+      .map((node) => ({ lane: node.layout?.lane, order: node.layout?.order })))
+      .toEqual([
+        { lane: "upper", order: 1 },
+        { lane: "lower", order: 1 },
+        { lane: "middle", order: 1 },
+      ]);
+  });
+
   it("keeps Quest and Boss off the independent Probe Board", () => {
     const board = buildAdventureBoardFromActiveSessionPlan({
       plan: {
