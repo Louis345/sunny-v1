@@ -260,11 +260,6 @@ export function recordActivityCompanionHelp(input: {
   });
 }
 
-export function isCompanionWakeOnlyTranscript(transcript: string, companionName: string): boolean {
-  const text = normalizeSpeechText(transcript).replace(/^(?:hey|hi|okay|ok)\s+/, "");
-  return new Set(["sunny", "elli", "ellie", normalizeSpeechText(companionName)]).has(text);
-}
-
 export function handleCompanionPresenceTranscript(input: {
   enabled: boolean;
   transcript: string;
@@ -307,7 +302,7 @@ export function handleCompanionPresenceTranscript(input: {
   }
   if (route.action === "summon_and_respond") {
     input.setPresence("summoned", "voice");
-    return isCompanionWakeOnlyTranscript(input.transcript, input.companionName);
+    return false;
   }
   return false;
 }
@@ -337,12 +332,12 @@ export function routeCompanionPresenceTranscript(input: {
   ) {
     return { action: "dismiss" };
   }
-  if (input.speechCaptureArmed) return { action: "route_to_game" };
   const wake = new RegExp(
     `^(?:(?:hey|hi|okay|ok)\\s+)?(?:${aliasPattern})(?:\\b|$)`,
     "i",
   );
   if (wake.test(text)) return { action: "summon_and_respond" };
+  if (input.speechCaptureArmed) return { action: "route_to_game" };
   return input.presence === "summoned"
     ? { action: "respond" }
     : { action: "ignore_ambient" };
