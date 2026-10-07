@@ -358,6 +358,28 @@ describe("direct Discovery entry", () => {
     expect(shouldHoldTargetedBoardForPreparation(targeted)).toBe(false);
   });
 
+  it("keeps a teaching board hidden until every activity artifact is ready", () => {
+    // Human catch: Ila saw a map with one playable node and unfinished siblings.
+    // Logs reported per-node readiness, but the UI gate stopped checking after the first playable node.
+    const targeted = packet("targeted:hw-1", [
+      { id: "start", type: "start", title: "Start" },
+      { id: "chunks", type: "visual-explainer", title: "Spelling Chunks" },
+      { id: "recall", type: "word-radar", title: "Recall" },
+    ]);
+    const [chunks, recall] = targeted.activeSessionPlan!.adventureBoard!.nodes.slice(1);
+    chunks!.state = "current";
+    recall!.state = "locked";
+    recall!.lock = { reason: "artifact-not-ready", label: "Preparing" };
+    recall!.action = { type: "show-locked-reason", payloadId: recall!.id };
+
+    expect(shouldHoldTargetedBoardForPreparation(targeted)).toBe(true);
+
+    recall!.state = "available";
+    recall!.lock = undefined;
+    recall!.action = { type: "launch-activity", payloadId: recall!.id };
+    expect(shouldHoldTargetedBoardForPreparation(targeted)).toBe(false);
+  });
+
   it("renders preparation instead of mounting a targeted board with no playable activity", () => {
     const source = readFileSync(resolve(process.cwd(), "src/App.tsx"), "utf8");
     const branch = source.slice(

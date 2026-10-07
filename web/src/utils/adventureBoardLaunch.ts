@@ -166,19 +166,18 @@ export function hasPendingLearningGeneration(packet: ChildExperiencePacket | nul
     || (isDirectDiscoveryPacket(packet) && completingDiscovery));
 }
 
-/** Keep the child off a targeted map until it contains something they can actually play. */
+/** A Teaching Board opens as one complete chapter; Probe siblings may unlock independently. */
 export function shouldHoldTargetedBoardForPreparation(packet: ChildExperiencePacket | null): boolean {
-  if (!packet || isDirectDiscoveryPacket(packet)) return false;
+  if (!packet || isDirectDiscoveryPacket(packet) || isProbeBoardPacket(packet)) return false;
   if (!["math", "spelling"].includes(packet.activeSessionPlan?.domain ?? "")) return false;
   const nodes = packet.activeSessionPlan?.adventureBoard?.nodes ?? [];
+  if (nodes.some((node) => node.state === "preview" || [
+    "generation-needs-attention", "artifact-generating", "artifact-not-ready",
+  ].includes(node.lock?.reason ?? ""))) return true;
   const hasPlayableActivity = nodes.some((node) =>
     node.action?.type === "launch-activity"
     && ["current", "available", "completed"].includes(node.state));
-  if (hasPlayableActivity) return false;
-  return nodes.some((node) =>
-    node.state === "preview"
-    || node.lock?.reason === "generation-needs-attention"
-    || node.lock?.reason === "artifact-generating");
+  return !hasPlayableActivity;
 }
 
 export function resolveDirectDiscoverySurface(
