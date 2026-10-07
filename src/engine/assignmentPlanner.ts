@@ -348,8 +348,18 @@ export async function planSpellingIntakeFromSource(packet: AssignmentPlanningPac
     if ("output" in value) return { draft: value.output, usage: value.telemetry.usage, latencyMs: value.telemetry.latencyMs };
     if ("message" in value) assertPlannerResponseComplete(value.message);
     const tool = "message" in value ? value.message.content.find(block => block.type === "tool_use" && block.name === ASSIGNMENT_PLANNER_TOOL_NAME) : undefined;
+    const providerDraft = "message" in value ? tool && "input" in tool ? tool.input : undefined : value.draft;
+    const providerFields = providerDraft && typeof providerDraft === "object" && !Array.isArray(providerDraft)
+      ? Object.keys(providerDraft as Record<string, unknown>)
+      : [];
+    const wrappedPlan = providerFields.length === 1 && providerFields[0] === "plan"
+      ? (providerDraft as { plan?: unknown }).plan
+      : undefined;
+    if (wrappedPlan && typeof wrappedPlan === "object" && !Array.isArray(wrappedPlan)) {
+      console.log(" 🎮 [spelling-discovery] [provider-envelope] [unwrapped] field=plan");
+    }
     return {
-      draft: "message" in value ? tool && "input" in tool ? tool.input : undefined : value.draft,
+      draft: wrappedPlan && typeof wrappedPlan === "object" && !Array.isArray(wrappedPlan) ? wrappedPlan : providerDraft,
       usage: "message" in value ? usageFromAnthropic(value.message) : value.usage,
       latencyMs: value.latencyMs,
     };

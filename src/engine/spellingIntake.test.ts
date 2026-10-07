@@ -15,6 +15,18 @@ describe("spelling intake is the opening phase of the existing Planner", () => {
     expect(result.output).toEqual(draft);
     expect(buildSpellingIntakePrompt(packet)).toContain("sourceNotes");
   });
+  // Human-caught 2026-10-07: the provider returned the complete valid intake
+  // under the tool's single `plan` envelope, but the parser treated that
+  // transport wrapper as learning content and blocked Ila before Discovery.
+  it("unwraps the provider's single plan envelope without weakening the intake schema", async () => {
+    const result = await planSpellingIntakeFromSource(packet, {
+      callPlannerModel: async () => ({ draft: { plan: intake } }),
+    });
+    expect(result.output).toEqual(intake);
+    await expect(planSpellingIntakeFromSource(packet, {
+      callPlannerModel: async () => ({ draft: { plan: intake, activeSessionPlan: { nodePlan: [] } } }),
+    })).rejects.toThrow();
+  });
   it("requires word-scoped, page-resolved uncertainty from new provider responses", async () => {
     const issue = { kind: "ambiguous_word", pageNumber: 1, detail: "The second assigned word could be light or tight." };
     await expect(planSpellingIntakeFromSource(packet, { callPlannerModel: async () => ({ draft: { ...intake, uncertainty: [issue] } }) })).resolves.toMatchObject({ output: { uncertainty: [issue] } });
