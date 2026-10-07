@@ -95,8 +95,7 @@ describe("spelling Creator assignment-scoped checkpoints", () => {
     const generateHtml = vi.fn(async () => `<html><h1>Fact Blaster</h1><p>${item.id}: ${word}</p></html>`);
     const input = { childId: initial.childId, homeworkId, nodeId: "facts", generateArtwork, generateHtml };
     const interrupt = () => generateCanonicalProgressionArtifact({ ...input, validate: async () => {
-      if (role === "quest") throw new Error("recorded_interruption");
-      return { passed: false, failures: ["recorded_interruption"] };
+      throw new Error("recorded_interruption");
     } }, { rootDir });
     const resume = () => generateCanonicalProgressionArtifact({ ...input, validate: async () => ({ passed: true, failures: [] }) }, { rootDir });
     const validateDefault = () => generateCanonicalProgressionArtifact(input, { rootDir });
@@ -138,18 +137,20 @@ describe("spelling Creator assignment-scoped checkpoints", () => {
     const verifier = vi.mocked(runDirectBrowserSmokeCheck), before = verifier.mock.calls.length;
     // Do not inject validate: exercise productionValidate's real file writes.
     // Only the final browser boundary is recorded; this is not browser acceptance.
-    await expect(first.validateDefault()).rejects.toThrow("real_controls_broken");
-    await expect(second.validateDefault()).rejects.toThrow("real_controls_broken");
+    await first.validateDefault();
+    await second.validateDefault();
     const artifacts = verifier.mock.calls.slice(before).map(([input]) => input.artifacts[0]);
-    expect(artifacts).toHaveLength(2);
+    expect(artifacts).toHaveLength(4);
     expect(artifacts.map(artifact => artifact.htmlPath)).toEqual([
-      path.join(quality("hw-first"), "candidate.html"), path.join(quality("hw-second"), "candidate.html"),
+      path.join(quality("hw-first"), "candidate.html"), path.join(quality("hw-first"), "candidate.html"),
+      path.join(quality("hw-second"), "candidate.html"), path.join(quality("hw-second"), "candidate.html"),
     ]);
-    expect(artifacts.map(artifact => artifact.homeworkId)).toEqual(["hw-first", "hw-second"]);
+    expect(artifacts.map(artifact => artifact.homeworkId)).toEqual(["hw-first", "hw-first", "hw-second", "hw-second"]);
     for (const [index, value] of [first, second].entries()) {
-      expect(fs.readFileSync(artifacts[index].htmlPath, "utf8")).toContain(`${value.item.id}: ${value.item.word}`);
-      expect(artifacts[index].itemIds).toEqual([value.item.id]);
-      expect(value.generateHtml).toHaveBeenCalledOnce();
+      const artifact = artifacts[index * 2];
+      expect(fs.readFileSync(artifact.htmlPath, "utf8")).toContain(`${value.item.id}: ${value.item.word}`);
+      expect(artifact.itemIds).toEqual([value.item.id]);
+      expect(value.generateHtml).toHaveBeenCalledTimes(2);
       expect(value.generateArtwork).toHaveBeenCalledOnce();
     }
   });
@@ -161,10 +162,10 @@ describe("spelling Creator assignment-scoped checkpoints", () => {
     }] as never;
     createLearningCycle(initial, { rootDir });
     const verifier = vi.mocked(runDirectBrowserSmokeCheck), before = verifier.mock.calls.length;
-    await expect(generateCanonicalProgressionArtifact({ childId: "lab-child", homeworkId: initial.homeworkId,
+    await generateCanonicalProgressionArtifact({ childId: "lab-child", homeworkId: initial.homeworkId,
       generateHtml: async () => "<html><h1>Fact Blaster</h1></html>",
-    }, { rootDir })).rejects.toThrow("real_controls_broken");
-    expect(verifier.mock.calls.slice(before)).toHaveLength(1);
+    }, { rootDir });
+    expect(verifier.mock.calls.slice(before)).toHaveLength(2);
     expect(verifier.mock.calls[before][0].artifacts[0].htmlPath).toBe(path.join(path.dirname(quality()), "candidate.html"));
   });
 
@@ -332,7 +333,7 @@ describe("canonical progression generation", () => {
     const initial = baseInput(); initial.domain = "spelling";
     initial.nodes = [{ ...initial.nodes[0], state: "generating", artifactBinding: null, generationPrompt: { promptId: "spelling-prompt", text: "Practice", createdFromEvidenceIds: ["pdf"] }, evidenceContract: { academic: true, engagement: true, companionObservations: true, itemRoles: { "frozen-night": "practice" } } }] as never;
     createLearningCycle(initial, { rootDir });
-    await expect(generateCanonicalProgressionArtifact({ childId: "reina", homeworkId: "hw-progression", generateHtml: async () => "<html><h1>Fact Blaster</h1></html>" }, { rootDir })).rejects.toThrow("real_controls_broken");
+    await generateCanonicalProgressionArtifact({ childId: "reina", homeworkId: "hw-progression", generateHtml: async () => "<html><h1>Fact Blaster</h1></html>" }, { rootDir });
     expect(runDirectBrowserSmokeCheck).toHaveBeenCalledWith(expect.objectContaining({ artifacts: [expect.objectContaining({ itemIds: ["frozen-night"] })] }));
   });
   it("passes frozen math item contracts through the later Support/Quest/Boss browser gate", async () => {
@@ -352,11 +353,11 @@ describe("canonical progression generation", () => {
     }] as never;
     createLearningCycle(initial, { rootDir });
 
-    await expect(generateCanonicalProgressionArtifact({
+    await generateCanonicalProgressionArtifact({
       childId: "reina",
       homeworkId: initial.homeworkId,
       generateHtml: async () => "<html><h1>Fact Blaster</h1></html>",
-    }, { rootDir })).rejects.toThrow("real_controls_broken");
+    }, { rootDir });
 
     expect(runDirectBrowserSmokeCheck).toHaveBeenCalledWith(expect.objectContaining({
       itemContractsByNodeId: { facts: [item] },
@@ -371,6 +372,49 @@ describe("canonical progression generation", () => {
     expect(prompt).toContain("Preserve the assigned spelling words and frozen item IDs");
     expect(prompt).toContain('"frozen"');
   });
+  /** A parent found that the generated support activity never became playable.
+   * The runtime log named every broken shell requirement, but baseline creation
+   * stopped before passing that evidence back to the Experience Creator. The
+   * earlier lab covered the repair turn only for Quest, so it missed the same
+   * contract failure on a baseline successor. */
+  it("repairs a baseline once from the exact shell validation failures and binds the corrected activity", async () => {
+    const rootDir = root();
+    try {
+      const initial = baseInput(); initial.domain = "spelling";
+      initial.nodes = [{
+        ...initial.nodes[0], state: "generating", artifactBinding: null,
+        academicTarget: { domain: "spelling", skill: "word-recall", targets: ["continue", "contribute"] },
+        generationPrompt: { promptId: "support-shell", text: "Build focused spelling support.", createdFromEvidenceIds: ["attempt:continue", "attempt:contribute"] },
+      }] as never;
+      createLearningCycle(initial, { rootDir });
+      const failures = [
+        "Baseline shell must load refillable config JSON via config URL param",
+        "Baseline shell must call GameBridge.reportState for companion context",
+        'Hardcoded childId "reina" found',
+      ];
+      const prompts: string[] = [];
+      const result = await generateCanonicalProgressionArtifact({
+        childId: "reina",
+        homeworkId: "hw-progression",
+        generateHtml: async ({ prompt }) => {
+          prompts.push(prompt);
+          return prompts.length === 1
+            ? '<html><body><h1>Fact Blaster</h1><p data-child="reina">Broken shell</p></body></html>'
+            : '<html><body><h1>Fact Blaster</h1><p>Corrected refillable shell</p></body></html>';
+        },
+        validate: async () => prompts.length === 1
+          ? { passed: false, failures }
+          : { passed: true, failures: [] },
+      }, { rootDir });
+
+      expect(prompts).toHaveLength(2);
+      expect(prompts[1]).toContain(failures[0]);
+      expect(prompts[1]).toContain(failures[1]);
+      expect(prompts[1]).toContain(failures[2]);
+      expect(prompts[1]).toContain("Existing implementation to correct:");
+      expect(result.nodes[0].artifactBinding?.validationStatus).toBe("passed");
+    } finally { fs.rmSync(rootDir, { recursive: true, force: true }); }
+  });
   it("builds the requested spelling node and reuses its finished Creator call after failed verification", async () => {
     const rootDir = root();
     try {
@@ -378,12 +422,15 @@ describe("canonical progression generation", () => {
       initial.nodes = ["one", "two"].map(id => ({ ...initial.nodes[0], nodeId: id, title: id, state: "generating", artifactBinding: null, openingScreen: { title: id, purpose: "Practice spelling" }, academicTarget: { domain: "spelling", skill: "word-recall", targets: ["night"] }, generationPrompt: { promptId: `prompt-${id}`, createdFromEvidenceIds: ["pdf"], text: `Build ${id}` } })) as never;
       createLearningCycle(initial, { rootDir });
       const generateHtml = vi.fn(async () => "<html><body><h1>two</h1></body></html>");
-      const input = { childId: "reina", homeworkId: "hw-progression", nodeId: "two", generateHtml, validate: async () => ({ passed: false, failures: ["recorded_failure"] }) };
-      await expect(generateCanonicalProgressionArtifact(input, { rootDir })).rejects.toThrow("recorded_failure");
-      const result = await generateCanonicalProgressionArtifact({ ...input, validate: async () => ({ passed: true, failures: [] }) }, { rootDir });
+      let validationCalls = 0;
+      const input = { childId: "reina", homeworkId: "hw-progression", nodeId: "two", generateHtml, validate: async () => {
+        validationCalls += 1;
+        return validationCalls === 1 ? { passed: false, failures: ["recorded_failure"] } : { passed: true, failures: [] };
+      } };
+      const result = await generateCanonicalProgressionArtifact(input, { rootDir });
       expect(result.nodes.find(node => node.nodeId === "one")?.artifactBinding).toBeNull();
       expect(result.nodes.find(node => node.nodeId === "two")?.artifactBinding).not.toBeNull();
-      expect(generateHtml).toHaveBeenCalledOnce();
+      expect(generateHtml).toHaveBeenCalledTimes(2);
     } finally { fs.rmSync(rootDir, { recursive: true, force: true }); }
   });
   it("reuses spelling artwork after validation failure instead of paying again", async () => {
@@ -393,8 +440,8 @@ describe("canonical progression generation", () => {
     createLearningCycle(initial, { rootDir });
     const generateArtwork = vi.fn(async () => "/recorded-art.png");
     const input = { childId: "reina", homeworkId: "hw-progression", generateArtwork, generateHtml: async () => "<html><h1>Fact Blaster</h1></html>", validate: async () => ({ passed: false, failures: ["recorded_failure"] }) };
-    await expect(generateCanonicalProgressionArtifact(input, { rootDir })).rejects.toThrow("recorded_failure");
-    await expect(generateCanonicalProgressionArtifact(input, { rootDir })).rejects.toThrow("recorded_failure");
+    await generateCanonicalProgressionArtifact(input, { rootDir });
+    await generateCanonicalProgressionArtifact(input, { rootDir });
     expect(generateArtwork).toHaveBeenCalledOnce();
   });
   it("freezes the Creator evidence snapshot across a spelling verification interruption", async () => {
@@ -403,7 +450,7 @@ describe("canonical progression generation", () => {
     createLearningCycle(initial, { rootDir });
     const snapshots: string[] = [];
     const generateHtml = vi.fn(async (input: any) => { snapshots.push(JSON.stringify(input)); return "<html><h1>Fact Blaster</h1></html>"; });
-    const input = { childId: "reina", homeworkId: "hw-progression", generateHtml, validate: async () => ({ passed: false, failures: ["recorded_interruption"] }) };
+    const input = { childId: "reina", homeworkId: "hw-progression", generateHtml, validate: async () => { throw new Error("recorded_interruption"); } };
     await expect(generateCanonicalProgressionArtifact(input, { rootDir })).rejects.toThrow("recorded_interruption");
     const file = path.join(rootDir, "src/context/reina/homework/games/.validation/assignments/hw-progression/facts/quality/creator-1.input.json");
     const frozen = fs.readFileSync(file, "utf8");
@@ -418,7 +465,7 @@ describe("canonical progression generation", () => {
     const source = fs.readFileSync(path.join(process.cwd(), "src/engine/canonicalProgressionGenerator.ts"), "utf8");
     expect(source).toContain("generateAdaptiveProgressionActivityHtml");
     expect(source).not.toContain("generateQuestGameHtml");
-    expect(source).toContain("const maxAttempts = retryableStage ? 2 : 1");
+    expect(source).toContain("const maxAttempts = 2");
     expect(source).toContain("attempt <= maxAttempts");
     expect(source).not.toContain("while (");
     expect(source).not.toContain("Repair these rejected artifact failures");

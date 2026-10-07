@@ -264,9 +264,9 @@ export async function generateCanonicalProgressionArtifact(
   const node = cycle.nodes.find((candidate) => (!input.nodeId || candidate.nodeId === input.nodeId) && candidate.state === "generating" && candidate.generationPrompt);
   if (!node?.generationPrompt) return cycle;
   const stage = node.role === "quest" ? "quest" : node.role === "boss" ? "boss" : "baseline";
-  // Quest and Boss get a second attempt because a single generation failure there
-  // costs the whole payoff; baselines fail loudly instead.
-  const retryableStage = node.role === "quest" || node.role === "boss";
+  // Every generated activity gets one bounded repair from validator evidence.
+  // Frozen-request and provider-outcome uncertainty still stop immediately.
+  const maxAttempts = 2;
   const directory = qualityDiagnosticsDir(rootDir, cycle, node);
   const legacyDir = path.join(resolveChildContextDir(cycle.childId, { rootDir }), "homework/games/.validation", node.nodeId, "quality");
   preserveLegacySpellingSnapshots(legacyDir, directory, cycle, node);
@@ -286,7 +286,6 @@ export async function generateCanonicalProgressionArtifact(
   const generate = input.generateHtml ?? ((creatorInput) => productionGenerate(creatorInput, rootDir));
   const creatorModel = process.env.SUNNY_GENERATION_MODEL ?? process.env.SUNNY_INGEST_MODEL ?? "claude-sonnet-5";
   const validate = input.validate ?? ((validationInput) => productionValidate(validationInput, rootDir));
-  const maxAttempts = retryableStage ? 2 : 1;
   let prompt = generationPrompt;
   let html = "";
   let validation: ProgressionValidationResult = { passed: false, failures: [] };
@@ -314,7 +313,7 @@ export async function generateCanonicalProgressionArtifact(
       const reason = error instanceof Error ? error.message : String(error);
       // Receipt/snapshot failures are not broken HTML: another attempt would
       // bypass the frozen request or its uncertain/completed provider outcome.
-      if (!retryableStage || /^(provider_|(?:math|spelling)_creator_snapshot_changed)/.test(reason)) throw error;
+      if (/^(provider_|(?:math|spelling)_creator_snapshot_changed)/.test(reason)) throw error;
       persistQualityCandidate({ rootDir, cycle, node, iteration: attempt, error: reason });
       console.warn(` 🎮 [canonical-progression] [candidate-invalid] node=${node.nodeId} iteration=${attempt} reason=${reason}`);
       if (attempt < maxAttempts) {
@@ -331,9 +330,6 @@ Produce a tighter complete implementation. Preserve the Planner's academic targe
     validation = await validate({ html, node: nodeForGeneration, cycle });
     const failures = [...openingIdentityFailures(html, nodeForGeneration), ...validation.failures];
     if (failures.length > 0) {
-      if (!retryableStage) {
-        throw new Error(`learning_cycle_${stage}_validation_failed:${failures.join("|")}`);
-      }
       persistQualityCandidate({
         rootDir,
         cycle,
@@ -357,7 +353,7 @@ Correct only the implementation while preserving the Planner's academic target, 
       continue;
     }
 
-    if (retryableStage) {
+    if (node.role === "quest" || node.role === "boss") {
       persistQualityCandidate({ rootDir, cycle, node, iteration: attempt, html, validation });
     }
     approved = true;
@@ -394,7 +390,7 @@ Correct only the implementation while preserving the Planner's academic target, 
       localArtworkPath: artworkPath ?? (stage === "boss" ? "/generated/adventure-board-demo/boss.jpeg" : "/generated/adventure-board-demo/quest.jpeg"),
       contractFingerprint,
       validationStatus: "passed",
-      ...(retryableStage ? {
+      ...((node.role === "quest" || node.role === "boss") ? {
         creativeProvenance: {
           rationale: "Publication requires technical runtime validation and an open-ended child-view screenshot review.",
           qualityPrediction: "No numeric quality score is inferred; the screenshot verdict is stored in the validation audit.",
