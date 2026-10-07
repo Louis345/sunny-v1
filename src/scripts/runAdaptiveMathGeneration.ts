@@ -29,7 +29,7 @@ import {
 } from "../engine/adaptiveMathDiscovery";
 import { readAssignmentSourceExtraction } from "../engine/assignmentSourceExtraction";
 import { attachSpellingDiscoveryEvidence, buildAssignmentPlanningPacket, planAssignmentFromSourceWithTelemetry, type AssignmentPlanningPacket } from "../engine/assignmentPlanner";
-import { buildSpellingTargetedCycleInput } from "../engine/learningCycleIngest";
+import { buildSpellingTargetedCycleInput, normalizeSpellingNativeNodeIdentity } from "../engine/learningCycleIngest";
 import { generateBoardNodeImages } from "../engine/boardNodeImageGenerator";
 import { resolveChildContextDir } from "../utils/contextRoot";
 import {
@@ -1019,12 +1019,15 @@ async function runSpellingTargetedGeneration(childId: string, homeworkId: string
     if (saved && (saved.requestHash !== hashDiscoveryContract(packet) || saved.outputHash !== hashDiscoveryContract(saved.result))) throw new Error("spelling_targeted_checkpoint_hash_mismatch");
     const result = saved?.result ?? await planAssignmentFromSourceWithTelemetry(packet, { providerReceipt: { draftDir: draft, stage: "spelling-targeted-planner" } });
     const createdAt = saved?.createdAt ?? result.receivedAt ?? new Date().toISOString();
-    const normalizedNodePlan = result.output.activeSessionPlan.nodePlan.map((node) => ({
-      ...node,
-      thumbnailUrl: !node.thumbnailUrl || node.thumbnailUrl.startsWith("/thumbnails/activities/")
-        ? thumbnailUrlForActivity(node.activityId ?? node.type)
-        : node.thumbnailUrl,
-    }));
+    const normalizedNodePlan = result.output.activeSessionPlan.nodePlan.map((sourceNode) => {
+      const node = normalizeSpellingNativeNodeIdentity(sourceNode);
+      return {
+        ...node,
+        thumbnailUrl: !node.thumbnailUrl || node.thumbnailUrl.startsWith("/thumbnails/activities/")
+          ? thumbnailUrlForActivity(node.activityId ?? node.type)
+          : node.thumbnailUrl,
+      };
+    });
     const activeBase = {
       ...result.output.activeSessionPlan,
       childId,

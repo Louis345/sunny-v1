@@ -66,7 +66,12 @@ describe("spelling in the production generation worker", () => {
         { id: "check", type: "word-radar", activityId: "word-radar", title: "Fresh recall check", targets: ["night", "light"], difficulty: 1, source: "chart_planner", wordRadarConfig: { recallMode: "hidden_word_recall", inputMode: "keyboard" } },
       ];
       if (scenario === "strong") Object.assign(nodePlan[0], { type: "letter-rush", activityId: "letter-rush", activityConfig: { schemaVersion: 1, activityId: "letter-rush", mode: "read-and-race", topic: "School words", domain: "spelling", learningGoal: "Practice captured spelling", gradeBand: "early_elementary", scaffolds: { showWord: true, letterBank: true, allowRetryBeforeScore: true, companionHints: false }, words: target.map(text => ({ text })), evidencePolicy: { writesPracticeEvidence: true, writesMasteryEvidence: false, requiresPerTargetResult: true, allowedEvidence: ["practice"] } } });
-      if (scenario === "visual") Object.assign(nodePlan[0], { type: "visual-explainer", activityId: "visual-explainer", activityConfig: { schemaVersion: 1, activityId: "visual-explainer", domain: "spelling", topic: "The ight chunk", learningGoal: "Notice and remember the ight chunk.", misconception: "The middle sound maps to one letter.", strategy: { title: "Keep the chunk together", steps: ["Say each word.", "Notice ight.", "Build the word around it."] }, words: target.map(text => ({ id: `planner-${text}`, text, chunks: [text.slice(0, -4), "ight"], focusChunk: "ight", tip: "Keep ight together." })), check: { id: "check-ight", targetWord: target[0], prompt: "Which chunk stays together?", options: [{ id: "ight", label: "ight", correct: true }, { id: "ite", label: "ite", correct: false }], correctOptionId: "ight" }, evidencePolicy: { writesPracticeEvidence: true, writesMasteryEvidence: false, requiresPerTargetResult: false, allowedEvidence: ["practice", "companion"] } } });
+      // Human-caught 2026-10-07: the provider put a valid Visual Explainer
+      // inside its generic mystery shell. The validator found the native
+      // instrument, but the board and saved artifact kept the shell identity,
+      // so Ila could click into a broken mystery node. The lab only exercised
+      // Visual Explainer when both outer labels were already correct.
+      if (scenario === "visual") Object.assign(nodePlan[0], { type: "mystery", activityId: "mystery", activityConfig: { schemaVersion: 1, activityId: "visual-explainer", domain: "spelling", topic: "The ight chunk", learningGoal: "Notice and remember the ight chunk.", misconception: "The middle sound maps to one letter.", strategy: { title: "Keep the chunk together", steps: ["Say each word.", "Notice ight.", "Build the word around it."] }, words: target.map(text => ({ id: `planner-${text}`, text, chunks: [text.slice(0, -4), "ight"], focusChunk: "ight", tip: "Keep ight together." })), check: { id: "check-ight", targetWord: target[0], prompt: "Which chunk stays together?", options: [{ id: "ight", label: "ight", correct: true }, { id: "ite", label: "ite", correct: false }], correctOptionId: "ight" }, evidencePolicy: { writesPracticeEvidence: true, writesMasteryEvidence: false, requiresPerTargetResult: false, allowedEvidence: ["practice", "companion"] } } });
       if (scenario === "mystery-concept-check" || scenario === "published-contract-change") Object.assign(nodePlan[0], { type: "mystery", activityId: "mystery", activityConfig: { schemaVersion: 1, activityId: "concept-check", engine: { id: "concept-check", mode: "choose" }, topic: "School words", domain: "spelling", learningGoal: "Choose the correctly spelled word.", gradeBand: "early_elementary", targets: target.map((label, index) => ({ id: `planner-${index}`, label, type: "word" })), rounds: target.map((label, index) => ({ id: `round-${index}`, mechanic: "choose", targetId: `planner-${index}`, prompt: `Choose ${label}.`, options: [{ id: `${index}-correct`, label, correct: true }, { id: `${index}-miss`, label: `${label}x`, correct: false }], scaffoldLevel: 0 })), evidencePolicy: { writesPracticeEvidence: true, writesMasteryEvidence: false, requiresPerTargetResult: true, allowedEvidence: ["practice"] } } });
       const plannedMeasurements = nodePlan.map(node => ({ id: `measure-${node.id}`, activityId: node.activityId, target: node.targets.join(","), evidenceType: "recall", supportCriteria: "Captured recall improves", reviseCriteria: "Mixed", falsifyCriteria: "No improvement", spelling: { role: node.id === "check" ? "fresh_checkpoint" : "practice", evidenceIds: ["observed-0", "observed-1"], interventionNodeIds: node.id === "check" ? ["practice"] : [], reason: scenario === "assisted" ? "Help limits inference" : "Current recall facts", uncertainty: "One occasion", expectedAccuracy: { min: 0.6, max: 1 }, confidence: 0.5, finalCheck: node.id === "check" } }));
       const activeSessionPlan = { planId: `targeted:${homeworkId}`, childId, activeHomeworkId: homeworkId, domain: "spelling", nodePlan, plannedMeasurements, planTheory: { hypothesis: "Recall may improve", evidenceSummary: ["observed-0", "observed-1"], intervention: "Selected practice", supportCriteria: ["Improvement"], reviseCriteria: ["Mixed"], falsifyCriteria: ["No improvement"] } };
@@ -167,6 +172,19 @@ describe("spelling in the production generation worker", () => {
       expect(engine.words.map((word: {id:string}) => word.id)).toEqual(Object.keys(after.nodes.find(node => node.nodeId === "practice")!.evidenceContract.spellingItems!));
     }
     if (scenario === "visual") {
+      expect(after.nodes.find(node => node.nodeId === "practice")).toMatchObject({
+        role: "baseline",
+        implementationType: "visual-explainer",
+        mechanic: "visual-explainer",
+      });
+      expect(JSON.parse(originalNative).node).toMatchObject({
+        type: "visual-explainer",
+        activityId: "visual-explainer",
+      });
+      expect(projected.current.adventureBoard.nodes.find((node: {id:string}) => node.id === "practice")).toMatchObject({
+        kind: "activity",
+        activityId: "visual-explainer",
+      });
       const binding = after.nodes.find(node => node.nodeId === "practice")!.artifactBinding!;
       expect(binding.localArtifactPath).toBe("/games/spelling-visual-explainer.html");
       expect(binding.activityConfigPath).toMatch(/^\/api\/activity-config\/lab-child\//);

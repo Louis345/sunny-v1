@@ -176,6 +176,15 @@ function spellingImplementationType(
   return node.type;
 }
 
+/** Visual Explainer is assisted instruction, never a mystery reward shell. */
+export function normalizeSpellingNativeNodeIdentity(
+  node: ActiveSessionPlan["nodePlan"][number],
+): ActiveSessionPlan["nodePlan"][number] {
+  if (spellingImplementationType(node) !== "visual-explainer") return node;
+  if (node.type === "visual-explainer" && node.activityId === "visual-explainer") return node;
+  return { ...node, type: "visual-explainer", activityId: "visual-explainer" };
+}
+
 function staticTitle(role: LearningCycleNodeContract["role"], proposed: string | undefined): string {
   if (role === "quest") return "Quest";
   if (role === "boss") return "Boss";
@@ -327,7 +336,11 @@ export function buildLearningCycleInputFromPlan(input: LearningCycleIngestInput)
 export function buildSpellingTargetedCycleInput(input: {
   cycle: LearningCycleRecordV2; plan: ActiveSessionPlan; now: string; historicalEvidence?: Array<{ id: string; domain: string }>;
 }): CreateLearningCycleInput {
-  const { cycle, plan } = input;
+  const cycle = input.cycle;
+  const plan = {
+    ...input.plan,
+    nodePlan: input.plan.nodePlan.map(normalizeSpellingNativeNodeIdentity),
+  };
   if (cycle.domain !== "spelling" || plan.domain !== "spelling" || plan.activeHomeworkId !== cycle.homeworkId) throw new Error("spelling_plan_identity_mismatch");
   const captured = Object.values(cycle.nodes.find(node => node.role === "evaluation")?.evidenceContract.spellingItems ?? {});
   const words = new Map(captured.map(item => [item.word.toLocaleLowerCase("en-US"), item]));
