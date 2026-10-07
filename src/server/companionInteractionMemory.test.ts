@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { CompanionCarePlan } from "../shared/companionCareTypes";
 import {
   maybeCompactCompanionInteractionMemory,
+  readCompanionMemorySummaryToolResult,
   readCompanionInteractionEvents,
   recordCompanionInteractionEvent,
 } from "./companionInteractionMemory";
@@ -48,6 +49,34 @@ describe("companion interaction memory", () => {
 
   afterEach(() => {
     fs.rmSync(root, { recursive: true, force: true });
+  });
+
+  it("accepts only the typed memory-summary tool result", () => {
+    // Human catch: the live session attempted the same compaction three times
+    // because Haiku returned text that was not parseable JSON. Logs reported
+    // invalid_json but the lab injected an already-valid object and never
+    // exercised the provider response contract.
+    const patch = readCompanionMemorySummaryToolResult([
+      { type: "text", text: "Here is the summary:" },
+      {
+        type: "tool_use",
+        name: "save_companion_memory_summary",
+        input: {
+          lastSessionSummary: "Ila kept trying during spelling.",
+          lastEmotionalMoment: "She asked for help and recovered.",
+          reunionLineSeed: "Ask how the next word challenge feels.",
+          relationshipFacts: ["Ila asks Elli for spelling help"],
+          favoriteMoments: ["Recovering after a difficult word"],
+          emotionalTone: "determined",
+          companionSelfNotes: ["Use concise encouragement"],
+        },
+      },
+    ]);
+
+    expect(patch.lastSessionSummary).toBe("Ila kept trying during spelling.");
+    expect(() => readCompanionMemorySummaryToolResult([
+      { type: "text", text: '{"lastSessionSummary":"free-form JSON"}' },
+    ])).toThrow("companion_memory_compaction_missing_tool_result");
   });
 
   it("records append-only interaction events without raw screenshot data", () => {
