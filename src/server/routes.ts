@@ -1475,6 +1475,19 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
         eventInput.cycleRevision ??= cycle.revision;
         delete eventInput.accuracy; // Academic accuracy belongs to canonical observations, not the rating payload.
       }
+      const routeCycle = eventInput.context === "baseline_route" && eventInput.source === "child_choice"
+        ? getLatestLearningCycle(childId) : null;
+      const routeExperiment = routeCycle?.agencyExperiment;
+      const selectedRouteOption = eventInput.shownOptions.find(
+        (option) => option.optionId === eventInput.selectedOptionId,
+      );
+      const authorizedRoute = routeExperiment?.routes.find((candidate) =>
+        candidate.routeId === selectedRouteOption?.experimentId || candidate.routeId === eventInput.selectedOptionId);
+      if (routeCycle && routeCycle.homeworkId !== eventInput.homeworkId ||
+          eventInput.context === "baseline_route" && eventInput.source === "child_choice" && !authorizedRoute) {
+        console.warn(` 🎮 [agency-route] [rejected] child=${childId} reason=route_not_authorized`);
+        return res.status(409).json({ ok: false, error: "choice_event_route_not_authorized" });
+      }
       const event = recordChoiceEvent(eventInput);
       const applied = await applyChoiceEventPreference(event);
       if (!isCanonicalMathEvidence && event.context === "homework_required" && event.eventName === "activity_completed") {
@@ -1485,33 +1498,22 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
         });
       }
       let selectedRouteId: string | undefined;
-      if (event.context === "baseline_route" && event.source === "child_choice" && event.selectedOptionId) {
-        const selected = event.shownOptions.find(
-          (option) => option.optionId === event.selectedOptionId,
-        );
-        if (selected) {
-          const cycle = getLatestLearningCycle(childId);
-          const experiment = cycle?.agencyExperiment;
-          const route = experiment?.routes.find((candidate) =>
-            candidate.routeId === selected.experimentId || candidate.routeId === event.selectedOptionId);
-          if (cycle && experiment && route) {
-            const alreadyRecorded = cycle.routeSelection?.history.some(
+      if (routeCycle && routeExperiment && authorizedRoute) {
+            const alreadyRecorded = routeCycle.routeSelection?.history.some(
               (entry) => entry.choiceEventId === event.choiceEventId,
             ) === true;
             const updated = alreadyRecorded
-              ? cycle
-              : transitionLearningCycle(childId, cycle.homeworkId, cycle.revision, {
+              ? routeCycle
+              : transitionLearningCycle(childId, routeCycle.homeworkId, routeCycle.revision, {
                   type: "route_selected",
-                  experimentId: experiment.experimentId,
-                  routeId: route.routeId,
+                  experimentId: routeExperiment.experimentId,
+                  routeId: authorizedRoute.routeId,
                   choiceEventId: event.choiceEventId,
                 });
             selectedRouteId = updated.routeSelection?.selectedRouteId;
             console.log(
-              ` 🎮 [agency-route] [selected] child=${childId} route=${selectedRouteId ?? route.routeId} event=${event.choiceEventId}`,
+              ` 🎮 [agency-route] [selected] child=${childId} route=${selectedRouteId ?? authorizedRoute.routeId} event=${event.choiceEventId}`,
             );
-          }
-        }
       }
       return res.json({
         ok: true,

@@ -85,7 +85,7 @@ vi.mock("../engine/learningCycleRepository", () => ({
 
 import { appendContentFeedbackLesson } from "../engine/contentFeedbackMemory";
 import { applyChoiceEventPreference, findChoiceEventById, recordChoiceEvent } from "../engine/choiceEvents";
-import { getLearningCycle, transitionLearningCycle } from "../engine/learningCycleRepository";
+import { getLatestLearningCycle, getLearningCycle, transitionLearningCycle } from "../engine/learningCycleRepository";
 import { interpretDirectExperienceOutcome } from "../engine/directExperienceFeedback";
 import { advanceCanonicalCycleFromEvidence, recordCanonicalNodeCompletion } from "../engine/learningCycleRuntime";
 import { prepareSuccessorBoard } from "../engine/canonicalProgressionGenerator";
@@ -191,6 +191,26 @@ describe("choice-event route feedback lessons", () => {
         routeId: "choice-route-a",
       }),
     );
+  });
+
+  it("rejects an invented route before writing Ila's choice or engagement theory", async () => {
+    // Human catch: repeated clicks on a fabricated gate did not launch; server logs
+    // counted choices but never logged the missing canonical route as a failure.
+    vi.mocked(getLatestLearningCycle).mockReturnValueOnce({
+      childId: "demo-pashley",
+      homeworkId: "hw-math",
+      lifecycle: "baseline_active",
+      revision: 2,
+      agencyExperiment: null,
+    } as never);
+
+    const out = await postChoiceEvent(routeChoicePayload);
+
+    expect(out.status).toBe(409);
+    expect(out.body.error).toBe("choice_event_route_not_authorized");
+    expect(vi.mocked(recordChoiceEvent)).not.toHaveBeenCalled();
+    expect(mockedApplyChoiceEventPreference).not.toHaveBeenCalled();
+    expect(mockedTransitionLearningCycle).not.toHaveBeenCalled();
   });
 
   it("requires math modal evidence to name its homework and preserves its displayed cycle revision", async () => {
