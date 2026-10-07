@@ -97,6 +97,37 @@ const reinaMay24Plan: ActiveSessionPlanBoardSnapshot = {
 };
 
 describe("buildAdventureBoardFromActiveSessionPlan", () => {
+  it("keeps Ila's six-node teaching program linear when the Planner authored no routes", () => {
+    // Human catch: Ila could see every generated node, but Choose Path clicks never launched.
+    // Logs kept the clicks as choices; the lab only exercised a plan with real routes.
+    const ids = ["chunks", "recall-1", "recall-2", "wheel", "reward", "checkpoint"];
+    const board = buildAdventureBoardFromActiveSessionPlan({
+      plan: {
+        planId: "ila-linear-spelling",
+        childId: "ila",
+        domain: "spelling",
+        nodePlan: ids.map((id) => ({
+          id,
+          type: id === "reward" ? "mystery" : "word-radar",
+          activityId: id === "reward" ? "mystery" : "word-radar",
+          targets: ["tomorrow"],
+          locked: false,
+        })),
+      },
+      boardId: "ila-linear-spelling",
+      theme,
+    });
+
+    expect(board.nodes.some((node) => node.id === "choose-path")).toBe(false);
+    expect(board.choiceSets?.some((set) => set.id === "baseline-route-options")).toBe(false);
+    expect(board.nodes.filter((node) => ids.includes(node.id)).every((node) => node.layout?.role !== "evidence-route")).toBe(true);
+    expect(board.edges).toEqual(expect.arrayContaining([
+      expect.objectContaining({ from: "chunks", to: "recall-1" }),
+      expect.objectContaining({ from: "recall-1", to: "recall-2" }),
+      expect.objectContaining({ from: "recall-2", to: "wheel" }),
+    ]));
+  });
+
   it("keeps generated activity labels on whole-word boundaries", () => {
     const board = buildAdventureBoardFromActiveSessionPlan({
       plan: {
@@ -185,7 +216,6 @@ describe("buildAdventureBoardFromActiveSessionPlan", () => {
     expect(board.nodes.map((node) => node.id)).toEqual([
       "start",
       "baseline_silent_letters_spelling",
-      "choose-path",
       "baseline_high_frequency_recognition",
       "baseline_spelling_diagnostic",
       "mystery_choice",
@@ -197,10 +227,10 @@ describe("buildAdventureBoardFromActiveSessionPlan", () => {
     expect(board.nodes[1].target?.laneId).toBe("silent_letters");
     expect(board.nodes[1].target?.words).toEqual(reinaMay24Plan.nodePlan[0].targets);
     expect(board.nodes[1].wordRadarConfig).toEqual(reinaMay24Plan.nodePlan[0].wordRadarConfig);
-    expect(board.nodes[3].target?.laneId).toBe("high_frequency_words");
-    expect(board.nodes[3].wordRadarConfig).toEqual(reinaMay24Plan.nodePlan[1].wordRadarConfig);
+    expect(board.nodes[2].target?.laneId).toBe("high_frequency_words");
+    expect(board.nodes[2].wordRadarConfig).toEqual(reinaMay24Plan.nodePlan[1].wordRadarConfig);
+    expect(board.nodes[5].state).toBe("locked");
     expect(board.nodes[6].state).toBe("locked");
-    expect(board.nodes[7].state).toBe("locked");
   });
 
   it("never invents Quest or Boss finish-line markers, optional Mystery, or modal choices", () => {
@@ -264,6 +294,12 @@ describe("buildAdventureBoardFromActiveSessionPlan", () => {
           targets: ["tomorrow"],
           locked: false,
         })),
+        learningRoutes: ["route-a", "route-b", "route-c"].map((id) => ({
+          id,
+          label: id,
+          rationale: "Planner-authored route",
+          nodeIds: ["teach", "practice", id],
+        })),
       },
       boardId: "three-lane-linear-board",
       theme,
@@ -300,7 +336,7 @@ describe("buildAdventureBoardFromActiveSessionPlan", () => {
     expect(board.nodes.map((node) => node.id)).toEqual(["start", "probe-spelling"]);
   });
 
-  it("creates a real baseline route choice when two launchable route nodes exist", () => {
+  it("does not invent a route choice from two launchable linear nodes", () => {
     const board = buildAdventureBoardFromActiveSessionPlan({
       plan: reinaMay24Plan,
       boardId: "route-choice-board",
@@ -312,24 +348,15 @@ describe("buildAdventureBoardFromActiveSessionPlan", () => {
     const routeChoiceSet = board.choiceSets?.find((choiceSet) => choiceSet.kind === "baseline-route");
     const optionNodeIds = routeChoiceSet?.options.map((option) => option.nodeId);
 
-    expect(choiceGate).toMatchObject({
-      id: "choose-path",
-      action: { type: "open-choice-set", payloadId: "baseline-route-options" },
-      choiceSetId: "baseline-route-options",
-    });
-    expect(routeChoiceSet?.options).toHaveLength(2);
-    expect(optionNodeIds).toEqual([
-      "baseline_high_frequency_recognition",
-      "baseline_spelling_diagnostic",
-    ]);
+    expect(choiceGate).toBeUndefined();
+    expect(routeChoiceSet).toBeUndefined();
+    expect(optionNodeIds).toBeUndefined();
     expect(board.edges).toEqual(expect.arrayContaining([
-      expect.objectContaining({ from: "baseline_silent_letters_spelling", to: "choose-path" }),
-      expect.objectContaining({ from: "choose-path", to: "baseline_high_frequency_recognition" }),
-      expect.objectContaining({ from: "choose-path", to: "baseline_spelling_diagnostic" }),
-      expect.objectContaining({ from: "baseline_high_frequency_recognition", to: "mystery_choice" }),
+      expect.objectContaining({ from: "baseline_silent_letters_spelling", to: "baseline_high_frequency_recognition" }),
+      expect.objectContaining({ from: "baseline_high_frequency_recognition", to: "baseline_spelling_diagnostic" }),
       expect.objectContaining({ from: "baseline_spelling_diagnostic", to: "mystery_choice" }),
     ]));
-    expect(board.progress?.activeChoiceSetId).toBe("baseline-route-options");
+    expect(board.progress?.activeChoiceSetId).toBeUndefined();
   });
 
   it("materializes explicit planner learning routes as named clickable choices", () => {

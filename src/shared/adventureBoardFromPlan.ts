@@ -233,7 +233,7 @@ export function buildAdventureBoardFromActiveSessionPlan(
   const convergedNodes = normalizedLayout.hasExplicitRoutes
     ? normalizedLayout.convergedNodes
     : [];
-  const hasRealRouteChoice = routeNodes.length >= 2;
+  const hasRealRouteChoice = normalizedLayout.hasExplicitRoutes;
   // Quest and Boss render only when the board's own plan contains them (contract 21).
   const questNode = pickDestinationNode(options.plan.nodePlan, "quest");
   const bossNode = pickDestinationNode(options.plan.nodePlan, "boss");
