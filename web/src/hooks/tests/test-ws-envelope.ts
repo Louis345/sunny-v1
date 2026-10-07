@@ -576,6 +576,96 @@ describe("WS envelope vs canvas payload type", () => {
     expect(result.current.state.warning).toMatch(/couldn't play that word/i);
   });
 
+  it("releases a voice turn when Chrome never resumes its playback context", async () => {
+    // Human catch: the kiosk showed an audio check while Elli stayed silent and
+    // the child could not be heard. The old lab mocked only running audio contexts,
+    // so a pending resume kept playback and microphone gating stuck forever.
+    const RunningAudioContext = globalThis.AudioContext;
+    class SuspendedAudioContext extends RunningAudioContext {
+      state: AudioContextState = "suspended";
+      resume = vi.fn(() => new Promise<void>(() => {}));
+    }
+    globalThis.AudioContext = SuspendedAudioContext as typeof AudioContext;
+    vi.useFakeTimers();
+    const { result } = renderHook(() => useSession());
+    act(() => result.current.startSession("ila"));
+    await act(async () => { await vi.advanceTimersByTimeAsync(150); });
+    const ws = wsInstances[0]!;
+
+    act(() => {
+      ws.onmessage?.({ data: JSON.stringify({ type: "audio", data: "AAA=" }) } as MessageEvent);
+      ws.onmessage?.({ data: JSON.stringify({ type: "audio_done", requiresAudio: true }) } as MessageEvent);
+    });
+    await act(async () => { await vi.advanceTimersByTimeAsync(2_000); });
+
+    const messages = ws.send.mock.calls.map(([raw]) => JSON.parse(String(raw)));
+    expect(messages).toContainEqual(expect.objectContaining({
+      type: "playback_done",
+      audible: false,
+    }));
+    expect(result.current.state.warning).toMatch(/couldn't play/i);
+  });
+
+  it("does not call a suspended microphone processor ready", async () => {
+    // Human catch: the kiosk displayed the built-in input name but heard no
+    // speech. The old lab counted getUserMedia success as microphone startup.
+    vi.stubEnv("VITE_SUNNY_RUNTIME_CONFIG", JSON.stringify({
+      subject: "homework", childId: "ila", homeworkDomain: "spelling",
+      sessionMode: "real", previewMode: "off", voiceMode: "normal",
+    }));
+    const RunningAudioContext = globalThis.AudioContext;
+    class SuspendedAudioContext extends RunningAudioContext {
+      state: AudioContextState = "suspended";
+      resume = vi.fn(() => new Promise<void>(() => {}));
+    }
+    globalThis.AudioContext = SuspendedAudioContext as typeof AudioContext;
+    vi.useFakeTimers();
+    const { result } = renderHook(() => useSession());
+    act(() => result.current.startSession("ila"));
+    await act(async () => { await vi.advanceTimersByTimeAsync(2_000); });
+
+    const messages = wsInstances[0]!.send.mock.calls
+      .map(([raw]) => JSON.parse(String(raw)));
+    expect(messages).toContainEqual(expect.objectContaining({
+      type: "client_audio_status",
+      event: "capture_unavailable",
+    }));
+    expect(messages).not.toContainEqual(expect.objectContaining({
+      type: "client_audio_status",
+      event: "capture_started",
+    }));
+    expect(result.current.state.microphoneAvailable).toBe(false);
+  });
+
+  it("does not let speaker echo interrupt Elli's own audio", async () => {
+    // Human catch: the real kiosk sent barge_in during the opening line with
+    // no button press. Server logs recorded the interrupt but the AI lab only
+    // tested a clean microphone, so it missed speaker echo as the trigger.
+    vi.useFakeTimers();
+    const { result } = renderHook(() => useSession());
+    act(() => result.current.startSession("ila"));
+    const ws = wsInstances[0]!;
+    await act(async () => { await vi.advanceTimersByTimeAsync(150); });
+    expect(micProcessor?.onaudioprocess).toBeTypeOf("function");
+    act(() => {
+      ws.onmessage?.({ data: JSON.stringify({ type: "audio", data: "AAA=" }) } as MessageEvent);
+    });
+    await act(async () => Promise.resolve());
+    expect(playbackStart).toHaveBeenCalledOnce();
+
+    const speakerEcho = {
+      inputBuffer: { getChannelData: () => new Float32Array(4096).fill(0.2) },
+    } as unknown as AudioProcessingEvent;
+    act(() => {
+      for (let frame = 0; frame < 5; frame += 1) {
+        micProcessor?.onaudioprocess?.(speakerEcho);
+      }
+    });
+
+    const messages = ws.send.mock.calls.map(([raw]) => JSON.parse(String(raw)));
+    expect(messages.filter((message) => message.type === "barge_in")).toHaveLength(0);
+  });
+
   it("quiets companion speech without muting the child or required Word Radar audio", async () => {
     // Human catch: Saori tapped the companion's Mute control, then Word Radar
     // could neither hear the child nor play the spelling prompt.

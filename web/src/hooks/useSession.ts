@@ -30,7 +30,6 @@ import {
 } from "../utils/audioAnalyser";
 import { isKaraokeReadingAssistSilence } from "./karaokeAssistSilence";
 import {
-  flushBufferIfUnmuted,
   shouldAcknowledgeAudioPlayback,
 } from "../../../src/shared/flushBuffer";
 import { mapNodeSessionAudioFlags } from "../../../src/shared/mapNodeSessionAudio";
@@ -166,13 +165,6 @@ interface CanvasState {
   backgroundImageUrl?: string;
 }
 
-interface TurnPolicy {
-  id: "short_expected_response" | "open_response" | "narration" | "listen_only";
-  expectedResponse: "short" | "open" | "none";
-  allowCaptureDuringPlayback: boolean;
-  interruptible: boolean;
-}
-
 type SessionPhase = "picker" | "connecting" | "active" | "ended";
 
 type SessionStartRequest = {
@@ -272,27 +264,6 @@ function storyIllustrationPatch(
   };
 }
 
-function getPlaybackCaptureConfig(policy: TurnPolicy) {
-  if (policy.id === "short_expected_response") {
-    return {
-      rmsThreshold: 0.02,
-      consecutiveFrames: 1,
-    };
-  }
-
-  return {
-    rmsThreshold: 0.04,
-    consecutiveFrames: 3,
-  };
-}
-
-const DEFAULT_TURN_POLICY: TurnPolicy = {
-  id: "open_response",
-  expectedResponse: "open",
-  allowCaptureDuringPlayback: false,
-  interruptible: true,
-};
-
 const SILENT_MIC_DURATION_MS = 12000;
 const MICROPHONE_OPEN_TIMEOUT_MS = 5000;
 const AUDIBLE_MIC_RMS_THRESHOLD = 0.003;
@@ -336,6 +307,28 @@ async function openMicrophoneWithTimeout(
     return await Promise.race([request, timeout]);
   } finally {
     if (timeoutId) clearTimeout(timeoutId);
+  }
+}
+
+async function ensureAudioContextRunning(ctx: AudioContext): Promise<void> {
+  if (ctx.state === "running") return;
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
+  try {
+    await Promise.race([
+      ctx.resume(),
+      new Promise<never>((_, reject) => {
+        timeoutId = setTimeout(
+          () => reject(new Error("audio_context_resume_timeout")),
+          1_200,
+        );
+      }),
+    ]);
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId);
+  }
+  const resumedState = ctx.state as AudioContextState;
+  if (resumedState !== "running") {
+    throw new Error(`audio_context_${resumedState}`);
   }
 }
 
@@ -435,10 +428,7 @@ export function useSession(options?: UseSessionOptions) {
   const activityNarrationPendingRef = useRef(false);
   const receivedAudioFramesRef = useRef(0);
   const playedAudioFramesRef = useRef(0);
-  const bargeInConsecutiveRef = useRef(0);
-  const rollingBufferRef = useRef<string[]>([]);
   const finalizePlaybackRef = useRef<() => void>(() => {});
-  const turnPolicyRef = useRef<TurnPolicy>(DEFAULT_TURN_POLICY);
   const debugBrowserTtsRef = useRef(false);
   const browserTtsAccumRef = useRef("");
   const browserTtsDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -531,7 +521,9 @@ export function useSession(options?: UseSessionOptions) {
         playContextRef.current = new AudioContext({ sampleRate: 24000 });
       }
       if (playContextRef.current.state === "suspended") {
-        void playContextRef.current.resume();
+        void playContextRef.current.resume().catch((err) => {
+          console.warn(" 🎮 [session-audio] [playback-prime] [failed]", err);
+        });
       }
     } catch (err) {
       console.warn("PCM playback audio context prime failed:", err);
@@ -617,13 +609,6 @@ export function useSession(options?: UseSessionOptions) {
       return;
     }
     sendMessageRef.current("playback_done", { audible: true, ...playbackIdentity });
-    flushBufferIfUnmuted(
-      rollingBufferRef.current,
-      micMutedRef.current,
-      (type, payload) => sendMessageRef.current(type, payload),
-    );
-    rollingBufferRef.current = [];
-    bargeInConsecutiveRef.current = 0;
   };
 
   const armSessionHandshakeTimeout = useCallback((ws: WebSocket) => {
@@ -828,7 +813,6 @@ export function useSession(options?: UseSessionOptions) {
         debugBrowserTtsRef.current =
           (msg as Record<string, unknown>).debugBrowserTts === true ||
           urlWantsBrowserTts();
-        turnPolicyRef.current = DEFAULT_TURN_POLICY;
         const debugMode =
           (msg as Record<string, unknown>).debugMode === true;
         setStateRef.current((s) => ({
@@ -967,23 +951,6 @@ export function useSession(options?: UseSessionOptions) {
         );
         break;
       }
-
-      case "turn_policy":
-        turnPolicyRef.current = {
-          id:
-            (msg.id as TurnPolicy["id"] | undefined) ??
-            DEFAULT_TURN_POLICY.id,
-          expectedResponse:
-            (msg.expectedResponse as TurnPolicy["expectedResponse"] | undefined) ??
-            DEFAULT_TURN_POLICY.expectedResponse,
-          allowCaptureDuringPlayback:
-            (msg.allowCaptureDuringPlayback as boolean | undefined) ??
-            DEFAULT_TURN_POLICY.allowCaptureDuringPlayback,
-          interruptible:
-            (msg.interruptible as boolean | undefined) ??
-            DEFAULT_TURN_POLICY.interruptible,
-        };
-        break;
 
       case "interim":
         confirmRecognizedSpeech((msg.text as string) ?? "");
@@ -1480,7 +1447,6 @@ export function useSession(options?: UseSessionOptions) {
         sessionStartRequestRef.current = null;
         reconnectHandshakePendingRef.current = false;
         sessionReconnectAttemptRef.current = 0;
-        turnPolicyRef.current = DEFAULT_TURN_POLICY;
         setMicMuted(false);
         setCompanionSpeechMuted(false);
         activityNarrationPendingRef.current = false;
@@ -1580,20 +1546,13 @@ export function useSession(options?: UseSessionOptions) {
             message: `Switched from ${recoveredFrom} to ${inputLabel}.`,
           });
         }
-        console.log(
-          ` 🎮 [session-microphone] [capture] [started] input=${inputLabel}`,
-        );
-        sendMessageRef.current("client_audio_status", {
-          event: "capture_started",
-          reason: inputLabel,
-          message: "Browser microphone stream opened; awaiting audible input.",
-        });
         audioTracks.forEach((t) => {
           t.enabled = !micMutedRef.current;
         });
 
         const audioCtx = new AudioContext({ sampleRate: 16000 });
         micContextRef.current = audioCtx;
+        await ensureAudioContextRunning(audioCtx);
 
         const source = audioCtx.createMediaStreamSource(stream);
         const processor = audioCtx.createScriptProcessor(4096, 1, 1);
@@ -1660,56 +1619,15 @@ export function useSession(options?: UseSessionOptions) {
             }
           }
 
-          // Always convert — needed for both rolling buffer and Deepgram send
+          // Speaker energy is not proof of child speech. Do not send it to
+          // Deepgram or use it to interrupt Elli's own playback.
+          if (isPlayingRef.current) return;
+
           const int16 = new Int16Array(float32.length);
           for (let i = 0; i < float32.length; i++) {
             int16[i] = Math.max(-32768, Math.min(32767, Math.round(float32[i] * 32767)));
           }
           const base64 = arrayBufferToBase64(int16.buffer);
-
-          // Keep a ~1s rolling buffer so Deepgram gets a head start when
-          // transitioning from gated (TTS playing) to ungated.
-          rollingBufferRef.current.push(base64);
-          if (rollingBufferRef.current.length > 4) {
-            rollingBufferRef.current.shift();
-          }
-
-          if (isPlayingRef.current) {
-            const turnPolicy = turnPolicyRef.current;
-            const playbackCapture = getPlaybackCaptureConfig(turnPolicy);
-
-            if (turnPolicy.interruptible && rms > playbackCapture.rmsThreshold) {
-              // While assistant audio is still audible, speech is always treated
-              // as a barge-in candidate. The server re-opens turn-taking only
-              // after the browser confirms playback has actually finished.
-              bargeInConsecutiveRef.current++;
-              if (
-                bargeInConsecutiveRef.current >=
-                playbackCapture.consecutiveFrames
-              ) {
-                sendMessageRef.current("barge_in");
-                serverDoneRef.current = false;
-                audioQueueRef.current = [];
-                isPlayingRef.current = false;
-                if (currentSourceRef.current) {
-                  try { currentSourceRef.current.stop(); } catch { /* already stopped */ }
-                  currentSourceRef.current = null;
-                }
-                flushBufferIfUnmuted(
-                  rollingBufferRef.current,
-                  micMutedRef.current,
-                  (type, payload) =>
-                    sendMessageRef.current(type, payload as { data: string }),
-                );
-                rollingBufferRef.current = [];
-                bargeInConsecutiveRef.current = 0;
-              }
-              return;
-            }
-
-            bargeInConsecutiveRef.current = 0;
-            return;
-          }
 
           sendMessageRef.current("audio", { data: base64 });
         };
@@ -1717,20 +1635,35 @@ export function useSession(options?: UseSessionOptions) {
         source.connect(processor);
         processor.connect(silence);
         silence.connect(audioCtx.destination);
+        console.log(
+          ` 🎮 [session-microphone] [capture] [started] input=${inputLabel}`,
+        );
+        sendMessageRef.current("client_audio_status", {
+          event: "capture_started",
+          reason: inputLabel,
+          message: "Browser microphone processor running; awaiting audible input.",
+        });
       } catch (err) {
         console.error(" 🎮 [session-microphone] [access] [unavailable]", err);
+        stopMicRef.current();
         const microphoneTimedOut =
           err instanceof Error && err.message === "microphone_open_timed_out";
+        const contextStalled =
+          err instanceof Error && err.message.startsWith("audio_context_");
         if (micDeniedCanContinue()) {
           const warning = microphoneTimedOut
             ? "The microphone did not start. Use the on-screen controls or reload Sunny."
+            : contextStalled
+              ? "The microphone audio did not start. Use the on-screen controls or reload Sunny."
             : "Microphone unavailable; on-screen controls are still available.";
           console.warn(
             ` 🎮 [session-microphone] [capture] [${microphoneTimedOut ? "timed-out" : "unavailable"}]`,
           );
           sendMessageRef.current("client_audio_status", {
             event: microphoneTimedOut ? "capture_timed_out" : "capture_unavailable",
-            reason: microphoneTimedOut ? "get_user_media_pending" : "microphone_access_unavailable",
+            reason: microphoneTimedOut
+              ? "get_user_media_pending"
+              : contextStalled ? "audio_context_not_running" : "microphone_access_unavailable",
             message: warning,
           });
           setStateRef.current((s) => ({
@@ -1803,9 +1736,7 @@ export function useSession(options?: UseSessionOptions) {
       if (!playContextRef.current || playContextRef.current.state === "closed") {
         playContextRef.current = new AudioContext({ sampleRate: 24000 });
       }
-      if (playContextRef.current.state === "suspended") {
-        await playContextRef.current.resume();
-      }
+      await ensureAudioContextRunning(playContextRef.current);
       const ctx = playContextRef.current;
       const audioBuffer = pcmToAudioBuffer(ctx, chunk);
       const source = ctx.createBufferSource();
@@ -1824,7 +1755,11 @@ export function useSession(options?: UseSessionOptions) {
       };
       source.start();
     } catch (err) {
-      console.error("PCM playback error:", err);
+      console.error(" 🎮 [session-audio] [playback] [failed]", err);
+      sendMessageRef.current("client_audio_status", {
+        event: "playback_failed",
+        reason: err instanceof Error ? err.message : String(err),
+      });
       isPlayingRef.current = false;
       playNextChunk();
     }
@@ -1997,13 +1932,6 @@ export function useSession(options?: UseSessionOptions) {
       try { currentSourceRef.current.stop(); } catch { /* already stopped */ }
       currentSourceRef.current = null;
     }
-    flushBufferIfUnmuted(
-      rollingBufferRef.current,
-      micMutedRef.current,
-      sendMessage,
-    );
-    rollingBufferRef.current = [];
-    bargeInConsecutiveRef.current = 0;
   }, [sendMessage]);
 
   const endSession = useCallback(() => {
@@ -2057,7 +1985,6 @@ export function useSession(options?: UseSessionOptions) {
       clearTimeout(storyImageWatchdogRef.current);
       storyImageWatchdogRef.current = null;
     }
-    turnPolicyRef.current = DEFAULT_TURN_POLICY;
     sessionChildIdRef.current = null;
     sessionStartRequestRef.current = null;
     reconnectHandshakePendingRef.current = false;
