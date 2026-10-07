@@ -18,6 +18,18 @@ import {
 } from "./debug-helpers";
 import { createThinkingEmoteOnFirstToolInStep } from "./companionThinkingEmote";
 
+export function claimCompanionResponseTurn(session: any): {
+  turnId: number;
+  isCurrent: () => boolean;
+} {
+  const turnId = Number(session.companionResponseTurnId ?? 0) + 1;
+  session.companionResponseTurnId = turnId;
+  return {
+    turnId,
+    isCurrent: () => session.companionResponseTurnId === turnId,
+  };
+}
+
 export function deferCompanionUntilNarrationFinishes(
   session: any,
   userMessage: string,
@@ -65,6 +77,18 @@ export async function runCompanionResponseForSession(
   userMessage: string,
 ): Promise<void> {
     if (deferCompanionUntilNarrationFinishes(session, userMessage)) return;
+    const turn = claimCompanionResponseTurn(session);
+    let staleOutputLogged = false;
+    const rejectStaleOutput = (action: string): boolean => {
+      if (turn.isCurrent()) return false;
+      if (!staleOutputLogged) {
+        staleOutputLogged = true;
+        console.log(
+          `  🎮 [companion] [stale-turn-discarded] turn=${turn.turnId} action=${action}`,
+        );
+      }
+      return true;
+    };
     session.resetCompanionDispositionAfterSpeech?.();
     const st = session.turnSM.getState();
     if (st === "WORD_BUILDER") {
@@ -73,7 +97,8 @@ export async function runCompanionResponseForSession(
       session.turnSM.onStartCompanionFromIdle();
     }
 
-    session.currentAbort = new AbortController();
+    const abortController = new AbortController();
+    session.currentAbort = abortController;
     let fullResponse = "";
     let responseLogged = false;
     session.toolCallsMadeThisTurn = 0;
@@ -191,6 +216,7 @@ export async function runCompanionResponseForSession(
         experimentalOnStepStart: thinkingHooks?.onStepStart,
         experimentalOnToolCallStart: thinkingHooks?.onToolCallStart,
         onToken: (chunk) => {
+          if (rejectStaleOutput("token")) return;
           fullResponse += chunk;
           if (!responseLogged) {
             responseLogged = true;
@@ -202,10 +228,11 @@ export async function runCompanionResponseForSession(
           );
           session.turnSM.onToken(chunk);
         },
-        signal: session.currentAbort?.signal,
+        signal: abortController.signal,
         transitionToWorkPhase,
         allowTransitionToWork: !session.transitionedToWork,
         onStepFinish: async (step) => {
+          if (rejectStaleOutput("step_finish")) return;
           const toolCalls = (step.toolCalls ?? []) as Array<{
             toolName?: string;
             name?: string;
@@ -584,6 +611,8 @@ export async function runCompanionResponseForSession(
         },
       });
 
+      if (rejectStaleOutput("completion")) return;
+
       if (!fullResponse.trim()) {
         console.warn(
           "  ⚠️  runAgent completed with empty fullResponse — check onToken wiring",
@@ -638,6 +667,7 @@ export async function runCompanionResponseForSession(
         session.applyCompanionDispositionAfterSpeech?.();
       }
     } catch (err: unknown) {
+      if (rejectStaleOutput("error")) return;
       if (err instanceof Error && err.name === "AbortError") {
         console.log("  ⚡ Agent aborted (barge-in)");
         session.turnSM.onInterrupt();
@@ -683,6 +713,8 @@ export async function runCompanionResponseForSession(
       session.recordDebugError?.("Agent error", err);
       await speakShortRecovery(session, "agent_response_failed");
     } finally {
-      session.currentAbort = null;
+      if (turn.isCurrent() && session.currentAbort === abortController) {
+        session.currentAbort = null;
+      }
     }
 }
