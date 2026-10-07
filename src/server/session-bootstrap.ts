@@ -132,11 +132,11 @@ export function isIndependentEvaluationPlan(
   planId: string | null | undefined,
   pendingNodes: Array<{ targetLane?: string }> = [],
 ): boolean {
-  return Boolean(
-    planId?.startsWith("discovery:")
-    || planId?.startsWith("probe-board:")
-    || pendingNodes.some(node => node.targetLane === "independent_discovery"),
-  );
+  const activePlanId = planId?.trim();
+  if (activePlanId) {
+    return activePlanId.startsWith("discovery:") || activePlanId.startsWith("probe-board:");
+  }
+  return pendingNodes.some(node => node.targetLane === "independent_discovery");
 }
 
 export function buildContextStartGreeting(context: any): string {

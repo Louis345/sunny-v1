@@ -140,6 +140,12 @@ describe("homework subject mode", () => {
     expect(isIndependentEvaluationPlan("probe-board:hw-math-1:cycle-r2")).toBe(true);
     expect(isIndependentEvaluationPlan("discovery:hw-spelling-1")).toBe(true);
     expect(isIndependentEvaluationPlan("targeted:hw-math-1")).toBe(false);
+    // Human-caught 2026-10-07: after Discovery built a teaching board, stale
+    // pending Discovery nodes caused the evaluation opener to play again. The
+    // lab checked each source independently but never tested their conflict.
+    expect(isIndependentEvaluationPlan("targeted:hw-spelling-1", [
+      { targetLane: "independent_discovery" },
+    ])).toBe(false);
     expect(isIndependentEvaluationPlan(undefined, [
       { targetLane: "independent_discovery" },
     ])).toBe(true);
