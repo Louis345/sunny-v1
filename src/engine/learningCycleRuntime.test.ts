@@ -755,6 +755,10 @@ describe("canonical learning cycle runtime", () => {
     ]));
     expect(prompt).toContain("never add an encounter otherwise");
     expect(inputSchema.required).toContain("nextInstruments");
+    expect(fs.existsSync(path.join(
+      rootDir,
+      "src/context/reina/homework/cycles/.planner/hw-runtime/hw-runtime_decision_r2/provider-receipts/progression-decision-r2.stage.json",
+    ))).toBe(true);
   });
 
   it("excludes stored directives and synthetic QA records from the Quest Planner prompt", async () => {

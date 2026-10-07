@@ -586,7 +586,7 @@ async function askPlanner(
     observationIds: cycle.observations.filter((observation) => observation.provenance !== "practice").map((observation) => observation.observationId),
     model: plannerModel,
   };
-  const rawDecision = await runMathProviderStage({ draftDir, stage: "progression-decision", model: plannerModel, request: snapshot, execute: async () => {
+  const rawDecision = await runMathProviderStage({ draftDir, stage: `progression-decision-r${cycle.revision}`, model: plannerModel, request: snapshot, execute: async () => {
   const response = await requestPlannerMessage(anthropic, {
     model: plannerModel,
     // The prescription now carries five additional design fields; 2600 truncated them.
