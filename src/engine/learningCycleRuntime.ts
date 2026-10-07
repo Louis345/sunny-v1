@@ -609,6 +609,7 @@ Two things this Planner has gotten wrong before, stated plainly so you can avoid
 Title each instrument as the child should see it. It appears as the first thing on their screen, so give it a real name, not a category label.
 
 Do not copy assignment items or name a prototype to imitate. If evidence is insufficient, prescribe a focused harder or clarifying support board rather than a generic quiz.
+For spelling, Correct practice after long response time is not effortless recall. Examine per-word response time alongside assistance, exposure, response mode, and instrument ambiguity. When the evidence suggests a child is struggling, author teaching and guided practice before another fresh recall check; let Elli respond conversationally from the live item and child context. Do not infer mastery from supported or partial-visibility practice, and do not use a fixed latency threshold to choose the lesson.
 
 Child chart context:
 ${JSON.stringify(childContext, null, 2)}

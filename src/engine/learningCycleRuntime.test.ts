@@ -980,7 +980,7 @@ it('uses the configured spelling Planner for next-step decisions, keeping math c
  }finally{vi.unstubAllEnvs();}
 });
 
-it('keeps slow correct spelling practice visible as latency evidence, not effortless recall',()=>{
+it('keeps slow correct spelling practice visible as latency evidence, not effortless recall',async()=>{
   // Human catch: Ila spent over a minute spelling a word that the scorecard marked correct.
   // The log had response time, but the Planner scorecard discarded it and the lab only checked accuracy.
   const rootDir=root();
@@ -993,6 +993,12 @@ it('keeps slow correct spelling practice visible as latency evidence, not effort
   expect(engagement).toContain('tomorrow: response=74000ms');
   expect(engagement).toContain('reportedFrustration=none');
   expect(cycle?.evidence.academic.at(-1)?.accuracy).toBe(1);
+  const dir=path.join(rootDir,'src/context/reina');fs.mkdirSync(dir,{recursive:true});
+  fs.writeFileSync(path.join(dir,'learning_profile.json'),JSON.stringify({childId:'reina'}));
+  const create=vi.fn(async(_payload?:unknown)=>{throw Error('fixture-stop');});
+  await expect(advanceCanonicalCycleFromEvidence({childId:'reina',homeworkId:'hw-runtime',client:{messages:{create,stream:(payload:unknown)=>({finalMessage:()=>create(payload)})}} as never},{rootDir})).rejects.toThrow('fixture-stop');
+  const plannerRequest=JSON.stringify(create.mock.calls[0]);
+  expect(plannerRequest).toContain('Correct practice after long response time is not effortless recall');
 });
 
 it.each(['max_tokens','refusal'])('preserves canonical Planner %s as a known completed response',async(reason)=>{
