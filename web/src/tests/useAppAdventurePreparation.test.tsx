@@ -11,13 +11,42 @@ function setup(initial: { surface: PreparationSurface; status: GenerationStatus 
   const hook = renderHook((props: { surface: PreparationSurface; status: GenerationStatus | null }) => useAppAdventurePreparation({
     ...props, packet, childId: "lab", homeworkId: "hw", finished: false, checkNow, onFinish, sendMessage,
   }), { initialProps: initial });
-  const spoken = () => sendMessage.mock.calls.map(call => (call[1] as { event: { payload: { text: string } } }).event.payload.text);
-  return { ...hook, spoken, onFinish };
+  const events = () => sendMessage.mock.calls.map(call => (call[1] as { event: { type: string; payload: Record<string, unknown> } }).event);
+  const spoken = () => events().filter(event => event.type === "narration_request").map(event => event.payload.text);
+  const stateUpdates = () => events().filter(event => event.type === "game_state_update").map(event => event.payload);
+  return { ...hook, spoken, stateUpdates, onFinish };
 }
 
 describe("useAppAdventurePreparation", () => {
   beforeEach(() => { vi.useFakeTimers(); });
   afterEach(() => { vi.useRealTimers(); });
+
+  // Human-caught 2026-10-07: Ila asked Elli what was happening while this
+  // screen was visible, but Elli still answered from Word Radar context. The
+  // preparation tests only asserted fixed narration, so the missing live
+  // context bridge was invisible to the lab.
+  it("keeps Elli grounded in the visible preparation phase and real progress", async () => {
+    const { rerender, stateUpdates } = setup({ surface: "chapter", status: null });
+    expect(stateUpdates().at(-1)).toMatchObject({
+      game: "adventure-preparation",
+      childId: "lab",
+      phase: "look",
+      progress: "You did it! Let me look at all your words.",
+      ready: 0,
+      total: 0,
+    });
+
+    await act(async () => { await vi.advanceTimersByTimeAsync(8000); });
+    rerender({ surface: "chapter", status: status("board_generating", [["a", "ready"], ["b", "preparing"]]) });
+    expect(stateUpdates().at(-1)).toMatchObject({
+      game: "adventure-preparation",
+      childId: "lab",
+      phase: "build",
+      progress: "I'm building your games. One is ready!",
+      ready: 1,
+      total: 2,
+    });
+  });
 
   it("ends the Discovery chapter calmly and never offers the new map this session", async () => {
     const { result, rerender, spoken } = setup({ surface: "chapter", status: null });

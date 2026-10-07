@@ -109,9 +109,44 @@ export function useAppAdventurePreparation(input: {
   }, [input.surface, snapshot !== null, total, send]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const [revealedScope, setRevealedScope] = useState<string | null>(null);
+  const ctx = snapshot?.context;
+  const contextLine = ctx?.line ?? "";
+  const contextReady = ctx?.ready ?? 0;
+  const contextTotal = ctx?.total ?? 0;
+  const contextReviewed = ctx?.reviewed.length ?? 0;
+  const contextReviewTotal = ctx?.reviewTotal ?? 0;
+  const contextActivityTypes = ctx?.stops.map(stop => stop.activityType).join("|") ?? "";
+
+  // Keep Elli grounded in the same preparation state the child can see. The
+  // narration above announces transitions; this snapshot is conversational
+  // context, so Elli can answer naturally when the child speaks to her.
+  useEffect(() => {
+    if (!active || !state || !ctx) return;
+    const countLine = contextTotal > 0 ? `${contextReady} of ${contextTotal} map activities ready.` : null;
+    const screenText = [contextLine, countLine].filter((line): line is string => Boolean(line));
+    console.log(` 🎮 [adventure-preparation] [state-context] [sent] phase=${state} ready=${contextReady}/${contextTotal}`);
+    sendMessage("game_event", {
+      event: {
+        type: "game_state_update",
+        payload: {
+          game: "adventure-preparation",
+          childId: childId ?? "unknown",
+          phase: state,
+          boardState: input.status?.phase ?? "preparing",
+          progress: contextLine,
+          screenText,
+          ready: contextReady,
+          total: contextTotal,
+          reviewed: contextReviewed,
+          reviewTotal: contextReviewTotal,
+          activityTypes: contextActivityTypes ? contextActivityTypes.split("|") : [],
+        },
+      },
+    });
+  }, [active, childId, contextActivityTypes, contextLine, contextReady, contextReviewed, contextReviewTotal, contextTotal, input.status?.phase, sendMessage, state]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const visible = Boolean(snapshot) && (mode === "chapter" || input.surface === "held" || (state === "ready" && revealedScope !== scope));
-  if (!visible || !snapshot || !state) return { screen: null };
-  const ctx = snapshot.context;
+  if (!visible || !snapshot || !state || !ctx) return { screen: null };
   const finishedBuilding = ctx.total > 0 && ctx.ready >= ctx.total;
   return {
     screen: (
