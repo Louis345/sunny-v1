@@ -277,6 +277,24 @@ describe("canonical learning cycle repository", () => {
     const after = projectLearningCycle(cycle).adventureBoard.nodes;
     expect(after.find((node) => node.id === "chunks")?.state).toBe("completed");
     expect(after.find((node) => node.id === "practice")?.state).toBe("current");
+
+    const legacy = structuredClone(projectLearningCycle(cycle).activeSessionPlan);
+    legacy.adventureBoard!.nodes.splice(2, 0, {
+      ...legacy.adventureBoard!.nodes.find((node) => node.id === "practice")!,
+      id: "phantom-choice", label: "Choose Path", kind: "choice-gate",
+    });
+    legacy.adventureBoard!.edges.push({
+      id: "legacy-branch", from: "chunks", to: "phantom-choice", state: "available",
+    });
+    legacy.adventureBoard!.choiceSets = [{
+      id: "legacy-choice", kind: "baseline-route", title: "Choose Path",
+      options: [{ id: "legacy-option", label: "Practice", state: "available", nodeId: "practice" }],
+    }];
+    const merged = projectLearningCycle(cycle, { presentationPlan: legacy }).adventureBoard;
+    expect(merged.nodes.map((node) => node.id)).not.toContain("phantom-choice");
+    expect(merged.choiceSets ?? []).toEqual([]);
+    expect(merged.edges.some((edge) => edge.to === "phantom-choice")).toBe(false);
+    expect(merged.nodes.find((node) => node.id === "practice")?.state).toBe("current");
   });
 
   it.each(["math", "spelling"] as const)("never renders %s finish-line markers for an unauthorized Quest or Boss", (domain) => {

@@ -1886,8 +1886,10 @@ export function projectLearningCycle(
   const canonicalBoardNodeById = new Map(
     canonicalProjection.adventureBoard.nodes.map((node) => [node.id, node]),
   );
+  const linearTeachingBoard = board.kind === "teaching" && !experiment;
   const mergedBoardNodes = presentedBoard.nodes
-    .filter((node) => node.id !== historicalDiscoveryId && !hiddenNodeIds.has(node.id))
+    .filter((node) => node.id !== historicalDiscoveryId && !hiddenNodeIds.has(node.id)
+      && (!linearTeachingBoard || canonicalBoardNodeById.has(node.id)))
     .map((presented) => {
     const canonical = canonicalBoardNodeById.get(presented.id);
     if (!canonical) return presented;
@@ -1914,11 +1916,16 @@ export function projectLearningCycle(
   });
   const appendedCanonicalNodeIds = new Set(canonicalBoardNodeById.keys());
   mergedBoardNodes.push(...canonicalBoardNodeById.values());
+  if (linearTeachingBoard) {
+    const order = new Map(canonicalProjection.adventureBoard.nodes.map((node, index) => [node.id, index]));
+    mergedBoardNodes.sort((left, right) => (order.get(left.id) ?? Infinity) - (order.get(right.id) ?? Infinity));
+  }
   const mergedBoardNodeById = new Map(mergedBoardNodes.map((node) => [node.id, node]));
   const canonicalEdgeById = new Map(
     canonicalProjection.adventureBoard.edges.map((edge) => [edge.id, edge]),
   );
-  const mergedEdges: AdventureBoardJson["edges"] = presentedBoard.edges
+  const mergedEdges: AdventureBoardJson["edges"] = (linearTeachingBoard
+    ? canonicalProjection.adventureBoard.edges : presentedBoard.edges)
     .filter((edge) => edge.from !== historicalDiscoveryId && edge.to !== historicalDiscoveryId
       && !hiddenNodeIds.has(edge.from) && !hiddenNodeIds.has(edge.to))
     .map((edge) => {
@@ -1945,7 +1952,7 @@ export function projectLearningCycle(
       mergedEdgePairs.add(pair);
     }
   }
-  const mergedChoiceSets = presentedBoard.choiceSets?.map((choiceSet) => ({
+  const mergedChoiceSets = (linearTeachingBoard ? [] : presentedBoard.choiceSets)?.map((choiceSet) => ({
     ...choiceSet,
     options: choiceSet.options.filter((option) => !option.nodeId || !hiddenNodeIds.has(option.nodeId)).map((option) => {
       const node = option.nodeId ? mergedBoardNodeById.get(option.nodeId) : undefined;
