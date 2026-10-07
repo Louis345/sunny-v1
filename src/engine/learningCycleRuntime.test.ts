@@ -93,6 +93,85 @@ describe("canonical learning cycle runtime", () => {
     fs.rmSync(rootDir,{recursive:true,force:true});
   });
 
+  it("retries one Planner decision from the latest engagement theory revision", async () => {
+    // Human catch: the final checkpoint closed revision 86, then the child's
+    // post-activity choice updated engagement theory to 87 while the Planner
+    // was running. The valid context guard rejected the stale answer, but no
+    // bounded retry advanced the finished board.
+    const rootDir = root();
+    createLearningCycle({ ...input(), nodes: [node("facts", "baseline")] }, { rootDir });
+    recordCanonicalNodeCompletion({
+      childId: "reina",
+      homeworkId: "hw-runtime",
+      sessionId: "final-checkpoint",
+      nodeId: "facts",
+      result: { completed: true, accuracy: 1, timeSpent_ms: 1_000, targetResults: [{ target: "checkpoint-1", correct: true, attemptedValue: "10" }] },
+    }, { rootDir });
+    let calls = 0;
+    const decided = await advanceCanonicalCycleFromEvidence({
+      childId: "reina",
+      homeworkId: "hw-runtime",
+      decide: async (cycle) => {
+        calls += 1;
+        if (calls === 1) {
+          transitionLearningCycle("reina", "hw-runtime", cycle.revision, {
+            type: "engagement_theory_updated",
+            theory: {
+              theoryId: "engagement-current",
+              childId: "reina",
+              domain: "math",
+              hypothesis: "Puzzle persistence is worth testing",
+              dimensions: {},
+              promptDirectives: { prefer: ["puzzles"], avoid: [], vary: [], holdConstant: ["targets"] },
+              evidence: [{ id: "choice-final", source: "choice_event", summary: "Finished and chose the map", observedAt: "2026-10-07T19:15:00.000Z" }],
+              nextExperiment: null,
+              updatedAt: "2026-10-07T19:15:00.000Z",
+            } as never,
+            reason: "Post-activity choice updated engagement context.",
+          }, { rootDir });
+        } else {
+          expect(cycle.engagementTheory?.theoryId).toBe("engagement-current");
+        }
+        return { status: "inconclusive", reason: "Collect fresh evidence next", progressionAction: "collect_more_evidence", preserve: [], change: [], testNext: [], nextEvidenceRequired: [], successor: successorOf(prescription("fresh-check")) };
+      },
+    }, { rootDir });
+
+    expect(calls).toBe(2);
+    expect(decided.lifecycle).toBe("baseline_generating");
+    fs.rmSync(rootDir, { recursive: true, force: true });
+  });
+
+  it("stops after one context-change retry", async () => {
+    const rootDir = root();
+    createLearningCycle({ ...input(), nodes: [node("facts", "baseline")] }, { rootDir });
+    recordCanonicalNodeCompletion({
+      childId: "reina", homeworkId: "hw-runtime", sessionId: "final-checkpoint", nodeId: "facts",
+      result: { completed: true, accuracy: 1, timeSpent_ms: 1_000, targetResults: [{ target: "checkpoint-1", correct: true, attemptedValue: "10" }] },
+    }, { rootDir });
+    let calls = 0;
+    const pending = advanceCanonicalCycleFromEvidence({
+      childId: "reina",
+      homeworkId: "hw-runtime",
+      decide: async (cycle) => {
+        calls += 1;
+        transitionLearningCycle("reina", "hw-runtime", cycle.revision, {
+          type: "engagement_theory_updated",
+          theory: {
+            theoryId: `engagement-${calls}`, childId: "reina", domain: "math", hypothesis: `Revision ${calls}`,
+            dimensions: {}, promptDirectives: { prefer: [], avoid: [], vary: [], holdConstant: ["targets"] },
+            evidence: [], nextExperiment: null, updatedAt: `2026-10-07T19:15:0${calls}.000Z`,
+          } as never,
+          reason: "Synthetic repeated context change.",
+        }, { rootDir });
+        return { status: "inconclusive", reason: "Collect fresh evidence next", progressionAction: "collect_more_evidence", preserve: [], change: [], testNext: [], nextEvidenceRequired: [], successor: successorOf(prescription("fresh-check")) };
+      },
+    }, { rootDir });
+
+    await expect(pending).rejects.toThrow("canonical_progression_context_changed");
+    expect(calls).toBe(2);
+    fs.rmSync(rootDir, { recursive: true, force: true });
+  });
+
   it.each([
     { role: "baseline" as const, agency: false }, { role: "baseline" as const, agency: true },
     { role: "quest" as const, agency: false }, { role: "boss" as const, agency: false },

@@ -582,6 +582,7 @@ async function askPlanner(
   const draftDir = path.join(resolveChildContextDir(cycle.childId, { rootDir: opts.rootDir }), "homework", "cycles", ".planner", cycle.homeworkId, batchId.replace(/[^a-zA-Z0-9_-]+/g, "_"));
   const snapshot = {
     childId: cycle.childId, homeworkId: cycle.homeworkId, batchId, lifecycle: cycle.lifecycle,
+    cycleRevision: cycle.revision,
     observationIds: cycle.observations.filter((observation) => observation.provenance !== "practice").map((observation) => observation.observationId),
     model: plannerModel,
   };
@@ -705,20 +706,30 @@ export async function advanceCanonicalCycleFromEvidence(
   input: AdvanceInput,
   opts: LearningCycleRepositoryOptions = {},
 ): Promise<LearningCycleRecordV2> {
-  try {
-    return await decideOnce(input, opts);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    const retryable = Boolean((error as { status?: number }).status)
-      || /^(learning_cycle_revision_conflict|canonical_progression_context_changed|provider_request_rejected|learning_cycle_missing)/.test(message);
-    const latest = !input.decide && !retryable ? getLearningCycle(input.childId, input.homeworkId, opts) : null;
-    if (latest && ["baseline_evaluating", "quest_evaluating", "boss_evaluating"].includes(latest.lifecycle)) {
-      const reason = message.startsWith("provider_outcome_uncertain") ? message : `planner_decision_invalid:${message}`;
-      transitionLearningCycle(latest.childId, latest.homeworkId, latest.revision, { type: "block", reason }, opts);
-      console.error(` 🎮 [canonical-progression] [blocked] homework=${latest.homeworkId} reason=${reason}`);
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      return await decideOnce(input, opts);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (message === "canonical_progression_context_changed" && attempt === 0) {
+        const latestContext = getLearningCycle(input.childId, input.homeworkId, opts);
+        if (latestContext && ["baseline_evaluating", "quest_evaluating", "boss_evaluating"].includes(latestContext.lifecycle)) {
+          console.log(` 🎮 [canonical-progression] [context-retry] homework=${latestContext.homeworkId} revision=${latestContext.revision} attempt=2/2`);
+          continue;
+        }
+      }
+      const retryable = Boolean((error as { status?: number }).status)
+        || /^(learning_cycle_revision_conflict|canonical_progression_context_changed|provider_request_rejected|learning_cycle_missing)/.test(message);
+      const latest = !input.decide && !retryable ? getLearningCycle(input.childId, input.homeworkId, opts) : null;
+      if (latest && ["baseline_evaluating", "quest_evaluating", "boss_evaluating"].includes(latest.lifecycle)) {
+        const reason = message.startsWith("provider_outcome_uncertain") ? message : `planner_decision_invalid:${message}`;
+        transitionLearningCycle(latest.childId, latest.homeworkId, latest.revision, { type: "block", reason }, opts);
+        console.error(` 🎮 [canonical-progression] [blocked] homework=${latest.homeworkId} reason=${reason}`);
+      }
+      throw error;
     }
-    throw error;
   }
+  throw new Error("canonical_progression_retry_exhausted");
 }
 
 async function decideOnce(
