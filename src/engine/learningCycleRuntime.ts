@@ -40,6 +40,7 @@ export type CanonicalCompletionResult = {
     correct: boolean;
     attemptedValue?: string;
     responseTime_ms?: number;
+    attempts?: number;
     scaffoldLevel?: number;
     evidenceRole?: "assisted_instruction";
   }>;
@@ -388,9 +389,15 @@ export function recordCanonicalNodeCompletion(
       ? `${node.title} completed at ${Math.round(accuracy * 100)}% across ${scoredObservations.length} scored target readings.`
       : `${node.title} completed with no independently scorable target response.`,
   }];
+  const spellingResponseTimes = cycle.domain === "spelling"
+    ? (input.result.targetResults ?? [])
+      .filter((row) => Number.isFinite(row.responseTime_ms) && Number(row.responseTime_ms) >= 0)
+      .map((row) => `${row.target.slice(0, 100)}: response=${row.responseTime_ms}ms${Number.isSafeInteger(row.attempts) ? `, attempts=${row.attempts}` : ""}`)
+      .join(" | ") || "unreported"
+    : "not-applicable";
   const engagementEvidence: LearningCycleEvidenceSummary[] = [{
     evidenceId: `${evidenceId}:engagement`,
-    summary: `${node.title} completed in ${Math.max(0, input.result.timeSpent_ms)}ms; won=${input.result.won ?? "unreported"}; replay=${node.state === "completed"}; frustration=${(input.result.frustrationSignals ?? []).join(",") || "none"}.`,
+    summary: `${node.title} completed in ${Math.max(0, input.result.timeSpent_ms)}ms; won=${input.result.won ?? "unreported"}; replay=${node.state === "completed"}; reportedFrustration=${(input.result.frustrationSignals ?? []).join(",") || "none"}; practiceResponseTimes=${spellingResponseTimes}.`,
   }];
   const companionObservations: LearningCycleEvidenceSummary[] = (input.result.companionInteractions ?? []).map((summary, index) => ({
     evidenceId: `${evidenceId}:companion:${index + 1}`,

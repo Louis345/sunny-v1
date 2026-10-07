@@ -980,6 +980,21 @@ it('uses the configured spelling Planner for next-step decisions, keeping math c
  }finally{vi.unstubAllEnvs();}
 });
 
+it('keeps slow correct spelling practice visible as latency evidence, not effortless recall',()=>{
+  // Human catch: Ila spent over a minute spelling a word that the scorecard marked correct.
+  // The log had response time, but the Planner scorecard discarded it and the lab only checked accuracy.
+  const rootDir=root();
+  createLearningCycle({...input(),domain:'spelling',nodes:[node('facts','baseline')]},{rootDir});
+  const cycle=recordCanonicalNodeCompletion({childId:'reina',homeworkId:'hw-runtime',sessionId:'lab',nodeId:'facts',result:{
+    completed:true,accuracy:1,timeSpent_ms:74500,
+    targetResults:[{target:'tomorrow',correct:true,attemptedValue:'tomorrow',responseTime_ms:74000,attempts:1}],
+  }},{rootDir});
+  const engagement=cycle?.evidence.engagement.at(-1)?.summary ?? '';
+  expect(engagement).toContain('tomorrow: response=74000ms');
+  expect(engagement).toContain('reportedFrustration=none');
+  expect(cycle?.evidence.academic.at(-1)?.accuracy).toBe(1);
+});
+
 it.each(['max_tokens','refusal'])('preserves canonical Planner %s as a known completed response',async(reason)=>{
  const rootDir=root();
  try {
