@@ -1,13 +1,13 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { useEffect, useState, type ReactNode } from "react";
 import { AdventurePreparationScreen, type AdventurePreparationScreenProps, type PreparationItem } from "../components/AdventurePreparation/AdventurePreparationScreen";
-import { preparationLine, type PreparationEvent, type PreparationState } from "../components/AdventurePreparation/adventurePreparationMachine";
+import { type PreparationEvent, type PreparationState } from "../components/AdventurePreparation/adventurePreparationMachine";
 import { useAdventurePreparation } from "../components/AdventurePreparation/useAdventurePreparation";
 
 /**
  * "Getting your next adventure ready": the wait between Discovery and the new map.
- * Storybook only; not wired into the app yet. In the app the real 3D Elli stands in
- * the slot under the bubble, so here the slot shows a labelled placeholder.
+ * Storybook states for the app's visual-only wait. The real 3D Elli remains global;
+ * these stories may inject a labelled stand-in without adding a speech bubble.
  */
 const meta = { title: "Learning Journey/Adventure Preparation", parameters: { layout: "centered" } } satisfies Meta;
 export default meta;
@@ -29,10 +29,9 @@ function screenFor(state: PreparationState, extra: Partial<AdventurePreparationS
   const ready = extra.ready ?? (state === "ready" ? 4 : state === "long" ? 3 : state === "build" || state === "help" || state === "stop" ? 2 : 0);
   return {
     state, items, reviewed: state === "look" ? [0, 1, 2, 3, 4, 5, 6] : [], stops: state === "look" || state === "plan" ? [] : stops, ready,
-    line: preparationLine(state, { subject: "spelling", ready }),
-    grownUp: { visible: true, answeredCount: 11, elapsedLabel: state === "ready" ? "3 min 12 s" : state === "long" ? "6 min" : "1 min so far" },
+    elapsedLabel: state === "ready" ? "3 min 12 s" : state === "long" ? "6 min" : "1 min so far",
     elliSlot: <ElliPlaceholder />,
-    onHearItem: item => console.info("[story] hear", item.spoken), onHearLine: noop, onStop: noop, onTryAgain: noop, onFinishLater: noop, onBye: noop, onLetsGo: noop,
+    onHearItem: item => console.info("[story] hear", item.spoken), onStop: noop, onTryAgain: noop, onBye: noop, onLetsGo: noop,
     ...extra,
   };
 }
@@ -46,12 +45,11 @@ export const S02PlanningYourMap = kiosk("plan");
 export const S03BuildingYourActivities = kiosk("build");
 export const S04YourMapIsReady = kiosk("ready");
 export const S05TakingLonger = kiosk("long");
-export const S05bTakingLongerWithHangoutOffer = kiosk("long", { offerHangout: true });
-export const S06NeedsAGrownUp = kiosk("help");
+export const S06BuildingPaused = kiosk("help");
 export const S07StopForNow = kiosk("stop");
 export const S08TabletBuilding: Story = { render: () => <Frame size="tablet"><AdventurePreparationScreen {...screenFor("build")} /></Frame> };
 export const S09PhoneBuilding: Story = { render: () => <Frame size="phone"><AdventurePreparationScreen {...screenFor("build")} /></Frame> };
-export const S10PhoneNeedsAGrownUp: Story = { render: () => <Frame size="phone"><AdventurePreparationScreen {...screenFor("help")} /></Frame> };
+export const S10PhoneBuildingPaused: Story = { render: () => <Frame size="phone"><AdventurePreparationScreen {...screenFor("help")} /></Frame> };
 export const S11TabletReady: Story = { render: () => <Frame size="tablet"><AdventurePreparationScreen {...screenFor("ready")} /></Frame> };
 
 /** As in the app: no slot content; Sunny's real portrait Elli is a 120×120 circle fixed 16px from the bottom-right. */
@@ -96,7 +94,7 @@ function Replay({ path, speed, size }: { path: Path; speed: number; size: keyof 
     <div style={{ display: "flex", gap: 24, alignItems: "flex-start" }}>
       <Frame size={size}>
         <AdventurePreparationScreen
-          {...screenFor(snapshot.value as PreparationState, { reviewed: ctx.reviewed, stops: ctx.stops, ready: ctx.ready, line: ctx.line })}
+          {...screenFor(snapshot.value as PreparationState, { reviewed: ctx.reviewed, stops: ctx.stops, ready: ctx.ready })}
           onStop={() => send({ type: "STOP" })} onTryAgain={() => send({ type: "RETRY" })}
         />
       </Frame>

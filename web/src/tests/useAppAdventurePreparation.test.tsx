@@ -18,7 +18,7 @@ function setup(initial: { surface: PreparationSurface; status: GenerationStatus 
 }
 
 describe("useAppAdventurePreparation", () => {
-  beforeEach(() => { vi.useFakeTimers(); });
+  beforeEach(() => { vi.useFakeTimers(); vi.setSystemTime(new Date("2026-10-07T21:00:00.000Z")); });
   afterEach(() => { vi.useRealTimers(); });
 
   // Human-caught 2026-10-07: Ila asked Elli what was happening while this
@@ -48,19 +48,44 @@ describe("useAppAdventurePreparation", () => {
     });
   });
 
+  // Human-caught 2026-10-07: Elli promised "a few more seconds" while the
+  // backend was paused. The bridge exposed the phase but not elapsed time or
+  // the fact that remaining time was unknown, so the lab never challenged the
+  // unsupported estimate.
+  it("gives Elli elapsed time and forbids invented completion estimates", async () => {
+    const startedAt = new Date(Date.now() - 2 * 60_000).toISOString();
+    const paused = { ...status("needs_attention", []), startedAt, error: "provider_unavailable" };
+    const { stateUpdates } = setup({ surface: "held", status: paused });
+    expect(stateUpdates().at(-1)).toMatchObject({
+      phase: "help",
+      boardState: "needs_attention",
+      elapsedLabel: "2 min so far",
+      remainingTimeKnown: false,
+      progress: "Your words are saved. Building is paused.",
+    });
+    expect(stateUpdates().at(-1)?.screenText).toContain("Remaining time is not known.");
+  });
+
+  it("uses visual state updates without automatic fixed loading narration", async () => {
+    const { rerender, spoken, stateUpdates } = setup({ surface: "chapter", status: null });
+    await act(async () => { await vi.advanceTimersByTimeAsync(8000); });
+    rerender({ surface: "chapter", status: status("board_generating", [["a", "ready"], ["b", "preparing"]]) });
+    expect(spoken()).toEqual([]);
+    expect(stateUpdates().at(-1)).toMatchObject({ phase: "build", ready: 1, total: 2 });
+  });
+
   it("ends the Discovery chapter calmly and never offers the new map this session", async () => {
     const { result, rerender, spoken } = setup({ surface: "chapter", status: null });
     expect(result.current.screen).not.toBeNull();
-    expect(spoken()).toEqual(["You did it! Let me look at all your words."]);
+    expect(spoken()).toEqual([]);
     await act(async () => { await vi.advanceTimersByTimeAsync(8000); });
-    expect(spoken().at(-1)).toBe("Now I'm choosing where we'll go next.");
+    expect(spoken()).toEqual([]);
     rerender({ surface: "chapter", status: status("board_generating", [["a", "preparing"], ["b", "preparing"]]) });
-    expect(spoken().at(-1)).toBe("I'm building your games.");
+    expect(spoken()).toEqual([]);
     // The packet switches to the finished board: the chapter still ends here.
     rerender({ surface: null, status: status("board_ready", [["a", "ready"], ["b", "ready"]]) });
     expect(result.current.screen).not.toBeNull();
-    expect(spoken().at(-1)).toBe("Your map is ready for next time. Bye for now!");
-    expect(new Set(spoken()).size).toBe(spoken().length);
+    expect(spoken()).toEqual([]);
     render(<>{result.current.screen}</>);
     expect(screen.queryByRole("button", { name: "Let's go!" })).toBeNull();
   });
@@ -69,9 +94,9 @@ describe("useAppAdventurePreparation", () => {
     const { result, rerender, spoken } = setup({ surface: "held", status: null });
     expect(result.current.screen).toBeNull();
     rerender({ surface: "held", status: status("board_generating", [["a", "ready"], ["b", "preparing"]]) });
-    expect(spoken()).toEqual(["I'm building your games. One is ready!"]);
+    expect(spoken()).toEqual([]);
     rerender({ surface: null, status: status("board_ready", [["a", "ready"], ["b", "ready"]]) });
-    expect(spoken().at(-1)).toBe("Your map is ready. Let's go!");
+    expect(spoken()).toEqual([]);
     const { unmount } = render(<>{result.current.screen}</>);
     fireEvent.click(screen.getByRole("button", { name: "Let's go!" }));
     unmount();

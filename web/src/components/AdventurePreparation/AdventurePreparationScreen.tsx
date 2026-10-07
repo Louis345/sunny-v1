@@ -12,21 +12,14 @@ export type AdventurePreparationScreenProps = {
   /** Real stops from the plan; before the plan exists the map shows ghost stops. */
   stops: PreparationStop[];
   ready: number;
-  line: string;
-  grownUp: { visible: boolean; elapsedLabel?: string; answeredCount?: number };
-  /** Design decision B: off by default until the hangout exists and Elli's voice is reliable. */
-  offerHangout?: boolean;
+  elapsedLabel?: string;
   /** The real companion. Sunny already renders Elli globally; this slot keeps her column clear. */
   elliSlot?: ReactNode;
   onHearItem: (item: PreparationItem) => void;
-  onHearLine: () => void;
   onStop: () => void;
   onTryAgain: () => void;
-  onFinishLater: () => void;
   onBye: () => void;
   onLetsGo: () => void;
-  onPlayWithMe?: () => void;
-  onKeepWatching?: () => void;
 };
 
 const STEP_LABELS = ["Looking at what you did", "Planning your map", "Building your activities", "Your map is ready!"];
@@ -57,7 +50,7 @@ function useOnce(handler: () => void) {
 }
 
 export function AdventurePreparationScreen(props: AdventurePreparationScreenProps) {
-  const { state, items, reviewed, stops, ready, line, grownUp } = props;
+  const { state, items, reviewed, stops, ready } = props;
   const current = stepIndex(state);
   const planned = stops.length > 0;
   const total = planned ? stops.length : GHOST_STOPS;
@@ -102,20 +95,6 @@ export function AdventurePreparationScreen(props: AdventurePreparationScreenProp
     <div className="ap-root" data-state={state} data-paused={paused ? "true" : "false"} data-elli={props.elliSlot ? "slot" : "portrait"} aria-label="Getting your next adventure ready">
       <div className="ap-ui">
         <div className="ap-top">
-          {grownUp.visible && <GrownUpStrip {...props} total={total} />}
-          {state === "help" && (
-            <div className="ap-ppanel" data-testid="ap-grownup-panel">
-              <h4>{planned ? `Building stopped on activity ${Math.min(ready + 1, total)} of ${total}.` : "Planning stopped."}</h4>
-              <p>
-                {grownUp.answeredCount ? `All ${grownUp.answeredCount} of her Discovery answers are saved` : "Her Discovery answers are saved"}
-                , so nothing is lost. You can try again now, or let it finish before her next session.
-              </p>
-              <div className="ap-row">
-                <button type="button" className="ap-btn ap-gold" onClick={props.onTryAgain}>Try again</button>
-                <button type="button" className="ap-btn ap-ghost" onClick={props.onFinishLater}>Finish later</button>
-              </div>
-            </div>
-          )}
           {state !== "ready" && (
             <button type="button" className={`ap-stopbtn${state === "stop" ? " ap-on" : ""}`} aria-pressed={state === "stop"} disabled={state === "stop" || stopUsed} onClick={stop}>
               <MoonIcon /><span>Stop for now</span>
@@ -123,7 +102,7 @@ export function AdventurePreparationScreen(props: AdventurePreparationScreenProp
           )}
         </div>
 
-        <div className={`ap-map${state === "help" || state === "stop" ? " ap-dim" : ""}`} data-fog={fog}>
+        <div className={`ap-map${state === "stop" ? " ap-dim" : ""}`} data-fog={fog}>
           <Sparkles />
           <div className="ap-fog ap-f1" /><div className="ap-fog ap-f2" />
           {!showMap ? (
@@ -175,12 +154,9 @@ export function AdventurePreparationScreen(props: AdventurePreparationScreenProp
                 </div>
               )}
               {state === "help" && (
-                <div className="ap-over">
-                  <div className="ap-oc">
-                    <span className="ap-big"><ShieldIcon /></span>
-                    <h2>Your work is saved</h2>
-                    <span className="ap-ochip"><GrownUpIcon />Get a grown-up</span>
-                  </div>
+                <div className="ap-pause" role="status">
+                  <span><b>Building paused</b><small>Your work is saved{props.elapsedLabel ? ` · ${props.elapsedLabel}` : ""}</small></span>
+                  <button type="button" className="ap-btn ap-gold" onClick={props.onTryAgain}>Try again</button>
                 </div>
               )}
               {state === "stop" && (
@@ -211,45 +187,8 @@ export function AdventurePreparationScreen(props: AdventurePreparationScreenProp
           })}
         </div>
 
-        <div className="ap-elli">
-          <div className="ap-bub" data-testid="ap-bubble">
-            <p aria-live="polite">{line}</p>
-            {state === "long" && props.offerHangout ? (
-              <div className="ap-offer">
-                <button type="button" className="ap-btn ap-gold" onClick={props.onPlayWithMe}><HeartIcon />Play with me</button>
-                <button type="button" className="ap-btn ap-ghost" onClick={props.onKeepWatching}><EyeIcon />Keep watching</button>
-              </div>
-            ) : (
-              <button type="button" className="ap-say" onClick={props.onHearLine}><SpeakerIcon />Hear it again</button>
-            )}
-          </div>
-          <div className="ap-elli-slot">{props.elliSlot}</div>
-        </div>
+        {props.elliSlot && <div className="ap-elli"><div className="ap-elli-slot">{props.elliSlot}</div></div>}
       </div>
-    </div>
-  );
-}
-
-function GrownUpStrip(props: AdventurePreparationScreenProps & { total: number }) {
-  const { state, ready, total, items, grownUp } = props;
-  const elapsed = grownUp.elapsedLabel;
-  const facts: Record<PreparationState, [string, string, string | undefined]> = {
-    look: ["Step 1 of 4", `Reviewing her ${items.length} answers`, elapsed],
-    plan: ["Step 2 of 4", "Choosing what to practice, and in what order", elapsed],
-    build: ["Step 3 of 4", "Building activities", `${ready} of ${total} ready`],
-    long: ["Still working", `Taking longer than usual${elapsed ? ` · ${elapsed}` : ""}`, "nothing is wrong"],
-    ready: ["Ready", `${total} activities`, elapsed ? `took ${elapsed}` : undefined],
-    help: ["Grown-up needed", "Building paused", "her answers are saved"],
-    stop: ["Safe to close", "Map keeps building", "ready at her next session"],
-  };
-  const [status, detail, fact] = facts[state];
-  return (
-    <div className={`ap-parent${state === "long" || state === "help" ? " ap-warm" : ""}`} data-testid="ap-grownup">
-      <span className="ap-tag">For grown-ups</span>
-      <b>{status}</b>
-      <span className="ap-sep">·</span>
-      <span className="ap-fact">{detail}</span>
-      {fact && <><span className="ap-sep">·</span><span className={state === "build" || state === "help" ? undefined : "ap-fact"}>{fact}</span></>}
     </div>
   );
 }
@@ -304,10 +243,6 @@ const icon = (path: ReactNode, viewBox = "0 0 24 24") => () => (
 const SpeakerIcon = icon(<><path d="M11 5 6 9H3v6h3l5 4z" fill="currentColor" stroke="none" /><path d="M15.5 8.5a5 5 0 0 1 0 7" /><path d="M18.5 6a8.5 8.5 0 0 1 0 12" /></>);
 const MoonIcon = icon(<path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z" fill="currentColor" stroke="none" />);
 const CheckIcon = icon(<path d="m5 12.5 4.5 4.5L19 7.5" strokeWidth="3.4" />);
-const ShieldIcon = icon(<><path d="M12 3 4.5 6v5.5c0 4.6 3.2 8.4 7.5 9.5 4.3-1.1 7.5-4.9 7.5-9.5V6z" /><path d="m8.5 12 2.5 2.5 4.5-4.5" /></>);
-const GrownUpIcon = icon(<><circle cx="9" cy="6" r="2.4" fill="currentColor" stroke="none" /><path d="M6 21v-7.5a3 3 0 0 1 6 0V21" fill="currentColor" stroke="none" /><circle cx="16.5" cy="10" r="1.8" fill="currentColor" stroke="none" /><path d="M14.5 21v-5a2 2 0 0 1 4 0v5" fill="currentColor" stroke="none" /></>);
-const HeartIcon = icon(<path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z" fill="currentColor" stroke="none" />);
-const EyeIcon = icon(<><path d="M2 12s3.6-6 10-6 10 6 10 6-3.6 6-10 6S2 12 2 12z" /><circle cx="12" cy="12" r="2.6" /></>);
 const SearchIcon = icon(<><circle cx="10.5" cy="10.5" r="5.5" /><path d="m15 15 5 5" /></>);
 const MapIcon = icon(<><path d="M3 6.5 9 4l6 2.5L21 4v13.5L15 20l-6-2.5L3 20z" /><path d="M9 4v13.5M15 6.5V20" /></>);
 const BlocksIcon = icon(<><rect x="8.5" y="3" width="7" height="7" rx="1.5" /><rect x="4" y="13" width="7" height="7" rx="1.5" /><rect x="13" y="13" width="7" height="7" rx="1.5" /></>);

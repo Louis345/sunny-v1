@@ -11,25 +11,13 @@
 .ap-root *, .ap-root *::before, .ap-root *::after { box-sizing: border-box; }
 .ap-root button { font-family: inherit; cursor: pointer; }
 .ap-ui {
-  position: absolute; inset: 0; display: grid; grid-template-columns: minmax(0, 1fr) 300px;
-  grid-template-rows: 56px minmax(0, 1fr) 112px; grid-template-areas: "top top" "map elli" "steps elli";
+  position: absolute; inset: 0; display: grid; grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: 56px minmax(0, 1fr) 112px; grid-template-areas: "top" "map" "steps";
   gap: 16px 24px; padding: 20px 28px 22px;
 }
 
 /* top bar */
 .ap-top { grid-area: top; display: flex; justify-content: space-between; align-items: center; gap: 16px; position: relative; z-index: 20; }
-.ap-parent { display: flex; align-items: center; gap: 12px; padding: 8px 16px 8px 10px; border-radius: 999px; background: rgba(255,255,255,.06); border: 1px solid rgba(201,184,240,.2); font-size: 14px; color: var(--ap-lav-soft); min-width: 0; flex-wrap: nowrap; overflow: hidden; }
-.ap-parent > * { white-space: nowrap; flex: none; }
-.ap-parent .ap-fact { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-.ap-parent .ap-tag { font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--ap-night); background: var(--ap-lav); border-radius: 999px; padding: 4px 9px; flex: none; }
-.ap-parent b { font-weight: 600; color: var(--ap-cream); }
-.ap-parent .ap-sep { opacity: .4; }
-.ap-parent.ap-warm { border-color: rgba(244,197,107,.45); }
-.ap-parent.ap-warm .ap-tag { background: var(--ap-gold); }
-.ap-ppanel { position: absolute; top: 58px; left: 0; width: 440px; background: #1f1842; border: 1px solid rgba(244,197,107,.45); border-radius: 20px; padding: 18px 20px; box-shadow: 0 24px 60px -20px #000; font-size: 15px; line-height: 1.5; color: var(--ap-lav-soft); }
-.ap-ppanel h4 { margin: 0 0 6px; font-size: 16px; color: var(--ap-cream); }
-.ap-ppanel p { margin: 0; }
-.ap-ppanel .ap-row { display: flex; gap: 10px; margin-top: 14px; }
 .ap-btn { white-space: nowrap; border: none; border-radius: 14px; padding: 10px 16px; font-size: 15px; font-weight: 600; min-height: 48px; }
 .ap-btn.ap-gold { background: var(--ap-gold); color: #3b2606; }
 .ap-btn.ap-ghost { background: rgba(255,255,255,.08); color: var(--ap-cream); border: 1px solid rgba(201,184,240,.25); }
@@ -48,6 +36,10 @@
 .ap-map[data-fog="0"] .ap-fog { opacity: 0; }
 .ap-map[data-fog="1"] .ap-fog { opacity: .45; }
 .ap-map[data-fog="2"] .ap-fog { opacity: 1; }
+.ap-pause { position: absolute; top: 3cqmin; left: 50%; transform: translateX(-50%); z-index: 6; display: flex; align-items: center; gap: 2.4cqmin; padding: 1.6cqmin 2cqmin; border: 1px solid rgba(244,197,107,.45); border-radius: 2.4cqmin; background: rgba(31,24,66,.92); box-shadow: 0 18px 50px -28px #000; }
+.ap-pause span { display: flex; flex-direction: column; gap: .4cqmin; }
+.ap-pause b { font-size: 2.8cqmin; color: var(--ap-cream); }
+.ap-pause small { font-size: 1.8cqmin; color: var(--ap-lav-soft); }
 .ap-paths { position: absolute; inset: 0; width: 100%; height: 100%; }
 .ap-paths path { fill: none; stroke-width: 6; stroke-linecap: round; vector-effect: non-scaling-stroke; }
 .ap-paths .ap-todo { stroke: rgba(201,184,240,.35); stroke-dasharray: 2 14; }
@@ -130,50 +122,25 @@
 .ap-steplink { width: 28px; height: 3px; border-radius: 3px; background: rgba(201,184,240,.25); margin-top: 31px; margin-left: -28px; margin-right: -28px; flex: none; }
 .ap-steplink.ap-on { background: var(--ap-gold); }
 
-/* Elli column: the real companion stands in the slot under the bubble. */
-.ap-elli { grid-area: elli; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 14px; min-height: 0; }
-.ap-bub { position: relative; width: 100%; background: rgba(28,21,58,.82); border: 1px solid rgba(201,184,240,.26); border-radius: 22px; padding: 16px 18px; box-shadow: 0 20px 50px -24px #000; }
-.ap-bub::after { content: ""; position: absolute; bottom: -9px; left: 50%; width: 18px; height: 18px; background: inherit; border-right: 1px solid rgba(201,184,240,.26); border-bottom: 1px solid rgba(201,184,240,.26); transform: translateX(-50%) rotate(45deg); }
-.ap-bub p { margin: 0; font-size: 21px; line-height: 1.4; font-weight: 500; color: #f6f1ff; text-wrap: pretty; }
-.ap-say { white-space: nowrap; display: flex; align-items: center; gap: 8px; margin-top: 12px; border: none; background: rgba(201,184,240,.14); color: var(--ap-lav-soft); border-radius: 999px; padding: 8px 14px 8px 10px; font-size: 14px; min-height: 44px; }
-.ap-say svg { width: 22px; height: 22px; }
-.ap-offer { display: flex; flex-direction: column; gap: 10px; margin-top: 14px; }
-.ap-offer .ap-btn { display: flex; align-items: center; gap: 10px; font-size: 17px; padding: 12px 16px; min-height: 52px; }
-.ap-offer .ap-btn svg { width: 24px; height: 24px; }
-/* Sunny's real Elli portrait (120×120, fixed 16px from the bottom-right) stands in this space. */
-.ap-elli-slot { width: 100%; height: 132px; flex: none; }
-@container (min-aspect-ratio: 1001/1000) {
-  .ap-root[data-elli="portrait"] .ap-bub::after { left: auto; right: 39px; transform: rotate(45deg); }
-}
+/* Storybook may inject a companion stand-in; production Elli remains global. */
+.ap-elli { position: absolute; right: 16px; bottom: 16px; z-index: 8; }
+.ap-elli-slot { width: 128px; height: 124px; }
 .ap-elli-placeholder { display: grid; place-items: center; border: 2px dashed rgba(201,184,240,.3); border-radius: 50% 50% 40% 40%; color: rgba(201,184,240,.6); font-size: 14px; text-align: center; }
 
 /* portrait (tablet + phone) */
 @container (max-aspect-ratio: 1/1) {
-  .ap-ui { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr) auto auto; grid-template-areas: "top" "map" "steps" "elli"; padding: 18px 20px 20px; gap: 16px; }
-  .ap-elli { flex-direction: row; align-items: flex-end; justify-content: space-between; gap: 12px; }
-  .ap-bub { flex: 1; }
-  .ap-bub::after { left: auto; right: -9px; bottom: 28px; transform: rotate(-45deg); }
-  .ap-elli-slot { width: 136px; height: 132px; }
+  .ap-ui { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr) auto; grid-template-areas: "top" "map" "steps"; padding: 18px 20px 20px; gap: 16px; }
   .ap-steps { gap: 12px; }
   .ap-step { width: 100px; }
 }
 @container (max-width: 500px) {
   .ap-ui { padding: 14px 14px 16px; gap: 12px; }
-  .ap-parent { font-size: 12px; padding: 6px 12px 6px 8px; gap: 8px; }
-  .ap-parent .ap-fact, .ap-parent .ap-sep { display: none; }
-  .ap-parent .ap-tag { font-size: 0; padding: 0; width: 10px; height: 10px; }
   .ap-stopbtn span { display: none; }
   .ap-stopbtn { padding: 10px; min-width: 48px; justify-content: center; }
-  .ap-ppanel { width: 100%; font-size: 13px; padding: 12px 14px; }
-  .ap-ppanel h4 { font-size: 14px; }
-  .ap-ppanel .ap-row { margin-top: 10px; }
   .ap-step { width: auto; font-size: 0; gap: 4px; }
   .ap-step .ap-ic { width: 48px; height: 48px; }
   .ap-step .ap-ic svg { width: 24px; height: 24px; }
   .ap-steplink { margin-top: 23px; width: 16px; margin-left: -12px; margin-right: -12px; }
-  .ap-bub { padding: 12px 14px; border-radius: 18px; }
-  .ap-bub p { font-size: 17px; }
-  .ap-say { font-size: 0; gap: 0; padding: 8px; min-width: 44px; justify-content: center; }
   .ap-over { place-items: end center; padding-bottom: 6%; }
   .ap-oc .ap-big { display: none; }
   .ap-oc { padding: 4cqmin 5cqmin; }

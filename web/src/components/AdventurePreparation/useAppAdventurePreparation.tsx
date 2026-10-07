@@ -76,7 +76,7 @@ export function useAppAdventurePreparation(input: {
   // A resume waits for the first real status so it opens on the true step.
   const active = Boolean(mode) && !input.finished && (mode === "chapter" || input.status !== null);
   const { snapshot, send } = useAdventurePreparation({
-    active, scopeKey: `${scope}:${mode}`, mode: mode ?? "live", subject: "spelling", say,
+    active, scopeKey: `${scope}:${mode}`, mode: mode ?? "live", subject: "spelling", say: () => undefined,
     initialStops: initialPlan?.type === "PLAN_DONE" ? initialPlan.stops : undefined,
     initialReady: initialReady?.type === "ACTIVITY_READY" ? initialReady.n : undefined,
   });
@@ -116,14 +116,20 @@ export function useAppAdventurePreparation(input: {
   const contextReviewed = ctx?.reviewed.length ?? 0;
   const contextReviewTotal = ctx?.reviewTotal ?? 0;
   const contextActivityTypes = ctx?.stops.map(stop => stop.activityType).join("|") ?? "";
+  const finishedBuilding = contextTotal > 0 && contextReady >= contextTotal;
+  const elapsedLabel = preparationElapsedLabel(input.status?.startedAt, now, finishedBuilding);
 
-  // Keep Elli grounded in the same preparation state the child can see. The
-  // narration above announces transitions; this snapshot is conversational
-  // context, so Elli can answer naturally when the child speaks to her.
+  // Keep Elli grounded in the same visual state the child can see. The screen
+  // stays quiet; this snapshot lets Elli answer naturally only when addressed.
   useEffect(() => {
     if (!active || !state || !ctx) return;
     const countLine = contextTotal > 0 ? `${contextReady} of ${contextTotal} map activities ready.` : null;
-    const screenText = [contextLine, countLine].filter((line): line is string => Boolean(line));
+    const screenText = [
+      contextLine,
+      countLine,
+      elapsedLabel ? `Elapsed: ${elapsedLabel}.` : null,
+      finishedBuilding ? null : "Remaining time is not known.",
+    ].filter((line): line is string => Boolean(line));
     console.log(` 🎮 [adventure-preparation] [state-context] [sent] phase=${state} ready=${contextReady}/${contextTotal}`);
     sendMessage("game_event", {
       event: {
@@ -140,25 +146,24 @@ export function useAppAdventurePreparation(input: {
           reviewed: contextReviewed,
           reviewTotal: contextReviewTotal,
           activityTypes: contextActivityTypes ? contextActivityTypes.split("|") : [],
+          elapsedLabel,
+          remainingTimeKnown: finishedBuilding,
         },
       },
     });
-  }, [active, childId, contextActivityTypes, contextLine, contextReady, contextReviewed, contextReviewTotal, contextTotal, input.status?.phase, sendMessage, state]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [active, childId, contextActivityTypes, contextLine, contextReady, contextReviewed, contextReviewTotal, contextTotal, elapsedLabel, finishedBuilding, input.status?.phase, sendMessage, state]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const visible = Boolean(snapshot) && (mode === "chapter" || input.surface === "held" || (state === "ready" && revealedScope !== scope));
   if (!visible || !snapshot || !state || !ctx) return { screen: null };
-  const finishedBuilding = ctx.total > 0 && ctx.ready >= ctx.total;
   return {
     screen: (
       <div className="h-screen w-screen">
         <AdventurePreparationScreen
-          state={state} items={items} reviewed={ctx.reviewed} stops={ctx.stops} ready={ctx.ready} line={ctx.line}
-          grownUp={{ visible: true, elapsedLabel: preparationElapsedLabel(input.status?.startedAt, now, finishedBuilding) }}
+          state={state} items={items} reviewed={ctx.reviewed} stops={ctx.stops} ready={ctx.ready}
+          elapsedLabel={elapsedLabel}
           onHearItem={item => say(/[.!?]$/.test(item.spoken) ? item.spoken : `${item.spoken}.`, "preparation_word")}
-          onHearLine={() => say(ctx.line, "preparation_hear_again")}
           onStop={() => send({ type: "STOP" })}
           onTryAgain={() => { send({ type: "RETRY" }); input.checkNow(); }}
-          onFinishLater={input.onFinish}
           onBye={input.onFinish}
           onLetsGo={() => { console.log(" 🎮 [adventure-preparation] [reveal] [opened]"); setRevealedScope(scope); }}
         />

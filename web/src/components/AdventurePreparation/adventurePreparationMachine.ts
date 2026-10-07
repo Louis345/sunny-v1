@@ -54,7 +54,7 @@ export function preparationLine(state: PreparationState, ctx: Pick<PreparationCo
     }
     case "long": return "It's a big map, so I'm taking my time.";
     case "ready": return "Your map is ready. Let's go!";
-    case "help": return `Your ${noun} are all saved. Can you get a grown-up?`;
+    case "help": return `Your ${noun} are saved. Building is paused.`;
     case "stop": return ctx.mode === "chapter" && (ctx.total ?? 0) > 0 && ctx.ready >= (ctx.total ?? 0)
       ? "Your map is ready for next time. Bye for now!"
       : "You can go. I'll finish it for next time.";

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { createActor } from "xstate";
 import { AdventurePreparationScreen, type AdventurePreparationScreenProps } from "../components/AdventurePreparation/AdventurePreparationScreen";
@@ -81,12 +81,15 @@ describe("adventurePreparationMachine", () => {
     expect(a.getSnapshot().value).toBe("ready");
   });
 
-  it("asks for a grown-up on failure and resumes building only on retry", () => {
+  // Human-caught 2026-10-07: the failure screen repeated the same grown-up
+  // instruction in three separate surfaces. The visual test previously
+  // required that clutter, so the lab preserved the bug instead of catching it.
+  it("keeps a provider pause calm and child-facing, then resumes only on retry", () => {
     const { a, spoken } = actor();
     a.send({ type: "PLAN_DONE", stops });
     a.send({ type: "FAILED", reason: "creator_timeout", retryable: true });
     expect(a.getSnapshot().value).toBe("help");
-    expect(spoken.at(-1)).toBe("Your words are all saved. Can you get a grown-up?");
+    expect(spoken.at(-1)).toBe("Your words are saved. Building is paused.");
     a.send({ type: "ACTIVITY_READY", n: 1, total: 4 });
     expect(a.getSnapshot().value).toBe("help");
     a.send({ type: "RETRY" });
@@ -114,15 +117,15 @@ describe("adventurePreparationMachine", () => {
 
   it("uses the subject's own noun", () => {
     expect(preparationLine("look", { subject: "math", ready: 0 })).toBe("You did it! Let me look at all your answers.");
-    expect(preparationLine("help", { subject: "science", ready: 0 })).toBe("Your ideas are all saved. Can you get a grown-up?");
+    expect(preparationLine("help", { subject: "science", ready: 0 })).toBe("Your ideas are saved. Building is paused.");
   });
 });
 
 describe("AdventurePreparationScreen", () => {
   const base: AdventurePreparationScreenProps = {
-    state: "look", items, reviewed: [], stops, ready: 0, line: "You did it! Let me look at all your words.",
-    grownUp: { visible: true, answeredCount: 11 },
-    onHearItem: vi.fn(), onHearLine: vi.fn(), onStop: vi.fn(), onTryAgain: vi.fn(), onFinishLater: vi.fn(), onBye: vi.fn(), onLetsGo: vi.fn(),
+    state: "look", items, reviewed: [], stops, ready: 0,
+    elapsedLabel: "1 min so far",
+    onHearItem: vi.fn(), onStop: vi.fn(), onTryAgain: vi.fn(), onBye: vi.fn(), onLetsGo: vi.fn(),
   };
   const view = (props: Partial<AdventurePreparationScreenProps> = {}) => render(<AdventurePreparationScreen {...base} {...props} />);
 
@@ -148,7 +151,7 @@ describe("AdventurePreparationScreen", () => {
 
   it("shows real build progress", () => {
     view({ state: "build", ready: 2 });
-    expect(screen.getByTestId("ap-grownup").textContent).toContain("2 of 4 ready");
+    expect(screen.queryByTestId("ap-grownup")).toBeNull();
     expect(screen.getAllByTestId("ap-pip").filter(pip => pip.getAttribute("data-on") === "true")).toHaveLength(2);
     expect(screen.getAllByTestId("ap-map-stop").map(stop => stop.getAttribute("data-stop"))).toEqual(["ready", "ready", "building", "todo"]);
   });
@@ -159,22 +162,16 @@ describe("AdventurePreparationScreen", () => {
     expect(screen.queryByRole("button", { name: /play with me/i })).toBeNull();
   });
 
-  it("offers play while slow when the hangout flag is on", () => {
-    const onPlayWithMe = vi.fn();
-    view({ state: "long", ready: 3, offerHangout: true, onPlayWithMe });
-    fireEvent.click(screen.getByRole("button", { name: /play with me/i }));
-    expect(onPlayWithMe).toHaveBeenCalledTimes(1);
-  });
-
-  it("tells a grown-up her work is saved, with the existing recovery choices", () => {
-    const onTryAgain = vi.fn(), onFinishLater = vi.fn();
-    view({ state: "help", ready: 2, onTryAgain, onFinishLater });
-    expect(screen.getByText("Your work is saved")).toBeTruthy();
-    expect(screen.getByTestId("ap-grownup-panel").textContent).toContain("All 11 of her Discovery answers are saved");
+  it("shows one compact saved-work status without a grown-up handoff", () => {
+    const onTryAgain = vi.fn();
+    view({ state: "help", ready: 2, onTryAgain });
+    expect(screen.getByRole("status").textContent).toContain("Building paused");
+    expect(screen.getByRole("status").textContent).toContain("Your work is saved");
+    expect(screen.queryByText(/grown-up/i)).toBeNull();
+    expect(screen.queryByTestId("ap-grownup-panel")).toBeNull();
+    expect(screen.queryByText("Get a grown-up")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Try again" }));
-    fireEvent.click(screen.getByRole("button", { name: "Finish later" }));
     expect(onTryAgain).toHaveBeenCalledTimes(1);
-    expect(onFinishLater).toHaveBeenCalledTimes(1);
   });
 
   it("stops once, then says goodbye once", () => {
@@ -198,20 +195,13 @@ describe("AdventurePreparationScreen", () => {
     expect(screen.queryByRole("button", { name: /stop for now/i })).toBeNull();
   });
 
-  it("shows Elli's line with Hear it again, and leaves her column for the real companion", () => {
-    const onHearLine = vi.fn();
-    view({ onHearLine, elliSlot: <div data-testid="real-elli" /> });
-    const bubble = screen.getByTestId("ap-bubble");
-    expect(within(bubble).getByText(base.line)).toBeTruthy();
-    fireEvent.click(within(bubble).getByRole("button", { name: /hear it again/i }));
-    expect(onHearLine).toHaveBeenCalledTimes(1);
+  it("does not render a fixed speech bubble above the companion", () => {
+    view({ elliSlot: <div data-testid="real-elli" /> });
+    expect(screen.queryByTestId("ap-bubble")).toBeNull();
+    expect(screen.queryByRole("button", { name: /hear it again/i })).toBeNull();
     expect(screen.getByTestId("real-elli")).toBeTruthy();
   });
 
-  it("can hide the grown-up strip", () => {
-    view({ grownUp: { visible: false } });
-    expect(screen.queryByTestId("ap-grownup")).toBeNull();
-  });
 });
 
 // Learning contract: the Teaching Board opens in a later session, never as same-session work.
