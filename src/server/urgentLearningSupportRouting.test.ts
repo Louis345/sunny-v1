@@ -168,6 +168,23 @@ describe("urgent learning support routing", () => {
     expect(ws.send).toHaveBeenCalledWith(expect.stringContaining('"state":"summoned"'));
   });
 
+  it("keeps a queued help request for Elli when game narration finishes", async () => {
+    // Live catch: help was recognized during word audio and deferred, but its
+    // replay lost urgent status and was suppressed as spelling input.
+    const ws = mockWs();
+    const session = new SessionManager(ws, "Ila");
+    session.companionWakeGateEnabled = true;
+    const respond = vi.spyOn(session as unknown as { runCompanionResponse: (text: string) => Promise<void> }, "runCompanionResponse")
+      .mockResolvedValue(undefined);
+    session.injectGameContext({ game: "word-radar", nodeId: "practice", phase: "response", speechCaptureArmed: true });
+
+    await (session as unknown as { handleEndOfTurn: (text: string, replay: boolean) => Promise<void> })
+      .handleEndOfTurn("Can you help me?", true);
+
+    expect(respond).toHaveBeenCalledWith("Can you help me?");
+    expect(ws.send).not.toHaveBeenCalledWith(expect.stringContaining('"type":"interim"'));
+  });
+
   it("rechecks a queued transcript against the live assessment before replaying it", async () => {
     // Human catch: stale room speech received during audio later became an Elli
     // turn. Logs called it a replay but skipped the wake gate entirely.

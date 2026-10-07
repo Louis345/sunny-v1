@@ -1675,7 +1675,7 @@ export class SessionManager {
     const activeGame = String(this.currentBoardSnapshot?.game ?? "").toLowerCase();
     const generatedMathActivity =
       activeGame === "generated-baseline" || activeGame === "generated-math";
-    const urgentRoute = !isReplay && !opts?.fromReadingComplete
+    const urgentRoute = !opts?.fromReadingComplete
       ? detectUrgentLearningRoute({
           transcript,
           childName: this.childName,
@@ -1712,21 +1712,26 @@ export class SessionManager {
         this.bargeIn();
         state = this.turnSM.getState();
       }
-      void recordUrgentLearningEvidenceForOrganicTurn({
-        transcript,
-        stateBefore: state,
-        auditRound,
-        auditChild,
-        tts,
-        context: urgentRoute.context,
-        intent: urgentRoute.intent,
-        sessionId: this.sessionId,
-        debugRecorder: this.debugRecorder,
-        hostRecordChildSignal: (args) => this.hostRecordChildSignal(args),
-        hostRecordProductIssue: (args) => this.hostRecordProductIssue(args),
-      }).catch((err: unknown) => {
-        console.error("  🔴 [urgent-learning] organic evidence failed:", err);
-      });
+      if (isReplay) {
+        this.debugRecorder.recordEvent("transcript", "urgent_replayed", { intent: urgentRoute.intent.type });
+        console.log(` 🎮 [transcript] [urgent-replayed] intent=${urgentRoute.intent.type}`);
+      } else {
+        void recordUrgentLearningEvidenceForOrganicTurn({
+          transcript,
+          stateBefore: state,
+          auditRound,
+          auditChild,
+          tts,
+          context: urgentRoute.context,
+          intent: urgentRoute.intent,
+          sessionId: this.sessionId,
+          debugRecorder: this.debugRecorder,
+          hostRecordChildSignal: (args) => this.hostRecordChildSignal(args),
+          hostRecordProductIssue: (args) => this.hostRecordProductIssue(args),
+        }).catch((err: unknown) => {
+          console.error("  🔴 [urgent-learning] organic evidence failed:", err);
+        });
+      }
       if (
         urgentRoute.context.activityId === "pronunciation" &&
         (urgentRoute.intent.type === "help_request" ||
