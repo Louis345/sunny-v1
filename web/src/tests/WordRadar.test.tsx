@@ -1074,6 +1074,58 @@ describe("WordRadar", () => {
     ]);
   });
 
+  it("echoes captured letters in visible-read practice without revealing the answer", async () => {
+    const sendMessage = vi.fn();
+    const onComplete = vi.fn();
+    const props = {
+      items: sampleItems,
+      interimTranscript: "",
+      sendMessage,
+      inputMode: "whole-word" as const,
+      recallMode: "visible_read" as const,
+      practiceCapture: true,
+      speakStyle: "option-a" as const,
+      personalBests: {},
+      onComplete,
+    };
+    const { rerender } = render(<WordRadar {...props} />);
+    await startRadar();
+    expect(screen.queryByTestId("word-radar-visible-word")).toBeNull();
+    expect(screen.getByTestId("word-radar-keyboard")).toBeInTheDocument();
+    expect(gameEventPayloads(sendMessage, "game_state_update").find(row => row.phase === "config_audit"))
+      .toMatchObject({ spokenLetterConstruction: true });
+    rerender(<WordRadar {...props} interimTranscript="s" />);
+    expect(screen.getAllByTestId("word-radar-letter-tile").map(node => node.textContent)).toEqual(["s", "", ""]);
+    expect(gameEventPayloads(sendMessage, "game_state_update").find(row => row.progress === 'Heard "s"'))
+      .toMatchObject({ answerVisibility: "hidden" });
+    rerender(<WordRadar {...props} interimTranscript="s u" />);
+    expect(screen.getAllByTestId("word-radar-letter-tile").map(node => node.textContent)).toEqual(["s", "u", ""]);
+    expect(onComplete).not.toHaveBeenCalled();
+    rerender(<WordRadar {...props} interimTranscript="ess you" />);
+    expect(screen.getAllByTestId("word-radar-letter-tile").map(node => node.textContent)).toEqual(["s", "u", ""]);
+    rerender(<WordRadar {...props} interimTranscript="n" />);
+    expect(screen.getByTestId("word-radar-phase").textContent).toBe("feedback");
+  });
+
+  it("keeps spoken-letter previews out of hidden recall", async () => {
+    const props = {
+      items: sampleItems,
+      interimTranscript: "",
+      sendMessage: vi.fn(),
+      inputMode: "whole-word" as const,
+      recallMode: "hidden_word_recall" as const,
+      speakStyle: "option-b" as const,
+      practiceCapture: true,
+      personalBests: {},
+      onComplete: vi.fn(),
+    };
+    const { rerender } = render(<WordRadar {...props} />);
+    await startRadar();
+    rerender(<WordRadar {...props} interimTranscript="s" />);
+    expect(screen.queryAllByTestId("word-radar-letter-tile")).toHaveLength(0);
+    expect(screen.queryByTestId("word-radar-visible-word")).toBeNull();
+  });
+
   it("partial_visual_recall mode hides the full word and labels scaffold as a length hint", async () => {
     renderRadar({ recallMode: "partial_visual_recall", speakStyle: "option-a", timerSeconds: 10 });
     await startRadar();

@@ -366,6 +366,17 @@ describe("post-Discovery spelling Planner reasons as a tutor", () => {
     expect(prompt).toContain("not teaching guidance");
     expect(prompt).toContain("plannedMeasurements.spelling");
   });
+  it("tells the targeted Planner the opening spoken-letter experience that actually runs", () => {
+    // Human catch (Ila, 2026-10-07): the first teaching node said visible_read,
+    // but its whole-word response showed empty tiles while Ila said letters.
+    // Logs recorded the valid mode; the lab checked the mode in isolation,
+    // never the child-visible opening from a generated targeted plan.
+    const packet = committed();
+    expect(packet.plannerInstruction).toContain("partial_visual_recall with letter-by-letter input");
+    expect(packet.plannerInstruction).toContain("each recognized letter fills a tile");
+    expect(packet.plannerInstruction).toContain("visible_read is whole-word reading");
+    expect(packet.plannerInstruction).toContain("final shared hidden-recall check");
+  });
   it("shows the Planner exactly what the child spelled", () => {
     expect(committed().discoveryEvidence?.observations.find(row => row.observationId === "attempt-night")?.childResponse).toBe("nite");
   });

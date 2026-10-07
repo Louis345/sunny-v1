@@ -367,9 +367,11 @@ export function WordRadar({
       : effectiveSpeakStyle === "option-b"
         ? "hidden_word_recall"
         : "partial_visual_recall";
+  const spokenLetterConstruction = practiceCapture && effectiveRecallMode === "visible_read" && resolvedInputMode === "whole-word";
   const keyboardFallbackEnabled =
     showKeyboard ||
     resolvedInputMode === "letter-by-letter" ||
+    spokenLetterConstruction ||
     (
       inputMode === "whole-word" &&
       effectiveRecallMode === "partial_visual_recall" &&
@@ -378,7 +380,11 @@ export function WordRadar({
   const effectiveHideWordDuringResponse =
     assessmentMode || (hideWordDuringResponse ?? effectiveRecallMode !== "visible_read");
   const hiddenDuringSpeech = effectiveSpeakStyle === "option-b";
-  const modeCopy = assessmentMode ? { label: "Listen, then spell", helper: "Tap Hear the word, enter its letters, then Submit. Not sure is okay." } : wordRadarModeCopy(resolvedInputMode, effectiveRecallMode);
+  const modeCopy = assessmentMode
+    ? { label: "Listen, then spell", helper: "Tap Hear the word, enter its letters, then Submit. Not sure is okay." }
+    : spokenLetterConstruction
+      ? { label: "Build the word aloud", helper: "Say one letter at a time. Watch each letter appear." }
+      : wordRadarModeCopy(resolvedInputMode, effectiveRecallMode);
   const bonusItemCount = useMemo(() => items.filter(isBonusRadarItem).length, [items]);
   const resolvedWordRadarConfig: WordRadarNodeConfig = useMemo(
     () =>
@@ -414,10 +420,8 @@ export function WordRadar({
     }),
     [assessmentMode, practiceCapture, launchToken, nodeId, planId, resolvedWordRadarConfig, targetLane],
   );
-  const responseAnswerVisibility =
-    effectiveHideWordDuringResponse && effectiveRecallMode !== "visible_read"
-      ? "hidden"
-      : "visible";
+  // The flash can show a word, but the response tiles never show its answer.
+  const responseAnswerVisibility = "hidden";
 
   const handleWordRadarEvent = useCallback(
     (event: WordRadarGameEvent) => {
@@ -650,6 +654,7 @@ export function WordRadar({
     timerSeconds,
     startImmediately: false,
     showKeyboard: keyboardFallbackEnabled,
+    spokenLetterConstruction,
     inputMode: resolvedInputMode,
     speakStyle,
     keyboardStyle,
@@ -701,6 +706,7 @@ export function WordRadar({
       phase: "config_audit",
       requestedInputMode: inputMode ?? null,
       resolvedInputMode,
+      spokenLetterConstruction: spokenLetterConstruction,
       showKeyboard: keyboardFallbackEnabled,
       speakStyle: effectiveSpeakStyle,
       hiddenDuringSpeech,
@@ -727,6 +733,7 @@ export function WordRadar({
     requiresCapturedResponse,
     resolvedInputMode,
     keyboardFallbackEnabled,
+    spokenLetterConstruction,
     wordRadarTelemetry,
   ]);
 

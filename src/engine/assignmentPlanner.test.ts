@@ -2029,6 +2029,25 @@ describe("assignment planner", () => {
     })).toEqual([]);
   });
 
+  it("rejects Word Radar teaching choices that the child-facing renderer cannot show", () => {
+    // Human catch (Ila, 2026-10-07): the Planner authored chunk choices for
+    // the opening Word Radar node, but only a whole-word response launched.
+    const output = goodOutput();
+    output.activeSessionPlan.nodePlan[0] = {
+      ...output.activeSessionPlan.nodePlan[0]!,
+      type: "word-radar",
+      activityId: "word-radar",
+      wordRadarConfig: WORD_RADAR_LETTER_FILL_CONFIG,
+      activityConfig: { teachingFocus: "Notice the silent letter." },
+      rounds: [{ id: "chunk", prompt: "Which chunk?", options: [{ id: "a", label: "kn", correct: true }, { id: "b", label: "n", correct: false }] }],
+    };
+    const issues = validateAssignmentPlannerOutput(output, {
+      extraction: extraction(),
+      activityCatalog: buildAssignmentPlanningPacket({ childId: "reina", extraction: extraction(), childChart: chart() }).activityCatalog,
+    });
+    expect(issues.map(issue => issue.code)).toContain("word_radar_unrendered_teaching");
+  });
+
   it("leaves target-purpose/activity fit to planner reasoning instead of hardcoding a special word category", () => {
     const output = goodOutput();
     output.activeSessionPlan.nodePlan.push({

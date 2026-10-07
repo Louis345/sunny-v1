@@ -202,6 +202,7 @@ export interface UseWordRadarArgs {
   timerSeconds?: number;
   startImmediately?: boolean;
   showKeyboard?: boolean;
+  spokenLetterConstruction?: boolean;
   inputMode?: "whole-word" | "letter-by-letter" | "keyboard";
   speakStyle?: "option-a" | "option-b";
   keyboardStyle?: "option-b" | "option-c";
@@ -301,6 +302,7 @@ export function useWordRadar(args: UseWordRadarArgs): UseWordRadarResult {
     timerSeconds,
     startImmediately = true,
     showKeyboard = false,
+    spokenLetterConstruction = false,
     inputMode: inputModeArg,
     keyboardStyle = "option-c",
     personalBests,
@@ -679,7 +681,7 @@ export function useWordRadar(args: UseWordRadarArgs): UseWordRadarResult {
       attempts: attemptCountRef.current,
       responseTime_ms,
     });
-    if (inputModeRef.current === "letter-by-letter") {
+    if (inputModeRef.current === "letter-by-letter" || spokenLetterConstruction) {
       const letters = displayLetters(item);
       const previousTokenCount = previousTranscript.split(/\s+/).filter(Boolean).length;
       const tokensToCheck = tokens.slice(previousTokenCount);
@@ -749,7 +751,7 @@ export function useWordRadar(args: UseWordRadarArgs): UseWordRadarResult {
         },
       );
     }
-  }, [interimTranscript, phase, itemIndex, items]);
+  }, [interimTranscript, phase, itemIndex, items, spokenLetterConstruction]);
 
   /** Keyboard: full word length match → auto-advance or shake+clear. */
   useEffect(() => {
