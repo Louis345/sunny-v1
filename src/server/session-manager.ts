@@ -1675,7 +1675,20 @@ export class SessionManager {
     const activeGame = String(this.currentBoardSnapshot?.game ?? "").toLowerCase();
     const generatedMathActivity =
       activeGame === "generated-baseline" || activeGame === "generated-math";
-    if (handleCompanionPresenceTranscript({
+    const urgentRoute = !isReplay && !opts?.fromReadingComplete
+      ? detectUrgentLearningRoute({
+          transcript,
+          childName: this.childName,
+          companionName: this.companion.name,
+          currentActivityState: this.currentActivityState,
+          currentCanvasState: this.currentCanvasState,
+        })
+      : null;
+    if ((urgentRoute?.intent.type === "help_request" || urgentRoute?.intent.type === "companion_name_call")
+      && this.companionPresence === "collapsed") {
+      this.setCompanionPresence("summoned", "voice");
+    }
+    if (!urgentRoute?.intent.shouldInterrupt && handleCompanionPresenceTranscript({
       enabled: !opts?.fromReadingComplete &&
         (generatedMathActivity || this.companionWakeGateEnabled || Boolean(this.spellingAssessment)),
       transcript,
@@ -1690,17 +1703,6 @@ export class SessionManager {
     })) return;
 
     let state = this.turnSM.getState();
-    const urgentRoute =
-      !isReplay && !opts?.fromReadingComplete
-        ? detectUrgentLearningRoute({
-            transcript,
-            childName: this.childName,
-            companionName: this.companion.name,
-            currentActivityState: this.currentActivityState,
-            currentCanvasState: this.currentCanvasState,
-          })
-        : null;
-
     if (urgentRoute && !checkUserGoodbye(transcript)) {
       if (
         state === "PROCESSING" ||
@@ -1761,6 +1763,7 @@ export class SessionManager {
 
     if (
       !opts?.fromReadingComplete &&
+      !urgentRoute?.intent.shouldInterrupt &&
       state === "IDLE" &&
       this.shouldSuppressTranscriptDuringKaraoke(transcript)
     ) {

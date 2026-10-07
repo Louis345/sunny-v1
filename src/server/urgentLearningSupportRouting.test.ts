@@ -134,6 +134,40 @@ describe("urgent learning support routing", () => {
     expect(ws.send).toHaveBeenCalledWith(expect.stringContaining('"text":"s"'));
   });
 
+  it("lets a child ask Elli for help during armed Word Radar capture", async () => {
+    // Human catch: the live session identified a help request, then recorded
+    // word-radar_active_game suppression. Earlier tests covered letters and
+    // help separately, so neither crossed both live routing gates.
+    const ws = mockWs();
+    const session = new SessionManager(ws, "Ila");
+    session.companionWakeGateEnabled = true;
+    const respond = vi.spyOn(session as unknown as { runCompanionResponse: (text: string) => Promise<void> }, "runCompanionResponse")
+      .mockResolvedValue(undefined);
+    session.injectGameContext({
+      game: "word-radar", nodeId: "practice", phase: "response",
+      currentWord: "broken", speechCaptureArmed: true,
+    });
+
+    session.injectTranscript("Can you help me with this word?");
+
+    await vi.waitFor(() => expect(respond).toHaveBeenCalledWith("Can you help me with this word?"));
+    expect(ws.send).not.toHaveBeenCalledWith(expect.stringContaining('"type":"interim"'));
+  });
+
+  it("opens Elli when the child calls only her name during spelling capture", async () => {
+    const ws = mockWs();
+    const session = new SessionManager(ws, "Ila");
+    session.companionWakeGateEnabled = true;
+    const respond = vi.spyOn(session as unknown as { runCompanionResponse: (text: string) => Promise<void> }, "runCompanionResponse")
+      .mockResolvedValue(undefined);
+    session.injectGameContext({ game: "word-radar", nodeId: "practice", phase: "response", speechCaptureArmed: true });
+
+    session.injectTranscript("Elli");
+
+    await vi.waitFor(() => expect(respond).toHaveBeenCalledWith("Elli"));
+    expect(ws.send).toHaveBeenCalledWith(expect.stringContaining('"state":"summoned"'));
+  });
+
   it("rechecks a queued transcript against the live assessment before replaying it", async () => {
     // Human catch: stale room speech received during audio later became an Elli
     // turn. Logs called it a replay but skipped the wake gate entirely.
