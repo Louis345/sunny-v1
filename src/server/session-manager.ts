@@ -753,7 +753,7 @@ export class SessionManager {
       this.pendingSpellingAssessmentSupport = false;
       console.log(" 🎮 [spelling] [node-launch] [released]");
     }
-    if (state.phase === "launched") {
+    if (state.phase === "opening" || state.phase === "launched") {
       const cycle = getChildChart(this.chartChildId).learningCycle;
       if (cycle?.domain === "spelling") {
         const node = cycle.nodes.find(node => node.nodeId === state.nodeId);

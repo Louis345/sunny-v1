@@ -1032,7 +1032,7 @@ function App() {
 
   const closePlannerBoardLaunch = useCallback(() => {
     if (plannerBoardLaunch) sendMessage("game_event", {event:{type:"game_state_update",version:"1.0",payload:{
-      phase: "closed", nodeId: plannerBoardLaunch.node.id, launchToken: plannerBoardLaunch.completionId,
+      phase: "closed", boardState: "map", nodeId: plannerBoardLaunch.node.id, launchToken: plannerBoardLaunch.completionId,
     }}});
     pendingPlannerBoardLaunchRef.current = null;
     setPlannerBoardLaunch(null);
@@ -1657,11 +1657,16 @@ function App() {
       return;
     }
     iframeWindow.postMessage(message, "*");
+    sendMessage("game_event", {event:{type:"game_state_update",version:"1.0",payload:{
+      phase:"document_loaded",boardState:"waiting_for_activity",nodeId:launch.node.id,
+      launchToken:launch.completionId,activityTitle:launch.node.title,
+      progress:`${launch.node.title ?? "Activity"} document loaded; waiting for activity state.`,
+    }}});
     console.log(" 🎮 [AdventureBoard] [iframe-start] [sent]", {
       nodeId: launch.node.id,
       nodeType: launch.node.type,
     });
-  }, [adventureChildId, plannerBoardLaunch, plannerBoardPacket]);
+  }, [adventureChildId, plannerBoardLaunch, plannerBoardPacket, sendMessage]);
 
   useEffect(() => {
     if (!plannerBoardLaunch?.iframeUrl) return;

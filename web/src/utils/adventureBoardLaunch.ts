@@ -423,7 +423,7 @@ export function resolvePlannerBoardLaunchNode(
   };
 }
 
-/** Build the answer-key-free snapshot injected into Elli when a board node opens. */
+/** Build the answer-key-free snapshot while a board node is opening. */
 export function buildPlannerBoardCompanionContext(
   node: NodeConfig,
 ): Record<string, unknown> {
@@ -433,7 +433,8 @@ export function buildPlannerBoardCompanionContext(
     game: node.type,
     activityId: node.id,
     nodeId: node.id,
-    phase: "launched",
+    phase: "opening",
+    boardState: "activity_opening",
     activityTitle,
     ...(context.learningFocus ? { learningFocus: context.learningFocus } : {}),
     ...(context.mechanic ? { mechanic: context.mechanic } : {}),
@@ -444,7 +445,7 @@ export function buildPlannerBoardCompanionContext(
     ...(context.currentChallenge ? { itemIndex: 0 } : {}),
     ...(typeof context.totalItems === "number" ? { totalItems: context.totalItems } : {}),
     answerVisibility: "hidden",
-    progress: `${activityTitle} started.`,
+    progress: `Opening ${activityTitle}.`,
   };
 }
 

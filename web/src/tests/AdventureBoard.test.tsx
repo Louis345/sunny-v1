@@ -13,6 +13,8 @@ import {
   choicePolicySpineBoard,
   grokFullExperienceBoard,
   reinaCurrentHomeworkBoard,
+  reinaMay24PlannerAdventureBoard,
+  reinaMay24ActiveSessionPlanSnapshot,
   buildSlotLabBoard,
 } from "../storybook/adventureBoardFixtures";
 import adventureBoardStoriesMeta, {
@@ -22,6 +24,7 @@ import adventureBoardStoriesMeta, {
 import rawHorizontalBoardJson from "../storybook/raw-horizontal-adventure-board.json";
 import reinaChartPacketJson from "../storybook/reina-chart-experience-packet.json";
 import type { AdventureBoardJson } from "../../../src/shared/adventureBoardJson";
+import { resolveAdventureBoardForActiveSessionPlan } from "../../../src/shared/adventureBoardFromPlan";
 import type { ChildExperiencePacket } from "../../../src/profiles/childExperiencePacket";
 import { DEFAULT_ADVENTURE_MAP_PROFILE } from "../../../src/context/schemas/learningProfile";
 import { cloneCompanionDefaults } from "../../../src/shared/companionTypes";
@@ -43,6 +46,22 @@ import {
 
 const rawHorizontalBoard = rawHorizontalBoardJson as AdventureBoardJson;
 const reinaChartPacket = reinaChartPacketJson as unknown as ChildExperiencePacket;
+const explicitRouteBoard = resolveAdventureBoardForActiveSessionPlan({
+  plan: {
+    ...reinaMay24ActiveSessionPlanSnapshot,
+    adventureBoard: undefined,
+    nodePlan: [
+      { ...reinaMay24ActiveSessionPlanSnapshot.nodePlan[0]!, id: "common-spelling", title: "Warmup" },
+      { ...reinaMay24ActiveSessionPlanSnapshot.nodePlan[1]!, id: "light-route", title: "Light Route" },
+      { ...reinaMay24ActiveSessionPlanSnapshot.nodePlan[2]!, id: "story-route", title: "Story Route" },
+    ],
+    learningRoutes: [
+      { id: "light", label: "Light Check", rationale: "Planner route", nodeIds: ["common-spelling", "light-route"] },
+      { id: "story", label: "Story", rationale: "Planner route", nodeIds: ["common-spelling", "story-route"] },
+    ],
+  },
+  boardId: "explicit-route-test", theme: reinaMay24PlannerAdventureBoard.theme,
+});
 
 vi.mock("../components/CompanionLayer", () => ({
   CompanionLayer: (props: {
@@ -462,21 +481,21 @@ describe("AdventureBoard", () => {
     const onChoiceClick = vi.fn();
     const onNodeClick = vi.fn();
     const routeNodeIds = new Set(
-      reinaCurrentHomeworkBoard.choiceSets
+      explicitRouteBoard.choiceSets
         ?.find((set) => set.id === "baseline-route-options")
         ?.options.map((option) => option.nodeId)
         .filter((nodeId): nodeId is string => Boolean(nodeId)) ?? [],
     );
     const selectableBoard: AdventureBoardJson = {
-      ...reinaCurrentHomeworkBoard,
-      nodes: reinaCurrentHomeworkBoard.nodes.map((node) =>
+      ...explicitRouteBoard,
+      nodes: explicitRouteBoard.nodes.map((node) =>
         node.kind === "choice-gate"
           ? { ...node, state: "current" as const }
           : routeNodeIds.has(node.id)
             ? { ...node, state: "locked" as const, lock: { reason: "route_selection_required", label: "Locked" } }
             : node,
       ),
-      choiceSets: reinaCurrentHomeworkBoard.choiceSets?.map((set) =>
+      choiceSets: explicitRouteBoard.choiceSets?.map((set) =>
         set.id === "baseline-route-options"
           ? {
               ...set,
@@ -529,8 +548,8 @@ describe("AdventureBoard", () => {
   });
 
   it("builds preference-only choice evidence from planner board route options", () => {
-    const packet = packetForBoard(reinaCurrentHomeworkBoard);
-    const choiceSet = reinaCurrentHomeworkBoard.choiceSets?.find(
+    const packet = packetForBoard(explicitRouteBoard);
+    const choiceSet = explicitRouteBoard.choiceSets?.find(
       (set) => set.id === "baseline-route-options",
     );
     const option = choiceSet?.options[0];
@@ -1046,7 +1065,8 @@ describe("AdventureBoardExperience", () => {
       game: "word-radar",
       activityId: "wr-node",
       nodeId: "wr-node",
-      phase: "launched",
+      phase: "opening",
+      boardState: "activity_opening",
       activityTitle: "Silent Letter Signal Hunt",
       learningFocus: "silent_letters",
       mechanic: "tap the word matching the spoken clue",
@@ -1055,7 +1075,7 @@ describe("AdventureBoardExperience", () => {
       itemIndex: 0,
       totalItems: 1,
       answerVisibility: "hidden",
-      progress: "Silent Letter Signal Hunt started.",
+      progress: "Opening Silent Letter Signal Hunt.",
     });
 
     const action = buildNodeLaunchAction(node!, {

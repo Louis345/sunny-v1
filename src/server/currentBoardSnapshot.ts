@@ -208,6 +208,12 @@ export function buildCurrentBoardSnapshotContext(
   if (snapshot.nodeId) lines.push(`Current node: ${snapshot.nodeId}`);
   if (snapshot.itemId) lines.push(`Current item: ${snapshot.itemId}`);
   if (snapshot.phase) lines.push(`Phase: ${snapshot.phase}`);
+  if (snapshot.phase === "opening" || snapshot.phase === "document_loaded") {
+    lines.push("Do not say the activity is ready until a live activity state arrives. You may say it is opening.");
+  }
+  if (snapshot.phase === "closed" && snapshot.boardState === "map") {
+    lines.push("The child is back on the map. Do not describe the previous activity as open.");
+  }
   lines.push(`Answer visibility: ${snapshot.answerVisibility}`);
   if (snapshot.currentTarget) lines.push(`Current target: ${snapshot.currentTarget}`);
   if (snapshot.boardState) lines.push(`Board: ${snapshot.boardState}`);

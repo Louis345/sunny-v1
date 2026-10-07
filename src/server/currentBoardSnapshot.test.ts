@@ -6,6 +6,21 @@ import {
 } from "./currentBoardSnapshot";
 
 describe("CurrentBoardSnapshot", () => {
+  it("tells Elli a node is still opening without claiming the activity is ready", () => {
+    // Human catch: Elli announced Word Radar while Ila was still looking at the map.
+    // Logs recorded a launch request, but the lab had not compared speech truth to runtime readiness.
+    const opening = buildCurrentBoardSnapshot({
+      childId: "ila", sessionId: "voice-1",
+      state: { nodeId: "practice", phase: "opening", boardState: "activity_opening", activityTitle: "Word Radar" },
+    });
+    expect(buildCurrentBoardSnapshotContext(opening)).toContain("Do not say the activity is ready");
+    const closed = buildCurrentBoardSnapshot({
+      childId: "ila", sessionId: "voice-1",
+      state: { phase: "closed", boardState: "map" },
+    });
+    expect(buildCurrentBoardSnapshotContext(closed)).toContain("The child is back on the map");
+    expect(closed.activityId).toBeUndefined();
+  });
   it("keeps child speech separate from the current board truth", () => {
     const snapshot = buildCurrentBoardSnapshot({
       childId: "ila",
