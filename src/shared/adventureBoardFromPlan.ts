@@ -220,7 +220,9 @@ export function buildAdventureBoardFromActiveSessionPlan(
     ...normalizedLayout.convergedNodes,
   ].map((node) => node.id));
   const mysteryNodes = options.plan.nodePlan.filter((node) => activityIdForPlanNode(node) === "mystery");
-  const destinationMysteryNodes = mysteryNodes.filter((node) => !projectedNodeIds.has(node.id));
+  const destinationMysteryNodes = normalizedLayout.hasExplicitRoutes
+    ? mysteryNodes.filter((node) => !projectedNodeIds.has(node.id))
+    : [];
   const baselineNodes = options.plan.nodePlan.filter((node) =>
     !isFixedDestinationNode(node) && !destinationMysteryNodes.some((destination) => destination.id === node.id));
   const requiredBaselineCount = baselineNodes.length >= 4 ? 2 : 1;

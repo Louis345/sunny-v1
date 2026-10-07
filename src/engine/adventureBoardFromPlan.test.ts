@@ -125,6 +125,8 @@ describe("buildAdventureBoardFromActiveSessionPlan", () => {
       expect.objectContaining({ from: "chunks", to: "recall-1" }),
       expect.objectContaining({ from: "recall-1", to: "recall-2" }),
       expect.objectContaining({ from: "recall-2", to: "wheel" }),
+      expect.objectContaining({ from: "wheel", to: "reward" }),
+      expect.objectContaining({ from: "reward", to: "checkpoint" }),
     ]));
   });
 
