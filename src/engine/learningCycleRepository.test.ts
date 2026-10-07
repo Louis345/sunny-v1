@@ -4,6 +4,7 @@ import path from "path";
 import { describe, expect, it } from "vitest";
 import type { LearningProfile } from "../context/schemas/learningProfile";
 import { getChildChart } from "../profiles/childChart";
+import { publishBoardInstance } from "./learningBoardInstances";
 import {
   createLearningCycle,
   getLearningCycle,
@@ -238,6 +239,44 @@ describe("canonical learning cycle repository", () => {
     expect(second).toEqual(first);
     expect(first.activeSessionPlan.nodePlan.map((node) => node.title)).toEqual(["Fact Blaster"]);
     expect(first.adventureBoard.nodes.some((node) => node.kind === "quest" || node.kind === "boss")).toBe(false);
+  });
+
+  it("opens only the current step of a complete linear teaching board", () => {
+    // Human catch: Ila could skip the Planner's chunk lesson and reach practice.
+    // Artifacts and logs were complete; the lab did not assert the child-facing frontier.
+    const plan = input();
+    plan.domain = "spelling";
+    plan.nodes = ["chunks", "practice", "checkpoint"].map((id) => ({
+      ...structuredClone(plan.nodes[0]!),
+      nodeId: id,
+      title: id,
+      openingScreen: { title: id, purpose: "Spelling practice" },
+      academicTarget: { domain: "spelling", skill: "spelling", targets: ["tomorrow"] },
+      implementationType: "word-radar",
+      artifactBinding: {
+        contentId: id, artifactId: id, localArtifactPath: `/games/${id}.html`,
+        localArtworkPath: "/thumbnails/activities/word-radar.svg",
+        contractFingerprint: id, validationStatus: "passed",
+      },
+    }));
+    const cycle = createLearningCycle(plan, { rootDir: root() });
+    cycle.boards = [publishBoardInstance(cycle, {
+      kind: "teaching", predecessorBoardId: null, plannerDecisionId: "decision-1",
+      evidenceIds: [], nodeIds: ["chunks", "practice", "checkpoint"], publishedAt: cycle.createdAt,
+    })];
+    cycle.lifecycle = "board_ready";
+
+    const before = projectLearningCycle(cycle).adventureBoard.nodes;
+    expect(before.find((node) => node.id === "chunks")?.state).toBe("current");
+    expect(before.find((node) => node.id === "practice")).toMatchObject({
+      state: "locked", action: { type: "show-locked-reason" },
+    });
+    expect(before.find((node) => node.id === "checkpoint")?.state).toBe("locked");
+
+    cycle.nodes[0]!.state = "completed";
+    const after = projectLearningCycle(cycle).adventureBoard.nodes;
+    expect(after.find((node) => node.id === "chunks")?.state).toBe("completed");
+    expect(after.find((node) => node.id === "practice")?.state).toBe("current");
   });
 
   it.each(["math", "spelling"] as const)("never renders %s finish-line markers for an unauthorized Quest or Boss", (domain) => {

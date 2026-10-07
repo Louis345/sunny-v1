@@ -1774,6 +1774,9 @@ export function projectLearningCycle(
     thumbnailForNode: (node) => node.thumbnailUrl,
   });
   const cycleNodeById = new Map(cycle.nodes.map((node) => [node.nodeId, node]));
+  const linearTeachingFrontier = (board.kind === "teaching" || board.kind === "successor") && !experiment
+    ? board.nodeIds.findIndex((nodeId) => cycleNodeById.get(nodeId)?.state !== "completed")
+    : -1;
   adventureBoard.nodes = adventureBoard.nodes.map((node) => {
     const canonicalNode = cycleNodeById.get(node.id);
     if (notTakenNodeIds.has(node.id)) {
@@ -1800,6 +1803,15 @@ export function projectLearningCycle(
         lock: { reason: "artifact-not-ready", label: "Locked" },
       };
     }
+    if (linearTeachingFrontier >= 0 && board.nodeIds.indexOf(node.id) > linearTeachingFrontier
+      && canonicalNode?.state !== "completed") {
+      return {
+        ...node,
+        state: "locked" as const,
+        action: { type: "show-locked-reason" as const, payloadId: node.id },
+        lock: { reason: "planner-sequence", label: "Keep going" },
+      };
+    }
     return node;
   });
   const projectedBoardNodeById = new Map(adventureBoard.nodes.map((node) => [node.id, node]));
@@ -1807,7 +1819,9 @@ export function projectLearningCycle(
     ...edge,
     state: projectedBoardNodeById.get(edge.to)?.state === "preview"
       ? "preview" as const
-      : edge.state,
+      : projectedBoardNodeById.get(edge.to)?.state === "locked"
+        ? "locked" as const
+        : edge.state,
   }));
   activeSessionPlan.adventureBoard = adventureBoard;
   const canonicalProjection: LearningCycleProjection = {
