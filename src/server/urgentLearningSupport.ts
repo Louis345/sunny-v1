@@ -315,7 +315,7 @@ export function routeCompanionPresenceTranscript(input: {
 }): CompanionPresenceTranscriptRoute {
   const text = normalizeSpeechText(input.transcript);
   if (!text) return { action: "ignore_ambient" };
-  const aliases = [...new Set(["sunny", "elli", "ellie", input.companionName]
+  const aliases = [...new Set(["sunny", "sonny", "sony", "elli", "ellie", input.companionName]
     .map(normalizeSpeechText)
     .filter(Boolean))];
   const aliasPattern = aliases.map(escapeRegExp).join("|");
@@ -332,10 +332,7 @@ export function routeCompanionPresenceTranscript(input: {
   ) {
     return { action: "dismiss" };
   }
-  const wake = new RegExp(
-    `^(?:(?:hey|hi|okay|ok)\\s+)?(?:${aliasPattern})(?:\\b|$)`,
-    "i",
-  );
+  const wake = new RegExp(`(?:^|\\s)(?:${aliasPattern})(?:\\b|$)`, "i");
   if (wake.test(text)) return { action: "summon_and_respond" };
   if (input.speechCaptureArmed) return { action: "route_to_game" };
   return input.presence === "summoned"

@@ -141,6 +141,30 @@ describe("urgent learning support", () => {
         speechCaptureArmed: true,
       }),
     ).toEqual({ action: "summon_and_respond" });
+    expect(
+      routeCompanionPresenceTranscript({
+        transcript: "B. Sonny, is it B?",
+        presence: "collapsed",
+        companionName: "Elli",
+        speechCaptureArmed: true,
+      }),
+    ).toEqual({ action: "summon_and_respond" });
+    expect(
+      routeCompanionPresenceTranscript({
+        transcript: "u. Sonny, I'm asking you.",
+        presence: "collapsed",
+        companionName: "Elli",
+        speechCaptureArmed: true,
+      }),
+    ).toEqual({ action: "summon_and_respond" });
+    expect(
+      routeCompanionPresenceTranscript({
+        transcript: "b",
+        presence: "collapsed",
+        companionName: "Elli",
+        speechCaptureArmed: true,
+      }),
+    ).toEqual({ action: "route_to_game" });
   });
 
   it("sends a direct Sunny call to Elli during an armed Word Radar turn", async () => {
