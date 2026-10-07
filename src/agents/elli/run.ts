@@ -64,49 +64,56 @@ export async function runAgent(opts: RunAgentOptions): Promise<string> {
       "\n\n[System: Turn 5 — transition to work. Say exactly ONE of these (pick one): 'Okay, two more minutes of fun and then we do our words — deal?' OR 'Alright, one more round and then it's word time!' OR 'You know what, let's do one quick word game and then get to our /i/ words.']"
     : profile.systemPrompt;
 
-  const result = streamText({
-    model: anthropic(process.env.SUNNY_VOICE_MODEL ?? "claude-sonnet-5"),
-    system: systemPrompt,
-    messages: [
-      ...history.filter(m => typeof m.content !== "string" || m.content.trim().length > 0),
-      ...injected,
-      { role: "user", content: userMessage }
-    ],
-    maxOutputTokens: 500,
-    tools: opts.tools ?? buildAgentTools({ allowTransitionToWork }),
-    stopWhen: stepCountIs(8),
-    abortSignal: signal,
-    experimental_onStepStart: experimentalOnStepStart,
-    experimental_onToolCallStart: experimentalOnToolCallStart,
-    onStepFinish: async (step) => {
-      if (onStepFinish) {
-        await onStepFinish(step);
-      }
-      if (!quiet) {
-        console.log(
-          "  🔧 Step finished:",
-          step.finishReason,
-          step.toolCalls?.length ?? 0,
-          "tool calls",
-        );
-        if (step.toolResults) {
-          console.log("  🔧 Tool results:", JSON.stringify(step.toolResults));
+  for (let attempt = 0; attempt < 2; attempt++) {
+    let toolCallsInAttempt = 0;
+    const result = streamText({
+      model: anthropic(process.env.SUNNY_VOICE_MODEL ?? "claude-sonnet-5"),
+      system: systemPrompt,
+      messages: [
+        ...history.filter(m => typeof m.content !== "string" || m.content.trim().length > 0),
+        ...injected,
+        { role: "user", content: userMessage }
+      ],
+      maxOutputTokens: attempt === 0 ? 500 : 1500,
+      tools: opts.tools ?? buildAgentTools({ allowTransitionToWork }),
+      stopWhen: stepCountIs(8),
+      abortSignal: signal,
+      experimental_onStepStart: experimentalOnStepStart,
+      experimental_onToolCallStart: experimentalOnToolCallStart,
+      onStepFinish: async (step) => {
+        toolCallsInAttempt += step.toolCalls?.length ?? 0;
+        if (onStepFinish) {
+          await onStepFinish(step);
+        }
+        if (!quiet) {
+          console.log(
+            "  🔧 Step finished:",
+            step.finishReason,
+            step.toolCalls?.length ?? 0,
+            "tool calls",
+          );
+          if (step.toolResults) {
+            console.log("  🔧 Tool results:", JSON.stringify(step.toolResults));
+          }
+        }
+      },
+    });
+
+    // Use fullStream to ensure text deltas reach onToken even when tools/stopWhen
+    // cause textStream to skip chunks on plain-text-only turns.
+    for await (const part of result.fullStream) {
+      if (part.type === "text-delta") {
+        const p = part as { textDelta?: string; text?: string };
+        const text = p.textDelta ?? p.text ?? "";
+        if (text) {
+          fullText += text;
+          onToken(text);
         }
       }
-    },
-  });
-
-  // Use fullStream to ensure text deltas reach onToken even when tools/stopWhen
-  // cause textStream to skip chunks on plain-text-only turns
-  for await (const part of result.fullStream) {
-    if (part.type === "text-delta") {
-      const p = part as { textDelta?: string; text?: string };
-      const text = p.textDelta ?? p.text ?? "";
-      if (text) {
-        fullText += text;
-        onToken(text);
-      }
     }
+    const finishReason = await result.finishReason;
+    if (fullText.trim() || finishReason !== "length" || toolCallsInAttempt > 0) break;
+    if (attempt === 0) console.warn(" 🎮 [companion] [empty-length-turn] [retrying] budget=1500");
   }
 
   return fullText;
