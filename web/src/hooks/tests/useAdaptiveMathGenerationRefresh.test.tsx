@@ -137,6 +137,25 @@ describe("useAdaptiveMathGenerationRefresh", () => {
     expect(onStatusChanged).toHaveBeenCalledTimes(2);
     expect(result.current.error).toBeNull();
   });
+  it("keeps reconciling after needs attention so an externally resumed board appears",async()=>{
+    // Human catch (2026-10-07): Ila stayed on the saved-work screen after the
+    // recovered worker published her board. Server logs recorded board_ready,
+    // but the browser watcher had already treated needs_attention as terminal;
+    // the lab never exercised external recovery while the kiosk stayed open.
+    const onStatusChanged=vi.fn();
+    const fetchMock=vi.fn()
+      .mockResolvedValueOnce({ok:true,json:async()=>({updatedAt:"t1",phase:"needs_attention",error:"provider_credit_low",nodes:[]})})
+      .mockResolvedValueOnce({ok:true,json:async()=>({updatedAt:"t2",phase:"board_ready",nodes:[{nodeId:"lesson",status:"ready"}]})});
+    vi.stubGlobal("fetch",fetchMock);
+    renderHook(()=>useAdaptiveMathGenerationRefresh({childId:"ila",homeworkId:"hw-1",enabled:true,intervalMs:1_000,onStatusChanged}));
+
+    await act(async()=>{await Promise.resolve();});
+    expect(onStatusChanged).toHaveBeenCalledWith(expect.objectContaining({phase:"needs_attention"}));
+    await act(async()=>{await vi.advanceTimersByTimeAsync(1_000);});
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(onStatusChanged).toHaveBeenLastCalledWith(expect.objectContaining({phase:"board_ready"}));
+  });
   it("times out an unresponsive status request so manual checking becomes available",async()=>{
     const onStatusChanged=vi.fn();
     vi.stubGlobal("fetch",vi.fn((_url,options)=>new Promise((_resolve,reject)=>options?.signal?.addEventListener("abort",()=>reject(new Error("request_timeout")),{once:true}))));
