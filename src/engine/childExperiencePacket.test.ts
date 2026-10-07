@@ -1,11 +1,40 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { recordChoiceEvent } from "./choiceEvents";
 import { buildChildExperiencePacket } from "../profiles/childExperiencePacket";
 
 describe("buildChildExperiencePacket", () => {
+  it("launches a legacy spelling node with its verified Planner response mode", () => {
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-spelling-mode-"));
+    const artifact = { version: 1, node: { id: "teach-long-o", type: "word-radar", wordRadarConfig: {
+      recallMode: "visible_read", inputMode: "whole-word", speakStyle: "option-a",
+      showTimer: false, hideWordDuringResponse: false, requiresCapturedResponse: true,
+    } } };
+    const fingerprint = createHash("sha256").update(JSON.stringify(artifact)).digest("hex");
+    const artifactPath = path.join(rootDir, "src/context/lab/homework/direct-drafts/hw/native-instruments/teach-long-o.json");
+    fs.mkdirSync(path.dirname(artifactPath), { recursive: true });
+    fs.writeFileSync(artifactPath, JSON.stringify(artifact));
+    const chart = {
+      childId: "lab", rootDir, identity: {}, companion: { presetId: "elli", displayName: "Elli", config: {} },
+      companionCare: {}, economy: {}, adventureMapProfile: {}, homework: { selectedDomain: "spelling" },
+      learningCycle: { domain: "spelling", homeworkId: "hw", revision: 1, lifecycle: "board_ready", observations: [], nodes: [{
+        nodeId: "teach-long-o", role: "baseline", state: "ready", implementationType: "word-radar",
+        evidenceContract: { spellingItems: {} },
+        artifactBinding: { validationStatus: "passed", contractFingerprint: fingerprint,
+          localArtifactPath: "/homework/direct-drafts/hw/native-instruments/teach-long-o.json" },
+      }] },
+      activeSessionPlan: { planId: "hw", activeHomeworkId: "hw", nodePlan: [{
+        id: "teach-long-o", type: "word-radar", activityId: "word-radar", targets: ["broken"],
+      }] },
+    } as never;
+
+    expect(buildChildExperiencePacket(chart).activeSessionPlan?.nodePlan[0]?.wordRadarConfig).toEqual(artifact.node.wordRadarConfig);
+    fs.writeFileSync(artifactPath, JSON.stringify({ ...artifact, node: { ...artifact.node, wordRadarConfig: { ...artifact.node.wordRadarConfig, recallMode: "full_recall" } } }));
+    expect(() => buildChildExperiencePacket(chart)).toThrow("verified_spelling_artifact_mismatch:teach-long-o");
+  });
   it("replays a completed recall check as practice rather than resubmitting the assessment", () => {
     const packet = buildChildExperiencePacket({ childId: "lab", companion: {}, homework: {}, learningCycle: { domain: "spelling", homeworkId: "hw", revision: 1, lifecycle: "board_ready", observations: [{ itemId: "i1" }], nodes: [{ nodeId: "check", role: "baseline", state: "completed", evidenceContract: { spellingItems: { i1: { id: "i1", word: "night", lineage: { measurementRole: "fresh_checkpoint" }, response: { acceptedForms: ["night"] } } } } }] } } as never);
     expect(packet.spellingInstruments?.check).toMatchObject({ assessment: false, items: [{ itemId: "i1" }] });
