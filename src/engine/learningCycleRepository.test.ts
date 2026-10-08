@@ -297,6 +297,36 @@ describe("canonical learning cycle repository", () => {
     expect(merged.nodes.find((node) => node.id === "practice")?.state).toBe("current");
   });
 
+  it("offers verified Planner routes before either route has been selected", () => {
+    // Human catch: the whole board was published, yet every route looked locked.
+    // Publication logs counted artifacts; the lab never required an available choice at the child-facing entry.
+    const plan = input();
+    plan.domain = "spelling";
+    plan.nodes = ["route-one", "route-two"].map((id) => ({
+      ...structuredClone(plan.nodes[0]!), nodeId: id, title: id, state: "locked" as const,
+      openingScreen: { title: id, purpose: "Try a spelling route" },
+      academicTarget: { domain: "spelling", skill: "spelling", targets: ["tomorrow"] },
+      artifactBinding: { contentId: id, artifactId: id, localArtifactPath: `/games/${id}.html`,
+        localArtworkPath: "/thumbnails/activities/word-radar.svg", contractFingerprint: id, validationStatus: "passed" as const },
+    }));
+    const cycle = createLearningCycle(plan, { rootDir: root() });
+    const experiment = { experimentId: "agency-one", sharedNodeIds: [], routes: [
+      { routeId: "first", nodeIds: ["route-one"] },
+      { routeId: "second", nodeIds: ["route-two"] },
+    ] };
+    cycle.boards = [publishBoardInstance(cycle, {
+      kind: "teaching", predecessorBoardId: null, plannerDecisionId: "decision-1",
+      evidenceIds: [], nodeIds: ["route-one", "route-two"], agencyExperiment: experiment,
+      publishedAt: cycle.createdAt,
+    })];
+    cycle.agencyExperiment = experiment;
+    cycle.lifecycle = "board_ready";
+    const board = projectLearningCycle(cycle).adventureBoard;
+    expect(board.choiceSets?.find((set) => set.kind === "baseline-route")?.options.map((option) => option.state))
+      .toEqual(["available", "available"]);
+    expect(board.nodes.find((node) => node.id === "choose-path")?.state).toBe("available");
+  });
+
   it.each(["math", "spelling"] as const)("never renders %s finish-line markers for an unauthorized Quest or Boss", (domain) => {
     const rootDir = root();
     const domainInput = input();

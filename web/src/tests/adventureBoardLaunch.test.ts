@@ -340,6 +340,19 @@ describe("direct Discovery entry", () => {
     expect(resolveDirectDiscoveryLaunchNode(targeted)).toBeNull();
   });
 
+  it("does not reopen Discovery when a saved presentation plan keeps its old name", () => {
+    // Human catch: the browser returned to Discovery after a complete board was published.
+    // The canonical log said board_ready, but the lab asserted only the original plan prefix.
+    const nextChapter = packet("discovery:hw-1:cycle-r20", [
+      { id: "start", type: "start", title: "Start" },
+      { id: "chunks", type: "visual-explainer", title: "Spelling Chunks" },
+    ]);
+    nextChapter.activeSessionPlan!.domain = "spelling";
+    nextChapter.childChart = { learningCycle: { homeworkId: "hw-1", lifecycle: "board_ready" } } as never;
+    expect(isDirectDiscoveryPacket(nextChapter)).toBe(false);
+    expect(resolveDirectDiscoveryLaunchNode(nextChapter)).toBeNull();
+  });
+
   it("holds a targeted board when no activity is playable", () => {
     const targeted = packet("targeted:hw-1", [
       { id: "start", type: "start", title: "Start" },
@@ -356,6 +369,26 @@ describe("direct Discovery entry", () => {
     node.lock = undefined;
     node.action = { type: "launch-activity", payloadId: node.id };
     expect(shouldHoldTargetedBoardForPreparation(targeted)).toBe(false);
+  });
+
+  it("opens a verified teaching board whose first action is a Planner route choice", () => {
+    // Human catch: every route was ready, but the map stayed behind preparation forever.
+    // The logs proved publication; the lab only looked for a direct activity launch.
+    const routed = packet("targeted:hw-1", [
+      { id: "start", type: "start" },
+      { id: "route-one", type: "word-radar", gameHtmlPath: "/games/route-one.html" },
+      { id: "route-two", type: "word-radar", gameHtmlPath: "/games/route-two.html" },
+    ]);
+    const board = routed.activeSessionPlan!.adventureBoard!;
+    board.nodes[1]!.state = "locked";
+    board.nodes[2]!.state = "locked";
+    board.nodes.push({ id: "choose-path", kind: "choice-gate", label: "Choose Path", state: "available",
+      action: { type: "open-choice-set", payloadId: "baseline-route-options" } });
+    board.choiceSets = [{ id: "baseline-route-options", kind: "baseline-route", title: "Choose your path", options: [
+      { id: "one", label: "One", state: "available", nodeId: "route-one", gameHtmlPath: "/games/route-one.html" },
+      { id: "two", label: "Two", state: "available", nodeId: "route-two", gameHtmlPath: "/games/route-two.html" },
+    ] }];
+    expect(shouldHoldTargetedBoardForPreparation(routed)).toBe(false);
   });
 
   it("keeps a teaching board hidden until every activity artifact is ready", () => {

@@ -1774,6 +1774,11 @@ export function projectLearningCycle(
     thumbnailForNode: (node) => node.thumbnailUrl,
   });
   const cycleNodeById = new Map(cycle.nodes.map((node) => [node.nodeId, node]));
+  const availableRouteNodeIds = new Set(board.publishedAt && experiment && !cycle.routeSelection
+    && experiment.sharedNodeIds.every((id) => cycleNodeById.get(id)?.state === "completed")
+    && board.nodeIds.every((id) => cycleNodeById.get(id)?.artifactBinding?.validationStatus === "passed")
+      ? experiment.routes.map((route) => route.nodeIds[0]).filter((id): id is string => Boolean(id))
+      : []);
   const linearTeachingFrontier = (board.kind === "teaching" || board.kind === "successor") && !experiment
     ? board.nodeIds.findIndex((nodeId) => cycleNodeById.get(nodeId)?.state !== "completed")
     : -1;
@@ -1814,6 +1819,11 @@ export function projectLearningCycle(
     }
     return node;
   });
+  adventureBoard.choiceSets = adventureBoard.choiceSets?.map((set) => set.kind === "baseline-route"
+    ? { ...set, options: set.options.map((option) => availableRouteNodeIds.has(option.nodeId ?? "")
+      ? { ...option, state: "available" as const }
+      : option) }
+    : set);
   const projectedBoardNodeById = new Map(adventureBoard.nodes.map((node) => [node.id, node]));
   adventureBoard.edges = adventureBoard.edges.map((edge) => ({
     ...edge,
@@ -1960,7 +1970,9 @@ export function projectLearningCycle(
       if (!node) return option;
       return {
         ...option,
-        state: node.state === "completed" ? "completed" as const : node.state === "locked" ? "locked" as const : "available" as const,
+        state: availableRouteNodeIds.has(option.nodeId ?? "")
+          ? "available" as const
+          : node.state === "completed" ? "completed" as const : node.state === "locked" ? "locked" as const : "available" as const,
         gameHtmlPath: planNode?.gameHtmlPath,
         activityConfigPath: planNode?.activityConfigPath,
       };

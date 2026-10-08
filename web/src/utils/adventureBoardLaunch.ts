@@ -102,10 +102,12 @@ export function resolveHomeworkVoiceSessionStart(
 export function isDirectDiscoveryPacket(packet: ChildExperiencePacket | null): boolean {
   const plan = packet?.activeSessionPlan;
   if (!plan) return false;
-  if (plan.planId?.startsWith("discovery:")) return true;
+  const cycle = packet.childChart?.learningCycle;
+  if (plan.planId?.startsWith("discovery:")) {
+    return !cycle?.lifecycle || ["evaluation_ready", "evaluation_active"].includes(cycle.lifecycle);
+  }
   if (plan.planId?.startsWith("probe-board:")) return false;
 
-  const cycle = packet.childChart?.learningCycle;
   if (
     plan.domain !== "spelling" ||
     !plan.planId?.startsWith("learning-cycle:") ||
@@ -177,7 +179,14 @@ export function shouldHoldTargetedBoardForPreparation(packet: ChildExperiencePac
   const hasPlayableActivity = nodes.some((node) =>
     node.action?.type === "launch-activity"
     && ["current", "available", "completed"].includes(node.state));
-  return !hasPlayableActivity;
+  const hasPlayableRouteChoice = nodes.some((node) =>
+    node.action?.type === "open-choice-set" && ["current", "available"].includes(node.state)
+    && (packet.activeSessionPlan?.adventureBoard?.choiceSets ?? []).some((set) =>
+      set.id === node.choiceSetId || set.id === node.action?.payloadId
+        ? set.kind === "baseline-route" && set.options.filter((option) =>
+          option.state === "available" && nodes.some((candidate) => candidate.id === option.nodeId)).length >= 2
+        : false));
+  return !(hasPlayableActivity || hasPlayableRouteChoice);
 }
 
 export function resolveDirectDiscoverySurface(

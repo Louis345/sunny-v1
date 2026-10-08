@@ -248,10 +248,10 @@ it.each([
       }
     }
     await page.getByText("Skip", { exact: true }).click();
-    await Promise.race([
-      page.getByRole("button", { name: "Check progress", exact: true }).waitFor(),
-      page.getByRole("button", { name: scenario.adaptive ? "Spelling Practice" : "Word workshop", exact: true }).waitFor(),
-    ]);
+    // Human catch: Discovery's successor is a later chapter, so the child must
+    // see a truthful ready-next-time handoff instead of an automatically opened board.
+    // The old browser lab expected a same-session button and missed this lifecycle contract.
+    await page.getByText("Ready next time", { exact: true }).waitFor({ timeout: 30000 });
     const before = getLearningCycle(childId, homeworkId, { rootDir })!;
     expect(before.observations.map(row => row.result.correct)).toEqual(scenario.adaptive
       ? [true, true, true, true, true, true, false, false, false, false]
@@ -275,11 +275,15 @@ it.each([
     // An explicit restart must reuse all completed work and never call the Planner again.
     await runAdaptiveMathGeneration(childId, homeworkId, rootDir);
     expect(lab.plannerCalls).toBe(1);
-    const checkProgress = page.getByRole("button", { name: "Check progress", exact: true });
-    if (await checkProgress.count()) await checkProgress.click();
-    await page.getByRole("button", { name: scenario.adaptive ? "Spelling Practice" : "Word workshop", exact: true }).waitFor();
     expect(await page.getByTestId("word-radar-input").count()).toBe(0);
     await page.reload();
+    // A complete published board may open directly; an in-progress successor
+    // uses the truthful preparation handoff and then reveals the same board.
+    const enterTeachingBoard = page.getByRole("button", { name: "Let's go!", exact: true });
+    const teachingBoard = page.locator(".adventure-board");
+    await enterTeachingBoard.or(teachingBoard).first().waitFor({ timeout: 45000 });
+    if (await enterTeachingBoard.isVisible()) await enterTeachingBoard.click();
+    await teachingBoard.waitFor({ timeout: 30000 });
     const board = getChildChart(childId, { rootDir }).activeSessionPlan!.adventureBoard!;
     expect(board.theme.background.type).toBe("image");
     const backgroundLoaded = await page.evaluate(async url => new Promise<boolean>(resolve => { const image = new (globalThis as any).Image(); image.onload = () => resolve(true); image.onerror = () => resolve(false); image.src = url; }), board.theme.background.value);
