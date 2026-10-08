@@ -245,7 +245,6 @@ import { prepareSuccessorBoard } from "../engine/canonicalProgressionGenerator";
 import { successorPreparationStatus, successorResumeAction } from "../engine/learningBoardInstances";
 import {
   getLearningCycle,
-  getLatestLearningCycle,
   transitionLearningCycle,
 } from "../engine/learningCycleRepository";
 import {
@@ -1476,7 +1475,7 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
         delete eventInput.accuracy; // Academic accuracy belongs to canonical observations, not the rating payload.
       }
       const routeCycle = eventInput.context === "baseline_route" && eventInput.source === "child_choice"
-        ? getLatestLearningCycle(childId) : null;
+        ? cycle : null;
       const routeExperiment = routeCycle?.agencyExperiment;
       const selectedRouteOption = eventInput.shownOptions.find(
         (option) => option.optionId === eventInput.selectedOptionId,
@@ -1499,14 +1498,23 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
       }
       let selectedRouteId: string | undefined;
       if (routeCycle && routeExperiment && authorizedRoute) {
-            const alreadyRecorded = routeCycle.routeSelection?.history.some(
+            // Recording the engagement event can overlap a final board projection.
+            // Reload the exact assignment before the canonical route transition so
+            // its optimistic revision is current and another homework cannot win.
+            const currentRouteCycle = getLearningCycle(childId, routeCycle.homeworkId);
+            if (!currentRouteCycle) throw new Error("choice_event_route_cycle_missing");
+            const currentExperiment = currentRouteCycle.agencyExperiment;
+            if (!currentExperiment || currentExperiment.experimentId !== routeExperiment.experimentId) {
+              throw new Error("choice_event_route_experiment_changed");
+            }
+            const alreadyRecorded = currentRouteCycle.routeSelection?.history.some(
               (entry) => entry.choiceEventId === event.choiceEventId,
             ) === true;
             const updated = alreadyRecorded
-              ? routeCycle
-              : transitionLearningCycle(childId, routeCycle.homeworkId, routeCycle.revision, {
+              ? currentRouteCycle
+              : transitionLearningCycle(childId, currentRouteCycle.homeworkId, currentRouteCycle.revision, {
                   type: "route_selected",
-                  experimentId: routeExperiment.experimentId,
+                  experimentId: currentExperiment.experimentId,
                   routeId: authorizedRoute.routeId,
                   choiceEventId: event.choiceEventId,
                 });

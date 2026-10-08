@@ -85,7 +85,7 @@ vi.mock("../engine/learningCycleRepository", () => ({
 
 import { appendContentFeedbackLesson } from "../engine/contentFeedbackMemory";
 import { applyChoiceEventPreference, findChoiceEventById, recordChoiceEvent } from "../engine/choiceEvents";
-import { getLatestLearningCycle, getLearningCycle, transitionLearningCycle } from "../engine/learningCycleRepository";
+import { getLearningCycle, transitionLearningCycle } from "../engine/learningCycleRepository";
 import { interpretDirectExperienceOutcome } from "../engine/directExperienceFeedback";
 import { advanceCanonicalCycleFromEvidence, recordCanonicalNodeCompletion } from "../engine/learningCycleRuntime";
 import { prepareSuccessorBoard } from "../engine/canonicalProgressionGenerator";
@@ -101,7 +101,7 @@ const mockedFindChoiceEventById = vi.mocked(findChoiceEventById);
 describe("choice-event route feedback lessons", () => {
   const servers: Array<{ close: () => void }> = [];
   beforeEach(() => {
-    mockedGetLearningCycle.mockReset().mockReturnValue({domain: "math",childId: "demo-pashley",homeworkId: "hw-math",lifecycle: "baseline_evaluating",revision: 2,nodes: [{nodeId: "array-forge",state: "active"}]} as never);
+    mockedGetLearningCycle.mockReset().mockReturnValue({domain: "math",childId: "demo-pashley",homeworkId: "hw-math",lifecycle: "baseline_evaluating",revision: 2,nodes: [{nodeId: "array-forge",state: "active"}],agencyExperiment:{experimentId:"agency-1",sharedNodeIds:["teach"],routes:[{routeId:"choice-route-a",nodeIds:["route-a"]},{routeId:"choice-route-b",nodeIds:["route-b"]}]}} as never);
   });
 
   afterEach(() => {
@@ -193,12 +193,43 @@ describe("choice-event route feedback lessons", () => {
     );
   });
 
+  it("commits a route against the cycle revision current after choice evidence is recorded", async () => {
+    const agencyExperiment = {
+      experimentId: "agency-1",
+      sharedNodeIds: [],
+      routes: [
+        { routeId: "choice-route-a", nodeIds: ["route-a"] },
+        { routeId: "choice-route-b", nodeIds: ["route-b"] },
+      ],
+    };
+    mockedGetLearningCycle.mockReset()
+      .mockReturnValueOnce({
+        domain: "spelling", childId: "demo-pashley", homeworkId: "hw-math",
+        lifecycle: "board_ready", revision: 2, nodes: [], agencyExperiment,
+      } as never)
+      .mockReturnValueOnce({
+        domain: "spelling", childId: "demo-pashley", homeworkId: "hw-math",
+        lifecycle: "board_ready", revision: 3, nodes: [], agencyExperiment,
+      } as never);
+
+    const out = await postChoiceEvent({ ...routeChoicePayload, domain: "spelling" });
+
+    expect(out.status).toBe(200);
+    expect(mockedTransitionLearningCycle).toHaveBeenCalledWith(
+      "demo-pashley",
+      "hw-math",
+      3,
+      expect.objectContaining({ type: "route_selected", routeId: "choice-route-a" }),
+    );
+  });
+
   it("rejects an invented route before writing Ila's choice or engagement theory", async () => {
     // Human catch: repeated clicks on a fabricated gate did not launch; server logs
     // counted choices but never logged the missing canonical route as a failure.
-    vi.mocked(getLatestLearningCycle).mockReturnValueOnce({
+    mockedGetLearningCycle.mockReturnValueOnce({
       childId: "demo-pashley",
       homeworkId: "hw-math",
+      domain: "math",
       lifecycle: "baseline_active",
       revision: 2,
       agencyExperiment: null,
