@@ -42,4 +42,11 @@ describe("adaptive math worker startup reconciliation", () => {
   it("leaves a fully exhausted parent-attention job stopped", () => {
     expect(shouldResumeAdaptiveMathWorker(job("needs_attention", ["needs_attention", "needs_attention"]))).toBe(false);
   });
+
+  it("restarts a spelling planner correction that failed before any nodes existed", () => {
+    const failed = job("needs_attention", []);
+    failed.error = "assignment_planner_validation_failed:word_radar_unrendered_teaching";
+    expect(shouldResumeAdaptiveMathWorker(failed)).toBe(true);
+    expect(shouldResumeAdaptiveMathWorker(job("needs_attention", []))).toBe(false);
+  });
 });
