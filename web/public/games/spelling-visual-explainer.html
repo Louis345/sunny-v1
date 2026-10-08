@@ -47,7 +47,7 @@
     .chunks { display:flex; justify-content:center; flex-wrap:wrap; gap:9px; }
     .chunk {
       min-width:62px; padding:13px 17px; border:2px solid rgba(255,255,255,.22); border-radius:18px;
-      background:rgba(18,8,55,.75); font-size:clamp(27px,4vw,50px); font-weight:950; letter-spacing:.02em;
+      color:var(--ink); background:rgba(18,8,55,.75); font-size:clamp(27px,4vw,50px); font-weight:950; letter-spacing:.02em; cursor:pointer;
       opacity:.22; transform:translateY(10px) scale(.96); transition:opacity .35s,transform .35s,border-color .35s,background .35s;
     }
     .chunk.visible { opacity:1; transform:none; }
@@ -170,8 +170,19 @@
         modelNodes = model.words.map((word) => {
           const row = document.createElement("article"); row.className = "word-model"; row.dataset.itemId = word.id;
           const chunks = document.createElement("div"); chunks.className = "chunks";
-          const chunkNodes = word.chunks.map((chunk) => {
-            const tile = document.createElement("span"); tile.className = "chunk"; tile.textContent = chunk;
+          const chunkNodes = word.chunks.map((chunk, chunkIndex) => {
+            const tile = document.createElement("button"); tile.type = "button"; tile.className = "chunk"; tile.textContent = chunk;
+            tile.setAttribute("aria-label", `Hear ${chunk}`);
+            tile.title = `Hear ${chunk}`;
+            tile.disabled = true;
+            tile.addEventListener("click", () => {
+              const spoken = Array.isArray(word.spokenChunks) && typeof word.spokenChunks[chunkIndex] === "string"
+                ? word.spokenChunks[chunkIndex].trim() : chunk;
+              if (!spoken || !tile.classList.contains("visible")) return;
+              window.parent.postMessage({ type:"narration_request", version:"1.0", game:config.artifactId,
+                word:word.text, text:spoken, reason:"spelling_chunk", chunk, chunkIndex }, "*");
+              console.log(" 🎮 [spelling-visual-explainer] [chunk-audio] [requested]", { word:word.text, chunk });
+            });
             if (chunk.toLocaleLowerCase() === word.focusChunk.toLocaleLowerCase()) tile.dataset.focus = "true";
             chunks.appendChild(tile); return tile;
           });
@@ -187,6 +198,7 @@
           entry.chunkNodes.forEach((chunk, chunkIndex) => {
             const threshold = 8 + rowIndex * 4 + chunkIndex * 7;
             chunk.classList.toggle("visible", progress >= threshold);
+            chunk.disabled = progress < threshold;
             if (progress >= threshold && !entry.exposureRecorded && window.GameBridge) {
               entry.exposureRecorded = true;
               window.GameBridge.reportState("Spelling model shown", { spellingItemOpened:true, currentWord:entry.word.text, phase:"presentation", answerVisibility:"visible" });

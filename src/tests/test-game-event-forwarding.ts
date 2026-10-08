@@ -179,6 +179,10 @@ describe("useSession iframe message forwarding allowlist", () => {
   it("allowlist still includes game_state_update (regression guard)", () => {
     expect(handleGameMessageBody).toContain('"game_state_update"');
   });
+
+  it("forwards a child-requested chunk narration to Elli's speech path", () => {
+    expect(handleGameMessageBody).toContain('"narration_request"');
+  });
 });
 
 // ─── 4. _contract.js exposes GameBridge.startHeartbeat ───────────────────────

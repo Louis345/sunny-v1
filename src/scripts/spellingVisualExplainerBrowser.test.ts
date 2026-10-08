@@ -167,6 +167,21 @@ describe.each(viewports)("spelling Visual Explainer at $width×$height", (viewpo
     await expect.poll(async () => (await page.evaluate<Array<Record<string, any>>>("window.captured")).some(message => message.type === "node_complete")).toBe(true);
   });
 
+  it("lets Ila request each visible chunk aloud", async () => {
+    const { page, frame } = await launch(viewport);
+    await frame.locator("body").evaluate(() => (globalThis as any).SunnySpellingVisualExplainer.setProgress(48, false));
+    await frame.getByRole("button", { name: "ight", exact: true }).click();
+    await frame.getByRole("button", { name: "See the strategy" }).click();
+    await frame.locator("body").evaluate(() => {
+      (globalThis as any).SunnySpellingVisualExplainer.pause();
+      (globalThis as any).SunnySpellingVisualExplainer.setProgress(70, false);
+    });
+    const chunk = frame.getByRole("button", { name: "Hear ight" });
+    await assertUsable(chunk);
+    await chunk.click();
+    await expect.poll(async () => (await page.evaluate<Array<Record<string, any>>>("window.captured")).find(message => message.type === "narration_request")?.text).toBe("ight");
+  });
+
   it("blocks safely instead of teaching fallback content when production config is missing", async () => {
     const { page, frame, errors } = await launch(viewport, { configAvailable: false });
     await frame.getByRole("alert").waitFor();

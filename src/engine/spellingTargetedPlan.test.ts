@@ -120,7 +120,7 @@ describe("evidence-cited spelling targeted programs", () => {
           title: "Spot the chunk",
           steps: ["Say light.", "Notice ight.", "Build l + ight."],
         },
-        words: [{ id: "planner-light", text: "light", chunks: ["l", "ight"], focusChunk: "ight", tip: "Keep ight together." }],
+        words: [{ id: "planner-light", text: "light", chunks: ["l", "ight"], spokenChunks: ["l as in light", "ite as in light"], focusChunk: "ight", tip: "Keep ight together." }],
         check: {
           id: "check-light",
           targetWord: "light",
@@ -151,7 +151,10 @@ describe("evidence-cited spelling targeted programs", () => {
 
     expect(intervention.implementationType).toBe("visual-explainer");
     expect(visual.type).toBe("visual-explainer");
-    expect(visual.spellingModel.words).toEqual([{ id: frozenItem.id, text: "light", chunks: ["l", "ight"], focusChunk: "ight", tip: "Keep ight together." }]);
+    expect(visual.spellingModel.words).toEqual([{ id: frozenItem.id, text: "light", chunks: ["l", "ight"], spokenChunks: ["l as in light", "ite as in light"], focusChunk: "ight", tip: "Keep ight together." }]);
+    const mismatchedCuePlan = structuredClone(plan) as any;
+    mismatchedCuePlan.nodePlan[0].activityConfig.words[0].spokenChunks = ["one cue"];
+    expect(() => buildSpellingTargetedCycleInput({ cycle, plan: mismatchedCuePlan, now: "2026-09-08T12:00:00Z" })).toThrow("spelling_visual_explainer_config_invalid");
     expect(visual.questions[0]!.targetConcept).toBe(frozenItem.id);
     expect(input.nodes[1]!.evidenceContract.itemRoles).toEqual(expect.objectContaining(
       Object.fromEntries(Object.keys(input.nodes[1]!.evidenceContract.spellingItems!).map((id) => [id, "fresh_checkpoint"])),
@@ -385,6 +388,7 @@ describe("post-Discovery spelling Planner reasons as a tutor", () => {
     expect(SPELLING_TUTOR_PERSONA).toContain("school test");
     expect(prompt).toContain("not teaching guidance");
     expect(prompt).toContain("plannedMeasurements.spelling");
+    expect(prompt).toContain("spokenChunks");
   });
   it("tells the targeted Planner the opening spoken-letter experience that actually runs", () => {
     // Human catch (Ila, 2026-10-07): the first teaching node said visible_read,

@@ -20,6 +20,14 @@ afterEach(() => {
 });
 
 describe("game event handler companion events", () => {
+  it("speaks a tapped spelling chunk through the companion narration channel", () => {
+    const speakGameNarration = vi.fn().mockResolvedValue(true);
+    handleGameEventForSession({ recordDebugEvent: vi.fn(), recordGameTrace: vi.fn(), speakGameNarration }, {
+      type: "narration_request", game: "visual-explainer", word: "light", text: "ight", reason: "spelling_chunk",
+    });
+    expect(speakGameNarration).toHaveBeenCalledWith("ight.", expect.objectContaining({ reason: "spelling_chunk", word: "light" }));
+  });
+
   it("shows a recoverable child-facing warning when a spelling stimulus cannot play", async () => {
     const fakeSession = {
       recordDebugEvent: vi.fn(),

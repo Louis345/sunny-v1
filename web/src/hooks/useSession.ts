@@ -2066,6 +2066,7 @@ export function useSession(options?: UseSessionOptions) {
           "round_failed",
           "game_complete",
           "game_state_update",
+          "narration_request",
           "companion_event",
           "attempt_event",
         ].includes(t)

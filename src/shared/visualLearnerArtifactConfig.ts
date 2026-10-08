@@ -29,6 +29,7 @@ const spellingVisualWordSchema = z.object({
   id: z.string().min(1),
   text: z.string().min(1),
   chunks: z.array(z.string().min(1)).min(2).max(6),
+  spokenChunks: z.array(z.string().trim().min(1).max(100)).min(2).max(6).optional(),
   focusChunk: z.string().min(1),
   tip: z.string().min(1).max(160),
 }).superRefine((word, context) => {
@@ -38,6 +39,9 @@ const spellingVisualWordSchema = z.object({
   }
   if (!word.chunks.some((chunk) => normalize(chunk) === normalize(word.focusChunk))) {
     context.addIssue({ code: "custom", path: ["focusChunk"], message: "focusChunk must be one complete chunk" });
+  }
+  if (word.spokenChunks && word.spokenChunks.length !== word.chunks.length) {
+    context.addIssue({ code: "custom", path: ["spokenChunks"], message: "spokenChunks must align one-to-one with chunks" });
   }
 });
 
