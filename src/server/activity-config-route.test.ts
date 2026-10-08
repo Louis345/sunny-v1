@@ -84,6 +84,39 @@ describe("activity config route", () => {
     };
   }
 
+  it("serves a valid spelling Visual Explainer config through its runtime route", async () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-activity-config-"));
+    roots.push(root);
+    process.chdir(root);
+    writeGameConfig(root, "ila", "hw-spelling-week-5", "visual.json", {
+      artifactId: "hw-spelling-week-5:visual",
+      type: "visual-explainer",
+      concept: "The ight chunk",
+      learningGoal: "Notice and remember the ight chunk.",
+      misconception: "The middle sound maps to one letter.",
+      sourceEvidence: { source: "assignment:hw-spelling-week-5", capturedAt: "2026-10-08T12:00:00Z", summary: "A committed spelling miss." },
+      algorithmTargets: ["error-pattern-remediation", "retrieval-practice"],
+      reuseDecision: { status: "candidate", reason: "Awaiting checkpoint evidence." },
+      parentApproval: { status: "pending" },
+      mode: { default: "pause-for-question" },
+      preview: { allowPlaythrough: true },
+      narration: { enabled: false, provider: "companion", voiceId: "runtime-companion", modelId: "runtime-companion", audioPath: "none", scriptPath: "none", timings: [{ id: "strategy", startProgress: 0, endProgress: 100, text: "Keep the chunk together" }] },
+      questions: [{ id: "check", prompt: "Which chunk stays together?", options: [{ id: "ight", label: "ight", correct: true }, { id: "ite", label: "ite", correct: false }], correctOptionId: "ight", targetConcept: "spelling.word.light", pauseAtProgress: 48, scaffoldLevel: 2 }],
+      companionContext: { role: "hint_only", maxSentences: 3, canRevealAnswer: true },
+      evidence: { targetResults: ["spelling.word.light"], completion: "visual-complete" },
+      chrome: { childShowsEvidence: false, parentShowsEvidence: true, childShowsCarePlan: false, parentShowsCarePlan: true },
+      spellingModel: { strategy: { title: "Keep the chunk together", steps: ["Say light.", "Notice ight."] }, words: [{ id: "spelling.word.light", text: "light", chunks: ["l", "ight"], focusChunk: "ight", tip: "Keep ight together." }] },
+    });
+
+    const out = await getJson("/api/activity-config/ila/hw-spelling-week-5/visual.json");
+
+    expect(out.status).toBe(200);
+    expect(out.body).toMatchObject({
+      type: "visual-explainer",
+      spellingModel: { words: [{ text: "light", chunks: ["l", "ight"] }] },
+    });
+  });
+
   it("serves a valid Concept Check config from homework games after validation", async () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-activity-config-"));
     roots.push(root);

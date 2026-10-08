@@ -198,6 +198,7 @@ import {
   validateActivityEngineConfig,
   validateLetterRushConfig,
 } from "../engine/activityEngineConfig";
+import { validateVisualLearnerArtifactConfig } from "../shared/visualLearnerArtifactConfig";
 import { CompanionRegistry } from "../prompts/companions/registry";
 import { tryLoadIntroOnlyShowroomCompanion } from "./introOnlyShowroomCompanion";
 import {
@@ -443,8 +444,9 @@ function readShowroomStringList(value: unknown, limit: number): string[] {
 
 function activityIdFromConfig(config: unknown): string {
   if (!config || typeof config !== "object" || Array.isArray(config)) return "";
-  const value = (config as { activityId?: unknown }).activityId;
-  return typeof value === "string" ? value.trim() : "";
+  const { activityId, type } = config as { activityId?: unknown; type?: unknown };
+  if (typeof activityId === "string") return activityId.trim();
+  return type === "visual-explainer" ? type : "";
 }
 
 function getPronunciationLocators():
@@ -3276,6 +3278,16 @@ Return plain text only.`,
         });
       }
       return res.json(parsed);
+    }
+    if (activityId === "visual-explainer") {
+      try {
+        return res.json(validateVisualLearnerArtifactConfig(parsed));
+      } catch (error) {
+        return res.status(422).json({
+          error: "invalid_activity_config",
+          findings: [error instanceof Error ? error.message : String(error)],
+        });
+      }
     }
     if (activityId !== "concept-check" && activityId !== "letter-rush") {
       return res.status(422).json({
