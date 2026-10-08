@@ -803,7 +803,7 @@ function App() {
   const lastSessionCompleteTsRef = useRef<number | null>(null);
 
   const mapReady = homeworkBoardMode
-    ? Boolean(plannerBoardPacket)
+    ? Boolean(plannerBoardPacket) && (directDiscoveryMode || probeBoardMode || !targetedBoardHeldForPreparation)
     : !adventureChildId || !plannerBoardRuntimeRequested || plannerBoardRuntimeActive;
   const voiceReady =
     !adventureChildId ||

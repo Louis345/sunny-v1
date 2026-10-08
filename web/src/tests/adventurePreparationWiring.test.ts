@@ -7,6 +7,10 @@ import { describe, expect, it } from "vitest";
 describe("App integration", () => {
 const app = readFileSync(resolve(process.cwd(), "src/App.tsx"), "utf8");
 
+it("does not claim a targeted map is ready from packet existence alone", () => {
+  expect(app).toMatch(/const mapReady = homeworkBoardMode\s*\? Boolean\(plannerBoardPacket\) && \(directDiscoveryMode \|\| probeBoardMode \|\| !targetedBoardHeldForPreparation\)/);
+});
+
 it("renders the preparation screen for the spelling Discovery chapter end and the held board", () => {
   const surfaces = app.slice(app.indexOf("main = directDiscoveryMode ? ("), app.indexOf("<AdventureBoardExperience"));
   // Spelling uses the new screen at both points; it is checked before the old surfaces.
