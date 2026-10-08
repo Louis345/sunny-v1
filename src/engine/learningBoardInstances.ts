@@ -227,12 +227,12 @@ export function withInitialBoard<T extends Pick<LearningCycleRecordV2, "homework
  * from decision to publication so a polling session never refreshes into the new
  * board; the successor first appears on a later session.
  */
-export function successorPreparationStatus(cycle: LearningCycleRecordV2): { updatedAt: string; phase: "successor_preparing" | "successor_published" | "needs_attention"; nodes: [] } | undefined {
+export function successorPreparationStatus(cycle: LearningCycleRecordV2): { updatedAt: string; startedAt: string; phase: "successor_preparing" | "successor_published" | "needs_attention"; nodes: [] } | undefined {
   const latest = listBoardInstances(cycle).at(-1);
   if (!latest || latest.kind !== "successor") return undefined;
   const decidedAt = cycle.decisionHistory.find((entry) => entry.decisionId === latest.plannerDecisionId)?.createdAt ?? cycle.createdAt;
   const attention = latest.publishedAt === null && cycle.nodes.some((node) => latest.nodeIds.includes(node.nodeId) && node.state === "blocked");
-  return { updatedAt: decidedAt, phase: attention ? "needs_attention" : latest.publishedAt === null ? "successor_preparing" : "successor_published", nodes: [] };
+  return { updatedAt: decidedAt, startedAt: decidedAt, phase: attention ? "needs_attention" : latest.publishedAt === null ? "successor_preparing" : "successor_published", nodes: [] };
 }
 
 /**

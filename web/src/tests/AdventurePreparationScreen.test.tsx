@@ -122,6 +122,11 @@ describe("adventurePreparationMachine", () => {
 });
 
 describe("AdventurePreparationScreen", () => {
+  it("shows real elapsed build time while preparing, without implying a countdown", () => {
+    render(<AdventurePreparationScreen state="build" items={[]} reviewed={[]} stops={[{ activityType: "word-radar" }]} ready={0} elapsedLabel="2 min so far" onHearItem={vi.fn()} onStop={vi.fn()} onTryAgain={vi.fn()} onBye={vi.fn()} onLetsGo={vi.fn()} />);
+    expect(screen.getByText(/2 min so far/)).toBeVisible();
+    expect(screen.queryByText(/remaining/i)).toBeNull();
+  });
   const base: AdventurePreparationScreenProps = {
     state: "look", items, reviewed: [], stops, ready: 0,
     elapsedLabel: "1 min so far",

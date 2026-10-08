@@ -520,6 +520,7 @@ describe("successor preparation status (no in-session swap)", () => {
     const decided = await advanceCanonicalCycleFromEvidence({ childId: CHILD, homeworkId: HW, decide: async () => decision("generate_support", supportSuccessor) }, { rootDir });
     const preparing = successorPreparationStatus(decided)!;
     expect(preparing).toMatchObject({ phase: "successor_preparing", nodes: [] });
+    expect(preparing.startedAt).toBe(preparing.updatedAt);
     const published = successorPreparationStatus(bindAll(rootDir))!;
     expect(published.phase).toBe("successor_published");
     expect(published.updatedAt).toBe(preparing.updatedAt);
