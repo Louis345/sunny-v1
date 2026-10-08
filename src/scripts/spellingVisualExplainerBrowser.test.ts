@@ -148,6 +148,25 @@ describe.each(viewports)("spelling Visual Explainer at $width×$height", (viewpo
     expect(errors).toEqual([]);
   });
 
+  it("keeps the completed strategy readable until Done is tapped", async () => {
+    const { page, frame } = await launch(viewport);
+    await frame.locator("body").evaluate(() => (globalThis as any).SunnySpellingVisualExplainer.setProgress(48, false));
+    await frame.getByRole("button", { name: "ight", exact: true }).click();
+    await frame.getByRole("button", { name: "See the strategy" }).click();
+    await frame.locator("body").evaluate(() => {
+      (globalThis as any).SunnySpellingVisualExplainer.pause();
+      (globalThis as any).SunnySpellingVisualExplainer.setProgress(99, false);
+      (globalThis as any).SunnySpellingVisualExplainer.play();
+    });
+    await expect.poll(async () => frame.locator("#progressOut").textContent()).toBe("100%");
+    await page.waitForTimeout(100);
+    expect((await page.evaluate<Array<Record<string, any>>>("window.captured")).some(message => message.type === "node_complete")).toBe(false);
+    const done = frame.getByRole("button", { name: "Done" });
+    await assertUsable(done);
+    await done.click();
+    await expect.poll(async () => (await page.evaluate<Array<Record<string, any>>>("window.captured")).some(message => message.type === "node_complete")).toBe(true);
+  });
+
   it("blocks safely instead of teaching fallback content when production config is missing", async () => {
     const { page, frame, errors } = await launch(viewport, { configAvailable: false });
     await frame.getByRole("alert").waitFor();

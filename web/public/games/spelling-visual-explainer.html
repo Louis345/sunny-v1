@@ -209,6 +209,7 @@
         elements: el,
         revealStartProgress: 58,
         progressPerMs: .009,
+        autoCompleteOnTimelineEnd: false,
         getPhase(progress) { return progress < 10 ? "intro" : progress < 48 ? "model" : progress < 58 ? "practice-check" : progress < 96 ? "strategy" : "complete"; },
         renderScene,
         checkEvidence,

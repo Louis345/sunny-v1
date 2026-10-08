@@ -547,7 +547,7 @@
           setProgress(100, false);
           emitEvidence("scene-complete", "Visual explainer completed with evidence ready for recall.");
           pause();
-          completeActivity();
+          if (options.autoCompleteOnTimelineEnd !== false) completeActivity();
           return;
         }
         setProgress(next, false);
@@ -576,7 +576,7 @@
         setProgress(100, true);
         emitEvidence("scene-complete", "Visual explainer completed with evidence ready for recall.");
         pause();
-        completeActivity();
+        if (options.autoCompleteOnTimelineEnd !== false) completeActivity();
         return;
       }
 
@@ -793,7 +793,7 @@
           setProgress(100, false);
           emitEvidence("scene-complete", "Visual explainer completed with evidence ready for recall.");
           pause({ fromNarration: true });
-          completeActivity();
+          if (options.autoCompleteOnTimelineEnd !== false) completeActivity();
         });
       }
       document.addEventListener("visibilitychange", function () {
