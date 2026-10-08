@@ -161,6 +161,38 @@ describe("canonical node completion handoff", () => {
     expect(local).toEqual(nodeState === "completed" ? ["native"] : []);
   });
 
+  it("replays a failed save from the visible Play again action", async () => {
+    const source = readFileSync(resolve(process.cwd(), "src/App.tsx"), "utf8");
+    const block = source.slice(source.indexOf("const replayPlannerBoardLaunch ="), source.indexOf("const completePlannerBoardActivity ="));
+    const handler = block.slice(block.indexOf("useCallback(") + "useCallback(".length, block.lastIndexOf(", [launchPlannerBoardNode"));
+    const current = { node: { id: "visual" }, replayNonce: 0 };
+    const packet = { childChart: { learningCycle: { homeworkId: "hw" } }, activeSessionPlan: { adventureBoard: { nodes: [{ id: "visual" }] } } };
+    const launch = vi.fn();
+    await vm.runInNewContext(`(${handler})()`, {
+      plannerBoardLaunch: current, plannerBoardPacket: packet,
+      plannerBoardIframeCompletionKeyRef: { current: null },
+      hasCanonicalLearningCycle, refreshPlannerBoardPacket: async () => packet,
+      resolvePlannerBoardLaunchNode: (_packet: unknown, node: unknown) => node,
+      launchPlannerBoardNode: launch,
+    });
+    expect(launch).toHaveBeenCalledWith(expect.objectContaining({ id: "visual" }), 1);
+  });
+
+  it("shows saved completion even when the subsequent map refresh fails", async () => {
+    const source = readFileSync(resolve(process.cwd(), "src/App.tsx"), "utf8");
+    const block = source.slice(source.indexOf("const completePlannerBoardActivity ="), source.indexOf("const handlePlannerBoardPostActivityAction ="));
+    const handler = block.slice(block.indexOf("void write().then(") + "void write().then(".length, block.indexOf(").catch("));
+    const showOverlay = vi.fn();
+    await vm.runInNewContext(`(${handler})(completion)`, {
+      completion: { nodeState: "completed", outcome: { completed: true } },
+      launch: { node: { id: "visual" } }, plannerBoardPacket: { childChart: { learningCycle: {} } }, hasCanonicalLearningCycle,
+      refreshPlannerBoardPacket: async () => { throw new Error("temporary_refresh_failure"); },
+      setLocallyCompletedPlannerNodeIds: vi.fn(), setProfileCompanionCurrency: vi.fn(),
+      showPlannerBoardEngagementOverlay: showOverlay, console,
+    });
+    expect(showOverlay).toHaveBeenCalledOnce();
+  });
+
   it("uses one host launch identity for retries and a different one for genuine replay", async () => {
     const fetchMock=vi.fn(async()=>new Response(JSON.stringify({lifecycle:"baseline_active",revision:3}),{status:200}));
     vi.stubGlobal("fetch",fetchMock);

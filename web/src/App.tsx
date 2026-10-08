@@ -1543,7 +1543,6 @@ function App() {
       return;
     }
     const completionKey = plannerBoardIframeCompletionKeyRef.current;
-    if (!completionKey) return;
     const packet = await refreshPlannerBoardPacket();
     if (plannerBoardIframeCompletionKeyRef.current !== completionKey) return;
     if (!packet || packet.childChart.learningCycle?.homeworkId !== plannerBoardPacket?.childChart.learningCycle?.homeworkId) throw new Error("replay_assignment_not_available");
@@ -1569,7 +1568,11 @@ function App() {
         : null;
     };
     void write().then(async completion => {
-      await refreshPlannerBoardPacket();
+      try {
+        await refreshPlannerBoardPacket();
+      } catch (error) {
+        console.warn(" 🎮 [AdventureBoard] [refresh-after-save] [deferred]", error);
+      }
       const completed = completion ? completion.nodeState === "completed"
         : !hasCanonicalLearningCycle(plannerBoardPacket) && payload.completed === true && payload.earlyExit !== true;
       if (completed) setLocallyCompletedPlannerNodeIds(current => current.includes(launch.node.id) ? current : [...current, launch.node.id]);
