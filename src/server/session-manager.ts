@@ -158,6 +158,7 @@ import {
   companionPresenceAfterSpeech,
   dispositionAfterReset,
   handleCompanionPresenceTranscript,
+  routeCompanionPresenceTranscript,
   prepareInstructionReadRequest,
   recordActivityCompanionHelp,
   transitionCompanionPresence,
@@ -1679,7 +1680,16 @@ export class SessionManager {
     const activeGame = String(this.currentBoardSnapshot?.game ?? "").toLowerCase();
     const generatedMathActivity =
       activeGame === "generated-baseline" || activeGame === "generated-math";
+    const speechCaptureArmed = this.currentBoardSnapshot?.speechCaptureArmed === true;
+    const presenceRoute = routeCompanionPresenceTranscript({
+      transcript, presence: this.companionPresence,
+      companionName: this.companion.name, speechCaptureArmed,
+    });
+    if (this.companionPresence === "collapsed" && presenceRoute.action === "summon_and_respond") {
+      this.setCompanionPresence("summoned", "voice");
+    }
     const urgentRoute = !opts?.fromReadingComplete
+      && (this.companionPresence === "summoned" || presenceRoute.action === "summon_and_respond")
       ? detectUrgentLearningRoute({
           transcript,
           childName: this.childName,
@@ -1688,21 +1698,17 @@ export class SessionManager {
           currentCanvasState: this.currentCanvasState,
         })
       : null;
-    if ((urgentRoute?.intent.type === "help_request" || urgentRoute?.intent.type === "companion_name_call")
-      && this.companionPresence === "collapsed") {
-      this.setCompanionPresence("summoned", "voice");
-    }
     const companionConversationOpen = this.companionPresence === "summoned"
       && this.companionInteractionMode === "conversation";
     if (!urgentRoute?.intent.shouldInterrupt && !companionConversationOpen && handleCompanionPresenceTranscript({
       enabled: !opts?.fromReadingComplete &&
-        (generatedMathActivity || this.companionWakeGateEnabled || Boolean(this.spellingAssessment)),
+        (this.companionPresence === "collapsed" || generatedMathActivity || this.companionWakeGateEnabled || Boolean(this.spellingAssessment)),
       transcript,
       presence: this.companionPresence,
       companionName: this.companion.name,
-      speechCaptureArmed: this.currentBoardSnapshot?.speechCaptureArmed === true,
+      speechCaptureArmed,
       nodeId: this.currentBoardSnapshot?.nodeId,
-      sendFinal: (text) => this.send("final", { text }),
+      sendFinal: (text) => this.send(/^[a-z]$/i.test(text.trim()) ? "interim" : "final", { text }),
       setPresence: (state, reason) => this.setCompanionPresence(state, reason),
       recordEvent: (component, action, fields) =>
         this.debugRecorder.recordEvent(component, action, fields),

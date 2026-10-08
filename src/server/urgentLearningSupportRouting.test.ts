@@ -148,10 +148,25 @@ describe("urgent learning support routing", () => {
       currentWord: "broken", speechCaptureArmed: true,
     });
 
+    session.injectTranscript("Elli, can you help me with this word?");
+
+    await vi.waitFor(() => expect(respond).toHaveBeenCalledWith("Elli, can you help me with this word?"));
+    expect(ws.send).not.toHaveBeenCalledWith(expect.stringContaining('"type":"interim"'));
+  });
+
+  it("does not wake collapsed Elli for an unaddressed help request while preserving game capture", async () => {
+    const ws = mockWs();
+    const session = new SessionManager(ws, "Ila");
+    session.companionWakeGateEnabled = true;
+    const respond = vi.spyOn(session as unknown as { runCompanionResponse: (text: string) => Promise<void> }, "runCompanionResponse")
+      .mockResolvedValue(undefined);
+    session.injectGameContext({ game: "word-radar", nodeId: "practice", phase: "response", speechCaptureArmed: true });
+
     session.injectTranscript("Can you help me with this word?");
 
-    await vi.waitFor(() => expect(respond).toHaveBeenCalledWith("Can you help me with this word?"));
-    expect(ws.send).not.toHaveBeenCalledWith(expect.stringContaining('"type":"interim"'));
+    await vi.waitFor(() => expect(ws.send).toHaveBeenCalledWith(expect.stringContaining('"type":"final"')));
+    expect(respond).not.toHaveBeenCalled();
+    expect(ws.send).not.toHaveBeenCalledWith(expect.stringContaining('"state":"summoned"'));
   });
 
   it("opens Elli when the child calls only her name during spelling capture", async () => {
@@ -179,9 +194,9 @@ describe("urgent learning support routing", () => {
     session.injectGameContext({ game: "word-radar", nodeId: "practice", phase: "response", speechCaptureArmed: true });
 
     await (session as unknown as { handleEndOfTurn: (text: string, replay: boolean) => Promise<void> })
-      .handleEndOfTurn("Can you help me?", true);
+      .handleEndOfTurn("Elli, can you help me?", true);
 
-    expect(respond).toHaveBeenCalledWith("Can you help me?");
+    expect(respond).toHaveBeenCalledWith("Elli, can you help me?");
     expect(ws.send).not.toHaveBeenCalledWith(expect.stringContaining('"type":"interim"'));
   });
 
