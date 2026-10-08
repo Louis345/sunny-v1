@@ -10,7 +10,7 @@ import { recordSpellingDiscoveryAttempt } from "../engine/learningCycleRuntime";
 import { getChildChart } from "../profiles/childChart";
 import { generateBoardNodeImages } from "../engine/boardNodeImageGenerator";
 import { runSpellingDiscoveryIntake } from "./ingestHomework";
-import { runAdaptiveMathGeneration } from "./runAdaptiveMathGeneration";
+import { isResumableSpellingGenerationFailure, runAdaptiveMathGeneration } from "./runAdaptiveMathGeneration";
 import { recordedSpellingPlan, seedSpellingLab } from "./fixtures/spellingEvidenceFirst";
 
 const transport = vi.hoisted(() => ({ create: vi.fn(), clients: vi.fn() }));
@@ -31,6 +31,14 @@ beforeEach(() => {
 });
 
 describe("Planner-authored spelling node titles survive the real parser", () => {
+  it("resumes only deterministic spelling generation failures that can reuse durable provider receipts", () => {
+    expect(isResumableSpellingGenerationFailure("assignment_planner_tool_invalid:plannedMeasurements.3.spelling.evidenceIds too_small")).toBe(true);
+    expect(isResumableSpellingGenerationFailure("assignment_planner_ai_unavailable:ANTHROPIC_API_KEY")).toBe(true);
+    expect(isResumableSpellingGenerationFailure("spelling_board_publication_rejected:missing-node")).toBe(true);
+    expect(isResumableSpellingGenerationFailure("provider_outcome_uncertain:spelling-targeted-planner")).toBe(false);
+    expect(isResumableSpellingGenerationFailure("arbitrary_failure")).toBe(false);
+  });
+
   it("publishes a normal multi-node program with distinct authored titles and resumes from raw receipt", async () => {
     const f = await fixture(); transport.create.mockResolvedValue(structuredClone(f.message));
     const before = getLearningCycle(f.childId, f.homeworkId, f)!;

@@ -73,6 +73,18 @@ const VISUAL_REPAIR_PATCH_PARSER_VERSION = 2;
 const DEFAULT_TARGETED_BOARD_BACKGROUND = "/generated/adaptive-discovery-background.svg";
 const MAX_VISUAL_REPAIR_PASSES = 1;
 
+const RESUMABLE_SPELLING_GENERATION_FAILURE_PREFIXES = [
+  "assignment_planner_ai_unavailable:",
+  "assignment_planner_tool_invalid:",
+  "spelling_board_presentation_missing_nodes:",
+  "spelling_board_publication_rejected:",
+  "spelling_native_contract_changed:",
+] as const;
+
+export function isResumableSpellingGenerationFailure(error?: string): boolean {
+  return RESUMABLE_SPELLING_GENERATION_FAILURE_PREFIXES.some((prefix) => error?.startsWith(prefix));
+}
+
 function checkerContractAmbiguity(report?: Pick<DirectPlaywrightReport, "failures">): string | undefined {
   return report?.failures.find(failure => failure.startsWith("math_journey_checker_contract_ambiguity;"));
 }
@@ -998,13 +1010,9 @@ async function runSpellingTargetedGeneration(childId: string, homeworkId: string
   if (stoppedJob?.phase === "needs_attention") {
     const publicationOnlyRetry = stoppedJob.nodes.length > 0 && stoppedJob.nodes.every((node) =>
       ["ready", "completed", "evidence_locked"].includes(node.status));
-    const localPublicationRetry = [
-      "spelling_board_presentation_missing_nodes:",
-      "spelling_board_publication_rejected:",
-      "spelling_native_contract_changed:",
-    ].some((prefix) => stoppedJob.error?.startsWith(prefix));
-    if (!publicationOnlyRetry && !localPublicationRetry) return;
-    console.log(` 🎮 [spelling] [targeted-generation] [${localPublicationRetry ? "revalidating-local-publication" : "resuming-publication"}] homework=${homeworkId}`);
+    const deterministicRetry = isResumableSpellingGenerationFailure(stoppedJob.error);
+    if (!publicationOnlyRetry && !deterministicRetry) return;
+    console.log(` 🎮 [spelling] [targeted-generation] [${deterministicRetry ? "revalidating-saved-output" : "resuming-publication"}] homework=${homeworkId}`);
   }
   queueTargetedMathGeneration(scope);
   const draft = resolveAdaptiveMathDraftDir(childId, homeworkId, { rootDir });
