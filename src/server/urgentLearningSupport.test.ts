@@ -187,6 +187,26 @@ describe("urgent learning support", () => {
     }
   });
 
+  it("keeps follow-up speech with Elli after she answers during Word Radar", async () => {
+    const previousStateless = process.env.SUNNY_STATELESS;
+    process.env.SUNNY_STATELESS = "true";
+    try {
+      const ws = { readyState: WebSocket.OPEN, OPEN: WebSocket.OPEN, send: vi.fn() } as unknown as WebSocket;
+      const session = new SessionManager(ws, "Ila");
+      session.companionWakeGateEnabled = true;
+      const respond = vi.spyOn(session as unknown as { runCompanionResponse: (text: string) => Promise<void> }, "runCompanionResponse")
+        .mockResolvedValue(undefined);
+      session.injectGameContext({ game: "word-radar", nodeId: "practice", phase: "response", speechCaptureArmed: true });
+      session.setCompanionPresence("summoned", "voice");
+
+      session.injectTranscript("Can you hear me?");
+
+      await vi.waitFor(() => expect(respond).toHaveBeenCalledWith("Can you hear me?"));
+    } finally {
+      process.env.SUNNY_STATELESS = previousStateless;
+    }
+  });
+
   it("deduplicates read requests and refuses answer-visible activity state", () => {
     const first = prepareInstructionReadRequest({
       nodeId: "N1",

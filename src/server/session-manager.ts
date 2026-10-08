@@ -288,6 +288,10 @@ export class SessionManager {
    * Diag: suppress unless utterance looks like a command to the assistant.
    */
   private shouldSuppressTranscriptDuringKaraoke(transcript: string): boolean {
+    if (this.companionPresence === "summoned" && this.companionInteractionMode === "conversation") {
+      console.log("  🎮 [transcript] [active-game-pass] reason=companion_conversation");
+      return false;
+    }
     if (
       shouldSuppressTranscriptDuringActiveLearningGame({
         transcript,
@@ -1688,7 +1692,9 @@ export class SessionManager {
       && this.companionPresence === "collapsed") {
       this.setCompanionPresence("summoned", "voice");
     }
-    if (!urgentRoute?.intent.shouldInterrupt && handleCompanionPresenceTranscript({
+    const companionConversationOpen = this.companionPresence === "summoned"
+      && this.companionInteractionMode === "conversation";
+    if (!urgentRoute?.intent.shouldInterrupt && !companionConversationOpen && handleCompanionPresenceTranscript({
       enabled: !opts?.fromReadingComplete &&
         (generatedMathActivity || this.companionWakeGateEnabled || Boolean(this.spellingAssessment)),
       transcript,
