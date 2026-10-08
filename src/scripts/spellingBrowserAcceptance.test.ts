@@ -184,7 +184,10 @@ it.each([
       const message = JSON.parse(String(data));
       events.push(`ws:${message.type}`);
       const event = message.event;
-      if(event?.type === "game_state_update" && event.payload?.phase === "launched") events.push(`node-launch:${event.payload.launchToken}`);
+      if(event?.type === "game_state_update"
+        && (event.payload?.phase === "opening" || event.payload?.phase === "launched")
+        && typeof event.payload?.launchToken === "string"
+        && event.payload.launchToken) events.push(`node-launch:${event.payload.launchToken}`);
       if (event?.type === "attempt_event") events.push("canonical-game:attempt_event");
       if (event?.type === "narration_request") pendingAssessmentPlayback += 1;
       if (message.type === "playback_done" && pendingAssessmentPlayback > 0) {
