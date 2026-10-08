@@ -77,6 +77,7 @@ const RESUMABLE_SPELLING_GENERATION_FAILURE_PREFIXES = [
   "assignment_planner_ai_unavailable:",
   "assignment_planner_tool_invalid:",
   "assignment_planner_validation_failed:word_radar_unrendered_teaching",
+  "spelling_visual_explainer_config_invalid:",
   "spelling_board_presentation_missing_nodes:",
   "spelling_board_publication_rejected:",
   "spelling_native_contract_changed:",

@@ -34,6 +34,7 @@ describe("Planner-authored spelling node titles survive the real parser", () => 
   it("resumes only deterministic spelling generation failures that can reuse durable provider receipts", () => {
     expect(isResumableSpellingGenerationFailure("assignment_planner_tool_invalid:plannedMeasurements.3.spelling.evidenceIds too_small")).toBe(true);
     expect(isResumableSpellingGenerationFailure("assignment_planner_validation_failed:word_radar_unrendered_teaching")).toBe(true);
+    expect(isResumableSpellingGenerationFailure("spelling_visual_explainer_config_invalid:node-explain-contribute")).toBe(true);
     expect(isResumableSpellingGenerationFailure("assignment_planner_ai_unavailable:ANTHROPIC_API_KEY")).toBe(true);
     expect(isResumableSpellingGenerationFailure("spelling_board_publication_rejected:missing-node")).toBe(true);
     expect(isResumableSpellingGenerationFailure("provider_outcome_uncertain:spelling-targeted-planner")).toBe(false);
