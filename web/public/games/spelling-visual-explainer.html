@@ -29,7 +29,6 @@
     .eyebrow { margin:0 0 3px; color:var(--mint); font-size:13px; font-weight:900; letter-spacing:.14em; text-transform:uppercase; }
     h1 { margin:0; font-size:clamp(24px,3vw,38px); letter-spacing:-.03em; }
     .goal { margin:5px 0 0; color:rgba(255,255,255,.75); font-size:clamp(14px,1.5vw,18px); }
-    .back { border:1px solid rgba(255,255,255,.24); color:white; background:rgba(0,0,0,.24); padding:11px 16px; border-radius:999px; font-weight:850; cursor:pointer; }
     .stage { min-height:0; display:grid; place-items:center; }
     .card {
       width:min(940px,100%); min-height:min(570px,calc(100vh - 170px));
@@ -92,7 +91,6 @@
         <h1 id="title">See the word in pieces</h1>
         <p id="goal" class="goal">Notice a helpful chunk, then try it on your own later.</p>
       </div>
-      <button id="backButton" class="back" type="button">Back to map</button>
     </header>
     <section class="stage" aria-live="polite">
       <div class="card">
@@ -151,7 +149,6 @@
         predFeedback: document.getElementById("predFeedback"),
         revealButton: document.getElementById("revealButton"),
         finishButton: document.getElementById("finishButton"),
-        backButton: document.getElementById("backButton"),
         artifactDebug: document.getElementById("artifactDebug"),
         choices: Array.from(document.querySelectorAll(".choice")),
       };

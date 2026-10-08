@@ -10,6 +10,13 @@ function read(rel: string): string {
 }
 
 describe("map button audit", () => {
+  it("gives the kiosk sole navigation ownership for an embedded spelling explainer", () => {
+    const activity = read("public/games/spelling-visual-explainer.html");
+    const app = read("src/App.tsx");
+    expect(activity).not.toMatch(/<button id="backButton"[^>]*>Back to map<\/button>/);
+    expect(app).toContain('plannerBoardLaunch?.iframeUrl ? (');
+    expect(app).toContain('backLabel={directDiscoveryMode ? "Leave Discovery" : "Back to map"}');
+  });
   it("new homework board mode does not render the legacy AdventureMap", () => {
     const src = read("src/App.tsx");
     expect(src).toContain("AdventureBoardExperience");
