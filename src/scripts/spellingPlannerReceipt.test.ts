@@ -308,7 +308,8 @@ describe("spelling Planner raw-response durability", () => {
       .mockResolvedValueOnce(stillInvalid)
       .mockResolvedValueOnce(repaired);
 
-    await expect(f.run()).rejects.toThrow("word_radar_capability_mismatch");
+    const result = await f.run();
+    expect(result.output.activeSessionPlan.nodePlan[0].id).toBe("practice");
     expect(transport.create).toHaveBeenCalledTimes(3);
     expect(hasReceivedMathProviderStage(f.draftDir, "spelling-targeted-planner-tool-correction-v3-1")).toBe(true);
     expect(hasReceivedMathProviderStage(f.draftDir, "spelling-targeted-planner-tool-correction-v3-3-schema")).toBe(true);
