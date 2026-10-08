@@ -49,4 +49,10 @@ describe("adaptive math worker startup reconciliation", () => {
     expect(shouldResumeAdaptiveMathWorker(failed)).toBe(true);
     expect(shouldResumeAdaptiveMathWorker(job("needs_attention", []))).toBe(false);
   });
+
+  it("revalidates a saved visual-explainer plan after its renderer contract is repaired", () => {
+    const failed = job("needs_attention", []);
+    failed.error = "spelling_visual_explainer_config_invalid:node-explain-contribute";
+    expect(shouldResumeAdaptiveMathWorker(failed)).toBe(true);
+  });
 });

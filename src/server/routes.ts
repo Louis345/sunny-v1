@@ -86,8 +86,10 @@ import { localTsxCommand, type LocalRuntimeCommand } from "../scripts/localRunti
 
 export function shouldResumeAdaptiveMathWorker(job: MathGenerationJob): boolean {
   if (job.phase === "probe_ready") return false;
-  if (job.phase === "needs_attention" && job.nodes.length === 0 &&
-    job.error?.startsWith("assignment_planner_validation_failed:word_radar_unrendered_teaching")) return true;
+  if (job.phase === "needs_attention" && job.nodes.length === 0 && [
+    "assignment_planner_validation_failed:word_radar_unrendered_teaching",
+    "spelling_visual_explainer_config_invalid:",
+  ].some((prefix) => job.error?.startsWith(prefix))) return true;
   return job.phase !== "needs_attention" || hasResumableMathGenerationWork(job);
 }
 
