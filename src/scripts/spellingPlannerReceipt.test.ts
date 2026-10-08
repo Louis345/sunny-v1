@@ -246,23 +246,40 @@ describe("spelling Planner raw-response durability", () => {
     expect(JSON.stringify(transport.create.mock.calls[1]?.[0])).toContain("reward");
   });
 
-  it("stops after one invalid targeted Planner correction instead of looping", async () => {
+  it("repairs one schema-invalid targeted Planner correction with one final bounded request", async () => {
     const f = await fixture();
     const invalid = structuredClone(f.message);
     invalid.content[1].input!.plannedMeasurements[0].spelling!.evidenceIds = [];
     const stillInvalid = structuredClone(invalid);
     stillInvalid.id = "recorded-invalid-schema-correction";
+    const repaired = structuredClone(f.message);
+    repaired.id = "recorded-repaired-schema-correction";
     transport.create
       .mockResolvedValueOnce(invalid)
-      .mockResolvedValueOnce(stillInvalid);
+      .mockResolvedValueOnce(stillInvalid)
+      .mockResolvedValueOnce(repaired);
 
-    await expect(f.run()).rejects.toThrow("assignment_planner_tool_invalid");
-    expect(transport.create).toHaveBeenCalledTimes(2);
+    await expect(f.run()).rejects.toThrow("word_radar_capability_mismatch");
+    expect(transport.create).toHaveBeenCalledTimes(3);
     expect(hasReceivedMathProviderStage(f.draftDir, "spelling-targeted-planner-tool-correction-v3-1")).toBe(true);
+    expect(hasReceivedMathProviderStage(f.draftDir, "spelling-targeted-planner-tool-correction-v3-3-schema")).toBe(true);
+  });
 
-    vi.stubEnv("ANTHROPIC_API_KEY", "");
+  it("stops after the final bounded schema correction remains invalid", async () => {
+    const f = await fixture();
+    const invalid = structuredClone(f.message);
+    invalid.content[1].input!.plannedMeasurements[0].spelling!.evidenceIds = [];
+    const stillInvalid = structuredClone(invalid);
+    stillInvalid.id = "recorded-still-invalid-schema-correction";
+    const finalInvalid = structuredClone(invalid);
+    finalInvalid.id = "recorded-final-invalid-schema-correction";
+    transport.create
+      .mockResolvedValueOnce(invalid)
+      .mockResolvedValueOnce(stillInvalid)
+      .mockResolvedValueOnce(finalInvalid);
+
     await expect(f.run()).rejects.toThrow("assignment_planner_tool_invalid");
-    expect(transport.create).toHaveBeenCalledTimes(2);
+    expect(transport.create).toHaveBeenCalledTimes(3);
   });
 
   it("corrects a schema-valid checkpoint-before-intervention plan once before checkpointing it", async () => {

@@ -2208,10 +2208,50 @@ async function callAssignmentPlannerModel(
     console.log(` 🎮 [assignment-planner] [tool-correction] [received] id=${correction.message.id}`);
     const correctionUsage = usageFromAnthropic(correction.message);
     let combinedUsage = combinePlannerUsage(originalUsage, correctionUsage);
-    const correctedDraft = parseAssignmentPlannerToolUseResponse(correction.message);
+    let correctedDraft: AssignmentPlannerResponseObject;
     let validatedDraft: AssignmentPlannerResponseObject;
     let finalReceivedAt = correction.createdAt;
     let totalLatencyMs = received.latencyMs + correction.latencyMs;
+    try {
+      correctedDraft = parseAssignmentPlannerToolUseResponse(correction.message);
+    } catch (correctionParseError) {
+      if (!(correctionParseError instanceof AssignmentPlannerToolInvalidError)) throw correctionParseError;
+      const schemaCorrectionRequest = {
+        version: 5,
+        purpose: "assignment_planner_schema_correction",
+        originalRequestHash: hashDiscoveryContract(packet),
+        invalidToolInput: correctionParseError.toolInput,
+        schemaIssues: correctionParseError.issues,
+        allowedEvidenceIds,
+        allowedSpellingTargets: [...allowedSpellingTargets].sort(),
+      };
+      const schemaCorrectionPrompt = `Your corrected ${ASSIGNMENT_PLANNER_TOOL_NAME} input still failed its declared schema. Reissue the complete tool input once. Preserve every valid node, activity, target, route, prediction, measurement, and evidence choice. Correct only the listed schema violations. Every spelling.evidenceIds array must contain one or more IDs from ALLOWED EVIDENCE IDS. Do not add, remove, reorder, or redesign nodes. This is the final bounded correction request; return one complete valid tool input.\nSCHEMA ISSUES:\n${JSON.stringify(correctionParseError.issues)}\nALLOWED SPELLING TARGETS:\n${JSON.stringify([...allowedSpellingTargets].sort())}\nALLOWED EVIDENCE IDS:\n${JSON.stringify(allowedEvidenceIds)}\nPREVIOUS CORRECTED TOOL INPUT:\n${JSON.stringify(correctionParseError.toolInput)}`;
+      const schemaCorrectionStarted = Date.now();
+      const schemaCorrection = await runMathProviderStage({
+        draftDir: providerReceipt.draftDir,
+        stage: `${providerReceipt.stage}-tool-correction-v3-3-schema`,
+        model,
+        request: schemaCorrectionRequest,
+        beforeRequest: () => {
+          if (!process.env.ANTHROPIC_API_KEY) throw new Error("assignment_planner_ai_unavailable:ANTHROPIC_API_KEY");
+        },
+        execute: async () => ({
+          message: await requestAssignmentPlannerTool({
+            prompt: schemaCorrectionPrompt,
+            model,
+            schema: assignmentPlannerToolJsonSchema(true, packet.activityCatalog),
+          }),
+          model,
+          latencyMs: Date.now() - schemaCorrectionStarted,
+          createdAt: new Date().toISOString(),
+        }),
+      });
+      console.log(` 🎮 [assignment-planner] [schema-correction] [received] id=${schemaCorrection.message.id}`);
+      correctedDraft = parseAssignmentPlannerToolUseResponse(schemaCorrection.message);
+      combinedUsage = combinePlannerUsage(combinedUsage, usageFromAnthropic(schemaCorrection.message));
+      totalLatencyMs += schemaCorrection.latencyMs;
+      finalReceivedAt = schemaCorrection.createdAt;
+    }
     try {
       validatedDraft = validateAssignmentPlannerRelationships(correctedDraft, allowedEvidenceIdSet, requireSpellingMeasurements, allowedSpellingTargets);
     } catch (correctionError) {
