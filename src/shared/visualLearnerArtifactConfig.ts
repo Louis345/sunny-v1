@@ -60,7 +60,7 @@ export const spellingVisualExplainerPlanConfigSchema = z.object({
   domain: z.literal("spelling"),
   topic: z.string().min(1).max(120),
   learningGoal: z.string().min(1).max(220),
-  misconception: z.string().min(1).max(220),
+  misconception: z.string().min(1),
   strategy: z.object({
     title: z.string().min(1).max(100),
     steps: z.array(z.string().min(1).max(140)).min(2).max(4),

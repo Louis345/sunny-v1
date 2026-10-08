@@ -157,6 +157,14 @@ describe("evidence-cited spelling targeted programs", () => {
       Object.fromEntries(Object.keys(input.nodes[1]!.evidenceContract.spellingItems!).map((id) => [id, "fresh_checkpoint"])),
     ));
 
+    // Ila's saved Planner plan supplied a detailed, truthful misconception
+    // longer than the old arbitrary 220-character limit. The human saw a
+    // stalled waiting screen; the lab had only short fixture descriptions.
+    const detailed = structuredClone(plan);
+    const detail = "Ila reversed and omitted letters in contribute, while float and few were only produced with help. The instruction should separate those observations, show each word's chunks, and avoid claiming that assisted spelling proves independent recall. ".repeat(2);
+    (detailed.nodePlan[0]!.activityConfig as { misconception: string }).misconception = detail;
+    expect((buildSpellingTargetedCycleInput({ cycle, plan: detailed, now: "2026-09-08T12:00:00Z" }).nodes[0]!.evidenceContract.nativeConfig as { misconception: string }).misconception).toBe(detail);
+
     // Live Saori catch (2026-10-08): Planner chose a meaningful focus that
     // crossed its own display chunks (to + mor + row, focus rrow). The worker
     // stopped after the paid repair even though the word and focus were sound.
