@@ -229,6 +229,45 @@ describe("spelling Planner raw-response durability", () => {
     expect(transport.create).toHaveBeenCalledTimes(2);
   });
 
+  it("repairs a corrected Planner node whose teaching rounds cannot render in Word Radar", async () => {
+    // Human catch: the original receipt had no Word Radar rounds, but its
+    // relationship correction added them. Logs stopped at final validation;
+    // the lab never checked semantic validity after a schema correction.
+    const f = await fixture();
+    const needsLineageCorrection = structuredClone(f.message);
+    needsLineageCorrection.content[1].input!.plannedMeasurements[0].spelling!.evidenceIds = ["invented-evidence-id"];
+    const unrenderableCorrection = structuredClone(f.message);
+    unrenderableCorrection.id = "recorded-unrenderable-correction";
+    unrenderableCorrection.content[1].input!.activeSessionPlan.nodePlan[0].rounds = [{
+      id: "hidden-teaching", prompt: "Choose a spelling", options: [
+        { id: "right", label: "light", correct: true },
+        { id: "wrong", label: "lite", correct: false },
+      ],
+    }];
+    const renderableCorrection = structuredClone(f.message);
+    renderableCorrection.id = "recorded-renderable-correction";
+    const radarMode = f.packet.activityCatalog.find(card => card.activityId === "word-radar")!.capabilityModes[0]!.config;
+    for (const message of [needsLineageCorrection, unrenderableCorrection, renderableCorrection]) {
+      for (const node of message.content[1].input!.activeSessionPlan.nodePlan) {
+        if (node.activityId === "word-radar") node.wordRadarConfig = radarMode as unknown as typeof node.wordRadarConfig;
+      }
+    }
+    transport.create
+      .mockResolvedValueOnce(needsLineageCorrection)
+      .mockResolvedValueOnce(unrenderableCorrection)
+      .mockResolvedValueOnce(renderableCorrection);
+
+    const result = await f.run();
+
+    expect(result.output.activeSessionPlan.nodePlan[0].rounds).toBeUndefined();
+    expect(transport.create).toHaveBeenCalledTimes(3);
+    expect(JSON.stringify(transport.create.mock.calls[2]?.[0])).toContain("word_radar_unrendered_teaching");
+    expect(hasReceivedMathProviderStage(f.draftDir, "spelling-targeted-planner-semantic-correction-v1")).toBe(true);
+    vi.stubEnv("ANTHROPIC_API_KEY", "");
+    expect((await f.run()).output).toEqual(result.output);
+    expect(transport.create).toHaveBeenCalledTimes(3);
+  });
+
   it("corrects an invented spelling target before the cycle builder rejects the board", async () => {
     // Human catch: the rebuilt Ila board used `reward` as the target of a
     // mystery break. The assignment contains no such spelling word, but the

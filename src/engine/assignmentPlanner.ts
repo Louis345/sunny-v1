@@ -2651,6 +2651,51 @@ async function planAssignmentFromSourceInternal(
   });
   const blockingIssues = validationIssues.filter((issue) => issue.severity === "error");
   if (blockingIssues.length > 0) {
+    if (opts.providerReceipt && packet.discoveryEvidence
+      && blockingIssues.every((issue) => issue.code === "word_radar_unrendered_teaching")) {
+      const correctionRequest = {
+        version: 1,
+        purpose: "assignment_planner_semantic_correction",
+        originalRequestHash: hashDiscoveryContract(packet),
+        invalidToolInput: result.draft,
+        validationIssues: blockingIssues,
+      };
+      const correctionPrompt = `Your ${ASSIGNMENT_PLANNER_TOOL_NAME} input passed schema and evidence checks, but its child-facing activity contract failed. Reissue the complete plan once. Preserve the assignment, child evidence, valid learning choices, measurements, and routes. For each listed Word Radar node, its screen cannot display rounds or teachingFocus: choose a catalog instrument that renders the intended teaching, or express the activity through Word Radar's supported wordRadarConfig without hidden teaching. Keep all academic content visible to the child. Do not invent evidence, targets, or activities.\nVALIDATION ISSUES:\n${JSON.stringify(blockingIssues)}\nLAUNCHABLE ACTIVITY CAPABILITIES:\n${JSON.stringify(packet.activityCatalog.filter(card => card.launchable).map(card => ({ activityId: card.activityId, nodeType: card.nodeType, capabilityModes: card.capabilityModes })))}\nPREVIOUS TOOL INPUT:\n${JSON.stringify(result.draft)}`;
+      const correctionStarted = Date.now();
+      const correction = await runMathProviderStage({
+        draftDir: opts.providerReceipt.draftDir,
+        stage: `${opts.providerReceipt.stage}-semantic-correction-v1`,
+        model,
+        request: correctionRequest,
+        beforeRequest: () => {
+          if (!process.env.ANTHROPIC_API_KEY) throw new Error("assignment_planner_ai_unavailable:ANTHROPIC_API_KEY");
+        },
+        execute: async () => ({
+          message: await requestAssignmentPlannerTool({ prompt: correctionPrompt, model, schema: assignmentPlannerToolJsonSchema(true, packet.activityCatalog) }),
+          model,
+          latencyMs: Date.now() - correctionStarted,
+          createdAt: new Date().toISOString(),
+        }),
+      });
+      console.log(` 🎮 [assignment-planner] [semantic-correction] [received] id=${correction.message.id}`);
+      const correctedDraft = validateAssignmentPlannerRelationships(
+        parseAssignmentPlannerToolUseResponse(correction.message),
+        new Set(assignmentPlannerAllowedEvidenceIds(packet)),
+        true,
+        new Set(packet.capturedHomework.words.map(word => word.trim().toLocaleLowerCase("en-US"))),
+      );
+      const correctedOutput = hydrateAssignmentPlannerOutputFromDraft(correctedDraft, packet, correction.createdAt);
+      const remainingIssues = validateAssignmentPlannerOutput(correctedOutput, {
+        extraction: packet.sourceDocument,
+        activityCatalog: packet.activityCatalog,
+        requireNodeTitles: true,
+        requireCatalogBinding: true,
+      }).filter(issue => issue.severity === "error");
+      if (remainingIssues.length) throw new Error(`assignment_planner_validation_failed:${remainingIssues.map(issue => issue.code).join(",")}: ${remainingIssues.map(issue => issue.message).join("; ")}`);
+      console.log(" 🎮 [assignment-planner] [semantic-correction] [validated]");
+      return { output: correctedOutput, receivedAt: correction.createdAt,
+        telemetry: { model, usage: combinePlannerUsage(result.telemetry?.usage ?? result.usage, usageFromAnthropic(correction.message)), latencyMs: Date.now() - started } };
+    }
     throw new Error(`assignment_planner_validation_failed:${blockingIssues.map((issue) => issue.code).join(",")}: ${blockingIssues.map(issue => issue.message).join("; ")}`);
   }
 
