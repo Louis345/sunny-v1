@@ -670,9 +670,13 @@
         wordsAttempted: state.targetResults.length,
         flaggedWords: [],
         targetResults: canonicalTargetResults,
-        activityEvents: state.activityEvents,
+        activityEvents: null,
       };
-      emitEvidence("activity_complete", "Visual learner artifact complete.", completion);
+      emitEvidence("activity_complete", "Visual learner artifact complete.", {
+        activityId: artifactConfig.artifactId,
+        accuracy: accuracy,
+      });
+      completion.activityEvents = state.activityEvents.slice();
       reportState("activity_complete", "Visual learner artifact complete.");
       reportCompanionAnchor("activity_complete", {
         correct: accuracy >= 1,

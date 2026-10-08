@@ -120,15 +120,20 @@ describe.each(viewports)("spelling Visual Explainer at $width×$height", (viewpo
     await page.screenshot({ path: path.join(proofDir, `completion-${viewport.width}x${viewport.height}.png`) });
     const captured = await page.evaluate<Array<Record<string, any>>>("window.captured");
     expect(captured.map((message) => message.type)).toContain("node_complete");
+    const completion = captured.find((message) => message.type === "node_complete");
+    // A completion must cross the same JSON transport used by the kiosk/server.
+    expect(() => JSON.stringify(completion)).not.toThrow();
+    expect(() => JSON.stringify(captured.find((message) => message.type === "game_complete"))).not.toThrow();
     const attempts=captured.filter(message=>message.type==='attempt_event');
-    expect(attempts).toHaveLength(1);
+    expect(attempts).toHaveLength(2);
     expect(attempts[0].payload).toMatchObject({launchToken:'visual-launch',evidenceLimitation:'non_spelling_response',rawChoice:'ight',aggregateAccuracy:null});
     expect(attempts[0].payload).not.toHaveProperty('attemptedValue');
+    expect(attempts[1].payload).toMatchObject({launchToken:'visual-launch',evidenceLimitation:'per_word_results_unavailable'});
+    expect(attempts[1].payload).not.toHaveProperty('attemptedValue');
     const shown=captured.filter(message=>message.type==='game_state_update'&&message.payload.spellingItemOpened);
     expect(shown).toHaveLength(1);
     expect(shown[0].payload).toMatchObject({itemId:'frozen-light',launchToken:'visual-launch',practiceCapture:true,answerVisibility:'visible'});
     expect(captured.indexOf(shown[0])).toBeLessThan(captured.indexOf(attempts[0]));
-    const completion = captured.find((message) => message.type === "node_complete");
     expect(completion).toMatchObject({
       completed: true,
       targetResults: [{
