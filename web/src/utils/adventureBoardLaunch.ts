@@ -172,6 +172,10 @@ export function hasPendingLearningGeneration(packet: ChildExperiencePacket | nul
 export function shouldHoldTargetedBoardForPreparation(packet: ChildExperiencePacket | null): boolean {
   if (!packet || isDirectDiscoveryPacket(packet) || isProbeBoardPacket(packet)) return false;
   if (!["math", "spelling"].includes(packet.activeSessionPlan?.domain ?? "")) return false;
+  if (packet.activeSessionPlan?.planId?.startsWith("discovery:")) return true;
+  if (["evidence_ready", "targeted_planning", "board_designing", "board_generating"].includes(
+    packet.childChart?.learningCycle?.lifecycle ?? "",
+  )) return true;
   const nodes = packet.activeSessionPlan?.adventureBoard?.nodes ?? [];
   if (nodes.some((node) => node.state === "preview" || [
     "generation-needs-attention", "artifact-generating", "artifact-not-ready",

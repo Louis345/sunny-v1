@@ -371,6 +371,31 @@ describe("direct Discovery entry", () => {
     expect(shouldHoldTargetedBoardForPreparation(targeted)).toBe(false);
   });
 
+  it("keeps the waiting screen over a completed Discovery stub until the whole teaching board is published", () => {
+    // Human catch: Ila saw the one-node Discovery map after all probes were saved.
+    // The server logged a failed Planner job, but the UI lab checked only partial
+    // targeted nodes, so its completed Discovery action looked playable to the gate.
+    const discovery = packet("discovery:hw-1:cycle-r17", [
+      { id: "start", type: "start" },
+      { id: "hw-1:discovery", type: "word-radar", title: "Discovery" },
+    ]);
+    discovery.activeSessionPlan!.domain = "spelling";
+    discovery.childChart = { learningCycle: { homeworkId: "hw-1", lifecycle: "evidence_ready" } } as never;
+    discovery.activeSessionPlan!.adventureBoard!.nodes[1]!.state = "completed";
+    expect(shouldHoldTargetedBoardForPreparation(discovery)).toBe(true);
+
+    const teaching = packet("targeted:hw-1", [
+      { id: "start", type: "start" },
+      { id: "practice", type: "word-radar", title: "Practice" },
+    ]);
+    teaching.activeSessionPlan!.domain = "spelling";
+    teaching.childChart = { learningCycle: { homeworkId: "hw-1", lifecycle: "board_generating" } } as never;
+    teaching.activeSessionPlan!.adventureBoard!.nodes[1]!.state = "available";
+    expect(shouldHoldTargetedBoardForPreparation(teaching)).toBe(true);
+    teaching.childChart.learningCycle!.lifecycle = "board_ready";
+    expect(shouldHoldTargetedBoardForPreparation(teaching)).toBe(false);
+  });
+
   it("opens a verified teaching board whose first action is a Planner route choice", () => {
     // Human catch: every route was ready, but the map stayed behind preparation forever.
     // The logs proved publication; the lab only looked for a direct activity launch.
