@@ -270,6 +270,82 @@ describe("spelling Planner raw-response durability", () => {
     expect(transport.create).toHaveBeenCalledTimes(3);
   });
 
+  it("repairs one Word Radar node with both hidden teaching and an unsupported response mode", async () => {
+    // Live Ila run: schema correction produced both errors, then generation paused
+    // before publication because semantic correction only accepted one error code.
+    const f = await fixture();
+    const needsLineageCorrection = structuredClone(f.message);
+    needsLineageCorrection.content[1].input!.plannedMeasurements[0].spelling!.evidenceIds = ["invented-evidence-id"];
+    const invalidCorrection = structuredClone(f.message);
+    invalidCorrection.id = "recorded-mixed-invalid-correction";
+    invalidCorrection.content[1].input!.activeSessionPlan.nodePlan[0].rounds = [{
+      id: "hidden-teaching", prompt: "Choose a spelling", options: [
+        { id: "right", label: "light", correct: true },
+        { id: "wrong", label: "lite", correct: false },
+      ],
+    }];
+    invalidCorrection.content[1].input!.activeSessionPlan.nodePlan[0].wordRadarConfig = {
+      recallMode: "partial_visual_recall", inputMode: "whole-word", speakStyle: "option-a",
+      showTimer: false, hideWordDuringResponse: true, requiresCapturedResponse: true,
+    };
+    const validCorrection = structuredClone(f.message);
+    validCorrection.id = "recorded-mixed-valid-correction";
+    const radarMode = f.packet.activityCatalog.find(card => card.activityId === "word-radar")!.capabilityModes[0]!.config;
+    for (const node of validCorrection.content[1].input!.activeSessionPlan.nodePlan) {
+      if (node.activityId === "word-radar") node.wordRadarConfig = radarMode as unknown as typeof node.wordRadarConfig;
+    }
+    transport.create.mockResolvedValueOnce(needsLineageCorrection)
+      .mockResolvedValueOnce(invalidCorrection)
+      .mockResolvedValueOnce(validCorrection);
+
+    const result = await f.run();
+    expect(result.output.activeSessionPlan.nodePlan[0].rounds).toBeUndefined();
+    expect(transport.create).toHaveBeenCalledTimes(3);
+    const correctionRequest = JSON.stringify(transport.create.mock.calls[2]?.[0]);
+    expect(correctionRequest).toContain("word_radar_unrendered_teaching");
+    expect(correctionRequest).toContain("word_radar_capability_mismatch");
+  });
+
+  it("uses one bounded second correction when the first still hides Word Radar teaching", async () => {
+    // Ila's saved semantic correction fixed its mode but retained a hidden round.
+    // Logs caught the remaining error; the lab had assumed one correction succeeded.
+    const f = await fixture();
+    const needsLineageCorrection = structuredClone(f.message);
+    needsLineageCorrection.content[1].input!.plannedMeasurements[0].spelling!.evidenceIds = ["invented-evidence-id"];
+    const invalidCorrection = structuredClone(f.message);
+    invalidCorrection.content[1].input!.activeSessionPlan.nodePlan[0].rounds = [{
+      id: "hidden-teaching", prompt: "Choose a spelling", options: [
+        { id: "right", label: "light", correct: true }, { id: "wrong", label: "lite", correct: false },
+      ],
+    }];
+    const radarMode = f.packet.activityCatalog.find(card => card.activityId === "word-radar")!.capabilityModes[0]!.config;
+    for (const node of invalidCorrection.content[1].input!.activeSessionPlan.nodePlan) {
+      if (node.activityId === "word-radar") node.wordRadarConfig = radarMode as unknown as typeof node.wordRadarConfig;
+    }
+    const stillInvalid = structuredClone(invalidCorrection);
+    stillInvalid.id = "saved-semantic-correction-still-hidden";
+    const valid = structuredClone(f.message);
+    valid.id = "bounded-second-correction-valid";
+    for (const node of valid.content[1].input!.activeSessionPlan.nodePlan) {
+      if (node.activityId === "word-radar") node.wordRadarConfig = radarMode as unknown as typeof node.wordRadarConfig;
+    }
+    transport.create.mockResolvedValueOnce(needsLineageCorrection)
+      .mockResolvedValueOnce(invalidCorrection)
+      .mockResolvedValueOnce(stillInvalid)
+      .mockResolvedValueOnce(valid);
+
+    const result = await f.run();
+    expect(result.output.activeSessionPlan.nodePlan[0].rounds).toBeUndefined();
+    expect(transport.create).toHaveBeenCalledTimes(4);
+    expect(hasReceivedMathProviderStage(f.draftDir, "spelling-targeted-planner-semantic-correction-v2")).toBe(true);
+    const secondRequest = JSON.stringify(transport.create.mock.calls[3]?.[0]);
+    expect(secondRequest).toContain("word_radar_unrendered_teaching");
+    expect(secondRequest).toContain("maxItems");
+    vi.stubEnv("ANTHROPIC_API_KEY", "");
+    expect((await f.run()).output).toEqual(result.output);
+    expect(transport.create).toHaveBeenCalledTimes(4);
+  });
+
   it("corrects an invented spelling target before the cycle builder rejects the board", async () => {
     // Human catch: the rebuilt Ila board used `reward` as the target of a
     // mystery break. The assignment contains no such spelling word, but the

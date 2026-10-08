@@ -1757,6 +1757,18 @@ export function assignmentPlannerToolJsonSchema(
   return schema;
 }
 
+function assignmentPlannerWordRadarCorrectionSchema(packet: AssignmentPlanningPacket): Record<string, unknown> {
+  const schema = assignmentPlannerToolJsonSchema(true, packet.activityCatalog) as JsonSchemaObject;
+  const nodes = schemaProperties(schemaProperties(schema).activeSessionPlan).nodePlan.items as JsonSchemaObject;
+  const branches = nodes.anyOf as JsonSchemaObject[];
+  const radar = branches.find(branch => schemaProperties(branch).activityId?.const === "word-radar");
+  const modes = packet.activityCatalog.find(card => card.activityId === "word-radar")?.capabilityModes.map(mode => mode.config) ?? [];
+  if (!radar || !modes.length) throw new Error("word_radar_correction_capability_missing");
+  schemaProperties(radar).rounds = { type: "array", maxItems: 0 };
+  schemaProperties(radar).wordRadarConfig = { enum: modes };
+  return schema;
+}
+
 export class AssignmentPlannerToolInvalidError extends Error {
   readonly toolInput: unknown;
   readonly issues: z.core.$ZodIssue[];
@@ -2652,7 +2664,7 @@ async function planAssignmentFromSourceInternal(
   const blockingIssues = validationIssues.filter((issue) => issue.severity === "error");
   if (blockingIssues.length > 0) {
     if (opts.providerReceipt && packet.discoveryEvidence
-      && blockingIssues.every((issue) => issue.code === "word_radar_unrendered_teaching")) {
+      && blockingIssues.every((issue) => issue.code === "word_radar_unrendered_teaching" || issue.code === "word_radar_capability_mismatch")) {
       const correctionRequest = {
         version: 1,
         purpose: "assignment_planner_semantic_correction",
@@ -2660,7 +2672,7 @@ async function planAssignmentFromSourceInternal(
         invalidToolInput: result.draft,
         validationIssues: blockingIssues,
       };
-      const correctionPrompt = `Your ${ASSIGNMENT_PLANNER_TOOL_NAME} input passed schema and evidence checks, but its child-facing activity contract failed. Reissue the complete plan once. Preserve the assignment, child evidence, valid learning choices, measurements, and routes. For each listed Word Radar node, its screen cannot display rounds or teachingFocus: choose a catalog instrument that renders the intended teaching, or express the activity through Word Radar's supported wordRadarConfig without hidden teaching. Keep all academic content visible to the child. Do not invent evidence, targets, or activities.\nVALIDATION ISSUES:\n${JSON.stringify(blockingIssues)}\nLAUNCHABLE ACTIVITY CAPABILITIES:\n${JSON.stringify(packet.activityCatalog.filter(card => card.launchable).map(card => ({ activityId: card.activityId, nodeType: card.nodeType, capabilityModes: card.capabilityModes })))}\nPREVIOUS TOOL INPUT:\n${JSON.stringify(result.draft)}`;
+      const correctionPrompt = `Your ${ASSIGNMENT_PLANNER_TOOL_NAME} input passed schema and evidence checks, but its child-facing activity contract failed. Reissue the complete plan once. Preserve the assignment, child evidence, valid learning choices, measurements, and routes. For each listed Word Radar node, its screen cannot display rounds or teachingFocus: choose a catalog instrument that renders the intended teaching, or express the activity through Word Radar's supported wordRadarConfig without hidden teaching. A Word Radar response contract must exactly match a launchable catalog capability mode; copy its config values rather than combining modes. Keep all academic content visible to the child. Do not invent evidence, targets, or activities.\nVALIDATION ISSUES:\n${JSON.stringify(blockingIssues)}\nLAUNCHABLE ACTIVITY CAPABILITIES:\n${JSON.stringify(packet.activityCatalog.filter(card => card.launchable).map(card => ({ activityId: card.activityId, nodeType: card.nodeType, capabilityModes: card.capabilityModes })))}\nPREVIOUS TOOL INPUT:\n${JSON.stringify(result.draft)}`;
       const correctionStarted = Date.now();
       const correction = await runMathProviderStage({
         draftDir: opts.providerReceipt.draftDir,
@@ -2678,23 +2690,67 @@ async function planAssignmentFromSourceInternal(
         }),
       });
       console.log(` 🎮 [assignment-planner] [semantic-correction] [received] id=${correction.message.id}`);
-      const correctedDraft = validateAssignmentPlannerRelationships(
+      let correctedDraft = validateAssignmentPlannerRelationships(
         parseAssignmentPlannerToolUseResponse(correction.message),
         new Set(assignmentPlannerAllowedEvidenceIds(packet)),
         true,
         new Set(packet.capturedHomework.words.map(word => word.trim().toLocaleLowerCase("en-US"))),
       );
-      const correctedOutput = hydrateAssignmentPlannerOutputFromDraft(correctedDraft, packet, correction.createdAt);
-      const remainingIssues = validateAssignmentPlannerOutput(correctedOutput, {
+      let correctedAt = correction.createdAt;
+      let correctionUsage: LanguageModelUsage | undefined = usageFromAnthropic(correction.message);
+      let correctedOutput = hydrateAssignmentPlannerOutputFromDraft(correctedDraft, packet, correctedAt);
+      let remainingIssues = validateAssignmentPlannerOutput(correctedOutput, {
         extraction: packet.sourceDocument,
         activityCatalog: packet.activityCatalog,
         requireNodeTitles: true,
         requireCatalogBinding: true,
       }).filter(issue => issue.severity === "error");
+      if (remainingIssues.length && remainingIssues.every(issue => issue.code === "word_radar_unrendered_teaching" || issue.code === "word_radar_capability_mismatch")) {
+        const secondRequest = {
+          version: 2,
+          purpose: "assignment_planner_semantic_correction",
+          originalRequestHash: hashDiscoveryContract(packet),
+          invalidToolInput: correctedDraft,
+          validationIssues: remainingIssues,
+        };
+        const secondPrompt = `The first semantic correction still failed the child-facing contract. Reissue the complete plan one final time. Word Radar cannot show rounds or teachingFocus, and its wordRadarConfig must exactly match one launchable catalog capability. If teaching rounds are essential, choose a catalog teaching instrument that displays them; never leave teaching hidden inside Word Radar. Preserve the assignment, child evidence, valid learning choices, measurements, and routes. Do not invent evidence, targets, or activities.\nVALIDATION ISSUES:\n${JSON.stringify(remainingIssues)}\nLAUNCHABLE ACTIVITY CAPABILITIES:\n${JSON.stringify(packet.activityCatalog.filter(card => card.launchable).map(card => ({ activityId: card.activityId, nodeType: card.nodeType, capabilityModes: card.capabilityModes })))}\nPREVIOUS TOOL INPUT:\n${JSON.stringify(correctedDraft)}`;
+        const secondStarted = Date.now();
+        const second = await runMathProviderStage({
+          draftDir: opts.providerReceipt.draftDir,
+          stage: `${opts.providerReceipt.stage}-semantic-correction-v2`,
+          model,
+          request: secondRequest,
+          beforeRequest: () => {
+            if (!process.env.ANTHROPIC_API_KEY) throw new Error("assignment_planner_ai_unavailable:ANTHROPIC_API_KEY");
+          },
+          execute: async () => ({
+            message: await requestAssignmentPlannerTool({ prompt: secondPrompt, model, schema: assignmentPlannerWordRadarCorrectionSchema(packet) }),
+            model,
+            latencyMs: Date.now() - secondStarted,
+            createdAt: new Date().toISOString(),
+          }),
+        });
+        console.log(` 🎮 [assignment-planner] [semantic-correction-v2] [received] id=${second.message.id}`);
+        correctedDraft = validateAssignmentPlannerRelationships(
+          parseAssignmentPlannerToolUseResponse(second.message),
+          new Set(assignmentPlannerAllowedEvidenceIds(packet)),
+          true,
+          new Set(packet.capturedHomework.words.map(word => word.trim().toLocaleLowerCase("en-US"))),
+        );
+        correctedAt = second.createdAt;
+        correctionUsage = combinePlannerUsage(correctionUsage, usageFromAnthropic(second.message));
+        correctedOutput = hydrateAssignmentPlannerOutputFromDraft(correctedDraft, packet, correctedAt);
+        remainingIssues = validateAssignmentPlannerOutput(correctedOutput, {
+          extraction: packet.sourceDocument,
+          activityCatalog: packet.activityCatalog,
+          requireNodeTitles: true,
+          requireCatalogBinding: true,
+        }).filter(issue => issue.severity === "error");
+      }
       if (remainingIssues.length) throw new Error(`assignment_planner_validation_failed:${remainingIssues.map(issue => issue.code).join(",")}: ${remainingIssues.map(issue => issue.message).join("; ")}`);
       console.log(" 🎮 [assignment-planner] [semantic-correction] [validated]");
-      return { output: correctedOutput, receivedAt: correction.createdAt,
-        telemetry: { model, usage: combinePlannerUsage(result.telemetry?.usage ?? result.usage, usageFromAnthropic(correction.message)), latencyMs: Date.now() - started } };
+      return { output: correctedOutput, receivedAt: correctedAt,
+        telemetry: { model, usage: combinePlannerUsage(result.telemetry?.usage ?? result.usage, correctionUsage), latencyMs: Date.now() - started } };
     }
     throw new Error(`assignment_planner_validation_failed:${blockingIssues.map((issue) => issue.code).join(",")}: ${blockingIssues.map(issue => issue.message).join("; ")}`);
   }
