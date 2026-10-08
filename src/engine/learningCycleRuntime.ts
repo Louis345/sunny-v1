@@ -586,14 +586,16 @@ async function askPlanner(
   // replays and recorded prediction evaluations cannot turn a restart into a new paid call.
   const batchEntry = [...cycle.decisionHistory].reverse().find((entry) => entry.toLifecycle === cycle.lifecycle && entry.fromLifecycle !== cycle.lifecycle);
   const batchId = batchEntry?.decisionId ?? `${cycle.homeworkId}:r${cycle.revision}`;
+  const recordedRevision = Number(batchEntry?.decisionId.match(/:r(\d+)$/)?.[1]);
+  const checkpointRevision = Number.isSafeInteger(recordedRevision) ? recordedRevision : cycle.revision;
   const draftDir = path.join(resolveChildContextDir(cycle.childId, { rootDir: opts.rootDir }), "homework", "cycles", ".planner", cycle.homeworkId, batchId.replace(/[^a-zA-Z0-9_-]+/g, "_"));
   const snapshot = {
     childId: cycle.childId, homeworkId: cycle.homeworkId, batchId, lifecycle: cycle.lifecycle,
-    cycleRevision: cycle.revision,
+    cycleRevision: checkpointRevision,
     observationIds: cycle.observations.filter((observation) => observation.provenance !== "practice").map((observation) => observation.observationId),
     model: plannerModel,
   };
-  const rawDecision = await runMathProviderStage({ draftDir, stage: `progression-decision-r${cycle.revision}`, model: plannerModel, request: snapshot, execute: async () => {
+  const rawDecision = await runMathProviderStage({ draftDir, stage: `progression-decision-r${checkpointRevision}`, model: plannerModel, request: snapshot, execute: async () => {
   const response = await requestPlannerMessage(anthropic, {
     model: plannerModel,
     // The prescription now carries five additional design fields; 2600 truncated them.
