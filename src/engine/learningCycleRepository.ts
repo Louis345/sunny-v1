@@ -1905,12 +1905,17 @@ export function projectLearningCycle(
     if (!canonical) return presented;
     canonicalBoardNodeById.delete(presented.id);
     const canonicalOwnsArtwork = canonical.kind === "quest" || canonical.kind === "boss";
+    const directLinearMystery = linearTeachingBoard && canonical.kind === "mystery"
+      && canonical.action?.type === "open-choice-set";
     return {
       ...presented,
       label: presented.label,
       shortLabel: presented.shortLabel ?? canonical.shortLabel,
       state: canonical.state,
-      action: canonical.action,
+      action: directLinearMystery
+        ? { type: "launch-activity" as const, payloadId: canonical.id }
+        : canonical.action,
+      choiceSetId: directLinearMystery ? undefined : canonical.choiceSetId,
       lock: canonical.lock,
       thumbnailUrl: canonicalOwnsArtwork
         ? canonical.thumbnailUrl ?? presented.thumbnailUrl

@@ -297,6 +297,42 @@ describe("canonical learning cycle repository", () => {
     expect(merged.nodes.find((node) => node.id === "practice")?.state).toBe("current");
   });
 
+  it("gives a ready linear teaching reward a launch action when its presentation has no choice set", () => {
+    // Human catch: Ila tapped Reward Break after finishing practice, but no game opened.
+    // The merged board discarded choice sets while retaining open-choice-set on the reward.
+    const plan = input();
+    plan.domain = "spelling";
+    plan.nodes = ["practice", "reward"].map((id) => ({
+      ...structuredClone(plan.nodes[0]!),
+      nodeId: id,
+      title: id === "reward" ? "Reward Break" : "Practice",
+      openingScreen: { title: id === "reward" ? "Reward Break" : "Practice", purpose: "Spelling session" },
+      role: id === "reward" ? "mystery" as const : "baseline" as const,
+      state: id === "practice" ? "completed" as const : "ready" as const,
+      implementationType: id === "reward" ? "mystery" as const : "word-radar" as const,
+      academicTarget: { domain: "spelling", skill: "spelling", targets: id === "reward" ? [] : ["tomorrow"] },
+      artifactBinding: {
+        contentId: id, artifactId: id, localArtifactPath: `/games/${id}.html`,
+        localArtworkPath: "/thumbnails/mystery-fallback.svg",
+        contractFingerprint: id, validationStatus: "passed" as const,
+      },
+    }));
+    const cycle = createLearningCycle(plan, { rootDir: root() });
+    cycle.boards = [publishBoardInstance(cycle, {
+      kind: "teaching", predecessorBoardId: null, plannerDecisionId: "decision-1",
+      evidenceIds: [], nodeIds: ["practice", "reward"], publishedAt: cycle.createdAt,
+    })];
+    cycle.lifecycle = "board_ready";
+    const presentationPlan = structuredClone(projectLearningCycle(cycle).activeSessionPlan);
+    presentationPlan.adventureBoard!.choiceSets = [];
+
+    const board = projectLearningCycle(cycle, { presentationPlan }).adventureBoard;
+    expect(board.nodes.find((node) => node.id === "reward")).toMatchObject({
+      state: "current", action: { type: "launch-activity", payloadId: "reward" },
+    });
+    expect(board.nodes.find((node) => node.id === "reward")?.choiceSetId).toBeUndefined();
+  });
+
   it("offers verified Planner routes before either route has been selected", () => {
     // Human catch: the whole board was published, yet every route looked locked.
     // Publication logs counted artifacts; the lab never required an available choice at the child-facing entry.
