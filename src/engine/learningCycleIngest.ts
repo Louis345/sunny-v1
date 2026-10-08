@@ -185,6 +185,37 @@ export function normalizeSpellingNativeNodeIdentity(
   return { ...node, type: "visual-explainer", activityId: "visual-explainer" };
 }
 
+function alignPlannerVisualFocusBoundary(input: unknown): unknown {
+  if (!input || typeof input !== "object") return input;
+  const config = structuredClone(input) as { words?: Array<{ id?: string; text?: string; chunks?: string[]; focusChunk?: string }> };
+  if (!Array.isArray(config.words)) return input;
+  const normalize = (value: string) => value.normalize("NFC").toLocaleLowerCase("en-US");
+  for (const word of config.words) {
+    if (typeof word.text !== "string" || typeof word.focusChunk !== "string" || !Array.isArray(word.chunks)
+      || word.chunks.some((chunk) => typeof chunk !== "string")) continue;
+    const text = word.text.normalize("NFC");
+    const focus = word.focusChunk.normalize("NFC");
+    const normalizedText = normalize(text);
+    const normalizedFocus = normalize(focus);
+    if (normalize(word.chunks.join("")) !== normalizedText
+      || word.chunks.some((chunk) => normalize(chunk) === normalizedFocus)) continue;
+    const focusStart = normalizedText.indexOf(normalizedFocus);
+    if (focusStart < 0 || focusStart !== normalizedText.lastIndexOf(normalizedFocus)) continue;
+    const focusEnd = focusStart + normalizedFocus.length;
+    let offset = 0;
+    const originalBoundaries = word.chunks.slice(0, -1).map((chunk) => (offset += chunk.normalize("NFC").length));
+    const boundaries = [...new Set([0, focusStart, focusEnd, text.length,
+      ...originalBoundaries.filter((boundary) => boundary <= focusStart || boundary >= focusEnd)])]
+      .sort((left, right) => left - right);
+    const aligned = boundaries.slice(0, -1).map((start, index) => text.slice(start, boundaries[index + 1])).filter(Boolean);
+    if (aligned.length < 2 || aligned.length > 6 || normalize(aligned.join("")) !== normalizedText
+      || !aligned.some((chunk) => normalize(chunk) === normalizedFocus)) continue;
+    word.chunks = aligned;
+    console.log(` 🎮 [spelling-visual] [focus-boundary] [aligned] word=${word.text}`);
+  }
+  return config;
+}
+
 function staticTitle(role: LearningCycleNodeContract["role"], proposed: string | undefined): string {
   if (role === "quest") return "Quest";
   if (role === "boss") return "Boss";
@@ -473,7 +504,7 @@ export function buildSpellingTargetedCycleInput(input: {
       nativeConfig = config as unknown as Record<string, unknown>;
     } else if (implementationType === "visual-explainer") {
       try {
-        const visual = validateSpellingVisualExplainerPlanConfig(node.activityConfig);
+        const visual = validateSpellingVisualExplainerPlanConfig(alignPlannerVisualFocusBoundary(node.activityConfig));
         const normalize = (value: string) => value.normalize("NFC").trim().toLocaleLowerCase("en-US");
         const itemByWord = new Map(items.map((item) => [normalize(item.word), item]));
         const configuredWords = visual.words.map((word) => normalize(word.text));

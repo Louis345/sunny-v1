@@ -157,6 +157,18 @@ describe("evidence-cited spelling targeted programs", () => {
       Object.fromEntries(Object.keys(input.nodes[1]!.evidenceContract.spellingItems!).map((id) => [id, "fresh_checkpoint"])),
     ));
 
+    // Live Saori catch (2026-10-08): Planner chose a meaningful focus that
+    // crossed its own display chunks (to + mor + row, focus rrow). The worker
+    // stopped after the paid repair even though the word and focus were sound.
+    // The lab missed it because fixtures only used focus-already-a-chunk plans.
+    const crossedBoundary = structuredClone(plan);
+    const crossedWord = (crossedBoundary.nodePlan[0]!.activityConfig as { words: Array<{ chunks: string[]; focusChunk: string }> }).words[0]!;
+    crossedWord.chunks = ["li", "ght"];
+    crossedWord.focusChunk = "ight";
+    const crossedInput = buildSpellingTargetedCycleInput({ cycle, plan: crossedBoundary, now: "2026-09-08T12:00:00Z" });
+    expect((crossedInput.nodes[0]!.evidenceContract.nativeConfig as { spellingModel: { words: Array<{ chunks: string[] }> } }).spellingModel.words[0]!.chunks)
+      .toEqual(["l", "ight"]);
+
     const malformed = structuredClone(plan);
     (malformed.nodePlan[0]!.activityConfig as { words: Array<{ chunks: string[] }> }).words[0]!.chunks = ["l", "ite"];
     expect(() => buildSpellingTargetedCycleInput({ cycle, plan: malformed, now: "2026-09-08T12:00:00Z" }))
