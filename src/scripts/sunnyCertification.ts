@@ -114,6 +114,7 @@ export function hashCertificationImplementation(rootDir: string): string {
     ...walkFiles(path.join(root, "src")),
     ...walkFiles(path.join(root, "web", "src")),
     ...walkFiles(path.join(root, "web", "public", "games")),
+    path.join(root, "web", "public", "generated", "openai-visual-probe", "artifact-shell.js"),
     ...[
       "package.json",
       "package-lock.json",
@@ -235,7 +236,14 @@ function copyWorkspace(rootDir: string, workspaceDir: string, childId: string): 
  */
 function refreshWorkspaceCode(rootDir: string, workspaceDir: string, childId: string): void {
   const copyable = workspaceCodeFilter(rootDir);
-  const refreshable = (relative: string) => copyable(relative) && !isPreservedWorkspacePath(relative, childId);
+  const sharedShell = path.join("web", "public", "generated", "openai-visual-probe", "artifact-shell.js");
+  const sharedShellPath = new Set([
+    path.join("web", "public", "generated"),
+    path.join("web", "public", "generated", "openai-visual-probe"),
+    sharedShell,
+  ]);
+  const refreshable = (relative: string) => copyable(relative)
+    && (sharedShellPath.has(relative) || !isPreservedWorkspacePath(relative, childId));
   const prune = (directory: string) => {
     for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
       const full = path.join(directory, entry.name);
@@ -294,7 +302,7 @@ export function syncCertificationWorkspace(manifest: CertificationRunManifest): 
     manifest.workspaceImplementationHash = hashCertificationImplementation(manifest.workspaceDir);
     manifest.updatedAt = new Date().toISOString();
     writeManifest(manifest);
-    console.log(` 🎮 [certification] [workspace-code] [refreshed] run=${manifest.certificationRunId} from=${previous.slice(0, 8)} to=${sourceImplementationHash.slice(0, 8)} preserved=child-context,drafts,receipts,generated`);
+    console.log(` 🎮 [certification] [workspace-code] [refreshed] run=${manifest.certificationRunId} from=${previous.slice(0, 8)} to=${sourceImplementationHash.slice(0, 8)} preserved=child-context,drafts,receipts,generated-child-assets`);
   }
   validateCertificationWorkspace(manifest);
   return manifest;

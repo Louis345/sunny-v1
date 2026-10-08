@@ -234,6 +234,20 @@ describe("Sunny impersonation certification", () => {
     expect(findCertificationRun({ certificationRoot, childId: "ila", domain: "math" })?.certificationRunId).toBe(first.certificationRunId);
   });
 
+  it("refreshes the shared visual shell while preserving generated child assets", () => {
+    const { rootDir, certificationRoot, pdf } = fixture();
+    const sourceShell = path.join(rootDir, "web/public/generated/openai-visual-probe/artifact-shell.js");
+    fs.mkdirSync(path.dirname(sourceShell), { recursive: true });
+    fs.writeFileSync(sourceShell, "shared shell v1");
+    const first = createCertificationRun({ rootDir, certificationRoot, childId: "ila", domain: "spelling", assignmentPath: pdf });
+    const generatedChildAsset = path.join(first.workspaceDir, "web/public/generated/openai-visual-probe/child-artifact.html");
+    fs.writeFileSync(generatedChildAsset, "paid child artifact");
+    fs.writeFileSync(sourceShell, "shared shell v2");
+    const resumed = createCertificationRun({ rootDir, certificationRoot, childId: "ila", domain: "spelling", assignmentPath: pdf });
+    expect(fs.readFileSync(path.join(resumed.workspaceDir, "web/public/generated/openai-visual-probe/artifact-shell.js"), "utf8")).toBe("shared shell v2");
+    expect(fs.readFileSync(generatedChildAsset, "utf8")).toBe("paid child artifact");
+  });
+
   it("refuses to refresh code when a manifest points its workspace at the source tree", () => {
     const { rootDir, certificationRoot, pdf } = fixture();
     const manifest = createCertificationRun({ rootDir, certificationRoot, childId: "ila", domain: "math", assignmentPath: pdf });
