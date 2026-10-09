@@ -388,6 +388,34 @@ describe("choice-event route feedback lessons", () => {
     });
   });
 
+  it("logs the actual successor lifecycle when preparation only finishes part of the board", async () => {
+    const log = vi.spyOn(console, "log");
+    try {
+      const before = mockedGetLearningCycle("demo-pashley", "hw-math");
+      mockedGetLearningCycle.mockReturnValueOnce(before).mockReturnValueOnce({
+        ...before, nodes: [{ nodeId: "array-forge", state: "completed" }],
+      } as never);
+      vi.mocked(advanceCanonicalCycleFromEvidence).mockResolvedValueOnce({
+        childId: "demo-pashley", homeworkId: "hw-math",
+        lifecycle: "baseline_generating", revision: 3,
+      } as never);
+      vi.mocked(prepareSuccessorBoard).mockResolvedValueOnce({
+        childId: "demo-pashley", homeworkId: "hw-math",
+        lifecycle: "baseline_generating", revision: 4,
+      } as never);
+      expect((await postNodeCompletion()).status).toBe(200);
+      await vi.waitFor(() => {
+        const entries = log.mock.calls.map(([message]) => String(message))
+          .filter(message => message.includes("[next-session]"));
+        expect(entries).toEqual([
+          " 🎮 [learning-cycle-route] [next-session] [baseline_generating] revision=4",
+        ]);
+      });
+    } finally {
+      log.mockRestore();
+    }
+  });
+
   it("does not restart the pending Planner when a previously completed node is replayed", async () => {
     mockedGetLearningCycle.mockReturnValue({domain: "math", childId: "demo-pashley", homeworkId: "hw-math", lifecycle: "quest_evaluating", revision: 4, nodes: [{nodeId: "array-forge", state: "completed"}]} as never);
     const out = await postNodeCompletion();

@@ -1054,7 +1054,7 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
               : decided;
           })
           .then((advanced) => {
-            console.log(` 🎮 [learning-cycle-route] [next-session] [ready] lifecycle=${advanced.lifecycle} revision=${advanced.revision}`);
+            console.log(` 🎮 [learning-cycle-route] [next-session] [${advanced.lifecycle}] revision=${advanced.revision}`);
           })
           .catch((error: unknown) => {
             console.error(` 🎮 [learning-cycle-route] [next-session] [deferred] ${error instanceof Error ? error.message : String(error)}`);
