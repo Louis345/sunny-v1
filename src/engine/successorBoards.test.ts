@@ -103,11 +103,11 @@ function cycleInput(): CreateLearningCycleInput {
   return { ...base, boards: [board] };
 }
 
-function complete(rootDir: string, nodeId: string, sessionId: string, target: string, correct = true, extra: Record<string, unknown> = {}) {
+function complete(rootDir: string, nodeId: string, sessionId: string, target: string, correct = true, extra: Record<string, unknown> = {}, now?: Date) {
   return recordCanonicalNodeCompletion({
     childId: CHILD, homeworkId: HW, sessionId, nodeId,
     result: { completed: true, accuracy: correct ? 1 : 0, timeSpent_ms: 1000, targetResults: [{ target, correct, attemptedValue: correct ? "10" : "3" }], ...extra },
-  }, { rootDir });
+  }, { rootDir, ...(now ? { now } : {}) });
 }
 
 function instrument(nodeId: string, title: string, itemIds: string[], encounter?: "quest" | "boss") {
@@ -456,8 +456,9 @@ describe("successor boards (contract 21)", () => {
       evidenceIds: ["pdf:1"], intervention: "baseline", evidenceLimit: "independent_performance", createdAt: "2026-09-30T00:00:00.000Z",
     }];
     createLearningCycle(input, { rootDir, now: new Date("2026-10-01T00:00:00.000Z") });
-    complete(rootDir, "facts", "s1", "b-1");
-    const evaluated = complete(rootDir, "story", "s1", "b-2")!;
+    const observedAt = new Date("2026-10-01T00:30:00.000Z");
+    complete(rootDir, "facts", "s1", "b-1", true, {}, observedAt);
+    const evaluated = complete(rootDir, "story", "s1", "b-2", true, {}, observedAt)!;
     expect(evaluated.lifecycle).toBe("baseline_evaluating");
     await expect(advanceCanonicalCycleFromEvidence({ childId: CHILD, homeworkId: HW, decide: async () => decision("generate_support", supportSuccessor) }, { rootDir, now: new Date("2026-10-01T01:00:00.000Z") }))
       .rejects.toThrow("canonical_progression_prediction_evaluation_citation_required");
