@@ -72,6 +72,8 @@ export function unlockCeremonyVariantFor(
 
 type PositionedAdventureBoardNode = AdventureBoardNode & {
   position: { x: number; y: number };
+  narrowPosition: { x: number; y: number };
+  mediumPosition: { x: number; y: number };
 };
 
 export const HORIZONTAL_ADVENTURE_SLOTS: Record<AdventureBoardSlot, { x: number; y: number }> = {
@@ -94,6 +96,40 @@ export const HORIZONTAL_ADVENTURE_SLOTS: Record<AdventureBoardSlot, { x: number;
   "7": { x: 0.84, y: 0.31 },
   "8": { x: 0.91, y: 0.13 },
 };
+
+// The same topology needs vertical lanes on a narrow kiosk. Coordinates are
+// presentation only; explicit Creator positions and all route identities stay intact.
+const NARROW_ADVENTURE_SLOTS: Record<AdventureBoardSlot, { x: number; y: number }> = {
+  "1": { x: 0.13, y: 0.89 }, "2": { x: 0.13, y: 0.72 },
+  "3": { x: 0.13, y: 0.55 }, "4": { x: 0.50, y: 0.78 },
+  "5a.1": { x: 0.36, y: 0.58 }, "5a.2": { x: 0.36, y: 0.42 }, "5a.3": { x: 0.36, y: 0.23 },
+  "5b.1": { x: 0.61, y: 0.58 }, "5b.2": { x: 0.61, y: 0.42 }, "5b.3": { x: 0.61, y: 0.23 },
+  "5c.1": { x: 0.86, y: 0.58 }, "5c.2": { x: 0.86, y: 0.42 }, "5c.3": { x: 0.86, y: 0.23 },
+  "6": { x: 0.61, y: 0.08 }, "6.1": { x: 0.36, y: 0.08 }, "6.2": { x: 0.86, y: 0.08 },
+  "7": { x: 0.86, y: 0.76 }, "8": { x: 0.86, y: 0.92 },
+};
+
+const MEDIUM_ADVENTURE_SLOTS: Record<AdventureBoardSlot, { x: number; y: number }> = {
+  "1": { x: 0.10, y: 0.78 }, "2": { x: 0.10, y: 0.56 }, "3": { x: 0.10, y: 0.34 }, "4": { x: 0.28, y: 0.34 },
+  "5a.1": { x: 0.46, y: 0.13 }, "5a.2": { x: 0.64, y: 0.13 }, "5a.3": { x: 0.82, y: 0.13 },
+  "5b.1": { x: 0.46, y: 0.56 }, "5b.2": { x: 0.64, y: 0.56 }, "5b.3": { x: 0.82, y: 0.56 },
+  "5c.1": { x: 0.46, y: 0.34 }, "5c.2": { x: 0.64, y: 0.34 }, "5c.3": { x: 0.82, y: 0.34 },
+  "6": { x: 0.94, y: 0.34 }, "6.1": { x: 0.46, y: 0.78 }, "6.2": { x: 0.64, y: 0.78 },
+  "7": { x: 0.82, y: 0.78 }, "8": { x: 0.28, y: 0.78 },
+};
+
+function narrowPosition(node: PositionedAdventureBoardNode) {
+  return node.narrowPosition;
+}
+
+function nodePositionStyle(node: PositionedAdventureBoardNode): React.CSSProperties {
+  const narrow = narrowPosition(node);
+  return {
+    left: `${node.position.x * 100}%`, top: `${node.position.y * 100}%`,
+    "--narrow-x": `${narrow.x * 100}%`, "--narrow-y": `${narrow.y * 100}%`,
+    "--medium-x": `${node.mediumPosition.x * 100}%`, "--medium-y": `${node.mediumPosition.y * 100}%`,
+  } as React.CSSProperties;
+}
 
 const iconMap = {
   book: BookOpen,
@@ -141,7 +177,9 @@ function boardBackground(board: AdventureBoardJson): React.CSSProperties {
 
 function resolveNodePosition(node: AdventureBoardNode): PositionedAdventureBoardNode | null {
   const position = node.position ?? (node.slot ? HORIZONTAL_ADVENTURE_SLOTS[node.slot] : undefined);
-  return position ? { ...node, position } : null;
+  const narrowPosition = node.position ?? (node.slot ? NARROW_ADVENTURE_SLOTS[node.slot] : undefined);
+  const mediumPosition = node.position ?? (node.slot ? MEDIUM_ADVENTURE_SLOTS[node.slot] : undefined);
+  return position && narrowPosition && mediumPosition ? { ...node, position, narrowPosition, mediumPosition } : null;
 }
 
 export function AdventureBoard({
@@ -276,11 +314,13 @@ export function AdventureBoard({
       } as React.CSSProperties}
       aria-label={board.title ?? "Adventure board"}
     >
-      <svg className="adventure-board__edges" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+      {(["wide", "medium", "narrow"] as const).map(layout => <svg key={layout} className={`adventure-board__edges adventure-board__edges--${layout}`} viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
         {board.edges.map((edge) => {
           const from = nodes.get(edge.from);
           const to = nodes.get(edge.to);
           if (!from || !to) return null;
+          const fromPosition = layout === "narrow" ? narrowPosition(from) : layout === "medium" ? from.mediumPosition : from.position;
+          const toPosition = layout === "narrow" ? narrowPosition(to) : layout === "medium" ? to.mediumPosition : to.position;
           return (
             <line
               key={edge.id}
@@ -290,14 +330,14 @@ export function AdventureBoard({
                 edge.style ? `adventure-board__edge--${edge.style}` : "",
                 unlockCeremony?.nodeId === edge.to ? "adventure-board__edge--unlocking" : "",
               ].join(" ")}
-              x1={from.position.x * 100}
-              y1={from.position.y * 100}
-              x2={to.position.x * 100}
-              y2={to.position.y * 100}
+              x1={fromPosition.x * 100}
+              y1={fromPosition.y * 100}
+              x2={toPosition.x * 100}
+              y2={toPosition.y * 100}
             />
           );
         })}
-      </svg>
+      </svg>)}
 
       <div className="adventure-board__nodes">
         {resolvedNodes.filter((node) => node.state !== "hidden").map((node) => {
@@ -371,10 +411,7 @@ export function AdventureBoard({
                   "adventure-board__node--choice-guidance",
                   `adventure-board__node--${node.state}`,
                 ].join(" ")}
-                style={{
-                  left: `${node.position.x * 100}%`,
-                  top: `${node.position.y * 100}%`,
-                }}
+                style={nodePositionStyle(node)}
               >
                 {content}
               </div>
@@ -394,10 +431,7 @@ export function AdventureBoard({
                   ? `adventure-board__node--unlocking-${unlockCeremony.variant}`
                   : "",
               ].join(" ")}
-              style={{
-                left: `${node.position.x * 100}%`,
-                top: `${node.position.y * 100}%`,
-              }}
+              style={nodePositionStyle(node)}
               onClick={() => {
                 if (isPreparing) {
                   console.log(` 🎮 [adventure-board] [preparing-node] [acknowledged] node=${node.id}`);

@@ -294,6 +294,21 @@ it.each([
     const expectedThumbnailCount = board.nodes.filter((node) => Boolean(node.thumbnailUrl)).length;
     await expect.poll(() => page.locator(".adventure-board__node-thumbnail").evaluateAll((elements, expectedCount) => elements.length === expectedCount && elements.every((element: any) => element.complete && element.naturalWidth > 0), expectedThumbnailCount)).toBe(true);
     if (scenario.adaptive) {
+      // Human saw a tangled board; clickability and loaded artwork did not
+      // prove that labels were readable. Measure the actual rendered controls.
+      const collisions = await page.locator(".adventure-board__node").evaluateAll(elements => {
+        const boxes = elements.map(element => ({
+          label: element.textContent?.trim(), rect: element.getBoundingClientRect(),
+        }));
+        const outside = boxes.filter(({ rect }) => rect.left < -1 || rect.top < -1 || rect.right > (globalThis as any).innerWidth + 1 || rect.bottom > (globalThis as any).innerHeight + 1)
+          .map(box => `${box.label} is outside the viewport`);
+        return [...outside, ...boxes.flatMap((a, index) => boxes.slice(index + 1).flatMap(b => {
+          const width = Math.max(0, Math.min(a.rect.right, b.rect.right) - Math.max(a.rect.left, b.rect.left));
+          const height = Math.max(0, Math.min(a.rect.bottom, b.rect.bottom) - Math.max(a.rect.top, b.rect.top));
+          return width * height > 8 ? [`${a.label} overlaps ${b.label}`] : [];
+        }))];
+      });
+      expect(collisions).toEqual([]);
       const targeted = getLearningCycle(childId, homeworkId, { rootDir })!;
       const missedWords = words.slice(6);
       const final = targeted.nodes.find(node => node.nodeId === "recall-checkpoint")!;
@@ -410,7 +425,7 @@ it.each([
           selectedRoute: { routeId: "speed-route", nodeIds: ["recall-practice", "letter-rush"], letterRushWords },
           finalCheck: { nodeId: final.nodeId, words: final.academicTarget.targets, itemIds: finalItemIds, observationIds: finalObservations.map((observation) => observation.observationId), allCorrect: finalObservations.every((observation) => observation.result.correct === true) },
         },
-        board: { nodeIds: board.nodes.map((node) => node.id), slots: Object.fromEntries(board.nodes.map((node) => [node.id, node.slot])) },
+        board: { nodeIds: board.nodes.map((node) => node.id), slots: Object.fromEntries(board.nodes.map((node) => [node.id, node.slot])), layoutCollisions: collisions },
         screenshots: {
           discovery: { path: discoveryScreenshotPath, sha256: hashFile(discoveryScreenshotPath) },
           board: { path: boardScreenshotPath, sha256: hashFile(boardScreenshotPath) },
