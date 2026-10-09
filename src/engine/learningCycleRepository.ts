@@ -463,6 +463,7 @@ export type LearningProgressionAction =
 
 export type NextInstrumentPrescription = {
   items?: LearningCycleMathItem[];
+  spelling?: SpellingInstrumentPrescription;
   nodeId: string;
   title: string;
   academicTarget: string;
@@ -484,6 +485,35 @@ export type NextInstrumentPrescription = {
   /** Marks the one Planner-authorized encounter on a Quest or Boss successor board. */
   encounter?: "quest" | "boss";
 };
+
+export type SpellingInstrumentPrescription = {
+  wordIds: string[];
+  measurementRole: "practice" | "fresh_checkpoint";
+  responseMode: LearningCycleSpellingItem["response"]["mode"];
+};
+
+/** One allowlist shared by the Planner tool and the persisted board contract. */
+export function spellingAssignmentItems(cycle: LearningCycleRecordV2): Map<string, LearningCycleSpellingItem> {
+  const assigned = new Set(cycle.assignment.targets.map(word => word.normalize("NFC").trim().toLocaleLowerCase("en-US")));
+  const items = new Map<string, LearningCycleSpellingItem>();
+  for (const node of cycle.nodes) for (const item of Object.values(node.evidenceContract.spellingItems ?? {})) {
+    if (assigned.has(item.word.normalize("NFC").trim().toLocaleLowerCase("en-US")) && !items.has(item.wordId)) items.set(item.wordId, item);
+  }
+  return items;
+}
+
+/** Shared tool/storage boundary: the Planner selects identities, never answer keys. */
+export function validateSpellingPrescription(value: unknown): SpellingInstrumentPrescription {
+  const row = value as Partial<SpellingInstrumentPrescription> | undefined;
+  if (!row || !Array.isArray(row.wordIds) || !row.wordIds.length
+    || row.wordIds.some(id => typeof id !== "string" || !id.trim())
+    || new Set(row.wordIds).size !== row.wordIds.length
+    || !["practice", "fresh_checkpoint"].includes(String(row.measurementRole))
+    || !["spelling_letters", "tap_selection"].includes(String(row.responseMode))) {
+    throw new Error("spelling_successor_prescription_invalid");
+  }
+  return { wordIds: [...row.wordIds], measurementRole: row.measurementRole!, responseMode: row.responseMode! };
+}
 
 /** One complete Planner-authored successor board program (contract 21). The Planner owns the count. */
 export type SuccessorProgram = {
@@ -1113,9 +1143,22 @@ function prepareSuccessorBoard(
     return mapped;
   });
   const reference = [...next.nodes].reverse().find((node) => node.artwork.localPath);
+  const savedSpellingItems = spellingAssignmentItems(next);
   const nodes = program.instruments.map((prescription): LearningCycleNodeContract => {
     const nodeId = idFor.get(prescription.nodeId)!;
     const role: LearningCycleNodeRole = prescription.encounter ?? "baseline";
+    const spelling = next.domain === "spelling" ? validateSpellingPrescription(prescription.spelling) : undefined;
+    const spellingItems = spelling?.wordIds.map(wordId => {
+      const source = savedSpellingItems.get(wordId);
+      if (!source) throw new Error(`spelling_successor_word_unknown:${wordId}`);
+      const previouslyExposed = next.observations.some(observation => observation.constructLinks.some(link => link.constructId === source.constructId));
+      return {
+        ...structuredClone(source),
+        id: `${nodeId}:${source.wordId}`,
+        lineage: { ...source.lineage, exposure: previouslyExposed ? "practiced" as const : source.lineage.exposure, measurementRole: spelling.measurementRole },
+        response: { ...source.response, acceptedForms: [...source.response.acceptedForms], mode: spelling.responseMode },
+      };
+    });
     const design = prescriptionDesign(prescription);
     const prompt = generationPrompt(next, role, nodeId, input.evidenceIds, input.reason, input.at);
     prompt.text = `${prescription.creatorPrompt} ${prompt.text}`;
@@ -1124,7 +1167,7 @@ function prepareSuccessorBoard(
       role,
       title: prescription.title,
       state: "generating",
-      academicTarget: { domain: next.domain, skill: prescription.academicTarget, targets: [] },
+      academicTarget: { domain: next.domain, skill: prescription.academicTarget, targets: spellingItems?.map(item => item.word) ?? [] },
       algorithmOwner: role === "baseline" ? "ai_tutor" : "mastery-gating",
       theoryId: next.academicTheory.theoryId,
       experimentId: `${prefix}:${role}:${slugId(prescription.nodeId)}`,
@@ -1147,6 +1190,10 @@ function prepareSuccessorBoard(
       evidenceContract: {
         academic: true, engagement: true, companionObservations: true,
         ...(prescription.items ? prescriptionEvidence(prescription.items) : {}),
+        ...(spellingItems ? {
+          spellingItems: Object.fromEntries(spellingItems.map(item => [item.id, item])),
+          itemRoles: Object.fromEntries(spellingItems.map(item => [item.id, item.lineage.measurementRole])),
+        } : {}),
       },
       evidenceIds: [],
     };

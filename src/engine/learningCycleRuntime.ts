@@ -14,6 +14,8 @@ import {
 import {
   getLearningCycle,
   transitionLearningCycle,
+  validateSpellingPrescription,
+  spellingAssignmentItems,
   type LearningCycleEvidenceSummary,
   type LearningCycleRecordV2,
   type LearningCycleRepositoryOptions,
@@ -427,6 +429,7 @@ function parseNextInstrument(value: unknown): NextInstrumentPrescription | undef
   const designKeys = ["stakesDesign", "failureMode", "escalation", "mechanicSpec", "mathematicalHook"] as const;
   return {
     ...(Array.isArray(row.items) ? { items: row.items.map(parseDirectItem) } : {}),
+    ...(row.spelling !== undefined ? { spelling: validateSpellingPrescription(row.spelling) } : {}),
     ...(row.encounter === "quest" || row.encounter === "boss" ? { encounter: row.encounter } : {}),
     ...Object.fromEntries(keys.map((key) => [key, String(row[key]).trim()])),
     ...Object.fromEntries(designKeys
@@ -559,6 +562,7 @@ async function askPlanner(
     ? ["generate_support", "collect_more_evidence"]
     : ["generate_support", "generate_quest", "generate_boss", "collect_more_evidence", "await_calibration"];
   const plannerModel = model ?? (cycle.domain === "spelling" ? process.env.SUNNY_EXPERIENCE_PLANNER_MODEL : undefined) ?? process.env.SUNNY_INGEST_MODEL ?? "claude-sonnet-5";
+  const savedSpellingItems = spellingAssignmentItems(cycle);
   const instrumentSchema = {
     type: "object",
     additionalProperties: false,
@@ -571,6 +575,15 @@ async function askPlanner(
       openingPurpose: { type: "string", minLength: 1 },
       creatorPrompt: { type: "string", minLength: 1 },
       ...(cycle.domain === "math" ? { items: MATH_ITEMS_SCHEMA } : {}),
+      ...(cycle.domain === "spelling" ? { spelling: {
+        type: "object", additionalProperties: false,
+        properties: {
+          wordIds: { type: "array", minItems: 1, uniqueItems: true, items: { type: "string", enum: [...savedSpellingItems.keys()] } },
+          measurementRole: { type: "string", enum: ["practice", "fresh_checkpoint"] },
+          responseMode: { type: "string", enum: ["spelling_letters", "tap_selection"] },
+        },
+        required: ["wordIds", "measurementRole", "responseMode"],
+      } } : {}),
       encounter: { type: "string", enum: ["quest", "boss"], description: "Only on the single Quest or Boss node your progressionAction authorizes." },
       stakesDesign: { type: "string", minLength: 1, description: "What is genuinely at risk for the child in this instrument, and what losing it costs them." },
       failureMode: { type: "string", minLength: 1, description: "How a run can end badly. If you decide it cannot be failed, say so and say why that serves this child right now." },
@@ -578,7 +591,7 @@ async function askPlanner(
       mechanicSpec: { type: "string", minLength: 1, description: "Concretely: what the child's finger or cursor does, what visibly moves in response, and what failure looks like on screen. Not an adjective or a genre name." },
       mathematicalHook: { type: "string", minLength: 1, description: "The surprising or satisfying thing about this specific mathematics that could make a child say whoa." },
     },
-    required: ["nodeId", "title", "academicTarget", "mechanic", "theme", "openingPurpose", "creatorPrompt", ...(cycle.domain === "math" ? ["items"] : []), "stakesDesign", "failureMode", "escalation", "mechanicSpec", "mathematicalHook"],
+    required: ["nodeId", "title", "academicTarget", "mechanic", "theme", "openingPurpose", "creatorPrompt", ...(cycle.domain === "math" ? ["items"] : cycle.domain === "spelling" ? ["spelling"] : []), "stakesDesign", "failureMode", "escalation", "mechanicSpec", "mathematicalHook"],
   };
   // The raw response is checkpointed before validation; a restart from the same
   // frozen snapshot replays it and makes no new provider call (contract 21).
@@ -610,7 +623,10 @@ Two things this Planner has gotten wrong before, stated plainly so you can avoid
 
 Title each instrument as the child should see it. It appears as the first thing on their screen, so give it a real name, not a category label.
 
-Do not copy assignment items or name a prototype to imitate. If evidence is insufficient, prescribe a focused harder or clarifying support board rather than a generic quiz.
+For math, do not copy assignment items or name a prototype to imitate. If evidence is insufficient, prescribe a focused harder or clarifying support board rather than a generic quiz.
+For spelling, each instrument must prescribe spelling.wordIds from the saved word identities below, a measurementRole, and a responseMode. You choose which words need teaching or practice and when to collect fresh recall. The server binds the saved spellings and new occasion IDs; you cannot replace answer keys or reset exposure. Fresh recall after practice is not unseen transfer or delayed retention. Include initially secure and targeted words when prescribing a final assignment check.
+Saved spelling words:
+${JSON.stringify([...savedSpellingItems.values()].map(item => ({ wordId: item.wordId, word: item.word, responseMode: item.response.mode })))}
 For spelling, Correct practice after long response time is not effortless recall. Examine per-word response time alongside assistance, exposure, response mode, and instrument ambiguity. When the evidence suggests a child is struggling, author teaching and guided practice before another fresh recall check; let Elli respond conversationally from the live item and child context. Do not infer mastery from supported or partial-visibility practice, and do not use a fixed latency threshold to choose the lesson.
 
 Child chart context:
