@@ -1700,9 +1700,9 @@ export class SessionManager {
       : null;
     const companionConversationOpen = this.companionPresence === "summoned"
       && this.companionInteractionMode === "conversation";
-    if (!urgentRoute?.intent.shouldInterrupt && !companionConversationOpen && handleCompanionPresenceTranscript({
+    if ((presenceRoute.action === "dismiss" || (!urgentRoute?.intent.shouldInterrupt && !companionConversationOpen)) && handleCompanionPresenceTranscript({
       enabled: !opts?.fromReadingComplete &&
-        (this.companionPresence === "collapsed" || generatedMathActivity || this.companionWakeGateEnabled || Boolean(this.spellingAssessment)),
+        (presenceRoute.action === "dismiss" || this.companionPresence === "collapsed" || generatedMathActivity || this.companionWakeGateEnabled || Boolean(this.spellingAssessment)),
       transcript,
       presence: this.companionPresence,
       companionName: this.companion.name,

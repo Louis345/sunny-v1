@@ -233,4 +233,30 @@ describe("urgent learning support routing", () => {
 
     expect(runAgent).not.toHaveBeenCalled();
   });
+
+  it.each([true, false])("dismisses an open conversation before model routing and requires a new summons (wake gate %s)", async (wakeGate) => {
+    // Human heard a farewell but the portrait stayed summoned. STT/model logs
+    // looked healthy; isolated phrase tests never exercised conversation mode.
+    const ws = mockWs();
+    const session = new SessionManager(ws, "Ila");
+    session.companionWakeGateEnabled = wakeGate;
+    const respond = vi.spyOn(session as unknown as { runCompanionResponse: (text: string) => Promise<void> }, "runCompanionResponse")
+      .mockResolvedValue(undefined);
+    const route = session as unknown as { handleEndOfTurn: (text: string) => Promise<void> };
+    session.setCompanionPresence("summoned", "voice");
+
+    await route.handleEndOfTurn("Bye, Sunny.");
+    expect(ws.send).toHaveBeenCalledWith(expect.stringContaining('"state":"collapsed"'));
+    expect(respond).not.toHaveBeenCalled();
+    expect(runAgent).not.toHaveBeenCalled();
+
+    await route.handleEndOfTurn("I am talking to someone in the room");
+    expect(respond).not.toHaveBeenCalled();
+    await route.handleEndOfTurn("Hey Sunny");
+    expect(respond).toHaveBeenCalledOnce();
+    expect(respond).toHaveBeenCalledWith("Hey Sunny");
+    const presence = vi.mocked(ws.send).mock.calls.map(([message]) => JSON.parse(String(message)))
+      .filter(message => message.type === "companion_presence");
+    expect(presence.map(message => message.state)).toEqual(["summoned", "collapsed", "summoned"]);
+  });
 });
