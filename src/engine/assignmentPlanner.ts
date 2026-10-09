@@ -1,3 +1,4 @@
+import { spellingCheckpointLineageIssues } from "./spellingCheckpointLineage";
 import {requestPlannerMessage, assertPlannerResponseComplete} from "./plannerTransport";
 import Anthropic from "@anthropic-ai/sdk";
 import fs from "fs";
@@ -1787,6 +1788,7 @@ export class AssignmentPlannerToolInvalidError extends Error {
 }
 
 type AssignmentPlannerRelationshipIssue =
+  | ReturnType<typeof spellingCheckpointLineageIssues>[number]
   | {
     code: "planner_baseline_intervention_lineage_invalid" | "planner_checkpoint_intervention_not_prior";
     measurementId: string;
@@ -1911,6 +1913,15 @@ function assignmentPlannerRelationshipIssues(
     })) {
       issues.push({ code: "planner_checkpoint_intervention_not_prior", measurementId, interventionNodeIds });
     }
+  }
+  if (requireSpellingMeasurements) {
+    const nodes = rawNodes.map(jsonObject).filter((node): node is Record<string, unknown> => !!node)
+      .filter(node => typeof node.id === "string" && typeof node.type === "string" && Array.isArray(node.targets))
+      .map(node => ({ id: node.id as string, type: node.type as string, targets: (node.targets as unknown[]).filter((target): target is string => typeof target === "string") }));
+    const measurements = rawMeasurements.map(jsonObject).filter((row): row is Record<string, unknown> => !!row)
+      .flatMap(row => { const spelling = jsonObject(row.spelling); return typeof row.id === "string" && spelling && Array.isArray(spelling.interventionNodeIds)
+        ? [{ id: row.id, spelling: { role: String(spelling.role), interventionNodeIds: spelling.interventionNodeIds.filter((id): id is string => typeof id === "string") } }] : []; });
+    issues.push(...spellingCheckpointLineageIssues(nodes, measurements));
   }
   return issues;
 }
@@ -2189,7 +2200,11 @@ async function callAssignmentPlannerModel(
       originalRequestHash: hashDiscoveryContract(packet),
       invalidToolInput: error.toolInput,
       schemaIssues,
-      relationshipIssues,
+      // Preserve v3 receipt identity for existing schema/relationship corrections.
+      // New exposure violations are checked again and use the bounded v4 follow-up.
+      relationshipIssues: schemaIssues.length > 0 || relationshipIssues.some(issue => issue.code !== "planner_checkpoint_lineage_missing" && issue.code !== "planner_final_checkpoint_missing")
+        ? relationshipIssues.filter(issue => issue.code !== "planner_checkpoint_lineage_missing" && issue.code !== "planner_final_checkpoint_missing")
+        : relationshipIssues,
       allowedEvidenceIds,
       allowedSpellingTargets: [...allowedSpellingTargets].sort(),
     };
@@ -2269,8 +2284,9 @@ async function callAssignmentPlannerModel(
     } catch (correctionError) {
       const missingOnly = correctionError instanceof AssignmentPlannerRelationshipInvalidError
         && correctionError.issues.length > 0
-        && correctionError.issues.every((issue) => issue.code === "planner_missing_measurement");
+        && correctionError.issues.every((issue) => issue.code === "planner_missing_measurement" || issue.code === "planner_checkpoint_lineage_missing" || issue.code === "planner_final_checkpoint_missing");
       if (!missingOnly || correctionStage.endsWith("v3-2-missing-measurement")) throw correctionError;
+      const lineageCorrection = correctionError.issues.some(issue => issue.code === "planner_checkpoint_lineage_missing" || issue.code === "planner_final_checkpoint_missing");
       const measurementRequest = {
         version: 4,
         purpose: "assignment_planner_missing_measurement_correction",
@@ -2279,11 +2295,11 @@ async function callAssignmentPlannerModel(
         relationshipIssues: correctionError.issues,
         allowedEvidenceIds,
       };
-      const measurementPrompt = `Your corrected ${ASSIGNMENT_PLANNER_TOOL_NAME} input still omitted required node measurements. Reissue the complete tool input once. Preserve every node, activity, target, route, prediction, and valid measurement exactly. Add only the listed missing plannedMeasurements entries. Each id must equal measure-<node id>; spelling.evidenceIds must come from ALLOWED EVIDENCE IDS; instruction or practice uses interventionNodeIds: []. Do not add, remove, reorder, or redesign nodes.\nMISSING MEASUREMENTS:\n${JSON.stringify(correctionError.issues)}\nALLOWED EVIDENCE IDS:\n${JSON.stringify(allowedEvidenceIds)}\nPREVIOUS CORRECTED TOOL INPUT:\n${JSON.stringify(correctionError.toolInput)}`;
+      const measurementPrompt = `Your corrected ${ASSIGNMENT_PLANNER_TOOL_NAME} input still omitted required node measurements. Reissue the complete tool input once. Preserve every node, activity, target, route, prediction, and valid measurement exactly. Add the listed missing plannedMeasurements entries or missing checkpoint intervention references. Checkpoints must reference all listed prior exposures, including playful spelling practice. Each id must equal measure-<node id>; spelling.evidenceIds must come from ALLOWED EVIDENCE IDS; instruction or practice uses interventionNodeIds: []. Do not add, remove, reorder, or redesign nodes.\nMISSING MEASUREMENTS:\n${JSON.stringify(correctionError.issues)}\nALLOWED EVIDENCE IDS:\n${JSON.stringify(allowedEvidenceIds)}\nPREVIOUS CORRECTED TOOL INPUT:\n${JSON.stringify(correctionError.toolInput)}`;
       const measurementStarted = Date.now();
       const measurementCorrection = await runMathProviderStage({
         draftDir: providerReceipt.draftDir,
-        stage: `${providerReceipt.stage}-tool-correction-v3-2-missing-measurement`,
+        stage: `${providerReceipt.stage}-${lineageCorrection ? "tool-correction-v4-2-lineage" : "tool-correction-v3-2-missing-measurement"}`,
         model,
         request: measurementRequest,
         beforeRequest: () => {

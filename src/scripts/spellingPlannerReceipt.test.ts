@@ -2,7 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ASSIGNMENT_PLANNER_TOOL_NAME, assignmentPlannerToolJsonSchema, attachSpellingDiscoveryEvidence, buildAssignmentPlanningPacket, planAssignmentFromSourceWithTelemetry, resolveAssignmentPlannerModel } from "../engine/assignmentPlanner";
+import { ASSIGNMENT_PLANNER_TOOL_NAME, assignmentPlannerToolJsonSchema, attachSpellingDiscoveryEvidence, buildAssignmentPlanningPacket, planAssignmentFromSourceWithTelemetry, parseAssignmentPlannerToolUseResponse, resolveAssignmentPlannerModel } from "../engine/assignmentPlanner";
 import { completeDiscoveryEvaluation, getMathGenerationStatus, hashDiscoveryContract, hasReceivedMathProviderStage, resolveAdaptiveMathDraftDir, runMathProviderStage, setMathGenerationPhase } from "../engine/adaptiveMathDiscovery";
 import { readAssignmentSourceExtraction } from "../engine/assignmentSourceExtraction";
 import { getLearningCycle } from "../engine/learningCycleRepository";
@@ -38,6 +38,8 @@ describe("Planner-authored spelling node titles survive the real parser", () => 
     expect(isResumableSpellingGenerationFailure("assignment_planner_ai_unavailable:ANTHROPIC_API_KEY")).toBe(true);
     expect(isResumableSpellingGenerationFailure("spelling_board_publication_rejected:missing-node")).toBe(true);
     expect(isResumableSpellingGenerationFailure("provider_outcome_uncertain:spelling-targeted-planner")).toBe(false);
+    expect(isResumableSpellingGenerationFailure("spelling_checkpoint_lineage_missing:check")).toBe(true);
+    expect(isResumableSpellingGenerationFailure("assignment_planner_relationship_invalid:issues=[]")).toBe(true);
     expect(isResumableSpellingGenerationFailure("arbitrary_failure")).toBe(false);
   });
 
@@ -147,6 +149,70 @@ async function fixture() {
 // The live run received a response but the outer validated-result receipt never
 // saved it. Higher-level Planner mocks bypassed the failing parser/validator.
 describe("spelling Planner raw-response durability", () => {
+  it("corrects missing checkpoint exposure lineage before accepting a targeted plan, then reuses receipts", async () => {
+    // Saori reached a paused wait because a live final checkpoint omitted prior
+    // practice. Logs caught it only at cycle freezing; valid recorded plans never
+    // tested disagreement between the tool and canonical acceptance boundaries.
+    const f = await fixture();
+    const invalid = structuredClone(f.message);
+    invalid.content[1].input!.plannedMeasurements.find(row => row.id === "measure-check")!.spelling!.interventionNodeIds = [];
+    transport.create.mockResolvedValueOnce(invalid).mockResolvedValueOnce(structuredClone(f.message));
+    const first = await f.run();
+    expect(transport.create).toHaveBeenCalledTimes(2);
+    expect(JSON.stringify(transport.create.mock.calls[1]?.[0])).toContain("planner_checkpoint_lineage_missing");
+    expect(first.output.plannedMeasurements.find(row => row.id === "measure-check")!.spelling!.interventionNodeIds).toContain("practice");
+    vi.stubEnv("ANTHROPIC_API_KEY", "");
+    expect((await f.run()).output).toEqual(first.output);
+    expect(transport.create).toHaveBeenCalledTimes(2);
+    await f.worker();
+    expect(getMathGenerationStatus(f.childId, f.homeworkId, f)?.phase).toBe("board_ready");
+  });
+
+  it.each([false, true])("reuses a pre-fix generic correction receipt before correcting its missing lineage, schemaError=%s", async schemaError => {
+    const f = await fixture();
+    const invalid = structuredClone(f.message);
+    invalid.content[1].input!.plannedMeasurements.find(row => row.id === "measure-check")!.spelling!.interventionNodeIds = [];
+    const original = structuredClone(invalid);
+    if (schemaError) original.content[1].input!.plannedMeasurements[0].spelling!.evidenceIds = [];
+    else original.content[1].input!.plannedMeasurements[0].spelling!.interventionNodeIds = ["check"];
+    let legacyInput: unknown;
+    let legacySchemaIssues: unknown[] = [];
+    try { legacyInput = parseAssignmentPlannerToolUseResponse(original as any); }
+    catch (error) { legacyInput = (error as any).toolInput; legacySchemaIssues = (error as any).issues; }
+    const evidence = new Set<string>();
+    f.packet.capturedHomework.wordGroups?.flatMap(group => group.evidence).forEach(id => evidence.add(id));
+    f.packet.discoveryEvidence!.observations.forEach(row => evidence.add(row.observationId));
+    f.packet.discoveryEvidence!.summary.constructs.flatMap(row => row.observationIds).forEach(id => evidence.add(id));
+    Object.values(f.packet.discoveryEvidence!.history.constructs).forEach(row => { row.observations.forEach(o => evidence.add(o.observationId)); row.evaluations.forEach(e => evidence.add(e.evaluationId)); });
+    const receipt = (message: typeof original) => ({ message, model: resolveAssignmentPlannerModel(), latencyMs: 1, createdAt: "2026-10-01T10:00:00Z" });
+    await runMathProviderStage({ ...f.providerReceipt, model: resolveAssignmentPlannerModel(), request: f.packet, execute: async () => receipt(original) });
+    const legacyRequest = { version: 3, purpose: "assignment_planner_tool_correction", originalRequestHash: hashDiscoveryContract(f.packet), invalidToolInput: legacyInput, schemaIssues: legacySchemaIssues, relationshipIssues: schemaError ? [] : [{ code: "planner_baseline_intervention_lineage_invalid", measurementId: "measure-practice", interventionNodeIds: ["check"] }], allowedEvidenceIds: [...evidence].sort(), allowedSpellingTargets: f.packet.capturedHomework.words.map(word => word.trim().toLocaleLowerCase("en-US")).sort() };
+    await runMathProviderStage({ ...f.providerReceipt, stage: "spelling-targeted-planner-tool-correction-v3-1", model: resolveAssignmentPlannerModel(), request: legacyRequest, execute: async () => receipt(invalid) });
+    const stageFile = path.join(f.draftDir, "provider-receipts/spelling-targeted-planner-tool-correction-v3-1.stage.json");
+    const before = fs.readFileSync(stageFile, "utf8");
+    transport.create.mockResolvedValueOnce(structuredClone(f.message));
+    await f.run();
+    expect(transport.create).toHaveBeenCalledOnce();
+    expect(fs.readFileSync(stageFile, "utf8")).toBe(before);
+  });
+
+  it.each([false, true])("bounds a lineage follow-up after a saved generic correction, stillInvalid=%s", async stillInvalid => {
+    const f = await fixture();
+    const invalid = structuredClone(f.message);
+    invalid.content[1].input!.plannedMeasurements.find(row => row.id === "measure-check")!.spelling!.interventionNodeIds = [];
+    const original = structuredClone(invalid);
+    original.content[1].input!.plannedMeasurements[0].spelling!.interventionNodeIds = ["check"];
+    transport.create.mockResolvedValueOnce(original).mockResolvedValueOnce(invalid).mockResolvedValueOnce(stillInvalid ? invalid : structuredClone(f.message));
+    if (stillInvalid) await expect(f.run()).rejects.toThrow("planner_checkpoint_lineage_missing");
+    else await f.run();
+    expect(transport.create).toHaveBeenCalledTimes(3);
+    expect(hasReceivedMathProviderStage(f.draftDir, "spelling-targeted-planner-tool-correction-v4-2-lineage")).toBe(true);
+    if (stillInvalid) await expect(f.run()).rejects.toThrow("planner_checkpoint_lineage_missing");
+    else await f.run();
+    expect(transport.create).toHaveBeenCalledTimes(3);
+    expect(getMathGenerationStatus(f.childId, f.homeworkId, f)?.phase).not.toBe("board_ready");
+  });
+
   it("asks the same Planner to restore a missing measurement before the cycle builder sees the plan", async () => {
     // Human catch: the live Planner added a Visual Explainer node without its
     // matching measurement. The prompt described the rule, but the relationship
