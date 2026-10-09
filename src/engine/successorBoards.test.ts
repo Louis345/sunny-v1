@@ -262,7 +262,7 @@ describe("successor boards (contract 21)", () => {
     expect(projected.activeSessionPlan.nodePlan.some((node) => node.type === "quest" || node.type === "boss")).toBe(false);
   });
 
-  it("test 6: an authorized Quest is visible but follows its ready warmup", async () => {
+  it("test 6: an authorized Quest is present and playable from the successor's first render", async () => {
     const rootDir = root();
     await finishBaselineBoard(rootDir);
     const decided = await advanceCanonicalCycleFromEvidence({ childId: CHILD, homeworkId: HW, decide: async () => decision("generate_quest", questSuccessor) }, { rootDir });
@@ -274,14 +274,9 @@ describe("successor boards (contract 21)", () => {
     const projected = projectLearningCycle(published);
     const questNode = projected.adventureBoard.nodes.find((node) => node.id === quest.nodeId)!;
     expect(questNode.kind).toBe("quest");
-    expect(questNode.state).toBe("locked");
-    expect(questNode.lock?.reason).toBe("planner-sequence");
-    const warmup = nodesOfBoard(published, currentBoardInstance(published).boardId).find((node) => node.role === "baseline")!;
-    const afterWarmup = complete(rootDir, warmup.nodeId, "s2", "s-1")!;
-    const readyQuest = projectLearningCycle(afterWarmup).adventureBoard.nodes.find((node) => node.id === quest.nodeId)!;
-    expect(["available", "current"]).toContain(readyQuest.state);
-    expect(readyQuest.lock).toBeUndefined();
-    expect(readyQuest.action?.type).toBe("launch-activity");
+    expect(["available", "current"]).toContain(questNode.state);
+    expect(questNode.lock).toBeUndefined();
+    expect(questNode.action?.type).toBe("launch-activity");
   });
 
   it("closes a Quest board's evidence batch only when the Quest itself completes", async () => {

@@ -1784,6 +1784,18 @@ export function projectLearningCycle(
     : -1;
   adventureBoard.nodes = adventureBoard.nodes.map((node) => {
     const canonicalNode = cycleNodeById.get(node.id);
+    // An encounter's published successor is its authorization; ordinary route
+    // sequencing must not introduce a second academic gate (contract 21).
+    if (board.publishedAt && (canonicalNode?.role === "quest" || canonicalNode?.role === "boss")
+      && (canonicalNode.state === "ready" || canonicalNode.state === "active")
+      && canonicalNode.artifactBinding?.validationStatus === "passed") {
+      return {
+        ...node,
+        state: canonicalNode.state === "active" ? "current" as const : "available" as const,
+        action: { type: "launch-activity" as const, payloadId: node.id },
+        lock: undefined,
+      };
+    }
     if (notTakenNodeIds.has(node.id)) {
       return {
         ...node,
