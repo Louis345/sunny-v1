@@ -5,7 +5,7 @@ import { execSync, spawn } from "node:child_process";
 import { chromium } from "playwright";
 import { getChildChart } from "../profiles/childChart";
 import { buildAdventureBoardFromActiveSessionPlan } from "../shared/adventureBoardFromPlan";
-import { normalizeLearningRoutesForPlan } from "../engine/assignmentPlanner";
+import { requireBoardDefinition } from "../shared/adventureBoardDefinition";
 import { appendContentFeedbackLesson, readContentFeedbackLessons } from "../engine/contentFeedbackMemory";
 import {
   encodeSunnyRuntimeConfig,
@@ -44,50 +44,10 @@ function validatePlan(childId: string, rootDir: string): void {
   const plan = getChildChart(childId, { rootDir }).activeSessionPlan;
   if (!plan) throw new Error(`No active session plan for ${childId}`);
 
-  const normalized = normalizeLearningRoutesForPlan(plan.learningRoutes, plan.nodePlan);
-  const board = buildAdventureBoardFromActiveSessionPlan({
-    plan: {
-      planId: plan.planId,
-      childId: plan.childId,
-      domain: plan.domain,
-      nodePlan: plan.nodePlan.map((node) => ({
-        id: node.id,
-        type: node.type,
-        activityId: node.activityId,
-        targets: node.targets,
-        targetLane: node.targetLane,
-        locked: node.locked,
-        choiceMode: node.choiceMode,
-        masteryUnlockState: node.masteryUnlockState,
-        difficulty: node.difficulty,
-        wordRadarConfig: node.wordRadarConfig as never,
-      })),
-      learningRoutes: normalized.routes,
-    },
-    boardId: `verify-board-${childId}`,
-    title: plan.domain,
-    theme: BOARD_THEME,
-  });
+  const definition = requireBoardDefinition(plan.boardDefinition, plan.nodePlan.map(node=>node.id));
+  if (JSON.stringify(plan.adventureBoard?.definition) !== JSON.stringify(definition)) throw new Error('authored_rendered_definition_drift');
+  console.log(`🎮 [verify-math-dod] [definition] [faithful] portals=${definition.portals.length} choices=${definition.choices.length}`);
 
-  const teachingNodes = teachingNodeCount(plan.nodePlan);
-  const hasFork = board.nodes.some((node) => node.id === "choose-path");
-  const hasMystery = board.nodes.some((node) => node.kind === "mystery");
-  const hasQuest = board.nodes.some((node) => node.kind === "quest");
-  const hasBoss = board.nodes.some((node) => node.kind === "boss");
-  const questBrief = plan.generatedExperienceBriefs?.find((brief) => brief.kind === "quest");
-
-  console.log(`🎮 [verify-math-dod] child=${childId} teachingNodes=${teachingNodes} routes=${normalized.routes.length} fork=${hasFork}`);
-  if (teachingNodes < 3) throw new Error(`Expected >= 3 teaching nodes, got ${teachingNodes}`);
-  if (!hasFork && normalized.routes.length >= 2) {
-    throw new Error("Expected Choose Path fork when distinct learning routes exist");
-  }
-  if (!hasMystery || !hasQuest || !hasBoss) {
-    throw new Error("Board missing mystery, quest, or boss destination");
-  }
-  if (!questBrief?.evidenceUsed?.length) {
-    throw new Error("Quest brief must cite evidenceUsed from captured homework / attempts");
-  }
-  console.log(`🎮 [verify-math-dod] questBrief="${questBrief.title}" evidence=${questBrief.evidenceUsed.join(", ")}`);
 }
 
 async function isUrlReachable(baseUrl: string, timeoutMs = 2500): Promise<boolean> {

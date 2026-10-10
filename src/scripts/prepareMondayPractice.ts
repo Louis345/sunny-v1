@@ -1,3 +1,4 @@
+import {linearJourneyFixture} from "./fixtures/authoredJourney";
 import fs from 'node:fs';
 import path from 'node:path';
 import { seedSpellingLab, writeSpellingPdfFixture, recordedSpellingDiagnostic } from './fixtures/spellingEvidenceFirst';
@@ -19,7 +20,7 @@ export async function prepareMondayPractice(rootDir: string, chartDir: string): 
   return {tags:{assignmentId:a.assignmentId,taxonomyVersion:1,tags:words.map(word=>({word,patterns:['spelling.irregular']}))},priors:words.map(word=>({assignmentId:a.assignmentId,word,pCorrect:0.6,confidence:0.4,expectedError:'Synthetic setup fixture; not a live prediction'}))};
  };
  try {
-  await runSpellingDiscoveryIntake({childId:'practice',sourceFile:source,rootDir},{chart:{db,provider},callPlannerModel:async packet=>({draft:{diagnostic:recordedSpellingDiagnostic(packet),title:'Practice spelling — test version',words:words.map(word=>({word,pageNumber:1})),uncertainty:[]}})});
+  await runSpellingDiscoveryIntake({childId:'practice',sourceFile:source,rootDir},{chart:{db,provider},callPlannerModel:async packet=>({draft:{boardDefinition:linearJourneyFixture(["diagnostic"]),diagnostic:recordedSpellingDiagnostic(packet),title:'Practice spelling — test version',words:words.map(word=>({word,pageNumber:1})),uncertainty:[]}})});
   console.log(' 🎮 [practice-install] [prepared] child=practice answers=0 fixture-priors=true');
  } finally {db.close();}
 }

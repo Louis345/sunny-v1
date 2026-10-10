@@ -1,3 +1,4 @@
+import type { AdventureBoardDefinition } from './adventureBoardDefinition';
 export type AdventureBoardDomain =
   | "spelling"
   | "reading"
@@ -82,6 +83,7 @@ export type AdventureBoardSlot =
   | "8";
 
 export interface AdventureBoardJson {
+  definition?: AdventureBoardDefinition;
   schemaVersion: 1;
   boardId: string;
   planId: string;
@@ -149,6 +151,8 @@ export interface AdventureBoardWordRadarConfig {
 }
 
 export interface AdventureBoardNode {
+  activityNodeId?: string;
+  portraitPosition?: { x: number; y: number };
   id: string;
   kind: AdventureBoardNodeKind;
   activityId?: string;
@@ -199,6 +203,7 @@ export interface AdventureBoardNode {
 }
 
 export interface AdventureBoardEdge {
+  controlPoints?: { landscape: Array<{x:number;y:number}>; portrait:Array<{x:number;y:number}> };
   id: string;
   from: string;
   to: string;
@@ -221,6 +226,8 @@ export interface AdventureChoiceSignal {
 }
 
 export interface AdventureChoiceOption {
+  journeyChoiceId?: string;
+  journeyOptionId?: string;
   id: string;
   label: string;
   description?: string;

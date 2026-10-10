@@ -1,3 +1,4 @@
+import type { AdventureBoardDefinition } from '../../shared/adventureBoardDefinition';
 import type {
   SM2Params,
   DifficultyParams,
@@ -240,6 +241,7 @@ export interface ActiveSessionPlan {
   }>;
   learningRoutes?: LearningRoutePrescription[];
   adventureBoard?: AdventureBoardJson;
+  boardDefinition?: AdventureBoardDefinition;
   variationPolicy: {
     avoidExactPreviousNodeOrder: boolean;
     avoidExactPreviousWordOrder: boolean;

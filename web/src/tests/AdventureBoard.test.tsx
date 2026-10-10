@@ -14,7 +14,6 @@ import {
   grokFullExperienceBoard,
   reinaCurrentHomeworkBoard,
   reinaMay24PlannerAdventureBoard,
-  reinaMay24ActiveSessionPlanSnapshot,
   buildSlotLabBoard,
 } from "../storybook/adventureBoardFixtures";
 import adventureBoardStoriesMeta, {
@@ -24,7 +23,6 @@ import adventureBoardStoriesMeta, {
 import rawHorizontalBoardJson from "../storybook/raw-horizontal-adventure-board.json";
 import reinaChartPacketJson from "../storybook/reina-chart-experience-packet.json";
 import type { AdventureBoardJson } from "../../../src/shared/adventureBoardJson";
-import { resolveAdventureBoardForActiveSessionPlan } from "../../../src/shared/adventureBoardFromPlan";
 import type { ChildExperiencePacket } from "../../../src/profiles/childExperiencePacket";
 import { DEFAULT_ADVENTURE_MAP_PROFILE } from "../../../src/context/schemas/learningProfile";
 import { cloneCompanionDefaults } from "../../../src/shared/companionTypes";
@@ -46,22 +44,27 @@ import {
 
 const rawHorizontalBoard = rawHorizontalBoardJson as AdventureBoardJson;
 const reinaChartPacket = reinaChartPacketJson as unknown as ChildExperiencePacket;
-const explicitRouteBoard = resolveAdventureBoardForActiveSessionPlan({
-  plan: {
-    ...reinaMay24ActiveSessionPlanSnapshot,
-    adventureBoard: undefined,
-    nodePlan: [
-      { ...reinaMay24ActiveSessionPlanSnapshot.nodePlan[0]!, id: "common-spelling", title: "Warmup" },
-      { ...reinaMay24ActiveSessionPlanSnapshot.nodePlan[1]!, id: "light-route", title: "Light Route" },
-      { ...reinaMay24ActiveSessionPlanSnapshot.nodePlan[2]!, id: "story-route", title: "Story Route" },
-    ],
-    learningRoutes: [
-      { id: "light", label: "Light Check", rationale: "Planner route", nodeIds: ["common-spelling", "light-route"] },
-      { id: "story", label: "Story", rationale: "Planner route", nodeIds: ["common-spelling", "story-route"] },
-    ],
-  },
-  boardId: "explicit-route-test", theme: reinaMay24PlannerAdventureBoard.theme,
-});
+// Frozen legacy presentation: compatibility must render saved topology, never
+// reconstruct it from an activity inventory or independently authored routes.
+const explicitRouteBoard: AdventureBoardJson = {
+  ...reinaMay24PlannerAdventureBoard,
+  boardId: "explicit-route-test",
+  nodes: [
+    {id:"common-spelling",kind:"activity",activityId:"word-radar",label:"Warmup",state:"completed",position:{x:.15,y:.5}},
+    {id:"choose",kind:"choice-gate",label:"Choose Path",state:"current",position:{x:.4,y:.5},choiceSetId:"baseline-route-options"},
+    {id:"light-route",kind:"activity",activityId:"word-radar",label:"Light Route",state:"locked",position:{x:.7,y:.25}},
+    {id:"story-route",kind:"activity",activityId:"story",label:"Story Route",state:"locked",position:{x:.7,y:.75}},
+  ],
+  edges: [
+    {id:"opening",from:"common-spelling",to:"choose",state:"completed"},
+    {id:"light-path",from:"choose",to:"light-route",state:"locked"},
+    {id:"story-path",from:"choose",to:"story-route",state:"locked"},
+  ],
+  choiceSets:[{id:"baseline-route-options",kind:"baseline-route",title:"Choose Path",options:[
+    {id:"light",nodeId:"light-route",label:"Light Check",state:"available",choiceSignal:{algorithmFeed:"choicePolicy",traits:[],expectedEvidence:"Shown, chosen and skipped options; engagement only.",preferenceNotMastery:true}},
+    {id:"story",nodeId:"story-route",label:"Story",state:"available",choiceSignal:{algorithmFeed:"choicePolicy",traits:[],expectedEvidence:"Shown, chosen and skipped options; engagement only.",preferenceNotMastery:true}},
+  ]}],
+};
 
 vi.mock("../components/CompanionLayer", () => ({
   CompanionLayer: (props: {
@@ -751,11 +754,12 @@ describe("AdventureBoard", () => {
     }
   });
 
-  it("renders real planner boards through the slot template without explicit positions", () => {
+  it("renders the saved legacy board without reconstructing its topology", () => {
     render(<AdventureBoard board={reinaCurrentHomeworkBoard} />);
 
     expect(reinaCurrentHomeworkBoard.layout?.companionSlot).toBe("right");
-    expect(reinaCurrentHomeworkBoard.nodes.some((node) => node.position == null)).toBe(true);
+    expect(reinaCurrentHomeworkBoard.nodes).toEqual(reinaMay24PlannerAdventureBoard.nodes);
+    expect(reinaCurrentHomeworkBoard.edges).toEqual(reinaMay24PlannerAdventureBoard.edges);
     const firstActivity = reinaCurrentHomeworkBoard.nodes.find((node) => node.kind === "activity");
     expect(firstActivity).toBeDefined();
     expect(screen.getAllByRole("button", { name: firstActivity!.label })[0]).toBeVisible();

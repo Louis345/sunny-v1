@@ -16,6 +16,17 @@ Sunny is a voice-first learning companion for two girls, Reina and Ila, running 
 4. **Prove it in the log [Law 5].** Significant state changes log as ` 🎮 [component] [action] [result]`.
 5. **Prove it before handing over [Law 7].** `npm run build` and the relevant tests must pass. Say plainly what was and was not verified, including what only a real session on Saori can prove.
 
+## Planner is the artist; the board is the canvas
+
+The AI Planner owns the learning journey. The board is a blank canvas and its nodes are portals to activities. Code gives the Planner expressive tools and faithfully executes the accepted design; it must not become a competing educational planner.
+
+- **Planner authority:** The Planner chooses activities, sequence, alternatives, prerequisites, convergence, and the intended composition from the child chart and available capabilities. Where the existing pipeline uses an Experience Creator, it realizes the Planner's intent; it does not add another planning authority or production path.
+- **Canvas responsibility:** Render the declared nodes, connections, choices, and arrangement; launch their bound activities and reflect truthful runtime state. Do not infer a different journey from fixed slots, delete choices, reorder activities, invent branches, or require branch-exclusive activities merely to satisfy a renderer. Different sequences through shared activities can express a meaningful choice.
+- **One executable contract:** Planner tools and runtime share the same versioned contract. Check references, supported capabilities, readiness, provenance, and execution safety at the tool boundary before publication. Return precise violations to the author through bounded correction. Never silently repair educational meaning or publish a degraded substitute. Contract-valid designs must execute faithfully.
+- **Elli's role:** Give Elli live displayed state, available choices, and loading facts so she can converse naturally. Code must not prescribe canned decision dialogue. Record choice as engagement evidence, separately from academic outcomes, under `LEARNING_FEEDBACK_LOOP.md`.
+- **Accountability:** Wrong instructional intent belongs to the Planner; unfaithful rendering or navigation belongs to runtime; mismatched tool/runtime expectations belong to the shared contract. Diagnose the earliest responsible layer instead of blaming the Planner for implementation limits.
+- **Refactor by deletion:** Replace and remove competing topology inference, cosmetic-route dropping, fixed pedagogical slot rules, and redundant adapters. Prefer net deletion in the affected production path; report what was removed, what remains, and why. Do not chase a deletion quota by removing evidence, safety, readiness, or recovery guarantees. Acceptance must compare the authored journey with the rendered and traversable journey, including a real sandbox evaluation-to-board run.
+
 ## Hard boundaries
 
 - **Kiosk-only human sessions.** Start every child, parent, or Saori acceptance session through the canonical `npm run sunny:run -- ...` kiosk launcher, without `--no-browser`. Never substitute an ordinary Chrome tab or reconnect a human test through a tab. `--no-browser` is only for explicitly automated or headless verification and must never be handed to a human tester. Before saying a human session is ready, require the log invariant `🎮 [kiosk] [kiosk-visible] [confirmed]` and verify the dedicated kiosk is visible; if that invariant fails, stop and fix the kiosk launch instead of using a browser fallback.

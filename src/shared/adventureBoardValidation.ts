@@ -1,7 +1,9 @@
+import { validateBoardDefinition } from "./adventureBoardDefinition";
 import type { AdventureBoardJson } from "./adventureBoardJson";
 import { knownThumbnailUrlForActivity } from "./activityPresentation";
 
 export type AdventureBoardValidationCode =
+  | "authored_definition_invalid"
   | "missing_edge_endpoint"
   | "choice_option_missing_node"
   | "choice_gate_missing_choice_set"
@@ -58,6 +60,7 @@ export function validateBoardGraph(board: AdventureBoardJson): AdventureBoardVal
 }
 
 export function validateBoardChoices(board: AdventureBoardJson): AdventureBoardValidationIssue[] {
+  if (board.definition) return validateBoardDefinition(board.definition,[...new Set(board.nodes.flatMap(node=>node.activityNodeId ? [node.activityNodeId] : []))]).map(issue=>({code:"authored_definition_invalid",severity:"error",message:issue.message,nodeId:issue.id}));
   const issues: AdventureBoardValidationIssue[] = [];
   const nodeIds = new Set(board.nodes.map((node) => node.id));
   const nodesById = new Map(board.nodes.map((node) => [node.id, node]));
@@ -301,6 +304,7 @@ export function validateBoardActivityCatalogReferences(
 }
 
 export function validateBoardVisualContract(board: AdventureBoardJson): AdventureBoardValidationIssue[] {
+  if (board.definition) return []; // Authored compositions are measured by the browser publication verifier, never rewritten into slots.
   const issues: AdventureBoardValidationIssue[] = [];
   if (board.layout?.preset !== "horizontal-adventure-spine") return issues;
 

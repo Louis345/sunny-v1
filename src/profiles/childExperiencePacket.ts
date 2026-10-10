@@ -1,13 +1,8 @@
-import { createHash } from "node:crypto";
-import fs from "node:fs";
-import path from "node:path";
 import type { AdventureMapProfile } from "../context/schemas/learningProfile";
 import type { ChildChart } from "./childChart";
 import type { CompanionConfig } from "../shared/companionTypes";
 import type { AdventureBoardJson } from "../shared/adventureBoardJson";
-import type { WordRadarNodeConfig } from "../shared/adventureTypes";
 import { readChoiceEvents } from "../engine/choiceEvents";
-import { resolveChildContextDir } from "../utils/contextRoot";
 
 export type ChildExperiencePacket = {
   spellingDiscovery?: { nodeId: string; items: Array<{ itemId: string; display: string; acceptedResponses: string[]; label: string; subject: string }> };
@@ -27,6 +22,7 @@ export type ChildExperiencePacket = {
       homeworkId: string;
       lifecycle: string;
       revision: number;
+      boardKind?: "probe" | "teaching" | "successor" | "legacy";
     };
   };
   activeSessionPlan: ChildChart["activeSessionPlan"];
@@ -50,40 +46,6 @@ function projectPlayableHomeworkIdentity(
   };
 }
 
-function projectVerifiedSpellingResponseMode(
-  chart: ChildChart,
-  plan: ChildChart["activeSessionPlan"],
-): ChildChart["activeSessionPlan"] {
-  const cycle = chart.learningCycle;
-  if (cycle?.domain !== "spelling" || !plan?.nodePlan) return plan;
-  const cycleNodes = new Map(cycle.nodes.map((node) => [node.nodeId, node]));
-  return {
-    ...plan,
-    nodePlan: plan.nodePlan.map((planNode) => {
-      const node = cycleNodes.get(planNode.id);
-      if (planNode.wordRadarConfig || node?.implementationType !== "word-radar"
-        || node.evidenceContract.nativeConfig || node.artifactBinding?.validationStatus !== "passed") return planNode;
-      const binding = node.artifactBinding;
-      const expectedDir = path.resolve(resolveChildContextDir(chart.childId, { rootDir: chart.rootDir }),
-        "homework", "direct-drafts", cycle.homeworkId, "native-instruments");
-      const artifactPath = path.resolve(resolveChildContextDir(chart.childId, { rootDir: chart.rootDir }),
-        binding.localArtifactPath.replace(/^\/+/, ""));
-      if (path.dirname(artifactPath) !== expectedDir || path.dirname(fs.realpathSync(artifactPath)) !== fs.realpathSync(expectedDir)) {
-        throw new Error(`verified_spelling_artifact_path_mismatch:${node.nodeId}`);
-      }
-      const artifact = JSON.parse(fs.readFileSync(artifactPath, "utf8")) as {
-        node?: { id?: string; type?: string; wordRadarConfig?: WordRadarNodeConfig };
-      };
-      const fingerprint = createHash("sha256").update(JSON.stringify(artifact)).digest("hex");
-      if (fingerprint !== binding.contractFingerprint || artifact.node?.id !== node.nodeId
-        || artifact.node.type !== "word-radar" || !artifact.node.wordRadarConfig) {
-        throw new Error(`verified_spelling_artifact_mismatch:${node.nodeId}`);
-      }
-      console.log(` 🎮 [child-experience] [verified-spelling-mode] [restored] node=${node.nodeId} mode=${artifact.node.wordRadarConfig.recallMode}`);
-      return { ...planNode, wordRadarConfig: artifact.node.wordRadarConfig };
-    }),
-  };
-}
 
 function projectRecordedCompletions(
   chart: ChildChart,
@@ -135,6 +97,7 @@ function projectCanonicalAgencyChoice(
   plan: ChildChart["activeSessionPlan"],
 ): ChildChart["activeSessionPlan"] {
   const cycle = chart.learningCycle;
+  if (plan?.boardDefinition) return plan;
   const experiment = cycle?.agencyExperiment;
   const board = plan?.adventureBoard;
   if (!plan?.activeHomeworkId || !board || !experiment || experiment.routes.length < 2) return plan;
@@ -277,15 +240,16 @@ export function buildChildExperiencePacket(chart: ChildChart): ChildExperiencePa
             homeworkId: chart.learningCycle.homeworkId,
             lifecycle: chart.learningCycle.lifecycle,
             revision: chart.learningCycle.revision,
+            boardKind: chart.learningCycle.boards?.find(board => board.boardId === selectedPlan?.adventureBoard?.boardId)?.kind,
           }
         : undefined,
     },
-    activeSessionPlan: projectVerifiedSpellingResponseMode(chart, projectCanonicalAgencyChoice(
+    activeSessionPlan: projectCanonicalAgencyChoice(
       chart,
       projectRecordedCompletions(
         chart,
         projectPlayableHomeworkIdentity(selectedPlan),
       ),
-    )),
+    ),
   };
 }

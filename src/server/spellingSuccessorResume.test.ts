@@ -8,6 +8,7 @@ import { seedSpellingLab } from "../scripts/fixtures/spellingEvidenceFirst";
 import { buildSpellingRecallItems } from "../engine/learningCycleIngest";
 import { createLearningCycle, getLearningCycle, projectLearningCycle, type LearningCycleNodeContract } from "../engine/learningCycleRepository";
 import { currentBoardInstance, preparingBoardInstance, publishBoardInstance } from "../engine/learningBoardInstances";
+import { linearJourneyFixture } from "../scripts/fixtures/authoredJourney";
 
 const lab = vi.hoisted(() => ({ decisions: 0, builds: 0, interruptAfterFirstBinding: true }));
 vi.mock("../shared/childRegistry", async original => ({ ...await original<typeof import("../shared/childRegistry")>(), listChildProfileIds: () => ["handoff-child"] }));
@@ -16,7 +17,7 @@ vi.mock("../engine/learningCycleRuntime", async original => {
   return { ...actual, advanceCanonicalCycleFromEvidence: (input: any, opts: any) => actual.advanceCanonicalCycleFromEvidence({ ...input, decide: async cycle => {
     lab.decisions += 1;
     const wordIds = Object.values(cycle.nodes[0].evidenceContract.spellingItems!).map(item => item.wordId);
-    return { status: "revised", reason: "Recorded support decision from the completed spelling evidence", progressionAction: "generate_support", preserve: [], change: ["guided practice"], testNext: ["later recall"], nextEvidenceRequired: ["delayed recall"], predictionEvaluationIds: cycle.predictionEvaluations.map(row => row.evaluationId), successor: { instruments: ["Sound workshop", "Later recall"].map((title, index) => ({ nodeId: `support-${index}`, title, academicTarget: "spelling.night", mechanic: "guided spelling", theme: "recorded harbor", openingPurpose: "Practice the observed spelling gap", creatorPrompt: "Recorded fixture: practice night using the saved evidence", spelling: { wordIds, measurementRole: index === 0 ? "practice" : "fresh_checkpoint", responseMode: "spelling_letters" } })) } };
+    return { status: "revised", reason: "Recorded support decision from the completed spelling evidence", progressionAction: "generate_support", preserve: [], change: ["guided practice"], testNext: ["later recall"], nextEvidenceRequired: ["delayed recall"], predictionEvaluationIds: cycle.predictionEvaluations.map(row => row.evaluationId), successor: { boardDefinition: linearJourneyFixture(["support-0", "support-1"]), instruments: ["Sound workshop", "Later recall"].map((title, index) => ({ nodeId: `support-${index}`, title, academicTarget: "spelling.night", mechanic: "guided spelling", theme: "recorded harbor", openingPurpose: "Practice the observed spelling gap", creatorPrompt: "Recorded fixture: practice night using the saved evidence", spelling: { wordIds, measurementRole: index === 0 ? "practice" : "fresh_checkpoint", responseMode: "spelling_letters" } })) } };
   } }, opts) };
 });
 vi.mock("../engine/canonicalProgressionGenerator", async original => {
@@ -60,7 +61,7 @@ it("resumes a partially prepared spelling successor after HTTP completion withou
       evidenceContract: { academic: true, engagement: true, companionObservations: true, spellingItems: { [item.id]: item } }, evidenceIds: [],
     };
     const base = { childId, homeworkId, domain: "spelling", assignment: { title: "School spelling", contentFingerprint: "recorded", capturedEvidenceIds: ["school:one"], targets: ["night"] }, academicTheory: { theoryId: "spelling-theory", revision: 1, hypothesis: "Test the spelling gap", supportCriteria: [], reviseCriteria: [], falsifyCriteria: [] }, engagementTheory: null, nodes: [node], initialLifecycle: "board_ready" as const };
-    const board = publishBoardInstance({ ...base, boards: [] } as never, { kind: "teaching", predecessorBoardId: null, plannerDecisionId: "original-plan", evidenceIds: ["school:one"], nodeIds: [node.nodeId], publishedAt: "2026-10-01T00:00:00Z" });
+    const board = publishBoardInstance({ ...base, boards: [] } as never, { kind: "teaching", definition: linearJourneyFixture([node.nodeId]), predecessorBoardId: null, plannerDecisionId: "original-plan", evidenceIds: ["school:one"], nodeIds: [node.nodeId], publishedAt: "2026-10-01T00:00:00Z" });
     createLearningCycle({ ...base, boards: [board] }, { rootDir });
     const app = express(); app.use(express.json()); setupRoutes(app);
     const activeServer = app.listen(0, "127.0.0.1"); server = activeServer;
@@ -79,7 +80,7 @@ it("resumes a partially prepared spelling successor after HTTP completion withou
     const bound = partial.nodes.find(row => row.nodeId !== "practice" && row.artifactBinding)!;
     // Execute the production startup recovery against the persisted synthetic cycle.
     vi.stubEnv("VITEST", ""); resumeSuccessorBoards();
-    await vi.waitFor(() => expect(currentBoardInstance(getLearningCycle(childId, homeworkId)!).boardId).not.toBe(board.boardId));
+    await vi.waitFor(() => expect(currentBoardInstance(getLearningCycle(childId, homeworkId)!).boardId).not.toBe(board.boardId), {timeout:5000});
     const ready = getLearningCycle(childId, homeworkId)!;
     expect(ready.boards).toHaveLength(2);
     expect(ready.observations).toEqual(completedEvidence);

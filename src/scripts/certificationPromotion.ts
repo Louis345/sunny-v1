@@ -23,7 +23,7 @@ import {
   selectChildFacingJourneyScreens,
 } from "../engine/childFacingVisualGate";
 import { DISCOVERY_RELEASE_VIEWPORTS, DISCOVERY_VERIFIER_VERSION } from "../engine/discoveryVisualReview";
-import { getLearningCycle } from "../engine/learningCycleRepository";
+import { getLearningCycle, projectLearningCycle } from "../engine/learningCycleRepository";
 import { getChildChart } from "../profiles/childChart";
 import {
   assertSourceSnapshotUnchanged,
@@ -374,8 +374,11 @@ function assertCompletedPublication(input: {
   const plan = domainProjection(path.join(childDir, "plans", "active_session_plan.json"), "activeByDomain", "math");
   const profileHomework = domainProjection(path.join(childDir, "learning_profile.json"), "activeHomeworkByDomain", "math");
   const profilePlan = domainProjection(path.join(childDir, "learning_profile.json"), "activeSessionPlanByDomain", "math");
+  const cycle = getLearningCycle(manifest.sourceChildId, manifest.homeworkId!, {rootDir:manifest.sourceRoot});
+  if (!cycle || JSON.stringify(stableJson(cycle.boards?.[0]?.definition)) !== JSON.stringify(stableJson(input.expectedPlan.boardDefinition))) throw new Error("certification_promotion_journey_mismatch");
   const expectedPlan = {
     ...input.expectedPlan,
+    adventureBoard: projectLearningCycle(cycle).activeSessionPlan.adventureBoard,
     createdAt: typeof plan?.createdAt === "string" ? plan.createdAt : "",
   };
   if (homework?.homeworkId !== manifest.homeworkId
@@ -690,7 +693,7 @@ export async function promoteCertifiedMathDiscovery(
     homeworkId: manifest.homeworkId,
     evaluation: verifiedContract,
   });
-  publishDiscoveryExperience({
+  await publishDiscoveryExperience({
     rootDir: manifest.sourceRoot,
     childId: manifest.sourceChildId,
     homeworkId: manifest.homeworkId,

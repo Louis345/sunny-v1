@@ -1,3 +1,6 @@
+import {createLearningCycle} from "./learningCycleRepository";
+import {withInitialBoard} from "./learningBoardInstances";
+import {linearJourneyFixture} from "../scripts/fixtures/authoredJourney";
 import fs from "fs";
 import os from "os";
 import path from "path";
@@ -13,6 +16,7 @@ import { getLearningCycle, transitionLearningCycle, type LearningCycleRecordV2 }
 
 function plan(): ActiveSessionPlan {
   return {
+    boardDefinition:linearJourneyFixture(["facts"]),
     planId: "plan-1",
     childId: "reina",
     createdAt: "2026-07-11T20:00:00.000Z",
@@ -101,12 +105,23 @@ function input() {
     contentFingerprint: "fingerprint-1",
     capturedEvidenceIds: ["assignment:pdf:1"],
     targets: ["5x2", "5x5"],
-    plan: plan(),
+    plan: {...plan(),nodePlan:plan().nodePlan.filter(node=>node.type!=="quest"&&node.type!=="boss")},
     engagementTheory: null,
   };
 }
 
 describe("learning cycle ingestion bridge", () => {
+  it("resumes initial publication after interruption without changing the frozen candidate", async () => {
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-initial-resume-"));
+    const frozen = createLearningCycle(withInitialBoard(buildLearningCycleInputFromPlan(input()), "teaching", new Date().toISOString()), {rootDir});
+    expect(frozen.boards![0].publishedAt).toBeNull();
+    const resumed = await persistIngestedLearningCycle(input(), {rootDir});
+    expect(resumed.boards![0].publishedAt).not.toBeNull();
+    expect(resumed.boards![0].definition).toEqual(frozen.boards![0].definition);
+    expect(resumed.observations).toEqual(frozen.observations);
+    expect(resumed.nodes).toEqual(frozen.nodes);
+  });
+
   it("keeps a Mystery role while launching its academic Concept Check instrument", () => {
     const homeworkId = "hw-spelling-mystery-instrument";
     const sourceEvidenceId = "assignment:spelling-list";
@@ -154,6 +169,7 @@ describe("learning cycle ingestion bridge", () => {
       evidencePolicy: { writesPracticeEvidence: true, writesMasteryEvidence: false, requiresPerTargetResult: true, allowedEvidence: ["practice"] },
     };
     const plan = {
+      boardDefinition:linearJourneyFixture(["mystery-check","fresh-check"]),
       planId: `targeted:${homeworkId}`,
       childId: "lab-child",
       createdAt: "2026-10-01T12:00:00.000Z",
@@ -201,7 +217,7 @@ describe("learning cycle ingestion bridge", () => {
   });
 
   it("converts the final planner/artifact result into canonical node contracts", () => {
-    const cycleInput = buildLearningCycleInputFromPlan(input());
+    const cycleInput = buildLearningCycleInputFromPlan({...input(),plan:plan()});
     expect(cycleInput.nodes.map((node) => node.title)).toEqual(["Fact Blaster", "Quest", "Boss"]);
     expect(cycleInput.nodes[0]?.openingScreen).toEqual({
       title: "Fact Blaster",
@@ -225,12 +241,12 @@ describe("learning cycle ingestion bridge", () => {
     expect(cycleInput.nodes[0]?.artwork.status).toBe("failed");
   });
 
-  it("test 12: creates one opening board and resumes the same unchanged assignment idempotently", () => {
+  it("test 12: creates one opening board and resumes the same unchanged assignment idempotently", async () => {
     const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-cycle-ingest-"));
-    const first = persistIngestedLearningCycle(input(), { rootDir });
-    const changed = plan();
+    const first = await persistIngestedLearningCycle(input(), { rootDir });
+    const changed = input().plan;
     changed.nodePlan[0]!.theme = "new theme";
-    const second = persistIngestedLearningCycle({ ...input(), plan: changed }, { rootDir });
+    const second = await persistIngestedLearningCycle({ ...input(), plan: changed }, { rootDir });
 
     expect(first.schemaVersion).toBe(2);
     expect(first.boards).toHaveLength(1);
@@ -240,27 +256,27 @@ describe("learning cycle ingestion bridge", () => {
     expect(getLearningCycle("reina", "hw-math-cycle", { rootDir })).toEqual(first);
   });
 
-  it("test 13: a new assignment creates its own separate cycle and leaves the original untouched", () => {
+  it("test 13: a new assignment creates its own separate cycle and leaves the original untouched", async () => {
     const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-cycle-ingest-new-"));
-    const original = persistIngestedLearningCycle(input(), { rootDir });
-    const next = persistIngestedLearningCycle({ ...input(), homeworkId: "hw-math-next", contentFingerprint: "fingerprint-next" }, { rootDir });
+    const original = await persistIngestedLearningCycle(input(), { rootDir });
+    const next = await persistIngestedLearningCycle({ ...input(), homeworkId: "hw-math-next", contentFingerprint: "fingerprint-next" }, { rootDir });
     expect(next.homeworkId).toBe("hw-math-next");
-    expect(next.revision).toBe(1);
+    expect(next.revision).toBe(2);
     expect(next.boards?.[0]?.boardId).toBe("hw-math-next:board:1");
     expect(getLearningCycle("reina", "hw-math-cycle", { rootDir })).toEqual(original);
   });
 
-  it("refuses to mutate a published board when the same assignment id arrives with different content", () => {
+  it("refuses to mutate a published board when the same assignment id arrives with different content", async () => {
     const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-cycle-ingest-changed-"));
-    const first = persistIngestedLearningCycle(input(), { rootDir });
-    expect(() => persistIngestedLearningCycle({ ...input(), contentFingerprint: "different-content" }, { rootDir }))
-      .toThrow("learning_cycle_reingestion_fingerprint_changed:hw-math-cycle");
+    const first = await persistIngestedLearningCycle(input(), { rootDir });
+    await expect(persistIngestedLearningCycle({ ...input(), contentFingerprint: "different-content" }, { rootDir }))
+      .rejects.toThrow("learning_cycle_reingestion_fingerprint_changed:hw-math-cycle");
     expect(getLearningCycle("reina", "hw-math-cycle", { rootDir })).toEqual(first);
   });
 
-  it("re-ingestion preserves evidence and never revokes a prepared successor board", () => {
+  it("re-ingestion preserves evidence and never revokes a prepared successor board", async () => {
     const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-cycle-reingest-successor-"));
-    let cycle = persistIngestedLearningCycle(input(), { rootDir });
+    let cycle = await persistIngestedLearningCycle(input(), { rootDir });
     cycle = transitionLearningCycle("reina", "hw-math-cycle", cycle.revision, {
       type: "instrument_observed", nodeId: "facts", observations: [],
       academicEvidence: [{ evidenceId: "real-child:baseline:1", summary: "Baseline complete", accuracy: 0.8 }],
@@ -272,43 +288,43 @@ describe("learning cycle ingestion bridge", () => {
         status: "supported", reason: "Practice more before transfer.", nextAction: "generate_support",
         evidenceIds: ["real-child:baseline:1"], predictionEvaluationIds: [], preserve: [], change: [], testNext: [], nextEvidenceRequired: [],
         progressionAction: "generate_support",
-        successor: { instruments: [{ nodeId: "groups", title: "Group Garden", academicTarget: "equal groups", mechanic: "sort", theme: "garden", openingPurpose: "Sort", creatorPrompt: "Build" }] },
+        successor: { boardDefinition:linearJourneyFixture(["groups"]), instruments: [{ nodeId: "groups", title: "Group Garden", academicTarget: "equal groups", mechanic: "sort", theme: "garden", openingPurpose: "Sort", creatorPrompt: "Build" }] },
       },
     }, { rootDir });
 
-    const refreshed = persistIngestedLearningCycle(input(), { rootDir });
+    const refreshed = await persistIngestedLearningCycle(input(), { rootDir });
 
     expect(refreshed).toEqual(cycle);
     expect(refreshed.boards).toHaveLength(2);
     expect(refreshed.evidence.academic.map((item) => item.evidenceId)).toContain("real-child:baseline:1");
   });
 
-  it("re-ingesting a legacy cycle keeps an existing Quest and its evidence", () => {
+  it("re-ingesting a legacy cycle keeps an existing Quest and its evidence", async () => {
     const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-cycle-legacy-quest-"));
-    const created = persistIngestedLearningCycle(input(), { rootDir });
+    const created = await persistIngestedLearningCycle(input(), { rootDir });
     const file = path.join(rootDir, "src/context/reina/homework/cycles/hw-math-cycle.json");
     const legacy = structuredClone(created);
     delete legacy.boards;
-    const quest = structuredClone(buildLearningCycleInputFromPlan(input()).nodes.find((node) => node.role === "quest")!);
+    const quest = structuredClone(buildLearningCycleInputFromPlan({...input(),plan:plan()}).nodes.find((node) => node.role === "quest")!);
     quest.state = "completed";
     quest.evidenceIds = ["real-child:quest:1"];
     legacy.nodes.push(quest);
     fs.writeFileSync(file, JSON.stringify(legacy, null, 2), "utf8");
 
-    const refreshed = persistIngestedLearningCycle(input(), { rootDir });
+    const refreshed = await persistIngestedLearningCycle(input(), { rootDir });
 
     expect(refreshed.nodes.find((node) => node.nodeId === quest.nodeId)).toMatchObject({ state: "completed", evidenceIds: ["real-child:quest:1"] });
   });
 
-  it("repairs an invalid historical Quest/Boss state during re-ingestion", () => {
+  it("repairs an invalid historical Quest/Boss state during re-ingestion", async () => {
     const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-cycle-invalid-history-"));
-    const created = persistIngestedLearningCycle(input(), { rootDir });
+    const created = await persistIngestedLearningCycle(input(), { rootDir });
     const file = path.join(rootDir, "src/context/reina/homework/cycles/hw-math-cycle.json");
     // A pre-contract-21 cycle with impossible legacy Quest/Boss placeholders.
     const corrupted = structuredClone(created);
     delete corrupted.boards;
     corrupted.lifecycle = "quest_generating";
-    const legacyBuilt = buildLearningCycleInputFromPlan(input()).nodes;
+    const legacyBuilt = buildLearningCycleInputFromPlan({...input(),plan:plan()}).nodes;
     const quest = structuredClone(legacyBuilt.find((node) => node.role === "quest")!);
     const boss = structuredClone(legacyBuilt.find((node) => node.role === "boss")!);
     corrupted.nodes.push(quest, boss);
@@ -324,7 +340,7 @@ describe("learning cycle ingestion bridge", () => {
     };
     fs.writeFileSync(file, JSON.stringify(corrupted, null, 2), "utf8");
 
-    const repaired = persistIngestedLearningCycle(input(), { rootDir });
+    const repaired = await persistIngestedLearningCycle(input(), { rootDir });
 
     expect(repaired.lifecycle).toBe("baseline_ready");
     expect(repaired.nodes.some((node) => node.role === "quest" || node.role === "boss")).toBe(false);

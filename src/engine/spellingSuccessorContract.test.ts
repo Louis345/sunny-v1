@@ -1,3 +1,4 @@
+import {linearJourneyFixture} from '../scripts/fixtures/authoredJourney';
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -31,7 +32,7 @@ function fixture(responseCount = 2) {
   createLearningCycle({ ...base, boards: [board] }, { rootDir });
   recordCanonicalNodeCompletion({ childId, homeworkId, sessionId: "recorded", nodeId: node.nodeId, result: { completed: true, accuracy: 0, timeSpent_ms: 1000, targetResults: items.slice(0, responseCount).map(item => ({ target: item.id, correct: false, attemptedValue: "unknown" })) } }, { rootDir });
   const instrument = { nodeId: "support", title: "Lantern letters", academicTarget: "school words", mechanic: "build words", theme: "harbor", openingPurpose: "Practice the observed gap", creatorPrompt: "Build words from captured evidence", stakesDesign: "Mission", failureMode: "Try again", escalation: "Fade support", mechanicSpec: "Move letters", mathematicalHook: "Word patterns", spelling: { wordIds: [items[0].wordId], measurementRole: "practice", responseMode: "spelling_letters" } };
-  const decision = { status: "revised", reason: "Support the observed spelling gap", progressionAction: "generate_support", preserve: [], change: ["guided practice"], testNext: ["recall"], nextEvidenceRequired: ["later recall"], nextInstruments: [instrument] };
+  const decision = { boardDefinition:linearJourneyFixture(["support"]), status: "revised", reason: "Support the observed spelling gap", progressionAction: "generate_support", preserve: [], change: ["guided practice"], testNext: ["recall"], nextEvidenceRequired: ["later recall"], nextInstruments: [instrument] };
   return { rootDir, childId, homeworkId, items, instrument, decision, board };
 }
 

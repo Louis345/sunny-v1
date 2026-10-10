@@ -1,3 +1,4 @@
+import { verifyPreparingBoardCanvas } from '../engine/adventureBoardCanvas';
 import { loadSunnyRuntimeEnvironment } from "./sunnyMenu";
 loadSunnyRuntimeEnvironment();
 import crypto from "node:crypto";
@@ -7,7 +8,7 @@ import { getChildChart } from "../profiles/childChart";
 import { readPriorConceptIds } from "../engine/assignmentLedger";
 import {
   askDirectMathPlanner, askMathExperienceDesigner, buildDirectActiveSessionPlan,
-  buildMathCreativeChildContext, mathPlannerChartContext, correctSavedDirectMathPlannerResponse, generateDirectArtifacts, generateDirectArtworkBundle, parseMathLearningProgram, parseSavedDirectMathPlannerResponse,
+  buildMathCreativeChildContext, mathPlannerChartContext, verifyMathPlannerCanvas, correctSavedDirectMathPlannerResponse, correctableMathPlannerTruthError, generateDirectArtifacts, generateDirectArtworkBundle, parseMathLearningProgram, parseSavedDirectMathPlannerResponse,
   findTruncatedDirectRepairReceipt,
   repairDirectArtifact,
   persistDirectExperience, buildDirectLearningCycleInput, runDirectBrowserSmokeCheck, mathPlannerCandidateCards, MATH_BROWSER_VERIFIER_VERSION, type DirectPlaywrightReport, type DirectArtifact, type DirectLearningExperiencePlan,
@@ -312,7 +313,7 @@ export async function runAdaptiveMathGeneration(
       recoveredProgram = parseSavedDirectMathPlannerResponse(read(rawPlannerResponseFile));
       console.log(` 🎮 [adaptive-math] [targeted-planner] [revalidated] child=${childId} homework=${homeworkId}`);
     } catch (error) {
-      if (error instanceof Error && error.message.startsWith("math_item_clock_state_inconsistent:")) {
+      if (correctableMathPlannerTruthError(error)) {
         savedPlannerTruthError = error.message;
       }
       console.log(` 🎮 [adaptive-math] [targeted-planner] [saved-response-still-invalid] child=${childId} homework=${homeworkId} reason=${error instanceof Error ? error.message : String(error)}`);
@@ -424,7 +425,7 @@ export async function runAdaptiveMathGeneration(
   const discoveryEvidenceSummary = fs.existsSync(summaryFile)
     ? read<{ summary: unknown }>(summaryFile).summary
     : undefined;
-  const program: MathLearningProgram = fs.existsSync(programFile)
+  let program: MathLearningProgram = fs.existsSync(programFile)
     ? parseMathLearningProgram(read(programFile))
     : recoveredProgram ?? (savedPlannerTruthError
       ? await correctSavedDirectMathPlannerResponse({
@@ -441,6 +442,11 @@ export async function runAdaptiveMathGeneration(
       discoveryEvidenceSummary,
       rawResponseFile: rawPlannerResponseFile,
     }));
+  try { await verifyMathPlannerCanvas(program,rawPlannerResponseFile); }
+  catch(error) {
+    if(!correctableMathPlannerTruthError(error) || !fs.existsSync(rawPlannerResponseFile)) throw error;
+    program=await correctSavedDirectMathPlannerResponse({savedResponse:read(rawPlannerResponseFile),validationError:error.message,correctionResponseFile:plannerCorrectionResponseFile});
+  }
   write(programFile, program);
   if (!fs.existsSync(designFile) || !fs.existsSync(planFile)) setMathGenerationPhase({rootDir,childId,homeworkId,phase:"board_designing"});
   const designed = fs.existsSync(designFile) && fs.existsSync(planFile)
@@ -487,8 +493,9 @@ export async function runAdaptiveMathGeneration(
   const canonical = () => buildDirectLearningCycleInput({ childId, homeworkId, extraction, plannerPlan: designed.plan, activeSessionPlan: active(), artifacts: placeholderArtifacts(designed.plan, childId, homeworkId, build.artifacts), assumptions: program.assumptions });
   const contract = canonical();
   if (!getLearningCycle(childId, homeworkId, { rootDir })?.adaptiveGeneration?.designHash) {
-    revealTargetedBoard({ rootDir, childId, homeworkId, programHash, designHash, nodes: [], nodeContracts: contract.nodes, academicTheory: contract.academicTheory, academicPredictions: contract.academicPredictions, assumptions: contract.assumptions, agencyExperiment: contract.agencyExperiment });
+    revealTargetedBoard({ rootDir, childId, homeworkId, programHash, designHash, nodes: [], nodeContracts: contract.nodes, academicTheory: contract.academicTheory, academicPredictions: contract.academicPredictions, assumptions: contract.assumptions, boardDefinition: contract.boardDefinition, agencyExperiment: contract.agencyExperiment });
   }
+  await verifyPreparingBoardCanvas({rootDir,childId,homeworkId,directory:path.join(draft,'canvas-verification')});
   if (!getMathGenerationStatus(childId, homeworkId, { rootDir })?.programHash) {
     writeMathGenerationJob({ rootDir, childId, homeworkId, programHash, designHash, nodeIds: designed.plan.activities.map(a => a.id) });
   }
@@ -970,7 +977,7 @@ export async function runAdaptiveMathGeneration(
   }
   project();
   if (getMathGenerationStatus(childId, homeworkId, { rootDir })?.phase === "board_ready") {
-    persistDirectExperience({ rootDir, childId, homeworkId, extraction, plannerPlan: designed.plan, activeSessionPlan: active(), artifacts: build.artifacts, report: report(), assumptions: program.assumptions });
+    await persistDirectExperience({ rootDir, childId, homeworkId, extraction, plannerPlan: designed.plan, activeSessionPlan: active(), artifacts: build.artifacts, report: report(), assumptions: program.assumptions });
     project();
     console.log(` 🎮 [adaptive-math] [targeted-board] [ready] child=${childId} homework=${homeworkId}`);
   }
@@ -994,7 +1001,7 @@ export async function runAdaptiveMathGeneration(
     }
     write(buildFile, build);
     if (getMathGenerationStatus(childId, homeworkId, { rootDir })?.phase === "board_ready") {
-      persistDirectExperience({ rootDir, childId, homeworkId, extraction, plannerPlan: designed.plan, activeSessionPlan: active(), artifacts: build.artifacts, report: report(), assumptions: program.assumptions });
+      await persistDirectExperience({ rootDir, childId, homeworkId, extraction, plannerPlan: designed.plan, activeSessionPlan: active(), artifacts: build.artifacts, report: report(), assumptions: program.assumptions });
     }
     project();
     console.log(` 🎮 [adaptive-math] [optional-artwork] [published] child=${childId} homework=${homeworkId}`);
@@ -1089,7 +1096,7 @@ async function runSpellingTargetedGeneration(childId: string, homeworkId: string
           nodes: contract.nodes,
           academicPredictions: contract.academicPredictions,
           assumptions: contract.assumptions,
-          agencyExperiment: contract.agencyExperiment,
+          boardDefinition: contract.boardDefinition, agencyExperiment: contract.agencyExperiment,
           reason: "Reconciled the frozen spelling instrument implementation with its validated native activity contract.",
         }, { rootDir });
         console.log(` 🎮 [spelling] [instrument-contract] [reconciled] homework=${homeworkId}`);
@@ -1108,10 +1115,10 @@ async function runSpellingTargetedGeneration(childId: string, homeworkId: string
       academicTheory: contract.academicTheory,
       academicPredictions: contract.academicPredictions,
       assumptions: contract.assumptions,
-      agencyExperiment: contract.agencyExperiment,
+      boardDefinition: contract.boardDefinition, agencyExperiment: contract.agencyExperiment,
     });
-    // Unauthorized Quest/Boss never enter the teaching board, so they are never generation jobs (contract 21).
-    const teachingNodeIds = new Set(contract.nodes.filter(node => node.role !== "quest" && node.role !== "boss").map(node => node.nodeId));
+    await verifyPreparingBoardCanvas({...scope,directory:path.join(draft,'canvas-verification')});
+    const teachingNodeIds = new Set(contract.nodes.map(node => node.nodeId));
     if (!getMathGenerationStatus(childId, homeworkId, { rootDir })?.programHash) writeMathGenerationJob({ ...scope, programHash, designHash, nodeIds: active.nodePlan.map(node => node.id).filter(nodeId => teachingNodeIds.has(nodeId)) });
     const project = (): void => {
       const currentChart = getChildChart(childId, { rootDir });

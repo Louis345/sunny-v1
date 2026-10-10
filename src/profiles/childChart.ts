@@ -1,3 +1,5 @@
+import {createHash} from "node:crypto";
+import type {WordRadarNodeConfig} from "../shared/adventureTypes";
 import { readTypedChildChart } from '../chart/buildChart';
 import type { ChartDatabase } from '../chart/db';
 import fs from "fs";
@@ -297,6 +299,42 @@ function fallbackCompanionConfig(presetId: string): CompanionConfig {
 }
 
 type SpellingChartOptions = { department: 'spelling'; database: ChartDatabase };
+export function readVerifiedSpellingResponseMode(
+  chart: Pick<ChildChart,"childId"|"rootDir"|"learningCycle">,
+  plan: ChildChart["activeSessionPlan"],
+): ChildChart["activeSessionPlan"] {
+  const cycle = chart.learningCycle;
+  if (cycle?.domain !== "spelling" || !plan?.nodePlan) return plan;
+  const cycleNodes = new Map(cycle.nodes.map((node) => [node.nodeId, node]));
+  return {
+    ...plan,
+    nodePlan: plan.nodePlan.map((planNode) => {
+      const node = cycleNodes.get(planNode.id);
+      if (planNode.wordRadarConfig || node?.implementationType !== "word-radar"
+        || node.evidenceContract.nativeConfig || node.artifactBinding?.validationStatus !== "passed") return planNode;
+      const binding = node.artifactBinding;
+      const expectedDir = path.resolve(resolveChildContextDir(chart.childId, { rootDir: chart.rootDir }),
+        "homework", "direct-drafts", cycle.homeworkId, "native-instruments");
+      const artifactPath = path.resolve(resolveChildContextDir(chart.childId, { rootDir: chart.rootDir }),
+        binding.localArtifactPath.replace(/^\/+/, ""));
+      if (path.dirname(artifactPath) !== expectedDir || path.dirname(fs.realpathSync(artifactPath)) !== fs.realpathSync(expectedDir)) {
+        throw new Error(`verified_spelling_artifact_path_mismatch:${node.nodeId}`);
+      }
+      const artifact = JSON.parse(fs.readFileSync(artifactPath, "utf8")) as {
+        node?: { id?: string; type?: string; wordRadarConfig?: WordRadarNodeConfig };
+      };
+      const fingerprint = createHash("sha256").update(JSON.stringify(artifact)).digest("hex");
+      if (fingerprint !== binding.contractFingerprint || artifact.node?.id !== node.nodeId
+        || artifact.node.type !== "word-radar" || !artifact.node.wordRadarConfig) {
+        throw new Error(`verified_spelling_artifact_mismatch:${node.nodeId}`);
+      }
+      console.log(` 🎮 [child-experience] [verified-spelling-mode] [restored] node=${node.nodeId} mode=${artifact.node.wordRadarConfig.recallMode}`);
+      return { ...planNode, wordRadarConfig: artifact.node.wordRadarConfig };
+    }),
+  };
+}
+
+
 export function getChildChart(childId: string, opts: SpellingChartOptions): ReturnType<typeof readTypedChildChart>;
 export function getChildChart(childId: string, opts?: ChildChartOptions): ChildChart;
 export function getChildChart(childIdRaw: string, opts: ChildChartOptions | SpellingChartOptions = {}): ChildChart | ReturnType<typeof readTypedChildChart> {
@@ -419,10 +457,15 @@ export function getChildChart(childIdRaw: string, opts: ChildChartOptions | Spel
     ? getLearningCycle(childId, selectedHomeworkId, { rootDir })
     : null;
   const learningHistory = buildLongitudinalLearningHistory(childId, { rootDir });
-  const cycleProjection = learningCycle
-    ? projectLearningCycle(learningCycle, { presentationPlan: directActiveSessionPlan ?? legacySelectedActiveSessionPlan })
-    : null;
-  const selectedActiveSessionPlan = cycleProjection?.activeSessionPlan ?? directActiveSessionPlan ?? legacySelectedActiveSessionPlan;
+  let cycleProjection: ReturnType<typeof projectLearningCycle> | null = null;
+  if (learningCycle) {
+    try { cycleProjection = projectLearningCycle(learningCycle,{presentationPlan:directActiveSessionPlan ?? legacySelectedActiveSessionPlan}); }
+    catch(error) {
+      if (!(error instanceof Error) || !error.message.startsWith('board_definition_missing:')) throw error;
+      console.warn(` 🎮 [child-chart] [historical-board] [definition-missing] homework=${learningCycle.homeworkId}`);
+    }
+  }
+  const selectedActiveSessionPlan = readVerifiedSpellingResponseMode({childId,rootDir,learningCycle}, cycleProjection?.activeSessionPlan ?? (learningCycle ? null : directActiveSessionPlan ?? legacySelectedActiveSessionPlan));
   // A healthy committed lane can survive another domain's interrupted publish.
   // But the label alone is insufficient: every selected projection must agree.
   const mixedPlan = [legacySelectedActiveSessionPlan, selectedActiveSessionPlan, learningProfile.activeSessionPlan].some(plan =>

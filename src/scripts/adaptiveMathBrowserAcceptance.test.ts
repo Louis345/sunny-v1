@@ -1,3 +1,4 @@
+import {linearJourneyFixture} from './fixtures/authoredJourney';
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -112,7 +113,7 @@ it("plays the isolated math release journey through calibration and the next Pla
     pageCount: 1,
     extractionMethod: "unpdf",
   }));
-  const evaluation: MathDiscoveryEvaluationContract = {
+  const evaluation: MathDiscoveryEvaluationContract = { boardDefinition:linearJourneyFixture(["probe-graph","probe-not-sure"]),
     evaluationId: "discovery-lab", title: "Lab Discovery", assignmentEvidenceIds: ["assignment:synthetic"],
     constructs: [{ constructId: "math.graph_reading", prerequisiteIds: [] }],
     items: ["graph", "numeric", "skipped"].map((itemId, i) => ({ itemId, constructId: "math.graph_reading", prompt: i===0?graphAuditExamples.corrected.prompt:i===1?"How many books did Nia read?":"How many books did Sol read?", representationSpec: "Bar graph: Cleo=3, Nia=4, Sol=2 books; axis ticks 0,1,2,3,4.", responseContract: { mode: i === 0 ? "tap_selection" : "tap_numeric_pad", representationId: "bar_graph" }, correctAnswerContract: { acceptedValues: [String([3,4,2][i])] }, difficultyBoundary: "unit scale", exposureId: `lab:${itemId}`, possibleConfounds: [], falsifyingEvidence: [], measurementKeys: [] })),
@@ -191,6 +192,10 @@ it("plays the isolated math release journey through calibration and the next Pla
     return { nodeId: activity.nodeId, artifactId: `${homeworkId}:${activity.nodeId}`, htmlPath: `${launchBase}/${filename}`, artworkPath, contractHash, artifactHash: activityArtifactHash };
   });
   fs.writeFileSync(path.join(games, "discovery-background.svg"), '<svg xmlns="http://www.w3.org/2000/svg" width="1365" height="768"><rect width="100%" height="100%" fill="#14213d"/></svg>');
+  for (const portal of evaluation.boardDefinition!.portals) {
+    const activity=evaluation.probeActivities!.find(activity=>activity.nodeId===portal.activityNodeId);
+    if(activity)portal.label=activity.title;
+  }
   const firstProbeArtifact = probeArtifacts[0]!;
   evaluation.artifact = { artifactId: `${homeworkId}:discovery`, htmlPath: firstProbeArtifact.htmlPath, artworkPath, contractHash, artifactHash: firstProbeArtifact.artifactHash };
   evaluation.probeArtifacts = probeArtifacts;
@@ -210,7 +215,7 @@ it("plays the isolated math release journey through calibration and the next Pla
     if (unavailablePacketReads > 0) { unavailablePacketReads -= 1; return res.status(503).json({error:"recorded_packet_outage"}); }
     return res.json(buildChildExperiencePacket(lab.chart() as never));
   });
-  app.post("/api/child/:childId/choice-event", (_req,res)=>res.status(503).json({error:"synthetic_engagement_offline"}));
+  app.post("/api/child/:childId/choice-event", (req,res,next)=>req.body.payload?.context==="baseline_route" ? next() : res.status(503).json({error:"synthetic_engagement_offline"}));
   let releaseTargetedFixture!: () => void;
   const targetedFixtureReady = new Promise<void>((resolve) => { releaseTargetedFixture = resolve; });
   let generation: Promise<void> | undefined;
@@ -227,7 +232,7 @@ it("plays the isolated math release journey through calibration and the next Pla
   const server = app.listen(0,"127.0.0.1"); await new Promise<void>(resolve=>server.once("listening",resolve));
   const address = server.address(); if (!address || typeof address === "string") throw new Error("address_missing");
   const ws = new WebSocketServer({server,path:"/ws"});
-  ws.on("connection", socket=>socket.on("message",data=>{if(JSON.parse(String(data)).type==="start_session"){socket.send(JSON.stringify({type:"session_started",child:"Lab-child"}));socket.send(JSON.stringify({type:"session_boot_ready"}));socket.send(JSON.stringify({type:"audio",data:"UklGRiYAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQIAAAAAAA=="}));socket.send(JSON.stringify({type:"audio_done"}));}}));
+  ws.on("connection", socket=>socket.on("message",data=>{if(JSON.parse(String(data)).type==="start_session"){socket.send(JSON.stringify({type:"session_started",child:"Lab-child",sessionId:"recorded-voice-session"}));socket.send(JSON.stringify({type:"session_boot_ready"}));socket.send(JSON.stringify({type:"audio",data:"UklGRiYAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQIAAAAAAA=="}));socket.send(JSON.stringify({type:"audio_done"}));}}));
   let vite: any, browser: Awaited<ReturnType<typeof chromium.launch>> | undefined;
   const browserErrors: string[] = [], networkEvents:string[]=[]; let step = "boot";
   let releaseSibling: (()=>void)|undefined;
@@ -245,7 +250,7 @@ it("plays the isolated math release journey through calibration and the next Pla
       await page.context().tracing.start({screenshots:true,snapshots:true});
       await page.route("**/*",route=>{const host=new URL(route.request().url()).hostname;return ["127.0.0.1","localhost",""].includes(host)?route.continue():route.abort();});
       // A quiet companion emits no opening audio. The curtain must still open.
-      await page.routeWebSocket("**/ws",socket=>socket.onMessage(data=>{if(JSON.parse(String(data)).type==="start_session"){socket.send(JSON.stringify({type:"session_started",child:"Lab-child"}));socket.send(JSON.stringify({type:"session_boot_ready"}));}}));
+      await page.routeWebSocket("**/ws",socket=>socket.onMessage(data=>{if(JSON.parse(String(data)).type==="start_session"){socket.send(JSON.stringify({type:"session_started",child:"Lab-child",sessionId:"recorded-voice-session"}));socket.send(JSON.stringify({type:"session_boot_ready"}));}}));
       await page.goto(vite.resolvedUrls.local[0]);
       step="open the complete Probe Board through host";
       await page.getByRole("button",{name:"Graph Lookout",exact:true}).click();
@@ -283,6 +288,10 @@ it("plays the isolated math release journey through calibration and the next Pla
       const targetedEvidenceIds = [`assignment:${sourceHash}`, ...discoveryObservationIds];
       const targeted = graphTargetedPlan(2, targetedEvidenceIds);
       const program = graphLearningProgram(2, targetedEvidenceIds);
+      for (const definition of [targeted.boardDefinition, program.boardDefinition]) for (const portal of definition.portals) {
+        const activity=targeted.activities.find((item:any)=>item.id===portal.activityNodeId);
+        if(activity)portal.label=activity.title;
+      }
       const serializedProgram = JSON.stringify(program).toLowerCase();
       expect(serializedProgram).toContain("graph");
       expect(serializedProgram).not.toMatch(/multiplication|equal groups/);
@@ -323,16 +332,24 @@ it("plays the isolated math release journey through calibration and the next Pla
       await page.reload();
       const startSunny = page.getByRole("button",{name:"Start Sunny",exact:true});
       if (await startSunny.isVisible().catch(() => false)) await startSunny.click();
-      await page.getByRole("button",{name:"Graph Mission 1",exact:true}).waitFor({state:"visible"});
+      await page.getByRole("button",{name:/Graph Mission 1/}).waitFor({state:"visible"});
       await page.screenshot({path:path.join(outputDir,"complete-teaching-board.png")});
-      step="launch first ready node";if(parentOperated)console.log("PARENT: open Graph Mission 1, choose Cleo, enter 4, then drag Nia's bar to Highest.");else await page.getByRole("button",{name:"Graph Mission 1",exact:true}).click();
+      await page.getByRole("button",{name:"Choose your path",exact:true}).click();
+      await page.getByRole("button",{name:new RegExp(targeted.boardDefinition.choices[0].options[0].label)}).click();
+      step="launch first ready node";if(parentOperated)console.log("PARENT: open Graph Mission 1, choose Cleo, enter 4, then drag Nia's bar to Highest.");else await page.frameLocator("iframe").last().locator("#cleo").waitFor({state:"visible"});
       const targetedFrame=page.frameLocator("iframe").last();
       // The former mid-board refresh-outage step needed a sibling still building behind a published
       // board; contract 21 removes that state, so no generation poll runs while the child plays.
       step="targeted click fill drag transitions";if(!parentOperated){await targetedFrame.locator("#cleo").click();await targetedFrame.locator("#value").fill("4");await targetedFrame.locator("#submit").click();await targetedFrame.locator("#niaBar").dragTo(targetedFrame.locator("#highest"));}
       await expect.poll(()=>getLearningCycle(childId,homeworkId,{rootDir})!.nodes.find(n=>n.nodeId==="activity-1")?.state,{timeout:parentOperated?180000:10000}).toBe("completed");
       expect(getLearningCycle(childId,homeworkId,{rootDir})!.lifecycle).toBe("baseline_evaluating");
-      const decide = async (action:"generate_support"|"generate_quest"|"generate_boss"|"await_calibration") => advanceCanonicalCycleFromEvidence({childId,homeworkId,decide:async current=>({status:action==="await_calibration"?"awaiting_calibration":"revised",reason:"Explicit laboratory Planner decision",progressionAction:action,preserve:[],change:[],testNext:[],nextEvidenceRequired:["graded work"],predictionEvaluationIds:current.predictionEvaluations.map(e=>e.evaluationId),...(action!=="await_calibration"?{successor:{instruments:[{...(action==="generate_quest"?{encounter:"quest" as const}:action==="generate_boss"?{encounter:"boss" as const}:{}),nodeId:action==="generate_support"?"support-lab":action.replace("generate_",""),title:action==="generate_support"?"Lab Support":action==="generate_quest"?"Quest":"Boss",academicTarget:"unit-scale bar graph reading",mechanic:"mixed graph controls",theme:"library graph lab",openingPurpose:"Measure fresh graph-reading performance",creatorPrompt:"Use fresh synthetic unit-scale graph items",items:targeted.activities[0].items.map((item:any)=>({...item,id:(action==="generate_support"?"support-lab":action.replace("generate_",""))+":"+item.id}))}]}}:{})})},{rootDir});
+      const successorDefinition=(action:string)=>{
+        const nodeId=action==="generate_support"?"support-lab":action.replace("generate_","");
+        const definition=linearJourneyFixture([nodeId]);
+        definition.portals[1].label=action==="generate_support"?"Lab Support":action==="generate_quest"?"Quest":"Boss";
+        return definition;
+      };
+      const decide = async (action:"generate_support"|"generate_quest"|"generate_boss"|"await_calibration") => advanceCanonicalCycleFromEvidence({childId,homeworkId,decide:async current=>({status:action==="await_calibration"?"awaiting_calibration":"revised",reason:"Explicit laboratory Planner decision",progressionAction:action,preserve:[],change:[],testNext:[],nextEvidenceRequired:["graded work"],predictionEvaluationIds:current.predictionEvaluations.map(e=>e.evaluationId),...(action!=="await_calibration"?{successor:{boardDefinition:successorDefinition(action),instruments:[{...(action==="generate_quest"?{encounter:"quest" as const}:action==="generate_boss"?{encounter:"boss" as const}:{}),nodeId:action==="generate_support"?"support-lab":action.replace("generate_",""),title:action==="generate_support"?"Lab Support":action==="generate_quest"?"Quest":"Boss",academicTarget:"unit-scale bar graph reading",mechanic:"mixed graph controls",theme:"library graph lab",openingPurpose:"Measure fresh graph-reading performance",creatorPrompt:"Use fresh synthetic unit-scale graph items",items:targeted.activities[0].items.map((item:any)=>({...item,id:(action==="generate_support"?"support-lab":action.replace("generate_",""))+":"+item.id}))}]}}:{})})},{rootDir});
       for (const action of ["generate_support","generate_quest","generate_boss"] as const) {
         step="Planner "+action;await decide(action);
         let nodeId="";

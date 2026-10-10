@@ -1,3 +1,4 @@
+import {linearJourneyFixture} from './fixtures/authoredJourney';
 import crypto from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
@@ -50,7 +51,7 @@ function fixture(): {
   manifest.homeworkId = homeworkId;
   manifest.state = "session_closed";
   const html = "<!doctype html><html><body>Approved Discovery</body></html>";
-  const academic = {
+  const academic = { boardDefinition:linearJourneyFixture(["probe-multiplication-arrays"]),
     evaluationId: "eval-reina-multiplication",
     title: "Multiplication Discovery",
     assignmentEvidenceIds: [`assignment:${homeworkId}:source`],

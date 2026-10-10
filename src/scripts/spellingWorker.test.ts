@@ -1,3 +1,4 @@
+import {linearJourneyFixture} from "./fixtures/authoredJourney";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -50,7 +51,7 @@ describe("spelling in the production generation worker", () => {
     fs.writeFileSync(path.join(child, "learning_profile.json"), JSON.stringify({ childId, name: "Lab", age: 8, grade: 3, totalSessions: 0, sessionHistory: [], preferences: {}, strengths: [], challenges: [], notes: [], diagnoses: [], learningGoals: [] }));
     fs.writeFileSync(path.join(rootDir, "children.config.json"), JSON.stringify({ childProfiles: { [childId]: {} }, companions: { elli: { dopamineGames: [], faceCamera: { position: [0, 0, 1], target: [0, 0, 0] } } }, defaultCompanionId: "elli" }));
     const sourceFile = path.join(rootDir, "words.txt"); fs.writeFileSync(sourceFile, "Spelling\nnight\nlight");
-    const { homeworkId } = await runSpellingDiscoveryIntake({ childId, rootDir, sourceFile }, { callPlannerModel: async (packet: Parameters<typeof recordedSpellingDiagnostic>[0]) => ({ draft: { diagnostic: recordedSpellingDiagnostic(packet), title: "School words", words: ["night", "light"].map(word => ({ word, pageNumber: 1 })), uncertainty: [] } }) });
+    const { homeworkId } = await runSpellingDiscoveryIntake({ childId, rootDir, sourceFile }, { callPlannerModel: async (packet: Parameters<typeof recordedSpellingDiagnostic>[0]) => ({ draft: { boardDefinition:linearJourneyFixture(["diagnostic"]), diagnostic: recordedSpellingDiagnostic(packet), title: "School words", words: ["night", "light"].map(word => ({ word, pageNumber: 1 })), uncertainty: [] } }) });
     const opening = getLearningCycle(childId, homeworkId, { rootDir })!;
     expect(generateStoryImage).not.toHaveBeenCalled();
     const items = Object.values(opening.nodes[0].evidenceContract.spellingItems!);
@@ -74,7 +75,7 @@ describe("spelling in the production generation worker", () => {
       if (scenario === "visual") Object.assign(nodePlan[0], { type: "mystery", activityId: "mystery", activityConfig: { schemaVersion: 1, activityId: "visual-explainer", domain: "spelling", topic: "The ight chunk", learningGoal: "Notice and remember the ight chunk.", misconception: "The middle sound maps to one letter.", strategy: { title: "Keep the chunk together", steps: ["Say each word.", "Notice ight.", "Build the word around it."] }, words: target.map(text => ({ id: `planner-${text}`, text, chunks: [text.slice(0, -4), "ight"], focusChunk: "ight", tip: "Keep ight together." })), check: { id: "check-ight", targetWord: target[0], prompt: "Which chunk stays together?", options: [{ id: "ight", label: "ight", correct: true }, { id: "ite", label: "ite", correct: false }], correctOptionId: "ight" }, evidencePolicy: { writesPracticeEvidence: true, writesMasteryEvidence: false, requiresPerTargetResult: false, allowedEvidence: ["practice", "companion"] } } });
       if (scenario === "mystery-concept-check" || scenario === "published-contract-change") Object.assign(nodePlan[0], { type: "mystery", activityId: "mystery", activityConfig: { schemaVersion: 1, activityId: "concept-check", engine: { id: "concept-check", mode: "choose" }, topic: "School words", domain: "spelling", learningGoal: "Choose the correctly spelled word.", gradeBand: "early_elementary", targets: target.map((label, index) => ({ id: `planner-${index}`, label, type: "word" })), rounds: target.map((label, index) => ({ id: `round-${index}`, mechanic: "choose", targetId: `planner-${index}`, prompt: `Choose ${label}.`, options: [{ id: `${index}-correct`, label, correct: true }, { id: `${index}-miss`, label: `${label}x`, correct: false }], scaffoldLevel: 0 })), evidencePolicy: { writesPracticeEvidence: true, writesMasteryEvidence: false, requiresPerTargetResult: true, allowedEvidence: ["practice"] } } });
       const plannedMeasurements = nodePlan.map(node => ({ id: `measure-${node.id}`, activityId: node.activityId, target: node.targets.join(","), evidenceType: "recall", supportCriteria: "Captured recall improves", reviseCriteria: "Mixed", falsifyCriteria: "No improvement", spelling: { role: node.id === "check" ? "fresh_checkpoint" : "practice", evidenceIds: ["observed-0", "observed-1"], interventionNodeIds: node.id === "check" ? ["practice"] : [], reason: scenario === "assisted" ? "Help limits inference" : "Current recall facts", uncertainty: "One occasion", expectedAccuracy: { min: 0.6, max: 1 }, confidence: 0.5, finalCheck: node.id === "check" } }));
-      const activeSessionPlan = { planId: `targeted:${homeworkId}`, childId, activeHomeworkId: homeworkId, domain: "spelling", nodePlan, plannedMeasurements, planTheory: { hypothesis: "Recall may improve", evidenceSummary: ["observed-0", "observed-1"], intervention: "Selected practice", supportCriteria: ["Improvement"], reviseCriteria: ["Mixed"], falsifyCriteria: ["No improvement"] } };
+      const activeSessionPlan = { planId: `targeted:${homeworkId}`, childId, activeHomeworkId: homeworkId, domain: "spelling", nodePlan, boardDefinition:linearJourneyFixture(nodePlan.map(node=>node.id)), plannedMeasurements, planTheory: { hypothesis: "Recall may improve", evidenceSummary: ["observed-0", "observed-1"], intervention: "Selected practice", supportCriteria: ["Improvement"], reviseCriteria: ["Mixed"], falsifyCriteria: ["No improvement"] } };
       for (const measurement of plannedMeasurements) Object.assign(measurement.spelling, { maxDelayDays: 7 });
       const theme = {
         background: { type: "image", value: "/generated/adventure-board-demo/silent-letter-world.jpeg" },
@@ -121,6 +122,14 @@ describe("spelling in the production generation worker", () => {
       setMathGenerationPhase({ rootDir, childId, homeworkId, phase: "needs_attention", error: "spelling_native_contract_changed:practice" });
     } else {
       fs.rmSync(nativeConfig);
+    }
+    if (scenario === "mystery-concept-check") {
+      const file=path.join(child,"homework/cycles",`${homeworkId}.json`);
+      const history=fs.readFileSync(file,"utf8");
+      await expect(runAdaptiveMathGeneration(childId,homeworkId,rootDir)).rejects.toThrow("historical_board_replacement_requires_new_instance");
+      expect(fs.readFileSync(file,"utf8")).toBe(history);
+      expect(planAssignmentFromSourceWithTelemetry).toHaveBeenCalledOnce();
+      return;
     }
     if (scenario === "published-contract-change") {
       // Contract 21: a published board's frozen instrument is never edited in place.

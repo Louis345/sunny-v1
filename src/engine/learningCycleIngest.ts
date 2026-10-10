@@ -1,6 +1,9 @@
-import { spellingCheckpointLineageIssues } from "./spellingCheckpointLineage";
+import {verifyPreparingBoardCanvas} from "./adventureBoardCanvas";
+import path from "node:path";
+import { validateBoardDefinition, journeyExecutions, type AdventureBoardDefinition } from '../shared/adventureBoardDefinition';
+import { spellingCheckpointLineageIssues, checkpointInterventionsArePrior } from "./spellingCheckpointLineage";
 import crypto from "crypto";
-import { buildAdventureBoardFromActiveSessionPlan, getAdventureBoardSelectableRoutes } from "../shared/adventureBoardFromPlan";
+import { buildAdventureBoardFromActiveSessionPlan } from "../shared/adventureBoardFromPlan";
 import type { ActiveSessionPlan, EngagementTheory } from "../context/schemas/learningProfile";
 import { getActivityCapabilityMode } from "./activityToolCatalog";
 import { hashDiscoveryContract } from "./adaptiveMathDiscovery";
@@ -69,6 +72,13 @@ export function buildSpellingRecallItems(input: {
   });
 }
 
+/** A selected native instrument carries one frozen runtime configuration through storage and reload. */
+function spellingDiscoveryRuntimeConfig(selection?: SpellingDiagnosticSelection): NonNullable<ActiveSessionPlan["nodePlan"][number]["wordRadarConfig"]> {
+  // createSpellingDiscoveryCycle validates this frozen config against the native catalog.
+  return selection ? structuredClone(selection.instrument.config) as unknown as NonNullable<ActiveSessionPlan["nodePlan"][number]["wordRadarConfig"]>
+    : { recallMode: "hidden_word_recall", inputMode: "keyboard", speakStyle: "option-b", showTimer: false, hideWordDuringResponse: true, requiresCapturedResponse: true };
+}
+
 export function createSpellingDiscoveryCycle(input: {
   childId: string;
   homeworkId: string;
@@ -76,6 +86,7 @@ export function createSpellingDiscoveryCycle(input: {
   contentFingerprint: string;
   items: LearningCycleSpellingItem[];
   diagnosticSelection?: SpellingDiagnosticSelection;
+  boardDefinition?: AdventureBoardDefinition;
 }, opts: LearningCycleRepositoryOptions = {}): LearningCycleRecordV2 {
   if (!input.items.length) throw new Error("spelling_targets_missing");
   const existing = getLearningCycle(input.childId, input.homeworkId, opts);
@@ -101,6 +112,7 @@ export function createSpellingDiscoveryCycle(input: {
   const nodeId = `${input.homeworkId}:discovery`;
   const cycle = createLearningCycle(withInitialBoard({
     childId: input.childId, homeworkId: input.homeworkId, domain: "spelling",
+    boardDefinition: input.boardDefinition,
     assignment: {
       title: input.title, contentFingerprint: input.contentFingerprint,
       capturedEvidenceIds: [...new Set(input.items.flatMap(item => item.lineage.sourceEvidenceIds))],
@@ -121,6 +133,7 @@ export function createSpellingDiscoveryCycle(input: {
         academic: true, engagement: true, companionObservations: true,
         spellingItems: Object.fromEntries(input.items.map(item => [item.id, structuredClone(item)])),
         itemRoles: Object.fromEntries(input.items.map(item => [item.id, item.lineage.measurementRole])),
+        nativeConfig: {activityId:"word-radar",wordRadarConfig:spellingDiscoveryRuntimeConfig(selection)},
         ...(selection ? { diagnosticSelection: structuredClone(selection) } : {}),
       },
       evidenceIds: [],
@@ -140,17 +153,18 @@ export function buildSpellingDiscoveryPlan(input: { cycle: LearningCycleRecordV2
   // Only this native adapter currently implements spelling-recall-v1. This is a
   // runtime binding, not permission to replace a Planner decision with another game.
   const activityId = selection?.instrument.activityId ?? "word-radar";
-  const wordRadarConfig = selection ? structuredClone(selection.instrument.config) as unknown as ActiveSessionPlan["nodePlan"][number]["wordRadarConfig"]
-    : { recallMode: "hidden_word_recall" as const, inputMode: "keyboard" as const, speakStyle: "option-b" as const, showTimer: false, hideWordDuringResponse: true, requiresCapturedResponse: true };
+  const wordRadarConfig = spellingDiscoveryRuntimeConfig(selection);
+  const definition = cycle.boards?.find(board => board.kind === "probe")?.definition;
   const plan: ActiveSessionPlan = {
+    boardDefinition: definition,
     planId: `discovery:${cycle.homeworkId}`, childId: cycle.childId, createdAt: cycle.createdAt, source: "ingest_human_loop",
     activeHomeworkId: cycle.homeworkId, domain: "spelling", testDate: null,
     nodePlan: [{ id: evaluation.nodeId, type: "word-radar", activityId, title: "Spelling Discovery", targets: Object.values(evaluation.evidenceContract.spellingItems).map(item => item.word), difficulty: 1, source: selection ? "chart_planner" : "pending_homework", locked: false, targetLane: "independent_discovery", contentId: evaluation.nodeId, wordRadarConfig }],
-    learningRoutes: [], variationPolicy: { avoidExactPreviousNodeOrder: false, avoidExactPreviousWordOrder: false, seed: cycle.homeworkId, previousCompletedNodeCount: 0 },
+    variationPolicy: { avoidExactPreviousNodeOrder: false, avoidExactPreviousWordOrder: false, seed: cycle.homeworkId, previousCompletedNodeCount: 0 },
     companionPolicy: { companionId: companion.id, displayName: companion.name, openingLinePolicy: "silent", verbosity: "low", maxMicroProbes: 0 },
     evidenceUsed: cycle.assignment.capturedEvidenceIds.map(id => ({ id, type: "assignment", summary: "Captured school spelling target." })), openQuestions: [], approvalStatus: "approved",
   };
-  plan.adventureBoard = buildAdventureBoardFromActiveSessionPlan({ plan: { ...plan, nodePlan: plan.nodePlan.map(node => ({ ...node, wordRadarConfig: node.wordRadarConfig ? { ...node.wordRadarConfig } : undefined })) }, boardId: plan.planId, title: "Spelling Discovery", companion, theme: { background: { type: "solid", value: "#12002e" }, palette: { path: "#fff4c2", completed: "#34d399", available: "#7c3aed", locked: "#64748b", current: "#f59e0b", preview: "#94a3b8", text: "#ffffff", panel: "#12002e" } } });
+  plan.adventureBoard = buildAdventureBoardFromActiveSessionPlan({ plan: { ...plan, nodePlan: plan.nodePlan.map(node => ({ ...node, wordRadarConfig: node.wordRadarConfig ? { ...node.wordRadarConfig } : undefined })) }, boardId: plan.planId, verifiedActivityIds: evaluation.artifactBinding?.validationStatus === "passed" ? [evaluation.nodeId] : [], title: "Spelling Discovery", companion, theme: { background: { type: "solid", value: "#12002e" }, palette: { path: "#fff4c2", completed: "#34d399", available: "#7c3aed", locked: "#64748b", current: "#f59e0b", preview: "#94a3b8", text: "#ffffff", panel: "#12002e" } } });
   return plan;
 }
 
@@ -361,6 +375,7 @@ export function buildLearningCycleInputFromPlan(input: LearningCycleIngestInput)
     },
     engagementTheory: input.engagementTheory,
     nodes: input.plan.nodePlan.map((node) => nodeContract(input, node)),
+    boardDefinition:input.plan.boardDefinition,
   };
 }
 
@@ -377,73 +392,14 @@ export function buildSpellingTargetedCycleInput(input: {
   const captured = Object.values(cycle.nodes.find(node => node.role === "evaluation")?.evidenceContract.spellingItems ?? {});
   const words = new Map(captured.map(item => [item.word.toLocaleLowerCase("en-US"), item]));
   const evidence = new Set([...cycle.assignment.capturedEvidenceIds, ...cycle.observations.map(row => row.observationId), ...(input.historicalEvidence ?? []).filter(row => row.domain === "spelling").map(row => row.id)]);
-  const cleanIndependentMisses = captured.filter((item) => {
-    const independent = cycle.observations.filter((observation) =>
-      observation.itemId === item.id &&
-      observation.provenance === "independent_probe" &&
-      observation.assistance.status === "unassisted" &&
-      !observation.result.observedErrorType);
-    return independent.some((observation) => observation.result.correct === false)
-      && !independent.some((observation) => observation.result.correct === true);
-  });
-  if (cleanIndependentMisses.length > 0) {
-    const missedWords = new Set(cleanIndependentMisses.map((item) => item.word.toLocaleLowerCase("en-US")));
-    const practiceNodes = plan.nodePlan.filter((node) => {
-      const role = plan.plannedMeasurements?.find((measurement) => measurement.id === `measure-${node.id}`)?.spelling?.role;
-      return role === "instruction" || role === "practice";
-    });
-    const selectableRoutes = getAdventureBoardSelectableRoutes(plan);
-    if (selectableRoutes.length >= 2) {
-      const selectedNodeIds = new Set(selectableRoutes.flatMap((route) => route.nodeIds));
-      const sharedPracticeNodes = practiceNodes.filter((node) => !selectedNodeIds.has(node.id));
-      const planNodeById = new Map(plan.nodePlan.map((node) => [node.id, node]));
-      for (const route of selectableRoutes) {
-        const routeNodes = route.nodeIds.map((nodeId) => planNodeById.get(nodeId)).filter((node) => node != null);
-        const routeWords = new Set([...sharedPracticeNodes, ...routeNodes]
-          .flatMap((node) => node.targets.map((word) => word.toLocaleLowerCase("en-US"))));
-        for (const missed of cleanIndependentMisses) {
-          if (!routeWords.has(missed.word.toLocaleLowerCase("en-US"))) {
-            throw new Error(`spelling_plan_route_missed_word_unaddressed:${route.id}:${missed.word}`);
-          }
-        }
-      }
-    }
-    const practicedWords = new Set(practiceNodes.flatMap((node) => node.targets.map((word) => word.toLocaleLowerCase("en-US"))));
-    for (const missed of cleanIndependentMisses) {
-      if (!practicedWords.has(missed.word.toLocaleLowerCase("en-US"))) {
-        throw new Error(`spelling_plan_missed_word_unaddressed:${missed.word}`);
-      }
-    }
-    if (cleanIndependentMisses.length < captured.length && !practiceNodes.some((node) => {
-      const targets = new Set(node.targets.map((word) => word.toLocaleLowerCase("en-US")));
-      return targets.size < captured.length && [...targets].some((word) => missedWords.has(word));
-    })) {
-      throw new Error("spelling_plan_not_focused_on_independent_misses");
-    }
-  }
+  if(plan.nodePlan.some(node=>[node.type,node.activityId].some(type=>type==="quest"||type==="boss"))) throw new Error("planner_encounter_not_authorized");
   const contract = buildLearningCycleInputFromPlan({ childId: cycle.childId, homeworkId: cycle.homeworkId, domain: "spelling", title: cycle.assignment.title, contentFingerprint: cycle.assignment.contentFingerprint, capturedEvidenceIds: cycle.assignment.capturedEvidenceIds, targets: cycle.assignment.targets, plan, engagementTheory: null });
-  const selectableRoutes = getAdventureBoardSelectableRoutes(plan);
-  if (selectableRoutes.length >= 2) {
-    const routedNodeIds = new Set(selectableRoutes.flatMap((route) => route.nodeIds));
-    const finalCheckpointNodeIds = (plan.plannedMeasurements ?? [])
-      .filter((measurement) => measurement.spelling?.finalCheck === true)
-      .map((measurement) => measurement.id.replace(/^measure-/, ""))
-      .filter((nodeId) => contract.nodes.some((node) => node.nodeId === nodeId && node.role === "baseline"));
-    const commonTailIds = new Set(finalCheckpointNodeIds);
-    contract.agencyExperiment = {
-      experimentId: `${cycle.homeworkId}:agency:targeted-spelling`,
-      sharedNodeIds: contract.nodes
-        .filter((node) => node.role === "baseline" && !routedNodeIds.has(node.nodeId) && !commonTailIds.has(node.nodeId))
-        .map((node) => node.nodeId),
-      routes: selectableRoutes.map((route) => ({
-        routeId: route.id,
-        nodeIds: [...route.nodeIds, ...finalCheckpointNodeIds],
-      })),
-    };
-  }
+  if (!plan.boardDefinition) throw new Error('board_definition_required:targeted_spelling');
+  const boardIssues = validateBoardDefinition(plan.boardDefinition,contract.nodes.map(node=>node.nodeId));
+  if (boardIssues.length) throw new Error(`board_definition_invalid:${JSON.stringify(boardIssues)}`);
+  const executionOrders = journeyExecutions(plan.boardDefinition).map(path=>new Map(path.activityNodeIds.map((id,index)=>[id,index])));
   contract.academicPredictions = [];
-  const prior = new Set<string>();
-  const lineageIssue = spellingCheckpointLineageIssues(plan.nodePlan, plan.plannedMeasurements ?? [])[0];
+  const lineageIssue = spellingCheckpointLineageIssues(plan.nodePlan, plan.plannedMeasurements ?? [],plan.boardDefinition)[0];
   if (lineageIssue) throw new Error(lineageIssue.code === "planner_checkpoint_lineage_missing" ? `spelling_checkpoint_lineage_missing:${lineageIssue.nodeId}` : "spelling_final_checkpoint_coverage_incomplete");
   const finalWords = new Set<string>();
   for (const [index, node] of plan.nodePlan.entries()) {
@@ -451,7 +407,7 @@ export function buildSpellingTargetedCycleInput(input: {
     const measurement = plan.plannedMeasurements?.find(row => row.id === `measure-${node.id}`);
     const decision = measurement?.spelling;
     if (!decision || !decision.evidenceIds.length || decision.evidenceIds.some(id => !evidence.has(id))) throw new Error(`spelling_plan_evidence_invalid:${node.id}`);
-    if (decision.interventionNodeIds.some(id => !prior.has(id))) throw new Error(`spelling_checkpoint_intervention_not_prior:${node.id}`);
+    if (!checkpointInterventionsArePrior(executionOrders,node.id,decision.interventionNodeIds)) throw new Error(`spelling_checkpoint_intervention_not_prior:${node.id}`);
     if (decision.role === "fresh_checkpoint" && (node.type !== "word-radar" || node.wordRadarConfig?.recallMode !== "hidden_word_recall")) throw new Error(`spelling_checkpoint_instrument_unsupported:${node.id}`);
     const resolved = node.targets.map(word => words.get(word.toLocaleLowerCase("en-US")));
     if (resolved.some(item => !item)) throw new Error(`spelling_plan_unknown_word:${node.id}`);
@@ -571,19 +527,19 @@ export function buildSpellingTargetedCycleInput(input: {
       }
     }
     contract.nodes[index] = { ...contract.nodes[index], implementationType, mechanic: node.activityId, state: "generating", artifactBinding: null, evidenceContract: { ...contract.nodes[index].evidenceContract, academic: items.length > 0, ...(nativeConfig ? { nativeConfig } : {}), ...(items.length ? { spellingItems: Object.fromEntries(items.map(item => [item.id, item])), itemRoles: Object.fromEntries(items.map(item => [item.id, decision.role])) } : {}) } };
-    prior.add(node.id);
   }
   if (captured.some(item => !finalWords.has(item.wordId))) throw new Error("spelling_final_checkpoint_coverage_incomplete");
   return contract;
 }
 
-export function persistIngestedLearningCycle(
+export async function persistIngestedLearningCycle(
   input: LearningCycleIngestInput,
   opts: LearningCycleRepositoryOptions = {},
-): LearningCycleRecordV2 {
+): Promise<LearningCycleRecordV2> {
   const built = buildLearningCycleInputFromPlan(input);
   // An opening board never carries unauthorized Quest/Boss placeholders (contract 21).
-  const nextInput = { ...built, nodes: built.nodes.filter((node) => node.role !== "quest" && node.role !== "boss") };
+  if(built.nodes.some(node=>node.role==='quest'||node.role==='boss'))throw new Error('planner_encounter_not_authorized');
+  const nextInput = built;
   let current: LearningCycleRecordV2 | null;
   try {
     current = getLearningCycle(input.childId, input.homeworkId, opts);
@@ -593,26 +549,21 @@ export function persistIngestedLearningCycle(
     }
     current = repairInvalidLearningCycleForReingestion(nextInput, opts);
   }
-  if (!current) return createLearningCycle(withInitialBoard(nextInput, "teaching", (opts.now ?? new Date()).toISOString()), opts);
-  if (current.boards) {
-    // Published boards are immutable: the same assignment resumes as-is; changed content needs a new assignment cycle.
-    if (current.assignment.contentFingerprint !== nextInput.assignment.contentFingerprint) {
-      throw new Error(`learning_cycle_reingestion_fingerprint_changed:${input.homeworkId}`);
-    }
-    console.log(` 🎮 [learning-cycle] [reingestion] [resumed] homework=${input.homeworkId} revision=${current.revision} boards=${current.boards.length}`);
-    return current;
+  if (!current) {
+    createLearningCycle(withInitialBoard(nextInput, "teaching", (opts.now ?? new Date()).toISOString()), opts);
+    const rootDir = opts.rootDir ?? process.cwd();
+    await verifyPreparingBoardCanvas({rootDir,childId:input.childId,homeworkId:input.homeworkId,directory:path.join(rootDir,".sunny-verification",input.childId,input.homeworkId)});
+    return getLearningCycle(input.childId,input.homeworkId,opts)!;
   }
-  // Legacy cycles keep any existing Quest/Boss node and its evidence; re-ingestion never deletes them.
-  const legacyEncounters = current.nodes.filter((node) => node.role === "quest" || node.role === "boss");
-  return transitionLearningCycle(input.childId, input.homeworkId, current.revision, {
-    type: "plan_reconciled",
-    assignment: nextInput.assignment,
-    academicTheory: {
-      ...nextInput.academicTheory,
-      revision: current.academicTheory.revision + 1,
-    },
-    engagementTheory: nextInput.engagementTheory,
-    nodes: [...nextInput.nodes, ...legacyEncounters],
-    reason: "Re-ingestion reconciled the canonical cycle without discarding recorded evidence.",
-  }, opts);
+  if (current.assignment.contentFingerprint !== nextInput.assignment.contentFingerprint) {
+    throw new Error(`learning_cycle_reingestion_fingerprint_changed:${input.homeworkId}`);
+  }
+  // Missing historical topology stays history. Re-ingestion cannot invent a replacement.
+  if (current.boards?.some(board=>board.kind==="teaching" && board.predecessorBoardId===null && board.publishedAt===null) && current.lifecycle!=="blocked") {
+    const rootDir=opts.rootDir??process.cwd();
+    await verifyPreparingBoardCanvas({rootDir,childId:input.childId,homeworkId:input.homeworkId,directory:path.join(rootDir,".sunny-verification",input.childId,input.homeworkId)});
+    current=getLearningCycle(input.childId,input.homeworkId,opts)!;
+  }
+  console.log(` 🎮 [learning-cycle] [reingestion] [resumed] homework=${input.homeworkId} revision=${current.revision} boards=${current.boards?.length??0}`);
+  return current;
 }

@@ -1,3 +1,6 @@
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   SPELLING_CERTIFICATION_GAMES,
@@ -55,7 +58,16 @@ describe("spelling adaptation certification", () => {
 
     expect(wordBuilder?.status).toBe("pass");
     expect(wordBuilder?.allowedInRealChildSession).toBe(true);
-    expect(blockedIds).toContain("wordle");
+    expect(report.games.find(game => game.gameId === "wordle")?.status).toBe("pass");
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-missing-evidence-"));
+    try {
+      fs.mkdirSync(path.join(rootDir,"web/public/games"),{recursive:true});
+      const source=fs.readFileSync("web/public/games/wordle.html","utf8").replaceAll("targetResults","removedEvidence").replaceAll("fireAttemptEvent","removedAttempt");
+      fs.writeFileSync(path.join(rootDir,"web/public/games/wordle.html"),source);
+      const invalid=certifySpellingAdaptation({childId:"demo_adaptive",rootDir}).games.find(game=>game.gameId==="wordle");
+      expect(invalid?.allowedInRealChildSession).toBe(false);
+      expect(invalid?.issues.some(issue=>issue.code==="missing_chart_evidence")).toBe(true);
+    } finally { fs.rmSync(rootDir,{recursive:true,force:true}); }
     expect(blocked.every((game) => game.allowedInRealChildSession === false)).toBe(true);
     expect(blocked.every((game) => game.issues.some((issue) => issue.severity === "high"))).toBe(true);
   });

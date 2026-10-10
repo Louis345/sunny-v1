@@ -1,3 +1,4 @@
+import { canonicalJourneyLaunchable } from '../engine/learningCycleRepository';
 import {presentOriginalSpellingItem,withOriginalSpellingChart,recordPresentedEngagement} from '../chart/spelling/originalResponses';
 import fs from "fs";
 import path from "path";
@@ -12,7 +13,6 @@ import {
 import { getTtsNameForSessionChild } from "../profiles/childrenConfig";
 import { getChildChart } from "../profiles/childChart";
 import type { LearningObservation } from "../engine/learningCycleRepository";
-import { generateStoryImage } from "../utils/generateStoryImage";
 import { TEST_MODE_PROMPT, normalizeSessionSubject } from "../agents/prompts";
 import { getReadingCanvasPreferencesForChild } from "../utils/learningProfileIO";
 import { recordSession } from "../agents/slp-recorder/recorder";
@@ -130,7 +130,7 @@ import {
   finalizeSessionDebugPacket,
   type SessionDebugRecorder,
 } from "./session-debug-recorder";
-import { buildPronunciationCompleteFields, buildReadingProgressFields } from "./flow-game-debug";
+import { buildPronunciationCompleteFields } from "./flow-game-debug";
 import {
   clearCreatorDiagSessionForReadingTest,
   setCreatorDiagSessionForReadingTest,
@@ -762,7 +762,7 @@ export class SessionManager {
       const cycle = getChildChart(this.chartChildId).learningCycle;
       if (cycle?.domain === "spelling") {
         const node = cycle.nodes.find(node => node.nodeId === state.nodeId);
-        this.spellingLaunch = node && ["ready", "active", "completed"].includes(node.state)
+        this.spellingLaunch = node && (canonicalJourneyLaunchable(cycle,node.nodeId) ?? ["ready", "active", "completed"].includes(node.state))
           ? {homeworkId:cycle.homeworkId,nodeId:node.nodeId,launchId:randomUUID(),...(typeof state.launchToken === "string" ? {launchToken:state.launchToken} : {})} : undefined;
         console.log(` 🎮 [spelling] [node-launch] [${this.spellingLaunch ? "recorded" : "rejected"}] node=${String(state.nodeId)} launch=${this.spellingLaunch?.launchId ?? "unknown"}`);
       }
@@ -871,6 +871,26 @@ export class SessionManager {
       return;
     }
     if (action === "collapse") this.setCompanionPresence("collapsed", "voice");
+  }
+
+  private lastJourneyChoiceRequest?:string;
+
+  public async requestJourneyChoiceSupport(choiceId:string,requestId:string):Promise<void> {
+    if (this.lastJourneyChoiceRequest===requestId) return;
+    const board = getChildChart(this.chartChildId).activeSessionPlan?.adventureBoard;
+    const choice = board?.choiceSets?.find(set=>set.id===choiceId);
+    const portal = board?.nodes.find(node=>node.choiceSetId===choiceId);
+    if (!board?.definition || !choice || portal?.state!=='available') throw new Error('journey_choice_not_available');
+    this.lastJourneyChoiceRequest=requestId;
+    this.updateCurrentBoardSnapshot({phase:'choice_open',boardState:'choosing_path',intentPurpose:choice.title,
+      availableActions:choice.options.filter(option=>option.state==='available').map(option=>option.label),
+      progress:JSON.stringify(choice.options.map(option=>({id:option.id,label:option.label,state:option.state,description:option.description}))),
+    });
+    this.setCompanionPresence('summoned','client');
+    this.resetCompanionDispositionAfterSpeech();
+    console.log(` 🎮 [journey] [choice-addressed] [${choiceId}] request=${requestId}`);
+    if (this.turnSM.getState()!=='IDLE') this.bargeIn();
+    await this.runCompanionResponse('[Internal interaction: the child opened the displayed path choice and addressed you. Explain the actual options briefly from live context and invite their decision. Do not choose for them or infer a lasting preference.]');
   }
 
   public async requestInstructionReadAloud(input: {
@@ -2332,144 +2352,7 @@ export class SessionManager {
   }
 
   receiveReadingProgress(payload: Record<string, unknown>): void {
-    if (!this.ctx) return;
-    const wordIndex = Number(payload.wordIndex);
-    const totalWords = Number(payload.totalWords);
-    const accuracy = Number(payload.accuracy);
-    const hesitationsRaw = Number(payload.hesitations);
-    const hesitations = Number.isFinite(hesitationsRaw) ? hesitationsRaw : 0;
-    const flaggedWords = Array.isArray(payload.flaggedWords)
-      ? (payload.flaggedWords as string[])
-      : [];
-    const spelledWords = Array.isArray(payload.spelledWords)
-      ? (payload.spelledWords as string[])
-      : [];
-    const skippedWords = Array.isArray(payload.skippedWords)
-      ? (payload.skippedWords as string[]).filter(
-          (w): w is string => typeof w === "string",
-        )
-      : [];
-    const event =
-      typeof payload.event === "string" ? payload.event : undefined;
-    if (!Number.isFinite(wordIndex) || !Number.isFinite(totalWords)) {
-      console.warn("  ⚠️  reading_progress: invalid wordIndex/totalWords");
-      return;
-    }
-    this.ctx.setReadingProgress({
-      wordIndex,
-      totalWords,
-      accuracy: Number.isFinite(accuracy) ? accuracy : 0,
-      hesitations,
-      flaggedWords,
-      skippedWords,
-      spelledWords,
-      event,
-    });
-    this.broadcastContext();
-    this.debugRecorder.recordEvent("flow_game", event === "complete" ? "karaoke_complete" : "karaoke_progress", buildReadingProgressFields({ ...payload, wordIndex, totalWords, accuracy: Number.isFinite(accuracy) ? accuracy : 0, hesitations, flaggedWords, skippedWords, spelledWords, event }));
-    const accPct =
-      Number.isFinite(accuracy) && accuracy <= 1 && accuracy >= 0
-        ? Math.round(accuracy * 100)
-        : accuracy;
-    console.log(
-      `  📖 reading_progress: idx ${wordIndex}/${totalWords} acc=${accPct}% hesitations=${hesitations} event=${event ?? "—"}`,
-    );
-
-    if (event === "complete") {
-      if (this.readingProgressCompleteConsumed) return;
-      this.readingProgressCompleteConsumed = true;
-
-      if (this.turnSM.getState() === "CANVAS_PENDING") {
-        this.canvasDone({});
-      }
-      this.karaokeReadingComplete = true;
-      console.log("  📖 [reading] suppression lifted — story complete");
-      const childId = this.chartChildId;
-      sessionEventBus.fire({
-        type: "reading_complete",
-        sessionId: this.sessionId,
-        childId,
-        timestamp: Date.now(),
-      });
-      const flagged = this.ctx?.readingProgress?.flaggedWords ?? [];
-      const skipped = this.ctx?.readingProgress?.skippedWords ?? [];
-      for (const word of [...flagged, ...skipped]) {
-        const w = word.toLowerCase().trim();
-        if (!w) continue;
-        try {
-          recordAttempt(childId, {
-            word: w,
-            domain: "reading",
-            correct: false,
-            quality: 1,
-            scaffoldLevel: 0,
-          });
-        } catch (err) {
-          console.error(`  [engine] reading word failed for "${word}":`, err);
-        }
-      }
-      for (const word of spelledWords) {
-        const w = word.toLowerCase().trim();
-        if (!w) continue;
-        try {
-          recordAttempt(childId, {
-            word: w,
-            domain: "reading",
-            correct: true,
-            quality: 5,
-            scaffoldLevel: 0,
-          });
-        } catch (err) {
-          console.error(
-            `  [engine] reading spelledWord failed for "${word}":`,
-            err,
-          );
-        }
-      }
-      console.log(
-        `  🎮 [engine] reading complete: ${flagged.length} flagged, ${skipped.length} skipped, ${spelledWords.length} spelled → word bank (${childId})`,
-      );
-
-      void this.handleEndOfTurn(
-        "[reading_progress] event=complete — the reader finished the karaoke story. Reply with exactly one short sentence acknowledging the reading. Do not call canvasShow or refresh karaoke unless the child or parent/caregiver explicitly asks for something new.",
-        true,
-        { fromReadingComplete: true },
-      ).catch((err) => console.error(err));
-
-      const fromCanvas =
-        this.currentCanvasState &&
-        typeof (this.currentCanvasState as { content?: unknown }).content ===
-          "string"
-          ? String((this.currentCanvasState as { content: string }).content).trim()
-          : "";
-      const promptRaw = (this.currentCanvasState as { storyImagePrompt?: unknown } | null)?.storyImagePrompt;
-      const fromPrompt = typeof promptRaw === "string" ? promptRaw.trim() : "";
-      const storyText =
-        fromPrompt || this.lastKaraokeStoryText.trim() || fromCanvas;
-      if (storyText.length > 0) {
-        if (this.storyImageGeneratedThisStory) {
-          console.log(
-            "  🖼️  [story-image] skip auto after reading complete — already generated for this story",
-          );
-        } else {
-          this.storyImageGeneratedThisStory = true;
-          this.storyImagePending = true;
-          this.send("story_image_loading", {});
-          void generateStoryImage(storyText, {
-            sessionType: this.ctx?.sessionType,
-          })
-            .then((url) => {
-              this.send("story_image", { url: url ?? null });
-            })
-            .catch(() => {
-              this.send("story_image", { url: null });
-            })
-            .finally(() => {
-              this.storyImagePending = false;
-            });
-        }
-      }
-    }
+    gev.handleReadingProgress(this, payload);
   }
 
   receiveWordRadarComplete(msg: Record<string, unknown>): void {

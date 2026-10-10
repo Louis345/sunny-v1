@@ -258,7 +258,7 @@ export async function ingestMathAssignment(input: {
   let currentPhase="preflight", checkpoint="";
   let status: (state:string,error?:unknown)=>void=()=>undefined;
   try {
-  recoverDiscoveryPublication({rootDir,childId});
+  await recoverDiscoveryPublication({rootDir,childId});
   const {pdf,chart,sourceHash,homeworkId,draftDir} = await preflightMathIngestion(input);
   checkpoint=draftDir;
   const jobFile=path.join(draftDir,"discovery-ingestion-job.json");
@@ -325,7 +325,7 @@ export async function ingestMathAssignment(input: {
     });
     currentPhase = "atomic-publication";
     status("running");
-    publishDiscoveryExperience({
+    await publishDiscoveryExperience({
       rootDir,
       childId,
       homeworkId,

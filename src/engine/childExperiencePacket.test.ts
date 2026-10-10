@@ -1,3 +1,4 @@
+import {readVerifiedSpellingResponseMode} from "../profiles/childChart";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -7,6 +8,13 @@ import { recordChoiceEvent } from "./choiceEvents";
 import { buildChildExperiencePacket } from "../profiles/childExperiencePacket";
 
 describe("buildChildExperiencePacket", () => {
+  it("projects the displayed canonical board kind independent of the plan ID", () => {
+    const packet=buildChildExperiencePacket({childId:"lab", companion:{}, homework:{},
+      learningCycle:{homeworkId:"hw", revision:2, lifecycle:"evaluation_ready", nodes:[], observations:[], boards:[{boardId:"hw:board:1",kind:"probe"}]},
+      activeSessionPlan:{planId:"learning-cycle:hw:cycle-r2",nodePlan:[],adventureBoard:{boardId:"hw:board:1",nodes:[]}},
+    } as never);
+    expect(packet.childChart.learningCycle).toHaveProperty("boardKind","probe");
+  });
   it("launches a legacy spelling node with its verified Planner response mode", () => {
     const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-spelling-mode-"));
     const artifact = { version: 1, node: { id: "teach-long-o", type: "word-radar", wordRadarConfig: {
@@ -29,11 +37,12 @@ describe("buildChildExperiencePacket", () => {
       activeSessionPlan: { planId: "hw", activeHomeworkId: "hw", nodePlan: [{
         id: "teach-long-o", type: "word-radar", activityId: "word-radar", targets: ["broken"],
       }] },
-    } as never;
+    };
 
-    expect(buildChildExperiencePacket(chart).activeSessionPlan?.nodePlan[0]?.wordRadarConfig).toEqual(artifact.node.wordRadarConfig);
+    const hydrated = {...chart,activeSessionPlan:readVerifiedSpellingResponseMode(chart as never,chart.activeSessionPlan as never)};
+    expect(buildChildExperiencePacket(hydrated as never).activeSessionPlan?.nodePlan[0]?.wordRadarConfig).toEqual(artifact.node.wordRadarConfig);
     fs.writeFileSync(artifactPath, JSON.stringify({ ...artifact, node: { ...artifact.node, wordRadarConfig: { ...artifact.node.wordRadarConfig, recallMode: "full_recall" } } }));
-    expect(() => buildChildExperiencePacket(chart)).toThrow("verified_spelling_artifact_mismatch:teach-long-o");
+    expect(() => readVerifiedSpellingResponseMode(chart as never,chart.activeSessionPlan as never)).toThrow("verified_spelling_artifact_mismatch:teach-long-o");
   });
   it("replays a completed recall check as practice rather than resubmitting the assessment", () => {
     const packet = buildChildExperiencePacket({ childId: "lab", companion: {}, homework: {}, learningCycle: { domain: "spelling", homeworkId: "hw", revision: 1, lifecycle: "board_ready", observations: [{ itemId: "i1" }], nodes: [{ nodeId: "check", role: "baseline", state: "completed", evidenceContract: { spellingItems: { i1: { id: "i1", word: "night", lineage: { measurementRole: "fresh_checkpoint" }, response: { acceptedForms: ["night"] } } } } }] } } as never);

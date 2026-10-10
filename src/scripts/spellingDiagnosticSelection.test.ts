@@ -1,10 +1,11 @@
+import {linearJourneyFixture} from './fixtures/authoredJourney';
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { seedSpellingLab } from "./fixtures/spellingEvidenceFirst";
 import { runSpellingDiscoveryIntake } from "./ingestHomework";
-import { buildAssignmentPlanningPacket, prepareSpellingDiagnosticPacket, parseSpellingIntake, buildSpellingIntakePrompt, type AssignmentPlanningPacket } from "../engine/assignmentPlanner";
+import { buildAssignmentPlanningPacket, prepareSpellingDiagnosticPacket, planSpellingIntakeFromSource, parseSpellingIntake, buildSpellingIntakePrompt, type AssignmentPlanningPacket } from "../engine/assignmentPlanner";
 import { extractAssignmentSource } from "../engine/assignmentSourceExtraction";
 import { getChildChart } from "../profiles/childChart";
 import { getLearningCycle } from "../engine/learningCycleRepository";
@@ -23,7 +24,7 @@ async function fixture() {
   return { rootDir, sourceFile, childId, raw, packet: prepareSpellingDiagnosticPacket(raw, chart) };
 }
 function capture(packet: AssignmentPlanningPacket) {
-  return { title: "School spelling", words: [{ word: "night", pageNumber: 1 }, { word: "light", pageNumber: 1 }], uncertainty: [],
+  return { boardDefinition:linearJourneyFixture(["diagnostic"]), title: "School spelling", words: [{ word: "night", pageNumber: 1 }, { word: "light", pageNumber: 1 }], uncertainty: [],
     diagnostic: { action: "select", activityId: "word-radar", modeId: "independent_spelling_discovery", reason: "Audio elicits the assigned word without showing its letters; captured letters can measure recall.", evidenceIds: [`assignment:${packet.sourceDocument.fileHash}`], uncertainty: ["No current device observation or independent recall evidence."], nextEvidenceNeeded: ["Observe successful audio playback and response capture for every assigned word."] } };
 }
 
@@ -77,7 +78,7 @@ describe("Planner-owned opening spelling diagnostic", () => {
     const modified = structuredClone(cycle);
     modified.nodes[0].evidenceContract.diagnosticSelection!.instrument.config.showTimer = true;
     expect(() => buildSpellingDiscoveryPlan({ cycle: modified, companion: { id: "elli", name: "Elli" } })).toThrow("spelling_diagnostic_selection_invalid");
-    expect(() => createSpellingDiscoveryCycle({ childId: input.childId, homeworkId: first.homeworkId, title: cycle.assignment.title, contentFingerprint: cycle.assignment.contentFingerprint, items: Object.values(cycle.nodes[0].evidenceContract.spellingItems!), diagnosticSelection: modified.nodes[0].evidenceContract.diagnosticSelection }, input)).toThrow("spelling_diagnostic_selection_changed");
+    expect(() => createSpellingDiscoveryCycle({ childId: input.childId, homeworkId: first.homeworkId, title: cycle.assignment.title, contentFingerprint: cycle.assignment.contentFingerprint, items: Object.values(cycle.nodes[0].evidenceContract.spellingItems!), diagnosticSelection: modified.nodes[0].evidenceContract.diagnosticSelection , boardDefinition:linearJourneyFixture([(first.homeworkId)+":discovery"]) }, input)).toThrow("spelling_diagnostic_selection_changed");
   });
   it("persists an unsuitable-instrument decision without fallback, publication, or another call on resume", async () => {
     const input = await fixture();
@@ -136,3 +137,14 @@ describe("Planner-owned opening spelling diagnostic", () => {
     expect(callPlannerModel).toHaveBeenCalledOnce();
   });
 });
+
+it('returns invalid opening geometry once to the same Planner and resumes its saved correction',async()=>{
+ const {packet,rootDir}=await fixture();const valid=capture(packet);const invalid=structuredClone(valid);
+ invalid.boardDefinition.portals[1].position=structuredClone(invalid.boardDefinition.portals[0].position);
+ const callPlannerModel=vi.fn().mockResolvedValueOnce({draft:invalid}).mockResolvedValueOnce({draft:valid});
+ const options={callPlannerModel,providerReceipt:{draftDir:path.join(rootDir,'receipts'),stage:'intake'}};
+ expect((await planSpellingIntakeFromSource(packet,options)).output.boardDefinition).toEqual(valid.boardDefinition);
+ expect(callPlannerModel).toHaveBeenCalledTimes(2);
+ expect((await planSpellingIntakeFromSource(packet,options)).output.boardDefinition).toEqual(valid.boardDefinition);
+ expect(callPlannerModel).toHaveBeenCalledTimes(2);
+},20000);

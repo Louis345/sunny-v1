@@ -1,3 +1,4 @@
+import {choiceJourneyFixture} from "./authoredJourney";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -72,6 +73,7 @@ export function plan(activityCount = 3): any {
     measurementKeys: ["interaction.timeToFirstValidActionMs", "interaction.demoRequested"],
   }));
   return {
+    boardDefinition:choiceJourneyFixture(["route-a","route-b"].map((id,index)=>({id,label:index===0?"Strategy Trail":"Builder Trail",nodeIds:activities.filter(a=>a.routeId===id).map(a=>a.id)}))),
     planId: "direct-plan-1",
     title: "Multiplication Adventure",
     contentScopeRationale: "Three focused instruments are sufficient to teach and observe this assignment without duplicating work.",
@@ -110,6 +112,7 @@ export function plan(activityCount = 3): any {
 export function learningProgram(activityCount = 3): any {
   const legacy = plan(activityCount);
   return {
+    boardDefinition:legacy.boardDefinition,
     planId: legacy.planId,
     contentScopeRationale: legacy.contentScopeRationale,
     concept: {
@@ -225,6 +228,7 @@ export function graphTargetedPlan(activityCount: number, evidenceIds: string[]):
   return {
     planId: "graph-plan-1",
     title: "Library Graph Missions",
+    boardDefinition: choiceJourneyFixture(['route-a','route-b'].map(id=>({id,label:id,nodeIds:activities.filter(a=>a.routeId===id).map(a=>a.id)}))),
     contentScopeRationale: "Two focused instruments revisit the observed graph-reading uncertainty without duplicating the school worksheet.",
     concept: {
       conceptId: "unit_scale_bar_graph_reading",
@@ -257,6 +261,7 @@ export function graphLearningProgram(activityCount: number, evidenceIds: string[
   const designed = graphTargetedPlan(activityCount, evidenceIds);
   return {
     planId: designed.planId,
+    boardDefinition: designed.boardDefinition,
     contentScopeRationale: designed.contentScopeRationale,
     concept: {
       conceptId: designed.concept.conceptId,

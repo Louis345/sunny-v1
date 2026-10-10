@@ -1,4 +1,6 @@
-import { spellingCheckpointLineageIssues } from "./spellingCheckpointLineage";
+import {verifyAuthoredBoardCanvas} from './adventureBoardCanvas';
+import { adventureBoardDefinitionSchema, BOARD_AUTHORING_INSTRUCTION, BOARD_CANVAS_AUTHORING_CONSTRAINTS, renderBoardDefinition, validateBoardDefinition, journeyExecutions, type BoardDefinitionIssue } from '../shared/adventureBoardDefinition';
+import { spellingCheckpointLineageIssues, checkpointInterventionsArePrior } from "./spellingCheckpointLineage";
 import {requestPlannerMessage, assertPlannerResponseComplete} from "./plannerTransport";
 import Anthropic from "@anthropic-ai/sdk";
 import fs from "fs";
@@ -8,12 +10,10 @@ import { z } from "zod";
 import type {
   ActiveSessionPlan,
   GeneratedExperienceBrief,
-  LearningRoutePrescription,
   PlanTheory,
   PlannedMeasurement,
 } from "../context/schemas/learningProfile";
 import type { AdventureBoardJson } from "../shared/adventureBoardJson";
-import { buildAdventureBoardFromActiveSessionPlan } from "../shared/adventureBoardFromPlan";
 import { knownThumbnailUrlForActivity } from "../shared/activityPresentation";
 import type { NodeType } from "../shared/adventureTypes";
 import type { ChildChart } from "../profiles/childChart";
@@ -242,6 +242,7 @@ export type AssignmentPlannerOutput = {
 
 export type AssignmentPlanValidationIssue = {
   code:
+    | "board_canvas_invalid"
     | "missing_source_document"
     | "missing_word_groups"
     | "word_missing_source_group"
@@ -281,6 +282,7 @@ const spellingIntakeSchema = z.object({
   words: z.array(z.object({ word: z.string().trim().min(1), pageNumber: z.number().int().positive() }).strict()).min(1),
   uncertainty: z.array(z.union([spellingIntakeUncertaintySchema, z.string().trim().min(1)])),
   sourceNotes: z.array(z.string()).optional(),
+  boardDefinition: adventureBoardDefinitionSchema.optional(),
   diagnostic: spellingDiagnosticDecisionSchema.optional(), // Historical captures did not have Planner selection.
 }).strict();
 export type SpellingIntake = z.infer<typeof spellingIntakeSchema>;
@@ -320,11 +322,16 @@ export function parseSpellingIntake(value: unknown, packet: AssignmentPlanningPa
   const identities = result.words.map(row => row.word.normalize("NFC").toLocaleLowerCase("en-US"));
   if (new Set(identities).size !== identities.length) throw new Error("spelling_intake_word_duplicate");
   resolveSpellingDiagnosticSelection(result, packet);
+  if (packet.spellingDiagnostics && result.diagnostic?.action === 'select') {
+    if (!result.boardDefinition) throw new Error('board_definition_missing:diagnostic');
+    const issues = validateBoardDefinition(result.boardDefinition, ['diagnostic']);
+    if (issues.length) throw new Error(`board_definition_invalid:${JSON.stringify(issues)}`);
+  }
   return result;
 }
 
 export function buildSpellingIntakePrompt(packet: AssignmentPlanningPacket): string {
-  return `This is the assignment-capture and diagnostic-selection phase of Sunny's existing Planner. Capture every assigned spelling word from the complete school source, preserving punctuation and word identity. Reference the source page for each word. Do not add practice words or guess unreadable words. Put informational observations about headers, OCR, repeated practice pages, and clearly captured content in sourceNotes; these notes do not block ingestion. Reserve top-level uncertainty for unresolved assigned-word identity or assignment scope: [{kind: unreadable_word | ambiguous_word | assignment_scope, pageNumber, detail}]. Leave it empty when assigned words and scope are clear. Do not prescribe a teaching board, predictions, games, or mastered/weak labels before current Discovery evidence exists.\n${packet.spellingDiagnostics ? "You own the diagnostic choice. Choose an available validated instrument whose capture can establish the assigned words' independent starting point for this child. Compare its capabilities and measurement risks with the source, child chart, factual observations, and device uncertainty. Availability does not establish suitability or prove this is the best tool. Return diagnostic with action select, activityId, modeId, reason, evidenceIds, uncertainty, and nextEvidenceNeeded; cite only IDs supplied below. If none fits, use action needs_instrument with reason, evidenceIds, uncertainty, and nextEvidenceNeeded, omitting activityId and modeId. Do not substitute an unvalidated practice game or invent a device or permanent learning-style preference. The selected instrument must offer every assigned word without first exposing its spelling, allow Not sure, exit and resume, and preserve unknown/support/confound status. Hearing a whole word is stimulus; spelling or letter clues are assistance. Keep diagnostic uncertainty separate from source-extraction uncertainty." : "This is a saved legacy capture request; preserve its capture-only response contract."}\nReturn only title, words [{word,pageNumber}], sourceNotes, uncertainty${packet.spellingDiagnostics ? ", and diagnostic" : ""}.\nSOURCE:\n${JSON.stringify(packet.sourceDocument)}\nCHILD CHART:\n${JSON.stringify(packet.childChart)}\nVALIDATED DIAGNOSTICS AND FACTUAL EVIDENCE:\n${JSON.stringify(packet.spellingDiagnostics ?? null)}`;
+  return `This is the assignment-capture and diagnostic-selection phase of Sunny's existing Planner. Capture every assigned spelling word from the complete school source, preserving punctuation and word identity. Reference the source page for each word. Do not add practice words or guess unreadable words. Put informational observations about headers, OCR, repeated practice pages, and clearly captured content in sourceNotes; these notes do not block ingestion. Reserve top-level uncertainty for unresolved assigned-word identity or assignment scope: [{kind: unreadable_word | ambiguous_word | assignment_scope, pageNumber, detail}]. Leave it empty when assigned words and scope are clear. Do not prescribe a teaching board, predictions, games, or mastered/weak labels before current Discovery evidence exists. For action select, author boardDefinition for the opening evaluation only, binding its activity portal to the local instrument ID diagnostic. Include start and endpoint, explicit edges and both landscape and portrait positions. Explain in singlePathReason why this diagnostic is one path. Do not invent teaching activities.\n${packet.spellingDiagnostics ? "You own the diagnostic choice. Choose an available validated instrument whose capture can establish the assigned words' independent starting point for this child. Compare its capabilities and measurement risks with the source, child chart, factual observations, and device uncertainty. Availability does not establish suitability or prove this is the best tool. Return diagnostic with action select, activityId, modeId, reason, evidenceIds, uncertainty, and nextEvidenceNeeded; cite only IDs supplied below. If none fits, use action needs_instrument with reason, evidenceIds, uncertainty, and nextEvidenceNeeded, omitting activityId and modeId. Do not substitute an unvalidated practice game or invent a device or permanent learning-style preference. The selected instrument must offer every assigned word without first exposing its spelling, allow Not sure, exit and resume, and preserve unknown/support/confound status. Hearing a whole word is stimulus; spelling or letter clues are assistance. Keep diagnostic uncertainty separate from source-extraction uncertainty." : "This is a saved legacy capture request; preserve its capture-only response contract."}\nReturn only title, words [{word,pageNumber}], sourceNotes, uncertainty${packet.spellingDiagnostics ? ", diagnostic, and boardDefinition" : ""}.\nSOURCE:\n${JSON.stringify(packet.sourceDocument)}\nCHILD CHART:\n${JSON.stringify(packet.childChart)}\nVALIDATED DIAGNOSTICS AND FACTUAL EVIDENCE:\n${JSON.stringify(packet.spellingDiagnostics ?? null)}`;
 }
 
 export async function planSpellingIntakeFromSource(packet: AssignmentPlanningPacket, opts: {
@@ -334,13 +341,14 @@ export async function planSpellingIntakeFromSource(packet: AssignmentPlanningPac
 } = {}): Promise<{ output: SpellingIntake; telemetry: AssignmentPlannerTelemetry }> {
   const model = resolveAssignmentPlannerModel({ model: opts.model });
   const started = Date.now();
-  const parse = (value: unknown): SpellingIntake => {
+  const parse = async (value: unknown): Promise<SpellingIntake> => {
     const result = parseSpellingIntake(value, packet);
     // Legacy saved warnings stay readable, but new captures must state an actionable issue.
     if (result.uncertainty.some(issue => typeof issue === "string")) throw new Error("spelling_intake_structured_uncertainty_required");
+    if(result.diagnostic?.action==='select' && result.boardDefinition && opts.providerReceipt) await verifyAuthoredBoardCanvas({definition:result.boardDefinition,rootDir:process.cwd(),directory:path.join(opts.providerReceipt.draftDir,'intake-canvas-verification')});
     return result;
   };
-  const schema = spellingIntakeSchema.extend({ sourceNotes: z.array(z.string()), uncertainty: z.array(spellingIntakeUncertaintySchema), ...(packet.spellingDiagnostics ? { diagnostic: spellingDiagnosticDecisionSchema } : {}) });
+  const schema = spellingIntakeSchema.extend({ sourceNotes: z.array(z.string()), uncertainty: z.array(spellingIntakeUncertaintySchema), ...(packet.spellingDiagnostics ? { diagnostic: spellingDiagnosticDecisionSchema, boardDefinition: adventureBoardDefinitionSchema.optional() } : {}) });
   type Receipt = { message: Anthropic.Messages.Message; latencyMs: number } | { draft: unknown; usage?: LanguageModelUsage; latencyMs: number } | { output: SpellingIntake; telemetry: AssignmentPlannerTelemetry };
   const receive = async (prompt = buildSpellingIntakePrompt(packet), requestStarted = started): Promise<Receipt> => opts.callPlannerModel
     ? { ...await opts.callPlannerModel(packet, model), latencyMs: Date.now() - requestStarted }
@@ -374,33 +382,36 @@ export async function planSpellingIntakeFromSource(packet: AssignmentPlanningPac
   let usage = original.usage;
   let latencyMs = original.latencyMs;
   try {
-    output = parse(original.draft);
+    output = await parse(original.draft);
   } catch (error) {
-    const { diagnostic: _invalidDiagnostic, ...captureFields } = original.draft && typeof original.draft === "object"
+    const { diagnostic: _invalidDiagnostic, boardDefinition: _invalidBoard, ...captureFields } = original.draft && typeof original.draft === "object"
       ? original.draft as Record<string, unknown>
       : {};
-    const captured = spellingIntakeSchema.omit({ diagnostic: true }).safeParse(captureFields);
+    const captured = spellingIntakeSchema.omit({ diagnostic: true, boardDefinition:true }).safeParse(captureFields);
     const issues = error instanceof z.ZodError ? error.issues : [];
-    if (!captured.success || issues.length === 0 || issues.some(issue => issue.path[0] !== "diagnostic")) throw error;
+    const journeyError=error instanceof Error && (error.message.startsWith('board_definition_')||error.message.startsWith('board_canvas_invalid')) || issues.some(issue=>issue.path[0]==='boardDefinition');
+    if (!captured.success || (!journeyError && (issues.length === 0 || issues.some(issue => issue.path[0] !== "diagnostic")))) throw error;
     const correctionRequest = {
       version: 1,
       purpose: "spelling_intake_diagnostic_schema_correction",
       originalRequestHash: hashDiscoveryContract(packet),
       invalidDiagnostic: (original.draft as { diagnostic?: unknown })?.diagnostic,
       schemaIssues: issues,
+      ...(journeyError ? {journeyError:error instanceof Error?error.message:String(error),boardDefinition:_invalidBoard}:{}),
     };
-    const correctionPrompt = `Your previous spelling intake preserved the assignment capture but its diagnostic object failed the declared schema. Reissue the complete response once. Preserve the title, words, page numbers, sourceNotes, and source uncertainty exactly. Correct only the diagnostic fields listed below. Do not invent evidence IDs, child facts, activities, modes, or device facts. Return every required diagnostic field, including non-empty reason, evidenceIds, uncertainty, and nextEvidenceNeeded.\nSCHEMA ISSUES:\n${JSON.stringify(issues)}\nPREVIOUS RESPONSE:\n${JSON.stringify(original.draft)}`;
+    const correctionPrompt = `Your previous spelling intake preserved the assignment capture but its diagnostic or journey failed the executable contract. Reissue the complete response once. Preserve the title, words, page numbers, sourceNotes, and source uncertainty exactly. Correct only the diagnostic or journey defects listed below. Preserve the journey identities and alternatives when adjusting positions. Do not invent evidence IDs, child facts, activities, modes, or device facts. Return every required diagnostic field, including non-empty reason, evidenceIds, uncertainty, and nextEvidenceNeeded.\nCONTRACT ISSUES:\n${JSON.stringify(correctionRequest)}\nPREVIOUS RESPONSE:\n${JSON.stringify(original.draft)}`;
     const correctionStarted = Date.now();
     const corrected = opts.providerReceipt ? await runMathProviderStage({
       draftDir: opts.providerReceipt.draftDir,
-      stage: `${opts.providerReceipt.stage}-diagnostic-schema-correction-v1`,
+      stage: `${opts.providerReceipt.stage}-${journeyError?"journey-contract-correction-v2":"diagnostic-schema-correction-v1"}`,
       model,
       request: correctionRequest,
       execute: () => receive(correctionPrompt, correctionStarted),
     }) : await receive(correctionPrompt, correctionStarted);
     const repair = unpack(corrected);
-    const repairedDiagnostic = spellingDiagnosticDecisionSchema.parse((repair.draft as { diagnostic?: unknown })?.diagnostic);
-    output = parse({ ...captured.data, diagnostic: repairedDiagnostic });
+    output = await parse(repair.draft);
+    const {diagnostic:_diagnostic,boardDefinition:_board,...repairedCapture}=output;
+    if(hashDiscoveryContract(captured.data)!==hashDiscoveryContract(repairedCapture)) throw new Error('spelling_intake_correction_changed_source');
     usage = combinePlannerUsage(original.usage, repair.usage);
     latencyMs += repair.latencyMs;
     console.log(" 🎮 [spelling-discovery] [diagnostic-schema-repair] [validated] attempt=2");
@@ -834,17 +845,10 @@ const generationRequestSchema = z.object({
 
 export type PlannerGenerationRequest = z.infer<typeof generationRequestSchema>;
 
-const learningRouteSchema: z.ZodType<LearningRoutePrescription> = z.object({
-  id: z.string().min(1),
-  label: z.string().min(1),
-  rationale: z.string().min(1),
-  nodeIds: z.array(z.string().min(1)).min(1),
-});
-
 const compactActiveSessionPlanSchema = z.object({
   planId: z.string().min(1).optional(),
   nodePlan: z.array(compactNodePlanSchema).min(1).max(12),
-  learningRoutes: z.array(learningRouteSchema).min(2).max(3).default([]),
+  boardDefinition: adventureBoardDefinitionSchema.optional(),
   evidenceUsed: z.array(z.object({
     id: z.string().min(1),
     type: z.string().min(1),
@@ -1455,8 +1459,6 @@ export function buildAssignmentPlanningPacket(args: {
       "High-frequency groups whose purpose is recognize or read_fluently should usually be measured by visible_read or pronunciation, not spelling production, unless source or evidence explicitly says spelling is the gap.",
       "If a child needs shorter cohorts, shorten target lists and vary instruments by purpose instead of repeating many same-activity nodes.",
       "Size the spine to the captured concepts and the child chart: every distinct source group (concept lane) gets at least one measurement node, and a group containing clearly distinct sub-skills may split into multiple nodes on the same lane with different target subsets.",
-      "Design two named learning routes when the catalog has enough launchable instruments; each route should feel like a real child choice and test a distinct route hypothesis, and each route must contain at least one nodePlan node exclusive to that route.",
-      "Each learning route needs a child-specific rationale, target groups, nodeIds, and activities that measure the route hypothesis.",
       "Each activity must be chosen because its measured skills fit that declared purpose.",
       "Always include reviewQuestions with concise tutor-facing explanations for the activity choices and evidence checks.",
     ].join(" "),
@@ -1648,8 +1650,10 @@ export function assignmentPlannerSourceImages(packet: AssignmentPlanningPacket):
     .filter((image): image is { mediaType: "image/png" | "image/jpeg" | "image/webp"; data: string } => Boolean(image));
 }
 
+const AUTHORED_JOURNEY_INSTRUCTION = `${BOARD_AUTHORING_INSTRUCTION} Return it as activeSessionPlan.boardDefinition. nodePlan is the canonical activity inventory, not its chronology. Checkpoint citations name possible prior interventions; validate exposure order on each path containing both. Do not return learningRoutes or a second rendered adventureBoard.`;
+
 export function buildAssignmentPlannerPrompt(packet: AssignmentPlanningPacket): string {
-  if (packet.discoveryEvidence) return `${SPELLING_TUTOR_PERSONA}\nThe packet has her assigned words, her Discovery attempts (childResponse is exactly what she spelled), her profile, and the activities you can use; each activity's label says what it really does. Decide what she needs and design the session: you choose the activities, their order, and how many.\nEverything below only describes how to record your plan and which evidence rules the system enforces; it is not teaching guidance.\nReturn the existing ${ASSIGNMENT_PLANNER_TOOL_NAME} tool object once. Every node needs its own measure-<nodeId> planned measurement and the spelling decision fields. Preserve source words exactly. You choose the number of activities, emphasis, mechanics, and routes; do not fabricate evidence. Existing Quest/Boss gates and earning rules remain unchanged. Do not introduce new reward systems.\n${packet.plannerInstruction}\nEvidence-first packet:\n${JSON.stringify(packet)}`;
+  if (packet.discoveryEvidence) return `${SPELLING_TUTOR_PERSONA}\nThe packet has her assigned words, her Discovery attempts (childResponse is exactly what she spelled), her profile, and the activities you can use; each activity's label says what it really does. Decide what she needs and design the session: you choose the activities, their order, and how many.\nEverything below only describes how to record your plan and which evidence rules the system enforces; it is not teaching guidance.\nReturn the existing ${ASSIGNMENT_PLANNER_TOOL_NAME} tool object once. Every node needs its own measure-<nodeId> planned measurement and the spelling decision fields. Preserve source words exactly. You choose the number of activities, emphasis, mechanics, and routes; do not fabricate evidence. Existing Quest/Boss gates and earning rules remain unchanged. Do not introduce new reward systems.\n${packet.plannerInstruction}\n${AUTHORED_JOURNEY_INSTRUCTION}\nEvidence-first packet:\n${JSON.stringify(packet)}`;
   const revisionInstruction = packet.parentDialogue?.length || packet.priorPlannerOutput
     ? "\n- This is a human-in-the-loop revision. Use parentDialogue and priorPlannerOutput as context, then return one coherent revised plan from the same source."
     : "";
@@ -1670,11 +1674,8 @@ Output contract:
 - If parentDialogue is present in the packet, this is human-in-the-loop context. Use it to revise the plan without overriding captured source evidence.
 - Choose nodePlan directly. Do not merely explain a prebuilt board.
 - Keep the tool output compact: no prose outside fields, no repeated rationales. Compact means no filler, not fewer teaching nodes: size the spine to the captured concepts and the child chart. Every distinct source group (concept lane) gets at least one measurement node. A single group containing clearly distinct sub-skills (for example shading unit fractions vs comparing fraction magnitude) should split into multiple nodes on the same targetLane with different target subsets.
-- nodePlan is capped at 12 entries including mystery, quest, and boss; if the spine would exceed it, drop route nodes before dropping baseline coverage of any sub-skill.
-- Create activeSessionPlan.learningRoutes with two named learning routes when the activity catalog has enough launchable instruments. Each route must include a route hypothesis, child-specific rationale, and nodeIds that refer to real nodePlan entries. Each route must contain at least one non-destination node exclusive to that route; two routes listing identical nodeIds are cosmetic and will be dropped by code. When only one instrument type is launchable, make routes distinct by giving each route its own node with a different target subset, difficulty, or capability mode.
 - Every activeSessionPlan.nodePlan entry must have exactly one corresponding plannedMeasurements entry with id "measure-\${node.id}". That measurement must state what would support, revise, or falsify the planner's theory for that exact node.
 - Treat childChart.adventureMapProfile as delivery preference and layout intent. It is not today's board.
-- Code owns board ids, edges, locks, choice gates, and payload ids. You own the learning journey, route names, route hypotheses, target groups, and why those routes fit the child.
 - Use packet.activityCatalog as the instrument list. Unavailable activities are visible for context but must not appear as launchable academic board nodes.
 - Use activityCatalog evidence fields as the instrument truth table; do not treat all modes of one activity as equivalent.
 - When no launchable instrument serves a sub-skill, emit a generationRequests entry (targetLane = the generated-baseline node's lane) with mechanicConstraints distinct from every other request.
@@ -1682,15 +1683,13 @@ Output contract:
 - Use packet.masteryContext as the clock, deadline, and proof plan. The goal is demonstrated homework mastery by testDate, not merely completing a cute board.
 - If one node mixes targets from multiple source groups, omit targetLane or split the node. Never claim targetLane "silent_letters" for a node containing high-frequency targets.
 - Every word-radar node must include wordRadarConfig from the activity catalog capability modes. recallMode allows only visible_read, partial_visual_recall, hidden_word_recall. Never emit audio_cued_letter_recall as recallMode; cite capability ids only in rationale. If you choose the catalog's audio_cued_letter_recall capability mode, emit recallMode partial_visual_recall with audio-cued config values. Use partial_visual_recall for new/weak spelling construction, hidden_word_recall only with prior recall evidence, and visible_read for recognition/fluency. Omit wordRadarConfig on non-word-radar nodes.
-- Include the adventure spine in activeSessionPlan.nodePlan: baseline measurement nodes first, then route nodes referenced by learningRoutes, then exactly one mystery node for child choice/bandit preference evidence after evidence-generating work.
-- Use type/activityId "mystery", choiceMode "choice_lab", locked false, and targets from the relevant active homework targets.
 - Do not emit Quest or Boss nodes, locked or otherwise. They appear only on a later complete board after evidence authorizes them. Never invent targetLane values such as "all_homework", "mixed", or "combined".
 - Include parent-review language that explains why every group was routed to its activity.
 - In planTheory or reviewQuestions, explain why the journey you chose fits this child today.
 - Use the packet as the only source of assignment truth.${revisionInstruction}
-- Return one tool-call object with nodePlan, learningRoutes, plannedMeasurements, planTheory, and reviewQuestions in their schema-defined locations.
+${AUTHORED_JOURNEY_INSTRUCTION}
+- Return one tool-call object with nodePlan, boardDefinition, plannedMeasurements, planTheory, and reviewQuestions in their schema-defined locations.
 - Treat candidateCard child outcomes as factual, uncertain evidence. Academic compatibility is a hard gate; predicted learning value is primary; engagement is secondary; runtime clarity and reliability support the decision; uncertainty may justify bounded exploration; model-call cost and latency are penalties. A rating never overrides learning evidence, and one choice never proves preference.
-- Every route and Mystery option must declare a different experiment arm when it claims to test a preference. Do not use cosmetic labels for identical content.
 
 Packet:
 ${JSON.stringify(packet)}`;
@@ -1724,7 +1723,7 @@ function removeSchemaProperty(schema: JsonSchemaObject | undefined, propertyName
 function enforcePlannerToolContract(schema: JsonSchemaObject): JsonSchemaObject {
   const activeSessionPlan = schemaProperties(schema).activeSessionPlan;
   removeSchemaProperty(activeSessionPlan, "adventureBoard");
-  setSchemaRequired(activeSessionPlan, ["nodePlan", "learningRoutes"]);
+  setSchemaRequired(activeSessionPlan, ["nodePlan", "boardDefinition"]);
 
   return schema;
 }
@@ -1788,6 +1787,7 @@ export class AssignmentPlannerToolInvalidError extends Error {
 }
 
 type AssignmentPlannerRelationshipIssue =
+  | BoardDefinitionIssue
   | ReturnType<typeof spellingCheckpointLineageIssues>[number]
   | {
     code: "planner_baseline_intervention_lineage_invalid" | "planner_checkpoint_intervention_not_prior";
@@ -1846,7 +1846,7 @@ function assignmentPlannerRelationshipIssues(
   requireSpellingMeasurements = false,
   allowedSpellingTargets: ReadonlySet<string> = new Set(),
 ): AssignmentPlannerRelationshipIssue[] {
-  const input = jsonObject(normalizeAssignmentPlannerToolInput(toolInput));
+  const input = jsonObject(toolInput);
   const activeSessionPlan = jsonObject(input?.activeSessionPlan);
   const rawNodes = Array.isArray(activeSessionPlan?.nodePlan) ? activeSessionPlan.nodePlan : [];
   const rawMeasurements = Array.isArray(input?.plannedMeasurements) ? input.plannedMeasurements : [];
@@ -1861,6 +1861,12 @@ function assignmentPlannerRelationshipIssues(
   });
 
   const issues: AssignmentPlannerRelationshipIssue[] = [];
+  for(const id of gatedNodeIds) issues.push({code:'planner_encounter_not_authorized',id,message:'Opening Teaching boards cannot authorize Quest or Boss. Preserve the remaining journey and request these through the existing evidence-based successor decision.'});
+  const definition = adventureBoardDefinitionSchema.safeParse(activeSessionPlan?.boardDefinition);
+  if (!definition.success) issues.push({code:'board_definition_missing_or_invalid',message:JSON.stringify(definition.error.issues)});
+  else issues.push(...validateBoardDefinition(definition.data,[...nodeOrder.keys()]));
+  let pathOrders: Map<string,number>[] = [];
+  if (definition.success && !issues.length) pathOrders = journeyExecutions(definition.data).map(path => new Map(path.activityNodeIds.map((id,index) => [id,index])));
   if (requireSpellingMeasurements) {
     const measurementById = new Map(rawMeasurements.flatMap((rawMeasurement) => {
       const measurement = jsonObject(rawMeasurement);
@@ -1906,11 +1912,7 @@ function assignmentPlannerRelationshipIssues(
       issues.push({ code: "planner_baseline_intervention_lineage_invalid", measurementId, interventionNodeIds });
       continue;
     }
-    const checkpointOrder = nodeOrder.get(nodeId);
-    if (checkpointOrder === undefined || interventionNodeIds.some(id => {
-      const interventionOrder = nodeOrder.get(id);
-      return interventionOrder === undefined || interventionOrder >= checkpointOrder;
-    })) {
+    if (!checkpointInterventionsArePrior(pathOrders,nodeId,interventionNodeIds)) {
       issues.push({ code: "planner_checkpoint_intervention_not_prior", measurementId, interventionNodeIds });
     }
   }
@@ -1921,12 +1923,12 @@ function assignmentPlannerRelationshipIssues(
     const measurements = rawMeasurements.map(jsonObject).filter((row): row is Record<string, unknown> => !!row)
       .flatMap(row => { const spelling = jsonObject(row.spelling); return typeof row.id === "string" && spelling && Array.isArray(spelling.interventionNodeIds)
         ? [{ id: row.id, spelling: { role: String(spelling.role), interventionNodeIds: spelling.interventionNodeIds.filter((id): id is string => typeof id === "string") } }] : []; });
-    issues.push(...spellingCheckpointLineageIssues(nodes, measurements));
+    if (definition.success && pathOrders.length) issues.push(...spellingCheckpointLineageIssues(nodes, measurements, definition.data));
   }
   return issues;
 }
 
-function validateAssignmentPlannerRelationships(
+export function validateAssignmentPlannerRelationships(
   draft: AssignmentPlannerResponseObject,
   allowedEvidenceIds: ReadonlySet<string>,
   requireSpellingMeasurements = false,
@@ -1940,31 +1942,6 @@ function validateAssignmentPlannerRelationships(
   );
   if (issues.length) throw new AssignmentPlannerRelationshipInvalidError(draft, issues);
   return draft;
-}
-
-function fallbackPlanTheoryForToolInput(input: Record<string, unknown>): PlanTheory {
-  const activeSessionPlan = jsonObject(input.activeSessionPlan);
-  const routes = Array.isArray(activeSessionPlan?.learningRoutes)
-    ? activeSessionPlan.learningRoutes as Array<Record<string, unknown>>
-    : [];
-  const reviewQuestions = Array.isArray(input.reviewQuestions)
-    ? input.reviewQuestions.map((item) => String(item)).filter(Boolean)
-    : [];
-  const routeSummary = routes
-    .map((route) => `${route.label ?? route.id ?? "route"}: ${route.rationale ?? ""}`.trim())
-    .filter(Boolean);
-  const evidenceSummary = [
-    ...routeSummary.slice(0, 2),
-    ...reviewQuestions.slice(0, 2),
-  ].filter(Boolean);
-  return {
-    hypothesis: reviewQuestions[0] ?? routeSummary[0] ?? "Planner returned a compact intervention plan from the captured homework packet.",
-    evidenceSummary: evidenceSummary.length ? evidenceSummary : ["Captured homework packet and child chart informed the intervention plan."],
-    intervention: routeSummary[0] ?? "Use the selected nodePlan and learningRoutes as the intervention hypothesis.",
-    supportCriteria: ["Node-level planned measurements support the route hypothesis."],
-    reviseCriteria: ["Node-level planned measurements show fragile targets, retries, or support needs."],
-    falsifyCriteria: ["Measurements contradict the selected route hypothesis or miss the captured homework targets."],
-  };
 }
 
 function parseEmbeddedPlannerObject(value: string): Record<string, unknown> | undefined {
@@ -2015,88 +1992,6 @@ function stringArrayOrFallback(value: unknown, fallback: string[]): string[] {
   return fallback;
 }
 
-function normalizePlannerTheory(value: unknown, fallback: PlanTheory): PlanTheory {
-  const candidate = typeof value === "string"
-    ? parseEmbeddedPlannerObject(value)
-    : jsonObject(value);
-  if (!candidate) return fallback;
-  return {
-    hypothesis: typeof candidate.hypothesis === "string" && candidate.hypothesis.trim()
-      ? candidate.hypothesis
-      : fallback.hypothesis,
-    evidenceSummary: stringArrayOrFallback(candidate.evidenceSummary, fallback.evidenceSummary),
-    intervention: typeof candidate.intervention === "string" && candidate.intervention.trim()
-      ? candidate.intervention
-      : fallback.intervention,
-    supportCriteria: stringArrayOrFallback(candidate.supportCriteria, fallback.supportCriteria),
-    reviseCriteria: stringArrayOrFallback(candidate.reviseCriteria, fallback.reviseCriteria),
-    falsifyCriteria: stringArrayOrFallback(candidate.falsifyCriteria, fallback.falsifyCriteria),
-  };
-}
-
-function normalizeAssignmentPlannerToolInput(input: unknown): unknown {
-  if (!input || typeof input !== "object" || Array.isArray(input)) return input;
-  let record = { ...(input as Record<string, unknown>) };
-  if (typeof record.activeSessionPlan === "string") {
-    const embedded = parseEmbeddedPlannerObject(record.activeSessionPlan);
-    if (embedded) {
-      record = {
-        ...record,
-        ...embedded,
-        activeSessionPlan: jsonObject(embedded.activeSessionPlan) ?? embedded,
-      };
-    }
-  }
-  const activeSessionPlan = jsonObject(record.activeSessionPlan);
-  if (activeSessionPlan && !Array.isArray(activeSessionPlan.nodePlan)) {
-    const captured = jsonObject(record.capturedContent);
-    const capturedWords = Array.isArray(captured?.words)
-      ? captured.words.map((item) => String(item)).filter(Boolean)
-      : [];
-    const homeworkWords = Array.isArray(record.homeworkWords)
-      ? record.homeworkWords
-        .map((item) => jsonObject(item)?.text)
-        .filter((item): item is string => typeof item === "string" && item.trim().length > 0)
-      : [];
-    const targetLane = Array.isArray(captured?.wordGroups)
-      ? jsonObject(captured.wordGroups[0])?.id
-      : undefined;
-    const recoveredTargets = [...capturedWords, ...homeworkWords].slice(0, 5).filter(Boolean);
-    record.activeSessionPlan = {
-      ...activeSessionPlan,
-      nodePlan: [{
-        id: "node-planner-recovery",
-        type: "generated-baseline",
-        activityId: "generated-baseline",
-        targets: recoveredTargets.length ? recoveredTargets : ["captured-homework"],
-        ...(typeof targetLane === "string" ? { targetLane } : {}),
-        difficulty: 1,
-        locked: false,
-        masteryUnlockState: "preparing",
-      }],
-    };
-  }
-  if (!record.activeSessionPlan || !record.plannedMeasurements) return input;
-  const planTheory = normalizePlannerTheory(record.planTheory, fallbackPlanTheoryForToolInput(record));
-  const normalized: Record<string, unknown> = {
-    ...record,
-    planTheory,
-    ...(Array.isArray(record.reviewQuestions)
-      ? { reviewQuestions: record.reviewQuestions.slice(0, 8) }
-      : {}),
-  };
-  if (!record.reviewQuestions) {
-    const theory = planTheory as PlanTheory;
-    normalized.reviewQuestions = [
-      theory.hypothesis,
-      theory.intervention,
-      ...theory.supportCriteria,
-      ...theory.reviseCriteria,
-    ].filter(Boolean).slice(0, 8);
-  }
-  return normalized;
-}
-
 export function parseAssignmentPlannerToolUseResponse(
   response: Pick<Anthropic.Messages.Message, "content"> & { stop_reason?: string | null },
 ): AssignmentPlannerResponseObject {
@@ -2110,7 +2005,7 @@ export function parseAssignmentPlannerToolUseResponse(
     throw new Error(`assignment_planner_tool_missing:${ASSIGNMENT_PLANNER_TOOL_NAME}`);
   }
   try {
-    return assignmentPlannerDraftSchema.parse(normalizeAssignmentPlannerToolInput(toolUse.input));
+    return assignmentPlannerDraftSchema.parse(toolUse.input);
   } catch (error) {
     if (error instanceof z.ZodError) {
       throw new AssignmentPlannerToolInvalidError(toolUse.input, error.issues);
@@ -2154,7 +2049,7 @@ export function parseAssignmentPlannerJson(value: string): AssignmentPlannerResp
     .replace(/^```(?:json)?\s*/i, "")
     .replace(/\s*```$/i, "");
   const parsed = JSON.parse(firstJsonObject(trimmed)) as unknown;
-  return assignmentPlannerDraftSchema.parse(normalizeAssignmentPlannerToolInput(parsed));
+  return assignmentPlannerDraftSchema.parse(parsed);
 }
 
 async function callAssignmentPlannerModel(
@@ -2185,10 +2080,10 @@ async function callAssignmentPlannerModel(
   );
   try {
     const draft = parseAssignmentPlannerToolUseResponse(received.message);
-    return { draft: packet.discoveryEvidence ? validateAssignmentPlannerRelationships(draft, allowedEvidenceIdSet, requireSpellingMeasurements, allowedSpellingTargets) : draft, usage: originalUsage,
+    return { draft: validateAssignmentPlannerRelationships(draft, allowedEvidenceIdSet, requireSpellingMeasurements, allowedSpellingTargets), usage: originalUsage,
       telemetry: { model: received.model, usage: originalUsage, latencyMs: received.latencyMs }, receivedAt: received.createdAt };
   } catch (error) {
-    if ((!providerReceipt || !packet.discoveryEvidence)
+    if ((!providerReceipt)
       || (!(error instanceof AssignmentPlannerToolInvalidError) && !(error instanceof AssignmentPlannerRelationshipInvalidError))) throw error;
     const schemaIssues = error instanceof AssignmentPlannerToolInvalidError ? error.issues : [];
     const relationshipIssues = error instanceof AssignmentPlannerRelationshipInvalidError
@@ -2225,7 +2120,7 @@ async function callAssignmentPlannerModel(
         message: await requestAssignmentPlannerTool({
           prompt: correctionPrompt,
           model,
-          schema: assignmentPlannerToolJsonSchema(true, packet.activityCatalog),
+          schema: assignmentPlannerToolJsonSchema(Boolean(packet.discoveryEvidence), packet.activityCatalog),
         }),
         model,
         latencyMs: Date.now() - correctionStarted,
@@ -2266,7 +2161,7 @@ async function callAssignmentPlannerModel(
           message: await requestAssignmentPlannerTool({
             prompt: schemaCorrectionPrompt,
             model,
-            schema: assignmentPlannerToolJsonSchema(true, packet.activityCatalog),
+            schema: assignmentPlannerToolJsonSchema(Boolean(packet.discoveryEvidence), packet.activityCatalog),
           }),
           model,
           latencyMs: Date.now() - schemaCorrectionStarted,
@@ -2309,7 +2204,7 @@ async function callAssignmentPlannerModel(
           message: await requestAssignmentPlannerTool({
             prompt: measurementPrompt,
             model,
-            schema: assignmentPlannerToolJsonSchema(true, packet.activityCatalog),
+            schema: assignmentPlannerToolJsonSchema(Boolean(packet.discoveryEvidence), packet.activityCatalog),
           }),
           model,
           latencyMs: Date.now() - measurementStarted,
@@ -2467,22 +2362,8 @@ export function hydrateAssignmentPlannerOutputFromDraft(
     : legacyHomeworkWords.success ? legacyHomeworkWords.data : [];
 
   const generatedExperienceBriefs = hydrateGeneratedExperienceBriefs(draft.generatedExperienceBriefs, packet);
-  const sourceWordGroups = capturedContent.assignmentInterpretation?.wordGroups
-    ?? packet.capturedHomework.wordGroups
-    ?? [];
-  const enrichedActiveSessionPlan = removeUnauthorizedDestinations(defaultTargetLaneFromSingleGroup(
-    capturedContent.contentProfile.practiceDomain === "math"
-      ? enrichMathPlannerDraft({
-          draft: draft.activeSessionPlan,
-          wordGroups: sourceWordGroups,
-        })
-      : draft.activeSessionPlan,
-    sourceWordGroups,
-  ));
-  const plannedMeasurements = syncPlannedMeasurementsForNodePlan(
-    enrichedActiveSessionPlan.nodePlan,
-    draft.plannedMeasurements,
-  );
+  const enrichedActiveSessionPlan = draft.activeSessionPlan;
+  const plannedMeasurements = draft.plannedMeasurements;
   const activeSessionPlan = hydrateActiveSessionPlanFromDraft({
     draft: enrichedActiveSessionPlan,
     packet,
@@ -2509,44 +2390,6 @@ export function hydrateAssignmentPlannerOutputFromDraft(
     reviewQuestions: draft.reviewQuestions,
     generationRequests,
     generatedExperienceBriefs,
-  };
-}
-
-function isExplicitUnusedPlannerPlaceholder(node: PlannerDraftNode): boolean {
-  if (node.targets.length > 0) return false;
-  const title = node.title?.trim().toLowerCase();
-  const targetLane = node.targetLane?.trim().toLowerCase();
-  return title === "placeholder-unused" || targetLane === "unused";
-}
-
-/**
- * An initial board never carries Quest or Boss: those encounters appear only on
- * a later successor board that evidence authorized (contract 21). An explicit
- * unused placeholder is also not a child activity. Remove either instead of
- * rendering model scaffolding as a locked or playable node.
- */
-function removeUnauthorizedDestinations(plan: PlannerDraftPlan): PlannerDraftPlan {
-  const isDestination = (node: PlannerDraftNode) =>
-    node.activityId === "quest" || node.activityId === "boss" || node.type === "quest" || node.type === "boss";
-  const destinations = plan.nodePlan.filter(isDestination).map((node) => node.id);
-  const placeholders = plan.nodePlan.filter(isExplicitUnusedPlannerPlaceholder).map((node) => node.id);
-  const removed = new Set([...destinations, ...placeholders]);
-  if (removed.size === 0) return plan;
-  const warnings = [
-    ...(destinations.length > 0
-      ? [`planner_unauthorized_destination_removed: ${destinations.join(", ")}`]
-      : []),
-    ...(placeholders.length > 0
-      ? [`planner_unused_placeholder_removed: ${placeholders.join(", ")}`]
-      : []),
-  ];
-  for (const warning of warnings) {
-    console.log(`  🎮 [assignment-planner] [node-removed] ${warning}`);
-  }
-  return {
-    ...plan,
-    nodePlan: plan.nodePlan.filter((node) => !removed.has(node.id)),
-    openQuestions: [...(plan.openQuestions ?? []), ...warnings],
   };
 }
 
@@ -2658,6 +2501,18 @@ function thumbnailForAssignmentBoardNode(node: {
   return node.thumbnailUrl ?? known;
 }
 
+async function plannerCanvasIssues(output:AssignmentPlannerOutput,opts:AssignmentPlanningOptions):Promise<AssignmentPlanValidationIssue[]> {
+  if(!opts.providerReceipt || !output.activeSessionPlan.boardDefinition)return [];
+  try {
+    await verifyAuthoredBoardCanvas({definition:output.activeSessionPlan.boardDefinition,directory:path.join(opts.providerReceipt.draftDir,'planner-canvas'),rootDir:process.cwd()});
+    return [];
+  } catch(error) {
+    if(!(error instanceof Error)||!error.message.startsWith('board_canvas_invalid:'))throw error;
+    console.warn(` 🎮 [assignment-planner] [canvas] [correction-required] ${error.message}`);
+    return [{code:'board_canvas_invalid',severity:'error',message:error.message}];
+  }
+}
+
 async function planAssignmentFromSourceInternal(
   packet: AssignmentPlanningPacket,
   opts: AssignmentPlanningOptions = {},
@@ -2677,10 +2532,11 @@ async function planAssignmentFromSourceInternal(
     requireNodeTitles: Boolean(packet.discoveryEvidence),
     requireCatalogBinding: Boolean(packet.discoveryEvidence),
   });
+  validationIssues.push(...await plannerCanvasIssues(output,opts));
   const blockingIssues = validationIssues.filter((issue) => issue.severity === "error");
   if (blockingIssues.length > 0) {
     if (opts.providerReceipt && packet.discoveryEvidence
-      && blockingIssues.every((issue) => issue.code === "word_radar_unrendered_teaching" || issue.code === "word_radar_capability_mismatch")) {
+      && blockingIssues.every((issue) => issue.code === "board_canvas_invalid" || issue.code === "word_radar_unrendered_teaching" || issue.code === "word_radar_capability_mismatch")) {
       const correctionRequest = {
         version: 1,
         purpose: "assignment_planner_semantic_correction",
@@ -2688,7 +2544,7 @@ async function planAssignmentFromSourceInternal(
         invalidToolInput: result.draft,
         validationIssues: blockingIssues,
       };
-      const correctionPrompt = `Your ${ASSIGNMENT_PLANNER_TOOL_NAME} input passed schema and evidence checks, but its child-facing activity contract failed. Reissue the complete plan once. Preserve the assignment, child evidence, valid learning choices, measurements, and routes. For each listed Word Radar node, its screen cannot display rounds or teachingFocus: choose a catalog instrument that renders the intended teaching, or express the activity through Word Radar's supported wordRadarConfig without hidden teaching. A Word Radar response contract must exactly match a launchable catalog capability mode; copy its config values rather than combining modes. Keep all academic content visible to the child. Do not invent evidence, targets, or activities.\nVALIDATION ISSUES:\n${JSON.stringify(blockingIssues)}\nLAUNCHABLE ACTIVITY CAPABILITIES:\n${JSON.stringify(packet.activityCatalog.filter(card => card.launchable).map(card => ({ activityId: card.activityId, nodeType: card.nodeType, capabilityModes: card.capabilityModes })))}\nPREVIOUS TOOL INPUT:\n${JSON.stringify(result.draft)}`;
+      const correctionPrompt = `Your ${ASSIGNMENT_PLANNER_TOOL_NAME} input passed schema and evidence checks, but its child-facing activity contract failed. Reissue the complete plan once. Preserve the assignment, child evidence, valid learning choices, measurements, and routes. For each listed Word Radar node, its screen cannot display rounds or teachingFocus: choose a catalog instrument that renders the intended teaching, or express the activity through Word Radar's supported wordRadarConfig without hidden teaching. A Word Radar response contract must exactly match a launchable catalog capability mode; copy its config values rather than combining modes. Keep all academic content visible to the child. For board_canvas_invalid, correct only the cited positions or geometry, preserving all portal identities, labels, paths, options and educational content. ${BOARD_CANVAS_AUTHORING_CONSTRAINTS} Do not invent evidence, targets, or activities.\nVALIDATION ISSUES:\n${JSON.stringify(blockingIssues)}\nLAUNCHABLE ACTIVITY CAPABILITIES:\n${JSON.stringify(packet.activityCatalog.filter(card => card.launchable).map(card => ({ activityId: card.activityId, nodeType: card.nodeType, capabilityModes: card.capabilityModes })))}\nPREVIOUS TOOL INPUT:\n${JSON.stringify(result.draft)}`;
       const correctionStarted = Date.now();
       const correction = await runMathProviderStage({
         draftDir: opts.providerReceipt.draftDir,
@@ -2699,7 +2555,7 @@ async function planAssignmentFromSourceInternal(
           if (!process.env.ANTHROPIC_API_KEY) throw new Error("assignment_planner_ai_unavailable:ANTHROPIC_API_KEY");
         },
         execute: async () => ({
-          message: await requestAssignmentPlannerTool({ prompt: correctionPrompt, model, schema: assignmentPlannerToolJsonSchema(true, packet.activityCatalog) }),
+          message: await requestAssignmentPlannerTool({ prompt: correctionPrompt, model, schema: assignmentPlannerToolJsonSchema(Boolean(packet.discoveryEvidence), packet.activityCatalog) }),
           model,
           latencyMs: Date.now() - correctionStarted,
           createdAt: new Date().toISOString(),
@@ -2721,7 +2577,8 @@ async function planAssignmentFromSourceInternal(
         requireNodeTitles: true,
         requireCatalogBinding: true,
       }).filter(issue => issue.severity === "error");
-      if (remainingIssues.length && remainingIssues.every(issue => issue.code === "word_radar_unrendered_teaching" || issue.code === "word_radar_capability_mismatch")) {
+      remainingIssues.push(...await plannerCanvasIssues(correctedOutput,opts));
+      if (remainingIssues.length && remainingIssues.every(issue => issue.code === "board_canvas_invalid" || issue.code === "word_radar_unrendered_teaching" || issue.code === "word_radar_capability_mismatch")) {
         const secondRequest = {
           version: 2,
           purpose: "assignment_planner_semantic_correction",
@@ -2729,7 +2586,7 @@ async function planAssignmentFromSourceInternal(
           invalidToolInput: correctedDraft,
           validationIssues: remainingIssues,
         };
-        const secondPrompt = `The first semantic correction still failed the child-facing contract. Reissue the complete plan one final time. Word Radar cannot show rounds or teachingFocus, and its wordRadarConfig must exactly match one launchable catalog capability. If teaching rounds are essential, choose a catalog teaching instrument that displays them; never leave teaching hidden inside Word Radar. Preserve the assignment, child evidence, valid learning choices, measurements, and routes. Do not invent evidence, targets, or activities.\nVALIDATION ISSUES:\n${JSON.stringify(remainingIssues)}\nLAUNCHABLE ACTIVITY CAPABILITIES:\n${JSON.stringify(packet.activityCatalog.filter(card => card.launchable).map(card => ({ activityId: card.activityId, nodeType: card.nodeType, capabilityModes: card.capabilityModes })))}\nPREVIOUS TOOL INPUT:\n${JSON.stringify(correctedDraft)}`;
+        const secondPrompt = `The first semantic correction still failed the child-facing contract. Reissue the complete plan one final time. Word Radar cannot show rounds or teachingFocus, and its wordRadarConfig must exactly match one launchable catalog capability. If teaching rounds are essential, choose a catalog teaching instrument that displays them; never leave teaching hidden inside Word Radar. Preserve the assignment, child evidence, valid learning choices, measurements, and routes. For board_canvas_invalid, correct only the cited positions or geometry, preserving all portal identities, labels, paths, options and educational content. ${BOARD_CANVAS_AUTHORING_CONSTRAINTS} Do not invent evidence, targets, or activities.\nVALIDATION ISSUES:\n${JSON.stringify(remainingIssues)}\nLAUNCHABLE ACTIVITY CAPABILITIES:\n${JSON.stringify(packet.activityCatalog.filter(card => card.launchable).map(card => ({ activityId: card.activityId, nodeType: card.nodeType, capabilityModes: card.capabilityModes })))}\nPREVIOUS TOOL INPUT:\n${JSON.stringify(correctedDraft)}`;
         const secondStarted = Date.now();
         const second = await runMathProviderStage({
           draftDir: opts.providerReceipt.draftDir,
@@ -2763,6 +2620,7 @@ async function planAssignmentFromSourceInternal(
           requireCatalogBinding: true,
         }).filter(issue => issue.severity === "error");
       }
+      remainingIssues.push(...await plannerCanvasIssues(correctedOutput,opts));
       if (remainingIssues.length) throw new Error(`assignment_planner_validation_failed:${remainingIssues.map(issue => issue.code).join(",")}: ${remainingIssues.map(issue => issue.message).join("; ")}`);
       console.log(" 🎮 [assignment-planner] [semantic-correction] [validated]");
       return { output: correctedOutput, receivedAt: correctedAt,
@@ -2782,307 +2640,8 @@ async function planAssignmentFromSourceInternal(
   };
 }
 
-function synthesizePlannedMeasurementForNode(node: {
-  id: string;
-  activityId: string;
-  targets: string[];
-  targetLane?: string;
-}): PlannedMeasurement {
-  const targetSummary = node.targets.slice(0, 3).join(", ") || node.targetLane || "captured concept";
-  return {
-    id: `measure-${node.id}`,
-    activityId: node.activityId,
-    target: targetSummary,
-    evidenceType: node.activityId === "concept-check" ? "practice:concept_check" : "practice:math_baseline",
-    supportCriteria: `Child completes ${node.activityId} on ${targetSummary} with usable target-level evidence.`,
-    reviseCriteria: `Misses, retries, or help requests on ${targetSummary} suggest scaffold or lane refill change.`,
-    falsifyCriteria: `Strong independent accuracy on ${targetSummary} without contamination supports advancing the lane.`,
-  };
-}
-
-function syncPlannedMeasurementsForNodePlan(
-  nodePlan: Array<{ id: string; activityId: string; targets: string[]; targetLane?: string }>,
-  plannedMeasurements: PlannedMeasurement[],
-): PlannedMeasurement[] {
-  const byId = new Map(plannedMeasurements.map((measurement) => [measurement.id, measurement]));
-  for (const node of nodePlan) {
-    if (isPlannerDestinationActivity(node.activityId)) continue;
-    const measureId = `measure-${node.id}`;
-    if (!byId.has(measureId)) {
-      byId.set(measureId, synthesizePlannedMeasurementForNode(node));
-      console.log(`  🎮 [assignment-planner] [measurement-sync] added ${measureId} for ${node.activityId}`);
-    }
-  }
-  return [...byId.values()];
-}
-
-function expandMathConceptLanes(groups: HomeworkWordGroup[]): Array<HomeworkWordGroup & { activityId?: string }> {
-  const lanes: Array<HomeworkWordGroup & { activityId?: string }> = [];
-  for (const group of groups) {
-    if (group.id === "multiplication") {
-      const source = group.words.join(" ");
-      const facts = [...source.matchAll(/\b(\d+)\s*[x×]\s*(\d+)\s*=\s*(?:_+|\?)/gi)]
-        .map((match) => `${match[1]}x${match[2]}`);
-      const problemSource = source.split(/word\s*problems?\s*:/i)[1] ?? "";
-      const stories = problemSource.split("?")
-        .map((part) => part.replace(/\s+/g, " ").trim())
-        .filter((part) => part.length > 12 && /\b(each|rows?|groups?|boxes?|in all|total)\b/i.test(part))
-        .map((part) => `${part}?`);
-      if (facts.length > 0) {
-        lanes.push({
-          ...group,
-          id: "multiplication_fluency",
-          label: "Multiplication Facts",
-          words: [...new Set(facts)],
-          activityId: "generated-baseline",
-        });
-      }
-      if (stories.length > 0) {
-        lanes.push({
-          ...group,
-          id: "multiplication_word_problems",
-          label: "Equal-Groups Stories",
-          words: [...new Set(stories)],
-          activityId: "generated-baseline",
-        });
-      }
-      if (facts.length > 0 || stories.length > 0) continue;
-    }
-    if (group.id === "fractions" && group.words.length >= 2) {
-      const shadeThirds = group.words.filter((word) => /\b(third|thirds|1\/3)\b/i.test(word));
-      const shadeFourths = group.words.filter((word) => /\b(fourth|fourths|1\/4)\b/i.test(word));
-      const compare = group.words.filter((word) => /\b(larger|compare|greater|smaller|which)\b/i.test(word));
-      if (shadeThirds.length) {
-        lanes.push({
-          ...group,
-          id: "fraction_shade_thirds",
-          label: "Shade Thirds",
-          words: shadeThirds,
-          activityId: "generated-baseline",
-        });
-      }
-      if (shadeFourths.length) {
-        lanes.push({
-          ...group,
-          id: "fraction_shade_fourths",
-          label: "Shade Fourths",
-          words: shadeFourths,
-          activityId: "generated-baseline",
-        });
-      }
-      if (compare.length) {
-        lanes.push({
-          ...group,
-          id: "fraction_compare",
-          label: "Compare Fractions",
-          words: compare,
-          activityId: "concept-check",
-        });
-      }
-      if (lanes.length > 0) continue;
-      const splitLabels = ["Shade Thirds", "Shade Fourths", "Compare Fractions"] as const;
-      const splitIds = ["fraction_shade_thirds", "fraction_shade_fourths", "fraction_compare"] as const;
-      const splitActivities = ["generated-baseline", "generated-baseline", "concept-check"] as const;
-      for (const [index, word] of group.words.slice(0, 3).entries()) {
-        lanes.push({
-          ...group,
-          id: splitIds[index]!,
-          label: splitLabels[index]!,
-          words: [word],
-          activityId: splitActivities[index],
-        });
-      }
-      continue;
-    }
-    lanes.push({
-      ...group,
-      activityId:
-        group.id === "time_telling"
-          ? "clock-game"
-          : group.id === "money_reasoning"
-            ? "coin-counter"
-            : "generated-baseline",
-    });
-  }
-  return lanes.slice(0, 4);
-}
-
 type PlannerDraftNode = z.infer<typeof compactNodePlanSchema>;
 type PlannerDraftPlan = z.infer<typeof compactActiveSessionPlanSchema>;
-
-/**
- * With exactly one source group the lane is unambiguous, so fill it in when
- * the planner omitted targetLane; board labels then use the concept-lane name
- * (e.g. "Times Tables") instead of the node's raw first target.
- */
-function defaultTargetLaneFromSingleGroup(
-  plan: PlannerDraftPlan,
-  wordGroups: HomeworkWordGroup[],
-): PlannerDraftPlan {
-  const onlyGroupId = wordGroups.length === 1 ? wordGroups[0]?.id?.trim() : undefined;
-  if (!onlyGroupId) return plan;
-  return {
-    ...plan,
-    nodePlan: plan.nodePlan.map((node) =>
-      node.targetLane || isPlannerDestinationActivity(node.activityId)
-        ? node
-        : { ...node, targetLane: onlyGroupId },
-    ),
-  };
-}
-
-/** When the LLM emits a thin or mis-typed math spine, rebuild from captured concept lanes. */
-export function enrichMathPlannerDraft(args: {
-  draft: PlannerDraftPlan;
-  wordGroups: HomeworkWordGroup[];
-}): PlannerDraftPlan {
-  const conceptLanes = expandMathConceptLanes(args.wordGroups);
-  if (conceptLanes.length === 0) return args.draft;
-
-  const teachingNodes = args.draft.nodePlan.filter(
-    (node) => !isPlannerDestinationActivity(node.activityId),
-  );
-  const validTeaching = teachingNodes.filter(
-    (node) => !["quest", "boss", "mystery"].includes(node.activityId),
-  );
-  const multiplicationExperiment = conceptLanes.some(
-    (lane) => lane.id === "multiplication" || lane.id.startsWith("multiplication_"),
-  );
-  const generatedMathLane = conceptLanes.length === 1 && conceptLanes[0]?.activityId === "generated-baseline";
-  const usesUnalignedMathInstrument = generatedMathLane && validTeaching.some(
-    (node) => node.activityId !== "generated-baseline",
-  );
-  if (
-    !multiplicationExperiment &&
-    !usesUnalignedMathInstrument &&
-    validTeaching.length >= Math.min(3, conceptLanes.length) &&
-    validTeaching.length >= 2
-  ) {
-    return args.draft;
-  }
-
-  console.log(
-    `  🎮 [assignment-planner] [math-enrich] rebuilding spine lanes=${conceptLanes.length} validTeaching=${validTeaching.length}`,
-  );
-
-  const baselineNodes: PlannerDraftNode[] = conceptLanes.map((lane, index) => ({
-    id: `node-baseline-${lane.id}`,
-    type: (lane.activityId ?? "generated-baseline") as PlannerDraftNode["type"],
-    activityId: (lane.activityId ?? "generated-baseline") as PlannerDraftNode["activityId"],
-    targets: lane.words.slice(0, 4),
-    targetLane: lane.id,
-    difficulty: 1,
-    locked: false,
-    masteryUnlockState: "preparing",
-  }));
-
-  const routeExclusiveA: PlannerDraftNode = {
-    id: `node-route-a-${conceptLanes[0]!.id}`,
-    type: baselineNodes[0]!.activityId,
-    activityId: baselineNodes[0]!.activityId,
-    targets: conceptLanes[0]!.words.slice(0, 4),
-    targetLane: conceptLanes[0]!.id,
-    difficulty: 2,
-    locked: false,
-    masteryUnlockState: "preparing",
-  };
-  const routeLane = conceptLanes[1] ?? conceptLanes[0]!;
-  const routeExclusiveB: PlannerDraftNode = {
-    id: `node-route-b-${routeLane.id}`,
-    type: (conceptLanes[1]?.activityId ?? conceptLanes[0]?.activityId ?? "generated-baseline") as PlannerDraftNode["type"],
-    activityId: (conceptLanes[1]?.activityId ?? conceptLanes[0]?.activityId ?? "generated-baseline") as PlannerDraftNode["activityId"],
-    targets: routeLane.words.slice(0, 4),
-    targetLane: routeLane.id,
-    difficulty: 2,
-    locked: false,
-    masteryUnlockState: "preparing",
-  };
-
-  const allTargets = conceptLanes.flatMap((lane) => lane.words).slice(0, 6);
-  if (multiplicationExperiment) {
-    routeExclusiveA.targets = [...allTargets];
-    routeExclusiveA.difficulty = 2;
-    routeExclusiveB.targets = [...allTargets];
-    routeExclusiveB.difficulty = 2;
-  }
-  const existingMystery = args.draft.nodePlan.find((node) => node.activityId === "mystery");
-
-  const mystery: PlannerDraftNode = existingMystery ?? {
-    id: "node-mystery",
-    type: "mystery",
-    activityId: "mystery",
-    targets: allTargets,
-    difficulty: 1,
-    choiceMode: "choice_lab",
-    locked: false,
-    masteryUnlockState: "preparing",
-  };
-  const nodePlan = multiplicationExperiment
-    ? [routeExclusiveA, routeExclusiveB, mystery]
-    : [...baselineNodes.slice(0, 3), routeExclusiveA, routeExclusiveB, mystery];
-
-  return {
-    ...args.draft,
-    nodePlan,
-    learningRoutes: [
-      {
-        id: multiplicationExperiment ? "route-speed-facts" : "route-visual-first",
-        label: multiplicationExperiment ? "Speed Facts Sprint" : "Picture It First",
-        rationale: multiplicationExperiment
-          ? "Test a competitive, timed fact-retrieval presentation while holding multiplication targets and difficulty constant."
-          : "Build the visual unit-fraction model before comparing sizes.",
-        nodeIds: [
-          routeExclusiveA.id,
-          mystery.id,
-        ],
-      },
-      {
-        id: multiplicationExperiment ? "route-story-problems" : "route-compare-first",
-        label: multiplicationExperiment ? "Story Problems Path" : "Compare First",
-        rationale: multiplicationExperiment
-          ? "Test an untimed equal-groups story presentation while holding the same multiplication target family constant."
-          : "Probe magnitude reasoning before more shading practice.",
-        nodeIds: [
-          routeExclusiveB.id,
-          mystery.id,
-        ],
-      },
-    ],
-  };
-}
-
-type DraftLearningRoute = NonNullable<AssignmentPlannerResponseObject["activeSessionPlan"]["learningRoutes"]>[number];
-
-/**
- * Routes whose non-destination nodeIds are identical are cosmetic: the board
- * compiler cannot render a real fork from them, so drop them and say why.
- */
-export function normalizeLearningRoutesForPlan<TRoute extends { id: string; nodeIds: string[] }>(
-  routes: TRoute[] | undefined,
-  nodePlan: Array<{ id: string; activityId: string; type?: string }>,
-): { routes: TRoute[]; warnings: string[] } {
-  if (!routes?.length) return { routes: [], warnings: [] };
-  const destinationIds = new Set(
-    nodePlan
-      .filter((node) => PLANNER_DESTINATION_ACTIVITY_IDS.has((node.activityId ?? node.type ?? "").toLowerCase()))
-      .map((node) => node.id),
-  );
-  const knownIds = new Set(nodePlan.map((node) => node.id));
-  const routeKeys = routes.map((route) =>
-    [...new Set(route.nodeIds.filter((id) => knownIds.has(id) && !destinationIds.has(id)))]
-      .sort()
-      .join("|"),
-  );
-  const allIdentical = routeKeys.length >= 2 && routeKeys.every((key) => key === routeKeys[0]);
-  if (allIdentical) {
-    const warning =
-      `learning_routes_dropped_identical_node_sets: routes [${routes.map((route) => route.id).join(", ")}] ` +
-      "list identical non-destination nodeIds, so no real fork can render. Planner must give each route an exclusive node.";
-    console.log(`  🎮 [assignment-planner] [route-warning] ${warning}`);
-    return { routes: [], warnings: [warning] };
-  }
-  return { routes, warnings: [] };
-}
 
 function hydrateActiveSessionPlanFromDraft(args: {
   draft: AssignmentPlannerResponseObject["activeSessionPlan"];
@@ -3126,10 +2685,10 @@ function hydrateActiveSessionPlanFromDraft(args: {
     thumbnailUrl: thumbnailForAssignmentBoardNode(node),
     source: "chart_planner" as const,
   }));
-  const normalizedRoutes = normalizeLearningRoutesForPlan<DraftLearningRoute>(
-    args.draft.learningRoutes,
-    nodePlan,
-  );
+  if (!args.draft.boardDefinition) throw new Error('board_definition_required:request_explicit_planner_revision');
+  const definition = args.draft.boardDefinition;
+  const definitionIssues = validateBoardDefinition(definition,nodePlan.map(node => node.id));
+  if (definitionIssues.length) throw new Error(`board_definition_invalid:${JSON.stringify(definitionIssues)}`);
   return {
     planId,
     childId: args.packet.childId,
@@ -3138,36 +2697,12 @@ function hydrateActiveSessionPlanFromDraft(args: {
     domain: args.capturedContent.contentProfile.practiceDomain,
     testDate: null,
     nodePlan,
-    learningRoutes: normalizedRoutes.routes,
-    adventureBoard: buildAdventureBoardFromActiveSessionPlan({
-      plan: {
-        planId,
-        childId: args.packet.childId,
-        domain: args.capturedContent.contentProfile.practiceDomain,
-        nodePlan,
-        learningRoutes: normalizedRoutes.routes,
-        plannedMeasurements: args.plannedMeasurements,
-      },
+    boardDefinition: definition,
+    adventureBoard: renderBoardDefinition(definition, {
       boardId: `assignment-board-${args.packet.childId}-${args.packet.sourceDocument.fileHash.slice(0, 8)}`,
-      title: args.capturedContent.title,
-      theme: ASSIGNMENT_BOARD_THEME,
-      layout: {
-        preset: "horizontal-adventure-spine",
-        companionSlot: args.packet.childChart.adventureMapProfile?.companionSlot ?? "right",
-      },
-      plannerRationale: {
-        agencyDesign: args.planTheory.intervention,
-        evidenceDesign: args.planTheory.hypothesis,
-        layoutChoice: "Sunny materialized the horizontal adventure board from the planner's validated intervention node plan.",
-      },
-      companion: {
-        id: companionId,
-        name: args.packet.childChart.selectedCompanionName ?? companionId,
-      },
-      labelForNode: (node) =>
-        labelForAssignmentBoardNode(args.packet, node as ActiveSessionPlan["nodePlan"][number]),
-      thumbnailForNode: (node) =>
-        thumbnailForAssignmentBoardNode(node as ActiveSessionPlan["nodePlan"][number]),
+      planId, childId:args.packet.childId, domain:args.capturedContent.contentProfile.practiceDomain,
+      activities:nodePlan.map(node => ({...node, wordRadarConfig:node.wordRadarConfig ? {...node.wordRadarConfig} : undefined, state:'generating', verified:false})),
+      companion:{id:companionId,name:args.packet.childChart.selectedCompanionName ?? companionId},
     }),
     variationPolicy: {
       avoidExactPreviousNodeOrder: true,
@@ -3185,7 +2720,7 @@ function hydrateActiveSessionPlanFromDraft(args: {
     evidenceUsed: args.draft.evidenceUsed?.length
       ? args.draft.evidenceUsed
       : [{ id: "assignment-source", type: "assignment_source", summary: "AI planner used the stored assignment source packet." }],
-    openQuestions: [...(args.draft.openQuestions ?? []), ...normalizedRoutes.warnings],
+    openQuestions: args.draft.openQuestions ?? [],
     plannerConfidence: args.draft.plannerConfidence,
     approvalStatus: "pending",
     planTheory: args.planTheory,

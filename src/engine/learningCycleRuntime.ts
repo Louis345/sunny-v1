@@ -1,3 +1,7 @@
+import {isDeepStrictEqual} from "node:util";
+import {verifyAuthoredBoardCanvas} from "./adventureBoardCanvas";
+import {requireBoardDefinition, BOARD_DEFINITION_TOOL_SCHEMA, BOARD_AUTHORING_INSTRUCTION} from "../shared/adventureBoardDefinition";
+import { canonicalJourneyLaunchable } from './learningCycleRepository';
 import {requestPlannerMessage, readPlannerToolReceipt} from "./plannerTransport";
 import { MATH_ITEMS_SCHEMA, parseDirectItem, type DirectItem } from "./directMathExperience";
 import Anthropic from "@anthropic-ai/sdk";
@@ -361,11 +365,11 @@ export function recordCanonicalNodeCompletion(
   const isAgencyNode = experiment
     ? experiment.sharedNodeIds.includes(node.nodeId) || experiment.routes.some((route) => route.nodeIds.includes(node.nodeId))
     : false;
-  const agencyNodeLaunchable = !experiment || !isAgencyNode
+  const agencyNodeLaunchable = canonicalJourneyLaunchable(cycle,node.nodeId) ?? (!experiment || !isAgencyNode
     ? undefined
     : firstIncompleteShared
       ? node.nodeId === firstIncompleteShared
-      : node.nodeId === firstIncompleteSelected;
+      : node.nodeId === firstIncompleteSelected);
   if (node.state !== "completed" && (agencyNodeLaunchable === false || (agencyNodeLaunchable === undefined && node.state !== "ready" && node.state !== "active"))) {
     throw new Error(`learning_cycle_node_not_launchable:${input.nodeId}`);
   }
@@ -477,21 +481,7 @@ export function parseCanonicalProgressionDecision(value: unknown): CanonicalProg
         return parsed;
       })
     : legacyInstrument ? [legacyInstrument] : [];
-  const routeRow = row.routeChoice && typeof row.routeChoice === "object" && !Array.isArray(row.routeChoice)
-    ? row.routeChoice as Record<string, unknown>
-    : undefined;
-  const routeChoice = routeRow && Array.isArray(routeRow.routes) && routeRow.routes.length > 0
-    ? {
-        sharedNodeIds: strings(routeRow.sharedNodeIds),
-        routes: routeRow.routes.map((route) => {
-          const value = (route ?? {}) as Record<string, unknown>;
-          if (typeof value.routeId !== "string" || !value.routeId.trim() || strings(value.nodeIds).length === 0) {
-            throw new Error("canonical_progression_route_choice_invalid");
-          }
-          return { routeId: value.routeId.trim(), nodeIds: strings(value.nodeIds) };
-        }),
-      }
-    : undefined;
+  const boardDefinition = action === 'await_calibration' ? undefined : requireBoardDefinition(row.boardDefinition, instruments.map(instrument => instrument.nodeId));
   const contentDecisions = (Array.isArray(row.contentDecisions) ? row.contentDecisions : []).map((value) => {
     if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("canonical_progression_content_decision_invalid");
     const decision = value as Record<string, unknown>;
@@ -528,7 +518,7 @@ export function parseCanonicalProgressionDecision(value: unknown): CanonicalProg
     predictionEvaluationIds: strings(row.predictionEvaluationIds),
     ...(contentDecisions.length > 0 ? { contentDecisions } : {}),
     ...(typeof row.revisedHypothesis === "string" && row.revisedHypothesis.trim() ? { revisedHypothesis: row.revisedHypothesis.trim() } : {}),
-    ...(action !== "await_calibration" ? { successor: { instruments, ...(routeChoice ? { routeChoice } : {}) } } : {}),
+    ...(action !== "await_calibration" ? { successor: { instruments, boardDefinition } } : {}),
   };
 }
 
@@ -608,12 +598,11 @@ async function askPlanner(
     observationIds: cycle.observations.filter((observation) => observation.provenance !== "practice").map((observation) => observation.observationId),
     model: plannerModel,
   };
-  const rawDecision = await runMathProviderStage({ draftDir, stage: `progression-decision-r${checkpointRevision}`, model: plannerModel, request: snapshot, execute: async () => {
-  const response = await requestPlannerMessage(anthropic, {
+  const request = {
     model: plannerModel,
     // The prescription now carries five additional design fields; 2600 truncated them.
     max_tokens: 6000,
-    messages: [{ role: "user", content: `You are Sunny's AI Planner. Compare the preregistered academic theory and predictions with the factual scorecard. Quest requires a captured, correct, unseen independent checkpoint. Practice cannot satisfy that boundary. For math, author nextItems with stable unique ids, prompts, lineage, and frozen response contracts. Include fresh checkpoint evidence when further progression is intended. Explanation responses remain unscored and cannot independently unlock progression. Never reuse exposed item ids or prompts. Quest tests unseen transfer; Boss tests unseen synthesis; Boss must end awaiting calibration. Call ${toolName} exactly once with one concise decision. Unless progressionAction is await_calibration, author the one complete next board in nextInstruments: you decide how many activities it has. A board may offer the child a real choice through routeChoice (shared opening nodes, then two or more routes that may reconverge on a common checkpoint). The current board is never changed; your program becomes a new board for a later session. Mark exactly one instrument with encounter "quest" only when progressionAction is generate_quest, or "boss" only when it is generate_boss; never add an encounter otherwise.
+    messages: [{ role: "user", content: `You are Sunny's AI Planner. Compare the preregistered academic theory and predictions with the factual scorecard. Quest requires a captured, correct, unseen independent checkpoint. Practice cannot satisfy that boundary. For math, author nextItems with stable unique ids, prompts, lineage, and frozen response contracts. Include fresh checkpoint evidence when further progression is intended. Explanation responses remain unscored and cannot independently unlock progression. Never reuse exposed item ids or prompts. Quest tests unseen transfer; Boss tests unseen synthesis; Boss must end awaiting calibration. Call ${toolName} exactly once with one concise decision. Unless progressionAction is await_calibration, author the one complete next board in nextInstruments: you decide how many activities it has. ${BOARD_AUTHORING_INSTRUCTION} The current board is never changed; your program becomes a new board for a later session. Mark exactly one instrument with encounter "quest" only when progressionAction is generate_quest, or "boss" only when it is generate_boss; never add an encounter otherwise.
 
 You are the artist here, not a compliance function. Sunny holds the academic truth and the evidence limits; everything else is yours. Stakes, failure, consequence, escalation, pacing, tone, and payoff are your decisions to make and to defend, and you may change them run to run. You have full freedom to choose a game, simulation, manipulative, story, conversation, demonstration, or another fitting form.
 
@@ -675,24 +664,7 @@ ${JSON.stringify({ lifecycle: cycle.lifecycle, assignment: cycle.assignment, the
           },
           revisedHypothesis: { type: "string" },
           nextInstruments: { type: "array", minItems: 1, items: instrumentSchema },
-          routeChoice: {
-            type: "object",
-            additionalProperties: false,
-            properties: {
-              sharedNodeIds: { type: "array", items: { type: "string" } },
-              routes: {
-                type: "array",
-                minItems: 2,
-                items: {
-                  type: "object",
-                  additionalProperties: false,
-                  properties: { routeId: { type: "string" }, nodeIds: { type: "array", minItems: 1, items: { type: "string" } } },
-                  required: ["routeId", "nodeIds"],
-                },
-              },
-            },
-            required: ["sharedNodeIds", "routes"],
-          },
+          boardDefinition: BOARD_DEFINITION_TOOL_SCHEMA,
         },
         required: [
           "status",
@@ -709,11 +681,26 @@ ${JSON.stringify({ lifecycle: cycle.lifecycle, assignment: cycle.assignment, the
       },
     }],
     tool_choice: { type: "tool", name: toolName },
-  }, { timeout: Number(process.env.SUNNY_AI_TIMEOUT_MS ?? 120000) });
-  return { plannerMessage: response };
-  } });
+  } satisfies Parameters<typeof requestPlannerMessage>[1];
+  const rawDecision = await runMathProviderStage({draftDir,stage:`progression-decision-r${checkpointRevision}`,model:plannerModel,request:snapshot,execute:async()=>({plannerMessage:await requestPlannerMessage(anthropic,request,{timeout:Number(process.env.SUNNY_AI_TIMEOUT_MS??120000)})})});
   console.log(` 🎮 [canonical-progression] [planner-response] [checkpointed] homework=${cycle.homeworkId} revision=${cycle.revision}`);
-  return parseCanonicalProgressionDecision(readPlannerToolReceipt(rawDecision, toolName));
+  const received = readPlannerToolReceipt(rawDecision, toolName);
+  const validate = async (value: unknown) => {
+    const decision = parseCanonicalProgressionDecision(value);
+    if (decision.successor) await verifyAuthoredBoardCanvas({definition:decision.successor.boardDefinition!,rootDir:opts.rootDir??process.cwd(),directory:path.join(draftDir,"canvas-verification")});
+    return decision;
+  };
+  try { return await validate(received); }
+  catch (error) {
+    if (!(error instanceof Error) || !/^(board_definition_|board_canvas_invalid:)/.test(error.message)) throw error;
+    console.log(` 🎮 [canonical-progression] [journey-correction] [required] reason=${error.message}`);
+    const correctionRequest = {...request,messages:[{role:"user" as const,content:`Correct only boardDefinition in the received decision to fix this executable journey defect. Preserve every other field, instrument, academic claim, evidence reference and progression action unchanged. Return the complete decision using the same tool. There is one correction attempt.\nDEFECT: ${error.message}\nRECEIVED DECISION: ${JSON.stringify(received)}`}]};
+    const correction = await runMathProviderStage({draftDir,stage:`progression-journey-correction-r${checkpointRevision}`,model:plannerModel,request:correctionRequest,execute:async()=>({plannerMessage:await requestPlannerMessage(anthropic,correctionRequest,{timeout:Number(process.env.SUNNY_AI_TIMEOUT_MS??120000)})})});
+    const corrected = readPlannerToolReceipt(correction,toolName);
+    const withoutDefinition = (value:unknown) => { const {boardDefinition,...academic} = value as Record<string,unknown>; return academic; };
+    if (!isDeepStrictEqual(withoutDefinition(received),withoutDefinition(corrected))) throw new Error("planner_journey_correction_changed_academic_decision");
+    return validate(corrected);
+  }
 }
 
 type AdvanceInput = {

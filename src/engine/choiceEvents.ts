@@ -48,6 +48,7 @@ export type PostActivityAction =
 export type ChoiceEventName =
   | "mystery_node_tap"
   | "impression"
+  | "choice_dismissed"
   | "option_selected"
   | "option_skipped"
   | "mystery_dismissed"

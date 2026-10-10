@@ -53,7 +53,7 @@ describe("adaptive math discovery routes", () => {
     process.env.SUNNY_MODE = "child";
     process.env.SUNNY_STATELESS = "false";
     recordDiscoveryAttempt.mockReset().mockReturnValue({ lifecycle: "evaluation_active", revision: 2 });
-    completeDiscoveryEvaluation.mockReset().mockReturnValue({ lifecycle: "evidence_ready", revision: 3 });
+    completeDiscoveryEvaluation.mockReset().mockReturnValue({ nodes:[], lifecycle: "evidence_ready", revision: 3 });
     queueTargetedMathGeneration.mockReset().mockReturnValue({ phase: "targeted_planning" });
     launchAdaptiveMathWorker.mockReset();
     getLearningCycle.mockReset().mockReturnValue(null);
@@ -233,8 +233,8 @@ describe("adaptive math discovery routes", () => {
 
   it("keeps the Probe chapter open between nodes and queues teaching only after the final node", async () => {
     completeDiscoveryEvaluation
-      .mockReturnValueOnce({ lifecycle: "evaluation_active", revision: 3 })
-      .mockReturnValueOnce({ lifecycle: "evidence_ready", revision: 4 });
+      .mockReturnValueOnce({ nodes:[], lifecycle: "evaluation_active", revision: 3 })
+      .mockReturnValueOnce({ nodes:[], lifecycle: "evidence_ready", revision: 4 });
 
     const first = await fetch(`${baseUrl}/api/learning/lab-child/assignments/hw-1/discovery/complete`, {
       method: "POST",

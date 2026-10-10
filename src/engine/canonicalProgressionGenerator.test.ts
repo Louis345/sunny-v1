@@ -1,3 +1,5 @@
+import {verifyPreparingBoardCanvas} from "./adventureBoardCanvas";
+import {linearJourneyFixture} from '../scripts/fixtures/authoredJourney';
 import fs from "fs";
 import os from "os";
 import path from "path";
@@ -54,7 +56,7 @@ function decideQuest(rootDir: string, revision: number, reason = "Ready for tran
     decision: {
       status: "supported", reason, nextAction: "generate_quest", progressionAction: "generate_quest",
       evidenceIds: ["attempt:1"], predictionEvaluationIds: [], preserve: [], change: [], testNext: [], nextEvidenceRequired: [],
-      successor: { instruments: [{ nodeId: "quest", title: "Quest", academicTarget: "multiplication transfer", mechanic: "adaptive-challenge", theme: "space", openingPurpose: "Practice multiplication", creatorPrompt: "Build the transfer Quest.", encounter: "quest" }] },
+      successor: {boardDefinition:linearJourneyFixture(["quest"]),  instruments: [{ nodeId: "quest", title: "Quest", academicTarget: "multiplication transfer", mechanic: "adaptive-challenge", theme: "space", openingPurpose: "Practice multiplication", creatorPrompt: "Build the transfer Quest.", encounter: "quest" }] },
     },
   }, { rootDir });
 }
@@ -606,7 +608,7 @@ describe("canonical progression generation", () => {
         change: ["representation"],
         testNext: ["array link"],
         nextEvidenceRequired: ["support result"],
-        successor: { instruments: [{
+        successor: {boardDefinition:linearJourneyFixture(["array-support"]),  instruments: [{
           nodeId: "array-support",
           title: "Array Bridge",
           academicTarget: "array notation",
@@ -625,7 +627,9 @@ describe("canonical progression generation", () => {
       validate: async () => ({ passed: true, failures: [] }),
     }, { rootDir });
 
-    expect(generated.lifecycle).toBe("baseline_ready");
+    expect(generated.lifecycle).toBe("baseline_generating");
+    await verifyPreparingBoardCanvas({rootDir,childId:"reina",homeworkId:"hw-progression",directory:path.join(rootDir,"canvas")});
+    expect(getLearningCycle("reina","hw-progression",{rootDir})!.lifecycle).toBe("baseline_ready");
     const binding = generated.nodes.find((node) => node.title === "Array Bridge")?.artifactBinding;
     expect(binding).not.toBeNull();
     expect(binding?.localArtifactPath).toContain("/api/homework/game/reina/hw-progression/");
@@ -672,5 +676,7 @@ it("binds verified content after an unrelated canonical revision changes during 
   decideQuest(rootDir, created.revision);
   let calls=0;
   const result=await generateCanonicalProgressionArtifact({childId:"reina",homeworkId:"hw-progression",generateHtml:async()=>{calls++;const current=getLearningCycle("reina","hw-progression",{rootDir})!;transitionLearningCycle("reina","hw-progression",current.revision,{type:"prediction_evaluations_recorded",evaluations:[]},{rootDir});return "<html><h1>Quest</h1></html>";},validate:async()=>({passed:true,failures:[]})},{rootDir});
-  expect(result.lifecycle).toBe("quest_ready");expect(calls).toBe(1);
+  expect(result.lifecycle).toBe("quest_generating");expect(calls).toBe(1);
+  await verifyPreparingBoardCanvas({rootDir,childId:"reina",homeworkId:"hw-progression",directory:path.join(rootDir,"canvas")});
+  expect(getLearningCycle("reina","hw-progression",{rootDir})!.lifecycle).toBe("quest_ready");
 });

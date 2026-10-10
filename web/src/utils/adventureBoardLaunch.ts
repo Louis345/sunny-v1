@@ -120,7 +120,7 @@ export function isDirectDiscoveryPacket(packet: ChildExperiencePacket | null): b
   }
 
   return Boolean(plan.adventureBoard?.nodes.some((node) =>
-    node.id === packet.spellingDiscovery?.nodeId &&
+    (node.activityNodeId ?? node.id) === packet.spellingDiscovery?.nodeId &&
     node.action?.type === "launch-activity"));
 }
 
@@ -130,7 +130,9 @@ export function isDirectDiscoveryPacket(packet: ChildExperiencePacket | null): b
  * each ready Planner-authored probe while unfinished siblings remain normally locked.
  */
 export function isProbeBoardPacket(packet: ChildExperiencePacket | null): boolean {
-  return Boolean(packet?.activeSessionPlan?.planId?.startsWith("probe-board:"));
+  if (isDirectDiscoveryPacket(packet)) return false;
+  const kind = packet?.childChart?.learningCycle?.boardKind;
+  return kind ? kind === "probe" : Boolean(packet?.activeSessionPlan?.planId?.startsWith("probe-board:"));
 }
 
 export function resolveProbeBoardCompletion(
@@ -335,6 +337,7 @@ function findPlannerNode(
   boardNode: AdventureBoardNode,
 ): PlannerNode | undefined {
   const plan = packet.activeSessionPlan;
+  if (plan?.boardDefinition) return plan.nodePlan.find(node=>node.id===boardNode.activityNodeId);
   const payloadId = boardNode.action?.payloadId?.trim();
   const ids = [payloadId, boardNode.id].filter((id): id is string => Boolean(id));
   return plan?.nodePlan.find((node) => ids.includes(node.id)) ??
@@ -471,6 +474,7 @@ export function resolvePlannerBoardChoiceLaunchNode(
     (node) => node.id === option.nodeId,
   );
   if (!ownerBoardNode) return null;
+  if (option.journeyChoiceId) return resolvePlannerBoardLaunchNode(packet,ownerBoardNode,{allowLocked:true});
   const launchBoardNode = option.launchNodeId
     ? packet.activeSessionPlan?.adventureBoard?.nodes.find((node) => node.id === option.launchNodeId)
     : ownerBoardNode;

@@ -1,3 +1,5 @@
+import {verifyAuthoredBoardCanvas,verifyPreparingBoardCanvas} from './adventureBoardCanvas';
+import { requireBoardDefinition, BOARD_DEFINITION_TOOL_SCHEMA, BOARD_AUTHORING_INSTRUCTION, journeyExecutions, renderBoardDefinition, type AdventureBoardDefinition } from "../shared/adventureBoardDefinition";
 import Anthropic from "@anthropic-ai/sdk";
 import crypto from "node:crypto";
 import fs from "node:fs";
@@ -138,6 +140,7 @@ export type AgencyExperiment = {
 };
 
 export type MathLearningProgram = {
+  boardDefinition?: AdventureBoardDefinition;
   planId: string;
   contentScopeRationale: string;
   concept: Omit<AssignmentConcept, "assumptions">;
@@ -333,36 +336,7 @@ export const MATH_LEARNING_PROGRAM_TOOL_SCHEMA = schemaObject({
     minItems: 1,
     items: schemaObject({ id: schemaString, title: schemaString, purpose: schemaString, academicTarget: schemaString }),
   },
-  fork: schemaObject({
-    hypothesis: schemaString,
-    heldConstant: schemaStrings,
-    routes: {
-      type: "array",
-      minItems: 2,
-      maxItems: 2,
-      items: schemaObject({ id: schemaString, academicRationale: schemaString, nodeIds: schemaStrings }),
-    },
-  }),
-  agencyExperiment: schemaObject({
-    experimentId: schemaString,
-    contextEvidenceIds: schemaStrings,
-    academicHeldConstants: schemaStrings,
-    routes: {
-      type: "array",
-      minItems: 2,
-      maxItems: 2,
-      items: schemaObject({
-        routeId: schemaString,
-        nodeIds: schemaStrings,
-        engagementHypothesis: schemaString,
-        predictedOutcome: schemaString,
-        supportingEvidenceIds: schemaStrings,
-        uncertainty: schemaString,
-        falsifyingEvidence: schemaStrings,
-        measurementKeys: schemaStrings,
-      }),
-    },
-  }),
+  boardDefinition: BOARD_DEFINITION_TOOL_SCHEMA,
   activities: {
     type: "array",
     minItems: 1,
@@ -435,6 +409,7 @@ export type AssignmentConcept = {
 };
 
 export type DirectLearningExperiencePlan = {
+  boardDefinition?: AdventureBoardDefinition;
   planId: string;
   title: string;
   contentScopeRationale: string;
@@ -562,23 +537,6 @@ export function hasReadyDirectMathExperience(childId: string, rootDir = process.
 
 export function readDirectCanonicalLearningContext(childId: string, homeworkId: string, rootDir = process.cwd()): unknown {
   return getLearningCycle(childId, homeworkId, { rootDir });
-}
-
-export function boardPosition(percentX: number, percentY: number): { x: number; y: number } {
-  return { x: percentX / 100, y: percentY / 100 };
-}
-
-export function routeNodePosition(index: number, count: number, routeIndex: number): { x: number; y: number } {
-  const columns = Math.ceil(count / 2), row = Math.floor(index / columns);
-  return count > 4
-    ? { x: 0.42 + (index % columns) * 0.36 / (columns - 1), y: (routeIndex === 0 ? 0.18 : 0.56) + row * 0.25 }
-    : { x: count <= 1 ? 0.60 : count === 4 ? 0.40 + index * 0.12 : 0.44 + (index * 0.26) / (count - 1), y: routeIndex === 0 ? 0.22 : 0.76 };
-}
-
-export function sharedNodePosition(index: number, count: number): { x: number; y: number } {
-  if (count <= 1) return { x: 0.22, y: 0.64 };
-  const column = Math.floor(index / 3), row = index % 3;
-  return { x: count <= 3 ? 0.22 : 0.18 + column * 0.14, y: column % 2 === 0 ? 0.70 - row * 0.27 : 0.16 + row * 0.27 };
 }
 
 export function boardShortLabel(label: string, maxLength = 24): string {
@@ -745,17 +703,10 @@ export function parseMathLearningProgram(value: unknown): MathLearningProgram {
       academicTarget: requiredString(responsibility, "academicTarget"),
     };
   });
-  const fork = object(root.fork);
-  const routes = (Array.isArray(fork?.routes) ? fork.routes : []).map((raw) => {
-    const route = object(raw);
-    if (!route) throw new Error("math_learning_program_invalid_route");
-    return {
-      id: requiredString(route, "id"),
-      academicRationale: requiredString(route, "academicRationale"),
-      nodeIds: stringArray(route.nodeIds, "route_node_ids"),
-    };
-  });
-  if (routes.length !== 2) throw new Error("math_learning_program_requires_two_routes");
+  const boardDefinition = requireBoardDefinition(root.boardDefinition, (Array.isArray(root.activities) ? root.activities : []).filter((a:any) => a.purpose !== 'bonus').map((a:any) => a.id));
+  // Read-only compatibility view for the existing Experience Creator. Never authored independently.
+  const routes = journeyExecutions(boardDefinition).map(path => ({id:path.id,academicRationale:boardDefinition.rationale,nodeIds:path.activityNodeIds}));
+  const fork = {hypothesis:boardDefinition.rationale,heldConstant:[]};
   const parsedActivities = (Array.isArray(root.activities) ? root.activities : []).map((raw): MathPlannedActivity => {
     const activity = object(raw);
     const boundary = object(activity?.difficultyBoundary);
@@ -837,50 +788,6 @@ export function parseMathLearningProgram(value: unknown): MathLearningProgram {
     });
     knownResponsibilityIds.add(activity.responsibilityId);
   }
-  const routeIds = new Set(routes.map((route) => route.id));
-  const declaredRouteByNodeId = new Map<string, string>();
-  for (const route of routes) {
-    for (const nodeId of route.nodeIds) {
-      if (!declaredRouteByNodeId.has(nodeId)) declaredRouteByNodeId.set(nodeId, route.id);
-    }
-  }
-  for (const activity of activities) {
-    if (routeIds.has(activity.routeId) || activity.routeId === "shared") continue;
-    const declaredRouteId = declaredRouteByNodeId.get(activity.id);
-    if (declaredRouteId) activity.routeId = declaredRouteId;
-    // An activity outside both Planner-authored arms is a shared foundation.
-    // Preserve its Planner-authored identity instead of inventing a route or
-    // rejecting the complete academic program.
-  }
-  for (const route of routes) route.nodeIds = activities.filter((activity) => activity.routeId === route.id).map((activity) => activity.id);
-  if (routes.some((route) => route.nodeIds.length === 0)) throw new Error("math_learning_program_empty_route");
-  const rawAgencyExperiment = object(root.agencyExperiment);
-  const agencyExperiment = rawAgencyExperiment ? {
-    experimentId: requiredString(rawAgencyExperiment, "experimentId"),
-    contextEvidenceIds: stringArray(rawAgencyExperiment.contextEvidenceIds, "agency_context_evidence_ids"),
-    academicHeldConstants: stringArray(rawAgencyExperiment.academicHeldConstants, "agency_academic_held_constants"),
-    routes: (Array.isArray(rawAgencyExperiment.routes) ? rawAgencyExperiment.routes : []).map((raw) => {
-      const route = object(raw);
-      if (!route) throw new Error("math_learning_program_invalid_agency_route");
-      return {
-        routeId: requiredString(route, "routeId"),
-        nodeIds: stringArray(route.nodeIds, "agency_route_node_ids"),
-        engagementHypothesis: requiredString(route, "engagementHypothesis"),
-        predictedOutcome: requiredString(route, "predictedOutcome"),
-        supportingEvidenceIds: stringArray(route.supportingEvidenceIds, "agency_route_supporting_evidence_ids"),
-        uncertainty: requiredString(route, "uncertainty"),
-        falsifyingEvidence: stringArray(route.falsifyingEvidence, "agency_route_falsifying_evidence"),
-        measurementKeys: stringArray(route.measurementKeys, "agency_route_measurement_keys"),
-      };
-    }),
-  } satisfies AgencyExperiment : undefined;
-  if (agencyExperiment) {
-    const experimentByRoute = new Map(agencyExperiment.routes.map((route) => [route.routeId, route]));
-    if (experimentByRoute.size !== routes.length || routes.some((route) => !experimentByRoute.has(route.id))) {
-      throw new Error("math_learning_program_agency_routes_mismatch");
-    }
-    for (const route of routes) experimentByRoute.get(route.id)!.nodeIds = [...route.nodeIds];
-  }
   return {
     planId: requiredString(root, "planId"),
     contentScopeRationale: requiredString(root, "contentScopeRationale"),
@@ -894,7 +801,7 @@ export function parseMathLearningProgram(value: unknown): MathLearningProgram {
       heldConstant: stringArray(fork?.heldConstant, "held_constant"),
       routes,
     },
-    ...(agencyExperiment ? { agencyExperiment } : {}),
+    boardDefinition,
     activities,
     ...(bonusActivities[0] ? { bonusActivity: bonusActivities[0] } : {}),
   };
@@ -915,8 +822,14 @@ export function parseSavedDirectMathPlannerResponse(
   return parseMathLearningProgram(toolUse.input);
 }
 
-function correctableMathPlannerTruthError(error: unknown): error is Error {
-  return error instanceof Error && error.message.startsWith("math_item_clock_state_inconsistent:");
+/** The existing Planner corrects executable geometry before its program is frozen. */
+export async function verifyMathPlannerCanvas(program: MathLearningProgram, responseFile: string): Promise<MathLearningProgram> {
+  await verifyAuthoredBoardCanvas({definition:requireBoardDefinition(program.boardDefinition,program.activities.map(activity=>activity.id)),rootDir:process.cwd(),directory:path.join(path.dirname(responseFile),'canvas-verification')});
+  return program;
+}
+
+export function correctableMathPlannerTruthError(error: unknown): error is Error {
+  return error instanceof Error && ["math_item_clock_state_inconsistent:", "board_definition_", "board_canvas_invalid:"].some(prefix => error.message.startsWith(prefix));
 }
 
 export async function correctSavedDirectMathPlannerResponse(input: {
@@ -928,7 +841,7 @@ export async function correctSavedDirectMathPlannerResponse(input: {
   correctionResponseFile?: string;
 }): Promise<MathLearningProgram> {
   if (input.correctionResponseFile && fs.existsSync(input.correctionResponseFile)) {
-    return parseSavedDirectMathPlannerResponse(JSON.parse(fs.readFileSync(input.correctionResponseFile, "utf8")), input.maxTokens);
+    return verifyMathPlannerCanvas(parseSavedDirectMathPlannerResponse(JSON.parse(fs.readFileSync(input.correctionResponseFile, "utf8")), input.maxTokens),input.correctionResponseFile);
   }
   const saved = object(input.savedResponse);
   const toolUse = (Array.isArray(saved?.content) ? saved.content : []).map(object)
@@ -937,18 +850,23 @@ export async function correctSavedDirectMathPlannerResponse(input: {
   const client = input.client ?? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
   const model = input.model ?? process.env.SUNNY_PLANNER_MODEL ?? "claude-opus-5";
   const maxTokens = input.maxTokens ?? Number(process.env.SUNNY_PLANNER_MAX_TOKENS ?? 32000);
-  const response = await client.messages.stream({
+  const request = {
     model,
     max_tokens: maxTokens,
-    messages: [{ role: "user", content: `Your prior math learning program is structurally valid but failed Sunny's domain-truth gate. Correct only the cited factual contradiction and directly dependent wording. Preserve every child-evidence ID, item ID, measurement role, construct, route, activity count, prediction, theory, and difficulty decision. Do not add a new intervention or reinterpret evidence. Return the complete corrected program through the required tool.\n\nVALIDATION ERROR:\n${input.validationError}\n\nPRIOR PROGRAM:\n${JSON.stringify(toolUse.input, null, 2)}` }],
+    messages: [{ role: "user", content: `Your prior math learning program failed an executable contract check. Correct only the cited invalid reference, missing journey field, overlapping or clipped composition, or factual contradiction and directly dependent fields. Preserve every child-evidence ID, item ID, measurement role, construct, route, activity count, prediction, theory, and difficulty decision. Do not add a new intervention or reinterpret evidence. Return the complete corrected program through the required tool.\n\nVALIDATION ERROR:\n${input.validationError}\n\nPRIOR PROGRAM:\n${JSON.stringify(toolUse.input, null, 2)}` }],
     tools: [{
       name: "create_math_learning_program",
       description: "Return the corrected academic-only math learning program.",
       input_schema: MATH_LEARNING_PROGRAM_TOOL_SCHEMA,
     }],
     tool_choice: { type: "tool", name: "create_math_learning_program" },
-  }, { timeout: Number(process.env.SUNNY_AI_TIMEOUT_MS ?? 600000) }).finalMessage();
+  } satisfies Parameters<typeof client.messages.stream>[0];
+  const execute = () => client.messages.stream(request, { timeout: Number(process.env.SUNNY_AI_TIMEOUT_MS ?? 600000) }).finalMessage();
+  const response = input.correctionResponseFile
+    ? await runMathProviderStage({draftDir:path.dirname(input.correctionResponseFile),stage:"targeted-planner-correction",model:request.model,request,execute})
+    : await execute();
   const savedCorrection = {
+    ...response,
     model,
     stopReason: response.stop_reason,
     usage: response.usage,
@@ -958,7 +876,8 @@ export async function correctSavedDirectMathPlannerResponse(input: {
     fs.mkdirSync(path.dirname(input.correctionResponseFile), { recursive: true });
     fs.writeFileSync(input.correctionResponseFile, `${JSON.stringify(savedCorrection, null, 2)}\n`, "utf8");
   }
-  return parseSavedDirectMathPlannerResponse(savedCorrection, maxTokens);
+  const program=parseSavedDirectMathPlannerResponse(savedCorrection, maxTokens);
+  return input.correctionResponseFile ? verifyMathPlannerCanvas(program,input.correctionResponseFile) : program;
 }
 
 export function parseDirectLearningExperiencePlan(value: unknown): DirectLearningExperiencePlan {
@@ -1103,6 +1022,7 @@ export function parseDirectLearningExperiencePlan(value: unknown): DirectLearnin
   if (!boardWorld) throw new Error("direct_plan_missing_board_world");
   const boardTitle = requiredString(boardWorld, "title");
   return {
+    ...(root.boardDefinition ? {boardDefinition:requireBoardDefinition(root.boardDefinition,activities.map(activity=>activity.id))}:{}),
     planId: requiredString(root, "planId"),
     title: boardTitle,
     contentScopeRationale: requiredString(root, "contentScopeRationale"),
@@ -1554,7 +1474,8 @@ ${JSON.stringify({ ...programWithoutBonusDuplicate, activities: contracts }, nul
   const routeById = new Map(routeDirections.map((route) => [route.routeId, route]));
   const plan: DirectLearningExperiencePlan = {
     planId: input.program.planId,
-    title: packet.boardCreativeSpine.title,
+    boardDefinition: structuredClone(input.program.boardDefinition),
+    title: input.program.boardDefinition?.title ?? packet.boardCreativeSpine.title,
     contentScopeRationale: input.program.contentScopeRationale,
     concept: {
       ...input.program.concept,
@@ -1881,13 +1802,13 @@ You own only the educational prescription:
 - difficulty boundaries, teaching/practice items, response contracts, and evidence requirements;
 - a catalog decision for each node: reuse, revise, generate_new, or retire.
 
-You do not choose titles, worlds, visuals, mechanics, stakes, consequences, rewards, motion, sound, artwork, libraries, HTML, or Creator prompts. A separate Experience Creator owns those choices after your program is locked.
+You own the journey title, portal labels, palette, artwork references and composition. The existing Experience Creator implements activity worlds, visuals, mechanics, sound, artwork, libraries and HTML without changing your journey.
 
-Choose any educationally sufficient activity and item counts for the baseline program. The activities array MUST contain at least two purpose=baseline activities, including at least one owned by each route. Distribute responsibilities across the whole board; do not duplicate the complete curriculum merely for symmetry. Add exactly one purpose=bonus activity after those baseline activities with fresh assignment-aligned practice_only material. The bonus is not a route requirement, cannot support mastery, and failure to build it must not block the board. A response containing only bonus activities is invalid. Keep initial nodes practice_only. Quest and Boss are not part of this baseline program and remain locked until real evidence supports a later decision.
+Choose educationally sufficient activity and item counts. Distribute responsibilities across the journey; do not duplicate the curriculum merely for symmetry. Optional bonus content remains outside the required chapter and cannot support mastery. Keep initial nodes practice_only. Quest and Boss are not part of this baseline program and remain locked until real evidence supports a later decision.
 
-For activities completed before the child chooses a route, set routeId to exactly "shared" and do not include those node IDs in either fork route. For activities after the choice, set routeId to the exact owning fork route ID. The activity routeId is authoritative; fork.routes[].nodeIds is only a projection of route-owned activities.
+${BOARD_AUTHORING_INSTRUCTION} Activity routeId is descriptive only; navigation comes solely from boardDefinition.
 
-Create one agencyExperiment for the two routes. Use factual child-chart and historical evidence to state a separate engagement hypothesis, predicted outcome, uncertainty, falsifying evidence, and measurement keys for each route. Keep the academic purpose and difficulty comparable at the choice point. A route choice is weak engagement evidence only and never proves a preference. The later decision must consider starts, completion, abandonment, switching, replay, assistance, interaction difficulty, rating, and academic outcomes.
+Describe engagement hypotheses in the authored choice options. Use factual child-chart and historical evidence to state a separate engagement hypothesis, predicted outcome, uncertainty, falsifying evidence, and measurement keys for each route. Keep the academic purpose and difficulty comparable at the choice point. A route choice is weak engagement evidence only and never proves a preference. The later decision must consider starts, completion, abandonment, switching, replay, assistance, interaction difficulty, rating, and academic outcomes.
 
 For every node define a difficultyBoundary with allowed concepts and representations, excluded extensions, starting support, and expected independence. Keep all item content within that boundary. Response modes may be selection, numeric, construction, or explanation.
 
@@ -1932,7 +1853,7 @@ ${JSON.stringify(factualModelContext(input.priorOutcomes ?? []), null, 2)}`;
   // A whole board — every activity, item, prediction and creator prompt — is a
   // long generation against a 20k token budget, and the non-streaming request
   // was timing out before it finished. Stream it, as the Creator already does.
-  const response = await client.messages.stream({
+  const request = {
     model: input.model ?? process.env.SUNNY_PLANNER_MODEL ?? "claude-opus-5",
     max_tokens: input.maxTokens ?? Number(process.env.SUNNY_PLANNER_MAX_TOKENS ?? 32000),
     messages: [{ role: "user", content: plannerContent }],
@@ -1942,10 +1863,15 @@ ${JSON.stringify(factualModelContext(input.priorOutcomes ?? []), null, 2)}`;
       input_schema: MATH_LEARNING_PROGRAM_TOOL_SCHEMA,
     }],
     tool_choice: { type: "tool", name: toolName },
-  }, { timeout: Number(process.env.SUNNY_AI_TIMEOUT_MS ?? 600000) }).finalMessage();
+  } satisfies Parameters<typeof client.messages.stream>[0];
+  const execute = () => client.messages.stream(request, { timeout: Number(process.env.SUNNY_AI_TIMEOUT_MS ?? 600000) }).finalMessage();
+  const response = input.rawResponseFile
+    ? await runMathProviderStage({draftDir:path.dirname(input.rawResponseFile),stage:"targeted-planner",model:request.model,request,execute})
+    : await execute();
   if (input.rawResponseFile) {
     fs.mkdirSync(path.dirname(input.rawResponseFile), { recursive: true });
     fs.writeFileSync(input.rawResponseFile, `${JSON.stringify({
+      ...response,
       model: input.model ?? process.env.SUNNY_PLANNER_MODEL ?? "claude-opus-5",
       stopReason: response.stop_reason,
       usage: response.usage,
@@ -1953,11 +1879,13 @@ ${JSON.stringify(factualModelContext(input.priorOutcomes ?? []), null, 2)}`;
     }, null, 2)}\n`, "utf8");
   }
   const savedResponse = {
+    ...response,
     stopReason: response.stop_reason,
     content: response.content,
   };
   try {
-    return parseSavedDirectMathPlannerResponse(savedResponse, input.maxTokens ?? Number(process.env.SUNNY_PLANNER_MAX_TOKENS ?? 32000));
+    const program=parseSavedDirectMathPlannerResponse(savedResponse, input.maxTokens ?? Number(process.env.SUNNY_PLANNER_MAX_TOKENS ?? 32000));
+    return input.rawResponseFile ? await verifyMathPlannerCanvas(program,input.rawResponseFile) : program;
   } catch (error) {
     if (!correctableMathPlannerTruthError(error)) throw error;
     console.log(` 🎮 [adaptive-math] [targeted-planner-truth] [correction-required] child=${input.childId} reason=${error.message}`);
@@ -3282,9 +3210,6 @@ export function buildDirectActiveSessionPlan(input: {
   const engagementHypothesisForRoute = (routeId: string): string =>
     input.plan.agencyExperiment?.routes.find((route) => route.routeId === routeId)?.engagementHypothesis
     ?? input.plan.fork.hypothesis;
-  const choiceRouteIds = new Set(input.plan.fork.routes.map((route) => route.id));
-  const sharedActivities = input.plan.activities.filter((activity) => !choiceRouteIds.has(activity.routeId));
-  const firstSharedNodeId = sharedActivities[0]?.id;
   const previewUrl = (nodeId: string, fallback: string): string => {
     const screenshot = input.report.screenshots.find((file) =>
       path.basename(file).startsWith(`${nodeId}-opening`));
@@ -3304,69 +3229,21 @@ export function buildDirectActiveSessionPlan(input: {
     }] : []);
     return {
       id: activity.id, type: "generated-baseline", activityId: "generated-baseline", targets: activity.items.map((item) => item.id), difficulty: 2,
-      source: "chart_planner", targetLane: activity.academicTarget, locked: activity.id !== firstSharedNodeId, title: activity.title,
+      source: "chart_planner", targetLane: activity.academicTarget, title: activity.title,
       ...(rounds.length > 0 ? { rounds } : {}),
       gameHtmlPath: artifact.htmlPath, date: input.homeworkId, thumbnailUrl: artifact.thumbnailUrl ?? previewUrl(activity.id, artifact.artworkUrl), contentId: `${input.homeworkId}:${activity.id}`, mechanic: activity.mechanic,
       engagementDimensions: [activity.engagementVariable as never], engagementHypothesis: engagementHypothesisForRoute(activity.routeId),
     };
   });
-  const nodes: AdventureBoardJson["nodes"] = [
-    { id: "start", kind: "start", label: "Start", shortLabel: "Start", state: "completed", position: boardPosition(7, 88) },
-  ];
-  sharedActivities.forEach((activity, index) => {
-    const artifact = artifactById.get(activity.id)!;
-    nodes.push({ id: activity.id, kind: "activity", activityId: "generated-baseline", label: activity.title, shortLabel: boardShortLabel(activity.title), state: index === 0 ? "current" : "locked", position: sharedNodePosition(index, sharedActivities.length), action: { type: "launch-activity", payloadId: activity.id }, thumbnailUrl: artifact.thumbnailUrl ?? previewUrl(activity.id, artifact.artworkUrl), mechanic: activity.mechanic, engagementDimensions: [activity.engagementVariable], engagementHypothesis: input.plan.fork.hypothesis, contentId: `${input.homeworkId}:${activity.id}` });
+  const boardDefinition = requireBoardDefinition(input.plan.boardDefinition, nodePlan.map(node => node.id));
+  const adventureBoard = renderBoardDefinition(boardDefinition, {
+    boardId: `direct:${input.homeworkId}`, planId:input.plan.planId, childId:input.childId, domain:'math',
+    companion: input.companion ?? {id:'elli',name:'Elli'},
+    activities: nodePlan.map(node => ({...node,wordRadarConfig:node.wordRadarConfig ? {...node.wordRadarConfig} : undefined,verified:input.report.passed,state:'ready'})),
   });
-  nodes.push({ id: "choose-path", kind: "choice-gate", label: "Choose your path", shortLabel: "Choose Path", state: sharedActivities.length === 0 ? "current" : "locked", position: sharedActivities.length === 0 ? boardPosition(24, 58) : input.plan.fork.routes.some(route => route.nodeIds.length > 3) ? boardPosition(32, 64) : boardPosition(44, 48), action: { type: "open-choice-set", payloadId: "direct-route-choice" }, choiceSetId: "direct-route-choice" });
-  input.plan.fork.routes.forEach((route, routeIndex) => route.nodeIds.forEach((nodeId, index) => {
-    const activity = input.plan.activities.find((item) => item.id === nodeId)!;
-    const artifact = artifactById.get(nodeId)!;
-    nodes.push({ id: nodeId, kind: "activity", activityId: "generated-baseline", label: activity.title, shortLabel: boardShortLabel(activity.title), state: "locked", position: routeNodePosition(index, route.nodeIds.length, routeIndex), action: { type: "launch-activity", payloadId: nodeId }, thumbnailUrl: artifact.thumbnailUrl ?? previewUrl(nodeId, artifact.artworkUrl), mechanic: activity.mechanic, engagementDimensions: [activity.engagementVariable], engagementHypothesis: engagementHypothesisForRoute(route.id), contentId: `${input.homeworkId}:${nodeId}` });
-  }));
-  const edges: AdventureBoardJson["edges"] = [];
-  let sharedPrevious = "start";
-  for (const activity of sharedActivities) {
-    edges.push({ id: `${sharedPrevious}-${activity.id}`, from: sharedPrevious, to: activity.id, state: "available" });
-    sharedPrevious = activity.id;
-  }
-  edges.push({ id: `${sharedPrevious}-choice`, from: sharedPrevious, to: "choose-path", state: "available" });
-  for (const route of input.plan.fork.routes) {
-    let previous = "choose-path";
-    for (const nodeId of route.nodeIds) { edges.push({ id: `${previous}-${nodeId}`, from: previous, to: nodeId, state: "available" }); previous = nodeId; }
-  }
-  const adventureBoard: AdventureBoardJson = {
-    schemaVersion: 1, boardId: `direct:${input.homeworkId}`, planId: input.plan.planId, childId: input.childId, domain: "math", title: input.plan.boardWorld.title,
-    theme: { background: { type: "image", value: input.backgroundUrl }, palette: { path: "#fff4c2", completed: "#34d399", available: "#7c3aed", locked: "#64748b", current: "#f59e0b", preview: "#94a3b8", text: "#ffffff", panel: "rgba(15,23,42,.82)" } },
-    layout: { preset: "horizontal-adventure-spine", companionSlot: "right", routeChoiceBehavior: "exclusive" },
-    plannerRationale: { agencyDesign: input.plan.fork.hypothesis, evidenceDesign: input.plan.fork.heldConstant.join("; "), layoutChoice: "Two visible choose-your-adventure routes; Quest and Boss appear only on a later evidence-authorized board." },
-    nodes, edges,
-    choiceSets: [{ id: "direct-route-choice", kind: "baseline-route", title: "Choose your path", options: input.plan.fork.routes.map((route) => {
-      if (!route.childFacingActionCue || !route.previewNodeId || !route.nodeIds.includes(route.previewNodeId)) {
-        throw new Error(`direct_route_presentation_binding_missing:${route.id}`);
-      }
-      const artifact = artifactById.get(route.previewNodeId);
-      if (!artifact) throw new Error(`direct_route_preview_artifact_missing:${route.id}:${route.previewNodeId}`);
-      return {
-        id: route.id,
-        label: route.label,
-        description: route.childFacingActionCue,
-        state: sharedActivities.length === 0 ? "available" as const : "locked" as const,
-        nodeId: route.previewNodeId,
-        thumbnailUrl: artifact.thumbnailUrl ?? previewUrl(route.previewNodeId, artifact.artworkUrl),
-        artifactHash: artifact.designArtifactHash,
-        engagementDimensions: [route.engagementVariable],
-        choiceSignal: { algorithmFeed: "choicePolicy" as const, traits: [route.engagementVariable], expectedEvidence: "selection, start, completion, abandonment, replay", preferenceNotMastery: true as const },
-      };
-    }) }],
-    companion: input.companion ?? { id: "elli", name: "Elli" }, progress: {
-      currentNodeId: sharedActivities[0]?.id ?? "choose-path",
-      completedNodeIds: ["start"],
-      ...(sharedActivities.length === 0 ? { activeChoiceSetId: "direct-route-choice" } : {}),
-    },
-  };
   return {
     planId: input.plan.planId, childId: input.childId, createdAt, source: "ingest_human_loop", activeHomeworkId: input.homeworkId, domain: "math", testDate: null,
-    nodePlan, learningRoutes: input.plan.fork.routes.map((route) => ({ id: route.id, label: route.label, rationale: route.promise, nodeIds: [...sharedActivities.map((activity) => activity.id), ...route.nodeIds, "quest", "boss"] })), adventureBoard,
+    nodePlan, boardDefinition, adventureBoard,
     variationPolicy: { avoidExactPreviousNodeOrder: true, avoidExactPreviousWordOrder: true, seed: input.homeworkId, previousCompletedNodeCount: 0 },
     companionPolicy: { companionId: input.companion?.id ?? "elli", displayName: input.companion?.name ?? "Elli", openingLinePolicy: "context_start_short", verbosity: "low", maxMicroProbes: 1 },
     evidenceUsed: input.plan.profileEvidence.map((summary, index) => ({ id: `planner-evidence-${index + 1}`, type: "child_chart", summary })), openQuestions: [], approvalStatus: "approved",
@@ -3468,6 +3345,7 @@ export function buildDirectLearningCycleInput(input: {
     childId: input.childId,
     homeworkId: input.homeworkId,
     domain: "math",
+    boardDefinition: input.activeSessionPlan.boardDefinition,
     assignment: {
       title: input.plannerPlan.title,
       contentFingerprint: input.extraction.fileHash,
@@ -3520,7 +3398,7 @@ export function buildDirectLearningCycleInput(input: {
   };
 }
 
-export function persistDirectExperience(input: {
+export async function persistDirectExperience(input: {
   rootDir?: string;
   childId: string;
   homeworkId: string;
@@ -3530,10 +3408,11 @@ export function persistDirectExperience(input: {
   artifacts: DirectArtifact[];
   report: DirectPlaywrightReport;
   assumptions?: MathLearningProgram["assumptions"];
-}): string {
+}): Promise<string> {
   if (!input.report.passed || input.report.failures.length) throw new Error("direct_publication_browser_verification_required");
   const rootDir = input.rootDir ?? process.cwd();
   const contextDir = resolveChildContextDir(input.childId, { rootDir });
+  const canvasProof = await verifyAuthoredBoardCanvas({definition:requireBoardDefinition(input.activeSessionPlan.boardDefinition,input.activeSessionPlan.nodePlan.map(node=>node.id)),rootDir,directory:path.join(contextDir,"homework","direct-drafts",input.homeworkId,"canvas-verification")});
   const directPath = path.join(contextDir, "homework", "direct_experience_plan.json");
   const now = new Date().toISOString();
   let priorFeedback: { feedbackObservations?: unknown[]; feedbackDecisions?: unknown[] } = {};
@@ -3599,6 +3478,9 @@ export function persistDirectExperience(input: {
     if (existingCycle.assignment.contentFingerprint !== canonicalInput.assignment.contentFingerprint) {
       throw new Error(`learning_cycle_reingestion_fingerprint_changed:${input.homeworkId}`);
     }
+    if(existingCycle.lifecycle!=="blocked" && existingCycle.boards.some(board=>board.kind==="teaching" && board.predecessorBoardId===null && board.publishedAt===null)) {
+      await verifyPreparingBoardCanvas({rootDir,childId:input.childId,homeworkId:input.homeworkId,directory:path.join(contextDir,"homework","direct-drafts",input.homeworkId,"canvas-verification")});
+    }
     console.log(` 🎮 [learning-cycle] [reingestion] [resumed] homework=${input.homeworkId} revision=${existingCycle.revision}`);
   } else if (existingCycle && !existingCycle.adaptiveGeneration?.designHash) {
     transitionLearningCycle(input.childId, input.homeworkId, existingCycle.revision, {
@@ -3610,10 +3492,12 @@ export function persistDirectExperience(input: {
       academicPredictions: canonicalInput.academicPredictions,
       assumptions: canonicalInput.assumptions,
       agencyExperiment: canonicalInput.agencyExperiment,
+      boardDefinition: canonicalInput.boardDefinition,
       reason: "Re-ingestion reconciled the AI-authored board with the existing assignment cycle.",
     }, { rootDir, now: new Date(now) });
   } else if (!existingCycle) {
-    createLearningCycle(withInitialBoard(canonicalInput, "teaching", now), { rootDir, now: new Date(now) });
+    const created = createLearningCycle(withInitialBoard(canonicalInput, "teaching", now), { rootDir, now: new Date(now) });
+    transitionLearningCycle(input.childId,input.homeworkId,created.revision,{type:"board_canvas_verified",boardId:created.boards![0].boardId,proof:canvasProof},{rootDir,now:new Date(now)});
   }
   writeAssignmentLedgerEntry(ledgerEntry, { rootDir });
   fs.mkdirSync(path.dirname(directPath), { recursive: true });

@@ -1,3 +1,7 @@
+import {successorResumeAction} from './learningBoardInstances';
+import {createHash} from 'node:crypto';
+import { adventureBoardDefinitionSchema } from '../shared/adventureBoardDefinition';
+import { authoredJourney, choiceJourneyFixture, linearJourneyFixture } from '../scripts/fixtures/authoredJourney';
 import fs from "fs";
 import os from "os";
 import path from "path";
@@ -255,7 +259,7 @@ describe("immutable board instances (contract 21, test 1)", () => {
 });
 
 describe("legacy board readability (test 16)", () => {
-  it("reads a pre-contract-21 cycle as one synthesized legacy board without rewriting it", () => {
+  it("keeps a historical cycle readable without reconstructing a missing presentation", () => {
     const rootDir = root();
     const legacy = createLearningCycle(cycleInput(false), { rootDir, now: new Date("2026-07-01T00:00:00.000Z") });
     const file = path.join(rootDir, "src/context/boardkid/homework/cycles/hw-boards.json");
@@ -271,7 +275,7 @@ describe("legacy board readability (test 16)", () => {
       nodeIds: legacy.nodes.map((candidate) => candidate.nodeId),
       publishedAt: "2026-07-01T00:00:00.000Z",
     })]);
-    expect(projectLearningCycle(reread).adventureBoard.boardId).toBe("cycle-board:hw-boards");
+    expect(() => projectLearningCycle(reread)).toThrow("board_definition_missing");
     expect(fs.readFileSync(file, "utf8")).toBe(before);
   });
 
@@ -294,3 +298,121 @@ describe("board instance functions are pure (test 17)", () => {
     expect(fs.readdirSync(rootDir, { recursive: true }).sort()).toEqual(filesBefore);
   });
 });
+
+
+describe("authored board definition persistence", () => {
+  it("rejects whitespace identities rather than mutating authored meaning during validation", () => {
+    const definition = authoredJourney(); definition.rootPathId += " ";
+    expect(() => adventureBoardDefinitionSchema.parse(definition)).toThrow();
+  });
+  it("freezes and hashes composition, portals, and shared-activity paths without reinterpretation", () => {
+    const directory = root();
+    const input = cycleInput(false);
+    input.nodes = [node("learn"),node("play"),node("check")];
+    delete input.agencyExperiment;
+    const cycle = createLearningCycle(input, {rootDir:directory});
+    const definition = authoredJourney();
+    const board = publishBoardInstance(cycle, {kind:"teaching",predecessorBoardId:null,plannerDecisionId:"decision",evidenceIds:[],nodeIds:["learn","play","check"],publishedAt:cycle.createdAt,definition} as any);
+    expect((board as any).definition).toEqual(definition);
+    const changed = structuredClone(board) as any;
+    changed.definition.portals[0].position.landscape.x = .27;
+    expect(boardTopologyHash(cycle,changed)).not.toBe(boardTopologyHash(cycle,board));
+    const projected = projectLearningCycle({...cycle,boards:[board]});
+    expect(projected.adventureBoard.nodes.map(portal => portal.label)).toEqual(definition.portals.map(portal => portal.label));
+    expect(projected.adventureBoard.nodes.map(portal => portal.position)).toEqual(definition.portals.map(portal => portal.position.landscape));
+    expect(projected.adventureBoard.choiceSets?.[0].options.map(option => option.label)).toEqual(['Learn first','Play first']);
+  });
+});
+
+// Regression: one authored journey governs canonical choice, rendering and completion.
+describe('canonical authored navigation', () => {
+  function setup(kind: 'teaching'|'probe'|'quest' = 'teaching') {
+    const input = cycleInput(false);
+    input.initialLifecycle = kind==='probe' ? 'evaluation_ready' : kind==='quest' ? 'quest_ready' : 'baseline_ready'; delete input.agencyExperiment;
+    input.nodes = ['check','play','learn'].map(id => node(id,{role:kind==='probe'?'evaluation':kind==='quest'&&id==='play'?'quest':'baseline',artifactBinding:{...binding,contentId:id,artifactId:id}}));
+    const definition = authoredJourney();
+    const board = publishBoardInstance({...input,boards:[]} as unknown as LearningCycleRecordV2, {kind:kind==='probe'?'probe':'teaching',definition,predecessorBoardId:null,plannerDecisionId:'decision',evidenceIds:[],nodeIds:input.nodes.map(n=>n.nodeId),publishedAt:'2026-10-09T00:00:00Z'});
+    const opts = {rootDir:root()};
+    let cycle = createLearningCycle({...input,boards:[board]},opts);
+    const choose = (optionId:string) => cycle = transitionLearningCycle(cycle.childId,cycle.homeworkId,cycle.revision,{type:'journey_choice_selected',choiceId:'order',optionId,choiceEventId:`choice-${optionId}-${cycle.revision}`} as never,opts);
+    const complete = (nodeId:string) => cycle = transitionLearningCycle(cycle.childId,cycle.homeworkId,cycle.revision,{type:'instrument_observed',nodeId,completed:true,observations:[],academicEvidence:[{evidenceId:`done-${nodeId}`,summary:'synthetic'}],engagementEvidence:[],companionObservations:[]},opts);
+    return {choose,complete,get:()=>cycle};
+  }
+  it('waits at the fork, follows play first, persists switching and completes only the selected chapter', () => {
+    const run=setup();
+    expect(projectLearningCycle(run.get()).adventureBoard.progress?.activeChoiceSetId).toBe('order');
+    expect(() => run.complete('learn')).toThrow('not_launchable');
+    run.choose('play');
+    expect(projectLearningCycle(run.get()).adventureBoard.progress?.currentNodeId).toBe('play-b');
+    run.complete('play'); run.choose('learn');
+    expect(projectLearningCycle(run.get()).adventureBoard.progress?.currentNodeId).toBe('learn-a');
+    run.complete('learn'); run.complete('check');
+    expect(run.get().lifecycle).toBe('baseline_evaluating');
+    expect(run.get().routeSelection?.choices).toEqual({order:'learn'});
+    expect(run.get().boards![0].definition).toEqual(authoredJourney());
+  });
+  it('keeps the Discovery lifecycle when its authored fork opens',()=>{
+    const run=setup('probe');run.choose('learn');expect(run.get().lifecycle).toBe('evaluation_ready');
+  });
+  it('closes an encounter chapter at the selected path endpoint, not early at the encounter',()=>{
+    const run=setup('quest');run.choose('play');expect(run.get().lifecycle).toBe('quest_ready');
+    run.complete('play');expect(run.get().lifecycle).not.toBe('quest_evaluating');
+    run.complete('learn');run.complete('check');expect(run.get().lifecycle).toBe('quest_evaluating');
+  });
+  it('rejects unknown options without changing state', () => {
+    const run=setup(); const before=structuredClone(run.get());
+    expect(() => run.choose('invented')).toThrow('choice_option_missing');
+    expect(run.get()).toEqual(before);
+  });
+});
+
+// The human saw a complete-looking map whose controls overlapped. Activity-only
+// verification missed it because the canvas itself was never a release gate.
+it('keeps a prepared authored board unpublished until canvas and every artifact are verified', () => {
+  const opts={rootDir:root()}; const input=cycleInput(false); delete input.agencyExperiment;
+  input.nodes=['learn','play','check'].map(id=>node(id,{state:'generating'}));
+  const definition=authoredJourney();
+  const board=publishBoardInstance({...input,boards:[]} as unknown as LearningCycleRecordV2,{kind:'teaching',definition,predecessorBoardId:null,plannerDecisionId:'decision',evidenceIds:[],nodeIds:input.nodes.map(n=>n.nodeId),publishedAt:null});
+  const previous={...board,boardId:'prior',definition:undefined,nodeIds:['probe'],publishedAt:'2026-10-01T00:00:00Z'};
+  input.nodes.push(node('probe',{role:'evaluation',state:'completed'}));
+  previous.topologyHash=boardTopologyHash(input as unknown as LearningCycleRecordV2,previous);
+  let cycle=createLearningCycle({...input,boards:[previous,board],initialLifecycle:'board_generating'},opts);
+  for(const id of ['learn','play','check']) cycle=transitionLearningCycle(cycle.childId,cycle.homeworkId,cycle.revision,{type:'artifact_bound',nodeId:id,artifact:{...binding,artifactId:id}},opts);
+  expect(cycle.boards![1].publishedAt).toBeNull();
+  expect(successorResumeAction(cycle)).toBe("prepare"); // A restart must finish the outstanding canvas proof.
+  const proof={definitionHash:createHash('sha256').update(JSON.stringify(definition)).digest('hex'),rendererHash:'tested-renderer',viewports:['1280x720','768x1024'],screenshots:['/test/landscape.png','/test/portrait.png'],verifiedAt:'2026-10-09T00:00:00Z'};
+  expect(()=>transitionLearningCycle(cycle.childId,cycle.homeworkId,cycle.revision,{type:'board_canvas_verified',boardId:board.boardId,proof:{...proof,definitionHash:'wrong'}},opts)).toThrow('board_canvas_proof_mismatch');
+  cycle=transitionLearningCycle(cycle.childId,cycle.homeworkId,cycle.revision,{type:'board_canvas_verified',boardId:board.boardId,proof},opts);
+  expect(cycle.boards![1].publishedAt).not.toBeNull();
+  expect(getLearningCycle(cycle.childId,cycle.homeworkId,opts)!.canvasVerifications).toEqual(cycle.canvasVerifications);
+});
+
+it('accepts Teaching after the selected Probe execution without requiring its sibling',()=>{
+ const opts={rootDir:root()};const input=cycleInput(false);delete input.agencyExperiment;
+ input.nodes=[node('left',{role:'evaluation',state:'completed'}),node('right',{role:'evaluation',state:'ready'})];
+ const definition=choiceJourneyFixture([{id:'left',label:'Left',nodeIds:['left']},{id:'right',label:'Right',nodeIds:['right']}]);
+ const board=publishBoardInstance(input as unknown as LearningCycleRecordV2,{kind:'probe',definition,predecessorBoardId:null,plannerDecisionId:null,evidenceIds:[],nodeIds:['left','right'],publishedAt:'2026-10-01T00:00:00Z'});
+ const cycle=createLearningCycle({...input,boards:[board],initialLifecycle:'board_designing',routeSelection:{choices:{choice:'left'},experimentId:'choice',selectedRouteId:'choice=left',selectedAt:'now',choiceEventId:'choice-1',history:[]}},opts);
+ const result=transitionLearningCycle(cycle.childId,cycle.homeworkId,cycle.revision,{type:'targeted_board_revealed',boardDefinition:linearJourneyFixture(['teach']),programHash:'p',designHash:'d',nodes:[node('teach')],academicTheory:cycle.academicTheory,academicPredictions:[],assumptions:[]},opts);
+ expect(result.boards![1].definition).toEqual(linearJourneyFixture(['teach']));
+ expect(result.nodes.find(node=>node.nodeId==='right')!.state).toBe('ready');
+});
+
+it('keeps an initial Teaching board unpublished and invisible until both artifacts and canvas are verified',async()=>{
+ const {withInitialBoard}=await import('./learningBoardInstances');
+ const {verifyPreparingBoardCanvas}=await import('./adventureBoardCanvas');
+ const rootDir=root();
+ const definition=linearJourneyFixture(['learn']);
+ const created=createLearningCycle(withInitialBoard({...cycleInput(false),agencyExperiment:undefined,nodes:[node('learn')],boardDefinition:definition},'teaching','2026-10-01T12:00:00.000Z'),{rootDir});
+ expect(created.boards![0].publishedAt).toBeNull();
+ expect(created.lifecycle).toBe('board_generating');
+ expect(projectLearningCycle(created).adventureBoard.nodes).toEqual([]);
+ expect(()=>transitionLearningCycle(created.childId,created.homeworkId,created.revision,{type:'instrument_observed',nodeId:'learn',academicEvidence:[],engagementEvidence:[],companionObservations:[],observations:[]},{rootDir})).toThrow('learning_board_not_published');
+ await verifyPreparingBoardCanvas({rootDir,childId:created.childId,homeworkId:created.homeworkId,directory:path.join(rootDir,'proof')});
+ const verified=getLearningCycle(created.childId,created.homeworkId,{rootDir})!;
+ expect(verified.boards![0].publishedAt).toBeNull();
+ const ready=transitionLearningCycle(verified.childId,verified.homeworkId,verified.revision,{type:'artifact_bound',nodeId:'learn',artifact:binding},{rootDir});
+ expect(ready.boards![0].publishedAt).not.toBeNull();
+ expect(projectLearningCycle(ready).adventureBoard.nodes.map(n=>n.id)).toEqual(['start','learn','end']);
+ fs.rmSync(rootDir,{recursive:true,force:true});
+},20000);

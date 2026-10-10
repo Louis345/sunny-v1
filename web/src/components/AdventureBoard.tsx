@@ -32,6 +32,7 @@ type AdventureBoardProps = {
   completedNodeIds?: readonly string[];
   inspectBaselineNodes?: boolean;
   onNodeClick?: (node: AdventureBoardNode) => void;
+  onChoiceVisibilityChange?: (choiceSet: AdventureChoiceSet, opened: boolean) => void;
   onChoiceClick?: (option: AdventureChoiceOption, choiceSet: AdventureChoiceSet) => void;
   onUnlockCeremony?: (event: UnlockCeremonyEvent) => void;
 };
@@ -177,7 +178,7 @@ function boardBackground(board: AdventureBoardJson): React.CSSProperties {
 
 function resolveNodePosition(node: AdventureBoardNode): PositionedAdventureBoardNode | null {
   const position = node.position ?? (node.slot ? HORIZONTAL_ADVENTURE_SLOTS[node.slot] : undefined);
-  const narrowPosition = node.position ?? (node.slot ? NARROW_ADVENTURE_SLOTS[node.slot] : undefined);
+  const narrowPosition = node.portraitPosition ?? node.position ?? (node.slot ? NARROW_ADVENTURE_SLOTS[node.slot] : undefined);
   const mediumPosition = node.position ?? (node.slot ? MEDIUM_ADVENTURE_SLOTS[node.slot] : undefined);
   return position && narrowPosition && mediumPosition ? { ...node, position, narrowPosition, mediumPosition } : null;
 }
@@ -188,6 +189,7 @@ export function AdventureBoard({
   inspectBaselineNodes = false,
   onNodeClick,
   onChoiceClick,
+  onChoiceVisibilityChange,
   onUnlockCeremony,
 }: AdventureBoardProps): React.ReactElement {
   const previousNodeStates = useRef(new Map(board.nodes.map((node) => [node.id, node.state])));
@@ -248,7 +250,7 @@ export function AdventureBoard({
     { option: AdventureChoiceOption; choiceSet: AdventureChoiceSet }
   >();
   for (const choiceSet of projectedChoiceSets) {
-    if (choiceSet.kind !== "baseline-route") continue;
+    if (board.definition || choiceSet.kind !== "baseline-route") continue;
     for (const option of choiceSet.options) {
       const hasLaunchTarget = Boolean(
         option.gameHtmlPath || option.activityConfigPath || option.activityId,
@@ -299,6 +301,7 @@ export function AdventureBoard({
       data-plan-id={board.planId}
       className={[
         "adventure-board",
+        board.definition ? "adventure-board--authored" : "",
         unlockCeremony ? `adventure-board--unlocking-${unlockCeremony.variant}` : "",
       ].join(" ")}
       style={{
@@ -314,6 +317,7 @@ export function AdventureBoard({
       } as React.CSSProperties}
       aria-label={board.title ?? "Adventure board"}
     >
+      <div className="adventure-board__composition">
       {(["wide", "medium", "narrow"] as const).map(layout => <svg key={layout} className={`adventure-board__edges adventure-board__edges--${layout}`} viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
         {board.edges.map((edge) => {
           const from = nodes.get(edge.from);
@@ -322,7 +326,7 @@ export function AdventureBoard({
           const fromPosition = layout === "narrow" ? narrowPosition(from) : layout === "medium" ? from.mediumPosition : from.position;
           const toPosition = layout === "narrow" ? narrowPosition(to) : layout === "medium" ? to.mediumPosition : to.position;
           return (
-            <line
+            <polyline
               key={edge.id}
               className={[
                 "adventure-board__edge",
@@ -330,10 +334,8 @@ export function AdventureBoard({
                 edge.style ? `adventure-board__edge--${edge.style}` : "",
                 unlockCeremony?.nodeId === edge.to ? "adventure-board__edge--unlocking" : "",
               ].join(" ")}
-              x1={fromPosition.x * 100}
-              y1={fromPosition.y * 100}
-              x2={toPosition.x * 100}
-              y2={toPosition.y * 100}
+              fill="none"
+              points={[fromPosition,...(edge.controlPoints?.[layout === 'narrow' ? 'portrait' : 'landscape'] ?? []),toPosition].map(point=>`${point.x*100},${point.y*100}`).join(' ')}
             />
           );
         })}
@@ -399,7 +401,7 @@ export function AdventureBoard({
             </>
           );
 
-          if (isRouteGuidance) {
+          if (isRouteGuidance && !board.definition) {
             return (
               <div
                 key={node.id}
@@ -421,6 +423,8 @@ export function AdventureBoard({
           return (
             <button
               key={node.id}
+              data-portal-id={node.id}
+              data-activity-node-id={node.activityNodeId}
               type="button"
               className={[
                 "adventure-board__node",
@@ -433,6 +437,7 @@ export function AdventureBoard({
               ].join(" ")}
               style={nodePositionStyle(node)}
               onClick={() => {
+                if (board.definition && isLocked) return;
                 if (isPreparing) {
                   console.log(` 🎮 [adventure-board] [preparing-node] [acknowledged] node=${node.id}`);
                   setPreparingMessage(`${node.shortLabel ?? node.label} is still being prepared. You can keep exploring or come back later.`);
@@ -446,6 +451,7 @@ export function AdventureBoard({
                 }
                 if (node.choiceSetId && choiceSetsById.has(node.choiceSetId)) {
                   setOpenChoiceSetId(node.choiceSetId);
+                  onChoiceVisibilityChange?.(choiceSetsById.get(node.choiceSetId)!,true);
                 }
                 onNodeClick?.(node);
               }}
@@ -455,6 +461,8 @@ export function AdventureBoard({
             </button>
           );
         })}
+      </div>
+
       </div>
 
       {preparingMessage ? (
@@ -500,7 +508,7 @@ export function AdventureBoard({
       <AdventureChoiceModal
         choiceSet={openChoiceSet}
         open={Boolean(openChoiceSet)}
-        onDismiss={() => setOpenChoiceSetId(null)}
+        onDismiss={() => { if(openChoiceSet) onChoiceVisibilityChange?.(openChoiceSet,false); setOpenChoiceSetId(null); }}
         onSelect={(option) => {
           if (openChoiceSet) {
             onChoiceClick?.(option, openChoiceSet);

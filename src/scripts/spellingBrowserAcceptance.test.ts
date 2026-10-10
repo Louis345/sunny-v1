@@ -1,3 +1,5 @@
+import { journeyFrontier } from "../shared/adventureBoardDefinition";
+import {linearJourneyFixture} from "./fixtures/authoredJourney";
 import {prepareExistingOriginalSpelling} from '../chart/spelling/originalPreparation';
 import {runOriginalSpellingForecast} from '../chart/spelling/originalForecast';
 import fs from "node:fs";
@@ -108,7 +110,7 @@ it.each([
   };
   const source = writeSpellingPdfFixture(rootDir, words);
   const legacyAttempt = vi.spyOn(legacyLearning, "recordAttempt");
-  const { homeworkId } = await runSpellingDiscoveryIntake({ childId, sourceFile: source, rootDir }, { ...(chartDb&&!scenario.existing ? {chart:{db:chartDb,provider:chartProvider}} : {}), callPlannerModel: async (packet: Parameters<typeof recordedSpellingDiagnostic>[0]) => ({ draft: { diagnostic: recordedSpellingDiagnostic(packet), title: "School spelling", words: words.map(word => ({ word, pageNumber: 1 })), uncertainty: [] } }) });
+  const { homeworkId } = await runSpellingDiscoveryIntake({ childId, sourceFile: source, rootDir }, { ...(chartDb&&!scenario.existing ? {chart:{db:chartDb,provider:chartProvider}} : {}), callPlannerModel: async (packet: Parameters<typeof recordedSpellingDiagnostic>[0]) => ({ draft: { boardDefinition:linearJourneyFixture(["diagnostic"]), diagnostic: recordedSpellingDiagnostic(packet), title: "School spelling", words: words.map(word => ({ word, pageNumber: 1 })), uncertainty: [] } }) });
   if(scenario.existing){
     vi.stubEnv("SUNNY_CHART_DIR",path.join(rootDir,"charts"));
     chartDb=openChart(childId,{chartDir:path.join(rootDir,"charts")});
@@ -288,9 +290,12 @@ it.each([
     if (await enterTeachingBoard.isVisible()) await enterTeachingBoard.click();
     await teachingBoard.waitFor({ timeout: 30000 });
     const board = getChildChart(childId, { rootDir }).activeSessionPlan!.adventureBoard!;
-    expect(board.theme.background.type).toBe("image");
-    const backgroundLoaded = await page.evaluate(async url => new Promise<boolean>(resolve => { const image = new (globalThis as any).Image(); image.onload = () => resolve(true); image.onerror = () => resolve(false); image.src = url; }), board.theme.background.value);
-    expect(backgroundLoaded).toBe(true);
+    const authored = getLearningCycle(childId, homeworkId, { rootDir })!.boards!.find(candidate => candidate.boardId === board.boardId)!.definition!;
+    expect(board.theme.background).toEqual(authored.theme.background);
+    if (authored.theme.background.type === "image") {
+      const backgroundLoaded = await page.evaluate(async url => new Promise<boolean>(resolve => { const image = new (globalThis as any).Image(); image.onload = () => resolve(true); image.onerror = () => resolve(false); image.src = url; }), authored.theme.background.value);
+      expect(backgroundLoaded).toBe(true);
+    }
     const expectedThumbnailCount = board.nodes.filter((node) => Boolean(node.thumbnailUrl)).length;
     await expect.poll(() => page.locator(".adventure-board__node-thumbnail").evaluateAll((elements, expectedCount) => elements.length === expectedCount && elements.every((element: any) => element.complete && element.naturalWidth > 0), expectedThumbnailCount)).toBe(true);
     if (scenario.adaptive) {
@@ -300,9 +305,11 @@ it.each([
         const boxes = elements.map(element => ({
           label: element.textContent?.trim(), rect: element.getBoundingClientRect(),
         }));
+        const levelControl = elements[0]?.ownerDocument.querySelector(".level-path-trigger")?.getBoundingClientRect();
+        const hostOverlaps = levelControl ? boxes.filter(({rect}) => Math.min(rect.right, levelControl.right) > Math.max(rect.left, levelControl.left) && Math.min(rect.bottom, levelControl.bottom) > Math.max(rect.top, levelControl.top)).map(box => `${box.label} overlaps the level control`) : [];
         const outside = boxes.filter(({ rect }) => rect.left < -1 || rect.top < -1 || rect.right > (globalThis as any).innerWidth + 1 || rect.bottom > (globalThis as any).innerHeight + 1)
           .map(box => `${box.label} is outside the viewport`);
-        return [...outside, ...boxes.flatMap((a, index) => boxes.slice(index + 1).flatMap(b => {
+        return [...hostOverlaps, ...outside, ...boxes.flatMap((a, index) => boxes.slice(index + 1).flatMap(b => {
           const width = Math.max(0, Math.min(a.rect.right, b.rect.right) - Math.max(a.rect.left, b.rect.left));
           const height = Math.max(0, Math.min(a.rect.bottom, b.rect.bottom) - Math.max(a.rect.top, b.rect.top));
           return width * height > 8 ? [`${a.label} overlaps ${b.label}`] : [];
@@ -318,8 +325,11 @@ it.each([
         return node && missedWords.every((word) => node.academicTarget.targets.includes(word));
       })).toBe(true);
       expect(final.academicTarget.targets).toEqual(words);
-      expect(new Set(board.nodes.map((node) => node.slot)).size).toBe(board.nodes.length);
-      expect(board.nodes.map((node) => node.id)).toEqual(expect.arrayContaining([...routeIds, "recall-checkpoint"]));
+      expect(board.definition).toEqual(authored);
+      expect(board.nodes.map(({id, label, activityNodeId}) => ({id, label, activityNodeId}))).toEqual(
+        authored.portals.map(({id, label, activityNodeId}) => ({id, label, activityNodeId})),
+      );
+      expect(board.nodes.map((node) => node.activityNodeId)).toEqual(expect.arrayContaining([...routeIds, "recall-checkpoint"]));
       // Contract 21: no Quest/Boss placeholder appears on the Teaching Board or in its frozen nodes.
       expect(board.nodes.some((node) => node.kind === "quest" || node.kind === "boss")).toBe(false);
       expect(targeted.nodes.some((node) => node.role === "quest" || node.role === "boss")).toBe(false);
@@ -338,10 +348,10 @@ it.each([
       const completionScreenshotPath = path.join(outputDir, `completed-route-${viewport.width}x${viewport.height}.png`);
       await page.screenshot({ path: boardScreenshotPath });
 
-      await page.getByRole("note", { name: "Choose Path", exact: true }).waitFor();
-      await page.getByRole("button", { name: "Recall Practice", exact: true }).click();
+      await page.getByRole("button", { name: "Choose your path", exact: true }).click();
+      await page.getByRole("dialog").getByRole("button", { name: /Speed It/ }).click();
       await expect.poll(() =>
-        getLearningCycle(childId, homeworkId, { rootDir })?.routeSelection?.selectedRouteId,
+        getLearningCycle(childId, homeworkId, { rootDir })?.routeSelection?.choices?.choice,
       ).toBe("speed-route");
 
       await page.getByRole("button", { name: "Ready!", exact: true }).click();
@@ -391,7 +401,9 @@ it.each([
       await page.getByTestId("post-activity-engagement-overlay").getByRole("button", { name: "Play again", exact: true }).waitFor();
       await page.screenshot({ path: completionScreenshotPath });
 
+      await expect.poll(() => getLearningCycle(childId, homeworkId, { rootDir })?.lifecycle).toBe("awaiting_calibration");
       const completed = getLearningCycle(childId, homeworkId, { rootDir })!;
+      expect(completed.decisionHistory.filter(entry => entry.eventType === "theory_decided")).toHaveLength(1);
       const finalObservations = completed.observations.filter((observation) => observation.sourceId === "activity:recall-checkpoint:recall");
       const finalItemIds = Object.keys(final.evidenceContract.spellingItems ?? {});
       expect(finalObservations.map((observation) => observation.itemId)).toEqual(finalItemIds);
@@ -399,6 +411,12 @@ it.each([
       expect(completed.nodes.find((node) => node.nodeId === "recall-practice")?.state).toBe("completed");
       expect(completed.nodes.find((node) => node.nodeId === "letter-rush")?.state).toBe("completed");
       expect(completed.nodes.find((node) => node.nodeId === "recall-checkpoint")?.state).toBe("completed");
+      const completedActivityIds = completed.nodes.filter(node => node.state === "completed").map(node => node.nodeId);
+      expect(journeyFrontier(authored, completed.routeSelection?.choices ?? {}, completedActivityIds).complete).toBe(true);
+      // The selected chapter closes without inventing completions for its sibling.
+      for (const siblingId of ["spelling-practice", "sound-and-spell", "wheel-challenge"]) {
+        expect(completedActivityIds).not.toContain(siblingId);
+      }
       if(chartDb){
         const facts=exportEvents(chartDb);const responses=facts.filter(row=>row.type==='response.observed');
       const inputSignals=facts.filter(row=>row.type==='engagement.observed'&&row.payload.metric==='first_input_ms');
@@ -425,7 +443,7 @@ it.each([
           selectedRoute: { routeId: "speed-route", nodeIds: ["recall-practice", "letter-rush"], letterRushWords },
           finalCheck: { nodeId: final.nodeId, words: final.academicTarget.targets, itemIds: finalItemIds, observationIds: finalObservations.map((observation) => observation.observationId), allCorrect: finalObservations.every((observation) => observation.result.correct === true) },
         },
-        board: { nodeIds: board.nodes.map((node) => node.id), slots: Object.fromEntries(board.nodes.map((node) => [node.id, node.slot])), layoutCollisions: collisions },
+        board: { nodeIds: board.nodes.map((node) => node.id), authoredDefinition: authored, layoutCollisions: collisions },
         screenshots: {
           discovery: { path: discoveryScreenshotPath, sha256: hashFile(discoveryScreenshotPath) },
           board: { path: boardScreenshotPath, sha256: hashFile(boardScreenshotPath) },

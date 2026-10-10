@@ -1,3 +1,4 @@
+import {linearJourneyFixture} from './fixtures/authoredJourney';
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -19,7 +20,7 @@ it("runs the actual intake, resumes a saved paid response, repairs the browser j
   const context=path.join(rootDir,"src/context/lab-child");fs.mkdirSync(context,{recursive:true});
   fs.writeFileSync(path.join(context,"learning_profile.json"),JSON.stringify({childId:"lab-child"}));
   const pdf=path.join(rootDir,"assignment.txt");fs.writeFileSync(pdf,"How many equal groups? Read the diagram.");
-  const academic={evaluationId:"synthetic-discovery",title:"Count groups",assignmentEvidenceIds:["synthetic-source"],constructs:[{constructId:"math.groups",prerequisiteIds:[]}],items:[{itemId:"one",constructId:"math.groups",prompt:"How many groups?",responseContract:{mode:"tap_selection",representationId:"groups"},correctAnswerContract:{acceptedValues:["4"]},difficultyBoundary:"four groups",exposureId:"synthetic:one",possibleConfounds:[],falsifyingEvidence:["cannot count groups"],measurementKeys:["independent_correct"]}],probeActivities:[{nodeId:"probe-groups",title:"Count Groups",itemIds:["one"]}]};
+  const academic={ boardDefinition:linearJourneyFixture(["probe-groups"]), evaluationId:"synthetic-discovery",title:"Count groups",assignmentEvidenceIds:["synthetic-source"],constructs:[{constructId:"math.groups",prerequisiteIds:[]}],items:[{itemId:"one",constructId:"math.groups",prompt:"How many groups?",responseContract:{mode:"tap_selection",representationId:"groups"},correctAnswerContract:{acceptedValues:["4"]},difficultyBoundary:"four groups",exposureId:"synthetic:one",possibleConfounds:[],falsifyingEvidence:["cannot count groups"],measurementKeys:["independent_correct"]}],probeActivities:[{nodeId:"probe-groups",title:"Count Groups",itemIds:["one"]}]};
   const html=`<!doctype html><html><body><style>[hidden]{display:none!important}</style><h1>How many groups?</h1><button id="answer">Four</button><button id="wrong">Two</button><button id="not-sure">Not sure</button><div id="pause-overlay" hidden><button>Resume</button></div>
   <script id="sunny-discovery-contract" type="application/json">{"items":[{"itemId":"one","constructId":"math.groups","acceptedValues":["4"]}]}</script>
   <script>window.__SUNNY_DISCOVERY_TEST__={evaluate:(itemId,value)=>({itemId,constructId:'math.groups',correct:value==='4'})};

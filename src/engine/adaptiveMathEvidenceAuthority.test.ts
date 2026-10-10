@@ -1,3 +1,4 @@
+import {linearJourneyFixture} from "../scripts/fixtures/authoredJourney";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -16,6 +17,7 @@ function root(): string {
 function contract(): MathDiscoveryEvaluationContract {
   return {
     evaluationId: "evaluation:graphs",
+    boardDefinition:linearJourneyFixture(["evaluation:graphs"]),
     title: "Graph Discovery",
     assignmentEvidenceIds: ["assignment:graphs"],
     constructs: [{ constructId: "math.graphs.compare", prerequisiteIds: [] }],
@@ -43,7 +45,7 @@ function contract(): MathDiscoveryEvaluationContract {
 
 function prepare(rootDir: string): void {
   const frozen = contract();
-  createDiscoveryLearningCycle({
+  const cycle = createDiscoveryLearningCycle({
     rootDir,
     childId: "lab-child",
     homeworkId: "hw-graphs",

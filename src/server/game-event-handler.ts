@@ -6,7 +6,9 @@
 import { recordClockAttempt } from "../engine/clockTracker";
 import { childIdFromName, recordAttempt } from "../engine/learningEngine";
 import { recordLearningAttempt } from "./learningAttemptEvents";
-import { buildFlowGameEventFields } from "./flow-game-debug";
+import { generateStoryImage } from "../utils/generateStoryImage";
+import { sessionEventBus } from "./session-event-bus";
+import { buildFlowGameEventFields, buildReadingProgressFields } from "./flow-game-debug";
 import { buildGameContextSummary } from "./gameContextSummary";
 import { shouldPersistSessionData } from "../utils/runtimeMode";
 import { rewriteChildNameForTts } from "./sessionTextHelpers";
@@ -426,6 +428,11 @@ export function handleGameEventForSession(
     } else {
       s.injectGameContext?.(ctx);
     }
+    if (event.phase === 'choice_open' && event.addressedCompanion === true && typeof event.choiceSetId === 'string' && typeof event.requestId === 'string') {
+      void Promise.resolve(s.requestJourneyChoiceSupport?.(event.choiceSetId,event.requestId)).catch((error:unknown)=>{
+        console.error(' 🎮 [journey] [choice-companion] [failed]',error);
+      });
+    }
     if (challenge?.readAloudRequested === true && prompt) {
       const request = {
         nodeId: String(event.nodeId ?? ""),
@@ -778,4 +785,146 @@ export function handleGameEventForSession(
       s.gameBridge.handleGameEvent(event);
     }
   }
+}
+
+/** Reading is an activity event; retain the same session-owned state and evidence path. */
+export function handleReadingProgress(s: SM, payload: Record<string, unknown>): void {
+    if (!s.ctx) return;
+    const wordIndex = Number(payload.wordIndex);
+    const totalWords = Number(payload.totalWords);
+    const accuracy = Number(payload.accuracy);
+    const hesitationsRaw = Number(payload.hesitations);
+    const hesitations = Number.isFinite(hesitationsRaw) ? hesitationsRaw : 0;
+    const flaggedWords = Array.isArray(payload.flaggedWords)
+      ? (payload.flaggedWords as string[])
+      : [];
+    const spelledWords = Array.isArray(payload.spelledWords)
+      ? (payload.spelledWords as string[])
+      : [];
+    const skippedWords = Array.isArray(payload.skippedWords)
+      ? (payload.skippedWords as string[]).filter(
+          (w): w is string => typeof w === "string",
+        )
+      : [];
+    const event =
+      typeof payload.event === "string" ? payload.event : undefined;
+    if (!Number.isFinite(wordIndex) || !Number.isFinite(totalWords)) {
+      console.warn("  ⚠️  reading_progress: invalid wordIndex/totalWords");
+      return;
+    }
+    s.ctx.setReadingProgress({
+      wordIndex,
+      totalWords,
+      accuracy: Number.isFinite(accuracy) ? accuracy : 0,
+      hesitations,
+      flaggedWords,
+      skippedWords,
+      spelledWords,
+      event,
+    });
+    s.broadcastContext();
+    s.debugRecorder.recordEvent("flow_game", event === "complete" ? "karaoke_complete" : "karaoke_progress", buildReadingProgressFields({ ...payload, wordIndex, totalWords, accuracy: Number.isFinite(accuracy) ? accuracy : 0, hesitations, flaggedWords, skippedWords, spelledWords, event }));
+    const accPct =
+      Number.isFinite(accuracy) && accuracy <= 1 && accuracy >= 0
+        ? Math.round(accuracy * 100)
+        : accuracy;
+    console.log(
+      `  📖 reading_progress: idx ${wordIndex}/${totalWords} acc=${accPct}% hesitations=${hesitations} event=${event ?? "—"}`,
+    );
+
+    if (event === "complete") {
+      if (s.readingProgressCompleteConsumed) return;
+      s.readingProgressCompleteConsumed = true;
+
+      if (s.turnSM.getState() === "CANVAS_PENDING") {
+        s.canvasDone({});
+      }
+      s.karaokeReadingComplete = true;
+      console.log("  📖 [reading] suppression lifted — story complete");
+      const childId = s.chartChildId;
+      sessionEventBus.fire({
+        type: "reading_complete",
+        sessionId: s.sessionId,
+        childId,
+        timestamp: Date.now(),
+      });
+      const flagged = s.ctx?.readingProgress?.flaggedWords ?? [];
+      const skipped = s.ctx?.readingProgress?.skippedWords ?? [];
+      for (const word of [...flagged, ...skipped]) {
+        const w = word.toLowerCase().trim();
+        if (!w) continue;
+        try {
+          recordAttempt(childId, {
+            word: w,
+            domain: "reading",
+            correct: false,
+            quality: 1,
+            scaffoldLevel: 0,
+          });
+        } catch (err) {
+          console.error(`  [engine] reading word failed for "${word}":`, err);
+        }
+      }
+      for (const word of spelledWords) {
+        const w = word.toLowerCase().trim();
+        if (!w) continue;
+        try {
+          recordAttempt(childId, {
+            word: w,
+            domain: "reading",
+            correct: true,
+            quality: 5,
+            scaffoldLevel: 0,
+          });
+        } catch (err) {
+          console.error(
+            `  [engine] reading spelledWord failed for "${word}":`,
+            err,
+          );
+        }
+      }
+      console.log(
+        `  🎮 [engine] reading complete: ${flagged.length} flagged, ${skipped.length} skipped, ${spelledWords.length} spelled → word bank (${childId})`,
+      );
+
+      void s.handleEndOfTurn(
+        "[reading_progress] event=complete — the reader finished the karaoke story. Reply with exactly one short sentence acknowledging the reading. Do not call canvasShow or refresh karaoke unless the child or parent/caregiver explicitly asks for something new.",
+        true,
+        { fromReadingComplete: true },
+      ).catch((err: unknown) => console.error(err));
+
+      const fromCanvas =
+        s.currentCanvasState &&
+        typeof (s.currentCanvasState as { content?: unknown }).content ===
+          "string"
+          ? String((s.currentCanvasState as { content: string }).content).trim()
+          : "";
+      const promptRaw = (s.currentCanvasState as { storyImagePrompt?: unknown } | null)?.storyImagePrompt;
+      const fromPrompt = typeof promptRaw === "string" ? promptRaw.trim() : "";
+      const storyText =
+        fromPrompt || s.lastKaraokeStoryText.trim() || fromCanvas;
+      if (storyText.length > 0) {
+        if (s.storyImageGeneratedThisStory) {
+          console.log(
+            "  🖼️  [story-image] skip auto after reading complete — already generated for this story",
+          );
+        } else {
+          s.storyImageGeneratedThisStory = true;
+          s.storyImagePending = true;
+          s.send("story_image_loading", {});
+          void generateStoryImage(storyText, {
+            sessionType: s.ctx?.sessionType,
+          })
+            .then((url) => {
+              s.send("story_image", { url: url ?? null });
+            })
+            .catch(() => {
+              s.send("story_image", { url: null });
+            })
+            .finally(() => {
+              s.storyImagePending = false;
+            });
+        }
+      }
+    }
 }

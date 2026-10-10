@@ -1,3 +1,4 @@
+import {linearJourneyFixture} from "./fixtures/authoredJourney";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -118,7 +119,7 @@ afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); vi.unstubAllEnvs(
 async function fixture() {
   const childId = "lab-child", sourceFile = seedSpellingLab(rootDir);
   const { homeworkId } = await runSpellingDiscoveryIntake({ rootDir, childId, sourceFile }, {
-    callPlannerModel: async (packet: Parameters<typeof recordedSpellingDiagnostic>[0]) => ({ draft: { diagnostic: recordedSpellingDiagnostic(packet), title: "Recorded school words", words: ["night", "light"].map(word => ({ word, pageNumber: 1 })), uncertainty: [] } }),
+    callPlannerModel: async (packet: Parameters<typeof recordedSpellingDiagnostic>[0]) => ({ draft: { boardDefinition:linearJourneyFixture(["diagnostic"]), diagnostic: recordedSpellingDiagnostic(packet), title: "Recorded school words", words: ["night", "light"].map(word => ({ word, pageNumber: 1 })), uncertainty: [] } }),
   });
   const scope = { rootDir, childId, homeworkId };
   const opening = getLearningCycle(childId, homeworkId, scope)!;
@@ -612,3 +613,17 @@ describe("spelling Planner raw-response durability", () => {
   });
 });
 import { recordedSpellingDiagnostic } from "./fixtures/spellingEvidenceFirst";
+
+it('returns canvas collisions to the same bounded Planner correction and preserves both responses',async()=>{
+ const f=await fixture();const invalid=structuredClone(f.message);
+ const definition=invalid.content[1].input!.activeSessionPlan.boardDefinition!;
+ definition.portals[1].position=structuredClone(definition.portals[2].position);
+ transport.create.mockResolvedValueOnce(invalid).mockResolvedValueOnce(structuredClone(f.message));
+ const first=await f.run();
+ expect(transport.create).toHaveBeenCalledTimes(2);
+ expect(JSON.stringify(transport.create.mock.calls[1][0])).toContain('board_canvas_invalid');
+ expect(first.output.activeSessionPlan.boardDefinition).toEqual(f.output.activeSessionPlan.boardDefinition);
+ vi.stubEnv('ANTHROPIC_API_KEY','');
+ expect((await f.run()).output).toEqual(first.output);
+ expect(transport.create).toHaveBeenCalledTimes(2);
+});

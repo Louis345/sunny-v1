@@ -1,4 +1,6 @@
+import {linearJourneyFixture} from "./fixtures/authoredJourney";
 import fs from "node:fs";
+import { createHash } from "node:crypto";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -40,7 +42,7 @@ describe("spelling worker catalog identity on resume", () => {
     const sourceFile = seedSpellingLab(rootDir);
     const { homeworkId } = await runSpellingDiscoveryIntake({ childId, rootDir, sourceFile }, {
       callPlannerModel: async packet => ({ draft: {
-        diagnostic: recordedSpellingDiagnostic(packet), title: "School words", words: ["night", "light"].map(word => ({ word, pageNumber: 1 })), uncertainty: [],
+        boardDefinition:linearJourneyFixture(["diagnostic"]), diagnostic: recordedSpellingDiagnostic(packet), title: "School words", words: ["night", "light"].map(word => ({ word, pageNumber: 1 })), uncertainty: [],
       } }),
     });
     const opening = getLearningCycle(childId, homeworkId, { rootDir })!;
@@ -67,6 +69,14 @@ describe("spelling worker catalog identity on resume", () => {
       homeworkId: otherHomeworkId, words: otherTargets, evidenceIds: ["other-assignment-evidence"],
       measurementRole: "practice", exposure: "practiced", occasionId: "other-practice",
     });
+    // A published native instrument must retain its real, fingerprinted artifact.
+    const originalBinding = requestedNodes[0].artifactBinding!;
+    const childDir = path.join(rootDir, "src/context", childId);
+    const artifact = JSON.parse(fs.readFileSync(path.join(childDir, originalBinding.localArtifactPath), "utf8"));
+    artifact.node.id = "other-node";
+    const otherArtifactPath = `homework/direct-drafts/${otherHomeworkId}/native-instruments/other-node.json`;
+    fs.mkdirSync(path.dirname(path.join(childDir, otherArtifactPath)), { recursive: true });
+    fs.writeFileSync(path.join(childDir, otherArtifactPath), JSON.stringify(artifact));
     const other = createLearningCycle({
       childId, homeworkId: otherHomeworkId, domain,
       assignment: { title: otherTitle, targets: otherTargets, contentFingerprint: "other-fingerprint", capturedEvidenceIds: ["other-source"] },
@@ -78,7 +88,7 @@ describe("spelling worker catalog identity on resume", () => {
         evidenceContract: { academic: true, engagement: true, companionObservations: true,
           ...(domain === "spelling" ? { spellingItems: Object.fromEntries(otherItems.map(item => [item.id, item])) } : {}),
         },
-        artifactBinding: { ...requestedNodes[0].artifactBinding!, contentId: "other-uncataloged-artifact", artifactId: "other-artifact", localArtifactPath: "/other/instrument.json" },
+        artifactBinding: { ...requestedNodes[0].artifactBinding!, contentId: "other-uncataloged-artifact", artifactId: "other-artifact", localArtifactPath: otherArtifactPath, contractFingerprint: createHash("sha256").update(JSON.stringify(artifact)).digest("hex") },
       }],
     }, { rootDir });
     const preserved = { ...chart.contentCatalog.items[0], contentId: "existing-other-catalog-entry", homeworkId: otherHomeworkId, domain,

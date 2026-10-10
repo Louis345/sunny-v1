@@ -1,3 +1,4 @@
+import {linearJourneyFixture} from '../scripts/fixtures/authoredJourney';
 import express from "express";
 import type { AddressInfo } from "node:net";
 import fs from "node:fs";
@@ -17,8 +18,8 @@ async function fixture() {
   const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "spelling-routes-")); roots.push(rootDir);
   vi.stubEnv("SUNNY_CONTEXT_ROOT", path.join(rootDir, "src/context")); vi.stubEnv("SUNNY_MODE", "real");
   const items = buildSpellingRecallItems({ homeworkId: "hw-words", words: ["night", "light"], evidenceIds: ["school:one"], measurementRole: "fresh_checkpoint" });
-  const cycle = createSpellingDiscoveryCycle({ childId: "lab-child", homeworkId: "hw-words", title: "Words", contentFingerprint: "source", items }, { rootDir });
-  publishDiscoveryExperience({ rootDir, childId: "lab-child", homeworkId: "hw-words", spellingItems: items, assignment: cycle.assignment, activeSessionPlan: buildSpellingDiscoveryPlan({ cycle, companion: { id: "elli", name: "Elli" } }) });
+  const cycle = createSpellingDiscoveryCycle({ boardDefinition:linearJourneyFixture(["hw-words:discovery"]), childId: "lab-child", homeworkId: "hw-words", title: "Words", contentFingerprint: "source", items }, { rootDir });
+  await publishDiscoveryExperience({ rootDir, childId: "lab-child", homeworkId: "hw-words", spellingItems: items, assignment: cycle.assignment, activeSessionPlan: buildSpellingDiscoveryPlan({ cycle, companion: { id: "elli", name: "Elli" } }) });
   const app = express(); app.use(express.json()); setupRoutes(app); const server = app.listen(0); servers.push(server);
   const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}/api/learning/lab-child/assignments/hw-words/discovery`;
   const post = (suffix: string, body: unknown) => fetch(`${base}/${suffix}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });

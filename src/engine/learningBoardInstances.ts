@@ -1,3 +1,4 @@
+import { adventureBoardDefinitionSchema, validateBoardDefinition, type AdventureBoardDefinition } from '../shared/adventureBoardDefinition';
 import { createHash } from "crypto";
 import type {
   LearningCycleAgencyExperiment,
@@ -11,6 +12,7 @@ export type LearningBoardKind = "probe" | "teaching" | "successor" | "legacy";
 /** One complete, immutable published board inside the canonical cycle (contract 21). */
 export type LearningBoardInstance = {
   boardId: string;
+  definition?: AdventureBoardDefinition;
   kind: LearningBoardKind;
   predecessorBoardId: string | null;
   plannerDecisionId: string | null;
@@ -67,6 +69,7 @@ export function boardTopologyHash(cycle: LearningCycleRecordV2, board: LearningB
     evidenceIds: board.evidenceIds,
     nodes: board.nodeIds.map((nodeId) => frozenNode(nodes.get(nodeId), nodeId)),
     agencyExperiment: board.agencyExperiment ?? null,
+    ...(board.definition ? { definition: board.definition } : {}),
   })).digest("hex");
 }
 
@@ -79,6 +82,11 @@ export function publishBoardInstance(cycle: LearningCycleRecordV2, input: Publis
   for (const nodeId of input.nodeIds) {
     if (!known.has(nodeId)) throw new Error(`learning_board_node_missing:${nodeId}`);
     if (owned.has(nodeId)) throw new Error(`learning_board_node_already_owned:${nodeId}`);
+  }
+  if (input.definition) {
+    const definition = adventureBoardDefinitionSchema.parse(input.definition);
+    const issues = validateBoardDefinition(definition, input.nodeIds);
+    if (issues.length) throw new Error(`board_definition_invalid:${JSON.stringify(issues)}`);
   }
   const board: LearningBoardInstance = {
     ...structuredClone(input),
@@ -110,7 +118,9 @@ export function listBoardInstances(cycle: LearningCycleRecordV2): LearningBoardI
 
 /** The latest published board is the one the child plays; earlier boards are read-only history. */
 export function currentBoardInstance(cycle: LearningCycleRecordV2): LearningBoardInstance {
-  return [...listBoardInstances(cycle)].reverse().find((board) => board.publishedAt !== null)!;
+  const boards = listBoardInstances(cycle);
+  // An initial candidate is a status cursor only; projection and launch remain gated.
+  return [...boards].reverse().find((board) => board.publishedAt !== null) ?? boards[0]!;
 }
 
 /** The one successor being prepared between sessions, if any. */
@@ -204,20 +214,22 @@ export function assertPublishedBoardsImmutable(previous: LearningCycleRecordV2, 
 
 /**
  * Freeze a new cycle's opening board as its first instance. Opening boards
- * (the Probe Board, or a directly ingested first board) publish before every
- * node is verified; their nodes still only move forward.
+ * publish Probe nodes independently. Teaching must pass the common artifact
+ * and canvas gates before it can become visible.
  */
-export function withInitialBoard<T extends Pick<LearningCycleRecordV2, "homeworkId" | "nodes" | "assignment">>(input: T, kind: "probe" | "teaching", publishedAt: string): T & { boards: LearningBoardInstance[] } {
+export function withInitialBoard<T extends Pick<LearningCycleRecordV2, "homeworkId" | "nodes" | "assignment"> & {boardDefinition?:AdventureBoardDefinition}>(input: T, kind: "probe" | "teaching", publishedAt: string): T & { boards: LearningBoardInstance[] } {
+  if (!input.boardDefinition) throw new Error("board_definition_missing:initial");
   const draft = { ...input, boards: [] } as unknown as LearningCycleRecordV2;
   return {
     ...input,
     boards: [publishBoardInstance(draft, {
       kind,
+      ...(input.boardDefinition ? {definition:input.boardDefinition}:{}),
       predecessorBoardId: null,
       plannerDecisionId: null,
       evidenceIds: [...input.assignment.capturedEvidenceIds],
       nodeIds: input.nodes.map((node) => node.nodeId),
-      publishedAt,
+      publishedAt: kind === "probe" ? publishedAt : null,
     })],
   };
 }
@@ -231,7 +243,7 @@ export function successorPreparationStatus(cycle: LearningCycleRecordV2): { upda
   const latest = listBoardInstances(cycle).at(-1);
   if (!latest || latest.kind !== "successor") return undefined;
   const decidedAt = cycle.decisionHistory.find((entry) => entry.decisionId === latest.plannerDecisionId)?.createdAt ?? cycle.createdAt;
-  const attention = latest.publishedAt === null && cycle.nodes.some((node) => latest.nodeIds.includes(node.nodeId) && node.state === "blocked");
+  const attention = latest.publishedAt === null && (cycle.lifecycle === "blocked" || cycle.nodes.some((node) => latest.nodeIds.includes(node.nodeId) && node.state === "blocked"));
   return { updatedAt: decidedAt, startedAt: decidedAt, phase: attention ? "needs_attention" : latest.publishedAt === null ? "successor_preparing" : "successor_published", nodes: [] };
 }
 
@@ -241,11 +253,11 @@ export function successorPreparationStatus(cycle: LearningCycleRecordV2): { upda
  */
 export function successorResumeAction(cycle: LearningCycleRecordV2): "decide" | "prepare" | null {
   // Legacy cycles never auto-resume: that would start Planner calls they never made before contract 21.
-  if (!cycle.boards) return null;
+  if (!cycle.boards || cycle.lifecycle === "blocked") return null;
   if (["baseline_evaluating", "quest_evaluating", "boss_evaluating"].includes(cycle.lifecycle)) return "decide";
   const preparing = preparingBoardInstance(cycle);
   if (!preparing) return null;
   const nodes = cycle.nodes.filter((node) => preparing.nodeIds.includes(node.nodeId));
   if (nodes.some((node) => node.state === "blocked")) return null;
-  return nodes.some((node) => node.state === "generating") ? "prepare" : null;
+  return nodes.some((node) => node.state === "generating") || (preparing.definition && !cycle.canvasVerifications?.[preparing.boardId]) ? "prepare" : null;
 }

@@ -235,6 +235,7 @@ describe("direct Discovery entry", () => {
         homeworkId: "hw-1",
         lifecycle: "evaluation_active",
         revision: 16,
+        boardKind: "probe",
       },
     } as never;
     discovery.spellingDiscovery = {
@@ -242,7 +243,11 @@ describe("direct Discovery entry", () => {
       items: [],
     };
 
+    const portal=discovery.activeSessionPlan!.adventureBoard!.nodes[1]!;
+    portal.activityNodeId=portal.id;
+    portal.id="authored-evaluation-portal";
     expect(isDirectDiscoveryPacket(discovery)).toBe(true);
+    expect(isProbeBoardPacket(discovery)).toBe(false);
     expect(resolveDirectDiscoveryLaunchNode(discovery)?.id).toBe("hw-1:discovery");
   });
   it("never lets a homework runtime fall through to the generic companion canvas", () => {
@@ -292,6 +297,14 @@ describe("direct Discovery entry", () => {
     expect(isProbeBoardPacket(probe)).toBe(true);
     expect(isDirectDiscoveryPacket(probe)).toBe(false);
     expect(resolveDirectDiscoveryLaunchNode(probe)).toBeNull();
+  });
+
+  it("uses canonical chapter kind after plan identity changes", () => {
+    const probe = packet("learning-cycle:hw-1:cycle-r2", []);
+    probe.childChart = {learningCycle:{homeworkId:"hw-1", lifecycle:"evaluation_ready", revision:2, boardKind:"probe"}} as unknown as ChildExperiencePacket["childChart"];
+    expect(isProbeBoardPacket(probe)).toBe(true);
+    probe.childChart.learningCycle = {...probe.childChart.learningCycle!, boardKind:"teaching"} as typeof probe.childChart.learningCycle;
+    expect(isProbeBoardPacket(probe)).toBe(false);
   });
 
   it("returns to the Probe Board between nodes and ends the session after the chapter", () => {

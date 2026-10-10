@@ -1,3 +1,4 @@
+import {linearJourneyFixture} from "./fixtures/authoredJourney";
 import fs from "node:fs";
 import http from "node:http";
 import os from "node:os";
@@ -20,7 +21,7 @@ it("runs the real menu and ingestion subprocess twice with one local recorded pr
       const fileHash = JSON.stringify(input.messages).match(/\\"fileHash\\":\\"([a-f0-9]+)\\"/)?.[1];
       if (!fileHash) { response.writeHead(400); response.end("recorded_source_hash_missing"); return; }
       response.writeHead(200, { "content-type": "application/json" });
-      response.end(JSON.stringify({ id: "recorded-capture", type: "message", role: "assistant", model: input.model, stop_reason: "tool_use", usage: { input_tokens: 0, output_tokens: 0 }, content: [{ type: "tool_use", id: "recorded-tool", name: input.tools[0].name, input: { diagnostic: recordedSpellingDiagnostic({ sourceDocument: { fileHash } }), title: "School spelling", words: ["night", "light"].map(word => ({ word, pageNumber: 1 })), uncertainty: [], sourceNotes: ["All assigned words are legible. Practice instructions add no new words."] } }] }));
+      response.end(JSON.stringify({ id: "recorded-capture", type: "message", role: "assistant", model: input.model, stop_reason: "tool_use", usage: { input_tokens: 0, output_tokens: 0 }, content: [{ type: "tool_use", id: "recorded-tool", name: input.tools[0].name, input: { boardDefinition:linearJourneyFixture(["diagnostic"]), diagnostic: recordedSpellingDiagnostic({ sourceDocument: { fileHash } }), title: "School spelling", words: ["night", "light"].map(word => ({ word, pageNumber: 1 })), uncertainty: [], sourceNotes: ["All assigned words are legible. Practice instructions add no new words."] } }] }));
     });
   });
   await new Promise<void>(resolve => provider.listen(0, "127.0.0.1", resolve));
@@ -35,6 +36,7 @@ it("runs the real menu and ingestion subprocess twice with one local recorded pr
     fs.copyFileSync(path.join(sourceRoot, "package.json"), path.join(root, "package.json"));
     fs.copyFileSync(path.join(sourceRoot, "tsconfig.json"), path.join(root, "tsconfig.json"));
     fs.symlinkSync(path.join(sourceRoot, "node_modules"), path.join(root, "node_modules"));
+    fs.symlinkSync(path.join(sourceRoot,"web/node_modules"),path.join(root,"web/node_modules"));
     seedSpellingLab(root);
     const source = writeSpellingPdfFixture(root, ["night", "light"]);
     const address = provider.address() as { port: number };

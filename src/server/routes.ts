@@ -249,6 +249,8 @@ import { getVoiceSessionManagerForChildSession } from "./voice-session-registry"
 import { prepareSuccessorBoard } from "../engine/canonicalProgressionGenerator";
 import { successorPreparationStatus, successorResumeAction } from "../engine/learningBoardInstances";
 import {
+  canonicalJourneyFrontier,
+  assertJourneyChoiceAvailable,
   getLearningCycle,
   transitionLearningCycle,
 } from "../engine/learningCycleRepository";
@@ -874,9 +876,9 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
       const nodeId = typeof req.body?.nodeId === "string" ? req.body.nodeId.trim() : undefined;
       const cycle = completeDiscoveryEvaluation({ childId, homeworkId, ...(nodeId ? { nodeId } : {}), completedAt: new Date().toISOString() });
       const evaluationNodes = cycle.nodes?.filter((node) => node.role === "evaluation") ?? [];
-      const probeChapterComplete = evaluationNodes.length > 0
+      const probeChapterComplete = canonicalJourneyFrontier(cycle)?.complete ?? (evaluationNodes.length > 0
         ? evaluationNodes.every((node) => node.state === "completed")
-        : !["evaluation_ready", "evaluation_active"].includes(cycle.lifecycle);
+        : !["evaluation_ready", "evaluation_active"].includes(cycle.lifecycle));
       if (!probeChapterComplete) {
         console.log(` 🎮 [adaptive-math] [probe-node-complete] [chapter-active] child=${childId} homework=${homeworkId} node=${nodeId ?? "legacy"}`);
         return res.json({ ok: true, lifecycle: cycle.lifecycle, revision: cycle.revision, probeChapterComplete: false, targetedGenerationQueued: false });
@@ -1444,10 +1446,20 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
       if (isCanonicalMathEvidence && !eventInput.homeworkId) {
         return res.status(409).json({ ok: false, error: "choice_event_homework_identity_required" });
       }
+      const authoredDefinition = cycle?.boards?.filter(board=>board.publishedAt !== null).at(-1)?.definition;
+      const authoredChoice = eventInput.context === 'baseline_route' ? authoredDefinition?.choices.find(choice=>choice.id===eventInput.choiceSetId) : undefined;
+      const isAuthoredChoiceEvent = Boolean(authoredDefinition && eventInput.context === 'baseline_route' && eventInput.source === 'child_choice');
+      const isAuthoredSelection = isAuthoredChoiceEvent && Boolean(eventInput.selectedOptionId);
+      const isAuthoredImpression = isAuthoredChoiceEvent && ['impression','choice_dismissed'].includes(eventInput.eventName ?? '') && !eventInput.selectedOptionId;
+      if (isAuthoredChoiceEvent && (!authoredChoice || (!isAuthoredImpression && !authoredChoice.options.some(option=>option.id===eventInput.selectedOptionId))
+        || eventInput.shownOptions.length !== authoredChoice.options.length
+        || authoredChoice.options.some((option,index)=>eventInput.shownOptions[index]?.optionId!==option.id || eventInput.shownOptions[index]?.label!==option.label))) {
+        return res.status(409).json({ok:false,error:'choice_event_authored_options_mismatch'});
+      }
       const existingEvent = eventInput.choiceEventId
         ? findChoiceEventById(childId, eventInput.choiceEventId)
         : undefined;
-      if (existingEvent) {
+      if (existingEvent && (!isAuthoredSelection || cycle?.routeSelection?.history.some(entry=>entry.choiceEventId===existingEvent.choiceEventId))) {
         console.log(
           `  🎮 [choice-event] [duplicate-acknowledged] child=${childId} event=${existingEvent.choiceEventId}`,
         );
@@ -1457,6 +1469,7 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
           duplicate: true,
           skippedPersistence: false,
           choiceEventId: existingEvent.choiceEventId,
+          ...(isAuthoredSelection ? {selectedRouteId:cycle?.routeSelection?.selectedRouteId}:{}),
         });
       }
       if (
@@ -1480,7 +1493,7 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
         eventInput.cycleRevision ??= cycle.revision;
         delete eventInput.accuracy; // Academic accuracy belongs to canonical observations, not the rating payload.
       }
-      const routeCycle = eventInput.context === "baseline_route" && eventInput.source === "child_choice"
+      const routeCycle = eventInput.context === "baseline_route" && eventInput.source === "child_choice" && !isAuthoredImpression
         ? cycle : null;
       const routeExperiment = routeCycle?.agencyExperiment;
       const selectedRouteOption = eventInput.shownOptions.find(
@@ -1489,12 +1502,14 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
       const authorizedRoute = routeExperiment?.routes.find((candidate) =>
         candidate.routeId === selectedRouteOption?.experimentId || candidate.routeId === eventInput.selectedOptionId);
       if (routeCycle && routeCycle.homeworkId !== eventInput.homeworkId ||
-          eventInput.context === "baseline_route" && eventInput.source === "child_choice" && !authorizedRoute) {
+          eventInput.context === "baseline_route" && eventInput.source === "child_choice" && !authorizedRoute && !isAuthoredSelection && !isAuthoredImpression) {
         console.warn(` 🎮 [agency-route] [rejected] child=${childId} reason=route_not_authorized`);
         return res.status(409).json({ ok: false, error: "choice_event_route_not_authorized" });
       }
-      const event = recordChoiceEvent(eventInput);
-      const applied = await applyChoiceEventPreference(event);
+      if (routeCycle && isAuthoredSelection) assertJourneyChoiceAvailable(routeCycle,eventInput.choiceSetId,eventInput.selectedOptionId!);
+      if (cycle && isAuthoredImpression && authoredChoice) assertJourneyChoiceAvailable(cycle,authoredChoice.id,authoredChoice.options[0]!.id);
+      const event = existingEvent ?? recordChoiceEvent(eventInput);
+
       if (!isCanonicalMathEvidence && event.context === "homework_required" && event.eventName === "activity_completed") {
         void interpretDirectExperienceOutcome(event).catch((error: unknown) => {
           console.warn(
@@ -1503,7 +1518,14 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
         });
       }
       let selectedRouteId: string | undefined;
-      if (routeCycle && routeExperiment && authorizedRoute) {
+      if (routeCycle && isAuthoredSelection && authoredChoice) {
+        const current = getLearningCycle(childId,routeCycle.homeworkId);
+        if (!current) throw new Error('choice_event_route_cycle_missing');
+        const updated = transitionLearningCycle(childId,current.homeworkId,current.revision,{
+          type:'journey_choice_selected',choiceId:authoredChoice.id,optionId:eventInput.selectedOptionId!,choiceEventId:event.choiceEventId,
+        });
+        selectedRouteId=updated.routeSelection?.selectedRouteId;
+      } else if (routeCycle && routeExperiment && authorizedRoute) {
             // Recording the engagement event can overlap a final board projection.
             // Reload the exact assignment before the canonical route transition so
             // its optimistic revision is current and another homework cannot win.
@@ -1529,6 +1551,7 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
               ` 🎮 [agency-route] [selected] child=${childId} route=${selectedRouteId ?? authorizedRoute.routeId} event=${event.choiceEventId}`,
             );
       }
+      const applied = isAuthoredImpression ? {applied:false,reason:"display_is_not_preference"} : await applyChoiceEventPreference(event);
       return res.json({
         ok: true,
         applied: applied.applied,

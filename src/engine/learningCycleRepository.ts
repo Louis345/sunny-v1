@@ -1,3 +1,6 @@
+import {journeyChoiceAvailable} from '../shared/adventureBoardDefinition';
+import type { BoardCanvasProof } from './adventureBoardCanvas';
+import { renderBoardDefinition, journeyFrontier, type AdventureBoardDefinition } from '../shared/adventureBoardDefinition';
 import fs from "fs";
 import path from "path";
 import { createHash } from "crypto";
@@ -354,6 +357,7 @@ export type LearningCycleAgencyExperiment = {
 };
 
 export type LearningCycleRouteSelection = {
+  choices?: Record<string,string>;
   experimentId: string;
   selectedRouteId: string;
   selectedAt: string;
@@ -401,6 +405,7 @@ export type LearningCycleRecordV2 = {
   routeSelection?: LearningCycleRouteSelection;
   /** Published immutable board instances (contract 21). Absent on legacy cycles. */
   boards?: LearningBoardInstance[];
+  canvasVerifications?: Record<string, BoardCanvasProof>;
   adaptiveGeneration?: {
     evaluationId: string;
     evaluationCompletedAt?: string;
@@ -429,6 +434,7 @@ export type CreateLearningCycleInput = Omit<
   academicPredictions?: AcademicPrediction[];
   assumptions?: LearningAssumption[];
   initialLifecycle?: LearningCycleLifecycle;
+  boardDefinition?: AdventureBoardDefinition;
 };
 
 /** Calibration authority requires sufficient evaluations linked to cited external facts. */
@@ -517,6 +523,7 @@ export function validateSpellingPrescription(value: unknown): SpellingInstrument
 
 /** One complete Planner-authored successor board program (contract 21). The Planner owns the count. */
 export type SuccessorProgram = {
+  boardDefinition?: AdventureBoardDefinition;
   instruments: NextInstrumentPrescription[];
   routeChoice?: { sharedNodeIds: string[]; routes: Array<{ routeId: string; nodeIds: string[] }> };
 };
@@ -546,6 +553,7 @@ export type LearningCycleEvent =
     }
   | {
       type: "targeted_board_revealed";
+      boardDefinition?: AdventureBoardDefinition;
       programHash: string;
       designHash: string;
       nodes: LearningCycleNodeContract[];
@@ -556,6 +564,7 @@ export type LearningCycleEvent =
     }
   | {
       type: "plan_reconciled";
+      boardDefinition?: AdventureBoardDefinition;
       assignment: LearningCycleRecordV2["assignment"];
       academicTheory: LearningCycleAcademicTheory;
       engagementTheory: EngagementTheory | null;
@@ -565,6 +574,7 @@ export type LearningCycleEvent =
       agencyExperiment?: LearningCycleAgencyExperiment;
       reason: string;
     }
+  | { type:"journey_choice_selected"; choiceId:string; optionId:string; choiceEventId:string }
   | {
       type: "route_selected";
       experimentId: string;
@@ -573,6 +583,7 @@ export type LearningCycleEvent =
     }
   | ({ type: "instrument_observed"; observations: LearningObservation[]; completed?: boolean } & OutcomeEvidence)
   | { type: "prediction_evaluations_recorded"; evaluations: PredictionEvaluation[] }
+  | { type: "board_canvas_verified"; boardId: string; proof: BoardCanvasProof }
   | { type: "artifact_bound"; nodeId: string; artifact: LearningCycleArtifactBinding }
   | { type: "artifact_rejected"; nodeId: string; reason: string }
   | { type: "artifact_generation_attention_required"; nodeId: string; reason: string }
@@ -746,7 +757,36 @@ function agencyNodeIds(experiment: LearningCycleAgencyExperiment): Set<string> {
   ]);
 }
 
+export function canonicalJourneyFrontier(cycle:LearningCycleRecordV2) {
+  const definition = currentBoardInstance(cycle).definition;
+  return definition ? journeyFrontier(definition,cycle.routeSelection?.choices ?? {},cycle.nodes.filter(node=>node.state==='completed').map(node=>node.nodeId)) : undefined;
+}
+
+/** Undefined is the read-only legacy navigation contract, never permission. */
+export function canonicalJourneyLaunchable(cycle:LearningCycleRecordV2, nodeId:string):boolean | undefined {
+  if (currentBoardInstance(cycle).publishedAt === null) return false;
+  const frontier = canonicalJourneyFrontier(cycle);
+  if (!frontier) return undefined;
+  const node = cycle.nodes.find(node=>node.nodeId===nodeId);
+  return Boolean(node && currentBoardInstance(cycle).nodeIds.includes(nodeId) && node.artifactBinding?.validationStatus === 'passed'
+    && ['ready','active','completed'].includes(node.state) && (node.state==='completed' || (!BATCH_CLOSED_LIFECYCLES.has(cycle.lifecycle) && frontier.activityNodeId===nodeId)));
+}
+
+export function assertJourneyChoiceAvailable(cycle:LearningCycleRecordV2,choiceId:string,optionId:string):void {
+  const board=currentBoardInstance(cycle);
+  const definition=board.definition;
+  if(!definition)throw new Error('board_definition_missing');
+  if(board.publishedAt === null)throw new Error('learning_board_not_published');
+  if(BATCH_CLOSED_LIFECYCLES.has(cycle.lifecycle))throw new Error('learning_board_batch_closed');
+  if(cycle.nodes.some(node=>board.nodeIds.includes(node.nodeId)&&node.state==='active'))throw new Error('journey_choice_activity_in_progress');
+  const selections=cycle.routeSelection?.choices??{};
+  const completed=cycle.nodes.filter(node=>node.state==='completed').map(node=>node.nodeId);
+  journeyFrontier(definition,{...selections,[choiceId]:optionId},completed);
+  if(!journeyChoiceAvailable(definition,selections,completed,choiceId))throw new Error('journey_choice_not_reached');
+}
+
 function normalizeAgencyNodeStates(cycle: LearningCycleRecordV2): void {
+  if (currentBoardInstance(cycle).definition) return; // Artifact state is not navigation state.
   const experiment = cycle.agencyExperiment;
   if (!experiment) return;
   const knownIds = agencyNodeIds(experiment);
@@ -805,12 +845,12 @@ export function createLearningCycle(
     fs.renameSync(file, backup);
   }
   const at = nowIso(opts);
-  const { initialLifecycle, ...recordInput } = input;
+  const { initialLifecycle, boardDefinition: _definition, ...recordInput } = input;
   const cycle: LearningCycleRecordV2 = {
     schemaVersion: 2,
     revision: 1,
     ...recordInput,
-    lifecycle: initialLifecycle ?? "baseline_ready",
+    lifecycle: recordInput.boards?.length === 1 && recordInput.boards[0].publishedAt === null ? "board_generating" : initialLifecycle ?? "baseline_ready",
     evidence: { academic: [], engagement: [], companionObservations: [] },
     decisionHistory: [],
     evidenceSources: [],
@@ -1044,6 +1084,8 @@ function appendObservations(cycle: LearningCycleRecordV2, observations: Learning
 }
 
 function baselineFrontierComplete(cycle: LearningCycleRecordV2, completed: LearningCycleNodeContract): boolean {
+  const authored = canonicalJourneyFrontier(cycle);
+  if (authored) return authored.complete;
   if (cycle.agencyExperiment) {
     const selectedRoute = cycle.agencyExperiment.routes.find(
       (route) => route.routeId === cycle.routeSelection?.selectedRouteId,
@@ -1133,6 +1175,7 @@ function prepareSuccessorBoard(
   input: { plannerDecisionId: string; evidenceIds: string[]; reason: string; at: string },
 ): LearningBoardInstance {
   const boards = boardsForWrite(next);
+  if(boards.some(board=>board.publishedAt===null))throw new Error("learning_board_successor_already_preparing");
   next.boards = boards;
   const prefix = `${next.homeworkId}:b${boards.length + 1}`;
   const idFor = new Map(program.instruments.map((row) => [row.nodeId, `${prefix}:${slugId(row.nodeId)}`]));
@@ -1198,16 +1241,9 @@ function prepareSuccessorBoard(
       evidenceIds: [],
     };
   });
-  const route = program.routeChoice;
-  const agencyExperiment = route ? {
-    experimentId: `${prefix}:agency`,
-    sharedNodeIds: mapIds(route.sharedNodeIds),
-    routes: route.routes.map((entry) => ({ routeId: entry.routeId, nodeIds: mapIds(entry.nodeIds) })),
-  } : undefined;
-  for (const node of nodes) {
-    const owners = agencyExperiment?.routes.filter((entry) => entry.nodeIds.includes(node.nodeId)) ?? [];
-    if (owners.length === 1) node.routeId = owners[0]!.routeId;
-  }
+  if (!program.boardDefinition) throw new Error('board_definition_missing:successor');
+  const definition = structuredClone(program.boardDefinition);
+  definition.portals = definition.portals.map(portal => portal.activityNodeId ? {...portal,activityNodeId:mapIds([portal.activityNodeId])[0]} : portal);
   next.nodes.push(...nodes);
   const board = publishBoardInstance(next, {
     kind: "successor",
@@ -1215,7 +1251,7 @@ function prepareSuccessorBoard(
     plannerDecisionId: input.plannerDecisionId,
     evidenceIds: input.evidenceIds,
     nodeIds: nodes.map((node) => node.nodeId),
-    ...(agencyExperiment ? { agencyExperiment } : {}),
+    definition,
     publishedAt: null,
   });
   next.boards = [...boards, board];
@@ -1227,7 +1263,8 @@ function publishPreparedBoardIfComplete(next: LearningCycleRecordV2, at: string)
   const board = preparingBoardInstance(next);
   if (!board) return undefined;
   const nodes = next.nodes.filter((node) => board.nodeIds.includes(node.nodeId));
-  if (nodes.some((node) => node.state === "generating" || node.state === "blocked")) return undefined;
+  if (nodes.some((node) => node.state === "generating" || node.state === "blocked" || node.artifactBinding?.validationStatus !== "passed")) return undefined;
+  if (board.definition && next.canvasVerifications?.[board.boardId]?.definitionHash !== createHash('sha256').update(JSON.stringify(board.definition)).digest('hex')) return undefined;
   next.boards = next.boards!.map((candidate) => candidate.boardId === board.boardId ? { ...candidate, publishedAt: at } : candidate);
   next.agencyExperiment = board.agencyExperiment ? structuredClone(board.agencyExperiment) : undefined;
   next.routeSelection = undefined;
@@ -1260,7 +1297,8 @@ export function transitionLearningCycle(
 
   if (event.type === "evaluation_started") {
     const evaluation = nodeOrThrow(next, event.evaluationId, "evaluation");
-    if (current.lifecycle !== "evaluation_ready") throw new Error("learning_cycle_evaluation_not_ready");
+    if (current.lifecycle !== "evaluation_ready" && current.lifecycle !== "evaluation_active") throw new Error("learning_cycle_evaluation_not_ready");
+    if (canonicalJourneyLaunchable(next,evaluation.nodeId) === false) throw new Error("learning_cycle_node_not_launchable");
     evaluation.state = "active";
     next.lifecycle = "evaluation_active";
     next.adaptiveGeneration = { evaluationId: event.evaluationId };
@@ -1270,6 +1308,7 @@ export function transitionLearningCycle(
     if (current.lifecycle !== "evaluation_active" && current.lifecycle !== "evaluation_ready") {
       throw new Error("learning_cycle_evaluation_not_active");
     }
+    if (canonicalJourneyLaunchable(next,evaluation.nodeId) === false) throw new Error("learning_cycle_node_not_launchable");
     if (evaluation.state === "ready") evaluation.state = "active";
     evidenceIds = appendOutcomeEvidence(next, event);
     appendObservations(next, event.observations);
@@ -1289,7 +1328,7 @@ export function transitionLearningCycle(
       .filter((observation) => observation.sourceId === `evaluation:${event.evaluationId}`)
       .map((observation) => observation.observationId);
     evaluation.evidenceIds = [...new Set([...evaluation.evidenceIds, ...evidenceIds])];
-    const allEvaluationNodesComplete = next.nodes
+    const allEvaluationNodesComplete = canonicalJourneyFrontier(next)?.complete ?? next.nodes
       .filter((node) => node.role === "evaluation")
       .every((node) => node.state === "completed");
     next.lifecycle = allEvaluationNodesComplete ? "evidence_ready" : "evaluation_active";
@@ -1317,23 +1356,19 @@ export function transitionLearningCycle(
   } else if (event.type === "targeted_board_revealed") {
     if (current.lifecycle !== "board_designing") throw new Error("learning_cycle_board_design_not_ready");
     const completedEvaluations = next.nodes.filter((node) => node.role === "evaluation");
-    if (!completedEvaluations.length || completedEvaluations.some((node) => node.state !== "completed")) {
+    if (!completedEvaluations.length || !(canonicalJourneyFrontier(next)?.complete ?? completedEvaluations.every((node) => node.state === "completed"))) {
       throw new Error("learning_cycle_completed_evaluation_missing");
     }
     next.boards = boardsForWrite(next);
-    // Unauthorized encounters are absent, never placeholders (contract 21).
-    const teachingNodes = event.nodes
-      .filter((node) => node.role !== "quest" && node.role !== "boss")
-      .map((node) => ({ ...structuredClone(node), state: node.role === "baseline" ? "generating" as const : node.state, artifactBinding: null }));
-    if (teachingNodes.length !== event.nodes.length) {
-      console.log(` 🎮 [learning-board] [teaching-placeholders] [dropped] count=${event.nodes.length - teachingNodes.length}`);
-    }
+    if(event.nodes.some(node=>node.role==='quest'||node.role==='boss'))throw new Error('planner_encounter_not_authorized');
+    const teachingNodes = event.nodes.map(node=>({...structuredClone(node),state:'generating' as const,artifactBinding:null}));
     next.nodes = [...next.nodes, ...teachingNodes];
     next.academicTheory = structuredClone(event.academicTheory);
     next.academicPredictions = structuredClone(event.academicPredictions);
     next.assumptions = structuredClone(event.assumptions);
     next.boards = [...next.boards, publishBoardInstance(next, {
       kind: "teaching",
+      ...(event.boardDefinition ? {definition:event.boardDefinition}:{}),
       predecessorBoardId: currentBoardInstance(next).boardId,
       plannerDecisionId: `${next.homeworkId}:decision:r${current.revision + 1}`,
       evidenceIds: next.observations.map((observation) => observation.observationId),
@@ -1350,6 +1385,8 @@ export function transitionLearningCycle(
     reason = "The coherent targeted map is frozen; it publishes once every node artifact is verified.";
     evidenceIds = next.observations.map((observation) => observation.observationId);
   } else if (event.type === "plan_reconciled") {
+    if (event.boardDefinition && !current.boards?.some(board=>board.definition)) throw new Error('historical_board_replacement_requires_new_instance');
+    if (event.boardDefinition && JSON.stringify(event.boardDefinition)!==JSON.stringify(preparingBoardInstance(current)?.definition??currentBoardInstance(current).definition)) throw new Error('learning_board_definition_reconciliation_forbidden');
     const adaptiveDiscoveryCycle = Boolean(next.adaptiveGeneration)
       || next.nodes.some((node) => node.role === "evaluation");
     const previousById = new Map(next.nodes.map((node) => [node.nodeId, node]));
@@ -1395,6 +1432,18 @@ export function transitionLearningCycle(
       normalizeAgencyNodeStates(next);
     }
     reason = event.reason;
+  } else if (event.type === "journey_choice_selected") {
+    assertJourneyChoiceAvailable(current,event.choiceId,event.optionId);
+    const priorChoices = next.routeSelection?.choices ?? {};
+    const selections = {...priorChoices,[event.choiceId]:event.optionId};
+    const previousRouteId = next.routeSelection?.selectedRouteId;
+    const routeId = `${event.choiceId}=${event.optionId}`;
+    next.routeSelection = {choices:selections,experimentId:event.choiceId,selectedRouteId:routeId,selectedAt:at,choiceEventId:event.choiceEventId,
+      history:[...(next.routeSelection?.history ?? []),{routeId,selectedAt:at,choiceEventId:event.choiceEventId,...(previousRouteId ? {switchedFromRouteId:previousRouteId}: {})}]};
+    if (!['evaluation_ready','evaluation_active','quest_ready','quest_active','boss_ready'].includes(current.lifecycle)) next.lifecycle = 'baseline_active';
+    evidenceIds = [event.choiceEventId];
+    reason = `Child selected ${event.choiceId}: ${event.optionId}; completed instruments preserved.`;
+    console.log(` 🎮 [journey] [choice-selected] [${event.choiceId}:${event.optionId}]`);
   } else if (event.type === "route_selected") {
     if (BATCH_CLOSED_LIFECYCLES.has(current.lifecycle)) throw new Error(`learning_board_batch_closed:${event.routeId}`);
     const experiment = next.agencyExperiment;
@@ -1440,6 +1489,7 @@ export function transitionLearningCycle(
     if (owner && owner.publishedAt === null) throw new Error(`learning_board_not_published:${node.nodeId}`);
     if (owner && owner.boardId !== currentBoardInstance(next).boardId) throw new Error(`learning_board_read_only:${node.nodeId}`);
     const replay = node.state === "completed";
+    if (canonicalJourneyLaunchable(next,node.nodeId) === false) throw new Error(`learning_cycle_node_not_launchable:${node.nodeId}`);
     if (!replay && BATCH_CLOSED_LIFECYCLES.has(current.lifecycle)) throw new Error(`learning_board_batch_closed:${node.nodeId}`);
     if (node.role === "quest" || node.role === "boss") {
       if (!node.artifactBinding || node.artifactBinding.validationStatus !== "passed") {
@@ -1462,7 +1512,13 @@ export function transitionLearningCycle(
     const boardNodeIds = new Set(currentBoardInstance(next).nodeIds);
     const encounterBoard = Boolean(next.boards) && next.nodes.some((candidate) =>
       boardNodeIds.has(candidate.nodeId) && (candidate.role === "quest" || candidate.role === "boss"));
-    if (!replay && node.role === "baseline" && encounterBoard) {
+    const authored = canonicalJourneyFrontier(next);
+    if (!replay && authored) {
+      if (authored.complete) {
+        const completedRoles = next.nodes.filter(candidate=>boardNodeIds.has(candidate.nodeId)&&candidate.state==='completed').map(candidate=>candidate.role);
+        next.lifecycle = completedRoles.includes('boss') ? 'boss_evaluating' : completedRoles.includes('quest') ? 'quest_evaluating' : 'baseline_evaluating';
+      }
+    } else     if (!replay && node.role === "baseline" && encounterBoard) {
       // A Quest or Boss board closes its evidence batch on the encounter itself.
       normalizeAgencyNodeStates(next);
     } else if (!replay && node.role === "baseline") {
@@ -1486,6 +1542,13 @@ export function transitionLearningCycle(
     evidenceIds = fresh.flatMap((evaluation) => evaluation.observationIds);
     reason = `Recorded ${fresh.length} idempotent prediction evaluation${fresh.length === 1 ? "" : "s"}.`;
     nextAction = "Give the evaluations to the existing progression Planner.";
+  } else if (event.type === "board_canvas_verified") {
+    const board = next.boards?.find(candidate => candidate.boardId === event.boardId);
+    if (!board?.definition || event.proof.definitionHash !== createHash('sha256').update(JSON.stringify(board.definition)).digest('hex')) throw new Error('board_canvas_proof_mismatch');
+    if (!event.proof.rendererHash || !['1280x720','768x1024'].every(size => event.proof.viewports.includes(size)) || event.proof.screenshots.length < 2) throw new Error('board_canvas_proof_incomplete');
+    next.canvasVerifications = {...next.canvasVerifications, [board.boardId]: structuredClone(event.proof)};
+    publishPreparedBoardIfComplete(next, at);
+    reason = `Rendered canvas verified for ${board.boardId}.`;
   } else if (event.type === "artifact_bound") {
     const node = nodeOrThrow(next, event.nodeId);
     if (event.artifact.validationStatus !== "passed") throw new Error("learning_cycle_artifact_validation_failed");
@@ -1791,9 +1854,14 @@ export function projectLearningCycle(
   };
   const historicalDiscoveryId = cycle.adaptiveGeneration?.programHash && cycle.adaptiveGeneration.designHash
     ? cycle.nodes.find(node => node.role === "evaluation" && node.state === "completed")?.nodeId : undefined;
-  const adventureBoard = buildAdventureBoardFromActiveSessionPlan({
+  const adventureBoard = board.definition ? renderBoardDefinition(board.definition, {
+    boardId:board.boardId,planId,childId:cycle.childId,domain:cycle.domain,
+    activities:nodePlan.map(node => ({...node,verified:boardNodes.find(item => item.nodeId === node.id)?.artifactBinding?.validationStatus === "passed",wordRadarConfig:node.wordRadarConfig ? {...node.wordRadarConfig} : undefined,state:boardNodes.find(item => item.nodeId === node.id)?.state})),
+    selections:cycle.routeSelection?.choices,companion:{id:"elli",name:"Elli"},
+  }) : buildAdventureBoardFromActiveSessionPlan({
     plan: {
       ...activeSessionPlan,
+      adventureBoard: options.presentationPlan?.adventureBoard,
       nodePlan: nodePlan.filter(node => node.id !== historicalDiscoveryId),
       ...(experiment ? { learningRoutes: experiment.routes.map((route) => ({
         id: route.routeId, label: route.routeId, rationale: "Planner-authored route choice.", nodeIds: route.nodeIds,
@@ -1830,6 +1898,7 @@ export function projectLearningCycle(
     ? board.nodeIds.findIndex((nodeId) => cycleNodeById.get(nodeId)?.state !== "completed")
     : -1;
   adventureBoard.nodes = adventureBoard.nodes.map((node) => {
+    if (board.definition) return node;
     const canonicalNode = cycleNodeById.get(node.id);
     // An encounter's published successor is its authorization; ordinary route
     // sequencing must not introduce a second academic gate (contract 21).
@@ -1892,7 +1961,14 @@ export function projectLearningCycle(
         ? "locked" as const
         : edge.state,
   }));
+  if (board.definition) for (const node of activeSessionPlan.nodePlan) node.locked = canonicalJourneyLaunchable(cycle,node.id) !== true;
+  if (board.publishedAt === null) {
+    adventureBoard.nodes = [];
+    adventureBoard.edges = [];
+    adventureBoard.choiceSets = [];
+  }
   activeSessionPlan.adventureBoard = adventureBoard;
+  if (board.definition && board.publishedAt !== null) activeSessionPlan.boardDefinition = board.definition;
   const canonicalProjection: LearningCycleProjection = {
     activeSessionPlan,
     adventureBoard,
@@ -1909,7 +1985,7 @@ export function projectLearningCycle(
   };
 
   const presentationPlan = options.presentationPlan;
-  if (!presentationPlan || presentationPlan.activeHomeworkId !== cycle.homeworkId
+  if (board.definition || !presentationPlan || presentationPlan.activeHomeworkId !== cycle.homeworkId
     || !presentationPlan.nodePlan.some((node) => boardNodeIds.has(node.id) && !hiddenNodeIds.has(node.id))) {
     return canonicalProjection;
   }
@@ -2077,7 +2153,7 @@ export function assertLearningCycleProjectionWrite(
   if (!homeworkId) return;
   const cycle = getLearningCycle(childId, homeworkId, opts);
   if (!cycle) return;
-  const canonical = projectLearningCycle(cycle).activeSessionPlan;
+  const canonical = projectLearningCycle(cycle, {presentationPlan:plan}).activeSessionPlan;
   if (JSON.stringify(plan) === JSON.stringify(canonical)) return;
   const expected = projectLearningCycle(cycle, { presentationPlan: plan }).activeSessionPlan;
   if (JSON.stringify(plan) !== JSON.stringify(expected)) {

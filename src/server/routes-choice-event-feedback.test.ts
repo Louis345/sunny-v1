@@ -1,3 +1,4 @@
+import { authoredJourney } from '../scripts/fixtures/authoredJourney';
 import express from "express";
 import type { AddressInfo } from "net";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -52,7 +53,8 @@ vi.mock("../engine/canonicalProgressionGenerator", () => ({
   })),
 }));
 
-vi.mock("../engine/learningCycleRepository", () => ({
+vi.mock("../engine/learningCycleRepository", async (importOriginal) => ({
+  ...await importOriginal<typeof import("../engine/learningCycleRepository")>(),
   getLearningCycle: vi.fn(() => ({
     childId: "demo-pashley",
     homeworkId: "hw-math",
@@ -124,6 +126,30 @@ describe("choice-event route feedback lessons", () => {
     });
     return { status: res.status, body: await res.json() as Record<string, unknown> };
   }
+
+  it('commits a displayed authored choice without a duplicate legacy route experiment',async()=>{
+    const definition=authoredJourney();
+    mockedGetLearningCycle.mockReturnValue({childId:'demo-pashley',homeworkId:'hw-math',domain:'math',lifecycle:'baseline_active',revision:2,nodes:[],boards:[{definition,publishedAt:'now',nodeIds:['learn','play','check']}]} as never);
+    mockedTransitionLearningCycle.mockReturnValue({routeSelection:{selectedRouteId:'order=play'}} as never);
+    const response=await postChoiceEvent({homeworkId:'hw-math',domain:'math',context:'baseline_route',source:'child_choice',eventName:'option_selected',choiceSetId:'order',selectedOptionId:'play',skippedOptionIds:['learn'],shownOptions:definition.choices[0].options.map(option=>({optionId:option.id,label:option.label,activityId:'word-radar'}))});
+    expect(response.status).toBe(200);
+    expect(response.body.selectedRouteId).toBe('order=play');
+    expect(mockedTransitionLearningCycle).toHaveBeenCalledWith('demo-pashley','hw-math',2,expect.objectContaining({type:'journey_choice_selected',choiceId:'order',optionId:'play'}));
+  });
+  it.each(['impression','choice_dismissed'])('records %s without choosing a route or treating it as preference',async(eventName)=>{
+    const definition=authoredJourney();
+    mockedGetLearningCycle.mockReturnValue({childId:'demo-pashley',homeworkId:'hw-math',domain:'math',lifecycle:'baseline_active',revision:2,nodes:[],boards:[{definition,publishedAt:'now',nodeIds:['learn','play','check']}]} as never);
+    const response=await postChoiceEvent({homeworkId:'hw-math',domain:'math',context:'baseline_route',source:'child_choice',eventName,choiceSetId:'order',selectedOptionId:null,skippedOptionIds:[],shownOptions:definition.choices[0].options.map(option=>({optionId:option.id,label:option.label,activityId:'word-radar'}))});
+    expect(response.status).toBe(200);
+    expect(recordChoiceEvent).toHaveBeenCalledWith(expect.objectContaining({eventName,selectedOptionId:null}));
+    expect(mockedTransitionLearningCycle).not.toHaveBeenCalled();
+  });
+  it('rejects invented options before recording engagement',async()=>{
+    mockedGetLearningCycle.mockReturnValue({childId:'demo-pashley',homeworkId:'hw-math',domain:'math',lifecycle:'baseline_active',revision:2,nodes:[],boards:[{definition:authoredJourney(),publishedAt:'now',nodeIds:[]}]} as never);
+    const response=await postChoiceEvent({homeworkId:'hw-math',context:'baseline_route',source:'child_choice',eventName:'option_selected',choiceSetId:'order',selectedOptionId:'invented',shownOptions:[{optionId:'invented',label:'wrong',activityId:'word-radar'}]});
+    expect(response.status).toBe(409);
+    expect(recordChoiceEvent).not.toHaveBeenCalled();
+  });
 
   async function postNodeCompletion(sessionId: string | null = "session-1") {
     const app = express();

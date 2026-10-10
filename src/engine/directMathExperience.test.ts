@@ -1,3 +1,4 @@
+import {choiceJourneyFixture,linearJourneyFixture} from '../scripts/fixtures/authoredJourney';
 import fs from "node:fs";
 import {assignmentSourceFileHash} from "./assignmentSourceExtraction";
 import os from "node:os";
@@ -8,7 +9,6 @@ import {
   MATH_LEARNING_PROGRAM_TOOL_SCHEMA,
   askMathExperienceDesigner,
   askDirectMathPlanner,
-  boardPosition,
   buildDirectActiveSessionPlan,
   buildDirectActivityCreatorPrompt,
   buildDirectActivityRepairPrompt,
@@ -25,7 +25,6 @@ import {
   parseDirectLearningExperiencePlan,
   parseMathLearningProgram,
   persistDirectExperience,
-  routeNodePosition,
   shouldReuseDirectArtifact,
   normalizeGeneratedHtml,
   mathAcademicContractHash,
@@ -178,7 +177,7 @@ describe("math publication assumption ledger", () => {
   }
 
 
-  it("keeps every publication write inside the selected context root", () => {
+  it("keeps every publication write inside the selected context root", async () => {
     const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-context-boundary-"));
     const isolated = path.join(rootDir, "isolated-context");
     const sourceChild = path.join(rootDir, "src/context/reina");
@@ -189,7 +188,7 @@ describe("math publication assumption ledger", () => {
     vi.stubEnv("SUNNY_CONTEXT_ROOT", isolated);
     vi.stubEnv("SUNNY_ALLOW_REAL_CHILD_CONTEXT_ROOT", "true");
     try {
-      const published = persistDirectExperience(publicationInput(rootDir));
+      const published = await persistDirectExperience(publicationInput(rootDir));
       expect(published).toBe(path.join(isolated, "reina/homework/direct_experience_plan.json"));
       expect(fs.readdirSync(sourceChild)).toEqual(["learning_profile.json"]);
       expect(fs.readFileSync(path.join(sourceChild, "learning_profile.json"), "utf8")).toBe('{"source":"unchanged"}');
@@ -197,26 +196,48 @@ describe("math publication assumption ledger", () => {
     } finally { vi.unstubAllEnvs(); fs.rmSync(rootDir, { recursive: true, force: true }); }
   });
 
-it("refuses publication when the actual browser report failed", () => {
+it("refuses publication when the actual browser report failed", async () => {
   const rootDir=fs.mkdtempSync(path.join(os.tmpdir(), "sunny-publication-report-"));
   const input={...publicationInput(rootDir),report:{passed:false,failures:["completion_missing"],screenshots:[]}};
-  expect(()=>persistDirectExperience(input)).toThrow("direct_publication_browser_verification_required");
+  await expect(persistDirectExperience(input)).rejects.toThrow("direct_publication_browser_verification_required");
 });
 
-  it("creates the preregistered ledger only as part of successful publication", () => {
+  it("creates the preregistered ledger only as part of successful publication", async () => {
     const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-publish-ledger-"));
     const contextDir = path.join(rootDir, "src/context/reina");
     fs.mkdirSync(contextDir, { recursive: true });
     fs.writeFileSync(path.join(contextDir, "learning_profile.json"), '{"aiContentCatalog":[]}\n');
 
-    persistDirectExperience(publicationInput(rootDir));
+    await persistDirectExperience(publicationInput(rootDir));
 
     const ledgers = fs.readdirSync(path.join(contextDir, "assumptions"));
     expect(ledgers).toHaveLength(1);
     expect(ledgers[0]).toMatch(/hw-math-ledger-pre\.md$/);
   });
 
-  it("publishes Math candidates into the shared catalog without removing Spelling", () => {
+  it("resumes canvas publication of the same saved initial board", async () => {
+    const rootDir=fs.mkdtempSync(path.join(os.tmpdir(),"sunny-direct-resume-"));
+    try {
+      const input=publicationInput(rootDir);
+      const contextDir=path.join(rootDir,"src/context/reina");
+      fs.mkdirSync(contextDir,{recursive:true});
+      fs.writeFileSync(path.join(contextDir,"learning_profile.json"),'{"aiContentCatalog":[]}');
+      await persistDirectExperience(input);
+      const file=path.join(contextDir,"homework/cycles/hw-math-ledger.json");
+      const saved=JSON.parse(fs.readFileSync(file,"utf8"));
+      saved.boards[0].publishedAt=null;
+      delete saved.canvasVerifications;
+      fs.writeFileSync(file,JSON.stringify(saved));
+      await persistDirectExperience(input);
+      const resumed=JSON.parse(fs.readFileSync(file,"utf8"));
+      expect(resumed.boards[0].publishedAt).not.toBeNull();
+      expect(resumed.boards[0].definition).toEqual(saved.boards[0].definition);
+      expect(resumed.observations).toEqual(saved.observations);
+      expect(resumed.canvasVerifications[resumed.boards[0].boardId]).toBeDefined();
+    } finally { fs.rmSync(rootDir,{recursive:true,force:true}); }
+  });
+
+  it("publishes Math candidates into the shared catalog without removing Spelling", async () => {
     const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-publish-catalog-"));
     const contextDir = path.join(rootDir, "src/context/reina");
     fs.mkdirSync(contextDir, { recursive: true });
@@ -239,20 +260,20 @@ it("refuses publication when the actual browser report failed", () => {
     fs.writeFileSync(path.join(contextDir, "learning_profile.json"), `${JSON.stringify({ aiContentCatalog: [spelling] })}\n`);
     fs.writeFileSync(path.join(contextDir, "content_catalog.json"), `${JSON.stringify({ version: 1, childId: "reina", items: [spelling] })}\n`);
 
-    persistDirectExperience(publicationInput(rootDir));
+    await persistDirectExperience(publicationInput(rootDir));
 
     const shared = JSON.parse(fs.readFileSync(path.join(contextDir, "content_catalog.json"), "utf8")) as { items: Array<{ contentId: string; domain?: string }> };
     expect(shared.items.some((item) => item.contentId === spelling.contentId)).toBe(true);
     expect(shared.items.filter((item) => item.domain === "math")).toHaveLength(2);
   });
 
-  it("rolls back the ledger when publication fails", () => {
+  it("rolls back the ledger when publication fails", async () => {
     const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-publish-rollback-"));
     const contextDir = path.join(rootDir, "src/context/reina");
     fs.mkdirSync(contextDir, { recursive: true });
     fs.writeFileSync(path.join(contextDir, "learning_profile.json"), "not json");
 
-    expect(() => persistDirectExperience(publicationInput(rootDir))).toThrow();
+    await expect(persistDirectExperience(publicationInput(rootDir))).rejects.toThrow();
     const assumptionsDir = path.join(contextDir, "assumptions");
     expect(fs.existsSync(assumptionsDir) ? fs.readdirSync(assumptionsDir) : []).toEqual([]);
   });
@@ -311,6 +332,7 @@ function plan(activityCount = 3): any {
   return {
     planId: "direct-plan-1",
     title: "Multiplication Adventure",
+    boardDefinition:activityCount>1?choiceJourneyFixture(["route-a","route-b"].map(id=>({id,label:id,nodeIds:activities.filter(a=>a.routeId===id).map(a=>a.id)}))):linearJourneyFixture(activities.map(a=>a.id)),
     contentScopeRationale: "Three focused instruments are sufficient to teach and observe this assignment without duplicating work.",
     concept: {
       conceptId: "multiplication_as_equal_groups",
@@ -348,6 +370,7 @@ function learningProgram(activityCount = 3): any {
   const legacy = plan(activityCount);
   return {
     planId: legacy.planId,
+    boardDefinition:legacy.boardDefinition,
     contentScopeRationale: legacy.contentScopeRationale,
     concept: {
       conceptId: legacy.concept.conceptId,
@@ -956,7 +979,7 @@ describe("direct math experience", () => {
     expect(prompt).toContain("Do not redesign");
   });
 
-  it("blocks an invalid Planner response without starting an AI repair loop", async () => {
+  it("bounds correction of a journey referencing an empty activity inventory", async () => {
     const validPlan = learningProgram(4);
     const create = vi.fn().mockResolvedValue({
       content: [{ type: "tool_use", name: "create_math_learning_program", input: { ...validPlan, activities: [] } }],
@@ -970,8 +993,46 @@ describe("direct math experience", () => {
       } as never,
       extraction: { fullText: "Multiplication assignment" } as never,
       client: { messages: { create, stream: streamOf(create) } } as never,
-    })).rejects.toThrow("math_learning_program_requires_activities");
-    expect(create).toHaveBeenCalledTimes(1);
+    })).rejects.toThrow("board_definition_invalid");
+    expect(create).toHaveBeenCalledTimes(2);
+  });
+
+  it("corrects an invalid authored reference once and preserves provider identities on both receipts", async () => {
+    const invalid = learningProgram(2);
+    invalid.boardDefinition.portals.find((portal: {activityNodeId?:string}) => portal.activityNodeId)!.activityNodeId = "unknown-activity";
+    const corrected = learningProgram(2);
+    const create = vi.fn()
+      .mockResolvedValueOnce({ id:"msg-original", _request_id:"request-original", stop_reason:"tool_use", content:[{type:"tool_use",name:"create_math_learning_program",input:invalid}] })
+      .mockResolvedValueOnce({ id:"msg-corrected", _request_id:"request-corrected", stop_reason:"tool_use", content:[{type:"tool_use",name:"create_math_learning_program",input:corrected}] });
+    const dir=fs.mkdtempSync(path.join(os.tmpdir(),"sunny-journey-correction-"));
+    const rawResponseFile=path.join(dir,"response.json");
+    try {
+      const result=await askDirectMathPlanner({childId:"reina",chart:{identity:{},demographics:{},engagementTheory:null,factBankSummary:{},learningProfile:{rewardPreferences:[],sessionStats:{},activityModel:{},activityTraitModel:{}},decisionTrace:{latest:null}} as never,extraction:{fullText:"Multiplication"} as never,client:{messages:{create,stream:streamOf(create)}} as never,rawResponseFile});
+      expect(result.boardDefinition).toEqual(corrected.boardDefinition);
+      const resumed=await askDirectMathPlanner({childId:"reina",chart:{identity:{},demographics:{},engagementTheory:null,factBankSummary:{},learningProfile:{rewardPreferences:[],sessionStats:{},activityModel:{},activityTraitModel:{}},decisionTrace:{latest:null}} as never,extraction:{fullText:"Multiplication"} as never,client:{messages:{create,stream:streamOf(create)}} as never,rawResponseFile});
+      expect(resumed).toEqual(result);
+      expect(create).toHaveBeenCalledTimes(2);
+      expect(JSON.parse(fs.readFileSync(rawResponseFile,"utf8"))).toMatchObject({id:"msg-original",_request_id:"request-original"});
+      expect(JSON.parse(fs.readFileSync(rawResponseFile.replace(/\.json$/,"-correction.json"),"utf8"))).toMatchObject({id:"msg-corrected",_request_id:"request-corrected"});
+    } finally { fs.rmSync(dir,{recursive:true,force:true}); }
+  });
+
+  it("corrects overlapping authored portals before freezing a math program", async () => {
+    const invalid = learningProgram(2);
+    invalid.boardDefinition.portals[1].position=structuredClone(invalid.boardDefinition.portals[0].position);
+    const corrected = learningProgram(2);
+    const create = vi.fn()
+      .mockResolvedValueOnce({ id:"msg-original", _request_id:"request-original", stop_reason:"tool_use", content:[{type:"tool_use",name:"create_math_learning_program",input:invalid}] })
+      .mockResolvedValueOnce({ id:"msg-corrected", _request_id:"request-corrected", stop_reason:"tool_use", content:[{type:"tool_use",name:"create_math_learning_program",input:corrected}] });
+    const dir=fs.mkdtempSync(path.join(os.tmpdir(),"sunny-journey-correction-"));
+    const rawResponseFile=path.join(dir,"response.json");
+    try {
+      const result=await askDirectMathPlanner({childId:"reina",chart:{identity:{},demographics:{},engagementTheory:null,factBankSummary:{},learningProfile:{rewardPreferences:[],sessionStats:{},activityModel:{},activityTraitModel:{}},decisionTrace:{latest:null}} as never,extraction:{fullText:"Multiplication"} as never,client:{messages:{create,stream:streamOf(create)}} as never,rawResponseFile});
+      expect(result.boardDefinition).toEqual(corrected.boardDefinition);
+      expect(create).toHaveBeenCalledTimes(2);
+      expect(JSON.parse(fs.readFileSync(rawResponseFile,"utf8"))).toMatchObject({id:"msg-original",_request_id:"request-original"});
+      expect(JSON.parse(fs.readFileSync(rawResponseFile.replace(/\.json$/,"-correction.json"),"utf8"))).toMatchObject({id:"msg-corrected",_request_id:"request-corrected"});
+    } finally { fs.rmSync(dir,{recursive:true,force:true}); }
   });
 
   it("gives the same Planner one bounded correction for a factual clock contradiction", async () => {
@@ -1019,7 +1080,7 @@ describe("direct math experience", () => {
       purpose: "bonus",
     }));
     expect(() => parseMathLearningProgram(bonusOnly)).toThrow(
-      "math_learning_program_requires_baseline_activities",
+      "board_definition_invalid",
     );
   });
 
@@ -1150,8 +1211,8 @@ describe("direct math experience", () => {
   it("requires coherent learning responsibilities without fixing the activity count", () => {
     const source = fs.readFileSync(path.join(process.cwd(), "src/engine/directMathExperience.ts"), "utf8");
     expect(source).toContain("Prescribe the smallest coherent learning program");
-    expect(source).toContain("Choose any educationally sufficient activity and item counts");
-    expect(source).toContain("Distribute responsibilities across the whole board");
+    expect(source).toContain("Choose educationally sufficient activity and item counts");
+    expect(source).toContain("Distribute responsibilities across the journey");
     expect(source).not.toContain("Generate exactly four activities");
     expect(source).not.toContain("Both routes must cover every declared responsibility");
     expect(source).not.toContain("for every responsibility on each route");
@@ -1702,7 +1763,7 @@ describe("direct math experience", () => {
     expect(parsed.fork.routes[0]!.nodeIds).toEqual(["activity-1", "activity-3"]);
   });
 
-  it("preserves Planner-authored shared foundation nodes outside both agency routes", () => {
+  it("keeps authored paths authoritative when the inventory has a contradictory route alias", () => {
     const program = learningProgram(5);
     program.activities[0].routeId = "shared";
     // Simulate the exact provider inconsistency caught by the coin ingestion:
@@ -1712,7 +1773,8 @@ describe("direct math experience", () => {
     const parsed = parseMathLearningProgram(program);
 
     expect(parsed.activities[0]).toMatchObject({ id: program.activities[0].id, routeId: "shared" });
-    expect(parsed.fork.routes.flatMap((route) => route.nodeIds)).not.toContain(program.activities[0].id);
+    expect(parsed.boardDefinition).toEqual(program.boardDefinition);
+    expect(parsed.fork.routes[0].nodeIds).toContain(program.activities[0].id);
   });
 
   it("keeps legacy middlemen out of the direct ingestion entry point", () => {
@@ -1847,7 +1909,7 @@ describe("direct math experience", () => {
       "You own only the educational prescription",
       "Teach the concept the teacher is targeting rather than copying",
       "reuse, revise, generate_new, or retire",
-      "A separate Experience Creator owns those choices",
+      "The existing Experience Creator implements activity worlds",
       "You own the complete creative design",
     ]) expect(source).toContain(required);
     expect(source).toContain("Keep initial nodes practice_only");
@@ -1879,13 +1941,7 @@ describe("direct math experience", () => {
     expect(source).not.toContain('args.homeworkDomain === "math"');
   });
 
-  it("writes board coordinates in the renderer's normalized 0-to-1 space", () => {
-    expect(boardPosition(8, 78)).toEqual({ x: 0.08, y: 0.78 });
-    expect(routeNodePosition(0, 4, 0).x).toBeLessThan(routeNodePosition(3, 4, 0).x);
-    expect(routeNodePosition(3, 4, 0).x).toBeLessThan(0.82);
-  });
-
-  it("keeps the shared learning path and choice gate visually separated", () => {
+  it("preserves authored labels and positions without inferring slots from inventory aliases", () => {
     const rawPlan = plan(4);
     rawPlan.activities[0].title = "The Tide Pool Test";
     rawPlan.activities[1].title = "The Lighthouse Lens: Secret of the Shifting Slice";
@@ -1916,20 +1972,11 @@ describe("direct math experience", () => {
       backgroundUrl: "/generated/background.jpeg",
       report: { passed: true, failures: [], screenshots: [] },
     }).adventureBoard!;
-    const sharedPath = ["start", "activity-1", "activity-2", "choose-path"]
-      .map((id) => board.nodes.find((node) => node.id === id)!);
-
-    for (let index = 1; index < sharedPath.length; index += 1) {
-      const previous = sharedPath[index - 1]!.position!;
-      const current = sharedPath[index]!.position!;
-      expect(Math.hypot(current.x - previous.x, current.y - previous.y)).toBeGreaterThanOrEqual(0.15);
-    }
-    expect(sharedPath[1]!.shortLabel).toBe("The Tide Pool Test");
-    expect(sharedPath[2]!.shortLabel).toBe("The Lighthouse Lens");
-    expect(sharedPath[3]!.shortLabel).toBe("Choose Path");
+    expect(board.nodes.map(node=>({id:node.id,label:node.label,position:node.position}))).toEqual(parsed.boardDefinition!.portals.map(portal=>({id:portal.id,label:portal.label,position:portal.position.landscape})));
+    expect(board.edges.map(edge=>[edge.from,edge.to])).toEqual(parsed.boardDefinition!.edges.map(edge=>[edge.from,edge.to]));
   });
 
-  it("publishes a gated exclusive route choice with opening previews", () => {
+  it("publishes the authored choice rather than inferring another fork from legacy route fields", () => {
     const rawPlan = plan(4);
     rawPlan.fork.question = "A long AI-authored explanation that should not become the child-facing heading";
     rawPlan.fork.routes[0]!.promise = "Build fair shares with your own hands — no clock, only sharp eyes, and a wax seal when the cut is true.";
@@ -1972,22 +2019,9 @@ describe("direct math experience", () => {
     });
     const board = session.adventureBoard!;
 
-    expect(board.layout?.routeChoiceBehavior).toBe("exclusive");
-    expect(board.choiceSets?.[0]?.title).toBe("Choose your path");
-    expect(board.choiceSets?.[0]?.options.every((option) => option.state === "locked")).toBe(true);
-    expect(board.choiceSets?.[0]?.options.map((option) => option.thumbnailUrl)).toEqual([
-      "/generated/direct-math/hw-math-choice-previews/activity-3-opening.png",
-      "/generated/direct-math/hw-math-choice-previews/activity-4-opening.png",
-    ]);
-    expect(board.choiceSets?.[0]?.options.map((option) => option.description)).toEqual([
-      "Cut the chart into fair shares.",
-      "Spot the bigger fair slice.",
-    ]);
-    expect(board.nodes.find((node) => node.id === "activity-1")?.state).toBe("current");
-    expect(board.nodes.find((node) => node.id === "activity-2")?.state).toBe("locked");
-    expect(board.nodes.find((node) => node.id === "choose-path")?.state).toBe("locked");
-    expect(board.nodes.find((node) => node.id === "activity-3")?.state).toBe("locked");
-    expect(session.nodePlan.find((node) => node.id === "activity-3")?.locked).toBe(true);
+    expect(board.definition).toEqual(parsed.boardDefinition);
+    expect(board.choiceSets?.[0]?.options.map(option=>option.label)).toEqual(parsed.boardDefinition!.choices[0].options.map(option=>option.label));
+    expect(board.nodes.filter(node=>node.activityNodeId).map(node=>node.activityNodeId).sort()).toEqual(parsed.activities.map(activity=>activity.id).sort());
   });
 
   it("uses dedicated board thumbnails instead of shrinking opening screenshots", () => {
@@ -2019,7 +2053,7 @@ describe("direct math experience", () => {
     });
 
     expect(session.nodePlan[0]?.thumbnailUrl).toBe("/generated/activity-1-thumbnail.jpeg");
-    expect(session.adventureBoard?.nodes.find((node) => node.id === "activity-1")?.thumbnailUrl)
+    expect(session.adventureBoard?.nodes.find((node) => node.activityNodeId === "activity-1")?.thumbnailUrl)
       .toBe("/generated/activity-1-thumbnail.jpeg");
   });
 
@@ -2062,4 +2096,9 @@ it("preserves explicit prediction eligibility through the Planner parser", () =>
   const input = learningProgram(2);
   input.activities[0].academicPrediction.eligibility = { sources: ["independent_probe", "graded_work"], maxDelayDays: 7 };
   expect(parseMathLearningProgram(input).activities[0].academicPrediction.eligibility).toEqual(input.activities[0].academicPrediction.eligibility);
+});
+
+it('preserves the authored journey when reading a saved direct experience',()=>{
+ const authored=plan(2);
+ expect(parseDirectLearningExperiencePlan(authored).boardDefinition).toEqual(authored.boardDefinition);
 });

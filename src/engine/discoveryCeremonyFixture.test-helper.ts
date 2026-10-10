@@ -1,3 +1,4 @@
+import {linearJourneyFixture} from "../scripts/fixtures/authoredJourney";
 /**
  * Test-only Discovery fixture reproducing the September 23 incident shape:
  * an evidence-free opening ceremony, a later Continue interstitial, and
@@ -24,6 +25,7 @@ export function discoveryFixtureAcademic() {
   });
   return {
     evaluationId: "eval-fixture",
+    boardDefinition: linearJourneyFixture(["probe-market-baskets"]),
     title: "Market Baskets",
     assignmentEvidenceIds: ["assignment:fixture"],
     constructs: [{ constructId: "math.multiplication.equal_groups", prerequisiteIds: [] }],

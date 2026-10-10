@@ -1,9 +1,11 @@
+import {linearJourneyFixture,choiceJourneyFixture} from '../scripts/fixtures/authoredJourney';
 import fs from "fs";
 import os from "os";
 import path from "path";
 import { describe, expect, it } from "vitest";
 import { buildSpellingRecallItems, buildSpellingTargetedCycleInput } from "./learningCycleIngest";
 import type { ActiveSessionPlan } from "../context/schemas/learningProfile";
+import {withInitialBoard} from "./learningBoardInstances";
 import { createLearningCycle, projectLearningCycle, type LearningCycleRecordV2 } from "./learningCycleRepository";
 import { attachSpellingDiscoveryEvidence, buildAssignmentPlannerPrompt, SPELLING_TUTOR_PERSONA } from "./assignmentPlanner";
 import { listActivityToolContracts } from "./activityToolCatalog";
@@ -11,7 +13,7 @@ import { listActivityToolContracts } from "./activityToolCatalog";
 function fixture() {
   const items = buildSpellingRecallItems({ homeworkId: "hw", words: ["night", "light"], evidenceIds: ["source"], measurementRole: "fresh_checkpoint" });
   const cycle = { childId: "lab", homeworkId: "hw", domain: "spelling", assignment: { title: "School words", contentFingerprint: "source", targets: ["night", "light"], capturedEvidenceIds: ["source"] }, observations: [{ observationId: "attempt-night", itemId: items[0].id }, { observationId: "attempt-light", itemId: items[1].id }], nodes: [{ role: "evaluation", evidenceContract: { spellingItems: Object.fromEntries(items.map(item => [item.id, item])) } }] } as unknown as LearningCycleRecordV2;
-  const plan = { planId: "targeted:hw", childId: "lab", domain: "spelling", activeHomeworkId: "hw", nodePlan: [{ id: "practice", type: "word-radar", activityId: "word-radar", targets: ["light"], title: "Practice" }, { id: "check", type: "word-radar", activityId: "word-radar", targets: ["night", "light"], title: "Check", wordRadarConfig: { recallMode: "hidden_word_recall", inputMode: "keyboard" } }], planTheory: { hypothesis: "Practice may improve the missed spelling.", supportCriteria: ["Recall improves"], reviseCriteria: ["Mixed"], falsifyCriteria: ["No change"] }, plannedMeasurements: [
+  const plan = { boardDefinition:linearJourneyFixture(["practice","check"]), planId: "targeted:hw", childId: "lab", domain: "spelling", activeHomeworkId: "hw", nodePlan: [{ id: "practice", type: "word-radar", activityId: "word-radar", targets: ["light"], title: "Practice" }, { id: "check", type: "word-radar", activityId: "word-radar", targets: ["night", "light"], title: "Check", wordRadarConfig: { recallMode: "hidden_word_recall", inputMode: "keyboard" } }], planTheory: { hypothesis: "Practice may improve the missed spelling.", supportCriteria: ["Recall improves"], reviseCriteria: ["Mixed"], falsifyCriteria: ["No change"] }, plannedMeasurements: [
     { id: "measure-practice", activityId: "word-radar", target: "light", evidenceType: "practice", supportCriteria: "Response captured", reviseCriteria: "Support needed", falsifyCriteria: "Instrument fails", spelling: { role: "practice", evidenceIds: ["attempt-light"], interventionNodeIds: [], reason: "Current gap", uncertainty: "One attempt", finalCheck: false, expectedAccuracy: { min: 0, max: 1 }, confidence: 0.5 } },
     { id: "measure-check", activityId: "word-radar", target: "both", evidenceType: "recall", supportCriteria: "Improvement", reviseCriteria: "Mixed", falsifyCriteria: "No change", spelling: { role: "fresh_checkpoint", evidenceIds: ["attempt-night", "attempt-light"], interventionNodeIds: ["practice"], reason: "Check both secure and targeted words", uncertainty: "Immediate performance only", finalCheck: true, expectedAccuracy: { min: 0.7, max: 1 }, confidence: 0.6 } },
   ] } as unknown as ActiveSessionPlan;
@@ -27,9 +29,7 @@ describe("evidence-cited spelling targeted programs", () => {
   it("leaves Quest and Boss under their existing evidence gates instead of building them with baseline practice", () => {
     const { cycle, plan } = fixture();
     plan.nodePlan.push({ id: "quest", type: "quest", activityId: "quest", targets: ["night"], difficulty: 1, source: "chart_planner" } as never);
-    const result = buildSpellingTargetedCycleInput({ cycle, plan, now: "2026-09-08T12:00:00Z" });
-    expect(result.nodes.find(node => node.nodeId === "quest")?.state).toBe("locked");
-    expect(result.academicPredictions).toHaveLength(2);
+    expect(()=>buildSpellingTargetedCycleInput({cycle,plan,now:"2026-09-08T12:00:00Z"})).toThrow("planner_encounter_not_authorized");
   });
   it("requires committed evidence and places facts and prior outcomes in the existing Planner packet", () => {
     const { cycle } = fixture();
@@ -96,7 +96,7 @@ describe("evidence-cited spelling targeted programs", () => {
     });
 
     const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-spelling-mode-"));
-    const persisted = createLearningCycle(input, { rootDir });
+    const persisted = createLearningCycle(withInitialBoard(input,"teaching","2026-09-08T12:00:00Z"), { rootDir });
     expect(projectLearningCycle(persisted).activeSessionPlan.nodePlan[0]!.wordRadarConfig)
       .toEqual(plan.nodePlan[0]!.wordRadarConfig);
   });
@@ -185,7 +185,7 @@ describe("evidence-cited spelling targeted programs", () => {
     expect(() => buildSpellingTargetedCycleInput({ cycle, plan: malformed, now: "2026-09-08T12:00:00Z" }))
       .toThrow("spelling_visual_explainer_config_invalid:practice");
   });
-  it("freezes Planner-authored spelling routes into the canonical agency experiment", () => {
+  it("freezes Planner-authored alternatives without a second agency topology", () => {
     const { cycle, plan } = fixture();
     plan.nodePlan.splice(1, 0, {
       id: "quick-practice",
@@ -216,27 +216,17 @@ describe("evidence-cited spelling targeted programs", () => {
     } as never);
     plan.plannedMeasurements!.find((measurement) => measurement.id === "measure-check")!
       .spelling!.interventionNodeIds = ["practice", "quick-practice"];
-    plan.learningRoutes = [
-      { id: "careful-route", label: "Build It", rationale: "Careful practice", nodeIds: ["practice"] },
-      { id: "quick-route", label: "Speed It", rationale: "Quick recall", nodeIds: ["quick-practice"] },
-    ];
+    plan.boardDefinition=choiceJourneyFixture([{id:'careful-route',label:'Build It',nodeIds:['practice']},{id:'quick-route',label:'Speed It',nodeIds:['quick-practice']}],[],['check']);
+    const input=buildSpellingTargetedCycleInput({cycle,plan,now:'2026-09-08T12:00:00Z'});
+    expect(input.boardDefinition).toEqual(plan.boardDefinition);
+    expect(input.agencyExperiment).toBeUndefined(); // The journey is the only route authority.
 
-    const input = buildSpellingTargetedCycleInput({ cycle, plan, now: "2026-09-08T12:00:00Z" });
-
-    expect(input.agencyExperiment).toEqual({
-      experimentId: "hw:agency:targeted-spelling",
-      sharedNodeIds: [],
-      routes: [
-        { routeId: "careful-route", nodeIds: ["practice", "check"] },
-        { routeId: "quick-route", nodeIds: ["quick-practice", "check"] },
-      ],
-    });
   });
   it("rejects unknown citations, absent final coverage, and checkpoints before their intervention", () => {
     for (const change of [
       (plan: ActiveSessionPlan) => { plan.plannedMeasurements![0].spelling!.evidenceIds = ["invented"]; },
       (plan: ActiveSessionPlan) => { plan.nodePlan[1].targets = ["light"]; },
-      (plan: ActiveSessionPlan) => { plan.nodePlan.reverse(); },
+      (plan: ActiveSessionPlan) => { plan.boardDefinition=linearJourneyFixture(["check","practice"]); },
     ]) {
       const { cycle, plan } = fixture(); change(plan);
       expect(() => buildSpellingTargetedCycleInput({ cycle, plan, now: "2026-09-08T12:00:00Z" })).toThrow(/spelling_/);
@@ -282,6 +272,7 @@ describe("evidence-cited spelling targeted programs", () => {
     } as unknown as LearningCycleRecordV2;
     const evidenceIds = observations.map((observation) => observation.observationId);
     const plan = {
+      boardDefinition:linearJourneyFixture(["practice-four","check-ten"]),
       planId: "targeted:hw-ten",
       childId: "lab",
       domain: "spelling",
@@ -306,13 +297,12 @@ describe("evidence-cited spelling targeted programs", () => {
 
     const unfocused = structuredClone(plan);
     unfocused.nodePlan[0]!.targets = words;
-    expect(() => buildSpellingTargetedCycleInput({ cycle, plan: unfocused, now: "2026-09-12T12:00:00Z" }))
-      .toThrow("spelling_plan_not_focused_on_independent_misses");
+    expect(() => buildSpellingTargetedCycleInput({ cycle, plan: unfocused, now: "2026-09-12T12:00:00Z" })).not.toThrow(); // The Planner may intentionally revisit secure words.
 
     const skipsOneMiss = structuredClone(plan);
     skipsOneMiss.nodePlan[0]!.targets = missed.slice(1);
     expect(() => buildSpellingTargetedCycleInput({ cycle, plan: skipsOneMiss, now: "2026-09-12T12:00:00Z" }))
-      .toThrow(`spelling_plan_missed_word_unaddressed:${missed[0]}`);
+      .not.toThrow();
 
     const bypassRoute = structuredClone(plan);
     bypassRoute.nodePlan.splice(1, 0, {
@@ -334,12 +324,9 @@ describe("evidence-cited spelling targeted programs", () => {
       falsifyCriteria: "Instrument fails",
       spelling: { role: "practice", evidenceIds, interventionNodeIds: [], reason: "Alternative route", uncertainty: "One evaluation", finalCheck: false, expectedAccuracy: { min: 0.4, max: 0.8 }, confidence: 0.5, maxDelayDays: 7 },
     });
-    bypassRoute.learningRoutes = [
-      { id: "gap-route", label: "Gap Route", rationale: "Practice the four gaps.", nodeIds: ["practice-four"] },
-      { id: "bypass-route", label: "Bypass Route", rationale: "This route wrongly skips every gap.", nodeIds: ["practice-secure"] },
-    ];
-    expect(() => buildSpellingTargetedCycleInput({ cycle, plan: bypassRoute, now: "2026-09-12T12:00:00Z" }))
-      .toThrow(`spelling_plan_route_missed_word_unaddressed:bypass-route:${missed[0]}`);
+    bypassRoute.boardDefinition=choiceJourneyFixture([{id:'gap',label:'Gaps',nodeIds:['practice-four']},{id:'secure',label:'Review',nodeIds:['practice-secure']}],[],['check-ten']);
+    bypassRoute.plannedMeasurements!.find(m=>m.id==='measure-check-ten')!.spelling!.interventionNodeIds.push('practice-secure');
+    expect(()=>buildSpellingTargetedCycleInput({cycle,plan:bypassRoute,now:'2026-09-12T12:00:00Z'})).not.toThrow();
 
     const checkpointBypass = structuredClone(plan);
     checkpointBypass.nodePlan.splice(1, 0, {
@@ -362,12 +349,9 @@ describe("evidence-cited spelling targeted programs", () => {
       falsifyCriteria: "Recall does not hold",
       spelling: { role: "fresh_checkpoint", evidenceIds, interventionNodeIds: [], reason: "Alternative route", uncertainty: "One evaluation", finalCheck: false, expectedAccuracy: { min: 0.4, max: 0.8 }, confidence: 0.5, maxDelayDays: 7 },
     });
-    checkpointBypass.learningRoutes = [
-      { id: "gap-route", label: "Gap Route", rationale: "Practice the four gaps.", nodeIds: ["practice-four"] },
-      { id: "checkpoint-bypass", label: "Secure Check", rationale: "This route wrongly skips every gap.", nodeIds: ["checkpoint-secure"] },
-    ];
-    expect(() => buildSpellingTargetedCycleInput({ cycle, plan: checkpointBypass, now: "2026-09-12T12:00:00Z" }))
-      .toThrow(`spelling_plan_route_missed_word_unaddressed:checkpoint-bypass:${missed[0]}`);
+    checkpointBypass.boardDefinition=choiceJourneyFixture([{id:'gap',label:'Gaps',nodeIds:['practice-four']},{id:'secure',label:'Secure check',nodeIds:['checkpoint-secure']}],[],['check-ten']);
+    expect(()=>buildSpellingTargetedCycleInput({cycle,plan:checkpointBypass,now:'2026-09-12T12:00:00Z'})).not.toThrow();
+
   });
 });
 

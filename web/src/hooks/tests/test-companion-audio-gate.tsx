@@ -170,7 +170,7 @@ describe("useSession companion audio gate", () => {
       deliverJson(ws, { type: "session_boot_ready" });
     });
 
-    act(() => {
+    await act(async () => {
       deliverJson(ws, { type: "audio", data: ONE_SAMPLE_PCM_BASE64 });
     });
 
@@ -225,7 +225,7 @@ describe("useSession companion audio gate", () => {
     });
     expect(result.current.state.firstAudioChunkReceived).toBe(false);
 
-    act(() => {
+    await act(async () => {
       deliverJson(ws, { type: "audio", data: ONE_SAMPLE_PCM_BASE64 });
     });
     expect(result.current.state.firstAudioChunkReceived).toBe(true);

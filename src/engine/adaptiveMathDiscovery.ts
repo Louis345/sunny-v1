@@ -1,3 +1,6 @@
+import {isDeepStrictEqual} from "node:util";
+import {verifyAuthoredBoardCanvas} from './adventureBoardCanvas';
+import { requireBoardDefinition, BOARD_DEFINITION_TOOL_SCHEMA, BOARD_AUTHORING_INSTRUCTION, renderBoardDefinition, type AdventureBoardDefinition } from '../shared/adventureBoardDefinition';
 import fs from "node:fs";
 import path from "node:path";
 import { createHash, randomUUID } from "node:crypto";
@@ -319,6 +322,7 @@ export type MathDiscoveryProbeArtifact = {
 };
 
 export type MathDiscoveryEvaluationContract = {
+  boardDefinition?: AdventureBoardDefinition;
   evaluationId: string;
   title: string;
   assignmentEvidenceIds: string[];
@@ -949,27 +953,45 @@ export async function generateMathDiscoveryExperience(input: {
     return received;
   };
   const common = `ASSIGNMENT EVIDENCE IDS:\n${JSON.stringify(input.assignmentEvidenceIds)}\n\nASSIGNMENT:\n${input.assignmentText}\n\nFACTUAL CHILD CONTEXT:\n${JSON.stringify(input.factualChildContext, null, 2)}`;
-  let academic = readCheckpoint<DiscoveryAcademicContract>(academicCheckpointFile);
-  if (academic) {
-    console.log(` 🎮 [adaptive-math] [discovery-planner] [reused] child=${input.childId} homework=${input.homeworkId}`);
-  } else {
-    console.log(` 🎮 [adaptive-math] [discovery-planner] [running] child=${input.childId} homework=${input.homeworkId}`);
-    const plannerResponse = await create(input.plannerModel ?? process.env.SUNNY_PLANNER_MODEL ?? "claude-opus-5", `You are Sunny's Academic Planner. Create one independent opening mathematics Probe Board that determines what the child already knows and where evidence is missing. Author fresh items without copying the assignment. Group every item into exactly one probeActivities entry. You own the educationally sufficient activity count, the item grouping, the stable node IDs, and concise child-facing activity titles; do not use a fixed node count. Each probe activity should measure a coherent assignment concept without teaching it. Keep visible question text separate from representation specifications: never state the answer or transcribe bar heights into a graph-reading question. The visible question, diagram, axis labels, and accepted answer must be consistent. Use prior academic observations to target missing evidence; do not infer learning styles. For each item ask whether it can be answered without using the claimed construct; revise it before returning if it can. Construct IDs are evidence labels: do not name a numeric strategy or interval (for example, by-tens) unless every linked item actually measures that exact strategy or interval. Before returning, compare each construct ID against each linked prompt, representation, and accepted answer. Each item must identify its construct, response contract, accepted answers, difficulty boundary, exposure identity, possible confounds, falsifying evidence, and measurement keys. Collect independent evidence before teaching or answer exposure. Prefer the lowest-friction response mode that preserves the mathematics. Do not choose presentation, characters, mechanics, sound, rewards, or implementation. Do not declare mastery.\n\n${common}`, {
+  const discoveryPlannerTool = {
       name: "create_math_discovery_contract",
-      schema: { type: "object", additionalProperties: false, required: ["evaluationId", "title", "assignmentEvidenceIds", "constructs", "items", "probeActivities"], properties: {
+      schema: { type: "object", additionalProperties: false, required: ["evaluationId", "title", "assignmentEvidenceIds", "constructs", "items", "probeActivities", "boardDefinition"], properties: {
+        boardDefinition: BOARD_DEFINITION_TOOL_SCHEMA,
         evaluationId: { type: "string" }, title: { type: "string" }, assignmentEvidenceIds: { type: "array", items: { type: "string" } },
         constructs: { type: "array", minItems: 1, items: { type: "object", additionalProperties: false, required: ["constructId", "prerequisiteIds"], properties: { constructId: { type: "string" }, prerequisiteIds: { type: "array", items: { type: "string" } } } } },
         items: { type: "array", minItems: 1, items: { type: "object", additionalProperties: false, required: ["itemId", "constructId", "prompt", "representationSpec", "responseContract", "correctAnswerContract", "difficultyBoundary", "exposureId", "possibleConfounds", "falsifyingEvidence", "measurementKeys"], properties: { itemId: { type: "string" }, constructId: { type: "string" }, prompt: { type: "string" }, representationSpec: { type: "string", description: "Frozen academic diagram data, axes, labels, and scale. Do not include the answer in visible question text." }, responseContract: { type: "object", additionalProperties: false, required: ["mode", "representationId"], properties: { mode: { type: "string", enum: ["tap_selection", "tap_numeric_pad", "drag_construct"] }, representationId: { type: "string" } } }, correctAnswerContract: { type: "object", additionalProperties: false, required: ["acceptedValues"], properties: { acceptedValues: { type: "array", minItems: 1, items: { type: "string" } } } }, difficultyBoundary: { type: "string" }, exposureId: { type: "string" }, possibleConfounds: { type: "array", items: { type: "string" } }, falsifyingEvidence: { type: "array", items: { type: "string" } }, measurementKeys: { type: "array", items: { type: "string" } } } } },
         probeActivities: { type: "array", minItems: 1, items: { type: "object", additionalProperties: false, required: ["nodeId", "title", "itemIds"], properties: { nodeId: { type: "string" }, title: { type: "string" }, itemIds: { type: "array", minItems: 1, items: { type: "string" } } } } },
       } },
-    });
+    };
+  let academic = readCheckpoint<DiscoveryAcademicContract>(academicCheckpointFile);
+  if (academic) {
+    console.log(` 🎮 [adaptive-math] [discovery-planner] [reused] child=${input.childId} homework=${input.homeworkId}`);
+  } else {
+    console.log(` 🎮 [adaptive-math] [discovery-planner] [running] child=${input.childId} homework=${input.homeworkId}`);
+    const plannerResponse = await create(input.plannerModel ?? process.env.SUNNY_PLANNER_MODEL ?? "claude-opus-5", `You are Sunny's Academic Planner. Create one independent opening mathematics Probe Board that determines what the child already knows and where evidence is missing. Author fresh items without copying the assignment. Group every item into exactly one probeActivities entry. You own the educationally sufficient activity count, the item grouping, the stable node IDs, and concise child-facing activity titles; do not use a fixed node count. Each probe activity should measure a coherent assignment concept without teaching it. Keep visible question text separate from representation specifications: never state the answer or transcribe bar heights into a graph-reading question. The visible question, diagram, axis labels, and accepted answer must be consistent. Use prior academic observations to target missing evidence; do not infer learning styles. For each item ask whether it can be answered without using the claimed construct; revise it before returning if it can. Construct IDs are evidence labels: do not name a numeric strategy or interval (for example, by-tens) unless every linked item actually measures that exact strategy or interval. Before returning, compare each construct ID against each linked prompt, representation, and accepted answer. Each item must identify its construct, response contract, accepted answers, difficulty boundary, exposure identity, possible confounds, falsifying evidence, and measurement keys. Collect independent evidence before teaching or answer exposure. Prefer the lowest-friction response mode that preserves the mathematics. ${BOARD_AUTHORING_INSTRUCTION} The Experience Creator owns activity implementation. Do not declare mastery.\n\n${common}`, discoveryPlannerTool);
     academic = toolInput(plannerResponse, "create_math_discovery_contract") as DiscoveryAcademicContract;
     if (!Array.isArray(academic.probeActivities)) throw new Error("discovery_probe_activity_contract_missing");
-    discoveryProbeActivities(academic as MathDiscoveryEvaluationContract);
     assertDiscoveryResponseContracts(academic);
     assertDiscoveryConstructSemantics(academic);
-    atomicJson(academicCheckpointFile, academic);
   }
+  const validateJourney = async (candidate: DiscoveryAcademicContract) => {
+    const definition=requireBoardDefinition(candidate.boardDefinition,discoveryProbeActivities(candidate as MathDiscoveryEvaluationContract).map(activity=>activity.nodeId));
+    await verifyAuthoredBoardCanvas({definition,rootDir,directory:path.join(draftDir,"opening-canvas-verification")});
+  };
+  try { await validateJourney(academic); }
+  catch(error) {
+    if(!(error instanceof Error) || !/^(board_definition_|board_canvas_invalid:)/.test(error.message))throw error;
+    console.log(` 🎮 [adaptive-math] [opening-journey-correction] [required] reason=${error.message}`);
+    const response=await create(input.plannerModel??process.env.SUNNY_PLANNER_MODEL??"claude-opus-5",
+      `Correct only boardDefinition in the received opening evaluation. Preserve every other field exactly. There is one correction attempt. ${BOARD_AUTHORING_INSTRUCTION}\nDEFECT: ${error.message}\nRECEIVED: ${JSON.stringify(academic)}`,
+      discoveryPlannerTool,"opening-journey-correction");
+    const corrected=toolInput(response,"create_math_discovery_contract") as DiscoveryAcademicContract;
+    const academicFields=(value:DiscoveryAcademicContract)=>{const {boardDefinition,...fields}=value;return fields;};
+    if(!isDeepStrictEqual(academicFields(academic),academicFields(corrected)))throw new Error("discovery_journey_correction_changed_academic_contract");
+    await validateJourney(corrected);
+    academic=corrected;
+  }
+  atomicJson(academicCheckpointFile,academic);
   assertDiscoveryResponseContracts(academic);
   assertDiscoveryConstructSemantics(academic);
   const contractHash = hashDiscoveryContract(academic);
@@ -1446,13 +1468,8 @@ export function buildDiscoveryActiveSessionPlan(input: {
     const itemIds = new Set(activity.itemIds);
     return input.evaluation.items.filter(item => itemIds.has(item.itemId));
   };
-  const probePosition = (index: number): { x: number; y: number } => {
-    if (probeActivities.length === 1) return { x: 0.42, y: 0.56 };
-    return {
-      x: Number((0.24 + (0.52 * index) / (probeActivities.length - 1)).toFixed(3)),
-      y: index % 2 === 0 ? 0.66 : 0.42,
-    };
-  };
+  const boardDefinition = requireBoardDefinition(input.evaluation.boardDefinition, probeActivities.map(activity => activity.nodeId));
+
   return {
     planId: `probe-board:${input.homeworkId}`,
     childId: input.childId,
@@ -1479,49 +1496,11 @@ export function buildDiscoveryActiveSessionPlan(input: {
       contentId: `${input.homeworkId}:${activity.nodeId}`,
       targetLane: "independent_discovery",
     });}),
-    learningRoutes: [],
-    adventureBoard: {
-      schemaVersion: 1,
-      boardId: `probe-board:${input.homeworkId}`,
-      planId: `probe-board:${input.homeworkId}`,
-      childId: input.childId,
-      domain: "math",
-      title: input.evaluation.title,
-      theme: {
-        background: { type: "image", value: input.evaluation.artifact.artworkPath },
-        palette: { path: "#fff4c2", completed: "#34d399", available: "#7c3aed", locked: "#64748b", current: "#f59e0b", preview: "#94a3b8", text: "#ffffff", panel: "rgba(15,23,42,.82)" },
-      },
-      layout: { preset: "horizontal-adventure-spine", companionSlot: "right" },
-      nodes: [
-        { id: "start", kind: "start", label: "Start", state: "completed", slot: "1" },
-        ...probeActivities.map((activity, index) => {
-          const ready = artifacts.has(activity.nodeId);
-          const priorReady = probeActivities.slice(0, index).some(candidate => artifacts.has(candidate.nodeId));
-          return ({
-          id: activity.nodeId,
-          kind: "activity" as const,
-          activityId: "generated-baseline",
-          label: activity.title,
-          shortLabel: activity.title,
-          state: ready ? (priorReady ? "available" as const : "current" as const) : "locked" as const,
-          evidenceRole: "baseline" as const,
-          action: ready
-            ? { type: "launch-activity" as const, payloadId: activity.nodeId }
-            : { type: "show-locked-reason" as const, payloadId: activity.nodeId },
-          ...(ready ? {} : { lock: { reason: "artifact-not-ready", label: "Locked" } }),
-          thumbnailUrl: artifacts.get(activity.nodeId)?.artworkPath ?? input.evaluation.artifact.artworkPath,
-          position: probePosition(index),
-        });}),
-      ],
-      edges: probeActivities.map((activity, index) => ({
-        id: `${index === 0 ? "start" : probeActivities[index - 1]!.nodeId}-${activity.nodeId}`,
-        from: index === 0 ? "start" : probeActivities[index - 1]!.nodeId,
-        to: activity.nodeId,
-        state: artifacts.has(activity.nodeId) ? "available" as const : "locked" as const,
-      })),
-      companion: input.companion,
-      progress: { currentNodeId: probeActivities.find(activity => artifacts.has(activity.nodeId))?.nodeId, completedNodeIds: ["start"] },
-    },
+    boardDefinition,
+    adventureBoard: renderBoardDefinition(boardDefinition, {
+      boardId:`probe-board:${input.homeworkId}`,planId:`probe-board:${input.homeworkId}`,childId:input.childId,domain:'math',companion:input.companion,
+      activities:probeActivities.map(activity => ({id:activity.nodeId,activityId:'generated-baseline',verified:artifacts.has(activity.nodeId),state:artifacts.has(activity.nodeId)?'ready':'generating',thumbnailUrl:artifacts.get(activity.nodeId)?.artworkPath})),
+    }),
     variationPolicy: { avoidExactPreviousNodeOrder: true, avoidExactPreviousWordOrder: true, seed: input.homeworkId, previousCompletedNodeCount: 0 },
     companionPolicy: { companionId: input.companion.id, displayName: input.companion.name, openingLinePolicy: "silent", verbosity: "low", maxMicroProbes: 1 },
     evidenceUsed: input.evaluation.assignmentEvidenceIds.map((id) => ({ id, type: "assignment", summary: "Captured assignment evidence for Discovery." })),
@@ -1531,7 +1510,7 @@ export function buildDiscoveryActiveSessionPlan(input: {
   };
 }
 
-export function publishDiscoveryExperience(input: {
+export async function publishDiscoveryExperience(input: {
   rootDir?: string;
   childId: string;
   homeworkId: string;
@@ -1539,8 +1518,10 @@ export function publishDiscoveryExperience(input: {
   spellingItems?: LearningCycleSpellingItem[];
   activeSessionPlan: ActiveSessionPlan;
   assignment: LearningCycleRecordV2["assignment"];
-}): void {
+}): Promise<void> {
   const rootDir = input.rootDir ?? process.cwd();
+  const definition=requireBoardDefinition(input.activeSessionPlan.boardDefinition,input.activeSessionPlan.nodePlan.map(node=>node.id));
+  await verifyAuthoredBoardCanvas({definition,rootDir,directory:path.join(resolveAdaptiveMathDraftDir(input.childId,input.homeworkId,{rootDir}),'canvas-verification')});
   const contextDir = resolveChildContextDir(input.childId, { rootDir });
   const planPath = path.join(contextDir, "plans", "active_session_plan.json");
   const homeworkPath = path.join(contextDir, "homework", "current.json");
@@ -1620,7 +1601,7 @@ export function publishDiscoveryExperience(input: {
   };
   try {
     if (native) {
-      let cycle = createSpellingDiscoveryCycle({ childId: input.childId, homeworkId: input.homeworkId, title: input.assignment.title, contentFingerprint: input.assignment.contentFingerprint, items: native }, { rootDir });
+      let cycle = createSpellingDiscoveryCycle({ childId: input.childId, homeworkId: input.homeworkId, title: input.assignment.title, contentFingerprint: input.assignment.contentFingerprint, items: native, boardDefinition:definition }, { rootDir });
       const configFile = path.join(resolveAdaptiveMathDraftDir(input.childId, input.homeworkId, { rootDir }), "spelling-discovery-config.json");
       atomicJson(configFile, { version: 1, mode: "assessment", items: native, contractHash: artifactHash });
       const node = cycle.nodes.find(node => node.role === "evaluation")!;
@@ -1628,6 +1609,10 @@ export function publishDiscoveryExperience(input: {
     } else if (!getLearningCycle(input.childId, input.homeworkId, { rootDir })) {
       createDiscoveryLearningCycle({ ...input, evaluation: evaluation!, rootDir });
     }
+    // Artifact binding happens after authoring. Publish readiness from canonical
+    // runtime state, never the earlier draft's locked presentation.
+    const publishedCycle = getLearningCycle(input.childId, input.homeworkId, { rootDir })!;
+    const publishedPlan = { ...input.activeSessionPlan, adventureBoard: projectLearningCycle(publishedCycle).activeSessionPlan.adventureBoard };
     const previousPlan = readObject(planPath);
     const previousHomework = readObject(homeworkPath);
     const profile = readObject(profilePath);
@@ -1636,13 +1621,13 @@ export function publishDiscoveryExperience(input: {
       activeByDomain: mergeDomain(previousHomework.activeByDomain, pending), updatedAt: now,
     });
     profile.pendingHomework = pending;
-    profile.activeSessionPlan = input.activeSessionPlan;
+    profile.activeSessionPlan = publishedPlan;
     profile.activeHomeworkByDomain = mergeDomain(profile.activeHomeworkByDomain, pending);
-    profile.activeSessionPlanByDomain = mergeDomain(profile.activeSessionPlanByDomain, input.activeSessionPlan);
+    profile.activeSessionPlanByDomain = mergeDomain(profile.activeSessionPlanByDomain, publishedPlan);
     atomicJson(profilePath, profile);
     atomicJson(planPath, {
-      version: 1, childId: input.childId, selectedDomain: domain, current: input.activeSessionPlan,
-      activeByDomain: mergeDomain(previousPlan.activeByDomain, input.activeSessionPlan), updatedAt: now,
+      version: 1, childId: input.childId, selectedDomain: domain, current: publishedPlan,
+      activeByDomain: mergeDomain(previousPlan.activeByDomain, publishedPlan), updatedAt: now,
     });
     fs.rmSync(journal);
     console.log(` 🎮 [adaptive-math] [discovery-publication] [published] child=${input.childId} homework=${input.homeworkId}`);
@@ -1653,14 +1638,14 @@ export function publishDiscoveryExperience(input: {
 }
 
 /** Finish only the interrupted projection; canonical observations are never rolled back. */
-export function recoverDiscoveryPublication(input: {rootDir?: string; childId: string}): void {
+export async function recoverDiscoveryPublication(input: {rootDir?: string; childId: string}): Promise<void> {
   const journal=path.join(resolveChildContextDir(input.childId,input),"homework/discovery-publication.json");
   if (!fs.existsSync(journal)) return;
   const saved=JSON.parse(fs.readFileSync(journal,"utf8")) as {version:number;input:Parameters<typeof publishDiscoveryExperience>[0]};
   if (saved.version!==1 || saved.input.childId!==input.childId) throw new Error("discovery_publication_journal_invalid");
   const cycle=getLearningCycle(input.childId,saved.input.homeworkId,input);
   if (cycle && cycle.lifecycle!=="evaluation_ready") throw new Error("discovery_publication_recovery_conflicts_with_started_cycle");
-  publishDiscoveryExperience({...saved.input,...input});
+  await publishDiscoveryExperience({...saved.input,...input});
 }
 
 export function publishTargetedBoardProjection(input: {
@@ -1678,7 +1663,7 @@ export function publishTargetedBoardProjection(input: {
   };
   const cycle = getLearningCycle(input.childId, input.activeSessionPlan.activeHomeworkId!, { rootDir });
   if (input.activeSessionPlan.domain === "spelling" && input.activeSessionPlan.adventureBoard) {
-    const presentedNodeIds = new Set(input.activeSessionPlan.adventureBoard.nodes.map((node) => node.id));
+    const presentedNodeIds = new Set(input.activeSessionPlan.adventureBoard.nodes.map((node) => node.activityNodeId ?? node.id));
     const missingNodeIds = input.activeSessionPlan.nodePlan
       .filter((node) => !node.id.endsWith(":discovery"))
       .map((node) => node.id)
@@ -1757,6 +1742,7 @@ export function createDiscoveryLearningCycle(input: {
     homeworkId: input.homeworkId,
     domain: "math",
     assignment: input.assignment,
+    boardDefinition: input.evaluation.boardDefinition,
     academicTheory: {
       theoryId,
       revision: 1,
@@ -2008,6 +1994,7 @@ export function revealTargetedBoard(input: {
   academicPredictions?: AcademicPrediction[];
   assumptions?: LearningAssumption[];
   agencyExperiment?: LearningCycleAgencyExperiment;
+  boardDefinition?:AdventureBoardDefinition;
 }): LearningCycleRecordV2 {
   let cycle = getLearningCycle(input.childId, input.homeworkId, { rootDir: input.rootDir });
   if (!cycle) throw new Error(`learning_cycle_missing:${input.homeworkId}`);
@@ -2025,6 +2012,7 @@ export function revealTargetedBoard(input: {
   }
   return transitionLearningCycle(input.childId, input.homeworkId, cycle.revision, {
     type: "targeted_board_revealed",
+    boardDefinition:input.boardDefinition,
     programHash: input.programHash,
     designHash: input.designHash,
     nodes: input.nodeContracts ?? input.nodes.map(targetedNode),

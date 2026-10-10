@@ -1,3 +1,4 @@
+import {verifyPreparingBoardCanvas} from './adventureBoardCanvas';
 import { createHash } from "crypto";
 import fs from "fs";
 import path from "path";
@@ -425,7 +426,7 @@ export async function prepareSuccessorBoard(
   // Pre-contract-21 cycles finish their in-flight legacy node through the legacy generator.
   if (!cycle.boards) return generateCanonicalProgressionArtifact(input, opts);
   const board = preparingBoardInstance(cycle);
-  if (!board) return cycle;
+  if (!board || cycle.lifecycle === "blocked") return cycle;
   if (cycle.nodes.some((node) => board.nodeIds.includes(node.nodeId) && node.state === "blocked")) {
     console.warn(` 🎮 [learning-board] [successor-preparation] [awaiting-attention] board=${board.boardId}`);
     return cycle;
@@ -436,6 +437,15 @@ export async function prepareSuccessorBoard(
     return cycle;
   }
   try {
+    try {
+      await verifyPreparingBoardCanvas({rootDir:opts.rootDir??process.cwd(),childId:input.childId,homeworkId:input.homeworkId,directory:path.join(resolveChildContextDir(input.childId,opts),'homework','canvas-verification',board.boardId.replace(/[^a-zA-Z0-9_-]/g,'_'))});
+    } catch (error) {
+      const reason = `successor_canvas_failed:${error instanceof Error ? error.message : String(error)}`;
+      console.warn(` 🎮 [learning-board] [successor-preparation] [needs-attention] board=${board.boardId} reason=${reason}`);
+      const latest = getLearningCycle(input.childId, input.homeworkId, opts)!;
+      return transitionLearningCycle(input.childId, input.homeworkId, latest.revision, { type: "block", reason }, opts);
+    }
+    cycle=getLearningCycle(input.childId,input.homeworkId,opts)!;
     for (let attempt = 0; attempt <= board.nodeIds.length; attempt += 1) {
       const pending = cycle.nodes.find((node) => board.nodeIds.includes(node.nodeId) && node.state === "generating" && node.generationPrompt);
       if (!pending) return cycle;

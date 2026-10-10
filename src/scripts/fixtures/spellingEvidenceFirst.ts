@@ -1,3 +1,4 @@
+import {linearJourneyFixture,choiceJourneyFixture} from "./authoredJourney";
 import fs from "node:fs";
 import path from "node:path";
 import { getChildChart } from "../../profiles/childChart";
@@ -57,10 +58,14 @@ export function recordedSpellingPlan(packet: AssignmentPlanningPacket, rootDir: 
   const nodePlan = [
     { id: "practice", type: "word-radar", activityId: "word-radar", title: "Word workshop", targets: ["light"], difficulty: 1, source: "chart_planner", wordRadarConfig: { recallMode: "visible_read", inputMode: "whole-word", speakStyle: "option-a", showTimer: false, hideWordDuringResponse: false, requiresCapturedResponse: true } },
     { id: "check", type: "word-radar", activityId: "word-radar", title: "Recall check", targets: ["night", "light"], difficulty: 1, source: "chart_planner", wordRadarConfig: { recallMode: "hidden_word_recall", inputMode: "whole-word", speakStyle: "option-b", showTimer: true, timerSeconds: 8, hideWordDuringResponse: true, requiresCapturedResponse: true } },
-    { id: "quest", type: "quest", activityId: "quest", title: "Quest", targets: ["night", "light"], difficulty: 1, source: "chart_planner" },
   ];
   const plannedMeasurements = nodePlan.slice(0, 2).map(node => ({ id: `measure-${node.id}`, activityId: node.activityId, target: node.targets.join(","), evidenceType: "recall", supportCriteria: "Unassisted capture improves", reviseCriteria: "Mixed evidence", falsifyCriteria: "No improvement", spelling: { role: node.id === "check" ? "fresh_checkpoint" : "practice", evidenceIds, interventionNodeIds: node.id === "check" ? ["practice"] : [], reason: "Current mixed recall evidence", uncertainty: "One occasion does not establish retention", expectedAccuracy: { min: 0.5, max: 1 }, confidence: 0.5, maxDelayDays: 7, finalCheck: node.id === "check" } }));
-  const plan = { planId: `targeted:${chart.learningCycle!.homeworkId}`, childId: packet.childId, domain: "spelling", activeHomeworkId: chart.learningCycle!.homeworkId, nodePlan, plannedMeasurements, planTheory: { hypothesis: "Practice may support the uncertain word", evidenceSummary: evidenceIds, intervention: "Visible practice followed by unassisted recall", supportCriteria: ["Recall improves"], reviseCriteria: ["Mixed"], falsifyCriteria: ["No change"] } };
+  const plan = { planId: `targeted:${chart.learningCycle!.homeworkId}`, childId: packet.childId, domain: "spelling", activeHomeworkId: chart.learningCycle!.homeworkId, nodePlan, boardDefinition:linearJourneyFixture(["practice","check"]), plannedMeasurements, planTheory: { hypothesis: "Practice may support the uncertain word", evidenceSummary: evidenceIds, intervention: "Visible practice followed by unassisted recall", supportCriteria: ["Recall improves"], reviseCriteria: ["Mixed"], falsifyCriteria: ["No change"] } };
+  // Recorded authoring chooses child-facing labels; runtime must preserve them.
+  for (const portal of plan.boardDefinition.portals) {
+    const activity = nodePlan.find(node => node.id === portal.activityNodeId);
+    if (activity) portal.label = activity.title;
+  }
   return hydrateAssignmentPlannerOutputFromDraft({ activeSessionPlan: plan, plannedMeasurements, planTheory: plan.planTheory, generationRequests: [], reviewQuestions: [] } as never, packet);
 }
 
@@ -90,8 +95,6 @@ export function recordedAdaptiveSpellingPlan(packet: AssignmentPlanningPacket, r
       evidencePolicy: { writesPracticeEvidence: true, writesMasteryEvidence: false, requiresPerTargetResult: true, allowedEvidence: ["practice"] },
     } },
     { id: "recall-checkpoint", type: "word-radar", activityId: "word-radar", title: "Recall Checkpoint", targets: words, difficulty: 1, source: "chart_planner", wordRadarConfig: { recallMode: "hidden_word_recall", inputMode: "keyboard", showTimer: false } },
-    { id: "quest", type: "quest", activityId: "quest", title: "Word Quest", targets: words, difficulty: 1, source: "chart_planner" },
-    { id: "boss", type: "boss", activityId: "boss", title: "Boss Gate", targets: words, difficulty: 1, source: "chart_planner" },
   ];
   const plannedMeasurements = nodePlan.slice(0, 6).map((node) => ({
     id: `measure-${node.id}`,
@@ -120,12 +123,16 @@ export function recordedAdaptiveSpellingPlan(packet: AssignmentPlanningPacket, r
     domain: "spelling",
     activeHomeworkId: chart.learningCycle!.homeworkId,
     nodePlan,
-    learningRoutes: [
-      { id: "build-route", label: "Build It", rationale: "Practice the same four gaps with careful construction and a wheel reward.", nodeIds: practiceIds.slice(0, 3) },
-      { id: "speed-route", label: "Speed It", rationale: "Practice the same four gaps through recall and faster letter play.", nodeIds: practiceIds.slice(3) },
-    ],
+    boardDefinition: choiceJourneyFixture([
+      { id: "build-route", label: "Build It", nodeIds: practiceIds.slice(0, 3) },
+      { id: "speed-route", label: "Speed It", nodeIds: practiceIds.slice(3) },
+    ],[],["recall-checkpoint"]),
     plannedMeasurements,
     planTheory,
   };
+  for (const portal of plan.boardDefinition.portals) {
+    const activity = nodePlan.find(node => node.id === portal.activityNodeId);
+    if (activity) portal.label = activity.title;
+  }
   return hydrateAssignmentPlannerOutputFromDraft({ activeSessionPlan: plan, plannedMeasurements, planTheory, generationRequests: [], reviewQuestions: [] } as never, packet);
 }

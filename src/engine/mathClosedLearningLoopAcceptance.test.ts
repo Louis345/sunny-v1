@@ -1,3 +1,4 @@
+import {linearJourneyFixture} from "../scripts/fixtures/authoredJourney";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -136,7 +137,7 @@ describe("math closed learning loop acceptance", () => {
         status: "supported",
         reason: "A fresh independent checkpoint supports testing transfer but cannot establish mastery.",
         progressionAction: "generate_quest",
-        successor: { instruments: [{ ...prescription("quest","unseen-transfer-garden",18), encounter: "quest" as const }] },
+        successor: { boardDefinition:linearJourneyFixture(["quest"]), instruments: [{ ...prescription("quest","unseen-transfer-garden",18), encounter: "quest" as const }] },
         preserve: ["visual grouping"],
         change: ["remove worked examples"],
         testNext: ["unseen equal-groups transfer"],
@@ -176,7 +177,7 @@ describe("math closed learning loop acceptance", () => {
         status: "supported",
         reason: "Unseen transfer held; test synthesis next.",
         progressionAction: "generate_boss",
-        successor: { instruments: [{ ...prescription("boss","unseen-synthesis-market",24), encounter: "boss" as const }] },
+        successor: { boardDefinition:linearJourneyFixture(["boss"]), instruments: [{ ...prescription("boss","unseen-synthesis-market",24), encounter: "boss" as const }] },
         preserve: ["independent response"],
         change: ["combine representations"],
         testNext: ["unseen synthesis"],

@@ -1138,7 +1138,7 @@ export function buildIngestSummary(childId: string, today: string, opts: { rootD
       || binding.contractFingerprint !== contractHash || config?.version !== 1 || config.mode !== "assessment"
       || config.contractHash !== contractHash || hashDiscoveryContract(config.items) !== contractHash) failures.push("discovery_native_contract_missing_or_mismatched");
     if (evaluation?.implementationType !== "word-radar" || node?.type !== "word-radar" || node.activityId !== "word-radar"
-      || !NODE_REGISTRY["word-radar"]?.canvasMessage || node.locked || launch?.id !== evaluation?.nodeId
+      || !NODE_REGISTRY["word-radar"]?.canvasMessage || node.locked || (launch?.activityNodeId ?? launch?.id) !== evaluation?.nodeId
       || launch?.action?.payloadId !== evaluation?.nodeId || !["available", "current"].includes(launch?.state ?? "")
       || hashDiscoveryContract(node.targets) !== hashDiscoveryContract(items.map(item => item.word))
       || node.wordRadarConfig?.recallMode !== "hidden_word_recall" || node.wordRadarConfig.inputMode !== "keyboard"
@@ -1813,7 +1813,8 @@ function finalizeAssignmentActiveSessionPlan(args: {
           masteryUnlockState?: string;
           difficulty?: number;
         }>,
-        learningRoutes: nextPlan.learningRoutes,
+        boardDefinition: nextPlan.boardDefinition,
+        adventureBoard: nextPlan.adventureBoard,
       },
       boardId: args.plan.adventureBoard.boardId,
       title: args.plan.adventureBoard.title,
@@ -1878,7 +1879,7 @@ export async function applyPlannedHomeworkIngest(args: PlannedHomeworkIngestArgs
       const page = matches.length === 1 ? matches[0] : pages.length === 1 ? pages[0] : null;
       if (!page) throw new Error(`spelling_confirmation_source_page_required:${word}`);
       return { word, pageNumber: page.pageNumber };
-    }), uncertainty: [] };
+    }), uncertainty: [], ...(args.assignmentPlannerOutput.activeSessionPlan.boardDefinition ? {boardDefinition:args.assignmentPlannerOutput.activeSessionPlan.boardDefinition} : {}) };
     await runSpellingDiscoveryIntake({ childId: args.childId, sourceFile: args.sourceFile, rootDir: args.rootDir, confirmedCapture: { capture, reviewer: args.reviewer ?? "parent-approval", approvedAt: args.approvedAt ?? new Date().toISOString() } });
     return;
   }
@@ -2184,6 +2185,7 @@ export async function runSpellingDiscoveryIntake(args: {
     const diagnosticSelection = resolveSpellingDiagnosticSelection(capture, packet);
     console.log(` 🎮 [spelling-discovery] [diagnostic-selection] [${diagnosticSelection ? "planner-selected" : "legacy-fixed-instrument"}] activity=${diagnosticSelection?.instrument.activityId ?? "word-radar"} mode=${diagnosticSelection?.instrument.modeId ?? "legacy"}`);
     const existing = getLearningCycle(args.childId, homeworkId, { rootDir });
+    if (!capture.boardDefinition && !existing?.boards?.some(board=>board.definition)) throw new Error('spelling_intake_journey_revision_required:Captured words are preserved; the Planner must author a new explicit Discovery journey before publication.');
     const items = existing
       ? Object.values(existing.nodes.find(node => node.role === "evaluation")?.evidenceContract.spellingItems ?? {})
       : buildSpellingRecallItems({ homeworkId, words: capture.words.map(row => row.word), evidenceIds: [`assignment:${fingerprint}`], measurementRole: "fresh_checkpoint" }).map(item => {
@@ -2203,9 +2205,9 @@ export async function runSpellingDiscoveryIntake(args: {
         await prepareSpellingChartAssignment(database, {assignmentId:homeworkId, words:items.map(item=>item.word.normalize('NFC').toLowerCase()), testDate:validIsoDate(args.testDate) ? args.testDate! : null, sourcePhotoHash:fingerprint}, options.chart?.provider ?? spellingPlanner);
       } finally { if (!options.chart) database.close(); }
     } else console.log(' 🎮 [spelling-chart] [intake] [disabled] chart_directory_not_configured_or_simulation');
-    const cycle = createSpellingDiscoveryCycle({ childId: args.childId, homeworkId, title: capture.title, contentFingerprint: fingerprint, items, diagnosticSelection }, { rootDir });
+    const cycle = createSpellingDiscoveryCycle({ childId: args.childId, homeworkId, title: capture.title, contentFingerprint: fingerprint, items, diagnosticSelection, boardDefinition: capture.boardDefinition ? {...capture.boardDefinition, portals:capture.boardDefinition.portals.map(portal => portal.activityNodeId === "diagnostic" ? {...portal,activityNodeId:`${homeworkId}:discovery`} : portal)} : undefined }, { rootDir });
     const activeSessionPlan = buildSpellingDiscoveryPlan({ cycle, companion: { id: chart.companion.presetId, name: chart.companion.displayName } });
-    publishDiscoveryExperience({ ...scope, spellingItems: items, activeSessionPlan, assignment: cycle.assignment });
+    await publishDiscoveryExperience({ ...scope, spellingItems: items, activeSessionPlan, assignment: cycle.assignment });
     console.log(` 🎮 [spelling-discovery] [intake] [ready] homework=${homeworkId} words=${items.length} targeted-board=awaiting-evidence`);
     return { homeworkId };
   } catch (error) {
@@ -2587,7 +2589,7 @@ async function runIngestHomeworkInternal(
         }
       : reviewedPlan;
     onStage?.(4, "Building learning activities");
-    const canonicalCycle = persistIngestedLearningCycle({
+    const canonicalCycle = await persistIngestedLearningCycle({
       childId,
       homeworkId,
       domain: practiceDomain,

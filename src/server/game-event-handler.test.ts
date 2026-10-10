@@ -20,6 +20,13 @@ afterEach(() => {
 });
 
 describe("game event handler companion events", () => {
+  it('addresses Elli only when the child explicitly opens the displayed fork', () => {
+    const session = {recordDebugEvent:vi.fn(),recordGameTrace:vi.fn(),updateCurrentBoardSnapshot:vi.fn(),requestJourneyChoiceSupport:vi.fn().mockResolvedValue(undefined)};
+    handleGameEventForSession(session,{type:'game_state_update',phase:'choice_open',choiceSetId:'order',requestId:'tap-1',addressedCompanion:true});
+    expect(session.requestJourneyChoiceSupport).toHaveBeenCalledWith('order','tap-1');
+    handleGameEventForSession(session,{type:'game_state_update',phase:'loading',choiceSetId:'order'});
+    expect(session.requestJourneyChoiceSupport).toHaveBeenCalledTimes(1);
+  });
   it("speaks a tapped spelling chunk through the companion narration channel", () => {
     const speakGameNarration = vi.fn().mockResolvedValue(true);
     handleGameEventForSession({ recordDebugEvent: vi.fn(), recordGameTrace: vi.fn(), speakGameNarration }, {

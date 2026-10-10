@@ -794,3 +794,20 @@
     font-size: 11px;
   }
 }
+
+/* Authored coordinates scale inside one canvas, with global controls above/below
+   and the companion in the side rail. Never reorder portals to resolve a collision. */
+.adventure-board--authored .adventure-board__composition {position:absolute;inset:180px 220px 140px 80px;}
+.adventure-board--authored .adventure-board__node {width:116px;left:var(--medium-x) !important;top:var(--medium-y) !important;}
+.adventure-board--authored .adventure-board__node-label {display:block;max-width:116px;overflow-wrap:anywhere;font-size:15px;line-height:1.2;}
+.adventure-board--authored .adventure-board__node--reward .adventure-board__node-label {display:block;}
+.adventure-board--authored .adventure-board__edge--solid {stroke-dasharray:none;animation:none;}
+.adventure-board--authored .adventure-board__edges--wide {display:block;}
+.adventure-board--authored .adventure-board__edges--medium,
+.adventure-board--authored .adventure-board__edges--narrow {display:none;}
+@media (orientation:portrait) {
+ .adventure-board--authored .adventure-board__composition {inset:150px 80px 160px;}
+ .adventure-board--authored .adventure-board__node {left:var(--narrow-x) !important;top:var(--narrow-y) !important;gap:4px;}
+ .adventure-board--authored .adventure-board__edges--wide {display:none;}
+ .adventure-board--authored .adventure-board__edges--narrow {display:block;}
+}

@@ -85,6 +85,7 @@ import {
 import { createBrowserRequestId } from "./utils/browserRequestId";
 import {
   buildAdventureBoardChoiceEventInput,
+  buildAdventureBoardChoiceDisplayEventInput,
   buildAdventureBoardPostActivityChoiceEventInput,
   flushAdventureBoardChoiceEventOutbox,
   postAdventureBoardChoiceEvent,
@@ -1192,6 +1193,16 @@ function App() {
   const handlePlannerBoardNodeClick = useCallback(
     (boardNode: AdventureBoardNode) => {
       if (!plannerBoardPacket) return;
+      if (boardNode.kind === 'choice-gate' && boardNode.state !== 'locked') {
+        const choice = plannerBoardPacket.activeSessionPlan?.adventureBoard?.choiceSets?.find(set=>set.id===boardNode.choiceSetId);
+        if (!choice) return;
+        sendMessage('game_event',{event:{type:'game_state_update',version:'1.0',payload:{
+          phase:'choice_open',boardState:'choosing_path',choiceSetId:choice.id,purpose:choice.title,requestId:crypto.randomUUID(),
+          options:choice.options.map(option=>({id:option.id,label:option.label,description:option.description,state:option.state})),
+          addressedCompanion:true,
+        }}});
+        return;
+      }
       const inspectableBaselineNode =
         parentPreviewActive &&
         boardNode.kind !== "quest" &&
@@ -1220,9 +1231,17 @@ function App() {
       adventureChildId,
       generatedMathSoundMuted,
       launchPlannerBoardNode,
-      plannerBoardPacket,
+      plannerBoardPacket, sendMessage, setCompanionPresence,
     ],
   );
+
+  const handlePlannerBoardChoiceVisibilityChange = useCallback((choice:AdventureChoiceSet,opened:boolean)=>{
+    if(!plannerBoardPacket) return;
+    const event=buildAdventureBoardChoiceDisplayEventInput(plannerBoardPacket,choice,opened);
+    void postAdventureBoardChoiceEvent(event,{preview:mapPreviewMode}).then(result=>{
+      console.log(` 🎮 [choice-event] [${opened?'shown':'dismissed'}] [${result.ok?'recorded':'pending'}] choice=${choice.id}`);
+    }).catch(error=>console.warn(' 🎮 [choice-event] [display-record] [failed]',error));
+  },[plannerBoardPacket,mapPreviewMode]);
 
   const handlePlannerBoardChoiceClick = useCallback(
     (option: AdventureChoiceOption, choiceSet: AdventureChoiceSet) => {
@@ -1242,7 +1261,7 @@ function App() {
             applied: out.applied,
             skippedPersistence: out.skippedPersistence,
           });
-          if (out.applied && !out.skippedPersistence) void refreshPlannerBoardPacket();
+          if (out.ok && !out.skippedPersistence) void refreshPlannerBoardPacket();
           return out;
         })
         .catch((err: unknown) => {
@@ -1298,7 +1317,7 @@ function App() {
         return;
       }
       const launchNode = resolvePlannerBoardChoiceLaunchNode(plannerBoardPacket, option);
-      if (!launchNode) {
+      if (!launchNode && !option.journeyChoiceId) {
         console.log(" 🎮 [AdventureBoard] choice_not_launchable", {
           childId: adventureChildId,
           optionId: option.id,
@@ -1310,14 +1329,15 @@ function App() {
         // Route selection makes its node launchable; commit it before sending the launch.
         void choiceRecorded.then(out => {
           const selected = choiceEvent.shownOptions.find(candidate => candidate.optionId === choiceEvent.selectedOptionId);
-          const expectedRoute = selected?.experimentId ?? choiceEvent.selectedOptionId;
+          const expectedRoute = option.journeyChoiceId ? `${option.journeyChoiceId}=${option.journeyOptionId}` : selected?.experimentId ?? choiceEvent.selectedOptionId;
           if (out?.ok && (out.skippedPersistence || out.selectedRouteId === expectedRoute)) {
-            launchPlannerBoardNode(launchNode);
+            if (launchNode) launchPlannerBoardNode(launchNode);
+            else void refreshPlannerBoardPacket();
           } else {
             console.warn(" 🎮 [AdventureBoard] [route-launch] [not-confirmed]", { error: out?.error, expectedRoute });
           }
         }).catch(error => console.error(" 🎮 [AdventureBoard] [route-launch] [failed]", error));
-      } else launchPlannerBoardNode(launchNode);
+      } else if (launchNode) launchPlannerBoardNode(launchNode);
     },
     [adventureChildId, launchPlannerBoardNode, mapPreviewMode, plannerBoardPacket, refreshPlannerBoardPacket],
   );
@@ -2074,6 +2094,7 @@ function App() {
             idlePose="center"
             onNodeClick={handlePlannerBoardNodeClick}
             onChoiceClick={handlePlannerBoardChoiceClick}
+            onChoiceVisibilityChange={handlePlannerBoardChoiceVisibilityChange}
             onUnlockCeremony={(event) => {
               console.log(" 🎮 [AdventureBoard] unlock_ceremony", event);
               if (!generatedMathSoundMuted) {

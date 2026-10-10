@@ -1,8 +1,18 @@
+import { journeyExecutions, type AdventureBoardDefinition } from '../shared/adventureBoardDefinition';
 /** Exposure relationships are factual graph constraints, not teaching choices. */
 export function spellingCheckpointLineageIssues(
   nodes: ReadonlyArray<{ id: string; type: string; targets: readonly string[] }>,
   measurements: ReadonlyArray<{ id: string; spelling?: { role: string; interventionNodeIds: readonly string[] } }>,
+  definition?: AdventureBoardDefinition,
 ): Array<{ code: "planner_checkpoint_lineage_missing" | "planner_final_checkpoint_missing"; nodeId: string; measurementId: string; interventionNodeIds: string[] }> {
+  if (definition) {
+    const byNodeId = new Map(nodes.map(node => [node.id,node]));
+    return journeyExecutions(definition).flatMap(path => spellingCheckpointLineageIssues(path.activityNodeIds.map(id => {
+      const node = byNodeId.get(id);
+      if (!node) throw new Error(`activity_binding_missing:${id}`);
+      return node;
+    }),measurements));
+  }
   const byId = new Map(measurements.map(row => [row.id, row.spelling]));
   const pending = new Map<string, Set<string>>();
   const issues: ReturnType<typeof spellingCheckpointLineageIssues> = [];
@@ -26,4 +36,11 @@ export function spellingCheckpointLineageIssues(
   const unresolved = [...new Set([...pending.values()].flatMap(ids => [...ids]))];
   if (unresolved.length) issues.push({ code: "planner_final_checkpoint_missing", nodeId: nodes.at(-1)?.id ?? "missing", measurementId: `measure-${nodes.at(-1)?.id ?? "missing"}`, interventionNodeIds: unresolved });
   return issues;
+}
+
+/** A convergent checkpoint can name candidate exposures from alternative paths.
+ * A citation must exist, and must precede the checkpoint on each path containing both.
+ * Actual attempt provenance still records only exposures the child received. */
+export function checkpointInterventionsArePrior(executions: ReadonlyArray<ReadonlyMap<string,number>>, checkpointId:string, interventionIds:readonly string[]):boolean {
+ return interventionIds.every(id=>executions.some(order=>order.has(id)) && executions.every(order=>!order.has(checkpointId)||!order.has(id)||order.get(id)!<order.get(checkpointId)!));
 }

@@ -1,3 +1,4 @@
+import { linearJourneyFixture } from "./fixtures/authoredJourney";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -66,7 +67,7 @@ beforeEach(() => {
   write("designed-plan.json", plan(2));
   fs.writeFileSync(path.join(rootDir, "src/context", childId, "learning_profile.json"), '{"aiContentCatalog":[]}');
   const evaluation = {
-    evaluationId: "discovery", title: "Lab Discovery", assignmentEvidenceIds: ["assignment:lab"],
+    evaluationId: "discovery", boardDefinition: linearJourneyFixture(["discovery"]), title: "Lab Discovery", assignmentEvidenceIds: ["assignment:lab"],
     constructs: [{ constructId: "math.multiplication.equal_groups", prerequisiteIds: [] }],
     items: [{ itemId: "probe", constructId: "math.multiplication.equal_groups", prompt: "Count the groups", responseContract: { mode: "tap_selection" as const, representationId: "groups" }, correctAnswerContract: { acceptedValues: ["4"] }, difficultyBoundary: "four groups", exposureId: "probe", possibleConfounds: [], falsifyingEvidence: [], measurementKeys: [] }],
     artifact: { artifactId: "discovery", htmlPath: "/games/discovery.html", artworkPath: "/art.svg", contractHash: "contract", artifactHash: "html" },
@@ -128,15 +129,12 @@ it("unlocks verified nodes before one shared optional-artwork job finishes", asy
   vi.mocked(generateDirectArtworkBundle).mockReturnValue(new Promise(resolve => { finishArtwork = resolve; }));
 
   const generation = runAdaptiveMathGeneration(childId, homeworkId, rootDir);
-  for (let index = 0; index < 40; index += 1) {
-    if (getMathGenerationStatus(childId, homeworkId, { rootDir })?.nodes.every(node => node.status === "ready")) break;
-    await new Promise(resolve => setTimeout(resolve, 5));
-  }
-
-  expect(getMathGenerationStatus(childId, homeworkId, { rootDir })?.nodes).toEqual(expect.arrayContaining([
+  // Canvas verification now precedes activity generation. Wait for actual
+  // readiness; an empty node list must not satisfy Array.every().
+  await vi.waitFor(() => expect(getMathGenerationStatus(childId, homeworkId, { rootDir })?.nodes).toEqual(expect.arrayContaining([
     expect.objectContaining({ nodeId: "activity-1", status: "ready" }),
     expect.objectContaining({ nodeId: "activity-2", status: "ready" }),
-  ]));
+  ])), { timeout: 5000 });
   expect(generateDirectArtworkBundle).toHaveBeenCalledTimes(1);
   for (const [input] of vi.mocked(generateDirectArtifacts).mock.calls) {
     expect(input).toEqual(expect.objectContaining({
@@ -188,9 +186,7 @@ it("repairs required learning content before optional artwork finishes", async (
   });
 
   const generation = runAdaptiveMathGeneration(childId, homeworkId, rootDir);
-  for (let index = 0; index < 40 && vi.mocked(repairDirectArtifact).mock.calls.length === 0; index += 1) {
-    await new Promise(resolve => setTimeout(resolve, 5));
-  }
+  await vi.waitFor(() => expect(repairDirectArtifact).toHaveBeenCalledTimes(1), { timeout: 5000 });
   const repairsBeforeArtwork = vi.mocked(repairDirectArtifact).mock.calls.length;
 
   finishArtwork({
@@ -627,7 +623,7 @@ it("keeps completed Discovery in history without inserting it into the targeted 
     expect(projected.activeSessionPlan.nodePlan.some(n => n.id === "discovery")).toBe(false);
     expect(projected.adventureBoard.nodes.some(n => n.id === "discovery")).toBe(false);
     expect(projected.adventureBoard.edges.some(e => e.from === "discovery" || e.to === "discovery")).toBe(false);
-    expect(projected.adventureBoard.nodes.filter(n => n.kind === "activity").map(n => n.id).sort()).toEqual(["activity-1", "activity-2"]);
+    expect(projected.adventureBoard.nodes.filter(n => n.kind === "activity").map(n => n.activityNodeId).sort()).toEqual(["activity-1", "activity-2"]);
   }
   expect(cycle.nodes.find(n => n.nodeId === "discovery")).toEqual(before.nodes.find(n => n.nodeId === "discovery"));
   expect(cycle.observations).toEqual(before.observations);

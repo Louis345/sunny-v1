@@ -1,3 +1,4 @@
+import {linearJourneyFixture} from "./fixtures/authoredJourney";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -15,7 +16,7 @@ async function fixture() {
   vi.stubEnv("SUNNY_CONTEXT_ROOT", path.join(rootDir, "src/context"));
   const sourceFile = seedSpellingLab(rootDir);
   const childId = "lab-child";
-  const callPlannerModel = vi.fn(async (packet: Parameters<typeof recordedSpellingDiagnostic>[0]) => ({ draft: { diagnostic: recordedSpellingDiagnostic(packet), title: "School spelling", words: ["night", "light"].map(word => ({ word, pageNumber: 1 })), sourceNotes: [], uncertainty: [] } }));
+  const callPlannerModel = vi.fn(async (packet: Parameters<typeof recordedSpellingDiagnostic>[0]) => ({ draft: { boardDefinition:linearJourneyFixture(["diagnostic"]), diagnostic: recordedSpellingDiagnostic(packet), title: "School spelling", words: ["night", "light"].map(word => ({ word, pageNumber: 1 })), sourceNotes: [], uncertainty: [] } }));
   const input = { rootDir, childId, sourceFile };
   const { homeworkId } = await runSpellingDiscoveryIntake(input, { callPlannerModel });
   const child = path.join(rootDir, "src/context", childId);

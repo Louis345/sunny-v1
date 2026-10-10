@@ -1,3 +1,4 @@
+import {linearJourneyFixture} from "../scripts/fixtures/authoredJourney";
 import { describe, expect, it } from "vitest";
 import { assignmentPlannerToolJsonSchema, validateAssignmentPlannerOutput, type AssignmentPlannerOutput, type AssignmentActivityCard } from "./assignmentPlanner";
 
@@ -8,7 +9,7 @@ function activityIds(schema: Record<string, unknown>): string[] {
 
 describe("spelling Planner tool agrees with the launchable packet catalog", () => {
   const catalog = [
-    { activityId: "word-radar", launchable: true },
+    { activityId: "word-radar", launchable: true, capabilityModes:[{config:{recallMode:"hidden_word_recall"}}] },
     { activityId: "wheel-of-fortune", launchable: true },
     { activityId: "quest", launchable: true },
     { activityId: "wordle", launchable: false },
@@ -44,10 +45,10 @@ describe("spelling Planner tool agrees with the launchable packet catalog", () =
     const output = {
       capturedContent: { sourceDocuments: [{ filename: "school-words.txt" }], wordGroups: [] }, homeworkWords: [],
       assignmentInterpretation: { wordGroups: [{ id: "school", label: "School words", words: ["night"], purpose: "spell" }] },
-      activeSessionPlan: { nodePlan: [{ id: "practice", activityId: "word-radar", type: "word-radar", targets: ["night"], wordRadarConfig: { recallMode: "hidden_word_recall" } }] },
+      activeSessionPlan: { boardDefinition:linearJourneyFixture(["practice"]), evidenceUsed:[], nodePlan: [{ id: "practice", activityId: "word-radar", type: "word-radar", targets: ["night"], wordRadarConfig: { recallMode: "hidden_word_recall" } }] },
       plannedMeasurements: [{ id: "measure-practice" }],
     } as unknown as AssignmentPlannerOutput;
-    const options = { extraction: {} as never, activityCatalog: catalog as AssignmentActivityCard[], requireCatalogBinding: true };
+    const options = { extraction: {} as never, activityCatalog: catalog as unknown as AssignmentActivityCard[], requireCatalogBinding: true };
     expect(validateAssignmentPlannerOutput(output, options)).toEqual([]);
     output.activeSessionPlan.nodePlan[0].type = type as typeof output.activeSessionPlan.nodePlan[number]["type"];
     const issues = validateAssignmentPlannerOutput(output, options);

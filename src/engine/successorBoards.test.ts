@@ -1,3 +1,6 @@
+import * as canvasVerifier from './adventureBoardCanvas';
+import {createHash} from 'node:crypto';
+import {choiceJourneyFixture,linearJourneyFixture} from '../scripts/fixtures/authoredJourney';
 import fs from "fs";
 import os from "os";
 import path from "path";
@@ -94,6 +97,7 @@ function cycleInput(): CreateLearningCycleInput {
   };
   const board = publishBoardInstance({ ...base, boards: [] } as unknown as LearningCycleRecordV2, {
     kind: "teaching",
+    definition:linearJourneyFixture(nodes.map(node=>node.nodeId)),
     predecessorBoardId: null,
     plannerDecisionId: `${HW}:decision:r0`,
     evidenceIds: ["pdf:1"],
@@ -125,11 +129,13 @@ function decision(action: CanonicalProgressionDecision["progressionAction"], suc
     reason: `Planner chose ${action}.`,
     progressionAction: action,
     preserve: [], change: [], testNext: [], nextEvidenceRequired: [],
-    ...(successor ? { successor } : {}),
+    ...(successor ? { successor:{...successor,boardDefinition:successor.boardDefinition??linearJourneyFixture(successor.instruments.map(row=>row.nodeId))} } : {}),
   };
 }
 
+const supportDefinition=choiceJourneyFixture([{id:'dock',label:'Dock',nodeIds:['route-dock']},{id:'reef',label:'Reef',nodeIds:['route-reef']}],['warmup'],['check']);
 const supportSuccessor = {
+  boardDefinition:supportDefinition,
   instruments: [
     instrument("warmup", "Tide Warmup", ["s-1"]),
     instrument("route-dock", "Dock Route", ["s-2"]),
@@ -157,6 +163,7 @@ const bossSuccessor = { instruments: [instrument("echo", "The Echo Keeper", ["bo
 function bindAll(rootDir: string): LearningCycleRecordV2 {
   let cycle = getLearningCycle(CHILD, HW, { rootDir })!;
   const preparing = preparingBoardInstance(cycle)!;
+  if(preparing.definition)cycle=transitionLearningCycle(CHILD,HW,cycle.revision,{type:'board_canvas_verified',boardId:preparing.boardId,proof:{definitionHash:createHash('sha256').update(JSON.stringify(preparing.definition)).digest('hex'),rendererHash:'unit-renderer-proof',viewports:['1280x720','768x1024'],screenshots:['/test/a.png','/test/b.png'],verifiedAt:'2026-10-09T00:00:00Z'}},{rootDir});
   for (const nodeId of preparing.nodeIds) {
     cycle = transitionLearningCycle(CHILD, HW, cycle.revision, {
       type: "artifact_bound",
@@ -238,31 +245,29 @@ describe("successor boards (contract 21)", () => {
     await advanceCanonicalCycleFromEvidence({ childId: CHILD, homeworkId: HW, decide: async () => decision("generate_support", supportSuccessor) }, { rootDir });
     const published = bindAll(rootDir);
     const board = currentBoardInstance(published);
-    expect(board.agencyExperiment?.routes).toHaveLength(2);
-    const [first, second] = board.agencyExperiment!.routes;
-    expect(first!.nodeIds.at(-1)).toBe(second!.nodeIds.at(-1));
-    expect(first!.nodeIds[0]).not.toBe(second!.nodeIds[0]);
-    expect(published.agencyExperiment).toEqual(board.agencyExperiment);
+    expect(board.definition?.choices[0].options).toHaveLength(2);
+    expect(board.agencyExperiment).toBeUndefined();
+    expect(board.definition?.paths.find(p=>p.id==='main')?.portalIds).toEqual(['start','warmup','choice','check','end']);
+    expect(board.definition?.paths.find(p=>p.id==='dock')?.portalIds).toEqual(['dock:route-dock']);
+    expect(board.definition?.paths.find(p=>p.id==='reef')?.portalIds).toEqual(['reef:route-reef']);
     expect(nodesOfBoard(published, board.boardId).some((node) => node.role === "quest" || node.role === "boss")).toBe(false);
     const projected = projectLearningCycle(published);
     expect(projected.adventureBoard.nodes.some((node) => node.kind === "quest" || node.kind === "boss")).toBe(false);
     expect(projected.adventureBoard.nodes.some((node) => node.kind === "choice-gate")).toBe(true);
   });
 
-  it("test 5: unauthorized Quest and Boss are absent, including legacy pre-allocated placeholders", () => {
+  it("test 5: inventory-only history remains intact and cannot invent a visible board", () => {
     const rootDir = root();
     const legacyQuest: LearningCycleNodeContract = { ...baseline("quest", "Quest"), role: "quest", state: "locked", artifactBinding: null };
     const legacyBoss: LearningCycleNodeContract = { ...baseline("boss", "Boss"), role: "boss", state: "locked", artifactBinding: null };
     const { boards: _boards, ...legacyInput } = cycleInput();
     const cycle = createLearningCycle({ ...legacyInput, nodes: [...legacyInput.nodes, legacyQuest, legacyBoss] }, { rootDir });
-    const projected = projectLearningCycle(cycle);
-    expect(projected.adventureBoard.nodes.some((node) => node.kind === "quest" || node.kind === "boss")).toBe(false);
-    expect(projected.adventureBoard.nodes.some((node) => /quest|boss/i.test(node.lock?.label ?? ""))).toBe(false);
-    expect(projected.adventureBoard.edges.some((edge) => ["quest", "boss"].includes(edge.to))).toBe(false);
-    expect(projected.activeSessionPlan.nodePlan.some((node) => node.type === "quest" || node.type === "boss")).toBe(false);
+    expect(()=>projectLearningCycle(cycle)).toThrow('board_definition_missing');
+    expect(cycle.nodes.filter(node=>node.role==='quest'||node.role==='boss')).toHaveLength(2);
+
   });
 
-  it("test 6: an authorized Quest is present and playable from the successor's first render", async () => {
+  it("test 6: an authorized Quest is visible and follows its authored warmup", async () => {
     const rootDir = root();
     await finishBaselineBoard(rootDir);
     const decided = await advanceCanonicalCycleFromEvidence({ childId: CHILD, homeworkId: HW, decide: async () => decision("generate_quest", questSuccessor) }, { rootDir });
@@ -272,10 +277,11 @@ describe("successor boards (contract 21)", () => {
     const quest = nodesOfBoard(published, currentBoardInstance(published).boardId).find((node) => node.role === "quest")!;
     expect(quest).toMatchObject({ title: "Lantern Rescue", state: "ready" });
     const projected = projectLearningCycle(published);
-    const questNode = projected.adventureBoard.nodes.find((node) => node.id === quest.nodeId)!;
-    expect(questNode.kind).toBe("quest");
-    expect(["available", "current"]).toContain(questNode.state);
-    expect(questNode.lock).toBeUndefined();
+    const questNode = projected.adventureBoard.nodes.find((node) => node.activityNodeId === quest.nodeId)!;
+    expect(questNode.kind).toBe("activity");
+    expect(questNode.state).toBe("locked");
+    complete(rootDir,published.nodes.find(node=>node.nodeId.endsWith(":warmup"))!.nodeId,"s2","s-1");
+    expect(projectLearningCycle(getLearningCycle(CHILD,HW,{rootDir})!).adventureBoard.nodes.find(node=>node.activityNodeId===quest.nodeId)?.state).toBe("available");
     expect(questNode.action?.type).toBe("launch-activity");
   });
 
@@ -317,6 +323,7 @@ describe("successor boards (contract 21)", () => {
     const published = bindAll(rootDir);
     const quest = nodesOfBoard(published, currentBoardInstance(published).boardId).find((node) => node.role === "quest")!;
     // Repeating an already-exposed item downgrades the Quest attempt to practice.
+    complete(rootDir,getLearningCycle(CHILD,HW,{rootDir})!.nodes.find(node=>node.nodeId.endsWith(":warmup"))!.nodeId,"s2","s-1");
     complete(rootDir, quest.nodeId, "s2", "b-1");
     await expect(advanceCanonicalCycleFromEvidence({ childId: CHILD, homeworkId: HW, decide: async () => decision("generate_boss", bossSuccessor) }, { rootDir }))
       .rejects.toThrow("canonical_progression_boss_requires_unseen_quest_evidence");
@@ -331,13 +338,14 @@ describe("successor boards (contract 21)", () => {
     await advanceCanonicalCycleFromEvidence({ childId: CHILD, homeworkId: HW, decide: async () => decision("generate_quest", questSuccessor) }, { rootDir });
     let cycle = bindAll(rootDir);
     const quest = nodesOfBoard(cycle, currentBoardInstance(cycle).boardId).find((node) => node.role === "quest")!;
+    complete(rootDir,getLearningCycle(CHILD,HW,{rootDir})!.nodes.find(node=>node.nodeId.endsWith(":warmup"))!.nodeId,"s2","s-1");
     complete(rootDir, quest.nodeId, "s2", "q-1");
     cycle = await advanceCanonicalCycleFromEvidence({ childId: CHILD, homeworkId: HW, decide: async () => decision("generate_boss", bossSuccessor) }, { rootDir });
     expect(cycle.lifecycle).toBe("boss_generating");
     cycle = bindAll(rootDir);
     expect(cycle.lifecycle).toBe("boss_ready");
     const boss = nodesOfBoard(cycle, currentBoardInstance(cycle).boardId).find((node) => node.role === "boss")!;
-    expect(projectLearningCycle(cycle).adventureBoard.nodes.find((node) => node.id === boss.nodeId)?.kind).toBe("boss");
+    expect(projectLearningCycle(cycle).adventureBoard.nodes.find((node) => node.activityNodeId === boss.nodeId)?.kind).toBe("activity");
     complete(rootDir, boss.nodeId, "s3", "boss-1");
     const awaiting = await advanceCanonicalCycleFromEvidence({ childId: CHILD, homeworkId: HW, decide: async () => ({ ...decision("await_calibration"), status: "awaiting_calibration" }) }, { rootDir });
     expect(awaiting.lifecycle).toBe("awaiting_calibration");
@@ -370,6 +378,7 @@ describe("successor boards (contract 21)", () => {
       status: "supported", reason: "Independent checkpoint was correct; test transfer.", progressionAction: "generate_quest",
       preserve: [], change: [], testNext: ["transfer"], nextEvidenceRequired: ["Quest"], predictionEvaluationIds: [],
       nextInstruments: questSuccessor.instruments,
+      boardDefinition:linearJourneyFixture(["warmup","lantern"]),
     };
     const create = vi.fn(async () => ({ content: [{ type: "tool_use", name: "decide_learning_cycle_progression", input: toolInput }] }));
     const first = await advanceCanonicalCycleFromEvidence({ childId: CHILD, homeworkId: HW, client: { messages: { create } } as never }, { rootDir });
@@ -501,14 +510,15 @@ describe("successor boards (contract 21)", () => {
     await advanceCanonicalCycleFromEvidence({ childId: CHILD, homeworkId: HW, decide: async () => decision("generate_support", supportSuccessor) }, { rootDir });
     let cycle = bindAll(rootDir);
     const board = currentBoardInstance(cycle);
-    const experiment = board.agencyExperiment!;
-    complete(rootDir, experiment.sharedNodeIds[0]!, "s2", "s-1");
+    const canonical=(id:string)=>board.definition!.portals.find(p=>p.id===id)!.activityNodeId!;
+    complete(rootDir, canonical('warmup'), "s2", "s-1");
     cycle = getLearningCycle(CHILD, HW, { rootDir })!;
-    cycle = transitionLearningCycle(CHILD, HW, cycle.revision, { type: "route_selected", experimentId: experiment.experimentId, routeId: experiment.routes[0]!.routeId, choiceEventId: "choice-1" }, { rootDir });
-    for (const nodeId of experiment.routes[0]!.nodeIds) complete(rootDir, nodeId, "s2", nodeId.endsWith("check") ? "b-2" : "s-2");
+    cycle = transitionLearningCycle(CHILD, HW, cycle.revision, { type: "journey_choice_selected", choiceId:'choice', optionId:'dock', choiceEventId: "choice-1" }, { rootDir });
+    complete(rootDir,canonical('dock:route-dock'),'s2','s-2');
+    complete(rootDir,canonical('check'),'s2','b-2');
     cycle = getLearningCycle(CHILD, HW, { rootDir })!;
     expect(cycle.lifecycle).toBe("baseline_evaluating");
-    const untaken = experiment.routes[1]!.nodeIds[0]!;
+    const untaken = "reef:route-reef";
     expect(projectLearningCycle(cycle).adventureBoard.nodes.find((node) => node.id === untaken)?.lock).toMatchObject({ reason: "route-not-taken", label: "Not taken" });
   });
 });
@@ -592,7 +602,7 @@ function writeProfile(rootDir: string) {
     sessionStats: { totalSessions: 0, totalWordsMastered: 0, currentStreak: 0 },
   }));
 }
-const toolResponse = (input: Record<string, unknown>) => ({ content: [{ type: "tool_use", name: "decide_learning_cycle_progression", input }] });
+const toolResponse = (input: Record<string, unknown>) => ({ content: [{ type: "tool_use", name: "decide_learning_cycle_progression", input:{...input,...(Array.isArray(input.nextInstruments)?{boardDefinition:linearJourneyFixture(input.nextInstruments.map((row:any)=>row.nodeId))}:{})} }] });
 const baseTool = { status: "supported", reason: "r", preserve: [], change: [], testNext: [], nextEvidenceRequired: [], predictionEvaluationIds: [] };
 
 describe("review fixes: no stuck or silent cycles", () => {
@@ -638,6 +648,35 @@ describe("review fixes: no stuck or silent cycles", () => {
     expect(preparingBoardInstance(replayed)).toBeDefined();
   });
 
+  it("preserves prepared successor activities and stops restart retries after a canvas defect", async () => {
+    const rootDir = root();
+    await finishBaselineBoard(rootDir);
+    const successor = structuredClone(supportSuccessor);
+    successor.boardDefinition.portals[1]!.position = structuredClone(successor.boardDefinition.portals[0]!.position);
+    await advanceCanonicalCycleFromEvidence({ childId: CHILD, homeworkId: HW, decide: async () => decision("generate_support", successor) }, { rootDir });
+    let before = getLearningCycle(CHILD, HW, { rootDir })!;
+    const pending = preparingBoardInstance(before)!;
+    before = transitionLearningCycle(CHILD, HW, before.revision, {
+      type: "artifact_bound", nodeId: pending.nodeIds[0]!, artifact: baseline("saved", "Saved").artifactBinding!,
+    }, { rootDir });
+    const verify = vi.spyOn(canvasVerifier, "verifyPreparingBoardCanvas");
+    const generateHtml = vi.fn(async () => { throw new Error("must not buy content after a canvas failure"); });
+    try {
+      const after = await prepareSuccessorBoard({ childId: CHILD, homeworkId: HW, generateHtml }, { rootDir });
+      expect(after.lifecycle).toBe("blocked");
+      expect(after.nodes).toEqual(before.nodes);
+      expect(after.observations).toEqual(before.observations);
+      expect(after.boards).toEqual(before.boards);
+      expect(after.decisionHistory.at(-1)?.reason).toContain("successor_canvas_failed:board_canvas_invalid");
+      expect(successorPreparationStatus(after)?.phase).toBe("needs_attention");
+      expect(successorResumeAction(after)).toBeNull();
+      const restarted = await prepareSuccessorBoard({ childId: CHILD, homeworkId: HW, generateHtml }, { rootDir });
+      expect(restarted).toEqual(after);
+      expect(verify).toHaveBeenCalledTimes(1);
+      expect(generateHtml).not.toHaveBeenCalled();
+    } finally { verify.mockRestore(); }
+  }, 20000);
+
   it("marks a successor node that fails to build as needing attention, reports it, and never rebuilds it automatically", async () => {
     const rootDir = root();
     await finishBaselineBoard(rootDir);
@@ -656,6 +695,7 @@ describe("review fixes: no stuck or silent cycles", () => {
     const rootDir = root();
     await finishBaselineBoard(rootDir);
     const questWithRoutes = {
+      boardDefinition:choiceJourneyFixture([{id:"dock",label:"Dock",nodeIds:["dock"]},{id:"reef",label:"Reef",nodeIds:["reef"]}],["warmup"],["lantern"]),
       instruments: [
         instrument("warmup", "Harbor Warmup", ["s-1"]),
         instrument("dock", "Dock Path", ["s-2"]),
@@ -666,19 +706,19 @@ describe("review fixes: no stuck or silent cycles", () => {
     };
     await advanceCanonicalCycleFromEvidence({ childId: CHILD, homeworkId: HW, decide: async () => decision("generate_quest", questWithRoutes) }, { rootDir });
     let cycle = bindAll(rootDir);
-    const experiment = currentBoardInstance(cycle).agencyExperiment!;
-    complete(rootDir, experiment.sharedNodeIds[0]!, "s2", "s-1");
+    const definition=currentBoardInstance(cycle).definition!;
+    complete(rootDir, definition.portals.find(p=>p.id==="warmup")!.activityNodeId!, "s2", "s-1");
     cycle = getLearningCycle(CHILD, HW, { rootDir })!;
-    cycle = transitionLearningCycle(CHILD, HW, cycle.revision, { type: "route_selected", experimentId: experiment.experimentId, routeId: "dock", choiceEventId: "c1" }, { rootDir });
+    cycle = transitionLearningCycle(CHILD, HW, cycle.revision, { type: "journey_choice_selected", choiceId:"choice", optionId: "dock", choiceEventId: "c1" }, { rootDir });
     expect(cycle.lifecycle).toBe("quest_ready");
     const quest = cycle.nodes.find((node) => node.role === "quest" && node.nodeId.includes(":b2:"))!;
     // An authorized encounter inside a route is never hidden by navigation locks (test 12).
-    expect(projectLearningCycle(cycle).adventureBoard.nodes.some((node) => node.id === quest.nodeId)).toBe(true);
+    expect(projectLearningCycle(cycle).adventureBoard.nodes.some((node) => node.activityNodeId === quest.nodeId)).toBe(true);
     complete(rootDir, cycle.nodes.find((node) => node.title === "Dock Path")!.nodeId, "s2", "s-2");
     complete(rootDir, quest.nodeId, "s2", "q-1");
     cycle = getLearningCycle(CHILD, HW, { rootDir })!;
     expect(cycle.lifecycle).toBe("quest_evaluating");
-    expect(() => transitionLearningCycle(CHILD, HW, cycle.revision, { type: "route_selected", experimentId: experiment.experimentId, routeId: "reef", choiceEventId: "c2" }, { rootDir }))
+    expect(() => transitionLearningCycle(CHILD, HW, cycle.revision, { type: "journey_choice_selected", choiceId:"choice", optionId: "reef", choiceEventId: "c2" }, { rootDir }))
       .toThrow("learning_board_batch_closed");
   });
 
@@ -702,14 +742,15 @@ describe("review fixes: legacy cycles keep working", () => {
     return createLearningCycle({ ...legacyInput, nodes: [...legacyInput.nodes, legacyQuest], initialLifecycle: "quest_generating" }, { rootDir });
   }
 
-  it("finishes an in-flight legacy Quest through the legacy generator and hides it until it is ready", async () => {
+  it("preserves an in-flight historical Quest without inventing a board from its inventory", async () => {
     const rootDir = root();
     const cycle = legacyQuestGenerating(rootDir);
-    expect(projectLearningCycle(cycle).adventureBoard.nodes.some((node) => node.id === "quest")).toBe(false);
+    expect(() => projectLearningCycle(cycle)).toThrow("board_definition_missing");
     const after = await prepareSuccessorBoard({ childId: CHILD, homeworkId: HW, generateHtml: async () => "<html><body><h1>Quest</h1></body></html>", validate: async () => ({ passed: true, failures: [] }), generateArtwork: async () => "/generated/q.png" }, { rootDir });
     expect(after.lifecycle).toBe("quest_ready");
     expect(after.boards).toBeUndefined();
-    expect(projectLearningCycle(after).adventureBoard.nodes.find((node) => node.id === "quest")?.action?.type).toBe("launch-activity");
+    expect(after.nodes.find(node => node.nodeId === "quest")?.artifactBinding?.validationStatus).toBe("passed");
+    expect(() => projectLearningCycle(after)).toThrow("board_definition_missing");
   });
 });
 
@@ -719,21 +760,21 @@ describe("Planner successor program parsing", () => {
       status: "supported", reason: "Transfer next.", progressionAction: "generate_quest",
       preserve: [], change: [], testNext: [], nextEvidenceRequired: [], predictionEvaluationIds: [],
       nextInstruments: questSuccessor.instruments,
+      boardDefinition:linearJourneyFixture(["warmup","lantern"]),
       routeChoice: { sharedNodeIds: ["warmup"], routes: [{ routeId: "a", nodeIds: ["lantern"] }] },
     });
     expect(parsed.successor?.instruments.map((row) => [row.nodeId, row.encounter ?? null])).toEqual([["warmup", null], ["lantern", "quest"]]);
-    expect(parsed.successor?.routeChoice?.routes).toHaveLength(1);
+    expect(parsed.successor?.routeChoice).toBeUndefined();
+    expect(parsed.successor?.boardDefinition).toEqual(linearJourneyFixture(["warmup","lantern"]));
   });
 
-  it("reads a legacy single-instrument checkpoint as a one-node successor", () => {
-    const parsed = parseCanonicalProgressionDecision({
+  it("requires explicit new authoring for a historical single-instrument receipt", () => {
+    expect(()=>parseCanonicalProgressionDecision({
       status: "supported", reason: "Transfer next.", progressionAction: "generate_quest",
       preserve: [], change: [], testNext: [], nextEvidenceRequired: [], predictionEvaluationIds: [],
       nextNodeId: "quest", nextTitle: "Lantern Rescue", nextAcademicTarget: "transfer", nextMechanic: "m", nextTheme: "t",
       nextOpeningPurpose: "p", nextCreatorPrompt: "c", nextItems: items(["q-1"]),
-    });
-    expect(parsed.successor?.instruments).toHaveLength(1);
-    expect(parsed.successor?.instruments[0]).toMatchObject({ title: "Lantern Rescue", encounter: "quest" });
+    })).toThrow("board_definition_missing");
   });
 
   it("requires no successor for await_calibration", () => {
