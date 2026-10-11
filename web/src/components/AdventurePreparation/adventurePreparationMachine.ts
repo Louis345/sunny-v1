@@ -14,16 +14,16 @@ export type PreparationEvent =
   | { type: "REVIEW_ITEM"; index: number }
   | { type: "REVIEW_DONE" }
   | { type: "PLAN_DONE"; stops: PreparationStop[] }
-  | { type: "ACTIVITY_READY"; n: number; total: number }
+  | { type: "ACTIVITY_READY"; n: number; total: number; published?: boolean }
   | { type: "FAILED"; reason: string; retryable: boolean }
   | { type: "SLOW" }
   | { type: "RETRY" }
   | { type: "STOP" };
 
 /**
- * live: the design's own flow (Storybook). chapter: right after Discovery; the map
- * opens next session, so a finished map ends the chapter instead of offering play.
- * resume: next session, the map is still building; it ends on "Let's go!".
+ * live: the design's own flow (Storybook). chapter: right after Discovery.
+ * resume: next session, the map is still building. Both offer a complete map;
+ * only an explicit STOP holds it for later.
  */
 export type PreparationMode = "live" | "chapter" | "resume";
 
@@ -93,8 +93,7 @@ export const adventurePreparationMachine = setup({
   },
   guards: {
     isNewCount: ({ context, event }) => event.type === "ACTIVITY_READY" && event.n > context.ready && event.n < event.total,
-    isFinalCount: ({ event }) => event.type === "ACTIVITY_READY" && event.total > 0 && event.n >= event.total,
-    isFinalInChapter: ({ context, event }) => context.mode === "chapter" && event.type === "ACTIVITY_READY" && event.total > 0 && event.n >= event.total,
+    isFinalCount: ({ event }) => event.type === "ACTIVITY_READY" && event.published !== false && event.total > 0 && event.n >= event.total,
     resumesBuilding: ({ context }) => context.mode === "resume" && context.stops.length > 0,
     resumesPlanning: ({ context }) => context.mode === "resume",
   },
@@ -126,7 +125,6 @@ export const adventurePreparationMachine = setup({
         REVIEW_DONE: { target: "plan" },
         PLAN_DONE: { target: "build", actions: "takeStops" },
         ACTIVITY_READY: [
-          { guard: "isFinalInChapter", target: "stop", actions: "takeCount" },
           { guard: "isFinalCount", target: "ready", actions: "takeCount" },
           { target: "build", actions: "takeCount" },
         ],
@@ -137,7 +135,6 @@ export const adventurePreparationMachine = setup({
       on: {
         PLAN_DONE: { target: "build", actions: "takeStops" },
         ACTIVITY_READY: [
-          { guard: "isFinalInChapter", target: "stop", actions: "takeCount" },
           { guard: "isFinalCount", target: "ready", actions: "takeCount" },
           { target: "build", actions: "takeCount" },
         ],
@@ -147,9 +144,9 @@ export const adventurePreparationMachine = setup({
       entry: ["buildLine", "speak"],
       on: {
         ACTIVITY_READY: [
-          { guard: "isFinalInChapter", target: "stop", actions: "takeCount" },
           { guard: "isFinalCount", target: "ready", actions: "takeCount" },
           { guard: "isNewCount", actions: ["takeCount", "buildLine", "speak"] },
+          { actions: "takeCount" },
         ],
         SLOW: { target: "long" },
       },
@@ -158,15 +155,15 @@ export const adventurePreparationMachine = setup({
       entry: ["longLine", "speak"],
       on: {
         ACTIVITY_READY: [
-          { guard: "isFinalInChapter", target: "stop", actions: "takeCount" },
           { guard: "isFinalCount", target: "ready", actions: "takeCount" },
           { guard: "isNewCount", actions: "takeCount" },
+          { actions: "takeCount" },
         ],
       },
     },
     ready: {
       entry: ["readyLine", "speak"],
-      on: { FAILED: {}, STOP: {} },
+      on: { FAILED: {}, STOP: { target: "stop" } },
     },
     help: {
       entry: ["helpLine", "speak"],

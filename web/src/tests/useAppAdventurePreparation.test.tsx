@@ -74,7 +74,7 @@ describe("useAppAdventurePreparation", () => {
     expect(stateUpdates().at(-1)).toMatchObject({ phase: "build", ready: 1, total: 2 });
   });
 
-  it("ends the Discovery chapter calmly and never offers the new map this session", async () => {
+  it("offers the fully verified board after Discovery and reveals it only on request", async () => {
     const { result, rerender, spoken } = setup({ surface: "chapter", status: null });
     expect(result.current.screen).not.toBeNull();
     expect(spoken()).toEqual([]);
@@ -82,12 +82,16 @@ describe("useAppAdventurePreparation", () => {
     expect(spoken()).toEqual([]);
     rerender({ surface: "chapter", status: status("board_generating", [["a", "preparing"], ["b", "preparing"]]) });
     expect(spoken()).toEqual([]);
-    // The packet switches to the finished board: the chapter still ends here.
+    // Completion is not an instruction to end the child's session.
     rerender({ surface: null, status: status("board_ready", [["a", "ready"], ["b", "ready"]]) });
     expect(result.current.screen).not.toBeNull();
     expect(spoken()).toEqual([]);
-    render(<>{result.current.screen}</>);
-    expect(screen.queryByRole("button", { name: "Let's go!" })).toBeNull();
+    const { unmount } = render(<>{result.current.screen}</>);
+    expect(screen.queryByText("Ready next time")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Let's go!" }));
+    unmount();
+    rerender({ surface: null, status: status("board_ready", [["a", "ready"], ["b", "ready"]]) });
+    expect(result.current.screen).toBeNull();
   });
 
   it("resumes a building map next session and reveals it once with Let's go", () => {
@@ -112,6 +116,29 @@ describe("useAppAdventurePreparation", () => {
     first.unmount();
     render(<>{result.current.screen}</>);
     fireEvent.click(screen.getByRole("button", { name: /bye for now/i }));
+    expect(onFinish).toHaveBeenCalledTimes(1);
+  });
+
+  it("waits for canonical publication before offering reveal, even when all artifacts are ready", () => {
+    const {result, rerender} = setup({surface:"held",status:status("board_generating",[["a","ready"],["b","ready"]])});
+    const first = render(<>{result.current.screen}</>);
+    expect(screen.queryByRole("button",{name:"Let's go!"})).toBeNull();
+    first.unmount();
+    rerender({surface:null,status:status("board_ready",[["a","ready"],["b","ready"]])});
+    render(<>{result.current.screen}</>);
+    expect(screen.getByRole("button",{name:"Let's go!"})).toBeTruthy();
+  });
+
+  it("allows declining a completed board without revealing it", () => {
+    const {result,rerender,onFinish} = setup({surface:"held",status:status("board_generating",[["a","ready"],["b","preparing"]])});
+    rerender({surface:null,status:status("board_ready",[["a","ready"],["b","ready"]])});
+    const first=render(<>{result.current.screen}</>);
+    fireEvent.click(screen.getByRole("button",{name:/stop for now/i}));
+    first.unmount();
+    render(<>{result.current.screen}</>);
+    expect(screen.queryByRole("button",{name:"Let's go!"})).toBeNull();
+    expect(onFinish).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button",{name:/bye for now/i}));
     expect(onFinish).toHaveBeenCalledTimes(1);
   });
 });

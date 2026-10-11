@@ -107,12 +107,12 @@ describe("adventurePreparationMachine", () => {
     expect(a.getSnapshot().context.ready).toBe(4);
   });
 
-  it("does not offer stopping once the map is ready", () => {
+  it("allows choosing to leave after the map is ready", () => {
     const { a } = actor();
     a.send({ type: "PLAN_DONE", stops: stops.slice(0, 1) });
     a.send({ type: "ACTIVITY_READY", n: 1, total: 1 });
     a.send({ type: "STOP" });
-    expect(a.getSnapshot().value).toBe("ready");
+    expect(a.getSnapshot().value).toBe("stop");
   });
 
   it("uses the subject's own noun", () => {
@@ -197,7 +197,7 @@ describe("AdventurePreparationScreen", () => {
     view({ state: "ready", ready: 4, onLetsGo });
     fireEvent.click(screen.getByRole("button", { name: "Let's go!" }));
     expect(onLetsGo).toHaveBeenCalledTimes(1);
-    expect(screen.queryByRole("button", { name: /stop for now/i })).toBeNull();
+    expect(screen.getByRole("button", { name: /stop for now/i })).toBeTruthy();
   });
 
   it("does not render a fixed speech bubble above the companion", () => {
@@ -209,8 +209,8 @@ describe("AdventurePreparationScreen", () => {
 
 });
 
-// Learning contract: the Teaching Board opens in a later session, never as same-session work.
-describe("chapter end versus next-session resume", () => {
+// A verified Teaching Board may be chosen now; unfinished work remains resumable.
+describe("Discovery continuation and next-session resume", () => {
   const start = (input: Record<string, unknown>) => {
     const spoken: string[] = [];
     const a = createActor(adventurePreparationMachine.provide({ actions: { speak: ({ context }) => { spoken.push(context.line); } } }), { input: input as never });
@@ -218,12 +218,12 @@ describe("chapter end versus next-session resume", () => {
     return { a, spoken };
   };
 
-  it("ends the Discovery chapter calmly when the map finishes, without offering it now", () => {
+  it("offers the completed board after Discovery without automatically stopping", () => {
     const { a, spoken } = start({ subject: "spelling", mode: "chapter" });
     a.send({ type: "PLAN_DONE", stops });
     a.send({ type: "ACTIVITY_READY", n: 4, total: 4 });
-    expect(a.getSnapshot().value).toBe("stop");
-    expect(spoken.at(-1)).toBe("Your map is ready for next time. Bye for now!");
+    expect(a.getSnapshot().value).toBe("ready");
+    expect(spoken.at(-1)).toBe("Your map is ready. Let's go!");
   });
 
   it("resumes a still-building map next session at the building step, without replaying the review", () => {

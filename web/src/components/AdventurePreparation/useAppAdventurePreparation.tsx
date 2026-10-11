@@ -9,7 +9,7 @@ import { useAdventurePreparation } from "./useAdventurePreparation";
 
 export type PreparationSurface = "chapter" | "held" | null;
 
-/** Spelling only: right after Discovery (chapter end) or a next-session map still building. */
+/** Spelling only: right after Discovery or a next-session map still building. */
 export function resolvePreparationSurface(input: {
   packet: ChildExperiencePacket | null;
   directDiscoveryMode: boolean;
@@ -32,9 +32,8 @@ const REVIEW_DWELL_MS = 4000;
 const REVIEW_STAGGER_MS = 150;
 
 /**
- * Drives the preparation screen from real status. The learning contract opens the
- * Teaching Board in a later session, so a chapter that started at Discovery ends
- * calmly; only a next-session resume ends on "Let's go!".
+ * Drives preparation from real status. A complete Teaching Board is optional
+ * continuation; leaving preserves it for the next session.
  */
 export function useAppAdventurePreparation(input: {
   surface: PreparationSurface;
@@ -91,7 +90,7 @@ export function useAppAdventurePreparation(input: {
     return () => timers.forEach(clearTimeout);
   }, [state === "look", items, send]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  useEffect(() => { if (snapshot) statusEvents.forEach(send); }, [statusEvents, snapshot !== null, send]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (snapshot) statusEvents.forEach(event => send(event.type === "ACTIVITY_READY" ? {...event, published:input.surface === null} : event)); }, [statusEvents, input.surface, snapshot !== null, send]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
@@ -101,7 +100,7 @@ export function useAppAdventurePreparation(input: {
   }, [active]);
   useEffect(() => { if (isPreparationSlow(input.status?.startedAt, now)) send({ type: "SLOW" }); }, [input.status?.startedAt, now, send]);
 
-  // The map became playable: a resume reveals it; a chapter keeps it for next time.
+  // The complete map became playable; keep its explicit reveal control visible.
   const total = snapshot?.context.total ?? 0;
   useEffect(() => {
     if (!snapshot || input.surface) return;
@@ -116,7 +115,7 @@ export function useAppAdventurePreparation(input: {
   const contextReviewed = ctx?.reviewed.length ?? 0;
   const contextReviewTotal = ctx?.reviewTotal ?? 0;
   const contextActivityTypes = ctx?.stops.map(stop => stop.activityType).join("|") ?? "";
-  const finishedBuilding = contextTotal > 0 && contextReady >= contextTotal;
+  const finishedBuilding = input.surface === null && contextTotal > 0 && contextReady >= contextTotal;
   const elapsedLabel = preparationElapsedLabel(input.status?.startedAt, now, finishedBuilding);
 
   // Keep Elli grounded in the same visual state the child can see. The screen
@@ -153,7 +152,7 @@ export function useAppAdventurePreparation(input: {
     });
   }, [active, childId, contextActivityTypes, contextLine, contextReady, contextReviewed, contextReviewTotal, contextTotal, elapsedLabel, finishedBuilding, input.status?.phase, sendMessage, state]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const visible = Boolean(snapshot) && (mode === "chapter" || input.surface === "held" || (state === "ready" && revealedScope !== scope));
+  const visible = Boolean(snapshot) && revealedScope !== scope && (mode === "chapter" || input.surface === "held" || state === "ready" || state === "stop");
   if (!visible || !snapshot || !state || !ctx) return { screen: null };
   return {
     screen: (
@@ -165,7 +164,7 @@ export function useAppAdventurePreparation(input: {
           onStop={() => send({ type: "STOP" })}
           onTryAgain={() => { send({ type: "RETRY" }); input.checkNow(); }}
           onBye={input.onFinish}
-          onLetsGo={() => { console.log(" 🎮 [adventure-preparation] [reveal] [opened]"); setRevealedScope(scope); }}
+          onLetsGo={() => { if(input.surface || state !== "ready") { console.log(" 🎮 [adventure-preparation] [reveal] [waiting-for-publication]"); return; } console.log(" 🎮 [adventure-preparation] [reveal] [opened]"); setRevealedScope(scope); }}
         />
       </div>
     ),

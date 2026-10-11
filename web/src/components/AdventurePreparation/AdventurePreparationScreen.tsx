@@ -96,11 +96,9 @@ export function AdventurePreparationScreen(props: AdventurePreparationScreenProp
       <div className="ap-ui">
         <div className="ap-top">
           {props.elapsedLabel && state !== "ready" && <span className="ap-elapsed">Elapsed: {props.elapsedLabel}</span>}
-          {state !== "ready" && (
-            <button type="button" className={`ap-stopbtn${state === "stop" ? " ap-on" : ""}`} aria-pressed={state === "stop"} disabled={state === "stop" || stopUsed} onClick={stop}>
-              <MoonIcon /><span>Stop for now</span>
-            </button>
-          )}
+          <button type="button" className={`ap-stopbtn${state === "stop" ? " ap-on" : ""}`} aria-pressed={state === "stop"} disabled={state === "stop" || stopUsed} onClick={stop}>
+            <MoonIcon /><span>Stop for now</span>
+          </button>
         </div>
 
         <div className={`ap-map${state === "stop" ? " ap-dim" : ""}`} data-fog={fog}>
