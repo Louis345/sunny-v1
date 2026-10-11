@@ -289,7 +289,8 @@ const spellingIntakeSchema = z.object({
 const intakePortal = adventureBoardDefinitionSchema.shape.portals.element;
 const intakeBoardSchema = adventureBoardDefinitionSchema.extend({portals:z.array(z.union([
   intakePortal.extend({kind:z.literal('activity'),activityNodeId:z.enum(['diagnostic'])}),
-  intakePortal.omit({activityNodeId:true}).extend({kind:z.enum(['start','choice','endpoint'])}),
+  intakePortal.extend({kind:z.literal('endpoint'),activityNodeId:z.enum(['diagnostic']).optional()}),
+  intakePortal.omit({activityNodeId:true}).extend({kind:z.enum(['start','choice'])}),
 ])).min(1).max(128)});
 /** Authoring and execution share conditional requirements; historical captures keep their read-only parser. */
 export function spellingIntakeAuthoringSchema(diagnostics: boolean) {

@@ -217,3 +217,17 @@ it('returns invalid opening geometry once to the same Planner and resumes its sa
  expect((await planSpellingIntakeFromSource(packet,options)).output.boardDefinition).toEqual(valid.boardDefinition);
  expect(callPlannerModel).toHaveBeenCalledTimes(2);
 },20000);
+
+
+it('uses the shared endpoint binding contract in diagnostic authoring and execution', async () => {
+  const { packet } = await fixture();
+  const draft = capture(packet);
+  const board = linearJourneyFixture(['diagnostic']);
+  board.portals = board.portals.filter(portal => portal.id !== 'end');
+  board.portals.find(portal => portal.id === 'diagnostic')!.kind = 'endpoint';
+  board.paths[0].portalIds = ['start', 'diagnostic'];
+  board.edges = board.edges.filter(edge => edge.to !== 'end');
+  const authored = {...draft, boardDefinition:board};
+  expect(spellingIntakeAuthoringSchema(true).parse(authored)).toEqual(authored);
+  expect(parseSpellingIntake(authored, packet).boardDefinition).toEqual(board);
+});
