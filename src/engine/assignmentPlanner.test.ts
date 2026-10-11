@@ -943,6 +943,21 @@ describe("assignment planner", () => {
     expect(JSON.stringify(schema)).not.toContain("choiceSets");
   });
 
+  it("does not advertise evidence-gated encounters as launchable opening-board tools", () => {
+    const packet = buildAssignmentPlanningPacket({childId:"ila", extraction:extraction(), childChart:chart()});
+    const encounters = packet.activityCatalog.filter(card => ["quest", "boss"].includes(card.activityId));
+    expect(encounters.map(card => card.activityId).sort()).toEqual(["boss", "quest"]);
+    expect(encounters.every(card => !card.launchable)).toBe(true);
+    const schema = assignmentPlannerToolJsonSchema(true, packet.activityCatalog) as any;
+    const nodes = schema.properties.activeSessionPlan.properties.nodePlan.items;
+    expect(nodes.properties.activityId.enum).not.toContain("quest");
+    expect(nodes.properties.activityId.enum).not.toContain("boss");
+    expect(nodes.anyOf.map((branch:any) => branch.properties.activityId.const)).not.toContain("quest");
+    expect(nodes.anyOf.map((branch:any) => branch.properties.activityId.const)).not.toContain("boss");
+    expect(nodes.properties.activityId.enum).toContain("word-radar");
+    expect(nodes.properties.activityId.enum).toContain("mystery");
+  });
+
   it("asks the planner for named child-specific route hypotheses instead of a flat minimal node list", () => {
     const packet = buildAssignmentPlanningPacket({
       childId: "reina",
@@ -1594,7 +1609,7 @@ describe("assignment planner", () => {
         source: "chart_planner",
         targetLane: "silent_letters",
       },
-      ...adventureSpineNodes(),
+      ...adventureSpineNodes().filter(node => node.type !== "quest" && node.type !== "boss"),
     ]);
 
     expect(validateAssignmentPlannerOutput(output, {

@@ -1030,6 +1030,7 @@ function activityCatalog(
         sentToPlanner: true as const,
         launchable: Boolean(
           contract.plannerVisibility !== "wrapper" &&
+          contract.id !== "quest" && contract.id !== "boss" &&
           NODE_TYPES.has(contract.id as NodeType) &&
           (!allowed || allowed.has(contract.id) || PLANNER_DESTINATION_ACTIVITY_IDS.has(contract.id)),
         ),
