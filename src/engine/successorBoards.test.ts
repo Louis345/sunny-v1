@@ -381,13 +381,13 @@ describe("successor boards (contract 21)", () => {
       boardDefinition:linearJourneyFixture(["warmup","lantern"]),
     };
     const create = vi.fn(async () => ({ content: [{ type: "tool_use", name: "decide_learning_cycle_progression", input: toolInput }] }));
-    const first = await advanceCanonicalCycleFromEvidence({ childId: CHILD, homeworkId: HW, client: { messages: { create } } as never }, { rootDir });
+    const first = await advanceCanonicalCycleFromEvidence({ childId: CHILD, homeworkId: HW, client: { messages: { create, stream: (payload: unknown) => ({ finalMessage: () => create() }) } } as never }, { rootDir });
     const firstBoard = preparingBoardInstance(first)!;
 
     // Crash after the provider replied but before the cycle commit survived.
     fs.writeFileSync(file, snapshot);
     const unavailable = vi.fn(async () => { throw new Error("provider must not be called on restart"); });
-    const replayed = await advanceCanonicalCycleFromEvidence({ childId: CHILD, homeworkId: HW, client: { messages: { create: unavailable } } as never }, { rootDir });
+    const replayed = await advanceCanonicalCycleFromEvidence({ childId: CHILD, homeworkId: HW, client: { messages: { create: unavailable, stream: (payload: unknown) => ({ finalMessage: () => unavailable() }) } } as never }, { rootDir });
 
     expect(create).toHaveBeenCalledTimes(1);
     expect(unavailable).not.toHaveBeenCalled();
@@ -611,13 +611,13 @@ describe("review fixes: no stuck or silent cycles", () => {
     await finishBaselineBoard(rootDir);
     writeProfile(rootDir);
     const create = vi.fn(async () => toolResponse({ ...baseTool, progressionAction: "generate_quest", nextInstruments: supportSuccessor.instruments }));
-    await expect(advanceCanonicalCycleFromEvidence({ childId: CHILD, homeworkId: HW, client: { messages: { create } } as never }, { rootDir }))
+    await expect(advanceCanonicalCycleFromEvidence({ childId: CHILD, homeworkId: HW, client: { messages: { create, stream: (payload: unknown) => ({ finalMessage: () => create() }) } } as never }, { rootDir }))
       .rejects.toThrow("canonical_progression_encounter_missing");
     const blocked = getLearningCycle(CHILD, HW, { rootDir })!;
     expect(blocked.lifecycle).toBe("blocked");
     expect(blocked.decisionHistory.at(-1)?.reason).toContain("planner_decision_invalid:canonical_progression_encounter_missing");
     expect(successorResumeAction(blocked)).toBeNull();
-    await advanceCanonicalCycleFromEvidence({ childId: CHILD, homeworkId: HW, client: { messages: { create } } as never }, { rootDir });
+    await advanceCanonicalCycleFromEvidence({ childId: CHILD, homeworkId: HW, client: { messages: { create, stream: (payload: unknown) => ({ finalMessage: () => create() }) } } as never }, { rootDir });
     expect(create).toHaveBeenCalledTimes(1);
   });
 
@@ -626,7 +626,7 @@ describe("review fixes: no stuck or silent cycles", () => {
     await finishBaselineBoard(rootDir);
     writeProfile(rootDir);
     const create = vi.fn(async () => { throw new Error("socket hang up"); });
-    await expect(advanceCanonicalCycleFromEvidence({ childId: CHILD, homeworkId: HW, client: { messages: { create } } as never }, { rootDir }))
+    await expect(advanceCanonicalCycleFromEvidence({ childId: CHILD, homeworkId: HW, client: { messages: { create, stream: (payload: unknown) => ({ finalMessage: () => create() }) } } as never }, { rootDir }))
       .rejects.toThrow("provider_outcome_uncertain");
     const blocked = getLearningCycle(CHILD, HW, { rootDir })!;
     expect(blocked.lifecycle).toBe("blocked");
@@ -640,10 +640,10 @@ describe("review fixes: no stuck or silent cycles", () => {
     const file = path.join(rootDir, `src/context/${CHILD}/homework/cycles/${HW}.json`);
     const snapshot = fs.readFileSync(file, "utf8");
     const create = vi.fn(async () => toolResponse({ ...baseTool, progressionAction: "generate_support", nextInstruments: supportSuccessor.instruments }));
-    await advanceCanonicalCycleFromEvidence({ childId: CHILD, homeworkId: HW, client: { messages: { create } } as never }, { rootDir });
+    await advanceCanonicalCycleFromEvidence({ childId: CHILD, homeworkId: HW, client: { messages: { create, stream: (payload: unknown) => ({ finalMessage: () => create() }) } } as never }, { rootDir });
     fs.writeFileSync(file, snapshot);
     complete(rootDir, "facts", "replay-after-restart", "b-1");
-    const replayed = await advanceCanonicalCycleFromEvidence({ childId: CHILD, homeworkId: HW, client: { messages: { create: vi.fn(async () => { throw new Error("must not call"); }) } } as never }, { rootDir });
+    const replayed = await advanceCanonicalCycleFromEvidence({ childId: CHILD, homeworkId: HW, client: { messages: { stream: () => ({ finalMessage: vi.fn(async () => { throw new Error("must not call"); }) }) } } as never }, { rootDir });
     expect(create).toHaveBeenCalledTimes(1);
     expect(preparingBoardInstance(replayed)).toBeDefined();
   });

@@ -835,7 +835,7 @@ describe("canonical learning cycle runtime", () => {
       homeworkId: "hw-runtime",
       client: {
         messages: {
-          create: async (payload: Record<string, unknown>) => {
+          stream: (payload: Record<string, unknown>) => ({ finalMessage: async () => {
             request = payload;
             return {
               content: [{
@@ -861,7 +861,7 @@ describe("canonical learning cycle runtime", () => {
                 },
               }],
             };
-          },
+          } }),
         },
       } as never,
     }, { rootDir });
