@@ -2432,7 +2432,7 @@ function App() {
         </FlowGameOverlay>
       ) : null}
       {!homeworkSessionFinished && plannerBoardLaunch?.node.type === "word-radar" ? (
-        <FlowGameOverlay onBack={handlePlannerBoardOverlayBack} backLabel={directDiscoveryMode ? "Leave Discovery" : "Back to map"}>
+        <FlowGameOverlay onBack={handlePlannerBoardOverlayBack} backLabel={directDiscoveryMode ? "Leave Discovery" : "Back to map"} completionNavigation={postActivityEngagement ? {completed:postActivityEngagement.outcome.completed,ownsBack:!directDiscoveryMode} : undefined}>
           <WordRadar
             key={`${plannerBoardLaunch.node.id}:${plannerBoardLaunch.replayNonce}`}
             assessmentMode={directDiscoveryMode || plannerBoardLaunch.node.spellingAssessment === true}
@@ -2552,6 +2552,7 @@ function App() {
       {!homeworkSessionFinished && plannerBoardLaunch?.iframeUrl ? (
         <FlowGameOverlay
           onBack={handlePlannerBoardOverlayBack}
+          completionNavigation={postActivityEngagement ? {completed:postActivityEngagement.outcome.completed,ownsBack:!directDiscoveryMode && !probeBoardMode} : undefined}
           backLabel={directDiscoveryMode ? "Leave Discovery" : "Back to map"}
         >
           <div
