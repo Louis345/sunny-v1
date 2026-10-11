@@ -153,6 +153,7 @@ describe("canonical node completion handoff", () => {
     const handler = block.slice(block.indexOf("void write().then(") + "void write().then(".length, block.indexOf(").catch("));
     let local: string[] = [];
     await vm.runInNewContext(`(${handler})(completion)`, {
+      homeworkSessionFinishedRef: { current: false },
       completion: { nodeState, outcome: { completed: nodeState === "completed" } },
       launch: { node: { id: "native" } }, plannerBoardPacket: { childChart: { learningCycle: {} } }, hasCanonicalLearningCycle,
       refreshPlannerBoardPacket: async () => {}, setLocallyCompletedPlannerNodeIds: (update: (current: string[]) => string[]) => { local = update(local); },
@@ -184,6 +185,7 @@ describe("canonical node completion handoff", () => {
     const handler = block.slice(block.indexOf("void write().then(") + "void write().then(".length, block.indexOf(").catch("));
     const showOverlay = vi.fn();
     await vm.runInNewContext(`(${handler})(completion)`, {
+      homeworkSessionFinishedRef: { current: false },
       completion: { nodeState: "completed", outcome: { completed: true } },
       launch: { node: { id: "visual" } }, plannerBoardPacket: { childChart: { learningCycle: {} } }, hasCanonicalLearningCycle,
       refreshPlannerBoardPacket: async () => { throw new Error("temporary_refresh_failure"); },
