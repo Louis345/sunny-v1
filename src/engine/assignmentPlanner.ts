@@ -1988,7 +1988,7 @@ function assignmentPlannerRelationshipIssues(
       issues.push({ code: "planner_baseline_intervention_lineage_invalid", measurementId, interventionNodeIds });
       continue;
     }
-    if (!checkpointInterventionsArePrior(pathOrders,nodeId,interventionNodeIds)) {
+    if (pathOrders.length && !checkpointInterventionsArePrior(pathOrders,nodeId,interventionNodeIds)) {
       issues.push({ code: "planner_checkpoint_intervention_not_prior", measurementId, interventionNodeIds });
     }
   }

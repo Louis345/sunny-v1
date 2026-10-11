@@ -62,3 +62,15 @@ it('does not resend source images or duplicate instructions for targeted plannin
  expect(prompt).toContain('attempt-1');expect(prompt).toContain('nite');expect(prompt).toContain('night');
  expect(packet.plannerInstruction).toBe('UNIQUE_INSTRUCTION');
 });
+
+
+it('reports an invalid portal without inventing a checkpoint chronology failure', () => {
+  const input = draft();
+  input.activeSessionPlan.boardDefinition.portals.find(portal => portal.id === 'check')!.kind = 'endpoint';
+  const parsed = parseAssignmentPlannerJson(JSON.stringify(input));
+  let message = '';
+  try { validateAssignmentPlannerRelationships(parsed, new Set(['e']), true, new Set(['float'])); }
+  catch (error) { message = (error as Error).message; }
+  expect(message).toContain('non_activity_binding');
+  expect(message).not.toContain('planner_checkpoint_intervention_not_prior');
+});

@@ -448,3 +448,8 @@ Verification update: recorded 1280x720 browser acceptance passes in 117335ms, in
 ## October 11 review checkpoint: canonical completion test failures
 
 Full web verification under Node 20 found five failures in `web/src/tests/canonicalNodeCompletion.test.ts`: four local completion-state cases and completion after failed refresh. This was caught by the broader suite rather than the focused audio/launch tests. No cause or production fix is claimed yet; retain tests and diagnose their assertions against the new session-end guards before release.
+
+
+## Planner correction must not invent chronology from an invalid journey
+
+Decision chain: saved evaluation → received authored plan → invalid portal binding → no executable path orders → chronology helper falsely blamed checkpoint order. The human saw stalled generation; logs captured errors but obscured the earliest cause with a cascading error. The lab covered invalid chronology and invalid portals separately, missing their combination. Regression: invalid portal with correctly ordered checkpoints reports the portal defect, without a fabricated order issue. Fix: skip chronology comparisons when no validated execution is available; preserve all original validation issues and bounded correction.
