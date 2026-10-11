@@ -352,6 +352,14 @@ function phaseForChargeCount(chargeCount: number): SparkOrbEncounterPhase {
   return "idle";
 }
 
+function conceptRewardForQuestion(question: StoryQuestion): { target: string; unit: string } {
+  const missingIndex = question.stem.indexOf("_");
+  if (missingIndex < 0 || missingIndex >= question.answer.length) {
+    throw new Error(`spark_orb_story_missing_concept_unit:${question.target}`);
+  }
+  return { target: question.target, unit: question.answer[missingIndex] ?? "" };
+}
+
 function lastMomentForChargeCount(chargeCount: number): OrbLearningLastMoment {
   if (chargeCount >= 3) return "orb_ready";
   if (chargeCount > 0) return "spark_earned";
@@ -377,6 +385,7 @@ function SpellingProblem({ questionIndex = 3 }: { questionIndex?: number }): Rea
 function AimAndLaunchLearningStory(args: SparkOrbLearningShellStoryArgs): ReactElement {
   const [chargeCount, setChargeCount] = useState(() => chargeCountForStoryPhase(args.phase));
   const [feedback, setFeedback] = useState("Each correct answer lights one spark.");
+  const [conceptReward, setConceptReward] = useState<{ target: string; unit: string } | undefined>();
   const { companion, companionName } = companionForChild("ila");
   const activeQuestionIndex = Math.min(chargeCount, spellingQuestions.length - 1);
   const activeQuestion = spellingQuestions[activeQuestionIndex] ?? spellingQuestions[0];
@@ -419,6 +428,7 @@ function AimAndLaunchLearningStory(args: SparkOrbLearningShellStoryArgs): ReactE
 
     const nextCharge = Math.min(3, chargeCount + 1);
     const nextPhase = phaseForChargeCount(nextCharge);
+    setConceptReward(conceptRewardForQuestion(activeQuestion));
     setChargeCount(nextCharge);
     setFeedback(nextCharge >= 3 ? "Orb is ready." : "Spark earned.");
     playSparkOrbSfx(nextCharge >= 3 ? "ready" : "charge");
@@ -441,6 +451,7 @@ function AimAndLaunchLearningStory(args: SparkOrbLearningShellStoryArgs): ReactE
       phase={phase}
       domain={args.domain}
       currentTarget={activeQuestion?.target ?? args.currentTarget}
+      conceptReward={conceptReward}
       lastMoment={lastMoment}
       capturedCreature={{
         ...LUMIPUFF_MONSTER,
@@ -549,6 +560,26 @@ export const AimAndLaunchSkill: Story = {
     domain: "spelling",
     currentTarget: "word:because",
     lastMoment: "watching",
+  },
+  render: (args) => <AimAndLaunchLearningStory {...args} />,
+};
+
+export const FlagshipDesignReview: Story = {
+  name: "Flagship Design Review",
+  args: {
+    phase: "charge-2",
+    domain: "spelling",
+    currentTarget: "word:because",
+    lastMoment: "spark_earned",
+    capturePersonality: "playful",
+  },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          "Design-review surface for the learning-causes-magic hierarchy: mastery path, concept spark, creature encounter, bond progress, and orb pedestal. Capture motion is intentionally unchanged in this phase.",
+      },
+    },
   },
   render: (args) => <AimAndLaunchLearningStory {...args} />,
 };

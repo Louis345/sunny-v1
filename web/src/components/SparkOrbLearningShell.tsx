@@ -203,6 +203,8 @@ export interface SparkOrbLearningShellProps {
   chargeGoal?: number;
   domain: string;
   currentTarget: string;
+  /** Exact evaluated unit that earned the next spark; never inferred from the target id. */
+  conceptReward?: { target: string; unit: string };
   lastMoment?: OrbLearningLastMoment;
   allowedRole?: OrbCompanionAllowedRole;
   creatureName?: string;
@@ -530,6 +532,7 @@ export function SparkOrbLearningShell({
   chargeGoal = 3,
   domain,
   currentTarget,
+  conceptReward,
   lastMoment = "watching",
   allowedRole = "emote_and_tiny_reaction",
   creatureName,
@@ -570,6 +573,7 @@ export function SparkOrbLearningShell({
   const [breakoutPop, setBreakoutPop] = useState(false);
   const [breakoutTick, setBreakoutTick] = useState(0);
   const [sparkFlightTick, setSparkFlightTick] = useState(0);
+  const [conceptRewardVisible, setConceptRewardVisible] = useState(false);
   const [liveAnnouncement, setLiveAnnouncement] = useState("");
   const [captureBonus, setCaptureBonus] = useState<{
     starTier: number;
@@ -590,6 +594,7 @@ export function SparkOrbLearningShell({
     pullY: 0,
   });
   const launchTimerRef = useRef<number | null>(null);
+  const conceptRewardTimerRef = useRef<number | null>(null);
   const payoffTimerRefs = useRef<number[]>([]);
   const cheerCountRef = useRef(0);
   const consecutiveBreakoutsRef = useRef(0);
@@ -795,6 +800,19 @@ export function SparkOrbLearningShell({
         } as CSSProperties);
   const companionBehavior = companionBehaviorForMoment(phase, lastMoment);
   const speechBubbleText = rewardFocused ? null : companionLineForMoment(childName, phase, lastMoment);
+  const masterySteps = [
+    { label: "NOTICE", complete: chargeCount >= 1, current: chargeCount === 0 },
+    { label: "TRY", complete: chargeCount >= 2, current: chargeCount === 1 },
+    { label: "PROVE", complete: chargeCount >= 3, current: chargeCount === 2 },
+  ];
+  const masteryPathLabel =
+    chargeCount >= 3
+      ? "Learning path: Notice, Try, and Prove complete"
+      : chargeCount === 2
+        ? "Learning path: Notice and Try complete, Prove next"
+        : chargeCount === 1
+          ? "Learning path: Notice complete, Try next"
+          : "Learning path: Notice next";
   const canHoldToLaunch =
     ready && chargeCount >= chargeGoal && launchSkill !== "success" && launchSkill !== "spent";
   const aimGuideX = Math.max(-150, Math.min(150, aimVector.pullX));
@@ -876,9 +894,30 @@ export function SparkOrbLearningShell({
     prevChargeCountRef.current = chargeCount;
     if (previous !== null && chargeCount > previous) {
       setSparkFlightTick((tick) => tick + 1);
+      if (conceptReward?.target && conceptReward.unit.trim()) {
+        if (conceptRewardTimerRef.current !== null) {
+          window.clearTimeout(conceptRewardTimerRef.current);
+        }
+        setConceptRewardVisible(true);
+        console.info(" 🎮 [spark-orb-learning-shell] [concept-reward] [shown]", conceptReward);
+        conceptRewardTimerRef.current = window.setTimeout(() => {
+          conceptRewardTimerRef.current = null;
+          setConceptRewardVisible(false);
+          console.info(" 🎮 [spark-orb-learning-shell] [concept-reward] [settled]", conceptReward);
+        }, 900);
+      }
       setLiveAnnouncement(`Spark earned! Charge ${chargeCount} of ${chargeGoal}.`);
     }
-  }, [chargeCount, chargeGoal]);
+  }, [chargeCount, chargeGoal, conceptReward, currentTarget]);
+
+  useEffect(() => {
+    return () => {
+      if (conceptRewardTimerRef.current !== null) {
+        window.clearTimeout(conceptRewardTimerRef.current);
+        conceptRewardTimerRef.current = null;
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (phase !== "ready" || remainingOrbCount > 0) return;
@@ -1468,7 +1507,28 @@ export function SparkOrbLearningShell({
     <SparkOrbLearningContext.Provider value={learningApi}>
     <div className="spark-orb-learning-shell" data-phase={phase}>
       <section className="spark-orb-learning-shell__problem" aria-label="Learning problem panel">
-        {children}
+        <div className="spark-orb-learning-shell__problem-content">{children}</div>
+        {!rewardFocused ? (
+          <div
+            className="spark-orb-learning-shell__mastery-path"
+            data-testid="spark-orb-mastery-path"
+            aria-label={masteryPathLabel}
+          >
+            {masterySteps.map((step, index) => (
+              <div
+                key={step.label}
+                className="spark-orb-learning-shell__mastery-step"
+                data-complete={step.complete ? "true" : "false"}
+                data-current={step.current ? "true" : "false"}
+              >
+                <i aria-hidden="true">{step.complete ? "✓" : index + 1}</i>
+                <span data-complete={step.complete ? "true" : "false"} data-current={step.current ? "true" : "false"}>
+                  {step.label}
+                </span>
+              </div>
+            ))}
+          </div>
+        ) : null}
       </section>
 
       <section
@@ -1498,6 +1558,26 @@ export function SparkOrbLearningShell({
           aria-hidden="true"
         />
         <div className="spark-orb-learning-shell__wash" aria-hidden="true" />
+        {!rewardFocused ? (
+          <div className="spark-orb-learning-shell__encounter-details">
+            <div
+              className="spark-orb-learning-shell__encounter-modifier"
+              data-testid="spark-orb-encounter-modifier"
+            >
+              <i aria-hidden="true">?</i>
+              <span><strong>Mystery clue</strong>Learning sparks reveal its secret.</span>
+            </div>
+            <div
+              className="spark-orb-learning-shell__bond-progress"
+              data-testid="spark-orb-bond-progress"
+              aria-label={`${displayCreatureName} bond progress`}
+            >
+              <i aria-hidden="true">★</i>
+              <span><strong>{displayCreatureName}</strong>3/8 bonds</span>
+              <b aria-hidden="true"><em /></b>
+            </div>
+          </div>
+        ) : null}
         <div className="spark-orb-learning-shell__orb-hud">
           <div className="spark-orb-learning-shell__nameplate">
             <strong>{displayCreatureName}</strong>
@@ -1512,6 +1592,19 @@ export function SparkOrbLearningShell({
         </div>
 
         <div className="spark-orb-learning-shell__creature-shadow" aria-hidden="true" />
+        {conceptRewardVisible && conceptReward ? (
+          <div
+            className="spark-orb-learning-shell__concept-path"
+            data-testid="spark-orb-concept-path"
+            data-target={conceptReward.target}
+            data-destination="creature-then-orb"
+            data-active="true"
+            aria-hidden="true"
+          >
+            <span>{conceptReward.unit.toUpperCase()}</span>
+            <i /><i /><i /><i />
+          </div>
+        ) : null}
         <div
           className="spark-orb-learning-shell__creature"
           data-testid="spark-orb-creature"
@@ -1631,13 +1724,20 @@ export function SparkOrbLearningShell({
           </div>
         ) : null}
         {!rewardFocused ? (
-          <div className="spark-orb-learning-shell__charge">
-            <span>
+          <div
+            className="spark-orb-learning-shell__charge-pedestal"
+            data-testid="spark-orb-charge-pedestal"
+            aria-label={`Orb charge: ${chargeCount} of ${chargeGoal} sparks`}
+          >
+            <span aria-hidden="true">Spark power</span>
+            <span className="spark-orb-learning-shell__charge-text">
               Charge {chargeCount} / {chargeGoal}
             </span>
             <div aria-hidden="true">
               {Array.from({ length: chargeGoal }).map((_, index) => (
-                <i key={index} data-filled={index < chargeCount ? "true" : "false"} />
+                <i key={index} data-filled={index < chargeCount ? "true" : "false"}>
+                  <b>✦</b>
+                </i>
               ))}
             </div>
           </div>
@@ -1725,7 +1825,69 @@ export function SparkOrbLearningShell({
 
         .spark-orb-learning-shell__problem {
           background: rgba(255, 255, 255, 0.9);
+          display: grid;
+          grid-template-rows: minmax(0, 1fr) auto;
+          gap: 18px;
           padding: 22px;
+        }
+
+        .spark-orb-learning-shell__problem-content {
+          min-height: 0;
+        }
+
+        .spark-orb-learning-shell__mastery-path {
+          display: grid;
+          gap: 8px;
+        }
+
+        .spark-orb-learning-shell__mastery-step {
+          align-items: center;
+          background: linear-gradient(135deg, rgba(244, 248, 255, 0.96), rgba(238, 242, 255, 0.9));
+          border: 1px solid rgba(80, 101, 171, 0.16);
+          border-radius: 16px;
+          color: #33436f;
+          display: grid;
+          font-size: 13px;
+          font-weight: 950;
+          gap: 10px;
+          grid-template-columns: 34px 1fr;
+          letter-spacing: 0.08em;
+          min-height: 46px;
+          padding: 6px 12px 6px 7px;
+          transition: border-color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
+        }
+
+        .spark-orb-learning-shell__mastery-step i {
+          align-items: center;
+          background: rgba(89, 111, 176, 0.12);
+          border: 2px solid rgba(89, 111, 176, 0.2);
+          border-radius: 50%;
+          display: flex;
+          font-size: 14px;
+          font-style: normal;
+          height: 34px;
+          justify-content: center;
+          letter-spacing: 0;
+          width: 34px;
+        }
+
+        .spark-orb-learning-shell__mastery-step[data-complete="true"] {
+          background: linear-gradient(135deg, rgba(239, 255, 251, 0.98), rgba(229, 252, 255, 0.94));
+          border-color: rgba(46, 194, 204, 0.42);
+          color: #087d88;
+        }
+
+        .spark-orb-learning-shell__mastery-step[data-complete="true"] i {
+          background: #5fd4d5;
+          border-color: #b7fbf2;
+          box-shadow: 0 0 16px rgba(95, 212, 213, 0.46);
+          color: #ffffff;
+        }
+
+        .spark-orb-learning-shell__mastery-step[data-current="true"] {
+          border-color: rgba(117, 92, 218, 0.48);
+          box-shadow: 0 9px 24px rgba(85, 67, 164, 0.14);
+          transform: translateX(3px);
         }
 
         .spark-orb-learning-shell__orb-stage {
@@ -1752,6 +1914,142 @@ export function SparkOrbLearningShell({
             linear-gradient(180deg, transparent 58%, rgba(0, 0, 0, 0.62));
           pointer-events: none;
           z-index: 2;
+        }
+
+        .spark-orb-learning-shell__encounter-details {
+          display: grid;
+          gap: 10px;
+          position: absolute;
+          right: 22px;
+          top: 102px;
+          width: min(205px, 25%);
+          z-index: 9;
+        }
+
+        .spark-orb-learning-shell__encounter-modifier,
+        .spark-orb-learning-shell__bond-progress {
+          backdrop-filter: blur(12px);
+          background: rgba(10, 35, 67, 0.82);
+          border: 1px solid rgba(255, 255, 255, 0.26);
+          border-radius: 16px;
+          box-shadow: 0 12px 28px rgba(9, 31, 56, 0.2);
+          color: #ffffff;
+          display: grid;
+          gap: 3px 9px;
+          grid-template-columns: 34px 1fr;
+          line-height: 1.15;
+          padding: 9px 11px;
+        }
+
+        .spark-orb-learning-shell__encounter-modifier > i,
+        .spark-orb-learning-shell__bond-progress > i {
+          align-items: center;
+          align-self: center;
+          background: linear-gradient(145deg, #9669e7, #6b45bd);
+          border: 2px solid rgba(255, 255, 255, 0.55);
+          border-radius: 50%;
+          color: #ffe46b;
+          display: flex;
+          font-size: 18px;
+          font-style: normal;
+          height: 32px;
+          justify-content: center;
+          width: 32px;
+        }
+
+        .spark-orb-learning-shell__encounter-modifier strong,
+        .spark-orb-learning-shell__bond-progress strong {
+          display: block;
+          font-size: 12px;
+          font-weight: 950;
+          letter-spacing: 0.04em;
+          text-transform: uppercase;
+        }
+
+        .spark-orb-learning-shell__encounter-modifier span,
+        .spark-orb-learning-shell__bond-progress span {
+          font-size: 10px;
+          font-weight: 750;
+        }
+
+        .spark-orb-learning-shell__bond-progress b {
+          background: rgba(0, 0, 0, 0.28);
+          border-radius: 99px;
+          display: block;
+          grid-column: 2;
+          height: 5px;
+          overflow: hidden;
+        }
+
+        .spark-orb-learning-shell__bond-progress b em {
+          background: linear-gradient(90deg, #a974f2, #e078e7);
+          border-radius: inherit;
+          display: block;
+          height: 100%;
+          width: 37.5%;
+        }
+
+        .spark-orb-learning-shell__concept-path {
+          height: 130px;
+          left: 4%;
+          opacity: 0.34;
+          pointer-events: none;
+          position: absolute;
+          top: 43%;
+          transform: rotate(9deg);
+          width: 58%;
+          z-index: 7;
+        }
+
+        .spark-orb-learning-shell__concept-path::before {
+          background: linear-gradient(90deg, rgba(255, 228, 107, 0), rgba(255, 228, 107, 0.85), rgba(124, 255, 241, 0.36));
+          border-radius: 50%;
+          box-shadow: 0 0 20px rgba(255, 228, 107, 0.32);
+          content: "";
+          height: 4px;
+          left: 0;
+          position: absolute;
+          top: 52%;
+          transform: rotate(12deg);
+          width: 100%;
+        }
+
+        .spark-orb-learning-shell__concept-path > span {
+          align-items: center;
+          background: radial-gradient(circle, #fff9c8 0 26%, #ffd94c 54%, #e6a90d 100%);
+          border: 3px solid rgba(255, 255, 255, 0.88);
+          border-radius: 50%;
+          box-shadow: 0 0 22px rgba(255, 228, 107, 0.86);
+          color: #805c00;
+          display: flex;
+          font-size: 20px;
+          font-weight: 950;
+          height: 43px;
+          justify-content: center;
+          left: 3%;
+          position: absolute;
+          top: 36%;
+          width: 43px;
+        }
+
+        .spark-orb-learning-shell__concept-path > i {
+          background: #fff5a8;
+          border-radius: 50%;
+          box-shadow: 0 0 10px rgba(255, 228, 107, 0.8);
+          height: 7px;
+          position: absolute;
+          top: 58%;
+          width: 7px;
+        }
+
+        .spark-orb-learning-shell__concept-path > i:nth-of-type(1) { left: 26%; }
+        .spark-orb-learning-shell__concept-path > i:nth-of-type(2) { left: 43%; top: 68%; }
+        .spark-orb-learning-shell__concept-path > i:nth-of-type(3) { left: 62%; top: 74%; }
+        .spark-orb-learning-shell__concept-path > i:nth-of-type(4) { left: 81%; top: 67%; }
+
+        .spark-orb-learning-shell__concept-path[data-active="true"] {
+          animation: sparkLearningConceptPathGlow 0.85s ease-out both;
+          opacity: 1;
         }
 
         .spark-orb-learning-shell__orb-hud {
@@ -2509,44 +2807,93 @@ export function SparkOrbLearningShell({
           color: #ffd0c7;
         }
 
-        .spark-orb-learning-shell__charge {
+        .spark-orb-learning-shell__charge-pedestal {
           align-items: center;
-          background: rgba(7, 18, 25, 0.72);
-          border: 1px solid rgba(255, 255, 255, 0.14);
-          border-radius: 999px;
-          bottom: 42px;
+          bottom: 24px;
           color: white;
-          display: inline-flex;
-          gap: 12px;
+          display: grid;
+          gap: 7px;
+          justify-items: center;
           left: 50%;
-          padding: 10px 16px;
           position: absolute;
           transform: translateX(-50%);
           z-index: 9;
         }
 
-        .spark-orb-learning-shell__charge span {
-          font-size: 15px;
-          font-weight: 900;
+        .spark-orb-learning-shell__charge-pedestal > span {
+          background: rgba(7, 18, 25, 0.76);
+          border: 1px solid rgba(255, 255, 255, 0.16);
+          border-radius: 999px;
+          font-size: 10px;
+          font-weight: 950;
+          letter-spacing: 0.12em;
+          padding: 5px 10px;
+          text-transform: uppercase;
           white-space: nowrap;
         }
 
-        .spark-orb-learning-shell__charge div {
-          display: inline-flex;
-          gap: 7px;
+        .spark-orb-learning-shell__charge-pedestal > .spark-orb-learning-shell__charge-text {
+          border: 0;
+          clip: rect(0 0 0 0);
+          clip-path: inset(50%);
+          height: 1px;
+          margin: -1px;
+          overflow: hidden;
+          padding: 0;
+          position: absolute;
+          white-space: nowrap;
+          width: 1px;
         }
 
-        .spark-orb-learning-shell__charge i {
-          background: rgba(255, 255, 255, 0.28);
+        .spark-orb-learning-shell__charge-pedestal > div {
+          align-items: center;
+          display: flex;
+          gap: 10px;
+          position: relative;
+        }
+
+        .spark-orb-learning-shell__charge-pedestal > div::before {
+          background: linear-gradient(90deg, transparent, rgba(255, 228, 107, 0.72), transparent);
+          content: "";
+          height: 4px;
+          left: 10%;
+          position: absolute;
+          right: 10%;
+          top: calc(50% - 2px);
+        }
+
+        .spark-orb-learning-shell__charge-pedestal i {
+          align-items: center;
+          background: radial-gradient(circle at 50% 32%, rgba(48, 69, 84, 0.96), rgba(9, 24, 39, 0.98));
+          border: 3px solid rgba(255, 255, 255, 0.24);
           border-radius: 50%;
-          display: block;
-          height: 11px;
-          width: 11px;
+          box-shadow: 0 8px 16px rgba(4, 20, 34, 0.32);
+          display: flex;
+          font-style: normal;
+          height: 38px;
+          justify-content: center;
+          position: relative;
+          width: 38px;
+          z-index: 1;
         }
 
-        .spark-orb-learning-shell__charge i[data-filled="true"] {
-          background: #ffe46b;
-          box-shadow: 0 0 14px rgba(255, 228, 107, 0.72);
+        .spark-orb-learning-shell__charge-pedestal i b {
+          color: rgba(255, 255, 255, 0.28);
+          font-size: 16px;
+        }
+
+        .spark-orb-learning-shell__charge-pedestal i[data-filled="true"] {
+          background: radial-gradient(circle at 42% 36%, #fffbd4, #ffe46b 42%, #e9a51d 78%);
+          border-color: rgba(255, 249, 198, 0.92);
+          box-shadow:
+            0 0 0 4px rgba(255, 228, 107, 0.18),
+            0 0 24px rgba(255, 228, 107, 0.72),
+            0 8px 16px rgba(4, 20, 34, 0.3);
+        }
+
+        .spark-orb-learning-shell__charge-pedestal i[data-filled="true"] b {
+          color: #9a6500;
+          text-shadow: 0 1px 0 rgba(255, 255, 255, 0.5);
         }
 
         .spark-orb-learning-shell__collect-card {
@@ -2662,6 +3009,12 @@ export function SparkOrbLearningShell({
           }
         }
 
+        @keyframes sparkLearningConceptPathGlow {
+          0% { filter: brightness(0.82); opacity: 0.18; transform: rotate(9deg) scale(0.98); }
+          45% { filter: brightness(1.35); opacity: 1; transform: rotate(9deg) scale(1.02); }
+          100% { filter: brightness(1); opacity: 0.46; transform: rotate(9deg) scale(1); }
+        }
+
         @keyframes sparkLearningShinyShimmer {
           0%, 100% { box-shadow: 0 22px 54px rgba(16, 24, 40, 0.24), 0 0 22px rgba(255, 228, 107, 0.45); }
           50% { box-shadow: 0 22px 54px rgba(16, 24, 40, 0.24), 0 0 44px rgba(255, 228, 107, 0.85); }
@@ -2687,6 +3040,7 @@ export function SparkOrbLearningShell({
           .spark-orb-learning-shell__spark-burst,
           .spark-orb-learning-shell__spark-burst i,
           .spark-orb-learning-shell__spark-flight,
+          .spark-orb-learning-shell__concept-path,
           .spark-orb-learning-shell__cheer-button,
           .spark-orb-learning-shell__aura {
             animation: none !important;
@@ -3104,6 +3458,16 @@ export function SparkOrbLearningShell({
 
           .spark-orb-learning-shell__orb-stage {
             min-height: 620px;
+          }
+
+          .spark-orb-learning-shell__problem {
+            min-height: 560px;
+          }
+
+          .spark-orb-learning-shell__encounter-details {
+            right: 14px;
+            top: 92px;
+            width: 190px;
           }
 
           .spark-orb-learning-shell__companion-anchor {
