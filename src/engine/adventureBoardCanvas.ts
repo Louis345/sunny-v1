@@ -38,13 +38,22 @@ export async function verifyAuthoredBoardCanvas(input:{definition:AdventureBoard
    await page.setContent(`<style>${css}body{margin:0}</style>${render(board)}`,{waitUntil:'domcontentloaded'});
    const issues=await page.locator('[data-portal-id]').evaluateAll((elements, viewport)=>{
     const levelControl=elements[0]!.ownerDocument.querySelector('.level-path-trigger')!.getBoundingClientRect();
+    const composition=elements[0]!.ownerDocument.querySelector('.adventure-board__composition')!.getBoundingClientRect();
     const boxes=elements.map(element=>({id:element.getAttribute('data-portal-id'),box:element.getBoundingClientRect(),label:element.querySelector('.adventure-board__node-label')?.getBoundingClientRect()}));
     return boxes.flatMap((a,index)=>{
      const errors:string[]=[];
      if(a.box.left<8||a.box.top<8||a.box.right>viewport.width-8||a.box.bottom>viewport.height-72)errors.push(`${a.id}:clipped_or_control_rail_overlap`);
      if(!a.label?.height)errors.push(`${a.id}:hidden_label`);
      if(Math.min(a.box.right,levelControl.right)>Math.max(a.box.left,levelControl.left)&&Math.min(a.box.bottom,levelControl.bottom)>Math.max(a.box.top,levelControl.top))errors.push(`${a.id}:overlaps:level-control`);
-     for(const b of boxes.slice(index+1))if(Math.min(a.box.right,b.box.right)>Math.max(a.box.left,b.box.left)&&Math.min(a.box.bottom,b.box.bottom)>Math.max(a.box.top,b.box.top))errors.push(`${a.id}:overlaps:${b.id}`);
+     for(const b of boxes.slice(index+1))if(Math.min(a.box.right,b.box.right)>Math.max(a.box.left,b.box.left)&&Math.min(a.box.bottom,b.box.bottom)>Math.max(a.box.top,b.box.top)){
+      // Return measured execution limits in the author's coordinate units. The
+      // author chooses which portal to move; runtime never changes composition.
+      const currentX=Math.abs((a.box.left+a.box.width/2)-(b.box.left+b.box.width/2))/composition.width;
+      const currentY=Math.abs((a.box.top+a.box.height/2)-(b.box.top+b.box.height/2))/composition.height;
+      const requiredX=((a.box.width+b.box.width)/2+8)/composition.width;
+      const requiredY=((a.box.height+b.box.height)/2+8)/composition.height;
+      errors.push(`${a.id}:overlaps:${b.id}:normalized_center_separation current_x=${currentX.toFixed(4)} current_y=${currentY.toFixed(4)} required_x=${requiredX.toFixed(4)} OR required_y=${requiredY.toFixed(4)} (change authored x or y separation to meet either minimum)`);
+     }
      return errors;
     });
    },viewport);

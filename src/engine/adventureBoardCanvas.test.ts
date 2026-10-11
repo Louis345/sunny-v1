@@ -27,3 +27,14 @@ it('refuses to publish the initial Discovery canvas when authored controls overl
   expect(existsSync(join(rootDir,'src/context/synthetic/plans/active_session_plan.json'))).toBe(false);
  }finally{rmSync(rootDir,{recursive:true,force:true});}
 },20000);
+
+it('returns measured normalized separation to the author without moving the portals',async()=>{
+ const directory=mkdtempSync(join(tmpdir(),'sunny-canvas-correction-'));
+ const definition=linearJourneyFixture(['learn','check']);
+ definition.portals[1].position=structuredClone(definition.portals[0].position);
+ const authored=JSON.stringify(definition);
+ try {
+  await expect(verifyAuthoredBoardCanvas({definition,directory,rootDir:process.cwd()})).rejects.toThrow(/overlaps:.*normalized_center_separation.*required_x=.*required_y=/);
+  expect(JSON.stringify(definition)).toBe(authored);
+ }finally{rmSync(directory,{recursive:true,force:true});}
+},20000);
