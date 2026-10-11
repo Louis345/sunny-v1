@@ -50,6 +50,16 @@ export type QuestBossPreparationStatus = {
   }>;
 };
 
+function isQuestBossPreparationStatus(value: unknown): value is QuestBossPreparationStatus {
+  if (!value || typeof value !== "object") return false;
+  const status = value as Record<string, unknown>;
+  return status.ok === true &&
+    typeof status.childId === "string" &&
+    Array.isArray(status.jobs) &&
+    Array.isArray(status.running) &&
+    Array.isArray(status.briefs);
+}
+
 export class MapRequestError extends Error {
   readonly status: number;
 
@@ -309,10 +319,15 @@ export function useMapSession(
     const id = childId.trim().toLowerCase();
     if (!id || previewMode === "free" || previewMode === "go-live") return null;
     try {
-      const status = await postJson<QuestBossPreparationStatus>(
+      const payload = await postJson<unknown>(
         "/api/homework/quest-boss/prepare",
         { childId: id },
       );
+      if (!isQuestBossPreparationStatus(payload)) {
+        console.warn(" 🎮 [useMapSession] quest_boss_prep_invalid", { childId: id });
+        return null;
+      }
+      const status = payload;
       setQuestBossPreparation(status);
       return status;
     } catch (err) {
@@ -396,9 +411,14 @@ export function useMapSession(
         return;
       }
       try {
-        const status = await getJson<QuestBossPreparationStatus>(
+        const payload = await getJson<unknown>(
           `/api/homework/quest-boss/status?childId=${encodeURIComponent(id)}`,
         );
+        if (!isQuestBossPreparationStatus(payload)) {
+          console.warn(" 🎮 [useMapSession] quest_boss_prep_status_invalid", { childId: id });
+          return;
+        }
+        const status = payload;
         if (cancelled) return;
         setQuestBossPreparation(status);
         if (shouldPollQuestBossPreparation(status)) {
@@ -422,6 +442,12 @@ export function useMapSession(
             void pollStatus();
           }, 5000);
         }
+      })
+      .catch((err) => {
+        console.warn(" 🎮 [useMapSession] quest_boss_prep_callback_failed", {
+          childId: id,
+          error: err instanceof Error ? err.message : String(err),
+        });
       });
 
     return () => {
