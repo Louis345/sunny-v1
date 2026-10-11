@@ -77,10 +77,10 @@ export function validateBoardDefinition(definition:AdventureBoardDefinition, act
   const inventory = new Set(activityNodeIds);
   const represented = new Set<string>();
   for (const portal of definition.portals) {
-    if (portal.kind === 'activity') {
+    if (portal.kind === 'activity' || (portal.kind === 'endpoint' && portal.activityNodeId)) {
       if (!portal.activityNodeId || !inventory.has(portal.activityNodeId)) add('activity_binding_missing',portal.id,'Bind this portal to an existing activity node.');
       else represented.add(portal.activityNodeId);
-    } else if (portal.activityNodeId) add('non_activity_binding',portal.id,'Only activity portals can bind an instrument.');
+    } else if (portal.activityNodeId) add('non_activity_binding',portal.id,'Only activity and endpoint portals can bind an instrument.');
     if (portal.kind === 'choice' && !definition.choices.some(choice => choice.portalId === portal.id)) add('choice_missing',portal.id,'Choice portal has no options.');
   }
   for (const nodeId of inventory) if (!represented.has(nodeId)) add('activity_portal_missing',nodeId,'Declared activity is absent from the journey.');
@@ -163,7 +163,7 @@ export function renderBoardDefinition(definition:AdventureBoardDefinition, input
       : (portal.id === frontier.portalId && !choice && verified) || (choice && availableChoices.has(choice.id)) ? 'available'
       : portal.kind === 'endpoint' && frontier.complete ? 'completed' : 'locked';
     return { id:portal.id, activityNodeId:portal.activityNodeId, label:portal.label,
-      kind:portal.kind === 'choice' ? 'choice-gate' : portal.kind === 'endpoint' ? 'reward' : portal.kind,
+      kind:portal.kind === 'choice' ? 'choice-gate' : portal.kind === 'endpoint' ? (portal.activityNodeId ? 'activity' : 'reward') : portal.kind,
       position:portal.position.landscape, portraitPosition:portal.position.portrait,
       icon:portal.icon, thumbnailUrl:portal.thumbnailUrl ?? activity?.thumbnailUrl,
       activityId:activity?.activityId ?? activity?.type, state,
@@ -202,4 +202,4 @@ export function requireBoardDefinition(value: unknown, activityIds: readonly str
 export const BOARD_DEFINITION_TOOL_SCHEMA = z.toJSONSchema(adventureBoardDefinitionSchema, {io:'input'});
 export const BOARD_CANVAS_AUTHORING_CONSTRAINTS = `At 1280x720 its safe composition area is 980x400 pixels; at 768x1024 it is 608x714. Portal controls are 116 pixels wide, with up to 160 pixels of height including wrapped labels. Coordinates scale within this safe area; reserve separation for the full labeled control.`;
 
-export const BOARD_AUTHORING_INSTRUCTION = `Author boardDefinition as the immutable journey. Bind activity portals to canonical inventory IDs. Portal IDs are presentation identities: the same activity may appear on alternative paths with distinct portal IDs, and those alternatives may order shared activities differently. The root path is the shared sequence; each choice inserts the selected option path then resumes its parent's remaining sequence. Declare every connection, all labels, positions and optional edge control points for both landscape and portrait. Use the available canvas thoughtfully with readable spacing and coherent direction. ${BOARD_CANVAS_AUTHORING_CONSTRAINTS} Give a meaningful choice when academically valid alternatives exist; otherwise state singlePathReason. Code must not invent a route or change your composition. Do not declare readiness, completion or mastery. The Experience Creator implements activities and artwork without changing this journey.`;
+export const BOARD_AUTHORING_INSTRUCTION = `Author boardDefinition as the immutable journey. Bind activity portals to canonical inventory IDs. An endpoint may bind the final activity; an unbound endpoint marks completion after the preceding activities. Start and choice portals cannot bind activities. Portal IDs are presentation identities: the same activity may appear on alternative paths with distinct portal IDs, and those alternatives may order shared activities differently. The root path is the shared sequence; each choice inserts the selected option path then resumes its parent's remaining sequence. Declare every connection, all labels, positions and optional edge control points for both landscape and portrait. Use the available canvas thoughtfully with readable spacing and coherent direction. ${BOARD_CANVAS_AUTHORING_CONSTRAINTS} Give a meaningful choice when academically valid alternatives exist; otherwise state singlePathReason. Code must not invent a route or change your composition. Do not declare readiness, completion or mastery. The Experience Creator implements activities and artwork without changing this journey.`;

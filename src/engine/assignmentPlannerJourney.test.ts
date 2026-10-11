@@ -66,7 +66,7 @@ it('does not resend source images or duplicate instructions for targeted plannin
 
 it('reports an invalid portal without inventing a checkpoint chronology failure', () => {
   const input = draft();
-  input.activeSessionPlan.boardDefinition.portals.find(portal => portal.id === 'check')!.kind = 'endpoint';
+  input.activeSessionPlan.boardDefinition.portals.find(portal => portal.id === 'check')!.kind = 'start';
   const parsed = parseAssignmentPlannerJson(JSON.stringify(input));
   let message = '';
   try { validateAssignmentPlannerRelationships(parsed, new Set(['e']), true, new Set(['float'])); }

@@ -85,3 +85,20 @@ it('requires explicit single-path intent and rejects orphan paths and repeated p
  const codes=validateBoardDefinition(definition,['learn']).map(issue=>issue.code);
  expect(codes).toContain('path_unreachable');expect(codes).toContain('repeated_portal');
 });
+
+
+it('executes an authored final assessment at the endpoint without adding another portal', () => {
+  const definition = linearJourneyFixture(['learn', 'check']);
+  definition.portals = definition.portals.filter(portal => portal.id !== 'end');
+  definition.portals.find(portal => portal.id === 'check')!.kind = 'endpoint';
+  definition.paths[0].portalIds = ['start', 'learn', 'check'];
+  definition.edges = definition.edges.filter(edge => edge.to !== 'end');
+  const frozen = JSON.stringify(definition);
+  expect(validateBoardDefinition(definition, ['learn', 'check'])).toEqual([]);
+  expect(journeyFrontier(definition, {}, ['learn'])).toMatchObject({ activityNodeId:'check', complete:false });
+  const board = renderBoardDefinition(definition, {boardId:'board', planId:'plan', childId:'sandbox', domain:'spelling',
+    activities:['learn','check'].map(id => ({id, activityId:'word-radar', state:'ready', verified:true})), completedNodeIds:['learn']});
+  expect(board.nodes.find(node => node.id === 'check')).toMatchObject({kind:'activity', state:'available', activityNodeId:'check', action:{type:'launch-activity', payloadId:'check'}});
+  expect(journeyFrontier(definition, {}, ['learn','check']).complete).toBe(true);
+  expect(JSON.stringify(definition)).toBe(frozen);
+});

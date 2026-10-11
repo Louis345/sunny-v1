@@ -453,3 +453,8 @@ Full web verification under Node 20 found five failures in `web/src/tests/canoni
 ## Planner correction must not invent chronology from an invalid journey
 
 Decision chain: saved evaluation → received authored plan → invalid portal binding → no executable path orders → chronology helper falsely blamed checkpoint order. The human saw stalled generation; logs captured errors but obscured the earliest cause with a cascading error. The lab covered invalid chronology and invalid portals separately, missing their combination. Regression: invalid portal with correctly ordered checkpoints reports the portal defect, without a fabricated order issue. Fix: skip chronology comparisons when no validated execution is available; preserve all original validation issues and bounded correction.
+
+
+## Final assessment endpoint must remain executable
+
+Decision chain: committed evaluation → Planner tool output with a final assessment bound at the endpoint → tool schema accepts binding → runtime rejects all endpoint bindings → generation correction stalls. The human saw a paused waiting screen; provider diagnostics contained the binding rejection, but tests only used an extra unbound end portal. The lab missed the schema/runtime mismatch. A bound endpoint now uses the existing activity launch and completion interpreter; unbound endpoints remain completion markers. Start and choice bindings remain invalid. No inventory order, educational content, evidence, or authored composition is rewritten.
