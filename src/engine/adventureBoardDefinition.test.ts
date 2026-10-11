@@ -8,6 +8,19 @@ import { authoredJourney,linearJourneyFixture } from '../scripts/fixtures/author
 
 const inventory = ['check', 'play', 'learn'];
 describe('Planner-authored journey authority', () => {
+  it('keeps engagement hypotheses in evidence metadata rather than child-facing descriptions', () => {
+    const definition = authoredJourney();
+    definition.choices[0].options[0].hypothesis = 'Internal learner-trait hypothesis';
+    const board = renderBoardDefinition(definition, {
+      boardId:'board', planId:'plan', childId:'synthetic', domain:'spelling',
+      activities:inventory.map(id => ({id,state:'ready',verified:true})),
+    });
+    const option = board.choiceSets![0].options[0];
+    expect(option.label).toBe(definition.choices[0].options[0].label);
+    expect(option.description).toBeUndefined();
+    expect(option.choiceSignal?.expectedEvidence).toBe('Internal learner-trait hypothesis');
+    expect(board.definition).toEqual(definition);
+  });
   it('preserves different orders of shared activities and every authored visual fact', () => {
     const definition = authoredJourney();
     expect(adventureBoardDefinitionSchema.parse(definition)).toEqual(definition);

@@ -180,7 +180,7 @@ export function renderBoardDefinition(definition:AdventureBoardDefinition, input
     choiceSets:definition.choices.map(choice => ({id:choice.id,kind:'baseline-route',title:choice.purpose,options:choice.options.map(option => {
       const next = journeyFrontier(definition,{...input.selections,[choice.id]:option.id},completed);
       const portal = definition.portals.find(portal => portal.id === next.portalId);
-      return {id:option.id,label:option.label,description:option.hypothesis,journeyChoiceId:choice.id,journeyOptionId:option.id,
+      return {id:option.id,label:option.label,journeyChoiceId:choice.id,journeyOptionId:option.id,
         nodeId:portal?.id,launchNodeId:portal?.activityNodeId,
         state:availableChoices.has(choice.id) ? 'available' : 'locked',
         experimentId:choice.id,choiceSignal:{algorithmFeed:'choicePolicy',traits:[],expectedEvidence:option.hypothesis,preferenceNotMastery:true}};
