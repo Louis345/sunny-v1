@@ -617,6 +617,16 @@ function App() {
   const [sessionReady, setSessionReady] = useState(false);
   const [homeworkFinishedForNow, setHomeworkFinishedForNow] = useState(false);
   const homeworkSessionFinished = homeworkFinishedForNow || state.phase === "ended";
+  const homeworkSessionFinishedRef = useRef(homeworkSessionFinished);
+  homeworkSessionFinishedRef.current = homeworkSessionFinished;
+  useEffect(() => {
+    if (!homeworkSessionFinished) return;
+    console.log(" 🎮 [homework-session] [activity-overlay] [retired] session_finished");
+    setPlannerBoardLaunch(null);
+    pendingPlannerBoardLaunchRef.current = null;
+    plannerBoardIframeCompletionKeyRef.current = null;
+    setPostActivityEngagement(null);
+  }, [homeworkSessionFinished]);
   const [discoveryCompletionHandoff, setDiscoveryCompletionHandoff] = useState<
     "preview-complete" | "targeted-planning" | null
   >(null);
@@ -1053,6 +1063,7 @@ function App() {
 
   const launchPlannerBoardNode = useCallback(
     (node: NodeConfig, replayNonce = 0) => {
+      if (homeworkSessionFinishedRef.current) return false;
       if (!mapPreviewMode && !parentPreviewActive && !state.voiceSessionId) {
         pendingPlannerBoardLaunchRef.current = {node,replayNonce};
         console.log(" 🎮 [AdventureBoard] [launch] [waiting-for-session]", {nodeId:node.id});
@@ -1593,6 +1604,7 @@ function App() {
       } catch (error) {
         console.warn(" 🎮 [AdventureBoard] [refresh-after-save] [deferred]", error);
       }
+      if (homeworkSessionFinishedRef.current) return; // Saved evidence survives; ended UI stays retired.
       const completed = completion ? completion.nodeState === "completed"
         : !hasCanonicalLearningCycle(plannerBoardPacket) && payload.completed === true && payload.earlyExit !== true;
       if (completed) setLocallyCompletedPlannerNodeIds(current => current.includes(launch.node.id) ? current : [...current, launch.node.id]);
@@ -1602,6 +1614,7 @@ function App() {
     }).catch((error: unknown) => {
       plannerBoardIframeCompletionKeyRef.current = null;
       console.error(" 🎮 [AdventureBoard] canonical_completion_failed", error);
+      if (homeworkSessionFinishedRef.current) return;
       setPostActivityEngagement({ node: launch.node, outcome: { completed: false }, title: "Progress could not be saved", stats: [], canTryHarder: false });
     });
   }, [adventureChildId, plannerBoardLaunch, plannerBoardPacket, refreshPlannerBoardPacket, showPlannerBoardEngagementOverlay, state.voiceSessionId]);
@@ -2418,7 +2431,7 @@ function App() {
           />
         </FlowGameOverlay>
       ) : null}
-      {plannerBoardLaunch?.node.type === "word-radar" ? (
+      {!homeworkSessionFinished && plannerBoardLaunch?.node.type === "word-radar" ? (
         <FlowGameOverlay onBack={handlePlannerBoardOverlayBack} backLabel={directDiscoveryMode ? "Leave Discovery" : "Back to map"}>
           <WordRadar
             key={`${plannerBoardLaunch.node.id}:${plannerBoardLaunch.replayNonce}`}
@@ -2498,7 +2511,7 @@ function App() {
           ) : null}
         </FlowGameOverlay>
       ) : null}
-      {plannerBoardLaunch?.node.type === "pronunciation" ? (
+      {!homeworkSessionFinished && plannerBoardLaunch?.node.type === "pronunciation" ? (
         <FlowGameOverlay onBack={handlePlannerBoardOverlayBack} backLabel="Back to map">
           <PronunciationGameCanvas
             key={`${plannerBoardLaunch.node.id}:${plannerBoardLaunch.replayNonce}`}
@@ -2536,7 +2549,7 @@ function App() {
           />
         </FlowGameOverlay>
       ) : null}
-      {plannerBoardLaunch?.iframeUrl ? (
+      {!homeworkSessionFinished && plannerBoardLaunch?.iframeUrl ? (
         <FlowGameOverlay
           onBack={handlePlannerBoardOverlayBack}
           backLabel={directDiscoveryMode ? "Leave Discovery" : "Back to map"}

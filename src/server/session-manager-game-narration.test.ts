@@ -2,6 +2,39 @@ import { describe, expect, it, vi } from "vitest";
 import { SessionManager } from "./session-manager";
 
 describe("SessionManager game narration", () => {
+  it("does not write a superseded short reply into the next word's stream", async () => {
+    let connected!:()=>void;
+    let owner:any;
+    const connect=new Promise<void>(resolve=>{connected=resolve;});
+    const session:any={
+      childName:"Ila",sessionTtsLabel:"EYE-lah",currentBoardSnapshot:{nodeId:"opening",itemId:"either"},
+      turnSM:{onEndOfTurn:vi.fn(),onAgentComplete:vi.fn(),onSpeakingDone:vi.fn()},send:vi.fn(),
+      ttsBridge:{beginPlayback:(requestId:string)=>{owner={requestId};},currentPlaybackIdentity:()=>owner,
+        connect:()=>connect,sendText:vi.fn(),finish:vi.fn(async()=>{})},
+    };
+    const reply=(SessionManager.prototype as any).handleCompanionTurn.call(session,"Old reply.");
+    await new Promise(resolve=>setImmediate(resolve));
+    owner={requestId:"next-word"};
+    session.currentBoardSnapshot.itemId="cheese";
+    connected(); await reply;
+    expect(session.ttsBridge.sendText).not.toHaveBeenCalled();
+    expect(session.send).not.toHaveBeenCalledWith("audio_done",expect.anything());
+    expect(session.turnSM.onSpeakingDone).not.toHaveBeenCalled();
+  });
+
+  it("gives a Hear word tap sole ownership by canceling a pending Elli reply before synthesis", async () => {
+    const order:string[]=[];
+    const session = {
+      childName:"Ila",sessionTtsLabel:"EYE-lah",debugRecorder:{recordEvent:vi.fn()},send:vi.fn(),
+      currentAbort:new AbortController(),turnSM:{getState:()=>"PROCESSING"},
+      bargeIn:vi.fn(()=>order.push("cancel_reply")),
+      ttsBridge:{beginPlayback:vi.fn(),connect:async()=>{order.push("connect_word");},sendText:vi.fn(),finish:async()=>{}},
+    };
+    await SessionManager.prototype.speakGameNarration.call(session,"cheese.",{itemId:"cheese"});
+    expect(order).toEqual(["cancel_reply","connect_word"]);
+    expect(session.bargeIn).toHaveBeenCalledOnce();
+    clearTimeout((session as any).gameNarrationPlaybackTimer);
+  });
   it("does not call provider completion browser playback proof", async () => {
     const recordEvent = vi.fn();
     const send = vi.fn();
@@ -11,6 +44,7 @@ describe("SessionManager game narration", () => {
       debugRecorder: { recordEvent },
       noteExternalEvent: vi.fn(),
       ttsBridge: {
+        beginPlayback: vi.fn(),
         connect: vi.fn().mockResolvedValue(undefined),
         sendText: vi.fn(),
         finish: vi.fn().mockResolvedValue(undefined),
@@ -122,6 +156,7 @@ describe("SessionManager game narration", () => {
       debugRecorder: { recordEvent },
       noteExternalEvent: vi.fn(),
       ttsBridge: {
+        beginPlayback: vi.fn(),
         connect: vi.fn().mockResolvedValue(undefined),
         sendText: vi.fn(),
         finish: vi.fn().mockResolvedValue(undefined),
@@ -143,6 +178,7 @@ describe("SessionManager game narration", () => {
     // expired after one second and there was no server-side audio owner.
     const recordEvent = vi.fn();
     const bridge = {
+      beginPlayback: vi.fn(),
       connect: vi.fn().mockResolvedValue(undefined),
       sendText: vi.fn(),
       finish: vi.fn().mockResolvedValue(undefined),
@@ -249,7 +285,8 @@ describe("SessionManager game narration", () => {
         onInterrupt: vi.fn(),
         clearGameTtsHold: vi.fn(),
       },
-      ttsBridge: { stop: vi.fn() },
+      ttsBridge: {
+        beginPlayback: vi.fn(), stop: vi.fn() },
       send: vi.fn(),
     };
 
@@ -276,6 +313,7 @@ describe("SessionManager game narration", () => {
       sessionTtsLabel: "EYE-lah",
       debugRecorder: { recordEvent: vi.fn() },
       ttsBridge: {
+        beginPlayback: vi.fn(),
         connect: vi.fn().mockResolvedValue(undefined),
         sendText: vi.fn(),
         finish: vi.fn(() => synthesisPending),
@@ -299,6 +337,7 @@ describe("SessionManager game narration", () => {
       },
     };
 
+    (fakeSession as any).bargeIn = () => SessionManager.prototype.bargeIn.call(fakeSession);
     const narration = SessionManager.prototype.speakGameNarration.call(
       fakeSession,
       "sample.",
@@ -327,6 +366,7 @@ describe("SessionManager game narration", () => {
         sessionTtsLabel: "EYE-lah",
         debugRecorder: { recordEvent },
         ttsBridge: {
+        beginPlayback: vi.fn(),
           connect: vi.fn().mockResolvedValue(undefined),
           sendText: vi.fn(),
           finish: vi.fn().mockResolvedValue(undefined),

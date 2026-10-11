@@ -16,7 +16,7 @@ import { recordedSpellingPlan, seedSpellingLab } from "./fixtures/spellingEviden
 
 const transport = vi.hoisted(() => ({ create: vi.fn(), clients: vi.fn() }));
 vi.mock("@anthropic-ai/sdk", () => ({ default: class {
-  messages = { create: transport.create };
+  messages = { create: transport.create, stream: (...args: unknown[]) => ({ finalMessage: () => transport.create(...args) }) };
   constructor(options: unknown) { transport.clients(options); }
 } }));
 vi.mock("../engine/boardNodeImageGenerator", () => ({ generateBoardNodeImages: vi.fn(async ({ plan }) => ({ plan })) }));
@@ -150,6 +150,19 @@ async function fixture() {
 // The live run received a response but the outer validated-result receipt never
 // saved it. Higher-level Planner mocks bypassed the failing parser/validator.
 describe("spelling Planner raw-response durability", () => {
+  it("keeps opening-board constraints explicit during bounded correction", async () => {
+    const f = await fixture();
+    const invalid = structuredClone(f.message);
+    invalid.content[1].input!.plannedMeasurements.find(row => row.id === "measure-practice")!.spelling!.interventionNodeIds = ["check"];
+    transport.create.mockResolvedValueOnce(invalid).mockResolvedValueOnce(structuredClone(f.message));
+    await f.run();
+    const request = JSON.stringify(transport.create.mock.calls[1]?.[0]);
+    expect(request).toContain("Do not emit Quest or Boss nodes, locked or otherwise");
+    expect(request).toContain("each executable path");
+    expect(request).not.toContain("If a future gated node needs evidenceIds");
+    expect(transport.create).toHaveBeenCalledTimes(2);
+  });
+
   it("corrects missing checkpoint exposure lineage before accepting a targeted plan, then reuses receipts", async () => {
     // Saori reached a paused wait because a live final checkpoint omitted prior
     // practice. Logs caught it only at cycle freezing; valid recorded plans never
@@ -543,6 +556,17 @@ describe("spelling Planner raw-response durability", () => {
     transport.create.mockResolvedValue(structuredClone(f.message));
     const before = getLearningCycle(f.childId, f.homeworkId, f)!;
     await expect(f.worker()).rejects.toThrow("assignment_planner_validation_failed:unknown_activity_id");
+    const diagnostics = path.join(f.draftDir, "provider-diagnostics");
+    const failureFile = fs.readdirSync(diagnostics).find(name => name.endsWith(".failure.json"))!;
+    const failure = JSON.parse(fs.readFileSync(path.join(diagnostics, failureFile), "utf8"));
+    expect(failure).toMatchObject({ version: 1, childId: f.childId, homeworkId: f.homeworkId,
+      stage: "targeted_planning", error: { message: expect.stringContaining("unknown_activity_id") },
+      elapsedMs: expect.any(Number), diagnosis: "unassigned" });
+    const link = failure.providerStages.find((row: { stage: string }) => row.stage === "spelling-targeted-planner");
+    expect(link).toMatchObject({ receiptFile: f.receiptFile, requestHash: expect.stringMatching(/^[a-f0-9]{64}$/), status: "received", elapsedMs: expect.any(Number) });
+    const request = JSON.parse(fs.readFileSync(link.requestFile, "utf8"));
+    expect(request).toMatchObject({ context: JSON.parse(JSON.stringify(f.packet)), code: { commit: expect.any(String) }, providerRequest: transport.create.mock.calls[0][0] });
+    expect(JSON.stringify(request)).not.toContain("recorded-transport-only");
     expect(getMathGenerationStatus(f.childId, f.homeworkId, f)).toMatchObject({ phase: "needs_attention", error: expect.stringContaining("Node practice references unknown activity clock-game") });
     expect(f.readReceipt()).toMatchObject({ status: "received", response: { message: f.message } });
     expect(generateBoardNodeImages).not.toHaveBeenCalled();

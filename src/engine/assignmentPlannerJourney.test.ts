@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { authoredJourney, choiceJourneyFixture } from '../scripts/fixtures/authoredJourney';
-import { assignmentPlannerToolJsonSchema, parseAssignmentPlannerJson, validateAssignmentPlannerRelationships, buildAssignmentPlannerPrompt } from './assignmentPlanner';
+import { assignmentPlannerToolJsonSchema, parseAssignmentPlannerJson, validateAssignmentPlannerRelationships, buildAssignmentPlannerPrompt, assignmentPlannerSourceImages } from './assignmentPlanner';
 
 function draft() {
   return {
@@ -51,4 +51,14 @@ it('returns unauthorized encounter errors to the Planner instead of silently dro
 it('validates checkpoint exposure against the chosen branch, preserving both alternative interventions',()=>{
  const input=draft();input.activeSessionPlan.boardDefinition=choiceJourneyFixture([{id:'learn',label:'Learn',nodeIds:['learn']},{id:'play',label:'Play',nodeIds:['play']}],[],['check']) as any;
  expect(()=>validateAssignmentPlannerRelationships(parseAssignmentPlannerJson(JSON.stringify(input)),new Set(['e']),true,new Set(['float']))).not.toThrow();
+});
+
+// Captured assignment truth replaces source re-extraction after Discovery.
+it('does not resend source images or duplicate instructions for targeted planning',()=>{
+ const packet:any={childId:'synthetic',sourceDocument:{pages:[{imagePath:'goldens/visual-explainer/erosion/erosion-reveal.png'}]},discoveryEvidence:{observations:[{observationId:'attempt-1',childResponse:'nite'}]},capturedHomework:{words:['night']},plannerInstruction:'UNIQUE_INSTRUCTION'};
+ expect(assignmentPlannerSourceImages(packet)).toEqual([]);
+ const prompt=buildAssignmentPlannerPrompt(packet);
+ expect(prompt.split('UNIQUE_INSTRUCTION')).toHaveLength(2);
+ expect(prompt).toContain('attempt-1');expect(prompt).toContain('nite');expect(prompt).toContain('night');
+ expect(packet.plannerInstruction).toBe('UNIQUE_INSTRUCTION');
 });

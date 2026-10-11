@@ -232,6 +232,12 @@ function preserveLegacySpellingReceipt(legacyDir: string, directory: string, sta
     if (provider !== currentProvider) throw new Error(`provider_stage_request_changed:${stage}`);
     copyLegacyCheckpoint(receipt, path.join(directory, receiptName));
     if (saved?.requestHash === requestHash) copyLegacyCheckpoint(source, path.join(directory, stageName));
+    const diagnostics = path.join(legacyDir, "provider-diagnostics");
+    for (const name of fs.existsSync(diagnostics) ? fs.readdirSync(diagnostics) : []) {
+      if (name.startsWith(`${requestHash}.attempt-`) && /^[a-f0-9]{64}\.attempt-[1-9]\d*\.request\.json$/.test(name)) {
+        copyLegacyCheckpoint(path.join(diagnostics, name), path.join(directory, "provider-diagnostics", name));
+      }
+    }
     return;
   }
 }

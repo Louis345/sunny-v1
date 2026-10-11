@@ -6,9 +6,9 @@ afterEach(() => vi.clearAllMocks());
 function session() {
   vi.mocked(getChildChart).mockReturnValue({ learningCycle: { homeworkId: "hw-words", domain: "spelling", nodes: [{ nodeId: "opening", state: "ready", role: "evaluation", artifactBinding: { contractFingerprint: "frozen" }, evidenceContract: { spellingItems: { i1: { id: "i1", word: "night" }, i2: { id: "i2", word: "light" } } } }] } } as never);
   const s = Object.assign(Object.create(SessionManager.prototype), {
-    chartChildId: "lab-child", childName: "Lab", sessionTtsLabel: "Lab", sessionId: "s1", companionPresence: "collapsed", send: vi.fn(),
+    companion:{name:"Elli"}, chartChildId: "lab-child", childName: "Lab", sessionTtsLabel: "Lab", sessionId: "s1", companionPresence: "collapsed", send: vi.fn(),
     debugRecorder: { recordEvent: vi.fn() },
-    ttsBridge: { connect: vi.fn(async () => {}), sendText: vi.fn(), finish: vi.fn(async () => {}), hadAudioThisTurn: vi.fn(() => true) },
+    ttsBridge: { beginPlayback:vi.fn(), connect: vi.fn(async () => {}), sendText: vi.fn(), finish: vi.fn(async () => {}), hadAudioThisTurn: vi.fn(() => true) },
     turnSM: { onPlaybackComplete: vi.fn(), consumePendingTranscript: vi.fn() },
     flushPendingRoundComplete: vi.fn(),
   }) as SessionManager;
@@ -26,6 +26,30 @@ function confirmCurrentPlayback(s: SessionManager): void {
   });
 }
 describe("live spelling assistance and audio provenance", () => {
+  it("pins the current private stimulus without treating conversation as a submitted answer", () => {
+    const s=session();
+    s.updateCurrentBoardSnapshot({assessmentMode:true,nodeId:"opening",itemId:"i2",phase:"response",answerVisibility:"hidden"});
+    const context=s.buildCurrentBoardContextForTurn("What word?");
+    expect(context).toContain('"spokenStimulus":"light"');
+    expect(context).toContain('"answerVisibility":"hidden"');
+    expect(context).toContain("Spoken repetition is not a submitted spelling answer");
+  });
+  it("retires a pending reply on item advance, but rejects stale launch context", () => {
+    const s=session() as any;
+    s.spellingLaunch.launchToken="current";
+    s.turnSM.clearPendingTranscript=vi.fn();
+    s.bargeIn=vi.fn();
+    s.updateCurrentBoardSnapshot({assessmentMode:true,nodeId:"opening",itemId:"i1",phase:"response",answerVisibility:"hidden",launchToken:"current"});
+    s.currentAbort=new AbortController();
+    s.updateCurrentBoardSnapshot({assessmentMode:true,nodeId:"opening",itemId:"i2",phase:"response",answerVisibility:"hidden",launchToken:"retired"});
+    expect(s.bargeIn).not.toHaveBeenCalled();
+    expect(s.currentBoardSnapshot.itemId).toBe("i1");
+    s.updateCurrentBoardSnapshot({assessmentMode:true,nodeId:"opening",itemId:"i2",phase:"response",answerVisibility:"hidden",launchToken:"current"});
+    expect(s.bargeIn).toHaveBeenCalledOnce();
+    expect(s.turnSM.clearPendingTranscript).toHaveBeenCalledWith("activity_item_changed");
+    expect(s.currentBoardSnapshot.itemId).toBe("i2");
+  });
+
   it("retains exposure and support when delayed writes arrive after the next item", async () => {
     const s = session();
     s.setCompanionPresence("summoned");

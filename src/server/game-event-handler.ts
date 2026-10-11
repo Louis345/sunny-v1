@@ -175,10 +175,10 @@ export async function tryCompleteTtsTurnAsync(s: SM): Promise<void> {
   if (s.turnSM.getState() === "CANVAS_PENDING") return;
   if (s.gamePendingRevision !== null) return;
   s.deferredTtsFinish = false;
-  if (s.ttsBridge) {
-    await s.ttsBridge.finish();
-  }
-  s.send("audio_done");
+  const identity = s.ttsBridge?.currentPlaybackIdentity?.();
+  if (s.ttsBridge) await s.ttsBridge.finish();
+  if (identity?.requestId !== s.ttsBridge?.currentPlaybackIdentity?.()?.requestId) return;
+  s.send("audio_done", identity);
 }
 
 export function wbEndCleanup(s: SM): void {

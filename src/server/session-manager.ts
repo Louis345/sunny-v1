@@ -109,7 +109,7 @@ import { ServerCompanionBridge } from "./companion-bridge";
 import * as gev from "./game-event-handler";
 import { runHandleToolCall } from "./tool-call-router";
 import { runSessionStart } from "./session-bootstrap";
-import { runCompanionResponseForSession } from "./companion-response-runner";
+import { runDirectCompanionTurnForSession, runCompanionResponseForSession } from "./companion-response-runner";
 import {
   hostCanvasClear,
   hostCanvasShow,
@@ -149,7 +149,6 @@ import {
   normalizeSessionChartChildId,
   normalizeToolName,
   pronunciationCueFor,
-  rewriteChildNameForTts,
   shouldAcceptInterruptedTranscript,
   stripSvgFences,
 } from "./sessionTextHelpers";
@@ -231,6 +230,7 @@ export class SessionManager {
   private readonly options?: SessionManagerOptions;
   private ttsBridge: WsTtsBridge | null = null;
   private currentAbort: AbortController | null = null;
+  private companionResponseTurnId = 0;
   private clearSessionTimer: (() => void) | null = null;
   private fluxHandle: FluxHandle | null = null;
   private isEnding = false;
@@ -751,6 +751,21 @@ export class SessionManager {
   }
 
   updateCurrentBoardSnapshot(state: Record<string, unknown>): void {
+    if (this.spellingLaunch?.launchToken && (state.itemId || state.nodeId === this.spellingLaunch.nodeId)
+      && state.launchToken !== this.spellingLaunch.launchToken
+      && state.phase !== "opening" && state.phase !== "launched") {
+      this.recordDebugEvent("spelling", "stale_context_ignored", { itemId: state.itemId });
+      return;
+    }
+    const previous = this.currentBoardSnapshot;
+    if (previous?.itemId && (state.itemId && state.itemId !== previous.itemId
+      || state.nodeId && state.nodeId !== previous.nodeId || state.phase === "closed")) {
+      if (this.currentAbort || this.activeGameNarrationRequestId || this.pendingGameNarrationPlayback
+        || this.turnSM?.getState?.() === "SPEAKING") this.bargeIn();
+      this.turnSM?.clearPendingTranscript?.("activity_item_changed");
+      this.activeWordContext = "";
+      console.log(" 🎮 [companion] [item-changed] [obsolete-speech-retired]");
+    }
     if (state.phase === "closed" && this.spellingLaunch
       && state.nodeId === this.spellingLaunch.nodeId && state.launchToken === this.spellingLaunch.launchToken) {
       this.spellingLaunch = undefined;
@@ -943,6 +958,7 @@ export class SessionManager {
       childId: this.chartChildId,
       companionId: this.companion.name,
       presence: this.companionPresence,
+      spellingAssessment: this.spellingLaunch ? this.spellingAssessment : undefined,
     });
   }
 
@@ -1022,7 +1038,9 @@ export class SessionManager {
   }
 
   recordDebugEvent(component: string, action: string, fields: Record<string, unknown> = {}): void {
-    this.debugRecorder.recordEvent(component, action, fields);
+    this.debugRecorder.recordEvent(component, action, component === "client_audio" ? {...fields,
+      game:this.currentBoardSnapshot?.game, phase:this.currentBoardSnapshot?.phase,
+      nodeId:this.currentBoardSnapshot?.nodeId, companionPresence:this.companionPresence} : fields);
   }
   recordGameTrace(fields: Record<string, unknown>): void {
     this.debugRecorder.recordGameTrace(fields);
@@ -1108,9 +1126,11 @@ export class SessionManager {
       return;
     }
     const requestId = randomUUID();
+    if (this.currentAbort || this.turnSM?.getState?.() === "SPEAKING") this.bargeIn();
     this.activeGameNarrationRequestId = requestId;
     const assessment = metadata.assessmentMode === true ? this.spellingAssessment : undefined;
     let spoken = false;
+    this.ttsBridge?.beginPlayback(requestId, String(metadata.itemId ?? assessment?.itemId ?? ""), Boolean(assessment), true);
     try {
       spoken = await gev.narrateGameStimulus({ text, metadata, childName: this.childName, ttsLabel: this.sessionTtsLabel,
         bridge: this.ttsBridge, assessment,
@@ -1230,6 +1250,7 @@ export class SessionManager {
   }
 
   bargeIn(): void {
+    this.companionResponseTurnId = Number(this.companionResponseTurnId ?? 0) + 1;
     this.pendingRoundComplete = null;
     gev.abortGameTtsGate(this);
     gev.clearGameNarrationPlaybackTimer(this);
@@ -1270,7 +1291,7 @@ export class SessionManager {
       this.ttsBridge.stop();
     }
 
-    this.send("audio_done");
+    this.send("audio_cancel");
     // Ephemeral assistant canvas (teaching SVG, etc.) is stale after interrupt.
     // Worksheet PDF, iframe games, word-builder, spell-check stay visible.
     if (!canvasStatePersistsThroughBargeIn(this.currentCanvasState)) {
@@ -2261,20 +2282,7 @@ export class SessionManager {
   }
 
   private async handleCompanionTurn(text: string): Promise<void> {
-    if (this.activeGameNarrationRequestId || this.pendingGameNarrationPlayback) this.bargeIn();
-    this.turnSM.onEndOfTurn();
-    // onEndOfTurn uses setImmediate for LOADING → PROCESSING — wait for it
-    await new Promise<void>((resolve) => setImmediate(resolve));
-    this.turnSM.onAgentComplete();
-    const ttsText = rewriteChildNameForTts(text, this.childName, this.sessionTtsLabel);
-    this.send("response_text", { chunk: text });
-    if (this.ttsBridge) {
-      await this.ttsBridge.connect().catch(() => {});
-      this.ttsBridge.sendText(ttsText);
-      await this.ttsBridge.finish();
-    }
-    this.send("audio_done");
-    this.turnSM.onSpeakingDone();
+    await runDirectCompanionTurnForSession(this, text);
   }
 
   private broadcastContext(): void {

@@ -2,6 +2,14 @@ import { describe, expect, it, vi } from "vitest";
 import { SessionManager } from "./session-manager";
 import { buildNamePrefix } from "../utils/childNamePrefix";
 
+function playbackOwnerMock() {
+  let identity: {requestId:string}|undefined;
+  return {
+    beginPlayback: vi.fn((requestId:string)=>{identity={requestId};}),
+    currentPlaybackIdentity:()=>identity,
+  };
+}
+
 describe("child identity prompt", () => {
   it("keeps the canonical display name in model text and leaves pronunciation to TTS", () => {
     // Human catch: the screen and Elli transcript called Ila "Ayla." The prompt
@@ -29,6 +37,7 @@ describe("child identity prompt", () => {
       },
       send,
       ttsBridge: {
+        ...playbackOwnerMock(),
         connect: vi.fn().mockResolvedValue(undefined),
         sendText,
         finish: vi.fn().mockResolvedValue(undefined),
@@ -63,6 +72,7 @@ describe("child identity prompt", () => {
       },
       send: vi.fn(),
       ttsBridge: {
+        ...playbackOwnerMock(),
         connect: vi.fn().mockResolvedValue(undefined),
         sendText: vi.fn(),
         finish: vi.fn().mockResolvedValue(undefined),

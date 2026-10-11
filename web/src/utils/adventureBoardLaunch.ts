@@ -103,14 +103,16 @@ export function isDirectDiscoveryPacket(packet: ChildExperiencePacket | null): b
   const plan = packet?.activeSessionPlan;
   if (!plan) return false;
   const cycle = packet.childChart?.learningCycle;
+  if (plan.domain === "spelling" && cycle?.boardKind === "probe" && cycle.homeworkId === plan.activeHomeworkId)
+    return ["evaluation_ready","evaluation_active"].includes(cycle.lifecycle);
   if (plan.planId?.startsWith("discovery:")) {
     return !cycle?.lifecycle || ["evaluation_ready", "evaluation_active"].includes(cycle.lifecycle);
   }
-  if (plan.planId?.startsWith("probe-board:")) return false;
+  if (plan.planId?.startsWith("probe-board:") && plan.domain !== "spelling") return false;
 
   if (
     plan.domain !== "spelling" ||
-    !plan.planId?.startsWith("learning-cycle:") ||
+    !(cycle?.boardKind === "probe" || plan.planId?.startsWith("learning-cycle:")) ||
     !cycle ||
     !["evaluation_ready", "evaluation_active"].includes(cycle.lifecycle) ||
     cycle.homeworkId !== plan.activeHomeworkId ||
@@ -172,8 +174,12 @@ export function hasPendingLearningGeneration(packet: ChildExperiencePacket | nul
 
 /** A Teaching Board opens as one complete chapter; Probe siblings may unlock independently. */
 export function shouldHoldTargetedBoardForPreparation(packet: ChildExperiencePacket | null): boolean {
-  if (!packet || isDirectDiscoveryPacket(packet) || isProbeBoardPacket(packet)) return false;
+  if (!packet || isDirectDiscoveryPacket(packet)) return false;
   if (!["math", "spelling"].includes(packet.activeSessionPlan?.domain ?? "")) return false;
+  // A saved evaluation definition is history while its successor prepares, never a waiting-room map.
+  if (packet.activeSessionPlan?.domain === "spelling" && packet.childChart?.learningCycle?.boardKind === "probe"
+    && !["evaluation_ready","evaluation_active"].includes(packet.childChart.learningCycle.lifecycle)) return true;
+  if (isProbeBoardPacket(packet)) return false;
   if (packet.activeSessionPlan?.planId?.startsWith("discovery:")) return true;
   if (["evidence_ready", "targeted_planning", "board_designing", "board_generating"].includes(
     packet.childChart?.learningCycle?.lifecycle ?? "",

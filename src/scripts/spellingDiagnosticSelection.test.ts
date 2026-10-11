@@ -1,3 +1,4 @@
+import {runMathProviderStage,hashDiscoveryContract} from "../engine/adaptiveMathDiscovery";
 import {linearJourneyFixture} from './fixtures/authoredJourney';
 import fs from "node:fs";
 import os from "node:os";
@@ -5,7 +6,7 @@ import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { seedSpellingLab } from "./fixtures/spellingEvidenceFirst";
 import { runSpellingDiscoveryIntake } from "./ingestHomework";
-import { buildAssignmentPlanningPacket, prepareSpellingDiagnosticPacket, planSpellingIntakeFromSource, parseSpellingIntake, buildSpellingIntakePrompt, type AssignmentPlanningPacket } from "../engine/assignmentPlanner";
+import { buildAssignmentPlanningPacket, prepareSpellingDiagnosticPacket, planSpellingIntakeFromSource, parseSpellingIntake, buildSpellingIntakePrompt, spellingIntakeAuthoringSchema, spellingIntakeToolJsonSchema, type AssignmentPlanningPacket } from "../engine/assignmentPlanner";
 import { extractAssignmentSource } from "../engine/assignmentSourceExtraction";
 import { getChildChart } from "../profiles/childChart";
 import { getLearningCycle } from "../engine/learningCycleRepository";
@@ -91,6 +92,10 @@ describe("Planner-owned opening spelling diagnostic", () => {
     expect(getLearningCycle(input.childId, homeworkId, input)).toBeNull();
     const saved = JSON.parse(fs.readFileSync(path.join(input.rootDir, "src/context/lab-child/homework/direct-drafts", homeworkId, "spelling-intake-response.json"), "utf8"));
     expect(saved.output.diagnostic.action).toBe("needs_instrument");
+    const directory=path.join(input.rootDir,'src/context/lab-child/homework/direct-drafts',homeworkId,'provider-diagnostics');
+    const failures=fs.readdirSync(directory).filter(name=>name.endsWith('.failure.json')).map(name=>JSON.parse(fs.readFileSync(path.join(directory,name),'utf8')));
+    expect(failures).toHaveLength(2);
+    expect(failures[0]).toMatchObject({childId:input.childId,homeworkId,stage:'spelling_intake',diagnosis:'unassigned',error:{message:expect.stringContaining('spelling_diagnostic_needs_instrument')}});
     expect(callPlannerModel).toHaveBeenCalledOnce();
   });
   it("passes the recorded diagnostic rationale forward with actual outcomes, without raw responses", async () => {
@@ -108,6 +113,55 @@ describe("Planner-owned opening spelling diagnostic", () => {
     expect(next.spellingDiagnostics!.evidenceIds).toEqual(expect.arrayContaining(["observation-0", "observation-1"]));
     expect(JSON.stringify(next.spellingDiagnostics)).not.toContain("wrong-private-response");
   });
+  it("sends the same conditional contract inside a provider-supported object tool envelope",()=>{
+    const schema=spellingIntakeToolJsonSchema(spellingIntakeAuthoringSchema(true)) as any;
+    expect(schema.type).toBe("object");expect(schema.anyOf).toBeUndefined();
+    expect(schema.required).toEqual(["plan"]);
+    expect(schema.properties.plan.anyOf[0].required).toContain("boardDefinition");
+  });
+  it("makes activity bindings executable tool arguments, not guessed activity names", async () => {
+    const {packet}=await fixture(), draft=capture(packet);
+    const schema=spellingIntakeAuthoringSchema(true);
+    const wrong=structuredClone(draft); wrong.boardDefinition.portals.find(p=>p.kind==='activity')!.activityNodeId='word-radar';
+    expect(schema.safeParse(wrong).success).toBe(false);
+    const missing=structuredClone(draft); delete missing.boardDefinition.portals.find(p=>p.kind==='activity')!.activityNodeId;
+    expect(schema.safeParse(missing).success).toBe(false);
+    expect(schema.safeParse(draft).success).toBe(true);
+    const tool=spellingIntakeToolJsonSchema(schema) as any;
+    const resolve=(node:any):any=>node.$ref ? resolve(tool.$defs[node.$ref.split("/").at(-1)]) : node;
+    const board=resolve(tool.properties.plan.anyOf[0].properties.boardDefinition);
+    const portals=resolve(board.properties.portals.items).anyOf.map(resolve);
+    expect(portals[0].required).toContain('activityNodeId');
+    expect(resolve(portals[0].properties.activityNodeId).enum).toEqual(['diagnostic']);
+    expect(JSON.stringify(tool)).not.toContain('"minimum"');
+    expect(JSON.stringify(tool)).not.toContain('"maxItems"');
+    expect(JSON.stringify(tool)).not.toContain('"pattern"');
+    expect(JSON.stringify(tool)).toContain('Runtime constraints:');
+    expect(tool.$defs).toBeDefined();
+  });
+  it.each(["renamed","wrong","missing"])("repairs %s bindings without regenerating captured homework", async defect => {
+    const input = await fixture();
+    const good = capture(input.packet);
+    const missing = structuredClone(good);
+    delete (missing as Partial<typeof missing>).boardDefinition;
+    expect(spellingIntakeAuthoringSchema(true).safeParse(missing).success).toBe(false);
+    const gap = {...missing, diagnostic:{action:"needs_instrument",reason:"No valid instrument",evidenceIds:[input.packet.spellingDiagnostics!.evidenceIds[0]],uncertainty:["unknown"],nextEvidenceNeeded:["instrument"]}};
+    expect(spellingIntakeAuthoringSchema(true).safeParse(gap).success).toBe(true);
+    const malformed = structuredClone(good) as any;
+    const portal = malformed.boardDefinition.portals.find((p:any)=>p.kind==="activity");
+    if(defect==="renamed") {portal.activityId=portal.activityNodeId;delete portal.activityNodeId;}
+    else if(defect==="wrong") portal.activityNodeId="word-radar";
+    else delete portal.activityNodeId;
+    const callPlannerModel=vi.fn().mockResolvedValueOnce({draft:malformed})
+      .mockResolvedValueOnce({draft:{diagnostic:good.diagnostic,boardDefinition:good.boardDefinition}});
+    const first=await runSpellingDiscoveryIntake(input,{callPlannerModel});
+    const cycle=getLearningCycle(input.childId,first.homeworkId,input)!;
+    expect(cycle.assignment.title).toBe(good.title);
+    expect(cycle.boards![0].definition?.portals.map(p=>({id:p.id,label:p.label,position:p.position}))).toEqual(good.boardDefinition.portals.map(p=>({id:p.id,label:p.label,position:p.position})));
+    await runSpellingDiscoveryIntake(input,{callPlannerModel});
+    expect(callPlannerModel).toHaveBeenCalledTimes(2);
+  });
+
   it("repairs one incomplete Planner response once, then reuses the validated intake on restart", async () => {
     // Human catch: the real provider omitted one required field while the 12 visible words looked correct.
     // Log catch: Zod named the missing field, but the durable raw receipt made every restart repeat the failure.
@@ -127,6 +181,21 @@ describe("Planner-owned opening spelling diagnostic", () => {
 
     await runSpellingDiscoveryIntake(input, { callPlannerModel });
     expect(callPlannerModel).toHaveBeenCalledTimes(2);
+  });
+  it.each(["diagnostic-schema-correction-v1","authoring-correction-v3"])("recovers a successful paid %s correction without another provider call", async suffix=>{
+    const input=await fixture(),good=capture(input.packet),bad=structuredClone(good) as any;
+    delete bad.diagnostic.nextEvidenceNeeded;
+    const homeworkId=`hw-spelling-${input.packet.sourceDocument.fileHash.slice(0,8)}`;
+    const draftDir=path.join(input.rootDir,'src/context',input.childId,'homework/direct-drafts',homeworkId);
+    fs.mkdirSync(draftDir,{recursive:true});
+    fs.writeFileSync(path.join(draftDir,'spelling-intake-request.json'),JSON.stringify(input.packet));
+    await runMathProviderStage({draftDir,stage:'spelling-intake',model:'recorded',request:input.packet,execute:async()=>({draft:bad,latencyMs:0})});
+    await runMathProviderStage({draftDir,stage:`spelling-intake-${suffix}`,model:'recorded',request:{originalRequestHash:hashDiscoveryContract(input.packet)},execute:async()=>({draft:suffix.endsWith("v3")?{diagnostic:good.diagnostic,boardDefinition:good.boardDefinition}:good,latencyMs:0})});
+    fs.rmSync(path.join(draftDir,'provider-diagnostics'),{recursive:true,force:true});
+    const provider=vi.fn(async()=>{throw Error('paid call forbidden on received legacy recovery');});
+    const result=await runSpellingDiscoveryIntake(input,{callPlannerModel:provider});
+    expect(getLearningCycle(input.childId,result.homeworkId,input)).not.toBeNull();
+    expect(provider).not.toHaveBeenCalled();
   });
   it("source confirmation cannot replace the Planner's diagnostic decision", async () => {
     const input = await fixture(), draft = capture(input.packet);

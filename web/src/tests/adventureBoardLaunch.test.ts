@@ -286,6 +286,26 @@ describe("direct Discovery entry", () => {
     );
   });
 
+  it("never exposes an evaluation map when its instrument payload is unavailable",()=>{
+    const evaluation=packet("planner-authored:hw-1:r15",[{id:"start",type:"start"},{id:"evaluation",type:"word-radar"}]);
+    evaluation.activeSessionPlan!.domain="spelling";
+    evaluation.childChart={learningCycle:{homeworkId:"hw-1",lifecycle:"evaluation_ready",boardKind:"probe"}} as never;
+    expect(isDirectDiscoveryPacket(evaluation)).toBe(true);
+    expect(resolveDirectDiscoveryLaunchNode(evaluation)).toBeNull();
+  });
+  it.each(["evaluation_ready","evaluation_active"])("opens canonical spelling %s directly with no evaluation map", lifecycle => {
+    const evaluation=packet("planner-authored:hw-1:r15",[
+      {id:"start",type:"start"},
+      {id:"canonical-evaluation",type:"word-radar",title:"Show What You Know"},
+    ]);
+    evaluation.activeSessionPlan!.domain="spelling";
+    evaluation.childChart={learningCycle:{homeworkId:"hw-1",lifecycle,boardKind:"probe"}} as never;
+    evaluation.spellingDiscovery={nodeId:"canonical-evaluation",items:[{itemId:"item-1",display:"cheese",acceptedResponses:["cheese"],label:"Spelling",subject:"spelling"}]};
+    expect(isDirectDiscoveryPacket(evaluation)).toBe(true);
+    expect(isProbeBoardPacket(evaluation)).toBe(false);
+    expect(resolveDirectDiscoveryLaunchNode(evaluation)).toMatchObject({id:"canonical-evaluation",wordRadarItems:evaluation.spellingDiscovery.items});
+  });
+
   it("shows a Planner-authored Probe Board instead of auto-launching one evaluation", () => {
     // Human-caught invariant: the old lab proved one generated iframe, but not
     // the board-level wait caused by building only one evaluation node.
@@ -407,6 +427,19 @@ describe("direct Discovery entry", () => {
     expect(shouldHoldTargetedBoardForPreparation(teaching)).toBe(true);
     teaching.childChart.learningCycle!.lifecycle = "board_ready";
     expect(shouldHoldTargetedBoardForPreparation(teaching)).toBe(false);
+  });
+
+  it.each(["evidence_ready","targeted_planning","board_designing","board_generating","needs_attention"])("holds a completed probe map during %s instead of exposing it behind preparation", lifecycle => {
+    // Human saw completed Discovery behind a small status panel; logs tracked generation only.
+    // Prior lab covered legacy discovery IDs, not canonical boardKind=probe's bypass.
+    const completedProbe=packet("learning-cycle:hw-1:r15",[
+      {id:"start",type:"start"},
+      {id:"hw-1:discovery",type:"word-radar",title:"Discovery"},
+    ]);
+    completedProbe.activeSessionPlan!.domain="spelling";
+    completedProbe.childChart={learningCycle:{homeworkId:"hw-1",lifecycle,boardKind:"probe"}} as never;
+    completedProbe.activeSessionPlan!.adventureBoard!.nodes[1]!.state="completed";
+    expect(shouldHoldTargetedBoardForPreparation(completedProbe)).toBe(true);
   });
 
   it("opens a verified teaching board whose first action is a Planner route choice", () => {

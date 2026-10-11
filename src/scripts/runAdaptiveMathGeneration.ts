@@ -27,6 +27,7 @@ import {
   revealTargetedBoard, writeMathGenerationJob,
   queueTargetedMathGeneration, setMathGenerationPhase,
   updateMathGenerationNode,
+  recordGenerationFailure,
 } from "../engine/adaptiveMathDiscovery";
 import { readAssignmentSourceExtraction } from "../engine/assignmentSourceExtraction";
 import { attachSpellingDiscoveryEvidence, buildAssignmentPlanningPacket, planAssignmentFromSourceWithTelemetry, type AssignmentPlanningPacket } from "../engine/assignmentPlanner";
@@ -1014,6 +1015,7 @@ export async function runAdaptiveMathGeneration(
 
 /** Native spelling instruments use the same job, publication, and per-node resume machinery. */
 async function runSpellingTargetedGeneration(childId: string, homeworkId: string, rootDir: string): Promise<void> {
+  const diagnosticStartedAt = Date.now();
   const scope = { rootDir, childId, homeworkId };
   const cycle = getLearningCycle(childId, homeworkId, { rootDir })!;
   if (["evaluation_ready", "evaluation_active"].includes(cycle.lifecycle)) throw new Error("spelling_evidence_not_committed");
@@ -1236,6 +1238,7 @@ async function runSpellingTargetedGeneration(childId: string, homeworkId: string
     process.env.SUNNY_IMAGE_GENERATION_MAX_PER_RUN ||= "8";
     await generateBoardNodeImages({ ...scope, plan: presentation, onPlanUpdated: plan => { presentation = plan; project(); } });
   } catch (error) {
+    recordGenerationFailure({draftDir:draft,childId,homeworkId,stage:()=>getMathGenerationStatus(childId,homeworkId,{rootDir})?.phase ?? 'targeted_generation',startedAt:diagnosticStartedAt,error});
     setMathGenerationPhase({ ...scope, phase: "needs_attention", error: error instanceof Error ? error.message : String(error) });
     throw error;
   }

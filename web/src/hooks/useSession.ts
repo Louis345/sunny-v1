@@ -422,6 +422,31 @@ export function useSession(options?: UseSessionOptions) {
   const currentSourceRef = useRef<AudioBufferSourceNode | null>(null);
   const analyserNodeRef = useRef<AnalyserNode | null>(null);
   const serverDoneRef = useRef(false);
+  const playbackEpochRef = useRef(0);
+  const activePlaybackRequestIdRef = useRef<string | null>(null);
+  const playbackMeasuredRequestRef = useRef<string | null>(null);
+  const completedPlaybackRef = useRef(false);
+  const playbackCanceledRef = useRef(false);
+  const cancelPlayback = useCallback(() => {
+    playbackEpochRef.current += 1;
+    playbackCanceledRef.current = true;
+    audioQueueRef.current = [];
+    isPlayingRef.current = false;
+    serverDoneRef.current = false;
+    activePlaybackRequestIdRef.current = null;
+    completedPlaybackRef.current = false;
+    playbackRequestIdRef.current = null;
+    playbackItemIdRef.current = null;
+    playbackRequiresAudioRef.current = false;
+    activityNarrationPendingRef.current = false;
+    receivedAudioFramesRef.current = 0;
+    playedAudioFramesRef.current = 0;
+    if (currentSourceRef.current) {
+      currentSourceRef.current.onended = null;
+      try { currentSourceRef.current.stop(); } catch { /* already stopped */ }
+      currentSourceRef.current = null;
+    }
+  }, []);
   const playbackRequiresAudioRef = useRef(false);
   const playbackRequestIdRef = useRef<string | null>(null);
   const playbackItemIdRef = useRef<string | null>(null);
@@ -582,6 +607,7 @@ export function useSession(options?: UseSessionOptions) {
       playedAudioFrames: playedAudioFramesRef.current,
     });
     serverDoneRef.current = false;
+    completedPlaybackRef.current = Boolean(activePlaybackRequestIdRef.current);
     const playbackIdentity = {
       ...(playbackRequestIdRef.current ? { requestId: playbackRequestIdRef.current } : {}),
       ...(playbackItemIdRef.current ? { itemId: playbackItemIdRef.current } : {}),
@@ -793,23 +819,8 @@ export function useSession(options?: UseSessionOptions) {
           sessionReconnectTimerRef.current = null;
         }
         const m = msg as Record<string, string>;
-        audioQueueRef.current = [];
-        isPlayingRef.current = false;
-        serverDoneRef.current = false;
-        playbackRequiresAudioRef.current = false;
-        playbackRequestIdRef.current = null;
-        playbackItemIdRef.current = null;
-        activityNarrationPendingRef.current = false;
-        receivedAudioFramesRef.current = 0;
-        playedAudioFramesRef.current = 0;
-        if (currentSourceRef.current) {
-          try {
-            currentSourceRef.current.stop();
-          } catch {
-            /* already stopped */
-          }
-          currentSourceRef.current = null;
-        }
+        cancelPlayback();
+        playbackCanceledRef.current = false;
         debugBrowserTtsRef.current =
           (msg as Record<string, unknown>).debugBrowserTts === true ||
           urlWantsBrowserTts();
@@ -1031,8 +1042,23 @@ export function useSession(options?: UseSessionOptions) {
         break;
       }
 
+      case "audio_start":
+        cancelPlayback();
+        playbackCanceledRef.current = false;
+        activePlaybackRequestIdRef.current = typeof msg.requestId === "string" ? msg.requestId : null;
+        playbackRequestIdRef.current = activePlaybackRequestIdRef.current;
+        playbackItemIdRef.current = typeof msg.itemId === "string" ? msg.itemId : null;
+        playbackRequiresAudioRef.current = msg.requiresAudio === true;
+        activityNarrationPendingRef.current = msg.source === "activity" || msg.requiresAudio === true;
+        break;
+
+      case "audio_cancel":
+        cancelPlayback();
+        break;
+
       case "audio": {
-        serverDoneRef.current = false;
+        if (playbackCanceledRef.current || (activePlaybackRequestIdRef.current &&
+          (msg.requestId !== activePlaybackRequestIdRef.current || completedPlaybackRef.current))) break;
         receivedAudioFramesRef.current += 1;
         if (
           (ttsMutedRef.current || companionSpeechMutedRef.current) &&
@@ -1055,10 +1081,11 @@ export function useSession(options?: UseSessionOptions) {
       }
 
       case "audio_done":
+        if (playbackCanceledRef.current || (activePlaybackRequestIdRef.current &&
+          (msg.requestId !== activePlaybackRequestIdRef.current || completedPlaybackRef.current))) break;
         playbackRequiresAudioRef.current = msg.requiresAudio === true;
         playbackRequestIdRef.current = typeof msg.requestId === "string" ? msg.requestId : null;
         playbackItemIdRef.current = typeof msg.itemId === "string" ? msg.itemId : null;
-        activityNarrationPendingRef.current = false;
         serverDoneRef.current = true;
         finalizePlaybackRef.current();
         break;
@@ -1719,11 +1746,19 @@ export function useSession(options?: UseSessionOptions) {
   // ElevenLabs sends PCM 16-bit signed mono at 24000 Hz (pcm_24000)
 
   async function playNextChunk() {
+    const epoch = playbackEpochRef.current;
     if (audioQueueRef.current.length === 0) {
       // Brief grace period before re-opening the mic — lets residual room
       // echo from the speakers dissipate so Deepgram doesn't pick it up.
       setTimeout(() => {
+        if (epoch !== playbackEpochRef.current) return;
         isPlayingRef.current = false;
+        // A streamed chunk can arrive while this grace period still owns playback.
+        if (audioQueueRef.current.length > 0) {
+          console.log(" 🎮 [session-audio] [inter-chunk-gap] [resumed]");
+          void playNextChunkRunnerRef.current().catch(error => console.error(" 🎮 [session-audio] [gap-resume] [failed]", error));
+          return;
+        }
         finalizePlaybackRef.current();
       }, 150);
       return;
@@ -1737,6 +1772,7 @@ export function useSession(options?: UseSessionOptions) {
         playContextRef.current = new AudioContext({ sampleRate: 24000 });
       }
       await ensureAudioContextRunning(playContextRef.current);
+      if (epoch !== playbackEpochRef.current) return;
       const ctx = playContextRef.current;
       const audioBuffer = pcmToAudioBuffer(ctx, chunk);
       const source = ctx.createBufferSource();
@@ -1747,6 +1783,7 @@ export function useSession(options?: UseSessionOptions) {
       analyser.connect(ctx.destination);
       currentSourceRef.current = source;
       source.onended = () => {
+        if (epoch !== playbackEpochRef.current) return;
         if (currentSourceRef.current === source) {
           currentSourceRef.current = null;
           playedAudioFramesRef.current += 1;
@@ -1754,7 +1791,13 @@ export function useSession(options?: UseSessionOptions) {
         playNextChunk();
       };
       source.start();
+      const requestId = activePlaybackRequestIdRef.current;
+      if (requestId && playbackMeasuredRequestRef.current !== requestId) {
+        playbackMeasuredRequestRef.current = requestId;
+        sendMessageRef.current("client_audio_status", {event:"playback_started", requestId, itemId:playbackItemIdRef.current});
+      }
     } catch (err) {
+      if (epoch !== playbackEpochRef.current) return;
       console.error(" 🎮 [session-audio] [playback] [failed]", err);
       sendMessageRef.current("client_audio_status", {
         event: "playback_failed",
@@ -1922,31 +1965,13 @@ export function useSession(options?: UseSessionOptions) {
 
   const bargeIn = useCallback(() => {
     sendMessage("barge_in");
-    serverDoneRef.current = false;
-    playbackRequiresAudioRef.current = false;
-    receivedAudioFramesRef.current = 0;
-    playedAudioFramesRef.current = 0;
-    audioQueueRef.current = [];
-    isPlayingRef.current = false;
-    if (currentSourceRef.current) {
-      try { currentSourceRef.current.stop(); } catch { /* already stopped */ }
-      currentSourceRef.current = null;
-    }
-  }, [sendMessage]);
+    cancelPlayback();
+  }, [sendMessage, cancelPlayback]);
 
   const endSession = useCallback(() => {
     // Stop mic immediately — don't wait for the server session_ended round-trip.
     stopMicRef.current();
-    audioQueueRef.current = [];
-    isPlayingRef.current = false;
-    serverDoneRef.current = false;
-    playbackRequiresAudioRef.current = false;
-    receivedAudioFramesRef.current = 0;
-    playedAudioFramesRef.current = 0;
-    if (currentSourceRef.current) {
-      try { currentSourceRef.current.stop(); } catch { /* already stopped */ }
-      currentSourceRef.current = null;
-    }
+    cancelPlayback();
     sessionStartRequestRef.current = null;
     reconnectHandshakePendingRef.current = false;
     if (sessionReconnectTimerRef.current) {
@@ -1954,24 +1979,23 @@ export function useSession(options?: UseSessionOptions) {
       sessionReconnectTimerRef.current = null;
     }
     sendMessage("end_session");
-  }, [sendMessage]);
+  }, [sendMessage, cancelPlayback]);
 
   const toggleMicMute = useCallback(() => {
-    setMicMuted((m) => {
-      const next = !m;
-      sendMessage("set_mute", { muted: next });
-      return next;
-    });
+    const next = !micMutedRef.current;
+    micMutedRef.current = next;
+    setMicMuted(next);
+    sendMessage("set_mute", { muted: next });
+    sendMessage("client_audio_status", {event:"microphone_mute",muted:next});
   }, [sendMessage]);
 
   const toggleCompanionSpeechMute = useCallback(() => {
-    setCompanionSpeechMuted((muted) => {
-      const next = !muted;
-      console.log(
-        ` 🎮 [session-audio] [companion-speech] [${next ? "quiet" : "audible"}]`,
-      );
-      return next;
-    });
+    const next = !companionSpeechMutedRef.current;
+    companionSpeechMutedRef.current = next;
+    setCompanionSpeechMuted(next);
+    sendMessageRef.current("client_audio_status", {event:"companion_speech_mute",muted:next,
+      requestId:activePlaybackRequestIdRef.current, speaking:isPlayingRef.current});
+    console.log(` 🎮 [session-audio] [companion-speech] [${next ? "quiet" : "audible"}]`);
   }, []);
 
   useEffect(() => {
@@ -1997,21 +2021,7 @@ export function useSession(options?: UseSessionOptions) {
     setTtsMuted(false);
     setCompanionSpeechMuted(false);
     setMapNodeType(null);
-    audioQueueRef.current = [];
-    isPlayingRef.current = false;
-    serverDoneRef.current = false;
-    playbackRequiresAudioRef.current = false;
-    activityNarrationPendingRef.current = false;
-    receivedAudioFramesRef.current = 0;
-    playedAudioFramesRef.current = 0;
-    if (currentSourceRef.current) {
-      try {
-        currentSourceRef.current.stop();
-      } catch {
-        /* already stopped */
-      }
-      currentSourceRef.current = null;
-    }
+    cancelPlayback();
     setState({
       voiceSessionId: null,
       phase: "picker",
@@ -2050,7 +2060,7 @@ export function useSession(options?: UseSessionOptions) {
     wsRef.current?.close();
     wsRef.current = null;
     stopMic();
-  }, [stopMic]);
+  }, [stopMic, cancelPlayback]);
 
   useEffect(() => {
     function handleGameMessage(e: MessageEvent) {

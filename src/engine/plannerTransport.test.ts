@@ -1,6 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
 import {expect,it,vi} from 'vitest';
-import {requestPlannerMessage,readPlannerToolReceipt} from './plannerTransport';
+import {requestPlannerMessage,readPlannerToolReceipt,plannerTransportPolicy} from './plannerTransport';
 const params={model:'claude-opus-5-5',max_tokens:6000,messages:[{role:'user' as const,content:'fixture'}],tools:[{name:'submit',input_schema:{type:'object' as const}}],tool_choice:{type:'tool' as const,name:'submit'}};
 it.each(['claude-opus-5-5','claude-sonnet-5-5','claude-fable-5-1'])('streams %s with an explicit reasoning budget and no automatic retry',async(model)=>{
  const message={stop_reason:'tool_use',content:[{type:'tool_use',name:'submit',input:{ok:true}}]};
@@ -50,4 +50,14 @@ it.each(['max_tokens','refusal'])('receives %s through the real SDK SSE parser w
  const client=new Anthropic({apiKey:'synthetic-unused',fetch});
  const message=await requestPlannerMessage(client,params);
  expect(()=>readPlannerToolReceipt({plannerMessage:message},'submit')).toThrow('planner_response_'+reason);expect(fetch).toHaveBeenCalledTimes(1);
+});
+
+it('uses the same configured bounded deadline for the current Planner without changing its model or token budget',()=>{
+ try{vi.stubEnv('SUNNY_PLANNER_TIMEOUT_MS','240000');
+ expect(plannerTransportPolicy('claude-sonnet-5',16000,120000)).toMatchObject({streaming:true,timeout:240000,maxTokens:16000});
+ }finally{vi.unstubAllEnvs();}
+});
+
+it('honors an explicit caller deadline for adaptive models too',()=>{
+ expect(plannerTransportPolicy('claude-opus-5-5',6000,60000).timeout).toBe(60000);
 });

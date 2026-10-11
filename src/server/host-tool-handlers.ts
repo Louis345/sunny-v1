@@ -178,6 +178,12 @@ export async function hostSessionLog(
       return { logged: true, deferred: true };
     }
 
+    if (session.spellingLaunch) {
+      session.recordDebugEvent?.("spelling", "legacy_grade_ignored", {nodeId:session.spellingLaunch.nodeId});
+      console.log(" 🎮 [spelling] [legacy-grade] [ignored] authority=activity_response");
+      return {logged:false,authority:"activity_response",message:"The active activity records submitted answers. Spoken repetition is not a scored spelling response."};
+    }
+
     if (session.worksheetSession) {
       const wp = session.worksheetProblems[session.worksheetProblemIndex];
       if (!wp) {

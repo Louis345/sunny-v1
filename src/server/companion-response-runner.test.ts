@@ -5,6 +5,12 @@ import {
 } from "./companion-response-runner";
 
 describe("companion response audio ownership", () => {
+  it("retires a reply when the displayed spelling item advances, even without a new conversation turn", () => {
+    const session = { currentBoardSnapshot:{nodeId:"discovery",itemId:"either",launchToken:"launch"} };
+    const reply = claimCompanionResponseTurn(session);
+    session.currentBoardSnapshot.itemId = "cheese";
+    expect(reply.isCurrent()).toBe(false);
+  });
   it("revokes an older model turn as soon as a newer child turn begins", () => {
     // Human catch: three rapid help requests produced interleaved words in one
     // spoken reply. The log showed separate model starts but a shared TTS

@@ -41,6 +41,7 @@ export type CurrentBoardSnapshot = {
   correctWords?: string[];
   boardState?: string;
   progress?: string;
+  loading?: { screenText: string[]; elapsedLabel?: string; ready?: number; total?: number; remainingTimeKnown?: boolean };
   wheelValue?: string;
   updatedAt: string;
 };
@@ -159,6 +160,13 @@ export function buildCurrentBoardSnapshot(
     }
   }
 
+  if (state.game === "adventure-preparation") {
+    snapshot.loading = { screenText: asStringArray(state.screenText),
+      elapsedLabel: asString(state.elapsedLabel), ready: typeof state.ready === "number" ? asNumber(state.ready) : undefined,
+      total: typeof state.total === "number" ? asNumber(state.total) : undefined,
+      remainingTimeKnown: asBoolean(state.remainingTimeKnown) };
+  }
+
   if (targetIsSpeakable && rawTarget) {
     snapshot.currentTarget = rawTarget;
   }
@@ -216,6 +224,14 @@ export function buildCurrentBoardSnapshotContext(
   }
   lines.push(`Answer visibility: ${snapshot.answerVisibility}`);
   if (snapshot.currentTarget) lines.push(`Current target: ${snapshot.currentTarget}`);
+  if (snapshot.loading) {
+    lines.push(...snapshot.loading.screenText.map(text => `Displayed loading text: ${text}`));
+    if (snapshot.loading.elapsedLabel) lines.push(`Elapsed: ${snapshot.loading.elapsedLabel}`);
+    if (snapshot.loading.ready !== undefined && snapshot.loading.total !== undefined) {
+      lines.push(`Activities ready: ${snapshot.loading.ready} of ${snapshot.loading.total}`);
+    }
+    if (snapshot.loading.remainingTimeKnown === false) lines.push("Remaining time is not known. Do not invent a completion estimate.");
+  }
   if (snapshot.boardState) lines.push(`Board: ${snapshot.boardState}`);
   if (snapshot.evidenceTier) lines.push(`Evidence tier: ${snapshot.evidenceTier}`);
   if (typeof snapshot.masteryEligible === "boolean") {

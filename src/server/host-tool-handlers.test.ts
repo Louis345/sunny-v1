@@ -1,8 +1,18 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { hostSessionEnd } from "./host-tool-handlers";
+import { hostSessionEnd, hostSessionLog } from "./host-tool-handlers";
 import { finalizePendingSessionEnd } from "./companion-response-runner";
 import { runHandleToolCall } from "./tool-call-router";
+
+it("keeps spoken repetition out of canonical spelling grades and legacy word context", async () => {
+  // Saori heard praise for 'either' despite the instrument saving 'ether'.
+  // Logs held both grades; the lab never exercised the legacy tool inside Discovery.
+  const session = { spellingLaunch: {nodeId:"discovery"}, emitRewardAttempt:vi.fn(), activeWordContext:"", recordDebugEvent:vi.fn() };
+  const result = await hostSessionLog(session,{word:"either",childSaid:"either",correct:true});
+  expect(result).toMatchObject({logged:false,authority:"activity_response"});
+  expect(session.emitRewardAttempt).not.toHaveBeenCalled();
+  expect(session.activeWordContext).toBe("");
+});
 
 describe("hostSessionEnd", () => {
   it("defers finalization until the active companion turn is recorded", async () => {

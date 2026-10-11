@@ -88,7 +88,7 @@ import {
 import { validateFullExperienceReadiness } from "../engine/fullExperienceReadiness";
 import { enrichMathNodeArtwork, localizeMathNodeArtwork } from "../engine/mathNodeArtwork";
 import { persistIngestedLearningCycle, buildSpellingRecallItems, createSpellingDiscoveryCycle, buildSpellingDiscoveryPlan } from "../engine/learningCycleIngest";
-import { acquireMathGenerationLease, releaseMathGenerationLease, resolveAdaptiveMathDraftDir, publishDiscoveryExperience, hashDiscoveryContract, runMathProviderStage } from "../engine/adaptiveMathDiscovery";
+import { acquireMathGenerationLease, releaseMathGenerationLease, resolveAdaptiveMathDraftDir, publishDiscoveryExperience, hashDiscoveryContract, runMathProviderStage, recordGenerationFailure } from "../engine/adaptiveMathDiscovery";
 import { getLearningCycle, repairLatestHistoricalLearningCycleBeforePlanning } from "../engine/learningCycleRepository";
 import { createIngestProgress, type IngestProgress } from "../utils/ingestOutput";
 import { generateStoryImage } from "../utils/generateStoryImage";
@@ -2143,6 +2143,7 @@ export async function runSpellingDiscoveryIntake(args: {
   const lease = acquireMathGenerationLease({ ...scope, homeworkId: "discovery-intake" });
   if (!lease.acquired || !lease.token) throw new Error("spelling_intake_worker_already_running");
   const draft = resolveAdaptiveMathDraftDir(args.childId, homeworkId, { rootDir });
+  const diagnosticStartedAt = Date.now();
   const save = (filename: string, value: unknown): void => {
     fs.mkdirSync(draft, { recursive: true });
     const file = path.join(draft, filename), temporary = `${file}.${process.pid}.tmp`;
@@ -2211,6 +2212,7 @@ export async function runSpellingDiscoveryIntake(args: {
     console.log(` 🎮 [spelling-discovery] [intake] [ready] homework=${homeworkId} words=${items.length} targeted-board=awaiting-evidence`);
     return { homeworkId };
   } catch (error) {
+    recordGenerationFailure({draftDir:draft,childId:args.childId,homeworkId,stage:'spelling_intake',startedAt:diagnosticStartedAt,error});
     console.error(` 🎮 [spelling-discovery] [intake] [needs-attention] checkpoint=${draft}`, error);
     throw error;
   } finally { releaseMathGenerationLease({ ...scope, homeworkId: "discovery-intake", token: lease.token }); }

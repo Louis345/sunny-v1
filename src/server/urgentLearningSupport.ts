@@ -1,3 +1,5 @@
+import { getChildChart } from "../profiles/childChart";
+import type { SpellingAssessmentState } from "./game-event-handler";
 import type {
   ChildSignalInput,
   ChildSignalType,
@@ -211,6 +213,7 @@ export function prepareInstructionReadRequest(input: {
 }
 
 export function buildActivityCompanionContext(input: {
+  spellingAssessment?: SpellingAssessmentState;
   snapshot: CurrentBoardSnapshot | null;
   childSpeech?: string;
   childId: string;
@@ -229,7 +232,20 @@ export function buildActivityCompanionContext(input: {
         "Otherwise return control to the activity and allow the companion to return to standby.",
       ].join("\n")
     : "";
-  return [board, memory, helpObjective].filter(Boolean).join("\n\n");
+  let spelling = "";
+  const assessment = input.spellingAssessment;
+  if (assessment && input.snapshot?.itemId === assessment.itemId) {
+    const cycle = getChildChart(input.childId).learningCycle;
+    const items = cycle?.nodes.find(node => node.nodeId === assessment.nodeId)?.evidenceContract.spellingItems;
+    const last = cycle?.observations?.filter(observation => items?.[observation.itemId]).at(-1);
+    spelling = ["[Canonical spelling activity facts]",
+      JSON.stringify({ itemId:assessment.itemId, spokenStimulus:assessment.word,
+        instrument:assessment.instrument, answerVisibility:input.snapshot.answerVisibility,
+        lastSubmittedResponse:last ? {itemId:last.itemId,response:last.childResponse,result:last.result,assistance:last.assistance} : null }),
+      "The activity owns answer submission and grading. Spoken repetition is not a submitted spelling answer. These facts supersede prior conversational grades; a hidden answer must not be revealed as written letters.",
+    ].join("\n");
+  }
+  return [board, memory, helpObjective, spelling].filter(Boolean).join("\n\n");
 }
 
 export function recordActivityCompanionHelp(input: {

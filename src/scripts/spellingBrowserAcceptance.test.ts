@@ -216,6 +216,7 @@ it.each([
     // controls retain 12s and companion readiness/page-error checks stay strict.
     await page.getByRole("button", { name: "Hear the word", exact: true }).waitFor({ timeout: 45000 });
     expect(serverWebSocketConnections).toBe(1);
+    expect(await page.locator(".adventure-board__nodes").count()).toBe(0);
     const discoveryReadyMs = Date.now() - entryStartedAt;
     expect(await page.getByText("night", { exact: true }).count()).toBe(0);
     if (scenario.adaptive) {
@@ -239,6 +240,8 @@ it.each([
       expect((await written).status()).toBe(200);
     };
     for (const [index, word] of words.entries()) {
+      const resumedOffset = scenario.adaptive && index >= 2 ? 2 : 0;
+      await page.getByText(`Word ${index + 1 - resumedOffset} of ${words.length - resumedOffset}`, {exact:true}).waitFor();
       await answer(scenario.adaptive && index >= 6 ? "zzz" : index === 1 && !scenario.adaptive ? "lite" : word);
       if (index < words.length - 1) {
         await page.getByTestId("word-radar-input").waitFor();
@@ -246,7 +249,13 @@ it.each([
       if (scenario.adaptive && index === 1) {
         const committedBeforeRestart = getLearningCycle(childId, homeworkId, { rootDir })!.observations;
         expect(committedBeforeRestart).toHaveLength(2);
-        await page.reload();
+        // Human catch: timeout hid Elli but left this overlay interactive.
+        // Exercise session end through the real browser before resuming saved work.
+        for (const client of ws.clients) client.send(JSON.stringify({type:"session_ended"}));
+        await page.getByRole("button", {name:"Start Sunny",exact:true}).waitFor();
+        expect(await page.getByTestId("word-radar-input").count()).toBe(0);
+        expect(getLearningCycle(childId, homeworkId, {rootDir})!.observations).toEqual(committedBeforeRestart);
+        await page.getByRole("button", {name:"Start Sunny",exact:true}).click();
         await page.getByTestId("word-radar-input").waitFor();
         expect(getLearningCycle(childId, homeworkId, { rootDir })!.observations).toEqual(committedBeforeRestart);
         expect(await page.getByText(words[2], { exact: true }).count()).toBe(0);
@@ -257,6 +266,8 @@ it.each([
     // see a truthful ready-next-time handoff instead of an automatically opened board.
     // The old browser lab expected a same-session button and missed this lifecycle contract.
     await page.getByText("Ready next time", { exact: true }).waitFor({ timeout: 30000 });
+    expect(await page.locator(".adventure-board__nodes").count()).toBe(0);
+    await page.screenshot({path:path.join(outputDir,"preparation-no-map.png")});
     const before = getLearningCycle(childId, homeworkId, { rootDir })!;
     expect(before.observations.map(row => row.result.correct)).toEqual(scenario.adaptive
       ? [true, true, true, true, true, true, false, false, false, false]
@@ -354,6 +365,16 @@ it.each([
         getLearningCycle(childId, homeworkId, { rootDir })?.routeSelection?.choices?.choice,
       ).toBe("speed-route");
 
+      let releaseCompletion!: () => void;
+      let completionSaved!: () => void;
+      const savedCompletion = new Promise<void>(resolve => { completionSaved = resolve; });
+      const completionGate = new Promise<void>(resolve => { releaseCompletion = resolve; });
+      await page.route("**/api/learning-cycle/node-complete", async route => {
+        const response = await route.fetch(); // Evidence commits before the interruption.
+        completionSaved();
+        await completionGate;
+        await route.fulfill({ response });
+      });
       await page.getByRole("button", { name: "Ready!", exact: true }).click();
       for (const [index, word] of missedWords.entries()) {
         const input = page.getByTestId("word-radar-input");
@@ -362,7 +383,18 @@ it.each([
         await input.waitFor({ state: "hidden" });
         if (index < missedWords.length - 1) await page.getByTestId("word-radar-input").waitFor();
       }
-      await page.getByTestId("post-activity-engagement-overlay").getByRole("button", { name: "Back to map", exact: true }).click();
+      await savedCompletion;
+      for (const client of ws.clients) client.send(JSON.stringify({type:"session_ended"}));
+      await page.getByRole("button", {name:"Start Sunny",exact:true}).waitFor();
+      const lateResponse = page.waitForResponse(response => response.url().endsWith("/api/learning-cycle/node-complete"));
+      releaseCompletion();
+      await lateResponse;
+      await page.waitForTimeout(500); // Allow the retired completion's refresh to settle.
+      expect(await page.getByTestId("post-activity-engagement-overlay").count()).toBe(0);
+      await page.unroute("**/api/learning-cycle/node-complete");
+      await page.getByRole("button", {name:"Start Sunny",exact:true}).click();
+      await page.locator(".adventure-board").waitFor();
+      expect(await page.getByTestId("post-activity-engagement-overlay").count()).toBe(0);
       await expect.poll(() => getLearningCycle(childId, homeworkId, { rootDir })?.nodes.find((node) => node.nodeId === "letter-rush")?.state).toBe("ready");
       await page.getByRole("button", { name: "Letter Rush", exact: true }).click();
 

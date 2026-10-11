@@ -43,6 +43,16 @@ export class WsTtsBridge {
   private connectingPromise: Promise<void> | null = null;
   private hasFlushedThisTurn = false;
   private audioChunksThisTurn = 0;
+  private playbackOwner?: { requestId: string; itemId?: string };
+
+  beginPlayback(requestId: string, itemId?: string, requiresAudio = false, activity = false): void {
+    if (this.playbackOwner?.requestId !== requestId && this.playbackOwner) this.stop();
+    this.playbackOwner = { requestId, ...(itemId ? { itemId } : {}) };
+    if (this.browserWs.readyState === WebSocket.OPEN) {
+      this.browserWs.send(JSON.stringify({ type: "audio_start", ...this.playbackOwner, requiresAudio, source: activity ? "activity" : "companion" }));
+    }
+    console.log(` 🎮 [session-audio] [owner] [started] request=${requestId}`);
+  }
 
   constructor(browserWs: WebSocket, voiceId: string) {
     this.browserWs = browserWs;
@@ -56,6 +66,10 @@ export class WsTtsBridge {
       if (!key) throw new Error("ELEVENLABS_API_KEY not set in .env");
       this.apiKey = key;
     }
+  }
+
+  currentPlaybackIdentity(): { requestId: string; itemId?: string } | undefined {
+    return this.playbackOwner;
   }
 
   /** Call this as soon as the session starts — before first token */
@@ -104,13 +118,13 @@ export class WsTtsBridge {
       this.elevenWs = ws;
 
       ws.on("open", () => {
-        this.connectingPromise = null;
         console.log("  🔊 TTS model: eleven_flash_v2_5");
         if (this.elevenWs !== ws) {
           ws.close();
           resolve();
           return;
         }
+        this.connectingPromise = null;
         const locators = getPronunciationLocators();
         ws.send(
           JSON.stringify({
@@ -131,13 +145,14 @@ export class WsTtsBridge {
       });
 
       ws.on("message", (data: Buffer) => {
-        if (this.stopped) return;
+        if (this.stopped || this.elevenWs !== ws) return;
         const msg = JSON.parse(data.toString());
         if (msg.audio && this.browserWs.readyState === this.browserWs.OPEN) {
           this.audioChunksThisTurn += 1;
           this.browserWs.send(
             JSON.stringify({
               type: "audio",
+              ...this.playbackOwner,
               timestamp: new Date().toISOString(),
               data: msg.audio,
             })
@@ -146,12 +161,12 @@ export class WsTtsBridge {
       });
 
       ws.on("error", (err) => {
-        this.connectingPromise = null;
         if (this.stopped || this.elevenWs !== ws) {
           console.warn("  🔇 ElevenLabs TTS connect cancelled during shutdown");
           resolve();
           return;
         }
+        this.connectingPromise = null;
         console.error("  🔴 ElevenLabs TTS error:", err.message);
         reject(err);
       });
@@ -257,8 +272,10 @@ export class WsTtsBridge {
         ws.on("close", () => { clearTimeout(timeout); resolve(); });
       });
 
-      this.wsReady = false;
-      this.elevenWs = null;
+      if (this.elevenWs === ws) {
+        this.wsReady = false;
+        this.elevenWs = null;
+      }
     }
   }
 
@@ -268,6 +285,7 @@ export class WsTtsBridge {
   }
 
   stop(): void {
+    this.playbackOwner = undefined;
     this.stopped = true;
     this.wsReady = false;
     this.connectingPromise = null;

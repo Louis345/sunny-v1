@@ -44,7 +44,7 @@ import {
   assignmentPlannerContent,
 } from "./assignmentSourceExtraction";
 import { certifySpellingAdaptation } from "./spellingCertification";
-import { buildDiscoveryEvidenceSummary, hashDiscoveryContract, runMathProviderStage, type DiscoveryEvidenceSummary } from "./adaptiveMathDiscovery";
+import { buildDiscoveryEvidenceSummary, hashDiscoveryContract, hasReceivedMathProviderStage, runMathProviderStage, recordProviderRequestDetails, type DiscoveryEvidenceSummary } from "./adaptiveMathDiscovery";
 import type { LearningObservation, SpellingDiagnosticInstrument, SpellingDiagnosticSelection } from "./learningCycleRepository";
 import {
   buildPlannerContentCandidateCards,
@@ -285,6 +285,39 @@ const spellingIntakeSchema = z.object({
   boardDefinition: adventureBoardDefinitionSchema.optional(),
   diagnostic: spellingDiagnosticDecisionSchema.optional(), // Historical captures did not have Planner selection.
 }).strict();
+// Intake's declared instrument inventory has one canonical node; activity types are separate identities.
+const intakePortal = adventureBoardDefinitionSchema.shape.portals.element;
+const intakeBoardSchema = adventureBoardDefinitionSchema.extend({portals:z.array(z.union([
+  intakePortal.extend({kind:z.literal('activity'),activityNodeId:z.enum(['diagnostic'])}),
+  intakePortal.omit({activityNodeId:true}).extend({kind:z.enum(['start','choice','endpoint'])}),
+])).min(1).max(128)});
+/** Authoring and execution share conditional requirements; historical captures keep their read-only parser. */
+export function spellingIntakeAuthoringSchema(diagnostics: boolean) {
+  const capture = spellingIntakeSchema.omit({diagnostic:true,boardDefinition:true}).extend({
+    uncertainty:z.array(spellingIntakeUncertaintySchema),
+  });
+  if (!diagnostics) return capture;
+  return z.union([
+    capture.extend({diagnostic:spellingDiagnosticDecisionSchema.options[0],boardDefinition:intakeBoardSchema}),
+    capture.extend({diagnostic:spellingDiagnosticDecisionSchema.options[1],boardDefinition:intakeBoardSchema.optional()}),
+  ]);
+}
+export function spellingIntakeToolJsonSchema(schema:z.ZodType): Record<string,unknown> {
+  return z.toJSONSchema(z.object({plan:schema}).strict(), {io:"input",reused:"ref",override:({jsonSchema})=>{
+    // Provider grammar supports identity/required fields but not these bounds. Runtime keeps all bounds.
+    const constraints:Record<string,unknown>={};
+    for(const key of ['minimum','maximum','exclusiveMinimum','exclusiveMaximum','multipleOf','minLength','maxLength','maxItems','pattern']) {
+      if(key in jsonSchema) { constraints[key]=jsonSchema[key]; delete jsonSchema[key]; }
+    }
+    if(typeof jsonSchema.minItems==='number' && jsonSchema.minItems>1) {constraints.minItems=jsonSchema.minItems;delete jsonSchema.minItems;}
+    if(Object.keys(constraints).length) jsonSchema.description=`${jsonSchema.description??''} Runtime constraints: ${JSON.stringify(constraints)}`.trim();
+  }});
+}
+const spellingIntakeCorrectionSchema = z.union([
+  z.object({diagnostic:spellingDiagnosticDecisionSchema.options[0],boardDefinition:intakeBoardSchema}).strict(),
+  z.object({diagnostic:spellingDiagnosticDecisionSchema.options[1],boardDefinition:intakeBoardSchema.optional()}).strict(),
+]);
+
 export type SpellingIntake = z.infer<typeof spellingIntakeSchema>;
 
 export function prepareSpellingDiagnosticPacket(packet: AssignmentPlanningPacket, chart?: ChildChart): AssignmentPlanningPacket {
@@ -342,17 +375,17 @@ export async function planSpellingIntakeFromSource(packet: AssignmentPlanningPac
   const model = resolveAssignmentPlannerModel({ model: opts.model });
   const started = Date.now();
   const parse = async (value: unknown): Promise<SpellingIntake> => {
-    const result = parseSpellingIntake(value, packet);
+    const result = parseSpellingIntake(spellingIntakeAuthoringSchema(Boolean(packet.spellingDiagnostics)).parse(value), packet);
     // Legacy saved warnings stay readable, but new captures must state an actionable issue.
     if (result.uncertainty.some(issue => typeof issue === "string")) throw new Error("spelling_intake_structured_uncertainty_required");
     if(result.diagnostic?.action==='select' && result.boardDefinition && opts.providerReceipt) await verifyAuthoredBoardCanvas({definition:result.boardDefinition,rootDir:process.cwd(),directory:path.join(opts.providerReceipt.draftDir,'intake-canvas-verification')});
     return result;
   };
-  const schema = spellingIntakeSchema.extend({ sourceNotes: z.array(z.string()), uncertainty: z.array(spellingIntakeUncertaintySchema), ...(packet.spellingDiagnostics ? { diagnostic: spellingDiagnosticDecisionSchema, boardDefinition: adventureBoardDefinitionSchema.optional() } : {}) });
+  const schema = spellingIntakeAuthoringSchema(Boolean(packet.spellingDiagnostics));
   type Receipt = { message: Anthropic.Messages.Message; latencyMs: number } | { draft: unknown; usage?: LanguageModelUsage; latencyMs: number } | { output: SpellingIntake; telemetry: AssignmentPlannerTelemetry };
-  const receive = async (prompt = buildSpellingIntakePrompt(packet), requestStarted = started): Promise<Receipt> => opts.callPlannerModel
+  const receive = async (prompt = buildSpellingIntakePrompt(packet), requestStarted = started, responseSchema: z.ZodType = schema): Promise<Receipt> => opts.callPlannerModel
     ? { ...await opts.callPlannerModel(packet, model), latencyMs: Date.now() - requestStarted }
-    : { message: await requestAssignmentPlannerTool({ prompt, model, source: packet.sourceDocument, schema: z.toJSONSchema(schema, { io: "input" }) }), latencyMs: Date.now() - requestStarted };
+    : { message: await requestAssignmentPlannerTool({ prompt: `${prompt}\nPopulate the tool input plan field with that object.`, model, source: packet.sourceDocument, schema: spellingIntakeToolJsonSchema(responseSchema) }), latencyMs: Date.now() - requestStarted };
   const unpack = (value: Receipt): { draft: unknown; usage?: LanguageModelUsage; latencyMs: number } => {
     if ("output" in value) return { draft: value.output, usage: value.telemetry.usage, latencyMs: value.telemetry.latencyMs };
     if ("message" in value) assertPlannerResponseComplete(value.message);
@@ -388,28 +421,70 @@ export async function planSpellingIntakeFromSource(packet: AssignmentPlanningPac
       ? original.draft as Record<string, unknown>
       : {};
     const captured = spellingIntakeSchema.omit({ diagnostic: true, boardDefinition:true }).safeParse(captureFields);
-    const issues = error instanceof z.ZodError ? error.issues : [];
-    const journeyError=error instanceof Error && (error.message.startsWith('board_definition_')||error.message.startsWith('board_canvas_invalid')) || issues.some(issue=>issue.path[0]==='boardDefinition');
+    const baseResult = spellingIntakeSchema.extend({boardDefinition:intakeBoardSchema.optional()}).safeParse(original.draft);
+    const issues = !baseResult.success ? baseResult.error.issues : error instanceof z.ZodError ? error.issues : [];
+    const journeyError=Boolean((original.draft as SpellingIntake)?.diagnostic?.action === 'select' && !(original.draft as SpellingIntake)?.boardDefinition) || error instanceof Error && (error.message.startsWith('board_definition_')||error.message.startsWith('board_canvas_invalid')) || issues.some(issue=>issue.path[0]==='boardDefinition');
     if (!captured.success || (!journeyError && (issues.length === 0 || issues.some(issue => issue.path[0] !== "diagnostic")))) throw error;
     const correctionRequest = {
-      version: 1,
-      purpose: "spelling_intake_diagnostic_schema_correction",
+      version: 4,
+      toolSchemaHash:hashDiscoveryContract(spellingIntakeToolJsonSchema(spellingIntakeCorrectionSchema)),
+      purpose: "spelling_intake_authoring_correction",
       originalRequestHash: hashDiscoveryContract(packet),
       invalidDiagnostic: (original.draft as { diagnostic?: unknown })?.diagnostic,
       schemaIssues: issues,
-      ...(journeyError ? {journeyError:error instanceof Error?error.message:String(error),boardDefinition:_invalidBoard}:{}),
+      ...(journeyError ? {journeyError:error instanceof Error?error.message:String(error)}:{}),
+      boardDefinition:_invalidBoard,
     };
-    const correctionPrompt = `Your previous spelling intake preserved the assignment capture but its diagnostic or journey failed the executable contract. Reissue the complete response once. Preserve the title, words, page numbers, sourceNotes, and source uncertainty exactly. Correct only the diagnostic or journey defects listed below. Preserve the journey identities and alternatives when adjusting positions. Do not invent evidence IDs, child facts, activities, modes, or device facts. Return every required diagnostic field, including non-empty reason, evidenceIds, uncertainty, and nextEvidenceNeeded.\nCONTRACT ISSUES:\n${JSON.stringify(correctionRequest)}\nPREVIOUS RESPONSE:\n${JSON.stringify(original.draft)}`;
+    const correctionPrompt = `Repair the diagnostic and boardDefinition fields of the existing Planner tool output once. Return only diagnostic and boardDefinition; do not regenerate assignment capture. For action select, boardDefinition is required. Activity portals bind through activityNodeId, using the local canonical ID diagnostic; activityId is not a portal field. Preserve authored portal IDs, labels, paths, choices, theme and positions unless the named defect requires changing them. Do not remove a board to evade an error. Do not invent evidence, activities or device facts. ${BOARD_AUTHORING_INSTRUCTION}\nCONTRACT ISSUES AND PREVIOUS AUTHORED FIELDS:\n${JSON.stringify(correctionRequest)}\nCAPTURED ASSIGNMENT (read-only):\n${JSON.stringify(captured.data)}`;
     const correctionStarted = Date.now();
-    const corrected = opts.providerReceipt ? await runMathProviderStage({
+    let legacyRepair: Receipt | undefined;
+    if (opts.providerReceipt) {
+      for (const suffix of ["authoring-correction-v3", "journey-contract-correction-v2", "diagnostic-schema-correction-v1"]) {
+        const stage = `${opts.providerReceipt.stage}-${suffix}`;
+        if (!hasReceivedMathProviderStage(opts.providerReceipt.draftDir, stage)) continue;
+        const receipts = path.join(opts.providerReceipt.draftDir,"provider-receipts");
+        const {requestHash} = JSON.parse(fs.readFileSync(path.join(receipts,`${stage}.stage.json`),"utf8"));
+        const requestFile = path.join(opts.providerReceipt.draftDir,"provider-diagnostics",`${requestHash}.attempt-1.request.json`);
+        if (fs.existsSync(requestFile)) {
+          if (JSON.parse(fs.readFileSync(requestFile,"utf8")).context?.originalRequestHash !== hashDiscoveryContract(packet)) continue;
+        } else {
+          const frozenPacketFile = path.join(opts.providerReceipt.draftDir,"spelling-intake-request.json");
+          if (!fs.existsSync(frozenPacketFile) || hashDiscoveryContract(JSON.parse(fs.readFileSync(frozenPacketFile,"utf8"))) !== hashDiscoveryContract(packet)) {
+            throw new Error(`spelling_legacy_correction_identity_unverifiable:${stage}`);
+          }
+        }
+        const candidate = JSON.parse(fs.readFileSync(path.join(receipts,`${requestHash}.json`),"utf8")).response as Receipt;
+        try {
+          const proposed = unpack(candidate);
+          const fields=proposed.draft as Record<string,unknown>;
+          const valid = await parse(fields && !("words" in fields) ? {...captured.data,...spellingIntakeCorrectionSchema.parse(fields)} : proposed.draft);
+          const {diagnostic:_d,boardDefinition:_b,...source} = valid;
+          if(hashDiscoveryContract(source)!==hashDiscoveryContract(captured.data)) continue;
+          legacyRepair = candidate;
+          console.log(` 🎮 [spelling-discovery] [legacy-correction] [reused] stage=${stage}`);
+          break;
+        } catch (legacyError) {
+          console.warn(` 🎮 [spelling-discovery] [legacy-correction] [invalid] stage=${stage}`,legacyError instanceof Error ? legacyError.message : String(legacyError));
+        }
+      }
+    }
+    const corrected = legacyRepair ?? (opts.providerReceipt ? await runMathProviderStage({
       draftDir: opts.providerReceipt.draftDir,
-      stage: `${opts.providerReceipt.stage}-${journeyError?"journey-contract-correction-v2":"diagnostic-schema-correction-v1"}`,
+      stage: `${opts.providerReceipt.stage}-authoring-correction-v4`,
       model,
       request: correctionRequest,
-      execute: () => receive(correctionPrompt, correctionStarted),
-    }) : await receive(correctionPrompt, correctionStarted);
+      execute: () => receive(correctionPrompt, correctionStarted, spellingIntakeCorrectionSchema),
+    }) : await receive(correctionPrompt, correctionStarted, spellingIntakeCorrectionSchema));
     const repair = unpack(corrected);
-    output = await parse(repair.draft);
+    const repaired = repair.draft as Record<string,unknown>;
+    if (repaired && "words" in repaired) {
+      // Compatibility with saved full-response corrections; they cannot change source facts.
+      const legacyCapture = spellingIntakeSchema.omit({diagnostic:true,boardDefinition:true}).parse(
+        Object.fromEntries(Object.entries(repaired).filter(([key])=>key!=="diagnostic" && key!=="boardDefinition")));
+      if(hashDiscoveryContract(captured.data)!==hashDiscoveryContract(legacyCapture)) throw new Error('spelling_intake_correction_changed_source');
+    }
+    const repairedFields = spellingIntakeCorrectionSchema.parse({diagnostic:repaired?.diagnostic, ...(repaired?.boardDefinition ? {boardDefinition:repaired.boardDefinition} : {})});
+    output = await parse({...captured.data,...repairedFields});
     const {diagnostic:_diagnostic,boardDefinition:_board,...repairedCapture}=output;
     if(hashDiscoveryContract(captured.data)!==hashDiscoveryContract(repairedCapture)) throw new Error('spelling_intake_correction_changed_source');
     usage = combinePlannerUsage(original.usage, repair.usage);
@@ -1636,6 +1711,7 @@ export function assignmentPlannerSourceImages(packet: AssignmentPlanningPacket):
   mediaType: "image/png" | "image/jpeg" | "image/webp";
   data: string;
 }> {
+  if (packet.discoveryEvidence) return []; // Captured words are authoritative after ingestion.
   return packet.sourceDocument.pages
     .map((page) => page.imagePath)
     .filter((imagePath): imagePath is string => Boolean(imagePath))
@@ -1653,7 +1729,7 @@ export function assignmentPlannerSourceImages(packet: AssignmentPlanningPacket):
 const AUTHORED_JOURNEY_INSTRUCTION = `${BOARD_AUTHORING_INSTRUCTION} Return it as activeSessionPlan.boardDefinition. nodePlan is the canonical activity inventory, not its chronology. Checkpoint citations name possible prior interventions; validate exposure order on each path containing both. Do not return learningRoutes or a second rendered adventureBoard.`;
 
 export function buildAssignmentPlannerPrompt(packet: AssignmentPlanningPacket): string {
-  if (packet.discoveryEvidence) return `${SPELLING_TUTOR_PERSONA}\nThe packet has her assigned words, her Discovery attempts (childResponse is exactly what she spelled), her profile, and the activities you can use; each activity's label says what it really does. Decide what she needs and design the session: you choose the activities, their order, and how many.\nEverything below only describes how to record your plan and which evidence rules the system enforces; it is not teaching guidance.\nReturn the existing ${ASSIGNMENT_PLANNER_TOOL_NAME} tool object once. Every node needs its own measure-<nodeId> planned measurement and the spelling decision fields. Preserve source words exactly. You choose the number of activities, emphasis, mechanics, and routes; do not fabricate evidence. Existing Quest/Boss gates and earning rules remain unchanged. Do not introduce new reward systems.\n${packet.plannerInstruction}\n${AUTHORED_JOURNEY_INSTRUCTION}\nEvidence-first packet:\n${JSON.stringify(packet)}`;
+  if (packet.discoveryEvidence) return `${SPELLING_TUTOR_PERSONA}\nThe packet has her assigned words, her Discovery attempts (childResponse is exactly what she spelled), her profile, and the activities you can use; each activity's label says what it really does. Decide what she needs and design the session: you choose the activities, their order, and how many.\nEverything below only describes how to record your plan and which evidence rules the system enforces; it is not teaching guidance.\nReturn the existing ${ASSIGNMENT_PLANNER_TOOL_NAME} tool object once. Every node needs its own measure-<nodeId> planned measurement and the spelling decision fields. Preserve source words exactly. You choose the number of activities, emphasis, mechanics, and routes; do not fabricate evidence. Existing Quest/Boss gates and earning rules remain unchanged. Do not introduce new reward systems.\n${packet.plannerInstruction}\n${AUTHORED_JOURNEY_INSTRUCTION}\nEvidence-first packet:\n${JSON.stringify({ ...packet, plannerInstruction: undefined })}`;
   const revisionInstruction = packet.parentDialogue?.length || packet.priorPlannerOutput
     ? "\n- This is a human-in-the-loop revision. Use parentDialogue and priorPlannerOutput as context, then return one coherent revised plan from the same source."
     : "";
@@ -2103,7 +2179,7 @@ async function callAssignmentPlannerModel(
       allowedEvidenceIds,
       allowedSpellingTargets: [...allowedSpellingTargets].sort(),
     };
-    const correctionPrompt = `Your previous ${ASSIGNMENT_PLANNER_TOOL_NAME} input failed its declared tool contract. Reissue the complete tool input once. Preserve every valid academic, design, node, activity, target, prediction, and evidence choice. Correct only the listed schema and relationship violations. Every node target must come from ALLOWED SPELLING TARGETS; a reward or break is not an academic target. Every spelling.evidenceIds value must come from ALLOWED EVIDENCE IDS; remove unknown IDs and never invent evidence, child facts, or new activities. Practice or instruction measurements must use interventionNodeIds: []. A fresh_checkpoint may cite only prior targeted intervention nodes. A final fresh checkpoint must cover the assigned words and all prior pending interventions. If a future gated node needs evidenceIds, cite the current observations that motivated including that node.\nSCHEMA ISSUES:\n${JSON.stringify(schemaIssues)}\nRELATIONSHIP ISSUES:\n${JSON.stringify(relationshipIssues)}\nALLOWED SPELLING TARGETS:\n${JSON.stringify([...allowedSpellingTargets].sort())}\nALLOWED EVIDENCE IDS:\n${JSON.stringify(allowedEvidenceIds)}\nPREVIOUS TOOL INPUT:\n${JSON.stringify(error.toolInput)}`;
+    const correctionPrompt = `Your previous ${ASSIGNMENT_PLANNER_TOOL_NAME} input failed its declared tool contract. Reissue the complete tool input once. Preserve every valid academic, design, node, activity, target, prediction, and evidence choice. Correct only the listed schema and relationship violations. Every node target must come from ALLOWED SPELLING TARGETS; a reward or break is not an academic target. Every spelling.evidenceIds value must come from ALLOWED EVIDENCE IDS; remove unknown IDs and never invent evidence, child facts, or new activities. Practice or instruction measurements must use interventionNodeIds: []. A fresh_checkpoint may cite only targeted intervention nodes that occur before it on each executable path reaching that checkpoint; nodePlan inventory order is not journey order. A final fresh checkpoint must cover the assigned words and all prior pending interventions. Do not emit Quest or Boss nodes, locked or otherwise. Remove unauthorized encounters and their portal/path references while preserving the remaining authored journey. Those encounters belong to an evidence-authorized successor board, not this opening Teaching board.\nSCHEMA ISSUES:\n${JSON.stringify(schemaIssues)}\nRELATIONSHIP ISSUES:\n${JSON.stringify(relationshipIssues)}\nALLOWED SPELLING TARGETS:\n${JSON.stringify([...allowedSpellingTargets].sort())}\nALLOWED EVIDENCE IDS:\n${JSON.stringify(allowedEvidenceIds)}\nPREVIOUS TOOL INPUT:\n${JSON.stringify(error.toolInput)}`;
     const correctionStarted = Date.now();
     const correctionStage = relationshipIssues.some((issue) => issue.code === "planner_missing_measurement")
       ? `${providerReceipt.stage}-tool-correction-v3-2-missing-measurement`
@@ -2282,8 +2358,8 @@ type AssignmentPlannerToolRequest = {
 
 async function requestAssignmentPlannerTool(args: AssignmentPlannerToolRequest): Promise<Anthropic.Messages.Message> {
   const client = new Anthropic({ maxRetries: 0 });
-  const timeoutMs = Math.max(10_000, Number(process.env.SUNNY_AI_TIMEOUT_MS ?? 120_000));
-  return requestPlannerMessage(client, {
+  const timeoutMs = Math.max(10_000, Number(process.env.SUNNY_AI_TIMEOUT_MS ?? 300_000));
+  const request: Anthropic.Messages.MessageCreateParamsNonStreaming = {
     model: args.model,
     max_tokens: Math.max(8_000, Number(process.env.SUNNY_PLANNER_MAX_TOKENS ?? ASSIGNMENT_PLANNER_MAX_TOKENS)),
     system: `${ASSIGNMENT_PLANNER_PERSONA}\nCall ${ASSIGNMENT_PLANNER_TOOL_NAME} exactly once to submit the complete plan matching its schema.`,
@@ -2307,7 +2383,8 @@ async function requestAssignmentPlannerTool(args: AssignmentPlannerToolRequest):
         { type: "text" as const, text: args.prompt },
       ],
     }],
-  }, { timeout: timeoutMs });
+  };
+  return requestPlannerMessage(client, request, { timeout: timeoutMs, onRequest: recordProviderRequestDetails });
 }
 
 export function hydrateAssignmentPlannerOutputFromDraft(

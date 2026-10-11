@@ -1,4 +1,6 @@
 import {isDeepStrictEqual} from "node:util";
+import {AsyncLocalStorage} from "node:async_hooks";
+import {execFileSync} from "node:child_process";
 import {verifyAuthoredBoardCanvas} from './adventureBoardCanvas';
 import { requireBoardDefinition, BOARD_DEFINITION_TOOL_SCHEMA, BOARD_AUTHORING_INSTRUCTION, renderBoardDefinition, type AdventureBoardDefinition } from '../shared/adventureBoardDefinition';
 import fs from "node:fs";
@@ -744,6 +746,72 @@ export async function ensureDiscoveryArtifactsAreServed(input: {
   return contract;
 }
 
+// Diagnostics are engineering evidence only. They never repair, retry, grade,
+// or assign blame, and failure to write them must not mask the original error.
+const providerRequestDiagnostic = new AsyncLocalStorage<(request: unknown) => void>();
+function diagnosticJson(value: unknown): string {
+  const secrets = Object.entries(process.env).filter(([key, value]) => /(?:KEY|TOKEN|SECRET|PASSWORD)$/i.test(key) && value && value.length >= 8).map(([,value]) => value!);
+  return JSON.stringify(value, (key, item) => {
+    if (/^(?:headers|authorization|api[_-]?key|access[_-]?token|refresh[_-]?token|password|secret)$/i.test(key)) return '[REDACTED]';
+    if (typeof item !== 'string') return item;
+    for (const secret of secrets) item = item.split(secret).join('[REDACTED]');
+    return item.replace(/Bearer\s+[^\s"']+/gi, 'Bearer [REDACTED]');
+  }, 2);
+}
+function diagnosticCodeVersion(): {commit: string | null; trackedChanges: boolean | null; buildId: string | null} {
+  const buildId = process.env.SUNNY_BUILD_ID ?? null;
+  try {
+    const cwd = path.resolve(__dirname, '../..');
+    return {buildId,commit:execFileSync('git',['rev-parse','HEAD'],{cwd,encoding:'utf8',timeout:2000}).trim(),
+      trackedChanges:Boolean(execFileSync('git',['diff','--name-only','HEAD'],{cwd,encoding:'utf8',timeout:2000}).trim())};
+  } catch {
+    console.warn(' 🎮 [generation] [diagnostic-code-version] [unavailable]');
+    return {buildId,commit:null,trackedChanges:null};
+  }
+}
+function writeGenerationDiagnostic(file: string, value: unknown): void {
+  try {
+    fs.mkdirSync(path.dirname(file), {recursive:true});
+    const temporary = `${file}.${randomUUID()}.tmp`;
+    fs.writeFileSync(temporary, diagnosticJson(value), {mode:0o600});
+    fs.renameSync(temporary,file);
+  } catch {
+    console.error(' 🎮 [generation] [diagnostic-write] [failed] original_error_preserved');
+  }
+}
+/** Called with the exact SDK request body, before transport; no SDK/client headers. */
+export function recordProviderRequestDetails(request: unknown): void {
+  providerRequestDiagnostic.getStore()?.(request);
+}
+export function recordGenerationFailure(input: {draftDir:string;childId:string;homeworkId:string;stage:string | (() => string);startedAt:number;error:unknown}): void {
+  try {
+    const directory = path.join(input.draftDir,'provider-receipts');
+    const providerStages = (fs.existsSync(directory) ? fs.readdirSync(directory) : []).filter(file=>file.endsWith('.stage.json')).map(file=>{
+      const stageFile=path.join(directory,file), stage=file.slice(0,-'.stage.json'.length);
+      try {
+        const {requestHash}=JSON.parse(fs.readFileSync(stageFile,'utf8'));
+        if(!/^[a-f0-9]{64}$/.test(requestHash)) throw new Error('invalid_request_hash');
+        const receiptFile=path.join(directory,`${requestHash}.json`), receipt=JSON.parse(fs.readFileSync(receiptFile,'utf8'));
+        const requestFile=path.join(input.draftDir,'provider-diagnostics',`${requestHash}.attempt-${receipt.attempts?.length ?? 1}.request.json`);
+        const end=Date.parse(receipt.receivedAt ?? receipt.finishedAt), start=Date.parse(receipt.startedAt);
+        return {stage,requestHash,receiptFile,requestFile:fs.existsSync(requestFile)?requestFile:null,
+          status:receipt.status,model:receipt.model,provider:receipt.provider,startedAt:receipt.startedAt,
+          finishedAt:receipt.receivedAt ?? receipt.finishedAt,elapsedMs:Number.isFinite(end-start)?end-start:null,
+          receiptHash:hashDiscoveryContract(receipt)};
+      } catch { return {stage,stageFile,diagnostic:'receipt_unreadable'}; }
+    });
+    const file=path.join(input.draftDir,'provider-diagnostics',`${Date.now()}-${randomUUID()}.failure.json`);
+    writeGenerationDiagnostic(file,{version:1,childId:input.childId,homeworkId:input.homeworkId,stage:typeof input.stage === 'function' ? input.stage() : input.stage,
+      runId:process.env.SUNNY_CERTIFICATION_RUN_ID ?? null,sessionId:process.env.SUNNY_SESSION_ID ?? null,
+      recordedAt:new Date().toISOString(),elapsedMs:Date.now()-input.startedAt,code:diagnosticCodeVersion(),
+      error:input.error instanceof Error ? {name:input.error.name,message:input.error.message,stack:input.error.stack} : {message:String(input.error)},
+      diagnosis:'unassigned',artifactDirectory:input.draftDir,providerStages});
+    if(fs.existsSync(file)) console.error(` 🎮 [generation] [failure-diagnostic] [saved] file=${file}`);
+  } catch {
+    console.error(' 🎮 [generation] [diagnostic-capture] [failed] original_error_preserved');
+  }
+}
+
 /** One durable receipt boundary for Discovery and targeted Creator work. */
 export function hasReceivedMathProviderStage(draftDir: string, stage: string): boolean {
   const receipts = path.join(draftDir, "provider-receipts");
@@ -821,8 +889,11 @@ export async function runMathProviderStage<T>(input: {
   ];
   atomicJson(stageFile, {requestHash});
   atomicJson(receiptFile, {status:"in_flight",provider,model:input.model,startedAt,attempts});
+  const requestDiagnosticFile=path.join(input.draftDir,'provider-diagnostics',`${requestHash}.attempt-${attempts.length}.request.json`);
+  const diagnostic={version:1,stage:input.stage,requestHash,model:input.model,provider,startedAt,code:diagnosticCodeVersion(),context:input.request};
+  writeGenerationDiagnostic(requestDiagnosticFile,diagnostic);
   try {
-    const response = await input.execute();
+    const response = await providerRequestDiagnostic.run(request=>writeGenerationDiagnostic(requestDiagnosticFile,{...diagnostic,providerRequest:request}),input.execute);
     const receivedAt = new Date().toISOString();
     attempts[attempts.length - 1] = { ...attempts[attempts.length - 1]!, status: "received", finishedAt: receivedAt };
     atomicJson(receiptFile, {status:"received",provider,model:input.model,response,startedAt,receivedAt,attempts});

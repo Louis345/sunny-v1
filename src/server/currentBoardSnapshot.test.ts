@@ -194,3 +194,18 @@ describe("CurrentBoardSnapshot", () => {
     expect(contradictions).toContain("boss_unlock_claim_contradicts_board_state");
   });
 });
+
+// The UI supplied these facts, but the projection discarded them. The lab
+// tested screen and prompt separately rather than the complete handoff.
+it("preserves displayed loading facts through projection into Elli context", () => {
+  const snapshot = buildCurrentBoardSnapshot({ childId: "sandbox", sessionId: "loading",
+    state: { game: "adventure-preparation", phase: "build", ready: 2, total: 5,
+      elapsedLabel: "3 min so far", remainingTimeKnown: false,
+      screenText: ["Building your activities", "2 of 5 map activities ready."] } });
+  const context = buildCurrentBoardSnapshotContext(snapshot);
+  expect(context).toContain("2 of 5 map activities ready.");
+  expect(context).toContain("3 min so far");
+  expect(context).toContain("Remaining time is not known");
+  const next = buildCurrentBoardSnapshot({childId:"sandbox",sessionId:"loading",state:{phase:"closed",boardState:"map"}});
+  expect(buildCurrentBoardSnapshotContext(next)).not.toContain("3 min so far");
+});

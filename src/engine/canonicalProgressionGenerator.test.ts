@@ -173,6 +173,8 @@ describe("spelling Creator assignment-scoped checkpoints", () => {
 
   it("reuses matching legacy completed artwork/Creator receipts byte-for-byte with their original model and frozen evidence", async () => {
     const value = await legacyFixture(), legacy = bytes(quality());
+    const requestFiles = Object.keys(legacy).filter(file => file.startsWith("provider-diagnostics/") && file.endsWith(".request.json"));
+    expect(requestFiles).toHaveLength(2);
     transitionLearningCycle("lab-child", "hw-first", value.cycle.revision, { type: "prediction_evaluations_recorded", evaluations: [] }, { rootDir });
     vi.stubEnv("SUNNY_GENERATION_MODEL", "different-current-model");
     const ready = await value.resume();
@@ -181,6 +183,9 @@ describe("spelling Creator assignment-scoped checkpoints", () => {
     expect(value.generateArtwork).toHaveBeenCalledOnce();
     expect(bytes(quality())).toEqual(legacy);
     expect(bytes(quality("hw-first"))).toEqual(legacy);
+    for (const file of requestFiles) {
+      expect(fs.statSync(path.join(quality("hw-first"), file)).mode & 0o777).toBe(0o600);
+    }
     expect(JSON.stringify(legacy)).toContain("recorded-creator-model");
     expect(JSON.stringify(bytes(quality("hw-first")))).not.toContain("different-current-model");
   });

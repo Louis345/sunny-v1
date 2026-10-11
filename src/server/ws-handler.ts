@@ -272,6 +272,10 @@ export function handleWsConnection(
         if (!session) return;
         session.recordDebugEvent("client_audio", "status", {
           event: (msg as Record<string, unknown>).event,
+          requestId: (msg as Record<string, unknown>).requestId,
+          itemId: (msg as Record<string, unknown>).itemId,
+          muted: (msg as Record<string, unknown>).muted,
+          speaking: (msg as Record<string, unknown>).speaking,
           reason: (msg as Record<string, unknown>).reason,
           message: (msg as Record<string, unknown>).message,
           textLength: (msg as Record<string, unknown>).textLength,
