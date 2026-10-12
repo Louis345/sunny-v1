@@ -522,6 +522,13 @@ export function parseCanonicalProgressionDecision(value: unknown): CanonicalProg
   };
 }
 
+function assertPredictionCitations(decision:CanonicalProgressionDecision, cycle:LearningCycleRecordV2):void {
+  const allowed = new Set(cycle.predictionEvaluations.map(evaluation => evaluation.evaluationId));
+  const cited = decision.predictionEvaluationIds ?? [];
+  if (cited.some(id => !allowed.has(id))) throw new Error("canonical_progression_unknown_prediction_evaluation");
+  if (allowed.size > 0 && cited.length === 0) throw new Error("canonical_progression_prediction_evaluation_citation_required");
+}
+
 async function askPlanner(
   cycle: LearningCycleRecordV2,
   client?: Anthropic,
@@ -647,7 +654,9 @@ ${JSON.stringify({ lifecycle: cycle.lifecycle, assignment: cycle.assignment, the
           change: { type: "array", items: { type: "string" } },
           testNext: { type: "array", items: { type: "string" } },
           nextEvidenceRequired: { type: "array", items: { type: "string" } },
-          predictionEvaluationIds: { type: "array", items: { type: "string" } },
+          predictionEvaluationIds: cycle.domain !== "spelling" ? {type:"array",items:{type:"string"}} : cycle.predictionEvaluations.length
+            ? {type:"array",minItems:1,items:{type:"string",enum:cycle.predictionEvaluations.map(evaluation=>evaluation.evaluationId)}}
+            : {type:"array",maxItems:0,items:{type:"string"}},
           contentDecisions: {
             type: "array",
             items: {
@@ -687,18 +696,30 @@ ${JSON.stringify({ lifecycle: cycle.lifecycle, assignment: cycle.assignment, the
   const received = readPlannerToolReceipt(rawDecision, toolName);
   const validate = async (value: unknown) => {
     const decision = parseCanonicalProgressionDecision(value);
+    assertPredictionCitations(decision,cycle);
     if (decision.successor) await verifyAuthoredBoardCanvas({definition:decision.successor.boardDefinition!,rootDir:opts.rootDir??process.cwd(),directory:path.join(draftDir,"canvas-verification")});
     return decision;
   };
   try { return await validate(received); }
   catch (error) {
-    if (!(error instanceof Error) || !/^(board_definition_|board_canvas_invalid:)/.test(error.message)) throw error;
-    console.log(` 🎮 [canonical-progression] [journey-correction] [required] reason=${error.message}`);
-    const correctionRequest = {...request,messages:[{role:"user" as const,content:`Correct only boardDefinition in the received decision to fix this executable journey defect. Preserve every other field, instrument, academic claim, evidence reference and progression action unchanged. Return the complete decision using the same tool. There is one correction attempt.\nDEFECT: ${error.message}\nRECEIVED DECISION: ${JSON.stringify(received)}`}]};
-    const correction = await runMathProviderStage({draftDir,stage:`progression-journey-correction-r${checkpointRevision}`,model:plannerModel,request:correctionRequest,execute:async()=>({plannerMessage:await requestPlannerMessage(anthropic,correctionRequest,{timeout:Number(process.env.SUNNY_AI_TIMEOUT_MS??120000)})})});
-    const corrected = readPlannerToolReceipt(correction,toolName);
-    const withoutDefinition = (value:unknown) => { const {boardDefinition,...academic} = value as Record<string,unknown>; return academic; };
-    if (!isDeepStrictEqual(withoutDefinition(received),withoutDefinition(corrected))) throw new Error("planner_journey_correction_changed_academic_decision");
+    if (!(error instanceof Error)) throw error;
+    const citation = cycle.domain === "spelling" && /^canonical_progression_(unknown_prediction_evaluation|prediction_evaluation_citation_required)$/.test(error.message);
+    if (!citation && !/^(board_definition_|board_canvas_invalid:)/.test(error.message)) throw error;
+    const editable = citation ? "predictionEvaluationIds" : "boardDefinition";
+    console.log(` 🎮 [canonical-progression] [${citation ? 'citation' : 'journey'}-correction] [required] reason=${error.message}`);
+    // The existing journey stage must retain its byte-identical request, including
+    // its older citation schema, so received paid corrections survive upgrades.
+    const correctionRequest = {...request,tools:citation ? [{...request.tools[0],input_schema:{type:"object" as const,additionalProperties:false,properties:{predictionEvaluationIds:request.tools[0].input_schema.properties.predictionEvaluationIds},required:["predictionEvaluationIds"]}}] : request.tools.map(tool=>({...tool,input_schema:{...tool.input_schema,properties:{...tool.input_schema.properties,predictionEvaluationIds:{type:"array",items:{type:"string"}}}}})),messages:[{role:"user" as const,content:citation
+      ? `Correct only predictionEvaluationIds in the received decision. Return only that field using the tool; this is a citation patch, not a new decision. Preregistered prediction IDs are not observed evaluation IDs. There is one correction attempt.\nDEFECT: ${error.message}\nAVAILABLE PREDICTION EVALUATION IDS: ${JSON.stringify(cycle.predictionEvaluations.map(evaluation=>evaluation.evaluationId))}\nRECEIVED CITATIONS: ${JSON.stringify((received as Record<string,unknown>).predictionEvaluationIds)}`
+      : `Correct only boardDefinition in the received decision to fix this executable journey defect. Preserve every other field, instrument, academic claim, evidence reference and progression action unchanged. Return the complete decision using the same tool. There is one correction attempt.\nDEFECT: ${error.message}\nRECEIVED DECISION: ${JSON.stringify(received)}`}]};
+    const correction = await runMathProviderStage({draftDir,stage:`progression-${citation ? 'citation-patch' : 'journey-correction'}-r${checkpointRevision}`,model:plannerModel,request:correctionRequest,execute:async()=>({plannerMessage:await requestPlannerMessage(anthropic,correctionRequest,{timeout:Number(process.env.SUNNY_AI_TIMEOUT_MS??120000)})})});
+    const reply = readPlannerToolReceipt(correction,toolName);
+    if(citation && (!reply || typeof reply !== 'object' || Array.isArray(reply) || Object.keys(reply).some(key=>key!=='predictionEvaluationIds')))throw new Error("planner_correction_changed_protected_decision");
+    const patch = reply as Record<string,unknown>;
+    if(citation && (!Array.isArray(patch.predictionEvaluationIds) || !patch.predictionEvaluationIds.every(id=>typeof id==='string')))throw new Error("canonical_progression_invalid_citation_patch");
+    const corrected = citation ? {...received as Record<string,unknown>,predictionEvaluationIds:patch.predictionEvaluationIds} : reply;
+    const protectedFields = (value:unknown) => Object.fromEntries(Object.entries(value as Record<string,unknown>).filter(([key])=>key!==editable));
+    if (!isDeepStrictEqual(protectedFields(received),protectedFields(corrected))) throw new Error(citation ? "planner_correction_changed_protected_decision" : "planner_journey_correction_changed_academic_decision");
     return validate(corrected);
   }
 }
@@ -770,10 +791,8 @@ async function decideOnce(
       instrument.items = items.map(parseDirectItem);
     }
   }
-  const allowedEvaluationIds = new Set(cycle.predictionEvaluations.map((evaluation) => evaluation.evaluationId));
+  assertPredictionCitations(decision,cycle);
   const citedEvaluationIds = decision.predictionEvaluationIds ?? [];
-  if (citedEvaluationIds.some((id) => !allowedEvaluationIds.has(id))) throw new Error("canonical_progression_unknown_prediction_evaluation");
-  if (allowedEvaluationIds.size > 0 && citedEvaluationIds.length === 0) throw new Error("canonical_progression_prediction_evaluation_citation_required");
   if (cycle.lifecycle === "baseline_evaluating"
     && decision.progressionAction === "generate_quest"
     && !baselineQuestEvidenceEligibility(cycle).eligible) {

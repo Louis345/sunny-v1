@@ -9,6 +9,7 @@ import { createLearningCycle, getLearningCycle, spellingAssignmentItems, type Le
 import { advanceCanonicalCycleFromEvidence, recordCanonicalNodeCompletion, parseCanonicalProgressionDecision, scoreSpellingRecall } from "./learningCycleRuntime";
 import { currentBoardInstance, preparingBoardInstance, publishBoardInstance } from "./learningBoardInstances";
 import { buildAdaptiveProgressionCreatorPrompt } from "./directMathExperience";
+import { runMathProviderStage } from "./adaptiveMathDiscovery";
 
 const roots: string[] = [];
 afterEach(() => { for (const root of roots.splice(0)) fs.rmSync(root, { recursive: true, force: true }); });
@@ -60,6 +61,65 @@ it("carries the Planner's saved word references through its tool, frozen success
   expect(scoreSpellingRecall(frozen[0], "nite").correct).toBe(false);
   expect(scoreSpellingRecall(frozen[0], "night").correct).toBe(true);
   expect(currentBoardInstance(cycle).boardId).toBe(f.board.boardId);
+});
+
+it.each(['corrected','still-invalid','changed-plan','malformed-array','malformed-id'])("bounds nonexistent prediction citation correction: %s", async outcome => {
+  const f = fixture();
+  const file = path.join(f.rootDir, `src/context/${f.childId}/homework/cycles/${f.homeworkId}.json`);
+  const snapshot = fs.readFileSync(file, 'utf8');
+  const received = {...f.decision, predictionEvaluationIds:['invented-evaluation']};
+  const requests: any[] = [];
+  const execute = async (request: any) => {
+    requests.push(request);
+    const input = requests.length === 1 ? received : {
+      predictionEvaluationIds:outcome === 'still-invalid' ? ['invented-evaluation'] : outcome === 'malformed-array' ? 'not an array' : outcome === 'malformed-id' ? [42] : [],
+      ...(outcome === 'changed-plan' ? {reason:'Changed educational decision'} : {}),
+    };
+    return {content:[{type:'tool_use',name:'decide_learning_cycle_progression',input}]};
+  };
+  const client = {messages:{stream:(request:any)=>({finalMessage:()=>execute(request)})}} as never;
+  const run = () => advanceCanonicalCycleFromEvidence({childId:f.childId,homeworkId:f.homeworkId,client},{rootDir:f.rootDir});
+  if(outcome === 'corrected') {
+    const cycle = await run();
+    expect(preparingBoardInstance(cycle)).toBeDefined();
+    expect(currentBoardInstance(cycle).boardId).toBe(f.board.boardId);
+    fs.writeFileSync(file,snapshot);
+    await run();
+    expect(requests).toHaveLength(2); // Restart reuses both received responses.
+  } else {
+    await expect(run()).rejects.toThrow(outcome === 'still-invalid' ? 'canonical_progression_unknown_prediction_evaluation' : outcome.startsWith('malformed') ? 'canonical_progression_invalid_citation_patch' : 'planner_correction_changed_protected_decision');
+    expect(getLearningCycle(f.childId,f.homeworkId,{rootDir:f.rootDir})?.lifecycle).toBe('blocked');
+    expect(preparingBoardInstance(getLearningCycle(f.childId,f.homeworkId,{rootDir:f.rootDir})!)).toBeUndefined();
+    expect(requests).toHaveLength(2);
+  }
+  expect(requests[0].tools[0].input_schema.properties.predictionEvaluationIds).toMatchObject({maxItems:0});
+  expect(requests[1].messages[0].content).toContain('Correct only predictionEvaluationIds');
+  expect(requests[1].messages[0].content).toContain('invented-evaluation');
+  expect(Object.keys(requests[1].tools[0].input_schema.properties)).toEqual(['predictionEvaluationIds']);
+});
+
+it("reuses a received pre-fix journey correction without buying another response", async () => {
+  const f = fixture();
+  const cycle = getLearningCycle(f.childId,f.homeworkId,{rootDir:f.rootDir})!;
+  const batch = cycle.decisionHistory.at(-1)!;
+  const revision = Number(batch.decisionId.match(/:r(\d+)$/)![1]);
+  const draftDir = path.join(f.rootDir,`src/context/${f.childId}/homework/cycles/.planner/${f.homeworkId}`,batch.decisionId.replace(/[^a-zA-Z0-9_-]+/g,'_'));
+  const received = structuredClone(f.decision);
+  received.boardDefinition.edges.pop();
+  let defect = '';
+  try { parseCanonicalProgressionDecision(received); } catch(error) { defect = (error as Error).message; }
+  expect(defect).toMatch(/^board_definition_/);
+  let calls = 0;
+  const execute = async (request:any) => {
+    calls++;
+    if(calls !== 1)throw new Error('pre-fix receipt must satisfy correction');
+    const oldRequest = {...request,tools:request.tools.map((tool:any)=>({...tool,input_schema:{...tool.input_schema,properties:{...tool.input_schema.properties,predictionEvaluationIds:{type:'array',items:{type:'string'}}}}})),messages:[{role:'user',content:`Correct only boardDefinition in the received decision to fix this executable journey defect. Preserve every other field, instrument, academic claim, evidence reference and progression action unchanged. Return the complete decision using the same tool. There is one correction attempt.\nDEFECT: ${defect}\nRECEIVED DECISION: ${JSON.stringify(received)}`}]};
+    await runMathProviderStage({draftDir,stage:`progression-journey-correction-r${revision}`,model:request.model,request:oldRequest,execute:async()=>({plannerMessage:{content:[{type:'tool_use',name:'decide_learning_cycle_progression',input:f.decision}]}})});
+    return {content:[{type:'tool_use',name:'decide_learning_cycle_progression',input:received}]};
+  };
+  const result = await advanceCanonicalCycleFromEvidence({childId:f.childId,homeworkId:f.homeworkId,client:{messages:{stream:(request:any)=>({finalMessage:()=>execute(request)})}} as never},{rootDir:f.rootDir});
+  expect(preparingBoardInstance(result)).toBeDefined();
+  expect(calls).toBe(1);
 });
 
 it.each(["missing", "unknown", "duplicate", "invalid-role"])("rejects a %s word prescription before saving a successor", async kind => {
