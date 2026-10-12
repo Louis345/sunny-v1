@@ -115,6 +115,8 @@ interface PlaceValueData {
   revealedColumns?: Array<"hundreds" | "tens" | "ones">;
 }
 
+const WORD_PLAYBACK_WARNING = "I couldn't play that word. Tap Hear the word again.";
+
 export interface BlackboardState {
   gesture: "flash" | "reveal" | "mask" | "clear" | null;
   word?: string;
@@ -601,6 +603,7 @@ export function useSession(options?: UseSessionOptions) {
     if (audioQueueRef.current.length > 0) return;
     if (currentSourceRef.current) return;
 
+    const requiresAudio = playbackRequiresAudioRef.current;
     const playbackConfirmed = shouldAcknowledgeAudioPlayback({
       requiresAudio: playbackRequiresAudioRef.current,
       receivedAudioFrames: receivedAudioFramesRef.current,
@@ -621,7 +624,7 @@ export function useSession(options?: UseSessionOptions) {
     if (!playbackConfirmed) {
       setStateRef.current((s) => ({
         ...s,
-        warning: "I couldn't play that word. Tap Hear the word again.",
+        warning: WORD_PLAYBACK_WARNING,
       }));
       sendMessageRef.current("client_audio_status", {
         event: "playback_not_confirmed",
@@ -633,6 +636,10 @@ export function useSession(options?: UseSessionOptions) {
         ...playbackIdentity,
       });
       return;
+    }
+    if (requiresAudio) {
+      setStateRef.current(s => s.warning === WORD_PLAYBACK_WARNING ? { ...s, warning: null } : s);
+      console.log(` 🎮 [session-audio] [word-playback] [confirmed] request=${playbackIdentity.requestId ?? "unowned"}`);
     }
     sendMessageRef.current("playback_done", { audible: true, ...playbackIdentity });
   };

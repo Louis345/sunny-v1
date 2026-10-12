@@ -137,6 +137,29 @@ describe("useSession companion audio gate", () => {
     ws.onmessage?.(ev);
   }
 
+  it.each([
+    ["I couldn't play that word. Tap Hear the word again.", null],
+    ["Sunny lost connection. Reconnecting…", "Sunny lost connection. Reconnecting…"],
+  ])("clears only the resolved word-playback warning: %s", async (warning, expected) => {
+    // Lab catch: final5 monkey retry was acknowledged, but its failure banner remained.
+    // Logs proved recovery; prior hook tests omitted warning lifecycle after retry.
+    vi.useFakeTimers();
+    const { result } = renderHook(() => useSession());
+    await act(async () => { result.current.startSession("ila"); await Promise.resolve(); });
+    const ws = wsInstances[0]!;
+    await act(async () => { await vi.advanceTimersByTimeAsync(101); });
+    act(() => deliverJson(ws, { type: "error", fatal: false, message: warning }));
+    await act(async () => {
+      deliverJson(ws, { type: "audio_start", requestId: "retry", itemId: "monkey", requiresAudio: true, source: "activity" });
+      deliverJson(ws, { type: "audio", requestId: "retry", data: ONE_SAMPLE_PCM_BASE64 });
+      deliverJson(ws, { type: "audio_done", requestId: "retry", itemId: "monkey", requiresAudio: true });
+    });
+    expect(result.current.state.warning).toBe(warning);
+    await act(async () => { playbackSources[0].onended?.(); await vi.advanceTimersByTimeAsync(151); });
+    expect(ws.send.mock.calls.map(([m]) => JSON.parse(m))).toContainEqual(expect.objectContaining({ type: "playback_done", requestId: "retry", audible: true }));
+    expect(result.current.state.warning).toBe(expected);
+  });
+
   it("acknowledges the word after a trailing PCM chunk instead of leaving replay blocked", async () => {
     // Live run: synthesized words repeatedly timed out awaiting playback proof.
     // Earlier tests never delivered PCM after the stream-done marker.
