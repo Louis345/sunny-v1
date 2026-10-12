@@ -2778,7 +2778,18 @@ export function assignmentPlannerCanvasCorrectionSchema(draft:unknown,repairBack
   return z.toJSONSchema(canvasPatchSchema(draft,repairBackground),{io:"input"});
 }
 export function applyAssignmentPlannerCanvasCorrection<T>(original:T,raw:unknown,repairBackground=false):T {
-  const parsed=canvasPatchSchema(original,repairBackground).safeParse(raw);
+  const envelope=jsonObject(raw), decoded=envelope ? {...envelope} : raw;
+  if (envelope) for (const field of ["portals","edges"] as const) {
+    if (typeof envelope[field]!=="string") continue;
+    let value:unknown;
+    try {value=JSON.parse(envelope[field] as string);} catch {throw new Error("canvas_correction_invalid");}
+    const wrapper=jsonObject(value);
+    if (wrapper && Object.keys(wrapper).length===1 && field in wrapper) value=wrapper[field];
+    if (!Array.isArray(value)) throw new Error("canvas_correction_invalid");
+    (decoded as Record<string,unknown>)[field]=value;
+    console.log(` 🎮 [assignment-planner] [provider-envelope] [decoded] field=${field} source_preserved=true`);
+  }
+  const parsed=canvasPatchSchema(original,repairBackground).safeParse(decoded);
   if(!parsed.success || new Set(parsed.data.portals.map(p=>p.id)).size!==parsed.data.portals.length || new Set(parsed.data.edges.map(e=>e.id)).size!==parsed.data.edges.length)throw new Error("canvas_correction_invalid");
   const copy=structuredClone(original) as T & AssignmentPlannerResponseObject;
   const board=copy.activeSessionPlan.boardDefinition!;

@@ -15,6 +15,16 @@ describe('canvas correction preserves the Painter journey',()=>{
   expect(schema.additionalProperties).toBe(false);
   expect(schema.properties.portals.items.properties.id.enum).toEqual(draft().activeSessionPlan.boardDefinition.portals.map(p=>p.id));
  });
+ it('decodes serialized geometry without changing the authored journey or provider input',()=>{
+  const input=draft(),board=input.activeSessionPlan.boardDefinition;
+  const patch={portals:board.portals.map(p=>({id:p.id,position:p.position})),edges:board.edges.map(e=>({id:e.id}))};
+  const raw={portals:JSON.stringify({portals:patch.portals}),edges:JSON.stringify({edges:patch.edges})};
+  const before=JSON.stringify(raw);
+  expect(applyAssignmentPlannerCanvasCorrection(input,raw)).toEqual(applyAssignmentPlannerCanvasCorrection(input,patch));
+  expect(JSON.stringify(raw)).toBe(before);
+  expect(()=>applyAssignmentPlannerCanvasCorrection(input,{...raw,edges:JSON.stringify({edges:patch.edges,nodePlan:[]})})).toThrow('canvas_correction_invalid');
+  expect(()=>applyAssignmentPlannerCanvasCorrection(input,{...raw,portals:'not json'})).toThrow('canvas_correction_invalid');
+ });
  it('applies a geometry-only response without asking the model to copy protected fields',()=>{
   const input=draft(),board=input.activeSessionPlan.boardDefinition;
   const patch={portals:board.portals.map(p=>({id:p.id,position:{...p.position,portrait:{x:.25,y:p.position.portrait.y}}})),edges:board.edges.map(e=>({id:e.id,controlPoints:{landscape:[],portrait:[]}}))};
