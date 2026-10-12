@@ -7,7 +7,7 @@ import { buildAdventureBoardFromActiveSessionPlan } from "../shared/adventureBoa
 import type { ActiveSessionPlan, EngagementTheory } from "../context/schemas/learningProfile";
 import { getActivityCapabilityMode } from "./activityToolCatalog";
 import { hashDiscoveryContract } from "./adaptiveMathDiscovery";
-import { validateActivityEngineConfig, validateLetterRushConfig, type ActivityEngineConfig, type LetterRushConfig } from "./activityEngineConfig";
+import { spellingImplementationType, validateActivityEngineConfig, validateLetterRushConfig, type ActivityEngineConfig, type LetterRushConfig } from "./activityEngineConfig";
 import {
   validateSpellingVisualExplainerPlanConfig,
   validateVisualLearnerArtifactConfig,
@@ -177,18 +177,6 @@ function roleForNode(node: ActiveSessionPlan["nodePlan"][number]): LearningCycle
   if (node.type === "boss" || node.activityId === "boss") return "boss";
   if (node.type === "mystery" || node.activityId === "mystery") return "mystery";
   return "baseline";
-}
-
-function spellingImplementationType(
-  node: ActiveSessionPlan["nodePlan"][number],
-): ActiveSessionPlan["nodePlan"][number]["type"] {
-  if (node.activityConfig && typeof node.activityConfig === "object") {
-    const configured = (node.activityConfig as { activityId?: unknown }).activityId;
-    if (configured === "concept-check" || configured === "letter-rush" || configured === "visual-explainer") {
-      return configured;
-    }
-  }
-  return node.type;
 }
 
 /** Visual Explainer is assisted instruction, never a mystery reward shell. */
@@ -404,6 +392,11 @@ export function buildSpellingTargetedCycleInput(input: {
   const finalWords = new Set<string>();
   for (const [index, node] of plan.nodePlan.entries()) {
     if (contract.nodes[index].role === "quest" || contract.nodes[index].role === "boss") continue;
+    const implementationType = spellingImplementationType(node);
+    if(contract.nodes[index].role==="mystery" && !node.targets.length && implementationType==="mystery") {
+      contract.nodes[index]={...contract.nodes[index],implementationType,mechanic:node.activityId ?? implementationType,state:"generating",artifactBinding:null,evidenceContract:{...contract.nodes[index].evidenceContract,academic:false}};
+      continue;
+    }
     const measurement = plan.plannedMeasurements?.find(row => row.id === `measure-${node.id}`);
     const decision = measurement?.spelling;
     if (!decision || !decision.evidenceIds.length || decision.evidenceIds.some(id => !evidence.has(id))) throw new Error(`spelling_plan_evidence_invalid:${node.id}`);
@@ -419,7 +412,6 @@ export function buildSpellingTargetedCycleInput(input: {
       }
       return item;
     });
-    const implementationType = spellingImplementationType(node);
     if (contract.nodes[index].role === "mystery" && items.length > 0 && implementationType === "mystery") {
       throw new Error(`spelling_mystery_academic_instrument_missing:${node.id}`);
     }

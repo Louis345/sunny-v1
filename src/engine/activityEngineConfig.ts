@@ -1203,3 +1203,10 @@ export function validateActivityEvidenceEvent(input: unknown): ActivityEvidenceV
     errors,
   };
 }
+
+/** One binding rule for the Planner tool and canonical spelling construction. */
+export const SPELLING_MYSTERY_INSTRUMENT_IDS=["concept-check","letter-rush","visual-explainer"] as const;
+export function spellingImplementationType<T extends string>(node:{type:T;activityConfig?:unknown}):T|typeof SPELLING_MYSTERY_INSTRUMENT_IDS[number] {
+  const configured=node.activityConfig && typeof node.activityConfig==="object" ? (node.activityConfig as {activityId?:unknown}).activityId : undefined;
+  return typeof configured==="string" && (SPELLING_MYSTERY_INSTRUMENT_IDS as readonly string[]).includes(configured) ? configured as typeof SPELLING_MYSTERY_INSTRUMENT_IDS[number] : node.type;
+}

@@ -214,6 +214,16 @@ describe("learning cycle ingestion bridge", () => {
       plan: missingInstrument,
       now: "2026-10-01T12:00:00.000Z",
     })).toThrow("spelling_mystery_academic_instrument_missing:mystery-check");
+    const reward=structuredClone(missingInstrument);
+    reward.nodePlan[0]!.targets=[];
+    delete reward.plannedMeasurements![0]!.spelling;
+    reward.plannedMeasurements![1]!.spelling!.interventionNodeIds=[];
+    const rewardContract=buildSpellingTargetedCycleInput({cycle,plan:reward,now:"2026-10-01T12:00:00.000Z"});
+    expect(rewardContract.nodes[0].role).toBe("mystery");
+    expect(rewardContract.nodes[0].evidenceContract.academic).toBe(false);
+    expect(Object.keys(rewardContract.nodes[0].evidenceContract.spellingItems??{})).toHaveLength(0);
+    expect(rewardContract.academicPredictions?.some(p=>p.intervention.includes("mystery-check"))).toBe(false);
+
   });
 
   it("converts the final planner/artifact result into canonical node contracts", () => {

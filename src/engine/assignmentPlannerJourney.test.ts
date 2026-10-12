@@ -74,3 +74,13 @@ it('reports an invalid portal without inventing a checkpoint chronology failure'
   expect(message).toContain('non_activity_binding');
   expect(message).not.toContain('planner_checkpoint_intervention_not_prior');
 });
+
+it('returns a Mystery academic binding defect at the Planner tool boundary',()=>{
+ const input=draft();input.activeSessionPlan.nodePlan.find(node=>node.id==='learn')!.type='mystery';input.activeSessionPlan.nodePlan.find(node=>node.id==='learn')!.activityId='mystery';
+ expect(()=>validateAssignmentPlannerRelationships(parseAssignmentPlannerJson(JSON.stringify(input)),new Set(['e']),true,new Set(['float']))).toThrow('planner_mystery_academic_instrument_missing');
+});
+it('permits a declared nonacademic Mystery reward without spelling measurement',()=>{
+ const input=draft();const node=input.activeSessionPlan.nodePlan.find(node=>node.id==='learn')!;node.type='mystery';node.activityId='mystery';node.targets=[];
+ delete (input.plannedMeasurements.find(row=>row.id==='measure-learn')! as {spelling?:unknown}).spelling;
+ expect(()=>validateAssignmentPlannerRelationships(parseAssignmentPlannerJson(JSON.stringify(input)),new Set(['e']),true,new Set(['float']))).not.toThrow();
+});

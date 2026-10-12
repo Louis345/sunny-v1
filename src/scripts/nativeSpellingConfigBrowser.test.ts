@@ -189,3 +189,37 @@ describe.each(viewports)("native frozen LetterRush at $width×$height", viewport
     expect(errors).toEqual([]); expect(forbidden).toEqual([]);
   });
 });
+
+it("starts the existing Mystery reward through its host handshake and completes without spelling targets", async () => {
+  const server = http.createServer((request, response) => {
+    const url = new URL(request.url!, "http://127.0.0.1");
+    if (url.pathname === "/") {
+      response.setHeader("Content-Type", "text/html");
+      response.end(`<!doctype html><script>window.captured=[];
+        addEventListener('message',event=>{
+          if(event.source!==document.querySelector('iframe')?.contentWindow)return;
+          if(window.captured.length>100)throw Error('reward_event_loop');
+          window.captured.push(event.data);
+          if(event.data.type==='ready')event.source.postMessage({type:'start',childName:'Lab',companionName:'Elli',config:{duration_seconds:1,level:1}},'*');
+        });</script><iframe src="/games/space-invaders.html?childId=lab-child&nodeId=reward-break"></iframe>`);
+    } else if (["/games/space-invaders.html", "/games/_contract.js"].includes(url.pathname)) {
+      response.setHeader("Content-Type", url.pathname.endsWith(".js") ? "text/javascript" : "text/html");
+      response.end(fs.readFileSync(path.join(process.cwd(), "web/public", url.pathname)));
+    } else response.writeHead(404).end();
+  });
+  servers.push(server);
+  await new Promise<void>(resolve => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address(); if (!address || typeof address === "string") throw new Error("reward_test_address_missing");
+  const origin = `http://127.0.0.1:${address.port}`;
+  const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
+  const errors: string[] = [];
+  page.on("pageerror", error => errors.push(error.message));
+  await page.route("**/*", route => new URL(route.request().url()).origin === origin ? route.continue() : route.abort());
+  await page.goto(origin);
+  await expect.poll(() => page.evaluate("window.captured.filter(row=>row.type==='node_complete')"), { timeout: 8000 }).toHaveLength(1);
+  const messages = await page.evaluate<Array<Record<string, any>>>("window.captured");
+  expect(messages.some(row => row.type === "ready")).toBe(true);
+  expect(messages.find(row => row.type === "node_complete")).toMatchObject({ completed: true, nodeId: "reward-break" });
+  expect(messages.find(row => row.type === "node_complete")?.targetResults ?? []).toEqual([]);
+  expect(errors).toEqual([]);
+});

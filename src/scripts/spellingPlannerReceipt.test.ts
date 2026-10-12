@@ -44,6 +44,28 @@ describe("Planner-authored spelling node titles survive the real parser", () => 
     expect(isResumableSpellingGenerationFailure("arbitrary_failure")).toBe(false);
   });
 
+  it("corrects a word-bearing Mystery binding once and preserves the authored journey and receipt", async () => {
+    const f = await fixture();
+    const invalid = structuredClone(f.message);
+    Object.assign(invalid.content[1].input!.activeSessionPlan.nodePlan[0], { type: "mystery", activityId: "mystery" });
+    const corrected = structuredClone(invalid);
+    const draft = corrected.content[1].input!;
+    draft.activeSessionPlan.nodePlan[0].targets = [];
+    delete (draft.plannedMeasurements[0] as { spelling?: unknown }).spelling;
+    draft.plannedMeasurements[1].spelling!.interventionNodeIds = [];
+    corrected.id = "recorded-corrected-reward";
+    transport.create.mockResolvedValueOnce(invalid).mockResolvedValueOnce(corrected);
+    const result = await f.run();
+    expect(transport.create).toHaveBeenCalledTimes(2);
+    expect(JSON.stringify(transport.create.mock.calls[1][0])).toContain("planner_mystery_academic_instrument_missing");
+    expect(result.output.activeSessionPlan.boardDefinition).toEqual(invalid.content[1].input!.activeSessionPlan.boardDefinition);
+    expect(result.output.activeSessionPlan.nodePlan.map(node => node.id)).toEqual(invalid.content[1].input!.activeSessionPlan.nodePlan.map(node => node.id));
+    expect(result.output.activeSessionPlan.nodePlan[0]).toMatchObject({ type: "mystery", targets: [] });
+    expect(f.readReceipt()).toMatchObject({ status: "received", response: { message: invalid } });
+    await f.run();
+    expect(transport.create).toHaveBeenCalledTimes(2);
+  });
+
   it("publishes a normal multi-node program with distinct authored titles and resumes from raw receipt", async () => {
     const f = await fixture(); transport.create.mockResolvedValue(structuredClone(f.message));
     const before = getLearningCycle(f.childId, f.homeworkId, f)!;

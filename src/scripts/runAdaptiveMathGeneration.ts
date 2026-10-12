@@ -1128,11 +1128,13 @@ async function runSpellingTargetedGeneration(childId: string, homeworkId: string
       const existing = new Map(currentChart.contentCatalog.items.map(item => [item.contentId, item]));
       const items = currentCycle.nodes.filter(node => node.role !== "evaluation" && node.artifactBinding).flatMap(node => {
         const prior = existing.get(node.artifactBinding!.contentId);
-        const algorithmTargets = (node.implementationType === "visual-explainer"
+        const algorithmTargets = (!node.evidenceContract.academic
+          ? [node.algorithmOwner]
+          : node.implementationType === "visual-explainer"
           ? validateVisualLearnerArtifactConfig(node.evidenceContract.nativeConfig).algorithmTargets
           : ["retrieval-practice"]) as LearningAlgorithmTarget[];
         if (prior) {
-          if (node.implementationType !== "visual-explainer"
+          if ((node.evidenceContract.academic && node.implementationType !== "visual-explainer")
             || JSON.stringify(prior.algorithmTargets) === JSON.stringify(algorithmTargets)) return [];
           return [{ ...prior, algorithmTargets }];
         }
