@@ -2532,6 +2532,7 @@ type AssignmentPlannerToolRequest = {
   source?: AssignmentSourceExtraction;
   schema?: Record<string, unknown>;
   geometryOnly?: boolean;
+  repairBackground?: boolean;
   measurementOnly?: boolean;
 };
 
@@ -2541,11 +2542,11 @@ async function requestAssignmentPlannerTool(args: AssignmentPlannerToolRequest):
   const request: Anthropic.Messages.MessageCreateParamsNonStreaming = {
     model: args.model,
     max_tokens: Math.max(8_000, Number(process.env.SUNNY_PLANNER_MAX_TOKENS ?? ASSIGNMENT_PLANNER_MAX_TOKENS)),
-    system: `${ASSIGNMENT_PLANNER_PERSONA}\nCall ${ASSIGNMENT_PLANNER_TOOL_NAME} exactly once to submit ${args.geometryOnly ? "only portal positions and edge control points" : args.measurementOnly ? "only named measurement field corrections" : "the complete plan"} matching its schema.`,
+    system: `${ASSIGNMENT_PLANNER_PERSONA}\nCall ${ASSIGNMENT_PLANNER_TOOL_NAME} exactly once to submit ${args.geometryOnly ? (args.repairBackground ? "only portal positions, edge control points and the diagnosed invalid CSS background" : "only portal positions and edge control points") : args.measurementOnly ? "only named measurement field corrections" : "the complete plan"} matching its schema.`,
     tools: [{
       name: ASSIGNMENT_PLANNER_TOOL_NAME,
       ...(args.measurementOnly ? {strict:true} : {}),
-      description: args.measurementOnly ? "Correct only the declared measurement field paths. Return corrections [{path,value}], no plan or protected fields." : args.geometryOnly ? "Correct only the declared portals positions and edges control points. Return no activity, configuration, evidence, path or choice fields." : "Write Sunny's captured homework interpretation, active intervention node plan, measurements, and mastery theory. Populate every tool field directly as its declared object or array type. Never serialize the plan or any tool field into a JSON string.",
+      description: args.measurementOnly ? "Correct only the declared measurement field paths. Return corrections [{path,value}], no plan or protected fields." : args.geometryOnly ? `Correct only the declared portals positions and edges control points.${args.repairBackground ? " Also repair the diagnosed invalid CSS background; palette is frozen." : " Theme is frozen."} Return no activity, configuration, evidence, path or choice fields.` : "Write Sunny's captured homework interpretation, active intervention node plan, measurements, and mastery theory. Populate every tool field directly as its declared object or array type. Never serialize the plan or any tool field into a JSON string.",
       input_schema: (args.schema ?? assignmentPlannerToolJsonSchema()) as Anthropic.Messages.Tool.InputSchema,
     }],
     tool_choice: { type: "tool", name: ASSIGNMENT_PLANNER_TOOL_NAME },
@@ -2759,40 +2760,46 @@ function thumbnailForAssignmentBoardNode(node: {
 }
 
 /** A visual-only correction cannot rewrite the accepted learning journey. */
-function canvasPatchSchema(draft:unknown) {
+function canvasPatchSchema(draft:unknown,repairBackground=false) {
   const board=adventureBoardDefinitionSchema.parse((draft as AssignmentPlannerResponseObject).activeSessionPlan.boardDefinition);
   const portals=adventureBoardDefinitionSchema.shape.portals.element.pick({id:true,position:true}).extend({id:z.enum(board.portals.map(p=>p.id) as [string,...string[]])});
   const edges=board.edges.length ? adventureBoardDefinitionSchema.shape.edges.element.pick({id:true,controlPoints:true}).extend({id:z.enum(board.edges.map(e=>e.id) as [string,...string[]])}) : z.never();
-  return z.object({portals:z.array(portals).length(board.portals.length),edges:z.array(edges).length(board.edges.length)}).strict();
+  return z.object({portals:z.array(portals).length(board.portals.length),edges:z.array(edges).length(board.edges.length),...(repairBackground?{background:adventureBoardDefinitionSchema.shape.theme.shape.background.extend({type:z.enum(['solid','gradient'])})}: {})}).strict();
 }
-export function assignmentPlannerCanvasCorrectionSchema(draft:unknown):Record<string,unknown> {
-  return z.toJSONSchema(canvasPatchSchema(draft),{io:"input"});
+export function assignmentPlannerCanvasCorrectionSchema(draft:unknown,repairBackground=false):Record<string,unknown> {
+  return z.toJSONSchema(canvasPatchSchema(draft,repairBackground),{io:"input"});
 }
-export function applyAssignmentPlannerCanvasCorrection<T>(original:T,raw:unknown):T {
-  const parsed=canvasPatchSchema(original).safeParse(raw);
+export function applyAssignmentPlannerCanvasCorrection<T>(original:T,raw:unknown,repairBackground=false):T {
+  const parsed=canvasPatchSchema(original,repairBackground).safeParse(raw);
   if(!parsed.success || new Set(parsed.data.portals.map(p=>p.id)).size!==parsed.data.portals.length || new Set(parsed.data.edges.map(e=>e.id)).size!==parsed.data.edges.length)throw new Error("canvas_correction_invalid");
   const copy=structuredClone(original) as T & AssignmentPlannerResponseObject;
   const board=copy.activeSessionPlan.boardDefinition!;
+  if(repairBackground && 'background' in parsed.data)board.theme.background=parsed.data.background as AdventureBoardDefinition['theme']['background'];
   for(const portal of board.portals)portal.position=parsed.data.portals.find(p=>p.id===portal.id)!.position;
   for(const edge of board.edges)edge.controlPoints=parsed.data.edges.find(e=>e.id===edge.id)!.controlPoints;
   return copy;
 }
-function canvasCorrectionPrompt(draft:AssignmentPlannerResponseObject,issues:AssignmentPlanValidationIssue[]):string {
-  return `Repair only the cited layout defects. Return {portals:[{id,position:{landscape:{x,y},portrait:{x,y}}}],edges:[{id,controlPoints?:{landscape:[],portrait:[]}}]} for every declared portal/edge identity exactly once. No plan, activities, configurations, labels, paths, choices, themes or evidence fields. Those are already accepted and immutable. Positions are normalized to the safe composition area, not the whole viewport. Arrange the portrait independently; if controls cannot fit vertically, use horizontal separation rather than overlapping them. Preserve readable journey direction and meaningful forks. ${BOARD_CANVAS_AUTHORING_CONSTRAINTS}\nLAYOUT ERRORS:\n${JSON.stringify(issues)}\nACCEPTED JOURNEY REFERENCE:\n${JSON.stringify(draft.activeSessionPlan.boardDefinition)}`;
+function canvasNeedsBackgroundRepair(issues:AssignmentPlanValidationIssue[]):boolean {
+  return issues.some(issue=>issue.code==='board_canvas_invalid' && issue.message.includes('background_css_invalid'));
 }
-function parseCanvasCorrection(original:AssignmentPlannerResponseObject,response:Anthropic.Messages.Message):AssignmentPlannerResponseObject {
+function canvasCorrectionPrompt(draft:AssignmentPlannerResponseObject,issues:AssignmentPlanValidationIssue[]):string {
+  return `Repair only the cited layout defects. Return {portals:[{id,position:{landscape:{x,y},portrait:{x,y}}}],edges:[{id,controlPoints?:{landscape:[],portrait:[]}}]} for every declared portal/edge identity exactly once. ${canvasNeedsBackgroundRepair(issues)?'Also return background:{type,value} to repair the diagnosed invalid CSS only. Use executable CSS, never a symbolic name. Palette remains immutable.':'No background or theme fields.'} No plan, activities, configurations, labels, paths, choices or evidence fields. Those are already accepted and immutable. Positions are normalized to the safe composition area, not the whole viewport. Arrange the portrait independently; if controls cannot fit vertically, use horizontal separation rather than overlapping them. Preserve readable journey direction and meaningful forks. ${BOARD_CANVAS_AUTHORING_CONSTRAINTS}\nLAYOUT ERRORS:\n${JSON.stringify(issues)}\nACCEPTED JOURNEY REFERENCE:\n${JSON.stringify(draft.activeSessionPlan.boardDefinition)}`;
+}
+function parseCanvasCorrection(original:AssignmentPlannerResponseObject,response:Anthropic.Messages.Message,repairBackground=false):AssignmentPlannerResponseObject {
   assertPlannerResponseComplete(response);
   const tool=response.content.find(block=>block.type==="tool_use" && block.name===ASSIGNMENT_PLANNER_TOOL_NAME);
   if(!tool || !("input" in tool))throw new Error("canvas_correction_invalid");
   // Read existing full-plan receipts only after proving every protected field stayed identical.
   if(tool.input && typeof tool.input==="object" && "activeSessionPlan" in tool.input) {
-    const legacy=parseAssignmentPlannerToolUseResponse(response);assertAssignmentPlannerCanvasCorrection(original,legacy);return legacy;
+    const legacy=parseAssignmentPlannerToolUseResponse(response);assertAssignmentPlannerCanvasCorrection(original,legacy,repairBackground);return legacy;
   }
-  return applyAssignmentPlannerCanvasCorrection(original,tool.input);
+  return applyAssignmentPlannerCanvasCorrection(original,tool.input,repairBackground);
 }
-export function assertAssignmentPlannerCanvasCorrection(original:unknown,corrected:unknown):void {
+export function assertAssignmentPlannerCanvasCorrection(original:unknown,corrected:unknown,repairBackground=false):void {
+  if(repairBackground && !["solid","gradient"].includes((corrected as AssignmentPlannerResponseObject).activeSessionPlan.boardDefinition!.theme.background.type))throw new Error("canvas_correction_invalid");
   const protectedFields=(value:unknown)=>{
     const copy=structuredClone(value) as {activeSessionPlan:{boardDefinition:AdventureBoardDefinition}};
+    if(repairBackground)delete (copy.activeSessionPlan.boardDefinition.theme as Partial<AdventureBoardDefinition['theme']>).background;
     for(const portal of copy.activeSessionPlan.boardDefinition.portals)delete (portal as Partial<typeof portal>).position;
     for(const edge of copy.activeSessionPlan.boardDefinition.edges)delete edge.controlPoints;
     return copy;
@@ -2837,8 +2844,9 @@ async function planAssignmentFromSourceInternal(
     if (opts.providerReceipt && packet.discoveryEvidence
       && blockingIssues.every((issue) => issue.code === "board_canvas_invalid" || issue.code === "word_radar_unrendered_teaching" || issue.code === "word_radar_capability_mismatch")) {
       const canvasOnly=blockingIssues.every(issue=>issue.code==="board_canvas_invalid");
+      const repairBackground=canvasOnly&&canvasNeedsBackgroundRepair(blockingIssues);
       const correctionRequest = {
-        version: 1,
+        version: repairBackground ? 3 : 1,
         purpose: "assignment_planner_semantic_correction",
         originalRequestHash: hashDiscoveryContract(packet),
         invalidToolInput: result.draft,
@@ -2848,14 +2856,14 @@ async function planAssignmentFromSourceInternal(
       const correctionStarted = Date.now();
       const correction = await runMathProviderStage({
         draftDir: opts.providerReceipt.draftDir,
-        stage: `${opts.providerReceipt.stage}-semantic-correction-v1`,
+        stage: `${opts.providerReceipt.stage}-semantic-correction-${repairBackground?"background-v3-1":"v1"}`,
         model,
         request: correctionRequest,
         beforeRequest: () => {
           if (!process.env.ANTHROPIC_API_KEY) throw new Error("assignment_planner_ai_unavailable:ANTHROPIC_API_KEY");
         },
         execute: async () => ({
-          message: await requestAssignmentPlannerTool({ prompt: canvasOnly ? canvasCorrectionPrompt(result.draft,blockingIssues) : correctionPrompt, model, geometryOnly:canvasOnly, schema: canvasOnly ? assignmentPlannerCanvasCorrectionSchema(result.draft) : assignmentPlannerToolJsonSchema(Boolean(packet.discoveryEvidence), packet.activityCatalog) }),
+          message: await requestAssignmentPlannerTool({ prompt: canvasOnly ? canvasCorrectionPrompt(result.draft,blockingIssues) : correctionPrompt, model, geometryOnly:canvasOnly, repairBackground, schema: canvasOnly ? assignmentPlannerCanvasCorrectionSchema(result.draft,repairBackground) : assignmentPlannerToolJsonSchema(Boolean(packet.discoveryEvidence), packet.activityCatalog) }),
           model,
           latencyMs: Date.now() - correctionStarted,
           createdAt: new Date().toISOString(),
@@ -2863,12 +2871,12 @@ async function planAssignmentFromSourceInternal(
       });
       console.log(` 🎮 [assignment-planner] [semantic-correction] [received] id=${correction.message.id}`);
       let correctedDraft = validateAssignmentPlannerRelationships(
-        canvasOnly ? parseCanvasCorrection(result.draft,correction.message) : parseAssignmentPlannerToolUseResponse(correction.message),
+        canvasOnly ? parseCanvasCorrection(result.draft,correction.message,repairBackground) : parseAssignmentPlannerToolUseResponse(correction.message),
         new Set(assignmentPlannerAllowedEvidenceIds(packet)),
         true,
         new Set(packet.capturedHomework.words.map(word => word.trim().toLocaleLowerCase("en-US"))),
       );
-      if(canvasOnly)assertAssignmentPlannerCanvasCorrection(result.draft,correctedDraft);
+      if(canvasOnly)assertAssignmentPlannerCanvasCorrection(result.draft,correctedDraft,repairBackground);
       let correctedAt = correction.createdAt;
       let correctionUsage: LanguageModelUsage | undefined = usageFromAnthropic(correction.message);
       let correctedOutput = hydrateAssignmentPlannerOutputFromDraft(correctedDraft, packet, correctedAt);
@@ -2881,9 +2889,10 @@ async function planAssignmentFromSourceInternal(
       remainingIssues.push(...await plannerCanvasIssues(correctedOutput,opts));
       if (remainingIssues.length && remainingIssues.every(issue => issue.code === "board_canvas_invalid" || issue.code === "word_radar_unrendered_teaching" || issue.code === "word_radar_capability_mismatch")) {
         const secondCanvasOnly=remainingIssues.every(issue=>issue.code==="board_canvas_invalid");
+        const secondRepairBackground=secondCanvasOnly&&canvasNeedsBackgroundRepair(remainingIssues);
         const priorCorrected=correctedDraft;
         const secondRequest = {
-          version: 2,
+          version: secondRepairBackground ? 3 : 2,
           purpose: "assignment_planner_semantic_correction",
           originalRequestHash: hashDiscoveryContract(packet),
           invalidToolInput: correctedDraft,
@@ -2893,14 +2902,14 @@ async function planAssignmentFromSourceInternal(
         const secondStarted = Date.now();
         const second = await runMathProviderStage({
           draftDir: opts.providerReceipt.draftDir,
-          stage: `${opts.providerReceipt.stage}-semantic-correction-v2`,
+          stage: `${opts.providerReceipt.stage}-semantic-correction-${secondRepairBackground?"background-v3-2":"v2"}`,
           model,
           request: secondRequest,
           beforeRequest: () => {
             if (!process.env.ANTHROPIC_API_KEY) throw new Error("assignment_planner_ai_unavailable:ANTHROPIC_API_KEY");
           },
           execute: async () => ({
-            message: await requestAssignmentPlannerTool({ prompt: secondCanvasOnly ? canvasCorrectionPrompt(priorCorrected,remainingIssues) : secondPrompt, model, geometryOnly:secondCanvasOnly, schema: secondCanvasOnly ? assignmentPlannerCanvasCorrectionSchema(priorCorrected) : assignmentPlannerWordRadarCorrectionSchema(packet) }),
+            message: await requestAssignmentPlannerTool({ prompt: secondCanvasOnly ? canvasCorrectionPrompt(priorCorrected,remainingIssues) : secondPrompt, model, geometryOnly:secondCanvasOnly, repairBackground:secondRepairBackground, schema: secondCanvasOnly ? assignmentPlannerCanvasCorrectionSchema(priorCorrected,secondRepairBackground) : assignmentPlannerWordRadarCorrectionSchema(packet) }),
             model,
             latencyMs: Date.now() - secondStarted,
             createdAt: new Date().toISOString(),
@@ -2908,12 +2917,12 @@ async function planAssignmentFromSourceInternal(
         });
         console.log(` 🎮 [assignment-planner] [semantic-correction-v2] [received] id=${second.message.id}`);
         correctedDraft = validateAssignmentPlannerRelationships(
-          secondCanvasOnly ? parseCanvasCorrection(priorCorrected,second.message) : parseAssignmentPlannerToolUseResponse(second.message),
+          secondCanvasOnly ? parseCanvasCorrection(priorCorrected,second.message,secondRepairBackground) : parseAssignmentPlannerToolUseResponse(second.message),
           new Set(assignmentPlannerAllowedEvidenceIds(packet)),
           true,
           new Set(packet.capturedHomework.words.map(word => word.trim().toLocaleLowerCase("en-US"))),
         );
-        if(secondCanvasOnly)assertAssignmentPlannerCanvasCorrection(priorCorrected,correctedDraft);
+        if(secondCanvasOnly)assertAssignmentPlannerCanvasCorrection(priorCorrected,correctedDraft,secondRepairBackground);
         correctedAt = second.createdAt;
         correctionUsage = combinePlannerUsage(correctionUsage, usageFromAnthropic(second.message));
         correctedOutput = hydrateAssignmentPlannerOutputFromDraft(correctedDraft, packet, correctedAt);

@@ -38,3 +38,17 @@ it('returns measured normalized separation to the author without moving the port
   expect(JSON.stringify(definition)).toBe(authored);
  }finally{rmSync(directory,{recursive:true,force:true});}
 },20000);
+
+// The real recovered board passed geometry while a symbolic gradient was
+// silently discarded by CSS. Logs proved publication, not visual fidelity;
+// prior lab cases only exercised positions on valid CSS themes.
+it('reports an unrenderable authored background without silently substituting a theme',async()=>{
+ const directory=mkdtempSync(join(tmpdir(),'sunny-canvas-theme-'));
+ const definition=linearJourneyFixture(['learn','check']);
+ definition.theme.background={type:'gradient',value:'sky-meadow-dawn'} as never;
+ const authored=JSON.stringify(definition);
+ try {
+  await expect(verifyAuthoredBoardCanvas({definition,directory,rootDir:process.cwd()})).rejects.toThrow(/board_canvas_invalid:.*background_css_invalid/);
+  expect(JSON.stringify(definition)).toBe(authored);
+ }finally{rmSync(directory,{recursive:true,force:true});}
+},20000);

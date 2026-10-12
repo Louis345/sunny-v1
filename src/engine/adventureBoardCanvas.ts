@@ -16,7 +16,7 @@ const viewports=[{width:1280,height:720},{width:768,height:1024},{width:1470,hei
 export async function verifyAuthoredBoardCanvas(input:{definition:AdventureBoardDefinition;directory:string;rootDir:string}):Promise<BoardCanvasProof>{
  const sourceRoot=path.resolve(__dirname,'../..');
  const css=fs.readFileSync(path.join(sourceRoot,'web/src/components/AdventureBoard.css'),'utf8');
- const rendererHash=createHash('sha256').update(css).update(fs.readFileSync(path.join(sourceRoot,'web/src/components/AdventureBoard.tsx'))).update(fs.readFileSync(path.join(sourceRoot,'src/shared/adventureBoardDefinition.ts'))).update(fs.readFileSync(path.join(sourceRoot,'web/src/components/XPBar.tsx'))).digest('hex');
+ const rendererHash=createHash('sha256').update(fs.readFileSync(__filename)).update(css).update(fs.readFileSync(path.join(sourceRoot,'web/src/components/AdventureBoard.tsx'))).update(fs.readFileSync(path.join(sourceRoot,'src/shared/adventureBoardDefinition.ts'))).update(fs.readFileSync(path.join(sourceRoot,'web/src/components/XPBar.tsx'))).digest('hex');
  const definitionHash=boardDefinitionHash(input.definition);
  const receipt=path.join(input.directory,'canvas-proof.json');
  if(fs.existsSync(receipt)){
@@ -57,6 +57,8 @@ export async function verifyAuthoredBoardCanvas(input:{definition:AdventureBoard
      return errors;
     });
    },viewport);
+   const backgroundValid=await page.evaluate(background=>background.type==='image' || (globalThis as unknown as {CSS:{supports:(property:string,value:string)=>boolean}}).CSS.supports('background',background.value),input.definition.theme.background);
+   if(!backgroundValid)issues.push('background_css_invalid:theme.background.value must be executable CSS (gradient uses linear-gradient/radial-gradient, not a symbolic theme name)');
    const size=`${viewport.width}x${viewport.height}`;
    defects.push(...issues.map(issue=>`${size}:${issue}`));
    const screenshot=path.join(input.directory,`canvas-${size}.png`);await page.screenshot({path:screenshot});screenshots.push(screenshot);
