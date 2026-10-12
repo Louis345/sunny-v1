@@ -207,7 +207,7 @@ export function hydrateLearningProfileFromWaterfall(
     activeHomeworkByDomain: profile.activeHomeworkByDomain ?? homework.activeByDomain,
     activeSessionPlan: profile.activeSessionPlan ?? sessionPlan.current ?? undefined,
     activeSessionPlanByDomain: profile.activeSessionPlanByDomain ?? sessionPlan.activeByDomain,
-    aiContentCatalog: profile.aiContentCatalog ?? catalog.items,
+    aiContentCatalog: catalog.items,
     learningExperiments: profile.learningExperiments ?? carePlan.learningExperiments,
     learningTheoryDecisions: profile.learningTheoryDecisions ?? carePlan.theoryDecisions,
     selectedHomeworkDomain: profile.selectedHomeworkDomain ?? homework.selectedDomain,
