@@ -3,6 +3,10 @@ import { sanitizeForTTS } from "./session-state";
 
 const WS_BASE = "wss://api.elevenlabs.io/v1/text-to-speech";
 const FLUSH_INTERVAL_MS = 50;
+const STREAM_DEADLINE_MS = 10_000;
+type StreamOutcome = "final" | "closed" | "cancelled" | "tts_provider_error" | "tts_stream_timeout";
+type StreamTerminal = { outcome?: StreamOutcome; done: Promise<StreamOutcome>; settle: (outcome: StreamOutcome) => void };
+
 
 function normalizeForTTS(text: string): string {
   let t = text.replace(/-(?=[A-Z])/g, " ");
@@ -30,6 +34,7 @@ function buildWsUrl(voiceId: string): string {
 }
 
 export class WsTtsBridge {
+  private readonly terminals = new WeakMap<WebSocket, StreamTerminal>();
   private browserWs: WebSocket;
   private voiceId: string;
   private elevenWs: WebSocket | null = null;
@@ -54,7 +59,7 @@ export class WsTtsBridge {
     console.log(` 🎮 [session-audio] [owner] [started] request=${requestId}`);
   }
 
-  constructor(browserWs: WebSocket, voiceId: string) {
+  constructor(browserWs: WebSocket, voiceId: string, private readonly streamDeadlineMs = STREAM_DEADLINE_MS) {
     this.browserWs = browserWs;
     this.voiceId = voiceId;
     this.disabled = process.env.TTS_ENABLED === "false";
@@ -116,8 +121,25 @@ export class WsTtsBridge {
       const url = buildWsUrl(this.voiceId);
       const ws = new WebSocket(url);
       this.elevenWs = ws;
+      const terminal = this.trackTerminal(ws);
+      let opened = false;
+      const handshakeDeadline = setTimeout(() => {
+        terminal.settle("tts_stream_timeout");
+        ws.terminate();
+        reject(new Error("tts_stream_timeout: connection"));
+      }, this.streamDeadlineMs);
+      ws.once("close", () => {
+        clearTimeout(handshakeDeadline);
+        if (!opened) {
+          if (this.elevenWs === ws) this.connectingPromise = null;
+          if (terminal.outcome === "cancelled") resolve();
+          else reject(new Error("tts_provider_error: connection closed"));
+        }
+      });
 
       ws.on("open", () => {
+        clearTimeout(handshakeDeadline);
+        opened = true;
         console.log("  🔊 TTS model: eleven_flash_v2_5");
         if (this.elevenWs !== ws) {
           ws.close();
@@ -146,7 +168,12 @@ export class WsTtsBridge {
 
       ws.on("message", (data: Buffer) => {
         if (this.stopped || this.elevenWs !== ws) return;
-        const msg = JSON.parse(data.toString());
+        let msg: { audio?: string; error?: unknown; isFinal?: boolean; is_final?: boolean };
+        try { msg = JSON.parse(data.toString()); }
+        catch { terminal.settle("tts_provider_error"); return; }
+        if (!msg || typeof msg !== "object" || Array.isArray(msg)) { terminal.settle("tts_provider_error"); return; }
+        if (terminal.outcome) return;
+        if (msg.error) { terminal.settle("tts_provider_error"); return; }
         if (msg.audio && this.browserWs.readyState === this.browserWs.OPEN) {
           this.audioChunksThisTurn += 1;
           this.browserWs.send(
@@ -158,9 +185,12 @@ export class WsTtsBridge {
             })
           );
         }
+        if (msg.isFinal === true || msg.is_final === true) terminal.settle("final");
       });
 
       ws.on("error", (err) => {
+        clearTimeout(handshakeDeadline);
+        terminal.settle(this.stopped || this.elevenWs !== ws ? "cancelled" : "tts_provider_error");
         if (this.stopped || this.elevenWs !== ws) {
           console.warn("  🔇 ElevenLabs TTS connect cancelled during shutdown");
           resolve();
@@ -258,25 +288,45 @@ export class WsTtsBridge {
     if (this.disabled) {
       return;
     }
-    if (this.elevenWs && this.elevenWs.readyState === WebSocket.OPEN) {
-      const ws = this.elevenWs;
-      // Send empty text to signal end-of-generation.
-      // ElevenLabs flushes remaining audio then sends a close frame.
-      ws.send(JSON.stringify({ text: "" }));
-
-      // Wait for all audio chunks to arrive before signaling audio_done.
-      // The socket will close after ElevenLabs sends the last chunk —
-      // we detect that to know when to proceed, then reopen on next turn.
-      await new Promise<void>((resolve) => {
-        const timeout = setTimeout(resolve, 3000);
-        ws.on("close", () => { clearTimeout(timeout); resolve(); });
-      });
-
+    const ws = this.elevenWs;
+    if (!ws) return;
+    const terminal = this.trackTerminal(ws);
+    // Install the deadline before EOS; retain errors/final packets received before finish.
+    const timeout = setTimeout(() => terminal.settle("tts_stream_timeout"), this.streamDeadlineMs);
+    try {
+      if (!terminal.outcome && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ text: "" }));
+      const outcome = await terminal.done;
+      if (outcome === "tts_provider_error" || outcome === "tts_stream_timeout") throw new Error(outcome);
+    } finally {
+      clearTimeout(timeout);
       if (this.elevenWs === ws) {
         this.wsReady = false;
         this.elevenWs = null;
+        if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) ws.terminate();
       }
     }
+  }
+
+  private trackTerminal(ws: WebSocket): StreamTerminal {
+    const existing = this.terminals.get(ws);
+    if (existing) return existing;
+    let resolve!: (outcome: StreamOutcome) => void;
+    const started = Date.now();
+    const owner = this.playbackOwner;
+    const terminal: StreamTerminal = {
+      done: new Promise<StreamOutcome>(complete => { resolve = complete; }),
+      settle: outcome => {
+        if (terminal.outcome) return;
+        terminal.outcome = outcome;
+        console.log(` 🎮 [session-audio] [stream-terminal] [${outcome}] request=${owner?.requestId ?? "unowned"} elapsedMs=${Date.now()-started} chunks=${this.elevenWs === ws ? this.audioChunksThisTurn : "retired"}`);
+        resolve(outcome);
+      },
+    };
+    this.terminals.set(ws, terminal);
+    ws.once("close", (code: number | undefined) => terminal.settle(
+      this.stopped || this.elevenWs !== ws ? "cancelled" : code === 1000 || code === undefined ? "closed" : "tts_provider_error"
+    ));
+    return terminal;
   }
 
   /** Proof that this turn emitted playable PCM to the browser, not merely that the provider stream closed. */
@@ -295,6 +345,7 @@ export class WsTtsBridge {
     }
     if (this.elevenWs) {
       const ws = this.elevenWs;
+      this.trackTerminal(ws).settle("cancelled");
       this.elevenWs = null;
       try {
         if (ws.readyState === WebSocket.OPEN) {
