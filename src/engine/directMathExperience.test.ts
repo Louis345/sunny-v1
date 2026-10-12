@@ -652,6 +652,7 @@ describe("direct math experience", () => {
     expect(stream).toHaveBeenCalledTimes(1);
     expect(finalMessage).toHaveBeenCalledTimes(1);
     const prompt = String(stream.mock.calls[0]?.[0]?.messages?.[0]?.content);
+    expect(prompt).not.toContain("\n\n\n\nImmutable MathLearningProgram:");
     expect(prompt).toContain('"age": 8');
     expect(prompt).toContain('"grade": 2');
     expect(prompt).toContain('"dimension": "puzzle"');

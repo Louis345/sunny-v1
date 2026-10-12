@@ -1,5 +1,7 @@
+import {z} from "zod";
+import {learningPlannerInstructions} from "./learningPlannerInstructions";
 import {verifyAuthoredBoardCanvas,verifyPreparingBoardCanvas} from './adventureBoardCanvas';
-import { requireBoardDefinition, BOARD_DEFINITION_TOOL_SCHEMA, BOARD_AUTHORING_INSTRUCTION, journeyExecutions, renderBoardDefinition, type AdventureBoardDefinition } from "../shared/adventureBoardDefinition";
+import {adventureCompositionSchema,assembleAdventureBoardDefinition,BOARD_CANVAS_AUTHORING_CONSTRAINTS,type AdventureJourneyDefinition,type AdventureBoardComposition, requireBoardDefinition, BOARD_DEFINITION_TOOL_SCHEMA, BOARD_AUTHORING_INSTRUCTION, journeyExecutions, renderBoardDefinition, type AdventureBoardDefinition } from "../shared/adventureBoardDefinition";
 import Anthropic from "@anthropic-ai/sdk";
 import crypto from "node:crypto";
 import fs from "node:fs";
@@ -140,6 +142,8 @@ export type AgencyExperiment = {
 };
 
 export type MathLearningProgram = {
+  domain?: "math";
+  journey?: AdventureJourneyDefinition;
   boardDefinition?: AdventureBoardDefinition;
   planId: string;
   contentScopeRationale: string;
@@ -212,6 +216,9 @@ export type MathDesignPacket = {
 };
 
 export type MathDesignCheckpoint = {
+  composition?: AdventureBoardComposition;
+  sourceHash?: string;
+  compositionDefect?: string;
   version: 1;
   planId: string;
   model: string;
@@ -1195,9 +1202,10 @@ export function mathDesignHasRoutePresentationBindings(
     && typeof route.previewNodeId === "string" && route.previewNodeId.trim().length > 0);
 }
 
-export async function askMathExperienceDesigner(input: {
+export type NativeLearningProgram = {domain:"spelling";planId:string;journey:AdventureJourneyDefinition;plan:ActiveSessionPlan};
+type LearningCreatorInput = {
   childId: string;
-  program: MathLearningProgram;
+  program: MathLearningProgram | NativeLearningProgram;
   childContext: unknown;
   priorOutcomes: unknown;
   designNotes?: string;
@@ -1209,19 +1217,25 @@ export async function askMathExperienceDesigner(input: {
   checkpointFile?: string;
   rawResponseDir?: string;
   retryUncertain?: boolean;
-}): Promise<{ packet: MathDesignPacket; plan: DirectLearningExperiencePlan }> {
+};
+export function askLearningExperienceDesigner(input:LearningCreatorInput & {program:NativeLearningProgram}):Promise<{packet:{composition:AdventureBoardComposition};plan:ActiveSessionPlan}>;
+export function askLearningExperienceDesigner(input:LearningCreatorInput & {program:MathLearningProgram}):Promise<{packet:MathDesignPacket;plan:DirectLearningExperiencePlan}>;
+export async function askLearningExperienceDesigner(input:LearningCreatorInput):Promise<{packet:MathDesignPacket|{composition:AdventureBoardComposition};plan:DirectLearningExperiencePlan|ActiveSessionPlan}> {
+  const native=input.program.domain==="spelling" ? input.program : undefined;
+  const program=input.program as MathLearningProgram;
+  const journey=input.program.journey;
   const client = input.client ?? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
   const model = input.model ?? process.env.SUNNY_ARCHITECT_MODEL ?? "claude-fable-5";
   const programActivities = [
-    ...input.program.activities,
-    ...(input.program.bonusActivity ? [input.program.bonusActivity] : []),
+    ...(native ? [] : program.activities),
+    ...(!native && program.bonusActivity ? [program.bonusActivity] : []),
   ];
-  const { bonusActivity: _bonusActivity, ...programWithoutBonusDuplicate } = input.program;
+  const { bonusActivity: _bonusActivity, ...programWithoutBonusDuplicate } = program;
   const contracts = programActivities.map((activity) => ({
     ...activity,
     academicContractHash: mathAcademicContractHash(activity),
   }));
-  const toolName = "create_math_design_packet";
+  const toolName = native ? "create_learning_design_packet" : "create_math_design_packet";
   const designArtifactSchema = schemaObject({
     artifactId: schemaString,
     nodeId: schemaString,
@@ -1256,8 +1270,8 @@ export async function askMathExperienceDesigner(input: {
     backgroundDirection: schemaString,
     routeDirections: {
       type: "array",
-      minItems: input.program.fork.routes.length,
-      maxItems: input.program.fork.routes.length,
+      minItems: native ? 0 : program.fork.routes.length,
+      maxItems: native ? 0 : program.fork.routes.length,
       items: schemaObject({
         routeId: schemaString,
         label: schemaString,
@@ -1275,18 +1289,24 @@ export async function askMathExperienceDesigner(input: {
   const savedCheckpoint = input.checkpointFile && fs.existsSync(input.checkpointFile)
     ? JSON.parse(fs.readFileSync(input.checkpointFile, "utf8")) as MathDesignCheckpoint : undefined;
   let checkpoint = input.checkpoint ?? savedCheckpoint ?? createMathDesignCheckpoint({
-    planId: input.program.planId,
+    planId: program.planId,
     expectedNodeIds: programActivities.map((activity) => activity.id),
     model,
   });
-  if (checkpoint.planId !== input.program.planId) throw new Error("math_design_checkpoint_identity_mismatch");
+  if (checkpoint.planId !== program.planId) throw new Error("math_design_checkpoint_identity_mismatch");
+  if(journey){
+    const sourceHash=crypto.createHash("sha256").update(JSON.stringify({childId:input.childId,domain:native?"spelling":"math",program:input.program})).digest("hex");
+    if(checkpoint.sourceHash && checkpoint.sourceHash!==sourceHash)throw new Error("learning_design_checkpoint_program_mismatch");
+    if(!checkpoint.sourceHash && (checkpoint.composition || checkpoint.attempts.length))throw new Error("learning_design_checkpoint_program_mismatch");
+    checkpoint={...checkpoint,sourceHash};
+  }
   for (let attemptIndex = 0;
-    attemptIndex < 2 && (checkpoint.missingNodeIds.length > 0 || !mathDesignHasRoutePresentationBindings(checkpoint));
+    checkpoint.attempts.length < 2 && attemptIndex < 2 && (checkpoint.missingNodeIds.length > 0 || (!native && !mathDesignHasRoutePresentationBindings(checkpoint)) || (journey && !checkpoint.composition));
     attemptIndex += 1) {
     const requestedNodeIds = [...checkpoint.missingNodeIds];
     const isContinuation = Boolean(checkpoint.boardCreativeSpine);
     const presentationOnly = requestedNodeIds.length === 0 && isContinuation;
-    const prompt = `You are Sunny's Experience Creator. Design one coherent child-facing math chapter and rich design artifacts for the requested prescribed nodes.
+    const prompt = native ? `You are Sunny's existing Experience Creator. Realize this immutable spelling journey using its native catalog instruments. Return only composition and rationale; never change educational labels, activities, paths, choices, hypotheses or evidence. Do not generate replacement activities. Preserve the illustrated Grok world, vivid inviting portals, animated dashed or glow paths, left-to-right landscape progression, and an independently composed portrait. Available artwork: /generated/adventure-board-demo/silent-letter-world.jpeg. ${BOARD_CANVAS_AUTHORING_CONSTRAINTS}\nChild chart facts: ${JSON.stringify(factualModelContext(input.childContext))}\nImmutable journey and activity configurations: ${JSON.stringify(native)}\nPrior outcomes: ${JSON.stringify(factualModelContext(input.priorOutcomes))}\n${checkpoint.compositionDefect ? `Bounded visual correction ${checkpoint.attempts.length+1} of 2. Fix only this composition defect: ${checkpoint.compositionDefect}` : ""}` : `You are Sunny's Experience Creator. Design one coherent child-facing math chapter and rich design artifacts for the requested prescribed nodes.
 
 The Math Planner's educational program is immutable. You cannot change activity count or IDs, routes, responsibilities, academic targets, difficulty boundaries, item content, response contracts, predictions, measurement keys, or catalog decisions.
 
@@ -1297,7 +1317,7 @@ Creative objective: design something this specific child can understand immediat
 For every route, author a short childFacingActionCue that names what the child will actually do, and previewNodeId naming the route node whose opening view demonstrates that action. The cue is not an explanation paragraph. The preview node must belong to that route.
 
 ${presentationOnly
-    ? `This is one presentation-only revision. Return zero artifacts. Copy every frozen board-spine field and route field exactly, adding only childFacingActionCue and previewNodeId to each route direction.\nFrozen board spine:\n${JSON.stringify(checkpoint.boardCreativeSpine, null, 2)}\nFrozen route membership:\n${JSON.stringify(input.program.fork.routes, null, 2)}\nCompleted artifact summaries:\n${JSON.stringify(checkpoint.artifacts.map((artifact) => ({ nodeId: artifact.nodeId, title: artifact.title, firstAction: artifact.firstAction, coreInteraction: artifact.coreInteraction })), null, 2)}`
+    ? `This is one presentation-only revision. Return zero artifacts. Copy every frozen board-spine field and route field exactly, adding only childFacingActionCue and previewNodeId to each route direction.\nFrozen board spine:\n${JSON.stringify(checkpoint.boardCreativeSpine, null, 2)}\nFrozen route membership:\n${JSON.stringify(program.fork.routes, null, 2)}\nCompleted artifact summaries:\n${JSON.stringify(checkpoint.artifacts.map((artifact) => ({ nodeId: artifact.nodeId, title: artifact.title, firstAction: artifact.firstAction, coreInteraction: artifact.coreInteraction })), null, 2)}`
     : `Return design artifacts only for these node IDs: ${requestedNodeIds.join(", ")}. Copy each supplied academicContractHash exactly. Do not write HTML.\n${isContinuation ? `This is a missing-content continuation, not a redesign. Preserve the frozen board spine and completed sibling designs. Return only the missing artifacts.\nFrozen board spine:\n${JSON.stringify(checkpoint.boardCreativeSpine, null, 2)}\nCompleted sibling summaries:\n${JSON.stringify(checkpoint.artifacts.map((artifact) => ({ nodeId: artifact.nodeId, title: artifact.title, coreInteraction: artifact.coreInteraction, visualDirection: artifact.visualDirection })), null, 2)}` : "Also return one boardCreativeSpine for the complete chapter."}`}
 
 Child: ${input.childId}
@@ -1308,7 +1328,7 @@ ${JSON.stringify(factualModelContext(input.childContext), null, 2)}
 Factual prior outcomes and catalog history:
 ${JSON.stringify(factualModelContext(input.priorOutcomes), null, 2)}
 
-Immutable MathLearningProgram:
+${journey ? `Author composition for the immutable journey: ${JSON.stringify(journey)}. Preserve labels and bindings. Use illustrated Grok artwork, animated paths and independently composed portrait. Available artwork: /generated/adventure-board-demo/silent-letter-world.jpeg. ${BOARD_CANVAS_AUTHORING_CONSTRAINTS}${checkpoint.compositionDefect ? ` Fix only the diagnosed composition defect: ${checkpoint.compositionDefect}` : ""}\n\n` : ""}Immutable MathLearningProgram:
 ${JSON.stringify({ ...programWithoutBonusDuplicate, activities: contracts }, null, 2)}`;
     const startedAt = Date.now();
     const request = {
@@ -1321,16 +1341,18 @@ ${JSON.stringify({ ...programWithoutBonusDuplicate, activities: contracts }, nul
         description: "Return the board spine when requested and the requested immutable-node design artifacts.",
         input_schema: {
           type: "object",
-          additionalProperties: true,
-          required: presentationOnly || !isContinuation ? ["boardCreativeSpine", "artifacts", "rationale"] : ["artifacts", "rationale"],
+          additionalProperties: !native,
+          required: native ? ["composition","rationale"] : [...(presentationOnly || !isContinuation ? ["boardCreativeSpine", "artifacts", "rationale"] : ["artifacts", "rationale"]),...(journey && !checkpoint.composition ? ["composition"] : [])],
           properties: {
-            boardCreativeSpine: boardCreativeSpineSchema,
+            ...(journey ? {composition:z.toJSONSchema(adventureCompositionSchema,{io:"input"})} : {}),
+            ...(!native ? {boardCreativeSpine: boardCreativeSpineSchema,
             artifacts: {
               type: "array",
               minItems: requestedNodeIds.length,
               maxItems: requestedNodeIds.length,
               items: designArtifactSchema,
             },
+            } : {}),
             rationale: schemaString,
           },
         },
@@ -1393,6 +1415,11 @@ ${JSON.stringify({ ...programWithoutBonusDuplicate, activities: contracts }, nul
     }
     const root = object(toolUse.input);
     if (!root) throw new Error(`math_design_provider_contract_failed:invalid_tool_output:nodes=${requestedNodeIds.join(",")}`);
+    let composition=checkpoint.composition;
+    if(journey && !composition){
+      try { composition=adventureCompositionSchema.parse(root.composition);assembleAdventureBoardDefinition(journey,composition); }
+      catch(error){composition=undefined;checkpoint={...checkpoint,compositionDefect:error instanceof Error?error.message:String(error)};console.warn(` 🎮 [experience-creator] [composition] [invalid] ${checkpoint.compositionDefect}`);}
+    }
     let boardCreativeSpine = checkpoint.boardCreativeSpine;
     if (presentationOnly && boardCreativeSpine && root.boardCreativeSpine) {
       const revision = parseBoardCreativeSpine(root.boardCreativeSpine);
@@ -1421,7 +1448,8 @@ ${JSON.stringify({ ...programWithoutBonusDuplicate, activities: contracts }, nul
         const activity = programActivities.find((candidate) => candidate.id === nodeId);
         if (!activity || received.some((artifact) => artifact.nodeId === nodeId)) continue;
         received.push(parseExperienceDesignArtifact(raw, activity));
-      } catch {
+      } catch (error) {
+        console.warn(` 🎮 [experience-creator] [artifact] [invalid] ${error instanceof Error?error.message:String(error)}`);
         // Invalid siblings remain missing and are named in the bounded continuation.
       }
     }
@@ -1441,22 +1469,30 @@ ${JSON.stringify({ ...programWithoutBonusDuplicate, activities: contracts }, nul
         ...(rawResponsePath ? { rawResponsePath } : {}),
       },
     });
+    if(composition)checkpoint={...checkpoint,composition};
     if (input.checkpointFile) {
       fs.mkdirSync(path.dirname(input.checkpointFile), { recursive: true });
       fs.writeFileSync(input.checkpointFile+".tmp", `${JSON.stringify(checkpoint, null, 2)}\n`, "utf8");
       fs.renameSync(input.checkpointFile+".tmp",input.checkpointFile);
     }
   }
+  if(native){
+    if(!checkpoint.composition)throw new Error("learning_design_provider_contract_failed:composition_missing");
+    const boardDefinition=assembleAdventureBoardDefinition(native.journey,checkpoint.composition);
+    console.log(` 🎮 [experience-creator] [composition] [saved] plan=${native.planId}`);
+    return {packet:{composition:checkpoint.composition},plan:{...native.plan,journey:native.journey,boardDefinition}};
+  }
+  if(journey && !checkpoint.composition)throw new Error("learning_design_provider_contract_failed:composition_missing");
   if (!checkpoint.boardCreativeSpine || checkpoint.missingNodeIds.length > 0 || !mathDesignHasRoutePresentationBindings(checkpoint)) {
     throw new Error(`math_design_provider_contract_failed:missing_nodes=${checkpoint.missingNodeIds.join(",") || "board-spine"}:checkpoint=${input.checkpointFile ?? "memory"}`);
   }
   const artifactByNode = new Map(checkpoint.artifacts.map((artifact) => [artifact.nodeId, artifact]));
   const routeDirections = checkpoint.boardCreativeSpine.routeDirections;
   const designedRouteIds = new Set(routeDirections.map((route) => route.routeId));
-  if (input.program.fork.routes.some((route) => !designedRouteIds.has(route.id))) {
+  if (program.fork.routes.some((route) => !designedRouteIds.has(route.id))) {
     throw new Error(`math_design_provider_contract_failed:missing_route_direction:checkpoint=${input.checkpointFile ?? "memory"}`);
   }
-  for (const route of input.program.fork.routes) {
+  for (const route of program.fork.routes) {
     const direction = routeDirections.find((candidate) => candidate.routeId === route.id)!;
     if (!route.nodeIds.includes(direction.previewNodeId)) {
       throw new Error(`math_design_route_preview_node_mismatch:${route.id}:${direction.previewNodeId}`);
@@ -1464,7 +1500,7 @@ ${JSON.stringify({ ...programWithoutBonusDuplicate, activities: contracts }, nul
   }
   const packet: MathDesignPacket = {
     version: 1,
-    planId: input.program.planId,
+    planId: program.planId,
     boardCreativeSpine: checkpoint.boardCreativeSpine,
     artifacts: programActivities.map((activity) => artifactByNode.get(activity.id)!),
     rationale: checkpoint.rationale ?? "Completed coherent design packet.",
@@ -1474,27 +1510,27 @@ ${JSON.stringify({ ...programWithoutBonusDuplicate, activities: contracts }, nul
   };
   const routeById = new Map(routeDirections.map((route) => [route.routeId, route]));
   const plan: DirectLearningExperiencePlan = {
-    planId: input.program.planId,
-    boardDefinition: structuredClone(input.program.boardDefinition),
-    title: input.program.boardDefinition?.title ?? packet.boardCreativeSpine.title,
-    contentScopeRationale: input.program.contentScopeRationale,
+    planId: program.planId,
+    boardDefinition: journey && checkpoint.composition ? assembleAdventureBoardDefinition(journey,checkpoint.composition) : structuredClone(program.boardDefinition),
+    title: program.boardDefinition?.title ?? packet.boardCreativeSpine.title,
+    contentScopeRationale: program.contentScopeRationale,
     concept: {
-      ...input.program.concept,
-      assumptions: input.program.assumptions.map((assumption) => assumption.claim),
+      ...program.concept,
+      assumptions: program.assumptions.map((assumption) => assumption.claim),
     },
-    academicTheory: input.program.academicTheory,
-    profileEvidence: input.program.profileEvidence,
+    academicTheory: program.academicTheory,
+    profileEvidence: program.profileEvidence,
     boardWorld: {
       title: packet.boardCreativeSpine.title,
       narrative: packet.boardCreativeSpine.narrative,
       backgroundPrompt: packet.boardCreativeSpine.backgroundDirection,
     },
-    learningResponsibilities: input.program.learningResponsibilities,
+    learningResponsibilities: program.learningResponsibilities,
     fork: {
       question: packet.boardCreativeSpine.openingChoice,
-      hypothesis: input.program.fork.hypothesis,
-      heldConstant: input.program.fork.heldConstant,
-      routes: input.program.fork.routes.map((route) => {
+      hypothesis: program.fork.hypothesis,
+      heldConstant: program.fork.heldConstant,
+      routes: program.fork.routes.map((route) => {
         const design = routeById.get(route.id);
         if (!design) throw new Error(`math_design_route_missing:${route.id}`);
         return {
@@ -1508,8 +1544,8 @@ ${JSON.stringify({ ...programWithoutBonusDuplicate, activities: contracts }, nul
         };
       }),
     },
-    ...(input.program.agencyExperiment ? { agencyExperiment: input.program.agencyExperiment } : {}),
-    activities: input.program.activities.map((activity) => {
+    ...(program.agencyExperiment ? { agencyExperiment: program.agencyExperiment } : {}),
+    activities: program.activities.map((activity) => {
       const design = artifactByNode.get(activity.id)!;
       const route = routeById.get(activity.routeId);
       return {
@@ -1517,7 +1553,7 @@ ${JSON.stringify({ ...programWithoutBonusDuplicate, activities: contracts }, nul
         title: design.title,
         routeId: activity.routeId,
         responsibilityId: activity.responsibilityId,
-        learningPurpose: input.program.learningResponsibilities.find((item) => item.id === activity.responsibilityId)!.purpose,
+        learningPurpose: program.learningResponsibilities.find((item) => item.id === activity.responsibilityId)!.purpose,
         academicTarget: activity.academicTarget,
         mechanic: design.coreInteraction,
         engagementVariable: route?.engagementVariable ?? "shared-baseline",
@@ -1547,8 +1583,8 @@ ${JSON.stringify({ ...programWithoutBonusDuplicate, activities: contracts }, nul
       };
     }),
   };
-  if (input.program.bonusActivity) {
-    const activity = input.program.bonusActivity;
+  if (program.bonusActivity) {
+    const activity = program.bonusActivity;
     const design = artifactByNode.get(activity.id)!;
     plan.bonusActivity = {
       id: activity.id,
@@ -1611,6 +1647,10 @@ function mathReadingAccessContext(chart: ChildChart): unknown {
       "Use this context to reduce avoidable reading and writing load without replacing the Planner's pedagogical judgment.",
     ],
   };
+}
+
+export function askMathExperienceDesigner(input:LearningCreatorInput & {program:MathLearningProgram}):Promise<{packet:MathDesignPacket;plan:DirectLearningExperiencePlan}> {
+  return askLearningExperienceDesigner(input);
 }
 
 export function mathPlannerChartContext(chart: ChildChart): unknown {
@@ -1791,7 +1831,7 @@ export async function askDirectMathPlanner(input: {
   maxTokens?: number;
 }): Promise<MathLearningProgram> {
   const client = input.client ?? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-  const prompt = `You are Sunny's AI Math Planner, acting like the educational lead in an IEP team.
+  const prompt = `${learningPlannerInstructions('math').text}
 
 Read the assignment, child chart, prior evidence, and prior calibration. Prescribe the smallest coherent learning program that can test your theory. Teach the concept the teacher is targeting rather than copying or lightly rewriting worksheet questions.
 

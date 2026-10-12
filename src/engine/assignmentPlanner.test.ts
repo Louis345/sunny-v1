@@ -1,5 +1,5 @@
 import {linearJourneyFixture,choiceJourneyFixture} from '../scripts/fixtures/authoredJourney';
-import {BOARD_DEFINITION_TOOL_SCHEMA} from '../shared/adventureBoardDefinition';
+import {journeyFromBoardDefinition,BOARD_DEFINITION_TOOL_SCHEMA} from '../shared/adventureBoardDefinition';
 import { describe, expect, it } from "vitest";
 import fs from "fs";
 import os from "os";
@@ -998,6 +998,28 @@ describe("assignment planner", () => {
     expect(schemaText).not.toContain("rewardWrapper");
     expect(schemaText).not.toContain("spark-orb-charge");
     expect(schemaText).not.toContain("domain_payload_wrapper");
+  });
+
+  it("never accepts competing semantic and visual journey authorities", () => {
+    const raw=plannerDraftWithAdventureBoard(undefined) as any;
+    raw.activeSessionPlan.journey=journeyFromBoardDefinition(raw.activeSessionPlan.boardDefinition);
+    expect(()=>parseAssignmentPlannerJson(JSON.stringify(raw))).not.toThrow();
+    raw.activeSessionPlan.journey.portals[0].label="A different opening";
+    expect(()=>parseAssignmentPlannerJson(JSON.stringify(raw))).toThrow("planner_journey_definition_mismatch");
+  });
+
+  it("preserves a semantic Planner journey without rendering an unfinished canvas", () => {
+    const raw=plannerDraftWithAdventureBoard(undefined) as any;
+    const journey=journeyFromBoardDefinition(raw.activeSessionPlan.boardDefinition);
+    delete raw.activeSessionPlan.boardDefinition;
+    raw.activeSessionPlan.journey=journey;
+    const draft=parseAssignmentPlannerJson(JSON.stringify(raw));
+    expect((draft.activeSessionPlan as any).journey).toEqual(journey);
+    const packet=buildAssignmentPlanningPacket({childId:"reina",extraction:extraction(),childChart:chart()});
+    const out=hydrateAssignmentPlannerOutputFromDraft(draft,packet);
+    expect((out.activeSessionPlan as any).journey).toEqual(journey);
+    expect(out.activeSessionPlan.boardDefinition).toBeUndefined();
+    expect(out.activeSessionPlan.adventureBoard).toBeUndefined();
   });
 
   it("preserves authored intent: hydrates the active session board from the frozen definition instead of stale board JSON", () => {

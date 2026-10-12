@@ -1,4 +1,4 @@
-import type { AdventureBoardDefinition } from '../../shared/adventureBoardDefinition';
+import type { AdventureJourneyDefinition, AdventureBoardDefinition } from '../../shared/adventureBoardDefinition';
 import type {
   SM2Params,
   DifficultyParams,
@@ -241,6 +241,8 @@ export interface ActiveSessionPlan {
   }>;
   learningRoutes?: LearningRoutePrescription[];
   adventureBoard?: AdventureBoardJson;
+  /** Unpublished semantic handoff; only Creator composition produces the final board. */
+  journey?: AdventureJourneyDefinition;
   boardDefinition?: AdventureBoardDefinition;
   variationPolicy: {
     avoidExactPreviousNodeOrder: boolean;

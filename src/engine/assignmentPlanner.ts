@@ -1,6 +1,7 @@
+import {LEARNING_PLANNER_PERSONA,learningPlannerInstructions} from "./learningPlannerInstructions";
 import {spellingImplementationType,SPELLING_MYSTERY_INSTRUMENT_IDS} from "./activityEngineConfig";
 import {verifyAuthoredBoardCanvas} from './adventureBoardCanvas';
-import { adventureBoardDefinitionSchema, BOARD_AUTHORING_INSTRUCTION, BOARD_CANVAS_AUTHORING_CONSTRAINTS, renderBoardDefinition, validateBoardDefinition, journeyExecutions, type BoardDefinitionIssue, type AdventureBoardDefinition } from '../shared/adventureBoardDefinition';
+import { adventureJourneySchema, journeyFromBoardDefinition, adventureBoardDefinitionSchema, BOARD_AUTHORING_INSTRUCTION, BOARD_CANVAS_AUTHORING_CONSTRAINTS, renderBoardDefinition, validateBoardDefinition, journeyExecutions, type BoardDefinitionIssue, type AdventureBoardDefinition } from '../shared/adventureBoardDefinition';
 import { spellingCheckpointLineageIssues, checkpointInterventionsArePrior } from "./spellingCheckpointLineage";
 import {requestPlannerMessage, assertPlannerResponseComplete} from "./plannerTransport";
 import Anthropic from "@anthropic-ai/sdk";
@@ -643,18 +644,9 @@ function isPlannerDestinationActivity(activityId: string): boolean {
   return PLANNER_DESTINATION_ACTIVITY_IDS.has(activityId);
 }
 
-/** Post-Discovery spelling only: role and goal, no rules; the model brings the pedagogy. */
-export const SPELLING_TUTOR_PERSONA = [
-  "You are an expert reading and spelling tutor planning this child's next session.",
-  "Your goal: she spells every assigned word correctly on her school test, and enjoys getting there.",
-  "Use what you know about how children learn to spell, her profile, and exactly what she wrote.",
-].join(" ");
-
-export const ASSIGNMENT_PLANNER_PERSONA = [
-  "You are Sunny's assignment planner.",
-  "Treat homework as the reality anchor.",
-  "Use the child chart and activity catalog to choose a concise evidence-based learning plan.",
-].join(" ");
+/** Compatibility exports for callers; both domains share the same identity. */
+export const SPELLING_TUTOR_PERSONA = learningPlannerInstructions("spelling").text;
+export const ASSIGNMENT_PLANNER_PERSONA = LEARNING_PLANNER_PERSONA;
 // Per-node rounds + generationRequests add ~1.5-2k output tokens on math plans;
 // 8k keeps the single tool call from truncating mid-plan.
 const ASSIGNMENT_PLANNER_MAX_TOKENS = 16_000;
@@ -946,6 +938,7 @@ export type PlannerGenerationRequest = z.infer<typeof generationRequestSchema>;
 const compactActiveSessionPlanSchema = z.object({
   planId: z.string().min(1).optional(),
   nodePlan: z.array(compactNodePlanSchema).min(1).max(12),
+  journey: adventureJourneySchema.optional(),
   boardDefinition: adventureBoardDefinitionSchema.optional(),
   evidenceUsed: z.array(z.object({
     id: z.string().min(1),
@@ -954,6 +947,9 @@ const compactActiveSessionPlanSchema = z.object({
   })).optional(),
   openQuestions: z.array(z.string()).optional(),
   plannerConfidence: z.number().optional(),
+}).superRefine((plan,ctx)=>{
+  if(plan.journey && plan.boardDefinition && !isDeepStrictEqual(plan.journey,journeyFromBoardDefinition(plan.boardDefinition)))
+    ctx.addIssue({code:"custom",message:"planner_journey_definition_mismatch",path:["journey"]});
 });
 
 const capturedContentDraftSchema = z.object({
@@ -1753,11 +1749,12 @@ export function assignmentPlannerSourceImages(packet: AssignmentPlanningPacket):
 const AUTHORED_JOURNEY_INSTRUCTION = `${BOARD_AUTHORING_INSTRUCTION} Return it as activeSessionPlan.boardDefinition. nodePlan is the canonical activity inventory, not its chronology. Checkpoint citations name possible prior interventions; validate exposure order on each path containing both. Do not return learningRoutes or a second rendered adventureBoard.`;
 
 export function buildAssignmentPlannerPrompt(packet: AssignmentPlanningPacket): string {
-  if (packet.discoveryEvidence) return `${SPELLING_TUTOR_PERSONA}\nThe packet has her assigned words, her Discovery attempts (childResponse is exactly what she spelled), her profile, and the activities you can use; each activity's label says what it really does. Decide what she needs and design the session: you choose the activities, their order, and how many.\nEverything below only describes how to record your plan and which evidence rules the system enforces; it is not teaching guidance.\nReturn the existing ${ASSIGNMENT_PLANNER_TOOL_NAME} tool object once. Every node needs its own measure-<nodeId> planned measurement and the spelling decision fields. Preserve source words exactly. You choose the number of activities, emphasis, mechanics, and routes; do not fabricate evidence. Existing Quest/Boss gates and earning rules remain unchanged. Do not introduce new reward systems.\n${packet.plannerInstruction}\n${AUTHORED_JOURNEY_INSTRUCTION}\nEvidence-first packet:\n${JSON.stringify({ ...packet, plannerInstruction: undefined })}`;
+  const instructions=learningPlannerInstructions(packet.capturedHomework?.contentProfile?.practiceDomain).text;
+  if (packet.discoveryEvidence) return `${instructions}\nThe packet has her assigned words, her Discovery attempts (childResponse is exactly what she spelled), her profile, and the activities you can use; each activity's label says what it really does. Decide what she needs and design the session: you choose the activities, their order, and how many.\nEverything below only describes how to record your plan and which evidence rules the system enforces; it is not teaching guidance.\nReturn the existing ${ASSIGNMENT_PLANNER_TOOL_NAME} tool object once. Every node needs its own measure-<nodeId> planned measurement and the spelling decision fields. Preserve source words exactly. You choose the number of activities, emphasis, mechanics, and routes; do not fabricate evidence. Existing Quest/Boss gates and earning rules remain unchanged. Do not introduce new reward systems.\n${packet.plannerInstruction}\n${AUTHORED_JOURNEY_INSTRUCTION}\nEvidence-first packet:\n${JSON.stringify({ ...packet, plannerInstruction: undefined })}`;
   const revisionInstruction = packet.parentDialogue?.length || packet.priorPlannerOutput
     ? "\n- This is a human-in-the-loop revision. Use parentDialogue and priorPlannerOutput as context, then return one coherent revised plan from the same source."
     : "";
-  return `${ASSIGNMENT_PLANNER_PERSONA}
+  return `${instructions}
 
 Design today's learning journey for this child from the source-of-truth packet.
 
@@ -1773,7 +1770,7 @@ Output contract:
 - Do not use an activity just because it is fun or nearby; use the activity catalog as the instrument list.
 - If parentDialogue is present in the packet, this is human-in-the-loop context. Use it to revise the plan without overriding captured source evidence.
 - Choose nodePlan directly. Do not merely explain a prebuilt board.
-- Keep the tool output compact: no prose outside fields, no repeated rationales. Compact means no filler, not fewer teaching nodes: size the spine to the captured concepts and the child chart. Every distinct source group (concept lane) gets at least one measurement node. A single group containing clearly distinct sub-skills (for example shading unit fractions vs comparing fraction magnitude) should split into multiple nodes on the same targetLane with different target subsets.
+- Keep the tool output compact: no prose outside fields or repeated rationales. Choose educationally sufficient activities from captured concepts and the child chart.
 - Every activeSessionPlan.nodePlan entry must have exactly one corresponding plannedMeasurements entry with id "measure-\${node.id}". That measurement must state what would support, revise, or falsify the planner's theory for that exact node.
 - Treat childChart.adventureMapProfile as delivery preference and layout intent. It is not today's board.
 - Use packet.activityCatalog as the instrument list. Unavailable activities are visible for context but must not appear as launchable academic board nodes.
@@ -1823,6 +1820,8 @@ function removeSchemaProperty(schema: JsonSchemaObject | undefined, propertyName
 function enforcePlannerToolContract(schema: JsonSchemaObject): JsonSchemaObject {
   const activeSessionPlan = schemaProperties(schema).activeSessionPlan;
   removeSchemaProperty(activeSessionPlan, "adventureBoard");
+  // Switch authoring only when the Creator handoff is wired; legacy receipts remain readable.
+  removeSchemaProperty(activeSessionPlan, "journey");
   setSchemaRequired(activeSessionPlan, ["nodePlan", "boardDefinition"]);
 
   return schema;
@@ -1960,7 +1959,9 @@ function assignmentPlannerRelationshipIssues(
 
   const issues: AssignmentPlannerRelationshipIssue[] = [];
   for(const id of gatedNodeIds) issues.push({code:'planner_encounter_not_authorized',id,message:'Opening Teaching boards cannot authorize Quest or Boss. Preserve the remaining journey and request these through the existing evidence-based successor decision.'});
-  const definition = adventureBoardDefinitionSchema.safeParse(activeSessionPlan?.boardDefinition);
+  const definition = activeSessionPlan?.journey !== undefined
+    ? adventureJourneySchema.safeParse(activeSessionPlan.journey)
+    : adventureBoardDefinitionSchema.safeParse(activeSessionPlan?.boardDefinition);
   if (!definition.success) issues.push({code:'board_definition_missing_or_invalid',message:JSON.stringify(definition.error.issues)});
   else issues.push(...validateBoardDefinition(definition.data,[...nodeOrder.keys()]));
   let pathOrders: Map<string,number>[] = [];
@@ -2316,7 +2317,7 @@ async function callAssignmentPlannerModel(
         const correction=await runMathProviderStage({draftDir:providerReceipt.draftDir,stage,model,
           request:{version:7,attempt,strict:true,purpose:"assignment_planner_measurement_field_correction",originalRequestHash:hashDiscoveryContract(packet),invalidToolInput:current,fields,schemaHash:hashDiscoveryContract(schema),defects,allowedEvidenceIds},
           beforeRequest:()=>{if(!process.env.ANTHROPIC_API_KEY)throw new Error("assignment_planner_ai_unavailable:ANTHROPIC_API_KEY");},
-          execute:async()=>({message:await requestAssignmentPlannerTool({model,schema,measurementOnly:true,prompt:`Correct only the named measurement fields. Return corrections [{path,value}], not a complete plan. Every other field is immutable. A nonacademic Mystery reward has no spelling measurement: use value:null for its spelling field without removing its activity. Evidence IDs must come from the supplied observations. Checkpoints cite prior exposures for their target words on each executable path. Preserve already-valid checkpoint references. Do not emit Quest or Boss nodes, locked or otherwise. This is correction ${attempt} of 2.\nDEFECT: ${JSON.stringify(defects)}\nEDITABLE FIELDS: ${JSON.stringify(fields)}\nCURRENT MEASUREMENTS: ${JSON.stringify(raw.plannedMeasurements)}\nAVAILABLE EVIDENCE IDS: ${JSON.stringify(allowedEvidenceIds)}\nREAD-ONLY ACTIVITY INVENTORY: ${JSON.stringify((jsonObject(raw.activeSessionPlan)?.nodePlan as unknown[]).map(node=>{const n=jsonObject(node)!;return {id:n.id,type:n.type,targets:n.targets};}))}\nREAD-ONLY PATHS: ${JSON.stringify(jsonObject(raw.activeSessionPlan)?.boardDefinition)}`}),model,latencyMs:Date.now()-correctionStarted,createdAt:new Date().toISOString()})});
+          execute:async()=>({message:await requestAssignmentPlannerTool({model,schema,measurementOnly:true,prompt:`Correct only the named measurement fields. Return corrections [{path,value}], not a complete plan. Every other field is immutable. A nonacademic Mystery reward has no spelling measurement: use value:null for its spelling field without removing its activity. Evidence IDs must come from the supplied observations. Checkpoints cite prior exposures for their target words on each executable path. Preserve already-valid checkpoint references. Do not emit Quest or Boss nodes, locked or otherwise. This is correction ${attempt} of 2.\nDEFECT: ${JSON.stringify(defects)}\nEDITABLE FIELDS: ${JSON.stringify(fields)}\nCURRENT MEASUREMENTS: ${JSON.stringify(raw.plannedMeasurements)}\nAVAILABLE EVIDENCE IDS: ${JSON.stringify(allowedEvidenceIds)}\nREAD-ONLY ACTIVITY INVENTORY: ${JSON.stringify((jsonObject(raw.activeSessionPlan)?.nodePlan as unknown[]).map(node=>{const n=jsonObject(node)!;return {id:n.id,type:n.type,targets:n.targets};}))}\nREAD-ONLY PATHS: ${JSON.stringify(jsonObject(raw.activeSessionPlan)?.journey ?? jsonObject(raw.activeSessionPlan)?.boardDefinition)}`}),model,latencyMs:Date.now()-correctionStarted,createdAt:new Date().toISOString()})});
         console.log(` 🎮 [assignment-planner] [measurement-field-correction] [received] id=${correction.message.id} attempt=${attempt}`);
         assertPlannerResponseComplete(correction.message);
         const tool=correction.message.content.find(block=>block.type==="tool_use" && block.name===ASSIGNMENT_PLANNER_TOOL_NAME);
@@ -3017,9 +3018,10 @@ function hydrateActiveSessionPlanFromDraft(args: {
     thumbnailUrl: thumbnailForAssignmentBoardNode(node),
     source: "chart_planner" as const,
   }));
-  if (!args.draft.boardDefinition) throw new Error('board_definition_required:request_explicit_planner_revision');
   const definition = args.draft.boardDefinition;
-  const definitionIssues = validateBoardDefinition(definition,nodePlan.map(node => node.id));
+  const journey = args.draft.journey ?? (definition ? journeyFromBoardDefinition(definition) : undefined);
+  if (!journey) throw new Error('board_definition_required:request_explicit_planner_revision');
+  const definitionIssues = validateBoardDefinition(journey,nodePlan.map(node => node.id));
   if (definitionIssues.length) throw new Error(`board_definition_invalid:${JSON.stringify(definitionIssues)}`);
   return {
     planId,
@@ -3029,13 +3031,14 @@ function hydrateActiveSessionPlanFromDraft(args: {
     domain: args.capturedContent.contentProfile.practiceDomain,
     testDate: null,
     nodePlan,
-    boardDefinition: definition,
+    ...(args.draft.journey ? {journey} : {}),
+    ...(definition ? {boardDefinition: definition,
     adventureBoard: renderBoardDefinition(definition, {
       boardId: `assignment-board-${args.packet.childId}-${args.packet.sourceDocument.fileHash.slice(0, 8)}`,
       planId, childId:args.packet.childId, domain:args.capturedContent.contentProfile.practiceDomain,
       activities:nodePlan.map(node => ({...node, wordRadarConfig:node.wordRadarConfig ? {...node.wordRadarConfig} : undefined, state:'generating', verified:false})),
       companion:{id:companionId,name:args.packet.childChart.selectedCompanionName ?? companionId},
-    }),
+    })} : {}),
     variationPolicy: {
       avoidExactPreviousNodeOrder: true,
       avoidExactPreviousWordOrder: true,

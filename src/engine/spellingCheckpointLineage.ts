@@ -1,9 +1,9 @@
-import { journeyExecutions, type AdventureBoardDefinition } from '../shared/adventureBoardDefinition';
+import { journeyExecutions, type AdventureJourneyDefinition } from '../shared/adventureBoardDefinition';
 /** Exposure relationships are factual graph constraints, not teaching choices. */
 export function spellingCheckpointLineageIssues(
   nodes: ReadonlyArray<{ id: string; type: string; targets: readonly string[] }>,
   measurements: ReadonlyArray<{ id: string; spelling?: { role: string; interventionNodeIds: readonly string[] } }>,
-  definition?: AdventureBoardDefinition,
+  definition?: AdventureJourneyDefinition,
 ): Array<{ code: "planner_checkpoint_lineage_missing" | "planner_final_checkpoint_missing"; nodeId: string; measurementId: string; interventionNodeIds: string[] }> {
   if (definition) {
     const byNodeId = new Map(nodes.map(node => [node.id,node]));
