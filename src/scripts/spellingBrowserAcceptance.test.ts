@@ -235,12 +235,15 @@ it.each([
       await page.mouse.click(hit.x, hit.y);
       await expect.poll(() => confirmedAssessmentPlayback).toBe(expectedPlaybackCount);
       await page.getByTestId("word-radar-input").fill(value);
-      const written = page.waitForResponse(response => response.url().endsWith("/discovery/attempt"));
-      await page.getByRole("button", { name: "Submit", exact: true }).click();
-      expect((await written).status()).toBe(200);
+      const [written] = await Promise.all([
+        page.waitForResponse(response => response.url().endsWith("/discovery/attempt")),
+        page.getByRole("button", { name: "Submit", exact: true }).click(),
+      ]);
+      expect(written.status()).toBe(200);
     };
     for (const [index, word] of words.entries()) {
       const resumedOffset = scenario.adaptive && index >= 2 ? 2 : 0;
+      events.push(`expected-item:${index + 1 - resumedOffset}/${words.length - resumedOffset}`);
       await page.getByText(`Word ${index + 1 - resumedOffset} of ${words.length - resumedOffset}`, {exact:true}).waitFor();
       await answer(scenario.adaptive && index >= 6 ? "zzz" : index === 1 && !scenario.adaptive ? "lite" : word);
       if (index < words.length - 1) {
@@ -428,6 +431,7 @@ it.each([
       await page.getByTestId("word-radar-input").waitFor();
       await page.screenshot({ path: finalCheckScreenshotPath });
       for (const [index, word] of words.entries()) {
+        await page.getByText(`Word ${index + 1} of ${words.length}`, {exact:true}).waitFor();
         await answer(word);
         if (index < words.length - 1) await page.getByTestId("word-radar-input").waitFor();
       }
@@ -587,7 +591,14 @@ it.each([
       await page.screenshot({path:path.join(outputDir,'parent-report.png')});
     }
   } finally {
-    if (browser) { const page = browser.contexts()[0]?.pages()[0]; if (page) { await page.screenshot({ path: path.join(outputDir, "last-state.png") }); fs.writeFileSync(path.join(outputDir, "diagnostic.json"), JSON.stringify({ events, errors, body: await page.locator("body").innerText() })); } await browser.close(); }
+    if (browser) { const page = browser.contexts()[0]?.pages()[0]; if (page) {
+      const diagnosticId=`${viewport.width}x${viewport.height}-chart-${scenario.chart}-${path.basename(rootDir)}`;
+      await page.screenshot({ path: path.join(outputDir, "last-state.png") });
+      fs.copyFileSync(path.join(outputDir,"last-state.png"),path.join(outputDir,`${diagnosticId}.png`));
+      const diagnostic=JSON.stringify({ events, errors, body: await page.locator("body").innerText(),cycle:getLearningCycle(childId,homeworkId,{rootDir}) });
+      fs.writeFileSync(path.join(outputDir,"diagnostic.json"),diagnostic);
+      fs.writeFileSync(path.join(outputDir,`${diagnosticId}.json`),diagnostic);
+    } await browser.close(); }
     await vite?.close();
     ws.clients.forEach(socket => socket.terminate());
     await new Promise<void>(resolve => ws.close(() => resolve()));
