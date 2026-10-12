@@ -4,6 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, expect, it } from "vitest";
 import { verifyDiscoveryRuntimeScoring } from "./adaptiveMathDiscovery";
+import { MATH_JOURNEY_CONTRACT } from "./discoveryVisualReview";
 import { runDirectBrowserSmokeCheck } from "./directMathExperience";
 
 const roots: string[] = [];
@@ -730,4 +731,16 @@ it("identifies a later hidden-state defect and leaves unreached items explicitly
   }
   expect(result.screenshots).toHaveLength(4);
   expect(result.screenshots.every(file=>fs.existsSync(file))).toBe(true);
+},20000);
+
+it("advertises the supported keyboard slider action and a required drag target", () => {
+  expect(MATH_JOURNEY_CONTRACT).toContain('action:"press"');
+  expect(MATH_JOURNEY_CONTRACT).toContain('target is required');
+});
+it("verifies a real range slider through keyboard input and canonical attempt emission", async () => {
+  const result=await verify(`<input id="slider" type="range" min="0" max="1" value="0"><button id="finish" hidden>Finish</button>
+<script>window.SUNNY_VALIDATION_HOOKS={journey:[{itemId:'one',steps:[{action:'press',selector:'#slider',value:'ArrowRight'},{action:'click',selector:'#finish'}]}]};
+document.querySelector('#slider').oninput=()=>{parent.postMessage({type:'attempt_event',payload:{domain:'math',target:'one',attemptedValue:document.querySelector('#slider').value,correct:true,responseTimeMs:100,scaffoldLevel:0}},'*');document.querySelector('#finish').hidden=false;};
+document.querySelector('#finish').onclick=()=>parent.postMessage({type:'node_complete',payload:{nodeId:'node',targetResults:[{target:'one',attemptedValue:'1',correct:true}]}},'*');</script>`);
+  expect(result.failures).toEqual([]);
 },20000);
