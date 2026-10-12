@@ -324,7 +324,7 @@ export class WsTtsBridge {
     };
     this.terminals.set(ws, terminal);
     ws.once("close", (code: number | undefined) => terminal.settle(
-      this.stopped || this.elevenWs !== ws ? "cancelled" : code === 1000 || code === undefined ? "closed" : "tts_provider_error"
+      this.stopped || this.elevenWs !== ws ? "cancelled" : code === 1000 || code === 1005 || code === undefined ? "closed" : "tts_provider_error"
     ));
     return terminal;
   }

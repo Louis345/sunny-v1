@@ -107,11 +107,11 @@ describe('WsTtsBridge provider terminal protocol',()=>{
   }finally{await f.close();}
  },10000);
 
- it.each([1000,1011])('records provider close %i instead of silently timing out',async code=>{
+ it.each([1000,1005,1011])('records provider close %i instead of silently timing out',async code=>{
   const f=await localProvider();try{
    f.bridge.sendText('monkey.');const finished=f.bridge.finish();
-   const assertion=code===1000?expect(finished).resolves.toBeUndefined():expect(finished).rejects.toThrow('tts_provider_error');
-   f.peer.close(code);await assertion;expect((f.bridge as any).elevenWs).toBeNull();expect(f.bridge.hadAudioThisTurn()).toBe(false);
+   const assertion=code!==1011?expect(finished).resolves.toBeUndefined():expect(finished).rejects.toThrow('tts_provider_error');
+   if(code===1005)f.peer.close();else f.peer.close(code);await assertion;expect((f.bridge as any).elevenWs).toBeNull();expect(f.bridge.hadAudioThisTurn()).toBe(false);
   }finally{await f.close();}
  },10000);
 
