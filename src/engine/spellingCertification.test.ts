@@ -9,6 +9,26 @@ import {
 } from "./spellingCertification";
 
 describe("spelling adaptation certification", () => {
+  it("certifies the existing Visual Explainer with its loaded measurement shell as practice-only", () => {
+    const game = certifySpellingAdaptation({childId:"demo_adaptive"}).games.find(game=>game.gameId==="visual-explainer");
+    expect(game).toMatchObject({allowedInRealChildSession:true,masteryEligible:false,evidenceTier:"practice",checks:{chartEvidence:"pass",liveBoardTruth:"pass"}});
+  });
+
+  it.each(["missing-shell","missing-evidence","unlinked-shell"])("blocks Visual Explainer when its loaded runtime is broken: %s", defect => {
+    const rootDir=fs.mkdtempSync(path.join(os.tmpdir(),"sunny-explainer-certification-"));
+    try {
+      const primary="web/public/games/spelling-visual-explainer.html", dependency="web/public/generated/openai-visual-probe/artifact-shell.js";
+      fs.mkdirSync(path.dirname(path.join(rootDir,primary)),{recursive:true});
+      fs.writeFileSync(path.join(rootDir,primary),defect==="unlinked-shell" ? fs.readFileSync(primary,"utf8").replace('<script src="/generated/openai-visual-probe/artifact-shell.js"></script>','<!-- /generated/openai-visual-probe/artifact-shell.js -->') : fs.readFileSync(primary));
+      if(defect!=="missing-shell") {
+        fs.mkdirSync(path.dirname(path.join(rootDir,dependency)),{recursive:true});
+        fs.writeFileSync(path.join(rootDir,dependency),defect==="missing-evidence" ? fs.readFileSync(dependency,"utf8").replaceAll("fireAttemptEvent","removedAttempt").replaceAll("targetResults","removedResults") : fs.readFileSync(dependency,"utf8"));
+      }
+      const game=certifySpellingAdaptation({childId:"demo_adaptive",rootDir}).games.find(game=>game.gameId==="visual-explainer");
+      expect(game?.allowedInRealChildSession).toBe(false);
+      expect(game?.issues.some(issue=>issue.code===(defect!=="missing-evidence"?"source_missing":"missing_chart_evidence"))).toBe(true);
+    } finally {fs.rmSync(rootDir,{recursive:true,force:true});}
+  });
   it("certifies every spelling-related game against the activity measurement contract", () => {
     const report = certifySpellingAdaptation({ childId: "demo_adaptive" });
     const certifiedIds = new Set(report.games.map((game) => game.gameId));
