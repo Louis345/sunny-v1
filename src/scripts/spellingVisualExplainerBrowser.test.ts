@@ -235,3 +235,24 @@ it.each([{width:1280,height:720},{width:768,height:1024},{width:548,height:1024}
  await expect.poll(()=>page.evaluate<any[]>('window.captured')).toContainEqual(expect.objectContaining({type:'node_complete'}));
  expect(errors).toEqual([]);
 },20000);
+
+
+// The worker previously repartitioned chunks to match the focus substring,
+// breaking their paired audio. Highlighting belongs in the renderer instead.
+it('highlights a focus across authored chunk boundaries without changing tiles or sound cues',async()=>{
+ const modelConfig=structuredClone(config);
+ Object.assign(modelConfig.spellingModel.words[0],{chunks:['li','ght'],spokenChunks:['lih sound','t sound'],focusChunk:'ight'});
+ const {page,frame,errors}=await launch({width:1280,height:720},{modelConfig});
+ await frame.locator('body').evaluate(()=>(globalThis as any).SunnySpellingVisualExplainer.setProgress(48,false));
+ await frame.getByRole('button',{name:'ight',exact:true}).click();
+ await frame.getByRole('button',{name:'See the strategy',exact:true}).click();
+ await frame.locator('body').evaluate(()=>(globalThis as any).SunnySpellingVisualExplainer.setProgress(100,false));
+ expect(await frame.locator('.chunk').allTextContents()).toEqual(['li','ght']);
+ expect((await frame.locator('.focus-letter').allTextContents()).join('')).toBe('ight');
+ await frame.getByRole('button',{name:'Hear li',exact:true}).click();
+ await frame.getByRole('button',{name:'Hear ght',exact:true}).click();
+ await expect.poll(async()=>(await page.evaluate<any[]>('window.captured')).filter(message=>message.type==='narration_request').length).toBe(2);
+ const requests=await page.evaluate<any[]>('window.captured');
+ expect(requests.filter(message=>message.type==='narration_request').map(message=>({text:message.text,chunk:message.chunk,index:message.chunkIndex}))).toEqual([{text:'lih sound',chunk:'li',index:0},{text:'t sound',chunk:'ght',index:1}]);
+ expect(errors).toEqual([]);
+});

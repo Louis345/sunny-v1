@@ -50,6 +50,7 @@
       opacity:.22; transform:translateY(10px) scale(.96); transition:opacity .35s,transform .35s,border-color .35s,background .35s;
     }
     .chunk.visible { opacity:1; transform:none; }
+    .chunk.focus .focus-letter { color:var(--sun); text-decoration:underline; text-underline-offset:.12em; }
     .chunk.focus { border-color:var(--sun); background:linear-gradient(145deg,#7a48ee,#4c28bc); box-shadow:0 0 0 6px rgba(255,214,90,.12),0 13px 30px rgba(0,0,0,.25); }
     .tip { min-height:26px; margin:0; color:var(--mint); font-size:clamp(15px,1.7vw,20px); font-weight:850; opacity:0; transition:opacity .3s; }
     .tip.visible { opacity:1; }
@@ -167,8 +168,19 @@
         modelNodes = model.words.map((word) => {
           const row = document.createElement("article"); row.className = "word-model"; row.dataset.itemId = word.id;
           const chunks = document.createElement("div"); chunks.className = "chunks";
+          const normalizedWord = word.text.normalize("NFC").toLocaleLowerCase("en-US");
+          const focus = word.focusChunk.normalize("NFC").toLocaleLowerCase("en-US");
+          const focusStarts = Array.from({length:normalizedWord.length},(_,index)=>index).filter(index=>normalizedWord.startsWith(focus,index));
+          let wordOffset = 0;
           const chunkNodes = word.chunks.map((chunk, chunkIndex) => {
-            const tile = document.createElement("button"); tile.type = "button"; tile.className = "chunk"; tile.textContent = chunk;
+            const tile = document.createElement("button"); tile.type = "button"; tile.className = "chunk";
+            let letterOffset = wordOffset;
+            tile.replaceChildren(...Array.from(chunk.normalize("NFC"),letter=>{
+              const span=document.createElement("span"); span.textContent=letter;
+              if(focusStarts.some(start=>letterOffset>=start && letterOffset<start+focus.length))span.className="focus-letter";
+              letterOffset+=letter.length; return span;
+            }));
+            wordOffset=letterOffset;
             tile.setAttribute("aria-label", `Hear ${chunk}`);
             tile.title = `Hear ${chunk}`;
             tile.disabled = true;
@@ -180,7 +192,7 @@
                 word:word.text, text:spoken, reason:"spelling_chunk", chunk, chunkIndex }, "*");
               console.log(" 🎮 [spelling-visual-explainer] [chunk-audio] [requested]", { word:word.text, chunk });
             });
-            if (chunk.toLocaleLowerCase() === word.focusChunk.toLocaleLowerCase()) tile.dataset.focus = "true";
+            if (tile.querySelector(".focus-letter")) tile.dataset.focus = "true";
             chunks.appendChild(tile); return tile;
           });
           const tip = document.createElement("p"); tip.className = "tip"; tip.textContent = word.tip;

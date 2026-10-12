@@ -37,8 +37,8 @@ const spellingVisualWordSchema = z.object({
   if (normalize(word.chunks.join("")) !== normalize(word.text)) {
     context.addIssue({ code: "custom", path: ["chunks"], message: "chunks must reconstruct the target word" });
   }
-  if (!word.chunks.some((chunk) => normalize(chunk) === normalize(word.focusChunk))) {
-    context.addIssue({ code: "custom", path: ["focusChunk"], message: "focusChunk must be one complete chunk" });
+  if (!normalize(word.text).includes(normalize(word.focusChunk))) {
+    context.addIssue({ code: "custom", path: ["focusChunk"], message: "focusChunk must occur in the target word" });
   }
   if (word.spokenChunks && word.spokenChunks.length !== word.chunks.length) {
     context.addIssue({ code: "custom", path: ["spokenChunks"], message: "spokenChunks must align one-to-one with chunks" });

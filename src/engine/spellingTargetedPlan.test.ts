@@ -178,7 +178,20 @@ describe("evidence-cited spelling targeted programs", () => {
     crossedWord.focusChunk = "ight";
     const crossedInput = buildSpellingTargetedCycleInput({ cycle, plan: crossedBoundary, now: "2026-09-08T12:00:00Z" });
     expect((crossedInput.nodes[0]!.evidenceContract.nativeConfig as { spellingModel: { words: Array<{ chunks: string[] }> } }).spellingModel.words[0]!.chunks)
-      .toEqual(["l", "ight"]);
+      .toEqual(["li", "ght"]);
+
+    // Preserve the author's display chunks and paired sound cues even when
+    // its focus is inside a chunk. Runtime must not repartition either.
+    const insideChunk=structuredClone(plan) as any;
+    insideChunk.nodePlan[0].activityConfig.words[0].focusChunk='igh';
+    const before=structuredClone(insideChunk.nodePlan[0].activityConfig.words[0]);
+    const insideInput=buildSpellingTargetedCycleInput({cycle,plan:insideChunk,now:'2026-09-08T12:00:00Z'});
+    const frozenWord=(insideInput.nodes[0].evidenceContract.nativeConfig as any).spellingModel.words[0];
+    expect({...frozenWord,id:before.id}).toEqual(before);
+    expect(insideChunk.nodePlan[0].activityConfig.words[0]).toEqual(before);
+    const absentFocus=structuredClone(plan) as any;
+    absentFocus.nodePlan[0].activityConfig.words[0].focusChunk='zzz';
+    expect(()=>buildSpellingTargetedCycleInput({cycle,plan:absentFocus,now:'2026-09-08T12:00:00Z'})).toThrow('spelling_visual_explainer_config_invalid');
 
     const malformed = structuredClone(plan);
     (malformed.nodePlan[0]!.activityConfig as { words: Array<{ chunks: string[] }> }).words[0]!.chunks = ["l", "ite"];
