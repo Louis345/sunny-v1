@@ -1066,9 +1066,11 @@ export async function verifyMathControlJourney(page: BrowserPage, input: {
       }
     }
   }
+  const completion = messages.find(message => message.type === "node_complete");
+  const final = completion?.payload ?? completion;
   const rows: JourneyResult[] = input.completionType === "evaluation_complete"
     ? messages.filter(m => m.type === "evaluation_attempt").map(m => { const row = m.payload ?? m as NonNullable<typeof m.payload>; return {target: row.itemId, attemptedValue: row.attemptedValue}; })
-    : messages.find(m => m.type === "node_complete")?.payload?.targetResults ?? [];
+    : final?.targetResults ?? [];
   const expected = input.itemIds ?? journey.map(row => row.itemId);
   if (journeyKey === "incorrectJourney" && Number(await page.evaluate(`window.__sunnyIncorrectScoringCalls ?? 0`)) < expected.length) {
     throw new Error("math_journey_child_scoring_bridge_not_used");
@@ -1088,7 +1090,6 @@ export async function verifyMathControlJourney(page: BrowserPage, input: {
     if (contracts.size !== input.itemContracts.length || input.itemContracts.length !== expected.length
       || expected.some(itemId => !contracts.has(itemId))) throw new Error("math_journey_contract_coverage");
     const attempts: JourneyPayload[] = messages.filter(message => message.type === "attempt_event").map(message => message.payload ?? message);
-    const final = messages.find(message => message.type === "node_complete")?.payload;
     for (const itemId of expected) {
       const contract = contracts.get(itemId)!;
       const firstAttempt = attempts.find(row => row.target === itemId);

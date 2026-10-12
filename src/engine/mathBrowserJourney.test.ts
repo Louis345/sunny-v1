@@ -744,3 +744,26 @@ document.querySelector('#slider').oninput=()=>{parent.postMessage({type:'attempt
 document.querySelector('#finish').onclick=()=>parent.postMessage({type:'node_complete',payload:{nodeId:'node',targetResults:[{target:'one',attemptedValue:'1',correct:true}]}},'*');</script>`);
   expect(result.failures).toEqual([]);
 },20000);
+
+it("launches generated spelling verification with the same canonical word bindings as the live bridge", async () => {
+  // Lab catch: saved capsule submitted a word through GameBridge; verifier omitted
+  // the live spellingItemBindings, so it waited for an ID its launch never supplied.
+  const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-spelling-launch-fidelity-")); roots.push(rootDir);
+  const publicGames = path.join(rootDir, "web/public/games"); fs.mkdirSync(publicGames, { recursive: true });
+  fs.copyFileSync(path.join(process.cwd(), "web/public/games/_contract.js"), path.join(publicGames, "_contract.js"));
+  const htmlPath = path.join(rootDir, "capsule.html");
+  fs.writeFileSync(htmlPath, `<!doctype html><head><script src="/games/_contract.js"></script></head><h1>Capsule</h1>
+    <input id="letters" aria-label="Spelling"><button id="seal">Seal</button>
+    <script>
+    window.SUNNY_VALIDATION_HOOKS={journey:[{itemId:'occasion:night',steps:[{action:'fill',selector:'#letters',value:'night'},{action:'click',selector:'#seal'}]}]};
+    GameBridge.reportState('Listen and spell',{currentChallenge:{id:'occasion:night',prompt:'Listen and spell'},phase:'question'});
+    document.querySelector('#seal').onclick=()=>{
+      const row={domain:'spelling',target:'night',attemptedValue:document.querySelector('#letters').value,correct:true,responseTimeMs:100,scaffoldLevel:0};
+      fireAttemptEvent(row);sendNodeComplete({nodeId:GAME_PARAMS.nodeId,completed:true,targetResults:[row]});
+    };
+    </script>`);
+  const artifact = { nodeId: "node", childId: "lab", homeworkId: "hw", title: "Capsule", htmlPath, artworkUrl: "/art.svg", creatorPrompt: "fixture", promptHash: "fixture", plannerModel: "mock", creatorModel: "mock", itemIds: ["occasion:night"], spellingItemBindings: [{ itemId: "occasion:night", word: "night" }] };
+  const report = await runDirectBrowserSmokeCheck({ rootDir, artifacts: [artifact] });
+  expect(report.failures).toEqual([]);
+  expect(report.passed).toBe(true);
+}, 20000);
