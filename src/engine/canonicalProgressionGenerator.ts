@@ -305,7 +305,7 @@ export async function generateCanonicalProgressionArtifact(
       const digest = (value: unknown) => createHash("sha256").update(JSON.stringify(value)).digest("hex");
       if (fs.existsSync(file)) {
         const saved = JSON.parse(fs.readFileSync(file, "utf8"));
-        if (saved.hash !== digest(saved.input) || saved.input.prompt !== prompt || saved.input.cycle.childId !== cycle.childId
+        if (saved.hash !== digest(saved.input) || (attempt === 1 && saved.input.prompt !== prompt) || saved.input.cycle.childId !== cycle.childId
           || saved.input.cycle.homeworkId !== cycle.homeworkId || saved.input.cycle.domain !== cycle.domain || saved.input.node.nodeId !== node.nodeId
           || progressionContractFingerprint(saved.input.node) !== progressionContractFingerprint(nodeForGeneration)) throw new Error(`${cycle.domain}_creator_snapshot_changed`);
         creatorInput = saved.input;

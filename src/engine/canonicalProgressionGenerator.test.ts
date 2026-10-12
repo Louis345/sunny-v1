@@ -468,6 +468,20 @@ describe("canonical progression generation", () => {
     expect(snapshots).toHaveLength(1);
     expect(JSON.stringify(JSON.parse(frozen).input)).toBe(snapshots[0]);
   });
+  it("revalidates saved spelling correction after validator diagnostics change without buying content again", async () => {
+    const rootDir = root(), initial = baseInput(); initial.domain = "spelling";
+    initial.nodes = [{ ...initial.nodes[0], state: "generating", artifactBinding: null, generationPrompt: { promptId: "p-revalidate", text: "Practice", createdFromEvidenceIds: ["pdf"] } }] as never;
+    createLearningCycle(initial, { rootDir });
+    const generateHtml = vi.fn(async () => "<html><h1>Fact Blaster</h1></html>");
+    let checks = 0;
+    const original = { childId:"reina", homeworkId:"hw-progression", generateHtml, validate:async()=>({passed:false,failures:[++checks===1?"missing config|false identity substring":"false identity substring"]}) };
+    await generateCanonicalProgressionArtifact(original,{rootDir});
+    expect(generateHtml).toHaveBeenCalledTimes(2);
+    let rechecks = 0;
+    const recovered = await generateCanonicalProgressionArtifact({...original,validate:async()=>({passed:++rechecks===2,failures:rechecks===1?["missing config"]:[]})},{rootDir});
+    expect(recovered.nodes[0].state).toBe("ready");
+    expect(generateHtml).toHaveBeenCalledTimes(2);
+  });
   it("uses the existing Experience Creator with a two-attempt guard and no legacy generator", () => {
     const source = fs.readFileSync(path.join(process.cwd(), "src/engine/canonicalProgressionGenerator.ts"), "utf8");
     expect(source).toContain("generateAdaptiveProgressionActivityHtml");
