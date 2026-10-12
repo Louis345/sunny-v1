@@ -1,10 +1,11 @@
 import {verifyAuthoredBoardCanvas} from './adventureBoardCanvas';
-import { adventureBoardDefinitionSchema, BOARD_AUTHORING_INSTRUCTION, BOARD_CANVAS_AUTHORING_CONSTRAINTS, renderBoardDefinition, validateBoardDefinition, journeyExecutions, type BoardDefinitionIssue } from '../shared/adventureBoardDefinition';
+import { adventureBoardDefinitionSchema, BOARD_AUTHORING_INSTRUCTION, BOARD_CANVAS_AUTHORING_CONSTRAINTS, renderBoardDefinition, validateBoardDefinition, journeyExecutions, type BoardDefinitionIssue, type AdventureBoardDefinition } from '../shared/adventureBoardDefinition';
 import { spellingCheckpointLineageIssues, checkpointInterventionsArePrior } from "./spellingCheckpointLineage";
 import {requestPlannerMessage, assertPlannerResponseComplete} from "./plannerTransport";
 import Anthropic from "@anthropic-ai/sdk";
 import fs from "fs";
 import path from "path";
+import {isDeepStrictEqual} from "node:util";
 import type { LanguageModelUsage } from "ai";
 import { z } from "zod";
 import type {
@@ -2580,6 +2581,26 @@ function thumbnailForAssignmentBoardNode(node: {
   return node.thumbnailUrl ?? known;
 }
 
+/** A visual-only correction cannot rewrite the accepted learning journey. */
+export function assignmentPlannerCanvasCorrectionSchema(draft:unknown):Record<string,unknown> {
+  const root=draft as Record<string,unknown>, plan=root.activeSessionPlan as Record<string,unknown>;
+  const board=adventureBoardDefinitionSchema.parse(plan.boardDefinition);
+  const freeze=(value:Record<string,unknown>,mutable:Record<string,unknown>={})=>({type:"object",properties:{...Object.fromEntries(Object.entries(value).map(([key,value])=>[key,{const:value}])),...mutable},required:Object.keys(value),additionalProperties:false});
+  const array=(values:Record<string,unknown>[],mutable:Record<string,unknown>)=>({type:"array",minItems:values.length,maxItems:values.length,items:values.length?{anyOf:values.map(value=>freeze(value,mutable))}:false});
+  const position=z.toJSONSchema(adventureBoardDefinitionSchema.shape.portals.element.shape.position,{io:"input"});
+  const controlPoints=z.toJSONSchema(adventureBoardDefinitionSchema.shape.edges.element.shape.controlPoints.unwrap(),{io:"input"});
+  return freeze(root,{activeSessionPlan:freeze(plan,{boardDefinition:freeze(board,{portals:array(board.portals,{position}),edges:array(board.edges,{controlPoints})})})});
+}
+export function assertAssignmentPlannerCanvasCorrection(original:unknown,corrected:unknown):void {
+  const protectedFields=(value:unknown)=>{
+    const copy=structuredClone(value) as {activeSessionPlan:{boardDefinition:AdventureBoardDefinition}};
+    for(const portal of copy.activeSessionPlan.boardDefinition.portals)delete (portal as Partial<typeof portal>).position;
+    for(const edge of copy.activeSessionPlan.boardDefinition.edges)delete edge.controlPoints;
+    return copy;
+  };
+  if(!isDeepStrictEqual(protectedFields(original),protectedFields(corrected)))throw new Error("canvas_correction_changed_journey");
+}
+
 async function plannerCanvasIssues(output:AssignmentPlannerOutput,opts:AssignmentPlanningOptions):Promise<AssignmentPlanValidationIssue[]> {
   if(!opts.providerReceipt || !output.activeSessionPlan.boardDefinition)return [];
   try {
@@ -2616,6 +2637,7 @@ async function planAssignmentFromSourceInternal(
   if (blockingIssues.length > 0) {
     if (opts.providerReceipt && packet.discoveryEvidence
       && blockingIssues.every((issue) => issue.code === "board_canvas_invalid" || issue.code === "word_radar_unrendered_teaching" || issue.code === "word_radar_capability_mismatch")) {
+      const canvasOnly=blockingIssues.every(issue=>issue.code==="board_canvas_invalid");
       const correctionRequest = {
         version: 1,
         purpose: "assignment_planner_semantic_correction",
@@ -2634,7 +2656,7 @@ async function planAssignmentFromSourceInternal(
           if (!process.env.ANTHROPIC_API_KEY) throw new Error("assignment_planner_ai_unavailable:ANTHROPIC_API_KEY");
         },
         execute: async () => ({
-          message: await requestAssignmentPlannerTool({ prompt: correctionPrompt, model, schema: assignmentPlannerToolJsonSchema(Boolean(packet.discoveryEvidence), packet.activityCatalog) }),
+          message: await requestAssignmentPlannerTool({ prompt: correctionPrompt, model, schema: canvasOnly ? assignmentPlannerCanvasCorrectionSchema(result.draft) : assignmentPlannerToolJsonSchema(Boolean(packet.discoveryEvidence), packet.activityCatalog) }),
           model,
           latencyMs: Date.now() - correctionStarted,
           createdAt: new Date().toISOString(),
@@ -2647,6 +2669,7 @@ async function planAssignmentFromSourceInternal(
         true,
         new Set(packet.capturedHomework.words.map(word => word.trim().toLocaleLowerCase("en-US"))),
       );
+      if(canvasOnly)assertAssignmentPlannerCanvasCorrection(result.draft,correctedDraft);
       let correctedAt = correction.createdAt;
       let correctionUsage: LanguageModelUsage | undefined = usageFromAnthropic(correction.message);
       let correctedOutput = hydrateAssignmentPlannerOutputFromDraft(correctedDraft, packet, correctedAt);
@@ -2658,6 +2681,8 @@ async function planAssignmentFromSourceInternal(
       }).filter(issue => issue.severity === "error");
       remainingIssues.push(...await plannerCanvasIssues(correctedOutput,opts));
       if (remainingIssues.length && remainingIssues.every(issue => issue.code === "board_canvas_invalid" || issue.code === "word_radar_unrendered_teaching" || issue.code === "word_radar_capability_mismatch")) {
+        const secondCanvasOnly=remainingIssues.every(issue=>issue.code==="board_canvas_invalid");
+        const priorCorrected=correctedDraft;
         const secondRequest = {
           version: 2,
           purpose: "assignment_planner_semantic_correction",
@@ -2676,7 +2701,7 @@ async function planAssignmentFromSourceInternal(
             if (!process.env.ANTHROPIC_API_KEY) throw new Error("assignment_planner_ai_unavailable:ANTHROPIC_API_KEY");
           },
           execute: async () => ({
-            message: await requestAssignmentPlannerTool({ prompt: secondPrompt, model, schema: assignmentPlannerWordRadarCorrectionSchema(packet) }),
+            message: await requestAssignmentPlannerTool({ prompt: secondPrompt, model, schema: secondCanvasOnly ? assignmentPlannerCanvasCorrectionSchema(priorCorrected) : assignmentPlannerWordRadarCorrectionSchema(packet) }),
             model,
             latencyMs: Date.now() - secondStarted,
             createdAt: new Date().toISOString(),
@@ -2689,6 +2714,7 @@ async function planAssignmentFromSourceInternal(
           true,
           new Set(packet.capturedHomework.words.map(word => word.trim().toLocaleLowerCase("en-US"))),
         );
+        if(secondCanvasOnly)assertAssignmentPlannerCanvasCorrection(priorCorrected,correctedDraft);
         correctedAt = second.createdAt;
         correctionUsage = combinePlannerUsage(correctionUsage, usageFromAnthropic(second.message));
         correctedOutput = hydrateAssignmentPlannerOutputFromDraft(correctedDraft, packet, correctedAt);
