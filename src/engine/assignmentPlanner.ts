@@ -2159,7 +2159,7 @@ export function parseAssignmentPlannerJson(value: string): AssignmentPlannerResp
   return assignmentPlannerDraftSchema.parse(parsed);
 }
 
-type MeasurementCorrectionField = { path: string; index: number; key: "evidenceIds" | "interventionNodeIds" | "spelling" };
+type MeasurementCorrectionField = { path: string; index: number; key: "evidenceIds" | "interventionNodeIds" | "spelling"; emptyOnly?:boolean };
 function measurementCorrectionFields(input: unknown, schemaIssues: z.core.$ZodIssue[], relationshipIssues: AssignmentPlannerRelationshipIssue[]): MeasurementCorrectionField[] | undefined {
   const raw=jsonObject(input), measurements=raw?.plannedMeasurements;
   const nodes=jsonObject(raw?.activeSessionPlan)?.nodePlan;
@@ -2170,7 +2170,8 @@ function measurementCorrectionFields(input: unknown, schemaIssues: z.core.$ZodIs
     if (!measurement || typeof measurement.id!=="string") return false;
     const node=nodes.map(jsonObject).find(node=>node?.id===measurement.id!.toString().replace(/^measure-/,""));
     const reward=node?.type==="mystery" && Array.isArray(node.targets) && !node.targets.length && spellingImplementationType(node as {type:string;activityConfig?:unknown})==="mystery";
-    const field:MeasurementCorrectionField={index,key:reward?"spelling":key,path:`plannedMeasurements.${index}.spelling${reward?"":`.${key}`}`};
+    const emptyOnly=key==="interventionNodeIds" && jsonObject(measurement.spelling)?.role!=="fresh_checkpoint";
+    const field:MeasurementCorrectionField={...(emptyOnly?{emptyOnly:true}:{}),index,key:reward?"spelling":key,path:`plannedMeasurements.${index}.spelling${reward?"":`.${key}`}`};
     fields.set(field.path,field);return true;
   };
   for (const issue of schemaIssues) {
@@ -2227,8 +2228,11 @@ function applyMeasurementCorrection(original:unknown, reply:unknown, fields:Meas
       if (patch.value!==null) throw new Error("planner_measurement_patch_invalid");
       delete measurement.spelling;
     } else {
-      if (!Array.isArray(patch.value) || patch.value.some(value=>typeof value!=="string") || !measurement.spelling) throw new Error("planner_measurement_patch_invalid");
-      measurement.spelling[field.key]=patch.value;
+      if(field.emptyOnly && patch.value===null && measurement.spelling)measurement.spelling[field.key]=[];
+      else {
+        if (!Array.isArray(patch.value) || patch.value.some(value=>typeof value!=="string") || !measurement.spelling) throw new Error("planner_measurement_patch_invalid");
+        measurement.spelling[field.key]=patch.value;
+      }
     }
   }
   return base;
@@ -2291,7 +2295,7 @@ async function callAssignmentPlannerModel(
       };
       // Saved full corrections are adapters only: accept their named field edits,
       // never a rewritten journey, and never replace an uncertain provider outcome.
-      for (const suffix of ["tool-correction-v3-1","tool-correction-v3-3-schema","tool-correction-v3-2-missing-measurement","tool-correction-v4-2-lineage"]) {
+      for (const suffix of ["tool-correction-v3-1","tool-correction-v3-3-schema","tool-correction-v3-2-missing-measurement","tool-correction-v4-2-lineage","measurement-field-correction-v6-1","measurement-field-correction-v6-2"]) {
         const stage=`${providerReceipt.stage}-${suffix}`, directory=path.join(providerReceipt.draftDir,"provider-receipts"), file=path.join(directory,`${stage}.stage.json`);
         if (!fs.existsSync(file)) continue;
         const {requestHash}=JSON.parse(fs.readFileSync(file,"utf8"));
@@ -2318,14 +2322,14 @@ async function callAssignmentPlannerModel(
       }
       for (let attempt=1;attempt<=2;attempt++) {
         const fields=patchFields;
-        const schema={type:"object",additionalProperties:false,properties:{corrections:{type:"array",minItems:1,items:{anyOf:fields.map(field=>({type:"object",additionalProperties:false,properties:{path:{const:field.path},value:field.key==="spelling"?{type:"null"}:{type:"array",items:{type:"string"}}},required:["path","value"]}))}}},required:["corrections"]};
+        const schema={type:"object",additionalProperties:false,properties:{corrections:{type:"array",minItems:1,items:{anyOf:fields.map(field=>({type:"object",additionalProperties:false,properties:{path:{const:field.path},value:field.key==="spelling" || field.emptyOnly?{type:"null"}:{type:"array",items:{type:"string"}}},required:["path","value"]}))}}},required:["corrections"]};
         const raw=jsonObject(current)!;
-        const stage=`${providerReceipt.stage}-measurement-field-correction-v6-${attempt}`;
+        const stage=`${providerReceipt.stage}-measurement-field-correction-v7-${attempt}`;
         const correctionStarted=Date.now();
         const correction=await runMathProviderStage({draftDir:providerReceipt.draftDir,stage,model,
-          request:{version:6,attempt,strict:true,purpose:"assignment_planner_measurement_field_correction",originalRequestHash:hashDiscoveryContract(packet),invalidToolInput:current,fields,schemaHash:hashDiscoveryContract(schema),defects,allowedEvidenceIds},
+          request:{version:7,attempt,strict:true,purpose:"assignment_planner_measurement_field_correction",originalRequestHash:hashDiscoveryContract(packet),invalidToolInput:current,fields,schemaHash:hashDiscoveryContract(schema),defects,allowedEvidenceIds},
           beforeRequest:()=>{if(!process.env.ANTHROPIC_API_KEY)throw new Error("assignment_planner_ai_unavailable:ANTHROPIC_API_KEY");},
-          execute:async()=>({message:await requestAssignmentPlannerTool({model,schema,measurementOnly:true,prompt:`Correct only the named measurement fields. Return corrections [{path,value}], not a complete plan. Every other field is immutable. A nonacademic Mystery reward has no spelling measurement: use value:null for its spelling field without removing its activity. Evidence IDs must come from the supplied observations. Practice/instruction references use []; checkpoints cite prior exposures for their target words on each executable path. Preserve already-valid checkpoint references. Do not emit Quest or Boss nodes, locked or otherwise. This is correction ${attempt} of 2.\nDEFECT: ${JSON.stringify(defects)}\nEDITABLE FIELDS: ${JSON.stringify(fields)}\nCURRENT MEASUREMENTS: ${JSON.stringify(raw.plannedMeasurements)}\nAVAILABLE EVIDENCE IDS: ${JSON.stringify(allowedEvidenceIds)}\nREAD-ONLY ACTIVITY INVENTORY: ${JSON.stringify((jsonObject(raw.activeSessionPlan)?.nodePlan as unknown[]).map(node=>{const n=jsonObject(node)!;return {id:n.id,type:n.type,targets:n.targets};}))}\nREAD-ONLY PATHS: ${JSON.stringify(jsonObject(raw.activeSessionPlan)?.boardDefinition)}`}),model,latencyMs:Date.now()-correctionStarted,createdAt:new Date().toISOString()})});
+          execute:async()=>({message:await requestAssignmentPlannerTool({model,schema,measurementOnly:true,prompt:`Correct only the named measurement fields. Return corrections [{path,value}], not a complete plan. Every other field is immutable. A nonacademic Mystery reward has no spelling measurement: use value:null for its spelling field without removing its activity. Evidence IDs must come from the supplied observations. For editable fields marked emptyOnly, explicitly request clearing the practice/instruction reference list with value:null (runtime writes []); do not return activity IDs. Checkpoints cite prior exposures for their target words on each executable path. Preserve already-valid checkpoint references. Do not emit Quest or Boss nodes, locked or otherwise. This is correction ${attempt} of 2.\nDEFECT: ${JSON.stringify(defects)}\nEDITABLE FIELDS: ${JSON.stringify(fields)}\nCURRENT MEASUREMENTS: ${JSON.stringify(raw.plannedMeasurements)}\nAVAILABLE EVIDENCE IDS: ${JSON.stringify(allowedEvidenceIds)}\nREAD-ONLY ACTIVITY INVENTORY: ${JSON.stringify((jsonObject(raw.activeSessionPlan)?.nodePlan as unknown[]).map(node=>{const n=jsonObject(node)!;return {id:n.id,type:n.type,targets:n.targets};}))}\nREAD-ONLY PATHS: ${JSON.stringify(jsonObject(raw.activeSessionPlan)?.boardDefinition)}`}),model,latencyMs:Date.now()-correctionStarted,createdAt:new Date().toISOString()})});
         console.log(` 🎮 [assignment-planner] [measurement-field-correction] [received] id=${correction.message.id} attempt=${attempt}`);
         assertPlannerResponseComplete(correction.message);
         const tool=correction.message.content.find(block=>block.type==="tool_use" && block.name===ASSIGNMENT_PLANNER_TOOL_NAME);

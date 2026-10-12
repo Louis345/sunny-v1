@@ -83,8 +83,8 @@ it('repairs a malformed whole spelling claim on an already-declared nonacademic 
  expect(result.output.activeSessionPlan.nodePlan.some(node=>node.id==='reward')).toBe(true);
  expect(f.requests).toHaveLength(2);
 });
-async function seedLegacy(f:Awaited<ReturnType<typeof fixture>>,input:unknown,uncertain=false){
- return runMathProviderStage({draftDir:f.draftDir,stage:'measurement-regression-tool-correction-v3-1',model:'recorded',request:{originalRequestHash:hashDiscoveryContract(f.packet)},execute:async()=>{
+async function seedLegacy(f:Awaited<ReturnType<typeof fixture>>,input:unknown,uncertain=false,suffix="tool-correction-v3-1"){
+ return runMathProviderStage({draftDir:f.draftDir,stage:`measurement-regression-${suffix}`,model:'recorded',request:{originalRequestHash:hashDiscoveryContract(f.packet)},execute:async()=>{
   if(uncertain)throw Error('lost transport response');
   return {message:{id:'legacy-receipt',stop_reason:'tool_use',content:[{type:'tool_use',name:ASSIGNMENT_PLANNER_TOOL_NAME,input}],usage:{input_tokens:1,output_tokens:1}},latencyMs:1,createdAt:'2026-10-11T12:02:00Z'};
  }});
@@ -124,4 +124,40 @@ it('gives the final bounded attempt a distinct identity even when the previous p
  const f=await fixture([unchanged,unchanged]);
  await expect(f.run()).rejects.toThrow('assignment_planner_tool_invalid');expect(f.requests).toHaveLength(3);
  await expect(f.run()).rejects.toThrow('assignment_planner_tool_invalid');expect(f.requests).toHaveLength(3);
+});
+
+
+it('advertises the exact empty-array convention for non-checkpoint reference repairs',async()=>{
+ const f=await fixture();await f.run();
+ const fields=f.requests[1].tools[0].input_schema.properties.corrections.items.anyOf;
+ const refs=fields.find((field:any)=>field.properties.path.const==='plannedMeasurements.0.spelling.interventionNodeIds');
+ expect(refs.properties.value).toMatchObject({type:'null'});
+ expect(JSON.stringify(fields)).not.toContain('maxItems');
+ const evidence=fields.find((field:any)=>field.properties.path.const==='plannedMeasurements.0.spelling.evidenceIds');
+ expect(evidence.properties.value.maxItems).toBeUndefined();
+});
+
+
+it('preserves received v6 field patches while recovering through the corrected v7 constraint',async()=>{
+ const f=await fixture();
+ await seedLegacy(f,{corrections:[{path:'plannedMeasurements.0.spelling.interventionNodeIds',value:['check']}]},false,'measurement-field-correction-v6-1');
+ const directory=path.join(f.draftDir,'provider-receipts');const before=fs.readdirSync(directory).map(file=>[file,fs.readFileSync(path.join(directory,file),'utf8')] as const);
+ const result=await f.run();expect(f.requests).toHaveLength(2);
+ expect(result.output.plannedMeasurements[0].spelling?.interventionNodeIds).toEqual([]);
+ for(const[file,bytes]of before)expect(fs.readFileSync(path.join(directory,file),'utf8')).toBe(bytes);
+ await f.run();expect(f.requests).toHaveLength(2);
+});
+it('does not replace an uncertain v6 field-patch request',async()=>{
+ const f=await fixture();await expect(seedLegacy(f,null,true,'measurement-field-correction-v6-1')).rejects.toThrow('provider_outcome_uncertain');
+ await expect(f.run()).rejects.toThrow('provider_outcome_uncertain');expect(f.requests).toHaveLength(1);
+});
+
+
+it('executes the explicit clear requested by the Planner without changing checkpoint references',async()=>{
+ const f=await fixture();f.patch.corrections[1].value=null;
+ const result=await f.run();
+ expect(result.output.plannedMeasurements[0].spelling?.interventionNodeIds).toEqual([]);
+ expect(result.output.plannedMeasurements[1].spelling).toEqual(f.original.plannedMeasurements[1].spelling);
+ expect(f.original.plannedMeasurements[0].spelling.interventionNodeIds).toEqual(['check']);
+ await f.run();expect(f.requests).toHaveLength(2);
 });

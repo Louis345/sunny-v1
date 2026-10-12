@@ -242,7 +242,7 @@ describe("spelling Planner raw-response durability", () => {
     if (stillInvalid) await expect(f.run()).rejects.toThrow("planner_checkpoint_lineage_missing");
     else await f.run();
     expect(transport.create).toHaveBeenCalledTimes(3);
-    expect(hasReceivedMathProviderStage(f.draftDir, "spelling-targeted-planner-measurement-field-correction-v6-2")).toBe(true);
+    expect(hasReceivedMathProviderStage(f.draftDir, "spelling-targeted-planner-measurement-field-correction-v7-2")).toBe(true);
     if (stillInvalid) await expect(f.run()).rejects.toThrow("planner_checkpoint_lineage_missing");
     else await f.run();
     expect(transport.create).toHaveBeenCalledTimes(3);
@@ -324,7 +324,7 @@ describe("spelling Planner raw-response durability", () => {
     expect(JSON.stringify(transport.create.mock.calls[1]?.[0])).toContain("planner_baseline_intervention_lineage_invalid");
     expect(JSON.stringify(transport.create.mock.calls[1]?.[0])).toContain("planner_unknown_evidence_id");
     expect(f.readReceipt()).toMatchObject({ status: "received", response: { message: invalid } });
-    expect(hasReceivedMathProviderStage(f.draftDir, "spelling-targeted-planner-measurement-field-correction-v6-1")).toBe(true);
+    expect(hasReceivedMathProviderStage(f.draftDir, "spelling-targeted-planner-measurement-field-correction-v7-1")).toBe(true);
 
     vi.stubEnv("ANTHROPIC_API_KEY", "");
     const resumed = await f.run();
@@ -481,8 +481,8 @@ describe("spelling Planner raw-response durability", () => {
     const result = await f.run();
     expect(result.output.activeSessionPlan.nodePlan[0].id).toBe("practice");
     expect(transport.create).toHaveBeenCalledTimes(3);
-    expect(hasReceivedMathProviderStage(f.draftDir, "spelling-targeted-planner-measurement-field-correction-v6-1")).toBe(true);
-    expect(hasReceivedMathProviderStage(f.draftDir, "spelling-targeted-planner-measurement-field-correction-v6-2")).toBe(true);
+    expect(hasReceivedMathProviderStage(f.draftDir, "spelling-targeted-planner-measurement-field-correction-v7-1")).toBe(true);
+    expect(hasReceivedMathProviderStage(f.draftDir, "spelling-targeted-planner-measurement-field-correction-v7-2")).toBe(true);
   });
 
   it("stops after the final bounded schema correction remains invalid", async () => {
