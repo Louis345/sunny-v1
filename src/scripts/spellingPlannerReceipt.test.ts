@@ -175,7 +175,7 @@ describe("spelling Planner raw-response durability", () => {
   it("keeps opening-board constraints explicit during bounded correction", async () => {
     const f = await fixture();
     const invalid = structuredClone(f.message);
-    invalid.content[1].input!.plannedMeasurements.find(row => row.id === "measure-practice")!.spelling!.interventionNodeIds = ["check"];
+    invalid.content[1].input!.activeSessionPlan.nodePlan[0].targets = ["reward"];
     transport.create.mockResolvedValueOnce(invalid).mockResolvedValueOnce(structuredClone(f.message));
     await f.run();
     const request = JSON.stringify(transport.create.mock.calls[1]?.[0]);
@@ -210,7 +210,7 @@ describe("spelling Planner raw-response durability", () => {
     invalid.content[1].input!.plannedMeasurements.find(row => row.id === "measure-check")!.spelling!.interventionNodeIds = [];
     const original = structuredClone(invalid);
     if (schemaError) original.content[1].input!.plannedMeasurements[0].spelling!.evidenceIds = [];
-    else original.content[1].input!.plannedMeasurements[0].spelling!.interventionNodeIds = ["check"];
+    else original.content[1].input!.activeSessionPlan.nodePlan[0].targets = ["reward"];
     let legacyInput: unknown;
     let legacySchemaIssues: unknown[] = [];
     try { legacyInput = parseAssignmentPlannerToolUseResponse(original as any); }
@@ -232,17 +232,42 @@ describe("spelling Planner raw-response durability", () => {
     expect(fs.readFileSync(stageFile, "utf8")).toBe(before);
   });
 
+  it.each([false, true])("reads a received generic correction with its frozen request after local rules change, foreign=%s", async foreign => {
+    const f = await fixture();
+    const original = structuredClone(f.message);
+    (original.content[1].input!.activeSessionPlan.boardDefinition as any).version = 99;
+    let invalidToolInput: unknown, schemaIssues: unknown[] = [];
+    try { parseAssignmentPlannerToolUseResponse(original as any); } catch (error) { invalidToolInput = (error as any).toolInput; schemaIssues = (error as any).issues; }
+    const receipt = (message: typeof original) => ({ message, model: resolveAssignmentPlannerModel(), latencyMs: 1, createdAt: "2026-10-01T10:00:00Z" });
+    await runMathProviderStage({ ...f.providerReceipt, model: resolveAssignmentPlannerModel(), request: f.packet, execute: async () => receipt(original) });
+    const stage = "spelling-targeted-planner-tool-correction-v3-1";
+    const request = { version:3, purpose:"assignment_planner_tool_correction", originalRequestHash:foreign?"foreign":hashDiscoveryContract(f.packet), invalidToolInput, schemaIssues,
+      relationshipIssues:[{code:"planner_baseline_intervention_lineage_invalid",measurementId:"measure-practice"}] };
+    await runMathProviderStage({ ...f.providerReceipt, stage, model:resolveAssignmentPlannerModel(), request, execute:async()=>receipt(f.message) });
+    const directory=path.join(f.draftDir,"provider-receipts");
+    const before=fs.readdirSync(directory).sort().map(file=>[file,fs.readFileSync(path.join(directory,file),"utf8")]);
+    transport.create.mockRejectedValue(new Error("must_not_call_provider"));
+    if(foreign) await expect(f.run()).rejects.toThrow("planner_saved_correction_identity_unverifiable");
+    else {
+      const result=await f.run();
+      expect(result.output.activeSessionPlan.boardDefinition).toEqual(f.message.content[1].input!.activeSessionPlan.boardDefinition);
+      await f.run();
+    }
+    expect(transport.create).not.toHaveBeenCalled();
+    expect(fs.readdirSync(directory).sort().map(file=>[file,fs.readFileSync(path.join(directory,file),"utf8")])).toEqual(before);
+  });
+
   it.each([false, true])("bounds a lineage follow-up after a saved generic correction, stillInvalid=%s", async stillInvalid => {
     const f = await fixture();
     const invalid = structuredClone(f.message);
     invalid.content[1].input!.plannedMeasurements.find(row => row.id === "measure-check")!.spelling!.interventionNodeIds = [];
     const original = structuredClone(invalid);
-    original.content[1].input!.plannedMeasurements[0].spelling!.interventionNodeIds = ["check"];
+    original.content[1].input!.activeSessionPlan.nodePlan[0].targets = ["reward"];
     transport.create.mockResolvedValueOnce(original).mockResolvedValueOnce(invalid).mockResolvedValueOnce(stillInvalid ? invalid : structuredClone(f.message));
     if (stillInvalid) await expect(f.run()).rejects.toThrow("planner_checkpoint_lineage_missing");
     else await f.run();
     expect(transport.create).toHaveBeenCalledTimes(3);
-    expect(hasReceivedMathProviderStage(f.draftDir, "spelling-targeted-planner-measurement-field-correction-v7-2")).toBe(true);
+    expect(hasReceivedMathProviderStage(f.draftDir, "spelling-targeted-planner-tool-correction-v4-2-lineage")).toBe(true);
     if (stillInvalid) await expect(f.run()).rejects.toThrow("planner_checkpoint_lineage_missing");
     else await f.run();
     expect(transport.create).toHaveBeenCalledTimes(3);
@@ -314,6 +339,7 @@ describe("spelling Planner raw-response durability", () => {
     invalid.content[1].input!.plannedMeasurements[0].spelling!.interventionNodeIds = ["check"];
     const corrected = structuredClone(f.message);
     corrected.id = "recorded-schema-correction";
+    corrected.content[1].input!.plannedMeasurements[0].spelling!.interventionNodeIds = ["check"];
     transport.create
       .mockResolvedValueOnce(invalid)
       .mockResolvedValueOnce(corrected);
@@ -321,10 +347,11 @@ describe("spelling Planner raw-response durability", () => {
     const first = await f.run();
     expect(first.output.plannedMeasurements[0].spelling?.evidenceIds).toEqual(["observed-0", "observed-1"]);
     expect(transport.create).toHaveBeenCalledTimes(2);
-    expect(JSON.stringify(transport.create.mock.calls[1]?.[0])).toContain("planner_baseline_intervention_lineage_invalid");
+    expect(JSON.stringify(transport.create.mock.calls[1]?.[0])).not.toContain("planner_baseline_intervention_lineage_invalid");
+    expect(first.output.plannedMeasurements[0].spelling?.interventionNodeIds).toEqual(["check"]);
     expect(JSON.stringify(transport.create.mock.calls[1]?.[0])).toContain("planner_unknown_evidence_id");
     expect(f.readReceipt()).toMatchObject({ status: "received", response: { message: invalid } });
-    expect(hasReceivedMathProviderStage(f.draftDir, "spelling-targeted-planner-measurement-field-correction-v7-1")).toBe(true);
+    expect(hasReceivedMathProviderStage(f.draftDir, "spelling-targeted-planner-measurement-field-correction-v8-1")).toBe(true);
 
     vi.stubEnv("ANTHROPIC_API_KEY", "");
     const resumed = await f.run();
@@ -481,8 +508,8 @@ describe("spelling Planner raw-response durability", () => {
     const result = await f.run();
     expect(result.output.activeSessionPlan.nodePlan[0].id).toBe("practice");
     expect(transport.create).toHaveBeenCalledTimes(3);
-    expect(hasReceivedMathProviderStage(f.draftDir, "spelling-targeted-planner-measurement-field-correction-v7-1")).toBe(true);
-    expect(hasReceivedMathProviderStage(f.draftDir, "spelling-targeted-planner-measurement-field-correction-v7-2")).toBe(true);
+    expect(hasReceivedMathProviderStage(f.draftDir, "spelling-targeted-planner-measurement-field-correction-v8-1")).toBe(true);
+    expect(hasReceivedMathProviderStage(f.draftDir, "spelling-targeted-planner-measurement-field-correction-v8-2")).toBe(true);
   });
 
   it("stops after the final bounded schema correction remains invalid", async () => {

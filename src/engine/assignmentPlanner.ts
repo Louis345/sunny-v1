@@ -2352,11 +2352,28 @@ async function callAssignmentPlannerModel(
     const correctionStage = relationshipIssues.some((issue) => issue.code === "planner_missing_measurement")
       ? `${providerReceipt.stage}-tool-correction-v3-2-missing-measurement`
       : `${providerReceipt.stage}-tool-correction-v3-1`;
+    let frozenCorrectionRequest: unknown = correctionRequest;
+    if (requireSpellingMeasurements && hasReceivedMathProviderStage(providerReceipt.draftDir, correctionStage)) {
+      // Re-read paid authoring under its original request, never relabel it as a
+      // new correction just because local validation issues changed after a fix.
+      const directory = path.join(providerReceipt.draftDir, "provider-receipts");
+      const { requestHash } = JSON.parse(fs.readFileSync(path.join(directory, `${correctionStage}.stage.json`), "utf8"));
+      const saved = JSON.parse(fs.readFileSync(path.join(directory, `${requestHash}.json`), "utf8"));
+      const diagnostic = path.join(providerReceipt.draftDir, "provider-diagnostics", `${requestHash}.attempt-${saved.attempts?.length ?? 1}.request.json`);
+      const context = fs.existsSync(diagnostic) ? JSON.parse(fs.readFileSync(diagnostic, "utf8")).context : undefined;
+      if (context?.purpose !== correctionRequest.purpose || context.originalRequestHash !== correctionRequest.originalRequestHash
+        || !isDeepStrictEqual(context.invalidToolInput, correctionRequest.invalidToolInput)
+        || hashDiscoveryContract({ provider: saved.provider ?? "anthropic", request: context }) !== requestHash) {
+        throw new Error(`planner_saved_correction_identity_unverifiable:${correctionStage}`);
+      }
+      frozenCorrectionRequest = context;
+      console.log(` 🎮 [assignment-planner] [saved-correction] [revalidating] stage=${correctionStage} request=${requestHash}`);
+    }
     const correction = await runMathProviderStage({
       draftDir: providerReceipt.draftDir,
       stage: correctionStage,
       model,
-      request: correctionRequest,
+      request: frozenCorrectionRequest,
       beforeRequest: () => {
         if (!process.env.ANTHROPIC_API_KEY) throw new Error("assignment_planner_ai_unavailable:ANTHROPIC_API_KEY");
       },
