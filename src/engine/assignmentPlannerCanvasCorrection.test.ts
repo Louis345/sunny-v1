@@ -6,18 +6,23 @@ import {requestPlannerMessage} from './plannerTransport';
 vi.mock('./adventureBoardCanvas',()=>({verifyAuthoredBoardCanvas:vi.fn()}));
 vi.mock('./plannerTransport',async original=>({...await original<typeof import('./plannerTransport')>(),requestPlannerMessage:vi.fn()}));
 import {authoredJourney} from '../scripts/fixtures/authoredJourney';
-import {assignmentPlannerCanvasCorrectionSchema,assertAssignmentPlannerCanvasCorrection,parseAssignmentPlannerJson,planAssignmentFromSourceWithTelemetry,ASSIGNMENT_PLANNER_TOOL_NAME} from './assignmentPlanner';
+import {assignmentPlannerCanvasCorrectionSchema,assertAssignmentPlannerCanvasCorrection,parseAssignmentPlannerJson,planAssignmentFromSourceWithTelemetry,ASSIGNMENT_PLANNER_TOOL_NAME,applyAssignmentPlannerCanvasCorrection} from './assignmentPlanner';
 const draft=()=>({activeSessionPlan:{boardDefinition:authoredJourney(),nodePlan:[{id:'learn',activityId:'word-radar',targets:['float']}]},plannedMeasurements:[{id:'measure-learn',confidence:.5}],planTheory:{hypothesis:'H'}});
 describe('canvas correction preserves the Painter journey',()=>{
- it('freezes educational fields in the tool while permitting authored positions',()=>{
-  const input=draft(), schema:any=assignmentPlannerCanvasCorrectionSchema(input);
-  expect(schema.properties.planTheory.const).toEqual(input.planTheory);
-  expect(schema.properties.activeSessionPlan.properties.nodePlan.const).toEqual(input.activeSessionPlan.nodePlan);
-  const board=schema.properties.activeSessionPlan.properties.boardDefinition;
-  expect(board.properties.paths.const).toEqual(input.activeSessionPlan.boardDefinition.paths);
-  expect(board.properties.choices.const).toEqual(input.activeSessionPlan.boardDefinition.choices);
-  expect(board.properties.portals.items.anyOf[0].properties.id.const).toBe(input.activeSessionPlan.boardDefinition.portals[0].id);
-  expect(board.properties.portals.items.anyOf[0].properties.position.const).toBeUndefined();
+ it('offers only geometry fields, never activity or evidence fields',()=>{
+  const schema:any=assignmentPlannerCanvasCorrectionSchema(draft());
+  expect(Object.keys(schema.properties).sort()).toEqual(['edges','portals']);
+  expect(schema.additionalProperties).toBe(false);
+  expect(schema.properties.portals.items.properties.id.enum).toEqual(draft().activeSessionPlan.boardDefinition.portals.map(p=>p.id));
+ });
+ it('applies a geometry-only response without asking the model to copy protected fields',()=>{
+  const input=draft(),board=input.activeSessionPlan.boardDefinition;
+  const patch={portals:board.portals.map(p=>({id:p.id,position:{...p.position,portrait:{x:.25,y:p.position.portrait.y}}})),edges:board.edges.map(e=>({id:e.id,controlPoints:{landscape:[],portrait:[]}}))};
+  const changed:any=applyAssignmentPlannerCanvasCorrection(input,patch);
+  expect(changed.activeSessionPlan.nodePlan).toEqual(input.activeSessionPlan.nodePlan);
+  expect(changed.activeSessionPlan.boardDefinition.portals[0].position.portrait.x).toBe(.25);
+  expect(()=>applyAssignmentPlannerCanvasCorrection(input,{...patch,nodePlan:[]})).toThrow('canvas_correction_invalid');
+  expect(()=>applyAssignmentPlannerCanvasCorrection(input,{...patch,portals:patch.portals.map(()=>patch.portals[0])})).toThrow('canvas_correction_invalid');
  });
  it('accepts position/control-point repair without mutating the original',()=>{
   const input=draft(), before=structuredClone(input), corrected=structuredClone(input);
@@ -46,14 +51,13 @@ it.each([1,2])('invokes frozen canvas schema and guard in production correction 
   vi.mocked(verifyAuthoredBoardCanvas).mockReset().mockRejectedValue(new Error('board_canvas_invalid:portrait overlap'));
   const requests:any[]=[];
   vi.mocked(requestPlannerMessage).mockReset().mockImplementation(async(_client,request:any)=>{
-   requests.push(request);const corrected=structuredClone(input);
-   corrected.activeSessionPlan.boardDefinition.portals[0].position.portrait.x=.25;
-   if(requests.length===stage)corrected.plannedMeasurements[0].spelling.confidence=1;
+   requests.push(request);const board=input.activeSessionPlan.boardDefinition;const corrected:any={portals:board.portals.map((p:any)=>({id:p.id,position:{...p.position,portrait:{x:.25,y:p.position.portrait.y}}})),edges:board.edges.map((e:any)=>({id:e.id}))};
+   if(requests.length===stage)corrected.plannedMeasurements=input.plannedMeasurements;
    return {id:'recorded-'+requests.length,stop_reason:'tool_use',content:[{type:'tool_use',id:'tool-'+requests.length,name:ASSIGNMENT_PLANNER_TOOL_NAME,input:corrected}],usage:{input_tokens:1,output_tokens:1}} as never;
   });
-  await expect(planAssignmentFromSourceWithTelemetry(packet,{callPlannerModel:async()=>({draft:input,receivedAt:new Date().toISOString()} as never),providerReceipt:{draftDir:root,stage:'targeted'}})).rejects.toThrow('canvas_correction_changed_journey');
+  await expect(planAssignmentFromSourceWithTelemetry(packet,{callPlannerModel:async()=>({draft:input,receivedAt:new Date().toISOString()} as never),providerReceipt:{draftDir:root,stage:'targeted'}})).rejects.toThrow('canvas_correction_invalid');
   expect(requests).toHaveLength(stage);
-  for(const request of requests)expect(request.tools[0].input_schema.properties.plannedMeasurements.const).toEqual(input.plannedMeasurements);
+  for(const request of requests)expect(Object.keys(request.tools[0].input_schema.properties).sort()).toEqual(['edges','portals']);
   expect(fs.existsSync(path.join(root,'board.json'))).toBe(false);
  } finally {vi.unstubAllEnvs();fs.rmSync(root,{recursive:true,force:true});}
 });
