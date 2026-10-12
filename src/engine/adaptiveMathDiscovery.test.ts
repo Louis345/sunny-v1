@@ -1020,7 +1020,9 @@ describe("adaptive math discovery", () => {
       if (priorKey == null) delete process.env.OPENAI_API_KEY;
       else process.env.OPENAI_API_KEY = priorKey;
     }
-  });
+  // Browser-backed scoring/receipt checks need a bounded integration deadline;
+  // the default 5s timed out mid-cleanup and leaked env changes into the next case.
+  }, 30_000);
 
   it("saves an output-budget truncation as a received response before classifying the harness failure", async () => {
     const rootDir = root();
@@ -1121,7 +1123,9 @@ describe("adaptive math discovery", () => {
     } }) } };
     await generateMathDiscoveryExperience({ rootDir, childId: "lab-child", homeworkId: "hw-resume", assignmentText: "Four equal groups.", assignmentEvidenceIds: ["assignment:resume"], factualChildContext: { age: 9 }, client: resumedClient as never, retryUncertain: true, visualReview: async ({ html }) => html });
     expect(resumedCalls).toBe(1);
-  });
+  // Browser-backed scoring/receipt checks need a bounded integration deadline;
+  // the default 5s timed out mid-cleanup and leaked env changes into the next case.
+  }, 30_000);
 
   it("normalizes a legacy academic checkpoint into one durable Probe activity without rerunning the Planner", async () => {
     const rootDir = root();
