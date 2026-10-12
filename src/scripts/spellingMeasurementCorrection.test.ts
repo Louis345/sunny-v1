@@ -160,7 +160,7 @@ it.each(['instruction','practice'])('preserves authored %s relationships without
  expect(JSON.stringify(plan)).toBe(planBytes);
  const checkItems=Object.keys(contract.nodes.find(node=>node.nodeId==='check')!.evidenceContract.spellingItems!);
  expect(contract.academicPredictions).toHaveLength(checkItems.length);
- expect(contract.academicPredictions?.flatMap(prediction=>prediction.eligibility.checkpointItemIds)).toEqual(checkItems);
+ expect(contract.academicPredictions?.flatMap(prediction=>prediction.eligibility?.checkpointItemIds)).toEqual(checkItems);
  expect(contract.academicPredictions?.every(prediction=>prediction.intervention==='practice')).toBe(true);
  await f.run();expect(f.requests).toHaveLength(1);
 });
