@@ -7,6 +7,7 @@ import {recordedSpellingDiagnostic,recordedSpellingPlan,seedSpellingLab} from '.
 import {runSpellingDiscoveryIntake} from './ingestHomework';
 import {getChildChart} from '../profiles/childChart';
 import {getLearningCycle} from '../engine/learningCycleRepository';
+import {buildSpellingTargetedCycleInput} from '../engine/learningCycleIngest';
 import {recordSpellingDiscoveryAttempt} from '../engine/learningCycleRuntime';
 import {completeDiscoveryEvaluation,resolveAdaptiveMathDraftDir,runMathProviderStage,hashDiscoveryContract} from '../engine/adaptiveMathDiscovery';
 import {readAssignmentSourceExtraction} from '../engine/assignmentSourceExtraction';
@@ -34,7 +35,6 @@ async function fixture(replies?:unknown[]) {
  original.plannedMeasurements.push({...structuredClone(original.plannedMeasurements[0]),id:'measure-reward',activityId:'mystery',target:'Reward',spelling:{...original.plannedMeasurements[0].spelling,evidenceIds:[],interventionNodeIds:[]}});
  const patch={corrections:[
   {path:'plannedMeasurements.0.spelling.evidenceIds',value:['observed-0','observed-1']},
-  {path:'plannedMeasurements.0.spelling.interventionNodeIds',value:[]},
   {path:'plannedMeasurements.2.spelling',value:null},
  ]};
  const requests:any[]=[];
@@ -44,7 +44,7 @@ async function fixture(replies?:unknown[]) {
   return {id:'recorded-measurement-'+requests.length,stop_reason:'tool_use',content:[{type:'tool_use',id:'tool-'+requests.length,name:ASSIGNMENT_PLANNER_TOOL_NAME,input:JSON.parse(JSON.stringify(requests.length===1?original:replies?.[requests.length-2]??patch))}],usage:{input_tokens:1,output_tokens:1}} as never;
  });
  const options={providerReceipt:{draftDir,stage:'measurement-regression'}};
- return {rootDir,draftDir,original,patch,packet,requests,run:()=>planAssignmentFromSourceWithTelemetry(packet,options)};
+ return {rootDir,draftDir,childId,homeworkId,original,patch,packet,requests,run:()=>planAssignmentFromSourceWithTelemetry(packet,options)};
 }
 it('repairs only invalid measurement fields without deleting a valid reward or checkpoint references',async()=>{
  const {run,requests,original}=await fixture();
@@ -70,7 +70,7 @@ it.each(['unknown','duplicate'])('rejects %s patch paths before another provider
  expect(f.requests).toHaveLength(2);
 });
 it('stops after two valid but incomplete correction attempts, preserving all receipts for restart',async()=>{
- const f=await fixture([{corrections:[{path:'plannedMeasurements.0.spelling.evidenceIds',value:['observed-0']}]},{corrections:[{path:'plannedMeasurements.0.spelling.interventionNodeIds',value:[]}]}]);
+ const f=await fixture([{corrections:[{path:'plannedMeasurements.2.spelling',value:null}]},{corrections:[{path:'plannedMeasurements.0.spelling.evidenceIds',value:[]}]}]);
  await expect(f.run()).rejects.toThrow('assignment_planner_tool_invalid');
  expect(f.requests).toHaveLength(3);
  await expect(f.run()).rejects.toThrow('assignment_planner_tool_invalid');
@@ -91,7 +91,7 @@ async function seedLegacy(f:Awaited<ReturnType<typeof fixture>>,input:unknown,un
 }
 it('reuses a valid legacy measurement-only repair without repurchasing it',async()=>{
  const f=await fixture(),legacy=structuredClone(f.original);
- legacy.plannedMeasurements[0].spelling.evidenceIds=['observed-0','observed-1'];legacy.plannedMeasurements[0].spelling.interventionNodeIds=[];delete legacy.plannedMeasurements[2].spelling;
+ legacy.plannedMeasurements[0].spelling.evidenceIds=['observed-0','observed-1'];delete legacy.plannedMeasurements[2].spelling;
  await seedLegacy(f,legacy);
  const result=await f.run();
  expect(result.output.activeSessionPlan.boardDefinition).toEqual(f.original.activeSessionPlan.boardDefinition);
@@ -127,23 +127,12 @@ it('gives the final bounded attempt a distinct identity even when the previous p
 });
 
 
-it('advertises the exact empty-array convention for non-checkpoint reference repairs',async()=>{
- const f=await fixture();await f.run();
- const fields=f.requests[1].tools[0].input_schema.properties.corrections.items.anyOf;
- const refs=fields.find((field:any)=>field.properties.path.const==='plannedMeasurements.0.spelling.interventionNodeIds');
- expect(refs.properties.value).toMatchObject({type:'null'});
- expect(JSON.stringify(fields)).not.toContain('maxItems');
- const evidence=fields.find((field:any)=>field.properties.path.const==='plannedMeasurements.0.spelling.evidenceIds');
- expect(evidence.properties.value.maxItems).toBeUndefined();
-});
-
-
-it('preserves received v6 field patches while recovering through the corrected v7 constraint',async()=>{
+it('preserves received v6 field patches while preserving now-valid practice references',async()=>{
  const f=await fixture();
  await seedLegacy(f,{corrections:[{path:'plannedMeasurements.0.spelling.interventionNodeIds',value:['check']}]},false,'measurement-field-correction-v6-1');
  const directory=path.join(f.draftDir,'provider-receipts');const before=fs.readdirSync(directory).map(file=>[file,fs.readFileSync(path.join(directory,file),'utf8')] as const);
  const result=await f.run();expect(f.requests).toHaveLength(2);
- expect(result.output.plannedMeasurements[0].spelling?.interventionNodeIds).toEqual([]);
+ expect(result.output.plannedMeasurements[0].spelling?.interventionNodeIds).toEqual(['check']);
  for(const[file,bytes]of before)expect(fs.readFileSync(path.join(directory,file),'utf8')).toBe(bytes);
  await f.run();expect(f.requests).toHaveLength(2);
 });
@@ -153,11 +142,25 @@ it('does not replace an uncertain v6 field-patch request',async()=>{
 });
 
 
-it('executes the explicit clear requested by the Planner without changing checkpoint references',async()=>{
- const f=await fixture();f.patch.corrections[1].value=null;
+it.each(['instruction','practice'])('preserves authored %s relationships without a correction call',async role=>{
+ const f=await fixture();
+ f.original.plannedMeasurements[0].spelling.role=role;
+ f.original.plannedMeasurements[0].spelling.evidenceIds=['observed-0','observed-1'];
+ delete f.original.plannedMeasurements[2].spelling;
+ const before=structuredClone(f.original);
  const result=await f.run();
- expect(result.output.plannedMeasurements[0].spelling?.interventionNodeIds).toEqual([]);
- expect(result.output.plannedMeasurements[1].spelling).toEqual(f.original.plannedMeasurements[1].spelling);
- expect(f.original.plannedMeasurements[0].spelling.interventionNodeIds).toEqual(['check']);
- await f.run();expect(f.requests).toHaveLength(2);
+ expect(f.requests).toHaveLength(1);
+ expect(result.output.plannedMeasurements[0].spelling).toEqual(before.plannedMeasurements[0].spelling);
+ expect(result.output.activeSessionPlan.boardDefinition).toEqual(before.activeSessionPlan.boardDefinition);
+ expect(result.output.plannedMeasurements[1].spelling).toEqual(before.plannedMeasurements[1].spelling);
+ const plan={...result.output.activeSessionPlan,childId:f.childId,domain:'spelling' as const,activeHomeworkId:f.homeworkId,plannedMeasurements:result.output.plannedMeasurements,planTheory:result.output.planTheory};
+ const planBytes=JSON.stringify(plan);
+ const cycle=getLearningCycle(f.childId,f.homeworkId,{rootDir:f.rootDir})!;
+ const contract=buildSpellingTargetedCycleInput({cycle,plan,now:'2026-10-12T19:00:00Z'});
+ expect(JSON.stringify(plan)).toBe(planBytes);
+ const checkItems=Object.keys(contract.nodes.find(node=>node.nodeId==='check')!.evidenceContract.spellingItems!);
+ expect(contract.academicPredictions).toHaveLength(checkItems.length);
+ expect(contract.academicPredictions?.flatMap(prediction=>prediction.eligibility.checkpointItemIds)).toEqual(checkItems);
+ expect(contract.academicPredictions?.every(prediction=>prediction.intervention==='practice')).toBe(true);
+ await f.run();expect(f.requests).toHaveLength(1);
 });

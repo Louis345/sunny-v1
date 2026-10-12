@@ -369,7 +369,7 @@ export function buildSpellingTargetedCycleInput(input: {
     const measurement = plan.plannedMeasurements?.find(row => row.id === `measure-${node.id}`);
     const decision = measurement?.spelling;
     if (!decision || !decision.evidenceIds.length || decision.evidenceIds.some(id => !evidence.has(id))) throw new Error(`spelling_plan_evidence_invalid:${node.id}`);
-    if (!checkpointInterventionsArePrior(executionOrders,node.id,decision.interventionNodeIds)) throw new Error(`spelling_checkpoint_intervention_not_prior:${node.id}`);
+    if (decision.role === "fresh_checkpoint" && !checkpointInterventionsArePrior(executionOrders,node.id,decision.interventionNodeIds)) throw new Error(`spelling_checkpoint_intervention_not_prior:${node.id}`);
     if (decision.role === "fresh_checkpoint" && (node.type !== "word-radar" || node.wordRadarConfig?.recallMode !== "hidden_word_recall")) throw new Error(`spelling_checkpoint_instrument_unsupported:${node.id}`);
     const resolved = node.targets.map(word => words.get(word.toLocaleLowerCase("en-US")));
     if (resolved.some(item => !item)) throw new Error(`spelling_plan_unknown_word:${node.id}`);
