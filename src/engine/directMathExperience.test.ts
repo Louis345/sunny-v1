@@ -1,3 +1,4 @@
+import {journeyFromBoardDefinition} from '../shared/adventureBoardDefinition';
 import {choiceJourneyFixture,linearJourneyFixture} from '../scripts/fixtures/authoredJourney';
 import fs from "node:fs";
 import {assignmentSourceFileHash} from "./assignmentSourceExtraction";
@@ -19,6 +20,7 @@ import {
   buildMathCreativeChildContext,
   buildDirectLearningCycleInput,
   creatorPromptHash,
+  correctableMathPlannerTruthError,
   generateAdaptiveProgressionActivityHtml,
   hasReadyDirectMathExperience,
   isCompleteGeneratedHtml,
@@ -37,6 +39,20 @@ import {
 import { readOpenAiResponseStream } from "./openAiResponses";
 
 describe("math Planner evidence doorway", () => {
+  it("routes malformed semantic math output through the existing bounded correction",()=>{
+    const raw:any=learningProgram(2);delete raw.boardDefinition;raw.journey={version:2};
+    let failure:unknown;try{parseMathLearningProgram(raw);}catch(error){failure=error;}
+    expect(failure).toBeInstanceOf(Error);expect(correctableMathPlannerTruthError(failure)).toBe(true);
+    expect((failure as Error).message).toContain('board_definition_invalid');
+  });
+  it("accepts a semantic math journey without requiring Planner artwork",()=>{
+    const raw:any=learningProgram(2);const journey=journeyFromBoardDefinition(raw.boardDefinition);
+    delete raw.boardDefinition;raw.journey=journey;
+    const parsed=parseMathLearningProgram(raw);
+    expect(parsed.journey).toEqual(journey);expect(parsed.boardDefinition).toBeUndefined();
+    const schema:any=MATH_LEARNING_PROGRAM_TOOL_SCHEMA;
+    expect(schema.properties.journey).toBeDefined();expect(schema.properties.boardDefinition).toBeUndefined();
+  });
   it("projects factual engagement evidence into the exact Planner-facing chart context", () => {
     const context = mathPlannerChartContext({
       identity: { displayName: "Reina", ttsName: "Ray-na" },
@@ -1910,7 +1926,7 @@ describe("direct math experience", () => {
       "You own only the educational prescription",
       "Teach the concept the teacher is targeting rather than copying",
       "reuse, revise, generate_new, or retire",
-      "The existing Experience Creator implements activity worlds",
+      "The existing Experience Creator owns artwork, palette and composition",
       "You own the complete creative design",
     ]) expect(source).toContain(required);
     expect(source).toContain("Keep initial nodes practice_only");

@@ -1,3 +1,4 @@
+import {renderBoardDefinition} from "../shared/adventureBoardDefinition";
 import { verifyPreparingBoardCanvas } from '../engine/adventureBoardCanvas';
 import { loadSunnyRuntimeEnvironment } from "./sunnyMenu";
 loadSunnyRuntimeEnvironment();
@@ -7,7 +8,7 @@ import path from "node:path";
 import { getChildChart } from "../profiles/childChart";
 import { readPriorConceptIds } from "../engine/assignmentLedger";
 import {
-  askDirectMathPlanner, askMathExperienceDesigner, buildDirectActiveSessionPlan,
+  askDirectMathPlanner, askMathExperienceDesigner, askLearningExperienceDesigner, buildDirectActiveSessionPlan,
   buildMathCreativeChildContext, mathPlannerChartContext, verifyMathPlannerCanvas, correctSavedDirectMathPlannerResponse, correctableMathPlannerTruthError, generateDirectArtifacts, generateDirectArtworkBundle, parseMathLearningProgram, parseSavedDirectMathPlannerResponse,
   findTruncatedDirectRepairReceipt,
   repairDirectArtifact,
@@ -1040,6 +1041,8 @@ async function runSpellingTargetedGeneration(childId: string, homeworkId: string
     if (saved && (saved.requestHash !== hashDiscoveryContract(packet) || saved.outputHash !== hashDiscoveryContract(saved.result))) throw new Error("spelling_targeted_checkpoint_hash_mismatch");
     const result = saved?.result ?? await planAssignmentFromSourceWithTelemetry(packet, { providerReceipt: { draftDir: draft, stage: "spelling-targeted-planner" } });
     const createdAt = saved?.createdAt ?? result.receivedAt ?? new Date().toISOString();
+    // Preserve the accepted educational output before any visual/provider work.
+    if (!saved) write(responseFile, { result, requestHash: hashDiscoveryContract(packet), outputHash: hashDiscoveryContract(result), createdAt });
     const normalizedNodePlan = result.output.activeSessionPlan.nodePlan.map((sourceNode) => {
       const node = normalizeSpellingNativeNodeIdentity(sourceNode);
       return {
@@ -1049,7 +1052,7 @@ async function runSpellingTargetedGeneration(childId: string, homeworkId: string
           : node.thumbnailUrl,
       };
     });
-    const activeBase = {
+    let activeBase:ActiveSessionPlan = {
       ...result.output.activeSessionPlan,
       childId,
       domain: "spelling",
@@ -1058,20 +1061,20 @@ async function runSpellingTargetedGeneration(childId: string, homeworkId: string
       plannedMeasurements: result.output.plannedMeasurements,
       planTheory: result.output.planTheory,
     };
+    if(activeBase.journey && !activeBase.boardDefinition){
+      setMathGenerationPhase({...scope,phase:"board_designing"});
+      const designed=await askLearningExperienceDesigner({childId,program:{domain:"spelling",planId:activeBase.planId,journey:activeBase.journey,plan:activeBase},childContext:buildMathCreativeChildContext(chart),priorOutcomes:{discoveryCycle:cycle},checkpointFile:path.join(draft,"design-checkpoint.json"),rawResponseDir:path.join(draft,"provider-diagnostics")});
+      activeBase={...activeBase,...designed.plan};
+    }
     const authoredBoard = result.output.activeSessionPlan.adventureBoard;
     const active = {
       ...activeBase,
-      adventureBoard: authoredBoard
-        ? buildAdventureBoardFromActiveSessionPlan({
-            plan: activeBase as never,
-            boardId: authoredBoard.boardId,
-            title: authoredBoard.title,
-            theme: authoredBoard.theme,
-            layout: authoredBoard.layout,
-            plannerRationale: authoredBoard.plannerRationale,
-            companion: authoredBoard.companion,
-          })
-        : undefined,
+      adventureBoard:renderBoardDefinition(activeBase.boardDefinition!,{
+        boardId:authoredBoard?.boardId??`teaching-${childId}-${homeworkId}`,
+        planId:activeBase.planId,childId,domain:"spelling",
+        companion:authoredBoard?.companion??{id:chart.companion.presetId,name:chart.companion.displayName},
+        activities:activeBase.nodePlan.map(node=>({...node,wordRadarConfig:node.wordRadarConfig?{...node.wordRadarConfig}:undefined,state:"generating",verified:false})),
+      }),
     };
     const historicalEvidence = Object.entries(packet.discoveryEvidence?.history.constructs ?? {}).flatMap(([construct, entry]) => [...entry.observations.map(row => row.observationId), ...entry.evaluations.map(row => row.evaluationId)].map(id => ({ id, domain: construct.split(".")[0] })));
     const contract = buildSpellingTargetedCycleInput({ cycle, plan: active, now: createdAt, historicalEvidence });
@@ -1104,7 +1107,6 @@ async function runSpellingTargetedGeneration(childId: string, homeworkId: string
         console.log(` 🎮 [spelling] [instrument-contract] [reconciled] homework=${homeworkId}`);
       }
     }
-    if (!saved) write(responseFile, { result, requestHash: hashDiscoveryContract(packet), outputHash: hashDiscoveryContract(result), createdAt });
     console.log(` 🎮 [spelling] [targeted-planner] [${saved ? "reused" : "saved"}] homework=${homeworkId}`);
     const programHash = hashDiscoveryContract(result.output), designHash = hashDiscoveryContract(active.adventureBoard);
     let presentation = (await generateBoardNodeImages({ ...scope, plan: active, generateMissing: false })).plan ?? active;

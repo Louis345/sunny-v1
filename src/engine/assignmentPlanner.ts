@@ -1,7 +1,7 @@
 import {LEARNING_PLANNER_PERSONA,learningPlannerInstructions} from "./learningPlannerInstructions";
 import {spellingImplementationType,SPELLING_MYSTERY_INSTRUMENT_IDS} from "./activityEngineConfig";
 import {verifyAuthoredBoardCanvas} from './adventureBoardCanvas';
-import { adventureJourneySchema, journeyFromBoardDefinition, adventureBoardDefinitionSchema, BOARD_AUTHORING_INSTRUCTION, BOARD_CANVAS_AUTHORING_CONSTRAINTS, renderBoardDefinition, validateBoardDefinition, journeyExecutions, type BoardDefinitionIssue, type AdventureBoardDefinition } from '../shared/adventureBoardDefinition';
+import { JOURNEY_AUTHORING_INSTRUCTION, adventureJourneySchema, journeyFromBoardDefinition, adventureBoardDefinitionSchema, BOARD_AUTHORING_INSTRUCTION, BOARD_CANVAS_AUTHORING_CONSTRAINTS, renderBoardDefinition, validateBoardDefinition, journeyExecutions, type BoardDefinitionIssue, type AdventureBoardDefinition } from '../shared/adventureBoardDefinition';
 import { spellingCheckpointLineageIssues, checkpointInterventionsArePrior } from "./spellingCheckpointLineage";
 import {requestPlannerMessage, assertPlannerResponseComplete} from "./plannerTransport";
 import Anthropic from "@anthropic-ai/sdk";
@@ -1746,7 +1746,7 @@ export function assignmentPlannerSourceImages(packet: AssignmentPlanningPacket):
     .filter((image): image is { mediaType: "image/png" | "image/jpeg" | "image/webp"; data: string } => Boolean(image));
 }
 
-const AUTHORED_JOURNEY_INSTRUCTION = `${BOARD_AUTHORING_INSTRUCTION} Return it as activeSessionPlan.boardDefinition. nodePlan is the canonical activity inventory, not its chronology. Checkpoint citations name possible prior interventions; validate exposure order on each path containing both. Do not return learningRoutes or a second rendered adventureBoard.`;
+const AUTHORED_JOURNEY_INSTRUCTION = `${JOURNEY_AUTHORING_INSTRUCTION} Return it as activeSessionPlan.journey. nodePlan is the canonical activity inventory, not its chronology. Checkpoint citations name possible prior interventions; validate exposure order on each path containing both. Do not return learningRoutes or a second rendered adventureBoard.`;
 
 export function buildAssignmentPlannerPrompt(packet: AssignmentPlanningPacket): string {
   const instructions=learningPlannerInstructions(packet.capturedHomework?.contentProfile?.practiceDomain).text;
@@ -1785,7 +1785,7 @@ Output contract:
 - In planTheory or reviewQuestions, explain why the journey you chose fits this child today.
 - Use the packet as the only source of assignment truth.${revisionInstruction}
 ${AUTHORED_JOURNEY_INSTRUCTION}
-- Return one tool-call object with nodePlan, boardDefinition, plannedMeasurements, planTheory, and reviewQuestions in their schema-defined locations.
+- Return one tool-call object with nodePlan, journey, plannedMeasurements, planTheory, and reviewQuestions in their schema-defined locations.
 - Treat candidateCard child outcomes as factual, uncertain evidence. Academic compatibility is a hard gate; predicted learning value is primary; engagement is secondary; runtime clarity and reliability support the decision; uncertainty may justify bounded exploration; model-call cost and latency are penalties. A rating never overrides learning evidence, and one choice never proves preference.
 
 Packet:
@@ -1820,9 +1820,8 @@ function removeSchemaProperty(schema: JsonSchemaObject | undefined, propertyName
 function enforcePlannerToolContract(schema: JsonSchemaObject): JsonSchemaObject {
   const activeSessionPlan = schemaProperties(schema).activeSessionPlan;
   removeSchemaProperty(activeSessionPlan, "adventureBoard");
-  // Switch authoring only when the Creator handoff is wired; legacy receipts remain readable.
-  removeSchemaProperty(activeSessionPlan, "journey");
-  setSchemaRequired(activeSessionPlan, ["nodePlan", "boardDefinition"]);
+  removeSchemaProperty(activeSessionPlan, "boardDefinition");
+  setSchemaRequired(activeSessionPlan, ["nodePlan", "journey"]);
 
   return schema;
 }

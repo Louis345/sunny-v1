@@ -1,12 +1,14 @@
+import {isDeepStrictEqual} from "node:util";
 import {z} from "zod";
 import {learningPlannerInstructions} from "./learningPlannerInstructions";
 import {verifyAuthoredBoardCanvas,verifyPreparingBoardCanvas} from './adventureBoardCanvas';
-import {adventureCompositionSchema,assembleAdventureBoardDefinition,BOARD_CANVAS_AUTHORING_CONSTRAINTS,type AdventureJourneyDefinition,type AdventureBoardComposition, requireBoardDefinition, BOARD_DEFINITION_TOOL_SCHEMA, BOARD_AUTHORING_INSTRUCTION, journeyExecutions, renderBoardDefinition, type AdventureBoardDefinition } from "../shared/adventureBoardDefinition";
+import {JOURNEY_AUTHORING_INSTRUCTION,adventureJourneySchema,journeyFromBoardDefinition,validateBoardDefinition,adventureCompositionSchema,assembleAdventureBoardDefinition,BOARD_CANVAS_AUTHORING_CONSTRAINTS,type AdventureJourneyDefinition,type AdventureBoardComposition, requireBoardDefinition, BOARD_DEFINITION_TOOL_SCHEMA, BOARD_AUTHORING_INSTRUCTION, journeyExecutions, renderBoardDefinition, type AdventureBoardDefinition } from "../shared/adventureBoardDefinition";
 import Anthropic from "@anthropic-ai/sdk";
 import crypto from "node:crypto";
 import fs from "node:fs";
 import http from "node:http";
 import path from "node:path";
+import os from "node:os";
 import { resolveChildContextDir, resolveContextRoot } from "../utils/contextRoot";
 import { DISCOVERY_VERIFIER_VERSION, DISCOVERY_RELEASE_VIEWPORTS, MATH_JOURNEY_CONTRACT, MATH_IMPLEMENTATION_REPAIR_CONTRACT, verifyMathControlJourney, recordJourneyCapture, assertMathControlsVisible, type JourneyCapture, type MathJourney, type MathJourneyStep, freezeEngineeringLessonSnapshot, engineeringFeatures, engineeringLessonContext, recordEngineeringRepairEvidence } from "./discoveryVisualReview";
 import type { ChildChart } from "../profiles/childChart";
@@ -343,7 +345,7 @@ export const MATH_LEARNING_PROGRAM_TOOL_SCHEMA = schemaObject({
     minItems: 1,
     items: schemaObject({ id: schemaString, title: schemaString, purpose: schemaString, academicTarget: schemaString }),
   },
-  boardDefinition: BOARD_DEFINITION_TOOL_SCHEMA,
+  journey: z.toJSONSchema(adventureJourneySchema,{io:"input"}),
   activities: {
     type: "array",
     minItems: 1,
@@ -711,10 +713,18 @@ export function parseMathLearningProgram(value: unknown): MathLearningProgram {
       academicTarget: requiredString(responsibility, "academicTarget"),
     };
   });
-  const boardDefinition = requireBoardDefinition(root.boardDefinition, (Array.isArray(root.activities) ? root.activities : []).filter((a:any) => a.purpose !== 'bonus').map((a:any) => a.id));
-  // Read-only compatibility view for the existing Experience Creator. Never authored independently.
-  const routes = journeyExecutions(boardDefinition).map(path => ({id:path.id,academicRationale:boardDefinition.rationale,nodeIds:path.activityNodeIds}));
-  const fork = {hypothesis:boardDefinition.rationale,heldConstant:[]};
+  const activityIds=(Array.isArray(root.activities)?root.activities:[]).filter((a:any)=>a.purpose!=='bonus').map((a:any)=>a.id);
+  const boardDefinition=root.boardDefinition?requireBoardDefinition(root.boardDefinition,activityIds):undefined;
+  const parsedJourney=root.journey?adventureJourneySchema.safeParse(root.journey):undefined;
+  if(parsedJourney && !parsedJourney.success)throw new Error(`board_definition_invalid:${JSON.stringify(parsedJourney.error.issues)}`);
+  const journey=parsedJourney?.success?parsedJourney.data:boardDefinition?journeyFromBoardDefinition(boardDefinition):undefined;
+  if(!journey)throw new Error("board_definition_missing");
+  if(root.journey && boardDefinition && !isDeepStrictEqual(journey,journeyFromBoardDefinition(boardDefinition)))throw new Error("planner_journey_definition_mismatch");
+  const issues=validateBoardDefinition(journey,activityIds);
+  if(issues.length)throw new Error(`board_definition_invalid:${JSON.stringify(issues)}`);
+  // Lossless compatibility view; this is not independently authored navigation.
+  const routes=journeyExecutions(journey).map(path=>({id:path.id,academicRationale:journey.rationale,nodeIds:path.activityNodeIds}));
+  const fork={hypothesis:journey.rationale,heldConstant:[]};
   const parsedActivities = (Array.isArray(root.activities) ? root.activities : []).map((raw): MathPlannedActivity => {
     const activity = object(raw);
     const boundary = object(activity?.difficultyBoundary);
@@ -809,7 +819,8 @@ export function parseMathLearningProgram(value: unknown): MathLearningProgram {
       heldConstant: stringArray(fork?.heldConstant, "held_constant"),
       routes,
     },
-    boardDefinition,
+    ...(root.journey ? {domain:"math" as const,journey} : {}),
+    ...(boardDefinition ? {boardDefinition} : {}),
     activities,
     ...(bonusActivities[0] ? { bonusActivity: bonusActivities[0] } : {}),
   };
@@ -832,6 +843,7 @@ export function parseSavedDirectMathPlannerResponse(
 
 /** The existing Planner corrects executable geometry before its program is frozen. */
 export async function verifyMathPlannerCanvas(program: MathLearningProgram, responseFile: string): Promise<MathLearningProgram> {
+  if(program.journey && !program.boardDefinition)return program;
   await verifyAuthoredBoardCanvas({definition:requireBoardDefinition(program.boardDefinition,program.activities.map(activity=>activity.id)),rootDir:process.cwd(),directory:path.join(path.dirname(responseFile),'canvas-verification')});
   return program;
 }
@@ -1417,8 +1429,17 @@ ${JSON.stringify({ ...programWithoutBonusDuplicate, activities: contracts }, nul
     if (!root) throw new Error(`math_design_provider_contract_failed:invalid_tool_output:nodes=${requestedNodeIds.join(",")}`);
     let composition=checkpoint.composition;
     if(journey && !composition){
-      try { composition=adventureCompositionSchema.parse(root.composition);assembleAdventureBoardDefinition(journey,composition); }
-      catch(error){composition=undefined;checkpoint={...checkpoint,compositionDefect:error instanceof Error?error.message:String(error)};console.warn(` 🎮 [experience-creator] [composition] [invalid] ${checkpoint.compositionDefect}`);}
+      try {
+        composition=adventureCompositionSchema.parse(root.composition);
+        const definition=assembleAdventureBoardDefinition(journey,composition);
+        await verifyAuthoredBoardCanvas({definition,rootDir:process.cwd(),directory:path.join(input.rawResponseDir??path.dirname(input.checkpointFile??path.join(os.tmpdir(),"sunny-design.json")),"creator-canvas")});
+      }
+      catch(error){
+        const authoringDefect=error instanceof z.ZodError || (error instanceof Error && ["board_composition_identity_invalid","board_canvas_invalid:"].some(prefix=>error.message.startsWith(prefix)));
+        if(!authoringDefect)throw error;
+        composition=undefined;checkpoint={...checkpoint,compositionDefect:error instanceof Error?error.message:String(error)};
+        console.warn(` 🎮 [experience-creator] [composition] [invalid] ${checkpoint.compositionDefect}`);
+      }
     }
     let boardCreativeSpine = checkpoint.boardCreativeSpine;
     if (presentationOnly && boardCreativeSpine && root.boardCreativeSpine) {
@@ -1512,7 +1533,7 @@ ${JSON.stringify({ ...programWithoutBonusDuplicate, activities: contracts }, nul
   const plan: DirectLearningExperiencePlan = {
     planId: program.planId,
     boardDefinition: journey && checkpoint.composition ? assembleAdventureBoardDefinition(journey,checkpoint.composition) : structuredClone(program.boardDefinition),
-    title: program.boardDefinition?.title ?? packet.boardCreativeSpine.title,
+    title: journey?.title ?? program.boardDefinition?.title ?? packet.boardCreativeSpine.title,
     contentScopeRationale: program.contentScopeRationale,
     concept: {
       ...program.concept,
@@ -1843,11 +1864,11 @@ You own only the educational prescription:
 - difficulty boundaries, teaching/practice items, response contracts, and evidence requirements;
 - a catalog decision for each node: reuse, revise, generate_new, or retire.
 
-You own the journey title, portal labels, palette, artwork references and composition. The existing Experience Creator implements activity worlds, visuals, mechanics, sound, artwork, libraries and HTML without changing your journey.
+You own the journey title, portal labels, activity bindings, paths, choices and hypotheses. The existing Experience Creator owns artwork, palette and composition and implements activity worlds without changing your educational journey.
 
 Choose educationally sufficient activity and item counts. Distribute responsibilities across the journey; do not duplicate the curriculum merely for symmetry. Optional bonus content remains outside the required chapter and cannot support mastery. Keep initial nodes practice_only. Quest and Boss are not part of this baseline program and remain locked until real evidence supports a later decision.
 
-${BOARD_AUTHORING_INSTRUCTION} Activity routeId is descriptive only; navigation comes solely from boardDefinition.
+${JOURNEY_AUTHORING_INSTRUCTION} Activity routeId is descriptive only; navigation comes solely from journey.
 
 Describe engagement hypotheses in the authored choice options. Use factual child-chart and historical evidence to state a separate engagement hypothesis, predicted outcome, uncertainty, falsifying evidence, and measurement keys for each route. Keep the academic purpose and difficulty comparable at the choice point. A route choice is weak engagement evidence only and never proves a preference. The later decision must consider starts, completion, abandonment, switching, replay, assistance, interaction difficulty, rating, and academic outcomes.
 

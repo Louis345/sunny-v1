@@ -1,3 +1,5 @@
+import {journeyFromBoardDefinition,compositionFromBoardDefinition,assembleAdventureBoardDefinition} from "../shared/adventureBoardDefinition";
+import {askLearningExperienceDesigner} from "../engine/directMathExperience";
 import {linearJourneyFixture} from "./fixtures/authoredJourney";
 import fs from "node:fs";
 import os from "node:os";
@@ -17,7 +19,7 @@ import { generateStoryImage } from "../utils/generateStoryImage";
 import type { ActiveSessionPlan } from "../context/schemas/learningProfile";
 vi.mock("../utils/generateStoryImage", () => ({ generateStoryImage: vi.fn() }));
 vi.mock("../engine/assignmentPlanner", async original => ({ ...await original<typeof import("../engine/assignmentPlanner")>(), planAssignmentFromSourceWithTelemetry: vi.fn() }));
-vi.mock("../engine/directMathExperience", async original => ({ ...await original<typeof import("../engine/directMathExperience")>(), askDirectMathPlanner: vi.fn(async () => { throw new Error("test_forbids_math_planner_for_spelling"); }) }));
+vi.mock("../engine/directMathExperience", async original => ({ ...await original<typeof import("../engine/directMathExperience")>(), askLearningExperienceDesigner:vi.fn(async (input:any)=>({packet:{},plan:{...input.program.plan,boardDefinition:assembleAdventureBoardDefinition(input.program.journey,compositionFromBoardDefinition(linearJourneyFixture(input.program.plan.nodePlan.map((n:any)=>n.id))))}})), askDirectMathPlanner: vi.fn(async () => { throw new Error("test_forbids_math_planner_for_spelling"); }) }));
 const roots: string[] = [];
 afterEach(() => { vi.clearAllMocks(); vi.useRealTimers(); vi.unstubAllEnvs(); vi.unstubAllGlobals(); roots.splice(0).forEach(root => fs.rmSync(root, { recursive: true, force: true })); });
 describe("spelling in the production generation worker", () => {
@@ -44,7 +46,7 @@ describe("spelling in the production generation worker", () => {
     );
   });
 
-  it.each(["strong", "weak", "assisted", "incomplete", "visual", "reward-break", "mystery-concept-check", "published-contract-change"])("plans from %s committed evidence, publishes native games, and resumes without repeated calls", async scenario => {
+  it.each(["semantic", "strong", "weak", "assisted", "incomplete", "visual", "reward-break", "mystery-concept-check", "published-contract-change"])("plans from %s committed evidence, publishes native games, and resumes without repeated calls", async scenario => {
     vi.useFakeTimers({ toFake: ["Date"] }); vi.setSystemTime(new Date("2026-09-08T11:00:00Z"));
     const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-spelling-worker-")); roots.push(rootDir);
     const childId = "lab-child", child = path.join(rootDir, "src/context", childId);
@@ -87,6 +89,10 @@ describe("spelling in the production generation worker", () => {
         background: { type: "image", value: "/generated/adventure-board-demo/silent-letter-world.jpeg" },
         palette: { path: "#ffffff", completed: "#1f8f68", available: "#7c3aed", locked: "#aeb7c2", current: "#f59e0b", preview: "#d5dde5", text: "#ffffff", panel: "rgba(15, 23, 42, 0.84)" },
       } as const;
+      if(scenario==="semantic"){
+        const {boardDefinition,...semanticPlan}=activeSessionPlan;
+        return {output:{activeSessionPlan:{...semanticPlan,journey:journeyFromBoardDefinition(boardDefinition)},plannedMeasurements,planTheory:activeSessionPlan.planTheory,generationRequests:[]},telemetry:{model:"recorded-provider",latencyMs:1}} as never;
+      }
       return { output: { activeSessionPlan: { ...activeSessionPlan, adventureBoard: buildAdventureBoardFromActiveSessionPlan({ plan: activeSessionPlan as never, boardId: activeSessionPlan.planId, theme, title: "School words", companion: { id: "elli", name: "Elli" } }) }, plannedMeasurements, planTheory: activeSessionPlan.planTheory, generationRequests: [] }, telemetry: { model: "recorded-provider", latencyMs: 1 } } as never;
     });
     vi.stubEnv("GROK_API_KEY", "recorded-not-a-key");
@@ -97,6 +103,7 @@ describe("spelling in the production generation worker", () => {
       return "https://recorded.invalid/image";
     });
     await runAdaptiveMathGeneration(childId, homeworkId, rootDir);
+    if(scenario==="semantic")expect(askLearningExperienceDesigner).toHaveBeenCalledTimes(1);
     const imageCallsAfterFirstRun = vi.mocked(generateStoryImage).mock.calls.length;
     const frozenFile = path.join(child, "homework/direct-drafts", homeworkId, "spelling-targeted-response.json");
     const frozenResult = JSON.parse(fs.readFileSync(frozenFile, "utf8")).result;

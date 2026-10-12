@@ -1,5 +1,5 @@
 import {linearJourneyFixture,choiceJourneyFixture} from '../scripts/fixtures/authoredJourney';
-import {journeyFromBoardDefinition,BOARD_DEFINITION_TOOL_SCHEMA} from '../shared/adventureBoardDefinition';
+import {adventureJourneySchema,journeyFromBoardDefinition,BOARD_DEFINITION_TOOL_SCHEMA} from '../shared/adventureBoardDefinition';
 import { describe, expect, it } from "vitest";
 import fs from "fs";
 import os from "os";
@@ -876,22 +876,14 @@ describe("assignment planner", () => {
     expect(prompt).not.toContain("practice can vary, but readiness proof is unaided spelling production");
   });
 
-  it("carries the approved inviting map brief and executable artwork into Planner authoring", () => {
-    // Human saw a gradient and static line after the canvas refactor. Runtime
-    // faithfully rendered it; earlier lab checks never inspected the visual brief.
+  it("hands visual ownership to the existing Creator without prescribing Planner layout", () => {
     const packet=buildAssignmentPlanningPacket({childId:"reina",extraction:extraction(),childChart:chart()});
     const prompt=buildAssignmentPlannerPrompt(packet);
-    expect(prompt).toContain("illustrated adventure world");
-    expect(prompt).toContain("/generated/adventure-board-demo/silent-letter-world.jpeg");
-    expect(fs.existsSync(path.join(process.cwd(),"web/public/generated/adventure-board-demo/silent-letter-world.jpeg"))).toBe(true);
-    expect(prompt).toContain("animated dashed or glow paths");
-    expect(prompt).toContain("left-to-right journey");
-    expect(prompt).toContain("learn first");
-    expect(prompt).toContain("play first");
-    expect(prompt).toContain("varied practice");
-    expect(prompt).toContain("After independent evaluation, on Teaching boards only");
+    expect(prompt).toContain("Experience Creator owns visual composition");
+    expect(prompt).not.toContain("safe composition area");
+    expect(prompt).not.toContain("animated dashed or glow paths");
+    expect(prompt).toContain("meaningful choice");
     expect(prompt).toContain("activity count remains your decision");
-    expect(prompt).not.toContain("linear-gradient(135deg,#eef6ff,#bbe8ce)");
   });
 
   it("keeps the planner request lean while preserving curriculum authority", () => {
@@ -953,11 +945,12 @@ describe("assignment planner", () => {
     const schema = assignmentPlannerToolJsonSchema();
     const activeSessionPlan = (schema.properties as Record<string, any>).activeSessionPlan;
 
-    expect(activeSessionPlan.required).toEqual(["nodePlan", "boardDefinition"]);
+    expect(activeSessionPlan.required).toEqual(["nodePlan", "journey"]);
     expect(activeSessionPlan.properties.learningRoutes).toBeUndefined();
-    expect(activeSessionPlan.properties.boardDefinition.properties).toEqual((BOARD_DEFINITION_TOOL_SCHEMA as any).properties);
+    expect(activeSessionPlan.properties.boardDefinition).toBeUndefined();
+    expect(activeSessionPlan.properties.journey.properties.theme).toBeUndefined();
     expect(activeSessionPlan.properties.adventureBoard).toBeUndefined();
-    expect(activeSessionPlan.properties.boardDefinition.properties.portals.items.properties.thumbnailUrl).toBeDefined();
+    expect(activeSessionPlan.properties.journey.properties.portals.items.properties.position).toBeUndefined();
     expect(JSON.stringify(schema)).not.toContain("choiceSets");
   });
 

@@ -1,5 +1,8 @@
-import {describe,it,expect,vi} from 'vitest';
+import {describe,it,expect,vi,afterEach} from 'vitest';
 import fs from 'node:fs';import os from 'node:os';import path from 'node:path';
+import {verifyAuthoredBoardCanvas} from './adventureBoardCanvas';
+vi.mock('./adventureBoardCanvas',async original=>({...await original<typeof import('./adventureBoardCanvas')>(),verifyAuthoredBoardCanvas:vi.fn(async()=>({}))}));
+afterEach(()=>vi.clearAllMocks());
 import * as creator from './directMathExperience';
 import {authoredJourney} from '../scripts/fixtures/authoredJourney';
 import {journeyFromBoardDefinition,compositionFromBoardDefinition} from '../shared/adventureBoardDefinition';
@@ -14,6 +17,7 @@ describe('existing Creator realizes native spelling journeys',()=>{
    const input:any={childId:'lab',program:{domain:'spelling',planId:plan.planId,journey,plan},childContext:{},priorOutcomes:{},checkpointFile:path.join(root,'design.json'),client:{messages:{stream}}};
    const result=await creator.askLearningExperienceDesigner(input);
    expect(result.plan.boardDefinition).toEqual(board);
+   expect(verifyAuthoredBoardCanvas).toHaveBeenCalledTimes(1);
    expect(result.plan.nodePlan).toEqual(plan.nodePlan);
    expect(result.plan.journey).toEqual(journey);
    expect(stream).toHaveBeenCalledTimes(1);
@@ -53,6 +57,19 @@ describe('existing Creator realizes native spelling journeys',()=>{
    expect(second.messages[0].content).not.toBe(first.messages[0].content);
    expect(second.messages[0].content).toContain('composition');
    await creator.askLearningExperienceDesigner(input);expect(stream).toHaveBeenCalledTimes(2);
+  }finally{fs.rmSync(root,{recursive:true,force:true});}
+ });
+
+ it('reuses the received design when browser verification has an infrastructure failure',async()=>{
+  const board=authoredJourney(),journey=journeyFromBoardDefinition(board),root=fs.mkdtempSync(path.join(os.tmpdir(),'sunny-creator-browser-'));
+  const stream=vi.fn((_request:unknown)=>({finalMessage:async()=>({id:'received-before-browser-failure',stop_reason:'tool_use',usage:{input_tokens:1,output_tokens:1},content:[{type:'tool_use',name:'create_learning_design_packet',input:{composition:compositionFromBoardDefinition(board),rationale:'Fixture.'}}]})}));
+  try{
+   const input:any={childId:'lab',program:{domain:'spelling',planId:'browser-recovery',journey,plan:{planId:'browser-recovery',journey,nodePlan:[]}},childContext:{},priorOutcomes:{},checkpointFile:path.join(root,'design.json'),client:{messages:{stream}}};
+   vi.mocked(verifyAuthoredBoardCanvas).mockRejectedValueOnce(new Error('browserType.launch: executable missing'));
+   await expect(creator.askLearningExperienceDesigner(input)).rejects.toThrow('browserType.launch');
+   expect(stream).toHaveBeenCalledTimes(1);
+   const result=await creator.askLearningExperienceDesigner(input);
+   expect(result.plan.boardDefinition).toEqual(board);expect(stream).toHaveBeenCalledTimes(1);
   }finally{fs.rmSync(root,{recursive:true,force:true});}
  });
 
