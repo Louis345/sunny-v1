@@ -5,7 +5,7 @@ const WS_BASE = "wss://api.elevenlabs.io/v1/text-to-speech";
 const FLUSH_INTERVAL_MS = 50;
 const STREAM_DEADLINE_MS = 10_000;
 type StreamOutcome = "final" | "closed" | "cancelled" | "tts_provider_error" | "tts_stream_timeout";
-type StreamTerminal = { outcome?: StreamOutcome; done: Promise<StreamOutcome>; settle: (outcome: StreamOutcome) => void };
+type StreamTerminal = { outcome?: StreamOutcome; done: Promise<StreamOutcome>; settle: (outcome: StreamOutcome) => void; wordPcm: Buffer[]; wordBytes: number; atomicWord: boolean };
 
 
 function normalizeForTTS(text: string): string {
@@ -48,10 +48,13 @@ export class WsTtsBridge {
   private connectingPromise: Promise<void> | null = null;
   private hasFlushedThisTurn = false;
   private audioChunksThisTurn = 0;
+  private requiresCompleteAudio = false;
   private playbackOwner?: { requestId: string; itemId?: string };
 
   beginPlayback(requestId: string, itemId?: string, requiresAudio = false, activity = false): void {
     if (this.playbackOwner?.requestId !== requestId && this.playbackOwner) this.stop();
+    this.requiresCompleteAudio = requiresAudio;
+    if (this.elevenWs) this.trackTerminal(this.elevenWs).atomicWord = requiresAudio;
     this.playbackOwner = { requestId, ...(itemId ? { itemId } : {}) };
     if (this.browserWs.readyState === WebSocket.OPEN) {
       this.browserWs.send(JSON.stringify({ type: "audio_start", ...this.playbackOwner, requiresAudio, source: activity ? "activity" : "companion" }));
@@ -174,16 +177,14 @@ export class WsTtsBridge {
         if (!msg || typeof msg !== "object" || Array.isArray(msg)) { terminal.settle("tts_provider_error"); return; }
         if (terminal.outcome) return;
         if (msg.error) { terminal.settle("tts_provider_error"); return; }
-        if (msg.audio && this.browserWs.readyState === this.browserWs.OPEN) {
-          this.audioChunksThisTurn += 1;
-          this.browserWs.send(
-            JSON.stringify({
-              type: "audio",
-              ...this.playbackOwner,
-              timestamp: new Date().toISOString(),
-              data: msg.audio,
-            })
-          );
+        if (msg.audio !== undefined && typeof msg.audio !== "string") { terminal.settle("tts_provider_error"); return; }
+        if (msg.audio) {
+          if (terminal.atomicWord) {
+            const pcm = Buffer.from(msg.audio, "base64");
+            terminal.wordBytes += pcm.length;
+            if (terminal.wordBytes > 10 * 1024 * 1024) { terminal.settle("tts_provider_error"); return; }
+            terminal.wordPcm.push(pcm);
+          } else this.deliverAudio(msg.audio);
         }
         if (msg.isFinal === true || msg.is_final === true) terminal.settle("final");
       });
@@ -307,6 +308,12 @@ export class WsTtsBridge {
     }
   }
 
+  private deliverAudio(data: string): void {
+    if (this.browserWs.readyState !== WebSocket.OPEN) return;
+    this.browserWs.send(JSON.stringify({ type: "audio", ...this.playbackOwner, timestamp: new Date().toISOString(), data }));
+    this.audioChunksThisTurn += 1;
+  }
+
   private trackTerminal(ws: WebSocket): StreamTerminal {
     const existing = this.terminals.get(ws);
     if (existing) return existing;
@@ -314,10 +321,17 @@ export class WsTtsBridge {
     const started = Date.now();
     const owner = this.playbackOwner;
     const terminal: StreamTerminal = {
+      wordPcm: [], wordBytes: 0, atomicWord: this.requiresCompleteAudio,
       done: new Promise<StreamOutcome>(complete => { resolve = complete; }),
       settle: outcome => {
         if (terminal.outcome) return;
         terminal.outcome = outcome;
+        if (terminal.atomicWord && this.elevenWs === ws && !this.stopped &&
+            (outcome === "final" || outcome === "closed") && terminal.wordBytes > 0) {
+          this.deliverAudio(Buffer.concat(terminal.wordPcm).toString("base64"));
+        }
+        terminal.wordPcm = [];
+        terminal.wordBytes = 0;
         console.log(` 🎮 [session-audio] [stream-terminal] [${outcome}] request=${owner?.requestId ?? "unowned"} elapsedMs=${Date.now()-started} chunks=${this.elevenWs === ws ? this.audioChunksThisTurn : "retired"}`);
         resolve(outcome);
       },
@@ -336,6 +350,7 @@ export class WsTtsBridge {
 
   stop(): void {
     this.playbackOwner = undefined;
+    this.requiresCompleteAudio = false;
     this.stopped = true;
     this.wsReady = false;
     this.connectingPromise = null;

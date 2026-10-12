@@ -46,7 +46,7 @@ describe("WsTtsBridge turn ownership", () => {
 // discarded its socket. Logs lacked terminal facts; old mocks only closed fast.
 // This local provider has no paid service or child-data side effects.
 describe('WsTtsBridge provider terminal protocol',()=>{
- async function localProvider(timeoutMs=1000){
+ async function localProvider(timeoutMs=1000, requiresAudio=true, primeFirst=false){
   const {WebSocketServer}=await import('ws');
   const once=(emitter:EventEmitter,event:string)=>new Promise<any[]>(resolve=>emitter.once(event,(...args:any[])=>resolve(args)));
   const server=new WebSocketServer({host:'127.0.0.1',port:0});
@@ -55,7 +55,7 @@ describe('WsTtsBridge provider terminal protocol',()=>{
   vi.stubEnv('ELEVENLABS_WS_BASE_URL',`ws://127.0.0.1:${address.port}`);vi.stubEnv('ELEVENLABS_API_KEY','local-fixture');vi.stubEnv('TTS_ENABLED','true');
   const sent:any[]=[];const browser={readyState:WebSocket.OPEN,OPEN:WebSocket.OPEN,send:(data:string)=>sent.push(JSON.parse(data))} as unknown as WebSocket;
   const bridge=new (WsTtsBridge as any)(browser,'fixture-voice',timeoutMs) as WsTtsBridge;
-  const peerPromise=once(server,'connection');bridge.beginPlayback('request-old','item-old',true,true);await bridge.connect();const [peer]=await peerPromise;
+  const peerPromise=once(server,'connection');if(primeFirst)await bridge.prime();bridge.beginPlayback('request-old','item-old',requiresAudio,true);await bridge.connect();const [peer]=await peerPromise;
   let inputs=0;peer.on('message',()=>{if(++inputs>10)throw Error('provider input guard exceeded');});
   return {bridge,peer,server,sent,inputs:()=>inputs,close:async()=>{bridge.close();server.clients.forEach(client=>client.terminate());await new Promise<void>(resolve=>server.close(()=>resolve()));vi.unstubAllEnvs();}};
  }
@@ -112,6 +112,76 @@ describe('WsTtsBridge provider terminal protocol',()=>{
    f.bridge.sendText('monkey.');const finished=f.bridge.finish();
    const assertion=code!==1011?expect(finished).resolves.toBeUndefined():expect(finished).rejects.toThrow('tts_provider_error');
    if(code===1005)f.peer.close();else f.peer.close(code);await assertion;expect((f.bridge as any).elevenWs).toBeNull();expect(f.bridge.hadAudioThisTurn()).toBe(false);
+  }finally{await f.close();}
+ },10000);
+
+ it.each(['medium','piece'])('holds %s PCM until complete, then emits one uninterrupted word',async word=>{
+  const f=await localProvider();try{
+   f.bridge.sendText(word+'.');const finished=f.bridge.finish();
+   const wire=(f.bridge as any).elevenWs as WebSocket;
+   const first=Buffer.from([1,0]),last=Buffer.from([2,0]);
+   const received=new Promise(resolve=>wire.once('message',resolve));
+   f.peer.send(JSON.stringify({audio:first.toString('base64')}));await received;
+   expect(f.sent.filter(message=>message.type==='audio')).toEqual([]);
+   await new Promise(resolve=>setTimeout(resolve,250));
+   f.peer.send(JSON.stringify({audio:last.toString('base64'),isFinal:true}));await finished;
+   const audio=f.sent.filter(message=>message.type==='audio');expect(audio).toHaveLength(1);
+   expect(Buffer.from(audio[0].data,'base64')).toEqual(Buffer.concat([first,last]));
+   expect(f.bridge.hadAudioThisTurn()).toBe(true);
+  }finally{await f.close();}
+ },10000);
+ it('discards an incomplete word instead of playing its leading fragment on timeout',async()=>{
+  const f=await localProvider(50);try{
+   f.bridge.sendText('piece.');const finished=f.bridge.finish();const failed=expect(finished).rejects.toThrow('tts_stream_timeout');
+   f.peer.send(JSON.stringify({audio:Buffer.from([1,0]).toString('base64')}));await failed;
+   expect(f.sent.filter(message=>message.type==='audio')).toEqual([]);expect(f.bridge.hadAudioThisTurn()).toBe(false);
+  }finally{await f.close();}
+ },10000);
+
+ it('continues streaming companion speech before its terminal packet',async()=>{
+  const f=await localProvider(1000,false);try{
+   const wire=(f.bridge as any).elevenWs as WebSocket;
+   const received=new Promise(resolve=>wire.once('message',resolve));
+   f.peer.send(JSON.stringify({audio:Buffer.from([1,0]).toString('base64')}));await received;
+   expect(f.sent.filter(message=>message.type==='audio')).toHaveLength(1);
+   const finished=f.bridge.finish();f.peer.send(JSON.stringify({isFinal:true}));await finished;
+  }finally{await f.close();}
+ },10000);
+ it('discards buffered word PCM when cancelled before a successor begins',async()=>{
+  const f=await localProvider();try{
+   const wire=(f.bridge as any).elevenWs as WebSocket;
+   const received=new Promise(resolve=>wire.once('message',resolve));
+   f.peer.send(JSON.stringify({audio:Buffer.from([1,0]).toString('base64')}));await received;
+   f.bridge.stop();f.bridge.beginPlayback('request-next','item-next',true,true);await f.bridge.connect();
+   expect(f.sent.filter(message=>message.type==='audio')).toHaveLength(0);
+   expect(f.bridge.hadAudioThisTurn()).toBe(false);
+  }finally{await f.close();}
+ },10000);
+
+ it.each([true,false])('binds complete-word policy after priming: required=%s',async required=>{
+  const f=await localProvider(1000,required,true);try{
+   const wire=(f.bridge as any).elevenWs as WebSocket;const received=new Promise(resolve=>wire.once('message',resolve));
+   f.peer.send(JSON.stringify({audio:Buffer.from([1,0]).toString('base64')}));await received;
+   expect(f.sent.filter(message=>message.type==='audio')).toHaveLength(required?0:1);
+   const finished=f.bridge.finish();f.peer.send(JSON.stringify({isFinal:true}));await finished;
+   expect(f.sent.filter(message=>message.type==='audio')).toHaveLength(1);
+  }finally{await f.close();}
+ },10000);
+ it('rejects malformed PCM fields without throwing from the message callback',async()=>{
+  const f=await localProvider();try{
+   const wire=(f.bridge as any).elevenWs as WebSocket;const received=new Promise(resolve=>wire.once('message',resolve));
+   f.peer.send(JSON.stringify({audio:42}));await received;
+   await expect(f.bridge.finish()).rejects.toThrow('tts_provider_error');
+   expect(f.sent.filter(message=>message.type==='audio')).toHaveLength(0);
+  }finally{await f.close();}
+ },10000);
+
+ it('rejects an oversized word clip without forwarding partial PCM',async()=>{
+  const f=await localProvider(5000);try{
+   const wire=(f.bridge as any).elevenWs as WebSocket;const received=new Promise(resolve=>wire.once('message',resolve));
+   f.peer.send(JSON.stringify({audio:Buffer.alloc(10*1024*1024+2).toString('base64')}));await received;
+   await expect(f.bridge.finish()).rejects.toThrow('tts_provider_error');
+   expect(f.sent.filter(message=>message.type==='audio')).toHaveLength(0);
   }finally{await f.close();}
  },10000);
 
