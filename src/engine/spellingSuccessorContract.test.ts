@@ -10,6 +10,8 @@ import { advanceCanonicalCycleFromEvidence, recordCanonicalNodeCompletion, parse
 import { currentBoardInstance, preparingBoardInstance, publishBoardInstance } from "./learningBoardInstances";
 import { buildAdaptiveProgressionCreatorPrompt } from "./directMathExperience";
 import { runMathProviderStage } from "./adaptiveMathDiscovery";
+import { writeWaterfallContentCatalog } from "../profiles/chartWaterfall";
+import { getChildChart } from "../profiles/childChart";
 
 const roots: string[] = [];
 afterEach(() => { for (const root of roots.splice(0)) fs.rmSync(root, { recursive: true, force: true }); });
@@ -113,13 +115,62 @@ it("reuses a received pre-fix journey correction without buying another response
   const execute = async (request:any) => {
     calls++;
     if(calls !== 1)throw new Error('pre-fix receipt must satisfy correction');
-    const oldRequest = {...request,tools:request.tools.map((tool:any)=>({...tool,input_schema:{...tool.input_schema,properties:{...tool.input_schema.properties,predictionEvaluationIds:{type:'array',items:{type:'string'}}}}})),messages:[{role:'user',content:`Correct only boardDefinition in the received decision to fix this executable journey defect. Preserve every other field, instrument, academic claim, evidence reference and progression action unchanged. Return the complete decision using the same tool. There is one correction attempt.\nDEFECT: ${defect}\nRECEIVED DECISION: ${JSON.stringify(received)}`}]};
+    // Fixed historical schema: do not derive a pre-fix receipt from today's inventory.
+    const oldContentSchema = {type:'array',items:{type:'object',additionalProperties:false,properties:{contentId:{type:'string'},action:{type:'string',enum:['candidate','reuse','revise','retire']},reason:{type:'string'},evidenceIds:{type:'array',items:{type:'string'}}},required:['contentId','action','reason','evidenceIds']}};
+    const oldRequest = {...request,tools:request.tools.map((tool:any)=>({...tool,input_schema:{...tool.input_schema,properties:{...tool.input_schema.properties,predictionEvaluationIds:{type:'array',items:{type:'string'}},contentDecisions:oldContentSchema}}})),messages:[{role:'user',content:`Correct only boardDefinition in the received decision to fix this executable journey defect. Preserve every other field, instrument, academic claim, evidence reference and progression action unchanged. Return the complete decision using the same tool. There is one correction attempt.\nDEFECT: ${defect}\nRECEIVED DECISION: ${JSON.stringify(received)}`}]};
     await runMathProviderStage({draftDir,stage:`progression-journey-correction-r${revision}`,model:request.model,request:oldRequest,execute:async()=>({plannerMessage:{content:[{type:'tool_use',name:'decide_learning_cycle_progression',input:f.decision}]}})});
     return {content:[{type:'tool_use',name:'decide_learning_cycle_progression',input:received}]};
   };
   const result = await advanceCanonicalCycleFromEvidence({childId:f.childId,homeworkId:f.homeworkId,client:{messages:{stream:(request:any)=>({finalMessage:()=>execute(request)})}} as never},{rootDir:f.rootDir});
   expect(preparingBoardInstance(result)).toBeDefined();
   expect(calls).toBe(1);
+});
+
+it.each(['corrected','invalid','changed-plan','malformed-evidence'])("shares catalog/evidence handles and repairs all reference fields together: %s", async outcome => {
+  const f = fixture();
+  const before = getLearningCycle(f.childId,f.homeworkId,{rootDir:f.rootDir})!;
+  const cycleFile = path.join(f.rootDir,`src/context/${f.childId}/homework/cycles/${f.homeworkId}.json`);
+  const snapshot = fs.readFileSync(cycleFile,'utf8');
+  const evidenceId = before.observations[0].observationId;
+  const contentId = `${f.homeworkId}:practice`;
+  const item = {contentId,childId:f.childId,homeworkId:f.homeworkId,type:'activity',source:'generated',title:'Word workshop',algorithmTargets:['retrieval-practice'],targetSkills:['spelling'],targetWords:['night','light'],targetConcepts:[],engagementHooks:[],inputEvidence:{contentFingerprint:'recorded'},reuseStatus:'candidate',reuseReason:'Await evidence',theoryDecisionId:'original-plan'};
+  const profile = JSON.parse(fs.readFileSync(path.join(f.rootDir,`src/context/${f.childId}/learning_profile.json`),'utf8'));
+  writeWaterfallContentCatalog(f.childId,{...profile,aiContentCatalog:[item]},{rootDir:f.rootDir});
+  const received = {...f.decision,predictionEvaluationIds:['invented-evaluation'],contentDecisions:[{contentId:'practice',action:'revise',reason:'Support gap',evidenceIds:[evidenceId]}]};
+  const requests:any[]=[];
+  const execute = async (request:any) => {
+    requests.push(request);
+    const input = requests.length === 1 ? received : {predictionEvaluationIds:[],contentDecisions:[{...received.contentDecisions[0],contentId:outcome==='invalid'?'foreign':contentId,...(outcome==='malformed-evidence'?{evidenceIds:[evidenceId,42]}:{})}],...(outcome==='changed-plan'?{boardDefinition:received.boardDefinition}:{})};
+    return {content:[{type:'tool_use',name:'decide_learning_cycle_progression',input}]};
+  };
+  const run=()=>advanceCanonicalCycleFromEvidence({childId:f.childId,homeworkId:f.homeworkId,client:{messages:{stream:(request:any)=>({finalMessage:()=>execute(request)})}} as never},{rootDir:f.rootDir});
+  if(outcome==='corrected'){
+    const cycle=await run();
+    expect(preparingBoardInstance(cycle)).toBeDefined();
+    expect(currentBoardInstance(cycle).boardId).toBe(f.board.boardId);
+    expect(getChildChart(f.childId,{rootDir:f.rootDir}).contentCatalog.items[0].reuseStatus).toBe('revise');
+    // Crash after catalog persistence but before the cycle commit: no new paid reply.
+    fs.writeFileSync(cycleFile,snapshot);
+    await run();
+  }else{
+    await expect(run()).rejects.toThrow(outcome==='invalid'?'math_catalog_decision_unknown_content':outcome==='malformed-evidence'?'canonical_progression_invalid_content_patch':'planner_correction_changed_protected_decision');
+    expect(getChildChart(f.childId,{rootDir:f.rootDir}).contentCatalog.items[0].reuseStatus).toBe('candidate');
+  }
+  expect(requests).toHaveLength(2);
+  expect(requests[0].tools[0].input_schema.properties.contentDecisions.items.properties.contentId.enum).toEqual([contentId]);
+  expect(requests[0].tools[0].input_schema.properties.contentDecisions.items.properties.evidenceIds.items.enum).toContain(evidenceId);
+  expect(requests[0].messages[0].content).toContain(contentId);
+  expect(Object.keys(requests[1].tools[0].input_schema.properties)).toEqual(['predictionEvaluationIds','contentDecisions']);
+});
+
+it.each(['non-array','mixed-ids','null'])("does not silently normalize original content decisions: %s", async shape => {
+  const f=fixture();const requests:any[]=[];
+  const received={...f.decision,predictionEvaluationIds:[],contentDecisions:shape==='non-array'?'not an array':shape==='null'?null:[{contentId:'unknown',action:'revise',reason:'Support',evidenceIds:['saved',42]}]};
+  const execute=async(request:any)=>{requests.push(request);return {content:[{type:'tool_use',name:'decide_learning_cycle_progression',input:requests.length===1?received:{contentDecisions:[]}}]};};
+  const result=await advanceCanonicalCycleFromEvidence({childId:f.childId,homeworkId:f.homeworkId,client:{messages:{stream:(request:any)=>({finalMessage:()=>execute(request)})}} as never},{rootDir:f.rootDir});
+  expect(preparingBoardInstance(result)).toBeDefined();
+  expect(requests).toHaveLength(2);
+  expect(Object.keys(requests[1].tools[0].input_schema.properties)).toEqual(['contentDecisions']);
 });
 
 it.each(["missing", "unknown", "duplicate", "invalid-role"])("rejects a %s word prescription before saving a successor", async kind => {

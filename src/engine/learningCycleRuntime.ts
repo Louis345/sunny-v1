@@ -13,6 +13,8 @@ import { engagementTheoryEvidenceContext } from "./engagementTheory";
 import { evaluateAcademicPredictions } from "./longitudinalLearning";
 import {
   applyEvidenceBasedMathContentDecisions,
+  validateEvidenceBasedContentDecisions,
+  assertContentDecisionShape,
   type EvidenceBasedContentDecision,
 } from "./learningDecisionContext";
 import {
@@ -522,11 +524,17 @@ export function parseCanonicalProgressionDecision(value: unknown): CanonicalProg
   };
 }
 
-function assertPredictionCitations(decision:CanonicalProgressionDecision, cycle:LearningCycleRecordV2):void {
+function assertPredictionCitations(decision:Pick<CanonicalProgressionDecision,'predictionEvaluationIds'>, cycle:LearningCycleRecordV2):void {
   const allowed = new Set(cycle.predictionEvaluations.map(evaluation => evaluation.evaluationId));
   const cited = decision.predictionEvaluationIds ?? [];
   if (cited.some(id => !allowed.has(id))) throw new Error("canonical_progression_unknown_prediction_evaluation");
   if (allowed.size > 0 && cited.length === 0) throw new Error("canonical_progression_prediction_evaluation_citation_required");
+}
+
+function progressionEvidence(cycle:LearningCycleRecordV2) {
+  const evidenceIds = [...new Set([...cycle.evidence.academic, ...cycle.evidence.engagement]
+    .map(item=>item.evidenceId).filter(id=>!/(^|[:_-])(synthetic|playwright|browser-acceptance|readiness)([:_-]|$)/i.test(id)))];
+  return {evidenceIds, decisionEvidenceIds:new Set([...evidenceIds,...cycle.observations.map(row=>row.observationId),...cycle.predictionEvaluations.map(row=>row.evaluationId)])};
 }
 
 async function askPlanner(
@@ -538,10 +546,14 @@ async function askPlanner(
   const toolName = "decide_learning_cycle_progression";
   const anthropic = client ?? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
   const chart = getChildChart(cycle.childId, { rootDir: opts.rootDir });
+  const catalog = chart.contentCatalog.items;
+  const {decisionEvidenceIds} = progressionEvidence(cycle);
+  const catalogCards = catalog.map(({contentId,title,homeworkId})=>({contentId,title,homeworkId}));
   const childContext = {
     identity: chart.identity,
     demographics: chart.demographics,
     engagementEvidence: engagementTheoryEvidenceContext(chart.engagementTheory),
+    ...(cycle.domain === 'spelling' ? {contentCatalog:catalogCards,contentDecisionEvidenceIds:[...decisionEvidenceIds]} : {}),
   };
   const isSynthetic = (id: string): boolean =>
     /(^|[:_-])(synthetic|playwright|browser-acceptance|readiness)([:_-]|$)/i.test(id);
@@ -560,6 +572,10 @@ async function askPlanner(
     : ["generate_support", "generate_quest", "generate_boss", "collect_more_evidence", "await_calibration"];
   const plannerModel = model ?? (cycle.domain === "spelling" ? process.env.SUNNY_EXPERIENCE_PLANNER_MODEL : undefined) ?? process.env.SUNNY_INGEST_MODEL ?? "claude-sonnet-5";
   const savedSpellingItems = spellingAssignmentItems(cycle);
+  const legacyContentSchema = {type:'array',items:{type:'object',additionalProperties:false,properties:{contentId:{type:'string'},action:{type:'string',enum:['candidate','reuse','revise','retire']},reason:{type:'string'},evidenceIds:{type:'array',items:{type:'string'}}},required:['contentId','action','reason','evidenceIds']}};
+  const contentSchema = cycle.domain !== 'spelling' ? legacyContentSchema : catalog.length && decisionEvidenceIds.size
+    ? {...legacyContentSchema,items:{...legacyContentSchema.items,properties:{...legacyContentSchema.items.properties,contentId:{type:'string',enum:catalog.map(item=>item.contentId)},evidenceIds:{type:'array',minItems:1,items:{type:'string',enum:[...decisionEvidenceIds]}}}}}
+    : {...legacyContentSchema,maxItems:0};
   const instrumentSchema = {
     type: "object",
     additionalProperties: false,
@@ -657,20 +673,7 @@ ${JSON.stringify({ lifecycle: cycle.lifecycle, assignment: cycle.assignment, the
           predictionEvaluationIds: cycle.domain !== "spelling" ? {type:"array",items:{type:"string"}} : cycle.predictionEvaluations.length
             ? {type:"array",minItems:1,items:{type:"string",enum:cycle.predictionEvaluations.map(evaluation=>evaluation.evaluationId)}}
             : {type:"array",maxItems:0,items:{type:"string"}},
-          contentDecisions: {
-            type: "array",
-            items: {
-              type: "object",
-              additionalProperties: false,
-              properties: {
-                contentId: { type: "string" },
-                action: { type: "string", enum: ["candidate", "reuse", "revise", "retire"] },
-                reason: { type: "string" },
-                evidenceIds: { type: "array", items: { type: "string" } },
-              },
-              required: ["contentId", "action", "reason", "evidenceIds"],
-            },
-          },
+          contentDecisions: contentSchema,
           revisedHypothesis: { type: "string" },
           nextInstruments: { type: "array", minItems: 1, items: instrumentSchema },
           boardDefinition: BOARD_DEFINITION_TOOL_SCHEMA,
@@ -694,32 +697,53 @@ ${JSON.stringify({ lifecycle: cycle.lifecycle, assignment: cycle.assignment, the
   const rawDecision = await runMathProviderStage({draftDir,stage:`progression-decision-r${checkpointRevision}`,model:plannerModel,request:snapshot,execute:async()=>({plannerMessage:await requestPlannerMessage(anthropic,request,{timeout:Number(process.env.SUNNY_AI_TIMEOUT_MS??120000)})})});
   console.log(` 🎮 [canonical-progression] [planner-response] [checkpointed] homework=${cycle.homeworkId} revision=${cycle.revision}`);
   const received = readPlannerToolReceipt(rawDecision, toolName);
+  let referenceErrors:Array<{field:'predictionEvaluationIds'|'contentDecisions';error:Error}> = [];
   const validate = async (value: unknown) => {
+    referenceErrors = [];
+    if(cycle.domain === 'spelling' && value && typeof value==='object' && !Array.isArray(value)) {
+      const raw = value as Record<string,unknown>;
+      const checks = {
+        predictionEvaluationIds:()=>{const ids=raw.predictionEvaluationIds;if(ids!==undefined && (!Array.isArray(ids)||!ids.every(id=>typeof id==='string')))throw new Error('canonical_progression_invalid_citation_patch');assertPredictionCitations({predictionEvaluationIds:ids as string[]|undefined},cycle);},
+        contentDecisions:()=>{const decisions=raw.contentDecisions===undefined?[]:raw.contentDecisions;assertContentDecisionShape(decisions);validateEvidenceBasedContentDecisions(decisions,new Set(catalog.map(item=>item.contentId)),decisionEvidenceIds);},
+      };
+      for(const field of ['predictionEvaluationIds','contentDecisions'] as const)try{checks[field]();}catch(error){if(!(error instanceof Error))throw error;referenceErrors.push({field,error});}
+      if(referenceErrors.length)throw referenceErrors[0].error;
+    }
     const decision = parseCanonicalProgressionDecision(value);
-    assertPredictionCitations(decision,cycle);
+    if(cycle.domain !== 'spelling')assertPredictionCitations(decision,cycle);
     if (decision.successor) await verifyAuthoredBoardCanvas({definition:decision.successor.boardDefinition!,rootDir:opts.rootDir??process.cwd(),directory:path.join(draftDir,"canvas-verification")});
     return decision;
   };
   try { return await validate(received); }
   catch (error) {
     if (!(error instanceof Error)) throw error;
-    const citation = cycle.domain === "spelling" && /^canonical_progression_(unknown_prediction_evaluation|prediction_evaluation_citation_required)$/.test(error.message);
-    if (!citation && !/^(board_definition_|board_canvas_invalid:)/.test(error.message)) throw error;
-    const editable = citation ? "predictionEvaluationIds" : "boardDefinition";
-    console.log(` 🎮 [canonical-progression] [${citation ? 'citation' : 'journey'}-correction] [required] reason=${error.message}`);
-    // The existing journey stage must retain its byte-identical request, including
-    // its older citation schema, so received paid corrections survive upgrades.
-    const correctionRequest = {...request,tools:citation ? [{...request.tools[0],input_schema:{type:"object" as const,additionalProperties:false,properties:{predictionEvaluationIds:request.tools[0].input_schema.properties.predictionEvaluationIds},required:["predictionEvaluationIds"]}}] : request.tools.map(tool=>({...tool,input_schema:{...tool.input_schema,properties:{...tool.input_schema.properties,predictionEvaluationIds:{type:"array",items:{type:"string"}}}}})),messages:[{role:"user" as const,content:citation
+    const fields = referenceErrors.map(issue=>issue.field);
+    const references = fields.length > 0;
+    const citationOnly = fields.length === 1 && fields[0] === 'predictionEvaluationIds';
+    if (!references && !/^(board_definition_|board_canvas_invalid:)/.test(error.message)) throw error;
+    const editable = references ? fields : ['boardDefinition'];
+    console.log(` 🎮 [canonical-progression] [${references ? 'reference' : 'journey'}-correction] [required] reason=${error.message}`);
+    // Retain the historical journey request exactly to recover paid receipts.
+    const tools = references
+      ? [{...request.tools[0],input_schema:{type:'object' as const,additionalProperties:false,properties:Object.fromEntries(fields.map(field=>[field,request.tools[0].input_schema.properties[field]])),required:fields}}]
+      : request.tools.map(tool=>({...tool,input_schema:{...tool.input_schema,properties:{...tool.input_schema.properties,predictionEvaluationIds:{type:'array',items:{type:'string'}},contentDecisions:legacyContentSchema}}}));
+    const content = citationOnly
       ? `Correct only predictionEvaluationIds in the received decision. Return only that field using the tool; this is a citation patch, not a new decision. Preregistered prediction IDs are not observed evaluation IDs. There is one correction attempt.\nDEFECT: ${error.message}\nAVAILABLE PREDICTION EVALUATION IDS: ${JSON.stringify(cycle.predictionEvaluations.map(evaluation=>evaluation.evaluationId))}\nRECEIVED CITATIONS: ${JSON.stringify((received as Record<string,unknown>).predictionEvaluationIds)}`
-      : `Correct only boardDefinition in the received decision to fix this executable journey defect. Preserve every other field, instrument, academic claim, evidence reference and progression action unchanged. Return the complete decision using the same tool. There is one correction attempt.\nDEFECT: ${error.message}\nRECEIVED DECISION: ${JSON.stringify(received)}`}]};
-    const correction = await runMathProviderStage({draftDir,stage:`progression-${citation ? 'citation-patch' : 'journey-correction'}-r${checkpointRevision}`,model:plannerModel,request:correctionRequest,execute:async()=>({plannerMessage:await requestPlannerMessage(anthropic,correctionRequest,{timeout:Number(process.env.SUNNY_AI_TIMEOUT_MS??120000)})})});
+      : references
+        ? `Correct only ${fields.join(' and ')}. Return only those fields using the tool, not a new decision. Bind contentDecisions to actual catalog contentId values and nonempty saved evidenceIds; activity node IDs are not catalog IDs. Revise or omit unsupported content decisions yourself. Preregistered prediction IDs are not observed evaluation IDs. Preserve the board, instruments and every other field exactly. There is one correction attempt.\nDEFECTS: ${JSON.stringify(referenceErrors.map(issue=>issue.error.message))}\nAVAILABLE PREDICTION EVALUATION IDS: ${JSON.stringify(cycle.predictionEvaluations.map(row=>row.evaluationId))}\nCATALOG: ${JSON.stringify(catalogCards)}\nAVAILABLE CONTENT EVIDENCE IDS: ${JSON.stringify([...decisionEvidenceIds])}\nRECEIVED FIELDS: ${JSON.stringify(Object.fromEntries(fields.map(field=>[field,(received as Record<string,unknown>)[field]])))}`
+        : `Correct only boardDefinition in the received decision to fix this executable journey defect. Preserve every other field, instrument, academic claim, evidence reference and progression action unchanged. Return the complete decision using the same tool. There is one correction attempt.\nDEFECT: ${error.message}\nRECEIVED DECISION: ${JSON.stringify(received)}`;
+    const correctionRequest = {...request,tools,messages:[{role:'user' as const,content}]};
+    const stage = citationOnly ? 'citation-patch' : references ? 'reference-patch' : 'journey-correction';
+    const correction = await runMathProviderStage({draftDir,stage:`progression-${stage}-r${checkpointRevision}`,model:plannerModel,request:correctionRequest,execute:async()=>({plannerMessage:await requestPlannerMessage(anthropic,correctionRequest,{timeout:Number(process.env.SUNNY_AI_TIMEOUT_MS??120000)})})});
     const reply = readPlannerToolReceipt(correction,toolName);
-    if(citation && (!reply || typeof reply !== 'object' || Array.isArray(reply) || Object.keys(reply).some(key=>key!=='predictionEvaluationIds')))throw new Error("planner_correction_changed_protected_decision");
+    if(references && (!reply || typeof reply !== 'object' || Array.isArray(reply) || Object.keys(reply).some(key=>!editable.includes(key))))throw new Error('planner_correction_changed_protected_decision');
     const patch = reply as Record<string,unknown>;
-    if(citation && (!Array.isArray(patch.predictionEvaluationIds) || !patch.predictionEvaluationIds.every(id=>typeof id==='string')))throw new Error("canonical_progression_invalid_citation_patch");
-    const corrected = citation ? {...received as Record<string,unknown>,predictionEvaluationIds:patch.predictionEvaluationIds} : reply;
-    const protectedFields = (value:unknown) => Object.fromEntries(Object.entries(value as Record<string,unknown>).filter(([key])=>key!==editable));
-    if (!isDeepStrictEqual(protectedFields(received),protectedFields(corrected))) throw new Error(citation ? "planner_correction_changed_protected_decision" : "planner_journey_correction_changed_academic_decision");
+    for(const field of fields) {
+      if(!Array.isArray(patch[field]) || (field==='predictionEvaluationIds' && !(patch[field] as unknown[]).every(id=>typeof id==='string')))throw new Error('canonical_progression_invalid_citation_patch');
+    }
+    const corrected = references ? {...received as Record<string,unknown>,...patch} : reply;
+    const protectedFields = (value:unknown) => Object.fromEntries(Object.entries(value as Record<string,unknown>).filter(([key])=>!editable.includes(key)));
+    if (!isDeepStrictEqual(protectedFields(received),protectedFields(corrected))) throw new Error(references ? 'planner_correction_changed_protected_decision' : 'planner_journey_correction_changed_academic_decision');
     return validate(corrected);
   }
 }
@@ -821,15 +845,7 @@ async function decideOnce(
     throw new Error("canonical_progression_encounter_not_authorized");
   }
   if (expectedEncounter && encounters.length === 0) throw new Error("canonical_progression_encounter_missing");
-  const evidenceIds = [...new Set([
-    ...cycle.evidence.academic.map((item) => item.evidenceId),
-    ...cycle.evidence.engagement.map((item) => item.evidenceId),
-  ].filter((id) => !/(^|[:_-])(synthetic|playwright|browser-acceptance|readiness)([:_-]|$)/i.test(id)))];
-  const decisionEvidenceIds = new Set([
-    ...evidenceIds,
-    ...cycle.observations.map((observation) => observation.observationId),
-    ...cycle.predictionEvaluations.map((evaluation) => evaluation.evaluationId),
-  ]);
+  const {evidenceIds,decisionEvidenceIds} = progressionEvidence(cycle);
   const latest = getLearningCycle(cycle.childId, cycle.homeworkId, opts);
   if (!latest) throw new Error(`learning_cycle_missing:${cycle.homeworkId}`);
   if (latest.revision !== cycle.revision) {
