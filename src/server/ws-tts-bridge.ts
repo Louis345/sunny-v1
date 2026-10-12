@@ -171,13 +171,13 @@ export class WsTtsBridge {
 
       ws.on("message", (data: Buffer) => {
         if (this.stopped || this.elevenWs !== ws) return;
-        let msg: { audio?: string; error?: unknown; isFinal?: boolean; is_final?: boolean };
+        let msg: { audio?: string | null; error?: unknown; isFinal?: boolean; is_final?: boolean };
         try { msg = JSON.parse(data.toString()); }
         catch { terminal.settle("tts_provider_error"); return; }
         if (!msg || typeof msg !== "object" || Array.isArray(msg)) { terminal.settle("tts_provider_error"); return; }
         if (terminal.outcome) return;
         if (msg.error) { terminal.settle("tts_provider_error"); return; }
-        if (msg.audio !== undefined && typeof msg.audio !== "string") { terminal.settle("tts_provider_error"); return; }
+        if (msg.audio != null && typeof msg.audio !== "string") { terminal.settle("tts_provider_error"); return; }
         if (msg.audio) {
           if (terminal.atomicWord) {
             const pcm = Buffer.from(msg.audio, "base64");

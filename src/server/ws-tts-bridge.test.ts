@@ -185,4 +185,13 @@ describe('WsTtsBridge provider terminal protocol',()=>{
   }finally{await f.close();}
  },10000);
 
+ it('accepts a final packet with null audio after complete PCM',async()=>{
+  const f=await localProvider();try{
+   const wire=(f.bridge as any).elevenWs as WebSocket;const received=new Promise(resolve=>wire.once('message',resolve));
+   f.peer.send(JSON.stringify({audio:Buffer.from([1,0]).toString('base64')}));await received;
+   const finished=f.bridge.finish();f.peer.send(JSON.stringify({audio:null,isFinal:true}));await finished;
+   expect(f.sent.filter(message=>message.type==='audio')).toHaveLength(1);
+  }finally{await f.close();}
+ },10000);
+
 });
