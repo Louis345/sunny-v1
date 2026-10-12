@@ -53,13 +53,14 @@ async function assertUsable(control: Locator): Promise<void> {
 
 async function launch(
   viewport: { width: number; height: number },
-  options: { configAvailable?: boolean; preview?: "false" | "true" } = {},
+  options: { configAvailable?: boolean; preview?: "false" | "true"; modelConfig?: typeof config } = {},
 ) {
+  const activeConfig=options.modelConfig ?? config;
   const server = http.createServer((request, response) => {
     const url = new URL(request.url!, "http://127.0.0.1");
     if (url.pathname === "/") {
       response.setHeader("Content-Type", "text/html");
-      response.end(`<!doctype html><html><body style="margin:0"><script>window.captured=[];addEventListener('message',event=>{if(event.source===document.querySelector('iframe').contentWindow)window.captured.push(event.data)});</script><iframe title="Visual Explainer" src="/games/spelling-visual-explainer.html?childId=lab-child&nodeId=visual-light&sessionId=visual-proof&launchToken=visual-launch&spellingItemBindings=${encodeURIComponent(JSON.stringify([{itemId:"frozen-light",word:"light"}]))}&companion=elli&companionName=Elli&preview=${options.preview ?? "false"}&chrome=child&config=%2Fconfig.json" style="position:fixed;inset:0;width:100%;height:100%;border:0"></iframe></body></html>`);
+      response.end(`<!doctype html><html><body style="margin:0"><script>window.captured=[];addEventListener('message',event=>{if(event.source===document.querySelector('iframe').contentWindow)window.captured.push(event.data)});</script><iframe title="Visual Explainer" src="/games/spelling-visual-explainer.html?childId=lab-child&nodeId=visual-light&sessionId=visual-proof&launchToken=visual-launch&spellingItemBindings=${encodeURIComponent(JSON.stringify(activeConfig.spellingModel.words.map(word=>({itemId:word.id,word:word.text}))))}&companion=elli&companionName=Elli&preview=${options.preview ?? "false"}&chrome=child&config=%2Fconfig.json" style="position:fixed;inset:0;width:100%;height:100%;border:0"></iframe></body></html>`);
       return;
     }
     if (url.pathname === "/config.json") {
@@ -68,7 +69,7 @@ async function launch(
         return;
       }
       response.writeHead(200, { "Content-Type": "application/json" });
-      response.end(JSON.stringify(config));
+      response.end(JSON.stringify(activeConfig));
       return;
     }
     if (["/games/spelling-visual-explainer.html", "/games/_contract.js", "/generated/openai-visual-probe/artifact-shell.js"].includes(url.pathname)) {
@@ -90,8 +91,8 @@ async function launch(
   const frame = page.frameLocator("iframe");
   if (options.configAvailable !== false || options.preview === "true") {
     await frame.getByRole("button", { name: "Show me" }).waitFor();
-    const expectedItemId = options.configAvailable === false ? "fallback" : "frozen-light";
-    await expect.poll(() => frame.locator(`[data-item-id="${expectedItemId}"] .chunk`).count()).toBe(2);
+    const expectedItemId = options.configAvailable === false ? "fallback" : activeConfig.spellingModel.words[0].id;
+    await expect.poll(() => frame.locator(`[data-item-id="${expectedItemId}"] .chunk`).count()).toBe(options.configAvailable === false ? 2 : activeConfig.spellingModel.words[0].chunks.length);
   }
   return { page, frame, errors };
 }
@@ -207,3 +208,30 @@ describe.each(viewports)("spelling Visual Explainer at $width×$height", (viewpo
     expect(errors).toEqual([]);
   });
 });
+
+// Real run with five words clipped its entire strategy and Done controls.
+// Prior browser tests used one word; config readiness did not prove payload fit.
+it.each([{width:1280,height:720},{width:768,height:1024},{width:548,height:1024}])('keeps a full eight-word intervention readable and actionable at $width×$height',async viewport=>{
+ const modelConfig=structuredClone(config);
+ modelConfig.concept='Long e spelling patterns across the complete homework list';
+ modelConfig.learningGoal='Notice the vowel pattern, hear each chunk, and rebuild each assigned word without losing the controls.';
+ modelConfig.spellingModel.strategy.steps=['Find the letter team that spells the vowel sound in each word.','Count the chunks and say each chunk as you write it.','Reread the whole word to check it looks right.'];
+ modelConfig.spellingModel.words=Array.from({length:8},(_,i)=>({id:'frozen-word-'+i,text:'believe',chunks:['be','lie','ve'],focusChunk:'lie',tip:'Notice the letter team and keep the vowel sound together as you rebuild this word.'}));
+ const {page,frame,errors}=await launch(viewport,{modelConfig});
+ await assertUsable(frame.getByRole('button',{name:'Show me'}));
+ expect(await frame.locator('.card').evaluate((e:any)=>{const card=e.getBoundingClientRect(),header=e.ownerDocument.querySelector('header').getBoundingClientRect();return card.top>=header.bottom && card.bottom<=e.ownerDocument.defaultView.innerHeight;})).toBe(true);
+ expect(await frame.locator('header').evaluate((e:any)=>e.getBoundingClientRect().top)).toBeGreaterThanOrEqual(0);
+ await frame.locator('body').evaluate(()=>(globalThis as any).SunnySpellingVisualExplainer.setProgress(48,false));
+ await frame.getByRole('button',{name:'ight',exact:true}).click();
+ await frame.getByRole('button',{name:'See the strategy',exact:true}).click();
+ await frame.locator('body').evaluate(()=>(globalThis as any).SunnySpellingVisualExplainer.setProgress(100,false));
+ await assertUsable(frame.getByRole('button',{name:'Done',exact:true}));
+ await frame.locator('#wordModels').evaluate(async(e:any)=>Promise.all(e.getAnimations({subtree:true}).map((a:any)=>a.finished)));
+ const last=frame.locator('[data-item-id="frozen-word-7"] .chunk').last();
+ await last.scrollIntoViewIfNeeded();await assertUsable(last);
+ await assertUsable(frame.getByRole('button',{name:'Done',exact:true}));
+ await page.screenshot({path:path.join(proofDir,`full-intervention-${viewport.width}x${viewport.height}.png`)});
+ await frame.getByRole('button',{name:'Done',exact:true}).click();
+ await expect.poll(()=>page.evaluate<any[]>('window.captured')).toContainEqual(expect.objectContaining({type:'node_complete'}));
+ expect(errors).toEqual([]);
+},20000);
