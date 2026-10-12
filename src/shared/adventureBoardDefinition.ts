@@ -19,13 +19,39 @@ export const adventureBoardDefinitionSchema = z.object({
   singlePathReason:id.optional(),
 }).strict();
 export type AdventureBoardDefinition = z.infer<typeof adventureBoardDefinitionSchema>;
+/** Planner authors semantics; the existing Creator supplies presentation only. */
+export const adventureJourneySchema = adventureBoardDefinitionSchema.omit({theme:true,portals:true,edges:true}).extend({
+  portals:z.array(adventureBoardDefinitionSchema.shape.portals.element.omit({position:true,icon:true,thumbnailUrl:true}).strict()).min(1).max(128),
+  edges:z.array(adventureBoardDefinitionSchema.shape.edges.element.omit({style:true,controlPoints:true}).strict()).max(256),
+}).strict();
+export const adventureCompositionSchema = z.object({
+  portals:z.array(adventureBoardDefinitionSchema.shape.portals.element.pick({id:true,position:true,icon:true,thumbnailUrl:true}).strict()).min(1).max(128),
+  edges:z.array(adventureBoardDefinitionSchema.shape.edges.element.pick({id:true,style:true,controlPoints:true}).strict()).max(256),
+  theme:adventureBoardDefinitionSchema.shape.theme,
+}).strict();
+export type AdventureJourneyDefinition=z.infer<typeof adventureJourneySchema>;
+export type AdventureBoardComposition=z.infer<typeof adventureCompositionSchema>;
+export function journeyFromBoardDefinition(board:AdventureBoardDefinition):AdventureJourneyDefinition {
+  const {theme:_theme,portals,edges,...journey}=board;
+  return adventureJourneySchema.parse({...journey,portals:portals.map(({position:_position,icon:_icon,thumbnailUrl:_thumbnail,...portal})=>portal),edges:edges.map(({style:_style,controlPoints:_points,...edge})=>edge)});
+}
+export function compositionFromBoardDefinition(board:AdventureBoardDefinition):AdventureBoardComposition {
+  return adventureCompositionSchema.parse({theme:board.theme,portals:board.portals.map(({id,position,icon,thumbnailUrl})=>({id,position,...(icon?{icon}:{}),...(thumbnailUrl?{thumbnailUrl}:{})})),edges:board.edges.map(({id,style,controlPoints})=>({id,...(style?{style}:{}),...(controlPoints?{controlPoints}:{})}))});
+}
+export function assembleAdventureBoardDefinition(journey:AdventureJourneyDefinition,composition:AdventureBoardComposition):AdventureBoardDefinition {
+  const semantic=adventureJourneySchema.parse(journey),visual=adventureCompositionSchema.parse(composition);
+  const match=(a:readonly {id:string}[],b:readonly {id:string}[])=>a.length===b.length&&new Set(a.map(v=>v.id)).size===a.length&&new Set(b.map(v=>v.id)).size===b.length&&a.every(v=>b.some(other=>other.id===v.id));
+  if(!match(semantic.portals,visual.portals)||!match(semantic.edges,visual.edges))throw new Error('board_composition_identity_invalid');
+  return adventureBoardDefinitionSchema.parse({...semantic,theme:visual.theme,portals:semantic.portals.map(portal=>({...portal,...visual.portals.find(v=>v.id===portal.id)!})),edges:semantic.edges.map(edge=>({...edge,...visual.edges.find(v=>v.id===edge.id)!}))});
+}
+
 export type JourneyExecution = { id:string; selections:Record<string,string>; portalIds:string[]; activityNodeIds:string[] };
 export type BoardDefinitionIssue = { code:string; message:string; id?:string };
 
 /** Enumerate declared executions, never infer a branch from an activity inventory.
  * At most 64 executions / 4096 expansions; repeating a choice is a cycle.
  */
-export function journeyExecutions(definition:AdventureBoardDefinition):JourneyExecution[] {
+export function journeyExecutions(definition:AdventureJourneyDefinition):JourneyExecution[] {
   const paths = new Map(definition.paths.map(path => [path.id,path.portalIds]));
   const portals = new Map(definition.portals.map(portal => [portal.id,portal]));
   const choices = new Map(definition.choices.map(choice => [choice.portalId,choice]));
@@ -63,7 +89,7 @@ export function journeyExecutions(definition:AdventureBoardDefinition):JourneyEx
   return results;
 }
 
-export function validateBoardDefinition(definition:AdventureBoardDefinition, activityNodeIds:readonly string[]):BoardDefinitionIssue[] {
+export function validateBoardDefinition(definition:AdventureJourneyDefinition, activityNodeIds:readonly string[]):BoardDefinitionIssue[] {
   const issues:BoardDefinitionIssue[] = [];
   const add = (code:string,id:string,message:string) => issues.push({code,id,message});
   for (const [kind, values] of [['portal',definition.portals],['path',definition.paths],['choice',definition.choices],['edge',definition.edges]] as const) {
@@ -118,7 +144,7 @@ export function validateBoardDefinition(definition:AdventureBoardDefinition, act
 }
 
 /** Sole interpretation of selected order; completed instruments survive a route switch. */
-export function journeyFrontier(definition:AdventureBoardDefinition, selections:Readonly<Record<string,string>>, completed:readonly string[]):{activityNodeId?:string;portalId?:string;choiceId?:string;complete:boolean} {
+export function journeyFrontier(definition:AdventureJourneyDefinition, selections:Readonly<Record<string,string>>, completed:readonly string[]):{activityNodeId?:string;portalId?:string;choiceId?:string;complete:boolean} {
   const choices = new Map(definition.choices.map(choice => [choice.portalId,choice]));
   for (const [choiceId,optionId] of Object.entries(selections)) if (!definition.choices.some(choice => choice.id === choiceId && choice.options.some(option => option.id === optionId))) throw new Error(`choice_option_missing:${choiceId}:${optionId}`);
   const execution = journeyExecutions(definition).find(candidate => Object.entries(selections).every(([key,value]) => candidate.selections[key] === undefined || candidate.selections[key] === value));
@@ -135,7 +161,7 @@ export function journeyFrontier(definition:AdventureBoardDefinition, selections:
 }
 
 /** A remembered selection on an unchosen branch remains history, not a visible fork. */
-export function journeyChoiceAvailable(definition:AdventureBoardDefinition,selections:Record<string,string>,completed:readonly string[],choiceId:string):boolean {
+export function journeyChoiceAvailable(definition:AdventureJourneyDefinition,selections:Record<string,string>,completed:readonly string[],choiceId:string):boolean {
   const frontier=journeyFrontier(definition,selections,completed);
   if(frontier.complete)return false;
   if(frontier.choiceId===choiceId)return true;
