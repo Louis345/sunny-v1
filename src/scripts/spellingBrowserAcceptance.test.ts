@@ -262,10 +262,9 @@ it.each([
       }
     }
     await page.getByText("Skip", { exact: true }).click();
-    // Human catch: Discovery's successor is a later chapter, so the child must
-    // see a truthful ready-next-time handoff instead of an automatically opened board.
-    // The old browser lab expected a same-session button and missed this lifecycle contract.
-    await page.getByText("Ready next time", { exact: true }).waitFor({ timeout: 30000 });
+    // Contract 36: the published board offers optional same-session continuation.
+    // It remains hidden until the child explicitly chooses it.
+    await page.getByRole("button", {name:"Let's go!",exact:true}).waitFor({ timeout: 30000 });
     expect(await page.locator(".adventure-board__nodes").count()).toBe(0);
     await page.screenshot({path:path.join(outputDir,"preparation-no-map.png")});
     const before = getLearningCycle(childId, homeworkId, { rootDir })!;
@@ -292,6 +291,8 @@ it.each([
     await runAdaptiveMathGeneration(childId, homeworkId, rootDir);
     expect(lab.plannerCalls).toBe(1);
     expect(await page.getByTestId("word-radar-input").count()).toBe(0);
+    await page.getByRole("button", {name:"Let's go!",exact:true}).click();
+    await page.locator(".adventure-board").waitFor();
     await page.reload();
     // A complete published board may open directly; an in-progress successor
     // uses the truthful preparation handoff and then reveals the same board.
