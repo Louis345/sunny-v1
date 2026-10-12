@@ -242,7 +242,7 @@ describe("spelling Planner raw-response durability", () => {
     if (stillInvalid) await expect(f.run()).rejects.toThrow("planner_checkpoint_lineage_missing");
     else await f.run();
     expect(transport.create).toHaveBeenCalledTimes(3);
-    expect(hasReceivedMathProviderStage(f.draftDir, "spelling-targeted-planner-tool-correction-v4-2-lineage")).toBe(true);
+    expect(hasReceivedMathProviderStage(f.draftDir, "spelling-targeted-planner-measurement-field-correction-v6-2")).toBe(true);
     if (stillInvalid) await expect(f.run()).rejects.toThrow("planner_checkpoint_lineage_missing");
     else await f.run();
     expect(transport.create).toHaveBeenCalledTimes(3);
@@ -276,7 +276,7 @@ describe("spelling Planner raw-response durability", () => {
     expect(hasReceivedMathProviderStage(f.draftDir, "spelling-targeted-planner-tool-correction-v3-2-missing-measurement")).toBe(true);
   });
 
-  it("permits one measurement-only follow-up when an older generic correction still omitted a node measurement", async () => {
+  it("rejects a measurement correction that deletes an already-valid measurement", async () => {
     // Live migration invariant: Reina's original response needed the existing
     // generic correction, whose saved result still omitted the Visual Explainer
     // measurement. Preserve both receipts and allow exactly one newer,
@@ -298,13 +298,12 @@ describe("spelling Planner raw-response durability", () => {
       .mockResolvedValueOnce(correctedButMissing)
       .mockResolvedValueOnce(finalCorrection);
 
-    const result = await f.run();
-
-    expect(result.output.plannedMeasurements.some((measurement) => measurement.id === "measure-practice")).toBe(true);
-    expect(transport.create).toHaveBeenCalledTimes(3);
-    expect(hasReceivedMathProviderStage(f.draftDir, "spelling-targeted-planner-tool-correction-v3-1")).toBe(true);
-    expect(hasReceivedMathProviderStage(f.draftDir, "spelling-targeted-planner-tool-correction-v3-2-missing-measurement")).toBe(true);
-    expect(JSON.stringify(transport.create.mock.calls[2]?.[0])).toContain("planner_missing_measurement");
+    await expect(f.run()).rejects.toThrow("planner_measurement_correction_changed_protected_fields");
+    expect(transport.create).toHaveBeenCalledTimes(2);
+    expect(fs.existsSync(path.join(f.draftDir,"spelling-targeted-response.json"))).toBe(false);
+    vi.stubEnv("ANTHROPIC_API_KEY", "");
+    await expect(f.run()).rejects.toThrow("planner_measurement_correction_changed_protected_fields");
+    expect(transport.create).toHaveBeenCalledTimes(2);
   });
 
   it("asks the same Planner once to correct invalid targeted tool input, then reuses both paid receipts", async () => {
@@ -325,7 +324,7 @@ describe("spelling Planner raw-response durability", () => {
     expect(JSON.stringify(transport.create.mock.calls[1]?.[0])).toContain("planner_baseline_intervention_lineage_invalid");
     expect(JSON.stringify(transport.create.mock.calls[1]?.[0])).toContain("planner_unknown_evidence_id");
     expect(f.readReceipt()).toMatchObject({ status: "received", response: { message: invalid } });
-    expect(hasReceivedMathProviderStage(f.draftDir, "spelling-targeted-planner-tool-correction-v3-1")).toBe(true);
+    expect(hasReceivedMathProviderStage(f.draftDir, "spelling-targeted-planner-measurement-field-correction-v6-1")).toBe(true);
 
     vi.stubEnv("ANTHROPIC_API_KEY", "");
     const resumed = await f.run();
@@ -333,7 +332,7 @@ describe("spelling Planner raw-response durability", () => {
     expect(transport.create).toHaveBeenCalledTimes(2);
   });
 
-  it("repairs a corrected Planner node whose teaching rounds cannot render in Word Radar", async () => {
+  it("rejects teaching rounds introduced by a measurement correction", async () => {
     // Human catch: the original receipt had no Word Radar rounds, but its
     // relationship correction added them. Logs stopped at final validation;
     // the lab never checked semantic validity after a schema correction.
@@ -361,18 +360,15 @@ describe("spelling Planner raw-response durability", () => {
       .mockResolvedValueOnce(unrenderableCorrection)
       .mockResolvedValueOnce(renderableCorrection);
 
-    const result = await f.run();
-
-    expect(result.output.activeSessionPlan.nodePlan[0].rounds).toBeUndefined();
-    expect(transport.create).toHaveBeenCalledTimes(3);
-    expect(JSON.stringify(transport.create.mock.calls[2]?.[0])).toContain("word_radar_unrendered_teaching");
-    expect(hasReceivedMathProviderStage(f.draftDir, "spelling-targeted-planner-semantic-correction-v1")).toBe(true);
+    await expect(f.run()).rejects.toThrow("planner_measurement_correction_changed_protected_fields");
+    expect(transport.create).toHaveBeenCalledTimes(2);
+    expect(fs.existsSync(path.join(f.draftDir,"spelling-targeted-response.json"))).toBe(false);
     vi.stubEnv("ANTHROPIC_API_KEY", "");
-    expect((await f.run()).output).toEqual(result.output);
-    expect(transport.create).toHaveBeenCalledTimes(3);
+    await expect(f.run()).rejects.toThrow("planner_measurement_correction_changed_protected_fields");
+    expect(transport.create).toHaveBeenCalledTimes(2);
   });
 
-  it("repairs one Word Radar node with both hidden teaching and an unsupported response mode", async () => {
+  it("rejects activity-mode and hidden-teaching drift during measurement correction", async () => {
     // Live Ila run: schema correction produced both errors, then generation paused
     // before publication because semantic correction only accepted one error code.
     const f = await fixture();
@@ -400,15 +396,15 @@ describe("spelling Planner raw-response durability", () => {
       .mockResolvedValueOnce(invalidCorrection)
       .mockResolvedValueOnce(validCorrection);
 
-    const result = await f.run();
-    expect(result.output.activeSessionPlan.nodePlan[0].rounds).toBeUndefined();
-    expect(transport.create).toHaveBeenCalledTimes(3);
-    const correctionRequest = JSON.stringify(transport.create.mock.calls[2]?.[0]);
-    expect(correctionRequest).toContain("word_radar_unrendered_teaching");
-    expect(correctionRequest).toContain("word_radar_capability_mismatch");
+    await expect(f.run()).rejects.toThrow("planner_measurement_correction_changed_protected_fields");
+    expect(transport.create).toHaveBeenCalledTimes(2);
+    expect(fs.existsSync(path.join(f.draftDir,"spelling-targeted-response.json"))).toBe(false);
+    vi.stubEnv("ANTHROPIC_API_KEY", "");
+    await expect(f.run()).rejects.toThrow("planner_measurement_correction_changed_protected_fields");
+    expect(transport.create).toHaveBeenCalledTimes(2);
   });
 
-  it("uses one bounded second correction when the first still hides Word Radar teaching", async () => {
+  it("does not buy further repairs after a measurement correction changes the activity", async () => {
     // Ila's saved semantic correction fixed its mode but retained a hidden round.
     // Logs caught the remaining error; the lab had assumed one correction succeeded.
     const f = await fixture();
@@ -436,16 +432,12 @@ describe("spelling Planner raw-response durability", () => {
       .mockResolvedValueOnce(stillInvalid)
       .mockResolvedValueOnce(valid);
 
-    const result = await f.run();
-    expect(result.output.activeSessionPlan.nodePlan[0].rounds).toBeUndefined();
-    expect(transport.create).toHaveBeenCalledTimes(4);
-    expect(hasReceivedMathProviderStage(f.draftDir, "spelling-targeted-planner-semantic-correction-v2")).toBe(true);
-    const secondRequest = JSON.stringify(transport.create.mock.calls[3]?.[0]);
-    expect(secondRequest).toContain("word_radar_unrendered_teaching");
-    expect(secondRequest).toContain("maxItems");
+    await expect(f.run()).rejects.toThrow("planner_measurement_correction_changed_protected_fields");
+    expect(transport.create).toHaveBeenCalledTimes(2);
+    expect(fs.existsSync(path.join(f.draftDir,"spelling-targeted-response.json"))).toBe(false);
     vi.stubEnv("ANTHROPIC_API_KEY", "");
-    expect((await f.run()).output).toEqual(result.output);
-    expect(transport.create).toHaveBeenCalledTimes(4);
+    await expect(f.run()).rejects.toThrow("planner_measurement_correction_changed_protected_fields");
+    expect(transport.create).toHaveBeenCalledTimes(2);
   });
 
   it("corrects an invented spelling target before the cycle builder rejects the board", async () => {
@@ -489,8 +481,8 @@ describe("spelling Planner raw-response durability", () => {
     const result = await f.run();
     expect(result.output.activeSessionPlan.nodePlan[0].id).toBe("practice");
     expect(transport.create).toHaveBeenCalledTimes(3);
-    expect(hasReceivedMathProviderStage(f.draftDir, "spelling-targeted-planner-tool-correction-v3-1")).toBe(true);
-    expect(hasReceivedMathProviderStage(f.draftDir, "spelling-targeted-planner-tool-correction-v3-3-schema")).toBe(true);
+    expect(hasReceivedMathProviderStage(f.draftDir, "spelling-targeted-planner-measurement-field-correction-v6-1")).toBe(true);
+    expect(hasReceivedMathProviderStage(f.draftDir, "spelling-targeted-planner-measurement-field-correction-v6-2")).toBe(true);
   });
 
   it("stops after the final bounded schema correction remains invalid", async () => {

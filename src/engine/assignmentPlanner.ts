@@ -2159,6 +2159,81 @@ export function parseAssignmentPlannerJson(value: string): AssignmentPlannerResp
   return assignmentPlannerDraftSchema.parse(parsed);
 }
 
+type MeasurementCorrectionField = { path: string; index: number; key: "evidenceIds" | "interventionNodeIds" | "spelling" };
+function measurementCorrectionFields(input: unknown, schemaIssues: z.core.$ZodIssue[], relationshipIssues: AssignmentPlannerRelationshipIssue[]): MeasurementCorrectionField[] | undefined {
+  const raw=jsonObject(input), measurements=raw?.plannedMeasurements;
+  const nodes=jsonObject(raw?.activeSessionPlan)?.nodePlan;
+  if (!Array.isArray(measurements) || !Array.isArray(nodes)) return;
+  const fields=new Map<string,MeasurementCorrectionField>();
+  const add=(index:number,key:"evidenceIds"|"interventionNodeIds"|"spelling")=>{
+    const measurement=jsonObject(measurements[index]);
+    if (!measurement || typeof measurement.id!=="string") return false;
+    const node=nodes.map(jsonObject).find(node=>node?.id===measurement.id!.toString().replace(/^measure-/,""));
+    const reward=node?.type==="mystery" && Array.isArray(node.targets) && !node.targets.length && spellingImplementationType(node as {type:string;activityConfig?:unknown})==="mystery";
+    const field:MeasurementCorrectionField={index,key:reward?"spelling":key,path:`plannedMeasurements.${index}.spelling${reward?"":`.${key}`}`};
+    fields.set(field.path,field);return true;
+  };
+  for (const issue of schemaIssues) {
+    const p=issue.path;
+    if (p[0]!=="plannedMeasurements" || typeof p[1]!=="number" || p[2]!=="spelling") return;
+    const measurement=jsonObject(measurements[p[1]]);
+    const node=nodes.map(jsonObject).find(node=>node?.id===String(measurement?.id).replace(/^measure-/,""));
+    const reward=node?.type==="mystery" && Array.isArray(node.targets) && !node.targets.length && spellingImplementationType(node as {type:string;activityConfig?:unknown})==="mystery";
+    if (reward) {if(!add(p[1],"spelling")) return;continue;}
+    if ((p.length!==4 && p.length!==5) || (p[3]!=="evidenceIds" && p[3]!=="interventionNodeIds")) return;
+    if (!add(p[1],p[3])) return;
+  }
+  for (const issue of relationshipIssues) {
+    const key=issue.code==="planner_unknown_evidence_id" ? "evidenceIds"
+      : ["planner_baseline_intervention_lineage_invalid","planner_checkpoint_lineage_missing"].includes(issue.code) ? "interventionNodeIds" : undefined;
+    if (!key || !("measurementId" in issue)) return;
+    const index=measurements.findIndex(row=>jsonObject(row)?.id===issue.measurementId);
+    if (!add(index,key)) return;
+  }
+  return fields.size ? [...fields.values()] : undefined;
+}
+function applyMeasurementCorrection(original:unknown, reply:unknown, fields:MeasurementCorrectionField[]):unknown {
+  const input=jsonObject(reply), base=structuredClone(original) as {plannedMeasurements:Array<{spelling?:Record<string,unknown>}>};
+  if (!input) throw new Error("planner_measurement_patch_invalid");
+  if (!("corrections" in input)) {
+    // Read-only compatibility: old full receipts may change only these invalid fields.
+    const protectedReply=structuredClone(reply) as typeof base;
+    for (const field of fields) {
+      const proposed=protectedReply.plannedMeasurements?.[field.index], prior=base.plannedMeasurements[field.index];
+      if (!proposed) throw new Error("planner_measurement_correction_changed_protected_fields");
+      if (field.key==="spelling") delete proposed.spelling;
+      else if (proposed.spelling) delete proposed.spelling[field.key];
+      if (field.key==="spelling") delete prior.spelling;
+      else if (prior.spelling) delete prior.spelling[field.key];
+    }
+    // Compact parsing already ignores hydrated-only active-plan fields. Compare that
+    // same wire contract, including its config defaults, when reading old receipts.
+    const normalize=(value:unknown)=>{
+      const wire=JSON.parse(JSON.stringify(value));
+      wire.activeSessionPlan=compactActiveSessionPlanSchema.parse(wire.activeSessionPlan);
+      return wire;
+    };
+    if (!isDeepStrictEqual(normalize(base),normalize(protectedReply))) throw new Error("planner_measurement_correction_changed_protected_fields");
+    return reply;
+  }
+  if (Object.keys(input).some(key=>key!=="corrections") || !Array.isArray(input.corrections) || !input.corrections.length || input.corrections.length>fields.length) throw new Error("planner_measurement_patch_invalid");
+  const seen=new Set<string>();
+  for (const entry of input.corrections) {
+    const patch=jsonObject(entry), field=fields.find(field=>field.path===patch?.path);
+    if (!patch || Object.keys(patch).some(key=>key!=="path" && key!=="value") || !field || seen.has(field.path)) throw new Error("planner_measurement_patch_invalid");
+    seen.add(field.path);
+    const measurement=base.plannedMeasurements[field.index];
+    if (field.key==="spelling") {
+      if (patch.value!==null) throw new Error("planner_measurement_patch_invalid");
+      delete measurement.spelling;
+    } else {
+      if (!Array.isArray(patch.value) || patch.value.some(value=>typeof value!=="string") || !measurement.spelling) throw new Error("planner_measurement_patch_invalid");
+      measurement.spelling[field.key]=patch.value;
+    }
+  }
+  return base;
+}
+
 async function callAssignmentPlannerModel(
   packet: AssignmentPlanningPacket,
   model: string,
@@ -2196,6 +2271,77 @@ async function callAssignmentPlannerModel(
     const relationshipIssues = error instanceof AssignmentPlannerRelationshipInvalidError
       ? error.issues
       : assignmentPlannerRelationshipIssues(error.toolInput, allowedEvidenceIdSet, requireSpellingMeasurements, allowedSpellingTargets);
+    let patchFields=requireSpellingMeasurements && packet.discoveryEvidence ? measurementCorrectionFields(error.toolInput,schemaIssues,relationshipIssues) : undefined;
+    if (patchFields) {
+      let current:unknown=error.toolInput, failure:Error=error, latencyMs=received.latencyMs, receivedAt=received.createdAt;
+      let usage:LanguageModelUsage|undefined=originalUsage;
+      let defects={schemaIssues,relationshipIssues};
+      const validate=(value:unknown)=>validateAssignmentPlannerRelationships(assignmentPlannerDraftSchema.parse(value),allowedEvidenceIdSet,true,allowedSpellingTargets);
+      const diagnose=(nextError:unknown)=>{
+        if (!(nextError instanceof z.ZodError) && !(nextError instanceof AssignmentPlannerRelationshipInvalidError)) throw nextError;
+        failure=nextError instanceof z.ZodError ? new AssignmentPlannerToolInvalidError(current,nextError.issues) : nextError;
+        const schemas=nextError instanceof z.ZodError?nextError.issues:[];
+        const relationships=nextError instanceof AssignmentPlannerRelationshipInvalidError?nextError.issues:assignmentPlannerRelationshipIssues(current,allowedEvidenceIdSet,true,allowedSpellingTargets);
+        defects={schemaIssues:schemas,relationshipIssues:relationships};
+        patchFields=measurementCorrectionFields(current,schemas,relationships);
+        if (!patchFields) {
+          console.log(` 🎮 [assignment-planner] [measurement-field-correction] [scope-exhausted] defects=${JSON.stringify(defects)}`);
+          throw failure;
+        }
+      };
+      // Saved full corrections are adapters only: accept their named field edits,
+      // never a rewritten journey, and never replace an uncertain provider outcome.
+      for (const suffix of ["tool-correction-v3-1","tool-correction-v3-3-schema","tool-correction-v3-2-missing-measurement","tool-correction-v4-2-lineage"]) {
+        const stage=`${providerReceipt.stage}-${suffix}`, directory=path.join(providerReceipt.draftDir,"provider-receipts"), file=path.join(directory,`${stage}.stage.json`);
+        if (!fs.existsSync(file)) continue;
+        const {requestHash}=JSON.parse(fs.readFileSync(file,"utf8"));
+        if (!/^[a-f0-9]{64}$/.test(requestHash)) throw new Error(`provider_receipt_invalid:${stage}`);
+        const saved=JSON.parse(fs.readFileSync(path.join(directory,`${requestHash}.json`),"utf8"));
+        if (["in_flight","outcome_uncertain"].includes(saved.status)) throw new Error(`provider_outcome_uncertain:${stage}`);
+        if (!hasReceivedMathProviderStage(providerReceipt.draftDir,stage)) continue;
+        const diagnostic=path.join(providerReceipt.draftDir,"provider-diagnostics",`${requestHash}.attempt-${saved.attempts?.length??1}.request.json`);
+        const frozen=path.join(providerReceipt.draftDir,"spelling-targeted-request.json");
+        const identity=fs.existsSync(diagnostic) ? JSON.parse(fs.readFileSync(diagnostic,"utf8")).context?.originalRequestHash : fs.existsSync(frozen) ? hashDiscoveryContract(JSON.parse(fs.readFileSync(frozen,"utf8"))) : undefined;
+        if (identity!==hashDiscoveryContract(packet)) throw new Error(`planner_legacy_measurement_identity_unverifiable:${stage}`);
+        const legacy=saved.response as AssignmentPlannerReceipt;
+        if (!("message" in legacy)) continue;
+        assertPlannerResponseComplete(legacy.message);
+        const tool=legacy.message.content.find(block=>block.type==="tool_use" && block.name===ASSIGNMENT_PLANNER_TOOL_NAME);
+        if (!tool || !("input" in tool)) throw new Error("planner_measurement_patch_missing");
+        try {current=applyMeasurementCorrection(current,tool.input,patchFields);} catch (legacyError) {
+          if (!(legacyError instanceof Error) || legacyError.message!=="planner_measurement_correction_changed_protected_fields") throw legacyError;
+          console.log(` 🎮 [assignment-planner] [legacy-measurement-correction] [rejected] stage=${stage} reason=protected_fields_changed`);continue;
+        }
+        console.log(` 🎮 [assignment-planner] [legacy-measurement-correction] [reused] stage=${stage}`);
+        usage=combinePlannerUsage(usage,usageFromAnthropic(legacy.message));latencyMs+=legacy.latencyMs;receivedAt=legacy.createdAt;
+        try {return {draft:validate(current),usage,telemetry:{model,usage,latencyMs},receivedAt};} catch (nextError) {diagnose(nextError);}
+      }
+      for (let attempt=1;attempt<=2;attempt++) {
+        const fields=patchFields;
+        const schema={type:"object",additionalProperties:false,properties:{corrections:{type:"array",minItems:1,items:{anyOf:fields.map(field=>({type:"object",additionalProperties:false,properties:{path:{const:field.path},value:field.key==="spelling"?{type:"null"}:{type:"array",items:{type:"string"}}},required:["path","value"]}))}}},required:["corrections"]};
+        const raw=jsonObject(current)!;
+        const stage=`${providerReceipt.stage}-measurement-field-correction-v6-${attempt}`;
+        const correctionStarted=Date.now();
+        const correction=await runMathProviderStage({draftDir:providerReceipt.draftDir,stage,model,
+          request:{version:6,attempt,strict:true,purpose:"assignment_planner_measurement_field_correction",originalRequestHash:hashDiscoveryContract(packet),invalidToolInput:current,fields,schemaHash:hashDiscoveryContract(schema),defects,allowedEvidenceIds},
+          beforeRequest:()=>{if(!process.env.ANTHROPIC_API_KEY)throw new Error("assignment_planner_ai_unavailable:ANTHROPIC_API_KEY");},
+          execute:async()=>({message:await requestAssignmentPlannerTool({model,schema,measurementOnly:true,prompt:`Correct only the named measurement fields. Return corrections [{path,value}], not a complete plan. Every other field is immutable. A nonacademic Mystery reward has no spelling measurement: use value:null for its spelling field without removing its activity. Evidence IDs must come from the supplied observations. Practice/instruction references use []; checkpoints cite prior exposures for their target words on each executable path. Preserve already-valid checkpoint references. Do not emit Quest or Boss nodes, locked or otherwise. This is correction ${attempt} of 2.\nDEFECT: ${JSON.stringify(defects)}\nEDITABLE FIELDS: ${JSON.stringify(fields)}\nCURRENT MEASUREMENTS: ${JSON.stringify(raw.plannedMeasurements)}\nAVAILABLE EVIDENCE IDS: ${JSON.stringify(allowedEvidenceIds)}\nREAD-ONLY ACTIVITY INVENTORY: ${JSON.stringify((jsonObject(raw.activeSessionPlan)?.nodePlan as unknown[]).map(node=>{const n=jsonObject(node)!;return {id:n.id,type:n.type,targets:n.targets};}))}\nREAD-ONLY PATHS: ${JSON.stringify(jsonObject(raw.activeSessionPlan)?.boardDefinition)}`}),model,latencyMs:Date.now()-correctionStarted,createdAt:new Date().toISOString()})});
+        console.log(` 🎮 [assignment-planner] [measurement-field-correction] [received] id=${correction.message.id} attempt=${attempt}`);
+        assertPlannerResponseComplete(correction.message);
+        const tool=correction.message.content.find(block=>block.type==="tool_use" && block.name===ASSIGNMENT_PLANNER_TOOL_NAME);
+        if (!tool || !("input" in tool)) throw new Error("planner_measurement_patch_missing");
+        current=applyMeasurementCorrection(current,tool.input,fields);
+        usage=combinePlannerUsage(usage,usageFromAnthropic(correction.message));latencyMs+=correction.latencyMs;receivedAt=correction.createdAt;
+        try {
+          const draft=validate(current);
+          return {draft,usage,telemetry:{model,usage,latencyMs},receivedAt};
+        } catch (nextError) {
+          diagnose(nextError);
+          if (attempt===2) throw failure;
+        }
+      }
+      throw failure;
+    }
     const correctionRequest = {
       version: 3,
       purpose: "assignment_planner_tool_correction",
@@ -2386,6 +2532,7 @@ type AssignmentPlannerToolRequest = {
   source?: AssignmentSourceExtraction;
   schema?: Record<string, unknown>;
   geometryOnly?: boolean;
+  measurementOnly?: boolean;
 };
 
 async function requestAssignmentPlannerTool(args: AssignmentPlannerToolRequest): Promise<Anthropic.Messages.Message> {
@@ -2394,10 +2541,11 @@ async function requestAssignmentPlannerTool(args: AssignmentPlannerToolRequest):
   const request: Anthropic.Messages.MessageCreateParamsNonStreaming = {
     model: args.model,
     max_tokens: Math.max(8_000, Number(process.env.SUNNY_PLANNER_MAX_TOKENS ?? ASSIGNMENT_PLANNER_MAX_TOKENS)),
-    system: `${ASSIGNMENT_PLANNER_PERSONA}\nCall ${ASSIGNMENT_PLANNER_TOOL_NAME} exactly once to submit ${args.geometryOnly ? "only portal positions and edge control points" : "the complete plan"} matching its schema.`,
+    system: `${ASSIGNMENT_PLANNER_PERSONA}\nCall ${ASSIGNMENT_PLANNER_TOOL_NAME} exactly once to submit ${args.geometryOnly ? "only portal positions and edge control points" : args.measurementOnly ? "only named measurement field corrections" : "the complete plan"} matching its schema.`,
     tools: [{
       name: ASSIGNMENT_PLANNER_TOOL_NAME,
-      description: args.geometryOnly ? "Correct only the declared portals positions and edges control points. Return no activity, configuration, evidence, path or choice fields." : "Write Sunny's captured homework interpretation, active intervention node plan, measurements, and mastery theory. Populate every tool field directly as its declared object or array type. Never serialize the plan or any tool field into a JSON string.",
+      ...(args.measurementOnly ? {strict:true} : {}),
+      description: args.measurementOnly ? "Correct only the declared measurement field paths. Return corrections [{path,value}], no plan or protected fields." : args.geometryOnly ? "Correct only the declared portals positions and edges control points. Return no activity, configuration, evidence, path or choice fields." : "Write Sunny's captured homework interpretation, active intervention node plan, measurements, and mastery theory. Populate every tool field directly as its declared object or array type. Never serialize the plan or any tool field into a JSON string.",
       input_schema: (args.schema ?? assignmentPlannerToolJsonSchema()) as Anthropic.Messages.Tool.InputSchema,
     }],
     tool_choice: { type: "tool", name: ASSIGNMENT_PLANNER_TOOL_NAME },
