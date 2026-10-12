@@ -380,6 +380,19 @@ describe("canonical progression generation", () => {
     expect(prompt).toContain("Preserve the assigned spelling words and frozen item IDs");
     expect(prompt).toContain('"frozen"');
   });
+  it("gives the spelling Creator one canonical identity map for state, submission and its browser journey", () => {
+    // Saved capsule shortened state IDs while journey expected full occasion IDs.
+    // The old prompt said preserve IDs without naming each protocol field.
+    const item = { id: "hw:b3:capsule:spelling.word.night", wordId: "spelling.word.night", word: "night", lineage: { measurementRole: "fresh_checkpoint" } };
+    const cycle = { ...baseInput(), domain: "spelling", observations: [] };
+    const node = { ...cycle.nodes[0], evidenceContract: { spellingItems: { [item.id]: item } } };
+    const prompt = buildAdaptiveProgressionCreatorPrompt({ cycle, node, childContext: {} } as never);
+    const identities = prompt.match(/Spelling runtime identities:\n([^\n]+)/)?.[1];
+    expect(identities).toBeDefined();
+    expect(JSON.parse(identities!)).toEqual([{ itemId: item.id, word: item.word, measurementRole: "fresh_checkpoint" }]);
+    expect(prompt).toContain("currentChallenge.id, journey.itemId, and target all use the full itemId");
+    expect(prompt).toContain("Never use wordId or a shortened suffix as a runtime item ID");
+  });
   /** A parent found that the generated support activity never became playable.
    * The runtime log named every broken shell requirement, but baseline creation
    * stopped before passing that evidence back to the Experience Creator. The

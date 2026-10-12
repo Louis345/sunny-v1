@@ -2427,7 +2427,10 @@ Read runtime identity and parameters from window.GAME_PARAMS. Never hardcode the
 Emit window.parent.postMessage({type:"activity_ready",payload:{nodeId:"${nodeId}"}},"*") when ready.
 Whenever the activity or problem changes, emit window.parent.postMessage({type:"game_state_update",payload:{game:"generated-${spelling ? "spelling" : "math"}",activityId:"${nodeId}",nodeId:"${nodeId}",phase:"question",activityTitle:${JSON.stringify(input.node.title)},learningFocus:${JSON.stringify(input.node.academicTarget.skill)},mechanic:${JSON.stringify(input.node.mechanic)},currentChallenge,availableActions,itemIndex,totalItems,answerVisibility:"hidden"}},"*") so Elli has live context. Never expose answers.
 ${TARGETED_COMPANION_RUNTIME_CONTRACT}
-Listen for parent messages with type:"sunny_companion_presence". Pause activity timers and input while summoned, and resume the same state when collapsed. Do not restart or change progress.
+${spelling ? `Spelling runtime identities:
+${JSON.stringify(Object.values(input.node.evidenceContract.spellingItems ?? {}).map(item => ({itemId:item.id,word:item.word,measurementRole:item.lineage?.measurementRole})))}
+currentChallenge.id, journey.itemId, and target all use the full itemId from this map. Never use wordId or a shortened suffix as a runtime item ID. Use the same itemId for state, attempt_event and targetResults; copy its measurementRole into currentChallenge. These identities describe the saved measurement occasion, not the displayed word or educational order.
+` : ""}Listen for parent messages with type:"sunny_companion_presence". Pause activity timers and input while summoned, and resume the same state when collapsed. Do not restart or change progress.
 Maintain a factual targetResults array with exactly one immutable first committed response per Planner item: {target,correct,attemptedValue,responseTimeMs,scaffoldLevel}. Log retries as separate attempt events; never append duplicate targets or overwrite the first response.
 For every answer call window.fireAttemptEvent({domain:"${spelling ? "spelling" : "math"}",target,correct,attemptedValue,responseTimeMs,scaffoldLevel}).
 Emit window.parent.postMessage({type:"progress_event",payload:{nodeId:"${nodeId}",completedItems,totalItems}},"*") whenever visible progress advances.
