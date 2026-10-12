@@ -428,9 +428,30 @@ export async function planSpellingIntakeFromSource(packet: AssignmentPlanningPac
     const issues = !baseResult.success ? baseResult.error.issues : error instanceof z.ZodError ? error.issues : [];
     const journeyError=Boolean((original.draft as SpellingIntake)?.diagnostic?.action === 'select' && !(original.draft as SpellingIntake)?.boardDefinition) || error instanceof Error && (error.message.startsWith('board_definition_')||error.message.startsWith('board_canvas_invalid')) || issues.some(issue=>issue.path[0]==='boardDefinition');
     if (!captured.success || (!journeyError && (issues.length === 0 || issues.some(issue => issue.path[0] !== "diagnostic")))) throw error;
+    let acceptedDiagnostic: SpellingIntake["diagnostic"];
+    const diagnostic = spellingDiagnosticDecisionSchema.safeParse(_invalidDiagnostic);
+    if (packet.spellingDiagnostics && diagnostic.success) {
+      try {
+        resolveSpellingDiagnosticSelection({...captured.data, diagnostic:diagnostic.data},packet);
+        acceptedDiagnostic=diagnostic.data;
+      } catch (diagnosticError) {
+        console.log(` 🎮 [spelling-discovery] [diagnostic-correction] [required] ${diagnosticError instanceof Error ? diagnosticError.message : String(diagnosticError)}`);
+      }
+    }
+    const correctionSchema=acceptedDiagnostic ? z.object({boardDefinition:intakeBoardSchema}).strict() : spellingIntakeCorrectionSchema;
+    const repairedFields=(fields:Record<string,unknown>)=>{
+      if (acceptedDiagnostic) {
+        if (fields.diagnostic!==undefined) {
+          const supplied=spellingDiagnosticDecisionSchema.safeParse(fields.diagnostic);
+          if (!supplied.success || !isDeepStrictEqual(supplied.data,acceptedDiagnostic)) throw new Error('spelling_intake_correction_changed_diagnostic');
+        }
+        return {diagnostic:acceptedDiagnostic,boardDefinition:intakeBoardSchema.parse(fields.boardDefinition)};
+      }
+      return spellingIntakeCorrectionSchema.parse({diagnostic:fields.diagnostic,...(fields.boardDefinition ? {boardDefinition:fields.boardDefinition}:{})});
+    };
     const correctionRequest = {
-      version: 4,
-      toolSchemaHash:hashDiscoveryContract(spellingIntakeToolJsonSchema(spellingIntakeCorrectionSchema)),
+      version: acceptedDiagnostic ? 5 : 4,
+      toolSchemaHash:hashDiscoveryContract(spellingIntakeToolJsonSchema(correctionSchema)),
       purpose: "spelling_intake_authoring_correction",
       originalRequestHash: hashDiscoveryContract(packet),
       invalidDiagnostic: (original.draft as { diagnostic?: unknown })?.diagnostic,
@@ -438,11 +459,11 @@ export async function planSpellingIntakeFromSource(packet: AssignmentPlanningPac
       ...(journeyError ? {journeyError:error instanceof Error?error.message:String(error)}:{}),
       boardDefinition:_invalidBoard,
     };
-    const correctionPrompt = `Repair the diagnostic and boardDefinition fields of the existing Planner tool output once. Return only diagnostic and boardDefinition; do not regenerate assignment capture. For action select, boardDefinition is required. Activity portals bind through activityNodeId, using the local canonical ID diagnostic; activityId is not a portal field. Preserve authored portal IDs, labels, paths, choices, theme and positions unless the named defect requires changing them. Do not remove a board to evade an error. Do not invent evidence, activities or device facts. ${BOARD_AUTHORING_INSTRUCTION}\nCONTRACT ISSUES AND PREVIOUS AUTHORED FIELDS:\n${JSON.stringify(correctionRequest)}\nCAPTURED ASSIGNMENT (read-only):\n${JSON.stringify(captured.data)}`;
+    const correctionPrompt = `${acceptedDiagnostic ? "The diagnostic decision is already valid and frozen. Repair only boardDefinition; return only boardDefinition. Do not return or change diagnostic. Its activityId identifies an activity type, while board portal activityNodeId identifies the local node diagnostic." : "Repair the diagnostic and boardDefinition fields once. Return only diagnostic and boardDefinition."} Do not regenerate assignment capture. For action select, boardDefinition is required. Activity portals bind through activityNodeId, using the local canonical ID diagnostic; activityId is not a portal field. Preserve authored portal IDs, labels, paths, choices, theme and positions unless the named defect requires changing them. Do not remove a board to evade an error. Do not invent evidence, activities or device facts. ${BOARD_AUTHORING_INSTRUCTION}\nCONTRACT ISSUES AND PREVIOUS AUTHORED FIELDS:\n${JSON.stringify(correctionRequest)}\nCAPTURED ASSIGNMENT (read-only):\n${JSON.stringify(captured.data)}`;
     const correctionStarted = Date.now();
     let legacyRepair: Receipt | undefined;
     if (opts.providerReceipt) {
-      for (const suffix of ["authoring-correction-v3", "journey-contract-correction-v2", "diagnostic-schema-correction-v1"]) {
+      for (const suffix of ["authoring-correction-v4", "authoring-correction-v3", "journey-contract-correction-v2", "diagnostic-schema-correction-v1"]) {
         const stage = `${opts.providerReceipt.stage}-${suffix}`;
         if (!hasReceivedMathProviderStage(opts.providerReceipt.draftDir, stage)) continue;
         const receipts = path.join(opts.providerReceipt.draftDir,"provider-receipts");
@@ -460,7 +481,7 @@ export async function planSpellingIntakeFromSource(packet: AssignmentPlanningPac
         try {
           const proposed = unpack(candidate);
           const fields=proposed.draft as Record<string,unknown>;
-          const valid = await parse(fields && !("words" in fields) ? {...captured.data,...spellingIntakeCorrectionSchema.parse(fields)} : proposed.draft);
+          const valid = await parse(fields && !("words" in fields) ? {...captured.data,...repairedFields(fields)} : {...fields,...repairedFields(fields)});
           const {diagnostic:_d,boardDefinition:_b,...source} = valid;
           if(hashDiscoveryContract(source)!==hashDiscoveryContract(captured.data)) continue;
           legacyRepair = candidate;
@@ -473,11 +494,11 @@ export async function planSpellingIntakeFromSource(packet: AssignmentPlanningPac
     }
     const corrected = legacyRepair ?? (opts.providerReceipt ? await runMathProviderStage({
       draftDir: opts.providerReceipt.draftDir,
-      stage: `${opts.providerReceipt.stage}-authoring-correction-v4`,
+      stage: `${opts.providerReceipt.stage}-authoring-correction-v${acceptedDiagnostic ? 5 : 4}`,
       model,
       request: correctionRequest,
-      execute: () => receive(correctionPrompt, correctionStarted, spellingIntakeCorrectionSchema),
-    }) : await receive(correctionPrompt, correctionStarted, spellingIntakeCorrectionSchema));
+      execute: () => receive(correctionPrompt, correctionStarted, correctionSchema),
+    }) : await receive(correctionPrompt, correctionStarted, correctionSchema));
     const repair = unpack(corrected);
     const repaired = repair.draft as Record<string,unknown>;
     if (repaired && "words" in repaired) {
@@ -486,8 +507,7 @@ export async function planSpellingIntakeFromSource(packet: AssignmentPlanningPac
         Object.fromEntries(Object.entries(repaired).filter(([key])=>key!=="diagnostic" && key!=="boardDefinition")));
       if(hashDiscoveryContract(captured.data)!==hashDiscoveryContract(legacyCapture)) throw new Error('spelling_intake_correction_changed_source');
     }
-    const repairedFields = spellingIntakeCorrectionSchema.parse({diagnostic:repaired?.diagnostic, ...(repaired?.boardDefinition ? {boardDefinition:repaired.boardDefinition} : {})});
-    output = await parse({...captured.data,...repairedFields});
+    output = await parse({...captured.data,...repairedFields(repaired)});
     const {diagnostic:_diagnostic,boardDefinition:_board,...repairedCapture}=output;
     if(hashDiscoveryContract(captured.data)!==hashDiscoveryContract(repairedCapture)) throw new Error('spelling_intake_correction_changed_source');
     usage = combinePlannerUsage(original.usage, repair.usage);

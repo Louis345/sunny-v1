@@ -15,6 +15,8 @@ import { attachSpellingDiscoveryEvidence } from "../engine/assignmentPlanner";
 import { recordSpellingDiscoveryAttempt } from "../engine/learningCycleRuntime";
 import { completeDiscoveryEvaluation } from "../engine/adaptiveMathDiscovery";
 
+import { requestPlannerMessage } from "../engine/plannerTransport";
+vi.mock("../engine/plannerTransport",async original=>({...await original<typeof import("../engine/plannerTransport")>(),requestPlannerMessage:vi.fn()}));
 const roots: string[] = [];
 afterEach(() => roots.splice(0).forEach(root => fs.rmSync(root, { recursive: true, force: true })));
 async function fixture() {
@@ -230,4 +232,63 @@ it('uses the shared endpoint binding contract in diagnostic authoring and execut
   const authored = {...draft, boardDefinition:board};
   expect(spellingIntakeAuthoringSchema(true).parse(authored)).toEqual(authored);
   expect(parseSpellingIntake(authored, packet).boardDefinition).toEqual(board);
+});
+
+it('repairs only the board when the initial diagnostic decision is valid, preserving it across restart',async()=>{
+ const {packet,rootDir}=await fixture(),valid=capture(packet),invalid=structuredClone(valid);
+ (invalid.boardDefinition as {version:number}).version=1;
+ const callPlannerModel=vi.fn().mockResolvedValueOnce({draft:invalid}).mockResolvedValueOnce({draft:{boardDefinition:valid.boardDefinition}});
+ const options={callPlannerModel,providerReceipt:{draftDir:path.join(rootDir,'frozen-diagnostic-receipts'),stage:'intake'}};
+ const result=await planSpellingIntakeFromSource(packet,options);
+ expect(result.output.diagnostic).toEqual(valid.diagnostic);
+ expect(result.output.boardDefinition).toEqual(valid.boardDefinition);
+ expect((await planSpellingIntakeFromSource(packet,options)).output).toEqual(result.output);
+ expect(callPlannerModel).toHaveBeenCalledTimes(2);
+});
+
+it('does not accept a board correction that rewrites a valid diagnostic rationale',async()=>{
+ const {packet,rootDir}=await fixture(),valid=capture(packet),invalid=structuredClone(valid);
+ (invalid.boardDefinition as {version:number}).version=1;
+ const callPlannerModel=vi.fn().mockResolvedValueOnce({draft:invalid}).mockResolvedValueOnce({draft:{boardDefinition:valid.boardDefinition,diagnostic:{...valid.diagnostic,reason:'Changed independently of board repair'}}});
+ await expect(planSpellingIntakeFromSource(packet,{callPlannerModel,providerReceipt:{draftDir:path.join(rootDir,'diagnostic-drift-receipts'),stage:'intake'}})).rejects.toThrow('spelling_intake_correction_changed_diagnostic');
+ expect(callPlannerModel).toHaveBeenCalledTimes(2);
+});
+
+it('production intake board repair exposes no diagnostic field to the provider',async()=>{
+ const {packet,rootDir}=await fixture(),valid=capture(packet),invalid=structuredClone(valid);
+ (invalid.boardDefinition as {version:number}).version=1;
+ vi.stubEnv('ANTHROPIC_API_KEY','recorded-no-network');
+ const requests:any[]=[];
+ vi.mocked(requestPlannerMessage).mockReset().mockImplementation(async(_client,request:any)=>{
+  requests.push(request);
+  return {id:'recorded-intake-'+requests.length,stop_reason:'tool_use',content:[{type:'tool_use',id:'tool-'+requests.length,name:'write_adventure_session_plan',input:{plan:requests.length===1?invalid:{boardDefinition:valid.boardDefinition}}}],usage:{input_tokens:1,output_tokens:1}} as never;
+ });
+ try {
+  const options={providerReceipt:{draftDir:path.join(rootDir,'board-only-provider'),stage:'intake'}};
+  const result=await planSpellingIntakeFromSource(packet,options);
+  expect(result.output.diagnostic).toEqual(valid.diagnostic);
+  expect(requests).toHaveLength(2);
+  expect(Object.keys(requests[1].tools[0].input_schema.properties.plan.properties)).toEqual(['boardDefinition']);
+  expect(JSON.stringify(requests[1].messages)).toContain('already valid and frozen');
+  await planSpellingIntakeFromSource(packet,options);
+  expect(requests).toHaveLength(2);
+ } finally {vi.unstubAllEnvs();}
+});
+
+it('reuses a legacy full board repair with the same normalized diagnostic rationale',async()=>{
+ const {packet,rootDir}=await fixture(),valid=capture(packet);
+ valid.diagnostic.reason='  '+valid.diagnostic.reason+'  ';
+ const invalid=structuredClone(valid);(invalid.boardDefinition as {version:number}).version=1;
+ const callPlannerModel=vi.fn().mockResolvedValueOnce({draft:invalid}).mockResolvedValueOnce({draft:valid});
+ const options={callPlannerModel,providerReceipt:{draftDir:path.join(rootDir,'normalized-diagnostic-receipts'),stage:'intake'}};
+ expect((await planSpellingIntakeFromSource(packet,options)).output.diagnostic?.reason).toBe(valid.diagnostic.reason.trim());
+ await planSpellingIntakeFromSource(packet,options);
+ expect(callPlannerModel).toHaveBeenCalledTimes(2);
+});
+it('rejects explicit null diagnostic in a legacy full board repair',async()=>{
+ const {packet,rootDir}=await fixture(),valid=capture(packet),invalid=structuredClone(valid);
+ (invalid.boardDefinition as {version:number}).version=1;
+ const callPlannerModel=vi.fn().mockResolvedValueOnce({draft:invalid}).mockResolvedValueOnce({draft:{boardDefinition:valid.boardDefinition,diagnostic:null}});
+ await expect(planSpellingIntakeFromSource(packet,{callPlannerModel,providerReceipt:{draftDir:path.join(rootDir,'null-diagnostic-receipts'),stage:'intake'}})).rejects.toThrow('spelling_intake_correction_changed_diagnostic');
+ expect(callPlannerModel).toHaveBeenCalledTimes(2);
 });
