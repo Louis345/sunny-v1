@@ -39,7 +39,7 @@ describe("validateGeneratedGame", () => {
   });
 
   it("rejects HTML with hardcoded childId", () => {
-    const html = `${BASE}<p>ila</p><div id="sunny-companion"></div><script>const GAME_PARAMS = { childId: "x" };
+    const html = `${BASE}<div id="sunny-companion"></div><script>const GAME_PARAMS = window.GAME_PARAMS || {}; const childId = "ila";
 function sendNodeComplete() {}
 fireCompanionEvent("a", {});
 fireAttemptEvent({ domain: "spelling", target: "apple", correct: true, quality: 5, scaffoldLevel: 0 });
@@ -52,6 +52,29 @@ fireAttemptEvent({ domain: "spelling", target: "apple", correct: true, quality: 
     expect(r.passed).toBe(false);
     expect(r.failures.some((f) => f.includes("Hardcoded childId"))).toBe(true);
     expect(r.shouldRegenerate).toBe(true);
+  });
+
+  it.each(['The word is available. Similar sounds help.','Ila turns a dial to hear the word.'])("does not mistake child-facing prose for a runtime identity: %s", prose => {
+    const html = `${BASE}<p>${prose}</p><div id="sunny-companion"></div><script>
+const params = window.GAME_PARAMS || {};
+const childId = params.childId || '';
+const mechanic = ${JSON.stringify(prose)};
+window.fireCompanionEvent('idle', {});
+window.fireAttemptEvent({domain:'spelling',target:'apple',correct:true,quality:5,scaffoldLevel:0});
+window.sendNodeComplete({completed:true,childId});
+</script></body></html>`;
+    const result = validateGeneratedGame(html,{words:[],homeworkType:'reading',childId:'ila',generationStage:'quest'});
+    expect(result.passed).toBe(true);
+    expect(result.failures.some(failure=>failure.includes('Hardcoded childId'))).toBe(false);
+  });
+
+  it.each(['const childId = "ila";','const settings = {"childId":"ila"};','state.childId = "ila";','state["childId"] = "ila";','const CHILD_ID = `ila`;','const { childId = "ila" } = window.GAME_PARAMS || {};','function sendResult(childId = "ila") {}'])("rejects an actual generated identity binding: %s", binding => {
+    const html = `${BASE}<div id="sunny-companion"></div><script>
+const params=window.GAME_PARAMS||{};const state={};${binding}
+window.fireCompanionEvent('idle',{});window.fireAttemptEvent({domain:'spelling',target:'apple',correct:true,quality:5,scaffoldLevel:0});window.sendNodeComplete({completed:true});
+</script></body></html>`;
+    const result=validateGeneratedGame(html,{words:[],homeworkType:'reading',childId:'ila',generationStage:'quest'});
+    expect(result.failures).toContain('Hardcoded childId "ila" found');
   });
 
   it("warns when #sunny-companion missing", () => {
