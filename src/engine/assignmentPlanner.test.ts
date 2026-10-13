@@ -1024,6 +1024,18 @@ describe("assignment planner", () => {
       const request:any=stream.mock.calls[0][0];expect(request.model).toBe("claude-sonnet-5");
       expect(request.tools[0].input_schema.properties.activeSessionPlan).toBeUndefined();
       await askLearningPlanner(args);expect(stream).toHaveBeenCalledTimes(1);
+      const {runMathProviderStage}=await import('./adaptiveMathDiscovery');
+      const frozenDirectory=path.join(root,'old-description');
+      const oldRequest=structuredClone(request);oldRequest.messages[0].content[0].text="Previous reviewed instructions\n"+oldRequest.messages[0].content[0].text;delete oldRequest.tools[0].input_schema.properties.activities.items.properties.measurement.properties.spelling.description;
+      await runMathProviderStage({draftDir:frozenDirectory,stage:'targeted-planner',model:args.model,request:oldRequest,execute:async()=>({id:"old-description",stop_reason:"tool_use",usage:{input_tokens:1,output_tokens:1},content:[{type:"tool_use",name:"create_learning_program",input}]})});
+      const noCall=vi.fn(()=>{throw new Error('must_not_repurchase_received_work')});
+      expect((await askLearningPlanner({...args,rawResponseFile:path.join(frozenDirectory,'targeted-planner.json'),client:{messages:{stream:noCall}}})).plan.journey).toEqual(input.journey);
+      expect(noCall).not.toHaveBeenCalled();
+      const foreignPacket=structuredClone(packet);foreignPacket.capturedHomework.title='Different captured assignment';
+      await expect(askLearningPlanner({...args,packet:foreignPacket,rawResponseFile:path.join(frozenDirectory,'targeted-planner.json'),client:{messages:{stream:noCall}}})).rejects.toThrow('learning_planner_initial_identity_mismatch');
+      expect(noCall).not.toHaveBeenCalled();
+
+
       const bad=structuredClone(input);bad.activities[0].measurement.spelling.evidenceIds=["not-observed"];
       const repairedStream=vi.fn((_request:unknown)=>({finalMessage:async()=>({id:"bounded-metadata-repair",stop_reason:"tool_use",usage:{input_tokens:1,output_tokens:1},content:[{type:"tool_use",name:"create_learning_program",input:repairedStream.mock.calls.length===1?bad:input}]})}));
       const repairArgs={...args,rawResponseFile:path.join(root,"repair","targeted-planner.json"),client:{messages:{stream:repairedStream}}};

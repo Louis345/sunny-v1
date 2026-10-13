@@ -1936,7 +1936,7 @@ ${JSON.stringify(factualModelContext(input.priorOutcomes ?? []), null, 2)}`;
   // A whole board — every activity, item, prediction and creator prompt — is a
   // long generation against a 20k token budget, and the non-streaming request
   // was timing out before it finished. Stream it, as the Creator already does.
-  const request = {
+  let request = {
     model,
     max_tokens:maxTokens,
     messages: [{ role: "user", content: plannerContent }],
@@ -1947,6 +1947,23 @@ ${JSON.stringify(factualModelContext(input.priorOutcomes ?? []), null, 2)}`;
     }],
     tool_choice: { type: "tool", name: toolName },
   } satisfies Parameters<typeof client.messages.stream>[0];
+  if(native && input.rawResponseFile){
+    const directory=path.dirname(input.rawResponseFile),pointer=path.join(directory,'provider-receipts','targeted-planner.stage.json');
+    if(fs.existsSync(pointer)){
+      const {requestHash}=JSON.parse(fs.readFileSync(pointer,'utf8'));
+      const receipt=JSON.parse(fs.readFileSync(path.join(directory,'provider-receipts',`${requestHash}.json`),'utf8'));
+      const frozen=JSON.parse(fs.readFileSync(path.join(directory,'provider-diagnostics',`${requestHash}.attempt-${receipt.attempts?.length??1}.request.json`),'utf8')).context as typeof request;
+      const facts=(candidate:typeof request)=>{
+        const content=candidate.messages[0].content;
+        const text=Array.isArray(content)?content.find(block=>block.type==='text')?.text:content;
+        if(typeof text!=='string' || !text.includes('Homework and child-chart context:\n'))throw new Error('learning_planner_initial_identity_unverifiable');
+        return JSON.parse(text.split('Homework and child-chart context:\n').at(-1)!);
+      };
+      if(frozen.model!==model || !isDeepStrictEqual(facts(frozen),facts(request)))throw new Error('learning_planner_initial_identity_mismatch');
+      request=frozen;
+      console.log(' 🎮 [learning-planner] [initial-request] [frozen-replay]');
+    }
+  }
   const execute = () => native?requestPlannerMessage(client,request):client.messages.stream(request, { timeout: Number(process.env.SUNNY_AI_TIMEOUT_MS ?? 600000),maxRetries:0 }).finalMessage();
   const response = input.rawResponseFile
     ? await runMathProviderStage({draftDir:path.dirname(input.rawResponseFile),stage:"targeted-planner",model:request.model,request,execute})
