@@ -1,4 +1,4 @@
-import {assertNativeLearningProgramCorrection,hydrateNativeLearningProgram,nativeLearningProgramToolJsonSchema,resolveAssignmentPlannerModel,type AssignmentPlanningPacket,type AssignmentPlannerOutput,type AssignmentPlannerTelemetry} from "./assignmentPlanner";
+import {nativeLearningProgramCorrectionTool,applyNativeLearningProgramCorrection,assignmentPlannerAllowedEvidenceIds,assertNativeLearningProgramCorrection,hydrateNativeLearningProgram,nativeLearningProgramToolJsonSchema,resolveAssignmentPlannerModel,type AssignmentPlanningPacket,type AssignmentPlannerOutput,type AssignmentPlannerTelemetry} from "./assignmentPlanner";
 import {requestPlannerMessage,assertPlannerResponseComplete} from "./plannerTransport";
 import {isDeepStrictEqual} from "node:util";
 import {z} from "zod";
@@ -2018,28 +2018,38 @@ function nativeProgramFromResponse(response:unknown,packet:AssignmentPlanningPac
  return {domain:"spelling",planId:output.activeSessionPlan.planId,journey:output.activeSessionPlan.journey!,plan:output.activeSessionPlan,planningResult:{output,telemetry:{model,latencyMs},receivedAt:output.activeSessionPlan.createdAt}};
 }
 async function correctNativeLearningProgram(input:{savedResponse:unknown;packet:AssignmentPlanningPacket;model:string;client:Anthropic;rawResponseFile?:string;initialError:Error;started:number}):Promise<NativePlannedProgram> {
- let prior=input.savedResponse,defect=input.initialError;
- const identity=crypto.createHash("sha256").update(JSON.stringify(input.packet)).digest("hex");
+ const toolInput=(message:unknown,name='create_learning_program')=>{const matches=(message as Anthropic.Messages.Message).content.filter(block=>block.type==='tool_use'&&block.name===name);return matches.length===1?matches[0] as Anthropic.Messages.ToolUseBlock:undefined;};
+ const initial=toolInput(input.savedResponse);if(!initial)throw input.initialError;
+ let current=initial.input,defect=input.initialError;
+ const identity=crypto.createHash('sha256').update(JSON.stringify(input.packet)).digest('hex');
  for(let attempt=1;attempt<=2;attempt++){
-  const stage=`targeted-planner-correction-${attempt}`;
-  let envelope={identity,request:{model:input.model,max_tokens:16000,messages:[{role:"user" as const,content:`Correct only the diagnosed tool arguments and directly dependent fields. Preserve valid activity IDs, configs, count, educational choices and factual evidence. Return domain, planId, journey, activities (each with its measurement) and planTheory at the tool root, not under activeSessionPlan. Option paths are branch segments AFTER the choice; omit shared opening and closing portals. This is bounded correction ${attempt} of 2.
-DEFECT: ${defect.message}
-PRIOR RESPONSE: ${JSON.stringify(prior)}
-CAPTURED HOMEWORK AND EVIDENCE: ${JSON.stringify({homework:input.packet.capturedHomework,discovery:input.packet.discoveryEvidence})}`}],tools:[{name:"create_learning_program",description:"Correct the cited native learning program arguments.",input_schema:nativeLearningProgramToolJsonSchema(input.packet.activityCatalog) as Anthropic.Messages.Tool.InputSchema}],tool_choice:{type:"tool" as const,name:"create_learning_program"}}};
-  const directory=input.rawResponseFile?path.dirname(input.rawResponseFile):undefined;
-  const pointer=directory?path.join(directory,"provider-receipts",`${stage}.stage.json`):undefined;
+  const stage=`targeted-planner-correction-${attempt}`,directory=input.rawResponseFile?path.dirname(input.rawResponseFile):undefined;
+  const pointer=directory?path.join(directory,'provider-receipts',`${stage}.stage.json`):undefined;
+  let envelope:{identity:string;request:Parameters<typeof requestPlannerMessage>[1]};
   if(pointer && fs.existsSync(pointer)){
-   const {requestHash}=JSON.parse(fs.readFileSync(pointer,"utf8"));const receipt=JSON.parse(fs.readFileSync(path.join(directory!,"provider-receipts",`${requestHash}.json`),"utf8"));
-   const frozen=JSON.parse(fs.readFileSync(path.join(directory!,"provider-diagnostics",`${requestHash}.attempt-${receipt.attempts?.length??1}.request.json`),"utf8")).context;
-   if(frozen.identity!==identity)throw new Error("learning_planner_correction_identity_mismatch");envelope=frozen;
+   const {requestHash}=JSON.parse(fs.readFileSync(pointer,'utf8'));const receipt=JSON.parse(fs.readFileSync(path.join(directory!,'provider-receipts',`${requestHash}.json`),'utf8'));
+   const frozen=JSON.parse(fs.readFileSync(path.join(directory!,'provider-diagnostics',`${requestHash}.attempt-${receipt.attempts?.length??1}.request.json`),'utf8')).context;
+   if(frozen.identity!==identity||frozen.request.model!==input.model)throw new Error('learning_planner_correction_identity_mismatch');envelope=frozen;
+  }else{
+   const tool=nativeLearningProgramCorrectionTool(current,defect);
+   envelope={identity,request:{model:input.model,max_tokens:16000,messages:[{role:'user',content:`Correct only the diagnosed fields. Return patches [{path,value}], not a whole program. Only diagnosed unrecognized keys may use {path,remove:true}; never remove a required field. Valid activities, choices, sibling measurements and evidence are immutable. A spelling activity with academic targets needs a measurement: instruction and practice are exposures, fresh_checkpoint captures independent responses, and nonacademic rewards alone may use null. Checkpoints cite preceding exposures on their declared paths. This is bounded correction ${attempt} of 2.
+DEFECT: ${defect.message}
+EDITABLE FIELDS: ${JSON.stringify(tool.input_schema.properties.patches.items.properties.path.enum)}
+READ-ONLY PROGRAM: ${JSON.stringify(current)}
+ASSIGNED WORDS: ${JSON.stringify(input.packet.capturedHomework.words)}
+ALLOWED EVIDENCE IDS: ${JSON.stringify(assignmentPlannerAllowedEvidenceIds(input.packet))}`}],tools:[{...tool,input_schema:tool.input_schema as Anthropic.Messages.Tool.InputSchema}],tool_choice:{type:'tool',name:tool.name}}};
   }
   const execute=()=>requestPlannerMessage(input.client,envelope.request);
   const response=directory?await runMathProviderStage({draftDir:directory,stage,model:input.model,request:envelope,execute}):await execute();
-  const toolInput=(message:unknown)=>{const content=(message as Anthropic.Messages.Message).content;return content.find(block=>block.type==="tool_use"&&block.name==="create_learning_program") as Anthropic.Messages.ToolUseBlock|undefined;};
-  const original=toolInput(input.savedResponse),candidate=toolInput(response);
-  if(original&&candidate)assertNativeLearningProgramCorrection(original.input,candidate.input,input.initialError);
-  try{return nativeProgramFromResponse(response,input.packet,input.model,Date.now()-input.started);}
-  catch(error){if(!nativePlannerContractError(error))throw error;prior=response;defect=error;console.warn(` 🎮 [learning-planner] [correction] [invalid] attempt=${attempt} ${defect.message}`);}
+  assertPlannerResponseComplete(response);
+  const name=envelope.request.tool_choice && 'name' in envelope.request.tool_choice?envelope.request.tool_choice.name:'repair_learning_program_fields';
+  const candidate=toolInput(response,name);if(!candidate)throw new Error(`planner_tool_output_missing_or_multiple:${name}`);
+  if(name==='create_learning_program'){
+   // Received historical corrections remain immutable and retain their original scope.
+   assertNativeLearningProgramCorrection(initial.input,candidate.input,input.initialError);current=candidate.input;
+  }else{current=applyNativeLearningProgramCorrection(current,candidate.input,defect);console.log(` 🎮 [learning-planner] [field-correction] [applied] attempt=${attempt}`);}
+  try{return nativeProgramFromResponse({...response,content:[{type:'tool_use',id:candidate.id,name:'create_learning_program',input:current}]},input.packet,input.model,Date.now()-input.started);}
+  catch(error){if(!nativePlannerContractError(error))throw error;defect=error;console.warn(` 🎮 [learning-planner] [correction] [invalid] attempt=${attempt} ${defect.message}`);}
  }
  throw defect;
 }

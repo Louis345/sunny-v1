@@ -1006,8 +1006,8 @@ export function nativeLearningProgramToolJsonSchema(catalog:AssignmentPlanningPa
   return schema;
 }
 /** Correction permissions come from concrete tool defects, never educational preferences. */
-export function assertNativeLearningProgramCorrection(original:unknown,corrected:unknown,error:Error):void {
-  const a=jsonObject(original),b=jsonObject(corrected);if(!a||!b)throw new Error("learning_program_correction_changed_protected_fields");
+function nativeCorrectionPermissions(original:unknown,error:Error) {
+  const a=jsonObject(original);if(!a)throw new Error("learning_program_correction_changed_protected_fields");
   const editable:Array<Array<string|number>>=[];
   const missingEdges=new Set<string>();
   const defects=[...((error as Error&{issues?:Array<{code:string;measurementId?:string;nodeId?:string;id?:string;message?:string}>}).issues??[])];
@@ -1049,6 +1049,11 @@ export function assertNativeLearningProgramCorrection(original:unknown,corrected
       }
       if(defect.code==='path_missing' && Array.isArray(choices))choices.forEach((row,i)=>{const options=jsonObject(row)?.options;if(Array.isArray(options))options.forEach((option,j)=>{if(jsonObject(option)?.pathId===defect.message?.slice('path_missing:'.length))editable.push(['journey','choices',i,'options',j,'pathId']);});});
     }
+  return {editable,missingEdges};
+}
+export function assertNativeLearningProgramCorrection(original:unknown,corrected:unknown,error:Error):void {
+  const a=jsonObject(original),b=jsonObject(corrected);if(!a||!b)throw new Error("learning_program_correction_changed_protected_fields");
+  const {editable,missingEdges}=nativeCorrectionPermissions(original,error);
   const known=Object.keys(nativeLearningProgramSchema.shape);
   const left=Object.fromEntries(known.filter(key=>key in a).map(key=>[key,structuredClone(a[key])]));
   const right=Object.fromEntries(known.filter(key=>key in a).map(key=>[key,structuredClone(b[key])]));
@@ -1065,6 +1070,35 @@ export function assertNativeLearningProgramCorrection(original:unknown,corrected
   }
   editable.forEach(parts=>{remove(left,parts);remove(right,parts);});
   if(!isDeepStrictEqual(left,right))throw new Error("learning_program_correction_changed_protected_fields");
+}
+
+function nativeCorrectionRemovalPaths(error:Error):Set<string> {
+ return new Set(error instanceof z.ZodError?error.issues.flatMap(issue=>issue.code==='unrecognized_keys'?issue.keys.map(key=>'/'+[...issue.path,key].map(part=>String(part).replace(/~/g,'~0').replace(/\//g,'~1')).join('/')):[]):[]);
+}
+/** New corrections expose the diagnosed fields, not another complete program. */
+export function nativeLearningProgramCorrectionTool(original:unknown,error:Error) {
+ const fields=nativeCorrectionPermissions(original,error).editable;
+ const paths=[...new Set(fields.filter(parts=>parts.length && parts.every(part=>!['__proto__','prototype','constructor'].includes(String(part)))).map(parts=>'/'+parts.map(part=>String(part).replace(/~/g,'~0').replace(/\//g,'~1')).join('/')))];
+ if(!paths.length)throw new Error(`learning_program_correction_scope_unavailable:${error.message}`);
+ const schema=z.toJSONSchema(nativeLearningProgramSchema,{io:'input'}) as JsonSchemaObject;
+ const valueSchemas=fields.map(parts=>{let current=schema;for(const part of parts){if(Array.isArray(current.anyOf))current=(current.anyOf as JsonSchemaObject[]).find(candidate=>typeof part==='number'?candidate.items: schemaProperties(candidate)[String(part)])??current;current=(typeof part==='number'?current.items:schemaProperties(current)[String(part)]) as JsonSchemaObject??{};}return current;});
+ const removable=nativeCorrectionRemovalPaths(error);
+ return {name:'repair_learning_program_fields',description:'Return only explicit replacements for the diagnosed fields; valid sibling fields are immutable.',input_schema:{type:'object',additionalProperties:false,properties:{patches:{type:'array',minItems:1,maxItems:paths.length,items:{type:'object',additionalProperties:false,properties:{path:{type:'string',enum:paths},value:{anyOf:valueSchemas},...(removable.size?{remove:{const:true}}:{})},required:['path'],oneOf:[{required:['value']},...(removable.size?[{required:['remove']}]:[])]}}},required:['patches']}};
+}
+export function applyNativeLearningProgramCorrection(original:unknown,reply:unknown,error:Error):unknown {
+ const tool=nativeLearningProgramCorrectionTool(original,error),allowed=new Set(tool.input_schema.properties.patches.items.properties.path.enum),removable=nativeCorrectionRemovalPaths(error);
+ const raw=jsonObject(reply),patches=raw?.patches;
+ if(!Array.isArray(patches)||!patches.length||Object.keys(raw!).some(key=>key!=='patches'))throw new Error('learning_program_correction_patch_invalid');
+ if(new Set(patches.map(patch=>jsonObject(patch)?.path)).size!==patches.length)throw new Error('learning_program_correction_duplicate_field');
+ if(patches.length>allowed.size)throw new Error('learning_program_correction_changed_protected_fields');
+ const result=structuredClone(original) as Record<string,unknown>;
+ for(const item of patches){
+  const patch=jsonObject(item);if(!patch||typeof patch.path!=='string'||!allowed.has(patch.path)||Object.keys(patch).some(key=>!['path','value','remove'].includes(key))||('remove' in patch?(patch.remove!==true||!removable.has(patch.path)||'value' in patch):!('value' in patch)))throw new Error('learning_program_correction_changed_protected_fields');
+  const parts=patch.path.slice(1).split('/').map(part=>part.replace(/~1/g,'/').replace(/~0/g,'~'));
+  let parent=result;for(const part of parts.slice(0,-1)){const next=parent[part];if(!next||typeof next!=='object')throw new Error('learning_program_correction_patch_invalid');parent=next as Record<string,unknown>;}
+  if(patch.remove===true)delete parent[parts.at(-1)!];else parent[parts.at(-1)!]=structuredClone(patch.value);
+ }
+ assertNativeLearningProgramCorrection(original,result,error);return result;
 }
 
 export function hydrateNativeLearningProgram(raw:unknown,packet:AssignmentPlanningPacket,createdAt?:string):AssignmentPlannerOutput {
@@ -2028,7 +2062,7 @@ class AssignmentPlannerRelationshipInvalidError extends Error {
   }
 }
 
-function assignmentPlannerAllowedEvidenceIds(packet: AssignmentPlanningPacket): string[] {
+export function assignmentPlannerAllowedEvidenceIds(packet: AssignmentPlanningPacket): string[] {
   const ids = new Set<string>();
   (packet.capturedHomework.wordGroups ?? []).flatMap(group => group.evidence).forEach(id => ids.add(id));
   packet.discoveryEvidence?.observations.forEach(observation => ids.add(observation.observationId));
