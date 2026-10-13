@@ -1019,6 +1019,7 @@ function nativeCorrectionPermissions(original:unknown,error:Error) {
   const editable:Array<Array<string|number>>=[];
   const missingEdges=new Set<string>();
   const missingActivities=new Set<string>();
+  const disconnectedPaths=new Set<string>();
   const defects=[...((error as Error&{issues?:Array<{code:string;measurementId?:string;nodeId?:string;id?:string;message?:string}>}).issues??[])];
   if(error instanceof z.ZodError){
     defects.length=0;
@@ -1048,6 +1049,7 @@ function nativeCorrectionPermissions(original:unknown,error:Error) {
         if(match)missingEdges.add(`${match[1]}\0${match[2]}`);
       }
       const journey=jsonObject(a.journey),paths=journey?.paths,choices=journey?.choices;
+      if(defect.code==='path_unreachable'&&defect.id&&Array.isArray(paths)&&paths.some(row=>jsonObject(row)?.id===defect.id)){disconnectedPaths.add(defect.id);editable.push(['journey','paths']);}
       if(defect.code==='activity_portal_missing' && defect.id && nodes.some(node=>node?.id===defect.id)){
         missingActivities.add(defect.id);editable.push(['journey','portals']);
         if(Array.isArray(paths))paths.forEach((_row,i)=>editable.push(['journey','paths',i,'portalIds']));
@@ -1062,11 +1064,22 @@ function nativeCorrectionPermissions(original:unknown,error:Error) {
       }
       if(defect.code==='path_missing' && Array.isArray(choices))choices.forEach((row,i)=>{const options=jsonObject(row)?.options;if(Array.isArray(options))options.forEach((option,j)=>{if(jsonObject(option)?.pathId===defect.message?.slice('path_missing:'.length))editable.push(['journey','choices',i,'options',j,'pathId']);});});
     }
-  return {editable,missingEdges,missingActivities};
+  return {editable,missingEdges,missingActivities,disconnectedPaths};
 }
 export function assertNativeLearningProgramCorrection(original:unknown,corrected:unknown,error:Error):void {
   const a=jsonObject(original),b=jsonObject(corrected);if(!a||!b)throw new Error("learning_program_correction_changed_protected_fields");
-  const {editable,missingEdges,missingActivities}=nativeCorrectionPermissions(original,error);
+  const {editable,missingEdges,missingActivities,disconnectedPaths}=nativeCorrectionPermissions(original,error);
+  if(disconnectedPaths.size){
+    const before=jsonObject(a.journey),after=jsonObject(b.journey),prior=before?.paths,next=after?.paths;
+    if(!Array.isArray(prior)||!Array.isArray(next))throw new Error("learning_program_correction_changed_protected_fields");
+    const root=jsonObject(prior.find(row=>jsonObject(row)?.id===before?.rootPathId)),repaired=jsonObject(next.find(row=>jsonObject(row)?.id===before?.rootPathId));
+    if(!root||!repaired||!Array.isArray(root.portalIds)||!Array.isArray(repaired.portalIds)||!isDeepStrictEqual({...root,portalIds:undefined},{...repaired,portalIds:undefined})||!isDeepStrictEqual(root.portalIds,repaired.portalIds.slice(0,root.portalIds.length)))throw new Error("learning_program_correction_changed_protected_fields");
+    const suffix=repaired.portalIds.slice(root.portalIds.length),orphan=prior.map(jsonObject).filter(row=>row&&disconnectedPaths.has(String(row.id)));
+    const available=new Set(orphan.flatMap(row=>Array.isArray(row!.portalIds)?row!.portalIds:[]));
+    if(suffix.some(id=>!available.has(id))||orphan.some(row=>{const sequence=row!.portalIds;return !Array.isArray(sequence)||!suffix.some((_id,index)=>isDeepStrictEqual(suffix.slice(index,index+sequence.length),sequence));}))throw new Error("learning_program_correction_changed_protected_fields");
+    const expected=prior.filter(row=>jsonObject(row)?.id!==before?.rootPathId&&!disconnectedPaths.has(String(jsonObject(row)?.id)));
+    if(!isDeepStrictEqual(expected,next.filter(row=>jsonObject(row)?.id!==before?.rootPathId)))throw new Error("learning_program_correction_changed_protected_fields");
+  }
   if(missingActivities.size){
     const before=jsonObject(a.journey),after=jsonObject(b.journey);
     if(!before||!after||!Array.isArray(before.portals)||!Array.isArray(after.portals)||!Array.isArray(before.paths)||!Array.isArray(after.paths))throw new Error("learning_program_correction_changed_protected_fields");
