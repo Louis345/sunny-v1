@@ -9,6 +9,9 @@ import {withInitialBoard} from "./learningBoardInstances";
 import { createLearningCycle, projectLearningCycle, type LearningCycleRecordV2 } from "./learningCycleRepository";
 import { attachSpellingDiscoveryEvidence, buildAssignmentPlannerPrompt, SPELLING_TUTOR_PERSONA } from "./assignmentPlanner";
 import { listActivityToolContracts } from "./activityToolCatalog";
+// A failed truth check degrades one portal instead of rejecting the whole plan.
+const notReadyReasons=(input:Parameters<typeof buildSpellingTargetedCycleInput>[0])=>buildSpellingTargetedCycleInput(input).nodes.flatMap(node=>node.notReadyReason?[node.notReadyReason]:[]).join("|");
+const coverageLogged=(input:Parameters<typeof buildSpellingTargetedCycleInput>[0])=>{const lines:string[]=[],original=console.log;console.log=(...args:unknown[])=>{lines.push(String(args[0]));};try{buildSpellingTargetedCycleInput(input);}finally{console.log=original;}return lines.some(line=>line.includes("[final-checkpoint] [coverage-incomplete]"));};
 
 function fixture() {
   const items = buildSpellingRecallItems({ homeworkId: "hw", words: ["night", "light"], evidenceIds: ["source"], measurementRole: "fresh_checkpoint" });
@@ -27,14 +30,14 @@ it("never combines alternate partial final checks into complete coverage",()=>{
  const measurement=plan.plannedMeasurements![1];
  plan.plannedMeasurements=[{...measurement,id:"measure-check-night",spelling:{...measurement.spelling!,interventionNodeIds:[]}},{...measurement,id:"measure-check-light",spelling:{...measurement.spelling!,interventionNodeIds:[]}}];
  plan.boardDefinition=choiceJourneyFixture([{id:"night",label:"Night",nodeIds:["check-night"]},{id:"light",label:"Light",nodeIds:["check-light"]}]);
- expect(()=>buildSpellingTargetedCycleInput({cycle,plan,now:"2026-09-08T12:00:00Z"})).toThrow("spelling_final_checkpoint_coverage_incomplete");
+ expect(coverageLogged({cycle,plan,now:"2026-09-08T12:00:00Z"})).toBe(true);
 });
 
 describe("evidence-cited spelling targeted programs", () => {
   it("does not accept a math observation as academic support for a spelling decision", () => {
     const { cycle, plan } = fixture();
     plan.plannedMeasurements![0].spelling!.evidenceIds = ["math-observation"];
-    expect(() => buildSpellingTargetedCycleInput({ cycle, plan, now: "2026-09-08T12:00:00Z", historicalEvidenceIds: ["math-observation"], historicalEvidence: [{ id: "math-observation", domain: "math" }] } as never)).toThrow("spelling_plan_evidence_invalid");
+    expect(notReadyReasons({ cycle, plan, now: "2026-09-08T12:00:00Z", historicalEvidenceIds: ["math-observation"], historicalEvidence: [{ id: "math-observation", domain: "math" }] } as never)).toContain("spelling_plan_evidence_invalid");
   });
   it("leaves Quest and Boss under their existing evidence gates instead of building them with baseline practice", () => {
     const { cycle, plan } = fixture();
@@ -164,7 +167,7 @@ describe("evidence-cited spelling targeted programs", () => {
     expect(visual.spellingModel.words).toEqual([{ id: frozenItem.id, text: "light", chunks: ["l", "ight"], spokenChunks: ["l as in light", "ite as in light"], focusChunk: "ight", tip: "Keep ight together." }]);
     const mismatchedCuePlan = structuredClone(plan) as any;
     mismatchedCuePlan.nodePlan[0].activityConfig.words[0].spokenChunks = ["one cue"];
-    expect(() => buildSpellingTargetedCycleInput({ cycle, plan: mismatchedCuePlan, now: "2026-09-08T12:00:00Z" })).toThrow("spelling_visual_explainer_config_invalid");
+    expect(notReadyReasons({ cycle, plan: mismatchedCuePlan, now: "2026-09-08T12:00:00Z" })).toContain("spelling_visual_explainer_config_invalid");
     expect(visual.questions[0]!.targetConcept).toBe(frozenItem.id);
     expect(input.nodes[1]!.evidenceContract.itemRoles).toEqual(expect.objectContaining(
       Object.fromEntries(Object.keys(input.nodes[1]!.evidenceContract.spellingItems!).map((id) => [id, "fresh_checkpoint"])),
@@ -201,12 +204,12 @@ describe("evidence-cited spelling targeted programs", () => {
     expect(insideChunk.nodePlan[0].activityConfig.words[0]).toEqual(before);
     const absentFocus=structuredClone(plan) as any;
     absentFocus.nodePlan[0].activityConfig.words[0].focusChunk='zzz';
-    expect(()=>buildSpellingTargetedCycleInput({cycle,plan:absentFocus,now:'2026-09-08T12:00:00Z'})).toThrow('spelling_visual_explainer_config_invalid');
+    expect(notReadyReasons({cycle,plan:absentFocus,now:'2026-09-08T12:00:00Z'})).toContain('spelling_visual_explainer_config_invalid');
 
     const malformed = structuredClone(plan);
     (malformed.nodePlan[0]!.activityConfig as { words: Array<{ chunks: string[] }> }).words[0]!.chunks = ["l", "ite"];
-    expect(() => buildSpellingTargetedCycleInput({ cycle, plan: malformed, now: "2026-09-08T12:00:00Z" }))
-      .toThrow("spelling_visual_explainer_config_invalid:practice");
+    expect(notReadyReasons({ cycle, plan: malformed, now: "2026-09-08T12:00:00Z" }))
+      .toContain("spelling_visual_explainer_config_invalid:practice");
   });
   it("freezes Planner-authored alternatives without a second agency topology", () => {
     const { cycle, plan } = fixture();
@@ -245,15 +248,16 @@ describe("evidence-cited spelling targeted programs", () => {
     expect(input.agencyExperiment).toBeUndefined(); // The journey is the only route authority.
 
   });
-  it("rejects unknown citations, absent final coverage, and checkpoints before their intervention", () => {
-    for (const change of [
-      (plan: ActiveSessionPlan) => { plan.plannedMeasurements![0].spelling!.evidenceIds = ["invented"]; },
-      (plan: ActiveSessionPlan) => { plan.nodePlan[1].targets = ["light"]; },
-      (plan: ActiveSessionPlan) => { plan.boardDefinition=linearJourneyFixture(["check","practice"]); },
-    ]) {
-      const { cycle, plan } = fixture(); change(plan);
-      expect(() => buildSpellingTargetedCycleInput({ cycle, plan, now: "2026-09-08T12:00:00Z" })).toThrow(/spelling_/);
-    }
+  it("degrades one portal for an unknown citation and keeps incomplete final coverage explicit without blocking the board", () => {
+    const unknownCitation = fixture(); unknownCitation.plan.plannedMeasurements![0].spelling!.evidenceIds = ["invented"];
+    expect(notReadyReasons({ ...unknownCitation, now: "2026-09-08T12:00:00Z" })).toContain("spelling_plan_evidence_invalid");
+    const partialCoverage = fixture(); partialCoverage.plan.nodePlan[1].targets = ["light"];
+    expect(coverageLogged({ ...partialCoverage, now: "2026-09-08T12:00:00Z" })).toBe(true);
+  });
+  // Saved plans from before lineage was derived still carry Planner-authored lineage; one that contradicts its path order degrades that checkpoint.
+  it("marks a checkpoint not ready when legacy authored lineage contradicts the path order", () => {
+    const { cycle, plan } = fixture(); plan.boardDefinition=linearJourneyFixture(["check","practice"]);
+    expect(notReadyReasons({ cycle, plan, now: "2026-09-08T12:00:00Z" })).toContain("spelling_checkpoint_intervention_not_prior:check");
   });
 
   it("practices four evidenced gaps while the final check rechecks all ten assigned words", () => {

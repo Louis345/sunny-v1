@@ -42,3 +42,23 @@ export function spellingCheckpointLineageIssues(
 export function checkpointInterventionsArePrior(executions: ReadonlyArray<ReadonlyMap<string,number>>, checkpointId:string, interventionIds:readonly string[]):boolean {
  return interventionIds.every(id=>executions.some(order=>order.has(id)) && executions.every(order=>!order.has(checkpointId)||!order.has(id)||order.get(id)!<order.get(checkpointId)!));
 }
+
+/** Code knows the path order, so it derives each checkpoint's candidate exposures:
+ * every earlier instruction or practice for one of its words since that word's last
+ * checkpoint, across all executions. What she actually received is recorded at runtime. */
+export function deriveCheckpointLineage(nodes:ReadonlyArray<{id:string;targets:readonly string[];role?:string}>,executions:ReadonlyArray<readonly string[]>):Record<string,string[]> {
+ const byId=new Map(nodes.map(node=>[node.id,node])),lineage=new Map(nodes.map(node=>[node.id,new Set<string>()]));
+ for(const execution of executions){
+  const pending=new Map<string,Set<string>>();
+  for(const id of execution){
+   const node=byId.get(id);if(!node?.role)continue;
+   for(const target of node.targets){
+    const key=target.toLocaleLowerCase("en-US"),exposures=pending.get(key)??new Set<string>();
+    if(node.role==="fresh_checkpoint"){exposures.forEach(exposure=>lineage.get(id)!.add(exposure));exposures.clear();}
+    else exposures.add(id);
+    pending.set(key,exposures);
+   }
+  }
+ }
+ return Object.fromEntries([...lineage].map(([id,exposures])=>[id,[...exposures]]));
+}

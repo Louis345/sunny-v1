@@ -209,11 +209,11 @@ describe("learning cycle ingestion bridge", () => {
 
     const missingInstrument = structuredClone(plan);
     delete missingInstrument.nodePlan[0]!.activityConfig;
-    expect(() => buildSpellingTargetedCycleInput({
+    expect(buildSpellingTargetedCycleInput({
       cycle,
       plan: missingInstrument,
       now: "2026-10-01T12:00:00.000Z",
-    })).toThrow("spelling_mystery_academic_instrument_missing:mystery-check");
+    }).nodes.map(node=>node.notReadyReason)).toContain("spelling_mystery_academic_instrument_missing:mystery-check");
     const reward=structuredClone(missingInstrument);
     reward.nodePlan[0]!.targets=[];
     delete reward.plannedMeasurements![0]!.spelling;

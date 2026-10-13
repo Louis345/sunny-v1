@@ -339,6 +339,7 @@ export function buildLearningCycleInputFromPlan(input: LearningCycleIngestInput)
 /** Validate the Planner's decisions; never select teaching from score thresholds. */
 export function buildSpellingTargetedCycleInput(input: {
   cycle: LearningCycleRecordV2; plan: ActiveSessionPlan; now: string; historicalEvidence?: Array<{ id: string; domain: string }>;
+  notReady?: ReadonlyArray<{ nodeId: string; reason: string }>;
 }): CreateLearningCycleInput {
   const cycle = input.cycle;
   const plan = {
@@ -361,135 +362,146 @@ export function buildSpellingTargetedCycleInput(input: {
   const finalCoverage = executionOrders.map(order=>({order,words:new Set<string>()}));
   for (const [index, node] of plan.nodePlan.entries()) {
     if (contract.nodes[index].role === "quest" || contract.nodes[index].role === "boss") continue;
-    const implementationType = spellingImplementationType(node);
-    if(contract.nodes[index].role==="mystery" && !node.targets.length && implementationType==="mystery") {
-      contract.nodes[index]={...contract.nodes[index],implementationType,mechanic:node.activityId ?? implementationType,state:"generating",artifactBinding:null,evidenceContract:{...contract.nodes[index].evidenceContract,academic:false}};
-      continue;
-    }
-    const measurement = plan.plannedMeasurements?.find(row => row.id === `measure-${node.id}`);
-    const decision = measurement?.spelling;
-    if (!decision || !decision.evidenceIds.length || decision.evidenceIds.some(id => !evidence.has(id))) throw new Error(`spelling_plan_evidence_invalid:${node.id}`);
-    if (decision.role === "fresh_checkpoint" && !checkpointInterventionsArePrior(executionOrders,node.id,decision.interventionNodeIds)) throw new Error(`spelling_checkpoint_intervention_not_prior:${node.id}`);
-    if (decision.role === "fresh_checkpoint" && (node.type !== "word-radar" || node.wordRadarConfig?.recallMode !== "hidden_word_recall")) throw new Error(`spelling_checkpoint_instrument_unsupported:${node.id}`);
-    const resolved = node.targets.map(word => words.get(word.toLocaleLowerCase("en-US")));
-    if (resolved.some(item => !item)) throw new Error(`spelling_plan_unknown_word:${node.id}`);
-    const items = resolved.map(source => {
-      const item = buildSpellingRecallItems({ homeworkId: cycle.homeworkId, words: [source!.word], evidenceIds: decision.evidenceIds, measurementRole: decision.role, exposure: "practiced", occasionId: node.id })[0];
-      if (decision.role === "fresh_checkpoint") {
-        if (decision.finalCheck) for(const path of finalCoverage)if(path.order.has(node.id))path.words.add(item.wordId);
-        contract.academicPredictions!.push({ predictionId: `${node.id}:${item.wordId}:prediction`, theoryId: contract.academicTheory.theoryId, constructId: item.constructId, context: decision.reason, horizon: "Immediate unassisted recall after the named intervention; not retention or causation.", eligibility: { sources: ["practice"], maxDelayDays: decision.maxDelayDays, checkpointItemIds: [item.id] }, expectedMetric: { key: "unassisted_recall_accuracy", ...decision.expectedAccuracy }, predictedErrorPatterns: [measurement!.falsifyCriteria], confidence: decision.confidence, evidenceIds: decision.evidenceIds, intervention: decision.interventionNodeIds.join(", ") || "Check previously observed spelling", evidenceLimit: "practice_only", createdAt: input.now, lockedAt: input.now });
+    const declared = input.notReady?.find(row => row.nodeId === node.id)?.reason;
+    try {
+      if (declared) throw new Error(declared);
+      const implementationType = spellingImplementationType(node);
+      if(contract.nodes[index].role==="mystery" && !node.targets.length && implementationType==="mystery") {
+        contract.nodes[index]={...contract.nodes[index],implementationType,mechanic:node.activityId ?? implementationType,state:"generating",artifactBinding:null,evidenceContract:{...contract.nodes[index].evidenceContract,academic:false}};
+        continue;
       }
-      return item;
-    });
-    if (contract.nodes[index].role === "mystery" && items.length > 0 && implementationType === "mystery") {
-      throw new Error(`spelling_mystery_academic_instrument_missing:${node.id}`);
-    }
-    let nativeConfig: Record<string, unknown> | undefined;
-    if (implementationType === "word-radar" && node.wordRadarConfig) {
-      nativeConfig = {
-        activityId: "word-radar",
-        wordRadarConfig: structuredClone(node.wordRadarConfig),
-      };
-    } else if (implementationType === "letter-rush" || implementationType === "concept-check") {
-      const parsed = implementationType === "letter-rush" ? validateLetterRushConfig(node.activityConfig) : validateActivityEngineConfig(node.activityConfig);
-      if (!parsed.ok || !parsed.normalized || parsed.normalized.domain !== "spelling" || parsed.normalized.activityId !== implementationType
-        || parsed.normalized.evidencePolicy.writesMasteryEvidence) throw new Error(`spelling_engine_config_invalid:${node.id}`);
-      const config = structuredClone(parsed.normalized);
-      const match = (word: string) => items.find(item => item.word.normalize("NFC").toLowerCase() === word.normalize("NFC").toLowerCase());
-      if (implementationType === "letter-rush") {
-        const letter = config as LetterRushConfig;
-        if (letter.words.length !== items.length || new Set(letter.words.map(word => word.text.toLowerCase())).size !== items.length) throw new Error(`spelling_engine_coverage_invalid:${node.id}`);
-        letter.words = letter.words.map(word => { const item = match(word.text); if (!item) throw new Error(`spelling_engine_unknown_word:${node.id}`); return { ...word, id: item.id }; });
-      } else {
-        const concept = config as ActivityEngineConfig;
-        const ids = new Map(concept.targets.map(target => [target.id, match(target.label)]));
-        if (concept.targets.length !== items.length || [...ids.values()].some(item => !item)
-          || concept.rounds.length !== items.length || new Set(concept.rounds.map(round => round.targetId)).size !== items.length) throw new Error(`spelling_engine_coverage_invalid:${node.id}`);
-        concept.targets = concept.targets.map(target => ({ ...target, id: ids.get(target.id)!.id }));
-        concept.rounds = concept.rounds.map(round => {
-          const item = ids.get(round.targetId); if (!item) throw new Error(`spelling_engine_unknown_word:${node.id}`);
-          const accepted = (round.options ?? []).filter(option => option.correct).map(option => option.label);
-          if (!accepted.length) throw new Error(`spelling_engine_answer_missing:${node.id}`);
-          item.response = { mode: "tap_selection", acceptedForms: accepted, caseSensitive: false };
-          return { ...round, targetId: item.id };
-        });
-      }
-      nativeConfig = config as unknown as Record<string, unknown>;
-    } else if (implementationType === "visual-explainer") {
-      try {
-        const visual = validateSpellingVisualExplainerPlanConfig(node.activityConfig);
-        const normalize = (value: string) => value.normalize("NFC").trim().toLocaleLowerCase("en-US");
-        const itemByWord = new Map(items.map((item) => [normalize(item.word), item]));
-        const configuredWords = visual.words.map((word) => normalize(word.text));
-        if (configuredWords.length !== items.length
-          || new Set(configuredWords).size !== items.length
-          || configuredWords.some((word) => !itemByWord.has(word))) {
-          throw new Error("coverage");
+      const measurement = plan.plannedMeasurements?.find(row => row.id === `measure-${node.id}`);
+      const decision = measurement?.spelling;
+      if (!decision || !decision.evidenceIds.length || decision.evidenceIds.some(id => !evidence.has(id))) throw new Error(`spelling_plan_evidence_invalid:${node.id}`);
+      if (decision.role === "fresh_checkpoint" && !checkpointInterventionsArePrior(executionOrders,node.id,decision.interventionNodeIds)) throw new Error(`spelling_checkpoint_intervention_not_prior:${node.id}`);
+      if (decision.role === "fresh_checkpoint" && (node.type !== "word-radar" || node.wordRadarConfig?.recallMode !== "hidden_word_recall")) throw new Error(`spelling_checkpoint_instrument_unsupported:${node.id}`);
+      const resolved = node.targets.map(word => words.get(word.toLocaleLowerCase("en-US")));
+      if (resolved.some(item => !item)) throw new Error(`spelling_plan_unknown_word:${node.id}`);
+      const items = resolved.map(source => {
+        const item = buildSpellingRecallItems({ homeworkId: cycle.homeworkId, words: [source!.word], evidenceIds: decision.evidenceIds, measurementRole: decision.role, exposure: "practiced", occasionId: node.id })[0];
+        if (decision.role === "fresh_checkpoint") {
+          if (decision.finalCheck) for(const path of finalCoverage)if(path.order.has(node.id))path.words.add(item.wordId);
+          contract.academicPredictions!.push({ predictionId: `${node.id}:${item.wordId}:prediction`, theoryId: contract.academicTheory.theoryId, constructId: item.constructId, context: decision.reason, horizon: "Immediate unassisted recall after the named intervention; not retention or causation.", eligibility: { sources: ["practice"], maxDelayDays: decision.maxDelayDays, checkpointItemIds: [item.id] }, expectedMetric: { key: "unassisted_recall_accuracy", ...decision.expectedAccuracy }, predictedErrorPatterns: [measurement!.falsifyCriteria], confidence: decision.confidence, evidenceIds: decision.evidenceIds, intervention: decision.interventionNodeIds.join(", ") || "Check previously observed spelling", evidenceLimit: "practice_only", createdAt: input.now, lockedAt: input.now });
         }
-        const checkItem = itemByWord.get(normalize(visual.check.targetWord));
-        if (!checkItem) throw new Error("check_target");
-        const frozenWords = visual.words.map((word) => ({
-          ...word,
-          id: itemByWord.get(normalize(word.text))!.id,
-        }));
-        nativeConfig = validateVisualLearnerArtifactConfig({
-          artifactId: `${cycle.homeworkId}:${node.id}:visual-explainer`,
-          type: "visual-explainer",
-          concept: visual.topic,
-          learningGoal: visual.learningGoal,
-          misconception: visual.misconception,
-          sourceEvidence: {
-            source: `assignment:${cycle.homeworkId}`,
-            capturedAt: input.now,
-            summary: decision.reason,
-          },
-          algorithmTargets: ["error-pattern-remediation", "retrieval-practice"],
-          reuseDecision: {
-            status: "candidate",
-            reason: "Planner-selected assisted spelling instruction; checkpoint outcomes are still pending.",
-          },
-          parentApproval: { status: "pending" },
-          mode: { default: "pause-for-question" },
-          preview: { allowPlaythrough: true },
-          narration: {
-            enabled: false,
-            provider: "companion",
-            voiceId: "runtime-companion",
-            modelId: "runtime-companion",
-            audioPath: "none",
-            scriptPath: "none",
-            timings: [{ id: "strategy", startProgress: 0, endProgress: 100, text: visual.strategy.title }],
-          },
-          questions: [{
-            id: visual.check.id,
-            prompt: visual.check.prompt,
-            options: visual.check.options,
-            correctOptionId: visual.check.correctOptionId,
-            targetConcept: checkItem.id,
-            misconceptionTag: visual.misconception,
-            pauseAtProgress: 48,
-            scaffoldLevel: 2,
-          }],
-          companionContext: { role: "hint_only", maxSentences: 3, canRevealAnswer: true },
-          evidence: {
-            targetResults: items.map((item) => item.id),
-            completion: `${node.id}:assisted-visual-instruction-complete`,
-          },
-          chrome: {
-            childShowsEvidence: false,
-            parentShowsEvidence: true,
-            childShowsCarePlan: false,
-            parentShowsCarePlan: true,
-          },
-          spellingModel: { strategy: visual.strategy, words: frozenWords },
-        }) as unknown as Record<string, unknown>;
-      } catch {
-        throw new Error(`spelling_visual_explainer_config_invalid:${node.id}`);
+        return item;
+      });
+      if (contract.nodes[index].role === "mystery" && items.length > 0 && implementationType === "mystery") {
+        throw new Error(`spelling_mystery_academic_instrument_missing:${node.id}`);
       }
+      let nativeConfig: Record<string, unknown> | undefined;
+      if (implementationType === "word-radar" && node.wordRadarConfig) {
+        nativeConfig = {
+          activityId: "word-radar",
+          wordRadarConfig: structuredClone(node.wordRadarConfig),
+        };
+      } else if (implementationType === "letter-rush" || implementationType === "concept-check") {
+        const parsed = implementationType === "letter-rush" ? validateLetterRushConfig(node.activityConfig) : validateActivityEngineConfig(node.activityConfig);
+        if (!parsed.ok || !parsed.normalized || parsed.normalized.domain !== "spelling" || parsed.normalized.activityId !== implementationType
+          || parsed.normalized.evidencePolicy.writesMasteryEvidence) throw new Error(`spelling_engine_config_invalid:${node.id}`);
+        const config = structuredClone(parsed.normalized);
+        const match = (word: string) => items.find(item => item.word.normalize("NFC").toLowerCase() === word.normalize("NFC").toLowerCase());
+        if (implementationType === "letter-rush") {
+          const letter = config as LetterRushConfig;
+          if (letter.words.length !== items.length || new Set(letter.words.map(word => word.text.toLowerCase())).size !== items.length) throw new Error(`spelling_engine_coverage_invalid:${node.id}`);
+          letter.words = letter.words.map(word => { const item = match(word.text); if (!item) throw new Error(`spelling_engine_unknown_word:${node.id}`); return { ...word, id: item.id }; });
+        } else {
+          const concept = config as ActivityEngineConfig;
+          const ids = new Map(concept.targets.map(target => [target.id, match(target.label)]));
+          if (concept.targets.length !== items.length || [...ids.values()].some(item => !item)
+            || concept.rounds.length !== items.length || new Set(concept.rounds.map(round => round.targetId)).size !== items.length) throw new Error(`spelling_engine_coverage_invalid:${node.id}`);
+          concept.targets = concept.targets.map(target => ({ ...target, id: ids.get(target.id)!.id }));
+          concept.rounds = concept.rounds.map(round => {
+            const item = ids.get(round.targetId); if (!item) throw new Error(`spelling_engine_unknown_word:${node.id}`);
+            const accepted = (round.options ?? []).filter(option => option.correct).map(option => option.label);
+            if (!accepted.length) throw new Error(`spelling_engine_answer_missing:${node.id}`);
+            item.response = { mode: "tap_selection", acceptedForms: accepted, caseSensitive: false };
+            return { ...round, targetId: item.id };
+          });
+        }
+        nativeConfig = config as unknown as Record<string, unknown>;
+      } else if (implementationType === "visual-explainer") {
+        try {
+          const visual = validateSpellingVisualExplainerPlanConfig(node.activityConfig);
+          const normalize = (value: string) => value.normalize("NFC").trim().toLocaleLowerCase("en-US");
+          const itemByWord = new Map(items.map((item) => [normalize(item.word), item]));
+          const configuredWords = visual.words.map((word) => normalize(word.text));
+          if (configuredWords.length !== items.length
+            || new Set(configuredWords).size !== items.length
+            || configuredWords.some((word) => !itemByWord.has(word))) {
+            throw new Error("coverage");
+          }
+          const checkItem = itemByWord.get(normalize(visual.check.targetWord));
+          if (!checkItem) throw new Error("check_target");
+          const frozenWords = visual.words.map((word) => ({
+            ...word,
+            id: itemByWord.get(normalize(word.text))!.id,
+          }));
+          nativeConfig = validateVisualLearnerArtifactConfig({
+            artifactId: `${cycle.homeworkId}:${node.id}:visual-explainer`,
+            type: "visual-explainer",
+            concept: visual.topic,
+            learningGoal: visual.learningGoal,
+            misconception: visual.misconception,
+            sourceEvidence: {
+              source: `assignment:${cycle.homeworkId}`,
+              capturedAt: input.now,
+              summary: decision.reason,
+            },
+            algorithmTargets: ["error-pattern-remediation", "retrieval-practice"],
+            reuseDecision: {
+              status: "candidate",
+              reason: "Planner-selected assisted spelling instruction; checkpoint outcomes are still pending.",
+            },
+            parentApproval: { status: "pending" },
+            mode: { default: "pause-for-question" },
+            preview: { allowPlaythrough: true },
+            narration: {
+              enabled: false,
+              provider: "companion",
+              voiceId: "runtime-companion",
+              modelId: "runtime-companion",
+              audioPath: "none",
+              scriptPath: "none",
+              timings: [{ id: "strategy", startProgress: 0, endProgress: 100, text: visual.strategy.title }],
+            },
+            questions: [{
+              id: visual.check.id,
+              prompt: visual.check.prompt,
+              options: visual.check.options,
+              correctOptionId: visual.check.correctOptionId,
+              targetConcept: checkItem.id,
+              misconceptionTag: visual.misconception,
+              pauseAtProgress: 48,
+              scaffoldLevel: 2,
+            }],
+            companionContext: { role: "hint_only", maxSentences: 3, canRevealAnswer: true },
+            evidence: {
+              targetResults: items.map((item) => item.id),
+              completion: `${node.id}:assisted-visual-instruction-complete`,
+            },
+            chrome: {
+              childShowsEvidence: false,
+              parentShowsEvidence: true,
+              childShowsCarePlan: false,
+              parentShowsCarePlan: true,
+            },
+            spellingModel: { strategy: visual.strategy, words: frozenWords },
+          }) as unknown as Record<string, unknown>;
+        } catch {
+          throw new Error(`spelling_visual_explainer_config_invalid:${node.id}`);
+        }
+      }
+      contract.nodes[index] = { ...contract.nodes[index], implementationType, mechanic: node.activityId, state: "generating", artifactBinding: null, evidenceContract: { ...contract.nodes[index].evidenceContract, academic: items.length > 0, ...(nativeConfig ? { nativeConfig } : {}), ...(items.length ? { spellingItems: Object.fromEntries(items.map(item => [item.id, item])), itemRoles: Object.fromEntries(items.map(item => [item.id, decision.role])) } : {}) } };
+    } catch (error) {
+      // A failed truth check degrades this one portal; the rest of the board still publishes.
+      const reason = error instanceof Error ? error.message : String(error);
+      if (!declared) console.log(` 🎮 [board] [portal] [not-ready] node=${node.id} reason=${reason}`);
+      contract.academicPredictions = contract.academicPredictions!.filter(prediction => !prediction.predictionId.startsWith(`${node.id}:`));
+      contract.nodes[index] = { ...contract.nodes[index], state: "blocked", artifactBinding: null, notReadyReason: reason, evidenceContract: { ...contract.nodes[index].evidenceContract, academic: false } };
     }
-    contract.nodes[index] = { ...contract.nodes[index], implementationType, mechanic: node.activityId, state: "generating", artifactBinding: null, evidenceContract: { ...contract.nodes[index].evidenceContract, academic: items.length > 0, ...(nativeConfig ? { nativeConfig } : {}), ...(items.length ? { spellingItems: Object.fromEntries(items.map(item => [item.id, item])), itemRoles: Object.fromEntries(items.map(item => [item.id, decision.role])) } : {}) } };
   }
-  if (finalCoverage.some(path=>captured.some(item => !path.words.has(item.wordId)))) throw new Error("spelling_final_checkpoint_coverage_incomplete");
+  // Incomplete final coverage is the Planner's choice to answer for; it stays explicit and never blocks the board.
+  if (finalCoverage.some(path=>captured.some(item => !path.words.has(item.wordId)))) console.log(` 🎮 [spelling] [final-checkpoint] [coverage-incomplete] homework=${cycle.homeworkId}`);
   return contract;
 }
 

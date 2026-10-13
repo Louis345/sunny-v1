@@ -1,6 +1,5 @@
 import {expect,it} from 'vitest';
 import {z} from 'zod';
-import {assertNativeLearningProgramCorrection} from './assignmentPlanner';
 import {adventureJourneySchema,journeyExecutions,validateBoardDefinition} from '../shared/adventureBoardDefinition';
 const authored={version:2,title:'Choose your practice',rationale:'Two equivalent learning sequences',rootPathId:'root',portals:[{id:'start',label:'Start',kind:'start'},{id:'choice',label:'Choose',kind:'choice'},{id:'a',label:'Learn first',kind:'activity',activityNodeId:'shared-a'},{id:'b',label:'Play first',kind:'activity',activityNodeId:'shared-b'},{id:'check',label:'Check',kind:'activity',activityNodeId:'checkpoint'},{id:'end',label:'Done',kind:'endpoint'}],paths:[{id:'root',portalIds:['start','choice','check','end']},{id:'learn',portalIds:['a','b']},{id:'play',portalIds:['b','a']}],choices:[{id:'order',portalId:'choice',purpose:'Choose the order',options:[{id:'learn-first',label:'Learn first',pathId:'learn',hypothesis:'Teaching first may help'},{id:'play-first',label:'Play first',pathId:'play',hypothesis:'Playing first may help'}]}]};
 it('derives every connection from the authored ordered paths without asking for duplicate chronology',()=>{
@@ -23,16 +22,6 @@ it('enforces the existing connection capacity before asking the Creator for an i
  const make=(multipliers:number[])=>({...authored,portals:[{id:'start',label:'Start',kind:'start'},{id:'fork',label:'Choose',kind:'choice'},...ids.map(id=>({id,label:id,kind:'activity',activityNodeId:id})),{id:'end',label:'Done',kind:'endpoint'}],paths:[{id:'root',portalIds:['start','fork','end']},...multipliers.map(step=>({id:`p${step}`,portalIds:ids.map((_,i)=>ids[(i*step)%32])}))],choices:[{id:'choose',portalId:'fork',purpose:'Choose a sequence',options:multipliers.map(step=>({id:`o${step}`,label:`Order ${step}`,pathId:`p${step}`,hypothesis:'Compare engagement'}))}]});
  expect(adventureJourneySchema.parse(make(steps.slice(0,-1))).edges).toHaveLength(226);
  expect(()=>adventureJourneySchema.parse(make(steps))).toThrow('journey_capacity_exceeded');
-});
-
-it('keeps valid sibling paths immutable when a traversal defect arrives through schema validation',()=>{
- const journey={...authored,portals:[...authored.portals,{id:'c',label:'Third activity',kind:'activity',activityNodeId:'shared-c'}],paths:[authored.paths[0],{id:'learn',portalIds:['choice','a']},{id:'play',portalIds:['b','c']}]};
- const original={journey};const parsed=z.object({journey:adventureJourneySchema}).safeParse(original);
- expect(parsed.success).toBe(false);if(parsed.success)throw new Error('expected cyclic path');
- const repaired=structuredClone(original);repaired.journey.paths[1].portalIds=['a'];
- expect(()=>assertNativeLearningProgramCorrection(original,repaired,parsed.error)).not.toThrow();
- const drift=structuredClone(repaired);drift.journey.paths[2].portalIds=['c','b'];
- expect(()=>assertNativeLearningProgramCorrection(original,drift,parsed.error)).toThrow('learning_program_correction_changed_protected_fields');
 });
 
 it('treats an endpoint bound to the preceding activity as its completion marker, not another measurement',()=>{

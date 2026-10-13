@@ -1,10 +1,10 @@
-import {nativeLearningProgramCorrectionTool,applyNativeLearningProgramCorrection,assignmentPlannerAllowedEvidenceIds,assertNativeLearningProgramCorrection,hydrateNativeLearningProgram,nativeLearningProgramToolJsonSchema,resolveAssignmentPlannerModel,type AssignmentPlanningPacket,type AssignmentPlannerOutput,type AssignmentPlannerTelemetry} from "./assignmentPlanner";
+import {hydrateNativeLearningProgram,SPELLING_INSTRUMENT_REQUIREMENTS,nativeLearningProgramToolJsonSchema,resolveAssignmentPlannerModel,type AssignmentPlanningPacket,type AssignmentPlannerOutput,type AssignmentPlannerTelemetry} from "./assignmentPlanner";
 import {requestPlannerMessage,assertPlannerResponseComplete} from "./plannerTransport";
 import {isDeepStrictEqual} from "node:util";
 import {z} from "zod";
 import {learningPlannerInstructions} from "./learningPlannerInstructions";
-import {verifyAuthoredBoardCanvas,verifyPreparingBoardCanvas} from './adventureBoardCanvas';
-import {adventureCompositionCorrectionTool,applyAdventureCompositionCorrection,JOURNEY_AUTHORING_INSTRUCTION,adventureJourneySchema,ADVENTURE_JOURNEY_TOOL_SCHEMA,journeyFromBoardDefinition,validateBoardDefinition,adventureCompositionSchema,assembleAdventureBoardDefinition,BOARD_CANVAS_AUTHORING_CONSTRAINTS,type AdventureJourneyDefinition,type AdventureBoardComposition, requireBoardDefinition, BOARD_DEFINITION_TOOL_SCHEMA, BOARD_AUTHORING_INSTRUCTION, journeyExecutions, renderBoardDefinition, type AdventureBoardDefinition } from "../shared/adventureBoardDefinition";
+import {verifyAuthoredBoardCanvas,verifyPreparingBoardCanvas,renderBoardPreview,measureBoardPortals} from './adventureBoardCanvas';
+import {adventureCompositionCorrectionTool,applyAdventureCompositionCorrection,JOURNEY_AUTHORING_INSTRUCTION,JOURNEY_SEQUENCE_INSTRUCTION,adventureJourneySchema,ADVENTURE_JOURNEY_TOOL_SCHEMA,journeyFromBoardDefinition,validateBoardDefinition,adventureCompositionSchema,assembleAdventureBoardDefinition,BOARD_CANVAS_AUTHORING_CONSTRAINTS,type AdventureJourneyDefinition,type AdventureBoardComposition, requireBoardDefinition, BOARD_DEFINITION_TOOL_SCHEMA, BOARD_AUTHORING_INSTRUCTION, journeyExecutions, renderBoardDefinition, type AdventureBoardDefinition } from "../shared/adventureBoardDefinition";
 import Anthropic from "@anthropic-ai/sdk";
 import crypto from "node:crypto";
 import fs from "node:fs";
@@ -1235,24 +1235,104 @@ type LearningCreatorInput = {
   rawResponseDir?: string;
   retryUncertain?: boolean;
 };
+export const MAX_BOARD_PREVIEWS=3;
+const MAP_ARTIST_PERSONA="You are Sunny's map artist. You design adventure maps a child wants to finish. You receive the teacher's journey and the illustrated world. You decide placement, palette, path style and feel. You never change the lesson.";
+const FALLBACK_SPOT={landscape:{x:.5,y:.5},portrait:{x:.5,y:.5}};
+/** The artist's submission is drawn as given. A portal it left unplaced still has to be
+ * somewhere for the map to publish, so it goes to one fixed, logged spot; nothing is moved. */
+function compositionAsSubmitted(journey:AdventureJourneyDefinition,raw:unknown):AdventureBoardComposition|undefined {
+  const source=object(raw);if(!source)return undefined;
+  const portalSchema=adventureCompositionSchema.shape.portals.element,edgeSchema=adventureCompositionSchema.shape.edges.element;
+  const rows=(value:unknown)=>new Map((Array.isArray(value)?value:[]).flatMap(row=>{const item=object(row);return item&&typeof item.id==="string"?[[item.id,row] as const]:[];}));
+  const portals=rows(source.portals),edges=rows(source.edges),theme=adventureCompositionSchema.shape.theme.safeParse(source.theme);
+  if(!theme.success)console.log(" 🎮 [experience-creator] [theme] [fallback] reason=unreadable_theme");
+  return adventureCompositionSchema.parse({
+    theme:theme.success?theme.data:{background:{type:"solid",value:"#160d35"},palette:{path:"#ffffff",completed:"#1f8f68",available:"#7c3aed",locked:"#aeb7c2",current:"#f59e0b",preview:"#d5dde5",text:"#ffffff",panel:"#160d35"}},
+    portals:journey.portals.map(portal=>{const placed=portalSchema.safeParse(portals.get(portal.id));if(placed.success)return placed.data;console.log(` 🎮 [experience-creator] [portal] [fallback-position] portal=${portal.id}`);return {id:portal.id,position:FALLBACK_SPOT};}),
+    edges:journey.edges.map(edge=>{const styled=edgeSchema.safeParse(edges.get(edge.id));return styled.success?styled.data:{id:edge.id};}),
+  });
+}
+/** Spelling Teaching boards: the map artist places, may look at the real render up to
+ * MAX_BOARD_PREVIEWS times, and submits. Code accepts the submission; it never rejects
+ * or repairs a layout. The loop is bounded at MAX_BOARD_PREVIEWS + 1 provider calls. */
+async function designNativeBoard(input:LearningCreatorInput,native:NativeLearningProgram):Promise<{packet:{composition:AdventureBoardComposition};plan:ActiveSessionPlan}> {
+  const client=input.client??new Anthropic({apiKey:process.env.ANTHROPIC_API_KEY});
+  const model=input.model??process.env.SUNNY_ARCHITECT_MODEL??"claude-fable-5";
+  const journey=native.journey,started=Date.now();
+  const sourceHash=crypto.createHash("sha256").update(JSON.stringify({childId:input.childId,domain:"spelling",program:input.program})).digest("hex");
+  const saved=input.checkpointFile&&fs.existsSync(input.checkpointFile)?JSON.parse(fs.readFileSync(input.checkpointFile,"utf8")) as {sourceHash?:string;composition?:AdventureBoardComposition;previews?:number;elapsedMs?:number}:undefined;
+  if(saved&&saved.sourceHash!==sourceHash)throw new Error("learning_design_checkpoint_program_mismatch");
+  const finish=(composition:AdventureBoardComposition)=>({packet:{composition},plan:{...native.plan,journey,boardDefinition:assembleAdventureBoardDefinition(journey,composition)}});
+  if(saved?.composition)return finish(saved.composition);
+  const draftDir=input.checkpointFile?path.dirname(input.checkpointFile):undefined;
+  const workDir=path.join(input.rawResponseDir??draftDir??fs.mkdtempSync(path.join(os.tmpdir(),"sunny-design-")),"creator-preview");
+  const sizes=await measureBoardPortals({journey,rootDir:process.cwd(),directory:path.join(workDir,"sizes")});
+  const compositionSchema=z.toJSONSchema(adventureCompositionSchema,{io:"input"}) as Anthropic.Messages.Tool.InputSchema;
+  const tools:Anthropic.Messages.Tool[]=[
+    {name:"preview_board",description:`Render your composition on the real board and see it at 1280x720 and 768x1024, with each portal's measured box. You may look at most ${MAX_BOARD_PREVIEWS} times.`,input_schema:{type:"object",additionalProperties:false,required:["composition"],properties:{composition:compositionSchema}}},
+    {name:"submit_board",description:"Submit the finished map. It is published exactly as submitted.",input_schema:{type:"object",additionalProperties:false,required:["composition","rationale"],properties:{composition:compositionSchema,rationale:schemaString}}},
+  ];
+  let messages:Anthropic.Messages.MessageParam[]=[{role:"user",content:`${MAP_ARTIST_PERSONA}
+Place every portal for both landscape (1280x720 kiosk) and portrait (768x1024), choose the palette and path styles, and use the illustrated world. Available artwork: /generated/adventure-board-demo/silent-letter-world.jpeg. Coordinates are 0..1 within the safe composition area. Keep the journey readable left to right in landscape and compose portrait separately. Your map is published exactly as you submit it; nobody corrects it, so look before you submit if you are unsure. Each look costs the child waiting time.
+Measured portal sizes in pixels (width and height include the wrapped label): ${JSON.stringify(sizes)}
+Child chart facts: ${JSON.stringify(factualModelContext(input.childContext))}
+The teacher's journey and activities (immutable): ${JSON.stringify(native)}
+Prior outcomes: ${JSON.stringify(factualModelContext(input.priorOutcomes))}`}];
+  let previews=0,last:AdventureBoardComposition|undefined;
+  for(let turn=1;turn<=MAX_BOARD_PREVIEWS+1;turn+=1){
+    const mustSubmit=previews>=MAX_BOARD_PREVIEWS;
+    let request={model,max_tokens:Number(process.env.SUNNY_DIRECTOR_MAX_TOKENS??16000),messages,tools,tool_choice:mustSubmit?{type:"tool",name:"submit_board"}:{type:"any"}} as Anthropic.MessageCreateParamsNonStreaming;
+    const stage=`targeted-design-${turn}`,pointer=draftDir?path.join(draftDir,"provider-receipts",`${stage}.stage.json`):undefined;
+    if(pointer&&fs.existsSync(pointer)){
+      // Received work is replayed under its original request, never bought again.
+      const {requestHash}=JSON.parse(fs.readFileSync(pointer,"utf8"));if(!/^[a-f0-9]{64}$/.test(requestHash))throw new Error("learning_design_saved_request_invalid");
+      const receipt=JSON.parse(fs.readFileSync(path.join(draftDir!,"provider-receipts",`${requestHash}.json`),"utf8"));
+      request=JSON.parse(fs.readFileSync(path.join(draftDir!,"provider-diagnostics",`${requestHash}.attempt-${receipt.attempts?.length??1}.request.json`),"utf8")).context;
+      messages=[...request.messages];
+    }
+    const execute=()=>client.messages.stream(request,{timeout:Number(process.env.SUNNY_AI_TIMEOUT_MS??600000),maxRetries:0}).finalMessage();
+    const response=draftDir?await runMathProviderStage({draftDir,stage,model,request,execute,retryUncertain:input.retryUncertain,beforeRequest:()=>{if(!input.client&&!process.env.ANTHROPIC_API_KEY?.trim())throw new Error("preflight_missing:ANTHROPIC_API_KEY");}}):await execute();
+    if(input.rawResponseDir){fs.mkdirSync(input.rawResponseDir,{recursive:true});fs.writeFileSync(path.join(input.rawResponseDir,`design-response-${turn}.json`),`${JSON.stringify({model,stopReason:response.stop_reason,usage:response.usage,content:response.content},null,2)}\n`,"utf8");}
+    const tool=response.content.find((block):block is Anthropic.Messages.ToolUseBlock=>block.type==="tool_use"&&(block.name==="preview_board"||block.name==="submit_board"));
+    const candidate=tool?compositionAsSubmitted(journey,object(tool.input)?.composition):undefined;
+    last=candidate??last;
+    if(!tool||tool.name==="submit_board"||mustSubmit)break;
+    previews+=1;
+    const preview=candidate?await renderBoardPreview({definition:assembleAdventureBoardDefinition(journey,candidate),rootDir:process.cwd(),directory:path.join(workDir,`look-${previews}`)}):undefined;
+    console.log(` 🎮 [experience-creator] [preview] [shown] look=${previews}/${MAX_BOARD_PREVIEWS}`);
+    messages=[...messages,{role:"assistant",content:response.content},{role:"user",content:[{type:"tool_result",tool_use_id:tool.id,content:preview?[
+      {type:"text",text:`Look ${previews} of ${MAX_BOARD_PREVIEWS}. Measured portal boxes in pixels: ${JSON.stringify(preview.portals)}. Artwork ${preview.artworkLoaded?"loaded":"did not load"}. ${previews>=MAX_BOARD_PREVIEWS?"This was your last look; submit now.":"Adjust and look again, or submit."}`},
+      ...preview.screenshots.flatMap(shot=>[{type:"text" as const,text:shot.viewport},{type:"image" as const,source:{type:"base64" as const,media_type:"image/png" as const,data:fs.readFileSync(shot.file).toString("base64")}}]),
+    ]:"That composition could not be read, so nothing was drawn."}]}];
+  }
+  if(!last)throw new Error("learning_design_provider_contract_failed:composition_missing");
+  const elapsedMs=Date.now()-started;
+  if(input.checkpointFile){
+    fs.mkdirSync(path.dirname(input.checkpointFile),{recursive:true});
+    fs.writeFileSync(input.checkpointFile+".tmp",`${JSON.stringify({version:1,planId:native.planId,model,sourceHash,composition:last,previews,elapsedMs},null,2)}\n`,"utf8");
+    fs.renameSync(input.checkpointFile+".tmp",input.checkpointFile);
+  }
+  console.log(` 🎮 [experience-creator] [composition] [accepted] plan=${native.planId} previews=${previews} elapsed_ms=${elapsedMs}`);
+  return finish(last);
+}
 export function askLearningExperienceDesigner(input:LearningCreatorInput & {program:NativeLearningProgram}):Promise<{packet:{composition:AdventureBoardComposition};plan:ActiveSessionPlan}>;
 export function askLearningExperienceDesigner(input:LearningCreatorInput & {program:MathLearningProgram}):Promise<{packet:MathDesignPacket;plan:DirectLearningExperiencePlan}>;
 export async function askLearningExperienceDesigner(input:LearningCreatorInput):Promise<{packet:MathDesignPacket|{composition:AdventureBoardComposition};plan:DirectLearningExperiencePlan|ActiveSessionPlan}> {
-  const native=input.program.domain==="spelling" ? input.program : undefined;
+  if(input.program.domain==="spelling")return designNativeBoard(input,input.program);
   const program=input.program as MathLearningProgram;
   const journey=input.program.journey;
   const client = input.client ?? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
   const model = input.model ?? process.env.SUNNY_ARCHITECT_MODEL ?? "claude-fable-5";
   const programActivities = [
-    ...(native ? [] : program.activities),
-    ...(!native && program.bonusActivity ? [program.bonusActivity] : []),
+    ...program.activities,
+    ...(program.bonusActivity ? [program.bonusActivity] : []),
   ];
   const { bonusActivity: _bonusActivity, ...programWithoutBonusDuplicate } = program;
   const contracts = programActivities.map((activity) => ({
     ...activity,
     academicContractHash: mathAcademicContractHash(activity),
   }));
-  const toolName = native ? "create_learning_design_packet" : "create_math_design_packet";
+  const toolName = "create_math_design_packet";
   const designArtifactSchema = schemaObject({
     artifactId: schemaString,
     nodeId: schemaString,
@@ -1287,8 +1367,8 @@ export async function askLearningExperienceDesigner(input:LearningCreatorInput):
     backgroundDirection: schemaString,
     routeDirections: {
       type: "array",
-      minItems: native ? 0 : program.fork.routes.length,
-      maxItems: native ? 0 : program.fork.routes.length,
+      minItems: program.fork.routes.length,
+      maxItems: program.fork.routes.length,
       items: schemaObject({
         routeId: schemaString,
         label: schemaString,
@@ -1312,18 +1392,18 @@ export async function askLearningExperienceDesigner(input:LearningCreatorInput):
   });
   if (checkpoint.planId !== program.planId) throw new Error("math_design_checkpoint_identity_mismatch");
   if(journey){
-    const sourceHash=crypto.createHash("sha256").update(JSON.stringify({childId:input.childId,domain:native?"spelling":"math",program:input.program})).digest("hex");
+    const sourceHash=crypto.createHash("sha256").update(JSON.stringify({childId:input.childId,domain:"math",program:input.program})).digest("hex");
     if(checkpoint.sourceHash && checkpoint.sourceHash!==sourceHash)throw new Error("learning_design_checkpoint_program_mismatch");
     if(!checkpoint.sourceHash && (checkpoint.composition || checkpoint.attempts.length))throw new Error("learning_design_checkpoint_program_mismatch");
     checkpoint={...checkpoint,sourceHash};
   }
   for (let attemptIndex = 0;
-    checkpoint.attempts.length < 2 && attemptIndex < 2 && (checkpoint.missingNodeIds.length > 0 || (!native && !mathDesignHasRoutePresentationBindings(checkpoint)) || (journey && !checkpoint.composition));
+    checkpoint.attempts.length < 2 && attemptIndex < 2 && (checkpoint.missingNodeIds.length > 0 || !mathDesignHasRoutePresentationBindings(checkpoint) || (journey && !checkpoint.composition));
     attemptIndex += 1) {
     const requestedNodeIds = [...checkpoint.missingNodeIds];
     const isContinuation = Boolean(checkpoint.boardCreativeSpine);
     const presentationOnly = requestedNodeIds.length === 0 && isContinuation;
-    const prompt = native ? `You are Sunny's existing Experience Creator. Realize this immutable spelling journey using its native catalog instruments. Return only composition and rationale; never change educational labels, activities, paths, choices, hypotheses or evidence. Do not generate replacement activities. Preserve the illustrated Grok world, vivid inviting portals, animated dashed or glow paths, left-to-right landscape progression, and an independently composed portrait. Available artwork: /generated/adventure-board-demo/silent-letter-world.jpeg. ${BOARD_CANVAS_AUTHORING_CONSTRAINTS}\nChild chart facts: ${JSON.stringify(factualModelContext(input.childContext))}\nImmutable journey and activity configurations: ${JSON.stringify(native)}\nPrior outcomes: ${JSON.stringify(factualModelContext(input.priorOutcomes))}\n${checkpoint.compositionDefect ? `Bounded visual correction ${checkpoint.attempts.length+1} of 2. Fix only this composition defect: ${checkpoint.compositionDefect}` : ""}` : `You are Sunny's Experience Creator. Design one coherent child-facing math chapter and rich design artifacts for the requested prescribed nodes.
+    const prompt = `You are Sunny's Experience Creator. Design one coherent child-facing math chapter and rich design artifacts for the requested prescribed nodes.
 
 The Math Planner's educational program is immutable. You cannot change activity count or IDs, routes, responsibilities, academic targets, difficulty boundaries, item content, response contracts, predictions, measurement keys, or catalog decisions.
 
@@ -1360,25 +1440,24 @@ ${JSON.stringify({ ...programWithoutBonusDuplicate, activities: contracts }, nul
         description: "Return the board spine when requested and the requested immutable-node design artifacts.",
         input_schema: {
           type: "object",
-          additionalProperties: !native,
-          required: native ? ["composition","rationale"] : [...(presentationOnly || !isContinuation ? ["boardCreativeSpine", "artifacts", "rationale"] : ["artifacts", "rationale"]),...(journey && !checkpoint.composition ? ["composition"] : [])],
+          additionalProperties: true,
+          required: [...(presentationOnly || !isContinuation ? ["boardCreativeSpine", "artifacts", "rationale"] : ["artifacts", "rationale"]),...(journey && !checkpoint.composition ? ["composition"] : [])],
           properties: {
             ...(journey ? {composition:z.toJSONSchema(adventureCompositionSchema,{io:"input"})} : {}),
-            ...(!native ? {boardCreativeSpine: boardCreativeSpineSchema,
+            boardCreativeSpine: boardCreativeSpineSchema,
             artifacts: {
               type: "array",
               minItems: requestedNodeIds.length,
               maxItems: requestedNodeIds.length,
               items: designArtifactSchema,
             },
-            } : {}),
             rationale: schemaString,
           },
         },
       }],
       tool_choice: { type: "tool", name: toolName },
     } as unknown as Anthropic.MessageCreateParamsNonStreaming;
-    if(geometryTool&&(native||requestedNodeIds.length===0)){
+    if(geometryTool&&requestedNodeIds.length===0){
       request.tools=[geometryTool as never];request.tool_choice={type:'tool',name:geometryTool.name};
       request.messages=[{role:'user',content:`You are Sunny's existing Experience Creator. Repair only the diagnosed geometry on the received candidate. Preserve every other field, including successful orientation, artwork, palette, labels and identities. Return explicit geometry patches. This is attempt ${checkpoint.attempts.length+1} of 2; no new design loop.
 Immutable source hash: ${checkpoint.sourceHash}\nReceived candidate: ${JSON.stringify(checkpoint.rejectedComposition)}
@@ -1391,7 +1470,7 @@ Measured defects: ${checkpoint.compositionDefect}`}];
         const {requestHash}=JSON.parse(fs.readFileSync(pointer,'utf8'));if(!/^[a-f0-9]{64}$/.test(requestHash))throw new Error('learning_design_saved_request_invalid');
         const receipt=JSON.parse(fs.readFileSync(path.join(directory,'provider-receipts',`${requestHash}.json`),'utf8'));
         const frozen=JSON.parse(fs.readFileSync(path.join(directory,'provider-diagnostics',`${requestHash}.attempt-${receipt.attempts?.length??1}.request.json`),'utf8')).context as typeof request;
-        const authoredProgram=JSON.stringify(native??{...programWithoutBonusDuplicate,activities:contracts},null,native?undefined:2);
+        const authoredProgram=JSON.stringify({...programWithoutBonusDuplicate,activities:contracts},null,2);
         if(frozen.model!==model||typeof frozen.messages[0]?.content!=='string'||!(frozen.messages[0].content.includes(authoredProgram)||checkpoint.sourceHash&&checkpoint.rejectedComposition&&frozen.messages[0].content.includes(`Immutable source hash: ${checkpoint.sourceHash}`)&&frozen.messages[0].content.includes(JSON.stringify(journey))&&frozen.messages[0].content.includes(JSON.stringify(checkpoint.rejectedComposition))))throw new Error('learning_design_saved_request_identity_mismatch');
         request=frozen;
       }
@@ -1532,12 +1611,6 @@ Measured defects: ${checkpoint.compositionDefect}`}];
       fs.writeFileSync(input.checkpointFile+".tmp", `${JSON.stringify(checkpoint, null, 2)}\n`, "utf8");
       fs.renameSync(input.checkpointFile+".tmp",input.checkpointFile);
     }
-  }
-  if(native){
-    if(!checkpoint.composition)throw new Error("learning_design_provider_contract_failed:composition_missing");
-    const boardDefinition=assembleAdventureBoardDefinition(native.journey,checkpoint.composition);
-    console.log(` 🎮 [experience-creator] [composition] [saved] plan=${native.planId}`);
-    return {packet:{composition:checkpoint.composition},plan:{...native.plan,journey:native.journey,boardDefinition}};
   }
   if(journey && !checkpoint.composition)throw new Error("learning_design_provider_contract_failed:composition_missing");
   if (!checkpoint.boardCreativeSpine || checkpoint.missingNodeIds.length > 0 || !mathDesignHasRoutePresentationBindings(checkpoint)) {
@@ -1901,8 +1974,9 @@ export async function askLearningPlanner(input:LearningPlannerInput):Promise<Mat
   const client = input.client ?? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
   const prompt = native ? `${learningPlannerInstructions('spelling').text}
 Call create_learning_program exactly once. Return domain, planId, journey, activities and planTheory directly at the tool root. Each activity carries its own measurement; do not invent a separate measurement ID or repeat the inventory in another field. spelling is the preregistered measurement prescription for academic activities and null for nonacademic rewards. It is never a measured learning claim.
-${JOURNEY_AUTHORING_INSTRUCTION}
-Root contains shared opening, the choice, and shared closing. Each option names a separate branch-segment path beginning AFTER that choice. Never include the enclosing choice or root path in an option segment. You choose activities, count, support, alternatives and hypotheses.
+${JOURNEY_SEQUENCE_INSTRUCTION}
+You choose activities, count, support, alternatives and hypotheses.
+${SPELLING_INSTRUMENT_REQUIREMENTS}
 Use available native instruments through their supplied configuration schemas. Catalog presets are working examples, not an exhaustive configuration restriction. Request generated content only for a missing capability. Preserve captured words and cite the supplied observation IDs. Separate assisted practice, independent measurements and engagement. Do not claim mastery or readiness.
 Homework and child-chart context:
 ${JSON.stringify({homework:packet!.capturedHomework,childChart:packet!.childChart,masteryContext:packet!.masteryContext,activityCatalog:packet!.activityCatalog,discoveryEvidence:packet!.discoveryEvidence})}` : `${learningPlannerInstructions('math').text}
@@ -2020,10 +2094,7 @@ ${JSON.stringify(factualModelContext(input.priorOutcomes ?? []), null, 2)}`;
     const program=parseSavedDirectMathPlannerResponse(savedResponse, input.maxTokens ?? Number(process.env.SUNNY_PLANNER_MAX_TOKENS ?? 32000));
     return input.rawResponseFile ? await verifyMathPlannerCanvas(program,input.rawResponseFile) : program;
   } catch (error) {
-    if(native){
-      if(!nativePlannerContractError(error))throw error;
-      return correctNativeLearningProgram({savedResponse,packet:packet!,model,client,rawResponseFile:input.rawResponseFile,initialError:error,started});
-    }
+    if(native)throw error; // The Planner's work is never sent back for correction.
     if (!correctableMathPlannerTruthError(error)) throw error;
     console.log(` 🎮 [adaptive-math] [targeted-planner-truth] [correction-required] child=${input.childId} reason=${error.message}`);
     return correctSavedDirectMathPlannerResponse({
@@ -2039,9 +2110,6 @@ ${JSON.stringify(factualModelContext(input.priorOutcomes ?? []), null, 2)}`;
 
 /** Compatibility command; both domains enter the same Planner request sequence. */
 export function askDirectMathPlanner(input:LearningPlannerInput & {domain?:"math"}):Promise<MathLearningProgram>{return askLearningPlanner(input);}
-function nativePlannerContractError(error:unknown):error is Error {
- return error instanceof z.ZodError || (error instanceof Error && ["learning_program_invalid:","assignment_planner_relationship_invalid:","board_definition_","planner_tool_output_missing_or_multiple:"].some(prefix=>error.message.startsWith(prefix)));
-}
 function nativeProgramFromResponse(response:unknown,packet:AssignmentPlanningPacket,model:string,latencyMs:number):NativePlannedProgram {
  const message=response as Anthropic.Messages.Message;assertPlannerResponseComplete(message);
  const tools=message.content.filter(block=>block.type==="tool_use"&&block.name==="create_learning_program");
@@ -2049,43 +2117,6 @@ function nativeProgramFromResponse(response:unknown,packet:AssignmentPlanningPac
  const output=hydrateNativeLearningProgram(tools[0].input,packet);
  return {domain:"spelling",planId:output.activeSessionPlan.planId,journey:output.activeSessionPlan.journey!,plan:output.activeSessionPlan,planningResult:{output,telemetry:{model,latencyMs},receivedAt:output.activeSessionPlan.createdAt}};
 }
-async function correctNativeLearningProgram(input:{savedResponse:unknown;packet:AssignmentPlanningPacket;model:string;client:Anthropic;rawResponseFile?:string;initialError:Error;started:number}):Promise<NativePlannedProgram> {
- const toolInput=(message:unknown,name='create_learning_program')=>{const matches=(message as Anthropic.Messages.Message).content.filter(block=>block.type==='tool_use'&&block.name===name);return matches.length===1?matches[0] as Anthropic.Messages.ToolUseBlock:undefined;};
- const initial=toolInput(input.savedResponse);if(!initial)throw input.initialError;
- let current=initial.input,defect=input.initialError;
- const identity=crypto.createHash('sha256').update(JSON.stringify(input.packet)).digest('hex');
- for(let attempt=1;attempt<=2;attempt++){
-  const stage=`targeted-planner-correction-${attempt}`,directory=input.rawResponseFile?path.dirname(input.rawResponseFile):undefined;
-  const pointer=directory?path.join(directory,'provider-receipts',`${stage}.stage.json`):undefined;
-  let envelope:{identity:string;request:Parameters<typeof requestPlannerMessage>[1]};
-  if(pointer && fs.existsSync(pointer)){
-   const {requestHash}=JSON.parse(fs.readFileSync(pointer,'utf8'));const receipt=JSON.parse(fs.readFileSync(path.join(directory!,'provider-receipts',`${requestHash}.json`),'utf8'));
-   const frozen=JSON.parse(fs.readFileSync(path.join(directory!,'provider-diagnostics',`${requestHash}.attempt-${receipt.attempts?.length??1}.request.json`),'utf8')).context;
-   if(frozen.identity!==identity||frozen.request.model!==input.model)throw new Error('learning_planner_correction_identity_mismatch');envelope=frozen;
-  }else{
-   const tool=nativeLearningProgramCorrectionTool(current,defect);
-   envelope={identity,request:{model:input.model,max_tokens:16000,messages:[{role:'user',content:`Correct only the diagnosed fields. Return patches [{path,value}], not a whole program. Only diagnosed unrecognized keys may use {path,remove:true}; never remove a required field. Valid activities, choices, sibling measurements and evidence are immutable. A spelling activity with academic targets needs a measurement: instruction and practice are exposures, fresh_checkpoint captures independent responses, and nonacademic rewards alone may use null. Checkpoints cite preceding exposures on their declared paths. This is bounded correction ${attempt} of 2.
-DEFECT: ${defect.message}
-EDITABLE FIELDS: ${JSON.stringify(tool.input_schema.properties.patches.items.properties.path.enum)}
-READ-ONLY PROGRAM: ${JSON.stringify(current)}
-ASSIGNED WORDS: ${JSON.stringify(input.packet.capturedHomework.words)}
-ALLOWED EVIDENCE IDS: ${JSON.stringify(assignmentPlannerAllowedEvidenceIds(input.packet))}`}],tools:[{...tool,input_schema:tool.input_schema as Anthropic.Messages.Tool.InputSchema}],tool_choice:{type:'tool',name:tool.name}}};
-  }
-  const execute=()=>requestPlannerMessage(input.client,envelope.request);
-  const response=directory?await runMathProviderStage({draftDir:directory,stage,model:input.model,request:envelope,execute}):await execute();
-  assertPlannerResponseComplete(response);
-  const name=envelope.request.tool_choice && 'name' in envelope.request.tool_choice?envelope.request.tool_choice.name:'repair_learning_program_fields';
-  const candidate=toolInput(response,name);if(!candidate)throw new Error(`planner_tool_output_missing_or_multiple:${name}`);
-  if(name==='create_learning_program'){
-   // Received historical corrections remain immutable and retain their original scope.
-   assertNativeLearningProgramCorrection(initial.input,candidate.input,input.initialError);current=candidate.input;
-  }else{current=applyNativeLearningProgramCorrection(current,candidate.input,defect);console.log(` 🎮 [learning-planner] [field-correction] [applied] attempt=${attempt}`);}
-  try{return nativeProgramFromResponse({...response,content:[{type:'tool_use',id:candidate.id,name:'create_learning_program',input:current}]},input.packet,input.model,Date.now()-input.started);}
-  catch(error){if(!nativePlannerContractError(error))throw error;defect=error;console.warn(` 🎮 [learning-planner] [correction] [invalid] attempt=${attempt} ${defect.message}`);}
- }
- throw defect;
-}
-
 async function download(url: string, destination: string): Promise<void> {
   const response = await fetch(url);
   if (!response.ok) throw new Error(`direct_artwork_download_failed:${response.status}`);

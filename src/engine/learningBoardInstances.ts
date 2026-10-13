@@ -258,6 +258,6 @@ export function successorResumeAction(cycle: LearningCycleRecordV2): "decide" | 
   const preparing = preparingBoardInstance(cycle);
   if (!preparing) return null;
   const nodes = cycle.nodes.filter((node) => preparing.nodeIds.includes(node.nodeId));
-  if (nodes.some((node) => node.state === "blocked")) return null;
+  if (nodes.some((node) => node.state === "blocked" && !node.notReadyReason)) return null;
   return nodes.some((node) => node.state === "generating") || (preparing.definition && !cycle.canvasVerifications?.[preparing.boardId]) ? "prepare" : null;
 }

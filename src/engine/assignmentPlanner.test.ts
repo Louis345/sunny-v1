@@ -9,7 +9,6 @@ import type { ActiveSessionPlan } from "../context/schemas/learningProfile";
 import type { ChildChart } from "../profiles/childChart";
 import type { CapturedHomeworkContent } from "../scripts/contentAwareHomeworkPlanner";
 import {
-  assertNativeLearningProgramCorrection,
   nativeLearningProgramToolJsonSchema,
   hydrateNativeLearningProgram,
   ASSIGNMENT_PLANNER_TOOL_NAME,
@@ -1003,12 +1002,13 @@ describe("assignment planner", () => {
     const raw=plannerDraftWithAdventureBoard(undefined) as any;
     const practice={...raw.activeSessionPlan.nodePlan[0],id:"node-practice",title:"Learn the pattern",targets:[packet.capturedHomework.wordGroups![0].words[0]],targetLane:packet.capturedHomework.wordGroups![0].id};
     const check={...practice,id:"node-check",title:"Try independently",wordRadarConfig:packet.activityCatalog.find(card=>card.activityId==="word-radar")!.capabilityModes.find(mode=>mode.config.recallMode==="hidden_word_recall")!.config};
-    const measurement=(role:string,ids:string[])=>({evidenceType:"practice",supportCriteria:"s",reviseCriteria:"r",falsifyCriteria:"f",spelling:{role,evidenceIds:["e"],interventionNodeIds:ids,reason:"r",uncertainty:"u",expectedAccuracy:{min:0,max:1},confidence:.5,maxDelayDays:1,finalCheck:role==="fresh_checkpoint"}});
-    const input={domain:"spelling",planId:"inline",journey:journeyFromBoardDefinition(linearJourneyFixture([practice.id,check.id])),activities:[{...practice,measurement:measurement("practice",[])},{...check,measurement:measurement("fresh_checkpoint",[practice.id])}],planTheory:raw.planTheory,reviewQuestions:[]};
+    const measurement=(role:string)=>({evidenceType:"practice",supportCriteria:"s",reviseCriteria:"r",falsifyCriteria:"f",spelling:{role,evidenceIds:["e"],reason:"r",uncertainty:"u",expectedAccuracy:{min:0,max:1},confidence:.5,maxDelayDays:1,finalCheck:role==="fresh_checkpoint"}});
+    const input={domain:"spelling",planId:"inline",journey:{title:"Spelling adventure",opening:[practice.id],closing:[check.id],singlePathReason:"One academically valid order.",endpointLabel:"Done"} as any,activities:[{...practice,measurement:measurement("practice")},{...check,measurement:measurement("fresh_checkpoint")}],planTheory:raw.planTheory,reviewQuestions:[]};
     const output=hydrateNativeLearningProgram(input,packet);
     expect(output.plannedMeasurements.map(m=>m.id)).toEqual(["measure-node-practice","measure-node-check"]);
     expect(output.activeSessionPlan.nodePlan.map(n=>n.id)).toEqual([practice.id,check.id]);
-    expect(output.activeSessionPlan.journey).toEqual(input.journey);
+    const authoredJourney=output.activeSessionPlan.journey;
+    expect(authoredJourney!.portals.flatMap(portal=>portal.activityNodeId??[])).toEqual([practice.id,check.id]);
     expect(output.activeSessionPlan.adventureBoard).toBeUndefined();
     for(const showTimer of [false,true]){
       const unbounded=structuredClone(input);unbounded.activities[1].wordRadarConfig={...check.wordRadarConfig,showTimer};delete (unbounded.activities[1].wordRadarConfig as any).timerSeconds;
@@ -1017,24 +1017,23 @@ describe("assignment planner", () => {
     }
 
     const rewardInput:any=structuredClone(input);rewardInput.activities.push({id:"reward",title:"Reward break",type:"mystery",activityId:"mystery",targets:[],measurement:null});
-    rewardInput.journey=journeyFromBoardDefinition(linearJourneyFixture([practice.id,check.id,"reward"]));
+    rewardInput.journey.closing=[check.id,"reward"];
     expect(hydrateNativeLearningProgram(rewardInput,packet).plannedMeasurements).toHaveLength(2);
     const missingAcademic:any=structuredClone(input);missingAcademic.activities[0].measurement=null;
-    expect(()=>hydrateNativeLearningProgram(missingAcademic,packet)).toThrow("planner_missing_measurement");
+    expect(hydrateNativeLearningProgram(missingAcademic,packet).notReady).toEqual([{nodeId:practice.id,reason:"measurement_missing"}]);
 
     const schema:any=nativeLearningProgramToolJsonSchema(packet.activityCatalog);
     expect(schema.properties.activeSessionPlan).toBeUndefined();expect(schema.properties.plannedMeasurements).toBeUndefined();
     expect(schema.properties.activities.items.properties.measurement.anyOf[0].properties.id).toBeUndefined();
     expect(schema.properties.activities.items.properties.measurement.anyOf[0].required).toContain("spelling");
     expect(schema.properties.activities.items.properties.measurement.anyOf[0].properties.spelling.description).toContain("visual-explainer");
-    expect(JSON.stringify(schema)).toContain("earlier instruction and practice");
     expect(schema.properties.activities.items.properties.wordRadarConfig.anyOf[0].properties.inputMode.enum).toEqual(["whole-word","letter-by-letter","keyboard"]);
     const root=fs.mkdtempSync(path.join(os.tmpdir(),"sunny-shared-planner-"));
     const stream=vi.fn((_request:unknown)=>({finalMessage:async()=>({id:"native-recorded",stop_reason:"tool_use",usage:{input_tokens:1,output_tokens:1},content:[{type:"tool_use",name:"create_learning_program",input}]})}));
     try{
       const args:any={domain:"spelling",childId:packet.childId,packet,chart:chart(),extraction:extraction(),model:"claude-sonnet-5",client:{messages:{stream}},rawResponseFile:path.join(root,"targeted-planner.json")};
       const result=await askLearningPlanner(args);
-      expect(result.domain).toBe("spelling");expect(result.plan.journey).toEqual(input.journey);
+      expect(result.domain).toBe("spelling");expect(result.plan.journey).toEqual(authoredJourney);
       expect(result.planningResult.output.plannedMeasurements.map((m:any)=>m.id)).toEqual(["measure-node-practice","measure-node-check"]);
       const request:any=stream.mock.calls[0][0];expect(request.model).toBe("claude-sonnet-5");
       expect(request.tools[0].input_schema.properties.activeSessionPlan).toBeUndefined();
@@ -1044,101 +1043,77 @@ describe("assignment planner", () => {
       const oldRequest=structuredClone(request);oldRequest.messages[0].content[0].text="Previous reviewed instructions\n"+oldRequest.messages[0].content[0].text;delete oldRequest.tools[0].input_schema.properties.activities.items.properties.measurement.anyOf[0].properties.spelling.description;
       await runMathProviderStage({draftDir:frozenDirectory,stage:'targeted-planner',model:args.model,request:oldRequest,execute:async()=>({id:"old-description",stop_reason:"tool_use",usage:{input_tokens:1,output_tokens:1},content:[{type:"tool_use",name:"create_learning_program",input}]})});
       const noCall=vi.fn(()=>{throw new Error('must_not_repurchase_received_work')});
-      expect((await askLearningPlanner({...args,rawResponseFile:path.join(frozenDirectory,'targeted-planner.json'),client:{messages:{stream:noCall}}})).plan.journey).toEqual(input.journey);
+      expect((await askLearningPlanner({...args,rawResponseFile:path.join(frozenDirectory,'targeted-planner.json'),client:{messages:{stream:noCall}}})).plan.journey).toEqual(authoredJourney);
       expect(noCall).not.toHaveBeenCalled();
       const foreignPacket=structuredClone(packet);foreignPacket.capturedHomework.title='Different captured assignment';
       await expect(askLearningPlanner({...args,packet:foreignPacket,rawResponseFile:path.join(frozenDirectory,'targeted-planner.json'),client:{messages:{stream:noCall}}})).rejects.toThrow('learning_planner_initial_identity_mismatch');
       expect(noCall).not.toHaveBeenCalled();
 
-
-      const bad=structuredClone(input);bad.activities[0].measurement.spelling.evidenceIds=["not-observed"];
-      const repairedStream=vi.fn((_request:unknown)=>({finalMessage:async()=>({id:"bounded-metadata-repair",stop_reason:"tool_use",usage:{input_tokens:1,output_tokens:1},content:[{type:"tool_use",name:repairedStream.mock.calls.length===1?"create_learning_program":"repair_learning_program_fields",input:repairedStream.mock.calls.length===1?bad:{patches:[{path:"/activities/0/measurement/spelling/evidenceIds",value:["e"]}]}}]})}));
-      const repairArgs={...args,rawResponseFile:path.join(root,"repair","targeted-planner.json"),client:{messages:{stream:repairedStream}}};
-      expect((await askLearningPlanner(repairArgs)).plan.journey).toEqual(input.journey);
-      await askLearningPlanner(repairArgs);expect(repairedStream).toHaveBeenCalledTimes(2);
-      const repairRequest:any=repairedStream.mock.calls[1][0];expect(repairRequest.tool_choice.name).toBe("repair_learning_program_fields");expect(repairRequest.tools[0].input_schema.properties.activities).toBeUndefined();expect(repairRequest.tools[0].input_schema.properties.patches.items.properties.path.enum).toEqual(["/activities/0/measurement/spelling/evidenceIds"]);
-      const legacyCorrectionDir=path.join(root,'legacy-full-correction');
-      const initialRecorded={id:'legacy-bad-native',stop_reason:'tool_use',content:[{type:'tool_use',name:'create_learning_program',input:bad}]};
-      await runMathProviderStage({draftDir:legacyCorrectionDir,stage:'targeted-planner',model:args.model,request,execute:async()=>initialRecorded});
-      const identity=(await import('node:crypto')).createHash('sha256').update(JSON.stringify(packet)).digest('hex');
-      const legacyEnvelope={identity,request:{...request,messages:[{role:'user',content:'Historical full-response correction'}]}};
-      await runMathProviderStage({draftDir:legacyCorrectionDir,stage:'targeted-planner-correction-1',model:args.model,request:legacyEnvelope,execute:async()=>({id:'legacy-full-native-repair',stop_reason:'tool_use',content:[{type:'tool_use',name:'create_learning_program',input}]})});
-      const receiptsDir=path.join(legacyCorrectionDir,'provider-receipts');
-      const beforeReceipts=fs.readdirSync(receiptsDir).map(file=>[file,fs.readFileSync(path.join(receiptsDir,file),'utf8')]);
-      expect((await askLearningPlanner({...args,rawResponseFile:path.join(legacyCorrectionDir,'targeted-planner.json'),client:{messages:{stream:noCall}}})).plan.journey).toEqual(input.journey);
-      expect(fs.readdirSync(receiptsDir).map(file=>[file,fs.readFileSync(path.join(receiptsDir,file),'utf8')])).toEqual(beforeReceipts);expect(noCall).not.toHaveBeenCalled();
-      const uncertainCorrectionDir=path.join(root,'legacy-uncertain-correction');
-      await runMathProviderStage({draftDir:uncertainCorrectionDir,stage:'targeted-planner',model:args.model,request,execute:async()=>initialRecorded});
-      await expect(runMathProviderStage({draftDir:uncertainCorrectionDir,stage:'targeted-planner-correction-1',model:args.model,request:legacyEnvelope,execute:async()=>{throw new Error('connection lost');}})).rejects.toThrow('provider_outcome_uncertain');
-      await expect(askLearningPlanner({...args,rawResponseFile:path.join(uncertainCorrectionDir,'targeted-planner.json'),client:{messages:{stream:noCall}}})).rejects.toThrow('provider_outcome_uncertain');expect(noCall).not.toHaveBeenCalled();
-      const multipleStream=vi.fn((_request:unknown)=>({finalMessage:async()=>({id:'ambiguous-field-repair',stop_reason:'tool_use',content:multipleStream.mock.calls.length===1?[{type:'tool_use',name:'create_learning_program',input:bad}]:[{type:'tool_use',name:'repair_learning_program_fields',input:{patches:[{path:'/activities/0/measurement/spelling/evidenceIds',value:['e']}]}},{type:'tool_use',name:'repair_learning_program_fields',input:{patches:[{path:'/activities/0/measurement/spelling/evidenceIds',value:['e']}]}}]})}));
-      const multipleArgs={...args,rawResponseFile:path.join(root,'multiple-corrections','targeted-planner.json'),client:{messages:{stream:multipleStream}}};
-      await expect(askLearningPlanner(multipleArgs)).rejects.toThrow('planner_tool_output_missing_or_multiple:repair_learning_program_fields');
-      await expect(askLearningPlanner(multipleArgs)).rejects.toThrow('planner_tool_output_missing_or_multiple:repair_learning_program_fields');expect(multipleStream).toHaveBeenCalledTimes(2);
-      const unknownField={...input,unexpected:'schema-invalid'};
-      const removeStream=vi.fn((_request:unknown)=>({finalMessage:async()=>({id:'remove-invalid-field',stop_reason:'tool_use',content:[{type:'tool_use',name:removeStream.mock.calls.length===1?'create_learning_program':'repair_learning_program_fields',input:removeStream.mock.calls.length===1?unknownField:{patches:[{path:'/unexpected',remove:true}]}}]})}));
-      const removeArgs={...args,rawResponseFile:path.join(root,'unknown-field','targeted-planner.json'),client:{messages:{stream:removeStream}}};
-      expect((await askLearningPlanner(removeArgs)).plan.journey).toEqual(input.journey);
-      await askLearningPlanner(removeArgs);expect(removeStream).toHaveBeenCalledTimes(2);
-      expect(JSON.parse(fs.readFileSync(removeArgs.rawResponseFile,'utf8')).content[0].input.unexpected).toBe('schema-invalid');
-      const ambiguousLegacyDir=path.join(root,'ambiguous-legacy-correction');
-      await runMathProviderStage({draftDir:ambiguousLegacyDir,stage:'targeted-planner',model:args.model,request,execute:async()=>initialRecorded});
-      await runMathProviderStage({draftDir:ambiguousLegacyDir,stage:'targeted-planner-correction-1',model:args.model,request:legacyEnvelope,execute:async()=>({id:'ambiguous-old-correction',stop_reason:'tool_use',content:[{type:'tool_use',name:'create_learning_program',input},{type:'tool_use',name:'create_learning_program',input}]})});
-      await expect(askLearningPlanner({...args,rawResponseFile:path.join(ambiguousLegacyDir,'targeted-planner.json'),client:{messages:{stream:noCall}}})).rejects.toThrow('planner_tool_output_missing_or_multiple:create_learning_program');expect(noCall).not.toHaveBeenCalled();
-      const exhaustedStream=vi.fn((_request:unknown)=>({finalMessage:async()=>({id:"invalid-metadata",stop_reason:"tool_use",usage:{input_tokens:1,output_tokens:1},content:[{type:"tool_use",name:exhaustedStream.mock.calls.length===1?"create_learning_program":"repair_learning_program_fields",input:exhaustedStream.mock.calls.length===1?bad:{patches:[{path:"/activities/0/measurement/spelling/evidenceIds",value:["not-observed"]}]} }]})}));
-      const exhaustedArgs={...args,rawResponseFile:path.join(root,"exhausted","targeted-planner.json"),client:{messages:{stream:exhaustedStream}}};
-      await expect(askLearningPlanner(exhaustedArgs)).rejects.toThrow("planner_unknown_evidence_id");
-      await expect(askLearningPlanner(exhaustedArgs)).rejects.toThrow("planner_unknown_evidence_id");
-      expect(exhaustedStream).toHaveBeenCalledTimes(3);
-
-      const drift=structuredClone(input);drift.journey.portals[0].label="Changed education";
-      const brokenStream=vi.fn((_request:unknown)=>({finalMessage:async()=>({id:"bad-metadata-repair",stop_reason:"tool_use",usage:{input_tokens:1,output_tokens:1},content:[{type:"tool_use",name:brokenStream.mock.calls.length===1?"create_learning_program":"repair_learning_program_fields",input:brokenStream.mock.calls.length===1?bad:{patches:[{path:"/journey/portals/0/label",value:drift.journey.portals[0].label}]}}]})}));
-      const brokenArgs={...args,rawResponseFile:path.join(root,"drift","targeted-planner.json"),client:{messages:{stream:brokenStream}}};
-      await expect(askLearningPlanner(brokenArgs)).rejects.toThrow("learning_program_correction_changed_protected_fields");
-      const calls=brokenStream.mock.calls.length;
-      await expect(askLearningPlanner(brokenArgs)).rejects.toThrow("learning_program_correction_changed_protected_fields");
-      expect(brokenStream).toHaveBeenCalledTimes(calls);
-
     }finally{fs.rmSync(root,{recursive:true,force:true});}
 
   });
 
-  it("repairs only the diagnosed native target or capability field",()=>{
-    const original:any={domain:"spelling",planId:"repair",activities:[{id:"a",targets:["invented"],wordRadarConfig:{inputMode:"bad"}},{id:"b",targets:["piece"]}]};
-    const targets=structuredClone(original);targets.activities[0].targets=["medium"];
-    const defect=Object.assign(new Error("assignment_planner_relationship_invalid"),{issues:[{code:"planner_unknown_spelling_target",nodeId:"a"}]});
-    expect(()=>assertNativeLearningProgramCorrection(original,targets,defect)).not.toThrow();
-    const config=structuredClone(original);config.activities[0].wordRadarConfig={inputMode:"letter-by-letter"};
-    expect(()=>assertNativeLearningProgramCorrection(original,config,Object.assign(new Error("learning_program_invalid"),{issues:[{code:"word_radar_capability_mismatch",nodeId:"a"}]}))).not.toThrow();
-    targets.activities[1].targets=["unrelated"];
-    expect(()=>assertNativeLearningProgramCorrection(original,targets,defect)).toThrow("changed_protected_fields");
-  });
+  // Every observed Planner failure was bookkeeping that code rejected and bought a
+  // correction for (30-80 s each). Truth checks now degrade one portal and never loop.
+  describe("native spelling truth checks never send work back",()=>{
+    const fixture=()=>{
+      const packet=buildAssignmentPlanningPacket({childId:"reina",extraction:extraction(),childChart:chart()});
+      (packet as any).discoveryEvidence={observations:[{observationId:"e"}],summary:{constructs:[]},history:{constructs:{}}};
+      const raw=plannerDraftWithAdventureBoard(undefined) as any;
+      const practice={...raw.activeSessionPlan.nodePlan[0],id:"node-practice",title:"Learn the pattern",targets:[packet.capturedHomework.wordGroups![0].words[0]],targetLane:packet.capturedHomework.wordGroups![0].id};
+      const check={...practice,id:"node-check",title:"Try independently",wordRadarConfig:packet.activityCatalog.find(card=>card.activityId==="word-radar")!.capabilityModes.find(mode=>mode.config.recallMode==="hidden_word_recall")!.config};
+      const measurement=(role:string)=>({evidenceType:"practice",supportCriteria:"s",reviseCriteria:"r",falsifyCriteria:"f",spelling:{role,evidenceIds:["e"],reason:"r",uncertainty:"u",expectedAccuracy:{min:0,max:1},confidence:.5,maxDelayDays:1,finalCheck:role==="fresh_checkpoint"}});
+      const input:any={domain:"spelling",planId:"sequence",journey:{title:"Spelling adventure",opening:[practice.id],closing:[check.id],singlePathReason:"One academically valid order.",endpointLabel:"You finished!"},activities:[{...practice,measurement:measurement("practice")},{...check,measurement:measurement("fresh_checkpoint")}],planTheory:raw.planTheory,reviewQuestions:[]};
+      return {packet,input,practice,check};
+    };
+    const hydrate=(input:unknown,packet:Parameters<typeof hydrateNativeLearningProgram>[1])=>hydrateNativeLearningProgram(input,packet) as ReturnType<typeof hydrateNativeLearningProgram>&{notReady:Array<{nodeId:string;reason:string}>};
+    const ask=async(input:unknown,packet:any)=>{
+      const stream=vi.fn((_request:unknown)=>({finalMessage:async()=>({id:"native-recorded",stop_reason:"tool_use",usage:{input_tokens:1,output_tokens:1},content:[{type:"tool_use",id:"tool-1",name:"create_learning_program",input}]})}));
+      return {stream,result:askLearningPlanner({domain:"spelling",childId:packet.childId,packet,chart:chart(),extraction:extraction(),model:"claude-sonnet-5",client:{messages:{stream}}} as any)};
+    };
 
-  it("allows restoring an instructional measurement and its directly dependent evidence type",()=>{
-    const original:any={domain:"spelling",planId:"repair",activities:[{id:"teach",measurement:{evidenceType:"practice",spelling:null,supportCriteria:"Exposure only"}}]};
-    const fixed=structuredClone(original);fixed.activities[0].measurement.evidenceType="instruction";fixed.activities[0].measurement.spelling={role:"instruction",evidenceIds:["observed"]};
-    const defect=Object.assign(new Error("assignment_planner_relationship_invalid"),{issues:[{code:"planner_missing_measurement",nodeId:"teach",measurementId:"measure-teach"}]});
-    expect(()=>assertNativeLearningProgramCorrection(original,fixed,defect)).not.toThrow();
-    fixed.activities[0].measurement.supportCriteria="Changed educational goal";
-    expect(()=>assertNativeLearningProgramCorrection(original,fixed,defect)).toThrow("changed_protected_fields");
-  });
+    it("accepts the journey sequence, expands it and derives checkpoint lineage",()=>{
+      const {packet,input,practice,check}=fixture();
+      const output=hydrate(input,packet);
+      expect(output.notReady).toEqual([]);
+      expect(output.activeSessionPlan.journey!.portals.filter(portal=>portal.activityNodeId).map(portal=>portal.activityNodeId)).toEqual([practice.id,check.id]);
+      expect(output.plannedMeasurements.find(row=>row.id===`measure-${check.id}`)!.spelling!.interventionNodeIds).toEqual([practice.id]);
+      expect(output.plannedMeasurements.find(row=>row.id===`measure-${practice.id}`)!.spelling!.interventionNodeIds).toEqual([]);
+      const schema:any=nativeLearningProgramToolJsonSchema(packet.activityCatalog);
+      expect(JSON.stringify(schema)).not.toContain("interventionNodeIds");
+      expect(Object.keys(schema.properties.journey.properties)).toContain("opening");
+      for(const grammar of ["portals","paths","edges","rootPathId"])expect(schema.properties.journey.properties).not.toHaveProperty(grammar);
+    });
 
-  it("allows only the missing connection to be added",()=>{
-    const original:any={domain:"spelling",planId:"repair",journey:{edges:[{id:"valid",from:"start",to:"fork"}]}};
-    const fixed=structuredClone(original);fixed.journey.edges.push({id:"missing",from:"fork",to:"activity"});
-    const defect=Object.assign(new Error("assignment_planner_relationship_invalid"),{issues:[{code:"path_edge_missing",id:"root/a",message:"Missing declared edge fork -> activity."}]});
-    expect(()=>assertNativeLearningProgramCorrection(original,fixed,defect)).not.toThrow();
-    fixed.journey.edges[0].to="elsewhere";
-    expect(()=>assertNativeLearningProgramCorrection(original,fixed,defect)).toThrow("changed_protected_fields");
-  });
+    it.each([
+      ["a target word that was not assigned",(input:any)=>{input.activities[0].targets=["zebra"];},/unknown_target_word/],
+      ["an evidence ID that does not exist",(input:any)=>{input.activities[0].measurement.spelling.evidenceIds=["invented"];},/unknown_evidence_id/],
+      ["an activity type the kiosk cannot run",(input:any)=>{Object.assign(input.activities[0],{type:"hologram",activityId:"hologram"});delete input.activities[0].wordRadarConfig;},/unsupported_activity/],
+    ])("marks only that portal not ready for %s",async(_name,break_,reason)=>{
+      const {packet,input,practice,check}=fixture();break_(input);
+      const log=vi.spyOn(console,"log").mockImplementation(()=>{});
+      try{
+        const output=hydrate(input,packet);
+        expect(output.notReady).toEqual([{nodeId:practice.id,reason:expect.stringMatching(reason)}]);
+        expect(output.activeSessionPlan.nodePlan.map(node=>node.id)).toEqual([practice.id,check.id]);
+        expect(log.mock.calls.map(call=>String(call[0])).some(line=>line.includes("🎮 [board] [portal] [not-ready]")&&line.includes(practice.id)&&reason.test(line))).toBe(true);
+        const {stream,result}=await ask(input,packet);
+        expect((await result).plan.nodePlan.map((node:{id:string})=>node.id)).toEqual([practice.id,check.id]);
+        expect(stream).toHaveBeenCalledTimes(1);
+      }finally{log.mockRestore();}
+    });
 
-  it("preserves a valid sibling while correcting a cyclic branch",()=>{
-    const original:any={domain:"spelling",planId:"repair",journey:{rootPathId:"root",portals:[],paths:[{id:"root",portalIds:["start","fork","end"]},{id:"bad",portalIds:["fork","a"]},{id:"good",portalIds:["b"]}],edges:[],choices:[{id:"choice:learn",portalId:"fork",options:[{id:"a",pathId:"bad"},{id:"b",pathId:"good"}]}]}};
-    const fixed=structuredClone(original);fixed.journey.paths[1].portalIds=["a"];
-    const defect=Object.assign(new Error("assignment_planner_relationship_invalid"),{issues:[{code:"path_cycle",id:"root",message:"path_cycle:choice:learn"}]});
-    expect(()=>assertNativeLearningProgramCorrection(original,fixed,defect)).not.toThrow();
-    fixed.journey.paths[2].portalIds=["different"];
-    expect(()=>assertNativeLearningProgramCorrection(original,fixed,defect)).toThrow("changed_protected_fields");
+    it("never buys a correction, even for a response it cannot read",async()=>{
+      const {packet}=fixture();
+      const {stream,result}=await ask({domain:"spelling"},packet);
+      await expect(result).rejects.toThrow();
+      expect(stream).toHaveBeenCalledTimes(1);
+    });
+
+    it("has no field-patch correction machinery left to call",async()=>{
+      const planner=await import("./assignmentPlanner") as Record<string,unknown>;
+      for(const name of ["nativeLearningProgramCorrectionTool","applyNativeLearningProgramCorrection","assertNativeLearningProgramCorrection"])expect(planner[name],name).toBeUndefined();
+    });
   });
 
   it("never accepts competing semantic and visual journey authorities", () => {

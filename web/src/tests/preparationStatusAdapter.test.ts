@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { resolvePreparationSurface } from "../components/AdventurePreparation/useAppAdventurePreparation";
+import * as adapter from "../components/AdventurePreparation/preparationStatusAdapter";
 import { isPreparationSlow, preparationElapsedLabel, preparationEventsFromStatus } from "../components/AdventurePreparation/preparationStatusAdapter";
 
 const status = (phase: string, nodes: Array<[string, string]> = [], extra: Record<string, unknown> = {}) =>
@@ -54,5 +55,23 @@ describe("which screen the app shows", () => {
     expect(resolvePreparationSurface({ packet: packet("spelling"), directDiscoveryMode: true, handoff: "preview-complete", held: false, preview: false })).toBeNull();
     expect(resolvePreparationSurface({ packet: packet("spelling"), directDiscoveryMode: false, handoff: null, held: true, preview: true })).toBeNull();
     expect(resolvePreparationSurface({ packet: packet("math"), directDiscoveryMode: true, handoff: "targeted-planning", held: false, preview: false })).toBeNull();
+  });
+});
+
+describe("truthful waiting screen", () => {
+  it("names the real generation phase instead of showing nothing until nodes exist", () => {
+    expect(adapter).toHaveProperty("preparationPhaseFromStatus");
+    const phase = (adapter as unknown as { preparationPhaseFromStatus: (value: unknown) => string | undefined }).preparationPhaseFromStatus;
+    expect(phase(null)).toBeUndefined();
+    expect(phase(status("targeted_planning"))).toBe("planning");
+    expect(phase(status("board_designing"))).toBe("designing");
+    expect(phase(status("board_generating", [["a", "preparing"]]))).toBe("building");
+    expect(phase(status("board_ready", [["a", "ready"]]))).toBe("ready");
+  });
+
+  it("treats a not-ready activity as finished preparation, not as a failed map", () => {
+    const events = preparationEventsFromStatus(status("board_generating", [["a", "ready"], ["b", "not_ready"]]), types);
+    expect(events.some(event => event.type === "FAILED")).toBe(false);
+    expect(events.at(-1)).toEqual({ type: "ACTIVITY_READY", n: 2, total: 2 });
   });
 });

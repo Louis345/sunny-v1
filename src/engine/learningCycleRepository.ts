@@ -154,6 +154,8 @@ export type SpellingDiagnosticSelection = {
 };
 
 export type LearningCycleNodeContract = {
+  /** A truth check failed for this portal: it publishes as not ready, is never built and is passed over. */
+  notReadyReason?: string;
   implementationType?: ActiveSessionPlan["nodePlan"][number]["type"];
   nodeId: string;
   routeId?: string;
@@ -757,9 +759,10 @@ function agencyNodeIds(experiment: LearningCycleAgencyExperiment): Set<string> {
   ]);
 }
 
+const notReadyNodeIds=(cycle:LearningCycleRecordV2)=>cycle.nodes.filter(node=>node.notReadyReason).map(node=>node.nodeId);
 export function canonicalJourneyFrontier(cycle:LearningCycleRecordV2) {
   const definition = currentBoardInstance(cycle).definition;
-  return definition ? journeyFrontier(definition,cycle.routeSelection?.choices ?? {},cycle.nodes.filter(node=>node.state==='completed').map(node=>node.nodeId)) : undefined;
+  return definition ? journeyFrontier(definition,cycle.routeSelection?.choices ?? {},cycle.nodes.filter(node=>node.state==='completed').map(node=>node.nodeId),notReadyNodeIds(cycle)) : undefined;
 }
 
 /** Undefined is the read-only legacy navigation contract, never permission. */
@@ -781,8 +784,8 @@ export function assertJourneyChoiceAvailable(cycle:LearningCycleRecordV2,choiceI
   if(cycle.nodes.some(node=>board.nodeIds.includes(node.nodeId)&&node.state==='active'))throw new Error('journey_choice_activity_in_progress');
   const selections=cycle.routeSelection?.choices??{};
   const completed=cycle.nodes.filter(node=>node.state==='completed').map(node=>node.nodeId);
-  journeyFrontier(definition,{...selections,[choiceId]:optionId},completed);
-  if(!journeyChoiceAvailable(definition,selections,completed,choiceId))throw new Error('journey_choice_not_reached');
+  journeyFrontier(definition,{...selections,[choiceId]:optionId},completed,notReadyNodeIds(cycle));
+  if(!journeyChoiceAvailable(definition,selections,completed,choiceId,notReadyNodeIds(cycle)))throw new Error('journey_choice_not_reached');
 }
 
 function normalizeAgencyNodeStates(cycle: LearningCycleRecordV2): void {
@@ -1263,7 +1266,7 @@ function publishPreparedBoardIfComplete(next: LearningCycleRecordV2, at: string)
   const board = preparingBoardInstance(next);
   if (!board) return undefined;
   const nodes = next.nodes.filter((node) => board.nodeIds.includes(node.nodeId));
-  if (nodes.some((node) => node.state === "generating" || node.state === "blocked" || node.artifactBinding?.validationStatus !== "passed")) return undefined;
+  if (nodes.some((node) => !node.notReadyReason && (node.state === "generating" || node.state === "blocked" || node.artifactBinding?.validationStatus !== "passed"))) return undefined;
   if (board.definition && next.canvasVerifications?.[board.boardId]?.definitionHash !== createHash('sha256').update(JSON.stringify(board.definition)).digest('hex')) return undefined;
   next.boards = next.boards!.map((candidate) => candidate.boardId === board.boardId ? { ...candidate, publishedAt: at } : candidate);
   next.agencyExperiment = board.agencyExperiment ? structuredClone(board.agencyExperiment) : undefined;
@@ -1361,7 +1364,7 @@ export function transitionLearningCycle(
     }
     next.boards = boardsForWrite(next);
     if(event.nodes.some(node=>node.role==='quest'||node.role==='boss'))throw new Error('planner_encounter_not_authorized');
-    const teachingNodes = event.nodes.map(node=>({...structuredClone(node),state:'generating' as const,artifactBinding:null}));
+    const teachingNodes = event.nodes.map(node=>({...structuredClone(node),state:node.notReadyReason ? 'blocked' as const : 'generating' as const,artifactBinding:null}));
     next.nodes = [...next.nodes, ...teachingNodes];
     next.academicTheory = structuredClone(event.academicTheory);
     next.academicPredictions = structuredClone(event.academicPredictions);
@@ -1858,6 +1861,7 @@ export function projectLearningCycle(
     boardId:board.boardId,planId,childId:cycle.childId,domain:cycle.domain,
     activities:nodePlan.map(node => ({...node,verified:boardNodes.find(item => item.nodeId === node.id)?.artifactBinding?.validationStatus === "passed",wordRadarConfig:node.wordRadarConfig ? {...node.wordRadarConfig} : undefined,state:boardNodes.find(item => item.nodeId === node.id)?.state})),
     selections:cycle.routeSelection?.choices,companion:{id:"elli",name:"Elli"},
+    notReady:Object.fromEntries(boardNodes.flatMap(node=>node.notReadyReason ? [[node.nodeId,node.notReadyReason]] : [])),
   }) : buildAdventureBoardFromActiveSessionPlan({
     plan: {
       ...activeSessionPlan,

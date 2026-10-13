@@ -85,3 +85,23 @@ it('requires a local illustration before initial publication writes child state'
   expect(existsSync(join(rootDir,'src/context/synthetic/plans/active_session_plan.json'))).toBe(false);
  }finally{rmSync(rootDir,{recursive:true,force:true});}
 });
+
+// Trial 9 died on overlap the Creator could not see; the old proof render also aborted
+// every request, so its screenshots never showed the illustrated world.
+it('previews the real board with its artwork loaded and measured portal boxes, without judging layout',async()=>{
+ const canvas=await import('./adventureBoardCanvas');
+ const {existsSync}=await import('node:fs');
+ expect(canvas).toHaveProperty('renderBoardPreview');
+ const directory=mkdtempSync(join(tmpdir(),'sunny-canvas-preview-'));
+ const definition=linearJourneyFixture(['learn','check']) as AdventureBoardDefinition;
+ definition.theme={...definition.theme,background:{type:'image',value:'/generated/adventure-board-demo/silent-letter-world.jpeg'}};
+ definition.portals[1].position=structuredClone(definition.portals[0].position);
+ try {
+  const preview=await (canvas as any).renderBoardPreview({definition,directory,rootDir:process.cwd()}) as {screenshots:Array<{viewport:string;file:string}>;portals:Array<{viewport:string;id:string;width:number;height:number}>;artworkLoaded:boolean};
+  expect(preview.screenshots.map(shot=>shot.viewport)).toEqual(['1280x720','768x1024']);
+  expect(preview.screenshots.every(shot=>existsSync(shot.file))).toBe(true);
+  expect(preview.artworkLoaded).toBe(true);
+  for(const viewport of ['1280x720','768x1024'])expect(preview.portals.filter(box=>box.viewport===viewport).map(box=>box.id).sort()).toEqual(definition.portals.map(portal=>portal.id).sort());
+  expect(preview.portals.every(box=>box.width>0&&box.height>0)).toBe(true);
+ }finally{rmSync(directory,{recursive:true,force:true});}
+},30000);

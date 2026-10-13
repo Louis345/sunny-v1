@@ -39,6 +39,45 @@ export const adventureJourneySchema=adventureJourneyInputSchema.transform((journ
     return {...journey,edges:[...connections.values()]};
   }catch(error){ctx.addIssue({code:'custom',path:['paths'],message:error instanceof Error?error.message:String(error)});return z.NEVER;}
 });
+/** The Planner's only journey: one sequence it cannot contradict. Code expands it. */
+export const journeySequenceSchema=z.object({
+  title:id, opening:z.array(id).max(32).describe("Activity ids every child plays first, in order."),
+  choice:z.object({purpose:id,label:id,options:z.array(z.object({id,label:id,hypothesis:id,nodeIds:z.array(id).min(1).max(32)}).strict()).min(2).max(8)}).strict().optional(),
+  closing:z.array(id).max(32).describe("Activity ids every child plays after the choice, in order."),
+  singlePathReason:id.optional(), endpointLabel:id,
+}).strict();
+export type JourneySequence=z.infer<typeof journeySequenceSchema>;
+export const JOURNEY_SEQUENCE_TOOL_SCHEMA=z.toJSONSchema(journeySequenceSchema,{io:'input'});
+/** Mechanical and deterministic: start, activity, choice and endpoint portals, paths and connections.
+ * Nothing here rejects the plan; an activity that cannot be placed is logged and left off. */
+export function expandJourneySequence(input:unknown,nodes:ReadonlyArray<{id:string;title?:string}>):AdventureJourneyDefinition {
+  const sequence=journeySequenceSchema.parse(input),titles=new Map(nodes.map(node=>[node.id,node.title?.trim()||node.id]));
+  const placed=new Set<string>(),portals:Array<{id:string;label:string;kind:'start'|'activity'|'choice'|'endpoint';activityNodeId?:string}>=[{id:'start',label:'Start',kind:'start'}];
+  const place=(nodeIds:readonly string[],prefix:string,seen:Set<string>)=>nodeIds.flatMap(nodeId=>{
+    if(!titles.has(nodeId)||seen.has(nodeId)){console.log(` 🎮 [planner] [journey] [${titles.has(nodeId)?'node-repeated':'node-missing'}] node=${nodeId}`);return [];}
+    seen.add(nodeId);placed.add(nodeId);
+    const portalId=`${prefix}${nodeId}`;portals.push({id:portalId,label:titles.get(nodeId)!,kind:'activity',activityNodeId:nodeId});return [portalId];
+  });
+  const shared=new Set<string>(),opening=place(sequence.opening,'p:',shared);
+  const optionIds=new Set<string>(),branchNodeIds=new Set<string>();
+  let options=(sequence.choice?.options??[]).filter(option=>!optionIds.has(option.id)&&optionIds.add(option.id)).map(option=>{
+    const seen=new Set(shared),portalIds=place(option.nodeIds,`p:${option.id}:`,seen);
+    return {option,portalIds,nodeIds:[...seen].filter(nodeId=>!shared.has(nodeId))};
+  }).filter(row=>row.portalIds.length);
+  // One surviving option is not a choice: its activities join the shared path.
+  const inline=options.length===1?options[0].portalIds:[];if(options.length<2)options=[];
+  options.forEach(row=>row.nodeIds.forEach(nodeId=>branchNodeIds.add(nodeId)));
+  if(inline.length)portals.filter(portal=>inline.includes(portal.id)).forEach(portal=>shared.add(portal.activityNodeId!));
+  if(options.length)portals.push({id:'choice',label:sequence.choice!.label,kind:'choice'});
+  const closing=place(sequence.closing,'p:',new Set([...shared,...branchNodeIds]));
+  portals.push({id:'end',label:sequence.endpointLabel,kind:'endpoint'});
+  for(const nodeId of titles.keys())if(!placed.has(nodeId))console.log(` 🎮 [planner] [journey] [node-unused] node=${nodeId}`);
+  return adventureJourneySchema.parse({version:2,title:sequence.title,rationale:sequence.singlePathReason??sequence.choice?.purpose??sequence.title,rootPathId:'root',portals,
+    paths:[{id:'root',portalIds:['start',...opening,...inline,...(options.length?['choice']:[]),...closing,'end']},...options.map(row=>({id:`option:${row.option.id}`,portalIds:row.portalIds}))],
+    choices:options.length?[{id:'choice',portalId:'choice',purpose:sequence.choice!.purpose,options:options.map(({option})=>({id:option.id,label:option.label,pathId:`option:${option.id}`,hypothesis:option.hypothesis}))}]:[],
+    ...(options.length?{}:{singlePathReason:sequence.singlePathReason??'The Planner authored one path.'}),
+  });
+}
 export const adventureCompositionSchema = z.object({
   portals:z.array(adventureBoardDefinitionSchema.shape.portals.element.pick({id:true,position:true,icon:true,thumbnailUrl:true}).strict()).min(1).max(128),
   edges:z.array(adventureBoardDefinitionSchema.shape.edges.element.pick({id:true,style:true,controlPoints:true}).strict()).max(256),
@@ -193,12 +232,13 @@ export function validateBoardDefinition(definition:AdventureJourneyDefinition, a
 }
 
 /** Sole interpretation of selected order; completed instruments survive a route switch. */
-export function journeyFrontier(definition:AdventureJourneyDefinition, selections:Readonly<Record<string,string>>, completed:readonly string[]):{activityNodeId?:string;portalId?:string;choiceId?:string;complete:boolean} {
+export function journeyFrontier(definition:AdventureJourneyDefinition, selections:Readonly<Record<string,string>>, completed:readonly string[], notReady:readonly string[]=[]):{activityNodeId?:string;portalId?:string;choiceId?:string;complete:boolean} {
   const choices = new Map(definition.choices.map(choice => [choice.portalId,choice]));
   for (const [choiceId,optionId] of Object.entries(selections)) if (!definition.choices.some(choice => choice.id === choiceId && choice.options.some(option => option.id === optionId))) throw new Error(`choice_option_missing:${choiceId}:${optionId}`);
   const execution = journeyExecutions(definition).find(candidate => Object.entries(selections).every(([key,value]) => candidate.selections[key] === undefined || candidate.selections[key] === value));
   if (!execution) throw new Error('journey_selection_incompatible');
-  const done = new Set(completed);
+  // A not-ready activity is never played, so the path passes over it.
+  const done = new Set([...completed,...notReady]);
   const portals = new Map(definition.portals.map(portal => [portal.id,portal]));
   for (const portalId of execution.portalIds) {
     const choice = choices.get(portalId);
@@ -210,8 +250,8 @@ export function journeyFrontier(definition:AdventureJourneyDefinition, selection
 }
 
 /** A remembered selection on an unchosen branch remains history, not a visible fork. */
-export function journeyChoiceAvailable(definition:AdventureJourneyDefinition,selections:Record<string,string>,completed:readonly string[],choiceId:string):boolean {
-  const frontier=journeyFrontier(definition,selections,completed);
+export function journeyChoiceAvailable(definition:AdventureJourneyDefinition,selections:Record<string,string>,completed:readonly string[],choiceId:string,notReady:readonly string[]=[]):boolean {
+  const frontier=journeyFrontier(definition,selections,completed,notReady);
   if(frontier.complete)return false;
   if(frontier.choiceId===choiceId)return true;
   if(!selections[choiceId])return false;
@@ -223,18 +263,20 @@ export function journeyChoiceAvailable(definition:AdventureJourneyDefinition,sel
 
 export type BoardRuntimeActivity = { id:string; activityId?:string; type?:string; state?:string; verified?:boolean; thumbnailUrl?:string; gameHtmlPath?:string; activityConfigPath?:string; targets?:string[]; wordRadarConfig?:import('./adventureBoardJson').AdventureBoardWordRadarConfig };
 /** Pure projection: presentation comes from the definition, operational facts from runtime. */
-export function renderBoardDefinition(definition:AdventureBoardDefinition, input:{boardId:string;planId:string;childId:string;domain:string;activities:readonly BoardRuntimeActivity[];completedNodeIds?:readonly string[];selections?:Record<string,string>;companion?:import('./adventureBoardJson').AdventureBoardCompanion}):import('./adventureBoardJson').AdventureBoardJson {
+export function renderBoardDefinition(definition:AdventureBoardDefinition, input:{boardId:string;planId:string;childId:string;domain:string;activities:readonly BoardRuntimeActivity[];completedNodeIds?:readonly string[];selections?:Record<string,string>;companion?:import('./adventureBoardJson').AdventureBoardCompanion;notReady?:Readonly<Record<string,string>>}):import('./adventureBoardJson').AdventureBoardJson {
   const activities = new Map(input.activities.map(activity => [activity.id,activity]));
   const completed = input.completedNodeIds ?? input.activities.filter(activity => activity.state === 'completed').map(activity => activity.id);
-  const frontier = journeyFrontier(definition,input.selections ?? {},completed);
+  const notReady = Object.keys(input.notReady ?? {}).filter(id => !completed.includes(id));
+  const frontier = journeyFrontier(definition,input.selections ?? {},completed,notReady);
   const done = new Set(completed);
-  const availableChoices=new Set(definition.choices.filter(choice=>!input.activities.some(item=>item.state==='active')&&journeyChoiceAvailable(definition,input.selections??{},completed,choice.id)).map(choice=>choice.id));
+  const availableChoices=new Set(definition.choices.filter(choice=>!input.activities.some(item=>item.state==='active')&&journeyChoiceAvailable(definition,input.selections??{},completed,choice.id,notReady)).map(choice=>choice.id));
   const choiceByPortal = new Map(definition.choices.map(choice => [choice.portalId,choice]));
   const nodes:import('./adventureBoardJson').AdventureBoardNode[] = definition.portals.map(portal => {
     const activity = portal.activityNodeId ? activities.get(portal.activityNodeId) : undefined;
     const choice = choiceByPortal.get(portal.id);
     const verified = !portal.activityNodeId || (activity?.verified === true && ['ready','active','completed'].includes(activity.state ?? ''));
-    const state = portal.kind === 'start' || (portal.activityNodeId && done.has(portal.activityNodeId)) ? 'completed'
+    const blocked = Boolean(portal.activityNodeId && notReady.includes(portal.activityNodeId));
+    const state = blocked ? 'locked' : portal.kind === 'start' || (portal.activityNodeId && done.has(portal.activityNodeId)) ? 'completed'
       : (portal.id === frontier.portalId && !choice && verified) || (choice && availableChoices.has(choice.id)) ? 'available'
       : portal.kind === 'endpoint' && frontier.complete ? 'completed' : 'locked';
     return { id:portal.id, activityNodeId:portal.activityNodeId, label:portal.label,
@@ -244,7 +286,7 @@ export function renderBoardDefinition(definition:AdventureBoardDefinition, input
       activityId:activity?.activityId ?? activity?.type, state,
       ...(activity ? {target:{laneId:activity.id,skill:activity.id,words:activity.targets},wordRadarConfig:activity.wordRadarConfig} : {}),
       ...(choice ? {choiceSetId:choice.id,action:{type:'open-choice-set' as const,payloadId:choice.id}} : portal.activityNodeId ? {action:{type:'launch-activity' as const,payloadId:portal.activityNodeId}} : {}),
-      ...(state === 'locked' ? {lock:frontier.complete && portal.activityNodeId ? {reason:'route-not-taken',label:'Not taken'} : {reason:verified ? 'planner-sequence' : 'artifact-not-ready',label:verified ? 'Keep going' : 'Locked'}} : {}),
+      ...(state === 'locked' ? {lock:blocked ? {reason:'not-ready',label:'Not ready'} : frontier.complete && portal.activityNodeId ? {reason:'route-not-taken',label:'Not taken'} : {reason:verified ? 'planner-sequence' : 'artifact-not-ready',label:verified ? 'Keep going' : 'Locked'}} : {}),
     };
   });
   const states = new Map(nodes.map(node => [node.id,node.state]));
@@ -253,7 +295,7 @@ export function renderBoardDefinition(definition:AdventureBoardDefinition, input
     title:definition.title,theme:definition.theme,companion:input.companion,nodes,
     edges:definition.edges.map(edge => ({...edge,state:states.get(edge.to) === 'completed' ? 'completed' : states.get(edge.to) === 'available' ? 'available' : 'locked'})),
     choiceSets:definition.choices.map(choice => ({id:choice.id,kind:'baseline-route',title:choice.purpose,options:choice.options.map(option => {
-      const next = journeyFrontier(definition,{...input.selections,[choice.id]:option.id},completed);
+      const next = journeyFrontier(definition,{...input.selections,[choice.id]:option.id},completed,notReady);
       const portal = definition.portals.find(portal => portal.id === next.portalId);
       return {id:option.id,label:option.label,journeyChoiceId:choice.id,journeyOptionId:option.id,
         nodeId:portal?.id,launchNodeId:portal?.activityNodeId,
@@ -281,3 +323,6 @@ export const BOARD_AUTHORING_INSTRUCTION = `Author boardDefinition as the immuta
 
 /** Education belongs to the Planner; visual constraints are supplied to the Creator. */
 export const JOURNEY_AUTHORING_INSTRUCTION = `Author journey as immutable educational intent. Bind activity portals to canonical inventory IDs. Start and choice portals have no activity binding; an endpoint may bind the final activity. Portal IDs identify presentations; alternative sequences may reuse canonical activities with distinct portals. The root path is the shared opening; a choice inserts its selected path then resumes the parent path. Declare labels, ordered paths, option purposes and engagement hypotheses. Give a meaningful choice when academically valid alternatives exist; otherwise explain singlePathReason. After independent evaluation, on Teaching boards only, use the catalog for varied practice addressing measured gaps; activity count remains your decision. Connections are derived from those paths; do not author a second edge list. The existing Experience Creator owns visual composition, artwork, palette and geometry. Do not declare readiness, completion or mastery.`;
+
+/** The Planner is the teacher: one sequence, no portals, paths or edges. */
+export const JOURNEY_SEQUENCE_INSTRUCTION = `Author journey as one sequence of activity ids from your activities list. opening is what every child plays first, in order. choice is optional: give its purpose, a short label, and two or more options, each with its own label, engagement hypothesis and ordered nodeIds; options may order the same activities differently. closing is what every child plays after the choice, in order. Without a choice, put the whole order in opening and closing and explain singlePathReason. endpointLabel is what she sees when she finishes. Give a meaningful choice when academically valid alternatives exist. Code draws the start, portals, paths and connections from this sequence exactly as written and works out which earlier activities each checkpoint follows; do not author portals, paths, edges or exposure lineage. An activity you do not place in the journey is left off the map. Use the catalog for varied practice addressing measured gaps; activity count remains your decision. The map artist owns artwork, palette and placement. Do not declare readiness, completion or mastery.`;

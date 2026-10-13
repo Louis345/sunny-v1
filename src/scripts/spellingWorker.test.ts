@@ -19,9 +19,14 @@ import { generateStoryImage } from "../utils/generateStoryImage";
 import type { ActiveSessionPlan } from "../context/schemas/learningProfile";
 vi.mock("../utils/generateStoryImage", () => ({ generateStoryImage: vi.fn() }));
 vi.mock("../engine/assignmentPlanner", async original => ({ ...await original<typeof import("../engine/assignmentPlanner")>(), planAssignmentFromSourceWithTelemetry: vi.fn() }));
-vi.mock("../engine/directMathExperience", async original => ({ ...await original<typeof import("../engine/directMathExperience")>(), askLearningPlanner:vi.fn(async(input:any)=>({domain:"spelling",planningResult:await planAssignmentFromSourceWithTelemetry(input.packet)})), askLearningExperienceDesigner:vi.fn(async (input:any)=>({packet:{},plan:{...input.program.plan,boardDefinition:assembleAdventureBoardDefinition(input.program.journey,compositionFromBoardDefinition(linearJourneyFixture(input.program.plan.nodePlan.map((n:any)=>n.id))))}})), askDirectMathPlanner: vi.fn(async () => { throw new Error("test_forbids_math_planner_for_spelling"); }) }));
+vi.mock("../engine/directMathExperience", async original => ({ ...await original<typeof import("../engine/directMathExperience")>(), askLearningPlanner:vi.fn(async(input:any)=>({domain:"spelling",planningResult:await planAssignmentFromSourceWithTelemetry(input.packet)})), askLearningExperienceDesigner:vi.fn(async (input:any)=>({packet:{},plan:{...input.program.plan,boardDefinition:assembleAdventureBoardDefinition(input.program.journey,(composition=>{if(input.program.planId.startsWith("stacked:"))composition.portals.forEach(portal=>{portal.position={landscape:{x:.5,y:.5},portrait:{x:.5,y:.5}};});return composition;})(compositionFromBoardDefinition(linearJourneyFixture(input.program.plan.nodePlan.map((n:any)=>n.id)))))}})), askDirectMathPlanner: vi.fn(async () => { throw new Error("test_forbids_math_planner_for_spelling"); }) }));
+const projections = vi.hoisted(() => [] as Array<Record<string, string>>);
+vi.mock("../engine/adaptiveMathDiscovery", async original => {
+  const actual = await original<typeof import("../engine/adaptiveMathDiscovery")>();
+  return { ...actual, publishTargetedBoardProjection: (input: Parameters<typeof actual.publishTargetedBoardProjection>[0]) => { projections.push({ ...input.nodeStatuses }); return actual.publishTargetedBoardProjection(input); } };
+});
 const roots: string[] = [];
-afterEach(() => { vi.clearAllMocks(); vi.useRealTimers(); vi.unstubAllEnvs(); vi.unstubAllGlobals(); roots.splice(0).forEach(root => fs.rmSync(root, { recursive: true, force: true })); });
+afterEach(() => { projections.length = 0; vi.clearAllMocks(); vi.useRealTimers(); vi.unstubAllEnvs(); vi.unstubAllGlobals(); roots.splice(0).forEach(root => fs.rmSync(root, { recursive: true, force: true })); });
 describe("spelling in the production generation worker", () => {
   it("does not invalidate a frozen native instrument when only its board art changes", () => {
     const node = {
@@ -46,7 +51,7 @@ describe("spelling in the production generation worker", () => {
     );
   });
 
-  it.each(["semantic", "strong", "weak", "assisted", "incomplete", "visual", "reward-break", "mystery-concept-check", "published-contract-change"])("plans from %s committed evidence, publishes native games, and resumes without repeated calls", async scenario => {
+  it.each(["semantic", "strong", "weak", "assisted", "incomplete", "visual", "reward-break", "mystery-concept-check", "published-contract-change", "overlapping", "not-ready"])("plans from %s committed evidence, publishes native games, and resumes without repeated calls", async scenario => {
     vi.useFakeTimers({ toFake: ["Date"] }); vi.setSystemTime(new Date("2026-09-08T11:00:00Z"));
     const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-spelling-worker-")); roots.push(rootDir);
     const childId = "lab-child", child = path.join(rootDir, "src/context", childId);
@@ -89,7 +94,16 @@ describe("spelling in the production generation worker", () => {
         background: { type: "image", value: "/generated/adventure-board-demo/silent-letter-world.jpeg" },
         palette: { path: "#ffffff", completed: "#1f8f68", available: "#7c3aed", locked: "#aeb7c2", current: "#f59e0b", preview: "#d5dde5", text: "#ffffff", panel: "rgba(15, 23, 42, 0.84)" },
       } as const;
-      if(scenario==="semantic"){
+      if (scenario === "not-ready") {
+        // What hydrateNativeLearningProgram hands over after a failed truth check on "practice".
+        const sanitized = plannedMeasurements.filter(row => row.id !== "measure-practice");
+        sanitized[0].spelling.interventionNodeIds = [];
+        nodePlan[0].targets = [];
+        const {boardDefinition,...semanticPlan}=activeSessionPlan;
+        return {output:{activeSessionPlan:{...semanticPlan,plannedMeasurements:sanitized,journey:journeyFromBoardDefinition(boardDefinition)},plannedMeasurements:sanitized,planTheory:activeSessionPlan.planTheory,generationRequests:[],notReady:[{nodeId:"practice",reason:"unknown_target_word:zebra"}]},telemetry:{model:"recorded-provider",latencyMs:1}} as never;
+      }
+      if(scenario==="semantic"||scenario==="overlapping"){
+        if(scenario==="overlapping")activeSessionPlan.planId=`stacked:${homeworkId}`;
         const {boardDefinition,...semanticPlan}=activeSessionPlan;
         return {output:{activeSessionPlan:{...semanticPlan,journey:journeyFromBoardDefinition(boardDefinition)},plannedMeasurements,planTheory:activeSessionPlan.planTheory,generationRequests:[]},telemetry:{model:"recorded-provider",latencyMs:1}} as never;
       }
@@ -103,6 +117,35 @@ describe("spelling in the production generation worker", () => {
       return "https://recorded.invalid/image";
     });
     await runAdaptiveMathGeneration(childId, homeworkId, rootDir);
+    // The Teaching map appears only when complete: no projection while any activity is still being prepared.
+    expect(projections.length).toBeGreaterThan(0);
+    expect(projections.flatMap(statuses => Object.values(statuses)).filter(status => !["ready", "completed", "evidence_locked", "not_ready"].includes(status))).toEqual([]);
+    if (scenario === "overlapping" || scenario === "not-ready") {
+      // The board always publishes exactly what the Planner and Creator made.
+      const job = getMathGenerationStatus(childId, homeworkId, { rootDir })!;
+      const published = getLearningCycle(childId, homeworkId, { rootDir })!;
+      expect(job.phase).toBe("board_ready");
+      expect(published.lifecycle).toBe("board_ready");
+      const board = JSON.parse(fs.readFileSync(path.join(child, "plans/active_session_plan.json"), "utf8")).current.adventureBoard;
+      const portal = (nodeId: string) => board.nodes.find((node: { activityNodeId?: string }) => node.activityNodeId === nodeId);
+      // Diagnostics measure what was published; they never feed back into a run.
+      const report = JSON.parse(fs.readFileSync(path.join(child, "homework/direct-drafts", homeworkId, "generation-report.json"), "utf8"));
+      expect(report).toMatchObject({ homeworkId, targetMs: 180000, totalMs: expect.any(Number), withinTarget: expect.any(Boolean), planner: { latencyMs: 1 } });
+      if (scenario === "overlapping") {
+        expect(portal("practice").position).toEqual(portal("check").position);
+        expect(report.notReady).toEqual([]);
+        expect(report.layout.overlaps.length).toBeGreaterThan(0);
+        expect(report.layout.artworkLoaded).toBe(true);
+        return;
+      }
+      expect(report.notReady).toEqual([{ nodeId: "practice", reason: "unknown_target_word:zebra" }]);
+      expect(job.nodes.find(node => node.nodeId === "practice")!.status).toBe("not_ready");
+      expect(portal("practice")).toMatchObject({ state: "locked", lock: { reason: "not-ready", label: "Not ready" } });
+      expect(portal("check").state).toBe("available");
+      expect(published.nodes.find(node => node.nodeId === "practice")).toMatchObject({ state: "blocked", artifactBinding: null });
+      expect(fs.existsSync(path.join(child, "homework/direct-drafts", homeworkId, "native-instruments/practice.json"))).toBe(false);
+      return;
+    }
     if(scenario==="semantic")expect(askLearningExperienceDesigner).toHaveBeenCalledTimes(1);
     expect(askLearningPlanner).toHaveBeenCalledTimes(1);
     const imageCallsAfterFirstRun = vi.mocked(generateStoryImage).mock.calls.length;

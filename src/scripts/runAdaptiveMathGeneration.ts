@@ -1080,7 +1080,8 @@ async function runSpellingTargetedGeneration(childId: string, homeworkId: string
       }),
     };
     const historicalEvidence = Object.entries(packet.discoveryEvidence?.history.constructs ?? {}).flatMap(([construct, entry]) => [...entry.observations.map(row => row.observationId), ...entry.evaluations.map(row => row.evaluationId)].map(id => ({ id, domain: construct.split(".")[0] })));
-    const contract = buildSpellingTargetedCycleInput({ cycle, plan: active, now: createdAt, historicalEvidence });
+    const contract = buildSpellingTargetedCycleInput({ cycle, plan: active, now: createdAt, historicalEvidence, notReady: result.output.notReady });
+    const notReady = contract.nodes.filter(node => node.notReadyReason);
     if (cycle.adaptiveGeneration?.designHash) {
       const currentCycle = getLearningCycle(childId, homeworkId, { rootDir })!;
       const currentById = new Map(currentCycle.nodes.map((node) => [node.nodeId, node]));
@@ -1124,9 +1125,10 @@ async function runSpellingTargetedGeneration(childId: string, homeworkId: string
       assumptions: contract.assumptions,
       boardDefinition: contract.boardDefinition, agencyExperiment: contract.agencyExperiment,
     });
-    await verifyPreparingBoardCanvas({...scope,directory:path.join(draft,'canvas-verification')});
+    await verifyPreparingBoardCanvas({...scope,directory:path.join(draft,'canvas-verification'),acceptAsAuthored:true});
     const teachingNodeIds = new Set(contract.nodes.map(node => node.nodeId));
     if (!getMathGenerationStatus(childId, homeworkId, { rootDir })?.programHash) writeMathGenerationJob({ ...scope, programHash, designHash, nodeIds: active.nodePlan.map(node => node.id).filter(nodeId => teachingNodeIds.has(nodeId)) });
+    for (const node of notReady) if (getMathGenerationStatus(childId, homeworkId, { rootDir })!.nodes.find(row => row.nodeId === node.nodeId)?.status === "preparing") updateMathGenerationNode({ ...scope, nodeId: node.nodeId, status: "not_ready", error: node.notReadyReason });
     const project = (): void => {
       const currentChart = getChildChart(childId, { rootDir });
       const currentCycle = getLearningCycle(childId, homeworkId, { rootDir })!;
@@ -1233,17 +1235,32 @@ async function runSpellingTargetedGeneration(childId: string, homeworkId: string
     for (const ready of getMathGenerationStatus(childId, homeworkId, { rootDir })!.nodes) {
       if (["ready", "completed"].includes(ready.status) && active.nodePlan.find(node => node.id === ready.nodeId)?.type !== "generated-baseline") await buildNode(ready.nodeId);
     }
-    project();
-    await buildTargetedNodesResumably({ ...scope, firstNodeId: active.nodePlan[0]?.id ?? "", concurrency: 2, buildNode, onNodeReady: project });
-    project();
+    // The Teaching map appears only when complete: nothing is projected while an activity is still being prepared.
+    const settled = (): boolean => getMathGenerationStatus(childId, homeworkId, { rootDir })!.nodes.every(node => ["ready", "completed", "evidence_locked", "not_ready"].includes(node.status));
+    await buildTargetedNodesResumably({ ...scope, firstNodeId: active.nodePlan[0]?.id ?? "", concurrency: 2, buildNode });
+    if (settled()) project();
+    else console.log(` 🎮 [spelling] [targeted-board] [withheld] homework=${homeworkId} reason=activities_not_prepared`);
     const verifiedJob = getMathGenerationStatus(childId, homeworkId, { rootDir });
-    if (verifiedJob?.nodes.every((candidate) => ["ready", "completed", "evidence_locked"].includes(candidate.status))) {
+    if (verifiedJob?.nodes.every((candidate) => ["ready", "completed", "evidence_locked", "not_ready"].includes(candidate.status))) {
       setMathGenerationPhase({ ...scope, phase: "board_ready" });
     }
+    // Diagnostics describe what was published. Nothing reads them back into a run or a child's chart.
+    const readOptional = <T,>(file: string): Partial<T> => fs.existsSync(file) ? read<T>(file) : {};
+    const design = readOptional<{ previews: number; elapsedMs: number }>(path.join(draft, "design-checkpoint.json"));
+    const layout = readOptional<{ artworkLoaded: boolean; overlaps: unknown[] }>(path.join(draft, "canvas-verification", "canvas-measurements.json"));
+    const totalMs = Date.now() - diagnosticStartedAt;
+    write(path.join(draft, "generation-report.json"), {
+      version: 1, homeworkId, totalMs, targetMs: 180_000, withinTarget: totalMs <= 180_000, resumed: Boolean(saved),
+      planner: { latencyMs: result.telemetry?.latencyMs }, creator: { previews: design.previews, elapsedMs: design.elapsedMs },
+      notReady: notReady.map(node => ({ nodeId: node.nodeId, reason: node.notReadyReason })),
+      layout: { artworkLoaded: layout.artworkLoaded, overlaps: layout.overlaps ?? [] },
+      published: settled(),
+    });
+    console.log(` 🎮 [spelling] [generation-report] [saved] homework=${homeworkId} total_ms=${totalMs} previews=${design.previews ?? "n/a"} not_ready=${notReady.length} overlaps=${layout.overlaps?.length ?? "n/a"}`);
     // Reconnect the existing best-effort illustration stage after playable
     // content is published. Keep artwork outside frozen academic/provider data.
     process.env.SUNNY_IMAGE_GENERATION_MAX_PER_RUN ||= "8";
-    await generateBoardNodeImages({ ...scope, plan: presentation, onPlanUpdated: plan => { presentation = plan; project(); } });
+    await generateBoardNodeImages({ ...scope, plan: presentation, onPlanUpdated: plan => { presentation = plan; if (settled()) project(); } });
   } catch (error) {
     recordGenerationFailure({draftDir:draft,childId,homeworkId,stage:()=>getMathGenerationStatus(childId,homeworkId,{rootDir})?.phase ?? 'targeted_generation',startedAt:diagnosticStartedAt,error});
     setMathGenerationPhase({ ...scope, phase: "needs_attention", error: error instanceof Error ? error.message : String(error) });

@@ -1,8 +1,8 @@
 import {LEARNING_PLANNER_PERSONA,learningPlannerInstructions} from "./learningPlannerInstructions";
 import {spellingImplementationType,SPELLING_MYSTERY_INSTRUMENT_IDS} from "./activityEngineConfig";
 import {verifyAuthoredBoardCanvas} from './adventureBoardCanvas';
-import { JOURNEY_AUTHORING_INSTRUCTION, adventureJourneySchema,ADVENTURE_JOURNEY_TOOL_SCHEMA, journeyFromBoardDefinition, adventureBoardDefinitionSchema, BOARD_AUTHORING_INSTRUCTION, BOARD_CANVAS_AUTHORING_CONSTRAINTS, renderBoardDefinition, validateBoardDefinition, journeyExecutions, type BoardDefinitionIssue, type AdventureBoardDefinition } from '../shared/adventureBoardDefinition';
-import { spellingCheckpointLineageIssues, checkpointInterventionsArePrior } from "./spellingCheckpointLineage";
+import { JOURNEY_AUTHORING_INSTRUCTION, adventureJourneySchema,ADVENTURE_JOURNEY_TOOL_SCHEMA, journeySequenceSchema, expandJourneySequence, journeyFromBoardDefinition, adventureBoardDefinitionSchema, BOARD_AUTHORING_INSTRUCTION, BOARD_CANVAS_AUTHORING_CONSTRAINTS, renderBoardDefinition, validateBoardDefinition, journeyExecutions, type BoardDefinitionIssue, type AdventureBoardDefinition } from '../shared/adventureBoardDefinition';
+import { spellingCheckpointLineageIssues, checkpointInterventionsArePrior, deriveCheckpointLineage } from "./spellingCheckpointLineage";
 import {requestPlannerMessage, assertPlannerResponseComplete} from "./plannerTransport";
 import Anthropic from "@anthropic-ai/sdk";
 import fs from "fs";
@@ -241,6 +241,8 @@ export type AssignmentPlannerOutput = {
   /** Planner-declared instrument gaps; always set by hydrate, optional for legacy fixtures. */
   generationRequests?: PlannerGenerationRequest[];
   generatedExperienceBriefs?: GeneratedExperienceBrief[];
+  /** Portals whose truth check failed: published, shown as not ready, never regenerated. */
+  notReady?: Array<{ nodeId: string; reason: string }>;
 };
 
 export type AssignmentPlanValidationIssue = {
@@ -987,10 +989,11 @@ export const assignmentPlannerDraftSchema = z.object({
   })).max(3).optional(),
 }).passthrough();
 
-const nativeMeasurementSchema=plannedMeasurementSchema.omit({id:true,activityId:true,target:true}).extend({spelling:plannedMeasurementSchema.shape.spelling.unwrap().extend({interventionNodeIds:plannedMeasurementSchema.shape.spelling.unwrap().shape.interventionNodeIds.describe("Authored IDs of earlier instruction and practice affecting these words, including Visual Explainer. A fresh_checkpoint must cite all such preceding exposures on its declared paths, including alternatives; actual participation is recorded separately. These references are a plan, not a claim the child completed them.")}).nullable().describe("Every academic activity, including visual-explainer, carries this prescription. Use role instruction for teaching exposure, practice for rehearsal, fresh_checkpoint for independent measurement. Exposure is not mastery. Null is reserved for a nonacademic reward or engagement-only activity.")}).strict();
+const nativeMeasurementSchema=plannedMeasurementSchema.omit({id:true,activityId:true,target:true}).extend({spelling:plannedMeasurementSchema.shape.spelling.unwrap().omit({interventionNodeIds:true}).nullable().describe("Every academic activity, including visual-explainer, carries this prescription. Use role instruction for teaching exposure, practice for rehearsal, fresh_checkpoint for independent measurement. Exposure is not mastery. Null is reserved for a nonacademic reward or engagement-only activity.")}).strict();
+const nativeActivitySchema=compactNodePlanSchema.extend({wordRadarConfig:z.preprocess(value=>value===null?undefined:value,wordRadarRuntimeConfigSchema.optional()),measurement:nativeMeasurementSchema.nullable().describe("Null for a nonacademic reward; academic activities require their instructional/practice/checkpoint prescription.")}).strict();
 const nativeLearningProgramSchema=z.object({
-  domain:z.literal("spelling"),planId:z.string().min(1),journey:adventureJourneySchema,
-  activities:z.array(compactNodePlanSchema.extend({wordRadarConfig:z.preprocess(value=>value===null?undefined:value,wordRadarRuntimeConfigSchema.optional()),measurement:nativeMeasurementSchema.nullable().describe("Null for a nonacademic reward; academic activities require their instructional/practice/checkpoint prescription.")}).strict()).min(1).max(12),
+  domain:z.literal("spelling"),planId:z.string().min(1),journey:journeySequenceSchema,
+  activities:z.array(nativeActivitySchema).min(1).max(12),
   planTheory:planTheorySchema,reviewQuestions:z.array(z.string()).max(8).default([]),
   generationRequests:z.array(generationRequestSchema).max(6).default([]),
   evidenceUsed:compactActiveSessionPlanSchema.shape.evidenceUsed,
@@ -998,7 +1001,6 @@ const nativeLearningProgramSchema=z.object({
 /** The native domain uses the same LearningProgram boundary, with inline instrument bindings. */
 function nativeRuntimeToolSchema():JsonSchemaObject {
  const schema=z.toJSONSchema(nativeLearningProgramSchema,{io:"input"}) as JsonSchemaObject;
- schemaProperties(schema).journey=ADVENTURE_JOURNEY_TOOL_SCHEMA as JsonSchemaObject;
  schemaProperties(schemaProperties(schema).activities.items as JsonSchemaObject).wordRadarConfig={anyOf:[z.toJSONSchema(wordRadarRuntimeConfigSchema,{io:"input"}),{type:"null"}]};
  return schema;
 }
@@ -1013,149 +1015,68 @@ export function nativeLearningProgramToolJsonSchema(catalog:AssignmentPlanningPa
   schemaProperties(schema).activities.items=node;
   return schema;
 }
-/** Correction permissions come from concrete tool defects, never educational preferences. */
-function nativeCorrectionPermissions(original:unknown,error:Error) {
-  const a=jsonObject(original);if(!a)throw new Error("learning_program_correction_changed_protected_fields");
-  const editable:Array<Array<string|number>>=[];
-  const missingEdges=new Set<string>();
-  const missingActivities=new Set<string>();
-  const disconnectedPaths=new Set<string>();
-  const defects=[...((error as Error&{issues?:Array<{code:string;measurementId?:string;nodeId?:string;id?:string;message?:string}>}).issues??[])];
-  if(error instanceof z.ZodError){
-    defects.length=0;
-    for(const issue of error.issues){
-      if(issue.code==='custom' && /^(path_cycle|path_missing|portal_missing|journey_capacity_exceeded):?/.test(issue.message)){defects.push({code:issue.message.split(':')[0],message:issue.message});continue;}
-      const keys=(issue as unknown as {keys?:string[]}).keys;
-      if(keys)for(const key of keys)editable.push([...issue.path.filter((p):p is string|number=>typeof p==='string'||typeof p==='number'),key]);
-      else editable.push(issue.path.filter((p):p is string|number=>typeof p==='string'||typeof p==='number'));
-    }
-  }
-    for(const defect of defects){
-      const nodes:Array<Record<string,unknown>|undefined>=Array.isArray(a.activities)?a.activities.map(jsonObject):[];
-      const index=nodes.findIndex(node=>node?.id===defect.nodeId||`measure-${node?.id}`===defect.measurementId);
-      if(index>=0){
-        if(defect.code.includes('evidence'))editable.push(['activities',index,'measurement','spelling','evidenceIds']);
-        else if(defect.code==='planner_unknown_spelling_target')editable.push(['activities',index,'targets']);
-        else if(['missing_word_radar_config','word_radar_capability_mismatch','word_radar_config_invalid'].includes(defect.code))editable.push(['activities',index,'wordRadarConfig']);
-        else if(defect.code==='activity_renderer_mismatch')editable.push(['activities',index,'type']);
-        else if(defect.code==='missing_node_title')editable.push(['activities',index,'title']);
-        else if(defect.code==='target_lane_mismatch')editable.push(['activities',index,'targetLane']);
-        else if(defect.code==='word_radar_unrendered_teaching')editable.push(['activities',index,'rounds'],['activities',index,'activityConfig','teachingFocus']);
-        else if(defect.code==='planner_missing_measurement'){if(nodes[index]?.measurement===null)editable.push(['activities',index,'measurement']);else editable.push(['activities',index,'measurement','spelling'],['activities',index,'measurement','evidenceType']);}
-        else if(defect.code.includes('intervention')||defect.code==='planner_checkpoint_lineage_missing')editable.push(['activities',index,'measurement','spelling','interventionNodeIds']);
-      }
-      if(defect.code==='path_edge_missing'){
-        const match=defect.message?.match(/^Missing declared edge (.+) -> (.+)\.$/);
-        if(match)missingEdges.add(`${match[1]}\0${match[2]}`);
-      }
-      const journey=jsonObject(a.journey),paths=journey?.paths,choices=journey?.choices;
-      if(defect.code==='path_unreachable'&&defect.id&&Array.isArray(paths)&&paths.some(row=>jsonObject(row)?.id===defect.id)){disconnectedPaths.add(defect.id);editable.push(['journey','paths']);}
-      if(defect.code==='activity_portal_missing' && defect.id && nodes.some(node=>node?.id===defect.id)){
-        missingActivities.add(defect.id);editable.push(['journey','portals']);
-        if(Array.isArray(paths))paths.forEach((_row,i)=>editable.push(['journey','paths',i,'portalIds']));
-      }
-      if(defect.code==='path_cycle' && Array.isArray(paths) && Array.isArray(choices)){
-        const choice=choices.map(jsonObject).find(row=>row?.id===defect.message?.slice('path_cycle:'.length));
-        if(choice && Array.isArray(choice.options))choice.options.forEach((option,j)=>{
-          const ref=jsonObject(option)?.pathId;
-          if(ref===journey?.rootPathId){const i=choices.indexOf(choice);editable.push(['journey','choices',i,'options',j,'pathId']);}
-          else paths.forEach((row,i)=>{const p=jsonObject(row);if(p && p.id===ref && Array.isArray(p.portalIds) && p.portalIds.includes(choice.portalId))editable.push(['journey','paths',i,'portalIds']);});
-        });
-      }
-      if(defect.code==='path_missing' && Array.isArray(choices))choices.forEach((row,i)=>{const options=jsonObject(row)?.options;if(Array.isArray(options))options.forEach((option,j)=>{if(jsonObject(option)?.pathId===defect.message?.slice('path_missing:'.length))editable.push(['journey','choices',i,'options',j,'pathId']);});});
-    }
-  return {editable,missingEdges,missingActivities,disconnectedPaths};
-}
-export function assertNativeLearningProgramCorrection(original:unknown,corrected:unknown,error:Error):void {
-  const a=jsonObject(original),b=jsonObject(corrected);if(!a||!b)throw new Error("learning_program_correction_changed_protected_fields");
-  const {editable,missingEdges,missingActivities,disconnectedPaths}=nativeCorrectionPermissions(original,error);
-  if(disconnectedPaths.size){
-    const before=jsonObject(a.journey),after=jsonObject(b.journey),prior=before?.paths,next=after?.paths;
-    if(!Array.isArray(prior)||!Array.isArray(next))throw new Error("learning_program_correction_changed_protected_fields");
-    const orphan=prior.map(jsonObject).filter(row=>row&&disconnectedPaths.has(String(row.id)));
-    const available=new Set(orphan.flatMap(row=>Array.isArray(row!.portalIds)?row!.portalIds:[]));
-    const expected=prior.map(jsonObject).filter(row=>!disconnectedPaths.has(String(row?.id)));
-    const contains=(sequence:unknown[],fragment:unknown[])=>sequence.some((_id,index)=>isDeepStrictEqual(sequence.slice(index,index+fragment.length),fragment));
-    if(next.length!==expected.length||expected.some((original,index)=>{
-      const repaired=jsonObject(next[index]);if(!original||!repaired||!Array.isArray(original.portalIds)||!Array.isArray(repaired.portalIds)||!isDeepStrictEqual({...original,portalIds:undefined},{...repaired,portalIds:undefined})||!isDeepStrictEqual(original.portalIds,repaired.portalIds.slice(0,original.portalIds.length)))return true;
-      const suffix=repaired.portalIds.slice(original.portalIds.length);
-      return suffix.some(id=>!available.has(id))||suffix.length>0&&orphan.some(row=>!Array.isArray(row!.portalIds)||!contains(suffix,row!.portalIds));
-    })||orphan.some(row=>!Array.isArray(row!.portalIds)||!next.some(path=>{const sequence=jsonObject(path)?.portalIds;return Array.isArray(sequence)&&contains(sequence,row!.portalIds as unknown[]);})))throw new Error("learning_program_correction_changed_protected_fields");
-  }
-  if(missingActivities.size){
-    const before=jsonObject(a.journey),after=jsonObject(b.journey);
-    if(!before||!after||!Array.isArray(before.portals)||!Array.isArray(after.portals)||!Array.isArray(before.paths)||!Array.isArray(after.paths))throw new Error("learning_program_correction_changed_protected_fields");
-    const priorIds=new Set(before.portals.map(portal=>jsonObject(portal)?.id));
-    const additions=after.portals.filter(portal=>!priorIds.has(jsonObject(portal)?.id));
-    if(additions.some(portal=>{const row=jsonObject(portal);return !row||row.kind!=='activity'||typeof row.id!=='string'||!missingActivities.has(String(row.activityNodeId));})
-      ||!isDeepStrictEqual(before.portals,after.portals.filter(portal=>priorIds.has(jsonObject(portal)?.id))))throw new Error("learning_program_correction_changed_protected_fields");
-    const addedIds=new Set(additions.map(portal=>jsonObject(portal)!.id));
-    const preservedPaths=after.paths.map(path=>{const row=jsonObject(path);return row&&Array.isArray(row.portalIds)?{...row,portalIds:row.portalIds.filter(id=>!addedIds.has(id))}:path;});
-    if(!isDeepStrictEqual(before.paths,preservedPaths))throw new Error("learning_program_correction_changed_protected_fields");
-  }
-  const known=Object.keys(nativeLearningProgramSchema.shape);
-  const left=Object.fromEntries(known.filter(key=>key in a).map(key=>[key,structuredClone(a[key])]));
-  const right=Object.fromEntries(known.filter(key=>key in a).map(key=>[key,structuredClone(b[key])]));
-  const remove=(value:Record<string,unknown>,parts:Array<string|number>)=>{
-    let current:unknown=value;
-    for(const part of parts.slice(0,-1)){if(!current||typeof current!=='object')return;current=(current as Record<string,unknown>)[String(part)];}
-    if(current&&typeof current==='object'&&parts.length)delete (current as Record<string,unknown>)[String(parts.at(-1)!)];
-  };
-  if(missingEdges.size){
-    const existing=jsonObject(a.journey)?.edges;
-    const existingIds=new Set(Array.isArray(existing)?existing.map(edge=>jsonObject(edge)?.id):[]);
-    const journey=jsonObject(right.journey);
-    if(journey && Array.isArray(journey.edges))journey.edges=journey.edges.filter(edge=>{const row=jsonObject(edge);return !row || existingIds.has(row.id) || !missingEdges.has(`${row.from}\0${row.to}`);});
-  }
-  editable.forEach(parts=>{remove(left,parts);remove(right,parts);});
-  if(!isDeepStrictEqual(left,right))throw new Error("learning_program_correction_changed_protected_fields");
-}
+/** Working settings the kiosk accepts today; the test validates them against the runtime. */
+export const SPELLING_INSTRUMENT_EXAMPLES={
+  letterRush:{schemaVersion:1,activityId:"letter-rush",mode:"read-and-race",topic:"School words",domain:"spelling",learningGoal:"Practice the captured spelling words",gradeBand:"early_elementary",scaffolds:{showWord:true,letterBank:true,allowRetryBeforeScore:true,companionHints:false},words:[{text:"night"},{text:"light"}],evidencePolicy:{writesPracticeEvidence:true,writesMasteryEvidence:false,requiresPerTargetResult:true,allowedEvidence:["practice"]}},
+  visualExplainer:{schemaVersion:1,activityId:"visual-explainer",domain:"spelling",topic:"The ight chunk",learningGoal:"Notice and remember the ight chunk.",misconception:"The middle sound maps to one letter.",strategy:{title:"Keep the chunk together",steps:["Say each word.","Notice ight.","Build the word around it."]},words:[{id:"planner-night",text:"night",chunks:["n","ight"],focusChunk:"ight",tip:"Keep ight together."},{id:"planner-light",text:"light",chunks:["l","ight"],focusChunk:"ight",tip:"Keep ight together."}],check:{id:"check-ight",targetWord:"night",prompt:"Which chunk stays together?",options:[{id:"ight",label:"ight",correct:true},{id:"ite",label:"ite",correct:false}],correctOptionId:"ight"},evidencePolicy:{writesPracticeEvidence:true,writesMasteryEvidence:false,requiresPerTargetResult:false,allowedEvidence:["practice","companion"]}},
+};
+/** What each spelling instrument needs, told to the Planner before it plans: nothing is sent back afterwards,
+ * so a portal authored without these publishes as not ready. */
+export const SPELLING_INSTRUMENT_REQUIREMENTS=`Instrument requirements. A portal that misses one is published as "not ready" and she cannot play it, so check each activity against this list before you answer:
+- Every activity that has target words needs a measurement with a spelling prescription: role "instruction" for teaching, "practice" for any game or rehearsal, "fresh_checkpoint" for the independent check. measurement null is only for a reward with targets [], and a reward uses type "mystery".
+- A fresh_checkpoint must be type "word-radar" and activityId "word-radar" with wordRadarConfig.recallMode "hidden_word_recall". No other activity can be an independent checkpoint: not spell-check, not wordle, not any game. Plan at least one such checkpoint as the final check, covering every assigned word.
+- word-radar always needs wordRadarConfig, chosen from its capability modes.
+- visual-explainer needs a complete activityConfig that you author for these words. It teaches at most 8 words, so give it at most 8 targets. Its words must be exactly the activity's targets; each word's chunks must join to spell the word; check.targetWord must be one of those words. Working example: ${JSON.stringify(SPELLING_INSTRUMENT_EXAMPLES.visualExplainer)}
+- letter-rush needs a complete activityConfig. Its words must be exactly the activity's targets, one entry each. Working example: ${JSON.stringify(SPELLING_INSTRUMENT_EXAMPLES.letterRush)}
+- mystery with targets [] is a reward and needs measurement null. A mystery with target words needs a complete academic activityConfig; otherwise give it no targets.
+- spell-check, monster-stampede, wordle and wheel-of-fortune need no activityConfig; they are practice, never a checkpoint.`;
 
-function nativeCorrectionRemovalPaths(error:Error):Set<string> {
- return new Set(error instanceof z.ZodError?error.issues.flatMap(issue=>issue.code==='unrecognized_keys'?issue.keys.map(key=>'/'+[...issue.path,key].map(part=>String(part).replace(/~/g,'~0').replace(/\//g,'~1')).join('/')):[]):[]);
-}
-/** New corrections expose the diagnosed fields, not another complete program. */
-export function nativeLearningProgramCorrectionTool(original:unknown,error:Error) {
- const fields=nativeCorrectionPermissions(original,error).editable;
- const paths=[...new Set(fields.filter(parts=>parts.length && parts.every(part=>!['__proto__','prototype','constructor'].includes(String(part)))).map(parts=>'/'+parts.map(part=>String(part).replace(/~/g,'~0').replace(/\//g,'~1')).join('/')))];
- if(!paths.length)throw new Error(`learning_program_correction_scope_unavailable:${error.message}`);
- const schema=nativeRuntimeToolSchema();
- const valueSchemas=fields.map(parts=>{let current=schema;for(const part of parts){if(Array.isArray(current.anyOf))current=(current.anyOf as JsonSchemaObject[]).find(candidate=>typeof part==='number'?candidate.items: schemaProperties(candidate)[String(part)])??current;current=(typeof part==='number'?current.items:schemaProperties(current)[String(part)]) as JsonSchemaObject??{};}return current;});
- const removable=nativeCorrectionRemovalPaths(error);
- return {name:'repair_learning_program_fields',description:'Return only explicit replacements for the diagnosed fields; valid sibling fields are immutable.',input_schema:{type:'object',additionalProperties:false,properties:{patches:{type:'array',minItems:1,maxItems:paths.length,items:{type:'object',additionalProperties:false,properties:{path:{type:'string',enum:paths},value:{anyOf:valueSchemas},...(removable.size?{remove:{const:true}}:{})},required:['path'],oneOf:[{required:['value']},...(removable.size?[{required:['remove']}]:[])]}}},required:['patches']}};
-}
-export function applyNativeLearningProgramCorrection(original:unknown,reply:unknown,error:Error):unknown {
- const tool=nativeLearningProgramCorrectionTool(original,error),allowed=new Set(tool.input_schema.properties.patches.items.properties.path.enum),removable=nativeCorrectionRemovalPaths(error);
- const raw=jsonObject(reply),patches=raw?.patches;
- if(!Array.isArray(patches)||!patches.length||Object.keys(raw!).some(key=>key!=='patches'))throw new Error('learning_program_correction_patch_invalid');
- if(new Set(patches.map(patch=>jsonObject(patch)?.path)).size!==patches.length)throw new Error('learning_program_correction_duplicate_field');
- if(patches.length>allowed.size)throw new Error('learning_program_correction_changed_protected_fields');
- const result=structuredClone(original) as Record<string,unknown>;
- for(const item of patches){
-  const patch=jsonObject(item);if(!patch||typeof patch.path!=='string'||!allowed.has(patch.path)||Object.keys(patch).some(key=>!['path','value','remove'].includes(key))||('remove' in patch?(patch.remove!==true||!removable.has(patch.path)||'value' in patch):!('value' in patch)))throw new Error('learning_program_correction_changed_protected_fields');
-  const parts=patch.path.slice(1).split('/').map(part=>part.replace(/~1/g,'/').replace(/~0/g,'~'));
-  let parent=result;for(const part of parts.slice(0,-1)){const next=parent[part];if(!next||typeof next!=='object')throw new Error('learning_program_correction_patch_invalid');parent=next as Record<string,unknown>;}
-  if(patch.remove===true)delete parent[parts.at(-1)!];else parent[parts.at(-1)!]=structuredClone(patch.value);
- }
- assertNativeLearningProgramCorrection(original,result,error);return result;
-}
-
+/** The Planner's program is accepted as authored. Code expands the journey, derives exposure
+ * lineage and runs truth checks; a failed check marks that one portal not ready and never
+ * sends the plan back. Only a response that cannot be read at all throws. */
 export function hydrateNativeLearningProgram(raw:unknown,packet:AssignmentPlanningPacket,createdAt?:string):AssignmentPlannerOutput {
-  const program=nativeLearningProgramSchema.parse(raw);
-  const nodePlan=program.activities.map(({measurement:_measurement,...node})=>node);
-  const plannedMeasurements=program.activities.flatMap(({measurement,...activity})=>{
+  const program=nativeLearningProgramSchema.extend({activities:z.array(z.unknown()).min(1).max(12)}).parse(raw);
+  const notReady=new Map<string,string>();
+  const mark=(nodeId:string,reason:string)=>{if(notReady.has(nodeId))return;notReady.set(nodeId,reason);console.log(` 🎮 [board] [portal] [not-ready] node=${nodeId} reason=${reason}`);};
+  const activities=program.activities.flatMap(row=>{
+    const parsed=nativeActivitySchema.safeParse(row);
+    if(parsed.success){
+      if([parsed.data.type,parsed.data.activityId].some(type=>type==="quest"||type==="boss")){console.log(` 🎮 [planner] [journey] [encounter-not-authorized] node=${parsed.data.id}`);return [];}
+      return [parsed.data];
+    }
+    const source=jsonObject(row),nodeId=typeof source?.id==="string"&&source.id.trim()?source.id.trim():undefined;
+    if(!nodeId){console.log(` 🎮 [planner] [activity] [unreadable] ${JSON.stringify(parsed.error.issues.map(issue=>issue.path.join(".")))}`);return [];}
+    mark(nodeId,`unsupported_activity:${[...new Set(parsed.error.issues.map(issue=>issue.path.join(".")||issue.code))].join(",")}`);
+    // The authored type cannot run, so nothing of it enters her record; the reason keeps what was asked for.
+    return [nativeActivitySchema.parse({id:nodeId,title:typeof source!.title==="string"&&source!.title.trim()?source!.title.trim():nodeId,type:"mystery",activityId:"mystery",targets:[],measurement:null})];
+  });
+  const nodePlan=activities.map(({measurement:_measurement,...node})=>node);
+  const journey=expandJourneySequence(program.journey,nodePlan);
+  const lineage=deriveCheckpointLineage(activities.map(activity=>({id:activity.id,targets:activity.targets,role:activity.measurement?.spelling?.role})),journeyExecutions(journey).map(path=>path.activityNodeIds));
+  const plannedMeasurements=activities.flatMap(({measurement,...activity})=>{
     if(!measurement)return [];
     const {spelling,...fields}=measurement;
-    return [{...fields,id:`measure-${activity.id}`,activityId:activity.activityId,target:activity.targets.length?activity.targets.join(","):activity.id,...(spelling?{spelling}:{})}];
+    return [{...fields,id:`measure-${activity.id}`,activityId:activity.activityId,target:activity.targets.length?activity.targets.join(","):activity.id,...(spelling?{spelling:{...spelling,interventionNodeIds:lineage[activity.id]??[]}}:{})}];
   });
-  const draft=assignmentPlannerDraftSchema.parse({activeSessionPlan:{planId:program.planId,journey:program.journey,nodePlan,evidenceUsed:program.evidenceUsed},plannedMeasurements,planTheory:program.planTheory,reviewQuestions:program.reviewQuestions,generationRequests:program.generationRequests});
+  const allowedTargets=new Set([...packet.capturedHomework.words,...(packet.capturedHomework.wordGroups??[]).flatMap(group=>group.words)].map(word=>word.trim().toLocaleLowerCase("en-US")));
+  const authored={activeSessionPlan:{planId:program.planId,journey,nodePlan,evidenceUsed:program.evidenceUsed},plannedMeasurements,planTheory:program.planTheory,reviewQuestions:program.reviewQuestions,generationRequests:program.generationRequests};
+  for(const issue of assignmentPlannerRelationshipIssues(authored,new Set(assignmentPlannerAllowedEvidenceIds(packet)),true,allowedTargets)){
+    const nodeId="nodeId" in issue&&issue.nodeId?issue.nodeId:"measurementId" in issue?issue.measurementId.replace(/^measure-/,""):issue.code==="planner_mystery_academic_instrument_missing"?issue.id:undefined;
+    const reason=issue.code==="planner_unknown_spelling_target"?"unknown_target_word":issue.code==="planner_unknown_evidence_id"?"unknown_evidence_id":issue.code==="planner_missing_measurement"?"measurement_missing":issue.code==="planner_mystery_academic_instrument_missing"?"unsupported_activity:mystery_without_instrument":undefined;
+    if(!nodeId||!reason)throw new Error(`learning_program_expansion_defect:${JSON.stringify(issue)}`); // Code's own bug, never the Planner's.
+    mark(nodeId,`${reason}${"targets" in issue?`:${issue.targets.join(",")}`:"evidenceIds" in issue?`:${issue.evidenceIds.join(",")}`:""}`);
+  }
+  // Only her assigned words and existing evidence may enter the record of a portal that will not run.
+  const sanitized={...authored,activeSessionPlan:{...authored.activeSessionPlan,nodePlan:nodePlan.map(node=>notReady.has(node.id)?{...node,targets:node.targets.filter(target=>allowedTargets.has(target.trim().toLocaleLowerCase("en-US")))}:node)},plannedMeasurements:plannedMeasurements.filter(row=>!notReady.has(row.id.replace(/^measure-/,"")))};
+  const draft=assignmentPlannerDraftSchema.parse(sanitized);
   // The compatibility parser may add legacy defaults; native configuration stays authored.
   draft.activeSessionPlan.nodePlan.forEach((node,index)=>{node.wordRadarConfig=nodePlan[index].wordRadarConfig;});
-  validateAssignmentPlannerRelationships(draft,new Set(assignmentPlannerAllowedEvidenceIds(packet)),true,new Set([...packet.capturedHomework.words,...(packet.capturedHomework.wordGroups??[]).flatMap(group=>group.words)].map(word=>word.toLocaleLowerCase("en-US"))));
   const output=hydrateAssignmentPlannerOutputFromDraft(draft,packet,createdAt);
-  const defects=validateAssignmentPlannerOutput(output,{extraction:packet.sourceDocument,activityCatalog:packet.activityCatalog,requireNodeTitles:true,requireCatalogBinding:true}).filter(issue=>issue.severity==="error");
-  if(defects.length)throw Object.assign(new Error(`learning_program_invalid:${JSON.stringify(defects)}`),{issues:defects});
-  return output;
+  for(const issue of validateAssignmentPlannerOutput(output,{extraction:packet.sourceDocument,activityCatalog:packet.activityCatalog,requireNodeTitles:true,requireCatalogBinding:true}).filter(issue=>issue.severity==="error")){
+    if(!issue.nodeId)throw Object.assign(new Error(`learning_program_invalid:${JSON.stringify(issue)}`),{issues:[issue]});
+    mark(issue.nodeId,`unsupported_activity:${issue.code}`);
+  }
+  return {...output,notReady:[...notReady].map(([nodeId,reason])=>({nodeId,reason}))};
 }
 
 function realChildAllowedActivityIds(

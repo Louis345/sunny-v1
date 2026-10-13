@@ -1,7 +1,8 @@
 import type { GenerationStatus } from "../../hooks/useAdaptiveMathGenerationRefresh";
 import type { PreparationEvent, PreparationStop } from "./adventurePreparationMachine";
 
-const PREPARED = new Set(["ready", "completed", "evidence_locked"]);
+// A not-ready activity is finished preparation: its portal publishes as not ready and is passed over.
+const PREPARED = new Set(["ready", "completed", "evidence_locked", "not_ready"]);
 const FAILED = new Set(["needs_attention", "failed_resumable"]);
 const PLANNING = new Set(["evidence_ready", "targeted_planning"]);
 
@@ -39,4 +40,15 @@ export const PREPARATION_SLOW_AFTER_MS = 6 * 60_000;
 export function isPreparationSlow(startedAt: string | undefined, now: number): boolean {
   const start = startedAt ? Date.parse(startedAt) : NaN;
   return Number.isFinite(start) && now - start >= PREPARATION_SLOW_AFTER_MS;
+}
+
+export type PreparationPhase = "planning" | "designing" | "building" | "ready";
+
+/** The real stage of generation, read from the job, so the waiting screen never invents progress. */
+export function preparationPhaseFromStatus(status: GenerationStatus | null): PreparationPhase | undefined {
+  if (!status) return undefined;
+  if (PLANNING.has(status.phase)) return "planning";
+  if (status.phase === "board_designing") return "designing";
+  if (status.phase === "board_generating") return "building";
+  return status.phase === "board_ready" ? "ready" : undefined;
 }

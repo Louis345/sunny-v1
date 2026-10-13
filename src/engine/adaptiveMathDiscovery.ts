@@ -1373,7 +1373,7 @@ export type TargetedMathNode = {
   routeId?: string;
 };
 
-export type MathGenerationNodeStatus = "preparing" | "ready" | "evidence_locked" | "completed" | "failed_resumable" | "needs_attention";
+export type MathGenerationNodeStatus = "preparing" | "ready" | "evidence_locked" | "completed" | "failed_resumable" | "needs_attention" | "not_ready";
 
 export type MathGenerationJob = {
   version: 1;
@@ -2385,7 +2385,7 @@ export function updateMathGenerationNode(input: {
   if (input.error) node.error = input.error;
   else delete node.error;
   job.updatedAt = node.updatedAt;
-  if (job.nodes.every((candidate) => ["ready", "completed", "evidence_locked"].includes(candidate.status))) {
+  if (job.nodes.every((candidate) => ["ready", "completed", "evidence_locked", "not_ready"].includes(candidate.status))) {
     job.phase = job.phase === "probe_generating" || job.phase === "probe_ready" ? "probe_ready" : "board_ready";
     delete job.error;
   } else if (job.nodes.some((candidate) => candidate.status === "needs_attention")) {
