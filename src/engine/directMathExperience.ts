@@ -1,3 +1,5 @@
+import {assertNativeLearningProgramCorrection,hydrateNativeLearningProgram,nativeLearningProgramToolJsonSchema,resolveAssignmentPlannerModel,type AssignmentPlanningPacket,type AssignmentPlannerOutput,type AssignmentPlannerTelemetry} from "./assignmentPlanner";
+import {requestPlannerMessage,assertPlannerResponseComplete} from "./plannerTransport";
 import {isDeepStrictEqual} from "node:util";
 import {z} from "zod";
 import {learningPlannerInstructions} from "./learningPlannerInstructions";
@@ -1214,7 +1216,9 @@ export function mathDesignHasRoutePresentationBindings(
     && typeof route.previewNodeId === "string" && route.previewNodeId.trim().length > 0);
 }
 
-export type NativeLearningProgram = {domain:"spelling";planId:string;journey:AdventureJourneyDefinition;plan:ActiveSessionPlan};
+export type NativeLearningProgram = {domain:"spelling";planId:string;journey:AdventureJourneyDefinition;plan:ActiveSessionPlan;planningResult?:{output:AssignmentPlannerOutput;telemetry:AssignmentPlannerTelemetry;receivedAt?:string}};
+export type NativePlannedProgram=NativeLearningProgram & {planningResult:NonNullable<NativeLearningProgram["planningResult"]>};
+export type LearningProgram=MathLearningProgram|NativeLearningProgram;
 type LearningCreatorInput = {
   childId: string;
   program: MathLearningProgram | NativeLearningProgram;
@@ -1838,7 +1842,9 @@ export function mathPlannerCandidateCards(chart: ChildChart): PlannerContentCand
   return buildPlannerContentCandidateCards({ chart, domain: "math" });
 }
 
-export async function askDirectMathPlanner(input: {
+type LearningPlannerInput = {
+  domain?:"math"|"spelling";
+  packet?:AssignmentPlanningPacket;
   childId: string;
   chart: ChildChart;
   extraction: AssignmentSourceExtraction;
@@ -1850,9 +1856,24 @@ export async function askDirectMathPlanner(input: {
   priorConceptIds?: string[];
   rawResponseFile?: string;
   maxTokens?: number;
-}): Promise<MathLearningProgram> {
+};
+export function askLearningPlanner(input:LearningPlannerInput & {domain:"spelling";packet:AssignmentPlanningPacket}):Promise<NativePlannedProgram>;
+export function askLearningPlanner(input:LearningPlannerInput & {domain?:"math"}):Promise<MathLearningProgram>;
+export async function askLearningPlanner(input:LearningPlannerInput):Promise<MathLearningProgram|NativePlannedProgram> {
+  const native=input.domain==="spelling";
+  if(native && (!input.packet || input.packet.capturedHomework.contentProfile.practiceDomain!=="spelling"))throw new Error("learning_planner_captured_domain_mismatch");
+  const packet=input.packet;
+  const model=input.model??(native?resolveAssignmentPlannerModel():process.env.SUNNY_PLANNER_MODEL??"claude-opus-5");
+  const maxTokens=input.maxTokens??Number(native?16000:process.env.SUNNY_PLANNER_MAX_TOKENS??32000);
+  const started=Date.now();
   const client = input.client ?? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-  const prompt = `${learningPlannerInstructions('math').text}
+  const prompt = native ? `${learningPlannerInstructions('spelling').text}
+Call create_learning_program exactly once. Return domain, planId, journey, activities and planTheory directly at the tool root. Each activity carries its own measurement; do not invent a separate measurement ID or repeat the inventory in another field. spelling is the preregistered measurement prescription for academic activities and null for nonacademic rewards. It is never a measured learning claim.
+${JOURNEY_AUTHORING_INSTRUCTION}
+Root contains shared opening, the choice, and shared closing. Each option names a separate branch-segment path beginning AFTER that choice. Never include the enclosing choice or root path in an option segment. You choose activities, count, support, alternatives and hypotheses.
+Use available native instruments through their catalog configurations. Request generated content only for a missing capability. Preserve captured words and cite the supplied observation IDs. Separate assisted practice, independent measurements and engagement. Do not claim mastery or readiness.
+Homework and child-chart context:
+${JSON.stringify({homework:packet!.capturedHomework,childChart:packet!.childChart,masteryContext:packet!.masteryContext,activityCatalog:packet!.activityCatalog,discoveryEvidence:packet!.discoveryEvidence})}` : `${learningPlannerInstructions('math').text}
 
 Read the assignment, child chart, prior evidence, and prior calibration. Prescribe the smallest coherent learning program that can test your theory. Teach the concept the teacher is targeting rather than copying or lightly rewriting worksheet questions.
 
@@ -1910,31 +1931,31 @@ ${JSON.stringify(mathPlannerChartContext(input.chart), null, 2)}
 
   Prior factual outcomes and Planner interpretations:
 ${JSON.stringify(factualModelContext(input.priorOutcomes ?? []), null, 2)}`;
-  const toolName = "create_math_learning_program";
-  const plannerContent = assignmentPlannerContent(input.extraction,prompt);
+  const toolName = native?"create_learning_program":"create_math_learning_program";
+  const plannerContent = native?[{type:"text" as const,text:prompt}]:assignmentPlannerContent(input.extraction,prompt);
   // A whole board — every activity, item, prediction and creator prompt — is a
   // long generation against a 20k token budget, and the non-streaming request
   // was timing out before it finished. Stream it, as the Creator already does.
   const request = {
-    model: input.model ?? process.env.SUNNY_PLANNER_MODEL ?? "claude-opus-5",
-    max_tokens: input.maxTokens ?? Number(process.env.SUNNY_PLANNER_MAX_TOKENS ?? 32000),
+    model,
+    max_tokens:maxTokens,
     messages: [{ role: "user", content: plannerContent }],
     tools: [{
       name: toolName,
-      description: "Return the academic-only math learning program.",
-      input_schema: MATH_LEARNING_PROGRAM_TOOL_SCHEMA,
+      description: native?"Return the semantic spelling program with inline instrument measurements.":"Return the academic-only math learning program.",
+      input_schema: native?nativeLearningProgramToolJsonSchema(packet!.activityCatalog) as Anthropic.Messages.Tool.InputSchema:MATH_LEARNING_PROGRAM_TOOL_SCHEMA,
     }],
     tool_choice: { type: "tool", name: toolName },
   } satisfies Parameters<typeof client.messages.stream>[0];
-  const execute = () => client.messages.stream(request, { timeout: Number(process.env.SUNNY_AI_TIMEOUT_MS ?? 600000) }).finalMessage();
+  const execute = () => native?requestPlannerMessage(client,request):client.messages.stream(request, { timeout: Number(process.env.SUNNY_AI_TIMEOUT_MS ?? 600000),maxRetries:0 }).finalMessage();
   const response = input.rawResponseFile
     ? await runMathProviderStage({draftDir:path.dirname(input.rawResponseFile),stage:"targeted-planner",model:request.model,request,execute})
     : await execute();
-  if (input.rawResponseFile) {
+  if (input.rawResponseFile && !fs.existsSync(input.rawResponseFile)) {
     fs.mkdirSync(path.dirname(input.rawResponseFile), { recursive: true });
     fs.writeFileSync(input.rawResponseFile, `${JSON.stringify({
       ...response,
-      model: input.model ?? process.env.SUNNY_PLANNER_MODEL ?? "claude-opus-5",
+      model,
       stopReason: response.stop_reason,
       usage: response.usage,
       content: response.content,
@@ -1946,9 +1967,14 @@ ${JSON.stringify(factualModelContext(input.priorOutcomes ?? []), null, 2)}`;
     content: response.content,
   };
   try {
+    if(native)return nativeProgramFromResponse(savedResponse,packet!,model,Date.now()-started);
     const program=parseSavedDirectMathPlannerResponse(savedResponse, input.maxTokens ?? Number(process.env.SUNNY_PLANNER_MAX_TOKENS ?? 32000));
     return input.rawResponseFile ? await verifyMathPlannerCanvas(program,input.rawResponseFile) : program;
   } catch (error) {
+    if(native){
+      if(!nativePlannerContractError(error))throw error;
+      return correctNativeLearningProgram({savedResponse,packet:packet!,model,client,rawResponseFile:input.rawResponseFile,initialError:error,started});
+    }
     if (!correctableMathPlannerTruthError(error)) throw error;
     console.log(` 🎮 [adaptive-math] [targeted-planner-truth] [correction-required] child=${input.childId} reason=${error.message}`);
     return correctSavedDirectMathPlannerResponse({
@@ -1960,6 +1986,45 @@ ${JSON.stringify(factualModelContext(input.priorOutcomes ?? []), null, 2)}`;
       ...(input.rawResponseFile ? { correctionResponseFile: input.rawResponseFile.replace(/\.json$/i, "-correction.json") } : {}),
     });
   }
+}
+
+/** Compatibility command; both domains enter the same Planner request sequence. */
+export function askDirectMathPlanner(input:LearningPlannerInput & {domain?:"math"}):Promise<MathLearningProgram>{return askLearningPlanner(input);}
+function nativePlannerContractError(error:unknown):error is Error {
+ return error instanceof z.ZodError || (error instanceof Error && ["learning_program_invalid:","assignment_planner_relationship_invalid:","board_definition_","planner_tool_output_missing_or_multiple:"].some(prefix=>error.message.startsWith(prefix)));
+}
+function nativeProgramFromResponse(response:unknown,packet:AssignmentPlanningPacket,model:string,latencyMs:number):NativePlannedProgram {
+ const message=response as Anthropic.Messages.Message;assertPlannerResponseComplete(message);
+ const tools=message.content.filter(block=>block.type==="tool_use"&&block.name==="create_learning_program");
+ if(tools.length!==1 || tools[0].type!=="tool_use")throw new Error("planner_tool_output_missing_or_multiple:create_learning_program");
+ const output=hydrateNativeLearningProgram(tools[0].input,packet);
+ return {domain:"spelling",planId:output.activeSessionPlan.planId,journey:output.activeSessionPlan.journey!,plan:output.activeSessionPlan,planningResult:{output,telemetry:{model,latencyMs},receivedAt:output.activeSessionPlan.createdAt}};
+}
+async function correctNativeLearningProgram(input:{savedResponse:unknown;packet:AssignmentPlanningPacket;model:string;client:Anthropic;rawResponseFile?:string;initialError:Error;started:number}):Promise<NativePlannedProgram> {
+ let prior=input.savedResponse,defect=input.initialError;
+ const identity=crypto.createHash("sha256").update(JSON.stringify(input.packet)).digest("hex");
+ for(let attempt=1;attempt<=2;attempt++){
+  const stage=`targeted-planner-correction-${attempt}`;
+  let envelope={identity,request:{model:input.model,max_tokens:16000,messages:[{role:"user" as const,content:`Correct only the diagnosed tool arguments and directly dependent fields. Preserve valid activity IDs, configs, count, educational choices and factual evidence. Return domain, planId, journey, activities (each with its measurement) and planTheory at the tool root, not under activeSessionPlan. Option paths are branch segments AFTER the choice; omit shared opening and closing portals. This is bounded correction ${attempt} of 2.
+DEFECT: ${defect.message}
+PRIOR RESPONSE: ${JSON.stringify(prior)}
+CAPTURED HOMEWORK AND EVIDENCE: ${JSON.stringify({homework:input.packet.capturedHomework,discovery:input.packet.discoveryEvidence})}`}],tools:[{name:"create_learning_program",description:"Correct the cited native learning program arguments.",input_schema:nativeLearningProgramToolJsonSchema(input.packet.activityCatalog) as Anthropic.Messages.Tool.InputSchema}],tool_choice:{type:"tool" as const,name:"create_learning_program"}}};
+  const directory=input.rawResponseFile?path.dirname(input.rawResponseFile):undefined;
+  const pointer=directory?path.join(directory,"provider-receipts",`${stage}.stage.json`):undefined;
+  if(pointer && fs.existsSync(pointer)){
+   const {requestHash}=JSON.parse(fs.readFileSync(pointer,"utf8"));const receipt=JSON.parse(fs.readFileSync(path.join(directory!,"provider-receipts",`${requestHash}.json`),"utf8"));
+   const frozen=JSON.parse(fs.readFileSync(path.join(directory!,"provider-diagnostics",`${requestHash}.attempt-${receipt.attempts?.length??1}.request.json`),"utf8")).context;
+   if(frozen.identity!==identity)throw new Error("learning_planner_correction_identity_mismatch");envelope=frozen;
+  }
+  const execute=()=>requestPlannerMessage(input.client,envelope.request);
+  const response=directory?await runMathProviderStage({draftDir:directory,stage,model:input.model,request:envelope,execute}):await execute();
+  const toolInput=(message:unknown)=>{const content=(message as Anthropic.Messages.Message).content;return content.find(block=>block.type==="tool_use"&&block.name==="create_learning_program") as Anthropic.Messages.ToolUseBlock|undefined;};
+  const original=toolInput(input.savedResponse),candidate=toolInput(response);
+  if(original&&candidate)assertNativeLearningProgramCorrection(original.input,candidate.input,input.initialError);
+  try{return nativeProgramFromResponse(response,input.packet,input.model,Date.now()-input.started);}
+  catch(error){if(!nativePlannerContractError(error))throw error;prior=response;defect=error;console.warn(` 🎮 [learning-planner] [correction] [invalid] attempt=${attempt} ${defect.message}`);}
+ }
+ throw defect;
 }
 
 async function download(url: string, destination: string): Promise<void> {

@@ -69,7 +69,9 @@ describe("Planner-authored spelling node titles survive the real parser", () => 
   it("publishes a normal multi-node program with distinct authored titles and resumes from raw receipt", async () => {
     const f = await fixture(); transport.create.mockResolvedValue(structuredClone(f.message));
     const before = getLearningCycle(f.childId, f.homeworkId, f)!;
-    await f.worker();
+        // Historical wire fixture: receive its legacy work before exercising read-only migration.
+    await f.run();
+await f.worker();
     const cycle = getLearningCycle(f.childId, f.homeworkId, f)!;
     expect(cycle.nodes.filter(node => node.role !== "evaluation").map(node => ({ id: node.nodeId, title: node.title }))).toEqual([
       // The saved Planner response still contains a Quest placeholder; contract 21 keeps it off the board.
@@ -93,7 +95,9 @@ describe("Planner-authored spelling node titles survive the real parser", () => 
   ])("revalidates a saved board after local publication failure %s without another Planner call", async (savedError) => {
     const f = await fixture();
     transport.create.mockResolvedValue(structuredClone(f.message));
-    await f.worker();
+        // Historical wire fixture: receive its legacy work before exercising read-only migration.
+    await f.run();
+await f.worker();
     const savedResponse = fs.readFileSync(path.join(f.draftDir, "spelling-targeted-response.json"), "utf8");
     const jobFile = path.join(f.draftDir, "adaptive-generation-job.json");
     const job = JSON.parse(fs.readFileSync(jobFile, "utf8"));
@@ -540,7 +544,9 @@ describe("spelling Planner raw-response durability", () => {
       .mockResolvedValueOnce(relationshipInvalid)
       .mockResolvedValueOnce(corrected);
 
-    await f.worker();
+        // Historical wire fixture: receive its legacy work before exercising read-only migration.
+    await f.run();
+await f.worker();
     expect(getMathGenerationStatus(f.childId, f.homeworkId, f)?.phase).toBe("board_ready");
     expect(fs.existsSync(path.join(f.draftDir, "spelling-targeted-response.json"))).toBe(true);
     expect(f.readReceipt()).toMatchObject({ status: "received", response: { message: relationshipInvalid } });
@@ -596,7 +602,8 @@ describe("spelling Planner raw-response durability", () => {
     f.message.content[1].input!.activeSessionPlan.nodePlan[0].activityId = "clock-game";
     transport.create.mockResolvedValue(structuredClone(f.message));
     const before = getLearningCycle(f.childId, f.homeworkId, f)!;
-    await expect(f.worker()).rejects.toThrow("assignment_planner_validation_failed:unknown_activity_id");
+        await expect(f.run()).rejects.toThrow("unknown activity clock-game");
+await expect(f.worker()).rejects.toThrow("assignment_planner_validation_failed:unknown_activity_id");
     const diagnostics = path.join(f.draftDir, "provider-diagnostics");
     const failureFile = fs.readdirSync(diagnostics).find(name => name.endsWith(".failure.json"))!;
     const failure = JSON.parse(fs.readFileSync(path.join(diagnostics, failureFile), "utf8"));
@@ -625,7 +632,9 @@ describe("spelling Planner raw-response durability", () => {
     // Keep the intervention and its checkpoint together: a clean miss may not
     // be rechecked without first being addressed by the saved plan.
     transport.create.mockResolvedValue(structuredClone(f.message));
-    await f.worker();
+        // Historical wire fixture: receive its legacy work before exercising read-only migration.
+    await f.run();
+await f.worker();
     const checkpoint = path.join(f.draftDir, "spelling-targeted-response.json");
     const original = fs.readFileSync(checkpoint, "utf8");
     const saved = JSON.parse(original);

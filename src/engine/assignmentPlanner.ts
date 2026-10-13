@@ -257,6 +257,7 @@ export type AssignmentPlanValidationIssue = {
     | "target_lane_mismatch"
     | "activity_renderer_mismatch"
     | "unknown_activity_id";
+  nodeId?: string;
   severity: "error" | "warning";
   message: string;
 };
@@ -264,7 +265,7 @@ export type AssignmentPlanValidationIssue = {
 export type AssignmentPlanningOptions = {
   model?: string;
   callPlannerModel?: AssignmentPlannerModelCaller;
-  providerReceipt?: { draftDir: string; stage: string };
+  providerReceipt?: { draftDir: string; stage: string; readOnlyReplay?:boolean };
 };
 
 const spellingIntakeUncertaintySchema = z.object({
@@ -728,7 +729,7 @@ const planTheorySchema: z.ZodType<PlanTheory> = z.object({
   falsifyCriteria: z.array(z.string().min(1)).min(1),
 });
 
-const plannedMeasurementSchema: z.ZodType<PlannedMeasurement> = z.object({
+const plannedMeasurementSchema = z.object({
   id: z.string().min(1),
   activityId: z.string().min(1),
   target: z.string().min(1),
@@ -983,6 +984,101 @@ export const assignmentPlannerDraftSchema = z.object({
     evidenceUsed: z.array(z.string().min(1)),
   })).max(3).optional(),
 }).passthrough();
+
+const nativeMeasurementSchema=plannedMeasurementSchema.omit({id:true,activityId:true,target:true}).extend({spelling:plannedMeasurementSchema.shape.spelling.unwrap().nullable()}).strict();
+const nativeLearningProgramSchema=z.object({
+  domain:z.literal("spelling"),planId:z.string().min(1),journey:adventureJourneySchema,
+  activities:z.array(compactNodePlanSchema.extend({measurement:nativeMeasurementSchema}).strict()).min(1).max(12),
+  planTheory:planTheorySchema,reviewQuestions:z.array(z.string()).max(8).default([]),
+  generationRequests:z.array(generationRequestSchema).max(6).default([]),
+  evidenceUsed:compactActiveSessionPlanSchema.shape.evidenceUsed,
+}).strict();
+/** The native domain uses the same LearningProgram boundary, with inline instrument bindings. */
+export function nativeLearningProgramToolJsonSchema(catalog:AssignmentPlanningPacket["activityCatalog"]):Record<string,unknown> {
+  const schema=z.toJSONSchema(nativeLearningProgramSchema,{io:"input"}) as JsonSchemaObject;
+  const legacy=assignmentPlannerToolJsonSchema(true,catalog) as JsonSchemaObject;
+  const node=schemaProperties(schemaProperties(legacy).activeSessionPlan).nodePlan.items as JsonSchemaObject;
+  const measurement=schemaProperties(schemaProperties(schema).activities.items as JsonSchemaObject).measurement;
+  schemaProperties(node).measurement=measurement;
+  setSchemaRequired(node,[...(node.required as string[]),"measurement"]);
+  schemaProperties(schema).activities.items=node;
+  return schema;
+}
+/** Correction permissions come from concrete tool defects, never educational preferences. */
+export function assertNativeLearningProgramCorrection(original:unknown,corrected:unknown,error:Error):void {
+  const a=jsonObject(original),b=jsonObject(corrected);if(!a||!b)throw new Error("learning_program_correction_changed_protected_fields");
+  const editable:Array<Array<string|number>>=[];
+  const missingEdges=new Set<string>();
+  if(error instanceof z.ZodError){
+    for(const issue of error.issues){
+      const keys=(issue as unknown as {keys?:string[]}).keys;
+      if(keys)for(const key of keys)editable.push([...issue.path.filter((p):p is string|number=>typeof p==='string'||typeof p==='number'),key]);
+      else editable.push(issue.path.filter((p):p is string|number=>typeof p==='string'||typeof p==='number'));
+    }
+  }else{
+    const defects=(error as Error&{issues?:Array<{code:string;measurementId?:string;nodeId?:string;id?:string;message?:string}>}).issues;
+    if(defects)for(const defect of defects){
+      const nodes=Array.isArray(a.activities)?a.activities.map(jsonObject):[];
+      const index=nodes.findIndex(node=>node?.id===defect.nodeId||`measure-${node?.id}`===defect.measurementId);
+      if(index>=0){
+        if(defect.code.includes('evidence'))editable.push(['activities',index,'measurement','spelling','evidenceIds']);
+        else if(defect.code==='planner_unknown_spelling_target')editable.push(['activities',index,'targets']);
+        else if(['missing_word_radar_config','word_radar_capability_mismatch'].includes(defect.code))editable.push(['activities',index,'wordRadarConfig']);
+        else if(defect.code==='activity_renderer_mismatch')editable.push(['activities',index,'type']);
+        else if(defect.code==='missing_node_title')editable.push(['activities',index,'title']);
+        else if(defect.code==='target_lane_mismatch')editable.push(['activities',index,'targetLane']);
+        else if(defect.code==='word_radar_unrendered_teaching')editable.push(['activities',index,'rounds'],['activities',index,'activityConfig','teachingFocus']);
+        else if(defect.code==='planner_missing_measurement')editable.push(['activities',index,'measurement','spelling']);
+        else if(defect.code.includes('intervention')||defect.code==='planner_checkpoint_lineage_missing')editable.push(['activities',index,'measurement','spelling','interventionNodeIds']);
+      }
+      if(defect.code==='path_edge_missing'){
+        const match=defect.message?.match(/^Missing declared edge (.+) -> (.+)\.$/);
+        if(match)missingEdges.add(`${match[1]}\0${match[2]}`);
+      }
+      const journey=jsonObject(a.journey),paths=journey?.paths,choices=journey?.choices;
+      if(defect.code==='path_cycle' && Array.isArray(paths) && Array.isArray(choices)){
+        const choice=choices.map(jsonObject).find(row=>row?.id===defect.message?.slice('path_cycle:'.length));
+        if(choice && Array.isArray(choice.options))choice.options.forEach((option,j)=>{
+          const ref=jsonObject(option)?.pathId;
+          if(ref===journey?.rootPathId){const i=choices.indexOf(choice);editable.push(['journey','choices',i,'options',j,'pathId']);}
+          else paths.forEach((row,i)=>{const p=jsonObject(row);if(p && p.id===ref && Array.isArray(p.portalIds) && p.portalIds.includes(choice.portalId))editable.push(['journey','paths',i,'portalIds']);});
+        });
+      }
+      if(defect.code==='path_missing' && Array.isArray(choices))choices.forEach((row,i)=>{const options=jsonObject(row)?.options;if(Array.isArray(options))options.forEach((option,j)=>{if(jsonObject(option)?.pathId===defect.message?.slice('path_missing:'.length))editable.push(['journey','choices',i,'options',j,'pathId']);});});
+    }
+  }
+  const known=Object.keys(nativeLearningProgramSchema.shape);
+  const left=Object.fromEntries(known.filter(key=>key in a).map(key=>[key,structuredClone(a[key])]));
+  const right=Object.fromEntries(known.filter(key=>key in a).map(key=>[key,structuredClone(b[key])]));
+  const remove=(value:Record<string,unknown>,parts:Array<string|number>)=>{
+    let current:unknown=value;
+    for(const part of parts.slice(0,-1)){if(!current||typeof current!=='object')return;current=(current as Record<string,unknown>)[String(part)];}
+    if(current&&typeof current==='object'&&parts.length)delete (current as Record<string,unknown>)[String(parts.at(-1)!)];
+  };
+  if(missingEdges.size){
+    const existing=jsonObject(a.journey)?.edges;
+    const existingIds=new Set(Array.isArray(existing)?existing.map(edge=>jsonObject(edge)?.id):[]);
+    const journey=jsonObject(right.journey);
+    if(journey && Array.isArray(journey.edges))journey.edges=journey.edges.filter(edge=>{const row=jsonObject(edge);return !row || existingIds.has(row.id) || !missingEdges.has(`${row.from}\0${row.to}`);});
+  }
+  editable.forEach(parts=>{remove(left,parts);remove(right,parts);});
+  if(!isDeepStrictEqual(left,right))throw new Error("learning_program_correction_changed_protected_fields");
+}
+
+export function hydrateNativeLearningProgram(raw:unknown,packet:AssignmentPlanningPacket,createdAt?:string):AssignmentPlannerOutput {
+  const program=nativeLearningProgramSchema.parse(raw);
+  const nodePlan=program.activities.map(({measurement:_measurement,...node})=>node);
+  const plannedMeasurements=program.activities.map(({measurement,...activity})=>{
+    const {spelling,...fields}=measurement;
+    return {...fields,id:`measure-${activity.id}`,activityId:activity.activityId,target:activity.targets.length?activity.targets.join(","):activity.id,...(spelling?{spelling}:{})};
+  });
+  const draft=assignmentPlannerDraftSchema.parse({activeSessionPlan:{planId:program.planId,journey:program.journey,nodePlan,evidenceUsed:program.evidenceUsed},plannedMeasurements,planTheory:program.planTheory,reviewQuestions:program.reviewQuestions,generationRequests:program.generationRequests});
+  validateAssignmentPlannerRelationships(draft,new Set(assignmentPlannerAllowedEvidenceIds(packet)),true,new Set([...packet.capturedHomework.words,...(packet.capturedHomework.wordGroups??[]).flatMap(group=>group.words)].map(word=>word.toLocaleLowerCase("en-US"))));
+  const output=hydrateAssignmentPlannerOutputFromDraft(draft,packet,createdAt);
+  const defects=validateAssignmentPlannerOutput(output,{extraction:packet.sourceDocument,activityCatalog:packet.activityCatalog,requireNodeTitles:true,requireCatalogBinding:true}).filter(issue=>issue.severity==="error");
+  if(defects.length)throw Object.assign(new Error(`learning_program_invalid:${JSON.stringify(defects)}`),{issues:defects});
+  return output;
+}
 
 function realChildAllowedActivityIds(
   childId: string,
@@ -1614,13 +1710,14 @@ export function validateAssignmentPlannerOutput(
     const capability = catalog.find(card => card.launchable && card.activityId === node.activityId);
     if (args.requireCatalogBinding && capability
       && node.type !== (capability.nodeType ?? normalizeAssignmentNodeType(capability.activityId, capability.activityId))) {
-      issues.push({ code: "activity_renderer_mismatch", severity: "error", message: `Node ${node.id} activity ${node.activityId} cannot launch renderer ${node.type}.` });
+      issues.push({ nodeId:node.id, code: "activity_renderer_mismatch", severity: "error", message: `Node ${node.id} activity ${node.activityId} cannot launch renderer ${node.type}.` });
     }
     if (args.requireNodeTitles && !node.title?.trim()) {
-      issues.push({ code: "missing_node_title", severity: "error", message: `Node ${node.id} is missing its Planner-authored title.` });
+      issues.push({ nodeId:node.id, code: "missing_node_title", severity: "error", message: `Node ${node.id} is missing its Planner-authored title.` });
     }
     if (!activityIds.has(node.activityId)) {
       issues.push({
+        nodeId:node.id,
         code: "unknown_activity_id",
         severity: "error",
         message: `Node ${node.id} references unknown activity ${node.activityId}.`,
@@ -1628,6 +1725,7 @@ export function validateAssignmentPlannerOutput(
     }
     if (!isPlannerDestinationActivity(node.activityId) && !measurementIds.has(`measure-${node.id}`)) {
       issues.push({
+        nodeId:node.id,
         code: "missing_node_measurement",
         severity: "error",
         message: `Learning node ${node.id} must have planned measurement id measure-${node.id} with support, revise, and falsify criteria.`,
@@ -1642,6 +1740,7 @@ export function validateAssignmentPlannerOutput(
       const outOfLaneTargets = [...nodeTargetKeys].filter((target) => !laneTargets.has(target));
       if (outOfLaneTargets.length > 0) {
         issues.push({
+        nodeId:node.id,
           code: "target_lane_mismatch",
           severity: "error",
           message: `Node ${node.id} targetLane ${declaredLaneGroup.id} includes out-of-lane targets: ${outOfLaneTargets.join(", ")}.`,
@@ -1650,6 +1749,7 @@ export function validateAssignmentPlannerOutput(
     }
     if (node.type === "word-radar" && !node.wordRadarConfig) {
       issues.push({
+        nodeId:node.id,
         code: "missing_word_radar_config",
         severity: "error",
         message: `Word Radar node ${node.id} must include planner-selected wordRadarConfig.`,
@@ -1657,6 +1757,7 @@ export function validateAssignmentPlannerOutput(
     }
     if (node.type === "word-radar" && (node.rounds?.length || typeof node.activityConfig?.teachingFocus === "string")) {
       issues.push({
+        nodeId:node.id,
         code: "word_radar_unrendered_teaching",
         severity: "error",
         message: `Word Radar node ${node.id} contains rounds or teachingFocus that its child-facing screen cannot render; choose an instrument that displays the teaching or remove unsupported content.`,
@@ -1670,6 +1771,7 @@ export function validateAssignmentPlannerOutput(
       );
       if (!matchesCatalogMode) {
         issues.push({
+        nodeId:node.id,
           code: "word_radar_capability_mismatch",
           severity: "error",
           message: `Word Radar node ${node.id} response contract does not match a catalog capability mode.`,
@@ -2238,7 +2340,8 @@ async function callAssignmentPlannerModel(
     return { message, model, latencyMs: Date.now() - started, createdAt: new Date().toISOString() };
   };
   const received = providerReceipt ? await runMathProviderStage({ ...providerReceipt, model, request: packet, beforeRequest: () => {
-    if (!process.env.ANTHROPIC_API_KEY) throw new Error("assignment_planner_ai_unavailable:ANTHROPIC_API_KEY");
+    if(providerReceipt?.readOnlyReplay)throw new Error("legacy_planner_read_only:no_new_provider_calls");
+        if (!process.env.ANTHROPIC_API_KEY) throw new Error("assignment_planner_ai_unavailable:ANTHROPIC_API_KEY");
   }, execute: receive }) : await receive();
   if ("result" in received) return received;
   // The entire provider message, including usage and non-tool blocks, is durable
@@ -2315,7 +2418,7 @@ async function callAssignmentPlannerModel(
         const correctionStarted=Date.now();
         const correction=await runMathProviderStage({draftDir:providerReceipt.draftDir,stage,model,
           request:{version:7,attempt,strict:true,purpose:"assignment_planner_measurement_field_correction",originalRequestHash:hashDiscoveryContract(packet),invalidToolInput:current,fields,schemaHash:hashDiscoveryContract(schema),defects,allowedEvidenceIds},
-          beforeRequest:()=>{if(!process.env.ANTHROPIC_API_KEY)throw new Error("assignment_planner_ai_unavailable:ANTHROPIC_API_KEY");},
+          beforeRequest:()=>{if(providerReceipt?.readOnlyReplay)throw new Error("legacy_planner_read_only:no_new_provider_calls");if(!process.env.ANTHROPIC_API_KEY)throw new Error("assignment_planner_ai_unavailable:ANTHROPIC_API_KEY");},
           execute:async()=>({message:await requestAssignmentPlannerTool({model,schema,measurementOnly:true,prompt:`Correct only the named measurement fields. Return corrections [{path,value}], not a complete plan. Every other field is immutable. A nonacademic Mystery reward has no spelling measurement: use value:null for its spelling field without removing its activity. Evidence IDs must come from the supplied observations. Checkpoints cite prior exposures for their target words on each executable path. Preserve already-valid checkpoint references. Do not emit Quest or Boss nodes, locked or otherwise. This is correction ${attempt} of 2.\nDEFECT: ${JSON.stringify(defects)}\nEDITABLE FIELDS: ${JSON.stringify(fields)}\nCURRENT MEASUREMENTS: ${JSON.stringify(raw.plannedMeasurements)}\nAVAILABLE EVIDENCE IDS: ${JSON.stringify(allowedEvidenceIds)}\nREAD-ONLY ACTIVITY INVENTORY: ${JSON.stringify((jsonObject(raw.activeSessionPlan)?.nodePlan as unknown[]).map(node=>{const n=jsonObject(node)!;return {id:n.id,type:n.type,targets:n.targets};}))}\nREAD-ONLY PATHS: ${JSON.stringify(jsonObject(raw.activeSessionPlan)?.journey ?? jsonObject(raw.activeSessionPlan)?.boardDefinition)}`}),model,latencyMs:Date.now()-correctionStarted,createdAt:new Date().toISOString()})});
         console.log(` 🎮 [assignment-planner] [measurement-field-correction] [received] id=${correction.message.id} attempt=${attempt}`);
         assertPlannerResponseComplete(correction.message);
@@ -2375,6 +2478,7 @@ async function callAssignmentPlannerModel(
       model,
       request: frozenCorrectionRequest,
       beforeRequest: () => {
+        if(providerReceipt?.readOnlyReplay)throw new Error("legacy_planner_read_only:no_new_provider_calls");
         if (!process.env.ANTHROPIC_API_KEY) throw new Error("assignment_planner_ai_unavailable:ANTHROPIC_API_KEY");
       },
       execute: async () => ({
@@ -2416,7 +2520,8 @@ async function callAssignmentPlannerModel(
         model,
         request: schemaCorrectionRequest,
         beforeRequest: () => {
-          if (!process.env.ANTHROPIC_API_KEY) throw new Error("assignment_planner_ai_unavailable:ANTHROPIC_API_KEY");
+          if(providerReceipt?.readOnlyReplay)throw new Error("legacy_planner_read_only:no_new_provider_calls");
+        if (!process.env.ANTHROPIC_API_KEY) throw new Error("assignment_planner_ai_unavailable:ANTHROPIC_API_KEY");
         },
         execute: async () => ({
           message: await requestAssignmentPlannerTool({
@@ -2459,7 +2564,8 @@ async function callAssignmentPlannerModel(
         model,
         request: measurementRequest,
         beforeRequest: () => {
-          if (!process.env.ANTHROPIC_API_KEY) throw new Error("assignment_planner_ai_unavailable:ANTHROPIC_API_KEY");
+          if(providerReceipt?.readOnlyReplay)throw new Error("legacy_planner_read_only:no_new_provider_calls");
+        if (!process.env.ANTHROPIC_API_KEY) throw new Error("assignment_planner_ai_unavailable:ANTHROPIC_API_KEY");
         },
         execute: async () => ({
           message: await requestAssignmentPlannerTool({
@@ -2879,6 +2985,7 @@ async function planAssignmentFromSourceInternal(
         model,
         request: correctionRequest,
         beforeRequest: () => {
+          if(opts.providerReceipt?.readOnlyReplay)throw new Error("legacy_planner_read_only:no_new_provider_calls");
           if (!process.env.ANTHROPIC_API_KEY) throw new Error("assignment_planner_ai_unavailable:ANTHROPIC_API_KEY");
         },
         execute: async () => ({
@@ -2925,7 +3032,8 @@ async function planAssignmentFromSourceInternal(
           model,
           request: secondRequest,
           beforeRequest: () => {
-            if (!process.env.ANTHROPIC_API_KEY) throw new Error("assignment_planner_ai_unavailable:ANTHROPIC_API_KEY");
+            if(opts.providerReceipt?.readOnlyReplay)throw new Error("legacy_planner_read_only:no_new_provider_calls");
+          if (!process.env.ANTHROPIC_API_KEY) throw new Error("assignment_planner_ai_unavailable:ANTHROPIC_API_KEY");
           },
           execute: async () => ({
             message: await requestAssignmentPlannerTool({ prompt: secondCanvasOnly ? canvasCorrectionPrompt(priorCorrected,remainingIssues) : secondPrompt, model, geometryOnly:secondCanvasOnly, repairBackground:secondRepairBackground, schema: secondCanvasOnly ? assignmentPlannerCanvasCorrectionSchema(priorCorrected,secondRepairBackground) : assignmentPlannerWordRadarCorrectionSchema(packet) }),

@@ -6,13 +6,13 @@ const geometry = z.object({ landscape: z.array(point).max(8), portrait: z.array(
 const palette = z.object({ path:id, completed:id, available:id, locked:id, current:id, preview:id, text:id, panel:id }).strict();
 /** The same schema describes the authoring tool and validates its immutable output. */
 export const adventureBoardDefinitionSchema = z.object({
-  version: z.literal(2), title: id, rationale: id, rootPathId: id,
+  version: z.literal(2), title: id, rationale: id, rootPathId: id.describe("Shared opening and closing sequence. Options name separate insertion paths, never this root path."),
   portals: z.array(z.object({
     id, label:id, kind:z.enum(['start','activity','choice','endpoint']), activityNodeId:id.optional(),
     icon:id.optional(), thumbnailUrl:id.optional(),
     position:z.object({ landscape:point, portrait:point }).strict(),
   }).strict()).min(1).max(128),
-  paths:z.array(z.object({ id, portalIds:z.array(id).min(1).max(128) }).strict()).min(1).max(32),
+  paths:z.array(z.object({ id, portalIds:z.array(id).min(1).max(128).describe("Ordered portals. An option path contains only its branch segment after the choice: omit already-visited start/choice portals and shared closing portals resumed from the root.") }).strict()).min(1).max(32),
   choices:z.array(z.object({ id, portalId:id, purpose:id, options:z.array(z.object({ id, label:id, pathId:id, hypothesis:id }).strict()).min(2).max(8) }).strict()).max(12),
   edges:z.array(z.object({ id, from:id, to:id, style:z.enum(['solid','dashed','glow']).optional(), controlPoints:geometry.optional() }).strict()).max(256),
   theme:z.object({ background:z.object({type:z.enum(['image','gradient','solid']),value:id}).strict(), palette }).strict(),

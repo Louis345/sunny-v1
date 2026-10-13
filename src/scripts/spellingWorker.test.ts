@@ -1,5 +1,5 @@
 import {journeyFromBoardDefinition,compositionFromBoardDefinition,assembleAdventureBoardDefinition} from "../shared/adventureBoardDefinition";
-import {askLearningExperienceDesigner} from "../engine/directMathExperience";
+import {askLearningPlanner,askLearningExperienceDesigner} from "../engine/directMathExperience";
 import {linearJourneyFixture} from "./fixtures/authoredJourney";
 import fs from "node:fs";
 import os from "node:os";
@@ -19,7 +19,7 @@ import { generateStoryImage } from "../utils/generateStoryImage";
 import type { ActiveSessionPlan } from "../context/schemas/learningProfile";
 vi.mock("../utils/generateStoryImage", () => ({ generateStoryImage: vi.fn() }));
 vi.mock("../engine/assignmentPlanner", async original => ({ ...await original<typeof import("../engine/assignmentPlanner")>(), planAssignmentFromSourceWithTelemetry: vi.fn() }));
-vi.mock("../engine/directMathExperience", async original => ({ ...await original<typeof import("../engine/directMathExperience")>(), askLearningExperienceDesigner:vi.fn(async (input:any)=>({packet:{},plan:{...input.program.plan,boardDefinition:assembleAdventureBoardDefinition(input.program.journey,compositionFromBoardDefinition(linearJourneyFixture(input.program.plan.nodePlan.map((n:any)=>n.id))))}})), askDirectMathPlanner: vi.fn(async () => { throw new Error("test_forbids_math_planner_for_spelling"); }) }));
+vi.mock("../engine/directMathExperience", async original => ({ ...await original<typeof import("../engine/directMathExperience")>(), askLearningPlanner:vi.fn(async(input:any)=>({domain:"spelling",planningResult:await planAssignmentFromSourceWithTelemetry(input.packet)})), askLearningExperienceDesigner:vi.fn(async (input:any)=>({packet:{},plan:{...input.program.plan,boardDefinition:assembleAdventureBoardDefinition(input.program.journey,compositionFromBoardDefinition(linearJourneyFixture(input.program.plan.nodePlan.map((n:any)=>n.id))))}})), askDirectMathPlanner: vi.fn(async () => { throw new Error("test_forbids_math_planner_for_spelling"); }) }));
 const roots: string[] = [];
 afterEach(() => { vi.clearAllMocks(); vi.useRealTimers(); vi.unstubAllEnvs(); vi.unstubAllGlobals(); roots.splice(0).forEach(root => fs.rmSync(root, { recursive: true, force: true })); });
 describe("spelling in the production generation worker", () => {
@@ -104,6 +104,7 @@ describe("spelling in the production generation worker", () => {
     });
     await runAdaptiveMathGeneration(childId, homeworkId, rootDir);
     if(scenario==="semantic")expect(askLearningExperienceDesigner).toHaveBeenCalledTimes(1);
+    expect(askLearningPlanner).toHaveBeenCalledTimes(1);
     const imageCallsAfterFirstRun = vi.mocked(generateStoryImage).mock.calls.length;
     const frozenFile = path.join(child, "homework/direct-drafts", homeworkId, "spelling-targeted-response.json");
     const frozenResult = JSON.parse(fs.readFileSync(frozenFile, "utf8")).result;

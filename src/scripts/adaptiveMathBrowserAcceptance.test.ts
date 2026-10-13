@@ -18,7 +18,7 @@ import { ASSIGNMENT_SOURCE_CONTRACT_VERSION, assignmentSourceFileHash } from "..
 import { DISCOVERY_VERIFIER_VERSION } from "../engine/discoveryVisualReview";
 import { prepareSuccessorBoard } from "../engine/canonicalProgressionGenerator";
 import { buildLongitudinalLearningHistory } from "../engine/longitudinalLearning";
-import { askDirectMathPlanner, askMathExperienceDesigner, generateDirectArtifacts, runDirectBrowserSmokeCheck } from "../engine/directMathExperience";
+import { askLearningPlanner, askMathExperienceDesigner, generateDirectArtifacts, runDirectBrowserSmokeCheck } from "../engine/directMathExperience";
 import { createHash } from "node:crypto";
 import { projectLearningCycle } from "../engine/learningCycleRepository";
 import { advanceCanonicalCycleFromEvidence } from "../engine/learningCycleRuntime";
@@ -32,7 +32,7 @@ const lab = vi.hoisted(() => ({
 vi.mock("../engine/directMathExperience", async original => ({
   ...await original<typeof import("../engine/directMathExperience")>(),
   generateDirectArtifacts: vi.fn(),
-  askDirectMathPlanner: vi.fn(async () => {
+  askLearningPlanner: vi.fn(async () => {
     if (!lab.plannerOutput) throw new Error("paid_planner_forbidden");
     return lab.plannerOutput;
   }),
@@ -90,7 +90,7 @@ it("plays the isolated math release journey through calibration and the next Pla
   const canonicalFamilyHashBefore = hashPaths(canonicalFamilyPaths);
   lab.plannerOutput = undefined;
   lab.designerOutput = undefined;
-  vi.mocked(askDirectMathPlanner).mockClear();
+  vi.mocked(askLearningPlanner).mockClear();
   vi.mocked(askMathExperienceDesigner).mockClear();
   vi.stubEnv("ANTHROPIC_API_KEY", "recorded-provider-only");vi.stubEnv("OPENAI_API_KEY", "recorded-provider-only");
   vi.stubEnv("SUNNY_CONTEXT_ROOT", contextRoot);
@@ -316,8 +316,8 @@ it("plays the isolated math release journey through calibration and the next Pla
       releaseTargetedFixture();
       expect(generation).toBeDefined();
       await expect.poll(()=>getLearningCycle(childId,homeworkId,{rootDir})!.nodes.find(n=>n.nodeId==="activity-1")?.artifactBinding?.validationStatus,{timeout:15000}).toBe("passed");
-      expect(vi.mocked(askDirectMathPlanner)).toHaveBeenCalledTimes(1);
-      const plannerInput = vi.mocked(askDirectMathPlanner).mock.calls[0]?.[0] as any;
+      expect(vi.mocked(askLearningPlanner)).toHaveBeenCalledTimes(1);
+      const plannerInput = vi.mocked(askLearningPlanner).mock.calls[0]?.[0] as any;
       expect(plannerInput.priorOutcomes.discoveryCycle.observations.map((observation: any) => observation.observationId)).toEqual(discoveryObservationIds);
       expect(vi.mocked(askMathExperienceDesigner)).toHaveBeenCalledTimes(1);
       const planFile=path.join(contextRoot,childId,"plans/active_session_plan.json");
@@ -380,7 +380,7 @@ it("plays the isolated math release journey through calibration and the next Pla
       step="next related assignment Planner context";
       const history=buildLongitudinalLearningHistory(childId,{rootDir});
       const direct=await vi.importActual<typeof import("../engine/directMathExperience")>("../engine/directMathExperience");let nextRequest="";
-      await direct.askDirectMathPlanner({childId,chart:{...lab.chart(),learningHistory:history} as never,extraction:{filename:"next.pdf",fullText:"Related equal-groups assignment",fileHash:"next",pages:[],warnings:[]} as never,client:{messages:{stream:(request:unknown)=>{nextRequest=JSON.stringify(request);return {finalMessage:async()=>({content:[{type:"tool_use",name:"create_math_learning_program",input:program}]})};}}} as never});
+      await direct.askLearningPlanner({childId,chart:{...lab.chart(),learningHistory:history} as never,extraction:{filename:"next.pdf",fullText:"Related equal-groups assignment",fileHash:"next",pages:[],warnings:[]} as never,client:{messages:{stream:(request:unknown)=>{nextRequest=JSON.stringify(request);return {finalMessage:async()=>({content:[{type:"tool_use",name:"create_math_learning_program",input:program}]})};}}} as never});
       expect(nextRequest).toContain(confirmed.observations.find(o=>o.provenance==="graded_work")!.observationId);
       const finalCycle=getLearningCycle(childId,homeworkId,{rootDir})!;
       expect(finalCycle.predictionEvaluations.some(e=>e.sufficiency==="sufficient")).toBe(true);

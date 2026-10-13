@@ -8,7 +8,7 @@ import path from "node:path";
 import { getChildChart } from "../profiles/childChart";
 import { readPriorConceptIds } from "../engine/assignmentLedger";
 import {
-  askDirectMathPlanner, askMathExperienceDesigner, askLearningExperienceDesigner, buildDirectActiveSessionPlan,
+  askDirectMathPlanner, askLearningPlanner, askMathExperienceDesigner, askLearningExperienceDesigner, buildDirectActiveSessionPlan,
   buildMathCreativeChildContext, mathPlannerChartContext, verifyMathPlannerCanvas, correctSavedDirectMathPlannerResponse, correctableMathPlannerTruthError, generateDirectArtifacts, generateDirectArtworkBundle, parseMathLearningProgram, parseSavedDirectMathPlannerResponse,
   findTruncatedDirectRepairReceipt,
   repairDirectArtifact,
@@ -435,7 +435,7 @@ export async function runAdaptiveMathGeneration(
         validationError: savedPlannerTruthError,
         correctionResponseFile: plannerCorrectionResponseFile,
       })
-      : await askDirectMathPlanner({
+      : await askLearningPlanner({
       childId,
       chart,
       extraction,
@@ -1039,7 +1039,10 @@ async function runSpellingTargetedGeneration(childId: string, homeworkId: string
     if (!fs.existsSync(requestFile)) write(requestFile, packet);
     const saved = fs.existsSync(responseFile) ? read<{ result: Awaited<ReturnType<typeof planAssignmentFromSourceWithTelemetry>>; requestHash: string; outputHash: string; createdAt: string }>(responseFile) : undefined;
     if (saved && (saved.requestHash !== hashDiscoveryContract(packet) || saved.outputHash !== hashDiscoveryContract(saved.result))) throw new Error("spelling_targeted_checkpoint_hash_mismatch");
-    const result = saved?.result ?? await planAssignmentFromSourceWithTelemetry(packet, { providerReceipt: { draftDir: draft, stage: "spelling-targeted-planner" } });
+    const legacyReceipt=fs.existsSync(path.join(draft,"provider-receipts","spelling-targeted-planner.stage.json"));
+    const result = saved?.result ?? (legacyReceipt
+      ? await planAssignmentFromSourceWithTelemetry(packet,{providerReceipt:{draftDir:draft,stage:"spelling-targeted-planner",readOnlyReplay:true}})
+      : (await askLearningPlanner({domain:"spelling",childId,packet,chart,extraction:readAssignmentSourceExtraction(path.join(draft,"assignment-extraction.json")),rawResponseFile:path.join(draft,"provider-diagnostics","targeted-planner-response.json")})).planningResult);
     const createdAt = saved?.createdAt ?? result.receivedAt ?? new Date().toISOString();
     // Preserve the accepted educational output before any visual/provider work.
     if (!saved) write(responseFile, { result, requestHash: hashDiscoveryContract(packet), outputHash: hashDiscoveryContract(result), createdAt });

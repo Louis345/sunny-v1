@@ -9,7 +9,7 @@ import { createDiscoveryLearningCycle, completeDiscoveryEvaluation, recordDiscov
 import { getLearningCycle, projectLearningCycle, transitionLearningCycle } from "../engine/learningCycleRepository";
 import { listBoardInstances } from "../engine/learningBoardInstances";
 import { runAdaptiveMathGeneration } from "./runAdaptiveMathGeneration";
-import { askDirectMathPlanner, askMathExperienceDesigner, correctSavedDirectMathPlannerResponse, generateDirectArtifacts, generateDirectArtworkBundle, repairDirectArtifact, runDirectBrowserSmokeCheck } from "../engine/directMathExperience";
+import { askLearningPlanner, askMathExperienceDesigner, correctSavedDirectMathPlannerResponse, generateDirectArtifacts, generateDirectArtworkBundle, repairDirectArtifact, runDirectBrowserSmokeCheck } from "../engine/directMathExperience";
 import { DISCOVERY_VERIFIER_VERSION, recordEngineeringRepairEvidence, type JourneyCapture } from "../engine/discoveryVisualReview";
 import { judgeChildFacingScreens } from "../engine/childFacingVisualGate";
 
@@ -20,7 +20,7 @@ vi.mock("../profiles/childChart", () => ({ getChildChart: () => ({
 }) }));
 vi.mock("../engine/directMathExperience", async (original) => ({
   ...await original<typeof import("../engine/directMathExperience")>(),
-  askDirectMathPlanner: vi.fn(() => { throw new Error("unexpected_paid_planner"); }),
+  askLearningPlanner: vi.fn(() => { throw new Error("unexpected_paid_planner"); }),
   correctSavedDirectMathPlannerResponse: vi.fn(),
   askMathExperienceDesigner: vi.fn(() => { throw new Error("unexpected_paid_creator"); }),
   generateDirectArtifacts: vi.fn(), generateDirectArtworkBundle: vi.fn(), repairDirectArtifact: vi.fn(), runDirectBrowserSmokeCheck: vi.fn(),
@@ -243,7 +243,7 @@ it("resumes a saved Planner response after a contract fix without buying the pla
 
   await runAdaptiveMathGeneration(childId,homeworkId,rootDir);
 
-  expect(askDirectMathPlanner).not.toHaveBeenCalled();
+  expect(askLearningPlanner).not.toHaveBeenCalled();
   expect(JSON.parse(fs.readFileSync(path.join(draft,"math-learning-program.json"),"utf8")).concept.conceptId)
     .toBe("clock.minute_tick_count_from_12_by_fives");
   expect(getMathGenerationStatus(childId,homeworkId,{rootDir})?.phase).toBe("board_ready");
@@ -278,7 +278,7 @@ it("corrects a saved factual Planner contradiction without buying the original p
 
   await runAdaptiveMathGeneration(childId, homeworkId, rootDir);
 
-  expect(askDirectMathPlanner).not.toHaveBeenCalled();
+  expect(askLearningPlanner).not.toHaveBeenCalled();
   expect(correctSavedDirectMathPlannerResponse).toHaveBeenCalledTimes(1);
   expect(askMathExperienceDesigner).toHaveBeenCalledTimes(1);
   expect(getMathGenerationStatus(childId, homeworkId, { rootDir })?.phase).toBe("board_ready");
@@ -306,11 +306,11 @@ it("requires explicit authorization to resume an uncertain design without repeat
 
   await runAdaptiveMathGeneration(childId, homeworkId, rootDir);
   expect(askMathExperienceDesigner).not.toHaveBeenCalled();
-  expect(askDirectMathPlanner).not.toHaveBeenCalled();
+  expect(askLearningPlanner).not.toHaveBeenCalled();
 
   await runAdaptiveMathGeneration(childId, homeworkId, rootDir, { retryUncertainProvider: true });
   expect(askMathExperienceDesigner).toHaveBeenCalledWith(expect.objectContaining({ retryUncertain: true }));
-  expect(askDirectMathPlanner).not.toHaveBeenCalled();
+  expect(askLearningPlanner).not.toHaveBeenCalled();
   expect(getMathGenerationStatus(childId, homeworkId, { rootDir })?.phase).toBe("board_ready");
 });
 
@@ -329,7 +329,7 @@ it("does not let design retry authorization repurchase a missing Planner program
 
   await runAdaptiveMathGeneration(childId, homeworkId, rootDir, { retryUncertainProvider: true });
 
-  expect(askDirectMathPlanner).not.toHaveBeenCalled();
+  expect(askLearningPlanner).not.toHaveBeenCalled();
   expect(askMathExperienceDesigner).not.toHaveBeenCalled();
   expect(getMathGenerationStatus(childId, homeworkId, { rootDir })?.phase).toBe("needs_attention");
 });
