@@ -1010,15 +1010,17 @@ export function assertNativeLearningProgramCorrection(original:unknown,corrected
   const a=jsonObject(original),b=jsonObject(corrected);if(!a||!b)throw new Error("learning_program_correction_changed_protected_fields");
   const editable:Array<Array<string|number>>=[];
   const missingEdges=new Set<string>();
+  const defects=[...((error as Error&{issues?:Array<{code:string;measurementId?:string;nodeId?:string;id?:string;message?:string}>}).issues??[])];
   if(error instanceof z.ZodError){
+    defects.length=0;
     for(const issue of error.issues){
+      if(issue.code==='custom' && /^(path_cycle|path_missing|portal_missing|journey_capacity_exceeded):?/.test(issue.message)){defects.push({code:issue.message.split(':')[0],message:issue.message});continue;}
       const keys=(issue as unknown as {keys?:string[]}).keys;
       if(keys)for(const key of keys)editable.push([...issue.path.filter((p):p is string|number=>typeof p==='string'||typeof p==='number'),key]);
       else editable.push(issue.path.filter((p):p is string|number=>typeof p==='string'||typeof p==='number'));
     }
-  }else{
-    const defects=(error as Error&{issues?:Array<{code:string;measurementId?:string;nodeId?:string;id?:string;message?:string}>}).issues;
-    if(defects)for(const defect of defects){
+  }
+    for(const defect of defects){
       const nodes:Array<Record<string,unknown>|undefined>=Array.isArray(a.activities)?a.activities.map(jsonObject):[];
       const index=nodes.findIndex(node=>node?.id===defect.nodeId||`measure-${node?.id}`===defect.measurementId);
       if(index>=0){
@@ -1047,7 +1049,6 @@ export function assertNativeLearningProgramCorrection(original:unknown,corrected
       }
       if(defect.code==='path_missing' && Array.isArray(choices))choices.forEach((row,i)=>{const options=jsonObject(row)?.options;if(Array.isArray(options))options.forEach((option,j)=>{if(jsonObject(option)?.pathId===defect.message?.slice('path_missing:'.length))editable.push(['journey','choices',i,'options',j,'pathId']);});});
     }
-  }
   const known=Object.keys(nativeLearningProgramSchema.shape);
   const left=Object.fromEntries(known.filter(key=>key in a).map(key=>[key,structuredClone(a[key])]));
   const right=Object.fromEntries(known.filter(key=>key in a).map(key=>[key,structuredClone(b[key])]));
