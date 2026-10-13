@@ -4,7 +4,7 @@ import {parseCanonicalProgressionDecision} from './learningCycleRuntime';
 import {buildDiscoveryActiveSessionPlan} from './adaptiveMathDiscovery';
 import {authoredJourney} from '../scripts/fixtures/authoredJourney';
 it('math authors the same definition instead of a second fork contract',()=>{
-  expect((MATH_LEARNING_PROGRAM_TOOL_SCHEMA as any).properties.boardDefinition).toBeDefined();
+  expect((MATH_LEARNING_PROGRAM_TOOL_SCHEMA as any).properties.journey).toBeDefined();
   expect((MATH_LEARNING_PROGRAM_TOOL_SCHEMA as any).properties.fork).toBeUndefined();
 });
 it('a new successor cannot silently synthesize a board from its inventory',()=>{

@@ -1,3 +1,4 @@
+import {planAssignmentFromSourceWithTelemetry} from "../engine/assignmentPlanner";
 import { journeyFrontier } from "../shared/adventureBoardDefinition";
 import {linearJourneyFixture} from "./fixtures/authoredJourney";
 import {prepareExistingOriginalSpelling} from '../chart/spelling/originalPreparation';
@@ -36,6 +37,8 @@ vi.mock("../deepgram-turn", () => ({
   }),
 }));
 vi.mock("../shared/childRegistry", async original => ({ ...await original<typeof import("../shared/childRegistry")>(), listChildProfileIds: () => ["ila"] }));
+
+vi.mock("../engine/directMathExperience",async original=>({...await original<typeof import("../engine/directMathExperience")>(),askLearningPlanner:vi.fn(async(input:any)=>({domain:"spelling",planningResult:await planAssignmentFromSourceWithTelemetry(input.packet)}))}));
 
 function hashFilesUnder(paths: string[]): string {
   const hash = createHash("sha256");

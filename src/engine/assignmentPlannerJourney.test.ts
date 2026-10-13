@@ -14,9 +14,10 @@ function draft() {
 describe('Planner and runtime share the authored journey contract', () => {
   it('requires the definition in the tool and removes independently authored routes', () => {
     const schema = assignmentPlannerToolJsonSchema() as any;
-    expect(schema.properties.activeSessionPlan.required).toContain('boardDefinition');
+    expect(schema.properties.activeSessionPlan.required).toContain('journey');
     expect(schema.properties.activeSessionPlan.properties).not.toHaveProperty('learningRoutes');
-    expect(schema.properties.activeSessionPlan.properties.boardDefinition.properties.version.const).toBe(2);
+    expect(schema.properties.activeSessionPlan.properties.journey.properties).not.toHaveProperty('theme');
+    expect(schema.properties.activeSessionPlan.properties.journey.properties.version.const).toBe(2);
   });
   it('preserves authored composition and validates checkpoint chronology on every path, not inventory order', () => {
     const input = draft();
@@ -31,7 +32,7 @@ describe('Planner and runtime share the authored journey contract', () => {
   });
   it('gives targeted spelling the same authoring authority and no fixed spine', () => {
     const prompt = buildAssignmentPlannerPrompt({discoveryEvidence:{},plannerInstruction:'',childId:'synthetic'} as any);
-    expect(prompt).toContain('boardDefinition');
+    expect(prompt).toContain('journey');
     expect(prompt).toContain('singlePathReason');
     expect(prompt).not.toContain('exclusive node');
   });

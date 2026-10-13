@@ -20,6 +20,8 @@ vi.mock("../engine/assignmentPlanner", async original => ({
   planAssignmentFromSourceWithTelemetry: vi.fn(),
 }));
 
+vi.mock("../engine/directMathExperience",async original=>({...await original<typeof import("../engine/directMathExperience")>(),askLearningPlanner:vi.fn(async(input:any)=>({domain:"spelling",planningResult:await planAssignmentFromSourceWithTelemetry(input.packet)}))}));
+
 let rootDir: string;
 const childId = "lab-child";
 beforeEach(() => {
