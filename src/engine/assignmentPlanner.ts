@@ -1028,8 +1028,12 @@ export function deriveNativeActivity(row:unknown):unknown {
   const config=jsonObject(activity.activityConfig);
   if(activity.type==="visual-explainer"&&config&&config.schemaVersion===undefined&&Array.isArray(config.words)){
     const words=config.words.map(jsonObject).filter((word):word is JsonSchemaObject=>Boolean(word)&&typeof word!.text==="string");
-    return {...activity,targets:words.map(word=>word.text),activityConfig:{...config,schemaVersion:1,activityId:"visual-explainer",domain:"spelling",
-      words:words.map(word=>({id:`planner-${word.text}`,...word})),check:{id:`check-${String(activity.id)}`,...jsonObject(config.check)},
+    // Display text past its limit is trimmed and logged; a long title never costs her the lesson.
+    const fit=(value:unknown,limit:number,field:string)=>{if(typeof value!=="string"||value.length<=limit)return value;console.log(` 🎮 [planner] [explainer] [text-trimmed] node=${String(activity.id)} field=${field} length=${value.length} limit=${limit}`);return `${value.slice(0,limit-1).trimEnd()}…`;};
+    const strategy=jsonObject(config.strategy),check=jsonObject(config.check);
+    return {...activity,targets:words.map(word=>word.text),activityConfig:{...config,topic:fit(config.topic,120,"topic"),learningGoal:fit(config.learningGoal,220,"learningGoal"),
+      ...(strategy?{strategy:{...strategy,title:fit(strategy.title,100,"strategy.title"),...(Array.isArray(strategy.steps)?{steps:strategy.steps.map((step,index)=>fit(step,140,`strategy.steps.${index}`))}:{})}}:{}),schemaVersion:1,activityId:"visual-explainer",domain:"spelling",
+      words:words.map(word=>({id:`planner-${word.text}`,...word,tip:fit(word.tip,160,"tip")})),check:{id:`check-${String(activity.id)}`,...check,prompt:fit(check?.prompt,180,"check.prompt")},
       evidencePolicy:{writesPracticeEvidence:true,writesMasteryEvidence:false,requiresPerTargetResult:false,allowedEvidence:["practice","companion"]}}};
   }
   if(activity.type==="letter-rush"&&!config&&Array.isArray(activity.targets)){

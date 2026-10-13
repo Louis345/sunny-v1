@@ -71,4 +71,15 @@ describe("code derives what the Planner already said once",()=>{
     expect(race.activityConfig.words.map((word:{text:string})=>word.text)).toEqual(["night","light"]);
     expect(race).not.toHaveProperty("letterRushMode");
   });
+  // Kiosk run 2026-10-13: both explainers were authored correctly but their topic ran past the
+  // 120-character display limit, so both teaching portals published "Not ready". A title that
+  // is too long is trimmed and logged; it never costs her the lesson.
+  it("trims display text that runs past its limit instead of losing the activity",()=>{
+    const derive=(planner as unknown as {deriveNativeActivity:(row:unknown)=>Record<string,any>}).deriveNativeActivity;
+    const long="Why words end in -y and -ly ".repeat(8);
+    const teach=derive({id:"teach",title:"Spot the chunk",type:"visual-explainer",activityId:"visual-explainer",activityConfig:{...explainer,topic:long,learningGoal:long.repeat(2)},measurement:measurement("instruction")});
+    expect(teach.activityConfig.topic.length).toBeLessThanOrEqual(120);
+    expect(teach.activityConfig.learningGoal.length).toBeLessThanOrEqual(220);
+    expect(()=>validateSpellingVisualExplainerPlanConfig(teach.activityConfig)).not.toThrow();
+  });
 });
