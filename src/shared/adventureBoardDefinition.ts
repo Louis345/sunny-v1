@@ -20,10 +20,25 @@ export const adventureBoardDefinitionSchema = z.object({
 }).strict();
 export type AdventureBoardDefinition = z.infer<typeof adventureBoardDefinitionSchema>;
 /** Planner authors semantics; the existing Creator supplies presentation only. */
-export const adventureJourneySchema = adventureBoardDefinitionSchema.omit({theme:true,portals:true,edges:true}).extend({
+const adventureJourneyInputSchema = adventureBoardDefinitionSchema.omit({theme:true,portals:true,edges:true}).extend({
   portals:z.array(adventureBoardDefinitionSchema.shape.portals.element.omit({position:true,icon:true,thumbnailUrl:true}).strict()).min(1).max(128),
-  edges:z.array(adventureBoardDefinitionSchema.shape.edges.element.omit({style:true,controlPoints:true}).strict()).max(256),
+  edges:z.array(adventureBoardDefinitionSchema.shape.edges.element.omit({style:true,controlPoints:true}).strict()).max(256).optional(),
 }).strict();
+/** New authoring has one chronology. Existing saved edge identities remain read-only. */
+export const ADVENTURE_JOURNEY_TOOL_SCHEMA=z.toJSONSchema(adventureJourneyInputSchema.omit({edges:true}),{io:'input'});
+export const adventureJourneySchema=adventureJourneyInputSchema.transform((journey,ctx)=>{
+  if(journey.edges)return {...journey,edges:journey.edges};
+  const semantic={...journey,edges:[] as Array<{id:string;from:string;to:string}>};
+  try{
+    const connections=new Map<string,{id:string;from:string;to:string}>();
+    for(const execution of journeyExecutions(semantic))for(let i=1;i<execution.portalIds.length;i++){
+      const from=execution.portalIds[i-1],to=execution.portalIds[i],key=`${from}\0${to}`;
+      connections.set(key,{id:`connection:${encodeURIComponent(from)}:${encodeURIComponent(to)}`,from,to});
+    }
+    if(connections.size>256)throw new Error('journey_capacity_exceeded');
+    return {...journey,edges:[...connections.values()]};
+  }catch(error){ctx.addIssue({code:'custom',path:['paths'],message:error instanceof Error?error.message:String(error)});return z.NEVER;}
+});
 export const adventureCompositionSchema = z.object({
   portals:z.array(adventureBoardDefinitionSchema.shape.portals.element.pick({id:true,position:true,icon:true,thumbnailUrl:true}).strict()).min(1).max(128),
   edges:z.array(adventureBoardDefinitionSchema.shape.edges.element.pick({id:true,style:true,controlPoints:true}).strict()).max(256),
@@ -231,4 +246,4 @@ export const BOARD_CANVAS_AUTHORING_CONSTRAINTS = `At 1280x720 its safe composit
 export const BOARD_AUTHORING_INSTRUCTION = `Author boardDefinition as the immutable journey. Bind activity portals to canonical inventory IDs. An endpoint may bind the final activity; an unbound endpoint marks completion after the preceding activities. Start and choice portals cannot bind activities. Portal IDs are presentation identities: the same activity may appear on alternative paths with distinct portal IDs, and those alternatives may order shared activities differently. The root path is the shared sequence; each choice inserts the selected option path then resumes its parent's remaining sequence. Declare every connection, all labels, positions and optional edge control points for both landscape and portrait. Use the available canvas thoughtfully with readable spacing and coherent direction. Sunny's visual brief: an inviting illustrated adventure world, vivid portals, animated dashed or glow paths, a readable left-to-right journey and separately composed portrait. Available Grok artwork: /generated/adventure-board-demo/silent-letter-world.jpeg; use this image or other available illustrated artwork, not a plain gradient. Choose readable text. After independent evaluation, on Teaching boards only, use the available catalog for varied practice addressing her gaps; activity count remains your decision. For that Teaching journey, consider learn first versus play first through shared activities, converging on the check. Background values must be executable image URLs or CSS, not symbolic names. ${BOARD_CANVAS_AUTHORING_CONSTRAINTS} Give a meaningful choice when academically valid alternatives exist; otherwise state singlePathReason. Code must not invent a route or change your composition. Do not declare readiness, completion or mastery. The Experience Creator implements activities and artwork without changing this journey.`;
 
 /** Education belongs to the Planner; visual constraints are supplied to the Creator. */
-export const JOURNEY_AUTHORING_INSTRUCTION = `Author journey as immutable educational intent. Bind activity portals to canonical inventory IDs. Start and choice portals have no activity binding; an endpoint may bind the final activity. Portal IDs identify presentations; alternative sequences may reuse canonical activities with distinct portals. The root path is the shared opening; a choice inserts its selected path then resumes the parent path. Declare labels, connections, ordered paths, option purposes and engagement hypotheses. Give a meaningful choice when academically valid alternatives exist; otherwise explain singlePathReason. After independent evaluation, on Teaching boards only, use the catalog for varied practice addressing measured gaps; activity count remains your decision. The existing Experience Creator owns visual composition, artwork, palette and geometry. Do not declare readiness, completion or mastery.`;
+export const JOURNEY_AUTHORING_INSTRUCTION = `Author journey as immutable educational intent. Bind activity portals to canonical inventory IDs. Start and choice portals have no activity binding; an endpoint may bind the final activity. Portal IDs identify presentations; alternative sequences may reuse canonical activities with distinct portals. The root path is the shared opening; a choice inserts its selected path then resumes the parent path. Declare labels, ordered paths, option purposes and engagement hypotheses. Give a meaningful choice when academically valid alternatives exist; otherwise explain singlePathReason. After independent evaluation, on Teaching boards only, use the catalog for varied practice addressing measured gaps; activity count remains your decision. Connections are derived from those paths; do not author a second edge list. The existing Experience Creator owns visual composition, artwork, palette and geometry. Do not declare readiness, completion or mastery.`;

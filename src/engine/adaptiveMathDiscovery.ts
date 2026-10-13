@@ -4,7 +4,7 @@ import {isDeepStrictEqual} from "node:util";
 import {AsyncLocalStorage} from "node:async_hooks";
 import {execFileSync} from "node:child_process";
 import {verifyAuthoredBoardCanvas,verifyBoardArtworkReady} from './adventureBoardCanvas';
-import { adventureJourneySchema,adventureCompositionSchema,assembleAdventureBoardDefinition,validateBoardDefinition,JOURNEY_AUTHORING_INSTRUCTION,BOARD_CANVAS_AUTHORING_CONSTRAINTS,type AdventureJourneyDefinition, requireBoardDefinition, renderBoardDefinition, type AdventureBoardDefinition } from '../shared/adventureBoardDefinition';
+import { adventureJourneySchema,ADVENTURE_JOURNEY_TOOL_SCHEMA,adventureCompositionSchema,assembleAdventureBoardDefinition,validateBoardDefinition,JOURNEY_AUTHORING_INSTRUCTION,BOARD_CANVAS_AUTHORING_CONSTRAINTS,type AdventureJourneyDefinition, requireBoardDefinition, renderBoardDefinition, type AdventureBoardDefinition } from '../shared/adventureBoardDefinition';
 import fs from "node:fs";
 import path from "node:path";
 import { createHash, randomUUID } from "node:crypto";
@@ -1045,7 +1045,7 @@ export async function generateMathDiscoveryExperience(input: {
   const discoveryPlannerTool = {
       name: "create_math_discovery_contract",
       schema: { type: "object", additionalProperties: false, required: ["evaluationId", "title", "assignmentEvidenceIds", "constructs", "items", "probeActivities", "journey"], properties: {
-        journey: z.toJSONSchema(adventureJourneySchema,{io:"input"}),
+        journey: ADVENTURE_JOURNEY_TOOL_SCHEMA,
         evaluationId: { type: "string" }, title: { type: "string" }, assignmentEvidenceIds: { type: "array", items: { type: "string" } },
         constructs: { type: "array", minItems: 1, items: { type: "object", additionalProperties: false, required: ["constructId", "prerequisiteIds"], properties: { constructId: { type: "string" }, prerequisiteIds: { type: "array", items: { type: "string" } } } } },
         items: { type: "array", minItems: 1, items: { type: "object", additionalProperties: false, required: ["itemId", "constructId", "prompt", "representationSpec", "responseContract", "correctAnswerContract", "difficultyBoundary", "exposureId", "possibleConfounds", "falsifyingEvidence", "measurementKeys"], properties: { itemId: { type: "string" }, constructId: { type: "string" }, prompt: { type: "string" }, representationSpec: { type: "string", description: "Frozen academic diagram data, axes, labels, and scale. Do not include the answer in visible question text." }, responseContract: { type: "object", additionalProperties: false, required: ["mode", "representationId"], properties: { mode: { type: "string", enum: ["tap_selection", "tap_numeric_pad", "drag_construct"] }, representationId: { type: "string" } } }, correctAnswerContract: { type: "object", additionalProperties: false, required: ["acceptedValues"], properties: { acceptedValues: { type: "array", minItems: 1, items: { type: "string" } } } }, difficultyBoundary: { type: "string" }, exposureId: { type: "string" }, possibleConfounds: { type: "array", items: { type: "string" } }, falsifyingEvidence: { type: "array", items: { type: "string" } }, measurementKeys: { type: "array", items: { type: "string" } } } } },
@@ -1064,11 +1064,11 @@ export async function generateMathDiscoveryExperience(input: {
     assertDiscoveryConstructSemantics(academic);
   }
   const validateJourney = async (candidate: DiscoveryAcademicContract) => {
-    if(candidate.journey){const parsed=adventureJourneySchema.safeParse(candidate.journey);if(!parsed.success)throw new Error(`board_definition_invalid:${JSON.stringify(parsed.error.issues)}`);const journey=parsed.data;const defects=validateBoardDefinition(journey,discoveryProbeActivities(candidate as MathDiscoveryEvaluationContract).map(activity=>activity.nodeId));if(defects.length)throw new Error(`board_definition_invalid:${JSON.stringify(defects)}`);return;}
+    if(candidate.journey){const parsed=adventureJourneySchema.safeParse(candidate.journey);if(!parsed.success)throw new Error(`board_definition_invalid:${JSON.stringify(parsed.error.issues)}`);const journey=parsed.data;const defects=validateBoardDefinition(journey,discoveryProbeActivities(candidate as MathDiscoveryEvaluationContract).map(activity=>activity.nodeId));if(defects.length)throw new Error(`board_definition_invalid:${JSON.stringify(defects)}`);return journey;}
     const definition=requireBoardDefinition(candidate.boardDefinition,discoveryProbeActivities(candidate as MathDiscoveryEvaluationContract).map(activity=>activity.nodeId));
     await verifyAuthoredBoardCanvas({definition,rootDir,directory:path.join(draftDir,"opening-canvas-verification")});
   };
-  try { await validateJourney(academic); }
+  try { const journey=await validateJourney(academic);if(journey)academic={...academic,journey}; }
   catch(error) {
     if(!(error instanceof Error) || !/^(board_definition_|board_canvas_invalid:)/.test(error.message))throw error;
     console.log(` 🎮 [adaptive-math] [opening-journey-correction] [required] reason=${error.message}`);
@@ -1078,8 +1078,8 @@ export async function generateMathDiscoveryExperience(input: {
     const corrected=toolInput(response,"create_math_discovery_contract") as DiscoveryAcademicContract;
     const academicFields=(value:DiscoveryAcademicContract)=>{const {boardDefinition,journey,...fields}=value;return fields;};
     if(!isDeepStrictEqual(academicFields(academic),academicFields(corrected)))throw new Error("discovery_journey_correction_changed_academic_contract");
-    await validateJourney(corrected);
-    academic=corrected;
+    const journey=await validateJourney(corrected);
+    academic=journey?{...corrected,journey}:corrected;
   }
   atomicJson(academicCheckpointFile,academic);
   assertDiscoveryResponseContracts(academic);

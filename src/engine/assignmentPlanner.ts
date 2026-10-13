@@ -1,7 +1,7 @@
 import {LEARNING_PLANNER_PERSONA,learningPlannerInstructions} from "./learningPlannerInstructions";
 import {spellingImplementationType,SPELLING_MYSTERY_INSTRUMENT_IDS} from "./activityEngineConfig";
 import {verifyAuthoredBoardCanvas} from './adventureBoardCanvas';
-import { JOURNEY_AUTHORING_INSTRUCTION, adventureJourneySchema, journeyFromBoardDefinition, adventureBoardDefinitionSchema, BOARD_AUTHORING_INSTRUCTION, BOARD_CANVAS_AUTHORING_CONSTRAINTS, renderBoardDefinition, validateBoardDefinition, journeyExecutions, type BoardDefinitionIssue, type AdventureBoardDefinition } from '../shared/adventureBoardDefinition';
+import { JOURNEY_AUTHORING_INSTRUCTION, adventureJourneySchema,ADVENTURE_JOURNEY_TOOL_SCHEMA, journeyFromBoardDefinition, adventureBoardDefinitionSchema, BOARD_AUTHORING_INSTRUCTION, BOARD_CANVAS_AUTHORING_CONSTRAINTS, renderBoardDefinition, validateBoardDefinition, journeyExecutions, type BoardDefinitionIssue, type AdventureBoardDefinition } from '../shared/adventureBoardDefinition';
 import { spellingCheckpointLineageIssues, checkpointInterventionsArePrior } from "./spellingCheckpointLineage";
 import {requestPlannerMessage, assertPlannerResponseComplete} from "./plannerTransport";
 import Anthropic from "@anthropic-ai/sdk";
@@ -996,6 +996,7 @@ const nativeLearningProgramSchema=z.object({
 /** The native domain uses the same LearningProgram boundary, with inline instrument bindings. */
 export function nativeLearningProgramToolJsonSchema(catalog:AssignmentPlanningPacket["activityCatalog"]):Record<string,unknown> {
   const schema=z.toJSONSchema(nativeLearningProgramSchema,{io:"input"}) as JsonSchemaObject;
+  schemaProperties(schema).journey=ADVENTURE_JOURNEY_TOOL_SCHEMA as JsonSchemaObject;
   const legacy=assignmentPlannerToolJsonSchema(true,catalog) as JsonSchemaObject;
   const node=schemaProperties(schemaProperties(legacy).activeSessionPlan).nodePlan.items as JsonSchemaObject;
   const measurement=schemaProperties(schemaProperties(schema).activities.items as JsonSchemaObject).measurement;
