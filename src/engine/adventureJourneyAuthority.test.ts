@@ -34,3 +34,10 @@ it('keeps valid sibling paths immutable when a traversal defect arrives through 
  const drift=structuredClone(repaired);drift.journey.paths[2].portalIds=['c','b'];
  expect(()=>assertNativeLearningProgramCorrection(original,drift,parsed.error)).toThrow('learning_program_correction_changed_protected_fields');
 });
+
+it('treats an endpoint bound to the preceding activity as its completion marker, not another measurement',()=>{
+ const semantic={version:2,title:'One instrument',rationale:'Keep the endpoint binding',rootPathId:'root',singlePathReason:'One chapter',portals:[{id:'start',kind:'start',label:'Start'},{id:'reward',kind:'activity',label:'Reward',activityNodeId:'reward-instrument'},{id:'end',kind:'endpoint',label:'Done',activityNodeId:'reward-instrument'}],paths:[{id:'root',portalIds:['start','reward','end']}],choices:[]};
+ const journey=adventureJourneySchema.parse(semantic);expect(journeyExecutions(journey)[0].activityNodeIds).toEqual(['reward-instrument']);expect(validateBoardDefinition(journey,['reward-instrument'])).toEqual([]);expect(journey.portals).toEqual(semantic.portals);expect(journeyExecutions(journey)[0].portalIds).toEqual(['start','reward','end']);
+ const repeated=adventureJourneySchema.parse({...semantic,portals:[...semantic.portals.slice(0,2),{id:'again',kind:'activity',label:'Measure again',activityNodeId:'reward-instrument'},{id:'end',kind:'endpoint',label:'Done'}],paths:[{id:'root',portalIds:['start','reward','again','end']}]});expect(validateBoardDefinition(repeated,['reward-instrument']).some(issue=>issue.code==='repeated_instrument')).toBe(true);
+ const boundOnly=adventureJourneySchema.parse({...semantic,portals:[semantic.portals[0],semantic.portals[2]],paths:[{id:'root',portalIds:['start','end']}]});expect(journeyExecutions(boundOnly)[0].activityNodeIds).toEqual(['reward-instrument']);
+});

@@ -132,7 +132,7 @@ export function journeyExecutions(definition:AdventureJourneyDefinition):Journey
     }
     if (!expanded) results.push({ id:Object.entries(candidate.selections).map(([key,value]) => `${encodeURIComponent(key)}=${encodeURIComponent(value)}`).join('&') || definition.rootPathId,
       selections:candidate.selections, portalIds:candidate.portalIds,
-      activityNodeIds:candidate.portalIds.flatMap(id => { const nodeId = portals.get(id)?.activityNodeId; return nodeId ? [nodeId] : []; }),
+      activityNodeIds:candidate.portalIds.flatMap((id,index) => { const portal=portals.get(id),nodeId=portal?.activityNodeId; return nodeId && !(portal?.kind==='endpoint'&&index>0&&portals.get(candidate.portalIds[index-1])?.activityNodeId===nodeId) ? [nodeId] : []; }),
     });
   }
   return results;
