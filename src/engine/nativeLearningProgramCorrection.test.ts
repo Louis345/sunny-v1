@@ -61,6 +61,8 @@ it('lets the Planner attach its disconnected common closing path while preservin
  const paths=[{id:'root',portalIds:['start','choice','check','reward','end']},...program.journey.paths.slice(1,3)];
  const fixed=planner.applyNativeLearningProgramCorrection(program,{patches:[{path:'/journey/paths',value:paths}]},disconnected) as typeof program;
  expect(fixed.journey.choices).toEqual(program.journey.choices);expect(fixed.activities).toEqual(program.activities);expect(fixed.journey.paths.slice(1)).toEqual(program.journey.paths.slice(1,3));
+ const branchClosing=[program.journey.paths[0],{id:'learn',portalIds:['teach','check','reward','end']},{id:'play',portalIds:['wheel','check','reward','end']}];
+ const equivalent=planner.applyNativeLearningProgramCorrection(program,{patches:[{path:'/journey/paths',value:branchClosing}]},disconnected) as typeof program;expect(equivalent.journey.paths).toEqual(branchClosing);expect(equivalent.journey.choices).toEqual(program.journey.choices);
  expect(()=>planner.applyNativeLearningProgramCorrection(program,{patches:[{path:'/journey/paths',value:[paths[0],{id:'learn',portalIds:['wheel']},paths[2]]}]},disconnected)).toThrow('learning_program_correction_changed_protected_fields');
  expect(()=>planner.applyNativeLearningProgramCorrection(program,{patches:[{path:'/journey/paths',value:[{id:'root',portalIds:['start','choice','reward','end']},...paths.slice(1)]}]},disconnected)).toThrow('learning_program_correction_changed_protected_fields');
  expect(()=>planner.applyNativeLearningProgramCorrection(program,{patches:[{path:'/journey/paths',value:[{id:'root',portalIds:['start','check','choice','reward','end']},...paths.slice(1)]}]},disconnected)).toThrow('learning_program_correction_changed_protected_fields');

@@ -1072,13 +1072,15 @@ export function assertNativeLearningProgramCorrection(original:unknown,corrected
   if(disconnectedPaths.size){
     const before=jsonObject(a.journey),after=jsonObject(b.journey),prior=before?.paths,next=after?.paths;
     if(!Array.isArray(prior)||!Array.isArray(next))throw new Error("learning_program_correction_changed_protected_fields");
-    const root=jsonObject(prior.find(row=>jsonObject(row)?.id===before?.rootPathId)),repaired=jsonObject(next.find(row=>jsonObject(row)?.id===before?.rootPathId));
-    if(!root||!repaired||!Array.isArray(root.portalIds)||!Array.isArray(repaired.portalIds)||!isDeepStrictEqual({...root,portalIds:undefined},{...repaired,portalIds:undefined})||!isDeepStrictEqual(root.portalIds,repaired.portalIds.slice(0,root.portalIds.length)))throw new Error("learning_program_correction_changed_protected_fields");
-    const suffix=repaired.portalIds.slice(root.portalIds.length),orphan=prior.map(jsonObject).filter(row=>row&&disconnectedPaths.has(String(row.id)));
+    const orphan=prior.map(jsonObject).filter(row=>row&&disconnectedPaths.has(String(row.id)));
     const available=new Set(orphan.flatMap(row=>Array.isArray(row!.portalIds)?row!.portalIds:[]));
-    if(suffix.some(id=>!available.has(id))||orphan.some(row=>{const sequence=row!.portalIds;return !Array.isArray(sequence)||!suffix.some((_id,index)=>isDeepStrictEqual(suffix.slice(index,index+sequence.length),sequence));}))throw new Error("learning_program_correction_changed_protected_fields");
-    const expected=prior.filter(row=>jsonObject(row)?.id!==before?.rootPathId&&!disconnectedPaths.has(String(jsonObject(row)?.id)));
-    if(!isDeepStrictEqual(expected,next.filter(row=>jsonObject(row)?.id!==before?.rootPathId)))throw new Error("learning_program_correction_changed_protected_fields");
+    const expected=prior.map(jsonObject).filter(row=>!disconnectedPaths.has(String(row?.id)));
+    const contains=(sequence:unknown[],fragment:unknown[])=>sequence.some((_id,index)=>isDeepStrictEqual(sequence.slice(index,index+fragment.length),fragment));
+    if(next.length!==expected.length||expected.some((original,index)=>{
+      const repaired=jsonObject(next[index]);if(!original||!repaired||!Array.isArray(original.portalIds)||!Array.isArray(repaired.portalIds)||!isDeepStrictEqual({...original,portalIds:undefined},{...repaired,portalIds:undefined})||!isDeepStrictEqual(original.portalIds,repaired.portalIds.slice(0,original.portalIds.length)))return true;
+      const suffix=repaired.portalIds.slice(original.portalIds.length);
+      return suffix.some(id=>!available.has(id))||suffix.length>0&&orphan.some(row=>!Array.isArray(row!.portalIds)||!contains(suffix,row!.portalIds));
+    })||orphan.some(row=>!Array.isArray(row!.portalIds)||!next.some(path=>{const sequence=jsonObject(path)?.portalIds;return Array.isArray(sequence)&&contains(sequence,row!.portalIds as unknown[]);})))throw new Error("learning_program_correction_changed_protected_fields");
   }
   if(missingActivities.size){
     const before=jsonObject(a.journey),after=jsonObject(b.journey);
