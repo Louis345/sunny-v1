@@ -358,7 +358,7 @@ export function buildSpellingTargetedCycleInput(input: {
   contract.academicPredictions = [];
   const lineageIssue = spellingCheckpointLineageIssues(plan.nodePlan, plan.plannedMeasurements ?? [],plan.boardDefinition)[0];
   if (lineageIssue) throw new Error(lineageIssue.code === "planner_checkpoint_lineage_missing" ? `spelling_checkpoint_lineage_missing:${lineageIssue.nodeId}` : "spelling_final_checkpoint_coverage_incomplete");
-  const finalWords = new Set<string>();
+  const finalCoverage = executionOrders.map(order=>({order,words:new Set<string>()}));
   for (const [index, node] of plan.nodePlan.entries()) {
     if (contract.nodes[index].role === "quest" || contract.nodes[index].role === "boss") continue;
     const implementationType = spellingImplementationType(node);
@@ -376,7 +376,7 @@ export function buildSpellingTargetedCycleInput(input: {
     const items = resolved.map(source => {
       const item = buildSpellingRecallItems({ homeworkId: cycle.homeworkId, words: [source!.word], evidenceIds: decision.evidenceIds, measurementRole: decision.role, exposure: "practiced", occasionId: node.id })[0];
       if (decision.role === "fresh_checkpoint") {
-        if (decision.finalCheck) finalWords.add(item.wordId);
+        if (decision.finalCheck) for(const path of finalCoverage)if(path.order.has(node.id))path.words.add(item.wordId);
         contract.academicPredictions!.push({ predictionId: `${node.id}:${item.wordId}:prediction`, theoryId: contract.academicTheory.theoryId, constructId: item.constructId, context: decision.reason, horizon: "Immediate unassisted recall after the named intervention; not retention or causation.", eligibility: { sources: ["practice"], maxDelayDays: decision.maxDelayDays, checkpointItemIds: [item.id] }, expectedMetric: { key: "unassisted_recall_accuracy", ...decision.expectedAccuracy }, predictedErrorPatterns: [measurement!.falsifyCriteria], confidence: decision.confidence, evidenceIds: decision.evidenceIds, intervention: decision.interventionNodeIds.join(", ") || "Check previously observed spelling", evidenceLimit: "practice_only", createdAt: input.now, lockedAt: input.now });
       }
       return item;
@@ -489,7 +489,7 @@ export function buildSpellingTargetedCycleInput(input: {
     }
     contract.nodes[index] = { ...contract.nodes[index], implementationType, mechanic: node.activityId, state: "generating", artifactBinding: null, evidenceContract: { ...contract.nodes[index].evidenceContract, academic: items.length > 0, ...(nativeConfig ? { nativeConfig } : {}), ...(items.length ? { spellingItems: Object.fromEntries(items.map(item => [item.id, item])), itemRoles: Object.fromEntries(items.map(item => [item.id, decision.role])) } : {}) } };
   }
-  if (captured.some(item => !finalWords.has(item.wordId))) throw new Error("spelling_final_checkpoint_coverage_incomplete");
+  if (finalCoverage.some(path=>captured.some(item => !path.words.has(item.wordId)))) throw new Error("spelling_final_checkpoint_coverage_incomplete");
   return contract;
 }
 

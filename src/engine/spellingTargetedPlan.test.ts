@@ -20,6 +20,16 @@ function fixture() {
   for (const measurement of plan.plannedMeasurements!) measurement.spelling!.maxDelayDays = 7;
   return { cycle, plan };
 }
+it("never combines alternate partial final checks into complete coverage",()=>{
+ const {cycle,plan}=fixture();
+ const base=plan.nodePlan[1];
+ plan.nodePlan=[{...base,id:"check-night",targets:["night"]},{...base,id:"check-light",targets:["light"]}];
+ const measurement=plan.plannedMeasurements![1];
+ plan.plannedMeasurements=[{...measurement,id:"measure-check-night",spelling:{...measurement.spelling!,interventionNodeIds:[]}},{...measurement,id:"measure-check-light",spelling:{...measurement.spelling!,interventionNodeIds:[]}}];
+ plan.boardDefinition=choiceJourneyFixture([{id:"night",label:"Night",nodeIds:["check-night"]},{id:"light",label:"Light",nodeIds:["check-light"]}]);
+ expect(()=>buildSpellingTargetedCycleInput({cycle,plan,now:"2026-09-08T12:00:00Z"})).toThrow("spelling_final_checkpoint_coverage_incomplete");
+});
+
 describe("evidence-cited spelling targeted programs", () => {
   it("does not accept a math observation as academic support for a spelling decision", () => {
     const { cycle, plan } = fixture();

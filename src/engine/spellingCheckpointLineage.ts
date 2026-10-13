@@ -33,8 +33,6 @@ export function spellingCheckpointLineageIssues(
     }
     if (missing.size) issues.push({ code: "planner_checkpoint_lineage_missing", nodeId: node.id, measurementId, interventionNodeIds: [...missing] });
   }
-  const unresolved = [...new Set([...pending.values()].flatMap(ids => [...ids]))];
-  if (unresolved.length) issues.push({ code: "planner_final_checkpoint_missing", nodeId: nodes.at(-1)?.id ?? "missing", measurementId: `measure-${nodes.at(-1)?.id ?? "missing"}`, interventionNodeIds: unresolved });
   return issues;
 }
 
