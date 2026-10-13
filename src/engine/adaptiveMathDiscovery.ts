@@ -1,8 +1,10 @@
+import {z} from "zod";
+import {learningPlannerInstructions} from "./learningPlannerInstructions";
 import {isDeepStrictEqual} from "node:util";
 import {AsyncLocalStorage} from "node:async_hooks";
 import {execFileSync} from "node:child_process";
-import {verifyAuthoredBoardCanvas} from './adventureBoardCanvas';
-import { requireBoardDefinition, BOARD_DEFINITION_TOOL_SCHEMA, BOARD_AUTHORING_INSTRUCTION, renderBoardDefinition, type AdventureBoardDefinition } from '../shared/adventureBoardDefinition';
+import {verifyAuthoredBoardCanvas,verifyBoardArtworkReady} from './adventureBoardCanvas';
+import { adventureJourneySchema,adventureCompositionSchema,assembleAdventureBoardDefinition,validateBoardDefinition,JOURNEY_AUTHORING_INSTRUCTION,BOARD_CANVAS_AUTHORING_CONSTRAINTS,type AdventureJourneyDefinition, requireBoardDefinition, renderBoardDefinition, type AdventureBoardDefinition } from '../shared/adventureBoardDefinition';
 import fs from "node:fs";
 import path from "node:path";
 import { createHash, randomUUID } from "node:crypto";
@@ -324,6 +326,7 @@ export type MathDiscoveryProbeArtifact = {
 };
 
 export type MathDiscoveryEvaluationContract = {
+  journey?:AdventureJourneyDefinition;
   boardDefinition?: AdventureBoardDefinition;
   evaluationId: string;
   title: string;
@@ -962,12 +965,27 @@ export async function generateMathDiscoveryExperience(input: {
     stageOverride?: string,
   ): Promise<unknown> => {
     const provider = model.startsWith("gpt-") ? "openai" : "anthropic";
-    const request = {
+    let request = {
       model,
       max_tokens: tool ? 12_000 : 48_000,
       messages: [{ role: "user", content: tool?.name === "create_math_discovery_contract" && input.assignmentSource && typeof prompt === "string" ? assignmentPlannerContent(input.assignmentSource,prompt) : prompt }],
       ...(tool ? { tools: [{ name: tool.name, description: "Return the requested frozen artifact.", input_schema: tool.schema }], tool_choice: { type: "tool", name: tool.name } } : {}),
     };
+    const stage=stageOverride??tool?.name??(Array.isArray(prompt)?"repair":"builder");
+    const pointer=path.join(draftDir,'provider-receipts',`${stage}.stage.json`);
+    if(typeof prompt==='string' && ['create_math_discovery_contract','create_math_discovery_design','opening-journey-correction'].includes(stage) && fs.existsSync(pointer)){
+      let receipt:{status:string;attempts?:unknown[]},requestHash:string;
+      try{({requestHash}=JSON.parse(fs.readFileSync(pointer,'utf8')));if(!/^[a-f0-9]{64}$/.test(requestHash))throw new Error('invalid');receipt=JSON.parse(fs.readFileSync(path.join(draftDir,'provider-receipts',`${requestHash}.json`),'utf8'));if(!receipt||typeof receipt!=='object')throw new Error('invalid');}catch{throw new Error(`provider_receipt_invalid:${pointer}`);}
+      if(receipt.status==='received'){
+      const frozen=JSON.parse(fs.readFileSync(path.join(draftDir,'provider-diagnostics',`${requestHash}.attempt-${receipt.attempts?.length??1}.request.json`),'utf8')).context as typeof request;
+      const frozenContent=frozen.messages[0].content;
+      const textBlock=Array.isArray(frozenContent)?frozenContent.find(block=>block.type==='text'):undefined;
+      const frozenText=typeof frozenContent==='string'?frozenContent:textBlock && 'text' in textBlock?textBlock.text:undefined;
+      const sameInputs=typeof frozenText==='string' && (stage==='opening-journey-correction'?isDeepStrictEqual(JSON.parse(frozenText.split('\nRECEIVED: ').at(-1)!),JSON.parse(prompt.split('\nRECEIVED: ').at(-1)!)):frozenText.endsWith(common) && (stage!=='create_math_discovery_design'||frozenText.match(/CONTRACT HASH: ([a-f0-9]+)/)?.[1]===prompt.match(/CONTRACT HASH: ([a-f0-9]+)/)?.[1]));
+      if(frozen.model!==model || !sameInputs)throw new Error('discovery_saved_request_identity_mismatch');
+      request=frozen;console.log(` 🎮 [adaptive-math] [provider-request] [frozen-replay] stage=${stage}`);
+      }
+    }
     const received = await runMathProviderStage({draftDir, stage: stageOverride ?? tool?.name ?? (Array.isArray(prompt) ? "repair" : "builder"), model, request, retryUncertain: input.retryUncertain, beforeRequest: () => {
       if (provider === "openai" && !process.env.OPENAI_API_KEY?.trim()) throw new Error("preflight_missing:OPENAI_API_KEY");
       if (provider === "anthropic" && !input.client && !process.env.ANTHROPIC_API_KEY && !process.env.ANTHROPIC_AUTH_TOKEN) throw new Error("preflight_missing:ANTHROPIC_API_KEY");
@@ -1026,8 +1044,8 @@ export async function generateMathDiscoveryExperience(input: {
   const common = `ASSIGNMENT EVIDENCE IDS:\n${JSON.stringify(input.assignmentEvidenceIds)}\n\nASSIGNMENT:\n${input.assignmentText}\n\nFACTUAL CHILD CONTEXT:\n${JSON.stringify(input.factualChildContext, null, 2)}`;
   const discoveryPlannerTool = {
       name: "create_math_discovery_contract",
-      schema: { type: "object", additionalProperties: false, required: ["evaluationId", "title", "assignmentEvidenceIds", "constructs", "items", "probeActivities", "boardDefinition"], properties: {
-        boardDefinition: BOARD_DEFINITION_TOOL_SCHEMA,
+      schema: { type: "object", additionalProperties: false, required: ["evaluationId", "title", "assignmentEvidenceIds", "constructs", "items", "probeActivities", "journey"], properties: {
+        journey: z.toJSONSchema(adventureJourneySchema,{io:"input"}),
         evaluationId: { type: "string" }, title: { type: "string" }, assignmentEvidenceIds: { type: "array", items: { type: "string" } },
         constructs: { type: "array", minItems: 1, items: { type: "object", additionalProperties: false, required: ["constructId", "prerequisiteIds"], properties: { constructId: { type: "string" }, prerequisiteIds: { type: "array", items: { type: "string" } } } } },
         items: { type: "array", minItems: 1, items: { type: "object", additionalProperties: false, required: ["itemId", "constructId", "prompt", "representationSpec", "responseContract", "correctAnswerContract", "difficultyBoundary", "exposureId", "possibleConfounds", "falsifyingEvidence", "measurementKeys"], properties: { itemId: { type: "string" }, constructId: { type: "string" }, prompt: { type: "string" }, representationSpec: { type: "string", description: "Frozen academic diagram data, axes, labels, and scale. Do not include the answer in visible question text." }, responseContract: { type: "object", additionalProperties: false, required: ["mode", "representationId"], properties: { mode: { type: "string", enum: ["tap_selection", "tap_numeric_pad", "drag_construct"] }, representationId: { type: "string" } } }, correctAnswerContract: { type: "object", additionalProperties: false, required: ["acceptedValues"], properties: { acceptedValues: { type: "array", minItems: 1, items: { type: "string" } } } }, difficultyBoundary: { type: "string" }, exposureId: { type: "string" }, possibleConfounds: { type: "array", items: { type: "string" } }, falsifyingEvidence: { type: "array", items: { type: "string" } }, measurementKeys: { type: "array", items: { type: "string" } } } } },
@@ -1039,13 +1057,14 @@ export async function generateMathDiscoveryExperience(input: {
     console.log(` 🎮 [adaptive-math] [discovery-planner] [reused] child=${input.childId} homework=${input.homeworkId}`);
   } else {
     console.log(` 🎮 [adaptive-math] [discovery-planner] [running] child=${input.childId} homework=${input.homeworkId}`);
-    const plannerResponse = await create(input.plannerModel ?? process.env.SUNNY_PLANNER_MODEL ?? "claude-opus-5", `You are Sunny's Academic Planner. Create one independent opening mathematics Probe Board that determines what the child already knows and where evidence is missing. Author fresh items without copying the assignment. Group every item into exactly one probeActivities entry. You own the educationally sufficient activity count, the item grouping, the stable node IDs, and concise child-facing activity titles; do not use a fixed node count. Each probe activity should measure a coherent assignment concept without teaching it. Keep visible question text separate from representation specifications: never state the answer or transcribe bar heights into a graph-reading question. The visible question, diagram, axis labels, and accepted answer must be consistent. Use prior academic observations to target missing evidence; do not infer learning styles. For each item ask whether it can be answered without using the claimed construct; revise it before returning if it can. Construct IDs are evidence labels: do not name a numeric strategy or interval (for example, by-tens) unless every linked item actually measures that exact strategy or interval. Before returning, compare each construct ID against each linked prompt, representation, and accepted answer. Each item must identify its construct, response contract, accepted answers, difficulty boundary, exposure identity, possible confounds, falsifying evidence, and measurement keys. Collect independent evidence before teaching or answer exposure. Prefer the lowest-friction response mode that preserves the mathematics. ${BOARD_AUTHORING_INSTRUCTION} The Experience Creator owns activity implementation. Do not declare mastery.\n\n${common}`, discoveryPlannerTool);
+    const plannerResponse = await create(input.plannerModel ?? process.env.SUNNY_PLANNER_MODEL ?? "claude-opus-5", `${learningPlannerInstructions('math').text} Create one independent opening mathematics Probe Board that determines what the child already knows and where evidence is missing. Author fresh items without copying the assignment. Group every item into exactly one probeActivities entry. You own the educationally sufficient activity count, the item grouping, the stable node IDs, and concise child-facing activity titles; do not use a fixed node count. Each probe activity should measure a coherent assignment concept without teaching it. Keep visible question text separate from representation specifications: never state the answer or transcribe bar heights into a graph-reading question. The visible question, diagram, axis labels, and accepted answer must be consistent. Use prior academic observations to target missing evidence; do not infer learning styles. For each item ask whether it can be answered without using the claimed construct; revise it before returning if it can. Construct IDs are evidence labels: do not name a numeric strategy or interval (for example, by-tens) unless every linked item actually measures that exact strategy or interval. Before returning, compare each construct ID against each linked prompt, representation, and accepted answer. Each item must identify its construct, response contract, accepted answers, difficulty boundary, exposure identity, possible confounds, falsifying evidence, and measurement keys. Collect independent evidence before teaching or answer exposure. Prefer the lowest-friction response mode that preserves the mathematics. ${JOURNEY_AUTHORING_INSTRUCTION} The Experience Creator owns activity implementation. Do not declare mastery.\n\n${common}`, discoveryPlannerTool);
     academic = toolInput(plannerResponse, "create_math_discovery_contract") as DiscoveryAcademicContract;
     if (!Array.isArray(academic.probeActivities)) throw new Error("discovery_probe_activity_contract_missing");
     assertDiscoveryResponseContracts(academic);
     assertDiscoveryConstructSemantics(academic);
   }
   const validateJourney = async (candidate: DiscoveryAcademicContract) => {
+    if(candidate.journey){const parsed=adventureJourneySchema.safeParse(candidate.journey);if(!parsed.success)throw new Error(`board_definition_invalid:${JSON.stringify(parsed.error.issues)}`);const journey=parsed.data;const defects=validateBoardDefinition(journey,discoveryProbeActivities(candidate as MathDiscoveryEvaluationContract).map(activity=>activity.nodeId));if(defects.length)throw new Error(`board_definition_invalid:${JSON.stringify(defects)}`);return;}
     const definition=requireBoardDefinition(candidate.boardDefinition,discoveryProbeActivities(candidate as MathDiscoveryEvaluationContract).map(activity=>activity.nodeId));
     await verifyAuthoredBoardCanvas({definition,rootDir,directory:path.join(draftDir,"opening-canvas-verification")});
   };
@@ -1054,10 +1073,10 @@ export async function generateMathDiscoveryExperience(input: {
     if(!(error instanceof Error) || !/^(board_definition_|board_canvas_invalid:)/.test(error.message))throw error;
     console.log(` 🎮 [adaptive-math] [opening-journey-correction] [required] reason=${error.message}`);
     const response=await create(input.plannerModel??process.env.SUNNY_PLANNER_MODEL??"claude-opus-5",
-      `Correct only boardDefinition in the received opening evaluation. Preserve every other field exactly. There is one correction attempt. ${BOARD_AUTHORING_INSTRUCTION}\nDEFECT: ${error.message}\nRECEIVED: ${JSON.stringify(academic)}`,
+      `Correct only the semantic journey in the received opening evaluation. Preserve every other field exactly. There is one correction attempt. ${JOURNEY_AUTHORING_INSTRUCTION}\nDEFECT: ${error.message}\nRECEIVED: ${JSON.stringify(academic)}`,
       discoveryPlannerTool,"opening-journey-correction");
     const corrected=toolInput(response,"create_math_discovery_contract") as DiscoveryAcademicContract;
-    const academicFields=(value:DiscoveryAcademicContract)=>{const {boardDefinition,...fields}=value;return fields;};
+    const academicFields=(value:DiscoveryAcademicContract)=>{const {boardDefinition,journey,...fields}=value;return fields;};
     if(!isDeepStrictEqual(academicFields(academic),academicFields(corrected)))throw new Error("discovery_journey_correction_changed_academic_contract");
     await validateJourney(corrected);
     academic=corrected;
@@ -1089,12 +1108,23 @@ export async function generateMathDiscoveryExperience(input: {
   if (designed) {
     console.log(` 🎮 [adaptive-math] [discovery-design] [reused] child=${input.childId} homework=${input.homeworkId}`);
   } else {
-    const architectResponse = await create(input.architectModel ?? process.env.SUNNY_ARCHITECT_MODEL ?? "claude-fable-5", `You are Sunny's Experience Creator. Design the frozen independent evaluation below for the child and device. Choose the presentation, interaction, pacing, stakes, recovery, visual language, motion, sound cues, and payoff. Make the first action immediately understandable and make mathematics visibly control the interaction. Do not teach or reveal an answer before the first committed response to an item. Never trap the child. Preserve the contract exactly.\n\nCONTRACT HASH: ${contractHash}\n${JSON.stringify(academic, null, 2)}\n\nCHILD PRESENTATION AND HOST CONTRACT:\n${JSON.stringify(presentationContract, null, 2)}\n\n${common}`, {
+    const architectResponse = await create(input.architectModel ?? process.env.SUNNY_ARCHITECT_MODEL ?? "claude-fable-5", `You are Sunny's Experience Creator. Design the frozen independent evaluation below for the child and device. Choose the presentation, interaction, pacing, stakes, recovery, visual language, motion, sound cues, and payoff. Make the first action immediately understandable and make mathematics visibly control the interaction. Do not teach or reveal an answer before the first committed response to an item. Never trap the child. Preserve the contract exactly.\n\nCONTRACT HASH: ${contractHash}\n${JSON.stringify(academic, null, 2)}\n\nCHILD PRESENTATION AND HOST CONTRACT:\n${JSON.stringify(presentationContract, null, 2)}\n\n${academic.journey?`Compose the immutable journey with illustrated artwork and authored landscape/portrait positions. ${BOARD_CANVAS_AUTHORING_CONSTRAINTS}`:""}\n${common}`, {
       name: "create_math_discovery_design",
-      schema: { type: "object", additionalProperties: false, required: ["contractHash", "design", "backgroundSvg"], properties: { contractHash: { type: "string" }, design: { type: "object", additionalProperties: true }, backgroundSvg: { type: "string" } } },
+      schema: { type: "object", additionalProperties: false, required: ["contractHash", "design", "backgroundSvg",...(academic.journey?["composition"]:[])], properties: { ...(academic.journey?{composition:z.toJSONSchema(adventureCompositionSchema,{io:"input"})}:{}),contractHash: { type: "string" }, design: { type: "object", additionalProperties: true }, backgroundSvg: { type: "string" } } },
     });
     designed = toolInput(architectResponse, "create_math_discovery_design");
     atomicJson(designCheckpointFile, designed);
+  }
+  let boardDefinition=academic.boardDefinition;
+  if(academic.journey){
+    const verifyComposition=async()=>{const definition=assembleAdventureBoardDefinition(academic.journey!,adventureCompositionSchema.parse(designed!.composition));await verifyAuthoredBoardCanvas({definition,rootDir,directory:path.join(draftDir,"opening-canvas-verification")});return definition;};
+    try{boardDefinition=await verifyComposition();}
+    catch(error){
+      if(!(error instanceof z.ZodError) && !(error instanceof Error && /^(board_composition_identity_invalid|board_canvas_invalid:)/.test(error.message)))throw error;
+      const response=await create(input.architectModel??process.env.SUNNY_ARCHITECT_MODEL??"claude-fable-5",`Correct only the received composition. There is one correction attempt. Preserve the immutable journey and existing activity design. ${BOARD_CANVAS_AUTHORING_CONSTRAINTS}\nCONTRACT HASH: ${contractHash}\nJOURNEY: ${JSON.stringify(academic.journey)}\nRECEIVED COMPOSITION: ${JSON.stringify(designed.composition)}\nDEFECT: ${error.message}`,{name:"create_math_discovery_design",schema:{type:"object",additionalProperties:false,required:["contractHash","composition"],properties:{contractHash:{type:"string"},composition:z.toJSONSchema(adventureCompositionSchema,{io:"input"})}}},"opening-composition-correction");
+      const patch=toolInput(response,"create_math_discovery_design");if(patch.contractHash!==contractHash)throw new Error("discovery_design_changed_contract_hash");
+      designed={...designed,composition:patch.composition};boardDefinition=await verifyComposition();atomicJson(designCheckpointFile,designed);
+    }
   }
   if (designed.contractHash !== contractHash) throw new Error("discovery_design_changed_contract_hash");
   const { designHash: _legacyDesignHash, ...stableDesigned } = designed;
@@ -1138,6 +1168,7 @@ export async function generateMathDiscoveryExperience(input: {
     if (!firstArtifact) throw new Error("discovery_first_probe_artifact_missing");
     return {
       ...academic,
+      boardDefinition,
       probeActivities: activities,
       probeArtifacts: orderedArtifacts,
       artifact: {
@@ -1592,6 +1623,7 @@ export async function publishDiscoveryExperience(input: {
 }): Promise<void> {
   const rootDir = input.rootDir ?? process.cwd();
   const definition=requireBoardDefinition(input.activeSessionPlan.boardDefinition,input.activeSessionPlan.nodePlan.map(node=>node.id));
+  verifyBoardArtworkReady({definition,rootDir});
   await verifyAuthoredBoardCanvas({definition,rootDir,directory:path.join(resolveAdaptiveMathDraftDir(input.childId,input.homeworkId,{rootDir}),'canvas-verification')});
   const contextDir = resolveChildContextDir(input.childId, { rootDir });
   const planPath = path.join(contextDir, "plans", "active_session_plan.json");

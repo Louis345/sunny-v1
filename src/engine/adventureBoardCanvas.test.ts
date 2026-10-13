@@ -74,3 +74,14 @@ it('keeps an authored illustration unpublished until its required file exists',a
   expect(()=>verifyBoardArtworkReady({definition:remote,rootDir})).not.toThrow();
  }finally{rmSync(rootDir,{recursive:true,force:true});}
 });
+
+it('requires a local illustration before initial publication writes child state',async()=>{
+ const {publishDiscoveryExperience}=await import('./adaptiveMathDiscovery');
+ const {existsSync}=await import('node:fs');
+ const rootDir=mkdtempSync(join(tmpdir(),'sunny-initial-artwork-'));
+ const definition:AdventureBoardDefinition=linearJourneyFixture(['eval']);definition.theme.background={type:'image',value:'/generated/missing-world.png'};
+ try{
+  await expect(publishDiscoveryExperience({rootDir,childId:'synthetic',homeworkId:'h',spellingItems:[] as never,activeSessionPlan:{boardDefinition:definition,nodePlan:[{id:'eval'}],domain:'spelling'} as never,assignment:{} as never})).rejects.toThrow('board_artwork_not_ready');
+  expect(existsSync(join(rootDir,'src/context/synthetic/plans/active_session_plan.json'))).toBe(false);
+ }finally{rmSync(rootDir,{recursive:true,force:true});}
+});
