@@ -9,6 +9,17 @@ export type BoardCanvasProof={definitionHash:string;rendererHash:string;viewport
 export const boardDefinitionHash=(definition:AdventureBoardDefinition)=>createHash('sha256').update(JSON.stringify(definition)).digest('hex');
 const viewports=[{width:1280,height:720},{width:768,height:1024},{width:1470,height:956}];
 
+/** Required authored artwork is a publication dependency, never a replacement theme. */
+export function verifyBoardArtworkReady(input:{definition:AdventureBoardDefinition;rootDir:string}):void {
+ const background=input.definition.theme.background;
+ if(background.type!=='image')return;
+ if(!background.value.startsWith('/') || background.value.startsWith('//'))return; // Remote/data images are checked by rendered acceptance, not local IO.
+ const publicRoot=path.resolve(input.rootDir,'web/public');
+ const file=path.resolve(publicRoot,decodeURIComponent(new URL(background.value,'http://sunny.local').pathname).replace(/^\//,''));
+ if( !file.startsWith(`${publicRoot}${path.sep}`) || !fs.existsSync(file) || !fs.statSync(file).isFile() || fs.statSync(file).size===0)throw new Error(`board_artwork_not_ready:${background.value}`);
+ console.log(` 🎮 [board-canvas] [required-artwork] [present] ${background.value}`);
+}
+
 /** Existing generation verifies the actual shared canvas before making a board visible.
  * No model, topology repair, or educational policy lives here. A failed composition
  * returns precise geometry to the existing recoverable generation job.
@@ -78,6 +89,7 @@ export async function verifyPreparingBoardCanvas(input:{rootDir:string;childId:s
  const cycle=getLearningCycle(input.childId,input.homeworkId,{rootDir:input.rootDir});
  const board=cycle?.boards?.find(candidate=>candidate.publishedAt===null);
  if(!board?.definition)return;
+ verifyBoardArtworkReady({...input,definition:board.definition});
  const proof=await verifyAuthoredBoardCanvas({...input,definition:board.definition});
  const latest=getLearningCycle(input.childId,input.homeworkId,{rootDir:input.rootDir})!;
  if(JSON.stringify(latest.canvasVerifications?.[board.boardId])===JSON.stringify(proof))return;
