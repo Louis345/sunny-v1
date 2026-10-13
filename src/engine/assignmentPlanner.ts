@@ -1018,6 +1018,7 @@ function nativeCorrectionPermissions(original:unknown,error:Error) {
   const a=jsonObject(original);if(!a)throw new Error("learning_program_correction_changed_protected_fields");
   const editable:Array<Array<string|number>>=[];
   const missingEdges=new Set<string>();
+  const missingActivities=new Set<string>();
   const defects=[...((error as Error&{issues?:Array<{code:string;measurementId?:string;nodeId?:string;id?:string;message?:string}>}).issues??[])];
   if(error instanceof z.ZodError){
     defects.length=0;
@@ -1047,6 +1048,10 @@ function nativeCorrectionPermissions(original:unknown,error:Error) {
         if(match)missingEdges.add(`${match[1]}\0${match[2]}`);
       }
       const journey=jsonObject(a.journey),paths=journey?.paths,choices=journey?.choices;
+      if(defect.code==='activity_portal_missing' && defect.id && nodes.some(node=>node?.id===defect.id)){
+        missingActivities.add(defect.id);editable.push(['journey','portals']);
+        if(Array.isArray(paths))paths.forEach((_row,i)=>editable.push(['journey','paths',i,'portalIds']));
+      }
       if(defect.code==='path_cycle' && Array.isArray(paths) && Array.isArray(choices)){
         const choice=choices.map(jsonObject).find(row=>row?.id===defect.message?.slice('path_cycle:'.length));
         if(choice && Array.isArray(choice.options))choice.options.forEach((option,j)=>{
@@ -1057,11 +1062,22 @@ function nativeCorrectionPermissions(original:unknown,error:Error) {
       }
       if(defect.code==='path_missing' && Array.isArray(choices))choices.forEach((row,i)=>{const options=jsonObject(row)?.options;if(Array.isArray(options))options.forEach((option,j)=>{if(jsonObject(option)?.pathId===defect.message?.slice('path_missing:'.length))editable.push(['journey','choices',i,'options',j,'pathId']);});});
     }
-  return {editable,missingEdges};
+  return {editable,missingEdges,missingActivities};
 }
 export function assertNativeLearningProgramCorrection(original:unknown,corrected:unknown,error:Error):void {
   const a=jsonObject(original),b=jsonObject(corrected);if(!a||!b)throw new Error("learning_program_correction_changed_protected_fields");
-  const {editable,missingEdges}=nativeCorrectionPermissions(original,error);
+  const {editable,missingEdges,missingActivities}=nativeCorrectionPermissions(original,error);
+  if(missingActivities.size){
+    const before=jsonObject(a.journey),after=jsonObject(b.journey);
+    if(!before||!after||!Array.isArray(before.portals)||!Array.isArray(after.portals)||!Array.isArray(before.paths)||!Array.isArray(after.paths))throw new Error("learning_program_correction_changed_protected_fields");
+    const priorIds=new Set(before.portals.map(portal=>jsonObject(portal)?.id));
+    const additions=after.portals.filter(portal=>!priorIds.has(jsonObject(portal)?.id));
+    if(additions.some(portal=>{const row=jsonObject(portal);return !row||row.kind!=='activity'||typeof row.id!=='string'||!missingActivities.has(String(row.activityNodeId));})
+      ||!isDeepStrictEqual(before.portals,after.portals.filter(portal=>priorIds.has(jsonObject(portal)?.id))))throw new Error("learning_program_correction_changed_protected_fields");
+    const addedIds=new Set(additions.map(portal=>jsonObject(portal)!.id));
+    const preservedPaths=after.paths.map(path=>{const row=jsonObject(path);return row&&Array.isArray(row.portalIds)?{...row,portalIds:row.portalIds.filter(id=>!addedIds.has(id))}:path;});
+    if(!isDeepStrictEqual(before.paths,preservedPaths))throw new Error("learning_program_correction_changed_protected_fields");
+  }
   const known=Object.keys(nativeLearningProgramSchema.shape);
   const left=Object.fromEntries(known.filter(key=>key in a).map(key=>[key,structuredClone(a[key])]));
   const right=Object.fromEntries(known.filter(key=>key in a).map(key=>[key,structuredClone(b[key])]));

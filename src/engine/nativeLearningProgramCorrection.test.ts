@@ -39,3 +39,17 @@ it('advertises the runtime configuration types during field repair, including su
  const value=(tool.input_schema.properties.patches.items.properties.value as any).anyOf[0];
  expect(value.anyOf[0].properties.inputMode.enum).toEqual(['whole-word','letter-by-letter','keyboard']);
 });
+
+it('lets the author bind an omitted activity without rewriting existing portals or paths',()=>{
+ const program={...original,journey:{version:2,rootPathId:'root',portals:[{id:'start',kind:'start',label:'Start'},{id:'practice',kind:'activity',label:'Practice',activityNodeId:'practice'},{id:'end',kind:'endpoint',label:'Done'}],paths:[{id:'root',portalIds:['start','practice','end']}],choices:[]}};
+ const omitted=Object.assign(new Error('assignment_planner_relationship_invalid'),{issues:[{code:'activity_portal_missing',id:'wheel'}]});
+ const tool=planner.nativeLearningProgramCorrectionTool(program,omitted);
+ expect(tool.input_schema.properties.patches.items.properties.path.enum).toEqual(['/journey/portals','/journey/paths/0/portalIds']);
+ const portals=[...program.journey.portals,{id:'wheel-portal',kind:'activity',label:'Spin',activityNodeId:'wheel'}];
+ const patches=[{path:'/journey/portals',value:portals},{path:'/journey/paths/0/portalIds',value:['start','practice','wheel-portal','end']}];
+ const fixed=planner.applyNativeLearningProgramCorrection(program,{patches},omitted) as typeof program;
+ expect(fixed.activities).toEqual(program.activities);expect(fixed.journey.paths[0].portalIds).toEqual(['start','practice','wheel-portal','end']);expect(program.journey.portals).toHaveLength(3);
+ expect(()=>planner.applyNativeLearningProgramCorrection(program,{patches:[patches[0],{path:'/journey/paths/0/portalIds',value:['start','wheel-portal','end']}]},omitted)).toThrow('learning_program_correction_changed_protected_fields');
+ expect(()=>planner.applyNativeLearningProgramCorrection(program,{patches:[{path:'/journey/portals',value:[...portals.slice(0,1),{...portals[1],label:'Changed'},...portals.slice(2)]},patches[1]]},omitted)).toThrow('learning_program_correction_changed_protected_fields');
+ expect(()=>planner.applyNativeLearningProgramCorrection(program,{patches:[{path:'/journey/portals',value:[...program.journey.portals,{id:'extra',kind:'activity',label:'Extra',activityNodeId:'practice'}]}]},omitted)).toThrow('learning_program_correction_changed_protected_fields');
+});
