@@ -985,7 +985,7 @@ export const assignmentPlannerDraftSchema = z.object({
   })).max(3).optional(),
 }).passthrough();
 
-const nativeMeasurementSchema=plannedMeasurementSchema.omit({id:true,activityId:true,target:true}).extend({spelling:plannedMeasurementSchema.shape.spelling.unwrap().nullable()}).strict();
+const nativeMeasurementSchema=plannedMeasurementSchema.omit({id:true,activityId:true,target:true}).extend({spelling:plannedMeasurementSchema.shape.spelling.unwrap().nullable().describe("Every academic activity, including visual-explainer, carries this prescription. Use role instruction for teaching exposure, practice for rehearsal, fresh_checkpoint for independent measurement. Exposure is not mastery. Null is reserved for a nonacademic reward or engagement-only activity.")}).strict();
 const nativeLearningProgramSchema=z.object({
   domain:z.literal("spelling"),planId:z.string().min(1),journey:adventureJourneySchema,
   activities:z.array(compactNodePlanSchema.extend({measurement:nativeMeasurementSchema}).strict()).min(1).max(12),
@@ -1028,7 +1028,7 @@ export function assertNativeLearningProgramCorrection(original:unknown,corrected
         else if(defect.code==='missing_node_title')editable.push(['activities',index,'title']);
         else if(defect.code==='target_lane_mismatch')editable.push(['activities',index,'targetLane']);
         else if(defect.code==='word_radar_unrendered_teaching')editable.push(['activities',index,'rounds'],['activities',index,'activityConfig','teachingFocus']);
-        else if(defect.code==='planner_missing_measurement')editable.push(['activities',index,'measurement','spelling']);
+        else if(defect.code==='planner_missing_measurement')editable.push(['activities',index,'measurement','spelling'],['activities',index,'measurement','evidenceType']);
         else if(defect.code.includes('intervention')||defect.code==='planner_checkpoint_lineage_missing')editable.push(['activities',index,'measurement','spelling','interventionNodeIds']);
       }
       if(defect.code==='path_edge_missing'){

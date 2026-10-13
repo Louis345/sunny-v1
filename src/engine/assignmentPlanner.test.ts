@@ -1014,6 +1014,7 @@ describe("assignment planner", () => {
     expect(schema.properties.activeSessionPlan).toBeUndefined();expect(schema.properties.plannedMeasurements).toBeUndefined();
     expect(schema.properties.activities.items.properties.measurement.properties.id).toBeUndefined();
     expect(schema.properties.activities.items.properties.measurement.required).toContain("spelling");
+    expect(schema.properties.activities.items.properties.measurement.properties.spelling.description).toContain("visual-explainer");
     const root=fs.mkdtempSync(path.join(os.tmpdir(),"sunny-shared-planner-"));
     const stream=vi.fn((_request:unknown)=>({finalMessage:async()=>({id:"native-recorded",stop_reason:"tool_use",usage:{input_tokens:1,output_tokens:1},content:[{type:"tool_use",name:"create_learning_program",input}]})}));
     try{
@@ -1068,6 +1069,15 @@ describe("assignment planner", () => {
     expect(()=>assertNativeLearningProgramCorrection(original,config,Object.assign(new Error("learning_program_invalid"),{issues:[{code:"word_radar_capability_mismatch",nodeId:"a"}]}))).not.toThrow();
     targets.activities[1].targets=["unrelated"];
     expect(()=>assertNativeLearningProgramCorrection(original,targets,defect)).toThrow("changed_protected_fields");
+  });
+
+  it("allows restoring an instructional measurement and its directly dependent evidence type",()=>{
+    const original:any={domain:"spelling",planId:"repair",activities:[{id:"teach",measurement:{evidenceType:"practice",spelling:null,supportCriteria:"Exposure only"}}]};
+    const fixed=structuredClone(original);fixed.activities[0].measurement.evidenceType="instruction";fixed.activities[0].measurement.spelling={role:"instruction",evidenceIds:["observed"]};
+    const defect=Object.assign(new Error("assignment_planner_relationship_invalid"),{issues:[{code:"planner_missing_measurement",nodeId:"teach",measurementId:"measure-teach"}]});
+    expect(()=>assertNativeLearningProgramCorrection(original,fixed,defect)).not.toThrow();
+    fixed.activities[0].measurement.supportCriteria="Changed educational goal";
+    expect(()=>assertNativeLearningProgramCorrection(original,fixed,defect)).toThrow("changed_protected_fields");
   });
 
   it("allows only the missing connection to be added",()=>{
