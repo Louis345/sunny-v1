@@ -4,7 +4,7 @@ import {isDeepStrictEqual} from "node:util";
 import {z} from "zod";
 import {learningPlannerInstructions} from "./learningPlannerInstructions";
 import {verifyAuthoredBoardCanvas,verifyPreparingBoardCanvas} from './adventureBoardCanvas';
-import {JOURNEY_AUTHORING_INSTRUCTION,adventureJourneySchema,ADVENTURE_JOURNEY_TOOL_SCHEMA,journeyFromBoardDefinition,validateBoardDefinition,adventureCompositionSchema,assembleAdventureBoardDefinition,BOARD_CANVAS_AUTHORING_CONSTRAINTS,type AdventureJourneyDefinition,type AdventureBoardComposition, requireBoardDefinition, BOARD_DEFINITION_TOOL_SCHEMA, BOARD_AUTHORING_INSTRUCTION, journeyExecutions, renderBoardDefinition, type AdventureBoardDefinition } from "../shared/adventureBoardDefinition";
+import {adventureCompositionCorrectionTool,applyAdventureCompositionCorrection,JOURNEY_AUTHORING_INSTRUCTION,adventureJourneySchema,ADVENTURE_JOURNEY_TOOL_SCHEMA,journeyFromBoardDefinition,validateBoardDefinition,adventureCompositionSchema,assembleAdventureBoardDefinition,BOARD_CANVAS_AUTHORING_CONSTRAINTS,type AdventureJourneyDefinition,type AdventureBoardComposition, requireBoardDefinition, BOARD_DEFINITION_TOOL_SCHEMA, BOARD_AUTHORING_INSTRUCTION, journeyExecutions, renderBoardDefinition, type AdventureBoardDefinition } from "../shared/adventureBoardDefinition";
 import Anthropic from "@anthropic-ai/sdk";
 import crypto from "node:crypto";
 import fs from "node:fs";
@@ -223,6 +223,7 @@ export type MathDesignCheckpoint = {
   composition?: AdventureBoardComposition;
   sourceHash?: string;
   compositionDefect?: string;
+  rejectedComposition?: AdventureBoardComposition;
   version: 1;
   planId: string;
   model: string;
@@ -1344,10 +1345,12 @@ ${JSON.stringify(factualModelContext(input.childContext), null, 2)}
 Factual prior outcomes and catalog history:
 ${JSON.stringify(factualModelContext(input.priorOutcomes), null, 2)}
 
-${journey ? `Author composition for the immutable journey: ${JSON.stringify(journey)}. Preserve labels and bindings. Use illustrated Grok artwork, animated paths and independently composed portrait. Available artwork: /generated/adventure-board-demo/silent-letter-world.jpeg. ${BOARD_CANVAS_AUTHORING_CONSTRAINTS}${checkpoint.compositionDefect ? ` Fix only the diagnosed composition defect: ${checkpoint.compositionDefect}` : ""}\n\n` : ""}Immutable MathLearningProgram:
+${journey ? `Author composition for the immutable journey: ${JSON.stringify(journey)}. Preserve labels and bindings. Use illustrated Grok artwork, animated paths and independently composed portrait. Available artwork: /generated/adventure-board-demo/silent-letter-world.jpeg. ${BOARD_CANVAS_AUTHORING_CONSTRAINTS}${checkpoint.compositionDefect ? ` Fix only the diagnosed geometry on this received candidate, preserving every other field: ${JSON.stringify(checkpoint.rejectedComposition)}. Defect: ${checkpoint.compositionDefect}` : ""}\n\n` : ""}Immutable MathLearningProgram:
 ${JSON.stringify({ ...programWithoutBonusDuplicate, activities: contracts }, null, 2)}`;
+    const geometryTool=journey&&checkpoint.rejectedComposition&&checkpoint.compositionDefect
+      ? adventureCompositionCorrectionTool(checkpoint.rejectedComposition,journey,new Error(checkpoint.compositionDefect)):undefined;
     const startedAt = Date.now();
-    const request = {
+    let request = {
       model,
       max_tokens: Number(process.env.SUNNY_DIRECTOR_MAX_TOKENS ?? 16000),
       output_config: { effort: "high" },
@@ -1374,7 +1377,26 @@ ${JSON.stringify({ ...programWithoutBonusDuplicate, activities: contracts }, nul
         },
       }],
       tool_choice: { type: "tool", name: toolName },
-    } as never;
+    } as unknown as Anthropic.MessageCreateParamsNonStreaming;
+    if(geometryTool&&(native||requestedNodeIds.length===0)){
+      request.tools=[geometryTool as never];request.tool_choice={type:'tool',name:geometryTool.name};
+      request.messages=[{role:'user',content:`You are Sunny's existing Experience Creator. Repair only the diagnosed geometry on the received candidate. Preserve every other field, including successful orientation, artwork, palette, labels and identities. Return explicit geometry patches. This is attempt ${checkpoint.attempts.length+1} of 2; no new design loop.
+Immutable source hash: ${checkpoint.sourceHash}\nReceived candidate: ${JSON.stringify(checkpoint.rejectedComposition)}
+Immutable journey: ${JSON.stringify(journey)}
+Measured defects: ${checkpoint.compositionDefect}`}];
+    }
+    if(input.checkpointFile){
+      const directory=path.dirname(input.checkpointFile),pointer=path.join(directory,'provider-receipts',`targeted-design-${checkpoint.attempts.length+1}.stage.json`);
+      if(fs.existsSync(pointer)){
+        const {requestHash}=JSON.parse(fs.readFileSync(pointer,'utf8'));if(!/^[a-f0-9]{64}$/.test(requestHash))throw new Error('learning_design_saved_request_invalid');
+        const receipt=JSON.parse(fs.readFileSync(path.join(directory,'provider-receipts',`${requestHash}.json`),'utf8'));
+        const frozen=JSON.parse(fs.readFileSync(path.join(directory,'provider-diagnostics',`${requestHash}.attempt-${receipt.attempts?.length??1}.request.json`),'utf8')).context as typeof request;
+        const authoredProgram=JSON.stringify(native??{...programWithoutBonusDuplicate,activities:contracts},null,native?undefined:2);
+        if(frozen.model!==model||typeof frozen.messages[0]?.content!=='string'||!(frozen.messages[0].content.includes(authoredProgram)||checkpoint.sourceHash&&checkpoint.rejectedComposition&&frozen.messages[0].content.includes(`Immutable source hash: ${checkpoint.sourceHash}`)&&frozen.messages[0].content.includes(JSON.stringify(journey))&&frozen.messages[0].content.includes(JSON.stringify(checkpoint.rejectedComposition))))throw new Error('learning_design_saved_request_identity_mismatch');
+        request=frozen;
+      }
+    }
+    const responseToolName=request.tool_choice&&typeof request.tool_choice==='object'&&'name' in request.tool_choice?request.tool_choice.name:toolName;
     let response: Awaited<ReturnType<ReturnType<typeof client.messages.stream>["finalMessage"]>> | undefined;
     for (let transportAttempt = 1; transportAttempt <= 2; transportAttempt += 1) {
       try {
@@ -1412,7 +1434,7 @@ ${JSON.stringify({ ...programWithoutBonusDuplicate, activities: contracts }, nul
       }
     }
     if (!response) throw new Error(`math_design_transport_exhausted:nodes=${requestedNodeIds.join(",")}`);
-    const toolUse = response.content.find((block) => block.type === "tool_use" && block.name === toolName);
+    const toolUse = response.content.find((block) => block.type === "tool_use" && block.name === responseToolName);
     const rawResponsePath = input.rawResponseDir
       ? path.join(input.rawResponseDir, `design-response-${checkpoint.attempts.length + 1}.json`)
       : undefined;
@@ -1433,15 +1455,25 @@ ${JSON.stringify({ ...programWithoutBonusDuplicate, activities: contracts }, nul
     if (!root) throw new Error(`math_design_provider_contract_failed:invalid_tool_output:nodes=${requestedNodeIds.join(",")}`);
     let composition=checkpoint.composition;
     if(journey && !composition){
+      let candidate:AdventureBoardComposition|undefined;
       try {
-        composition=adventureCompositionSchema.parse(root.composition);
+        candidate=responseToolName==='repair_board_geometry'
+          ? applyAdventureCompositionCorrection(checkpoint.rejectedComposition!,journey,root,new Error(checkpoint.compositionDefect))
+          : adventureCompositionSchema.parse(root.composition);
+        if(geometryTool&&responseToolName!=='repair_board_geometry'){
+          const paths=geometryTool.input_schema.properties.patches.items.properties.path.enum;
+          const patches=paths.map(pointer=>{let value:unknown=candidate;for(const part of pointer.slice(1).split('/'))value=(value as Record<string,unknown>)[part];return {path:pointer,value};});
+          const preserved=applyAdventureCompositionCorrection(checkpoint.rejectedComposition!,journey,{patches},new Error(checkpoint.compositionDefect));
+          if(!isDeepStrictEqual(candidate,preserved))throw new Error('composition_correction_changed_protected_fields');
+        }
+        composition=candidate;
         const definition=assembleAdventureBoardDefinition(journey,composition);
         await verifyAuthoredBoardCanvas({definition,rootDir:process.cwd(),directory:path.join(input.rawResponseDir??path.dirname(input.checkpointFile??path.join(os.tmpdir(),"sunny-design.json")),"creator-canvas")});
       }
       catch(error){
         const authoringDefect=error instanceof z.ZodError || (error instanceof Error && ["board_composition_identity_invalid","board_canvas_invalid:"].some(prefix=>error.message.startsWith(prefix)));
         if(!authoringDefect)throw error;
-        composition=undefined;checkpoint={...checkpoint,compositionDefect:error instanceof Error?error.message:String(error)};
+        composition=undefined;checkpoint={...checkpoint,...(candidate?{rejectedComposition:candidate}:{}),compositionDefect:error instanceof Error?error.message:String(error)};
         console.warn(` 🎮 [experience-creator] [composition] [invalid] ${checkpoint.compositionDefect}`);
       }
     }
