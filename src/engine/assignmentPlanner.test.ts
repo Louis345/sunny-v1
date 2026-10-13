@@ -1010,11 +1010,17 @@ describe("assignment planner", () => {
     expect(output.activeSessionPlan.nodePlan.map(n=>n.id)).toEqual([practice.id,check.id]);
     expect(output.activeSessionPlan.journey).toEqual(input.journey);
     expect(output.activeSessionPlan.adventureBoard).toBeUndefined();
+    const rewardInput:any=structuredClone(input);rewardInput.activities.push({id:"reward",title:"Reward break",type:"mystery",activityId:"mystery",targets:[],measurement:null});
+    rewardInput.journey=journeyFromBoardDefinition(linearJourneyFixture([practice.id,check.id,"reward"]));
+    expect(hydrateNativeLearningProgram(rewardInput,packet).plannedMeasurements).toHaveLength(2);
+    const missingAcademic:any=structuredClone(input);missingAcademic.activities[0].measurement=null;
+    expect(()=>hydrateNativeLearningProgram(missingAcademic,packet)).toThrow("planner_missing_measurement");
+
     const schema:any=nativeLearningProgramToolJsonSchema(packet.activityCatalog);
     expect(schema.properties.activeSessionPlan).toBeUndefined();expect(schema.properties.plannedMeasurements).toBeUndefined();
-    expect(schema.properties.activities.items.properties.measurement.properties.id).toBeUndefined();
-    expect(schema.properties.activities.items.properties.measurement.required).toContain("spelling");
-    expect(schema.properties.activities.items.properties.measurement.properties.spelling.description).toContain("visual-explainer");
+    expect(schema.properties.activities.items.properties.measurement.anyOf[0].properties.id).toBeUndefined();
+    expect(schema.properties.activities.items.properties.measurement.anyOf[0].required).toContain("spelling");
+    expect(schema.properties.activities.items.properties.measurement.anyOf[0].properties.spelling.description).toContain("visual-explainer");
     const root=fs.mkdtempSync(path.join(os.tmpdir(),"sunny-shared-planner-"));
     const stream=vi.fn((_request:unknown)=>({finalMessage:async()=>({id:"native-recorded",stop_reason:"tool_use",usage:{input_tokens:1,output_tokens:1},content:[{type:"tool_use",name:"create_learning_program",input}]})}));
     try{
@@ -1027,7 +1033,7 @@ describe("assignment planner", () => {
       await askLearningPlanner(args);expect(stream).toHaveBeenCalledTimes(1);
       const {runMathProviderStage}=await import('./adaptiveMathDiscovery');
       const frozenDirectory=path.join(root,'old-description');
-      const oldRequest=structuredClone(request);oldRequest.messages[0].content[0].text="Previous reviewed instructions\n"+oldRequest.messages[0].content[0].text;delete oldRequest.tools[0].input_schema.properties.activities.items.properties.measurement.properties.spelling.description;
+      const oldRequest=structuredClone(request);oldRequest.messages[0].content[0].text="Previous reviewed instructions\n"+oldRequest.messages[0].content[0].text;delete oldRequest.tools[0].input_schema.properties.activities.items.properties.measurement.anyOf[0].properties.spelling.description;
       await runMathProviderStage({draftDir:frozenDirectory,stage:'targeted-planner',model:args.model,request:oldRequest,execute:async()=>({id:"old-description",stop_reason:"tool_use",usage:{input_tokens:1,output_tokens:1},content:[{type:"tool_use",name:"create_learning_program",input}]})});
       const noCall=vi.fn(()=>{throw new Error('must_not_repurchase_received_work')});
       expect((await askLearningPlanner({...args,rawResponseFile:path.join(frozenDirectory,'targeted-planner.json'),client:{messages:{stream:noCall}}})).plan.journey).toEqual(input.journey);

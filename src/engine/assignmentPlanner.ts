@@ -988,7 +988,7 @@ export const assignmentPlannerDraftSchema = z.object({
 const nativeMeasurementSchema=plannedMeasurementSchema.omit({id:true,activityId:true,target:true}).extend({spelling:plannedMeasurementSchema.shape.spelling.unwrap().nullable().describe("Every academic activity, including visual-explainer, carries this prescription. Use role instruction for teaching exposure, practice for rehearsal, fresh_checkpoint for independent measurement. Exposure is not mastery. Null is reserved for a nonacademic reward or engagement-only activity.")}).strict();
 const nativeLearningProgramSchema=z.object({
   domain:z.literal("spelling"),planId:z.string().min(1),journey:adventureJourneySchema,
-  activities:z.array(compactNodePlanSchema.extend({measurement:nativeMeasurementSchema}).strict()).min(1).max(12),
+  activities:z.array(compactNodePlanSchema.extend({measurement:nativeMeasurementSchema.nullable().describe("Null for a nonacademic reward; academic activities require their instructional/practice/checkpoint prescription.")}).strict()).min(1).max(12),
   planTheory:planTheorySchema,reviewQuestions:z.array(z.string()).max(8).default([]),
   generationRequests:z.array(generationRequestSchema).max(6).default([]),
   evidenceUsed:compactActiveSessionPlanSchema.shape.evidenceUsed,
@@ -1018,7 +1018,7 @@ export function assertNativeLearningProgramCorrection(original:unknown,corrected
   }else{
     const defects=(error as Error&{issues?:Array<{code:string;measurementId?:string;nodeId?:string;id?:string;message?:string}>}).issues;
     if(defects)for(const defect of defects){
-      const nodes=Array.isArray(a.activities)?a.activities.map(jsonObject):[];
+      const nodes:Array<Record<string,unknown>|undefined>=Array.isArray(a.activities)?a.activities.map(jsonObject):[];
       const index=nodes.findIndex(node=>node?.id===defect.nodeId||`measure-${node?.id}`===defect.measurementId);
       if(index>=0){
         if(defect.code.includes('evidence'))editable.push(['activities',index,'measurement','spelling','evidenceIds']);
@@ -1028,7 +1028,7 @@ export function assertNativeLearningProgramCorrection(original:unknown,corrected
         else if(defect.code==='missing_node_title')editable.push(['activities',index,'title']);
         else if(defect.code==='target_lane_mismatch')editable.push(['activities',index,'targetLane']);
         else if(defect.code==='word_radar_unrendered_teaching')editable.push(['activities',index,'rounds'],['activities',index,'activityConfig','teachingFocus']);
-        else if(defect.code==='planner_missing_measurement')editable.push(['activities',index,'measurement','spelling'],['activities',index,'measurement','evidenceType']);
+        else if(defect.code==='planner_missing_measurement'){if(nodes[index]?.measurement===null)editable.push(['activities',index,'measurement']);else editable.push(['activities',index,'measurement','spelling'],['activities',index,'measurement','evidenceType']);}
         else if(defect.code.includes('intervention')||defect.code==='planner_checkpoint_lineage_missing')editable.push(['activities',index,'measurement','spelling','interventionNodeIds']);
       }
       if(defect.code==='path_edge_missing'){
@@ -1068,9 +1068,10 @@ export function assertNativeLearningProgramCorrection(original:unknown,corrected
 export function hydrateNativeLearningProgram(raw:unknown,packet:AssignmentPlanningPacket,createdAt?:string):AssignmentPlannerOutput {
   const program=nativeLearningProgramSchema.parse(raw);
   const nodePlan=program.activities.map(({measurement:_measurement,...node})=>node);
-  const plannedMeasurements=program.activities.map(({measurement,...activity})=>{
+  const plannedMeasurements=program.activities.flatMap(({measurement,...activity})=>{
+    if(!measurement)return [];
     const {spelling,...fields}=measurement;
-    return {...fields,id:`measure-${activity.id}`,activityId:activity.activityId,target:activity.targets.length?activity.targets.join(","):activity.id,...(spelling?{spelling}:{})};
+    return [{...fields,id:`measure-${activity.id}`,activityId:activity.activityId,target:activity.targets.length?activity.targets.join(","):activity.id,...(spelling?{spelling}:{})}];
   });
   const draft=assignmentPlannerDraftSchema.parse({activeSessionPlan:{planId:program.planId,journey:program.journey,nodePlan,evidenceUsed:program.evidenceUsed},plannedMeasurements,planTheory:program.planTheory,reviewQuestions:program.reviewQuestions,generationRequests:program.generationRequests});
   validateAssignmentPlannerRelationships(draft,new Set(assignmentPlannerAllowedEvidenceIds(packet)),true,new Set([...packet.capturedHomework.words,...(packet.capturedHomework.wordGroups??[]).flatMap(group=>group.words)].map(word=>word.toLocaleLowerCase("en-US"))));
