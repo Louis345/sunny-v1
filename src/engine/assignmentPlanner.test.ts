@@ -1024,10 +1024,12 @@ describe("assignment planner", () => {
 
     const schema:any=nativeLearningProgramToolJsonSchema(packet.activityCatalog);
     expect(schema.properties.activeSessionPlan).toBeUndefined();expect(schema.properties.plannedMeasurements).toBeUndefined();
-    expect(schema.properties.activities.items.properties.measurement.anyOf[0].properties.id).toBeUndefined();
-    expect(schema.properties.activities.items.properties.measurement.anyOf[0].required).toContain("spelling");
-    expect(schema.properties.activities.items.properties.measurement.anyOf[0].properties.spelling.description).toContain("visual-explainer");
-    expect(schema.properties.activities.items.properties.wordRadarConfig.anyOf[0].properties.inputMode.enum).toEqual(["whole-word","letter-by-letter","keyboard"]);
+    const variants=schema.properties.activities.items.anyOf as any[];
+    for(const variant of variants.filter(candidate=>candidate.properties.measurement.type!=="null")){
+      expect(variant.properties.measurement.properties.id).toBeUndefined();
+      expect(variant.properties.measurement.required).toContain("spelling");
+    }
+    expect(variants.find(variant=>variant.properties.type.const==="word-radar").properties.wordRadarConfig.properties.inputMode.enum).toEqual(["whole-word","letter-by-letter","keyboard"]);
     const root=fs.mkdtempSync(path.join(os.tmpdir(),"sunny-shared-planner-"));
     const stream=vi.fn((_request:unknown)=>({finalMessage:async()=>({id:"native-recorded",stop_reason:"tool_use",usage:{input_tokens:1,output_tokens:1},content:[{type:"tool_use",name:"create_learning_program",input}]})}));
     try{
@@ -1040,7 +1042,7 @@ describe("assignment planner", () => {
       await askLearningPlanner(args);expect(stream).toHaveBeenCalledTimes(1);
       const {runMathProviderStage}=await import('./adaptiveMathDiscovery');
       const frozenDirectory=path.join(root,'old-description');
-      const oldRequest=structuredClone(request);oldRequest.messages[0].content[0].text="Previous reviewed instructions\n"+oldRequest.messages[0].content[0].text;delete oldRequest.tools[0].input_schema.properties.activities.items.properties.measurement.anyOf[0].properties.spelling.description;
+      const oldRequest=structuredClone(request);oldRequest.messages[0].content[0].text="Previous reviewed instructions\n"+oldRequest.messages[0].content[0].text;delete oldRequest.tools[0].input_schema.properties.activities.items.anyOf[0].description;
       await runMathProviderStage({draftDir:frozenDirectory,stage:'targeted-planner',model:args.model,request:oldRequest,execute:async()=>({id:"old-description",stop_reason:"tool_use",usage:{input_tokens:1,output_tokens:1},content:[{type:"tool_use",name:"create_learning_program",input}]})});
       const noCall=vi.fn(()=>{throw new Error('must_not_repurchase_received_work')});
       expect((await askLearningPlanner({...args,rawResponseFile:path.join(frozenDirectory,'targeted-planner.json'),client:{messages:{stream:noCall}}})).plan.journey).toEqual(authoredJourney);

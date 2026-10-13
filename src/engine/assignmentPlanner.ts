@@ -999,38 +999,51 @@ const nativeLearningProgramSchema=z.object({
   evidenceUsed:compactActiveSessionPlanSchema.shape.evidenceUsed,
 }).strict();
 /** The native domain uses the same LearningProgram boundary, with inline instrument bindings. */
-function nativeRuntimeToolSchema():JsonSchemaObject {
- const schema=z.toJSONSchema(nativeLearningProgramSchema,{io:"input"}) as JsonSchemaObject;
- schemaProperties(schemaProperties(schema).activities.items as JsonSchemaObject).wordRadarConfig={anyOf:[z.toJSONSchema(wordRadarRuntimeConfigSchema,{io:"input"}),{type:"null"}]};
- return schema;
+/** The order form the Planner fills in: one shape per kind of activity, so a plan the kiosk
+ * cannot run cannot be written down. Rules live here, not in prose and not in after-the-fact checks. */
+const nativeSpellingMeasurement=<const Role extends string>(roles:readonly [Role,...Role[]])=>nativeMeasurementSchema.extend({spelling:plannedMeasurementSchema.shape.spelling.unwrap().omit({interventionNodeIds:true}).extend({role:z.enum(roles)})}).strict();
+const nativeActivityBase=z.object({id:z.string().min(1),title:z.string().trim().min(1),difficulty:compactNodePlanSchema.shape.difficulty,targetLane:z.string().nullable().optional().describe("The captured word-group id these targets come from, when they share one.")});
+const nativeTargets=z.array(z.string().min(1)).min(1).describe("Assigned words only.");
+const explainerAuthoringSchema=z.object({
+  topic:z.string().min(1).max(120),learningGoal:z.string().min(1).max(220),misconception:z.string().min(1),
+  strategy:z.object({title:z.string().min(1).max(100),steps:z.array(z.string().min(1).max(140)).min(2).max(4)}).strict(),
+  words:z.array(z.object({text:z.string().min(1).describe("An assigned word."),chunks:z.array(z.string().min(1)).min(2).max(6).describe("Letters split into chunks that join to spell the word exactly."),focusChunk:z.string().min(1).describe("One chunk from this word."),tip:z.string().min(1).max(160)}).strict()).min(1).max(8).describe("The words this explainer teaches, at most 8. These are the activity's target words; do not list them anywhere else."),
+  check:z.object({targetWord:z.string().min(1).describe("One of the words above."),prompt:z.string().min(1).max(180),options:z.array(z.object({id:z.string().min(1),label:z.string().min(1),correct:z.boolean()}).strict()).min(2).max(4).describe("Exactly one option is correct."),correctOptionId:z.string().min(1)}).strict(),
+}).strict();
+export function spellingActivityFormSchema(practiceTypes:readonly string[]) {
+  const games=practiceTypes.filter(type=>!["word-radar","visual-explainer","letter-rush","mystery","quest","boss"].includes(type));
+  const game=z.enum((games.length?games:["spell-check"]) as [string,...string[]]);
+  return z.union([
+    nativeActivityBase.extend({type:z.literal("word-radar"),activityId:z.literal("word-radar"),targets:nativeTargets,wordRadarConfig:wordRadarRuntimeConfigSchema.extend({recallMode:z.literal("hidden_word_recall")}),measurement:nativeSpellingMeasurement(["fresh_checkpoint"])}).strict().describe("Independent checkpoint. This is the only activity that can measure what she knows; plan one as the final check."),
+    nativeActivityBase.extend({type:z.literal("word-radar"),activityId:z.literal("word-radar"),targets:nativeTargets,wordRadarConfig:wordRadarRuntimeConfigSchema,measurement:nativeSpellingMeasurement(["instruction","practice"])}).strict().describe("Word Radar practice."),
+    nativeActivityBase.extend({type:z.literal("visual-explainer"),activityId:z.literal("visual-explainer"),activityConfig:explainerAuthoringSchema,measurement:nativeSpellingMeasurement(["instruction"])}).strict().describe("Assisted teaching of a spelling pattern."),
+    nativeActivityBase.extend({type:z.literal("letter-rush"),activityId:z.literal("letter-rush"),targets:nativeTargets,letterRushMode:z.enum(["read-and-race","hear-and-spell","type-and-spell"]).optional(),measurement:nativeSpellingMeasurement(["practice"])}).strict().describe("Letter Rush practice."),
+    nativeActivityBase.extend({type:game,activityId:game.describe("Same value as type."),targets:nativeTargets,measurement:nativeSpellingMeasurement(["instruction","practice"])}).strict().describe("A practice game. It can never be a checkpoint."),
+    nativeActivityBase.extend({type:z.literal("mystery"),activityId:z.literal("mystery"),targets:z.array(z.string()).max(0),measurement:z.null()}).strict().describe("A reward with no words and no measurement."),
+  ]);
+}
+/** Don't ask twice: settings the Planner already implied are filled in by code. */
+export function deriveNativeActivity(row:unknown):unknown {
+  const activity=jsonObject(row);if(!activity)return row;
+  const config=jsonObject(activity.activityConfig);
+  if(activity.type==="visual-explainer"&&config&&config.schemaVersion===undefined&&Array.isArray(config.words)){
+    const words=config.words.map(jsonObject).filter((word):word is JsonSchemaObject=>Boolean(word)&&typeof word!.text==="string");
+    return {...activity,targets:words.map(word=>word.text),activityConfig:{...config,schemaVersion:1,activityId:"visual-explainer",domain:"spelling",
+      words:words.map(word=>({id:`planner-${word.text}`,...word})),check:{id:`check-${String(activity.id)}`,...jsonObject(config.check)},
+      evidencePolicy:{writesPracticeEvidence:true,writesMasteryEvidence:false,requiresPerTargetResult:false,allowedEvidence:["practice","companion"]}}};
+  }
+  if(activity.type==="letter-rush"&&!config&&Array.isArray(activity.targets)){
+    const {letterRushMode,...rest}=activity,mode=typeof letterRushMode==="string"?letterRushMode:"read-and-race";
+    return {...rest,activityConfig:{schemaVersion:1,activityId:"letter-rush",mode,topic:String(activity.title??"Spelling words"),domain:"spelling",learningGoal:"Practice the assigned spelling words.",gradeBand:"early_elementary",
+      scaffolds:{showWord:mode==="read-and-race",letterBank:true,allowRetryBeforeScore:true,companionHints:false},words:activity.targets.map(text=>({text})),
+      evidencePolicy:{writesPracticeEvidence:true,writesMasteryEvidence:false,requiresPerTargetResult:true,allowedEvidence:["practice"]}}};
+  }
+  return row;
 }
 export function nativeLearningProgramToolJsonSchema(catalog:AssignmentPlanningPacket["activityCatalog"]):Record<string,unknown> {
-  const schema=nativeRuntimeToolSchema();
-  const legacy=assignmentPlannerToolJsonSchema(true,catalog) as JsonSchemaObject;
-  const node=schemaProperties(schemaProperties(legacy).activeSessionPlan).nodePlan.items as JsonSchemaObject;
-  const measurement=schemaProperties(schemaProperties(schema).activities.items as JsonSchemaObject).measurement;
-  schemaProperties(node).measurement=measurement;
-  schemaProperties(node).wordRadarConfig=schemaProperties(schemaProperties(schema).activities.items as JsonSchemaObject).wordRadarConfig;
-  setSchemaRequired(node,[...(node.required as string[]),"measurement"]);
-  schemaProperties(schema).activities.items=node;
-  return schema;
+  const offered=((schemaProperties((schemaProperties(schemaProperties(assignmentPlannerToolJsonSchema(true,catalog) as JsonSchemaObject).activeSessionPlan).nodePlan.items as JsonSchemaObject)).type.enum as string[]|undefined)??[]);
+  return z.toJSONSchema(nativeLearningProgramSchema.extend({activities:z.array(spellingActivityFormSchema(offered)).min(1).max(12)}),{io:"input"}) as Record<string,unknown>;
 }
-/** Working settings the kiosk accepts today; the test validates them against the runtime. */
-export const SPELLING_INSTRUMENT_EXAMPLES={
-  letterRush:{schemaVersion:1,activityId:"letter-rush",mode:"read-and-race",topic:"School words",domain:"spelling",learningGoal:"Practice the captured spelling words",gradeBand:"early_elementary",scaffolds:{showWord:true,letterBank:true,allowRetryBeforeScore:true,companionHints:false},words:[{text:"night"},{text:"light"}],evidencePolicy:{writesPracticeEvidence:true,writesMasteryEvidence:false,requiresPerTargetResult:true,allowedEvidence:["practice"]}},
-  visualExplainer:{schemaVersion:1,activityId:"visual-explainer",domain:"spelling",topic:"The ight chunk",learningGoal:"Notice and remember the ight chunk.",misconception:"The middle sound maps to one letter.",strategy:{title:"Keep the chunk together",steps:["Say each word.","Notice ight.","Build the word around it."]},words:[{id:"planner-night",text:"night",chunks:["n","ight"],focusChunk:"ight",tip:"Keep ight together."},{id:"planner-light",text:"light",chunks:["l","ight"],focusChunk:"ight",tip:"Keep ight together."}],check:{id:"check-ight",targetWord:"night",prompt:"Which chunk stays together?",options:[{id:"ight",label:"ight",correct:true},{id:"ite",label:"ite",correct:false}],correctOptionId:"ight"},evidencePolicy:{writesPracticeEvidence:true,writesMasteryEvidence:false,requiresPerTargetResult:false,allowedEvidence:["practice","companion"]}},
-};
-/** What each spelling instrument needs, told to the Planner before it plans: nothing is sent back afterwards,
- * so a portal authored without these publishes as not ready. */
-export const SPELLING_INSTRUMENT_REQUIREMENTS=`Instrument requirements. A portal that misses one is published as "not ready" and she cannot play it, so check each activity against this list before you answer:
-- Every activity that has target words needs a measurement with a spelling prescription: role "instruction" for teaching, "practice" for any game or rehearsal, "fresh_checkpoint" for the independent check. measurement null is only for a reward with targets [], and a reward uses type "mystery".
-- A fresh_checkpoint must be type "word-radar" and activityId "word-radar" with wordRadarConfig.recallMode "hidden_word_recall". No other activity can be an independent checkpoint: not spell-check, not wordle, not any game. Plan at least one such checkpoint as the final check, covering every assigned word.
-- word-radar always needs wordRadarConfig, chosen from its capability modes.
-- visual-explainer needs a complete activityConfig that you author for these words. It teaches at most 8 words, so give it at most 8 targets. Its words must be exactly the activity's targets; each word's chunks must join to spell the word; check.targetWord must be one of those words. Working example: ${JSON.stringify(SPELLING_INSTRUMENT_EXAMPLES.visualExplainer)}
-- letter-rush needs a complete activityConfig. Its words must be exactly the activity's targets, one entry each. Working example: ${JSON.stringify(SPELLING_INSTRUMENT_EXAMPLES.letterRush)}
-- mystery with targets [] is a reward and needs measurement null. A mystery with target words needs a complete academic activityConfig; otherwise give it no targets.
-- spell-check, monster-stampede, wordle and wheel-of-fortune need no activityConfig; they are practice, never a checkpoint.`;
-
 /** The Planner's program is accepted as authored. Code expands the journey, derives exposure
  * lineage and runs truth checks; a failed check marks that one portal not ready and never
  * sends the plan back. Only a response that cannot be read at all throws. */
@@ -1039,7 +1052,7 @@ export function hydrateNativeLearningProgram(raw:unknown,packet:AssignmentPlanni
   const notReady=new Map<string,string>();
   const mark=(nodeId:string,reason:string)=>{if(notReady.has(nodeId))return;notReady.set(nodeId,reason);console.log(` 🎮 [board] [portal] [not-ready] node=${nodeId} reason=${reason}`);};
   const activities=program.activities.flatMap(row=>{
-    const parsed=nativeActivitySchema.safeParse(row);
+    const parsed=nativeActivitySchema.safeParse(deriveNativeActivity(row));
     if(parsed.success){
       if([parsed.data.type,parsed.data.activityId].some(type=>type==="quest"||type==="boss")){console.log(` 🎮 [planner] [journey] [encounter-not-authorized] node=${parsed.data.id}`);return [];}
       return [parsed.data];

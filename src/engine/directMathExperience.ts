@@ -1,4 +1,4 @@
-import {hydrateNativeLearningProgram,SPELLING_INSTRUMENT_REQUIREMENTS,nativeLearningProgramToolJsonSchema,resolveAssignmentPlannerModel,type AssignmentPlanningPacket,type AssignmentPlannerOutput,type AssignmentPlannerTelemetry} from "./assignmentPlanner";
+import {hydrateNativeLearningProgram,nativeLearningProgramToolJsonSchema,resolveAssignmentPlannerModel,type AssignmentPlanningPacket,type AssignmentPlannerOutput,type AssignmentPlannerTelemetry} from "./assignmentPlanner";
 import {requestPlannerMessage,assertPlannerResponseComplete} from "./plannerTransport";
 import {isDeepStrictEqual} from "node:util";
 import {z} from "zod";
@@ -1976,7 +1976,6 @@ export async function askLearningPlanner(input:LearningPlannerInput):Promise<Mat
 Call create_learning_program exactly once. Return domain, planId, journey, activities and planTheory directly at the tool root. Each activity carries its own measurement; do not invent a separate measurement ID or repeat the inventory in another field. spelling is the preregistered measurement prescription for academic activities and null for nonacademic rewards. It is never a measured learning claim.
 ${JOURNEY_SEQUENCE_INSTRUCTION}
 You choose activities, count, support, alternatives and hypotheses.
-${SPELLING_INSTRUMENT_REQUIREMENTS}
 Use available native instruments through their supplied configuration schemas. Catalog presets are working examples, not an exhaustive configuration restriction. Request generated content only for a missing capability. Preserve captured words and cite the supplied observation IDs. Separate assisted practice, independent measurements and engagement. Do not claim mastery or readiness.
 Homework and child-chart context:
 ${JSON.stringify({homework:packet!.capturedHomework,childChart:packet!.childChart,masteryContext:packet!.masteryContext,activityCatalog:packet!.activityCatalog,discoveryEvidence:packet!.discoveryEvidence})}` : `${learningPlannerInstructions('math').text}
