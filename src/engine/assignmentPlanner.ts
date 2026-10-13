@@ -251,6 +251,7 @@ export type AssignmentPlanValidationIssue = {
     | "word_missing_source_group"
     | "missing_word_radar_config"
     | "word_radar_capability_mismatch"
+    | "word_radar_config_invalid"
     | "word_radar_unrendered_teaching"
     | "missing_node_measurement"
     | "missing_node_title"
@@ -875,7 +876,7 @@ function normalizeWordRadarConfig(value: unknown): unknown {
   return Number.isFinite(timerSeconds) ? { ...normalized, timerSeconds } : normalized;
 }
 
-const wordRadarNodeConfigSchema = z.preprocess(normalizeWordRadarConfig, z.object({
+const wordRadarRuntimeConfigSchema = z.object({
   recallMode: z.enum(["visible_read", "partial_visual_recall", "hidden_word_recall"]),
   inputMode: z.enum(["whole-word", "letter-by-letter", "keyboard"]),
   speakStyle: z.enum(["option-a", "option-b"]),
@@ -883,7 +884,8 @@ const wordRadarNodeConfigSchema = z.preprocess(normalizeWordRadarConfig, z.objec
   timerSeconds: z.number().optional(),
   hideWordDuringResponse: z.boolean(),
   requiresCapturedResponse: z.boolean(),
-}));
+}).strict();
+const wordRadarNodeConfigSchema=z.preprocess(normalizeWordRadarConfig,wordRadarRuntimeConfigSchema);
 
 const compactTargetsSchema = z.preprocess((value) => {
   if (typeof value !== "string") return value;
@@ -988,19 +990,25 @@ export const assignmentPlannerDraftSchema = z.object({
 const nativeMeasurementSchema=plannedMeasurementSchema.omit({id:true,activityId:true,target:true}).extend({spelling:plannedMeasurementSchema.shape.spelling.unwrap().extend({interventionNodeIds:plannedMeasurementSchema.shape.spelling.unwrap().shape.interventionNodeIds.describe("Authored IDs of earlier instruction and practice affecting these words, including Visual Explainer. A fresh_checkpoint must cite all such preceding exposures on its declared paths, including alternatives; actual participation is recorded separately. These references are a plan, not a claim the child completed them.")}).nullable().describe("Every academic activity, including visual-explainer, carries this prescription. Use role instruction for teaching exposure, practice for rehearsal, fresh_checkpoint for independent measurement. Exposure is not mastery. Null is reserved for a nonacademic reward or engagement-only activity.")}).strict();
 const nativeLearningProgramSchema=z.object({
   domain:z.literal("spelling"),planId:z.string().min(1),journey:adventureJourneySchema,
-  activities:z.array(compactNodePlanSchema.extend({measurement:nativeMeasurementSchema.nullable().describe("Null for a nonacademic reward; academic activities require their instructional/practice/checkpoint prescription.")}).strict()).min(1).max(12),
+  activities:z.array(compactNodePlanSchema.extend({wordRadarConfig:z.preprocess(value=>value===null?undefined:value,wordRadarRuntimeConfigSchema.optional()),measurement:nativeMeasurementSchema.nullable().describe("Null for a nonacademic reward; academic activities require their instructional/practice/checkpoint prescription.")}).strict()).min(1).max(12),
   planTheory:planTheorySchema,reviewQuestions:z.array(z.string()).max(8).default([]),
   generationRequests:z.array(generationRequestSchema).max(6).default([]),
   evidenceUsed:compactActiveSessionPlanSchema.shape.evidenceUsed,
 }).strict();
 /** The native domain uses the same LearningProgram boundary, with inline instrument bindings. */
+function nativeRuntimeToolSchema():JsonSchemaObject {
+ const schema=z.toJSONSchema(nativeLearningProgramSchema,{io:"input"}) as JsonSchemaObject;
+ schemaProperties(schema).journey=ADVENTURE_JOURNEY_TOOL_SCHEMA as JsonSchemaObject;
+ schemaProperties(schemaProperties(schema).activities.items as JsonSchemaObject).wordRadarConfig={anyOf:[z.toJSONSchema(wordRadarRuntimeConfigSchema,{io:"input"}),{type:"null"}]};
+ return schema;
+}
 export function nativeLearningProgramToolJsonSchema(catalog:AssignmentPlanningPacket["activityCatalog"]):Record<string,unknown> {
-  const schema=z.toJSONSchema(nativeLearningProgramSchema,{io:"input"}) as JsonSchemaObject;
-  schemaProperties(schema).journey=ADVENTURE_JOURNEY_TOOL_SCHEMA as JsonSchemaObject;
+  const schema=nativeRuntimeToolSchema();
   const legacy=assignmentPlannerToolJsonSchema(true,catalog) as JsonSchemaObject;
   const node=schemaProperties(schemaProperties(legacy).activeSessionPlan).nodePlan.items as JsonSchemaObject;
   const measurement=schemaProperties(schemaProperties(schema).activities.items as JsonSchemaObject).measurement;
   schemaProperties(node).measurement=measurement;
+  schemaProperties(node).wordRadarConfig=schemaProperties(schemaProperties(schema).activities.items as JsonSchemaObject).wordRadarConfig;
   setSchemaRequired(node,[...(node.required as string[]),"measurement"]);
   schemaProperties(schema).activities.items=node;
   return schema;
@@ -1026,7 +1034,7 @@ function nativeCorrectionPermissions(original:unknown,error:Error) {
       if(index>=0){
         if(defect.code.includes('evidence'))editable.push(['activities',index,'measurement','spelling','evidenceIds']);
         else if(defect.code==='planner_unknown_spelling_target')editable.push(['activities',index,'targets']);
-        else if(['missing_word_radar_config','word_radar_capability_mismatch'].includes(defect.code))editable.push(['activities',index,'wordRadarConfig']);
+        else if(['missing_word_radar_config','word_radar_capability_mismatch','word_radar_config_invalid'].includes(defect.code))editable.push(['activities',index,'wordRadarConfig']);
         else if(defect.code==='activity_renderer_mismatch')editable.push(['activities',index,'type']);
         else if(defect.code==='missing_node_title')editable.push(['activities',index,'title']);
         else if(defect.code==='target_lane_mismatch')editable.push(['activities',index,'targetLane']);
@@ -1080,7 +1088,7 @@ export function nativeLearningProgramCorrectionTool(original:unknown,error:Error
  const fields=nativeCorrectionPermissions(original,error).editable;
  const paths=[...new Set(fields.filter(parts=>parts.length && parts.every(part=>!['__proto__','prototype','constructor'].includes(String(part)))).map(parts=>'/'+parts.map(part=>String(part).replace(/~/g,'~0').replace(/\//g,'~1')).join('/')))];
  if(!paths.length)throw new Error(`learning_program_correction_scope_unavailable:${error.message}`);
- const schema=z.toJSONSchema(nativeLearningProgramSchema,{io:'input'}) as JsonSchemaObject;
+ const schema=nativeRuntimeToolSchema();
  const valueSchemas=fields.map(parts=>{let current=schema;for(const part of parts){if(Array.isArray(current.anyOf))current=(current.anyOf as JsonSchemaObject[]).find(candidate=>typeof part==='number'?candidate.items: schemaProperties(candidate)[String(part)])??current;current=(typeof part==='number'?current.items:schemaProperties(current)[String(part)]) as JsonSchemaObject??{};}return current;});
  const removable=nativeCorrectionRemovalPaths(error);
  return {name:'repair_learning_program_fields',description:'Return only explicit replacements for the diagnosed fields; valid sibling fields are immutable.',input_schema:{type:'object',additionalProperties:false,properties:{patches:{type:'array',minItems:1,maxItems:paths.length,items:{type:'object',additionalProperties:false,properties:{path:{type:'string',enum:paths},value:{anyOf:valueSchemas},...(removable.size?{remove:{const:true}}:{})},required:['path'],oneOf:[{required:['value']},...(removable.size?[{required:['remove']}]:[])]}}},required:['patches']}};
@@ -1110,6 +1118,8 @@ export function hydrateNativeLearningProgram(raw:unknown,packet:AssignmentPlanni
     return [{...fields,id:`measure-${activity.id}`,activityId:activity.activityId,target:activity.targets.length?activity.targets.join(","):activity.id,...(spelling?{spelling}:{})}];
   });
   const draft=assignmentPlannerDraftSchema.parse({activeSessionPlan:{planId:program.planId,journey:program.journey,nodePlan,evidenceUsed:program.evidenceUsed},plannedMeasurements,planTheory:program.planTheory,reviewQuestions:program.reviewQuestions,generationRequests:program.generationRequests});
+  // The compatibility parser may add legacy defaults; native configuration stays authored.
+  draft.activeSessionPlan.nodePlan.forEach((node,index)=>{node.wordRadarConfig=nodePlan[index].wordRadarConfig;});
   validateAssignmentPlannerRelationships(draft,new Set(assignmentPlannerAllowedEvidenceIds(packet)),true,new Set([...packet.capturedHomework.words,...(packet.capturedHomework.wordGroups??[]).flatMap(group=>group.words)].map(word=>word.toLocaleLowerCase("en-US"))));
   const output=hydrateAssignmentPlannerOutputFromDraft(draft,packet,createdAt);
   const defects=validateAssignmentPlannerOutput(output,{extraction:packet.sourceDocument,activityCatalog:packet.activityCatalog,requireNodeTitles:true,requireCatalogBinding:true}).filter(issue=>issue.severity==="error");
@@ -1800,20 +1810,9 @@ export function validateAssignmentPlannerOutput(
         message: `Word Radar node ${node.id} contains rounds or teachingFocus that its child-facing screen cannot render; choose an instrument that displays the teaching or remove unsupported content.`,
       });
     }
-    if (node.type === "word-radar" && node.wordRadarConfig && capability) {
-      const matchesCatalogMode = capability.capabilityModes.some((mode) =>
-        Object.entries(mode.config).every(([key, value]) =>
-          Object.is(node.wordRadarConfig?.[key as keyof typeof node.wordRadarConfig], value),
-        ),
-      );
-      if (!matchesCatalogMode) {
-        issues.push({
-        nodeId:node.id,
-          code: "word_radar_capability_mismatch",
-          severity: "error",
-          message: `Word Radar node ${node.id} response contract does not match a catalog capability mode.`,
-        });
-      }
+    if (node.type === "word-radar" && node.wordRadarConfig) {
+      const executable=wordRadarRuntimeConfigSchema.safeParse(node.wordRadarConfig);
+      if(!executable.success)issues.push({nodeId:node.id,code:"word_radar_config_invalid",severity:"error",message:`Word Radar configuration is outside the runtime schema: ${JSON.stringify(executable.error.issues)}`});
     }
   }
 

@@ -1010,6 +1010,12 @@ describe("assignment planner", () => {
     expect(output.activeSessionPlan.nodePlan.map(n=>n.id)).toEqual([practice.id,check.id]);
     expect(output.activeSessionPlan.journey).toEqual(input.journey);
     expect(output.activeSessionPlan.adventureBoard).toBeUndefined();
+    for(const showTimer of [false,true]){
+      const unbounded=structuredClone(input);unbounded.activities[1].wordRadarConfig={...check.wordRadarConfig,showTimer};delete (unbounded.activities[1].wordRadarConfig as any).timerSeconds;
+      const preserved=hydrateNativeLearningProgram(unbounded,packet).activeSessionPlan.nodePlan[1].wordRadarConfig;
+      expect(preserved).toEqual(unbounded.activities[1].wordRadarConfig);expect(preserved?.timerSeconds).toBeUndefined();
+    }
+
     const rewardInput:any=structuredClone(input);rewardInput.activities.push({id:"reward",title:"Reward break",type:"mystery",activityId:"mystery",targets:[],measurement:null});
     rewardInput.journey=journeyFromBoardDefinition(linearJourneyFixture([practice.id,check.id,"reward"]));
     expect(hydrateNativeLearningProgram(rewardInput,packet).plannedMeasurements).toHaveLength(2);
@@ -1022,6 +1028,7 @@ describe("assignment planner", () => {
     expect(schema.properties.activities.items.properties.measurement.anyOf[0].required).toContain("spelling");
     expect(schema.properties.activities.items.properties.measurement.anyOf[0].properties.spelling.description).toContain("visual-explainer");
     expect(JSON.stringify(schema)).toContain("earlier instruction and practice");
+    expect(schema.properties.activities.items.properties.wordRadarConfig.anyOf[0].properties.inputMode.enum).toEqual(["whole-word","letter-by-letter","keyboard"]);
     const root=fs.mkdtempSync(path.join(os.tmpdir(),"sunny-shared-planner-"));
     const stream=vi.fn((_request:unknown)=>({finalMessage:async()=>({id:"native-recorded",stop_reason:"tool_use",usage:{input_tokens:1,output_tokens:1},content:[{type:"tool_use",name:"create_learning_program",input}]})}));
     try{
@@ -1934,15 +1941,15 @@ describe("assignment planner", () => {
     expect(text).toContain("planner-selected wordRadarConfig");
   });
 
-  it("rejects a Word Radar response contract that matches no catalog capability", () => {
+  it.each(["whole-word","keyboard"] as const)("accepts runtime-supported Word Radar %s input without requiring a catalog preset", inputMode => {
     const output = goodOutput();
     output.activeSessionPlan.nodePlan[0] = {
       ...output.activeSessionPlan.nodePlan[0]!,
       type: "word-radar",
       activityId: "word-radar",
       wordRadarConfig: {
-        recallMode: "partial_visual_recall",
-        inputMode: "whole-word",
+        recallMode: inputMode==="keyboard"?"hidden_word_recall":"partial_visual_recall",
+        inputMode,
         speakStyle: "option-a",
         showTimer: false,
         hideWordDuringResponse: true,
@@ -1959,10 +1966,10 @@ describe("assignment planner", () => {
       }).activityCatalog,
     });
 
-    expect(issues).toContainEqual(expect.objectContaining({
-      code: "word_radar_capability_mismatch",
-      severity: "error",
-    }));
+    expect(issues.filter(issue=>issue.code==="word_radar_capability_mismatch"||issue.code==="word_radar_config_invalid")).toEqual([]);
+    const invalid=structuredClone(output);(invalid.activeSessionPlan.nodePlan[0].wordRadarConfig as any).inputMode="telepathy";
+    const invalidIssues=validateAssignmentPlannerOutput(invalid,{extraction:extraction(),activityCatalog:buildAssignmentPlanningPacket({childId:"reina",extraction:extraction(),childChart:chart()}).activityCatalog});
+    expect(invalidIssues).toContainEqual(expect.objectContaining({code:"word_radar_config_invalid",severity:"error"}));
   });
 
   it("rejects target lanes that contain words outside their source group", () => {

@@ -32,3 +32,10 @@ it('removes only diagnosed unrecognized keys so strict schema recovery is execut
  expect(schema.parse(corrected)).toEqual({domain:'spelling'});expect(raw.unexpected).toBe('invalid');
  expect(()=>planner.applyNativeLearningProgramCorrection(original,{patches:[{path:'/activities/0/measurement',remove:true}]},defect)).toThrow('learning_program_correction_changed_protected_fields');
 });
+
+it('advertises the runtime configuration types during field repair, including supported keyboard input',()=>{
+ const configDefect=Object.assign(new Error('learning_program_invalid'),{issues:[{code:'word_radar_config_invalid',nodeId:'wheel'}]});
+ const tool=planner.nativeLearningProgramCorrectionTool(original,configDefect);
+ const value=(tool.input_schema.properties.patches.items.properties.value as any).anyOf[0];
+ expect(value.anyOf[0].properties.inputMode.enum).toEqual(['whole-word','letter-by-letter','keyboard']);
+});
