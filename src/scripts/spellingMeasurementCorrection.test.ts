@@ -14,7 +14,7 @@ import {readAssignmentSourceExtraction} from '../engine/assignmentSourceExtracti
 import {ASSIGNMENT_PLANNER_TOOL_NAME,attachSpellingDiscoveryEvidence,buildAssignmentPlanningPacket,planAssignmentFromSourceWithTelemetry} from '../engine/assignmentPlanner';
 import {requestPlannerMessage} from '../engine/plannerTransport';
 vi.mock('../engine/plannerTransport',async original=>({...await original<typeof import('../engine/plannerTransport')>(),requestPlannerMessage:vi.fn()}));
-vi.mock('../engine/adventureBoardCanvas',()=>({verifyAuthoredBoardCanvas:vi.fn(async()=>({}))}));
+vi.mock('../engine/adventureBoardCanvas',async original=>({...await original<typeof import('../engine/adventureBoardCanvas')>(),verifyAuthoredBoardCanvas:vi.fn(async()=>({}))}));
 const roots:string[]=[];
 afterEach(()=>{vi.unstubAllEnvs();vi.unstubAllGlobals();vi.clearAllMocks();roots.splice(0).forEach(root=>fs.rmSync(root,{recursive:true,force:true}));});
 
