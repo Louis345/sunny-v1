@@ -1021,6 +1021,7 @@ describe("assignment planner", () => {
     expect(schema.properties.activities.items.properties.measurement.anyOf[0].properties.id).toBeUndefined();
     expect(schema.properties.activities.items.properties.measurement.anyOf[0].required).toContain("spelling");
     expect(schema.properties.activities.items.properties.measurement.anyOf[0].properties.spelling.description).toContain("visual-explainer");
+    expect(JSON.stringify(schema)).toContain("earlier instruction and practice");
     const root=fs.mkdtempSync(path.join(os.tmpdir(),"sunny-shared-planner-"));
     const stream=vi.fn((_request:unknown)=>({finalMessage:async()=>({id:"native-recorded",stop_reason:"tool_use",usage:{input_tokens:1,output_tokens:1},content:[{type:"tool_use",name:"create_learning_program",input}]})}));
     try{
