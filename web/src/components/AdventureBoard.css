@@ -529,7 +529,8 @@
   max-width: 150px;
   padding: 4px 7px;
   border-radius: 8px;
-  background: rgba(15, 23, 42, 0.48);
+  background: color-mix(in srgb, var(--board-panel) 82%, transparent);
+  color: var(--board-text);
   font-size: 11px;
   font-weight: 800;
   line-height: 1.1;

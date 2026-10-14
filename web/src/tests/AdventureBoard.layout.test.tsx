@@ -57,4 +57,9 @@ it("draws every node label on a plate of the artist's panel colour", async () =>
   expect(body).toContain("color: var(--board-text)");
   expect(body).toContain("box-shadow");
   expect(body).toContain("border-radius");
+  // Live run 7: the "Keep going" chips kept a hard-coded dark background under the artist's dark text.
+  const chip = css.slice(css.indexOf(".adventure-board__lock-label {"));
+  const chipBody = chip.slice(0, chip.indexOf("}"));
+  expect(chipBody).toContain("var(--board-panel)");
+  expect(chipBody).toContain("color: var(--board-text)");
 });

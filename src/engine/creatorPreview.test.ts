@@ -109,4 +109,17 @@ describe('the map artist can see its work',()=>{
   expect(definition.portals.filter(portal=>portal.id!=='learn-a').map(portal=>portal.position)).toEqual(board.portals.filter(portal=>portal.id!=='learn-a').map(portal=>portal.position));
   expect(requests(stream)[0].tools.map((tool:{name:string})=>tool.name).sort()).toEqual(['adjust_board','preview_board','submit_board']);
  });
+
+ // Live run 6: with readable plates in hand, the artist swapped the illustrated world for a
+ // plain dark gradient. The approved Sunny look is the illustrated world, so the artist's
+ // form only offers the available artwork as the background.
+ it('can only choose the illustrated world as the background',async()=>{
+  const {stream,run}=design([['submit_board',{whatISee:'First placement.',composition,rationale:'Placed once.'}]]);
+  await run();
+  for(const tool of requests(stream)[0].tools){
+   const background=(tool.input_schema.properties.composition??tool.input_schema).properties.theme.properties.background;
+   expect(background.properties.type.const).toBe('image');
+   expect(background.properties.value.enum).toEqual(['/generated/adventure-board-demo/silent-letter-world.jpeg']);
+  }
+ });
 });
