@@ -16,6 +16,26 @@ it('reuses saved output, and recovers from saved invalid output without duplicat
  expect(calls).toBe(2);expect(accepted).toBe(1);
  expect(fs.readFileSync(base+'.attempt-1.response.json','utf8')).toBe('"bad"');
 }));
+it('revalidates a received response after a local decoder fix without another provider call',()=>isolated(async base=>{
+ let calls=0;
+ const response={plannerMessage:{content:[{type:'tool_use',name:'submit_spelling_proposal',input:{priors:'[{"word":"really"}]'}}]}};
+ const produce=async()=>{calls++;return response;};
+ await expect(checkpointedAttempt(base,{model:'fixture'},produce,()=>{throw Error('expected array, received string');})).rejects.toThrow('expected array');
+ const originalError=fs.readFileSync(base+'.attempt-1.error.json','utf8');
+ const accepted=await checkpointedAttempt(base,{model:'fixture'},produce,(saved)=>saved,true);
+ expect(accepted).toEqual(response);
+ expect(calls).toBe(1);
+ expect(fs.readFileSync(base+'.attempt-1.error.json','utf8')).toBe(originalError);
+ expect(JSON.parse(fs.readFileSync(base+'.attempt-1.revalidated.json','utf8'))).toMatchObject({attempt:1,outcome:'accepted'});
+}));
+it('does not buy another provider call when a saved response still fails revalidation',()=>isolated(async base=>{
+ let calls=0;const produce=async()=>{calls++;return {malformed:true};};
+ const reject=()=>{throw Error('still_invalid');};
+ await expect(checkpointedAttempt(base,{},produce,reject)).rejects.toThrow('still_invalid');
+ await expect(checkpointedAttempt(base,{},produce,reject,true)).rejects.toThrow('request_revalidation_failed:still_invalid');
+ expect(calls).toBe(1);
+ expect(fs.existsSync(base+'.attempt-2.request.json')).toBe(false);
+}));
 it('leaves a crashed request uncertain until explicit parent recovery',()=>isolated(async base=>{
  fs.writeFileSync(base+'.attempt-1.request.json','{}');let calls=0;
  const produce=async()=>{calls++;return 'ok';};
