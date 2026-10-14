@@ -36,7 +36,7 @@ export async function checkpointedAttempt<T>(base:string, metadata:Record<string
       result=accept(JSON.parse(fs.readFileSync(response,'utf8')),JSON.parse(fs.readFileSync(request,'utf8')));
      }catch(error){
       console.error(` 🎮 [spelling-request] [recovery] [revalidation-failed] attempt=${attempt}`,error);
-      continue;
+      throw Error(`request_revalidation_failed:${error instanceof Error?error.message:String(error)}`);
      }
      save(revalidated,{attempt,outcome:'accepted',revalidatedAt:new Date().toISOString()});
      console.error(` 🎮 [spelling-request] [recovery] [revalidated] attempt=${attempt}`);

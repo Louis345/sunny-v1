@@ -61,15 +61,17 @@ const accepts = (options: JsonSchema[], kind: string) => options.some(option => 
 /** Models sometimes send a list or object inside a tool answer as JSON text. Where the tool's own
  * schema expects a list or object, and never text, that text is decoded once here, for every tool.
  * Real text and broken JSON are left exactly as sent; the usual validation still decides. */
-export function decodeToolInput(value: unknown, schema: unknown, root: JsonSchema = schemaAt(schema, {}), path = '$'): unknown {
+export function decodeToolInput(value: unknown, schema: unknown, root: JsonSchema = schemaAt(schema, {}), path = '$', fieldName?: string): unknown {
   const options = alternatives(schemaAt(schema, root), root);
   if (typeof value === 'string' && !accepts(options, 'string')) {
     const text = value.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
     try {
       const parsed: unknown = JSON.parse(text);
-      if ((Array.isArray(parsed) && accepts(options, 'array')) || (parsed && typeof parsed === 'object' && !Array.isArray(parsed) && accepts(options, 'object'))) {
+      const wrapped = fieldName && parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+        && Object.keys(parsed).length === 1 && fieldName in parsed ? (parsed as JsonSchema)[fieldName] : parsed;
+      if ((Array.isArray(wrapped) && accepts(options, 'array')) || (wrapped && typeof wrapped === 'object' && !Array.isArray(wrapped) && accepts(options, 'object'))) {
         console.log(` 🎮 [provider] [tool-input] [decoded] path=${path}`);
-        value = parsed;
+        value = wrapped;
       }
     } catch { /* Not JSON: left as sent, so validation reports it. */ }
   }
@@ -80,7 +82,7 @@ export function decodeToolInput(value: unknown, schema: unknown, root: JsonSchem
   if (value && typeof value === 'object') {
     const properties: JsonSchema = {};
     for (const option of options) for (const [key, child] of Object.entries((option.properties ?? {}) as JsonSchema)) if (!(key in properties)) properties[key] = child;
-    return Object.fromEntries(Object.entries(value as JsonSchema).map(([key, child]) => [key, key in properties ? decodeToolInput(child, properties[key], root, `${path}.${key}`) : child]));
+    return Object.fromEntries(Object.entries(value as JsonSchema).map(([key, child]) => [key, key in properties ? decodeToolInput(child, properties[key], root, `${path}.${key}`, key) : child]));
   }
   return value;
 }

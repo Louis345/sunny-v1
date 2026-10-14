@@ -21,6 +21,11 @@ it('supports preserved legacy proposals and thinking before the requested tool',
  expect(readPlannerToolReceipt({ok:true},'submit')).toEqual({ok:true});
  expect(readPlannerToolReceipt({plannerMessage:{stop_reason:'tool_use',content:[{type:'thinking',thinking:''},{type:'tool_use',name:'submit',input:{ok:true}}]}},'submit')).toEqual({ok:true});
 });
+it('decodes a list wrapped in its own field name inside JSON text',()=>{
+ const schema={type:'object',properties:{priors:{type:'array',items:{type:'object'}}},required:['priors']};
+ const raw={plannerMessage:{stop_reason:'tool_use',content:[{type:'tool_use',name:'submit',input:{priors:'{"priors":[{"confidence":0.3}]}'}}]}};
+ expect(readPlannerToolReceipt(raw,'submit',schema)).toEqual({priors:[{confidence:0.3}]});
+});
 it('allows configured effort and budget, refuses invalid settings before a call',async()=>{
  const stream=vi.fn((_args:unknown,_options?:unknown)=>({finalMessage:async()=>({content:[]})}));
  try{

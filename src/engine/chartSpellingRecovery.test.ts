@@ -28,6 +28,14 @@ it('revalidates a received response after a local decoder fix without another pr
  expect(fs.readFileSync(base+'.attempt-1.error.json','utf8')).toBe(originalError);
  expect(JSON.parse(fs.readFileSync(base+'.attempt-1.revalidated.json','utf8'))).toMatchObject({attempt:1,outcome:'accepted'});
 }));
+it('does not buy another provider call when a saved response still fails revalidation',()=>isolated(async base=>{
+ let calls=0;const produce=async()=>{calls++;return {malformed:true};};
+ const reject=()=>{throw Error('still_invalid');};
+ await expect(checkpointedAttempt(base,{},produce,reject)).rejects.toThrow('still_invalid');
+ await expect(checkpointedAttempt(base,{},produce,reject,true)).rejects.toThrow('request_revalidation_failed:still_invalid');
+ expect(calls).toBe(1);
+ expect(fs.existsSync(base+'.attempt-2.request.json')).toBe(false);
+}));
 it('leaves a crashed request uncertain until explicit parent recovery',()=>isolated(async base=>{
  fs.writeFileSync(base+'.attempt-1.request.json','{}');let calls=0;
  const produce=async()=>{calls++;return 'ok';};
