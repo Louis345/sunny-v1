@@ -9,7 +9,7 @@ vi.mock('./adventureBoardCanvas',async original=>({...await original<typeof impo
  renderBoardPreview:vi.fn(async(input:{directory:string})=>{
   fs.mkdirSync(input.directory,{recursive:true});
   const screenshots=['1280x720','768x1024'].map(viewport=>{const file=path.join(input.directory,`preview-${viewport}.png`);fs.writeFileSync(file,'png');return {viewport,file};});
-  return {screenshots,portals:[{viewport:'1280x720',id:'check',x:10,y:20,width:123,height:187}],artworkLoaded:true};
+  return {screenshots,portals:[{viewport:'1280x720',id:'check',x:10,y:20,width:123,height:187}],overlaps:[{viewport:'768x1024',portals:['learn-a','play-a']}],artworkLoaded:true};
  })}));
 import * as creator from './directMathExperience';
 import {authoredJourney} from '../scripts/fixtures/authoredJourney';
@@ -37,7 +37,7 @@ describe('the map artist can see its work',()=>{
   expect(text).toContain('You never change the lesson');
   expect(canvas).toHaveProperty('measureBoardPortals');
   expect(text).toContain('187');expect(text).toContain('211');
-  expect(first.tools.map((tool:{name:string})=>tool.name).sort()).toEqual(['preview_board','submit_board']);
+  expect(first.tools.map((tool:{name:string})=>tool.name).sort()).toEqual(['adjust_board','preview_board','submit_board']);
  });
 
  it('previews the real board at kiosk and portrait size, then submits',async()=>{
@@ -70,5 +70,43 @@ describe('the map artist can see its work',()=>{
   expect(result.plan.boardDefinition!.portals.every(portal=>portal.position.landscape.x===.5)).toBe(true);
   expect(canvas.verifyAuthoredBoardCanvas).not.toHaveBeenCalled();
   expect(JSON.stringify(requests(stream))).not.toContain('repair_board_geometry');
+ });
+
+ // Kiosk run 2026-10-13: the artist kept dark text on a dark scene through three looks and
+ // wrote nothing about what it saw. It was forced straight into a tool call, never asked
+ // about readability, and told colours sat on a panel the board did not draw. The lab only
+ // checked that previews happened, not that the artist had room to look.
+ it('must say what it sees before it places, adjusts or submits',async()=>{
+  const {stream,run}=design([['submit_board',{whatISee:'First placement.',composition,rationale:'Placed once.'}]]);
+  await run();
+  for(const tool of requests(stream)[0].tools){
+   expect(tool.input_schema.required).toContain('whatISee');
+   expect(Object.keys(tool.input_schema.properties)[0]).toBe('whatISee');
+  }
+  const brief=JSON.stringify(requests(stream)[0].messages[0]);
+  expect(brief).toContain('read every label');
+  expect(brief).toContain('plate');
+ });
+
+ it('is told as a plain fact which portals overlap, and nothing is rejected',async()=>{
+  const {stream,run}=design([['preview_board',{whatISee:'First placement.',composition}],['submit_board',{whatISee:'Two portals touch in portrait; leaving it.',rationale:'Kept.'}]]);
+  const result=await run();
+  const followUp=JSON.stringify(requests(stream)[1].messages);
+  expect(followUp).toContain('learn-a');expect(followUp).toContain('play-a');expect(followUp).toContain('overlap');
+  expect(result.plan.boardDefinition).toEqual(board);
+ });
+
+ it('adjusts only what it changes and can submit the last look without re-sending the map',async()=>{
+  const moved={landscape:{x:.31,y:.12},portrait:{x:.2,y:.33}};
+  const {stream,run}=design([['preview_board',{whatISee:'First placement.',composition}],['adjust_board',{whatISee:'learn-a crowds play-a.',portals:[{id:'learn-a',position:moved}],theme:{palette:{text:'#ffffff'}}}],['submit_board',{whatISee:'Readable now.',rationale:'Moved one portal and lightened the text.'}]]);
+  const result=await run();
+  expect(stream).toHaveBeenCalledTimes(3);
+  expect((canvas as any).renderBoardPreview).toHaveBeenCalledTimes(2);
+  const definition=result.plan.boardDefinition!;
+  expect(definition.portals.find(portal=>portal.id==='learn-a')!.position).toEqual(moved);
+  expect(definition.theme.palette.text).toBe('#ffffff');
+  expect(definition.theme.palette.panel).toBe(board.theme.palette.panel);
+  expect(definition.portals.filter(portal=>portal.id!=='learn-a').map(portal=>portal.position)).toEqual(board.portals.filter(portal=>portal.id!=='learn-a').map(portal=>portal.position));
+  expect(requests(stream)[0].tools.map((tool:{name:string})=>tool.name).sort()).toEqual(['adjust_board','preview_board','submit_board']);
  });
 });

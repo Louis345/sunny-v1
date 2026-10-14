@@ -1268,12 +1268,17 @@ async function designNativeBoard(input:LearningCreatorInput,native:NativeLearnin
   const workDir=path.join(input.rawResponseDir??draftDir??fs.mkdtempSync(path.join(os.tmpdir(),"sunny-design-")),"creator-preview");
   const sizes=await measureBoardPortals({journey,rootDir:process.cwd(),directory:path.join(workDir,"sizes")});
   const compositionSchema=z.toJSONSchema(adventureCompositionSchema,{io:"input"}) as Anthropic.Messages.Tool.InputSchema;
+  const whatISee={type:"string",description:"Write this first. Before your first look, say what you intend. After a look, describe what the screenshots actually show: can you read every label against the scene, and do any portals or labels crowd or overlap? Say what you will change, or why it is ready."} as const;
   const tools:Anthropic.Messages.Tool[]=[
-    {name:"preview_board",description:`Render your composition on the real board and see it at 1280x720 and 768x1024, with each portal's measured box. You may look at most ${MAX_BOARD_PREVIEWS} times.`,input_schema:{type:"object",additionalProperties:false,required:["composition"],properties:{composition:compositionSchema}}},
-    {name:"submit_board",description:"Submit the finished map. It is published exactly as submitted.",input_schema:{type:"object",additionalProperties:false,required:["composition","rationale"],properties:{composition:compositionSchema,rationale:schemaString}}},
+    {name:"preview_board",description:`Place the whole map and see it rendered on the real board at 1280x720 and 768x1024, with each portal's measured box and any overlaps. You may look at most ${MAX_BOARD_PREVIEWS} times in total.`,input_schema:{type:"object",additionalProperties:false,required:["whatISee","composition"],properties:{whatISee,composition:compositionSchema}}},
+    {name:"adjust_board",description:"After a look, change only what needs changing and look again. Everything you do not mention stays exactly as it was. This is much faster than sending the whole map again.",input_schema:{type:"object",additionalProperties:false,required:["whatISee"],properties:{whatISee,portals:{type:"array",items:{type:"object",additionalProperties:false,required:["id","position"],properties:{id:schemaString,position:z.toJSONSchema(adventureCompositionSchema.shape.portals.element.shape.position,{io:"input"})}}},edges:z.toJSONSchema(adventureCompositionSchema.shape.edges,{io:"input"}),theme:{type:"object",additionalProperties:false,properties:{background:z.toJSONSchema(adventureCompositionSchema.shape.theme.shape.background,{io:"input"}),palette:{type:"object",additionalProperties:false,properties:Object.fromEntries(Object.keys(adventureCompositionSchema.shape.theme.shape.palette.shape).map(key=>[key,schemaString]))}}}}}},
+    {name:"submit_board",description:"Submit the finished map. It is published exactly as submitted. Leave composition out to submit the map exactly as you last saw it.",input_schema:{type:"object",additionalProperties:false,required:["whatISee","rationale"],properties:{whatISee,composition:compositionSchema,rationale:schemaString}}},
   ];
   let messages:Anthropic.Messages.MessageParam[]=[{role:"user",content:`${MAP_ARTIST_PERSONA}
-Place every portal for both landscape (1280x720 kiosk) and portrait (768x1024), choose the palette and path styles, and use the illustrated world. Available artwork: /generated/adventure-board-demo/silent-letter-world.jpeg. Coordinates are 0..1 within the safe composition area. Keep the journey readable left to right in landscape and compose portrait separately. Your map is published exactly as you submit it; nobody corrects it, so look before you submit if you are unsure. Each look costs the child waiting time.
+Place every portal for both landscape (1280x720 kiosk) and portrait (768x1024), choose the palette and path styles, and use the illustrated world. Available artwork: /generated/adventure-board-demo/silent-letter-world.jpeg. Coordinates are 0..1 within the safe composition area. Keep the journey readable left to right in landscape and compose portrait separately.
+How your colours are used: every label is drawn as text in palette.text on a rounded plate filled with palette.panel, sitting on the illustrated scene. Choose text and panel as a pair with strong contrast so a child can read every label at a glance. Status chips use the same pair.
+Spacing: each portal is an orb with its label plate underneath; the measured sizes below include the wrapped label. Leave clear space between neighbours in both orientations so no plate covers another portal or label.
+Your map is published exactly as you submit it; nobody corrects it. Look at your own work: when you get the screenshots, check that you can read every label and that nothing overlaps, and fix what you see with adjust_board. Each look costs the child waiting time, so make each one count.
 Measured portal sizes in pixels (width and height include the wrapped label): ${JSON.stringify(sizes)}
 Child chart facts: ${JSON.stringify(factualModelContext(input.childContext))}
 The teacher's journey and activities (immutable): ${JSON.stringify(native)}
@@ -1293,15 +1298,22 @@ Prior outcomes: ${JSON.stringify(factualModelContext(input.priorOutcomes))}`}];
     const execute=()=>client.messages.stream(request,{timeout:Number(process.env.SUNNY_AI_TIMEOUT_MS??600000),maxRetries:0}).finalMessage();
     const response=draftDir?await runMathProviderStage({draftDir,stage,model,request,execute,retryUncertain:input.retryUncertain,beforeRequest:()=>{if(!input.client&&!process.env.ANTHROPIC_API_KEY?.trim())throw new Error("preflight_missing:ANTHROPIC_API_KEY");}}):await execute();
     if(input.rawResponseDir){fs.mkdirSync(input.rawResponseDir,{recursive:true});fs.writeFileSync(path.join(input.rawResponseDir,`design-response-${turn}.json`),`${JSON.stringify({model,stopReason:response.stop_reason,usage:response.usage,content:response.content},null,2)}\n`,"utf8");}
-    const tool=response.content.find((block):block is Anthropic.Messages.ToolUseBlock=>block.type==="tool_use"&&(block.name==="preview_board"||block.name==="submit_board"));
-    const candidate=tool?compositionAsSubmitted(journey,object(tool.input)?.composition):undefined;
+    const tool=response.content.find((block):block is Anthropic.Messages.ToolUseBlock=>block.type==="tool_use"&&["preview_board","adjust_board","submit_board"].includes(block.name));
+    const given=object(tool?.input);
+    if(typeof given?.whatISee==="string")console.log(` 🎮 [experience-creator] [self-review] turn=${turn} ${given.whatISee.replace(/\s+/g," ").slice(0,300)}`);
+    // An adjustment changes only what the artist names; everything else stays as last seen.
+    const adjusted=tool?.name==="adjust_board"&&last&&given?{...last,
+      portals:last.portals.map(portal=>{const moved=(Array.isArray(given.portals)?given.portals:[]).map(object).find(row=>row?.id===portal.id);return moved?{...portal,position:moved.position}:portal;}),
+      edges:last.edges.map(edge=>({...edge,...((Array.isArray(given.edges)?given.edges:[]).map(object).find(row=>row?.id===edge.id)??{})})),
+      theme:{background:object(object(given.theme)?.background)??last.theme.background,palette:{...last.theme.palette,...object(object(given.theme)?.palette)}}}:undefined;
+    const candidate=tool?compositionAsSubmitted(journey,adjusted??given?.composition):undefined;
     last=candidate??last;
     if(!tool||tool.name==="submit_board"||mustSubmit)break;
     previews+=1;
     const preview=candidate?await renderBoardPreview({definition:assembleAdventureBoardDefinition(journey,candidate),rootDir:process.cwd(),directory:path.join(workDir,`look-${previews}`)}):undefined;
     console.log(` 🎮 [experience-creator] [preview] [shown] look=${previews}/${MAX_BOARD_PREVIEWS}`);
     messages=[...messages,{role:"assistant",content:response.content},{role:"user",content:[{type:"tool_result",tool_use_id:tool.id,content:preview?[
-      {type:"text",text:`Look ${previews} of ${MAX_BOARD_PREVIEWS}. Measured portal boxes in pixels: ${JSON.stringify(preview.portals)}. Artwork ${preview.artworkLoaded?"loaded":"did not load"}. ${previews>=MAX_BOARD_PREVIEWS?"This was your last look; submit now.":"Adjust and look again, or submit."}`},
+      {type:"text",text:`Look ${previews} of ${MAX_BOARD_PREVIEWS}. Measured portal boxes in pixels: ${JSON.stringify(preview.portals)}. ${preview.overlaps.length?`These measured boxes overlap: ${JSON.stringify(preview.overlaps)}.`:"No measured boxes overlap."} Artwork ${preview.artworkLoaded?"loaded":"did not load"}. Look at the screenshots: can you read every label? ${previews>=MAX_BOARD_PREVIEWS?"This was your last look; submit now.":"Use adjust_board to change only what needs it, or submit_board without a composition to publish this exactly as shown."}`},
       ...preview.screenshots.flatMap(shot=>[{type:"text" as const,text:shot.viewport},{type:"image" as const,source:{type:"base64" as const,media_type:"image/png" as const,data:fs.readFileSync(shot.file).toString("base64")}}]),
     ]:"That composition could not be read, so nothing was drawn."}]}];
   }

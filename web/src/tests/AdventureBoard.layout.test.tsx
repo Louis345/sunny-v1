@@ -43,3 +43,18 @@ it.each([{ width: 901, height: 720 }, { width: 1280, height: 720 }, { width: 768
     }
   }, 15000,
 );
+
+// Kiosk run 2026-10-13: labels were drawn straight onto the illustrated scene, so the artist's
+// text colour had nothing behind it and dark text vanished into the hills. The artist chooses
+// text and panel as a pair; the board now draws the label on that panel.
+it("draws every node label on a plate of the artist's panel colour", async () => {
+  const { readFileSync } = await import("node:fs");
+  const { join } = await import("node:path");
+  const css = readFileSync(join(process.cwd(), "src/components/AdventureBoard.css"), "utf8");
+  const rule = css.slice(css.indexOf(".adventure-board__node-label {"));
+  const body = rule.slice(0, rule.indexOf("}"));
+  expect(body).toContain("var(--board-panel)");
+  expect(body).toContain("color: var(--board-text)");
+  expect(body).toContain("box-shadow");
+  expect(body).toContain("border-radius");
+});

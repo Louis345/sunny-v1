@@ -495,6 +495,12 @@
 .adventure-board__node-label {
   display: block;
   max-width: 150px;
+  /* The artist picks text and panel as a pair; the label is drawn on that panel.
+     The plate is painted with a shadow spread so the label's layout box does not grow. */
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--board-panel) 88%, transparent);
+  box-shadow: 0 0 0 5px color-mix(in srgb, var(--board-panel) 88%, transparent);
+  color: var(--board-text);
   font-size: 15px;
   font-weight: 900;
   line-height: 1.1;

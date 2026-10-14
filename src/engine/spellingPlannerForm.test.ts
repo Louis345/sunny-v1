@@ -46,6 +46,14 @@ describe("the Planner's tool form carries the kiosk's rules",()=>{
     expect(refused("run1")).toEqual(expect.arrayContaining(["visual-explainer-chunks","spell-check-audio-checkpoint"]));
     expect(refused("run2")).toEqual(expect.arrayContaining(["visual-explainer-y-ly","monster-stampede-recovery","wordle-practice","pronunciation-flow"]));
   });
+  // Kiosk run 2026-10-13: the Planner wrote 10,128 tokens in 117 s, much of it paragraphs of
+  // justification per activity, while a child sat on the loading screen.
+  it("asks for each justification in one short sentence",()=>{
+    const schema:any=planner.nativeLearningProgramToolJsonSchema(catalog);
+    const practice=(schema.properties.activities.items.anyOf as any[]).find(variant=>variant.properties.type.const==="letter-rush").properties.measurement.properties;
+    for(const field of ["supportCriteria","reviseCriteria","falsifyCriteria"])expect(practice[field].description).toContain("One short sentence");
+    for(const field of ["reason","uncertainty"])expect(practice.spelling.properties[field].description).toContain("One short sentence");
+  });
   it("gives the tool the per-type form instead of one loose activity shape",()=>{
     const schema:any=planner.nativeLearningProgramToolJsonSchema(catalog);
     const variants=schema.properties.activities.items.anyOf as Array<{properties:Record<string,any>}>;

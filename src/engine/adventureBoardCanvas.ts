@@ -97,7 +97,7 @@ export async function verifyPreparingBoardCanvas(input:{rootDir:string;childId:s
   const preview=await renderBoardPreview({...input,definition:board.definition});
   proof={definitionHash,rendererHash:'preview-as-authored',viewports:preview.screenshots.map(shot=>shot.viewport),screenshots:preview.screenshots.map(shot=>shot.file),verifiedAt:new Date().toISOString()};
   // Measured for the generation report and the human; never a reason to reject the map.
-  const overlaps=preview.portals.flatMap((a,index)=>preview.portals.slice(index+1).filter(b=>b.viewport===a.viewport&&Math.min(a.x+a.width,b.x+b.width)>Math.max(a.x,b.x)&&Math.min(a.y+a.height,b.y+b.height)>Math.max(a.y,b.y)).map(b=>({viewport:a.viewport,portals:[a.id,b.id]})));
+  const overlaps=preview.overlaps;
   fs.writeFileSync(path.join(input.directory,'canvas-measurements.json'),JSON.stringify({definitionHash,artworkLoaded:preview.artworkLoaded,overlaps,portals:preview.portals},null,2));
   console.log(` 🎮 [board-canvas] [accepted-as-authored] [${definitionHash.slice(0,12)}] artwork=${preview.artworkLoaded?'loaded':'missing'} overlaps=${overlaps.length}`);
  }else{
@@ -110,7 +110,7 @@ export async function verifyPreparingBoardCanvas(input:{rootDir:string;childId:s
 }
 
 export type BoardPortalBox={viewport:string;id:string;x:number;y:number;width:number;height:number};
-export type BoardPreview={screenshots:Array<{viewport:string;file:string}>;portals:BoardPortalBox[];artworkLoaded:boolean};
+export type BoardPreview={screenshots:Array<{viewport:string;file:string}>;portals:BoardPortalBox[];overlaps:Array<{viewport:string;portals:[string,string]}>;artworkLoaded:boolean};
 const previewViewports=[{width:1280,height:720},{width:768,height:1024}];
 const previewOrigin='http://sunny.preview';
 
@@ -128,7 +128,7 @@ export async function renderBoardPreview(input:{definition:AdventureBoardDefinit
  const html=`<!doctype html><html><head><style>${css}body{margin:0}</style></head><body>${render(board)}</body></html>`;
  const background=input.definition.theme.background;
  const browser=await chromium.launch({headless:true});
- const preview:BoardPreview={screenshots:[],portals:[],artworkLoaded:true};
+ const preview:BoardPreview={screenshots:[],portals:[],overlaps:[],artworkLoaded:true};
  try{
   for(const viewport of previewViewports){
    const size=`${viewport.width}x${viewport.height}`,page=await browser.newPage({viewport});
@@ -151,7 +151,9 @@ export async function renderBoardPreview(input:{definition:AdventureBoardDefinit
    await page.close();
   }
  }finally{await browser.close();}
- console.log(` 🎮 [board-canvas] [preview] [rendered] portals=${input.definition.portals.length} artwork=${preview.artworkLoaded?'loaded':'missing'}`);
+ // A ruler, not a judge: which measured boxes touch. Nothing here accepts or rejects a map.
+ preview.overlaps=preview.portals.flatMap((a,index)=>preview.portals.slice(index+1).filter(b=>b.viewport===a.viewport&&Math.min(a.x+a.width,b.x+b.width)>Math.max(a.x,b.x)&&Math.min(a.y+a.height,b.y+b.height)>Math.max(a.y,b.y)).map(b=>({viewport:a.viewport,portals:[a.id,b.id] as [string,string]})));
+ console.log(` 🎮 [board-canvas] [preview] [rendered] portals=${input.definition.portals.length} artwork=${preview.artworkLoaded?'loaded':'missing'} overlaps=${preview.overlaps.length}`);
  return preview;
 }
 

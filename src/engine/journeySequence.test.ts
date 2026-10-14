@@ -63,4 +63,12 @@ describe('the Planner authors the journey in one place',()=>{
   expect(rendered.nodes.map(node=>node.id)).toEqual(saved.portals.map(portal=>portal.id));
   expect(rendered.definition).toEqual(saved);
  });
+
+ // Kiosk run 2026-10-13: the choice screen's headline read "Let Sunny choose which practice
+ // style she wants to reinforce..." because the form asked for a "purpose" and showed it to her.
+ it('asks for the choice question in words spoken to the child',()=>{
+  const purpose=(board as any).JOURNEY_SEQUENCE_TOOL_SCHEMA.properties.choice.properties.purpose.description as string;
+  expect(purpose).toContain('she reads');
+  expect(purpose).toContain('never about her');
+ });
 });

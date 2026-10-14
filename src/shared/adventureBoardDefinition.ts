@@ -42,7 +42,7 @@ export const adventureJourneySchema=adventureJourneyInputSchema.transform((journ
 /** The Planner's only journey: one sequence it cannot contradict. Code expands it. */
 export const journeySequenceSchema=z.object({
   title:id, opening:z.array(id).max(32).describe("Activity ids every child plays first, in order."),
-  choice:z.object({purpose:id,label:id,options:z.array(z.object({id,label:id,hypothesis:id,nodeIds:z.array(id).min(1).max(32)}).strict()).min(2).max(8)}).strict().optional(),
+  choice:z.object({purpose:id.describe("The question she reads on the choice screen, written to her in a few friendly words, for example: Which way do you want to practice? It is never about her and never explains your reasoning; put that in each option's hypothesis."),label:id.describe("Short name of the choice portal on the map."),options:z.array(z.object({id,label:id,hypothesis:id,nodeIds:z.array(id).min(1).max(32)}).strict()).min(2).max(8)}).strict().optional(),
   closing:z.array(id).max(32).describe("Activity ids every child plays after the choice, in order."),
   singlePathReason:id.optional(), endpointLabel:id,
 }).strict();

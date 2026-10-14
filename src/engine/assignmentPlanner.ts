@@ -1001,7 +1001,8 @@ const nativeLearningProgramSchema=z.object({
 /** The native domain uses the same LearningProgram boundary, with inline instrument bindings. */
 /** The order form the Planner fills in: one shape per kind of activity, so a plan the kiosk
  * cannot run cannot be written down. Rules live here, not in prose and not in after-the-fact checks. */
-const nativeSpellingMeasurement=<const Role extends string>(roles:readonly [Role,...Role[]])=>nativeMeasurementSchema.extend({spelling:plannedMeasurementSchema.shape.spelling.unwrap().omit({interventionNodeIds:true}).extend({role:z.enum(roles)})}).strict();
+const brief=z.string().min(1).describe("One short sentence. She is waiting while you write.");
+const nativeSpellingMeasurement=<const Role extends string>(roles:readonly [Role,...Role[]])=>nativeMeasurementSchema.extend({supportCriteria:brief,reviseCriteria:brief,falsifyCriteria:brief,spelling:plannedMeasurementSchema.shape.spelling.unwrap().omit({interventionNodeIds:true}).extend({role:z.enum(roles),reason:brief,uncertainty:brief})}).strict();
 const nativeActivityBase=z.object({id:z.string().min(1),title:z.string().trim().min(1),difficulty:compactNodePlanSchema.shape.difficulty,targetLane:z.string().nullable().optional().describe("The captured word-group id these targets come from, when they share one.")});
 const nativeTargets=z.array(z.string().min(1)).min(1).describe("Assigned words only.");
 const explainerAuthoringSchema=z.object({
