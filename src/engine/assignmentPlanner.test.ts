@@ -1105,6 +1105,22 @@ describe("assignment planner", () => {
       }finally{log.mockRestore();}
     });
 
+    // Live runs 10 and 11 (2026-10-13): one plan sent its activities as a JSON string and one
+    // left a choice option empty. Both whole plans were thrown away and the child would have
+    // been left on the loading screen. The form stays strict; reading it is forgiving.
+    it("reads a plan whose activities arrive as a JSON string",()=>{
+      const {packet,input,practice,check}=fixture();
+      const output=hydrate({...input,activities:JSON.stringify(input.activities)},packet);
+      expect(output.activeSessionPlan.nodePlan.map(node=>node.id)).toEqual([practice.id,check.id]);
+      expect(output.notReady).toEqual([]);
+    });
+    it("reads a plan with an empty choice option by leaving that option out",()=>{
+      const {packet,input,practice,check}=fixture();
+      input.journey={title:"Spelling adventure",opening:[],choice:{purpose:"Which way first?",label:"Pick a path",options:[{id:"a",label:"Practice",hypothesis:"h",nodeIds:[practice.id]},{id:"b",label:"Nothing",hypothesis:"h",nodeIds:[]}]},closing:[check.id],endpointLabel:"Done"};
+      const output=hydrate(input,packet);
+      expect(output.activeSessionPlan.journey!.choices).toEqual([]);
+      expect(output.activeSessionPlan.journey!.portals.flatMap(portal=>portal.activityNodeId??[])).toEqual([practice.id,check.id]);
+    });
     it("never buys a correction, even for a response it cannot read",async()=>{
       const {packet}=fixture();
       const {stream,result}=await ask({domain:"spelling"},packet);

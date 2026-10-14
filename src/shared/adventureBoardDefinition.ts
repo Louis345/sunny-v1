@@ -50,8 +50,12 @@ export type JourneySequence=z.infer<typeof journeySequenceSchema>;
 export const JOURNEY_SEQUENCE_TOOL_SCHEMA=z.toJSONSchema(journeySequenceSchema,{io:'input'});
 /** Mechanical and deterministic: start, activity, choice and endpoint portals, paths and connections.
  * Nothing here rejects the plan; an activity that cannot be placed is logged and left off. */
+/** The form above is what the Planner is asked for; reading its answer is forgiving, because a
+ * plan is never thrown away over an empty option or a missing list. */
+const journeySequenceReadSchema=journeySequenceSchema.extend({opening:z.array(id).max(32).default([]),closing:z.array(id).max(32).default([]),
+  choice:z.object({purpose:id,label:id,options:z.array(z.object({id,label:id,hypothesis:id,nodeIds:z.array(id).max(32).default([])})).max(8).default([])}).optional()});
 export function expandJourneySequence(input:unknown,nodes:ReadonlyArray<{id:string;title?:string}>):AdventureJourneyDefinition {
-  const sequence=journeySequenceSchema.parse(input),titles=new Map(nodes.map(node=>[node.id,node.title?.trim()||node.id]));
+  const sequence=journeySequenceReadSchema.parse(input),titles=new Map(nodes.map(node=>[node.id,node.title?.trim()||node.id]));
   const placed=new Set<string>(),portals:Array<{id:string;label:string;kind:'start'|'activity'|'choice'|'endpoint';activityNodeId?:string}>=[{id:'start',label:'Start',kind:'start'}];
   const place=(nodeIds:readonly string[],prefix:string,seen:Set<string>)=>nodeIds.flatMap(nodeId=>{
     if(!titles.has(nodeId)||seen.has(nodeId)){console.log(` 🎮 [planner] [journey] [${titles.has(nodeId)?'node-repeated':'node-missing'}] node=${nodeId}`);return [];}
