@@ -1108,11 +1108,11 @@ describe("assignment planner", () => {
     // Live runs 10 and 11 (2026-10-13): one plan sent its activities as a JSON string and one
     // left a choice option empty. Both whole plans were thrown away and the child would have
     // been left on the loading screen. The form stays strict; reading it is forgiving.
-    it("reads a plan whose activities arrive as a JSON string",()=>{
+    it("reads a plan whose activities arrive as a JSON string",async()=>{
       const {packet,input,practice,check}=fixture();
-      const output=hydrate({...input,activities:JSON.stringify(input.activities)},packet);
-      expect(output.activeSessionPlan.nodePlan.map(node=>node.id)).toEqual([practice.id,check.id]);
-      expect(output.notReady).toEqual([]);
+      const {stream,result}=await ask({...input,activities:JSON.stringify(input.activities),journey:JSON.stringify(input.journey)},packet);
+      expect((await result).plan.nodePlan.map((node:{id:string})=>node.id)).toEqual([practice.id,check.id]);
+      expect(stream).toHaveBeenCalledTimes(1);
     });
     it("reads a plan with an empty choice option by leaving that option out",()=>{
       const {packet,input,practice,check}=fixture();

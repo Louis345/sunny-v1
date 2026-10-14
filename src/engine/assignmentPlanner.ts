@@ -1053,10 +1053,7 @@ export function nativeLearningProgramToolJsonSchema(catalog:AssignmentPlanningPa
  * lineage and runs truth checks; a failed check marks that one portal not ready and never
  * sends the plan back. Only a response that cannot be read at all throws. */
 export function hydrateNativeLearningProgram(raw:unknown,packet:AssignmentPlanningPacket,createdAt?:string):AssignmentPlannerOutput {
-  // Some responses carry a list as JSON text; that is still the Planner's list.
-  const listed=(value:unknown)=>{if(typeof value!=="string")return value;try{return JSON.parse(value);}catch{return value;}};
-  const source=jsonObject(raw);
-  const program=nativeLearningProgramSchema.extend({journey:z.unknown(),activities:z.array(z.unknown()).min(1).max(12)}).parse(source?{...source,activities:listed(source.activities),journey:listed(source.journey)}:raw);
+  const program=nativeLearningProgramSchema.extend({journey:z.unknown(),activities:z.array(z.unknown()).min(1).max(12)}).parse(raw);
   const notReady=new Map<string,string>();
   const mark=(nodeId:string,reason:string)=>{if(notReady.has(nodeId))return;notReady.set(nodeId,reason);console.log(` 🎮 [board] [portal] [not-ready] node=${nodeId} reason=${reason}`);};
   const listedActivities=program.activities.flatMap(row=>{

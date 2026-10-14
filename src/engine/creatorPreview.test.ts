@@ -179,4 +179,9 @@ describe('the map artist can see its work',()=>{
   expect(placed[6].position.landscape).toEqual({x:1,y:.5});
   expect(placed[7].position.landscape).toEqual({x:0,y:1});
  });
+
+ it('reads a map sent as JSON text',async()=>{
+  const {run}=design([['submit_board',{whatISee:'Placed.',composition:JSON.stringify(composition),rationale:'Text.'}]]);
+  expect((await run()).plan.boardDefinition).toEqual(board);
+ });
 });

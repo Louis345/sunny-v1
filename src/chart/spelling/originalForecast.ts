@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import {z} from 'zod';
 import path from 'node:path';
 import {createHash} from 'node:crypto';
 import {openChart,type ChartDatabase} from '../db';
@@ -35,8 +36,7 @@ export async function forecastOriginalSpelling(db:ChartDatabase,id:string,provid
  packet.assignment.assignment={...view.assignment,testDate:schedule.testDate};
  const base=baseFor(db,id);
  return checkpointedAttempt(base,{packet,stage:'forecast',model:provider.modelId??'injected-fixture'},()=>provider('forecast',packet),(raw,metadata)=>{
-  let proposal=readPlannerToolReceipt(raw,'submit_spelling_proposal');
-  if(typeof proposal==='string')proposal=JSON.parse(proposal.trim().replace(/^```(?:json)?\s*/i,'').replace(/\s*```$/,''));
+  const proposal=readPlannerToolReceipt(raw,'submit_spelling_proposal',z.toJSONSchema(schemas['readiness.forecast']));
   const request=metadata as {packet:SpellingPacket};
   return db.sql.transaction(()=>{
    if(Math.max(0,...exportEvents(db).map(e=>e.sequence))!==request.packet.asOfSequence)throw Error('planner_stale_chart');

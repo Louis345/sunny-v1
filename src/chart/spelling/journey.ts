@@ -117,8 +117,7 @@ export function createSpellingJourney(db: ChartDatabase, provider: SpellingProvi
         const packet = { ...buildPlannerPacket(chart.events, id), profile: chart.profile };
         const base = path.join(path.dirname(db.path), db.childId, 'requests', hash(`${id}:${stage}`));
         return checkpointedAttempt(base, {stage, packet, model:provider.modelId ?? 'injected-fixture'}, () => provider(stage,packet), (raw, metadata) => {
-        let proposal=readPlannerToolReceipt(raw, 'submit_spelling_proposal');
-        if(typeof proposal==='string') proposal=JSON.parse(proposal.trim().replace(/^```(?:json)?\s*/i,'').replace(/\s*```$/,''));
+        const proposal=readPlannerToolReceipt(raw, 'submit_spelling_proposal', z.toJSONSchema(stage === 'prior' ? priorProposal : stage === 'plan' ? planProposal : schemas['readiness.forecast']));
         const request=metadata as {packet:SpellingPacket;model?:string};
         db.sql.transaction(() => {
             if (Math.max(0, ...facts().map(e => e.sequence)) !== request.packet.asOfSequence)

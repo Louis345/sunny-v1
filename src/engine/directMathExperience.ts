@@ -1,5 +1,5 @@
 import {hydrateNativeLearningProgram,nativeLearningProgramToolJsonSchema,resolveAssignmentPlannerModel,type AssignmentPlanningPacket,type AssignmentPlannerOutput,type AssignmentPlannerTelemetry} from "./assignmentPlanner";
-import {requestPlannerMessage,assertPlannerResponseComplete} from "./plannerTransport";
+import {requestPlannerMessage,assertPlannerResponseComplete,decodeToolInput} from "./plannerTransport";
 import {isDeepStrictEqual} from "node:util";
 import {z} from "zod";
 import {learningPlannerInstructions} from "./learningPlannerInstructions";
@@ -1342,7 +1342,7 @@ The teacher's journey (immutable): stops ${JSON.stringify(journey.portals.map(po
     const response=draftDir?await runMathProviderStage({draftDir,stage,model,request,execute,retryUncertain:input.retryUncertain,beforeRequest:()=>{if(!input.client&&!process.env.ANTHROPIC_API_KEY?.trim())throw new Error("preflight_missing:ANTHROPIC_API_KEY");}}):await execute();
     if(input.rawResponseDir){fs.mkdirSync(input.rawResponseDir,{recursive:true});fs.writeFileSync(path.join(input.rawResponseDir,`design-response-${turn}.json`),`${JSON.stringify({model,stopReason:response.stop_reason,usage:response.usage,content:response.content},null,2)}\n`,"utf8");}
     const tool=response.content.find((block):block is Anthropic.Messages.ToolUseBlock=>block.type==="tool_use"&&["preview_board","adjust_board","submit_board"].includes(block.name));
-    const given=object(tool?.input);
+    const given=object(tool?decodeToolInput(tool.input,(mustSubmit?[finalTool]:tools).find(candidate=>candidate.name===tool.name)?.input_schema):undefined);
     if(typeof given?.whatISee==="string")console.log(` 🎮 [experience-creator] [self-review] turn=${turn} ${given.whatISee.replace(/\s+/g," ").slice(0,300)}`);
     // An adjustment changes only what the artist names; everything else stays as last seen.
     const adjusted=tool&&last&&given&&!given.composition&&(tool.name==="adjust_board"||given.portals||given.edges||given.theme)?{...last,
@@ -2168,7 +2168,7 @@ function nativeProgramFromResponse(response:unknown,packet:AssignmentPlanningPac
  const message=response as Anthropic.Messages.Message;assertPlannerResponseComplete(message);
  const tools=message.content.filter(block=>block.type==="tool_use"&&block.name==="create_learning_program");
  if(tools.length!==1 || tools[0].type!=="tool_use")throw new Error("planner_tool_output_missing_or_multiple:create_learning_program");
- const output=hydrateNativeLearningProgram(tools[0].input,packet);
+ const output=hydrateNativeLearningProgram(decodeToolInput(tools[0].input,nativeLearningProgramToolJsonSchema(packet.activityCatalog)),packet);
  return {domain:"spelling",planId:output.activeSessionPlan.planId,journey:output.activeSessionPlan.journey!,plan:output.activeSessionPlan,planningResult:{output,telemetry:{model,latencyMs},receivedAt:output.activeSessionPlan.createdAt}};
 }
 async function download(url: string, destination: string): Promise<void> {

@@ -42,11 +42,53 @@ export function assertPlannerResponseComplete(message: { stop_reason?: string | 
 }
 
 /** Old durable proposals remain readable; new receipts preserve all provider blocks. */
-export function readPlannerToolReceipt(raw: unknown, toolName: string): unknown {
-  if (!raw || typeof raw !== 'object' || !('plannerMessage' in raw)) return raw;
+type JsonSchema = Record<string, unknown>;
+const schemaAt = (schema: unknown, root: JsonSchema): JsonSchema => {
+  let current = (schema && typeof schema === 'object' ? schema : {}) as JsonSchema;
+  for (let depth = 0; typeof current.$ref === 'string' && depth < 16; depth++) {
+    const ref = current.$ref as string;
+    if (!ref.startsWith('#/')) break;
+    let target: unknown = root;
+    for (const part of ref.slice(2).split('/')) target = target && typeof target === 'object' ? (target as JsonSchema)[part.replace(/~1/g, '/').replace(/~0/g, '~')] : undefined;
+    current = (target && typeof target === 'object' ? target : {}) as JsonSchema;
+  }
+  return current;
+};
+const alternatives = (schema: JsonSchema, root: JsonSchema): JsonSchema[] =>
+  [schema, ...[...(Array.isArray(schema.anyOf) ? schema.anyOf : []), ...(Array.isArray(schema.oneOf) ? schema.oneOf : [])].flatMap(option => alternatives(schemaAt(option, root), root))];
+const accepts = (options: JsonSchema[], kind: string) => options.some(option => option.type === kind || (Array.isArray(option.type) && option.type.includes(kind))
+  || (kind === 'object' && option.type === undefined && Boolean(option.properties)) || (kind === 'array' && option.type === undefined && Boolean(option.items)));
+/** Models sometimes send a list or object inside a tool answer as JSON text. Where the tool's own
+ * schema expects a list or object, and never text, that text is decoded once here, for every tool.
+ * Real text and broken JSON are left exactly as sent; the usual validation still decides. */
+export function decodeToolInput(value: unknown, schema: unknown, root: JsonSchema = schemaAt(schema, {}), path = '$'): unknown {
+  const options = alternatives(schemaAt(schema, root), root);
+  if (typeof value === 'string' && !accepts(options, 'string')) {
+    const text = value.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
+    try {
+      const parsed: unknown = JSON.parse(text);
+      if ((Array.isArray(parsed) && accepts(options, 'array')) || (parsed && typeof parsed === 'object' && !Array.isArray(parsed) && accepts(options, 'object'))) {
+        console.log(` 🎮 [provider] [tool-input] [decoded] path=${path}`);
+        value = parsed;
+      }
+    } catch { /* Not JSON: left as sent, so validation reports it. */ }
+  }
+  if (Array.isArray(value)) {
+    const items = options.find(option => option.items)?.items;
+    return items ? value.map((item, index) => decodeToolInput(item, items, root, `${path}[${index}]`)) : value;
+  }
+  if (value && typeof value === 'object') {
+    const properties: JsonSchema = {};
+    for (const option of options) for (const [key, child] of Object.entries((option.properties ?? {}) as JsonSchema)) if (!(key in properties)) properties[key] = child;
+    return Object.fromEntries(Object.entries(value as JsonSchema).map(([key, child]) => [key, key in properties ? decodeToolInput(child, properties[key], root, `${path}.${key}`) : child]));
+  }
+  return value;
+}
+export function readPlannerToolReceipt(raw: unknown, toolName: string, schema?: unknown): unknown {
+  if (!raw || typeof raw !== 'object' || !('plannerMessage' in raw)) return schema ? decodeToolInput(raw, schema) : raw;
   const message = raw.plannerMessage as Anthropic.Messages.Message;
   assertPlannerResponseComplete(message);
   const tools = message.content.filter(block => block.type === 'tool_use' && block.name === toolName);
   if (tools.length !== 1 || tools[0].type !== 'tool_use') throw Error(`planner_tool_output_missing_or_multiple:${toolName}`);
-  return tools[0].input;
+  return schema ? decodeToolInput(tools[0].input, schema) : tools[0].input;
 }
