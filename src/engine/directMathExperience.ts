@@ -1236,6 +1236,36 @@ type LearningCreatorInput = {
   retryUncertain?: boolean;
 };
 export const MAX_BOARD_PREVIEWS=2;
+const PLANNER_CARD_FIELDS=["activityId","label","purposes","skillTargets","bestFor","evidenceType","evidenceRole","proofStrength","inputModes","measures","requiredConfig"] as const;
+/** What the spelling Planner needs to decide, without the record-keeping it does not: her answer
+ * per word with its evidence ID, and the activities it may plan. The canonical records are unchanged. */
+export function compactPlannerFacts(packet:AssignmentPlanningPacket) {
+  const evidence=packet.discoveryEvidence as unknown as {summary?:{coverage?:unknown;spellingTargets?:Array<{word:string;itemId:string}>};observations?:Array<{observationId:string;itemId?:string;childResponse?:string;result?:{correct?:boolean};assistance?:{status?:string}}>;history?:{constructs?:Record<string,{observations?:Array<{observationId:string;result?:{correct?:boolean};childResponse?:string}>;evaluations?:Array<{evaluationId:string}>}>}}|undefined;
+  const wordByItem=new Map((evidence?.summary?.spellingTargets??[]).map(target=>[target.itemId,target.word]));
+  const history=Object.entries(evidence?.history?.constructs??{}).filter(([,entry])=>(entry.observations?.length??0)+(entry.evaluations?.length??0)>0);
+  return {
+    homework:packet.capturedHomework,childChart:packet.childChart,masteryContext:packet.masteryContext,
+    activityCatalog:(packet.activityCatalog as unknown as Array<Record<string,unknown>&{activityId:string;domains?:string[];capabilityModes?:Array<{id:string;label:string;purpose?:string;config?:unknown}>}>)
+      .filter(card=>(card.domains??["spelling"]).includes("spelling")&&!["quest","boss"].includes(card.activityId))
+      .map(card=>({...Object.fromEntries(PLANNER_CARD_FIELDS.filter(key=>card[key]!==undefined).map(key=>[key,card[key]])),capabilityModes:(card.capabilityModes??[]).map(mode=>({id:mode.id,label:mode.label,purpose:mode.purpose,config:mode.config}))})),
+    evaluation:(evidence?.observations??[]).map(row=>({observationId:row.observationId,word:wordByItem.get(row.itemId??"")??null,typed:row.childResponse??null,correct:row.result?.correct??null,assisted:row.assistance?.status!==undefined&&row.assistance.status!=="unassisted"})),
+    ...(evidence?.summary?.coverage?{coverage:evidence.summary.coverage}:{}),
+    ...(history.length?{history:Object.fromEntries(history.map(([construct,entry])=>[construct,{observations:(entry.observations??[]).map(row=>({observationId:row.observationId,typed:row.childResponse??null,correct:row.result?.correct??null})),evaluations:(entry.evaluations??[]).map(row=>row.evaluationId)}]))}:{}),
+  };
+}
+/** The map is a grid: stops line up and spacing is even by construction. */
+const BOARD_GRID={landscape:{cols:7,rows:3},portrait:{cols:3,rows:4}} as const;
+const gridPoint=(cell:{col:number;row:number},grid:{cols:number;rows:number})=>({x:Math.min(grid.cols-1,Math.max(0,Math.round(cell.col)))/(grid.cols-1),y:Math.min(grid.rows-1,Math.max(0,Math.round(cell.row)))/(grid.rows-1)});
+const cellSchema=(grid:{cols:number;rows:number})=>({type:"object",additionalProperties:false,required:["col","row"],properties:{col:{type:"integer",minimum:0,maximum:grid.cols-1},row:{type:"integer",minimum:0,maximum:grid.rows-1}}});
+const portalCellSchema={type:"object",additionalProperties:false,required:["landscape","portrait"],properties:{landscape:cellSchema(BOARD_GRID.landscape),portrait:cellSchema(BOARD_GRID.portrait)}};
+/** A placement given as grid cells becomes the board's position; nothing is moved or judged. */
+function placementFromCells(row:unknown):unknown {
+  const portal=object(row),cell=object(portal?.cell);if(!portal||!cell)return row;
+  const landscape=object(cell.landscape),portrait=object(cell.portrait);
+  if(!landscape||!portrait||[landscape.col,landscape.row,portrait.col,portrait.row].some(value=>typeof value!=="number"))return row;
+  const {cell:_cell,...rest}=portal;
+  return {...rest,position:{landscape:gridPoint(landscape as {col:number;row:number},BOARD_GRID.landscape),portrait:gridPoint(portrait as {col:number;row:number},BOARD_GRID.portrait)}};
+}
 const MAP_ARTIST_PERSONA="You are Sunny's map artist. You design adventure maps a child wants to finish. You receive the teacher's journey and the illustrated world. You decide placement, palette, path style and feel. You never change the lesson.";
 const BOARD_ARTWORK="/generated/adventure-board-demo/silent-letter-world.jpeg";
 const FALLBACK_SPOT={landscape:{x:.5,y:.5},portrait:{x:.5,y:.5}};
@@ -1244,7 +1274,7 @@ const FALLBACK_SPOT={landscape:{x:.5,y:.5},portrait:{x:.5,y:.5}};
 function compositionAsSubmitted(journey:AdventureJourneyDefinition,raw:unknown):AdventureBoardComposition|undefined {
   const source=object(raw);if(!source)return undefined;
   const portalSchema=adventureCompositionSchema.shape.portals.element,edgeSchema=adventureCompositionSchema.shape.edges.element;
-  const rows=(value:unknown)=>new Map((Array.isArray(value)?value:[]).flatMap(row=>{const item=object(row);return item&&typeof item.id==="string"?[[item.id,row] as const]:[];}));
+  const rows=(value:unknown)=>new Map((Array.isArray(value)?value:[]).map(placementFromCells).flatMap(row=>{const item=object(row);return item&&typeof item.id==="string"?[[item.id,row] as const]:[];}));
   const portals=rows(source.portals),edges=rows(source.edges);
   // The theme is read key by key: a spare or missing palette entry never costs the artist its world or its colours.
   const given=object(source.theme),background=adventureCompositionSchema.shape.theme.shape.background.safeParse(given?.background);
@@ -1276,8 +1306,10 @@ async function designNativeBoard(input:LearningCreatorInput,native:NativeLearnin
   const artwork={type:"object",additionalProperties:false,required:["type","value"],properties:{type:{const:"image"},value:{type:"string",enum:[BOARD_ARTWORK]}}};
   const compositionSchema=z.toJSONSchema(adventureCompositionSchema,{io:"input"}) as unknown as Anthropic.Messages.Tool.InputSchema&{properties:{theme:{properties:Record<string,unknown>}}};
   compositionSchema.properties.theme.properties.background=artwork;
+  const portalItem=(compositionSchema.properties as unknown as {portals:{items:{properties:Record<string,unknown>;required?:string[]}}}).portals.items;
+  delete portalItem.properties.position;portalItem.properties.cell=portalCellSchema;portalItem.required=["id","cell"];
   const whatISee={type:"string",description:"Write this first. Before your first look, say what you intend. After a look, describe what the screenshots actually show: can you read every label against the scene, and do any portals or labels crowd or overlap? Say what you will change, or why it is ready."} as const;
-  const changes={portals:{type:"array",items:{type:"object",additionalProperties:false,required:["id","position"],properties:{id:schemaString,position:z.toJSONSchema(adventureCompositionSchema.shape.portals.element.shape.position,{io:"input"})}}},edges:z.toJSONSchema(adventureCompositionSchema.shape.edges,{io:"input"}),theme:{type:"object",additionalProperties:false,properties:{background:artwork,palette:{type:"object",additionalProperties:false,properties:Object.fromEntries(Object.keys(adventureCompositionSchema.shape.theme.shape.palette.shape).map(key=>[key,schemaString]))}}}};
+  const changes={portals:{type:"array",items:{type:"object",additionalProperties:false,required:["id","cell"],properties:{id:schemaString,cell:portalCellSchema}}},edges:z.toJSONSchema(adventureCompositionSchema.shape.edges,{io:"input"}),theme:{type:"object",additionalProperties:false,properties:{background:artwork,palette:{type:"object",additionalProperties:false,properties:Object.fromEntries(Object.keys(adventureCompositionSchema.shape.theme.shape.palette.shape).map(key=>[key,schemaString]))}}}};
   // Once the looks are used, the last turn takes changes only: a full redraw costs the child minutes.
   const finalTool:Anthropic.Messages.Tool={name:"submit_board",description:"Your looks are used. Submit the map as you last saw it, with any last changes. Do not redraw it.",input_schema:{type:"object",additionalProperties:false,required:["whatISee","rationale"],properties:{whatISee,...changes,rationale:schemaString}}};
   const tools:Anthropic.Messages.Tool[]=[
@@ -1286,15 +1318,14 @@ async function designNativeBoard(input:LearningCreatorInput,native:NativeLearnin
     {name:"submit_board",description:"Submit the finished map. It is published exactly as submitted. Leave composition out to submit the map as you last saw it; you may include a few last changes.",input_schema:{type:"object",additionalProperties:false,required:["whatISee","rationale"],properties:{whatISee,composition:compositionSchema,...changes,rationale:schemaString}}},
   ];
   let messages:Anthropic.Messages.MessageParam[]=[{role:"user",content:`${MAP_ARTIST_PERSONA}
-Place every portal for both landscape (1280x720 kiosk) and portrait (768x1024), choose the palette and path styles. The background is always the illustrated world, ${BOARD_ARTWORK}; never replace it with a plain colour or gradient. Coordinates are 0..1 within the safe composition area. Keep the journey readable left to right in landscape and compose portrait separately.
+Place every stop on the map grid, for landscape (1280x720 kiosk) and portrait (768x1024), and choose the palette and path styles. The background is always the illustrated world, ${BOARD_ARTWORK}; never replace it with a plain colour or gradient.
+The grid: landscape has 7 columns (0 to 6, left to right) and 3 rows (0 top, 1 middle, 2 bottom); portrait has 3 columns and 4 rows. Each stop takes one cell, and stops line up along the rows and columns, so the trail looks deliberate. Run the shared journey left to right along the middle row. When the journey splits at a choice, give each option its own lane: one option's stops along the top row, the other's along the bottom row, then bring the trail back to the middle row where they rejoin, so she sees a real fork. In portrait, use columns as the lanes and run the journey top to bottom.
 How your colours are used: every label is drawn as text in palette.text on a rounded plate filled with palette.panel, sitting on the illustrated scene. Choose text and panel as a pair with strong contrast so a child can read every label at a glance. Status chips use the same pair.
-Spacing: each portal is an orb with its label plate underneath; the measured sizes below include the wrapped label. Use the whole canvas: spread the journey across the full width and height so it breathes, with an even rhythm between stops and at least 28 pixels of clear air between any two portals or plates in both orientations. A map that huddles in one band looks cramped even when nothing touches.
-Already taken on screen, so keep portals away: the level badge in the top-left corner, the status bar along the bottom centre, and Elli, the companion, who stands in the bottom-right corner (roughly the last fifth of the width and the lower two fifths of the height in landscape; the bottom-right corner in portrait).
+Spacing: each portal is an orb with its label plate underneath; the measured sizes below include the wrapped label. Use the whole canvas: spread the journey across all 7 columns so it breathes. Never put two stops in one cell, and leave an empty cell between stops when there is room.
+Already taken on screen, so keep portals away: the level badge in the top-left corner, the status bar along the bottom centre, and Elli, the companion, who stands in the bottom-right corner: keep the bottom-right cell empty in both orientations.
 Your map is published exactly as you submit it; nobody corrects it. Look at your own work: when you get the screenshots, check that you can read every label and that nothing overlaps, and fix what you see with adjust_board. Each look costs the child waiting time, so make each one count.
 Measured portal sizes in pixels (width and height include the wrapped label): ${JSON.stringify(sizes)}
-Child chart facts: ${JSON.stringify(factualModelContext(input.childContext))}
-The teacher's journey and activities (immutable): ${JSON.stringify(native)}
-Prior outcomes: ${JSON.stringify(factualModelContext(input.priorOutcomes))}`}];
+The teacher's journey (immutable): stops ${JSON.stringify(journey.portals.map(portal=>({id:portal.id,label:portal.label,kind:portal.kind})))}; paths in order ${JSON.stringify(journey.paths.map(path=>({id:path.id,stops:path.portalIds})))}; choice ${JSON.stringify(journey.choices.map(choice=>({at:choice.portalId,options:choice.options.map(option=>({label:option.label,path:option.pathId}))})))}`}];
   let previews=0,last:AdventureBoardComposition|undefined;
   for(let turn=1;turn<=MAX_BOARD_PREVIEWS+1;turn+=1){
     const mustSubmit=previews>=MAX_BOARD_PREVIEWS;
@@ -1315,7 +1346,7 @@ Prior outcomes: ${JSON.stringify(factualModelContext(input.priorOutcomes))}`}];
     if(typeof given?.whatISee==="string")console.log(` 🎮 [experience-creator] [self-review] turn=${turn} ${given.whatISee.replace(/\s+/g," ").slice(0,300)}`);
     // An adjustment changes only what the artist names; everything else stays as last seen.
     const adjusted=tool&&last&&given&&!given.composition&&(tool.name==="adjust_board"||given.portals||given.edges||given.theme)?{...last,
-      portals:last.portals.map(portal=>{const moved=(Array.isArray(given.portals)?given.portals:[]).map(object).find(row=>row?.id===portal.id);return moved?{...portal,position:moved.position}:portal;}),
+      portals:last.portals.map(portal=>{const moved=(Array.isArray(given.portals)?given.portals:[]).map(placementFromCells).map(object).find(row=>row?.id===portal.id);return moved?.position?{...portal,position:moved.position}:portal;}),
       edges:last.edges.map(edge=>({...edge,...((Array.isArray(given.edges)?given.edges:[]).map(object).find(row=>row?.id===edge.id)??{})})),
       theme:{background:object(object(given.theme)?.background)??last.theme.background,palette:{...last.theme.palette,...object(object(given.theme)?.palette)}}}:undefined;
     const candidate=tool?compositionAsSubmitted(journey,adjusted??given?.composition):undefined;
@@ -2002,7 +2033,7 @@ ${JOURNEY_SEQUENCE_INSTRUCTION}
 You choose activities, count, support, alternatives and hypotheses.
 Use available native instruments through their supplied configuration schemas. Catalog presets are working examples, not an exhaustive configuration restriction. Request generated content only for a missing capability. Preserve captured words and cite the supplied observation IDs. Separate assisted practice, independent measurements and engagement. Do not claim mastery or readiness.
 Homework and child-chart context:
-${JSON.stringify({homework:packet!.capturedHomework,childChart:packet!.childChart,masteryContext:packet!.masteryContext,activityCatalog:packet!.activityCatalog,discoveryEvidence:packet!.discoveryEvidence})}` : `${learningPlannerInstructions('math').text}
+${JSON.stringify(compactPlannerFacts(packet!))}` : `${learningPlannerInstructions('math').text}
 
 Read the assignment, child chart, prior evidence, and prior calibration. Prescribe the smallest coherent learning program that can test your theory. Teach the concept the teacher is targeting rather than copying or lightly rewriting worksheet questions.
 

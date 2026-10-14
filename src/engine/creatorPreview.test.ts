@@ -148,4 +148,35 @@ describe('the map artist can see its work',()=>{
   expect(last.tools[0].input_schema.properties).not.toHaveProperty('composition');
   expect(result.plan.boardDefinition!.portals.find(portal=>portal.id==='end')!.position).toEqual(moved);
  });
+
+ // 2026-10-14: each artist call read about 40,000 tokens, mostly the teacher's full plan and
+ // her whole evaluation record, which it never needs to place stops on a map.
+ it('reads only the journey, the stop sizes and the world, not the evaluation record',async()=>{
+  const {stream,run}=design([['submit_board',{whatISee:'First placement.',composition,rationale:'Placed once.'}]]);
+  await run();
+  const brief=String(requests(stream)[0].messages[0].content);
+  expect(brief).not.toContain('nodePlan');expect(brief).not.toContain('measurement');
+  for(const portal of journey.portals)expect(brief).toContain(portal.label);
+  expect(brief.length).toBeLessThan(6000);
+ });
+
+ // Human review 2026-10-14: stops should line up on the trail, be spread out, and the choice
+ // should read as a fork. Free 0..1 coordinates let the artist scatter them.
+ it('places stops on a grid of columns and rows, and lays a choice out as two lanes',async()=>{
+  const cell=(col:number,row:number,pcol:number,prow:number)=>({landscape:{col,row},portrait:{col:pcol,row:prow}});
+  const gridComposition={theme:composition.theme,edges:composition.edges,portals:board.portals.map((portal,index)=>({id:portal.id,cell:cell(index%7,index<7?1:2,index%3,Math.floor(index/3))}))};
+  const {stream,run}=design([['submit_board',{whatISee:'Placed on the grid.',composition:gridComposition,rationale:'Grid.'}]]);
+  const result=await run();
+  const tool=requests(stream)[0].tools.find((candidate:{name:string})=>candidate.name==='submit_board');
+  const portalShape=tool.input_schema.properties.composition.properties.portals.items;
+  expect(portalShape.properties).toHaveProperty('cell');expect(portalShape.properties).not.toHaveProperty('position');
+  expect(portalShape.properties.cell.properties.landscape.properties.col.maximum).toBe(6);
+  expect(portalShape.properties.cell.properties.landscape.properties.row.maximum).toBe(2);
+  const brief=String(requests(stream)[0].messages[0].content);
+  expect(brief).toContain('lane');expect(brief).toContain('7 columns');
+  const placed=result.plan.boardDefinition!.portals;
+  expect(placed[0].position.landscape).toEqual({x:0,y:.5});
+  expect(placed[6].position.landscape).toEqual({x:1,y:.5});
+  expect(placed[7].position.landscape).toEqual({x:0,y:1});
+ });
 });

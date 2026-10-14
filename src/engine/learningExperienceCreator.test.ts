@@ -24,7 +24,7 @@ describe('existing Creator realizes native spelling journeys',()=>{
    expect(result.plan.journey).toEqual(journey);
    expect(stream).toHaveBeenCalledTimes(1);
    const request:any=stream.mock.calls[0][0];
-   expect(request.messages[0].content).toContain('spelling');
+   for(const portal of journey.portals)expect(request.messages[0].content).toContain(portal.label); // the journey, not the whole program
    for(const tool of request.tools){expect(tool.input_schema.properties).not.toHaveProperty('journey');expect(tool.input_schema.properties).not.toHaveProperty('activities');}
    await creator.askLearningExperienceDesigner(input);
    expect(stream).toHaveBeenCalledTimes(1);

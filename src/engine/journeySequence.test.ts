@@ -76,7 +76,7 @@ describe('the Planner authors the journey in one place',()=>{
  // artist spent three looks failing to pack them. The Planner was never told the canvas size.
  it('tells the Planner how many stops the map holds comfortably, as a fact and not a limit',()=>{
   const instruction=(board as any).JOURNEY_SEQUENCE_INSTRUCTION as string;
-  expect(instruction).toContain('about 8 stops');
+  expect(instruction).toContain('7 steps');
   expect(instruction).toContain('your decision');
  });
 });
