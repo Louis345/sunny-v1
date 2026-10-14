@@ -26,7 +26,24 @@ export async function checkpointedAttempt<T>(base:string, metadata:Record<string
    // Earlier checkpoints remain readable; never delete them to recover.
    const stem=stemFor(attempt);
    const request=stem+'.request.json',response=stem+'.response.json',errorFile=stem+'.error.json';
-   if(fs.existsSync(errorFile)){earlierFailure=true;continue;}
+   if(fs.existsSync(errorFile)){
+    earlierFailure=true;
+    if(recover&&fs.existsSync(request)&&fs.existsSync(response)){
+     const revalidated=stem+'.revalidated.json';
+     if(fs.existsSync(revalidated))throw Error('request_revalidation_already_accepted');
+     let result:T;
+     try{
+      result=accept(JSON.parse(fs.readFileSync(response,'utf8')),JSON.parse(fs.readFileSync(request,'utf8')));
+     }catch(error){
+      console.error(` 🎮 [spelling-request] [recovery] [revalidation-failed] attempt=${attempt}`,error);
+      continue;
+     }
+     save(revalidated,{attempt,outcome:'accepted',revalidatedAt:new Date().toISOString()});
+     console.error(` 🎮 [spelling-request] [recovery] [revalidated] attempt=${attempt}`);
+     return result;
+    }
+    continue;
+   }
    const existing=fs.existsSync(request);
    if(existing&&!fs.existsSync(response)){
     if(!recover)throw Error('request_needs_attention: outcome unknown; parent recovery required');
