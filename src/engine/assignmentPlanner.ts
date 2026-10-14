@@ -1059,7 +1059,7 @@ export function hydrateNativeLearningProgram(raw:unknown,packet:AssignmentPlanni
   const program=nativeLearningProgramSchema.extend({journey:z.unknown(),activities:z.array(z.unknown()).min(1).max(12)}).parse(source?{...source,activities:listed(source.activities),journey:listed(source.journey)}:raw);
   const notReady=new Map<string,string>();
   const mark=(nodeId:string,reason:string)=>{if(notReady.has(nodeId))return;notReady.set(nodeId,reason);console.log(` 🎮 [board] [portal] [not-ready] node=${nodeId} reason=${reason}`);};
-  const activities=program.activities.flatMap(row=>{
+  const listedActivities=program.activities.flatMap(row=>{
     const parsed=nativeActivitySchema.safeParse(deriveNativeActivity(row));
     if(parsed.success){
       if([parsed.data.type,parsed.data.activityId].some(type=>type==="quest"||type==="boss")){console.log(` 🎮 [planner] [journey] [encounter-not-authorized] node=${parsed.data.id}`);return [];}
@@ -1071,8 +1071,11 @@ export function hydrateNativeLearningProgram(raw:unknown,packet:AssignmentPlanni
     // The authored type cannot run, so nothing of it enters her record; the reason keeps what was asked for.
     return [nativeActivitySchema.parse({id:nodeId,title:typeof source!.title==="string"&&source!.title.trim()?source!.title.trim():nodeId,type:"mystery",activityId:"mystery",targets:[],measurement:null})];
   });
+  const journey=expandJourneySequence(program.journey,listedActivities);
+  // An activity the Planner listed but never placed is left off the plan, as the journey says.
+  const placed=new Set(journey.portals.flatMap(portal=>portal.activityNodeId??[]));
+  const activities=listedActivities.filter(activity=>placed.has(activity.id));
   const nodePlan=activities.map(({measurement:_measurement,...node})=>node);
-  const journey=expandJourneySequence(program.journey,nodePlan);
   const lineage=deriveCheckpointLineage(activities.map(activity=>({id:activity.id,targets:activity.targets,role:activity.measurement?.spelling?.role})),journeyExecutions(journey).map(path=>path.activityNodeIds));
   const plannedMeasurements=activities.flatMap(({measurement,...activity})=>{
     if(!measurement)return [];

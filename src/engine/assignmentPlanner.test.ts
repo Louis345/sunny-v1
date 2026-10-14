@@ -1121,6 +1121,17 @@ describe("assignment planner", () => {
       expect(output.activeSessionPlan.journey!.choices).toEqual([]);
       expect(output.activeSessionPlan.journey!.portals.flatMap(portal=>portal.activityNodeId??[])).toEqual([practice.id,check.id]);
     });
+    // Live run 13 (2026-10-13): the Planner listed an activity it never placed on the journey.
+    // The expander left it off as intended, but the plan was then thrown away by a check that
+    // still expected every listed activity on the map. The unit test covered only the expander.
+    it("leaves an activity that is not on the journey off the plan instead of rejecting the plan",()=>{
+      const {packet,input,practice,check}=fixture();
+      input.activities.push({...input.activities[0],id:"node-spare",title:"Never placed"});
+      const output=hydrate(input,packet);
+      expect(output.activeSessionPlan.nodePlan.map(node=>node.id)).toEqual([practice.id,check.id]);
+      expect(output.plannedMeasurements.map(row=>row.id)).toEqual([`measure-${practice.id}`,`measure-${check.id}`]);
+      expect(output.notReady).toEqual([]);
+    });
     it("never buys a correction, even for a response it cannot read",async()=>{
       const {packet}=fixture();
       const {stream,result}=await ask({domain:"spelling"},packet);

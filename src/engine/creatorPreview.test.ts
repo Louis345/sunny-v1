@@ -135,4 +135,17 @@ describe('the map artist can see its work',()=>{
   const followUp=JSON.stringify(requests(stream)[1].messages);
   expect(followUp).toContain('closer than');expect(followUp).toContain('gap');expect(followUp).toContain('end');
  });
+
+ // Live run 12 (2026-10-13): after its last look the artist re-sent the whole 13-portal map,
+ // 8,196 tokens and 123 seconds, while the child waited. The final turn only takes changes.
+ it('finishes with changes only, never a full redraw, once its looks are used',async()=>{
+  const moved={landscape:{x:.9,y:.2},portrait:{x:.5,y:.9}};
+  const {stream,run}=design(call=>call<4?['preview_board',{whatISee:'Looking.',composition}]:['submit_board',{whatISee:'One last nudge.',rationale:'Done.',portals:[{id:'end',position:moved}]}]);
+  const result=await run();
+  const last=requests(stream)[3];
+  expect(last.tools).toHaveLength(1);
+  expect(last.tools[0].name).toBe('submit_board');
+  expect(last.tools[0].input_schema.properties).not.toHaveProperty('composition');
+  expect(result.plan.boardDefinition!.portals.find(portal=>portal.id==='end')!.position).toEqual(moved);
+ });
 });

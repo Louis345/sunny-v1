@@ -1273,10 +1273,13 @@ async function designNativeBoard(input:LearningCreatorInput,native:NativeLearnin
   const compositionSchema=z.toJSONSchema(adventureCompositionSchema,{io:"input"}) as unknown as Anthropic.Messages.Tool.InputSchema&{properties:{theme:{properties:Record<string,unknown>}}};
   compositionSchema.properties.theme.properties.background=artwork;
   const whatISee={type:"string",description:"Write this first. Before your first look, say what you intend. After a look, describe what the screenshots actually show: can you read every label against the scene, and do any portals or labels crowd or overlap? Say what you will change, or why it is ready."} as const;
+  const changes={portals:{type:"array",items:{type:"object",additionalProperties:false,required:["id","position"],properties:{id:schemaString,position:z.toJSONSchema(adventureCompositionSchema.shape.portals.element.shape.position,{io:"input"})}}},edges:z.toJSONSchema(adventureCompositionSchema.shape.edges,{io:"input"}),theme:{type:"object",additionalProperties:false,properties:{background:artwork,palette:{type:"object",additionalProperties:false,properties:Object.fromEntries(Object.keys(adventureCompositionSchema.shape.theme.shape.palette.shape).map(key=>[key,schemaString]))}}}};
+  // Once the looks are used, the last turn takes changes only: a full redraw costs the child minutes.
+  const finalTool:Anthropic.Messages.Tool={name:"submit_board",description:"Your looks are used. Submit the map as you last saw it, with any last changes. Do not redraw it.",input_schema:{type:"object",additionalProperties:false,required:["whatISee","rationale"],properties:{whatISee,...changes,rationale:schemaString}}};
   const tools:Anthropic.Messages.Tool[]=[
     {name:"preview_board",description:`Place the whole map and see it rendered on the real board at 1280x720 and 768x1024, with each portal's measured box and any overlaps. You may look at most ${MAX_BOARD_PREVIEWS} times in total.`,input_schema:{type:"object",additionalProperties:false,required:["whatISee","composition"],properties:{whatISee,composition:compositionSchema}}},
-    {name:"adjust_board",description:"After a look, change only what needs changing and look again. Everything you do not mention stays exactly as it was. This is much faster than sending the whole map again.",input_schema:{type:"object",additionalProperties:false,required:["whatISee"],properties:{whatISee,portals:{type:"array",items:{type:"object",additionalProperties:false,required:["id","position"],properties:{id:schemaString,position:z.toJSONSchema(adventureCompositionSchema.shape.portals.element.shape.position,{io:"input"})}}},edges:z.toJSONSchema(adventureCompositionSchema.shape.edges,{io:"input"}),theme:{type:"object",additionalProperties:false,properties:{background:artwork,palette:{type:"object",additionalProperties:false,properties:Object.fromEntries(Object.keys(adventureCompositionSchema.shape.theme.shape.palette.shape).map(key=>[key,schemaString]))}}}}}},
-    {name:"submit_board",description:"Submit the finished map. It is published exactly as submitted. Leave composition out to submit the map exactly as you last saw it.",input_schema:{type:"object",additionalProperties:false,required:["whatISee","rationale"],properties:{whatISee,composition:compositionSchema,rationale:schemaString}}},
+    {name:"adjust_board",description:"After a look, change only what needs changing and look again. Everything you do not mention stays exactly as it was. This is much faster than sending the whole map again.",input_schema:{type:"object",additionalProperties:false,required:["whatISee"],properties:{whatISee,...changes}}},
+    {name:"submit_board",description:"Submit the finished map. It is published exactly as submitted. Leave composition out to submit the map as you last saw it; you may include a few last changes.",input_schema:{type:"object",additionalProperties:false,required:["whatISee","rationale"],properties:{whatISee,composition:compositionSchema,...changes,rationale:schemaString}}},
   ];
   let messages:Anthropic.Messages.MessageParam[]=[{role:"user",content:`${MAP_ARTIST_PERSONA}
 Place every portal for both landscape (1280x720 kiosk) and portrait (768x1024), choose the palette and path styles. The background is always the illustrated world, ${BOARD_ARTWORK}; never replace it with a plain colour or gradient. Coordinates are 0..1 within the safe composition area. Keep the journey readable left to right in landscape and compose portrait separately.
@@ -1291,7 +1294,7 @@ Prior outcomes: ${JSON.stringify(factualModelContext(input.priorOutcomes))}`}];
   let previews=0,last:AdventureBoardComposition|undefined;
   for(let turn=1;turn<=MAX_BOARD_PREVIEWS+1;turn+=1){
     const mustSubmit=previews>=MAX_BOARD_PREVIEWS;
-    let request={model,max_tokens:Number(process.env.SUNNY_DIRECTOR_MAX_TOKENS??16000),messages,tools,tool_choice:mustSubmit?{type:"tool",name:"submit_board"}:{type:"any"}} as Anthropic.MessageCreateParamsNonStreaming;
+    let request={model,max_tokens:Number(process.env.SUNNY_DIRECTOR_MAX_TOKENS??16000),messages,tools:mustSubmit?[finalTool]:tools,tool_choice:mustSubmit?{type:"tool",name:"submit_board"}:{type:"any"}} as Anthropic.MessageCreateParamsNonStreaming;
     const stage=`targeted-design-${turn}`,pointer=draftDir?path.join(draftDir,"provider-receipts",`${stage}.stage.json`):undefined;
     if(pointer&&fs.existsSync(pointer)){
       // Received work is replayed under its original request, never bought again.
@@ -1307,7 +1310,7 @@ Prior outcomes: ${JSON.stringify(factualModelContext(input.priorOutcomes))}`}];
     const given=object(tool?.input);
     if(typeof given?.whatISee==="string")console.log(` 🎮 [experience-creator] [self-review] turn=${turn} ${given.whatISee.replace(/\s+/g," ").slice(0,300)}`);
     // An adjustment changes only what the artist names; everything else stays as last seen.
-    const adjusted=tool?.name==="adjust_board"&&last&&given?{...last,
+    const adjusted=tool&&last&&given&&!given.composition&&(tool.name==="adjust_board"||given.portals||given.edges||given.theme)?{...last,
       portals:last.portals.map(portal=>{const moved=(Array.isArray(given.portals)?given.portals:[]).map(object).find(row=>row?.id===portal.id);return moved?{...portal,position:moved.position}:portal;}),
       edges:last.edges.map(edge=>({...edge,...((Array.isArray(given.edges)?given.edges:[]).map(object).find(row=>row?.id===edge.id)??{})})),
       theme:{background:object(object(given.theme)?.background)??last.theme.background,palette:{...last.theme.palette,...object(object(given.theme)?.palette)}}}:undefined;

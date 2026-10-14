@@ -71,4 +71,12 @@ describe('the Planner authors the journey in one place',()=>{
   expect(purpose).toContain('she reads');
   expect(purpose).toContain('never about her');
  });
+
+ // Live run 12: thirteen portals cannot fit the kiosk canvas with air between them, and the
+ // artist spent three looks failing to pack them. The Planner was never told the canvas size.
+ it('tells the Planner how many stops the map holds comfortably, as a fact and not a limit',()=>{
+  const instruction=(board as any).JOURNEY_SEQUENCE_INSTRUCTION as string;
+  expect(instruction).toContain('about 8 stops');
+  expect(instruction).toContain('your decision');
+ });
 });
