@@ -905,7 +905,7 @@ export async function runMathProviderStage<T>(input: {
     const status = (error as {status?: number}).status;
     const message = error instanceof Error ? error.message : String(error);
     const explicitProviderRejection = status === 429
-      || /(?:credit_balance_exhausted|no credits remaining|billing_hard_limit_reached|insufficient_quota|invalid_api_key)/i.test(message);
+      || /(?:credit_balance_exhausted|credit balance is too low|no credits remaining|billing_hard_limit_reached|insufficient_quota|invalid_api_key)/i.test(message);
     const rejected = Boolean(status && status>=400 && status<500) || explicitProviderRejection;
     const outcome = rejected ? "rejected" : "outcome_uncertain";
     const finishedAt = new Date().toISOString();

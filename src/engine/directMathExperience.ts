@@ -1235,7 +1235,7 @@ type LearningCreatorInput = {
   rawResponseDir?: string;
   retryUncertain?: boolean;
 };
-export const MAX_BOARD_PREVIEWS=3;
+export const MAX_BOARD_PREVIEWS=2;
 const MAP_ARTIST_PERSONA="You are Sunny's map artist. You design adventure maps a child wants to finish. You receive the teacher's journey and the illustrated world. You decide placement, palette, path style and feel. You never change the lesson.";
 const BOARD_ARTWORK="/generated/adventure-board-demo/silent-letter-world.jpeg";
 const FALLBACK_SPOT={landscape:{x:.5,y:.5},portrait:{x:.5,y:.5}};

@@ -51,13 +51,13 @@ describe('the map artist can see its work',()=>{
   expect(result.plan.boardDefinition).toEqual(board);
  });
 
- it('stops after 3 previews and publishes what the Creator last showed (Law 2 guard)',async()=>{
-  expect((creator as any).MAX_BOARD_PREVIEWS).toBe(3);
+ it('stops after 2 previews and publishes what the Creator last showed (Law 2 guard)',async()=>{
+  expect((creator as any).MAX_BOARD_PREVIEWS).toBe(2);
   const {stream,run}=design(()=>['preview_board',{composition}]);
   const result=await run();
-  expect((canvas as any).renderBoardPreview).toHaveBeenCalledTimes(3);
-  expect(stream).toHaveBeenCalledTimes(4);
-  expect(requests(stream)[3].tool_choice).toEqual({type:'tool',name:'submit_board'});
+  expect((canvas as any).renderBoardPreview).toHaveBeenCalledTimes(2);
+  expect(stream).toHaveBeenCalledTimes(3);
+  expect(requests(stream)[2].tool_choice).toEqual({type:'tool',name:'submit_board'});
   expect(result.plan.boardDefinition).toEqual(board);
  });
 
@@ -140,9 +140,9 @@ describe('the map artist can see its work',()=>{
  // 8,196 tokens and 123 seconds, while the child waited. The final turn only takes changes.
  it('finishes with changes only, never a full redraw, once its looks are used',async()=>{
   const moved={landscape:{x:.9,y:.2},portrait:{x:.5,y:.9}};
-  const {stream,run}=design(call=>call<4?['preview_board',{whatISee:'Looking.',composition}]:['submit_board',{whatISee:'One last nudge.',rationale:'Done.',portals:[{id:'end',position:moved}]}]);
+  const {stream,run}=design(call=>call<3?['preview_board',{whatISee:'Looking.',composition}]:['submit_board',{whatISee:'One last nudge.',rationale:'Done.',portals:[{id:'end',position:moved}]}]);
   const result=await run();
-  const last=requests(stream)[3];
+  const last=requests(stream)[2];
   expect(last.tools).toHaveLength(1);
   expect(last.tools[0].name).toBe('submit_board');
   expect(last.tools[0].input_schema.properties).not.toHaveProperty('composition');
