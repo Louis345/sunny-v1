@@ -1136,7 +1136,12 @@ export class SessionManager {
         bridge: this.ttsBridge, assessment,
         record: (action, event) => this.debugRecorder.recordEvent("game_narration", action, { ...event, requestId }) });
     } catch (error) {
+      // Every audio_start gets exactly one audio_done, even when the voice fails; otherwise the
+      // browser keeps the microphone closed waiting for speech that will never come.
       this.activeGameNarrationRequestId = null;
+      const reason = error instanceof Error ? error.message : String(error);
+      this.send("audio_done", { requestId, failed: true, reason, ...(assessment ? { requiresAudio: true } : {}), ...(metadata.itemId ?? assessment?.itemId ? { itemId: String(metadata.itemId ?? assessment?.itemId) } : {}) });
+      console.warn(` 🎮 [session-audio] [playback] [failed-released] request=${requestId} reason=${reason}`);
       throw error;
     }
     if (this.activeGameNarrationRequestId !== requestId) {
@@ -1164,6 +1169,8 @@ export class SessionManager {
       gev.armGameNarrationPlaybackTimer(this, requestId, String(metadata.itemId ?? assessment?.itemId ?? ""));
     } else {
       this.activeGameNarrationRequestId = null;
+      this.send("audio_done", { requestId, failed: true, reason: "no_speech", ...(assessment ? { requiresAudio: true } : {}), ...(metadata.itemId ?? assessment?.itemId ? { itemId: String(metadata.itemId ?? assessment?.itemId) } : {}) });
+      console.warn(` 🎮 [session-audio] [playback] [failed-released] request=${requestId} reason=no_speech`);
     }
   }
 

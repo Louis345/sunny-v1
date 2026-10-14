@@ -35,6 +35,7 @@ import {
 import { mapNodeSessionAudioFlags } from "../../../src/shared/mapNodeSessionAudio";
 import { resolveSunnyRuntimeConfig } from "../../../src/shared/runtimeConfig";
 import type { ChildProgressionSnapshot } from "../../../src/engine/progression";
+import { createPlaybackWatchdog } from "../utils/playbackWatchdog";
 
 type GameMode = keyof typeof TEACHING_TOOLS | keyof typeof REWARD_GAMES;
 
@@ -453,6 +454,15 @@ export function useSession(options?: UseSessionOptions) {
   const playbackRequestIdRef = useRef<string | null>(null);
   const playbackItemIdRef = useRef<string | null>(null);
   const activityNarrationPendingRef = useRef(false);
+  // If speech starts and nothing is heard for 15 s, release it so the microphone can never stay closed.
+  const playbackWatchdogRef = useRef(createPlaybackWatchdog(15_000, (requestId) => {
+    if (activePlaybackRequestIdRef.current !== requestId || completedPlaybackRef.current) return;
+    // Audio that already arrived is still being played: that is speech, not a stuck lock.
+    if (isPlayingRef.current || audioQueueRef.current.length > 0) { playbackWatchdogRef.current.arm(requestId); return; }
+    console.warn(` 🎮 [session-audio] [playback] [watchdog-released] request=${requestId}`);
+    serverDoneRef.current = true;
+    finalizePlaybackRef.current();
+  }));
   const receivedAudioFramesRef = useRef(0);
   const playedAudioFramesRef = useRef(0);
   const finalizePlaybackRef = useRef<() => void>(() => {});
@@ -1057,9 +1067,11 @@ export function useSession(options?: UseSessionOptions) {
         playbackItemIdRef.current = typeof msg.itemId === "string" ? msg.itemId : null;
         playbackRequiresAudioRef.current = msg.requiresAudio === true;
         activityNarrationPendingRef.current = msg.source === "activity" || msg.requiresAudio === true;
+        if (activePlaybackRequestIdRef.current) playbackWatchdogRef.current.arm(activePlaybackRequestIdRef.current);
         break;
 
       case "audio_cancel":
+        playbackWatchdogRef.current.disarm();
         cancelPlayback();
         break;
 
@@ -1067,6 +1079,7 @@ export function useSession(options?: UseSessionOptions) {
         if (playbackCanceledRef.current || (activePlaybackRequestIdRef.current &&
           (msg.requestId !== activePlaybackRequestIdRef.current || completedPlaybackRef.current))) break;
         receivedAudioFramesRef.current += 1;
+        playbackWatchdogRef.current.heard(activePlaybackRequestIdRef.current);
         if (
           (ttsMutedRef.current || companionSpeechMutedRef.current) &&
           !activityNarrationPendingRef.current
@@ -1094,6 +1107,7 @@ export function useSession(options?: UseSessionOptions) {
         playbackRequestIdRef.current = typeof msg.requestId === "string" ? msg.requestId : null;
         playbackItemIdRef.current = typeof msg.itemId === "string" ? msg.itemId : null;
         serverDoneRef.current = true;
+        playbackWatchdogRef.current.disarm();
         finalizePlaybackRef.current();
         break;
 

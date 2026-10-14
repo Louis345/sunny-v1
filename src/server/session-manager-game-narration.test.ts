@@ -405,4 +405,23 @@ describe("SessionManager game narration", () => {
       vi.useRealTimers();
     }
   });
+
+  // Saori kiosk 2026-10-14: ElevenLabs failed on the first Word Radar word. The server had sent
+  // audio_start but never audio_done, so the browser kept the microphone closed for the rest of
+  // the session. Every start of speech must be followed by an end, even when the voice fails.
+  it.each([
+    ["the voice service refuses the connection", {connect:vi.fn().mockRejectedValue(new Error("tts_provider_error: connection closed")),finish:vi.fn().mockResolvedValue(undefined),hadAudioThisTurn:()=>false}],
+    ["the voice service returns no audio", {connect:vi.fn().mockResolvedValue(undefined),finish:vi.fn().mockResolvedValue(undefined),hadAudioThisTurn:()=>false}],
+  ])("always ends playback when %s",async(_case,voice)=>{
+    const send=vi.fn();
+    const session:any={childName:"Ila",sessionTtsLabel:"EYE-lah",debugRecorder:{recordEvent:vi.fn()},send,noteExternalEvent:vi.fn(),
+      spellingAssessment:{itemId:"sheep",launchId:"launch",launchToken:undefined,nodeId:"n"},
+      turnSM:{getState:()=>"IDLE",onPlaybackComplete:vi.fn(),consumePendingTranscript:vi.fn()},
+      ttsBridge:{beginPlayback:vi.fn(),sendText:vi.fn(),...voice}};
+    await SessionManager.prototype.speakGameNarration.call(session,"sheep.",{itemId:"sheep",assessmentMode:true}).catch(()=>undefined);
+    const ends=send.mock.calls.filter(call=>call[0]==="audio_done");
+    expect(ends).toHaveLength(1);
+    expect(ends[0][1]).toMatchObject({failed:true,itemId:"sheep"});
+    expect(session.activeGameNarrationRequestId).toBeNull();
+  });
 });
