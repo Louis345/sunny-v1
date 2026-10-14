@@ -110,8 +110,9 @@ export async function verifyPreparingBoardCanvas(input:{rootDir:string;childId:s
 }
 
 export type BoardPortalBox={viewport:string;id:string;x:number;y:number;width:number;height:number};
-export type BoardPreview={screenshots:Array<{viewport:string;file:string}>;portals:BoardPortalBox[];overlaps:Array<{viewport:string;portals:[string,string]}>;artworkLoaded:boolean};
+export type BoardPreview={screenshots:Array<{viewport:string;file:string}>;portals:BoardPortalBox[];overlaps:Array<{viewport:string;portals:[string,string]}>;crowded:Array<{viewport:string;portals:[string,string];gap:number}>;artworkLoaded:boolean};
 const previewViewports=[{width:1280,height:720},{width:768,height:1024}];
+export const BOARD_COMFORT_GAP=28;
 const previewOrigin='http://sunny.preview';
 
 /** What the map artist sees: the kiosk renderer with the real artwork, at kiosk and portrait
@@ -128,7 +129,7 @@ export async function renderBoardPreview(input:{definition:AdventureBoardDefinit
  const html=`<!doctype html><html><head><style>${css}body{margin:0}</style></head><body>${render(board)}</body></html>`;
  const background=input.definition.theme.background;
  const browser=await chromium.launch({headless:true});
- const preview:BoardPreview={screenshots:[],portals:[],overlaps:[],artworkLoaded:true};
+ const preview:BoardPreview={screenshots:[],portals:[],overlaps:[],crowded:[],artworkLoaded:true};
  try{
   for(const viewport of previewViewports){
    const size=`${viewport.width}x${viewport.height}`,page=await browser.newPage({viewport});
@@ -153,7 +154,12 @@ export async function renderBoardPreview(input:{definition:AdventureBoardDefinit
  }finally{await browser.close();}
  // A ruler, not a judge: which measured boxes touch. Nothing here accepts or rejects a map.
  preview.overlaps=preview.portals.flatMap((a,index)=>preview.portals.slice(index+1).filter(b=>b.viewport===a.viewport&&Math.min(a.x+a.width,b.x+b.width)>Math.max(a.x,b.x)&&Math.min(a.y+a.height,b.y+b.height)>Math.max(a.y,b.y)).map(b=>({viewport:a.viewport,portals:[a.id,b.id] as [string,string]})));
- console.log(` 🎮 [board-canvas] [preview] [rendered] portals=${input.definition.portals.length} artwork=${preview.artworkLoaded?'loaded':'missing'} overlaps=${preview.overlaps.length}`);
+ // Also a ruler: pairs whose boxes are closer than BOARD_COMFORT_GAP pixels without touching.
+ preview.crowded=preview.portals.flatMap((a,index)=>preview.portals.slice(index+1).filter(b=>b.viewport===a.viewport).flatMap(b=>{
+  const dx=Math.max(0,Math.max(a.x,b.x)-Math.min(a.x+a.width,b.x+b.width)),dy=Math.max(0,Math.max(a.y,b.y)-Math.min(a.y+a.height,b.y+b.height)),gap=Math.round(Math.hypot(dx,dy));
+  return gap>0&&gap<BOARD_COMFORT_GAP?[{viewport:a.viewport,portals:[a.id,b.id] as [string,string],gap}]:[];
+ }));
+ console.log(` 🎮 [board-canvas] [preview] [rendered] portals=${input.definition.portals.length} artwork=${preview.artworkLoaded?'loaded':'missing'} overlaps=${preview.overlaps.length} crowded=${preview.crowded.length}`);
  return preview;
 }
 

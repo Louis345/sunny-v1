@@ -497,9 +497,13 @@
   max-width: 150px;
   /* The artist picks text and panel as a pair; the label is drawn on that panel.
      The plate is painted with a shadow spread so the label's layout box does not grow. */
-  border-radius: 6px;
-  background: color-mix(in srgb, var(--board-panel) 88%, transparent);
-  box-shadow: 0 0 0 5px color-mix(in srgb, var(--board-panel) 88%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--board-panel) 90%, transparent);
+  box-shadow:
+    0 0 0 6px color-mix(in srgb, var(--board-panel) 90%, transparent),
+    0 0 0 7px color-mix(in srgb, var(--board-text) 14%, transparent),
+    0 10px 22px rgba(15, 23, 42, 0.28);
+  letter-spacing: 0.01em;
   color: var(--board-text);
   font-size: 15px;
   font-weight: 900;

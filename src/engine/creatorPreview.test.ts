@@ -9,7 +9,7 @@ vi.mock('./adventureBoardCanvas',async original=>({...await original<typeof impo
  renderBoardPreview:vi.fn(async(input:{directory:string})=>{
   fs.mkdirSync(input.directory,{recursive:true});
   const screenshots=['1280x720','768x1024'].map(viewport=>{const file=path.join(input.directory,`preview-${viewport}.png`);fs.writeFileSync(file,'png');return {viewport,file};});
-  return {screenshots,portals:[{viewport:'1280x720',id:'check',x:10,y:20,width:123,height:187}],overlaps:[{viewport:'768x1024',portals:['learn-a','play-a']}],artworkLoaded:true};
+  return {screenshots,portals:[{viewport:'1280x720',id:'check',x:10,y:20,width:123,height:187}],overlaps:[{viewport:'768x1024',portals:['learn-a','play-a']}],crowded:[{viewport:'1280x720',portals:['check','end'],gap:6}],artworkLoaded:true};
  })}));
 import * as creator from './directMathExperience';
 import {authoredJourney} from '../scripts/fixtures/authoredJourney';
@@ -121,5 +121,18 @@ describe('the map artist can see its work',()=>{
    expect(background.properties.type.const).toBe('image');
    expect(background.properties.value.enum).toEqual(['/generated/adventure-board-demo/silent-letter-world.jpeg']);
   }
+ });
+
+ // Human review 2026-10-13: readable now, but portals sit too close together and the map does
+ // not look designed. The artist was never told which parts of the screen are already taken
+ // or how much air to leave, and "no overlap" was the only spacing fact it was given.
+ it('is told which screen areas are taken, how much air to leave, and which portals sit too close',async()=>{
+  const {stream,run}=design([['preview_board',{whatISee:'First placement.',composition}],['submit_board',{whatISee:'Check and end are tight; leaving it.',rationale:'Kept.'}]]);
+  await run();
+  const brief=JSON.stringify(requests(stream)[0].messages[0]);
+  expect(brief).toContain('bottom-right');expect(brief).toContain('Elli');
+  expect(brief).toContain('whole canvas');
+  const followUp=JSON.stringify(requests(stream)[1].messages);
+  expect(followUp).toContain('closer than');expect(followUp).toContain('gap');expect(followUp).toContain('end');
  });
 });

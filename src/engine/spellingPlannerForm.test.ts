@@ -54,6 +54,12 @@ describe("the Planner's tool form carries the kiosk's rules",()=>{
     for(const field of ["supportCriteria","reviseCriteria","falsifyCriteria"])expect(practice[field].description).toContain("One short sentence");
     for(const field of ["reason","uncertainty"])expect(practice.spelling.properties[field].description).toContain("One short sentence");
   });
+  // Human review 2026-10-13: titles like "Word Radar: Hear and Build Tricky High-Frequency
+  // Words" made plates so large that portals crowded each other.
+  it("asks for a short map name for each activity",()=>{
+    const schema:any=planner.nativeLearningProgramToolJsonSchema(catalog);
+    for(const variant of schema.properties.activities.items.anyOf)expect(variant.properties.title.description).toContain("2 to 4 words");
+  });
   it("gives the tool the per-type form instead of one loose activity shape",()=>{
     const schema:any=planner.nativeLearningProgramToolJsonSchema(catalog);
     const variants=schema.properties.activities.items.anyOf as Array<{properties:Record<string,any>}>;
