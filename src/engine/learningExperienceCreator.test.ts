@@ -60,4 +60,29 @@ describe('existing Creator realizes native spelling journeys',()=>{
    expect(stream).toHaveBeenCalledTimes(1);
   }finally{fs.rmSync(root,{recursive:true,force:true});}
  });
+
+ // Kiosk walk 2026-10-13 (and live runs 6 and 18): the artist added one extra palette key,
+ // the whole theme was judged unreadable, and the board fell back to a plain dark background.
+ // The illustrated world and every colour the artist chose were lost over a spare key.
+ it('keeps the artist\'s world and colours when its palette carries an extra key',async()=>{
+  const board=authoredJourney(),journey=journeyFromBoardDefinition(board),root=fs.mkdtempSync(path.join(os.tmpdir(),'sunny-creator-theme-'));
+  const composition:any=compositionFromBoardDefinition(board);
+  composition.theme={background:{type:'image',value:'/generated/adventure-board-demo/silent-letter-world.jpeg'},palette:{...composition.theme.palette,text:'#1c2a4a',panel:'#fff8e7',panel_extra:'#fff8e7'}};
+  const stream=vi.fn((_request:unknown)=>({finalMessage:async()=>submit(composition)}));
+  try{
+   const result=await creator.askLearningExperienceDesigner({childId:'lab',program:{domain:'spelling',planId:'theme',journey,plan:{planId:'theme',journey,nodePlan:[]}},childContext:{},priorOutcomes:{},checkpointFile:path.join(root,'design.json'),client:{messages:{stream}}} as any);
+   const theme=result.plan.boardDefinition!.theme;
+   expect(theme.background).toEqual({type:'image',value:'/generated/adventure-board-demo/silent-letter-world.jpeg'});
+   expect(theme.palette.text).toBe('#1c2a4a');expect(theme.palette.panel).toBe('#fff8e7');
+   expect(theme.palette).not.toHaveProperty('panel_extra');
+  }finally{fs.rmSync(root,{recursive:true,force:true});}
+ });
+ it('falls back to the illustrated world, never a plain colour, when no theme can be read',async()=>{
+  const board=authoredJourney(),journey=journeyFromBoardDefinition(board),root=fs.mkdtempSync(path.join(os.tmpdir(),'sunny-creator-notheme-'));
+  const stream=vi.fn((_request:unknown)=>({finalMessage:async()=>submit({})}));
+  try{
+   const result=await creator.askLearningExperienceDesigner({childId:'lab',program:{domain:'spelling',planId:'notheme',journey,plan:{planId:'notheme',journey,nodePlan:[]}},childContext:{},priorOutcomes:{},checkpointFile:path.join(root,'design.json'),client:{messages:{stream}}} as any);
+   expect(result.plan.boardDefinition!.theme.background.type).toBe('image');
+  }finally{fs.rmSync(root,{recursive:true,force:true});}
+ });
 });

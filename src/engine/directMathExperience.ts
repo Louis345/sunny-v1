@@ -1245,10 +1245,14 @@ function compositionAsSubmitted(journey:AdventureJourneyDefinition,raw:unknown):
   const source=object(raw);if(!source)return undefined;
   const portalSchema=adventureCompositionSchema.shape.portals.element,edgeSchema=adventureCompositionSchema.shape.edges.element;
   const rows=(value:unknown)=>new Map((Array.isArray(value)?value:[]).flatMap(row=>{const item=object(row);return item&&typeof item.id==="string"?[[item.id,row] as const]:[];}));
-  const portals=rows(source.portals),edges=rows(source.edges),theme=adventureCompositionSchema.shape.theme.safeParse(source.theme);
-  if(!theme.success)console.log(" 🎮 [experience-creator] [theme] [fallback] reason=unreadable_theme");
+  const portals=rows(source.portals),edges=rows(source.edges);
+  // The theme is read key by key: a spare or missing palette entry never costs the artist its world or its colours.
+  const given=object(source.theme),background=adventureCompositionSchema.shape.theme.shape.background.safeParse(given?.background);
+  const defaults={path:"#ffffff",completed:"#1f8f68",available:"#7c3aed",locked:"#aeb7c2",current:"#f59e0b",preview:"#d5dde5",text:"#ffffff",panel:"rgba(15, 23, 42, 0.84)"};
+  const palette=Object.fromEntries(Object.entries(defaults).map(([key,fallback])=>{const value=object(given?.palette)?.[key];return [key,typeof value==="string"&&value.trim()?value.trim():fallback];}));
+  if(!background.success||!given?.palette)console.log(` 🎮 [experience-creator] [theme] [fallback] background=${background.success?"as-submitted":"illustrated-world"} palette=${given?.palette?"as-submitted":"default"}`);
   return adventureCompositionSchema.parse({
-    theme:theme.success?theme.data:{background:{type:"solid",value:"#160d35"},palette:{path:"#ffffff",completed:"#1f8f68",available:"#7c3aed",locked:"#aeb7c2",current:"#f59e0b",preview:"#d5dde5",text:"#ffffff",panel:"#160d35"}},
+    theme:{background:background.success?background.data:{type:"image",value:BOARD_ARTWORK},palette},
     portals:journey.portals.map(portal=>{const placed=portalSchema.safeParse(portals.get(portal.id));if(placed.success)return placed.data;console.log(` 🎮 [experience-creator] [portal] [fallback-position] portal=${portal.id}`);return {id:portal.id,position:FALLBACK_SPOT};}),
     edges:journey.edges.map(edge=>{const styled=edgeSchema.safeParse(edges.get(edge.id));return styled.success?styled.data:{id:edge.id};}),
   });
