@@ -36,6 +36,7 @@ import { mapNodeSessionAudioFlags } from "../../../src/shared/mapNodeSessionAudi
 import { resolveSunnyRuntimeConfig } from "../../../src/shared/runtimeConfig";
 import type { ChildProgressionSnapshot } from "../../../src/engine/progression";
 import { createPlaybackWatchdog } from "../utils/playbackWatchdog";
+import { createActionOutbox } from "../utils/actionOutbox";
 
 type GameMode = keyof typeof TEACHING_TOOLS | keyof typeof REWARD_GAMES;
 
@@ -454,6 +455,7 @@ export function useSession(options?: UseSessionOptions) {
   const playbackRequestIdRef = useRef<string | null>(null);
   const playbackItemIdRef = useRef<string | null>(null);
   const activityNarrationPendingRef = useRef(false);
+  const actionOutboxRef = useRef(createActionOutbox());
   // If speech starts and nothing is heard for 15 s, release it so the microphone can never stay closed.
   const playbackWatchdogRef = useRef(createPlaybackWatchdog(15_000, (requestId) => {
     if (activePlaybackRequestIdRef.current !== requestId || completedPlaybackRef.current) return;
@@ -570,11 +572,6 @@ export function useSession(options?: UseSessionOptions) {
   // --- WebSocket connection ---
 
   const sendMessage = useCallback((type: string, payload: Record<string, unknown> = {}) => {
-    const gameEvent = payload.event as { type?: unknown } | undefined;
-    if (type === "game_event" && gameEvent?.type === "narration_request") {
-      activityNarrationPendingRef.current = true;
-      console.log(" 🎮 [session-audio] [activity-narration] [requested]");
-    }
     if (type === "reading_progress" && payload.event === "complete") {
       if (storyImageWatchdogRef.current) {
         clearTimeout(storyImageWatchdogRef.current);
@@ -595,14 +592,19 @@ export function useSession(options?: UseSessionOptions) {
         storyImageFailed: false,
       }));
     }
-    if (wsRef.current?.readyState === WebSocket.OPEN) {
-      const normalizedPayload =
-        type === "canvas_show" && typeof payload.type === "string"
-          ? { ...payload, canvasType: payload.type }
-          : payload;
-      // Put envelope `type` last so canvas payloads (e.g. NODE_REGISTRY.karaoke with type:karaoke)
-      // cannot overwrite the wire message kind — fixes server "Unknown type: karaoke" on canvas_show.
-      wsRef.current.send(JSON.stringify({ ...normalizedPayload, type }));
+    const normalizedPayload =
+      type === "canvas_show" && typeof payload.type === "string"
+        ? { ...payload, canvasType: payload.type }
+        : payload;
+    // Put envelope `type` last so canvas payloads (e.g. NODE_REGISTRY.karaoke with type:karaoke)
+    // cannot overwrite the wire message kind — fixes server "Unknown type: karaoke" on canvas_show.
+    const delivered = actionOutboxRef.current.deliver(type, normalizedPayload, wsRef.current?.readyState === WebSocket.OPEN,
+      message => wsRef.current?.send(JSON.stringify(message)));
+    const gameEvent = payload.event as { type?: unknown } | undefined;
+    // Only a tap that actually reached Sunny may make the browser wait for the word.
+    if (delivered === "sent" && type === "game_event" && gameEvent?.type === "narration_request") {
+      activityNarrationPendingRef.current = true;
+      console.log(" 🎮 [session-audio] [activity-narration] [requested]");
     }
   }, []);
 
@@ -826,6 +828,11 @@ export function useSession(options?: UseSessionOptions) {
 
       case "session_started": {
         reconnectHandshakePendingRef.current = false;
+        {
+          // A Hear word tap made while reconnecting is resent now that Sunny is back.
+          const held = actionOutboxRef.current.take();
+          if (held) queueMicrotask(() => sendMessageRef.current(held.type, held.payload));
+        }
         sessionReconnectAttemptRef.current = 0;
         if (sessionStartTimeoutRef.current) {
           clearTimeout(sessionStartTimeoutRef.current);
