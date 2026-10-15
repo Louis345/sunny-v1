@@ -1,0 +1,279 @@
+{
+  "mergeTarget": "main",
+  "sourceCommit": "c1f655911f9e8fbd1dd2867440a97597f68d79f3",
+  "candidateCommit": null,
+  "status": "in_progress",
+  "criteria": [
+    {
+      "id": "pipeline",
+      "requirement": "Two consecutive complete ingestion-to-finish runs on the same commit, zero manual rescue",
+      "proofRequired": "recordings, ordered browser events, canonical completion, exact commit",
+      "status": "unproven"
+    },
+    {
+      "id": "saori_voice",
+      "requirement": "Audible input/replies after launch, kiosk restart, and MacBook restart without consent reset",
+      "proofRequired": "human confirmations and session audio events for each restart",
+      "status": "unproven"
+    },
+    {
+      "id": "records",
+      "requirement": "All submitted answers match stored answers with independent, assisted, repeated and missing distinguished",
+      "proofRequired": "browser submission ledger reconciled to canonical records",
+      "status": "unproven"
+    },
+    {
+      "id": "feedback",
+      "requirement": "Predictions evaluated and exactly one evidence-citing decision consumed by next session",
+      "proofRequired": "prediction evaluation IDs, decision IDs and next-session input provenance",
+      "status": "unproven"
+    },
+    {
+      "id": "claims",
+      "requirement": "Independent improvement measured; insufficient improvement and retention explicitly unknown",
+      "proofRequired": "word-level report computed from eligible observations",
+      "status": "unproven"
+    },
+    {
+      "id": "recovery",
+      "requirement": "Interruptions preserve progress; failed providers stop visibly with bounded explicit recovery",
+      "proofRequired": "fault-injection browser runs and provider receipt counts",
+      "status": "unproven"
+    },
+    {
+      "id": "proof",
+      "requirement": "User can inspect recordings, scorecard, and learning report tied to candidate commit",
+      "proofRequired": "review package and human acceptance",
+      "status": "unproven"
+    },
+    {
+      "id": "permanent_fixes",
+      "requirement": "Saori launch and Elli reply fixes committed and regression-covered",
+      "proofRequired": "commit history and focused tests",
+      "status": "unproven"
+    },
+    {
+      "id": "merge",
+      "requirement": "Required checks pass; no criterion fails; supervised session accepted; exact candidate merged to main",
+      "proofRequired": "CI checks, user acceptance, merge SHA",
+      "status": "unproven"
+    }
+  ],
+  "currentEvidence": {
+    "voiceFocusedTests": {
+      "passed": 51,
+      "candidateCommitted": false,
+      "fixCommit": "30352615cc7df35010d4aa79ac029305ac78e41f"
+    },
+    "creatorRefusalTests": {
+      "redFailures": 2,
+      "greenPassed": 15,
+      "candidateCommitted": false
+    },
+    "sessionTypesTests": {
+      "passed": 19,
+      "candidateCommitted": false
+    },
+    "plannerCapabilityTests": {
+      "passed": 8,
+      "candidateCommitted": false
+    },
+    "learningLoopFocusedTests": {
+      "passed": 102,
+      "scope": "Decision storage, canonical runtime, successor boards and longitudinal context; does not prove next-session browser consumption",
+      "candidateCommitted": false
+    },
+    "build": {
+      "passed": true,
+      "candidateCommitted": false
+    },
+    "browserRecording": {
+      "implemented": true,
+      "verified": true,
+      "includes": [
+        "video",
+        "git_commit",
+        "working_tree_status",
+        "scenario",
+        "canonical_cycle",
+        "browser_events"
+      ],
+      "candidateCommitted": false,
+      "verifiedScope": "Recorded full-session browser journey saved WebM, exact answer ledger, and inspected word-level report; failure and successor runs also save screenshots and video. Clean candidate runs remain pending."
+    },
+    "nextSessionConsumption": {
+      "passed": true,
+      "test": "src/server/spellingSuccessorResume.test.ts",
+      "scope": "Captured spelling response, prediction evaluation, HTTP completion, exactly one support decision, interrupted successor generation, production startup recovery, returning-session packet; browser renders successor and opens its activity",
+      "assertions": [
+        "one decision",
+        "two builds for two activities",
+        "unchanged original observations",
+        "successor links to saved decision",
+        "decision cites scored completion",
+        "returning packet contains successor support activities",
+        "observed recall compared with preregistered prediction",
+        "decision cites saved prediction evaluation",
+        "successor visible in returning browser",
+        "support activity opens from that board",
+        "one decision and two builds after browser launch"
+      ],
+      "limitations": [
+        "Recorded Planner, Creator and verifier",
+        "Static activity verifies launch, not teaching quality",
+        "No actual learning improvement demonstrated"
+      ],
+      "candidateCommitted": false,
+      "report": "outputs/spelling-next-session-proof/report.json",
+      "screenshots": [
+        "outputs/spelling-next-session-proof/next-board.png",
+        "outputs/spelling-next-session-proof/next-activity.png"
+      ]
+    },
+    "providerFailureBrowser": {
+      "passed": true,
+      "report": "outputs/evidence-first-spelling/1280x720/runs/1792027010058-1280x720-chart-false/provider-failure.json",
+      "checks": [
+        "visible paused state within 5 seconds",
+        "answers preserved",
+        "Try again does not rebuy provider request",
+        "reload returns to paused state",
+        "one provider attempt",
+        "one generation worker",
+        "family files unchanged"
+      ],
+      "limitations": [
+        "Injected failure; not a live provider run",
+        "Explicit successful provider recovery not yet demonstrated"
+      ],
+      "candidateCommitted": false
+    },
+    "existingSpellingBrowserScenarios": {
+      "passed": 7,
+      "scope": "Landscape, portrait, chart-enabled, existing assignment and controlled interruption",
+      "limitations": [
+        "Started before recording/failure scenario changes",
+        "Uncommitted diagnostic run; not release acceptance"
+      ],
+      "candidateCommitted": false
+    },
+    "recordedCompleteJourney": {
+      "passed": true,
+      "durationMs": 127059,
+      "run": "outputs/spelling-adaptation-proof/runs/1792027407608-1280x720-chart-false",
+      "submittedAnswers": 28,
+      "savedObservations": 28,
+      "mismatches": 0,
+      "scope": "Complete recorded-provider journey; exact answer ledger reconciled; per-word HTML/JSON report; saved video",
+      "limitations": [
+        "Recorded providers",
+        "Dirty checkout; not a release pass",
+        "No real child learning claim"
+      ],
+      "candidateCommitted": false
+    },
+    "githubMergeGate": {
+      "branch": "main",
+      "head": "7966a748494cdc2ab34d4a1f628ddf133ce9d26f",
+      "protected": false,
+      "requiredStatusChecks": [],
+      "rulesets": [],
+      "source": "GitHub branches/main and rulesets API",
+      "consequence": "CI jobs run on the pull request, but GitHub does not currently enforce them as merge requirements. This release still requires all checks and human acceptance before merge."
+    },
+    "fullSuite": {
+      "passed": true,
+      "rootFiles": 394,
+      "rootTests": 4373,
+      "webFiles": 123,
+      "webTests": 1031,
+      "log": "log-isolation-commit-retry.log",
+      "candidateCommitted": false,
+      "limitation": "Passed on the unchanged candidate source before splitting it into focused commits; live-provider acceptance pending."
+    },
+    "voiceFixCommit": {
+      "sha": "30352615cc7df35010d4aa79ac029305ac78e41f",
+      "contains": [
+        "macOS LaunchServices kiosk launch",
+        "resolved companion reply gate",
+        "voice regression tests",
+        "voice acceptance verifier",
+        "dedicated macOS CI check"
+      ],
+      "merged": false,
+      "hookNote": "Generated Husky hooks installed with npm run prepare. Explicit full pre-commit hook completed successfully: build, 4372 root tests, 1031 web tests. Subsequent commits use normal installed hooks."
+    },
+    "saoriLaunchConfiguration": {
+      "loadedLabel": "local.sunny.ila-real.20261014",
+      "running": true,
+      "workingDirectory": "/Users/jtaylor/Development/sunny-board-canvas-test",
+      "launchFile": "/Users/jtaylor/Documents/Codex/2026-10-12/by/work/sunny-ila-real.plist",
+      "canonicalEntryPoint": "npm run sunny:run -- --subject homework --child ila --homework-domain spelling",
+      "browserProfile": "/Users/jtaylor/.sunny/kiosk-browser-profile",
+      "candidateInUse": false,
+      "requiredBeforeAcceptance": "Launch from the final verified candidate while preserving the existing browser profile. Record actual executable/source and session IDs for each restart. Do not count the current older checkout as candidate proof.",
+      "startupNote": "No Sunny-named persistent LaunchAgent found in user or system LaunchAgents directories. Automatic login launch is not assumed or claimed."
+    },
+    "commitHookIsolationIncident": {
+      "unintendedCommit": "a22f04dad2339543dc1d42a0274e527b341768d2",
+      "remoteMainRestoredTo": "7966a748494cdc2ab34d4a1f628ddf133ce9d26f",
+      "restorationVerified": true,
+      "cause": "Returning-session lab cleared VITEST and allowed a detached upload; uploader inherited Git hook repository environment.",
+      "redRegression": "Disposable parent repository HEAD changed during log upload.",
+      "focusedGreenTests": 8,
+      "buildPassed": true,
+      "fixCommitted": true,
+      "fullSafeCommitVerification": {
+        "passed": true,
+        "rootTestsPassed": 4373,
+        "webTestsPassed": 1031,
+        "commitCreated": true,
+        "log": "log-isolation-commit-retry.log"
+      },
+      "releaseBranchTracking": "Removed the unintended origin/main upstream from codex/sunny-release-benchmark after restoring its name; future publication must name the release branch explicitly.",
+      "fixCommit": "ed83f9aba74e1d56ddfd77f8ff255182d31e9829"
+    },
+    "realProviderAuthorization": {
+      "approved": true,
+      "maximumFreshRuns": 2,
+      "syntheticAnswersOnly": true,
+      "automaticRetries": false,
+      "realChildRecordsMayBeModified": false,
+      "userReply": "Yes, run two real-provider benchmarks",
+      "executedRuns": 0
+    }
+  },
+  "knownGaps": [
+    "Full branch is more than 470 commits ahead of main; full-scope review and merge checks required",
+    "Two consecutive complete journeys on a clean final candidate remain pending",
+    "Recorded-provider successor browser proof passes; real-provider quality and supervised next-session acceptance remain pending",
+    "Supervised Saori launch, kiosk restart and MacBook restart acceptance pending",
+    "Installed commit-hook verification passed; final clean candidate checks remain pending",
+    "GitHub main currently has no required status-check protection; release gates must still be satisfied before merge"
+  ],
+  "benchmarkProtocol": {
+    "version": 1,
+    "mergeTarget": "main",
+    "consecutiveCleanCommitRunsRequired": 2,
+    "manualRescuesAllowed": 0,
+    "loadingToPlayableBoardBudgetMs": 120000,
+    "providerFailureVisibleBudgetMs": 5000,
+    "latencyClock": "Loading begins when evaluation completion is accepted; board is ready when its first eligible portal is visibly playable. Failure display is timed from server receipt of the failure.",
+    "voiceCases": [
+      "initial_launch",
+      "kiosk_restart",
+      "macbook_restart"
+    ],
+    "recordMismatchAllowed": 0,
+    "duplicateAnswerAllowed": 0,
+    "nextSessionProof": [
+      "prediction_evaluation_ids",
+      "exactly_one_decision_id",
+      "decision_evidence_ids",
+      "next_session_consumed_decision_id",
+      "resulting_activity_or_teaching_change"
+    ],
+    "simulationLimit": "Recorded-provider runs establish runtime fidelity, not provider quality, actual learning improvement, microphone consent, or physical speaker audibility.",
+    "changePolicy": "Any candidate source change invalidates the consecutive release runs; diagnostics from dirty checkouts do not count."
+  }
+}

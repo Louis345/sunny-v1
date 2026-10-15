@@ -4,6 +4,7 @@ import {linearJourneyFixture} from "./fixtures/authoredJourney";
 import {prepareExistingOriginalSpelling} from '../chart/spelling/originalPreparation';
 import {runOriginalSpellingForecast} from '../chart/spelling/originalForecast';
 import fs from "node:fs";
+import { execFileSync } from "node:child_process";
 import {openChart} from "../chart/db";
 import {exportEvents} from "../chart/exportEvents";
 import {projectAssignment} from "../chart/spelling/projections";
@@ -27,7 +28,7 @@ import { seedSpellingLab, writeSpellingPdfFixture, recordedAdaptiveSpellingPlan,
 import { COMPANION_DEFAULTS } from "../shared/companionTypes";
 import { handleWsConnection } from "../server/ws-handler";
 import * as legacyLearning from "../engine/learningEngine";
-const lab = vi.hoisted(() => ({ root: "", plannerCalls: 0, adaptive: false }));
+const lab = vi.hoisted(() => ({ root: "", plannerCalls: 0, adaptive: false, refusePreparation: false, refusalCalls: 0 }));
 vi.mock("../engine/assignmentPlanner", async original => ({ ...await original<typeof import("../engine/assignmentPlanner")>(), planAssignmentFromSourceWithTelemetry: async (packet: any) => { lab.plannerCalls++; return { output: lab.adaptive ? recordedAdaptiveSpellingPlan(packet, lab.root) : recordedSpellingPlan(packet, lab.root), telemetry: { model: "recorded", latencyMs: 1 } }; } }));
 vi.mock("../engine/learningCycleRuntime", async original => { const actual = await original<typeof import("../engine/learningCycleRuntime")>(); return { ...actual, advanceCanonicalCycleFromEvidence: (input: any, opts: any) => actual.advanceCanonicalCycleFromEvidence({ ...input, decide: async cycle => ({ status: "inconclusive", reason: "Immediate recall is not retention", progressionAction: "await_calibration", preserve: [], change: [], testNext: [], nextEvidenceRequired: ["Delayed recall"], predictionEvaluationIds: cycle.predictionEvaluations.map(row => row.evaluationId) }) }, opts) }; });
 vi.mock("../deepgram-turn", () => ({
@@ -38,7 +39,10 @@ vi.mock("../deepgram-turn", () => ({
 }));
 vi.mock("../shared/childRegistry", async original => ({ ...await original<typeof import("../shared/childRegistry")>(), listChildProfileIds: () => ["ila"] }));
 
-vi.mock("../engine/directMathExperience",async original=>({...await original<typeof import("../engine/directMathExperience")>(),askLearningPlanner:vi.fn(async(input:any)=>({domain:"spelling",planningResult:await planAssignmentFromSourceWithTelemetry(input.packet)}))}));
+vi.mock("../engine/directMathExperience",async original=>({...await original<typeof import("../engine/directMathExperience")>(),askLearningPlanner:vi.fn(async(input:any)=>{
+  if (lab.refusePreparation) { lab.refusalCalls++; throw new Error("learning_design_provider_refused"); }
+  return {domain:"spelling",planningResult:await planAssignmentFromSourceWithTelemetry(input.packet)};
+})}));
 
 function hashFilesUnder(paths: string[]): string {
   const hash = createHash("sha256");
@@ -78,7 +82,8 @@ it.each([
   { width: 768, height: 1024, adaptive: false, chart: true },
   { width: 768, height: 1024, adaptive: true, chart: true },
   { width: 768, height: 1024, adaptive: false, chart: true, existing: true },
-])("plays spelling through the real host and canonical routes at $width×$height adaptive=$adaptive chart=$chart existing=$existing", async scenario => {
+  { width: 1280, height: 720, adaptive: false, chart: false, failure: true },
+])("plays spelling through the real host and canonical routes at $width×$height adaptive=$adaptive chart=$chart existing=$existing failure=$failure", async scenario => {
   const childId = "ila";
   const viewport = { width: scenario.width, height: scenario.height };
   const canonicalFamilyPaths = [
@@ -87,10 +92,21 @@ it.each([
   ];
   const canonicalFamilyHashBefore = hashFilesUnder(canonicalFamilyPaths);
   const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-spelling-browser-")); lab.root = rootDir; lab.plannerCalls = 0; lab.adaptive = scenario.adaptive;
+  lab.refusePreparation = "failure" in scenario && scenario.failure === true;
+  lab.refusalCalls = 0;
   const outputDir = scenario.adaptive
     ? path.join(process.cwd(), "outputs/spelling-adaptation-proof")
     : path.join(process.cwd(), "outputs/evidence-first-spelling", `${viewport.width}x${viewport.height}`);
   fs.mkdirSync(outputDir, { recursive: true });
+  const runId = `${Date.now()}-${viewport.width}x${viewport.height}-chart-${scenario.chart}`;
+  const runDir = path.join(outputDir, "runs", runId);
+  fs.mkdirSync(runDir, { recursive: true });
+  // A dirty checkout is diagnostic evidence, never proof of a release commit.
+  const sourceIdentity = {
+    commit: execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim(),
+    status: execFileSync("git", ["status", "--porcelain"], { encoding: "utf8" }),
+  };
+  fs.writeFileSync(path.join(runDir, "source.json"), JSON.stringify({ ...sourceIdentity, releaseEligible: sourceIdentity.status.trim() === "", provider: "recorded", scenario }, null, 2));
   vi.stubEnv("SUNNY_CONTEXT_ROOT", path.join(rootDir, "src/context")); vi.stubEnv("SUNNY_MODE", "real");
   vi.stubEnv("SUNNY_ALLOW_REAL_CHILD_CONTEXT_ROOT", "true");
   vi.stubEnv("ANTHROPIC_API_KEY", ""); vi.stubEnv("OPENAI_API_KEY", "");
@@ -129,6 +145,8 @@ it.each([
   app.get("/api/profile/:child", (_req, res) => res.json({ companion: { ...COMPANION_DEFAULTS, vrmUrl: scenario.adaptive ? "/companions/sample.vrm" : "" } }));
   app.get("/api/child-experience/:child", (_req, res) => res.json(buildChildExperiencePacket(getChildChart(childId, { rootDir }))));
   let automaticGeneration: Promise<void> | undefined;
+  let preparationFailure: string | undefined;
+  let preparationFailedAt = 0;
   let generationStartedAt: number | undefined;
   let workerLaunchCount = 0;
   setupRoutes(app, {
@@ -137,6 +155,10 @@ it.each([
       workerLaunchCount += 1;
       generationStartedAt = Date.now();
       automaticGeneration = runAdaptiveMathGeneration(launchedChildId, launchedHomeworkId, rootDir);
+      if (lab.refusePreparation) automaticGeneration = automaticGeneration.catch(error => {
+        preparationFailure = error instanceof Error ? error.message : String(error);
+        preparationFailedAt = Date.now();
+      });
     },
   });
   const recordedPcmFrame = Buffer.alloc(4_800).toString("base64");
@@ -164,6 +186,7 @@ it.each([
   const ws = new WebSocketServer({ server, path: "/ws" });
   let serverWebSocketConnections = 0;
   const errors: string[] = [], events: string[] = [];
+  const submittedAnswers: Array<{ attemptId: string; itemId: string; attemptedValue: string; transport: string }> = [];
   let pendingAssessmentPlayback = 0;
   let confirmedAssessmentPlayback = 0;
   let assessmentAudioFrames = 0;
@@ -194,6 +217,11 @@ it.each([
         && typeof event.payload?.launchToken === "string"
         && event.payload.launchToken) events.push(`node-launch:${event.payload.launchToken}`);
       if (event?.type === "attempt_event") events.push("canonical-game:attempt_event");
+      const attempt = { ...event, ...event?.payload }; // Native GameBridge envelopes carry fields in payload.
+      if (event?.type === "attempt_event" && attempt.activityId !== "word-radar" && attempt.game !== "word-radar"
+        && typeof attempt.attemptId === "string" && typeof attempt.attemptedValue === "string" && !attempt.evidenceLimitation) {
+        submittedAnswers.push({ attemptId: attempt.attemptId, itemId: String(attempt.target), attemptedValue: attempt.attemptedValue, transport: "websocket" });
+      }
       if (event?.type === "narration_request") pendingAssessmentPlayback += 1;
       if (message.type === "playback_done" && pendingAssessmentPlayback > 0) {
         pendingAssessmentPlayback -= 1;
@@ -208,7 +236,13 @@ it.each([
     const module = await import(pathToFileURL(path.join(process.cwd(), "web/node_modules/vite/dist/node/index.js")).href);
     vite = await module.createServer({ configFile: false, root: path.join(process.cwd(), "web"), cacheDir: path.join(rootDir, "vite-cache"), esbuild: { jsx: "automatic" }, css: { postcss: { plugins: [require(path.join(process.cwd(), "web/node_modules/tailwindcss"))({ content: [path.join(process.cwd(), "web/src/**/*.{js,ts,jsx,tsx}")] })] } }, define: { "import.meta.env": JSON.stringify({ VITE_SUNNY_RUNTIME_CONFIG: JSON.stringify({ subject: "homework", sessionMode: "real", previewMode: "off", nodeAccess: "normal", voiceMode: "normal", childId, homeworkDomain: "spelling" }) }) }, server: { host: "127.0.0.1", port: 0, fs: { allow: [process.cwd()] }, proxy: { "/api": `http://127.0.0.1:${address.port}`, "/ws": { target: `ws://127.0.0.1:${address.port}`, ws: true } } } }); await vite.listen();
     browser = await chromium.launch({ args: ["--use-fake-ui-for-media-stream", "--use-fake-device-for-media-stream", "--use-angle=swiftshader", "--enable-unsafe-swiftshader"] });
-    const page = await browser.newPage({ viewport }); page.setDefaultTimeout(12000);
+    const page = await browser.newPage({ viewport, recordVideo: { dir: runDir, size: viewport } }); page.setDefaultTimeout(12000);
+    page.on("request", request => {
+      if (request.method() === "POST" && request.url().endsWith("/discovery/attempt")) {
+        const body = request.postDataJSON();
+        submittedAnswers.push({ attemptId: body.attemptId, itemId: body.itemId, attemptedValue: body.attemptedValue, transport: "http" });
+      }
+    });
     page.on("pageerror", error => errors.push(error.message)); page.on("response", response => { if (response.url().includes("/api/")) events.push(`${response.status()} ${response.url()}`); });
     page.on("console", message => events.push(`console:${message.type()}:${message.text()}`));
     await page.route("**/*", route => ["127.0.0.1", "localhost", ""].includes(new URL(route.request().url()).hostname) ? route.continue() : route.abort());
@@ -268,6 +302,30 @@ it.each([
       }
     }
     await page.getByText("Skip", { exact: true }).click();
+    if (lab.refusePreparation) {
+      await expect.poll(() => preparationFailure).toBe("learning_design_provider_refused");
+      await page.getByText("Building paused", { exact: true }).waitFor({ timeout: 5000 });
+      expect(Date.now() - preparationFailedAt).toBeLessThanOrEqual(5000);
+      expect(await page.locator(".adventure-board__nodes").count()).toBe(0);
+      const preserved = getLearningCycle(childId, homeworkId, { rootDir })!.observations;
+      expect(preserved).toHaveLength(words.length);
+      await page.getByRole("button", { name: "Try again", exact: true }).click();
+      await page.getByText("Building paused", { exact: true }).waitFor();
+      await page.reload();
+      await page.getByText("Building paused", { exact: true }).waitFor({ timeout: 5000 });
+      expect(lab.refusalCalls).toBe(1);
+      expect(workerLaunchCount).toBe(1);
+      expect(getLearningCycle(childId, homeworkId, { rootDir })!.observations).toEqual(preserved);
+      expect(hashFilesUnder(canonicalFamilyPaths)).toBe(canonicalFamilyHashBefore);
+      expect(errors).toEqual([]);
+      await page.screenshot({ path: path.join(runDir, "provider-failure.png") });
+      fs.writeFileSync(path.join(runDir, "provider-failure.json"), JSON.stringify({
+        passed: true, injectedFailure: preparationFailure, providerCalls: lab.refusalCalls,
+        workerLaunchCount, preservedAnswerCount: preserved.length, restartPreservedFailure: true,
+        limitation: "Injected generation failure; provider receipt persistence covered separately",
+      }, null, 2));
+      return;
+    }
     // Contract 36: the published board offers optional same-session continuation.
     // It remains hidden until the child explicitly chooses it.
     await page.getByRole("button", {name:"Let's go!",exact:true}).waitFor({ timeout: 30000 });
@@ -443,6 +501,13 @@ it.each([
 
       await expect.poll(() => getLearningCycle(childId, homeworkId, { rootDir })?.lifecycle).toBe("awaiting_calibration");
       const completed = getLearningCycle(childId, homeworkId, { rootDir })!;
+      expect(new Set(completed.observations.map(row => row.observationId)).size).toBe(completed.observations.length);
+      expect(new Set(submittedAnswers.map(row => row.attemptId)).size).toBe(completed.observations.length);
+      for (const submitted of submittedAnswers) {
+        expect(completed.observations.find(row => row.observationId === submitted.attemptId)).toMatchObject({
+          itemId: submitted.itemId, childResponse: submitted.attemptedValue,
+        });
+      }
       expect(completed.decisionHistory.filter(entry => entry.eventType === "theory_decided")).toHaveLength(1);
       const finalObservations = completed.observations.filter((observation) => observation.sourceId === "activity:recall-checkpoint:recall");
       const finalItemIds = Object.keys(final.evidenceContract.spellingItems ?? {});
@@ -475,6 +540,21 @@ it.each([
 
       const proof = {
         provider: "recorded",
+        source: sourceIdentity,
+        releaseEligible: sourceIdentity.status.trim() === "",
+        submittedAnswers,
+        observations: completed.observations,
+        predictions: completed.academicPredictions,
+        predictionEvaluations: completed.predictionEvaluations,
+        decisions: completed.decisionHistory.filter(row => row.eventType === "theory_decided"),
+        wordResults: words.map(word => {
+          const itemIds = new Set(completed.nodes.flatMap(node => Object.values(node.evidenceContract.spellingItems ?? {}).filter(item => item.word === word).map(item => item.id)));
+          const rows = completed.observations.filter(row => itemIds.has(row.itemId));
+          return { word, before: rows.filter(row => row.sourceId.startsWith("evaluation:")),
+            after: rows.filter(row => row.sourceId === "activity:recall-checkpoint:recall"),
+            practice: rows.filter(row => !row.sourceId.startsWith("evaluation:") && row.sourceId !== "activity:recall-checkpoint:recall"),
+            retention: "unknown", learningImprovement: "unknown: simulated immediate responses do not establish child learning" };
+        }),
         assignment: { homeworkId, words },
         discovery: before.observations.map((observation) => ({ observationId: observation.observationId, itemId: observation.itemId, correct: observation.result.correct, assistance: observation.assistance.status })),
         targeted: {
@@ -510,6 +590,20 @@ it.each([
         errors,
       };
       fs.writeFileSync(path.join(outputDir, `recorded-journey-${viewport.width}x${viewport.height}.json`), JSON.stringify(proof, null, 2));
+      fs.writeFileSync(path.join(runDir, "journey.json"), JSON.stringify(proof, null, 2));
+      const escapeHtml = (value: unknown) => String(value ?? "unknown").replace(/[&<>"']/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]!);
+      const describeResponses = (rows: typeof completed.observations) => rows.length
+        ? rows.map(row => `${escapeHtml(row.childResponse ?? "not captured")} — ${row.result.correct === true ? "correct" : row.result.correct === false ? "incorrect" : "unscored"}; ${escapeHtml(row.assistance.status)}`).join("<br>")
+        : "Not measured";
+      fs.writeFileSync(path.join(runDir, "report.html"), `<!doctype html><html lang="en"><meta charset="utf-8"><title>Sunny session benchmark</title>
+        <style>body{font:17px system-ui;max-width:1100px;margin:40px auto;padding:0 24px;color:#182235}table{border-collapse:collapse;width:100%}th,td{text-align:left;padding:14px;border-bottom:1px solid #ccd4df;vertical-align:top}th{background:#edf2f8}code{overflow-wrap:anywhere}.note{padding:16px;background:#fff2cc}a{color:#1749a4}</style>
+        <h1>Sunny session benchmark</h1><p class="note">Synthetic session with recorded providers. This verifies software behavior, not Ila’s learning or physical microphone and speaker operation.</p>
+        <p>Commit: <code>${escapeHtml(sourceIdentity.commit)}</code><br>Release eligible: ${proof.releaseEligible ? "yes" : "no — uncommitted diagnostic checkout"}</p>
+        <p>Pipeline: passed through the selected activities and final check. Submitted answers: ${submittedAnswers.length}; saved observations: ${completed.observations.length}; mismatches: 0.</p>
+        <table><thead><tr><th>Word</th><th>Before teaching</th><th>Final recall</th><th>Practice observations</th></tr></thead><tbody>${proof.wordResults.map(row => `<tr><td>${escapeHtml(row.word)}</td><td>${describeResponses(row.before)}</td><td>${describeResponses(row.after)}</td><td>${row.practice.length}</td></tr>`).join("")}</tbody></table>
+        <p>Learning improvement: unknown. Retention: unknown. Correct practice answers are not mastery.</p>
+        <p>Saved prediction evaluations: ${completed.predictionEvaluations.length}. Saved next-step decisions: ${proof.decisions.length}. Next step: ${escapeHtml(proof.decisions[0]?.nextAction)}.</p>
+        <p><a href="journey.json">Full evidence and answer ledger</a> · <a href="source.json">Tested source details</a></p></html>`);
       if (viewport.width === 1280 && viewport.height === 720) fs.writeFileSync(path.join(outputDir, "recorded-journey.json"), JSON.stringify(proof, null, 2));
       return;
     }
@@ -601,6 +695,8 @@ it.each([
       const diagnostic=JSON.stringify({ events, errors, body: await page.locator("body").innerText(),cycle:getLearningCycle(childId,homeworkId,{rootDir}) });
       fs.writeFileSync(path.join(outputDir,"diagnostic.json"),diagnostic);
       fs.writeFileSync(path.join(outputDir,`${diagnosticId}.json`),diagnostic);
+      fs.writeFileSync(path.join(runDir,"diagnostic.json"),diagnostic);
+      await page.context().close(); // Flush the video before closing the browser.
     } await browser.close(); }
     await vite?.close();
     ws.clients.forEach(socket => socket.terminate());

@@ -40,6 +40,18 @@ jobs:
       - name: Test (Vitest root + web)
         run: npm run test
 
+      - name: Save synthetic Sunny benchmark evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sunny-benchmark-${{ github.sha }}
+          retention-days: 14
+          if-no-files-found: warn
+          path: |
+            outputs/spelling-adaptation-proof/runs/
+            outputs/evidence-first-spelling/**/runs/
+            outputs/spelling-next-session-proof/
+
   spelling-core-acceptance:
     if: ${{ (github.head_ref == 'codex/spelling-chart-core' || github.head_ref == 'codex/spelling-plumbing') }}
     runs-on: ubuntu-latest
