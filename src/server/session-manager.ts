@@ -50,6 +50,9 @@ import {
 import { TurnStateMachine } from "./session-state";
 import {
   type ActivityMode,
+  type PendingGameStart,
+  type MathDiscoverySupportState,
+  type SessionManagerOptions,
   type SessionContext,
   type WordScaffoldSessionState,
 } from "./session-context";
@@ -170,31 +173,7 @@ export {
 
 export { isSpellingAttempt, stripSvgFences } from "./sessionTextHelpers";
 
-type PendingGameStart = {
-  gameUrl: string;
-  childName: string;
-  companionName: string;
-  config: Record<string, unknown>;
-};
-
-type MathDiscoverySupportState = {
-  homeworkId: string;
-  nodeId: string;
-  itemId: string;
-  artifactHash: string;
-  supportIds: string[];
-};
-
-/** Options passed from the client on `start_session` (see ws-handler). */
-export type SessionManagerOptions = {
-  silentTts?: boolean;
-  /** No LLM / no server TTS — Deepgram STT only (e.g. diag reading kiosk). */
-  sttOnly?: boolean;
-  /** Chart/storage child id. Lets sandbox runs use a real companion voice without touching real charts. */
-  chartChildId?: string;
-  /** Exact assignment validated by the homework launch boundary. */
-  homeworkId?: string;
-};
+export type { SessionManagerOptions } from "./session-context";
 
 export class SessionManager {
   /** When true, child speech is not sent to the companion (silent reward games). */
