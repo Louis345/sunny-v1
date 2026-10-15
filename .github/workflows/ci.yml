@@ -20,7 +20,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: "22"
+          node-version: "20.20.2"
           cache: npm
           cache-dependency-path: package-lock.json
 
@@ -79,3 +79,22 @@ jobs:
             cd web
             node node_modules/vitest/vitest.mjs run src/tests/adventureRewardLayout.test.tsx src/tests/AdventureBoard.test.tsx src/hooks/tests/useChildExperiencePacket.test.tsx
           '
+
+  voice-regression:
+    # Always run, including branches using the restricted spelling acceptance job.
+    runs-on: macos-14
+    env:
+      DOTENV_CONFIG_PATH: /dev/null
+      SKIP_COMPANION_VRM_DOWNLOAD: "true"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20.20.2'
+          cache: npm
+      - name: Install without project lifecycle scripts
+        run: |
+          npm ci --ignore-scripts
+          npm rebuild better-sqlite3 esbuild
+      - name: Verify kiosk permission route and companion response regressions
+        run: npm run test:voice-regression

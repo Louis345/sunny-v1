@@ -134,7 +134,7 @@ export async function runCompanionResponseForSession(
 
     const transitionToWorkPhase = shouldTriggerTransitionToWorkPhase(
       session.roundNumber,
-      session.childName,
+      session.companion,
       session.transitionedToWork,
     );
 

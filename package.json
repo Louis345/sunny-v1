@@ -130,7 +130,9 @@
     "test:math-release": "vitest run src/scripts/adaptiveMathBrowserAcceptance.test.ts",
     "test:math-release:parent": "SUNNY_MATH_PARENT_ACCEPTANCE=1 vitest run src/scripts/adaptiveMathBrowserAcceptance.test.ts",
     "chart:export": "tsx src/chart/cli/export.ts",
-    "chart:snapshot": "tsx src/chart/cli/snapshot.ts"
+    "chart:snapshot": "tsx src/chart/cli/snapshot.ts",
+    "test:voice-regression": "vitest run src/scripts/kioskBrowserLaunch.test.ts src/scripts/launch-kiosk.test.ts src/scripts/voiceAcceptance.test.ts src/server/certificationRuntime.test.ts src/server/transition-to-work-gate.test.ts src/server/companion-response-runner.test.ts src/server/session-manager-companion-presence.test.ts src/server/session-manager-game-narration.test.ts",
+    "sunny:voice:accept": "tsx src/scripts/voiceAcceptance.ts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.58",

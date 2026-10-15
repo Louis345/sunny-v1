@@ -1,14 +1,10 @@
-import {
-  getCompanionConfig,
-  type ChildName,
-} from "../companions/loader";
+import type { CompanionConfig } from "../companions/loader";
 
 export function shouldTriggerTransitionToWorkPhase(
   roundNumber: number,
-  childName: ChildName,
+  companion: Pick<CompanionConfig, "transitionToWorkAfterRounds">,
   transitionedToWork: boolean,
 ): boolean {
-  const companion = getCompanionConfig(childName);
   return (
     companion.transitionToWorkAfterRounds != null &&
     roundNumber >= companion.transitionToWorkAfterRounds &&

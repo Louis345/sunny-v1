@@ -1,4 +1,5 @@
 import "dotenv/config";
+import { kioskBrowserCommand, macKioskBrowserPid } from "./kioskBrowserLaunch";
 import { writeCanvasCapabilities } from "../utils/generateCanvasCapabilities";
 writeCanvasCapabilities();
 
@@ -191,6 +192,7 @@ async function main() {
   });
 
   let chromium: ChildProcess | null = null;
+  let macBrowserPid: number | undefined;
   let pendingChromium: ChildProcess | null = null;
   let shuttingDown = false;
   let shutdownPromise: Promise<void> | null = null;
@@ -199,7 +201,9 @@ async function main() {
     shutdownPromise = (async () => {
       shuttingDown = true;
       console.log(` 🎮 [kiosk] [shutdown] [running] signal=${signal}`);
-      const targets = ownedKioskShutdownTargets(server.pid, chromium?.pid, pendingChromium?.pid);
+      const targets = process.platform === "darwin"
+        ? [macBrowserPid, chromium?.pid ?? pendingChromium?.pid, server.pid].filter((pid): pid is number => Boolean(pid))
+        : ownedKioskShutdownTargets(server.pid, chromium?.pid, pendingChromium?.pid);
       let finalExitCode = exitCode;
       try {
         const { forceKilled } = await terminateProcessTargets(targets, processTargetOps);
@@ -236,7 +240,7 @@ async function main() {
     fs.mkdirSync(BROWSER_PROFILE_DIR, { recursive: true });
     await stopStaleSunnyKiosks(BROWSER_PROFILE_DIR);
     // Step 3: Launch Chromium in kiosk mode
-    const browsers = [
+    const browsers = process.platform === "darwin" ? ["/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"] : [
       "chromium-browser", // Pi OS
       "chromium", // Some Linux
       "google-chrome", // Mac/Linux with Chrome
@@ -246,25 +250,26 @@ async function main() {
     for (const browser of browsers) {
       if (shuttingDown) throw new Error("kiosk_startup_cancelled");
       let candidate: ChildProcess;
+      const browserArgs = [
+        "--kiosk",
+        "--no-first-run",
+        "--no-default-browser-check",
+        "--disable-sync",
+        "--password-store=basic",
+        "--use-mock-keychain",
+        "--use-fake-ui-for-media-stream",
+        "--noerrdialogs",
+        "--disable-infobars",
+        "--disable-session-crashed-bubble",
+        "--disable-restore-session-state",
+        "--autoplay-policy=no-user-gesture-required",
+        `--user-data-dir=${BROWSER_PROFILE_DIR}`,
+        `--app=${buildKioskAppUrl(PORT, KIOSK_TOKEN)}`,
+      ];
       try {
+        const command = kioskBrowserCommand(process.platform, browser, browserArgs);
         candidate = spawn(
-          browser,
-          [
-            "--kiosk",
-            "--no-first-run",
-            "--no-default-browser-check",
-            "--disable-sync",
-            "--password-store=basic",
-            "--use-mock-keychain",
-            "--use-fake-ui-for-media-stream",
-            "--noerrdialogs",
-            "--disable-infobars",
-            "--disable-session-crashed-bubble",
-            "--disable-restore-session-state",
-            "--autoplay-policy=no-user-gesture-required",
-            `--user-data-dir=${BROWSER_PROFILE_DIR}`,
-            `--app=${buildKioskAppUrl(PORT, KIOSK_TOKEN)}`,
-          ],
+          command.executable, command.args,
           {
             stdio: "ignore",
             detached: true,
@@ -281,11 +286,25 @@ async function main() {
         continue;
       }
       await new Promise((resolve) => setTimeout(resolve, 500));
-      const accepted = await acceptOrStopKioskCandidate(
-        candidate.pid,
-        waitForKioskReady,
-        async (target) => { await terminateProcessTargets([target], processTargetOps); },
-      );
+      let accepted: boolean;
+      if (process.platform === "darwin") {
+        // open -W stays alive for this new app instance. Readiness still comes
+        // from the visible page, never from open's exit status.
+        accepted = Boolean(candidate.pid) && await waitForKioskReady();
+        macBrowserPid = macKioskBrowserPid(runningProcessTable(), browser, browserArgs);
+        if (!macBrowserPid) accepted = false;
+        if (!accepted) {
+          await terminateProcessTargets([macBrowserPid, candidate.pid].filter((pid): pid is number => Boolean(pid)), processTargetOps);
+          macBrowserPid = undefined;
+        } else {
+          console.log(` 🎮 [kiosk] [macos-launch] [launchservices] browserPid=${macBrowserPid}`);
+        }
+      } else {
+        accepted = await acceptOrStopKioskCandidate(
+          candidate.pid, waitForKioskReady,
+          async (target) => { await terminateProcessTargets([target], processTargetOps); },
+        );
+      }
       if (accepted) {
         chromium = candidate;
         pendingChromium = null;
