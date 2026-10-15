@@ -45,7 +45,7 @@ describe("spelling Planner tool agrees with the launchable packet catalog", () =
     const output = {
       capturedContent: { sourceDocuments: [{ filename: "school-words.txt" }], wordGroups: [] }, homeworkWords: [],
       assignmentInterpretation: { wordGroups: [{ id: "school", label: "School words", words: ["night"], purpose: "spell" }] },
-      activeSessionPlan: { boardDefinition:linearJourneyFixture(["practice"]), evidenceUsed:[], nodePlan: [{ id: "practice", activityId: "word-radar", type: "word-radar", targets: ["night"], wordRadarConfig: { recallMode: "hidden_word_recall" } }] },
+      activeSessionPlan: { boardDefinition:linearJourneyFixture(["practice"]), evidenceUsed:[], nodePlan: [{ id: "practice", activityId: "word-radar", type: "word-radar", targets: ["night"], wordRadarConfig: { recallMode: "hidden_word_recall", inputMode: "keyboard", speakStyle: "option-a", showTimer: false, hideWordDuringResponse: true, requiresCapturedResponse: true } }] },
       plannedMeasurements: [{ id: "measure-practice" }],
     } as unknown as AssignmentPlannerOutput;
     const options = { extraction: {} as never, activityCatalog: catalog as unknown as AssignmentActivityCard[], requireCatalogBinding: true };
