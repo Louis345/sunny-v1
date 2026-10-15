@@ -41,6 +41,8 @@ it("resumes a partially prepared spelling successor after HTTP completion withou
   try {
     vi.stubEnv("SUNNY_CONTEXT_ROOT", path.join(rootDir, "src/context"));
     vi.stubEnv("SUNNY_MODE", "real");
+    // Startup recovery clears VITEST below; session shutdown must remain local.
+    vi.stubEnv("SUNNY_LOG_UPLOAD_ON_END", "false");
     vi.stubEnv("SUNNY_CHART_DIR", "");
     vi.stubEnv("SUNNY_CERTIFICATION_RUN_ID", "");
     vi.stubEnv("ANTHROPIC_API_KEY", ""); vi.stubEnv("OPENAI_API_KEY", "");
