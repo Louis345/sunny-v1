@@ -29,6 +29,23 @@ function design(turns:Array<[string,unknown]>|((call:number)=>[string,unknown]))
 const requests=(stream:ReturnType<typeof design>['stream'])=>stream.mock.calls.map(call=>call[0] as any);
 
 describe('the map artist can see its work',()=>{
+ // Ila's 2026-10-14 session stopped after a partial preview tool call marked refusal.
+ // The lab supplied only successful tool calls; production sent the refusal back for
+ // another paid turn and finally mislabeled it composition_missing.
+ it.each([false,true])('preserves and reports provider refusal without a follow-up or publication (prior preview=%s)',async(priorPreview)=>{
+  const {stream,run}=design([['preview_board',{composition}]]);
+  stream.mockImplementation(()=>({finalMessage:async()=>{
+   if(priorPreview&&stream.mock.calls.length===1)return reply('preview_board',{composition},1);
+   return {id:'refused',stop_reason:'refusal',usage:{input_tokens:1,output_tokens:0},content:[]} as any;
+  }}));
+  await expect(run()).rejects.toThrow('learning_design_provider_refused');
+  const calls=priorPreview?2:1;
+  expect(stream).toHaveBeenCalledTimes(calls);
+  // Reopening reuses the saved response; it neither hides the refusal nor repurchases it.
+  await expect(run()).rejects.toThrow('learning_design_provider_refused');
+  expect(stream).toHaveBeenCalledTimes(calls);
+ });
+
  it('is briefed as the map artist and told the real portal sizes before placing anything',async()=>{
   const {stream,run}=design([['submit_board',{composition,rationale:'Placed once.'}]]);
   await run();
