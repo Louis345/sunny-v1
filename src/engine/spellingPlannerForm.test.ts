@@ -1,4 +1,4 @@
-import {describe,it,expect} from "vitest";
+import {describe,it,expect,vi} from "vitest";
 import fs from "node:fs";
 import path from "node:path";
 import * as planner from "./assignmentPlanner";
@@ -70,6 +70,32 @@ describe("the Planner's tool form carries the kiosk's rules",()=>{
     expect(checkpointVariants[0].properties.type.const).toBe("word-radar");
     expect(checkpointVariants[0].properties.wordRadarConfig.properties.recallMode.const).toBe("hidden_word_recall");
     for(const variant of variants)expect(variant.properties).not.toHaveProperty("locked");
+  });
+});
+
+// Human-caught 2026-10-18 (Ila, sounding out): tapping a chunk spoke raw letters ("ly", "ight"), and
+// the voice guessed: letter names or the wrong sound. The October 13 form dropped spokenChunks, so the
+// Planner could no longer say how each chunk sounds. Tests and logs only proved audio was requested,
+// never what was said; only a listener could hear it.
+describe("Elli says each chunk's sound, not its letters",()=>{
+  it("asks the Planner for a sound cue per chunk",()=>{
+    const schema:any=planner.nativeLearningProgramToolJsonSchema(catalog);
+    const variant=schema.properties.activities.items.anyOf.find((option:any)=>option.properties.type?.const==="visual-explainer");
+    const word=variant.properties.activityConfig.properties.words.items;
+    expect(word.properties.spokenChunks.description).toContain("sound");
+    const cued={...explainer,words:explainer.words.map(entry=>({...entry,spokenChunks:entry.text==="night"?["nnn","ite"]:["lll","ite"]}))};
+    expect(form().safeParse({id:"teach",title:"Spot the chunk",type:"visual-explainer",activityId:"visual-explainer",activityConfig:cued,measurement:measurement("instruction")}).success).toBe(true);
+  });
+  it("keeps aligned cues for the game, and falls back to the letters when a cue does not line up",()=>{
+    const derive=(planner as unknown as {deriveNativeActivity:(row:unknown)=>Record<string,any>}).deriveNativeActivity;
+    const log=vi.spyOn(console,"log").mockImplementation(()=>{});
+    const words=[{...explainer.words[0],spokenChunks:["nnn","ite"]},{...explainer.words[1],spokenChunks:["ite"]}];
+    const teach=derive({id:"teach",title:"Spot the chunk",type:"visual-explainer",activityId:"visual-explainer",activityConfig:{...explainer,words},measurement:measurement("instruction")});
+    expect(teach.activityConfig.words[0].spokenChunks).toEqual(["nnn","ite"]);
+    expect(teach.activityConfig.words[1]).not.toHaveProperty("spokenChunks");
+    expect(()=>validateSpellingVisualExplainerPlanConfig(teach.activityConfig)).not.toThrow();
+    expect(log.mock.calls.some(call=>String(call[0]).includes("[planner] [explainer] [spoken-chunks-dropped]")&&String(call[0]).includes("light"))).toBe(true);
+    log.mockRestore();
   });
 });
 

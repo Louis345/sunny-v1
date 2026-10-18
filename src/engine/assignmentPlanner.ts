@@ -1008,7 +1008,7 @@ const nativeTargets=z.array(z.string().min(1)).min(1).describe("Assigned words o
 const explainerAuthoringSchema=z.object({
   topic:z.string().min(1).max(120),learningGoal:z.string().min(1).max(220),misconception:z.string().min(1),
   strategy:z.object({title:z.string().min(1).max(100),steps:z.array(z.string().min(1).max(140)).min(2).max(4)}).strict(),
-  words:z.array(z.object({text:z.string().min(1).describe("An assigned word."),chunks:z.array(z.string().min(1)).min(2).max(6).describe("Letters split into chunks that join to spell the word exactly."),focusChunk:z.string().min(1).describe("One chunk from this word."),tip:z.string().min(1).max(160)}).strict()).min(1).max(8).describe("The words this explainer teaches, at most 8. These are the activity's target words; do not list them anywhere else."),
+  words:z.array(z.object({text:z.string().min(1).describe("An assigned word."),chunks:z.array(z.string().min(1)).min(2).max(6).describe("Letters split into chunks that join to spell the word exactly."),spokenChunks:z.array(z.string().min(1).max(100)).min(2).max(6).optional().describe("How each chunk sounds, one cue per chunk in the same order. Elli's voice reads these aloud when she taps a chunk, so spell the sound the way it is said in this word (for example lee for ly in friendly, ite for ight in night), never the letter names. Give one for every word."),focusChunk:z.string().min(1).describe("One chunk from this word."),tip:z.string().min(1).max(160)}).strict()).min(1).max(8).describe("The words this explainer teaches, at most 8. These are the activity's target words; do not list them anywhere else."),
   check:z.object({targetWord:z.string().min(1).describe("One of the words above."),prompt:z.string().min(1).max(180),options:z.array(z.object({id:z.string().min(1),label:z.string().min(1),correct:z.boolean()}).strict()).min(2).max(4).describe("Exactly one option is correct."),correctOptionId:z.string().min(1)}).strict(),
 }).strict();
 export function spellingActivityFormSchema(practiceTypes:readonly string[]) {
@@ -1034,7 +1034,13 @@ export function deriveNativeActivity(row:unknown):unknown {
     const strategy=jsonObject(config.strategy),check=jsonObject(config.check);
     return {...activity,targets:words.map(word=>word.text),activityConfig:{...config,topic:fit(config.topic,120,"topic"),learningGoal:fit(config.learningGoal,220,"learningGoal"),
       ...(strategy?{strategy:{...strategy,title:fit(strategy.title,100,"strategy.title"),...(Array.isArray(strategy.steps)?{steps:strategy.steps.map((step,index)=>fit(step,140,`strategy.steps.${index}`))}:{})}}:{}),schemaVersion:1,activityId:"visual-explainer",domain:"spelling",
-      words:words.map(word=>({id:`planner-${word.text}`,...word,tip:fit(word.tip,160,"tip")})),check:{id:`check-${String(activity.id)}`,...check,prompt:fit(check?.prompt,180,"check.prompt")},
+      words:words.map(word=>{
+        // A cue that does not line up with the chunks is dropped and the tile speaks its letters, as before.
+        const {spokenChunks,...rest}=word;
+        const cued=Array.isArray(spokenChunks)&&Array.isArray(word.chunks)&&spokenChunks.length===word.chunks.length&&spokenChunks.every(cue=>typeof cue==="string"&&cue.trim());
+        if(spokenChunks!==undefined&&!cued)console.log(` 🎮 [planner] [explainer] [spoken-chunks-dropped] node=${String(activity.id)} word=${String(word.text)}`);
+        return {id:`planner-${word.text}`,...rest,...(cued?{spokenChunks}:{}),tip:fit(word.tip,160,"tip")};
+      }),check:{id:`check-${String(activity.id)}`,...check,prompt:fit(check?.prompt,180,"check.prompt")},
       evidencePolicy:{writesPracticeEvidence:true,writesMasteryEvidence:false,requiresPerTargetResult:false,allowedEvidence:["practice","companion"]}}};
   }
   if(activity.type==="letter-rush"&&!config&&Array.isArray(activity.targets)){
