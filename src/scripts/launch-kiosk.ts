@@ -1,5 +1,5 @@
 import "dotenv/config";
-import { kioskBrowserCommand, macKioskBrowserPid } from "./kioskBrowserLaunch";
+import { acceptVisibleMacKiosk, kioskBrowserCommand, macShutdownBrowserTargets } from "./kioskBrowserLaunch";
 import { writeCanvasCapabilities } from "../utils/generateCanvasCapabilities";
 writeCanvasCapabilities();
 
@@ -202,7 +202,7 @@ async function main() {
       shuttingDown = true;
       console.log(` 🎮 [kiosk] [shutdown] [running] signal=${signal}`);
       const targets = process.platform === "darwin"
-        ? [macBrowserPid, chromium?.pid ?? pendingChromium?.pid, server.pid].filter((pid): pid is number => Boolean(pid))
+        ? [...macShutdownBrowserTargets(macBrowserPid, runningProcessTable(), BROWSER_PROFILE_DIR), chromium?.pid ?? pendingChromium?.pid, server.pid].filter((pid): pid is number => Boolean(pid))
         : ownedKioskShutdownTargets(server.pid, chromium?.pid, pendingChromium?.pid);
       let finalExitCode = exitCode;
       try {
@@ -290,9 +290,8 @@ async function main() {
       if (process.platform === "darwin") {
         // open -W stays alive for this new app instance. Readiness still comes
         // from the visible page, never from open's exit status.
-        accepted = Boolean(candidate.pid) && await waitForKioskReady();
-        macBrowserPid = macKioskBrowserPid(runningProcessTable(), browser, browserArgs);
-        if (!macBrowserPid) accepted = false;
+        const visible = Boolean(candidate.pid) && await waitForKioskReady();
+        ({ accepted, browserPid: macBrowserPid } = acceptVisibleMacKiosk(visible, runningProcessTable(), browser, browserArgs));
         if (!accepted) {
           await terminateProcessTargets([macBrowserPid, candidate.pid].filter((pid): pid is number => Boolean(pid)), processTargetOps);
           macBrowserPid = undefined;

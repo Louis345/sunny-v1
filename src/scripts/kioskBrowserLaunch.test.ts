@@ -19,7 +19,7 @@ describe("macOS kiosk microphone responsibility", () => {
     const source = fs.readFileSync(path.join(process.cwd(), "src/scripts/launch-kiosk.ts"), "utf8");
     expect(source).toContain("kioskBrowserCommand(process.platform, browser, browserArgs)");
     expect(source).toContain("command.executable, command.args");
-    expect(source).toContain("macKioskBrowserPid(runningProcessTable(), browser, browserArgs)");
+    expect(source).toContain("acceptVisibleMacKiosk(visible, runningProcessTable(), browser, browserArgs)");
   });
   it("keeps direct browser launch on non-macOS hosts", () => {
     expect(kioskBrowserCommand("linux", "chromium", args)).toEqual({ executable: "chromium", args });
@@ -35,5 +35,35 @@ describe("macOS kiosk microphone responsibility", () => {
     expect(macKioskBrowserPid(table, browser, args)).toBe(101);
     expect(macKioskBrowserPid("100 /usr/bin/open --args " + args.join(" "), browser, args)).toBeUndefined();
     expect(() => macKioskBrowserPid(table + `\n105 ${browser} ${args.join(" ")}`, browser, args)).toThrow("ambiguous");
+  });
+});
+
+// Saori 2026-10-18: the log said "[visible-identity] [confirmed]" and then the launcher
+// shut the kiosk down with visible_kiosk_not_confirmed, because it could not match
+// Chrome's pid in Saori's process list. The same launch matches on the dev Mac, so no
+// test or log here could see it. The visible page is the proof; a pid only helps close
+// Chrome at shutdown, and the kiosk profile folder can do that instead.
+describe("a visible kiosk is never shut down over its pid", () => {
+  const table = `101 ${browser} ${args.join(" ")}`;
+  it("keeps a visible kiosk whose Chrome pid cannot be matched", async () => {
+    const { acceptVisibleMacKiosk } = await import("./kioskBrowserLaunch") as any;
+    expect(acceptVisibleMacKiosk(true, "", browser, args)).toEqual({ accepted: true, browserPid: undefined });
+    expect(acceptVisibleMacKiosk(true, `${table}\n${table.replace("101", "102")}`, browser, args)).toEqual({ accepted: true, browserPid: undefined });
+    expect(acceptVisibleMacKiosk(true, table, browser, args)).toEqual({ accepted: true, browserPid: 101 });
+  });
+  it("still rejects a page that never became visible, and names its Chrome to stop", async () => {
+    const { acceptVisibleMacKiosk } = await import("./kioskBrowserLaunch") as any;
+    expect(acceptVisibleMacKiosk(false, table, browser, args)).toEqual({ accepted: false, browserPid: 101 });
+  });
+  it("closes Chrome by its kiosk profile when the pid was never matched", async () => {
+    const { macShutdownBrowserTargets } = await import("./kioskBrowserLaunch") as any;
+    expect(macShutdownBrowserTargets(101, table, "/tmp/sunny-profile")).toEqual([101]);
+    expect(macShutdownBrowserTargets(undefined, table, "/tmp/sunny-profile")).toEqual([101]);
+  });
+  it("is what the launcher uses", () => {
+    const source = fs.readFileSync(path.join(__dirname, "launch-kiosk.ts"), "utf8");
+    expect(source).toContain("acceptVisibleMacKiosk(");
+    expect(source).toContain("macShutdownBrowserTargets(");
+    expect(source).not.toContain("if (!macBrowserPid) accepted = false");
   });
 });

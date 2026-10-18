@@ -1,3 +1,5 @@
+import { findStaleSunnyKioskPids } from "../server/certificationRuntime";
+
 /** LaunchServices makes Chrome the responsible application for macOS TCC.
  * Directly spawning its executable inherits hardened Node's responsibility,
  * which cannot request microphone consent without an audio-input entitlement.
@@ -23,4 +25,22 @@ export function macKioskBrowserPid(table: string, browser: string, args: string[
   });
   if (matches.length > 1) throw new Error("mac_kiosk_identity_ambiguous");
   return matches[0];
+}
+
+/** The visible page is the proof the kiosk works. A pid only helps close Chrome at
+ * shutdown, so a pid that cannot be matched is logged and never closes a visible kiosk.
+ */
+export function acceptVisibleMacKiosk(visible: boolean, table: string, browser: string, args: string[]): { accepted: boolean; browserPid?: number } {
+  let browserPid: number | undefined;
+  try {
+    browserPid = macKioskBrowserPid(table, browser, args);
+  } catch (error) {
+    console.warn(` 🎮 [kiosk] [macos-launch] [pid-unmatched] reason=${error instanceof Error ? error.message : String(error)}`);
+  }
+  if (visible && !browserPid) console.warn(" 🎮 [kiosk] [macos-launch] [pid-unmatched] visible=true continuing; shutdown closes Chrome by its kiosk profile");
+  return { accepted: visible, browserPid };
+}
+
+export function macShutdownBrowserTargets(browserPid: number | undefined, table: string, profileDir: string): number[] {
+  return browserPid ? [browserPid] : findStaleSunnyKioskPids(table, profileDir);
 }
