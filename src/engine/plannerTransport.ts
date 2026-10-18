@@ -107,3 +107,62 @@ export function readPlannerToolReceipt(raw: unknown, toolName: string, schema?: 
   if (tools.length !== 1 || tools[0].type !== 'tool_use') throw Error(`planner_tool_output_missing_or_multiple:${toolName}`);
   return schema ? decodeToolInput(tools[0].input, schema) : tools[0].input;
 }
+
+// Strict tools: the API locks the model's output to the schema while it is written, so a list can
+// never arrive as text. The lock supports a subset of JSON Schema; rules outside it move into the
+// field's description and Zod still checks them on arrival.
+const STRICT_DROPPED = ['$schema', 'pattern', 'minLength', 'maxLength', 'minimum', 'maximum', 'exclusiveMinimum', 'exclusiveMaximum', 'multipleOf', 'maxItems', 'uniqueItems', 'minProperties', 'maxProperties'];
+function strictWords(node: JsonSchema): string[] {
+  const words: string[] = [];
+  if (typeof node.minItems === 'number' && node.minItems > 1) words.push(`At least ${node.minItems} items.`);
+  if (typeof node.maxItems === 'number') words.push(`At most ${node.maxItems} items.`);
+  if (typeof node.maxLength === 'number') words.push(`At most ${node.maxLength} characters.`);
+  const low = node.minimum ?? node.exclusiveMinimum, high = node.maximum ?? node.exclusiveMaximum;
+  if (low !== undefined && high !== undefined) words.push(`From ${low} to ${high}.`);
+  else if (low !== undefined) words.push(`At least ${low}.`);
+  else if (high !== undefined) words.push(`At most ${high}.`);
+  return words;
+}
+export function strictToolSchema(schema: unknown, path = '$'): JsonSchema {
+  if (Array.isArray(schema)) return schema.map((item, index) => strictToolSchema(item, `${path}[${index}]`)) as unknown as JsonSchema;
+  if (!schema || typeof schema !== 'object') return schema as JsonSchema;
+  const node = schema as JsonSchema, words = strictWords(node), out: JsonSchema = {};
+  for (const [key, value] of Object.entries(node)) {
+    if (STRICT_DROPPED.includes(key)) continue;
+    const name = key === 'oneOf' ? 'anyOf' : key;
+    out[name] = key === 'properties' || key === '$defs' || key === 'definitions'
+      ? Object.fromEntries(Object.entries(value as JsonSchema).map(([child, sub]) => [child, strictToolSchema(sub, `${path}.${child}`)]))
+      : typeof value === 'object' && value !== null && key !== 'enum' && key !== 'const' && key !== 'required' && key !== 'default' ? strictToolSchema(value, `${path}.${key}`) : value;
+  }
+  if (typeof out.minItems === 'number' && out.minItems > 1) out.minItems = 1;
+  if (node.type === 'object' || node.properties) {
+    if (node.additionalProperties !== undefined && node.additionalProperties !== false) throw Error(`strict_schema_free_form:${path}`);
+    out.additionalProperties = false;
+  }
+  if (words.length) out.description = [node.description, ...words].filter(Boolean).join(' ');
+  return out;
+}
+export function strictTool<T extends { input_schema: unknown }>(tool: T): T & { strict: true } {
+  return { ...tool, strict: true, input_schema: strictToolSchema(tool.input_schema) as T['input_schema'] };
+}
+/** Measures one request against the documented strict limits (24 optional fields, 16 either-or fields). */
+export function strictBudget(tools: Array<{ input_schema: unknown; strict?: boolean }>): { optional: number; unions: number; unsupported: string[] } {
+  let optional = 0, unions = 0;
+  const unsupported: string[] = [];
+  const walk = (node: unknown, path: string): void => {
+    if (Array.isArray(node)) return node.forEach((item, index) => walk(item, `${path}[${index}]`));
+    if (!node || typeof node !== 'object') return;
+    const schema = node as JsonSchema;
+    for (const key of [...STRICT_DROPPED, 'oneOf']) if (key in schema) unsupported.push(`${path}.${key}`);
+    if (typeof schema.minItems === 'number' && schema.minItems > 1) unsupported.push(`${path}.minItems`);
+    if ((schema.type === 'object' || schema.properties) && schema.additionalProperties !== false) unsupported.push(`${path}.additionalProperties`);
+    if (schema.properties) {
+      const required = new Set((schema.required ?? []) as string[]);
+      optional += Object.keys(schema.properties as JsonSchema).filter(key => !required.has(key)).length;
+    }
+    if (schema.anyOf || Array.isArray(schema.type)) unions += 1;
+    for (const [key, value] of Object.entries(schema)) if (typeof value === 'object' && key !== 'enum' && key !== 'const' && key !== 'required') walk(value, key === 'properties' ? path : `${path}.${key}`);
+  };
+  for (const tool of tools) if (tool.strict !== false) walk(tool.input_schema, '$');
+  return { optional, unions, unsupported };
+}
