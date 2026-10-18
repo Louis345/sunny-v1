@@ -82,6 +82,19 @@ export function decodeToolInput(value: unknown, schema: unknown, root: JsonSchem
   if (value && typeof value === 'object') {
     const properties: JsonSchema = {};
     for (const option of options) for (const [key, child] of Object.entries((option.properties ?? {}) as JsonSchema)) if (!(key in properties)) properties[key] = child;
+    // A field whose text holds an object carrying that same field and its siblings is the
+    // parent itself: lift it back out. Fields sent on their own win over the packed copy.
+    for (const [key, child] of Object.entries(value as JsonSchema)) {
+      if (typeof child !== 'string') continue;
+      let packed: unknown;
+      try { packed = JSON.parse(child.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '')); } catch { continue; }
+      if (!packed || typeof packed !== 'object' || Array.isArray(packed) || !(key in packed)) continue;
+      const keys = Object.keys(packed);
+      if (keys.length < 2 || !keys.every(name => name in properties)) continue;
+      console.log(` 🎮 [provider] [tool-input] [lifted] path=${path}.${key} keys=${keys.join(',')}`);
+      const { [key]: _packedField, ...sent } = value as JsonSchema;
+      value = { ...(packed as JsonSchema), ...sent };
+    }
     return Object.fromEntries(Object.entries(value as JsonSchema).map(([key, child]) => [key, key in properties ? decodeToolInput(child, properties[key], root, `${path}.${key}`, key) : child]));
   }
   return value;

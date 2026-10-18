@@ -23,6 +23,19 @@ describe("tool answers are decoded at the provider boundary",()=>{
     expect(read.tags).toEqual({assignmentId:"hw"});
     expect(log.mock.calls.some(call=>String(call[0]).includes("[provider] [tool-input] [decoded] path=$.priors"))).toBe(true);
   });
+  // Saori 2026-10-18 (Ila's sheet, stage prior): the tool input held only `priors`, a 4,545-character
+  // JSON string that decoded to the whole answer, tags included. The October 14 fix only unwrapped
+  // {"priors":[...]}, so `tags` was missing and ingestion stopped. Tests used each shape seen so far,
+  // never the next one; the rule now covers any field whose text carries its parent.
+  it("lifts the whole answer back out when the model packed it inside one field",()=>{
+    const priors=[{assignmentId:"hw",word:"sheep",probability:0.6,rationale:"Long-e with ee."}];
+    const log=vi.spyOn(console,"log").mockImplementation(()=>{});
+    const read=(transport.readPlannerToolReceipt as unknown as (raw:unknown,tool:string,schema?:unknown)=>{priors:unknown;tags:unknown})(message({priors:JSON.stringify({tags:{assignmentId:"hw"},priors})}),"submit_spelling_proposal",z.toJSONSchema(priorProposal));
+    expect(read).toEqual({tags:{assignmentId:"hw"},priors});
+    expect(log.mock.calls.some(call=>String(call[0]).includes("[provider] [tool-input] [lifted] path=$.priors"))).toBe(true);
+    // A field the model did send on its own is kept over the packed copy.
+    expect(decode({tags:{assignmentId:"sent"},priors:JSON.stringify({tags:{assignmentId:"packed"},priors})},z.toJSONSchema(priorProposal))).toEqual({tags:{assignmentId:"sent"},priors});
+  });
   it("decodes nested lists and objects through items, alternatives and references",()=>{
     const schema={type:"object",properties:{journey:{$ref:"#/$defs/journey"},activities:{type:"array",items:{anyOf:[{type:"object",properties:{targets:{type:"array",items:{type:"string"}}}},{type:"null"}]}}},$defs:{journey:{type:"object",properties:{opening:{type:"array",items:{type:"string"}}}}}};
     expect(decode({journey:'{"opening":"[\\"a\\"]"}',activities:'[{"targets":"[\\"night\\"]"}]'},schema)).toEqual({journey:{opening:["a"]},activities:[{targets:["night"]}]});
