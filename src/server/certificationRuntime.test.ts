@@ -62,6 +62,21 @@ describe("certification browser and server ownership", () => {
     expect(findStaleSunnyKioskPids(processes, "/tmp/cert/browser")).toEqual([101]);
   });
 
+  it("stops a leftover Chrome on the Sunny profile even when it is not a kiosk window", () => {
+    // Saori 2026-10-18: Chrome 98502 kept running on the kiosk profile with
+    // --no-startup-window. A new kiosk launch handed its window to that process,
+    // so no kiosk-flagged Chrome existed, the pid match failed and the kiosk
+    // flags (including microphone auto-approval) never applied. Cleanup only
+    // stopped processes that looked like kiosks, so it survived every restart.
+    const processes = [
+      "98502 /Applications/Google Chrome.app/Contents/MacOS/Google Chrome --no-startup-window --user-data-dir=/tmp/cert/browser",
+      "98503 /Applications/Google Chrome.app/Contents/Frameworks/Google Chrome Helper.app/Contents/MacOS/Google Chrome Helper --user-data-dir=/tmp/cert/browser",
+      "98504 /Applications/Google Chrome.app/Contents/MacOS/Google Chrome --no-startup-window --user-data-dir=/tmp/cert/browser-old",
+      "98505 /Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+    ].join("\n");
+    expect(findStaleSunnyKioskPids(processes, "/tmp/cert/browser")).toEqual([98502]);
+  });
+
   it("terminates owned processes with a bounded TERM then KILL sequence", async () => {
     const alive = new Set([11, 22]);
     const signals: Array<[number, NodeJS.Signals]> = [];

@@ -21,10 +21,9 @@ export function findStaleSunnyKioskPids(processTable: string, profileDir?: strin
     const match = line.match(/^\s*(\d+)\s+(.+)$/);
     if (!match) return [];
     const command = match[2] ?? "";
-    const isSunnyKiosk = hasExactArg(command, "--kiosk")
-      && /(?:^|\s)--app=http:\/\/localhost:\d+(?:\/[^\s]*)?(?=\s|$)/.test(command)
-      && !command.includes("Google Chrome Helper");
-    if (!isSunnyKiosk || !hasExactArg(command, profileArg)) return [];
+    // The profile belongs to Sunny alone: any main browser process on it is a
+    // leftover, kiosk-flagged or not, and would swallow the next kiosk launch.
+    if (command.includes("Google Chrome Helper") || !hasExactArg(command, profileArg)) return [];
     return [Number(match[1])];
   });
 }
