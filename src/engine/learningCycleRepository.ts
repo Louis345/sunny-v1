@@ -588,7 +588,7 @@ export type LearningCycleEvent =
   | { type: "board_canvas_verified"; boardId: string; proof: BoardCanvasProof }
   | { type: "artifact_bound"; nodeId: string; artifact: LearningCycleArtifactBinding }
   | { type: "artifact_rejected"; nodeId: string; reason: string }
-  | { type: "artifact_generation_attention_required"; nodeId: string; reason: string }
+  | { type: "artifact_generation_attention_required"; nodeId: string; reason: string; notReady?: boolean }
   | { type: "engagement_theory_updated"; theory: EngagementTheory; reason: string }
   | { type: "graded_work_received"; calibration: LearningCycleCalibration }
   | {
@@ -1681,7 +1681,10 @@ export function transitionLearningCycle(
     const node = nodeOrThrow(next, event.nodeId);
     node.artifactBinding = null;
     node.state = "blocked";
+    // A not-ready portal is passed over on the map instead of holding the board back.
+    if (event.notReady) node.notReadyReason = event.reason;
     if (!(next.boards && boardOwningNode(next, node.nodeId)?.publishedAt === null)) next.lifecycle = "board_ready";
+    else if (event.notReady) publishPreparedBoardIfComplete(next, at);
     reason = event.reason;
   } else {
     next.lifecycle = "blocked";

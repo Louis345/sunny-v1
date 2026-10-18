@@ -1238,6 +1238,13 @@ async function runSpellingTargetedGeneration(childId: string, homeworkId: string
     // The Teaching map appears only when complete: nothing is projected while an activity is still being prepared.
     const settled = (): boolean => getMathGenerationStatus(childId, homeworkId, { rootDir })!.nodes.every(node => ["ready", "completed", "evidence_locked", "not_ready"].includes(node.status));
     await buildTargetedNodesResumably({ ...scope, firstNodeId: active.nodePlan[0]?.id ?? "", concurrency: 2, buildNode });
+    // An activity that fails to build degrades to one "Not ready" portal; it never holds back the map.
+    for (const failed of getMathGenerationStatus(childId, homeworkId, { rootDir })!.nodes.filter(node => ["failed_resumable", "needs_attention"].includes(node.status))) {
+      const reason = failed.error ?? "activity_build_failed";
+      transitionLearningCycle(childId, homeworkId, getLearningCycle(childId, homeworkId, { rootDir })!.revision, { type: "artifact_generation_attention_required", nodeId: failed.nodeId, reason, notReady: true }, { rootDir });
+      updateMathGenerationNode({ ...scope, nodeId: failed.nodeId, status: "not_ready", error: reason });
+      console.warn(` 🎮 [spelling] [activity] [not-ready] node=${failed.nodeId} reason=${reason}`);
+    }
     if (settled()) project();
     else console.log(` 🎮 [spelling] [targeted-board] [withheld] homework=${homeworkId} reason=activities_not_prepared`);
     const verifiedJob = getMathGenerationStatus(childId, homeworkId, { rootDir });
@@ -1252,11 +1259,11 @@ async function runSpellingTargetedGeneration(childId: string, homeworkId: string
     write(path.join(draft, "generation-report.json"), {
       version: 1, homeworkId, totalMs, targetMs: 180_000, withinTarget: totalMs <= 180_000, resumed: Boolean(saved),
       planner: { latencyMs: result.telemetry?.latencyMs }, creator: { previews: design.previews, elapsedMs: design.elapsedMs },
-      notReady: notReady.map(node => ({ nodeId: node.nodeId, reason: node.notReadyReason })),
+      notReady: getLearningCycle(childId, homeworkId, { rootDir })!.nodes.filter(node => node.notReadyReason).map(node => ({ nodeId: node.nodeId, reason: node.notReadyReason })),
       layout: { artworkLoaded: layout.artworkLoaded, overlaps: layout.overlaps ?? [] },
       published: settled(),
     });
-    console.log(` 🎮 [spelling] [generation-report] [saved] homework=${homeworkId} total_ms=${totalMs} previews=${design.previews ?? "n/a"} not_ready=${notReady.length} overlaps=${layout.overlaps?.length ?? "n/a"}`);
+    console.log(` 🎮 [spelling] [generation-report] [saved] homework=${homeworkId} total_ms=${totalMs} previews=${design.previews ?? "n/a"} not_ready=${getLearningCycle(childId, homeworkId, { rootDir })!.nodes.filter(node => node.notReadyReason).length} overlaps=${layout.overlaps?.length ?? "n/a"}`);
     // Reconnect the existing best-effort illustration stage after playable
     // content is published. Keep artwork outside frozen academic/provider data.
     process.env.SUNNY_IMAGE_GENERATION_MAX_PER_RUN ||= "8";

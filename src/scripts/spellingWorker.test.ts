@@ -51,7 +51,7 @@ describe("spelling in the production generation worker", () => {
     );
   });
 
-  it.each(["semantic", "strong", "weak", "assisted", "incomplete", "visual", "reward-break", "mystery-concept-check", "published-contract-change", "overlapping", "not-ready"])("plans from %s committed evidence, publishes native games, and resumes without repeated calls", async scenario => {
+  it.each(["semantic", "strong", "weak", "assisted", "incomplete", "visual", "reward-break", "mystery-concept-check", "published-contract-change", "overlapping", "not-ready", "build-failure"])("plans from %s committed evidence, publishes native games, and resumes without repeated calls", async scenario => {
     vi.useFakeTimers({ toFake: ["Date"] }); vi.setSystemTime(new Date("2026-09-08T11:00:00Z"));
     const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-spelling-worker-")); roots.push(rootDir);
     const childId = "lab-child", child = path.join(rootDir, "src/context", childId);
@@ -102,7 +102,7 @@ describe("spelling in the production generation worker", () => {
         const {boardDefinition,...semanticPlan}=activeSessionPlan;
         return {output:{activeSessionPlan:{...semanticPlan,plannedMeasurements:sanitized,journey:journeyFromBoardDefinition(boardDefinition)},plannedMeasurements:sanitized,planTheory:activeSessionPlan.planTheory,generationRequests:[],notReady:[{nodeId:"practice",reason:"unknown_target_word:zebra"}]},telemetry:{model:"recorded-provider",latencyMs:1}} as never;
       }
-      if(scenario==="semantic"||scenario==="overlapping"){
+      if(scenario==="semantic"||scenario==="overlapping"||scenario==="build-failure"){
         if(scenario==="overlapping")activeSessionPlan.planId=`stacked:${homeworkId}`;
         const {boardDefinition,...semanticPlan}=activeSessionPlan;
         return {output:{activeSessionPlan:{...semanticPlan,journey:journeyFromBoardDefinition(boardDefinition)},plannedMeasurements,planTheory:activeSessionPlan.planTheory,generationRequests:[]},telemetry:{model:"recorded-provider",latencyMs:1}} as never;
@@ -116,11 +116,19 @@ describe("spelling in the production generation worker", () => {
       expect(getMathGenerationStatus(childId, homeworkId, { rootDir })?.nodes.every(node => node.status === "ready")).toBe(true);
       return "https://recorded.invalid/image";
     });
+    if (scenario === "build-failure") {
+      // One activity fails while it is being built. Before 2026-10-18 the whole Teaching map was
+      // withheld and the child waited on the loading screen forever; the rule is one portal
+      // degrades to "Not ready" and everything else publishes.
+      const broken = path.join(child, "homework/direct-drafts", homeworkId, "native-instruments/practice.json");
+      fs.mkdirSync(path.dirname(broken), { recursive: true });
+      fs.writeFileSync(broken, JSON.stringify({ unrelated: true }));
+    }
     await runAdaptiveMathGeneration(childId, homeworkId, rootDir);
     // The Teaching map appears only when complete: no projection while any activity is still being prepared.
     expect(projections.length).toBeGreaterThan(0);
     expect(projections.flatMap(statuses => Object.values(statuses)).filter(status => !["ready", "completed", "evidence_locked", "not_ready"].includes(status))).toEqual([]);
-    if (scenario === "overlapping" || scenario === "not-ready") {
+    if (scenario === "overlapping" || scenario === "not-ready" || scenario === "build-failure") {
       // The board always publishes exactly what the Planner and Creator made.
       const job = getMathGenerationStatus(childId, homeworkId, { rootDir })!;
       const published = getLearningCycle(childId, homeworkId, { rootDir })!;
@@ -136,6 +144,14 @@ describe("spelling in the production generation worker", () => {
         expect(report.notReady).toEqual([]);
         expect(report.layout.overlaps.length).toBeGreaterThan(0);
         expect(report.layout.artworkLoaded).toBe(true);
+        return;
+      }
+      if (scenario === "build-failure") {
+        expect(job.nodes.find(node => node.nodeId === "practice")!.status).toBe("not_ready");
+        expect(portal("practice")).toMatchObject({ state: "locked", lock: { reason: "not-ready", label: "Not ready" } });
+        expect(portal("check").state).toBe("available");
+        expect(published.nodes.find(node => node.nodeId === "practice")!.notReadyReason).toContain("spelling_native_contract_changed");
+        expect(report.notReady).toEqual([{ nodeId: "practice", reason: expect.stringContaining("spelling_native_contract_changed") }]);
         return;
       }
       expect(report.notReady).toEqual([{ nodeId: "practice", reason: "unknown_target_word:zebra" }]);
