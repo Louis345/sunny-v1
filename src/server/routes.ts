@@ -48,7 +48,7 @@ import { recordAttempt } from "../engine/learningEngine";
 import { computeProgression } from "../engine/progression";
 import { WILSON_STEPS } from "../modes/wilson/wilsonSteps";
 import { getSunnyMode, isSunnyDiagMode } from "../utils/runtimeMode";
-import { resolveChildContextDir } from "../utils/contextRoot";
+import { assertChildAllowedForContextRoot, resolveChildContextDir } from "../utils/contextRoot";
 import {
   applyPassiveDepletion,
   applyTamagotchiFill,
@@ -127,12 +127,29 @@ export function launchAdaptiveMathWorker(childId: string, homeworkId: string): v
   }
 }
 
+/** Startup recovery works only on the child this kiosk was started for, and never on a protected
+ * child whose data the isolated context root forbids reading. */
+export function startupRecoveryChildIds(env: NodeJS.ProcessEnv = process.env, all: string[] = listChildProfileIds()): string[] {
+  const selected = env.SUNNY_CHILD?.trim().toLowerCase();
+  const candidates = selected ? [selected] : all;
+  return candidates.filter((childId) => {
+    try { assertChildAllowedForContextRoot(childId, { env }); return true; }
+    catch { console.warn(` 🎮 [startup-recovery] [skipped] child=${childId} reason=protected_child_context_root`); return false; }
+  });
+}
+
+/** One child's unreadable data is logged and skipped; it never stops the server. */
+function childCyclesDir(childId: string, folder: string): string | undefined {
+  try { return path.join(resolveChildContextDir(childId), "homework", folder); }
+  catch (error) { console.error(` 🎮 [startup-recovery] [skipped] child=${childId}`, error); return undefined; }
+}
+
 /** Resume each outstanding successor decision or preparation once after restart; checkpoints prevent repeat paid calls. */
-export function resumeSuccessorBoards(): void {
-  if (process.env.VITEST) return;
-  for (const childId of listChildProfileIds()) {
-    const cyclesDir = path.join(resolveChildContextDir(childId), "homework", "cycles");
-    if (!fs.existsSync(cyclesDir)) continue;
+export function resumeSuccessorBoards(options: { force?: boolean } = {}): void {
+  if (process.env.VITEST && !options.force) return;
+  for (const childId of startupRecoveryChildIds()) {
+    const cyclesDir = childCyclesDir(childId, "cycles");
+    if (!cyclesDir || !fs.existsSync(cyclesDir)) continue;
     for (const file of fs.readdirSync(cyclesDir).filter((name) => name.endsWith(".json"))) {
       const homeworkId = file.replace(/\.json$/, "");
       try {
@@ -152,12 +169,12 @@ export function resumeSuccessorBoards(): void {
   }
 }
 
-export function resumeAdaptiveMathWorkers(): void {
-  if (process.env.VITEST) return;
+export function resumeAdaptiveMathWorkers(options: { force?: boolean } = {}): void {
+  if (process.env.VITEST && !options.force) return;
   const certificationScope = certificationWorkerScope();
-  for (const childId of certificationScope ? [certificationScope.childId] : listChildProfileIds()) {
-    const drafts = path.join(resolveChildContextDir(childId), "homework", "direct-drafts");
-    if (!fs.existsSync(drafts)) continue;
+  for (const childId of certificationScope ? [certificationScope.childId] : startupRecoveryChildIds()) {
+    const drafts = childCyclesDir(childId, "direct-drafts");
+    if (!drafts || !fs.existsSync(drafts)) continue;
     const homeworkIds = certificationScope
       ? [certificationScope.homeworkId]
       : fs.readdirSync(drafts);
