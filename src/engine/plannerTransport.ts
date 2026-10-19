@@ -35,7 +35,17 @@ export async function requestPlannerMessage(
   }
 }
 
+/** The provider's own reason for a refusal (type, category, explanation), or null. */
+export function refusalDetails(message: unknown): Record<string, unknown> | null {
+  const details = (message as { stop_details?: unknown } | null)?.stop_details;
+  return details && typeof details === 'object' && !Array.isArray(details) ? details as Record<string, unknown> : null;
+}
+export function describeRefusal(message: unknown): string {
+  const details = refusalDetails(message);
+  return details ? `category=${String(details.category ?? 'none')} explanation=${String(details.explanation ?? 'none')}` : 'stop_details=missing';
+}
 export function assertPlannerResponseComplete(message: { stop_reason?: string | null }): void {
+  if (message.stop_reason === 'refusal') console.error(` 🎮 [planner] [response] [refused] ${describeRefusal(message)}`);
   if (['max_tokens', 'refusal', 'model_context_window_exceeded', 'pause_turn'].includes(message.stop_reason ?? '')) {
     throw Error(`planner_response_${message.stop_reason}`);
   }

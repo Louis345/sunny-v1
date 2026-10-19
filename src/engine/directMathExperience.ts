@@ -1,5 +1,5 @@
 import {hydrateNativeLearningProgram,nativeLearningProgramToolJsonSchema,resolveAssignmentPlannerModel,type AssignmentPlanningPacket,type AssignmentPlannerOutput,type AssignmentPlannerTelemetry} from "./assignmentPlanner";
-import {requestPlannerMessage,assertPlannerResponseComplete,decodeToolInput} from "./plannerTransport";
+import {requestPlannerMessage,assertPlannerResponseComplete,decodeToolInput,describeRefusal,refusalDetails} from "./plannerTransport";
 import {isDeepStrictEqual} from "node:util";
 import {z} from "zod";
 import {learningPlannerInstructions} from "./learningPlannerInstructions";
@@ -1340,14 +1340,14 @@ The teacher's journey (immutable): stops ${JSON.stringify(journey.portals.map(po
     }
     const execute=()=>client.messages.stream(request,{timeout:Number(process.env.SUNNY_AI_TIMEOUT_MS??600000),maxRetries:0}).finalMessage();
     const response=draftDir?await runMathProviderStage({draftDir,stage,model,request,execute,retryUncertain:input.retryUncertain,beforeRequest:()=>{if(!input.client&&!process.env.ANTHROPIC_API_KEY?.trim())throw new Error("preflight_missing:ANTHROPIC_API_KEY");}}):await execute();
-    if(input.rawResponseDir){fs.mkdirSync(input.rawResponseDir,{recursive:true});fs.writeFileSync(path.join(input.rawResponseDir,`design-response-${turn}.json`),`${JSON.stringify({model,stopReason:response.stop_reason,usage:response.usage,content:response.content},null,2)}\n`,"utf8");}
+    if(input.rawResponseDir){fs.mkdirSync(input.rawResponseDir,{recursive:true});fs.writeFileSync(path.join(input.rawResponseDir,`design-response-${turn}.json`),`${JSON.stringify({model,stopReason:response.stop_reason,stopDetails:refusalDetails(response),usage:response.usage,content:response.content},null,2)}\n`,"utf8");}
     // A refusal is terminal even if it includes a partial tool call or follows a
     // valid preview. Preserve the receipt, but never turn it into another request
     // or treat the previous preview as the artist's final submission.
     // The provider can return refusal even though the pinned SDK's union predates it.
     const stopReason: string | null = response.stop_reason;
     if(stopReason === "refusal"){
-      console.error(` 🎮 [experience-creator] [response] [refused] stage=${stage}`);
+      console.error(` 🎮 [experience-creator] [response] [refused] stage=${stage} ${describeRefusal(response)}`);
       throw new Error("learning_design_provider_refused");
     }
     const tool=response.content.find((block):block is Anthropic.Messages.ToolUseBlock=>block.type==="tool_use"&&["preview_board","adjust_board","submit_board"].includes(block.name));
