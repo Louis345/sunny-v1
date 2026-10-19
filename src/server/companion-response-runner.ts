@@ -26,7 +26,12 @@ export function claimCompanionResponseTurn(session: any): {
 } {
   const turnId = Number(session.companionResponseTurnId ?? 0) + 1;
   session.companionResponseTurnId = turnId;
-  const itemKey = () => JSON.stringify([session.spellingLaunch?.launchId,session.currentBoardSnapshot?.nodeId,session.currentBoardSnapshot?.itemId]);
+  const itemKey = () => {
+    const board = session.currentBoardSnapshot;
+    return JSON.stringify([session.spellingLaunch?.launchId, board?.launchToken,
+      board?.nodeId, board?.itemId, board?.itemIndex,
+      board?.spellingTarget ?? board?.currentTarget, board?.phase === "closed"]);
+  };
   const originalItem = itemKey();
   return {
     turnId,

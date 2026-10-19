@@ -1,0 +1,47 @@
+{
+  "notice": "Selected original game-state fields and assistant utterances, not a synthetic or post-change run. User speech and unrelated family conversation omitted. Source SHA256 receipts are in source-receipts.json.",
+  "examples": [
+    {
+      "sourceSessionDirectory": "2026-10-18T21-40-54_ila_homework_2c3ab8",
+      "precedingGameState": {
+        "ts": "2026-10-18T21:48:56.014Z",
+        "type": "game_state_update",
+        "nodeId": "radar-read",
+        "itemIndex": 9,
+        "currentTarget": "title"
+      },
+      "assistantTranscript": {
+        "ts": "2026-10-18T21:49:00.692Z",
+        "text": "I won't give you the answer, but I believe in your ears \u2014 try stretching \"Tuscaloosa\" out slow, one piece at a time."
+      }
+    },
+    {
+      "sourceSessionDirectory": "2026-10-18T21-40-54_ila_homework_2c3ab8",
+      "precedingGameState": {
+        "ts": "2026-10-18T21:52:48.969Z",
+        "type": "game_state_update",
+        "nodeId": "radar-read",
+        "itemIndex": 11,
+        "currentTarget": "dissatisfied"
+      },
+      "assistantTranscript": {
+        "ts": "2026-10-18T21:52:51.743Z",
+        "text": "Okay, say \"pronounce\" nice and slow for me, and tell me the very last tiny sound you hear."
+      }
+    },
+    {
+      "sourceSessionDirectory": "2026-10-18T21-56-05_ila_homework_57e918",
+      "precedingGameState": {
+        "ts": "2026-10-18T22:05:23.140Z",
+        "type": "game_state_update",
+        "nodeId": "stampede-recovery",
+        "itemIndex": 10,
+        "currentWord": "tonight"
+      },
+      "assistantTranscript": {
+        "ts": "2026-10-18T22:05:23.144Z",
+        "text": "You've already got n-i-g-h-t in your head \u2014 just say \"tonight\" slow and listen for where that g sound pops up."
+      }
+    }
+  ]
+}

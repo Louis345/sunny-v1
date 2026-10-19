@@ -1,0 +1,244 @@
+
+ RUN  v3.2.4 <checkout>
+
+ ❯ src/server/currentBoardSnapshot.test.ts (15 tests | 6 failed) 13ms
+   ✓ CurrentBoardSnapshot > tells Elli a node is still opening without claiming the activity is ready 1ms
+   ✓ CurrentBoardSnapshot > keeps child speech separate from the current board truth 1ms
+   ✓ CurrentBoardSnapshot > gives Elli the AI-authored math activity and live challenge without exposing correctness 0ms
+   ✓ CurrentBoardSnapshot > extracts the exact visible prompt from an object-shaped generated challenge 0ms
+   ✓ CurrentBoardSnapshot > does not expose hidden Wheel answers to Elli 0ms
+   ✓ CurrentBoardSnapshot > ignores raw and unknown fields while preserving exact reward fields 0ms
+   ✓ CurrentBoardSnapshot > detects companion claims that contradict the current truth packet 0ms
+   ✓ preserves displayed loading facts through projection into Elli context 0ms
+   × spelling pronunciation context > retains hidden spelling truth internally without permitting written-answer disclosure 4ms
+     → expected { childId: 'lab-child', …(7) } to have property "spellingTarget" with value 'title'
+   × spelling pronunciation context > grounds permitted modeling of myself in dictionary sounds and vowel nuclei 2ms
+     → expected '[Internal live board state]\nThis is …' to contain 'ARPABET: M AY2 S EH1 L F'
+   × spelling pronunciation context > grounds permitted modeling of tonight in dictionary sounds and vowel nuclei 1ms
+     → expected '[Internal live board state]\nThis is …' to contain 'ARPABET: T AH0 N AY1 T'
+   × spelling pronunciation context > grounds permitted modeling of dissatisfied in dictionary sounds and vowel nuclei 1ms
+     → expected '[Internal live board state]\nThis is …' to contain 'ARPABET: D IH0 S AE1 T AH0 S F AY2 D'
+   × spelling pronunciation context > does not turn explicit assessment into teaching just because text is visible 1ms
+     → expected '[Internal live board state]\nThis is …' to contain 'Repeat the whole spoken stimulus only'
+   × spelling pronunciation context > does not invent a pronunciation reference for an unknown word 1ms
+     → expected '[Internal live board state]\nThis is …' to contain 'Pronunciation reference unavailable'
+   ✓ spelling pronunciation context > does not disclose hidden Wheel or math answers through spelling support 0ms
+stdout | src/server/companion-response-runner.test.ts > companion response audio ownership > queues Elli's turn while a game narration owns the shared audio channel
+  🎮 [companion] [deferred] reason=game_narration_owns_audio
+
+ ❯ src/server/companion-response-runner.test.ts (8 tests | 3 failed) 6ms
+   ✓ companion response audio ownership > retires a reply when the displayed spelling item advances, even without a new conversation turn 1ms
+   ✓ companion response audio ownership > revokes an older model turn as soon as a newer child turn begins 0ms
+   ✓ companion response audio ownership > queues Elli's turn while a game narration owns the shared audio channel 2ms
+   ✓ companion response audio ownership > allows Elli to speak when no game narration owns audio 0ms
+   × native spelling reply identity > retires a reply when only the item index advances 2ms
+     → expected true to be false // Object.is equality
+   × native spelling reply identity > retires a reply when a target changes without an item ID 0ms
+     → expected true to be false // Object.is equality
+   × native spelling reply identity > retires a reply when a native activity is relaunched 0ms
+     → expected true to be false // Object.is equality
+   ✓ native spelling reply identity > preserves a reply across score-only updates 0ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 9 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/server/companion-response-runner.test.ts > native spelling reply identity > retires a reply when only the item index advances
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ src/server/companion-response-runner.test.ts:83:31
+     81|     const reply = claimCompanionResponseTurn(session);
+     82|     session.currentBoardSnapshot.itemIndex = 8;
+     83|     expect(reply.isCurrent()).toBe(false);
+       |                               ^
+     84|   });
+     85|   it("retires a reply when a target changes without an item ID", () =>…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/9]⎯
+
+ FAIL  src/server/companion-response-runner.test.ts > native spelling reply identity > retires a reply when a target changes without an item ID
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ src/server/companion-response-runner.test.ts:89:31
+     87|     const reply = claimCompanionResponseTurn(session);
+     88|     session.currentBoardSnapshot.currentTarget = "minus";
+     89|     expect(reply.isCurrent()).toBe(false);
+       |                               ^
+     90|   });
+     91|   it("retires a reply when a native activity is relaunched", () => {
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/9]⎯
+
+ FAIL  src/server/companion-response-runner.test.ts > native spelling reply identity > retires a reply when a native activity is relaunched
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ src/server/companion-response-runner.test.ts:95:31
+     93|     const reply = claimCompanionResponseTurn(session);
+     94|     session.currentBoardSnapshot.launchToken = "second";
+     95|     expect(reply.isCurrent()).toBe(false);
+       |                               ^
+     96|   });
+     97|   it("preserves a reply across score-only updates", () => {
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/9]⎯
+
+ FAIL  src/server/currentBoardSnapshot.test.ts > spelling pronunciation context > retains hidden spelling truth internally without permitting written-answer disclosure
+AssertionError: expected { childId: 'lab-child', …(7) } to have property "spellingTarget" with value 'title'
+
+- Expected:
+"title"
+
++ Received:
+undefined
+
+ ❯ src/server/currentBoardSnapshot.test.ts:223:19
+    221|   it("retains hidden spelling truth internally without permitting writ…
+    222|     const value = snapshot({ game: "word-radar", itemId: "item-title",…
+    223|     expect(value).toHaveProperty("spellingTarget", "title");
+       |                   ^
+    224|     expect(value.currentTarget).toBeUndefined();
+    225|     expect(value.targetIsSpeakable).toBe(false);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/9]⎯
+
+ FAIL  src/server/currentBoardSnapshot.test.ts > spelling pronunciation context > grounds permitted modeling of myself in dictionary sounds and vowel nuclei
+AssertionError: expected '[Internal live board state]\nThis is …' to contain 'ARPABET: M AY2 S EH1 L F'
+
+- Expected
++ Received
+
+- ARPABET: M AY2 S EH1 L F
++ [Internal live board state]
++ This is board state, not child speech. Mention only activities, rewards, targets, and answers listed here.
++ Current game: monster-stampede
++ Answer visibility: visible
++ Current target: myself
++ No exact coin amount is available; do not state any coin total or reward amount.
+
+ ❯ src/server/currentBoardSnapshot.test.ts:240:21
+    238|   ])("grounds permitted modeling of %s in dictionary sounds and vowel …
+    239|     const context = buildCurrentBoardSnapshotContext(snapshot({ game: …
+    240|     expect(context).toContain(`ARPABET: ${phones}`);
+       |                     ^
+    241|     expect(context).toContain(`Syllable count: ${count}`);
+    242|     expect(context).toContain("Model the whole word, then its spoken s…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/9]⎯
+
+ FAIL  src/server/currentBoardSnapshot.test.ts > spelling pronunciation context > grounds permitted modeling of tonight in dictionary sounds and vowel nuclei
+AssertionError: expected '[Internal live board state]\nThis is …' to contain 'ARPABET: T AH0 N AY1 T'
+
+- Expected
++ Received
+
+- ARPABET: T AH0 N AY1 T
++ [Internal live board state]
++ This is board state, not child speech. Mention only activities, rewards, targets, and answers listed here.
++ Current game: monster-stampede
++ Answer visibility: visible
++ Current target: tonight
++ No exact coin amount is available; do not state any coin total or reward amount.
+
+ ❯ src/server/currentBoardSnapshot.test.ts:240:21
+    238|   ])("grounds permitted modeling of %s in dictionary sounds and vowel …
+    239|     const context = buildCurrentBoardSnapshotContext(snapshot({ game: …
+    240|     expect(context).toContain(`ARPABET: ${phones}`);
+       |                     ^
+    241|     expect(context).toContain(`Syllable count: ${count}`);
+    242|     expect(context).toContain("Model the whole word, then its spoken s…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/9]⎯
+
+ FAIL  src/server/currentBoardSnapshot.test.ts > spelling pronunciation context > grounds permitted modeling of dissatisfied in dictionary sounds and vowel nuclei
+AssertionError: expected '[Internal live board state]\nThis is …' to contain 'ARPABET: D IH0 S AE1 T AH0 S F AY2 D'
+
+- Expected
++ Received
+
+- ARPABET: D IH0 S AE1 T AH0 S F AY2 D
++ [Internal live board state]
++ This is board state, not child speech. Mention only activities, rewards, targets, and answers listed here.
++ Current game: monster-stampede
++ Answer visibility: visible
++ Current target: dissatisfied
++ No exact coin amount is available; do not state any coin total or reward amount.
+
+ ❯ src/server/currentBoardSnapshot.test.ts:240:21
+    238|   ])("grounds permitted modeling of %s in dictionary sounds and vowel …
+    239|     const context = buildCurrentBoardSnapshotContext(snapshot({ game: …
+    240|     expect(context).toContain(`ARPABET: ${phones}`);
+       |                     ^
+    241|     expect(context).toContain(`Syllable count: ${count}`);
+    242|     expect(context).toContain("Model the whole word, then its spoken s…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/9]⎯
+
+ FAIL  src/server/currentBoardSnapshot.test.ts > spelling pronunciation context > does not turn explicit assessment into teaching just because text is visible
+AssertionError: expected '[Internal live board state]\nThis is …' to contain 'Repeat the whole spoken stimulus only'
+
+- Expected
++ Received
+
+- Repeat the whole spoken stimulus only
++ [Internal live board state]
++ This is board state, not child speech. Mention only activities, rewards, targets, and answers listed here.
++ Current game: word-radar
++ Answer visibility: visible
++ Current target: tonight
++ No exact coin amount is available; do not state any coin total or reward amount.
+
+ ❯ src/server/currentBoardSnapshot.test.ts:249:21
+    247|   it("does not turn explicit assessment into teaching just because tex…
+    248|     const context = buildCurrentBoardSnapshotContext(snapshot({ game: …
+    249|     expect(context).toContain("Repeat the whole spoken stimulus only");
+       |                     ^
+    250|     expect(context).not.toContain("ARPABET");
+    251|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/9]⎯
+
+ FAIL  src/server/currentBoardSnapshot.test.ts > spelling pronunciation context > does not invent a pronunciation reference for an unknown word
+AssertionError: expected '[Internal live board state]\nThis is …' to contain 'Pronunciation reference unavailable'
+
+- Expected
++ Received
+
+- Pronunciation reference unavailable
++ [Internal live board state]
++ This is board state, not child speech. Mention only activities, rewards, targets, and answers listed here.
++ Current game: spell-check
++ Answer visibility: visible
++ Current target: zzzxqnotaword
++ No exact coin amount is available; do not state any coin total or reward amount.
+
+ ❯ src/server/currentBoardSnapshot.test.ts:255:21
+    253|   it("does not invent a pronunciation reference for an unknown word", …
+    254|     const context = buildCurrentBoardSnapshotContext(snapshot({ game: …
+    255|     expect(context).toContain("Pronunciation reference unavailable");
+       |                     ^
+    256|     expect(context).not.toContain("Syllable count:");
+    257|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/9]⎯
+
+
+ Test Files  2 failed (2)
+      Tests  9 failed | 14 passed (23)
+   Start at  20:07:18
+   Duration  706ms (transform 216ms, setup 0ms, collect 481ms, tests 20ms, environment 0ms, prepare 51ms)

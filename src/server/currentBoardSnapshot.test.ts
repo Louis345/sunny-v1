@@ -209,3 +209,58 @@ it("preserves displayed loading facts through projection into Elli context", () 
   const next = buildCurrentBoardSnapshot({childId:"sandbox",sessionId:"loading",state:{phase:"closed",boardState:"map"}});
   expect(buildCurrentBoardSnapshotContext(next)).not.toContain("3 min so far");
 });
+
+// October 18 human catch: the model coached room words ("Tuscaloosa") while
+// the game still targeted "title". Hidden text was mistaken for absent truth.
+// Existing labs covered Wheel secrecy, not spelling's audio-vs-written boundary.
+describe("spelling pronunciation context", () => {
+  const snapshot = (state: Record<string, unknown>) => buildCurrentBoardSnapshot({
+    childId: "lab-child", sessionId: "lab-session", state,
+  });
+
+  it("retains hidden spelling truth internally without permitting written-answer disclosure", () => {
+    const value = snapshot({ game: "word-radar", itemId: "item-title", currentTarget: "title", answerVisibility: "hidden", assessmentMode: true });
+    expect(value).toHaveProperty("spellingTarget", "title");
+    expect(value.currentTarget).toBeUndefined();
+    expect(value.targetIsSpeakable).toBe(false);
+    const context = buildCurrentBoardSnapshotContext(value, { childSpeech: "Help with Tuscaloosa" });
+    expect(context).toContain("Authoritative spelling target (internal): title");
+    expect(context).toContain("Do not replace this target with words from room conversation");
+    expect(context).toContain("Repeat the whole spoken stimulus only");
+    expect(context).toContain("Do not model syllables or reveal written letters during hidden assessment");
+    expect(context).not.toContain("ARPABET");
+  });
+
+  it.each([
+    ["myself", "M AY2 S EH1 L F", 2],
+    ["tonight", "T AH0 N AY1 T", 2],
+    ["dissatisfied", "D IH0 S AE1 T AH0 S F AY2 D", 4],
+  ])("grounds permitted modeling of %s in dictionary sounds and vowel nuclei", (word, phones, count) => {
+    const context = buildCurrentBoardSnapshotContext(snapshot({ game: "monster-stampede", currentWord: word, answerVisibility: "visible" }));
+    expect(context).toContain(`ARPABET: ${phones}`);
+    expect(context).toContain(`Syllable count: ${count}`);
+    expect(context).toContain("Model the whole word, then its spoken syllables, then blend");
+    expect(context).toContain("Do not pronounce silent spelling letters as separate sounds");
+    expect(context).toContain("Do not grade the child's pronunciation from transcript text");
+  });
+
+  it("does not turn explicit assessment into teaching just because text is visible", () => {
+    const context = buildCurrentBoardSnapshotContext(snapshot({ game: "word-radar", currentTarget: "tonight", answerVisibility: "visible", assessmentMode: true }));
+    expect(context).toContain("Repeat the whole spoken stimulus only");
+    expect(context).not.toContain("ARPABET");
+  });
+
+  it("does not invent a pronunciation reference for an unknown word", () => {
+    const context = buildCurrentBoardSnapshotContext(snapshot({ game: "spell-check", currentTarget: "zzzxqnotaword", answerVisibility: "visible" }));
+    expect(context).toContain("Pronunciation reference unavailable");
+    expect(context).not.toContain("Syllable count:");
+  });
+
+  it("does not disclose hidden Wheel or math answers through spelling support", () => {
+    for (const game of ["Wheel of Fortune", "generated-math"]) {
+      const value = snapshot({ game, currentWord: "secret-answer", answerVisibility: "hidden" });
+      expect(value).not.toHaveProperty("spellingTarget");
+      expect(buildCurrentBoardSnapshotContext(value)).not.toContain("secret-answer");
+    }
+  });
+});

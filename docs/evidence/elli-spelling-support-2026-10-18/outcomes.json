@@ -1,0 +1,35 @@
+{
+  "kind": "deterministic regression outcomes, not measured learner improvement",
+  "baseCommit": "0b41c115bd72cbc3ab7c87d8c1838d3f6613001f",
+  "red": {
+    "files": 2,
+    "tests": 23,
+    "passed": 14,
+    "failed": 9
+  },
+  "green": {
+    "files": 5,
+    "tests": 53,
+    "passed": 53,
+    "failed": 0
+  },
+  "build": "passed",
+  "paidProviderCalls": 0,
+  "livePronunciationAcceptance": "not_run",
+  "independentLearningGain": "not_measured",
+  "scope": [
+    "spelling stimulus context",
+    "dictionary pronunciation reference and help permissions",
+    "native-item reply identity"
+  ],
+  "notFixed": [
+    "speech finalization/deduplication",
+    "speaker attribution",
+    "post-session evidence aggregation",
+    "live audio pronunciation grading"
+  ],
+  "runtime": {
+    "node": "20.20.2",
+    "nativeModuleABI": "115"
+  }
+}

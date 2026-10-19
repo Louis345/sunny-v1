@@ -262,3 +262,15 @@ it.each(['closed'])('releases only the matching spelling launch on host %s',phas
  s.updateCurrentBoardSnapshot({phase,nodeId:'opening',launchToken:'current'});
  expect(s.getSpellingLaunch()).toBeUndefined();
 });
+
+// The projection must reach the actual conversation context, not just a helper.
+it("hands the native activity's dictionary-grounded target to Elli's live turn", () => {
+  const s = session();
+  s.updateCurrentBoardSnapshot({ game: "monster-stampede", nodeId: "opening",
+    currentWord: "tonight", itemIndex: 10, phase: "playing", answerVisibility: "visible" });
+  const context = s.buildCurrentBoardContextForTurn("Help me with sweetheart");
+  expect(context).toContain("Authoritative spelling target (internal): tonight");
+  expect(context).toContain("ARPABET: T AH0 N AY1 T");
+  expect(context).toContain("Syllable count: 2");
+  expect(context).toContain("Do not replace this target with words from room conversation");
+});

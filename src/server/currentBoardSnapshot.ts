@@ -1,3 +1,4 @@
+import { dictionary as cmuDictionary } from "cmu-pronouncing-dictionary";
 import { childIdFromName } from "../engine/learningEngine";
 import type { ChildName } from "../companions/loader";
 
@@ -6,6 +7,7 @@ export type CurrentBoardSnapshot = {
   sessionId: string;
   nodeId?: string;
   itemId?: string;
+  launchToken?: string;
   activityId?: string;
   activityTitle?: string;
   learningFocus?: string;
@@ -19,6 +21,9 @@ export type CurrentBoardSnapshot = {
   game?: string;
   phase?: string;
   currentTarget?: string;
+  /** Internal spelling truth; this is not permission to display the answer. */
+  spellingTarget?: string;
+  spellingSupportMode?: "stimulus_only" | "pronunciation_model";
   targetIsSpeakable: boolean;
   speechCaptureArmed?: boolean;
   answerVisibility: "hidden" | "visible" | "revealed" | "unknown";
@@ -132,6 +137,7 @@ export function buildCurrentBoardSnapshot(
 
   const stringFields: Array<[keyof CurrentBoardSnapshot, unknown]> = [
     ["nodeId", state.nodeId],
+    ["launchToken", state.launchToken],
     ["itemId", state.itemId ?? objectChallenge?.id],
     ["activityId", state.activityId],
     ["activityTitle", state.activityTitle],
@@ -169,6 +175,18 @@ export function buildCurrentBoardSnapshot(
 
   if (targetIsSpeakable && rawTarget) {
     snapshot.currentTarget = rawTarget;
+  }
+
+  // Only spelling instruments have a spoken stimulus distinct from the hidden
+  // written response. Never project a hidden Wheel/math answer through this path.
+  const spellingGames = new Set(["word-radar", "spell-check", "monster-stampede",
+    "letter-rush", "word-builder", "speed-catcher", "pronunciation", "visual-explainer"]);
+  const game = String(state.game ?? state.activityId ?? "").toLowerCase();
+  if (rawTarget && spellingGames.has(game)) {
+    snapshot.spellingTarget = rawTarget;
+    snapshot.spellingSupportMode = state.assessmentMode === true
+      || (answerVisibility === "hidden" && state.practiceCapture !== true)
+      ? "stimulus_only" : "pronunciation_model";
   }
 
   for (const key of ["itemIndex", "totalItems", "score", "coins", "coinsEarned", "accuracy"] as const) {
@@ -224,6 +242,31 @@ export function buildCurrentBoardSnapshotContext(
   }
   lines.push(`Answer visibility: ${snapshot.answerVisibility}`);
   if (snapshot.currentTarget) lines.push(`Current target: ${snapshot.currentTarget}`);
+  if (snapshot.spellingTarget) {
+    lines.push("[Spelling pronunciation support]",
+      `Authoritative spelling target (internal): ${snapshot.spellingTarget}`,
+      "Do not replace this target with words from room conversation. If the activity context is missing, ask which item needs help instead of inventing a target.",
+      "Hidden written letters remain hidden. Pronunciation modeling is assistance, not an independent spelling result.");
+    if (snapshot.spellingSupportMode === "stimulus_only") {
+      lines.push("Repeat the whole spoken stimulus only, or clarify the activity instructions.",
+        "Do not model syllables or reveal written letters during hidden assessment. Offer a pause or the activity's available help action when more support is needed.");
+    } else {
+      const phones = cmuDictionary[snapshot.spellingTarget.normalize("NFC").toLowerCase()];
+      if (typeof phones === "string" && phones) {
+        const vowelNuclei = phones.split(/\s+/).filter(phone => /[012]$/.test(phone));
+        lines.push("Pronunciation reference: CMU dictionary (US English; alternate pronunciations may exist).",
+          `ARPABET: ${phones}`, `Syllable count: ${vowelNuclei.length}`,
+          `Vowel stress (0=unstressed, 1=primary, 2=secondary): ${vowelNuclei.map(phone => phone.slice(-1)).join(" ")}`,
+          "Model the whole word, then its spoken syllables, then blend when the child requests pronunciation help. Use natural speech, not ARPABET names or letter names.",
+          "This reference supplies phonemes and vowel nuclei, not written syllable boundaries. Do not label spelling chunks as syllables unless they match the spoken syllables.",
+          "Do not pronounce silent spelling letters as separate sounds. Use activity-authored sound cues when available; do not invent letter-to-sound mappings.",
+          "After an unsuccessful hint, change the explanation or offer an available break/help action; do not repeat generic encouragement.");
+      } else {
+        lines.push("Pronunciation reference unavailable. Use the activity's authored narration or sound cues; do not invent a phoneme sequence or syllable breakdown.");
+      }
+      lines.push("Do not grade the child's pronunciation from transcript text. Specific pronunciation judgments require audio assessment evidence.");
+    }
+  }
   if (snapshot.loading) {
     lines.push(...snapshot.loading.screenText.map(text => `Displayed loading text: ${text}`));
     if (snapshot.loading.elapsedLabel) lines.push(`Elapsed: ${snapshot.loading.elapsedLabel}`);

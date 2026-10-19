@@ -72,3 +72,32 @@ describe("companion response audio ownership", () => {
     expect(setPendingTranscript).not.toHaveBeenCalled();
   });
 });
+
+// October 18: native games can advance without itemId. The old guard only
+// tested canonical item IDs, so delayed speech could survive an item advance.
+describe("native spelling reply identity", () => {
+  it("retires a reply when only the item index advances", () => {
+    const session = { currentBoardSnapshot: { nodeId: "practice", itemIndex: 7, currentTarget: "island" } };
+    const reply = claimCompanionResponseTurn(session);
+    session.currentBoardSnapshot.itemIndex = 8;
+    expect(reply.isCurrent()).toBe(false);
+  });
+  it("retires a reply when a target changes without an item ID", () => {
+    const session = { currentBoardSnapshot: { nodeId: "practice", currentTarget: "island" } };
+    const reply = claimCompanionResponseTurn(session);
+    session.currentBoardSnapshot.currentTarget = "minus";
+    expect(reply.isCurrent()).toBe(false);
+  });
+  it("retires a reply when a native activity is relaunched", () => {
+    const session = { currentBoardSnapshot: { nodeId: "practice", launchToken: "first" } };
+    const reply = claimCompanionResponseTurn(session);
+    session.currentBoardSnapshot.launchToken = "second";
+    expect(reply.isCurrent()).toBe(false);
+  });
+  it("preserves a reply across score-only updates", () => {
+    const session = { currentBoardSnapshot: { nodeId: "practice", itemIndex: 7, score: 0 } };
+    const reply = claimCompanionResponseTurn(session);
+    session.currentBoardSnapshot.score = 10;
+    expect(reply.isCurrent()).toBe(true);
+  });
+});
