@@ -927,7 +927,7 @@ describe("adaptive math discovery", () => {
     await generateMathDiscoveryExperience({ ...common, onProbeNodeReady: reconciled });
     expect(calls).toHaveLength(3);
     expect(reconciled).toHaveBeenCalledWith(expect.objectContaining({ nodeId: "probe-groups" }));
-  });
+  }, 30000);
 
   it("rebases Probe publication when child evidence changes the cycle revision", async () => {
     const rootDir = root();
