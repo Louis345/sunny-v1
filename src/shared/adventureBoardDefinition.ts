@@ -17,10 +17,13 @@ export const adventureBoardDefinitionSchema = z.object({
   edges:z.array(z.object({ id, from:id, to:id, style:z.enum(['solid','dashed','glow']).optional(), controlPoints:geometry.optional() }).strict()).max(256),
   theme:z.object({ background:z.object({type:z.enum(['image','gradient','solid']),value:id}).strict(), palette }).strict(),
   singlePathReason:id.optional(),
+  pattern:id.optional().describe("The map artist's named design idea, kept so later maps can be different."),
 }).strict();
 export type AdventureBoardDefinition = z.infer<typeof adventureBoardDefinitionSchema>;
+/** What a Planner may author: the pattern belongs to the map artist and never enters a Planner tool. */
+export const authoredBoardDefinitionSchema=adventureBoardDefinitionSchema.omit({pattern:true});
 /** Planner authors semantics; the existing Creator supplies presentation only. */
-const adventureJourneyInputSchema = adventureBoardDefinitionSchema.omit({theme:true,portals:true,edges:true}).extend({
+const adventureJourneyInputSchema = adventureBoardDefinitionSchema.omit({theme:true,portals:true,edges:true,pattern:true}).extend({
   portals:z.array(adventureBoardDefinitionSchema.shape.portals.element.omit({position:true,icon:true,thumbnailUrl:true}).strict()).min(1).max(128),
   edges:z.array(adventureBoardDefinitionSchema.shape.edges.element.omit({style:true,controlPoints:true}).strict()).max(256).optional(),
 }).strict();
@@ -124,17 +127,17 @@ export function applyAdventureCompositionCorrection(composition:AdventureBoardCo
   return adventureCompositionSchema.parse(result);
 }
 export function journeyFromBoardDefinition(board:AdventureBoardDefinition):AdventureJourneyDefinition {
-  const {theme:_theme,portals,edges,...journey}=board;
+  const {theme:_theme,portals,edges,pattern:_pattern,...journey}=board;
   return adventureJourneySchema.parse({...journey,portals:portals.map(({position:_position,icon:_icon,thumbnailUrl:_thumbnail,...portal})=>portal),edges:edges.map(({style:_style,controlPoints:_points,...edge})=>edge)});
 }
 export function compositionFromBoardDefinition(board:AdventureBoardDefinition):AdventureBoardComposition {
   return adventureCompositionSchema.parse({theme:board.theme,portals:board.portals.map(({id,position,icon,thumbnailUrl})=>({id,position,...(icon?{icon}:{}),...(thumbnailUrl?{thumbnailUrl}:{})})),edges:board.edges.map(({id,style,controlPoints})=>({id,...(style?{style}:{}),...(controlPoints?{controlPoints}:{})}))});
 }
-export function assembleAdventureBoardDefinition(journey:AdventureJourneyDefinition,composition:AdventureBoardComposition):AdventureBoardDefinition {
+export function assembleAdventureBoardDefinition(journey:AdventureJourneyDefinition,composition:AdventureBoardComposition,pattern?:string):AdventureBoardDefinition {
   const semantic=adventureJourneySchema.parse(journey),visual=adventureCompositionSchema.parse(composition);
   const match=(a:readonly {id:string}[],b:readonly {id:string}[])=>a.length===b.length&&new Set(a.map(v=>v.id)).size===a.length&&new Set(b.map(v=>v.id)).size===b.length&&a.every(v=>b.some(other=>other.id===v.id));
   if(!match(semantic.portals,visual.portals)||!match(semantic.edges,visual.edges))throw new Error('board_composition_identity_invalid');
-  return adventureBoardDefinitionSchema.parse({...semantic,theme:visual.theme,portals:semantic.portals.map(portal=>({...portal,...visual.portals.find(v=>v.id===portal.id)!})),edges:semantic.edges.map(edge=>({...edge,...visual.edges.find(v=>v.id===edge.id)!}))});
+  return adventureBoardDefinitionSchema.parse({...semantic,...(pattern?.trim()?{pattern:pattern.trim()}:{}),theme:visual.theme,portals:semantic.portals.map(portal=>({...portal,...visual.portals.find(v=>v.id===portal.id)!})),edges:semantic.edges.map(edge=>({...edge,...visual.edges.find(v=>v.id===edge.id)!}))});
 }
 
 export type JourneyExecution = { id:string; selections:Record<string,string>; portalIds:string[]; activityNodeIds:string[] };
@@ -320,7 +323,7 @@ export function requireBoardDefinition(value: unknown, activityIds: readonly str
   if (issues.length) throw new Error(`board_definition_invalid:${JSON.stringify(issues)}`);
   return definition;
 }
-export const BOARD_DEFINITION_TOOL_SCHEMA = z.toJSONSchema(adventureBoardDefinitionSchema, {io:'input'});
+export const BOARD_DEFINITION_TOOL_SCHEMA = z.toJSONSchema(authoredBoardDefinitionSchema, {io:'input'});
 export const BOARD_CANVAS_AUTHORING_CONSTRAINTS = `At 1280x720 its safe composition area is 980x400 pixels; at 768x1024 it is 608x714. Portal controls are 116 pixels wide. Their height depends on wrapped labels and status text; it can exceed 186 pixels. Coordinates scale within this safe area; reserve separation for the full labeled control.`;
 
 export const BOARD_AUTHORING_INSTRUCTION = `Author boardDefinition as the immutable journey. Bind activity portals to canonical inventory IDs. An endpoint may bind the final activity; an unbound endpoint marks completion after the preceding activities. Start and choice portals cannot bind activities. Portal IDs are presentation identities: the same activity may appear on alternative paths with distinct portal IDs, and those alternatives may order shared activities differently. The root path is the shared sequence; each choice inserts the selected option path then resumes its parent's remaining sequence. Declare every connection, all labels, positions and optional edge control points for both landscape and portrait. Use the available canvas thoughtfully with readable spacing and coherent direction. Sunny's visual brief: an inviting illustrated adventure world, vivid portals, animated dashed or glow paths, a readable left-to-right journey and separately composed portrait. Available Grok artwork: /generated/adventure-board-demo/silent-letter-world.jpeg; use this image or other available illustrated artwork, not a plain gradient. Choose readable text. After independent evaluation, on Teaching boards only, use the available catalog for varied practice addressing her gaps; activity count remains your decision. For that Teaching journey, consider learn first versus play first through shared activities, converging on the check. Background values must be executable image URLs or CSS, not symbolic names. ${BOARD_CANVAS_AUTHORING_CONSTRAINTS} Give a meaningful choice when academically valid alternatives exist; otherwise state singlePathReason. Code must not invent a route or change your composition. Do not declare readiness, completion or mastery. The Experience Creator implements activities and artwork without changing this journey.`;

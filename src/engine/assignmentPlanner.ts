@@ -1,7 +1,7 @@
 import {LEARNING_PLANNER_PERSONA,learningPlannerInstructions} from "./learningPlannerInstructions";
 import {spellingImplementationType,SPELLING_MYSTERY_INSTRUMENT_IDS} from "./activityEngineConfig";
 import {verifyAuthoredBoardCanvas} from './adventureBoardCanvas';
-import { JOURNEY_AUTHORING_INSTRUCTION, adventureJourneySchema,ADVENTURE_JOURNEY_TOOL_SCHEMA, journeySequenceSchema, expandJourneySequence, journeyFromBoardDefinition, adventureBoardDefinitionSchema, BOARD_AUTHORING_INSTRUCTION, BOARD_CANVAS_AUTHORING_CONSTRAINTS, renderBoardDefinition, validateBoardDefinition, journeyExecutions, type BoardDefinitionIssue, type AdventureBoardDefinition } from '../shared/adventureBoardDefinition';
+import { JOURNEY_AUTHORING_INSTRUCTION, authoredBoardDefinitionSchema, adventureJourneySchema,ADVENTURE_JOURNEY_TOOL_SCHEMA, journeySequenceSchema, expandJourneySequence, journeyFromBoardDefinition, adventureBoardDefinitionSchema, BOARD_AUTHORING_INSTRUCTION, BOARD_CANVAS_AUTHORING_CONSTRAINTS, renderBoardDefinition, validateBoardDefinition, journeyExecutions, type BoardDefinitionIssue, type AdventureBoardDefinition } from '../shared/adventureBoardDefinition';
 import { spellingCheckpointLineageIssues, checkpointInterventionsArePrior, deriveCheckpointLineage } from "./spellingCheckpointLineage";
 import {requestPlannerMessage, assertPlannerResponseComplete} from "./plannerTransport";
 import Anthropic from "@anthropic-ai/sdk";
@@ -294,7 +294,7 @@ const spellingIntakeSchema = z.object({
 }).strict();
 // Intake's declared instrument inventory has one canonical node; activity types are separate identities.
 const intakePortal = adventureBoardDefinitionSchema.shape.portals.element;
-const intakeBoardSchema = adventureBoardDefinitionSchema.extend({portals:z.array(z.union([
+const intakeBoardSchema = authoredBoardDefinitionSchema.extend({portals:z.array(z.union([
   intakePortal.extend({kind:z.literal('activity'),activityNodeId:z.enum(['diagnostic'])}),
   intakePortal.extend({kind:z.literal('endpoint'),activityNodeId:z.enum(['diagnostic']).optional()}),
   intakePortal.omit({activityNodeId:true}).extend({kind:z.enum(['start','choice'])}),
@@ -944,7 +944,7 @@ const compactActiveSessionPlanSchema = z.object({
   planId: z.string().min(1).optional(),
   nodePlan: z.array(compactNodePlanSchema).min(1).max(12),
   journey: adventureJourneySchema.optional(),
-  boardDefinition: adventureBoardDefinitionSchema.optional(),
+  boardDefinition: authoredBoardDefinitionSchema.optional(),
   evidenceUsed: z.array(z.object({
     id: z.string().min(1),
     type: z.string().min(1),

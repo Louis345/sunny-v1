@@ -35,7 +35,17 @@ export async function requestPlannerMessage(
   }
 }
 
+/** The provider's own reason for a refusal (type, category, explanation), or null. */
+export function refusalDetails(message: unknown): Record<string, unknown> | null {
+  const details = (message as { stop_details?: unknown } | null)?.stop_details;
+  return details && typeof details === 'object' && !Array.isArray(details) ? details as Record<string, unknown> : null;
+}
+export function describeRefusal(message: unknown): string {
+  const details = refusalDetails(message);
+  return details ? `category=${String(details.category ?? 'none')} explanation=${String(details.explanation ?? 'none')}` : 'stop_details=missing';
+}
 export function assertPlannerResponseComplete(message: { stop_reason?: string | null }): void {
+  if (message.stop_reason === 'refusal') console.error(` 🎮 [planner] [response] [refused] ${describeRefusal(message)}`);
   if (['max_tokens', 'refusal', 'model_context_window_exceeded', 'pause_turn'].includes(message.stop_reason ?? '')) {
     throw Error(`planner_response_${message.stop_reason}`);
   }
@@ -161,7 +171,12 @@ export function strictBudget(tools: Array<{ input_schema: unknown; strict?: bool
       optional += Object.keys(schema.properties as JsonSchema).filter(key => !required.has(key)).length;
     }
     if (schema.anyOf || Array.isArray(schema.type)) unions += 1;
-    for (const [key, value] of Object.entries(schema)) if (typeof value === 'object' && key !== 'enum' && key !== 'const' && key !== 'required') walk(value, key === 'properties' ? path : `${path}.${key}`);
+    for (const [key, value] of Object.entries(schema)) {
+      if (typeof value !== 'object' || value === null || key === 'enum' || key === 'const' || key === 'required') continue;
+      // A properties map names fields; its keys are never schema keywords.
+      if (key === 'properties' || key === '$defs' || key === 'definitions') for (const [child, sub] of Object.entries(value as JsonSchema)) walk(sub, key === 'properties' ? `${path}.${child}` : `#${child}`);
+      else walk(value, `${path}.${key}`);
+    }
   };
   for (const tool of tools) if (tool.strict !== false) walk(tool.input_schema, '$');
   return { optional, unions, unsupported };

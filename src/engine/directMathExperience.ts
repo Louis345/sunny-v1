@@ -1,5 +1,6 @@
 import {hydrateNativeLearningProgram,nativeLearningProgramToolJsonSchema,resolveAssignmentPlannerModel,type AssignmentPlanningPacket,type AssignmentPlannerOutput,type AssignmentPlannerTelemetry} from "./assignmentPlanner";
-import {requestPlannerMessage,assertPlannerResponseComplete,decodeToolInput} from "./plannerTransport";
+import {requestPlannerMessage,assertPlannerResponseComplete,decodeToolInput,describeRefusal,refusalDetails,strictTool} from "./plannerTransport";
+import {layoutJourney,THEME_PRESETS,DEFAULT_THEME_PRESET,themeOfPreset,type PortalPlacement} from "../shared/boardLayout";
 import {isDeepStrictEqual} from "node:util";
 import {z} from "zod";
 import {learningPlannerInstructions} from "./learningPlannerInstructions";
@@ -1234,6 +1235,8 @@ type LearningCreatorInput = {
   checkpointFile?: string;
   rawResponseDir?: string;
   retryUncertain?: boolean;
+  /** Presentation history from the child chart, so each spelling map can be a new design. */
+  previousDesigns?: ReadonlyArray<{pattern:string;theme?:string|null}>;
 };
 export const MAX_BOARD_PREVIEWS=2;
 const PLANNER_CARD_FIELDS=["activityId","label","purposes","skillTargets","bestFor","evidenceType","evidenceRole","proofStrength","inputModes","measures","requiredConfig"] as const;
@@ -1253,80 +1256,92 @@ export function compactPlannerFacts(packet:AssignmentPlanningPacket) {
     ...(history.length?{history:Object.fromEntries(history.map(([construct,entry])=>[construct,{observations:(entry.observations??[]).map(row=>({observationId:row.observationId,typed:row.childResponse??null,correct:row.result?.correct??null})),evaluations:(entry.evaluations??[]).map(row=>row.evaluationId)}]))}:{}),
   };
 }
-/** The map is a grid: stops line up and spacing is even by construction. */
-const BOARD_GRID={landscape:{cols:7,rows:3},portrait:{cols:3,rows:4}} as const;
-const gridPoint=(cell:{col:number;row:number},grid:{cols:number;rows:number})=>({x:Math.min(grid.cols-1,Math.max(0,Math.round(cell.col)))/(grid.cols-1),y:Math.min(grid.rows-1,Math.max(0,Math.round(cell.row)))/(grid.rows-1)});
-const cellSchema=(grid:{cols:number;rows:number})=>({type:"object",additionalProperties:false,required:["col","row"],properties:{col:{type:"integer",minimum:0,maximum:grid.cols-1},row:{type:"integer",minimum:0,maximum:grid.rows-1}}});
-const portalCellSchema={type:"object",additionalProperties:false,required:["landscape","portrait"],properties:{landscape:cellSchema(BOARD_GRID.landscape),portrait:cellSchema(BOARD_GRID.portrait)}};
-/** A placement given as grid cells becomes the board's position; nothing is moved or judged. */
-function placementFromCells(row:unknown):unknown {
-  const portal=object(row),cell=object(portal?.cell);if(!portal||!cell)return row;
-  const landscape=object(cell.landscape),portrait=object(cell.portrait);
-  if(!landscape||!portrait||[landscape.col,landscape.row,portrait.col,portrait.row].some(value=>typeof value!=="number"))return row;
-  const {cell:_cell,...rest}=portal;
-  return {...rest,position:{landscape:gridPoint(landscape as {col:number;row:number},BOARD_GRID.landscape),portrait:gridPoint(portrait as {col:number;row:number},BOARD_GRID.portrait)}};
-}
-const MAP_ARTIST_PERSONA="You are Sunny's map artist. You design adventure maps a child wants to finish. You receive the teacher's journey and the illustrated world. You decide placement, palette, path style and feel. You never change the lesson.";
+const MAP_ARTIST_PERSONA="You are Sunny's map artist. You design adventure maps a child wants to finish. You receive the teacher's journey and the illustrated world. You decide the shape of the map, where each stop sits, how each path curves and which look it wears. You never change the lesson.";
 const BOARD_ARTWORK="/generated/adventure-board-demo/silent-letter-world.jpeg";
-const FALLBACK_SPOT={landscape:{x:.5,y:.5},portrait:{x:.5,y:.5}};
-/** The artist's submission is drawn as given. A portal it left unplaced still has to be
- * somewhere for the map to publish, so it goes to one fixed, logged spot; nothing is moved. */
-function compositionAsSubmitted(journey:AdventureJourneyDefinition,raw:unknown):AdventureBoardComposition|undefined {
-  const source=object(raw);if(!source)return undefined;
-  const portalSchema=adventureCompositionSchema.shape.portals.element,edgeSchema=adventureCompositionSchema.shape.edges.element;
-  const rows=(value:unknown)=>new Map((Array.isArray(value)?value:[]).map(placementFromCells).flatMap(row=>{const item=object(row);return item&&typeof item.id==="string"?[[item.id,row] as const]:[];}));
-  const portals=rows(source.portals),edges=rows(source.edges);
-  // The theme is read key by key: a spare or missing palette entry never costs the artist its world or its colours.
-  const given=object(source.theme),background=adventureCompositionSchema.shape.theme.shape.background.safeParse(given?.background);
-  const defaults={path:"#ffffff",completed:"#1f8f68",available:"#7c3aed",locked:"#aeb7c2",current:"#f59e0b",preview:"#d5dde5",text:"#ffffff",panel:"rgba(15, 23, 42, 0.84)"};
-  const palette=Object.fromEntries(Object.entries(defaults).map(([key,fallback])=>{const value=object(given?.palette)?.[key];return [key,typeof value==="string"&&value.trim()?value.trim():fallback];}));
-  if(!background.success||!given?.palette)console.log(` 🎮 [experience-creator] [theme] [fallback] background=${background.success?"as-submitted":"illustrated-world"} palette=${given?.palette?"as-submitted":"default"}`);
+const ARTIST_CURVES=["straight","arc","wave","loop"] as const,ARTIST_STYLES=["solid","dashed","glow"] as const;
+type BoardPoint={x:number;y:number};
+type ArtistDrawing={pattern?:string;theme?:string;portals:Map<string,PortalPlacement>;edges:Map<string,{curve:string;style:string}>};
+const unit=(value:unknown)=>typeof value==="number"&&Number.isFinite(value)?Math.min(1,Math.max(0,Math.round(value*1000)/1000)):undefined;
+const boardPoint=(value:unknown):BoardPoint|undefined=>{const point=object(value),x=unit(point?.x),y=unit(point?.y);return x===undefined||y===undefined?undefined:{x,y};};
+/** Control points for the curve the artist chose; the board draws a path through them. */
+function curvePoints(curve:string,from:BoardPoint,to:BoardPoint):BoardPoint[]|undefined {
+  if(curve==="straight"||!(ARTIST_CURVES as readonly string[]).includes(curve))return undefined;
+  const dx=to.x-from.x,dy=to.y-from.y,length=Math.hypot(dx,dy)||1,normal={x:-dy/length,y:dx/length};
+  const [bend,steps,shape]=curve==="wave"?[.15,[.2,.4,.6,.8],(t:number)=>Math.sin(2*Math.PI*t)]:[curve==="loop"?.35:.15,[.25,.5,.75],(t:number)=>Math.sin(Math.PI*t)] as const;
+  return steps.map(t=>({x:unit(from.x+dx*t+normal.x*bend*length*shape(t))!,y:unit(from.y+dy*t+normal.y*bend*length*shape(t))!}));
+}
+/** Merges one artist turn into its drawing. A preview is a whole new map; an adjustment or the
+ * submission changes only what it names. Anything unreadable is simply not drawn. */
+function drawArtistTurn(drawing:ArtistDrawing|undefined,given:Record<string,unknown>,whole:boolean):ArtistDrawing {
+  const next:ArtistDrawing={pattern:drawing?.pattern,theme:drawing?.theme,portals:new Map(whole?[]:drawing?.portals??[]),edges:new Map(whole?[]:drawing?.edges??[])};
+  if(typeof given.pattern==="string"&&given.pattern.trim())next.pattern=given.pattern.trim();
+  if(typeof given.theme==="string")next.theme=given.theme;
+  for(const row of Array.isArray(given.portals)?given.portals:[]){const portal=object(row),landscape=boardPoint(portal?.landscape),portrait=boardPoint(portal?.portrait);if(typeof portal?.id==="string"&&landscape&&portrait)next.portals.set(portal.id,{landscape,portrait});}
+  for(const row of Array.isArray(given.edges)?given.edges:[]){const edge=object(row);if(typeof edge?.id==="string"&&typeof edge.curve==="string"&&(ARTIST_STYLES as readonly unknown[]).includes(edge.style))next.edges.set(edge.id,{curve:edge.curve,style:String(edge.style)});}
+  return next;
+}
+/** The drawing as a board composition. Code places only what the artist left out, on the plain
+ * fallback layout, and logs it; nothing the artist placed is moved or judged. */
+function compositionFromDrawing(journey:AdventureJourneyDefinition,drawing:ArtistDrawing|undefined,quiet=false):AdventureBoardComposition {
+  const plain=layoutJourney(journey).positions,theme=drawing?.theme?themeOfPreset(drawing.theme):undefined;
+  if(!theme&&!quiet)console.log(` 🎮 [experience-creator] [theme] [fallback] preset=${DEFAULT_THEME_PRESET.id} given=${drawing?.theme??"none"}`);
+  const positions=new Map(journey.portals.map(portal=>{
+    const drawn=drawing?.portals.get(portal.id);
+    if(!drawn&&!quiet)console.log(` 🎮 [experience-creator] [portal] [fallback-position] portal=${portal.id}`);
+    return [portal.id,drawn??plain[portal.id]] as const;
+  }));
   return adventureCompositionSchema.parse({
-    theme:{background:background.success?background.data:{type:"image",value:BOARD_ARTWORK},palette},
-    portals:journey.portals.map(portal=>{const placed=portalSchema.safeParse(portals.get(portal.id));if(placed.success)return placed.data;console.log(` 🎮 [experience-creator] [portal] [fallback-position] portal=${portal.id}`);return {id:portal.id,position:FALLBACK_SPOT};}),
-    edges:journey.edges.map(edge=>{const styled=edgeSchema.safeParse(edges.get(edge.id));return styled.success?styled.data:{id:edge.id};}),
+    theme:theme??themeOfPreset(DEFAULT_THEME_PRESET.id),
+    portals:journey.portals.map(portal=>({id:portal.id,position:positions.get(portal.id)})),
+    edges:journey.edges.map(edge=>{
+      const drawn=drawing?.edges.get(edge.id);if(!drawn)return {id:edge.id};
+      const from=positions.get(edge.from),to=positions.get(edge.to);
+      const landscape=from&&to?curvePoints(drawn.curve,from.landscape,to.landscape):undefined,portrait=from&&to?curvePoints(drawn.curve,from.portrait,to.portrait):undefined;
+      return {id:edge.id,style:drawn.style,...(landscape&&portrait?{controlPoints:{landscape,portrait}}:{})};
+    }),
   });
 }
-/** Spelling Teaching boards: the map artist places, may look at the real render up to
- * MAX_BOARD_PREVIEWS times, and submits. Code accepts the submission; it never rejects
- * or repairs a layout. The loop is bounded at MAX_BOARD_PREVIEWS + 1 provider calls. */
+/** Spelling boards: the map artist paints the Planner's journey on a free canvas, may look at the
+ * real render up to MAX_BOARD_PREVIEWS times, and submits. Code never rejects or repairs the map.
+ * A refusal or an unreadable reply still publishes a board: the artist's last look if it had one,
+ * otherwise the plain fallback layout. The loop is bounded at MAX_BOARD_PREVIEWS + 1 provider calls. */
 async function designNativeBoard(input:LearningCreatorInput,native:NativeLearningProgram):Promise<{packet:{composition:AdventureBoardComposition};plan:ActiveSessionPlan}> {
   const client=input.client??new Anthropic({apiKey:process.env.ANTHROPIC_API_KEY});
   const model=input.model??process.env.SUNNY_ARCHITECT_MODEL??"claude-fable-5";
   const journey=native.journey,started=Date.now();
   const sourceHash=crypto.createHash("sha256").update(JSON.stringify({childId:input.childId,domain:"spelling",program:input.program})).digest("hex");
-  const saved=input.checkpointFile&&fs.existsSync(input.checkpointFile)?JSON.parse(fs.readFileSync(input.checkpointFile,"utf8")) as {sourceHash?:string;composition?:AdventureBoardComposition;previews?:number;elapsedMs?:number}:undefined;
+  const saved=input.checkpointFile&&fs.existsSync(input.checkpointFile)?JSON.parse(fs.readFileSync(input.checkpointFile,"utf8")) as {sourceHash?:string;composition?:AdventureBoardComposition;pattern?:string;previews?:number;elapsedMs?:number}:undefined;
   if(saved&&saved.sourceHash!==sourceHash)throw new Error("learning_design_checkpoint_program_mismatch");
-  const finish=(composition:AdventureBoardComposition)=>({packet:{composition},plan:{...native.plan,journey,boardDefinition:assembleAdventureBoardDefinition(journey,composition)}});
-  if(saved?.composition)return finish(saved.composition);
+  const finish=(composition:AdventureBoardComposition,pattern?:string)=>({packet:{composition},plan:{...native.plan,journey,boardDefinition:assembleAdventureBoardDefinition(journey,composition,pattern)}});
+  if(saved?.composition)return finish(saved.composition,saved.pattern);
   const draftDir=input.checkpointFile?path.dirname(input.checkpointFile):undefined;
   const workDir=path.join(input.rawResponseDir??draftDir??fs.mkdtempSync(path.join(os.tmpdir(),"sunny-design-")),"creator-preview");
   const sizes=await measureBoardPortals({journey,rootDir:process.cwd(),directory:path.join(workDir,"sizes")});
-  // The approved Sunny look is the illustrated world; the artist's form offers only the available artwork.
-  const artwork={type:"object",additionalProperties:false,required:["type","value"],properties:{type:{const:"image"},value:{type:"string",enum:[BOARD_ARTWORK]}}};
-  const compositionSchema=z.toJSONSchema(adventureCompositionSchema,{io:"input"}) as unknown as Anthropic.Messages.Tool.InputSchema&{properties:{theme:{properties:Record<string,unknown>}}};
-  compositionSchema.properties.theme.properties.background=artwork;
-  const portalItem=(compositionSchema.properties as unknown as {portals:{items:{properties:Record<string,unknown>;required?:string[]}}}).portals.items;
-  delete portalItem.properties.position;portalItem.properties.cell=portalCellSchema;portalItem.required=["id","cell"];
+  const point={type:"object",additionalProperties:false,required:["x","y"],properties:{x:{type:"number",description:"0 is the left edge of the open area, 1 the right."},y:{type:"number",description:"0 is the top of the open area, 1 the bottom."}}};
+  const portals={type:"array",description:"Where each stop sits: its centre, for each orientation.",items:{type:"object",additionalProperties:false,required:["id","landscape","portrait"],properties:{id:{type:"string",enum:journey.portals.map(portal=>portal.id)},landscape:point,portrait:point}}};
+  const edges={type:"array",description:"How each path between two stops is drawn.",items:{type:"object",additionalProperties:false,required:["id","curve","style"],properties:{id:{type:"string",enum:journey.edges.map(edge=>edge.id)},curve:{type:"string",enum:[...ARTIST_CURVES]},style:{type:"string",enum:[...ARTIST_STYLES]}}}};
+  const theme={type:"string",enum:THEME_PRESETS.map(preset=>preset.id),description:"The look of the map."};
+  const pattern={type:"string",description:"Your design idea in a few words, for example octagon ring, spiral or mountain climb."};
   const whatISee={type:"string",description:"Write this first. Before your first look, say what you intend. After a look, describe what the screenshots actually show: can you read every label against the scene, and do any portals or labels crowd or overlap? Say what you will change, or why it is ready."} as const;
-  const changes={portals:{type:"array",items:{type:"object",additionalProperties:false,required:["id","cell"],properties:{id:schemaString,cell:portalCellSchema}}},edges:z.toJSONSchema(adventureCompositionSchema.shape.edges,{io:"input"}),theme:{type:"object",additionalProperties:false,properties:{background:artwork,palette:{type:"object",additionalProperties:false,properties:Object.fromEntries(Object.keys(adventureCompositionSchema.shape.theme.shape.palette.shape).map(key=>[key,schemaString]))}}}};
+  const tool=(name:string,description:string,properties:Record<string,unknown>,required:string[])=>strictTool({name,description,input_schema:{type:"object" as const,additionalProperties:false,required,properties}});
   // Once the looks are used, the last turn takes changes only: a full redraw costs the child minutes.
-  const finalTool:Anthropic.Messages.Tool={name:"submit_board",description:"Your looks are used. Submit the map as you last saw it, with any last changes. Do not redraw it.",input_schema:{type:"object",additionalProperties:false,required:["whatISee","rationale"],properties:{whatISee,...changes,rationale:schemaString}}};
-  const tools:Anthropic.Messages.Tool[]=[
-    {name:"preview_board",description:`Place the whole map and see it rendered on the real board at 1280x720 and 768x1024, with each portal's measured box and any overlaps. You may look at most ${MAX_BOARD_PREVIEWS} times in total.`,input_schema:{type:"object",additionalProperties:false,required:["whatISee","composition"],properties:{whatISee,composition:compositionSchema}}},
-    {name:"adjust_board",description:"After a look, change only what needs changing and look again. Everything you do not mention stays exactly as it was. This is much faster than sending the whole map again.",input_schema:{type:"object",additionalProperties:false,required:["whatISee"],properties:{whatISee,...changes}}},
-    {name:"submit_board",description:"Submit the finished map. It is published exactly as submitted. Leave composition out to submit the map as you last saw it; you may include a few last changes.",input_schema:{type:"object",additionalProperties:false,required:["whatISee","rationale"],properties:{whatISee,composition:compositionSchema,...changes,rationale:schemaString}}},
+  const finalTool=tool("submit_board","Your looks are used. Submit the map as you last saw it, with any last changes. Do not redraw it.",{whatISee,pattern,theme,portals,edges,rationale:schemaString},["whatISee","pattern","rationale"]);
+  const tools=[
+    tool("preview_board",`Place the whole map and see it rendered on the real board at 1280x720 and 768x1024, with each portal's measured box and any overlaps. You may look at most ${MAX_BOARD_PREVIEWS} times in total.`,{whatISee,pattern,theme,portals,edges},["whatISee","pattern","theme","portals","edges"]),
+    tool("adjust_board","After a look, change only what needs changing and look again. Everything you do not mention stays exactly as it was. This is much faster than sending the whole map again.",{whatISee,pattern,theme,portals,edges},["whatISee"]),
+    tool("submit_board","Submit the finished map. It is published exactly as submitted. Leave portals and edges out to submit the map as you last saw it; you may include a few last changes.",{whatISee,pattern,theme,portals,edges,rationale:schemaString},["whatISee","pattern","rationale"]),
   ];
+  const earlier=(input.previousDesigns??[]).filter(design=>design.pattern.trim());
   let messages:Anthropic.Messages.MessageParam[]=[{role:"user",content:`${MAP_ARTIST_PERSONA}
-Place every stop on the map grid, for landscape (1280x720 kiosk) and portrait (768x1024), and choose the palette and path styles. The background is always the illustrated world, ${BOARD_ARTWORK}; never replace it with a plain colour or gradient.
-The grid: landscape has 7 columns (0 to 6, left to right) and 3 rows (0 top, 1 middle, 2 bottom); portrait has 3 columns and 4 rows. Each stop takes one cell, and stops line up along the rows and columns, so the trail looks deliberate. Run the shared journey left to right along the middle row. When the journey splits at a choice, give each option its own lane: one option's stops along the top row, the other's along the bottom row, then bring the trail back to the middle row where they rejoin, so she sees a real fork. In portrait, use columns as the lanes and run the journey top to bottom.
-How your colours are used: every label is drawn as text in palette.text on a rounded plate filled with palette.panel, sitting on the illustrated scene. Choose text and panel as a pair with strong contrast so a child can read every label at a glance. Status chips use the same pair.
-Spacing: each portal is an orb with its label plate underneath; the measured sizes below include the wrapped label. Use the whole canvas: spread the journey across all 7 columns so it breathes. Never put two stops in one cell, and leave an empty cell between stops when there is room.
-Already taken on screen, so keep portals away: the level badge in the top-left corner, the status bar along the bottom centre, and Elli, the companion, who stands in the bottom-right corner: keep the bottom-right cell empty in both orientations.
-Your map is published exactly as you submit it; nobody corrects it. Look at your own work: when you get the screenshots, check that you can read every label and that nothing overlaps, and fix what you see with adjust_board. Each look costs the child waiting time, so make each one count.
+Design the map for landscape (1280x720 kiosk) and portrait (768x1024). Each stop's position is x and y from 0 to 1 across the board's open area, 0,0 at the top-left; the numbers are the centre of the stop. Choose any shape that suits this journey: a ring, a spiral, a climb, a river, a constellation, a winding road, or an idea of your own, and name it in pattern. When the journey splits at a choice, give each option its own branch until the options rejoin, so she sees a real fork. For each path choose a curve (straight, arc, wave or loop) and a style (solid, dashed or glow).
+The background is always the illustrated world, ${BOARD_ARTWORK}. Choose one theme for the colours: ${THEME_PRESETS.map(preset=>`${preset.id} (${preset.label})`).join(", ")}. Every label is drawn as text on a rounded plate; each theme's text and plate colours are already chosen so a child can read every label at a glance.
+Spacing: each portal is an orb with its label plate underneath; the measured sizes below include the wrapped label. Use the whole canvas so the map breathes, and leave at least 28 pixels of air between stops.
+Already taken on screen, so keep portals away: the level badge in the top-left corner, the status bar along the bottom centre, and Elli, the companion, who stands in the bottom-right corner.
+${earlier.length?`Her earlier maps: ${earlier.map(design=>`${design.pattern}${design.theme?` (${design.theme})`:""}`).join("; ")}. Make this a new design she has not seen: a different shape and feel.`:"Make this a new design: a shape and feel she will remember."}
+Your map is published exactly as you submit it; nobody corrects it. A stop you leave out is drawn on a plain spot. Look at your own work: when you get the screenshots, check that you can read every label and that nothing overlaps, and fix what you see with adjust_board. Each look costs the child waiting time, so make each one count.
 Measured portal sizes in pixels (width and height include the wrapped label): ${JSON.stringify(sizes)}
-The teacher's journey (immutable): stops ${JSON.stringify(journey.portals.map(portal=>({id:portal.id,label:portal.label,kind:portal.kind})))}; paths in order ${JSON.stringify(journey.paths.map(path=>({id:path.id,stops:path.portalIds})))}; choice ${JSON.stringify(journey.choices.map(choice=>({at:choice.portalId,options:choice.options.map(option=>({label:option.label,path:option.pathId}))})))}`}];
-  let previews=0,last:AdventureBoardComposition|undefined;
+The teacher's journey (immutable): stops ${JSON.stringify(journey.portals.map(portal=>({id:portal.id,label:portal.label,kind:portal.kind})))}; paths in order ${JSON.stringify(journey.paths.map(path=>({id:path.id,stops:path.portalIds})))}; connections ${JSON.stringify(journey.edges.map(edge=>({id:edge.id,from:edge.from,to:edge.to})))}; choice ${JSON.stringify(journey.choices.map(choice=>({at:choice.portalId,options:choice.options.map(option=>({label:option.label,path:option.pathId}))})))}`}];
+  let previews=0,drawing:ArtistDrawing|undefined,ending="submitted";
   for(let turn=1;turn<=MAX_BOARD_PREVIEWS+1;turn+=1){
     const mustSubmit=previews>=MAX_BOARD_PREVIEWS;
     let request={model,max_tokens:Number(process.env.SUNNY_DIRECTOR_MAX_TOKENS??16000),messages,tools:mustSubmit?[finalTool]:tools,tool_choice:mustSubmit?{type:"tool",name:"submit_board"}:{type:"any"}} as Anthropic.MessageCreateParamsNonStreaming;
@@ -1340,44 +1355,41 @@ The teacher's journey (immutable): stops ${JSON.stringify(journey.portals.map(po
     }
     const execute=()=>client.messages.stream(request,{timeout:Number(process.env.SUNNY_AI_TIMEOUT_MS??600000),maxRetries:0}).finalMessage();
     const response=draftDir?await runMathProviderStage({draftDir,stage,model,request,execute,retryUncertain:input.retryUncertain,beforeRequest:()=>{if(!input.client&&!process.env.ANTHROPIC_API_KEY?.trim())throw new Error("preflight_missing:ANTHROPIC_API_KEY");}}):await execute();
-    if(input.rawResponseDir){fs.mkdirSync(input.rawResponseDir,{recursive:true});fs.writeFileSync(path.join(input.rawResponseDir,`design-response-${turn}.json`),`${JSON.stringify({model,stopReason:response.stop_reason,usage:response.usage,content:response.content},null,2)}\n`,"utf8");}
-    // A refusal is terminal even if it includes a partial tool call or follows a
-    // valid preview. Preserve the receipt, but never turn it into another request
-    // or treat the previous preview as the artist's final submission.
+    if(input.rawResponseDir){fs.mkdirSync(input.rawResponseDir,{recursive:true});fs.writeFileSync(path.join(input.rawResponseDir,`design-response-${turn}.json`),`${JSON.stringify({model,stopReason:response.stop_reason,stopDetails:refusalDetails(response),usage:response.usage,content:response.content},null,2)}\n`,"utf8");}
+    // A refusal ends the artist's turns: its partial output is never trusted and never bought
+    // again. The board still publishes, from its last look or the plain layout (contract 39).
     // The provider can return refusal even though the pinned SDK's union predates it.
     const stopReason: string | null = response.stop_reason;
     if(stopReason === "refusal"){
-      console.error(` 🎮 [experience-creator] [response] [refused] stage=${stage}`);
-      throw new Error("learning_design_provider_refused");
+      console.error(` 🎮 [experience-creator] [response] [refused] stage=${stage} ${describeRefusal(response)}`);
+      ending="refused";break;
     }
     const tool=response.content.find((block):block is Anthropic.Messages.ToolUseBlock=>block.type==="tool_use"&&["preview_board","adjust_board","submit_board"].includes(block.name));
-    const given=object(tool?decodeToolInput(tool.input,(mustSubmit?[finalTool]:tools).find(candidate=>candidate.name===tool.name)?.input_schema):undefined);
-    if(typeof given?.whatISee==="string")console.log(` 🎮 [experience-creator] [self-review] turn=${turn} ${given.whatISee.replace(/\s+/g," ").slice(0,300)}`);
-    // An adjustment changes only what the artist names; everything else stays as last seen.
-    const adjusted=tool&&last&&given&&!given.composition&&(tool.name==="adjust_board"||given.portals||given.edges||given.theme)?{...last,
-      portals:last.portals.map(portal=>{const moved=(Array.isArray(given.portals)?given.portals:[]).map(placementFromCells).map(object).find(row=>row?.id===portal.id);return moved?.position?{...portal,position:moved.position}:portal;}),
-      edges:last.edges.map(edge=>({...edge,...((Array.isArray(given.edges)?given.edges:[]).map(object).find(row=>row?.id===edge.id)??{})})),
-      theme:{background:object(object(given.theme)?.background)??last.theme.background,palette:{...last.theme.palette,...object(object(given.theme)?.palette)}}}:undefined;
-    const candidate=tool?compositionAsSubmitted(journey,adjusted??given?.composition):undefined;
-    last=candidate??last;
-    if(!tool||tool.name==="submit_board"||mustSubmit)break;
+    if(!tool){ending=`no_tool:${stopReason}`;break;}
+    const given=object(decodeToolInput(tool.input,(mustSubmit?[finalTool]:tools).find(candidate=>candidate.name===tool.name)?.input_schema))??{};
+    if(typeof given.whatISee==="string")console.log(` 🎮 [experience-creator] [self-review] turn=${turn} ${given.whatISee.replace(/\s+/g," ").slice(0,300)}`);
+    drawing=drawArtistTurn(drawing,given,tool.name==="preview_board");
+    if(tool.name==="submit_board"||mustSubmit)break;
     previews+=1;
-    const preview=candidate?await renderBoardPreview({definition:assembleAdventureBoardDefinition(journey,candidate),rootDir:process.cwd(),directory:path.join(workDir,`look-${previews}`)}):undefined;
+    const preview=await renderBoardPreview({definition:assembleAdventureBoardDefinition(journey,compositionFromDrawing(journey,drawing),drawing.pattern),rootDir:process.cwd(),directory:path.join(workDir,`look-${previews}`)});
     console.log(` 🎮 [experience-creator] [preview] [shown] look=${previews}/${MAX_BOARD_PREVIEWS}`);
-    messages=[...messages,{role:"assistant",content:response.content},{role:"user",content:[{type:"tool_result",tool_use_id:tool.id,content:preview?[
-      {type:"text",text:`Look ${previews} of ${MAX_BOARD_PREVIEWS}. Measured portal boxes in pixels: ${JSON.stringify(preview.portals)}. ${preview.overlaps.length?`These measured boxes overlap: ${JSON.stringify(preview.overlaps)}.`:"No measured boxes overlap."} ${preview.crowded.length?`These are closer than 28 pixels: ${JSON.stringify(preview.crowded)}.`:"Every pair has at least 28 pixels of air."} Artwork ${preview.artworkLoaded?"loaded":"did not load"}. Look at the screenshots: can you read every label? ${previews>=MAX_BOARD_PREVIEWS?"This was your last look; submit now.":"Use adjust_board to change only what needs it, or submit_board without a composition to publish this exactly as shown."}`},
+    messages=[...messages,{role:"assistant",content:response.content},{role:"user",content:[{type:"tool_result",tool_use_id:tool.id,content:[
+      {type:"text",text:`Look ${previews} of ${MAX_BOARD_PREVIEWS}. Measured portal boxes in pixels: ${JSON.stringify(preview.portals)}. ${preview.overlaps.length?`These measured boxes overlap: ${JSON.stringify(preview.overlaps)}.`:"No measured boxes overlap."} ${preview.crowded.length?`These are closer than 28 pixels: ${JSON.stringify(preview.crowded)}.`:"Every pair has at least 28 pixels of air."} Artwork ${preview.artworkLoaded?"loaded":"did not load"}. Look at the screenshots: can you read every label? ${previews>=MAX_BOARD_PREVIEWS?"This was your last look; submit now.":"Use adjust_board to change only what needs it, or submit_board without portals and edges to publish this exactly as shown."}`},
       ...preview.screenshots.flatMap(shot=>[{type:"text" as const,text:shot.viewport},{type:"image" as const,source:{type:"base64" as const,media_type:"image/png" as const,data:fs.readFileSync(shot.file).toString("base64")}}]),
-    ]:"That composition could not be read, so nothing was drawn."}]}];
+    ]}]}];
   }
-  if(!last)throw new Error("learning_design_provider_contract_failed:composition_missing");
-  const elapsedMs=Date.now()-started;
+  const placed=drawing?.portals.size??0;
+  if(!placed)console.log(` 🎮 [experience-creator] [composition] [fallback-layout] reason=${ending==="submitted"?"nothing_placed":ending} plan=${native.planId}`);
+  else if(ending!=="submitted")console.log(` 🎮 [experience-creator] [composition] [last-look] reason=${ending} plan=${native.planId}`);
+  console.log(` 🎮 [experience-creator] [pattern] ${drawing?.pattern??"none"}`);
+  const composition=compositionFromDrawing(journey,drawing,!placed),elapsedMs=Date.now()-started;
   if(input.checkpointFile){
     fs.mkdirSync(path.dirname(input.checkpointFile),{recursive:true});
-    fs.writeFileSync(input.checkpointFile+".tmp",`${JSON.stringify({version:1,planId:native.planId,model,sourceHash,composition:last,previews,elapsedMs},null,2)}\n`,"utf8");
+    fs.writeFileSync(input.checkpointFile+".tmp",`${JSON.stringify({version:2,planId:native.planId,model,sourceHash,composition,...(drawing?.pattern?{pattern:drawing.pattern}:{}),ending,previews,elapsedMs},null,2)}\n`,"utf8");
     fs.renameSync(input.checkpointFile+".tmp",input.checkpointFile);
   }
-  console.log(` 🎮 [experience-creator] [composition] [accepted] plan=${native.planId} previews=${previews} elapsed_ms=${elapsedMs}`);
-  return finish(last);
+  console.log(` 🎮 [experience-creator] [composition] [accepted] plan=${native.planId} previews=${previews} ending=${ending} elapsed_ms=${elapsedMs}`);
+  return finish(composition,drawing?.pattern);
 }
 export function askLearningExperienceDesigner(input:LearningCreatorInput & {program:NativeLearningProgram}):Promise<{packet:{composition:AdventureBoardComposition};plan:ActiveSessionPlan}>;
 export function askLearningExperienceDesigner(input:LearningCreatorInput & {program:MathLearningProgram}):Promise<{packet:MathDesignPacket;plan:DirectLearningExperiencePlan}>;

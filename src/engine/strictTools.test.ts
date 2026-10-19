@@ -39,6 +39,11 @@ describe("strict tools lock the model to the schema",()=>{
     expect(schema.properties.id).toEqual({type:"string"});
     expect(strict.strictBudget([{input_schema:{type:"object",additionalProperties:false,properties:{id:{type:"string",pattern:"x"}}}}]).unsupported).toEqual(["$.id.pattern"]);
   });
+  // 2026-10-19: the map artist's field named "pattern" was reported as the regex keyword pattern.
+  it("tells a property named like a keyword from the keyword itself",()=>{
+    const schema={type:"object",additionalProperties:false,required:["pattern","minLength"],properties:{pattern:{type:"string"},minLength:{type:"number"}}};
+    expect(strict.strictBudget([{input_schema:schema}]).unsupported).toEqual([]);
+  });
   it("refuses a free-form map, which no grammar can lock",()=>{
     expect(()=>strict.strictToolSchema({type:"object",additionalProperties:{type:"string"}})).toThrow("strict_schema_free_form");
   });
@@ -68,13 +73,18 @@ describe("strict tools lock the model to the schema",()=>{
 
   // Live compile check 2026-10-18 (claude-sonnet-5-5, claude-fable-5): the API rejected the lesson
   // Planner's tool and the map artist's tools together as "compiled grammar is too large", although
-  // they fit the documented field counts. A rejected request produces no map at all, so these stay
-  // unlocked, with the decoder, until their forms are slimmed and pass a live compile check.
-  it("keeps the lesson Planner and map artist unlocked until their forms pass a live compile check",async()=>{
+  // they fit the documented field counts. A rejected request produces no map at all, so the lesson
+  // Planner stays unlocked, with the decoder, until its form is slimmed (proposal step 3).
+  // Live compile check 2026-10-19 (claude-fable-5): the slimmed map-artist tools compiled strict and
+  // painted a full board; they are locked (mapArtistCanvas.test.ts).
+  it("keeps the lesson Planner unlocked until its form passes a live compile check",async()=>{
     const fs=await import("node:fs"),path=await import("node:path");
     const source=fs.readFileSync(path.join(__dirname,"directMathExperience.ts"),"utf8");
-    expect(source).not.toContain("strictTool(");
-    expect(source).not.toMatch(/strict:\s*true/);
+    const start=source.indexOf('const toolName = native?"create_learning_program"');
+    const plannerRequest=source.slice(start,source.indexOf('tool_choice: { type: "tool", name: toolName }',start));
+    expect(plannerRequest).toContain("nativeLearningProgramToolJsonSchema");
+    expect(plannerRequest).not.toContain("strictTool(");
+    expect(plannerRequest).not.toMatch(/strict:\s*true/);
     expect(planner.nativeLearningProgramToolJsonSchema(catalog)).toBeDefined();
   });
 });
