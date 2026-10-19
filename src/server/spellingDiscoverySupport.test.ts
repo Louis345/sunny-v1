@@ -274,3 +274,22 @@ it("hands the native activity's dictionary-grounded target to Elli's live turn",
   expect(context).toContain("Syllable count: 2");
   expect(context).toContain("Do not replace this target with words from room conversation");
 });
+
+it("records hidden target letter disclosure in the production session trace", () => {
+  const s = session();
+  const trace = vi.spyOn(s, "recordGameTrace").mockImplementation(() => {});
+  const warning = vi.spyOn(console, "warn").mockImplementation(() => {});
+  try {
+    s.updateCurrentBoardSnapshot({ game: "letter-rush", nodeId: "opening",
+      currentWord: "tonight", answerVisibility: "unknown" });
+    expect(s.recordCompanionTruthContradictions("Try n-i-g-h-t."))
+      .toContain("hidden_spelling_letters_disclosed");
+    expect(trace).toHaveBeenCalledWith(expect.objectContaining({
+      type: "companion_truth_contradiction", code: "hidden_spelling_letters_disclosed",
+      game: "letter-rush", response: "Try n-i-g-h-t.",
+    }));
+  } finally {
+    trace.mockRestore();
+    warning.mockRestore();
+  }
+});

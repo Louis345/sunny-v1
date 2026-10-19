@@ -285,3 +285,32 @@ describe("spelling teaching permission", () => {
     expect(snapshot.spellingSupportMode).toBe("pronunciation_model");
   });
 });
+
+// Review catch: the recorded "n-i-g-h-t" disclosure was audible to the human,
+// but earlier labs checked input context without checking response truth.
+describe("hidden spelling disclosure truth checks", () => {
+  const snapshot = (answerVisibility = "hidden") => buildCurrentBoardSnapshot({
+    childId: "lab-child", sessionId: "disclosure", state: {
+      game: "letter-rush", currentWord: "tonight", answerVisibility,
+    },
+  });
+  it.each([
+    "Spell T-O-N-I-G-H-T.",
+    "You already have n-i-g-h-t in your head.",
+    "Try t o n i g h t.",
+    "The letters are t, o, n, i, g, h, t.",
+  ])("flags protected target letter sequences: %s", (response) => {
+    expect(findCompanionTruthContradictions(response, snapshot()))
+      .toContain("hidden_spelling_letters_disclosed");
+  });
+  it.each([
+    "The word is tonight. Listen once more: tonight.",
+    "Try c-a-t.",
+    "I can repeat the word for you.",
+  ])("does not confuse whole stimuli or unrelated letters with target disclosure: %s", (response) => {
+    expect(findCompanionTruthContradictions(response, snapshot())).toEqual([]);
+  });
+  it("allows letter sequences during explicitly visible teaching", () => {
+    expect(findCompanionTruthContradictions("T-O-N-I-G-H-T", snapshot("visible"))).toEqual([]);
+  });
+});

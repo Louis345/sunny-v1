@@ -335,6 +335,21 @@ export function findCompanionTruthContradictions(
   if (!snapshot) return [];
   const text = response.toLowerCase();
   const contradictions: string[] = [];
+  if (snapshot.spellingSupportMode === "stimulus_only" && snapshot.spellingTarget) {
+    const target = snapshot.spellingTarget.toLowerCase().replace(/[^a-z]/g, "");
+    // Whole spoken stimuli are allowed. Flag separated letter runs, including
+    // partial disclosure such as n-i-g-h-t within tonight (the recorded failure).
+    const letterRuns = text.match(/\b[a-z](?:[\s,–—-]+[a-z]\b)+/g) ?? [];
+    const minimum = Math.min(3, target.length);
+    const disclosed = minimum > 0 && letterRuns.some((run) => {
+      const letters = run.replace(/[^a-z]/g, "");
+      for (let offset = 0; offset <= target.length - minimum; offset += 1) {
+        if (letters.includes(target.slice(offset, offset + minimum))) return true;
+      }
+      return false;
+    });
+    if (disclosed) contradictions.push("hidden_spelling_letters_disclosed");
+  }
   const usesMasteryLanguage =
     /\b(100\s*%|100 percent|perfect|zero mistakes|crushed|mastered|mastery)\b/.test(text);
   const resultContradictsMastery =
