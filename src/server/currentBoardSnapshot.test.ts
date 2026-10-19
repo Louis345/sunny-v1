@@ -264,3 +264,24 @@ describe("spelling pronunciation context", () => {
     }
   });
 });
+
+// Review catch: default-visible UI normalization was incorrectly used as teaching
+// permission. Earlier labs covered explicit assessment, not absent/unknown facts.
+describe("spelling teaching permission", () => {
+  it.each([
+    { answerVisibility: "unknown" },
+    {},
+    { answerVisibility: "visible", evidenceTier: "mastery_candidate" },
+    { answerVisibility: "hidden", practiceCapture: true },
+  ])("requires explicit teaching permission for %j", (permission) => {
+    const snapshot = buildCurrentBoardSnapshot({ childId: "lab-child", sessionId: "permission",
+      state: { game: "letter-rush", currentWord: "tonight", ...permission } });
+    expect(snapshot.spellingSupportMode).toBe("stimulus_only");
+    expect(buildCurrentBoardSnapshotContext(snapshot)).not.toContain("ARPABET");
+  });
+  it.each(["visible", "revealed"])("permits explicit %s practice", (answerVisibility) => {
+    const snapshot = buildCurrentBoardSnapshot({ childId: "lab-child", sessionId: "permission",
+      state: { game: "letter-rush", currentWord: "tonight", answerVisibility } });
+    expect(snapshot.spellingSupportMode).toBe("pronunciation_model");
+  });
+});

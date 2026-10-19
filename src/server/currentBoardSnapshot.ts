@@ -184,9 +184,13 @@ export function buildCurrentBoardSnapshot(
   const game = String(state.game ?? state.activityId ?? "").toLowerCase();
   if (rawTarget && spellingGames.has(game)) {
     snapshot.spellingTarget = rawTarget;
-    snapshot.spellingSupportMode = state.assessmentMode === true
-      || (answerVisibility === "hidden" && state.practiceCapture !== true)
-      ? "stimulus_only" : "pronunciation_model";
+    // Display normalization is not permission to teach: absent/unknown facts
+    // and independent measurement must retain the whole-stimulus boundary.
+    const explicitVisibility = asString(state.answerVisibility)?.toLowerCase();
+    snapshot.spellingSupportMode = state.assessmentMode !== true
+      && state.evidenceTier !== "mastery_candidate"
+      && (explicitVisibility === "visible" || explicitVisibility === "revealed")
+      ? "pronunciation_model" : "stimulus_only";
   }
 
   for (const key of ["itemIndex", "totalItems", "score", "coins", "coinsEarned", "accuracy"] as const) {
