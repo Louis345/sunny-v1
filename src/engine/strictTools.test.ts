@@ -39,6 +39,11 @@ describe("strict tools lock the model to the schema",()=>{
     expect(schema.properties.id).toEqual({type:"string"});
     expect(strict.strictBudget([{input_schema:{type:"object",additionalProperties:false,properties:{id:{type:"string",pattern:"x"}}}}]).unsupported).toEqual(["$.id.pattern"]);
   });
+  // 2026-10-19: the map artist's field named "pattern" was reported as the regex keyword pattern.
+  it("tells a property named like a keyword from the keyword itself",()=>{
+    const schema={type:"object",additionalProperties:false,required:["pattern","minLength"],properties:{pattern:{type:"string"},minLength:{type:"number"}}};
+    expect(strict.strictBudget([{input_schema:schema}]).unsupported).toEqual([]);
+  });
   it("refuses a free-form map, which no grammar can lock",()=>{
     expect(()=>strict.strictToolSchema({type:"object",additionalProperties:{type:"string"}})).toThrow("strict_schema_free_form");
   });

@@ -171,7 +171,12 @@ export function strictBudget(tools: Array<{ input_schema: unknown; strict?: bool
       optional += Object.keys(schema.properties as JsonSchema).filter(key => !required.has(key)).length;
     }
     if (schema.anyOf || Array.isArray(schema.type)) unions += 1;
-    for (const [key, value] of Object.entries(schema)) if (typeof value === 'object' && key !== 'enum' && key !== 'const' && key !== 'required') walk(value, key === 'properties' ? path : `${path}.${key}`);
+    for (const [key, value] of Object.entries(schema)) {
+      if (typeof value !== 'object' || value === null || key === 'enum' || key === 'const' || key === 'required') continue;
+      // A properties map names fields; its keys are never schema keywords.
+      if (key === 'properties' || key === '$defs' || key === 'definitions') for (const [child, sub] of Object.entries(value as JsonSchema)) walk(sub, key === 'properties' ? `${path}.${child}` : `#${child}`);
+      else walk(value, `${path}.${key}`);
+    }
   };
   for (const tool of tools) if (tool.strict !== false) walk(tool.input_schema, '$');
   return { optional, unions, unsupported };
