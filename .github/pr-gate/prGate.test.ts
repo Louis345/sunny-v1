@@ -19,6 +19,7 @@ function verdictJson(overrides: Record<string, unknown> = {}) {
     summary: "Focused change with a covering test.",
     files_reviewed: ["src/engine/foo.ts", "src/engine/foo.test.ts"],
     findings: [],
+    prior_items: [],
     probes: [
       {
         command: "npx vitest run src/engine/foo.test.ts",
@@ -32,6 +33,20 @@ function verdictJson(overrides: Record<string, unknown> = {}) {
 }
 
 const CHANGED = ["src/engine/foo.ts", "src/engine/foo.test.ts"];
+
+function finding(overrides: Record<string, unknown> = {}) {
+  return {
+    path: "src/engine/foo.ts",
+    line: 2,
+    severity: "blocking",
+    law: "Law 4",
+    title: "swallowed error",
+    body: "explain",
+    fix: "add a catch that logs",
+    red_test: "rejecting promise is logged",
+    ...overrides,
+  };
+}
 
 describe("globToRegExp", () => {
   it("matches ** across segments and * within one segment", () => {
@@ -233,7 +248,7 @@ describe("evaluateReviewRun", () => {
       ...ok,
       structuredOutput: verdictJson({
         findings: [
-          { path: "src/engine/foo.ts", line: 3, severity: "blocking", law: "Law 4", title: "swallowed error", body: "x" },
+          finding({ line: 3 }),
         ],
       }),
     });
@@ -269,6 +284,39 @@ describe("evaluateReviewRun", () => {
     expect(r.description).toMatch(/too big/);
   });
 
+  const priorOpen = [{ id: "F1", title: "fail open", path: "a.ts", line: 5 }];
+
+  it("fails closed when prior review state is unreadable", () => {
+    const r = evaluateReviewRun({ ...ok, structuredOutput: verdictJson(), priorOpen: null });
+    expect(r.state).toBe("failure");
+    expect(r.description).toMatch(/prior/i);
+  });
+
+  it("fails when a prior Required item was not re-checked", () => {
+    const r = evaluateReviewRun({ ...ok, structuredOutput: verdictJson(), priorOpen });
+    expect(r.state).toBe("failure");
+    expect(r.kind).toBe("prior");
+  });
+
+  it("keeps the gate red while a prior Required item is unresolved, even on approve", () => {
+    const r = evaluateReviewRun({
+      ...ok,
+      priorOpen,
+      structuredOutput: verdictJson({ prior_items: [{ id: "F1", status: "unresolved", evidence: "still fails open" }] }),
+    });
+    expect(r.state).toBe("failure");
+    expect(r.description).toMatch(/1 prior/);
+  });
+
+  it("passes once every prior Required item is resolved", () => {
+    const r = evaluateReviewRun({
+      ...ok,
+      priorOpen,
+      structuredOutput: verdictJson({ prior_items: [{ id: "F1", status: "resolved", evidence: "test added" }] }),
+    });
+    expect(r.state).toBe("success");
+  });
+
   it("keeps descriptions within the GitHub status limit", () => {
     const changedFiles = Array.from({ length: 50 }, (_, i) => `src/some/long/path/file-${i}.ts`);
     const r = evaluateReviewRun({ ...ok, changedFiles, structuredOutput: verdictJson() });
@@ -292,9 +340,9 @@ describe("buildReview", () => {
       structuredOutput: verdictJson({
         verdict: "request_changes",
         findings: [
-          { path: "src/engine/foo.ts", line: 2, severity: "blocking", law: "Law 4", title: "swallowed", body: "add catch" },
-          { path: "src/engine/foo.ts", line: 99, severity: "non_blocking", law: "Maintainability", title: "far", body: "n" },
-          { path: "src/engine/foo.ts", line: null, severity: "non_blocking", law: "Law 1", title: "general", body: "g" },
+          finding({ title: "swallowed" }),
+          finding({ line: 99, severity: "deferrable", law: "Maintainability", title: "far" }),
+          finding({ line: null, severity: "deferrable", law: "Law 1", title: "general" }),
         ],
       }),
     });
@@ -302,7 +350,9 @@ describe("buildReview", () => {
     expect(review.comments).toEqual([
       expect.objectContaining({ path: "src/engine/foo.ts", line: 2, side: "RIGHT" }),
     ]);
-    expect(review.comments[0].body).toMatch(/blocking/i);
+    expect(review.comments[0].body).toMatch(/required/i);
+    expect(review.comments[0].body).toMatch(/Red test first/);
+    expect(review.inlineFindingIndexes).toEqual([0]);
     expect(review.body).toMatch(/far/);
     expect(review.body).toMatch(/general/);
     expect(review.body).toMatch(/npx vitest run src\/engine\/foo.test.ts/);

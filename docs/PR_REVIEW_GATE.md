@@ -8,7 +8,7 @@ Automated merge gate for AGENTS.md Law 8. Three required status checks on `main`
 | `ai-review/opus` | `.github/workflows/claude-review.yml` | Opus 5.5 approves: no blocking finding, every changed file reviewed, run succeeded |
 | `human-gate` | `.github/workflows/human-gate.yml` | No risky paths, **or** the repo owner commented `/ship` on the current head, and the PR is not draft or `hold` |
 
-Decision logic lives in `.github/pr-gate/` and is unit-tested in `.github/pr-gate/prGate.test.ts` (it runs as part of root `npm run test`).
+Decision logic lives in `.github/pr-gate/` and is unit-tested in `.github/pr-gate/prGate.test.ts` and `fixList.test.ts` (they run as part of root `npm run test`).
 
 ## `ai-review/opus`
 
@@ -23,6 +23,19 @@ The check **fails closed**:
 - `pending` stays in place if the job crashes or is cancelled. A pending required check still blocks the merge.
 
 Re-run a failed review from the Actions tab, or push a new commit.
+
+### `@codex` fix list
+
+After each review, the workflow posts a PR comment that starts with `@codex`, so the authoring AI can act without a human relaying anything (`fixList.cjs`):
+
+- **Required:** blocking findings, numbered as `F<n>`. Each one links to its inline review thread (or to the review when it isn't anchored to a diff line), names `file:line`, gives the fix, and gives the red test to write first.
+- **Can defer to BUGS.md with a reason:** non-blocking findings.
+- **Resolved since last review:** prior Required items the reviewer verified as fixed.
+- **Done** = build and focused tests pass, CI `verify` is green, the author replies in each thread, then pushes. Every push re-runs the review.
+
+A hidden `ai-review/opus:state` marker in that comment records the open Required items. Only comments from `github-actions[bot]` are read. On the next push, the reviewer gets each open item with the author's thread replies. It must report each one as `resolved` (fix in code plus a passing test; a reply alone doesn't count) or `unresolved`. Any unresolved or unchecked item keeps `ai-review/opus` red and carries forward with its original ID and thread. If the state marker is ever corrupt, the gate stays red and doesn't overwrite it, until the owner deletes that comment.
+
+The `@codex` mention is posted only when there is something to act on. Approvals with no open items, and failed reviewer runs (API errors), get a mention-free record. A diff-budget failure asks `@codex` to split the PR.
 
 ## `human-gate`
 

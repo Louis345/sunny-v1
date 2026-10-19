@@ -1,6 +1,7 @@
 # Required status `ai-review/opus` (AGENTS.md Law 8). Opus 5.5 reviews the
 # checked-out PR with Claude Code, executes focused tests and throwaway probes,
-# posts one GitHub review (summary + inline comments), and sets the status.
+# posts one GitHub review (summary + inline comments) followed by an `@codex`
+# fix list comment, and sets the status. Open Required items carry across pushes.
 # Fails closed: blocking verdict, API/run error, unparseable output, or a diff
 # too large to review completely all yield `failure`; a crash leaves `pending`.
 # Decision logic and its tests live in .github/pr-gate/ (docs/PR_REVIEW_GATE.md).
@@ -24,6 +25,7 @@ jobs:
     permissions:
       contents: read
       pull-requests: write
+      issues: write
       statuses: write
     env:
       HEAD_SHA: ${{ github.event.pull_request.head.sha }}
@@ -76,7 +78,18 @@ jobs:
           script: |
             const fs = require("fs");
             const gate = require(`${process.env.GITHUB_WORKSPACE}/.github/pr-gate/verdict.cjs`);
+            const fix = require(`${process.env.GITHUB_WORKSPACE}/.github/pr-gate/fixList.cjs`);
             const { BASE_SHA, HEAD_SHA, RUNNER_TEMP } = process.env;
+            const issue_number = Number(process.env.PR_NUMBER);
+
+            // Open Required items from the previous review, plus the author's thread replies.
+            const issueComments = await github.paginate(github.rest.issues.listComments, { ...context.repo, issue_number, per_page: 100 });
+            const priorState = fix.latestState(issueComments);
+            const reviewComments = await github.paginate(github.rest.pulls.listReviewComments, {
+              ...context.repo, pull_number: issue_number, per_page: 100,
+            });
+            fs.writeFileSync(`${RUNNER_TEMP}/ai-review-prior.json`, JSON.stringify({ priorState }));
+            core.info(` 🎮 [ai-review] [prior-state] [${priorState ? `${priorState.open.length} open` : "unreadable"}]`);
 
             const { stdout } = await exec.getExecOutput(
               "git", ["diff", "--numstat", "--no-renames", "-z", `${BASE_SHA}...${HEAD_SHA}`], { silent: true });
@@ -94,6 +107,9 @@ jobs:
               "{{BASE_SHA}}": BASE_SHA,
               "{{HEAD_SHA}}": HEAD_SHA,
               "{{CHANGED_FILES}}": budget.reviewFiles.map((f) => `- \`${f}\``).join("\n") || "- (none)",
+              "{{PRIOR_ITEMS}}": priorState
+                ? fix.renderPriorItemsForPrompt(priorState.open, reviewComments)
+                : "(prior review state unreadable; the gate will fail regardless)",
               // Last, so placeholders inside the author-supplied body stay literal.
               "{{PR_BODY}}": process.env.PR_BODY || "(empty)",
             };
@@ -140,22 +156,28 @@ jobs:
           script: |
             const fs = require("fs");
             const { HEAD_SHA, RUNNER_TEMP, CLAUDE_OUTCOME, CLAUDE_CONCLUSION, STRUCTURED_OUTPUT } = process.env;
+            const readTemp = (name) => JSON.parse(fs.readFileSync(`${RUNNER_TEMP}/${name}`, "utf8"));
             const target_url = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
             const setStatus = (state, description) => github.rest.repos.createCommitStatus({
               ...context.repo, sha: HEAD_SHA, state, context: "ai-review/opus", description, target_url,
             });
             try {
               const gate = require(`${process.env.GITHUB_WORKSPACE}/.github/pr-gate/verdict.cjs`);
+              const fix = require(`${process.env.GITHUB_WORKSPACE}/.github/pr-gate/fixList.cjs`);
               let budget;
+              let priorState;
               try {
-                budget = JSON.parse(fs.readFileSync(`${RUNNER_TEMP}/ai-review-budget.json`, "utf8"));
+                budget = readTemp("ai-review-budget.json");
+                priorState = readTemp("ai-review-prior.json").priorState;
               } catch (err) {
-                core.warning(` 🎮 [ai-review] [budget] [missing: ${err.message}]`);
+                core.warning(` 🎮 [ai-review] [prepare] [missing: ${err.message}]`);
                 budget = { ok: false, reason: "Review preparation failed", reviewFiles: [] };
+                priorState = null;
               }
               const conclusion = CLAUDE_OUTCOME === "success" ? CLAUDE_CONCLUSION : CLAUDE_OUTCOME || "not run";
               const evaluation = gate.evaluateReviewRun({
                 conclusion, structuredOutput: STRUCTURED_OUTPUT, changedFiles: budget.reviewFiles, budget,
+                priorOpen: priorState ? priorState.open : null,
               });
 
               const pull_number = context.payload.pull_request.number;
@@ -164,13 +186,31 @@ jobs:
               const post = (review) => github.rest.pulls.createReview({
                 ...context.repo, pull_number, commit_id: HEAD_SHA, event: "COMMENT", body: review.body, comments: review.comments,
               });
+              let posted = gate.buildReview(evaluation, commentable);
+              let review;
               try {
-                await post(gate.buildReview(evaluation, commentable));
+                review = (await post(posted)).data;
               } catch (err) {
                 // GitHub rejects the whole review if one inline anchor is invalid; fall back to summary-only.
                 core.warning(` 🎮 [ai-review] [review] [inline rejected: ${err.message}]`);
-                await post(gate.buildReview(evaluation, {}));
+                posted = gate.buildReview(evaluation, {});
+                review = (await post(posted)).data;
               }
+
+              // Fix list for @codex, linking each item to its thread; it also carries state to the next push.
+              const reviewComments = await github.paginate(github.rest.pulls.listCommentsForReview, {
+                ...context.repo, pull_number, review_id: review.id, per_page: 100,
+              });
+              const links = fix.linkThreads({
+                findingsCount: evaluation.verdict ? evaluation.verdict.findings.length : 0,
+                posted: posted.comments,
+                inlineFindingIndexes: posted.inlineFindingIndexes,
+                reviewComments,
+                reviewUrl: review.html_url,
+              });
+              const plan = fix.planFixList({ evaluation, priorState, links, reviewUrl: review.html_url });
+              await github.rest.issues.createComment({ ...context.repo, issue_number: pull_number, body: fix.renderFixList(plan) });
+              core.info(` 🎮 [ai-review] [fix-list] [${plan.required.length} required, ${plan.deferrable.length} deferrable, ${plan.resolved.length} resolved]`);
 
               await setStatus(evaluation.state, evaluation.description);
               core.info(` 🎮 [ai-review] [status] [${evaluation.state}: ${evaluation.description}]`);
