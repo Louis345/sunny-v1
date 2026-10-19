@@ -168,7 +168,8 @@ function nodeFallbackIcon(node: AdventureBoardNode): keyof typeof iconMap {
 function boardBackground(board: AdventureBoardJson): React.CSSProperties {
   const background = board.theme.background;
   if (background.type === "image") {
-    return { backgroundImage: `url(${background.value})` };
+    // The panel colour shows if the illustration fails to load.
+    return { backgroundImage: `url(${background.value})`, backgroundColor: board.theme.palette.panel };
   }
   if (background.type === "solid") {
     return { background: background.value };

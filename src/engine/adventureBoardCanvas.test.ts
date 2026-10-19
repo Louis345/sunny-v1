@@ -1,8 +1,8 @@
 import {mkdtempSync,rmSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
-import {it,expect} from 'vitest';
-import {verifyAuthoredBoardCanvas,verifyBoardArtworkReady} from './adventureBoardCanvas';
+import {it,expect,vi} from 'vitest';
+import {reportAuthoredBoardArtwork,verifyAuthoredBoardCanvas,verifyBoardArtworkReady} from './adventureBoardCanvas';
 import type {AdventureBoardDefinition} from '../shared/adventureBoardDefinition';
 import {linearJourneyFixture} from '../scripts/fixtures/authoredJourney';
 it('requires real rendered geometry before publishing an authored candidate',async()=>{
@@ -105,3 +105,22 @@ it('previews the real board with its artwork loaded and measured portal boxes, w
   expect(preview.portals.every(box=>box.width>0&&box.height>0)).toBe(true);
  }finally{rmSync(directory,{recursive:true,force:true});}
 },30000);
+
+// Oct 19 demo: the Grok world was missing from the demo checkout, and the
+// as-authored publish path (which never rejects a map) skipped the artwork
+// check, so the board published blank with only "artwork=missing" in a log.
+// The older guard above covered the strict path, not this one.
+it('publishes an as-authored map with missing artwork but reports the missing file loudly',async()=>{
+ const rootDir=mkdtempSync(join(tmpdir(),'sunny-authored-artwork-'));
+ const definition:AdventureBoardDefinition=linearJourneyFixture(['learn']);definition.theme.background={type:'image',value:'/generated/world.jpeg'};
+ const error=vi.spyOn(console,'error').mockImplementation(()=>{});
+ try {
+  expect(reportAuthoredBoardArtwork({definition,rootDir})).toBe(false);
+  expect(error).toHaveBeenCalledWith(expect.stringContaining('🔴 [board-canvas] [artwork] [missing] /generated/world.jpeg'));
+  const {mkdirSync,writeFileSync}=await import('node:fs');
+  mkdirSync(join(rootDir,'web/public/generated'),{recursive:true});writeFileSync(join(rootDir,'web/public/generated/world.jpeg'),Buffer.from([0xff,0xd8,0xff,0xd9]));
+  error.mockClear();
+  expect(reportAuthoredBoardArtwork({definition,rootDir})).toBe(true);
+  expect(error).not.toHaveBeenCalled();
+ } finally {error.mockRestore();rmSync(rootDir,{recursive:true,force:true});}
+});

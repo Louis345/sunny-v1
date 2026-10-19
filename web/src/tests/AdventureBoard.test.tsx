@@ -300,6 +300,18 @@ describe("AdventureBoard", () => {
     );
   });
 
+  // Oct 19 demo: a missing Grok world left the child a blank board. The image
+  // now sits on the theme's panel colour, so a failed load is still a themed map.
+  it("paints the theme panel colour under the illustrated world", () => {
+    const { container } = render(<AdventureBoard board={grokFullExperienceBoard} />);
+    const board = container.querySelector(".adventure-board") as HTMLElement;
+    const probe = document.createElement("div");
+    probe.style.backgroundColor = grokFullExperienceBoard.theme.palette.panel;
+    expect(board.style.backgroundImage).toContain("silent-letter-world.jpeg");
+    expect(board.style.backgroundColor).toBe(probe.style.backgroundColor);
+    expect(board.style.backgroundColor).not.toBe("");
+  });
+
   it("renders JSON-provided background and node thumbnails", () => {
     const { container } = render(<AdventureBoard board={grokFullExperienceBoard} />);
 

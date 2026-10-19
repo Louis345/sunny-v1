@@ -20,6 +20,16 @@ export function verifyBoardArtworkReady(input:{definition:AdventureBoardDefiniti
  console.log(` 🎮 [board-canvas] [required-artwork] [present] ${background.value}`);
 }
 
+/** The as-authored path never withholds a map, so a missing illustration is reported, not thrown;
+ * the kiosk paints the theme panel colour underneath, so the child still sees a themed board. */
+export function reportAuthoredBoardArtwork(input:{definition:AdventureBoardDefinition;rootDir:string}):boolean {
+ try {verifyBoardArtworkReady(input);return true;}
+ catch(error){
+  console.error(` 🔴 [board-canvas] [artwork] [missing] ${input.definition.theme.background.value} under ${path.resolve(input.rootDir,'web/public')}; publishing on the theme colour (${error instanceof Error?error.message:String(error)})`);
+  return false;
+ }
+}
+
 /** Existing generation verifies the actual shared canvas before making a board visible.
  * No model, topology repair, or educational policy lives here. A failed composition
  * returns precise geometry to the existing recoverable generation job.
@@ -94,6 +104,7 @@ export async function verifyPreparingBoardCanvas(input:{rootDir:string;childId:s
   // The map is published as the artist submitted it; these screenshots are the record the human judges.
   const definitionHash=boardDefinitionHash(board.definition);
   if(cycle!.canvasVerifications?.[board.boardId]?.definitionHash===definitionHash)return;
+  reportAuthoredBoardArtwork({...input,definition:board.definition});
   const preview=await renderBoardPreview({...input,definition:board.definition});
   proof={definitionHash,rendererHash:'preview-as-authored',viewports:preview.screenshots.map(shot=>shot.viewport),screenshots:preview.screenshots.map(shot=>shot.file),verifiedAt:new Date().toISOString()};
   // Measured for the generation report and the human; never a reason to reject the map.
