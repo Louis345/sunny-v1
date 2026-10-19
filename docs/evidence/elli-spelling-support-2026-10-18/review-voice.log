@@ -80,4 +80,3 @@ stderr | src/scripts/kioskBrowserLaunch.test.ts > a visible kiosk is never shut 
       Tests  60 passed (60)
    Start at  12:06:00
    Duration  3.58s (transform 829ms, setup 0ms, collect 2.81s, tests 82ms, environment 0ms, prepare 173ms)
-

@@ -229,4 +229,3 @@ stdout | src/server/companion-response-runner.test.ts > companion response audio
       Tests  95 passed (95)
    Start at  08:06:28
    Duration  6.73s (transform 1.34s, setup 0ms, collect 5.61s, tests 318ms, environment 0ms, prepare 206ms)
-
