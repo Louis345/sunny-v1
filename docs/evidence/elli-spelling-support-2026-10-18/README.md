@@ -1,6 +1,6 @@
 # ELLI: Ground spelling pronunciation help in the current activity
 
-Status: implemented; deterministic checks pass; Opus 5.5 review and live acceptance pending.
+Status: implemented; Opus 5.5 requested changes. Review follow-up verification and human kiosk acceptance are tracked below; no merge authorization.
 Parent branch: `claude/board-canvas-no-logic` at `0b41c115bd72cbc3ab7c87d8c1838d3f6613001f`.
 
 ## Problem and observed impact
@@ -34,7 +34,7 @@ The projection and identity defects are reproduced by tests. The influence of co
 ## Implementation
 
 - Keep an internal `spellingTarget` for the explicitly supported spelling instruments. Keep `currentTarget`/written visibility restrictions intact. Hidden Wheel and math answers never enter this spelling channel.
-- Explicit assessment mode wins over visible text. Hidden assessments receive whole-stimulus repetition/instruction clarification only; syllable instruction and written hints are withheld. Explicit captured practice can receive pronunciation modeling while written hidden letters stay protected.
+- Explicit assessment mode wins over visible text. Hidden assessments receive whole-stimulus repetition/instruction clarification only; syllable instruction and written hints are withheld. Pronunciation modeling requires raw visibility explicitly visible/revealed, no assessmentMode, and no mastery_candidate evidence tier. Hidden, unknown or missing visibility receives whole-stimulus support even when practiceCapture is true.
 - Feed the existing CMU US-English reference to permitted help turns: phonemes, vowel nuclei/syllable count, and stress. No provider call or new dependency. Unknown words have an explicit missing-reference path; the model is told to use authored narration rather than invent a breakdown.
 - Let Elli converse organically: whole word → spoken syllables → blend when requested. Do not prescribe fixed dialogue, mistake written chunks for syllables, pronounce silent letters separately, or grade pronunciation from STT text.
 - Expand reply validity to launch token, item index, authoritative target and activity closure. Score-only updates keep the reply valid. Existing stale-output rejection logs remain the execution boundary.
@@ -81,3 +81,43 @@ Not fixed here: cumulative/duplicate STT turns, speaker attribution or ambient s
 No paid provider calls, child session, audible TTS validation, learner pronunciation scoring, or learning-gain experiment were run. No Opus approval is claimed.
 
 Before claiming improved child interaction, run the canonical kiosk with a consenting tester and retain target IDs, assistance and audio timing. Verify: (1) syllable coaching for `myself`; (2) no invented G sound in `tonight`; (3) room words cannot displace `title`; (4) advancing mid-response retires old speech; (5) a hidden assessment only repeats its whole stimulus; (6) an unsuccessful hint leads to changed help rather than repeated encouragement. Report target-alignment rate, factual sound errors, repeated-help count, and speech-end-to-first-audible-reply latency. Establish a baseline and report actual sample sizes; passing deterministic checks is not proof of positive learning outcomes.
+
+
+## October 19 review follow-up
+
+The human confirmed the review diagnosis and authorized both fixes, tests, documentation, push and evidence replies. Earliest wrong decision: UI visibility normalization was reused as instructional permission; unknown/missing facts became visible. A separate output gap left hidden letter disclosure unflagged. This is a projection/output-truth defect, not a Planner choice.
+
+- Permission regression: four failures before the fix, then 21/21 snapshot tests pass. Cases cover unknown, missing, explicit-visible mastery_candidate and hidden practiceCapture; visible/revealed practice remain permitted. See `review-permission-red.log` and `review-permission-green.log`.
+- Disclosure regression: four failures before the fix, then 29/29 snapshot tests pass. Full and partial target spelling, spaced letters and comma-separated letters are flagged; whole spoken stimuli, unrelated letters and visible teaching remain allowed. See `review-disclosure-red.log` and `review-disclosure-green.log`.
+- The SessionManager integration test asserts the actual `companion_truth_contradiction` trace includes `hidden_spelling_letters_disclosed`. This is post-stream detection, not prevention of already-spoken audio. Letter-name spelling and arbitrary formatting are not proven covered.
+- Deferred concerns and reasons: duplicate code/prompt rules, explicit additional child-facing prompt behaviors, and native-game help provenance are recorded in BUGS.md. The mastery_candidate restriction mitigates leakage but does not close the evidence-accounting gap.
+- AGENTS.md now prohibits merging before relevant human acceptance, review of results and reviewer approvals, and explicit authorization for the current PR revision. CI/AI approvals alone do not satisfy this gate. No human test or merge was performed.
+
+The PR also changes these conversational rules, in addition to pronunciation support: truthful claims about tool actions, no mastery praise for assisted completion, and allowing attention to caregivers. These require human review of the actual spoken interaction.
+
+Follow-up focused validation: **95/95 tests across six files pass** (`review-focused.log`); full build passes (`review-build.log`). Machine-readable results: `review-outcomes.json`. The previous CI run [39187373437](https://github.com/Louis345/sunny-v1/actions/runs/39187373437) failed two 5-second timeouts outside this diff (`adaptiveMathDiscovery` saved-Probe recovery and `spellingPlannerReceipt` canvas correction); that run is not a green gate. Latest-head CI must be assessed separately.
+
+
+### Human acceptance record (required before merge; pending)
+
+Record the exact tested commit, tester, canonical kiosk run ID, and log/screenshot references. Use the canonical `npm run sunny:run -- ...` launcher with the chosen isolated test identity and normal browser; confirm `🎮 [kiosk] [kiosk-visible] [confirmed]` and the dedicated kiosk on screen before testing. Do not use real child charts for automated verification.
+
+| Scenario | Required observation | Actual result |
+| --- | --- | --- |
+| Visible practice, `myself` / `tonight` / `dissatisfied` | Correct target, useful spoken syllables, no invented silent-letter sounds | Pending |
+| Room speech names another word while target is `title` | Reply remains grounded in `title` | Pending |
+| Hidden, unknown or absent visibility; mastery candidate | Whole stimulus only, no syllable teaching or spelled letters | Pending |
+| Advance or relaunch during response | No stale-item speech after retirement | Pending |
+| Repeat help request | Help changes within current permissions | Pending |
+| Intentional letter-disclosure fixture (isolated lab) | `hidden_spelling_letters_disclosed` trace appears; do not confuse detection with muting | Automated check passes; live trace pending |
+
+Report counts and denominators for target alignment and sound errors, repeated-help count, and speech-end-to-first-audible-reply latency. Record reviewer findings/approvals for the same revision and the human's explicit merge authorization only after reviewing these results. No approval is pre-filled by this document.
+
+
+### Completed frozen-source repository gate
+
+The unmodified build-and-test hook passed under Node 20.20.2 on the completed, frozen source tree: **396 backend files / 4,420 tests** and **123 web files / 1,031 tests**. Backend duration 1,544.37 seconds; web duration 20.40 seconds. Permission fix: `0848374`; disclosure detection: `55b05bf`. The passing verification is reused for the separate follow-up commits without repeating the unchanged full suite. No assertion, timeout or test was weakened or deleted. Full raw output remains local at `/tmp/elli-permission-final-commit.log`; committed machine results are in `review-outcomes.json`.
+
+A preliminary hook began before the disclosure edits were finished and loaded older source alongside the new tests: five disclosure assertions failed in that mixed-version run, alongside a browser playback acknowledgment failure. It is not a valid final-source gate and is not counted as passing. Its local output remains `/tmp/elli-permission-commit.log`. The frozen-source rerun passes the 29 snapshot tests, 22 spelling support tests, all nine browser acceptance cases, and the complete repository suites. This does not establish a permanent fix for the independently documented browser/CI timing flakes or replace latest-head CI and human voice acceptance.
+
+Before human demo setup, the required local voice regression command also passes: **60/60 tests across eight files**, `review-voice.log`. Live microphone input and physical audibility still require the human session and confirmation.

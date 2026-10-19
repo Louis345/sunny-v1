@@ -1,0 +1,57 @@
+
+ RUN  v3.2.4 <repository>
+
+ ❯ src/server/currentBoardSnapshot.test.ts (21 tests | 4 failed) 8ms
+   ✓ CurrentBoardSnapshot > tells Elli a node is still opening without claiming the activity is ready 1ms
+   ✓ CurrentBoardSnapshot > keeps child speech separate from the current board truth 1ms
+   ✓ CurrentBoardSnapshot > gives Elli the AI-authored math activity and live challenge without exposing correctness 0ms
+   ✓ CurrentBoardSnapshot > extracts the exact visible prompt from an object-shaped generated challenge 0ms
+   ✓ CurrentBoardSnapshot > does not expose hidden Wheel answers to Elli 0ms
+   ✓ CurrentBoardSnapshot > ignores raw and unknown fields while preserving exact reward fields 0ms
+   ✓ CurrentBoardSnapshot > detects companion claims that contradict the current truth packet 0ms
+   ✓ preserves displayed loading facts through projection into Elli context 0ms
+   ✓ spelling pronunciation context > retains hidden spelling truth internally without permitting written-answer disclosure 0ms
+   ✓ spelling pronunciation context > grounds permitted modeling of myself in dictionary sounds and vowel nuclei 0ms
+   ✓ spelling pronunciation context > grounds permitted modeling of tonight in dictionary sounds and vowel nuclei 0ms
+   ✓ spelling pronunciation context > grounds permitted modeling of dissatisfied in dictionary sounds and vowel nuclei 0ms
+   ✓ spelling pronunciation context > does not turn explicit assessment into teaching just because text is visible 0ms
+   ✓ spelling pronunciation context > does not invent a pronunciation reference for an unknown word 0ms
+   ✓ spelling pronunciation context > does not disclose hidden Wheel or math answers through spelling support 0ms
+   × spelling teaching permission > requires explicit teaching permission for {"answerVisibility":"unknown"} 3ms
+     → expected 'pronunciation_model' to be 'stimulus_only' // Object.is equality
+   × spelling teaching permission > requires explicit teaching permission for {} 1ms
+     → expected 'pronunciation_model' to be 'stimulus_only' // Object.is equality
+   × spelling teaching permission > requires explicit teaching permission for {"answerVisibility":"visible","evidenceTier":"mastery_candidate"} 0ms
+     → expected 'pronunciation_model' to be 'stimulus_only' // Object.is equality
+   × spelling teaching permission > requires explicit teaching permission for {"answerVisibility":"hidden","practiceCapture":true} 0ms
+     → expected 'pronunciation_model' to be 'stimulus_only' // Object.is equality
+   ✓ spelling teaching permission > permits explicit visible practice 0ms
+   ✓ spelling teaching permission > permits explicit revealed practice 0ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/server/currentBoardSnapshot.test.ts > spelling teaching permission > requires explicit teaching permission for {"answerVisibility":"unknown"}
+ FAIL  src/server/currentBoardSnapshot.test.ts > spelling teaching permission > requires explicit teaching permission for {}
+ FAIL  src/server/currentBoardSnapshot.test.ts > spelling teaching permission > requires explicit teaching permission for {"answerVisibility":"visible","evidenceTier":"mastery_candidate"}
+ FAIL  src/server/currentBoardSnapshot.test.ts > spelling teaching permission > requires explicit teaching permission for {"answerVisibility":"hidden","practiceCapture":true}
+AssertionError: expected 'pronunciation_model' to be 'stimulus_only' // Object.is equality
+
+Expected: "stimulus_only"
+Received: "pronunciation_model"
+
+ ❯ src/server/currentBoardSnapshot.test.ts:279:42
+    277|     const snapshot = buildCurrentBoardSnapshot({ childId: "lab-child",…
+    278|       state: { game: "letter-rush", currentWord: "tonight", ...permiss…
+    279|     expect(snapshot.spellingSupportMode).toBe("stimulus_only");
+       |                                          ^
+    280|     expect(buildCurrentBoardSnapshotContext(snapshot)).not.toContain("…
+    281|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/4]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  4 failed | 17 passed (21)
+   Start at  08:04:38
+   Duration  492ms (transform 167ms, setup 0ms, collect 374ms, tests 8ms, environment 0ms, prepare 25ms)
+

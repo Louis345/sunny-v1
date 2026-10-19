@@ -1,0 +1,10 @@
+
+ RUN  v3.2.4 <repository>
+
+ ✓ src/server/currentBoardSnapshot.test.ts (21 tests) 5ms
+
+ Test Files  1 passed (1)
+      Tests  21 passed (21)
+   Start at  08:04:46
+   Duration  454ms (transform 160ms, setup 0ms, collect 347ms, tests 5ms, environment 0ms, prepare 21ms)
+

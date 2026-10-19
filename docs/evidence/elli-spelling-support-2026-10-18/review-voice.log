@@ -1,0 +1,83 @@
+
+> sunny@0.1.0 test:voice-regression
+> vitest run src/scripts/kioskBrowserLaunch.test.ts src/scripts/launch-kiosk.test.ts src/scripts/voiceAcceptance.test.ts src/server/certificationRuntime.test.ts src/server/transition-to-work-gate.test.ts src/server/companion-response-runner.test.ts src/server/session-manager-companion-presence.test.ts src/server/session-manager-game-narration.test.ts
+
+
+ RUN  v3.2.4 <repository>
+
+stdout | src/server/session-manager-game-narration.test.ts > SessionManager game narration > does not start a second word while the first narration still owns playback
+  🎮 [game-narration] [suppressed] reason=playback_in_progress
+
+stdout | src/server/session-manager-game-narration.test.ts > SessionManager game narration > ignores a stale playback acknowledgement from a different narration request
+  🎮 [game-narration] [playback-ack-ignored] reason=request_identity_mismatch
+
+stdout | src/server/session-manager-game-narration.test.ts > SessionManager game narration > does not count interrupted spelling narration as completed playback
+🎮 [audit] component=turn action=barge_in stateBefore=SPEAKING turnState=SPEAKING tts=on childName=Lab round=1
+
+stdout | src/server/session-manager-game-narration.test.ts > SessionManager game narration > does not resurrect narration whose synthesis finishes after barge-in
+🎮 [audit] component=turn action=barge_in stateBefore=SPEAKING turnState=SPEAKING tts=on childName=Ila round=1
+
+stdout | src/server/session-manager-game-narration.test.ts > SessionManager game narration > does not resurrect narration whose synthesis finishes after barge-in
+🎮 [audit] component=turn action=barge_in stateBefore=SPEAKING turnState=SPEAKING tts=on childName=Ila round=1
+
+stderr | src/server/session-manager-game-narration.test.ts > SessionManager game narration > always ends playback when the voice service refuses the connection
+ 🎮 [session-audio] [playback] [failed-released] request=6f2af741-4e7c-4b88-8739-58b97155e307 reason=spelling_stimulus_mismatch
+
+stderr | src/server/session-manager-game-narration.test.ts > SessionManager game narration > always ends playback when the voice service returns no audio
+ 🎮 [session-audio] [playback] [failed-released] request=12e057cd-fe60-4fee-af96-64ebb40f675e reason=spelling_stimulus_mismatch
+
+ ✓ src/server/session-manager-game-narration.test.ts (12 tests) 61ms
+stdout | src/server/session-manager-companion-presence.test.ts > SessionManager companion presence > promotes a held eager transcript when Flux never sends a final turn
+  🎮 [transcript] [eager-buffered] reason=companion_conversation
+
+stdout | src/server/session-manager-companion-presence.test.ts > SessionManager companion presence > promotes a held eager transcript when Flux never sends a final turn
+  🎮 [transcript] [eager-promoted] reason=final_timeout
+
+stdout | src/server/session-manager-companion-presence.test.ts > SessionManager companion presence > keeps a child-started conversation open until explicit dismissal
+  🎮 [companion-presence] [summoned] reason=voice
+  🎮 [companion-presence] [conversation-open] reason=child_started
+
+stdout | src/server/session-manager-companion-presence.test.ts > SessionManager companion presence > returns one-shot read help to standby unless Elli explicitly awaits an answer
+  🎮 [companion-presence] [summoned] reason=read_instruction
+  🎮 [companion-presence] [collapsed] reason=voice
+
+stdout | src/server/session-manager-companion-presence.test.ts > SessionManager companion presence > uses Elli's live reasoning turn for activity support and clears stale pause disposition
+  🎮 [companion-presence] [summoned] reason=read_instruction
+  🎮 [companion-help] [agent-support] node=clock-room item=clock-2 trigger=guided_prompt
+
+stdout | src/server/session-manager-companion-presence.test.ts > SessionManager companion presence > uses Elli's live reasoning turn for activity support and clears stale pause disposition
+  🎮 [companion-presence] [collapsed] reason=voice
+
+stdout | src/server/session-manager-companion-presence.test.ts > SessionManager companion presence > returns a one-shot activity to play even when Elli's provider turn fails
+  🎮 [companion-presence] [summoned] reason=read_instruction
+  🎮 [companion-help] [agent-support] node=clock-room item=clock-2 trigger=guided_prompt
+
+stdout | src/server/session-manager-companion-presence.test.ts > SessionManager companion presence > returns a one-shot activity to play even when Elli's provider turn fails
+  🎮 [companion-presence] [collapsed] reason=voice
+
+stdout | src/server/session-manager-companion-presence.test.ts > SessionManager companion presence > does not collapse a newer child-started conversation after one-shot support finishes
+  🎮 [companion-presence] [summoned] reason=read_instruction
+  🎮 [companion-help] [agent-support] node=clock-room item=clock-2 trigger=guided_prompt
+  🎮 [companion-presence] [summoned] reason=voice
+
+ ✓ src/server/session-manager-companion-presence.test.ts (6 tests) 6ms
+ ✓ src/server/certificationRuntime.test.ts (12 tests) 3ms
+stdout | src/server/companion-response-runner.test.ts > companion response audio ownership > queues Elli's turn while a game narration owns the shared audio channel
+  🎮 [companion] [deferred] reason=game_narration_owns_audio
+
+ ✓ src/server/companion-response-runner.test.ts (8 tests) 3ms
+stderr | src/scripts/kioskBrowserLaunch.test.ts > a visible kiosk is never shut down over its pid > keeps a visible kiosk whose Chrome pid cannot be matched
+ 🎮 [kiosk] [macos-launch] [pid-unmatched] visible=true continuing; shutdown closes Chrome by its kiosk profile
+ 🎮 [kiosk] [macos-launch] [pid-unmatched] reason=mac_kiosk_identity_ambiguous
+ 🎮 [kiosk] [macos-launch] [pid-unmatched] visible=true continuing; shutdown closes Chrome by its kiosk profile
+
+ ✓ src/scripts/kioskBrowserLaunch.test.ts (8 tests) 3ms
+ ✓ src/server/transition-to-work-gate.test.ts (3 tests) 3ms
+ ✓ src/scripts/launch-kiosk.test.ts (7 tests) 2ms
+ ✓ src/scripts/voiceAcceptance.test.ts (4 tests) 1ms
+
+ Test Files  8 passed (8)
+      Tests  60 passed (60)
+   Start at  12:06:00
+   Duration  3.58s (transform 829ms, setup 0ms, collect 2.81s, tests 82ms, environment 0ms, prepare 173ms)
+
