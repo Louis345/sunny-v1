@@ -130,9 +130,17 @@ describe("decideHumanGate", () => {
     ship: null as null | { login: string; sha: string | null },
   };
 
-  it("goes green automatically for non-risky PRs", () => {
+  it("never goes green without /ship, even for low-risk PRs (no merge without human acceptance)", () => {
     const d = decideHumanGate({ ...base, files: ["web/src/App.tsx"] });
+    expect(d.state).toBe("pending");
+    expect(d.description).toMatch(/low-risk/i);
+    expect(d.description).toMatch(/\/ship/);
+  });
+
+  it("turns a low-risk PR green after /ship from the repo owner", () => {
+    const d = decideHumanGate({ ...base, files: ["web/src/App.tsx"], ship: { login: "Louis345", sha: null } });
     expect(d.state).toBe("success");
+    expect(d.description).toMatch(/low-risk/i);
   });
 
   it("stays pending for risky PRs without /ship", () => {
@@ -171,9 +179,10 @@ describe("decideHumanGate", () => {
     expect(decideHumanGate({ ...base, draft: true, files: ["web/src/App.tsx"] }).state).toBe("pending");
   });
 
-  it("fails closed to pending when the file list is incomplete", () => {
+  it("flags an incomplete file list as unknown risk and still requires /ship", () => {
     const d = decideHumanGate({ ...base, files: ["web/src/App.tsx"], filesComplete: false });
     expect(d.state).toBe("pending");
+    expect(d.description).toMatch(/incomplete/i);
   });
 
   it("keeps descriptions within the GitHub status limit", () => {

@@ -6,7 +6,7 @@ Automated merge gate for AGENTS.md Law 8. Three required status checks on `main`
 | --- | --- | --- |
 | `verify` (shown as `CI / verify`) | `.github/workflows/ci.yml` | `npm run build` and `npm run test` pass |
 | `ai-review/opus` | `.github/workflows/claude-review.yml` | Opus 5.5 approves: no blocking finding, every changed file reviewed, run succeeded |
-| `human-gate` | `.github/workflows/human-gate.yml` | No risky paths, **or** the repo owner commented `/ship` on the current head, and the PR is not draft or `hold` |
+| `human-gate` | `.github/workflows/human-gate.yml` | The repo owner commented `/ship` on the current head, and the PR is not draft or `hold`. Every PR needs this: nothing merges without human acceptance |
 
 Decision logic lives in `.github/pr-gate/` and is unit-tested in `.github/pr-gate/prGate.test.ts` and `fixList.test.ts` (they run as part of root `npm run test`).
 
@@ -39,7 +39,7 @@ The `@codex` mention is posted only when there is something to act on. Approvals
 
 ## `human-gate`
 
-Risky paths are defined in `.github/pr-gate/riskPaths.cjs`:
+Nothing merges without human acceptance; that is how drift is prevented. Every PR needs `/ship` from the owner. The status description classifies the PR as **Low-risk**, **Risky paths (…)**, or **Unknown risk** (the file list was incomplete), so you know how closely to read it. Risky paths are defined in `.github/pr-gate/riskPaths.cjs`:
 
 - `src/souls/**` and `src/companions/**`
 - Profiles: `src/profiles*`, `src/profile/**`, `src/shared/childProfile.ts`, `children.config.json`, per-child `child_profile.json` / `learning_profile.json`
@@ -49,8 +49,7 @@ Risky paths are defined in `.github/pr-gate/riskPaths.cjs`:
 
 Matching is case-insensitive, and rename sources count.
 
-- **Non-risky PR:** green automatically.
-- **Risky PR:** pending until the owner (`Louis345`) comments `/ship` as the first line of a comment. `/ship <sha>` (7–40 hex characters) pins the approval to that exact head. Use it if a push might race your comment. `/ship` from anyone else is ignored and gets a 😕 reaction.
+- **Every PR:** pending until the owner (`Louis345`) comments `/ship` as the first line of a comment. Low-risk PRs are not exempt. `/ship <sha>` (7–40 hex characters) pins the approval to that exact head. Use it if a push might race your comment. `/ship` from anyone else is ignored and gets a 😕 reaction.
 - **New push:** a new head SHA starts pending again, so ship it again after reviewing the drift.
 - **Kill switch:** a `hold` label or draft status keeps the gate pending, even after `/ship`. Removing the hold on the same head restores a `/ship` you gave before the hold. A `/ship` sent while held doesn't count; send it again after releasing.
 
@@ -62,7 +61,7 @@ The workflows can't change repository settings. Do these once, after this PR mer
 
 1. **Secrets.** Settings → Secrets and variables → Actions → make sure `ANTHROPIC_API_KEY` is set (the old reviewer already uses it). `GITHUB_TOKEN` is automatic. No other secret is needed.
 2. **Workflow permissions.** Settings → Actions → General → Workflow permissions: "Read repository contents" is enough. Each workflow requests its own `statuses` and `pull-requests` write scopes. Leave "Allow GitHub Actions to create and approve pull requests" **off**, since reviews are posted as `COMMENT`.
-3. **Allow auto-merge.** Settings → General → Pull Requests → check **Allow auto-merge**. Optionally check "Automatically delete head branches".
+3. **Allow auto-merge.** Settings → General → Pull Requests → check **Allow auto-merge**. Optionally check "Automatically delete head branches". Auto-merge can never bypass you: `human-gate` stays pending until your `/ship`, so auto-merge only saves waiting for CI and review after you've accepted.
 4. **Branch protection on `main`.** Settings → Branches (or Rules → Rulesets) → add a rule for `main`:
    - Require a pull request before merging. Set required approvals to **0**: GitHub won't let the owner approve their own PR, so the gate is status checks plus `/ship`.
    - Require status checks to pass: `verify`, `ai-review/opus`, `human-gate`. A check only appears in the picker after it has reported once, so open a test PR first.

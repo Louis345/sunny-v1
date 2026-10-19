@@ -1,8 +1,9 @@
 "use strict";
 
 /**
- * Paths whose changes need a human /ship before merge. One rule list, one
- * matcher: the human-gate workflow and its tests both read from here.
+ * Paths that mark a PR as risky in the human-gate status, so the owner
+ * knows where to look before /ship (every PR needs /ship). One rule list,
+ * one matcher: the human-gate workflow and its tests both read from here.
  * Matching is case-insensitive so a casing change cannot dodge the gate.
  */
 const RISK_RULES = [

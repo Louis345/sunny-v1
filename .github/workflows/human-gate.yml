@@ -1,7 +1,8 @@
-# Required status `human-gate`. Pending when a PR touches risky paths
-# (.github/pr-gate/riskPaths.cjs) until the repo owner comments `/ship`
-# (or `/ship <sha>` to pin the exact commit). Non-risky PRs go green
-# automatically. A `hold` label or draft status always keeps it pending.
+# Required status `human-gate`. Nothing merges without human acceptance:
+# every PR stays pending until the repo owner comments `/ship` (or
+# `/ship <sha>` to pin the exact commit). The description reports risk
+# (.github/pr-gate/riskPaths.cjs) so the owner knows where to look.
+# A `hold` label or draft status always keeps it pending.
 #
 # Runs from the default branch (pull_request_target / issue_comment), so a PR
 # cannot rewrite the classifier that gates it. Never checks out PR code.

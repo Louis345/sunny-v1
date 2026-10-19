@@ -22,10 +22,10 @@ function parseShipCommand(body) {
 }
 
 /**
- * Pure decision for the `human-gate` status. Holds (draft, hold label,
- * incomplete file list) win over everything, including a prior /ship.
- * `ship` is only ever supplied by the issue_comment handler for the comment
- * that triggered it, so a push after /ship re-evaluates with ship = null.
+ * Pure decision for the `human-gate` status. Nothing merges without human
+ * acceptance: every PR needs /ship from the owner. Risk classification only
+ * tells the owner where to look. Holds (draft, hold label) win over
+ * everything, including a prior /ship.
  */
 function decideHumanGate({ files, filesComplete = true, labels = [], draft = false, ownerLogin, headSha, ship = null }) {
   const result = (state, description, matches = []) => ({
@@ -40,20 +40,21 @@ function decideHumanGate({ files, filesComplete = true, labels = [], draft = fal
   }
 
   const { risky, matches } = classifyPaths(files);
-  if (!filesComplete) {
-    return result("pending", `Changed-file list incomplete: needs /ship from @${ownerLogin}`, matches);
-  }
-  if (!risky) return result("success", "No risky paths touched", matches);
-
   const rules = [...new Set(matches.map((m) => m.rule))].join(", ");
+  const risk = !filesComplete
+    ? "Unknown risk (file list incomplete)"
+    : risky
+      ? `Risky paths (${rules})`
+      : "Low-risk";
+
   const owner = String(ownerLogin).toLowerCase();
   if (ship && String(ship.login).toLowerCase() === owner) {
     if (ship.sha && !String(headSha).toLowerCase().startsWith(ship.sha)) {
       return result("pending", `/ship sha ${ship.sha} does not match head ${String(headSha).slice(0, 7)}`, matches);
     }
-    return result("success", `Shipped by @${ownerLogin} at ${String(headSha).slice(0, 7)} (${rules})`, matches);
+    return result("success", `Shipped by @${ownerLogin} at ${String(headSha).slice(0, 7)} (${risk})`, matches);
   }
-  return result("pending", `Risky paths (${rules}): needs /ship from @${ownerLogin}`, matches);
+  return result("pending", `${risk}: needs /ship from @${ownerLogin}`, matches);
 }
 
 /**
