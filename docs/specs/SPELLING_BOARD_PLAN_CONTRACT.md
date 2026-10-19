@@ -1,36 +1,54 @@
 # Spelling board generation: one small contract instead of three large ones
 
-Status: **proposal, awaiting human approval (AGENTS.md "Stay in scope [Law 6]")**. No production code is changed on this branch.
+Status: **proposal, revision 2, awaiting human approval (AGENTS.md "Stay in scope [Law 6]")**. No production code is changed on this branch.
 Base: `claude/board-canvas-no-logic` at `0b41c115`. Date: 2026-10-19.
+
+**Revision 2 (after review).** Revision 1 proposed replacing the AI map artist with a fixed code layout. That would have given every journey of the same shape the same map. The human rejected it: Ila's delight at the 2026-10-18 board ("Mommy it's an octagon design") showed the reveal of a new design is part of the experience, and the goal is **different patterns and designs from board to board**. Revision 2 keeps the Planner as the artist and the board as the canvas:
+- The AI (Planner plus map artist) paints every spelling board. That now includes the Probe and Successor boards, which today run on an older contract.
+- The artist gets more creative room than it has today, not less.
+- Code only fills in the values it already knows. It draws a portal itself only where the AI placed nothing, so a refusal still produces a board.
+
+Decisions recorded from the review are in §7.
 
 ## 1. Summary
 
-**The hypothesis holds, with one correction.** Every spelling board is generated through an AI output contract that asks the model for many values code already knows. Each wrong value has been answered with a new validator, then a correction pass, then a guard against the correction drifting. The correction is that the branch has already moved part of the way. Contract 38 (`95996304`, "one journey sequence, no corrections, Creator preview") took portals, paths, edges and checkpoint lineage away from the Teaching Planner. What is left:
+**The hypothesis holds, with one correction.** Every spelling board is generated through an AI output contract that asks the model for many values code already knows. Each wrong value has been answered with a new validator, then a correction pass, then a guard against the correction drifting. The correction is that the branch has already moved part of the way. Contract 38 (`95996304`) took portals, paths, edges and checkpoint lineage away from the Teaching Planner. What is left:
 
 1. **Three spelling board contracts, not one.**
-   - The **Probe** board is a full `AdventureBoardDefinition` written by the intake Planner, including positions, edge geometry and CSS theme. It is checked on a real canvas and goes through a bounded correction.
-   - The **Teaching** board is a journey sequence written by the Planner, then a map drawn by the Fable "map artist" in up to three calls with screenshots.
+   - The **Probe** board is a full `AdventureBoardDefinition` written by the intake Planner: positions, edge geometry and CSS theme, checked on a real canvas and repaired by a bounded correction.
+   - The **Teaching** board is a journey sequence written by the Planner, then a map drawn by the Fable map artist in up to three calls with screenshots.
    - The **Successor** board is again a full `AdventureBoardDefinition`, written by the progression Planner, checked on canvas, and corrected through journey, reference and citation patches.
-2. **The Teaching Planner tool is still about 4× larger than it needs to be.** It is 19.7 KB with 196 schema properties and a six-way union over activity forms. It still asks for activity IDs, duplicate `type`/`activityId` fields, six Word Radar capture flags, measurement IDs and kinds, `finalCheck`, `maxDelayDays`, an `evidenceUsed` restatement, and explainer option IDs. It is deliberately left unlocked (non-strict) because the 2026-10-18 live compile check rejected it as "compiled grammar is too large" (`src/engine/strictTools.test.ts`, last test).
-3. **The map artist runs an algorithm that code could run.** Its prompt (`src/engine/directMathExperience.ts`, `designNativeBoard`) spells out the layout rules: run the shared journey along the middle row of a 7×3 grid; give each option its own lane on the top or bottom row; rejoin on the middle row; leave an empty cell between stops; keep the bottom-right cell for Elli. The background is a one-value enum. The only remaining AI choices are eight palette colours and edge styles. Two refusals came from this stage: on 2026-10-14 (BUGS.md L548) and on 2026-10-19 (demo session 21b4cc, `stop_details` not recorded). Each refusal stopped the whole board.
+2. **The Teaching Planner tool is about 4× larger than it needs to be.** It is 19.7 KB with 196 properties and a six-way union over activity forms. It still asks for activity IDs, duplicate `type`/`activityId` fields, six Word Radar capture flags, measurement IDs and kinds, `finalCheck`, `maxDelayDays`, an `evidenceUsed` restatement and explainer option IDs. It is left non-strict because the 2026-10-18 live compile check rejected it as "compiled grammar is too large" (`src/engine/strictTools.test.ts`).
+3. **The map artist is boxed into one pattern.** Since `d9ae7cdf` (2026-10-14) its prompt (`designNativeBoard`, `src/engine/directMathExperience.ts`) has fixed the placement:
+   - a 7×3 grid,
+   - the shared journey on the middle row,
+   - a fork's two options on the top and bottom rows, rejoining in the middle,
+   - an empty cell between stops.
 
-**Proposal: one `BoardPlan` contract for all three spelling boards.**
-- The AI chooses only from code-supplied enumerations: instrument modes from the launchable catalog, words from the assignment, evidence IDs from the supplied evidence, activity slots `A`–`L`, and a closed set of theme presets. Free text is used only for child-facing labels and pedagogy.
-- Code compiles the plan into the frozen `AdventureBoardDefinition`. That covers IDs, bindings, capture flags, launch configuration, measurement bookkeeping, the CSS palette, and a **deterministic layout of the journey graph**.
-- The map-artist stage and its preview loop are deleted for spelling.
-- The schema drafted in §4 measures 4.9 KB, 54 properties, 0 optional fields and 4 unions under the repo's own `strictBudget` (limits are 24 optional and 16 unions).
+   A fork drawn this way is always the same ring (roughly a hexagon or octagon), which is probably the shape Ila loved. The Oct 18 board itself is on Saori and was not inspected (§9). The background is a one-value enum. So the artist's real freedom is eight palette colours and edge styles, which is the opposite of the goal.
+4. **An artist refusal stops the whole board.** This happened on 2026-10-14 (BUGS.md L548) and on 2026-10-19 (demo 21b4cc). The 10-19 cause is unknown because `stop_details` was not recorded.
+
+**Proposal.**
+- **One `BoardPlan` contract for the Planner on every spelling board.** The Planner chooses only from code-supplied enumerations: instrument modes, assignment words, evidence IDs and activity slots. Free text is kept for child-facing language and pedagogy. Code fills in IDs, bindings, capture flags, launch configuration and measurement bookkeeping. Measured under the repo's `strictBudget`, the schema is 4.9 KB with 54 properties, 0 optional fields and 4 unions, small enough for `strict: true`.
+- **One map-artist contract for every spelling board**, aimed at variety:
+  - free placement on the canvas, with no fixed grid or lanes;
+  - curve choices for paths;
+  - a pattern name the artist commits to;
+  - theme presets;
+  - a factual list of the patterns used on her previous boards, so it can make something new.
+
+  Code supplies measured portal sizes and the screen areas that are taken. It never rejects or reworks the map.
+- **One canvas rule instead of failure branches:** any portal the artist left unplaced gets a position from a simple code layout. A refusal therefore still publishes the Planner's journey, drawn plainly, with a log line. This generalizes the existing "unplaced portal goes to a fixed logged spot" rule.
 
 **What it buys:**
-- Spelling boards go from three contracts to one.
-- AI calls per Teaching board go from 2–4 to 1.
-- Correction-stage families on spelling boards go from four to zero.
-- Spelling output is locked to the schema while it is written.
-- 39 of the 70 board entries whose fault lies in the AI output contract or its provider call (56%) become impossible to write down.
-- About −200 production lines net (estimated; §5).
+- One Planner contract and one artist contract across all spelling boards.
+- No correction stages on spelling boards (four families today).
+- Strict-locked output.
+- An artist failure can no longer stop a board.
+- 39 of the 70 board entries caused by the AI output contract or its provider (56%) can no longer block or corrupt a board.
+- About −60 production lines net (likely range −30 to −120; §5). This is less than revision 1, because the artist stays. The larger deletion is the legacy planner path (optional step 7).
 
-**What it does not fix** (§8): about half of the 134 board-generation entries are code-pipeline and lifecycle bugs or generated-activity (HTML) bugs. This contract does not touch them.
-
-**It changes approved rules.** AGENTS.md "The canvas has no logic" and `LEARNING_FEEDBACK_LOOP.md` contract 38 both name the Experience Creator as Sunny's map artist. Removing that duty for spelling needs your explicit approval and a contract version 39 (§7).
+**What it does not fix** (§8): about half of the 134 board-generation entries are code-pipeline or generated-activity (HTML) bugs.
 
 ## 2. Field inventory
 
@@ -81,12 +99,13 @@ Source: `designNativeBoard`. Up to `MAX_BOARD_PREVIEWS + 1 = 3` calls, two of th
 | Field | Tag | Note |
 |---|---|---|
 | `portals[].id`, `edges[].id` | Code | Copied from the frozen journey. |
-| `portals[].cell.{landscape,portrait}.{col,row}` | **Code** | The prompt gives the placement algorithm in prose (§1). |
-| `edges[].controlPoints` | Code | Two serialized-geometry bugs (L540, L542). The renderer can draw paths without control points. |
-| `edges[].style` (`solid`/`dashed`/`glow`) | AI→preset | Taste; part of a theme preset. |
+| `portals[].cell.{landscape,portrait}.{col,row}` | **AI, over-constrained** | The creative core. Today it is limited to a 7×3 / 3×4 grid with prescribed lanes (§1), which yields one recurring shape. Revision 2 gives free normalized placement. |
+| `edges[].controlPoints` | AI → enum | Serialized-geometry bugs (L540, L542) came from free point arrays. Replace them with a per-edge `curve` choice (`straight`, `arc`, `wave`, `loop`); code draws the curve. |
+| `edges[].style` (`solid`/`dashed`/`glow`) | AI | Taste. |
 | `theme.background` | Code | Already a one-value enum (`silent-letter-world.jpeg`). |
-| `theme.palette` (8 CSS colours) | AI→preset | Contrast must be guaranteed. Invalid CSS (L507–L510) and a downgraded look (L536) came from here. Closed presets with checked contrast replace it. |
-| `whatISee`, `rationale` | AI | The artist's self-review. Has no use without the stage. |
+| `theme.palette` (8 CSS colours) | AI → preset | Invalid CSS (L507–L510) and a downgraded look (L536) came from here. The artist picks a preset (decision 3a); each preset's contrast is checked once. |
+| `whatISee`, `rationale` | AI | Self-review; kept, and logged. |
+| *(new)* `pattern` | AI | The design idea the artist commits to (for example "octagon ring", "spiral", "mountain climb"). Logged, saved with the board, and fed back as presentation history for variety. |
 
 ### 2.3 Probe board: intake Planner `write_adventure_session_plan` (spelling intake)
 
@@ -150,9 +169,9 @@ Source: `askPlanner` in `src/engine/learningCycleRuntime.ts`.
 **What the target contract removes by construction (spelling boards only):**
 - **A:** 23 of 34. All 12 spelling-board ID and reference entries, all 6 catalog entries, 3 of 5 config entries, and both CSS entries. The rest are math, generated-artifact or intake-capture entries.
 - **B:** 7 of 14. Every board-contract correction; no correction stage remains.
-- **C:** 6 of 6. Layout becomes a tested pure function.
+- **C:** 6 of 6 can no longer block a board. Code never rejects geometry (the v38 rule, extended to Probe and Successor); free point arrays are gone under strict; taken screen areas are given to the artist as facts. An overlap can still appear and is judged in screenshots.
 - **E:** 3 of 3, if the live compile check passes (§7, decision 4).
-- **Total:** 39 of 70 (56%). **D** shrinks (one call instead of 2–4) but is not eliminated. **H** stays, correctly.
+- **Total:** 39 of 70 (56%). **D:** an artist refusal no longer stops a board; Planner-call and transport failures remain. **H** stays, correctly.
 
 **Why labs kept missing these.** One reason recurs in the "why the lab missed it" notes: the lab injected well-formed AI output. Each new invalid shape came from a live model and got its own validator. With a strict, enum-only contract, the set of shapes the model can return is finite and is enumerated by the schema itself. The lab can generate all of them.
 
@@ -160,17 +179,16 @@ Source: `askPlanner` in `src/engine/learningCycleRuntime.ts`.
 
 ### 4.1 Ownership
 
-| AI decides (from code-supplied choices where possible) | Code fills in, the same way every time |
+| AI decides (Planner: lesson; artist: picture) | Code fills in, the same way every time |
 |---|---|
-| Which instrument modes to use (enum: launchable catalog `activityId:modeId`) | Node, portal, path, edge, option, measurement and check-option IDs (namespaced by assignment and position) |
-| Which words each activity targets (enum: assignment words) | `type`/`activityId`, native launch config, capture flags (from the mode's catalog config) |
-| Sequence: opening, optional choice with options, closing (by slot `A`–`L`) | Measurement role, `evidenceType`, `finalCheck`, horizon (from the parent schedule), checkpoint exposure lineage (already derived in v38) |
-| Prediction numbers and criteria; evidence citations (enum: supplied evidence IDs) | `targetLane` from word groups; the activity's target list from the explainer words |
-| Child-facing titles, labels, choice question, hypotheses, endpoint label | Start, choice and endpoint portals; connections (already derived in v38) |
-| Explainer teaching content; theory; review questions | Positions for landscape and portrait; edge paths (deterministic layout, §4.3) |
-| Theme preset (enum of closed presets) | Background image, 8-colour palette, edge styles (from the preset table) |
+| **Planner:** which instrument modes (enum: launchable catalog `activityId:modeId`) | Node, portal, path, edge, option, measurement and check-option IDs (namespaced by assignment and position) |
+| **Planner:** which words each activity targets (enum: assignment words) | `type`/`activityId`, native launch config, capture flags (from the mode's catalog config) |
+| **Planner:** sequence (opening, optional choice with options, closing, by slot `A`–`L`) | Measurement role, `evidenceType`, `finalCheck`, horizon (from the parent schedule), checkpoint exposure lineage (already derived in v38) |
+| **Planner:** prediction numbers and criteria; evidence citations (enum: supplied evidence IDs, decision 2a) | `targetLane` from word groups; activity targets from the explainer words |
+| **Planner:** child-facing titles, labels, choice question, hypotheses, endpoint label; explainer content; theory | Start, choice and endpoint portals; connections (already derived in v38) |
+| **Artist:** pattern, portal placement (free), path curve and style per edge, theme preset (decision 3a) | Curve geometry from the chosen curve; palette CSS from the preset; a fallback position for any portal the artist did not place (§4.3) |
 
-Planner authority as AGENTS.md defines it is unchanged: activities, sequence, alternatives, convergence, labels, configurations (as mode choices) and evidence relationships (as citations). Code invents no route, deletes no choice and reorders nothing.
+Planner authority as AGENTS.md defines it is unchanged, and so is the Creator's authority over the picture. Code invents no route, deletes no choice, reorders nothing, and never rejects or moves an artist-placed portal.
 
 ### 4.2 Schema (Teaching body; Probe and Successor share the journey part)
 
@@ -181,13 +199,13 @@ Drafted and measured in scratch, with 20 words, 25 evidence IDs and 14 instrumen
 | Current Teaching Planner | 19,717 | 196 | 21 | 13 | 0 after rewrite (rejected live as "too large") |
 | Current successor/probe `boardDefinition` | 5,305 | 56 | n/a | n/a | n/a |
 | Current map-artist composition | 2,959 | 34 | n/a | n/a | n/a |
-| **Target `BoardPlan`** | **4,872** | **54** | **0** | **4** | **0** |
+| **Target `BoardPlan`** (measured with a theme field since moved to the artist) | **4,872** | **54** | **0** | **4** | **0** |
 
 ```ts
 $defs: { word: enum(assignment words), instrument: enum(launchable activityId:modeId),
-         evidenceId: enum(supplied IDs), slot: enum('A'..'L'), theme: enum(preset IDs) }
+         evidenceId: enum(supplied IDs), slot: enum('A'..'L') }
 {
-  title: string, theme: $theme, endpointLabel: string,
+  title: string, endpointLabel: string,
   activities: [{
     slot: $slot, instrument: $instrument, title: string, words: [$word],
     prediction: null | { expectedMin, expectedMax, confidence: number,
@@ -208,23 +226,41 @@ There is no union over activity kinds. Kind-specific content is one nullable `ex
 
 **Probe:** the intake capture fields stay. `diagnostic` becomes `{action, instrument: $diagnosticInstrument, reason, evidenceIds, uncertainty, nextEvidenceNeeded}` plus a portal `title`. Code builds start → diagnostic → end.
 
-**Successor:** the decision fields stay. `contentId` becomes an enum, and `nextInstruments[]` loses `nodeId` and gains `slot`. `boardDefinition` is replaced by the same `opening/choice/closing/theme/endpointLabel` block.
+**Successor:** the decision fields stay. `contentId` becomes an enum, and `nextInstruments[]` loses `nodeId` and gains `slot`. `boardDefinition` is replaced by the same `opening/choice/closing/endpointLabel` block. The artist then paints it (§4.3).
 
-### 4.3 Deterministic layout
+### 4.3 The artist's canvas, and the fallback layout
 
-`layoutJourney(expanded journey) → {portalId: {landscape, portrait}}` is a pure function in `src/shared/`. It does what the map-artist prompt already asks for, in code:
+**Artist contract** (one strict tool per stage, same for Probe, Teaching and Successor boards):
 
-- **Landscape.** Columns follow sequence index. Shared portals sit on the middle lane. At a choice, each option gets its own lane, spread symmetrically above and below; lanes are added beyond three rows when there are more than two options, so no choice is ever dropped. Options rejoin the middle lane at one column past the longest option. A path longer than the 7 columns that fit (980 px safe width ÷ (116 px portal + 28 px air)) wraps into a second band.
-- **Portrait.** The same graph transposed onto 3 columns and as many rows as needed. Today's 3×4 grid gives the artist the same capacity limit.
-- **Reserved cells.** The level badge (top-left), the status bar (bottom-centre) and Elli (bottom-right) are reserved, which turns the L29 invariant into a layout rule.
-- **Edges.** No control points; the renderer draws them. Style comes from the preset.
-- **Over capacity.** Spacing tightens to the measured minimum and `🎮 [board] [layout] [over-capacity] portals=N` is logged. The board still publishes and nothing is removed.
+```ts
+{ whatISee: string, pattern: string, theme: $theme,
+  portals: [{ portal: $portalId, landscape: {x, y}, portrait: {x, y} }],   // x, y in 0..1
+  edges:   [{ edge: $edgeId, curve: enum(straight, arc, wave, loop), style: enum(solid, dashed, glow) }],
+  rationale: string }
+```
 
-The shape space is finite: up to 12 activities, at most one choice, the longest label clamped. So it is tested once, exhaustively. A unit property test asserts that no boxes overlap for every shape, using measured maximum portal sizes. One Playwright lab renders a representative set at 1280×720, 768×1024 and 1470×956 with the XP bar and Elli present. Because layout is a tested function of the journey, `verifyAuthoredBoardCanvas` is no longer a per-board publication gate for spelling. The same check runs in CI against the layout function instead.
+- **IDs come from enums.** Portal and edge identities are enums of the frozen journey's IDs, so the artist cannot invent or misspell one.
+- **Facts the artist is given.**
+  - The real portal sizes, measured with the label (`measureBoardPortals`, already exists).
+  - The screen areas that are taken: the level badge, the status bar, and Elli's corner.
+  - The safe area and the minimum spacing.
+  - Up to 2 rendered looks (unchanged).
+- **The prescriptive grid and lane rules are removed from the prompt.** These are the rules that produce one recurring shape.
+- **Variety.** The artist also receives a short factual list of the `pattern` and `theme` values of this child's previous boards. Its brief: make each map a new design she has not seen, a world she wants to finish. This is presentation history, never child evidence (decision 7). Her reaction to a design remains engagement evidence under `LEARNING_FEEDBACK_LOOP.md`, separate from academics.
+- **Overlap.** It is never a reason to reject. It is visible in the saved screenshots and the generation report, and judged by the human (the v38 rule, unchanged).
+
+**Fallback layout.** `layoutJourney(expanded journey)` is a small pure function in `src/shared/` that places portals in a simple left-to-right trail with one lane per option. It is used for exactly one thing: **any portal without an artist position**.
+- Nothing missing: the artist's map is drawn exactly.
+- Two portals missing: those two get layout spots, logged as `🎮 [board] [portal] [fallback-position]`. This already exists, at a single fixed spot.
+- The artist refused, timed out or returned nothing readable: every portal gets a layout spot, logged as `🎮 [experience-creator] [composition] [fallback-layout] reason=…`. The board publishes.
+
+If the artist refuses after a look, the last composition it previewed is its own work. Using it is better than the plain layout. That needs one sentence changed in the learning contract (decision 7).
+
+The fallback layout is exhaustively tested for overlap, since the shape space is finite (12 activities, at most one choice). That way the plain board is at least tidy.
 
 ### 4.4 Theme presets
 
-`THEME_PRESETS` is a short table of `{id, background, palette, edgeStyles}`. Each palette's `text`/`panel` pair is contrast-checked in a test. Only one illustrated world exists today (`silent-letter-world.jpeg`), so presets start as palette variants on that world. The approved look is kept by construction: illustrated Grok world, inviting portals, animated dashed or glow paths, left-to-right progression. A side-by-side screenshot comparison with the last accepted artist maps is required before handover ("Preserve the approved experience").
+`THEME_PRESETS` is a table of `{id, background, palette, edgeStyles}`, each with its `text`/`panel` contrast checked in a test. The artist picks one (decision 3a). Only one illustrated world exists today (`silent-letter-world.jpeg`), so the first presets are palette variants on it. More artwork means more presets, with no contract change. The approved look stays: illustrated Grok world, inviting portals, animated dashed or glow paths.
 
 ### 4.5 Truth checks that remain, and what each degrades
 
@@ -237,58 +273,62 @@ Under strict mode these cannot fire for new responses. They stay because saved n
 
 ## 5. Deletion plan
 
-Each step is its own red-green change (AGENTS.md Laws 1 and 3) with its own invariant. Line counts are estimates from the current function spans and are counted for production code only.
+Each step is its own red-green change (AGENTS.md Laws 1 and 3) with its own invariant. Line counts are estimates from current function spans, production code only.
 
 | Step | Change | Deleted | Added | Net | Proof (red first) |
 |---|---|---:|---:|---:|---|
-| 0 | **Refusal diagnostics.** Save the full provider response (including `stop_details`) on refusal for every board stage. | 0 | ~3 | +3 | Lab invariant: an injected refusal's receipt contains `stop_details`. **Why the human caught 10-19:** loading never finished. **Why logs did not explain it:** they record `[refused]` without the provider's reason. **Why the lab missed it:** the `learning_design_provider_refused` lab injects the failure and asserts the stop, not the diagnostic. |
-| 1 | Add `layoutJourney` and `THEME_PRESETS` (pure, unused). | 0 | ~90 | +90 | Exhaustive no-overlap property test; reserved-cell test; contrast test; one Playwright layout lab at three viewports. |
-| 2 | **Teaching: replace the map artist with layout + preset.** Delete `designNativeBoard`, `compositionAsSubmitted`, the grid and cell helpers, `MAP_ARTIST_PERSONA`, `MAX_BOARD_PREVIEWS`, and `measureBoardPortals`. Edit AGENTS.md and bump `LEARNING_FEEDBACK_LOOP.md` to v39. | ~140 | ~10 | **−130** | Call-count test: a Teaching generation makes exactly one provider call. Existing acceptance: authored journey = rendered, traversable journey in a sandbox evaluation-to-board run. Screenshots compared with the approved brief. Retire `creatorPreview.test.ts` (204 lines) and the artist parts of `learningExperienceCreator.test.ts`. |
-| 3 | **Teaching Planner → strict `BoardPlan`.** Replace `spellingActivityFormSchema`, `nativeActivityBase`, `nativeSpellingMeasurement`, and the `deriveNativeActivity` config derivation with one flat form plus `compileBoardPlan`. Remove the hydrate-time relationship re-check and sanitize pass. The old `hydrateNativeLearningProgram` stays read-only for saved receipts. | ~60 | ~80 | +20 | `strictBudget` test (unsupported = [], optional ≤ 24, unions ≤ 16). The model's every possible output shape is generated from the schema enums. Old-receipt replay is unchanged. **Live compile check: one paid call (decision 4).** Flip the "keeps the lesson Planner unlocked" test. |
-| 4 | **Probe: code-built one-portal board.** `diagnostic.instrument` becomes an enum. Delete `intakeBoardSchema`, `spellingIntakeCorrectionSchema`, the intake canvas verification, the new-correction half of the `planSpellingIntakeFromSource` catch block, and the `spellingIntakeToolJsonSchema` override (use `strictTool`). | ~95 | ~20 | **−75** | Every `select` intake yields an executable start → diagnostic → end board. No `authoring-correction` stage is ever written. Rewrite the correction cases in `spellingDiagnosticSelection.test.ts` as "cannot occur". |
-| 5 | **Successor: `BoardPlan` journey.** Replace `BOARD_DEFINITION_TOOL_SCHEMA` in the progression tool, make `contentId` an enum, and delete the journey-correction and reference-patch branches and the successor canvas verification for spelling. Math keeps its path. | ~35 | ~15 | **−20** | Each progression action authors a publishable successor. No `progression-journey-correction` or `reference-patch` stage is written. Update `spellingSuccessorContract.test.ts`. |
-| 6 | **Drain and delete legacy readers.** First, a read-only inventory of in-flight cycles under the old contracts in the real children's contexts. If there are none, delete the old native hydrate path and the intake legacy-correction receipt reuse loop. | ~80 | 0 | **−80** | Inventory output attached. Published boards stay readable: stored definitions are not touched. |
-| | **Total** | **~410** | **~218** | **≈ −190** | Likely range −150 to −250. |
+| 0 | **Refusal diagnostics.** Save the full provider response, including `stop_details`, for every board stage. | 0 | ~3 | +3 | Lab invariant: an injected refusal's receipt contains `stop_details`. The human caught 10-19 because loading never finished. Logs said `[refused]` with no reason. The lab injected the refusal and asserted only the stop. |
+| 1 | Add the fallback `layoutJourney` and `THEME_PRESETS` (pure, unused). | 0 | ~80 | +80 | Exhaustive no-overlap test of the fallback layout; reserved-area test; preset contrast test. |
+| 2 | **Teaching artist: free canvas, variety, never stops the board.** Remove the grid and lane prescription and the cell/grid helpers. Strict artist tools with portal and edge enums. Add `pattern`, `curve`, theme preset and previous-pattern facts. A refusal, unreadable reply or missing composition uses the fallback layout, replacing the `learning_design_provider_refused` throw. | ~25 | ~35 | +10 | **(a)** An injected refusal publishes the Planner's journey with every portal on the fallback layout, makes no further provider call, and logs `[fallback-layout]`. **(b)** Artist positions are published unchanged (existing invariant). **(c)** The prompt carries no grid or lane rule and lists previous patterns. **(d)** Live (decision 4): one strict artist compile and one sandbox evaluation-to-board run. Screenshots go to the human for the design check. |
+| 3 | **Teaching Planner → strict `BoardPlan`.** One flat activity form plus `compileBoardPlan` replaces `spellingActivityFormSchema`, `nativeActivityBase`, `nativeSpellingMeasurement` and the `deriveNativeActivity` config derivation, and drops the hydrate-time relationship re-check. The old hydrate stays read-only for saved receipts. | ~60 | ~80 | +20 | `strictBudget` test (unsupported = [], optional ≤ 24, unions ≤ 16). Every output shape is generated from the enums. Old-receipt replay is unchanged. Live strict compile (decision 4). Flip the "keeps the lesson Planner unlocked" test. |
+| 4 | **Probe on the shared path.** The intake Planner picks `diagnostic.instrument` (enum) and labels; code builds start → diagnostic → end; the artist paints it. Delete `intakeBoardSchema`, `spellingIntakeCorrectionSchema`, the intake canvas verification, the correction half of the `planSpellingIntakeFromSource` catch block, and the tool-schema override (use `strictTool`). | ~95 | ~25 | **−70** | Every `select` intake publishes a playable Probe board. No `authoring-correction` stage is ever written. The correction cases in `spellingDiagnosticSelection.test.ts` become "cannot occur". |
+| 5 | **Successor on the shared path.** A `BoardPlan` journey replaces `BOARD_DEFINITION_TOOL_SCHEMA`; `contentId` becomes an enum; the artist paints it. Delete the journey-correction and reference-patch branches and the successor canvas gate for spelling. Math keeps its path. | ~35 | ~20 | **−15** | Each progression action publishes a successor. No correction stage is written. Update `spellingSuccessorContract.test.ts`. |
+| 6 | **Drain and delete legacy readers,** after a read-only inventory of in-flight old-contract cycles in the real children's contexts (decision 6a). | ~80 | 0 | **−80** | Inventory attached. Published boards stay readable. |
+| | **Total** | **~295** | **~243** | **≈ −50** | Likely range −20 to −110. |
 
-**Hot-path files:**
-- `directMathExperience.ts`: about −130 (3,947 → about 3,815).
-- `assignmentPlanner.ts`: about −135 (3,235 → about 3,100).
-- `learningCycleRuntime.ts`: about −20.
-- A new `src/shared/boardPlan.ts` gains about +170.
+**Per file:** `assignmentPlanner.ts` about −130; `learningCycleRuntime.ts` about −15; `directMathExperience.ts` about +10; a new `src/shared/boardPlan.ts` about +90.
 
-**Commit count.** Since the merge-base with `main`, 85 commits touch the two hot-path files (the brief's 107 likely used a different range). Two further files were created on this branch: `adventureBoardDefinition.ts` (332 lines) and `adventureBoardCanvas.ts` (172).
+**This is a small net reduction.** The value is in removed failure surfaces, not lines: three Planner contracts become one, two canvases become one, four correction families go to zero, and artist failure no longer blocks a board. The larger deletion is **optional step 7** (separate approval): the legacy `planAssignmentFromSource` path. It holds `callAssignmentPlannerModel` with its measurement correction, the canvas correction, `planAssignmentFromSourceInternal`, and about 150 lines of forgiving Word Radar normalizers, roughly −400 to −600 lines in all. It needs a caller audit first, because `ingestHomework.ts:1499` and `sunnyIngest.ts` still call it. Math is untouched (Math Prompt Chain Boundary).
 
-**Optional step 7 (separate approval).** The legacy `planAssignmentFromSource` path still holds most of the remaining correction machinery: `callAssignmentPlannerModel` with its measurement correction, canvas correction, `planAssignmentFromSourceInternal`, and roughly 150 lines of forgiving Word Radar normalizers. That is about −400 to −600 lines, but only after a caller audit shows spelling no longer reaches it. `ingestHomework.ts:1499` and `sunnyIngest.ts` still call it. Math's Experience Creator composition is untouched (Math Prompt Chain Boundary); applying the layout there would be its own proposal.
+**Commit count.** Since the merge-base with `main`, 85 commits touch the two hot-path files (the brief's 107 likely used another range). Two further files were created on this branch: `adventureBoardDefinition.ts` (332 lines) and `adventureBoardCanvas.ts` (172 lines).
 
-**Order and rationale.**
-- Step 2 comes before step 3 because it removes the stage that refused, and it is independent of the Planner schema.
-- Steps 4 and 5 reuse the compiler and layout from steps 1–3.
+**Order.**
+- Steps 0–2 first: they stop artist failures from blocking boards and open the canvas.
+- Step 3 shrinks the Planner.
+- Steps 4–5 move the Probe and Successor boards onto the same path. This is the AGENTS.md rule that a path keeps its old checks until its author can see its own work.
 - Step 6 waits for real data to drain.
-- Steps 2–5 each leave the system shippable.
+- Each step leaves the system shippable.
 
 ## 6. Degrade path: what the child sees
 
-AGENTS.md and the learning contract forbid code-authored fallback teaching plans ("no … fallback teaching plans", spelling kiosk cutover). So the degrade never invents pedagogy. It narrows the failure to the smallest unit and keeps her chapter honest.
-
 | Failure | Child sees | Log | Recovery |
 |---|---|---|---|
-| One activity fails a truth check, or its explainer content is invalid | Board publishes; that portal shows **Not ready** and the path passes over it | `🎮 [board] [portal] [not-ready] reason=…` | None needed; missing measurement stays explicit |
-| Layout over capacity | Board publishes with tighter spacing | `🎮 [board] [layout] [over-capacity]` | Planner is told capacity as a fact (already) |
-| Preset artwork missing | Board publishes on the default preset | `🎮 [board] [theme] [fallback]` | Fix the asset |
-| Teaching Planner refuses, hits `max_tokens`, or returns nothing readable | Probe chapter stays complete; she may replay completed probe nodes as practice (contract allows replay until a successor publishes); Elli says her next map isn't ready yet; **Stop for now** keeps everything. Today's screen is "Building paused · Your work is saved · Try again". | `🎮 [learning-planner] [response] [refused] stop_details=…` | Parent opens a bounded retry batch (at most 3, existing rule); no automatic retry |
-| Intake Planner refuses | No child session yet; the parent sees the saved source and the failure | `[spelling-discovery] … [refused]` | Parent retry |
-| Successor Planner refuses | The current board stays playable and replayable; the cycle is blocked for a person (existing rule) | `[canonical-progression] [blocked]` | Parent retry |
+| Artist refuses, times out, returns nothing readable, or places nothing | **Board publishes.** Every portal of the Planner's journey is on the plain fallback layout (or on the artist's last previewed map, decision 7). | `🎮 [experience-creator] [composition] [fallback-layout] reason=… stop_details=…` | None needed for her; the human sees the plain board and the reason in the report |
+| Artist leaves some portals unplaced | Board publishes; only those portals use fallback spots | `🎮 [board] [portal] [fallback-position]` | None |
+| A colour key or preset is unusable | Board publishes; that key falls back to the preset default | `🎮 [experience-creator] [theme] [fallback]` (exists) | None |
+| One activity fails a truth check | Board publishes; that portal shows **Not ready** and the path passes over it | `🎮 [board] [portal] [not-ready] reason=…` (exists) | None |
+| **The Planner itself** refuses or returns nothing readable | No new lesson exists to draw, and the learning contract forbids code-authored teaching plans. So the completed Probe board stays, she may replay it as practice, Elli says her next map isn't ready, and **Stop for now** keeps everything. | `🎮 [learning-planner] [response] [refused] stop_details=…` | Parent retry, at most 3, existing rule (decision 8) |
 
-The map-artist refusal, the failure behind both live refusals, is no longer possible because the stage no longer exists.
+The two live refusals (10-14 and 10-19) were both the artist. Under this design both would have published a board.
 
-## 7. Conflicts with current rules and decisions for you
+## 7. Decisions
 
-1. **Remove the map-artist duty for spelling boards.** This requires editing AGENTS.md ("The Experience Creator is Sunny's map artist…") and `LEARNING_FEEDBACK_LOOP.md` §"For the spelling Teaching board…" (contract v39). The Experience Creator remains for generated activities and for math. *Recommended: yes.*
-2. **Evidence citations.** *Recommended:* keep them Planner-cited, as an enum over the supplied IDs. This keeps "every new prediction explains which historical evidence informed it". The alternative, deriving citations from target words, is smaller but is a learning-contract change.
-3. **Theme.** *Recommended:* the Planner picks from closed presets. The alternative is one fixed preset until more artwork exists.
-4. **Live strict compile check.** Proving the schema compiles takes one real request per tool (Teaching, Probe, Successor). That is a paid call in verification, which needs your approval.
-5. **Parent retry after a refusal.** Should the retry use the same configured model only (current rule), or may it name a second configured model? Recommended: same model, until `stop_details` evidence shows why it refused.
-6. **In-flight old-contract cycles** (step 6): delete the readers after the inventory, or keep them indefinitely.
+**Recorded from the review (2026-10-19):**
+
+1. **The map artist stays, and the goal is variety.** The AI paints every spelling board, with different patterns and designs. Revision 1's deterministic layout is withdrawn. Code draws a portal only where the AI placed nothing.
+2. **(a)** Evidence citations stay Planner-cited, as an enum over the supplied IDs.
+3. **(a)** Themes come from closed, contrast-checked presets; the artist chooses among them.
+4. **Yes:** paid calls are approved for the live strict-compile checks and one sandbox evaluation-to-board run in steps 2 and 3.
+5. **No use-case branches that end board generation.** One canvas rule (fallback positions for unplaced portals) covers artist refusal, timeout and partial output. There is no second-model fallback. The refusal root cause is investigated from the `stop_details` that step 0 records.
+6. **(a)** Delete the legacy readers after the in-flight inventory.
+
+**Still open:**
+
+7. **Two learning-contract wording changes (v39).**
+   - **(i)** Allow the artist to see the `pattern` and `theme` of the child's earlier boards. This is presentation history for variety, not child evidence; the contract currently forbids feeding Creator prose forward as evidence, so the exception should be stated.
+   - **(ii)** On an artist refusal after a look, publish the last composition it previewed. The 10-14 fix currently forbids treating a preview as the final submission. The alternative is to always use the plain fallback layout.
+   - *Recommended: allow both.*
+8. **Planner failure.** This is the only case left with no new board, because no lesson exists to draw. Keep the honest wait, with probe replay and parent retry (recommended, and consistent with the learning contract)? Or do you want another option considered?
 
 ## 8. What this does not fix
 
@@ -298,7 +338,10 @@ The map-artist refusal, the failure behind both live refusals, is no longer poss
 
 ## 9. Evidence gaps
 
-- The 2026-10-19 demo-session receipts (21b4cc) were not found in the `sunny-board-canvas` worktree or in recent output folders. The refusal is cited from the brief. Its cause is unknown because `stop_details` was not saved; step 0 exists for exactly this reason.
-- Whether `activities[].difficulty` is read by the spelling runtime was not traced.
-- The line estimates come from function spans, not from a trial implementation.
-- The no-overlap claim for deterministic layout is a design claim until the step 1 tests exist.
+- **The 2026-10-18 "octagon" board was generated on Saori and is not on this machine,** so its shape was inferred from the code it ran (the grid and lane rule since `d9ae7cdf`), not inspected. Copying its saved `boardDefinition` and generation screenshots from Saori would confirm which design choices produced it.
+- **The 2026-10-19 demo receipts (21b4cc) were not found** in the `sunny-board-canvas` worktree or recent outputs. The refusal is cited from the brief, and its cause is unknown without `stop_details` (step 0).
+- **Variety is a design goal, not a measured outcome.** No unit test can prove the artist makes different maps. The proof is the per-board `pattern` log plus the human's review of live boards.
+- **Unchecked or untested claims:**
+  - Whether `activities[].difficulty` is read by the spelling runtime was not traced.
+  - Line estimates come from function spans, not a trial implementation.
+  - The fallback layout's no-overlap claim holds only once the step 1 tests exist.
