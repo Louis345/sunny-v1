@@ -73,13 +73,18 @@ describe("strict tools lock the model to the schema",()=>{
 
   // Live compile check 2026-10-18 (claude-sonnet-5-5, claude-fable-5): the API rejected the lesson
   // Planner's tool and the map artist's tools together as "compiled grammar is too large", although
-  // they fit the documented field counts. A rejected request produces no map at all, so these stay
-  // unlocked, with the decoder, until their forms are slimmed and pass a live compile check.
-  it("keeps the lesson Planner and map artist unlocked until their forms pass a live compile check",async()=>{
+  // they fit the documented field counts. A rejected request produces no map at all, so the lesson
+  // Planner stays unlocked, with the decoder, until its form is slimmed (proposal step 3).
+  // Live compile check 2026-10-19 (claude-fable-5): the slimmed map-artist tools compiled strict and
+  // painted a full board; they are locked (mapArtistCanvas.test.ts).
+  it("keeps the lesson Planner unlocked until its form passes a live compile check",async()=>{
     const fs=await import("node:fs"),path=await import("node:path");
     const source=fs.readFileSync(path.join(__dirname,"directMathExperience.ts"),"utf8");
-    expect(source).not.toContain("strictTool(");
-    expect(source).not.toMatch(/strict:\s*true/);
+    const start=source.indexOf('const toolName = native?"create_learning_program"');
+    const plannerRequest=source.slice(start,source.indexOf('tool_choice: { type: "tool", name: toolName }',start));
+    expect(plannerRequest).toContain("nativeLearningProgramToolJsonSchema");
+    expect(plannerRequest).not.toContain("strictTool(");
+    expect(plannerRequest).not.toMatch(/strict:\s*true/);
     expect(planner.nativeLearningProgramToolJsonSchema(catalog)).toBeDefined();
   });
 });

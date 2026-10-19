@@ -3,6 +3,7 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { resolveChildContextDir } from "../utils/contextRoot";
+import { boardDesignHistory } from "./learningBoardInstances";
 import {
   getLearningCycle,
   hasSufficientCalibrationEvidence,
@@ -223,6 +224,11 @@ function readCanonicalCycles(childId: string, rootDir = process.cwd()): Learning
         return [];
       }
     });
+}
+
+/** Presentation history for the map artist, kept apart from academic history (contract 39). */
+export function readBoardDesignHistory(childIdRaw: string, opts: { rootDir?: string } = {}): ReturnType<typeof boardDesignHistory> {
+  return boardDesignHistory(readCanonicalCycles(childIdRaw.trim().toLowerCase(), opts.rootDir));
 }
 
 export function buildLongitudinalLearningHistory(
