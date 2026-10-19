@@ -135,7 +135,7 @@ Never submit a failing build.
 
 **Mechanical gate:** GitHub Actions workflow `.github/workflows/ci.yml` runs on PRs and pushes to `main`/`master`: root `npm run build` (server `tsc` plus `web`’s `tsc -b` and Vite production build), then `npm run test` (root Vitest and `web` tests). That enforces **Law 7** (and any behavior covered by tests). It does not interpret Laws 1–6 by itself.
 
-**Narrative flags:** `.github/workflows/claude-review.yml` posts a PR comment from Claude using a checklist aligned with these laws (requires `ANTHROPIC_API_KEY` secret).
+**Review gate:** `.github/workflows/claude-review.yml` runs Opus 5.5 in Claude Code against the checked-out PR (it executes focused tests and probe tests), posts one review, and sets the required status `ai-review/opus`, failing closed. `.github/workflows/human-gate.yml` sets `human-gate`, which stays pending on risky paths until the owner comments `/ship`. See [`docs/PR_REVIEW_GATE.md`](./docs/PR_REVIEW_GATE.md).
 
 When the human cannot review every line closely, treat a **second agent pass** as part of the merge gate:
 
