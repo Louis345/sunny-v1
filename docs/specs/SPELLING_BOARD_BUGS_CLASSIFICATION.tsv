@@ -1,0 +1,197 @@
+idx	BUGS.md line	tag	summary
+0	9	D	## Spelling generation diagnostic linkage (2026-10-10) The human caught repeated failed waits and asked why the Planner and runtime disagreed. Existing provider
+1	15	F	## Authored journey publication and recovery boundaries (2026-10-09) The human saw stuck loading and unresponsive activity portals. This refactor exposed three 
+2	23	C	## Successor canvas failure retried after restart (2026-10-09) A child-visible wait can persist when the authored canvas fails layout verification. The verifier
+3	29	C	- 2026-10-09 authored canvas overlapped the host level control (found during full-host portrait screenshot review): the canvas reserved less top clearance than 
+4	31	F	- 2026-10-09 authored Discovery readiness disagreed with publication (fixed in refactor, adult kiosk feedback pending): saved assignment → Planner-authored port
+5	33	F	- 2026-10-09 successor readiness log is unconditional (open, lab finding): the HTTP completion route logs `[next-session] [ready]` whenever the background prepa
+6	39	F	- 2026-10-08 preparation time invisible (fixed for elapsed time, remaining-time estimate open): the generation job held a real start timestamp, but the screen d
+7	41	F	- 2026-10-08 loading curtain could open before map readiness (fixed, kiosk replay pending): the safety timer marked its own overlay ready before asking the pare
+8	43	X	- 2026-10-08 Ila's Visual Explainer looked finished but left Spell It Out locked (fixed, awaiting child replay): its completion included an `activityEvents` arr
+9	47	X	- 2026-10-08 Ila could not hear individual Visual Explainer chunks and its finished explanation vanished (fixed, human audio check pending): chunk tiles were te
+10	51	A	- 2026-10-07 successor spelling activity withheld by validation (open): after the completed-session progression recovery succeeded, the Planner prescribed one f
+11	53	D	- 2026-10-07 isolated restart exposed fixed-name Planner receipt collision (resolved): after the revision-aware retry fix, startup correctly tried to resume the
+12	59	X	- 2026-10-07 child-session companion-memory compaction failures (resolved): three help turns each attempted memory compaction and failed with `companion_memory_
+13	61	F	- 2026-10-07 child-session completed-board progression stall (resolved): the child completed all 12 final checkpoint items and the Planner returned a next-sessi
+14	63	X	- 2026-10-07 child-session overlapping companion turns (resolved): rapid “I don’t know” interruptions started several provider turns, and late tokens from an ol
+15	67	A	- 2026-10-07 child-session spelling response-mode handoff (resolved): Ila spoke individual letters in the first Word Radar node, but no letters appeared. The hu
+16	73	F	- 2026-10-01 unrelated finding (logged, not fixed): `selectMysteryGame` in `src/server/map-coordinator.ts` picks the Mystery reward with `Math.random()` at laun
+17	75	F	- 2026-09-30 child-visible generation wait after Discovery: completing an independent evaluation mounted the same operational preparation panel used for returni
+18	77	G	- 2026-09-23 fast, truthful certification follow-through: the intro fix above covered only the first item. Later Continue/interstitial screens were still captur
+19	84	G	- 2026-09-23 certification screenshot identity gap: Reina's isolated 9/22 math ingestion passed scoring for all eight Discovery items, but blind visual review r
+20	86	B	- 2026-09-19 saved-node visual repair starvation: Saori's preserved clock journey reached the new open-ended child screenshot gate, which correctly rejected fou
+21	88	X	- 2026-09-12 human-caught companion proof gap: the final spelling board contained the companion layer and a valid VRM URL, but screenshot capture occurred befor
+22	90	F	- 2026-09-12 human-caught spelling adaptation identity gap: the targeted Planner received valid observation IDs and per-construct counts, but spelling construct
+23	92	F	- 2026-09-12 human-caught spelling board-density regression: the live targeted board hid Planner-authored activities beyond two routes/two nodes, projected a sh
+24	94	F	- 2026-09-09 human-caught diagnostic-authority gap: spelling intake captured words, then code always selected Word Radar. The human asked why the Planner was no
+25	96	X	- 2026-09-09 human screenshot: summoning Elli during Word Radar revealed a large host portrait overlapping a second collapsed portrait and obscuring the dismiss
+26	98	X	- 2026-09-30 human session: Saori opened a mystery reward and saw “Waiting for Sunny to start your reward” forever. The iframe URL and ready event were valid, b
+27	100	A	- 2026-09-09 independent capability review: a spelling node could declare an available `activityId` but select another, unavailable `type`; normalization priori
+28	104	A	- 2026-09-09 spelling multi-node title loss: the new real-parser/transport fixture supplied distinct Planner titles (`Word workshop`, `Recall check`), but the c
+29	106	F	- 2026-09-09 empty preparation failure: the actual spelling journey reached a Planner failure before any node was ready, but its attention panel promised that r
+30	108	D	- 2026-09-09 targeted Planner response durability: the live post-Discovery validation rejection occurred after Anthropic returned, but the worker's outer receip
+31	110	A	- 2026-09-09 live spelling post-Discovery Planner rejection: the real 20-word school-sheet run completed and queued one worker, but local validation rejected `u
+32	112	F	- 2026-09-09 spelling intake summary contradicted published Discovery: the human's live CLI reached a working native Word Radar evaluation, then reported `Done 
+33	116	X	- 2026-09-09 insufficient calibration closure: the human-requested independent math/shared review reproduced an unknown-eligibility prediction labeled `insuffic
+34	122	A	- 2026-09-09 real-menu spelling intake blocker: the live provider captured all 20 school words but put informational OCR/header/duplicate-page notes into the on
+35	124	F	- 2026-09-09 human-caught spelling presentation regression: the targeted spelling worker bypassed the existing node-artwork stage after the Discovery-first earl
+36	130	X	- 2026-09-08 child-entry regression: preventing the human-caught blank homework canvas also hid the existing child picker and fatal voice-error recovery. Prior 
+37	132	X	- 2026-09-08 spelling proof integrity: `closedLoopAdaptationProof` claimed runtime adaptation after applying a lab-only target selector to a copied board. Produ
+38	142	X	- 2026-09-07 real-host evidence audit: Logbook completion correctly saved an unscored explanation as canonical practice, but legacy fact-bank logging separately
+39	144	F	- 2026-09-07 full-host replay: the board allowed reopening a completed activity, but its completion endpoint rejected it as `learning_cycle_node_not_launchable`
+40	148	F	- 2026-09-07 independent replay review: reopening a completed instrument while its Planner decision was pending could cause a revision conflict, response redeli
+41	156	G	- 2026-09-07 repair-contract follow-through: A saved activity repaired its first reported control defect but leaked a numeric panel on the final explanation ite
+42	160	G	- 2026-09-07 approved repair proof, remaining content defect: After repairing the graph controls and correcting verifier state synchronization, the saved Logboo
+43	162	G	- 2026-09-07 approved repair proof: The aggregate browser verifier demanded interaction semantics from graph points belonging to later questions while they were
+44	164	F	- 2026-09-07 Phase 1: A repeated Discovery completion after final board publication reset the canonical lifecycle to `evidence_ready` and replaced the original 
+45	170	F	- 2026-09-07 Phase 1: Independent review reproduced a transient board-packet HTTP failure removing the last valid board/active iframe, a hung status request dis
+46	172	C	- 2026-09-07 Phase 1 map follow-up: The saved graph board crowded its shared-node labels and appended completed Discovery into the new teaching map. The live ap
+47	174	X	- 2026-09-07 Phase 1 capability limit: The Visual Explainer registry advertises teaching capability, but available demos cover erosion/blood flow and the older 
+48	176	F	- 2026-09-07: The real returning-board journey briefly displayed “board not ready” and suggested ingestion before the first packet request had finished. A child
+49	178	B	- 2026-09-07: A bounded repair fixed a hidden explanation panel but missed simultaneously visible SVG answer targets without semantics; subsequent clicking also
+50	184	X	- 2026-09-07: In the isolated returning-board session, Elli's opening referred to an Independent Discovery challenge even though Discovery was complete and the 
+51	186	G	- 2026-09-07: The shared verifier waited for `evaluation_attempt` even when verifying a teaching node whose approved prompt and host use `attempt_event`. The fu
+52	188	F	- 2026-09-07: Targeted artifact generation and final publication built child paths from the source checkout while canonical cycle IO honored SUNNY_CONTEXT_ROOT.
+53	190	B	- 2026-09-07: The unfinished targeted repair called the provider again on replay, silently dropped missing screenshots, and checked frozen metadata after overwr
+54	192	G	- 2026-09-07: The fresh Day 22 graph build used a perpetual scale animation on every answer tile. The first browser pass reported only missing interaction seman
+55	194	A	- 2026-09-07: A fresh isolated Day 22 graph certification produced an item whose representation and accepted answer used a five-unit graph interval, while its e
+56	198	X	- 2026-09-06: Impersonator certification reused an isolated workspace copied before the repair-provider change because its identity included only the assignment
+57	202	G	- 2026-09-06: The saved clock Discovery failed because `#hand-long` was a visible SVG hit target with no interaction semantics or accessible name, but the brows
+58	204	X	- 2026-09-06: The real Sunny menu and its `sunny:certify` subprocess both owned readers for the same terminal. During an impersonator launch, the parent menu co
+59	208	X	- 2026-09-06: Impersonator certification printed nothing after accepting the assignment path while it validated and copied the isolated workspace, making a safe
+60	210	F	- 2026-09-06: The session curtain displayed `100%` after its safety timeout even while voice readiness remained false, and a homework launch without a resolved 
+61	212	X	- 2026-09-06: Parent preview was assumed to validate the complete adaptive math journey, but preview correctly blocked evidence persistence, so Discovery could 
+62	214	X	- 2026-09-06: A successful isolated Day 22 ingestion printed `Start session: npm run sunny`, but the sandbox `SUNNY_CONTEXT_ROOT` had been scoped to the complet
+63	216	D	- 2026-09-05: The ingestion boundary audit reproduced extraction envelope/raw mismatch, complete-browser verification outside repair, weak published-artifact re
+64	218	X	- 2026-09-05: The paid Day 22 ingestion exposed two context/source-resume defects before Discovery publication. The parent menu listed children from the reposit
+65	219	A	- 2026-09-05: Adaptive-math release regressions are tracked in `docs/ADAPTIVE_MATH_RELEASE_REPORT.md`. Confirmed failures: the worker published job readiness be
+66	222	G	- 2026-08-31: Read-only merge review found the new Discovery visual-review renderer started its temporary HTTP server before Playwright import/browser launch, b
+67	223	G	- 2026-08-31: Read-only merge review found Discovery academic binding proved only that item IDs, construct IDs, and accepted-answer strings occurred somewhere i
+68	225	G	- 2026-08-04: A complete parent-preview playthrough found Lightning Door reached its final explanation prompt while still showing the prior comparison buttons, 
+69	226	G	- 2026-08-04: The stricter 1280×720 smoke check reported Puzzle Door horizontal overflow even though its complete interaction area and every control were visibl
+70	227	F	- 2026-08-04: A complete embedded Lightning Door playthrough reached the rating modal, which displayed the internal engine label `Generated Baseline` instead of
+71	229	G	- 2026-08-04: Browser review found the parent-preview badge remained fixed above an open generated activity and could cover its top controls. The human release 
+72	231	A	- 2026-08-04: Full release tests found `parseMathLearningProgram` still rejected a complete Planner program when an activity carried a redundant route alias or 
+73	232	F	- 2026-08-04: The direct math board mounted the legacy `questBossArtifactPreparation` hook even though canonical node completion now owns evidence-gated Quest/B
+74	235	G	- 2026-08-03: Zero-cost coin-ingestion acceptance reused all paid checkpoints and reached FULL, but the non-blocking browser smoke check reported `N1:title_not_
+75	236	A	- 2026-08-06: Merge-readiness verification exposed duplicate `edge-quest-to-boss` identities in the current Planner board. React warned that the duplicated key 
+76	237	F	- 2026-08-03: Math-ingestion ROI leak: optional bonus node N4 was built eagerly even though it was absent from the published board and only belongs to the earne
+77	238	G	- 2026-08-03: Grok can ignore the dedicated-thumbnail prohibition against text and invent tiny pseudo-labels or symbols. The board now uses separate circular-sa
+78	239	X	- 2026-08-03: Reward follow-up after the math release gate: inventory should remain freely available, while the store is revealed as an earned destination with 
+79	240	F	- 2026-08-03: Human route review required the chosen path to become visibly available while its sibling becomes unavailable. The existing test used the serializ
+80	242	X	- 2026-07-18: Full root Vitest had three fixture/catalog failures: two tests requested the registered-but-unseeded `demo-pashley` profile, and the generated-she
+81	243	X	- 2026-07-31: Elli presentation polish is deferred until the math learning loop is complete. Reduce the full-board VRM scale, keep Elli clear of nodes and contr
+82	251	X	- 2026-05-12: `src/tests/test-map-coordinator.ts` onboarding preview test expects `onboarding-academic-load-check`, but the current onboarding map only returns 
+83	253	X	- 2026-05-12: Pronunciation regression: after a perfect 10/10 run, `PronunciationGameCanvas` ends as soon as `isComplete` flips, so the child loses the celebrat
+84	266	A	- Reproduced: correct practice/repeated responses qualified for Quest; generated baseline `correct` flags became canonical truth without checking frozen answers
+85	267	dup	- Fix: Quest requires captured, correct, unseen independent target-aligned evidence. Canonical math observations score selection IDs, numeric text and captured 
+86	272	F	- **Why the human/autonomous journey caught it:** The failure exists only across the real sequence `evaluation_complete → engagement overlay → Skip → packet ref
+87	275	dup	- **Required invariant:** A learning-cycle revision within the same child and homework assignment must preserve the completion handoff; only changing child or h
+88	277	D	# Targeted Planner failure loses the paid response (2026-09-07)
+89	279	dup	- **Human-visible failure:** Discovery completed successfully, but background generation stopped with `math_learning_program_requires_activities`, leaving no re
+90	280	dup	- **Why the human/autonomous journey caught it:** Only a complete live journey invokes targeted planning from freshly committed Discovery evidence; fixture test
+91	283	dup	- **Required invariant:** Every targeted Planner call must save its raw response before parsing, and a learning program must contain at least two baseline activ
+92	293	A	- 2026-09-09 assignment-bound checkpoint/catalog review: fixed node IDs such as practice can recur across assignments. Earlier tests resumed the same selected a
+93	295	A	- 2026-09-10 fresh spelling targeted-Planner schema failure: the live school-word journey committed all 20 Discovery items, then the background worker stopped b
+94	297	F	- 2026-09-10 fresh spelling microphone-fallback regression: the first targeted Word Radar activity logged that microphone access was unavailable and promised on
+95	299	X	- 2026-09-10 isolated certification write leak: the fresh impersonator journey correctly isolated canonical learning-cycle data but legacy session notes, narrat
+96	301	X	- 2026-09-10 stale post-Discovery greeting: after the targeted spelling board reached `board_ready`, session bootstrap still chose the completed Discovery node 
+97	309	X	- 2026-09-10 mystery-finalization test isolation regression: the legacy mystery reward test ran `planSession`, `recordAttempt`, and `finalizeSession` against ca
+98	313	X	- 2026-09-10 canvas voice-sync test isolation regression: a simulated Word Builder round exercised the real `SessionManager` persistence path as Ila, adding an 
+99	315	X	- 2026-09-10 legacy clock/progression test isolation regression: `clockTracker.test.ts` and `progression.test.ts` used the literal child ID `ila`, edited the re
+100	319	F	- 2026-09-19 targeted-math child-context regression: Ila's isolated chart recorded age/grade, CVC reading evidence, seven words per line, large type, and dyslex
+101	321	X	- 2026-09-19 Elli targeted-support regression: generated activities could request reading help, but the host sent the prompt directly to speech, constructed the
+102	323	G	- 2026-09-19 completion-only visual-review regression: a generated clock hand existed in HTML but rendered outside the visible clock. The human saw the broken q
+103	325	D	- 2026-09-19 provider-readiness preflight gap: Saori's configured OpenAI key existed and authenticated, but its project returned `credit_balance_exhausted`. The
+104	326	F	- 2026-09-20 post-evaluation action regression: Saori clicked `Check progress` while the automatic generation-status request was still running, so the hook sile
+105	328	F	- 2026-09-20 preparing-node acknowledgement gap: the post-fix child-frame board correctly labeled unfinished nodes `Preparing`, but clicking one produced no vis
+106	330	F	- 2026-09-20 blocked-node promotion and empty-board exposure: a human noticed that Gear Secret looked current despite carrying `Parent help needed`, while every
+107	332	F	- 2026-09-20 sibling-generation abandonment: Saori reached a zero-playable preparation state even though two planned nodes were still `preparing`. One sibling h
+108	334	D	- 2026-09-20 interrupted visual-review recovery gap: a fully generated activity passed runtime, scoring, and frozen-contract verification, but process interrupt
+109	336	B	- 2026-09-20 whitespace-sensitive repair rejection: the visual reviewer correctly rejected a contradictory clock activity and the repair provider returned eight
+110	338	B	- 2026-09-20 repaired-candidate rollback: the recovered clock repair passed the runtime/scoring journey but the visual reviewer found five residual contradictio
+111	340	H	- 2026-09-20 Planner clock-truth gap: the frozen Planner program described an on-the-hour checkpoint as “short hand just past 3, long hand on 12” while requirin
+112	342	G	- 2026-09-20 Discovery review-context and newly-reachable-state gap: a fresh isolated run rendered the child's spoken pronunciation (`Ayla`) as her visible name
+113	344	B	- 2026-09-20 repair-scope accounting defect: the second bounded repair changed about 1,808 characters in a 30,329-character activity, but Sunny charged all 8,34
+114	347	X	- 2026-09-22: The full repository test run exposed unrelated pre-existing merge-gate failures outside certified Discovery promotion: two spelling browser-accept
+115	349	G	- 2026-09-24 Discovery wrong-answer progression trap: Saori intentionally answered a live evaluation item incorrectly and the generated activity reset the same 
+116	351	X	- 2026-09-24 Discovery test-fixture drift: the full `adaptiveMathDiscovery.test.ts` file had eight older generated-HTML fixtures that omitted the now-required a
+117	354	X	- 2026-09-29 optional video-call ticket warning: the recorded math browser acceptance journey completes targeted and support nodes, but the completion route log
+118	356	F	- 2026-09-30 missing finish-line destinations: Ila completed a real spelling Probe and Sunny generated a six-activity Teaching Board, but the visible board omit
+119	358	X	- 2026-09-30 ambiguous impersonator launch: Saori was given a direct `as-child` homework kiosk that looked like the full isolated journey, but its completion an
+120	360	X	- 2026-10-01 Word Radar decorative-control collision: the animated shooting-star streak crossed the Y and U keyboard controls and could make those letters look 
+121	362	A	- 2026-10-01 Visual Explainer evidence-label contradiction: the catalog and learning-loop contract correctly classified Visual Explainer as assisted practice, b
+122	364	F	- 2026-10-01 Visual Explainer completion-envelope collision: its completion payload carried `type: activity_complete`, which overwrote the shared contract's `no
+123	368	X	## Software-WebGL spelling acceptance: adaptive Discovery entry timeout (2026-10-04) After adding the requested Chromium `--use-angle=swiftshader --enable-unsaf
+124	374	X	- 2026-10-04 spelling-session component-label defect: Ila's real Week 3 spelling Discovery committed each spelling response correctly, but the shared completion
+125	376	F	- 2026-10-04 post-Discovery timeout during board preparation: Ila completed all 12 real spelling probes, then the 15-minute wall timer ended the companion sessi
+126	380	X	- 2026-10-04 stale post-Discovery voice orientation on Ready board: after the targeted spelling board reached `board_ready` and the kiosk reconnected, session b
+127	382	X	- 2026-10-04 spoken-letter practice does not produce a usable response: Ila reached the targeted `node-instr-long-o` Word Radar activity configured as `inputMod
+128	384	H	- 2026-10-04 spelling miss-to-teaching contract gap: the targeted Planner correctly received that `tomorrow` was an independent miss and grouped it into `Long-o
+129	386	F	- 2026-10-05 parent-approved change to the 2026-09-30 Discovery ending: the parent asked that, after a spelling Discovery, the child can watch her map being pre
+130	388	A	- 2026-10-05 live Word Radar contract mismatch: Ila's published `node-instr-long-o` showed “Look, then say it” and instructed her to use slots, while its saved 
+131	392	F	- 2026-10-05 Word Radar speech-capture ownership gap: a Planner-valid letter-by-letter activity rendered empty slots and the microphone health checks passed, bu
+132	394	A	- 2026-10-07 opening spelling node did not offer visible spoken-letter construction: the targeted Planner received independent Discovery misses, then authored `
+133	396	X	- 2026-10-07 unrelated repository-wide pre-commit test failures during the spoken-letter fix: `adaptiveMathBrowserAcceptance.test.ts` timed out waiting for the 
+134	398	A	- 2026-10-07 generated spelling-support shell was rejected without repair: after Ila completed Discovery, the Planner correctly prescribed focused support for `
+135	400	X	- 2026-10-07 spelling browser-acceptance terminal-state gap: the non-adaptive browser journey reaches the valid post-Discovery `Ready next time` chapter state a
+136	402	X	- 2026-10-08 chart-backed spelling browser acceptance: five non-chart journeys passed, but two Node 20 chart journeys failed because their event assertion expec
+137	404	H	- 2026-10-08 Ila targeted-board pedagogy audit: the repaired Planner response published five launchable nodes, but the first node is titled “Crack the Code” whi
+138	406	A	- 2026-10-09 Saori live sandbox targeted-plan lineage failure: evaluation completed in isolated certification `saori-acceptance-20261009-live/cert-v3-ila-spelli
+139	409	F	- Human saw/heard stale loading descriptions. Earliest wrong layer: currentBoardSnapshot copied an older allowlist and dropped screenText, counts, elapsed and u
+140	415	A	- Decision chain: captured PDF -> Planner tool input -> intake parser -> publication (never reached canvas). First provider board used activityId on an activity
+141	416	dup	- Structural change: selected/needs-instrument conditional schema shared between authoring and executable parsing; supported object tool envelope; bounded diagn
+142	417	E	- Human caught failure because real intake could not launch. Logs now preserved both original and correction and exact missing binding/board. Lab had never exer
+143	418	A	- Follow-up live intake exposed a second naming gap: corrected portal bound to the activity type `word-radar` rather than the declared local node `diagnostic`. 
+144	419	E	- Strict-provider compilation exposed a separate API constraint: inlined board schemas exceeded grammar size despite valid JSON Schema. Provider projection shar
+145	420	E	- Strict mode could not compile this schema even after sharing definitions/removing regex grammar; enhancement removed instead of leaving a new ingestion blocke
+146	422	F	### Completed probe canvas bypasses loading curtain (2026-10-11) Human screenshot 12:09:17 shows completed evaluation portals behind small Choosing what to work
+147	424	dup	- Resolution: canonical spelling evaluation uses lifecycle/board kind rather than plan-ID naming to enter the assessment directly. Missing assessment payload yi
+148	426	D	## 2026-10-11 — Human-caught targeted Planner timeout: oversized repeated source and inconsistent transport Decision chain: captured homework + committed Discov
+149	433	X	## 2026-10-11 — Release gate: audio tail and ended activity overlay Human catches: the spoken word sounded shortened, then Elli disappeared while the evaluation
+150	439	B	## 2026-10-11 — Live release gate still blocked at Planner correction Ten isolated Long e evaluation responses and ten browser playback confirmations were saved
+151	453	B	## Planner correction must not invent chronology from an invalid journey Decision chain: saved evaluation → received authored plan → invalid portal binding → no
+152	458	A	## Final assessment endpoint must remain executable Decision chain: committed evaluation → Planner tool output with a final assessment bound at the endpoint → t
+153	462	C	## Canvas corrections need measured authoring feedback The fresh isolated Long e run saved 10 evaluation responses and confirmed 10 audio playbacks, but generat
+154	465	A	- 2026-10-11 opening Planner catalog advertised unauthorized encounters (fixed, real-provider replay pending): the isolated fresh Long e evaluation saved ten re
+155	467	F	- 2026-10-11 complete board deliberately withheld after successful generation (fixed, browser continuation pending): the availability sandbox published Teaching
+156	470	F	- 2026-10-11 sandbox fork exposes Planner engagement hypotheses (fixed; browser refresh pending): the displayed choice includes technical learner-trait rational
+157	472	A	- 2026-10-11 completed Teaching chapter successor planning blocks on prediction IDs passed as evaluation IDs (fixed; real citation-only patch verified): isolate
+158	474	A	- 2026-10-11 successor content decisions cannot match their advertised inputs (fixed; real reference replay verified, activity preparation pending): after succe
+159	476	A	- 2026-10-12 durable catalog authority fixed: hydrateLearningProfileFromWaterfall previously preferred embedded aiContentCatalog even when empty/stale, while th
+160	478	A	- 2026-10-12 Planner content-reference contract fixed: spelling progression now supplies chart catalog identities/titles and the same saved evidence IDs accepte
+161	480	G	- 2026-10-12 generated successor falsely blocked on child-name substrings (fixed; runtime recovery pending): saved Creator candidate 2 bound identity from runti
+162	482	B	- 2026-10-12 received Creator correction could not survive a validator fix: original saved response 2 corrected implementation issues plus a false identity fail
+163	484	A	- 2026-10-12 fresh sandbox teaching Planner advertised conflicting Visual Explainer availability: targeted instructions described its configuration, but the cer
+164	486	G	- 2026-10-12 generated range-slider journey used malformed drag manifest: saved successor response 2 declared drag with numeric value but no destination target.
+165	488	X	- 2026-10-12 post-node regression fixture retained a prior durable catalog: the old test reset embedded learning_profile but wrote into repository qa_pipeline, 
+166	490	B	- 2026-10-12 visual-only Planner correction could rewrite the learning program: fresh sandbox received valid activity/evidence choices alongside portrait overla
+167	492	B	- 2026-10-12 full-plan constants did not prevent a real canvas correction from changing activity capture settings: final2 sandbox saved ten acknowledged evaluat
+168	494	X	- 2026-10-12 approved slider authoring clarification updates the provider-input byte baseline: the existing verifierOnlyResume lock correctly failed after the i
+169	496	A	- 2026-10-12 Reward Break crossed conflicting academic contracts in the fresh final3 sandbox: committed evaluation → Planner selected Mystery with assigned word
+170	500	B	- 2026-10-12 fresh final4 intake board correction rewrote an already-valid diagnostic: the original response selected word-radar/independent_spelling_discovery 
+171	502	B	- 2026-10-12 final4 targeted Planner correction rewrites valid journey fields (implemented; real-provider recovery pending): all ten evaluation responses and pl
+172	504	B	- 2026-10-12 measurement correction verification: the existing targeted spelling correction now accepts only named invalid evidence/reference fields, applied to
+173	506	dup	- 2026-10-12 final4 saved-response recovery succeeded on c6e0e480: original six activities, including Mystery, survive publication; all six generation statuses 
+174	507	A	- 2026-10-12 lab visual acceptance remains blocked (OPEN): published board theme has gradient value `sky-meadow-dawn`, which AdventureBoard passes directly to C
+175	509	dup	- 2026-10-12 theme red invariant confirmed: /tmp/sunny-goal-canvas-theme-red.txt fails because verifyAuthoredBoardCanvas resolves a proof for `sky-meadow-dawn`.
+176	510	dup	- 2026-10-12 CSS background contract fixed in code (fresh provider acceptance pending): browser CSS.supports now reports background_css_invalid, and proof hashi
+177	511	G	- 2026-10-12 native explainer payload overflow fixed: five-word real payload exposed fixed-height card overflow; initial one-word browser labs did not cover ful
+178	512	A	- 2026-10-12 fresh final5 still pauses on baseline reference convention (OPEN): intake/evaluation succeeded; all ten responses and playback acknowledgments save
+179	513	dup	- 2026-10-12 baseline reference repair made executable (real provider replay pending): the narrow tool now exposes a null clear operation only for invalid non-c
+180	514	F	- 2026-10-12 final5 recovery passes the corrected reference tool but exposes native chunk rewriting (OPEN): v7 strict clear compiled and returned msg_011Cfwn6Lv
+181	515	dup	- 2026-10-12 focus preservation fixed (real saved-plan replay pending): removed alignPlannerVisualFocusBoundary rather than creating synthetic sound cues for ru
+182	517	dup	- 2026-10-12 recovered final5 chapter completes on c96c914f, but is not a fresh acceptance pass: all six Teaching activities completed, ten final checkpoint pla
+183	520	A	- 2026-10-12 successor preparation reaches bounded review gate (OPEN): after recovered final5 chapter completion, the existing Planner authored one delayed spel
+184	521	X	- 2026-10-12 TTS terminal lifecycle fixed (fresh live acceptance pending): local-provider red tests reproduced silent deadline success, ignored final packets an
+185	523	F	- 2026-10-12 successor verification launch fidelity fixed: saved capsule emitted word targets through the existing GameBridge, whose live launch receives spelli
+186	524	A	- 2026-10-12 spelling Creator runtime identities clarified (fresh provider acceptance pending): saved capsule reports truncated digest IDs in currentChallenge w
+187	526	A	- 2026-10-12 removed competing practice-reference policy: human live final6 generation stopped after a received schema correction because code forbade instructi
+188	532	D	- 2026-10-12 — Restart recovery paused with provider_stage_request_changed after removal of restrictive practice-relationship rules. Generic correction receipt 
+189	534	X	- 2026-10-12 — New malformed-audio guard rejected audio:null on a terminal packet after PCM, stopping opening speech. Null carries no PCM and now permits termin
+190	536	A	- 2026-10-12 — Human screenshot: Teaching map lost illustrated background/animated paths and feels shallow. Saved Planner definition authors the exact gradient 
+191	538	dup	- 2026-10-12 — Restored Planner visual brief after unauthorized presentation regression: existing Grok illustrated world, inviting portals, animated dashed/glow
+192	540	C	- 2026-10-12 — Fresh final7 isolated provider trial saved10synthetic evaluation responses and10playback ACKs; no board during evaluation/loading, but paused can
+193	542	C	## 2026-10-13 consolidation handoff: release still failing See `docs/handoffs/2026-10-13-pipeline-review.md`. Fresh provider runs still fail evaluation-to-map a
+194	546	X	- 2026-10-14 Saori microphone permission attribution: directly spawning Chrome from the hardened Node GUI LaunchAgent made macOS TCC attribute microphone access
+195	548	D	- 2026-10-14 spelling board provider refusal: the saved Creator response reported `stop_reason=refusal`, but the orchestration continued into another paid stage
