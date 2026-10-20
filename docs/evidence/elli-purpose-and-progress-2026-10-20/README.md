@@ -72,3 +72,44 @@ a full-board completion pass; do not call that an Elli acceptance success or alt
 the board to hide it. Opus should challenge whether the purpose/context changes
 suffice, whether conflicting instructions remain, and whether saved status is
 fresh at the moment it is used. Final human acceptance remains pending.
+
+
+## First human result and review handoff
+
+The caregiver reported that Ila completed evaluation and was happy. This is
+positive qualitative acceptance of that part of the experience, not full Elli
+acceptance or measured learning gain. The application source was db75fc0; the
+isolated runtime additionally used local configuration commit a8c9970, registering
+elli-help-demo. That setup-only commit is not in the application repository and
+must not be pushed or cherry-picked into this PR. The application's
+children.config.json diff from the PR base is empty. All acceptance writes used
+the isolated elli-help-demo chart, not either child's real chart.
+
+Session 2e4ff995-4d72-48cf-b85e-f99ccb0c5808 began at 17:19:36 UTC. Evaluation
+committed and generation queued around 17:26:55. Board 2 published at
+17:28:42.574 UTC; generation reported 113,211 ms, six prepared activities and zero
+not-ready activities. Several early help responses were interrupted before audio;
+other reassurance completed. No confirmed speech-rate change or useful practice
+sounding-out demonstration was observed before this handoff. Stale turn 12 retired
+to IDLE and handed its queued transcript back to normal handling. Human positivity
+must not be presented as proof that all pending voice/help checks passed.
+
+[Opus's completed review](./opus-review.md) agrees this does not violate artist →
+canvas. It raises chart-read resilience, status vocabulary, assembled-prompt
+coverage and acceptance concerns. [The source audit](./opus-review-source-audit.md)
+distinguishes its conditional hypotheses from verified source behavior: snapshots
+are replaced rather than merged, and the alternate production context callers
+it hypothesized were not found. The synchronous chart-read failure concern remains
+open. The saved receipt identifies the real Opus 5.5 API response; it is not a
+GitHub approval. Raw room transcripts and internal model reasoning are not published.
+
+Before merge: address agreed review findings, run change-focused regressions,
+perform the final human test on the exact revision, review approvals, and obtain
+explicit human merge authorization. Do not merge automatically.
+
+Next separate branch/PR: board generation and child-visible locked content. Begin
+with the child's achievable teaching journey, the Planner's authored sequence and
+actual completion facts. Diagnose why displayed content cannot be finished and
+where generation time is spent. Preserve the artist → canvas boundary; do not
+silently unlock/reorder nodes or invent learning evidence. Latency optimization
+remains a separate branch. No board or latency fix is included here.
