@@ -8,6 +8,14 @@ import { recordChoiceEvent } from "./choiceEvents";
 import { buildChildExperiencePacket } from "../profiles/childExperiencePacket";
 
 describe("buildChildExperiencePacket", () => {
+  it("presents remaining checkpoint cards as practice after the spelling evidence batch closes", () => {
+    const packet=buildChildExperiencePacket({childId:"lab",companion:{},homework:{},learningCycle:{
+      domain:"spelling",homeworkId:"hw",revision:2,lifecycle:"baseline_evaluating",observations:[],decisionHistory:[],
+      boards:[{boardId:"b",kind:"teaching",nodeIds:["later"],publishedAt:"2026-10-20T12:00:00Z"}],
+      nodes:[{nodeId:"later",role:"baseline",state:"ready",evidenceContract:{spellingItems:{i:{id:"i",word:"night",lineage:{measurementRole:"fresh_checkpoint"},response:{acceptedForms:["night"]}}}}}],
+    }} as never);
+    expect(packet.spellingInstruments?.later).toMatchObject({assessment:false,items:[{itemId:"i",display:"night"}]});
+  });
   it("projects saved evaluation correctness without grading missing answers or practice", () => {
     const chart = { childId: "lab", companion: {}, homework: {}, learningCycle: {
       domain: "spelling", homeworkId: "hw", lifecycle: "targeted_planning", revision: 2,

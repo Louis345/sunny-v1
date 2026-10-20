@@ -255,6 +255,39 @@ describe("canonical learning cycle repository", () => {
     expect(first.adventureBoard.nodes.some((node) => node.kind === "quest" || node.kind === "boss")).toBe(false);
   });
 
+  it.each([false,true])("keeps an unplayed practice activity usable after the selected route closes its evidence batch (blocked=%s)", (blocked) => {
+    const rootDir = root();
+    const plan = input();
+    plan.childId = "lab-practice";
+    plan.domain = "spelling";
+    plan.nodes = ["lesson", "wheel", "check"].map(nodeId => ({ ...structuredClone(plan.nodes[0]!), nodeId, title: nodeId, openingScreen:{title:nodeId,purpose:"Practice"},
+      artifactBinding:{contentId:nodeId,artifactId:nodeId,localArtifactPath:`/games/${nodeId}.html`,localArtworkPath:"/thumb.svg",contractFingerprint:nodeId,validationStatus:"passed"},
+      implementationType: "monster-stampede", academicTarget: {domain:"spelling",skill:"practice",targets:["night"]} }));
+    const definition = choiceJourneyFixture([{id:"a",label:"Lesson",nodeIds:["lesson"]},{id:"b",label:"Wheel",nodeIds:["wheel"]}],[],["check"]);
+    plan.boards = [publishBoardInstance({...plan,boards:[]} as never,{definition,kind:"teaching",predecessorBoardId:null,plannerDecisionId:"plan",evidenceIds:[],nodeIds:["lesson","wheel","check"],publishedAt:"2026-07-11T20:00:00.000Z"})];
+    let cycle = createLearningCycle(plan,{rootDir});
+    const step = (event: Parameters<typeof transitionLearningCycle>[3]) => cycle = transitionLearningCycle(cycle.childId,cycle.homeworkId,cycle.revision,event,{rootDir});
+    step({type:"journey_choice_selected",choiceId:"choice",optionId:"a",choiceEventId:"choose-a"});
+    step(observed("lesson",[{evidenceId:"lesson-result",summary:"done"}]));
+    step(observed("check",[{evidenceId:"final-result",summary:"done"}]));
+    expect(cycle.lifecycle).toBe("baseline_evaluating");
+    if (blocked) step({type:"block",reason:"planner_response_max_tokens"});
+    const closed = structuredClone(cycle);
+    expect(canonicalJourneyLaunchable(cycle,"wheel")).toBe(true);
+    expect(projectLearningCycle(cycle).adventureBoard.nodes.find(node=>node.activityNodeId==="wheel")?.state).toBe("available");
+    const response = {observationId:"extra-practice",itemId:"night",sourceId:"practice",result:{correct:true},assistance:{status:"unassisted",scaffolds:[]},exposure:"unseen",provenance:"independent_probe",observedAt:"2026-07-12T12:00:00Z",constructLinks:[],confounds:["measurement_role:fresh_checkpoint"]};
+    step({...observed("wheel",[{evidenceId:"wheel-partial",summary:"practice"}]),completed:false,observations:[response as never]});
+    expect(cycle.lifecycle).toBe(closed.lifecycle);
+    step(observed("wheel",[{evidenceId:"wheel-finish",summary:"practice"}]));
+    expect(cycle.nodes.find(node=>node.nodeId==="wheel")?.state).toBe("completed");
+    expect(cycle.lifecycle).toBe(closed.lifecycle);
+    expect(cycle.observations.slice(0,closed.observations.length)).toEqual(closed.observations);
+    expect(cycle.observations.at(-1)).toMatchObject({provenance:"practice"});
+    expect(cycle.observations.at(-1)?.confounds).toContain("measurement_role:practice");
+    expect(cycle.academicPredictions).toEqual(closed.academicPredictions);
+    expect(cycle.predictionEvaluations).toEqual(closed.predictionEvaluations);
+  });
+
   it("opens every prepared spelling teaching activity without a sequence prerequisite", () => {
     // Human-approved change: a suggested teaching order must not lock prepared activities.
     const plan = input();
@@ -287,6 +320,11 @@ describe("canonical learning cycle repository", () => {
     expect(canonicalJourneyLaunchable(cycle, "practice")).toBe(true);
     expect(canonicalJourneyLaunchable(cycle, "chunks")).toBe(true);
     expect(before.find((node) => node.id === "checkpoint")?.state).toBe("available");
+    for (const lifecycle of ["baseline_evaluating","awaiting_calibration","complete"] as const) {
+      const finished = {...structuredClone(cycle),lifecycle};
+      expect(canonicalJourneyLaunchable(finished,"practice")).toBe(true);
+      expect(projectLearningCycle(finished).adventureBoard.nodes.find(node=>node.id==="practice")?.state).toBe("available");
+    }
     const unavailable = structuredClone(cycle);
     unavailable.nodes[1]!.state = "blocked";
     unavailable.nodes[1]!.notReadyReason = "artifact_missing";

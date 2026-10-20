@@ -1,6 +1,6 @@
 # Sunny Learning Feedback Loop
 
-Contract version: 42
+Contract version: 43
 
 This document is the **sole normative** authority for how Sunny forms, tests, and revises learning claims. Product changes that alter this loop must update this contract version before implementation. Other documents may describe infrastructure or history, but they must link here instead of creating another learning doctrine.
 
@@ -52,6 +52,8 @@ The child completes the selected route frontier, not every cosmetic route merely
 Before Quest is available as a Planner action, runtime must have target-aligned baseline observations with at least one fresh, correct, unassisted response. Practice, repeated exposure, missing captured responses, all-wrong or assisted-only completion is ineligible for Quest. This is an evidence-availability boundary, not a mastery percentage: when it is unmet, the Planner still owns the choice between targeted Support and collecting more evidence; when it is met, the Planner still decides whether Quest is justified.
 
 Every session is an honest chapter with a visible endpoint. Finishing the selected route does not reveal surprise required work in that same session. The child receives completion feedback and may replay completed nodes of the current board until its successor is published, while Sunny reduces the session into factual scorecards and asks the Planner for exactly one next-step decision in the background.
+
+After the selected spelling Teaching/successor route closes its evidence batch, prepared activities on that current board remain available for optional practice. These later responses are practice, cannot revise the closed checkpoint or prediction evaluations, and do not initiate a new Planner decision. Saved completion and current successor work remain intact.
 
 Replaying a completed teaching instrument appends practice evidence without resetting the current lifecycle, sibling readiness, or completed next-step work. The server derives replay from the canonical node state, not a generated claim. Repeated completion deliveries remain idempotent; replay does not initiate another Planner call or award completion credit again. Raw activity messages remain audit facts rather than a second scoring authority, and engagement ratings cannot override canonical academic observations.
 

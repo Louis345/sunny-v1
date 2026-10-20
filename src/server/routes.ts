@@ -261,6 +261,7 @@ import type { SunnyRuntimeOverrides } from "../shared/runtimeConfig";
 import { resolveSunnyRuntimeConfig } from "../shared/runtimeConfig";
 import { reconcileCompanionCareCurrencyAward } from "./currencyAward";
 import { companionPickerIdentity } from "./companionPickerRows";
+import { isSpellingPracticeContinuation } from "../engine/learningCycleRepository";
 import { advanceCanonicalCycleFromEvidence, recordCanonicalNodeCompletion, recordSpellingDiscoveryAttempt } from "../engine/learningCycleRuntime";
 import { getVoiceSessionManagerForChildSession } from "./voice-session-registry";
 import { prepareSuccessorBoard } from "../engine/canonicalProgressionGenerator";
@@ -1064,7 +1065,7 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
         }
       }
       console.log(` 🎮 [learning-cycle-route] [completion] [saved] child=${childId} node=${nodeId} state=${nodeState} transitioned=${becameCompleted} lifecycle=${finalCycle.lifecycle} revision=${finalCycle.revision}`);
-      if (becameCompleted && ["baseline_evaluating", "quest_evaluating", "boss_evaluating"].includes(finalCycle.lifecycle)) {
+      if (becameCompleted && !(beforeCycle && isSpellingPracticeContinuation(beforeCycle)) && ["baseline_evaluating", "quest_evaluating", "boss_evaluating"].includes(finalCycle.lifecycle)) {
         void advanceCanonicalCycleFromEvidence({ childId, homeworkId })
           .then((decided) => {
             console.log(` 🎮 [learning-cycle-route] [planner-decision] [saved] lifecycle=${decided.lifecycle} revision=${decided.revision}`);

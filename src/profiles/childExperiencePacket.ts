@@ -2,6 +2,7 @@ import type { AdventureMapProfile } from "../context/schemas/learningProfile";
 import type { ChildChart } from "./childChart";
 import type { CompanionConfig } from "../shared/companionTypes";
 import type { AdventureBoardJson } from "../shared/adventureBoardJson";
+import { isSpellingPracticeContinuation } from "../engine/learningCycleRepository";
 import { readChoiceEvents } from "../engine/choiceEvents";
 
 export type ChildExperiencePacket = {
@@ -218,7 +219,7 @@ export function buildChildExperiencePacket(chart: ChildChart): ChildExperiencePa
   const spellingInstruments = chart.learningCycle?.domain === "spelling" ? Object.fromEntries(chart.learningCycle.nodes.flatMap(node => {
     const items = Object.values(node.evidenceContract.spellingItems ?? {});
     if (!items.length) return [];
-    const assessment = node.state !== "completed" && (node.role === "evaluation" || items.every(item => item.lineage.measurementRole === "fresh_checkpoint"));
+    const assessment = node.state !== "completed" && !isSpellingPracticeContinuation(chart.learningCycle!) && (node.role === "evaluation" || items.every(item => item.lineage.measurementRole === "fresh_checkpoint"));
     const captured = new Set(chart.learningCycle!.observations.map(row => row.itemId));
     return [[node.nodeId, { assessment, items: items.filter(item => !assessment || node.state === "completed" || !captured.has(item.id)).map(item => ({ itemId: item.id, display: item.word, acceptedResponses: item.response.acceptedForms, label: "Spelling", subject: "spelling" })) }]];
   })) : undefined;
