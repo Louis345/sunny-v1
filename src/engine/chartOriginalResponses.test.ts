@@ -62,7 +62,7 @@ it('does not erase an unanswered presentation with unknown exposure on a later c
 it('attributes checkpoint exposure only to presentations that actually occurred before its response',()=>{
  const root=fs.mkdtempSync(path.join(os.tmpdir(),'checkpoint-first-'));const db=openChart('synthetic',{chartDir:root});
  try{
- recordAssignment(db,{assignmentId:'a',words:['night'],testDate:null,sourcePhotoHash:'a'.repeat(64)});
+ recordAssignment(db,{assignmentId:'a',words:['night','light'],testDate:null,sourcePhotoHash:'a'.repeat(64)});
  const base={assignmentId:'a',sessionId:'s',word:'night',shown:{lettersVisible:false,hint:false,companionHelp:false}};
  const first=presentOriginalSpellingItem(db,{...base,nodeId:'checkpoint',launchId:'first',sourceItemId:'check-first',instrument:'recall_check'});
  recordOriginalSpellingResponse(db,{assignmentId:'a',sessionId:'s',itemId:String(first.payload.itemId),sourceResponseId:'r1',rawResponse:'night',status:'answered',support:{audioReplays:0,spellingShown:false,hint:false,companionHelp:false}});
@@ -70,8 +70,9 @@ it('attributes checkpoint exposure only to presentations that actually occurred 
  presentOriginalSpellingItem(db,{...base,nodeId:'lesson',launchId:'later',sourceItemId:'lesson',instrument:'practice',shown:{lettersVisible:true,hint:false,companionHelp:false}});
  // A later lesson cannot retroactively become prior exposure for the earlier check.
  expect(projectAssignment(exportEvents(db),'a').recallChecks[0].previouslyExposed).toBe(false);
- const second=presentOriginalSpellingItem(db,{...base,nodeId:'checkpoint',launchId:'second',sourceItemId:'check-second',instrument:'recall_check'});
- recordOriginalSpellingResponse(db,{assignmentId:'a',sessionId:'s',itemId:String(second.payload.itemId),sourceResponseId:'r2',rawResponse:'night',status:'answered',support:{audioReplays:0,spellingShown:false,hint:false,companionHelp:false}});
+ presentOriginalSpellingItem(db,{...base,word:'light',nodeId:'lesson',launchId:'lesson-only',sourceItemId:'lesson-light',instrument:'practice',shown:{lettersVisible:true,hint:false,companionHelp:false}});
+ const second=presentOriginalSpellingItem(db,{...base,word:'light',nodeId:'checkpoint',launchId:'second',sourceItemId:'check-second',instrument:'recall_check'});
+ recordOriginalSpellingResponse(db,{assignmentId:'a',sessionId:'s',itemId:String(second.payload.itemId),sourceResponseId:'r2',rawResponse:'light',status:'answered',support:{audioReplays:0,spellingShown:false,hint:false,companionHelp:false}});
  expect(projectAssignment(exportEvents(db),'a').recallChecks[1].previouslyExposed).toBe(true);
  }finally{db.close();fs.rmSync(root,{recursive:true,force:true});}
 });
