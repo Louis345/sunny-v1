@@ -930,10 +930,6 @@ export class SessionManager {
   }
 
   public buildCurrentBoardContextForTurn(childSpeech?: string): string {
-    if (this.currentBoardSnapshot?.nodeId) {
-      this.currentBoardSnapshot.recordedActivityStatus = getChildChart(this.chartChildId).learningCycle
-        ?.nodes.find(node => node.nodeId === this.currentBoardSnapshot?.nodeId)?.state;
-    }
     return buildActivityCompanionContext({
       snapshot: this.currentBoardSnapshot,
       childSpeech, speechRate: this.ttsBridge?.getSpeechRate?.(speechScopeFor(this.currentBoardSnapshot)),

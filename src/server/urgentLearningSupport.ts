@@ -213,6 +213,14 @@ export function prepareInstructionReadRequest(input: {
   };
 }
 
+function readCompanionCycle(childId: string) {
+  try { return getChildChart(childId).learningCycle; }
+  catch (error) {
+    console.warn(" 🎮 [companion] [recorded-status] [unavailable]", error instanceof Error ? error.message : String(error));
+    return undefined;
+  }
+}
+
 export function buildActivityCompanionContext(input: {
   speechRate?: number;
   spellingAssessment?: SpellingAssessmentState;
@@ -222,7 +230,10 @@ export function buildActivityCompanionContext(input: {
   companionId: string;
   presence: CompanionPresence;
 }): string {
-  const board = buildCurrentBoardSnapshotContext(input.snapshot, { childSpeech: input.childSpeech });
+  const cycle = input.snapshot?.nodeId ? readCompanionCycle(input.childId) : undefined;
+  const snapshot = input.snapshot ? { ...input.snapshot,
+    recordedActivityStatus: cycle?.nodes.find(node => node.nodeId === input.snapshot?.nodeId)?.state } : null;
+  const board = buildCurrentBoardSnapshotContext(snapshot, { childSpeech: input.childSpeech });
   const memory = buildShowroomTalkMemoryPrompt(
     readCompanionCareMemoryForPrompt(input.childId, input.companionId),
   );
@@ -237,13 +248,12 @@ export function buildActivityCompanionContext(input: {
   let spelling = "";
   const assessment = input.spellingAssessment;
   if (assessment && input.snapshot?.itemId === assessment.itemId) {
-    const cycle = getChildChart(input.childId).learningCycle;
     const items = cycle?.nodes.find(node => node.nodeId === assessment.nodeId)?.evidenceContract.spellingItems;
     const last = cycle?.observations?.filter(observation => items?.[observation.itemId]).at(-1);
     spelling = ["[Canonical spelling activity facts]",
       JSON.stringify({ itemId:assessment.itemId, ...(input.snapshot.spellingSupportMode === "pronunciation_model" ? {spokenStimulus:assessment.word} : {}),
         instrument:assessment.instrument, lastAcknowledgedStimulusRates:assessment.lastStimulusRates ?? null, answerVisibility:input.snapshot.answerVisibility,
-        lastSubmittedResponse:last ? {itemId:last.itemId,response:last.childResponse,result:last.result,assistance:last.assistance} : null }),
+        ...(cycle ? {lastSubmittedResponse:last ? {itemId:last.itemId,response:last.childResponse,result:last.result,assistance:last.assistance} : null} : {recordedHistoryAvailable:false}) }),
       "The activity owns answer submission and grading. Spoken repetition is not a submitted spelling answer. These facts supersede prior conversational grades; a hidden answer must not be revealed as written letters.",
     ].join("\n");
   }

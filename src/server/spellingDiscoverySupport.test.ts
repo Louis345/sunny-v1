@@ -4,6 +4,28 @@ import { getChildChart } from "../profiles/childChart";
 vi.mock("../profiles/childChart", () => ({ getChildChart: vi.fn() }));
 afterEach(() => vi.clearAllMocks());
 
+it("keeps bound practice context usable when saved chart facts cannot be read", () => {
+ const s=session();const cycle=vi.mocked(getChildChart).mock.results[0].value.learningCycle;
+ cycle.nodes[0].role='baseline';cycle.nodes[0].evidenceContract.spellingItems.i1.lineage={measurementRole:'practice'};
+ s.updateCurrentBoardSnapshot({game:'word-radar',nodeId:'opening',itemId:'i1',practiceCapture:true,phase:'response',answerVisibility:'hidden'});
+ const warning=vi.spyOn(console,'warn').mockImplementation(()=>{});
+ vi.mocked(getChildChart).mockImplementationOnce(()=>{throw Error('chart unavailable');});
+ try {
+  const context=s.buildCurrentBoardContextForTurn('Help me sound it out');
+  expect(context).toContain('Authoritative spelling target (internal): night');
+  expect(context).not.toContain('Recorded activity status:');
+  expect(context).toContain('"recordedHistoryAvailable":false');
+  expect(warning).toHaveBeenCalledWith(' 🎮 [companion] [recorded-status] [unavailable]',expect.any(String));
+ } finally { warning.mockRestore(); }
+});
+
+it("uses one chart snapshot for saved status and recent response facts", () => {
+ const s=session();s.updateCurrentBoardSnapshot({game:'word-radar',nodeId:'opening',itemId:'i1',assessmentMode:true,phase:'response',answerVisibility:'hidden'});
+ vi.mocked(getChildChart).mockClear();
+ s.buildCurrentBoardContextForTurn('Did I finish?');
+ expect(getChildChart).toHaveBeenCalledTimes(1);
+});
+
 it("gives Elli recorded progress when a native activity reports complete but the node remains unfinished", () => {
  const s=session();
  const cycle=vi.mocked(getChildChart).mock.results[0].value.learningCycle;
@@ -17,6 +39,8 @@ it("gives Elli recorded progress when a native activity reports complete but the
  // A save can settle after the last screen update; the next turn must see it.
  expect(s.buildCurrentBoardContextForTurn('Did I finish?')).toContain('Recorded activity status: completed');
  s.updateCurrentBoardSnapshot({nodeId:'unknown',phase:'closed',boardState:'map'});
+ expect(s.buildCurrentBoardContextForTurn('Did I finish?')).not.toContain('Recorded activity status:');
+ s.updateCurrentBoardSnapshot({phase:'closed',boardState:'map'});
  expect(s.buildCurrentBoardContextForTurn('Did I finish?')).not.toContain('Recorded activity status:');
 });
 function session() {
