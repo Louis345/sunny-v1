@@ -42,7 +42,7 @@ const RISK_RULES = [
       "src/context/schemas/**",
     ],
   },
-  { rule: "governance", patterns: ["LEARNING_FEEDBACK_LOOP.md", "AGENTS.md", ".github/**"] },
+  { rule: "governance", patterns: ["LEARNING_FEEDBACK_LOOP.md", "AGENTS.md", "AI_DESIGN_PRINCIPLES.md", "docs/PRODUCT_RULES.md", ".github/**"] },
 ];
 
 /** Supports `**` (any depth), `*` and `?` (within one segment). */

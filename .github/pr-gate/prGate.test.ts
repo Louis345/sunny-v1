@@ -73,6 +73,8 @@ describe("classifyPaths", () => {
     ["src/utils/attempts.ts", "learning-loop"],
     ["LEARNING_FEEDBACK_LOOP.md", "governance"],
     ["AGENTS.md", "governance"],
+    ["AI_DESIGN_PRINCIPLES.md", "governance"],
+    ["docs/PRODUCT_RULES.md", "governance"],
     [".github/workflows/ci.yml", "governance"],
     [".github/pr-gate/verdict.cjs", "governance"],
   ])("flags %s as %s", (file, rule) => {
