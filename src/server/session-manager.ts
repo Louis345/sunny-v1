@@ -22,6 +22,7 @@ import {
   getRewardDurations,
 } from "./session-triggers";
 import { WsTtsBridge } from "./ws-tts-bridge";
+import { createLoggedVoiceTurnLatency } from "./voiceTurnLatency";
 import { appendRewardLog } from "../agents/elli/tools/logReward";
 import { mathProblem } from "../agents/elli/tools/mathProblem";
 import {
@@ -213,6 +214,7 @@ export class SessionManager {
   private conversationHistory: ModelMessage[] = [];
   private readonly options?: SessionManagerOptions;
   private ttsBridge: WsTtsBridge | null = null;
+  readonly voiceLatency = createLoggedVoiceTurnLatency((record) => this.debugRecorder.recordEvent("latency", "turn", record));
   private currentAbort: AbortController | null = null;
   private companionResponseTurnId = 0;
   private clearSessionTimer: (() => void) | null = null;
@@ -1239,6 +1241,7 @@ export class SessionManager {
   }
 
   bargeIn(): void {
+    this.voiceLatency?.cancelTurn("barge_in");
     this.companionResponseTurnId = Number(this.companionResponseTurnId ?? 0) + 1;
     this.pendingRoundComplete = null;
     gev.abortGameTtsGate(this);
@@ -1271,14 +1274,9 @@ export class SessionManager {
       tts: ttsLogLabel(),
     });
 
-    if (this.currentAbort) {
-      this.currentAbort.abort();
-      this.currentAbort = null;
-    }
-
-    if (this.ttsBridge) {
-      this.ttsBridge.stop();
-    }
+    this.currentAbort?.abort();
+    this.currentAbort = null;
+    this.ttsBridge?.stop();
 
     this.send("audio_cancel");
     // Ephemeral assistant canvas (teaching SVG, etc.) is stale after interrupt.
@@ -1379,6 +1377,7 @@ export class SessionManager {
   async end(): Promise<void> {
     if (this.isEnding) return;
     this.isEnding = true;
+    this.voiceLatency?.cancelTurn("session_end");
     this.isSpellingSession = false;
     this.debugRecorder.recordEvent(
       "session",
@@ -1583,6 +1582,7 @@ export class SessionManager {
         // subsequent final transcript would be silently dropped.
         this.lastEagerTranscript = normalized;
         this.lastEagerTranscriptTime = Date.now();
+        this.voiceLatency?.startTurn("eager");
         this.handleEndOfTurn(transcript).catch(console.error);
       }
       return;
@@ -1597,6 +1597,7 @@ export class SessionManager {
       return;
     }
 
+    this.voiceLatency?.startTurn("final");
     this.handleEndOfTurn(transcript).catch(console.error);
   }
 
@@ -1617,6 +1618,7 @@ export class SessionManager {
       clearTimeout(this.heldCompanionEagerTimer);
     }
     this.heldCompanionEagerTranscript = transcript;
+    this.voiceLatency?.noteEagerHeld();
     console.log("  🎮 [transcript] [eager-buffered] reason=companion_conversation");
     this.heldCompanionEagerTimer = setTimeout(() => {
       const held = this.heldCompanionEagerTranscript;
@@ -1629,6 +1631,7 @@ export class SessionManager {
       this.lastEagerTranscript = held.toLowerCase().trim();
       this.lastEagerTranscriptTime = Date.now();
       console.log("  🎮 [transcript] [eager-promoted] reason=final_timeout");
+      this.voiceLatency?.startTurn("eager_promoted");
       this.handleEndOfTurn(held).catch((error: unknown) => {
         console.error("  🔴 [transcript] eager promotion failed:", error);
       });

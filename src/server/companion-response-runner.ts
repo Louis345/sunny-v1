@@ -103,6 +103,7 @@ export async function runCompanionResponseForSession(
   userMessage: string,
 ): Promise<void> {
     if (deferCompanionUntilNarrationFinishes(session, userMessage)) return;
+    session.voiceLatency?.beginResponse();
     const turn = claimCompanionResponseTurn(session);
     const playbackId = `companion:${session.sessionId}:${turn.turnId}`;
     let staleOutputLogged = false;
@@ -235,6 +236,7 @@ export async function runCompanionResponseForSession(
           ? createThinkingEmoteOnFirstToolInStep(session.companionBridge)
           : null;
 
+      session.voiceLatency?.mark("model_request");
       await runAgent({
         history: protectSpellingModelMessages(historyWithPin, session.currentBoardSnapshot),
         injectedContextMessages: protectSpellingModelMessages(gameContextMessages, session.currentBoardSnapshot),
@@ -248,6 +250,7 @@ export async function runCompanionResponseForSession(
           fullResponse += chunk;
           if (!responseLogged) {
             responseLogged = true;
+            session.voiceLatency?.mark("model_first_token");
             console.log("  🎮 [companion] model_response_received");
           }
           session.send("response_text", { chunk });
@@ -260,6 +263,7 @@ export async function runCompanionResponseForSession(
         allowTransitionToWork: !session.transitionedToWork,
         onStepFinish: async (step) => {
           if (rejectStaleOutput("step_finish")) return;
+          session.voiceLatency?.noteToolStep(step.toolCalls?.length ?? 0);
           const toolCalls = (step.toolCalls ?? []) as Array<{
             toolName?: string;
             name?: string;

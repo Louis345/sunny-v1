@@ -29,6 +29,7 @@
     "logs:upload": "npx tsx src/scripts/uploadSessionLogs.ts",
     "logs:upload:delete-local": "npx tsx src/scripts/uploadSessionLogs.ts --delete-local",
     "sunny:companion:trace-report": "npx tsx src/scripts/reportCompanionVideoCallTrace.ts",
+    "sunny:voice:latency-report": "npx tsx src/scripts/reportVoiceLatency.ts",
     "sunny:ingest": "npx tsx src/scripts/sunnyIngest.ts",
     "sunny:ingest:companion": "npx tsx src/scripts/ingestCompanions.ts",
     "sunny:ingest:homework": "npx tsx src/scripts/ingestHomework.ts",

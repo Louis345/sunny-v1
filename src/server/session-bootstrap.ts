@@ -63,6 +63,7 @@ import { CHARLOTTE_DIAG_DEFAULT_VOICE_ID } from "../diag-voices";
 import { generateToolDocs } from "../agents/elli/tools/generateToolDocs";
 import { startMaxDurationTimer } from "./session-triggers";
 import { WsTtsBridge } from "./ws-tts-bridge";
+import type { VoiceLatencyMark } from "./voiceTurnLatency";
 import { mathProblem, resetMathProbeSession } from "../agents/elli/tools/mathProblem";
 import { resetSessionStart } from "../agents/elli/tools/startSession";
 import { resetTransitionToWork } from "../agents/elli/tools/transitionToWork";
@@ -1619,6 +1620,7 @@ This is a safe space to test everything.
 
     if (!session.options?.silentTts && !session.options?.sttOnly) {
       session.ttsBridge = new WsTtsBridge(session.ws, session.companion.voiceId);
+      session.ttsBridge.onLatencyMark = (mark: VoiceLatencyMark) => session.voiceLatency.mark(mark);
       await session.ttsBridge.prime();
     }
 
