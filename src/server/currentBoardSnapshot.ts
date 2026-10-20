@@ -299,6 +299,7 @@ export function buildCurrentBoardSnapshotContext(
   if (snapshot.phase) lines.push(`Phase: ${snapshot.phase}`);
   if (snapshot.recordedActivityStatus) {
     lines.push(`Recorded activity status: ${snapshot.recordedActivityStatus}`,
+      "ready means prepared, not completed; active means in progress; completed means completion was saved.",
       "Activity phase describes the screen; recorded activity status describes saved progress.");
   }
   if (snapshot.phase === "opening" || snapshot.phase === "document_loaded") {

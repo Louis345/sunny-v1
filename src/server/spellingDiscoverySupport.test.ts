@@ -32,6 +32,7 @@ it("gives Elli recorded progress when a native activity reports complete but the
  cycle.nodes[0].state='ready';
  s.updateCurrentBoardSnapshot({nodeId:'opening',phase:'complete',boardState:'activity',completed:true});
  expect(s.buildCurrentBoardContextForTurn('Did I finish?')).toContain('Recorded activity status: ready');
+ expect(s.buildCurrentBoardContextForTurn('Did I finish?')).toContain('ready means prepared, not completed');
  expect(s.buildCurrentBoardContextForTurn('Did I finish?')).toContain('Activity phase describes the screen; recorded activity status describes saved progress.');
  s.updateCurrentBoardSnapshot({nodeId:'opening',phase:'closed',boardState:'map'});
  expect(s.buildCurrentBoardContextForTurn('Why is it locked?')).toContain('Recorded activity status: ready');
