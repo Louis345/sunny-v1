@@ -7,6 +7,7 @@ import type { AIContentCatalogItem, LearningProfile } from "../context/schemas/l
 import type { HomeworkCycle } from "../context/schemas/homeworkCycle";
 import {
   appendChildActivityEvidence,
+  applyEvidenceBasedMathContentDecisions,
   buildLearningDecisionContext,
   buildHomeworkContentCatalogItems,
   catalogContentItem,
@@ -21,6 +22,8 @@ import {
   runUploadGradedHomework,
 } from "../scripts/uploadGradedHomework";
 import { createLearningCycle, getLearningCycle } from "./learningCycleRepository";
+import { getChildChart } from "../profiles/childChart";
+import { writeWaterfallContentCatalog } from "../profiles/chartWaterfall";
 
 function makeRoot(): string {
   return fs.mkdtempSync(path.join(os.tmpdir(), "sunny-decision-context-"));
@@ -171,6 +174,25 @@ describe("LearningDecisionContext", () => {
     for (const root of roots.splice(0)) {
       fs.rmSync(root, { recursive: true, force: true });
     }
+  });
+
+  it.each(['empty','stale'])("uses the chart catalog for decisions when the embedded legacy catalog is %s", legacy => {
+    const root = makeRoot(); roots.push(root);
+    const childId = 'reina';
+    const profile = baseProfile(childId);
+    profile.aiContentCatalog = legacy === 'empty' ? [] : [catalogItem({contentId:'legacy-stale'})];
+    writeJson(root,`src/context/${childId}/learning_profile.json`,profile);
+    writeWaterfallContentCatalog(childId,{...profile,aiContentCatalog:[catalogItem({contentId:'current'}),catalogItem({contentId:'retained'})]},{rootDir:root});
+    expect(getChildChart(childId,{rootDir:root}).contentCatalog.items.map(item=>item.contentId)).toEqual(['current','retained']);
+    const next = applyEvidenceBasedMathContentDecisions(childId,[{contentId:'current',action:'revise',reason:'Observed spelling gap',evidenceIds:['recorded:source']}],new Set(['recorded:source']),{rootDir:root});
+    expect(next.aiContentCatalog?.map(item=>item.contentId)).toEqual(['current','retained']);
+    expect(next.aiContentCatalog?.[0].reuseStatus).toBe('revise');
+    expect(next.aiContentCatalog?.[1].reuseStatus).toBe('candidate');
+    const catalog = getChildChart(childId,{rootDir:root}).contentCatalog.items;
+    expect(catalog).toEqual(next.aiContentCatalog);
+    const saved = fs.readFileSync(path.join(root,`src/context/${childId}/content_catalog.json`),'utf8');
+    expect(()=>applyEvidenceBasedMathContentDecisions(childId,[{contentId:'foreign',action:'retire',reason:'Invalid',evidenceIds:['recorded:source']}],new Set(['recorded:source']),{rootDir:root})).toThrow('unknown_content');
+    expect(fs.readFileSync(path.join(root,`src/context/${childId}/content_catalog.json`),'utf8')).toBe(saved);
   });
 
   it("centralizes profile, homework, SM2, attempt patterns, and quest threshold evidence", () => {

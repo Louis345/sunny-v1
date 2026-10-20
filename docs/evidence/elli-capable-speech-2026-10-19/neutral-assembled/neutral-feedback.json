@@ -1,0 +1,161 @@
+{
+  "synthetic": true,
+  "model": "claude-sonnet-5",
+  "promptSha256": "3a998e049840932fcad1ae5d8ef817005cc4fe663b79c598c956e70d6a04b13f",
+  "protocol": "Two words, two runs per word, two turns per run; the second turn does not name a teaching strategy.",
+  "results": [
+    {
+      "word": "myself",
+      "run": 1,
+      "turns": [
+        {
+          "user": "Can you help me sound this word out more slowly?",
+          "response": "Sure thing! Let's break it down: my... self. My-self.Try saying it with me now, Practice — my... self!",
+          "elapsedMs": 7322.59525
+        },
+        {
+          "user": "I still don't get it.",
+          "response": "Okay, let's go even slower, Practice. Two little chunks: myyy... selff. My. Self. Myself.",
+          "elapsedMs": 6193.120125
+        }
+      ],
+      "actions": [
+        {
+          "speed": 0.75,
+          "previousSpeed": 1,
+          "configured": true,
+          "playbackConfirmed": false,
+          "scope": {
+            "itemId": "word",
+            "launchToken": "synthetic"
+          }
+        },
+        {
+          "speed": 0.7,
+          "previousSpeed": 0.75,
+          "configured": true,
+          "playbackConfirmed": false,
+          "scope": {
+            "itemId": "word",
+            "launchToken": "synthetic"
+          }
+        }
+      ]
+    },
+    {
+      "word": "myself",
+      "run": 2,
+      "turns": [
+        {
+          "user": "Can you help me sound this word out more slowly?",
+          "response": "Sure, Practice! Let's break it into two little chunks: my... self. My... self. Try saying it slow with me.",
+          "elapsedMs": 6156.317125
+        },
+        {
+          "user": "I still don't get it.",
+          "response": "Okay, let's go even slower and stretch each sound out, Practice. Listen close: mmmmy... sssselllf. One more time, real stretchy: my... self. Now you try just those two little pieces.",
+          "elapsedMs": 6932.4696250000015
+        }
+      ],
+      "actions": [
+        {
+          "speed": 0.75,
+          "previousSpeed": 1,
+          "configured": true,
+          "playbackConfirmed": false,
+          "scope": {
+            "itemId": "word",
+            "launchToken": "synthetic"
+          }
+        },
+        {
+          "speed": 0.7,
+          "previousSpeed": 0.75,
+          "configured": true,
+          "playbackConfirmed": false,
+          "scope": {
+            "itemId": "word",
+            "launchToken": "synthetic"
+          }
+        }
+      ]
+    },
+    {
+      "word": "dissatisfied",
+      "run": 1,
+      "turns": [
+        {
+          "user": "Can you help me sound this word out more slowly?",
+          "response": "Sure thing! Listen close: dis... SAT... is... fied. The big stress punch is on that second part, \"SAT.\" Try saying it piece by piece with me and see how it feels.",
+          "elapsedMs": 3911.666459
+        },
+        {
+          "user": "I still don't get it.",
+          "response": "Okay, let's go even slower and break it into tiny pieces. Just listen first: dis... sat... is... fied. That middle punch, \"sat,\" is the loudest part — like you're a little mad saying \"sat!\" Want to try just that one loud middle piece with me first?",
+          "elapsedMs": 7196.961334
+        }
+      ],
+      "actions": [
+        {
+          "speed": 0.75,
+          "previousSpeed": 1,
+          "configured": true,
+          "playbackConfirmed": false,
+          "scope": {
+            "itemId": "word",
+            "launchToken": "synthetic"
+          }
+        },
+        {
+          "speed": 0.75,
+          "previousSpeed": 0.75,
+          "configured": true,
+          "playbackConfirmed": false,
+          "scope": {
+            "itemId": "word",
+            "launchToken": "synthetic"
+          }
+        }
+      ]
+    },
+    {
+      "word": "dissatisfied",
+      "run": 2,
+      "turns": [
+        {
+          "user": "Can you help me sound this word out more slowly?",
+          "response": "Sure thing. Listen close: dis... SAT... is... fied. Dissatisfied. Want me to say it again?",
+          "elapsedMs": 6008.412958000001
+        },
+        {
+          "user": "I still don't get it.",
+          "response": "Okay, let's break it into tiny pieces. Dih... SAT... uh... sfied. One more time, real slow: dih... SAT... uh... sfied. Try saying it back to me in those same little chunks.",
+          "elapsedMs": 4005.467665999997
+        }
+      ],
+      "actions": [
+        {
+          "speed": 0.75,
+          "previousSpeed": 1,
+          "configured": true,
+          "playbackConfirmed": false,
+          "scope": {
+            "itemId": "word",
+            "launchToken": "synthetic"
+          }
+        },
+        {
+          "speed": 0.75,
+          "previousSpeed": 0.75,
+          "configured": true,
+          "playbackConfirmed": false,
+          "scope": {
+            "itemId": "word",
+            "launchToken": "synthetic"
+          }
+        }
+      ]
+    }
+  ],
+  "limitations": "Production runner and actual buildSessionPrompt (synthetic name, carePlan:null, real personality and adventure supplement) with instrumented tools. No mic, playback, full session, child observation or learning measurement. Text variation is not proof of usefulness or introspection."
+}

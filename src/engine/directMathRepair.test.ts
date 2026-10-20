@@ -6,6 +6,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { repairDirectArtifact, generateDirectArtifacts, createDirectBoardThumbnailFilename, buildDirectActivityRepairPrompt, type DirectArtifact } from "./directMathExperience";
 import { buildDiscoveryRepairPrompt } from "./adaptiveMathDiscovery";
 import { MATH_IMPLEMENTATION_REPAIR_CONTRACT } from "./discoveryVisualReview";
+import { OPENAI_REPAIR_MAX_OUTPUT_TOKENS } from "./openAiResponses";
 import { plan } from "../scripts/fixtures/adaptiveMathRelease";
 
 let root: string, artifact: DirectArtifact, screenshot: string;
@@ -13,7 +14,15 @@ const original = '<!doctype html><html><button id="answer">Answer</button></html
 const patched = original.replace('id="answer"', 'id="answer" aria-label="Answer"');
 const hash = (value: string) => createHash("sha256").update(value).digest("hex");
 const patch = JSON.stringify({ replacements: [{ oldText: 'id="answer"', newText: 'id="answer" aria-label="Answer"', reason: "accessible name" }] });
-const stream = (text: string) => new Response(`data: ${JSON.stringify({type:"response.completed",response:{status:"completed",output_text:text,usage:{input_tokens:12,output_tokens:9}}})}\n\n`, {status:200});
+const stream = (text: string, inputTokens = 12, outputTokens = 9, reasoningTokens = 0, reason?: string) => new Response(`data: ${JSON.stringify({
+  type: reason ? "response.incomplete" : "response.completed",
+  response: {
+    status: reason ? "incomplete" : "completed",
+    ...(reason ? { incomplete_details: { reason } } : {}),
+    output_text: text,
+    usage: { input_tokens: inputTokens, output_tokens: outputTokens, output_tokens_details: { reasoning_tokens: reasoningTokens } },
+  },
+})}\n\n`, {status:200});
 beforeEach(() => {
   root = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-repair-receipt-"));
   artifact = { childId:"lab", homeworkId:"hw-lab", nodeId:"activity-1", title:"Lab", htmlPath:path.join(root,"node.html"), htmlHash:hash(original), academicContractHash:"academic", designArtifactHash:"design", artworkUrl:"/art.svg", creatorPrompt:"fixture", promptHash:"fixture", plannerModel:"mock", creatorModel:"mock" };
@@ -55,6 +64,72 @@ it("resumes a completed repair without another paid request or hash change", asy
   expect(first.htmlHash).toBe(hash(patched)); expect(second).toEqual(first);
   expect(first.academicContractHash).toBe("academic"); expect(first.designArtifactHash).toBe("design");
 });
+it("uses the shared Discovery-sized output budget and records reasoning versus visible output", async () => {
+  vi.mocked(fetch).mockImplementation(async () => stream(patch, 120, 300, 250));
+  await run();
+  const request = JSON.parse(fs.readFileSync(path.join(root,"diagnostics/activity-1-repair-request.json"),"utf8"));
+  expect(request.max_output_tokens).toBe(OPENAI_REPAIR_MAX_OUTPUT_TOKENS);
+  const stage = JSON.parse(fs.readFileSync(path.join(root,"diagnostics/provider-receipts/activity-1-repair.stage.json"),"utf8"));
+  const receipt = JSON.parse(fs.readFileSync(path.join(root,"diagnostics/provider-receipts",`${stage.requestHash}.json`),"utf8"));
+  expect(receipt.response).toMatchObject({
+    inputTokens: 120,
+    outputTokens: 300,
+    reasoningTokens: 250,
+    visibleTextCharacters: patch.length,
+    stopReason: "completed",
+  });
+  const discoverySource = fs.readFileSync(path.join(process.cwd(),"src/engine/adaptiveMathDiscovery.ts"),"utf8");
+  const boardSource = fs.readFileSync(path.join(process.cwd(),"src/engine/directMathExperience.ts"),"utf8");
+  expect(discoverySource).toContain("OPENAI_REPAIR_MAX_OUTPUT_TOKENS");
+  expect(boardSource).toContain("OPENAI_REPAIR_MAX_OUTPUT_TOKENS");
+});
+it("classifies our output-limit truncation as a harness failure", async () => {
+  vi.mocked(fetch).mockImplementation(async () => stream('{"replacements":[', 200, 8000, 7900, "max_output_tokens"));
+  await expect(run()).rejects.toThrow("board_repair_harness_failure:output_budget_exhausted");
+  const stage = JSON.parse(fs.readFileSync(path.join(root,"diagnostics/provider-receipts/activity-1-repair.stage.json"),"utf8"));
+  const receipt = JSON.parse(fs.readFileSync(path.join(root,"diagnostics/provider-receipts",`${stage.requestHash}.json`),"utf8"));
+  expect(receipt.response).toMatchObject({ stopReason:"max_output_tokens", reasoningTokens:7900, visibleTextCharacters:17 });
+  expect(fs.existsSync(path.join(root,"diagnostics/activity-1-repair.json"))).toBe(false);
+});
+it("requires explicit one-time authorization for a replacement of a frozen truncated repair", async () => {
+  const diagnostics = path.join(root,"diagnostics");
+  fs.mkdirSync(diagnostics,{recursive:true});
+  fs.writeFileSync(path.join(diagnostics,"activity-1-repair-request.json"),JSON.stringify({
+    model:"gpt-5.6",
+    input:[],
+    max_output_tokens:8000,
+    reasoning:{effort:"high"},
+    stream:true,
+    store:false,
+  }));
+  vi.mocked(fetch)
+    .mockImplementationOnce(async () => stream('{"replacements":[', 200, 8000, 7900, "max_output_tokens"))
+    .mockImplementationOnce(async () => stream(patch, 220, 400, 300));
+  await expect(run()).rejects.toThrow("board_repair_harness_failure:output_budget_exhausted");
+  const oldStageFile = path.join(root,"diagnostics/provider-receipts/activity-1-repair.stage.json");
+  const oldStage = fs.readFileSync(oldStageFile,"utf8");
+  await expect(run()).rejects.toThrow("board_repair_harness_failure:output_budget_exhausted");
+  expect(fetch).toHaveBeenCalledTimes(1);
+
+  const replace = () => repairDirectArtifact({
+    artifact,
+    activity:plan(2).activities[0],
+    failures:["missing accessible name"],
+    screenshotPaths:[screenshot],
+    outputDir:path.join(root,"diagnostics"),
+    authorizeTruncatedReplacement:true,
+  });
+  await expect(replace()).resolves.toMatchObject({ htmlHash:hash(patched) });
+  await expect(replace()).resolves.toMatchObject({ htmlHash:hash(patched) });
+  expect(fetch).toHaveBeenCalledTimes(2);
+  expect(fs.readFileSync(oldStageFile,"utf8")).toBe(oldStage);
+  expect(fs.existsSync(path.join(root,"diagnostics/provider-receipts/activity-1-repair-replacement.stage.json"))).toBe(true);
+  expect(JSON.parse(fs.readFileSync(path.join(root,"diagnostics/activity-1-repair-replacement-authorization.json"),"utf8"))).toMatchObject({
+    nodeId:"activity-1",
+    reason:"saved_request_output_budget_exhausted",
+    replacementStage:"activity-1-repair-replacement",
+  });
+});
 it("saves even a malformed response and never buys it twice", async () => {
   vi.mocked(fetch).mockImplementation(async () => stream("malformed patch"));
   await expect(run()).rejects.toThrow(); await expect(run()).rejects.toThrow();
@@ -86,13 +161,23 @@ it("reuses a paid initial build when metadata installation was interrupted", asy
   activity.designArtifact={academicContractHash:"frozen"} as never;
   const images=path.join(root,"web/public/generated/direct-math");fs.mkdirSync(images,{recursive:true});
   fs.writeFileSync(path.join(images,createDirectBoardThumbnailFilename("hw-lab",activity)),"saved thumbnail");
-  vi.mocked(fetch).mockImplementation(async()=>stream(original));
+  const generated = `<!doctype html><html><body><button id="answer">Answer</button><script id="sunny-playwright-test" type="application/json">${JSON.stringify({
+    version:1,
+    nodeId:activity.id,
+    journey:activity.items.map((item:{id:string})=>({
+      itemId:item.id,
+      steps:[{action:"click",selector:"#answer"}],
+      assertions:[{type:"visible",selector:"#answer"}],
+    })),
+    completionAssertions:[{type:"event",eventType:"node_complete"}],
+  })}</script></body></html>`;
+  vi.mocked(fetch).mockImplementation(async()=>stream(generated));
   const write=fs.writeFileSync.bind(fs);let interrupted=false;
   vi.spyOn(fs,"writeFileSync").mockImplementation((file,data,options)=>{
     if(!interrupted&&String(file).endsWith(activity.id+".artifact.json")){interrupted=true;throw new Error("metadata_interrupted");}
     return write(file,data,options);
   });
-  const build=()=>generateDirectArtifacts({rootDir:root,childId:"lab",homeworkId:"hw-lab",plan:program,nodeIds:[activity.id],assignmentFingerprint:"fixture",existingArtworkUrls:{backgroundUrl:"/saved.svg",questArtworkUrl:"/saved.svg",bossArtworkUrl:"/saved.svg"}});
+  const build=()=>generateDirectArtifacts({rootDir:root,childId:"lab",homeworkId:"hw-lab",plan:program,nodeIds:[activity.id],assignmentFingerprint:"fixture",existingArtworkUrls:{backgroundUrl:"/saved.svg",}});
   await expect(build()).rejects.toThrow("metadata_interrupted");
   const result=await build();
   expect(result.artifacts).toHaveLength(1);

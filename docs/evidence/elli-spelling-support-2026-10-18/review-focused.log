@@ -1,0 +1,231 @@
+
+ RUN  v3.2.4 <repository>
+
+stdout | src/tests/test-game-state-injection.ts > SessionManager game context injection > builds per-turn learning context through chartChildId when voice name differs from sandbox chart id
+[learning-state] injecting into context message
+
+stdout | src/tests/test-game-state-injection.ts > SessionManager game context injection > queues node completion handoff without merging stale iframe heartbeat context
+  🎮 [board-snapshot] [ignored] stale state after node_complete
+
+ ✓ src/tests/test-game-state-injection.ts (27 tests) 239ms
+stdout | src/server/spellingDiscoverySupport.test.ts > live spelling assistance and audio provenance > pins the current private stimulus without treating conversation as a submitted answer
+ 🎮 [spelling] [node-launch] [recorded] node=opening launch=022b3361-4e31-4de6-903c-dfc88857ace1
+ 🎮 [spelling-discovery] [live-context] [bound] item=i2
+
+stdout | src/server/spellingDiscoverySupport.test.ts > live spelling assistance and audio provenance > retires a pending reply on item advance, but rejects stale launch context
+ 🎮 [spelling] [node-launch] [recorded] node=opening launch=1124c717-d9b1-4869-9b33-be953eb2b1eb
+ 🎮 [spelling-discovery] [live-context] [bound] item=i1
+ 🎮 [companion] [item-changed] [obsolete-speech-retired]
+ 🎮 [spelling-discovery] [live-context] [bound] item=i2
+
+stdout | src/server/spellingDiscoverySupport.test.ts > live spelling assistance and audio provenance > retains exposure and support when delayed writes arrive after the next item
+ 🎮 [spelling] [node-launch] [recorded] node=opening launch=13a4fecd-fbcf-4709-8dc0-ec1788d98f88
+  🎮 [companion-presence] [summoned] reason=client
+ 🎮 [spelling-discovery] [live-context] [bound] item=i1
+
+stdout | src/server/spellingDiscoverySupport.test.ts > live spelling assistance and audio provenance > retains exposure and support when delayed writes arrive after the next item
+  🎮 [companion-presence] [collapsed] reason=client
+ 🎮 [companion] [item-changed] [obsolete-speech-retired]
+ 🎮 [spelling-discovery] [live-context] [bound] item=i2
+
+stdout | src/server/spellingDiscoverySupport.test.ts > live spelling assistance and audio provenance > requires the frozen active item and successful stimulus delivery
+ 🎮 [spelling] [node-launch] [recorded] node=opening launch=b09e9fd1-f577-4773-8ea9-ef3253b5093c
+ 🎮 [spelling-discovery] [live-context] [bound] item=i1
+
+stdout | src/server/spellingDiscoverySupport.test.ts > live spelling assistance and audio provenance > keeps a help request assisted even after Elli collapses
+ 🎮 [spelling] [node-launch] [recorded] node=opening launch=2e255c90-0c30-4e20-be20-a855335d6d23
+ 🎮 [spelling-discovery] [live-context] [bound] item=i1
+
+stdout | src/server/spellingDiscoverySupport.test.ts > live spelling assistance and audio provenance > keeps a help request assisted even after Elli collapses
+  🎮 [companion-presence] [summoned] reason=client
+  🎮 [companion-presence] [collapsed] reason=client
+
+stdout | src/server/spellingDiscoverySupport.test.ts > live spelling assistance and audio provenance > does not carry one item's help into the next item while the companion remains open
+ 🎮 [spelling] [node-launch] [recorded] node=opening launch=5c4c2a1d-1003-460e-9929-e24266c6d569
+ 🎮 [spelling-discovery] [live-context] [bound] item=i1
+  🎮 [companion-presence] [summoned] reason=client
+ 🎮 [companion] [item-changed] [obsolete-speech-retired]
+ 🎮 [spelling-discovery] [live-context] [bound] item=i2
+
+stdout | src/server/spellingDiscoverySupport.test.ts > live spelling assistance and audio provenance > does not misreport a failed or mismatched audio stimulus as delivered
+ 🎮 [spelling] [node-launch] [recorded] node=opening launch=b14aceca-91fe-47d7-b3d5-75ac1a5db736
+ 🎮 [spelling-discovery] [live-context] [bound] item=i1
+
+stderr | src/server/spellingDiscoverySupport.test.ts > live spelling assistance and audio provenance > does not misreport a failed or mismatched audio stimulus as delivered
+ 🎮 [session-audio] [playback] [failed-released] request=469978c2-440e-49d2-894b-c56992133bb3 reason=spelling_stimulus_mismatch
+
+stderr | src/server/spellingDiscoverySupport.test.ts > live spelling assistance and audio provenance > does not misreport a failed or mismatched audio stimulus as delivered
+  🔴 [game_narration] TTS finish failed: Error: audio failed
+    at Object.s.ttsBridge.finish (<repository>/src/server/spellingDiscoverySupport.test.ts:102:109)
+    at Module.narrateGameStimulus (<repository>/src/server/game-event-handler.ts:96:18)
+    at processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at SessionManager.speakGameNarration (<repository>/src/server/session-manager.ts:1114:16)
+    at <repository>/src/server/spellingDiscoverySupport.test.ts:103:5
+    at file://<repository>/node_modules/@vitest/runner/dist/chunk-hooks.js:752:20
+
+stderr | src/server/spellingDiscoverySupport.test.ts > live spelling assistance and audio provenance > does not misreport a failed or mismatched audio stimulus as delivered
+ 🎮 [session-audio] [playback] [failed-released] request=f638ebcd-251c-4366-90f0-eeb0483d0a0c reason=audio failed
+
+stdout | src/server/spellingDiscoverySupport.test.ts > live spelling assistance and audio provenance > rejects a TTS stream that finishes without sending playable audio
+ 🎮 [spelling] [node-launch] [recorded] node=opening launch=0e490e66-c3ad-4a32-8cbb-5319cedcafc3
+ 🎮 [spelling-discovery] [live-context] [bound] item=i1
+
+stderr | src/server/spellingDiscoverySupport.test.ts > live spelling assistance and audio provenance > rejects a TTS stream that finishes without sending playable audio
+ 🎮 [session-audio] [playback] [failed-released] request=d5b14c83-7b1e-4e32-b125-20394ea426ee reason=spelling_stimulus_audio_unavailable
+
+stdout | src/server/spellingDiscoverySupport.test.ts > live math Discovery assistance provenance > binds Elli help to the frozen math item even when the browser reports no help
+  🎮 [math-discovery] [live-context] [bound] item=math-item-1
+  🎮 [companion-presence] [summoned] reason=client
+
+stdout | src/server/spellingDiscoverySupport.test.ts > keeps the frozen node identity with each spelling response context
+ 🎮 [spelling] [node-launch] [recorded] node=opening launch=63b1e8e0-4f28-428b-b4ed-5dcad5813fbb
+ 🎮 [spelling-discovery] [live-context] [bound] item=i1
+
+stdout | src/server/spellingDiscoverySupport.test.ts > cannot verify an item snapshot without a matching server-recorded launch
+ 🎮 [spelling] [node-launch] [recorded] node=opening launch=8600376f-d4b9-4064-8b03-4514987393d7
+ 🎮 [spelling] [node-launch] [rejected] node=not-in-cycle launch=unknown
+ 🎮 [spelling-discovery] [live-context] [bound] item=i1
+
+stdout | src/server/spellingDiscoverySupport.test.ts > records a valid launch before accepting that nodes item context
+ 🎮 [spelling] [node-launch] [recorded] node=opening launch=dd1ffcaf-6d10-4588-915b-adb020176401
+ 🎮 [spelling] [node-launch] [recorded] node=opening launch=1eb51481-569f-4743-a219-bde22dd43a28
+ 🎮 [spelling-discovery] [live-context] [bound] item=i1
+
+stdout | src/server/spellingDiscoverySupport.test.ts > commits the original presentation before any answer and counts acknowledged audio replays
+ 🎮 [spelling] [node-launch] [recorded] node=opening launch=71817f5c-9885-4328-b387-642d834707e7
+ 🎮 [spelling-discovery] [live-context] [bound] item=i1
+
+stderr | src/server/spellingDiscoverySupport.test.ts > commits the original presentation before any answer and counts acknowledged audio replays
+ 🎮 [chart] [opened] child=lab-child path=<temporary>/live-chart-qpaA1p/lab-child.db events=0 readonly=false
+ 🎮 [chart] [append] [ok] child=lab-child type=assignment.ingested id="98b7bdf6eb4d1f3601fb385ad6da9ef103f599cf46b2a3f7f4b60e708e063ead"
+ 🎮 [chart] [opened] child=lab-child path=<temporary>/live-chart-qpaA1p/lab-child.db events=1 readonly=false
+ 🎮 [chart] [append] [ok] child=lab-child type=item.presented id="abf5ef1152d3b597384c3a307dcc4c9729768626ab48a29279a0f77953c57927"
+
+stderr | src/server/spellingDiscoverySupport.test.ts > commits the original presentation before any answer and counts acknowledged audio replays
+ 🎮 [chart] [opened] child=lab-child path=<temporary>/live-chart-qpaA1p/lab-child.db events=2 readonly=false
+ 🎮 [chart] [append] [ok] child=lab-child type=engagement.observed id="dc421ac274fcabf1424f36687e59eb028d94f2af768d79ebd0c7905cfdea4e20"
+ 🎮 [chart] [opened] child=lab-child path=<temporary>/live-chart-qpaA1p/lab-child.db events=3 readonly=false
+ 🎮 [chart] [append] [ok] child=lab-child type=engagement.observed id="4413d7ef036f370a87a7bdb68f7b80d2a5c9876bdd0cc3d9d05ab0457331a63e"
+ 🎮 [chart] [opened] child=lab-child path=<temporary>/live-chart-qpaA1p/lab-child.db events=4 readonly=false
+ 🎮 [chart] [append] [duplicate] child=lab-child type=engagement.observed id="4413d7ef036f370a87a7bdb68f7b80d2a5c9876bdd0cc3d9d05ab0457331a63e"
+ 🎮 [chart] [opened] child=lab-child path=<temporary>/live-chart-qpaA1p/lab-child.db events=4 readonly=false
+ 🎮 [chart] [append] [ok] child=lab-child type=engagement.observed id="13f6f5ad47bc2741cba08525bb00f9b01ebea416935505f937f3814c81f269a3"
+
+stdout | src/server/spellingDiscoverySupport.test.ts > commits the original presentation before any answer and counts acknowledged audio replays
+  🎮 [companion-presence] [summoned] reason=client
+  🎮 [companion-presence] [summoned] reason=client
+
+stdout | src/server/spellingDiscoverySupport.test.ts > keeps replay and delayed responses attached to their distinct launches
+ 🎮 [spelling] [node-launch] [recorded] node=opening launch=3595a1f3-a40a-467d-aa58-46b34458e35e
+ 🎮 [spelling] [node-launch] [recorded] node=opening launch=060657cf-1e38-44d0-b6ad-fc4faeb243e3
+ 🎮 [spelling-discovery] [live-context] [bound] item=i1
+  🎮 [companion-presence] [summoned] reason=client
+ 🎮 [spelling] [node-launch] [recorded] node=opening launch=0d10d59e-2299-48f2-bc72-d0ac4ca18f7e
+ 🎮 [spelling-discovery] [live-context] [bound] item=i1
+
+stderr | src/server/spellingDiscoverySupport.test.ts > keeps replay and delayed responses attached to their distinct launches
+ 🎮 [session-audio] [playback] [failed-released] request=824d06ad-ab5b-46f0-8d56-b64cbd2ba92b reason=spelling_stimulus_mismatch
+
+stdout | src/server/spellingDiscoverySupport.test.ts > captures a practice presentation before answering with unknown support instead of invented independence
+ 🎮 [spelling] [node-launch] [recorded] node=opening launch=306b3f56-aa32-4ffc-9fe8-b7124db15cf0
+ 🎮 [spelling-discovery] [live-context] [bound] item=i1
+
+stderr | src/server/spellingDiscoverySupport.test.ts > captures a practice presentation before answering with unknown support instead of invented independence
+ 🎮 [chart] [opened] child=lab-child path=<temporary>/practice-chart-GFjdYJ/lab-child.db events=0 readonly=false
+ 🎮 [chart] [append] [ok] child=lab-child type=assignment.ingested id="98b7bdf6eb4d1f3601fb385ad6da9ef103f599cf46b2a3f7f4b60e708e063ead"
+ 🎮 [chart] [opened] child=lab-child path=<temporary>/practice-chart-GFjdYJ/lab-child.db events=1 readonly=false
+ 🎮 [chart] [append] [ok] child=lab-child type=item.presented id="23a4cfff9ddfe1310e4599bbc12747f68f00617bea2ac65802542e2dcf866c78"
+
+stdout | src/server/spellingDiscoverySupport.test.ts > persists native opening visibility visible before any answer arrives
+ 🎮 [spelling] [node-launch] [recorded] node=opening launch=f212ecb5-dccc-408f-81b2-f754c54568e3
+ 🎮 [spelling] [node-launch] [recorded] node=opening launch=8aead36d-5a82-4912-a8e2-a03e0616af32
+🎮 [game-contract] [post] type=game_state_update child=unknown node=opening
+ 🎮 [spelling-discovery] [live-context] [bound] item=i1
+
+stderr | src/server/spellingDiscoverySupport.test.ts > persists native opening visibility visible before any answer arrives
+ 🎮 [chart] [opened] child=lab-child path=<temporary>/native-presentation-0e88Ii/lab-child.db events=0 readonly=false
+ 🎮 [chart] [append] [ok] child=lab-child type=assignment.ingested id="98b7bdf6eb4d1f3601fb385ad6da9ef103f599cf46b2a3f7f4b60e708e063ead"
+ 🎮 [chart] [opened] child=lab-child path=<temporary>/native-presentation-0e88Ii/lab-child.db events=1 readonly=false
+ 🎮 [chart] [append] [ok] child=lab-child type=item.presented id="80464476730fadf754973269078686eccf2653fe2696a8e43db9dff575c86ab0"
+
+stdout | src/server/spellingDiscoverySupport.test.ts > persists native opening visibility hidden before any answer arrives
+ 🎮 [spelling] [node-launch] [recorded] node=opening launch=b33cc264-7610-4f82-b33e-cea907f3526d
+ 🎮 [spelling] [node-launch] [recorded] node=opening launch=c5b1c5a5-309e-448d-a4c3-4b41d7df8836
+🎮 [game-contract] [post] type=game_state_update child=unknown node=opening
+ 🎮 [spelling-discovery] [live-context] [bound] item=i1
+
+stderr | src/server/spellingDiscoverySupport.test.ts > persists native opening visibility hidden before any answer arrives
+ 🎮 [chart] [opened] child=lab-child path=<temporary>/native-presentation-A9YZlH/lab-child.db events=0 readonly=false
+ 🎮 [chart] [append] [ok] child=lab-child type=assignment.ingested id="98b7bdf6eb4d1f3601fb385ad6da9ef103f599cf46b2a3f7f4b60e708e063ead"
+ 🎮 [chart] [opened] child=lab-child path=<temporary>/native-presentation-A9YZlH/lab-child.db events=1 readonly=false
+ 🎮 [chart] [append] [ok] child=lab-child type=item.presented id="7ecf0342c63a62b070e307ba16e0ea303bb3ad178cc631ee769918b467dc77b6"
+
+stdout | src/server/spellingDiscoverySupport.test.ts > persists native opening visibility undefined before any answer arrives
+ 🎮 [spelling] [node-launch] [recorded] node=opening launch=137dee84-f4bc-4676-ba58-4b712231ed89
+ 🎮 [spelling] [node-launch] [recorded] node=opening launch=b41c9208-f4e2-498d-9397-8ae945eb7327
+🎮 [game-contract] [post] type=game_state_update child=unknown node=opening
+ 🎮 [spelling-discovery] [live-context] [bound] item=i1
+
+stderr | src/server/spellingDiscoverySupport.test.ts > persists native opening visibility undefined before any answer arrives
+ 🎮 [chart] [opened] child=lab-child path=<temporary>/native-presentation-hy56Mx/lab-child.db events=0 readonly=false
+ 🎮 [chart] [append] [ok] child=lab-child type=assignment.ingested id="98b7bdf6eb4d1f3601fb385ad6da9ef103f599cf46b2a3f7f4b60e708e063ead"
+ 🎮 [chart] [opened] child=lab-child path=<temporary>/native-presentation-hy56Mx/lab-child.db events=1 readonly=false
+ 🎮 [chart] [append] [ok] child=lab-child type=item.presented id="c162c39a982f8f29e49fc6402eecf19733f0936452d321a7001b24e60eaf72d8"
+
+stdout | src/server/spellingDiscoverySupport.test.ts > releases only the matching spelling launch on host closed
+ 🎮 [spelling] [node-launch] [recorded] node=opening launch=bb03a5d7-7564-40b3-8323-c898f0e40be8
+ 🎮 [spelling] [node-launch] [recorded] node=opening launch=e28d6a54-042b-4636-a639-2bfeb4c97140
+ 🎮 [spelling] [node-launch] [released]
+
+stdout | src/server/spellingDiscoverySupport.test.ts > hands the native activity's dictionary-grounded target to Elli's live turn
+ 🎮 [spelling] [node-launch] [recorded] node=opening launch=13640a1c-e542-411b-bba0-dd63a4cb8bdb
+
+stdout | src/server/spellingDiscoverySupport.test.ts > records hidden target letter disclosure in the production session trace
+ 🎮 [spelling] [node-launch] [recorded] node=opening launch=075aa6d8-5d91-4b02-b8d4-dd38cc93542e
+
+ ✓ src/server/spellingDiscoverySupport.test.ts (22 tests) 59ms
+ ✓ src/server/currentBoardSnapshot.test.ts (29 tests) 9ms
+stdout | src/server/session-manager-companion-presence.test.ts > SessionManager companion presence > promotes a held eager transcript when Flux never sends a final turn
+  🎮 [transcript] [eager-buffered] reason=companion_conversation
+
+stdout | src/server/session-manager-companion-presence.test.ts > SessionManager companion presence > promotes a held eager transcript when Flux never sends a final turn
+  🎮 [transcript] [eager-promoted] reason=final_timeout
+
+stdout | src/server/session-manager-companion-presence.test.ts > SessionManager companion presence > keeps a child-started conversation open until explicit dismissal
+  🎮 [companion-presence] [summoned] reason=voice
+  🎮 [companion-presence] [conversation-open] reason=child_started
+
+stdout | src/server/session-manager-companion-presence.test.ts > SessionManager companion presence > returns one-shot read help to standby unless Elli explicitly awaits an answer
+  🎮 [companion-presence] [summoned] reason=read_instruction
+  🎮 [companion-presence] [collapsed] reason=voice
+
+stdout | src/server/session-manager-companion-presence.test.ts > SessionManager companion presence > uses Elli's live reasoning turn for activity support and clears stale pause disposition
+  🎮 [companion-presence] [summoned] reason=read_instruction
+  🎮 [companion-help] [agent-support] node=clock-room item=clock-2 trigger=guided_prompt
+
+stdout | src/server/session-manager-companion-presence.test.ts > SessionManager companion presence > uses Elli's live reasoning turn for activity support and clears stale pause disposition
+  🎮 [companion-presence] [collapsed] reason=voice
+
+stdout | src/server/session-manager-companion-presence.test.ts > SessionManager companion presence > returns a one-shot activity to play even when Elli's provider turn fails
+  🎮 [companion-presence] [summoned] reason=read_instruction
+  🎮 [companion-help] [agent-support] node=clock-room item=clock-2 trigger=guided_prompt
+
+stdout | src/server/session-manager-companion-presence.test.ts > SessionManager companion presence > returns a one-shot activity to play even when Elli's provider turn fails
+  🎮 [companion-presence] [collapsed] reason=voice
+
+stdout | src/server/session-manager-companion-presence.test.ts > SessionManager companion presence > does not collapse a newer child-started conversation after one-shot support finishes
+  🎮 [companion-presence] [summoned] reason=read_instruction
+  🎮 [companion-help] [agent-support] node=clock-room item=clock-2 trigger=guided_prompt
+  🎮 [companion-presence] [summoned] reason=voice
+
+ ✓ src/server/session-manager-companion-presence.test.ts (6 tests) 7ms
+stdout | src/server/companion-response-runner.test.ts > companion response audio ownership > queues Elli's turn while a game narration owns the shared audio channel
+  🎮 [companion] [deferred] reason=game_narration_owns_audio
+
+ ✓ src/server/companion-response-runner.test.ts (8 tests) 3ms
+ ✓ src/tests/test-companion-base-rules.ts (3 tests) 1ms
+
+ Test Files  6 passed (6)
+      Tests  95 passed (95)
+   Start at  08:06:28
+   Duration  6.73s (transform 1.34s, setup 0ms, collect 5.61s, tests 318ms, environment 0ms, prepare 206ms)

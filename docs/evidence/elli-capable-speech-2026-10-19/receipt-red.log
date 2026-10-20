@@ -1,0 +1,40 @@
+
+ RUN  v3.2.4 /Users/jtaylor/Development/sunny-elli-capable-speech
+
+ ❯ src/server/companionSpeechTools.test.ts (3 tests | 1 failed) 5ms
+   × Elli's speech capability > applies the model's chosen rate and reports configuration, not heard audio 4ms
+     → expected { speed: 0.7, applied: true, …(1) } to deeply equal { speed: 0.7, …(3) }
+   ✓ Elli's speech capability > does not advertise unavailable speech control 0ms
+   ✓ tells Elli the current configured pace so she can reconsider an ineffective attempt 0ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/server/companionSpeechTools.test.ts > Elli's speech capability > applies the model's chosen rate and reports configuration, not heard audio
+AssertionError: expected { speed: 0.7, applied: true, …(1) } to deeply equal { speed: 0.7, …(3) }
+
+- Expected
++ Received
+
+  {
+-   "configured": true,
++   "applied": true,
+    "playbackConfirmed": false,
+-   "previousSpeed": null,
+    "speed": 0.7,
+  }
+
+ ❯ src/server/companionSpeechTools.test.ts:11:20
+      9|     const result = await tools.setSpeechRate!.execute!({ speed: 0.7 },…
+     10|     expect(setSpeechRate).toHaveBeenCalledWith(0.7);
+     11|     expect(result).toEqual({ speed: 0.7, previousSpeed: null, configur…
+       |                    ^
+     12|     expect(record).toHaveBeenCalledWith({ speed: 0.7, previousSpeed: n…
+     13|     await tools.setSpeechRate!.execute!({ speed: 1 }, {} as never);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 2 passed (3)
+   Start at  23:53:10
+   Duration  150ms (transform 14ms, setup 0ms, collect 47ms, tests 5ms, environment 0ms, prepare 21ms)

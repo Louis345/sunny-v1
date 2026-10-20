@@ -6,6 +6,7 @@ import { spawn, spawnSync, type ChildProcess } from "node:child_process";
 import { stdin as input, stdout as output } from "node:process";
 import { listChildProfileIds } from "../shared/childRegistry";
 import { resolveContextRoot } from "../utils/contextRoot";
+import { isReadablePdf } from "./sunnyCertification";
 
 export type SunnyMenuDomain = "math" | "spelling" | "reading" | "science";
 export type SunnyInvocation = { command: string; args: string[] };
@@ -53,11 +54,14 @@ export function buildSessionInvocation(
 export function buildImpersonatorInvocation(
   childId: string,
   domain: SunnyMenuDomain,
-  assignmentPath: string,
+  assignmentPath?: string,
 ): SunnyInvocation {
+  const args = ["run", "sunny:certify", "--", "--child", childId, "--homework-domain", domain];
+  if (assignmentPath) args.push(`--pdf=${assignmentPath}`);
+  else args.push("--resume-only=true");
   return {
     command: "npm",
-    args: ["run", "sunny:certify", "--", "--child", childId, "--homework-domain", domain, `--pdf=${assignmentPath}`],
+    args,
   };
 }
 
@@ -110,6 +114,10 @@ async function chooseAssignmentFile(deps: SunnyMenuDependencies): Promise<string
     const candidate = path.resolve(source);
     try {
       if (!fs.statSync(candidate).isFile()) throw new Error("not_a_file");
+      if (!isReadablePdf(candidate)) {
+        deps.log(`Assignment is not a readable PDF: ${candidate}`);
+        continue;
+      }
       return candidate;
     } catch {
       deps.log(`Assignment file not found: ${candidate}`);
@@ -154,9 +162,20 @@ export async function runSunnyMenu(deps: SunnyMenuDependencies): Promise<"exit">
           }
           let invocation: SunnyInvocation;
           if (evidenceFirst && modeChoice === "2") {
-            const sourceFile = await chooseAssignmentFile(deps);
-            if (!sourceFile) continue;
-            invocation = buildImpersonatorInvocation(childId, domain, sourceFile);
+            deps.log("\nImpersonator journey\n1. Resume latest isolated journey\n2. Start with an assignment\n0. Cancel");
+            const journeyChoice = (await deps.ask("> ")).trim();
+            if (journeyChoice === "0" || !journeyChoice) continue;
+            if (journeyChoice !== "1" && journeyChoice !== "2") {
+              deps.log("Choose 1, 2, or 0.");
+              continue;
+            }
+            if (journeyChoice === "1") {
+              invocation = buildImpersonatorInvocation(childId, domain);
+            } else {
+              const sourceFile = await chooseAssignmentFile(deps);
+              if (!sourceFile) continue;
+              invocation = buildImpersonatorInvocation(childId, domain, sourceFile);
+            }
           } else {
             invocation = buildSessionInvocation(childId, domain, modeChoice === "1" ? "real" : "as-child");
           }

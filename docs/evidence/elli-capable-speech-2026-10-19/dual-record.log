@@ -1,0 +1,374 @@
+
+ RUN  v3.2.4 /Users/jtaylor/Development/sunny-elli-capable-speech
+
+stdout | src/server/spellingDiscoveryRoutes.test.ts > spelling through the production Discovery routes > serves a native spelling config from the isolated context root
+ 🎮 [learning-board] [publish] [hw-words:board:1] kind=probe decision=none nodes=1
+ 🎮 [spelling-discovery] [contract] [saved] homework=hw-words items=2 hash=6dca4ed29314b05620b0740725fcfaca80d69938f45819a28029f15a80f56960
+
+stdout | src/server/spellingDiscoveryRoutes.test.ts > spelling through the production Discovery routes > serves a native spelling config from the isolated context root
+ 🎮 [board-canvas] [verified] [e9d819583af2] viewports=1280x720,768x1024,1470x956
+
+stdout | src/server/spellingDiscoveryRoutes.test.ts > spelling through the production Discovery routes > serves a native spelling config from the isolated context root
+ 🎮 [adaptive-math] [discovery-publication] [published] child=lab-child homework=hw-words
+
+stdout | src/server/spellingDiscoveryRoutes.test.ts > spelling through the production Discovery routes > uses live support provenance, grades frozen answers, and ignores forged correctness
+ 🎮 [learning-board] [publish] [hw-words:board:1] kind=probe decision=none nodes=1
+ 🎮 [spelling-discovery] [contract] [saved] homework=hw-words items=2 hash=6dca4ed29314b05620b0740725fcfaca80d69938f45819a28029f15a80f56960
+
+stdout | src/server/spellingDiscoveryRoutes.test.ts > spelling through the production Discovery routes > uses live support provenance, grades frozen answers, and ignores forged correctness
+ 🎮 [board-canvas] [verified] [e9d819583af2] viewports=1280x720,768x1024,1470x956
+
+stdout | src/server/spellingDiscoveryRoutes.test.ts > spelling through the production Discovery routes > uses live support provenance, grades frozen answers, and ignores forged correctness
+ 🎮 [adaptive-math] [discovery-publication] [published] child=lab-child homework=hw-words
+
+stdout | src/server/spellingDiscoveryRoutes.test.ts > spelling through the production Discovery routes > uses live support provenance, grades frozen answers, and ignores forged correctness
+ 🎮 [spelling-discovery] [attempt] [committed] homework=hw-words item=hw-words:discovery:176473d7313395b6 attempt=a1 provenance=independent_probe
+ 🎮 [adaptive-math] [discovery-attempt] [committed] child=lab-child homework=hw-words attempt=a1
+
+stdout | src/server/spellingDiscoveryRoutes.test.ts > spelling through the production Discovery routes > uses live support provenance, grades frozen answers, and ignores forged correctness
+ 🎮 [adaptive-math] [discovery-attempt] [committed] child=lab-child homework=hw-words attempt=a1
+
+stdout | src/server/spellingDiscoveryRoutes.test.ts > spelling through the production Discovery routes > does not infer independence without a live server context and keeps Not sure unknown
+ 🎮 [learning-board] [publish] [hw-words:board:1] kind=probe decision=none nodes=1
+ 🎮 [spelling-discovery] [contract] [saved] homework=hw-words items=2 hash=6dca4ed29314b05620b0740725fcfaca80d69938f45819a28029f15a80f56960
+
+stdout | src/server/spellingDiscoveryRoutes.test.ts > spelling through the production Discovery routes > does not infer independence without a live server context and keeps Not sure unknown
+ 🎮 [board-canvas] [verified] [e9d819583af2] viewports=1280x720,768x1024,1470x956
+
+stdout | src/server/spellingDiscoveryRoutes.test.ts > spelling through the production Discovery routes > does not infer independence without a live server context and keeps Not sure unknown
+ 🎮 [adaptive-math] [discovery-publication] [published] child=lab-child homework=hw-words
+
+stdout | src/server/spellingDiscoveryRoutes.test.ts > spelling through the production Discovery routes > does not infer independence without a live server context and keeps Not sure unknown
+ 🎮 [spelling-discovery] [attempt] [committed] homework=hw-words item=hw-words:discovery:176473d7313395b6 attempt=a1 provenance=practice
+ 🎮 [adaptive-math] [discovery-attempt] [committed] child=lab-child homework=hw-words attempt=a1
+
+stdout | src/server/spellingDiscoveryRoutes.test.ts > spelling through the production Discovery routes > does not infer independence without a live server context and keeps Not sure unknown
+ 🎮 [adaptive-math] [discovery-attempt] [committed] child=lab-child homework=hw-words attempt=a1
+
+stdout | src/server/spellingDiscoveryRoutes.test.ts > rejects a live spelling node mismatch before recording any response
+ 🎮 [learning-board] [publish] [hw-words:board:1] kind=probe decision=none nodes=1
+ 🎮 [spelling-discovery] [contract] [saved] homework=hw-words items=2 hash=6dca4ed29314b05620b0740725fcfaca80d69938f45819a28029f15a80f56960
+
+stdout | src/server/spellingDiscoveryRoutes.test.ts > rejects a live spelling node mismatch before recording any response
+ 🎮 [board-canvas] [verified] [e9d819583af2] viewports=1280x720,768x1024,1470x956
+
+stdout | src/server/spellingDiscoveryRoutes.test.ts > rejects a live spelling node mismatch before recording any response
+ 🎮 [adaptive-math] [discovery-publication] [published] child=lab-child homework=hw-words
+
+stdout | src/server/spellingDiscoveryRoutes.test.ts > does not infer independent spelling evidence from a live context missing its node identity
+ 🎮 [learning-board] [publish] [hw-words:board:1] kind=probe decision=none nodes=1
+ 🎮 [spelling-discovery] [contract] [saved] homework=hw-words items=2 hash=6dca4ed29314b05620b0740725fcfaca80d69938f45819a28029f15a80f56960
+
+stdout | src/server/spellingDiscoveryRoutes.test.ts > does not infer independent spelling evidence from a live context missing its node identity
+ 🎮 [board-canvas] [verified] [e9d819583af2] viewports=1280x720,768x1024,1470x956
+
+stdout | src/server/spellingDiscoveryRoutes.test.ts > does not infer independent spelling evidence from a live context missing its node identity
+ 🎮 [adaptive-math] [discovery-publication] [published] child=lab-child homework=hw-words
+
+stdout | src/server/spellingDiscoveryRoutes.test.ts > does not infer independent spelling evidence from a live context missing its node identity
+ 🎮 [spelling-discovery] [attempt] [committed] homework=hw-words item=hw-words:discovery:176473d7313395b6 attempt=missing-node provenance=practice
+ 🎮 [adaptive-math] [discovery-attempt] [committed] child=lab-child homework=hw-words attempt=missing-node
+
+stdout | src/server/spellingDiscoveryRoutes.test.ts > writes a typed response through the original HTTP endpoint (practice=false)
+ 🎮 [learning-board] [publish] [hw-words:board:1] kind=probe decision=none nodes=1
+ 🎮 [spelling-discovery] [contract] [saved] homework=hw-words items=2 hash=6dca4ed29314b05620b0740725fcfaca80d69938f45819a28029f15a80f56960
+
+stdout | src/server/spellingDiscoveryRoutes.test.ts > writes a typed response through the original HTTP endpoint (practice=false)
+ 🎮 [board-canvas] [verified] [e9d819583af2] viewports=1280x720,768x1024,1470x956
+
+stdout | src/server/spellingDiscoveryRoutes.test.ts > writes a typed response through the original HTTP endpoint (practice=false)
+ 🎮 [adaptive-math] [discovery-publication] [published] child=lab-child homework=hw-words
+
+stderr | src/server/spellingDiscoveryRoutes.test.ts > writes a typed response through the original HTTP endpoint (practice=false)
+ 🎮 [chart] [opened] child=lab-child path=/private/var/folders/wh/9v_3r26d2gzb_bs4ydgkx65h0000gp/T/spelling-routes-zbOef9/charts/lab-child.db events=0 readonly=false
+ 🎮 [chart] [append] [ok] child=lab-child type=assignment.ingested id="98b7bdf6eb4d1f3601fb385ad6da9ef103f599cf46b2a3f7f4b60e708e063ead"
+ 🎮 [chart] [append] [ok] child=lab-child type=item.presented id="dd220662707d0d2d7bfca8c837b56874667a323f54ae4aee37d2241a52332002"
+
+stderr | src/server/spellingDiscoveryRoutes.test.ts > writes a typed response through the original HTTP endpoint (practice=false)
+ 🎮 [chart] [opened] child=lab-child path=/private/var/folders/wh/9v_3r26d2gzb_bs4ydgkx65h0000gp/T/spelling-routes-zbOef9/charts/lab-child.db events=2 readonly=false
+ 🎮 [chart] [append] [staged] child=lab-child type=response.observed id="5162283b2400de7411e76432d91446c04cd32e02441b719eb354bdf4088bd8cf"
+
+stdout | src/server/spellingDiscoveryRoutes.test.ts > writes a typed response through the original HTTP endpoint (practice=false)
+ 🎮 [spelling-discovery] [attempt] [committed] homework=hw-words item=hw-words:discovery:176473d7313395b6 attempt=typed-answer provenance=independent_probe
+ 🎮 [spelling] [delivery] [committed] attempt=typed-answer
+ 🎮 [adaptive-math] [discovery-attempt] [committed] child=lab-child homework=hw-words attempt=typed-answer
+
+stderr | src/server/spellingDiscoveryRoutes.test.ts > writes a typed response through the original HTTP endpoint (practice=false)
+ 🎮 [chart] [opened] child=lab-child path=/private/var/folders/wh/9v_3r26d2gzb_bs4ydgkx65h0000gp/T/spelling-routes-zbOef9/charts/lab-child.db events=3 readonly=false
+ 🎮 [chart] [append] [staged] child=lab-child type=response.observed id="5162283b2400de7411e76432d91446c04cd32e02441b719eb354bdf4088bd8cf"
+
+stdout | src/server/spellingDiscoveryRoutes.test.ts > writes a typed response through the original HTTP endpoint (practice=false)
+ 🎮 [spelling] [delivery] [committed] attempt=typed-answer
+ 🎮 [adaptive-math] [discovery-attempt] [committed] child=lab-child homework=hw-words attempt=typed-answer
+
+stdout | src/server/spellingDiscoveryRoutes.test.ts > writes a typed response through the original HTTP endpoint (practice=true)
+ 🎮 [learning-board] [publish] [hw-words:board:1] kind=probe decision=none nodes=1
+ 🎮 [spelling-discovery] [contract] [saved] homework=hw-words items=2 hash=6dca4ed29314b05620b0740725fcfaca80d69938f45819a28029f15a80f56960
+
+stdout | src/server/spellingDiscoveryRoutes.test.ts > writes a typed response through the original HTTP endpoint (practice=true)
+ 🎮 [board-canvas] [verified] [e9d819583af2] viewports=1280x720,768x1024,1470x956
+
+stdout | src/server/spellingDiscoveryRoutes.test.ts > writes a typed response through the original HTTP endpoint (practice=true)
+ 🎮 [adaptive-math] [discovery-publication] [published] child=lab-child homework=hw-words
+
+stderr | src/server/spellingDiscoveryRoutes.test.ts > writes a typed response through the original HTTP endpoint (practice=true)
+ 🎮 [chart] [opened] child=lab-child path=/private/var/folders/wh/9v_3r26d2gzb_bs4ydgkx65h0000gp/T/spelling-routes-0ZNT5w/charts/lab-child.db events=0 readonly=false
+ 🎮 [chart] [append] [ok] child=lab-child type=assignment.ingested id="98b7bdf6eb4d1f3601fb385ad6da9ef103f599cf46b2a3f7f4b60e708e063ead"
+ 🎮 [chart] [append] [ok] child=lab-child type=item.presented id="dd220662707d0d2d7bfca8c837b56874667a323f54ae4aee37d2241a52332002"
+
+stderr | src/server/spellingDiscoveryRoutes.test.ts > writes a typed response through the original HTTP endpoint (practice=true)
+ 🎮 [chart] [opened] child=lab-child path=/private/var/folders/wh/9v_3r26d2gzb_bs4ydgkx65h0000gp/T/spelling-routes-0ZNT5w/charts/lab-child.db events=2 readonly=false
+ 🎮 [chart] [append] [staged] child=lab-child type=response.observed id="5162283b2400de7411e76432d91446c04cd32e02441b719eb354bdf4088bd8cf"
+
+stdout | src/server/spellingDiscoveryRoutes.test.ts > writes a typed response through the original HTTP endpoint (practice=true)
+ 🎮 [spelling-discovery] [attempt] [committed] homework=hw-words item=hw-words:discovery:176473d7313395b6 attempt=typed-answer provenance=practice
+ 🎮 [spelling] [delivery] [committed] attempt=typed-answer
+ 🎮 [adaptive-math] [discovery-attempt] [committed] child=lab-child homework=hw-words attempt=typed-answer
+
+stderr | src/server/spellingDiscoveryRoutes.test.ts > writes a typed response through the original HTTP endpoint (practice=true)
+ 🎮 [chart] [opened] child=lab-child path=/private/var/folders/wh/9v_3r26d2gzb_bs4ydgkx65h0000gp/T/spelling-routes-0ZNT5w/charts/lab-child.db events=3 readonly=false
+ 🎮 [chart] [append] [staged] child=lab-child type=response.observed id="5162283b2400de7411e76432d91446c04cd32e02441b719eb354bdf4088bd8cf"
+
+stdout | src/server/spellingDiscoveryRoutes.test.ts > writes a typed response through the original HTTP endpoint (practice=true)
+ 🎮 [spelling] [delivery] [committed] attempt=typed-answer
+ 🎮 [adaptive-math] [discovery-attempt] [committed] child=lab-child homework=hw-words attempt=typed-answer
+
+stdout | src/server/spellingDiscoveryRoutes.test.ts > does not advance the legacy cycle when the configured chart cannot record the response
+ 🎮 [learning-board] [publish] [hw-words:board:1] kind=probe decision=none nodes=1
+ 🎮 [spelling-discovery] [contract] [saved] homework=hw-words items=2 hash=6dca4ed29314b05620b0740725fcfaca80d69938f45819a28029f15a80f56960
+
+stdout | src/server/spellingDiscoveryRoutes.test.ts > does not advance the legacy cycle when the configured chart cannot record the response
+ 🎮 [board-canvas] [verified] [e9d819583af2] viewports=1280x720,768x1024,1470x956
+
+stdout | src/server/spellingDiscoveryRoutes.test.ts > does not advance the legacy cycle when the configured chart cannot record the response
+ 🎮 [adaptive-math] [discovery-publication] [published] child=lab-child homework=hw-words
+
+stderr | src/server/spellingDiscoveryRoutes.test.ts > does not advance the legacy cycle when the configured chart cannot record the response
+ 🎮 [chart] [opened] child=lab-child path=/private/var/folders/wh/9v_3r26d2gzb_bs4ydgkx65h0000gp/T/spelling-routes-JoV6ss/charts/lab-child.db events=0 readonly=false
+ 🎮 [spelling-chart] [write] [failed] Error: chart_presentation_missing
+    at Function.<anonymous> (/Users/jtaylor/Development/sunny-elli-capable-speech/src/chart/spelling/originalResponses.ts:21:17)
+    at Function.sqliteTransaction (/Users/jtaylor/Development/sunny-board-canvas-test/node_modules/better-sqlite3/lib/methods/transaction.js:65:24)
+    at recordOriginalSpellingResponse (/Users/jtaylor/Development/sunny-elli-capable-speech/src/chart/spelling/originalResponses.ts:28:5)
+    at commitOriginalSpellingAttempt (/Users/jtaylor/Development/sunny-elli-capable-speech/src/server/originalSpellingCommit.ts:28:2)
+    at /Users/jtaylor/Development/sunny-elli-capable-speech/src/server/routes.ts:864:96
+    at withOriginalSpellingChart (/Users/jtaylor/Development/sunny-elli-capable-speech/src/chart/spelling/originalResponses.ts:35:13)
+    at /Users/jtaylor/Development/sunny-elli-capable-speech/src/server/routes.ts:864:58
+    at Layer.handleRequest (/Users/jtaylor/Development/sunny-board-canvas-test/node_modules/router/lib/layer.js:152:17)
+    at next (/Users/jtaylor/Development/sunny-board-canvas-test/node_modules/router/lib/route.js:157:13)
+    at Route.dispatch (/Users/jtaylor/Development/sunny-board-canvas-test/node_modules/router/lib/route.js:117:3)
+
+stdout | src/server/spellingDiscoveryRoutes.test.ts > refuses spelling completion with wrong-node launch provenance
+ 🎮 [learning-board] [publish] [hw-words:board:1] kind=probe decision=none nodes=1
+ 🎮 [spelling-discovery] [contract] [saved] homework=hw-words items=2 hash=6dca4ed29314b05620b0740725fcfaca80d69938f45819a28029f15a80f56960
+
+stdout | src/server/spellingDiscoveryRoutes.test.ts > refuses spelling completion with wrong-node launch provenance
+ 🎮 [board-canvas] [verified] [e9d819583af2] viewports=1280x720,768x1024,1470x956
+
+stdout | src/server/spellingDiscoveryRoutes.test.ts > refuses spelling completion with wrong-node launch provenance
+ 🎮 [adaptive-math] [discovery-publication] [published] child=lab-child homework=hw-words
+
+stderr | src/server/spellingDiscoveryRoutes.test.ts > refuses spelling completion with wrong-node launch provenance
+ 🎮 [learning-cycle-route] [completion] [failed] Error: spelling_completion_launch_mismatch
+    at /Users/jtaylor/Development/sunny-elli-capable-speech/src/server/routes.ts:992:171
+    at Layer.handleRequest (/Users/jtaylor/Development/sunny-board-canvas-test/node_modules/router/lib/layer.js:152:17)
+    at next (/Users/jtaylor/Development/sunny-board-canvas-test/node_modules/router/lib/route.js:157:13)
+    at Route.dispatch (/Users/jtaylor/Development/sunny-board-canvas-test/node_modules/router/lib/route.js:117:3)
+    at handle (/Users/jtaylor/Development/sunny-board-canvas-test/node_modules/router/index.js:435:11)
+    at Layer.handleRequest (/Users/jtaylor/Development/sunny-board-canvas-test/node_modules/router/lib/layer.js:152:17)
+    at /Users/jtaylor/Development/sunny-board-canvas-test/node_modules/router/index.js:295:15
+    at processParams (/Users/jtaylor/Development/sunny-board-canvas-test/node_modules/router/index.js:582:12)
+    at next (/Users/jtaylor/Development/sunny-board-canvas-test/node_modules/router/index.js:291:5)
+    at /Users/jtaylor/Development/sunny-board-canvas-test/node_modules/body-parser/lib/read.js:171:5
+
+stdout | src/server/spellingDiscoveryRoutes.test.ts > refuses spelling completion with wrong-token launch provenance
+ 🎮 [learning-board] [publish] [hw-words:board:1] kind=probe decision=none nodes=1
+ 🎮 [spelling-discovery] [contract] [saved] homework=hw-words items=2 hash=6dca4ed29314b05620b0740725fcfaca80d69938f45819a28029f15a80f56960
+
+stdout | src/server/spellingDiscoveryRoutes.test.ts > refuses spelling completion with wrong-token launch provenance
+ 🎮 [board-canvas] [verified] [e9d819583af2] viewports=1280x720,768x1024,1470x956
+
+stdout | src/server/spellingDiscoveryRoutes.test.ts > refuses spelling completion with wrong-token launch provenance
+ 🎮 [adaptive-math] [discovery-publication] [published] child=lab-child homework=hw-words
+
+stderr | src/server/spellingDiscoveryRoutes.test.ts > refuses spelling completion with wrong-token launch provenance
+ 🎮 [learning-cycle-route] [completion] [failed] Error: spelling_completion_launch_mismatch
+    at /Users/jtaylor/Development/sunny-elli-capable-speech/src/server/routes.ts:992:171
+    at Layer.handleRequest (/Users/jtaylor/Development/sunny-board-canvas-test/node_modules/router/lib/layer.js:152:17)
+    at next (/Users/jtaylor/Development/sunny-board-canvas-test/node_modules/router/lib/route.js:157:13)
+    at Route.dispatch (/Users/jtaylor/Development/sunny-board-canvas-test/node_modules/router/lib/route.js:117:3)
+    at handle (/Users/jtaylor/Development/sunny-board-canvas-test/node_modules/router/index.js:435:11)
+    at Layer.handleRequest (/Users/jtaylor/Development/sunny-board-canvas-test/node_modules/router/lib/layer.js:152:17)
+    at /Users/jtaylor/Development/sunny-board-canvas-test/node_modules/router/index.js:295:15
+    at processParams (/Users/jtaylor/Development/sunny-board-canvas-test/node_modules/router/index.js:582:12)
+    at next (/Users/jtaylor/Development/sunny-board-canvas-test/node_modules/router/index.js:291:5)
+    at /Users/jtaylor/Development/sunny-board-canvas-test/node_modules/body-parser/lib/read.js:171:5
+
+stdout | src/server/spellingDiscoveryRoutes.test.ts > refuses spelling completion with missing launch provenance
+ 🎮 [learning-board] [publish] [hw-words:board:1] kind=probe decision=none nodes=1
+ 🎮 [spelling-discovery] [contract] [saved] homework=hw-words items=2 hash=6dca4ed29314b05620b0740725fcfaca80d69938f45819a28029f15a80f56960
+
+stdout | src/server/spellingDiscoveryRoutes.test.ts > refuses spelling completion with missing launch provenance
+ 🎮 [board-canvas] [verified] [e9d819583af2] viewports=1280x720,768x1024,1470x956
+
+stdout | src/server/spellingDiscoveryRoutes.test.ts > refuses spelling completion with missing launch provenance
+ 🎮 [adaptive-math] [discovery-publication] [published] child=lab-child homework=hw-words
+
+stderr | src/server/spellingDiscoveryRoutes.test.ts > refuses spelling completion with missing launch provenance
+ 🎮 [learning-cycle-route] [completion] [failed] Error: spelling_completion_launch_required
+    at /Users/jtaylor/Development/sunny-elli-capable-speech/src/server/routes.ts:993:108
+    at Layer.handleRequest (/Users/jtaylor/Development/sunny-board-canvas-test/node_modules/router/lib/layer.js:152:17)
+    at next (/Users/jtaylor/Development/sunny-board-canvas-test/node_modules/router/lib/route.js:157:13)
+    at Route.dispatch (/Users/jtaylor/Development/sunny-board-canvas-test/node_modules/router/lib/route.js:117:3)
+    at handle (/Users/jtaylor/Development/sunny-board-canvas-test/node_modules/router/index.js:435:11)
+    at Layer.handleRequest (/Users/jtaylor/Development/sunny-board-canvas-test/node_modules/router/lib/layer.js:152:17)
+    at /Users/jtaylor/Development/sunny-board-canvas-test/node_modules/router/index.js:295:15
+    at processParams (/Users/jtaylor/Development/sunny-board-canvas-test/node_modules/router/index.js:582:12)
+    at next (/Users/jtaylor/Development/sunny-board-canvas-test/node_modules/router/index.js:291:5)
+    at /Users/jtaylor/Development/sunny-board-canvas-test/node_modules/body-parser/lib/read.js:171:5
+
+stdout | src/server/spellingDiscoveryRoutes.test.ts > records native answers once while preserving HTTP ownership for letter-rush
+ 🎮 [learning-board] [publish] [hw-words:board:1] kind=probe decision=none nodes=1
+ 🎮 [spelling-discovery] [contract] [saved] homework=hw-words items=2 hash=6dca4ed29314b05620b0740725fcfaca80d69938f45819a28029f15a80f56960
+
+stdout | src/server/spellingDiscoveryRoutes.test.ts > records native answers once while preserving HTTP ownership for letter-rush
+ 🎮 [board-canvas] [verified] [e9d819583af2] viewports=1280x720,768x1024,1470x956
+
+stdout | src/server/spellingDiscoveryRoutes.test.ts > records native answers once while preserving HTTP ownership for letter-rush
+ 🎮 [adaptive-math] [discovery-publication] [published] child=lab-child homework=hw-words
+
+stderr | src/server/spellingDiscoveryRoutes.test.ts > records native answers once while preserving HTTP ownership for letter-rush
+ 🎮 [chart] [opened] child=lab-child path=/private/var/folders/wh/9v_3r26d2gzb_bs4ydgkx65h0000gp/T/spelling-routes-fGFt6W/charts/lab-child.db events=0 readonly=false
+ 🎮 [chart] [append] [ok] child=lab-child type=assignment.ingested id="98b7bdf6eb4d1f3601fb385ad6da9ef103f599cf46b2a3f7f4b60e708e063ead"
+ 🎮 [chart] [append] [ok] child=lab-child type=item.presented id="807aabf9d5dd2d64d181656416239ed1a75aa5d7115eeb96cb52f2d425181a86"
+ 🎮 [chart] [opened] child=lab-child path=/private/var/folders/wh/9v_3r26d2gzb_bs4ydgkx65h0000gp/T/spelling-routes-fGFt6W/charts/lab-child.db events=2 readonly=false
+ 🎮 [chart] [append] [staged] child=lab-child type=response.observed id="66956d099708fb2c95e8dc91d9405cf7022b8953f3b6656a485cf3780283d965"
+ 🎮 [chart] [opened] child=lab-child path=/private/var/folders/wh/9v_3r26d2gzb_bs4ydgkx65h0000gp/T/spelling-routes-fGFt6W/charts/lab-child.db events=3 readonly=false
+ 🎮 [chart] [append] [staged] child=lab-child type=response.observed id="66956d099708fb2c95e8dc91d9405cf7022b8953f3b6656a485cf3780283d965"
+ 🎮 [chart] [opened] child=lab-child path=/private/var/folders/wh/9v_3r26d2gzb_bs4ydgkx65h0000gp/T/spelling-routes-fGFt6W/charts/lab-child.db events=3 readonly=false
+
+stdout | src/server/spellingDiscoveryRoutes.test.ts > records native answers once while preserving HTTP ownership for letter-rush
+ 🎮 [spelling-discovery] [attempt] [committed] homework=hw-words item=hw-words:discovery:176473d7313395b6 attempt=native-answer provenance=practice
+ 🎮 [spelling] [delivery] [committed] attempt=native-answer
+ 🎮 [attempt_event] [canonical-scoring-deferred] target=hw-words:discovery:176473d7313395b6
+ 🎮 [spelling] [delivery] [committed] attempt=native-answer
+ 🎮 [attempt_event] [canonical-scoring-deferred] target=hw-words:discovery:176473d7313395b6
+ 🎮 [spelling] [chart-capture] [unmatched launch; legacy feedback retained]
+ 🎮 [attempt_event] [canonical-scoring-deferred] target=hw-words:discovery:176473d7313395b6
+
+stdout | src/server/spellingDiscoveryRoutes.test.ts > records native answers once while preserving HTTP ownership for letter-rush
+ 🎮 [spelling] [delivery] [committed] attempt=native-answer
+ 🎮 [spelling] [delivery-recovery] [complete] assignment=hw-words receipts=1
+
+stderr | src/server/spellingDiscoveryRoutes.test.ts > records native answers once while preserving HTTP ownership for letter-rush
+ 🎮 [chart] [append] [staged] child=lab-child type=response.observed id="66956d099708fb2c95e8dc91d9405cf7022b8953f3b6656a485cf3780283d965"
+
+stdout | src/server/spellingDiscoveryRoutes.test.ts > records native answers once while preserving HTTP ownership for word-radar
+ 🎮 [learning-board] [publish] [hw-words:board:1] kind=probe decision=none nodes=1
+ 🎮 [spelling-discovery] [contract] [saved] homework=hw-words items=2 hash=6dca4ed29314b05620b0740725fcfaca80d69938f45819a28029f15a80f56960
+
+stdout | src/server/spellingDiscoveryRoutes.test.ts > records native answers once while preserving HTTP ownership for word-radar
+ 🎮 [board-canvas] [verified] [e9d819583af2] viewports=1280x720,768x1024,1470x956
+
+stdout | src/server/spellingDiscoveryRoutes.test.ts > records native answers once while preserving HTTP ownership for word-radar
+ 🎮 [adaptive-math] [discovery-publication] [published] child=lab-child homework=hw-words
+
+stderr | src/server/spellingDiscoveryRoutes.test.ts > records native answers once while preserving HTTP ownership for word-radar
+ 🎮 [chart] [opened] child=lab-child path=/private/var/folders/wh/9v_3r26d2gzb_bs4ydgkx65h0000gp/T/spelling-routes-U69y09/charts/lab-child.db events=0 readonly=false
+ 🎮 [chart] [append] [ok] child=lab-child type=assignment.ingested id="98b7bdf6eb4d1f3601fb385ad6da9ef103f599cf46b2a3f7f4b60e708e063ead"
+ 🎮 [chart] [append] [ok] child=lab-child type=item.presented id="807aabf9d5dd2d64d181656416239ed1a75aa5d7115eeb96cb52f2d425181a86"
+
+stdout | src/server/spellingDiscoveryRoutes.test.ts > records native answers once while preserving HTTP ownership for word-radar
+ 🎮 [attempt_event] [canonical-scoring-deferred] target=hw-words:discovery:176473d7313395b6
+ 🎮 [attempt_event] [canonical-scoring-deferred] target=hw-words:discovery:176473d7313395b6
+
+stdout | src/server/spellingDiscoveryRoutes.test.ts > uses captured native answers at completion instead of adding the client summary again
+ 🎮 [learning-board] [publish] [hw-words:board:1] kind=probe decision=none nodes=1
+ 🎮 [spelling-discovery] [contract] [saved] homework=hw-words items=2 hash=6dca4ed29314b05620b0740725fcfaca80d69938f45819a28029f15a80f56960
+
+stdout | src/server/spellingDiscoveryRoutes.test.ts > uses captured native answers at completion instead of adding the client summary again
+ 🎮 [board-canvas] [verified] [e9d819583af2] viewports=1280x720,768x1024,1470x956
+
+stdout | src/server/spellingDiscoveryRoutes.test.ts > uses captured native answers at completion instead of adding the client summary again
+ 🎮 [adaptive-math] [discovery-publication] [published] child=lab-child homework=hw-words
+
+stdout | src/server/spellingDiscoveryRoutes.test.ts > uses captured native answers at completion instead of adding the client summary again
+ 🎮 [spelling-discovery] [attempt] [committed] homework=hw-native item=hw-words:discovery:176473d7313395b6 attempt=native-raw provenance=practice
+
+stdout | src/server/spellingDiscoveryRoutes.test.ts > uses captured native answers at completion instead of adding the client summary again
+ 🎮 [learning-cycle-route] [completion] [saved] child=lab-child node=native state=completed transitioned=false lifecycle=baseline_active revision=3
+
+stdout | src/server/spellingDiscoveryRoutes.test.ts > records a launched chunk choice as a limitation, never as a whole-word answer
+ 🎮 [learning-board] [publish] [hw-words:board:1] kind=probe decision=none nodes=1
+ 🎮 [spelling-discovery] [contract] [saved] homework=hw-words items=2 hash=6dca4ed29314b05620b0740725fcfaca80d69938f45819a28029f15a80f56960
+
+stdout | src/server/spellingDiscoveryRoutes.test.ts > records a launched chunk choice as a limitation, never as a whole-word answer
+ 🎮 [board-canvas] [verified] [e9d819583af2] viewports=1280x720,768x1024,1470x956
+
+stdout | src/server/spellingDiscoveryRoutes.test.ts > records a launched chunk choice as a limitation, never as a whole-word answer
+ 🎮 [adaptive-math] [discovery-publication] [published] child=lab-child homework=hw-words
+
+stderr | src/server/spellingDiscoveryRoutes.test.ts > records a launched chunk choice as a limitation, never as a whole-word answer
+ 🎮 [chart] [opened] child=lab-child path=/private/var/folders/wh/9v_3r26d2gzb_bs4ydgkx65h0000gp/T/spelling-routes-H01wQI/charts/lab-child.db events=0 readonly=false
+ 🎮 [chart] [append] [ok] child=lab-child type=assignment.ingested id="98b7bdf6eb4d1f3601fb385ad6da9ef103f599cf46b2a3f7f4b60e708e063ead"
+ 🎮 [chart] [opened] child=lab-child path=/private/var/folders/wh/9v_3r26d2gzb_bs4ydgkx65h0000gp/T/spelling-routes-H01wQI/charts/lab-child.db events=1 readonly=false
+ 🎮 [chart] [append] [ok] child=lab-child type=activity.limited id="666dc9cbe6c19d6cc8e76d2e87d42c6489a7e42edf280c3b9b68f69fae27802b"
+ 🎮 [chart] [opened] child=lab-child path=/private/var/folders/wh/9v_3r26d2gzb_bs4ydgkx65h0000gp/T/spelling-routes-H01wQI/charts/lab-child.db events=2 readonly=false
+ 🎮 [chart] [append] [duplicate] child=lab-child type=activity.limited id="666dc9cbe6c19d6cc8e76d2e87d42c6489a7e42edf280c3b9b68f69fae27802b"
+
+stdout | src/server/spellingDiscoveryRoutes.test.ts > records a launched chunk choice as a limitation, never as a whole-word answer
+ 🎮 [spelling] [activity-limitation] [recorded]
+ 🎮 [spelling] [activity-limitation] [recorded]
+ 🎮 [spelling] [chart-capture] [unmatched launch; legacy feedback retained]
+
+stdout | src/server/spellingDiscoveryRoutes.test.ts > commits Elli help on hidden practice as assisted in both canonical stores
+ 🎮 [learning-board] [publish] [hw-words:board:1] kind=probe decision=none nodes=1
+ 🎮 [spelling-discovery] [contract] [saved] homework=hw-words items=2 hash=6dca4ed29314b05620b0740725fcfaca80d69938f45819a28029f15a80f56960
+
+stdout | src/server/spellingDiscoveryRoutes.test.ts > commits Elli help on hidden practice as assisted in both canonical stores
+ 🎮 [board-canvas] [verified] [e9d819583af2] viewports=1280x720,768x1024,1470x956
+
+stdout | src/server/spellingDiscoveryRoutes.test.ts > commits Elli help on hidden practice as assisted in both canonical stores
+ 🎮 [adaptive-math] [discovery-publication] [published] child=lab-child homework=hw-words
+
+stderr | src/server/spellingDiscoveryRoutes.test.ts > commits Elli help on hidden practice as assisted in both canonical stores
+ 🎮 [chart] [opened] child=lab-child path=/private/var/folders/wh/9v_3r26d2gzb_bs4ydgkx65h0000gp/T/spelling-routes-CtZYQZ/charts/lab-child.db events=0 readonly=false
+ 🎮 [chart] [append] [ok] child=lab-child type=assignment.ingested id="cec59e8ff2d0f25b5d697801006fc3412a1effc1afd0ca3672318358bb3c0c10"
+ 🎮 [chart] [opened] child=lab-child path=/private/var/folders/wh/9v_3r26d2gzb_bs4ydgkx65h0000gp/T/spelling-routes-CtZYQZ/charts/lab-child.db events=1 readonly=false
+ 🎮 [chart] [append] [ok] child=lab-child type=item.presented id="5b3c327d36d121d16cd7a6f9a92588a4b4ecf81fe88b879b452448096ad91d5d"
+
+stdout | src/server/spellingDiscoveryRoutes.test.ts > commits Elli help on hidden practice as assisted in both canonical stores
+ 🎮 [spelling] [node-launch] [recorded] node=practice launch=6cd8ffc8-e06a-400a-b8db-865865fa1b22
+ 🎮 [spelling-discovery] [live-context] [bound] item=hw-words:discovery:176473d7313395b6
+ 🎮 [spelling-assessment] [support] [recorded] item=hw-words:discovery:176473d7313395b6
+
+stderr | src/server/spellingDiscoveryRoutes.test.ts > commits Elli help on hidden practice as assisted in both canonical stores
+ 🎮 [chart] [opened] child=lab-child path=/private/var/folders/wh/9v_3r26d2gzb_bs4ydgkx65h0000gp/T/spelling-routes-CtZYQZ/charts/lab-child.db events=2 readonly=false
+ 🎮 [chart] [append] [staged] child=lab-child type=response.observed id="64d599bd1abd1be682f27dff16f38b8d2ab4571623e9d1e1562cdaee0bfc06df"
+
+stdout | src/server/spellingDiscoveryRoutes.test.ts > commits Elli help on hidden practice as assisted in both canonical stores
+ 🎮 [spelling-discovery] [attempt] [committed] homework=hw-practice item=hw-words:discovery:176473d7313395b6 attempt=helped-practice provenance=practice
+ 🎮 [spelling] [delivery] [committed] attempt=helped-practice
+ 🎮 [adaptive-math] [discovery-attempt] [committed] child=lab-child homework=hw-practice attempt=helped-practice
+
+ ✓ src/server/spellingDiscoveryRoutes.test.ts (16 tests) 9066ms
+   ✓ spelling through the production Discovery routes > serves a native spelling config from the isolated context root  1036ms
+   ✓ spelling through the production Discovery routes > uses live support provenance, grades frozen answers, and ignores forged correctness  544ms
+   ✓ spelling through the production Discovery routes > does not infer independence without a live server context and keeps Not sure unknown  525ms
+   ✓ rejects a live spelling node mismatch before recording any response  531ms
+   ✓ does not infer independent spelling evidence from a live context missing its node identity  545ms
+   ✓ writes a typed response through the original HTTP endpoint (practice=false)  543ms
+   ✓ writes a typed response through the original HTTP endpoint (practice=true)  553ms
+   ✓ does not advance the legacy cycle when the configured chart cannot record the response  540ms
+   ✓ refuses spelling completion with wrong-node launch provenance  518ms
+   ✓ refuses spelling completion with wrong-token launch provenance  564ms
+   ✓ refuses spelling completion with missing launch provenance  534ms
+   ✓ records native answers once while preserving HTTP ownership for letter-rush  536ms
+   ✓ records native answers once while preserving HTTP ownership for word-radar  517ms
+   ✓ uses captured native answers at completion instead of adding the client summary again  516ms
+   ✓ records a launched chunk choice as a limitation, never as a whole-word answer  531ms
+   ✓ commits Elli help on hidden practice as assisted in both canonical stores  533ms
+
+ Test Files  1 passed (1)
+      Tests  16 passed (16)
+   Start at  23:57:03
+   Duration  11.85s (transform 822ms, setup 0ms, collect 2.67s, tests 9.07s, environment 0ms, prepare 21ms)

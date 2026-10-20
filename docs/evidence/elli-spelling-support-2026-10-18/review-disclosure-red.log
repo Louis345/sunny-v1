@@ -1,0 +1,60 @@
+
+ RUN  v3.2.4 <repository>
+
+ ❯ src/server/currentBoardSnapshot.test.ts (29 tests | 4 failed) 14ms
+   ✓ CurrentBoardSnapshot > tells Elli a node is still opening without claiming the activity is ready 2ms
+   ✓ CurrentBoardSnapshot > keeps child speech separate from the current board truth 1ms
+   ✓ CurrentBoardSnapshot > gives Elli the AI-authored math activity and live challenge without exposing correctness 1ms
+   ✓ CurrentBoardSnapshot > extracts the exact visible prompt from an object-shaped generated challenge 0ms
+   ✓ CurrentBoardSnapshot > does not expose hidden Wheel answers to Elli 0ms
+   ✓ CurrentBoardSnapshot > ignores raw and unknown fields while preserving exact reward fields 0ms
+   ✓ CurrentBoardSnapshot > detects companion claims that contradict the current truth packet 1ms
+   ✓ preserves displayed loading facts through projection into Elli context 0ms
+   ✓ spelling pronunciation context > retains hidden spelling truth internally without permitting written-answer disclosure 0ms
+   ✓ spelling pronunciation context > grounds permitted modeling of myself in dictionary sounds and vowel nuclei 0ms
+   ✓ spelling pronunciation context > grounds permitted modeling of tonight in dictionary sounds and vowel nuclei 0ms
+   ✓ spelling pronunciation context > grounds permitted modeling of dissatisfied in dictionary sounds and vowel nuclei 0ms
+   ✓ spelling pronunciation context > does not turn explicit assessment into teaching just because text is visible 0ms
+   ✓ spelling pronunciation context > does not invent a pronunciation reference for an unknown word 0ms
+   ✓ spelling pronunciation context > does not disclose hidden Wheel or math answers through spelling support 0ms
+   ✓ spelling teaching permission > requires explicit teaching permission for {"answerVisibility":"unknown"} 0ms
+   ✓ spelling teaching permission > requires explicit teaching permission for {} 0ms
+   ✓ spelling teaching permission > requires explicit teaching permission for {"answerVisibility":"visible","evidenceTier":"mastery_candidate"} 0ms
+   ✓ spelling teaching permission > requires explicit teaching permission for {"answerVisibility":"hidden","practiceCapture":true} 0ms
+   ✓ spelling teaching permission > permits explicit visible practice 0ms
+   ✓ spelling teaching permission > permits explicit revealed practice 0ms
+   × hidden spelling disclosure truth checks > flags protected target letter sequences: Spell T-O-N-I-G-H-T. 3ms
+     → expected [] to include 'hidden_spelling_letters_disclosed'
+   × hidden spelling disclosure truth checks > flags protected target letter sequences: You already have n-i-g-h-t in your head. 0ms
+     → expected [] to include 'hidden_spelling_letters_disclosed'
+   × hidden spelling disclosure truth checks > flags protected target letter sequences: Try t o n i g h t. 0ms
+     → expected [] to include 'hidden_spelling_letters_disclosed'
+   × hidden spelling disclosure truth checks > flags protected target letter sequences: The letters are t, o, n, i, g, h, t. 0ms
+     → expected [] to include 'hidden_spelling_letters_disclosed'
+   ✓ hidden spelling disclosure truth checks > does not confuse whole stimuli or unrelated letters with target disclosure: The word is tonight. Listen once more: tonight. 0ms
+   ✓ hidden spelling disclosure truth checks > does not confuse whole stimuli or unrelated letters with target disclosure: Try c-a-t. 0ms
+   ✓ hidden spelling disclosure truth checks > does not confuse whole stimuli or unrelated letters with target disclosure: I can repeat the word for you. 1ms
+   ✓ hidden spelling disclosure truth checks > allows letter sequences during explicitly visible teaching 0ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/server/currentBoardSnapshot.test.ts > hidden spelling disclosure truth checks > flags protected target letter sequences: Spell T-O-N-I-G-H-T.
+ FAIL  src/server/currentBoardSnapshot.test.ts > hidden spelling disclosure truth checks > flags protected target letter sequences: You already have n-i-g-h-t in your head.
+ FAIL  src/server/currentBoardSnapshot.test.ts > hidden spelling disclosure truth checks > flags protected target letter sequences: Try t o n i g h t.
+ FAIL  src/server/currentBoardSnapshot.test.ts > hidden spelling disclosure truth checks > flags protected target letter sequences: The letters are t, o, n, i, g, h, t.
+AssertionError: expected [] to include 'hidden_spelling_letters_disclosed'
+ ❯ src/server/currentBoardSnapshot.test.ts:304:8
+    302|   ])("flags protected target letter sequences: %s", (response) => {
+    303|     expect(findCompanionTruthContradictions(response, snapshot()))
+    304|       .toContain("hidden_spelling_letters_disclosed");
+       |        ^
+    305|   });
+    306|   it.each([
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/4]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  4 failed | 25 passed (29)
+   Start at  08:05:46
+   Duration  863ms (transform 292ms, setup 0ms, collect 661ms, tests 14ms, environment 0ms, prepare 35ms)

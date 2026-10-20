@@ -42,7 +42,7 @@ async function launch(viewport: { width: number; height: number }, options: { bi
         <button id="hostExit" style="position:fixed;left:12px;top:12px;z-index:10;padding:12px">Back to Map</button>
         <script>window.captured=[];window.exited=false;
         addEventListener('message',event=>{if(event.source!==document.querySelector('iframe')?.contentWindow)return;
-          if(window.captured.filter(row=>row.type===event.data.type).length>=10)throw Error('native_event_loop');
+          if(window.captured.filter(row=>JSON.stringify(row)===JSON.stringify(event.data)).length>=10)throw Error('native_event_loop');
           window.captured.push(event.data);});
         document.getElementById('hostExit').onclick=()=>{document.querySelector('iframe').remove();window.exited=true;};</script>
         <iframe title="Letter Rush" src="/games/letter-rush.html?${params.toString()}" style="position:fixed;inset:0;width:100%;height:100%;border:0"></iframe>
@@ -128,6 +128,29 @@ describe.each(viewports)("native frozen LetterRush at $width×$height", viewport
     await assertUsable(page.getByRole("button", { name: "Back to Map", exact: true }));
   });
 
+  it("completes every falling letter before exposing a usable next-word control", async () => {
+    const { frame, messages, errors } = await launch(viewport, {
+      body: {
+        ...recordedConfig,
+        mode: "read-and-race",
+        scaffolds: { ...recordedConfig.scaffolds, showWord: true, letterBank: true },
+      },
+    });
+    await frame.locator("body").evaluate((_body: any) => { Math.random = () => 0.1; });
+    await frame.getByRole("button", { name: "Start", exact: true }).click();
+    for (const letter of word.text) {
+      const falling = frame.locator(`button.falling[data-letter="${letter}"]`).last();
+      await falling.waitFor({ state: "visible", timeout: 12000 });
+      await falling.evaluate((element: any) => element.click());
+    }
+    await frame.locator("#jackpotBanner.on").waitFor();
+    const next = frame.getByRole("button", { name: "Next word →", exact: true });
+    await assertUsable(next);
+    await next.click();
+    await expect.poll(async () => (await messages()).filter((message) => message.type === "node_complete").length).toBe(1);
+    expect(errors).toEqual([]);
+  }, 30000);
+
   it.each([
     { name: "failed fetch", status: 503 },
     { name: "malformed JSON", malformedJson: true },
@@ -165,4 +188,38 @@ describe.each(viewports)("native frozen LetterRush at $width×$height", viewport
     expect(await frame.locator("#targetRow .tile").count()).toBe(6);
     expect(errors).toEqual([]); expect(forbidden).toEqual([]);
   });
+});
+
+it("starts the existing Mystery reward through its host handshake and completes without spelling targets", async () => {
+  const server = http.createServer((request, response) => {
+    const url = new URL(request.url!, "http://127.0.0.1");
+    if (url.pathname === "/") {
+      response.setHeader("Content-Type", "text/html");
+      response.end(`<!doctype html><script>window.captured=[];
+        addEventListener('message',event=>{
+          if(event.source!==document.querySelector('iframe')?.contentWindow)return;
+          if(window.captured.length>100)throw Error('reward_event_loop');
+          window.captured.push(event.data);
+          if(event.data.type==='ready')event.source.postMessage({type:'start',childName:'Lab',companionName:'Elli',config:{duration_seconds:1,level:1}},'*');
+        });</script><iframe src="/games/space-invaders.html?childId=lab-child&nodeId=reward-break"></iframe>`);
+    } else if (["/games/space-invaders.html", "/games/_contract.js"].includes(url.pathname)) {
+      response.setHeader("Content-Type", url.pathname.endsWith(".js") ? "text/javascript" : "text/html");
+      response.end(fs.readFileSync(path.join(process.cwd(), "web/public", url.pathname)));
+    } else response.writeHead(404).end();
+  });
+  servers.push(server);
+  await new Promise<void>(resolve => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address(); if (!address || typeof address === "string") throw new Error("reward_test_address_missing");
+  const origin = `http://127.0.0.1:${address.port}`;
+  const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
+  const errors: string[] = [];
+  page.on("pageerror", error => errors.push(error.message));
+  await page.route("**/*", route => new URL(route.request().url()).origin === origin ? route.continue() : route.abort());
+  await page.goto(origin);
+  await expect.poll(() => page.evaluate("window.captured.filter(row=>row.type==='node_complete')"), { timeout: 8000 }).toHaveLength(1);
+  const messages = await page.evaluate<Array<Record<string, any>>>("window.captured");
+  expect(messages.some(row => row.type === "ready")).toBe(true);
+  expect(messages.find(row => row.type === "node_complete")).toMatchObject({ completed: true, nodeId: "reward-break" });
+  expect(messages.find(row => row.type === "node_complete")?.targetResults ?? []).toEqual([]);
+  expect(errors).toEqual([]);
 });

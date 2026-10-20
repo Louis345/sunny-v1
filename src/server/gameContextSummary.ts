@@ -10,6 +10,8 @@ export function buildGameContextSummary(state: Record<string, unknown>): string 
   if (typeof state.phase === "string" && state.phase.length > 0) {
     lines.push(`Phase: ${state.phase}`);
   }
+  if (typeof state.purpose === 'string') lines.push(`Choice purpose: ${state.purpose}`);
+  if (Array.isArray(state.options)) lines.push(`Displayed choices: ${JSON.stringify(state.options)}`);
   const action =
     typeof state.action === "string" && state.action.length > 0
       ? state.action

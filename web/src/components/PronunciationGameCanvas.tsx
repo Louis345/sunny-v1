@@ -1014,6 +1014,8 @@ export function PronunciationGameCanvas({
         game: "pronunciation",
         phase,
         currentWord,
+        // The word is on screen for the child to read aloud; say so, or it fails closed as hidden.
+        answerVisibility: "visible",
         expectedWords: activeWordPool,
         wordIndex: visibleWordIndex,
         totalWords: activeWordPool.length,

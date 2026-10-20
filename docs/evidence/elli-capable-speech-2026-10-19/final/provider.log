@@ -1,0 +1,12 @@
+  🔊 TTS model: eleven_flash_v2_5
+  🔊 TTS: "Dissatisfied. Listen to the sounds, then put them together. Dissatisfied."
+ 🎮 [session-audio] [stream-terminal] [final] request=unowned elapsedMs=1045 chunks=6
+  🔊 TTS model: eleven_flash_v2_5
+ 🎮 [session-audio] [stream-terminal] [cancelled] request=unowned elapsedMs=222 chunks=0
+  🔊 TTS model: eleven_flash_v2_5
+  🔊 TTS: "Dissatisfied. Listen to the sounds, then put them together. Dissatisfied."
+ 🎮 [session-audio] [stream-terminal] [final] request=unowned elapsedMs=1021 chunks=7
+ 🎮 [companion-speech] [rate] [configured] speed=0.75
+ 🎮 [companion-speech] [rate] [configured] speed=0.7
+ 🎮 [companion-speech] [rate] [configured] speed=0.7
+ 🎮 [companion-speech] [rate] [configured] speed=0.7

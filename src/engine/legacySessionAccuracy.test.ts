@@ -1,10 +1,12 @@
+import {publishDiscoveryExperience} from "./adaptiveMathDiscovery";
+import {linearJourneyFixture} from "../scripts/fixtures/authoredJourney";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { finalizeSession, formatLegacySessionAccuracy, getSessionRewardState, planSession, recordAttempt } from "./learningEngine";
 import { initializeLearningProfile, readLearningProfile, writeLearningProfile } from "../utils/learningProfileIO";
-import { buildSpellingRecallItems, createSpellingDiscoveryCycle } from "./learningCycleIngest";
+import { buildSpellingRecallItems, createSpellingDiscoveryCycle, buildSpellingDiscoveryPlan } from "./learningCycleIngest";
 import { recordSpellingDiscoveryAttempt } from "./learningCycleRuntime";
 import { getLearningCycle } from "./learningCycleRepository";
 import { computeProgression } from "./progression";
@@ -39,11 +41,13 @@ function note() {
 describe("legacy finalization cannot turn missing measurements into failure", () => {
   // The human saw 20 saved native observations but a 0% legacy summary. Old labs
   // exercised canonical capture and legacy finalization separately, not together.
-  it("keeps native-only Discovery evidence and prior accuracy intact on Leave", () => {
+  it("keeps native-only Discovery evidence and prior accuracy intact on Leave", async () => {
     measured([true, true]);
     const before = readLearningProfile(childId)!;
     const items = buildSpellingRecallItems({ homeworkId: "hw-native", words: ["night", "light", "bright", "sight", "right", "might", "flight", "high", "sky", "fly", "try", "cry", "dry", "why", "my", "by", "kind", "find", "mind", "child"], evidenceIds: ["source:lab"], measurementRole: "fresh_checkpoint" });
-    createSpellingDiscoveryCycle({ childId, homeworkId: "hw-native", title: "Lab words", contentFingerprint: "lab-fingerprint", items }, { rootDir });
+    createSpellingDiscoveryCycle({ childId, homeworkId: "hw-native", title: "Lab words", contentFingerprint: "lab-fingerprint", items , boardDefinition:linearJourneyFixture([("hw-native")+":discovery"]) }, { rootDir });
+    const discovery = getLearningCycle(childId, "hw-native", {rootDir})!;
+    await publishDiscoveryExperience({rootDir,childId,homeworkId:"hw-native",spellingItems:items,assignment:discovery.assignment,activeSessionPlan:buildSpellingDiscoveryPlan({cycle:discovery,companion:{id:"elli",name:"Elli"}})});
     planSession(childId, "homework");
     items.forEach(item => recordSpellingDiscoveryAttempt({ childId, homeworkId: "hw-native", attempt: { attemptId: `attempt:${item.id}`, itemId: item.id, attemptedValue: item.word, observedAt: new Date().toISOString() }, support: { status: "unassisted", scaffolds: [] } }, { rootDir }));
     const cycleFile = path.join(childDir, "homework/cycles/hw-native.json");

@@ -1,0 +1,524 @@
+{
+ "recordedAt": "2026-10-13",
+ "source": "live synthetic run1, Benchmark Advance Unit 9 Week 1",
+ "model": "claude-sonnet-5",
+ "tool": "create_learning_program",
+ "input": {
+  "planId": "sunny-spelling-unit9-week1-v1",
+  "domain": "spelling",
+  "journey": {
+   "title": "Unit 9 Week 1 Spelling Trail",
+   "opening": [
+    "visual-explainer-chunks",
+    "word-radar-partial-recall",
+    "spell-check-guided-build"
+   ],
+   "choice": {
+    "purpose": "Let Sunny pick how she wants to build speed and confidence on her weak words before the independent checkpoint, since either path gives equivalent targeted retrieval practice.",
+    "label": "Choose your practice adventure",
+    "options": [
+     {
+      "id": "arcade-path",
+      "label": "Arcade Speed Path",
+      "hypothesis": "Sunny engages longer and retrieves weak words faster when practice is wrapped in timed arcade competition (monster-stampede, letter-rush).",
+      "nodeIds": [
+       "monster-stampede-recovery",
+       "letter-rush-imposter"
+      ]
+     },
+     {
+      "id": "puzzle-path",
+      "label": "Puzzle Strategy Path",
+      "hypothesis": "Sunny engages longer and reasons through letter patterns more carefully when practice is wrapped in a puzzle format (wordle, wheel-of-fortune).",
+      "nodeIds": [
+       "wordle-practice",
+       "wheel-pattern-inference"
+      ]
+     }
+    ]
+   },
+   "closing": [
+    "spell-check-audio-checkpoint",
+    "mystery-reward"
+   ],
+   "endpointLabel": "Spelling Trail Complete!"
+  },
+  "activities": [
+   {
+    "id": "visual-explainer-chunks",
+    "type": "visual-explainer",
+    "activityId": "visual-explainer",
+    "targets": [
+     "slowly",
+     "quickly",
+     "common",
+     "remember"
+    ],
+    "targetLane": "weak-words-instruction",
+    "wordRadarConfig": null,
+    "rounds": [
+     {
+      "id": "r1",
+      "prompt": "Why does 'slowly' end in -ly, not -le?",
+      "options": [
+       {
+        "id": "a",
+        "label": "Adverbs made from adjectives ending in -ow/-ick/-ick+ly keep the full base word + ly (slow+ly, quick+ly)",
+        "correct": true
+       },
+       {
+        "id": "b",
+        "label": "It's just memorized with no pattern",
+        "correct": false
+       }
+      ]
+     },
+     {
+      "id": "r2",
+      "prompt": "What's tricky about 'common'?",
+      "options": [
+       {
+        "id": "a",
+        "label": "Double 'm' in the middle, common pattern in many 2-syllable words",
+        "correct": true
+       },
+       {
+        "id": "b",
+        "label": "Silent 'c' at the start",
+        "correct": false
+       }
+      ]
+     },
+     {
+      "id": "r3",
+      "prompt": "What's tricky about 'remember'?",
+      "options": [
+       {
+        "id": "a",
+        "label": "The middle has 'em' not 'am' - re+member",
+        "correct": true
+       },
+       {
+        "id": "b",
+        "label": "It ends in -er like a comparison word",
+        "correct": false
+       }
+      ]
+     }
+    ],
+    "title": "Spotting the Tricky Parts",
+    "measurement": {
+     "evidenceType": "practice",
+     "supportCriteria": "Child watches/interacts with chunk explanations for the 4 words missed on discovery baseline (slowly, quickly, common, remember) before any recall practice begins.",
+     "reviseCriteria": "If child cannot articulate the chunk pattern back in the embedded check rounds, flag for re-teaching before moving to recall practice.",
+     "falsifyCriteria": "This is exposure only; it does not by itself predict test accuracy and must not be treated as evidence of spelling ability.",
+     "spelling": {
+      "role": "instruction",
+      "evidenceIds": [
+       "synthetic-1",
+       "synthetic-7",
+       "synthetic-13",
+       "synthetic-16"
+      ],
+      "reason": "These 4 words were independently missed on the fresh discovery checkpoint (slowly->slowle, quickly->quickle, common->commne, remember->remembre), so they need direct chunk-pattern teaching before further recall practice.",
+      "uncertainty": "Visual exposure does not confirm the child can produce the word unaided; teachability only.",
+      "expectedAccuracy": {
+       "min": 0,
+       "max": 1
+      },
+      "confidence": 0.4,
+      "maxDelayDays": 0,
+      "finalCheck": false
+     }
+    }
+   },
+   {
+    "id": "word-radar-partial-recall",
+    "type": "word-radar",
+    "activityId": "word-radar",
+    "targets": [
+     "slowly",
+     "quickly",
+     "common",
+     "remember",
+     "sunny"
+    ],
+    "targetLane": "weak-words-practice",
+    "wordRadarConfig": {
+     "recallMode": "partial_visual_recall",
+     "inputMode": "letter-by-letter",
+     "speakStyle": "option-b",
+     "showTimer": false,
+     "hideWordDuringResponse": true,
+     "requiresCapturedResponse": true
+    },
+    "rounds": [],
+    "title": "Hear It, Spell It: Letter Recall Warm-Up",
+    "measurement": {
+     "evidenceType": "practice",
+     "supportCriteria": "Word hidden during response; child hears word spoken then spells letter-by-letter with letter-box scaffolding, after the chunk teaching above.",
+     "reviseCriteria": "If 3+ of these 5 words are still missed after this scaffolded round, repeat word-builder/visual-explainer before independent checkpoint.",
+     "falsifyCriteria": "Scaffolded letter-box recall is not independent mastery evidence; retry and letter-tile support are present as contamination risks.",
+     "spelling": {
+      "role": "practice",
+      "evidenceIds": [
+       "synthetic-1",
+       "synthetic-7",
+       "synthetic-13",
+       "synthetic-16",
+       "synthetic-4"
+      ],
+      "reason": "Targets the 4 missed words plus 'sunny' which had no scoreable response (not_sure) on baseline discovery.",
+      "uncertainty": "Scaffolded recall with letter boxes and hidden word; supportive but not unaided.",
+      "expectedAccuracy": {
+       "min": 0.4,
+       "max": 0.8
+      },
+      "confidence": 0.5,
+      "maxDelayDays": 1,
+      "finalCheck": false
+     }
+    }
+   },
+   {
+    "id": "spell-check-guided-build",
+    "type": "spell-check",
+    "activityId": "spell-check",
+    "targets": [
+     "slowly",
+     "quickly",
+     "common",
+     "remember",
+     "sunny"
+    ],
+    "targetLane": "weak-words-practice",
+    "wordRadarConfig": null,
+    "rounds": [],
+    "title": "Guided Letter Build: Tricky Five",
+    "measurement": {
+     "evidenceType": "practice",
+     "supportCriteria": "Guided letter-build mode with letter bank support and up to 2 retries, audio or visible prompt, for the same 5 target words.",
+     "reviseCriteria": "If child needs max retries on 3+ words, loop back to visual-explainer chunk teaching for those words.",
+     "falsifyCriteria": "Guided/supported construction with retries is practice evidence only, not proof of unaided recall.",
+     "spelling": {
+      "role": "practice",
+      "evidenceIds": [
+       "synthetic-1",
+       "synthetic-7",
+       "synthetic-13",
+       "synthetic-16",
+       "synthetic-4"
+      ],
+      "reason": "Second practice pass on same weak-word set to build construction fluency before timed/puzzle practice and the final checkpoint.",
+      "uncertainty": "Letter-bank and retry support reduce task difficulty; not independent evidence.",
+      "expectedAccuracy": {
+       "min": 0.5,
+       "max": 0.85
+      },
+      "confidence": 0.5,
+      "maxDelayDays": 1,
+      "finalCheck": false
+     }
+    }
+   },
+   {
+    "id": "monster-stampede-recovery",
+    "type": "monster-stampede",
+    "activityId": "monster-stampede",
+    "targets": [
+     "slowly",
+     "quickly",
+     "common",
+     "remember",
+     "sunny",
+     "shiny",
+     "lucky",
+     "neatly",
+     "likely",
+     "messy",
+     "rainy",
+     "friendly",
+     "able",
+     "behind",
+     "carefully",
+     "easy",
+     "fact",
+     "sure",
+     "vowel",
+     "whole"
+    ],
+    "targetLane": "full-list-fluency",
+    "wordRadarConfig": null,
+    "rounds": [],
+    "title": "Monster Stampede: Misses-First Recovery Run",
+    "measurement": {
+     "evidenceType": "practice",
+     "supportCriteria": "Targeted recovery run ordering misses first across the full 20-word list for fast, engaging retrieval fluency practice.",
+     "reviseCriteria": "Not used to revise teaching; purely fluency and confidence building after targeted instruction.",
+     "falsifyCriteria": "Visible-word and retry contamination risks mean this cannot serve as independent recall evidence.",
+     "spelling": {
+      "role": "practice",
+      "evidenceIds": [
+       "synthetic-1",
+       "synthetic-7",
+       "synthetic-13",
+       "synthetic-16",
+       "synthetic-4"
+      ],
+      "reason": "Builds speed and confidence across the whole word list with the weak words resurfaced first via misses-first ordering.",
+      "uncertainty": "Speed/arcade format with visible-word elements; engagement and practice only.",
+      "expectedAccuracy": {
+       "min": 0.5,
+       "max": 0.9
+      },
+      "confidence": 0.4,
+      "maxDelayDays": 2,
+      "finalCheck": false
+     }
+    }
+   },
+   {
+    "id": "letter-rush-imposter",
+    "type": "letter-rush",
+    "activityId": "letter-rush",
+    "targets": [
+     "slowly",
+     "quickly",
+     "common",
+     "remember",
+     "sunny",
+     "shiny",
+     "lucky",
+     "neatly",
+     "likely",
+     "messy",
+     "rainy",
+     "friendly",
+     "able",
+     "behind",
+     "carefully",
+     "easy",
+     "fact",
+     "sure",
+     "vowel",
+     "whole"
+    ],
+    "targetLane": "full-list-fluency",
+    "wordRadarConfig": null,
+    "rounds": [],
+    "title": "Letter Rush: Trap the Imposter",
+    "measurement": {
+     "evidenceType": "practice",
+     "supportCriteria": "Trap-the-imposter mode with near-miss distractors across the full word list, word hidden, for visual discrimination practice.",
+     "reviseCriteria": "Not used alone to revise; pairs with other practice evidence for the full-list pattern.",
+     "falsifyCriteria": "Multiple-choice discrimination among near-miss distractors is diagnostic for visual discrimination, not unaided production.",
+     "spelling": {
+      "role": "practice",
+      "evidenceIds": [
+       "synthetic-1",
+       "synthetic-7",
+       "synthetic-13",
+       "synthetic-16"
+      ],
+      "reason": "Provides speed-pressure discrimination practice distinguishing correct spellings from near-miss errors similar to Sunny's actual miss patterns (slowle, quickle, commne, remembre).",
+      "uncertainty": "Multiple-choice format differs from free recall; diagnostic for discrimination only.",
+      "expectedAccuracy": {
+       "min": 0.5,
+       "max": 0.85
+      },
+      "confidence": 0.45,
+      "maxDelayDays": 2,
+      "finalCheck": false
+     }
+    }
+   },
+   {
+    "id": "wordle-practice",
+    "type": "wordle",
+    "activityId": "wordle",
+    "targets": [
+     "slowly",
+     "quickly",
+     "common",
+     "remember",
+     "sunny"
+    ],
+    "targetLane": "weak-words-practice",
+    "wordRadarConfig": null,
+    "rounds": [],
+    "title": "Wordle: Tricky Five Puzzle",
+    "measurement": {
+     "evidenceType": "diagnostic",
+     "supportCriteria": "Constrained-guess puzzle format reasoning through letter position for the 5 weak words.",
+     "reviseCriteria": "If child cannot narrow guesses using feedback after 2 words, pair with more visual-explainer chunk review.",
+     "falsifyCriteria": "Hint and retry contamination mean this is practice-level evidence of strategy, not unaided recall proof.",
+     "spelling": {
+      "role": "practice",
+      "evidenceIds": [
+       "synthetic-1",
+       "synthetic-7",
+       "synthetic-13",
+       "synthetic-16",
+       "synthetic-4"
+      ],
+      "reason": "Alternative engaging practice format reinforcing letter-position awareness on the same weak-word set.",
+      "uncertainty": "Puzzle feedback loop provides scaffolding; not independent recall.",
+      "expectedAccuracy": {
+       "min": 0.4,
+       "max": 0.8
+      },
+      "confidence": 0.4,
+      "maxDelayDays": 2,
+      "finalCheck": false
+     }
+    }
+   },
+   {
+    "id": "wheel-pattern-inference",
+    "type": "wheel-of-fortune",
+    "activityId": "wheel-of-fortune",
+    "targets": [
+     "slowly",
+     "quickly",
+     "common",
+     "remember",
+     "sunny"
+    ],
+    "targetLane": "weak-words-practice",
+    "wordRadarConfig": null,
+    "rounds": [],
+    "title": "Wheel of Fortune: Pattern Inference",
+    "measurement": {
+     "evidenceType": "practice",
+     "supportCriteria": "Pattern-inference mode using homework words with limited hints and a companion opponent for engagement.",
+     "reviseCriteria": "Not used alone to revise; pairs with other practice evidence.",
+     "falsifyCriteria": "Reward/preference-oriented format with hint support; preference-only proof strength, not recall evidence.",
+     "spelling": {
+      "role": "practice",
+      "evidenceIds": [
+       "synthetic-1",
+       "synthetic-7",
+       "synthetic-13",
+       "synthetic-16",
+       "synthetic-4"
+      ],
+      "reason": "Alternative engaging practice format reinforcing the same weak-word set via pattern inference instead of arcade speed.",
+      "uncertainty": "Preference/reward-oriented activity; low proof strength for recall.",
+      "expectedAccuracy": {
+       "min": 0.4,
+       "max": 0.8
+      },
+      "confidence": 0.3,
+      "maxDelayDays": 2,
+      "finalCheck": false
+     }
+    }
+   },
+   {
+    "id": "spell-check-audio-checkpoint",
+    "type": "spell-check",
+    "activityId": "spell-check",
+    "targets": [
+     "shiny",
+     "slowly",
+     "lucky",
+     "neatly",
+     "sunny",
+     "likely",
+     "messy",
+     "quickly",
+     "rainy",
+     "friendly",
+     "able",
+     "behind",
+     "carefully",
+     "common",
+     "easy",
+     "fact",
+     "remember",
+     "sure",
+     "vowel",
+     "whole"
+    ],
+    "targetLane": "full-list-checkpoint",
+    "wordRadarConfig": null,
+    "rounds": [],
+    "title": "Independent Checkpoint: Cold Recall Spell",
+    "measurement": {
+     "evidenceType": "diagnostic",
+     "supportCriteria": "Cold recall mode: audio-or-definition prompt, word hidden, zero retries, captured response, across all 20 assigned words.",
+     "reviseCriteria": "Any word missed here should return to word-radar hidden_word_recall or spell-check audio_prompt_spell practice before the real test, not be treated as failure.",
+     "falsifyCriteria": "This checkpoint is the fresh, unaided production evidence required by the readiness proof standard; it is diagnostic, not a mastery or readiness declaration.",
+     "spelling": {
+      "role": "fresh_checkpoint",
+      "evidenceIds": [
+       "synthetic-0",
+       "synthetic-1",
+       "synthetic-2",
+       "synthetic-3",
+       "synthetic-4",
+       "synthetic-5",
+       "synthetic-6",
+       "synthetic-7",
+       "synthetic-8",
+       "synthetic-9",
+       "synthetic-10",
+       "synthetic-11",
+       "synthetic-12",
+       "synthetic-13",
+       "synthetic-14",
+       "synthetic-15",
+       "synthetic-16",
+       "synthetic-17",
+       "synthetic-18",
+       "synthetic-19"
+      ],
+      "reason": "Re-measures independent unaided spelling across all 20 assigned words after targeted instruction and varied practice on the previously missed/uncertain items (slowly, quickly, common, remember, sunny), matching the central readiness question: can Sunny spell the test words from memory without seeing them.",
+      "uncertainty": "Single-occasion measurement; does not confirm delayed retention toward the actual test date, which is currently unknown.",
+      "expectedAccuracy": {
+       "min": 0.6,
+       "max": 0.95
+      },
+      "confidence": 0.55,
+      "maxDelayDays": 3,
+      "finalCheck": true
+     }
+    }
+   },
+   {
+    "id": "mystery-reward",
+    "type": "mystery",
+    "activityId": "mystery",
+    "targets": [],
+    "targetLane": "reward",
+    "wordRadarConfig": null,
+    "rounds": [],
+    "title": "Mystery Treasure",
+    "measurement": null
+   }
+  ],
+  "planTheory": {
+   "hypothesis": "Sunny has largely mastered the -y/-ly adverb/adjective pattern (15 of 20 words correct on independent discovery) but has specific gaps in 4 words (slowly, quickly, common, remember) plus one unscored item (sunny) that need direct chunk instruction and repeated scaffolded-to-independent practice before the real spelling test.",
+   "evidenceSummary": [
+    "Discovery baseline (20/20 attempted, independent, unaided, word hidden) shows 15 words spelled correctly on first unaided try: shiny, lucky, neatly, likely, messy, rainy, friendly, able, behind, carefully, easy, fact, sure, vowel, whole.",
+    "4 words were independently missed with consistent, interpretable error patterns: slowly->slowle (dropped final y), quickly->quickle (dropped final y), common->commne (letter transposition/doubling confusion), remember->remembre (letter-order/final-cluster confusion).",
+    "1 word (sunny) produced no scoreable response (child marked not_sure), so its status is genuinely unknown rather than wrong.",
+    "No prior recentEvidence exists for this child, so this discovery pass is the establishing baseline, not a confirmation of a known pattern."
+   ],
+   "intervention": "Teach the specific orthographic chunks underlying the 4 missed words via visual-explainer, then move through two scaffolded practice passes (word-radar partial recall with letter boxes, spell-check guided letter build) targeting those words plus 'sunny', then offer a motivating choice between arcade-speed practice (monster-stampede, letter-rush) and puzzle-strategy practice (wordle, wheel-of-fortune) covering the same weak set plus full-list fluency, and finish with an independent cold-recall spell-check checkpoint across all 20 words as the fresh, unaided measurement of current standing relative to the test.",
+   "supportCriteria": [
+    "Direct chunk teaching is provided only for the words with documented independent errors or unknown status, not the 15 already-correct words.",
+    "Practice activities use scaffolds (letter boxes, letter banks, limited retries) appropriate to difficulty before removing support.",
+    "The choice point offers two independently valid practice wrappers (arcade vs puzzle) covering identical target words and skill, preserving academic equivalence while letting engagement preference drive selection."
+   ],
+   "reviseCriteria": [
+    "If the independent checkpoint still shows the same 4-5 words missed, revise the plan to add another visual-explainer + word-builder scaffolding cycle focused specifically on those words before the real test.",
+    "If new words beyond the original 5 appear missed at checkpoint, treat as new evidence requiring expanded targeted instruction, not a discipline issue."
+   ],
+   "falsifyCriteria": [
+    "If the final cold-recall checkpoint shows accuracy at or below the original baseline (15/20) despite the added instruction and practice, the chunk-teaching hypothesis for those specific errors is not supported and should be revised (e.g., consider auditory discrimination or motor/typing confounds instead).",
+    "If 'sunny' is answered correctly at checkpoint, the not_sure baseline response was likely uncertainty/confidence-related rather than a true knowledge gap, and future planning should not treat it as an error pattern."
+   ]
+  }
+ }
+}

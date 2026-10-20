@@ -1,3 +1,6 @@
+import {journeyFromBoardDefinition,compositionFromBoardDefinition,assembleAdventureBoardDefinition} from "../shared/adventureBoardDefinition";
+import {askLearningPlanner,askLearningExperienceDesigner} from "../engine/directMathExperience";
+import {linearJourneyFixture} from "./fixtures/authoredJourney";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -5,18 +8,25 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { runSpellingDiscoveryIntake } from "./ingestHomework";
 import { nativeSpellingInstrumentContract, runAdaptiveMathGeneration } from "./runAdaptiveMathGeneration";
 import { planAssignmentFromSourceWithTelemetry } from "../engine/assignmentPlanner";
+import { buildNodeLaunchAction } from "../shared/homeworkNodeRouting";
 import { getLearningCycle } from "../engine/learningCycleRepository";
 import { recordCanonicalNodeCompletion, recordSpellingDiscoveryAttempt, advanceCanonicalCycleFromEvidence } from "../engine/learningCycleRuntime";
-import { completeDiscoveryEvaluation, getMathGenerationStatus } from "../engine/adaptiveMathDiscovery";
+import { completeDiscoveryEvaluation, getMathGenerationStatus, hashDiscoveryContract, setMathGenerationPhase } from "../engine/adaptiveMathDiscovery";
 import { buildAdventureBoardFromActiveSessionPlan } from "../shared/adventureBoardFromPlan";
 import { getChildChart } from "../profiles/childChart";
+import { writeWaterfallContentCatalog } from "../profiles/chartWaterfall";
 import { generateStoryImage } from "../utils/generateStoryImage";
 import type { ActiveSessionPlan } from "../context/schemas/learningProfile";
 vi.mock("../utils/generateStoryImage", () => ({ generateStoryImage: vi.fn() }));
 vi.mock("../engine/assignmentPlanner", async original => ({ ...await original<typeof import("../engine/assignmentPlanner")>(), planAssignmentFromSourceWithTelemetry: vi.fn() }));
-vi.mock("../engine/directMathExperience", async original => ({ ...await original<typeof import("../engine/directMathExperience")>(), askDirectMathPlanner: vi.fn(async () => { throw new Error("test_forbids_math_planner_for_spelling"); }) }));
+vi.mock("../engine/directMathExperience", async original => ({ ...await original<typeof import("../engine/directMathExperience")>(), askLearningPlanner:vi.fn(async(input:any)=>({domain:"spelling",planningResult:await planAssignmentFromSourceWithTelemetry(input.packet)})), askLearningExperienceDesigner:vi.fn(async (input:any)=>({packet:{},plan:{...input.program.plan,boardDefinition:assembleAdventureBoardDefinition(input.program.journey,(composition=>{if(input.program.planId.startsWith("stacked:"))composition.portals.forEach(portal=>{portal.position={landscape:{x:.5,y:.5},portrait:{x:.5,y:.5}};});return composition;})(compositionFromBoardDefinition(linearJourneyFixture(input.program.plan.nodePlan.map((n:any)=>n.id)))))}})), askDirectMathPlanner: vi.fn(async () => { throw new Error("test_forbids_math_planner_for_spelling"); }) }));
+const projections = vi.hoisted(() => [] as Array<Record<string, string>>);
+vi.mock("../engine/adaptiveMathDiscovery", async original => {
+  const actual = await original<typeof import("../engine/adaptiveMathDiscovery")>();
+  return { ...actual, publishTargetedBoardProjection: (input: Parameters<typeof actual.publishTargetedBoardProjection>[0]) => { projections.push({ ...input.nodeStatuses }); return actual.publishTargetedBoardProjection(input); } };
+});
 const roots: string[] = [];
-afterEach(() => { vi.clearAllMocks(); vi.useRealTimers(); vi.unstubAllEnvs(); vi.unstubAllGlobals(); roots.splice(0).forEach(root => fs.rmSync(root, { recursive: true, force: true })); });
+afterEach(() => { projections.length = 0; vi.clearAllMocks(); vi.useRealTimers(); vi.unstubAllEnvs(); vi.unstubAllGlobals(); roots.splice(0).forEach(root => fs.rmSync(root, { recursive: true, force: true })); });
 describe("spelling in the production generation worker", () => {
   it("does not invalidate a frozen native instrument when only its board art changes", () => {
     const node = {
@@ -41,7 +51,7 @@ describe("spelling in the production generation worker", () => {
     );
   });
 
-  it.each(["strong", "weak", "assisted", "incomplete"])("plans from %s committed evidence, publishes native games, and resumes without repeated calls", async scenario => {
+  it.each(["semantic", "strong", "weak", "assisted", "incomplete", "visual", "reward-break", "mystery-concept-check", "published-contract-change", "overlapping", "not-ready", "build-failure"])("plans from %s committed evidence, publishes native games, and resumes without repeated calls", async scenario => {
     vi.useFakeTimers({ toFake: ["Date"] }); vi.setSystemTime(new Date("2026-09-08T11:00:00Z"));
     const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-spelling-worker-")); roots.push(rootDir);
     const childId = "lab-child", child = path.join(rootDir, "src/context", childId);
@@ -49,7 +59,7 @@ describe("spelling in the production generation worker", () => {
     fs.writeFileSync(path.join(child, "learning_profile.json"), JSON.stringify({ childId, name: "Lab", age: 8, grade: 3, totalSessions: 0, sessionHistory: [], preferences: {}, strengths: [], challenges: [], notes: [], diagnoses: [], learningGoals: [] }));
     fs.writeFileSync(path.join(rootDir, "children.config.json"), JSON.stringify({ childProfiles: { [childId]: {} }, companions: { elli: { dopamineGames: [], faceCamera: { position: [0, 0, 1], target: [0, 0, 0] } } }, defaultCompanionId: "elli" }));
     const sourceFile = path.join(rootDir, "words.txt"); fs.writeFileSync(sourceFile, "Spelling\nnight\nlight");
-    const { homeworkId } = await runSpellingDiscoveryIntake({ childId, rootDir, sourceFile }, { callPlannerModel: async (packet: Parameters<typeof recordedSpellingDiagnostic>[0]) => ({ draft: { diagnostic: recordedSpellingDiagnostic(packet), title: "School words", words: ["night", "light"].map(word => ({ word, pageNumber: 1 })), uncertainty: [] } }) });
+    const { homeworkId } = await runSpellingDiscoveryIntake({ childId, rootDir, sourceFile }, { callPlannerModel: async (packet: Parameters<typeof recordedSpellingDiagnostic>[0]) => ({ draft: { boardDefinition:linearJourneyFixture(["diagnostic"]), diagnostic: recordedSpellingDiagnostic(packet), title: "School words", words: ["night", "light"].map(word => ({ word, pageNumber: 1 })), uncertainty: [] } }) });
     const opening = getLearningCycle(childId, homeworkId, { rootDir })!;
     expect(generateStoryImage).not.toHaveBeenCalled();
     const items = Object.values(opening.nodes[0].evidenceContract.spellingItems!);
@@ -65,13 +75,38 @@ describe("spelling in the production generation worker", () => {
         { id: "check", type: "word-radar", activityId: "word-radar", title: "Fresh recall check", targets: ["night", "light"], difficulty: 1, source: "chart_planner", wordRadarConfig: { recallMode: "hidden_word_recall", inputMode: "keyboard" } },
       ];
       if (scenario === "strong") Object.assign(nodePlan[0], { type: "letter-rush", activityId: "letter-rush", activityConfig: { schemaVersion: 1, activityId: "letter-rush", mode: "read-and-race", topic: "School words", domain: "spelling", learningGoal: "Practice captured spelling", gradeBand: "early_elementary", scaffolds: { showWord: true, letterBank: true, allowRetryBeforeScore: true, companionHints: false }, words: target.map(text => ({ text })), evidencePolicy: { writesPracticeEvidence: true, writesMasteryEvidence: false, requiresPerTargetResult: true, allowedEvidence: ["practice"] } } });
+      // Human-caught 2026-10-07: the provider put a valid Visual Explainer
+      // inside its generic mystery shell. The validator found the native
+      // instrument, but the board and saved artifact kept the shell identity,
+      // so Ila could click into a broken mystery node. The lab only exercised
+      // Visual Explainer when both outer labels were already correct.
+      if (scenario === "visual") Object.assign(nodePlan[0], { type: "mystery", activityId: "mystery", activityConfig: { schemaVersion: 1, activityId: "visual-explainer", domain: "spelling", topic: "The ight chunk", learningGoal: "Notice and remember the ight chunk.", misconception: "The middle sound maps to one letter.", strategy: { title: "Keep the chunk together", steps: ["Say each word.", "Notice ight.", "Build the word around it."] }, words: target.map(text => ({ id: `planner-${text}`, text, chunks: [text.slice(0, -4), "ight"], focusChunk: "ight", tip: "Keep ight together." })), check: { id: "check-ight", targetWord: target[0], prompt: "Which chunk stays together?", options: [{ id: "ight", label: "ight", correct: true }, { id: "ite", label: "ite", correct: false }], correctOptionId: "ight" }, evidencePolicy: { writesPracticeEvidence: true, writesMasteryEvidence: false, requiresPerTargetResult: false, allowedEvidence: ["practice", "companion"] } } });
+      if (scenario === "mystery-concept-check" || scenario === "published-contract-change") Object.assign(nodePlan[0], { type: "mystery", activityId: "mystery", activityConfig: { schemaVersion: 1, activityId: "concept-check", engine: { id: "concept-check", mode: "choose" }, topic: "School words", domain: "spelling", learningGoal: "Choose the correctly spelled word.", gradeBand: "early_elementary", targets: target.map((label, index) => ({ id: `planner-${index}`, label, type: "word" })), rounds: target.map((label, index) => ({ id: `round-${index}`, mechanic: "choose", targetId: `planner-${index}`, prompt: `Choose ${label}.`, options: [{ id: `${index}-correct`, label, correct: true }, { id: `${index}-miss`, label: `${label}x`, correct: false }], scaffoldLevel: 0 })), evidencePolicy: { writesPracticeEvidence: true, writesMasteryEvidence: false, requiresPerTargetResult: true, allowedEvidence: ["practice"] } } });
+      if (scenario === "reward-break") Object.assign(nodePlan[0], { type: "mystery", activityId: "mystery", targets: [] });
       const plannedMeasurements = nodePlan.map(node => ({ id: `measure-${node.id}`, activityId: node.activityId, target: node.targets.join(","), evidenceType: "recall", supportCriteria: "Captured recall improves", reviseCriteria: "Mixed", falsifyCriteria: "No improvement", spelling: { role: node.id === "check" ? "fresh_checkpoint" : "practice", evidenceIds: ["observed-0", "observed-1"], interventionNodeIds: node.id === "check" ? ["practice"] : [], reason: scenario === "assisted" ? "Help limits inference" : "Current recall facts", uncertainty: "One occasion", expectedAccuracy: { min: 0.6, max: 1 }, confidence: 0.5, finalCheck: node.id === "check" } }));
-      const activeSessionPlan = { planId: `targeted:${homeworkId}`, childId, activeHomeworkId: homeworkId, domain: "spelling", nodePlan, plannedMeasurements, planTheory: { hypothesis: "Recall may improve", evidenceSummary: ["observed-0", "observed-1"], intervention: "Selected practice", supportCriteria: ["Improvement"], reviseCriteria: ["Mixed"], falsifyCriteria: ["No improvement"] } };
-      for (const measurement of plannedMeasurements) Object.assign(measurement.spelling, { maxDelayDays: 7 });
+      if (scenario === "reward-break") {
+        delete (plannedMeasurements[0] as { spelling?: unknown }).spelling;
+        plannedMeasurements[1].spelling.interventionNodeIds = [];
+      }
+      const activeSessionPlan = { planId: `targeted:${homeworkId}`, childId, activeHomeworkId: homeworkId, domain: "spelling", nodePlan, boardDefinition:linearJourneyFixture(nodePlan.map(node=>node.id)), plannedMeasurements, planTheory: { hypothesis: "Recall may improve", evidenceSummary: ["observed-0", "observed-1"], intervention: "Selected practice", supportCriteria: ["Improvement"], reviseCriteria: ["Mixed"], falsifyCriteria: ["No improvement"] } };
+      for (const measurement of plannedMeasurements) if (measurement.spelling) Object.assign(measurement.spelling, { maxDelayDays: 7 });
       const theme = {
         background: { type: "image", value: "/generated/adventure-board-demo/silent-letter-world.jpeg" },
         palette: { path: "#ffffff", completed: "#1f8f68", available: "#7c3aed", locked: "#aeb7c2", current: "#f59e0b", preview: "#d5dde5", text: "#ffffff", panel: "rgba(15, 23, 42, 0.84)" },
       } as const;
+      if (scenario === "not-ready") {
+        // What hydrateNativeLearningProgram hands over after a failed truth check on "practice".
+        const sanitized = plannedMeasurements.filter(row => row.id !== "measure-practice");
+        sanitized[0].spelling.interventionNodeIds = [];
+        nodePlan[0].targets = [];
+        const {boardDefinition,...semanticPlan}=activeSessionPlan;
+        return {output:{activeSessionPlan:{...semanticPlan,plannedMeasurements:sanitized,journey:journeyFromBoardDefinition(boardDefinition)},plannedMeasurements:sanitized,planTheory:activeSessionPlan.planTheory,generationRequests:[],notReady:[{nodeId:"practice",reason:"unknown_target_word:zebra"}]},telemetry:{model:"recorded-provider",latencyMs:1}} as never;
+      }
+      if(scenario==="semantic"||scenario==="overlapping"||scenario==="build-failure"){
+        if(scenario==="overlapping")activeSessionPlan.planId=`stacked:${homeworkId}`;
+        const {boardDefinition,...semanticPlan}=activeSessionPlan;
+        return {output:{activeSessionPlan:{...semanticPlan,journey:journeyFromBoardDefinition(boardDefinition)},plannedMeasurements,planTheory:activeSessionPlan.planTheory,generationRequests:[]},telemetry:{model:"recorded-provider",latencyMs:1}} as never;
+      }
       return { output: { activeSessionPlan: { ...activeSessionPlan, adventureBoard: buildAdventureBoardFromActiveSessionPlan({ plan: activeSessionPlan as never, boardId: activeSessionPlan.planId, theme, title: "School words", companion: { id: "elli", name: "Elli" } }) }, plannedMeasurements, planTheory: activeSessionPlan.planTheory, generationRequests: [] }, telemetry: { model: "recorded-provider", latencyMs: 1 } } as never;
     });
     vi.stubEnv("GROK_API_KEY", "recorded-not-a-key");
@@ -81,21 +116,106 @@ describe("spelling in the production generation worker", () => {
       expect(getMathGenerationStatus(childId, homeworkId, { rootDir })?.nodes.every(node => node.status === "ready")).toBe(true);
       return "https://recorded.invalid/image";
     });
+    if (scenario === "build-failure") {
+      // One activity fails while it is being built. Before 2026-10-18 the whole Teaching map was
+      // withheld and the child waited on the loading screen forever; the rule is one portal
+      // degrades to "Not ready" and everything else publishes.
+      const broken = path.join(child, "homework/direct-drafts", homeworkId, "native-instruments/practice.json");
+      fs.mkdirSync(path.dirname(broken), { recursive: true });
+      fs.writeFileSync(broken, JSON.stringify({ unrelated: true }));
+    }
     await runAdaptiveMathGeneration(childId, homeworkId, rootDir);
-    expect(generateStoryImage).not.toHaveBeenCalled();
+    // The Teaching map appears only when complete: no projection while any activity is still being prepared.
+    expect(projections.length).toBeGreaterThan(0);
+    expect(projections.flatMap(statuses => Object.values(statuses)).filter(status => !["ready", "completed", "evidence_locked", "not_ready"].includes(status))).toEqual([]);
+    if (scenario === "overlapping" || scenario === "not-ready" || scenario === "build-failure") {
+      // The board always publishes exactly what the Planner and Creator made.
+      const job = getMathGenerationStatus(childId, homeworkId, { rootDir })!;
+      const published = getLearningCycle(childId, homeworkId, { rootDir })!;
+      expect(job.phase).toBe("board_ready");
+      expect(published.lifecycle).toBe("board_ready");
+      const board = JSON.parse(fs.readFileSync(path.join(child, "plans/active_session_plan.json"), "utf8")).current.adventureBoard;
+      const portal = (nodeId: string) => board.nodes.find((node: { activityNodeId?: string }) => node.activityNodeId === nodeId);
+      // Diagnostics measure what was published; they never feed back into a run.
+      const report = JSON.parse(fs.readFileSync(path.join(child, "homework/direct-drafts", homeworkId, "generation-report.json"), "utf8"));
+      expect(report).toMatchObject({ homeworkId, targetMs: 180000, totalMs: expect.any(Number), withinTarget: expect.any(Boolean), planner: { latencyMs: 1 } });
+      if (scenario === "overlapping") {
+        expect(portal("practice").position).toEqual(portal("check").position);
+        expect(report.notReady).toEqual([]);
+        expect(report.layout.overlaps.length).toBeGreaterThan(0);
+        expect(report.layout.artworkLoaded).toBe(true);
+        return;
+      }
+      if (scenario === "build-failure") {
+        expect(job.nodes.find(node => node.nodeId === "practice")!.status).toBe("not_ready");
+        expect(portal("practice")).toMatchObject({ state: "locked", lock: { reason: "not-ready", label: "Not ready" } });
+        expect(portal("check").state).toBe("available");
+        expect(published.nodes.find(node => node.nodeId === "practice")!.notReadyReason).toContain("spelling_native_contract_changed");
+        expect(report.notReady).toEqual([{ nodeId: "practice", reason: expect.stringContaining("spelling_native_contract_changed") }]);
+        return;
+      }
+      expect(report.notReady).toEqual([{ nodeId: "practice", reason: "unknown_target_word:zebra" }]);
+      expect(job.nodes.find(node => node.nodeId === "practice")!.status).toBe("not_ready");
+      expect(portal("practice")).toMatchObject({ state: "locked", lock: { reason: "not-ready", label: "Not ready" } });
+      expect(portal("check").state).toBe("available");
+      expect(published.nodes.find(node => node.nodeId === "practice")).toMatchObject({ state: "blocked", artifactBinding: null });
+      expect(fs.existsSync(path.join(child, "homework/direct-drafts", homeworkId, "native-instruments/practice.json"))).toBe(false);
+      return;
+    }
+    if(scenario==="semantic")expect(askLearningExperienceDesigner).toHaveBeenCalledTimes(1);
+    expect(askLearningPlanner).toHaveBeenCalledTimes(1);
+    const imageCallsAfterFirstRun = vi.mocked(generateStoryImage).mock.calls.length;
     const frozenFile = path.join(child, "homework/direct-drafts", homeworkId, "spelling-targeted-response.json");
     const frozenResult = JSON.parse(fs.readFileSync(frozenFile, "utf8")).result;
     expect(JSON.stringify(frozenResult)).not.toContain(`/generated/adventure-board/${childId}/`);
     const nativeConfig = path.join(child, "homework/direct-drafts", homeworkId, "native-instruments/practice.json");
     const originalNative = fs.readFileSync(nativeConfig, "utf8");
-    fs.rmSync(nativeConfig);
+    if (scenario === "mystery-concept-check" || scenario === "published-contract-change") {
+      const legacyNative = JSON.parse(originalNative);
+      delete legacyNative.evidenceContract.nativeConfig;
+      for (const item of Object.values(legacyNative.evidenceContract.spellingItems) as Array<{response:{mode:string}}>) {
+        item.response.mode = "spelling_letters";
+      }
+      fs.writeFileSync(nativeConfig, `${JSON.stringify(legacyNative, null, 2)}\n`);
+      const cycleFile = path.join(child, "homework/cycles", `${homeworkId}.json`);
+      const legacy = JSON.parse(fs.readFileSync(cycleFile, "utf8"));
+      // Saved cycles that predate this migration also predate contract-21 board instances.
+      if (scenario === "mystery-concept-check") delete legacy.boards;
+      const legacyNode = legacy.nodes.find((node: {nodeId:string}) => node.nodeId === "practice");
+      legacyNode.implementationType = "mystery";
+      legacyNode.state = "completed";
+      legacyNode.evidenceIds = ["existing-completion-evidence"];
+      delete legacyNode.evidenceContract.nativeConfig;
+      for (const item of Object.values(legacyNode.evidenceContract.spellingItems) as Array<{response:{mode:string}}>) {
+        item.response.mode = "spelling_letters";
+      }
+      delete legacyNode.artifactBinding.activityConfigPath;
+      legacyNode.artifactBinding.contractFingerprint = hashDiscoveryContract(legacyNative);
+      fs.writeFileSync(cycleFile, `${JSON.stringify(legacy, null, 2)}\n`);
+      setMathGenerationPhase({ rootDir, childId, homeworkId, phase: "needs_attention", error: "spelling_native_contract_changed:practice" });
+    } else {
+      fs.rmSync(nativeConfig);
+    }
+    if (scenario === "mystery-concept-check") {
+      const file=path.join(child,"homework/cycles",`${homeworkId}.json`);
+      const history=fs.readFileSync(file,"utf8");
+      await expect(runAdaptiveMathGeneration(childId,homeworkId,rootDir)).rejects.toThrow("historical_board_replacement_requires_new_instance");
+      expect(fs.readFileSync(file,"utf8")).toBe(history);
+      expect(planAssignmentFromSourceWithTelemetry).toHaveBeenCalledOnce();
+      return;
+    }
+    if (scenario === "published-contract-change") {
+      // Contract 21: a published board's frozen instrument is never edited in place.
+      await expect(runAdaptiveMathGeneration(childId, homeworkId, rootDir)).rejects.toThrow(`published_board_instrument_contract_changed:${homeworkId}:practice`);
+      return;
+    }
     // This high-level Planner fixture tests missing-instrument recovery. Raw
     // response/derived-checkpoint recovery uses the real parser and mocked
     // transport in spellingPlannerReceipt.test.ts.
     await runAdaptiveMathGeneration(childId, homeworkId, rootDir);
     expect(fs.readFileSync(nativeConfig, "utf8")).toBe(originalNative);
     expect(planAssignmentFromSourceWithTelemetry).toHaveBeenCalledOnce();
-    expect(generateStoryImage).not.toHaveBeenCalled();
+    expect(vi.mocked(generateStoryImage).mock.calls.length).toBe(imageCallsAfterFirstRun);
     const after = getLearningCycle(childId, homeworkId, { rootDir })!;
     expect(after.lifecycle).toBe("board_ready");
     expect(after.observations).toEqual(originalObservations);
@@ -103,13 +223,45 @@ describe("spelling in the production generation worker", () => {
     expect(after.academicPredictions).toHaveLength(2);
     const catalog = getChildChart(childId, { rootDir }).contentCatalog.items;
     expect(catalog.filter(item => item.homeworkId === homeworkId)).toHaveLength(2);
-    expect(catalog.every(item => item.reuseStatus === "candidate" && item.domain === "spelling" && item.inputEvidence.activityEvidenceIds?.includes("observed-1"))).toBe(true);
+    expect(catalog.every(item => item.reuseStatus === "candidate" && item.domain === "spelling" && ((scenario === "reward-break" && item.activityId === "mystery") || item.inputEvidence.activityEvidenceIds?.includes("observed-1")))).toBe(true);
+    if (scenario === "reward-break") {
+      const reward = after.nodes.find(node => node.nodeId === "practice")!;
+      expect(reward.evidenceContract.academic).toBe(false);
+      expect(reward.evidenceContract.spellingItems).toBeUndefined();
+      expect(catalog.find(item => item.activityId === "mystery")?.algorithmTargets).toEqual(["activity-affinity"]);
+      const projected = JSON.parse(fs.readFileSync(path.join(child, "plans/active_session_plan.json"), "utf8"));
+      const portal = projected.current.nodePlan.find((node: { id: string }) => node.id === "practice");
+      const action = buildNodeLaunchAction(portal, { childId, childName: "Lab", companion: "elli", companionName: "Elli", isDiagMode: false });
+      expect(action.kind).toBe("iframe");
+      if (action.kind === "iframe") expect(new URL(action.url, "http://sunny.local").pathname).toBe("/games/space-invaders.html");
+      recordCanonicalNodeCompletion({ childId, homeworkId, nodeId: "practice", sessionId: "reward-run", result: { completed: true, accuracy: 1, timeSpent_ms: 100 } }, { rootDir });
+      const completed = getLearningCycle(childId, homeworkId, { rootDir })!;
+      expect(completed.nodes.find(node => node.nodeId === "practice")?.state).toBe("completed");
+      expect(completed.observations).toEqual(originalObservations);
+      return;
+    }
+    if (scenario === "visual") {
+      expect(catalog.find(item => item.activityId === "visual-explainer")?.algorithmTargets)
+        .toEqual(expect.arrayContaining(["error-pattern-remediation", "retrieval-practice"]));
+      const chart = getChildChart(childId, { rootDir });
+      const staleCatalog = catalog.map(item => item.activityId === "visual-explainer"
+        ? { ...item, algorithmTargets: ["retrieval-practice" as const] }
+        : item);
+      writeWaterfallContentCatalog(childId, { ...chart.learningProfile, aiContentCatalog: staleCatalog }, { rootDir });
+      await runAdaptiveMathGeneration(childId, homeworkId, rootDir);
+      expect(getChildChart(childId, { rootDir }).contentCatalog.items.find(item => item.activityId === "visual-explainer")?.algorithmTargets)
+        .toEqual(expect.arrayContaining(["error-pattern-remediation", "retrieval-practice"]));
+    }
+    expect(getMathGenerationStatus(childId, homeworkId, { rootDir })).toMatchObject({
+      phase: "board_ready",
+      nodes: expect.arrayContaining([expect.objectContaining({ status: "ready" })]),
+    });
     expect(getMathGenerationStatus(childId, homeworkId, { rootDir })?.nodes.every(node => node.status === "ready")).toBe(true);
     const projected = JSON.parse(fs.readFileSync(path.join(child, "plans/active_session_plan.json"), "utf8"));
     expect(projected.selectedDomain).toBe("spelling");
     expect(projected.current.adventureBoard.nodes.find((node: {id:string}) => node.id === "practice").thumbnailUrl)
-      .toBe(scenario === "strong" ? "/thumbnails/activities/letter-rush.svg" : "/thumbnails/activities/word-radar.svg");
-    expect(projected.current.nodePlan.find((node: {id:string}) => node.id === "practice").type).toBe(scenario === "strong" ? "letter-rush" : "word-radar");
+      .toBe(scenario === "strong" ? "/thumbnails/activities/letter-rush.svg" : scenario === "visual" ? "/thumbnails/activities/visual-explainer.svg" : scenario === "mystery-concept-check" ? "/thumbnails/mystery-fallback.svg" : "/thumbnails/activities/word-radar.svg");
+    expect(projected.current.nodePlan.find((node: {id:string}) => node.id === "practice").type).toBe(scenario === "strong" ? "letter-rush" : scenario === "visual" ? "visual-explainer" : scenario === "mystery-concept-check" ? "concept-check" : "word-radar");
     if (scenario === "strong") {
       const url = after.nodes.find(node => node.nodeId === "practice")!.artifactBinding!.activityConfigPath!;
       expect(url).toMatch(/^\/api\/activity-config\/lab-child\//);
@@ -117,11 +269,51 @@ describe("spelling in the production generation worker", () => {
       expect(engine.activityId).toBe("letter-rush");
       expect(engine.words.map((word: {id:string}) => word.id)).toEqual(Object.keys(after.nodes.find(node => node.nodeId === "practice")!.evidenceContract.spellingItems!));
     }
+    if (scenario === "visual") {
+      expect(after.nodes.find(node => node.nodeId === "practice")).toMatchObject({
+        role: "baseline",
+        implementationType: "visual-explainer",
+        mechanic: "visual-explainer",
+      });
+      expect(JSON.parse(originalNative).node).toMatchObject({
+        type: "visual-explainer",
+        activityId: "visual-explainer",
+      });
+      expect(projected.current.adventureBoard.nodes.find((node: {id:string}) => node.id === "practice")).toMatchObject({
+        kind: "activity",
+        activityId: "visual-explainer",
+      });
+      const binding = after.nodes.find(node => node.nodeId === "practice")!.artifactBinding!;
+      expect(binding.localArtifactPath).toBe("/games/spelling-visual-explainer.html");
+      expect(binding.activityConfigPath).toMatch(/^\/api\/activity-config\/lab-child\//);
+      const visual = JSON.parse(fs.readFileSync(path.join(child, "homework/games", homeworkId, path.basename(binding.activityConfigPath!)), "utf8"));
+      expect(visual.type).toBe("visual-explainer");
+      expect(visual.spellingModel.words.map((word: {id:string}) => word.id)).toEqual(Object.keys(after.nodes.find(node => node.nodeId === "practice")!.evidenceContract.spellingItems!));
+      expect(visual.questions[0].targetConcept).toBe(visual.spellingModel.words[0].id);
+    }
+    if (scenario === "mystery-concept-check") {
+      const binding = after.nodes.find(node => node.nodeId === "practice")!.artifactBinding!;
+      expect(after.nodes.find(node => node.nodeId === "practice")).toMatchObject({
+        role: "mystery",
+        implementationType: "concept-check",
+        state: "completed",
+        evidenceIds: ["existing-completion-evidence"],
+      });
+      expect(binding.activityConfigPath).toMatch(/^\/api\/activity-config\/lab-child\//);
+      const engine = JSON.parse(fs.readFileSync(path.join(child, "homework/games", homeworkId, path.basename(binding.activityConfigPath!)), "utf8"));
+      expect(engine.activityId).toBe("concept-check");
+    }
     const practiceItems = Object.values(after.nodes.find(node => node.nodeId === "practice")!.evidenceContract.spellingItems!);
     expect(() => recordCanonicalNodeCompletion({ childId, homeworkId, nodeId: "practice", sessionId: "duplicate-rows", result: { completed: true, accuracy: 1, timeSpent_ms: 100, targetResults: [practiceItems[0], practiceItems[0]].map(item => ({ target: item.id, correct: true, attemptedValue: item.word })) } }, { rootDir })).toThrow("learning_cycle_duplicate_item");
     recordCanonicalNodeCompletion({ childId, homeworkId, nodeId: "practice", sessionId: "practice-run", result: { completed: true, accuracy: 1, timeSpent_ms: 100, targetResults: practiceItems.map(item => ({ target: item.id, correct: true, attemptedValue: "wrong" })) } }, { rootDir });
     const practiceFacts = getLearningCycle(childId, homeworkId, { rootDir })!.observations.filter(row => practiceItems.some(item => item.id === row.itemId));
-    expect(practiceFacts.every(row => row.result.correct === false && row.provenance === "practice")).toBe(true);
+    if (scenario === "visual") {
+      expect(practiceFacts.every(row => row.result.observedErrorType === "assisted_instruction"
+        && row.result.correct === undefined && row.assistance.status === "assisted"
+        && row.provenance === "practice")).toBe(true);
+    } else {
+      expect(practiceFacts.every(row => row.result.correct === false && row.provenance === "practice")).toBe(true);
+    }
     const checkItems = Object.values(after.nodes.find(node => node.nodeId === "check")!.evidenceContract.spellingItems!);
     checkItems.forEach((item, index) => {
       recordSpellingDiscoveryAttempt({ childId, homeworkId, attempt: { attemptId: `check-${index}`, itemId: item.id, attemptedValue: item.word, observedAt: "2026-09-09T12:00:00Z" }, support: { status: "unassisted", scaffolds: [] } }, { rootDir });

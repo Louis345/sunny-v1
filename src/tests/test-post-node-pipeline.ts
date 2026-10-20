@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import fs from "fs";
 import path from "path";
+import os from "os";
 import type {
   AIContentCatalogItem,
   LearningProfile,
@@ -124,7 +125,7 @@ function mockCastleBoss(): MapState["nodes"] {
 }
 
 function profilePath(childId: string): string {
-  return path.join(process.cwd(), "src", "context", childId, "learning_profile.json");
+  return path.join(process.env.SUNNY_CONTEXT_ROOT!, childId, "learning_profile.json");
 }
 
 function baseLearningProfile(childId: string): LearningProfile {
@@ -190,8 +191,11 @@ function readProfile(childId: string): LearningProfile {
 describe("post-node pipeline (TASK-014)", () => {
   let appendSpy: ReturnType<typeof vi.spyOn>;
   const pipelineOrder: string[] = [];
+  let isolatedContext: string;
 
   beforeEach(() => {
+    isolatedContext=fs.mkdtempSync(path.join(os.tmpdir(),"sunny-post-node-"));
+    vi.stubEnv("SUNNY_CONTEXT_ROOT",isolatedContext);
     __resetAdventureMapSessionsForTests();
     pipelineOrder.length = 0;
     writeBaseLearningProfile("qa_pipeline");
@@ -226,11 +230,8 @@ describe("post-node pipeline (TASK-014)", () => {
 
   afterEach(() => {
     appendSpy.mockRestore();
-    try {
-      fs.unlinkSync(profilePath("qa_pipeline"));
-    } catch {
-      // best-effort test cleanup
-    }
+    fs.rmSync(isolatedContext,{recursive:true,force:true});
+    vi.unstubAllEnvs();
   });
 
   it("runs appendNodeRating then recordReward without synthesizing per-word attempts", async () => {

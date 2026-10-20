@@ -29,9 +29,14 @@ import {
   resetAudioAnalyser,
 } from "../utils/audioAnalyser";
 import { isKaraokeReadingAssistSilence } from "./karaokeAssistSilence";
-import { flushBufferIfUnmuted } from "../../../src/shared/flushBuffer";
+import {
+  shouldAcknowledgeAudioPlayback,
+} from "../../../src/shared/flushBuffer";
 import { mapNodeSessionAudioFlags } from "../../../src/shared/mapNodeSessionAudio";
 import { resolveSunnyRuntimeConfig } from "../../../src/shared/runtimeConfig";
+import type { ChildProgressionSnapshot } from "../../../src/engine/progression";
+import { createPlaybackWatchdog } from "../utils/playbackWatchdog";
+import { createActionOutbox } from "../utils/actionOutbox";
 
 type GameMode = keyof typeof TEACHING_TOOLS | keyof typeof REWARD_GAMES;
 
@@ -112,6 +117,8 @@ interface PlaceValueData {
   revealedColumns?: Array<"hundreds" | "tens" | "ones">;
 }
 
+const WORD_PLAYBACK_WARNING = "I couldn't play that word. Tap Hear the word again.";
+
 export interface BlackboardState {
   gesture: "flash" | "reveal" | "mask" | "clear" | null;
   word?: string;
@@ -162,16 +169,20 @@ interface CanvasState {
   backgroundImageUrl?: string;
 }
 
-interface TurnPolicy {
-  id: "short_expected_response" | "open_response" | "narration" | "listen_only";
-  expectedResponse: "short" | "open" | "none";
-  allowCaptureDuringPlayback: boolean;
-  interruptible: boolean;
-}
-
 type SessionPhase = "picker" | "connecting" | "active" | "ended";
 
+type SessionStartRequest = {
+  child: string;
+  diagKiosk: boolean;
+  silentTts: boolean;
+  sttOnly: boolean;
+  homeworkId?: string;
+};
+
+const SESSION_RECONNECT_DELAYS_MS = [250, 500, 1000] as const;
+
 interface SessionState {
+  voiceSessionId: string | null;
   phase: SessionPhase;
   childName: string | null;
   companion: CompanionConfig | null;
@@ -213,6 +224,8 @@ interface SessionState {
   firstAudioChunkReceived: boolean;
   /** Host-controlled activity companion presentation. */
   companionPresence: "collapsed" | "summoned";
+  /** Server-owned progression snapshot used by read-only level UI. */
+  progression: ChildProgressionSnapshot | null;
 }
 
 function isMathCanvas(content: string | undefined): boolean {
@@ -255,26 +268,117 @@ function storyIllustrationPatch(
   };
 }
 
-function getPlaybackCaptureConfig(policy: TurnPolicy) {
-  if (policy.id === "short_expected_response") {
-    return {
-      rmsThreshold: 0.02,
-      consecutiveFrames: 1,
-    };
-  }
+const SILENT_MIC_DURATION_MS = 12000;
+const MICROPHONE_OPEN_TIMEOUT_MS = 5000;
+const AUDIBLE_MIC_RMS_THRESHOLD = 0.003;
+const AUDIBLE_MIC_FRAME_CONFIRMATION = 3;
 
-  return {
-    rmsThreshold: 0.04,
-    consecutiveFrames: 3,
-  };
+function isVirtualMicrophoneLabel(label: string): boolean {
+  return /\b(blackhole|virtual|loopback|soundflower|vb-audio|voicemeeter|aggregate)\b/i.test(label);
 }
 
-const DEFAULT_TURN_POLICY: TurnPolicy = {
-  id: "open_response",
-  expectedResponse: "open",
-  allowCaptureDuringPlayback: false,
-  interruptible: true,
+function isBuiltInMicrophoneLabel(label: string): boolean {
+  return /\b(built[- ]?in|internal)\b|macbook.*microphone/i.test(label);
+}
+
+const MICROPHONE_CONSTRAINTS: MediaTrackConstraints = {
+  channelCount: 1,
+  sampleRate: 16000,
+  echoCancellation: true,
+  noiseSuppression: true,
+  autoGainControl: true,
 };
+
+async function openMicrophoneWithTimeout(
+  constraints: MediaStreamConstraints,
+): Promise<MediaStream> {
+  let timedOut = false;
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
+  const request = navigator.mediaDevices.getUserMedia(constraints).then((stream) => {
+    if (timedOut) {
+      stream.getTracks().forEach((track) => track.stop());
+      throw new Error("microphone_open_timed_out");
+    }
+    return stream;
+  });
+  const timeout = new Promise<never>((_resolve, reject) => {
+    timeoutId = setTimeout(() => {
+      timedOut = true;
+      reject(new Error("microphone_open_timed_out"));
+    }, MICROPHONE_OPEN_TIMEOUT_MS);
+  });
+  try {
+    return await Promise.race([request, timeout]);
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId);
+  }
+}
+
+async function ensureAudioContextRunning(ctx: AudioContext): Promise<void> {
+  if (ctx.state === "running") return;
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
+  try {
+    await Promise.race([
+      ctx.resume(),
+      new Promise<never>((_, reject) => {
+        timeoutId = setTimeout(
+          () => reject(new Error("audio_context_resume_timeout")),
+          1_200,
+        );
+      }),
+    ]);
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId);
+  }
+  const resumedState = ctx.state as AudioContextState;
+  if (resumedState !== "running") {
+    throw new Error(`audio_context_${resumedState}`);
+  }
+}
+
+async function openPreferredMicrophoneStream(): Promise<{
+  stream: MediaStream;
+  recoveredFrom: string | null;
+}> {
+  const initialStream = await openMicrophoneWithTimeout({
+    audio: MICROPHONE_CONSTRAINTS,
+  });
+  const initialTrack = initialStream.getAudioTracks()[0];
+  const initialLabel = initialTrack?.label?.trim() || "selected microphone";
+  if (
+    !isVirtualMicrophoneLabel(initialLabel) ||
+    typeof navigator.mediaDevices.enumerateDevices !== "function"
+  ) {
+    return { stream: initialStream, recoveredFrom: null };
+  }
+
+  const devices = await navigator.mediaDevices.enumerateDevices();
+  const builtIn = devices.find(
+    (device) =>
+      device.kind === "audioinput" &&
+      Boolean(device.deviceId) &&
+      isBuiltInMicrophoneLabel(device.label) &&
+      !isVirtualMicrophoneLabel(device.label),
+  );
+  if (!builtIn) return { stream: initialStream, recoveredFrom: null };
+
+  try {
+    const recoveredStream = await openMicrophoneWithTimeout({
+      audio: {
+        ...MICROPHONE_CONSTRAINTS,
+        deviceId: { exact: builtIn.deviceId },
+      },
+    });
+    initialStream.getTracks().forEach((track) => track.stop());
+    return { stream: recoveredStream, recoveredFrom: initialLabel };
+  } catch (err) {
+    console.warn(
+      ` 🎮 [session-microphone] [recovery] [failed] from=${initialLabel} to=${builtIn.label}`,
+      err,
+    );
+    return { stream: initialStream, recoveredFrom: null };
+  }
+}
 
 function micDeniedCanContinue(): boolean {
   if (typeof window !== "undefined") {
@@ -322,18 +426,70 @@ export function useSession(options?: UseSessionOptions) {
   const currentSourceRef = useRef<AudioBufferSourceNode | null>(null);
   const analyserNodeRef = useRef<AnalyserNode | null>(null);
   const serverDoneRef = useRef(false);
-  const bargeInConsecutiveRef = useRef(0);
-  const rollingBufferRef = useRef<string[]>([]);
+  const playbackEpochRef = useRef(0);
+  const activePlaybackRequestIdRef = useRef<string | null>(null);
+  const playbackMeasuredRequestRef = useRef<string | null>(null);
+  const completedPlaybackRef = useRef(false);
+  const playbackCanceledRef = useRef(false);
+  const cancelPlayback = useCallback(() => {
+    playbackEpochRef.current += 1;
+    playbackCanceledRef.current = true;
+    audioQueueRef.current = [];
+    isPlayingRef.current = false;
+    serverDoneRef.current = false;
+    activePlaybackRequestIdRef.current = null;
+    completedPlaybackRef.current = false;
+    playbackRequestIdRef.current = null;
+    playbackItemIdRef.current = null;
+    playbackRequiresAudioRef.current = false;
+    activityNarrationPendingRef.current = false;
+    receivedAudioFramesRef.current = 0;
+    playedAudioFramesRef.current = 0;
+    if (currentSourceRef.current) {
+      currentSourceRef.current.onended = null;
+      try { currentSourceRef.current.stop(); } catch { /* already stopped */ }
+      currentSourceRef.current = null;
+    }
+  }, []);
+  const playbackRequiresAudioRef = useRef(false);
+  const playbackRequestIdRef = useRef<string | null>(null);
+  const playbackItemIdRef = useRef<string | null>(null);
+  const activityNarrationPendingRef = useRef(false);
+  const actionOutboxRef = useRef(createActionOutbox());
+  // If speech starts and nothing is heard for 15 s, release it so the microphone can never stay closed.
+  const playbackWatchdogRef = useRef(createPlaybackWatchdog(15_000, (requestId) => {
+    if (activePlaybackRequestIdRef.current !== requestId || completedPlaybackRef.current) return;
+    // Audio that already arrived is still being played: that is speech, not a stuck lock.
+    if (isPlayingRef.current || audioQueueRef.current.length > 0) { playbackWatchdogRef.current.arm(requestId); return; }
+    console.warn(` 🎮 [session-audio] [playback] [watchdog-released] request=${requestId}`);
+    serverDoneRef.current = true;
+    finalizePlaybackRef.current();
+  }));
+  const receivedAudioFramesRef = useRef(0);
+  const playedAudioFramesRef = useRef(0);
   const finalizePlaybackRef = useRef<() => void>(() => {});
-  const turnPolicyRef = useRef<TurnPolicy>(DEFAULT_TURN_POLICY);
   const debugBrowserTtsRef = useRef(false);
   const browserTtsAccumRef = useRef("");
   const browserTtsDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const storyImageWatchdogRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const sessionStartPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const sessionStartTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const sessionReconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const sessionReconnectAttemptRef = useRef(0);
+  const reconnectHandshakePendingRef = useRef(false);
+  const sessionStartRequestRef = useRef<SessionStartRequest | null>(null);
+  const deferredUnmountCleanupRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const sessionChildIdRef = useRef<string | null>(null);
+  const micInputLabelRef = useRef("selected microphone");
+  const micSilentDurationMsRef = useRef(0);
+  const micAudibleFramesRef = useRef(0);
+  const micInputConfirmedRef = useRef(false);
+  const micTranscriptConfirmedRef = useRef(false);
+  const micSilentWarningRef = useRef<string | null>(null);
+  const micSetupWarningRef = useRef<string | null>(null);
 
   const [state, setState] = useState<SessionState>({
+    voiceSessionId: null,
     phase: "picker",
     childName: null,
     companion: null,
@@ -365,6 +521,7 @@ export function useSession(options?: UseSessionOptions) {
     sessionBootReady: false,
     firstAudioChunkReceived: false,
     companionPresence: "collapsed",
+    progression: null,
   });
 
   const sessionStateRef = useRef(state);
@@ -376,6 +533,9 @@ export function useSession(options?: UseSessionOptions) {
   const [ttsMuted, setTtsMuted] = useState(false);
   const ttsMutedRef = useRef(false);
   ttsMutedRef.current = ttsMuted;
+  const [companionSpeechMuted, setCompanionSpeechMuted] = useState(false);
+  const companionSpeechMutedRef = useRef(false);
+  companionSpeechMutedRef.current = companionSpeechMuted;
   const [mapNodeType, setMapNodeType] = useState<string | null>(null);
   const registerMapNodeType = useCallback((t: string | null) => {
     setMapNodeType(t);
@@ -386,6 +546,7 @@ export function useSession(options?: UseSessionOptions) {
   setStateRef.current = setState;
 
   const sendMessageRef = useRef<(type: string, payload?: Record<string, unknown>) => void>(() => {});
+  const startMicRef = useRef<() => void>(() => {});
   const stopMicRef = useRef<() => void>(() => {});
   const adventureGameIframeSourceRef = useRef(options?.adventureGameIframeRef ?? null);
   adventureGameIframeSourceRef.current = options?.adventureGameIframeRef ?? null;
@@ -399,7 +560,9 @@ export function useSession(options?: UseSessionOptions) {
         playContextRef.current = new AudioContext({ sampleRate: 24000 });
       }
       if (playContextRef.current.state === "suspended") {
-        void playContextRef.current.resume();
+        void playContextRef.current.resume().catch((err) => {
+          console.warn(" 🎮 [session-audio] [playback-prime] [failed]", err);
+        });
       }
     } catch (err) {
       console.warn("PCM playback audio context prime failed:", err);
@@ -429,14 +592,19 @@ export function useSession(options?: UseSessionOptions) {
         storyImageFailed: false,
       }));
     }
-    if (wsRef.current?.readyState === WebSocket.OPEN) {
-      const normalizedPayload =
-        type === "canvas_show" && typeof payload.type === "string"
-          ? { ...payload, canvasType: payload.type }
-          : payload;
-      // Put envelope `type` last so canvas payloads (e.g. NODE_REGISTRY.karaoke with type:karaoke)
-      // cannot overwrite the wire message kind — fixes server "Unknown type: karaoke" on canvas_show.
-      wsRef.current.send(JSON.stringify({ ...normalizedPayload, type }));
+    const normalizedPayload =
+      type === "canvas_show" && typeof payload.type === "string"
+        ? { ...payload, canvasType: payload.type }
+        : payload;
+    // Put envelope `type` last so canvas payloads (e.g. NODE_REGISTRY.karaoke with type:karaoke)
+    // cannot overwrite the wire message kind — fixes server "Unknown type: karaoke" on canvas_show.
+    const delivered = actionOutboxRef.current.deliver(type, normalizedPayload, wsRef.current?.readyState === WebSocket.OPEN,
+      message => wsRef.current?.send(JSON.stringify(message)));
+    const gameEvent = payload.event as { type?: unknown } | undefined;
+    // Only a tap that actually reached Sunny may make the browser wait for the word.
+    if (delivered === "sent" && type === "game_event" && gameEvent?.type === "narration_request") {
+      activityNarrationPendingRef.current = true;
+      console.log(" 🎮 [session-audio] [activity-narration] [requested]");
     }
   }, []);
 
@@ -447,21 +615,96 @@ export function useSession(options?: UseSessionOptions) {
     if (audioQueueRef.current.length > 0) return;
     if (currentSourceRef.current) return;
 
+    const requiresAudio = playbackRequiresAudioRef.current;
+    const playbackConfirmed = shouldAcknowledgeAudioPlayback({
+      requiresAudio: playbackRequiresAudioRef.current,
+      receivedAudioFrames: receivedAudioFramesRef.current,
+      playedAudioFrames: playedAudioFramesRef.current,
+    });
     serverDoneRef.current = false;
-    sendMessageRef.current("playback_done");
-    flushBufferIfUnmuted(
-      rollingBufferRef.current,
-      micMutedRef.current,
-      (type, payload) => sendMessageRef.current(type, payload),
-    );
-    rollingBufferRef.current = [];
-    bargeInConsecutiveRef.current = 0;
+    completedPlaybackRef.current = Boolean(activePlaybackRequestIdRef.current);
+    const playbackIdentity = {
+      ...(playbackRequestIdRef.current ? { requestId: playbackRequestIdRef.current } : {}),
+      ...(playbackItemIdRef.current ? { itemId: playbackItemIdRef.current } : {}),
+    };
+    playbackRequestIdRef.current = null;
+    playbackItemIdRef.current = null;
+    activityNarrationPendingRef.current = false;
+    playbackRequiresAudioRef.current = false;
+    receivedAudioFramesRef.current = 0;
+    playedAudioFramesRef.current = 0;
+    if (!playbackConfirmed) {
+      setStateRef.current((s) => ({
+        ...s,
+        warning: WORD_PLAYBACK_WARNING,
+      }));
+      sendMessageRef.current("client_audio_status", {
+        event: "playback_not_confirmed",
+        reason: "required_audio_not_fully_played",
+      });
+      sendMessageRef.current("playback_done", {
+        audible: false,
+        reason: "required_audio_not_fully_played",
+        ...playbackIdentity,
+      });
+      return;
+    }
+    if (requiresAudio) {
+      setStateRef.current(s => s.warning === WORD_PLAYBACK_WARNING ? { ...s, warning: null } : s);
+      console.log(` 🎮 [session-audio] [word-playback] [confirmed] request=${playbackIdentity.requestId ?? "unowned"}`);
+    }
+    sendMessageRef.current("playback_done", { audible: true, ...playbackIdentity });
   };
 
+  const armSessionHandshakeTimeout = useCallback((ws: WebSocket) => {
+    if (sessionStartTimeoutRef.current) clearTimeout(sessionStartTimeoutRef.current);
+    sessionStartTimeoutRef.current = setTimeout(() => {
+      sessionStartTimeoutRef.current = null;
+      if (wsRef.current !== ws || sessionStateRef.current.phase === "active") return;
+      console.warn(
+        ` 🎮 [session-connection] [handshake] [timeout] attempt=${sessionReconnectAttemptRef.current}/${SESSION_RECONNECT_DELAYS_MS.length}`,
+      );
+      setStateRef.current((s) => ({
+        ...s,
+        phase: "connecting",
+        warning: "Sunny connected but did not finish starting. Reconnecting…",
+      }));
+      ws.close();
+    }, 10_000);
+  }, []);
+
   const connect = useCallback(() => {
+    if (
+      wsRef.current?.readyState === WebSocket.CONNECTING ||
+      wsRef.current?.readyState === WebSocket.OPEN
+    ) {
+      return;
+    }
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
     const ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
     wsRef.current = ws;
+
+    ws.onopen = () => {
+      if (!reconnectHandshakePendingRef.current) return;
+      if (sessionStartPollRef.current) {
+        clearInterval(sessionStartPollRef.current);
+        sessionStartPollRef.current = null;
+      }
+      const request = sessionStartRequestRef.current;
+      if (!request) return;
+      console.log(
+        ` 🎮 [session-connection] [reconnect] [handshake] attempt=${sessionReconnectAttemptRef.current}/${SESSION_RECONNECT_DELAYS_MS.length}`,
+      );
+      sendMessageRef.current("start_session", {
+        child: request.child,
+        ...(request.diagKiosk ? { diagKiosk: true } : {}),
+        ...(request.silentTts ? { silentTts: true } : {}),
+        ...(request.sttOnly ? { sttOnly: true } : {}),
+        ...(request.homeworkId ? { homeworkId: request.homeworkId } : {}),
+      });
+      armSessionHandshakeTimeout(ws);
+      if (!mediaStreamRef.current) startMicRef.current();
+    };
 
     ws.onmessage = (event) => {
       const msg = JSON.parse(event.data);
@@ -469,19 +712,59 @@ export function useSession(options?: UseSessionOptions) {
     };
 
     ws.onerror = () => {
-      setStateRef.current((s) => ({
-        ...s,
-        error: "Connection lost",
-        errorFatal: true,
-        warning: null,
-        phase: s.phase === "active" || s.phase === "connecting" ? "picker" : s.phase,
-      }));
+      if (sessionStartRequestRef.current) {
+        console.warn(" 🎮 [session-connection] [socket] [error] awaiting-close");
+        setStateRef.current((s) => ({
+          ...s,
+          warning: "Sunny lost connection. Reconnecting…",
+        }));
+        return;
+      }
+      setStateRef.current((s) => ({ ...s, error: "Connection lost", errorFatal: true, warning: null }));
     };
 
     ws.onclose = () => {
-      if (wsRef.current === ws) wsRef.current = null;
+      if (wsRef.current === ws) {
+        wsRef.current = null;
+        if (sessionStartTimeoutRef.current) {
+          clearTimeout(sessionStartTimeoutRef.current);
+          sessionStartTimeoutRef.current = null;
+        }
+      }
+      const request = sessionStartRequestRef.current;
+      if (!request || sessionStateRef.current.phase === "picker" || sessionStateRef.current.phase === "ended") return;
+      if (sessionReconnectTimerRef.current) return;
+      if (sessionReconnectAttemptRef.current >= SESSION_RECONNECT_DELAYS_MS.length) {
+        reconnectHandshakePendingRef.current = false;
+        sessionStartRequestRef.current = null;
+        console.error(` 🎮 [session-connection] [reconnect] [exhausted] attempts=${SESSION_RECONNECT_DELAYS_MS.length}`);
+        setStateRef.current((s) => ({
+          ...s,
+          error: "Connection lost after three reconnect attempts",
+          errorFatal: true,
+          warning: null,
+          phase: "picker",
+        }));
+        return;
+      }
+      const attempt = sessionReconnectAttemptRef.current + 1;
+      sessionReconnectAttemptRef.current = attempt;
+      reconnectHandshakePendingRef.current = true;
+      const delayMs = SESSION_RECONNECT_DELAYS_MS[attempt - 1];
+      console.warn(` 🎮 [session-connection] [reconnect] [scheduled] attempt=${attempt}/${SESSION_RECONNECT_DELAYS_MS.length} delayMs=${delayMs}`);
+      setStateRef.current((s) => ({
+        ...s,
+        phase: "connecting",
+        error: null,
+        errorFatal: false,
+        warning: "Sunny lost connection. Reconnecting…",
+      }));
+      sessionReconnectTimerRef.current = setTimeout(() => {
+        sessionReconnectTimerRef.current = null;
+        connect();
+      }, delayMs);
     };
-  }, []);
+  }, [armSessionHandshakeTimeout]);
 
   // --- Handle server messages ---
 
@@ -490,6 +773,30 @@ export function useSession(options?: UseSessionOptions) {
     setStateRef: React.MutableRefObject<typeof setState>,
     stopMicRef: React.MutableRefObject<() => void>
   ) {
+    const confirmRecognizedSpeech = (text: string) => {
+      if (!text.trim() || micTranscriptConfirmedRef.current) return;
+      micTranscriptConfirmedRef.current = true;
+      const setupWarning = micSetupWarningRef.current;
+      const silentWarning = micSilentWarningRef.current;
+      micSetupWarningRef.current = null;
+      micSilentWarningRef.current = null;
+      console.log(
+        ` 🎮 [session-microphone] [speech] [recognized] input=${micInputLabelRef.current}`,
+      );
+      sendMessageRef.current("client_audio_status", {
+        event: "speech_recognized",
+        reason: micInputLabelRef.current,
+        message: "Audible speech reached Sunny's recognizer.",
+      });
+      setStateRef.current((s) => ({
+        ...s,
+        microphoneAvailable: true,
+        warning:
+          s.warning === setupWarning || s.warning === silentWarning
+            ? null
+            : s.warning,
+      }));
+    };
     switch (msg.type) {
       case "screenshot_request": {
         void (async () => {
@@ -520,26 +827,32 @@ export function useSession(options?: UseSessionOptions) {
       }
 
       case "session_started": {
-        const m = msg as Record<string, string>;
-        audioQueueRef.current = [];
-        isPlayingRef.current = false;
-        serverDoneRef.current = false;
-        if (currentSourceRef.current) {
-          try {
-            currentSourceRef.current.stop();
-          } catch {
-            /* already stopped */
-          }
-          currentSourceRef.current = null;
+        reconnectHandshakePendingRef.current = false;
+        {
+          // A Hear word tap made while reconnecting is resent now that Sunny is back.
+          const held = actionOutboxRef.current.take();
+          if (held) queueMicrotask(() => sendMessageRef.current(held.type, held.payload));
         }
+        sessionReconnectAttemptRef.current = 0;
+        if (sessionStartTimeoutRef.current) {
+          clearTimeout(sessionStartTimeoutRef.current);
+          sessionStartTimeoutRef.current = null;
+        }
+        if (sessionReconnectTimerRef.current) {
+          clearTimeout(sessionReconnectTimerRef.current);
+          sessionReconnectTimerRef.current = null;
+        }
+        const m = msg as Record<string, string>;
+        cancelPlayback();
+        playbackCanceledRef.current = false;
         debugBrowserTtsRef.current =
           (msg as Record<string, unknown>).debugBrowserTts === true ||
           urlWantsBrowserTts();
-        turnPolicyRef.current = DEFAULT_TURN_POLICY;
         const debugMode =
           (msg as Record<string, unknown>).debugMode === true;
         setStateRef.current((s) => ({
           ...s,
+          voiceSessionId: m.sessionId ?? null,
           phase: "active",
           loadingMessage: null,
           error: null,
@@ -627,24 +940,55 @@ export function useSession(options?: UseSessionOptions) {
         break;
       }
 
-      case "turn_policy":
-        turnPolicyRef.current = {
-          id:
-            (msg.id as TurnPolicy["id"] | undefined) ??
-            DEFAULT_TURN_POLICY.id,
-          expectedResponse:
-            (msg.expectedResponse as TurnPolicy["expectedResponse"] | undefined) ??
-            DEFAULT_TURN_POLICY.expectedResponse,
-          allowCaptureDuringPlayback:
-            (msg.allowCaptureDuringPlayback as boolean | undefined) ??
-            DEFAULT_TURN_POLICY.allowCaptureDuringPlayback,
-          interruptible:
-            (msg.interruptible as boolean | undefined) ??
-            DEFAULT_TURN_POLICY.interruptible,
+      case "progression":
+      case "progression_end": {
+        const childId = typeof msg.childId === "string"
+          ? msg.childId.trim().toLowerCase()
+          : "";
+        const expectedChildId = sessionChildIdRef.current;
+        if (!childId || !expectedChildId || childId !== expectedChildId) {
+          console.warn(
+            ` 🎮 [progression] [snapshot] [rejected-child] expected=${expectedChildId ?? "none"} received=${childId || "missing"}`,
+          );
+          break;
+        }
+        const level = Number(msg.level);
+        const currentXP = Number(msg.currentXP);
+        const xpToNextLevel = Number(msg.xpToNextLevel);
+        const totalXP = Number(msg.totalXP);
+        if (
+          !Number.isFinite(level) || level < 1 ||
+          !Number.isFinite(currentXP) || currentXP < 0 ||
+          !Number.isFinite(xpToNextLevel) || xpToNextLevel < 0 ||
+          !Number.isFinite(totalXP) || totalXP < 0
+        ) {
+          console.warn(" 🎮 [progression] [snapshot] [rejected]", msg);
+          break;
+        }
+        const recentTrend =
+          msg.recentTrend === "improving" || msg.recentTrend === "declining"
+            ? msg.recentTrend
+            : "stable";
+        const progression: ChildProgressionSnapshot = {
+          childId,
+          level: Math.floor(level),
+          currentXP: Math.floor(currentXP),
+          xpToNextLevel: Math.floor(xpToNextLevel),
+          totalXP: Math.floor(totalXP),
+          wordsMastered: Math.max(0, Math.floor(Number(msg.wordsMastered) || 0)),
+          totalWords: Math.max(0, Math.floor(Number(msg.totalWords) || 0)),
+          streakRecord: Math.max(0, Math.floor(Number(msg.streakRecord) || 0)),
+          recentTrend,
         };
+        setStateRef.current((s) => ({ ...s, progression }));
+        console.log(
+          ` 🎮 [progression] [snapshot] [received] level=${progression.level} totalXP=${progression.totalXP}`,
+        );
         break;
+      }
 
       case "interim":
+        confirmRecognizedSpeech((msg.text as string) ?? "");
         setStateRef.current((s) => ({
           ...s,
           interimTranscript: (msg.text as string) ?? "",
@@ -655,6 +999,7 @@ export function useSession(options?: UseSessionOptions) {
       case "final":
         {
           const text = (msg.text as string) ?? "";
+          confirmRecognizedSpeech(text);
           browserTtsAccumRef.current = "";
           if (browserTtsDebounceRef.current) {
             clearTimeout(browserTtsDebounceRef.current);
@@ -697,6 +1042,7 @@ export function useSession(options?: UseSessionOptions) {
           useBrowserTts &&
           !silenceAssist &&
           !ttsMutedRef.current &&
+          !companionSpeechMutedRef.current &&
           chunk &&
           typeof window !== "undefined" &&
           window.speechSynthesis
@@ -720,9 +1066,31 @@ export function useSession(options?: UseSessionOptions) {
         break;
       }
 
+      case "audio_start":
+        cancelPlayback();
+        playbackCanceledRef.current = false;
+        activePlaybackRequestIdRef.current = typeof msg.requestId === "string" ? msg.requestId : null;
+        playbackRequestIdRef.current = activePlaybackRequestIdRef.current;
+        playbackItemIdRef.current = typeof msg.itemId === "string" ? msg.itemId : null;
+        playbackRequiresAudioRef.current = msg.requiresAudio === true;
+        activityNarrationPendingRef.current = msg.source === "activity" || msg.requiresAudio === true;
+        if (activePlaybackRequestIdRef.current) playbackWatchdogRef.current.arm(activePlaybackRequestIdRef.current);
+        break;
+
+      case "audio_cancel":
+        playbackWatchdogRef.current.disarm();
+        cancelPlayback();
+        break;
+
       case "audio": {
-        serverDoneRef.current = false;
-        if (ttsMutedRef.current) {
+        if (playbackCanceledRef.current || (activePlaybackRequestIdRef.current &&
+          (msg.requestId !== activePlaybackRequestIdRef.current || completedPlaybackRef.current))) break;
+        receivedAudioFramesRef.current += 1;
+        playbackWatchdogRef.current.heard(activePlaybackRequestIdRef.current);
+        if (
+          (ttsMutedRef.current || companionSpeechMutedRef.current) &&
+          !activityNarrationPendingRef.current
+        ) {
           break;
         }
         if (isKaraokeReadingAssistSilence(sessionStateRef.current)) {
@@ -740,7 +1108,13 @@ export function useSession(options?: UseSessionOptions) {
       }
 
       case "audio_done":
+        if (playbackCanceledRef.current || (activePlaybackRequestIdRef.current &&
+          (msg.requestId !== activePlaybackRequestIdRef.current || completedPlaybackRef.current))) break;
+        playbackRequiresAudioRef.current = msg.requiresAudio === true;
+        playbackRequestIdRef.current = typeof msg.requestId === "string" ? msg.requestId : null;
+        playbackItemIdRef.current = typeof msg.itemId === "string" ? msg.itemId : null;
         serverDoneRef.current = true;
+        playbackWatchdogRef.current.disarm();
         finalizePlaybackRef.current();
         break;
 
@@ -1125,8 +1499,12 @@ export function useSession(options?: UseSessionOptions) {
       }
 
       case "session_ended":
-        turnPolicyRef.current = DEFAULT_TURN_POLICY;
+        sessionStartRequestRef.current = null;
+        reconnectHandshakePendingRef.current = false;
+        sessionReconnectAttemptRef.current = 0;
         setMicMuted(false);
+        setCompanionSpeechMuted(false);
+        activityNarrationPendingRef.current = false;
         setStateRef.current((s) => {
           const preservePronunciationOverlay =
             s.canvas.mode === "pronunciation" &&
@@ -1192,24 +1570,44 @@ export function useSession(options?: UseSessionOptions) {
   const startMic = useCallback(() => {
     (async () => {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          audio: {
-            channelCount: 1,
-            sampleRate: 16000,
-            echoCancellation: true,
-            noiseSuppression: true,
-            autoGainControl: true,
-          },
-        });
+        const { stream, recoveredFrom } = await openPreferredMicrophoneStream();
 
         mediaStreamRef.current = stream;
-        setStateRef.current((s) => ({ ...s, microphoneAvailable: true }));
-        stream.getAudioTracks().forEach((t) => {
+        const audioTracks = stream.getAudioTracks();
+        const selectedTrack = audioTracks[0];
+        const inputLabel = selectedTrack?.label?.trim() || "selected microphone";
+        const setupWarning =
+          `Audio check: use your Mac speakers and MacBook Air Microphone, then say hello. ` +
+          `Current input: ${inputLabel}.`;
+        micSetupWarningRef.current = setupWarning;
+        setStateRef.current((s) => ({
+          ...s,
+          microphoneAvailable: null,
+          warning: setupWarning,
+        }));
+        micInputLabelRef.current = inputLabel;
+        micSilentDurationMsRef.current = 0;
+        micAudibleFramesRef.current = 0;
+        micInputConfirmedRef.current = false;
+        micTranscriptConfirmedRef.current = false;
+        micSilentWarningRef.current = null;
+        if (recoveredFrom) {
+          console.log(
+            ` 🎮 [session-microphone] [recovery] [selected] from=${recoveredFrom} to=${inputLabel}`,
+          );
+          sendMessageRef.current("client_audio_status", {
+            event: "capture_recovered",
+            reason: inputLabel,
+            message: `Switched from ${recoveredFrom} to ${inputLabel}.`,
+          });
+        }
+        audioTracks.forEach((t) => {
           t.enabled = !micMutedRef.current;
         });
 
         const audioCtx = new AudioContext({ sampleRate: 16000 });
         micContextRef.current = audioCtx;
+        await ensureAudioContextRunning(audioCtx);
 
         const source = audioCtx.createMediaStreamSource(stream);
         const processor = audioCtx.createScriptProcessor(4096, 1, 1);
@@ -1223,59 +1621,68 @@ export function useSession(options?: UseSessionOptions) {
 
           const float32 = e.inputBuffer.getChannelData(0);
 
-          // Always convert — needed for both rolling buffer and Deepgram send
+          let sum = 0;
+          for (let i = 0; i < float32.length; i++) {
+            sum += float32[i] * float32[i];
+          }
+          const rms = Math.sqrt(sum / Math.max(1, float32.length));
+
+          if (!isPlayingRef.current && !micInputConfirmedRef.current) {
+            if (rms >= AUDIBLE_MIC_RMS_THRESHOLD) {
+              micAudibleFramesRef.current += 1;
+              micSilentDurationMsRef.current = 0;
+              if (micAudibleFramesRef.current >= AUDIBLE_MIC_FRAME_CONFIRMATION) {
+                micInputConfirmedRef.current = true;
+                console.log(
+                  ` 🎮 [session-microphone] [input] [detected] input=${micInputLabelRef.current}`,
+                );
+                sendMessageRef.current("client_audio_status", {
+                  event: "input_detected",
+                  reason: micInputLabelRef.current,
+                  message: "Audible microphone energy confirmed.",
+                });
+              }
+            } else {
+              micAudibleFramesRef.current = 0;
+              micSilentDurationMsRef.current +=
+                (float32.length / audioCtx.sampleRate) * 1000;
+              if (
+                micSilentDurationMsRef.current >= SILENT_MIC_DURATION_MS &&
+                micSilentWarningRef.current === null &&
+                isVirtualMicrophoneLabel(micInputLabelRef.current)
+              ) {
+                const warning =
+                  `I’m not hearing any sound from ${micInputLabelRef.current}. ` +
+                  "If you’re talking, choose the built-in microphone in Chrome settings.";
+                micSilentWarningRef.current = warning;
+                console.warn(
+                  ` 🎮 [session-microphone] [input] [silent] input=${micInputLabelRef.current}`,
+                );
+                sendMessageRef.current("client_audio_status", {
+                  event: "silent_input",
+                  reason: micInputLabelRef.current,
+                  message: warning,
+                });
+                setStateRef.current((s) => ({
+                  ...s,
+                  warning:
+                    s.warning === micSetupWarningRef.current || s.warning === null
+                      ? warning
+                      : s.warning,
+                }));
+              }
+            }
+          }
+
+          // Speaker energy is not proof of child speech. Do not send it to
+          // Deepgram or use it to interrupt Elli's own playback.
+          if (isPlayingRef.current) return;
+
           const int16 = new Int16Array(float32.length);
           for (let i = 0; i < float32.length; i++) {
             int16[i] = Math.max(-32768, Math.min(32767, Math.round(float32[i] * 32767)));
           }
           const base64 = arrayBufferToBase64(int16.buffer);
-
-          // Keep a ~1s rolling buffer so Deepgram gets a head start when
-          // transitioning from gated (TTS playing) to ungated.
-          rollingBufferRef.current.push(base64);
-          if (rollingBufferRef.current.length > 4) {
-            rollingBufferRef.current.shift();
-          }
-
-          if (isPlayingRef.current) {
-            let sum = 0;
-            for (let i = 0; i < float32.length; i++) sum += float32[i] * float32[i];
-            const rms = Math.sqrt(sum / float32.length);
-            const turnPolicy = turnPolicyRef.current;
-            const playbackCapture = getPlaybackCaptureConfig(turnPolicy);
-
-            if (turnPolicy.interruptible && rms > playbackCapture.rmsThreshold) {
-              // While assistant audio is still audible, speech is always treated
-              // as a barge-in candidate. The server re-opens turn-taking only
-              // after the browser confirms playback has actually finished.
-              bargeInConsecutiveRef.current++;
-              if (
-                bargeInConsecutiveRef.current >=
-                playbackCapture.consecutiveFrames
-              ) {
-                sendMessageRef.current("barge_in");
-                serverDoneRef.current = false;
-                audioQueueRef.current = [];
-                isPlayingRef.current = false;
-                if (currentSourceRef.current) {
-                  try { currentSourceRef.current.stop(); } catch { /* already stopped */ }
-                  currentSourceRef.current = null;
-                }
-                flushBufferIfUnmuted(
-                  rollingBufferRef.current,
-                  micMutedRef.current,
-                  (type, payload) =>
-                    sendMessageRef.current(type, payload as { data: string }),
-                );
-                rollingBufferRef.current = [];
-                bargeInConsecutiveRef.current = 0;
-              }
-              return;
-            }
-
-            bargeInConsecutiveRef.current = 0;
-            return;
-          }
 
           sendMessageRef.current("audio", { data: base64 });
         };
@@ -1283,12 +1690,40 @@ export function useSession(options?: UseSessionOptions) {
         source.connect(processor);
         processor.connect(silence);
         silence.connect(audioCtx.destination);
+        console.log(
+          ` 🎮 [session-microphone] [capture] [started] input=${inputLabel}`,
+        );
+        sendMessageRef.current("client_audio_status", {
+          event: "capture_started",
+          reason: inputLabel,
+          message: "Browser microphone processor running; awaiting audible input.",
+        });
       } catch (err) {
         console.error(" 🎮 [session-microphone] [access] [unavailable]", err);
+        stopMicRef.current();
+        const microphoneTimedOut =
+          err instanceof Error && err.message === "microphone_open_timed_out";
+        const contextStalled =
+          err instanceof Error && err.message.startsWith("audio_context_");
         if (micDeniedCanContinue()) {
+          const warning = microphoneTimedOut
+            ? "The microphone did not start. Use the on-screen controls or reload Sunny."
+            : contextStalled
+              ? "The microphone audio did not start. Use the on-screen controls or reload Sunny."
+            : "Microphone unavailable; on-screen controls are still available.";
+          console.warn(
+            ` 🎮 [session-microphone] [capture] [${microphoneTimedOut ? "timed-out" : "unavailable"}]`,
+          );
+          sendMessageRef.current("client_audio_status", {
+            event: microphoneTimedOut ? "capture_timed_out" : "capture_unavailable",
+            reason: microphoneTimedOut
+              ? "get_user_media_pending"
+              : contextStalled ? "audio_context_not_running" : "microphone_access_unavailable",
+            message: warning,
+          });
           setStateRef.current((s) => ({
             ...s,
-            warning: "Microphone unavailable; on-screen controls are still available.",
+            warning,
             microphoneAvailable: false,
           }));
           return;
@@ -1305,14 +1740,25 @@ export function useSession(options?: UseSessionOptions) {
   }, []);
 
   const stopMic = useCallback(() => {
+    micSilentDurationMsRef.current = 0;
+    micAudibleFramesRef.current = 0;
+    micInputConfirmedRef.current = false;
+    micTranscriptConfirmedRef.current = false;
+    micSilentWarningRef.current = null;
+    micSetupWarningRef.current = null;
     if (processorRef.current) {
+      processorRef.current.onaudioprocess = null;
       try {
         processorRef.current.disconnect();
-      } catch {}
+      } catch (err) {
+        console.warn(" 🎮 [session-microphone] [processor-disconnect] [error]", err);
+      }
       processorRef.current = null;
     }
     if (micContextRef.current) {
-      micContextRef.current.close();
+      void micContextRef.current.close().catch((err) => {
+        console.warn(" 🎮 [session-microphone] [context-close] [error]", err);
+      });
       micContextRef.current = null;
     }
     if (mediaStreamRef.current) {
@@ -1321,17 +1767,26 @@ export function useSession(options?: UseSessionOptions) {
     }
   }, []);
 
+  startMicRef.current = startMic;
   stopMicRef.current = stopMic;
 
   // --- Audio: Speaker (server → browser) ---
   // ElevenLabs sends PCM 16-bit signed mono at 24000 Hz (pcm_24000)
 
   async function playNextChunk() {
+    const epoch = playbackEpochRef.current;
     if (audioQueueRef.current.length === 0) {
       // Brief grace period before re-opening the mic — lets residual room
       // echo from the speakers dissipate so Deepgram doesn't pick it up.
       setTimeout(() => {
+        if (epoch !== playbackEpochRef.current) return;
         isPlayingRef.current = false;
+        // A streamed chunk can arrive while this grace period still owns playback.
+        if (audioQueueRef.current.length > 0) {
+          console.log(" 🎮 [session-audio] [inter-chunk-gap] [resumed]");
+          void playNextChunkRunnerRef.current().catch(error => console.error(" 🎮 [session-audio] [gap-resume] [failed]", error));
+          return;
+        }
         finalizePlaybackRef.current();
       }, 150);
       return;
@@ -1344,9 +1799,8 @@ export function useSession(options?: UseSessionOptions) {
       if (!playContextRef.current || playContextRef.current.state === "closed") {
         playContextRef.current = new AudioContext({ sampleRate: 24000 });
       }
-      if (playContextRef.current.state === "suspended") {
-        await playContextRef.current.resume();
-      }
+      await ensureAudioContextRunning(playContextRef.current);
+      if (epoch !== playbackEpochRef.current) return;
       const ctx = playContextRef.current;
       const audioBuffer = pcmToAudioBuffer(ctx, chunk);
       const source = ctx.createBufferSource();
@@ -1357,14 +1811,26 @@ export function useSession(options?: UseSessionOptions) {
       analyser.connect(ctx.destination);
       currentSourceRef.current = source;
       source.onended = () => {
+        if (epoch !== playbackEpochRef.current) return;
         if (currentSourceRef.current === source) {
           currentSourceRef.current = null;
+          playedAudioFramesRef.current += 1;
         }
         playNextChunk();
       };
       source.start();
+      const requestId = activePlaybackRequestIdRef.current;
+      if (requestId && playbackMeasuredRequestRef.current !== requestId) {
+        playbackMeasuredRequestRef.current = requestId;
+        sendMessageRef.current("client_audio_status", {event:"playback_started", requestId, itemId:playbackItemIdRef.current});
+      }
     } catch (err) {
-      console.error("PCM playback error:", err);
+      if (epoch !== playbackEpochRef.current) return;
+      console.error(" 🎮 [session-audio] [playback] [failed]", err);
+      sendMessageRef.current("client_audio_status", {
+        event: "playback_failed",
+        reason: err instanceof Error ? err.message : String(err),
+      });
       isPlayingRef.current = false;
       playNextChunk();
     }
@@ -1402,7 +1868,8 @@ export function useSession(options?: UseSessionOptions) {
   }, [karaokeAssistSilence]);
 
   useEffect(() => {
-    if (!ttsMuted) return;
+    if (!ttsMuted && !companionSpeechMuted) return;
+    if (activityNarrationPendingRef.current) return;
     audioQueueRef.current = [];
     if (currentSourceRef.current) {
       try {
@@ -1421,7 +1888,7 @@ export function useSession(options?: UseSessionOptions) {
     if (typeof window !== "undefined" && window.speechSynthesis) {
       window.speechSynthesis.cancel();
     }
-  }, [ttsMuted]);
+  }, [companionSpeechMuted, ttsMuted]);
 
   useEffect(() => {
     if (state.phase !== "active") return;
@@ -1437,7 +1904,12 @@ export function useSession(options?: UseSessionOptions) {
   const startSession = useCallback(
     (
       childName: string,
-      options?: { diagKiosk?: boolean; silentTts?: boolean; sttOnly?: boolean },
+      options?: {
+        diagKiosk?: boolean;
+        silentTts?: boolean;
+        sttOnly?: boolean;
+        homeworkId?: string;
+      },
     ) => {
       primePlaybackAudioContext();
       setState((s) => ({
@@ -1448,13 +1920,25 @@ export function useSession(options?: UseSessionOptions) {
         warning: null,
         microphoneAvailable: null,
         diagGameSessionReady: false,
+        progression: null,
       }));
       connect();
 
       const diagKiosk = options?.diagKiosk === true;
       const silentTts = options?.silentTts === true;
       const sttOnly = options?.sttOnly === true;
+      const homeworkId = options?.homeworkId?.trim() || undefined;
       const wsChild = diagKiosk ? "creator" : childName;
+      sessionChildIdRef.current = wsChild.trim().toLowerCase();
+      sessionStartRequestRef.current = {
+        child: wsChild,
+        diagKiosk,
+        silentTts,
+        sttOnly,
+        ...(homeworkId ? { homeworkId } : {}),
+      };
+      sessionReconnectAttemptRef.current = 0;
+      reconnectHandshakePendingRef.current = false;
 
       if (sessionStartPollRef.current) {
         clearInterval(sessionStartPollRef.current);
@@ -1477,7 +1961,9 @@ export function useSession(options?: UseSessionOptions) {
             ...(diagKiosk ? { diagKiosk: true } : {}),
             ...(silentTts ? { silentTts: true } : {}),
             ...(sttOnly ? { sttOnly: true } : {}),
+            ...(homeworkId ? { homeworkId } : {}),
           });
+          armSessionHandshakeTimeout(wsRef.current);
           startMic();
         }
       }, 100);
@@ -1488,6 +1974,7 @@ export function useSession(options?: UseSessionOptions) {
           sessionStartPollRef.current = null;
         }
         sessionStartTimeoutRef.current = null;
+        sessionStartRequestRef.current = null;
         setStateRef.current((s) => ({
           ...s,
           error: "Connection timeout",
@@ -1501,47 +1988,43 @@ export function useSession(options?: UseSessionOptions) {
         }));
       }, 10000);
     },
-    [connect, sendMessage, startMic]
+    [armSessionHandshakeTimeout, connect, sendMessage, startMic]
   );
 
   const bargeIn = useCallback(() => {
     sendMessage("barge_in");
-    serverDoneRef.current = false;
-    audioQueueRef.current = [];
-    isPlayingRef.current = false;
-    if (currentSourceRef.current) {
-      try { currentSourceRef.current.stop(); } catch { /* already stopped */ }
-      currentSourceRef.current = null;
-    }
-    flushBufferIfUnmuted(
-      rollingBufferRef.current,
-      micMutedRef.current,
-      sendMessage,
-    );
-    rollingBufferRef.current = [];
-    bargeInConsecutiveRef.current = 0;
-  }, [sendMessage]);
+    cancelPlayback();
+  }, [sendMessage, cancelPlayback]);
 
   const endSession = useCallback(() => {
     // Stop mic immediately — don't wait for the server session_ended round-trip.
     stopMicRef.current();
-    audioQueueRef.current = [];
-    isPlayingRef.current = false;
-    serverDoneRef.current = false;
-    if (currentSourceRef.current) {
-      try { currentSourceRef.current.stop(); } catch { /* already stopped */ }
-      currentSourceRef.current = null;
+    cancelPlayback();
+    sessionStartRequestRef.current = null;
+    reconnectHandshakePendingRef.current = false;
+    if (sessionReconnectTimerRef.current) {
+      clearTimeout(sessionReconnectTimerRef.current);
+      sessionReconnectTimerRef.current = null;
     }
     sendMessage("end_session");
-  }, [sendMessage]);
+  }, [sendMessage, cancelPlayback]);
 
   const toggleMicMute = useCallback(() => {
-    setMicMuted((m) => {
-      const next = !m;
-      sendMessage("set_mute", { muted: next });
-      return next;
-    });
+    const next = !micMutedRef.current;
+    micMutedRef.current = next;
+    setMicMuted(next);
+    sendMessage("set_mute", { muted: next });
+    sendMessage("client_audio_status", {event:"microphone_mute",muted:next});
   }, [sendMessage]);
+
+  const toggleCompanionSpeechMute = useCallback(() => {
+    const next = !companionSpeechMutedRef.current;
+    companionSpeechMutedRef.current = next;
+    setCompanionSpeechMuted(next);
+    sendMessageRef.current("client_audio_status", {event:"companion_speech_mute",muted:next,
+      requestId:activePlaybackRequestIdRef.current, speaking:isPlayingRef.current});
+    console.log(` 🎮 [session-audio] [companion-speech] [${next ? "quiet" : "audible"}]`);
+  }, []);
 
   useEffect(() => {
     mediaStreamRef.current?.getAudioTracks().forEach((t) => {
@@ -1554,22 +2037,21 @@ export function useSession(options?: UseSessionOptions) {
       clearTimeout(storyImageWatchdogRef.current);
       storyImageWatchdogRef.current = null;
     }
-    turnPolicyRef.current = DEFAULT_TURN_POLICY;
+    sessionChildIdRef.current = null;
+    sessionStartRequestRef.current = null;
+    reconnectHandshakePendingRef.current = false;
+    sessionReconnectAttemptRef.current = 0;
+    if (sessionReconnectTimerRef.current) {
+      clearTimeout(sessionReconnectTimerRef.current);
+      sessionReconnectTimerRef.current = null;
+    }
     setMicMuted(false);
     setTtsMuted(false);
+    setCompanionSpeechMuted(false);
     setMapNodeType(null);
-    audioQueueRef.current = [];
-    isPlayingRef.current = false;
-    serverDoneRef.current = false;
-    if (currentSourceRef.current) {
-      try {
-        currentSourceRef.current.stop();
-      } catch {
-        /* already stopped */
-      }
-      currentSourceRef.current = null;
-    }
+    cancelPlayback();
     setState({
+      voiceSessionId: null,
       phase: "picker",
       childName: null,
       companion: null,
@@ -1601,11 +2083,12 @@ export function useSession(options?: UseSessionOptions) {
       sessionBootReady: false,
       firstAudioChunkReceived: false,
       companionPresence: "collapsed",
+      progression: null,
     });
     wsRef.current?.close();
     wsRef.current = null;
     stopMic();
-  }, [stopMic]);
+  }, [stopMic, cancelPlayback]);
 
   useEffect(() => {
     function handleGameMessage(e: MessageEvent) {
@@ -1621,6 +2104,7 @@ export function useSession(options?: UseSessionOptions) {
           "round_failed",
           "game_complete",
           "game_state_update",
+          "narration_request",
           "companion_event",
           "attempt_event",
         ].includes(t)
@@ -1634,27 +2118,42 @@ export function useSession(options?: UseSessionOptions) {
   }, []);
 
   useEffect(() => {
+    if (deferredUnmountCleanupRef.current) {
+      clearTimeout(deferredUnmountCleanupRef.current);
+      deferredUnmountCleanupRef.current = null;
+    }
     return () => {
-      if (storyImageWatchdogRef.current) {
-        clearTimeout(storyImageWatchdogRef.current);
-        storyImageWatchdogRef.current = null;
-      }
-      if (sessionStartPollRef.current) {
-        clearInterval(sessionStartPollRef.current);
-        sessionStartPollRef.current = null;
-      }
-      if (sessionStartTimeoutRef.current) {
-        clearTimeout(sessionStartTimeoutRef.current);
-        sessionStartTimeoutRef.current = null;
-      }
-      stopMic();
-      if (playContextRef.current) {
-        playContextRef.current.close();
-        playContextRef.current = null;
-      }
-      resetAudioAnalyser();
-      analyserNodeRef.current = null;
-      wsRef.current?.close();
+      // React StrictMode performs an immediate cleanup/remount in development.
+      // Defer irreversible session teardown one task so that remount can cancel it.
+      deferredUnmountCleanupRef.current = setTimeout(() => {
+        deferredUnmountCleanupRef.current = null;
+        if (storyImageWatchdogRef.current) {
+          clearTimeout(storyImageWatchdogRef.current);
+          storyImageWatchdogRef.current = null;
+        }
+        if (sessionStartPollRef.current) {
+          clearInterval(sessionStartPollRef.current);
+          sessionStartPollRef.current = null;
+        }
+        if (sessionStartTimeoutRef.current) {
+          clearTimeout(sessionStartTimeoutRef.current);
+          sessionStartTimeoutRef.current = null;
+        }
+        sessionStartRequestRef.current = null;
+        reconnectHandshakePendingRef.current = false;
+        if (sessionReconnectTimerRef.current) {
+          clearTimeout(sessionReconnectTimerRef.current);
+          sessionReconnectTimerRef.current = null;
+        }
+        stopMic();
+        if (playContextRef.current) {
+          playContextRef.current.close();
+          playContextRef.current = null;
+        }
+        resetAudioAnalyser();
+        analyserNodeRef.current = null;
+        wsRef.current?.close();
+      }, 0);
     };
   }, [stopMic]);
 
@@ -1717,6 +2216,8 @@ export function useSession(options?: UseSessionOptions) {
     sendMessage,
     micMuted,
     toggleMicMute,
+    companionSpeechMuted,
+    toggleCompanionSpeechMute,
     setCompanionPresence,
     registerMapNodeType,
     companionEvents: state.companionEvents,

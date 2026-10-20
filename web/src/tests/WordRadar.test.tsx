@@ -56,6 +56,15 @@ describe("WordRadar", () => {
     cleanup();
   });
 
+  it("reports a captured practice answer without entering assessment mode", async () => {
+    const onAssessmentAttempt=vi.fn();
+    const {props,rerender}=renderRadar({practiceCapture:true,onAssessmentAttempt,items:[{itemId:"i1",display:"sun",acceptedResponses:["sun"]}]});
+    await startRadar();
+    rerender(<WordRadar {...props} interimTranscript="sun" />);
+    await act(async()=>{await Promise.resolve();});
+    expect(onAssessmentAttempt).toHaveBeenCalledWith(expect.objectContaining({itemIndex:0,attemptedValue:"sun",skipped:false}));
+  });
+
   it("autoStart=true skips intro and moves to flash without a button click", async () => {
     renderRadar({ autoStart: true });
     await act(async () => {
@@ -80,6 +89,16 @@ describe("WordRadar", () => {
     renderRadar({ inputMode: "letter-by-letter", voiceCaptureAvailable: false });
     expect(screen.getByTestId("word-radar-mode-label").textContent).toContain("Type the word");
     await startRadar();
+    expect(screen.getByTestId("word-radar-keyboard")).toBeTruthy();
+    expect(screen.getByRole("textbox", { name: "Type the word" })).toBeTruthy();
+  });
+
+  it("keeps an on-screen letter fallback available when spoken letters are not captured", async () => {
+    // Human catch: Ila spoke each letter, but no transcript reached Word Radar,
+    // leaving empty tiles and no way to continue despite a healthy connection log.
+    renderRadar({ inputMode: "letter-by-letter", voiceCaptureAvailable: true });
+    await startRadar();
+
     expect(screen.getByTestId("word-radar-keyboard")).toBeTruthy();
     expect(screen.getByRole("textbox", { name: "Type the word" })).toBeTruthy();
   });
@@ -208,6 +227,7 @@ describe("WordRadar", () => {
           wordRadarConfig,
           target: "sun",
           phase: "response",
+          speechCaptureArmed: true,
           visibleState: expect.objectContaining({
             wordVisible: false,
             slotsVisible: true,
@@ -350,6 +370,9 @@ describe("WordRadar", () => {
     expect(
       screen.getByTestId("word-radar-starfield").querySelectorAll(".wr-star"),
     ).toHaveLength(55);
+    const shootingStars = screen.getAllByTestId("word-radar-shooting-star");
+    expect(shootingStars).toHaveLength(4);
+    expect(shootingStars.map((star) => star.style.top)).toEqual(["4%", "8%", "12%", "16%"]);
   });
 
   it("renders intro then flash for 1500ms then transitions to response", async () => {
@@ -399,6 +422,8 @@ describe("WordRadar", () => {
   it("progress dots count matches items.length", () => {
     renderRadar();
     expect(screen.getAllByTestId("word-radar-progress-dot")).toHaveLength(2);
+    expect(screen.getAllByTestId("word-radar-progress-dot")[0]).toHaveAttribute("data-current", "true");
+    expect(screen.getByTestId("word-radar-progress-label")).toHaveTextContent("Word 1 of 2");
   });
 
   it("visually separates bonus review words from regular homework words", async () => {
@@ -531,6 +556,34 @@ describe("WordRadar", () => {
     expect(narrationCalls).toHaveLength(1);
   });
 
+  it("keeps Hear disabled through the child-visible playback window", async () => {
+    // Human catch: Reina heard the opening word twice after tapping while waiting.
+    // Logs caught two successful TTS calls but did not identify the second tap as
+    // accidental. The lab only double-clicked synchronously, so its 900ms debounce
+    // test missed a realistic second tap just over one second later.
+    const sendMessage = vi.fn();
+    renderRadar({ timerSeconds: 10, sendMessage, childId: "reina" });
+    await startRadar();
+
+    const hear = screen.getByTestId("word-radar-mic");
+    fireEvent.click(hear);
+    expect(hear).toBeDisabled();
+    expect(hear).toHaveTextContent("Playing…");
+
+    await act(async () => {
+      vi.advanceTimersByTime(1_100);
+    });
+    fireEvent.click(hear);
+
+    expect(gameEventPayloads(sendMessage, "narration_request")).toHaveLength(1);
+
+    await act(async () => {
+      vi.advanceTimersByTime(2_000);
+    });
+    expect(hear).not.toBeDisabled();
+    expect(hear).toHaveTextContent("Hear again");
+  });
+
   it("does not automatically request word audio during hidden visual recall", async () => {
     const sendMessage = vi.fn();
     renderRadar({
@@ -552,10 +605,15 @@ describe("WordRadar", () => {
     );
   });
 
-  it("option-b listen flash waits for explicit hear click instead of auto narration", async () => {
+  it("binds the first hidden word before one Hear tap requests its audio", async () => {
+    // Human catch: the child tapped Hear but heard nothing because autoplay raced item binding.
+    // Log miss: the rejected automatic request looked like a provider/audio failure.
+    // Lab miss: the test expected autoplay, which browsers may block before a child gesture.
     const sendMessage = vi.fn();
     renderRadar({
+      items: [{ ...sampleItems[0]!, itemId: "homework:discovery:item-1" }],
       autoStart: true,
+      assessmentMode: true,
       recallMode: "hidden_word_recall",
       speakStyle: "option-b",
       sendMessage,
@@ -573,12 +631,35 @@ describe("WordRadar", () => {
       );
 
     expect(narrationCalls()).toHaveLength(0);
+    fireEvent.click(screen.getByRole("button", { name: "Hear the word" }));
+
+    expect(narrationCalls()).toEqual([
+      expect.arrayContaining([
+        "game_event",
+        expect.objectContaining({
+          event: expect.objectContaining({
+            type: "narration_request",
+            payload: expect.objectContaining({
+              word: "sun",
+              reason: "word_radar_mic_click",
+            }),
+          }),
+        }),
+      ]),
+    ]);
+
+    const eventTypes = sendMessage.mock.calls
+      .filter(([type]) => type === "game_event")
+      .map(([, payload]) => (payload as { event?: { type?: string; payload?: { progress?: string } } }).event)
+      .filter(event => event?.type === "narration_request" || event?.payload?.progress === "Word Radar target state.")
+      .map(event => event?.type);
+    expect(eventTypes).toEqual(["game_state_update", "narration_request"]);
 
     await act(async () => {
       vi.advanceTimersByTime(1500);
     });
 
-    expect(narrationCalls()).toHaveLength(0);
+    expect(narrationCalls()).toHaveLength(1);
   });
 
   it("microphone click plays current word audio in Storybook local preview", async () => {
@@ -940,6 +1021,22 @@ describe("WordRadar", () => {
     expect(tiles[0]).toHaveStyle({ minWidth: "44px", minHeight: "60px" });
   });
 
+  it("keeps an on-screen response path for a legacy partial-recall whole-word node", async () => {
+    renderRadar({
+      recallMode: "partial_visual_recall",
+      inputMode: "whole-word",
+      speakStyle: "option-a",
+      hideWordDuringResponse: true,
+      requiresCapturedResponse: true,
+      voiceCaptureAvailable: true,
+      timerSeconds: 10,
+    });
+    await startRadar();
+
+    expect(screen.getByTestId("word-radar-keyboard")).toBeInTheDocument();
+    expect(screen.getByTestId("word-radar-input")).toBeEnabled();
+  });
+
   it("letter tiles rendered during response when speakStyle=option-a", async () => {
     renderRadar({ speakStyle: "option-a", timerSeconds: 10 });
     await startRadar();
@@ -975,6 +1072,58 @@ describe("WordRadar", () => {
       "",
       "",
     ]);
+  });
+
+  it("echoes captured letters in visible-read practice without revealing the answer", async () => {
+    const sendMessage = vi.fn();
+    const onComplete = vi.fn();
+    const props = {
+      items: sampleItems,
+      interimTranscript: "",
+      sendMessage,
+      inputMode: "whole-word" as const,
+      recallMode: "visible_read" as const,
+      practiceCapture: true,
+      speakStyle: "option-a" as const,
+      personalBests: {},
+      onComplete,
+    };
+    const { rerender } = render(<WordRadar {...props} />);
+    await startRadar();
+    expect(screen.queryByTestId("word-radar-visible-word")).toBeNull();
+    expect(screen.getByTestId("word-radar-keyboard")).toBeInTheDocument();
+    expect(gameEventPayloads(sendMessage, "game_state_update").find(row => row.phase === "config_audit"))
+      .toMatchObject({ spokenLetterConstruction: true });
+    rerender(<WordRadar {...props} interimTranscript="s" />);
+    expect(screen.getAllByTestId("word-radar-letter-tile").map(node => node.textContent)).toEqual(["s", "", ""]);
+    expect(gameEventPayloads(sendMessage, "game_state_update").find(row => row.progress === 'Heard "s"'))
+      .toMatchObject({ answerVisibility: "hidden" });
+    rerender(<WordRadar {...props} interimTranscript="s u" />);
+    expect(screen.getAllByTestId("word-radar-letter-tile").map(node => node.textContent)).toEqual(["s", "u", ""]);
+    expect(onComplete).not.toHaveBeenCalled();
+    rerender(<WordRadar {...props} interimTranscript="ess you" />);
+    expect(screen.getAllByTestId("word-radar-letter-tile").map(node => node.textContent)).toEqual(["s", "u", ""]);
+    rerender(<WordRadar {...props} interimTranscript="n" />);
+    expect(screen.getByTestId("word-radar-phase").textContent).toBe("feedback");
+  });
+
+  it("keeps spoken-letter previews out of hidden recall", async () => {
+    const props = {
+      items: sampleItems,
+      interimTranscript: "",
+      sendMessage: vi.fn(),
+      inputMode: "whole-word" as const,
+      recallMode: "hidden_word_recall" as const,
+      speakStyle: "option-b" as const,
+      practiceCapture: true,
+      personalBests: {},
+      onComplete: vi.fn(),
+    };
+    const { rerender } = render(<WordRadar {...props} />);
+    await startRadar();
+    rerender(<WordRadar {...props} interimTranscript="s" />);
+    expect(screen.queryAllByTestId("word-radar-letter-tile")).toHaveLength(0);
+    expect(screen.queryByTestId("word-radar-visible-word")).toBeNull();
   });
 
   it("partial_visual_recall mode hides the full word and labels scaffold as a length hint", async () => {

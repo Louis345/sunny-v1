@@ -1146,6 +1146,27 @@ export type EvidenceBasedContentDecision = {
   evidenceIds: string[];
 };
 
+export function validateEvidenceBasedContentDecisions(
+  decisions: EvidenceBasedContentDecision[], catalogIds: ReadonlySet<string>, allowedEvidenceIds: ReadonlySet<string>,
+): void {
+  assertContentDecisionShape(decisions);
+  for (const decision of decisions) {
+    if (!catalogIds.has(decision.contentId)) throw new Error(`math_catalog_decision_unknown_content:${decision.contentId}`);
+    if (!decision.reason.trim()) throw new Error(`math_catalog_decision_reason_missing:${decision.contentId}`);
+    if (decision.evidenceIds.length === 0 || decision.evidenceIds.some((id) => !allowedEvidenceIds.has(id))) {
+      throw new Error(`math_catalog_decision_invalid_evidence:${decision.contentId}`);
+    }
+  }
+}
+
+export function assertContentDecisionShape(value:unknown): asserts value is EvidenceBasedContentDecision[] {
+  if(!Array.isArray(value) || value.some(item=>!item || typeof item!=='object' || Array.isArray(item)
+    || ['contentId','action','reason'].some(key=>typeof item[key]!=='string')
+    || !Array.isArray(item.evidenceIds) || !item.evidenceIds.every((id:unknown)=>typeof id==='string'))) {
+    throw new Error('canonical_progression_invalid_content_patch');
+  }
+}
+
 export function applyEvidenceBasedMathContentDecisions(
   childId: string,
   decisions: EvidenceBasedContentDecision[],
@@ -1155,13 +1176,7 @@ export function applyEvidenceBasedMathContentDecisions(
   const rootDir = opts.rootDir ?? process.cwd();
   const profile = readProfile(rootDir, childId);
   const catalogIds = new Set((profile.aiContentCatalog ?? []).map((item) => item.contentId));
-  for (const decision of decisions) {
-    if (!catalogIds.has(decision.contentId)) throw new Error(`math_catalog_decision_unknown_content:${decision.contentId}`);
-    if (!decision.reason.trim()) throw new Error(`math_catalog_decision_reason_missing:${decision.contentId}`);
-    if (decision.evidenceIds.length === 0 || decision.evidenceIds.some((id) => !allowedEvidenceIds.has(id))) {
-      throw new Error(`math_catalog_decision_invalid_evidence:${decision.contentId}`);
-    }
-  }
+  validateEvidenceBasedContentDecisions(decisions, catalogIds, allowedEvidenceIds);
   const byId = new Map(decisions.map((decision) => [decision.contentId, decision]));
   const nextProfile: LearningProfile = {
     ...profile,

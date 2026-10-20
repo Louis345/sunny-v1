@@ -1,236 +1,54 @@
-Organic first: Sunny is an adaptive learning system, so code must route truth, evidence, and safety while Elli handles human conversation from live context instead of canned scripted responses.
+Organic first: Sunny is an adaptive learning system, so code must route truth, evidence, and safety while Elli handles human conversation from live context instead of canned scripted responses. Follow [AI_DESIGN_PRINCIPLES.md](./AI_DESIGN_PRINCIPLES.md): more freedom, less constraint, more introspection. PRs must explain how the change follows or conflicts with these principles, show source evidence and tests, invite open reviewer challenges, and record learning-record checks and human acceptance at the tested revision. Record manager approval when the human requires it. The current workflow is local fixes and regression checks → committed first human test → PR with results → Opus challenge and fixes → second human test and regression checks → explicit human merge approval.
 Every human-caught child-session bug must become a lab invariant: explain why the human caught it, why logs did or did not catch it, and why the AI lab missed it.
+Diagnose before you fix: for a human-caught bug, post the decision chain that produced it (evidence → Planner → activity settings → component) and name the earliest wrong decision, with its evidence, before any code or test. Make no edits until the human confirms the diagnosis. The regression test states the intended behavior at that layer, not the symptom. If the component did the right thing with its inputs, the component is not the fix. When intent is unclear, ask why instead of choosing the easiest change.
 
 Required learning authority: read [`LEARNING_FEEDBACK_LOOP.md`](./LEARNING_FEEDBACK_LOOP.md) before changing learning evidence, prediction, theory, or adaptation behavior. It is the sole normative learning-loop contract.
 
-# Project Sunny — AI Agent Context
+# Sunny: rules for AI agents
 
-## Your Project: Sunny
+Sunny is a voice-first learning companion for two girls, Reina and Ila, running as a kiosk on the family Mac (Saori). Elli is their AI companion. Old law numbers are kept in brackets because other files refer to them.
 
-**Sunny** is a voice-based AI study assistant for the developer's daughters. It uses:
+## How to work
 
-- Anthropic Claude for conversation
-- ElevenLabs for real-time text-to-speech
-- Profile-based sessions (Elli, Matilda, Reina) with custom system prompts
+1. **Tests first [Law 1].** Write the test, run it red, then implement until green; outside an approved autonomous milestone, report the red tests and wait for "implement". For a bug, the test states the intended behavior at the layer named in the confirmed diagnosis, not the symptom. Never skip, weaken or delete a test to get green.
+2. **Stay in scope [Laws 3, 6].** One problem per commit; log unrelated discoveries in `BUGS.md` instead of fixing them. Before changing architecture, or more than two files outside an approved plan, show the plan and wait for approval.
+3. **No silent failures [Law 4].** Every promise is handled and every intentional ignore is logged.
+4. **Prove it in the log [Law 5].** Significant state changes log as ` 🎮 [component] [action] [result]`.
+5. **Prove it before handing over [Law 7].** `npm run build` and the relevant tests must pass. Say plainly what was and was not verified, including what only a real session on Saori can prove.
 
-Primary code: `src/index.ts`, `src/sunny.ts`, `src/stream-speak.ts`, `src/profiles.ts`.
+## Planner is the artist; the board is the canvas
 
----
+The AI Planner owns the learning journey. The board is a blank canvas and its nodes are portals to activities. Code gives the Planner expressive tools and faithfully executes the accepted design; it must not become a competing educational planner.
 
-## Reference Project: agents-v2
+- **Planner authority:** The Planner chooses activities, sequence, alternatives, prerequisites, convergence, labels, activity configurations and evidence relationships from the child chart and available capabilities. The existing Experience Creator owns artwork, palette, portal positions and edge geometry/styles while preserving those frozen semantics. Their outputs assemble one immutable board definition; neither adds another planning authority or production path.
+- **Canvas responsibility:** Prepared spelling Teaching/successor activities are selectable without sequence locks; the authored path recommends an order. Preserve unavailable-activity checks and actual completion/evidence. Render the declared nodes, connections, choices, and arrangement; launch their bound activities and reflect truthful runtime state. Do not infer a different journey from fixed slots, delete choices, reorder activities, invent branches, or require branch-exclusive activities merely to satisfy a renderer. Different sequences through shared activities can express a meaningful choice.
+- **One executable contract:** Planner tools and runtime share the same versioned contract. Check references, supported capabilities, readiness, provenance, and execution safety at the tool boundary before publication. Never silently repair educational meaning. Contract-valid designs must execute faithfully.
+- **The canvas has no logic (spelling Teaching boards):** A painter's canvas does not reject the painter. The Planner authors the journey once, as a sequence (`opening`, optional `choice`, `closing`); code expands it into portals, paths and connections mechanically and derives planned checkpoint lineage. Planned lineage is context only; actual exposure claims come from recorded presentation and response events. The Experience Creator is Sunny's map artist and should give every board a new design: it places stops freely (no grid or prescribed lanes), names its pattern, picks a theme preset, chooses a curve and style for each path, is told the real portal sizes and the patterns of her earlier boards, may look at the real render at 1280×720 and 768×1024 at most twice before it submits, and its submission is published exactly as submitted. Code places only the portals the artist left out, on a plain logged fallback layout; a refused or unreadable artist reply publishes its last look or, without one, the plain layout. No artist failure withholds a board. Code never rejects a map for overlap, contrast or layout, never sends Planner or Creator work back for correction, and never blocks publishing. A bad map or plan is the author's fault, visible in the saved screenshots and generation report, and judged by the human.
+- **Truth checks degrade one portal:** Target words must be her assigned words, evidence IDs must exist, and activity types and native configurations must be supported. A failure never regenerates anything: the board still publishes, that one portal shows "Not ready" and is passed over, and the failure is logged as ` 🎮 [board] [portal] [not-ready] reason=...`.
+- **Paths not yet migrated:** Math, Discovery, successor and legacy-planner boards keep their existing layout verification and bounded correction until each is given the preview tool. Do not remove a path's check before its author can see its own work.
+- **Elli's role:** Give Elli live displayed state, available choices, and loading facts so she can converse naturally. Code must not prescribe canned decision dialogue. Record choice as engagement evidence, separately from academic outcomes, under `LEARNING_FEEDBACK_LOOP.md`.
+- **Accountability:** Wrong instructional intent belongs to the Planner; unfaithful rendering or navigation belongs to runtime; mismatched tool/runtime expectations belong to the shared contract. Diagnose the earliest responsible layer instead of blaming the Planner for implementation limits.
+- **Refactor by deletion:** Replace and remove competing topology inference, cosmetic-route dropping, fixed pedagogical slot rules, and redundant adapters. Prefer net deletion in the affected production path; report what was removed, what remains, and why. Do not chase a deletion quota by removing evidence, safety, readiness, or recovery guarantees. Acceptance must compare the authored journey with the rendered and traversable journey, including a real sandbox evaluation-to-board run.
 
-A copy of the [Frontend Masters AI Agents v2](https://github.com/Hendrixer/agents-v2) course repo lives at `_reference/agents-v2/`. Use it when the user gets stuck on agent concepts or wants to apply patterns from the course.
+## Preserve the approved experience
 
-### When to use the reference
+Planner authority over pedagogy and composition does not authorize removing established product presentation. Preserve Sunny's illustrated Grok world, inviting portal styling, animated paths, readable landscape progression, and meaningful child agency when academically valid. Supply that brief and available artwork to the Planner; do not invent choices or enforce an activity count in the renderer. Diagnose any proposed visual downgrade and obtain explicit human agreement before changing this experience. Compare authored output and rendered kiosk screenshots to this brief before handover; geometry and unit tests alone do not establish visual quality.
 
-- **Agent patterns**: tools, tool execution, context management, message filtering
-- **Architecture**: `src/agent/run.ts`, `src/agent/executeTool.ts`, `src/agent/tools/`
-- **Token/context handling**: `src/agent/context/` (compaction, model limits, token estimation)
+## Hard boundaries
 
-### Reference layout
+- **Human acceptance before merge.** Do not merge a PR until a human has run the relevant acceptance test, reviewed the results and reviewer approvals, and explicitly authorized merging the current PR revision. Green CI and AI reviewer approval alone are insufficient. Record the tested commit and human approval in the PR; new behavior changes require renewed human acceptance. For child-facing voice or learning changes, use the canonical visible kiosk session described below.
+- **Kiosk-only human sessions.** Start every child, parent, or Saori acceptance session through the canonical `npm run sunny:run -- ...` kiosk launcher, without `--no-browser`. Never substitute an ordinary Chrome tab or reconnect a human test through a tab. `--no-browser` is only for explicitly automated or headless verification and must never be handed to a human tester. Before saying a human session is ready, require the log invariant `🎮 [kiosk] [kiosk-visible] [confirmed]` and verify the dedicated kiosk is visible; if that invariant fails, stop and fix the kiosk launch instead of using a browser fallback.
+- **Learning contract [Laws 13, 14].** `LEARNING_FEEDBACK_LOOP.md` is the only authority for the learning loop. Sunny is accountable to reality, not vibes; every activity is a measurement instrument first and a game second, and private game scores or synthetic learning claims are forbidden.
+- **Child chart is the decision doorway [Law 12].** New Planner, generator, care-plan and adaptive decision code starts from `getChildChart(childId)`, never from raw profile, word-bank, homework, attempt or vitals files (low-level IO adapters for the chart excepted).
+- **Math Prompt Chain Boundary:** Math has one production ingestion path: assignment and child chart → Planner → Experience Creator → Playwright runtime verification. The only AI roles are the Planner and Experience Creator. No new math production module, model call, fallback, renderer, or pipeline may be added without explicit human approval. New abstractions must replace an existing one in the same change, and math hot-path production line count must remain neutral or decrease. Code owns truth, provenance, lifecycle safety, and runtime behavior; AI owns activity count, item count, pedagogy, mechanics, themes, and response format.
+- **Real children's data.** Never modify Reina's or Ila's data or charts from tests, labs or verification. No paid provider calls in verification unless the human approves them.
+- **No unbounded loops [Law 2].** Recursion, listeners and polling need a proven exit and a guard, with a test that checks it.
 
-```
-_reference/agents-v2/
-├── src/
-│   ├── agent/
-│   │   ├── tools/      # webSearch, shell, file, codeExecution
-│   │   ├── context/    # compaction, model limits, token estimator
-│   │   ├── system/     # prompt, filterMessages
-│   │   ├── run.ts
-│   │   └── executeTool.ts
-│   ├── cli.ts
-│   └── index.ts
-└── evals/              # evaluation patterns
-```
+## Autonomous milestones
 
-### How to use it
+When the human approves a defined milestone to run unattended (for example "finish this while I sleep"), that approval covers its files and its red-green steps without stopping at each one. It does not cover broader scope, destructive operations, publishing, or weakening child-safety or evidence rules. Use bounded attempts, preserve diagnostics, and stop with a precise blocker when credentials, providers or an unmade product decision block progress. Human-caught bugs still need a confirmed diagnosis first.
 
-1. **Primary focus**: Work in the Sunny codebase (`src/`). Do not modify `_reference/agents-v2/`.
-2. **When stuck**: If the user asks about agent tools, tool loops, context windows, or course concepts, read from `_reference/agents-v2/src/agent/` for patterns and apply them to Sunny.
-3. **Learning by building**: Suggest adapting course patterns into Sunny rather than copying code as-is.
+## More context
 
-Give Cursor this to add to AGENTS.md:
-
-## Development Laws
-
-**Math Prompt Chain Boundary:** Math has one production ingestion path: assignment and child chart → Planner → Experience Creator → Playwright runtime verification. The only AI roles are the Planner and Experience Creator. No new math production module, model call, fallback, renderer, or pipeline may be added without explicit human approval. New abstractions must replace an existing one in the same change, and math hot-path production line count must remain neutral or decrease. Code owns truth, provenance, lifecycle safety, and runtime behavior; AI owns activity count, item count, pedagogy, mechanics, themes, and response format.
-
-### Autonomous Milestone Mode
-
-When the human explicitly approves a defined milestone and asks the agent to work unattended (for example, "finish this while I sleep" or "run without checkpoints"), that approval covers the complete stated milestone.
-
-In autonomous milestone mode:
-
-- Follow red-green testing, but do not pause after reporting red tests; continue directly to implementation and green verification.
-- Change all files required by the approved architecture without asking again solely because the change spans more than two files.
-- Fix all blockers discovered inside the approved milestone instead of stopping after the first bug.
-- Send concise progress updates, but treat them as informational rather than approval checkpoints.
-- Do not broaden scope beyond the approved milestone, perform destructive operations, publish changes, or weaken child-safety/evidence boundaries without separate authorization.
-- Finish with the build, relevant tests, one end-to-end acceptance run, and an honest human-test readiness result.
-
-An unattended request is not permission to loop indefinitely. Use bounded attempts, preserve diagnostics, and stop with a precise blocker when external credentials, provider availability, or an unapproved product decision makes further progress impossible.
-
-### Law 1: Tests First
-
-Before writing any implementation:
-
-1. Write the test file
-2. Run the tests — they must FAIL (red)
-3. Report failing tests to the human
-4. Wait for human to say "implement" unless autonomous milestone mode is active
-5. Then write implementation
-6. Tests must pass green before PR
-
-Never skip this. Not for bug fixes.
-Not for "small" changes. Not for hotfixes.
-A failing test is proof the bug exists.
-A passing test is proof the fix works.
-
-### Law 2: No Infinite Loops
-
-Before any recursive call or event listener:
-
-- Prove the exit condition
-- Add a counter guard: if (count > 10) throw
-- Test must verify call count
-
-### Law 3: One Change At A Time
-
-Never fix multiple bugs in one commit.
-One bug → one test → one fix → one commit.
-If you find other bugs while fixing —
-log them to BUGS.md and stop.
-
-In autonomous milestone mode, related blockers in the approved end-to-end path may be fixed in sequence without stopping. Keep each red-green change independently understandable and log unrelated discoveries to `BUGS.md`.
-
-### Law 4: No Silent Failures
-
-Every promise chain must have .catch()
-Every void must be intentional and logged
-No swallowed errors ever
-
-### Law 5: Prove It In The Log
-
-Every significant state change must log.
-If it doesn't appear in the terminal
-it didn't happen.
-Format: " 🎮 [component] [action] [result]"
-
-### Law 6: Ask Before Architecting
-
-If a fix requires changing more than 2 files
-STOP and ask the human first.
-Show the plan. Get approval. Then build.
-
-The human's approval of a named architecture or autonomous milestone satisfies this law for files required by that scope. Ask again only when the work would materially change the approved product behavior or expand beyond the milestone.
-
-### Law 7: Run The Tests
-
-After every change:
-npm run build — must pass
-npm run test:[relevant] — must pass
-Never submit a failing build.
-
-### Law 8: Agent-Assisted PR Review (Solo Maintainer Safeguard)
-
-**Mechanical gate:** GitHub Actions workflow `.github/workflows/ci.yml` runs on PRs and pushes to `main`/`master`: root `npm run build` (server `tsc` plus `web`’s `tsc -b` and Vite production build), then `npm run test` (root Vitest and `web` tests). That enforces **Law 7** (and any behavior covered by tests). It does not interpret Laws 1–6 by itself.
-
-**Narrative flags:** `.github/workflows/claude-review.yml` posts a PR comment from Claude using a checklist aligned with these laws (requires `ANTHROPIC_API_KEY` secret).
-
-When the human cannot review every line closely, treat a **second agent pass** as part of the merge gate:
-
-1. After the implementing agent finishes, run a **readonly review** (another chat or Agent) with the **diff** and: *“Check this against AGENTS.md Laws 1–7: scope creep, missing tests, silent failures, unrelated files.”*
-2. **Block merge** if new behavior has **no test**, or the diff **exceeds the stated goal** (fix one bug, don’t refactor three modules).
-3. Prefer **revert** over **stacking** patches when a merge introduced regressions.
-
-This does not replace Law 6 — it catches what fatigue misses.
-
-### Law 9: Story Mode Personalization
-
-Story/karaoke homework content must be child-centered. Do not generate generic passages when a child profile exists.
-
-For Reina:
-
-- Reina may be the protagonist when that is the strongest hook, but do not force every passage to be about Reina.
-- Use profile-derived motivators and rotate formats: challenge, competition, wrestling/strategy, personal bests, mysteries, missions, debates, experiments, and other profile-backed hooks.
-- Homework concepts remain academically accurate.
-- Image prompts must match the chosen adaptive hook and include the child/avatar when the story frames them as present.
-
-Never hardcode only the academic topic and forget the child.
-
-### Law 10: Dynamic Content Domain Gate
-
-Dynamic AI content must start from captured homework evidence, not from whichever game prototype exists nearby.
-
-Before routing a baseline activity or generating a story/game/video brief:
-
-- Capture the assignment text, questions, concepts, words, source documents, and content profile.
-- Classify the homework domain and skill target first.
-- Route only activities that make sense for that domain. Reading Mode and Countdown can support reading/science comprehension, but they must not be attached to unrelated math assignments unless a math-specific variant exists.
-- Use the child profile for the flow-state wrapper: competition, challenge, calm practice, humor, strategy, visual reward, or another measured motivator.
-- Use measured struggle signals underneath the wrapper: missed questions, pronunciation hesitation, retries, spelling misses, or SM2 due words.
-
-The product model is: captured evidence -> domain gate -> child engagement hooks -> gap plan -> generated content. Do not reverse that order.
-
-Quest and boss rewards must not be plain fixed-position nodes. Treat the baseline plan as the initial hypothesis, then use performance evidence to decide the next reward:
-
-- Story/image finales can reward completed reading.
-- Mystery nodes are variable dopamine rewards, not guaranteed every time.
-- Generated quests unlock from domain-valid captured content plus baseline evidence: accuracy, recovery after a miss, streak, or enough completed baseline work.
-- Weak performance routes to targeted support before quest generation.
-- Boss remains a mastery-gated finale after generated quest evidence, not an always-playable activity.
-
-### Law 11: AI Content Must Be Cataloged
-
-Every generated, reused, or prototype learning content artifact must declare what learning algorithm it serves before it can enter the active path.
-
-Required catalog fields:
-
-- Content identity: child, homework/cycle when applicable, source, type, title.
-- Algorithm targets: spaced repetition, error-pattern remediation, retrieval practice, reading comprehension, pronunciation, desirable difficulty, mastery gating, activity affinity, or variable reward.
-- Evidence used: captured homework fingerprint, error patterns, activity evidence, calibration ids, or human source.
-- Reuse decision: candidate, reuse, revise, or retire, with a reason.
-
-Never ship AI content as just "fun content." It must answer:
-
-- What learner evidence created this?
-- Which algorithm owns this?
-- How will we measure whether it worked?
-- Should we reuse it, revise it, or retire it after performance or graded calibration?
-
-### Law 12: Child Chart Is The Decision Doorway
-
-Sunny uses the hospital/care-plan model:
-
-- Child chart = patient chart entry point.
-- Learning profile = adaptive evidence.
-- Care plan = current treatment plan.
-- Activities = interventions.
-- Attempts = labs.
-- Attention vitals = vitals at each visit.
-
-New planner, generator, care-plan, and adaptive decision code must start from `getChildChart(childId)`.
-
-Do not directly read `children.config.json`, `learning_profile.json`, `word_bank.json`, homework folders, attempts, or vitals from new decision code unless you are writing a low-level IO adapter used by the chart. Existing legacy callers can migrate gradually, but new adaptive code should make decisions from the chart or from `LearningDecisionContext` built from the chart.
-
-### Law 13: Accountable To Reality
-
-Sunny must be accountable to reality, not vibes. The governing prediction, observation, decision, and calibration rules live only in [`LEARNING_FEEDBACK_LOOP.md`](./LEARNING_FEEDBACK_LOOP.md).
-
-### Law 14: Activities Are Vital-Sign Instruments
-
-Every activity is a measurement instrument first and a game second. Its evidence must enter the canonical cycle under the separation and provenance rules in [`LEARNING_FEEDBACK_LOOP.md`](./LEARNING_FEEDBACK_LOOP.md); private game scores and synthetic learning claims are forbidden.
-
----
-
-## Maintainability (Guidelines, Not Laws)
-
-- **Broad rules beat narrow branches:** Prefer one clear **product rule** (e.g. in prompts or a single invariant) over many special cases scattered in code — easier to reason about when you’re one person.
-- **Every guard in code should have a test** that would fail if the guard were removed.
-- **Preview modes are wrappers:** When adding a new mode that needs preview/read-only/stateless behavior, keep the public npm mode stable but route preview prompting, stateless runtime flags, board launch, companion voice toggles, and image reuse/generation options through a shared preview wrapper utility. Mode-specific code should supply only its plan/content; it should not duplicate preview prompts or launch ceremonies.
-
----
-
-## Fix Protocol
-
-Every fix should state **what lines change** (fix) vs **what lines go away** (delete). Net line count on hot paths (for example `session-manager.ts`) should trend **down** over time. **Pure additions** need a short justification (new invariant, new test-only file, or user-requested doc). Prefer one product rule in one place over scattered special cases.
+- Product and content rules (story personalization, content domain gate, quest and boss rewards, content catalog, preview wrappers, fix protocol, the child-chart care model): [`docs/PRODUCT_RULES.md`](./docs/PRODUCT_RULES.md).
+- Known bugs and lab invariants: [`BUGS.md`](./BUGS.md).

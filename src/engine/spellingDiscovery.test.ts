@@ -1,3 +1,4 @@
+import {linearJourneyFixture} from "../scripts/fixtures/authoredJourney";
 import { describe, expect, it } from "vitest";
 import fs from "node:fs";
 import os from "node:os";
@@ -104,15 +105,23 @@ describe("authoritative spelling recall contracts", () => {
 });
 
 describe("canonical spelling Discovery evidence", () => {
-  function fixture() {
+  async function publishFixture(cycle: ReturnType<typeof createSpellingDiscoveryCycle>, items: ReturnType<typeof buildSpellingRecallItems>, rootDir: string) {
+    await publishDiscoveryExperience({ rootDir, childId: cycle.childId, homeworkId: cycle.homeworkId,
+      spellingItems: items, assignment: cycle.assignment,
+      activeSessionPlan: buildSpellingDiscoveryPlan({ cycle, companion: { id: "elli", name: "Elli" } }),
+    });
+  }
+
+  async function fixture() {
     const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-spelling-discovery-"));
     const items = buildSpellingRecallItems({ homeworkId: "hw-spelling", words: ["night", "light"], evidenceIds: ["source:one"], measurementRole: "fresh_checkpoint" });
-    const cycle = createSpellingDiscoveryCycle({ childId: "lab-child", homeworkId: "hw-spelling", title: "School words", contentFingerprint: "fingerprint", items }, { rootDir });
+    const cycle = createSpellingDiscoveryCycle({ childId: "lab-child", homeworkId: "hw-spelling", title: "School words", contentFingerprint: "fingerprint", items, boardDefinition:linearJourneyFixture(["hw-spelling:discovery"]) }, { rootDir });
+    await publishFixture(cycle, items, rootDir);
     return { rootDir, items, cycle };
   }
 
-  it("creates only an evaluation contract, not a speculative teaching plan", () => {
-    const { rootDir, cycle } = fixture();
+  it("creates only an evaluation contract, not a speculative teaching plan", async () => {
+    const { rootDir, cycle } = await fixture();
     try {
       expect(cycle.lifecycle).toBe("evaluation_ready");
       expect(cycle.domain).toBe("spelling");
@@ -122,8 +131,16 @@ describe("canonical spelling Discovery evidence", () => {
     } finally { fs.rmSync(rootDir, { recursive: true, force: true }); }
   });
 
-  it("publishes native Discovery through the same assignment projection and preserves other domains", () => {
-    const { rootDir, items, cycle } = fixture();
+  it("retains the authored journey when publishing native Discovery into a fresh cycle", async () => {
+    const {rootDir,items,cycle}=await fixture();
+    const plan=buildSpellingDiscoveryPlan({cycle,companion:{id:"elli",name:"Elli"}});
+    fs.rmSync(path.join(rootDir,"src/context/lab-child/homework/cycles/hw-spelling.json"));
+    await publishDiscoveryExperience({rootDir,childId:cycle.childId,homeworkId:cycle.homeworkId,spellingItems:items,assignment:cycle.assignment,activeSessionPlan:plan});
+    expect(getLearningCycle(cycle.childId,cycle.homeworkId,{rootDir})!.boards![0].definition).toEqual(cycle.boards![0].definition);
+  });
+
+  it("publishes native Discovery through the same assignment projection and preserves other domains", async () => {
+    const { rootDir, items, cycle } = await fixture();
     try {
       const child = path.join(rootDir, "src/context/lab-child");
       const homeworkFile = path.join(child, "homework/current.json");
@@ -132,21 +149,23 @@ describe("canonical spelling Discovery evidence", () => {
       const plan = buildSpellingDiscoveryPlan({ cycle, companion: { id: "elli", name: "Elli" } });
       expect(plan.nodePlan.map(node => node.activityId)).toEqual(["word-radar"]);
       expect(plan.nodePlan[0].targets).toEqual(["night", "light"]);
+      const {projectLearningCycle}=await import("./learningCycleRepository");
+      expect(projectLearningCycle(cycle).activeSessionPlan.nodePlan[0].wordRadarConfig).toEqual(plan.nodePlan[0].wordRadarConfig);
       expect(plan.companionPolicy.openingLinePolicy).toBe("silent");
       const input = { rootDir, childId: cycle.childId, homeworkId: cycle.homeworkId, spellingItems: items, activeSessionPlan: plan, assignment: cycle.assignment };
-      publishDiscoveryExperience(input);
+      await publishDiscoveryExperience(input);
       const projected = JSON.parse(fs.readFileSync(homeworkFile, "utf8"));
       expect(projected.selectedDomain).toBe("spelling");
       expect(projected.activeByDomain.math.homeworkId).toBe("preserved-math");
       expect(projected.current.wordList).toEqual(["night", "light"]);
       expect(projected.current.nodes).toHaveLength(1);
-      publishDiscoveryExperience(input);
+      await publishDiscoveryExperience(input);
       expect(getLearningCycle(cycle.childId, cycle.homeworkId, { rootDir })!.observations).toEqual([]);
     } finally { fs.rmSync(rootDir, { recursive: true, force: true }); }
   });
 
-  it("includes untested words in the factual summary and does not call an early exit complete", () => {
-    const { rootDir, cycle, items } = fixture();
+  it("includes untested words in the factual summary and does not call an early exit complete", async () => {
+    const { rootDir, cycle, items } = await fixture();
     try {
       recordSpellingDiscoveryAttempt({ childId: cycle.childId, homeworkId: cycle.homeworkId, attempt: { attemptId: "a1", itemId: items[0].id, attemptedValue: "night", observedAt: "2026-09-08T12:00:00Z" } }, { rootDir });
       const current = getLearningCycle(cycle.childId, cycle.homeworkId, { rootDir })!;
@@ -157,7 +176,7 @@ describe("canonical spelling Discovery evidence", () => {
     } finally { fs.rmSync(rootDir, { recursive: true, force: true }); }
   });
 
-  it("maps ten assigned words to six independent successes and four independent misses for the Planner", () => {
+  it("maps ten assigned words to six independent successes and four independent misses for the Planner", async () => {
     const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-spelling-target-summary-"));
     const words = ["night", "light", "right", "sight", "might", "fight", "write", "knife", "wrong", "climb"];
     const missed = words.slice(6);
@@ -168,13 +187,14 @@ describe("canonical spelling Discovery evidence", () => {
         evidenceIds: ["source:ten"],
         measurementRole: "fresh_checkpoint",
       });
-      createSpellingDiscoveryCycle({
+      const unpublished = createSpellingDiscoveryCycle({
         childId: "lab-child",
         homeworkId: "hw-ten",
         title: "Ten school words",
         contentFingerprint: "fingerprint-ten",
         items,
-      }, { rootDir });
+       boardDefinition:linearJourneyFixture(["hw-ten:discovery"]) }, { rootDir });
+      await publishFixture(unpublished, items, rootDir);
       items.forEach((item, index) => {
         recordSpellingDiscoveryAttempt({
           childId: "lab-child",
@@ -198,8 +218,8 @@ describe("canonical spelling Discovery evidence", () => {
     } finally { fs.rmSync(rootDir, { recursive: true, force: true }); }
   });
 
-  it("resolves correctness and identity on the server and keeps retransmissions idempotent", () => {
-    const { rootDir, items } = fixture();
+  it("resolves correctness and identity on the server and keeps retransmissions idempotent", async () => {
+    const { rootDir, items } = await fixture();
     try {
       const input = { childId: "lab-child", homeworkId: "hw-spelling", attempt: { attemptId: "attempt-1", itemId: items[0].id, attemptedValue: "night", observedAt: "2026-09-08T12:00:00Z" }, support: { status: "unassisted" as const, scaffolds: [] } };
       const first = recordSpellingDiscoveryAttempt(input, { rootDir });
@@ -210,7 +230,7 @@ describe("canonical spelling Discovery evidence", () => {
     } finally { fs.rmSync(rootDir, { recursive: true, force: true }); }
   });
 
-  it("keeps a homophone response out of independent spelling evidence", () => {
+  it("keeps a homophone response out of independent spelling evidence", async () => {
     const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-spelling-homophone-"));
     try {
       const items = buildSpellingRecallItems({
@@ -219,13 +239,14 @@ describe("canonical spelling Discovery evidence", () => {
         evidenceIds: ["source:one"],
         measurementRole: "fresh_checkpoint",
       });
-      createSpellingDiscoveryCycle({
+      const unpublished = createSpellingDiscoveryCycle({
         childId: "lab-child",
         homeworkId: "hw-homophone",
         title: "School words",
         contentFingerprint: "fingerprint",
         items,
-      }, { rootDir });
+       boardDefinition:linearJourneyFixture(["hw-homophone:discovery"]) }, { rootDir });
+      await publishFixture(unpublished, items, rootDir);
       const cycle = recordSpellingDiscoveryAttempt({
         childId: "lab-child",
         homeworkId: "hw-homophone",
@@ -246,8 +267,8 @@ describe("canonical spelling Discovery evidence", () => {
     }
   });
 
-  it("keeps help, unknown assistance, repeats, and Not sure out of independent evidence", () => {
-    const { rootDir, items } = fixture();
+  it("keeps help, unknown assistance, repeats, and Not sure out of independent evidence", async () => {
+    const { rootDir, items } = await fixture();
     try {
       const input = { childId: "lab-child", homeworkId: "hw-spelling", attempt: { attemptId: "first", itemId: items[0].id, attemptedValue: "night", observedAt: "2026-09-08T12:00:00Z" } };
       recordSpellingDiscoveryAttempt(input, { rootDir });

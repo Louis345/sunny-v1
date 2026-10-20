@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import WebSocket from "ws";
+import { SessionManager } from "./session-manager";
 import {
   maybeCompactCompanionInteractionMemory,
   recordCompanionInteractionEvent,
@@ -62,6 +64,9 @@ describe("urgent learning support", () => {
     })).toBe("conversation_open");
   });
   it("routes activity speech through an explicit wake and dismiss presence contract", () => {
+    // Human catch: Ila called Sunny during a live Word Radar response and heard
+    // no answer. Logs showed valid speech recognition, then game routing or
+    // suppression; the lab only asserted letter ownership and an unarmed wake.
     expect(
       routeCompanionPresenceTranscript({
         transcript: "The rectangles look equal",
@@ -99,6 +104,14 @@ describe("urgent learning support", () => {
     ).toEqual({ action: "dismiss" });
     expect(
       routeCompanionPresenceTranscript({
+        transcript: "k. Bye, Sunny.",
+        presence: "summoned",
+        companionName: "Elli",
+        speechCaptureArmed: true,
+      }),
+    ).toEqual({ action: "dismiss" });
+    expect(
+      routeCompanionPresenceTranscript({
         transcript: "Can you explain this another way?",
         presence: "summoned",
         companionName: "Elli",
@@ -112,6 +125,86 @@ describe("urgent learning support", () => {
         speechCaptureArmed: true,
       }),
     ).toEqual({ action: "route_to_game" });
+    expect(
+      routeCompanionPresenceTranscript({
+        transcript: "Sunny, can you hear me?",
+        presence: "collapsed",
+        companionName: "Elli",
+        speechCaptureArmed: true,
+      }),
+    ).toEqual({ action: "summon_and_respond" });
+    expect(
+      routeCompanionPresenceTranscript({
+        transcript: "Sunny",
+        presence: "collapsed",
+        companionName: "Elli",
+        speechCaptureArmed: true,
+      }),
+    ).toEqual({ action: "summon_and_respond" });
+    expect(
+      routeCompanionPresenceTranscript({
+        transcript: "B. Sonny, is it B?",
+        presence: "collapsed",
+        companionName: "Elli",
+        speechCaptureArmed: true,
+      }),
+    ).toEqual({ action: "summon_and_respond" });
+    expect(
+      routeCompanionPresenceTranscript({
+        transcript: "u. Sonny, I'm asking you.",
+        presence: "collapsed",
+        companionName: "Elli",
+        speechCaptureArmed: true,
+      }),
+    ).toEqual({ action: "summon_and_respond" });
+    expect(
+      routeCompanionPresenceTranscript({
+        transcript: "b",
+        presence: "collapsed",
+        companionName: "Elli",
+        speechCaptureArmed: true,
+      }),
+    ).toEqual({ action: "route_to_game" });
+  });
+
+  it("sends a direct Sunny call to Elli during an armed Word Radar turn", async () => {
+    const previousStateless = process.env.SUNNY_STATELESS;
+    process.env.SUNNY_STATELESS = "true";
+    try {
+      const ws = { readyState: WebSocket.OPEN, OPEN: WebSocket.OPEN, send: vi.fn() } as unknown as WebSocket;
+      const session = new SessionManager(ws, "Ila");
+      session.companionWakeGateEnabled = true;
+      const respond = vi.spyOn(session as unknown as { runCompanionResponse: (text: string) => Promise<void> }, "runCompanionResponse")
+        .mockResolvedValue(undefined);
+      session.injectGameContext({ game: "word-radar", nodeId: "practice", phase: "response", speechCaptureArmed: true });
+
+      session.injectTranscript("Sunny, can you hear me?");
+
+      await vi.waitFor(() => expect(respond).toHaveBeenCalledWith("Sunny, can you hear me?"));
+      expect(ws.send).not.toHaveBeenCalledWith(expect.stringContaining('"type":"interim"'));
+    } finally {
+      process.env.SUNNY_STATELESS = previousStateless;
+    }
+  });
+
+  it("keeps follow-up speech with Elli after she answers during Word Radar", async () => {
+    const previousStateless = process.env.SUNNY_STATELESS;
+    process.env.SUNNY_STATELESS = "true";
+    try {
+      const ws = { readyState: WebSocket.OPEN, OPEN: WebSocket.OPEN, send: vi.fn() } as unknown as WebSocket;
+      const session = new SessionManager(ws, "Ila");
+      session.companionWakeGateEnabled = true;
+      const respond = vi.spyOn(session as unknown as { runCompanionResponse: (text: string) => Promise<void> }, "runCompanionResponse")
+        .mockResolvedValue(undefined);
+      session.injectGameContext({ game: "word-radar", nodeId: "practice", phase: "response", speechCaptureArmed: true });
+      session.setCompanionPresence("summoned", "voice");
+
+      session.injectTranscript("Can you hear me?");
+
+      await vi.waitFor(() => expect(respond).toHaveBeenCalledWith("Can you hear me?"));
+    } finally {
+      process.env.SUNNY_STATELESS = previousStateless;
+    }
   });
 
   it("deduplicates read requests and refuses answer-visible activity state", () => {
@@ -188,8 +281,16 @@ describe("urgent learning support", () => {
       ...base,
       transcript: "Hey Sunny",
       presence: "collapsed",
-    })).toBe(true);
+    })).toBe(false);
     expect(setPresence).toHaveBeenCalledWith("summoned", "voice");
+    expect(sendFinal).not.toHaveBeenCalled();
+
+    expect(handleCompanionPresenceTranscript({
+      ...base,
+      transcript: "Sunny, can you hear me?",
+      presence: "collapsed",
+      speechCaptureArmed: true,
+    })).toBe(false);
     expect(sendFinal).not.toHaveBeenCalled();
 
     expect(handleCompanionPresenceTranscript({
@@ -199,12 +300,37 @@ describe("urgent learning support", () => {
     })).toBe(true);
     expect(setPresence).toHaveBeenCalledWith("collapsed", "voice");
 
+    sendFinal.mockClear();
+    expect(handleCompanionPresenceTranscript({
+      ...base,
+      transcript: "k. Bye, Sunny.",
+      presence: "summoned",
+      speechCaptureArmed: true,
+    })).toBe(true);
+    expect(setPresence).toHaveBeenLastCalledWith("collapsed", "voice");
+    expect(sendFinal).not.toHaveBeenCalled();
+
     expect(handleCompanionPresenceTranscript({
       ...base,
       transcript: "three equal parts",
       presence: "collapsed",
     })).toBe(true);
-    expect(recordEvent).toHaveBeenCalledWith("transcript", "ambient_ignored", expect.any(Object));
+    expect(recordEvent).toHaveBeenCalledWith("transcript", "ambient_ignored", expect.objectContaining({
+      reason: "companion_collapsed_without_wake_phrase",
+      companionPresence: "collapsed",
+      speechCaptureArmed: false,
+    }));
+
+    expect(handleCompanionPresenceTranscript({
+      ...base,
+      transcript: "   ",
+      presence: "summoned",
+    })).toBe(true);
+    expect(recordEvent).toHaveBeenLastCalledWith("transcript", "ambient_ignored", expect.objectContaining({
+      reason: "transcript_empty_after_normalization",
+      companionPresence: "summoned",
+      speechCaptureArmed: false,
+    }));
 
     expect(handleCompanionPresenceTranscript({
       ...base,

@@ -1,0 +1,37 @@
+
+ RUN  v3.2.4 <checkout>
+
+stdout | src/server/companion-response-runner.test.ts > companion response audio ownership > queues Elli's turn while a game narration owns the shared audio channel
+  🎮 [companion] [deferred] reason=game_narration_owns_audio
+
+ ❯ src/server/companion-response-runner.test.ts (9 tests | 1 failed) 4ms
+   ✓ companion response audio ownership > retires a reply when the displayed spelling item advances, even without a new conversation turn 0ms
+   ✓ companion response audio ownership > revokes an older model turn as soon as a newer child turn begins 0ms
+   ✓ companion response audio ownership > queues Elli's turn while a game narration owns the shared audio channel 1ms
+   ✓ companion response audio ownership > allows Elli to speak when no game narration owns audio 0ms
+   ✓ native spelling reply identity > retires a reply when only the item index advances 0ms
+   ✓ native spelling reply identity > retires a reply when a target changes without an item ID 0ms
+   ✓ native spelling reply identity > retires a reply when a native activity is relaunched 0ms
+   ✓ native spelling reply identity > preserves a reply across score-only updates 0ms
+   × removes a protected stimulus from prior text context without corrupting images or teaching 1ms
+     → (0 , protectSpellingModelMessages) is not a function
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/server/companion-response-runner.test.ts > removes a protected stimulus from prior text context without corrupting images or teaching
+TypeError: (0 , protectSpellingModelMessages) is not a function
+ ❯ src/server/companion-response-runner.test.ts:110:18
+    108|  const history=[{role:"assistant",content:"The word is night"},{role:"…
+    109|  const snapshot={spellingSupportMode:"stimulus_only",spellingTarget:"n…
+    110|  const projected=protectSpellingModelMessages(history,snapshot);
+       |                  ^
+    111|  expect(JSON.stringify(projected)).not.toContain("night");
+    112|  expect(projected[1].content[1].image).toBe(image);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 8 passed (9)
+   Start at  21:45:11
+   Duration  405ms (transform 176ms, setup 0ms, collect 301ms, tests 4ms, environment 0ms, prepare 21ms)

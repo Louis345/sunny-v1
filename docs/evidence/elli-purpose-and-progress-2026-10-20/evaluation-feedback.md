@@ -1,0 +1,13 @@
+# Minimal loading-screen evaluation feedback
+
+The existing word cards now show a green check for a saved correct evaluation response and a red cross for a saved incorrect response. Accessible names distinguish Correct and To practise. Unscored, skipped and ambiguous responses stay unmarked. Marks persist on the existing word tray while activities build.
+
+The child-experience packet projects only canonical evaluation observations matching frozen evaluation item identities and evaluation source IDs. It does not recompute a score, include raw responses, infer results from practice, or change learning records, assistance, progression, or Elli's pedagogical instructions. Results are withheld during evaluation. This follows the AI design principles: code displays recorded facts; AI still owns teaching and planning. Reviewers should challenge provenance, missing-answer handling, and whether the visual distinction is clear in the human test.
+
+Opus review of a97e851 caught an unstable array dependency that could restart the review timer and an unnecessary replacement of the existing loading word set. The follow-up retains the original word selection, applies marks only in the post-evaluation chapter, and keys result changes by serialized content. A regression refreshes equal packets each second, verifies the review still advances, excludes unrelated old words, and verifies a held/resume screen has no stale marks.
+
+Provenance review: `recordSpellingDiscoveryAttempt` in `src/engine/learningCycleRuntime.ts` writes the exact `evaluation:${node.nodeId}` source identity and immutable scored result. The display uses the first recorded evaluation response for that item, consistent with showing initial evaluation feedback rather than subsequent retries/practice. Correct means the recorded response was correct, regardless of assistance; no claim of independence or mastery is made. Skipped responses have no boolean correctness.
+
+Validation: the new projection regression failed before implementation. After implementation, 11 packet tests and 40 preparation component/hook tests passed; backend/frontend build passed. A browser render of the production component was visually inspected at 1280×720 in both review and build states. Screenshots use invented fixture results, not child scores. Full ten-word ingestion and human lifecycle acceptance remain pending. No learning gain or final human acceptance is claimed. No merge authorization.
+
+Opus 5.5 re-review of 8c0a5e1 confirms both blocking findings addressed and readiness for the fresh human test. This is an independent API review, not a GitHub account approval or human acceptance. See `opus-feedback-followup.md`.

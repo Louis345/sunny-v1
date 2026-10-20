@@ -1,5 +1,8 @@
 /** Companion LLM turn — extracted from SessionManager.runCompanionResponse. */
 // @ts-nocheck
+import { redactProtectedSpellingText, redactProtectedSpellingValue } from "./currentBoardSnapshot";
+import { randomUUID } from "node:crypto";
+import { rewriteChildNameForTts } from "./sessionTextHelpers";
 import { runAgent } from "../agents/elli/run";
 import type { ModelMessage } from "ai";
 import { buildCanvasContext } from "../agents/prompts";
@@ -10,24 +13,78 @@ import { getTool } from "./games/registry";
 import { unwrapToolResult } from "./unwrapToolResult";
 import { runHandleToolCall } from "./tool-call-router";
 import { isHomeworkMode, isDebugClaude } from "../utils/runtimeMode";
-import { checkAssistantGoodbye } from "./session-triggers";
-import { shouldTriggerTransitionToWorkPhase } from "./transition-to-work-gate";
 import {
   debugLogToolCall,
   debugPrintClaudePreRun,
 } from "./debug-helpers";
 import { createThinkingEmoteOnFirstToolInStep } from "./companionThinkingEmote";
 
-async function speakShortRecovery(session: any, reason: string): Promise<void> {
+/** Project remembered text too: a previous teaching turn must not reveal this check's stimulus. */
+export function protectSpellingModelMessages(messages, snapshot) {
+  return messages.map(message => ({ ...message, content: typeof message.content === "string"
+    ? redactProtectedSpellingText(message.content, snapshot)
+    : message.content.map(part => part.type === "text"
+      ? { ...part, text: redactProtectedSpellingText(part.text, snapshot) }
+      : part.type === "tool-result"
+        ? { ...part, output: redactProtectedSpellingValue(part.output, snapshot) }
+        : part) }));
+}
+
+export function claimCompanionResponseTurn(session: any): {
+  turnId: number;
+  isCurrent: () => boolean;
+} {
+  const turnId = Number(session.companionResponseTurnId ?? 0) + 1;
+  session.companionResponseTurnId = turnId;
+  const itemKey = () => {
+    const board = session.currentBoardSnapshot;
+    return JSON.stringify([session.spellingLaunch?.launchId, board?.launchToken,
+      board?.nodeId, board?.itemId, board?.itemIndex,
+      board?.spellingTarget ?? board?.currentTarget, board?.phase === "closed"]);
+  };
+  const originalItem = itemKey();
+  return {
+    turnId,
+    isCurrent: () => session.companionResponseTurnId === turnId && itemKey() === originalItem,
+  };
+}
+
+export function deferCompanionUntilNarrationFinishes(
+  session: any,
+  userMessage: string,
+): boolean {
+  const requestId = session.activeGameNarrationRequestId
+    ?? session.pendingGameNarrationPlayback?.requestId;
+  if (!requestId) return false;
+  const turnState = session.turnSM.getState?.();
+  if (turnState === "LOADING" || turnState === "PROCESSING") {
+    session.turnSM.onInterrupt();
+  }
+  session.turnSM.setPendingTranscript(userMessage);
+  session.recordDebugEvent?.("companion", "deferred_for_game_narration", {
+    requestId,
+  });
+  console.log("  🎮 [companion] [deferred] reason=game_narration_owns_audio");
+  return true;
+}
+
+async function speakShortRecovery(session: any, reason: string, isCurrent: () => boolean): Promise<void> {
+  if (!isCurrent()) return;
   const fallback = "I’m having trouble connecting. Please say that again.";
   session.recordDebugError?.(reason);
   session.recordDebugEvent?.("companion", "recovery_spoken", { reason });
   session.send("response_text", { chunk: fallback });
+  const requestId = `recovery:${randomUUID()}`;
+  const identity = { requestId, itemId: session.currentBoardSnapshot?.itemId };
   if (session.ttsBridge) {
+    session.ttsBridge.beginPlayback?.(requestId, identity.itemId, false, false, session.currentBoardSnapshot?.launchToken);
+    await session.ttsBridge.connect();
+    if (!isCurrent() || session.ttsBridge.currentPlaybackIdentity?.()?.requestId !== requestId) return;
     session.ttsBridge.sendText(fallback);
-    await session.ttsBridge.finish().catch(() => {});
+    await session.ttsBridge.finish();
+    if (!isCurrent() || session.ttsBridge.currentPlaybackIdentity?.()?.requestId !== requestId) return;
   }
-  session.send("audio_done");
+  session.send("audio_done", identity);
 }
 
 export async function finalizePendingSessionEnd(session: any): Promise<boolean> {
@@ -45,6 +102,20 @@ export async function runCompanionResponseForSession(
   session: any,
   userMessage: string,
 ): Promise<void> {
+    if (deferCompanionUntilNarrationFinishes(session, userMessage)) return;
+    const turn = claimCompanionResponseTurn(session);
+    const playbackId = `companion:${session.sessionId}:${turn.turnId}`;
+    let staleOutputLogged = false;
+    const rejectStaleOutput = (action: string): boolean => {
+      if (turn.isCurrent()) return false;
+      if (!staleOutputLogged) {
+        staleOutputLogged = true;
+        console.log(
+          `  🎮 [companion] [stale-turn-discarded] turn=${turn.turnId} action=${action}`,
+        );
+      }
+      return true;
+    };
     session.resetCompanionDispositionAfterSpeech?.();
     const st = session.turnSM.getState();
     if (st === "WORD_BUILDER") {
@@ -53,7 +124,8 @@ export async function runCompanionResponseForSession(
       session.turnSM.onStartCompanionFromIdle();
     }
 
-    session.currentAbort = new AbortController();
+    const abortController = new AbortController();
+    session.currentAbort = abortController;
     let fullResponse = "";
     let responseLogged = false;
     session.toolCallsMadeThisTurn = 0;
@@ -68,14 +140,14 @@ export async function runCompanionResponseForSession(
         .map((m) => (typeof m.content === "string" ? m.content : ""))
         .filter(Boolean)
         .join(" ");
-      session.ttsBridge.connect(previousText || undefined).catch(() => {});
+      session.recordDebugEvent("companion_timing", "response_started", {requestId:playbackId});
+      session.ttsBridge.beginPlayback?.(playbackId, session.currentBoardSnapshot?.itemId, false, false, session.currentBoardSnapshot?.launchToken);
+      session.ttsBridge.connect(previousText || undefined).catch((error: unknown) => {
+        session.recordDebugError?.("companion_tts_connect_failed", error);
+      });
     }
 
-    const transitionToWorkPhase = shouldTriggerTransitionToWorkPhase(
-      session.roundNumber,
-      session.childName,
-      session.transitionedToWork,
-    );
+
 
     try {
       // Window the history to reduce Claude's input size and improve TTFT.
@@ -88,7 +160,7 @@ export async function runCompanionResponseForSession(
 
       // Pin context messages at the front so they survive history truncation.
       const pins: ModelMessage[] = [];
-      if (session.worksheetPageFile && (session.worksheetMode || isHomeworkMode())) {
+      if (session.currentBoardSnapshot?.spellingSupportMode !== "stimulus_only" && session.worksheetPageFile && (session.worksheetMode || isHomeworkMode())) {
         const imageCaption =
           "This is the worksheet. Grade from what you see in this image.";
         pins.push({
@@ -105,7 +177,7 @@ export async function runCompanionResponseForSession(
           ],
         } as ModelMessage);
       }
-      if (session.activeWordContext && session.ctx?.sessionType !== "diag") {
+      if (session.activeWordContext && !session.spellingLaunch && session.ctx?.sessionType !== "diag") {
         pins.push({ role: "user", content: session.activeWordContext });
       }
       const historyWithPin: typeof recentHistory =
@@ -139,6 +211,7 @@ export async function runCompanionResponseForSession(
         .join("\n\n");
 
       const finalTools = session.buildAgentToolkit();
+      if (session.spellingLaunch) delete finalTools.sessionLog;
 
       debugPrintClaudePreRun(session, userMessage);
       console.log(`  🎮 [companion] model_request_started model=${process.env.SUNNY_VOICE_MODEL ?? "claude-sonnet-5"}`);
@@ -163,14 +236,15 @@ export async function runCompanionResponseForSession(
           : null;
 
       await runAgent({
-        history: historyWithPin,
-        injectedContextMessages: gameContextMessages,
-        userMessage: messageWithContext,
-        profile: session.companion,
+        history: protectSpellingModelMessages(historyWithPin, session.currentBoardSnapshot),
+        injectedContextMessages: protectSpellingModelMessages(gameContextMessages, session.currentBoardSnapshot),
+        userMessage: redactProtectedSpellingText(messageWithContext, session.currentBoardSnapshot),
+        profile: { ...session.companion, systemPrompt: redactProtectedSpellingText(session.companion.systemPrompt, session.currentBoardSnapshot) },
         tools: finalTools,
         experimentalOnStepStart: thinkingHooks?.onStepStart,
         experimentalOnToolCallStart: thinkingHooks?.onToolCallStart,
         onToken: (chunk) => {
+          if (rejectStaleOutput("token")) return;
           fullResponse += chunk;
           if (!responseLogged) {
             responseLogged = true;
@@ -182,10 +256,10 @@ export async function runCompanionResponseForSession(
           );
           session.turnSM.onToken(chunk);
         },
-        signal: session.currentAbort?.signal,
-        transitionToWorkPhase,
+        signal: abortController.signal,
         allowTransitionToWork: !session.transitionedToWork,
         onStepFinish: async (step) => {
+          if (rejectStaleOutput("step_finish")) return;
           const toolCalls = (step.toolCalls ?? []) as Array<{
             toolName?: string;
             name?: string;
@@ -564,12 +638,14 @@ export async function runCompanionResponseForSession(
         },
       });
 
-      if (!fullResponse.trim()) {
+      if (rejectStaleOutput("completion")) return;
+
+      if (!fullResponse.trim() && session.toolCallsMadeThisTurn === 0) {
         console.warn(
           "  ⚠️  runAgent completed with empty fullResponse — check onToken wiring",
         );
         session.turnSM.onInterrupt();
-        await speakShortRecovery(session, "empty_companion_response");
+        await speakShortRecovery(session, "empty_companion_response", turn.isCurrent);
         return;
       }
 
@@ -598,9 +674,15 @@ export async function runCompanionResponseForSession(
         return;
       }
 
-      if (checkAssistantGoodbye(fullResponse)) {
-        console.log("  👋 Companion said goodbye");
-        await session.end();
+      if (!fullResponse.trim()) {
+        if (rejectStaleOutput("tool_only_completion")) return;
+        const owner = session.ttsBridge?.currentPlaybackIdentity?.();
+        const ownsAudio = owner?.requestId === playbackId;
+        if (ownsAudio) session.ttsBridge.stop();
+        session.turnSM.onSpeakingDone?.();
+        session.send("audio_done", {requestId:playbackId,itemId:session.currentBoardSnapshot?.itemId});
+        session.applyCompanionDispositionAfterSpeech?.();
+        console.log(" 🎮 [companion] [tool-only-turn] [completed] spoken=false");
         return;
       }
 
@@ -613,11 +695,13 @@ export async function runCompanionResponseForSession(
           console.log("  🎮 [companion] tts_started");
           await session.ttsBridge.finish();
         }
-        session.send("audio_done");
+        if (rejectStaleOutput("audio_done")) return;
+        session.send("audio_done", { requestId: playbackId, itemId: session.currentBoardSnapshot?.itemId });
         console.log("  🎮 [companion] audio_completed");
         session.applyCompanionDispositionAfterSpeech?.();
       }
     } catch (err: unknown) {
+      if (rejectStaleOutput("error")) return;
       if (err instanceof Error && err.name === "AbortError") {
         console.log("  ⚡ Agent aborted (barge-in)");
         session.turnSM.onInterrupt();
@@ -654,15 +738,60 @@ export async function runCompanionResponseForSession(
         session.send("response_text", { chunk: fallback });
         if (session.ttsBridge) {
           session.ttsBridge.sendText(fallback);
-          await session.ttsBridge.finish().catch(() => {});
+          await session.ttsBridge.finish().catch((error: unknown) => session.recordDebugError?.("overloaded_recovery_tts_failed",error));
         }
+        if (rejectStaleOutput("recovery_audio_done")) return;
+        session.send("audio_done", {requestId:playbackId,itemId:session.currentBoardSnapshot?.itemId});
         return;
       }
 
       console.error("  🔴 Agent error:", message);
       session.recordDebugError?.("Agent error", err);
-      await speakShortRecovery(session, "agent_response_failed");
+      await speakShortRecovery(session, "agent_response_failed", turn.isCurrent);
     } finally {
-      session.currentAbort = null;
+      // Item/context changes can retire output without a replacement model turn.
+      // Suppressing that output must also release its processing state and audio.
+      // A newer model turn or audio owner must remain untouched.
+      if (session.companionResponseTurnId === turn.turnId && session.currentAbort === abortController) {
+        session.currentAbort = null;
+        if (!turn.isCurrent()) {
+          session.companionResponseTurnId++;
+          abortController.abort();
+          if (session.ttsBridge?.currentPlaybackIdentity?.()?.requestId === playbackId) {
+            session.ttsBridge.stop();
+            session.send("audio_cancel", { requestId: playbackId });
+          }
+          const pending = session.turnSM.consumePendingTranscript();
+          session.turnSM.onInterrupt();
+          console.log(` 🎮 [companion] [stale-turn-retired] turn=${turn.turnId} queued=${Boolean(pending)}`);
+          if (pending && !session.isEnding) {
+            void session.handleEndOfTurn(pending, true).catch((error: unknown) =>
+              session.recordDebugError?.("stale_turn_pending_replay_failed", error));
+          }
+        }
+      }
     }
 }
+
+export async function runDirectCompanionTurnForSession(session: any, text: string): Promise<void> {
+    if (session.activeGameNarrationRequestId || session.pendingGameNarrationPlayback) session.bargeIn();
+    const turn = claimCompanionResponseTurn(session);
+    session.turnSM.onEndOfTurn();
+    // onEndOfTurn uses setImmediate for LOADING → PROCESSING — wait for it
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    if (!turn.isCurrent()) return;
+    session.turnSM.onAgentComplete();
+    const ttsText = rewriteChildNameForTts(text, session.childName, session.sessionTtsLabel);
+    const requestId = randomUUID();
+    session.ttsBridge?.beginPlayback(requestId, session.currentBoardSnapshot?.itemId, false, false, session.currentBoardSnapshot?.launchToken);
+    session.send("response_text", { chunk: text });
+    if (session.ttsBridge) {
+      await session.ttsBridge.connect();
+      if (!turn.isCurrent() || session.ttsBridge.currentPlaybackIdentity()?.requestId !== requestId) return;
+      session.ttsBridge.sendText(ttsText);
+      await session.ttsBridge.finish();
+      if (!turn.isCurrent() || session.ttsBridge.currentPlaybackIdentity()?.requestId !== requestId) return;
+    }
+    session.send("audio_done", {requestId,itemId:session.currentBoardSnapshot?.itemId});
+    session.turnSM.onSpeakingDone();
+  }

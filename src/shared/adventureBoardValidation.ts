@@ -1,7 +1,9 @@
+import { validateBoardDefinition } from "./adventureBoardDefinition";
 import type { AdventureBoardJson } from "./adventureBoardJson";
 import { knownThumbnailUrlForActivity } from "./activityPresentation";
 
 export type AdventureBoardValidationCode =
+  | "authored_definition_invalid"
   | "missing_edge_endpoint"
   | "choice_option_missing_node"
   | "choice_gate_missing_choice_set"
@@ -58,6 +60,7 @@ export function validateBoardGraph(board: AdventureBoardJson): AdventureBoardVal
 }
 
 export function validateBoardChoices(board: AdventureBoardJson): AdventureBoardValidationIssue[] {
+  if (board.definition) return validateBoardDefinition(board.definition,[...new Set(board.nodes.flatMap(node=>node.activityNodeId ? [node.activityNodeId] : []))]).map(issue=>({code:"authored_definition_invalid",severity:"error",message:issue.message,nodeId:issue.id}));
   const issues: AdventureBoardValidationIssue[] = [];
   const nodeIds = new Set(board.nodes.map((node) => node.id));
   const nodesById = new Map(board.nodes.map((node) => [node.id, node]));
@@ -139,7 +142,7 @@ export function validateBoardChoices(board: AdventureBoardJson): AdventureBoardV
           severity: "error",
           choiceSetId: choiceSet.id,
           nodeId: option.nodeId,
-          message: `Baseline route choice ${option.id} points to ${option.nodeId}, but that route does not reconnect to Mystery, Quest, or Boss.`,
+          message: `Baseline route choice ${option.id} points to ${option.nodeId}, but that route does not reconnect to a shared checkpoint, Mystery, Quest, or Boss.`,
         });
       }
       const experimentBoard = (board.choiceSets ?? []).some((set) =>
@@ -242,9 +245,33 @@ function canReachAdventureDestination(
   const node = board.nodes.find((candidate) => candidate.id === startNodeId);
   if (!node) return false;
   if (node.kind === "mystery" || node.kind === "quest" || node.kind === "boss") return true;
+  if (isSharedRouteCheckpoint(board, node.id)) return true;
   return board.edges
     .filter((edge) => edge.from === startNodeId)
     .some((edge) => canReachAdventureDestination(board, edge.to, visited));
+}
+
+function isSharedRouteCheckpoint(board: AdventureBoardJson, nodeId: string): boolean {
+  const node = board.nodes.find((candidate) => candidate.id === nodeId);
+  if (node?.kind !== "activity" || node.layout?.role !== "baseline") return false;
+  const routeStarts = (board.choiceSets ?? [])
+    .filter((choiceSet) => choiceSet.kind === "baseline-route")
+    .flatMap((choiceSet) => choiceSet.options.map((option) => option.nodeId).filter((id): id is string => Boolean(id)));
+  return routeStarts.filter((start) => canReachNode(board, start, nodeId)).length >= 2;
+}
+
+function canReachNode(
+  board: AdventureBoardJson,
+  startNodeId: string,
+  targetNodeId: string,
+  visited = new Set<string>(),
+): boolean {
+  if (startNodeId === targetNodeId) return true;
+  if (visited.has(startNodeId)) return false;
+  visited.add(startNodeId);
+  return board.edges
+    .filter((edge) => edge.from === startNodeId)
+    .some((edge) => canReachNode(board, edge.to, targetNodeId, new Set(visited)));
 }
 
 export function validateBoardActivityCatalogReferences(
@@ -277,6 +304,7 @@ export function validateBoardActivityCatalogReferences(
 }
 
 export function validateBoardVisualContract(board: AdventureBoardJson): AdventureBoardValidationIssue[] {
+  if (board.definition) return []; // Authored compositions are measured by the browser publication verifier, never rewritten into slots.
   const issues: AdventureBoardValidationIssue[] = [];
   if (board.layout?.preset !== "horizontal-adventure-spine") return issues;
 

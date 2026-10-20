@@ -1,0 +1,32 @@
+/** Paid synthetic diagnostic, never writes a chart. Run with tsx + dotenv/config. */
+import fs from 'node:fs';
+import path from 'node:path';
+import {pathToFileURL} from 'node:url';
+import {createHash} from 'node:crypto';
+async function main(){
+ const repo=path.resolve(process.argv[2]??process.cwd()),out=path.resolve(process.argv[3]);
+ const {runAgent}=await import(pathToFileURL(path.join(repo,'src/agents/elli/run.ts')).href);
+ const {createSpeechTools}=await import(pathToFileURL(path.join(repo,'src/server/companionSpeechTools.ts')).href);
+ const {buildCurrentBoardSnapshot,buildCurrentBoardSnapshotContext}=await import(pathToFileURL(path.join(repo,'src/server/currentBoardSnapshot.ts')).href);
+ const {buildSessionPrompt}=await import(pathToFileURL(path.join(repo,'src/agents/prompts.ts')).href);
+ process.env.ADVENTURE_MAP='true';
+ if(fs.existsSync(path.join(repo,'src/context/practice/companion_context.md')))throw Error('Synthetic profile path already exists');
+ const prompt=await buildSessionPrompt('Practice' as never,path.join(repo,'src/companions/elli.md'),'Synthetic spelling assignment',[],'homework',{carePlan:null});
+ fs.mkdirSync(out,{recursive:true});fs.writeFileSync(path.join(out,'assembled-system-prompt.txt'),prompt);
+ const results:any[]=[];fs.mkdirSync(out,{recursive:true});
+ for(const word of ['myself','dissatisfied'])for(const run of [1,2]){
+  let speed=1;const actions:any[]=[];const history:any[]=[];const turns:any[]=[];
+  const snapshot=buildCurrentBoardSnapshot({childId:'synthetic-neutral-probe',sessionId:'neutral-probe',canonicalPractice:true,assessment:{itemId:'word',word},state:{game:'word-radar',nodeId:'practice',itemId:'word',phase:'response',practiceCapture:true,answerVisibility:'hidden',launchToken:'synthetic'}});
+  for(const user of ['Can you help me sound this word out more slowly?',"I still don't get it."]){
+   const start=performance.now();
+   try{
+    const tools=createSpeechTools({getSpeechRate:()=>speed,setSpeechRate:(value:number)=>{speed=value;return{speed};}},(receipt:any)=>actions.push(receipt),()=>({itemId:'word',launchToken:'synthetic'}));
+    const response=await runAgent({history,userMessage:user,injectedContextMessages:[{role:'user',content:buildCurrentBoardSnapshotContext(snapshot)}],profile:{name:'Elli',voiceId:'synthetic',systemPrompt:prompt},tools,onToken:()=>{},quiet:true,signal:AbortSignal.timeout(60000)});
+    turns.push({user,response,elapsedMs:performance.now()-start});history.push({role:'user',content:user},{role:'assistant',content:response||'[No spoken response]'});
+   }catch(error){turns.push({user,error:String(error),elapsedMs:performance.now()-start});break;}
+  }
+  results.push({word,run,turns,actions});
+  fs.writeFileSync(path.join(out,'neutral-feedback.json'),JSON.stringify({synthetic:true,model:process.env.SUNNY_VOICE_MODEL??'claude-sonnet-5',promptSha256:createHash('sha256').update(prompt).digest('hex'),protocol:'Two words, two runs per word, two turns per run; the second turn does not name a teaching strategy.',results,limitations:'Production runner and actual buildSessionPrompt (synthetic name, carePlan:null, real personality and adventure supplement) with instrumented tools. No mic, playback, full session, child observation or learning measurement. Text variation is not proof of usefulness or introspection.'},null,2));
+ }
+}
+main().catch(error=>{console.error(String(error));process.exitCode=1;});

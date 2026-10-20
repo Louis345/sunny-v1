@@ -37,6 +37,7 @@ window.GameBridge = (function () {
       difficulty: parseInt(p.get("difficulty") || "2", 10) || 2,
       fixtureState: p.get("fixtureState") || "",
       nodeId: p.get("nodeId") || "unknown",
+      launchToken: p.get("launchToken") || undefined,
       planId: p.get("planId") || "",
       targetLane: p.get("targetLane") || "",
       sessionId: p.get("sessionId") || null,
@@ -78,6 +79,8 @@ window.GameBridge = (function () {
       })(),
     };
   })();
+
+  var capturedSpellingTargets = Object.create(null);
 
   function bindSpellingTarget(row) {
     var bindings = GAME_PARAMS.spellingItemBindings;
@@ -320,6 +323,13 @@ window.GameBridge = (function () {
         showPreviewBanner(r);
         return;
       }
+      // Letter-selection/aggregate results cannot stand in for typed word answers.
+      if (GAME_PARAMS.launchToken && GAME_PARAMS.spellingItemBindings.length &&
+          GAME_PARAMS.spellingItemBindings.some(function (item) { return !capturedSpellingTargets[item.itemId]; })) {
+        window.fireAttemptEvent({ domain: "spelling", evidenceLimitation: "per_word_results_unavailable",
+          attemptId: "completion-limitation:" + GAME_PARAMS.launchToken,
+          rawChoice: null, aggregateAccuracy: typeof r.accuracy === "number" ? r.accuracy : null });
+      }
       var merged = Object.assign({}, r, {
         nodeId: GAME_PARAMS.nodeId,
         childId: GAME_PARAMS.childId,
@@ -358,6 +368,12 @@ window.GameBridge = (function () {
      */
     reportState: function (progress, extras) {
       if (!progress || typeof progress !== "string") return;
+      if (extras && extras.spellingItemOpened === true && GAME_PARAMS.launchToken) {
+        var bound = bindSpellingTarget({ target: extras.currentWord });
+        if (GAME_PARAMS.spellingItemBindings.some(function (item) { return item.itemId === bound.target; })) {
+          extras = Object.assign({}, extras, { itemId: bound.target, practiceCapture: true });
+        }
+      }
       post(
         "game_state_update",
         Object.assign(
@@ -366,6 +382,7 @@ window.GameBridge = (function () {
             progress: progress.trim(),
             childId: GAME_PARAMS.childId,
             nodeId: GAME_PARAMS.nodeId,
+            launchToken: GAME_PARAMS.launchToken,
             sessionId: GAME_PARAMS.sessionId,
             traceId: GAME_PARAMS.traceId,
             activityIntentId: GAME_PARAMS.activityIntentId,
@@ -509,6 +526,7 @@ window.GameBridge = (function () {
         return;
       }
       var payload = Object.assign({}, bindSpellingTarget(attempt));
+      if (payload.domain === "spelling" && typeof payload.attemptedValue === "string") capturedSpellingTargets[payload.target] = true;
       if (payload.word == null && payload.target != null) {
         payload.word = String(payload.target);
       }
@@ -527,9 +545,10 @@ window.GameBridge = (function () {
       post(
         "attempt_event",
         Object.assign(payload, {
-          attemptId: attemptId,
+          attemptId: typeof payload.attemptId === "string" ? payload.attemptId : attemptId,
           childId: GAME_PARAMS.childId,
           nodeId: GAME_PARAMS.nodeId,
+          launchToken: GAME_PARAMS.launchToken,
           sessionId: GAME_PARAMS.sessionId,
           traceId: GAME_PARAMS.traceId,
           activityIntentId: GAME_PARAMS.activityIntentId,

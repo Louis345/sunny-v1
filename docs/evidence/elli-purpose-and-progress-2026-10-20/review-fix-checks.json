@@ -1,0 +1,15 @@
+{
+  "revision": "e761028db4a53a2b1aa331983407228332ba9962",
+  "checks": [
+    {
+      "check": "build",
+      "exitCode": 0
+    },
+    {
+      "check": "focused",
+      "exitCode": 0
+    }
+  ],
+  "fullSuiteRun": false,
+  "humanAcceptance": "pending"
+}

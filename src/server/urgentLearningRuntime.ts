@@ -66,25 +66,6 @@ export function shouldSuppressTranscriptDuringActiveLearningGame(input: {
       /\b(matilda|elli|sunny|charlotte)\b/i.test(text);
   if (commandLike) return false;
 
-  if (activeGame === "word-radar") {
-    const target = String(
-      input.currentActivityState?.currentWord ??
-        input.currentActivityState?.word ??
-        input.currentActivityState?.targetWord ??
-        "",
-    )
-      .trim()
-      .toLowerCase();
-    const tokens = text
-      .toLowerCase()
-      .split(/\s+/)
-      .map((token) => token.replace(/[^a-z0-9]+/g, ""))
-      .filter(Boolean);
-    if (tokens.length > 1 && tokens.every((token) => token.length === 1)) return false;
-    const spoken = text.toLowerCase().replace(/[^a-z0-9]+/g, "");
-    if (!target || spoken !== target.replace(/[^a-z0-9]+/g, "")) return false;
-  }
-
   console.log(`  🎮 [${activeGame}] transcript suppressed during active game`);
   return true;
 }

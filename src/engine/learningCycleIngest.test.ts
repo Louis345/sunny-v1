@@ -1,3 +1,6 @@
+import {createLearningCycle} from "./learningCycleRepository";
+import {withInitialBoard} from "./learningBoardInstances";
+import {linearJourneyFixture} from "../scripts/fixtures/authoredJourney";
 import fs from "fs";
 import os from "os";
 import path from "path";
@@ -5,12 +8,15 @@ import { describe, expect, it } from "vitest";
 import type { ActiveSessionPlan } from "../context/schemas/learningProfile";
 import {
   buildLearningCycleInputFromPlan,
+  buildSpellingRecallItems,
+  buildSpellingTargetedCycleInput,
   persistIngestedLearningCycle,
 } from "./learningCycleIngest";
-import { getLearningCycle, transitionLearningCycle } from "./learningCycleRepository";
+import { getLearningCycle, transitionLearningCycle, type LearningCycleRecordV2 } from "./learningCycleRepository";
 
 function plan(): ActiveSessionPlan {
   return {
+    boardDefinition:linearJourneyFixture(["facts"]),
     planId: "plan-1",
     childId: "reina",
     createdAt: "2026-07-11T20:00:00.000Z",
@@ -99,14 +105,129 @@ function input() {
     contentFingerprint: "fingerprint-1",
     capturedEvidenceIds: ["assignment:pdf:1"],
     targets: ["5x2", "5x5"],
-    plan: plan(),
+    plan: {...plan(),nodePlan:plan().nodePlan.filter(node=>node.type!=="quest"&&node.type!=="boss")},
     engagementTheory: null,
   };
 }
 
 describe("learning cycle ingestion bridge", () => {
+  it("resumes initial publication after interruption without changing the frozen candidate", async () => {
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-initial-resume-"));
+    const frozen = createLearningCycle(withInitialBoard(buildLearningCycleInputFromPlan(input()), "teaching", new Date().toISOString()), {rootDir});
+    expect(frozen.boards![0].publishedAt).toBeNull();
+    const resumed = await persistIngestedLearningCycle(input(), {rootDir});
+    expect(resumed.boards![0].publishedAt).not.toBeNull();
+    expect(resumed.boards![0].definition).toEqual(frozen.boards![0].definition);
+    expect(resumed.observations).toEqual(frozen.observations);
+    expect(resumed.nodes).toEqual(frozen.nodes);
+  });
+
+  it("keeps a Mystery role while launching its academic Concept Check instrument", () => {
+    const homeworkId = "hw-spelling-mystery-instrument";
+    const sourceEvidenceId = "assignment:spelling-list";
+    const spellingItems = buildSpellingRecallItems({
+      homeworkId,
+      words: ["night", "light"],
+      evidenceIds: [sourceEvidenceId],
+      measurementRole: "practice",
+    });
+    const cycle = {
+      childId: "lab-child",
+      homeworkId,
+      domain: "spelling",
+      assignment: {
+        title: "School words",
+        contentFingerprint: "spelling-fingerprint",
+        capturedEvidenceIds: [sourceEvidenceId],
+        targets: ["night", "light"],
+      },
+      nodes: [{
+        nodeId: `${homeworkId}:discovery`,
+        role: "evaluation",
+        evidenceContract: {
+          spellingItems: Object.fromEntries(spellingItems.map((item) => [item.id, item])),
+        },
+      }],
+      observations: [],
+    } as unknown as LearningCycleRecordV2;
+    const conceptCheck = {
+      schemaVersion: 1,
+      activityId: "concept-check",
+      engine: { id: "concept-check", mode: "choose" },
+      topic: "School words",
+      domain: "spelling",
+      learningGoal: "Choose the correctly spelled word.",
+      gradeBand: "early_elementary",
+      targets: [
+        { id: "planner-night", label: "night", type: "word" },
+        { id: "planner-light", label: "light", type: "word" },
+      ],
+      rounds: [
+        { id: "round-night", mechanic: "choose", targetId: "planner-night", prompt: "Choose night.", options: [{ id: "night", label: "night", correct: true }, { id: "nite", label: "nite", correct: false }], scaffoldLevel: 0 },
+        { id: "round-light", mechanic: "choose", targetId: "planner-light", prompt: "Choose light.", options: [{ id: "light", label: "light", correct: true }, { id: "lite", label: "lite", correct: false }], scaffoldLevel: 0 },
+      ],
+      evidencePolicy: { writesPracticeEvidence: true, writesMasteryEvidence: false, requiresPerTargetResult: true, allowedEvidence: ["practice"] },
+    };
+    const plan = {
+      boardDefinition:linearJourneyFixture(["mystery-check","fresh-check"]),
+      planId: `targeted:${homeworkId}`,
+      childId: "lab-child",
+      createdAt: "2026-10-01T12:00:00.000Z",
+      source: "ingest_human_loop",
+      activeHomeworkId: homeworkId,
+      domain: "spelling",
+      testDate: null,
+      nodePlan: [
+        { id: "mystery-check", type: "mystery", activityId: "mystery", title: "Mystery Choice", targets: ["night", "light"], difficulty: 1, source: "chart_planner", activityConfig: conceptCheck },
+        { id: "fresh-check", type: "word-radar", activityId: "word-radar", title: "Fresh Check", targets: ["night", "light"], difficulty: 1, source: "chart_planner", wordRadarConfig: { recallMode: "hidden_word_recall", inputMode: "keyboard" } },
+      ],
+      plannedMeasurements: [
+        { id: "measure-mystery-check", activityId: "mystery", target: "night,light", evidenceType: "recall", supportCriteria: "Practice is completed.", reviseCriteria: "Practice is confusing.", falsifyCriteria: "No response is captured.", spelling: { role: "practice", evidenceIds: [sourceEvidenceId], interventionNodeIds: [], reason: "Practice both words.", uncertainty: "No delayed evidence yet.", expectedAccuracy: { min: 0.4, max: 1 }, confidence: 0.5, maxDelayDays: 7 } },
+        { id: "measure-fresh-check", activityId: "word-radar", target: "night,light", evidenceType: "recall", supportCriteria: "Fresh recall improves.", reviseCriteria: "Recall remains mixed.", falsifyCriteria: "No improvement.", spelling: { role: "fresh_checkpoint", evidenceIds: [sourceEvidenceId], interventionNodeIds: ["mystery-check"], reason: "Check both words without help.", uncertainty: "One occasion.", expectedAccuracy: { min: 0.6, max: 1 }, confidence: 0.5, maxDelayDays: 7, finalCheck: true } },
+      ],
+      variationPolicy: { avoidExactPreviousNodeOrder: true, avoidExactPreviousWordOrder: true, seed: "spelling", previousCompletedNodeCount: 0 },
+      companionPolicy: { companionId: "elli", displayName: "Elli", openingLinePolicy: "context_start_short", verbosity: "low", maxMicroProbes: 1 },
+      evidenceUsed: [{ id: sourceEvidenceId, type: "assignment", summary: "Captured spelling list." }],
+      openQuestions: [],
+      planTheory: { hypothesis: "Practice may improve recall.", evidenceSummary: [sourceEvidenceId], intervention: "Concept check then fresh recall.", supportCriteria: ["Improvement"], reviseCriteria: ["Mixed"], falsifyCriteria: ["No improvement"] },
+    } as unknown as ActiveSessionPlan;
+
+    const contract = buildSpellingTargetedCycleInput({
+      cycle,
+      plan,
+      now: "2026-10-01T12:00:00.000Z",
+    });
+    const mystery = contract.nodes.find((node) => node.nodeId === "mystery-check")!;
+
+    expect(mystery.role).toBe("mystery");
+    expect(mystery.implementationType).toBe("concept-check");
+    expect(mystery.evidenceContract.nativeConfig).toMatchObject({
+      activityId: "concept-check",
+      domain: "spelling",
+    });
+    expect(Object.keys(mystery.evidenceContract.spellingItems ?? {})).toHaveLength(2);
+
+    const missingInstrument = structuredClone(plan);
+    delete missingInstrument.nodePlan[0]!.activityConfig;
+    expect(buildSpellingTargetedCycleInput({
+      cycle,
+      plan: missingInstrument,
+      now: "2026-10-01T12:00:00.000Z",
+    }).nodes.map(node=>node.notReadyReason)).toContain("spelling_mystery_academic_instrument_missing:mystery-check");
+    const reward=structuredClone(missingInstrument);
+    reward.nodePlan[0]!.targets=[];
+    delete reward.plannedMeasurements![0]!.spelling;
+    reward.plannedMeasurements![1]!.spelling!.interventionNodeIds=[];
+    const rewardContract=buildSpellingTargetedCycleInput({cycle,plan:reward,now:"2026-10-01T12:00:00.000Z"});
+    expect(rewardContract.nodes[0].role).toBe("mystery");
+    expect(rewardContract.nodes[0].evidenceContract.academic).toBe(false);
+    expect(Object.keys(rewardContract.nodes[0].evidenceContract.spellingItems??{})).toHaveLength(0);
+    expect(rewardContract.academicPredictions?.some(p=>p.intervention.includes("mystery-check"))).toBe(false);
+
+  });
+
   it("converts the final planner/artifact result into canonical node contracts", () => {
-    const cycleInput = buildLearningCycleInputFromPlan(input());
+    const cycleInput = buildLearningCycleInputFromPlan({...input(),plan:plan()});
     expect(cycleInput.nodes.map((node) => node.title)).toEqual(["Fact Blaster", "Quest", "Boss"]);
     expect(cycleInput.nodes[0]?.openingScreen).toEqual({
       title: "Fact Blaster",
@@ -130,75 +251,93 @@ describe("learning cycle ingestion bridge", () => {
     expect(cycleInput.nodes[0]?.artwork.status).toBe("failed");
   });
 
-  it("creates once and reconciles subsequent ingestion through a versioned transition", () => {
+  it("test 12: creates one opening board and resumes the same unchanged assignment idempotently", async () => {
     const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-cycle-ingest-"));
-    const first = persistIngestedLearningCycle(input(), { rootDir });
-    const changed = plan();
+    const first = await persistIngestedLearningCycle(input(), { rootDir });
+    const changed = input().plan;
     changed.nodePlan[0]!.theme = "new theme";
-    const second = persistIngestedLearningCycle({ ...input(), plan: changed }, { rootDir });
+    const second = await persistIngestedLearningCycle({ ...input(), plan: changed }, { rootDir });
 
     expect(first.schemaVersion).toBe(2);
-    expect(second.revision).toBe(first.revision + 1);
-    expect(second.nodes[0]?.theme).toBe("new theme");
-    expect(getLearningCycle("reina", "hw-math-cycle", { rootDir })).toEqual(second);
+    expect(first.boards).toHaveLength(1);
+    expect(first.boards![0]).toMatchObject({ kind: "teaching", predecessorBoardId: null });
+    expect(first.nodes.some((node) => node.role === "quest" || node.role === "boss")).toBe(false);
+    expect(second).toEqual(first);
+    expect(getLearningCycle("reina", "hw-math-cycle", { rootDir })).toEqual(first);
   });
 
-  it("re-ingestion preserves evidence but resets Quest and Boss to locked teasers", () => {
-    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-cycle-reset-"));
-    let cycle = persistIngestedLearningCycle(input(), { rootDir });
+  it("test 13: a new assignment creates its own separate cycle and leaves the original untouched", async () => {
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-cycle-ingest-new-"));
+    const original = await persistIngestedLearningCycle(input(), { rootDir });
+    const next = await persistIngestedLearningCycle({ ...input(), homeworkId: "hw-math-next", contentFingerprint: "fingerprint-next" }, { rootDir });
+    expect(next.homeworkId).toBe("hw-math-next");
+    expect(next.revision).toBe(2);
+    expect(next.boards?.[0]?.boardId).toBe("hw-math-next:board:1");
+    expect(getLearningCycle("reina", "hw-math-cycle", { rootDir })).toEqual(original);
+  });
+
+  it("refuses to mutate a published board when the same assignment id arrives with different content", async () => {
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-cycle-ingest-changed-"));
+    const first = await persistIngestedLearningCycle(input(), { rootDir });
+    await expect(persistIngestedLearningCycle({ ...input(), contentFingerprint: "different-content" }, { rootDir }))
+      .rejects.toThrow("learning_cycle_reingestion_fingerprint_changed:hw-math-cycle");
+    expect(getLearningCycle("reina", "hw-math-cycle", { rootDir })).toEqual(first);
+  });
+
+  it("re-ingestion preserves evidence and never revokes a prepared successor board", async () => {
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-cycle-reingest-successor-"));
+    let cycle = await persistIngestedLearningCycle(input(), { rootDir });
     cycle = transitionLearningCycle("reina", "hw-math-cycle", cycle.revision, {
-      type: "baseline_completed",
-      nodeId: "facts",
+      type: "instrument_observed", nodeId: "facts", observations: [],
       academicEvidence: [{ evidenceId: "real-child:baseline:1", summary: "Baseline complete", accuracy: 0.8 }],
-      engagementEvidence: [],
-      companionObservations: [],
-      decision: { status: "supported", reason: "Ready for Quest", nextAction: "Generate Quest" },
+      engagementEvidence: [], companionObservations: [],
     }, { rootDir });
     cycle = transitionLearningCycle("reina", "hw-math-cycle", cycle.revision, {
-      type: "artifact_bound",
-      nodeId: "quest-custom-name",
-      artifact: { contentId: "quest:1", artifactId: "quest:1", localArtifactPath: "/games/quest.html", localArtworkPath: "/generated/quest.png", contractFingerprint: "quest", validationStatus: "passed" },
-    }, { rootDir });
-    cycle = transitionLearningCycle("reina", "hw-math-cycle", cycle.revision, {
-      type: "quest_completed",
-      nodeId: "quest-custom-name",
-      academicEvidence: [{ evidenceId: "real-child:quest:1", summary: "Quest complete", accuracy: 0.7 }],
-      engagementEvidence: [],
-      companionObservations: [],
-      decision: { status: "revised", reason: "Boss probe needed", nextAction: "Generate Boss", bossRequired: true },
-    }, { rootDir });
-    cycle = transitionLearningCycle("reina", "hw-math-cycle", cycle.revision, {
-      type: "artifact_bound",
-      nodeId: "boss-custom-name",
-      artifact: { contentId: "boss:1", artifactId: "boss:1", localArtifactPath: "/games/boss.html", localArtworkPath: "/generated/boss.png", contractFingerprint: "boss", validationStatus: "passed" },
-    }, { rootDir });
-    cycle = transitionLearningCycle("reina", "hw-math-cycle", cycle.revision, {
-      type: "boss_completed",
-      nodeId: "boss-custom-name",
-      academicEvidence: [{ evidenceId: "real-child:boss:1", summary: "Boss complete", accuracy: 0.9 }],
-      engagementEvidence: [],
-      companionObservations: [],
-      decision: { status: "awaiting_calibration", reason: "Await graded work", nextAction: "Calibrate" },
+      type: "theory_decided",
+      decision: {
+        status: "supported", reason: "Practice more before transfer.", nextAction: "generate_support",
+        evidenceIds: ["real-child:baseline:1"], predictionEvaluationIds: [], preserve: [], change: [], testNext: [], nextEvidenceRequired: [],
+        progressionAction: "generate_support",
+        successor: { boardDefinition:linearJourneyFixture(["groups"]), instruments: [{ nodeId: "groups", title: "Group Garden", academicTarget: "equal groups", mechanic: "sort", theme: "garden", openingPurpose: "Sort", creatorPrompt: "Build" }] },
+      },
     }, { rootDir });
 
-    const refreshed = persistIngestedLearningCycle(input(), { rootDir });
+    const refreshed = await persistIngestedLearningCycle(input(), { rootDir });
 
-    expect(refreshed.evidence.academic.map((item) => item.evidenceId)).toEqual(expect.arrayContaining([
-      "real-child:baseline:1", "real-child:quest:1", "real-child:boss:1",
-    ]));
-    expect(refreshed.nodes.find((node) => node.role === "quest")).toMatchObject({ state: "locked", artifactBinding: null });
-    expect(refreshed.nodes.find((node) => node.role === "boss")).toMatchObject({ state: "locked", artifactBinding: null });
-    expect(refreshed.lifecycle).toBe("baseline_ready");
+    expect(refreshed).toEqual(cycle);
+    expect(refreshed.boards).toHaveLength(2);
+    expect(refreshed.evidence.academic.map((item) => item.evidenceId)).toContain("real-child:baseline:1");
   });
 
-  it("repairs an invalid historical Quest/Boss state during re-ingestion", () => {
-    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-cycle-invalid-history-"));
-    const created = persistIngestedLearningCycle(input(), { rootDir });
+  it("re-ingesting a legacy cycle keeps an existing Quest and its evidence", async () => {
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-cycle-legacy-quest-"));
+    const created = await persistIngestedLearningCycle(input(), { rootDir });
     const file = path.join(rootDir, "src/context/reina/homework/cycles/hw-math-cycle.json");
+    const legacy = structuredClone(created);
+    delete legacy.boards;
+    const quest = structuredClone(buildLearningCycleInputFromPlan({...input(),plan:plan()}).nodes.find((node) => node.role === "quest")!);
+    quest.state = "completed";
+    quest.evidenceIds = ["real-child:quest:1"];
+    legacy.nodes.push(quest);
+    fs.writeFileSync(file, JSON.stringify(legacy, null, 2), "utf8");
+
+    const refreshed = await persistIngestedLearningCycle(input(), { rootDir });
+
+    expect(refreshed.nodes.find((node) => node.nodeId === quest.nodeId)).toMatchObject({ state: "completed", evidenceIds: ["real-child:quest:1"] });
+  });
+
+  it("repairs an invalid historical Quest/Boss state during re-ingestion", async () => {
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-cycle-invalid-history-"));
+    const created = await persistIngestedLearningCycle(input(), { rootDir });
+    const file = path.join(rootDir, "src/context/reina/homework/cycles/hw-math-cycle.json");
+    // A pre-contract-21 cycle with impossible legacy Quest/Boss placeholders.
     const corrupted = structuredClone(created);
+    delete corrupted.boards;
     corrupted.lifecycle = "quest_generating";
-    const quest = corrupted.nodes.find((node) => node.role === "quest")!;
-    const boss = corrupted.nodes.find((node) => node.role === "boss")!;
+    const legacyBuilt = buildLearningCycleInputFromPlan({...input(),plan:plan()}).nodes;
+    const quest = structuredClone(legacyBuilt.find((node) => node.role === "quest")!);
+    const boss = structuredClone(legacyBuilt.find((node) => node.role === "boss")!);
+    corrupted.nodes.push(quest, boss);
     quest.state = "generating";
     boss.state = "completed";
     boss.artifactBinding = {
@@ -211,10 +350,9 @@ describe("learning cycle ingestion bridge", () => {
     };
     fs.writeFileSync(file, JSON.stringify(corrupted, null, 2), "utf8");
 
-    const repaired = persistIngestedLearningCycle(input(), { rootDir });
+    const repaired = await persistIngestedLearningCycle(input(), { rootDir });
 
     expect(repaired.lifecycle).toBe("baseline_ready");
-    expect(repaired.nodes.find((node) => node.role === "quest")).toMatchObject({ state: "locked", artifactBinding: null });
-    expect(repaired.nodes.find((node) => node.role === "boss")).toMatchObject({ state: "locked", artifactBinding: null });
+    expect(repaired.nodes.some((node) => node.role === "quest" || node.role === "boss")).toBe(false);
   });
 });

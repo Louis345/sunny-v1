@@ -1,5 +1,6 @@
 import fs from "fs";
 import path from "path";
+import {getActivityToolContract} from "./activityToolCatalog";
 import type { NodeConfig } from "../shared/adventureTypes";
 import {
   buildActivityIntent,
@@ -81,6 +82,8 @@ type GameDefinition = {
   displayName: string;
   sourceRelPath: string;
   manualPath: string;
+  sourceDependencies?: string[];
+  evidenceContractId?: string;
   role: "core" | "legacy" | "reward" | "generated";
   evidenceTier: EvidenceTier;
   masteryEligible: boolean;
@@ -100,6 +103,14 @@ const HUMAN_GATE_QUESTIONS = [
 ];
 
 export const SPELLING_CERTIFICATION_GAMES: GameDefinition[] = [
+  {
+    gameId:"visual-explainer", displayName:"Spelling Visual Explainer",
+    sourceRelPath:"web/public/games/spelling-visual-explainer.html",
+    sourceDependencies:["web/public/generated/openai-visual-probe/artifact-shell.js"],
+    evidenceContractId:"visual-explainer", manualPath:"/games/spelling-visual-explainer.html",
+    role:"core", evidenceTier:"practice", masteryEligible:false,
+    requiresNormalizedTargets:true, blockIfMissingNormalizedTargets:true,
+  },
   {
     gameId: "spell-check",
     displayName: "Spell Check",
@@ -289,6 +300,10 @@ function checkVitalSigns(source: string): CertificationCheckStatus {
 
 function checkEvidenceTier(source: string, definition: GameDefinition): CertificationCheckStatus {
   if (definition.role === "generated") return "pass";
+  if (definition.evidenceContractId) {
+    const policy=getActivityToolContract(definition.evidenceContractId).evidence;
+    return definition.evidenceTier==="practice" && !definition.masteryEligible && policy.writesPracticeEvidence && !policy.writesMasteryEvidence ? "pass" : "fail";
+  }
   return source.includes("evidenceTier") || definition.role === "reward" ? "pass" : "fail";
 }
 
@@ -383,7 +398,11 @@ function certifyAdaptationLevel(decision: TargetSelectorDecision): Certification
 }
 
 function certifyGame(rootDir: string, childId: string, definition: GameDefinition): SpellingCertificationGame {
-  const source = readSource(rootDir, definition.sourceRelPath);
+  const primary = readSource(rootDir, definition.sourceRelPath);
+  const scripts=[...primary.replace(/<!--[\s\S]*?-->/g,"").matchAll(/<script\b([^>]*)>[\s\S]*?<\/script>/gi)]
+    .map(match=>match[1].match(/\bsrc\s*=\s*(["'])(.*?)\1/i)?.[2]);
+  const dependencies=(definition.sourceDependencies??[]).map(file=>scripts.includes(file.replace(/^web\/public/,"")) ? readSource(rootDir,file) : "");
+  const source = dependencies.some(value=>!value.trim()) ? "" : [primary,...dependencies].join("\n");
   const sourceExists = checkSourceExists(source);
   const debugTrace = sourceExists === "pass"
     ? definition.role === "generated" && hasAny(source, [/sendNodeComplete/, /fireAttemptEvent/])

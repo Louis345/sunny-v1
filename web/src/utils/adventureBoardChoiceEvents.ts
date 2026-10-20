@@ -44,6 +44,7 @@ type PostChoiceEventOptions = {
 type ChoiceEventResponse = {
   ok: boolean;
   applied?: boolean;
+  selectedRouteId?: string;
   skippedPersistence?: boolean;
   queued?: boolean;
   retryable?: boolean;
@@ -154,6 +155,16 @@ function optionToChoiceOption(
     engagementDimensions: option.engagementDimensions ?? boardNode?.engagementDimensions,
     engagementHypothesis: option.engagementHypothesis ?? boardNode?.engagementHypothesis,
   };
+}
+
+export function buildAdventureBoardChoiceDisplayEventInput(
+  packet: ChildExperiencePacket, choiceSet: AdventureChoiceSet, opened: boolean, options: BuildChoiceEventOptions = {},
+): ChoiceEventInput {
+  const board=boardForPacket(packet), createdAt=options.createdAt ?? new Date().toISOString();
+  return {...assignmentIdentity(packet),choiceEventId:stableEventId({childId:packet.childChart.childId,choiceSetId:`${choiceSet.id}:${opened?'shown':'dismissed'}`,createdAt}),
+    eventName:opened?'impression':'choice_dismissed',choiceSetId:choiceSet.id,childId:packet.childChart.childId,
+    sessionId:options.sessionId ?? packet.activeSessionPlan?.planId,context:contextForChoiceSet(choiceSet),domain:board.domain,
+    shownOptions:choiceSet.options.map(option=>optionToChoiceOption(board,option)),selectedOptionId:null,skippedOptionIds:[],source:options.source ?? 'child_choice',createdAt};
 }
 
 export function buildAdventureBoardChoiceEventInput(

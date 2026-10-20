@@ -20,7 +20,49 @@ afterEach(() => {
 });
 
 describe("game event handler companion events", () => {
-  it("routes an explicit generated-math read request to exact narration", () => {
+  it('addresses Elli only when the child explicitly opens the displayed fork', () => {
+    const session = {recordDebugEvent:vi.fn(),recordGameTrace:vi.fn(),updateCurrentBoardSnapshot:vi.fn(),requestJourneyChoiceSupport:vi.fn().mockResolvedValue(undefined)};
+    handleGameEventForSession(session,{type:'game_state_update',phase:'choice_open',choiceSetId:'order',requestId:'tap-1',addressedCompanion:true});
+    expect(session.requestJourneyChoiceSupport).toHaveBeenCalledWith('order','tap-1');
+    handleGameEventForSession(session,{type:'game_state_update',phase:'loading',choiceSetId:'order'});
+    expect(session.requestJourneyChoiceSupport).toHaveBeenCalledTimes(1);
+  });
+  it("speaks a tapped spelling chunk through the companion narration channel", () => {
+    const speakGameNarration = vi.fn().mockResolvedValue(true);
+    handleGameEventForSession({ recordDebugEvent: vi.fn(), recordGameTrace: vi.fn(), speakGameNarration }, {
+      type: "narration_request", game: "visual-explainer", word: "light", text: "ight", reason: "spelling_chunk",
+    });
+    expect(speakGameNarration).toHaveBeenCalledWith("ight.", expect.objectContaining({ reason: "spelling_chunk", word: "light" }));
+  });
+
+  it("shows a recoverable child-facing warning when a spelling stimulus cannot play", async () => {
+    const fakeSession = {
+      recordDebugEvent: vi.fn(),
+      recordGameTrace: vi.fn(),
+      speakGameNarration: vi.fn().mockRejectedValue(new Error("spelling_stimulus_audio_unavailable")),
+      send: vi.fn(),
+    };
+
+    handleGameEventForSession(fakeSession, {
+      type: "narration_request",
+      game: "word-radar",
+      activityId: "word-radar",
+      nodeId: "opening",
+      itemId: "item-1",
+      assessmentMode: true,
+      word: "sample",
+      text: "sample",
+    });
+
+    await vi.waitFor(() => {
+      expect(fakeSession.send).toHaveBeenCalledWith("error", {
+        fatal: false,
+        message: "I couldn't play that word. Tap Hear the word again.",
+      });
+    });
+  });
+
+  it("routes an explicit generated-math read request to Elli's support turn", () => {
     const fakeSession = {
       childName: "Reina",
       chartChildId: "reina",
@@ -52,7 +94,11 @@ describe("game event handler companion events", () => {
       prompt: "Which rectangle is cut into 3 equal parts?",
       requestCount: 1,
       answerVisibility: "hidden",
+      trigger: "child_request",
     });
+    expect(fakeSession.updateCurrentBoardSnapshot.mock.invocationCallOrder[0]).toBeLessThan(
+      fakeSession.requestInstructionReadAloud.mock.invocationCallOrder[0],
+    );
   });
 
   it("keeps correct/wrong companion events visual-only while recording context", () => {
@@ -237,4 +283,19 @@ describe("game event handler companion events", () => {
       }),
     );
   });
+});
+
+it('preserves legacy answers and Elli notes when a voice game follows a board spelling launch',()=>{
+ vi.mocked(recordLearningAttempt).mockClear();
+ const s={chartChildId:'lab-child',getSpellingLaunch:()=>({homeworkId:'hw',nodeId:'board-node',launchId:'old',launchToken:'board-token'}),noteExternalEvent:vi.fn()};
+ handleGameEventForSession(s,{type:'attempt_event',domain:'spelling',activityId:'letter-rush',nodeId:'voice-game',target:'sun',attemptedValue:'sun',correct:true});
+ expect(recordLearningAttempt).toHaveBeenCalledTimes(1);
+ expect(s.noteExternalEvent).toHaveBeenCalledWith({source:'attempt_event',summary:'Game attempt: sun correct'});
+});
+it.each([undefined,{homeworkId:'hw',nodeId:'old-node',launchId:'old',launchToken:'old-token'}])('keeps a voice trap choice out of word scoring but informs Elli (launch=%j)',launch=>{
+ vi.mocked(recordLearningAttempt).mockClear();
+ const s={chartChildId:'lab-child',getSpellingLaunch:()=>launch,noteExternalEvent:vi.fn()};
+ handleGameEventForSession(s,{type:'attempt_event',domain:'spelling',activityId:'letter-rush',nodeId:'voice-game',evidenceLimitation:'per_word_results_unavailable',aggregateAccuracy:1});
+ expect(recordLearningAttempt).not.toHaveBeenCalled();
+ expect(s.noteExternalEvent).toHaveBeenCalledWith(expect.objectContaining({source:'attempt_event',summary:expect.stringContaining('not a scored spelling answer')}));
 });

@@ -1,0 +1,5 @@
+{
+  "speed": 0.7,
+  "error": "protocol_violation",
+  "message": "voice_settings field must be provided in the first message and then either be not provided or not change."
+}

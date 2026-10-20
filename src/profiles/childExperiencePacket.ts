@@ -2,9 +2,11 @@ import type { AdventureMapProfile } from "../context/schemas/learningProfile";
 import type { ChildChart } from "./childChart";
 import type { CompanionConfig } from "../shared/companionTypes";
 import type { AdventureBoardJson } from "../shared/adventureBoardJson";
+import { isSpellingPracticeContinuation } from "../engine/learningCycleRepository";
 import { readChoiceEvents } from "../engine/choiceEvents";
 
 export type ChildExperiencePacket = {
+  spellingEvaluationResults?: Array<{ display: string; correct?: boolean }>;
   spellingDiscovery?: { nodeId: string; items: Array<{ itemId: string; display: string; acceptedResponses: string[]; label: string; subject: string }> };
   spellingInstruments?: Record<string, { assessment: boolean; items: NonNullable<ChildExperiencePacket["spellingDiscovery"]>["items"] }>;
   childChart: {
@@ -22,6 +24,7 @@ export type ChildExperiencePacket = {
       homeworkId: string;
       lifecycle: string;
       revision: number;
+      boardKind?: "probe" | "teaching" | "successor" | "legacy";
     };
   };
   activeSessionPlan: ChildChart["activeSessionPlan"];
@@ -44,6 +47,7 @@ function projectPlayableHomeworkIdentity(
     ),
   };
 }
+
 
 function projectRecordedCompletions(
   chart: ChildChart,
@@ -95,6 +99,7 @@ function projectCanonicalAgencyChoice(
   plan: ChildChart["activeSessionPlan"],
 ): ChildChart["activeSessionPlan"] {
   const cycle = chart.learningCycle;
+  if (plan?.boardDefinition) return plan;
   const experiment = cycle?.agencyExperiment;
   const board = plan?.adventureBoard;
   if (!plan?.activeHomeworkId || !board || !experiment || experiment.routes.length < 2) return plan;
@@ -111,7 +116,13 @@ function projectCanonicalAgencyChoice(
   const routeByNodeId = new Map(experiment.routes.flatMap((route) =>
     route.nodeIds.map((nodeId) => [nodeId, route.routeId] as const)));
   const agencyNodeIds = new Set([...experiment.sharedNodeIds, ...routeByNodeId.keys()]);
-  const launchableNodeId = firstIncompleteShared ?? firstIncompleteSelected;
+  const isLaunchable = (nodeId: string | undefined) => {
+    const state = nodeId ? cycleNodeState.get(nodeId) : undefined;
+    return state === "ready" || state === "active";
+  };
+  const launchableNodeId = firstIncompleteShared
+    ? (isLaunchable(firstIncompleteShared) ? firstIncompleteShared : undefined)
+    : (isLaunchable(firstIncompleteSelected) ? firstIncompleteSelected : undefined);
   const previewUrl = (nodeId: string) =>
     `/generated/direct-math/${plan.activeHomeworkId}-previews/${nodeId}-opening.png`;
 
@@ -119,9 +130,11 @@ function projectCanonicalAgencyChoice(
     if (experiment.sharedNodeIds.includes(node.id)) {
       const state: AdventureBoardJson["nodes"][number]["state"] = completedNodeIds.has(node.id)
         ? "completed"
-        : node.id === firstIncompleteShared
+        : node.id === launchableNodeId
           ? "current"
-          : "locked";
+          : node.state === "preview"
+            ? "preview"
+            : "locked";
       return { ...node, state };
     }
     if (node.kind === "choice-gate") {
@@ -136,9 +149,11 @@ function projectCanonicalAgencyChoice(
     if (routeId) {
       const state: AdventureBoardJson["nodes"][number]["state"] = completedNodeIds.has(node.id)
         ? "completed"
-        : routeId === selectedRoute?.routeId && node.id === firstIncompleteSelected
+        : routeId === selectedRoute?.routeId && node.id === launchableNodeId
           ? "current"
-          : "locked";
+          : node.state === "preview"
+            ? "preview"
+            : "locked";
       return { ...node, state, thumbnailUrl: node.thumbnailUrl ?? previewUrl(node.id) };
     }
     const canonicalState = cycleNodeState.get(node.id);
@@ -180,7 +195,7 @@ function projectCanonicalAgencyChoice(
       progress: {
         ...board.progress,
         completedNodeIds: [...new Set([...(board.progress?.completedNodeIds ?? []), ...completedNodeIds])],
-        currentNodeId: firstIncompleteShared ?? firstIncompleteSelected,
+        currentNodeId: launchableNodeId,
         ...(!selectedRouteComplete && sharedComplete ? { activeChoiceSetId: choiceSets?.find((set) => set.kind === "baseline-route")?.id } : {}),
       },
     },
@@ -204,11 +219,20 @@ export function buildChildExperiencePacket(chart: ChildChart): ChildExperiencePa
   const spellingInstruments = chart.learningCycle?.domain === "spelling" ? Object.fromEntries(chart.learningCycle.nodes.flatMap(node => {
     const items = Object.values(node.evidenceContract.spellingItems ?? {});
     if (!items.length) return [];
-    const assessment = node.state !== "completed" && (node.role === "evaluation" || items.every(item => item.lineage.measurementRole === "fresh_checkpoint"));
+    const assessment = node.state !== "completed" && !isSpellingPracticeContinuation(chart.learningCycle!) && (node.role === "evaluation" || items.every(item => item.lineage.measurementRole === "fresh_checkpoint"));
     const captured = new Set(chart.learningCycle!.observations.map(row => row.itemId));
     return [[node.nodeId, { assessment, items: items.filter(item => !assessment || node.state === "completed" || !captured.has(item.id)).map(item => ({ itemId: item.id, display: item.word, acceptedResponses: item.response.acceptedForms, label: "Spelling", subject: "spelling" })) }]];
   })) : undefined;
+  const spellingEvaluationResults = chart.learningCycle?.domain === "spelling"
+    && !["evaluation_ready", "evaluation_active"].includes(chart.learningCycle.lifecycle)
+    ? chart.learningCycle.nodes.filter(node => node.role === "evaluation").flatMap(node =>
+      Object.values(node.evidenceContract.spellingItems ?? {}).map(item => {
+        const observation = chart.learningCycle!.observations.find(row => row.itemId === item.id && row.sourceId === `evaluation:${node.nodeId}`);
+        return { display: item.word, ...(typeof observation?.result.correct === "boolean" ? { correct: observation.result.correct } : {}) };
+      }))
+    : undefined;
   return {
+    ...(spellingEvaluationResults?.length ? { spellingEvaluationResults } : {}),
     ...(spellingInstruments ? { spellingInstruments } : {}),
     ...(spellingEvaluation ? { spellingDiscovery: { nodeId: spellingEvaluation.nodeId, items: Object.values(spellingEvaluation.evidenceContract.spellingItems!).filter(item => !answered.has(item.id)).map(item => ({ itemId: item.id, display: item.word, acceptedResponses: item.response.acceptedForms, label: "Spelling", subject: "spelling" })) } } : {}),
     childChart: {
@@ -227,6 +251,7 @@ export function buildChildExperiencePacket(chart: ChildChart): ChildExperiencePa
             homeworkId: chart.learningCycle.homeworkId,
             lifecycle: chart.learningCycle.lifecycle,
             revision: chart.learningCycle.revision,
+            boardKind: chart.learningCycle.boards?.find(board => board.boardId === selectedPlan?.adventureBoard?.boardId)?.kind,
           }
         : undefined,
     },

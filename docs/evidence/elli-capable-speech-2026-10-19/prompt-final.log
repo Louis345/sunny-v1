@@ -1,0 +1,41 @@
+
+ RUN  v3.2.4 /Users/jtaylor/Development/sunny-elli-capable-speech
+
+stdout | src/tests/test-companion-base-rules.ts > assembles Elli's full normal prompt without reintroducing hard caps (homework=Assigned spelling words)
+  🧩 Session prompt template v25
+  📋 Session prompt: 15947 chars (no care plan section, before manifest)
+
+stdout | src/tests/test-companion-base-rules.ts > assembles Elli's full normal prompt without reintroducing hard caps (homework=)
+  📋 Session prompt: 15284 chars (no care plan section, before manifest)
+
+ ✓ src/tests/test-companion-base-rules.ts (7 tests) 245ms
+stdout | src/tests/test-session-plan-injection.ts > Suite 1 — Plan injection (buildSessionPrompt) > with todaysPlan, prompt contains care plan section
+  📋 Session prompt: 15985 chars before care plan + 323 chars care = 16310 chars (before manifest)
+
+stdout | src/tests/test-session-plan-injection.ts > Suite 1 — Plan injection (buildSessionPrompt) > with carePlan null, no care plan section and no throw
+  📋 Session prompt: 15985 chars (no care plan section, before manifest)
+
+stdout | src/tests/test-session-plan-injection.ts > Suite 5 — Child-agnostic > same care plan string embedded for Ila vs Reina when same plan
+  📋 Session prompt: 15985 chars before care plan + 323 chars care = 16310 chars (before manifest)
+
+stdout | src/tests/test-session-plan-injection.ts > Suite 5 — Child-agnostic > same care plan string embedded for Ila vs Reina when same plan
+  📋 Session prompt: 14604 chars before care plan + 323 chars care = 14929 chars (before manifest)
+
+stdout | src/tests/test-session-plan-injection.ts > readPersistedTodaysPlan / writePersistedTodaysPlan > round-trips valid JSON
+  🎮 [today-plan] wrote plan-1792472666792.json
+
+stdout | src/tests/test-session-plan-injection.ts > getTodaysPlanInjectionSuffix > returns formatted plan when file exists and not stateless
+  🎮 [today-plan] wrote plan-suffix-1792472666794.json
+
+stdout | src/tests/test-session-plan-injection.ts > character counts: care plan injection > reports longer prompt when care plan present vs null
+  📋 Session prompt: 15985 chars (no care plan section, before manifest)
+
+stdout | src/tests/test-session-plan-injection.ts > character counts: care plan injection > reports longer prompt when care plan present vs null
+  📋 Session prompt: 15985 chars before care plan + 323 chars care = 16310 chars (before manifest)
+
+ ✓ src/tests/test-session-plan-injection.ts (20 tests) 11ms
+
+ Test Files  2 passed (2)
+      Tests  27 passed (27)
+   Start at  01:04:26
+   Duration  538ms (transform 144ms, setup 0ms, collect 102ms, tests 256ms, environment 0ms, prepare 41ms)

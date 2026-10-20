@@ -169,6 +169,10 @@ export function SessionLoadingOverlay({
   useEffect(() => {
     if (baseProgress === 100 || safetyReleased) return;
     const id = window.setTimeout(() => {
+      if (!mapReady) {
+        console.warn(" 🎮 [loading-screen] [safety-release] [held-for-map]");
+        return;
+      }
       setSafetyReleased(true);
       console.warn(" 🎮 [loading-screen] safety release", {
         childName: displayName,
@@ -192,6 +196,10 @@ export function SessionLoadingOverlay({
   useEffect(() => {
     if (baseProgress === 100) return;
     const id = window.setTimeout(() => {
+      if (!mapReady) {
+        console.warn(" 🎮 [loading-screen] [hard-release] [held-for-map]");
+        return;
+      }
       console.warn(" 🎮 [loading-screen] hard release", {
         childName: displayName,
         voiceReady,

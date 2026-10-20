@@ -1,8 +1,10 @@
+import {verifyPreparingBoardCanvas} from "./adventureBoardCanvas";
+import {linearJourneyFixture} from '../scripts/fixtures/authoredJourney';
 import fs from "fs";
 import os from "os";
 import path from "path";
-import { describe, expect, it } from "vitest";
-import { createLearningCycle, getLearningCycle, transitionLearningCycle, type CreateLearningCycleInput } from "./learningCycleRepository";
+import { describe, expect, it, vi } from "vitest";
+import { createLearningCycle, getLearningCycle, projectLearningCycle, transitionLearningCycle, type CreateLearningCycleInput } from "./learningCycleRepository";
 import { advanceCanonicalCycleFromEvidence, parseCanonicalProgressionDecision, recordCanonicalNodeCompletion } from "./learningCycleRuntime";
 
 function root(): string {
@@ -12,6 +14,8 @@ function root(): string {
 function frozenItems(ids = ["2x5", "groups", "transfer-1", "synthesis-1", "unseen-transfer", "unseen-synthesis", "same-item", "checkpoint-1", "practice-1"]) {
  return ids.map(id=>({id,prompt:`Lab ${id}`,lineage:{sourceEvidenceIds:["pdf:1"],exposure:"unseen" as const,measurementRole:id==="practice-1"?"practice" as const:"fresh_checkpoint" as const},response:{mode:"numeric" as const,expected:10}}));
 }
+function successorOf(instrument: Record<string, unknown>, encounter?: "quest" | "boss") { return { boardDefinition:linearJourneyFixture([String(instrument.nodeId)]), instruments: [{ ...instrument, ...(encounter ? { encounter } : {}) }] } as never; }
+function latest(cycle: { nodes: Array<{ nodeId: string; role: string }> }, role: "quest" | "boss") { return [...cycle.nodes].reverse().find((n) => n.role === role && n.nodeId.includes(":b"))!.nodeId; }
 function prescription(nodeId: string) { return {nodeId,title:nodeId,academicTarget:'multiplication',mechanic:'lab',theme:'lab',openingPurpose:'Measure',creatorPrompt:'Build',items:frozenItems()}; }
 function node(id: string, role: "baseline" | "quest" | "boss", state: "ready" | "locked" = "ready") {
   const title = role === "quest" ? "Quest" : role === "boss" ? "Boss" : id === "facts" ? "Fact Blaster" : "Story Solver";
@@ -75,12 +79,13 @@ describe("canonical learning cycle runtime", () => {
       calls++;
       if(blocked)transitionLearningCycle("reina","hw-runtime",cycle.revision,{type:"block",reason:"Parent paused"},{rootDir});
       else recordCanonicalNodeCompletion({...completion,sessionId:"replay"},{rootDir});
-      return {status:"inconclusive",reason:"Collect fresh evidence next",progressionAction:"collect_more_evidence",preserve:[],change:[],testNext:[],nextEvidenceRequired:[]};
+      return {status:"inconclusive",reason:"Collect fresh evidence next",progressionAction:"collect_more_evidence",preserve:[],change:[],testNext:[],nextEvidenceRequired:[],successor:successorOf(prescription("fresh-check"))};
     }},{rootDir});
     if(blocked) await expect(pending).rejects.toThrow("canonical_progression_context_changed");
     else {
       const after=await pending;
-      expect(after.lifecycle).toBe("baseline_active");
+      expect(after.lifecycle).toBe("baseline_generating");
+      expect(after.boards).toHaveLength(2);
       expect(after.observations).toHaveLength(2);
       expect(after.observations[1]?.provenance).toBe("practice");
       expect(after.decisionHistory.filter(d=>d.eventType==="theory_decided")).toHaveLength(1);
@@ -88,6 +93,85 @@ describe("canonical learning cycle runtime", () => {
     }
     expect(calls).toBe(1);
     fs.rmSync(rootDir,{recursive:true,force:true});
+  });
+
+  it("retries one Planner decision from the latest engagement theory revision", async () => {
+    // Human catch: the final checkpoint closed revision 86, then the child's
+    // post-activity choice updated engagement theory to 87 while the Planner
+    // was running. The valid context guard rejected the stale answer, but no
+    // bounded retry advanced the finished board.
+    const rootDir = root();
+    createLearningCycle({ ...input(), nodes: [node("facts", "baseline")] }, { rootDir });
+    recordCanonicalNodeCompletion({
+      childId: "reina",
+      homeworkId: "hw-runtime",
+      sessionId: "final-checkpoint",
+      nodeId: "facts",
+      result: { completed: true, accuracy: 1, timeSpent_ms: 1_000, targetResults: [{ target: "checkpoint-1", correct: true, attemptedValue: "10" }] },
+    }, { rootDir });
+    let calls = 0;
+    const decided = await advanceCanonicalCycleFromEvidence({
+      childId: "reina",
+      homeworkId: "hw-runtime",
+      decide: async (cycle) => {
+        calls += 1;
+        if (calls === 1) {
+          transitionLearningCycle("reina", "hw-runtime", cycle.revision, {
+            type: "engagement_theory_updated",
+            theory: {
+              theoryId: "engagement-current",
+              childId: "reina",
+              domain: "math",
+              hypothesis: "Puzzle persistence is worth testing",
+              dimensions: {},
+              promptDirectives: { prefer: ["puzzles"], avoid: [], vary: [], holdConstant: ["targets"] },
+              evidence: [{ id: "choice-final", source: "choice_event", summary: "Finished and chose the map", observedAt: "2026-10-07T19:15:00.000Z" }],
+              nextExperiment: null,
+              updatedAt: "2026-10-07T19:15:00.000Z",
+            } as never,
+            reason: "Post-activity choice updated engagement context.",
+          }, { rootDir });
+        } else {
+          expect(cycle.engagementTheory?.theoryId).toBe("engagement-current");
+        }
+        return { status: "inconclusive", reason: "Collect fresh evidence next", progressionAction: "collect_more_evidence", preserve: [], change: [], testNext: [], nextEvidenceRequired: [], successor: successorOf(prescription("fresh-check")) };
+      },
+    }, { rootDir });
+
+    expect(calls).toBe(2);
+    expect(decided.lifecycle).toBe("baseline_generating");
+    fs.rmSync(rootDir, { recursive: true, force: true });
+  });
+
+  it("stops after one context-change retry", async () => {
+    const rootDir = root();
+    createLearningCycle({ ...input(), nodes: [node("facts", "baseline")] }, { rootDir });
+    recordCanonicalNodeCompletion({
+      childId: "reina", homeworkId: "hw-runtime", sessionId: "final-checkpoint", nodeId: "facts",
+      result: { completed: true, accuracy: 1, timeSpent_ms: 1_000, targetResults: [{ target: "checkpoint-1", correct: true, attemptedValue: "10" }] },
+    }, { rootDir });
+    let calls = 0;
+    const pending = advanceCanonicalCycleFromEvidence({
+      childId: "reina",
+      homeworkId: "hw-runtime",
+      decide: async (cycle) => {
+        calls += 1;
+        transitionLearningCycle("reina", "hw-runtime", cycle.revision, {
+          type: "engagement_theory_updated",
+          theory: {
+            theoryId: `engagement-${calls}`, childId: "reina", domain: "math", hypothesis: `Revision ${calls}`,
+            dimensions: {}, promptDirectives: { prefer: [], avoid: [], vary: [], holdConstant: ["targets"] },
+            evidence: [], nextExperiment: null, updatedAt: `2026-10-07T19:15:0${calls}.000Z`,
+          } as never,
+          reason: "Synthetic repeated context change.",
+        }, { rootDir });
+        return { status: "inconclusive", reason: "Collect fresh evidence next", progressionAction: "collect_more_evidence", preserve: [], change: [], testNext: [], nextEvidenceRequired: [], successor: successorOf(prescription("fresh-check")) };
+      },
+    }, { rootDir });
+
+    await expect(pending).rejects.toThrow("canonical_progression_context_changed");
+    expect(calls).toBe(2);
+    fs.rmSync(rootDir, { recursive: true, force: true });
   });
 
   it.each([
@@ -229,6 +313,7 @@ describe("canonical learning cycle runtime", () => {
         status: "supported",
         reason: "The fresh checkpoint matched the prediction.",
         progressionAction: "collect_more_evidence",
+        successor: successorOf(prescription("delayed-check")),
         preserve: [], change: [], testNext: ["delayed transfer"], nextEvidenceRequired: ["delayed evidence"],
         predictionEvaluationIds: [cycle.predictionEvaluations[0]!.evaluationId],
       }),
@@ -353,6 +438,7 @@ describe("canonical learning cycle runtime", () => {
       reason: "Equal partitioning remains unclear.",
       progressionAction: "generate_support",
       preserve: [], change: ["partition support"], testNext: ["equal parts"], nextEvidenceRequired: ["unassisted partition"],
+      boardDefinition:linearJourneyFixture(["generated-support-the-cove-wreck"]),
       nextNodeId: null,
       nextTitle: "The Cove Wreck",
       nextAcademicTarget: "Build equal parts",
@@ -361,7 +447,7 @@ describe("canonical learning cycle runtime", () => {
       nextOpeningPurpose: "Judge a lopsided partition.",
       nextCreatorPrompt: "Build the prescribed support instrument.",
     });
-    expect(decision.nextInstrument).toMatchObject({
+    expect(decision.successor?.instruments[0]).toMatchObject({
       nodeId: "generated-support-the-cove-wreck",
       title: "The Cove Wreck",
       academicTarget: "Build equal parts",
@@ -390,8 +476,11 @@ describe("canonical learning cycle runtime", () => {
     const routeComplete = recordCanonicalNodeCompletion({ childId: "reina", homeworkId: "hw-runtime", sessionId: "s1", nodeId: "speed-story", result: { completed: true, accuracy: 1, timeSpent_ms: 1000 } }, { rootDir });
 
     expect(routeComplete?.lifecycle).toBe("baseline_evaluating");
-    expect(routeComplete?.nodes.find((item) => item.nodeId === "puzzle-fact")?.state).toBe("locked");
-    expect(routeComplete?.nodes.find((item) => item.nodeId === "puzzle-story")?.state).toBe("locked");
+    // The untaken route is never relocked; it is presented as not taken and cannot add evidence.
+    expect(routeComplete?.nodes.find((item) => item.nodeId === "puzzle-fact")?.state).toBe("ready");
+    expect(() => projectLearningCycle(routeComplete!)).toThrow("board_definition_missing"); // Unsaved historical presentation cannot be reconstructed.
+    expect(() => recordCanonicalNodeCompletion({ childId: "reina", homeworkId: "hw-runtime", sessionId: "s1", nodeId: "puzzle-fact", result: { completed: true, accuracy: 1, timeSpent_ms: 1000 } }, { rootDir }))
+      .toThrow("learning_board_batch_closed:puzzle-fact");
   });
 
   it("records factual baseline scorecards before one Planner decision generates Quest", async () => {
@@ -417,7 +506,7 @@ describe("canonical learning cycle runtime", () => {
         change: [],
         testNext: ["unseen transfer"],
         nextEvidenceRequired: ["Quest results"],
-        nextInstrument: {
+        successor: successorOf({
           items: frozenItems(),
           nodeId: "quest",
           title: "Lantern Rescue",
@@ -431,19 +520,19 @@ describe("canonical learning cycle runtime", () => {
           escalation: "Each leg adds one more boat to route in the same tide window.",
           mechanicSpec: "Drag a rope between docks; the rope tightens and boats slide into equal rows, or slackens and a boat drifts out to sea.",
           mathematicalHook: "Six rows of five is the same crowd of boats as five rows of six, just moored sideways.",
-        },
+        }, "quest"),
       }),
     }, { rootDir });
 
     expect(decided.lifecycle).toBe("quest_generating");
-    expect(decided.nodes.find((item) => item.nodeId === "quest")?.generationPrompt?.createdFromEvidenceIds)
+    expect(decided.nodes.find((item) => item.nodeId === latest(decided, "quest"))?.generationPrompt?.createdFromEvidenceIds)
       .toEqual(expect.arrayContaining(["s1:facts:completion", "s1:story:completion"]));
-    expect(decided.nodes.find((item) => item.nodeId === "quest")?.generationPrompt?.createdFromEvidenceIds)
+    expect(decided.nodes.find((item) => item.nodeId === latest(decided, "quest"))?.generationPrompt?.createdFromEvidenceIds)
       .not.toContain("s1:facts:completion:companion:1");
-    expect(decided.nodes.find((item) => item.nodeId === "quest")?.generationPrompt?.text)
+    expect(decided.nodes.find((item) => item.nodeId === latest(decided, "quest"))?.generationPrompt?.text)
       .toContain("must not be reused verbatim");
     // The Planner named this node "Lantern Rescue"; the child sees that, not "Quest".
-    expect(decided.nodes.find((item) => item.nodeId === "quest")).toMatchObject({
+    expect(decided.nodes.find((item) => item.nodeId === latest(decided, "quest"))).toMatchObject({
       role: "quest",
       title: "Lantern Rescue",
       mechanic: "route-planning simulation",
@@ -460,9 +549,11 @@ describe("canonical learning cycle runtime", () => {
         mathematicalHook: "Six rows of five is the same crowd of boats as five rows of six, just moored sideways.",
       },
     });
-    expect(decided.nodes.find((item) => item.nodeId === "quest")?.generationPrompt?.text)
+    expect(decided.nodes.find((item) => item.nodeId === latest(decided, "quest"))?.generationPrompt?.text)
       .toContain("multi-stage harbor rescue");
     expect(decided.decisionHistory.filter((item) => item.eventType === "theory_decided")).toHaveLength(1);
+    // The legacy placeholder is untouched; the Quest lives on a new successor board.
+    expect(decided.nodes.find((item) => item.nodeId === "quest")).toMatchObject({ state: "locked", title: "Quest", generationPrompt: null });
   });
 
   it("does not turn an uncaptured spoken explanation into correct academic evidence", () => {
@@ -509,7 +600,7 @@ describe("canonical learning cycle runtime", () => {
         change: ["representation"],
         testNext: ["array to notation"],
         nextEvidenceRequired: ["unassisted construction"],
-        nextInstrument: {
+        successor: successorOf({
           items: frozenItems(),
           nodeId: "support-array-link",
           title: "Array Bridge",
@@ -518,12 +609,12 @@ describe("canonical learning cycle runtime", () => {
           theme: "bridge workshop",
           openingPurpose: "Build an array, then name its multiplication fact.",
           creatorPrompt: "Create a concise visual construction activity using unseen values.",
-        },
+        }),
       }),
     }, { rootDir });
 
     expect(decided.lifecycle).toBe("baseline_generating");
-    expect(decided.nodes.find((item) => item.nodeId === "support-array-link")).toMatchObject({
+    expect(decided.nodes.find((item) => item.title === "Array Bridge")).toMatchObject({
       role: "baseline",
       state: "generating",
       title: "Array Bridge",
@@ -575,7 +666,7 @@ describe("canonical learning cycle runtime", () => {
         change: [],
         testNext: ["transfer"],
         nextEvidenceRequired: ["Quest"],
-        nextInstrument: {
+        successor: successorOf({
           items: frozenItems(),
           nodeId: "quest",
           title: "Quest",
@@ -584,12 +675,12 @@ describe("canonical learning cycle runtime", () => {
           theme: "AI selected",
           openingPurpose: "Apply the concept.",
           creatorPrompt: "Create unseen transfer.",
-        },
+        }, "quest"),
       }),
     }, { rootDir })).rejects.toThrow("canonical_progression_quest_requires_eligible_baseline_evidence");
   });
 
-  it("gives the Planner a concrete decision envelope instead of an unconstrained empty object", async () => {
+  it.each(["claude-opus-5-5", "claude-sonnet-4-5"])("gives %s a compatible concrete decision envelope", async (model) => {
     const rootDir = root();
     fs.mkdirSync(path.join(rootDir, "src", "context", "reina"), { recursive: true });
     fs.writeFileSync(path.join(rootDir, "src", "context", "reina", "child_profile.json"), JSON.stringify({
@@ -613,7 +704,7 @@ describe("canonical learning cycle runtime", () => {
             content: [{
               type: "tool_use",
               name: "decide_learning_cycle_progression",
-              input: {
+              input: {boardDefinition:linearJourneyFixture(["quest"]),
                 status: "supported",
                 reason: "Practice evidence supports an unseen transfer test.",
                 progressionAction: "generate_quest",
@@ -621,8 +712,9 @@ describe("canonical learning cycle runtime", () => {
                 change: [],
                 testNext: ["unseen transfer"],
                 nextEvidenceRequired: ["Quest scorecard"],
-                nextInstrument: {
-          items: frozenItems(),
+                nextInstruments: [{
+                  items: frozenItems(),
+                  encounter: "quest",
                   nodeId: "quest",
                   title: "Quest",
                   academicTarget: "unseen multiplication transfer",
@@ -630,7 +722,7 @@ describe("canonical learning cycle runtime", () => {
                   theme: "AI-selected world",
                   openingPurpose: "Apply multiplication in a new situation.",
                   creatorPrompt: "Create an ambitious unseen-transfer Quest.",
-                },
+                }],
               },
             }],
           };
@@ -641,9 +733,11 @@ describe("canonical learning cycle runtime", () => {
     await advanceCanonicalCycleFromEvidence({
       childId: "reina",
       homeworkId: "hw-runtime",
-      client: client as never,
+      client: {messages:{...client.messages,stream:(payload:Record<string,unknown>)=>({finalMessage:()=>client.messages.create(payload)})}} as never,
+      model,
     }, { rootDir });
 
+    expect(request?.tool_choice).toEqual(model === "claude-opus-5-5" ? { type: "auto" } : { type: "tool", name: "decide_learning_cycle_progression" });
     const inputSchema = ((request?.tools as Array<{ input_schema: { required?: string[] } }>)[0]?.input_schema);
     const prompt = String((request?.messages as Array<{ content?: unknown }>)[0]?.content ?? "");
     expect(prompt).toContain("Child chart context");
@@ -658,12 +752,16 @@ describe("canonical learning cycle runtime", () => {
       "testNext",
       "nextEvidenceRequired",
     ]));
-    expect(inputSchema.required).toEqual(expect.arrayContaining([
-      "nextNodeId",
-      "nextAcademicTarget",
-      "nextMechanic",
-      "nextCreatorPrompt",
+    const properties = (inputSchema as { properties?: Record<string, { items?: { required?: string[] } }> }).properties ?? {};
+    expect(properties.nextInstruments?.items?.required).toEqual(expect.arrayContaining([
+      "nodeId", "academicTarget", "mechanic", "creatorPrompt", "items",
     ]));
+    expect(prompt).toContain("never add an encounter otherwise");
+    expect(inputSchema.required).toContain("nextInstruments");
+    expect(fs.existsSync(path.join(
+      rootDir,
+      "src/context/reina/homework/cycles/.planner/hw-runtime/hw-runtime_decision_r2/provider-receipts/progression-decision-r2.stage.json",
+    ))).toBe(true);
   });
 
   it("excludes stored directives and synthetic QA records from the Quest Planner prompt", async () => {
@@ -737,13 +835,14 @@ describe("canonical learning cycle runtime", () => {
       homeworkId: "hw-runtime",
       client: {
         messages: {
-          create: async (payload: Record<string, unknown>) => {
+          stream: (payload: Record<string, unknown>) => ({ finalMessage: async () => {
             request = payload;
             return {
               content: [{
                 type: "tool_use",
                 name: "decide_learning_cycle_progression",
                 input: {
+                  boardDefinition:linearJourneyFixture(["quest"]),
                   status: "supported",
                   reason: "Real practice evidence supports transfer testing.",
                   progressionAction: "generate_quest",
@@ -762,7 +861,7 @@ describe("canonical learning cycle runtime", () => {
                 },
               }],
             };
-          },
+          } }),
         },
       } as never,
     }, { rootDir });
@@ -789,14 +888,16 @@ describe("canonical learning cycle runtime", () => {
     const rootDir = root();
     createLearningCycle({ ...input(), nodes: [node("facts", "baseline"), node("quest", "quest", "locked"), node("boss", "boss", "locked")] }, { rootDir });
     recordCanonicalNodeCompletion({ childId: "reina", homeworkId: "hw-runtime", sessionId: "s1", nodeId: "facts", result: { completed: true, accuracy: 1, timeSpent_ms: 1000, targetResults: [{ target: "2x5", correct: true, attemptedValue: "10" }] } }, { rootDir });
-    const questGenerating = await advanceCanonicalCycleFromEvidence({ childId: "reina", homeworkId: "hw-runtime", decide: async () => ({ status: "supported", reason: "Test transfer.", progressionAction: "generate_quest", nextInstrument: prescription("quest"), preserve: [], change: [], testNext: ["transfer"], nextEvidenceRequired: ["Quest"] }) }, { rootDir });
-    transitionLearningCycle("reina", "hw-runtime", questGenerating.revision, { type: "artifact_bound", nodeId: "quest", artifact: { contentId: "quest", artifactId: "quest", localArtifactPath: "/games/quest.html", localArtworkPath: "/generated/quest.png", contractFingerprint: "quest", validationStatus: "passed" } }, { rootDir });
-    recordCanonicalNodeCompletion({ childId: "reina", homeworkId: "hw-runtime", sessionId: "s2", nodeId: "quest", result: { completed: true, accuracy: 0.9, timeSpent_ms: 1000, targetResults: [{ target: "transfer-1", correct: true, attemptedValue: "10" }] } }, { rootDir });
-    const bossGenerating = await advanceCanonicalCycleFromEvidence({ childId: "reina", homeworkId: "hw-runtime", decide: async () => ({ status: "supported", reason: "Transfer held on unseen material.", progressionAction: "generate_boss", nextInstrument: prescription("boss"), preserve: [], change: [], testNext: ["synthesis"], nextEvidenceRequired: ["Boss"] }) }, { rootDir });
+    const questGenerating = await advanceCanonicalCycleFromEvidence({ childId: "reina", homeworkId: "hw-runtime", decide: async () => ({ status: "supported", reason: "Test transfer.", progressionAction: "generate_quest", successor: successorOf(prescription("quest"), "quest"), preserve: [], change: [], testNext: ["transfer"], nextEvidenceRequired: ["Quest"] }) }, { rootDir });
+    transitionLearningCycle("reina", "hw-runtime", questGenerating.revision, { type: "artifact_bound", nodeId: latest(questGenerating, "quest"), artifact: { contentId: "quest", artifactId: "quest", localArtifactPath: "/games/quest.html", localArtworkPath: "/generated/quest.png", contractFingerprint: "quest", validationStatus: "passed" } }, { rootDir });
+    await verifyPreparingBoardCanvas({rootDir,childId:"reina",homeworkId:"hw-runtime",directory:path.join(rootDir,"canvas")});
+    recordCanonicalNodeCompletion({ childId: "reina", homeworkId: "hw-runtime", sessionId: "s2", nodeId: latest(questGenerating, "quest"), result: { completed: true, accuracy: 0.9, timeSpent_ms: 1000, targetResults: [{ target: "transfer-1", correct: true, attemptedValue: "10" }] } }, { rootDir });
+    const bossGenerating = await advanceCanonicalCycleFromEvidence({ childId: "reina", homeworkId: "hw-runtime", decide: async () => ({ status: "supported", reason: "Transfer held on unseen material.", progressionAction: "generate_boss", successor: successorOf(prescription("boss"), "boss"), preserve: [], change: [], testNext: ["synthesis"], nextEvidenceRequired: ["Boss"] }) }, { rootDir });
     expect(bossGenerating.lifecycle).toBe("boss_generating");
 
-    transitionLearningCycle("reina", "hw-runtime", bossGenerating.revision, { type: "artifact_bound", nodeId: "boss", artifact: { contentId: "boss", artifactId: "boss", localArtifactPath: "/games/boss.html", localArtworkPath: "/generated/boss.png", contractFingerprint: "boss", validationStatus: "passed" } }, { rootDir });
-    recordCanonicalNodeCompletion({ childId: "reina", homeworkId: "hw-runtime", sessionId: "s3", nodeId: "boss", result: { completed: true, accuracy: 1, timeSpent_ms: 1000, targetResults: [{ target: "synthesis-1", correct: true, attemptedValue: "10" }] } }, { rootDir });
+    transitionLearningCycle("reina", "hw-runtime", bossGenerating.revision, { type: "artifact_bound", nodeId: latest(bossGenerating, "boss"), artifact: { contentId: "boss", artifactId: "boss", localArtifactPath: "/games/boss.html", localArtworkPath: "/generated/boss.png", contractFingerprint: "boss", validationStatus: "passed" } }, { rootDir });
+    await verifyPreparingBoardCanvas({rootDir,childId:"reina",homeworkId:"hw-runtime",directory:path.join(rootDir,"canvas")});
+    recordCanonicalNodeCompletion({ childId: "reina", homeworkId: "hw-runtime", sessionId: "s3", nodeId: latest(bossGenerating, "boss"), result: { completed: true, accuracy: 1, timeSpent_ms: 1000, targetResults: [{ target: "synthesis-1", correct: true, attemptedValue: "10" }] } }, { rootDir });
     const awaiting = await advanceCanonicalCycleFromEvidence({ childId: "reina", homeworkId: "hw-runtime", decide: async () => ({ status: "awaiting_calibration", reason: "In-app synthesis is provisional.", progressionAction: "await_calibration", preserve: [], change: [], testNext: [], nextEvidenceRequired: ["returned graded work"] }) }, { rootDir });
     expect(awaiting.lifecycle).toBe("awaiting_calibration");
   });
@@ -805,12 +906,14 @@ describe("canonical learning cycle runtime", () => {
     const rootDir = root();
     createLearningCycle({ ...input(), nodes: [node("facts", "baseline"), node("quest", "quest", "locked"), node("boss", "boss", "locked")] }, { rootDir });
     recordCanonicalNodeCompletion({ childId: "reina", homeworkId: "hw-runtime", sessionId: "s1", nodeId: "facts", result: { completed: true, accuracy: 1, timeSpent_ms: 1000, targetResults: [{ target: "2x5", correct: true, attemptedValue: "10" }] } }, { rootDir });
-    const questGenerating = await advanceCanonicalCycleFromEvidence({ childId: "reina", homeworkId: "hw-runtime", decide: async () => ({ status: "supported", reason: "Test transfer.", progressionAction: "generate_quest", nextInstrument: prescription("quest"), preserve: [], change: [], testNext: ["transfer"], nextEvidenceRequired: ["Quest"] }) }, { rootDir });
-    transitionLearningCycle("reina", "hw-runtime", questGenerating.revision, { type: "artifact_bound", nodeId: "quest", artifact: { contentId: "quest", artifactId: "quest", localArtifactPath: "/games/quest.html", localArtworkPath: "/generated/quest.png", contractFingerprint: "quest", validationStatus: "passed" } }, { rootDir });
-    recordCanonicalNodeCompletion({ childId: "reina", homeworkId: "hw-runtime", sessionId: "s2", nodeId: "quest", result: { completed: true, accuracy: 1, timeSpent_ms: 1000, targetResults: [{ target: "unseen-transfer", correct: true, attemptedValue: "10" }] } }, { rootDir });
-    const bossGenerating = await advanceCanonicalCycleFromEvidence({ childId: "reina", homeworkId: "hw-runtime", decide: async () => ({ status: "supported", reason: "Transfer held.", progressionAction: "generate_boss", nextInstrument: prescription("boss"), preserve: [], change: [], testNext: ["synthesis"], nextEvidenceRequired: ["Boss"] }) }, { rootDir });
-    transitionLearningCycle("reina", "hw-runtime", bossGenerating.revision, { type: "artifact_bound", nodeId: "boss", artifact: { contentId: "boss", artifactId: "boss", localArtifactPath: "/games/boss.html", localArtworkPath: "/generated/boss.png", contractFingerprint: "boss", validationStatus: "passed" } }, { rootDir });
-    recordCanonicalNodeCompletion({ childId: "reina", homeworkId: "hw-runtime", sessionId: "s3", nodeId: "boss", result: { completed: true, accuracy: 1, timeSpent_ms: 1000, targetResults: [{ target: "unseen-synthesis", correct: true, attemptedValue: "10" }] } }, { rootDir });
+    const questGenerating = await advanceCanonicalCycleFromEvidence({ childId: "reina", homeworkId: "hw-runtime", decide: async () => ({ status: "supported", reason: "Test transfer.", progressionAction: "generate_quest", successor: successorOf(prescription("quest"), "quest"), preserve: [], change: [], testNext: ["transfer"], nextEvidenceRequired: ["Quest"] }) }, { rootDir });
+    transitionLearningCycle("reina", "hw-runtime", questGenerating.revision, { type: "artifact_bound", nodeId: latest(questGenerating, "quest"), artifact: { contentId: "quest", artifactId: "quest", localArtifactPath: "/games/quest.html", localArtworkPath: "/generated/quest.png", contractFingerprint: "quest", validationStatus: "passed" } }, { rootDir });
+    await verifyPreparingBoardCanvas({rootDir,childId:"reina",homeworkId:"hw-runtime",directory:path.join(rootDir,"canvas")});
+    recordCanonicalNodeCompletion({ childId: "reina", homeworkId: "hw-runtime", sessionId: "s2", nodeId: latest(questGenerating, "quest"), result: { completed: true, accuracy: 1, timeSpent_ms: 1000, targetResults: [{ target: "unseen-transfer", correct: true, attemptedValue: "10" }] } }, { rootDir });
+    const bossGenerating = await advanceCanonicalCycleFromEvidence({ childId: "reina", homeworkId: "hw-runtime", decide: async () => ({ status: "supported", reason: "Transfer held.", progressionAction: "generate_boss", successor: successorOf(prescription("boss"), "boss"), preserve: [], change: [], testNext: ["synthesis"], nextEvidenceRequired: ["Boss"] }) }, { rootDir });
+    transitionLearningCycle("reina", "hw-runtime", bossGenerating.revision, { type: "artifact_bound", nodeId: latest(bossGenerating, "boss"), artifact: { contentId: "boss", artifactId: "boss", localArtifactPath: "/games/boss.html", localArtworkPath: "/generated/boss.png", contractFingerprint: "boss", validationStatus: "passed" } }, { rootDir });
+    await verifyPreparingBoardCanvas({rootDir,childId:"reina",homeworkId:"hw-runtime",directory:path.join(rootDir,"canvas")});
+    recordCanonicalNodeCompletion({ childId: "reina", homeworkId: "hw-runtime", sessionId: "s3", nodeId: latest(bossGenerating, "boss"), result: { completed: true, accuracy: 1, timeSpent_ms: 1000, targetResults: [{ target: "unseen-synthesis", correct: true, attemptedValue: "10" }] } }, { rootDir });
 
     const awaiting = await advanceCanonicalCycleFromEvidence({
       childId: "reina",
@@ -828,7 +931,9 @@ describe("canonical learning cycle runtime", () => {
     }, { rootDir });
 
     expect(awaiting.lifecycle).toBe("awaiting_calibration");
-    expect(awaiting.nodes.filter((item) => item.role === "boss")).toHaveLength(1);
+    // One legacy placeholder plus the one Boss successor; the contradictory action created no second Boss board.
+    expect(awaiting.nodes.filter((item) => item.role === "boss")).toHaveLength(2);
+    expect(awaiting.boards).toHaveLength(3);
     expect(awaiting.decisionHistory.at(-1)?.nextAction).toBe("await_calibration");
   });
 
@@ -836,11 +941,12 @@ describe("canonical learning cycle runtime", () => {
     const rootDir = root();
     createLearningCycle({ ...input(), nodes: [node("facts", "baseline"), node("quest", "quest", "locked"), node("boss", "boss", "locked")] }, { rootDir });
     recordCanonicalNodeCompletion({ childId: "reina", homeworkId: "hw-runtime", sessionId: "s1", nodeId: "facts", result: { completed: true, accuracy: 1, timeSpent_ms: 1000, targetResults: [{ target: "same-item", correct: true, attemptedValue: "10" }] } }, { rootDir });
-    const questGenerating = await advanceCanonicalCycleFromEvidence({ childId: "reina", homeworkId: "hw-runtime", decide: async () => ({ status: "supported", reason: "Test transfer.", progressionAction: "generate_quest", nextInstrument: prescription("quest"), preserve: [], change: [], testNext: ["transfer"], nextEvidenceRequired: ["Quest"] }) }, { rootDir });
-    transitionLearningCycle("reina", "hw-runtime", questGenerating.revision, { type: "artifact_bound", nodeId: "quest", artifact: { contentId: "quest", artifactId: "quest", localArtifactPath: "/games/quest.html", localArtworkPath: "/generated/quest.png", contractFingerprint: "quest", validationStatus: "passed" } }, { rootDir });
-    const observed = recordCanonicalNodeCompletion({ childId: "reina", homeworkId: "hw-runtime", sessionId: "s2", nodeId: "quest", result: { completed: true, accuracy: 1, timeSpent_ms: 1000, targetResults: [{ target: "same-item", correct: true, attemptedValue: "10" }] } }, { rootDir });
+    const questGenerating = await advanceCanonicalCycleFromEvidence({ childId: "reina", homeworkId: "hw-runtime", decide: async () => ({ status: "supported", reason: "Test transfer.", progressionAction: "generate_quest", successor: successorOf(prescription("quest"), "quest"), preserve: [], change: [], testNext: ["transfer"], nextEvidenceRequired: ["Quest"] }) }, { rootDir });
+    transitionLearningCycle("reina", "hw-runtime", questGenerating.revision, { type: "artifact_bound", nodeId: latest(questGenerating, "quest"), artifact: { contentId: "quest", artifactId: "quest", localArtifactPath: "/games/quest.html", localArtworkPath: "/generated/quest.png", contractFingerprint: "quest", validationStatus: "passed" } }, { rootDir });
+    await verifyPreparingBoardCanvas({rootDir,childId:"reina",homeworkId:"hw-runtime",directory:path.join(rootDir,"canvas")});
+    const observed = recordCanonicalNodeCompletion({ childId: "reina", homeworkId: "hw-runtime", sessionId: "s2", nodeId: latest(questGenerating, "quest"), result: { completed: true, accuracy: 1, timeSpent_ms: 1000, targetResults: [{ target: "same-item", correct: true, attemptedValue: "10" }] } }, { rootDir });
 
-    expect(observed?.observations.find((item) => item.sourceId === "activity:s2:quest")).toMatchObject({
+    expect(observed?.observations.find((item) => item.sourceId === `activity:s2:${latest(questGenerating, "quest")}`)).toMatchObject({
       exposure: "previously_practiced",
       provenance: "practice",
       confounds: expect.arrayContaining(["item_previously_exposed"]),
@@ -848,7 +954,7 @@ describe("canonical learning cycle runtime", () => {
     await expect(advanceCanonicalCycleFromEvidence({
       childId: "reina",
       homeworkId: "hw-runtime",
-      decide: async () => ({ status: "supported", reason: "Repeated item was correct.", progressionAction: "generate_boss", nextInstrument: prescription("boss"), preserve: [], change: [], testNext: ["synthesis"], nextEvidenceRequired: ["Boss"] }),
+      decide: async () => ({ status: "supported", reason: "Repeated item was correct.", progressionAction: "generate_boss", successor: successorOf(prescription("boss"), "boss"), preserve: [], change: [], testNext: ["synthesis"], nextEvidenceRequired: ["Boss"] }),
     }, { rootDir })).rejects.toThrow("canonical_progression_boss_requires_unseen_quest_evidence");
   });
 
@@ -862,3 +968,101 @@ describe("canonical learning cycle runtime", () => {
     expect(repeated?.decisionHistory).toHaveLength(first?.decisionHistory.length ?? 0);
   });
 });
+
+it('uses the configured spelling Planner for next-step decisions, keeping math configuration separate',async()=>{
+ vi.stubEnv('SUNNY_EXPERIENCE_PLANNER_MODEL','claude-opus-5-5');
+ vi.stubEnv('SUNNY_INGEST_MODEL','legacy-math-model');
+ try {
+  for(const domain of ['spelling','math'] as const){
+   const rootDir=root();
+   try {
+    const dir=path.join(rootDir,'src/context/reina');fs.mkdirSync(dir,{recursive:true});
+    fs.writeFileSync(path.join(dir,'learning_profile.json'),JSON.stringify({childId:'reina'}));
+    createLearningCycle({...input(),domain,nodes:[node('facts','baseline')]},{rootDir});
+    recordCanonicalNodeCompletion({childId:'reina',homeworkId:'hw-runtime',sessionId:'lab',nodeId:'facts',result:{completed:true,accuracy:1,timeSpent_ms:1000,targetResults:[{target:'2x5',attemptedValue:'10',correct:true}]}},{rootDir});
+    const create=vi.fn(async(_payload?:unknown)=>{throw Error('fixture-stop');});
+    await expect(advanceCanonicalCycleFromEvidence({childId:'reina',homeworkId:'hw-runtime',client:{messages:{create,stream:(payload:unknown)=>({finalMessage:()=>create(payload)})}} as never},{rootDir})).rejects.toThrow('fixture-stop');
+    expect(create).toHaveBeenCalledOnce();
+    expect((create.mock.calls[0] as unknown as [Record<string,unknown>])[0].model).toBe(domain==='spelling'?'claude-opus-5-5':'legacy-math-model');
+   }finally{fs.rmSync(rootDir,{recursive:true,force:true});}
+  }
+ }finally{vi.unstubAllEnvs();}
+});
+
+it('keeps slow correct spelling practice visible as latency evidence, not effortless recall',async()=>{
+  // Human catch: Ila spent over a minute spelling a word that the scorecard marked correct.
+  // The log had response time, but the Planner scorecard discarded it and the lab only checked accuracy.
+  const rootDir=root();
+  createLearningCycle({...input(),domain:'spelling',nodes:[node('facts','baseline')]},{rootDir});
+  const cycle=recordCanonicalNodeCompletion({childId:'reina',homeworkId:'hw-runtime',sessionId:'lab',nodeId:'facts',result:{
+    completed:true,accuracy:1,timeSpent_ms:74500,
+    targetResults:[{target:'tomorrow',correct:true,attemptedValue:'tomorrow',responseTime_ms:74000,attempts:1}],
+  }},{rootDir});
+  const engagement=cycle?.evidence.engagement.at(-1)?.summary ?? '';
+  expect(engagement).toContain('tomorrow: response=74000ms');
+  expect(engagement).toContain('reportedFrustration=none');
+  expect(cycle?.evidence.academic.at(-1)?.accuracy).toBe(1);
+  const dir=path.join(rootDir,'src/context/reina');fs.mkdirSync(dir,{recursive:true});
+  fs.writeFileSync(path.join(dir,'learning_profile.json'),JSON.stringify({childId:'reina'}));
+  const create=vi.fn(async(_payload?:unknown)=>{throw Error('fixture-stop');});
+  await expect(advanceCanonicalCycleFromEvidence({childId:'reina',homeworkId:'hw-runtime',client:{messages:{create,stream:(payload:unknown)=>({finalMessage:()=>create(payload)})}} as never},{rootDir})).rejects.toThrow('fixture-stop');
+  const plannerRequest=JSON.stringify(create.mock.calls[0]);
+  expect(plannerRequest).toContain('Correct practice after long response time is not effortless recall');
+});
+
+it.each(['max_tokens','refusal'])('preserves canonical Planner %s as a known completed response',async(reason)=>{
+ const rootDir=root();
+ try {
+  const dir=path.join(rootDir,'src/context/reina');fs.mkdirSync(dir,{recursive:true});fs.writeFileSync(path.join(dir,'learning_profile.json'),JSON.stringify({childId:'reina'}));
+  createLearningCycle({...input(),nodes:[node('facts','baseline')]},{rootDir});
+  recordCanonicalNodeCompletion({childId:'reina',homeworkId:'hw-runtime',sessionId:'lab',nodeId:'facts',result:{completed:true,accuracy:1,timeSpent_ms:1000,targetResults:[{target:'2x5',attemptedValue:'10',correct:true}]}},{rootDir});
+  const message={stop_reason:reason,content:[]};const create=vi.fn(async()=>message),stream=vi.fn(()=>({finalMessage:create}));
+  await expect(advanceCanonicalCycleFromEvidence({childId:'reina',homeworkId:'hw-runtime',model:'claude-opus-5-5',client:{messages:{create,stream}} as never},{rootDir})).rejects.toThrow('planner_response_'+reason);
+  const receipts=fs.readdirSync(path.join(dir,'homework/cycles/.planner/hw-runtime'),{recursive:true}) as string[];
+  const raw=receipts.filter(f=>f.endsWith('.json')).map(f=>fs.readFileSync(path.join(dir,'homework/cycles/.planner/hw-runtime',f),'utf8')).find(s=>s.includes('plannerMessage'));
+  expect(raw).toContain('"received"');expect(raw).toContain(reason);expect(create).toHaveBeenCalledTimes(1);
+ }finally{fs.rmSync(rootDir,{recursive:true,force:true});}
+});
+
+it('corrects successor geometry once before freezing the new board and retains both provider receipts',async()=>{
+ const rootDir=root();
+ fs.mkdirSync(path.join(rootDir,"src/context/reina"),{recursive:true});
+ fs.writeFileSync(path.join(rootDir,"src/context/reina/learning_profile.json"),JSON.stringify({childId:"reina",rewardPreferences:[],sessionStats:{},activityModel:{},activityTraitModel:{}}));
+ createLearningCycle({...input(),nodes:[node('facts','baseline')]},{rootDir});
+ recordCanonicalNodeCompletion({childId:'reina',homeworkId:'hw-runtime',sessionId:'first',nodeId:'facts',result:{completed:true,accuracy:1,timeSpent_ms:1,targetResults:[{target:'checkpoint-1',correct:true,attemptedValue:'10'}]}},{rootDir});
+ const valid={status:'inconclusive',reason:'Collect another observation',progressionAction:'collect_more_evidence',preserve:[],change:[],testNext:[],nextEvidenceRequired:[],predictionEvaluationIds:[],nextInstruments:[prescription('fresh')],boardDefinition:linearJourneyFixture(['fresh'])};
+ const invalid=structuredClone(valid);invalid.boardDefinition.portals[1].position=structuredClone(invalid.boardDefinition.portals[0].position);
+ const create=vi.fn().mockResolvedValueOnce({id:'original',content:[{type:'tool_use',name:'decide_learning_cycle_progression',input:invalid}]}).mockResolvedValueOnce({id:'correction',content:[{type:'tool_use',name:'decide_learning_cycle_progression',input:valid}]});
+ const after=await advanceCanonicalCycleFromEvidence({childId:'reina',homeworkId:'hw-runtime',client:{messages:{create,stream:(payload:unknown)=>({finalMessage:()=>create(payload)})}} as never},{rootDir});
+ expect(create).toHaveBeenCalledTimes(2);
+ expect(after.boards!.at(-1)!.definition!.portals[1].position).toEqual(valid.boardDefinition.portals[1].position);
+ const directory=path.join(rootDir,'src/context/reina/homework/cycles/.planner/hw-runtime/hw-runtime_decision_r2/provider-receipts');
+ const receipts=fs.readdirSync(directory).filter(file=>!file.includes('.stage.')).map(file=>JSON.parse(fs.readFileSync(path.join(directory,file),'utf8')));
+ expect(receipts.map(receipt=>receipt.response?.plannerMessage?.id).sort()).toEqual(['correction','original']);
+ fs.rmSync(rootDir,{recursive:true,force:true});
+},20000);
+
+it.each(['still-invalid','changed-academics'])('stops successor correction after one failed attempt: %s',async mode=>{
+ const rootDir=root();
+ fs.mkdirSync(path.join(rootDir,"src/context/reina"),{recursive:true});
+ fs.writeFileSync(path.join(rootDir,"src/context/reina/learning_profile.json"),JSON.stringify({childId:"reina",rewardPreferences:[],sessionStats:{},activityModel:{},activityTraitModel:{}}));
+ createLearningCycle({...input(),nodes:[node('facts','baseline')]},{rootDir});
+ recordCanonicalNodeCompletion({childId:'reina',homeworkId:'hw-runtime',sessionId:'first',nodeId:'facts',result:{completed:true,accuracy:1,timeSpent_ms:1,targetResults:[{target:'checkpoint-1',correct:true,attemptedValue:'10'}]}},{rootDir});
+ const valid={status:'inconclusive',reason:'Collect another observation',progressionAction:'collect_more_evidence',preserve:[],change:[],testNext:[],nextEvidenceRequired:[],predictionEvaluationIds:[],nextInstruments:[prescription('fresh')],boardDefinition:linearJourneyFixture(['fresh'])};
+ const invalid=structuredClone(valid);invalid.boardDefinition.portals[1].position=structuredClone(invalid.boardDefinition.portals[0].position);
+ const correction=mode==='still-invalid'?structuredClone(invalid):{...valid,reason:'Changed academic claim'};
+ const before=getLearningCycle('reina','hw-runtime',{rootDir})!;
+ const create=vi.fn().mockResolvedValueOnce({id:'original',content:[{type:'tool_use',name:'decide_learning_cycle_progression',input:invalid}]}).mockResolvedValueOnce({id:'correction',content:[{type:'tool_use',name:'decide_learning_cycle_progression',input:correction}]});
+ const request={childId:'reina',homeworkId:'hw-runtime',client:{messages:{create,stream:(payload:unknown)=>({finalMessage:()=>create(payload)})}} as never};
+ await expect(advanceCanonicalCycleFromEvidence(request,{rootDir})).rejects.toThrow(mode==='still-invalid'?'board_canvas_invalid':'planner_journey_correction_changed_academic_decision');
+ const after=getLearningCycle('reina','hw-runtime',{rootDir})!;
+ expect(after.lifecycle).toBe('blocked');
+ expect(after.boards).toEqual(before.boards);
+ expect(after.observations).toEqual(before.observations);
+ await advanceCanonicalCycleFromEvidence(request,{rootDir});
+ expect(create).toHaveBeenCalledTimes(2);
+ const directory=path.join(rootDir,'src/context/reina/homework/cycles/.planner/hw-runtime/hw-runtime_decision_r2/provider-receipts');
+ const receipts=fs.readdirSync(directory).filter(file=>!file.includes('.stage.')).map(file=>JSON.parse(fs.readFileSync(path.join(directory,file),'utf8')));
+ expect(receipts.map(receipt=>receipt.response?.plannerMessage?.id).sort()).toEqual(['correction','original']);
+ fs.rmSync(rootDir,{recursive:true,force:true});
+},20000);

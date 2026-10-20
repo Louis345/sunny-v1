@@ -3,7 +3,6 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { buildAdventureBoardFromActiveSessionPlan } from "../shared/adventureBoardFromPlan";
-import { normalizeLearningRoutesForPlan } from "./assignmentPlanner";
 import { buildAssignmentPlanningPacket } from "./assignmentPlanner";
 import { getChildChart } from "../profiles/childChart";
 import type { AssignmentSourceExtraction } from "./assignmentSourceExtraction";
@@ -104,55 +103,6 @@ describe("math plan definition of done", () => {
       },
     ],
   };
-
-  it("renders a fork with several teaching nodes and destinations", () => {
-    const normalized = normalizeLearningRoutesForPlan(
-      fractionsPlan.learningRoutes,
-      fractionsPlan.nodePlan,
-    );
-    expect(normalized.warnings).toEqual([]);
-    expect(normalized.routes.length).toBe(2);
-
-    const board = buildAdventureBoardFromActiveSessionPlan({
-      plan: { ...fractionsPlan, learningRoutes: normalized.routes },
-      boardId: "board-fractions-dod",
-      theme: {
-        background: { type: "image", value: "/generated/adventure-board-demo/silent-letter-world.jpeg" },
-        palette: {
-          path: "#ffffff",
-          completed: "#1f8f68",
-          available: "#7c3aed",
-          locked: "#aeb7c2",
-          current: "#f59e0b",
-          preview: "#d5dde5",
-          text: "#ffffff",
-          panel: "rgba(15, 23, 42, 0.84)",
-        },
-      },
-    });
-
-    const teachingNodes = board.nodes.filter((node) =>
-      node.kind === "activity" && !["quest", "boss", "mystery"].includes(node.activityId ?? ""),
-    );
-    expect(teachingNodes.length).toBeGreaterThanOrEqual(3);
-    expect(board.nodes.some((node) => node.id === "choose-path")).toBe(true);
-    expect(board.choiceSets?.some((set) => set.id === "baseline-route-options")).toBe(true);
-    expect(board.nodes.some((node) => node.kind === "mystery")).toBe(true);
-    expect(board.nodes.some((node) => node.kind === "quest")).toBe(true);
-    expect(board.nodes.some((node) => node.kind === "boss")).toBe(true);
-  });
-
-  it("drops cosmetic identical routes so the trace explains missing forks", () => {
-    const out = normalizeLearningRoutesForPlan(
-      [
-        { id: "route-a", nodeIds: ["node-baseline-shade-thirds", "node-mystery", "node-quest"] },
-        { id: "route-b", nodeIds: ["node-baseline-shade-thirds", "node-mystery", "node-quest"] },
-      ],
-      fractionsPlan.nodePlan,
-    );
-    expect(out.routes).toEqual([]);
-    expect(out.warnings[0]).toContain("learning_routes_dropped_identical_node_sets");
-  });
 
   it("spelling ingest catalog stays rich compared to a single-instrument math stub", () => {
     const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-math-plan-dod-"));

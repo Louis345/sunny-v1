@@ -86,6 +86,74 @@ function fixture() {
  * never a completed spelling checkpoint replayed through practice completion.
  */
 describe("spelling checkpoint replay evidence", () => {
+  it("records a Visual Explainer result as assisted exposure, never a wrong whole-word recall", () => {
+    const identity = { childId: "lab-child", homeworkId: "hw-visual-exposure" };
+    const items = buildSpellingRecallItems({
+      homeworkId: identity.homeworkId,
+      words: ["light"],
+      evidenceIds: ["source:lab"],
+      measurementRole: "practice",
+      exposure: "taught",
+      occasionId: "visual",
+    });
+    const item = items[0];
+    const visualNode: LearningCycleNodeContract = {
+      nodeId: "visual", role: "baseline", state: "ready", implementationType: "visual-explainer", title: "See the chunk",
+      academicTarget: { domain: "spelling", skill: "orthographic strategy", targets: [item.word] },
+      algorithmOwner: "error-pattern-remediation", theoryId: "theory", experimentId: "visual",
+      mechanic: "visual-explainer", theme: "lab", openingScreen: { title: "See the chunk", purpose: "Assisted instruction" },
+      generationPrompt: null, artifactBinding: null, artwork: { status: "pending", localPath: null, prompt: null },
+      sfxContract: [], companionContract: { events: [] }, evidenceIds: [],
+      evidenceContract: {
+        academic: true, engagement: true, companionObservations: true,
+        spellingItems: { [item.id]: item }, itemRoles: { [item.id]: "practice" },
+      },
+    };
+    createLearningCycle({
+      ...identity, domain: "spelling",
+      assignment: { title: "Lab spelling", contentFingerprint: "lab", capturedEvidenceIds: ["source:lab"], targets: [item.word] },
+      academicTheory: { theoryId: "theory", revision: 1, hypothesis: "Modeling may support later recall", supportCriteria: [], reviseCriteria: [], falsifyCriteria: [] },
+      engagementTheory: null, nodes: [visualNode],
+    }, { rootDir, now: new Date("2026-09-08T12:00:00Z") });
+
+    const completed = recordCanonicalNodeCompletion({
+      ...identity, nodeId: visualNode.nodeId, sessionId: "visual-session",
+      result: {
+        completed: true, accuracy: 1, timeSpent_ms: 100,
+        targetResults: [{ target: item.id, masteryEligible: false }],
+      } as never,
+    }, { rootDir, now: new Date("2026-09-08T12:01:00Z") })!;
+
+    expect(completed.observations).toHaveLength(1);
+    expect(completed.observations[0]).toMatchObject({
+      itemId: item.id,
+      provenance: "practice",
+      exposure: "previously_practiced",
+      assistance: { status: "assisted" },
+      result: { observedErrorType: "assisted_instruction" },
+    });
+    expect(completed.observations[0].result.correct).toBeUndefined();
+    expect(completed.observations[0].childResponse).toBeUndefined();
+  });
+
+  it("rejects a client claim that an ordinary spelling activity was assisted instruction", () => {
+    const { items, completion, current } = fixture();
+    const before = current();
+    expect(() => recordCanonicalNodeCompletion({
+      ...completion,
+      sessionId: "forged-assisted-role",
+      result: {
+        ...completion.result,
+        targetResults: [{
+          target: items[0].id,
+          evidenceRole: "assisted_instruction",
+          masteryEligible: false,
+        }],
+      } as never,
+    }, { rootDir })).toThrow(`learning_cycle_evidence_role_conflict:${completion.nodeId}`);
+    expect(current()).toEqual(before);
+  });
+
   it("reuses committed recall capture for initial completion/resume only, idempotently", () => {
     const { completion, current } = fixture();
     const captured = current().observations;
@@ -149,4 +217,41 @@ describe("spelling checkpoint replay evidence", () => {
     expect(() => recordCanonicalNodeCompletion({ ...completion, sessionId: "invalid-replay", result: { ...completion.result, targetResults } }, { rootDir })).toThrow(error);
     expect(current()).toEqual(original);
   });
+});
+
+it('does not distribute a session companion interaction across every spelling response',async()=>{
+ const f=fixture();await f.finish();
+ const cycle=recordCanonicalNodeCompletion({...f.completion,sessionId:'per-word',result:{completed:true,accuracy:1,timeSpent_ms:100,companionInteractions:['Help was requested somewhere in this activity'],targetResults:f.items.map((item,index)=>({target:item.id,correct:true,attemptedValue:item.word,scaffoldLevel:index===0?1:0}))}},{rootDir})!;
+ const rows=cycle.observations.filter(row=>row.sourceId==='activity:per-word:check');
+ expect(rows).toHaveLength(2);
+ expect(rows[0].assistance.status).toBe('assisted');
+ expect(rows[1].assistance).toEqual({status:'unknown',scaffolds:[]});
+ expect(rows.every(row=>row.provenance==='practice')).toBe(true);
+});
+
+it('records a replay item as practice without reopening a completed node or lifecycle',async()=>{
+ const f=fixture();await f.finish();const before=f.current();
+ const after=recordSpellingDiscoveryAttempt({childId:before.childId,homeworkId:before.homeworkId,sessionId:'replay-voice',attempt:{attemptId:'replay-raw',itemId:f.items[0].id,attemptedValue:'nite',observedAt:'2026-10-04T01:10:00Z'},support:{status:'unknown',scaffolds:[]}},{rootDir});
+ expect(after.nodes.find(n=>n.nodeId==='check')?.state).toBe('completed');
+ expect(after.lifecycle).toBe(before.lifecycle);
+ expect(after.observations).toHaveLength(before.observations.length+1);
+ expect(after.observations.at(-1)).toMatchObject({childResponse:'nite',provenance:'practice',result:{correct:false}});
+ expect(after.decisionHistory.filter(d=>d.eventType==='theory_decided')).toEqual(before.decisionHistory.filter(d=>d.eventType==='theory_decided'));
+ expect(after.decisionHistory.at(-1)?.eventType).toBe('instrument_observed');
+ expect(f.decide).toHaveBeenCalledTimes(1);
+ expect(after.predictionEvaluations).toEqual(before.predictionEvaluations);
+ expect(recordSpellingDiscoveryAttempt({childId:before.childId,homeworkId:before.homeworkId,sessionId:'replay-voice',attempt:{attemptId:'replay-raw',itemId:f.items[0].id,attemptedValue:'nite',observedAt:'2026-10-04T01:10:00Z'},support:{status:'unknown',scaffolds:[]}},{rootDir}).revision).toBe(after.revision);
+});
+
+it('reuses only the same launched practice answers when completion arrives',async()=>{
+ const f=fixture();await f.finish();const base=f.current();
+ recordSpellingDiscoveryAttempt({childId:base.childId,homeworkId:base.homeworkId,sessionId:'voice',launchId:'launch-new',attempt:{attemptId:'captured-earlier',itemId:f.items[0].id,attemptedValue:'night',observedAt:'2026-10-04T01:23:00Z'},support:{status:'unknown',scaffolds:[]}},{rootDir});
+ recordSpellingDiscoveryAttempt({childId:base.childId,homeworkId:base.homeworkId,sessionId:'voice',launchId:'launch-new',attempt:{attemptId:'captured-new',itemId:f.items[0].id,attemptedValue:'nite',observedAt:'2026-10-04T01:24:00Z'},support:{status:'unknown',scaffolds:[]}},{rootDir});
+ const before=f.current();
+ const after=recordCanonicalNodeCompletion({...f.completion,sessionId:'completion-new',result:{completed:true,accuracy:1,timeSpent_ms:100,captureLaunchId:'launch-new',targetResults:[{target:f.items[0].id,correct:true,attemptedValue:'night'}]}},{rootDir})!;
+ expect(after.observations).toEqual(before.observations);
+ expect(after.evidence.academic.find(e=>e.evidenceId==='completion-new:check:completion')?.accuracy).toBe(0);
+ const unrelated=recordCanonicalNodeCompletion({...f.completion,sessionId:'completion-other',result:{completed:true,accuracy:1,timeSpent_ms:100,captureLaunchId:'other-launch'}},{rootDir})!;
+ expect(unrelated.observations).toEqual(before.observations);
+ expect(unrelated.evidence.academic.find(e=>e.evidenceId==='completion-other:check:completion')?.accuracy).toBeUndefined();
 });

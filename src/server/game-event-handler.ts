@@ -3,39 +3,73 @@
  * Session state lives on SessionManager; this module holds extracted handlers (no circular imports).
  */
 
+import { isSpellingPracticeContinuation } from "../engine/learningCycleRepository";
 import { recordClockAttempt } from "../engine/clockTracker";
 import { childIdFromName, recordAttempt } from "../engine/learningEngine";
 import { recordLearningAttempt } from "./learningAttemptEvents";
-import { buildFlowGameEventFields } from "./flow-game-debug";
+import { generateStoryImage } from "../utils/generateStoryImage";
+import { sessionEventBus } from "./session-event-bus";
+import { buildFlowGameEventFields, buildReadingProgressFields } from "./flow-game-debug";
 import { buildGameContextSummary } from "./gameContextSummary";
 import { shouldPersistSessionData } from "../utils/runtimeMode";
 import { rewriteChildNameForTts } from "./sessionTextHelpers";
 import type { WsTtsBridge } from "./ws-tts-bridge";
-import type { LearningCycleRecordV2 } from "../engine/learningCycleRepository";
+import { getLearningCycle, type LearningCycleRecordV2 } from "../engine/learningCycleRepository";
+import { recordSpellingDiscoveryAttempt } from "../engine/learningCycleRuntime";
+import { withOriginalSpellingChart } from "../chart/spelling/originalResponses";
+import { schemas } from '../chart/spelling/schemas';
+import { recordFact } from '../chart/spelling/record';
+import { commitOriginalSpellingAttempt } from "./originalSpellingCommit";
 import {
   recordCompanionVideoCallTraceEvent,
   type CompanionVideoCallTraceEventName,
 } from "./companionVideoCallTrace";
 
 export const WB_ACTIVITY_MS = 90_000;
+export const GAME_NARRATION_PLAYBACK_TIMEOUT_MS = 15_000;
 
-export type SpellingAssessmentState = { homeworkId: string; itemId: string; word: string; artifactHash: string; audioDelivered: boolean; supportIds: string[]; ambiguous: boolean };
+export function clearGameNarrationPlaybackTimer(s: SM): void {
+  if (!s.gameNarrationPlaybackTimer) return;
+  clearTimeout(s.gameNarrationPlaybackTimer);
+  s.gameNarrationPlaybackTimer = null;
+}
+
+export function armGameNarrationPlaybackTimer(
+  s: SM,
+  requestId: string,
+  itemId: string,
+): void {
+  clearGameNarrationPlaybackTimer(s);
+  s.gameNarrationPlaybackTimer = setTimeout(() => {
+    s.playbackDone({
+      audible: false,
+      reason: "playback_ack_timeout",
+      requestId,
+      itemId,
+    });
+  }, GAME_NARRATION_PLAYBACK_TIMEOUT_MS);
+}
+
+export type SpellingAssessmentState = { lastStimulusRates?:number[]|null; launchToken?:string; chartItemId?:string; audioPlaybacks:number; instrument:"discovery"|"practice"|"recall_check"; launchId?: string; nodeId: string; homeworkId: string; itemId: string; word: string; artifactHash: string; audioDelivered: boolean; supportIds: string[]; lettersVisible: boolean|null };
 export function bindSpellingAssessment(input: {
   state: Record<string, unknown>; cycle?: LearningCycleRecordV2 | null; current?: SpellingAssessmentState;
-  history: Map<string, SpellingAssessmentState>; sessionId: string; summoned: boolean;
+  history: Map<string, SpellingAssessmentState>; pendingSupportId?: string;
+  launch?: {homeworkId:string;nodeId:string;launchId:string;launchToken?:string};
 }): SpellingAssessmentState | undefined {
   const { state, cycle, current, history } = input;
-  if (current && current.itemId === state.itemId && state.answerVisibility !== "hidden") current.ambiguous = true;
-  if (state.phase !== "response") return current;
+  if (input.launch?.launchToken !== undefined && state.launchToken !== input.launch.launchToken) return current;
+  if (current && current.launchId === input.launch?.launchId && current.itemId === state.itemId && state.answerVisibility !== "hidden") current.lettersVisible = state.answerVisibility === "visible" || current.lettersVisible === true ? true : null;
+  if (state.phase !== "response" && !(state.practiceCapture === true && (state.phase === "flash" || state.spellingItemOpened === true))) return current;
   const node = cycle?.nodes.find(node => node.nodeId === state.nodeId);
   const item = node?.evidenceContract.spellingItems?.[String(state.itemId ?? "")];
   if (cycle?.domain !== "spelling" || !item || !node?.artifactBinding) {
     console.warn(" 🎮 [spelling-discovery] [live-context] [invalid-item]");
     return undefined;
   }
-  if (current?.itemId === item.id) return current;
-  const next = history.get(item.id) ?? { homeworkId: cycle.homeworkId, itemId: item.id, word: item.word, artifactHash: node.artifactBinding.contractFingerprint, audioDelivered: false, supportIds: input.summoned ? [`support:${input.sessionId}:${item.id}`] : [], ambiguous: state.answerVisibility !== "hidden" };
-  history.set(item.id, next);
+  const key = JSON.stringify([input.launch?.launchId ?? null, item.id]);
+  if (current?.itemId === item.id && current.launchId === input.launch?.launchId) return current;
+  const next = history.get(key) ?? { ...(input.launch?.homeworkId === cycle.homeworkId && input.launch.nodeId === node.nodeId ? {launchId:input.launch.launchId,launchToken:input.launch.launchToken} : {}), audioPlaybacks:0, instrument:state.practiceCapture === true || isSpellingPracticeContinuation(cycle) ? "practice" as const : node.role === "evaluation" ? "discovery" as const : item.lineage?.measurementRole === "fresh_checkpoint" ? "recall_check" as const : "practice" as const, nodeId: node.nodeId, homeworkId: cycle.homeworkId, itemId: item.id, word: item.word, artifactHash: node.artifactBinding.contractFingerprint, audioDelivered: false, supportIds: input.pendingSupportId ? [input.pendingSupportId] : [], lettersVisible: state.answerVisibility === "visible" ? true : state.answerVisibility === "hidden" ? false : null };
+  history.set(key, next);
   console.log(` 🎮 [spelling-discovery] [live-context] [bound] item=${item.id}`);
   return next;
 }
@@ -43,14 +77,13 @@ export function bindSpellingAssessment(input: {
 /** The existing game-event adapter owns narration; SessionManager only routes it. */
 export async function narrateGameStimulus(input: {
   text: string; metadata: Record<string, unknown>; childName: Parameters<typeof rewriteChildNameForTts>[1]; ttsLabel: string;
-  bridge?: Pick<WsTtsBridge, "connect" | "sendText" | "finish"> | null;
-  assessment?: { itemId: string; word: string; audioDelivered: boolean };
-  isCurrent: () => boolean;
+  bridge?: Pick<WsTtsBridge, "connect" | "sendText" | "finish" | "hadAudioThisTurn"> | null;
+  assessment?: { launchToken?:string; itemId: string; word: string; audioDelivered: boolean };
   record: (action: string, event: Record<string, unknown>) => void;
 }): Promise<boolean> {
   const { text, metadata, assessment, bridge } = input;
   if (metadata.assessmentMode === true) {
-    if (!assessment || assessment.itemId !== metadata.itemId || text.replace(/[.!?]$/, "").trim() !== assessment.word) throw new Error("spelling_stimulus_mismatch");
+    if (!assessment || (assessment.launchToken !== undefined && assessment.launchToken !== metadata.launchToken) || assessment.itemId !== metadata.itemId || text.replace(/[.!?]$/, "").trim() !== assessment.word) throw new Error("spelling_stimulus_mismatch");
     assessment.audioDelivered = false;
     if (!bridge) throw new Error("spelling_stimulus_audio_unavailable");
   }
@@ -62,9 +95,9 @@ export async function narrateGameStimulus(input: {
     await bridge.connect().catch(error => { console.error("  🔴 [game_narration] TTS connect failed:", error); if (assessment) throw error; });
     bridge.sendText(spoken);
     await bridge.finish().catch(error => { console.error("  🔴 [game_narration] TTS finish failed:", error); if (assessment) throw error; });
+    if (assessment && !bridge.hadAudioThisTurn()) throw new Error("spelling_stimulus_audio_unavailable");
   }
-  if (assessment && input.isCurrent()) assessment.audioDelivered = true;
-  input.record("playback_done", event);
+  input.record("tts_stream_done", event);
   return true;
 }
 
@@ -143,10 +176,10 @@ export async function tryCompleteTtsTurnAsync(s: SM): Promise<void> {
   if (s.turnSM.getState() === "CANVAS_PENDING") return;
   if (s.gamePendingRevision !== null) return;
   s.deferredTtsFinish = false;
-  if (s.ttsBridge) {
-    await s.ttsBridge.finish();
-  }
-  s.send("audio_done");
+  const identity = s.ttsBridge?.currentPlaybackIdentity?.();
+  if (s.ttsBridge) await s.ttsBridge.finish();
+  if (identity?.requestId !== s.ttsBridge?.currentPlaybackIdentity?.()?.requestId) return;
+  s.send("audio_done", identity);
 }
 
 export function wbEndCleanup(s: SM): void {
@@ -342,10 +375,17 @@ export function handleGameEventForSession(
         nodeId: event.nodeId,
         itemId: event.itemId,
         assessmentMode: event.assessmentMode === true,
+        launchToken: event.launchToken,
         word,
       }),
     ).catch((err: unknown) => {
       console.error("  🔴 [game-narration] narration request failed:", err);
+      if (event.assessmentMode === true) {
+        s.send?.("error", {
+          fatal: false,
+          message: "I couldn't play that word. Tap Hear the word again.",
+        });
+      }
     });
     return;
   }
@@ -380,6 +420,20 @@ export function handleGameEventForSession(
       challenge && typeof challenge.prompt === "string"
         ? challenge.prompt.trim()
         : "";
+    const ctx: Record<string, unknown> = { ...event };
+    delete ctx.type;
+    delete ctx.version;
+    delete ctx.payload;
+    if (typeof s.updateCurrentBoardSnapshot === "function") {
+      s.updateCurrentBoardSnapshot(ctx);
+    } else {
+      s.injectGameContext?.(ctx);
+    }
+    if (event.phase === 'choice_open' && event.addressedCompanion === true && typeof event.choiceSetId === 'string' && typeof event.requestId === 'string') {
+      void Promise.resolve(s.requestJourneyChoiceSupport?.(event.choiceSetId,event.requestId)).catch((error:unknown)=>{
+        console.error(' 🎮 [journey] [choice-companion] [failed]',error);
+      });
+    }
     if (challenge?.readAloudRequested === true && prompt) {
       const request = {
         nodeId: String(event.nodeId ?? ""),
@@ -391,6 +445,14 @@ export function handleGameEventForSession(
             ? challenge.readAloudCount
             : 1,
         answerVisibility: String(event.answerVisibility ?? "hidden"),
+        ...(challenge.measurementRole === "instruction"
+          || challenge.measurementRole === "practice"
+          || challenge.measurementRole === "fresh_checkpoint"
+          ? { measurementRole: challenge.measurementRole }
+          : {}),
+        trigger: challenge.companionSupportTrigger === "guided_prompt"
+          ? "guided_prompt" as const
+          : "child_request" as const,
       };
       try {
         const pending = s.requestInstructionReadAloud?.(request);
@@ -402,15 +464,6 @@ export function handleGameEventForSession(
       } catch (err: unknown) {
         console.error("  🔴 [companion-help] read aloud failed:", err);
       }
-    }
-    const ctx: Record<string, unknown> = { ...event };
-    delete ctx.type;
-    delete ctx.version;
-    delete ctx.payload;
-    if (typeof s.updateCurrentBoardSnapshot === "function") {
-      s.updateCurrentBoardSnapshot(ctx);
-    } else {
-      s.injectGameContext?.(ctx);
     }
     return;
   }
@@ -495,7 +548,46 @@ export function handleGameEventForSession(
       return;
     }
     try {
-      const recorded = recordLearningAttempt(event, chartChildIdForSession(s));
+      const childId = chartChildIdForSession(s);
+      const launch = s.getSpellingLaunch?.();
+      const matchesLaunch = launch && event.nodeId === launch.nodeId && event.launchToken === launch.launchToken;
+      if (event.domain === "spelling" && launch && !matchesLaunch) {
+        console.log(" 🎮 [spelling] [chart-capture] [unmatched launch; legacy feedback retained]");
+      }
+      if (event.domain === "spelling" && event.evidenceLimitation) {
+        if (launch && matchesLaunch) {
+          try {
+            withOriginalSpellingChart(childId, db => recordFact(db,'activity.limited',schemas['activity.limited'].parse({
+              assignmentId:launch.homeworkId,sessionId:s.getSessionId(),nodeId:launch.nodeId,launchId:launch.launchId,
+              sourceEventId:event.attemptId,reason:event.evidenceLimitation,rawChoice:event.rawChoice ?? null,aggregateAccuracy:event.aggregateAccuracy ?? null,
+            })));
+            console.log(' 🎮 [spelling] [activity-limitation] [recorded]');
+          } catch (err) {
+            console.error(" 🔴 [spelling] [activity-limitation] [record failed]", err);
+          }
+        }
+        s.noteExternalEvent?.({source:"attempt_event",summary:`Activity result: ${String(event.evidenceLimitation)}; not a scored spelling answer. Reported choice: ${String(event.rawChoice ?? "unknown")}; reported aggregate accuracy: ${String(event.aggregateAccuracy ?? "unknown")}.`});
+        return; // A chunk/selection score never enters spelling scoring or the word bank.
+      }
+      if (event.domain === "spelling" && launch && matchesLaunch && event.activityId !== "word-radar" && event.game !== "word-radar") {
+        const live = s.getDiscoveryAttemptContext?.(launch.homeworkId, String(event.target ?? ""), event.launchToken);
+        if (live?.practice && typeof event.attemptedValue === "string") {
+          const cycle = getLearningCycle(childId, launch.homeworkId);
+          const node = cycle?.nodes.find(n => n.nodeId === launch.nodeId);
+          if (!node?.evidenceContract.spellingItems?.[String(event.target)] || live.launchId !== launch.launchId || live.nodeId !== launch.nodeId || live.artifactHash !== node.artifactBinding?.contractFingerprint) throw new Error("native_spelling_binding_mismatch");
+          if (typeof event.attemptId !== "string" || !event.attemptId || typeof event.timestamp !== "number" || !Number.isFinite(event.timestamp)) throw new Error("native_spelling_attempt_identity_required");
+          const request = {attemptId:event.attemptId,itemId:String(event.target),attemptedValue:event.attemptedValue,observedAt:new Date(event.timestamp).toISOString(),supportEventIds:[],instrumentSignals:[],skipped:false,sessionId:live.sessionId,launchToken:launch.launchToken};
+          const legacy = {childId,homeworkId:launch.homeworkId,attempt:request,support:live.support,artifactHash:live.artifactHash,sessionId:live.sessionId,launchId:launch.launchId,instrumentSignals:live.instrumentSignals};
+          const committed = withOriginalSpellingChart(childId, db => commitOriginalSpellingAttempt(db,launch.homeworkId,request,()=>{
+            if (!live.chartItemId) throw new Error("chart_live_presentation_required");
+            return {legacy,response:{assignmentId:launch.homeworkId,sessionId:live.sessionId,itemId:live.chartItemId,sourceResponseId:request.attemptId,rawResponse:request.attemptedValue,status:"answered",support:{spellingShown:live.spellingShown ?? null,hint:null,companionHelp:live.support.status === "assisted" ? true : null,audioReplays:live.audioReplays ?? null}}};
+          },recordSpellingDiscoveryAttempt)) ?? recordSpellingDiscoveryAttempt(legacy);
+          const correct = committed.observations.find(row => row.observationId === request.attemptId)?.result.correct;
+          // The private word bank cannot override the code-scored raw response.
+          if (typeof correct === "boolean") event = {...event,correct,quality:correct ? 5 : 1};
+        }
+      }
+      const recorded = recordLearningAttempt(event, childId);
       if (recorded.skipped) return;
       s.noteExternalEvent?.({
         source: "attempt_event",
@@ -694,4 +786,146 @@ export function handleGameEventForSession(
       s.gameBridge.handleGameEvent(event);
     }
   }
+}
+
+/** Reading is an activity event; retain the same session-owned state and evidence path. */
+export function handleReadingProgress(s: SM, payload: Record<string, unknown>): void {
+    if (!s.ctx) return;
+    const wordIndex = Number(payload.wordIndex);
+    const totalWords = Number(payload.totalWords);
+    const accuracy = Number(payload.accuracy);
+    const hesitationsRaw = Number(payload.hesitations);
+    const hesitations = Number.isFinite(hesitationsRaw) ? hesitationsRaw : 0;
+    const flaggedWords = Array.isArray(payload.flaggedWords)
+      ? (payload.flaggedWords as string[])
+      : [];
+    const spelledWords = Array.isArray(payload.spelledWords)
+      ? (payload.spelledWords as string[])
+      : [];
+    const skippedWords = Array.isArray(payload.skippedWords)
+      ? (payload.skippedWords as string[]).filter(
+          (w): w is string => typeof w === "string",
+        )
+      : [];
+    const event =
+      typeof payload.event === "string" ? payload.event : undefined;
+    if (!Number.isFinite(wordIndex) || !Number.isFinite(totalWords)) {
+      console.warn("  ⚠️  reading_progress: invalid wordIndex/totalWords");
+      return;
+    }
+    s.ctx.setReadingProgress({
+      wordIndex,
+      totalWords,
+      accuracy: Number.isFinite(accuracy) ? accuracy : 0,
+      hesitations,
+      flaggedWords,
+      skippedWords,
+      spelledWords,
+      event,
+    });
+    s.broadcastContext();
+    s.debugRecorder.recordEvent("flow_game", event === "complete" ? "karaoke_complete" : "karaoke_progress", buildReadingProgressFields({ ...payload, wordIndex, totalWords, accuracy: Number.isFinite(accuracy) ? accuracy : 0, hesitations, flaggedWords, skippedWords, spelledWords, event }));
+    const accPct =
+      Number.isFinite(accuracy) && accuracy <= 1 && accuracy >= 0
+        ? Math.round(accuracy * 100)
+        : accuracy;
+    console.log(
+      `  📖 reading_progress: idx ${wordIndex}/${totalWords} acc=${accPct}% hesitations=${hesitations} event=${event ?? "—"}`,
+    );
+
+    if (event === "complete") {
+      if (s.readingProgressCompleteConsumed) return;
+      s.readingProgressCompleteConsumed = true;
+
+      if (s.turnSM.getState() === "CANVAS_PENDING") {
+        s.canvasDone({});
+      }
+      s.karaokeReadingComplete = true;
+      console.log("  📖 [reading] suppression lifted — story complete");
+      const childId = s.chartChildId;
+      sessionEventBus.fire({
+        type: "reading_complete",
+        sessionId: s.sessionId,
+        childId,
+        timestamp: Date.now(),
+      });
+      const flagged = s.ctx?.readingProgress?.flaggedWords ?? [];
+      const skipped = s.ctx?.readingProgress?.skippedWords ?? [];
+      for (const word of [...flagged, ...skipped]) {
+        const w = word.toLowerCase().trim();
+        if (!w) continue;
+        try {
+          recordAttempt(childId, {
+            word: w,
+            domain: "reading",
+            correct: false,
+            quality: 1,
+            scaffoldLevel: 0,
+          });
+        } catch (err) {
+          console.error(`  [engine] reading word failed for "${word}":`, err);
+        }
+      }
+      for (const word of spelledWords) {
+        const w = word.toLowerCase().trim();
+        if (!w) continue;
+        try {
+          recordAttempt(childId, {
+            word: w,
+            domain: "reading",
+            correct: true,
+            quality: 5,
+            scaffoldLevel: 0,
+          });
+        } catch (err) {
+          console.error(
+            `  [engine] reading spelledWord failed for "${word}":`,
+            err,
+          );
+        }
+      }
+      console.log(
+        `  🎮 [engine] reading complete: ${flagged.length} flagged, ${skipped.length} skipped, ${spelledWords.length} spelled → word bank (${childId})`,
+      );
+
+      void s.handleEndOfTurn(
+        "[reading_progress] event=complete — the reader finished the karaoke story. Reply with exactly one short sentence acknowledging the reading. Do not call canvasShow or refresh karaoke unless the child or parent/caregiver explicitly asks for something new.",
+        true,
+        { fromReadingComplete: true },
+      ).catch((err: unknown) => console.error(err));
+
+      const fromCanvas =
+        s.currentCanvasState &&
+        typeof (s.currentCanvasState as { content?: unknown }).content ===
+          "string"
+          ? String((s.currentCanvasState as { content: string }).content).trim()
+          : "";
+      const promptRaw = (s.currentCanvasState as { storyImagePrompt?: unknown } | null)?.storyImagePrompt;
+      const fromPrompt = typeof promptRaw === "string" ? promptRaw.trim() : "";
+      const storyText =
+        fromPrompt || s.lastKaraokeStoryText.trim() || fromCanvas;
+      if (storyText.length > 0) {
+        if (s.storyImageGeneratedThisStory) {
+          console.log(
+            "  🖼️  [story-image] skip auto after reading complete — already generated for this story",
+          );
+        } else {
+          s.storyImageGeneratedThisStory = true;
+          s.storyImagePending = true;
+          s.send("story_image_loading", {});
+          void generateStoryImage(storyText, {
+            sessionType: s.ctx?.sessionType,
+          })
+            .then((url) => {
+              s.send("story_image", { url: url ?? null });
+            })
+            .catch(() => {
+              s.send("story_image", { url: null });
+            })
+            .finally(() => {
+              s.storyImagePending = false;
+            });
+        }
+      }
+    }
 }

@@ -1,0 +1,115 @@
+import { describe, expect, it, vi } from "vitest";
+import {
+  claimCompanionResponseTurn,
+  protectSpellingModelMessages,
+  deferCompanionUntilNarrationFinishes,
+} from "./companion-response-runner";
+
+describe("companion response audio ownership", () => {
+  it("retires a reply when the displayed spelling item advances, even without a new conversation turn", () => {
+    const session = { currentBoardSnapshot:{nodeId:"discovery",itemId:"either",launchToken:"launch"} };
+    const reply = claimCompanionResponseTurn(session);
+    session.currentBoardSnapshot.itemId = "cheese";
+    expect(reply.isCurrent()).toBe(false);
+  });
+  it("revokes an older model turn as soon as a newer child turn begins", () => {
+    // Human catch: three rapid help requests produced interleaved words in one
+    // spoken reply. The log showed separate model starts but a shared TTS
+    // buffer; the lab had tested barge-in state, not late provider callbacks.
+    const session: { companionResponseTurnId?: number } = {};
+    const first = claimCompanionResponseTurn(session);
+    expect(first.isCurrent()).toBe(true);
+
+    const second = claimCompanionResponseTurn(session);
+
+    expect(first.isCurrent()).toBe(false);
+    expect(second.isCurrent()).toBe(true);
+    expect(second.turnId).toBe(first.turnId + 1);
+  });
+
+  it("queues Elli's turn while a game narration owns the shared audio channel", () => {
+    // Human catch: Elli and the spelling word could overlap because each path
+    // believed it owned the same TTS stream and browser completion signal.
+    const setPendingTranscript = vi.fn();
+    const onInterrupt = vi.fn();
+    const recordDebugEvent = vi.fn();
+    const session = {
+      activeGameNarrationRequestId: "request-1",
+      pendingGameNarrationPlayback: null,
+      turnSM: {
+        setPendingTranscript,
+        getState: vi.fn(() => "LOADING"),
+        onInterrupt,
+      },
+      recordDebugEvent,
+    };
+
+    expect(
+      deferCompanionUntilNarrationFinishes(session, "Elli, can you help me?"),
+    ).toBe(true);
+    expect(setPendingTranscript).toHaveBeenCalledWith("Elli, can you help me?");
+    expect(onInterrupt).toHaveBeenCalledTimes(1);
+    expect(recordDebugEvent).toHaveBeenCalledWith(
+      "companion",
+      "deferred_for_game_narration",
+      expect.objectContaining({ requestId: "request-1" }),
+    );
+  });
+
+  it("allows Elli to speak when no game narration owns audio", () => {
+    const setPendingTranscript = vi.fn();
+    const session = {
+      activeGameNarrationRequestId: null,
+      pendingGameNarrationPlayback: null,
+      turnSM: {
+        setPendingTranscript,
+        getState: vi.fn(() => "IDLE"),
+        onInterrupt: vi.fn(),
+      },
+      recordDebugEvent: vi.fn(),
+    };
+
+    expect(deferCompanionUntilNarrationFinishes(session, "Hello")).toBe(false);
+    expect(setPendingTranscript).not.toHaveBeenCalled();
+  });
+});
+
+// October 18: native games can advance without itemId. The old guard only
+// tested canonical item IDs, so delayed speech could survive an item advance.
+describe("native spelling reply identity", () => {
+  it("retires a reply when only the item index advances", () => {
+    const session = { currentBoardSnapshot: { nodeId: "practice", itemIndex: 7, currentTarget: "island" } };
+    const reply = claimCompanionResponseTurn(session);
+    session.currentBoardSnapshot.itemIndex = 8;
+    expect(reply.isCurrent()).toBe(false);
+  });
+  it("retires a reply when a target changes without an item ID", () => {
+    const session = { currentBoardSnapshot: { nodeId: "practice", currentTarget: "island" } };
+    const reply = claimCompanionResponseTurn(session);
+    session.currentBoardSnapshot.currentTarget = "minus";
+    expect(reply.isCurrent()).toBe(false);
+  });
+  it("retires a reply when a native activity is relaunched", () => {
+    const session = { currentBoardSnapshot: { nodeId: "practice", launchToken: "first" } };
+    const reply = claimCompanionResponseTurn(session);
+    session.currentBoardSnapshot.launchToken = "second";
+    expect(reply.isCurrent()).toBe(false);
+  });
+  it("preserves a reply across score-only updates", () => {
+    const session = { currentBoardSnapshot: { nodeId: "practice", itemIndex: 7, score: 0 } };
+    const reply = claimCompanionResponseTurn(session);
+    session.currentBoardSnapshot.score = 10;
+    expect(reply.isCurrent()).toBe(true);
+  });
+});
+
+it("removes a protected stimulus from prior text context without corrupting images or teaching",()=>{
+ const image=new Uint8Array([1,2,3]);
+ const history=[{role:"assistant",content:"The word is night"},{role:"user",content:[{type:"text",text:"Earlier target: night"},{type:"image",image}]}];
+ const snapshot={spellingSupportMode:"stimulus_only",spellingTarget:"night"};
+ const projected=protectSpellingModelMessages(history,snapshot);
+ expect(JSON.stringify(projected)).not.toContain("night");
+ expect(projected[1].content[1].image).toBe(image);
+ expect(history[0].content).toBe("The word is night");
+ expect(protectSpellingModelMessages(history,{...snapshot,spellingSupportMode:"pronunciation_model"})).toEqual(history);
+});

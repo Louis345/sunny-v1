@@ -1,11 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import WebSocket from "ws";
+import { runAgent } from "../agents/elli/run";
+import { getChildChart } from "../profiles/childChart";
 import { SessionManager } from "./session-manager";
 import { TurnStateMachine } from "./session-state";
 
 vi.mock("../agents/elli/run", () => ({
   runAgent: vi.fn().mockResolvedValue(""),
 }));
+vi.mock("../profiles/childChart", () => ({ getChildChart: vi.fn() }));
 
 function mockWs(): WebSocket {
   return {
@@ -24,6 +27,9 @@ describe("urgent learning support routing", () => {
 
   beforeEach(() => {
     process.env.SUNNY_STATELESS = "true";
+    vi.clearAllMocks();
+    // A real chart always exists; no learning cycle means legacy visible practice.
+    vi.mocked(getChildChart).mockReturnValue({} as never);
   });
 
   afterEach(() => {
@@ -44,6 +50,7 @@ describe("urgent learning support routing", () => {
     session.injectGameContext({
       game: "pronunciation",
       currentWord: "able",
+      answerVisibility: "visible",
       wordIndex: 0,
       totalWords: 10,
       phase: "approaching",
@@ -65,5 +72,194 @@ describe("urgent learning support routing", () => {
     expect(ws.send).toHaveBeenCalledWith(
       expect.stringContaining('"pronunciation_support"'),
     );
+  });
+
+  it("keeps ordinary room speech out of Elli while the canonical spelling assessment owns the turn", async () => {
+    // Human catch: Ila's self-talk repeatedly triggered model responses during Discovery.
+    // Logs recorded valid STT and model turns, so they did not identify the ownership bug.
+    // The old lab used injected transcripts without a live assessment snapshot.
+    vi.mocked(getChildChart).mockReturnValue({
+      learningCycle: {
+        homeworkId: "hw-lab",
+        domain: "spelling",
+        nodes: [{
+          nodeId: "opening",
+          role: "evaluation",
+          artifactBinding: { contractFingerprint: "frozen" },
+          evidenceContract: {
+            spellingItems: { "item-1": { id: "item-1", word: "sample" } },
+          },
+        }],
+      },
+    } as never);
+    const ws = mockWs();
+    const session = new SessionManager(ws, "Ila");
+
+    session.updateCurrentBoardSnapshot({
+      assessmentMode: true,
+      game: "word-radar",
+      nodeId: "opening",
+      itemId: "item-1",
+      phase: "response",
+      answerVisibility: "hidden",
+      speechCaptureArmed: false,
+    });
+    session.injectTranscript("I think I forgot where my pencil is");
+
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    expect(runAgent).not.toHaveBeenCalled();
+    expect(ws.send).not.toHaveBeenCalledWith(
+      expect.stringContaining('"type":"response_text"'),
+    );
+  });
+
+  it("forwards spoken letters to Word Radar while its response capture is armed", async () => {
+    // Human catch: microphone and STT health were green, but the collapsed
+    // companion gate discarded letters because the game never claimed them.
+    const ws = mockWs();
+    const session = new SessionManager(ws, "Ila");
+
+    session.updateCurrentBoardSnapshot({
+      game: "word-radar",
+      nodeId: "practice",
+      itemId: "item-1",
+      phase: "response",
+      answerVisibility: "hidden",
+      speechCaptureArmed: true,
+    });
+    session.injectTranscript("s");
+
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    expect(runAgent).not.toHaveBeenCalled();
+    expect(ws.send).toHaveBeenCalledWith(
+      expect.stringContaining('"type":"interim"'),
+    );
+    expect(ws.send).toHaveBeenCalledWith(expect.stringContaining('"text":"s"'));
+  });
+
+  it("lets a child ask Elli for help during armed Word Radar capture", async () => {
+    // Human catch: the live session identified a help request, then recorded
+    // word-radar_active_game suppression. Earlier tests covered letters and
+    // help separately, so neither crossed both live routing gates.
+    const ws = mockWs();
+    const session = new SessionManager(ws, "Ila");
+    session.companionWakeGateEnabled = true;
+    const respond = vi.spyOn(session as unknown as { runCompanionResponse: (text: string) => Promise<void> }, "runCompanionResponse")
+      .mockResolvedValue(undefined);
+    session.injectGameContext({
+      game: "word-radar", nodeId: "practice", phase: "response",
+      currentWord: "broken", speechCaptureArmed: true,
+    });
+
+    session.injectTranscript("Elli, can you help me with this word?");
+
+    await vi.waitFor(() => expect(respond).toHaveBeenCalledWith("Elli, can you help me with this word?"));
+    expect(ws.send).not.toHaveBeenCalledWith(expect.stringContaining('"type":"interim"'));
+  });
+
+  it("does not wake collapsed Elli for an unaddressed help request while preserving game capture", async () => {
+    const ws = mockWs();
+    const session = new SessionManager(ws, "Ila");
+    session.companionWakeGateEnabled = true;
+    const respond = vi.spyOn(session as unknown as { runCompanionResponse: (text: string) => Promise<void> }, "runCompanionResponse")
+      .mockResolvedValue(undefined);
+    session.injectGameContext({ game: "word-radar", nodeId: "practice", phase: "response", speechCaptureArmed: true });
+
+    session.injectTranscript("Can you help me with this word?");
+
+    await vi.waitFor(() => expect(ws.send).toHaveBeenCalledWith(expect.stringContaining('"type":"final"')));
+    expect(respond).not.toHaveBeenCalled();
+    expect(ws.send).not.toHaveBeenCalledWith(expect.stringContaining('"state":"summoned"'));
+  });
+
+  it("opens Elli when the child calls only her name during spelling capture", async () => {
+    const ws = mockWs();
+    const session = new SessionManager(ws, "Ila");
+    session.companionWakeGateEnabled = true;
+    const respond = vi.spyOn(session as unknown as { runCompanionResponse: (text: string) => Promise<void> }, "runCompanionResponse")
+      .mockResolvedValue(undefined);
+    session.injectGameContext({ game: "word-radar", nodeId: "practice", phase: "response", speechCaptureArmed: true });
+
+    session.injectTranscript("Elli");
+
+    await vi.waitFor(() => expect(respond).toHaveBeenCalledWith("Elli"));
+    expect(ws.send).toHaveBeenCalledWith(expect.stringContaining('"state":"summoned"'));
+  });
+
+  it("keeps a queued help request for Elli when game narration finishes", async () => {
+    // Live catch: help was recognized during word audio and deferred, but its
+    // replay lost urgent status and was suppressed as spelling input.
+    const ws = mockWs();
+    const session = new SessionManager(ws, "Ila");
+    session.companionWakeGateEnabled = true;
+    const respond = vi.spyOn(session as unknown as { runCompanionResponse: (text: string) => Promise<void> }, "runCompanionResponse")
+      .mockResolvedValue(undefined);
+    session.injectGameContext({ game: "word-radar", nodeId: "practice", phase: "response", speechCaptureArmed: true });
+
+    await (session as unknown as { handleEndOfTurn: (text: string, replay: boolean) => Promise<void> })
+      .handleEndOfTurn("Elli, can you help me?", true);
+
+    expect(respond).toHaveBeenCalledWith("Elli, can you help me?");
+    expect(ws.send).not.toHaveBeenCalledWith(expect.stringContaining('"type":"interim"'));
+  });
+
+  it("rechecks a queued transcript against the live assessment before replaying it", async () => {
+    // Human catch: stale room speech received during audio later became an Elli
+    // turn. Logs called it a replay but skipped the wake gate entirely.
+    vi.mocked(getChildChart).mockReturnValue({
+      learningCycle: {
+        homeworkId: "hw-lab",
+        domain: "spelling",
+        nodes: [{
+          nodeId: "opening",
+          role: "evaluation",
+          artifactBinding: { contractFingerprint: "frozen" },
+          evidenceContract: {
+            spellingItems: { "item-1": { id: "item-1", word: "sample" } },
+          },
+        }],
+      },
+    } as never);
+    const session = new SessionManager(mockWs(), "Ila");
+    session.updateCurrentBoardSnapshot({
+      assessmentMode: true,
+      game: "word-radar",
+      nodeId: "opening",
+      itemId: "item-1",
+      phase: "response",
+      answerVisibility: "hidden",
+    });
+
+    await (session as unknown as {
+      handleEndOfTurn: (text: string, isReplay: boolean) => Promise<void>;
+    }).handleEndOfTurn("I was talking to someone else", true);
+
+    expect(runAgent).not.toHaveBeenCalled();
+  });
+
+  it.each([true, false])("dismisses an open conversation before model routing and requires a new summons (wake gate %s)", async (wakeGate) => {
+    // Human heard a farewell but the portrait stayed summoned. STT/model logs
+    // looked healthy; isolated phrase tests never exercised conversation mode.
+    const ws = mockWs();
+    const session = new SessionManager(ws, "Ila");
+    session.companionWakeGateEnabled = wakeGate;
+    const respond = vi.spyOn(session as unknown as { runCompanionResponse: (text: string) => Promise<void> }, "runCompanionResponse")
+      .mockResolvedValue(undefined);
+    const route = session as unknown as { handleEndOfTurn: (text: string) => Promise<void> };
+    session.setCompanionPresence("summoned", "voice");
+
+    await route.handleEndOfTurn("Bye, Sunny.");
+    expect(ws.send).toHaveBeenCalledWith(expect.stringContaining('"state":"collapsed"'));
+    expect(respond).not.toHaveBeenCalled();
+    expect(runAgent).not.toHaveBeenCalled();
+
+    await route.handleEndOfTurn("I am talking to someone in the room");
+    expect(respond).not.toHaveBeenCalled();
+    await route.handleEndOfTurn("Hey Sunny");
+    expect(respond).toHaveBeenCalledOnce();
+    expect(respond).toHaveBeenCalledWith("Hey Sunny");
+    const presence = vi.mocked(ws.send).mock.calls.map(([message]) => JSON.parse(String(message)))
+      .filter(message => message.type === "companion_presence");
+    expect(presence.map(message => message.state)).toEqual(["summoned", "collapsed", "summoned"]);
   });
 });

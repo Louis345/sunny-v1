@@ -8,6 +8,7 @@ export interface GameDefinition {
 }
 
 type GameMetaEntry = {
+  enabled?: boolean;
   type: "tool" | "reward";
   voiceEnabled: boolean;
   defaultConfig?: Record<string, unknown>;
@@ -20,6 +21,7 @@ const GAMES_DIR = path.join(process.cwd(), "web/public/games");
 /** Known metadata — reward type, non-default config, or filename ≠ public game id */
 export const GAME_META: Record<string, GameMetaEntry> = {
   "word-builder": {
+    enabled: false, // Unfinished placeholder, unavailable to child-facing launch tools.
     type: "tool",
     voiceEnabled: true,
     key: "word-builder",
@@ -79,6 +81,7 @@ export function discoverGames(): {
     if (!file.endsWith(".html")) continue;
     const stem = file.replace(/\.html$/i, "");
     const meta = GAME_META[stem] ?? defaults;
+    if (meta.enabled === false) continue;
     const registryKey = meta.key ?? stem;
 
     const def: GameDefinition = {

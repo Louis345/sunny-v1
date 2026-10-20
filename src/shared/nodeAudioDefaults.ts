@@ -6,8 +6,8 @@ export interface NodeAudioConfig {
 const NODE_AUDIO_DEFAULTS: Record<string, NodeAudioConfig> = {
   karaoke: { companionMicDefault: "off", companionTtsDefault: "off" },
   pronunciation: { companionMicDefault: "off", companionTtsDefault: "off" },
-  "word-radar": { companionMicDefault: "off", companionTtsDefault: "off" },
-  word_radar: { companionMicDefault: "off", companionTtsDefault: "off" },
+  "word-radar": { companionMicDefault: "off", companionTtsDefault: "on" },
+  word_radar: { companionMicDefault: "off", companionTtsDefault: "on" },
   "spell-check": { companionMicDefault: "on", companionTtsDefault: "on" },
   "word-builder": { companionMicDefault: "on", companionTtsDefault: "on" },
   quest: { companionMicDefault: "on", companionTtsDefault: "on" },

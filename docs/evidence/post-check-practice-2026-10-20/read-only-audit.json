@@ -1,0 +1,18 @@
+{
+  "readOnly": true,
+  "sourceCommit": "5f7f838",
+  "states": [
+    {
+      "lifecycle": "baseline_evaluating",
+      "display": "available",
+      "launch": true,
+      "practiceOnly": true
+    },
+    {
+      "lifecycle": "blocked",
+      "display": "available",
+      "launch": true,
+      "practiceOnly": true
+    }
+  ]
+}

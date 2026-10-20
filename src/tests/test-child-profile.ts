@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import { useSyntheticProfileContext } from "./fixtures/syntheticProfileContext";
 import { sm2 } from "../algorithms/sm2";
 import { buildProfile } from "../profiles/buildProfile";
 import { verifyGameConfig } from "../profile/verifyProfile";
@@ -8,6 +9,8 @@ import {
   computeUnlockedThemes,
 } from "../profiles/profileCompute";
 import type { NodeRating } from "../shared/adventureTypes";
+
+useSyntheticProfileContext();
 
 describe("profileCompute (TASK-004)", () => {
   it("computeUnlockedThemes(1) returns only default", () => {

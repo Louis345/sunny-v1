@@ -1,6 +1,6 @@
 /**
  * Guard: when suppressTranscripts=true (e.g. word-radar voice_control:false),
- * the server must still forward the "final" transcript to the client so that
+ * an explicitly armed activity must still receive the "final" transcript to the client so that
  * flow-state games can read it. The LLM must not be invoked.
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
@@ -27,6 +27,7 @@ describe("suppressTranscripts + transcript forwarding", () => {
   it("still sends 'final' to the client when suppressTranscripts=true", async () => {
     const ws = mockWs();
     const sm = new SessionManager(ws, "Ila");
+    (sm as unknown as {currentBoardSnapshot:unknown}).currentBoardSnapshot={nodeId:"word-radar",speechCaptureArmed:true};
 
     // Simulate word-radar mounting: voice_control:false sets suppressTranscripts
     handleGameEventForSession(sm as Parameters<typeof handleGameEventForSession>[0], {
@@ -59,6 +60,7 @@ describe("suppressTranscripts + transcript forwarding", () => {
     const { runAgent } = await import("../agents/elli/run");
     const ws = mockWs();
     const sm = new SessionManager(ws, "Ila");
+    (sm as unknown as {currentBoardSnapshot:unknown}).currentBoardSnapshot={nodeId:"word-radar",speechCaptureArmed:true};
 
     handleGameEventForSession(sm as Parameters<typeof handleGameEventForSession>[0], {
       type: "voice_control",

@@ -1,0 +1,714 @@
+{
+ "recordedAt": "2026-10-13",
+ "source": "live synthetic run2, Benchmark Advance Unit 9 Week 1",
+ "model": "claude-sonnet-5",
+ "tool": "create_learning_program",
+ "input": {
+  "planId": "plan-sunny-benchadv-u9w1-001",
+  "domain": "spelling",
+  "journey": {
+   "title": "Unit 9 Week 1: -y/-ly Endings and Tricky Words",
+   "opening": [
+    "visual-explainer-y-ly",
+    "word-builder-practice",
+    "word-radar-partial-recall"
+   ],
+   "choice": {
+    "purpose": "Let Sunny pick how she wants to build speed and confidence before the final check, using two equally valid practice styles for the words she missed or hesitated on.",
+    "label": "Choose your practice adventure",
+    "options": [
+     {
+      "id": "arcade-path",
+      "label": "Arcade Practice",
+      "hypothesis": "Fast-paced game format with retry support will keep Sunny engaged while reinforcing the miss words through repetition and recovery.",
+      "nodeIds": [
+       "monster-stampede-recovery",
+       "letter-rush-race",
+       "wheel-of-fortune-reward"
+      ]
+     },
+     {
+      "id": "puzzle-path",
+      "label": "Puzzle Practice",
+      "hypothesis": "A slower, pattern-reasoning format may suit Sunny better for locking in tricky endings and silent-letter words without speed pressure.",
+      "nodeIds": [
+       "wordle-practice",
+       "pronunciation-flow",
+       "mystery-reward"
+      ]
+     }
+    ]
+   },
+   "closing": [
+    "spell-check-audio-prompt",
+    "word-radar-checkpoint"
+   ],
+   "endpointLabel": "Ready for the Unit 9 Test!"
+  },
+  "activities": [
+   {
+    "id": "visual-explainer-y-ly",
+    "type": "visual-explainer",
+    "activityId": "visual-explainer",
+    "targets": [
+     "shiny",
+     "slowly",
+     "lucky",
+     "neatly",
+     "sunny",
+     "likely",
+     "messy",
+     "quickly",
+     "rainy",
+     "friendly"
+    ],
+    "targetLane": "y-ly-endings",
+    "wordRadarConfig": null,
+    "rounds": [],
+    "title": "The -y and -ly Endings",
+    "activityConfig": {
+     "schemaVersion": 1,
+     "activityId": "visual-explainer",
+     "domain": "spelling",
+     "topic": "The -y and -ly endings",
+     "learningGoal": "Notice that many describing words end in -y and many 'how' words end in -ly, and spell them without dropping or doubling letters.",
+     "misconception": "The ending sound 'ee' or 'lee' can be spelled many random ways instead of a consistent chunk.",
+     "strategy": {
+      "title": "Keep the ending chunk together",
+      "steps": [
+       "Say the base word or sound.",
+       "Notice the -y or -ly ending chunk.",
+       "Build the word around that chunk without changing the base spelling."
+      ]
+     },
+     "words": [
+      {
+       "id": "planner-shiny",
+       "text": "shiny",
+       "chunks": [
+        "shin",
+        "y"
+       ],
+       "focusChunk": "y",
+       "tip": "Keep y at the end, no e."
+      },
+      {
+       "id": "planner-slowly",
+       "text": "slowly",
+       "chunks": [
+        "slow",
+        "ly"
+       ],
+       "focusChunk": "ly",
+       "tip": "Keep the whole word slow, then add ly."
+      },
+      {
+       "id": "planner-lucky",
+       "text": "lucky",
+       "chunks": [
+        "luck",
+        "y"
+       ],
+       "focusChunk": "y",
+       "tip": "Keep ck together, then add y."
+      },
+      {
+       "id": "planner-neatly",
+       "text": "neatly",
+       "chunks": [
+        "neat",
+        "ly"
+       ],
+       "focusChunk": "ly",
+       "tip": "Keep neat whole, then add ly."
+      },
+      {
+       "id": "planner-sunny",
+       "text": "sunny",
+       "chunks": [
+        "sun",
+        "n",
+        "y"
+       ],
+       "focusChunk": "ny",
+       "tip": "Double the n before adding y."
+      },
+      {
+       "id": "planner-likely",
+       "text": "likely",
+       "chunks": [
+        "like",
+        "ly"
+       ],
+       "focusChunk": "ly",
+       "tip": "Keep like whole, then add ly."
+      },
+      {
+       "id": "planner-messy",
+       "text": "messy",
+       "chunks": [
+        "mess",
+        "y"
+       ],
+       "focusChunk": "y",
+       "tip": "Keep ss together, then add y."
+      },
+      {
+       "id": "planner-quickly",
+       "text": "quickly",
+       "chunks": [
+        "quick",
+        "ly"
+       ],
+       "focusChunk": "ly",
+       "tip": "Keep quick whole, then add ly."
+      },
+      {
+       "id": "planner-rainy",
+       "text": "rainy",
+       "chunks": [
+        "rain",
+        "y"
+       ],
+       "focusChunk": "y",
+       "tip": "Keep rain whole, then add y."
+      },
+      {
+       "id": "planner-friendly",
+       "text": "friendly",
+       "chunks": [
+        "friend",
+        "ly"
+       ],
+       "focusChunk": "ly",
+       "tip": "Keep friend whole, then add ly."
+      }
+     ],
+     "check": {
+      "id": "check-ly",
+      "targetWord": "quickly",
+      "prompt": "Which chunk stays together at the end?",
+      "options": [
+       {
+        "id": "ly",
+        "label": "ly",
+        "correct": true
+       },
+       {
+        "id": "ley",
+        "label": "ley",
+        "correct": false
+       }
+      ],
+      "correctOptionId": "ly"
+     },
+     "evidencePolicy": {
+      "writesPracticeEvidence": true,
+      "writesMasteryEvidence": false,
+      "requiresPerTargetResult": false,
+      "allowedEvidence": [
+       "practice",
+       "companion"
+      ]
+     }
+    },
+    "measurement": {
+     "evidenceType": "practice",
+     "supportCriteria": "Child engages with the chunk model and can identify the -y/-ly ending chunk in the check.",
+     "reviseCriteria": "If the check is missed or Sunny cannot identify the ending chunk, repeat the explainer with slower pacing before moving to practice.",
+     "falsifyCriteria": "This does not falsify a mastery claim; it only indicates whether direct teaching of the ending chunk is needed before practice.",
+     "spelling": {
+      "role": "instruction",
+      "evidenceIds": [
+       "assignment:66450520008dbd0197adfabb61b5d365bfc605c26eaec57d2135757c7a5ba3b1"
+      ],
+      "reason": "Sunny's discovery pass shows uncertainty specifically on -y/-ly pattern words (slowly, quickly missed; sunny not-sure) while most single-syllable high-frequency words were already correct, so direct teaching targets the actual gap.",
+      "uncertainty": "Engagement with a generated visual model does not show whether Sunny can produce the words from memory; it only indicates readiness for practice.",
+      "expectedAccuracy": {
+       "min": 0.5,
+       "max": 0.9
+      },
+      "confidence": 0.5,
+      "maxDelayDays": 1,
+      "finalCheck": false
+     }
+    }
+   },
+   {
+    "id": "word-builder-practice",
+    "type": "word-builder",
+    "activityId": "word-builder",
+    "targets": [
+     "slowly",
+     "sunny",
+     "quickly",
+     "common",
+     "remember"
+    ],
+    "targetLane": "y-ly-endings",
+    "wordRadarConfig": null,
+    "rounds": [],
+    "title": "Build the Tricky Words",
+    "measurement": {
+     "evidenceType": "practice",
+     "supportCriteria": "Child successfully constructs each word with letter support after 1-2 attempts.",
+     "reviseCriteria": "If a word takes 3+ attempts, flag it for extra review in the radar recall step.",
+     "falsifyCriteria": "Construction support alone does not falsify or confirm independent recall ability.",
+     "spelling": {
+      "role": "practice",
+      "evidenceIds": [
+       "assignment:66450520008dbd0197adfabb61b5d365bfc605c26eaec57d2135757c7a5ba3b1"
+      ],
+      "reason": "These five words were the specific independent misses/uncertain responses in the discovery pass (slowly, sunny, quickly, common, remember), so they need scaffolded construction practice before unaided recall is re-tested.",
+      "uncertainty": "Scaffolded construction does not show whether the word can be recalled without letter support.",
+      "expectedAccuracy": {
+       "min": 0.6,
+       "max": 0.95
+      },
+      "confidence": 0.55,
+      "maxDelayDays": 1,
+      "finalCheck": false
+     }
+    }
+   },
+   {
+    "id": "word-radar-partial-recall",
+    "type": "word-radar",
+    "activityId": "word-radar",
+    "targets": [
+     "shiny",
+     "slowly",
+     "lucky",
+     "neatly",
+     "sunny",
+     "likely",
+     "messy",
+     "quickly",
+     "rainy",
+     "friendly",
+     "common",
+     "remember"
+    ],
+    "targetLane": "y-ly-endings",
+    "wordRadarConfig": {
+     "recallMode": "partial_visual_recall",
+     "inputMode": "letter-by-letter",
+     "speakStyle": "option-a",
+     "showTimer": false,
+     "hideWordDuringResponse": true,
+     "requiresCapturedResponse": true
+    },
+    "rounds": [],
+    "title": "Spell It From Memory (Letter Boxes)",
+    "measurement": {
+     "evidenceType": "practice",
+     "supportCriteria": "Child recalls most letters correctly with letter-box scaffolding across the 12 flagged words.",
+     "reviseCriteria": "If a word is repeatedly wrong even with letter boxes, route it back to word-builder before the checkpoint.",
+     "falsifyCriteria": "Scaffolded recall practice does not establish unaided mastery; it only informs readiness for the hidden checkpoint.",
+     "spelling": {
+      "role": "practice",
+      "evidenceIds": [
+       "assignment:66450520008dbd0197adfabb61b5d365bfc605c26eaec57d2135757c7a5ba3b1"
+      ],
+      "reason": "Covers the full -y/-ly set plus the two other missed words (common, remember) identified in discovery, giving recall-after-teaching practice before the independent checkpoint.",
+      "uncertainty": "Letter-box scaffolding reduces retrieval difficulty, so performance here likely overestimates true independent recall.",
+      "expectedAccuracy": {
+       "min": 0.6,
+       "max": 0.9
+      },
+      "confidence": 0.55,
+      "maxDelayDays": 1,
+      "finalCheck": false
+     }
+    }
+   },
+   {
+    "id": "monster-stampede-recovery",
+    "type": "monster-stampede",
+    "activityId": "monster-stampede",
+    "targets": [
+     "slowly",
+     "sunny",
+     "quickly",
+     "common",
+     "remember"
+    ],
+    "targetLane": "y-ly-endings",
+    "wordRadarConfig": null,
+    "rounds": [],
+    "title": "Monster Stampede: Miss Recovery Run",
+    "measurement": null
+   },
+   {
+    "id": "letter-rush-race",
+    "type": "letter-rush",
+    "activityId": "letter-rush",
+    "targets": [
+     "shiny",
+     "slowly",
+     "lucky",
+     "neatly",
+     "sunny",
+     "likely",
+     "messy",
+     "quickly",
+     "rainy",
+     "friendly"
+    ],
+    "targetLane": "y-ly-endings",
+    "wordRadarConfig": null,
+    "rounds": [],
+    "title": "Letter Rush: Read and Race",
+    "activityConfig": {
+     "schemaVersion": 1,
+     "activityId": "letter-rush",
+     "mode": "read-and-race",
+     "topic": "Unit 9 -y/-ly words",
+     "domain": "spelling",
+     "learningGoal": "Practice the captured spelling words with fast visual recognition",
+     "gradeBand": "early_elementary",
+     "scaffolds": {
+      "showWord": true,
+      "letterBank": true,
+      "allowRetryBeforeScore": true,
+      "companionHints": false
+     },
+     "words": [
+      {
+       "text": "shiny"
+      },
+      {
+       "text": "slowly"
+      },
+      {
+       "text": "lucky"
+      },
+      {
+       "text": "neatly"
+      },
+      {
+       "text": "sunny"
+      },
+      {
+       "text": "likely"
+      },
+      {
+       "text": "messy"
+      },
+      {
+       "text": "quickly"
+      },
+      {
+       "text": "rainy"
+      },
+      {
+       "text": "friendly"
+      }
+     ],
+     "evidencePolicy": {
+      "writesPracticeEvidence": true,
+      "writesMasteryEvidence": false,
+      "requiresPerTargetResult": true,
+      "allowedEvidence": [
+       "practice"
+      ]
+     }
+    },
+    "measurement": null
+   },
+   {
+    "id": "wheel-of-fortune-reward",
+    "type": "wheel-of-fortune",
+    "activityId": "wheel-of-fortune",
+    "targets": [],
+    "targetLane": "y-ly-endings",
+    "wordRadarConfig": null,
+    "rounds": [],
+    "title": "Wheel of Fortune: Bonus Spin",
+    "measurement": null
+   },
+   {
+    "id": "wordle-practice",
+    "type": "wordle",
+    "activityId": "wordle",
+    "targets": [
+     "sure",
+     "vowel",
+     "whole",
+     "behind",
+     "able"
+    ],
+    "targetLane": "high-frequency-set",
+    "wordRadarConfig": null,
+    "rounds": [],
+    "title": "Wordle: Tricky High-Frequency Words",
+    "measurement": null
+   },
+   {
+    "id": "pronunciation-flow",
+    "type": "pronunciation",
+    "activityId": "pronunciation",
+    "targets": [
+     "common",
+     "remember",
+     "carefully",
+     "easy",
+     "fact"
+    ],
+    "targetLane": "high-frequency-set",
+    "wordRadarConfig": null,
+    "rounds": [],
+    "title": "Read Them Aloud",
+    "measurement": null
+   },
+   {
+    "id": "mystery-reward",
+    "type": "mystery",
+    "activityId": "mystery",
+    "targets": [],
+    "targetLane": "y-ly-endings",
+    "wordRadarConfig": null,
+    "rounds": [],
+    "title": "Mystery Reward",
+    "measurement": null
+   },
+   {
+    "id": "spell-check-audio-prompt",
+    "type": "spell-check",
+    "activityId": "spell-check",
+    "targets": [
+     "slowly",
+     "sunny",
+     "quickly",
+     "common",
+     "remember"
+    ],
+    "targetLane": "y-ly-endings",
+    "wordRadarConfig": null,
+    "rounds": [],
+    "title": "Spell Check: Audio Prompt",
+    "measurement": {
+     "evidenceType": "diagnostic",
+     "supportCriteria": "Child produces the word correctly from an audio prompt with the target word hidden, with at most one retry.",
+     "reviseCriteria": "If 2+ of these 5 words are missed, route back to word-builder and partial-recall practice before the final checkpoint.",
+     "falsifyCriteria": "Consistent misses here on words previously marked correct in discovery would falsify assumed stability of those constructs.",
+     "spelling": {
+      "role": "practice",
+      "evidenceIds": [
+       "assignment:66450520008dbd0197adfabb61b5d365bfc605c26eaec57d2135757c7a5ba3b1"
+      ],
+      "reason": "Focused diagnostic production check on exactly the five words that were incorrect or uncertain in the discovery baseline (slowly, sunny, quickly, common, remember), to confirm whether practice closed the gap before the final hidden-word checkpoint.",
+      "uncertainty": "Audio-prompt production with one retry allowed is diagnostic but not the final mastery-grade checkpoint; it informs whether the closing checkpoint is likely to go well.",
+      "expectedAccuracy": {
+       "min": 0.6,
+       "max": 0.9
+      },
+      "confidence": 0.6,
+      "maxDelayDays": 2,
+      "finalCheck": false
+     }
+    }
+   },
+   {
+    "id": "word-radar-checkpoint",
+    "type": "word-radar",
+    "activityId": "word-radar",
+    "targets": [
+     "shiny",
+     "slowly",
+     "lucky",
+     "neatly",
+     "sunny",
+     "likely",
+     "messy",
+     "quickly",
+     "rainy",
+     "friendly",
+     "able",
+     "behind",
+     "carefully",
+     "common",
+     "easy",
+     "fact",
+     "remember",
+     "sure",
+     "vowel",
+     "whole"
+    ],
+    "targetLane": "full-set-checkpoint",
+    "wordRadarConfig": {
+     "recallMode": "hidden_word_recall",
+     "inputMode": "whole-word",
+     "speakStyle": "option-b",
+     "showTimer": true,
+     "timerSeconds": 8,
+     "hideWordDuringResponse": true,
+     "requiresCapturedResponse": true
+    },
+    "rounds": [],
+    "title": "Final Check: Spell Every Word",
+    "measurement": {
+     "evidenceType": "diagnostic",
+     "supportCriteria": "Child independently spells the word correctly within the timed window with no visible word and no letter support.",
+     "reviseCriteria": "If any word is missed here, flag it for a follow-up practice cycle (word-builder plus partial-recall) before the actual school test.",
+     "falsifyCriteria": "A pattern of misses across the -y/-ly set would falsify the theory that the visual-explainer and practice sequence closed Sunny's ending-pattern gap.",
+     "spelling": {
+      "role": "fresh_checkpoint",
+      "evidenceIds": [
+       "assignment:66450520008dbd0197adfabb61b5d365bfc605c26eaec57d2135757c7a5ba3b1"
+      ],
+      "reason": "This is the independent, unaided, hidden-word recall checkpoint covering all 20 assigned words, matching the readiness proof standard (fresh unaided spelling production) required to measure progress toward the school test.",
+      "uncertainty": "A single timed pass is one occasion of evidence; it does not establish delayed retention over days, only current independent recall status.",
+      "expectedAccuracy": {
+       "min": 0.7,
+       "max": 1
+      },
+      "confidence": 0.6,
+      "maxDelayDays": 3,
+      "finalCheck": true
+     }
+    }
+   }
+  ],
+  "planTheory": {
+   "hypothesis": "Sunny's discovery baseline shows strong independent spelling for most high-frequency words (able, behind, carefully, easy, fact, sure, vowel, whole, lucky, neatly, likely, messy, rainy, friendly), but specific gaps in the -y/-ly suffix pattern (slowly, quickly, sunny-not-sure) and three other words (common, remember). Teaching the -y/-ly chunk explicitly, then giving scaffolded construction and recall practice on exactly the missed/uncertain words, followed by a diagnostic confirmation and a full hidden-word checkpoint, should close the gap before the test.",
+   "evidenceSummary": [
+    "Discovery pass (20/20 words attempted, independent, unassisted): 15 correct, 4 incorrect (slowly->slowle, quickly->quickle, common->commne, remember->remembre), 1 not-sure (sunny).",
+    "All four incorrect words and the one not-sure word cluster around either the -y/-ly suffix pattern (slowly, quickly, sunny) or unstressed vowel/consonant-doubling confusion (common, remember).",
+    "The remaining 15 words already show independent correct recall in discovery, so they receive lighter group practice rather than new direct instruction."
+   ],
+   "intervention": "Direct-teach the -y/-ly ending chunk via visual-explainer for the full -y/-ly word family (10 words), then scaffolded word-builder construction on the 5 specific miss/uncertain words (slowly, sunny, quickly, common, remember), then partial-recall word-radar practice across the -y/-ly set plus common/remember, then an engagement choice (arcade vs puzzle path) covering both the -y/-ly set and the untaught-but-already-correct high-frequency words for maintenance, then a diagnostic spell-check audio-prompt confirming the 5 target-gap words, then a single hidden-word-recall word-radar checkpoint covering all 20 assigned words as the final independent measurement before the test.",
+   "supportCriteria": [
+    "Sunny engages with the visual-explainer check and can name the -y/-ly ending chunk.",
+    "Sunny constructs the 5 flagged words correctly in word-builder within 1-2 attempts.",
+    "Sunny recalls most letters correctly in the partial-recall radar pass across the 12 practice words.",
+    "Sunny produces at least 4 of 5 flagged words correctly in the diagnostic spell-check audio-prompt pass.",
+    "Sunny independently spells the large majority of the 20 words correctly in the final hidden-word-recall checkpoint."
+   ],
+   "reviseCriteria": [
+    "If the visual-explainer check is missed, slow down and repeat direct teaching before advancing to word-builder.",
+    "If word-builder construction takes 3+ attempts on a word, route that word back into partial-recall practice with extra repetitions.",
+    "If the diagnostic spell-check shows 2+ of 5 words still wrong, add another scaffolded practice round before the final checkpoint.",
+    "If the final checkpoint shows new misses outside the originally flagged words, treat as fresh evidence requiring a follow-up practice plan rather than assuming readiness."
+   ],
+   "falsifyCriteria": [
+    "If Sunny misses the same -y/-ly words again on the final hidden-word checkpoint despite direct teaching and practice, the theory that explicit chunk instruction closes this specific gap is falsified and a different strategy (e.g., syllable-by-syllable dictation) should be tried.",
+    "If previously-correct words (e.g., lucky, neatly, likely) begin failing after practice-heavy sessions, this would suggest fatigue or interference effects rather than a stable learning gain, falsifying the assumption that light maintenance alone suffices for already-known words."
+   ]
+  },
+  "evidenceUsed": [
+   {
+    "id": "assignment:66450520008dbd0197adfabb61b5d365bfc605c26eaec57d2135757c7a5ba3b1",
+    "type": "homework_assignment",
+    "summary": "Benchmark Advance Spelling Unit 9 Week 1 word list of 20 assigned words to spell from memory on the school test."
+   },
+   {
+    "id": "synthetic-1",
+    "type": "discovery_observation",
+    "summary": "Independent discovery attempt: 'slowly' spelled 'slowle', incorrect."
+   },
+   {
+    "id": "synthetic-4",
+    "type": "discovery_observation",
+    "summary": "Independent discovery attempt: 'sunny' marked not-sure, no spelling produced."
+   },
+   {
+    "id": "synthetic-7",
+    "type": "discovery_observation",
+    "summary": "Independent discovery attempt: 'quickly' spelled 'quickle', incorrect."
+   },
+   {
+    "id": "synthetic-13",
+    "type": "discovery_observation",
+    "summary": "Independent discovery attempt: 'common' spelled 'commne', incorrect."
+   },
+   {
+    "id": "synthetic-16",
+    "type": "discovery_observation",
+    "summary": "Independent discovery attempt: 'remember' spelled 'remembre', incorrect."
+   },
+   {
+    "id": "synthetic-0",
+    "type": "discovery_observation",
+    "summary": "Independent discovery attempt: 'shiny' spelled correctly."
+   },
+   {
+    "id": "synthetic-2",
+    "type": "discovery_observation",
+    "summary": "Independent discovery attempt: 'lucky' spelled correctly."
+   },
+   {
+    "id": "synthetic-3",
+    "type": "discovery_observation",
+    "summary": "Independent discovery attempt: 'neatly' spelled correctly."
+   },
+   {
+    "id": "synthetic-5",
+    "type": "discovery_observation",
+    "summary": "Independent discovery attempt: 'likely' spelled correctly."
+   },
+   {
+    "id": "synthetic-6",
+    "type": "discovery_observation",
+    "summary": "Independent discovery attempt: 'messy' spelled correctly."
+   },
+   {
+    "id": "synthetic-8",
+    "type": "discovery_observation",
+    "summary": "Independent discovery attempt: 'rainy' spelled correctly."
+   },
+   {
+    "id": "synthetic-9",
+    "type": "discovery_observation",
+    "summary": "Independent discovery attempt: 'friendly' spelled correctly."
+   },
+   {
+    "id": "synthetic-10",
+    "type": "discovery_observation",
+    "summary": "Independent discovery attempt: 'able' spelled correctly."
+   },
+   {
+    "id": "synthetic-11",
+    "type": "discovery_observation",
+    "summary": "Independent discovery attempt: 'behind' spelled correctly."
+   },
+   {
+    "id": "synthetic-12",
+    "type": "discovery_observation",
+    "summary": "Independent discovery attempt: 'carefully' spelled correctly."
+   },
+   {
+    "id": "synthetic-14",
+    "type": "discovery_observation",
+    "summary": "Independent discovery attempt: 'easy' spelled correctly."
+   },
+   {
+    "id": "synthetic-15",
+    "type": "discovery_observation",
+    "summary": "Independent discovery attempt: 'fact' spelled correctly."
+   },
+   {
+    "id": "synthetic-17",
+    "type": "discovery_observation",
+    "summary": "Independent discovery attempt: 'sure' spelled correctly."
+   },
+   {
+    "id": "synthetic-18",
+    "type": "discovery_observation",
+    "summary": "Independent discovery attempt: 'vowel' spelled correctly."
+   },
+   {
+    "id": "synthetic-19",
+    "type": "discovery_observation",
+    "summary": "Independent discovery attempt: 'whole' spelled correctly."
+   }
+  ],
+  "generationRequests": [],
+  "reviewQuestions": [
+   "Did Sunny correctly identify the -y/-ly ending chunk in the visual explainer check?",
+   "Which of the five flagged words (slowly, sunny, quickly, common, remember) still gave Sunny trouble during practice?",
+   "How did Sunny do on the final hidden-word-recall checkpoint across all 20 words?",
+   "Did Sunny prefer the arcade path or the puzzle path, and did that affect her engagement or accuracy?"
+  ]
+ }
+}

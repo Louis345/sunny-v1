@@ -9,6 +9,17 @@ afterEach(() => {
 });
 
 describe("SessionLoadingOverlay", () => {
+  it("never opens the curtain while the map is unready, even after release timers", () => {
+    vi.useFakeTimers();
+    const onCurtainOpen = vi.fn();
+    const onHardRelease = vi.fn();
+    render(<SessionLoadingOverlay childName="Ila" voiceReady={false} mapReady={false} assetsReady={false}
+      safetyReleaseMs={3000} hardReleaseMs={4000} onCurtainOpen={onCurtainOpen} onHardRelease={onHardRelease} />);
+    act(() => { vi.advanceTimersByTime(5000); });
+    expect(screen.getByTestId("session-loading-overlay").getAttribute("data-ready")).toBe("false");
+    expect(onCurtainOpen).not.toHaveBeenCalled();
+    expect(onHardRelease).not.toHaveBeenCalled();
+  });
   it("does not require unsolicited speech to open a wake-only session",()=>{
     expect(sessionVoiceReady({bootReady:true,firstAudio:false,wakeOnly:true})).toBe(true);
     expect(sessionVoiceReady({bootReady:false,firstAudio:false,wakeOnly:true})).toBe(false);
@@ -246,7 +257,7 @@ describe("SessionLoadingOverlay", () => {
         accentColor="#2dd4bf"
         accentBg="#ecfeff"
         voiceReady={false}
-        mapReady={false}
+        mapReady
         assetsReady={false}
         safetyReleaseMs={60_000}
         hardReleaseMs={30_000}

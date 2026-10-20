@@ -702,3 +702,29 @@ export function buildCanvasContextMessage(
 
   return lines.join("\n");
 }
+
+export type PendingGameStart = {
+  gameUrl: string;
+  childName: string;
+  companionName: string;
+  config: Record<string, unknown>;
+};
+
+export type MathDiscoverySupportState = {
+  homeworkId: string;
+  nodeId: string;
+  itemId: string;
+  artifactHash: string;
+  supportIds: string[];
+};
+
+/** Options passed from the client on `start_session` (see ws-handler). */
+export type SessionManagerOptions = {
+  silentTts?: boolean;
+  /** No LLM / no server TTS — Deepgram STT only (e.g. diag reading kiosk). */
+  sttOnly?: boolean;
+  /** Chart/storage child id. Lets sandbox runs use a real companion voice without touching real charts. */
+  chartChildId?: string;
+  /** Exact assignment validated by the homework launch boundary. */
+  homeworkId?: string;
+};

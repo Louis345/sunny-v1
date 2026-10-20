@@ -526,9 +526,8 @@ function missingWordRadarConfigReason(plan: ActiveSessionPlan): string | null {
 export function missingAdventureSpineReasons(plan: ActiveSessionPlan): string[] {
   const nodeTypes = new Set(plan.nodePlan.map((node) => node.type));
   return [
+    // Quest and Boss are absent until evidence authorizes them on a later board (contract 21).
     nodeTypes.has("mystery") ? null : "missing_mystery_choice",
-    nodeTypes.has("quest") ? null : "missing_quest_destination",
-    nodeTypes.has("boss") ? null : "missing_boss_destination",
   ].filter((reason): reason is string => Boolean(reason));
 }
 
@@ -874,7 +873,8 @@ function masteryNodeConfig(input: {
     contentId: artifactPassed ? input.source?.adaptiveArtifact?.contentId : undefined,
     adaptiveArtifact: artifactPassed ? input.source?.adaptiveArtifact : undefined,
     artifactStatus,
-    masteryUnlockState: artifactApproved ? "pending_ceremony" : input.masteryUnlockState ?? "preparing",
+    // Authorized and approved means playable from the session's first render; there is no in-session reveal.
+    masteryUnlockState: artifactApproved ? "unlocked" : input.masteryUnlockState ?? "preparing",
     isLocked: true,
     isCompleted: false,
     isGoal: false,

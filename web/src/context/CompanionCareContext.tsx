@@ -21,6 +21,7 @@ import {
   deriveCompanionBehavior,
   type CompanionBehavior,
 } from "./companionCareBehavior";
+import { createBrowserRequestId } from "../utils/browserRequestId";
 
 export interface CompanionCareContextValue {
   care: CompanionCareView | null;
@@ -174,7 +175,7 @@ export function CompanionCareProvider({
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ itemId, requestId: crypto.randomUUID() }),
+            body: JSON.stringify({ itemId, requestId: createBrowserRequestId() }),
           },
         );
         if (!response.ok) throw new Error(`purchase ${response.status}`);

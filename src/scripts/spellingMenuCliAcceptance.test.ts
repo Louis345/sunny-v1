@@ -1,10 +1,11 @@
+import {linearJourneyFixture} from "./fixtures/authoredJourney";
 import fs from "node:fs";
 import http from "node:http";
 import os from "node:os";
 import path from "node:path";
 import { spawn } from "node:child_process";
 import { expect, it } from "vitest";
-import { seedSpellingLab, recordedSpellingDiagnostic } from "./fixtures/spellingEvidenceFirst";
+import { seedSpellingLab, recordedSpellingDiagnostic, writeSpellingPdfFixture } from "./fixtures/spellingEvidenceFirst";
 
 it("runs the real menu and ingestion subprocess twice with one local recorded provider response", async () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-spelling-cli-"));
@@ -19,8 +20,17 @@ it("runs the real menu and ingestion subprocess twice with one local recorded pr
       capturedRequests.push({ url: request.url!, input });
       const fileHash = JSON.stringify(input.messages).match(/\\"fileHash\\":\\"([a-f0-9]+)\\"/)?.[1];
       if (!fileHash) { response.writeHead(400); response.end("recorded_source_hash_missing"); return; }
-      response.writeHead(200, { "content-type": "application/json" });
-      response.end(JSON.stringify({ id: "recorded-capture", type: "message", role: "assistant", model: input.model, stop_reason: "tool_use", usage: { input_tokens: 0, output_tokens: 0 }, content: [{ type: "tool_use", id: "recorded-tool", name: input.tools[0].name, input: { diagnostic: recordedSpellingDiagnostic({ sourceDocument: { fileHash } }), title: "School spelling", words: ["night", "light"].map(word => ({ word, pageNumber: 1 })), uncertainty: [], sourceNotes: ["All assigned words are legible. Practice instructions add no new words."] } }] }));
+      const message = { id: "recorded-capture", type: "message", role: "assistant", model: input.model, stop_reason: "tool_use", usage: { input_tokens: 0, output_tokens: 0 }, content: [{ type: "tool_use", id: "recorded-tool", name: input.tools[0].name, input: { plan: { boardDefinition:linearJourneyFixture(["diagnostic"]), diagnostic: recordedSpellingDiagnostic({ sourceDocument: { fileHash } }), title: "School spelling", words: ["night", "light"].map(word => ({ word, pageNumber: 1 })), uncertainty: [], sourceNotes: ["All assigned words are legible. Practice instructions add no new words."] } } }] };
+      expect(input.stream).toBe(true);
+      response.writeHead(200, { "content-type": "text/event-stream" });
+      const send = (event: string, data: unknown) => response.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+      send("message_start", { type: "message_start", message: { ...message, content: [], stop_reason: null } });
+      send("content_block_start", { type: "content_block_start", index: 0, content_block: { ...message.content[0], input: {} } });
+      send("content_block_delta", { type: "content_block_delta", index: 0, delta: { type: "input_json_delta", partial_json: JSON.stringify(message.content[0].input) } });
+      send("content_block_stop", { type: "content_block_stop", index: 0 });
+      send("message_delta", { type: "message_delta", delta: { stop_reason: "tool_use", stop_sequence: null }, usage: { output_tokens: 0 } });
+      send("message_stop", { type: "message_stop" });
+      response.end();
     });
   });
   await new Promise<void>(resolve => provider.listen(0, "127.0.0.1", resolve));
@@ -35,7 +45,9 @@ it("runs the real menu and ingestion subprocess twice with one local recorded pr
     fs.copyFileSync(path.join(sourceRoot, "package.json"), path.join(root, "package.json"));
     fs.copyFileSync(path.join(sourceRoot, "tsconfig.json"), path.join(root, "tsconfig.json"));
     fs.symlinkSync(path.join(sourceRoot, "node_modules"), path.join(root, "node_modules"));
-    const source = seedSpellingLab(root);
+    fs.symlinkSync(path.join(sourceRoot,"web/node_modules"),path.join(root,"web/node_modules"));
+    seedSpellingLab(root);
+    const source = writeSpellingPdfFixture(root, ["night", "light"]);
     const address = provider.address() as { port: number };
     const answers = ["1", "1", "2", source, "1", "1", "2", source, "5"];
     let pending = "";
@@ -60,15 +72,27 @@ it("runs the real menu and ingestion subprocess twice with one local recorded pr
     expect(transcript).not.toContain("Done — BLOCKED");
     expect(requests).toBe(1);
     expect(capturedRequests[0].url).toBe("/v1/messages");
-    expect(JSON.stringify(capturedRequests[0].input.messages)).toContain("night");
+    // The source is sent as a base64 PDF, not as extracted plaintext.
+    // Verify the exact supplied document instead of searching its encoding.
+    expect(capturedRequests[0].input.messages[0].content).toEqual(expect.arrayContaining([
+      expect.objectContaining({ type: "document", source: expect.objectContaining({
+        type: "base64", media_type: "application/pdf", data: fs.readFileSync(source).toString("base64"),
+      }) }),
+    ]));
     const cyclesDir = path.join(root, "src/context/lab-child/homework/cycles");
     const files = fs.readdirSync(cyclesDir).filter(file => file.endsWith(".json"));
     expect(files).toHaveLength(1);
     const cycle = JSON.parse(fs.readFileSync(path.join(cyclesDir, files[0]), "utf8"));
     expect(cycle.lifecycle).toBe("evaluation_ready");
+    expect(cycle.assignment.targets).toEqual(["night", "light"]);
     expect(cycle.nodes.map((node: any) => node.role)).toEqual(["evaluation"]);
     expect(cycle.observations).toEqual([]);
-    expect(capturedRequests[0].input.tools[0].input_schema.required).toContain("diagnostic");
+    const schema = capturedRequests[0].input.tools[0].input_schema;
+    expect(schema.required).toEqual(["plan"]);
+    expect(schema.properties.plan.anyOf).toHaveLength(2);
+    for (const variant of schema.properties.plan.anyOf) expect(variant.required).toContain("diagnostic");
+    const selection = schema.properties.plan.anyOf.find((variant: any) => variant.properties.diagnostic.properties.action.const === "select");
+    expect(selection.required).toContain("boardDefinition");
     expect(cycle.nodes[0].evidenceContract.diagnosticSelection.decision.action).toBe("select");
     const report = fs.readFileSync(path.join(root, "src/context/lab-child/homework/pending", new Date().toISOString().slice(0, 10), "ingest-report.md"), "utf8");
     expect(report).toContain("Status: **DISCOVERY_READY**");

@@ -1,3 +1,5 @@
+import ts from 'typescript';
+
 export interface GameValidationResult {
   passed: boolean;
   score: number;
@@ -108,11 +110,25 @@ function inlineScriptSyntaxFailures(html: string): string[] {
   return failures;
 }
 
-function stripRuntimeParamReferences(html: string): string {
-  return html.replace(
-    /\bwindow\s*(?:\.\s*GAME_PARAMS|\[\s*["']GAME_PARAMS["']\s*\])(?:\s*\?\.\s*[A-Za-z_$][\w$]*|\s*\.\s*[A-Za-z_$][\w$]*)?/gi,
-    "",
-  );
+function hasHardcodedChildIdentity(html:string, childId:string, legacyParams:boolean):boolean {
+  const key = (node:ts.Node|undefined):string => node && (ts.isIdentifier(node)||ts.isStringLiteral(node)) ? node.text.replaceAll('_','').toLowerCase() : '';
+  const pending = [...html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi)]
+    .map(match=>({node:ts.createSourceFile('activity.js',match[1],ts.ScriptTarget.Latest,false,ts.ScriptKind.JS) as ts.Node,binding:false}));
+  // Iterate the finite syntax tree; forEachChild excludes parent links.
+  while(pending.length) {
+    const {node,binding} = pending.pop()!;
+    // Older non-generated fixtures/bootstrap payloads supply GAME_PARAMS directly.
+    if(legacyParams && ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.name.text==='GAME_PARAMS')continue;
+    if(binding && (ts.isStringLiteral(node)||ts.isNoSubstitutionTemplateLiteral(node)) && node.text.toLowerCase()===childId.toLowerCase())return true;
+    let identityValue:ts.Node|undefined;
+    if((ts.isVariableDeclaration(node)||ts.isPropertyAssignment(node)||ts.isBindingElement(node)||ts.isParameter(node)) && key(node.name)==='childid')identityValue=node.initializer;
+    if(ts.isBinaryExpression(node) && node.operatorToken.kind===ts.SyntaxKind.EqualsToken) {
+      const left=ts.isPropertyAccessExpression(node.left)?node.left.name:ts.isElementAccessExpression(node.left)?node.left.argumentExpression:node.left;
+      if(key(left)==='childid')identityValue=node.right;
+    }
+    ts.forEachChild(node,child=>{pending.push({node:child,binding:binding||child===identityValue});});
+  }
+  return false;
 }
 
 export function validateGeneratedGame(
@@ -175,12 +191,7 @@ export function validateGeneratedGame(
     }
   }
 
-  const generatedStage =
-    ctx.generationStage === "quest" || ctx.generationStage === "boss" || ctx.generationStage === "baseline";
-  const strippedParams = generatedStage
-    ? stripRuntimeParamReferences(html)
-    : html.replace(/GAME_PARAMS[^;]+/g, "");
-  if (ctx.childId.trim() && strippedParams.toLowerCase().includes(ctx.childId.toLowerCase())) {
+  if (ctx.childId.trim() && hasHardcodedChildIdentity(html,ctx.childId.trim(),ctx.generationStage===undefined)) {
     failures.push(`Hardcoded childId "${ctx.childId}" found`);
   }
 

@@ -42,7 +42,7 @@ it('explanation remains unscored without an independent rubric evaluation',()=>{
 it('frozen prior exposure cannot become unseen',()=>expect(setup(undefined,'taught').complete('10').observations[0].provenance).toBe('practice'));
 it('canonical program freezes complete Planner answer contracts',()=>{
  const plannerPlan: DirectLearningExperiencePlan=plan(2);const artifacts=plannerPlan.activities.map(a=>({nodeId:a.id,childId:'lab',homeworkId:'hw',title:a.title,htmlPath:'/lab.html',artworkUrl:'/lab.svg',creatorPrompt:'lab',promptHash:'lab',plannerModel:'mock',creatorModel:'mock'}));
- const activeSessionPlan=buildDirectActiveSessionPlan({childId:'lab',homeworkId:'hw',plan:plannerPlan,artifacts,backgroundUrl:'/lab.svg',questArtworkUrl:'',bossArtworkUrl:'',report:{passed:true,failures:[],screenshots:[]}});
+ const activeSessionPlan=buildDirectActiveSessionPlan({childId:'lab',homeworkId:'hw',plan:plannerPlan,artifacts,backgroundUrl:'/lab.svg',report:{passed:true,failures:[],screenshots:[]}});
  const contract=buildDirectLearningCycleInput({childId:'lab',homeworkId:'hw',extraction:{filename:'lab',fullText:'Lab',fileHash:'lab',pages:[],warnings:[]} as never,plannerPlan,activeSessionPlan,artifacts});
  expect((contract.nodes[0].evidenceContract as any).itemContracts).toEqual(Object.fromEntries(plannerPlan.activities[0].items.map(i=>[i.id,i])));
 });
@@ -55,6 +55,6 @@ it('rejects a retry disguised as two fresh rows in one completion',()=>{
 
 it.each([undefined,[],[{id:'same'},{id:'same'}]])('rejects missing or duplicate next math contracts before generation',async items=>{
  const {rootDir,complete}=setup();complete('10');
- await expect(advanceCanonicalCycleFromEvidence({childId:'lab',homeworkId:'hw',decide:async()=>({status:'revised',reason:'Support',progressionAction:'generate_support',preserve:[],change:[],testNext:[],nextEvidenceRequired:[],nextInstrument:{nodeId:'support',title:'Support',academicTarget:'groups',mechanic:'lab',theme:'lab',openingPurpose:'Practice',creatorPrompt:'Build',items} as never})},{rootDir})).rejects.toThrow(/math_instrument/);
+ await expect(advanceCanonicalCycleFromEvidence({childId:'lab',homeworkId:'hw',decide:async()=>({status:'revised',reason:'Support',progressionAction:'generate_support',preserve:[],change:[],testNext:[],nextEvidenceRequired:[],successor:{instruments:[{nodeId:'support',title:'Support',academicTarget:'groups',mechanic:'lab',theme:'lab',openingPurpose:'Practice',creatorPrompt:'Build',items}]} as never})},{rootDir})).rejects.toThrow(/math_instrument/);
 });
 it('rejects duplicate selection option identities',()=>expect(()=>parseDirectItem({id:'q',prompt:'Choose',lineage:{sourceEvidenceIds:['s'],exposure:'unseen',measurementRole:'fresh_checkpoint'},response:{mode:'selection',options:[{id:'same',label:'10',correct:true},{id:'same',label:'9',correct:false}]}})).toThrow('direct_plan_duplicate_option_id'));

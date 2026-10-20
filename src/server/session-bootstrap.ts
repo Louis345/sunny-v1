@@ -122,9 +122,21 @@ export function shouldEnableCompanionWakeGate(opts: {
   explicitDomain?: string | null;
   discovery?: boolean;
 }): boolean {
+  if (opts.subject === "spelling") return true;
   if (opts.subject !== "homework") return false;
   const domain = String(opts.explicitDomain ?? "").trim().toLowerCase();
   return opts.discovery === true || domain === "math" || /^hw-math(?:-|$)/i.test(String(opts.homeworkId ?? ""));
+}
+
+export function isIndependentEvaluationPlan(
+  planId: string | null | undefined,
+  pendingNodes: Array<{ targetLane?: string }> = [],
+): boolean {
+  const activePlanId = planId?.trim();
+  if (activePlanId) {
+    return activePlanId.startsWith("discovery:") || activePlanId.startsWith("probe-board:");
+  }
+  return pendingNodes.some(node => node.targetLane === "independent_discovery");
 }
 
 export function buildContextStartGreeting(context: any): string {
@@ -151,26 +163,31 @@ export function buildContextStartGreeting(context: any): string {
   );
   const firstNode = incompleteNodes.find((node: any) => !node.locked) ?? incompleteNodes[0];
   const lane = String(firstNode?.targetLane ?? "").replace(/[_-]+/g, " ").trim();
-  const target = String(firstNode?.words?.[0] ?? "").trim();
-  if (!lane && !target) return "Your first challenge is ready. Want to try it?";
-  const focus = lane && lane !== "unknown" ? lane : target;
-  const title = focus.replace(/\b\w/g, (letter: string) => letter.toUpperCase());
-  const greeting = `Your ${title} challenge is ready. Want to try it?`;
-  return greeting.split(/\s+/).length <= 12
-    ? greeting
-    : "Your first challenge is ready. Want to try it?";
+  const title = lane.replace(/\b\w/g, (letter: string) => letter.toUpperCase());
+  return title && title !== "Unknown"
+    ? `[Session opening context] The board is available; current focus: ${title}. No activity has been selected.`
+    : "[Session opening context] The board is available; no activity has been selected.";
 }
 
+export const INDEPENDENT_EVALUATION_OPENING =
+  "[Session opening context] Independent evaluation is ready. Controls: Tap the speaker for the word; type a response; Not sure is available. No target answer is supplied. Choose a useful orientation in your own words.";
+
 export async function deliverInteractiveCompanionOpening(
-  session: Pick<any, "setCompanionPresence" | "handleCompanionTurn"> & {companionWakeGateEnabled?:boolean},
+  session: Pick<any, "setCompanionPresence" | "runCompanionResponse"> & {companionWakeGateEnabled?:boolean},
   opening: string,
+  options: { independentEvaluationOrientation?: boolean } = {},
 ): Promise<void> {
   if (session.companionWakeGateEnabled) {
-    console.log(" 🎮 [companion] [opening] [child-invoked-only]");
+    if (options.independentEvaluationOrientation) {
+      await session.runCompanionResponse(opening);
+      console.log(" 🎮 [companion] [opening] [independent-orientation-spoken]");
+    } else {
+      console.log(" 🎮 [companion] [opening] [child-invoked-only]");
+    }
     return;
   }
   session.setCompanionPresence("summoned", "voice");
-  await session.handleCompanionTurn(opening);
+  await session.runCompanionResponse(opening);
 }
 
 export function shouldLoadLegacyHomeworkFolder(opts: {
@@ -484,6 +501,29 @@ export function resolveBootstrapSubject(opts: {
   return opts.diagKioskFast ? "diag" : envSubject;
 }
 
+export function assertHomeworkSessionAssignment(opts: {
+  expectedHomeworkId?: string | null;
+  pendingHomeworkId?: string | null;
+  activeHomeworkId?: string | null;
+  cycleHomeworkId?: string | null;
+  requireCanonicalCycle?: boolean;
+}): void {
+  const expected = String(opts.expectedHomeworkId ?? "").trim();
+  if (!expected) return;
+  const required = [opts.pendingHomeworkId, opts.activeHomeworkId];
+  if (opts.requireCanonicalCycle || opts.cycleHomeworkId) {
+    required.push(opts.cycleHomeworkId);
+  }
+  const matches = required.every(
+    (value) => String(value ?? "").trim() === expected,
+  );
+  if (!matches) {
+    throw new Error(
+      `homework_session_assignment_changed:expected=${expected}:pending=${opts.pendingHomeworkId ?? "none"}:plan=${opts.activeHomeworkId ?? "none"}:cycle=${opts.cycleHomeworkId ?? "none"}`,
+    );
+  }
+}
+
 export async function runSessionStart(
   session: any,
   hooks: SessionStartHooks = {},
@@ -527,6 +567,21 @@ export async function runSessionStart(
     const sessionLearningProfile = !session.diagKioskFast
       ? readLearningProfile(String(homeworkChild).toLowerCase())
       : null;
+    if (!session.diagKioskFast && subject === "homework") {
+      const chart = getChildChart(String(homeworkChild).toLowerCase());
+      assertHomeworkSessionAssignment({
+        expectedHomeworkId: session.options?.homeworkId,
+        pendingHomeworkId: sessionLearningProfile?.pendingHomework?.homeworkId,
+        activeHomeworkId: chart.activeSessionPlan?.activeHomeworkId,
+        cycleHomeworkId: chart.learningCycle?.homeworkId,
+        requireCanonicalCycle:
+          chart.activeSessionPlan?.domain === "math" ||
+          chart.activeSessionPlan?.domain === "spelling",
+      });
+      console.log(
+        `  🎮 [session-bootstrap] [assignment-validation] [accepted] child=${homeworkChild} homework=${session.options?.homeworkId ?? "legacy"}`,
+      );
+    }
     const activeMapState = !session.diagKioskFast
       ? getLatestMapStateForChild(String(homeworkChild).toLowerCase())
       : null;
@@ -810,7 +865,10 @@ export async function runSessionStart(
       session.companionWakeGateEnabled = shouldEnableCompanionWakeGate({
         subject,
         homeworkId: pendingHomework.homeworkId,
-        discovery: sessionLearningProfile?.activeSessionPlan?.planId?.startsWith("discovery:") === true,
+        discovery: isIndependentEvaluationPlan(
+          sessionLearningProfile?.activeSessionPlan?.planId,
+          sessionLearningProfile?.pendingHomework?.nodes,
+        ),
         explicitDomain: explicitHomeworkDomain,
       });
       console.log(
@@ -1299,7 +1357,10 @@ export async function runSessionStart(
       session.companionWakeGateEnabled = shouldEnableCompanionWakeGate({
         subject,
         homeworkId: sessionLearningProfile?.pendingHomework?.homeworkId,
-        discovery: sessionLearningProfile?.activeSessionPlan?.planId?.startsWith("discovery:") === true,
+        discovery: isIndependentEvaluationPlan(
+          sessionLearningProfile?.activeSessionPlan?.planId,
+          sessionLearningProfile?.pendingHomework?.nodes,
+        ),
         explicitDomain:
           sessionLearningProfile?.pendingHomework?.contentProfile?.practiceDomain ??
           sessionLearningProfile?.pendingHomework?.capturedContent?.contentProfile?.practiceDomain,
@@ -1501,14 +1562,11 @@ This is a safe space to test everything.
           activeSessionPlan: sessionLearningProfile.activeSessionPlan,
         },
       );
-      session.recordDebugEvent?.("companion", "greeting_generated", {
-        source: "live_homework_context",
-        words: session.companion.openingLine.split(/\s+/).length,
-      });
-      console.log(`  🎮 [companion] [greeting] generated: ${session.companion.openingLine}`);
+      console.log(" 🎮 [companion] [opening-context] [ready] source=live_homework_context");
     }
 
     session.send("session_started", {
+      sessionId: session.getSessionId(),
       child: session.childName,
       childName: session.childName,
       companion: session.companion.name,
@@ -1522,14 +1580,15 @@ This is a safe space to test everything.
       diagKiosk: session.diagKioskFast,
     });
     try {
-      const progression = computeProgression(String(session.chartChildId ?? homeworkChild).toLowerCase());
-      session.send("progression", { ...progression } as Record<string, unknown>);
+      const progressionChildId = String(session.chartChildId ?? homeworkChild).toLowerCase();
+      const progression = computeProgression(progressionChildId);
+      session.send("progression", { childId: progressionChildId, ...progression } as Record<string, unknown>);
       console.log(
-        `  🎮 [engine] progression: level ${progression.level}, ` +
+        `  🎮 [progression] [snapshot] [sent] child=${progressionChildId} level=${progression.level}, ` +
           `${progression.totalXP} XP, ${progression.wordsMastered} words mastered`,
       );
     } catch (err) {
-      console.error("[engine] progression failed:", err);
+      console.error("  🎮 [progression] [snapshot] [unavailable]", err);
     }
     session.broadcastContext();
 
@@ -1595,9 +1654,13 @@ This is a safe space to test everything.
           sessionLearningProfile.activeSessionPlan?.companionPolicy?.openingLinePolicy ??
           "context_start_short";
         if (openingPolicy === "context_start_short" && !session.options?.sttOnly) {
+          const independentEvaluation = session.companionWakeGateEnabled;
           await deliverInteractiveCompanionOpening(
             session,
-            "[Adventure board just appeared] Greet the child by name in ONE short warm sentence and invite them to pick the first spot on today's adventure map. Do not list the nodes or explain rules.",
+            independentEvaluation
+              ? INDEPENDENT_EVALUATION_OPENING
+              : "[Session opening context] The adventure board is available. No activity has been selected. Meet the child naturally from the live context.",
+            { independentEvaluationOrientation: independentEvaluation },
           );
         } else {
           console.log(
