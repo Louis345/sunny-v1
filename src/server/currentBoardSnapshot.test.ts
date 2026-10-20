@@ -228,7 +228,8 @@ describe("spelling pronunciation context", () => {
     expect(context).not.toContain("title");
     expect(context).toContain("replayWord");
     expect(context).toContain("replayWord");
-    expect(context).toContain("Do not model syllables or reveal written letters during hidden assessment");
+    expect(context).toContain("Purpose: establish what the child can spell independently");
+    expect(context).toContain("syllables, letters and spelling demonstrations would supply part of the answer");
     expect(context).not.toContain("ARPABET");
   });
 
@@ -242,7 +243,8 @@ describe("spelling pronunciation context", () => {
     expect(context).toContain(`Syllable count: ${count}`);
     expect(context).toContain("Elli chooses the demonstration, pacing and explanation");
     expect(context).not.toContain("Model the whole word, then");
-    expect(context).toContain("Do not pronounce silent spelling letters as separate sounds");
+    expect(context).toContain("written spelling chunks may differ from spoken syllables");
+    expect(context).toContain("silent letters have no separate sound");
     expect(context).toContain("Do not grade the child's pronunciation from transcript text");
   });
 

@@ -67,3 +67,13 @@ it("assembles teaching freedom without canned praise or practice letter bans",as
  expect(prompt).toContain('letter names');
  expect(prompt).toContain('assistance');
 });
+
+it("gives Elli a teaching purpose without a personality instruction to withdraw from frustration", async () => {
+ const {buildSessionPrompt}=await import('../agents/prompts');
+ const prompt=await buildSessionPrompt('synthetic-prompt-probe' as never,resolve(__dirname,'../companions/elli.md'),'Assigned spelling words',[],'homework',{carePlan:null});
+ expect(prompt).not.toContain('She never sounds like a teacher');
+ expect(prompt).not.toContain('Elli backs off and just');
+ expect(prompt).toContain('Evaluation establishes what the child can do independently');
+ expect(prompt).toContain('Practice helps the child learn');
+ expect(prompt).toContain('A request for help is an invitation to work together');
+});

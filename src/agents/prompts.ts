@@ -25,7 +25,7 @@ import {
   readCompanionSoulMarkdownFromAbsolute,
 } from "../companions/loader";
 
-const TEMPLATE_VERSION = "v25"; // bump this when prompt changes
+const TEMPLATE_VERSION = "v26"; // bump this when prompt changes
 
 const SRC_DIR = path.resolve(__dirname, "..");
 

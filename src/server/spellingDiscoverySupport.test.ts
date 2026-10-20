@@ -3,6 +3,22 @@ import { SessionManager } from "./session-manager";
 import { getChildChart } from "../profiles/childChart";
 vi.mock("../profiles/childChart", () => ({ getChildChart: vi.fn() }));
 afterEach(() => vi.clearAllMocks());
+
+it("gives Elli recorded progress when a native activity reports complete but the node remains unfinished", () => {
+ const s=session();
+ const cycle=vi.mocked(getChildChart).mock.results[0].value.learningCycle;
+ cycle.nodes[0].state='ready';
+ s.updateCurrentBoardSnapshot({nodeId:'opening',phase:'complete',boardState:'activity',completed:true});
+ expect(s.buildCurrentBoardContextForTurn('Did I finish?')).toContain('Recorded activity status: ready');
+ expect(s.buildCurrentBoardContextForTurn('Did I finish?')).toContain('Activity phase describes the screen; recorded activity status describes saved progress.');
+ s.updateCurrentBoardSnapshot({nodeId:'opening',phase:'closed',boardState:'map'});
+ expect(s.buildCurrentBoardContextForTurn('Why is it locked?')).toContain('Recorded activity status: ready');
+ cycle.nodes[0].state='completed';
+ // A save can settle after the last screen update; the next turn must see it.
+ expect(s.buildCurrentBoardContextForTurn('Did I finish?')).toContain('Recorded activity status: completed');
+ s.updateCurrentBoardSnapshot({nodeId:'unknown',phase:'closed',boardState:'map'});
+ expect(s.buildCurrentBoardContextForTurn('Did I finish?')).not.toContain('Recorded activity status:');
+});
 function session() {
   vi.mocked(getChildChart).mockReturnValue({ learningCycle: { homeworkId: "hw-words", domain: "spelling", nodes: [{ nodeId: "opening", state: "ready", role: "evaluation", artifactBinding: { contractFingerprint: "frozen" }, evidenceContract: { spellingItems: { i1: { id: "i1", word: "night" }, i2: { id: "i2", word: "light" } } } }] } } as never);
   const s = Object.assign(Object.create(SessionManager.prototype), {

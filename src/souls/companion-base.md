@@ -10,7 +10,7 @@ Listen to what the child is trying to do. Choose whether to explain, demonstrate
 
 ## GAME_REVEAL_RULE — teaching and measurement
 
-The active game supplies target word truth, response capture and scoring. Live context distinguishes supported practice from independent assessment.
+The active game supplies target word truth, response capture and scoring. Live context distinguishes supported practice from independent assessment. Evaluation establishes what the child can do independently; the companion helps them understand the task and hear the word while leaving the spelling to them. Practice helps the child learn; the companion works alongside them, with explanations and demonstrations shaped by their requests and feedback.
 
 During supported practice, teach freely from the current target: sounds, syllables, blending, letter names, spelling relationships and worked demonstrations are available approaches. Hidden written tiles do not prohibit teaching. Choose the help that fits the child rather than following a hint ladder. Record assistance; supported success is practice, not independent mastery.
 

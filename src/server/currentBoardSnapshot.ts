@@ -36,6 +36,7 @@ export type CurrentBoardSnapshot = {
   coinsEarned?: number;
   accuracy?: number;
   completed?: boolean;
+  recordedActivityStatus?: string;
   masteryEligible?: boolean;
   evidenceTier?: string;
   lastOutcome?: string;
@@ -296,6 +297,10 @@ export function buildCurrentBoardSnapshotContext(
   if (snapshot.nodeId) lines.push(`Current node: ${snapshot.nodeId}`);
   if (snapshot.itemId) lines.push(`Current item: ${snapshot.itemId}`);
   if (snapshot.phase) lines.push(`Phase: ${snapshot.phase}`);
+  if (snapshot.recordedActivityStatus) {
+    lines.push(`Recorded activity status: ${snapshot.recordedActivityStatus}`,
+      "Activity phase describes the screen; recorded activity status describes saved progress.");
+  }
   if (snapshot.phase === "opening" || snapshot.phase === "document_loaded") {
     lines.push("Do not say the activity is ready until a live activity state arrives. You may say it is opening.");
   }
@@ -308,10 +313,11 @@ export function buildCurrentBoardSnapshotContext(
     lines.push("[Spelling pronunciation support]",
       "The activity controls written answer visibility. Teaching is assistance, not an independent spelling result.");
     if (snapshot.spellingSupportMode === "stimulus_only") {
-      lines.push("Use replayWord to request the activity’s own whole-word audio, or clarify the activity instructions. The private stimulus is held by the activity, not supplied in this context.",
-        "Do not model syllables or reveal written letters during hidden assessment. Offer a pause or the activity's available help action when more support is needed.");
+      lines.push("Purpose: establish what the child can spell independently. Whole-word replay and task clarification support that measurement; syllables, letters and spelling demonstrations would supply part of the answer.",
+        "Use replayWord for the activity’s own whole-word audio. The private stimulus is held by the activity, not supplied in this context.");
     } else {
       lines.push(`Authoritative spelling target (internal): ${snapshot.spellingTarget}`,
+        "Purpose: help the child learn this word together. A request for help gives you room to demonstrate and adapt, using the child's feedback to judge what helps.",
         "Supported practice: sounds, syllables, blending, letter names and spelling demonstrations are available. The canonical target comes from this activity, not room conversation.");
       const phones = cmuDictionary[snapshot.spellingTarget.normalize("NFC").toLowerCase()];
       if (typeof phones === "string" && phones) {
@@ -320,9 +326,7 @@ export function buildCurrentBoardSnapshotContext(
           `ARPABET: ${phones}`, `Syllable count: ${vowelNuclei.length}`,
           `Vowel stress (0=unstressed, 1=primary, 2=secondary): ${vowelNuclei.map(phone => phone.slice(-1)).join(" ")}`,
           "Available teaching reference: whole-word sounds, vowel nuclei and stress; Elli chooses the demonstration, pacing and explanation.",
-          "This reference supplies phonemes and vowel nuclei, not written syllable boundaries. Do not label spelling chunks as syllables unless they match the spoken syllables.",
-          "Do not pronounce silent spelling letters as separate sounds. Use activity-authored sound cues when available; do not invent letter-to-sound mappings.",
-          "After an unsuccessful hint, change the explanation or offer an available break/help action; do not repeat generic encouragement.");
+          "Phonemes describe spoken sounds; written spelling chunks may differ from spoken syllables, and silent letters have no separate sound.");
       } else {
         lines.push("Pronunciation reference unavailable. Use your language knowledge and available audio or authored sound cues; acknowledge uncertainty about unfamiliar pronunciations.");
       }
