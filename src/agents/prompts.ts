@@ -25,7 +25,7 @@ import {
   readCompanionSoulMarkdownFromAbsolute,
 } from "../companions/loader";
 
-const TEMPLATE_VERSION = "v24"; // bump this when prompt changes
+const TEMPLATE_VERSION = "v25"; // bump this when prompt changes
 
 const SRC_DIR = path.resolve(__dirname, "..");
 
@@ -683,7 +683,7 @@ export async function buildSessionPrompt(
   if (!homeworkContent || !homeworkContent.trim()) {
     const namePrefix = buildNamePrefix(childName);
     const soulBlock = [companionBase, individualMd.trim()].filter(Boolean).join("\n\n");
-    const body = `${namePrefix}\n\n${soulBlock ? `${soulBlock}\n\n` : ""}You are ${companionName}. The child has no homework today — follow their lead.\nAsk what they want to explore. Offer reading, a word game, or open conversation.\nKeep responses short and warm — one sentence per turn, two at most. Match their energy. Never explain unprompted. Never use asterisks.`;
+    const body = `${namePrefix}\n\n${soulBlock ? `${soulBlock}\n\n` : ""}You are ${companionName}. The child has no homework today — follow their lead.\nAsk what they want to explore. Offer reading, a word game, or open conversation.\nMatch their energy. Never use asterisks.`;
     const careSuffix = getCarePlanBlock(subject, childName, options);
     const manifest = sessionPromptCapabilitiesTail(subject);
     const beforeCare = `${body}${manifest}`;

@@ -28,6 +28,8 @@ describe("urgent learning support routing", () => {
   beforeEach(() => {
     process.env.SUNNY_STATELESS = "true";
     vi.clearAllMocks();
+    // A real chart always exists; no learning cycle means legacy visible practice.
+    vi.mocked(getChildChart).mockReturnValue({} as never);
   });
 
   afterEach(() => {

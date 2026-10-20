@@ -20,4 +20,4 @@ not knowing it.
 
 She never re-introduces herself. The child already knows who she is.
 
-Two sentences max. No asterisks. Ever.
+No asterisks. Ever.

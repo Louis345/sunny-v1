@@ -1,0 +1,184 @@
+
+ RUN  v3.2.4 /Users/jtaylor/Development/sunny-elli-capable-speech
+
+stdout | src/engine/directMathExperience.test.ts > math publication assumption ledger > keeps every publication write inside the selected context root
+ 🎮 [board-canvas] [verified] [6272b4e6a687] viewports=1280x720,768x1024,1470x956
+
+stdout | src/engine/directMathExperience.test.ts > math publication assumption ledger > keeps every publication write inside the selected context root
+ 🎮 [learning-board] [publish] [hw-math-ledger:board:1] kind=teaching decision=none nodes=2
+ 🎮 [learning-board] [published] [hw-math-ledger:board:1] kind=teaching lifecycle=board_ready
+
+stdout | src/engine/directMathExperience.test.ts > math publication assumption ledger > creates the preregistered ledger only as part of successful publication
+ 🎮 [board-canvas] [verified] [6272b4e6a687] viewports=1280x720,768x1024,1470x956
+
+stdout | src/engine/directMathExperience.test.ts > math publication assumption ledger > creates the preregistered ledger only as part of successful publication
+ 🎮 [learning-board] [publish] [hw-math-ledger:board:1] kind=teaching decision=none nodes=2
+ 🎮 [learning-board] [published] [hw-math-ledger:board:1] kind=teaching lifecycle=board_ready
+
+stdout | src/engine/directMathExperience.test.ts > math publication assumption ledger > resumes canvas publication of the same saved initial board
+ 🎮 [board-canvas] [verified] [6272b4e6a687] viewports=1280x720,768x1024,1470x956
+
+stdout | src/engine/directMathExperience.test.ts > math publication assumption ledger > resumes canvas publication of the same saved initial board
+ 🎮 [learning-board] [publish] [hw-math-ledger:board:1] kind=teaching decision=none nodes=2
+ 🎮 [learning-board] [published] [hw-math-ledger:board:1] kind=teaching lifecycle=board_ready
+
+stdout | src/engine/directMathExperience.test.ts > math publication assumption ledger > resumes canvas publication of the same saved initial board
+ 🎮 [learning-board] [published] [hw-math-ledger:board:1] kind=teaching lifecycle=board_ready
+
+stdout | src/engine/directMathExperience.test.ts > math publication assumption ledger > resumes canvas publication of the same saved initial board
+ 🎮 [learning-cycle] [reingestion] [resumed] homework=hw-math-ledger revision=2
+
+stdout | src/engine/directMathExperience.test.ts > math publication assumption ledger > publishes Math candidates into the shared catalog without removing Spelling
+ 🎮 [board-canvas] [verified] [6272b4e6a687] viewports=1280x720,768x1024,1470x956
+
+stdout | src/engine/directMathExperience.test.ts > math publication assumption ledger > publishes Math candidates into the shared catalog without removing Spelling
+ 🎮 [learning-board] [publish] [hw-math-ledger:board:1] kind=teaching decision=none nodes=2
+ 🎮 [learning-board] [published] [hw-math-ledger:board:1] kind=teaching lifecycle=board_ready
+
+stdout | src/engine/directMathExperience.test.ts > math publication assumption ledger > rolls back the ledger when publication fails
+ 🎮 [board-canvas] [verified] [6272b4e6a687] viewports=1280x720,768x1024,1470x956
+
+stdout | src/engine/directMathExperience.test.ts > math publication assumption ledger > rolls back the ledger when publication fails
+ 🎮 [learning-board] [publish] [hw-math-ledger:board:1] kind=teaching decision=none nodes=2
+ 🎮 [learning-board] [published] [hw-math-ledger:board:1] kind=teaching lifecycle=board_ready
+
+stderr | src/engine/directMathExperience.test.ts > direct math experience > does not let SDK retries resubmit an uncertain targeted design request
+ 🎮 [adaptive-math] [provider-request] [outcome_uncertain] receipt=/var/folders/wh/9v_3r26d2gzb_bs4ydgkx65h0000gp/T/design-transport-1XQIUh/provider-receipts/f7568dc2275ef028f2a74cbf41a7a9bc75c42c5174a253e9b92eb449a728418d.json
+
+stderr | src/engine/directMathExperience.test.ts > direct math experience > forwards explicit uncertainty authorization only to the frozen targeted design receipt
+ 🎮 [adaptive-math] [provider-request] [outcome_uncertain] receipt=/var/folders/wh/9v_3r26d2gzb_bs4ydgkx65h0000gp/T/design-authorized-retry-qj2iLM/provider-receipts/f7568dc2275ef028f2a74cbf41a7a9bc75c42c5174a253e9b92eb449a728418d.json
+
+stdout | src/engine/directMathExperience.test.ts > direct math experience > forwards explicit uncertainty authorization only to the frozen targeted design receipt
+ 🎮 [adaptive-math] [provider-request] [retry-authorized] stage=targeted-design-1 attempt=2
+
+stdout | src/engine/directMathExperience.test.ts > direct math experience > bounds correction of a journey referencing an empty activity inventory
+ 🎮 [adaptive-math] [targeted-planner-truth] [correction-required] child=reina reason=board_definition_invalid:[{"code":"activity_binding_missing","id":"route-a:activity-1","message":"Bind this portal to an existing activity node."},{"code":"activity_binding_missing","id":"route-a:activity-3","message":"Bind this portal to an existing activity node."},{"code":"activity_binding_missing","id":"route-b:activity-2","message":"Bind this portal to an existing activity node."},{"code":"activity_binding_missing","id":"route-b:activity-4","message":"Bind this portal to an existing activity node."}]
+
+stdout | src/engine/directMathExperience.test.ts > direct math experience > corrects an invalid authored reference once and preserves provider identities on both receipts
+ 🎮 [adaptive-math] [targeted-planner-truth] [correction-required] child=reina reason=board_definition_invalid:[{"code":"activity_binding_missing","id":"route-a:activity-1","message":"Bind this portal to an existing activity node."},{"code":"activity_portal_missing","id":"activity-1","message":"Declared activity is absent from the journey."}]
+
+stdout | src/engine/directMathExperience.test.ts > direct math experience > corrects an invalid authored reference once and preserves provider identities on both receipts
+ 🎮 [board-canvas] [verified] [6272b4e6a687] viewports=1280x720,768x1024,1470x956
+
+stdout | src/engine/directMathExperience.test.ts > direct math experience > corrects an invalid authored reference once and preserves provider identities on both receipts
+ 🎮 [adaptive-math] [targeted-planner-truth] [correction-required] child=reina reason=board_definition_invalid:[{"code":"activity_binding_missing","id":"route-a:activity-1","message":"Bind this portal to an existing activity node."},{"code":"activity_portal_missing","id":"activity-1","message":"Declared activity is absent from the journey."}]
+
+stdout | src/engine/directMathExperience.test.ts > direct math experience > corrects overlapping authored portals before freezing a math program
+ 🎮 [adaptive-math] [targeted-planner-truth] [correction-required] child=reina reason=board_canvas_invalid:["1280x720:start:overlaps:end:normalized_center_separation current_x=0.0000 current_y=0.0000 required_x=0.1265 OR required_y=0.2901 (change authored x or y separation to meet either minimum)","768x1024:start:overlaps:end:normalized_center_separation current_x=0.0000 current_y=0.0000 required_x=0.2039 OR required_y=0.1583 (change authored x or y separation to meet either minimum)","1470x956:start:overlaps:end:normalized_center_separation current_x=0.0000 current_y=0.0000 required_x=0.1060 OR required_y=0.1825 (change authored x or y separation to meet either minimum)"]
+
+stdout | src/engine/directMathExperience.test.ts > direct math experience > corrects overlapping authored portals before freezing a math program
+ 🎮 [board-canvas] [verified] [6272b4e6a687] viewports=1280x720,768x1024,1470x956
+
+stdout | src/engine/directMathExperience.test.ts > direct math experience > gives the same Planner one bounded correction for a factual clock contradiction
+ 🎮 [adaptive-math] [targeted-planner-truth] [correction-required] child=reina reason=math_item_clock_state_inconsistent:clock-checkpoint:minute_hand_12_requires_hour_hand_on_hour
+
+stdout | src/engine/directMathExperience.test.ts > direct math experience > gives the same Planner one bounded correction for a factual clock contradiction
+ 🎮 [board-canvas] [verified] [6272b4e6a687] viewports=1280x720,768x1024,1470x956
+
+ ✓ src/engine/directMathExperience.test.ts (96 tests) 5539ms
+   ✓ math publication assumption ledger > keeps every publication write inside the selected context root  618ms
+   ✓ math publication assumption ledger > creates the preregistered ledger only as part of successful publication  563ms
+   ✓ math publication assumption ledger > resumes canvas publication of the same saved initial board  571ms
+   ✓ math publication assumption ledger > publishes Math candidates into the shared catalog without removing Spelling  595ms
+   ✓ math publication assumption ledger > rolls back the ledger when publication fails  588ms
+   ✓ direct math experience > corrects an invalid authored reference once and preserves provider identities on both receipts  648ms
+   ✓ direct math experience > corrects overlapping authored portals before freezing a math program  1155ms
+   ✓ direct math experience > gives the same Planner one bounded correction for a factual clock contradiction  611ms
+ ✓ src/tests/test-role-separation.ts (17 tests) 200ms
+stdout | src/server/urgentLearningSupportRouting.test.ts > urgent learning support routing > interrupts stale processing and gives current-word help instead of queueing
+  🔄 Session state: IDLE → LOADING
+
+stdout | src/server/urgentLearningSupportRouting.test.ts > urgent learning support routing > interrupts stale processing and gives current-word help instead of queueing
+  🔄 Session state: LOADING → PROCESSING
+
+stdout | src/server/urgentLearningSupportRouting.test.ts > urgent learning support routing > interrupts stale processing and gives current-word help instead of queueing
+  🎮 [companion-presence] [summoned] reason=voice
+  🔄 Session state: PROCESSING → IDLE
+🎮 [audit] component=turn action=barge_in stateBefore=PROCESSING turnState=IDLE tts=on childName=Ila round=0
+🎮 [audit] component=transcript action=urgent_learning_organic turnState=IDLE tts=on childName=Ila round=0
+  🎮 [child-signal] [preview] child=ila activity=pronunciation dimension=help
+  🎮 [urgent-learning] [pronunciation_support] word=able cue=a-ble
+
+stdout | src/server/urgentLearningSupportRouting.test.ts > urgent learning support routing > keeps ordinary room speech out of Elli while the canonical spelling assessment owns the turn
+ 🎮 [spelling-discovery] [live-context] [bound] item=item-1
+  🎮 [companion-presence] [ambient-ignored]
+
+stdout | src/server/urgentLearningSupportRouting.test.ts > urgent learning support routing > lets a child ask Elli for help during armed Word Radar capture
+  🎮 [companion-presence] [summoned] reason=voice
+🎮 [audit] component=transcript action=urgent_learning_organic turnState=IDLE tts=on childName=Ila round=0
+  🎮 [child-signal] [preview] child=ila activity=word-radar dimension=help
+🎮 [audit] component=transcript action=accepted turnState=IDLE tts=on childName=Ila round=0
+  🔄 Session state: IDLE → LOADING
+  💬 [2026-10-20T05:31:47.316Z] Ila: "Elli, can you help me with this word?"
+
+stdout | src/server/urgentLearningSupportRouting.test.ts > urgent learning support routing > opens Elli when the child calls only her name during spelling capture
+  🎮 [companion-presence] [summoned] reason=voice
+🎮 [audit] component=transcript action=urgent_learning_organic turnState=IDLE tts=on childName=Ila round=0
+  🎮 [child-signal] [preview] child=ila activity=word-radar dimension=help
+🎮 [audit] component=transcript action=accepted turnState=IDLE tts=on childName=Ila round=0
+  🔄 Session state: IDLE → LOADING
+  💬 [2026-10-20T05:31:47.342Z] Ila: "Elli"
+
+stdout | src/server/urgentLearningSupportRouting.test.ts > urgent learning support routing > keeps a queued help request for Elli when game narration finishes
+🎮 [audit] component=transcript action=replay turnState=IDLE tts=on childName=Ila round=0
+  🎮 [companion-presence] [summoned] reason=voice
+ 🎮 [transcript] [urgent-replayed] intent=help_request
+🎮 [audit] component=transcript action=accepted turnState=IDLE tts=on childName=Ila round=0
+  🔄 Session state: IDLE → LOADING
+  💬 [2026-10-20T05:31:47.356Z] Ila: "Elli, can you help me?"
+
+stdout | src/server/urgentLearningSupportRouting.test.ts > urgent learning support routing > rechecks a queued transcript against the live assessment before replaying it
+ 🎮 [spelling-discovery] [live-context] [bound] item=item-1
+🎮 [audit] component=transcript action=replay turnState=IDLE tts=on childName=Ila round=0
+  🎮 [companion-presence] [ambient-ignored]
+
+stdout | src/server/urgentLearningSupportRouting.test.ts > urgent learning support routing > dismisses an open conversation before model routing and requires a new summons (wake gate true)
+  🎮 [companion-presence] [summoned] reason=voice
+  🎮 [companion-presence] [collapsed] reason=voice
+
+stdout | src/server/urgentLearningSupportRouting.test.ts > urgent learning support routing > dismisses an open conversation before model routing and requires a new summons (wake gate true)
+  🎮 [companion-presence] [ambient-ignored]
+
+stdout | src/server/urgentLearningSupportRouting.test.ts > urgent learning support routing > dismisses an open conversation before model routing and requires a new summons (wake gate true)
+  🎮 [companion-presence] [summoned] reason=voice
+  🎮 [transcript] [active-game-pass] reason=companion_conversation
+🎮 [audit] component=transcript action=accepted turnState=IDLE tts=on childName=Ila round=0
+  🔄 Session state: IDLE → LOADING
+  💬 [2026-10-20T05:31:47.383Z] Ila: "Hey Sunny"
+
+stdout | src/server/urgentLearningSupportRouting.test.ts > urgent learning support routing > dismisses an open conversation before model routing and requires a new summons (wake gate false)
+  🎮 [companion-presence] [summoned] reason=voice
+  🎮 [companion-presence] [collapsed] reason=voice
+
+stdout | src/server/urgentLearningSupportRouting.test.ts > urgent learning support routing > dismisses an open conversation before model routing and requires a new summons (wake gate false)
+  🎮 [companion-presence] [ambient-ignored]
+
+stdout | src/server/urgentLearningSupportRouting.test.ts > urgent learning support routing > dismisses an open conversation before model routing and requires a new summons (wake gate false)
+  🎮 [companion-presence] [summoned] reason=voice
+  🎮 [transcript] [active-game-pass] reason=companion_conversation
+🎮 [audit] component=transcript action=accepted turnState=IDLE tts=on childName=Ila round=0
+  🔄 Session state: IDLE → LOADING
+  💬 [2026-10-20T05:31:47.396Z] Ila: "Hey Sunny"
+
+stdout | src/server/urgentLearningSupportRouting.test.ts
+  🔄 Session state: LOADING → PROCESSING
+
+stdout | src/server/urgentLearningSupportRouting.test.ts
+  🔄 Session state: LOADING → PROCESSING
+
+stdout | src/server/urgentLearningSupportRouting.test.ts
+  🔄 Session state: LOADING → PROCESSING
+
+stdout | src/server/urgentLearningSupportRouting.test.ts
+  🔄 Session state: LOADING → PROCESSING
+
+stdout | src/server/urgentLearningSupportRouting.test.ts
+  🔄 Session state: LOADING → PROCESSING
+
+ ✓ src/server/urgentLearningSupportRouting.test.ts (10 tests) 144ms
+
+ Test Files  3 passed (3)
+      Tests  123 passed (123)
+   Start at  01:31:39
+   Duration  8.17s (transform 825ms, setup 0ms, collect 2.00s, tests 5.88s, environment 0ms, prepare 65ms)
+

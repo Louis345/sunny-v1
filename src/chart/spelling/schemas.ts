@@ -11,6 +11,7 @@ const uniqueWords = z.array(word).min(1).max(1000).refine(a => new Set(a).size =
 const aid = { assignmentId: text };
 export const teachingProgram = z.strictObject({title:text,cards:z.array(z.strictObject({word,instruction:text})).min(1).max(100).refine(a=>new Set(a.map(c=>c.word)).size===a.length)});
 export const schemas = {
+    'stimulus.played': z.strictObject({...aid,sessionId:text,itemId:text,playbackId:text,speechRates:z.array(z.number().min(0.7).max(1.2)).min(1).max(100).nullable(),delivered:z.boolean()}),
     'activity.limited': z.strictObject({...aid,sessionId:text,nodeId:text,launchId:text,sourceEventId:text,reason:z.enum(['non_spelling_response','per_word_results_unavailable']),rawChoice:z.string().max(4096).nullable(),aggregateAccuracy:probability.nullable()}),
     'test_schedule.set': z.discriminatedUnion('kind',[z.strictObject({changeId:text,kind:z.literal('weekday'),weekday:z.number().int().min(0).max(6).nullable()}),z.strictObject({changeId:text,kind:z.literal('assignment'),assignmentId:text,testDate:date.nullable()})]),
     'engagement.observed': z.strictObject({ ...aid, sessionId: text, nodeId: text, itemId: text.nullable(), observationId: text, metric: z.enum(['first_input_ms', 'idle_gap_ms', 'audio_replays', 'erase_burst', 'rapid_wrong_attempts', 'skipped', 'not_sure', 'quit_mid_node', 'help_requests', 'session_duration_ms', 'returned_later_day']), value: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER) }),
@@ -31,6 +32,7 @@ export type Payloads = {
     [K in FactType]: z.infer<(typeof schemas)[K]>;
 };
 export const actors: Record<FactType, readonly string[]> = {
+    'stimulus.played': ['system'],
     'activity.limited': ['system'],
     'test_schedule.set': ['parent'],
     'engagement.observed': ['room', 'system'],
@@ -43,6 +45,7 @@ export const actors: Record<FactType, readonly string[]> = {
 export function factId(type: FactType, p: Record<string, unknown>): string {
     let key: unknown;
     switch (type) {
+        case 'stimulus.played': key=[p.sessionId,p.itemId,p.playbackId]; break;
         case 'activity.limited': key=[p.sessionId,p.launchId,p.sourceEventId]; break;
         case 'test_schedule.set': key=p.changeId; break;
         case 'engagement.observed':

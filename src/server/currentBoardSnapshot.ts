@@ -1,5 +1,6 @@
 import { dictionary as cmuDictionary } from "cmu-pronouncing-dictionary";
 import { childIdFromName } from "../engine/learningEngine";
+import type { LearningCycleRecordV2 } from "../engine/learningCycleRepository";
 import type { ChildName } from "../companions/loader";
 
 export type CurrentBoardSnapshot = {
@@ -61,7 +62,25 @@ type BuildSnapshotInput = {
   now?: Date;
   /** The bound hidden-check item: its word stays internal even when the game omits it. */
   assessment?: { itemId: string; word: string };
+  /** Server-verified Planner practice role, independent of whether letters are displayed. */
+  canonicalPractice?: boolean;
 };
+
+/** The Planner's frozen item role grants teaching; a browser visibility flag does not. */
+export function canonicalSpellingPractice(
+  cycle: LearningCycleRecordV2 | null | undefined,
+  launch: { nodeId: string; launchId: string; launchToken?: string } | undefined,
+  assessment: { nodeId: string; itemId: string; launchId?: string } | undefined,
+  state: Record<string, unknown>,
+): boolean | undefined {
+  const node = cycle?.domain === "spelling" ? cycle.nodes.find(node => node.nodeId === state.nodeId) : undefined;
+  const role = node?.evidenceContract.spellingItems?.[String(state.itemId ?? "")]?.lineage?.measurementRole;
+  if (node && (["evaluation", "quest", "boss"].includes(node.role) || role && !["practice", "instruction"].includes(role))) return false;
+  if (!node || !role || !launch || !assessment || assessment.launchId !== launch.launchId
+    || assessment.nodeId !== launch.nodeId || state.nodeId !== launch.nodeId
+    || state.itemId !== assessment.itemId || state.launchToken !== launch.launchToken) return undefined;
+  return ["baseline", "mystery"].includes(node.role) && (role === "practice" || role === "instruction");
+}
 
 function asString(value: unknown): string | undefined {
   const text = typeof value === "string" ? value.trim() : "";
@@ -116,7 +135,7 @@ export function buildCurrentBoardSnapshot(
   const currentChallenge =
     asString(state.currentChallenge) ?? asString(objectChallenge?.prompt);
   const answerVisibility = normalizeAnswerVisibility(state);
-  const rawTarget =
+  const rawTarget = (input.canonicalPractice === true ? input.assessment?.word : undefined) ??
     asString(state.currentTarget) ??
     asString(state.currentWord) ??
     asString(state.target) ??
@@ -191,7 +210,7 @@ export function buildCurrentBoardSnapshot(
     const explicitVisibility = asString(state.answerVisibility)?.toLowerCase();
     snapshot.spellingSupportMode = state.assessmentMode !== true
       && state.evidenceTier !== "mastery_candidate"
-      && (explicitVisibility === "visible" || explicitVisibility === "revealed")
+      && (input.canonicalPractice === true || input.canonicalPractice !== false && (explicitVisibility === "visible" || explicitVisibility === "revealed"))
       ? "pronunciation_model" : "stimulus_only";
   }
 
@@ -215,7 +234,8 @@ export function buildCurrentBoardSnapshot(
   const bound = input.assessment;
   if (bound && snapshot.itemId === bound.itemId && (state.assessmentMode === true || state.practiceCapture === true)) {
     snapshot.spellingTarget ??= bound.word;
-    snapshot.spellingSupportMode ??= "stimulus_only";
+    snapshot.spellingSupportMode ??= input.canonicalPractice === true && state.assessmentMode !== true
+      && state.evidenceTier !== "mastery_candidate" ? "pronunciation_model" : "stimulus_only";
   }
   return snapshot;
 }
@@ -288,7 +308,7 @@ export function buildCurrentBoardSnapshotContext(
         lines.push("Pronunciation reference: CMU dictionary (US English; alternate pronunciations may exist).",
           `ARPABET: ${phones}`, `Syllable count: ${vowelNuclei.length}`,
           `Vowel stress (0=unstressed, 1=primary, 2=secondary): ${vowelNuclei.map(phone => phone.slice(-1)).join(" ")}`,
-          "Model the whole word, then its spoken syllables, then blend when the child requests pronunciation help. Use natural speech, not ARPABET names or letter names.",
+          "Available teaching reference: whole-word sounds, vowel nuclei and stress; Elli chooses the demonstration, pacing and explanation.",
           "This reference supplies phonemes and vowel nuclei, not written syllable boundaries. Do not label spelling chunks as syllables unless they match the spoken syllables.",
           "Do not pronounce silent spelling letters as separate sounds. Use activity-authored sound cues when available; do not invent letter-to-sound mappings.",
           "After an unsuccessful hint, change the explanation or offer an available break/help action; do not repeat generic encouragement.");
@@ -362,7 +382,8 @@ export function findCompanionTruthContradictions(
   if (!snapshot) return [];
   const text = response.toLowerCase();
   const contradictions: string[] = [];
-  if (snapshot.spellingSupportMode === "stimulus_only" && snapshot.spellingTarget) {
+  if (snapshot.spellingTarget && (snapshot.spellingSupportMode === "stimulus_only"
+    || snapshot.spellingSupportMode === "pronunciation_model" && snapshot.answerVisibility === "hidden")) {
     const target = snapshot.spellingTarget.toLowerCase().replace(/[^a-z]/g, "");
     // Whole spoken stimuli are allowed. Flag separated letter runs, including
     // partial disclosure such as n-i-g-h-t within tonight (the recorded failure).
@@ -375,7 +396,9 @@ export function findCompanionTruthContradictions(
       }
       return false;
     });
-    if (disclosed) contradictions.push("hidden_spelling_letters_disclosed");
+    // Text observation only: no censorship or claim that the child heard these letters.
+    if (disclosed) contradictions.push(snapshot.spellingSupportMode === "stimulus_only"
+      ? "hidden_spelling_letters_disclosed" : "hidden_practice_letters_in_response_text");
   }
   const usesMasteryLanguage =
     /\b(100\s*%|100 percent|perfect|zero mistakes|crushed|mastered|mastery)\b/.test(text);

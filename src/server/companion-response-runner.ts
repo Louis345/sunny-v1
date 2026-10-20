@@ -79,7 +79,7 @@ async function speakShortRecovery(session: any, reason: string, isCurrent: () =>
   const requestId = `recovery:${randomUUID()}`;
   const identity = { requestId, itemId: session.currentBoardSnapshot?.itemId };
   if (session.ttsBridge) {
-    session.ttsBridge.beginPlayback?.(requestId, identity.itemId);
+    session.ttsBridge.beginPlayback?.(requestId, identity.itemId, false, false, session.currentBoardSnapshot?.launchToken);
     await session.ttsBridge.connect();
     if (!isCurrent() || session.ttsBridge.currentPlaybackIdentity?.()?.requestId !== requestId) return;
     session.ttsBridge.sendText(fallback);
@@ -143,7 +143,7 @@ export async function runCompanionResponseForSession(
         .filter(Boolean)
         .join(" ");
       session.recordDebugEvent("companion_timing", "response_started", {requestId:playbackId});
-      session.ttsBridge.beginPlayback?.(playbackId, session.currentBoardSnapshot?.itemId);
+      session.ttsBridge.beginPlayback?.(playbackId, session.currentBoardSnapshot?.itemId, false, false, session.currentBoardSnapshot?.launchToken);
       session.ttsBridge.connect(previousText || undefined).catch((error: unknown) => {
         session.recordDebugError?.("companion_tts_connect_failed", error);
       });
@@ -766,7 +766,7 @@ export async function runDirectCompanionTurnForSession(session: any, text: strin
     session.turnSM.onAgentComplete();
     const ttsText = rewriteChildNameForTts(text, session.childName, session.sessionTtsLabel);
     const requestId = randomUUID();
-    session.ttsBridge?.beginPlayback(requestId, session.currentBoardSnapshot?.itemId);
+    session.ttsBridge?.beginPlayback(requestId, session.currentBoardSnapshot?.itemId, false, false, session.currentBoardSnapshot?.launchToken);
     session.send("response_text", { chunk: text });
     if (session.ttsBridge) {
       await session.ttsBridge.connect();

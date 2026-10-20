@@ -43,3 +43,11 @@ export function recordPresentedEngagement(db:ChartDatabase,input:Pick<Payloads['
  if(!p.provenance)throw Error('chart_engagement_launch_missing');
  return recordFact(db,'engagement.observed',{...input,assignmentId:p.assignmentId,nodeId:p.provenance.nodeId},{actor:'system',cites:[presentation.event_id]});
 }
+
+/** Audio conditions cite the original presentation; an acknowledgement is not learning. */
+export function recordPresentedAudio(db:ChartDatabase,input:Omit<Payloads['stimulus.played'],'assignmentId'>) {
+ const row=db.sql.prepare('SELECT * FROM events WHERE event_id=?').get(factId('item.presented',input));
+ if(!row)throw Error('chart_audio_presentation_missing');
+ const presentation=decodeRow(row);
+ return recordFact(db,'stimulus.played',{...input,assignmentId:String(presentation.payload.assignmentId)},{actor:'system',cites:[presentation.event_id]});
+}

@@ -1,0 +1,150 @@
+
+ RUN  v3.2.4 /Users/jtaylor/Development/sunny-elli-capable-speech
+
+stdout | src/server/ws-tts-playback-ownership.test.ts > TTS socket and playback packet ownership > tags only the current socket's PCM and preserves the next connection through old callbacks
+ 🎮 [session-audio] [owner] [started] request=old
+  🔊 TTS model: eleven_flash_v2_5
+
+stderr | src/server/ws-tts-playback-ownership.test.ts > TTS socket and playback packet ownership > tags only the current socket's PCM and preserves the next connection through old callbacks
+  🔇 ElevenLabs TTS connect cancelled during shutdown
+
+stdout | src/server/ws-tts-playback-ownership.test.ts > TTS socket and playback packet ownership > tags only the current socket's PCM and preserves the next connection through old callbacks
+ 🎮 [session-audio] [stream-terminal] [final] request=old elapsedMs=0 chunks=1
+ 🎮 [session-audio] [owner] [started] request=new
+  🔊 TTS model: eleven_flash_v2_5
+
+stdout | src/server/ws-tts-playback-ownership.test.ts > TTS socket and playback packet ownership > tags only the current socket's PCM and preserves the next connection through old callbacks
+ 🎮 [session-audio] [stream-terminal] [cancelled] request=new elapsedMs=1 chunks=1
+
+stdout | src/server/ws-tts-playback-ownership.test.ts > reopens a primed stream at the AI-selected rate, preserving playback identity
+ 🎮 [session-audio] [owner] [started] request=speech
+  🔊 TTS model: eleven_flash_v2_5
+
+stdout | src/server/ws-tts-playback-ownership.test.ts > reopens a primed stream at the AI-selected rate, preserving playback identity
+ 🎮 [session-audio] [stream-terminal] [cancelled] request=speech elapsedMs=0 chunks=0
+  🔊 TTS model: eleven_flash_v2_5
+
+stdout | src/server/ws-tts-playback-ownership.test.ts > reopens a primed stream at the AI-selected rate, preserving playback identity
+  🔊 TTS: "Dissatisfied."
+
+stdout | src/server/ws-tts-playback-ownership.test.ts > reopens a primed stream at the AI-selected rate, preserving playback identity
+ 🎮 [session-audio] [stream-terminal] [cancelled] request=speech elapsedMs=1 chunks=0
+  🔊 TTS model: eleven_flash_v2_5
+
+stdout | src/server/ws-tts-playback-ownership.test.ts > reopens a primed stream at the AI-selected rate, preserving playback identity
+ 🎮 [session-audio] [stream-terminal] [cancelled] request=unowned elapsedMs=0 chunks=0
+
+stdout | src/server/ws-tts-playback-ownership.test.ts > drains already submitted speech before applying a new rate without losing its owner
+ 🎮 [session-audio] [owner] [started] request=speech
+  🔊 TTS model: eleven_flash_v2_5
+
+stdout | src/server/ws-tts-playback-ownership.test.ts > drains already submitted speech before applying a new rate without losing its owner
+  🔊 TTS: "Existing speech."
+ 🎮 [session-audio] [stream-terminal] [final] request=speech elapsedMs=0 chunks=1
+
+stdout | src/server/ws-tts-playback-ownership.test.ts > drains already submitted speech before applying a new rate without losing its owner
+  🔊 TTS model: eleven_flash_v2_5
+
+stdout | src/server/ws-tts-playback-ownership.test.ts > drains already submitted speech before applying a new rate without losing its owner
+ 🎮 [session-audio] [stream-terminal] [cancelled] request=speech elapsedMs=2 chunks=0
+
+stdout | src/server/ws-tts-playback-ownership.test.ts > does not revive speech after barge-in while a rate change drains the old stream
+ 🎮 [session-audio] [owner] [started] request=old
+  🔊 TTS model: eleven_flash_v2_5
+
+stdout | src/server/ws-tts-playback-ownership.test.ts > does not revive speech after barge-in while a rate change drains the old stream
+  🔊 TTS: "Existing speech."
+ 🎮 [session-audio] [stream-terminal] [cancelled] request=old elapsedMs=0 chunks=0
+
+stdout | src/server/ws-tts-playback-ownership.test.ts > keeps delivered-audio proof across a rate reconnect
+ 🎮 [session-audio] [owner] [started] request=speech
+  🔊 TTS model: eleven_flash_v2_5
+
+stdout | src/server/ws-tts-playback-ownership.test.ts > keeps delivered-audio proof across a rate reconnect
+  🔊 TTS: "First sentence."
+ 🎮 [session-audio] [stream-terminal] [final] request=speech elapsedMs=0 chunks=1
+
+stdout | src/server/ws-tts-playback-ownership.test.ts > keeps delivered-audio proof across a rate reconnect
+  🔊 TTS model: eleven_flash_v2_5
+
+stdout | src/server/ws-tts-playback-ownership.test.ts > applies a concurrently selected rate to the next replay even while old speech drains
+ 🎮 [session-audio] [owner] [started] request=speech
+  🔊 TTS model: eleven_flash_v2_5
+
+stdout | src/server/ws-tts-playback-ownership.test.ts > applies a concurrently selected rate to the next replay even while old speech drains
+  🔊 TTS: "Here it comes."
+ 🎮 [session-audio] [stream-terminal] [cancelled] request=speech elapsedMs=0 chunks=0
+ 🎮 [session-audio] [owner] [started] request=replay
+  🔊 TTS model: eleven_flash_v2_5
+
+stdout | src/server/ws-tts-playback-ownership.test.ts > changes a connecting stream before initialization without losing buffered text
+  🔊 TTS model: eleven_flash_v2_5
+  🔊 TTS: "Buffered speech."
+
+ ❯ src/server/ws-tts-playback-ownership.test.ts (7 tests | 3 failed) 5019ms
+   ✓ TTS socket and playback packet ownership > tags only the current socket's PCM and preserves the next connection through old callbacks 3ms
+   ✓ reopens a primed stream at the AI-selected rate, preserving playback identity 2ms
+   ✓ drains already submitted speech before applying a new rate without losing its owner 2ms
+   ✓ does not revive speech after barge-in while a rate change drains the old stream 1ms
+   × keeps delivered-audio proof across a rate reconnect 6ms
+     → expected false to be true // Object.is equality
+   × applies a concurrently selected rate to the next replay even while old speech drains 1ms
+     → promise rejected "Error: speech_rate_cancelled" instead of resolving
+   × changes a connecting stream before initialization without losing buffered text 5004ms
+     → Test timed out in 5000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/server/ws-tts-playback-ownership.test.ts > keeps delivered-audio proof across a rate reconnect
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ src/server/ws-tts-playback-ownership.test.ts:94:36
+     92|  const rate=bridge.setSpeechRate(0.7);first.emit("message",Buffer.from…
+     93|  await new Promise(resolve=>setTimeout(resolve,0));const second=fixtur…
+     94|  expect(bridge.hadAudioThisTurn()).toBe(true);bridge.close();
+       |                                    ^
+     95| });
+     96| it("applies a concurrently selected rate to the next replay even while…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  src/server/ws-tts-playback-ownership.test.ts > applies a concurrently selected rate to the next replay even while old speech drains
+AssertionError: promise rejected "Error: speech_rate_cancelled" instead of resolving
+ ❯ src/server/ws-tts-playback-ownership.test.ts:102:19
+    100|  bridge.sendText("Here it comes.");const rate=bridge.setSpeechRate(0.7…
+    101|  bridge.beginPlayback("replay","item",true,true);const replay=bridge.c…
+    102|  await expect(rate).resolves.toEqual({speed:0.7});
+       |                   ^
+    103|  expect(JSON.parse(next.send.mock.calls[0][0]).voice_settings.speed).t…
+    104| });
+
+Caused by: Error: speech_rate_cancelled
+ ❯ WsTtsBridge.setSpeechRate src/server/ws-tts-bridge.ts:91:63
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+ FAIL  src/server/ws-tts-playback-ownership.test.ts > changes a connecting stream before initialization without losing buffered text
+Error: Test timed out in 5000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ ❯ src/server/ws-tts-playback-ownership.test.ts:105:1
+    103|  expect(JSON.parse(next.send.mock.calls[0][0]).voice_settings.speed).t…
+    104| });
+    105| it("changes a connecting stream before initialization without losing b…
+       | ^
+    106|  vi.stubEnv("ELEVENLABS_API_KEY","fixture");vi.stubEnv("TTS_ENABLED","…
+    107|  const bridge=new WsTtsBridge({readyState:1,send:vi.fn()} as any,"voic…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  3 failed | 4 passed (7)
+   Start at  23:48:23
+   Duration  5.20s (transform 40ms, setup 0ms, collect 52ms, tests 5.02s, environment 0ms, prepare 26ms)

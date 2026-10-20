@@ -4,6 +4,7 @@ import { sanitizeForTTS } from "./session-state";
 const WS_BASE = "wss://api.elevenlabs.io/v1/text-to-speech";
 const FLUSH_INTERVAL_MS = 50;
 const STREAM_DEADLINE_MS = 10_000;
+export type SpeechScope = { itemId?: string; launchToken?: string };
 type StreamOutcome = "final" | "closed" | "cancelled" | "tts_provider_error" | "tts_stream_timeout";
 type StreamTerminal = { outcome?: StreamOutcome; done: Promise<StreamOutcome>; settle: (outcome: StreamOutcome) => void; wordPcm: Buffer[]; wordBytes: number; atomicWord: boolean };
 
@@ -49,13 +50,21 @@ export class WsTtsBridge {
   private hasFlushedThisTurn = false;
   private audioChunksThisTurn = 0;
   private requiresCompleteAudio = false;
-  private playbackOwner?: { requestId: string; itemId?: string };
+  private speechRate = 1;
+  private speechRateScope: SpeechScope = {};
+  private activeSpeechRate = 1;
+  private audioRatesThisTurn = new Set<number>();
+  private playbackOwner?: { requestId: string; itemId?: string; launchToken?: string };
 
-  beginPlayback(requestId: string, itemId?: string, requiresAudio = false, activity = false): void {
-    if (this.playbackOwner?.requestId !== requestId && this.playbackOwner) this.stop();
+  beginPlayback(requestId: string, itemId?: string, requiresAudio = false, activity = false, launchToken?: string): void {
+    if (this.playbackOwner?.requestId !== requestId) {
+      if (this.playbackOwner || this.wsReady && this.activeSpeechRate !== this.getSpeechRate({itemId,launchToken})) this.stop();
+      this.audioChunksThisTurn = 0;
+      this.audioRatesThisTurn = new Set();
+    }
     this.requiresCompleteAudio = requiresAudio;
     if (this.elevenWs) this.trackTerminal(this.elevenWs).atomicWord = requiresAudio;
-    this.playbackOwner = { requestId, ...(itemId ? { itemId } : {}) };
+    this.playbackOwner = { requestId, ...(itemId ? { itemId } : {}), ...(launchToken ? { launchToken } : {}) };
     if (this.browserWs.readyState === WebSocket.OPEN) {
       this.browserWs.send(JSON.stringify({ type: "audio_start", ...this.playbackOwner, requiresAudio, source: activity ? "activity" : "companion" }));
     }
@@ -76,7 +85,40 @@ export class WsTtsBridge {
     }
   }
 
-  currentPlaybackIdentity(): { requestId: string; itemId?: string } | undefined {
+  isSpeechEnabled(): boolean { return !this.disabled; }
+  getSpeechRate(scope: SpeechScope = this.playbackOwner ?? {}): number {
+    const selected = this.speechRateScope ?? {};
+    return scope.itemId === selected.itemId && scope.launchToken === selected.launchToken ? this.speechRate ?? 1 : 1;
+  }
+  getAudioRatesThisTurn(): number[] { return [...(this.audioRatesThisTurn ?? [])]; }
+
+  /** A provider capability, selected by Elli for the current item and launch. */
+  async setSpeechRate(speed: number, scope: SpeechScope = this.playbackOwner ?? {}): Promise<{ speed: number }> {
+    if (!Number.isFinite(speed) || speed < 0.7 || speed > 1.2) throw new Error("speech_rate_out_of_range");
+    if (speed === this.getSpeechRate(scope)) return { speed };
+    this.speechRate = speed;
+    this.speechRateScope = { itemId: scope.itemId, launchToken: scope.launchToken };
+    if (this.playbackOwner?.itemId !== scope.itemId || this.playbackOwner?.launchToken !== scope.launchToken) return { speed };
+    if (this.connectingPromise) { await this.connectingPromise; return { speed: this.getSpeechRate(scope) }; }
+    // The live provider forbids changing settings mid-socket. Drain any speech
+    // already submitted; an empty primed connection can be retired immediately.
+    if (this.elevenWs && (this.hasFlushedThisTurn || this.buffer)) {
+      const owner = this.playbackOwner;
+      await this.finish();
+      // A concurrent replay owns its own connection and reads the configured rate.
+      if (this.stopped || this.playbackOwner !== owner) return { speed: this.getSpeechRate(scope) };
+    }
+    else if (this.elevenWs || this.connectingPromise) {
+      const owner = this.playbackOwner, requiresAudio = this.requiresCompleteAudio;
+      this.stop();
+      this.playbackOwner = owner;
+      this.requiresCompleteAudio = requiresAudio;
+    }
+    await this.connect();
+    return { speed: this.getSpeechRate(scope) };
+  }
+
+  currentPlaybackIdentity(): { requestId: string; itemId?: string; launchToken?: string } | undefined {
     return this.playbackOwner;
   }
 
@@ -104,7 +146,6 @@ export class WsTtsBridge {
     this.stopped = false;
     this.buffer = "";
     this.hasFlushedThisTurn = false;
-    this.audioChunksThisTurn = 0;
     if (this.flushTimer) {
       clearTimeout(this.flushTimer);
       this.flushTimer = null;
@@ -150,11 +191,12 @@ export class WsTtsBridge {
           return;
         }
         this.connectingPromise = null;
+        this.activeSpeechRate = this.getSpeechRate();
         const locators = getPronunciationLocators();
         ws.send(
           JSON.stringify({
             text: " ",
-            voice_settings: { stability: 0.5, similarity_boost: 0.75 },
+            voice_settings: { stability: 0.5, similarity_boost: 0.75, speed: this.activeSpeechRate },
             xi_api_key: this.apiKey,
             ...(previousText && { previous_text: previousText }),
             ...(locators && {
@@ -310,8 +352,9 @@ export class WsTtsBridge {
 
   private deliverAudio(data: string): void {
     if (this.browserWs.readyState !== WebSocket.OPEN) return;
-    this.browserWs.send(JSON.stringify({ type: "audio", ...this.playbackOwner, timestamp: new Date().toISOString(), data }));
+    this.browserWs.send(JSON.stringify({ type: "audio", ...this.playbackOwner, timestamp: new Date().toISOString(), speechRate: this.activeSpeechRate ?? 1, data }));
     this.audioChunksThisTurn += 1;
+    (this.audioRatesThisTurn ??= new Set()).add(this.activeSpeechRate ?? 1);
   }
 
   private trackTerminal(ws: WebSocket): StreamTerminal {

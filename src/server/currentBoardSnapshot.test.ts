@@ -240,7 +240,8 @@ describe("spelling pronunciation context", () => {
     const context = buildCurrentBoardSnapshotContext(snapshot({ game: "monster-stampede", currentWord: word, answerVisibility: "visible" }));
     expect(context).toContain(`ARPABET: ${phones}`);
     expect(context).toContain(`Syllable count: ${count}`);
-    expect(context).toContain("Model the whole word, then its spoken syllables, then blend");
+    expect(context).toContain("Elli chooses the demonstration, pacing and explanation");
+    expect(context).not.toContain("Model the whole word, then");
     expect(context).toContain("Do not pronounce silent spelling letters as separate sounds");
     expect(context).toContain("Do not grade the child's pronunciation from transcript text");
   });
@@ -328,4 +329,18 @@ it.each(["hidden", "unknown", undefined, "visible"])("does not leak protected sp
  const context=buildCurrentBoardSnapshotContext(snapshot);
  expect(context.toLowerCase()).not.toContain("dissatisfied");
  expect(context).toContain("replayWord");
+});
+
+it.each([
+ ["instruction", "baseline", true], ["practice", "mystery", true], ["practice", "quest", false],
+ ["practice", "boss", false], ["practice", "evaluation", false], ["fresh_checkpoint", "baseline", false],
+ [undefined, "baseline", undefined],
+])("derives frozen teaching role %s in %s without browser pedagogy",async(role,nodeRole,expected)=>{
+ const {canonicalSpellingPractice}=await import("./currentBoardSnapshot");
+ const cycle:any={domain:"spelling",nodes:[{nodeId:"n",role:nodeRole,evidenceContract:{spellingItems:{i:{lineage:role?{measurementRole:role}:undefined}}}}]};
+ const launch={nodeId:"n",launchId:"launch",launchToken:"token"};const bound={nodeId:"n",itemId:"i",launchId:"launch"};const state={nodeId:"n",itemId:"i",launchToken:"token"};
+ expect(canonicalSpellingPractice(cycle,launch,bound,state)).toBe(expected);
+ expect(canonicalSpellingPractice(cycle,launch,{...bound,launchId:"old"},state)).toBe(expected===false ? false : undefined);
+ expect(canonicalSpellingPractice(cycle,launch,bound,{...state,itemId:"other"})).toBe(["evaluation","quest","boss"].includes(nodeRole as string) ? false : undefined);
+ expect(canonicalSpellingPractice(cycle,launch,bound,{...state,launchToken:"old"})).toBe(expected===false ? false : undefined);
 });

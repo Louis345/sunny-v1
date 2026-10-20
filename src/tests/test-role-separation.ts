@@ -249,7 +249,7 @@ describe("worksheetSessionPrompt — vision-based grading", () => {
     expect(prompt.toLowerCase()).toContain("reveal");
   });
 
-  it("contains brevity rules — max 2 sentences", async () => {
+  it("permits natural response length while retaining answer recording", async () => {
     const { buildWorksheetToolPrompt } = await import(
       "../agents/prompts/worksheetSessionPrompt"
     );
@@ -264,7 +264,9 @@ describe("worksheetSessionPrompt — vision-based grading", () => {
       interactionMode: "answer_entry",
     });
 
-    expect(prompt).toContain("2 sentences");
+    expect(prompt).not.toMatch(/Maximum 2 sentences|Do NOT speak more than 2 sentences|react in 1 sentence/);
+    expect(prompt).toContain("respond naturally");
+    expect(prompt).toContain("call sessionLog");
   });
 });
 

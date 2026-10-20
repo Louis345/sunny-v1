@@ -1,0 +1,70 @@
+
+ RUN  v3.2.4 /Users/jtaylor/Development/sunny-elli-capable-speech
+
+stdout | src/server/companionSpeechTools.test.ts > Elli's speech capability > applies the model's chosen rate and reports configuration, not heard audio
+ 🎮 [companion-speech] [rate] [configured] speed=0.7
+
+stdout | src/server/companionSpeechTools.test.ts > Elli's speech capability > applies the model's chosen rate and reports configuration, not heard audio
+ 🎮 [companion-speech] [rate] [configured] speed=1
+
+stdout | src/server/companionSpeechTools.test.ts > does not retarget an old model's pace action to a newly displayed item
+ 🎮 [companion-speech] [rate] [configured] speed=0.7
+
+ ❯ src/server/companionSpeechTools.test.ts (4 tests | 1 failed) 5ms
+   ✓ Elli's speech capability > applies the model's chosen rate and reports configuration, not heard audio 2ms
+   ✓ Elli's speech capability > does not advertise unavailable speech control 0ms
+   ✓ tells Elli the current configured pace so she can reconsider an ineffective attempt 0ms
+   × does not retarget an old model's pace action to a newly displayed item 2ms
+     → expected "spy" to not be called at all, but actually been called 1 times
+
+Received:
+
+  1st spy call:
+
+    Array [
+      0.7,
+      Object {
+        "itemId": "new",
+        "launchToken": "two",
+      },
+    ]
+
+
+Number of calls: 1
+
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/server/companionSpeechTools.test.ts > does not retarget an old model's pace action to a newly displayed item
+AssertionError: expected "spy" to not be called at all, but actually been called 1 times
+
+Received:
+
+  1st spy call:
+
+    Array [
+      0.7,
+      Object {
+        "itemId": "new",
+        "launchToken": "two",
+      },
+    ]
+
+
+Number of calls: 1
+
+ ❯ src/server/companionSpeechTools.test.ts:32:28
+     30|  scope={itemId:'new',launchToken:'two'};
+     31|  const result=await tools.setSpeechRate!.execute!({speed:0.7},{} as ne…
+     32|  expect(setSpeechRate).not.toHaveBeenCalled();expect(result).toMatchOb…
+       |                            ^
+     33| });
+     34|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 3 passed (4)
+   Start at  00:16:22
+   Duration  149ms (transform 15ms, setup 0ms, collect 45ms, tests 5ms, environment 0ms, prepare 21ms)

@@ -6,6 +6,7 @@ import type { CurrentBoardSnapshot } from "./currentBoardSnapshot";
 export type ReplayWordHost = {
   snapshot: () => CurrentBoardSnapshot | null;
   playbackBusy: () => boolean;
+  speechRate?: () => number;
   assessmentItemId: () => string | undefined;
   requestNarration: (payload: Record<string, unknown>) => void;
 };
@@ -32,7 +33,7 @@ export function createReplayWordTools(host: ReplayWordHost) {
         assessmentMode: host.assessmentItemId() === current.itemId,
         text: current.spellingTarget, word: current.spellingTarget, reason: "companion_replay",
       });
-      return { requested: true, playbackConfirmed: false };
+      return { requested: true, configuredSpeechRate: host.speechRate?.() ?? null, playbackConfirmed: false };
     },
   }) };
 }

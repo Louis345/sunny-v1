@@ -166,3 +166,30 @@ it('records a launched chunk choice as a limitation, never as a whole-word answe
  handleGameEventForSession(s,{...event,attemptId:'wrong',launchToken:'other'});expect(exportEvents(db).filter(e=>e.type==='activity.limited')).toHaveLength(1);
  }finally{db.close();}
 });
+
+it('commits Elli help on hidden practice as assisted in both canonical stores',async()=>{
+ const {rootDir,origin}=await fixture();
+ const {createLearningCycle}=await import('../engine/learningCycleRepository');const {SessionManager}=await import('./session-manager');const chart=await import('../profiles/childChart');
+ const {openChart}=await import('../chart/db');const {recordAssignment}=await import('../chart/spelling/record');const {exportEvents}=await import('../chart/exportEvents');
+ const template=getLearningCycle('lab-child','hw-words',{rootDir})!;
+ const node=structuredClone(template.nodes[0]);node.nodeId='practice';node.role='baseline';node.state='ready';
+ for(const item of Object.values(node.evidenceContract.spellingItems!)){item.lineage.measurementRole='practice';item.lineage.exposure='practiced';}
+ node.artifactBinding!.contractFingerprint=hashDiscoveryContract(Object.values(node.evidenceContract.spellingItems!));
+ createLearningCycle({childId:'lab-child',homeworkId:'hw-practice',domain:'spelling',assignment:template.assignment,academicTheory:template.academicTheory,engagementTheory:template.engagementTheory,initialLifecycle:'baseline_active',nodes:[node]},{rootDir});
+ const spy=vi.spyOn(chart,'getChildChart').mockImplementation(()=>({learningCycle:getLearningCycle('lab-child','hw-practice',{rootDir})}) as any);
+ vi.stubEnv('SUNNY_CHART_DIR',path.join(rootDir,'charts'));const db=openChart('lab-child');
+ try{
+  recordAssignment(db,{assignmentId:'hw-practice',words:['night','light'],testDate:null,sourcePhotoHash:'a'.repeat(64)});
+  const s:any=Object.assign(Object.create(SessionManager.prototype),{chartChildId:'lab-child',childName:'Lab',sessionId:'s-practice',companion:{name:'Elli'},companionPresence:'collapsed',ttsBridge:null,send:vi.fn(),debugRecorder:{recordEvent:vi.fn(),recordGameTrace:vi.fn()},turnSM:{getState:()=> 'IDLE'}});
+  s.updateCurrentBoardSnapshot({phase:'launched',nodeId:'practice',launchToken:'token'});
+  const item=Object.values(node.evidenceContract.spellingItems!)[0];
+  s.updateCurrentBoardSnapshot({game:'word-radar',practiceCapture:true,nodeId:'practice',itemId:item.id,phase:'response',answerVisibility:'hidden',launchToken:'token'});
+  expect(s.buildCurrentBoardContextForTurn()).toContain('ARPABET: N AY1 T');
+  s.recordCompanionHelpTurn('Can you sound it out?','Listen to the sounds in night.');
+  registerActiveVoiceSessionManager('lab-child',s);
+  const response=await fetch(origin+'/api/learning/lab-child/assignments/hw-practice/discovery/attempt',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({attemptId:'helped-practice',sessionId:'s-practice',launchToken:'token',itemId:item.id,attemptedValue:'night',observedAt:'2026-10-20T03:00:00Z',supportEventIds:[],instrumentSignals:[]})});
+  expect(response.status).toBe(200);
+  expect(exportEvents(db).find(e=>e.type==='response.observed')?.payload).toMatchObject({support:{companionHelp:true}});
+  expect(getLearningCycle('lab-child','hw-practice',{rootDir})!.observations[0]).toMatchObject({assistance:{status:'assisted'},provenance:'practice'});
+ }finally{spy.mockRestore();db.close();}
+});

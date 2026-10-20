@@ -1,0 +1,25 @@
+{
+  "synthetic": true,
+  "sourceHash": "be1b8b0b0029f2b7528e69e1b5558774f324d14ebd599e189e33528556cb63f9",
+  "model": "eleven_flash_v2_5",
+  "phrase": "Dissatisfied. Listen to the sounds, then put them together. Dissatisfied.",
+  "audio": [
+    {
+      "speed": 1,
+      "durationMs": 4922.625,
+      "firstAudioMs": 519.044791,
+      "totalMs": 722.8712909999999,
+      "bytes": 236286,
+      "sha256": "475be80af8c7d562c7f02dcf08d7d5c55caf7dd9bbf178fdeffeb78e56a16a5f"
+    },
+    {
+      "speed": 0.7,
+      "durationMs": 6594.458333333333,
+      "firstAudioMs": 681.1179589999999,
+      "totalMs": 923.9022089999999,
+      "bytes": 316534,
+      "sha256": "36bc9a33a2a717fae003ab1f8f2a211203a9e0a284e42e841deb71ad2e020d75"
+    }
+  ],
+  "humanUsefulness": "not tested"
+}

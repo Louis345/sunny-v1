@@ -214,6 +214,7 @@ export function prepareInstructionReadRequest(input: {
 }
 
 export function buildActivityCompanionContext(input: {
+  speechRate?: number;
   spellingAssessment?: SpellingAssessmentState;
   snapshot: CurrentBoardSnapshot | null;
   childSpeech?: string;
@@ -241,12 +242,12 @@ export function buildActivityCompanionContext(input: {
     const last = cycle?.observations?.filter(observation => items?.[observation.itemId]).at(-1);
     spelling = ["[Canonical spelling activity facts]",
       JSON.stringify({ itemId:assessment.itemId, ...(input.snapshot.spellingSupportMode === "pronunciation_model" ? {spokenStimulus:assessment.word} : {}),
-        instrument:assessment.instrument, answerVisibility:input.snapshot.answerVisibility,
+        instrument:assessment.instrument, lastAcknowledgedStimulusRates:assessment.lastStimulusRates ?? null, answerVisibility:input.snapshot.answerVisibility,
         lastSubmittedResponse:last ? {itemId:last.itemId,response:last.childResponse,result:last.result,assistance:last.assistance} : null }),
       "The activity owns answer submission and grading. Spoken repetition is not a submitted spelling answer. These facts supersede prior conversational grades; a hidden answer must not be revealed as written letters.",
     ].join("\n");
   }
-  return redactProtectedSpellingText([board, memory, helpObjective, spelling].filter(Boolean).join("\n\n"), input.snapshot);
+  return redactProtectedSpellingText([board, input.speechRate === undefined ? "" : `Configured speech speed: ${input.speechRate} (1=normal; resets on item or launch change).`, memory, helpObjective, spelling].filter(Boolean).join("\n\n"), input.snapshot);
 }
 
 export function recordActivityCompanionHelp(input: {

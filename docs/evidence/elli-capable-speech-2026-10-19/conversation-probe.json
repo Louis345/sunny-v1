@@ -1,0 +1,72 @@
+{
+  "synthetic": true,
+  "model": "claude-sonnet-5",
+  "promptSha256": "cb8395ef5951a7d9536e4be56a1fb46dc3c8b14cccf086b9e3b3474ca3f05a71",
+  "conversations": [
+    {
+      "mode": "canonical_hidden_practice",
+      "context": "[Internal live board state]\nThis is board state, not child speech. Mention only activities, rewards, targets, and answers listed here.\nCurrent game: word-radar\nCurrent node: practice\nCurrent item: word-1\nPhase: response\nAnswer visibility: hidden\n[Spelling pronunciation support]\nHidden written letters remain hidden. Pronunciation modeling is assistance, not an independent spelling result.\nAuthoritative spelling target (internal): myself\nDo not replace this target with words from room conversation. If the activity context is missing, ask which item needs help instead of inventing a target.\nPronunciation reference: CMU dictionary (US English; alternate pronunciations may exist).\nARPABET: M AY2 S EH1 L F\nSyllable count: 2\nVowel stress (0=unstressed, 1=primary, 2=secondary): 2 1\nAvailable teaching reference: whole-word sounds, vowel nuclei and stress; Elli chooses the demonstration, pacing and explanation.\nThis reference supplies phonemes and vowel nuclei, not written syllable boundaries. Do not label spelling chunks as syllables unless they match the spoken syllables.\nDo not pronounce silent spelling letters as separate sounds. Use activity-authored sound cues when available; do not invent letter-to-sound mappings.\nAfter an unsuccessful hint, change the explanation or offer an available break/help action; do not repeat generic encouragement.\nDo not grade the child's pronunciation from transcript text. Specific pronunciation judgments require audio assessment evidence.\nNo exact coin amount is available; do not state any coin total or reward amount.",
+      "turns": [
+        {
+          "user": "Can you say it slower and help me sound it out?",
+          "response": "Sure! Let's break it into two parts: \"my\"... \"self\"... \"myself.\" Try saying it with me, piece by piece.",
+          "elapsedMs": 4614.90275
+        },
+        {
+          "user": "That did not help me. Can you break it into syllables?",
+          "response": "Okay, let's go even slower, two chunks: \"my\"... then \"self.\" My... self. Try blending those two together.",
+          "elapsedMs": 3699.5869169999996
+        }
+      ],
+      "actions": [
+        {
+          "tool": "setSpeechRate",
+          "speed": 0.75,
+          "applied": true,
+          "playbackConfirmed": false
+        },
+        {
+          "tool": "setSpeechRate",
+          "speed": 0.7,
+          "applied": true,
+          "playbackConfirmed": false
+        }
+      ]
+    },
+    {
+      "mode": "independent_check",
+      "context": "[Internal live board state]\nThis is board state, not child speech. Mention only activities, rewards, targets, and answers listed here.\nCurrent game: word-radar\nCurrent node: practice\nCurrent item: word-1\nPhase: response\nAnswer visibility: hidden\n[Spelling pronunciation support]\nHidden written letters remain hidden. Pronunciation modeling is assistance, not an independent spelling result.\nUse replayWord to request the activity’s own whole-word audio, or clarify the activity instructions. The private stimulus is held by the activity, not supplied in this context.\nDo not model syllables or reveal written letters during hidden assessment. Offer a pause or the activity's available help action when more support is needed.\nNo exact coin amount is available; do not state any coin total or reward amount.",
+      "turns": [
+        {
+          "user": "Can you say it slower and help me sound it out?",
+          "response": "Here it comes nice and slow! Listen close.",
+          "elapsedMs": 4719.551709000001
+        },
+        {
+          "user": "That did not help me. Can you break it into syllables?",
+          "response": "I can't break that one into chunks right now, but I can play the whole word again for you.Listen close to the whole word. If it's still tricky, you can use the activity's help button too.",
+          "elapsedMs": 3995.121374999999
+        }
+      ],
+      "actions": [
+        {
+          "tool": "setSpeechRate",
+          "speed": 0.75,
+          "applied": true,
+          "playbackConfirmed": false
+        },
+        {
+          "tool": "replayWord",
+          "requested": true,
+          "playbackConfirmed": false
+        },
+        {
+          "tool": "replayWord",
+          "requested": true,
+          "playbackConfirmed": false
+        }
+      ]
+    }
+  ],
+  "limitations": "Isolated production runner and prompt; tools instrumented, not audible conversation or full SessionManager. Human usefulness unverified."
+}

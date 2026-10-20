@@ -1,0 +1,49 @@
+
+ RUN  v3.2.4 /Users/jtaylor/Development/sunny-elli-capable-speech
+
+stdout | src/server/ws-tts-playback-ownership.test.ts > TTS socket and playback packet ownership > tags only the current socket's PCM and preserves the next connection through old callbacks
+ 🎮 [session-audio] [owner] [started] request=old
+  🔊 TTS model: eleven_flash_v2_5
+
+stderr | src/server/ws-tts-playback-ownership.test.ts > TTS socket and playback packet ownership > tags only the current socket's PCM and preserves the next connection through old callbacks
+  🔇 ElevenLabs TTS connect cancelled during shutdown
+
+stdout | src/server/ws-tts-playback-ownership.test.ts > TTS socket and playback packet ownership > tags only the current socket's PCM and preserves the next connection through old callbacks
+ 🎮 [session-audio] [stream-terminal] [final] request=old elapsedMs=1 chunks=1
+ 🎮 [session-audio] [owner] [started] request=new
+  🔊 TTS model: eleven_flash_v2_5
+
+stdout | src/server/ws-tts-playback-ownership.test.ts > TTS socket and playback packet ownership > tags only the current socket's PCM and preserves the next connection through old callbacks
+ 🎮 [session-audio] [stream-terminal] [cancelled] request=new elapsedMs=1 chunks=1
+
+stdout | src/server/ws-tts-playback-ownership.test.ts > reopens a primed stream at the AI-selected rate, preserving playback identity
+ 🎮 [session-audio] [owner] [started] request=speech
+  🔊 TTS model: eleven_flash_v2_5
+
+ ❯ src/server/ws-tts-playback-ownership.test.ts (2 tests | 1 failed) 7ms
+   ✓ TTS socket and playback packet ownership > tags only the current socket's PCM and preserves the next connection through old callbacks 3ms
+   × reopens a primed stream at the AI-selected rate, preserving playback identity 3ms
+     → expected { Object (_events, _eventsCount, ...) } not to be { Object (_events, _eventsCount, ...) } // Object.is equality
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/server/ws-tts-playback-ownership.test.ts > reopens a primed stream at the AI-selected rate, preserving playback identity
+AssertionError: expected { Object (_events, _eventsCount, ...) } not to be { Object (_events, _eventsCount, ...) } // Object.is equality
+
+Compared values have no visual difference.
+
+ ❯ src/server/ws-tts-playback-ownership.test.ts:49:21
+     47|  const rate=bridge.setSpeechRate(0.7);
+     48|  const second=fixtures.sockets.at(-1);
+     49|  expect(second).not.toBe(first);
+       |                     ^
+     50|  second.readyState=1;second.emit("open");await expect(rate).resolves.t…
+     51|  expect(bridge.currentPlaybackIdentity()).toEqual({requestId:"speech",…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 1 passed (2)
+   Start at  23:36:11
+   Duration  151ms (transform 32ms, setup 0ms, collect 43ms, tests 7ms, environment 0ms, prepare 21ms)

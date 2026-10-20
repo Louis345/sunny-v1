@@ -41,6 +41,8 @@ import {
 import { recordWordRadarAttempts } from "./recordWordRadarAttempts";
 import { recordLearningAttempt } from "./learningAttemptEvents";
 import { type ModelMessage } from "ai";
+import { markCurrentSpellingSupport, recordSpellingAudio } from "./spellingSpeechEvidence";
+import { createSpeechTools, speechScopeFor } from "./companionSpeechTools";
 import { createReplayWordTools } from "./companionReplayTool";
 import type { HomeworkExtractionResult } from "../agents/psychologist/psychologist";
 import { GameBridge } from "./game-bridge";
@@ -89,6 +91,7 @@ import {
 import { shouldUseAdventureMapVoiceSlimToolkit } from "../utils/adventureMapAgentPolicy";
 import {
   buildCurrentBoardSnapshot,
+  canonicalSpellingPractice,
   companionBoardSnapshot,
   findCompanionTruthContradictions,
   type CurrentBoardSnapshot,
@@ -741,8 +744,10 @@ export class SessionManager {
     const previous = this.currentBoardSnapshot;
     if (previous?.itemId && (state.itemId && state.itemId !== previous.itemId
       || state.nodeId && state.nodeId !== previous.nodeId || state.phase === "closed")) {
-      if (this.currentAbort || this.activeGameNarrationRequestId || this.pendingGameNarrationPlayback
-        || this.turnSM?.getState?.() === "SPEAKING") this.bargeIn();
+      const audio = this.ttsBridge?.currentPlaybackIdentity?.();
+      if (!(state.itemId && audio?.itemId === state.itemId && audio?.launchToken === state.launchToken)
+        && (this.currentAbort || this.activeGameNarrationRequestId || this.pendingGameNarrationPlayback
+          || this.turnSM?.getState?.() === "SPEAKING")) this.bargeIn();
       this.turnSM?.clearPendingTranscript?.("activity_item_changed");
       this.activeWordContext = "";
       console.log(" 🎮 [companion] [item-changed] [obsolete-speech-retired]");
@@ -797,7 +802,7 @@ export class SessionManager {
       console.log("  🎮 [board-snapshot] [ignored] stale state after node_complete");
       return;
     }
-    const snapshot = buildCurrentBoardSnapshot({ childId: this.chartChildId, sessionId: this.sessionId, state, assessment: this.spellingAssessment });
+    const snapshot = buildCurrentBoardSnapshot({ childId: this.chartChildId, sessionId: this.sessionId, state, assessment: this.spellingAssessment, canonicalPractice: canonicalSpellingPractice(getChildChart(this.chartChildId).learningCycle, this.spellingLaunch, this.spellingAssessment, state) });
     this.currentBoardSnapshot = snapshot;
     if (snapshot.nodeId && snapshot.itemId && (snapshot.phase === "question" || snapshot.phase === "response")) {
       this.bindMathDiscoverySupport(snapshot.nodeId, snapshot.itemId);
@@ -827,7 +832,7 @@ export class SessionManager {
     this.companionPresence = next.presence;
     if (state === "summoned") {
       const assessment = this.spellingAssessment;
-      const snapshotMatchesAssessment = this.markSpellingAssessmentSupport();
+      const snapshotMatchesAssessment = markCurrentSpellingSupport(this.spellingAssessment, this.currentBoardSnapshot);
       if (newlySummoned && snapshotMatchesAssessment && assessment) this.recordSpellingEngagement(assessment, "help_requests", randomUUID());
       if (!assessment) this.pendingSpellingAssessmentSupport = true;
     }
@@ -926,7 +931,7 @@ export class SessionManager {
   public buildCurrentBoardContextForTurn(childSpeech?: string): string {
     return buildActivityCompanionContext({
       snapshot: this.currentBoardSnapshot,
-      childSpeech,
+      childSpeech, speechRate: this.ttsBridge?.getSpeechRate?.(speechScopeFor(this.currentBoardSnapshot)),
       childId: this.chartChildId,
       companionId: this.companion.name,
       presence: this.companionPresence,
@@ -934,22 +939,8 @@ export class SessionManager {
     });
   }
 
-  /** Marks the live assessment item assisted. Every companion turn during its
-   * response phase counts, not only the summon, so help stays truthful. */
-  private markSpellingAssessmentSupport(): boolean {
-    const assessment = this.spellingAssessment;
-    const matches = Boolean(assessment
-      && this.currentBoardSnapshot?.itemId === assessment.itemId
-      && this.currentBoardSnapshot?.phase === "response");
-    if (matches && assessment && !assessment.supportIds.length) {
-      assessment.supportIds.push(`support:${this.sessionId}:${assessment.itemId}`);
-      console.log(` 🎮 [spelling-assessment] [support] [recorded] item=${assessment.itemId}`);
-    }
-    return matches;
-  }
-
   public recordCompanionHelpTurn(userMessage: string, companionText: string): void {
-    this.markSpellingAssessmentSupport();
+    markCurrentSpellingSupport(this.spellingAssessment, this.currentBoardSnapshot);
     recordActivityCompanionHelp({
       childId: this.chartChildId,
       companionId: this.companion.name,
@@ -969,6 +960,8 @@ export class SessionManager {
         code,
         game: this.currentBoardSnapshot?.game,
         activityId: this.currentBoardSnapshot?.activityId,
+        nodeId: this.currentBoardSnapshot?.nodeId, itemId: this.currentBoardSnapshot?.itemId,
+        spellingSupportMode: this.currentBoardSnapshot?.spellingSupportMode, answerVisibility: this.currentBoardSnapshot?.answerVisibility,
         phase: this.currentBoardSnapshot?.phase,
         accuracy: this.currentBoardSnapshot?.accuracy,
         evidenceTier: this.currentBoardSnapshot?.evidenceTier,
@@ -1117,7 +1110,7 @@ export class SessionManager {
     this.activeGameNarrationRequestId = requestId;
     const assessment = metadata.assessmentMode === true ? this.spellingAssessment : undefined;
     let spoken = false;
-    this.ttsBridge?.beginPlayback(requestId, String(metadata.itemId ?? assessment?.itemId ?? ""), Boolean(assessment), true);
+    this.ttsBridge?.beginPlayback(requestId, String(metadata.itemId ?? assessment?.itemId ?? ""), Boolean(assessment), true, typeof metadata.launchToken === "string" ? metadata.launchToken : this.currentBoardSnapshot?.launchToken ?? this.spellingLaunch?.launchToken);
     try {
       spoken = await gev.narrateGameStimulus({ text, metadata, childName: this.childName, ttsLabel: this.sessionTtsLabel,
         bridge: this.ttsBridge, assessment,
@@ -1140,13 +1133,14 @@ export class SessionManager {
       return;
     }
     if (spoken) {
+    const audioItem = assessment ?? (this.spellingAssessment?.launchId === this.spellingLaunch?.launchId && metadata.nodeId === this.spellingAssessment?.nodeId && metadata.itemId === this.spellingAssessment?.itemId && metadata.launchToken === this.spellingLaunch?.launchToken ? this.spellingAssessment : undefined);
       this.pendingGameNarrationPlayback = {
         requestId,
         activityId: metadata.activityId,
         nodeId: metadata.nodeId,
         itemId: metadata.itemId,
-        reason: metadata.reason,
-        ...(assessment ? { assessmentItemId: assessment.itemId, assessmentLaunchId:assessment.launchId } : {}),
+        reason: metadata.reason, speechRates: this.ttsBridge?.getAudioRatesThisTurn?.() ?? null,
+        ...(audioItem ? { assessmentItemId: audioItem.itemId, assessmentLaunchId:audioItem.launchId } : {}),
       };
       if (assessment) {
         this.send("audio_done", { requiresAudio: true, requestId, itemId: assessment.itemId });
@@ -1353,6 +1347,7 @@ export class SessionManager {
           [...(this.spellingAssessmentHistory?.values() ?? [])].find(c => c.itemId === assessmentItemId && c.launchId === pending.assessmentLaunchId);
         if (assessment) {
           assessment.audioDelivered = audible;
+          recordSpellingAudio(this.chartChildId, this.sessionId, assessment, expectedRequestId, pending.speechRates, audible);
           if(audible) {
             assessment.audioPlaybacks++;
             if(assessment.audioPlaybacks>1) this.recordSpellingEngagement(assessment,"audio_replays",expectedRequestId);
@@ -2049,13 +2044,14 @@ export class SessionManager {
           companionAct: companionActTool,
         }
       : { ...six, companionAct: companionActTool };
-    const replayTools = createReplayWordTools({ snapshot: () => this.currentBoardSnapshot,
+    const replayTools = createReplayWordTools({ speechRate: () => this.ttsBridge?.getSpeechRate?.(speechScopeFor(this.currentBoardSnapshot)) ?? 1, snapshot: () => this.currentBoardSnapshot,
       playbackBusy: () => Boolean(this.activeGameNarrationRequestId || this.pendingGameNarrationPlayback),
       assessmentItemId: () => this.spellingAssessment?.itemId,
       requestNarration: payload => this.handleGameEvent({ type: "narration_request", payload }) });
     const screenshotTools = {
       takeGameScreenshot: createTakeGameScreenshotTool(this),
       ...replayTools,
+      ...createSpeechTools(this.ttsBridge, receipt => this.recordDebugEvent("companion-speech", "rate_configured", receipt), () => speechScopeFor(this.currentBoardSnapshot)),
     };
     if (this.worksheetSession && this.worksheetMode) {
       return {

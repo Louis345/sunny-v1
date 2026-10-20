@@ -1854,7 +1854,10 @@ describe("direct math experience", () => {
     const elli = fs.readFileSync(path.join(process.cwd(), "src/companions/elli.md"), "utf8");
     expect(elli).toContain("one automatic guided introduction");
     expect(elli).toContain("Never automatically speak during a fresh independent checkpoint");
-    expect(elli).toContain("Never reveal the active answer");
+    expect(elli).toContain("Keep hidden independent answers private");
+    expect(elli).toContain("stimulus_only offers the activity’s private whole-word replay without exposing its answer");
+    expect(elli).toContain("pronunciation_model permits teaching the supplied target through speech, syllables and blending");
+    expect(elli).toContain("Requested teaching during practice is assistance, never independent mastery");
     expect(elli).toContain("recordChildSignal");
     expect(elli).toContain("help_needed");
   });

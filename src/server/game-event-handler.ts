@@ -49,7 +49,7 @@ export function armGameNarrationPlaybackTimer(
   }, GAME_NARRATION_PLAYBACK_TIMEOUT_MS);
 }
 
-export type SpellingAssessmentState = { launchToken?:string; chartItemId?:string; audioPlaybacks:number; instrument:"discovery"|"practice"|"recall_check"; launchId?: string; nodeId: string; homeworkId: string; itemId: string; word: string; artifactHash: string; audioDelivered: boolean; supportIds: string[]; lettersVisible: boolean|null };
+export type SpellingAssessmentState = { lastStimulusRates?:number[]|null; launchToken?:string; chartItemId?:string; audioPlaybacks:number; instrument:"discovery"|"practice"|"recall_check"; launchId?: string; nodeId: string; homeworkId: string; itemId: string; word: string; artifactHash: string; audioDelivered: boolean; supportIds: string[]; lettersVisible: boolean|null };
 export function bindSpellingAssessment(input: {
   state: Record<string, unknown>; cycle?: LearningCycleRecordV2 | null; current?: SpellingAssessmentState;
   history: Map<string, SpellingAssessmentState>; pendingSupportId?: string;

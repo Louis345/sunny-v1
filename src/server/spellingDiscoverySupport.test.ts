@@ -201,7 +201,9 @@ it('commits the original presentation before any answer and counts acknowledged 
  const s=session();s.updateCurrentBoardSnapshot({assessmentMode:true,nodeId:'opening',itemId:'i1',phase:'response',answerVisibility:'hidden'});
  expect(exportEvents(db).map(e=>e.type)).toEqual(['assignment.ingested','item.presented']);
  expect(s.getDiscoveryAttemptContext('hw-words','i1')).toMatchObject({chartItemId:expect.any(String),audioReplays:0});
+ (s as any).ttsBridge.getAudioRatesThisTurn=()=>[0.7];
  await s.speakGameNarration('night.',{assessmentMode:true,itemId:'i1'});confirmCurrentPlayback(s);
+ expect(exportEvents(db).find(e=>e.type==='stimulus.played')?.payload).toMatchObject({speechRates:[0.7],delivered:true});
  (s as any).companionBridge={};
  const replay=(s.buildAgentToolkit() as any).replayWord;
  expect(replay).toBeDefined();
@@ -288,6 +290,7 @@ it.each(['closed'])('releases only the matching spelling launch on host %s',phas
 // The projection must reach the actual conversation context, not just a helper.
 it("hands the native activity's dictionary-grounded target to Elli's live turn", () => {
   const s = session();
+  vi.mocked(getChildChart).mock.results[0].value.learningCycle.nodes[0].role="baseline";
   s.updateCurrentBoardSnapshot({ game: "monster-stampede", nodeId: "opening",
     currentWord: "tonight", itemIndex: 10, phase: "playing", answerVisibility: "visible" });
   const context = s.buildCurrentBoardContextForTurn("Help me with sweetheart");
@@ -343,4 +346,91 @@ it("does not replay a retired item or provide replayWord during visible teaching
  s.updateCurrentBoardSnapshot({game:"monster-stampede",currentWord:"tonight",answerVisibility:"visible"});
  expect(s.buildAgentToolkit().replayWord).toBeUndefined();
  expect(s.buildCurrentBoardContextForTurn()).toContain("ARPABET: T AH0 N AY1 T");
+});
+
+// Oct 19: "sound it out" during Planner-declared practice became another replay.
+// The lab had only checked visibility permissions, never hidden practice's role.
+it("lets Elli teach a canonical hidden practice item without claiming independence",()=>{
+ const s=session();
+ const cycle=vi.mocked(getChildChart).mock.results[0].value.learningCycle;
+ cycle.nodes[0].role="baseline";
+ cycle.nodes[0].evidenceContract.spellingItems.i1.lineage={measurementRole:"practice"};
+ s.updateCurrentBoardSnapshot({phase:"launched",nodeId:"opening",launchToken:"practice"});
+ s.updateCurrentBoardSnapshot({game:"word-radar",currentWord:"not-the-assigned-word",practiceCapture:true,nodeId:"opening",itemId:"i1",phase:"response",answerVisibility:"hidden",launchToken:"practice"});
+ const context=s.buildCurrentBoardContextForTurn("Can you sound it out?");
+ expect(context).toContain("ARPABET: N AY1 T");
+ expect(context).toContain("Authoritative spelling target (internal): night");
+ s.recordCompanionHelpTurn("Can you sound it out?","Let's listen to the sounds in night.");
+ expect(s.getDiscoveryAttemptContext("hw-words","i1","practice")).toMatchObject({practice:true,support:{status:"assisted"}});
+});
+it.each(["evaluation","checkpoint","checkpoint-visible","evaluation-visible","unverified"])("keeps %s private even if the browser labels it practice",kind=>{
+ const s=session();const cycle=vi.mocked(getChildChart).mock.results[0].value.learningCycle;
+ cycle.nodes[0].role=kind.startsWith("evaluation")?"evaluation":"baseline";
+ cycle.nodes[0].evidenceContract.spellingItems.i1.lineage={measurementRole:kind.startsWith("checkpoint")?"fresh_checkpoint":"practice"};
+ s.updateCurrentBoardSnapshot({phase:"launched",nodeId:"opening",launchToken:"live"});
+ s.updateCurrentBoardSnapshot({game:"word-radar",currentWord:"night",practiceCapture:true,nodeId:"opening",itemId:"i1",phase:"response",answerVisibility:kind.endsWith("visible")?"visible":"hidden",launchToken:kind==="unverified"?"stale":"live"});
+ const context=s.buildCurrentBoardContextForTurn("Help me");
+ expect(context).not.toContain("ARPABET");
+ expect(context).not.toContain("spokenStimulus");
+});
+
+it("preserves legacy visible teaching when the frozen measurement role is absent",()=>{
+ const s=session();vi.mocked(getChildChart).mock.results[0].value.learningCycle.nodes[0].role="baseline";s.updateCurrentBoardSnapshot({game:"word-radar",currentWord:"night",practiceCapture:true,nodeId:"opening",itemId:"i1",phase:"response",answerVisibility:"visible"});
+ expect(s.buildCurrentBoardContextForTurn()).toContain("ARPABET: N AY1 T");
+});
+it("reports current pace each turn and retires it at the next item",async()=>{
+ const s=session() as any;let speed=1;let selected:string|undefined;
+ s.ttsBridge={getSpeechRate:(scope:any)=>scope?.itemId===selected?speed:1,setSpeechRate:async(value:number,scope:any)=>{speed=value;selected=scope?.itemId;return{speed};},stop:vi.fn()};
+ s.updateCurrentBoardSnapshot({assessmentMode:true,nodeId:"opening",itemId:"i1",phase:"response",answerVisibility:"hidden"});
+ const toolkit=s.buildAgentToolkit();await toolkit.setSpeechRate.execute({speed:0.7});
+ expect(s.buildCurrentBoardContextForTurn()).toContain("Configured speech speed: 0.7");
+ s.updateCurrentBoardSnapshot({assessmentMode:true,nodeId:"opening",itemId:"i2",phase:"response",answerVisibility:"hidden"});
+ expect(s.ttsBridge.getSpeechRate({itemId:"i2"})).toBe(1);expect(s.buildCurrentBoardContextForTurn()).toContain("Configured speech speed: 1");
+});
+
+it.each(["flash","presentation"])("records practice help before response entry during %s",phase=>{
+ const s=session();const cycle=vi.mocked(getChildChart).mock.results[0].value.learningCycle;cycle.nodes[0].role="baseline";cycle.nodes[0].evidenceContract.spellingItems.i1.lineage={measurementRole:"practice"};
+ s.updateCurrentBoardSnapshot({game:"word-radar",practiceCapture:true,spellingItemOpened:true,nodeId:"opening",itemId:"i1",phase,answerVisibility:"hidden"});
+ s.recordCompanionHelpTurn("Help me sound it out","Let's listen to the sounds in night.");
+ expect(s.getDiscoveryAttemptContext("hw-words","i1")?.support.status).toBe("assisted");
+});
+
+it("records practice stimulus pace even when narration is not an assessment replay",async()=>{
+ const fs=await import('node:fs');const os=await import('node:os');const path=await import('node:path');const {openChart}=await import('../chart/db');const {recordAssignment}=await import('../chart/spelling/record');const {exportEvents}=await import('../chart/exportEvents');
+ const root=fs.mkdtempSync(path.join(os.tmpdir(),'practice-audio-'));vi.stubEnv('SUNNY_CHART_DIR',root);vi.stubEnv('SUNNY_MODE','real');const db=openChart('lab-child');
+ try{
+  recordAssignment(db,{assignmentId:'hw-words',words:['night','light'],testDate:null,sourcePhotoHash:'a'.repeat(64)});
+  const s=session() as any;s.ttsBridge.getAudioRatesThisTurn=()=>[0.75];
+  s.updateCurrentBoardSnapshot({game:'word-radar',practiceCapture:true,nodeId:'opening',itemId:'i1',phase:'response',answerVisibility:'hidden'});
+  await s.speakGameNarration('night.',{nodeId:'opening',itemId:'i1',assessmentMode:false});
+  s.playbackDone({audible:true,requestId:s.pendingGameNarrationPlayback.requestId,itemId:'i1'});
+  expect(exportEvents(db).find(e=>e.type==='stimulus.played')?.payload).toMatchObject({speechRates:[0.75],delivered:true});
+  expect(exportEvents(db).filter(e=>e.type==='response.observed')).toHaveLength(0);
+ }finally{db.close();vi.unstubAllEnvs();fs.rmSync(root,{recursive:true,force:true});}
+});
+
+it("releases playback and counts delivery even if its typed receipt write fails",async()=>{
+ const fs=await import('node:fs');const os=await import('node:os');const path=await import('node:path');const {openChart}=await import('../chart/db');const {recordAssignment}=await import('../chart/spelling/record');const writes=await import('../chart/spelling/originalResponses');
+ const root=fs.mkdtempSync(path.join(os.tmpdir(),'audio-write-failure-'));vi.stubEnv('SUNNY_CHART_DIR',root);vi.stubEnv('SUNNY_MODE','real');const db=openChart('lab-child');
+ const errorLog=vi.spyOn(console,'error').mockImplementation(()=>{});let writer:{mockRestore:()=>void}|undefined;
+ try{
+  recordAssignment(db,{assignmentId:'hw-words',words:['night','light'],testDate:null,sourcePhotoHash:'a'.repeat(64)});
+  const s=session() as any;s.updateCurrentBoardSnapshot({assessmentMode:true,nodeId:'opening',itemId:'i1',phase:'response',answerVisibility:'hidden'});
+  await s.speakGameNarration('night.',{assessmentMode:true,itemId:'i1'});
+  writer=vi.spyOn(writes,'recordPresentedAudio').mockImplementation(()=>{throw Error('sqlite busy');});
+  expect(()=>confirmCurrentPlayback(s)).not.toThrow();
+  expect(s.spellingAssessment.audioPlaybacks).toBe(1);expect(s.pendingGameNarrationPlayback).toBeNull();
+  expect(errorLog.mock.calls.some(args=>String(args[0]).includes('[spelling-audio] [record] [failed]'))).toBe(true);
+ }finally{writer?.mockRestore();errorLog.mockRestore();db.close();vi.unstubAllEnvs();fs.rmSync(root,{recursive:true,force:true});}
+});
+
+it('traces letter sequences in hidden practice without censoring permitted spoken syllables',()=>{
+ const s=session();const cycle=vi.mocked(getChildChart).mock.results[0].value.learningCycle;cycle.nodes[0].role='baseline';cycle.nodes[0].evidenceContract.spellingItems.i1.lineage={measurementRole:'practice'};
+ s.updateCurrentBoardSnapshot({game:'word-radar',nodeId:'opening',itemId:'i1',practiceCapture:true,phase:'response',answerVisibility:'hidden'});
+ const trace=vi.spyOn(s,'recordGameTrace').mockImplementation(()=>{});const warning=vi.spyOn(console,'warn').mockImplementation(()=>{});
+ try{
+  expect(s.recordCompanionTruthContradictions('Try n-i-g-h-t.')).toContain('hidden_practice_letters_in_response_text');
+  expect(trace).toHaveBeenCalledWith(expect.objectContaining({code:'hidden_practice_letters_in_response_text',response:'Try n-i-g-h-t.',nodeId:'opening',itemId:'i1',spellingSupportMode:'pronunciation_model',answerVisibility:'hidden'}));
+  expect(s.recordCompanionTruthContradictions('Listen to the sounds in night.')).not.toContain('hidden_practice_letters_in_response_text');
+ }finally{trace.mockRestore();warning.mockRestore();}
 });

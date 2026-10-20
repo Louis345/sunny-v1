@@ -1,0 +1,85 @@
+
+> sunny@0.1.0 test:voice-regression
+> vitest run src/scripts/kioskBrowserLaunch.test.ts src/scripts/launch-kiosk.test.ts src/scripts/voiceAcceptance.test.ts src/server/certificationRuntime.test.ts src/server/transition-to-work-gate.test.ts src/server/companion-response-runner.test.ts src/server/session-manager-companion-presence.test.ts src/server/session-manager-game-narration.test.ts
+
+
+ RUN  v3.2.4 /Users/jtaylor/Development/sunny-elli-capable-speech
+
+stdout | src/server/session-manager-game-narration.test.ts > SessionManager game narration > keeps assessment audio unavailable when the browser reports no audible playback
+ 🎮 [spelling-audio] [record] [unavailable] reason=typed_presentation_unavailable
+
+stdout | src/server/session-manager-game-narration.test.ts > SessionManager game narration > does not start a second word while the first narration still owns playback
+  🎮 [game-narration] [suppressed] reason=playback_in_progress
+
+stdout | src/server/session-manager-game-narration.test.ts > SessionManager game narration > ignores a stale playback acknowledgement from a different narration request
+  🎮 [game-narration] [playback-ack-ignored] reason=request_identity_mismatch
+
+stdout | src/server/session-manager-game-narration.test.ts > SessionManager game narration > does not count interrupted spelling narration as completed playback
+🎮 [audit] component=turn action=barge_in stateBefore=SPEAKING turnState=SPEAKING tts=on childName=Lab round=1
+
+stdout | src/server/session-manager-game-narration.test.ts > SessionManager game narration > does not resurrect narration whose synthesis finishes after barge-in
+🎮 [audit] component=turn action=barge_in stateBefore=SPEAKING turnState=SPEAKING tts=on childName=Ila round=1
+
+stdout | src/server/session-manager-game-narration.test.ts > SessionManager game narration > does not resurrect narration whose synthesis finishes after barge-in
+🎮 [audit] component=turn action=barge_in stateBefore=SPEAKING turnState=SPEAKING tts=on childName=Ila round=1
+
+stderr | src/server/session-manager-game-narration.test.ts > SessionManager game narration > always ends playback when the voice service refuses the connection
+ 🎮 [session-audio] [playback] [failed-released] request=22eac9dc-c1de-4e6c-bc37-baeaf612981e reason=spelling_stimulus_mismatch
+
+stderr | src/server/session-manager-game-narration.test.ts > SessionManager game narration > always ends playback when the voice service returns no audio
+ 🎮 [session-audio] [playback] [failed-released] request=391f22ac-a0ad-4ed3-826b-316efbaf9b22 reason=spelling_stimulus_mismatch
+
+ ✓ src/server/session-manager-game-narration.test.ts (12 tests) 59ms
+stdout | src/server/session-manager-companion-presence.test.ts > SessionManager companion presence > promotes a held eager transcript when Flux never sends a final turn
+  🎮 [transcript] [eager-buffered] reason=companion_conversation
+
+stdout | src/server/session-manager-companion-presence.test.ts > SessionManager companion presence > promotes a held eager transcript when Flux never sends a final turn
+  🎮 [transcript] [eager-promoted] reason=final_timeout
+
+stdout | src/server/session-manager-companion-presence.test.ts > SessionManager companion presence > keeps a child-started conversation open until explicit dismissal
+  🎮 [companion-presence] [summoned] reason=voice
+  🎮 [companion-presence] [conversation-open] reason=child_started
+
+stdout | src/server/session-manager-companion-presence.test.ts > SessionManager companion presence > returns one-shot read help to standby unless Elli explicitly awaits an answer
+  🎮 [companion-presence] [summoned] reason=read_instruction
+  🎮 [companion-presence] [collapsed] reason=voice
+
+stdout | src/server/session-manager-companion-presence.test.ts > SessionManager companion presence > uses Elli's live reasoning turn for activity support and clears stale pause disposition
+  🎮 [companion-presence] [summoned] reason=read_instruction
+  🎮 [companion-help] [agent-support] node=clock-room item=clock-2 trigger=guided_prompt
+
+stdout | src/server/session-manager-companion-presence.test.ts > SessionManager companion presence > uses Elli's live reasoning turn for activity support and clears stale pause disposition
+  🎮 [companion-presence] [collapsed] reason=voice
+
+stdout | src/server/session-manager-companion-presence.test.ts > SessionManager companion presence > returns a one-shot activity to play even when Elli's provider turn fails
+  🎮 [companion-presence] [summoned] reason=read_instruction
+  🎮 [companion-help] [agent-support] node=clock-room item=clock-2 trigger=guided_prompt
+
+stdout | src/server/session-manager-companion-presence.test.ts > SessionManager companion presence > returns a one-shot activity to play even when Elli's provider turn fails
+  🎮 [companion-presence] [collapsed] reason=voice
+
+stdout | src/server/session-manager-companion-presence.test.ts > SessionManager companion presence > does not collapse a newer child-started conversation after one-shot support finishes
+  🎮 [companion-presence] [summoned] reason=read_instruction
+  🎮 [companion-help] [agent-support] node=clock-room item=clock-2 trigger=guided_prompt
+  🎮 [companion-presence] [summoned] reason=voice
+
+ ✓ src/server/session-manager-companion-presence.test.ts (6 tests) 5ms
+stdout | src/server/companion-response-runner.test.ts > companion response audio ownership > queues Elli's turn while a game narration owns the shared audio channel
+  🎮 [companion] [deferred] reason=game_narration_owns_audio
+
+ ✓ src/server/companion-response-runner.test.ts (9 tests) 3ms
+stderr | src/scripts/kioskBrowserLaunch.test.ts > a visible kiosk is never shut down over its pid > keeps a visible kiosk whose Chrome pid cannot be matched
+ 🎮 [kiosk] [macos-launch] [pid-unmatched] visible=true continuing; shutdown closes Chrome by its kiosk profile
+ 🎮 [kiosk] [macos-launch] [pid-unmatched] reason=mac_kiosk_identity_ambiguous
+ 🎮 [kiosk] [macos-launch] [pid-unmatched] visible=true continuing; shutdown closes Chrome by its kiosk profile
+
+ ✓ src/scripts/kioskBrowserLaunch.test.ts (8 tests) 3ms
+ ✓ src/server/certificationRuntime.test.ts (12 tests) 3ms
+ ✓ src/server/transition-to-work-gate.test.ts (3 tests) 3ms
+ ✓ src/scripts/launch-kiosk.test.ts (7 tests) 2ms
+ ✓ src/scripts/voiceAcceptance.test.ts (4 tests) 2ms
+
+ Test Files  8 passed (8)
+      Tests  61 passed (61)
+   Start at  00:12:52
+   Duration  3.53s (transform 751ms, setup 0ms, collect 2.79s, tests 80ms, environment 0ms, prepare 166ms)

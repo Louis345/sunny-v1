@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { validateEvent, validatePayload, EVENT_TYPES } from '../chart/eventTypes';
 import { actors, factId, schemas, type FactType } from '../chart/spelling/schemas';
 const samples: Record<FactType, Record<string, unknown>> = {
+    'stimulus.played': {assignmentId:'a',sessionId:'s',itemId:'i',playbackId:'audio-1',speechRates:[0.7],delivered:true},
     'activity.limited': {assignmentId:'a',sessionId:'s',nodeId:'n',launchId:'l',sourceEventId:'e',reason:'non_spelling_response',rawChoice:'ight',aggregateAccuracy:null},
     'test_schedule.set': {changeId:'schedule-1',kind:'weekday',weekday:5},
     'engagement.observed': { assignmentId:'a', sessionId:'s', nodeId:'n', itemId:null, observationId:'o', metric:'audio_replays', value:1 },
@@ -26,7 +27,7 @@ describe.each(Object.entries(samples) as [
         expect(() => validateEvent({ ...event(), actor: actors[type].includes('room') ? 'planner' : 'room' })).toThrow('actor');
         expect(() => validatePayload(type, { ...payload, correctness: 'invented' })).toThrow();
         for (const key of Object.keys(payload))
-            expect(() => validatePayload(type, { ...payload, [key]: false })).toThrow();
+            expect(() => validatePayload(type, { ...payload, [key]: key === "delivered" ? "invalid" : false })).toThrow();
     });
     it('rejects every missing required field', () => {
         for (const key of Object.keys(payload)) {

@@ -86,6 +86,11 @@ export function validateRelations(db: ChartDatabase, e: EventInput): void {
         if ((item.instrument === 'practice') !== (item.role === 'practice'))
             fail('instrument_role');
     }
+    if (e.type === 'stimulus.played') {
+        const presentation = get(factId('item.presented', p));
+        if (!presentation || !e.cites.includes(presentation.event_id) || presentation.payload.assignmentId !== p.assignmentId)
+            fail('presentation_missing');
+    }
     if (e.type === 'response.observed') {
         if (e.cites.map(get).filter(r => r?.type === 'item.presented').length !== 1)
             fail('presentation_ambiguous');

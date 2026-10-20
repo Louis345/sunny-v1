@@ -3,7 +3,7 @@ import { schemas, actors, factId, type FactType } from './spelling/schemas';
 
 export const EVENT_TYPES = [
   'activity.limited', 'test_schedule.set', 'child.profile_set', 'assignment.ingested', 'words.tagged', 'prediction.prior',
-  'session.started', 'session.ended', 'item.presented', 'response.observed',
+  'stimulus.played', 'session.started', 'session.ended', 'item.presented', 'response.observed',
   'prediction.evaluated', 'plan.decided', 'board.published', 'node.started', 'node.completed',
   'engagement.observed', 'engagement.prediction', 'engagement.evaluated',
   'learner.hypothesis', 'learner.hypothesis_evaluated', 'readiness.forecast',
