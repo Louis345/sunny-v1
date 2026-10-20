@@ -48,6 +48,7 @@ describe("urgent learning support routing", () => {
     session.injectGameContext({
       game: "pronunciation",
       currentWord: "able",
+      answerVisibility: "visible",
       wordIndex: 0,
       totalWords: 10,
       phase: "approaching",

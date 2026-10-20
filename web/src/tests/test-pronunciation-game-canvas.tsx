@@ -198,6 +198,18 @@ describe("PronunciationGameCanvas", () => {
     );
   });
 
+  // Oct 20 CI catch: this game shows its word on screen but never said so. After
+  // unknown visibility began failing closed, Elli lost the word and could no
+  // longer coach it. The instrument must declare what the child can see.
+  it("declares its on-screen word visible so Elli can coach it", () => {
+    const sendMessage = vi.fn();
+    render(<PronunciationGameCanvas words={["able", "common"]} interimTranscript="" sendMessage={sendMessage} />);
+    expect(sendMessage).toHaveBeenCalledWith(
+      "game_state_update",
+      expect.objectContaining({ game: "pronunciation", currentWord: "able", answerVisibility: "visible" }),
+    );
+  });
+
   it("emits live game_state_update with the current word and pronunciation outcomes", async () => {
     const sendMessage = vi.fn();
     const { rerender } = render(
