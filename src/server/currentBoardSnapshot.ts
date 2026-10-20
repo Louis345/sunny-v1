@@ -59,6 +59,8 @@ type BuildSnapshotInput = {
   state: Record<string, unknown>;
   allowedActivities?: string[];
   now?: Date;
+  /** The bound hidden-check item: its word stays internal even when the game omits it. */
+  assessment?: { itemId: string; word: string };
 };
 
 function asString(value: unknown): string | undefined {
@@ -210,6 +212,11 @@ export function buildCurrentBoardSnapshot(
   const availableActions = asStringArray(state.availableActions);
   if (availableActions.length) snapshot.availableActions = availableActions;
 
+  const bound = input.assessment;
+  if (bound && snapshot.itemId === bound.itemId && (state.assessmentMode === true || state.practiceCapture === true)) {
+    snapshot.spellingTarget ??= bound.word;
+    snapshot.spellingSupportMode ??= "stimulus_only";
+  }
   return snapshot;
 }
 
