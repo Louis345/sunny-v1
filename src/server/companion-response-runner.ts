@@ -1,5 +1,6 @@
 /** Companion LLM turn — extracted from SessionManager.runCompanionResponse. */
 // @ts-nocheck
+import { redactProtectedSpellingText, redactProtectedSpellingValue } from "./currentBoardSnapshot";
 import { randomUUID } from "node:crypto";
 import { rewriteChildNameForTts } from "./sessionTextHelpers";
 import { runAgent } from "../agents/elli/run";
@@ -19,6 +20,17 @@ import {
   debugPrintClaudePreRun,
 } from "./debug-helpers";
 import { createThinkingEmoteOnFirstToolInStep } from "./companionThinkingEmote";
+
+/** Project remembered text too: a previous teaching turn must not reveal this check's stimulus. */
+export function protectSpellingModelMessages(messages, snapshot) {
+  return messages.map(message => ({ ...message, content: typeof message.content === "string"
+    ? redactProtectedSpellingText(message.content, snapshot)
+    : message.content.map(part => part.type === "text"
+      ? { ...part, text: redactProtectedSpellingText(part.text, snapshot) }
+      : part.type === "tool-result"
+        ? { ...part, output: redactProtectedSpellingValue(part.output, snapshot) }
+        : part) }));
+}
 
 export function claimCompanionResponseTurn(session: any): {
   turnId: number;
@@ -154,7 +166,7 @@ export async function runCompanionResponseForSession(
 
       // Pin context messages at the front so they survive history truncation.
       const pins: ModelMessage[] = [];
-      if (session.worksheetPageFile && (session.worksheetMode || isHomeworkMode())) {
+      if (session.currentBoardSnapshot?.spellingSupportMode !== "stimulus_only" && session.worksheetPageFile && (session.worksheetMode || isHomeworkMode())) {
         const imageCaption =
           "This is the worksheet. Grade from what you see in this image.";
         pins.push({
@@ -230,10 +242,10 @@ export async function runCompanionResponseForSession(
           : null;
 
       await runAgent({
-        history: historyWithPin,
-        injectedContextMessages: gameContextMessages,
-        userMessage: messageWithContext,
-        profile: session.companion,
+        history: protectSpellingModelMessages(historyWithPin, session.currentBoardSnapshot),
+        injectedContextMessages: protectSpellingModelMessages(gameContextMessages, session.currentBoardSnapshot),
+        userMessage: redactProtectedSpellingText(messageWithContext, session.currentBoardSnapshot),
+        profile: { ...session.companion, systemPrompt: redactProtectedSpellingText(session.companion.systemPrompt, session.currentBoardSnapshot) },
         tools: finalTools,
         experimentalOnStepStart: thinkingHooks?.onStepStart,
         experimentalOnToolCallStart: thinkingHooks?.onToolCallStart,

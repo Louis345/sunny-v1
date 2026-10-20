@@ -3,6 +3,7 @@
  * Extracted from SessionManager for line-count / cohesion (D6d).
  */
 // @ts-nocheck
+import { redactProtectedSpellingValue } from "./currentBoardSnapshot";
 import { generateStoryImage } from "../utils/generateStoryImage";
 import { appendDeferredActivity } from "../utils/appendToContext";
 import { auditLog } from "./audit-log";
@@ -345,14 +346,14 @@ export async function hostSessionStatus(session: any): Promise<Record<string, un
       string,
       unknown
     >;
-    return {
+    return redactProtectedSpellingValue({
       ...base,
       turnState: session.turnSM.getState(),
       activeWord: session.activeWord,
       wordBuilderRound: session.wbActive && session.wbRound > 0 ? session.wbRound : null,
       lastChildUtterance: session.lastTranscript || null,
       currentActivityState: session.currentActivityState ?? null,
-  };
+  }, session.currentBoardSnapshot);
 }
 
 export async function hostRecordChildSignal(

@@ -7,7 +7,7 @@ function session() {
   vi.mocked(getChildChart).mockReturnValue({ learningCycle: { homeworkId: "hw-words", domain: "spelling", nodes: [{ nodeId: "opening", state: "ready", role: "evaluation", artifactBinding: { contractFingerprint: "frozen" }, evidenceContract: { spellingItems: { i1: { id: "i1", word: "night" }, i2: { id: "i2", word: "light" } } } }] } } as never);
   const s = Object.assign(Object.create(SessionManager.prototype), {
     companion:{name:"Elli"}, chartChildId: "lab-child", childName: "Lab", sessionTtsLabel: "Lab", sessionId: "s1", companionPresence: "collapsed", send: vi.fn(),
-    debugRecorder: { recordEvent: vi.fn() },
+    debugRecorder: { recordEvent: vi.fn(), recordGameTrace: vi.fn() },
     ttsBridge: { beginPlayback:vi.fn(), connect: vi.fn(async () => {}), sendText: vi.fn(), finish: vi.fn(async () => {}), hadAudioThisTurn: vi.fn(() => true) },
     turnSM: { onPlaybackComplete: vi.fn(), consumePendingTranscript: vi.fn() },
     flushPendingRoundComplete: vi.fn(),
@@ -26,11 +26,13 @@ function confirmCurrentPlayback(s: SessionManager): void {
   });
 }
 describe("live spelling assistance and audio provenance", () => {
-  it("pins the current private stimulus without treating conversation as a submitted answer", () => {
+  it("keeps the current private stimulus out of Elli context while the activity owns grading", () => {
     const s=session();
     s.updateCurrentBoardSnapshot({assessmentMode:true,nodeId:"opening",itemId:"i2",phase:"response",answerVisibility:"hidden"});
     const context=s.buildCurrentBoardContextForTurn("What word?");
-    expect(context).toContain('"spokenStimulus":"light"');
+    expect(context).not.toContain("light");
+    expect(context).not.toContain("spokenStimulus");
+    expect(context).toContain("replayWord");
     expect(context).toContain('"answerVisibility":"hidden"');
     expect(context).toContain("Spoken repetition is not a submitted spelling answer");
   });
@@ -200,7 +202,12 @@ it('commits the original presentation before any answer and counts acknowledged 
  expect(exportEvents(db).map(e=>e.type)).toEqual(['assignment.ingested','item.presented']);
  expect(s.getDiscoveryAttemptContext('hw-words','i1')).toMatchObject({chartItemId:expect.any(String),audioReplays:0});
  await s.speakGameNarration('night.',{assessmentMode:true,itemId:'i1'});confirmCurrentPlayback(s);
- await s.speakGameNarration('night.',{assessmentMode:true,itemId:'i1'});confirmCurrentPlayback(s);
+ (s as any).companionBridge={};
+ const replay=(s.buildAgentToolkit() as any).replayWord;
+ expect(replay).toBeDefined();
+ await replay.execute({});
+ await vi.waitFor(()=>expect((s as any).pendingGameNarrationPlayback).toBeTruthy());
+ confirmCurrentPlayback(s);
  expect(s.getDiscoveryAttemptContext('hw-words','i1')).toMatchObject({audioReplays:1});
  s.updateCurrentBoardSnapshot({nodeId:'opening',itemId:'i1',phase:'response',engagement:{id:'input-1',metric:'first_input_ms',value:400}});
  s.updateCurrentBoardSnapshot({nodeId:'opening',itemId:'i1',phase:'response',engagement:{id:'input-1',metric:'first_input_ms',value:400}});
@@ -307,4 +314,33 @@ it("records hidden target letter disclosure in the production session trace", ()
     trace.mockRestore();
     warning.mockRestore();
   }
+});
+
+it("exposes replayWord without stimulus text and counts only browser-acknowledged replays",async()=>{
+ const s=session() as any;
+ s.companionBridge={};
+ s.updateCurrentBoardSnapshot({game:"word-radar",assessmentMode:true,nodeId:"opening",itemId:"i1",phase:"response",answerVisibility:"hidden",currentWord:"night"});
+ await s.speakGameNarration("night.",{assessmentMode:true,itemId:"i1"});confirmCurrentPlayback(s);
+ const replay=s.buildAgentToolkit().replayWord;
+ expect(replay).toBeDefined();
+ const result=await replay.execute({});
+ expect(JSON.stringify(result)).not.toContain("night");
+ await vi.waitFor(()=>expect(s.ttsBridge.sendText).toHaveBeenCalledTimes(2));
+ await vi.waitFor(()=>expect(s.pendingGameNarrationPlayback).toBeTruthy());
+ expect(s.getDiscoveryAttemptContext("hw-words","i1").audioReplays).toBe(0);
+ confirmCurrentPlayback(s);
+ expect(s.getDiscoveryAttemptContext("hw-words","i1").audioReplays).toBe(1);
+ expect(JSON.stringify(s.getFreshActivityStateForScreenshot())).not.toContain("night");
+});
+it("does not replay a retired item or provide replayWord during visible teaching",async()=>{
+ const s=session() as any;s.companionBridge={};
+ s.updateCurrentBoardSnapshot({game:"word-radar",assessmentMode:true,nodeId:"opening",itemId:"i1",phase:"response",answerVisibility:"hidden",currentWord:"night"});
+ const replay=s.buildAgentToolkit().replayWord;
+ expect(replay).toBeDefined();
+ s.updateCurrentBoardSnapshot({game:"word-radar",assessmentMode:true,nodeId:"opening",itemId:"i2",phase:"response",answerVisibility:"hidden",currentWord:"light"});
+ expect(await replay.execute({})).toMatchObject({requested:false});
+ expect(s.ttsBridge.sendText).not.toHaveBeenCalled();
+ s.updateCurrentBoardSnapshot({game:"monster-stampede",currentWord:"tonight",answerVisibility:"visible"});
+ expect(s.buildAgentToolkit().replayWord).toBeUndefined();
+ expect(s.buildCurrentBoardContextForTurn()).toContain("ARPABET: T AH0 N AY1 T");
 });

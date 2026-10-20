@@ -213,6 +213,26 @@ export function buildCurrentBoardSnapshot(
   return snapshot;
 }
 
+/** Keep private runtime truth out of model-facing text and tool state. */
+export function redactProtectedSpellingText(text: string, snapshot: CurrentBoardSnapshot | null): string {
+  if (snapshot?.spellingSupportMode !== "stimulus_only" || !snapshot.spellingTarget) return text;
+  const escaped = snapshot.spellingTarget.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return text.replace(new RegExp(escaped, "gi"), "[private stimulus]");
+}
+
+export function companionBoardSnapshot(snapshot: CurrentBoardSnapshot): CurrentBoardSnapshot {
+  if (snapshot.spellingSupportMode !== "stimulus_only") return snapshot;
+  const projected = { ...snapshot, currentTarget: undefined, spellingTarget: undefined, targetIsSpeakable: false };
+  return redactProtectedSpellingValue(projected, snapshot);
+}
+
+/** For JSON tool results only; binary/image content must not pass through here. */
+export function redactProtectedSpellingValue<T>(value: T, snapshot: CurrentBoardSnapshot | null): T {
+  if (snapshot?.spellingSupportMode !== "stimulus_only") return value;
+  return JSON.parse(JSON.stringify(value, (_key, item) => typeof item === "string"
+    ? redactProtectedSpellingText(item, snapshot) : item));
+}
+
 export function buildCurrentBoardSnapshotContext(
   snapshot: CurrentBoardSnapshot | null,
   opts: { childSpeech?: string } = {},
@@ -245,16 +265,16 @@ export function buildCurrentBoardSnapshotContext(
     lines.push("The child is back on the map. Do not describe the previous activity as open.");
   }
   lines.push(`Answer visibility: ${snapshot.answerVisibility}`);
-  if (snapshot.currentTarget) lines.push(`Current target: ${snapshot.currentTarget}`);
+  if (snapshot.currentTarget && snapshot.spellingSupportMode !== "stimulus_only") lines.push(`Current target: ${snapshot.currentTarget}`);
   if (snapshot.spellingTarget) {
     lines.push("[Spelling pronunciation support]",
-      `Authoritative spelling target (internal): ${snapshot.spellingTarget}`,
-      "Do not replace this target with words from room conversation. If the activity context is missing, ask which item needs help instead of inventing a target.",
       "Hidden written letters remain hidden. Pronunciation modeling is assistance, not an independent spelling result.");
     if (snapshot.spellingSupportMode === "stimulus_only") {
-      lines.push("Repeat the whole spoken stimulus only, or clarify the activity instructions.",
+      lines.push("Use replayWord to request the activity’s own whole-word audio, or clarify the activity instructions. The private stimulus is held by the activity, not supplied in this context.",
         "Do not model syllables or reveal written letters during hidden assessment. Offer a pause or the activity's available help action when more support is needed.");
     } else {
+      lines.push(`Authoritative spelling target (internal): ${snapshot.spellingTarget}`,
+        "Do not replace this target with words from room conversation. If the activity context is missing, ask which item needs help instead of inventing a target.");
       const phones = cmuDictionary[snapshot.spellingTarget.normalize("NFC").toLowerCase()];
       if (typeof phones === "string" && phones) {
         const vowelNuclei = phones.split(/\s+/).filter(phone => /[012]$/.test(phone));
@@ -325,7 +345,7 @@ export function buildCurrentBoardSnapshotContext(
   if (snapshot.lastOutcomeWord) lines.push(`Last outcome word: ${snapshot.lastOutcomeWord}`);
   if (snapshot.wheelValue) lines.push(`Wheel landed on: ${snapshot.wheelValue}`);
   if (snapshot.progress) lines.push(`Progress: ${snapshot.progress}`);
-  return lines.join("\n");
+  return redactProtectedSpellingText(lines.join("\n"), snapshot);
 }
 
 export function findCompanionTruthContradictions(

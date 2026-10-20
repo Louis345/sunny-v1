@@ -40,7 +40,8 @@ import {
 } from "../utils/wordRadarProfile";
 import { recordWordRadarAttempts } from "./recordWordRadarAttempts";
 import { recordLearningAttempt } from "./learningAttemptEvents";
-import { type ModelMessage } from "ai";
+import { tool, type ModelMessage } from "ai";
+import { z } from "zod";
 import type { HomeworkExtractionResult } from "../agents/psychologist/psychologist";
 import { GameBridge } from "./game-bridge";
 import {
@@ -88,6 +89,7 @@ import {
 import { shouldUseAdventureMapVoiceSlimToolkit } from "../utils/adventureMapAgentPolicy";
 import {
   buildCurrentBoardSnapshot,
+  companionBoardSnapshot,
   findCompanionTruthContradictions,
   type CurrentBoardSnapshot,
 } from "./currentBoardSnapshot";
@@ -800,13 +802,18 @@ export class SessionManager {
       sessionId: this.sessionId,
       state,
     });
+    if (this.spellingAssessment && snapshot.itemId === this.spellingAssessment.itemId
+      && (state.assessmentMode === true || state.practiceCapture === true)) {
+      snapshot.spellingTarget ??= this.spellingAssessment.word;
+      snapshot.spellingSupportMode ??= "stimulus_only";
+    }
     this.currentBoardSnapshot = snapshot;
     if (snapshot.nodeId && snapshot.itemId && (snapshot.phase === "question" || snapshot.phase === "response")) {
       this.bindMathDiscoverySupport(snapshot.nodeId, snapshot.itemId);
     }
     this.currentActivityState = {
-      ...snapshot,
-      currentWord: snapshot.currentTarget,
+      ...companionBoardSnapshot(snapshot),
+      currentWord: snapshot.spellingSupportMode === "stimulus_only" ? undefined : snapshot.currentTarget,
       updatedAt: snapshot.updatedAt,
     };
   }
@@ -2051,8 +2058,35 @@ export class SessionManager {
           companionAct: companionActTool,
         }
       : { ...six, companionAct: companionActTool };
+    const replaySnapshot = this.currentBoardSnapshot;
+    const replayTools = replaySnapshot?.spellingSupportMode === "stimulus_only" && replaySnapshot.spellingTarget
+      ? { replayWord: tool({
+          description: "Request the current activity's own whole-word stimulus audio. No word argument is needed. This requests playback; browser acknowledgement establishes delivery.",
+          inputSchema: z.object({}),
+          execute: async () => {
+            const current = this.currentBoardSnapshot;
+            if (current?.spellingSupportMode !== "stimulus_only"
+              || current.nodeId !== replaySnapshot.nodeId || current.itemId !== replaySnapshot.itemId
+              || current.launchToken !== replaySnapshot.launchToken || current.itemIndex !== replaySnapshot.itemIndex
+              || current.spellingTarget !== replaySnapshot.spellingTarget || current.phase !== replaySnapshot.phase) {
+              return { requested: false, reason: "activity_item_changed" };
+            }
+            if (this.activeGameNarrationRequestId || this.pendingGameNarrationPlayback) {
+              return { requested: false, reason: "playback_in_progress" };
+            }
+            this.handleGameEvent({ type: "narration_request", payload: {
+              game: current.game, activityId: current.activityId, nodeId: current.nodeId,
+              itemId: current.itemId, launchToken: current.launchToken,
+              assessmentMode: Boolean(this.spellingAssessment && this.spellingAssessment.itemId === current.itemId),
+              text: current.spellingTarget, word: current.spellingTarget, reason: "companion_replay",
+            } });
+            return { requested: true, playbackConfirmed: false };
+          },
+        }) }
+      : {};
     const screenshotTools = {
       takeGameScreenshot: createTakeGameScreenshotTool(this),
+      ...replayTools,
     };
     if (this.worksheetSession && this.worksheetMode) {
       return {

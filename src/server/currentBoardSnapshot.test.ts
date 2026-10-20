@@ -55,7 +55,8 @@ describe("CurrentBoardSnapshot", () => {
     expect(context).toContain("[Internal live board state]");
     expect(context).toContain('Child speech: "what word is it?"');
     expect(context).toContain("Current game: spell-check");
-    expect(context).toContain("Current target: above");
+    expect(context).not.toContain("above");
+    expect(context).toContain("replayWord");
     expect(context).not.toContain("Word Radar");
   });
 
@@ -224,9 +225,9 @@ describe("spelling pronunciation context", () => {
     expect(value.currentTarget).toBeUndefined();
     expect(value.targetIsSpeakable).toBe(false);
     const context = buildCurrentBoardSnapshotContext(value, { childSpeech: "Help with Tuscaloosa" });
-    expect(context).toContain("Authoritative spelling target (internal): title");
-    expect(context).toContain("Do not replace this target with words from room conversation");
-    expect(context).toContain("Repeat the whole spoken stimulus only");
+    expect(context).not.toContain("title");
+    expect(context).toContain("replayWord");
+    expect(context).toContain("replayWord");
     expect(context).toContain("Do not model syllables or reveal written letters during hidden assessment");
     expect(context).not.toContain("ARPABET");
   });
@@ -246,7 +247,7 @@ describe("spelling pronunciation context", () => {
 
   it("does not turn explicit assessment into teaching just because text is visible", () => {
     const context = buildCurrentBoardSnapshotContext(snapshot({ game: "word-radar", currentTarget: "tonight", answerVisibility: "visible", assessmentMode: true }));
-    expect(context).toContain("Repeat the whole spoken stimulus only");
+    expect(context).toContain("replayWord");
     expect(context).not.toContain("ARPABET");
   });
 
@@ -313,4 +314,18 @@ describe("hidden spelling disclosure truth checks", () => {
   it("allows letter sequences during explicitly visible teaching", () => {
     expect(findCompanionTruthContradictions("T-O-N-I-G-H-T", snapshot("visible"))).toEqual([]);
   });
+});
+
+// Human catch: prompt-only restrictions still let Elli chunk the private word.
+// Keep runtime truth, but expose a replay capability instead of the stimulus.
+it.each(["hidden", "unknown", undefined, "visible"])("does not leak protected spelling through context aliases (%s)", answerVisibility => {
+ const snapshot=buildCurrentBoardSnapshot({childId:"lab-child",sessionId:"s",state:{
+  game:"word-radar",assessmentMode:true,answerVisibility,currentWord:"dissatisfied",
+  currentChallenge:"Spell dissatisfied",activityTitle:"Practice dissatisfied",lastOutcomeWord:"dissatisfied",
+  availableActions:["Hear dissatisfied"],missedWords:["dissatisfied"],correctWords:["dissatisfied"],
+ }});
+ expect(snapshot.spellingTarget).toBe("dissatisfied");
+ const context=buildCurrentBoardSnapshotContext(snapshot);
+ expect(context.toLowerCase()).not.toContain("dissatisfied");
+ expect(context).toContain("replayWord");
 });

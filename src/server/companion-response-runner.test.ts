@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   claimCompanionResponseTurn,
+  protectSpellingModelMessages,
   deferCompanionUntilNarrationFinishes,
 } from "./companion-response-runner";
 
@@ -100,4 +101,15 @@ describe("native spelling reply identity", () => {
     session.currentBoardSnapshot.score = 10;
     expect(reply.isCurrent()).toBe(true);
   });
+});
+
+it("removes a protected stimulus from prior text context without corrupting images or teaching",()=>{
+ const image=new Uint8Array([1,2,3]);
+ const history=[{role:"assistant",content:"The word is night"},{role:"user",content:[{type:"text",text:"Earlier target: night"},{type:"image",image}]}];
+ const snapshot={spellingSupportMode:"stimulus_only",spellingTarget:"night"};
+ const projected=protectSpellingModelMessages(history,snapshot);
+ expect(JSON.stringify(projected)).not.toContain("night");
+ expect(projected[1].content[1].image).toBe(image);
+ expect(history[0].content).toBe("The word is night");
+ expect(protectSpellingModelMessages(history,{...snapshot,spellingSupportMode:"pronunciation_model"})).toEqual(history);
 });
