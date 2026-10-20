@@ -296,6 +296,22 @@ describe("canonical learning cycle repository", () => {
     unfinishedBuilder.nodes[1]!.implementationType = "word-builder";
     expect(canonicalJourneyLaunchable(unfinishedBuilder, "practice")).toBe(false);
     expect(projectLearningCycle(unfinishedBuilder).adventureBoard.nodes.find(node => node.id === "practice")).toMatchObject({ state: "locked", lock: { reason: "not-ready" } });
+    const legacyBuilder = structuredClone(unfinishedBuilder);
+    legacyBuilder.boards![0]!.kind = "legacy";
+    delete legacyBuilder.boards![0]!.definition;
+    expect(canonicalJourneyLaunchable(legacyBuilder, "practice")).toBe(false);
+    const partial = structuredClone(cycle);
+    partial.nodes[0]!.state = "active";
+    // An incomplete instrument is not a live launch lease; switching remains allowed.
+    expect(canonicalJourneyLaunchable(partial, "practice")).toBe(true);
+    expect(projectLearningCycle(partial).adventureBoard.nodes.find(node => node.id === "practice")?.state).toBe("available");
+    const successor = structuredClone(cycle);
+    successor.boards![0]!.kind = "successor";
+    expect(canonicalJourneyLaunchable(successor, "practice")).toBe(true);
+    const math = structuredClone(cycle);
+    math.domain = "math";
+    expect(canonicalJourneyLaunchable(math, "practice")).toBe(false);
+    expect(projectLearningCycle(math).adventureBoard.nodes.find(node => node.id === "practice")?.state).toBe("locked");
     const probe = structuredClone(cycle);
     probe.boards![0]!.kind = "probe";
     expect(canonicalJourneyLaunchable(probe, "practice")).toBe(false);

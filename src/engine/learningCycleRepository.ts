@@ -773,10 +773,11 @@ const allowsReadyActivitySelection = (cycle:LearningCycleRecordV2) => cycle.doma
 /** Undefined is the read-only legacy navigation contract, never permission. */
 export function canonicalJourneyLaunchable(cycle:LearningCycleRecordV2, nodeId:string):boolean | undefined {
   if (currentBoardInstance(cycle).publishedAt === null) return false;
+  const node = cycle.nodes.find(node=>node.nodeId===nodeId);
+  if (node && unavailableActivityReason(node)) return false;
   const frontier = canonicalJourneyFrontier(cycle);
   if (!frontier) return undefined;
-  const node = cycle.nodes.find(node=>node.nodeId===nodeId);
-  return Boolean(node && !unavailableActivityReason(node) && currentBoardInstance(cycle).nodeIds.includes(nodeId) && node.artifactBinding?.validationStatus === 'passed'
+  return Boolean(node && currentBoardInstance(cycle).nodeIds.includes(nodeId) && node.artifactBinding?.validationStatus === 'passed'
     && ['ready','active','completed'].includes(node.state) && (node.state==='completed' || (!BATCH_CLOSED_LIFECYCLES.has(cycle.lifecycle) && (allowsReadyActivitySelection(cycle) || frontier.activityNodeId===nodeId))));
 }
 

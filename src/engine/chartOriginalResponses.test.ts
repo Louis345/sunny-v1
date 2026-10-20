@@ -58,3 +58,20 @@ it('does not erase an unanswered presentation with unknown exposure on a later c
  expect(projectAssignment(exportEvents(db),'a').responses[0].eligible).toBe(false);
  }finally{db.close();fs.rmSync(root,{recursive:true,force:true});}
 });
+
+it('attributes checkpoint exposure only to presentations that actually occurred before its response',()=>{
+ const root=fs.mkdtempSync(path.join(os.tmpdir(),'checkpoint-first-'));const db=openChart('synthetic',{chartDir:root});
+ try{
+ recordAssignment(db,{assignmentId:'a',words:['night'],testDate:null,sourcePhotoHash:'a'.repeat(64)});
+ const base={assignmentId:'a',sessionId:'s',word:'night',shown:{lettersVisible:false,hint:false,companionHelp:false}};
+ const first=presentOriginalSpellingItem(db,{...base,nodeId:'checkpoint',launchId:'first',sourceItemId:'check-first',instrument:'recall_check'});
+ recordOriginalSpellingResponse(db,{assignmentId:'a',sessionId:'s',itemId:String(first.payload.itemId),sourceResponseId:'r1',rawResponse:'night',status:'answered',support:{audioReplays:0,spellingShown:false,hint:false,companionHelp:false}});
+ expect(projectAssignment(exportEvents(db),'a').recallChecks[0]).toMatchObject({previouslyExposed:false,instrument:'recall_check',eligible:false});
+ presentOriginalSpellingItem(db,{...base,nodeId:'lesson',launchId:'later',sourceItemId:'lesson',instrument:'practice',shown:{lettersVisible:true,hint:false,companionHelp:false}});
+ // A later lesson cannot retroactively become prior exposure for the earlier check.
+ expect(projectAssignment(exportEvents(db),'a').recallChecks[0].previouslyExposed).toBe(false);
+ const second=presentOriginalSpellingItem(db,{...base,nodeId:'checkpoint',launchId:'second',sourceItemId:'check-second',instrument:'recall_check'});
+ recordOriginalSpellingResponse(db,{assignmentId:'a',sessionId:'s',itemId:String(second.payload.itemId),sourceResponseId:'r2',rawResponse:'night',status:'answered',support:{audioReplays:0,spellingShown:false,hint:false,companionHelp:false}});
+ expect(projectAssignment(exportEvents(db),'a').recallChecks[1].previouslyExposed).toBe(true);
+ }finally{db.close();fs.rmSync(root,{recursive:true,force:true});}
+});
