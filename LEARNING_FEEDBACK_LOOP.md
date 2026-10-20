@@ -1,6 +1,6 @@
 # Sunny Learning Feedback Loop
 
-Contract version: 41
+Contract version: 42
 
 This document is the **sole normative** authority for how Sunny forms, tests, and revises learning claims. Product changes that alter this loop must update this contract version before implementation. Other documents may describe infrastructure or history, but they must link here instead of creating another learning doctrine.
 
@@ -44,6 +44,8 @@ school assignment
 → prediction evaluation and exactly one theory decision
 → improved next intervention
 ```
+
+Prepared, verified activities on spelling Teaching and successor boards are selectable without completing earlier activities. The authored path recommends an order; it is not an activity launch prerequisite. Unavailable activities remain unavailable, and probe/evaluation navigation, actual exposure records, selected-route completion and learning claims keep their existing contracts.
 
 The child completes the selected route frontier, not every cosmetic route merely to satisfy a gate. A route selection is engagement evidence only. When the selected frontier is complete, code records observations, closes that board's evidence batch, and enters an evaluating lifecycle; it never chooses the educational next step. The Planner then makes exactly one evidence-citing choice: prescribe support, generate Quest, generate Boss when Quest evidence exists, collect more evidence, or await calibration. Every choice except `await_calibration` authors one complete successor program, which becomes exactly one new board instance (see *Immutable board instances*).
 

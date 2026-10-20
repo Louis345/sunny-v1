@@ -765,6 +765,10 @@ export function canonicalJourneyFrontier(cycle:LearningCycleRecordV2) {
   return definition ? journeyFrontier(definition,cycle.routeSelection?.choices ?? {},cycle.nodes.filter(node=>node.state==='completed').map(node=>node.nodeId),notReadyNodeIds(cycle)) : undefined;
 }
 
+// Prepared spelling practice is selectable; the authored path remains a recommendation.
+const allowsReadyActivitySelection = (cycle:LearningCycleRecordV2) => cycle.domain === 'spelling'
+  && ['teaching','successor'].includes(currentBoardInstance(cycle).kind);
+
 /** Undefined is the read-only legacy navigation contract, never permission. */
 export function canonicalJourneyLaunchable(cycle:LearningCycleRecordV2, nodeId:string):boolean | undefined {
   if (currentBoardInstance(cycle).publishedAt === null) return false;
@@ -772,7 +776,7 @@ export function canonicalJourneyLaunchable(cycle:LearningCycleRecordV2, nodeId:s
   if (!frontier) return undefined;
   const node = cycle.nodes.find(node=>node.nodeId===nodeId);
   return Boolean(node && currentBoardInstance(cycle).nodeIds.includes(nodeId) && node.artifactBinding?.validationStatus === 'passed'
-    && ['ready','active','completed'].includes(node.state) && (node.state==='completed' || (!BATCH_CLOSED_LIFECYCLES.has(cycle.lifecycle) && frontier.activityNodeId===nodeId)));
+    && ['ready','active','completed'].includes(node.state) && (node.state==='completed' || (!BATCH_CLOSED_LIFECYCLES.has(cycle.lifecycle) && (allowsReadyActivitySelection(cycle) || frontier.activityNodeId===nodeId))));
 }
 
 export function assertJourneyChoiceAvailable(cycle:LearningCycleRecordV2,choiceId:string,optionId:string):void {
@@ -1862,6 +1866,7 @@ export function projectLearningCycle(
     ? cycle.nodes.find(node => node.role === "evaluation" && node.state === "completed")?.nodeId : undefined;
   const adventureBoard = board.definition ? renderBoardDefinition(board.definition, {
     boardId:board.boardId,planId,childId:cycle.childId,domain:cycle.domain,
+    allowReadyActivitySelection:allowsReadyActivitySelection(cycle) && !BATCH_CLOSED_LIFECYCLES.has(cycle.lifecycle),
     activities:nodePlan.map(node => ({...node,verified:boardNodes.find(item => item.nodeId === node.id)?.artifactBinding?.validationStatus === "passed",wordRadarConfig:node.wordRadarConfig ? {...node.wordRadarConfig} : undefined,state:boardNodes.find(item => item.nodeId === node.id)?.state})),
     selections:cycle.routeSelection?.choices,companion:{id:"elli",name:"Elli"},
     notReady:Object.fromEntries(boardNodes.flatMap(node=>node.notReadyReason ? [[node.nodeId,node.notReadyReason]] : [])),

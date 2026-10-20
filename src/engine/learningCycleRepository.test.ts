@@ -255,9 +255,8 @@ describe("canonical learning cycle repository", () => {
     expect(first.adventureBoard.nodes.some((node) => node.kind === "quest" || node.kind === "boss")).toBe(false);
   });
 
-  it("opens only the current step of a complete linear teaching board", () => {
-    // Human catch: Ila could skip the Planner's chunk lesson and reach practice.
-    // Artifacts and logs were complete; the lab did not assert the child-facing frontier.
+  it("opens every prepared spelling teaching activity without a sequence prerequisite", () => {
+    // Human-approved change: a suggested teaching order must not lock prepared activities.
     const plan = input();
     plan.domain = "spelling";
     plan.nodes = ["chunks", "practice", "checkpoint"].map((id) => ({
@@ -283,11 +282,20 @@ describe("canonical learning cycle repository", () => {
     const before = projectLearningCycle(cycle).adventureBoard.nodes;
     expect(before.find((node) => node.id === "chunks")?.state).toBe("available");
     expect(before.find((node) => node.id === "practice")).toMatchObject({
-      state: "locked", action: { type: "launch-activity", payloadId: "practice" },
+      state: "available", action: { type: "launch-activity", payloadId: "practice" },
     });
-    expect(canonicalJourneyLaunchable(cycle, "practice")).toBe(false);
+    expect(canonicalJourneyLaunchable(cycle, "practice")).toBe(true);
     expect(canonicalJourneyLaunchable(cycle, "chunks")).toBe(true);
-    expect(before.find((node) => node.id === "checkpoint")?.state).toBe("locked");
+    expect(before.find((node) => node.id === "checkpoint")?.state).toBe("available");
+    const unavailable = structuredClone(cycle);
+    unavailable.nodes[1]!.state = "blocked";
+    unavailable.nodes[1]!.notReadyReason = "artifact_missing";
+    expect(canonicalJourneyLaunchable(unavailable, "practice")).toBe(false);
+    expect(projectLearningCycle(unavailable).adventureBoard.nodes.find(node => node.id === "practice")?.state).toBe("locked");
+    const probe = structuredClone(cycle);
+    probe.boards![0]!.kind = "probe";
+    expect(canonicalJourneyLaunchable(probe, "practice")).toBe(false);
+    expect(projectLearningCycle(probe).adventureBoard.nodes.find(node => node.id === "practice")?.state).toBe("locked");
 
     cycle.nodes[0]!.state = "completed";
     const after = projectLearningCycle(cycle).adventureBoard.nodes;
