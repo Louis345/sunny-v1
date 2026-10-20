@@ -675,10 +675,11 @@ export async function runCompanionResponseForSession(
       }
 
       if (!fullResponse.trim()) {
+        if (rejectStaleOutput("tool_only_completion")) return;
         const owner = session.ttsBridge?.currentPlaybackIdentity?.();
         const ownsAudio = owner?.requestId === playbackId;
         if (ownsAudio) session.ttsBridge.stop();
-        if (!session.ttsBridge || ownsAudio) session.turnSM.onSpeakingDone?.();
+        session.turnSM.onSpeakingDone?.();
         session.send("audio_done", {requestId:playbackId,itemId:session.currentBoardSnapshot?.itemId});
         session.applyCompanionDispositionAfterSpeech?.();
         console.log(" 🎮 [companion] [tool-only-turn] [completed] spoken=false");
