@@ -124,11 +124,6 @@ export const TEACHING_TOOLS: Record<string, GameDefinition> = {
     "defaultConfig": {},
     "voiceEnabled": true
   },
-  "word-builder": {
-    "url": "/games/word-builder.html",
-    "defaultConfig": {},
-    "voiceEnabled": true
-  },
   "wordle": {
     "url": "/games/wordle.html",
     "defaultConfig": {},

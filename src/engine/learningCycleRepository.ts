@@ -759,7 +759,8 @@ function agencyNodeIds(experiment: LearningCycleAgencyExperiment): Set<string> {
   ]);
 }
 
-const notReadyNodeIds=(cycle:LearningCycleRecordV2)=>cycle.nodes.filter(node=>node.notReadyReason).map(node=>node.nodeId);
+const unavailableActivityReason=(node:LearningCycleRecordV2['nodes'][number])=>nodeActivityType(node)==='word-builder' ? 'activity_unavailable:word-builder' : undefined;
+const notReadyNodeIds=(cycle:LearningCycleRecordV2)=>cycle.nodes.filter(node=>node.notReadyReason || unavailableActivityReason(node)).map(node=>node.nodeId);
 export function canonicalJourneyFrontier(cycle:LearningCycleRecordV2) {
   const definition = currentBoardInstance(cycle).definition;
   return definition ? journeyFrontier(definition,cycle.routeSelection?.choices ?? {},cycle.nodes.filter(node=>node.state==='completed').map(node=>node.nodeId),notReadyNodeIds(cycle)) : undefined;
@@ -775,7 +776,7 @@ export function canonicalJourneyLaunchable(cycle:LearningCycleRecordV2, nodeId:s
   const frontier = canonicalJourneyFrontier(cycle);
   if (!frontier) return undefined;
   const node = cycle.nodes.find(node=>node.nodeId===nodeId);
-  return Boolean(node && currentBoardInstance(cycle).nodeIds.includes(nodeId) && node.artifactBinding?.validationStatus === 'passed'
+  return Boolean(node && !unavailableActivityReason(node) && currentBoardInstance(cycle).nodeIds.includes(nodeId) && node.artifactBinding?.validationStatus === 'passed'
     && ['ready','active','completed'].includes(node.state) && (node.state==='completed' || (!BATCH_CLOSED_LIFECYCLES.has(cycle.lifecycle) && (allowsReadyActivitySelection(cycle) || frontier.activityNodeId===nodeId))));
 }
 
@@ -1800,7 +1801,7 @@ export function projectLearningCycle(
       difficulty: 1,
       source: "chart_planner",
       targetLane: node.academicTarget.skill,
-      locked: node.state === "locked" || node.state === "generating" || node.state === "blocked",
+      locked: Boolean(unavailableActivityReason(node)) || node.state === "locked" || node.state === "generating" || node.state === "blocked",
       masteryUnlockState: node.state === "ready" || node.state === "active" || node.state === "completed"
         ? "unlocked"
         : "preparing",
@@ -1869,7 +1870,7 @@ export function projectLearningCycle(
     allowReadyActivitySelection:allowsReadyActivitySelection(cycle) && !BATCH_CLOSED_LIFECYCLES.has(cycle.lifecycle),
     activities:nodePlan.map(node => ({...node,verified:boardNodes.find(item => item.nodeId === node.id)?.artifactBinding?.validationStatus === "passed",wordRadarConfig:node.wordRadarConfig ? {...node.wordRadarConfig} : undefined,state:boardNodes.find(item => item.nodeId === node.id)?.state})),
     selections:cycle.routeSelection?.choices,companion:{id:"elli",name:"Elli"},
-    notReady:Object.fromEntries(boardNodes.flatMap(node=>node.notReadyReason ? [[node.nodeId,node.notReadyReason]] : [])),
+    notReady:Object.fromEntries(boardNodes.flatMap(node=> { const reason = node.notReadyReason ?? unavailableActivityReason(node); return reason ? [[node.nodeId,reason]] : []; })),
   }) : buildAdventureBoardFromActiveSessionPlan({
     plan: {
       ...activeSessionPlan,

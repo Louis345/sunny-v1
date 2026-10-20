@@ -292,6 +292,10 @@ describe("canonical learning cycle repository", () => {
     unavailable.nodes[1]!.notReadyReason = "artifact_missing";
     expect(canonicalJourneyLaunchable(unavailable, "practice")).toBe(false);
     expect(projectLearningCycle(unavailable).adventureBoard.nodes.find(node => node.id === "practice")?.state).toBe("locked");
+    const unfinishedBuilder = structuredClone(cycle);
+    unfinishedBuilder.nodes[1]!.implementationType = "word-builder";
+    expect(canonicalJourneyLaunchable(unfinishedBuilder, "practice")).toBe(false);
+    expect(projectLearningCycle(unfinishedBuilder).adventureBoard.nodes.find(node => node.id === "practice")).toMatchObject({ state: "locked", lock: { reason: "not-ready" } });
     const probe = structuredClone(cycle);
     probe.boards![0]!.kind = "probe";
     expect(canonicalJourneyLaunchable(probe, "practice")).toBe(false);
