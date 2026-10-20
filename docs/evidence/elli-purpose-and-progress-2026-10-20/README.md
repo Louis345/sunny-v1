@@ -113,3 +113,24 @@ actual completion facts. Diagnose why displayed content cannot be finished and
 where generation time is spent. Preserve the artist → canvas boundary; do not
 silently unlock/reorder nodes or invent learning evidence. Latency optimization
 remains a separate branch. No board or latency fix is included here.
+
+
+## Full PR #18 review at 15bfd2b
+
+[Opus's full-branch review](./opus-pr18-review.md) covers the complete diff from
+001312f through 15bfd2b; the receipt pins both revisions. It agrees the change
+preserves artist → canvas. It recommends guarding the turn-time chart lookup
+before the second human test, and a real state-machine check for the tool-only
+foreign-audio case. Those are review findings, not fixes included in this
+documentation update. It also raises broad support accounting, Wheel scope,
+Matilda's remaining personality conflict, raw status vocabulary and human
+acceptance limits. Read each finding's stated certainty; a hypothetical failure
+is not a reproduced live incident. The earlier snapshot-merge/alternate-caller
+hypotheses are now explicitly withdrawn by the reviewer after seeing the source.
+
+The human authorized focused diagnosis and implementation of context/lifecycle
+repairs, then explicitly instructed the latest Elli changes and targeted testing.
+A separate confirmation of the detailed purpose/progress diagnosis after it was
+posted was not recorded. Do not retroactively claim one. Review recommendations
+do not authorize merge. Final human acceptance and explicit merge approval remain
+pending. The next board/locked-content target is separate, not part of this PR.

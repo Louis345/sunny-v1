@@ -1,0 +1,24 @@
+{
+  "id": "msg_011CgDuAtgiNeMkkfVSGz9uo",
+  "model": "claude-opus-5-5",
+  "stop_reason": "end_turn",
+  "usage": {
+    "input_tokens": 102910,
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "cache_creation": {
+      "ephemeral_5m_input_tokens": 0,
+      "ephemeral_1h_input_tokens": 0
+    },
+    "output_tokens": 7052,
+    "output_tokens_details": {
+      "thinking_tokens": 2883
+    },
+    "service_tier": "standard",
+    "inference_geo": "global",
+    "speed": "standard"
+  },
+  "reviewedHead": "15bfd2bc4a78b6022d215aa849fa8aa5fcd3edad",
+  "base": "001312f92263fb14959f12640e264c7258e1a068",
+  "type": "Independent Anthropic API review; not GitHub approval"
+}
