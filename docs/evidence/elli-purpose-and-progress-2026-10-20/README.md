@@ -134,3 +134,57 @@ A separate confirmation of the detailed purpose/progress diagnosis after it was
 posted was not recorded. Do not retroactively claim one. Review recommendations
 do not authorize merge. Final human acceptance and explicit merge approval remain
 pending. The next board/locked-content target is separate, not part of this PR.
+
+
+## Review fixes and final-human-test candidate
+
+The human explicitly authorized addressing the PR18 findings, targeted checks and
+preparing the final human test. Four narrow commits resolve the verified concerns:
+
+- ca13bb3: a single guarded chart lookup in activity context replaces two reads;
+  status/history use the same cycle. Failure logs unavailability, omits saved
+  status, marks history unavailable and preserves bound activity facts. The new
+  throwing-read and single-read tests failed first, then passed. No persisted
+  snapshot status is mutated; production grep confirms no other consumer needs it.
+- a8f26ca: the real state machine reproduced a tool-only turn stuck in SPEAKING
+  when native audio owned playback. It now releases the completed conversational
+  turn, preserves foreign audio, and checks staleness before side effects. Both
+  audio-owner cases and starting the next turn pass; native audio is not stopped.
+- 2144e45: factual status vocabulary makes prepared/in-progress/saved completion
+  distinct. No dialogue template or progression change is introduced.
+- e761028: factual Wheel letter-choice and hidden-answer conditions are restored;
+  supported teaching follows live assistance conditions. No canned response or
+  keyword branch is added. Matilda's separate personality conflict remains deferred.
+
+Clean-clone verification at e761028db4a53a2b1aa331983407228332ba9962:
+backend/frontend build passed; 176 tests across 12 affected files passed in 7.98s.
+This includes chart-failure survival, one-read context, current practice/evaluation
+conditions and assistance, actual turn ownership, speech controls, urgent routing,
+assembled prompt and size budget. No provider calls or real-child writes were
+part of these checks. The unrelated local prompt edit was preserved and excluded
+from the clean verification and commits. No full-suite result is claimed here;
+CI/full regression remains a pre-merge gate, not a wait before human testing.
+
+[Opus's re-review](./opus-pr18-followup.md) found no new blocking code defect and
+considers the code ready for the final human test conditional on these checks and
+the documented deferrals. Those records are present: BUGS.md and the preceding
+README sections explicitly record conservative support accounting, Matilda's
+conflict, lab invariants, exact diagnosis-confirmation limits and isolated setup.
+The re-review did not receive those earlier unchanged documentation sections;
+its inability to verify them is not evidence that they are absent.
+
+Explicit non-blocking deferrals: bound-item context without nodeId may lack recent
+history; a tool-only CANVAS_PENDING acknowledgement path remains a hypothesis;
+conservative support marking is not a count of delivered/useful help; response
+length/time to first audio and hidden-assessment behavior need human observation.
+There are no other production consumers of recordedActivityStatus besides the
+context projection. Do not remove exposure tracking to make help metrics look
+better. No Planner, artist, canvas, locks, board generation or latency fix is included.
+
+Final human test: independently attempt an evaluation word with replay/clarification
+available; during supported practice ask for slower audio, sounds/syllables and a
+different explanation; return to the map and ask what is finished. Judge actual
+delivery, audible usefulness, assessment integrity, saved progress and response to
+feedback. Watch native audio versus a new turn. Record exact source/config revisions,
+help conditions, human feedback and timing. Do not require prescribed praise or
+wording. Final human acceptance and explicit merge authorization are still pending.
