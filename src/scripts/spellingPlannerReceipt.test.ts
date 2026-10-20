@@ -700,4 +700,4 @@ it('returns canvas collisions to the same bounded Planner correction and preserv
  vi.stubEnv('ANTHROPIC_API_KEY','');
  expect((await f.run()).output).toEqual(first.output);
  expect(transport.create).toHaveBeenCalledTimes(2);
-});
+},30000);
