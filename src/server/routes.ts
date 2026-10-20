@@ -261,6 +261,7 @@ import type { SunnyRuntimeOverrides } from "../shared/runtimeConfig";
 import { resolveSunnyRuntimeConfig } from "../shared/runtimeConfig";
 import { reconcileCompanionCareCurrencyAward } from "./currencyAward";
 import { companionPickerIdentity } from "./companionPickerRows";
+import { isSpellingPracticeContinuation } from "../engine/learningCycleRepository";
 import { advanceCanonicalCycleFromEvidence, recordCanonicalNodeCompletion, recordSpellingDiscoveryAttempt } from "../engine/learningCycleRuntime";
 import { getVoiceSessionManagerForChildSession } from "./voice-session-registry";
 import { prepareSuccessorBoard } from "../engine/canonicalProgressionGenerator";
@@ -979,6 +980,7 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
       const beforeCycle = getLearningCycle(childId, homeworkId);
       const beforeNode = beforeCycle?.nodes.find(node => node.nodeId === nodeId);
       const wasCompleted = beforeNode?.state === "completed";
+      const practiceContinuation = Boolean(beforeCycle && isSpellingPracticeContinuation(beforeCycle));
       const accuracy = Number(body.result.accuracy ?? 0);
       const suppliedSessionId = typeof body.result.sessionId === "string" ? body.result.sessionId.trim() : "";
       if ((beforeCycle?.domain === "math" || beforeNode?.evidenceContract.spellingItems) && !suppliedSessionId) {
@@ -1022,11 +1024,11 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
       const finalCycle = getLearningCycle(childId, homeworkId) ?? updated;
       const nodeState = finalCycle.nodes.find(node => node.nodeId === nodeId)?.state ?? null;
       const becameCompleted = !wasCompleted && nodeState === "completed";
-      if(becameCompleted && finalCycle.domain==='spelling' && finalCycle.lifecycle==='baseline_evaluating'){
+      if(becameCompleted && !practiceContinuation && finalCycle.domain==='spelling' && finalCycle.lifecycle==='baseline_evaluating'){
         void (runtime.forecastSpelling??runOriginalSpellingForecast)(childId,homeworkId).catch(error=>console.error(' 🎮 [spelling-forecast] [checkpoint] [needs-attention]',error));
       }
       let videoCallTicket: { homeworkId: string; earnedAt: string; bonusUrl?: string } | undefined;
-      if (becameCompleted && finalCycle.lifecycle === "baseline_evaluating") {
+      if (becameCompleted && !practiceContinuation && finalCycle.lifecycle === "baseline_evaluating") {
         try {
           const chart = getChildChart(childId);
           const earnedAt = new Date().toISOString();
@@ -1064,7 +1066,7 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
         }
       }
       console.log(` 🎮 [learning-cycle-route] [completion] [saved] child=${childId} node=${nodeId} state=${nodeState} transitioned=${becameCompleted} lifecycle=${finalCycle.lifecycle} revision=${finalCycle.revision}`);
-      if (becameCompleted && ["baseline_evaluating", "quest_evaluating", "boss_evaluating"].includes(finalCycle.lifecycle)) {
+      if (becameCompleted && !practiceContinuation && ["baseline_evaluating", "quest_evaluating", "boss_evaluating"].includes(finalCycle.lifecycle)) {
         void advanceCanonicalCycleFromEvidence({ childId, homeworkId })
           .then((decided) => {
             console.log(` 🎮 [learning-cycle-route] [planner-decision] [saved] lifecycle=${decided.lifecycle} revision=${decided.revision}`);

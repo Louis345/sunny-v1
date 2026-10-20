@@ -13,8 +13,6 @@ import { getTool } from "./games/registry";
 import { unwrapToolResult } from "./unwrapToolResult";
 import { runHandleToolCall } from "./tool-call-router";
 import { isHomeworkMode, isDebugClaude } from "../utils/runtimeMode";
-import { checkAssistantGoodbye } from "./session-triggers";
-import { shouldTriggerTransitionToWorkPhase } from "./transition-to-work-gate";
 import {
   debugLogToolCall,
   debugPrintClaudePreRun,
@@ -149,11 +147,7 @@ export async function runCompanionResponseForSession(
       });
     }
 
-    const transitionToWorkPhase = shouldTriggerTransitionToWorkPhase(
-      session.roundNumber,
-      session.companion,
-      session.transitionedToWork,
-    );
+
 
     try {
       // Window the history to reduce Claude's input size and improve TTFT.
@@ -263,7 +257,6 @@ export async function runCompanionResponseForSession(
           session.turnSM.onToken(chunk);
         },
         signal: abortController.signal,
-        transitionToWorkPhase,
         allowTransitionToWork: !session.transitionedToWork,
         onStepFinish: async (step) => {
           if (rejectStaleOutput("step_finish")) return;
@@ -647,7 +640,7 @@ export async function runCompanionResponseForSession(
 
       if (rejectStaleOutput("completion")) return;
 
-      if (!fullResponse.trim()) {
+      if (!fullResponse.trim() && session.toolCallsMadeThisTurn === 0) {
         console.warn(
           "  ⚠️  runAgent completed with empty fullResponse — check onToken wiring",
         );
@@ -681,9 +674,15 @@ export async function runCompanionResponseForSession(
         return;
       }
 
-      if (checkAssistantGoodbye(fullResponse)) {
-        console.log("  👋 Companion said goodbye");
-        await session.end();
+      if (!fullResponse.trim()) {
+        if (rejectStaleOutput("tool_only_completion")) return;
+        const owner = session.ttsBridge?.currentPlaybackIdentity?.();
+        const ownsAudio = owner?.requestId === playbackId;
+        if (ownsAudio) session.ttsBridge.stop();
+        session.turnSM.onSpeakingDone?.();
+        session.send("audio_done", {requestId:playbackId,itemId:session.currentBoardSnapshot?.itemId});
+        session.applyCompanionDispositionAfterSpeech?.();
+        console.log(" 🎮 [companion] [tool-only-turn] [completed] spoken=false");
         return;
       }
 
@@ -750,8 +749,26 @@ export async function runCompanionResponseForSession(
       session.recordDebugError?.("Agent error", err);
       await speakShortRecovery(session, "agent_response_failed", turn.isCurrent);
     } finally {
-      if (turn.isCurrent() && session.currentAbort === abortController) {
+      // Item/context changes can retire output without a replacement model turn.
+      // Suppressing that output must also release its processing state and audio.
+      // A newer model turn or audio owner must remain untouched.
+      if (session.companionResponseTurnId === turn.turnId && session.currentAbort === abortController) {
         session.currentAbort = null;
+        if (!turn.isCurrent()) {
+          session.companionResponseTurnId++;
+          abortController.abort();
+          if (session.ttsBridge?.currentPlaybackIdentity?.()?.requestId === playbackId) {
+            session.ttsBridge.stop();
+            session.send("audio_cancel", { requestId: playbackId });
+          }
+          const pending = session.turnSM.consumePendingTranscript();
+          session.turnSM.onInterrupt();
+          console.log(` 🎮 [companion] [stale-turn-retired] turn=${turn.turnId} queued=${Boolean(pending)}`);
+          if (pending && !session.isEnding) {
+            void session.handleEndOfTurn(pending, true).catch((error: unknown) =>
+              session.recordDebugError?.("stale_turn_pending_replay_failed", error));
+          }
+        }
       }
     }
 }

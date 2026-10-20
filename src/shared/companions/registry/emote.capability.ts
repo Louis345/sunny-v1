@@ -18,8 +18,7 @@ export const emoteCapability: CapabilityDefinition = {
      Valid values: ${COMPANION_EMOTES.join(" | ")}.
      Do not use any value not in this list.`,
   whenToUse: [
-    "When the moment calls for visible warmth, encouragement, or shared feeling — alongside what you say.",
-    "Never replace speech with only an emote; use both when it helps the child feel seen.",
+    "Express a feeling visually, with speech or on its own as the moment calls for.",
   ],
   payloadSchema: emotePayloadSchema,
   defaultPayload: { emote: "happy", intensity: 0.8 },

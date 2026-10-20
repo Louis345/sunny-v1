@@ -228,7 +228,8 @@ describe("spelling pronunciation context", () => {
     expect(context).not.toContain("title");
     expect(context).toContain("replayWord");
     expect(context).toContain("replayWord");
-    expect(context).toContain("Do not model syllables or reveal written letters during hidden assessment");
+    expect(context).toContain("Purpose: establish what the child can spell independently");
+    expect(context).toContain("syllables, letters and spelling demonstrations would supply part of the answer");
     expect(context).not.toContain("ARPABET");
   });
 
@@ -242,7 +243,8 @@ describe("spelling pronunciation context", () => {
     expect(context).toContain(`Syllable count: ${count}`);
     expect(context).toContain("Elli chooses the demonstration, pacing and explanation");
     expect(context).not.toContain("Model the whole word, then");
-    expect(context).toContain("Do not pronounce silent spelling letters as separate sounds");
+    expect(context).toContain("written spelling chunks may differ from spoken syllables");
+    expect(context).toContain("silent letters have no separate sound");
     expect(context).toContain("Do not grade the child's pronunciation from transcript text");
   });
 
@@ -343,4 +345,16 @@ it.each([
  expect(canonicalSpellingPractice(cycle,launch,{...bound,launchId:"old"},state)).toBe(expected===false ? false : undefined);
  expect(canonicalSpellingPractice(cycle,launch,bound,{...state,itemId:"other"})).toBe(["evaluation","quest","boss"].includes(nodeRole as string) ? false : undefined);
  expect(canonicalSpellingPractice(cycle,launch,bound,{...state,launchToken:"old"})).toBe(expected===false ? false : undefined);
+});
+
+it('retains partial spelling identity only with an active server binding, never a different game',async()=>{
+ const {retainSpellingItemState}=await import('./currentBoardSnapshot');
+ const previous:any={itemId:'i',nodeId:'n',launchToken:'l',itemIndex:0,phase:'response',game:'word-radar'};
+ const state={nodeId:'n',launchToken:'l',itemIndex:0,game:'word-radar'};
+ const bound={itemId:'i',launchId:'bound'};const launch={launchId:'bound'};
+ expect(retainSpellingItemState(state,previous,bound,launch)).toMatchObject({itemId:'i',phase:'response'});
+ expect(retainSpellingItemState(state,previous,undefined,launch)).toBe(state);
+ expect(retainSpellingItemState(state,previous,bound,{launchId:'other'})).toBe(state);
+ const changed={...state,game:'different'};
+ expect(retainSpellingItemState(changed,previous,bound,launch)).toBe(changed);
 });

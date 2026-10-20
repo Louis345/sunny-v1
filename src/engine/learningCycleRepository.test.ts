@@ -255,9 +255,41 @@ describe("canonical learning cycle repository", () => {
     expect(first.adventureBoard.nodes.some((node) => node.kind === "quest" || node.kind === "boss")).toBe(false);
   });
 
-  it("opens only the current step of a complete linear teaching board", () => {
-    // Human catch: Ila could skip the Planner's chunk lesson and reach practice.
-    // Artifacts and logs were complete; the lab did not assert the child-facing frontier.
+  it.each([false,true])("keeps an unplayed practice activity usable after the selected route closes its evidence batch (blocked=%s)", (blocked) => {
+    const rootDir = root();
+    const plan = input();
+    plan.childId = "lab-practice";
+    plan.domain = "spelling";
+    plan.nodes = ["lesson", "wheel", "check"].map(nodeId => ({ ...structuredClone(plan.nodes[0]!), nodeId, title: nodeId, openingScreen:{title:nodeId,purpose:"Practice"},
+      artifactBinding:{contentId:nodeId,artifactId:nodeId,localArtifactPath:`/games/${nodeId}.html`,localArtworkPath:"/thumb.svg",contractFingerprint:nodeId,validationStatus:"passed"},
+      implementationType: "monster-stampede", academicTarget: {domain:"spelling",skill:"practice",targets:["night"]} }));
+    const definition = choiceJourneyFixture([{id:"a",label:"Lesson",nodeIds:["lesson"]},{id:"b",label:"Wheel",nodeIds:["wheel"]}],[],["check"]);
+    plan.boards = [publishBoardInstance({...plan,boards:[]} as never,{definition,kind:"teaching",predecessorBoardId:null,plannerDecisionId:"plan",evidenceIds:[],nodeIds:["lesson","wheel","check"],publishedAt:"2026-07-11T20:00:00.000Z"})];
+    let cycle = createLearningCycle(plan,{rootDir});
+    const step = (event: Parameters<typeof transitionLearningCycle>[3]) => cycle = transitionLearningCycle(cycle.childId,cycle.homeworkId,cycle.revision,event,{rootDir});
+    step({type:"journey_choice_selected",choiceId:"choice",optionId:"a",choiceEventId:"choose-a"});
+    step(observed("lesson",[{evidenceId:"lesson-result",summary:"done"}]));
+    step(observed("check",[{evidenceId:"final-result",summary:"done"}]));
+    expect(cycle.lifecycle).toBe("baseline_evaluating");
+    if (blocked) step({type:"block",reason:"planner_response_max_tokens"});
+    const closed = structuredClone(cycle);
+    expect(canonicalJourneyLaunchable(cycle,"wheel")).toBe(true);
+    expect(projectLearningCycle(cycle).adventureBoard.nodes.find(node=>node.activityNodeId==="wheel")?.state).toBe("available");
+    const response = {observationId:"extra-practice",itemId:"night",sourceId:"practice",result:{correct:true},assistance:{status:"unassisted",scaffolds:[]},exposure:"unseen",provenance:"independent_probe",observedAt:"2026-07-12T12:00:00Z",constructLinks:[],confounds:["measurement_role:fresh_checkpoint"]};
+    step({...observed("wheel",[{evidenceId:"wheel-partial",summary:"practice"}]),completed:false,observations:[response as never]});
+    expect(cycle.lifecycle).toBe(closed.lifecycle);
+    step(observed("wheel",[{evidenceId:"wheel-finish",summary:"practice"}]));
+    expect(cycle.nodes.find(node=>node.nodeId==="wheel")?.state).toBe("completed");
+    expect(cycle.lifecycle).toBe(closed.lifecycle);
+    expect(cycle.observations.slice(0,closed.observations.length)).toEqual(closed.observations);
+    expect(cycle.observations.at(-1)).toMatchObject({provenance:"practice"});
+    expect(cycle.observations.at(-1)?.confounds).toContain("measurement_role:practice");
+    expect(cycle.academicPredictions).toEqual(closed.academicPredictions);
+    expect(cycle.predictionEvaluations).toEqual(closed.predictionEvaluations);
+  });
+
+  it("opens every prepared spelling teaching activity without a sequence prerequisite", () => {
+    // Human-approved change: a suggested teaching order must not lock prepared activities.
     const plan = input();
     plan.domain = "spelling";
     plan.nodes = ["chunks", "practice", "checkpoint"].map((id) => ({
@@ -283,11 +315,45 @@ describe("canonical learning cycle repository", () => {
     const before = projectLearningCycle(cycle).adventureBoard.nodes;
     expect(before.find((node) => node.id === "chunks")?.state).toBe("available");
     expect(before.find((node) => node.id === "practice")).toMatchObject({
-      state: "locked", action: { type: "launch-activity", payloadId: "practice" },
+      state: "available", action: { type: "launch-activity", payloadId: "practice" },
     });
-    expect(canonicalJourneyLaunchable(cycle, "practice")).toBe(false);
+    expect(canonicalJourneyLaunchable(cycle, "practice")).toBe(true);
     expect(canonicalJourneyLaunchable(cycle, "chunks")).toBe(true);
-    expect(before.find((node) => node.id === "checkpoint")?.state).toBe("locked");
+    expect(before.find((node) => node.id === "checkpoint")?.state).toBe("available");
+    for (const lifecycle of ["baseline_evaluating","awaiting_calibration","complete"] as const) {
+      const finished = {...structuredClone(cycle),lifecycle};
+      expect(canonicalJourneyLaunchable(finished,"practice")).toBe(true);
+      expect(projectLearningCycle(finished).adventureBoard.nodes.find(node=>node.id==="practice")?.state).toBe("available");
+    }
+    const unavailable = structuredClone(cycle);
+    unavailable.nodes[1]!.state = "blocked";
+    unavailable.nodes[1]!.notReadyReason = "artifact_missing";
+    expect(canonicalJourneyLaunchable(unavailable, "practice")).toBe(false);
+    expect(projectLearningCycle(unavailable).adventureBoard.nodes.find(node => node.id === "practice")?.state).toBe("locked");
+    const unfinishedBuilder = structuredClone(cycle);
+    unfinishedBuilder.nodes[1]!.implementationType = "word-builder";
+    expect(canonicalJourneyLaunchable(unfinishedBuilder, "practice")).toBe(false);
+    expect(projectLearningCycle(unfinishedBuilder).adventureBoard.nodes.find(node => node.id === "practice")).toMatchObject({ state: "locked", lock: { reason: "not-ready" } });
+    const legacyBuilder = structuredClone(unfinishedBuilder);
+    legacyBuilder.boards![0]!.kind = "legacy";
+    delete legacyBuilder.boards![0]!.definition;
+    expect(canonicalJourneyLaunchable(legacyBuilder, "practice")).toBe(false);
+    const partial = structuredClone(cycle);
+    partial.nodes[0]!.state = "active";
+    // An incomplete instrument is not a live launch lease; switching remains allowed.
+    expect(canonicalJourneyLaunchable(partial, "practice")).toBe(true);
+    expect(projectLearningCycle(partial).adventureBoard.nodes.find(node => node.id === "practice")?.state).toBe("available");
+    const successor = structuredClone(cycle);
+    successor.boards![0]!.kind = "successor";
+    expect(canonicalJourneyLaunchable(successor, "practice")).toBe(true);
+    const math = structuredClone(cycle);
+    math.domain = "math";
+    expect(canonicalJourneyLaunchable(math, "practice")).toBe(false);
+    expect(projectLearningCycle(math).adventureBoard.nodes.find(node => node.id === "practice")?.state).toBe("locked");
+    const probe = structuredClone(cycle);
+    probe.boards![0]!.kind = "probe";
+    expect(canonicalJourneyLaunchable(probe, "practice")).toBe(false);
+    expect(projectLearningCycle(probe).adventureBoard.nodes.find(node => node.id === "practice")?.state).toBe("locked");
 
     cycle.nodes[0]!.state = "completed";
     const after = projectLearningCycle(cycle).adventureBoard.nodes;

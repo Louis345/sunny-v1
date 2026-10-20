@@ -57,7 +57,9 @@ export function useAppAdventurePreparation(input: {
   const wordsRef = useRef<{ scope: string; words: string[] }>({ scope: "", words: [] });
   const words = preparationWords(input.packet);
   if (words.length && wordsRef.current.scope !== scope) wordsRef.current = { scope, words };
-  const items = useMemo(() => (wordsRef.current.scope === scope ? wordsRef.current.words : words).map(face => ({ face, spoken: face })), [scope, words.join("|")]); // eslint-disable-line react-hooks/exhaustive-deps
+  const results = mode === "chapter" ? input.packet?.spellingEvaluationResults : undefined;
+  const resultsKey = JSON.stringify(results);
+  const items = useMemo(() => (wordsRef.current.scope === scope ? wordsRef.current.words : words).map(face => ({ face, spoken: face, correct: results?.find(item => item.display === face)?.correct })), [scope, words.join("|"), resultsKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const activityTypes = useMemo(() => new Map(
     (input.packet?.activeSessionPlan?.adventureBoard?.nodes ?? []).map(node => [node.id, node.activityId ?? node.kind] as [string, string]),
@@ -117,11 +119,12 @@ export function useAppAdventurePreparation(input: {
   const contextActivityTypes = ctx?.stops.map(stop => stop.activityType).join("|") ?? "";
   const finishedBuilding = input.surface === null && contextTotal > 0 && contextReady >= contextTotal;
   const elapsedLabel = preparationElapsedLabel(input.status?.startedAt, now, finishedBuilding);
+  const visible = Boolean(snapshot) && revealedScope !== scope && (mode === "chapter" || input.surface === "held" || state === "ready" || state === "stop");
 
   // Keep Elli grounded in the same visual state the child can see. The screen
   // stays quiet; this snapshot lets Elli answer naturally only when addressed.
   useEffect(() => {
-    if (!active || !state || !ctx) return;
+    if (!visible || !active || !state || !ctx) return;
     const countLine = contextTotal > 0 ? `${contextReady} of ${contextTotal} map activities ready.` : null;
     const screenText = [
       contextLine,
@@ -150,9 +153,8 @@ export function useAppAdventurePreparation(input: {
         },
       },
     });
-  }, [active, childId, contextActivityTypes, contextLine, contextReady, contextReviewed, contextReviewTotal, contextTotal, elapsedLabel, finishedBuilding, input.status?.phase, sendMessage, state]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [visible, active, childId, contextActivityTypes, contextLine, contextReady, contextReviewed, contextReviewTotal, contextTotal, elapsedLabel, finishedBuilding, input.status?.phase, sendMessage, state]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const visible = Boolean(snapshot) && revealedScope !== scope && (mode === "chapter" || input.surface === "held" || state === "ready" || state === "stop");
   if (!visible || !snapshot || !state || !ctx) return { screen: null };
   return {
     screen: (

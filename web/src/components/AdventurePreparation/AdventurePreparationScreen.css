@@ -150,3 +150,6 @@
 @media (prefers-reduced-motion: reduce) {
   .ap-root * { animation-duration: 0s !important; animation-iteration-count: 1 !important; transition-duration: 0s !important; }
 }
+
+.ap-card[data-result="correct"] .ap-result { color: #17643b; }
+.ap-card[data-result="incorrect"] .ap-result { color: #a52b28; }

@@ -759,20 +759,33 @@ function agencyNodeIds(experiment: LearningCycleAgencyExperiment): Set<string> {
   ]);
 }
 
-const notReadyNodeIds=(cycle:LearningCycleRecordV2)=>cycle.nodes.filter(node=>node.notReadyReason).map(node=>node.nodeId);
+const unavailableActivityReason=(node:LearningCycleRecordV2['nodes'][number])=>nodeActivityType(node)==='word-builder' ? 'activity_unavailable:word-builder' : undefined;
+const notReadyNodeIds=(cycle:LearningCycleRecordV2)=>cycle.nodes.filter(node=>node.notReadyReason || unavailableActivityReason(node)).map(node=>node.nodeId);
 export function canonicalJourneyFrontier(cycle:LearningCycleRecordV2) {
   const definition = currentBoardInstance(cycle).definition;
   return definition ? journeyFrontier(definition,cycle.routeSelection?.choices ?? {},cycle.nodes.filter(node=>node.state==='completed').map(node=>node.nodeId),notReadyNodeIds(cycle)) : undefined;
 }
 
+// Prepared spelling practice is selectable; the authored path remains a recommendation.
+const allowsReadyActivitySelection = (cycle:LearningCycleRecordV2) => cycle.domain === 'spelling'
+  && ['teaching','successor'].includes(currentBoardInstance(cycle).kind);
+
+/** A finished evidence batch does not end prepared spelling practice. */
+export function isSpellingPracticeContinuation(cycle:LearningCycleRecordV2):boolean {
+  return allowsReadyActivitySelection(cycle) && (BATCH_CLOSED_LIFECYCLES.has(cycle.lifecycle)
+    || (cycle.lifecycle === 'blocked' && cycle.decisionHistory.some(decision => BATCH_CLOSED_LIFECYCLES.has(decision.fromLifecycle)
+      && Date.parse(decision.createdAt) >= Date.parse(currentBoardInstance(cycle).publishedAt ?? cycle.createdAt))));
+}
+
 /** Undefined is the read-only legacy navigation contract, never permission. */
 export function canonicalJourneyLaunchable(cycle:LearningCycleRecordV2, nodeId:string):boolean | undefined {
   if (currentBoardInstance(cycle).publishedAt === null) return false;
+  const node = cycle.nodes.find(node=>node.nodeId===nodeId);
+  if (node && unavailableActivityReason(node)) return false;
   const frontier = canonicalJourneyFrontier(cycle);
   if (!frontier) return undefined;
-  const node = cycle.nodes.find(node=>node.nodeId===nodeId);
   return Boolean(node && currentBoardInstance(cycle).nodeIds.includes(nodeId) && node.artifactBinding?.validationStatus === 'passed'
-    && ['ready','active','completed'].includes(node.state) && (node.state==='completed' || (!BATCH_CLOSED_LIFECYCLES.has(cycle.lifecycle) && frontier.activityNodeId===nodeId)));
+    && ['ready','active','completed'].includes(node.state) && (node.state==='completed' || allowsReadyActivitySelection(cycle) || (!BATCH_CLOSED_LIFECYCLES.has(cycle.lifecycle) && frontier.activityNodeId===nodeId)));
 }
 
 export function assertJourneyChoiceAvailable(cycle:LearningCycleRecordV2,choiceId:string,optionId:string):void {
@@ -1491,7 +1504,8 @@ export function transitionLearningCycle(
     const owner = next.boards ? boardOwningNode(next, node.nodeId) : undefined;
     if (owner && owner.publishedAt === null) throw new Error(`learning_board_not_published:${node.nodeId}`);
     if (owner && owner.boardId !== currentBoardInstance(next).boardId) throw new Error(`learning_board_read_only:${node.nodeId}`);
-    const replay = node.state === "completed";
+    const practiceContinuation = isSpellingPracticeContinuation(current);
+    const replay = node.state === "completed" || practiceContinuation;
     if (canonicalJourneyLaunchable(next,node.nodeId) === false) throw new Error(`learning_cycle_node_not_launchable:${node.nodeId}`);
     if (!replay && BATCH_CLOSED_LIFECYCLES.has(current.lifecycle)) throw new Error(`learning_board_batch_closed:${node.nodeId}`);
     if (node.role === "quest" || node.role === "boss") {
@@ -1500,7 +1514,8 @@ export function transitionLearningCycle(
       }
     }
     evidenceIds = appendOutcomeEvidence(next, event);
-    appendObservations(next, event.observations);
+    appendObservations(next, practiceContinuation ? event.observations.map(observation => ({...observation, provenance:"practice" as const,
+      confounds:[...observation.confounds.filter(value=>!value.startsWith("measurement_role:") && value!=="post_board_practice"),"measurement_role:practice","post_board_practice"]})) : event.observations);
     if (event.completed === false) {
       if (!(replay && next.domain === "spelling")) node.state = "active";
       reason = replay && next.domain === "spelling" ? "Replay item captured as practice; completed instrument remains closed." : "Factual item response captured; instrument remains incomplete.";
@@ -1775,7 +1790,7 @@ export function projectLearningCycle(
     .map((node) => node.nodeId));
   const boardNodes = cycle.nodes.filter((node) => !hiddenNodeIds.has(node.nodeId));
   const experiment = board.kind === "legacy" ? undefined : board.agencyExperiment;
-  const notTakenNodeIds = new Set(BATCH_CLOSED_LIFECYCLES.has(cycle.lifecycle)
+  const notTakenNodeIds = new Set(!allowsReadyActivitySelection(cycle) && BATCH_CLOSED_LIFECYCLES.has(cycle.lifecycle)
     ? boardNodes.filter((node) => node.role === "baseline" && node.state !== "completed").map((node) => node.nodeId)
     : []);
   const nodePlan: ActiveSessionPlan["nodePlan"] = boardNodes
@@ -1796,7 +1811,7 @@ export function projectLearningCycle(
       difficulty: 1,
       source: "chart_planner",
       targetLane: node.academicTarget.skill,
-      locked: node.state === "locked" || node.state === "generating" || node.state === "blocked",
+      locked: Boolean(unavailableActivityReason(node)) || node.state === "locked" || node.state === "generating" || node.state === "blocked",
       masteryUnlockState: node.state === "ready" || node.state === "active" || node.state === "completed"
         ? "unlocked"
         : "preparing",
@@ -1862,9 +1877,10 @@ export function projectLearningCycle(
     ? cycle.nodes.find(node => node.role === "evaluation" && node.state === "completed")?.nodeId : undefined;
   const adventureBoard = board.definition ? renderBoardDefinition(board.definition, {
     boardId:board.boardId,planId,childId:cycle.childId,domain:cycle.domain,
+    allowReadyActivitySelection:allowsReadyActivitySelection(cycle),
     activities:nodePlan.map(node => ({...node,verified:boardNodes.find(item => item.nodeId === node.id)?.artifactBinding?.validationStatus === "passed",wordRadarConfig:node.wordRadarConfig ? {...node.wordRadarConfig} : undefined,state:boardNodes.find(item => item.nodeId === node.id)?.state})),
     selections:cycle.routeSelection?.choices,companion:{id:"elli",name:"Elli"},
-    notReady:Object.fromEntries(boardNodes.flatMap(node=>node.notReadyReason ? [[node.nodeId,node.notReadyReason]] : [])),
+    notReady:Object.fromEntries(boardNodes.flatMap(node=> { const reason = node.notReadyReason ?? unavailableActivityReason(node); return reason ? [[node.nodeId,reason]] : []; })),
   }) : buildAdventureBoardFromActiveSessionPlan({
     plan: {
       ...activeSessionPlan,

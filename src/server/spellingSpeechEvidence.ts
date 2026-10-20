@@ -5,7 +5,7 @@ import { recordPresentedAudio, withOriginalSpellingChart } from "../chart/spelli
 /** Help binds to the actual item; practice can receive teaching before response entry. */
 export function markCurrentSpellingSupport(assessment: SpellingAssessmentState | undefined, snapshot: CurrentBoardSnapshot | null): boolean {
   const matches = Boolean(assessment && snapshot?.itemId === assessment.itemId
-    && (snapshot.phase === "response" || assessment.instrument === "practice" && ["flash", "presentation", "feedback"].includes(snapshot.phase ?? "")));
+    && (snapshot.phase === "response" || assessment.instrument === "practice" && ["flash", "presentation", "playing", "feedback"].includes(snapshot.phase ?? "")));
   if (matches && assessment && !assessment.supportIds.length) {
     assessment.supportIds.push(`support:${snapshot!.sessionId}:${assessment.itemId}`);
     console.log(` 🎮 [spelling-assessment] [support] [recorded] item=${assessment.itemId}`);

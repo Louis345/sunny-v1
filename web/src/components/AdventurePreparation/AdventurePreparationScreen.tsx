@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { PreparationState, PreparationStop } from "./adventurePreparationMachine";
 import "./AdventurePreparationScreen.css";
 
-export type PreparationItem = { face: string; spoken: string };
+export type PreparationItem = { face: string; spoken: string; correct?: boolean };
 
 export type AdventurePreparationScreenProps = {
   state: PreparationState;
@@ -110,11 +110,11 @@ export function AdventurePreparationScreen(props: AdventurePreparationScreenProp
               <div className="ap-cards" data-testid="ap-cards">
                 {items.map((item, i) => (
                   <button
-                    key={`${item.face}:${i}`} type="button" aria-label={`Hear ${item.face}`}
+                    key={`${item.face}:${i}`} type="button" aria-label={`Hear ${item.face}${item.correct === undefined ? "" : item.correct ? " — Correct" : " — To practise"}`} data-result={item.correct === undefined ? undefined : item.correct ? "correct" : "incorrect"}
                     className={`ap-card${reviewing && i === currentReview ? " ap-now" : ""}${reviewing && i > currentReview && currentReview >= 0 ? " ap-wait" : ""}${tapped === i ? " ap-tapped" : ""}`}
                     style={{ animationDelay: `${i * 120}ms` }} onClick={() => hear(i)}
                   >
-                    {item.face}<SpeakerIcon />
+                    {item.correct !== undefined && <span className="ap-result" aria-hidden="true">{item.correct ? "✓" : "✕"}</span>}{item.face}<SpeakerIcon />
                     {reviewed.includes(i) && <i className="ap-seen" aria-hidden="true" />}
                   </button>
                 ))}
@@ -146,8 +146,8 @@ export function AdventurePreparationScreen(props: AdventurePreparationScreenProp
                 <div className="ap-tray">
                   <span className="ap-lead" aria-hidden="true"><SpeakerIcon /></span>
                   {items.map((item, i) => (
-                    <button key={`${item.face}:${i}`} type="button" aria-label={`Hear ${item.face}`} className={`ap-card${tapped === i ? " ap-tapped" : ""}`} onClick={() => hear(i)}>
-                      {item.face}
+                    <button key={`${item.face}:${i}`} type="button" aria-label={`Hear ${item.face}${item.correct === undefined ? "" : item.correct ? " — Correct" : " — To practise"}`} data-result={item.correct === undefined ? undefined : item.correct ? "correct" : "incorrect"} className={`ap-card${tapped === i ? " ap-tapped" : ""}`} onClick={() => hear(i)}>
+                      {item.correct !== undefined && <span className="ap-result" aria-hidden="true">{item.correct ? "✓" : "✕"}</span>}{item.face}
                     </button>
                   ))}
                 </div>

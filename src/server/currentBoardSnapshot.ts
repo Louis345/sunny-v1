@@ -36,6 +36,7 @@ export type CurrentBoardSnapshot = {
   coinsEarned?: number;
   accuracy?: number;
   completed?: boolean;
+  recordedActivityStatus?: string;
   masteryEligible?: boolean;
   evidenceTier?: string;
   lastOutcome?: string;
@@ -67,6 +68,17 @@ type BuildSnapshotInput = {
 };
 
 /** The Planner's frozen item role grants teaching; a browser visibility flag does not. */
+/** Partial native updates retain identity only within the bound spelling item. */
+export function retainSpellingItemState(state: Record<string, unknown>, previous: CurrentBoardSnapshot | null,
+  bound: {itemId:string;launchId?:string} | undefined, launch: {launchId:string} | undefined): Record<string, unknown> {
+  return !state.itemId && previous?.itemId && bound?.itemId === previous.itemId
+    && launch && bound.launchId === launch.launchId && state.nodeId === previous.nodeId
+    && state.launchToken === previous.launchToken && state.itemIndex !== undefined
+    && state.itemIndex === previous.itemIndex && (!state.game || state.game === previous.game)
+    && (!state.phase || state.phase === previous.phase)
+    ? {itemId:previous.itemId,phase:previous.phase,...state} : state;
+}
+
 export function canonicalSpellingPractice(
   cycle: LearningCycleRecordV2 | null | undefined,
   launch: { nodeId: string; launchId: string; launchToken?: string } | undefined,
@@ -285,6 +297,11 @@ export function buildCurrentBoardSnapshotContext(
   if (snapshot.nodeId) lines.push(`Current node: ${snapshot.nodeId}`);
   if (snapshot.itemId) lines.push(`Current item: ${snapshot.itemId}`);
   if (snapshot.phase) lines.push(`Phase: ${snapshot.phase}`);
+  if (snapshot.recordedActivityStatus) {
+    lines.push(`Recorded activity status: ${snapshot.recordedActivityStatus}`,
+      "ready means prepared, not completed; active means in progress; completed means completion was saved.",
+      "Activity phase describes the screen; recorded activity status describes saved progress.");
+  }
   if (snapshot.phase === "opening" || snapshot.phase === "document_loaded") {
     lines.push("Do not say the activity is ready until a live activity state arrives. You may say it is opening.");
   }
@@ -295,13 +312,14 @@ export function buildCurrentBoardSnapshotContext(
   if (snapshot.currentTarget && snapshot.spellingSupportMode !== "stimulus_only") lines.push(`Current target: ${snapshot.currentTarget}`);
   if (snapshot.spellingTarget) {
     lines.push("[Spelling pronunciation support]",
-      "Hidden written letters remain hidden. Pronunciation modeling is assistance, not an independent spelling result.");
+      "The activity controls written answer visibility. Teaching is assistance, not an independent spelling result.");
     if (snapshot.spellingSupportMode === "stimulus_only") {
-      lines.push("Use replayWord to request the activity’s own whole-word audio, or clarify the activity instructions. The private stimulus is held by the activity, not supplied in this context.",
-        "Do not model syllables or reveal written letters during hidden assessment. Offer a pause or the activity's available help action when more support is needed.");
+      lines.push("Purpose: establish what the child can spell independently. Whole-word replay and task clarification support that measurement; syllables, letters and spelling demonstrations would supply part of the answer.",
+        "Use replayWord for the activity’s own whole-word audio. The private stimulus is held by the activity, not supplied in this context.");
     } else {
       lines.push(`Authoritative spelling target (internal): ${snapshot.spellingTarget}`,
-        "Do not replace this target with words from room conversation. If the activity context is missing, ask which item needs help instead of inventing a target.");
+        "Purpose: help the child learn this word together. A request for help gives you room to demonstrate and adapt, using the child's feedback to judge what helps.",
+        "Supported practice: sounds, syllables, blending, letter names and spelling demonstrations are available. The canonical target comes from this activity, not room conversation.");
       const phones = cmuDictionary[snapshot.spellingTarget.normalize("NFC").toLowerCase()];
       if (typeof phones === "string" && phones) {
         const vowelNuclei = phones.split(/\s+/).filter(phone => /[012]$/.test(phone));
@@ -309,11 +327,9 @@ export function buildCurrentBoardSnapshotContext(
           `ARPABET: ${phones}`, `Syllable count: ${vowelNuclei.length}`,
           `Vowel stress (0=unstressed, 1=primary, 2=secondary): ${vowelNuclei.map(phone => phone.slice(-1)).join(" ")}`,
           "Available teaching reference: whole-word sounds, vowel nuclei and stress; Elli chooses the demonstration, pacing and explanation.",
-          "This reference supplies phonemes and vowel nuclei, not written syllable boundaries. Do not label spelling chunks as syllables unless they match the spoken syllables.",
-          "Do not pronounce silent spelling letters as separate sounds. Use activity-authored sound cues when available; do not invent letter-to-sound mappings.",
-          "After an unsuccessful hint, change the explanation or offer an available break/help action; do not repeat generic encouragement.");
+          "Phonemes describe spoken sounds; written spelling chunks may differ from spoken syllables, and silent letters have no separate sound.");
       } else {
-        lines.push("Pronunciation reference unavailable. Use the activity's authored narration or sound cues; do not invent a phoneme sequence or syllable breakdown.");
+        lines.push("Pronunciation reference unavailable. Use your language knowledge and available audio or authored sound cues; acknowledge uncertainty about unfamiliar pronunciations.");
       }
       lines.push("Do not grade the child's pronunciation from transcript text. Specific pronunciation judgments require audio assessment evidence.");
     }
@@ -382,8 +398,7 @@ export function findCompanionTruthContradictions(
   if (!snapshot) return [];
   const text = response.toLowerCase();
   const contradictions: string[] = [];
-  if (snapshot.spellingTarget && (snapshot.spellingSupportMode === "stimulus_only"
-    || snapshot.spellingSupportMode === "pronunciation_model" && snapshot.answerVisibility === "hidden")) {
+  if (snapshot.spellingTarget && snapshot.spellingSupportMode === "stimulus_only") {
     const target = snapshot.spellingTarget.toLowerCase().replace(/[^a-z]/g, "");
     // Whole spoken stimuli are allowed. Flag separated letter runs, including
     // partial disclosure such as n-i-g-h-t within tonight (the recorded failure).
@@ -397,8 +412,7 @@ export function findCompanionTruthContradictions(
       return false;
     });
     // Text observation only: no censorship or claim that the child heard these letters.
-    if (disclosed) contradictions.push(snapshot.spellingSupportMode === "stimulus_only"
-      ? "hidden_spelling_letters_disclosed" : "hidden_practice_letters_in_response_text");
+    if (disclosed) contradictions.push("hidden_spelling_letters_disclosed");
   }
   const usesMasteryLanguage =
     /\b(100\s*%|100 percent|perfect|zero mistakes|crushed|mastered|mastery)\b/.test(text);

@@ -3,6 +3,7 @@
  * Session state lives on SessionManager; this module holds extracted handlers (no circular imports).
  */
 
+import { isSpellingPracticeContinuation } from "../engine/learningCycleRepository";
 import { recordClockAttempt } from "../engine/clockTracker";
 import { childIdFromName, recordAttempt } from "../engine/learningEngine";
 import { recordLearningAttempt } from "./learningAttemptEvents";
@@ -67,7 +68,7 @@ export function bindSpellingAssessment(input: {
   }
   const key = JSON.stringify([input.launch?.launchId ?? null, item.id]);
   if (current?.itemId === item.id && current.launchId === input.launch?.launchId) return current;
-  const next = history.get(key) ?? { ...(input.launch?.homeworkId === cycle.homeworkId && input.launch.nodeId === node.nodeId ? {launchId:input.launch.launchId,launchToken:input.launch.launchToken} : {}), audioPlaybacks:0, instrument:state.practiceCapture === true ? "practice" as const : node.role === "evaluation" ? "discovery" as const : item.lineage?.measurementRole === "fresh_checkpoint" ? "recall_check" as const : "practice" as const, nodeId: node.nodeId, homeworkId: cycle.homeworkId, itemId: item.id, word: item.word, artifactHash: node.artifactBinding.contractFingerprint, audioDelivered: false, supportIds: input.pendingSupportId ? [input.pendingSupportId] : [], lettersVisible: state.answerVisibility === "visible" ? true : state.answerVisibility === "hidden" ? false : null };
+  const next = history.get(key) ?? { ...(input.launch?.homeworkId === cycle.homeworkId && input.launch.nodeId === node.nodeId ? {launchId:input.launch.launchId,launchToken:input.launch.launchToken} : {}), audioPlaybacks:0, instrument:state.practiceCapture === true || isSpellingPracticeContinuation(cycle) ? "practice" as const : node.role === "evaluation" ? "discovery" as const : item.lineage?.measurementRole === "fresh_checkpoint" ? "recall_check" as const : "practice" as const, nodeId: node.nodeId, homeworkId: cycle.homeworkId, itemId: item.id, word: item.word, artifactHash: node.artifactBinding.contractFingerprint, audioDelivered: false, supportIds: input.pendingSupportId ? [input.pendingSupportId] : [], lettersVisible: state.answerVisibility === "visible" ? true : state.answerVisibility === "hidden" ? false : null };
   history.set(key, next);
   console.log(` 🎮 [spelling-discovery] [live-context] [bound] item=${item.id}`);
   return next;

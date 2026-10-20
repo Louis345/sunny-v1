@@ -1,4 +1,5 @@
 import fs from "fs";
+import { discoverGames } from "../server/games/registryDiscover";
 import path from "path";
 import { describe, expect, it } from "vitest";
 import {
@@ -11,6 +12,11 @@ import {
 import { REWARD_GAMES, TEACHING_TOOLS } from "../shared/gameRegistry.generated";
 
 describe("activity tool catalog", () => {
+  it("withdraws the unfinished word-builder from planner and companion launch catalogs", () => {
+    expect(getActivityToolContract("word-builder").plannerVisibility).toBe("reference_only");
+    expect(discoverGames().tools).not.toHaveProperty("word-builder");
+    expect(TEACHING_TOOLS).not.toHaveProperty("word-builder");
+  });
   it("marks Word Radar as scaffolded practice instead of mastery evidence", () => {
     const wordRadar = getActivityToolContract("word-radar");
 

@@ -10,17 +10,17 @@ import {
 } from "./session-bootstrap";
 
 describe("homework context greeting", () => {
-  it("keeps the independent-evaluation opener child-facing and answer-neutral", () => {
+  it("supplies evaluation orientation facts without prescribing spoken wording", () => {
     expect(INDEPENDENT_EVALUATION_OPENING).toContain("Tap the speaker");
     expect(INDEPENDENT_EVALUATION_OPENING).toContain("Not sure");
-    expect(INDEPENDENT_EVALUATION_OPENING).not.toMatch(/one short|do not say|target word/i);
+    expect(INDEPENDENT_EVALUATION_OPENING).toContain("[Session opening context]");
   });
   it("speaks one answer-neutral orientation without summoning an independent-evaluation companion",async()=>{
     // Human catch: the audio stack was healthy, but the wake gate made the
     // opening completely silent, which looked exactly like another voice bug.
     const events:string[]=[];
     await deliverInteractiveCompanionOpening(
-      {companionWakeGateEnabled:true,setCompanionPresence:()=>events.push("summoned"),handleCompanionTurn:async(text:string)=>{events.push(`spoke:${text}`);}},
+      {companionWakeGateEnabled:true,setCompanionPresence:()=>events.push("summoned"),runCompanionResponse:async(text:string)=>{events.push(`spoke:${text}`);}},
       "Give one warm direction without saying or spelling a target word.",
       { independentEvaluationOrientation: true },
     );
@@ -32,7 +32,7 @@ describe("homework context greeting", () => {
       setCompanionPresence: (state: string, reason: string) => {
         events.push(`presence:${state}:${reason}`);
       },
-      handleCompanionTurn: async (text: string) => {
+      runCompanionResponse: async (text: string) => {
         events.push(`speech:${text}`);
       },
     };
@@ -45,12 +45,13 @@ describe("homework context greeting", () => {
     ]);
   });
 
-  it("uses live homework context and stays concise", () => {
+  it("supplies live homework facts rather than a spoken greeting", () => {
     const greeting = buildContextStartGreeting({
       nodes: [{ locked: false, targetLane: "multiplication_fluency", words: ["5 x 2"] }],
     });
     expect(greeting).toContain("Multiplication Fluency");
-    expect(greeting.split(/\s+/).length).toBeLessThanOrEqual(12);
+    expect(greeting).toContain("[Session opening context]");
+    expect(greeting).not.toContain("Want to try it?");
   });
 
   it("uses the canonical active board after reload instead of stale pending Discovery", () => {
@@ -90,7 +91,7 @@ describe("homework context greeting", () => {
 
   it("falls back to the first challenge when context is sparse", () => {
     expect(buildContextStartGreeting({ nodes: [{ locked: false }] })).toBe(
-      "Your first challenge is ready. Want to try it?",
+      "[Session opening context] The board is available; no activity has been selected.",
     );
   });
 });

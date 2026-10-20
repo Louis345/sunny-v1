@@ -14,13 +14,13 @@ vi.mock("../shared/childRegistry", async (original) => ({ ...await original<type
 const roots: string[] = [];
 const servers: ReturnType<ReturnType<typeof express>["listen"]>[] = [];
 afterEach(() => { servers.splice(0).forEach(server => server.close()); roots.splice(0).forEach(root => fs.rmSync(root, { recursive: true, force: true })); vi.unstubAllEnvs(); __resetVoiceSessionRegistryForTests(); });
-async function fixture() {
+async function fixture(runtime: Parameters<typeof setupRoutes>[1] = {}) {
   const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "spelling-routes-")); roots.push(rootDir);
   vi.stubEnv("SUNNY_CONTEXT_ROOT", path.join(rootDir, "src/context")); vi.stubEnv("SUNNY_MODE", "real");
   const items = buildSpellingRecallItems({ homeworkId: "hw-words", words: ["night", "light"], evidenceIds: ["school:one"], measurementRole: "fresh_checkpoint" });
   const cycle = createSpellingDiscoveryCycle({ boardDefinition:linearJourneyFixture(["hw-words:discovery"]), childId: "lab-child", homeworkId: "hw-words", title: "Words", contentFingerprint: "source", items }, { rootDir });
   await publishDiscoveryExperience({ rootDir, childId: "lab-child", homeworkId: "hw-words", spellingItems: items, assignment: cycle.assignment, activeSessionPlan: buildSpellingDiscoveryPlan({ cycle, companion: { id: "elli", name: "Elli" } }) });
-  const app = express(); app.use(express.json()); setupRoutes(app); const server = app.listen(0); servers.push(server);
+  const app = express(); app.use(express.json()); setupRoutes(app,runtime); const server = app.listen(0); servers.push(server);
   const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}/api/learning/lab-child/assignments/hw-words/discovery`;
   const post = (suffix: string, body: unknown) => fetch(`${base}/${suffix}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
   return { rootDir, items, post, origin: new URL(base).origin };
@@ -192,4 +192,34 @@ it('commits Elli help on hidden practice as assisted in both canonical stores',a
   expect(exportEvents(db).find(e=>e.type==='response.observed')?.payload).toMatchObject({support:{companionHelp:true}});
   expect(getLearningCycle('lab-child','hw-practice',{rootDir})!.observations[0]).toMatchObject({assistance:{status:'assisted'},provenance:'practice'});
  }finally{spy.mockRestore();db.close();}
+});
+
+it.each([false,true])('completes captured post-check practice without duplicating evidence or calling the Planner (blocked=%s)',async(blocked)=>{
+ const forecast=vi.fn(async()=>undefined);
+ const {rootDir,origin,items}=await fixture({forecastSpelling:forecast});
+ const runtime=await import('../engine/learningCycleRuntime');
+ const repository=await import('../engine/learningCycleRepository');
+ let cycle=getLearningCycle('lab-child','hw-words',{rootDir})!;
+ cycle.lifecycle='baseline_evaluating';cycle.nodes[0].role='baseline';cycle.boards![0].kind='teaching';
+ const {boardTopologyHash}=await import('../engine/learningBoardInstances');
+ cycle.boards![0].topologyHash=boardTopologyHash(cycle,cycle.boards![0]);
+ fs.writeFileSync(path.join(rootDir,'src/context/lab-child/homework/cycles/hw-words.json'),JSON.stringify(cycle));
+ if(blocked)cycle=repository.transitionLearningCycle('lab-child','hw-words',cycle.revision,{type:'block',reason:'planner_response_max_tokens'},{rootDir});
+ const nodeId=cycle.nodes[0].nodeId;
+ runtime.recordSpellingDiscoveryAttempt({childId:'lab-child',homeworkId:'hw-words',sessionId:'s1',launchId:'server-launch',attempt:{attemptId:'post-check-row',itemId:items[0].id,attemptedValue:'night',observedAt:new Date().toISOString()},support:{status:'unassisted',scaffolds:[]}},{rootDir});
+ registerActiveVoiceSessionManager('lab-child',{noteExternalEvent(){},getSessionId:()=> 's1',getSpellingLaunch:()=>({homeworkId:'hw-words',nodeId,launchId:'server-launch',launchToken:'token'})});
+ const advance=vi.spyOn(runtime,'advanceCanonicalCycleFromEvidence');
+ try{
+ const response=await fetch(origin+'/api/learning-cycle/node-complete',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({childId:'lab-child',homeworkId:'hw-words',nodeId,result:{sessionId:'practice-completion',voiceSessionId:'s1',launchToken:'token',completed:true,accuracy:1}})});
+ expect(response.status).toBe(200);
+ expect(advance).not.toHaveBeenCalled();
+ expect(forecast).not.toHaveBeenCalled();
+ const after=getLearningCycle('lab-child','hw-words',{rootDir})!;
+ expect(after.lifecycle).toBe(cycle.lifecycle);
+ expect(after.observations).toHaveLength(1);
+ expect(after.observations[0].observationId).toBe('post-check-row');
+ expect(after.observations[0].provenance).toBe('practice');
+ expect(after.observations[0].confounds.filter(c=>c==='post_board_practice')).toHaveLength(1);
+ expect(after.predictionEvaluations).toEqual(cycle.predictionEvaluations);
+ }finally{advance.mockRestore();}
 });

@@ -56,3 +56,26 @@ it("the worksheet supplement leaves response length to the shared companion guid
  const supplement=buildWorksheetToolPrompt({childName:"synthetic-prompt-probe",companionName:"Elli",subjectLabel:"spelling",problemCount:4,rewardThreshold:3,rewardGame:"space-invaders",pendingRewardFromLastSession:null,interactionMode:"answer_entry"});
  expect(supplement).not.toMatch(/Maximum 2 sentences|Do NOT speak more than 2 sentences|react in 1 sentence/);
 });
+
+it("assembles teaching freedom without canned praise or practice letter bans",async()=>{
+ const {buildSessionPrompt}=await import('../agents/prompts');
+ const prompt=await buildSessionPrompt('synthetic-prompt-probe' as never,resolve(__dirname,'../companions/elli.md'),'Assigned spelling words',[],'homework',{carePlan:null});
+ expect(prompt).not.toContain('Say "Amazing!"');
+ expect(prompt).not.toContain('Never suggest which letter to pick');
+ expect(prompt).not.toContain('one response only');
+ expect(prompt).not.toContain('Never replace speech with only an emote');
+ expect(prompt).toContain('letter names');
+ expect(prompt).toContain('assistance');
+ expect(prompt).toContain('The child chooses Wheel letters');
+ expect(prompt).toContain('hidden puzzle letters and answers remain private');
+});
+
+it("gives Elli a teaching purpose without a personality instruction to withdraw from frustration", async () => {
+ const {buildSessionPrompt}=await import('../agents/prompts');
+ const prompt=await buildSessionPrompt('synthetic-prompt-probe' as never,resolve(__dirname,'../companions/elli.md'),'Assigned spelling words',[],'homework',{carePlan:null});
+ expect(prompt).not.toContain('She never sounds like a teacher');
+ expect(prompt).not.toContain('Elli backs off and just');
+ expect(prompt).toContain('Evaluation establishes what the child can do independently');
+ expect(prompt).toContain('Practice helps the child learn');
+ expect(prompt).toContain('A request for help is an invitation to work together');
+});

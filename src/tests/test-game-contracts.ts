@@ -367,7 +367,8 @@ describe("game contract compliance (helper-based)", () => {
         expect(html).toContain("narration_request");
         expect(html).toContain("Hear target");
         expect(html).toContain("speechSynthesis.speak");
-        expect(html).not.toContain("currentWord:");
+        expect(html).toContain("spellingItemOpened:true");
+        expect(html).toContain("answerVisibility:'hidden'");
       });
 
       it("Letter Rush keeps evaluator miss overlays out of prototype reward language", () => {

@@ -8,6 +8,31 @@ import { recordChoiceEvent } from "./choiceEvents";
 import { buildChildExperiencePacket } from "../profiles/childExperiencePacket";
 
 describe("buildChildExperiencePacket", () => {
+  it("presents remaining checkpoint cards as practice after the spelling evidence batch closes", () => {
+    const packet=buildChildExperiencePacket({childId:"lab",companion:{},homework:{},learningCycle:{
+      domain:"spelling",homeworkId:"hw",revision:2,lifecycle:"baseline_evaluating",observations:[],decisionHistory:[],
+      boards:[{boardId:"b",kind:"teaching",nodeIds:["later"],publishedAt:"2026-10-20T12:00:00Z"}],
+      nodes:[{nodeId:"later",role:"baseline",state:"ready",evidenceContract:{spellingItems:{i:{id:"i",word:"night",lineage:{measurementRole:"fresh_checkpoint"},response:{acceptedForms:["night"]}}}}}],
+    }} as never);
+    expect(packet.spellingInstruments?.later).toMatchObject({assessment:false,items:[{itemId:"i",display:"night"}]});
+  });
+  it("projects saved evaluation correctness without grading missing answers or practice", () => {
+    const chart = { childId: "lab", companion: {}, homework: {}, learningCycle: {
+      domain: "spelling", homeworkId: "hw", lifecycle: "targeted_planning", revision: 2,
+      nodes: [{ nodeId: "eval", role: "evaluation", evidenceContract: { spellingItems: Object.fromEntries(
+        ["night", "light", "bright"].map(word => [word, { id: word, word, lineage: { measurementRole: "independent_probe" }, response: { acceptedForms: [word] } }])) } }],
+      observations: [
+        { itemId: "night", sourceId: "evaluation:eval", result: { correct: true } },
+        { itemId: "light", sourceId: "evaluation:eval", result: { correct: false } },
+        { itemId: "bright", sourceId: "evaluation:eval", result: { observedErrorType: "not_sure" } },
+        { itemId: "light", sourceId: "activity:practice:recall", result: { correct: true } },
+      ],
+    } };
+    expect(buildChildExperiencePacket(chart as never).spellingEvaluationResults).toEqual([
+      { display: "night", correct: true }, { display: "light", correct: false }, { display: "bright" },
+    ]);
+    expect(buildChildExperiencePacket({ ...chart, learningCycle: { ...chart.learningCycle, lifecycle: "evaluation_active" } } as never).spellingEvaluationResults).toBeUndefined();
+  });
   it("projects the displayed canonical board kind independent of the plan ID", () => {
     const packet=buildChildExperiencePacket({childId:"lab", companion:{}, homework:{},
       learningCycle:{homeworkId:"hw", revision:2, lifecycle:"evaluation_ready", nodes:[], observations:[], boards:[{boardId:"hw:board:1",kind:"probe"}]},

@@ -163,27 +163,23 @@ export function buildContextStartGreeting(context: any): string {
   );
   const firstNode = incompleteNodes.find((node: any) => !node.locked) ?? incompleteNodes[0];
   const lane = String(firstNode?.targetLane ?? "").replace(/[_-]+/g, " ").trim();
-  const target = String(firstNode?.words?.[0] ?? "").trim();
-  if (!lane && !target) return "Your first challenge is ready. Want to try it?";
-  const focus = lane && lane !== "unknown" ? lane : target;
-  const title = focus.replace(/\b\w/g, (letter: string) => letter.toUpperCase());
-  const greeting = `Your ${title} challenge is ready. Want to try it?`;
-  return greeting.split(/\s+/).length <= 12
-    ? greeting
-    : "Your first challenge is ready. Want to try it?";
+  const title = lane.replace(/\b\w/g, (letter: string) => letter.toUpperCase());
+  return title && title !== "Unknown"
+    ? `[Session opening context] The board is available; current focus: ${title}. No activity has been selected.`
+    : "[Session opening context] The board is available; no activity has been selected.";
 }
 
 export const INDEPENDENT_EVALUATION_OPENING =
-  "Let's see what you know! Tap the speaker, type the word you hear, and choose Not sure whenever you need it.";
+  "[Session opening context] Independent evaluation is ready. Controls: Tap the speaker for the word; type a response; Not sure is available. No target answer is supplied. Choose a useful orientation in your own words.";
 
 export async function deliverInteractiveCompanionOpening(
-  session: Pick<any, "setCompanionPresence" | "handleCompanionTurn"> & {companionWakeGateEnabled?:boolean},
+  session: Pick<any, "setCompanionPresence" | "runCompanionResponse"> & {companionWakeGateEnabled?:boolean},
   opening: string,
   options: { independentEvaluationOrientation?: boolean } = {},
 ): Promise<void> {
   if (session.companionWakeGateEnabled) {
     if (options.independentEvaluationOrientation) {
-      await session.handleCompanionTurn(opening);
+      await session.runCompanionResponse(opening);
       console.log(" 🎮 [companion] [opening] [independent-orientation-spoken]");
     } else {
       console.log(" 🎮 [companion] [opening] [child-invoked-only]");
@@ -191,7 +187,7 @@ export async function deliverInteractiveCompanionOpening(
     return;
   }
   session.setCompanionPresence("summoned", "voice");
-  await session.handleCompanionTurn(opening);
+  await session.runCompanionResponse(opening);
 }
 
 export function shouldLoadLegacyHomeworkFolder(opts: {
@@ -1566,11 +1562,7 @@ This is a safe space to test everything.
           activeSessionPlan: sessionLearningProfile.activeSessionPlan,
         },
       );
-      session.recordDebugEvent?.("companion", "greeting_generated", {
-        source: "live_homework_context",
-        words: session.companion.openingLine.split(/\s+/).length,
-      });
-      console.log(`  🎮 [companion] [greeting] generated: ${session.companion.openingLine}`);
+      console.log(" 🎮 [companion] [opening-context] [ready] source=live_homework_context");
     }
 
     session.send("session_started", {
@@ -1667,7 +1659,7 @@ This is a safe space to test everything.
             session,
             independentEvaluation
               ? INDEPENDENT_EVALUATION_OPENING
-              : "[Adventure board just appeared] Greet the child by name in ONE short warm sentence and invite them to pick the first spot on today's adventure map. Do not list the nodes or explain rules.",
+              : "[Session opening context] The adventure board is available. No activity has been selected. Meet the child naturally from the live context.",
             { independentEvaluationOrientation: independentEvaluation },
           );
         } else {

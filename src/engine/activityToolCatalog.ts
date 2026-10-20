@@ -2375,6 +2375,7 @@ const ACTIVITY_TOOL_CONTRACTS: ActivityToolContractSource[] = [
   },
   {
     id: "word-builder",
+    plannerVisibility: "reference_only", // Unfinished placeholder: no child letter entry.
     label: "Word Builder",
     nodeType: "word-builder",
     purposes: ["practice", "guided-practice"],

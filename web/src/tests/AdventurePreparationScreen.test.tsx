@@ -134,6 +134,17 @@ describe("AdventurePreparationScreen", () => {
   };
   const view = (props: Partial<AdventurePreparationScreenProps> = {}) => render(<AdventurePreparationScreen {...base} {...props} />);
 
+  it.each(["look", "build"] as const)("shows recorded results on existing %s word cards", state => {
+    view({ state, items: [
+      { face: "night", spoken: "night", correct: true },
+      { face: "light", spoken: "light", correct: false },
+      { face: "bright", spoken: "bright" },
+    ] });
+    expect(screen.getByRole("button", { name: "Hear night — Correct" })).toHaveTextContent("✓");
+    expect(screen.getByRole("button", { name: "Hear light — To practise" })).toHaveTextContent("✕");
+    expect(screen.getByRole("button", { name: "Hear bright" })).not.toHaveTextContent(/[✓✕]/);
+  });
+
   it.each([["look", 0], ["plan", 1], ["build", 2], ["long", 2], ["help", 2], ["stop", 2]] as const)("puts %s on step %i of four", (state, index) => {
     view({ state });
     const steps = screen.getAllByTestId("ap-step");

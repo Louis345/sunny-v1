@@ -270,7 +270,7 @@ export function journeyChoiceAvailable(definition:AdventureJourneyDefinition,sel
 
 export type BoardRuntimeActivity = { id:string; activityId?:string; type?:string; state?:string; verified?:boolean; thumbnailUrl?:string; gameHtmlPath?:string; activityConfigPath?:string; targets?:string[]; wordRadarConfig?:import('./adventureBoardJson').AdventureBoardWordRadarConfig };
 /** Pure projection: presentation comes from the definition, operational facts from runtime. */
-export function renderBoardDefinition(definition:AdventureBoardDefinition, input:{boardId:string;planId:string;childId:string;domain:string;activities:readonly BoardRuntimeActivity[];completedNodeIds?:readonly string[];selections?:Record<string,string>;companion?:import('./adventureBoardJson').AdventureBoardCompanion;notReady?:Readonly<Record<string,string>>}):import('./adventureBoardJson').AdventureBoardJson {
+export function renderBoardDefinition(definition:AdventureBoardDefinition, input:{boardId:string;planId:string;childId:string;domain:string;allowReadyActivitySelection?:boolean;activities:readonly BoardRuntimeActivity[];completedNodeIds?:readonly string[];selections?:Record<string,string>;companion?:import('./adventureBoardJson').AdventureBoardCompanion;notReady?:Readonly<Record<string,string>>}):import('./adventureBoardJson').AdventureBoardJson {
   const activities = new Map(input.activities.map(activity => [activity.id,activity]));
   const completed = input.completedNodeIds ?? input.activities.filter(activity => activity.state === 'completed').map(activity => activity.id);
   const notReady = Object.keys(input.notReady ?? {}).filter(id => !completed.includes(id));
@@ -284,7 +284,7 @@ export function renderBoardDefinition(definition:AdventureBoardDefinition, input
     const verified = !portal.activityNodeId || (activity?.verified === true && ['ready','active','completed'].includes(activity.state ?? ''));
     const blocked = Boolean(portal.activityNodeId && notReady.includes(portal.activityNodeId));
     const state = blocked ? 'locked' : portal.kind === 'start' || (portal.activityNodeId && done.has(portal.activityNodeId)) ? 'completed'
-      : (portal.id === frontier.portalId && !choice && verified) || (choice && availableChoices.has(choice.id)) ? 'available'
+      : (input.allowReadyActivitySelection && portal.activityNodeId && verified) || (portal.id === frontier.portalId && !choice && verified) || (choice && availableChoices.has(choice.id)) ? 'available'
       : portal.kind === 'endpoint' && frontier.complete ? 'completed' : 'locked';
     return { id:portal.id, activityNodeId:portal.activityNodeId, label:portal.label,
       kind:portal.kind === 'choice' ? 'choice-gate' : portal.kind === 'endpoint' ? (portal.activityNodeId ? 'activity' : 'reward') : portal.kind,
