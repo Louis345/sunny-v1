@@ -1,5 +1,7 @@
 import { adventureBoardDefinitionSchema, validateBoardDefinition, type AdventureBoardDefinition } from '../shared/adventureBoardDefinition';
 import { createHash } from "crypto";
+import { isDeepStrictEqual } from "node:util";
+import { THEME_PRESETS } from "../shared/boardLayout";
 import type {
   LearningCycleAgencyExperiment,
   LearningCycleNodeContract,
@@ -260,4 +262,12 @@ export function successorResumeAction(cycle: LearningCycleRecordV2): "decide" | 
   const nodes = cycle.nodes.filter((node) => preparing.nodeIds.includes(node.nodeId));
   if (nodes.some((node) => node.state === "blocked" && !node.notReadyReason)) return null;
   return nodes.some((node) => node.state === "generating") || (preparing.definition && !cycle.canvasVerifications?.[preparing.boardId]) ? "prepare" : null;
+}
+
+/** Presentation history for the map artist: the named design and look of each published board,
+ * newest first. It helps the artist make something new; it is never child evidence. */
+export function boardDesignHistory(cycles:ReadonlyArray<{boards?:ReadonlyArray<Pick<LearningBoardInstance,"definition"|"publishedAt">>}>,limit=6):Array<{pattern:string;theme:string|null;publishedAt:string}> {
+  return cycles.flatMap(cycle=>cycle.boards??[])
+    .flatMap(board=>board.publishedAt&&board.definition?.pattern?[{pattern:board.definition.pattern,theme:THEME_PRESETS.find(preset=>isDeepStrictEqual(preset.palette,board.definition!.theme.palette))?.id??null,publishedAt:board.publishedAt}]:[])
+    .sort((a,b)=>b.publishedAt.localeCompare(a.publishedAt)).slice(0,limit);
 }

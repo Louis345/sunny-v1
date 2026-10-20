@@ -828,15 +828,10 @@ export class SessionManager {
     const next = transitionCompanionPresence({ state, reason });
     this.companionPresence = next.presence;
     if (state === "summoned") {
-      const snapshotMatchesAssessment = this.spellingAssessment
-        && this.currentBoardSnapshot?.itemId === this.spellingAssessment.itemId
-        && this.currentBoardSnapshot?.phase === "response";
-      if (newlySummoned && snapshotMatchesAssessment) this.recordSpellingEngagement(this.spellingAssessment, "help_requests", randomUUID());
-      if (snapshotMatchesAssessment && this.spellingAssessment && !this.spellingAssessment.supportIds.length) {
-        this.spellingAssessment.supportIds.push(`support:${this.sessionId}:${this.spellingAssessment.itemId}`);
-      } else if (!this.spellingAssessment) {
-        this.pendingSpellingAssessmentSupport = true;
-      }
+      const assessment = this.spellingAssessment;
+      const snapshotMatchesAssessment = this.markSpellingAssessmentSupport();
+      if (newlySummoned && snapshotMatchesAssessment && assessment) this.recordSpellingEngagement(assessment, "help_requests", randomUUID());
+      if (!assessment) this.pendingSpellingAssessmentSupport = true;
     }
     if (state === "summoned" && this.mathDiscoverySupport && !this.mathDiscoverySupport.supportIds.length) {
       this.mathDiscoverySupport.supportIds.push(`support:${this.sessionId}:${this.mathDiscoverySupport.itemId}`);
@@ -941,7 +936,22 @@ export class SessionManager {
     });
   }
 
+  /** Marks the live assessment item assisted. Every companion turn during its
+   * response phase counts, not only the summon, so help stays truthful. */
+  private markSpellingAssessmentSupport(): boolean {
+    const assessment = this.spellingAssessment;
+    const matches = Boolean(assessment
+      && this.currentBoardSnapshot?.itemId === assessment.itemId
+      && this.currentBoardSnapshot?.phase === "response");
+    if (matches && assessment && !assessment.supportIds.length) {
+      assessment.supportIds.push(`support:${this.sessionId}:${assessment.itemId}`);
+      console.log(` 🎮 [spelling-assessment] [support] [recorded] item=${assessment.itemId}`);
+    }
+    return matches;
+  }
+
   public recordCompanionHelpTurn(userMessage: string, companionText: string): void {
+    this.markSpellingAssessmentSupport();
     recordActivityCompanionHelp({
       childId: this.chartChildId,
       companionId: this.companion.name,

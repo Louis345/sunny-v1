@@ -50,7 +50,7 @@ import {
   projectLearningCycle,
   type LearningCycleRecordV2,
 } from "../engine/learningCycleRepository";
-import { buildLongitudinalLearningHistory, type LongitudinalLearningHistory } from "../engine/longitudinalLearning";
+import { buildLongitudinalLearningHistory, readBoardDesignHistory, type LongitudinalLearningHistory } from "../engine/longitudinalLearning";
 
 export type ChildProfileManifest = {
   childId: string;
@@ -126,6 +126,8 @@ export type ChildChart = {
   learningCycle: LearningCycleRecordV2 | null;
   /** Read-only cross-cycle projection; canonical cycles remain authoritative. */
   learningHistory: LongitudinalLearningHistory;
+  /** Presentation only: named designs of her published boards, newest first, so each map can be new. */
+  boardDesignHistory: ReturnType<typeof readBoardDesignHistory>;
   plannerTrust: LearningProfile["plannerTrust"] | null;
   activeSessionPlan: LearningProfile["activeSessionPlan"] | null;
   sessionPlan: {
@@ -457,6 +459,7 @@ export function getChildChart(childIdRaw: string, opts: ChildChartOptions | Spel
     ? getLearningCycle(childId, selectedHomeworkId, { rootDir })
     : null;
   const learningHistory = buildLongitudinalLearningHistory(childId, { rootDir });
+  const boardDesignHistory = readBoardDesignHistory(childId, { rootDir });
   let cycleProjection: ReturnType<typeof projectLearningCycle> | null = null;
   if (learningCycle) {
     try { cycleProjection = projectLearningCycle(learningCycle,{presentationPlan:directActiveSessionPlan ?? legacySelectedActiveSessionPlan}); }
@@ -510,6 +513,7 @@ export function getChildChart(childIdRaw: string, opts: ChildChartOptions | Spel
     },
     learningCycle,
     learningHistory,
+    boardDesignHistory,
     plannerTrust: learningProfile.plannerTrust ?? null,
     activeSessionPlan: selectedActiveSessionPlan,
     sessionPlan: {

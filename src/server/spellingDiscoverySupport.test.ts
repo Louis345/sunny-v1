@@ -79,6 +79,21 @@ describe("live spelling assistance and audio provenance", () => {
     s.setCompanionPresence("summoned"); s.setCompanionPresence("collapsed");
     expect(s.getDiscoveryAttemptContext("hw-words", "i1")?.support.status).toBe("assisted");
   });
+  it("records help Elli gives on a later item while she stays summoned", () => {
+    // Oct 19 human catch: Elli chunked "dissatisfied" during the hidden check
+    // while still summoned from an earlier word, and the item saved as
+    // unassisted. Support was only recorded on the collapsed-to-summoned
+    // transition; logs kept the reply, and the lab never helped on a second
+    // item without re-summoning.
+    const s = session();
+    s.updateCurrentBoardSnapshot({ assessmentMode: true, nodeId: "opening", itemId: "i1", phase: "response", answerVisibility: "hidden" });
+    s.setCompanionPresence("summoned");
+    s.updateCurrentBoardSnapshot({ assessmentMode: true, nodeId: "opening", itemId: "i2", phase: "response", answerVisibility: "hidden" });
+    expect(s.getDiscoveryAttemptContext("hw-words", "i2")?.support.status).toBe("unassisted");
+    s.recordCompanionHelpTurn("help me with this one", "Dis... sat... is... fied.");
+    expect(s.getDiscoveryAttemptContext("hw-words", "i2")?.support.status).toBe("assisted");
+    expect(s.getDiscoveryAttemptContext("hw-words", "i1")?.support.status).toBe("assisted");
+  });
   it("does not carry one item's help into the next item while the companion remains open", async () => {
     // Human catch: one summoned companion state made every later spelling word
     // look assisted. The logs recorded the bad classification but the lab never
