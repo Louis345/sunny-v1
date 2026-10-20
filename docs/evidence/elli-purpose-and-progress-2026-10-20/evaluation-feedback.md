@@ -1,0 +1,7 @@
+# Minimal loading-screen evaluation feedback
+
+The existing word cards now show a green check for a saved correct evaluation response and a red cross for a saved incorrect response. Accessible names distinguish Correct and To practise. Unscored, skipped and ambiguous responses stay unmarked. Marks persist on the existing word tray while activities build.
+
+The child-experience packet projects only canonical evaluation observations matching frozen evaluation item identities and evaluation source IDs. It does not recompute a score, include raw responses, infer results from practice, or change learning records, assistance, progression, or Elli's pedagogical instructions. Results are withheld during evaluation. This follows the AI design principles: code displays recorded facts; AI still owns teaching and planning. Reviewers should challenge provenance, missing-answer handling, and whether the visual distinction is clear in the human test.
+
+Validation: the new projection regression failed before implementation. After implementation, 11 packet tests and 39 preparation component/hook tests passed; backend/frontend build passed. A browser render of the production component was visually inspected at 1280×720 in both review and build states. Screenshots use invented fixture results, not child scores. Full ten-word ingestion and human lifecycle acceptance remain pending. No learning gain or final human acceptance is claimed. No merge authorization.

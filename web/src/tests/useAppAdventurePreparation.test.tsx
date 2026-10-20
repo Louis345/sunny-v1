@@ -21,6 +21,19 @@ describe("useAppAdventurePreparation", () => {
   beforeEach(() => { vi.useFakeTimers(); vi.setSystemTime(new Date("2026-10-07T21:00:00.000Z")); });
   afterEach(() => { vi.useRealTimers(); });
 
+  it("carries saved evaluation marks through to loading cards for all ten words", () => {
+    const results = Array.from({ length: 10 }, (_, i) => ({ display: `word${i}`, correct: i % 2 === 0 }));
+    const { result } = renderHook(() => useAppAdventurePreparation({
+      surface: "chapter", packet: { activeSessionPlan: { domain: "spelling", nodePlan: [] }, spellingEvaluationResults: results } as never,
+      childId: "lab", homeworkId: "hw", status: null, finished: false,
+      checkNow: vi.fn(), onFinish: vi.fn(), sendMessage: vi.fn(),
+    }));
+    render(<>{result.current.screen}</>);
+    expect(screen.getAllByRole("button", { name: /Hear word/ })).toHaveLength(10);
+    expect(screen.getByRole("button", { name: "Hear word0 — Correct" })).toHaveTextContent("✓");
+    expect(screen.getByRole("button", { name: "Hear word9 — To practise" })).toHaveTextContent("✕");
+  });
+
   // Human-caught 2026-10-07: Ila asked Elli what was happening while this
   // screen was visible, but Elli still answered from Word Radar context. The
   // preparation tests only asserted fixed narration, so the missing live

@@ -23,6 +23,7 @@ export function resolvePreparationSurface(input: {
 }
 
 export function preparationWords(packet: ChildExperiencePacket | null): string[] {
+  if (packet?.spellingEvaluationResults?.length) return packet.spellingEvaluationResults.map(item => item.display);
   const radar = resolveDirectDiscoveryLaunchNode(packet)?.wordRadarItems?.map(item => item.display);
   const words = radar?.length ? radar : packet?.activeSessionPlan?.nodePlan?.flatMap(node => node.targets ?? []) ?? [];
   return [...new Set(words.filter(word => typeof word === "string" && word.trim()))].slice(0, 16);
@@ -57,7 +58,7 @@ export function useAppAdventurePreparation(input: {
   const wordsRef = useRef<{ scope: string; words: string[] }>({ scope: "", words: [] });
   const words = preparationWords(input.packet);
   if (words.length && wordsRef.current.scope !== scope) wordsRef.current = { scope, words };
-  const items = useMemo(() => (wordsRef.current.scope === scope ? wordsRef.current.words : words).map(face => ({ face, spoken: face })), [scope, words.join("|")]); // eslint-disable-line react-hooks/exhaustive-deps
+  const items = useMemo(() => (wordsRef.current.scope === scope ? wordsRef.current.words : words).map(face => ({ face, spoken: face, correct: input.packet?.spellingEvaluationResults?.find(item => item.display === face)?.correct })), [scope, words.join("|"), input.packet?.spellingEvaluationResults]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const activityTypes = useMemo(() => new Map(
     (input.packet?.activeSessionPlan?.adventureBoard?.nodes ?? []).map(node => [node.id, node.activityId ?? node.kind] as [string, string]),

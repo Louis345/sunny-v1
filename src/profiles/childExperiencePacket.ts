@@ -5,6 +5,7 @@ import type { AdventureBoardJson } from "../shared/adventureBoardJson";
 import { readChoiceEvents } from "../engine/choiceEvents";
 
 export type ChildExperiencePacket = {
+  spellingEvaluationResults?: Array<{ display: string; correct?: boolean }>;
   spellingDiscovery?: { nodeId: string; items: Array<{ itemId: string; display: string; acceptedResponses: string[]; label: string; subject: string }> };
   spellingInstruments?: Record<string, { assessment: boolean; items: NonNullable<ChildExperiencePacket["spellingDiscovery"]>["items"] }>;
   childChart: {
@@ -221,7 +222,16 @@ export function buildChildExperiencePacket(chart: ChildChart): ChildExperiencePa
     const captured = new Set(chart.learningCycle!.observations.map(row => row.itemId));
     return [[node.nodeId, { assessment, items: items.filter(item => !assessment || node.state === "completed" || !captured.has(item.id)).map(item => ({ itemId: item.id, display: item.word, acceptedResponses: item.response.acceptedForms, label: "Spelling", subject: "spelling" })) }]];
   })) : undefined;
+  const spellingEvaluationResults = chart.learningCycle?.domain === "spelling"
+    && !["evaluation_ready", "evaluation_active"].includes(chart.learningCycle.lifecycle)
+    ? chart.learningCycle.nodes.filter(node => node.role === "evaluation").flatMap(node =>
+      Object.values(node.evidenceContract.spellingItems ?? {}).map(item => {
+        const observation = chart.learningCycle!.observations.find(row => row.itemId === item.id && row.sourceId === `evaluation:${node.nodeId}`);
+        return { display: item.word, ...(typeof observation?.result.correct === "boolean" ? { correct: observation.result.correct } : {}) };
+      }))
+    : undefined;
   return {
+    ...(spellingEvaluationResults?.length ? { spellingEvaluationResults } : {}),
     ...(spellingInstruments ? { spellingInstruments } : {}),
     ...(spellingEvaluation ? { spellingDiscovery: { nodeId: spellingEvaluation.nodeId, items: Object.values(spellingEvaluation.evidenceContract.spellingItems!).filter(item => !answered.has(item.id)).map(item => ({ itemId: item.id, display: item.word, acceptedResponses: item.response.acceptedForms, label: "Spelling", subject: "spelling" })) } } : {}),
     childChart: {
