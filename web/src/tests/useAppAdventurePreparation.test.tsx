@@ -24,7 +24,7 @@ describe("useAppAdventurePreparation", () => {
   it("carries saved evaluation marks through to loading cards for all ten words", () => {
     const results = Array.from({ length: 10 }, (_, i) => ({ display: `word${i}`, correct: i % 2 === 0 }));
     const { result } = renderHook(() => useAppAdventurePreparation({
-      surface: "chapter", packet: { activeSessionPlan: { domain: "spelling", nodePlan: [] }, spellingEvaluationResults: results } as never,
+      surface: "chapter", packet: { activeSessionPlan: { domain: "spelling", nodePlan: [{ targets: results.map(item => item.display) }] }, spellingEvaluationResults: results } as never,
       childId: "lab", homeworkId: "hw", status: null, finished: false,
       checkNow: vi.fn(), onFinish: vi.fn(), sendMessage: vi.fn(),
     }));
@@ -32,6 +32,32 @@ describe("useAppAdventurePreparation", () => {
     expect(screen.getAllByRole("button", { name: /Hear word/ })).toHaveLength(10);
     expect(screen.getByRole("button", { name: "Hear word0 — Correct" })).toHaveTextContent("✓");
     expect(screen.getByRole("button", { name: "Hear word9 — To practise" })).toHaveTextContent("✕");
+  });
+
+  it("does not restart review on equivalent packet refreshes or mark a later held screen", async () => {
+    const sendMessage = vi.fn();
+    const makePacket = () => ({ activeSessionPlan: { domain: "spelling", nodePlan: [{ targets: ["night", "light"] }] },
+      spellingEvaluationResults: [{ display: "night", correct: true }, { display: "light", correct: false }, { display: "old-word", correct: false }],
+    });
+    const { result, rerender } = renderHook(({ surface, packet }) => useAppAdventurePreparation({
+      surface, packet: packet as never, childId: "lab", homeworkId: "hw", status: status("board_generating", []),
+      finished: false, checkNow: vi.fn(), onFinish: vi.fn(), sendMessage,
+    }), { initialProps: { surface: "chapter" as PreparationSurface, packet: makePacket() } });
+    const view = render(<>{result.current.screen}</>);
+    expect(screen.queryByRole("button", { name: /old-word/ })).toBeNull();
+    for (let i = 0; i < 7; i++) {
+      await act(async () => { await vi.advanceTimersByTimeAsync(1000); });
+      rerender({ surface: "chapter", packet: makePacket() });
+    }
+    view.rerender(<>{result.current.screen}</>);
+    expect(view.container.querySelector(".ap-root")).toHaveAttribute("data-state", "plan");
+    view.unmount();
+    const held = renderHook(() => useAppAdventurePreparation({ surface: "held", packet: makePacket() as never,
+      childId: "other", homeworkId: "hw", status: status("board_generating", []), finished: false,
+      checkNow: vi.fn(), onFinish: vi.fn(), sendMessage: vi.fn(),
+    }));
+    render(<>{held.result.current.screen}</>);
+    expect(screen.getByRole("button", { name: "Hear night" })).not.toHaveTextContent("✓");
   });
 
   // Human-caught 2026-10-07: Ila asked Elli what was happening while this
