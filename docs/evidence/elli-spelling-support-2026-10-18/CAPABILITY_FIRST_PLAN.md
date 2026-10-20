@@ -2,6 +2,8 @@
 
 Status: diagnosis and implementation proposal, not a completed runtime fix. Based on the isolated adult demo of revision e85b4af72a79f31a0a9ee840ee3fb1ed64668537. No real child learning outcomes are claimed.
 
+Remote reconciliation: this proposal incorporates the newer base through b985d33. That base already records help on every hidden-check help turn, adds board-refusal diagnostics/recovery, and includes build and timeout fixes. These are existing upstream implementations, not new fixes in this proposal. Review them before proposing replacements; verify their effect with a fresh human session. The historical failures below explain the investigation, not the current code's proven behavior. Remaining work centers on speech capabilities, feedback, context consistency, and human verification of evidence integrity.
+
 ## Evidence and current status
 
 The human session captured all four responses. The first board design returned a provider refusal; a subsequent run successfully published the teaching board. The refusal is historical, not a current board-building blocker. Its underlying provider cause is unknown.
