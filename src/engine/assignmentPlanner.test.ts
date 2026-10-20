@@ -600,7 +600,7 @@ describe("assignment planner", () => {
       status: "ok",
     });
     expect(JSON.stringify(packet)).not.toContain("rewardWrapper");
-    expect(packet.activityCatalog.some((card) => card.activityId === "word-builder")).toBe(true);
+    expect(packet.activityCatalog.some((card) => card.activityId === "word-builder")).toBe(false);
     expect(packet.activityCatalog.some((card) => card.activityId === "wordle")).toBe(true);
     expect(packet.activityCatalog.some((card) => card.activityId === "visual-explainer")).toBe(true);
     expect(packet.activityCatalog.some((card) => card.activityId === "generated-baseline")).toBe(false);
@@ -654,14 +654,14 @@ describe("assignment planner", () => {
     const activityIds = packet.activityCatalog.map((card) => card.activityId);
 
     expect(activityIds).toEqual(expect.arrayContaining([
-      "word-builder",
       "speed-catcher",
       "wordle",
       "vault-cracker",
       "bd-reversal",
     ]));
     expect(activityIds).toContain("spark-orb-charge");
-    expect(packet.activityCatalog.find((card) => card.activityId === "word-builder")?.domains).toContain("spelling");
+    expect(activityIds).not.toContain("word-builder");
+    expect(packet.activityCatalog.find((card) => card.activityId === "wordle")?.domains).toContain("spelling");
   });
 
   it("uses filename and page text to keep OCR-empty spelling packets on the spelling catalog", () => {
