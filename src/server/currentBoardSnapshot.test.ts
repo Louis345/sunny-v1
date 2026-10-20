@@ -344,3 +344,15 @@ it.each([
  expect(canonicalSpellingPractice(cycle,launch,bound,{...state,itemId:"other"})).toBe(["evaluation","quest","boss"].includes(nodeRole as string) ? false : undefined);
  expect(canonicalSpellingPractice(cycle,launch,bound,{...state,launchToken:"old"})).toBe(expected===false ? false : undefined);
 });
+
+it('retains partial spelling identity only with an active server binding, never a different game',async()=>{
+ const {retainSpellingItemState}=await import('./currentBoardSnapshot');
+ const previous:any={itemId:'i',nodeId:'n',launchToken:'l',itemIndex:0,phase:'response',game:'word-radar'};
+ const state={nodeId:'n',launchToken:'l',itemIndex:0,game:'word-radar'};
+ const bound={itemId:'i',launchId:'bound'};const launch={launchId:'bound'};
+ expect(retainSpellingItemState(state,previous,bound,launch)).toMatchObject({itemId:'i',phase:'response'});
+ expect(retainSpellingItemState(state,previous,undefined,launch)).toBe(state);
+ expect(retainSpellingItemState(state,previous,bound,{launchId:'other'})).toBe(state);
+ const changed={...state,game:'different'};
+ expect(retainSpellingItemState(changed,previous,bound,launch)).toBe(changed);
+});

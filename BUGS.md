@@ -598,3 +598,15 @@ These concerns are explicitly deferred in BUGS.md; none is represented as fixed 
 - Hidden-practice letter trace coverage (OPEN limitation): detector requires explicit hidden visibility; a missing visibility flag may leave letter exposure untraced. This is diagnostic response-text coverage, not prevention or proof of hearing.
 - Unbound narration receipt (OPEN limitation): no typed item means no typed stimulus.played fact. Session audio traces persist, but unavailable typed recording is not always explicitly logged; do not claim every acknowledgement produces an academic receipt.
 - Strategy-neutral model probe (human check pending): full assembled prompt offered chunks and lowered pace initially in 4/4 cases, but only 2/4 lowered pace again after neutral failure feedback. Repetition and phonetic text uncertainty remain; no robust introspection, intelligibility or learning improvement is established.
+
+
+## Oct 20 Elli human-test follow-ups (unresolved)
+
+Evidence: synthetic adult session `2731cc99-0dd5-4cb1-87e9-805d30e85b2a`, local logs retained privately; reviewed excerpts and scope are in [the test report](docs/evidence/elli-unscripted-practice-2026-10-20/README.md). These are not child learning claims.
+
+- **Billing recovery misleads the tester.** Anthropic returned non-retryable HTTP 400 credit exhaustion near 12:38 UTC, but recovery repeatedly asked the user to say it again. Post-session interpretation also failed. Diagnose provider error propagation before changing recovery. Do not describe the earlier practice failures as billing failures.
+- **Room speech may be treated as addressed conversation.** Unrelated background conversation triggered companion replies during an open conversation. Audit addressing, speaker/recipient evidence and resulting help/memory entries; the exact root cause is not yet proven. Raw logs include private room conversation and must not be published wholesale.
+- **Copied demo planning hit `chart_forecast_recall_required`.** The 12:26 UTC post-checkpoint attempt failed after response facts had been saved. Preserve those facts; distinguish copied legacy/demo state from a defect in a fresh lifecycle before proposing a fix.
+- **Audio error classification needs correlation.** Some zero-PCM `tts_provider_error` terminals followed cancellation by about 20 seconds. Correlate ownership, submitted text, socket events, PCM and browser receipts before treating each terminal as an unheard reply or provider rejection.
+
+The human caught these by judging the whole interaction. Logs contained symptoms, but the lab primarily validated complete snapshots, individual tools and configured audio, rather than conversational usefulness and delivered same-item help. The current focused change adds invariants for the confirmed context/script defects; the follow-ups above remain open for diagnosis and review.

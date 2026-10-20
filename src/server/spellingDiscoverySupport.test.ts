@@ -297,7 +297,7 @@ it("hands the native activity's dictionary-grounded target to Elli's live turn",
   expect(context).toContain("Authoritative spelling target (internal): tonight");
   expect(context).toContain("ARPABET: T AH0 N AY1 T");
   expect(context).toContain("Syllable count: 2");
-  expect(context).toContain("Do not replace this target with words from room conversation");
+  expect(context).toContain("canonical target comes from this activity, not room conversation");
 });
 
 it("records hidden target letter disclosure in the production session trace", () => {
@@ -388,7 +388,7 @@ it("reports current pace each turn and retires it at the next item",async()=>{
  expect(s.ttsBridge.getSpeechRate({itemId:"i2"})).toBe(1);expect(s.buildCurrentBoardContextForTurn()).toContain("Configured speech speed: 1");
 });
 
-it.each(["flash","presentation"])("records practice help before response entry during %s",phase=>{
+it.each(["flash","presentation","playing"])("records practice help before response entry during %s",phase=>{
  const s=session();const cycle=vi.mocked(getChildChart).mock.results[0].value.learningCycle;cycle.nodes[0].role="baseline";cycle.nodes[0].evidenceContract.spellingItems.i1.lineage={measurementRole:"practice"};
  s.updateCurrentBoardSnapshot({game:"word-radar",practiceCapture:true,spellingItemOpened:true,nodeId:"opening",itemId:"i1",phase,answerVisibility:"hidden"});
  s.recordCompanionHelpTurn("Help me sound it out","Let's listen to the sounds in night.");
@@ -424,13 +424,40 @@ it("releases playback and counts delivery even if its typed receipt write fails"
  }finally{writer?.mockRestore();errorLog.mockRestore();db.close();vi.unstubAllEnvs();fs.rmSync(root,{recursive:true,force:true});}
 });
 
-it('traces letter sequences in hidden practice without censoring permitted spoken syllables',()=>{
+it('permits requested letter demonstrations in practice and records them as assistance',()=>{
  const s=session();const cycle=vi.mocked(getChildChart).mock.results[0].value.learningCycle;cycle.nodes[0].role='baseline';cycle.nodes[0].evidenceContract.spellingItems.i1.lineage={measurementRole:'practice'};
  s.updateCurrentBoardSnapshot({game:'word-radar',nodeId:'opening',itemId:'i1',practiceCapture:true,phase:'response',answerVisibility:'hidden'});
  const trace=vi.spyOn(s,'recordGameTrace').mockImplementation(()=>{});const warning=vi.spyOn(console,'warn').mockImplementation(()=>{});
  try{
-  expect(s.recordCompanionTruthContradictions('Try n-i-g-h-t.')).toContain('hidden_practice_letters_in_response_text');
-  expect(trace).toHaveBeenCalledWith(expect.objectContaining({code:'hidden_practice_letters_in_response_text',response:'Try n-i-g-h-t.',nodeId:'opening',itemId:'i1',spellingSupportMode:'pronunciation_model',answerVisibility:'hidden'}));
-  expect(s.recordCompanionTruthContradictions('Listen to the sounds in night.')).not.toContain('hidden_practice_letters_in_response_text');
+  expect(s.recordCompanionTruthContradictions('Try n-i-g-h-t.')).toEqual([]);
+  s.recordCompanionHelpTurn('Show me the letters','Try n-i-g-h-t.');
+  expect(s.getDiscoveryAttemptContext('hw-words','i1')?.support.status).toBe('assisted');
+  expect(trace).not.toHaveBeenCalled();
  }finally{trace.mockRestore();warning.mockRestore();}
+});
+
+// Oct 20 human catch: periodic Word Radar updates removed the canonical item.
+// The lab supplied only complete snapshots, so context and speech scope loss escaped it.
+it("retains the same practice item's teaching context through periodic updates",async()=>{
+ const s=session() as any;const cycle=vi.mocked(getChildChart).mock.results[0].value.learningCycle;
+ cycle.nodes[0].role='baseline';cycle.nodes[0].evidenceContract.spellingItems.i1.lineage={measurementRole:'practice'};
+ s.updateCurrentBoardSnapshot({phase:'launched',nodeId:'opening',launchToken:'live'});
+ s.updateCurrentBoardSnapshot({game:'word-radar',nodeId:'opening',itemId:'i1',itemIndex:0,practiceCapture:true,phase:'response',answerVisibility:'hidden',launchToken:'live'});
+ let selectedScope:any;
+ s.ttsBridge.getSpeechRate=(scope:any)=>scope?.itemId===selectedScope?.itemId?0.75:1;
+ s.ttsBridge.setSpeechRate=vi.fn(async(speed:number,scope:any)=>{selectedScope=scope;return{speed};});
+ for(const typed of ['n','ni','nig']) {
+  s.updateCurrentBoardSnapshot({game:'word-radar',nodeId:'opening',itemIndex:0,practiceCapture:true,answerVisibility:'hidden',launchToken:'live',typed});
+  expect(s.currentBoardSnapshot).toMatchObject({itemId:'i1',phase:'response',spellingTarget:'night',spellingSupportMode:'pronunciation_model',launchToken:'live'});
+  expect(s.buildCurrentBoardContextForTurn('Please sound it out')).toContain('ARPABET: N AY1 T');
+ }
+ const tool=s.buildAgentToolkit().setSpeechRate;
+ await tool.execute({speed:0.75});
+ expect(s.ttsBridge.setSpeechRate).toHaveBeenCalledWith(0.75,{itemId:'i1',launchToken:'live'});
+ s.recordCompanionHelpTurn('Help me','The letters are n-i-g-h-t.');
+ expect(s.getDiscoveryAttemptContext('hw-words','i1','live').support.status).toBe('assisted');
+ s.updateCurrentBoardSnapshot({game:'word-radar',nodeId:'opening',itemIndex:1,practiceCapture:true,answerVisibility:'hidden',launchToken:'live'});
+ expect(s.currentBoardSnapshot.itemId).toBeUndefined(); // Never carry the old word into a new item.
+ s.updateCurrentBoardSnapshot({nodeId:'opening',phase:'closed',launchToken:'live'});
+ expect(s.currentBoardSnapshot.spellingTarget).toBeUndefined();
 });

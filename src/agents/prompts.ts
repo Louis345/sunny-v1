@@ -510,7 +510,6 @@ function adaptiveMicroProbeInstructions(): string {
     "## Adaptive micro-probes",
     "You may use recordChildSignal only for narrow learning signals after a natural moment: a real choice, strong reaction, repeated error, hint request, stop/change request, parent comment, or visible frustration.",
     "If the child or parent/caregiver reports a Sunny bug, confusing activity flow, companion lag, content mismatch, or UI blocker, use recordProductIssue. That is product evidence, not preference evidence.",
-    "Ask at most one playful micro-probe around an activity, never a survey. Example: \"Monster Stampede again? Was it the speed or the chaos you wanted?\"",
     "If the child answers, record it as stated_preference with evidenceText. If you directly observe a behavior, record it as observed_behavior. A stated preference is useful evidence, not truth.",
   ].join("\n");
 }

@@ -23,8 +23,6 @@ export interface RunAgentOptions {
    */
   experimentalOnToolCallStart?: (event: unknown) => void | Promise<void>;
   quiet?: boolean;
-  /** When true, append instruction to redirect to learning (called after 3 turns) */
-  transitionToWorkPhase?: boolean;
   allowTransitionToWork?: boolean;
   /** Dynamic tool set — if not provided, falls back to buildAgentTools (ALL_TOOLS) */
   tools?: Record<string, any>;
@@ -50,7 +48,6 @@ export async function runAgent(opts: RunAgentOptions): Promise<string> {
     experimentalOnStepStart,
     experimentalOnToolCallStart,
     quiet,
-    transitionToWorkPhase,
     allowTransitionToWork,
   } = opts;
   const injected = opts.injectedContextMessages?.filter(
@@ -59,22 +56,19 @@ export async function runAgent(opts: RunAgentOptions): Promise<string> {
   ) ?? [];
 
   let fullText = "";
-  const systemPrompt = transitionToWorkPhase
-    ? profile.systemPrompt +
-      "\n\n[System: Turn 5 — transition to work. Say exactly ONE of these (pick one): 'Okay, two more minutes of fun and then we do our words — deal?' OR 'Alright, one more round and then it's word time!' OR 'You know what, let's do one quick word game and then get to our /i/ words.']"
-    : profile.systemPrompt;
+
 
   for (let attempt = 0; attempt < 2; attempt++) {
     let toolCallsInAttempt = 0;
     const result = streamText({
       model: anthropic(process.env.SUNNY_VOICE_MODEL ?? "claude-sonnet-5"),
-      system: systemPrompt,
+      system: profile.systemPrompt,
       messages: [
         ...history.filter(m => typeof m.content !== "string" || m.content.trim().length > 0),
         ...injected,
         { role: "user", content: userMessage }
       ],
-      maxOutputTokens: attempt === 0 ? 500 : 1500,
+      maxOutputTokens: attempt === 0 ? 1500 : 3000,
       tools: opts.tools ?? buildAgentTools({ allowTransitionToWork }),
       stopWhen: stepCountIs(8),
       abortSignal: signal,
@@ -112,8 +106,9 @@ export async function runAgent(opts: RunAgentOptions): Promise<string> {
       }
     }
     const finishReason = await result.finishReason;
+    if (finishReason === "length" && fullText.trim()) console.warn(" 🎮 [companion] [output-budget] [exhausted] replyMayBeIncomplete=true");
     if (fullText.trim() || finishReason !== "length" || toolCallsInAttempt > 0) break;
-    if (attempt === 0) console.warn(" 🎮 [companion] [empty-length-turn] [retrying] budget=1500");
+    if (attempt === 0) console.warn(" 🎮 [companion] [empty-length-turn] [retrying] budget=3000");
   }
 
   return fullText;

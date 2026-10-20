@@ -13,8 +13,6 @@ import { getTool } from "./games/registry";
 import { unwrapToolResult } from "./unwrapToolResult";
 import { runHandleToolCall } from "./tool-call-router";
 import { isHomeworkMode, isDebugClaude } from "../utils/runtimeMode";
-import { checkAssistantGoodbye } from "./session-triggers";
-import { shouldTriggerTransitionToWorkPhase } from "./transition-to-work-gate";
 import {
   debugLogToolCall,
   debugPrintClaudePreRun,
@@ -149,11 +147,7 @@ export async function runCompanionResponseForSession(
       });
     }
 
-    const transitionToWorkPhase = shouldTriggerTransitionToWorkPhase(
-      session.roundNumber,
-      session.companion,
-      session.transitionedToWork,
-    );
+
 
     try {
       // Window the history to reduce Claude's input size and improve TTFT.
@@ -263,7 +257,6 @@ export async function runCompanionResponseForSession(
           session.turnSM.onToken(chunk);
         },
         signal: abortController.signal,
-        transitionToWorkPhase,
         allowTransitionToWork: !session.transitionedToWork,
         onStepFinish: async (step) => {
           if (rejectStaleOutput("step_finish")) return;
@@ -647,7 +640,7 @@ export async function runCompanionResponseForSession(
 
       if (rejectStaleOutput("completion")) return;
 
-      if (!fullResponse.trim()) {
+      if (!fullResponse.trim() && session.toolCallsMadeThisTurn === 0) {
         console.warn(
           "  ⚠️  runAgent completed with empty fullResponse — check onToken wiring",
         );
@@ -681,9 +674,14 @@ export async function runCompanionResponseForSession(
         return;
       }
 
-      if (checkAssistantGoodbye(fullResponse)) {
-        console.log("  👋 Companion said goodbye");
-        await session.end();
+      if (!fullResponse.trim()) {
+        const owner = session.ttsBridge?.currentPlaybackIdentity?.();
+        const ownsAudio = owner?.requestId === playbackId;
+        if (ownsAudio) session.ttsBridge.stop();
+        if (!session.ttsBridge || ownsAudio) session.turnSM.onSpeakingDone?.();
+        session.send("audio_done", {requestId:playbackId,itemId:session.currentBoardSnapshot?.itemId});
+        session.applyCompanionDispositionAfterSpeech?.();
+        console.log(" 🎮 [companion] [tool-only-turn] [completed] spoken=false");
         return;
       }
 
